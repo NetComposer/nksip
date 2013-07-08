@@ -88,5 +88,5 @@ Contributing
 Please contribute with code, bug fixes, documentation fixes, testing with SIP devices or any other form. Use 
 GitHub Issues and Pull Requests, forking this repository.
 
-Just make sure your code is dialyzer-friendly before summiting!!
+Just make sure your code is dialyzer-friendly before submitting!!
 
