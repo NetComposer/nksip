@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_proc</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_proc</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>NkSIP Process Registry.
+
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>NkSIP Process Registry.</p>
+ 
+  <p>This module implements an ETS-based process registry.
+  It allows a process to register any <code>term()</code> as a process identification,  
+and store any metadata with it. When the process exists, these terms are deleted.</p>
+ 
+  It also allows to start <code>gen_server</code> or <code>gen_fsm</code> processes using any <code>term()</code> as
+  registered name.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#del-1">del/1</a></td><td>Equivalent to <code>del(Name, self())</code>.</td></tr>
+<tr><td valign="top"><a href="#del-2">del/2</a></td><td>Unregisters a previously registered <code>Name</code>, associated to this process.</td></tr>
+<tr><td valign="top"><a href="#del_all-0">del_all/0</a></td><td>Equivalent to <code>del_all(self())</code>.</td></tr>
+<tr><td valign="top"><a href="#del_all-1">del_all/1</a></td><td>Unregisters all registrations from this process.</td></tr>
+<tr><td valign="top"><a href="#fold_names-2">fold_names/2</a></td><td>Folds over all registered names in the same way as <code>lists:foldl/3</code>.</td></tr>
+<tr><td valign="top"><a href="#fold_pids-2">fold_pids/2</a></td><td>Folds over all registered pids in the same way as <code>lists:foldl/3</code>.</td></tr>
+<tr><td valign="top"><a href="#put-1">put/1</a></td><td>Equivalent to <code>put(Name, undefined, self())</code>.</td></tr>
+<tr><td valign="top"><a href="#put-2">put/2</a></td><td>Equivalent to <code>put(Name, Value, self())</code>.</td></tr>
+<tr><td valign="top"><a href="#put-3">put/3</a></td><td>Registers <code>Name</code> (and <code>Value</code>) as associated with this process.</td></tr>
+<tr><td valign="top"><a href="#reg-1">reg/1</a></td><td>Equivalent to <code>reg(Name, undefined, self())</code>.</td></tr>
+<tr><td valign="top"><a href="#reg-2">reg/2</a></td><td>Equivalent to <code>reg(Name, Value, self())</code>.</td></tr>
+<tr><td valign="top"><a href="#reg-3">reg/3</a></td><td>Similar to <code>put(Name, Value, Pid)</code> but only allows for one single registration.</td></tr>
+<tr><td valign="top"><a href="#reg-4">reg/4</a></td><td>Similar to <code>reg(Name, Value, Pid)</code>, but, in case other process has already
+  registered this name, waits for it to be unregistered and then we are automatically
+  registered.</td></tr>
+<tr><td valign="top"><a href="#register_name-2">register_name/2</a></td><td>Process registration compatible with <code>global:register_name/2</code>.</td></tr>
+<tr><td valign="top"><a href="#send-2">send/2</a></td><td>Sends a message to a registered process compatible with <code>global:send/2</code>.</td></tr>
+<tr><td valign="top"><a href="#size-0">size/0</a></td><td>Gets the number of registered processes.</td></tr>
+<tr><td valign="top"><a href="#start-4">start/4</a></td><td>Starts a new gen_server or gen_fsm, allowing registration under any term.</td></tr>
+<tr><td valign="top"><a href="#start_link-4">start_link/4</a></td><td>Starts a new <code>gen_server</code> or <code>gen_fsm</code>, allowing registration under any term,
+  and linking the new process.</td></tr>
+<tr><td valign="top"><a href="#unregister_name-1">unregister_name/1</a></td><td>Unregistration compatible with <code>global:unregister_name/1</code>.</td></tr>
+<tr><td valign="top"><a href="#values-1">values/1</a></td><td>Gets all registered Values for <code>Name</code>, along with registering pids.</td></tr>
+<tr><td valign="top"><a href="#wait_del-1">wait_del/1</a></td><td>Equivalent to <code>wait_del(Name, 5000))</code>.</td></tr>
+<tr><td valign="top"><a href="#wait_del-2">wait_del/2</a></td><td>Waits for <code>Name</code> to be unregistered from all pids before <code>Timeout</code>.</td></tr>
+<tr><td valign="top"><a href="#wait_put-1">wait_put/1</a></td><td>Equivalent to <code>wait_put(Name, 5000)</code>.</td></tr>
+<tr><td valign="top"><a href="#wait_put-2">wait_put/2</a></td><td>Waits for <code>Name</code> to be registered from any process before <code>Timeout</code>.</td></tr>
+<tr><td valign="top"><a href="#whereis_name-1">whereis_name/1</a></td><td>Finds a registered <code>Name</code> compatible with <code>global:whereis_name/1</code>.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="del-1">del/1</a></h3>
+<div class="spec">
+<p><tt>del(Name::term()) -&gt; ok</tt><br></p>
+</div><p>Equivalent to <code>del(Name, self())</code>.</p>
+
+<h3 class="function"><a name="del-2">del/2</a></h3>
+<div class="spec">
+<p><tt>del(Name::term(), Pid::pid()) -&gt; ok</tt><br></p>
+</div><p>Unregisters a previously registered <code>Name</code>, associated to this process.</p>
+
+<h3 class="function"><a name="del_all-0">del_all/0</a></h3>
+<div class="spec">
+<p><tt>del_all() -&gt; ok</tt><br></p>
+</div><p>Equivalent to <code>del_all(self())</code>.</p>
+
+<h3 class="function"><a name="del_all-1">del_all/1</a></h3>
+<div class="spec">
+<p><tt>del_all(Pid::pid()) -&gt; ok</tt><br></p>
+</div><p>Unregisters all registrations from this process.</p>
+
+<h3 class="function"><a name="fold_names-2">fold_names/2</a></h3>
+<div class="spec">
+<p><tt>fold_names(UserFun::function(), Acc0::term()) -&gt; term()</tt><br></p>
+</div><p>Folds over all registered names in the same way as <code>lists:foldl/3</code>.
+  <code>UserFun</code> will be called for each record as <code>UserFun(Name, Values, Acc)</code> when
+  <code>Values :: [{Value::term(), pid()}]</code>.</p>
+
+<h3 class="function"><a name="fold_pids-2">fold_pids/2</a></h3>
+<div class="spec">
+<p><tt>fold_pids(UserFun, Acc0) -&gt; any()</tt></p>
+</div><p>Folds over all registered pids in the same way as <code>lists:foldl/3</code>.
+  <code>UserFun</code> will be called for each record as <code>UserFun(Pid, Items, Acc)</code> when
+  <code>Names :: [{name|put|del|reg, term()}]</code>.</p>
+
+<h3 class="function"><a name="put-1">put/1</a></h3>
+<div class="spec">
+<p><tt>put(Name::term()) -&gt; ok</tt><br></p>
+</div><p>Equivalent to <code>put(Name, undefined, self())</code>.</p>
+
+<h3 class="function"><a name="put-2">put/2</a></h3>
+<div class="spec">
+<p><tt>put(Name::term(), Value::term()) -&gt; ok</tt><br></p>
+</div><p>Equivalent to <code>put(Name, Value, self())</code>.</p>
+
+<h3 class="function"><a name="put-3">put/3</a></h3>
+<div class="spec">
+<p><tt>put(Name::term(), Value::term(), Pid::pid()) -&gt; ok</tt><br></p>
+</div><p>Registers <code>Name</code> (and <code>Value</code>) as associated with this process.
+  Several processes can register the same <code>Name</code> with the same of different values.
+  When the process ends, its registrations are deleted.</p>
+
+<h3 class="function"><a name="reg-1">reg/1</a></h3>
+<div class="spec">
+<p><tt>reg(Name::term()) -&gt; true | {false, pid()}</tt><br></p>
+</div><p>Equivalent to <code>reg(Name, undefined, self())</code>.</p>
+
+<h3 class="function"><a name="reg-2">reg/2</a></h3>
+<div class="spec">
+<p><tt>reg(Name::term(), Value::term()) -&gt; true | {false, pid()}</tt><br></p>
+</div><p>Equivalent to <code>reg(Name, Value, self())</code>.</p>
+
+<h3 class="function"><a name="reg-3">reg/3</a></h3>
+<div class="spec">
+<p><tt>reg(Name::term(), Value::term(), Pid::pid()) -&gt; true | {false, pid()}</tt><br></p>
+</div><p>Similar to <code>put(Name, Value, Pid)</code> but only allows for one single registration.
+  Returns <code>true</code> if this registration has succeded, or <code>false</code> if another process
+  has already registered this name.</p>
+
+<h3 class="function"><a name="reg-4">reg/4</a></h3>
+<div class="spec">
+<p><tt>reg(Name::term(), Value::term(), Pid::pid(), Timeout::integer() | infinity) -&gt; true | timeout</tt><br></p>
+</div><p>Similar to <code>reg(Name, Value, Pid)</code>, but, in case other process has already
+  registered this name, waits for it to be unregistered and then we are automatically
+  registered.</p>
+
+<h3 class="function"><a name="register_name-2">register_name/2</a></h3>
+<div class="spec">
+<p><tt>register_name(Name::term(), Pid::pid()) -&gt; yes | no</tt><br></p>
+</div><p>Process registration compatible with <code>global:register_name/2</code>.</p>
+
+<h3 class="function"><a name="send-2">send/2</a></h3>
+<div class="spec">
+<p><tt>send(Name::term(), Msg::term()) -&gt; pid()</tt><br></p>
+</div><p>Sends a message to a registered process compatible with <code>global:send/2</code>.</p>
+
+<h3 class="function"><a name="size-0">size/0</a></h3>
+<div class="spec">
+<p><tt>size() -&gt; integer()</tt><br></p>
+</div><p>Gets the number of registered processes</p>
+
+<h3 class="function"><a name="start-4">start/4</a></h3>
+<div class="spec">
+<p><tt>start(Type::server | fsm, Name::term(), Module::atom(), Args::[term()]) -&gt; {ok, pid()} | ignore | {error, {already_started, pid()} | term()}</tt><br></p>
+</div><p>Starts a new gen_server or gen_fsm, allowing registration under any term.</p>
+
+<h3 class="function"><a name="start_link-4">start_link/4</a></h3>
+<div class="spec">
+<p><tt>start_link(Type::server | fsm, Name::term(), Module::atom(), Args::[term()]) -&gt; {ok, pid()} | ignore | {error, {already_started, pid()} | term()}</tt><br></p>
+</div><p>Starts a new <code>gen_server</code> or <code>gen_fsm</code>, allowing registration under any term,
+  and linking the new process.</p>
+
+<h3 class="function"><a name="unregister_name-1">unregister_name/1</a></h3>
+<div class="spec">
+<p><tt>unregister_name(Name::term()) -&gt; pid() | undefined</tt><br></p>
+</div><p>Unregistration compatible with <code>global:unregister_name/1</code>.</p>
+
+<h3 class="function"><a name="values-1">values/1</a></h3>
+<div class="spec">
+<p><tt>values(Name::term()) -&gt; [{Value::term(), Pid::pid()}]</tt><br></p>
+</div><p>Gets all registered Values for <code>Name</code>, along with registering pids.</p>
+
+<h3 class="function"><a name="wait_del-1">wait_del/1</a></h3>
+<div class="spec">
+<p><tt>wait_del(Name::term()) -&gt; ok | timeout</tt><br></p>
+</div><p>Equivalent to <code>wait_del(Name, 5000))</code>.</p>
+
+<h3 class="function"><a name="wait_del-2">wait_del/2</a></h3>
+<div class="spec">
+<p><tt>wait_del(Name::term(), Timeout::integer() | infinity) -&gt; ok | timeout</tt><br></p>
+</div><p>Waits for <code>Name</code> to be unregistered from all pids before <code>Timeout</code>.</p>
+
+<h3 class="function"><a name="wait_put-1">wait_put/1</a></h3>
+<div class="spec">
+<p><tt>wait_put(Name::term()) -&gt; {ok, pid()} | timeout</tt><br></p>
+</div><p>Equivalent to <code>wait_put(Name, 5000)</code>.</p>
+
+<h3 class="function"><a name="wait_put-2">wait_put/2</a></h3>
+<div class="spec">
+<p><tt>wait_put(Name::term(), Timeout::integer() | infinity) -&gt; {ok, {Value::term(), pid()}} | timeout</tt><br></p>
+</div><p>Waits for <code>Name</code> to be registered from any process before <code>Timeout</code>.</p>
+
+<h3 class="function"><a name="whereis_name-1">whereis_name/1</a></h3>
+<div class="spec">
+<p><tt>whereis_name(Name::term()) -&gt; pid() | undefined</tt><br></p>
+</div><p>Finds a registered <code>Name</code> compatible with <code>global:whereis_name/1</code>.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 8 2013, 17:43:56.</i></p>
+</body>
+</html>

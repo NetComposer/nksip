@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_registrar</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_registrar</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>NkSIP Registrar Server.
+
+
+<h2><a name="description">Description</a></h2><p>NkSIP Registrar Server.</p>
+ 
+  <p>This module includes a full registrar implementation according to RFC3261.  
+Currently only RAM back-end storage is supported, so all registrations will be lost  
+in case of a NkSIP application restart.  
+Each started SipApp maintains its fully independent set of registrations.</p>
+ 
+  <p>When a new REGISTER request arrives at a SipApp, and if you order to <code>process</code>
+  the request in <a href="nksip_sipapp.html#route-6"><code>nksip_sipapp:route/6</code></a> callback, NkSIP will try to call
+  <a href="nksip_sipapp.html#register-3"><code>nksip_sipapp:register/3</code></a> callback if it is defined.
+  If it is not defined, but <code>registrar</code> option was present in the SipApp's
+  startup config, NkSIP will process the request automatically.
+  It will check if <code>From</code> and <code>To</code> headers differ, and call <a href="#request-1"><code>request/1</code></a> if
+  everything is ok.
+  If you implement <a href="nksip_sipapp.html#register-3"><code>nksip_sipapp:register/3</code></a> to customize the registration
+  process you should call <a href="#request-1"><code>request/1</code></a> directly.</p>
+ 
+  Use <a href="#find-4"><code>find/4</code></a> or <a href="#qfind-4"><code>qfind/4</code></a> to search for a specific registration's
+  contacts, and <a href="#is_registered-1"><code>is_registered/1</code></a> to check if the <code>Request-URI</code> of a
+  specific request is registered.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#clear-0">clear/0</a></td><td>Clear all stored records for all SipApps.</td></tr>
+<tr><td valign="top"><a href="#clear-1">clear/1</a></td><td>Clear all stored records by a SipApp's core.</td></tr>
+<tr><td valign="top"><a href="#delete-4">delete/4</a></td><td>Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).</td></tr>
+<tr><td valign="top"><a href="#find-2">find/2</a></td><td>Gets all current registered contacts for an AOR.</td></tr>
+<tr><td valign="top"><a href="#find-4">find/4</a></td><td>Gets all current registered contacts for an AOR.</td></tr>
+<tr><td valign="top"><a href="#is_registered-1">is_registered/1</a></td><td>Finds if a request has a <i>From</i> that has been already registered
+  from the same transport, ip and port, or have a registered <i>Contact</i>
+  having the same received transport, ip and port.</td></tr>
+<tr><td valign="top"><a href="#qfind-2">qfind/2</a></td><td>Gets all current registered contacts for an AOR, aggregated on Q values.</td></tr>
+<tr><td valign="top"><a href="#qfind-4">qfind/4</a></td><td>Gets all current registered contacts for an AOR, aggregated on Q values.</td></tr>
+<tr><td valign="top"><a href="#request-1">request/1</a></td><td>Process a REGISTER request.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="clear-0">clear/0</a></h3>
+<div class="spec">
+<p><tt>clear() -&gt; integer()</tt><br></p>
+</div><p>Clear all stored records for all SipApps.
+  Returns the number of deleted items.</p>
+
+<h3 class="function"><a name="clear-1">clear/1</a></h3>
+<div class="spec">
+<p><tt>clear(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>) -&gt; integer()</tt><br></p>
+</div><p>Clear all stored records by a SipApp's core.
+  Returns the number of deleted items.</p>
+
+<h3 class="function"><a name="delete-4">delete/4</a></h3>
+<div class="spec">
+<p><tt>delete(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, Scheme::<a href="nksip.html#type-scheme">nksip:scheme()</a>, User::binary(), Domain::binary()) -&gt; ok | not_found</tt><br></p>
+</div><p>Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).</p>
+
+<h3 class="function"><a name="find-2">find/2</a></h3>
+<div class="spec">
+<p><tt>find(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, AOR::<a href="nksip.html#type-aor">nksip:aor()</a>) -&gt; [<a href="nksip.html#type-uri">nksip:uri()</a>]</tt><br></p>
+</div><p>Gets all current registered contacts for an AOR.</p>
+
+<h3 class="function"><a name="find-4">find/4</a></h3>
+<div class="spec">
+<p><tt>find(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, Scheme::<a href="nksip.html#type-scheme">nksip:scheme()</a>, User::binary(), Domain::binary()) -&gt; [<a href="nksip.html#type-uri">nksip:uri()</a>]</tt><br></p>
+</div><p>Gets all current registered contacts for an AOR.</p>
+
+<h3 class="function"><a name="is_registered-1">is_registered/1</a></h3>
+<div class="spec">
+<p><tt>is_registered(Req::<a href="nksip.html#type-request">nksip:request()</a>) -&gt; boolean()</tt><br></p>
+</div><p>Finds if a request has a <i>From</i> that has been already registered
+  from the same transport, ip and port, or have a registered <i>Contact</i>
+  having the same received transport, ip and port.</p>
+
+<h3 class="function"><a name="qfind-2">qfind/2</a></h3>
+<div class="spec">
+<p><tt>qfind(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, AOR::<a href="nksip.html#type-aor">nksip:aor()</a>) -&gt; <a href="nksip.html#type-uri_set">nksip:uri_set()</a></tt><br></p>
+</div><p>Gets all current registered contacts for an AOR, aggregated on Q values.
+  You can use this function to generate a parallel and/o serial proxy request.</p>
+
+<h3 class="function"><a name="qfind-4">qfind/4</a></h3>
+<div class="spec">
+<p><tt>qfind(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, Scheme::<a href="nksip.html#type-scheme">nksip:scheme()</a>, User::binary(), Domain::binary()) -&gt; <a href="nksip.html#type-uri_set">nksip:uri_set()</a></tt><br></p>
+</div><p>Gets all current registered contacts for an AOR, aggregated on Q values.
+  You can use this function to generate a parallel and/o serial proxy request.</p>
+
+<h3 class="function"><a name="request-1">request/1</a></h3>
+<div class="spec">
+<p><tt>request(Request::<a href="nksip.html#type-request">nksip:request()</a>) -&gt; <a href="nksip.html#type-sipreply">nksip:sipreply()</a></tt><br></p>
+</div><p>Process a REGISTER request.
+  Can return:
+  <ul>
+   <li><code>unsupported_uri_scheme</code>: if R-RUI scheme is not <code>sip</code> or <code>sips</code>.</li>
+   <li><code>invalid_request</code>: if the request is not valid for any reason.</li>
+   <li><code>interval_too_brief</code>: if <i>Expires</i> is lower than the minimum configured
+        registration time (defined in <code>registrar_min_time</code> global parameter).</li>
+  </ul>
+ 
+  <p>If <i>Expires</i> is 0, the indicated <i>Contact</i> will be unregistered.
+  If <i>Contact</i> header is <code>*</code>, all previous contacts will be unregistered.</p>
+ 
+  <p>The requested <i>Contact</i> will replace a previous registration if it has
+  the same <code>reg-id</code> and <code>+sip_instace</code> values, or has the same transport protocol,  
+user, domain and port.</p>
+ 
+  If the request is successful, a 200-code <code>nksip:sipreply()</code> is returned,
+  including one or more <i>Contact</i> headers (for all of the current registered
+  contacts), <i>Date</i> and <i>Allow</i> headers.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 8 2013, 17:43:56.</i></p>
+</body>
+</html>

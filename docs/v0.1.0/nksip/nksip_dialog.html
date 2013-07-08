@@ -1,0 +1,234 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_dialog</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_dialog</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>User dialog management module.
+
+
+<h2><a name="description">Description</a></h2>User dialog management module.
+  This module implements several utility functions related to dialogs.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-dialog">dialog()</a></h3>
+<p><tt>dialog() = #dialog{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-field">field()</a></h3>
+<p><tt>field() = dialog_id | sipapp_id | call_id | created | updated | answered | state | expires | local_seq | remote_seq | local_uri | parsed_local_uri | remote_uri | parsed_remote_uri | local_target | parsed_local_target | remote_target | parsed_remote_target | route_set | parsed_route_set | local_sdp | remote_sdp | stop_reason | from_tag | to_tag</tt></p>
+
+
+<h3 class="typedecl"><a name="type-id">id()</a></h3>
+<p><tt>id() = binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-spec">spec()</a></h3>
+<p><tt>spec() = <a href="#type-id">id()</a> | <a href="nksip_request.html#type-id">nksip_request:id()</a> | <a href="nksip_response.html#type-id">nksip_response:id()</a> | <a href="nksip.html#type-request">nksip:request()</a> | <a href="nksip.html#type-response">nksip:response()</a></tt></p>
+
+
+<h3 class="typedecl"><a name="type-state">state()</a></h3>
+<p><tt>state() = proceeding_uac | proceeding_uas | accepted_uac | accepted_uas | confirmed | bye | stop</tt></p>
+
+
+<h3 class="typedecl"><a name="type-stop_reason">stop_reason()</a></h3>
+<p><tt>stop_reason() = caller_bye | callee_bye | cancelled | busy | decline | service_unavailable | forced_stop | {code, <a href="nksip.html#type-response_code">nksip:response_code()</a>} | proceeding_timeout | confirmed_timeout | accepted_timeout | unknown</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#bye_all-0">bye_all/0</a></td><td>Sends an in-dialog BYE to all existing dialogs.</td></tr>
+<tr><td valign="top"><a href="#field-2">field/2</a></td><td>Gets specific information from the dialog indicated by <code>DialogSpec</code>.</td></tr>
+<tr><td valign="top"><a href="#fields-2">fields/2</a></td><td>Gets a number of fields from the <code>Request</code> as described in <a href="#field-2"><code>field/2</code></a></td></tr>
+<tr><td valign="top"><a href="#find_callid-2">find_callid/2</a></td><td>Finds all existing dialogs' processes having a Call-ID.</td></tr>
+<tr><td valign="top"><a href="#id-1">id/1</a></td><td>Calculates a <i>Dialog's Id</i> from a <a href="nksip_request.html#type-id"><code>nksip_request:id()</code></a>,
+  <a href="nksip_response.html#type-id"><code>nksip_response:id()</code></a>, <a href="nksip.html#type-request"><code>nksip:request()</code></a> or <a href="nksip.html#type-response"><code>nksip:response()</code></a>.</td></tr>
+<tr><td valign="top"><a href="#is_authorized-1">is_authorized/1</a></td><td>Checks if a request is part of an already authenticated dialog,
+  and it comes from the same ip and port.</td></tr>
+<tr><td valign="top"><a href="#stop-1">stop/1</a></td><td>Stops an existing dialog (remove it from memory).</td></tr>
+<tr><td valign="top"><a href="#stop_all-0">stop_all/0</a></td><td>Stops all current dialogs.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="bye_all-0">bye_all/0</a></h3>
+<div class="spec">
+<p><tt>bye_all() -&gt; ok</tt><br></p>
+</div><p>Sends an in-dialog BYE to all existing dialogs.</p>
+
+<h3 class="function"><a name="field-2">field/2</a></h3>
+<div class="spec">
+<p><tt>field(Field::<a href="#type-field">field()</a>, DialogSpec::<a href="#type-spec">spec()</a>) -&gt; term() | {error, Error}</tt>
+<ul class="definitions"><li><tt>Error = unknown_dialog | terminated_dialog | timeout_dialog</tt></li></ul></p>
+</div><p><p>Gets specific information from the dialog indicated by <code>DialogSpec</code>.  
+The available fields are:</p>
+ 
+  <table border="1">
+       <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+       <tr>
+           <td><code>sipapp_id</code></td>
+           <td><a href="nksip.html#type-sipapp_id"><code>nksip:sipapp_id()</code></a></td>
+           <td>SipApp that created the dialog</td>
+       </tr>
+       <tr>
+           <td><code>call_id</code></td>
+           <td><a href="nksip.html#type-call_id"><code>nksip:call_id()</code></a></td>
+           <td>Call-ID</td>
+       </tr>
+       <tr>
+           <td><code>created</code></td>
+           <td><a href="nksip_lib.html#type-timestamp"><code>nksip_lib:timestamp()</code></a></td>
+           <td>Creation timestamp</td>
+       </tr>
+       <tr>
+           <td><code>updated</code></td>
+           <td><a href="nksip_lib.html#type-timestamp"><code>nksip_lib:timestamp()</code></a></td>
+           <td>Last update timestamp</td>
+       </tr>
+       <tr>
+           <td><code>answered</code></td>
+           <td><a href="nksip_lib.html#type-timestamp"><code>nksip_lib:timestamp()</code></a><code>|undefined</code></td>
+           <td>Answer (first 2xx response) timestamp</td>
+       </tr>
+       <tr>
+           <td><code>state</code></td>
+           <td><a href="#type-state"><code>state()</code></a></td>
+           <td>Current dialog state</td>
+       </tr>
+       <tr>
+           <td><code>expires</code></td>
+           <td><code>integer()</code></td>
+           <td>Seconds to expire current state</td>
+       </tr>
+       <tr>
+           <td><code>local_seq</code></td>
+           <td><a href="nksip.html#type-cseq"><code>nksip:cseq()</code></a></td>
+           <td>Local CSeq number</td>
+       </tr>
+       <tr>
+           <td><code>remote_seq</code></td>
+           <td><a href="nksip.html#type-cseq"><code>nksip:cseq()</code></a></td>
+           <td>Remote CSeq number</td>
+       </tr>
+       <tr>
+           <td><code>local_uri</code></td>
+           <td><code>binary()</code></td>
+           <td>Local URI</td>
+       </tr>
+       <tr>
+           <td><code>parsed_local_uri</code></td>
+           <td><a href="nksip.html#type-uri"><code>nksip:uri()</code></a></td>
+           <td>Local URI</td>
+       </tr>
+       <tr>
+           <td><code>remote_uri</code></td>
+           <td><code>binary()</code></td>
+           <td>Remote URI</td>
+       </tr>
+       <tr>
+           <td><code>parsed_remote_uri</code></td>
+           <td><a href="nksip.html#type-uri"><code>nksip:uri()</code></a></td>
+           <td>Remote URI</td>
+       </tr>
+       <tr>
+           <td><code>local_target</code></td>
+           <td><code>binary()</code></td>
+           <td>Local Target URI</td>
+       </tr>
+       <tr>
+           <td><code>parsed_local_target</code></td>
+           <td><a href="nksip.html#type-uri"><code>nksip:uri()</code></a></td>
+           <td>Local Target URI</td>
+       </tr>
+       <tr>
+           <td><code>remote_target</code></td>
+           <td><code>binary()</code></td>
+           <td>Remote Target URI</td>
+       </tr>
+       <tr>
+           <td><code>parsed_remote_target</code></td>
+           <td><a href="nksip.html#type-uri"><code>nksip:uri()</code></a></td>
+           <td>Remote Target URI</td>
+       </tr>
+       <tr>
+           <td><code>early</code></td>
+           <td><code>boolean()</code></td>
+           <td>Early dialog (no final response yet)</td>
+       </tr>
+       <tr>
+           <td><code>secure</code></td>
+           <td><code>boolean()</code></td>
+           <td>Secure (sips) dialog</td>
+       </tr>
+       <tr>
+           <td><code>route_set</code></td>
+           <td><code>[binary()]</code></td>
+           <td>Route Set</td>
+       </tr>
+       <tr>
+           <td><code>parsed_route_set</code></td>
+           <td><code>[</code><a href="nksip.html#type-uri"><code>nksip:uri()</code></a><code>]</code></td>
+           <td>Route Set</td>
+       </tr>
+       <tr>
+           <td><code>local_sdp</code></td>
+           <td><a href="nksip.html#type-sdp"><code>nksip:sdp()</code></a><code>|undefined</code></td>
+           <td>Current local SDP</td>
+       </tr>
+       <tr>
+           <td><code>remote_sdp</code></td>
+           <td><a href="nksip.html#type-sdp"><code>nksip:sdp()</code></a><code>|undefined</code></td>
+           <td>Current remote SDP</td>
+       </tr>
+       <tr>
+           <td><code>stop_reason</code></td>
+           <td><a href="#type-stop_reason"><code>stop_reason()</code></a></td>
+           <td>Dialog stop reason</td>
+       </tr>
+  </table></p>
+
+<h3 class="function"><a name="fields-2">fields/2</a></h3>
+<div class="spec">
+<p><tt>fields(Fields::[<a href="#type-field">field()</a>], DialogSpec::<a href="#type-id">id()</a>) -&gt; [term()] | {error, Error}</tt>
+<ul class="definitions"><li><tt>Error = unknown_dialog | terminated_dialog | timeout_dialog</tt></li></ul></p>
+</div><p>Gets a number of fields from the <code>Request</code> as described in <a href="#field-2"><code>field/2</code></a></p>
+
+<h3 class="function"><a name="find_callid-2">find_callid/2</a></h3>
+<div class="spec">
+<p><tt>find_callid(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, CallId::<a href="nksip.html#type-call_id">nksip:call_id()</a>) -&gt; [<a href="#type-id">id()</a>]</tt><br></p>
+</div><p>Finds all existing dialogs' processes having a Call-ID</p>
+
+<h3 class="function"><a name="id-1">id/1</a></h3>
+<div class="spec">
+<p><tt>id(Dialog::<a href="#type-spec">spec()</a>) -&gt; <a href="#type-id">id()</a></tt><br></p>
+</div><p>Calculates a <i>Dialog's Id</i> from a <a href="nksip_request.html#type-id"><code>nksip_request:id()</code></a>,
+  <a href="nksip_response.html#type-id"><code>nksip_response:id()</code></a>, <a href="nksip.html#type-request"><code>nksip:request()</code></a> or <a href="nksip.html#type-response"><code>nksip:response()</code></a>.
+  <i>Dialog Ids</i> are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag
+  and <i>To</i> Tag. If From Tag and To Tag are swapped the resulting Id is the same.</p>
+
+<h3 class="function"><a name="is_authorized-1">is_authorized/1</a></h3>
+<div class="spec">
+<p><tt>is_authorized(Request::<a href="nksip.html#type-request">nksip:request()</a>) -&gt; boolean()</tt><br></p>
+</div><p>Checks if a request is part of an already authenticated dialog,
+  and it comes from the same ip and port.</p>
+
+<h3 class="function"><a name="stop-1">stop/1</a></h3>
+<div class="spec">
+<p><tt>stop(DialogSpec::<a href="#type-spec">spec()</a>) -&gt; ok | {error, unknown_dialog}</tt><br></p>
+</div><p>Stops an existing dialog (remove it from memory).</p>
+
+<h3 class="function"><a name="stop_all-0">stop_all/0</a></h3>
+<div class="spec">
+<p><tt>stop_all() -&gt; ok</tt><br></p>
+</div><p>Stops all current dialogs.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 8 2013, 17:43:55.</i></p>
+</body>
+</html>

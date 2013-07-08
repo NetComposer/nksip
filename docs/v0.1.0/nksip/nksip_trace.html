@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_trace</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_trace</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>NkSIP SIP basic message print and trace tool.
+
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>NkSIP SIP basic message print and trace tool</p>
+ 
+  <p>This module implements a simple but useful SIP trace utility.
+  You can configure any <i>SipApp</i> to trace SIP messages sent or received  
+from specific IPs, to console or a disk file.</p>
+ 
+  It also allows to store (in memory) detailed information about
+  every request or response sent or received for debug purposes.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#counters-0">counters/0</a></td><td>Gets some statistics about current number of active transactions, proxy
+  transacions, dialogs, etc.</td></tr>
+<tr><td valign="top"><a href="#get_all-0">get_all/0</a></td><td>Get all SipApps currently tracing messages.</td></tr>
+<tr><td valign="top"><a href="#print-1">print/1</a></td><td>Pretty-print a <code>Request</code> or <code>Response</code>.</td></tr>
+<tr><td valign="top"><a href="#print-2">print/2</a></td><td>Pretty-print a <code>Request</code> or <code>Response</code> with a tag.</td></tr>
+<tr><td valign="top"><a href="#start-0">start/0</a></td><td>Equivalent to <code>start(AppId, [], console)</code> for all started SipApps.</td></tr>
+<tr><td valign="top"><a href="#start-1">start/1</a></td><td>Equivalent to <code>start(AppId, [], console)</code>.</td></tr>
+<tr><td valign="top"><a href="#start-2">start/2</a></td><td>Equivalent to <code>start(AppId, [], File)</code>.</td></tr>
+<tr><td valign="top"><a href="#start-3">start/3</a></td><td>Configures a <i>SipApp</i> to start tracing SIP messages.</td></tr>
+<tr><td valign="top"><a href="#stop-0">stop/0</a></td><td>Stop all tracing processes, closing all open files.</td></tr>
+<tr><td valign="top"><a href="#stop-1">stop/1</a></td><td>Stop tracing a specific trace process, closing file if it is opened.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="counters-0">counters/0</a></h3>
+<div class="spec">
+<p><tt>counters() -&gt; <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a></tt><br></p>
+</div><p>Gets some statistics about current number of active transactions, proxy
+  transacions, dialogs, etc.</p>
+
+<h3 class="function"><a name="get_all-0">get_all/0</a></h3>
+<div class="spec">
+<p><tt>get_all() -&gt; [AppId::term()]</tt><br></p>
+</div><p>Get all SipApps currently tracing messages.</p>
+
+<h3 class="function"><a name="print-1">print/1</a></h3>
+<div class="spec">
+<p><tt>print(Input::<a href="nksip.html#type-request">nksip:request()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; ok</tt><br></p>
+</div><p>Pretty-print a <code>Request</code> or <code>Response</code>.</p>
+
+<h3 class="function"><a name="print-2">print/2</a></h3>
+<div class="spec">
+<p><tt>print(Header::string() | binary(), Input::<a href="nksip.html#type-request">nksip:request()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; ok</tt><br></p>
+</div><p>Pretty-print a <code>Request</code> or <code>Response</code> with a tag.</p>
+
+<h3 class="function"><a name="start-0">start/0</a></h3>
+<div class="spec">
+<p><tt>start() -&gt; ok</tt><br></p>
+</div><p>Equivalent to <code>start(AppId, [], console)</code> for all started SipApps.</p>
+
+<h3 class="function"><a name="start-1">start/1</a></h3>
+<div class="spec">
+<p><tt>start(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>) -&gt; ok</tt><br></p>
+</div><p>Equivalent to <code>start(AppId, [], console)</code>.</p>
+
+<h3 class="function"><a name="start-2">start/2</a></h3>
+<div class="spec">
+<p><tt>start(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, Out::console | string()) -&gt; ok | {error, <a href="file.html#type-posix">file:posix()</a>}</tt><br></p>
+</div><p>Equivalent to <code>start(AppId, [], File)</code>.</p>
+
+<h3 class="function"><a name="start-3">start/3</a></h3>
+<div class="spec">
+<p><tt>start(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>, IpList::[<a href="inet.html#type-ip4_address">inet:ip4_address()</a>], Out::console | string()) -&gt; ok | {error, <a href="file.html#type-posix">file:posix()</a>}</tt><br></p>
+</div><p>Configures a <i>SipApp</i> to start tracing SIP messages.
+  Any request or response sent or received by the SipApp,
+  and using any of the IPs in <code>IpList</code>
+  (or <i>all of them</i> if it list is empty) will be traced to <code>console</code>
+  or a file, that will opened in append mode.</p>
+
+<h3 class="function"><a name="stop-0">stop/0</a></h3>
+<div class="spec">
+<p><tt>stop() -&gt; ok</tt><br></p>
+</div><p>Stop all tracing processes, closing all open files.</p>
+
+<h3 class="function"><a name="stop-1">stop/1</a></h3>
+<div class="spec">
+<p><tt>stop(AppId::<a href="nksip.html#type-sipapp_id">nksip:sipapp_id()</a>) -&gt; ok | not_found</tt><br></p>
+</div><p>Stop tracing a specific trace process, closing file if it is opened.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 8 2013, 17:43:56.</i></p>
+</body>
+</html>

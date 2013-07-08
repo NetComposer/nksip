@@ -1,0 +1,12 @@
+%% encoding: UTF-8
+{application,nksip}.
+{packages,[]}.
+{modules,[nksip,nksip_app,nksip_auth,nksip_config,nksip_counters,nksip_dialog,
+          nksip_dialog_uac,nksip_dialog_uas,nksip_headers,nksip_lib,
+          nksip_parse,nksip_proc,nksip_registrar,nksip_reply,nksip_request,
+          nksip_response,nksip_sdp,nksip_sipapp,nksip_sipapp_auto,nksip_stats,
+          nksip_store,nksip_stun,nksip_trace,nksip_transaction_uac,
+          nksip_transaction_uas,nksip_transport,nksip_transport_conn,
+          nksip_transport_uac,nksip_transport_uas,nksip_uac,nksip_uac_fsm,
+          nksip_uac_lib,nksip_uas_fsm,nksip_uas_lib,nksip_uas_proxy,
+          nksip_unparse,reloader,user_default]}.

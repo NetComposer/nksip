@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_response</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_response</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>User Response management functions.
+
+
+<h2><a name="description">Description</a></h2>User Response management functions
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-field">field()</a></h3>
+<p><tt>field() = local | remote | ruri | parsed_ruri | aor | call_id | vias | parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq | cseq_num | cseq_method | forwards | routes | parsed_routes | contacts | parsed_contacts | content_type | parsed_content_type | headers | body | code | reason | dialog_id | sipapp_id</tt></p>
+
+
+<h3 class="typedecl"><a name="type-id">id()</a></h3>
+<p><tt>id() = {resp, pid()}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#body-1">body/1</a></td><td>Gets the <i>body</i> of a <code>Response</code>.</td></tr>
+<tr><td valign="top"><a href="#code-1">code/1</a></td><td>Gets the <i>response code</i> of a <code>Response</code>.</td></tr>
+<tr><td valign="top"><a href="#dialog_id-1">dialog_id/1</a></td><td>Gets the <i>dialog id</i> of a <code>Response</code>.</td></tr>
+<tr><td valign="top"><a href="#field-2">field/2</a></td><td>Gets specific information from the <code>Response</code>.</td></tr>
+<tr><td valign="top"><a href="#fields-2">fields/2</a></td><td>Gets a number of fields from the <code>Response</code> as described in <a href="#field-2"><code>field/2</code></a>.</td></tr>
+<tr><td valign="top"><a href="#headers-2">headers/2</a></td><td>Gets all <code>Name</code> headers from the response.</td></tr>
+<tr><td valign="top"><a href="#reason-1">reason/1</a></td><td>Gets the <i>reason</i> of a <code>Response</code>.</td></tr>
+<tr><td valign="top"><a href="#wait_491-0">wait_491/0</a></td><td>Sleeps a random time between 2.1 and 4 secs.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="body-1">body/1</a></h3>
+<div class="spec">
+<p><tt>body(Input::<a href="#type-id">id()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; <a href="nksip.html#type-body">nksip:body()</a></tt><br></p>
+</div><p>Gets the <i>body</i> of a <code>Response</code>.</p>
+
+<h3 class="function"><a name="code-1">code/1</a></h3>
+<div class="spec">
+<p><tt>code(Input::<a href="#type-id">id()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; <a href="nksip.html#type-response_code">nksip:response_code()</a></tt><br></p>
+</div><p>Gets the <i>response code</i> of a <code>Response</code>.</p>
+
+<h3 class="function"><a name="dialog_id-1">dialog_id/1</a></h3>
+<div class="spec">
+<p><tt>dialog_id(Input::<a href="#type-id">id()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a></tt><br></p>
+</div><p>Gets the <i>dialog id</i> of a <code>Response</code>.</p>
+
+<h3 class="function"><a name="field-2">field/2</a></h3>
+<div class="spec">
+<p><tt>field(Field::<a href="#type-field">field()</a>, Input::<a href="#type-id">id()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; any()</tt><br></p>
+</div><p><p>Gets specific information from the <code>Response</code>.
+  The available fields are the same as <a href="nksip_request.html#field-2"><code>nksip_request:field/2</code></a>,  
+and also:</p>
+ 
+  <table border="1">
+       <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+       <tr>
+           <td><code>code</code></td>
+           <td><a href="nksip.html#type-response_code"><code>nksip:response_code()</code></a></td>
+           <td>Response Code</td>
+       </tr>
+       <tr>
+           <td><code>response</code></td>
+           <td><code>binary()</code></td>
+           <td>Reason Phrase</td>
+       </tr>
+  </table></p>
+
+<h3 class="function"><a name="fields-2">fields/2</a></h3>
+<div class="spec">
+<p><tt>fields(Fields::[<a href="#type-field">field()</a>], Input::<a href="#type-id">id()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; [any()]</tt><br></p>
+</div><p>Gets a number of fields from the <code>Response</code> as described in <a href="#field-2"><code>field/2</code></a>.</p>
+
+<h3 class="function"><a name="headers-2">headers/2</a></h3>
+<div class="spec">
+<p><tt>headers(Name::string() | binary(), Input::<a href="#type-id">id()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; [binary()]</tt><br></p>
+</div><p>Gets all <code>Name</code> headers from the response.</p>
+
+<h3 class="function"><a name="reason-1">reason/1</a></h3>
+<div class="spec">
+<p><tt>reason(Input::<a href="#type-id">id()</a> | <a href="nksip.html#type-response">nksip:response()</a>) -&gt; binary</tt><br></p>
+</div><p>Gets the <i>reason</i> of a <code>Response</code>.</p>
+
+<h3 class="function"><a name="wait_491-0">wait_491/0</a></h3>
+<div class="spec">
+<p><tt>wait_491() -&gt; ok</tt><br></p>
+</div><p>Sleeps a random time between 2.1 and 4 secs. It should be called after
+  receiving a 491 response and before trying the request again.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 8 2013, 17:43:56.</i></p>
+</body>
+</html>

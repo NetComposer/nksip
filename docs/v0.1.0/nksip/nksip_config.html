@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_config</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_config</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>NkSIP Config Server.
+
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>NkSIP Config Server.</p>
+ 
+ 
+  <p>This module implements a simple ETS-based config store.</p>
+ 
+  <p>NkSIP has few global configuration options. Config values are set using standard
+  nksip application's erlang environmet (file <code>nksip.app</code>).
+  Their default values are defined in the following table.
+  All of them can be changed at any time while running using <a href="#put-2"><code>put/2</code></a>.</p>
+ 
+  <table border="1">
+    <tr><th>Name</th><th>Default</th><th>Comments</th></tr>
+    <tr><td><code>timer_t1</code></td><td>500</td><td>Standar SIP T1 timer (msecs)</td></tr>
+    <tr><td><code>timer_t2</code></td><td>4000</td><td>Standar SIP T2 timer (msecs)</td></tr>
+    <tr><td><code>timer_t4</code></td><td>5000</td><td>Standar SIP T4 timer (msecs)</td></tr>
+    <tr><td><code>timer_c</code></td><td>180</td><td>Standar SIP C timer (secs)</td></tr>
+    <tr><td><code>ringing_timeout</code></td><td>180</td>
+        <td>Time to allow for INVITE requests to answered (secs)</td></tr>
+    <tr><td><code>proxy_timeout</code></td><td>600</td>
+        <td>Time a statefull proxy will wait for an answer (secs)</td></tr>
+    <tr><td><code>registrar_default_time</code></td><td>3600</td><td>(secs)</td></tr>
+    <tr><td><code>registrar_min_time</code></td><td>60</td><td>(secs)</td></tr>
+    <tr><td><code>registrar_max_time</code></td><td>86400</td><td>(secs)</td></tr>
+    <tr><td><code>max_connections</code></td><td>1024</td>
+        <td>Maximum number of simultaneous TCP/TLS connections NkSIP will accept
+            in each transport belonging to each SipApp.</td></tr>
+    <tr><td><code>tcp_timeout</code></td><td>180</td>
+        <td>Time to disconnect TCP/SSL connection if no message
+            has been received (secs)</td></tr>
+    <tr><td><code>dialog_timeout</code></td><td>900</td>
+        <td>Time to destroy dialog if no message has been received (secs)</td></tr>
+    <tr><td><code>nonce_timeout</code></td><td>30</td>
+        <td>Time a new <code>nonce</code> in an authenticate header will be usable
+            (secs, only for <i>ACK</i> or requests coming from the same
+            <code>ip</code> and <code>port</code>)</td></tr>
+  </table>
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#cseq-0">cseq/0</a></td><td>Gets a new <code>CSeq</code>.</td></tr>
+<tr><td valign="top"><a href="#del-1">del/1</a></td><td>Deletes a config value.</td></tr>
+<tr><td valign="top"><a href="#get-1">get/1</a></td><td>Equivalent to <code>get(Key, undefined)</code>.</td></tr>
+<tr><td valign="top"><a href="#get-2">get/2</a></td><td>Gets an config value.</td></tr>
+<tr><td valign="top"><a href="#put-2">put/2</a></td><td>Sets a config value.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="cseq-0">cseq/0</a></h3>
+<div class="spec">
+<p><tt>cseq() -&gt; <a href="nksip.html#type-cseq">nksip:cseq()</a></tt><br></p>
+</div><p>Gets a new <code>CSeq</code>.
+  After booting, CSeq's counter is set using <a href="nksip_lib.html#cseq-0"><code>nksip_lib:cseq/0</code></a>. Then each call
+  to this function increments the counter by one.</p>
+
+<h3 class="function"><a name="del-1">del/1</a></h3>
+<div class="spec">
+<p><tt>del(Key::term()) -&gt; ok</tt><br></p>
+</div><p>Deletes a config value.</p>
+
+<h3 class="function"><a name="get-1">get/1</a></h3>
+<div class="spec">
+<p><tt>get(Key::term()) -&gt; Value::term()</tt><br></p>
+</div><p>Equivalent to <code>get(Key, undefined)</code>.</p>
+
+<h3 class="function"><a name="get-2">get/2</a></h3>
+<div class="spec">
+<p><tt>get(Key::term(), Default::term()) -&gt; Value::term()</tt><br></p>
+</div><p>Gets an config value.</p>
+
+<h3 class="function"><a name="put-2">put/2</a></h3>
+<div class="spec">
+<p><tt>put(Key::term(), Val::term()) -&gt; ok</tt><br></p>
+</div><p>Sets a config value.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Jul 8 2013, 17:43:55.</i></p>
+</body>
+</html>
