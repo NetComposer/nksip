@@ -3,13 +3,14 @@ ROADMAP
 
 In no special order:
 
-* More application examples
+* SIP message processing engine rework.
 * _Bridge_ support for B2BUA.
 * _IPv6_.
 * _SIP Websockets_ support.
 * External control, to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM.
 * Fully distributed, highly available version based on [Riak Core](https://github.com/basho/riak_core).
 * IMS and RCS extensions.
+* More application examples.
 
 
 Many common SIP featured are still missing and will be addressed in following versions, including:
