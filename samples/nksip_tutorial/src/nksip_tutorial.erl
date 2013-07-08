@@ -34,6 +34,7 @@ launch() ->
 		 	{transport, {udp, {0,0,0,0}, 5060}}, 
 		 	{transport, {tls, {0,0,0,0}, 5061}}
 		 ]),
+
 	nksip:start(client1, nksip_tutorial_sipapp_client, [client1], 
 		[
 			{from, "sip:client1@nksip"},
@@ -47,6 +48,7 @@ launch() ->
 
 	{ok, 200} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
 	{ok, 407} = nksip_uac:options(client1, "sip:127.0.0.1", []),
+	
 	{ok, 200} = nksip_uac:options(client1, "sip:127.0.0.1", 
 									[{pass, "1234"}]),
 	{ok, 200} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", 
@@ -56,6 +58,7 @@ launch() ->
 									[{pass, "1234"}, make_contact]),
 	{ok, 200} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
 									[{pass, "1234"}, make_contact]),
+	
 	{reply, Resp1} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
 									[{pass, "1234"}, full_response]),
 	200 = nksip_response:code(Resp1),
@@ -63,6 +66,7 @@ launch() ->
 
 	{ok, 200} = nksip_uac:options(client1, "sip:127.0.0.1", []),
 	{ok, 200} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", []),
+	
 	{ok, 407} = nksip_uac:options(client1, "sips:client2@nksip", 
 										[{route, "sip:127.0.0.1;lr"}]),
 	{reply, Resp2} = nksip_uac:options(client1, "sips:client2@nksip", 
