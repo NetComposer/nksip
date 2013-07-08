@@ -195,14 +195,14 @@ The call is accepted and we have started a _dialog_:
 
 You can _print_ all dialogs in the console. We see dialogs at `client1`, `client2` and at `server`. The three dialogs are the same actually, but in different SipApps:
 ```erlang
-25> nksip_dialog:print_all().
+25> nksip_dialog:get_all().
 ```
 
 Ok, let's stop the call, the dialogs and the SipApps:
 ```erlang
-25> nksip_uac:bye(Dialog1).
+26> nksip_uac:bye(Dialog1, []).
 ok
-26> nksip:stop_all().
+27> nksip:stop_all().
 ok
 ```
 
