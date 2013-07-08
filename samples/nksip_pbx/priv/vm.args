@@ -1,0 +1,30 @@
+-pa deps/lager/ebin 
+-pa deps/ranch/ebin 
+-pa nksip/ebin
+-pa samples/nksip_pbx/ebin
+
+## Name of the node
+-name nksip@127.0.0.1
+-setcookie nksip
+
+## Enable kernel poll and a few async threads
++P 1000000
+#+K true
+#+A 64
+
+## Treat error_logger warnings as warnings
++W w
+
+## Increase number of concurrent ports/sockets
+-env ERL_MAX_PORTS 65535
+
+## Tweak GC to run more often 
+#-env ERL_FULLSWEEP_AFTER 0
+
+## Set the location of crash dumps
+-env ERL_CRASH_DUMP .
+
+# Start apps
+-s nksip_app
+
+
