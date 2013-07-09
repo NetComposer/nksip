@@ -567,7 +567,7 @@ do_start(Type, Name, Module, Args, Pid, Ref) ->
 basic_test_() ->
     {setup, 
         fun() -> 
-            ?debugFmt("Starting ~p (~p)", [?MODULE, self()]),
+            ?debugFmt("Starting ~p", [?MODULE]),
             case whereis(?MODULE) of
                 undefined -> 
                     {ok, _} = gen_server:start({local, ?MODULE}, ?MODULE, [], []),

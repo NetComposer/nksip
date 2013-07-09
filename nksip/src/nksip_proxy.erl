@@ -271,7 +271,7 @@ send_requests([Uri|Rest], Expire, SD, Acc) ->
                 Method=:='INVITE' -> 
                     ok;     % Do not create dialog
                 true -> 
-                    ?P("PROXY RESPONSE: ~p, ~p, ~p", [Method, Code, RecordRoute]), nksip_dialog_proxy:response(Req, Resp)
+                    nksip_dialog_proxy:response(Req, Resp)
             end,
             case DialogResponse of
                 ok ->

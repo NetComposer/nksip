@@ -33,12 +33,12 @@ basic_test_() ->
         fun() -> start() end,
         fun(_) -> stop() end,
         [
-            fun running/0, 
-            fun transport/0, 
-            fun cast_info/0, 
-            fun uas/0, 
-            fun auto/0, 
-            fun stun/0
+            {timeout, 60, fun running/0}, 
+            {timeout, 60, fun transport/0}, 
+            {timeout, 60, fun cast_info/0}, 
+            {timeout, 60, fun uas/0}, 
+            {timeout, 60, fun auto/0}, 
+            {timeout, 60, fun stun/0}
         ]
     }.
 
