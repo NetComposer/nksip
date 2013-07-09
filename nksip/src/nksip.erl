@@ -281,7 +281,7 @@ start(AppId, Module, Args, Opts) ->
             end,
             nksip_lib:extract(Opts, pass),
             case Transports of
-                [] -> {transports, [{udp, {0,0,0,0}, 0}]};
+                [] -> {transports, [{udp, {0,0,0,0}, 0}, {tls, {0,0,0,0}, 0}]};
                 _ -> {transports, Transports}
             end,
             case nksip_lib:get_value(listeners, Opts) of
@@ -350,7 +350,13 @@ start(AppId, Module, Args, Opts) ->
     ok | error.
 
 stop(AppId) ->
-    nksip_sup:stop_core(AppId).
+    case nksip_sup:stop_core(AppId) of
+        ok ->
+            nksip_registrar:clear(AppId),
+            ok;
+        error ->
+            error
+    end.
 
 
 %% @doc Stops all started SipApps.

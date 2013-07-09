@@ -35,12 +35,10 @@
 -module(nksip_pbx_sipapp).
 -behaviour(nksip_sipapp).
 
--export([start/0, stop/0, get_speed/0]).
+-export([start/0, stop/0, check_speed/1, get_speed/0]).
 -export([init/1, get_user_pass/4, authorize/4, route/6]). 
 -export([dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
-
--compile([export_all]).
 
 -define(DOMAINS, [<<"nksip">>, <<"127.0.0.1">>]).
 -define(TIME_CHECK, 10000).

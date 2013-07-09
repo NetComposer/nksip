@@ -10,16 +10,15 @@ deps:
 app: deps
 	@$(REBAR) compile
 
-clean: clean-docs
+clean: clean-docs clean-logs
 	@$(REBAR) clean
 	rm -f erl_crash.dump
-	rm -rf nksip/.eunit
-	rm -rf nksip/log
-	rm -rf nksip/test/*.beam
-	rm -rf samples/nksip_pbx/log
-	rm -rf samples/nksip_pbx/.eunit
-	rm -rf samples/nksip_loadtest/log
-	rm -rf samples/nksip_loadtest/.eunit
+
+clean-logs:
+	rm -rf nksip/log 
+	rm -rf samples/nksip_loadtest/log 
+	rm -rf samples/nksip_pbx/log 
+	rm -rf samples/nksip_tutorial/log 
 
 docs: clean-docs
 	@$(REBAR) doc skip_deps=true
@@ -31,6 +30,8 @@ clean-docs:
 	      samples/nksip_loadtest/doc/*.png samples/nksip_loadtest/doc/edoc-info
 	rm -f samples/nksip_pbx/doc/*.css samples/nksip_pbx/doc/*.html \
 	      samples/nksip_pbx/doc/*.png samples/nksip_pbx/doc/edoc-info
+	rm -f samples/nksip_tutorial/doc/*.css samples/nksip_tutorial/doc/*.html \
+	      samples/nksip_tutorial/doc/*.png samples/nksip_tutorial/doc/edoc-info
 
 tests: app eunit
 
@@ -48,6 +49,10 @@ dialyze: app
 shell: 
 	erl -config samples/nksip_loadtest/priv/app.config \
 		-args_file samples/nksip_loadtest/priv/vm.args 
+
+tutorial: 
+	erl -config samples/nksip_tutorial/priv/app.config \
+		-args_file samples/nksip_tutorial/priv/vm.args 
 
 loadtest: app
 	erl -config samples/nksip_loadtest/priv/app.config \

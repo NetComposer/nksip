@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 
 -export([new/2, new/0, empty/0, update/2, increment/1, parse/1, unparse/1]).
--export([is_new/2, update_ip/2]).
+-export([is_sdp/1, is_new/2, update_ip/2]).
 
 -export_type([sdp/0, sdp_a/0, sdp_m/0, sdp_t/0, address/0]).
 
@@ -154,6 +154,14 @@ update_state([#sdp_m{attributes=Attrs}=SDPM|Rest], State, Acc) ->
                                         <<"sendrecv">>]),
     Attrs2 = Attrs1 ++ [{nksip_lib:to_binary(State), []}],
     update_state(Rest, State, [SDPM#sdp_m{attributes=Attrs2}|Acc]).
+
+
+%% @doc Checks if term is an valid SDP.
+-spec is_sdp(term()) ->
+    boolean().
+
+is_sdp(#sdp{}) -> true;
+is_sdp(_) -> false.
 
 
 %% @doc Checks if `SDP2' is newer than `SDP1'.

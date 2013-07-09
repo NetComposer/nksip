@@ -8,7 +8,7 @@
 @version 0.1.0
 @title Welcome to NkSIP
 
-@doc <b>NkSIP</b> is an Erlang <a href="http://en.wikipedia.org/wiki/Session_Initiation_Protocol">SIP</a> framework (or <i>application server</i>), which greatly facilitates the development of robust and scalable server-side SIP applications like proxy, registrar, redirect or outbound servers and <a href="http://en.wikipedia.org/wiki/Back-to-back_user_agent">B2BUAs</a>.
+@doc NkSIP is an Erlang <a href="http://en.wikipedia.org/wiki/Session_Initiation_Protocol">SIP</a> framework (or <i>application server</i>), which greatly facilitates the development of robust and scalable server-side SIP applications like proxy, registrar, redirect or outbound servers and <a href="http://en.wikipedia.org/wiki/Back-to-back_user_agent">B2BUAs</a>.
 
 
 == Contents ==
@@ -44,13 +44,13 @@
 
 SIP is <i>the standard protocol</i> related to IP voice, video and remote sessions, supported by thousands of devices, softphones and network operators. It is the basic building block for most current voice or video enabled networks and it is the core protocol of the <i>IP Multimedia Subsytem</i> (<a href="https://en.wikipedia.org/wiki/IP_Multimedia_Subsystem">IMS</a>). SIP is powerful and flexible, but also very complex to work with. SIP basic concepts are easy to understand, but developing robust, scalable, highly available applications is usually quite hard and time consuming, because of the many details you have to take into account.
 
-NkSIP hides much of the SIP complexity from the developer while allowing full access to requests and responses. If you don't have direct access to SIP requests and responses you won't be able to use all of the powerful features SIP offers. Of course you will need at least some basic SIP knowledge, but NkSIP will hide most details and tedious work from you, and your application will be incredibly simple, robust and easily scalable, while achieving full RFC3261 compatibility (see {@section Supported RFCs and features}).
+NkSIP takes care of much of the SIP complexity from the developer while allowing full access to requests and responses. 
 
 NkSIP allows you to run any number of <b>SipApps</b>. To {@link nksip:start/4. start} a SipApp, you define a <i>name</i>, set of <i>transports</i> to start listening on and a <i>callback module</i>. Currently the only way to develop NkSIP applications is using <a href="http://www.erlang.org">Erlang</a> (a new, language-independent way of developing SipApps is in the works). You can now start {@link nksip_uac. sending} SIP requests, and when your application starts receiving requests, specific functions in the callback module will be called. Each defined {@link nksip_sipapp. callback function} has a sane default functionality, so you only have to implement the functions you need to customize. You don't have to deal with transports, retransmissions, authentications or dialog management. All of those aspects are managed by NkSIP in a standard way. In case you need to, you can implement the related callback functions, or even process the request by yourself using the powerful NkSIP Erlang functions.
 
-NkSIP has a clean, written from scratch, <a href="http://www.erlang.org/doc/design_principles/users_guide.html">OTP compliant</a> and <a href="http://www.erlang.org/doc/reference_manual/typespec.html">fully typed</a> pure Erlang code. New RFCs and features can be implemented securely and quickly. If you want to customize the way NkSIP behaves beyond what the callback mechanism offers, it should be easy to understand the code and use it as a powerful base for your specific application server.
+NkSIP has a clean, written from scratch, <a href="http://www.erlang.org/doc/design_principles/users_guide.html">OTP compliant</a> and <a href="http://www.erlang.org/doc/reference_manual/typespec.html">fully typed</a> Erlang code. New RFCs and features can be implemented securely and quickly. If you want to customize the way NkSIP behaves beyond what the callback mechanism offers, it should be easy to understand the code and use it as a powerful base for your specific application server.
 
-NkSIP is brand new and <em>not yet production-ready</em> by any means, but it is already very robust, thanks to its OTP design. Also thanks to its Erlang roots it can perform many actions while running: starting and stopping SipApps, hot code upgrades, configuration changes and even changing your application behavior and function callbacks on the fly.
+NkSIP is currently alpha quality, it probably has important bugs and is <b>not yet production-ready</b>, but it is already very robust, thanks to its OTP design. Also thanks to its Erlang roots it can perform many actions while running: starting and stopping SipApps, hot code upgrades, configuration changes and even changing your application behavior and function callbacks on the fly.
 
 NkSIP scales automatically using all of the available cores on the machine. Without any serious optimization done yet, and using common hardware (4-core i7 MacMini), it is easy to get more than 1.000 call cycles (INVITE-ACK-BYE) or 10.000 stateless registrations per second. On the roadmap there is a fully distributed version, based on <a href="https://github.com/basho/riak_core">Riak Core</a>, that will allow you to add and remove nodes while running, scale as much as needed and offer a very high availability, all of it without changing your application.
 
@@ -215,7 +215,7 @@ NkSIP features also:
 <ul>
   <li>Full RFC3261 coverage, including SIP Registrar (RAM storage only).</li>
   <li>A written from scratch, fully typed Erlang code easy to understand and extend. More than 50 unit tests.</li>
-  <li>Hot code loading.</li>
+  <li>Hot core and application code upgrade.</li>
   <li>Very few external dependencies: <a href="https://github.com/basho/lager">Lager</a> for error logging and <a href="http://ninenines.eu">Cowboy</a> as TCP/SSL acceptor and Websocket server.</li>
   <li>UDP, TCP and TLS transports, capable of handling thousands of simultaneous sessions.</li>
   <li>Stateful proxy servers with serial and parallel forking.</li>
@@ -256,9 +256,9 @@ Priority planned features include:
 <ul>
   <li><i>Bridge</i> helpers for B2BUA support.</li>
   <li>IPv6.</li>
-  <li><a href="https://datatracker.ietf.org/doc/draft-ietf-sipSipApp-sip-websocket/Websockets">SIP Websockets</a> transport.</li>
+  <li>SIP Websockets transport.</li>
   <li>External control, to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM.</li>
-  <li>Fully distributed, highly available distributed version based on <a href="http://basho.com/blog/technical/2010/07/30/introducing-riak-core/">Riak Core</a>.</li>
+  <li>Fully distributed, highly available distributed version based on Riak Core.</li>
 </ul>
 
 
