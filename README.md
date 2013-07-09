@@ -55,6 +55,8 @@ There are currently **three sample applications** included with NkSIP:
 Quick Start
 ===========
 
+NkSIP has been tested on OSX and Linux, using Erlang R15B y R16B
+
 ```
 > git clone https://github.com/kalta/nksip
 > cd nksip
@@ -90,3 +92,7 @@ GitHub Issues and Pull Requests, forking this repository.
 
 Just make sure your code is dialyzer-friendly before submitting!!
 
+
+<a href="http://es.linkedin.com/in/carlosjgf">
+<img src="http://www.linkedin.com/img/webpromo/btn_myprofile_160x33.png" width="160" height="33" border="0" alt="View Carlos González Florido's profile on LinkedIn">
+</a>
