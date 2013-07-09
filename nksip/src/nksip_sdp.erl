@@ -520,7 +520,7 @@ sdp1_test() ->
                 ]
             }
         ]}, SDP),
-    ?assertMatch(Bin, generate(SDP)).
+    ?assertMatch(Bin, nksip_sdp:unparse(SDP)).
 
 sdp2_test() ->
     Bin = <<
@@ -599,7 +599,7 @@ sdp2_test() ->
             ]
         },
         SDP),
-    ?assert(Bin =:= generate(SDP)).
+    ?assert(Bin =:= nksip_sdp:unparse(SDP)).
 
 sdp3_test() ->
     Media = [
