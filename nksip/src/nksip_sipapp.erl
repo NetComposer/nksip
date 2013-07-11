@@ -565,7 +565,7 @@ register_update(_RegId, _OK, State) ->
     {noreply, State}.
 
 
-%% @doc Called when a direct call to the SippApp process is made using 
+%% @doc Called when a direct call to the SipApp process is made using 
 %% {@link nksip:call/2} or {@link nksip:call/3}.
 -spec handle_call(Msg::term(), From::from(), State::term()) ->
     call_reply(any()).
@@ -574,7 +574,7 @@ handle_call(_Msg, _From, State) ->
     {error, unexpected_call, State}.
 
 
-%% @doc Called when a direct cast to the SippApp process is made using 
+%% @doc Called when a direct cast to the SipApp process is made using 
 %% {@link nksip:cast/2}.
 -spec handle_cast(Msg::term(), State::term()) ->
     call_noreply().
