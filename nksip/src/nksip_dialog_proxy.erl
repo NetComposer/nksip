@@ -129,7 +129,7 @@ proc_request(Req, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=SD
     {nksip_dialog:state(), #dlg_state{}}.
 
 proc_response(Resp, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, answered=Answered} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, answered=Answered} = Dialog,
     #sipmsg{cseq_method=Method, response=Code, cseq=CSeq} = Resp, 
     ?debug(AppId, CallId, "Dialog ~s proxy response ~p (~p)", 
           [DialogId, Code, StateName]), 

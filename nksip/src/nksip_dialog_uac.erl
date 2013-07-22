@@ -128,7 +128,7 @@ response(_Req, Resp) ->
 
 proc_make(Method, Opts, From, StateName, SD) ->
     #dlg_state{dialog=Dialog, invite_request=InvReq} = SD,
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s UAC make ~p (~p)", [DialogId, Method, StateName]),
     case Method of
         'ACK' when StateName=:=accepted_uac, is_integer(InvReq#sipmsg.cseq) ->
@@ -151,7 +151,7 @@ proc_make(Method, Opts, From, StateName, SD) ->
 
 proc_pre_request(CSeq, From, StateName, SD) ->
     #dlg_state{dialog=Dialog, invite_queue=Queue} = SD,
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     if
         StateName=:=init; StateName=:=confirmed ->
             gen_fsm:reply(From, ok),
@@ -169,7 +169,7 @@ proc_pre_request(CSeq, From, StateName, SD) ->
 
 proc_pre_request_error(CSeq, From, StateName, SD) ->
     #dlg_state{dialog=Dialog, invite_request=InvReq} = SD,
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog, 
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog, 
     if
         StateName=:=proceeding_uac; CSeq=:=InvReq#sipmsg.cseq ->
             ?debug(AppId, CallId, "Dialog ~s UAC invite lock released", [DialogId]),
@@ -187,7 +187,7 @@ proc_pre_request_error(CSeq, From, StateName, SD) ->
 
 proc_request(Req, From, StateName, SD) ->
     #dlg_state{invite_request=InvReq, dialog=Dialog} = SD,
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, local_seq=LocalSeq}=Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, local_seq=LocalSeq}=Dialog,
     #sipmsg{method=Method, body=Body, cseq=CSeq}=Req, 
     ?debug(AppId, CallId, "Dialog ~s UAC request ~p (~p)", 
            [DialogId, Method, StateName]),
@@ -242,7 +242,7 @@ proc_request(Req, From, StateName, SD) ->
 proc_response(Res, StateName, SD) ->
     #sipmsg{response=Code, cseq=CSeq, cseq_method=Method}= Res,  
     #dlg_state{invite_request=InvReq, ack_request=AckReq, dialog=Dialog} = SD,
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, answered=Answered} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, answered=Answered} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s UAC response ~p (~p)", 
            [DialogId, Code, StateName]),
     if 
@@ -306,7 +306,7 @@ generate(Method, Opts, SD) ->
     #dlg_state{invite_request=InvReq, dialog=Dialog} = SD,
     #dialog{
         id = DialogId,
-        sipapp_id = AppId,
+        app_id = AppId,
         call_id = CallId,
         local_uri = From,
         remote_uri = To,

@@ -68,7 +68,7 @@
 -type cancel_id() :: {cancel, pid()}.
 
 
--define(UAC_DEFAULT_TIMEOUT, 10000).
+-define(UAC_DEFAULT_TIMEOUT, 60000).
 
 
 
@@ -461,20 +461,16 @@ bye(DialogSpec, Opts) ->
 %% The options and responses are the same as for {@link options/3}, but you should not
 %% use any options modifying the request as `from', `to', `call_id', `cseq', `route', etc.
 %%
--spec cancel(CancelId::cancel_id(), nksip_lib:proplist()) ->
+-spec cancel(nksip_request:id(), nksip_lib:proplist()) ->
     {ok, nksip:response_code()} | {reply, nksip:response()} | 
     async | {error, Error}
     when Error :: no_transaction | network_error.
 
-cancel({cancel, Pid}, Opts) ->
-    case nksip_uac_fsm:get_cancel(Pid) of
+cancel(ReqId, Opts) ->
+    case nksip_call:get_cancel(ReqId, Opts) of
         {ok, CancelReq} -> send_request(CancelReq, Opts);
         _ -> {error, no_transaction}
-    end;
-
-cancel(_, _) ->
-    {error, no_transaction}.
-
+    end.
 
 %% @doc Sends a update on a currently ongoing dialog using reINVITE.
 %%
@@ -589,13 +585,13 @@ send_request(AppId, Method, Uri, Opts) ->
     {ok, nksip:response_code(), cancel_id()} | {reply, nksip:response()} |
     async | {async, cancel_id()} | {error, nodialog_errors()}.
 
-send_request(#sipmsg{method=Method, to_tag=ToTag}=Request, Opts) ->
+send_request(#sipmsg{method=Method}=Req, Opts) ->
     case lists:member(async, Opts) of
-        true when Method=:='INVITE', ToTag=:=(<<>>) ->
-            {async, {cancel, nksip_uac_fsm:request(Request)}};
         true ->
-            nksip_uac_fsm:request(Request),
-            async;
+            case nksip_call:send(Req) of
+                {ok, ReqId} -> {async, ReqId};
+                {error, Error} -> {error, Error}
+            end;
         false ->
             Ref = make_ref(),
             Pid = self(),
@@ -614,29 +610,32 @@ send_request(#sipmsg{method=Method, to_tag=ToTag}=Request, Opts) ->
                     false -> Pid ! {Ref, Reply}
                 end
             end,
-            Opts1 = [{respfun, Fun}|Request#sipmsg.opts],
-            nksip_uac_fsm:request(Request#sipmsg{opts=Opts1}),
-            case nksip_lib:get_integer(timeout, Opts) of
-                Timeout when is_integer(Timeout), Timeout > 0 -> ok;
-                _ -> Timeout = ?UAC_DEFAULT_TIMEOUT
-            end,
-            receive
-                {Ref, Reply} -> Reply
-            after Timeout ->
-                case Method of
-                    'ACK' ->
-                        {error, network_error};
-                    _ ->
-                        case lists:member(full_response, Opts) of
-                            true ->  
-                                {reply, nksip_reply:reply(Request, 408)};
-                            false when Method=:='INVITE' ->
-
-                                {ok, 408, <<>>};
-                            false -> 
-                                {ok, 408}
+            ReqOpts1 = [{respfun, Fun}|Req#sipmsg.opts],
+            case nksip_call:send(Req#sipmsg{opts=ReqOpts1}) of
+                {ok, _ReqId} ->
+                    case nksip_lib:get_integer(timeout, Opts) of
+                        Timeout when is_integer(Timeout), Timeout > 0 -> ok;
+                        _ -> Timeout = ?UAC_DEFAULT_TIMEOUT
+                    end,
+                    receive
+                        {Ref, Reply} -> Reply
+                    after Timeout ->
+                        case Method of
+                            'ACK' ->
+                                {error, network_error};
+                            _ ->
+                                case lists:member(full_response, Opts) of
+                                    true ->  
+                                        {reply, nksip_reply:reply(Req, 408)};
+                                    false when Method=:='INVITE' ->
+                                        {ok, 408, <<>>};
+                                    false -> 
+                                        {ok, 408}
+                                end
                         end
-                end
+                    end;
+                {error, Error} ->
+                    {error, Error}
             end
     end.
 
@@ -648,7 +647,7 @@ send_request(#sipmsg{method=Method, to_tag=ToTag}=Request, Opts) ->
     async | {error, dialog_errors()}.
 
 send_dialog(DialogSpec, Method, Opts) ->
-    case nksip_dialog_uac:make(DialogSpec, Method, Opts) of
+    case nksip_call:make_dialog(DialogSpec, Method, Opts) of
         {ok, {AppId, RUri, Opts1}} ->
             send_request(AppId, Method, RUri, Opts1);  
         {error, Error} -> 

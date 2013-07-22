@@ -33,7 +33,8 @@
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 -define(ALLOW_DIALOG, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 
--define(MSG_QUEUES, 8).
+-define(MSG_PROCESSORS, 8).
+-define(SRV_TIMEOUT, 30000).
 
 -define(debug(AppId, Txt, Opts), 
         lager:debug([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
@@ -148,13 +149,12 @@
 
 -record(dialog, {
     id :: nksip_dialog:id(),
-    sipapp_id :: nksip:sipapp_id(),
+    app_id :: nksip:sipapp_id(),
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),
     updated :: nksip_lib:timestamp(),
     answered :: nksip_lib:timestamp(),
-    state :: init | nksip_dialog:state(),
-    expires :: nksip_lib:timestamp(),
+    state :: nksip_dialog:state(),
     local_seq :: nksip:cseq(),
     remote_seq :: nksip:cseq(),
     local_uri :: nksip:uri(),
@@ -166,8 +166,14 @@
     secure :: boolean(),
     local_sdp :: nksip_sdp:sdp(),
     remote_sdp :: nksip_sdp:sdp(),
-    stop_reason :: none | nksip_dialog:stop_reason(),
-    opts :: nksip_lib:proplist()            
+    stop_reason :: nksip_dialog:stop_reason(),
+    inv_req_body :: nksip:body(),         
+    inv_resp_body :: nksip:body(),         
+    inv_cseq :: nksip:cseq(),
+    inv_headers :: [nksip:header()],
+    inv_queue :: queue(),
+    remotes :: [{inet:ip_address(), inet:port_number()}],
+    timer :: reference()
 }).
 
 

@@ -192,7 +192,7 @@ response(Req, Code, Headers, Body, Opts) ->
         #sdp{} -> [{<<"application/sdp">>, []}]; 
         _ -> [] 
     end,
-    MsgOpts = [make_contact, local_host, reason],
+    MsgOpts = [make_contact, local_host, reason, stateless],
     Req#sipmsg{
         class = response,
         response = Code,

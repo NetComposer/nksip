@@ -181,7 +181,7 @@ make(AppId, Method, Uri, Opts) ->
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{vias=[Via|_]}=Req) ->
+make_cancel(#sipmsg{vias=[Via|_], opts=Opts}=Req) ->
     Req#sipmsg{
         method = 'CANCEL',
         cseq_method = 'CANCEL',
@@ -191,7 +191,7 @@ make_cancel(#sipmsg{vias=[Via|_]}=Req) ->
         contacts = [],
         content_type = [],
         body = <<>>,
-        opts = [] 
+        opts = Opts
     }.
 
 

@@ -30,7 +30,9 @@
             handle_info/2]).
 
 -include("nksip.hrl").
--include("nksip_internal.hrl").
+-include("nksip_call.hrl").
+
+-define(MSG_QUEUES, 8).
 
 %% If we hace more than MAX_MSGS current running UAC or UAS processes,
 %% new UDP requests will be dicarded. Other transports will be queued

@@ -29,7 +29,7 @@
              handle_info/2]).
 
 -include("nksip.hrl").
--include("nksip_internal.hrl").
+-include("nksip_call.hrl").
 
 -define(MAX_UDP, 1500).
 
@@ -279,7 +279,7 @@ parse(Packet, Ip, Port, #state{sipapp_id=AppId, transport=Transport}=State) ->
         {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport1, Packet),
             nksip_trace:insert(AppId, CallId, {in_udp, Class}),
-            nksip_queue:insert(RawMsg),
+            nksip_call:incoming(RawMsg),
             case More of
                 <<>> -> ok;
                 _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])

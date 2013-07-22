@@ -18,37 +18,59 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Received messages queues
+%% @private 
 
--module(nksip_process).
+-module(nksip_call).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -behaviour(gen_server).
 
--export([insert/1, pos2name/1, start_link/1, total/0]).
+-export([send/1, get_cancel/2, make_dialog/3, incoming/1, refresh/1]).
+-export([pos2name/1, start_link/1, total/0]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
 
 -include("nksip.hrl").
--include("nksip_internal.hrl").
+-include("nksip_call.hrl").
 
 %% If we hace more than MAX_MSGS current running UAC or UAS processes,
 %% new UDP requests will be dicarded. Other transports will be queued
 %% until the number of processes goes down.
 -define(MAX_MSGS, 1024).
 
-
 %% ===================================================================
 %% Private
 %% ===================================================================
 
 
-%% @private Inserts a new received message into processing queue
--spec insert(#raw_sipmsg{}) -> ok.
+send(#sipmsg{call_id=CallId}=Req) ->
+    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
+    gen_server:call(pos2name(Pos), {send, Req}, ?SRV_TIMEOUT).    
 
-insert(#raw_sipmsg{call_id=CallId}=RawMsg) ->
-    Pos = erlang:phash2(CallId) rem ?MSG_QUEUES,
-    gen_server:cast(pos2name(Pos), {insert, RawMsg}).
+
+get_cancel(ReqId, Opts) ->
+    nksip_call_srv:cancel(ReqId, Opts).
+
+make_dialog(DialogSpec, Method, Opts) ->
+    nksip_call_srv:cancel(DialogSpec, Method, Opts).    
+
+
+
+%% @private Inserts a new received message into processing queue
+-spec incoming(#raw_sipmsg{}) -> ok.
+
+incoming(#raw_sipmsg{call_id=CallId}=RawMsg) ->
+    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
+    gen_server:cast(pos2name(Pos), {incoming, RawMsg}).
+
+
+
+%% @private Inserts a new received message into processing queue
+-spec refresh(nksip:call_id()) -> ok.
+
+refresh(CallId) ->
+    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
+    gen_server:cast(pos2name(Pos), refresh).
 
 
 %% @private
@@ -56,7 +78,7 @@ insert(#raw_sipmsg{call_id=CallId}=RawMsg) ->
     atom().
 
 pos2name(Pos) ->
-    list_to_atom("nksip_process_"++integer_to_list(Pos)).
+    list_to_atom("nksip_call_"++integer_to_list(Pos)).
 
 
 %% @private
@@ -65,12 +87,9 @@ pos2name(Pos) ->
 
 total() ->
     lists:foldl(
-        fun(Pos, {Acc1, Acc2}) -> 
-            {Queued, Dict} = gen_server:call(pos2name(Pos), total),
-            {Acc1+Queued, Acc2+Dict}
-        end,
-        {0, 0}, 
-        lists:seq(0, ?MSG_QUEUES-1)).
+        fun(Pos, Acc) -> Acc+gen_server:call(pos2name(Pos), total) end,
+        0,
+        lists:seq(0, ?MSG_PROCESSORS-1)).
 
 
 
@@ -96,12 +115,20 @@ init([]) ->
 
 
 %% @private
-handle_call({insert, RawMsg}, From, State) ->
+handle_call({incoming, RawMsg}, From, State) ->
     gen_server:reply(From, ok),
-    {noreply, insert(RawMsg, State)};
+    {noreply, incoming(RawMsg, State)};
+
+handle_call({send, Req}, _From, State) ->
+    Reply = case catch nksip_call_srv:send(Req) of
+        {ok, Id} -> {ok, Id};
+        {error, Error} -> {error, Error};
+        {'EXIT', Error} -> {error, Error}
+    end,
+    {reply, Reply, State};
 
 handle_call(total, _From, #state{total=Total}=State) -> 
-    {reply, {Total}, State};
+    {reply, Total, State};
 
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
@@ -109,8 +136,11 @@ handle_call(Msg, _From, State) ->
 
 
 %% @private
-handle_cast({insert, RawMsg}, State) ->
-    {noreply, insert(RawMsg, State)};
+handle_cast({incoming, RawMsg}, State) ->
+    {noreply, incoming(RawMsg, State)};
+
+handle_cast(refresh, State) ->
+    {noreply, insert_next(State)};
 
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
@@ -138,56 +168,46 @@ terminate(_Reason, _State) ->
 %% ===================================================================
 
 %% @private
--spec insert(#raw_sipmsg{}, #state{}) -> 
+-spec incoming(#raw_sipmsg{}, #state{}) -> 
     #state{}.
 
-insert(RawMsg, #state{queue=Queue, total=Total}=State) ->
+incoming(RawMsg, #state{queue=Queue, total=Total}=State) ->
     #raw_sipmsg{sipapp_id=AppId, class=Class, call_id=CallId, transport=Transport}=RawMsg,
     #transport{proto=Proto} = Transport,
-    case nksip_proc:values({nksip_process, CallId}) of
-        [{_, Pid}|_] ->
-            case catch gen_fsm:sync_send_all_state_event(Pid, {insert, RawMsg}, 5000) of
-                ok -> 
-                    ok;
-                Error -> 
-                    ?error(AppId, CallId, "Error ~p inserting into process", [Error])
-            end,
+    case nksip_call_srv:incoming(RawMsg) of
+        ok -> 
             insert_next(State);
-        [] ->
-            case nksip_counters:value(nksip_msgs) of
-                Msgs when Msgs > ?MAX_MSGS ->
-                    case Proto of
-                        udp ->
-                            nksip_trace:insert(AppId, CallId, {discarded, Class}),
-                            State;
-                        _ ->
-                            nksip_trace:insert(AppId, CallId, {queue_in, Class}),
-                            Queue1 = queue:in(RawMsg, Queue),
-                            State#state{total=Total+1, queue=Queue1}
-                    end;
+        {error, max_calls} ->
+            case Proto of
+                udp ->
+                    nksip_trace:insert(AppId, CallId, {discarded, Class}),
+                    State;
                 _ ->
-                    case Class of
-                        {req, Method, _Binary} ->
-                            {ok, Pid} = 
-                                nksip_proc:start(fsm, {nksip_process, CallId}, 
-                                                 nksip_process_fsm, 
-                                                 [AppId, CallId, Method]),
-                            gen_fsm:send_all_state_event(Pid, {req, RawMsg});
-                        {resp, _Code, _Binary} ->
-                            ?error(AppId, CallId, 
-                                   "Process not found for response code", [])
-                    end,
-                    insert_next(State)
-            end
+                    nksip_trace:insert(AppId, CallId, {queue_in, Class}),
+                    Queue1 = queue:in(RawMsg, Queue),
+                    State#state{total=Total+1, queue=Queue1}
+            end;
+        {error, Error} ->
+            ?error(AppId, CallId, "Error ~p inserting sip message", [Error]),
+            insert_next(State)
     end.
+
 
 insert_next(#state{total=Total, queue=Queue}=State) ->
     case queue:out(Queue) of
         {{value, RawMsg}, Queue1} ->
             #raw_sipmsg{sipapp_id=AppId, call_id=CallId, class=Class} = RawMsg,
             nksip_trace:insert(AppId, CallId, {queue_out, Class}),
-            insert(RawMsg, State#state{queue=Queue1, total=Total-1});
+            incoming(RawMsg, State#state{queue=Queue1, total=Total-1});
         {empty, Queue1} ->
             State#state{queue=Queue1, total=0}
     end.
-            
+      
+
+
+
+
+
+
+
+

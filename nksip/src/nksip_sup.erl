@@ -99,7 +99,7 @@ start_link() ->
             [?MODULE]}
      ] 
      ++
-     [get_msg_queue(N) || N <- lists:seq(0, ?MSG_QUEUES-1)],
+     [get_call_child(N) || N <- lists:seq(0, ?MSG_PROCESSORS-1)],
   supervisor:start_link({local, ?MODULE}, ?MODULE, {{one_for_one, 10, 60}, ChildsSpec}).
 
 %% @private
@@ -113,14 +113,14 @@ init(ChildSpecs) ->
 
 
 %% @private
-get_msg_queue(Pos) ->
-    Name = nksip_queue:pos2name(Pos),
+get_call_child(Pos) ->
+    Name = nksip_call:pos2name(Pos),
     {Name,
-        {nksip_queue, start_link, [Name]},
+        {nksip_call, start_link, [Name]},
         permanent,
         5000,
         worker,
-        [nksip_queue]}.
+        [nksip_call]}.
 
 
 

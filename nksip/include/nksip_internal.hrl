@@ -23,16 +23,6 @@
 -ifndef(NKSIP_INTERNAL_HRL_).
 -define(NKSIP_INTERNAL_HRL_, 1).
 
--record(raw_sipmsg, {
-    sipapp_id :: nksip:sipapp_id(),
-    transport :: nksip_transport:transport(),
-    start :: nksip_lib:l_timestamp(),
-    call_id :: nksip:call_id(),
-    class :: nksip_parse:msg_class(),
-    headers :: [{binary(), binary()}],
-    body :: nksip:body()
-}).
-
 -record(dlg_state, {
     dialog :: nksip_dialog:dialog(),
     from_tag :: binary(),               % Creation from tag

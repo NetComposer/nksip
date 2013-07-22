@@ -30,7 +30,7 @@
             handle_cast/2, handle_info/2]).
 
 -include("nksip.hrl").
--include("nksip_internal.hrl").
+-include("nksip_call.hrl").
 
 -define(MAX_BUFFER, 64*1024*1024).
 
@@ -208,7 +208,7 @@ parse(Packet, #state{sipapp_id=AppId, socket=Socket, transport=Transport}=State)
         {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
             nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
-            nksip_queue:insert(RawMsg),
+            nksip_call:incoming(RawMsg),
             case More of
                 <<>> -> <<>>;
                 _ -> parse(More, State)

@@ -103,7 +103,7 @@ proc_request(#sipmsg{cseq=CSeq}=Req, From, StateName, SD) ->
 proc_request2(Req, From, StateName, SD) ->
     #dlg_state{dialog=Dialog, invite_request=InvReq} = SD,
     #sipmsg{method=Method, cseq=CSeq, call_id=CallId, body=Body} = Req,
-    #dialog{id=DialogId, sipapp_id=AppId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s UAS request ~p (~p)", 
            [DialogId, Method, StateName]),
     case Method of
@@ -166,7 +166,7 @@ proc_request2(Req, From, StateName, SD) ->
     {nksip_dialog:state(), #dlg_state{}}. 
 
 proc_response(Resp, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, answered=Answered} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, answered=Answered} = Dialog,
     #sipmsg{cseq_method=Method, cseq=CSeq, response=Code} = Resp,
     ?debug(AppId, CallId, "Dialog ~s UAS response ~p (~p)", [DialogId, Code, StateName]),
     if

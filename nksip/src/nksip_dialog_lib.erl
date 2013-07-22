@@ -26,7 +26,7 @@
 -include("nksip_internal.hrl").
 
 -export([field/2, fields/2]).
--export([target_update/3, session_update/2]).
+-export([create/4, status_update/2, target_update/4, session_update/4, remotes_update/2]).
 -export([reason/1, class/2]).
 
 
@@ -48,13 +48,13 @@ fields(Fields, Req) when is_list(Fields) ->
 field(Type, Dialog) ->
     #dialog{
         id = DialogId,
-        sipapp_id = AppId, 
+        app_id = AppId, 
         call_id = CallId,
         created = Created,
         updated = Updated,
         answered = Answered, 
         state = State,
-        expires = Expires,
+        % expires = Expires,
         local_seq = LocalSeq, 
         remote_seq  = RemoteSeq, 
         local_uri = LocalUri,
@@ -76,7 +76,7 @@ field(Type, Dialog) ->
         updated -> Updated;
         answered -> Answered;
         state -> State;
-        expires -> Expires;
+        % expires -> Expires;
         local_seq -> LocalSeq; 
         remote_seq  -> RemoteSeq; 
         local_uri -> nksip_unparse:uri(LocalUri);
@@ -105,22 +105,114 @@ field(Type, Dialog) ->
 %% ===================================================================
 
 %% @private
-reason(486) -> busy;
-reason(487) -> cancelled;
-reason(503) -> service_unavailable;
-reason(603) -> decline;
-reason(Code) -> {code, Code}.
+create(Class, DialogId, Req, Resp) ->
+    #sipmsg{
+        sipapp_id = AppId, 
+        call_id = CallId, 
+        from = From, 
+        ruri = #uri{scheme=Scheme},
+        cseq = CSeq,
+        transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}
+    } = Req,
+    #sipmsg{to=To} = Resp,
+    ?debug(AppId, CallId, "Dialog ~s (~s) created", [DialogId, Class]),
+    Remotes = [{Ip, Port}],
+    nksip_proc:put({nksip_dialog, DialogId}, Remotes),
+    nksip_counters:async([nksip_dialogs, {nksip_dialogs, AppId}]),
+    Now = nksip_lib:timestamp(),
+    Dialog = #dialog{
+        id = DialogId,
+        app_id = AppId,
+        call_id = CallId,
+        created = Now,
+        updated = Now,
+        answered = undefined,
+        state = init,
+        local_target = #uri{},
+        remote_target = #uri{},
+        route_set = [],
+        secure = Proto=:=tls andalso Scheme=:=sips,
+        early = true,
+        local_sdp = undefined,
+        remote_sdp = undefined,
+        stop_reason = unknown,
+        remotes = [{Ip, Port}],
+        inv_queue = queue:new()
+    },
+    if 
+        Class=:=uac; Class=:=proxy ->
+            Dialog#dialog{
+                local_seq = CSeq,
+                remote_seq = 0,
+                local_uri = From,
+                remote_uri = To
+            };
+        Class=:=uas ->
+            Dialog#dialog{
+                local_seq = 0,
+                remote_seq = CSeq,
+                local_uri = To,
+                remote_uri = From
+            }
+    end.
+
+status_update(State, #dialog{state=State}=Dialog) ->
+    Dialog;
+status_update(State, Dialog) ->
+    #dialog{
+        id = DialogId, 
+        app_id = AppId, 
+        state = OldState, 
+        local_sdp = LocalSDP, 
+        remote_sdp = RemoteSDP,
+        inv_queue = Queue
+    } = Dialog,
+    case OldState of
+        init -> cast(dialog_update, start, Dialog);
+        _ -> ok
+    end,
+    case State of
+        confirmed ->
+            cast(dialog_update, {status, State}, Dialog),
+            case queue:out(Queue) of
+                {{value, Req}, Queue1} ->
+                    spawn(fun() -> nksip_process:send(Req) end),
+                    Dialog#dialog{state=State, inv_queue=Queue1};
+                {empty, Queue1} ->
+                    Dialog#dialog{state=State, inv_queue=Queue1}
+            end;
+        bye ->
+            case {LocalSDP, RemoteSDP} of
+                {#sdp{}, #sdp{}} -> cast(session_update, stop, Dialog);
+                _ -> ok
+            end,
+            cast(dialog_update, {status, bye}, Dialog),
+            Dialog#dialog{state=bye, local_sdp=undefined, remote_sdp=undefined};
+        {stop, Reason} -> 
+            case {LocalSDP, RemoteSDP} of
+                {#sdp{}, #sdp{}} -> cast(session_update, stop, Dialog);
+                _ -> ok
+            end,
+            cast(dialog_update, {stop, reason(Reason)}, Dialog),
+            nksip_proc:del({nksip_dialog, DialogId}),
+            nksip_counters:async([{nksip_dialogs, -1}, {{nksip_dialogs, AppId}, -1}]),
+            Dialog;
+        _ -> 
+            cast(dialog_update, {status, State}, Dialog),
+            Dialog#dialog{state=State}
+    end.
 
 
 %% @private
--spec target_update(uac|uas, nksip_dialog:state(), #dlg_state{}) ->
-    {nksip_dialog:state(), #dlg_state{}}.
+-spec target_update(uac|uas, nksip:request(), nksip:response(), nksip_dialog:dialog()) ->
+    nksip_dialog:dialog().
 
-target_update(Class, StateName, SD) ->
-    #dlg_state{invite_request=Req, invite_response=Resp, dialog=Dialog} = SD,
+target_update(Class, Req, Resp, Dialog) ->
+    #sipmsg{contacts=ReqContacts, body=ReqBody}=Req,
+    #sipmsg{response=Code, contacts=RespContacts, body=RespBody}=Resp,
     #dialog{
         id = DialogId,
-        sipapp_id = AppId,
+        app_id = AppId,
         call_id = CallId,
         early = Early, 
         secure = Secure,
@@ -129,8 +221,6 @@ target_update(Class, StateName, SD) ->
         local_target = LocalTarget,
         route_set = RouteSet                        
     } = Dialog,
-    #sipmsg{contacts=ReqContacts}=Req,
-    #sipmsg{response=Code, contacts=RespContacts}=Resp,
     case Class of
         uac -> 
             RemoteTargets = RespContacts,
@@ -195,35 +285,27 @@ target_update(Class, StateName, SD) ->
         early = Early1,
         route_set = RouteSet1
     },
-    case RemoteTarget1 of
-        RemoteTarget -> ok;
-        _ -> nksip_sipapp_srv:sipapp_cast(AppId, dialog_update, [DialogId, target_update])
+    case RemoteTarget of
+        #uri{} -> ok;
+        RemoteTarget1 -> ok;
+        _ ->cast(dialog_update, target_update, Dialog)
     end,
-    SD1 = SD#dlg_state{dialog=Dialog1},
-    SD2 = if 
-        Code >= 100, Code < 300 -> session_update(Class, SD1);
-        true -> SD1
-    end,
-    {StateName, SD2}.
+    if 
+        Code >= 100, Code < 300 -> session_update(Class, ReqBody, RespBody, Dialog1);
+        true -> Dialog1
+    end.
 
 
 %% @private
--spec session_update(uac|uas, #dlg_state{}) ->
-    #dlg_state{}.
+-spec session_update(uac|uas, nksip:request(), nksip:response(), nksip_dialog:dialog()) ->
+    nksip_dialog:dialog().
 
-session_update(Class, 
-                #dlg_state{
-                    invite_request=#sipmsg{body=ReqBody},
-                    invite_response=#sipmsg{body=RespBody},
-                    dialog=Dialog, 
-                    started_media=StartedMedia
-                }=SD) ->
-     #dialog{
-        id = DialogId,
-        sipapp_id = AppId,
-        local_sdp = DLocalSDP, 
-        remote_sdp = DRemoteSDP
-    } = Dialog, 
+session_update(Class, ReqBody, RespBody, Dialog) ->
+    #dialog{local_sdp=DLocalSDP, remote_sdp=DRemoteSDP} = Dialog, 
+    Started = case {DLocalSDP, DRemoteSDP} of
+        {#sdp{}, #sdp{}} -> true;
+        _ -> false
+    end,
     case Class of
         uac ->
             LocalSDP = case ReqBody of #sdp{} -> ReqBody; _ -> undefined end,
@@ -232,37 +314,56 @@ session_update(Class,
             LocalSDP = case RespBody of #sdp{} -> RespBody; _ -> undefined end,
             RemoteSDP = case ReqBody of #sdp{} -> ReqBody; _ -> undefined end
     end,
-    case {StartedMedia, LocalSDP, RemoteSDP} of
+    case {Started, LocalSDP, RemoteSDP} of
         {false, #sdp{}, #sdp{}} ->
-            Dialog1 = Dialog#dialog{
-                        local_sdp = LocalSDP, 
-                        remote_sdp = RemoteSDP},
-            nksip_sipapp_srv:sipapp_cast(AppId, session_update, 
-                        [DialogId, {start, LocalSDP, RemoteSDP}]),
-            SD#dlg_state{started_media=true, dialog=Dialog1};
+            cast(session_update, {start, LocalSDP, RemoteSDP}, Dialog),
+            Dialog#dialog{local_sdp=LocalSDP, remote_sdp=RemoteSDP};
         {false, _, _} ->
-            SD;
+            Dialog;
         {true, #sdp{}, #sdp{}} ->
             case 
                 nksip_sdp:is_new(RemoteSDP, DRemoteSDP) orelse
                 nksip_sdp:is_new(LocalSDP, DLocalSDP)
             of
                 true -> 
-                    Dialog1 = Dialog#dialog{
-                        local_sdp = LocalSDP, 
-                        remote_sdp=RemoteSDP
-                    },
-                    nksip_sipapp_srv:sipapp_cast(AppId, session_update, 
-                            [DialogId, {update, LocalSDP, RemoteSDP}]),
-                    SD#dlg_state{dialog=Dialog1};
+                    cast(session_update, {update, LocalSDP, RemoteSDP}, Dialog),
+                    Dialog#dialog{local_sdp=LocalSDP, remote_sdp=RemoteSDP};
                 false ->
-                    SD
+                    Dialog
             end;
         {true, _, _} ->
-            SD
-    end;
-session_update(_Class, SD) ->
-    SD.
+            Dialog
+    end.
+
+
+remotes_update(SipMsg, #dialog{id=DialogId, remotes=Remotes}=Dialog) ->
+    #sipmsg{sipapp_id=AppId, call_id=CallId, transport=Transport} = SipMsg,
+    #transport{remote_ip=Ip, remote_port=Port} = Transport,
+    case lists:member({Ip, Port}, Remotes) of
+        true ->
+            Dialog;
+        false ->
+            Remotes1 = [{Ip, Port}|Remotes],
+            ?debug(AppId, CallId, "dialog ~s updated remotes: ~p", 
+                   [DialogId, Remotes1]),
+            nksip_proc:put({nksip_dialog, DialogId}, Remotes1),
+            Dialog#dialog{remotes=Remotes1}
+    end.
+
+
+
+cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId}) ->
+    nksip_sipapp_srv:sipapp_cast(AppId, Fun, [DialogId, Arg]).
+
+
+
+%% @private
+reason(486) -> busy;
+reason(487) -> cancelled;
+reason(503) -> service_unavailable;
+reason(603) -> decline;
+reason(Other) -> Other.
+
 
 
 %% @private

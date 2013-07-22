@@ -16,7 +16,7 @@
     nksip_parse,
     nksip_proc,
     nksip_proxy,
-    nksip_queue,
+    nksip_call,
     nksip_registrar,
     nksip_request,
     nksip_response,

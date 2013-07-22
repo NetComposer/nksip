@@ -38,6 +38,8 @@
 
 -define(CALLBACK_TIMEOUT, 30000).
 
+-type nksip_from() :: {reference(), pid()} | {'fun', atom(), atom(), list()}.
+
 
 %% ===================================================================
 %% Private
@@ -122,8 +124,7 @@ sipapp_call_sync(AppId, Fun, Args) ->
 
 
 %% @private Calls to a function in the siapp's callback module asynchronously
--spec sipapp_call_async(pid(), atom(), atom(), list(), 
-                {fsm, term(), pid()} | {reference(), pid()}) -> 
+-spec sipapp_call_async(pid(), atom(), atom(), list(), nksip_from()) ->
     ok.
 
 sipapp_call_async(CorePid, Module, Fun, Args, From) ->
@@ -167,11 +168,11 @@ sipapp_cast(CorePid, Module, Fun, Args) ->
     end.
 
 %% @private
--spec reply({reference(), pid()} | {fsm, reference(), pid()}, term()) -> 
+-spec reply(nksip_from(), term()) -> 
     term().
 
-reply({fsm, Tag, Pid}, Reply) ->
-    gen_fsm:send_event(Pid, {Tag, Reply});
+reply({'fun', Module, Fun, Args}, Reply) ->
+    apply(Module, Fun, Args++[Reply]);
 
 reply(From, Reply) ->
     gen_server:reply(From, Reply).
@@ -326,7 +327,7 @@ timeout() ->
 
 
 %% @private
--spec mod_handle_call(atom(), [term()], {reference(), pid()}, #state{}) -> 
+-spec mod_handle_call(atom(), [term()], from(), #state{}) -> 
     {noreply, #state{}, non_neg_integer()} |
     {error, term(), #state{}} |
     not_found.

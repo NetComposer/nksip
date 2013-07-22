@@ -27,7 +27,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").
--include("nksip_internal.hrl").
+-include("nksip_call.hrl").
 
 -export([method/1, header_uris/2, header_dates/2, header_integers/2]).
 -export([header_tokens/2]).

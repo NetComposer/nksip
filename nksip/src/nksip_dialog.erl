@@ -388,7 +388,7 @@ get_all() ->
         case get_dialog(Pid) of
             #dialog{}=Dialog ->
                 Data = {DialogId, [
-                    {sipapp_id, Dialog#dialog.sipapp_id},
+                    {sipapp_id, Dialog#dialog.app_id},
                     {call_id, Dialog#dialog.call_id},
                     {pid, Pid},
                     {state, Dialog#dialog.state},
@@ -397,7 +397,7 @@ get_all() ->
                     {created, Dialog#dialog.created},
                     {elapsed, Now - Dialog#dialog.created},
                     {updated, Dialog#dialog.updated},
-                    {timeout, Dialog#dialog.expires},
+                    % {timeout, Dialog#dialog.expires},
                     {answered, Dialog#dialog.answered},
                     {local_seq, Dialog#dialog.local_seq},
                     {remote_seq, Dialog#dialog.remote_seq},

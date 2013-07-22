@@ -175,7 +175,7 @@ init({timeout, _, init_timeout}, SD) ->
 -spec to_proceeding_uac(#dlg_state{}) -> #dlg_state{}.
 
 to_proceeding_uac(#dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s switched to proceeding_uac", [DialogId]),
     cancel_timers(SD),
     nksip_sipapp_srv:sipapp_cast(AppId, dialog_update, 
@@ -185,7 +185,7 @@ to_proceeding_uac(#dlg_state{dialog=Dialog}=SD) ->
 
 %% @private
 proceeding_uac({timeout, _, proceeding}, #dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, answered=Answered} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, answered=Answered} = Dialog,
     ?notice(AppId, CallId, "UAC Dialog ~s did not receive INVITE response", [DialogId]),
     case Answered of
         undefined -> {stop, normal, to_stop(proceeding_timeout, SD)};
@@ -197,7 +197,7 @@ proceeding_uac({timeout, _, proceeding}, #dlg_state{dialog=Dialog}=SD) ->
 -spec to_proceeding_uas(#dlg_state{}) -> #dlg_state{}.
 
 to_proceeding_uas(#dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s switched to proceeding_uas", [DialogId]),
     cancel_timers(SD),
     nksip_sipapp_srv:sipapp_cast(AppId, dialog_update, 
@@ -207,7 +207,7 @@ to_proceeding_uas(#dlg_state{dialog=Dialog}=SD) ->
 
 %% @private
 proceeding_uas({timeout, _, proceeding}, 
-                #dlg_state{dialog=#dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, 
+                #dlg_state{dialog=#dialog{id=DialogId, app_id=AppId, call_id=CallId, 
                                             answered=Answered}}=SD) ->
     ?notice(AppId, CallId, "UAS Dialog ~s did not receive INVITE response", [DialogId]),
     case Answered of
@@ -220,7 +220,7 @@ proceeding_uas({timeout, _, proceeding},
 -spec to_accepted_uac(#dlg_state{}) -> #dlg_state{}.
 
 to_accepted_uac(#dlg_state{dialog=Dialog, t1=T1}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s switched to accepted_uac", [DialogId]),
     cancel_timers(SD),
     nksip_sipapp_srv:sipapp_cast(AppId, dialog_update, 
@@ -229,12 +229,12 @@ to_accepted_uac(#dlg_state{dialog=Dialog, t1=T1}=SD) ->
 
 %% @private
 accepted_uac({timeout, _, accepted_uac}, #dlg_state{is_first=true, dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?notice(AppId, CallId, "UAC Dialog ~s didn't see the ACK, stopping", [DialogId]),
     {stop, normal, to_stop(accepted_timeout, SD)};
 
 accepted_uac({timeout, _, accepted_uac}, #dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?notice(AppId, CallId, 
             "UAC Dialog ~s didn't see the ACK, switched to confirmed", [DialogId]),
     {next_state, confirmed, to_confirmed(SD)}.
@@ -244,7 +244,7 @@ accepted_uac({timeout, _, accepted_uac}, #dlg_state{dialog=Dialog}=SD) ->
 -spec to_accepted_uas(#dlg_state{}) -> #dlg_state{}.
 
 to_accepted_uas(#dlg_state{dialog=Dialog, t1=T1, t2=T2}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s switched to accepted_uas", [DialogId]),
     cancel_timers(SD),
     nksip_sipapp_srv:sipapp_cast(AppId, dialog_update, 
@@ -257,13 +257,13 @@ to_accepted_uas(#dlg_state{dialog=Dialog, t1=T1, t2=T2}=SD) ->
 
 %% @private
 accepted_uas({timeout, _, accepted_uas}, #dlg_state{is_first=true, dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?notice(AppId, CallId, 
             "UAS Dialog ~s didn't receive the ACK, stopping", [DialogId]),
     {stop, normal, to_stop(accepted_timeout, SD)};
 
 accepted_uas({timeout, _, accepted_uas}, #dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?notice(AppId, CallId,
             "UAS Dialog ~s didn't receive the ACK, switched to confirmed", [DialogId]),
     {next_state, confirmed, to_confirmed(SD)};
@@ -271,7 +271,7 @@ accepted_uas({timeout, _, accepted_uas}, #dlg_state{dialog=Dialog}=SD) ->
 accepted_uas({timeout, _, retrans}, SD) ->
     #dlg_state{dialog=Dialog, is_first=IsFirst, invite_response=Resp, 
                retrans_next=Next, t2=T2} = SD,
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     case nksip_transport_uas:resend_response(Resp) of
         {ok, _} -> 
             ?info(AppId, CallId, "Dialog ~s retransmitting 2xx response", [DialogId]),
@@ -294,7 +294,7 @@ accepted_uas({timeout, _, retrans}, SD) ->
 -spec to_confirmed(#dlg_state{}) -> #dlg_state{}.
 
 to_confirmed(#dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s switched to confirmed", [DialogId]),
     cancel_timers(SD),
     nksip_sipapp_srv:sipapp_cast(AppId, dialog_update, [DialogId, {status, confirmed}]),
@@ -303,7 +303,7 @@ to_confirmed(#dlg_state{dialog=Dialog}=SD) ->
 
 %% @private
 confirmed({timeout, _, confirmed}, #dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     ?notice(AppId, CallId, "Dialog ~s confirmed timeout", [DialogId]),
     {stop, normal, to_stop(confirmed_timeout, SD)}.
 
@@ -312,7 +312,7 @@ confirmed({timeout, _, confirmed}, #dlg_state{dialog=Dialog}=SD) ->
 -spec to_bye(#dlg_state{}) -> #dlg_state{}.
 
 to_bye(#dlg_state{dialog=Dialog, started_media=StartedMedia}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     cancel_timers(SD),
     ?debug(AppId, CallId, "Dialog ~s switched to bye", [DialogId]),
     Dialog1 = Dialog#dialog{updated=nksip_lib:timestamp()},
@@ -333,7 +333,7 @@ to_bye(#dlg_state{dialog=Dialog, started_media=StartedMedia}=SD) ->
 
 %% @private
 bye({timeout, _, bye}, #dlg_state{dialog=Dialog}=SD) ->
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, stop_reason=Reason} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, stop_reason=Reason} = Dialog,
     if
         Reason=:=caller_bye; Reason=:=callee_bye -> 
             ?debug(AppId, CallId, "Dialog ~s didn't receive BYE response", [DialogId]);
@@ -437,19 +437,21 @@ handle_sync_event({response, proxy, #sipmsg{response=Code}=Resp},
 handle_sync_event(get_dialog, _From, StateName, SD) ->
     #dlg_state{dialog=Dialog, timer=Timer} = SD,
     case catch round(erlang:read_timer(Timer)/1000) of
-        {'EXIT', _} -> Timeout = 0;
-        Timeout -> ok
+        {'EXIT', _} -> _Timeout = 0;
+        _Timeout -> ok
     end,
-    Dialog1 = Dialog#dialog{state=StateName, expires=Timeout},
+    % Dialog1 = Dialog#dialog{state=StateName, expires=Timeout},
+    Dialog1 = Dialog#dialog{state=StateName},
     {reply, Dialog1, StateName, SD};
 
 handle_sync_event({fields, Fields}, _From, StateName, SD) ->
     #dlg_state{dialog=Dialog, timer=Timer} = SD,
     case catch round(erlang:read_timer(Timer)/1000) of
-        {'EXIT', _} -> Timeout = 0;
-        Timeout -> ok
+        {'EXIT', _} -> _Timeout = 0;
+        _Timeout -> ok
     end,
-    Dialog1 = Dialog#dialog{state=StateName, expires=Timeout},
+    % Dialog1 = Dialog#dialog{state=StateName, expires=Timeout},
+    Dialog1 = Dialog#dialog{state=StateName},
     {reply, nksip_dialog_lib:fields(Fields, Dialog1), StateName, SD};
 
 handle_sync_event(wait_start, _From, StateName, SD) ->
@@ -497,7 +499,7 @@ code_change(_OldVsn, StateName, SD, _Extra) ->
 %% @private
 terminate(_Reason, _StateName, SD) ->
     #dlg_state{dialog=Dialog, started_media=StartedMedia, invite_queue=WaitInvites} = SD,
-    #dialog{id=DialogId, sipapp_id=AppId, call_id=CallId, stop_reason=Reason} = Dialog,
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, stop_reason=Reason} = Dialog,
     ?debug(AppId, CallId, "Dialog ~s deleted", [DialogId]),
     lists:foreach(fun({From, _CSeq}) -> gen_fsm:reply(From, {error, terminated}) end, 
                     WaitInvites),
@@ -516,7 +518,7 @@ terminate(_Reason, _StateName, SD) ->
 
 do_init(DialogId, SipMsg) ->
     #sipmsg{sipapp_id=AppId, transport=Transport, ruri=RUri, call_id=CallId, 
-            headers=Headers, from_tag=FromTag} = SipMsg,
+            headers=_Headers, from_tag=FromTag} = SipMsg,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     nksip_proc:put({nksip_dialog_call_id, {AppId, CallId}}, DialogId),
     nksip_proc:put({nksip_dialog_auth, DialogId}, [{Ip, Port}]),
@@ -524,7 +526,7 @@ do_init(DialogId, SipMsg) ->
     Now = nksip_lib:timestamp(),
     Dialog = #dialog{
         id = DialogId,
-        sipapp_id = AppId,
+        app_id = AppId,
         call_id = CallId,
         created = Now,
         updated = Now,
@@ -536,8 +538,8 @@ do_init(DialogId, SipMsg) ->
         early = true,
         local_sdp = undefined,
         remote_sdp = undefined,
-        stop_reason = unknown,
-        opts = case Headers of [] -> []; _ -> [{headers, Headers}] end
+        stop_reason = unknown
+        % opts = case Headers of [] -> []; _ -> [{headers, Headers}] end
     },
     SD = #dlg_state{
         dialog = Dialog,
