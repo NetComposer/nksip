@@ -52,7 +52,7 @@ get_cancel(ReqId, Opts) ->
     nksip_call_srv:cancel(ReqId, Opts).
 
 make_dialog(DialogSpec, Method, Opts) ->
-    nksip_call_srv:cancel(DialogSpec, Method, Opts).    
+    nksip_call_srv:make_dialog(DialogSpec, Method, Opts).    
 
 
 
@@ -119,13 +119,15 @@ handle_call({incoming, RawMsg}, From, State) ->
     gen_server:reply(From, ok),
     {noreply, incoming(RawMsg, State)};
 
-handle_call({send, Req}, _From, State) ->
-    Reply = case catch nksip_call_srv:send(Req) of
-        {ok, Id} -> {ok, Id};
-        {error, Error} -> {error, Error};
-        {'EXIT', Error} -> {error, Error}
-    end,
-    {reply, Reply, State};
+handle_call({send, Req}, From, State) ->
+    case nksip_call_srv:send(Req) of
+        {error, try_later} -> 
+            gen_server:cast(self(), {send_again, Req, From}),
+            {norepy, State};
+        Other ->
+            gen_server:reply(From, Other),
+            {noreply, State}
+    end;
 
 handle_call(total, _From, #state{total=Total}=State) -> 
     {reply, Total, State};
@@ -141,6 +143,9 @@ handle_cast({incoming, RawMsg}, State) ->
 
 handle_cast(refresh, State) ->
     {noreply, insert_next(State)};
+
+handle_cast({send_again, Req, From}, State) ->
+    handle_call({send, Req}, From, State);
 
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
@@ -177,6 +182,9 @@ incoming(RawMsg, #state{queue=Queue, total=Total}=State) ->
     case nksip_call_srv:incoming(RawMsg) of
         ok -> 
             insert_next(State);
+        {error, try_later} ->
+            Queue1 = queue:in(RawMsg, Queue),
+            State#state{total=Total+1, queue=Queue1};
         {error, max_calls} ->
             case Proto of
                 udp ->

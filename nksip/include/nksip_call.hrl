@@ -23,6 +23,10 @@
 -ifndef(NKSIP_CALL_HRL_).
 -define(NKSIP_CALL_HRL_, 1).
 
+
+-define(CALL_FINISH_TIMEOUT, 5000).
+
+
 -record(raw_sipmsg, {
     sipapp_id :: nksip:sipapp_id(),
     transport :: nksip_transport:transport(),
@@ -35,10 +39,10 @@
 
 
 -record(uas, {
-    pos :: nksip:cseq(),
+    % pos :: nksip:cseq(),
     id :: binary(),
-    call_status :: nksip_call_uas:call_status(),
-    trans_status :: nksip_call_uas:trans_status(),
+    status :: nksip_call_uas:status(),
+    % trans_status :: nksip_call_uas:trans_status(),
     request :: nksip:request(),
     response :: nksip:response(),
     loop_id :: binary(),
@@ -54,15 +58,15 @@
     id :: binary(),
     status :: nksip_call_uac:status(),
     request :: nksip:request(),
-    responses :: [nksip:response()],
-    to_tags :: [binary()],                  % Received To tags
+    responses = [] :: [nksip:response()],
+    first_to_tag = <<>> :: binary(),
     respfun :: function(),
     timeout_timer :: reference(),
     retrans_timer :: reference(),
     next_retrans :: nksip_lib:timestamp(),
     expire_timer :: reference(),
     cancel :: {reply, from(), nksip:request()},
-    iter :: integer()
+    iter = 1 :: integer()
 }).
 
 

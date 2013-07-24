@@ -25,7 +25,7 @@
 -behaviour(gen_server).
 
 -export([provisional_reply/2, send/1, make_dialog/3, get_cancel/2]).
--export([incoming/1, app_reply/4, next/1]).
+-export([incoming/1, app_reply/4, next/1, get_data/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 
 -include("nksip.hrl").
@@ -36,9 +36,9 @@
 %% Public
 %% ===================================================================
 
-provisional_reply({req, AppId, CallId, Pos}, Reply) ->
+provisional_reply({req, AppId, CallId, Id}, Reply) ->
     case nksip_proc:values({nksip_call, AppId, CallId}) of
-        [{_, Pid}|_] -> app_reply(Pid, process, Pos, Reply);
+        [{_, Pid}|_] -> app_reply(Pid, process, Id, Reply);
         [] -> ok
     end.
 
@@ -64,10 +64,11 @@ incoming(#raw_sipmsg{sipapp_id=AppId, call_id=CallId, class={resp, _Code, _}}=Ra
 
 
 
-app_reply(Pid, Type, Pos, Reply) ->
-    gen_server:cast(Pid, {reply, Type, Pos, Reply}).
+app_reply(Pid, Type, Id, Reply) ->
+    gen_server:cast(Pid, {reply, Type, Id, Reply}).
 
-
+get_data(AppId, CallId) ->
+    send({nksip_call, AppId, CallId}, get_data).
 
 
 
@@ -80,7 +81,7 @@ app_reply(Pid, Type, Pos, Reply) ->
 % @private 
 init({Class, AppId, CallId, Method}) ->
     ?debug(AppId, CallId, "CALL ~p started for ~p: ~p", [Class, Method, self()]),
-    nksip_counters:async([nksip_call]),
+    nksip_counters:async([nksip_calls]),
     {Module, Pid} = nksip_sipapp_srv:get_module(AppId),
     AppOpts0 = nksip_sipapp_srv:get_opts(AppId),
     AppOpts = nksip_lib:extract(AppOpts0, [local_host, registrar, no_100]),
@@ -99,10 +100,10 @@ init({Class, AppId, CallId, Method}) ->
 
 
 %% @private
-handle_call({send, #sipmsg{}=Req}, From, SD) ->
+handle_call({send, #sipmsg{}=Req}, From, #call{uacs=UACs}=SD) ->
     UAC = nksip_call_uac:get_uac(Req),
     gen_server:reply(From, {ok, UAC#uac.id}),
-    nksip_call_uac:send(UAC, SD);
+    nksip_call_uac:send(SD#call{uacs=[UAC|UACs]});
 
 handle_call({get_cancel, Id, Opts}, From, SD) ->
     nksip_call_uac:get_cancel(Id, Opts, From, SD);
@@ -135,55 +136,70 @@ handle_call({incoming, #raw_sipmsg{class={resp, _, Binary}}=RawMsg}, From, SD) -
     end;
 
 
-handle_call({get_sipmsg, Pos}, _From, SD) ->
-    {reply, get_request(Pos, SD), SD};
+handle_call({get_sipmsg, Id}, _From, SD) ->
+    {reply, get_request(Id, SD), SD};
 
-handle_call({get_fields, Pos, Fields}, _From, SD) ->
-    Reply = case get_request(Pos, SD) of
+handle_call({get_fields, Id, Fields}, _From, SD) ->
+    Reply = case get_request(Id, SD) of
         {ok, Req} -> nksip_sipmsg:fields(Fields, Req);
         Error -> Error
     end,
     {reply, Reply, SD};
 
-handle_call({get_headers, Pos, Name}, _From, SD) ->
-    Reply = case get_request(Pos, SD) of
+handle_call({get_headers, Id, Name}, _From, SD) ->
+    Reply = case get_request(Id, SD) of
         {ok, Req} -> nksip_sipmsg:headers(Name, Req);
         Error -> Error
     end,
     {reply, Reply, SD};
+
+
+handle_call(get_data, _From, #call{uacs=UACs, uass=UASs, dialogs=Dialogs}=SD) ->
+    {reply, {ok, UACs, UASs, Dialogs}, SD};
 
 handle_call(Msg, _From, SD) ->
     lager:error("Module ~p received unexpected sync event: ~p", [?MODULE, Msg]),
     {noreply, SD}.
 
 
-handle_cast({reply, Fun, Pos, Reply}, SD) ->
+handle_cast({reply, Fun, Id, Reply}, SD) ->
     #call{app_id=AppId, call_id=CallId, uass=Trans} = SD,
-    case lists:keytake(Pos, #uas.pos, Trans) of
-        {value, #uas{call_status=CallStatus}=UAS, RestTrans} ->
+    case lists:keytake(Id, #uas.id, Trans) of
+        {value, #uas{status=Status}=UAS, RestTrans} ->
             SD1 = SD#call{uass=[UAS|RestTrans]},
             case Fun of
-                authorize when CallStatus=:=authorize -> 
+                _ when Status=:=removed ->
+                    ?info(AppId, CallId, "CALL received reply for removed request", []),
+                    {noreply, SD};
+                authorize when Status=:=authorize -> 
                     nksip_call_uas:authorize({reply, Reply}, SD1);
-                route when CallStatus=:=route -> 
+                route when Status=:=route -> 
                     nksip_call_uas:route({reply, Reply}, SD1);
-                process when CallStatus=:=process; CallStatus=:=cancel -> 
-                    nksip_call_uas:process({reply, Reply}, SD1);
-                cancel when CallStatus=:=cancel ->
+                cancel when Status=:=cancel ->
                     nksip_call_uas:cancel({reply, Reply}, SD1);
+                process ->
+                    nksip_call_uas:process({reply, Reply}, SD1);
                 _ ->
                     ?warning(AppId, CallId, 
                              "CALL (~p) received unexpected app reply ~p, ~p, ~p",
-                             [CallStatus, Fun, Pos, Reply]),
+                             [Status, Fun, Id, Reply]),
                     {noreply, SD}
 
             end;
         false ->
             ?warning(AppId, CallId, "CALL received unexpected app reply ~p, ~p, ~p",
-                     [Fun, Pos, Reply]),
+                     [Fun, Id, Reply]),
             {noreply, SD}
     end;
 
+handle_cast({send_id, Id}, #call{uacs=UACs}=SD) ->
+    case lists:keytake(Id, #uac.id, UACs) of
+        {value, UAC, Rest} -> nksip_cal_uac:send(SD#call{uacs=[UAC|Rest]});
+        false -> next(SD)
+    end;
+
+handle_cast({send_no_trans_id, Id}, SD) ->
+    nksip_call_uac:send_no_trans_id(Id, SD);
 
 handle_cast(Msg, SD) ->
     lager:error("Module ~p received unexpected event: ~p", [?MODULE, Msg]),
@@ -212,7 +228,7 @@ handle_info({timeout, _, {uas, Tag, Id}}, #call{uass=Trans}=SD) ->
 handle_info({timeout, _, {dialog, Tag, DialogId}}, #call{dialogs=Dialogs}=SD) ->
     case lists:keytake(DialogId, #dialog.id, Dialogs) of
         {value, Dialog, Rest} ->
-            nksip_call_uas:timer_dialog(Tag, SD#call{dialogs=[Dialog|Rest]});
+            nksip_call_dialog:timer(Tag, SD#call{dialogs=[Dialog|Rest]});
         _ ->
             ?P("IGNORING TIMER ~p", [{dialog, Tag, DialogId}]),
             {noreply, SD}
@@ -260,7 +276,7 @@ send_or_start(Class, AppId, CallId, Method, MsgArgs) ->
     case nksip_proc:values({nksip_call, AppId, CallId}) of
         [] ->
             MaxCalls = nksip_config:get(max_calls),
-            case nksip_counters:value(nksip_call) of
+            case nksip_counters:value(nksip_calls) of
                 Calls when Calls > MaxCalls -> 
                     {error, max_calls};
                 _ ->
@@ -273,16 +289,8 @@ send_or_start(Class, AppId, CallId, Method, MsgArgs) ->
             end;
         [{_, Pid}|_] ->
             case catch gen_server:call(Pid, MsgArgs, ?SRV_TIMEOUT) of
-                {'EXIT', _} ->
-                    timer:sleep(100),
-                    {ok, Pid} = nksip_proc:start(server, {nksip_call, AppId, CallId}, 
-                                                 ?MODULE, StartArgs),
-                    case catch gen_server:call(Pid, MsgArgs, ?SRV_TIMEOUT) of
-                        {'EXIT', Error} -> {error, Error};
-                        Other -> Other
-                    end;
-                Other ->
-                    Other
+                {'EXIT', _} -> {error, try_later};
+                Other -> Other
             end
     end.
 
@@ -312,8 +320,8 @@ next(SD) ->
             end
     end.
 
-get_request(Pos, #call{uass=UASList}) ->
-    case lists:keyfind(Pos, #uas.pos, UASList) of
+get_request(Id, #call{uass=UASList}) ->
+    case lists:keyfind(Id, #uas.id, UASList) of
         #uas{request=Req} -> {ok, Req};
         _ -> {error, not_found}
     end.
