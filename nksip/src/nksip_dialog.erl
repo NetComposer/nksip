@@ -26,9 +26,9 @@
 
 -export([field/2, fields/2, id/1, find_callid/2, stop/1, bye_all/0, stop_all/0]).
 -export([find/1, get_dialog/1, all/0, get_all/0, is_authorized/1]).
--export([remote_id/2]).
+-export([remote_id/2, get_field/2, get_fields/2]).
 
--export_type([id/0, dialog/0, stop_reason/0, spec/0, state/0, field/0]).
+-export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
 
 -include("nksip.hrl").
 
@@ -55,7 +55,7 @@
                 nksip:request() | nksip:response().
 
 %% All dialog states
--type state() :: proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
+-type status() :: proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
                  confirmed | bye | stop.
 
 -type field() :: dialog_id | sipapp_id | call_id | created | updated | answered | 
@@ -391,7 +391,7 @@ get_all() ->
                     {sipapp_id, Dialog#dialog.app_id},
                     {call_id, Dialog#dialog.call_id},
                     {pid, Pid},
-                    {state, Dialog#dialog.state},
+                    {status, Dialog#dialog.status},
                     {local_uri, nksip_unparse:uri(Dialog#dialog.local_uri)},
                     {remote_uri, nksip_unparse:uri(Dialog#dialog.remote_uri)},
                     {created, Dialog#dialog.created},
@@ -439,4 +439,70 @@ call(DialogSpec, Msg) ->
 %% @private
 cast(DialogSpec, Msg) ->
     nksip_dialog_fsm:cast(DialogSpec, Msg).
+
+%% @private
+-spec get_fields([field()], dialog()) -> [any()].
+
+get_fields(Fields, Req) when is_list(Fields) ->
+    [get_field(Field, Req) || Field <- Fields].
+
+
+%% @private Extracts a specific field from the request
+%% See {@link nksip_request:field/2}.
+-spec get_field(field(), dialog()) -> any().
+
+get_field(Type, Dialog) ->
+    #dialog{
+        id = DialogId,
+        app_id = AppId, 
+        call_id = CallId,
+        created = Created,
+        updated = Updated,
+        answered = Answered, 
+        status = Status,
+        % expires = Expires,
+        local_seq = LocalSeq, 
+        remote_seq  = RemoteSeq, 
+        local_uri = LocalUri,
+        remote_uri = RemoteUri,
+        local_target = LocalTarget,
+        remote_target = RemoteTarget,
+        route_set = RouteSet,
+        early = Early,
+        secure = Secure,
+        local_sdp = LocalSdp,
+        remote_sdp = RemoteSdp,
+        stop_reason = StopReason
+    } = Dialog,
+    case Type of
+        id -> DialogId;
+        sipapp_id -> AppId;
+        call_id -> CallId;
+        created -> Created;
+        updated -> Updated;
+        answered -> Answered;
+        status -> Status;
+        % expires -> Expires;
+        local_seq -> LocalSeq; 
+        remote_seq  -> RemoteSeq; 
+        local_uri -> nksip_unparse:uri(LocalUri);
+        parsed_local_uri -> LocalUri;
+        remote_uri -> nksip_unparse:uri(RemoteUri);
+        parsed_remote_uri -> RemoteUri;
+        local_target -> nksip_unparse:uri(LocalTarget);
+        parsed_local_target -> LocalTarget;
+        remote_target -> nksip_unparse:uri(RemoteTarget);
+        parsed_remote_target -> RemoteTarget;
+        route_set -> [nksip_lib:to_binary(Route) || Route <- RouteSet];
+        parsed_route_set -> RouteSet;
+        early -> Early;
+        secure -> Secure;
+        local_sdp -> LocalSdp;
+        remote_sdp -> RemoteSdp;
+        stop_reason -> StopReason;
+        from_tag -> nksip_lib:get_binary(tag, LocalUri#uri.ext_opts);
+        to_tag -> nksip_lib:get_binary(tag, RemoteUri#uri.ext_opts);
+        _ -> <<>> 
+    end.
+
 

@@ -233,8 +233,7 @@ reply(#sipmsg{sipapp_id=AppId, call_id=CallId}=Req, SipReply) ->
         error -> 
             ?warning(AppId, CallId, "Invalid sipreply: ~p, ~p", 
                             [SipReply, erlang:get_stacktrace()]),
-            SipReply1 = nksip_reply:reqreply({internal_error, 
-                                                <<"Invalid Response">>})
+            SipReply1 = reqreply({internal_error, <<"Invalid Response">>})
     end,
     reply(Req, SipReply1).
 

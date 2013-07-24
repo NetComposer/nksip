@@ -88,7 +88,7 @@ proc_request(Req, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=SD
     #sipmsg{sipapp_id=AppId, method=Method, cseq=CSeq, body=Body} = Req,
     ?debug(AppId, CallId, "Dialog ~s proxy request ~p (~p)", 
            [DialogId, Method, StateName]),
-    Class = nksip_dialog_lib:class(Req, SD),
+    Class = nksip_call_dialog:class(Req, SD),
     SD1 = case Class of
         uac when CSeq =< LocalSeq -> SD;
         uac -> SD#dlg_state{dialog=Dialog#dialog{local_seq=CSeq}};
@@ -107,7 +107,7 @@ proc_request(Req, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=SD
                 #sdp{} -> SD1;
                 _ -> SD1#dlg_state{invite_request=InvReq#sipmsg{body=Body}}
             end,
-            SD3 = nksip_dialog_lib:session_update(Class, SD2),
+            SD3 = nksip_call_dialog:session_update(Class, SD2),
             SD4 = SD3#dlg_state{is_first=false, invite_request=undefined, 
                                 invite_response=undefined},
             {confirmed, SD4};
@@ -134,7 +134,7 @@ proc_response(Resp, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=
     ?debug(AppId, CallId, "Dialog ~s proxy response ~p (~p)", 
           [DialogId, Code, StateName]), 
 
-    Class = nksip_dialog_lib:class(Resp, SD),
+    Class = nksip_call_dialog:class(Resp, SD),
     if 
         Method=:='INVITE' andalso CSeq=:=InvReq#sipmsg.cseq andalso
         (StateName=:=init orelse StateName=:=proceeding_uac) ->
@@ -143,12 +143,12 @@ proc_response(Resp, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=
                    {proceeding_uac, SD};
                 Code < 200 ->
                     SD1 = SD#dlg_state{invite_response=Resp},
-                    nksip_dialog_lib:target_update(Class, proceeding_uac, SD1);
+                    nksip_call_dialog:target_update(Class, proceeding_uac, SD1);
                 Code < 300 ->
                     SD1 = SD#dlg_state{invite_response=Resp},
-                    nksip_dialog_lib:target_update(Class, accepted_uac, SD1);
+                    nksip_call_dialog:target_update(Class, accepted_uac, SD1);
                 Code >= 300, Answered =:= undefined ->
-                    Dialog1 = Dialog#dialog{stop_reason=nksip_dialog_lib:reason(Code)},
+                    Dialog1 = Dialog#dialog{stop_reason=nksip_call_dialog:reason(Code)},
                     {stop, SD#dlg_state{dialog=Dialog1}};
                 Code >= 300 ->
                     SD1 = SD#dlg_state{invite_request=undefined, 

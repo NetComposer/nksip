@@ -123,7 +123,7 @@ proc_request2(Req, From, StateName, SD) ->
                 #sdp{} -> SD;
                 _ -> SD#dlg_state{invite_request=InvReq#sipmsg{body=Body}}
             end,
-            SD2 = nksip_dialog_lib:session_update(uas, SD1),
+            SD2 = nksip_call_dialog:session_update(uas, SD1),
             SD3 = SD2#dlg_state{is_first=false, invite_request=undefined, 
                                     invite_response=undefined},
             {confirmed, SD3};
@@ -141,7 +141,7 @@ proc_request2(Req, From, StateName, SD) ->
             {StateName, SD};
         'BYE' ->
             gen_fsm:reply(From, ok),
-            Reason = case nksip_dialog_lib:class(Req, SD) of
+            Reason = case nksip_call_dialog:class(Req, SD) of
                 uac -> caller_bye;
                 uas -> callee_bye
             end,
@@ -177,12 +177,12 @@ proc_response(Resp, StateName, #dlg_state{invite_request=InvReq, dialog=Dialog}=
                     {proceeding_uas, SD1};
                 Code < 200 -> 
                     SD1 = SD#dlg_state{invite_response=Resp},
-                    nksip_dialog_lib:target_update(uas, proceeding_uas, SD1);
+                    nksip_call_dialog:target_update(uas, proceeding_uas, SD1);
                 Code < 300 -> 
                     SD1 = SD#dlg_state{invite_response=Resp},
-                    nksip_dialog_lib:target_update(uas, accepted_uas, SD1);
+                    nksip_call_dialog:target_update(uas, accepted_uas, SD1);
                 Code >= 300, Answered =:= undefined -> 
-                    Dialog1 = Dialog#dialog{stop_reason=nksip_dialog_lib:reason(Code)},
+                    Dialog1 = Dialog#dialog{stop_reason=nksip_call_dialog:reason(Code)},
                     {stop, SD#dlg_state{dialog=Dialog1}};
                 Code >= 300 -> 
                     SD1 = SD#dlg_state{invite_request = undefined, 

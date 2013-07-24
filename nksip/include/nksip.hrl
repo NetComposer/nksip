@@ -154,10 +154,11 @@
     created :: nksip_lib:timestamp(),
     updated :: nksip_lib:timestamp(),
     answered :: nksip_lib:timestamp(),
-    state :: nksip_dialog:state(),
+    status :: nksip_dialog:status(),
     local_seq :: nksip:cseq(),
     remote_seq :: nksip:cseq(),
     local_uri :: nksip:uri(),
+    local_tag :: nksip:tag(),
     remote_uri :: nksip:uri(),
     local_target :: nksip:uri(),        % Only for use in proxy
     remote_target :: nksip:uri(),
@@ -166,14 +167,16 @@
     secure :: boolean(),
     local_sdp :: nksip_sdp:sdp(),
     remote_sdp :: nksip_sdp:sdp(),
+    media_started :: boolean(),
     stop_reason :: nksip_dialog:stop_reason(),
-    inv_req_body :: nksip:body(),         
-    inv_resp_body :: nksip:body(),         
-    inv_cseq :: nksip:cseq(),
-    inv_headers :: [nksip:header()],
+    request :: nksip:request(),
+    response :: nksip:response(),
+    ack :: nksip:request(),
     inv_queue :: queue(),
     remotes :: [{inet:ip_address(), inet:port_number()}],
-    timer :: reference()
+    timeout_timer :: reference(),
+    retrans_timer :: reference(),
+    next_retrans :: integer()
 }).
 
 

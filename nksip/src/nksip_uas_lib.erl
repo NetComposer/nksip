@@ -205,6 +205,9 @@ response(Req, Code, Headers, Body, Opts) ->
         content_type = ContentType,
         body = Body,
         to_tag = ToTag1,
+        auth = [],
+        pid = undefined,
+        transport = undefined,
         opts = nksip_lib:extract(Opts1, MsgOpts)
     }.
 
