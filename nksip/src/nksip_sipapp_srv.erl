@@ -29,7 +29,7 @@
 -behaviour(gen_server).
 
 -export([get_module/1, get_opts/1, reply/2]).
--export([sipapp_call_sync/3, sipapp_call_async/5, sipapp_cast/3, sipapp_cast/4]).
+-export([sipapp_call_sync/3, sipapp_call_async/4, sipapp_cast/3]).
 -export([register/2, get_registered/2, allowed/1]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -63,23 +63,23 @@ get_registered(AppId, Type) ->
 
 %% @private Gets SipApp core's `pid()' and callback module
 -spec get_module(nksip:sipapp_id()) -> 
-    {atom(), pid()} | not_found.
+    {ok, atom(), pid()} | {error, not_found}.
 
 get_module(AppId) ->
     case nksip_proc:values({nksip_sipapp_module, AppId}) of
-        [{Module, Pid}] -> {Module, Pid};
+        [{Module, Pid}] -> {ok, Module, Pid};
         _ -> not_found
     end.
 
 
 %% @private Gets SipApp's core options
 -spec get_opts(nksip:sipapp_id()) -> 
-    nksip_lib:proplist().
+    {ok, nksip_lib:proplist()} | {error, not_found}.
 
 get_opts(Id) ->
     case nksip_proc:values({nksip_sipapp_opts, Id}) of
-        [{Opts, _Pid}] -> Opts;
-        _ -> error(core_not_found)
+        [{Opts, _Pid}] -> {ok, Opts};
+        _ -> {error, not_found}
     end.
 
 
@@ -88,9 +88,14 @@ get_opts(Id) ->
     binary().
 
 allowed(AppId) ->
-    case lists:member(registrar, get_opts(AppId)) of
-        true -> <<(?ALLOW)/binary, ", REGISTER">>;
-        false -> ?ALLOW
+    case get_opts(AppId) of
+        {ok, Opts} ->
+            case lists:member(registrar, Opts) of
+                true -> <<(?ALLOW)/binary, ", REGISTER">>;
+                false -> ?ALLOW
+            end;
+        {error, not_found} ->
+            ?ALLOW
     end.
 
 
@@ -99,8 +104,8 @@ allowed(AppId) ->
     any().
 
 sipapp_call_sync(AppId, Fun, Args) ->
-    case nksip_proc:values({nksip_sipapp_module, AppId}) of
-        [{Module, CorePid}] ->
+    case get_module(AppId) of
+        {ok, Module, CorePid} ->
             case erlang:function_exported(Module, Fun, length(Args)+2) of
                 true ->
                     Msg = {'$nksip_call', Fun, Args},
@@ -114,33 +119,31 @@ sipapp_call_sync(AppId, Fun, Args) ->
                             Other
                     end;
                 false -> 
-                    {reply, Reply, none} = 
-                        apply(nksip_sipapp, Fun, Args++[none, none]),
+                    {reply, Reply, none} = apply(nksip_sipapp, Fun, Args++[none, none]),
                     Reply
             end;
-        _ ->
+        {error, not_found} ->
             {internal_error, <<"Unknown SipApp">>}
     end.
 
 
 %% @private Calls to a function in the siapp's callback module asynchronously
--spec sipapp_call_async(pid(), atom(), atom(), list(), nksip_from()) ->
+-spec sipapp_call_async(nksip:sipapp_id(), atom(), list(), nksip_from()) ->
     ok.
 
-sipapp_call_async(CorePid, Module, Fun, Args, From) ->
-    case erlang:function_exported(Module, Fun, length(Args)+2) of
-        true -> 
-            gen_server:cast(CorePid, {'$nksip_callback', Fun, Args, From});
-        false -> 
-            proc_lib:spawn(
-                fun() ->
-                    {reply, Reply, none} = 
-                        apply(nksip_sipapp, Fun, Args++[none, none]),
+sipapp_call_async(AppId, Fun, Args, From) ->
+    case get_module(AppId) of
+        {ok, Module, CorePid} ->
+            case erlang:function_exported(Module, Fun, length(Args)+2) of
+                true -> 
+                    gen_server:cast(CorePid, {'$nksip_callback', Fun, Args, From});
+                false -> 
+                    {reply, Reply, none} = apply(nksip_sipapp, Fun, Args++[none, none]),
                     reply(From, Reply)
-                end),
-            ok
-
-    end.
+            end;
+        {error, not_found} ->
+            reply(From, {internal_error, <<"Unknown SipApp">>})
+    end.    
 
 
 %% @private Calls a function in the SipApp's callback module asynchronously
@@ -148,24 +151,19 @@ sipapp_call_async(CorePid, Module, Fun, Args, From) ->
     ok.
 
 sipapp_cast(AppId, Fun, Args) ->
-    case nksip_proc:values({nksip_sipapp_module, AppId}) of
-        [{Module, CorePid}] -> sipapp_cast(CorePid, Module, Fun, Args);
-        _ -> ok
-    end.
-
-
-%% @private Calls a function in the SipApp's callback module asynchronously
--spec sipapp_cast(pid(), atom(), atom(), list()) -> 
-    ok.
-
-sipapp_cast(CorePid, Module, Fun, Args) ->
-    case erlang:function_exported(Module, Fun, length(Args)+1) of
-        true -> 
-            gen_server:cast(CorePid, {'$nksip_cast', Fun, Args});
-        false -> 
-            apply(nksip_sipapp, Fun, Args++[none]),
+    case get_module(AppId) of
+        {ok, Module, CorePid} -> 
+            case erlang:function_exported(Module, Fun, length(Args)+1) of
+                true -> 
+                    gen_server:cast(CorePid, {'$nksip_cast', Fun, Args});
+                false -> 
+                    apply(nksip_sipapp, Fun, Args++[none]),
+                    ok
+            end;
+        {error, not_found} -> 
             ok
     end.
+
 
 %% @private
 -spec reply(nksip_from(), term()) -> 

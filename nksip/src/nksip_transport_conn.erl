@@ -65,19 +65,23 @@ start_connection(AppId, Proto, Ip, Port, Opts)
         Current when Current > Max ->
             error;
         _ ->
-            CoreOpts = nksip_sipapp_srv:get_opts(AppId),
-            case get_outbound(AppId, Proto, Ip, Port, Opts++CoreOpts) of
-                {ok, Socket, Transport, Spec} ->
-                    % Starts a new nksip_transport_tcp control process
-                    {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
-                    controlling_process(Proto, Socket, Pid),
-                    setopts(Proto, Socket, [{active, once}]),
-                    ?debug(AppId, "connected to ~s:~p (~p)", 
-                           [nksip_lib:to_binary(Ip), Port, Proto]),
-                    {ok, Pid, Transport};
-                {error, Error} ->
-                    ?info(AppId, "could not connect to ~s, ~p (~p): ~p", 
-                          [nksip_lib:to_binary(Ip), Port, Proto, Error]),
+            case nksip_sipapp_srv:get_opts(AppId) of
+                {ok, CoreOpts} ->
+                    case get_outbound(AppId, Proto, Ip, Port, Opts++CoreOpts) of
+                        {ok, Socket, Transport, Spec} ->
+                            % Starts a new nksip_transport_tcp control process
+                            {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
+                            controlling_process(Proto, Socket, Pid),
+                            setopts(Proto, Socket, [{active, once}]),
+                            ?debug(AppId, "connected to ~s:~p (~p)", 
+                                   [nksip_lib:to_binary(Ip), Port, Proto]),
+                            {ok, Pid, Transport};
+                        {error, Error} ->
+                            ?info(AppId, "could not connect to ~s, ~p (~p): ~p", 
+                                  [nksip_lib:to_binary(Ip), Port, Proto, Error]),
+                            error
+                    end;
+                {error, _} ->
                     error
             end
     end;

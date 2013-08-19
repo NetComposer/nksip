@@ -36,7 +36,7 @@
 %% Types
 %% ===================================================================
 
--type id() :: {req, pid()}.
+-type id() :: {req, nksip:sipapp_id(), nksip:call_id(), integer()}.
 
 -type field() :: local | remote | method | ruri | parsed_ruri | aor | call_id | vias | 
                   parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
@@ -204,7 +204,10 @@ fields(Fields, #sipmsg{}=Request) ->
     nksip_sipmsg:fields(Fields, Request);
 
 fields(Fields, Request) ->
-    call(Request, {get_fields, Fields}).
+    case nksip_call:get_fields(Request, Fields) of
+        {ok, Fields} -> Fields;
+        {error, Error} -> {error, Error}
+    end.
 
 
 %% @doc Gets all `Name' headers from the request.
@@ -214,7 +217,11 @@ headers(Name, #sipmsg{}=Request) ->
     nksip_sipmsg:headers(Name, Request);
 
 headers(Name, Request) ->
-    call(Request, {get_headers, Name}).
+    case nksip_call:get_headers(Request, Name) of
+        {ok, Values} -> Values;
+        {error, Error} -> {error, Error}
+    end.
+
 
 
 %% @doc Gets the <i>method</i> of a `Request'.
@@ -250,7 +257,7 @@ provisional_reply(Request, SipReply) ->
 -spec get_sipmsg(id()) -> nksip:request().
 
 get_sipmsg(Request) -> 
-    call(Request, get_sipmsg).
+    nksip_call:get_sipmsg(Request).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
@@ -277,17 +284,11 @@ is_local_route(Request) ->
     {ok, nksip:response()} | {error, Error}
     when Error :: unknown_request | network_error | invalid_request.
 
-reply({req, Pid}, SipReply) ->
-    nksip_uas_fsm:reply(Pid, SipReply);
+reply({req, AppId, CallId, Id}, SipReply) ->
+    nksip_call:app_reply(AppId, CallId, Id, SipReply);
 reply(_, _) ->
     {error, unknown_request}.
 
-
-%% @private
--spec call(id(), term()) -> any().
-
-call({req, Pid}, Msg) when is_pid(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, Msg, 5000).
 
 
 

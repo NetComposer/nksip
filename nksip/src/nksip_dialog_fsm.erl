@@ -441,7 +441,7 @@ handle_sync_event(get_dialog, _From, StateName, SD) ->
         _Timeout -> ok
     end,
     % Dialog1 = Dialog#dialog{state=StateName, expires=Timeout},
-    Dialog1 = Dialog#dialog{state=StateName},
+    Dialog1 = Dialog#dialog{status=StateName},
     {reply, Dialog1, StateName, SD};
 
 handle_sync_event({fields, Fields}, _From, StateName, SD) ->
@@ -451,7 +451,7 @@ handle_sync_event({fields, Fields}, _From, StateName, SD) ->
         _Timeout -> ok
     end,
     % Dialog1 = Dialog#dialog{state=StateName, expires=Timeout},
-    Dialog1 = Dialog#dialog{state=StateName},
+    Dialog1 = Dialog#dialog{status=StateName},
     {reply, nksip_dialog:fields(Fields, Dialog1), StateName, SD};
 
 handle_sync_event(wait_start, _From, StateName, SD) ->

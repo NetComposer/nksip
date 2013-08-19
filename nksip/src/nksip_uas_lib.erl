@@ -68,11 +68,7 @@ preprocess(#sipmsg{sipapp_id=AppId, call_id=CallId, method=Method, to_tag=ToTag,
             ?debug(AppId, CallId, "UAS absorbed own ACK", []),
             ignore;
         false ->
-            Request1 = Request#sipmsg{
-                vias = [Via1|ViaR],
-                auth = nksip_auth:get_authentication(Request),
-                opts = Opts1
-            },
+            Request1 = Request#sipmsg{vias=[Via1|ViaR], opts=Opts1},
             {ok, preprocess_route(Request1)}
     end.
 
@@ -205,7 +201,6 @@ response(Req, Code, Headers, Body, Opts) ->
         content_type = ContentType,
         body = Body,
         to_tag = ToTag1,
-        auth = [],
         pid = undefined,
         transport = undefined,
         opts = nksip_lib:extract(Opts1, MsgOpts)

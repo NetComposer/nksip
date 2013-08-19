@@ -183,7 +183,7 @@ insert(#raw_sipmsg{sipapp_id=AppId, class=Class, transport=Transport}=RawMsg,
             State;
         #sipmsg{method=Method, transport=#transport{proto=Proto}, 
                 to_tag=ToTag, opts=Opts}=SipMsg -> 
-            CoreOpts = nksip_sipapp_srv:get_opts(AppId),
+            {ok, CoreOpts} = nksip_sipapp_srv:get_opts(AppId),
             CoreOpts1 = nksip_lib:extract(CoreOpts, 
                                           [local_host, registrar, no_100]),
             SipMsg1 = SipMsg#sipmsg{opts=Opts++CoreOpts1},

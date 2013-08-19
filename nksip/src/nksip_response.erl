@@ -34,7 +34,7 @@
 %% Types
 %% ===================================================================
 
--type id() :: {resp, pid()}.
+-type id() :: {resp, nksip:sipapp_id(), nksip:call_id(), integer()}.
 
 -type field() :: local | remote | ruri | parsed_ruri | aor | call_id | vias | 
                   parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
@@ -75,33 +75,49 @@ field(Field, Response) ->
 
 %% @doc Gets a number of fields from the `Response' as described in {@link field/2}.
 -spec fields([field()], Input::id()|nksip:response()) -> [any()].
-fields(Fields, #sipmsg{}=SipMsg) -> nksip_sipmsg:fields(Fields, SipMsg);
-fields(Fields, Response) -> call(Response, {get_fields, Fields}).
+fields(Fields, #sipmsg{}=SipMsg) -> 
+  nksip_sipmsg:fields(Fields, SipMsg);
+
+fields(Fields, Response) -> 
+    case nksip_call:get_fields(Response, Fields) of
+        {ok, Values} -> Values;
+        {error, Error} -> {error, Error}
+    end.
 
 
 %% @doc Gets all `Name' headers from the response.
 -spec headers(string()|binary(), Input::id()|nksip:response()) -> [binary()].
-headers(Name, #sipmsg{}=SipMsg) -> nksip_sipmsg:headers(Name, SipMsg);
-headers(Name, Response) -> call(Response, {get_headers, Name}).
+headers(Name, #sipmsg{}=SipMsg) -> 
+    nksip_sipmsg:headers(Name, SipMsg);
+
+headers(Name, Response) ->
+    case nksip_call:get_headers(Response, Name) of
+        {ok, Values} -> Values;
+        {error, Error} -> {error, Error}
+    end.
 
 
 %% @doc Gets the <i>response code</i> of a `Response'.
 -spec code(Input::id()|nksip:response()) -> nksip:response_code().
-code(Response) -> field(code, Response).
+code(Response) -> 
+    field(code, Response).
 
 
 %% @doc Gets the <i>reason</i> of a `Response'.
 -spec reason(Input::id()|nksip:response()) -> binary.
-reason(Response) ->  field(reason, Response).
+reason(Response) ->  
+    field(reason, Response).
 
 
 %% @doc Gets the <i>dialog id</i> of a `Response'.
 -spec dialog_id(Input::id()|nksip:response()) -> nksip_dialog:id().
-dialog_id(Response) -> field(dialog_id, Response).
+dialog_id(Response) -> 
+    field(dialog_id, Response).
 
 %% @doc Gets the <i>body</i> of a `Response'.
 -spec body(Input::id()|nksip:response()) -> nksip:body().
-body(Response) -> field(body, Response).
+body(Response) -> 
+    field(body, Response).
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after
@@ -116,19 +132,11 @@ wait_491() ->
 -spec get_sipmsg(id()) -> nksip:response().
 
 get_sipmsg(Response) -> 
-    call(Response, get_sipmsg).
+    nksip_call:get_sipmsg(Response).
 
 
 
 %% ===================================================================
 %% Internal
 %% ===================================================================
-
-%% @private
--spec call(id(), term()) -> any().
-
-call({resp, Pid}, Msg) when is_pid(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, Msg, 5000).
-
-
 

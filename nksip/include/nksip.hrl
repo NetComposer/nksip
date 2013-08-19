@@ -95,6 +95,7 @@
 
 -record(sipmsg, {
     class :: request | response,
+    id :: integer(),
     sipapp_id :: nksip:sipapp_id(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
@@ -113,8 +114,7 @@
     response :: nksip:response_code(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
-    auth = [] :: [dialog|register|{digest, Real::binary(), ok|fail}],
-    pid :: pid(),
+    pid :: pid(),   % Remove??
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
     opts = [] :: nksip_lib:proplist()
@@ -148,7 +148,7 @@
 }).
 
 -record(dialog, {
-    id :: nksip_dialog:id(),
+    id :: integer(),
     app_id :: nksip:sipapp_id(),
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),

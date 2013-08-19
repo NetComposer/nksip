@@ -25,72 +25,94 @@
 
 -behaviour(gen_server).
 
--export([send/1, get_cancel/2, make_dialog/3, incoming/1, refresh/1]).
--export([pos2name/1, start_link/1, total/0]).
+-export([send/1, get_cancel/2, make_dialog/3, incoming_async/1, incoming_sync/1]).
+-export([get_sipmsg/1, get_fields/2, get_headers/2]).
+-export([get_dialog/1, get_dialog_fields/2, get_all_dialogs/2, stop_dialog/1]).
+-export([sipapp_reply/5]).
+-export([call_unregister/2, pos2name/1, start_link/1, call/3, cast/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
-%% If we hace more than MAX_MSGS current running UAC or UAS processes,
-%% new UDP requests will be dicarded. Other transports will be queued
-%% until the number of processes goes down.
--define(MAX_MSGS, 1024).
+-define(MAX_CALLS, 1024).
+
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
 
-send(#sipmsg{call_id=CallId}=Req) ->
-    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
-    gen_server:call(pos2name(Pos), {send, Req}, ?SRV_TIMEOUT).    
+send(#sipmsg{sipapp_id=AppId, call_id=CallId}=Req) ->
+    call_or_start(AppId, CallId, {send, Req}).
 
-
-get_cancel(ReqId, Opts) ->
-    nksip_call_srv:cancel(ReqId, Opts).
+get_cancel({req, AppId, CallId, ReqId}, Opts) ->
+    call(AppId, CallId, {get_cancel, ReqId, Opts}).
 
 make_dialog(DialogSpec, Method, Opts) ->
-    nksip_call_srv:make_dialog(DialogSpec, Method, Opts).    
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DialogId} ->
+            call(AppId, CallId, {make_dlg, DialogId, Method, Opts});
+        undefined ->
+            {error, unknown_dialog}
+    end.
 
+
+get_sipmsg({Type, AppId, CallId, Id}) when Type=:=req; Type=:=resp ->
+    call(AppId, CallId, {get_sipmsg, Type, Id}).
+
+get_fields({Type, AppId, CallId, Id}, Fields) when Type=:=req; Type=:=resp ->
+    call(AppId, CallId, {get_fields, Type, Id, Fields}).    
+
+get_headers({Type, AppId, CallId, Id}, Headers) when Type=:=req; Type=:=resp ->
+    call(AppId, CallId, {get_headers, Id, Headers}).    
+
+
+get_dialog(DialogSpec) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DialogId} -> 
+            call(AppId, CallId, {get_dialog, DialogId});
+        undefined -> 
+            {error, unknown_dialog}
+    end.
+
+
+get_dialog_fields(DialogSpec, Fields) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DialogId} ->
+            call(AppId, CallId, {get_dialog_fields, DialogId, Fields});
+        undefined ->
+            {error, unknown_dialog}
+    end.
+
+get_all_dialogs(AppId, CallId) ->
+    call(AppId, CallId, get_all_dialogs).    
+
+
+stop_dialog(DialogSpec) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DialogId} ->
+            cast(AppId, CallId, {stop_dialog, DialogId});
+        undefined ->
+            ok
+    end.
 
 
 %% @private Inserts a new received message into processing queue
--spec incoming(#raw_sipmsg{}) -> ok.
 
-incoming(#raw_sipmsg{call_id=CallId}=RawMsg) ->
-    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
-    gen_server:cast(pos2name(Pos), {incoming, RawMsg}).
+incoming_async(#raw_sipmsg{sipapp_id=AppId, call_id=CallId}=RawMsg) ->
+    cast_or_start(AppId, CallId, {incoming, RawMsg}).
 
-
-
-%% @private Inserts a new received message into processing queue
--spec refresh(nksip:call_id()) -> ok.
-
-refresh(CallId) ->
-    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
-    gen_server:cast(pos2name(Pos), refresh).
+incoming_sync(#raw_sipmsg{sipapp_id=AppId, call_id=CallId}=RawMsg) ->
+    call_or_start(AppId, CallId, {incoming, RawMsg}).
 
 
-%% @private
--spec pos2name(integer()) -> 
-    atom().
+sipapp_reply(AppId, CallId, Fun, Id, Reply) ->
+    cast(AppId, CallId, {sipapp_reply, Fun, Id, Reply}).
 
-pos2name(Pos) ->
-    list_to_atom("nksip_call_"++integer_to_list(Pos)).
-
-
-%% @private
--spec total() ->
-    {integer(), integer()}.
-
-total() ->
-    lists:foldl(
-        fun(Pos, Acc) -> Acc+gen_server:call(pos2name(Pos), total) end,
-        0,
-        lists:seq(0, ?MSG_PROCESSORS-1)).
-
+call_unregister(AppId, CallId) ->
+    cast(AppId, CallId, call_unregister).
 
 
 
@@ -100,71 +122,105 @@ total() ->
 
 
 -record(state, {
-    total :: integer(),
-    queue :: queue()
+    id :: atom(),
+    opts_dict :: dict(),
+    max_calls :: integer()
 }).
 
 
 %% @private
 start_link(Name) ->
-    gen_server:start_link({local, Name}, ?MODULE, [], []).
+    gen_server:start_link({local, Name}, ?MODULE, [Name], []).
         
 %% @private
-init([]) ->
-    {ok, #state{total=0, queue=queue:new()}}.
+init([Id]) ->
+    Id = ets:new(Id, [named_table, protected]),
+    {ok, #state{id=Id, opts_dict=dict:new(), max_calls=?MAX_CALLS}}.
 
 
 %% @private
-handle_call({incoming, RawMsg}, From, State) ->
-    gen_server:reply(From, ok),
-    {noreply, incoming(RawMsg, State)};
-
-handle_call({send, Req}, From, State) ->
-    case nksip_call_srv:send(Req) of
-        {error, try_later} -> 
-            gen_server:cast(self(), {send_again, Req, From}),
-            {norepy, State};
-        Other ->
-            gen_server:reply(From, Other),
-            {noreply, State}
+handle_call({call_or_start, AppId, CallId, Msg}, From, SD) ->
+    case do_call(AppId, CallId, Msg, From, SD) of
+        ok ->
+            {noreply, SD};
+        not_found ->
+            case do_start(AppId, CallId, SD) of
+                {ok, SD1} ->
+                    do_call(AppId, CallId, Msg, From, SD1),
+                    {noreply, SD1};
+                {error, Error} ->
+                    {reply, {error, Error}, SD}
+            end
     end;
 
-handle_call(total, _From, #state{total=Total}=State) -> 
-    {reply, Total, State};
+handle_call({call, AppId, CallId, Msg}, From, SD) ->
+    case do_call(AppId, CallId, Msg, From, SD) of
+        ok -> {noreply, SD};
+        not_found -> {reply, {error, call_not_found}, SD}
+    end;
 
-handle_call(Msg, _From, State) -> 
+handle_call(Msg, _From, SD) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
-    {noreply, State}.
+    {noreply, SD}.
 
 
 %% @private
-handle_cast({incoming, RawMsg}, State) ->
-    {noreply, incoming(RawMsg, State)};
+handle_cast({cast_or_start, AppId, CallId, Msg}, SD) ->
+    case do_cast(AppId, CallId, Msg, SD) of
+        ok ->
+            {noreply, SD};
+        not_found ->
+            case do_start(AppId, CallId, SD) of
+                {ok, SD1} -> 
+                    do_cast(AppId, CallId, Msg, SD1),
+                    {noreply, SD1};
+                {error, _Error} -> 
+                    {noreply, SD}
+            end
+    end;
 
-handle_cast(refresh, State) ->
-    {noreply, insert_next(State)};
 
-handle_cast({send_again, Req, From}, State) ->
-    handle_call({send, Req}, From, State);
+handle_cast({cast, AppId, CallId, call_unregister}, #state{id=Ets}=SD) ->
+    case ets:lookup(Ets, {AppId, CallId}) of
+        [{_, Pid, MRef}] ->
+            gen_server:cast(Pid, {async, call_unregister}),
+            erlang:demonitor(MRef),
+            ets:delete(Ets, Pid), 
+            ets:delete(Ets, {AppId, CallId});
+        [] ->
+            lager:warning("~p received unexpected call_unregister", [?MODULE])
+    end,
+    {noreply, SD};
 
-handle_cast(Msg, State) -> 
-    lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
-    {noreply, State}.
+
+handle_cast({cast, AppId, CallId, Msg}, SD) ->
+    do_cast(AppId, CallId, Msg, SD),
+    {noreply, SD}.
 
 
-%% @private
-handle_info(Info, State) -> 
+handle_info({'DOWN', _MRef, process, Pid, Reason}, #state{id=Ets}=SD) ->
+    lager:warning("~p received unexpected down from ~p: ~p", [?MODULE, Pid, Reason]),
+    case ets:lookup(Ets, Pid) of
+        [{Pid, Id}] ->
+            ets:delete(Ets, Pid), 
+            ets:delete(Ets, Id);
+        [] ->
+            ok
+    end,
+    {noreply, SD};
+
+handle_info(Info, SD) -> 
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
-    {noreply, State}.
+    {noreply, SD}.
 
 
 %% @private
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+code_change(_OldVsn, SD, _Extra) ->
+    {ok, SD}.
 
 
 %% @private
-terminate(_Reason, _State) ->  
+terminate(_Reason, _SD) ->  
     ok.
 
 
@@ -172,50 +228,95 @@ terminate(_Reason, _State) ->
 %% Internal
 %% ===================================================================
 
-%% @private
--spec incoming(#raw_sipmsg{}, #state{}) -> 
-    #state{}.
+call(AppId, CallId, Msg) ->
+    gen_server:call(name(CallId), {call, AppId, CallId, Msg}, ?SRV_TIMEOUT).    
 
-incoming(RawMsg, #state{queue=Queue, total=Total}=State) ->
-    #raw_sipmsg{sipapp_id=AppId, class=Class, call_id=CallId, transport=Transport}=RawMsg,
-    #transport{proto=Proto} = Transport,
-    case nksip_call_srv:incoming(RawMsg) of
-        ok -> 
-            insert_next(State);
-        {error, try_later} ->
-            Queue1 = queue:in(RawMsg, Queue),
-            State#state{total=Total+1, queue=Queue1};
-        {error, max_calls} ->
-            case Proto of
-                udp ->
-                    nksip_trace:insert(AppId, CallId, {discarded, Class}),
-                    State;
-                _ ->
-                    nksip_trace:insert(AppId, CallId, {queue_in, Class}),
-                    Queue1 = queue:in(RawMsg, Queue),
-                    State#state{total=Total+1, queue=Queue1}
+call_or_start(AppId, CallId, Msg) ->
+    gen_server:call(name(CallId), {call_or_start, AppId, CallId, Msg}, ?SRV_TIMEOUT).    
+
+cast(AppId, CallId, Msg) ->
+    gen_server:cast(name(CallId), {cast, AppId, CallId, Msg}).    
+
+cast_or_start(AppId, CallId, Msg) ->
+    gen_server:cast(name(CallId), {cast_or_start, AppId, CallId, Msg}).    
+
+name(CallId) ->
+    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
+    pos2name(Pos).
+
+%% @private
+-spec pos2name(integer()) -> 
+    atom().
+
+pos2name(Pos) ->
+    list_to_atom("nksip_call_"++integer_to_list(Pos)).
+
+
+
+%% @private
+do_call(AppId, CallId, Msg, From, #state{id=Ets}) ->
+    case ets:lookup(Ets, {AppId, CallId}) of
+        [{_, Pid, _MRef}] ->
+            gen_server:cast(Pid, {sync, Msg, From}),
+            ok;
+        [] ->
+            not_found
+    end.
+
+do_cast(AppId, CallId, Msg, #state{id=Ets}) ->
+    case ets:lookup(Ets, {AppId, CallId}) of
+        [{_, Pid, _MRef}] -> gen_server:cast(Pid, {async, Msg});
+        [] -> not_found
+    end.
+
+
+do_start(AppId, CallId, #state{id=Ets, opts_dict=OptsDict, max_calls=Max}=SD) ->
+    case do_start_check(AppId, CallId, Max) of
+        ok ->
+            case do_start_get_opts(AppId, OptsDict) of
+                {ok, Opts, OptsDict1} ->
+                    {ok, Pid} = nksip_call_srv:start(AppId, CallId, Opts),
+                    MRef = erlang:monitor(process, Pid),
+                    Objs = [
+                        {{AppId, CallId}, Pid, MRef},
+                        {Pid, {AppId, CallId}}
+                    ],
+                    true = ets:insert(Ets, Objs),
+                    {ok, SD#state{opts_dict=OptsDict1}};
+                {error, Error} ->
+                    {error, Error}
             end;
         {error, Error} ->
-            ?error(AppId, CallId, "Error ~p inserting sip message", [Error]),
-            insert_next(State)
+            {error, Error}    
     end.
 
 
-insert_next(#state{total=Total, queue=Queue}=State) ->
-    case queue:out(Queue) of
-        {{value, RawMsg}, Queue1} ->
-            #raw_sipmsg{sipapp_id=AppId, call_id=CallId, class=Class} = RawMsg,
-            nksip_trace:insert(AppId, CallId, {queue_out, Class}),
-            incoming(RawMsg, State#state{queue=Queue1, total=Total-1});
-        {empty, Queue1} ->
-            State#state{queue=Queue1, total=0}
+do_start_check(AppId, CallId, Max) ->
+    Calls = nksip_counters:value(nksip_calls),
+    case Calls < Max of
+        true -> 
+            ok;
+        false -> 
+            nksip_trace:insert(AppId, CallId, max_calls),
+            {error, max_calls}
     end.
-      
 
 
-
-
-
+do_start_get_opts(AppId, OptsDict) ->
+    case dict:find(AppId, OptsDict) of
+        {ok, Opts} ->
+            {ok, Opts, OptsDict};
+        error ->
+            case nksip_sipapp_srv:get_opts(AppId) of
+                {ok, Opts0} ->
+                    Opts = nksip_lib:extract(Opts0, 
+                                             [local_host, registrar, no_100]),
+                    OptsDict1 = dict:store(AppId, Opts, OptsDict),
+                    {ok, Opts, OptsDict1};
+                {error, not_found} ->
+                    {error, core_not_found}
+            end
+    end.
 
 
 

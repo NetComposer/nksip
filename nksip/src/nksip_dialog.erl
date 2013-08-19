@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, id/1, find_callid/2, stop/1, bye_all/0, stop_all/0]).
--export([find/1, get_dialog/1, all/0, get_all/0, is_authorized/1]).
+-export([get_dialog/1, all/0, get_all/0, is_authorized/1]).
 -export([remote_id/2, get_field/2, get_fields/2]).
 
 -export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
@@ -39,7 +39,7 @@
 %% ===================================================================
 
 %% SIP Dialog unique ID
--type id() :: binary().
+-type id() :: {dlg, nksip:sipapp_id(), nksip:call_id(), integer()} | undefined.
 
 %% SIP Dialog stop reason
 -type stop_reason() :: caller_bye | callee_bye | cancelled | busy | decline |
@@ -51,12 +51,12 @@
 -type dialog() :: #dialog{}.
 
 %% All the ways to specify a dialog
--type spec() :: id() | nksip_request:id() | nksip_response:id() |
+-type spec() :: id() | dialog() | nksip_request:id() | nksip_response:id() |
                 nksip:request() | nksip:response().
 
 %% All dialog states
 -type status() :: proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
-                 confirmed | bye | stop.
+                  confirmed | bye | stop.
 
 -type field() :: dialog_id | sipapp_id | call_id | created | updated | answered | 
                  state | expires |  local_seq | remote_seq | 
@@ -202,10 +202,18 @@
 -spec field(field(), spec()) -> term() | {error, Error}
     when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
 
+field(Field, #dialog{}=Dialog) ->
+    get_field(Field, Dialog);
+
 field(Field, DialogSpec) -> 
-    case call(DialogSpec, {fields, [Field]}) of
-        [Value|_] -> Value;
-        _ -> error
+    case id(DialogSpec) of
+        {dlg, AppId, CallId, DialogId} ->
+            case nksip_call:get_dialog_fields(AppId, CallId, DialogId, [Field]) of
+                {ok, [Value|_]} -> Value;
+                {error, Error} -> {error, Error}
+            end;
+        undefined ->
+            {error, unknown_dialog}
     end.
 
 
@@ -213,10 +221,15 @@ field(Field, DialogSpec) ->
 -spec fields([field()], id()) -> [term()] | {error, Error}
     when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
 
+fields(Fields, #dialog{}=Dialog) ->
+    get_fields(Fields, Dialog);
+
 fields(Fields, DialogSpec) ->
-    case call(DialogSpec, {fields, Fields}) of
-        Values when is_list(Values) -> Values;
-        _ -> error
+    case id(DialogSpec) of
+        {dlg, AppId, CallId, DialogId} ->
+            nksip_call:get_dialog_fields(AppId, CallId, DialogId, Fields);
+        undefined ->
+            {error, unknown_dialog}
     end.
 
 
@@ -227,11 +240,11 @@ fields(Fields, DialogSpec) ->
 -spec id(spec()) ->
     id().
 
-id(#dialog{id=DialogId}) ->
-    DialogId;
+id(#dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
+    {dlg, AppId, CallId, DialogId};
 
-id(DialogId) when is_binary(DialogId) ->
-    DialogId;
+id({dialog, AppId, CallId, DialogId}) -> 
+    {dlg, AppId, CallId, DialogId};
 
 id(#sipmsg{sipapp_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
         when FromTag =/= <<>>, ToTag =/= <<>> ->
@@ -240,7 +253,7 @@ id(#sipmsg{sipapp_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
 id(#sipmsg{sipapp_id=AppId, call_id=CallId, from_tag=FromTag, opts=Opts})
         when FromTag =/= <<>> ->
     case nksip_lib:get_binary(to_tag, Opts) of
-        <<>> -> <<>>;
+        <<>> -> undefined;
         ToTag -> dialog_id(AppId, CallId, FromTag, ToTag)
     end;
         
@@ -257,7 +270,7 @@ id({resp, Pid}) ->
     end;
 
 id(_) ->
-    <<>>.
+    undefined.
 
 
 %% @doc Finds all existing dialogs' processes having a Call-ID
@@ -265,17 +278,11 @@ id(_) ->
     [id()].
 
 find_callid(AppId, CallId) ->
-    [DialogId || {DialogId, _Pid}
-                 <- nksip_proc:values({nksip_dialog_call_id, {AppId, CallId}})].
-
+    nksip_call:get_dialogs(AppId, CallId).
 
 %% @doc Stops an existing dialog (remove it from memory).
 -spec stop(spec()) ->
-    ok | {error, unknown_dialog}.
-
-stop(DialogSpec) ->
-    cast(DialogSpec, stop).
-
+    ok.
 
 %% @doc Sends an in-dialog BYE to all existing dialogs.
 -spec bye_all() ->
@@ -286,12 +293,15 @@ bye_all() ->
     lists:foreach(Fun, all()).
 
 
+stop(DialogSpec) ->
+    nksip_call:stop_dialog(DialogSpec).
+
 %% @doc Stops all current dialogs.
 -spec stop_all() ->
     ok.
 
 stop_all() ->
-    Fun = fun({_, Pid}) -> cast(Pid, stop) end,
+    Fun = fun({DialogId, _Pid}) -> stop(DialogId) end,
     lists:foreach(Fun, all()).
 
 
@@ -335,26 +345,27 @@ is_authorized(Req) ->
 
 %% @private
 dialog_id(AppId, CallId, FromTag, ToTag) ->
-    if
-        FromTag < ToTag -> nksip_lib:lhash({AppId, CallId, FromTag, ToTag});
-        true -> nksip_lib:lhash({AppId, CallId, ToTag, FromTag})
-    end.
-    
-%% @private Finds an existing dialog's process corresponding to `nksip:request()' 
-%% or `nksip:response()'.
--spec find(spec()) ->
-    not_found | pid().
+    {A, B} = case FromTag < ToTag of
+        true -> {FromTag, ToTag};
+        false -> {ToTag, FromTag}
+    end,
+    {dlg, AppId, CallId, erlang:phash2({A, B})}.
 
-find(DialogSpec) ->
-    case id(DialogSpec) of
-        <<>> -> 
-            not_found;
-        DialogId -> 
-            case nksip_proc:whereis_name({nksip_dialog, DialogId}) of
-                undefined -> not_found;
-                Pid -> Pid
-            end
-    end.
+% %% @private Finds an existing dialog's process corresponding to `nksip:request()' 
+% %% or `nksip:response()'.
+% -spec find(spec()) ->
+%     not_found | pid().
+
+% find(DialogSpec) ->
+%     case id(DialogSpec) of
+%         undefined -> 
+%             not_found;
+%         {dlg, AppId, CallId, DialogId} -> 
+%             case nksip_proc:whereis({nksip_dialog, DialogId}) of
+%                 undefined -> not_found;
+%                 Pid -> Pid
+%             end
+%     end.
 
 
 %% @private
@@ -362,7 +373,7 @@ find(DialogSpec) ->
     when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
 
 get_dialog(DialogSpec) ->
-    call(DialogSpec, get_dialog).
+    nksip_call:get_dialog(DialogSpec).
 
 
 %% @private Get all dialog Ids and Pids.
@@ -430,15 +441,6 @@ remote_id(AppId, DialogId) ->
 %% ===================================================================
 %% Internal
 %% ===================================================================
-
-%% @private
-call(DialogSpec, Msg) ->
-    nksip_dialog_fsm:call(DialogSpec, Msg).
-
-
-%% @private
-cast(DialogSpec, Msg) ->
-    nksip_dialog_fsm:cast(DialogSpec, Msg).
 
 %% @private
 -spec get_fields([field()], dialog()) -> [any()].

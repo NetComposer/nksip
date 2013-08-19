@@ -100,7 +100,7 @@ start(#sipmsg{method=Method, sipapp_id=AppId, call_id=CallId}=Req) ->
 
 launch(#sipmsg{sipapp_id=AppId}=Req) ->
     case nksip_sipapp_srv:get_module(AppId) of
-        {Module, Pid} ->
+        {ok, Module, Pid} ->
             case nksip_uas_lib:preprocess(Req) of
                 {ok, Req1} -> 
                     SD = #state{
@@ -113,7 +113,7 @@ launch(#sipmsg{sipapp_id=AppId}=Req) ->
                     % It is an own-generated ACK without transaction
                     ok
             end;
-        not_found ->
+        {error, not_found} ->
             Reply = {internal_error, "Unknown SipApp"},
             nksip_transport_uas:send_response(Req, Reply),
             ok
@@ -135,7 +135,8 @@ init([]) ->
 
 init(timeout, #state{req=Req}=SD) ->
     #sipmsg{sipapp_id=AppId, method=Method, call_id=CallId,
-            auth=Auth, start=Start, opts=Opts} = Req,
+            start=Start, opts=Opts} = Req,
+    Auth = [],
     nksip_counters:async([nksip_msgs, nksip_uas_fsm]),
     nksip_sipapp_srv:register(AppId, uas_fsm),
     ?debug(AppId, CallId, "UAS FSM started for ~p: ~p", [Method, self()]),

@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([create/4, status_update/2, target_update/1, session_update/1, timer/2]).
--export([remotes_update/2, class/1]).
+-export([find/2, store/2, remotes_update/2, class/1]).
 
 
 %% ===================================================================
@@ -46,9 +46,9 @@ create(Class, DialogId, Req, Resp) ->
         from_tag = FromTag
     } = Req,
     #sipmsg{to=To, to_tag=ToTag} = Resp,
-    ?debug(AppId, CallId, "Dialog ~s (~s) created", [DialogId, Class]),
+    ?debug(AppId, CallId, "Dialog ~p (~s) created", [DialogId, Class]),
     Remotes = [{Ip, Port}],
-    nksip_proc:put({nksip_dialog, DialogId}, Remotes),
+    nksip_proc:put({nksip_dialog, AppId, CallId, DialogId}, Remotes),
     nksip_counters:async([nksip_dialogs, {nksip_dialogs, AppId}]),
     Now = nksip_lib:timestamp(),
     Dialog = #dialog{
@@ -116,7 +116,7 @@ status_update(Status, Dialog) ->
                 true -> 
                     ok;
                 false -> 
-                    ?debug(AppId, CallId, "Dialog ~s swched to ~p", [DialogId, Status]),
+                    ?debug(AppId, CallId, "Dialog ~p switched to ~p", [DialogId, Status]),
                     cast(dialog_update, {status, Status}, Dialog)
             end,
             TimeOut = case Status of
@@ -165,7 +165,7 @@ status_update(Status, Dialog) ->
             remove_pending(Dialog2),
             Dialog2;
         {stop, StopReason} -> 
-            ?debug(AppId, CallId, "Dialog ~s stop: ~p", [DialogId, StopReason]),
+            ?debug(AppId, CallId, "Dialog ~p stop: ~p", [DialogId, StopReason]),
             remove_pending(Dialog2),
             nksip_proc:del({nksip_dialog, DialogId}),
             nksip_counters:async([{nksip_dialogs, -1}, {{nksip_dialogs, AppId}, -1}]),
@@ -269,12 +269,20 @@ target_update(Dialog) ->
 
 session_update(Dialog) ->
     #dialog{
-        request = #sipmsg{body=ReqBody},
-        response = #sipmsg{body=RespBody},
+        request = Req,
+        response = Resp,
         local_sdp = DLocalSDP, 
         remote_sdp = DRemoteSDP, 
         media_started = Started
     } = Dialog, 
+    case Req of
+       #sipmsg{body=ReqBody} -> ok;
+       _ -> ReqBody = undefined
+    end,
+    case Resp of
+       #sipmsg{body=RespBody} -> ok;
+       _ -> RespBody = undefined
+    end,
     case class(Dialog) of
         uac ->
             LocalSDP = case ReqBody of #sdp{} -> ReqBody; _ -> undefined end,
@@ -313,7 +321,7 @@ timer(retrans, #call{app_id=AppId, call_id=CallId, dialogs=[Dialog|Rest]}=SD) ->
     } = Dialog,
     case nksip_transport_uas:resend_response(Resp) of
         {ok, _} ->
-            ?info(AppId, CallId, "Dialog ~s resending ~p ~p response",
+            ?info(AppId, CallId, "Dialog ~p resending ~p ~p response",
                   [DialogId, Method, Code]),
             Dialog1 = Dialog#dialog{
                 retrans_timer = start_timer(Next, retrans, DialogId),
@@ -321,7 +329,7 @@ timer(retrans, #call{app_id=AppId, call_id=CallId, dialogs=[Dialog|Rest]}=SD) ->
             },
             nksip_call_srv:next(SD#call{dialogs=[Dialog1|Rest]});
         error ->
-            ?notice(AppId, CallId, "Dialog ~s could not resend ~p ~p response",
+            ?notice(AppId, CallId, "Dialog ~p could not resend ~p ~p response",
                     [DialogId, Method, Code]),
             status_update({stop, ack_timeout}, Dialog),
             nksip_call_srv:next(SD#call{dialogs=Rest})
@@ -329,8 +337,8 @@ timer(retrans, #call{app_id=AppId, call_id=CallId, dialogs=[Dialog|Rest]}=SD) ->
 
 timer(timeout, #call{dialogs=[Dialog|Rest]}=SD) ->
     #dialog{id=Id, app_id=AppId, call_id=CallId, status=Status} = Dialog,
-    ?notice(AppId, CallId, "Dialog ~s timeout in ~p", [Id, Status]),
-    status_update({stop, timeout}, Dialog),
+    ?notice(AppId, CallId, "Dialog ~p timeout in ~p", [Id, Status]),
+    removed = status_update({stop, timeout}, Dialog),
     nksip_call_srv:next(SD#call{dialogs=Rest}).
 
 
@@ -338,6 +346,24 @@ timer(timeout, #call{dialogs=[Dialog|Rest]}=SD) ->
 %% ===================================================================
 %% Util
 %% ===================================================================
+
+
+find(Id, [#dialog{id=Id}=Dialog|_]) ->
+    Dialog;
+
+find(Id, [_|Rest]) ->
+    find(Id, Rest);
+
+find(_, []) ->
+    not_found.
+
+
+store(#dialog{id=Id}=Dialog, [#dialog{id=Id}]) ->
+    [Dialog];
+
+store(#dialog{id=Id}=Dialog, Dialogs) ->
+    lists:keystore(Id, #dialog.id, Dialogs, Dialog).
+
 
 
 remotes_update(SipMsg, #dialog{id=DialogId, remotes=Remotes}=Dialog) ->
@@ -358,7 +384,7 @@ remotes_update(SipMsg, #dialog{id=DialogId, remotes=Remotes}=Dialog) ->
 remove_pending(#dialog{inv_queue=Queue}=Dialog) ->
     case queue:out(Queue) of
         {{value, Id}, Queue1} ->
-            gen_server:cast(self(), {send_no_trans_id, Id}),
+            gen_server:cast(self(), {send_id, Id}),
             remove_pending(Dialog#dialog{inv_queue=Queue1});
         {empty, Queue1} ->
             Dialog#dialog{inv_queue=Queue1}

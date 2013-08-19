@@ -41,9 +41,9 @@
 
 make(AppId, Method, Uri, Opts) ->
     try
-        Opts1 = case catch nksip_sipapp_srv:get_opts(AppId) of
-            {'EXIT', _} -> throw(unknown_core);
-            CoreOpts -> Opts ++ CoreOpts
+        Opts1 = case nksip_sipapp_srv:get_opts(AppId) of
+            {ok, CoreOpts} -> Opts ++ CoreOpts;
+            {error, not_found} -> throw(unknown_core)
         end,
         case nksip_parse:uris(Uri) of
             [RUri] -> ok;
@@ -181,7 +181,7 @@ make(AppId, Method, Uri, Opts) ->
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{vias=[Via|_], opts=Opts}=Req) ->
+make_cancel(#sipmsg{class=request, vias=[Via|_], opts=Opts}=Req) ->
     Req#sipmsg{
         method = 'CANCEL',
         cseq_method = 'CANCEL',

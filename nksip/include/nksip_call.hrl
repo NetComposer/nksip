@@ -26,6 +26,22 @@
 
 -define(CALL_FINISH_TIMEOUT, 5000).
 
+-define(call_debug(Txt, List, SD),
+        #call{app_id=AppId, call_id=CallId}=SD,
+        ?debug(AppId, CallId, Txt, List)).
+
+-define(call_info(Txt, List, SD),
+        #call{app_id=AppId, call_id=CallId}=SD,
+        ?info(AppId, CallId, Txt, List)).
+
+-define(call_notice(Txt, List, SD),
+        #call{app_id=AppId, call_id=CallId}=SD,
+        ?notice(AppId, CallId, Txt, List)).
+
+-define(call_warning(Txt, List, SD),
+        #call{app_id=AppId, call_id=CallId}=SD,
+        ?warning(AppId, CallId, Txt, List)).
+
 
 -record(raw_sipmsg, {
     sipapp_id :: nksip:sipapp_id(),
@@ -39,12 +55,10 @@
 
 
 -record(uas, {
-    % pos :: nksip:cseq(),
-    id :: binary(),
+    trans_id :: integer(),
     status :: nksip_call_uas:status(),
-    % trans_status :: nksip_call_uas:trans_status(),
     request :: nksip:request(),
-    response :: nksip:response(),
+    responses = [] :: [nksip:response()],
     loop_id :: binary(),
     s100_timer :: reference(),
     timeout_timer :: reference(),
@@ -55,7 +69,7 @@
 }).
 
 -record(uac, {
-    id :: binary(),
+    trans_id :: integer(),
     status :: nksip_call_uac:status(),
     request :: nksip:request(),
     responses = [] :: [nksip:response()],
@@ -65,7 +79,7 @@
     retrans_timer :: reference(),
     next_retrans :: nksip_lib:timestamp(),
     expire_timer :: reference(),
-    cancel :: {reply, from(), nksip:request()},
+    cancel :: {from(), nksip:request()},
     iter = 1 :: integer()
 }).
 
@@ -73,11 +87,11 @@
 -record(call, {
     app_id :: nksip:sipapp_id(),
     call_id :: nksip:call_id(),
-    module :: atom(),
-    app_pid :: pid(),
     app_opts :: nksip_lib:proplist(),
-    uass = [] :: [#uas{}],
+    next :: integer(),
     uacs = [] :: [#uac{}],
+    uass = [] :: [#uas{}],
+    sipmsgs = [] :: [{integer(), uac|uas, binary()}],
     dialogs = [] :: [nksip_dialog:dialog()],
     msg_queue :: queue(),
     blocked :: boolean()
