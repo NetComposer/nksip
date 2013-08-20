@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/kalta/nksip.png)](https://travis-ci.org/kalta/nksip)
+
 Introduction
 ============
 
