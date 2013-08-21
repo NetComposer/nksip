@@ -127,6 +127,11 @@ pending_msgs() ->
 %% @private
 start_link() -> 
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+%% @private
+-spec stop() -> ok.
+stop() ->
+    gen_server:call(?MODULE, stop).
         
 %% @private
 init([]) ->
@@ -142,6 +147,9 @@ handle_call({incr, Name, Value, Pid}, _From, State) ->
 handle_call({del, Name, Pid}, _From, State) ->
     unregister(Name, Pid),
     {reply, ok, State};
+
+handle_call(stop, _from, State) ->
+    {stop, normal, ok, State};
 
 handle_call(Msg, _From, State) ->
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
@@ -294,18 +302,18 @@ basic_test_() ->
     {setup, 
         fun() -> 
             ?debugFmt("Starting ~p", [?MODULE]),
-            case whereis(?MODULE) of
-                undefined -> 
-                    {ok, _} = gen_server:start({local, ?MODULE}, ?MODULE, [], []),
-                    do_stop;
-                _ -> 
-                    ok
+            case start_link() of
+                {error, {already_started, _}} ->
+                    ok;
+                {ok, _} ->
+                    do_stop
             end
         end,
         fun(Stop) -> 
-            case Stop of 
-                do_stop -> exit(whereis(?MODULE), normal); 
-                ok -> ok end
+            case Stop of
+                do_stop -> stop();
+                ok -> ok
+            end
         end,
         [
             fun test_count/0,
