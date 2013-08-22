@@ -20,15 +20,17 @@
 
 %% @private 
 
--module(nksip_call).
+-module(nksip_call_proxy).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -behaviour(gen_server).
 
 -export([send/1, get_cancel/2, make_dialog/3, incoming_async/1, incoming_sync/1]).
--export([get_sipmsg/1, get_fields/2, get_headers/2]).
--export([get_dialog/1, get_dialog_fields/2, get_all_dialogs/2, stop_dialog/1]).
--export([sipapp_reply/5]).
+-export([get_sipmsg/1, get_fields/2, get_field/2, get_headers/2]).
+-export([get_all_calls/0, get_all_sipmsgs/0]).
+-export([get_dialog/1, get_dialog_fields/2, get_dialogs/2, get_all_dialogs/0]).
+-export([stop_dialog/1, stop_all_dialogs/0]).
+-export([sipapp_reply/5, pending_msgs/0, get_data/2]).
 -export([call_unregister/2, pos2name/1, start_link/1, call/3, cast/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
@@ -37,6 +39,7 @@
 -include("nksip_call.hrl").
 
 -define(MAX_CALLS, 1024).
+-define(CHECK_TIME, 5000).
 
 
 %% ===================================================================
@@ -53,17 +56,28 @@ get_cancel({req, AppId, CallId, ReqId}, Opts) ->
 make_dialog(DialogSpec, Method, Opts) ->
     case nksip_dialog:id(DialogSpec) of
         {dlg, AppId, CallId, DialogId} ->
-            call(AppId, CallId, {make_dlg, DialogId, Method, Opts});
+            case call(AppId, CallId, {make_dialog, DialogId, Method, Opts}) of
+                {error, call_not_found} -> {error, unknown_dialog};
+                Other -> Other
+            end;
         undefined ->
             {error, unknown_dialog}
     end.
 
 
 get_sipmsg({Type, AppId, CallId, Id}) when Type=:=req; Type=:=resp ->
-    call(AppId, CallId, {get_sipmsg, Type, Id}).
+    call(AppId, CallId, {get_sipmsg, Id}).
 
-get_fields({Type, AppId, CallId, Id}, Fields) when Type=:=req; Type=:=resp ->
-    call(AppId, CallId, {get_fields, Type, Id, Fields}).    
+get_fields({Type, AppId, CallId, Id}, Fields) 
+           when is_list(Fields), Type=:=req; Type=:=resp ->
+    call(AppId, CallId, {get_fields, Id, Fields}).    
+
+
+get_field(Id, Field) when is_atom(Field) ->
+    case get_fields(Id, [Field]) of
+        {ok, [Result]} -> {ok, Result};
+        {error, Error} -> {error, Error}
+    end.
 
 get_headers({Type, AppId, CallId, Id}, Headers) when Type=:=req; Type=:=resp ->
     call(AppId, CallId, {get_headers, Id, Headers}).    
@@ -86,8 +100,50 @@ get_dialog_fields(DialogSpec, Fields) ->
             {error, unknown_dialog}
     end.
 
-get_all_dialogs(AppId, CallId) ->
-    call(AppId, CallId, get_all_dialogs).    
+get_dialogs(AppId, CallId) ->
+    call(AppId, CallId, get_dialogs).    
+
+
+get_sipmsgs(AppId, CallId) ->
+    call(AppId, CallId, get_sipmsgs).    
+
+
+get_all_calls() ->
+    Fun = fun(Name, Acc) -> 
+        {ok, Calls} = gen_server:call(Name, get_all_calls),
+        [Calls|Acc] 
+    end,
+    lists:flatten(fold(Fun)).
+
+
+get_all_dialogs() ->
+    Fun = fun(Name, Acc) -> 
+        {ok, Calls} = gen_server:call(Name, get_all_calls),
+        CallDialogs = lists:foldl(
+            fun({AppId, CallId}, DlgAcc) -> 
+                {ok, Dialogs} = get_dialogs(AppId, CallId),
+                [Dialogs|DlgAcc]    
+            end,
+            [],
+            Calls),
+        [CallDialogs|Acc]
+    end,
+    lists:flatten(fold(Fun)).
+
+
+get_all_sipmsgs() ->
+    Fun = fun(Name, Acc) -> 
+        {ok, Calls} = gen_server:call(Name, get_all_calls),
+        CallMsgs = lists:foldl(
+            fun({AppId, CallId}, MsgAcc) -> 
+                {ok, Msgs} = get_sipmsgs(AppId, CallId),
+                [Msgs|MsgAcc]    
+            end,
+            [],
+            Calls),
+        [CallMsgs|Acc]
+    end,
+    lists:flatten(fold(Fun)).
 
 
 stop_dialog(DialogSpec) ->
@@ -98,21 +154,12 @@ stop_dialog(DialogSpec) ->
             ok
     end.
 
-
-%% @private Inserts a new received message into processing queue
-
-incoming_async(#raw_sipmsg{sipapp_id=AppId, call_id=CallId}=RawMsg) ->
-    cast_or_start(AppId, CallId, {incoming, RawMsg}).
-
-incoming_sync(#raw_sipmsg{sipapp_id=AppId, call_id=CallId}=RawMsg) ->
-    call_or_start(AppId, CallId, {incoming, RawMsg}).
+stop_all_dialogs() ->
+    lists:foreach(
+        fun({Dlg, _}) -> stop_dialog(Dlg) end,
+        get_all_dialogs()).
 
 
-sipapp_reply(AppId, CallId, Fun, Id, Reply) ->
-    cast(AppId, CallId, {sipapp_reply, Fun, Id, Reply}).
-
-call_unregister(AppId, CallId) ->
-    cast(AppId, CallId, call_unregister).
 
 
 
@@ -135,6 +182,7 @@ start_link(Name) ->
 %% @private
 init([Id]) ->
     Id = ets:new(Id, [named_table, protected]),
+    erlang:start_timer(?CHECK_TIME, self(), check),
     {ok, #state{id=Id, opts_dict=dict:new(), max_calls=?MAX_CALLS}}.
 
 
@@ -158,6 +206,22 @@ handle_call({call, AppId, CallId, Msg}, From, SD) ->
         ok -> {noreply, SD};
         not_found -> {reply, {error, call_not_found}, SD}
     end;
+
+handle_call(get_all_calls, From, #state{id=Ets}=SD) ->
+    spawn(
+        fun() ->
+            Calls = ets:foldl(
+                fun(Record, Acc) ->
+                    case Record of
+                        {{AppId, CallId}, _Pid, _MRef} -> [{AppId, CallId}|Acc];
+                        _ -> Acc
+                    end
+                end,
+                [],
+                Ets),
+            gen_server:reply(From, {ok, Calls})
+        end),
+    {noreply, SD};
 
 handle_call(Msg, _From, SD) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
@@ -198,6 +262,13 @@ handle_cast({cast, AppId, CallId, Msg}, SD) ->
     {noreply, SD}.
 
 
+handle_info({timeout, _, check}, #state{id=Id}=SD) ->
+    Now = nksip_lib:timestamp(),
+    Self = self(),
+    spawn_link(fun() -> launch_check(Id, Now, Self) end),
+    {noreply, SD};
+
+
 handle_info({'DOWN', _MRef, process, Pid, Reason}, #state{id=Ets}=SD) ->
     lager:warning("~p received unexpected down from ~p: ~p", [?MODULE, Pid, Reason]),
     case ets:lookup(Ets, Pid) of
@@ -228,6 +299,41 @@ terminate(_Reason, _SD) ->
 %% Internal
 %% ===================================================================
 
+%% @private Inserts a new received message into processing queue
+
+% incoming for responses wouldn't need to start the process,
+% but this way it is logged
+incoming_async(#raw_sipmsg{sipapp_id=AppId, call_id=CallId, class=Class}=RawMsg) ->
+    case Class of
+        {req, _, _} -> cast_or_start(AppId, CallId, {incoming, RawMsg});
+        {resp, _, _} -> cast(AppId, CallId, {incoming, RawMsg})
+    end.
+
+incoming_sync(#raw_sipmsg{sipapp_id=AppId, call_id=CallId, class=Class}=RawMsg) ->
+    case Class of
+        {req, _, _} -> call_or_start(AppId, CallId, {incoming, RawMsg});
+        {resp, _, _} -> call(AppId, CallId, {incoming, RawMsg})
+    end.
+
+sipapp_reply(AppId, CallId, Fun, Id, Reply) ->
+    cast(AppId, CallId, {sipapp_reply, Fun, Id, Reply}).
+
+call_unregister(AppId, CallId) ->
+    cast(AppId, CallId, call_unregister).
+
+pending_msgs() ->
+    fold(
+        fun(Name, Acc) ->
+            Pid = whereis(Name),
+            {_, Len} = erlang:process_info(Pid, message_queue_len),
+            Acc + Len
+        end,
+        0).
+
+get_data(AppId, CallId) ->
+    call(AppId, CallId, get_data).
+
+
 call(AppId, CallId, Msg) ->
     gen_server:call(name(CallId), {call, AppId, CallId, Msg}, ?SRV_TIMEOUT).    
 
@@ -249,7 +355,7 @@ name(CallId) ->
     atom().
 
 pos2name(Pos) ->
-    list_to_atom("nksip_call_"++integer_to_list(Pos)).
+    list_to_atom("nksip_call_proxy_"++integer_to_list(Pos)).
 
 
 
@@ -318,5 +424,27 @@ do_start_get_opts(AppId, OptsDict) ->
             end
     end.
 
+launch_check(Id, Now, MainPid) ->
+    call_fold(Id, fun(Pid) -> gen_server:cast(Pid, {do_check, Now}) end),
+    erlang:start_timer(?CHECK_TIME, MainPid, check).
 
 
+fold(Fun) ->
+    fold(Fun, []).
+
+fold(Fun, Init) ->
+    lists:foldl(
+        fun(Pos, Acc) -> Fun(pos2name(Pos), Acc) end,
+        Init,
+        lists:seq(0, ?MSG_PROCESSORS-1)).
+
+call_fold(Id, Fun) ->
+    ets:foldl(
+        fun(Record, _) ->
+            case Record of
+                {Pid, _} when is_pid(Pid) -> Fun(Pid);
+                _ -> ok
+            end
+        end,
+        ok,
+        Id).

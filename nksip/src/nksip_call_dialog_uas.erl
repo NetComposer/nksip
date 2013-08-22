@@ -28,23 +28,22 @@
 
 -export([request/2, response/3]).
 -import(nksip_call_dialog, [create/4, status_update/2, remotes_update/2, 
-                            find/2, store/2]).
+                            find/2, update/2]).
 
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
-%% @private Called when a SipApp UAS receives a new request.
-request(#sipmsg{cseq=CSeq, method=Method}=Req, #call{dialogs=Dialogs}=SD) ->
+request(#sipmsg{cseq=CSeq, method=Method}=Req, Dialogs) ->
     case nksip_dialog:id(Req) of
         undefined ->
             no_dialog;
-        {dlg, _, _, DialogId} ->
+        {dlg, AppId, CallId, DialogId} ->
             case find(DialogId, Dialogs) of
                 #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
-                    ?call_debug("Dialog ~p UAS request ~p (~p)", 
-                                [DialogId, Method, Status], SD),
+                    ?debug(AppId, CallId, "Dialog ~p UAS request ~p (~p)", 
+                                [DialogId, Method, Status]),
                     case 
                         Method=/='ACK' andalso
                         RemoteSeq=/=undefined andalso CSeq<RemoteSeq 
@@ -53,12 +52,14 @@ request(#sipmsg{cseq=CSeq, method=Method}=Req, #call{dialogs=Dialogs}=SD) ->
                             {error, old_cseq};
                         false -> 
                             case do_request(Method, Status, Req, Dialog) of
-                                {ok, Dialog1} -> {ok, DialogId, store(Dialog1, Dialogs)};
-                                {error, Error} -> {error, Error}
+                                {ok, Dialog1} -> 
+                                    {ok, DialogId, update(Dialog1, Dialogs)};
+                                {error, Error} -> 
+                                    {error, Error}
                             end
                     end;
                 not_found ->
-                    no_dialog
+                    {error, finished}
             end
     end.
             
@@ -92,15 +93,17 @@ do_request('ACK', accepted_uas, Req, Dialog) ->
             {error, invalid}
     end;
 
+do_request('ACK', _Status, _Req, _Dialog) ->
+    {error, invalid};
+
 do_request('BYE', Status, Req, Dialog) ->
     case Status of
         confirmed -> 
             ok;
         _ ->
             #sipmsg{sipapp_id=AppId, call_id=CallId} = Req,
-            #dialog{id=DialogId} = Dialog,
             ?debug(AppId, CallId, "Dialog ~s received BYE in ~p", 
-                   [DialogId, Status])
+                   [Dialog#dialog.id, Status])
     end,
     {ok, status_update(bye, Dialog)};
 
@@ -110,31 +113,28 @@ do_request(_, _, _, Dialog) ->
 
 
 %% @private Called to send an in-dialog response
-response(Req, Resp, #call{dialogs=Dialogs}=SD) ->
-    #sipmsg{method=Method} = Req, 
-    #sipmsg{response=Code} = Resp,
+response(#sipmsg{method=Method}=Req,  #sipmsg{response=Code}=Resp, Dialogs) ->
     case nksip_dialog:id(Resp) of
         undefined ->
-            SD;
-        {dlg, _, _, DialogId} ->
+            Dialogs;
+        {dlg, AppId, CallId, DialogId} ->
             case find(DialogId, Dialogs) of
-                #dialog{status=Status} = Dialog ->
-                    ?call_debug("Dialog ~p UAS response ~p (~p)", 
-                                [DialogId, Code, Status], SD),
-                    Dialogs1 = case do_response(Method, Code, Req, Resp, Dialog) of
+                #dialog{status=Status}=Dialog ->
+                    ?debug(AppId, CallId, "Dialog ~p UAS response ~p (~p)", 
+                                [DialogId, Code, Status]),
+                    case do_response(Method, Code, Req, Resp, Dialog) of
                         {ok, Dialog1} -> 
                             Dialog2 = remotes_update(Req, Dialog1),
-                            store(Dialog2, Dialogs);
+                            update(Dialog2, Dialogs);
                         {stop, Reason} -> 
                             removed = status_update({stop, Reason}, Dialog),
                             lists:keydelete(DialogId, #dialog.id, Dialogs)
-                    end,
-                    SD#call{dialogs=Dialogs1};
+                    end;
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = create(uas, DialogId, Req, Resp),
-                    response(Req, Resp, SD#call{dialogs=[Dialog|Dialogs]});
+                    response(Req, Resp, [Dialog|Dialogs]);
                 not_found ->
-                    SD
+                    Dialogs
             end
     end.
 

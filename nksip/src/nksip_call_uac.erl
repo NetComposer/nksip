@@ -23,67 +23,86 @@
 -module(nksip_call_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send/2, received/2, get_cancel/4, timer/3]).
+-export([send/2, received/2, get_cancel/4, make_dialog/5, timer/3]).
 -export_type([status/0]).
+-import(nksip_call_lib, [update/2, start_timer/2, cancel_timers/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
 
 -define(MAX_AUTH_TRIES, 5).
+-define(MAX_UAC_TRANS, 900).
 
 
 %% ===================================================================
 %% Types
 %% ===================================================================
 
-% -type call_status() :: check | accept.
-
--type status() :: wait_invite |
-                  invite_calling | invite_proceeding | invite_accepted |
+-type status() :: invite_calling | invite_proceeding | invite_accepted |
                   invite_completed |
                   trying | proceeding | completed |
-                  removed.
+                  finished | ack.
 
 
-send(#sipmsg{method=Method, opts=Opts}=Req, SD) ->
-    #call{next=Next, uacs=UACs, sipmsgs=SipMsgs} = SD,
+send(#sipmsg{method=Method}=Req, SD) ->
     Req1 = case Method of 
-        'CANCEL' -> Req#sipmsg{id=Next};
-        _ -> nksip_transport_uac:add_via(Req#sipmsg{id=Next})
+        'CANCEL' -> Req;
+        _ -> nksip_transport_uac:add_via(Req)
     end,
+    {UAC, SD1} = add_request(Req1, SD),
+    #trans{trans_id=TransId, request=#sipmsg{id=ReqId}} = UAC,
+    ?call_debug("UAC sending request ~p (ReqId:~p, TransId:~p)",
+                [Method, ReqId, TransId], SD1),
+    do_send(UAC, SD1).
+
+
+add_request(Req, SD) ->
+    #sipmsg{method=Method, opts=Opts} = Req, 
+    #call{next=ReqId, msgs=Msgs, trans=Trans, msg_keep_time=Keep} = SD,
     case nksip_lib:get_value(respfun, Opts) of
         Fun when is_function(Fun, 1) -> ok;
         _ -> Fun = fun(_) -> ok end
     end,
-    TransId = transaction_id(Req1),
     Status = case Method of
+        'ACK' -> ack;
         'INVITE'-> invite_calling;
         _ -> trying
     end,
-    UAC = #uac{
+    TransId = transaction_id(Req),
+    Expire = nksip_lib:timestamp() + Keep,
+    UAC = #trans{
+        class = uac,
         trans_id = TransId,
         status = Status,
-        request = Req1,
+        start = nksip_lib:timestamp(),
+        request = Req#sipmsg{id=ReqId, expire=Expire},
         responses = [],
         respfun = Fun,
         iter = 1
     },
-    SipMsgs1 = [{Next, uac, TransId}|SipMsgs],
-    SD1 = SD#call{next=Next+1, sipmsgs=SipMsgs1, uacs=[UAC|UACs]},
-    do_send(SD1).
+    Msg = #msg{
+        msg_id = ReqId, 
+        msg_class = req, 
+        expire = Expire,
+        trans_class = uac, 
+        trans_id = TransId
+    },
+    nksip_counters:async([nksip_msgs]),
+    {UAC, SD#call{next=ReqId+1, msgs=[Msg|Msgs], trans=[UAC|Trans]}}.
 
 
-do_send(#call{uacs=[#uac{request=Req}=UAC|Rest]}=SD) ->
-    #sipmsg{id=ReqId, method=Method} = Req,
-    case nksip_call_dialog_uac:request(Req, SD) of
-        {bye, SD1} ->
+do_send(UAC, SD) ->
+    #trans{request=#sipmsg{id=ReqId, method=Method}=Req} = UAC,
+    #call{dialogs=Dialogs} = SD,
+    case nksip_call_dialog_uac:request(Req, Dialogs) of
+        finished ->
             Reply = nksip_reply:reply(Req, no_transaction),
-            received(Reply, SD1);
-        {wait, SD1} ->
-            UAC1 = UAC#uac{status=wait_invite},
-            next(SD1#call{uacs=[UAC1|Rest]});
-        {ok, SD1} ->
+            received(Reply, SD);
+        request_pending ->
+            Reply = nksip_reply:reply(Req, request_pending),
+            received(Reply, SD);
+        {ok, Dialogs1} ->
             Send = case Method of 
                 'CANCEL' -> nksip_transport_uac:resend_request(Req);
                 _ -> nksip_transport_uac:send_request(Req)
@@ -91,134 +110,107 @@ do_send(#call{uacs=[#uac{request=Req}=UAC|Rest]}=SD) ->
             case Send of
                 {ok, SentReq} ->
                     ?call_debug("UAC sent ~p (~p) request", [Method, ReqId], SD),
-                    UAC1 = sent_method(Method, UAC#uac{request=SentReq}),
-                    SD2 = SD1#call{uacs=[UAC1|Rest]},
-                    SD3 = case Method of 
-                        'ACK' -> nksip_call_dialog_uac:ack(SentReq, SD2);
-                        _ -> SD2
+                    Dialogs2 = case Method of 
+                        'ACK' -> nksip_call_dialog_uac:ack(SentReq, Dialogs1);
+                        _ -> Dialogs1
                     end,
+                    UAC1 = sent_method(Method, UAC#trans{request=SentReq}),
                     reply_request(UAC1),
-                    next(SD3);
+                    next(update(UAC1, SD#call{dialogs=Dialogs2}));
+                error when Method=:='ACK' ->
+                    ?call_debug("UAC error sending 'ACK' (~p) request", [ReqId], SD),
+                    UAC1 = UAC#trans{status=finished},
+                    next(update(UAC1, SD#call{dialogs=Dialogs1}));
                 error ->
                     ?call_debug("UAC error sending ~p (~p) request", 
                                 [Method, ReqId], SD),
                     Reply = nksip_reply:reply(Req, service_unavailable),
-                    received(Reply, SD1)
+                    received(Reply, SD#call{dialogs=Dialogs1})
             end
     end.
 
 
-sent_method('INVITE', #uac{request=Req}=UAC) ->
-    #sipmsg{transport=#transport{proto=Proto}, opts=Opts} = Req,
-    ExpireTimer = case nksip_parse:header_integers(<<"Expires">>, Req) of
-        [Expires|_] when Expires > 0 -> 
-            case lists:member(no_uac_expire, Opts) of
-                true -> undefined;
-                _ -> start_timer(1000*Expires, expire, UAC)
-            end;
-        _ ->
-            undefined
-    end,
-    T1 = nksip_config:get(timer_t1),
-    UAC1 = UAC#uac{
-        status = invite_calling,
-        timeout_timer = start_timer(64*T1, timer_b, UAC),
-        expire_timer = ExpireTimer
-    },
+sent_method('INVITE', #trans{request=Req}=UAC) ->
+    #sipmsg{transport=#transport{proto=Proto}} = Req,
+    UAC1 = start_timer(expire, UAC#trans{status=invite_calling}),
+    UAC2 = start_timer(timer_b, UAC1),
     case Proto of 
-        udp ->
-            UAC1#uac{
-                retrans_timer = start_timer(T1, timer_a, UAC),
-                next_retrans = 2*T1
-            };
-        _ ->
-            UAC1
+        udp -> start_timer(timer_a, UAC2);
+        _ -> UAC2
     end;
 
-% Maintain ACK to resend if neccesary
 sent_method('ACK', UAC) ->
-    T1 = nksip_config:get(timer_t1),
-    UAC#uac{
-        status = completed,
-        timeout_timer = start_timer(64*T1, remove, UAC)
-    };
+    UAC#trans{status=finished};
     
-sent_method(_Other, #uac{request=Req}=UAC) ->
+sent_method(_Other, #trans{request=Req}=UAC) ->
     #sipmsg{transport=#transport{proto=Proto}} = Req,
-    T1 = nksip_config:get(timer_t1),
-    UAC1 = UAC#uac{
-        status = trying,
-        timeout_timer = start_timer(64*T1, timer_f, UAC)
-    },
-    case Proto of
-        udp ->
-            UAC1#uac{
-                retrans_timer = start_timer(T1, timer_e, UAC),
-                next_retrans = 2*T1
-            };
-        _ ->
-            UAC1
+    UAC1 = start_timer(timer_f, UAC#trans{status=trying}),
+    case Proto of 
+        udp -> start_timer(timer_e, UAC1);
+        _ -> UAC1
     end.
     
 
-received(Resp, SD) ->
+received(Resp, #call{trans=Trans}=SD) ->
     #sipmsg{response=Code, cseq_method=Method} = Resp,
-    #call{uacs=UACs, sipmsgs=SipMsgs, next=Next} = SD,
     TransId = transaction_id(Resp),
-    case lists:keytake(TransId, #uac.trans_id, UACs) of
-        {value, UAC, Rest} ->
-            #uac{
-                status = Status, 
-                request = #sipmsg{ruri=RUri} = Req, 
-                responses = Resps
-            } = UAC,
-            Resp1 = Resp#sipmsg{id=Next, ruri=RUri},
-            UAC1 = UAC#uac{responses=[Resp1|Resps]},
-            SipMsgs1 = [{Next, uac, TransId}|SipMsgs],
-            SD1 = SD#call{uacs=[UAC1|Rest], sipmsgs=SipMsgs1, next=Next+1},
-            do_received(Req, Resp1, Status, SD1);
-        false ->
-            ?call_notice("received ~p ~p unknown response (~s)", 
+    case lists:keyfind(TransId, #trans.trans_id, Trans) of
+        #trans{class=uac, status=finished} ->
+            ?call_notice("received ~p ~p response for finished request (~p)", 
+                         [Method, Code, TransId], SD),
+            next(SD);
+        #trans{class=uac}=UAC ->
+            {Resp1, UAC1, SD1} = add_response(Resp, UAC, SD),
+            do_received(Resp1, UAC1, SD1);
+        _ ->
+            ?call_notice("received ~p ~p response for unknown request (~p)", 
                          [Method, Code, TransId], SD),
             next(SD)
     end.
 
 
-do_received(#sipmsg{method=Method}, _Resp, removed, SD) ->
-    ?call_notice("UAC received ~p response for removed request", [Method], SD),
-    next(SD);
+add_response(Resp, UAC, SD) ->
+    #trans{trans_id=TransId, request=Req, responses=Resps} = UAC,
+    #sipmsg{ruri=RUri} = Req,
+    #call{next=RespId, msgs=Msgs, msg_keep_time=Keep} = SD,
+    Expire = nksip_lib:timestamp() + Keep,
+    Resp1 = Resp#sipmsg{id=RespId, ruri=RUri, expire=Expire},
+    UAC1 = UAC#trans{responses=[Resp1|Resps]},
+    Msg = #msg{
+        msg_id = RespId, 
+        msg_class = resp, 
+        expire = Expire,
+        trans_class = uac, 
+        trans_id = TransId
+    },
+    nksip_counters:async([nksip_msgs]),
+    {Resp1, UAC1, update(UAC1, SD#call{msgs=[Msg|Msgs], next=RespId+1})}.
 
-do_received(Req, Resp, Status, #call{uacs=[UAC|Rest]}=SD) ->
-    #sipmsg{method=Method} = Req,
+
+do_received(Resp, UAC, SD) ->
     #sipmsg{response=Code, transport=RespTransp} = Resp,
-    #uac{iter=Iter} = UAC,
+    #trans{status=Status, request=Req, iter=Iter} = UAC,
+    #sipmsg{method=Method} = Req,
+    #call{dialogs=Dialogs} = SD,
     case RespTransp of
-        undefined -> 
-            ok;    % It is own-generated
-        _ -> 
-            ?call_debug("UAC ~p received ~p in ~p", [Method, Code, Status], SD)
+        undefined -> ok;    % It is own-generated
+        _ -> ?call_debug("UAC ~p received ~p in ~p", [Method, Code, Status], SD)
     end,
-    SD1 = nksip_call_dialog_uac:response(Req, Resp, SD),
-    UAC1 = do_received_status(Status, Req, Resp, UAC),
+    Dialogs1 = nksip_call_dialog_uac:response(Req, Resp, Dialogs),
+    SD1 = SD#call{dialogs=Dialogs1},
+    UAC1 = do_received_status(Status, Resp, UAC),
     case 
         (Code=:=401 orelse Code=:=407) andalso Iter < ?MAX_AUTH_TRIES
-         andalso Method=/='CANCEL'
+         andalso Method=/='CANCEL' andalso do_received_auth(Resp, UAC, SD1)
     of
-        true -> 
-            case do_received_auth(Req, Resp, UAC) of
-                {ok, NewUAC} ->
-                    do_send(SD1#call{uacs=[NewUAC, UAC1|Rest]});
-                error ->    
-                    reply_response(UAC1),
-                    next(SD1#call{uacs=[UAC1|Rest]})
-            end;
-        false ->
-            reply_response(UAC1),
-            next(SD1#call{uacs=[UAC1|Rest]})
+        {ok, NewUAC, SD2} ->
+            do_send(NewUAC, update(UAC1, SD2));
+        _ ->
+            reply_response(Resp, UAC1),
+            next(update(UAC1, SD1))
     end.
 
-
-do_received_auth(Req, Resp, #uac{iter=Iter}=UAC) ->
+do_received_auth(Resp, #trans{request=Req, iter=Iter}, SD) ->
     case nksip_auth:make_request(Req, Resp) of
         {ok, #sipmsg{vias=[_|Vias], opts=Opts}=Req1} ->
             Req2 = Req1#sipmsg{
@@ -226,55 +218,54 @@ do_received_auth(Req, Resp, #uac{iter=Iter}=UAC) ->
                 opts = nksip_lib:delete(Opts, make_contact)
             },
             Req3 = nksip_transport_uac:add_via(Req2),
-            NewUAC = UAC#uac{
-                trans_id = transaction_id(Req3),
-                request = Req3,
-                responses = [],
-                first_to_tag = <<>>,
-                cancel = undefined,
-                iter = Iter+1
-            },
-            {ok, NewUAC};
+            {NewUAC, SD1} = add_request(Req3, SD),
+            #trans{trans_id=TransId, request=#sipmsg{id=ReqId, method=Method}} = NewUAC,
+            ?call_debug("UAC resending authorized request ~p (~p, ~p)", 
+                        [Method, ReqId, TransId], SD),
+            {ok, NewUAC#trans{iter=Iter+1}, SD1};
         error ->    
             error
     end.
 
 
-do_received_status(Status, Req, Resp, UAC)
-              when Status=:=invite_calling; Status=:=invite_proceeding ->
+
+do_received_status(invite_calling, Resp, UAC) ->
+    UAC1 = cancel_timers([retrans], UAC#trans{status=invite_proceeding}),
+    do_received_status(invite_proceeding, Resp, UAC1);
+
+do_received_status(invite_proceeding, #sipmsg{response=Code}, UAC) when Code < 200 ->
+    proc_cancel(ok, UAC);
+
+% Final 2xx response received
+do_received_status(invite_proceeding, #sipmsg{response=Code, to_tag=ToTag}, UAC) 
+                   when Code < 300 ->
+    UAC1 = cancel_timers([timeout, expire], UAC),
+    UAC2 = proc_cancel(final_response, UAC1),
+    % New RFC6026 state, to absorb 2xx retransmissions and forked responses
+    start_timer(timer_m, UAC2#trans{status=invite_accepted, first_to_tag=ToTag});
+
+% Final [3456]xx response received, own error response
+do_received_status(invite_proceeding, #sipmsg{transport=undefined}, UAC) ->
+    UAC1 = cancel_timers([timeout, expire], UAC),
+    proc_cancel(final_response, UAC1#trans{status=finished});
+
+% Final [3456]xx response received, real response
+do_received_status(invite_proceeding, Resp, #trans{request=Req}=UAC) ->
     #sipmsg{transport=#transport{proto=Proto}} = Req,
-    #sipmsg{response=Code, to_tag=ToTag, transport=RespTransp} = Resp,
-    if
-        Code < 200 ->
-            UAC1 = cancel_timers([retrans], UAC),
-            proc_cancel(ok, UAC1#uac{status=invite_proceeding});
-        Code < 300 ->
-            UAC1 = cancel_timers([retrans, timeout, expire], UAC),
-            UAC2 = proc_cancel(final_response, UAC1),
-            T1 = nksip_config:get(timer_t1), 
-            UAC2#uac{
-                status = invite_accepted,
-                timeout_timer = start_timer(64*T1, timer_m, UAC),
-                first_to_tag = ToTag
-            };
-        Code >= 300 ->
-            UAC1 = cancel_timers([retrans, timeout, expire], UAC),
-            UAC2 = proc_cancel(final_response, UAC1#uac{status=invite_completed}),
-            case RespTransp of
-                undefined -> ok;
-                _ -> send_ack(Req, Resp)
-            end,
-            case Proto of
-                udp -> UAC2#uac{timeout_timer=start_timer(32000, timer_d, UAC)};
-                _ -> remove(UAC2)
-            end
+    UAC1 = cancel_timers([timeout, expire], UAC),
+    UAC2 = proc_cancel(final_response, UAC1),
+    send_ack(Req, Resp),
+    case Proto of
+        udp -> start_timer(timer_d, UAC2#trans{status=invite_completed});
+        _ -> UAC2#trans{status=finished}
     end;
 
-do_received_status(invite_accepted, _Req, Resp, UAC) -> 
+
+do_received_status(invite_accepted, Resp, UAC) -> 
     #sipmsg{sipapp_id=AppId, call_id=CallId, response=Code, to_tag=ToTag} = Resp,
-    #uac{first_to_tag=FirstToTag} = UAC,
+    #trans{first_to_tag=FirstToTag} = UAC,
     if
-        Code>=200, Code<300, ToTag=/=(<<>>), ToTag=/=FirstToTag ->
+        ToTag=/=(<<>>), ToTag=/=FirstToTag, Code>=200, Code<300 ->
             % BYE any secondary response
             spawn(
                 fun() ->
@@ -291,12 +282,11 @@ do_received_status(invite_accepted, _Req, Resp, UAC) ->
                     end
                 end);
         true ->
-            ?info(AppId, CallId, 
-                  "UAC Trans received 'INVITE' ~p in invite_accepted", [Code])
+            ok
     end,
     UAC;
 
-do_received_status(invite_completed, Req, Resp, UAC) ->
+do_received_status(invite_completed, Resp, #trans{request=Req}=UAC) ->
     #sipmsg{sipapp_id=AppId, call_id=CallId, response=Code} = Resp,
     if
         Code >= 300 -> 
@@ -307,55 +297,63 @@ do_received_status(invite_completed, Req, Resp, UAC) ->
     end,
     UAC;
 
-do_received_status(Status, Req, Resp, UAC) 
-              when Status=:=trying; Status=:=proceeding ->
+do_received_status(trying, Resp, UAC) ->
+    UAC1 = cancel_timers([retrans], UAC#trans{status=proceeding}),
+    do_received_status(proceeding, Resp, UAC1);
+
+do_received_status(proceeding, #sipmsg{response=Code}, UAC) when Code < 200 ->
+    UAC;
+
+% Final response received, own error response
+do_received_status(proceeding, #sipmsg{transport=undefined}, UAC) ->
+    cancel_timers([timeout], UAC#trans{status=finished});
+
+% Final response received, real response
+do_received_status(proceeding, _Resp, #trans{request=Req}=UAC) ->
     #sipmsg{transport=#transport{proto=Proto}} = Req,
-    #sipmsg{response=Code} = Resp,
-    if
-        Code < 200 ->
-            cancel_timers([retrans], UAC#uac{status=proceeding});
-        Code >= 200 ->
-            UAC1 = cancel_timers([retrans, timeout], UAC#uac{status=completed}),
-            case Proto of
-                udp ->
-                    T4 = nksip_config:get(timer_t4), 
-                    UAC1#uac{
-                        status = completed, 
-                        timeout_timer=start_timer(T4, timer_k, UAC)
-                    };
-                _ ->
-                    remove(UAC1)
-            end
+    UAC1 = cancel_timers([timeout], UAC),
+    case Proto of
+        udp -> start_timer(timer_k, UAC1#trans{status=completed});
+        _ -> UAC1#trans{status=finished}
     end;
 
-do_received_status(completed, Req, Resp, UAC) ->
-    #sipmsg{sipapp_id=AppId, call_id=CallId, method=Method} = Req,
-    #sipmsg{response=Code} = Resp,
+do_received_status(completed, Resp, UAC) ->
+    #sipmsg{sipapp_id=AppId, call_id=CallId, cseq_method=Method, response=Code} = Resp,
     ?info(AppId, CallId, "UAC Trans received ~p ~p retransmission in completed", 
           [Method, Code]),
     UAC.
 
-get_cancel(TransId, Opts, From, #call{uacs=UACs}=SD) ->
-    case lists:keytake(TransId, #uac.trans_id, UACs) of
-        {value, UAC, Rest} ->
-            #uac{status=Status, request=Req} = UAC,
-            case Status of
-                invite_calling ->
-                    CancelReq = nksip_uac_lib:make_cancel(Req#sipmsg{opts=Opts}),
-                    UAC1 = UAC#uac{cancel={From, CancelReq}},
-                    next(SD#call{uacs=[UAC1|Rest]});
-                invite_proceeding ->
-                    CancelReq = nksip_uac_lib:make_cancel(Req#sipmsg{opts=Opts}),
-                    gen_server:reply(From, {ok, CancelReq}),
-                    next(SD);
-                _ ->
-                    gen_server:reply(From, {error, no_transaction}),
-                    next(SD)
-            end;
-        false ->
+get_cancel(TransId, Opts, From, #call{trans=Trans}=SD) ->
+    case lists:keyfind(TransId, #trans.trans_id, Trans) of
+        #trans{class=uac, status=invite_calling, request=Req}=UAC ->
+            ?P("CANCEL IN CALLING"),
+            CancelReq = nksip_uac_lib:make_cancel(Req#sipmsg{opts=Opts}),
+            UAC1 = UAC#trans{cancel={From, CancelReq}},
+            next(update(UAC1, SD));
+        #trans{class=uac, status=invite_proceeding, request=Req} ->
+            ?P("CANCEL IN PROCEEDING"),
+            CancelReq = nksip_uac_lib:make_cancel(Req#sipmsg{opts=Opts}),
+            gen_server:reply(From, {ok, CancelReq}),
+            next(SD);
+        _ ->
             gen_server:reply(From, {error, no_transaction}),
             next(SD)
     end.
+
+
+make_dialog(DialogId, Method, Opts, From, #call{dialogs=Dialogs}=SD) ->
+    case nksip_call_dialog_uac:make(DialogId, Method, Opts, Dialogs) of
+        {ok, Result, Dialogs1} ->
+            gen_server:reply(From, {ok, Result}),
+            next(SD#call{dialogs=Dialogs1});
+        {error, Error} ->
+            gen_server:reply(From, {error, Error}),
+            next(SD)
+    end.
+
+
+
+
 
 
 
@@ -363,87 +361,75 @@ get_cancel(TransId, Opts, From, #call{uacs=UACs}=SD) ->
 %% Timers
 %% ===================================================================
 
-timer(remove, #uac{trans_id=TransId}, #call{uacs=UACs}=SD) ->
-    UACs1 = lists:keydelete(TransId, #uac.trans_id, UACs),
-    next(SD#call{uacs=UACs1});
-    
+
 % INVITE retrans
-timer(timer_a, UAC, SD) ->
-    #uac{status=Status, request=Req, next_retrans=Next} = UAC,
+timer(timer_a, #trans{request=Req}=UAC, SD) ->
     case nksip_transport_uac:resend_request(Req) of
         {ok, _} ->
-            ?call_info("UAC retransmitting 'INVITE' in ~p", [Status], SD),
-            UAC1 = UAC#uac{
-                retrans_timer = start_timer(Next, timer_e, UAC),
-                next_retrans = 2*Next
-            },
-            next(store(UAC1, SD));
+            ?call_info("UAC retransmitting 'INVITE'", [], SD),
+            UAC1 = start_timer(timer_a, UAC),
+            next(update(UAC1, SD));
         error ->
-            ?call_notice("UAC could not retransmit 'INVITE' in ~p", [Status], SD),
+            ?call_notice("UAC could not retransmit 'INVITE'", [], SD),
             Resp = nksip_reply:reply(Req, {service_unavailable, <<"Resend Error">>}),
             received(Resp, SD)
     end;
 
 % INVITE timeout
-timer(timer_b, UAC, SD) ->
-    #uac{status=Status, request=Req} = UAC,
-    ?call_notice("UAC 'INVITE' Timer F timeout in ~p", [Status], SD),
-    Resp = nksip_reply:reply(Req, {timeout, <<"Timer F Timeout">>}),
+timer(timer_b, #trans{request=Req}, SD) ->
+    ?call_notice("UAC 'INVITE' timeout (Timer B) fired", [], SD),
+    Resp = nksip_reply:reply(Req, {timeout, <<"Timer B Timeout">>}),
     received(Resp, SD);
 
-% Timeout in invite_completed
+% Finished in INVITE completed
 timer(timer_d, UAC, SD) ->
-    UAC1 = remove(UAC#uac{timeout_timer=undefined}),
-    next(store(UAC1, SD));
+    ?call_debug("UAC 'INVITE' Timer D fired", [], SD),
+    UAC1 = UAC#trans{status=finished, timeout=undefined},
+    next(update(UAC1, SD));
+
+% INVITE accepted finished
+timer(timer_m,  UAC, SD) ->
+    ?call_debug("UAC 'INVITE' Timer M fired", [], SD),
+    UAC1 = UAC#trans{status=finished, timeout=undefined},
+    next(update(UAC1, SD));
 
 % No INVITE retrans
-timer(timer_e, UAC, SD) ->
-    #uac{
-        status = Status,
-        request = #sipmsg{method=Method} = Req,
-        next_retrans = Next
-    } = UAC,
+timer(timer_e, #trans{request=#sipmsg{method=Method}=Req}=UAC, SD) ->
     case nksip_transport_uac:resend_request(Req) of
         {ok, _} ->
-            ?call_info("UAC retransmitting ~p in ~p", [Method, Status], SD),
-            T2 = nksip_config:get(timer_t2),
-            UAC1 = UAC#uac{
-                retrans_timer = start_timer(Next, timer_e, UAC),
-                next_retrans = min(2*Next, T2)
-            },
-            next(store(UAC1, SD));
+            ?call_info("UAC retransmitting ~p", [Method], SD),
+            UAC1 = start_timer(timer_e, UAC),
+            next(update(UAC1, SD));
         error ->
-            ?call_notice("UAC could not retransmit ~p in ~p", [Method, Status], SD),
+            ?call_notice("UAC could not retransmit ~p", [Method], SD),
             Resp = nksip_reply:reply(Req, {service_unavailable, <<"Resend Error">>}),
             received(Resp, SD)
     end;
 
 % No INVITE timeout
-timer(timer_f, UAC, SD) ->
-    #uac{status=Status, request=#sipmsg{method=Method}=Req} = UAC,
-    ?call_notice("UAC ~p Timer F timeout in ~p", [Method, Status], SD),
+timer(timer_f, #trans{request=#sipmsg{method=Method}=Req}, SD) ->
+    ?call_notice("UAC ~p timeout (Timer F) fired", [Method], SD),
     Resp = nksip_reply:reply(Req, {timeout, <<"Timer F Timeout">>}),
     received(Resp, SD);
 
-% No INVITE completed timeout
-timer(timer_k,  UAC, SD) ->
-    UAC1 = remove(UAC#uac{timeout_timer=undefined}),
-    next(store(UAC1, SD));
+% No INVITE completed finished
+timer(timer_k,  #trans{request=#sipmsg{method=Method}}=UAC, SD) ->
+    ?call_debug("UAC ~p Timer K fired", [Method], SD),
+    UAC1 = UAC#trans{status=finished, timeout=undefined},
+    next(update(UAC1, SD));
 
-% INVITE accepted timeout
-timer(timer_m,  UAC, SD) ->
-    UAC1 = remove(UAC#uac{timeout_timer=undefined}),
-    next(store(UAC1, SD));
-
-timer(expire, #uac{status=Status, request=Req}=UAC, SD) ->
-    UAC1 = UAC#uac{expire_timer=undefined},
+timer(expire, #trans{status=Status, request=Req}=UAC, SD) ->
+    UAC1 = UAC#trans{expire_timer=undefined},
     if
         Status=:=invite_calling; Status=:=invite_proceeding ->
+            ?call_debug("Timer EXPIRE fired, sending CANCEL", [], SD),
             CancelReq = nksip_uac_lib:make_cancel(Req#sipmsg{opts=[]}),
             send(CancelReq, SD);
         true ->
-            next(store(UAC1, SD))
+            ?call_debug("Timer EXPIRE fired", [], SD),
+            next(update(UAC1, SD))
     end.
+
 
 
 
@@ -451,11 +437,8 @@ timer(expire, #uac{status=Status, request=Req}=UAC, SD) ->
 %% Util
 %% ===================================================================
 
-
-
-
 %% @private
-reply_request(#uac{respfun=Fun, request=Req}) ->
+reply_request(#trans{respfun=Fun, request=Req}) ->
     #sipmsg{method=Method, opts=Opts} = Req,
     case lists:member(full_request, Opts) of
         true when Method=:='ACK' -> catch Fun({ok, Req});
@@ -464,7 +447,7 @@ reply_request(#uac{respfun=Fun, request=Req}) ->
         false -> ok
     end.
 
-reply_response(#uac{respfun=Fun, request=Req, responses=[Resp|_]}) ->
+reply_response(Resp, #trans{respfun=Fun, request=Req}) ->
     #sipmsg{method=Method, opts=Opts} = Req,
     case Resp of
         #sipmsg{response=Code} when Code < 101 ->
@@ -480,11 +463,17 @@ reply_response(#uac{respfun=Fun, request=Req, responses=[Resp|_]}) ->
             end
     end.
 
+proc_cancel(Reply, #trans{cancel=Cancel}=UAC) ->
+    case Cancel of
+        {From, CancelReq} when Reply=:=ok -> gen_server:reply(From, {ok, CancelReq});
+        {From, _} -> gen_server:reply(From, {error, Reply});
+        _ -> ok
+    end,
+    UAC#trans{cancel=undefined}.
 
-send_ack(Req, Resp) ->
-    #sipmsg{sipapp_id=AppId, call_id=CallId, vias=[Via|_]} = Req,
-    #sipmsg{to=To} = Resp,
-    AckReq = Req#sipmsg{
+
+send_ack(#sipmsg{vias=[Via|_]}=Req, #sipmsg{to=To}) ->
+    Ack = Req#sipmsg{
         method = 'ACK',
         to = To,
         vias = [Via],
@@ -496,33 +485,13 @@ send_ack(Req, Resp) ->
         content_type = [],
         body = <<>>
     },
-    case nksip_transport_uac:resend_request(AckReq) of
-        {ok, _} -> ok;
-        error -> ?notice(AppId, CallId, "UAC Trans could not send non-2xx ACK", [])
+    case nksip_transport_uac:resend_request(Ack) of
+        {ok, _} -> 
+            ok;
+        error -> 
+            #sipmsg{sipapp_id=AppId, call_id=CallId} = Req,
+            ?notice(AppId, CallId, "UAC Trans could not send non-2xx ACK", [])
     end.
-
-
-
-store(#uac{trans_id=TransId}=UAC, #call{uacs=UACs}=SD) ->
-    UACs1 = lists:keystore(TransId, #uac.trans_id, UACs, UAC),
-    SD#call{uacs=UACs1}.
-
-remove(UAC) ->
-    #uac{
-        timeout_timer = Timeout, 
-        retrans_timer = Retrans, 
-        expire_timer = Expire
-    } = UAC,
-    case Timeout=/=undefined orelse Retrans=/=undefined orelse Expire=/=undefined of
-        true -> ?P("REMOVED WITH TIMERS: ~p", [UAC]);
-        false -> ok
-    end,
-    UAC1 = cancel_timers([timeout, retrans, expire], UAC),
-    UAC1#uac{
-        status = removed,
-        timeout_timer = start_timer(?CALL_FINISH_TIMEOUT, remove, UAC)
-    }.
-
 
 
 %% @private
@@ -537,35 +506,5 @@ transaction_id(#sipmsg{sipapp_id=AppId, call_id=CallId,
 next(SD) ->
     nksip_call_srv:next(SD).
 
-
-proc_cancel(Reply, #uac{cancel=Cancel}=UAC) ->
-    case Cancel of
-        {From, CancelReq} when Reply=:=ok -> whgen_server:reply(From, {ok, CancelReq});
-        {From, _} -> gen_server:reply(From, {error, Reply});
-        _ -> ok
-    end,
-    UAC#uac{cancel=undefined}.
-
-start_timer(Time, Tag, #uac{trans_id=Id}) ->
-    {Tag, erlang:start_timer(Time, self(), {uac, Tag, Id})}.
-
-cancel_timers([timeout|Rest], #uac{timeout_timer=OldTimer}=UAC) ->
-    cancel_timer(OldTimer),
-    cancel_timers(Rest, UAC#uac{timeout_timer=undefined});
-
-cancel_timers([retrans|Rest], #uac{retrans_timer=OldTimer}=UAC) ->
-    cancel_timer(OldTimer),
-    cancel_timers(Rest, UAC#uac{retrans_timer=undefined});
-
-cancel_timers([expire|Rest], #uac{expire_timer=OldTimer}=UAC) ->
-    cancel_timer(OldTimer),
-    cancel_timers(Rest, UAC#uac{expire_timer=undefined});
-
-cancel_timers([], UAC) ->
-    UAC.
-
-cancel_timer({_Tag, Ref}) when is_reference(Ref) -> 
-    erlang:cancel_timer(Ref);
-cancel_timer(_) -> ok.
 
 

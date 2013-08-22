@@ -53,26 +53,15 @@
     nksip_lib:proplist().
 
 counters() ->
-    CoreQueues = lists:map(
-        fun({Name, Pid}) ->
-            {_, Len} = erlang:process_info(Pid, message_queue_len),
-            {Name, Len}
-        end,
-        nksip_proc:values(nksip_sipapps)),
-    {Queued, Blocked} = nksip_queue:total(),
     [
-        {msgs, nksip_counters:value(nksip_msgs)},
-        {queued, Queued},
-        {blocked, Blocked},
-        {transactions_uac, nksip_transaction_uac:total()},
-        {transactions_uas, nksip_transaction_uas:total()},
-        {proxys, nksip_proxy:total()},
-        {dialogs, nksip_dialog_fsm:total()},
+        {calls, nksip_counters:value(nksip_calls)},
+        {stored_msgs, nksip_counters:value(nksip_msgs)},
+        {proxy_queue, nksip_call_proxy:pending_msgs()},
         {tcp_connections, nksip_counters:value(nksip_transport_tcp)},
         {counters_queue, nksip_counters:pending_msgs()},
         {registry_size, nksip_proc:size()},
         {registry_queue, nksip_proc:pending_msgs()},
-        {core_queues, CoreQueues},
+        {core_queues, nksip_sipapp_srv:pending_msgs()},
         {uas_response, nksip_stats:get_uas_avg()}
     ].
 

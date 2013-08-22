@@ -360,6 +360,8 @@ reqreply({internal_error, Text}) ->
     helper_debug(#reqreply{code=500}, Text);
 reqreply(service_unavailable) ->
     #reqreply{code=503};
+reqreply({service_unavailable, Text}) ->
+    helper_debug(#reqreply{code=503}, Text);
 reqreply(busy_eveywhere) ->
     #reqreply{code=600};
 reqreply(decline) ->

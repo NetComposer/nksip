@@ -208,7 +208,7 @@ parse(Packet, #state{sipapp_id=AppId, socket=Socket, transport=Transport}=State)
         {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
             nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
-            case nksip_call:incoming_sync(RawMsg) of
+            case nksip_call_proxy:incoming_sync(RawMsg) of
                 ok ->
                     case More of
                         <<>> -> <<>>;

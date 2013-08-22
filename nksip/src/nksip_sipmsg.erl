@@ -68,7 +68,8 @@ field(Type, SipMsg) ->
         response = Code,
         opts = Opts,
         transport=#transport{proto=Proto, local_ip=LocalIp, local_port=LocalPort,
-                                remote_ip=RemoteIp, remote_port=RemotePort}
+                                remote_ip=RemoteIp, remote_port=RemotePort},
+        expire = Expire
     } = SipMsg,
     case Type of
         sipapp_id -> AppId;
@@ -101,6 +102,7 @@ field(Type, SipMsg) ->
         code -> Code;   % Only if it is a response
         reason -> nksip_lib:get_binary(reason, Opts);
         dialog_id -> nksip_dialog:id(SipMsg);
+        expire -> Expire;
         _ -> <<>> 
     end.
 

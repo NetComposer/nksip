@@ -30,7 +30,7 @@
 
 -export([get_module/1, get_opts/1, reply/2]).
 -export([sipapp_call_sync/3, sipapp_call_async/4, sipapp_cast/3]).
--export([register/2, get_registered/2, allowed/1]).
+-export([register/2, get_registered/2, allowed/1, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
 
@@ -175,6 +175,13 @@ reply({'fun', Module, Fun, Args}, Reply) ->
 reply(From, Reply) ->
     gen_server:reply(From, Reply).
 
+pending_msgs() ->
+    lists:map(
+        fun({Name, Pid}) ->
+            {_, Len} = erlang:process_info(Pid, message_queue_len),
+            {Name, Len}
+        end,
+        nksip_proc:values(nksip_sipapps)).
 
 
 

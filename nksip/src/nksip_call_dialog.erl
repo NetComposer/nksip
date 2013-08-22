@@ -25,8 +25,8 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/4, status_update/2, target_update/1, session_update/1, timer/2]).
--export([find/2, store/2, remotes_update/2, class/1]).
+-export([create/4, status_update/2, target_update/1, session_update/1, timer/3]).
+-export([find/2, update/2, remotes_update/2, class/1]).
 
 
 %% ===================================================================
@@ -46,7 +46,7 @@ create(Class, DialogId, Req, Resp) ->
         from_tag = FromTag
     } = Req,
     #sipmsg{to=To, to_tag=ToTag} = Resp,
-    ?debug(AppId, CallId, "Dialog ~p (~s) created", [DialogId, Class]),
+    ?debug(AppId, CallId, "Dialog ~p (~p) created", [DialogId, Class]),
     Remotes = [{Ip, Port}],
     nksip_proc:put({nksip_dialog, AppId, CallId, DialogId}, Remotes),
     nksip_counters:async([nksip_dialogs, {nksip_dialogs, AppId}]),
@@ -68,8 +68,7 @@ create(Class, DialogId, Req, Resp) ->
         remote_sdp = undefined,
         media_started = false,
         stop_reason = unknown,
-        remotes = [{Ip, Port}],
-        inv_queue = queue:new()
+        remotes = [{Ip, Port}]
     },
     if 
         Class=:=uac; Class=:=proxy ->
@@ -97,16 +96,16 @@ status_update(Status, Dialog) ->
         call_id = CallId,
         status = OldStatus, 
         media_started = Media,
-        inv_queue = Queue,
-        retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer
+        retrans_timer = RetransTimer
     } = Dialog,
     case OldStatus of
         init -> cast(dialog_update, start, Dialog);
         _ -> ok
     end,
-    cancel_timer(TimeoutTimer),
-    cancel_timer(RetransTimer),
+    case is_reference(RetransTimer) of
+        true -> erlang:cancel_timer(RetransTimer);
+        false -> ok
+    end,
     Dialog1 = case Status of
         {stop, Reason} -> 
             cast(dialog_update, {stop, reason(Reason)}, Dialog),
@@ -119,14 +118,14 @@ status_update(Status, Dialog) ->
                     ?debug(AppId, CallId, "Dialog ~p switched to ~p", [DialogId, Status]),
                     cast(dialog_update, {status, Status}, Dialog)
             end,
-            TimeOut = case Status of
-                confirmed -> 1000*nksip_config:get(dialog_timeout);
-                _ -> 64*nksip_config:get(timer_t1)
+            Time = case Status of
+                confirmed -> nksip_config:get(dialog_timeout);
+                _ -> round(64*nksip_config:get(timer_t1)/1000)
             end,
             Dialog#dialog{
                 status = Status, 
                 retrans_timer = undefined,
-                timeout_timer = start_timer(TimeOut, timeout, DialogId)
+                timeout = nksip_lib:timestamp() + Time
             }
     end,
     Dialog2 = case Media andalso (Status=:=bye orelse element(1, Status)=:=stop) of
@@ -150,23 +149,18 @@ status_update(Status, Dialog) ->
             Dialog3 = target_update(Dialog2),
             Dialog4 = session_update(Dialog3),
             T1 = nksip_config:get(timer_t1),
+            Timer = erlang:start_timer(T1 , self(), {dialog, retrans, DialogId}),
             Dialog4#dialog{
-                retrans_timer = start_timer(T1, dialog_retrans, DialogId),
+                retrans_timer = Timer,
                 next_retrans = 2*T1
             };
         confirmed ->
             Dialog3 = session_update(Dialog2),
-            case queue:out(Queue) of
-                {{value, Id}, Queue1} -> gen_server:cast(self(), {send_id, Id});
-                {empty, Queue1} -> ok
-            end,
-            Dialog3#dialog{request=undefined, response=undefined, inv_queue=Queue1};
+            Dialog3#dialog{request=undefined, response=undefined};
         bye ->
-            remove_pending(Dialog2),
             Dialog2;
         {stop, StopReason} -> 
             ?debug(AppId, CallId, "Dialog ~p stop: ~p", [DialogId, StopReason]),
-            remove_pending(Dialog2),
             nksip_proc:del({nksip_dialog, DialogId}),
             nksip_counters:async([{nksip_dialogs, -1}, {{nksip_dialogs, AppId}, -1}]),
             removed
@@ -177,7 +171,7 @@ status_update(Status, Dialog) ->
 -spec target_update(nksip_dialog:dialog()) ->
     nksip_dialog:dialog().
 
-target_update(Dialog) ->
+target_update(#dialog{request=#sipmsg{}, response=#sipmsg{}}=Dialog) ->
     #dialog{
         id = DialogId,
         app_id = AppId,
@@ -260,7 +254,10 @@ target_update(Dialog) ->
         remote_target = RemoteTarget1,
         early = Early1,
         route_set = RouteSet1
-    }.
+    };
+
+target_update(Dialog) ->
+    Dialog.
 
 
 %% @private
@@ -313,9 +310,11 @@ session_update(Dialog) ->
     end.
 
 
-timer(retrans, #call{app_id=AppId, call_id=CallId, dialogs=[Dialog|Rest]}=SD) ->
+timer(retrans, Dialog, Dialogs) ->
     #dialog{
         id = DialogId, 
+        app_id = AppId,
+        call_id = CallId,
         response = #sipmsg{cseq_method=Method, response=Code} = Resp, 
         next_retrans = Next
     } = Dialog,
@@ -323,23 +322,29 @@ timer(retrans, #call{app_id=AppId, call_id=CallId, dialogs=[Dialog|Rest]}=SD) ->
         {ok, _} ->
             ?info(AppId, CallId, "Dialog ~p resending ~p ~p response",
                   [DialogId, Method, Code]),
+            Timer = erlang:start_timer(Next, self(), {dialog, retrans, DialogId}),
             Dialog1 = Dialog#dialog{
-                retrans_timer = start_timer(Next, retrans, DialogId),
+                retrans_timer = Timer,
                 next_retrans = min(2*Next, nksip_config:get(timer_t2))
             },
-            nksip_call_srv:next(SD#call{dialogs=[Dialog1|Rest]});
+            update(Dialog1, Dialogs);
         error ->
             ?notice(AppId, CallId, "Dialog ~p could not resend ~p ~p response",
                     [DialogId, Method, Code]),
-            status_update({stop, ack_timeout}, Dialog),
-            nksip_call_srv:next(SD#call{dialogs=Rest})
+            removed = status_update({stop, ack_timeout}, Dialog),
+            lists:keydelete(DialogId, #dialog.id, Dialogs)
     end;
 
-timer(timeout, #call{dialogs=[Dialog|Rest]}=SD) ->
-    #dialog{id=Id, app_id=AppId, call_id=CallId, status=Status} = Dialog,
-    ?notice(AppId, CallId, "Dialog ~p timeout in ~p", [Id, Status]),
-    removed = status_update({stop, timeout}, Dialog),
-    nksip_call_srv:next(SD#call{dialogs=Rest}).
+timer(timeout, Dialog, Dialogs) ->
+    #dialog{id=DialogId, app_id=AppId, call_id=CallId, status=Status} = Dialog,
+    ?notice(AppId, CallId, "Dialog ~p timeout in ~p", [DialogId, Status]),
+    Reason = case Status of
+        accepted_uac -> ack_timeout;
+        accepted_uas -> ack_timeout;
+        _ -> timeout
+    end,
+    removed = status_update({stop, Reason}, Dialog),
+    lists:keydelete(DialogId, #dialog.id, Dialogs).
 
 
 
@@ -358,10 +363,10 @@ find(_, []) ->
     not_found.
 
 
-store(#dialog{id=Id}=Dialog, [#dialog{id=Id}]) ->
-    [Dialog];
+update(#dialog{id=Id}=Dialog, [#dialog{id=Id}|Rest]) ->
+    [Dialog|Rest];
 
-store(#dialog{id=Id}=Dialog, Dialogs) ->
+update(#dialog{id=Id}=Dialog, Dialogs) ->
     lists:keystore(Id, #dialog.id, Dialogs, Dialog).
 
 
@@ -374,26 +379,15 @@ remotes_update(SipMsg, #dialog{id=DialogId, remotes=Remotes}=Dialog) ->
             Dialog;
         false ->
             Remotes1 = [{Ip, Port}|Remotes],
-            ?debug(AppId, CallId, "dialog ~s updated remotes: ~p", 
+            ?debug(AppId, CallId, "dialog ~p updated remotes: ~p", 
                    [DialogId, Remotes1]),
-            nksip_proc:put({nksip_dialog, DialogId}, Remotes1),
+            nksip_proc:put({nksip_dialog, AppId, CallId, DialogId}, Remotes1),
             Dialog#dialog{remotes=Remotes1}
     end.
 
-
-remove_pending(#dialog{inv_queue=Queue}=Dialog) ->
-    case queue:out(Queue) of
-        {{value, Id}, Queue1} ->
-            gen_server:cast(self(), {send_id, Id}),
-            remove_pending(Dialog#dialog{inv_queue=Queue1});
-        {empty, Queue1} ->
-            Dialog#dialog{inv_queue=Queue1}
-    end.
-
-
-
-cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId}) ->
-    nksip_sipapp_srv:sipapp_cast(AppId, Fun, [DialogId, Arg]).
+cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
+    Id ={dlg, AppId, CallId, DialogId},
+    nksip_sipapp_srv:sipapp_cast(AppId, Fun, [Id, Arg]).
 
 
 %% @private
@@ -409,13 +403,5 @@ reason(Other) -> Other.
 -spec class(#dialog{}) -> uac | uas.
 class(#dialog{request=#sipmsg{from_tag=Tag}, local_tag=Tag}) -> uac;
 class(_) -> uas.
-
-
-start_timer(Time, Tag, Pos) ->
-    {Tag, erlang:start_timer(Time, self(), {dialog, Tag, Pos})}.
-
-cancel_timer({_Tag, Ref}) when is_reference(Ref) -> 
-    erlang:cancel_timer(Ref);
-cancel_timer(_) -> ok.
 
 

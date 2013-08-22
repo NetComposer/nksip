@@ -35,6 +35,9 @@
 
 -define(MSG_PROCESSORS, 8).
 -define(SRV_TIMEOUT, 30000).
+% -define(MSG_KEEP_TIME, 600).   % Time to keep removed sip msgs in memory
+
+
 
 -define(debug(AppId, Txt, Opts), 
         lager:debug([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
@@ -114,6 +117,7 @@
     response :: nksip:response_code(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
+    expire :: nksip_lib:timestamp(),
     pid :: pid(),   % Remove??
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
@@ -172,9 +176,9 @@
     request :: nksip:request(),
     response :: nksip:response(),
     ack :: nksip:request(),
-    inv_queue :: queue(),
+    % inv_queue :: queue(),
     remotes :: [{inet:ip_address(), inet:port_number()}],
-    timeout_timer :: reference(),
+    timeout :: integer(),
     retrans_timer :: reference(),
     next_retrans :: integer()
 }).

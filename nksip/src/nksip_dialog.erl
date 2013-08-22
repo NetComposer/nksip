@@ -208,7 +208,7 @@ field(Field, #dialog{}=Dialog) ->
 field(Field, DialogSpec) -> 
     case id(DialogSpec) of
         {dlg, AppId, CallId, DialogId} ->
-            case nksip_call:get_dialog_fields(AppId, CallId, DialogId, [Field]) of
+            case nksip_call_proxy:get_dialog_fields(AppId, CallId, DialogId, [Field]) of
                 {ok, [Value|_]} -> Value;
                 {error, Error} -> {error, Error}
             end;
@@ -227,7 +227,7 @@ fields(Fields, #dialog{}=Dialog) ->
 fields(Fields, DialogSpec) ->
     case id(DialogSpec) of
         {dlg, AppId, CallId, DialogId} ->
-            nksip_call:get_dialog_fields(AppId, CallId, DialogId, Fields);
+            nksip_call_proxy:get_dialog_fields(AppId, CallId, DialogId, Fields);
         undefined ->
             {error, unknown_dialog}
     end.
@@ -243,7 +243,7 @@ fields(Fields, DialogSpec) ->
 id(#dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
     {dlg, AppId, CallId, DialogId};
 
-id({dialog, AppId, CallId, DialogId}) -> 
+id({dlg, AppId, CallId, DialogId}) -> 
     {dlg, AppId, CallId, DialogId};
 
 id(#sipmsg{sipapp_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
@@ -278,7 +278,7 @@ id(_) ->
     [id()].
 
 find_callid(AppId, CallId) ->
-    nksip_call:get_dialogs(AppId, CallId).
+    nksip_call_proxy:get_dialogs(AppId, CallId).
 
 %% @doc Stops an existing dialog (remove it from memory).
 -spec stop(spec()) ->
@@ -294,7 +294,7 @@ bye_all() ->
 
 
 stop(DialogSpec) ->
-    nksip_call:stop_dialog(DialogSpec).
+    nksip_call_proxy:stop_dialog(DialogSpec).
 
 %% @doc Stops all current dialogs.
 -spec stop_all() ->
@@ -373,7 +373,7 @@ dialog_id(AppId, CallId, FromTag, ToTag) ->
     when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
 
 get_dialog(DialogSpec) ->
-    nksip_call:get_dialog(DialogSpec).
+    nksip_call_proxy:get_dialog(DialogSpec).
 
 
 %% @private Get all dialog Ids and Pids.
@@ -462,7 +462,6 @@ get_field(Type, Dialog) ->
         updated = Updated,
         answered = Answered, 
         status = Status,
-        % expires = Expires,
         local_seq = LocalSeq, 
         remote_seq  = RemoteSeq, 
         local_uri = LocalUri,
@@ -474,7 +473,8 @@ get_field(Type, Dialog) ->
         secure = Secure,
         local_sdp = LocalSdp,
         remote_sdp = RemoteSdp,
-        stop_reason = StopReason
+        stop_reason = StopReason,
+        timeout = Timeout
     } = Dialog,
     case Type of
         id -> DialogId;
@@ -484,7 +484,6 @@ get_field(Type, Dialog) ->
         updated -> Updated;
         answered -> Answered;
         status -> Status;
-        % expires -> Expires;
         local_seq -> LocalSeq; 
         remote_seq  -> RemoteSeq; 
         local_uri -> nksip_unparse:uri(LocalUri);
@@ -504,6 +503,7 @@ get_field(Type, Dialog) ->
         stop_reason -> StopReason;
         from_tag -> nksip_lib:get_binary(tag, LocalUri#uri.ext_opts);
         to_tag -> nksip_lib:get_binary(tag, RemoteUri#uri.ext_opts);
+        timeout -> Timeout;
         _ -> <<>> 
     end.
 

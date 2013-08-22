@@ -79,7 +79,7 @@ fields(Fields, #sipmsg{}=SipMsg) ->
   nksip_sipmsg:fields(Fields, SipMsg);
 
 fields(Fields, Response) -> 
-    case nksip_call:get_fields(Response, Fields) of
+    case nksip_call_proxy:get_fields(Response, Fields) of
         {ok, Values} -> Values;
         {error, Error} -> {error, Error}
     end.
@@ -91,7 +91,7 @@ headers(Name, #sipmsg{}=SipMsg) ->
     nksip_sipmsg:headers(Name, SipMsg);
 
 headers(Name, Response) ->
-    case nksip_call:get_headers(Response, Name) of
+    case nksip_call_proxy:get_headers(Response, Name) of
         {ok, Values} -> Values;
         {error, Error} -> {error, Error}
     end.
@@ -132,7 +132,7 @@ wait_491() ->
 -spec get_sipmsg(id()) -> nksip:response().
 
 get_sipmsg(Response) -> 
-    nksip_call:get_sipmsg(Response).
+    nksip_call_proxy:get_sipmsg(Response).
 
 
 

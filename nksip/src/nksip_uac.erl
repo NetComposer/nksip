@@ -467,9 +467,9 @@ bye(DialogSpec, Opts) ->
     when Error :: no_transaction | network_error.
 
 cancel(ReqId, Opts) ->
-    case nksip_call:get_cancel(ReqId, Opts) of
+    case nksip_call_proxy:get_cancel(ReqId, Opts) of
         {ok, CancelReq} -> send_request(CancelReq, Opts);
-        _ -> {error, no_transaction}
+        {error, Error} -> {error, Error}
     end.
 
 %% @doc Sends a update on a currently ongoing dialog using reINVITE.
@@ -588,7 +588,7 @@ send_request(AppId, Method, Uri, Opts) ->
 send_request(#sipmsg{method=Method}=Req, Opts) ->
     case lists:member(async, Opts) of
         true ->
-            case nksip_call:send(Req) of
+            case nksip_call_proxy:send(Req) of
                 {ok, ReqId} -> {async, ReqId};
                 {error, Error} -> {error, Error}
             end;
@@ -611,7 +611,7 @@ send_request(#sipmsg{method=Method}=Req, Opts) ->
                 end
             end,
             ReqOpts1 = [{respfun, Fun}|Req#sipmsg.opts],
-            case nksip_call:send(Req#sipmsg{opts=ReqOpts1}) of
+            case nksip_call_proxy:send(Req#sipmsg{opts=ReqOpts1}) of
                 {ok, _ReqId} ->
                     case nksip_lib:get_integer(timeout, Opts) of
                         Timeout when is_integer(Timeout), Timeout > 0 -> ok;
@@ -647,7 +647,7 @@ send_request(#sipmsg{method=Method}=Req, Opts) ->
     async | {error, dialog_errors()}.
 
 send_dialog(DialogSpec, Method, Opts) ->
-    case nksip_call:make_dialog(DialogSpec, Method, Opts) of
+    case nksip_call_proxy:make_dialog(DialogSpec, Method, Opts) of
         {ok, {AppId, RUri, Opts1}} ->
             send_request(AppId, Method, RUri, Opts1);  
         {error, Error} -> 

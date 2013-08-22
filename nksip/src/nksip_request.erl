@@ -204,7 +204,7 @@ fields(Fields, #sipmsg{}=Request) ->
     nksip_sipmsg:fields(Fields, Request);
 
 fields(Fields, Request) ->
-    case nksip_call:get_fields(Request, Fields) of
+    case nksip_call_proxy:get_fields(Request, Fields) of
         {ok, Fields} -> Fields;
         {error, Error} -> {error, Error}
     end.
@@ -217,7 +217,7 @@ headers(Name, #sipmsg{}=Request) ->
     nksip_sipmsg:headers(Name, Request);
 
 headers(Name, Request) ->
-    case nksip_call:get_headers(Request, Name) of
+    case nksip_call_proxy:get_headers(Request, Name) of
         {ok, Values} -> Values;
         {error, Error} -> {error, Error}
     end.
@@ -257,7 +257,7 @@ provisional_reply(Request, SipReply) ->
 -spec get_sipmsg(id()) -> nksip:request().
 
 get_sipmsg(Request) -> 
-    nksip_call:get_sipmsg(Request).
+    nksip_call_proxy:get_sipmsg(Request).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
@@ -285,7 +285,7 @@ is_local_route(Request) ->
     when Error :: unknown_request | network_error | invalid_request.
 
 reply({req, AppId, CallId, Id}, SipReply) ->
-    nksip_call:app_reply(AppId, CallId, Id, SipReply);
+    nksip_call_proxy:app_reply(AppId, CallId, Id, SipReply);
 reply(_, _) ->
     {error, unknown_request}.
 

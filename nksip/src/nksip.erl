@@ -246,6 +246,13 @@
 %%          <td>If present, forbids the generation of automatic `100-type' responses
 %%          if no other response has been generated after 100 msecs</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`msg_keep_time'</td>
+%%          <td>integer()</td>
+%%          <td>5</td>
+%%          <td>Seconds to keep responses in memory after they are received.
+%%          After the last response has been deleted, the request is also deleted</td>
+%%      </tr>
 %%  </table>
 %%
 %% <br/>
@@ -330,6 +337,10 @@ start(AppId, Module, Args, Opts) ->
             end,
             case lists:member(no_100, Opts) of
                 true -> no_100;
+                _ -> []
+            end,
+            case nksip_lib:get_integer(msg_keep_time, Opts) of
+                MsgKeepTime when MsgKeepTime > 0 -> {msg_keep_time, MsgKeepTime};
                 _ -> []
             end
         ],
