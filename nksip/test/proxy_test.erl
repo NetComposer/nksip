@@ -85,14 +85,14 @@ start(Test) ->
 
     ok = sipapp_endpoint:start({Test, client1}, [
         {from, "sip:client1@nksip"},
-        {route, "sip:127.0.0.1;lr"},
+        {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}]),
 
     ok = sipapp_endpoint:start({Test, client2}, [
         {from, "sip:client2@nksip"},
-        {route, "sip:127.0.0.1;lr"},
+        {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 0}},
         {transport, {tls, {0,0,0,0}, 0}}]),
@@ -144,7 +144,7 @@ invalid(Test) ->
     % Force Loop (a notice is going to be generated)
     tests_util:log(error),
     {ok, 482} = nksip_uac:options(Client1, "sip:any", 
-                        [{route, "sip:127.0.0.1;lr, sip:127.0.0.1;lr"}]),
+                        [{route, "<sip:127.0.0.1;lr>, <sip:127.0.0.1;lr>"}]),
     tests_util:log(),
     
     {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", [unregister_all]),
@@ -178,7 +178,7 @@ opts(Test) ->
 
     % Add a route at server
     ServerOpts3 = [{headers, [{"Nk", "server2"}]}, 
-                    {route, "sip:127.0.0.1:5070;lr, sip:1.2.3.4;lr"}],
+                    {route, "<sip:127.0.0.1:5070;lr>, <sip:1.2.3.4;lr>"}],
     Body3 = base64:encode(term_to_binary(ServerOpts3)),
     Opts3 = [{headers, [{"Nk", "opts2"}]}, {body, Body3}, full_response],
     {reply, Res3} = nksip_uac:options(Client1, "sip:client2_op@nksip", Opts3),
@@ -190,7 +190,7 @@ opts(Test) ->
     ServerOpts4 = [],
     Body4 = base64:encode(term_to_binary(ServerOpts4)),
     [Uri2] = nksip_registrar:find({Test, server1}, sip, <<"client2">>, <<"nksip">>),
-    Opts4 = [{route, ["sip:127.0.0.1;lr", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
+    Opts4 = [{route, ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
                 {body, Body4}, full_response], 
     {reply, Res4} = nksip_uac:options(Client1, "sip:client2_op@nksip", Opts4),
     200 = nksip_response:code(Res4),
@@ -200,7 +200,7 @@ opts(Test) ->
     % Remove route from client at server
     ServerOpts5 = [remove_routes],
     Body5 = base64:encode(term_to_binary(ServerOpts5)),
-    Opts5 = [{route, ["sip:127.0.0.1;lr", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
+    Opts5 = [{route, ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
                 {body, Body5}, full_response], 
     {reply, Res5} = nksip_uac:options(Client1, "sip:client2_op@nksip", Opts5),
     200 = nksip_response:code(Res5),
@@ -231,7 +231,7 @@ transport(Test) ->
 
     % Register generating a TCP Contact
     {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", 
-                        [{route, "sip:127.0.0.1;transport=tcp;lr"}, make_contact]),
+                        [{route, "<sip:127.0.0.1;transport=tcp;lr>"}, make_contact]),
     Ref = make_ref(),
     Self = self(),
     Fun4 = fun(Reply) ->
@@ -246,7 +246,7 @@ transport(Test) ->
         end
     end,
     nksip_uac:register(Client2, "sip:127.0.0.1",
-                        [{route, "sip:127.0.0.1;transport=tcp;lr"}, make_contact,
+                        [{route, "<sip:127.0.0.1;transport=tcp;lr>"}, make_contact,
                         async, {respfun, Fun4}, full_response, full_request]),
     LPort = receive {Ref, {fun4l, L}} -> L after 2000 -> error(transport) end,
     ok = tests_util:wait(Ref, [fun4ok]),
@@ -275,7 +275,7 @@ transport(Test) ->
         end
     end,
     nksip_uac:options(Client2, "sip:client1@nksip", 
-                                [{route, "sip:127.0.0.1;transport=tcp;lr"},
+                                [{route, "<sip:127.0.0.1;transport=tcp;lr>"},
                                  async, {respfun, Fun6}, full_response, full_request]),
     ok = tests_util:wait(Ref, [fun6ok1, fun6ok2]),
 
@@ -356,7 +356,7 @@ servers(Test) ->
     Self = self(),
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
-    Opts2 = [{route, "sips:127.0.0.1:5081;lr"}, {from, "sips:client2@nksip2"}],
+    Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
     {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200} = nksip_uac:register(Client2, "sips:127.0.0.1:5081", 
                                                                 [unregister_all|Opts2]),

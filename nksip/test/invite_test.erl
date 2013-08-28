@@ -75,7 +75,7 @@ cancel() ->
     Self = self(),
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     Fun = fun({ok, Code, _}) -> Self ! {Ref, Code} end,
-    Remote = "sip:any@127.0.0.1:5070;transport=tcp",
+    Remote = "<sip:any@127.0.0.1:5070;transport=tcp>",
 
     % Receive generated 100 response and busy
     Hds1 = [{"Nk-Sleep", 300}, {"Nk-Op", busy}, RepHd],
@@ -455,7 +455,7 @@ multiple_uac() ->
 
     % Stablish a dialog between Client1 and Client2, but do not send the ACK 
     % yet, it will stay in accepted_uac state
-    {reply, Res} = nksip_uac:invite(Client1, "sip:ok@127.0.0.1:5070;transport=tcp", 
+    {reply, Res} = nksip_uac:invite(Client1, "<sip:ok@127.0.0.1:5070;transport=tcp>",
                                     [{headers, Hds}, full_response]),
     200 = nksip_response:code(Res),
     LocalDialog = nksip_dialog:id(Res),
@@ -541,7 +541,7 @@ multiple_uas() ->
     Hds = [{"Nk-Op", ok}, RepHd],
 
     % Set a new dialog between Client1 and Client2
-    {reply, Res1} = nksip_uac:invite(Client1, "sip:ok@127.0.0.1:5070;transport=tcp", 
+    {reply, Res1} = nksip_uac:invite(Client1, "<sip:ok@127.0.0.1:5070;transport=tcp>",
                                         [{headers, Hds}, full_response]),
     200 = nksip_response:code(Res1),
     ok = nksip_uac:ack(Res1, [{headers, [RepHd]}]),
@@ -580,7 +580,7 @@ multiple_uas() ->
 
 
     % Set a new dialog
-    {reply, Res2} = nksip_uac:invite(Client1, "sip:ok@127.0.0.1:5070;transport=tcp", 
+    {reply, Res2} = nksip_uac:invite(Client1, "<sip:ok@127.0.0.1:5070;transport=tcp>",
                                      [{headers, Hds}, full_response]),
     200 = nksip_response:code(Res2),
     ok = nksip_uac:ack(Res2, [{headers, [RepHd]}]),

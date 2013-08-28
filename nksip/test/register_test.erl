@@ -198,9 +198,9 @@ register2() ->
 
     {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
     {ok, 200} = nksip_uac:register(Client1, 
-                                            "sip:127.0.0.1;transport=tcp", Opts1),
+                                            "<sip:127.0.0.1;transport=tcp>", Opts1),
     {ok, 200} = nksip_uac:register(Client1, 
-                                            "sip:127.0.0.1;transport=tls", Opts1),
+                                            "<sip:127.0.0.1;transport=tls>", Opts1),
     {ok, 200} = nksip_uac:register(Client1, "sips:127.0.0.1", Opts1),
 
     {ok, 400} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts2),
