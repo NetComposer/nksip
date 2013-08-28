@@ -589,9 +589,14 @@ parse_uris([Tokens|Rest], Acc) ->
                         HdOpts=HdHds=throw(error4)
                 end;
             false ->
-                HdOpts = HdHds = [],
-                {UriOpts, R3} = parse_opts(R2),
-                {UriHds, _} = parse_headers(R3)
+                %% Per section 20 of RFC3261:
+                %%
+                %% "If the URI is not enclosed in angle brackets, any
+                %% semicolon-delimited parameters are
+                %% header-parameters, not URI parameters."
+                UriOpts = UriHds = [],
+                {HdOpts, R3} = parse_opts(R2),
+                {HdHds, _} = parse_headers(R3)
         end,
         Uri = #uri{
             scheme = scheme(Scheme),
@@ -755,9 +760,18 @@ uri_test() ->
         [#uri{user=(<<"user">>), domain= <<"host">>, opts=[lr,{<<"t">>,<<"1">>},<<"d">>]}],
         uris(" < sip : user@host ;lr; t=1 ;d ? a=1 >")),
     ?assertMatch(
+       [#uri{ext_opts = [{tag, <<"a48s">>}]}],
+       uris("\"A. G. Bell\" <sip:agb@bell-telephone.com> ;tag=a48s")),
+    ?assertMatch(
+       [#uri{scheme = sip,
+             user = <<"+12125551212">>,
+             domain = <<"server.phone2net.com">>,
+             ext_opts = [{tag, <<"887s">>}]}],
+       uris("sip:+12125551212@server.phone2net.com;tag=887s")),
+    ?assertMatch(
         [
-            #uri{user=(<<"user">>), domain= <<"host">>, opts=[lr,{<<"t">>,<<"1">>},<<"d">>],
-                headers=[{<<"a">>,<<"1">>}]},
+            #uri{user=(<<"user">>), domain= <<"host">>, ext_opts=[lr,{<<"t">>,<<"1">>},<<"d">>],
+                ext_headers=[{<<"a">>,<<"1">>}]},
             #uri{domain= <<"host2">>, opts=[rport], ext_opts=[{<<"ttl">>,<<"5">>}], 
                 ext_headers=[<<"a">>]}
         ],
