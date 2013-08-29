@@ -44,9 +44,16 @@
 -spec preprocess(nksip:request()) ->
     {ok, nksip:request()} | ignore.
 
-preprocess(#sipmsg{sipapp_id=AppId, call_id=CallId, method=Method, to_tag=ToTag, 
-                   transport=Transport, vias=[Via|ViaR], opts=Opts}=Request) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
+preprocess(Req) ->
+    #sipmsg{
+        sipapp_id = AppId, 
+        call_id = CallId, 
+        method = Method, 
+        to_tag = ToTag,
+        transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
+        vias = [Via|ViaR], 
+        opts=Opts
+    } = Req,
     ViaOpts1 = [{received, nksip_lib:to_binary(Ip)}|Via#via.opts],
     % For UDP, we honor de rport option
     % For connection transports, we force inclusion of remote port to reuse the same
@@ -64,12 +71,11 @@ preprocess(#sipmsg{sipapp_id=AppId, call_id=CallId, method=Method, to_tag=ToTag,
     end,
     case Method=:='ACK' andalso nksip_lib:hash({GlobalId, Branch})=:=ToTag of
         true -> 
-            % We have generated the response this ACK is based on
-            ?debug(AppId, CallId, "UAS absorbed own ACK", []),
-            ignore;
+            ?debug(AppId, CallId, "Received ACK for own-generated response", []),
+            own_ack;
         false ->
-            Request1 = Request#sipmsg{vias=[Via1|ViaR], opts=Opts1},
-            {ok, preprocess_route(Request1)}
+            Req1 = Req#sipmsg{vias=[Via1|ViaR], opts=Opts1},
+            preprocess_route(Req1)
     end.
 
 
@@ -78,6 +84,8 @@ preprocess(#sipmsg{sipapp_id=AppId, call_id=CallId, method=Method, to_tag=ToTag,
 %% ===================================================================
 %% Internal
 %% ===================================================================
+
+
 
 %% @doc Generates a new `Response' based on a received `Request'.
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
@@ -190,7 +198,7 @@ response(Req, Code, Headers, Body, Opts) ->
     end,
     MsgOpts = [make_contact, local_host, reason, stateless],
     Req#sipmsg{
-        class = response,
+        class1 = resp,
         response = Code,
         to = To1,
         forwards = 70,

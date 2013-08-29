@@ -23,9 +23,8 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, headers/2, body/1, method/1]).
+-export([field/2, fields/2, header/2, body/1, method/1]).
 -export([is_local_route/1, provisional_reply/2]).
--export([reply/2, get_sipmsg/1]).
 -export_type([id/0, field/0]).
 
 -include("nksip.hrl").
@@ -188,54 +187,41 @@
 %%          <td>Remote transport protocol, ip and port of a request</td>
 %%      </tr>
 %% </table>
--spec field(field(), Input::id()|nksip:request()) -> any().
 
-field(Field, Request) -> 
-    case fields([Field], Request) of
-        [Value|_] -> Value;
-        Error -> Error
-    end.
+field(#sipmsg{class1=req}=Req, Field) -> 
+    nksip_sipmsg:field(Req, Field);
 
-
-%% @doc Gets a number of fields from the `Request' as described in {@link field/2}.
--spec fields([field()], Input::id()|nksip:request()) -> [any()].
-
-fields(Fields, #sipmsg{}=Request) ->
-    nksip_sipmsg:fields(Fields, Request);
-
-fields(Fields, Request) ->
-    case nksip_call_proxy:get_fields(Request, Fields) of
-        {ok, Fields} -> Fields;
-        {error, Error} -> {error, Error}
-    end.
+field({req, _, _, _}=ReqId, Field) -> 
+    nksip_sipmsg:field(ReqId, Field).
 
 
-%% @doc Gets all `Name' headers from the request.
--spec headers(string()|binary(), Input::id()|nksip:request()) -> [binary()].
+fields(#sipmsg{class1=req}=Req, Fields) -> 
+    nksip_sipmsg:fields(Req, Fields);
 
-headers(Name, #sipmsg{}=Request) ->
-    nksip_sipmsg:headers(Name, Request);
+fields({req, _, _, _}=ReqId, Fields) -> 
+    nksip_sipmsg:fields(ReqId, Fields).
 
-headers(Name, Request) ->
-    case nksip_call_proxy:get_headers(Request, Name) of
-        {ok, Values} -> Values;
-        {error, Error} -> {error, Error}
-    end.
+
+header(#sipmsg{class1=req}=Req, Name) -> 
+    nksip_sipmsg:header(Req, Name);
+
+header({req, _, _, _}=ReqId, Name) -> 
+    nksip_sipmsg:header(ReqId, Name).
 
 
 
 %% @doc Gets the <i>method</i> of a `Request'.
 -spec method(id()|nksip:request()) -> nksip:method().
 
-method(Request) -> 
-    field(method, Request).
+method(Req) -> 
+    field(Req, method).
 
 
 %% @doc Gets the <i>body</i> of a `Request'.
 -spec body(id()|nksip:request()) -> nksip:body().
 
-body(Request) -> 
-    field(body, Request).
+body(Req) -> 
+    field(Req, body).
 
 
 
@@ -244,20 +230,13 @@ body(Request) ->
     ok | {error, Error}
     when Error :: unknown_request | invalid_response | network_error | invalid_request.
 
-provisional_reply(Request, SipReply) ->
+provisional_reply(Req, SipReply) ->
     case nksip_reply:reqreply(SipReply) of
-        #reqreply{code=Code} = Response when Code > 100, Code < 200 ->
-            reply(Request, Response);
+        #reqreply{code=Code} = Resp when Code > 100, Code < 200 ->
+            nksip_call_router:sync_reply(Req, Resp);
         _ ->
             {error, invalid_response}
     end.
-
-
-%% @private Gets the full #sipmsg{} record.
--spec get_sipmsg(id()) -> nksip:request().
-
-get_sipmsg(Request) -> 
-    nksip_call_proxy:get_sipmsg(Request).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
@@ -265,11 +244,11 @@ get_sipmsg(Request) ->
 %% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
 -spec is_local_route(id()|nksip:request()) -> boolean().
 
-is_local_route(Request) ->
-    case fields([sipapp_id, parsed_ruri, parsed_routes], Request) of
-        [AppId, RUri, []] -> nksip_transport:is_local(AppId, RUri);
-        [AppId, _, [Route|_]] -> nksip_transport:is_local(AppId, Route);
-        Error -> Error
+is_local_route(Req) ->
+    case fields(Req, [sipapp_id, parsed_ruri, parsed_routes]) of
+        {ok, [AppId, RUri, []]} -> nksip_transport:is_local(AppId, RUri);
+        {ok, [AppId, _, [Route|_]]} -> nksip_transport:is_local(AppId, Route);
+        {error, Error} -> {error, Error}
     end.
 
 
@@ -278,17 +257,6 @@ is_local_route(Request) ->
 %% ===================================================================
 %% Internal
 %% ===================================================================
-
-%% @private
--spec reply(id(), nksip:sipreply()|#reqreply{}) -> 
-    {ok, nksip:response()} | {error, Error}
-    when Error :: unknown_request | network_error | invalid_request.
-
-reply({req, AppId, CallId, Id}, SipReply) ->
-    nksip_call_proxy:app_reply(AppId, CallId, Id, SipReply);
-reply(_, _) ->
-    {error, unknown_request}.
-
 
 
 

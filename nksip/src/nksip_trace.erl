@@ -55,12 +55,12 @@
 counters() ->
     [
         {calls, nksip_counters:value(nksip_calls)},
-        {stored_msgs, nksip_counters:value(nksip_msgs)},
-        {proxy_queue, nksip_call_proxy:pending_msgs()},
+        {sipmsgs, nksip_counters:value(nksip_msgs)},
+        {dialogs, nksip_counters:value(nksip_dialogs)},
+        {routers_queue, nksip_call_router:pending_msgs()},
+        {routers_pending, nksip_call_router:pending_work()},
         {tcp_connections, nksip_counters:value(nksip_transport_tcp)},
         {counters_queue, nksip_counters:pending_msgs()},
-        {registry_size, nksip_proc:size()},
-        {registry_queue, nksip_proc:pending_msgs()},
         {core_queues, nksip_sipapp_srv:pending_msgs()},
         {uas_response, nksip_stats:get_uas_avg()}
     ].

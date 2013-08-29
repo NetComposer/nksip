@@ -26,24 +26,26 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, response/3]).
--import(nksip_call_dialog, [create/4, status_update/2, remotes_update/2, 
-                            find/2, update/2]).
+-export([request/2, response/2]).
+-import(nksip_call_dialog_lib, [create/3, status_update/2, remotes_update/2, 
+                                find/2, update/2]).
 
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
-request(#sipmsg{cseq=CSeq, method=Method}=Req, Dialogs) ->
+
+request(#trans{request=Req}, #call{dialogs=Dialogs}=SD) ->
     case nksip_dialog:id(Req) of
         undefined ->
-            no_dialog;
-        {dlg, AppId, CallId, DialogId} ->
+            {ok, undefined, SD};
+        {dlg, _AppId, _CallId, DialogId} ->
+            #sipmsg{method=Method, cseq=CSeq} = Req,
             case find(DialogId, Dialogs) of
                 #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
-                    ?debug(AppId, CallId, "Dialog ~p UAS request ~p (~p)", 
-                                [DialogId, Method, Status]),
+                    ?call_debug("Dialog ~p (~p) UAS request ~p", 
+                                [DialogId, Status, Method], SD),
                     case 
                         Method=/='ACK' andalso
                         RemoteSeq=/=undefined andalso CSeq<RemoteSeq 
@@ -53,23 +55,30 @@ request(#sipmsg{cseq=CSeq, method=Method}=Req, Dialogs) ->
                         false -> 
                             case do_request(Method, Status, Req, Dialog) of
                                 {ok, Dialog1} -> 
-                                    {ok, DialogId, update(Dialog1, Dialogs)};
-                                {error, Error} -> 
+                                    {ok, DialogId, update(Dialog1, SD)};
+                                {error, Error} ->
                                     {error, Error}
                             end
                     end;
-                not_found ->
-                    {error, finished}
+                not_found when Method=:='INVITE' -> 
+                    {ok, DialogId, SD};
+                not_found -> 
+                    {error, unknown_dialog}
             end
     end.
-            
+
+
 
 %% @private
+% After an INVITE, BYE has come before the ACK
+do_request('ACK', bye, _Req, Dialog) ->
+    {ok, Dialog};
+
 do_request(_, bye, _Req, _Dialog) ->
     {error, bye};
 
-do_request('INVITE', confirmed, _Req, Dialog) ->
-    {ok, status_update(proceeding_uas, Dialog)};
+do_request('INVITE', confirmed, Req, Dialog) ->
+    {ok, status_update(proceeding_uas, Dialog#dialog{request=Req})};
 
 do_request('INVITE', Status, _Req, _Dialog) 
            when Status=:=proceeding_uac; Status=:=accepted_uac ->
@@ -79,31 +88,29 @@ do_request('INVITE', Status, _Req, _Dialog)
            when Status=:=proceeding_uas; Status=:=accepted_uas ->
     {error, proceeding_uas};
 
-do_request('ACK', accepted_uas, Req, Dialog) ->
-    #sipmsg{cseq=CSeq, body=Body} = Req,
-    #dialog{request=#sipmsg{cseq=InvCSeq, body=InvBody}=InvReq} = Dialog,
-    case CSeq of
-        InvCSeq ->
-            Dialog1 = case InvBody of
-                #sdp{} -> Dialog;
-                _ -> Dialog#dialog{request=InvReq#sipmsg{body=Body}} 
-            end,
-            {ok, status_update(confirmed, Dialog1)};
-        _ ->
+do_request('ACK', Status, AckReq, #dialog{request=#sipmsg{}=InvReq}=Dialog) ->
+    case AckReq#sipmsg.cseq =:= InvReq#sipmsg.cseq of
+        true when Status=:=accepted_uas -> 
+            {ok, status_update(confirmed, Dialog#dialog{ack=AckReq})};
+        true when Status=:=confirmed ->
+            {ok, Dialog};   % It is an ACK retransmission
+        _ -> 
+            ?P("ACK INVALID: ~p, ~p, ~p", [Status, AckReq#sipmsg.cseq, InvReq#sipmsg.cseq]),
             {error, invalid}
     end;
 
-do_request('ACK', _Status, _Req, _Dialog) ->
+do_request('ACK', _Status, _Req, #dialog{request=InvReq}=_Dialog) ->
+    ?P("ACK INVALID2: ~p, ~p, ~p", [_Status, _Req#sipmsg.cseq, InvReq]),
     {error, invalid};
 
-do_request('BYE', Status, Req, Dialog) ->
+do_request('BYE', Status, _Req, Dialog) ->
     case Status of
         confirmed -> 
             ok;
         _ ->
-            #sipmsg{sipapp_id=AppId, call_id=CallId} = Req,
-            ?debug(AppId, CallId, "Dialog ~s received BYE in ~p", 
-                   [Dialog#dialog.id, Status])
+            #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
+            ?debug(AppId, CallId, "Dialog ~p (~p) received BYE", 
+                   [DialogId, Status])
     end,
     {ok, status_update(bye, Dialog)};
 
@@ -113,59 +120,70 @@ do_request(_, _, _, Dialog) ->
 
 
 %% @private Called to send an in-dialog response
-response(#sipmsg{method=Method}=Req,  #sipmsg{response=Code}=Resp, Dialogs) ->
+response(UAS, SD) ->
+    #trans{method=Method, request=Req, response=Resp} = UAS,
+    #sipmsg{response=Code} = Resp,
+    #call{dialogs=Dialogs} = SD,
     case nksip_dialog:id(Resp) of
         undefined ->
-            Dialogs;
-        {dlg, AppId, CallId, DialogId} ->
+            ok;
+        {dlg, _AppId, _CallId, DialogId} ->
             case find(DialogId, Dialogs) of
                 #dialog{status=Status}=Dialog ->
-                    ?debug(AppId, CallId, "Dialog ~p UAS response ~p (~p)", 
-                                [DialogId, Code, Status]),
-                    case do_response(Method, Code, Req, Resp, Dialog) of
-                        {ok, Dialog1} -> 
-                            Dialog2 = remotes_update(Req, Dialog1),
-                            update(Dialog2, Dialogs);
-                        {stop, Reason} -> 
-                            removed = status_update({stop, Reason}, Dialog),
-                            lists:keydelete(DialogId, #dialog.id, Dialogs)
-                    end;
+                    #sipmsg{response=Code} = Resp,
+                    ?call_debug("Dialog ~p (~p) UAS ~p response ~p", 
+                                [DialogId, Status, Method, Code], SD),
+                    Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
+                    Dialog2 = remotes_update(Req, Dialog1),
+                    update(Dialog2, SD);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
-                    Dialog = create(uas, DialogId, Req, Resp),
-                    response(Req, Resp, [Dialog|Dialogs]);
+                    Dialog = create(uas, Req, Resp),
+                    response(UAS, SD#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
-                    Dialogs
+                    SD
             end
     end.
 
 
+
 %% @private
-do_response(_, Code, _Req, _Resp, _Dialog) when Code=:=408; Code=:=481 ->
-    {stop, Code};
+do_response(_, Code, _Req, _Resp, Dialog) when Code=:=408; Code=:=481 ->
+    status_update({stop, Code}, Dialog);
 
 do_response(_, Code, _Req, _Resp, Dialog) when Code<101 ->
-    {ok, Dialog};
+    Dialog;
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog) 
-            when Code<200, Status=:=init; Status=:=proceeding_uas ->
+            when Code<200 andalso (Status=:=init orelse Status=:=proceeding_uas) ->
     Dialog1 = Dialog#dialog{request=Req, response=Resp},
-    {ok, status_update(proceeding_uas, Dialog1)};
+    status_update(proceeding_uas, Dialog1);
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog) 
-            when Code<300, Status=:=init; Status=:=proceeding_uas ->
-    Dialog1 = Dialog#dialog{request=Req, response=Resp},
-    {ok, status_update(accepted_uas, Dialog1)};
+            when Code<300 andalso (Status=:=init orelse Status=:=proceeding_uas) ->
+    Dialog1 = Dialog#dialog{request=Req, response=Resp}, 
+    status_update(accepted_uas, Dialog1);
 
-do_response('INVITE', Code, _Req, _Resp, Dialog) when Code>=300 ->
-    {ok, status_update(confirmed, Dialog)};
+do_response('INVITE', Code, _Req, _Resp, #dialog{answered=Answered}=Dialog)
+            when Code>=300 ->
+    case Answered of
+        undefined -> status_update({stop, Code}, Dialog);
+        _ -> status_update(confirmed, Dialog)
+    end;
 
-do_response('BYE', _Code, Req, _Resp, #dialog{local_tag=LocalTag}) ->
+do_response('INVITE', Code, _Req, Resp, Dialog) ->
+    #sipmsg{response=Code} = Resp,
+    #dialog{app_id=AppId, call_id=CallId, status=Status} = Dialog,
+    ?notice(AppId, CallId, 
+           "Dialog unexpected INVITE response ~p in ~p", [Code, Status]),
+    Dialog;
+    
+do_response('BYE', _Code, Req, _Resp, #dialog{local_tag=LocalTag}=Dialog) ->
     Reason = case Req#sipmsg.from_tag of
         LocalTag -> caller_bye;
         _ -> callee_bye
     end,
-    {stop, Reason};
+    status_update({stop, Reason}, Dialog);
 
 do_response(_, _, _, _, Dialog) ->
-    {ok, Dialog}.
+    Dialog.
 

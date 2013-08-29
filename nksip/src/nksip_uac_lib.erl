@@ -148,7 +148,7 @@ make(AppId, Method, Uri, Opts) ->
                             full_response, full_request, dialog_force_send,
                             no_uac_expire]),
         SipMsg = #sipmsg{
-            class = request,
+            class1 = req,
             sipapp_id = AppId,
             method = nksip_parse:method(Method),
             ruri = nksip_parse:uri2ruri(RUri),
@@ -181,7 +181,7 @@ make(AppId, Method, Uri, Opts) ->
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{class=request, vias=[Via|_], opts=Opts}=Req) ->
+make_cancel(#sipmsg{class1=req, vias=[Via|_], opts=Opts}=Req) ->
     Req#sipmsg{
         method = 'CANCEL',
         cseq_method = 'CANCEL',

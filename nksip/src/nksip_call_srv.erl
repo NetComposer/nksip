@@ -24,13 +24,13 @@
 
 -behaviour(gen_server).
 
--export([start/3, app_reply/4, next/1]).
+-export([start/3, stop/1, reply/3, sync_work/5, async_work/2, get_data/1, next/1]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--define(MSG_KEEP_TIME, 30).   % Time to keep removed sip msgs in memory
+-define(MSG_KEEP_TIME, 5).   % Time to keep removed sip msgs in memory
 
 
 %% ===================================================================
@@ -41,17 +41,27 @@
 start(AppId, CallId, AppOpts) ->
     gen_server:start(?MODULE, [AppId, CallId, AppOpts], []).
 
+stop(Pid) ->
+    gen_server:cast(Pid, stop).
 
+reply(Pid, ReqId, Reply) ->
+    gen_server:call(Pid, {reply, ReqId, Reply}, 60000).
 
-app_reply(Pid, Type, Id, Reply) ->
-    gen_server:cast(Pid, {reply, Type, Id, Reply}).
+sync_work(Pid, Ref, Sender, Work, From) ->
+    gen_server:cast(Pid, {sync_work, Ref, Sender, Work, From}).
+
+async_work(Pid, Work) ->
+    gen_server:cast(Pid, {async_work, Work}).
+
+get_data(Pid) ->
+    gen_server:call(Pid, get_data).
 
 
 
 
 
 %% ===================================================================
-%% FSM
+%% gen_server
 %% ===================================================================
 
 
@@ -61,180 +71,47 @@ init([AppId, CallId, AppOpts]) ->
     SD = #call{
         app_id = AppId, 
         call_id = CallId, 
-        app_opts = AppOpts,
-        msg_keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
+        keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
+        send_100 = not lists:member(no_100, AppOpts),
         next = erlang:phash2(make_ref()),
+        hibernate = false,
         trans = [],
         msgs = [],
-        dialogs = [],
-        msg_queue = queue:new(),
-        blocked = false
+        dialogs = []
     },
     ?call_debug("Call process started: ~p", [self()], SD),
     {ok, SD, ?SRV_TIMEOUT}.
 
 
 %% @private
+handle_call(get_data, _From, #call{trans=Trans, msgs=Msgs, dialogs=Dialogs}=SD) ->
+    {reply, {Msgs, Trans, Dialogs}, SD};
 
 handle_call(Msg, _From, SD) ->
     lager:error("Module ~p received unexpected sync event: ~p", [?MODULE, Msg]),
     {noreply, SD}.
 
-
 %% @private
-handle_cast({do_check, Now}, #call{dialogs=Dialogs}=SD) ->
-    lists:foreach(
-        fun(#dialog{id=DialogId, timeout=Timeout}) ->
-            case is_integer(Timeout) andalso Timeout=<Now of
-                true -> self() ! {timeout, none, {dialog, timeout, DialogId}};
-                false -> ok
-            end
-        end,
-        Dialogs),
-    SD1 = nksip_call_lib:check(Now, SD),
-    next(SD1);
+handle_cast({sync_work, Ref, Pid, Work, From}, SD) ->
+    Pid ! {sync_work_ok, Ref},
+    next(work(Work, From, SD));
 
-handle_cast({sync, {send, Req}, From}, #call{app_id=AppId, call_id=CallId, next=Id}=SD) ->
-    gen_server:reply(From, {ok, {req, AppId, CallId, Id}}),
-    nksip_call_uac:send(Req, SD);
+handle_cast({async_work, Work}, SD) ->
+    next(work(Work, none, SD));
 
-handle_cast({sync, {incoming, RawMsg}, From}, SD) ->
-    gen_server:reply(From, ok),
-    incoming(RawMsg, SD);
-
-handle_cast({async, {incoming, RawMsg}}, SD) ->
-    incoming(RawMsg, SD);
-
-handle_cast({sync, {get_cancel, ReqId, Opts}, From}, #call{msgs=Msgs}=SD) ->
-    case lists:keyfind(ReqId, #msg.msg_id, Msgs) of
-        #msg{msg_class=req, trans_class=uac, trans_id=TransId} ->
-            nksip_call_uac:get_cancel(TransId, Opts, From, SD);
-        _ ->
-            gen_server:reply(From, {error, no_transaction}, SD)
-    end;
-
-handle_cast({sync, {make_dialog, Id, Method, Opts}, From}, SD) ->
-    nksip_call_uac:make_dialog(Id, Method, Opts, From, SD);
-
-handle_cast({sync, {get_sipmsg, Id}, From}, SD) ->
-    Reply = case get_sipmsg(Id, SD) of
-        #sipmsg{} = SipMsg -> {ok, SipMsg};
-        not_found -> {error, not_found}
-    end,
-    gen_server:reply(From, Reply),
-    next(SD);
-
-handle_cast({sync, {get_fields, Id, Fields}, From}, SD) ->
-    Reply = case get_sipmsg(Id, SD) of
-        #sipmsg{}=SipMsg -> {ok, nksip_sipmsg:fields(Fields, SipMsg)};
-        not_found -> {error, not_found}
-    end,
-    gen_server:reply(From, Reply),
-    next(SD);
-
-handle_cast({sync, {get_headers, Id, Name}, From}, SD) ->
-    Reply = case get_sipmsg(Id, SD) of
-        #sipmsg{}=SipMsg -> {ok, nksip_sipmsg:headers(Name, SipMsg)};
-        not_found -> {error, not_found}
-    end,
-    gen_server:reply(From, Reply),
-    next(SD);
-
-handle_cast({sync, {get_dialog, Id}, From}, SD) ->
-    Reply = case get_dialog(Id, SD) of
-        #dialog{}=Dialog -> 
-            {ok, 
-                Dialog#dialog{
-                    request = undefined, 
-                    response = undefined, 
-                    ack = undefined,
-                    retrans_timer = undefined
-                }
-            };
-        not_found ->  
-            {error, not_found}
-    end,
-    gen_server:reply(From, Reply),
-    next(SD);
-
-handle_cast({sync, {get_dialog_fields, DialogId, Fields}, From}, SD) ->
-    Reply = case get_dialog(DialogId, SD) of
-        #dialog{}=Dialog -> {ok, nksip_dialog:get_fields(Fields, Dialog)};
-        not_found ->  {error, not_found}
-    end,
-    gen_server:reply(From, Reply),
-    next(SD);
-
-handle_cast({sync, get_sipmsgs, From}, SD) ->
-    #call{app_id=AppId, call_id=CallId, msgs=Msgs} = SD,
-    Ids = [
-        case Class of
-            req -> {{req, AppId, CallId, Id}, Expire};
-            resp -> {{resp, AppId, CallId, Id}, Expire}
-        end
-        || #msg{msg_id=Id, msg_class=Class, expire=Expire} <- Msgs
-    ],
-    gen_server:reply(From, {ok, Ids}),
-    next(SD);
-
-handle_cast({sync, get_dialogs, From}, SD) ->
-    #call{app_id=AppId, call_id=CallId, dialogs=Dialogs} = SD,
-    Ids = [{{dlg, AppId, CallId, Id}, Expire} 
-           || #dialog{id=Id, timeout=Expire} <- Dialogs],
-    gen_server:reply(From, {ok, Ids}),
-    next(SD);
-
-handle_cast({async, {stop_dialog, DialogId}}, SD) ->
-    #call{dialogs=Dialogs} = SD,
-    case lists:keytake(DialogId, #dialog.id, Dialogs) of
-        {value, Dialog, Rest} ->
-            removed = nksip_call_dialog:status_update({stop, forced}, Dialog),
-            next(SD#call{dialogs=Rest});
-        false ->
-            next(SD)
-    end;
-
-handle_cast({async, {sipapp_reply, Fun, Id, Reply}}, SD) ->
-    nksip_call_uas:sipapp_reply(Fun, Id, Reply, SD);
-
-handle_cast({async, call_unregister}, SD) ->
+handle_cast(stop, SD) ->
     {stop, normal, SD};
-
-handle_cast({sync, get_data, From}, #call{trans=Trans, dialogs=Dialogs}=SD) ->
-    gen_server:reply(From, {ok, Trans, Dialogs}),
-    next(SD);
 
 handle_cast(Msg, SD) ->
     lager:error("Module ~p received unexpected event: ~p", [?MODULE, Msg]),
     {noreply, SD}.
 
-
-
-handle_info({timeout, _, {Class, Tag, TransId}}, #call{trans=Trans}=SD) ->
-    case lists:keyfind(TransId, #trans.trans_id, Trans) of
-        #trans{class=Class}=UAC when Class=:=uac ->
-            nksip_call_uac:timer(Tag, UAC, SD);
-        #trans{class=Class}=UAS when Class=:=uas ->
-            nksip_call_uac:timer(Tag, UAS, SD);
-        _ ->
-            ?call_warning("UAC ignoring timer (~p, ~p)", [Tag, TransId], SD),
-            next(SD)
-    end;
-
-handle_info({timeout, _, {dialog, Tag, DialogId}}, #call{dialogs=Dialogs}=SD) ->
-    case lists:keyfind(DialogId, #dialog.id, Dialogs) of
-        #dialog{} = Dialog ->
-            Dialogs1 = nksip_call_dialog:timer(Tag, Dialog, Dialogs),
-            next(SD#call{dialogs=Dialogs1});
-        _ ->
-            ?call_warning("Dialog ignoring timer (~p, ~p)", [Tag, DialogId], SD),
-            next(SD)
-    end;
+%% @private
+handle_info({timeout, Ref, Type}, SD) ->
+    next(timeout(Type, Ref, SD));
 
 handle_info(timeout, SD) ->
-    ?call_warning("Call process timeout", [], SD),
-    {stop, normal, SD};
-
+    next(SD);
 
 handle_info(Info, FsmData) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
@@ -258,74 +135,189 @@ terminate(_Reason, SD) ->
 %% Internal
 %% ===================================================================
 
-incoming(#raw_sipmsg{class={req, _, Binary}}=RawMsg, SD) ->
+
+work({incoming, RawMsg}, none, SD) ->
+    #raw_sipmsg{
+        sipapp_id = AppId, 
+        call_id = CallId, 
+        class = {_, _, Binary},
+        transport = #transport{proto=Proto}
+    } = RawMsg,
     case nksip_parse:raw_sipmsg(RawMsg) of
         error ->
-            #raw_sipmsg{transport=#transport{proto=Proto}} = RawMsg,
-            ?call_notice("could not process ~p packet: ~s", [Proto, Binary], SD),
+            ?notice(AppId, CallId, "SIP ~p message could not be decoded: ~s", 
+                    [Proto, Binary]),
             next(SD);
-        Req ->
-            nksip_call_uas:request(Req, SD)
+        #sipmsg{class1=Class}=SipMsg ->
+            case Class of
+                req -> nksip_call_uas:request(SipMsg, SD);
+                resp -> nksip_call_uac:response(SipMsg, SD)
+            end
     end;
 
-incoming( #raw_sipmsg{class={resp, _, Binary}}=RawMsg, SD) ->
-    case nksip_parse:raw_sipmsg(RawMsg) of
-        error ->
-            #raw_sipmsg{transport=#transport{proto=Proto}} = RawMsg,
-            ?call_notice("could not process ~p packet: ~s", [Proto, Binary], SD),
-            next(SD);
-        Resp ->
-            nksip_call_uac:received(Resp, SD)
-    end.
+work({sipapp_reply, Fun, Id, Reply}, none, SD) ->
+    nksip_call_uas:sipapp_reply(Fun, Id, Reply, SD);
+
+work({sync_reply, ReqId, Reply}, From, SD) ->
+    case find_msg_trans(ReqId, SD) of
+        {ok, UAS} -> 
+            nksip_call_uas:sync_reply(Reply, UAS, From, SD);
+        not_found -> 
+            gen_server:reply(From, {error, unknown_call}),
+            SD
+    end;
+
+work({send, Req}, From, SD) ->
+    nksip_call_uac:request(Req, From, SD);
+
+work({get_cancel, ReqId, Opts}, From, SD) ->
+    case find_msg_trans(ReqId, SD) of
+        {ok, UAS} -> 
+            nksip_call_uac:get_cancel(UAS, Opts, From, SD);
+        not_found -> 
+            gen_server:reply(From, {error, request_not_found}),
+            SD
+    end;
+
+work({make_dialog, DialogId, Method, Opts}, From, SD) ->
+    nksip_call_uac:make_dialog(DialogId, Method, Opts, From, SD);
+
+work({get_dialog, DialogId}, From, SD) ->
+    Reply = case find_dialog(DialogId, SD) of
+        {ok, Dialog} -> {ok, Dialog};
+        not_found -> {error, unknown_dialog}
+    end,
+    gen_server:reply(From, Reply),
+    SD;
+
+work({get_dialog_fields, DialogId, Fields}, From, SD) ->
+    Reply = case find_dialog(DialogId, SD) of
+        {ok, Dialog} -> nksip_dialog:fields(Dialog, Fields);
+        not_found -> {error, unknown_dialog}
+    end,
+    gen_server:reply(From, Reply),
+    SD;
+
+work(get_all_dialogs, From, #call{dialogs=Dialogs}=SD) ->
+    Ids = [Dialog#dialog.id || Dialog <- Dialogs],
+    gen_server:reply(From, {ok, Ids}),
+    SD;
+
+work({stop_dialog, DialogId}, none, SD) ->
+    case find_dialog(DialogId, SD) of
+        {ok, Dialog} ->
+            Dialog1 = nksip_call_dialog_lib:status_update({stop, forced}, Dialog),
+            ksip_call_dialog_lib:update(Dialog1, SD);
+        not_found ->
+            SD
+    end;
+
+work({get_sipmsg, MsgId}, From, SD) ->
+    Reply = case find_sipmsg(MsgId, SD) of
+        {ok, Msg} -> {ok, Msg};
+        not_found -> {error, unknown_sipmsg}
+    end,
+    gen_server:reply(From, Reply),
+    SD;
+
+work({get_sipmsg_fields, MsgId, Fields}, From, SD) ->
+    Reply = case find_sipmsg(MsgId, SD) of
+        {ok, Msg} -> nksip_sipmsg:fields(Msg, Fields);
+        not_found -> {error, unknown_sipmsg}
+    end,
+    gen_server:reply(From, Reply),
+    SD;
+
+work({get_sipmsg_header, MsgId, Name}, From, SD) ->
+    Reply = case find_sipmsg(MsgId, SD) of
+        {ok, Msg} -> nksip_sipmsg:header(Msg, Name);
+        not_found -> {error, unknown_sipmsg}
+    end,
+    gen_server:reply(From, Reply),
+    SD;
+
+work(get_all_sipmsgs, From, #call{msgs=Msgs}=SD) ->
+    Ids = [SipMsg#sipmsg.id || SipMsg <- Msgs],
+    gen_server:reply(From, {ok, Ids}),
+    SD.
 
 
-next(#call{blocked=true}=SD) ->
-    {noreply, SD};
+timeout({remove_msg, MsgId}, _Ref, #call{msgs=Msgs}=SD) ->
+    ?call_debug("Trans removing message ~p", [MsgId], SD),
+    nksip_counters:async([{nksip_msgs, -1}]),
+    case lists:keydelete(MsgId, #sipmsg.id, Msgs) of
+        [] -> SD#call{msgs=[], hibernate=true};
+        Msgs1 -> SD#call{msgs=Msgs1}
+    end;
 
-next(SD) ->
-    #call{
-        app_id = AppId, 
-        call_id = CallId, 
-        msg_queue = MsgQueue, 
-        trans = Trans,
-        dialogs = Dialogs
-    } = SD,
-    case queue:out(MsgQueue) of
-        {{value, {TransId, Req}}, MsgQueue1} ->
-            nksip_call_uas:process(TransId, Req, SD#call{msg_queue=MsgQueue1});
-        {empty, MsgQueue1} ->
-            case Trans=:=[] andalso Dialogs=:=[] of
-                true ->
-                    nksip_call_proxy:call_unregister(AppId, CallId),
-                    {noreply, SD#call{msg_queue=MsgQueue1}, 5000};
-                false ->
-                    {noreply, SD#call{msg_queue=MsgQueue1}}
-            end
-    end.
-
-
-get_sipmsg(Id, #call{msgs=Msgs, trans=Trans}) ->
-    case lists:keyfind(Id, #msg.msg_id, Msgs) of
-        #msg{msg_class=Class, trans_id=TransId} ->
-            case lists:keyfind(TransId, #trans.trans_id, Trans) of
-                #trans{request=#sipmsg{id=Id}=Req} when Class=:=req->
-                    Req;
-                #trans{responses=Resps} when Class=:=resp ->
-                    case lists:keyfind(Id, #sipmsg.id, Resps) of
-                        #sipmsg{} = Resp -> Resp;
-                        false -> not_found
-                    end;
-                _ ->
-                    not_found
-            end;
-
+timeout({uac, Tag, Id}, _Ref, #call{trans=Trans}=SD) ->
+    case lists:keyfind(Id, #trans.id, Trans) of
+        #trans{class=uac}=UAC ->
+            nksip_call_uac:timer(Tag, UAC, SD);
         false ->
-            not_found
+            ?call_warning("Call ignoring uac timer (~p, ~p)", [Tag, Id], SD),
+            SD
+    end;
+
+
+timeout({uas, Tag, Id}, _Ref, #call{trans=Trans}=SD) ->
+    case lists:keyfind(Id, #trans.id, Trans) of
+        #trans{class=uas}=UAS ->
+            nksip_call_uas:timer(Tag, UAS, SD);
+        false ->
+            ?call_warning("Call ignoring uas timer (~p, ~p)", [Tag, Id], SD),
+            SD
+    end;
+
+timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=SD) ->
+    case lists:keyfind(Id, #dialog.id, Dialogs) of
+        #dialog{} = Dialog -> 
+            nksip_call_dialog_lib:timer(Tag, Dialog, SD);
+        false ->
+            ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id], SD),
+            SD
+    end;
+
+timeout({fork, Tag, Id}, _Ref, #call{forks=Forks}=SD) ->
+    case lists:keyfind(Id, #fork.id, Forks) of
+        #fork{}=Fork ->
+            nksip_call_fork:timer(Tag, Fork, SD);
+        false ->
+            ?call_warning("Call ignoring fork timer (~p, ~p)", [Tag, Id], SD),
+            SD
     end.
 
-get_dialog(Id, #call{dialogs=Dialogs}) ->
-    case lists:keyfind(Id, #dialog.id, Dialogs) of
-        #dialog{}=Dialog -> Dialog;
-        false -> not_found
+
+
+next(#call{trans=[], msgs=[], dialogs=[]}=SD) -> 
+    {stop, normal, SD};
+next(#call{hibernate=true}=SD) -> 
+    {noreply, SD#call{hibernate=false}, hibernate};
+next(SD) ->
+    {noreply, SD}.
+
+
+find_msg_trans(ReqId, #call{trans=Trans}) ->
+    do_find_msg_trans(ReqId, Trans).
+
+do_find_msg_trans(ReqId, [#trans{request=#sipmsg{id=ReqId}}=UAS|_]) -> 
+    {ok, UAS};
+do_find_msg_trans(ReqId, [_|Rest]) -> 
+    do_find_msg_trans(ReqId, Rest);
+do_find_msg_trans(_, []) -> 
+    not_found.
+
+find_sipmsg(MsgId, #call{msgs=Msgs}) ->
+    case lists:keyfind(MsgId, #sipmsg.id, Msgs) of
+        false -> not_found;
+        SipMsg -> {ok, SipMsg}
     end.
+
+find_dialog(DialogId, #call{dialogs=Dialogs}) ->
+    case lists:keyfind(DialogId, #dialog.id, Dialogs) of
+        false -> not_found;
+        Dialog -> {ok, Dialog}
+    end.
+
+
 

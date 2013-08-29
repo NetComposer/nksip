@@ -25,13 +25,12 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, id/1, find_callid/2, stop/1, bye_all/0, stop_all/0]).
--export([get_dialog/1, all/0, get_all/0, is_authorized/1]).
--export([remote_id/2, get_field/2, get_fields/2]).
+-export([get_dialog/1, get_all/0, get_all_data/0, is_authorized/1]).
+-export([remote_id/2]).
 
 -export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
 
 -include("nksip.hrl").
-
 
 
 %% ===================================================================
@@ -199,21 +198,16 @@
 %%          <td>Dialog stop reason</td>
 %%      </tr>
 %% </table>
--spec field(field(), spec()) -> term() | {error, Error}
+-spec field(spec(), field()) -> term() | {error, Error}
     when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
 
-field(Field, #dialog{}=Dialog) ->
-    get_field(Field, Dialog);
+field(#dialog{}=Dialog, Field) ->
+    get_field(Dialog, Field);
 
-field(Field, DialogSpec) -> 
-    case id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            case nksip_call_proxy:get_dialog_fields(AppId, CallId, DialogId, [Field]) of
-                {ok, [Value|_]} -> Value;
-                {error, Error} -> {error, Error}
-            end;
-        undefined ->
-            {error, unknown_dialog}
+field(DialogSpec, Field) -> 
+    case fields(DialogSpec, [Field]) of
+        {ok, [Value|_]} -> {ok, Value};
+        {error, Error} -> {error, Error}
     end.
 
 
@@ -221,16 +215,11 @@ field(Field, DialogSpec) ->
 -spec fields([field()], id()) -> [term()] | {error, Error}
     when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
 
-fields(Fields, #dialog{}=Dialog) ->
-    get_fields(Fields, Dialog);
+fields(#dialog{}=Dialog, Fields) when is_list(Fields) ->
+    {ok, [get_field(Dialog, Field) || Field <- Fields]};
 
-fields(Fields, DialogSpec) ->
-    case id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            nksip_call_proxy:get_dialog_fields(AppId, CallId, DialogId, Fields);
-        undefined ->
-            {error, unknown_dialog}
-    end.
+fields(DialogSpec, Fields) when is_list(Fields) ->
+    nksip_call_router:get_dialog_fields(DialogSpec, Fields).
 
 
 %% @doc Calculates a <i>Dialog's Id</i> from a {@link nksip_request:id()}, 
@@ -247,30 +236,33 @@ id({dlg, AppId, CallId, DialogId}) ->
     {dlg, AppId, CallId, DialogId};
 
 id(#sipmsg{sipapp_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
-        when FromTag =/= <<>>, ToTag =/= <<>> ->
+    when FromTag =/= <<>>, ToTag =/= <<>> ->
     dialog_id(AppId, CallId, FromTag, ToTag);
 
-id(#sipmsg{sipapp_id=AppId, call_id=CallId, from_tag=FromTag, opts=Opts})
-        when FromTag =/= <<>> ->
+id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), method='INVITE', opts=Opts}=SipMsg)
+    when FromTag =/= <<>> ->
+    #sipmsg{sipapp_id=AppId, call_id=CallId} = SipMsg,
     case nksip_lib:get_binary(to_tag, Opts) of
         <<>> -> undefined;
         ToTag -> dialog_id(AppId, CallId, FromTag, ToTag)
     end;
         
-id({req, Pid}) ->
-    case catch nksip_request:field(dialog_id, {req, Pid}) of
-        DialogId when is_binary(DialogId) -> DialogId;
-        _ -> <<>>
-    end;
-
-id({resp, Pid}) ->
-    case catch nksip_response:field(dialog_id, {resp, Pid}) of
-        DialogId when is_binary(DialogId) -> DialogId;
-        _ -> <<>>
+id({Type, AppId, CallId, _}=SipMsgId) when Type=:=req; Type=:=resp ->
+    case catch nksip_call_router:get_fields([from_tag, to_tag], SipMsgId) of
+        {ok, [FromTag, ToTag]} -> dialog_id(AppId, CallId, FromTag, ToTag);
+        _ -> undefined
     end;
 
 id(_) ->
     undefined.
+
+
+get_dialog(DialogSpec) ->
+    nksip_call_router:get_dialog(DialogSpec).
+
+
+get_all() ->
+    nksip_call_router:get_all_dialogs().
 
 
 %% @doc Finds all existing dialogs' processes having a Call-ID
@@ -278,31 +270,31 @@ id(_) ->
     [id()].
 
 find_callid(AppId, CallId) ->
-    nksip_call_proxy:get_dialogs(AppId, CallId).
-
-%% @doc Stops an existing dialog (remove it from memory).
--spec stop(spec()) ->
-    ok.
+    nksip_call_router:get_all_dialogs(AppId, CallId).
 
 %% @doc Sends an in-dialog BYE to all existing dialogs.
 -spec bye_all() ->
     ok.
 
 bye_all() ->
-    Fun = fun({DialogId, _Pid}) -> nksip_uac:bye(DialogId, [async]) end,
-    lists:foreach(Fun, all()).
+    Fun = fun(DialogId) -> nksip_uac:bye(DialogId, [async]) end,
+    lists:foreach(Fun, get_all()).
 
+
+%% @doc Stops an existing dialog (remove it from memory).
+-spec stop(spec()) ->
+    ok.
 
 stop(DialogSpec) ->
-    nksip_call_proxy:stop_dialog(DialogSpec).
+    nksip_call_router:stop_dialog(DialogSpec).
+
 
 %% @doc Stops all current dialogs.
 -spec stop_all() ->
     ok.
 
 stop_all() ->
-    Fun = fun({DialogId, _Pid}) -> stop(DialogId) end,
-    lists:foreach(Fun, all()).
+    lists:foreach(fun stop/1, get_all()).
 
 
 %% @doc Checks if a request is part of an already authenticated dialog,
@@ -343,6 +335,7 @@ is_authorized(Req) ->
 %% Private
 %% ===================================================================
 
+
 %% @private
 dialog_id(AppId, CallId, FromTag, ToTag) ->
     {A, B} = case FromTag < ToTag of
@@ -351,57 +344,21 @@ dialog_id(AppId, CallId, FromTag, ToTag) ->
     end,
     {dlg, AppId, CallId, erlang:phash2({A, B})}.
 
-% %% @private Finds an existing dialog's process corresponding to `nksip:request()' 
-% %% or `nksip:response()'.
-% -spec find(spec()) ->
-%     not_found | pid().
-
-% find(DialogSpec) ->
-%     case id(DialogSpec) of
-%         undefined -> 
-%             not_found;
-%         {dlg, AppId, CallId, DialogId} -> 
-%             case nksip_proc:whereis({nksip_dialog, DialogId}) of
-%                 undefined -> not_found;
-%                 Pid -> Pid
-%             end
-%     end.
-
-
-%% @private
--spec get_dialog(spec() | pid()) -> dialog() | {error, Error}
-    when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
-
-get_dialog(DialogSpec) ->
-    nksip_call_proxy:get_dialog(DialogSpec).
-
-
-%% @private Get all dialog Ids and Pids.
--spec all() ->
-    [{id(), pid()}].
-
-all() ->
-    Fun = fun
-            ({nksip_dialog, DialogId}, [{val, _, Pid}], Acc) -> [{DialogId, Pid}|Acc];
-            (_, _, Acc) -> Acc
-    end,
-    nksip_proc:fold_names(Fun, []).
 
 
 %% @private Dumps all dialog information
 %% Do not use it with many active dialogs!!
--spec get_all() ->
+-spec get_all_data() ->
     [{id(), nksip_lib:proplist()}].
 
-get_all() ->
+get_all_data() ->
     Now = nksip_lib:timestamp(),
-    Fun = fun({DialogId, Pid}, Acc) ->
-        case get_dialog(Pid) of
-            #dialog{}=Dialog ->
+    Fun = fun(DialogId, Acc) ->
+        case get_dialog(DialogId) of
+            {ok, Dialog} ->
                 Data = {DialogId, [
                     {sipapp_id, Dialog#dialog.app_id},
                     {call_id, Dialog#dialog.call_id},
-                    {pid, Pid},
                     {status, Dialog#dialog.status},
                     {local_uri, nksip_unparse:uri(Dialog#dialog.local_uri)},
                     {remote_uri, nksip_unparse:uri(Dialog#dialog.remote_uri)},
@@ -427,12 +384,12 @@ get_all() ->
                 Acc
         end
     end,
-    lists:foldl(Fun, [], all()).
+    lists:foldl(Fun, [], get_all()).
 
 
 %% @private Only for testing
 remote_id(AppId, DialogId) ->
-    [CallId, FromTag, ToTag] = fields([call_id, from_tag, to_tag], DialogId),
+    [CallId, FromTag, ToTag] = fields(DialogId, [call_id, from_tag, to_tag]),
     dialog_id(AppId, CallId, FromTag, ToTag).
 
 
@@ -442,69 +399,45 @@ remote_id(AppId, DialogId) ->
 %% Internal
 %% ===================================================================
 
-%% @private
--spec get_fields([field()], dialog()) -> [any()].
-
-get_fields(Fields, Req) when is_list(Fields) ->
-    [get_field(Field, Req) || Field <- Fields].
-
 
 %% @private Extracts a specific field from the request
 %% See {@link nksip_request:field/2}.
 -spec get_field(field(), dialog()) -> any().
 
-get_field(Type, Dialog) ->
-    #dialog{
-        id = DialogId,
-        app_id = AppId, 
-        call_id = CallId,
-        created = Created,
-        updated = Updated,
-        answered = Answered, 
-        status = Status,
-        local_seq = LocalSeq, 
-        remote_seq  = RemoteSeq, 
-        local_uri = LocalUri,
-        remote_uri = RemoteUri,
-        local_target = LocalTarget,
-        remote_target = RemoteTarget,
-        route_set = RouteSet,
-        early = Early,
-        secure = Secure,
-        local_sdp = LocalSdp,
-        remote_sdp = RemoteSdp,
-        stop_reason = StopReason,
-        timeout = Timeout
-    } = Dialog,
-    case Type of
-        id -> DialogId;
-        sipapp_id -> AppId;
-        call_id -> CallId;
-        created -> Created;
-        updated -> Updated;
-        answered -> Answered;
-        status -> Status;
-        local_seq -> LocalSeq; 
-        remote_seq  -> RemoteSeq; 
-        local_uri -> nksip_unparse:uri(LocalUri);
-        parsed_local_uri -> LocalUri;
-        remote_uri -> nksip_unparse:uri(RemoteUri);
-        parsed_remote_uri -> RemoteUri;
-        local_target -> nksip_unparse:uri(LocalTarget);
-        parsed_local_target -> LocalTarget;
-        remote_target -> nksip_unparse:uri(RemoteTarget);
-        parsed_remote_target -> RemoteTarget;
-        route_set -> [nksip_lib:to_binary(Route) || Route <- RouteSet];
-        parsed_route_set -> RouteSet;
-        early -> Early;
-        secure -> Secure;
-        local_sdp -> LocalSdp;
-        remote_sdp -> RemoteSdp;
-        stop_reason -> StopReason;
-        from_tag -> nksip_lib:get_binary(tag, LocalUri#uri.ext_opts);
-        to_tag -> nksip_lib:get_binary(tag, RemoteUri#uri.ext_opts);
-        timeout -> Timeout;
-        _ -> <<>> 
+get_field(D, Field) ->
+    case Field of
+        id -> D#dialog.id;
+        sipapp_id -> D#dialog.app_id;
+        call_id -> D#dialog.call_id;
+        created -> D#dialog.created;
+        updated -> D#dialog.updated;
+        answered -> D#dialog.answered;
+        status -> D#dialog.status;
+        local_seq -> D#dialog.local_seq; 
+        remote_seq  -> D#dialog.remote_seq; 
+        local_uri -> nksip_unparse:uri(D#dialog.local_uri);
+        parsed_local_uri -> D#dialog.local_uri;
+        remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
+        parsed_remote_uri -> D#dialog.remote_uri;
+        local_target -> nksip_unparse:uri(D#dialog.local_target);
+        parsed_local_target -> D#dialog.local_target;
+        remote_target -> nksip_unparse:uri(D#dialog.remote_target);
+        parsed_remote_target -> D#dialog.remote_target;
+        route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
+        parsed_route_set -> D#dialog.route_set;
+        early -> D#dialog.early;
+        secure -> D#dialog.secure;
+        local_sdp -> D#dialog.local_sdp;
+        remote_sdp -> D#dialog.remote_sdp;
+        stop_reason -> D#dialog.stop_reason;
+        from_tag -> nksip_lib:get_binary(tag, (D#dialog.local_uri)#uri.ext_opts);
+        to_tag -> nksip_lib:get_binary(tag, (D#dialog.remote_uri)#uri.ext_opts);
+        timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
+        _ -> invalid_field 
     end.
+
+
+
+
 
 

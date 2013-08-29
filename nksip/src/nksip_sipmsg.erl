@@ -24,22 +24,57 @@
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([fields/2, field/2, headers/2]).
+-export([fields/2, field/2, header/2, header/3, get_sipmsg/1]).
+
 -include("nksip.hrl").
+%-include("nksip_call.hrl").
+
+
+field(#sipmsg{}=SipMsg, Field) ->
+    {ok, get_field(SipMsg, Field)};
+
+field(MsgId, Field) ->
+    case fields(MsgId, [Field]) of
+        {ok, [Value]} -> {ok, Value};
+        {error, Error} -> {error, Error}
+    end.
+
+
+fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
+    {ok, [get_field(Field, SipMsg) || Field <- Fields]};
+
+fields(MsgId, Fields) when is_list(Fields) ->
+    nksip_call_router:get_sipmsg_fields(MsgId, Fields).
+
+  
+header(#sipmsg{}=SipMsg, Name) ->
+    {ok, get_header(SipMsg, Name)};
+
+header(MsgId, Name) ->
+    nksip_call_router:get_sipmsg_header(MsgId, Name).
+
+header(MsgId, Name, Type) ->
+    case header(MsgId, Name) of
+        {ok, Values} ->
+            case Type of
+                uris -> {ok, nksip_parse:uris(Values)};
+                tokens -> {ok, nksip_parse:tokens(Values)};
+                integers -> {ok, nksip_parse:integers(Values)};
+                dates -> {ok, nksip_parse:dates(Values)}
+            end;
+        {error, Error} ->
+            {error, Error}
+    end.
+
+get_sipmsg(MsgId) ->
+    nksip_call_router:get_sipmsg(MsgId).
+
 
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
-
-%% @private
--spec fields([nksip_request:field() | nksip_response:field()], 
-              nksip:request() | nksip:response()) -> 
-    [any()].
-
-fields(Fields, Req) when is_list(Fields) ->
-    [field(Field, Req) || Field <- Fields].
 
 
 %% @private Extracts a specific field from the request
@@ -48,81 +83,63 @@ fields(Fields, Req) when is_list(Fields) ->
             nksip:request() | nksip:response()) -> 
     any().
 
-field(Type, SipMsg) ->
-    #sipmsg{
-        sipapp_id = AppId,
-        method = Method,
-        ruri = RUri = #uri{scheme=SipScheme, user=User, domain=Domain},
-        vias = Vias,
-        call_id = CallId,
-        from = From,
-        to = To,
-        cseq = CSeq,
-        cseq_method = CSeqMethod,
-        forwards = Forwards,
-        routes = Routes,
-        contacts = Contacts,
-        headers = Headers,
-        content_type = ContentType,
-        body = Body,
-        response = Code,
-        opts = Opts,
-        transport=#transport{proto=Proto, local_ip=LocalIp, local_port=LocalPort,
-                                remote_ip=RemoteIp, remote_port=RemotePort},
-        expire = Expire
-    } = SipMsg,
-    case Type of
-        sipapp_id -> AppId;
-        local -> {Proto, LocalIp, LocalPort};
-        remote -> {Proto, RemoteIp, RemotePort};
-        method -> Method;
+get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
+    case Field of
+        sipapp_id -> S#sipmsg.sipapp_id;
+        proto -> T#transport.proto;
+        local -> {T#transport.proto, T#transport.local_ip, T#transport.local_port};
+        remote -> {T#transport.proto, T#transport.remote_ip, T#transport.remote_port};
+        method -> S#sipmsg.method;
         ruri -> nksip_unparse:uri(RUri);
-        parsed_ruri -> RUri;
-        aor -> {SipScheme, User, Domain};
-        call_id -> CallId;
-        vias -> [nksip_lib:to_binary(Via) || Via <- Vias];
-        parsed_vias -> Vias;
-        from -> nksip_unparse:uri(From);
-        parsed_from -> From;
-        to -> nksip_unparse:uri(To);
-        parsed_to -> To;
-        cseq -> nksip_lib:bjoin([CSeq, CSeqMethod], <<" ">>);
-        parsed_cseq -> {CSeq, CSeqMethod};
-        cseq_num -> CSeq;
-        cseq_method -> CSeqMethod;
-        forwards -> Forwards;
-        routes -> [nksip_lib:to_binary(Route) || Route <- Routes];
-        parsed_routes -> Routes;
-        contacts -> [nksip_lib:to_binary(Contact) || Contact <- Contacts];
-        parsed_contacts -> Contacts;
-        content_type -> nksip_unparse:tokens(ContentType);
-        parsed_content_type -> ContentType;
-        headers -> Headers;
-        body -> Body;
-        code -> Code;   % Only if it is a response
-        reason -> nksip_lib:get_binary(reason, Opts);
-        dialog_id -> nksip_dialog:id(SipMsg);
-        expire -> Expire;
-        _ -> <<>> 
+        parsed_ruri -> S#sipmsg.ruri;
+        scheme -> (S#sipmsg.ruri)#uri.scheme;
+        aor -> {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain};
+        call_id -> S#sipmsg.call_id;
+        vias -> [nksip_lib:to_binary(Via) || Via <- S#sipmsg.vias];
+        parsed_vias -> S#sipmsg.vias;
+        from -> nksip_unparse:uri(S#sipmsg.from);
+        parsed_from -> S#sipmsg.from;
+        to -> nksip_unparse:uri(S#sipmsg.to);
+        parsed_to -> S#sipmsg.to;
+        cseq -> nksip_lib:bjoin([S#sipmsg.cseq, S#sipmsg.cseq_method], <<" ">>);
+        parsed_cseq -> {S#sipmsg.cseq, S#sipmsg.cseq_method};
+        cseq_num -> S#sipmsg.cseq;
+        cseq_method -> S#sipmsg.cseq_method;
+        forwards -> S#sipmsg.forwards;
+        routes -> [nksip_lib:to_binary(Route) || Route <- S#sipmsg.routes];
+        parsed_routes -> S#sipmsg.routes;
+        contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
+        parsed_contacts -> S#sipmsg.contacts;
+        content_type -> nksip_unparse:tokens(S#sipmsg.content_type);
+        parsed_content_type -> S#sipmsg.content_type;
+        headers -> S#sipmsg.headers;
+        body -> S#sipmsg.body;
+        code -> S#sipmsg.response;   % Only if it is a response
+        reason -> nksip_lib:get_binary(reason, S#sipmsg.opts);
+        dialog_id -> nksip_dialog:id(S);
+        expire -> S#sipmsg.expire;
+        {header, Name} -> get_header(S, Name);
+        _ -> invalid_field 
     end.
 
 
 %% @private
--spec headers(string() | binary(), 
+-spec get_header(string() | binary(), 
               nksip:request() | nksip:response()) -> 
     [binary()].
 
-headers(Name, #sipmsg{headers=Headers}=Req) ->
+get_header(#sipmsg{headers=Headers}=SipMsg, Name) ->
     case nksip_lib:to_binary(Name) of
-        <<"Call-ID">> -> [field(call_id, Req)];
-        <<"Via">> -> field(vias, Req);
-        <<"From">> -> [field(from, Req)];
-        <<"To">> -> [field(to, Req)];
-        <<"CSeq">> -> [field(cseq, Req)];
-        <<"Forwards">> -> [nksip_lib:to_binary(field(forwards, Req))];
-        <<"Route">> -> field(routes, Req);
-        <<"Contact">> -> field(contacts, Req);
-        <<"Content-Type">> -> [field(content_type, Req)];
+        <<"Call-ID">> -> [field(call_id, SipMsg)];
+        <<"Via">> -> field(vias, SipMsg);
+        <<"From">> -> [field(from, SipMsg)];
+        <<"To">> -> [field(to, SipMsg)];
+        <<"CSeq">> -> [field(cseq, SipMsg)];
+        <<"Forwards">> -> [nksip_lib:to_binary(field(forwards, SipMsg))];
+        <<"Route">> -> field(routes, SipMsg);
+        <<"Contact">> -> field(contacts, SipMsg);
+        <<"Content-Type">> -> [field(content_type, SipMsg)];
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
+
 

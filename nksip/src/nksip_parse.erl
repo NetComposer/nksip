@@ -32,6 +32,7 @@
 -export([method/1, header_uris/2, header_dates/2, header_integers/2]).
 -export([header_tokens/2]).
 -export([scheme/1, uri2ruri/1, aors/1, uris/1, vias/1, tokens/1, transport/1]).
+-export([integers/1, dates/1]).
 -export([packet/3, raw_sipmsg/1]).
 
 -export_type([msg_class/0]).
@@ -228,6 +229,35 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     {Proto, Host, if Port=:=0 -> DefPort; true -> Port end}.
 
 
+integers(Values) ->
+    List = lists:foldl(
+        fun(Value, Acc) ->
+            case catch list_to_integer(string:strip(binary_to_list(Value))) of
+                {'EXIT', _} -> Acc;
+                Integer -> [Integer|Acc]
+            end
+        end,
+        [], 
+        Values),
+    lists:reverse(List).
+
+
+dates(Values) ->
+    List = lists:foldl(
+        fun(Value, Acc) ->
+            case catch 
+                httpd_util:convert_request_date(string:strip(binary_to_list(Value)))
+            of
+                {D, H} -> [{D, H}|Acc];
+                _ -> Acc
+            end
+        end,
+        [],
+        Values),
+    lists:reverse(List).
+
+
+
 
 %% ===================================================================
 %% Internal
@@ -345,7 +375,7 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                             error;
                         Request ->
                             Request#sipmsg{
-                                class = request,
+                                class1 = req,
                                 sipapp_id = AppId,
                                 method = Method,
                                 ruri = RUri,
@@ -364,7 +394,7 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                     error;
                 Response ->
                     Response#sipmsg{
-                        class = response,
+                        class1 = resp,
                         sipapp_id = AppId,
                         response = Code,
                         transport = Transport,

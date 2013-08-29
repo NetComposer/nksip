@@ -26,194 +26,188 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, ack/2, response/3, make/4]).
--import(nksip_call_dialog, [create/4, status_update/2, remotes_update/2, 
-                            find/2, update/2]).
+-export([request/2, ack/2, response/2, make/4]).
+-import(nksip_call_dialog_lib, [create/3, status_update/2, remotes_update/2, 
+                                find/2, update/2]).
 
 
 %% ===================================================================
 %% Public
 %% ===================================================================
 
-request(#sipmsg{method='ACK'}, Dialogs) ->
-    {ok, Dialogs};
+request(#trans{method='ACK'}, SD) ->
+    {ok, SD};
 
-request(#sipmsg{ method=Method, cseq=CSeq}=Req, Dialogs) ->
+request(#trans{method=Method, request=Req}, #call{dialogs=Dialogs}=SD) ->
     case nksip_dialog:id(Req) of
         undefined ->
-            {ok, Dialogs};
-        {dlg, AppId, CallId, DialogId} ->
+            {ok, SD};
+        {dlg, _AppId, _CallId, DialogId} ->
             case find(DialogId, Dialogs) of
                 #dialog{status=Status, local_seq=LocalSeq}=Dialog ->
-                    ?debug(AppId, CallId, 
-                           "Dialog ~p UAC request ~p (~p)", [DialogId, Method, Status]),
-                    D1 = case CSeq > LocalSeq of
+                    ?call_debug("Dialog ~p UAC request ~p in ~p", 
+                                [DialogId, Method, Status], SD),
+                    #sipmsg{cseq=CSeq} = Req,
+                    Dialog1 = case CSeq > LocalSeq of
                         true -> Dialog#dialog{local_seq=CSeq};
                         false -> Dialog
                     end,
-                    case Method of
-                        _ when Status=:=bye ->
-                            finished;
-                        'INVITE' when Status=:=confirmed ->
-                            D2 = D1#dialog{request=Req, response=undefined},
-                            D3 = status_update(proceeding_uac, D2),
-                            {ok, update(D3, Dialogs)};
-                        'INVITE' ->
-                            request_pending;
-                        'BYE' ->
-                            D2 = status_update(bye, D1),
-                            {ok, DialogId, update(D2, Dialogs)};
-                        _ ->
-                            {ok, DialogId, update(D1, Dialogs)}
+                    case do_request(Method, Status, Req, Dialog1) of
+                        {ok, Dialog2} -> {ok, update(Dialog2, Dialogs)};
+                        {error, Error} -> {error, Error}
                     end;
+                not_found when Method=:='INVITE' ->
+                    {ok, SD};
                 not_found ->
-                    finished
+                    {error, finished}
             end
     end.
-                            
+        
 
-ack(Req, Dialogs) ->
-    #sipmsg{sipapp_id=AppId, call_id=CallId, method='ACK', cseq=CSeq, body=Body} = Req,
+do_request(_, bye, _Req, _Dialog) ->
+    {error, finished};
+
+do_request('INVITE', confirmed, Req, Dialog) ->
+    Dialog1 = Dialog#dialog{request=Req},
+    {ok, status_update(proceeding_uac, Dialog1)};
+
+do_request('INVITE', _Status, _Req, _Dialog) ->
+    {error, request_pending};
+
+do_request('BYE', _Status, _Req, Dialog) ->
+    {ok, status_update(bye, Dialog)};
+
+do_request(_Method, _Status, _Req, Dialog) ->
+    {ok, Dialog}.
+
+
+ack(#trans{method='ACK', request=Req}, #call{dialogs=Dialogs}=SD) ->
+    #sipmsg{cseq=CSeq} = Req,
     case nksip_dialog:id(Req) of
         undefined ->
-            ?notice(AppId, CallId, "Dialog UAC invalid ACK", []),
-            Dialogs;
-        {dlg, AppId, CallId, DialogId} ->
+            ?call_notice("Dialog UAC invalid ACK", [], SD),
+            SD;
+        {dlg, _AppId, _CallId, DialogId} ->
             case find(DialogId, Dialogs) of
-                #dialog{
-                    status = Status, 
-                    request = #sipmsg{cseq=LastCSeq, body=ReqBody} = InvReq
-                }=Dialog ->
+                #dialog{status=Status, request=InvReq}=Dialog ->
+                    #sipmsg{cseq=InvCSeq} = InvReq,
                     case Status of
-                        accepted_uac when CSeq=:=LastCSeq ->
-                            ?debug(AppId, CallId, "Dialog ~p UAC request 'ACK' (~p)", 
-                                   [DialogId, Status]),
-                            D1 = case ReqBody of
-                                #sdp{} -> 
-                                    Dialog#dialog{ack=Req};
-                                _ -> 
-                                    InvReq1 = InvReq#sipmsg{body=Body},
-                                    Dialog#dialog{request=InvReq1, ack=Req}
-                            end,
-                            D2 = status_update(confirmed, D1),
-                            update(D2, Dialogs);
+                        accepted_uac when CSeq=:=InvCSeq ->
+                            ?call_debug("Dialog ~p (~p) UAC request 'ACK", 
+                                        [DialogId, Status], SD),
+                            Dialog1 = status_update(confirmed, Dialog#dialog{ack=Req}),
+                            update(Dialog1, SD);
                         _ ->
-                            ?notice(AppId, CallId, "Dialog ~p UAC in ~p ignoring ACK", 
-                                    [DialogId, Status]),
-                            Dialogs
+                            ?call_notice("Dialog ~p (~p) ignoring ACK", 
+                                         [DialogId, Status], SD),
+                            SD
                     end;
                 not_found ->
-                    ?notice(AppId, CallId, "Dialog ~p UAC invalid ACK", [DialogId]),
-                    Dialogs
+                    ?call_notice("Dialog ~p not found for UAC ACK", [DialogId], SD),
+                    SD
             end
     end.
     
-response(Req, Resp, Dialogs) ->
-    #sipmsg{method=Method} = Req, 
-    #sipmsg{response=Code} = Resp,
+response(UAC, #call{dialogs=Dialogs}=SD) ->
+    #trans{method=Method, request=Req, response=Resp} = UAC,
     case nksip_dialog:id(Resp) of
         undefined ->
-            Dialogs;
-        {dlg, AppId, CallId, DialogId} ->
+            SD;
+        {dlg, _AppId, _CallId, DialogId} ->
+            #sipmsg{response=Code} = Resp,
             case find(DialogId, Dialogs) of
                 #dialog{status=Status} = Dialog ->
-                    ?debug(AppId, CallId, "Dialog ~p UAC response ~p (~p)", 
-                                [DialogId, Code, Status]),
-                    case do_response(Method, Code, Req, Resp, Dialog) of
-                        {ok, Dialog1} -> 
-                            Dialog2 = remotes_update(Resp, Dialog1),
-                            update(Dialog2, Dialogs);
-                        {stop, Reason} -> 
-                            removed = status_update({stop, Reason}, Dialog),
-                            lists:keydelete(DialogId, #dialog.id, Dialogs)
-                    end;
+                    ?call_debug("Dialog ~p (~p) UAC response ~p ~p", 
+                                [DialogId, Status, Method, Code], SD),
+                    Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
+                    Dialog2 = remotes_update(Resp, Dialog1),
+                    update(Dialog2, SD);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
-                    Dialog = create(uac, DialogId, Req, Resp),
-                    response(Req, Resp, [Dialog|Dialogs]);
+                    Dialog = create(uac, Req, Resp),
+                    response(UAC, SD#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
-                    Dialogs
+                    SD
             end
     end.
 
 
 %% @private
-do_response(_Method, Code, _Req, _Resp, _Dialog) when Code=:=408; Code=:=481 ->
-    {stop, Code};
+do_response(_Method, Code, _Req, _Resp, Dialog) when Code=:=408; Code=:=481 ->
+    status_update({stop, Code}, Dialog);
 
 do_response(_Method, Code, _Req, _Resp, Dialog) when Code < 101 ->
-    {ok, Dialog};
+    Dialog;
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog) 
             when Code<200 andalso (Status=:=init orelse Status=:=proceeding_uac) ->
     Dialog1 = Dialog#dialog{request=Req, response=Resp, ack=undefined},
-    {ok, status_update(proceeding_uac, Dialog1)};
+    status_update(proceeding_uac, Dialog1);
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog) 
             when Code<300 andalso (Status=:=init orelse Status=:=proceeding_uac) ->
     Dialog1 = Dialog#dialog{request=Req, response=Resp, ack=undefined},
-    {ok, status_update(accepted_uac, Dialog1)};
+    status_update(accepted_uac, Dialog1);
     
-do_response('INVITE', Code, Req, _Resp, #dialog{id=Id, status=Status, ack=ACK}=Dialog) 
+do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog) 
             when Code<300 andalso (Status=:=accepted_uac orelse Status=:=confirmed) ->
-    #sipmsg{sipapp_id=AppId, call_id=CallId} = Req,
+    #dialog{app_id=AppId, call_id=CallId, id=DialogId, ack=ACK} = Dialog,
     case ACK of
         #sipmsg{} ->
             case nksip_transport_uac:resend_request(ACK) of
                 {ok, _} ->
                     ?info(AppId, CallId, 
-                          "Dialog retransmitting 'ACK' in ~p", [Status]),
-                    {ok, Dialog};
+                          "Dialog ~p (~p) retransmitting 'ACK'", [DialogId, Status]),
+                    Dialog;
                 error ->
                     ?notice(AppId, CallId,
-                            "Dialog could not retransmit 'ACK' in ~p", 
-                            [Status]),
-                    {stop, 503}
+                            "Dialog ~p (~p) could not retransmit 'ACK'", 
+                            [DialogId, Status]),
+                    status_update({stop, 503}, Dialog)
             end;
         _ ->
-            ?notice(AppId, CallId, 
-                  "Dialog ~p received 'INVITE' ~p "
-                  "in ~p, but no ACK yet", [Id, Code, Status]),
-            {ok, Dialog}
+            ?info(AppId, CallId, 
+                    "Dialog ~p (~p) received 'INVITE' ~p but no ACK yet", 
+                    [DialogId, Status, Code]),
+            Dialog
     end;
 
-do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status, answered=Answered}=Dialog) 
+do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog) 
             when Code>=300 andalso (Status=:=init orelse Status=:=proceeding_uac) ->
-    Dialog1 = Dialog#dialog{request=undefined, response=undefined, ack=undefined},
-    case Answered of
-        undefined -> {stop, Code};
-        _ -> {ok, status_update(confirmed, Dialog1)}
+    case Dialog#dialog.answered of
+        undefined -> status_update({stop, Code}, Dialog);
+        _ -> status_update(confirmed, Dialog)
     end;
 
-do_response('INVITE', Code, Req, Resp, #dialog{id=Id, status=Status}=Dialog) ->
-    #sipmsg{sipapp_id=AppId, call_id=CallId} = Req,
+do_response('INVITE', Code, _Req, Resp, #dialog{id=DialogId, status=Status}=Dialog) ->
     #sipmsg{response=Code} = Resp,
-    ?notice(AppId, CallId, "Dialog ~p ignoring 'INVITE' ~p response in ~p",
-           [Id, Code, Status]),
-    {ok, Dialog};
+    #dialog{app_id=AppId, call_id=CallId} = Dialog,
+    ?notice(AppId, CallId, "Dialog ~p (~p) ignoring 'INVITE' ~p response",
+           [DialogId, Status, Code]),
+    Dialog;
 
-do_response('BYE', _Code, Req, _Resp, #dialog{local_tag=LocalTag}) ->
+do_response('BYE', _Code, Req, _Resp, #dialog{local_tag=LocalTag}=Dialog) ->
     Reason = case Req#sipmsg.from_tag of
         LocalTag -> caller_bye;
         _ -> callee_bye
     end,
-    {stop, Reason};
+    status_update({stop, Reason}, Dialog);
 
 do_response(_, _Code, _Req, _Resp, Dialog) ->
-    {ok, Dialog}.
+    Dialog.
 
 
  %% @private
-make(DialogId, Method, Opts, Dialogs) ->
+make(DialogId, Method, Opts, #call{dialogs=Dialogs}=SD) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
         #dialog{app_id=AppId, call_id=CallId, status=Status}=Dialog ->
-            ?debug(AppId, CallId, "Dialog ~p UAC make ~p (~p)", 
+            ?debug(AppId, CallId, "Dialog ~p make ~p request in ~p", 
                    [DialogId, Method, Status]),
             case Method=:='ACK' andalso Status=/=accepted_uac of
                 true ->
                     {error, invalid_dialog};
                 false ->
                     {Result, Dialog1} = generate(Method, Opts, Dialog),
-                    {ok, Result, update(Dialog1, Dialogs)}
+                    {ok, Result, update(Dialog1, SD)}
             end;
         _ ->
             {error, unknown_dialog}
@@ -262,7 +256,7 @@ generate(Method, Opts, Dialog) ->
         ContactSpec ->
             case nksip_parse:uris(ContactSpec) of
                 [] -> 
-                    ?notice(AppId, CallId, "Dialog UAC ~s request has invalid "
+                    ?notice(AppId, CallId, "Dialog UAC ~p request has invalid "
                                             "contact: ~p", [DialogId, ContactSpec]),
                     [];
                 Contacts0 -> 

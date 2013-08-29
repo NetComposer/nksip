@@ -204,25 +204,26 @@ terminate(_Reason, _State) ->
 %% @private
 parse(Packet, #state{sipapp_id=AppId, socket=Socket, transport=Transport}=State) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port}=Transport,
-    case nksip_parse:packet(AppId, Transport, Packet) of
-        {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
-            nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
-            case nksip_call_proxy:incoming_sync(RawMsg) of
-                ok ->
+    case nksip_counters:value(nksip_msgs) > ?MAX_SIPMSGS of
+        true ->
+            socket_close(Proto, Socket),
+            <<>>;
+        false ->
+            case nksip_parse:packet(AppId, Transport, Packet) of
+                {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
+                    nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
+                    nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
+                    nksip_call_router:incoming(RawMsg),
                     case More of
                         <<>> -> <<>>;
                         _ -> parse(More, State)
                     end;
-                {error, max_calls} ->
-                    socket_close(Proto, Socket),
-                    <<>>
-            end;
-        {rnrn, More} ->
-            socket_send(Proto, Socket, <<"\r\n">>),
-            parse(More, State);
-        {more, More} -> 
-            More
+                {rnrn, More} ->
+                    socket_send(Proto, Socket, <<"\r\n">>),
+                    parse(More, State);
+                {more, More} -> 
+                    More
+            end
     end.
 
 

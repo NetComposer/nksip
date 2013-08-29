@@ -35,8 +35,9 @@
 
 -define(MSG_PROCESSORS, 8).
 -define(SRV_TIMEOUT, 30000).
-% -define(MSG_KEEP_TIME, 600).   % Time to keep removed sip msgs in memory
 
+-define(MAX_SIPMSGS, 10000000).
+-define(MAX_DIALOGS, 1000000).
 
 
 -define(debug(AppId, Txt, Opts), 
@@ -97,7 +98,7 @@
 }).
 
 -record(sipmsg, {
-    class :: request | response,
+    class1 :: req | resp,
     id :: integer(),
     sipapp_id :: nksip:sipapp_id(),
     method :: nksip:method(),
@@ -173,12 +174,11 @@
     remote_sdp :: nksip_sdp:sdp(),
     media_started :: boolean(),
     stop_reason :: nksip_dialog:stop_reason(),
-    request :: nksip:request(),
-    response :: nksip:response(),
-    ack :: nksip:request(),
-    % inv_queue :: queue(),
+    request :: pid(),
+    response :: pid(),
+    ack :: pid(),
     remotes :: [{inet:ip_address(), inet:port_number()}],
-    timeout :: integer(),
+    timeout_timer :: integer(),
     retrans_timer :: reference(),
     next_retrans :: integer()
 }).

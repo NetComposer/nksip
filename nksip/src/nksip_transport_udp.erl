@@ -275,19 +275,24 @@ read_packets(N, #state{socket=Socket}=State) ->
 %% @private
 parse(Packet, Ip, Port, #state{sipapp_id=AppId, transport=Transport}=State) ->   
     Transport1 = Transport#transport{remote_ip=Ip, remote_port=Port},
-    case nksip_parse:packet(AppId, Transport1, Packet) of
-        {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport1, Packet),
-            nksip_trace:insert(AppId, CallId, {in_udp, Class}),
-            nksip_call_proxy:incoming_async(RawMsg),
-            case More of
-                <<>> -> ok;
-                _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])
-            end;
-        {rnrn, More} ->
-            parse(More, Ip, Port, State);
-        {more, More} -> 
-            ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More])
+    case nksip_counters:value(nksip_msgs) > ?MAX_SIPMSGS of
+        true ->
+            ok;
+        false ->
+            case nksip_parse:packet(AppId, Transport1, Packet) of
+                {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
+                    nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport1, Packet),
+                    nksip_trace:insert(AppId, CallId, {in_udp, Class}),
+                    nksip_call_router:incoming(RawMsg),
+                    case More of
+                        <<>> -> ok;
+                        _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])
+                    end;
+                {rnrn, More} ->
+                    parse(More, Ip, Port, State);
+                {more, More} -> 
+                    ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More])
+            end
     end.
 
 

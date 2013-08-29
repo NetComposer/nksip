@@ -18,433 +18,291 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private 
+%% @doc UAS FSM proxy management functions
 
 -module(nksip_call_proxy).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--behaviour(gen_server).
-
--export([send/1, get_cancel/2, make_dialog/3, incoming_async/1, incoming_sync/1]).
--export([get_sipmsg/1, get_fields/2, get_field/2, get_headers/2]).
--export([get_all_calls/0, get_all_sipmsgs/0]).
--export([get_dialog/1, get_dialog_fields/2, get_dialogs/2, get_all_dialogs/0]).
--export([stop_dialog/1, stop_all_dialogs/0]).
--export([sipapp_reply/5, pending_msgs/0, get_data/2]).
--export([call_unregister/2, pos2name/1, start_link/1, call/3, cast/3]).
--export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
-            handle_info/2]).
+-export([start/4, response_stateless/2]).
+-export([normalize_uriset/1]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--define(MAX_CALLS, 1024).
--define(CHECK_TIME, 5000).
+-type opt() :: stateless | record_route | follow_redirects |
+                {headers, [nksip:header()]} | 
+                {route, nksip:user_uri() | [nksip:user_uri()]} |
+                remove_routes | remove_headers.
 
 
 %% ===================================================================
-%% Private
+%% Public
 %% ===================================================================
 
+%% @doc Routes a `Request' to set of uris, serially and/or in parallel.
+%% See {@link nksip_sipapp:route/6} for an options description.
+-spec start(#trans{}, nksip:request(), nksip:uri_set(), [opt()]) -> 
+    ignore | nksip:sipreply() .
 
-send(#sipmsg{sipapp_id=AppId, call_id=CallId}=Req) ->
-    call_or_start(AppId, CallId, {send, Req}).
-
-get_cancel({req, AppId, CallId, ReqId}, Opts) ->
-    call(AppId, CallId, {get_cancel, ReqId, Opts}).
-
-make_dialog(DialogSpec, Method, Opts) ->
-    case nksip_dialog:id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            case call(AppId, CallId, {make_dialog, DialogId, Method, Opts}) of
-                {error, call_not_found} -> {error, unknown_dialog};
-                Other -> Other
+start(UAS, UriSet, Opts, SD) ->
+    #trans{id=Id, method=Method, status=Status} = UAS,
+    case normalize_uriset(UriSet) of
+        [[]] when Method =:= 'ACK' -> 
+            ?call_notice("UAS ~p ~p (~p) proxy has no URI to route", 
+                        [Id, Method, Status], SD),
+            temporarily_unavailable;
+        [[]] -> 
+            temporarily_unavailable;
+        % [[Uri|_]|_] when Method =:= 'CANCEL' -> 
+        %     cancel(UAS, Uri, Opts, SD);
+        [[Uri|_]|_] when Method =:= 'ACK' -> 
+            case check_forwards(UAS) of
+                ok -> route_stateless(UAS, Uri, Opts, SD);
+                {reply, Reply} -> Reply
             end;
-        undefined ->
-            {error, unknown_dialog}
+        [[_|_]|_] = NUriSet -> 
+            route(UAS, NUriSet, Opts, SD)
     end.
 
 
-get_sipmsg({Type, AppId, CallId, Id}) when Type=:=req; Type=:=resp ->
-    call(AppId, CallId, {get_sipmsg, Id}).
 
-get_fields({Type, AppId, CallId, Id}, Fields) 
-           when is_list(Fields), Type=:=req; Type=:=resp ->
-    call(AppId, CallId, {get_fields, Id, Fields}).    
-
-
-get_field(Id, Field) when is_atom(Field) ->
-    case get_fields(Id, [Field]) of
-        {ok, [Result]} -> {ok, Result};
-        {error, Error} -> {error, Error}
-    end.
-
-get_headers({Type, AppId, CallId, Id}, Headers) when Type=:=req; Type=:=resp ->
-    call(AppId, CallId, {get_headers, Id, Headers}).    
-
-
-get_dialog(DialogSpec) ->
-    case nksip_dialog:id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} -> 
-            call(AppId, CallId, {get_dialog, DialogId});
-        undefined -> 
-            {error, unknown_dialog}
-    end.
-
-
-get_dialog_fields(DialogSpec, Fields) ->
-    case nksip_dialog:id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            call(AppId, CallId, {get_dialog_fields, DialogId, Fields});
-        undefined ->
-            {error, unknown_dialog}
-    end.
-
-get_dialogs(AppId, CallId) ->
-    call(AppId, CallId, get_dialogs).    
-
-
-get_sipmsgs(AppId, CallId) ->
-    call(AppId, CallId, get_sipmsgs).    
-
-
-get_all_calls() ->
-    Fun = fun(Name, Acc) -> 
-        {ok, Calls} = gen_server:call(Name, get_all_calls),
-        [Calls|Acc] 
+route(UAS, [[First|_]|_]=UriSet, Opts, SD) ->
+    #trans{method=Method, request=#sipmsg{opts=ReqOpts}=Req} = UAS,
+    Req1 = case lists:member(record_route, Opts) of 
+        true when Method=:='INVITE' -> 
+            Req#sipmsg{opts=[record_route|ReqOpts]};
+        _ -> 
+            % TODO 16.6.4: If ruri or top route has sips, and not received with 
+            % tls, must record_route. If received with tls, and no sips in ruri
+            % or top route, must record_route also
+            Req
     end,
-    lists:flatten(fold(Fun)).
-
-
-get_all_dialogs() ->
-    Fun = fun(Name, Acc) -> 
-        {ok, Calls} = gen_server:call(Name, get_all_calls),
-        CallDialogs = lists:foldl(
-            fun({AppId, CallId}, DlgAcc) -> 
-                {ok, Dialogs} = get_dialogs(AppId, CallId),
-                [Dialogs|DlgAcc]    
-            end,
-            [],
-            Calls),
-        [CallDialogs|Acc]
-    end,
-    lists:flatten(fold(Fun)).
-
-
-get_all_sipmsgs() ->
-    Fun = fun(Name, Acc) -> 
-        {ok, Calls} = gen_server:call(Name, get_all_calls),
-        CallMsgs = lists:foldl(
-            fun({AppId, CallId}, MsgAcc) -> 
-                {ok, Msgs} = get_sipmsgs(AppId, CallId),
-                [Msgs|MsgAcc]    
-            end,
-            [],
-            Calls),
-        [CallMsgs|Acc]
-    end,
-    lists:flatten(fold(Fun)).
-
-
-stop_dialog(DialogSpec) ->
-    case nksip_dialog:id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            cast(AppId, CallId, {stop_dialog, DialogId});
-        undefined ->
-            ok
+    Stateless = lists:member(stateless, Opts),
+    case check_forwards(Req) of
+        ok -> 
+            case nksip_sipmsg:header(Req, <<"Proxy-Require">>, tokens) of
+                {ok, []} when not Stateless ->
+                    route_stateful(UAS#trans{request=Req1}, UriSet, Opts, SD);
+                {ok, []} when Stateless ->
+                    route_stateless(UAS#trans{request=Req1}, First, Opts, SD);
+                {ok, PR} ->
+                    Text = nksip_lib:bjoin([T || {T, _} <- PR]),
+                    {bad_extension, Text}
+            end;
+        {reply, Reply} ->
+            Reply
     end.
 
-stop_all_dialogs() ->
-    lists:foreach(
-        fun({Dlg, _}) -> stop_dialog(Dlg) end,
-        get_all_dialogs()).
 
-
-
-
-
-%% ===================================================================
-%% gen_server
-%% ===================================================================
-
-
--record(state, {
-    id :: atom(),
-    opts_dict :: dict(),
-    max_calls :: integer()
-}).
 
 
 %% @private
-start_link(Name) ->
-    gen_server:start_link({local, Name}, ?MODULE, [Name], []).
-        
-%% @private
-init([Id]) ->
-    Id = ets:new(Id, [named_table, protected]),
-    erlang:start_timer(?CHECK_TIME, self(), check),
-    {ok, #state{id=Id, opts_dict=dict:new(), max_calls=?MAX_CALLS}}.
+-spec route_stateful(nksip:request(), nksip:uri_set(), nksip_lib:proplist(), #call{}) ->
+    ignore.
+
+route_stateful(#trans{request=Req}=UAS, UriSet, Opts, SD) ->
+    Req1 = preprocess(Req, Opts),
+    SD1 = nksip_call_fork:start(UAS#trans{request=Req1}, UriSet, Opts, SD),
+    {stateful, SD1}.
 
 
 %% @private
-handle_call({call_or_start, AppId, CallId, Msg}, From, SD) ->
-    case do_call(AppId, CallId, Msg, From, SD) of
-        ok ->
-            {noreply, SD};
-        not_found ->
-            case do_start(AppId, CallId, SD) of
-                {ok, SD1} ->
-                    do_call(AppId, CallId, Msg, From, SD1),
-                    {noreply, SD1};
-                {error, Error} ->
-                    {reply, {error, Error}, SD}
-            end
-    end;
+-spec route_stateless(nksip:request(), nksip:uri(), nksip_lib:proplist(), #call{}) -> 
+    ignore.
 
-handle_call({call, AppId, CallId, Msg}, From, SD) ->
-    case do_call(AppId, CallId, Msg, From, SD) of
-        ok -> {noreply, SD};
-        not_found -> {reply, {error, call_not_found}, SD}
-    end;
-
-handle_call(get_all_calls, From, #state{id=Ets}=SD) ->
-    spawn(
-        fun() ->
-            Calls = ets:foldl(
-                fun(Record, Acc) ->
-                    case Record of
-                        {{AppId, CallId}, _Pid, _MRef} -> [{AppId, CallId}|Acc];
-                        _ -> Acc
-                    end
+route_stateless(#trans{request=Req}, Uri, Opts, SD) ->
+    #sipmsg{method=Method, opts=ReqOpts} = Req,
+    Req1 = preprocess(Req#sipmsg{ruri=Uri, opts=[stateless|ReqOpts]}, Opts),
+    case nksip_request:is_local_route(Req1) of
+        true -> 
+            ?call_notice("Stateless proxy tried to stateless proxy a request to itself", 
+                         [], SD),
+            loop_detected;
+        false ->
+            Req2 = nksip_transport_uac:add_via(Req1),
+            case nksip_transport_uac:send_request(Req2) of
+                {ok, _} ->  
+                    ?call_debug("Stateless proxy routing ~p to ~s", 
+                                [Method, nksip_unparse:uri(Uri)], SD);
+                error -> 
+                    ?call_notice("Stateless proxy could not route ~p to ~s",
+                                 [Method, nksip_unparse:uri(Uri)], SD)
                 end,
-                [],
-                Ets),
-            gen_server:reply(From, {ok, Calls})
-        end),
-    {noreply, SD};
+            {stateless, SD}
+    end.
+    
 
-handle_call(Msg, _From, SD) -> 
-    lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
-    {noreply, SD}.
-
-
-%% @private
-handle_cast({cast_or_start, AppId, CallId, Msg}, SD) ->
-    case do_cast(AppId, CallId, Msg, SD) of
-        ok ->
-            {noreply, SD};
-        not_found ->
-            case do_start(AppId, CallId, SD) of
-                {ok, SD1} -> 
-                    do_cast(AppId, CallId, Msg, SD1),
-                    {noreply, SD1};
-                {error, _Error} -> 
-                    {noreply, SD}
-            end
-    end;
-
-
-handle_cast({cast, AppId, CallId, call_unregister}, #state{id=Ets}=SD) ->
-    case ets:lookup(Ets, {AppId, CallId}) of
-        [{_, Pid, MRef}] ->
-            gen_server:cast(Pid, {async, call_unregister}),
-            erlang:demonitor(MRef),
-            ets:delete(Ets, Pid), 
-            ets:delete(Ets, {AppId, CallId});
-        [] ->
-            lager:warning("~p received unexpected call_unregister", [?MODULE])
-    end,
-    {noreply, SD};
-
-
-handle_cast({cast, AppId, CallId, Msg}, SD) ->
-    do_cast(AppId, CallId, Msg, SD),
-    {noreply, SD}.
-
-
-handle_info({timeout, _, check}, #state{id=Id}=SD) ->
-    Now = nksip_lib:timestamp(),
-    Self = self(),
-    spawn_link(fun() -> launch_check(Id, Now, Self) end),
-    {noreply, SD};
-
-
-handle_info({'DOWN', _MRef, process, Pid, Reason}, #state{id=Ets}=SD) ->
-    lager:warning("~p received unexpected down from ~p: ~p", [?MODULE, Pid, Reason]),
-    case ets:lookup(Ets, Pid) of
-        [{Pid, Id}] ->
-            ets:delete(Ets, Pid), 
-            ets:delete(Ets, Id);
-        [] ->
-            ok
-    end,
-    {noreply, SD};
-
-handle_info(Info, SD) -> 
-    lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
-    {noreply, SD}.
-
-
-%% @private
-code_change(_OldVsn, SD, _Extra) ->
-    {ok, SD}.
-
-
-%% @private
-terminate(_Reason, _SD) ->  
+%% @private Called from nksip_transport_uac when a request 
+%% is received by a stateless proxy
+-spec response_stateless(nksip:response(), #call{}) -> 
     ok.
 
+response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, SD) when RestVia=/=[] ->
+    case nksip_transport_uas:send_response(Resp#sipmsg{vias=RestVia}) of
+        {ok, _} -> ?call_debug("Stateless proxy sent response", [], SD);
+        error -> ?call_notice("Stateless proxy could not send response", [], SD)
+    end;
 
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
-%% @private Inserts a new received message into processing queue
-
-% incoming for responses wouldn't need to start the process,
-% but this way it is logged
-incoming_async(#raw_sipmsg{sipapp_id=AppId, call_id=CallId, class=Class}=RawMsg) ->
-    case Class of
-        {req, _, _} -> cast_or_start(AppId, CallId, {incoming, RawMsg});
-        {resp, _, _} -> cast(AppId, CallId, {incoming, RawMsg})
-    end.
-
-incoming_sync(#raw_sipmsg{sipapp_id=AppId, call_id=CallId, class=Class}=RawMsg) ->
-    case Class of
-        {req, _, _} -> call_or_start(AppId, CallId, {incoming, RawMsg});
-        {resp, _, _} -> call(AppId, CallId, {incoming, RawMsg})
-    end.
-
-sipapp_reply(AppId, CallId, Fun, Id, Reply) ->
-    cast(AppId, CallId, {sipapp_reply, Fun, Id, Reply}).
-
-call_unregister(AppId, CallId) ->
-    cast(AppId, CallId, call_unregister).
-
-pending_msgs() ->
-    fold(
-        fun(Name, Acc) ->
-            Pid = whereis(Name),
-            {_, Len} = erlang:process_info(Pid, message_queue_len),
-            Acc + Len
-        end,
-        0).
-
-get_data(AppId, CallId) ->
-    call(AppId, CallId, get_data).
+response_stateless(_, SD) ->
+    ?call_notice("Stateless proxy could not send response: no Via", [], SD).
 
 
-call(AppId, CallId, Msg) ->
-    gen_server:call(name(CallId), {call, AppId, CallId, Msg}, ?SRV_TIMEOUT).    
 
-call_or_start(AppId, CallId, Msg) ->
-    gen_server:call(name(CallId), {call_or_start, AppId, CallId, Msg}, ?SRV_TIMEOUT).    
-
-cast(AppId, CallId, Msg) ->
-    gen_server:cast(name(CallId), {cast, AppId, CallId, Msg}).    
-
-cast_or_start(AppId, CallId, Msg) ->
-    gen_server:cast(name(CallId), {cast_or_start, AppId, CallId, Msg}).    
-
-name(CallId) ->
-    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
-    pos2name(Pos).
-
-%% @private
--spec pos2name(integer()) -> 
-    atom().
-
-pos2name(Pos) ->
-    list_to_atom("nksip_call_proxy_"++integer_to_list(Pos)).
-
+%%====================================================================
+%% Internal 
+%%====================================================================
 
 
 %% @private
-do_call(AppId, CallId, Msg, From, #state{id=Ets}) ->
-    case ets:lookup(Ets, {AppId, CallId}) of
-        [{_, Pid, _MRef}] ->
-            gen_server:cast(Pid, {sync, Msg, From}),
+-spec check_forwards(nksip:request()) ->
+    ok | {reply, nksip:sipreply()}.
+
+check_forwards(#trans{method=Method, request=#sipmsg{forwards=Forwards}}) ->
+    if
+        is_integer(Forwards), Forwards > 0 ->   
             ok;
-        [] ->
-            not_found
-    end.
-
-do_cast(AppId, CallId, Msg, #state{id=Ets}) ->
-    case ets:lookup(Ets, {AppId, CallId}) of
-        [{_, Pid, _MRef}] -> gen_server:cast(Pid, {async, Msg});
-        [] -> not_found
-    end.
-
-
-do_start(AppId, CallId, #state{id=Ets, opts_dict=OptsDict, max_calls=Max}=SD) ->
-    case do_start_check(AppId, CallId, Max) of
-        ok ->
-            case do_start_get_opts(AppId, OptsDict) of
-                {ok, Opts, OptsDict1} ->
-                    {ok, Pid} = nksip_call_srv:start(AppId, CallId, Opts),
-                    MRef = erlang:monitor(process, Pid),
-                    Objs = [
-                        {{AppId, CallId}, Pid, MRef},
-                        {Pid, {AppId, CallId}}
-                    ],
-                    true = ets:insert(Ets, Objs),
-                    {ok, SD#state{opts_dict=OptsDict1}};
-                {error, Error} ->
-                    {error, Error}
-            end;
-        {error, Error} ->
-            {error, Error}    
-    end.
-
-
-do_start_check(AppId, CallId, Max) ->
-    Calls = nksip_counters:value(nksip_calls),
-    case Calls < Max of
+        Forwards=:=0, Method=:='OPTIONS' ->
+            {reply, {ok, [], <<>>, [make_supported, make_accept, make_allow, 
+                                        {reason, <<"Max Forwards">>}]}};
+        Forwards=:=0 ->
+            {reply, too_many_hops};
         true -> 
-            ok;
-        false -> 
-            nksip_trace:insert(AppId, CallId, max_calls),
-            {error, max_calls}
+            {reply, invalid_request}
     end.
 
 
-do_start_get_opts(AppId, OptsDict) ->
-    case dict:find(AppId, OptsDict) of
-        {ok, Opts} ->
-            {ok, Opts, OptsDict};
-        error ->
-            case nksip_sipapp_srv:get_opts(AppId) of
-                {ok, Opts0} ->
-                    Opts = nksip_lib:extract(Opts0, 
-                                             [local_host, registrar, no_100]),
-                    OptsDict1 = dict:store(AppId, Opts, OptsDict),
-                    {ok, Opts, OptsDict1};
-                {error, not_found} ->
-                    {error, core_not_found}
-            end
-    end.
+%% @private
+-spec preprocess(nksip:request(), nksip_lib:proplist()) ->
+    nksip:request().
 
-launch_check(Id, Now, MainPid) ->
-    call_fold(Id, fun(Pid) -> gen_server:cast(Pid, {do_check, Now}) end),
-    erlang:start_timer(?CHECK_TIME, MainPid, check).
+preprocess(#sipmsg{forwards=Forwards, routes=Routes, headers=Headers}=Req, Opts) ->
+    Routes1 = case lists:member(remove_routes, Opts) of
+        true -> [];
+        false -> Routes
+    end,
+    Headers1 = case lists:member(remove_headers, Opts) of
+        true -> [];
+        false -> Headers
+    end,
+    Req#sipmsg{
+        forwards = Forwards - 1, 
+        headers = nksip_lib:get_value(headers, Opts, []) ++ Headers1, 
+        routes = nksip_parse:uris(nksip_lib:get_value(route, Opts, [])) ++ Routes1
+    }.
 
 
-fold(Fun) ->
-    fold(Fun, []).
+%% @private Process a UriSet generating a standard [[nksip:uri()]]
+%% See test bellow for examples
+-spec normalize_uriset(nksip:uri_set()) ->
+    [[nksip:uri()]].
 
-fold(Fun, Init) ->
-    lists:foldl(
-        fun(Pos, Acc) -> Fun(pos2name(Pos), Acc) end,
-        Init,
-        lists:seq(0, ?MSG_PROCESSORS-1)).
+normalize_uriset(#uri{}=Uri) ->
+    [[Uri]];
 
-call_fold(Id, Fun) ->
-    ets:foldl(
-        fun(Record, _) ->
-            case Record of
-                {Pid, _} when is_pid(Pid) -> Fun(Pid);
-                _ -> ok
-            end
-        end,
-        ok,
-        Id).
+normalize_uriset(UriSet) when is_binary(UriSet) ->
+    case nksip_parse:uris(UriSet) of
+        [] -> [[]];
+        UriList -> [UriList]
+    end;
+
+normalize_uriset(UriSet) when is_list(UriSet) ->
+    case nksip_lib:is_string(UriSet) of
+        true ->
+            case nksip_parse:uris(UriSet) of
+                [] -> [[]];
+                UriList -> [UriList]
+            end;
+        false ->
+            normalize_uriset(single, UriSet, [], [])
+    end;
+
+normalize_uriset(_) ->
+    [[]].
+
+
+normalize_uriset(single, [#uri{}=Uri|R], Acc1, Acc2) -> 
+    normalize_uriset(single, R, Acc1++[Uri], Acc2);
+
+normalize_uriset(multi, [#uri{}=Uri|R], Acc1, Acc2) -> 
+    case Acc1 of
+        [] -> normalize_uriset(multi, R, [], Acc2++[[Uri]]);
+        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[[Uri]])
+    end;
+
+normalize_uriset(single, [Bin|R], Acc1, Acc2) when is_binary(Bin) -> 
+    normalize_uriset(single, R, Acc1++nksip_parse:uris(Bin), Acc2);
+
+normalize_uriset(multi, [Bin|R], Acc1, Acc2) when is_binary(Bin) -> 
+    case Acc1 of
+        [] -> normalize_uriset(multi, R, [], Acc2++[nksip_parse:uris(Bin)]);
+        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:uris(Bin)])
+    end;
+
+normalize_uriset(single, [List|R], Acc1, Acc2) when is_list(List) -> 
+    case nksip_lib:is_string(List) of
+        true -> normalize_uriset(single, R, Acc1++nksip_parse:uris(List), Acc2);
+        false -> normalize_uriset(multi, [List|R], Acc1, Acc2)
+    end;
+
+normalize_uriset(multi, [List|R], Acc1, Acc2) when is_list(List) -> 
+    case nksip_lib:is_string(List) of
+        true when Acc1=:=[] ->
+            normalize_uriset(multi, R, [], Acc2++[nksip_parse:uris(List)]);
+        true ->
+            normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:uris(List)]);
+        false when Acc1=:=[] ->  
+            normalize_uriset(multi, R, [], Acc2++[nksip_parse:uris(List)]);
+        false ->
+            normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:uris(List)])
+    end;
+
+normalize_uriset(Type, [_|R], Acc1, Acc2) ->
+    normalize_uriset(Type, R, Acc1, Acc2);
+
+normalize_uriset(_Type, [], [], []) ->
+    [[]];
+
+normalize_uriset(_Type, [], [], Acc2) ->
+    Acc2;
+
+normalize_uriset(_Type, [], Acc1, Acc2) ->
+    Acc2++[Acc1].
+
+
+
+%% ===================================================================
+%% EUnit tests
+%% ===================================================================
+
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+
+normalize_test() ->
+    UriA = #uri{domain=(<<"a">>)},
+    UriB = #uri{domain=(<<"b">>)},
+    UriC = #uri{domain=(<<"c">>)},
+    UriD = #uri{domain=(<<"d">>)},
+    UriE = #uri{domain=(<<"e">>)},
+
+    ?assert(normalize_uriset([]) =:= [[]]),
+    ?assert(normalize_uriset(a) =:= [[]]),
+    ?assert(normalize_uriset([a,b]) =:= [[]]),
+    ?assert(normalize_uriset("sip:a") =:= [[UriA]]),
+    ?assert(normalize_uriset(<<"sip:b">>) =:= [[UriB]]),
+    ?assert(normalize_uriset("other") =:= [[]]),
+    ?assert(normalize_uriset(UriC) =:= [[UriC]]),
+    ?assert(normalize_uriset([UriD]) =:= [[UriD]]),
+    ?assert(normalize_uriset(["sip:a", "sip:b", UriC, <<"sip:d">>, "sip:e"]) 
+                                            =:= [[UriA, UriB, UriC, UriD, UriE]]),
+    ?assert(normalize_uriset(["sip:a", ["sip:b", UriC], <<"sip:d">>, ["sip:e"]]) 
+                                            =:= [[UriA], [UriB, UriC], [UriD], [UriE]]),
+    ?assert(normalize_uriset([["sip:a", "sip:b", UriC], <<"sip:d">>, "sip:e"]) 
+                                            =:= [[UriA, UriB, UriC], [UriD], [UriE]]),
+    ok.
+
+-endif.
+
+
+

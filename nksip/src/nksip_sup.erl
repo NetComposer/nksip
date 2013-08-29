@@ -99,7 +99,7 @@ start_link() ->
             [?MODULE]}
      ] 
      ++
-     [get_call_proxy(N) || N <- lists:seq(0, ?MSG_PROCESSORS-1)],
+     [get_call_routers(N) || N <- lists:seq(0, ?MSG_PROCESSORS-1)],
   supervisor:start_link({local, ?MODULE}, ?MODULE, {{one_for_one, 10, 60}, ChildsSpec}).
 
 %% @private
@@ -113,10 +113,10 @@ init(ChildSpecs) ->
 
 
 %% @private
-get_call_proxy(Pos) ->
-    Name = nksip_call_proxy:pos2name(Pos),
+get_call_routers(Pos) ->
+    Name = nksip_call_router:pos2name(Pos),
     {Name,
-        {nksip_call_proxy, start_link, [Name]},
+        {nksip_call_router, start_link, [Pos, Name]},
         permanent,
         5000,
         worker,

@@ -123,7 +123,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/1, get_user_pass/4, authorize/4, route/6, invite/4, reinvite/4, cancel/3, 
-         ack/4, bye/4, options/3, register/3]).
+         ack/3, bye/4, options/3, register/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -include("nksip.hrl").
@@ -421,17 +421,15 @@ cancel(_ReqId, _From, State) ->
 %%
 %% This function is called by NkSIP when a new valid in-dialog ACK request has to
 %% be processed locally.
-%% You should extract all needed information from the request and return `ok'.
 %% You don't usually need to implement this callback. One possible reason to do it is 
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec ack(DialogId::nksip_dialog:id(), ReqId::nksip_request:id(), 
-            From::from(), State::term()) ->
+-spec ack(DialogId::nksip_dialog:id(), ReqId::nksip_request:id(), State::term()) ->
     call_reply(ok).
 
-ack(_DialogId, _ReqId, _From, State) ->
-    {reply, ok, State}.
+ack(_DialogId, _ReqId, State) ->
+    {noreply, State}.
 
 
 %% @doc Called when a valid BYE request is received.

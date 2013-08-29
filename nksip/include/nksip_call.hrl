@@ -25,20 +25,19 @@
 
 
 -define(call_debug(Txt, List, SD),
-        #call{app_id=AppId, call_id=CallId}=SD,
-        ?debug(AppId, CallId, Txt, List)).
+        ?debug(SD#call.app_id, SD#call.call_id, Txt, List)).
 
 -define(call_info(Txt, List, SD),
-        #call{app_id=AppId, call_id=CallId}=SD,
-        ?info(AppId, CallId, Txt, List)).
+        ?info(SD#call.app_id, SD#call.call_id, Txt, List)).
 
 -define(call_notice(Txt, List, SD),
-        #call{app_id=AppId, call_id=CallId}=SD,
-        ?notice(AppId, CallId, Txt, List)).
+        ?notice(SD#call.app_id, SD#call.call_id, Txt, List)).
 
 -define(call_warning(Txt, List, SD),
-        #call{app_id=AppId, call_id=CallId}=SD,
-        ?warning(AppId, CallId, Txt, List)).
+        ?warning(SD#call.app_id, SD#call.call_id, Txt, List)).
+
+-define(call_error(Txt, List, SD),
+        ?error(SD#call.app_id, SD#call.call_id, Txt, List)).
 
 
 -record(raw_sipmsg, {
@@ -54,41 +53,52 @@
 
 -record(trans, {
     class :: uac | uas,
-    trans_id :: integer(),
+    id :: integer(),
     status :: nksip_call_uas:status(),
-    start :: nksip_lib:timestamp(),
+    fork_id :: integer(),
     request :: nksip:request(),
-    responses = [] :: [nksip:response()],
-    timeout :: {atom(), reference()},
+    method :: nksip:method(),
+    ruri :: nksip:uri(),
+    proto :: nksip_transport:protocol(),
+    opts :: nksip_lib:proplist(),
+    response :: nksip:response(),
+    code :: nksip:response_code(),
+    stateless :: boolean(),
+    timeout_timer :: {atom(), reference()},
     retrans_timer :: {atom(), reference()},
     next_retrans :: non_neg_integer(),
     expire_timer :: {atom(), reference()},
     cancel :: boolean() | {from(), nksip:request()},
     loop_id :: binary(),
+    ack_trans_id :: integer(),
     first_to_tag = <<>> :: binary(),
-    respfun :: function(),
     iter = 1 :: integer()
 }).
 
--record(msg, {
-    msg_id :: integer(),
-    msg_class :: req | resp,
-    expire :: integer(),
-    trans_class :: uac | uas,
-    trans_id :: integer()
+-record(fork, {
+    id :: integer(),
+    trans_id :: integer(),
+    uriset :: nksip:uri_set(),          
+    request :: nksip:request(),
+    next :: integer(),
+    opts :: nksip_lib:proplist(),       
+    pending :: [integer()],
+    responses :: [#sipmsg{}], 
+    final :: false | '2xx' | '6xx',
+    timeout :: reference()
 }).
 
 -record(call, {
     app_id :: nksip:sipapp_id(),
     call_id :: nksip:call_id(),
-    app_opts :: nksip_lib:proplist(),
-    msg_keep_time :: integer(),
+    send_100 :: boolean(),
+    keep_time :: integer(),
     next :: integer(),
+    hibernate :: boolean(),
     trans = [] :: [#trans{}],
-    msgs = [] :: [#msg{}],
-    dialogs = [] :: [nksip_dialog:dialog()],
-    msg_queue :: queue(),
-    blocked :: boolean()
+    forks = [] :: [#fork{}],
+    msgs = [] :: [#sipmsg{}],
+    dialogs = [] :: [nksip_dialog:dialog()]
 }).
 
 -endif.
