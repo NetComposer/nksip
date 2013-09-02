@@ -22,7 +22,7 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make/4, make_cancel/1, response/1]).
+-export([make/4, make_cancel/1]).
 -include("nksip.hrl").
  
 
@@ -34,16 +34,16 @@
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
 %% It will also add a <i>From</i> tag if not present.
--spec make(nksip:sipapp_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->    
+-spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->    
     {ok, nksip:request()} | {error, Error} when
-    Error :: unknown_core | invalid_uri | invalid_from | invalid_to | invalid_route |
+    Error :: sipapp_not_found | invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq.
 
 make(AppId, Method, Uri, Opts) ->
     try
         Opts1 = case nksip_sipapp_srv:get_opts(AppId) of
             {ok, CoreOpts} -> Opts ++ CoreOpts;
-            {error, not_found} -> throw(unknown_core)
+            {error, not_found} -> throw(sipapp_not_found)
         end,
         case nksip_parse:uris(Uri) of
             [RUri] -> ok;
@@ -136,7 +136,7 @@ make(AppId, Method, Uri, Opts) ->
             <<>> when is_record(Body, sdp) -> [{<<"application/sdp">>, []}];
             <<>> when not is_binary(Body) -> [{<<"application/nksip.ebf.base64">>, []}];
             <<>> -> [];
-            ContentTypeSpec -> nksip_parse:tokens(ContentTypeSpec)
+            ContentTypeSpec -> nksip_parse:tokens([ContentTypeSpec])
         end,
         Opts2 = case lists:member(make_contact, Opts1) of
             true -> Opts1;
@@ -148,8 +148,8 @@ make(AppId, Method, Uri, Opts) ->
                             full_response, full_request, dialog_force_send,
                             no_uac_expire]),
         SipMsg = #sipmsg{
-            class1 = req,
-            sipapp_id = AppId,
+            class = req,
+            app_id = AppId,
             method = nksip_parse:method(Method),
             ruri = nksip_parse:uri2ruri(RUri),
             vias = [],
@@ -181,7 +181,7 @@ make(AppId, Method, Uri, Opts) ->
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{class1=req, vias=[Via|_], opts=Opts}=Req) ->
+make_cancel(#sipmsg{class=req, vias=[Via|_], opts=Opts}=Req) ->
     Req#sipmsg{
         method = 'CANCEL',
         cseq_method = 'CANCEL',
@@ -195,49 +195,3 @@ make_cancel(#sipmsg{class1=req, vias=[Via|_], opts=Opts}=Req) ->
     }.
 
 
-%% @private Called when a response is received to be processed
--spec response(nksip:response()) ->
-    ok.
-
-response(#sipmsg{vias=[#via{opts=Opts}|ViaR], sipapp_id=AppId, call_id=CallId,
-                    cseq_method=Method, response=Code}=Response) ->
-    case nksip_transaction_uac:response(Response) of
-        ok -> 
-            ?debug(AppId, CallId, "UAC response ~p, (~p) is in transaction", 
-                   [Code, Method]),
-            ok;
-        no_transaction ->
-            case nksip_lib:get_binary(branch, Opts) of
-                <<"z9hG4bK", Branch/binary>> when ViaR =/= [] ->
-                    GlobalId = nksip_config:get(global_id),
-                    StatelessId = nksip_lib:hash({Branch, GlobalId, stateless}),
-                    case nksip_lib:get_binary(nksip, Opts) of
-                        StatelessId -> nksip_uas_proxy:response_stateless(Response);
-                        _ -> response_error(Response)
-                    end;
-                _ ->
-                    response_error(Response)
-            end
-    end.
-
-
-%% @private
--spec response_error(nksip:response()) ->
-    ok.
-
-response_error(#sipmsg{
-                    sipapp_id = AppId, 
-                    call_id = CallId, 
-                    vias= [Via|_], 
-                    cseq_method = Method,
-                    response = Code, 
-                    transport=#transport{remote_ip=Ip, remote_port=Port}
-                  }) ->
-    case nksip_transport:is_local(AppId, Via) of
-        true ->
-            ?notice(AppId, CallId, "UAC received ~p ~p response with no "
-                    "matching transaction", [Code, Method]);
-        false ->
-            ?notice(AppId, CallId, 
-                    "UAC received non-local ~p response from ~p:~p", [Code, Ip, Port])
-    end.

@@ -18,8 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Dialog UAS processing module
-
+%% @private Call dialog UAS processing module
 -module(nksip_call_dialog_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -31,21 +30,32 @@
                                 find/2, update/2]).
 
 
+-type call() :: nksip_call:call().
+
+-type trans() :: nksip_call:trans().
+
+
 %% ===================================================================
 %% Private
 %% ===================================================================
 
 
-request(#trans{request=Req}, #call{dialogs=Dialogs}=SD) ->
+%% @private
+-spec request(trans(), call()) ->
+    {ok, nksip:dialog_id(), call()} | {error, Error}
+    when Error :: old_cseq | unknown_dialog | bye | 
+                  proceeding_uac | proceeding_uas | invalid.
+
+request(#trans{request=Req}, #call{dialogs=Dialogs}=Call) ->
     case nksip_dialog:id(Req) of
         undefined ->
-            {ok, undefined, SD};
+            {ok, undefined, Call};
         {dlg, _AppId, _CallId, DialogId} ->
             #sipmsg{method=Method, cseq=CSeq} = Req,
             case find(DialogId, Dialogs) of
                 #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
                     ?call_debug("Dialog ~p (~p) UAS request ~p", 
-                                [DialogId, Status, Method], SD),
+                                [DialogId, Status, Method], Call),
                     case 
                         Method=/='ACK' andalso
                         RemoteSeq=/=undefined andalso CSeq<RemoteSeq 
@@ -55,13 +65,13 @@ request(#trans{request=Req}, #call{dialogs=Dialogs}=SD) ->
                         false -> 
                             case do_request(Method, Status, Req, Dialog) of
                                 {ok, Dialog1} -> 
-                                    {ok, DialogId, update(Dialog1, SD)};
+                                    {ok, DialogId, update(Dialog1, Call)};
                                 {error, Error} ->
                                     {error, Error}
                             end
                     end;
                 not_found when Method=:='INVITE' -> 
-                    {ok, DialogId, SD};
+                    {ok, DialogId, Call};
                 not_found -> 
                     {error, unknown_dialog}
             end
@@ -70,7 +80,11 @@ request(#trans{request=Req}, #call{dialogs=Dialogs}=SD) ->
 
 
 %% @private
-% After an INVITE, BYE has come before the ACK
+-spec do_request(nksip:method(), nksip_dialog:status(), 
+                 nksip:request(), nksip:dialog()) ->
+    {ok, nksip:dialog()} | {error, Error}
+    when Error :: bye | proceeding_uac | proceeding_uas | invalid.
+
 do_request('ACK', bye, _Req, Dialog) ->
     {ok, Dialog};
 
@@ -95,7 +109,6 @@ do_request('ACK', Status, AckReq, #dialog{request=#sipmsg{}=InvReq}=Dialog) ->
         true when Status=:=confirmed ->
             {ok, Dialog};   % It is an ACK retransmission
         _ -> 
-            ?P("ACK INVALID: ~p, ~p, ~p", [Status, AckReq#sipmsg.cseq, InvReq#sipmsg.cseq]),
             {error, invalid}
     end;
 
@@ -119,34 +132,40 @@ do_request(_, _, _, Dialog) ->
 
 
 
-%% @private Called to send an in-dialog response
-response(UAS, SD) ->
+%% @private
+-spec response(trans(), call()) ->
+    call().
+
+response(UAS, Call) ->
     #trans{method=Method, request=Req, response=Resp} = UAS,
     #sipmsg{response=Code} = Resp,
-    #call{dialogs=Dialogs} = SD,
+    #call{dialogs=Dialogs} = Call,
     case nksip_dialog:id(Resp) of
         undefined ->
-            ok;
+            Call;
         {dlg, _AppId, _CallId, DialogId} ->
             case find(DialogId, Dialogs) of
                 #dialog{status=Status}=Dialog ->
                     #sipmsg{response=Code} = Resp,
                     ?call_debug("Dialog ~p (~p) UAS ~p response ~p", 
-                                [DialogId, Status, Method, Code], SD),
+                                [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
                     Dialog2 = remotes_update(Req, Dialog1),
-                    update(Dialog2, SD);
+                    update(Dialog2, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = create(uas, Req, Resp),
-                    response(UAS, SD#call{dialogs=[Dialog|Dialogs]});
+                    response(UAS, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
-                    SD
+                    Call
             end
     end.
 
 
-
 %% @private
+-spec do_response(nksip:method(), nksip:response_code(), nksip:request(),
+                  nksip:response(), nksip:dialog()) ->
+    nksip:dialog().
+
 do_response(_, Code, _Req, _Resp, Dialog) when Code=:=408; Code=:=481 ->
     status_update({stop, Code}, Dialog);
 

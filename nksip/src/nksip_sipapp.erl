@@ -112,10 +112,10 @@
 %% Launching new processes in Erlang is a very cheap operation, 
 %% so in case of doubt follow this recommendation.
 %%
-%% Many of the callback functions receive a `RequesId' ({@link nksip_request:id()}) 
+%% Many of the callback functions receive a `RequesId' ({@link nksip:request_id()}) 
 %% object as first parameter, representing a pointer to the actual request. You can
 %% use the helper funcions in {@link nksip_request} to extract any information from it. 
-%% Some other functions receive a `DialogId' ({@link nksip_dialog:id()}) object, 
+%% Some other functions receive a `DialogId' ({@link nksip:dialog_id()}) object, 
 %% representing a pointer to an established dialog.
 %% Use {@link nksip_dialog} functions to extract information from it.
 %%
@@ -252,7 +252,7 @@ get_user_pass(_User, _Realm, _From, State) ->
 %% previous registration and/or dialog authentication. 
 %% If you don't define this function all requests will be authenticated.
 %%
--spec authorize(AuthList, ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec authorize(AuthList, ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(ok | authenticate | proxy_authenticate | forbidden)
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
 
@@ -336,11 +336,11 @@ authorize(_AuthList, _ReqId, _From, State) ->
     proxy | {proxy, ruri | nksip:uri_set()} | 
     {proxy, ruri | nksip:uri_set(), nksip_lib:proplist()} | 
     process | {process, nksip_lib:proplist()} |
-    {response, nksip:sipresponse()} | 
-    {response, nksip:sipresponse(), nksip_lib:proplist()}.
+    {response, nksip:sipreply()} | 
+    {response, nksip:sipreply(), nksip_lib:proplist()}.
 
 -spec route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
-            ReqId::nksip_request:id(), From::from(), State::term()) ->
+            ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(route_reply()).
 
 route(_Scheme, _User, _Domain, _ReqId, _From, State) ->
@@ -372,7 +372,7 @@ route(_Scheme, _User, _Domain, _ReqId, _From, State) ->
 %% The remote party should then send an ACK request immediately.
 %% If none is received, NkSIP will automatically stop the dialog.
 %%
--spec invite(DialogId::nksip_dialog:id(), ReqId::nksip_request:id(), 
+-spec invite(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), 
              From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
@@ -388,7 +388,7 @@ invite(_DialogId, _ReqId, _From, State) ->
 %% its response, {@link dialog_update/3} and/or {@link session_update/3} would be
 %% called.
 %%
--spec reinvite(DialogId::nksip_dialog:id(), ReqId::nksip_request:id(), 
+-spec reinvite(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), 
                 From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
@@ -410,7 +410,7 @@ reinvite(_DialogId, _ReqId, _From, State) ->
 %%
 %% You won't usually need to implement this function, as the default response is `true'.
 %%
--spec cancel(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec cancel(ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(true | false).
 
 cancel(_ReqId, _From, State) ->
@@ -425,7 +425,7 @@ cancel(_ReqId, _From, State) ->
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec ack(DialogId::nksip_dialog:id(), ReqId::nksip_request:id(), State::term()) ->
+-spec ack(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), State::term()) ->
     call_reply(ok).
 
 ack(_DialogId, _ReqId, State) ->
@@ -439,7 +439,7 @@ ack(_DialogId, _ReqId, State) ->
 %% You won't usually need to implement this function, but in case you do, you
 %% should reply `ok' to send a 200 response back.
 %%
--spec bye(DialogId::nksip_dialog:id(), ReqId::nksip_request:id(), 
+-spec bye(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), 
             From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
@@ -457,7 +457,7 @@ bye(_DialogId, _ReqId, _From, State) ->
 %% and include in your response a SDP body representing your supported list of codecs, 
 %% and also `Allow', `Accept' and `Supported' headers.
 %%
--spec options(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec options(ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 options(_ReqId, _From, State) ->
@@ -481,11 +481,11 @@ options(_ReqId, _From, State) ->
 %% and need a specific REGISTER processing 
 %% (for example to add some headers to the response).
 %%
--spec register(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec register(ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 register(RequestId, _From, State) ->
-    Reply = case catch nksip_request:get_sipmsg(RequestId) of
+    Reply = case catch nksip_sipmsg:get_sipmsg(RequestId) of
         #sipmsg{from=#uri{user=FUser, domain=FDomain}, 
                      to=#uri{user=TUser, domain=TDomain}, opts=Opts} = Request ->
             case lists:member(registrar, Opts) of
@@ -520,7 +520,7 @@ register(RequestId, _From, State) ->
 %% NkSIP will call this function every time a dialog is created, its target is updated
 %% or it is destroyed.
 %%
--spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
+-spec dialog_update(DialogId::nksip:dialog_id(), DialogStatus, State::term()) ->
     call_noreply()
     when DialogStatus :: start|target_update|{stop, nksip_dialog:stop_reason()}.
     
@@ -535,7 +535,7 @@ dialog_update(_DialogId, _Status, State) ->
 %%
 %% This function will be also called after each new successful SDP negotiation.
 %%
--spec session_update(DialogId::nksip_dialog:id(), SessionStatus, State::term()) ->
+-spec session_update(DialogId::nksip:dialog_id(), SessionStatus, State::term()) ->
     call_noreply()
     when SessionStatus :: {start, Local, Remote} | {update, Local, Remote} | stop,
                           Local::nksip_sdp:sdp(), Remote::nksip_sdp:sdp().
@@ -565,26 +565,17 @@ register_update(_RegId, _OK, State) ->
 
 %% @doc Called when a direct call to the SippApp process is made using 
 %% {@link nksip:call/2} or {@link nksip:call/3}.
--spec handle_call(Msg::term(), From::from(), State::term()) ->
-    call_reply(any()).
-
 handle_call(_Msg, _From, State) ->
     {error, unexpected_call, State}.
 
 
 %% @doc Called when a direct cast to the SippApp process is made using 
 %% {@link nksip:cast/2}.
--spec handle_cast(Msg::term(), State::term()) ->
-    call_noreply().
-
 handle_cast(_Msg, State) ->
     {error, unexpected_cast, State}.
 
 
 %% @doc Called when the SipApp process receives an unknown message
--spec handle_info(Msg::term(), State::term()) ->
-    call_noreply().
-
 handle_info(_Msg, State) ->
     {noreply, State}.
 

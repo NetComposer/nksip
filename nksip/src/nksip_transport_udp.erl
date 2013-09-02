@@ -44,7 +44,7 @@
     ok | error.
 
 send(Pid, #sipmsg{
-            sipapp_id=AppId, call_id=CallId,
+            app_id=AppId, call_id=CallId,
             transport=#transport{remote_ip=Ip, remote_port=Port}=Transport,
             method=Method, response=Code}=SipMsg) ->
     Packet = nksip_unparse:packet(SipMsg),
@@ -121,14 +121,18 @@ start_link(AppId, Transport) ->
 
 
 -record(state, {
-    sipapp_id :: nksip:sipapp_id(),
+    sipapp_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     socket :: port(),
     stuns :: [{Id::binary(), Time::nksip_lib:timestamp(), term()}]
 }).
 
 
-%% @private
+
+% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
 init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transport]) ->
     Opts = [binary, {reuseaddr, true}, {ip, Ip}, {active, once}],
     case gen_udp:open(Port, Opts) of
@@ -162,6 +166,9 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transport]) ->
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call({send, Ip, Port, Packet}, _From, #state{socket=Socket}=State) ->
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State};
 
@@ -183,18 +190,31 @@ handle_call({send_stun, Ip, Port}, From, #state{
     end;
 
 handle_call(get_port, _From, #state{transport=#transport{listen_port=Port}}=State) ->
-    {reply, {ok, Port}, State}.
+    {reply, {ok, Port}, State};
+
+handle_call(Msg, _Form, State) -> 
+    lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
+    {noreply, State}.
+
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 handle_cast(no_matching_tcp, State) ->
     {stop, no_matching_tcp, State};
 
 handle_cast(Msg, State) -> 
-    {stop, {unexpected_cast, Msg}, State}.
+    lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
+    {noreply, State}.
+
 
 
 %% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info({udp, Socket, _Ip, _Port, <<_, _>>}, #state{socket=Socket}=State) ->
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, State};
@@ -236,11 +256,18 @@ handle_info(Info, State) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
     {noreply, State}.
 
+
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(_Reason, _State) ->  
     ok.
 
@@ -275,24 +302,19 @@ read_packets(N, #state{socket=Socket}=State) ->
 %% @private
 parse(Packet, Ip, Port, #state{sipapp_id=AppId, transport=Transport}=State) ->   
     Transport1 = Transport#transport{remote_ip=Ip, remote_port=Port},
-    case nksip_counters:value(nksip_msgs) > ?MAX_SIPMSGS of
-        true ->
-            ok;
-        false ->
-            case nksip_parse:packet(AppId, Transport1, Packet) of
-                {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
-                    nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport1, Packet),
-                    nksip_trace:insert(AppId, CallId, {in_udp, Class}),
-                    nksip_call_router:incoming(RawMsg),
-                    case More of
-                        <<>> -> ok;
-                        _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])
-                    end;
-                {rnrn, More} ->
-                    parse(More, Ip, Port, State);
-                {more, More} -> 
-                    ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More])
-            end
+    case nksip_parse:packet(AppId, Transport1, Packet) of
+        {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
+            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport1, Packet),
+            nksip_trace:insert(AppId, CallId, {in_udp, Class}),
+            nksip_call_router:incoming(RawMsg),
+            case More of
+                <<>> -> ok;
+                _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])
+            end;
+        {rnrn, More} ->
+            parse(More, Ip, Port, State);
+        {more, More} -> 
+            ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More])
     end.
 
 

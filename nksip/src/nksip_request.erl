@@ -23,7 +23,7 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, header/2, body/1, method/1]).
+-export([field/2, fields/2, header/2, dialog_id/1, body/1, method/1]).
 -export([is_local_route/1, provisional_reply/2]).
 -export_type([id/0, field/0]).
 
@@ -35,7 +35,7 @@
 %% Types
 %% ===================================================================
 
--type id() :: {req, nksip:sipapp_id(), nksip:call_id(), integer()}.
+-type id() :: integer().
 
 -type field() :: local | remote | method | ruri | parsed_ruri | aor | call_id | vias | 
                   parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
@@ -56,7 +56,7 @@
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`sipapp_id'</td>
-%%          <td>{@link nksip:sipapp_id()}</td>
+%%          <td>{@link nksip:app_id()}</td>
 %%          <td>SipApp's Id</td>
 %%      </tr>
 %%      <tr>
@@ -171,7 +171,7 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`dialog_id'</td>
-%%          <td>{@link nksip_dialog:id()}</td>
+%%          <td>{@link nksip:dialog_id()}</td>
 %%          <td>Dialog's Id (if the request has To Tag)</td>
 %%      </tr>
 %%      <tr>
@@ -188,52 +188,76 @@
 %%      </tr>
 %% </table>
 
-field(#sipmsg{class1=req}=Req, Field) -> 
+
+%% @doc Gets a field from a request
+-spec field(nksip:request()|nksip:request_id(), field()) ->
+    term() | error.
+
+field(#sipmsg{class=req}=Req, Field) -> 
     nksip_sipmsg:field(Req, Field);
 
 field({req, _, _, _}=ReqId, Field) -> 
     nksip_sipmsg:field(ReqId, Field).
 
 
-fields(#sipmsg{class1=req}=Req, Fields) -> 
+%% @doc Gets some fields from a request
+-spec fields(nksip:request()|nksip:request_id(), [field()]) ->
+    [term()] | error.
+
+fields(#sipmsg{class=req}=Req, Fields) -> 
     nksip_sipmsg:fields(Req, Fields);
 
 fields({req, _, _, _}=ReqId, Fields) -> 
     nksip_sipmsg:fields(ReqId, Fields).
 
 
-header(#sipmsg{class1=req}=Req, Name) -> 
+%% @doc Gets values for a header in a request
+-spec header(nksip:request()|nksip:request_id(), binary()) ->
+    [binary()] | error.
+
+header(#sipmsg{class=req}=Req, Name) -> 
     nksip_sipmsg:header(Req, Name);
 
 header({req, _, _, _}=ReqId, Name) -> 
     nksip_sipmsg:header(ReqId, Name).
 
 
+%% @doc Gets the <i>dialog id</i> of a request.
+-spec dialog_id(nksip:request()|nksip:request_id()) ->
+    nksip:dialog_id().
 
-%% @doc Gets the <i>method</i> of a `Request'.
--spec method(id()|nksip:request()) -> nksip:method().
+dialog_id(Req) -> 
+    nksip_dialog:id(Req).
+
+
+%% @doc Gets the <i>method</i> of a request.
+-spec method(nksip:request()|nksip:request_id()) ->
+    nksip:method() | error.
 
 method(Req) -> 
     field(Req, method).
 
 
-%% @doc Gets the <i>body</i> of a `Request'.
--spec body(id()|nksip:request()) -> nksip:body().
+%% @doc Gets the <i>body</i> of a request.
+-spec body(nksip:request()|nksip:request_id()) ->
+    nksip:body() | error.
 
 body(Req) -> 
     field(Req, body).
 
 
-
 %% @doc Sends a <i>provisional response</i> to a request.
--spec provisional_reply(id(), nksip:sipreply()) -> 
+-spec provisional_reply(nksip:request()|nksip:request_id(), nksip:sipreply()) -> 
     ok | {error, Error}
-    when Error :: unknown_request | invalid_response | network_error | invalid_request.
+    when Error :: invalid_response | invalid_call | unknown_call | sipapp_not_found.
+
+provisional_reply(#sipmsg{class=req, id=Id, app_id=AppId, call_id=CallId}, SipReply) ->
+    provisional_reply({req, AppId, CallId, Id}, SipReply);
 
 provisional_reply(Req, SipReply) ->
     case nksip_reply:reqreply(SipReply) of
-        #reqreply{code=Code} = Resp when Code > 100, Code < 200 ->
-            nksip_call_router:sync_reply(Req, Resp);
+        #reqreply{code=Code} when Code > 100, Code < 200 ->
+            nksip_call_router:sync_reply(Req, SipReply);
         _ ->
             {error, invalid_response}
     end.
@@ -242,23 +266,14 @@ provisional_reply(Req, SipReply) ->
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
 %% It will return `true' if the first <i>Route</i> header points to a local address
 %% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
--spec is_local_route(id()|nksip:request()) -> boolean().
+-spec is_local_route(nksip:request()|nksip:request_id()) -> 
+    boolean().
 
 is_local_route(Req) ->
     case fields(Req, [sipapp_id, parsed_ruri, parsed_routes]) of
-        {ok, [AppId, RUri, []]} -> nksip_transport:is_local(AppId, RUri);
-        {ok, [AppId, _, [Route|_]]} -> nksip_transport:is_local(AppId, Route);
-        {error, Error} -> {error, Error}
+        [AppId, RUri, []] -> nksip_transport:is_local(AppId, RUri);
+        [AppId, _, [Route|_]] -> nksip_transport:is_local(AppId, Route);
+        error -> error
     end.
-
-
-
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
-
-
 
 

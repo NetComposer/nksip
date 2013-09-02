@@ -38,6 +38,8 @@
 
 -include("nksip.hrl").
 
+-define(STORE_TIMER, 5000).
+
 
 %% ===================================================================
 %% Public
@@ -128,7 +130,11 @@ pending() ->
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
         
-%% @private
+
+% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
 init([]) ->
     ets:new(nksip_store, [public, named_table]),
     ets:new(nksip_store_ord, [protected, ordered_set, named_table]),
@@ -137,6 +143,9 @@ init([]) ->
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call({put, Key, Value, Opts}, _From, State) ->
     case ets:lookup(nksip_store, Key) of
         [{_, _OldValue, OldExpire, _Fun}] when OldExpire > 0 ->
@@ -219,12 +228,18 @@ handle_call(Msg, _From, State) ->
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info({timeout, _, timer}, State) -> 
     Self = self(),
     proc_lib:spawn(
@@ -242,11 +257,17 @@ handle_info(Info, State) ->
 
 
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(_Reason, _State) ->  
     ok.
 
@@ -259,10 +280,7 @@ terminate(_Reason, _State) ->
 %% @private
 -spec timeout() -> integer().
 timeout() ->
-    case catch nksip_config:get(nksip_store_timer, 2000) of
-        Timeout when is_integer(Timeout) -> Timeout;
-        _ -> 2000
-    end.
+    nksip_config:get(nksip_store_timer, ?STORE_TIMER).
 
 %% @private
 delete_expired_iter('$end_of_table') ->

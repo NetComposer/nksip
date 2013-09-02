@@ -32,7 +32,7 @@
 
 
 %% @private Starts a new transport control process under this supervisor
--spec add_transport(nksip:sipapp_id(), any()) ->
+-spec add_transport(nksip:app_id(), any()) ->
     {ok, pid()} | {error, term()}.
 
 add_transport(AppId, Spec) ->
@@ -45,7 +45,7 @@ add_transport(AppId, Spec) ->
 
 
 %% @private
--spec start_link(nksip:sipapp_id(), nksip_lib:proplist()) -> 
+-spec start_link(nksip:app_id(), nksip_lib:proplist()) -> 
     {ok, pid()} | {error, Error}
     when Error ::  could_not_start_udp | could_not_start_tcp |
                     could_not_start_tls | no_matching_tcp.
@@ -69,7 +69,7 @@ init([Reg, ChildSpecs]) ->
 
 %% @private Tries to start all the configured transports for a SipApp.
 %% For every UDP transport it will start a TCP transport on the same port
--spec start_transports(nksip:sipapp_id(), [term()], nksip_lib:proplist()) ->
+-spec start_transports(nksip:app_id(), [term()], nksip_lib:proplist()) ->
     ok | {error, Error}
     when Error ::  {could_not_start_udp, term()} | {could_not_start_tcp, term()} |
                    {could_not_start_tls, term()}.

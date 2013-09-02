@@ -111,7 +111,7 @@
 %%   <tr><td>`Code'</td><td>{@link nksip:response_code()}</td></tr>
 %%   <tr><td>`Header'</td><td>{@link nksip:header()}</td></tr>
 %%   <tr><td>`Body'</td><td>{@link nksip:body()}</td></tr>
-%%   <tr><td>`Options'</td><td>{@link nksip_lib:prolist()}</td></tr>
+%%   <tr><td>`Options'</td><td>{@link nksip_lib:proplist()}</td></tr>
 %%   <tr><td>`Text'</td><td>`binary()'</td></tr>
 %%   <tr><td>`Realm'</td><td>`binary()'</td></tr>
 %%   <tr><td>`Methods'</td><td>`binary()'</td></tr>
@@ -209,7 +209,7 @@
 -spec reply(nksip:request(), nksip:sipreply()|#reqreply{}) -> 
     nksip:response().
 
-reply(#sipmsg{sipapp_id=AppId, call_id=CallId}=Req, 
+reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, 
             #reqreply{code=Code, headers=Headers, body=Body, opts=Opts}) ->
     case nksip_lib:get_value(contact, Opts, []) of
         [] ->
@@ -226,7 +226,7 @@ reply(#sipmsg{sipapp_id=AppId, call_id=CallId}=Req,
             end
     end;
 
-reply(#sipmsg{sipapp_id=AppId, call_id=CallId}=Req, SipReply) -> 
+reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) -> 
     case nksip_reply:reqreply(SipReply) of
         #reqreply{} = SipReply1 -> 
             ok;

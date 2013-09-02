@@ -34,7 +34,7 @@
 %% Types
 %% ===================================================================
 
--type id() :: {resp, nksip:sipapp_id(), nksip:call_id(), integer()}.
+-type id() :: integer().
 
 -type field() :: local | remote | ruri | parsed_ruri | aor | call_id | vias | 
                   parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
@@ -65,22 +65,33 @@
 %%      </tr>
 %% </table>
 
+%% @doc Get a field from a response
+-spec field(nksip:response()|nksip:response_id(), field()) ->
+    term() | error.
 
-field(#sipmsg{class1=resp}=Resp, Field) -> 
+field(#sipmsg{class=resp}=Resp, Field) -> 
     nksip_sipmsg:field(Resp, Field);
 
 field({resp, _, _, _}=RespId, Field) -> 
     nksip_sipmsg:field(RespId, Field).
 
 
-fields(#sipmsg{class1=resp}=Resp, Fields) -> 
+%% @doc Get some fields from a response
+-spec fields(nksip:response()|nksip:response_id(), [field()]) ->
+    [term()] | error.
+
+fields(#sipmsg{class=resp}=Resp, Fields) -> 
     nksip_sipmsg:fields(Resp, Fields);
 
 fields({resp, _, _, _}=RespId, Fields) -> 
     nksip_sipmsg:fields(RespId, Fields).
 
 
-header(#sipmsg{class1=resp}=Resp, Name) -> 
+%% @doc Get header values from a response
+-spec header(nksip:response()|nksip:response_id(), binary()) ->
+    [binary()] | error.
+
+header(#sipmsg{class=resp}=Resp, Name) -> 
     nksip_sipmsg:header(Resp, Name);
 
 header({resp, _, _, _}=RespId, Name) -> 
@@ -88,24 +99,34 @@ header({resp, _, _, _}=RespId, Name) ->
 
 
 
-%% @doc Gets the <i>response code</i> of a `Response'.
--spec code(Input::id()|nksip:response()) -> nksip:response_code().
+%% @doc Gets the <i>response code</i> of a response.
+-spec code(nksip:response()|nksip:response_id()) ->
+    nksip:response_code() | error.
+
 code(Resp) -> 
     field(Resp, code).
 
-%% @doc Gets the <i>reason</i> of a `Response'.
--spec reason(Input::id()|nksip:response()) -> binary.
+
+%% @doc Gets the <i>reason</i> of a response.
+-spec reason(nksip:response()|nksip:response_id()) ->
+    binary() | error.
+
 reason(Resp) ->  
     field(Resp, reason).
 
 
-%% @doc Gets the <i>dialog id</i> of a `Response'.
--spec dialog_id(Input::id()|nksip:response()) -> nksip_dialog:id().
-dialog_id(Resp) -> 
-    field(Resp, dialog_id).
+%% @doc Gets the <i>dialog id</i> of a response.
+-spec dialog_id(nksip:response()|nksip:response_id()) ->
+    nksip:dialog_id().
 
-%% @doc Gets the <i>body</i> of a `Response'.
--spec body(Input::id()|nksip:response()) -> nksip:body().
+dialog_id(Resp) -> 
+    nksip_dialog:id(Resp).
+
+
+%% @doc Gets the <i>body</i> of a response.
+-spec body(nksip:response()|nksip:response_id()) ->
+    nksip:body() | error.
+
 body(Resp) -> 
     field(Resp, body).
 
@@ -118,9 +139,4 @@ wait_491() ->
     timer:sleep(10*crypto:rand_uniform(210, 400)).
 
 
-
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
 

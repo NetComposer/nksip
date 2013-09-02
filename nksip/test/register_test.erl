@@ -84,7 +84,7 @@ register1() ->
     {reply, Resp1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                                 [unregister_all, full_response]),
     200 = nksip_response:code(Resp1),
-    [] = nksip_response:headers(<<"Contact">>, Resp1),
+    [] = nksip_response:header(Resp1, <<"Contact">>),
     [] = nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
     
     Ref = make_ref(),
@@ -94,7 +94,7 @@ register1() ->
                                     [async, {respfun, RespFun}, make_contact, 
                                      full_request, full_response]),
     [CallId, CSeq] = receive 
-        {Ref, {request, Req2}} -> nksip_request:fields([call_id, cseq_num], Req2)
+        {ok, {Ref, {request, Req2}}} -> nksip_request:fields(Req2, [call_id, cseq_num])
         after 2000 -> error(register1)
     end,
 
@@ -109,7 +109,7 @@ register1() ->
             ">;expires=", Exp])
     end,
     Contact2 = MakeContact(DefB),
-    [Contact2] = nksip_response:headers(<<"Contact">>, Resp2),
+    [Contact2] = nksip_response:header(Resp2, <<"Contact">>),
 
     {reply, Resp2b} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq}, make_contact,
@@ -127,13 +127,13 @@ register1() ->
     Opts3 = [{expires, Min-1}, make_contact, full_response],
     {reply, Resp3} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts3),
     423 = nksip_response:code(Resp3),
-    [MinB] = nksip_response:headers(<<"Min-Expires">>, Resp3),
+    [MinB] = nksip_response:header(Resp3, <<"Min-Expires">>),
 
     Opts4 = [{expires, Max+1}, make_contact, full_response],
     {reply, Resp4} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts4),
     200 = nksip_response:code(Resp4),
     Contact4 = MakeContact(MaxB),
-    [Contact4] = nksip_response:headers(<<"Contact">>, Resp4),
+    [Contact4] = nksip_response:header(Resp4, <<"Contact">>),
     [#uri{user=Name, domain=Domain, port=Port, ext_opts=[{expires, MaxB}]}] = 
         nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
 
@@ -142,7 +142,7 @@ register1() ->
     {reply, Resp5} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts5),
     200 = nksip_response:code(Resp5),
     Contact5 = MakeContact(ExpB),
-    [Contact5] = nksip_response:headers(<<"Contact">>, Resp5),
+    [Contact5] = nksip_response:header(Resp5, <<"Contact">>),
     [#uri{user=Name, domain=Domain, port=Port, ext_opts=[{expires, ExpB}]}] = 
         nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
 
@@ -188,12 +188,12 @@ register2() ->
                                             [unregister_all, full_response]),
     200 = nksip_response:code(Resp1),
 
-    [] = nksip_response:headers(<<"Contact">>, Resp1),
+    [] = nksip_response:header(Resp1, <<"Contact">>),
     [] = nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
     {reply, Resp2} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                             [FromS, unregister_all, full_response]),
     200 = nksip_response:code(Resp2),
-    [] = nksip_response:headers(<<"Contact">>, Resp2),
+    [] = nksip_response:headers(Resp2, <<"Contact">>),
     [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
     {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
@@ -217,10 +217,10 @@ register2() ->
                                                 ext_opts=[{expires, <<"300">>}]},
         #uri{scheme=sips, port=5071, opts=[], ext_opts=[{expires, <<"300">>}]}
     ] = 
-        lists:sort(nksip_response:field(parsed_contacts, Resp3)),
+        lists:sort(nksip_response:field(Resp3, parsed_contacts)),
 
     [#uri{scheme=sips, port=5071, opts=[], ext_opts=[{expires, <<"300">>}]}] = 
-        lists:sort(nksip_parse:uris(nksip_response:headers(<<"Contact">>, Resp4))),
+        lists:sort(nksip_parse:uris(nksip_response:header(Resp4, <<"Contact">>))),
     [#uri{scheme=sips, user = <<"client1">>, domain=_Domain, port = 5071}] =
         nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 

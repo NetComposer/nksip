@@ -96,16 +96,7 @@ header_integers(Name, #sipmsg{headers=Headers}) ->
     header_integers(Name, Headers);
 
 header_integers(Name, Headers) when is_list(Headers) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch list_to_integer(string:strip(binary_to_list(Value))) of
-                {'EXIT', _} -> Acc;
-                Integer -> [Integer|Acc]
-            end
-        end,
-        [], 
-        header_values(Name, Headers)),
-    lists:reverse(List).
+    integers(header_values(Name, Headers)).
 
 
 %% @doc Parse all `Name' headers of a request or response and get a list of dates. 
@@ -117,18 +108,7 @@ header_dates(Name, #sipmsg{headers=Headers}) ->
     header_dates(Name, Headers);
 
 header_dates(Name, Headers) when is_list(Headers) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch 
-                httpd_util:convert_request_date(string:strip(binary_to_list(Value)))
-            of
-                {D, H} -> [{D, H}|Acc];
-                _ -> Acc
-            end
-        end,
-        [],
-        header_values(Name, Headers)),
-    lists:reverse(List).
+    dates(header_values(Name, Headers)).
 
 
 %% @doc Parse all `Name' headers of a request or response and get a list of tokens.
@@ -140,7 +120,7 @@ header_tokens(Name, #sipmsg{headers=Headers}) ->
     header_tokens(Name, Headers);
 
 header_tokens(Name, Headers) when is_list(Headers) ->
-    tokens(nksip_lib:bjoin(header_values(Name, Headers))).
+    tokens(header_values(Name, Headers)).
 
 
 %% @doc Cleans any `nksip:uri()' into a valid request-uri.
@@ -188,11 +168,53 @@ vias(Text) ->
 
 
 %% @doc Gets a list of `tokens()' from `Term'
--spec tokens(binary() | string()) -> 
+-spec tokens([binary()]) ->
     [nksip_lib:token()].
 
 tokens(Term) ->
-    parse_tokens(lists:flatten(nksip_lib:tokenize(Term, token)), []).
+    Term1 = case is_binary(Term) of
+        true -> Term;
+        _ -> nksip_lib:bjoin(Term)
+    end,
+    parse_tokens(lists:flatten(nksip_lib:tokenize(Term1, token)), []).
+
+
+%% @doc Parses a list of values as integers
+-spec integers([binary()]) ->
+    [integer()].
+
+integers(Values) ->
+    List = lists:foldl(
+        fun(Value, Acc) ->
+            case catch list_to_integer(string:strip(binary_to_list(Value))) of
+                {'EXIT', _} -> Acc;
+                Integer -> [Integer|Acc]
+            end
+        end,
+        [], 
+        Values),
+    lists:reverse(List).
+
+
+%% @doc Parses a list of values as dates
+-spec dates([binary()]) ->
+    [calendar:datetime()].
+
+dates(Values) ->
+    List = lists:foldl(
+        fun(Value, Acc) ->
+            case catch 
+                httpd_util:convert_request_date(string:strip(binary_to_list(Value)))
+            of
+                {D, H} -> [{D, H}|Acc];
+                _ -> Acc
+            end
+        end,
+        [],
+        Values),
+    lists:reverse(List).
+
+
 
 
 %% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
@@ -229,36 +251,6 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     {Proto, Host, if Port=:=0 -> DefPort; true -> Port end}.
 
 
-integers(Values) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch list_to_integer(string:strip(binary_to_list(Value))) of
-                {'EXIT', _} -> Acc;
-                Integer -> [Integer|Acc]
-            end
-        end,
-        [], 
-        Values),
-    lists:reverse(List).
-
-
-dates(Values) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch 
-                httpd_util:convert_request_date(string:strip(binary_to_list(Value)))
-            of
-                {D, H} -> [{D, H}|Acc];
-                _ -> Acc
-            end
-        end,
-        [],
-        Values),
-    lists:reverse(List).
-
-
-
-
 %% ===================================================================
 %% Internal
 %% ===================================================================
@@ -273,7 +265,7 @@ header_values(Name, Headers) when is_list(Headers) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nksip:sipapp_id(), nksip_transport:transport(), binary()) ->
+-spec packet(nksip:app_id(), nksip_transport:transport(), binary()) ->
     {ok, #raw_sipmsg{}, binary()} | {more, binary()} | {rnrn, binary()}.
 
 packet(AppId, Transport, Packet) ->
@@ -375,8 +367,8 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                             error;
                         Request ->
                             Request#sipmsg{
-                                class1 = req,
-                                sipapp_id = AppId,
+                                class = req,
+                                app_id = AppId,
                                 method = Method,
                                 ruri = RUri,
                                 response = undefined,
@@ -394,8 +386,8 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                     error;
                 Response ->
                     Response#sipmsg{
-                        class1 = resp,
-                        sipapp_id = AppId,
+                        class = resp,
+                        app_id = AppId,
                         response = Code,
                         transport = Transport,
                         start = Start,

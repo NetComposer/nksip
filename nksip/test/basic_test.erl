@@ -28,19 +28,19 @@
 -compile([export_all]).
 
 
-basic_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun running/0}, 
-            {timeout, 60, fun transport/0}, 
-            {timeout, 60, fun cast_info/0}, 
-            {timeout, 60, fun uas/0}, 
-            {timeout, 60, fun auto/0}, 
-            {timeout, 60, fun stun/0}
-        ]
-    }.
+% basic_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun running/0}, 
+%             {timeout, 60, fun transport/0}, 
+%             {timeout, 60, fun cast_info/0}, 
+%             {timeout, 60, fun uas/0}, 
+%             {timeout, 60, fun auto/0}, 
+%             {timeout, 60, fun stun/0}
+%         ]
+%     }.
 
 
 start() ->
@@ -103,7 +103,7 @@ transport() ->
     {error, unknown_core} = nksip_uac:options(invalid, "", []),
     {error, invalid_uri} = nksip_uac:options(C1, "sip::a", []),
     nksip_trace:info("Next info about connection error to port 50600 is expected"),
-    {error, network_error} =
+    {ok, 503} =
         nksip_uac:options(C1, "sip:127.0.0.1:50600;transport=tcp", []),
 
     Body = base64:encode(crypto:rand_bytes(100)),
@@ -119,9 +119,9 @@ transport() ->
     % Req1 is the request as received at the remote party
 
     Req1 = binary_to_term(base64:decode(nksip_response:body(Resp1))),
-    [<<"My SIP">>] = nksip_request:headers(<<"User-Agent">>, Req1),
+    [<<"My SIP">>] = nksip_request:header(Req1, <<"User-Agent">>),
     [<<"<sip:aaa:123>">>,<<"<sips:bbb:321>">>] = 
-        nksip_request:headers(<<"Contact">>, Req1),
+        nksip_request:header(Req1, <<"Contact">>),
     Body = nksip_request:body(Req1),
 
     {reply, Resp2} = 
@@ -132,7 +132,7 @@ transport() ->
     [
         [#uri{scheme=sip, port=5060, opts=[{transport, <<"tcp">>}]}],
         {tcp, {127,0,0,1}, 5060}
-    ] = nksip_response:fields([parsed_contacts, remote], Resp2),
+    ] = nksip_response:fields(Resp2, [parsed_contacts, remote]),
 
     % Remote has generated a SIPS Contact   
     {reply, Resp3} = nksip_uac:options(C1, "sips:127.0.0.1", [full_response]),
@@ -140,7 +140,7 @@ transport() ->
     [
         [#uri{scheme=sips, port=5061}],
         {tls, {127,0,0,1}, 5061}
-    ] = nksip_response:fields([parsed_contacts, remote], Resp3),
+    ] = nksip_response:fields(Resp3, [parsed_contacts, remote]),
 
     % Send a big body, switching to TCP
     BigBody = base64:encode(crypto:rand_bytes(1000)),
@@ -173,7 +173,7 @@ transport() ->
             #uri{domain=(<<"aaa">>), port=0, opts=[lr]},
             #uri{domain=(<<"bbb">>), port=123, opts=[lr]}
         ]
-    ] = nksip_request:fields([parsed_contacts, parsed_routes], Req5),
+    ] = nksip_request:fields(Req5, [parsed_contacts, parsed_routes]),
 
     {ok, 200} = nksip_uac:options(C1, "sip:127.0.0.1", 
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}]),
@@ -215,7 +215,7 @@ uas() ->
     {reply, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
     200 = nksip_response:code(Resp1),
 
-    [CallId1, From1, CSeq1] = nksip_response:fields([call_id, from, cseq_num], Resp1),
+    [CallId1, From1, CSeq1] = nksip_response:fields(Resp1, [call_id, from, cseq_num]),
     ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq, CSeq1} | Opts1],
     {reply, Resp2} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
     482 = nksip_response:code(Resp2),
@@ -225,7 +225,7 @@ uas() ->
     Opts3 = [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}, full_response],
     {reply, Resp3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
     200 = nksip_response:code(Resp3),
-    [CallId3, From3, CSeq3] = nksip_response:fields([call_id, from, cseq_num], Resp3),
+    [CallId3, From3, CSeq3] = nksip_response:fields(Resp3, [call_id, from, cseq_num]),
     ForceLoopOpts4 = [{call_id, CallId3}, {from, From3}, {cseq, CSeq3} | Opts3],
     {reply, Resp4} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
     200 = nksip_response:code(Resp4),
@@ -234,7 +234,7 @@ uas() ->
     Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, full_response],
     {reply, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
     420 = nksip_response:code(Resp5),
-    [<<"a,b,d">>] = nksip_response:headers(<<"Unsupported">>, Resp5),
+    [<<"a,b,d">>] = nksip_response:header(Resp5, <<"Unsupported">>),
     Opts6 = [
         {headers, [{"Proxy-Require", "a,b;c,d"}]}, 
         {route, "<sip:127.0.0.1;lr>"},
@@ -242,7 +242,7 @@ uas() ->
     ],
     {reply, Resp6} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
     420 = nksip_response:code(Resp6),
-    [<<"a,b,d">>] = nksip_response:headers(<<"Unsupported">>, Resp6),
+    [<<"a,b,d">>] = nksip_response:header(Resp6, <<"Unsupported">>),
 
     % Force invalid response
     Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}, full_response],

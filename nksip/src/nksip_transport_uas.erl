@@ -41,16 +41,16 @@ send_response(Request, SipReply) ->
 
 
 %% @doc Sends a new `Response'.
--spec send_response(Response::nksip:response()) ->
+-spec send_response(Resp::nksip:response()) ->
     {ok, nksip:response()} | error.
 
 send_response(#sipmsg{
-                sipapp_id = AppId, 
+                app_id = AppId, 
                 vias = [Via|_],
                 start = Start,
                 cseq_method = Method,
                 response = Code
-            } = Response) ->
+            } = Resp) ->
     #via{proto=Proto, domain=Domain, port=Port, opts=Opts} = Via,
     {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(received, Opts)),
     RPort = nksip_lib:get_integer(rport, Opts),
@@ -70,24 +70,24 @@ send_response(#sipmsg{
     GlobalId = nksip_config:get(global_id),
     RouteBranch = nksip_lib:get_binary(branch, Opts),
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
-    MakeResponseFun = make_response_fun(RouteHash, Response),
-    nksip_trace:insert(Response, {send_response, Method, Code}),
-    Return = nksip_transport:send(AppId, TranspSpec, MakeResponseFun),
+    MakeRespFun = make_response_fun(RouteHash, Resp),
+    nksip_trace:insert(Resp, {send_response, Method, Code}),
+    Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun),
     Elapsed = nksip_lib:l_timestamp()-Start,
     nksip_stats:uas_response(Elapsed),
     Return.
 
 
 %% @doc Resends a previously sent response to the same ip, port and protocol.
--spec resend_response(Response::nksip:response()) ->
+-spec resend_response(Resp::nksip:response()) ->
     {ok, nksip:response()} | error.
 
-resend_response(#sipmsg{sipapp_id=AppId, response=Code, cseq_method=Method, 
-                        transport=Transport}=Response) ->
+resend_response(#sipmsg{app_id=AppId, response=Code, cseq_method=Method, 
+                        transport=Transport}=Resp) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
-    MakeResponse = fun(_) -> Response end,
-    Return = nksip_transport:send(AppId, [{current, {Proto, Ip, Port}}], MakeResponse),
-    nksip_trace:insert(Response, {sent_response, Method, Code}),
+    MakeResp = fun(_) -> Resp end,
+    Return = nksip_transport:send(AppId, [{current, {Proto, Ip, Port}}], MakeResp),
+    nksip_trace:insert(Resp, {sent_response, Method, Code}),
     Return.
 
 
@@ -107,7 +107,7 @@ make_response_fun(RouteHash,
                 contacts = Contacts, 
                 body = Body, 
                 opts = Opts
-            }= Response) ->
+            }= Resp) ->
     fun(#transport{
                     proto = Proto, 
                     listen_ip = ListenIp, 
@@ -152,7 +152,7 @@ make_response_fun(RouteHash,
             end
         end,
         Routes = lists:map(UpdateRoutes, 
-                                nksip_parse:header_uris(<<"Record-Route">>, Response)),
+                                nksip_sipmsg:header(Resp, <<"Record-Route">>, uris)),
         Headers1 = nksip_headers:update(Headers, [
                                         {multi, <<"Record-Route">>, Routes}]),
         Body1 = case Body of
@@ -160,7 +160,7 @@ make_response_fun(RouteHash,
             _ -> Body
         end,
         ViaOpts1 = lists:keydelete(nksip_transport, 1, ViaOpts), 
-        Response#sipmsg{
+        Resp#sipmsg{
             transport = Transport, 
             vias = [Via#via{opts=ViaOpts1}|ViaR],
             contacts = Contacts1,

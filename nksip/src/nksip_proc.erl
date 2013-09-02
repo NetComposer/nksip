@@ -251,7 +251,10 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
         
 
-%% @private
+% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
 init([]) ->
     process_flag(priority, high),
     ets:new(nksip_proc_store, [public, named_table]),
@@ -260,6 +263,9 @@ init([]) ->
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call({set_monitor, Pid}, _From, State) ->
     {reply, monitor(process, Pid), State};
 
@@ -311,6 +317,9 @@ handle_call(Msg, _From, State) ->
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 handle_cast({put, Name, Value, Pid}, State) ->
     register(Name, val, Value, Pid),
     {noreply, State};
@@ -329,6 +338,9 @@ handle_cast(Msg, State) ->
 
 
 %% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info({'DOWN', _Ref, process, Pid, _Reason}, State) ->
     unregister_all(Pid),
     {noreply, State};
@@ -339,11 +351,17 @@ handle_info(Info, State) ->
 
 
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(_Reason, _State) ->  
     ok.
 

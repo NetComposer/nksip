@@ -104,9 +104,9 @@ route(Scheme, User, Domain, RequestId, _From,
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
-            case nksip_request:headers(<<"Nksip-Op">>, RequestId) of
+            case nksip_request:header(RequestId, <<"Nksip-Op">>) of
                 [<<"reply-request">>] ->
-                    Request = nksip_request:get_sipmsg(RequestId),
+                    Request = nksip_sipmsg:get_sipmsg(RequestId),
                     Body = base64:encode(term_to_binary(Request)),
                     Hds = [{<<"Content-Type">>, <<"nksip/request">>}],
                     {reply, {200, Hds, Body, [make_contact]}, State};
@@ -141,7 +141,7 @@ route(Scheme, User, Domain, RequestId, _From,
     Opts = [
         case Test of stateless -> stateless; _ -> [] end,
         {headers, [{<<"Nk-Id">>, SrvId}]},
-        case nksip_request:headers(<<"Nk-Rr">>, RequestId) of
+        case nksip_request:header(RequestId, <<"Nk-Rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
         end
@@ -151,7 +151,8 @@ route(Scheme, User, Domain, RequestId, _From,
             {reply, {process, Opts}, State};
         true when User =:= <<"client2_op">>, Domain =:= <<"nksip">> ->
             UriList = nksip_registrar:find(Id, sip, <<"client2">>, Domain),
-            ServerOpts = binary_to_term(base64:decode(nksip_request:body(RequestId))),
+            Body = nksip_request:body(RequestId),
+            ServerOpts = binary_to_term(base64:decode(Body)),
             {reply, {proxy, UriList, ServerOpts++Opts}, State};
         true when Domain =:= <<"nksip">>; Domain =:= <<"nksip2">> ->
             case nksip_registrar:find(Id, Scheme, User, Domain) of
@@ -175,11 +176,11 @@ route(Scheme, User, Domain, RequestId, _From,
         #state{id={fork, serverR}=Id, domains=Domains}=State) ->
     Opts = [
         {headers, [{<<"Nk-Id">>, serverR}]},
-        case nksip_request:headers(<<"Nk-Rr">>, RequestId) of
+        case nksip_request:header(RequestId, <<"Nk-Rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
         end,
-        case nksip_request:headers(<<"Nk-Redirect">>, RequestId) of
+        case nksip_request:header(RequestId, <<"Nk-Redirect">>) of
             [<<"true">>] -> follow_redirects;
             _ -> []
         end

@@ -34,7 +34,7 @@
 %% ===================================================================
 
 %% @doc Start a new listening transport.
--spec start_transport(nksip:sipapp_id(), nksip:protocol(), inet:ip_address(), 
+-spec start_transport(nksip:app_id(), nksip:protocol(), inet:ip_address(), 
                       inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid()} | {error, term()}.
 
@@ -54,7 +54,7 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
 
 
 %% @doc Starts a new outbound connection.
--spec start_connection(nksip:sipapp_id(), nksip:protocol(),
+-spec start_connection(nksip:app_id(), nksip:protocol(),
                        inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | error.
 
@@ -91,7 +91,7 @@ start_connection(_AppId, _Proto, _Ip, _Port, _Opts) ->
 
 
 %% @private Finds a listening transport of Proto
--spec get_connected(nksip:sipapp_id(), nksip:protocol(), 
+-spec get_connected(nksip:app_id(), nksip:protocol(), 
                     inet:ip_address(), inet:port_number()) ->
     [{nksip_transport:transport(), pid()}].
 
@@ -105,7 +105,7 @@ get_connected(AppId, Proto, Ip, Port) ->
 %% ===================================================================
 
 %% @private Get supervisor spec for a new listening server
--spec get_listener(nksip:sipapp_id(), nksip:protocol(), 
+-spec get_listener(nksip:app_id(), nksip:protocol(), 
                     inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     term().
 
@@ -156,7 +156,7 @@ get_listener(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
     
 
 %% @private Starts a new outbound connection and returns supervisor spec
--spec get_outbound(nksip:sipapp_id(), nksip:protocol(),
+-spec get_outbound(nksip:app_id(), nksip:protocol(),
                     inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     {ok, Port, Transport, Spec} | {error, term()}
     when Port::port()|#sslsocket{}, Transport::nksip_transport:transport(), 

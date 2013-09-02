@@ -25,49 +25,93 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([fields/2, field/2, header/2, header/3, get_sipmsg/1]).
+-export_type([id/0]).
 
 -include("nksip.hrl").
-%-include("nksip_call.hrl").
 
+-type id() :: nksip_request:id() | nksip_response:id().
+
+-type input() :: nksip:request() | nksip:request_id() |
+                 nksip:response() | nksip:response_id().
+
+-type field() :: nksip_request:field() | nksip_response:field().
+
+
+%% @private
+-spec field(input(), field()) ->
+    term() | error.
 
 field(#sipmsg{}=SipMsg, Field) ->
-    {ok, get_field(SipMsg, Field)};
+    get_field(SipMsg, Field);
 
 field(MsgId, Field) ->
     case fields(MsgId, [Field]) of
-        {ok, [Value]} -> {ok, Value};
-        {error, Error} -> {error, Error}
+        [Value] -> Value;
+        error -> error
     end.
 
 
+%% @private
+-spec fields(input(), [field()]) ->
+    [term()] | error.
+
 fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
-    {ok, [get_field(Field, SipMsg) || Field <- Fields]};
+    [get_field(SipMsg, Field) || Field <- Fields];
 
 fields(MsgId, Fields) when is_list(Fields) ->
-    nksip_call_router:get_sipmsg_fields(MsgId, Fields).
+    Fun = fun(#sipmsg{}=SipMsg) -> {ok, fields(SipMsg, Fields)} end,
+    case nksip_call_router:apply_sipmsg(MsgId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
   
+%% @private
+-spec header(input(), binary()) ->
+    [binary()] | error.
+
 header(#sipmsg{}=SipMsg, Name) ->
-    {ok, get_header(SipMsg, Name)};
+    get_header(SipMsg, Name);
 
 header(MsgId, Name) ->
-    nksip_call_router:get_sipmsg_header(MsgId, Name).
+    Fun = fun(#sipmsg{}=SipMsg) -> {ok, header(SipMsg, Name)} end,
+    case nksip_call_router:apply_sipmsg(MsgId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
+
+
+%% @private
+-spec header(input(), binary(), uris|tokens|integers|dates) ->
+    [term()] | error.
 
 header(MsgId, Name, Type) ->
     case header(MsgId, Name) of
-        {ok, Values} ->
+        error ->
+            error;
+        Values ->
             case Type of
-                uris -> {ok, nksip_parse:uris(Values)};
-                tokens -> {ok, nksip_parse:tokens(Values)};
-                integers -> {ok, nksip_parse:integers(Values)};
-                dates -> {ok, nksip_parse:dates(Values)}
-            end;
-        {error, Error} ->
-            {error, Error}
+                uris -> nksip_parse:uris(Values);
+                tokens -> nksip_parse:tokens(Values);
+                integers -> nksip_parse:integers(Values);
+                dates -> nksip_parse:dates(Values)
+            end
     end.
 
+
+%% @private
+-spec get_sipmsg(input()) ->
+    nksip:request() | nksip:response() | error.
+
+get_sipmsg(#sipmsg{}=SipMsg) ->
+    SipMsg;
+
 get_sipmsg(MsgId) ->
-    nksip_call_router:get_sipmsg(MsgId).
+    Fun = fun(#sipmsg{}=SipMsg) -> {ok, SipMsg} end,
+    case nksip_call_router:apply_sipmsg(MsgId, Fun) of
+        {ok, SipMsg} -> SipMsg;
+        _ -> error
+    end.
 
 
 
@@ -79,13 +123,13 @@ get_sipmsg(MsgId) ->
 
 %% @private Extracts a specific field from the request
 %% See {@link nksip_request:field/2}.
--spec field(nksip_request:field()|nksip_response:field(), 
-            nksip:request() | nksip:response()) -> 
-    any().
+-spec get_field(nksip:request() | nksip:response(), 
+            nksip_request:field() | nksip_response:field()) -> 
+    term().
 
 get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
     case Field of
-        sipapp_id -> S#sipmsg.sipapp_id;
+        app_id -> S#sipmsg.app_id;
         proto -> T#transport.proto;
         local -> {T#transport.proto, T#transport.local_ip, T#transport.local_port};
         remote -> {T#transport.proto, T#transport.remote_ip, T#transport.remote_port};
@@ -124,21 +168,21 @@ get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
 
 
 %% @private
--spec get_header(string() | binary(), 
-              nksip:request() | nksip:response()) -> 
+-spec get_header(nksip:request() | nksip:response(),
+                 binary() | string()) -> 
     [binary()].
 
 get_header(#sipmsg{headers=Headers}=SipMsg, Name) ->
     case nksip_lib:to_binary(Name) of
-        <<"Call-ID">> -> [field(call_id, SipMsg)];
-        <<"Via">> -> field(vias, SipMsg);
-        <<"From">> -> [field(from, SipMsg)];
-        <<"To">> -> [field(to, SipMsg)];
-        <<"CSeq">> -> [field(cseq, SipMsg)];
-        <<"Forwards">> -> [nksip_lib:to_binary(field(forwards, SipMsg))];
-        <<"Route">> -> field(routes, SipMsg);
-        <<"Contact">> -> field(contacts, SipMsg);
-        <<"Content-Type">> -> [field(content_type, SipMsg)];
+        <<"Call-ID">> -> [field(SipMsg, call_id)];
+        <<"Via">> -> field(SipMsg, vias);
+        <<"From">> -> [field(SipMsg, from)];
+        <<"To">> -> [field(SipMsg, to)];
+        <<"CSeq">> -> [field(SipMsg, cseq)];
+        <<"Forwards">> -> [nksip_lib:to_binary(field(SipMsg, forwards))];
+        <<"Route">> -> field(SipMsg, routes);
+        <<"Contact">> -> field(SipMsg, contacts);
+        <<"Content-Type">> -> [field(SipMsg, content_type)];
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 

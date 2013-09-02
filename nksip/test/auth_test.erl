@@ -122,7 +122,7 @@ invite() ->
     % client3 does not support dialog's authentication, only digest is used
     % ACKHeaders = [{"Nk-Pid", base64:encode(term_to_binary({Ref, self()}))}],
     {reply, Res} = nksip_uac:invite(Client1, Sip3, [full_response]),
-    [CSeq, 401] = nksip_response:fields([cseq_num, code], Res),
+    [CSeq, 401] = nksip_response:fields(Res, [cseq_num, code]),
     {ok, 200, Dialog} = nksip_uac:invite(Client1, Sip3, 
                                             [{pass, "abcd"}, {headers, [RepHd]}]),
     ok = nksip_uac:ack(Dialog, []),
@@ -133,18 +133,18 @@ invite() ->
     {ok, 401, _} = nksip_uac:reinvite(Dialog, []),
     {ok, 200, Dialog} = nksip_uac:reinvite(Dialog, [{pass, "abcd"}]),
     {ok, ACKReq} = nksip_uac:ack(Dialog, [full_request]),
-    CSeq = nksip_request:field(cseq_num, ACKReq) - 8,
+    CSeq = nksip_request:field(ACKReq, cseq_num) - 8,
     ok = tests_util:wait(Ref, [{client3, ack}]),
 
     % % client1 does support dialog's authentication
     DialogB = nksip_dialog:remote_id(Client3, Dialog),
     {reply, Res2} = nksip_uac:options(DialogB, [full_response]),
-    [CSeq2, 200] = nksip_response:fields([cseq_num, code], Res2),
+    [CSeq2, 200] = nksip_response:fields(Res2, [cseq_num, code]),
     {ok, 200, DialogB} = nksip_uac:reinvite(DialogB, [{headers, [RepHd]}]),
     ok = nksip_uac:ack(DialogB, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client1, ack}]),
     {reply, Res3} = nksip_uac:bye(DialogB, [full_response]),
-    [CSeq3, 200] = nksip_response:fields([cseq_num, code], Res3),
+    [CSeq3, 200] = nksip_response:fields(Res3, [cseq_num, code]),
     CSeq3 = CSeq2 + 2,
     ok.
 

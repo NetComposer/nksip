@@ -18,139 +18,167 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Proxy core process
-%%
-%% This module implements the process functionality of a SIP stateful proxy
-
+%% @private Call fork processing module
 -module(nksip_call_fork).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start/4, cancel/2, response/4, timer/3]).
+-export([start/4, cancel/2, response/3]).
+-export_type([id/0]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
+-type id() :: integer().
 
+-type call() :: nksip_call:call().
+
+-type fork() :: #fork{}.
+
+
+%% ===================================================================
+%% Private
+%% ===================================================================
 
 %% @private
-start(UAS, UriSet, Opts, #call{next=ForkId, forks=Forks}=SD) ->
-    #trans{id=TransId, request=Req, method=Method, status=Status} = UAS,
-    Timeout = nksip_config:get(proxy_timeout),
-    Timer = erlang:start_timer(1000*Timeout, self(), {fork, timeout, ForkId}),
+-spec start(nksip_call:trans(), nksip:uri_set(), nksip_lib:proplist(),call()) ->
+   call().
+
+start(Trans, UriSet, Opts, #call{next=ForkId, forks=Forks}=Call) ->
+    #trans{id=TransId, class=Class, request=Req, method=Method} = Trans,
     Fork = #fork{
         id = ForkId,
+        class = Class,
         trans_id = TransId,
+        start = nksip_lib:timestamp(),
         uriset = UriSet,
         request  = Req,
-        next = 1,
+        next = 1000*ForkId,
         pending = [],
         opts = Opts,
         responses = [],
-        final = false,
-        timeout = Timer
+        final = false
     },
-    ?call_debug("UAS ~p ~p (~p) started fork ~p", 
-                [TransId, Method, Status, ForkId], SD),
-    SD1 = SD#call{forks=[Fork|Forks], next=ForkId+1},
-    next(Fork, SD1).
+    ?call_debug("Fork ~p ~p started from UAS ~p", 
+                [ForkId, Method, TransId], Call),
+    Call1 = Call#call{forks=[Fork|Forks], next=ForkId+1},
+    next(Fork, Call1).
 
-next(#fork{pending=[], final=Final, uriset=UriSet, responses=Resps}=Fork, SD) ->
+
+%% @private
+-spec next(fork(), call()) ->
+   call().
+
+next(#fork{pending=[]}=Fork, Call) ->
+    #fork{id=Id, final=Final, uriset=UriSet, responses=Resps} = Fork,
+    ?call_debug("Fork ~p no pending left: ~p, ~p, ~p", 
+               [Id, Final, UriSet, length(Resps)], Call),
     case Final of
         false ->
             case UriSet of
                 [] ->
                     Resp = best_response(Resps),
-                    SD1 = send_reply(Resp, Fork, SD),
-                    delete(Fork, SD1);
+                    ?call_debug("Fork ~p selected ~p response", 
+                                [Id, Resp#sipmsg.response], Call),
+                    Call1 = send_reply(Resp, Fork, Call),
+                    delete(Fork, Call1);
                 [Next|Rest] ->
-                    launch(Next, Fork#fork{uriset=Rest}, SD)
+                    launch(Next, Fork#fork{uriset=Rest}, Call)
             end;
-        true ->
-            delete(Fork, SD)
+        _ ->
+            delete(Fork, Call)
     end;
 
-next(#fork{id=Id}=Fork, #call{forks=[#fork{id=Id}|Rest]}=SD) ->
-    SD#call{forks=[Fork|Rest]};
+next(#fork{id=Id, pending=Pending}=Fork, #call{forks=[#fork{id=Id}|Rest]}=Call) ->
+    ?call_debug("Fork ~p waiting, ~p pending", [Id, length(Pending)], Call),
+    Call#call{forks=[Fork|Rest]};
 
-next(#fork{id=Id}=Fork, #call{forks=Forks}=SD) ->
-    Forks1 = lists:keystore(Id, #fork.id, Forks, Fork),
-    SD#call{forks=Forks1}.
+next(#fork{id=Id, pending=Pending}=Fork, #call{forks=Forks}=Call) ->
+    ?call_debug("Fork ~p waiting, ~p pending", [Id, length(Pending)], Call),
+    Call#call{forks=lists:keystore(Id, #fork.id, Forks, Fork)}.
 
 
-launch([], Fork, SD) ->
-    next(Fork, SD);
+%% @private
+-spec launch([nksip:uri()], fork(), call()) ->
+   call().
 
-launch([Uri|Rest], Fork, SD) -> 
+launch([], Fork, Call) ->
+    next(Fork, Call);
+
+launch([Uri|Rest], Fork, Call) -> 
     #fork{id=Id, request=Req, next=Next, pending=Pending, responses=Resps} = Fork,
+    #sipmsg{method=Method} = Req,
     Req1 = Req#sipmsg{ruri=Uri},
     case nksip_request:is_local_route(Req1) of
         true ->
             ?call_warning("Fork ~p tried to stateful proxy a request to itself", 
-                         [], SD),
+                         [], Call),
             Resp = nksip_reply:reply(Req, loop_detected),
             Fork1 = Fork#fork{responses=[Resp|Resps]},
-            launch(Rest, Fork1, SD);
+            launch(Rest, Fork1, Call);
         false ->
-            Req2 = nksip_transport_uac:add_via(Req1),
-            RespFun = fun(Resp) -> 
-                
-
-                
-            SD1 = nksip_call_uac:request(Req2, {fork, Id, Next}, SD),
-            Fork1 = Fork#fork{next=Next+1, pending=[Next|Pending]},
-            launch(Rest, Fork1, SD1)
+            ?call_debug("Fork ~p launching to ~s", [Id, nksip_unparse:uri(Uri)], Call),
+            Call1 = nksip_call_uac:request(Req1, {fork, Next}, Call),
+            Fork1 = case Method of
+                'ACK' -> Fork#fork{next=Next+1};
+                _ -> Fork#fork{next=Next+1, pending=[Next|Pending]}
+            end,
+            launch(Rest, Fork1, Call1)
     end.
 
 
-cancel(#trans{id=TransId}, #call{forks=Forks}=SD) ->
-    case lists:keyfind(TransId, #fork.trans_id, Forks) of
-        #fork{}=Fork -> {ok, cancel_all(Fork, SD)};
-        false -> not_found
-    end.
+%% @private Called when a launched UAC has a response
+-spec response(id(), nksip:response(),call()) ->
+   call().
 
+response(_, #sipmsg{response=Code}, Call) when Code < 101 ->
+    Call;
 
-
-response(_ForkId, _Pos, #sipmsg{response=Code}, SD) when Code < 101 ->
-    SD;
-
-response(ForkId, Pos, Resp, #call{forks=Forks}=SD) ->
-    #sipmsg{vias=[_|Vias], to_tag=ToTag, response=Code} = Resp,
+response(Id, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
+    ForkId = Id div 1000,
+    Pos = Id - ForkId,
+    #sipmsg{to_tag=ToTag, response=Code} = Resp,
     case lists:keyfind(ForkId, #fork.id, Forks) of
         #fork{pending=Pending}=Fork ->
+            ?call_debug("Fork ~p received ~p (~p)", [ForkId, Code, ToTag], Call),
             Resp1 = Resp#sipmsg{vias=Vias},
-            ?call_debug("Fork ~p received ~p (~p)", [ForkId, Code, ToTag], SD),
             case lists:member(Pos, Pending) of
                 true -> 
-                    waiting(Code, Resp1, Pos, Fork, SD);
+                    waiting(Code, Resp1, Pos, Fork, Call);
+                false when Code>=200, Code<300 ->
+                    send_reply(Resp1, Fork, Call);
                 false -> 
                     ?call_info("Fork ~p received unexpected response ~p from ~p",
-                               [ForkId, Code, ToTag], SD),
-                    SD
+                               [ForkId, Code, ToTag], Call),
+                    Call
             end;
         false ->
-            ?call_notice("Fork ~p received ~p while expired", [ForkId, Code], SD),
-            SD
+            ?call_notice("Fork ~p received ~p while expired", [ForkId, Code], Call),
+            Call
     end.
 
+
+%% @private
+-spec waiting(nksip:response_code(), nksip:response(), integer(), fork(), call()) ->
+   call().
+
 % 1xx
-waiting(Code, Resp, _Pos, #fork{final=Final}=Fork, SD) when Code < 200 ->
+waiting(Code, Resp, _Pos, #fork{final=Final}=Fork, Call) when Code < 200 ->
     case Final of
-        false -> send_reply(Resp, Fork, SD);
-        true -> SD
+        false -> send_reply(Resp, Fork, Call);
+        _ -> Call
     end;
     
 % 2xx
-waiting(Code, Resp, Pos, Fork, SD) when Code < 300 ->
+waiting(Code, Resp, Pos, Fork, Call) when Code < 300 ->
     #fork{final=Final, pending=Pending} = Fork,
-    SD1 = case Final=/='6xx' of
-        true -> send_reply(Resp, Fork, SD);
-        false -> SD
+    Fork1 = case Final of
+        false -> Fork#fork{pending=Pending--[Pos], final='2xx'};
+        _ -> Fork#fork{pending=Pending--[Pos]}
     end,
-    Fork1 = Fork#fork{pending=Pending--[Pos], final='2xx'},
-    next(Fork1, SD1);
+    next(Fork1, send_reply(Resp, Fork, Call));
 
 % 3xx
-waiting(Code, Resp, Pos, Fork, SD) when Code < 400 ->
+waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
     #fork{
         id = Id,
         final = Final,
@@ -166,44 +194,43 @@ waiting(Code, Resp, Pos, Fork, SD) when Code < 400 ->
                 sips -> [Contact || #uri{scheme=sips}=Contact <- Contacts];
                 _ -> Contacts
             end,
-            ?call_debug("Fork ~p redirect to ~p", [Id, Contacts1], SD),
-            launch(Contacts1, Fork1, SD);
+            ?call_debug("Fork ~p redirect to ~p", [Id, Contacts1], Call),
+            launch(Contacts1, Fork1, Call);
         _ ->
             Fork2 = Fork1#fork{responses=[Resp|Resps]},
-            next(Fork2, SD)
+            next(Fork2, Call)
     end;
 
 % 45xx
-waiting(Code, Resp, Pos, Fork, SD) when Code < 600 ->
+waiting(Code, Resp, Pos, Fork, Call) when Code < 600 ->
     #fork{pending=Pending, responses=Resps} = Fork,
     Fork1 = Fork#fork{pending=Pending--[Pos], responses=[Resp|Resps]},
-    next(Fork1, SD);
+    next(Fork1, Call);
 
 % 6xx
-waiting(Code, Resp, Pos, Fork, SD) when Code >= 600 ->
+waiting(Code, Resp, Pos, Fork, Call) when Code >= 600 ->
     #fork{final=Final, pending=Pending} = Fork,
-    SD1 = cancel_all(Fork, SD),
+    Call1 = cancel_all(Fork, Call),
     Fork1 = Fork#fork{pending=Pending--[Pos]},
     case Final of
         false -> 
-            SD2 = send_reply(Resp, Fork, SD1),
+            Call2 = send_reply(Resp, Fork, Call1),
             Fork2 = Fork1#fork{final='6xx'},
-            next(Fork2, SD2);
+            next(Fork2, Call2);
         _ ->
-            next(Fork1, SD1)
+            next(Fork1, Call1)
     end.
 
 
+%% @private Called from the UAS when a Cancel is received
+-spec cancel(id(), call()) ->
+   call().
 
-
-
-timer(timeout, #fork{final=false}=Fork, SD) ->
-    delete(Fork#fork{timeout=undefined}, SD);
-
-timer(timeout, #fork{request=Req}=Fork, SD) ->
-    Resp = nksip_reply:reply(Req, {timeout, <<"Proxy Timeout">>}),
-    SD1 = send_reply(Resp, Fork, SD),
-    delete(Fork#fork{timeout=undefined}, SD1).
+cancel(ForkId, #call{forks=Forks}=Call) ->
+    case lists:keyfind(ForkId, #fork.trans_id, Forks) of
+        #fork{}=Fork -> cancel_all(Fork, Call);
+        false -> Call
+    end.
 
 
 
@@ -211,17 +238,23 @@ timer(timeout, #fork{request=Req}=Fork, SD) ->
 %% Internal
 %% ===================================================================
 
+%% @private
+-spec delete(fork(), call()) ->
+   call().
 
-delete(#fork{id=Id, timeout=Timer}, #call{forks=Forks}=SD) ->
-    nksip_lib:cancel_timer(Timer),
+delete(#fork{id=Id}, #call{forks=Forks}=Call) ->
+    ?call_debug("Fork ~p deleted", [Id], Call),
     Forks1 = lists:keydelete(Id, #fork.id, Forks),
-    SD#call{forks=Forks1, hibernate=true}.
+    Call#call{forks=Forks1, hibernate=true}.
 
 
-send_reply(Resp, #fork{trans_id=TransId}, SD) ->
-    nksip_call_uas:sipapp_reply(fork, TransId, Resp, SD).
+%% @private
+-spec send_reply(nksip:response(), fork(), call()) ->
+   call().
 
-
+send_reply(#sipmsg{response=Code}=Resp, #fork{id=Id, trans_id=TransId}, Call) ->
+    ?call_debug("Fork ~p send reply to ~p: ~p", [Id, TransId, Code], Call),
+    nksip_call_uas:fork_reply(TransId, Resp, Call).
 
 
 %% @private
@@ -262,8 +295,13 @@ best_response(Resps) ->
             temporarily_unavailable
     end.
 
-cancel_all(_Fork, SD) ->
-    SD.
+
+%% @private
+-spec cancel_all(fork(), call()) ->
+   call().
+    
+cancel_all(#fork{id=Id}, Call) ->
+    nksip_call_uac:fork_cancel(Id, Call).
 
 
 

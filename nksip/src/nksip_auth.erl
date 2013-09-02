@@ -167,7 +167,7 @@ make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts,
                 <<>> -> 
                     CSeq1 = nksip_config:cseq();
                 _ ->
-                    case nksip_dialog_uac:new_cseq(Req) of
+                    case nksip_call_router:dialog_new_cseq(Req) of
                         {ok, CSeq1} -> ok;
                         _ -> CSeq1 = nksip_config:cseq()
                     end
@@ -190,7 +190,7 @@ make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts,
 -spec make_response(binary(), Req::nksip:request()) ->
     binary().
 
-make_response(Realm, #sipmsg{sipapp_id=AppId, call_id=CallId, 
+make_response(Realm, #sipmsg{app_id=AppId, call_id=CallId, 
                              transport=#transport{remote_ip=Ip, remote_port=Port}}) ->
     Nonce = nksip_lib:luid(),
     Timeout = nksip_config:get(nonce_timeout),
@@ -224,7 +224,7 @@ check_digest(#sipmsg{headers=Headers}=Req) ->
 check_digest([], _Req, Acc) ->
     Acc;
 
-check_digest([{Name, Data}|Rest], #sipmsg{sipapp_id=AppId}=Req, Acc) 
+check_digest([{Name, Data}|Rest], #sipmsg{app_id=AppId}=Req, Acc) 
                 when Name=:=?REQ_WWW; Name=:=?REQ_PROXY ->
     case parse_header(Data) of
         error ->
@@ -312,7 +312,7 @@ make_auth_request(ServerOpts, UserOpts) ->
 
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, 
                     #sipmsg{
-                        sipapp_id = AppId,
+                        app_id = AppId,
                         call_id = CallId,
                         method = Method,
                         transport=#transport{remote_ip=Ip, remote_port=Port}

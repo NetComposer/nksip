@@ -42,11 +42,11 @@
 %%  <li>Removes first route if it is poiting to us.</li>
 %% </ul>
 -spec preprocess(nksip:request()) ->
-    {ok, nksip:request()} | ignore.
+    nksip:request() | own_ack.
 
 preprocess(Req) ->
     #sipmsg{
-        sipapp_id = AppId, 
+        app_id = AppId, 
         call_id = CallId, 
         method = Method, 
         to_tag = ToTag,
@@ -94,7 +94,7 @@ preprocess(Req) ->
 
 response(Req, Code, Headers, Body, Opts) ->
     #sipmsg{
-        sipapp_id = AppId, 
+        app_id = AppId, 
         method = Method, 
         from = #uri{domain=FromDomain}, 
         to = To, 
@@ -120,7 +120,7 @@ response(Req, Code, Headers, Body, Opts) ->
     HeaderOps = [
         case Code of
             100 ->
-                case nksip_parse:header_integers(<<"Timestamp">>, Req) of
+                case nksip_sipmsg:header(Req, <<"Timestamp">>, integers) of
                     [Time] -> {single, <<"Timestamp">>, Time};
                     _ -> none
                 end;
@@ -198,7 +198,7 @@ response(Req, Code, Headers, Body, Opts) ->
     end,
     MsgOpts = [make_contact, local_host, reason, stateless],
     Req#sipmsg{
-        class1 = resp,
+        class = resp,
         response = Code,
         to = To1,
         forwards = 70,
@@ -209,7 +209,6 @@ response(Req, Code, Headers, Body, Opts) ->
         content_type = ContentType,
         body = Body,
         to_tag = ToTag1,
-        pid = undefined,
         transport = undefined,
         opts = nksip_lib:extract(Opts1, MsgOpts)
     }.
@@ -235,7 +234,7 @@ preprocess_route(Request) ->
 % - the response generated a dialog
 % - a new in-dialog request has arrived from a strict router, that copied our Record-Route
 %   in the ruri
-strict_router(#sipmsg{sipapp_id=AppId, ruri=RUri, call_id=CallId, 
+strict_router(#sipmsg{app_id=AppId, ruri=RUri, call_id=CallId, 
                       routes=Routes}=Request) ->
     case 
         nksip_lib:get_value(nksip, RUri#uri.opts) =/= undefined 
@@ -258,7 +257,7 @@ strict_router(#sipmsg{sipapp_id=AppId, ruri=RUri, call_id=CallId,
 % same transport class and local port than the transport, change the Ruri to
 % this address, default port and no transport parameter
 ruri_has_maddr(#sipmsg{
-                    sipapp_id = AppId, 
+                    app_id = AppId, 
                     ruri = RUri, 
                     transport=#transport{proto=Proto, local_port=LPort}
                 } = Request) ->
@@ -285,7 +284,7 @@ ruri_has_maddr(#sipmsg{
 
 
 %% @private Remove top route if reached
-remove_local_route(#sipmsg{sipapp_id=AppId, routes=Routes}=Request) ->
+remove_local_route(#sipmsg{app_id=AppId, routes=Routes}=Request) ->
     case Routes of
         [] ->
             Request;

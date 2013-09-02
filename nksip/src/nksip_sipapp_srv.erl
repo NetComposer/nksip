@@ -37,6 +37,7 @@
 -include("nksip.hrl").
 
 -define(CALLBACK_TIMEOUT, 30000).
+-define(TIMER, 5000).
 
 -type nksip_from() :: {reference(), pid()} | {'fun', atom(), atom(), list()}.
 
@@ -46,7 +47,7 @@
 %% ===================================================================
 
 %% @private Registers a started process with the core
--spec register(nksip:sipapp_id(), term()) ->
+-spec register(nksip:app_id(), term()) ->
     ok.
 
 register(AppId, Type) ->
@@ -54,7 +55,7 @@ register(AppId, Type) ->
 
 
 %% @private Gets all registered processes
--spec get_registered(nksip:sipapp_id(), term()) ->
+-spec get_registered(nksip:app_id(), term()) ->
     [pid()].
 
 get_registered(AppId, Type) ->
@@ -62,7 +63,7 @@ get_registered(AppId, Type) ->
 
 
 %% @private Gets SipApp core's `pid()' and callback module
--spec get_module(nksip:sipapp_id()) -> 
+-spec get_module(nksip:app_id()) -> 
     {ok, atom(), pid()} | {error, not_found}.
 
 get_module(AppId) ->
@@ -73,7 +74,7 @@ get_module(AppId) ->
 
 
 %% @private Gets SipApp's core options
--spec get_opts(nksip:sipapp_id()) -> 
+-spec get_opts(nksip:app_id()) -> 
     {ok, nksip_lib:proplist()} | {error, not_found}.
 
 get_opts(Id) ->
@@ -84,7 +85,7 @@ get_opts(Id) ->
 
 
 %% @private Get the allowed methods for this SipApp
--spec allowed(nksip:sipapp_id()) -> 
+-spec allowed(nksip:app_id()) -> 
     binary().
 
 allowed(AppId) ->
@@ -100,7 +101,7 @@ allowed(AppId) ->
 
 
 %% @private Calls to a function in the SipApp's callback module synchronously
--spec sipapp_call_sync(nksip:sipapp_id(), atom(), list()) -> 
+-spec sipapp_call_sync(nksip:app_id(), atom(), list()) -> 
     any().
 
 sipapp_call_sync(AppId, Fun, Args) ->
@@ -122,13 +123,13 @@ sipapp_call_sync(AppId, Fun, Args) ->
                     {reply, Reply, none} = apply(nksip_sipapp, Fun, Args++[none, none]),
                     Reply
             end;
-        {error, not_found} ->
+        not_found ->
             {internal_error, <<"Unknown SipApp">>}
     end.
 
 
 %% @private Calls to a function in the siapp's callback module asynchronously
--spec sipapp_call_async(nksip:sipapp_id(), atom(), list(), nksip_from()) ->
+-spec sipapp_call_async(nksip:app_id(), atom(), list(), nksip_from()) ->
     ok.
 
 sipapp_call_async(AppId, Fun, Args, From) ->
@@ -141,13 +142,13 @@ sipapp_call_async(AppId, Fun, Args, From) ->
                     {reply, Reply, none} = apply(nksip_sipapp, Fun, Args++[none, none]),
                     reply(From, Reply)
             end;
-        {error, not_found} ->
+        not_found ->
             reply(From, {internal_error, <<"Unknown SipApp">>})
     end.    
 
 
 %% @private Calls a function in the SipApp's callback module asynchronously
--spec sipapp_cast(nksip:sipapp_id(), atom(), list()) -> 
+-spec sipapp_cast(nksip:app_id(), atom(), list()) -> 
     ok.
 
 sipapp_cast(AppId, Fun, Args) ->
@@ -160,7 +161,7 @@ sipapp_cast(AppId, Fun, Args) ->
                     apply(nksip_sipapp, Fun, Args++[none]),
                     ok
             end;
-        {error, not_found} -> 
+        not_found -> 
             ok
     end.
 
@@ -192,7 +193,7 @@ pending_msgs() ->
 
 
 -record(state, {
-    id :: nksip:sipapp_id(),
+    id :: nksip:app_id(),
     module :: atom(),
     opts :: nksip_lib:proplist(),
     procs :: dict(),
@@ -230,6 +231,9 @@ init([AppId, Module, Args, Opts]) ->
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call('$nksip_sipapp_state', _From, State) ->
     {reply, State, State};
 
@@ -254,6 +258,8 @@ handle_call(Msg, From, State) ->
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
 
 handle_cast({'$nksip_register', Type, Pid}, #state{procs=Procs}=State) -> 
     erlang:monitor(process, Pid),
@@ -273,6 +279,9 @@ handle_cast(Msg, State) ->
 
 
 %% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info({'DOWN', _Mon, process, Pid, _}=Msg, #state{procs=Procs}=State) ->
     case dict:is_key(Pid, Procs) of
         true -> {noreply, State#state{procs=dict:erase(Pid, Procs)}};
@@ -295,6 +304,9 @@ handle_info(Info, #state{module=Module, id=AppId}=State) ->
 
 
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(OldVsn, #state{module=Module, mod_state=ModState}=State, Extra) ->
     case erlang:function_exported(Module, code_change, 3) of
         true ->
@@ -306,6 +318,9 @@ code_change(OldVsn, #state{module=Module, mod_state=ModState}=State, Extra) ->
 
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(Reason, #state{module=Module, reg_state=RegState, 
                          mod_state=ModState, procs=Procs}) ->  
     case erlang:function_exported(Module, terminate, 2) of
@@ -325,11 +340,8 @@ terminate(Reason, #state{module=Module, reg_state=RegState,
 %% @private
 -spec timeout() -> integer().
 timeout() ->
-    case catch nksip_config:get(nksip_sipapp_timer, 5000) of
-        Timeout when is_integer(Timeout) -> Timeout;
-        _ -> 5000
-    end.
-
+    nksip_config:get(nksip_sipapp_timer, ?TIMER).
+        
 
 %% @private
 -spec mod_handle_call(atom(), [term()], from(), #state{}) -> 

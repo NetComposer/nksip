@@ -42,7 +42,7 @@
 %% `PingId' indentifies this request to stop it later.
 %% Use {@link get_pings/1} to know about ping status, or the callback function
 %% {@link nksip_sipapp:register_update/3}.
--spec start_ping(nksip:sipapp_id(), term(), nksip:user_uri(), pos_integer(),
+-spec start_ping(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
                     nksip_lib:proplist()) -> 
     {ok, boolean()} | {error, invalid_uri}.
 
@@ -58,7 +58,7 @@ start_ping(AppId, PingId, Uri, Time, Opts)
 
 
 %% @doc Stops a previously started ping request.
--spec stop_ping(nksip:sipapp_id(), term()) -> 
+-spec stop_ping(nksip:app_id(), term()) -> 
     ok | not_found.
 
 stop_ping(AppId, PingId) ->
@@ -67,7 +67,7 @@ stop_ping(AppId, PingId) ->
 
 %% @doc Get current ping status, including if last ping was successful and time 
 %% remaining to next one.
--spec get_pings(nksip:sipapp_id()) -> 
+-spec get_pings(nksip:app_id()) -> 
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_pings(AppId) ->
@@ -79,7 +79,7 @@ get_pings(AppId) ->
 %% `RegId' indentifies this request to stop it later.
 %% Use {@link get_regs/1} to know about registration status, or the 
 %% callback function {@link nksip_sipapp:ping_update/3}.
--spec start_register(nksip:sipapp_id(), term(), nksip:user_uri(), pos_integer(),
+-spec start_register(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
                         nksip_lib:proplist()) -> 
     {ok, boolean()} | {error, invalid_uri}.
 
@@ -95,7 +95,7 @@ start_register(AppId, RegId, Uri, Time, Opts)
 
 
 %% @doc Stops a previously started registration series.
--spec stop_register(nksip:sipapp_id(), term()) -> 
+-spec stop_register(nksip:app_id(), term()) -> 
     ok | not_found.
 
 stop_register(AppId, RegId) ->
@@ -104,7 +104,7 @@ stop_register(AppId, RegId) ->
 
 %% @doc Get current registration status, including if last registration was successful 
 %% and time remaining to next one.
--spec get_registers(nksip:sipapp_id()) -> 
+-spec get_registers(nksip:app_id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(AppId) ->
@@ -131,13 +131,13 @@ get_registers(AppId) ->
 
 
 -record(state, {
-    sipapp_id :: nksip:sipapp_id(),
+    sipapp_id :: nksip:app_id(),
     pings :: [#sipreg{}],
     regs :: [#sipreg{}]
 }).
 
 
-%% @private
+% @private 
 init(AppId, _Module, _Args, Opts) ->
     case nksip_lib:get_value(register, Opts) of
         undefined ->
@@ -327,7 +327,7 @@ terminate(_Reason, #state{regs=Regs}=State) ->
 
 
 %% @private
--spec call(nksip:sipapp_id(), term()) ->
+-spec call(nksip:app_id(), term()) ->
     term().
 
 call(AppId, Msg) ->

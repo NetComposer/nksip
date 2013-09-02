@@ -18,8 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Dialog UAC processing module
-
+%% @private Call dialog UAC processing module
 -module(nksip_call_dialog_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -31,38 +30,62 @@
                                 find/2, update/2]).
 
 
+
+-type call() :: nksip_call:call().
+
+-type trans() :: nksip_call:trans().
+
+
+
 %% ===================================================================
-%% Public
+%% Private
 %% ===================================================================
 
-request(#trans{method='ACK'}, SD) ->
-    {ok, SD};
+%% @private
+-spec request(nksip_call:trans(), nksip_call:call()) ->
+    {ok, nksip_call:call()} | {error, Error} 
+    when Error :: finished | request_pending.
 
-request(#trans{method=Method, request=Req}, #call{dialogs=Dialogs}=SD) ->
+request(#trans{method='ACK'}, Call) ->
+    {ok, Call};
+
+request(#trans{fork_id=undefined}=UAC, #call{dialogs=Dialogs}=Call) ->
+    #trans{method=Method, request=Req} = UAC,
     case nksip_dialog:id(Req) of
         undefined ->
-            {ok, SD};
+            {ok, Call};
         {dlg, _AppId, _CallId, DialogId} ->
             case find(DialogId, Dialogs) of
                 #dialog{status=Status, local_seq=LocalSeq}=Dialog ->
                     ?call_debug("Dialog ~p UAC request ~p in ~p", 
-                                [DialogId, Method, Status], SD),
+                                [DialogId, Method, Status], Call),
                     #sipmsg{cseq=CSeq} = Req,
                     Dialog1 = case CSeq > LocalSeq of
                         true -> Dialog#dialog{local_seq=CSeq};
                         false -> Dialog
                     end,
                     case do_request(Method, Status, Req, Dialog1) of
-                        {ok, Dialog2} -> {ok, update(Dialog2, Dialogs)};
+                        {ok, Dialog2} -> {ok, update(Dialog2, Call)};
                         {error, Error} -> {error, Error}
                     end;
                 not_found when Method=:='INVITE' ->
-                    {ok, SD};
+                    {ok, Call};
                 not_found ->
                     {error, finished}
             end
-    end.
+    end;
+
+request(_, Call) ->
+    {ok, Call}.
+
+
         
+
+%% @private
+-spec do_request(nksip:method(), nksip_dialog:status(), nksip:request(), 
+                 nksip:dialog()) ->
+    {ok, nksip:dialog()} | {error, Error} 
+    when Error :: finished | request_pending.
 
 do_request(_, bye, _Req, _Dialog) ->
     {error, finished};
@@ -81,12 +104,16 @@ do_request(_Method, _Status, _Req, Dialog) ->
     {ok, Dialog}.
 
 
-ack(#trans{method='ACK', request=Req}, #call{dialogs=Dialogs}=SD) ->
+%% @private
+-spec ack(trans(), call()) ->
+    call().
+
+ack(#trans{method='ACK', request=Req}, #call{dialogs=Dialogs}=Call) ->
     #sipmsg{cseq=CSeq} = Req,
     case nksip_dialog:id(Req) of
         undefined ->
-            ?call_notice("Dialog UAC invalid ACK", [], SD),
-            SD;
+            ?call_notice("Dialog UAC invalid ACK", [], Call),
+            Call;
         {dlg, _AppId, _CallId, DialogId} ->
             case find(DialogId, Dialogs) of
                 #dialog{status=Status, request=InvReq}=Dialog ->
@@ -94,44 +121,56 @@ ack(#trans{method='ACK', request=Req}, #call{dialogs=Dialogs}=SD) ->
                     case Status of
                         accepted_uac when CSeq=:=InvCSeq ->
                             ?call_debug("Dialog ~p (~p) UAC request 'ACK", 
-                                        [DialogId, Status], SD),
+                                        [DialogId, Status], Call),
                             Dialog1 = status_update(confirmed, Dialog#dialog{ack=Req}),
-                            update(Dialog1, SD);
+                            update(Dialog1, Call);
                         _ ->
                             ?call_notice("Dialog ~p (~p) ignoring ACK", 
-                                         [DialogId, Status], SD),
-                            SD
+                                         [DialogId, Status], Call),
+                            Call
                     end;
                 not_found ->
-                    ?call_notice("Dialog ~p not found for UAC ACK", [DialogId], SD),
-                    SD
+                    ?call_notice("Dialog ~p not found for UAC ACK", [DialogId], Call),
+                    Call
             end
     end.
     
-response(UAC, #call{dialogs=Dialogs}=SD) ->
+
+%% @private
+-spec response(trans(), call()) ->
+    call().
+
+response(#trans{fork_id=undefined}=UAC, #call{dialogs=Dialogs}=Call) ->
     #trans{method=Method, request=Req, response=Resp} = UAC,
     case nksip_dialog:id(Resp) of
         undefined ->
-            SD;
+            Call;
         {dlg, _AppId, _CallId, DialogId} ->
             #sipmsg{response=Code} = Resp,
             case find(DialogId, Dialogs) of
                 #dialog{status=Status} = Dialog ->
                     ?call_debug("Dialog ~p (~p) UAC response ~p ~p", 
-                                [DialogId, Status, Method, Code], SD),
+                                [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
                     Dialog2 = remotes_update(Resp, Dialog1),
-                    update(Dialog2, SD);
+                    update(Dialog2, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = create(uac, Req, Resp),
-                    response(UAC, SD#call{dialogs=[Dialog|Dialogs]});
+                    response(UAC, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
-                    SD
+                    Call
             end
-    end.
+    end;
+
+response(_, Call) ->
+    Call.
 
 
 %% @private
+-spec do_response(nksip:method(), nksip:response_code(), nksip:request(),
+                  nksip:response(), nksip:dialog()) ->
+    nksip:dialog().
+
 do_response(_Method, Code, _Req, _Resp, Dialog) when Code=:=408; Code=:=481 ->
     status_update({stop, Code}, Dialog);
 
@@ -197,7 +236,12 @@ do_response(_, _Code, _Req, _Resp, Dialog) ->
 
 
  %% @private
-make(DialogId, Method, Opts, #call{dialogs=Dialogs}=SD) ->
+-spec make(integer(), nksip:method(), nksip_lib:proplist(), call()) ->
+    {ok, {AppId, RUri, Opts}, call()} | {error, Error}
+    when Error :: invalid_dialog | unknown_dialog,
+         AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip_lib:proplist().
+
+make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
         #dialog{app_id=AppId, call_id=CallId, status=Status}=Dialog ->
             ?debug(AppId, CallId, "Dialog ~p make ~p request in ~p", 
@@ -207,7 +251,7 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=SD) ->
                     {error, invalid_dialog};
                 false ->
                     {Result, Dialog1} = generate(Method, Opts, Dialog),
-                    {ok, Result, update(Dialog1, SD)}
+                    {ok, Result, update(Dialog1, Call)}
             end;
         _ ->
             {error, unknown_dialog}
@@ -215,15 +259,15 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=SD) ->
 
 
 
-
-
-
 %% ===================================================================
 %% Internal
 %% ===================================================================
 
-
 %% @private
+-spec generate(nksip:method(), nksip_lib:proplist(), nksip:dialog()) ->
+    {{AppId, RUri, Opts}, nksip:dialog()} 
+    when AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip_lib:proplist().
+
 generate(Method, Opts, Dialog) ->
     #dialog{
         id = DialogId,

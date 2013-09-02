@@ -18,89 +18,128 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call Process utilities
-
+%% @private Call process utilities
 -module(nksip_call_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
+
+-export([add_msg/3, update_msg/2, update/2]).
+-export([timeout_timer/2, retrans_timer/2, expire_timer/2, cancel_timers/2]).
+-export([trace/2]).
+-export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
+
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([add_msg/3, update_msg/2, update/2, start_timer/2, cancel_timers/2, trace/2]).
+-type timeout_timer() :: timer_b | timer_d | timer_f | timer_h | timer_i | 
+                         timer_j | timer_k | timer_l | timer_m | timeout.
+
+-type retrans_timer() :: timer_a | timer_e | timer_g.
+
+-type expire_timer() ::  expire.
+
+-type timer() :: timeout_timer() | retrans_timer() | expire_timer().
+
+-type call() :: nksip_call:call().
+
+-type trans() :: nksip_call:trans().
 
 
-add_msg(SipMsg, NoStore, #call{next=MsgId, keep_time=KeepTime, msgs=Msgs}=SD) ->
+
+
+%% ===================================================================
+%% Private
+%% ===================================================================
+
+
+%% @private Adds a new SipMsg to the call's store
+-spec add_msg(nksip:request()|nksip:response(), boolean(), call()) ->
+    {nksip:request()|nksip:response(), call()}.
+
+add_msg(SipMsg, NoStore, #call{next=MsgId, keep_time=KeepTime, msgs=Msgs}=Call) ->
     SipMsg1 = SipMsg#sipmsg{id=MsgId},
     case KeepTime > 0 andalso (not NoStore) of
         true ->
-            ?call_debug("Storing sipmsg ~p", [MsgId], SD),
+            ?call_debug("Storing sipmsg ~p", [MsgId], Call),
             erlang:start_timer(1000*KeepTime, self(), {remove_msg, MsgId}),
             nksip_counters:async([nksip_msgs]),
-            {SipMsg1, SD#call{msgs=[SipMsg1|Msgs], next=MsgId+1}};
+            {SipMsg1, Call#call{msgs=[SipMsg1|Msgs], next=MsgId+1}};
         false ->
-            {SipMsg1, SD#call{next=MsgId+1}}
+            {SipMsg1, Call#call{next=MsgId+1}}
     end.
     
-update_msg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=SD) ->
+
+%% @private
+-spec update_msg(nksip:request()|nksip:response(), call()) -> 
+    call().
+
+update_msg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
     Msgs1 = lists:keyreplace(MsgId, #sipmsg.id, Msgs, Msg),
-    SD#call{msgs=Msgs1}.
+    Call#call{msgs=Msgs1}.
 
 
-update(#trans{id=Id}=New, #call{trans=[#trans{id=Id}=Old|Rest]}=SD) ->
+%% @private
+-spec update(trans(), call()) ->
+    call().
+
+update(#trans{id=Id}=New, #call{trans=[#trans{id=Id}=Old|Rest]}=Call) ->
     #trans{status=NewStatus, method=Method} = New,
     #trans{status=OldStatus} = Old,
-    SD1 = case NewStatus of
+    Call = case NewStatus of
         finished ->
             ?call_debug("UAS ~p ~p (~p) finished", 
-                        [Id, Method, OldStatus], SD),
-            SD#call{trans=Rest};
+                        [Id, Method, OldStatus], Call),
+            Call#call{trans=Rest};
         OldStatus -> 
-            SD#call{trans=[New|Rest]};
+            Call#call{trans=[New|Rest]};
         _ -> 
             ?call_debug("UAS ~p ~p (~p) switched to ~p", 
-                        [Id, Method, OldStatus, NewStatus], SD),
-            SD#call{trans=[New|Rest]}
+                        [Id, Method, OldStatus, NewStatus], Call),
+            Call#call{trans=[New|Rest]}
     end,
-    hibernate(New, SD1);
+    hibernate(New, Call);
     
-update(New, #call{trans=Trans}=SD) ->
+update(New, #call{trans=Trans}=Call) ->
     #trans{id=Id, status=NewStatus, method=Method} = New,
-    SD1 = case lists:keytake(Id, #trans.id, Trans) of
+    Call = case lists:keytake(Id, #trans.id, Trans) of
         {value, #trans{status=OldStatus}, Rest} -> 
             case NewStatus of
                 finished ->
                     ?call_debug("UAS ~p ~p (~p) finished!", 
-                                [Id, Method, OldStatus], SD),
-                    SD#call{trans=Rest};
+                                [Id, Method, OldStatus], Call),
+                    Call#call{trans=Rest};
                 OldStatus -> 
-                    SD#call{trans=[New|Rest]};
+                    Call#call{trans=[New|Rest]};
                 _ -> 
                     ?call_debug("UAS ~p ~p (~p) switched to ~p!", 
-                        [Id, Method, OldStatus, NewStatus], SD),
-                    SD#call{trans=[New|Rest]}
+                        [Id, Method, OldStatus, NewStatus], Call),
+                    Call#call{trans=[New|Rest]}
             end;
         false ->
-            SD#call{trans=[New|Trans]}
+            Call#call{trans=[New|Trans]}
     end,
-    hibernate(New, SD1).
+    hibernate(New, Call).
 
 
-hibernate(#trans{status=Status}, SD) 
+%% @private 
+-spec hibernate(trans(), call()) ->
+    call().
+
+hibernate(#trans{status=Status}, Call) 
           when Status=:=invite_accepted; Status=:=completed; 
                Status=:=finished ->
-    ?call_debug("Hibernating (~p)", [Status], SD),
-    SD#call{hibernate=true};
+    ?call_debug("Hibernating (~p)", [Status], Call),
+    Call#call{hibernate=true};
 
-hibernate(#trans{class=uac, status=invite_completed}, SD) ->
-    ?call_debug("Hibernating (invite_completed)", [], SD),
-    SD#call{hibernate=true};
+hibernate(#trans{class=uac, status=invite_completed}, Call) ->
+    ?call_debug("Hibernating (invite_completed)", [], Call),
+    Call#call{hibernate=true};
 
-hibernate(_, SD) ->
-    SD.
-
-
+hibernate(_, Call) ->
+    Call.
 
 
+%% @private
 trace(Msg, #call{app_id=AppId, call_id=CallId}) ->
     nksip_trace:insert(AppId, CallId, Msg).
 
@@ -110,14 +149,39 @@ trace(Msg, #call{app_id=AppId, call_id=CallId}) ->
 %% Util - Timers
 %% ===================================================================
 
-start_timer(timeout, #trans{method=Method}=Trans) ->
+
+%% @private
+-spec timeout_timer(timeout_timer(), trans()) ->
+    trans().
+
+timeout_timer(Tag, Trans) 
+            when Tag=:=timer_b; Tag=:=timer_f; Tag=:=timer_m;
+                 Tag=:=timer_h; Tag=:=timer_j; Tag=:=timer_l ->
+    Time = 64*nksip_config:get(timer_t1),
+    Trans#trans{timeout_timer=start_timer(Time, Tag, Trans)};
+
+timeout_timer(timer_d, Trans) ->
+    Trans#trans{timeout_timer=start_timer(32000, timer_d, Trans)};
+
+
+timeout_timer(Tag, Trans) when Tag=:=timer_k; Tag=:=timer_i ->
+    Time = nksip_config:get(timer_t4),
+    Trans#trans{timeout_timer=start_timer(Time, Tag, Trans)};
+
+timeout_timer(timeout, #trans{method=Method}=Trans) ->
     Time = case Method of
         'INVITE' -> 1000*nksip_config:get(timer_c);
          _ -> 64*nksip_config:get(timer_t1)
     end,
-    Trans#trans{timeout_timer=start_timer(Time, timeout, Trans)};
+    Trans#trans{timeout_timer=start_timer(Time, timeout, Trans)}.
 
-start_timer(timer_a, #trans{next_retrans=Next}=Trans) ->
+
+
+%% @private
+-spec retrans_timer(retrans_timer(), trans()) ->
+    trans().
+
+retrans_timer(timer_a, #trans{next_retrans=Next}=Trans) ->
     Time = case is_integer(Next) of
         true -> Next;
         false -> nksip_config:get(timer_t1)
@@ -127,16 +191,7 @@ start_timer(timer_a, #trans{next_retrans=Next}=Trans) ->
         next_retrans = 2*Time
     };
 
-start_timer(Tag, Trans) 
-            when Tag=:=timer_b; Tag=:=timer_f; Tag=:=timer_m;
-                 Tag=:=timer_h; Tag=:=timer_j; Tag=:=timer_l ->
-    Time = 64*nksip_config:get(timer_t1),
-    Trans#trans{timeout_timer=start_timer(Time, Tag, Trans)};
-
-start_timer(timer_d, Trans) ->
-    Trans#trans{timeout_timer=start_timer(32000, timer_d, Trans)};
-
-start_timer(Tag, #trans{next_retrans=Next}=Trans) when Tag=:=timer_e; Tag=:=timer_g ->
+retrans_timer(Tag, #trans{next_retrans=Next}=Trans) when Tag=:=timer_e; Tag=:=timer_g ->
     Time = case is_integer(Next) of
         true -> Next;
         false -> nksip_config:get(timer_t1)
@@ -144,15 +199,17 @@ start_timer(Tag, #trans{next_retrans=Next}=Trans) when Tag=:=timer_e; Tag=:=time
     Trans#trans{
         retrans_timer = start_timer(Time, Tag, Trans),
         next_retrans = min(2*Time, nksip_config:get(timer_t2))
-    };
+    }.
 
-start_timer(Tag, Trans) when Tag=:=timer_k; Tag=:=timer_i ->
-    Time = nksip_config:get(timer_t4),
-    Trans#trans{timeout_timer=start_timer(Time, Tag, Trans)};
 
-start_timer(expire, #trans{request=#sipmsg{opts=Opts}=Req}=Trans) ->
-    Timer = case nksip_sipmsg:header(Req, <<"Require">>, integer) of
-        {ok, Expires} when Expires > 0 -> 
+
+%% @private
+-spec expire_timer(expire_timer(), trans()) ->
+    trans().
+
+expire_timer(expire, #trans{request=#sipmsg{opts=Opts}=Req}=Trans) ->
+    Timer = case nksip_sipmsg:header(Req, <<"Expire">>, integers) of
+        [Expires] when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
                 true -> undefined;
                 _ -> start_timer(1000*Expires, expire, Trans)
@@ -163,10 +220,17 @@ start_timer(expire, #trans{request=#sipmsg{opts=Opts}=Req}=Trans) ->
     Trans#trans{expire_timer=Timer}.
 
 
-
+%% @private
+-spec start_timer(integer(), timer(), trans()) ->
+    {timer(), reference()}.
 
 start_timer(Time, Tag, #trans{class=Class, id=Id}) ->
     {Tag, erlang:start_timer(Time, self(), {Class, Tag, Id})}.
+
+
+%% @private
+-spec cancel_timers([timeout|retrans|expire], trans()) ->
+    trans().
 
 cancel_timers([timeout|Rest], #trans{timeout_timer=Timer}=Trans) ->
     cancel_timer(Timer),
@@ -182,6 +246,11 @@ cancel_timers([expire|Rest], #trans{expire_timer=Timer}=Trans) ->
 
 cancel_timers([], Trans) ->
     Trans.
+
+
+%% @private
+-spec cancel_timer({timer(), reference()}|undefined) -> 
+    ok.
 
 cancel_timer({_Tag, Ref}) when is_reference(Ref) -> 
     case erlang:cancel_timer(Ref) of

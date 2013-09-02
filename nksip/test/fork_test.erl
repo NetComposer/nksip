@@ -132,37 +132,37 @@ start() ->
     Opts = [make_contact, full_response],
     {reply, Res1} = nksip_uac:register({fork, clientA1}, Reg, Opts),
     [200, [#uri{user= <<"clientA1">>}=CA1]] = 
-        nksip_response:fields([code, parsed_contacts], Res1),
+        nksip_response:fields(Res1, [code, parsed_contacts]),
     {ok, 200} = nksip_uac:register({fork, clientA1}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {reply, Res3} = nksip_uac:register({fork, clientB1}, Reg, Opts),
     [200, [#uri{user= <<"clientB1">>}=CB1]] = 
-        nksip_response:fields([code, parsed_contacts], Res3),
+        nksip_response:fields(Res3, [code, parsed_contacts]),
     {ok, 200} = nksip_uac:register({fork, clientB1}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {reply, Res5} = nksip_uac:register({fork, clientC1}, Reg, Opts),
     [200, [#uri{user= <<"clientC1">>}=CC1]] = 
-        nksip_response:fields([code, parsed_contacts], Res5),
+        nksip_response:fields(Res5, [code, parsed_contacts]),
     {ok, 200} = nksip_uac:register({fork, clientC1}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
     
     {reply, Res7} = nksip_uac:register({fork, clientA2}, Reg, Opts),
     [200, [#uri{user= <<"clientA2">>}=CA2]] = 
-        nksip_response:fields([code, parsed_contacts], Res7),
+        nksip_response:fields(Res7, [code, parsed_contacts]),
     {ok, 200} = nksip_uac:register({fork, clientA2}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {reply, Res9} = nksip_uac:register({fork, clientB2}, Reg, Opts),
     [200, [#uri{user= <<"clientB2">>}=CB2]] = 
-        nksip_response:fields([code, parsed_contacts], Res9),
+        nksip_response:fields(Res9, [code, parsed_contacts]),
     {ok, 200} = nksip_uac:register({fork, clientB2}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {reply, Res11} = nksip_uac:register({fork, clientC3}, Reg, Opts),
     [200, [#uri{user= <<"clientC3">>}=CC3]] = 
-        nksip_response:fields([code, parsed_contacts], Res11),
+        nksip_response:fields(Res11, [code, parsed_contacts]),
     {ok, 200} = nksip_uac:register({fork, clientC3}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),
 
@@ -218,7 +218,7 @@ basic() ->
                                           [{body, Opts1}, full_response, 
                                            {headers, [RepHd]}]),
     300 = nksip_response:code(Res1),
-    [<<"clientC3,serverR,server1">>] = nksip_response:headers(<<"Nk-Id">>, Res1),
+    [<<"clientC3,serverR,server1">>] = nksip_response:header(Res1, <<"Nk-Id">>),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 580},
                                 {clientA2, 580}, {clientB2, 580},
                                 {clientC3, 300}]),
@@ -228,7 +228,7 @@ basic() ->
     {reply, Res2} = nksip_uac:invite({fork, client2}, QUri, 
                                       [{body, Opts2}, full_response, {headers, [RepHd]}]),
     600 = nksip_response:code(Res2),
-    [<<"clientA1,serverR,server2">>] = nksip_response:headers(<<"Nk-Id">>, Res2),
+    [<<"clientA1,serverR,server2">>] = nksip_response:header(Res2, <<"Nk-Id">>),
     ok = tests_util:wait(Ref, [{clientA1, 600}, {clientB1, 580}, {clientC1, 580}]),
 
     % Aborted in second iteration
@@ -236,7 +236,7 @@ basic() ->
     {reply, Res3} = nksip_uac:invite({fork, client3}, QUri, 
                                       [{body, Opts3}, full_response, {headers, [RepHd]}]),
     600 = nksip_response:code(Res3),
-    [<<"clientB2,serverR,server3">>] = nksip_response:headers(<<"Nk-Id">>, Res3),
+    [<<"clientB2,serverR,server3">>] = nksip_response:header(Res3, <<"Nk-Id">>),
     ok = tests_util:wait(Ref, [{clientA1, 505}, {clientB1, 580}, {clientC1, 580},
                                 {clientA2, 580}, {clientB2, 600}]),
 
@@ -249,7 +249,7 @@ basic() ->
                                        {headers, [RepHd]}]),
     408 = nksip_response:code(Res4),
     <<"Timer C Timeout">> = nksip_response:reason(Res4),
-    [] = nksip_response:headers(<<"Nk-Id">>, Res4),
+    [] = nksip_response:header(Res4, <<"Nk-Id">>),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientC1, 580}, {resp, 180},
                                 {clientA2, 580}, {clientB2, 580}, {clientC3, 580}]),
     % {clientB1, 490} will be detected at the end not to wait here
@@ -265,7 +265,7 @@ basic() ->
                                        {respfun, Fun}, full_response]),
     408 = nksip_response:code(Res5),
     <<"Proxy Timeout">> = nksip_response:reason(Res5),
-    [] = nksip_response:headers(<<"Nk-Id">>, Res5),
+    [] = nksip_response:header(Res5, <<"Nk-Id">>),
     nksip_config:put(proxy_timeout, 180),
     % {clientB1, 490} comes from previous test
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {resp, 180},
@@ -312,31 +312,32 @@ invite() ->
     % In-dialog OPTIONS
     {reply, Res3} = nksip_uac:options(Dialog1, [full_response]),
     200 = nksip_response:code(Res3),
-    [<<"clientC3,server2">>] = nksip_response:headers(<<"Nk-Id">>, Res3),
+    [<<"clientC3,server2">>] = nksip_response:header(Res3, <<"Nk-Id">>),
 
     % Remote party in-dialog OPTIONS
     Dialog2 = nksip_dialog:remote_id({fork, clientC3}, Dialog1),
     {reply, Res4} = nksip_uac:options(Dialog2, [full_response]),
     200 = nksip_response:code(Res4),
-    [<<"client2,server2">>] = nksip_response:headers(<<"Nk-Id">>, Res4),
+    [<<"client2,server2">>] = nksip_response:header(Res4, <<"Nk-Id">>),
     
     % Dialog state at clientC1, clientC3 and server2
     Dialog3 = nksip_dialog:remote_id({fork, server2}, Dialog1),
     [confirmed, LUri, RUri, LTarget, RTarget] = 
-        nksip_dialog:fields([state, local_uri, remote_uri, local_target, remote_target],
-                            Dialog1),
+        nksip_dialog:fields(Dialog1, 
+                            [state, local_uri, remote_uri, local_target, remote_target]),
     [confirmed, RUri, LUri, RTarget, LTarget] = 
-        nksip_dialog:fields([state, local_uri, remote_uri, local_target, remote_target],
-                            Dialog2),
+        nksip_dialog:fields(Dialog2,
+                            [state, local_uri, remote_uri, local_target, remote_target]),
     [confirmed, LUri, RUri, LTarget, RTarget] = 
-        nksip_dialog:fields([state, local_uri, remote_uri, local_target, remote_target],
-                            Dialog3),
+        nksip_dialog:fields(Dialog3,
+                            [state, local_uri, remote_uri, local_target, remote_target]),
+                            
     
     {ok, 200} = nksip_uac:bye(Dialog1, []),
     timer:sleep(100),
-    error = nksip_dialog:field(state, Dialog1),
-    error = nksip_dialog:field(state, Dialog2),
-    error = nksip_dialog:field(state, Dialog3),
+    error = nksip_dialog:field(Dialog1, state),
+    error = nksip_dialog:field(Dialog2, state),
+    error = nksip_dialog:field(Dialog3, state),
     ok.
 
 
@@ -356,7 +357,7 @@ redirect() ->
                                         [{body, Opts1}, full_response, 
                                          {headers, [RepHd]}]),
     300 = nksip_response:code(Res1),
-    [C1, C2] = nksip_response:headers(<<"Contact">>, Res1),
+    [C1, C2] = nksip_response:header(Res1, <<"Contact">>),
     {match, [LPortD1]} = re:run(C1, <<"^<sip:127.0.0.1:(\\d+)>">>, 
                                 [{capture, all_but_first, list}]),
     LPortD1 = integer_to_list(PortD1),

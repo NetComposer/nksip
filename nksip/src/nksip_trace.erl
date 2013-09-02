@@ -83,14 +83,14 @@ start() ->
 
 
 %% @doc Equivalent to `start(AppId, [], console)'.
--spec start(nksip:sipapp_id()) -> 
+-spec start(nksip:app_id()) -> 
     ok.
 start(AppId) -> 
     start(AppId, [], console).
 
 
 %% @doc Equivalent to `start(AppId, [], File)'.
--spec start(nksip:sipapp_id(), console | string()) -> 
+-spec start(nksip:app_id(), console | string()) -> 
     ok | {error, file:posix()}.
 
 start(AppId, Out) -> 
@@ -102,7 +102,7 @@ start(AppId, Out) ->
 %% and using any of the IPs in `IpList' 
 %% (or <i>all of them</i> if it list is empty) will be traced to `console' 
 %% or a file, that will opened in append mode.
--spec start(nksip:sipapp_id(), [inet:ip4_address()], console|string()) ->
+-spec start(nksip:app_id(), [inet:ip4_address()], console|string()) ->
     ok | {error, file:posix()}.
 
 start(AppId, IpList, Out) when is_list(IpList) ->
@@ -133,7 +133,7 @@ stop() ->
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
--spec stop(nksip:sipapp_id()) ->
+-spec stop(nksip:app_id()) ->
     ok | not_found.
 
 stop(AppId) ->
@@ -193,36 +193,55 @@ notice(Text) -> lager:notice(Text).
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
         
-%% @private
+
+% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
 init([]) ->
     ets:new(nksip_trace_msgs, [named_table, public, bag, {write_concurrency, true}]),
     {ok, #state{}}.
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info(Info, State) -> 
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
     {noreply, State}.
 
 
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(_Reason, _State) ->  
     ok.
 
@@ -238,7 +257,7 @@ store_msgs(Bool) when Bool=:=true; Bool=:=false ->
 
 
 %% @private
-insert(#sipmsg{sipapp_id=AppId, call_id=CallId}, Info) ->
+insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
     insert(AppId, CallId, Info).
 
 
@@ -284,7 +303,7 @@ reset_msgs() ->
 
 
 %% @private
--spec sipmsg(nksip:sipapp_id(), nksip:call_id(), binary(), 
+-spec sipmsg(nksip:app_id(), nksip:call_id(), binary(), 
              nksip_transport:transport(), binary()) ->
     ok.
 

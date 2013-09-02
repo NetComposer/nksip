@@ -54,7 +54,7 @@
 
 %% @doc Gets all registered transports in all SipApps.
 -spec get_all() -> 
-    [{nksip:sipapp_id(), transport()}].
+    [{nksip:app_id(), transport()}].
 
 get_all() ->
     All = [{AppId, Transport} 
@@ -63,7 +63,7 @@ get_all() ->
 
 
 %% @doc Gets all registered transports for a SipApp.
--spec get_all(nksip:sipapp_id()) -> 
+-spec get_all(nksip:app_id()) -> 
     [transport()].
 
 get_all(AppId) ->
@@ -72,7 +72,7 @@ get_all(AppId) ->
 
 %% @doc Gets all registered transports in all SipApps for this {@link nksip:protocol()}.
 -spec get_protocol(nksip:protocol()) -> 
-    [{nksip:sipapp_id(), transport()}].
+    [{nksip:app_id(), transport()}].
 
 get_protocol(Proto) ->
     [{AppId, Transport} 
@@ -80,7 +80,7 @@ get_protocol(Proto) ->
 
 
 %% @private Finds a listening transport of Proto.
--spec get_listening(nksip:sipapp_id(), nksip:protocol()) -> 
+-spec get_listening(nksip:app_id(), nksip:protocol()) -> 
     [{transport(), pid()}].
 
 get_listening(AppId, Proto) ->
@@ -89,7 +89,7 @@ get_listening(AppId, Proto) ->
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
--spec is_local(nksip:sipapp_id(), Input::nksip:uri()|nksip:via()) -> 
+-spec is_local(nksip:app_id(), Input::nksip:uri()|nksip:via()) -> 
     boolean().
 
 is_local(AppId, #uri{}=Uri) ->
@@ -157,7 +157,7 @@ local_ips() ->
 %% ===================================================================
 
 %% @private
--spec send(nksip:sipapp_id(), [TSpec], function()) ->
+-spec send(nksip:app_id(), [TSpec], function()) ->
     {ok, nksip:request()|nksip:response()} | error
     when TSpec :: #uri{} | proto_ip_port() | {current, proto_ip_port()}.
 

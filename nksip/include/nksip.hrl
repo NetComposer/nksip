@@ -36,9 +36,6 @@
 -define(MSG_PROCESSORS, 8).
 -define(SRV_TIMEOUT, 30000).
 
--define(MAX_SIPMSGS, 10000000).
--define(MAX_DIALOGS, 1000000).
-
 
 -define(debug(AppId, Txt, Opts), 
         lager:debug([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
@@ -80,6 +77,35 @@
 
 
 %% ===================================================================
+%% Types
+%% ===================================================================
+
+-type gen_server_time() :: 
+        non_neg_integer() | hibernate.
+
+-type gen_server_init(State) ::
+        {ok, State} | {ok, State, gen_server_time()} | ignore.
+
+-type gen_server_cast(State) :: 
+        {noreply, State} | {noreply, State, gen_server_time()} |
+        {stop, term(), State}.
+
+-type gen_server_info(State) :: 
+        gen_server_cast(State).
+
+-type gen_server_call(State) :: 
+        {reply, term(), State} | {reply, term(), State, gen_server_time()} |
+        {stop, term(), term(), State} | gen_server_cast(State).
+
+-type gen_server_code_change(State) ::
+        {ok, State}.
+
+-type gen_server_terminate() ::
+        ok.
+
+
+
+%% ===================================================================
 %% Records
 %% ===================================================================
 
@@ -98,9 +124,9 @@
 }).
 
 -record(sipmsg, {
-    class1 :: req | resp,
-    id :: integer(),
-    sipapp_id :: nksip:sipapp_id(),
+    class :: req | resp,
+    id :: nksip_request:id() | nksip_response:id(),
+    app_id :: nksip:app_id(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
     vias :: [nksip:via()],
@@ -119,7 +145,7 @@
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
     expire :: nksip_lib:timestamp(),
-    pid :: pid(),   % Remove??
+    % pid :: pid(),   % Remove??
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
     opts = [] :: nksip_lib:proplist()
@@ -153,15 +179,15 @@
 }).
 
 -record(dialog, {
-    id :: integer(),
-    app_id :: nksip:sipapp_id(),
+    id :: nksip_dialog:id(),
+    app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),
     updated :: nksip_lib:timestamp(),
     answered :: nksip_lib:timestamp(),
     status :: nksip_dialog:status(),
-    local_seq :: nksip:cseq(),
-    remote_seq :: nksip:cseq(),
+    local_seq :: 0 | nksip:cseq(),
+    remote_seq :: 0 | nksip:cseq(),
     local_uri :: nksip:uri(),
     local_tag :: nksip:tag(),
     remote_uri :: nksip:uri(),
@@ -174,11 +200,11 @@
     remote_sdp :: nksip_sdp:sdp(),
     media_started :: boolean(),
     stop_reason :: nksip_dialog:stop_reason(),
-    request :: pid(),
-    response :: pid(),
-    ack :: pid(),
+    request :: nksip:request(),
+    response :: nksip:response(),
+    ack :: nksip:request(),
     remotes :: [{inet:ip_address(), inet:port_number()}],
-    timeout_timer :: integer(),
+    timeout_timer :: reference(),
     retrans_timer :: reference(),
     next_retrans :: integer()
 }).

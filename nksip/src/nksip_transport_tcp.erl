@@ -42,7 +42,7 @@
 -spec send(pid(), #sipmsg{}) ->
     ok | error.
 
-send(Pid, #sipmsg{sipapp_id=AppId, call_id=CallId, transport=Transport}=SipMsg) ->
+send(Pid, #sipmsg{app_id=AppId, call_id=CallId, transport=Transport}=SipMsg) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     Packet = nksip_unparse:packet(SipMsg),
     case catch gen_server:call(Pid, {send, Packet}) of
@@ -70,7 +70,7 @@ start_link(AppId, Transport, Socket) ->
     gen_server:start_link(?MODULE, [AppId, Transport, Socket], []).
 
 -record(state, {
-    sipapp_id :: nksip:sipapp_id(),
+    sipapp_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     socket :: port() | #sslsocket{},
     timeout :: non_neg_integer(),
@@ -78,7 +78,10 @@ start_link(AppId, Transport, Socket) ->
 }).
 
 
-%% @private
+% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
 init([AppId, Transport, Socket]) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     process_flag(priority, high),
@@ -96,6 +99,9 @@ init([AppId, Transport, Socket]) ->
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call({send, Packet}, _From, 
             #state{
                 sipapp_id = AppId, 
@@ -109,18 +115,29 @@ handle_call({send, Packet}, _From,
         {error, Error} ->
             ?notice(AppId, "could not send TCP message: ~p", [Error]),
             {stop, normal, State}
-    end.
+    end;
+
+handle_call(Msg, _From, State) ->
+    lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
+    {noreply, State}.
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 handle_cast(stop, State) ->
     {stop, normal, State};
 
 handle_cast(Msg, State) ->
-    {stop, {unexpected_cast, Msg}, State}.
+    lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
+    {noreply, State}.
 
 
-%% @private 
+%% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info({tcp, Socket, Packet}, #state{
                 sipapp_id = AppId, 
                 buffer = Buff, 
@@ -187,11 +204,17 @@ handle_info(Info, State) ->
 
 
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(_Reason, _State) ->  
     ok.
 
@@ -204,26 +227,20 @@ terminate(_Reason, _State) ->
 %% @private
 parse(Packet, #state{sipapp_id=AppId, socket=Socket, transport=Transport}=State) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port}=Transport,
-    case nksip_counters:value(nksip_msgs) > ?MAX_SIPMSGS of
-        true ->
-            socket_close(Proto, Socket),
-            <<>>;
-        false ->
-            case nksip_parse:packet(AppId, Transport, Packet) of
-                {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
-                    nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
-                    nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
-                    nksip_call_router:incoming(RawMsg),
-                    case More of
-                        <<>> -> <<>>;
-                        _ -> parse(More, State)
-                    end;
-                {rnrn, More} ->
-                    socket_send(Proto, Socket, <<"\r\n">>),
-                    parse(More, State);
-                {more, More} -> 
-                    More
-            end
+    case nksip_parse:packet(AppId, Transport, Packet) of
+        {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
+            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
+            nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
+            nksip_call_router:incoming(RawMsg),
+            case More of
+                <<>> -> <<>>;
+                _ -> parse(More, State)
+            end;
+        {rnrn, More} ->
+            socket_send(Proto, Socket, <<"\r\n">>),
+            parse(More, State);
+        {more, More} -> 
+            More
     end.
 
 

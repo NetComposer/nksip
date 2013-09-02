@@ -58,14 +58,12 @@
 -export([send_request/4, send_request/2]).
 
 
--type nodialog_errors() ::  unknown_core | invalid_uri | invalid_from | invalid_to |
+-type nodialog_errors() ::  invalid_uri | invalid_from | invalid_to |
                             invalid_route | invalid_contact | invalid_cseq |
-                            network_error.
+                            sipapp_not_found | too_many_calls.
 
--type dialog_errors() :: unknown_dialog | timeout_dialog | terminated_dialog |
-                         invalid_dialog | network_error.
-
--type cancel_id() :: {cancel, pid()}.
+-type dialog_errors() :: invalid_dialog | unknown_dialog | 
+                         sipapp_not_found | too_many_calls.
 
 
 -define(UAC_DEFAULT_TIMEOUT, 60000).
@@ -215,9 +213,9 @@
 %% NkSIP has an automatic remote <i>pinging</i> feature that can be activated 
 %% on any SipApp (see {@link nksip_sipapp_auto:start_ping/5}).
 %%
--spec options(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
+-spec options(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
     {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, nodialog_errors()}.
+    {async, nksip:request_id()} | {error, nodialog_errors()}.
 
 options(AppId, Uri, Opts) ->
     send_request(AppId, 'OPTIONS', Uri, Opts).
@@ -226,7 +224,7 @@ options(AppId, Uri, Opts) ->
 %% @private Sends a in-dialog OPTIONS request
 -spec options(nksip_dialog:spec(), nksip_lib:proplist()) ->
     {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, dialog_errors()}.
+    {async, nksip:request_id()} | {error, dialog_errors()}.
 
 options(DialogSpec, Opts) ->
     send_dialog(DialogSpec, 'OPTIONS', Opts).
@@ -272,9 +270,9 @@ options(DialogSpec, Opts) ->
 %%
 %% NkSIP offers also an automatic SipApp registration facility 
 %% (see {@link nksip:start/4}).
--spec register(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
+-spec register(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
     {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, nodialog_errors()}.
+    {async, nksip:request_id()} | {error, nodialog_errors()}.
 
 register(AppId, Uri, Opts) ->
     case lists:member(unregister_all, Opts) of
@@ -355,9 +353,9 @@ register(AppId, Uri, Opts) ->
 %% has been received in this period in seconds. The default value for `contact' parameter 
 %% would be `auto' in this case.
 %%
--spec invite(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} | 
-    {async, cancel_id()} | {error, nodialog_errors()}.
+-spec invite(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
+    {ok, nksip:response_code(), nksip:dialog_id()} | {reply, nksip:response()} | 
+    {async, nksip:request_id()} | {error, nodialog_errors()}.
 
 invite(AppId, Uri, Opts) ->
     Expires = nksip_lib:get_integer(expires, Opts, 0), 
@@ -422,8 +420,8 @@ ack(DialogSpec, Opts) ->
 %% {@link nksip_response:wait_491()} and try again.
 %%
 -spec reinvite(nksip_dialog:spec(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} | 
-    async | {error, dialog_errors()}.
+    {ok, nksip:response_code(), nksip:dialog_id()} | {reply, nksip:response()} | 
+    {async, nksip:request_id()} | {error, dialog_errors()}.
 
 reinvite(DialogSpec, Opts) ->
     Opts1 = [make_accept, make_supported | Opts],
@@ -443,7 +441,7 @@ reinvite(DialogSpec, Opts) ->
 %%
 -spec bye(nksip_dialog:spec(), nksip_lib:proplist()) -> 
     {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, nodialog_errors()}.
+    {async, nksip:request_id()} | {error, dialog_errors()}.
 
 bye(DialogSpec, Opts) ->
     send_dialog(DialogSpec, 'BYE', Opts).
@@ -461,16 +459,13 @@ bye(DialogSpec, Opts) ->
 %% The options and responses are the same as for {@link options/3}, but you should not
 %% use any options modifying the request as `from', `to', `call_id', `cseq', `route', etc.
 %%
--spec cancel(nksip_request:id(), nksip_lib:proplist()) ->
+-spec cancel(nksip:request_id(), nksip_lib:proplist()) ->
     {ok, nksip:response_code()} | {reply, nksip:response()} | 
     async | {error, Error}
-    when Error :: no_transaction | network_error.
+    when Error :: unknown_request | invalid_request | sipapp_not_found | too_many_calls.
 
 cancel(ReqId, Opts) ->
-    case nksip_call_router:get_cancel(ReqId, Opts) of
-        {ok, CancelReq} -> send_request(CancelReq, Opts);
-        {error, Error} -> {error, Error}
-    end.
+    nksip_call_router:cancel(ReqId, Opts).
 
 %% @doc Sends a update on a currently ongoing dialog using reINVITE.
 %%
@@ -486,13 +481,13 @@ cancel(ReqId, Opts) ->
 %% </ul>
 %%
 -spec refresh(nksip_dialog:spec(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} | 
-    async | {error, dialog_errors()}.
+    {ok, nksip:response_code(), nksip:dialog_id()} | {reply, nksip:response()} | 
+    {async, nksip:request_id()} | {error, dialog_errors()}.
 
 refresh(DialogSpec, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
         undefined ->
-            case nksip_dialog:field(local_sdp, DialogSpec) of
+            case nksip_dialog:field(DialogSpec, local_sdp) of
                 #sdp{} = SDP -> SDP;
                 _ -> <<>>
             end;
@@ -530,7 +525,7 @@ refresh(DialogSpec, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
+-spec stun(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
     when LocalIp :: inet:ip4_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip4_address(), RemotePort :: inet:port_number(),
@@ -566,12 +561,12 @@ stun(AppId, UriSpec, _Opts) ->
 %% ===================================================================
 
 %% @private
--spec send_request(nksip:sipapp_id(), nksip:method(), nksip:user_uri(), 
+-spec send_request(nksip:app_id(), nksip:method(), nksip:user_uri(), 
                     nksip_lib:proplist()) ->
-    ok | {ok, nksip:request()} | {ok, nksip:response_code()} |
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} |
-    async | {async, cancel_id()} | {error, nodialog_errors()}.
-
+    {ok, nksip:response_code()} | {ok, nksip:response_code(), nksip_dialog:id()} |
+    ok  | {ok, nksip:request()} | {reply, nksip:response()} |
+    {async, nksip:request_id()} | {error, nodialog_errors()}.
+    
 send_request(AppId, Method, Uri, Opts) ->
     case nksip_uac_lib:make(AppId, Method, Uri, Opts) of
         {ok, Request} -> send_request(Request, Opts);
@@ -581,9 +576,9 @@ send_request(AppId, Method, Uri, Opts) ->
 
 %% @private
 -spec send_request(nksip:request(), nksip_lib:proplist()) ->
-    ok | {ok, nksip:request()} | {ok, nksip:response_code()} |
-    {ok, nksip:response_code(), cancel_id()} | {reply, nksip:response()} |
-    async | {async, cancel_id()} | {error, nodialog_errors()}.
+    {ok, nksip:response_code()} | {ok, nksip:response_code(), nksip_dialog:id()} |
+    ok  | {ok, nksip:request()} | {reply, nksip:response()} |
+    {async, nksip:request_id()} | {error, nodialog_errors()}.
 
 send_request(#sipmsg{method=Method}=Req, Opts) ->
     case lists:member(async, Opts) of
@@ -642,9 +637,9 @@ send_request(#sipmsg{method=Method}=Req, Opts) ->
 
 %% @private
 -spec send_dialog(nksip_dialog:spec(), nksip:method(), nksip_lib:proplist()) ->
-    ok | {ok, nksip:request()} | {ok, nksip:response_code()} |
-    {ok, nksip:response_code(), cancel_id()} | {reply, nksip:response()} |
-    async | {error, dialog_errors()}.
+    {ok, nksip:response_code()} | {ok, nksip:response_code(), nksip_dialog:id()} |
+    ok  | {ok, nksip:request()} | {reply, nksip:response()} |
+    {async, nksip:request_id()} | {error, dialog_errors()}.
 
 send_dialog(DialogSpec, Method, Opts) ->
     case nksip_call_router:make_dialog(DialogSpec, Method, Opts) of

@@ -74,7 +74,7 @@
 %% ===================================================================
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nksip:sipapp_id(), AOR::nksip:aor()) ->
+-spec find(nksip:app_id(), AOR::nksip:aor()) ->
     [nksip:uri()].
 
 find(AppId, {Scheme, User, Domain}) ->
@@ -82,7 +82,7 @@ find(AppId, {Scheme, User, Domain}) ->
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nksip:sipapp_id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
 find(AppId, Scheme, User, Domain) ->
@@ -90,7 +90,7 @@ find(AppId, Scheme, User, Domain) ->
 
 
 %% @private Gets all current stored info for an AOR.
--spec get_info(nksip:sipapp_id(), nksip:scheme(), binary(), binary()) ->
+-spec get_info(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [#reg_contact{}].
 
 get_info(AppId, Scheme, User, Domain) ->
@@ -100,7 +100,7 @@ get_info(AppId, Scheme, User, Domain) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nksip:sipapp_id(), AOR::nksip:aor()) ->
+-spec qfind(nksip:app_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
 qfind(AppId, {Scheme, User, Domain}) ->
@@ -109,7 +109,7 @@ qfind(AppId, {Scheme, User, Domain}) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nksip:sipapp_id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
 qfind(AppId, Scheme, User, Domain) ->
@@ -123,7 +123,7 @@ qfind(AppId, Scheme, User, Domain) ->
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
--spec delete(nksip:sipapp_id(), nksip:scheme(), binary(), binary()) ->
+-spec delete(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found.
 
 delete(AppId, Scheme, User, Domain) ->
@@ -145,7 +145,7 @@ is_registered(#sipmsg{method='REGISTER'}) ->
     false;
 
 is_registered(#sipmsg{
-                sipapp_id = AppId, 
+                app_id = AppId, 
                 from = #uri{scheme=Scheme, user=User, domain=Domain},
                 transport=Transport
             }) ->
@@ -194,7 +194,7 @@ clear() ->
 
 %% @doc Clear all stored records by a SipApp's core.
 %% Returns the number of deleted items.
--spec clear(nksip:sipapp_id()) -> integer().
+-spec clear(nksip:app_id()) -> integer().
 
 clear(AppId) -> 
     Fun = fun(Id, AOR, _Val, Acc) ->
@@ -291,23 +291,23 @@ is_registered([
     nksip:sipreply().
 
 process(#sipmsg{
-            sipapp_id = AppId, 
+            app_id = AppId, 
             to = #uri{scheme=Scheme, user=ToUser, domain=ToDomain},
             contacts = Contacts
-        }=Request) ->
+        }=Req) ->
     if
         Scheme=:=sip; Scheme=:=sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
     AOR = {Scheme, ToUser, ToDomain},
-    Expires = case nksip_parse:header_integers(<<"Expires">>, Request) of
+    Expires = case nksip_sipmsg:header(Req, <<"Expires">>, integers) of
         [T|_] when is_integer(T) -> T;
         _ -> nksip_config:get(registrar_default_time)
     end,
     case Contacts of
         [] -> ok;
-        [#uri{domain=(<<"*">>)}] -> del_all(AppId, AOR, Request);
-        _ -> update(Request, AOR, Contacts, Expires)
+        [#uri{domain=(<<"*">>)}] -> del_all(AppId, AOR, Req);
+        _ -> update(Req, AOR, Contacts, Expires)
     end,
     NewContacts = [Contact || #reg_contact{contact=Contact} <- get(AppId, AOR)],
     {ok, [], <<>>, [{contact, NewContacts}, make_date, make_allow]}.
@@ -317,7 +317,7 @@ process(#sipmsg{
 -spec update(nksip:request(), nksip:aor(), [nksip:uri()], integer()) ->
     ok | no_return().
 
-update(#sipmsg{sipapp_id=AppId}=Request, AOR, Contacts, Default) ->
+update(#sipmsg{app_id=AppId}=Req, AOR, Contacts, Default) ->
     Min = nksip_config:get(registrar_min_time),
     Max = nksip_config:get(registrar_max_time),
     Now = nksip_lib:timestamp(),
@@ -326,7 +326,7 @@ update(#sipmsg{sipapp_id=AppId}=Request, AOR, Contacts, Default) ->
     OldContacts = [
         RegContact ||
         #reg_contact{expire=Exp} = RegContact <- get(AppId, AOR), Exp > Now],
-    case update_iter(Updates, Request, OldContacts) of
+    case update_iter(Updates, Req, OldContacts) of
         [] -> 
             del(AppId, AOR);
         NewContacts -> 
@@ -404,7 +404,7 @@ update_iter([], _, Acc) ->
     lists:reverse(lists:keysort(#reg_contact.updated, Acc));
 
 update_iter([{Index, Contact, ExpTime, Q}|Rest], 
-            #sipmsg{transport=Transport, call_id=CallId, cseq=CSeq}=Request, Acc) ->
+            #sipmsg{transport=Transport, call_id=CallId, cseq=CSeq}=Req, Acc) ->
     RegContact = #reg_contact{
         index = Index,
         contact = Contact,
@@ -428,11 +428,11 @@ update_iter([{Index, Contact, ExpTime, Q}|Rest],
         {value, _, Acc0} ->
             [RegContact|Acc0]
     end,
-    update_iter(Rest, Request, NewAcc).
+    update_iter(Rest, Req, NewAcc).
         
 
 %% @private
--spec del_all(nksip:sipapp_id(), nksip:aor(), nksip:request()) ->
+-spec del_all(nksip:app_id(), nksip:aor(), nksip:request()) ->
     ok | no_return().
 
 del_all(AppId, AOR, #sipmsg{call_id=CallId, cseq=CSeq}) ->

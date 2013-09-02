@@ -108,7 +108,8 @@ get_user_pass(_User, _Realm, _From, State) ->
 %%          a challenge to the user.</li>
 %% </ul>
 authorize(Auth, ReqId, _From, State) ->
-    lager:notice("Request ~p auth data: ~p", [nksip_request:method(ReqId), Auth]),
+    Method = nksip_request:method(ReqId),
+    lager:notice("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
             {reply, true, State};
@@ -266,7 +267,7 @@ find_all() ->
 
 %% @doc Gets all registered contacts, excluding the one in `Request'
 find_all_except_me(Request) ->
-    [From] = nksip_request:headers(<<"From">>, Request),
+    [From] = nksip_request:header(Request, <<"From">>),
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [

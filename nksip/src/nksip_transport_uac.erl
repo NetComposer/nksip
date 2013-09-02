@@ -38,7 +38,7 @@
     {ok, nksip:request()} | error.
 
 send_request(Request) ->
-    #sipmsg{sipapp_id=AppId, method=Method, ruri=RUri, routes=Routes} = Request,
+    #sipmsg{app_id=AppId, method=Method, ruri=RUri, routes=Routes} = Request,
     case Routes of
         [] -> 
             DestUri = RUri1 = RUri,
@@ -79,7 +79,7 @@ send_request(Request) ->
 -spec resend_request(nksip:request()) -> 
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{sipapp_id=AppId, transport=Transport}=Request) ->
+resend_request(#sipmsg{app_id=AppId, transport=Transport}=Request) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     MakeRequest = fun(_) -> Request end,
     nksip_transport:send(AppId, [{Proto, Ip, Port}], MakeRequest).
@@ -93,7 +93,7 @@ resend_request(#sipmsg{sipapp_id=AppId, transport=Transport}=Request) ->
 %% @private
 -spec add_via(nksip:request()) -> nksip:request().
 
-add_via(#sipmsg{sipapp_id=AppId, ruri=RUri, vias=Vias, opts=Opts}=Request) ->
+add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias, opts=Opts}=Request) ->
     GlobalId = nksip_config:get(global_id),
     IsStateless = lists:member(stateless, Opts),
     case Vias of
@@ -131,7 +131,7 @@ add_via(#sipmsg{sipapp_id=AppId, ruri=RUri, vias=Vias, opts=Opts}=Request) ->
     function().
 
 make_request_fun(#sipmsg{
-                    sipapp_id = AppId, 
+                    app_id = AppId, 
                     method = Method, 
                     ruri = RUri, 
                     from = From, 

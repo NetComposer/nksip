@@ -60,10 +60,11 @@
 
 -include("nksip.hrl").
 
--export_type([sipapp_id/0, request/0, response/0, sipreply/0]).
+-export_type([app_id/0, request/0, response/0, sipreply/0]).
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
+-export_type([dialog/0, dialog_id/0, request_id/0, response_id/0]).
 
 
 
@@ -72,7 +73,7 @@
 %% ===================================================================
 
 %% Unique Id of each started SipApp
--type sipapp_id() :: term().
+-type app_id() :: term().
 
 %% Parsed SIP Request
 -type request() :: #sipmsg{}.
@@ -126,6 +127,18 @@
 
 %% Address of Record
 -type aor() :: {Scheme::scheme(), User::binary(), Domain::binary()}.
+
+%% Dialog
+-type dialog() :: #dialog{}.
+
+-type dialog_id() :: {dlg, app_id(), call_id(), nksip_dialog:id()}.
+
+%% Request
+-type request_id() :: {req, app_id(), call_id(), nksip_request:id()}.
+
+%% Response
+-type response_id() :: {resp, app_id(), call_id(), nksip_response:id()}.
+
 
 
 %% ===================================================================
@@ -250,13 +263,13 @@
 %%          <td>`msg_keep_time'</td>
 %%          <td>integer()</td>
 %%          <td>5</td>
-%%          <td>Seconds to keep responses in memory after they are received.
-%%          After the last response has been deleted, the request is also deleted</td>
+%%          <td>Minimum time to keep requests and responses in memory after 
+%%              they are received./td>
 %%      </tr>
 %%  </table>
 %%
 %% <br/>
--spec start(sipapp_id(), atom(), term(), nksip_lib:proplist()) -> 
+-spec start(app_id(), atom(), term(), nksip_lib:proplist()) -> 
 	ok | {error, Error} 
     when Error :: invalid_from | invalid_transport | invalid_register | invalid_route |
                   no_matching_tcp | could_not_start_udp | could_not_start_tcp |
@@ -357,7 +370,7 @@ start(AppId, Module, Args, Opts) ->
 
 
 %% @doc Stops a started SipApp, stopping any registered transports.
--spec stop(sipapp_id()) -> 
+-spec stop(app_id()) -> 
     ok | error.
 
 stop(AppId) ->
@@ -380,7 +393,7 @@ stop_all() ->
 
 %% @doc Gets the `AppIds' of all started SipApps.
 -spec get_all() ->
-    [AppId::sipapp_id()].
+    [AppId::app_id()].
 
 get_all() ->
     [AppId || {AppId, _Pid} <- nksip_proc:values(nksip_sipapps)].
@@ -399,7 +412,7 @@ reply(From, Reply) ->
 %% @doc Sends a synchronous message to the SipApp's process, 
 %% similar to `gen_server:call/2'.
 %% The SipApp's callback module must implement `handle_call/3'.
--spec call(sipapp_id(), term()) ->
+-spec call(app_id(), term()) ->
     any().
 
 call(AppId, Msg) ->
@@ -409,7 +422,7 @@ call(AppId, Msg) ->
 %% @doc Sends a synchronous message to the SipApp's process with a timeout, 
 %% similar to `gen_server:call/3'.
 %% The SipApp's callback module must implement `handle_call/3'.
--spec call(sipapp_id(), term(), infinity|pos_integer()) ->
+-spec call(app_id(), term(), infinity|pos_integer()) ->
     any().
 
 call(AppId, Msg, Timeout) ->
@@ -422,7 +435,7 @@ call(AppId, Msg, Timeout) ->
 %% @doc Sends an asynchronous message to the SipApp's process, 
 %% similar to `gen_server:cast/2'.
 %% The SipApp's callback module must implement `handle_cast/2'.
--spec cast(sipapp_id(), term()) ->
+-spec cast(app_id(), term()) ->
     ok.
 
 cast(AppId, Msg) ->
@@ -433,7 +446,7 @@ cast(AppId, Msg) ->
 
 
 %% @doc Gets the SipApp's process `pid()'.
--spec get_pid(sipapp_id()) -> 
+-spec get_pid(app_id()) -> 
     pid() | not_found.
 
 get_pid(Id) ->
@@ -444,7 +457,7 @@ get_pid(Id) ->
 
 
 %% @doc Gets SipApp'sfirst listening port on this transport protocol.
--spec get_port(sipapp_id(), protocol()) -> 
+-spec get_port(app_id(), protocol()) -> 
     inet:port_number() | not_found.
 
 get_port(AppId, Proto) ->

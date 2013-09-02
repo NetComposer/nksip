@@ -38,24 +38,23 @@
 %% ===================================================================
 
 %% SIP Dialog unique ID
--type id() :: {dlg, nksip:sipapp_id(), nksip:call_id(), integer()} | undefined.
+-type id() :: integer().
 
 %% SIP Dialog stop reason
--type stop_reason() :: caller_bye | callee_bye | cancelled | busy | decline |
-                       service_unavailable | forced_stop | {code, nksip:response_code()} |
-                       proceeding_timeout | confirmed_timeout | accepted_timeout |
-                       unknown.
+-type stop_reason() :: nksip:response_code() | caller_bye | callee_bye | forced |
+                       busy | cancelled | service_unavailable | declined | timeout |
+                       ack_timeout. 
 
 %% SIP Dialog State
 -type dialog() :: #dialog{}.
 
 %% All the ways to specify a dialog
--type spec() :: id() | dialog() | nksip_request:id() | nksip_response:id() |
+-type spec() :: nksip:dialog_id() | dialog() | nksip:request_id() | nksip:response_id() |
                 nksip:request() | nksip:response().
 
 %% All dialog states
--type status() :: proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
-                  confirmed | bye | stop.
+-type status() :: init | proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
+                  confirmed | bye | {stop, stop_reason()}.
 
 -type field() :: dialog_id | sipapp_id | call_id | created | updated | answered | 
                  state | expires |  local_seq | remote_seq | 
@@ -79,7 +78,7 @@
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`sipapp_id'</td>
-%%          <td>{@link nksip:sipapp_id()}</td>
+%%          <td>{@link nksip:app_id()}</td>
 %%          <td>SipApp that created the dialog</td>
 %%      </tr>
 %%      <tr>
@@ -198,36 +197,40 @@
 %%          <td>Dialog stop reason</td>
 %%      </tr>
 %% </table>
--spec field(spec(), field()) -> term() | {error, Error}
-    when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
+-spec field(spec(), field()) -> 
+    term() | error.
 
 field(#dialog{}=Dialog, Field) ->
     get_field(Dialog, Field);
 
 field(DialogSpec, Field) -> 
     case fields(DialogSpec, [Field]) of
-        {ok, [Value|_]} -> {ok, Value};
-        {error, Error} -> {error, Error}
+        [Value] -> Value;
+        error -> error
     end.
 
 
 %% @doc Gets a number of fields from the `Request' as described in {@link field/2}
--spec fields([field()], id()) -> [term()] | {error, Error}
-    when Error :: unknown_dialog | terminated_dialog | timeout_dialog. 
-
+-spec fields(spec(), [field()]) -> 
+    [term()] | error.
+    
 fields(#dialog{}=Dialog, Fields) when is_list(Fields) ->
-    {ok, [get_field(Dialog, Field) || Field <- Fields]};
+    [get_field(Dialog, Field) || Field <- Fields];
 
 fields(DialogSpec, Fields) when is_list(Fields) ->
-    nksip_call_router:get_dialog_fields(DialogSpec, Fields).
+    Fun = fun(#dialog{}=Dialog) -> {ok, fields(Dialog, Fields)} end,
+    case nksip_call_router:apply_dialog(DialogSpec, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
-%% @doc Calculates a <i>Dialog's Id</i> from a {@link nksip_request:id()}, 
-%% {@link nksip_response:id()}, {@link nksip:request()} or {@link nksip:response()}.
+%% @doc Calculates a <i>Dialog's Id</i> from a {@link nksip:request_id()}, 
+%% {@link nksip:response_id()}, {@link nksip:request()} or {@link nksip:response()}.
 %% <i>Dialog Ids</i> are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
 %% and <i>To</i> Tag. If From Tag and To Tag are swapped the resulting Id is the same.
 -spec id(spec()) ->
-    id().
+    nksip:dialog_id() | undefined.
 
 id(#dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
     {dlg, AppId, CallId, DialogId};
@@ -235,21 +238,21 @@ id(#dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
 id({dlg, AppId, CallId, DialogId}) -> 
     {dlg, AppId, CallId, DialogId};
 
-id(#sipmsg{sipapp_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
+id(#sipmsg{app_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
     when FromTag =/= <<>>, ToTag =/= <<>> ->
     dialog_id(AppId, CallId, FromTag, ToTag);
 
 id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), method='INVITE', opts=Opts}=SipMsg)
     when FromTag =/= <<>> ->
-    #sipmsg{sipapp_id=AppId, call_id=CallId} = SipMsg,
+    #sipmsg{app_id=AppId, call_id=CallId} = SipMsg,
     case nksip_lib:get_binary(to_tag, Opts) of
         <<>> -> undefined;
         ToTag -> dialog_id(AppId, CallId, FromTag, ToTag)
     end;
         
 id({Type, AppId, CallId, _}=SipMsgId) when Type=:=req; Type=:=resp ->
-    case catch nksip_call_router:get_fields([from_tag, to_tag], SipMsgId) of
-        {ok, [FromTag, ToTag]} -> dialog_id(AppId, CallId, FromTag, ToTag);
+    case nksip_sipmsg:fields(SipMsgId, [from_tag, to_tag]) of
+        [FromTag, ToTag] -> dialog_id(AppId, CallId, FromTag, ToTag);
         _ -> undefined
     end;
 
@@ -257,20 +260,37 @@ id(_) ->
     undefined.
 
 
-get_dialog(DialogSpec) ->
-    nksip_call_router:get_dialog(DialogSpec).
+%% @doc Gets a full dialog record
+-spec get_dialog(spec()) ->
+    dialog() | error.
 
+
+get_dialog(#dialog{}=Dialog) ->
+    Dialog;
+
+get_dialog(DialogSpec) ->
+    Fun = fun(#dialog{}=Dialog) -> {ok, Dialog} end,
+    case nksip_call_router:apply_dialog(DialogSpec, Fun) of
+        {ok, Dialog} -> Dialog;
+        _ -> error
+    end.
+
+
+%% @doc Gets all started dialog id's
+-spec get_all() ->
+    [nksip:dialog_id()].
 
 get_all() ->
     nksip_call_router:get_all_dialogs().
 
 
-%% @doc Finds all existing dialogs' processes having a Call-ID
--spec find_callid(nksip:sipapp_id(), nksip:call_id()) ->
-    [id()].
+%% @doc Finds all existing dialogs' having a `Call-ID'
+-spec find_callid(nksip:app_id(), nksip:call_id()) ->
+    [nksip:dialog_id()].
 
 find_callid(AppId, CallId) ->
     nksip_call_router:get_all_dialogs(AppId, CallId).
+
 
 %% @doc Sends an in-dialog BYE to all existing dialogs.
 -spec bye_all() ->
@@ -285,11 +305,14 @@ bye_all() ->
 -spec stop(spec()) ->
     ok.
 
+stop(#dialog{app_id=AppId, call_id=CallId, id=Id}) ->
+    stop({dlg, AppId, CallId, Id});
+
 stop(DialogSpec) ->
     nksip_call_router:stop_dialog(DialogSpec).
 
 
-%% @doc Stops all current dialogs.
+%% @doc Stops (deletes) all current dialogs.
 -spec stop_all() ->
     ok.
 
@@ -299,34 +322,30 @@ stop_all() ->
 
 %% @doc Checks if a request is part of an already authenticated dialog,
 %% and it comes from the same ip and port.
--spec is_authorized(Request::nksip:request()) ->
+-spec is_authorized(nksip:request()) ->
     boolean().
 
 is_authorized(Req) ->
-    #sipmsg{sipapp_id=AppId, call_id=CallId, method=Method,
+    #sipmsg{app_id=AppId, call_id=CallId, method=Method,
             transport=#transport{remote_ip=Ip, remote_port=Port}} = Req,
-    case nksip_dialog:id(Req) of
-        <<>> ->
-            false;
-        DialogId ->
-            case nksip_proc:values({nksip_dialog_auth, DialogId}) of
-                [{Remotes, _Pid}] -> 
-                    case lists:member({Ip, Port}, Remotes) of
-                        true ->
-                            ?debug(AppId, CallId, 
-                                   "authorized ~p dialog request from ~p", 
-                                   [Method, {Ip, Port}]),
-                            true;
-                        false ->
-                            ?debug(AppId, CallId, 
-                                   "unauthorized ~p dialog request from ~p"
-                                   " (authorized are ~p)", 
-                                   [Method, {Ip, Port}, Remotes]),
-                            false
-                    end;
-                _ -> 
-                    false
-            end
+    Fun = fun(#dialog{remotes=Remotes}) ->
+        case lists:member({Ip, Port}, Remotes) of
+            true ->
+                ?debug(AppId, CallId, 
+                       "authorized ~p dialog request from ~p", 
+                       [Method, {Ip, Port}]),
+                true;
+            false ->
+                ?debug(AppId, CallId, 
+                       "unauthorized ~p dialog request from ~p"
+                       " (authorized are ~p)", 
+                       [Method, {Ip, Port}, Remotes]),
+                false
+        end
+    end,
+    case nksip_call_router:apply_dialog(Req, Fun) of
+        true -> true;
+        _ -> false
     end.
 
 
@@ -337,6 +356,9 @@ is_authorized(Req) ->
 
 
 %% @private
+-spec dialog_id(nksip:app_id(), nksip:call_id(), nksip:tag(), nksip:tag()) ->
+    nksip:dialog_id().
+
 dialog_id(AppId, CallId, FromTag, ToTag) ->
     {A, B} = case FromTag < ToTag of
         true -> {FromTag, ToTag};
@@ -345,19 +367,18 @@ dialog_id(AppId, CallId, FromTag, ToTag) ->
     {dlg, AppId, CallId, erlang:phash2({A, B})}.
 
 
-
 %% @private Dumps all dialog information
 %% Do not use it with many active dialogs!!
 -spec get_all_data() ->
-    [{id(), nksip_lib:proplist()}].
+    [{nksip:dialog_id(), nksip_lib:proplist()}].
 
 get_all_data() ->
     Now = nksip_lib:timestamp(),
     Fun = fun(DialogId, Acc) ->
         case get_dialog(DialogId) of
-            {ok, Dialog} ->
+            #dialog{}=Dialog ->
                 Data = {DialogId, [
-                    {sipapp_id, Dialog#dialog.app_id},
+                    {app_id, Dialog#dialog.app_id},
                     {call_id, Dialog#dialog.call_id},
                     {status, Dialog#dialog.status},
                     {local_uri, nksip_unparse:uri(Dialog#dialog.local_uri)},
@@ -365,7 +386,6 @@ get_all_data() ->
                     {created, Dialog#dialog.created},
                     {elapsed, Now - Dialog#dialog.created},
                     {updated, Dialog#dialog.updated},
-                    % {timeout, Dialog#dialog.expires},
                     {answered, Dialog#dialog.answered},
                     {local_seq, Dialog#dialog.local_seq},
                     {remote_seq, Dialog#dialog.remote_seq},
@@ -402,7 +422,8 @@ remote_id(AppId, DialogId) ->
 
 %% @private Extracts a specific field from the request
 %% See {@link nksip_request:field/2}.
--spec get_field(field(), dialog()) -> any().
+-spec get_field(dialog(), field()) -> 
+    any().
 
 get_field(D, Field) ->
     case Field of
