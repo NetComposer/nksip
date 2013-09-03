@@ -36,11 +36,15 @@
 
 -type id() :: integer().
 
--type field() :: local | remote | ruri | parsed_ruri | aor | call_id | vias | 
-                  parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
-                  cseq_num | cseq_method | forwards | routes | parsed_routes | 
-                  contacts | parsed_contacts | content_type | parsed_content_type | 
-                  headers | body  | code | reason | dialog_id | sipapp_id.
+-type field() ::  sipapp_id | code | reason | call_id | vias | parsed_vias | 
+                  ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
+                  from | from_scheme | from_user | from_domain | parsed_from | 
+                  to | to_scheme | to_user | to_domain | parsed_to | 
+                  cseq | parsed_cseq | cseq_num | cseq_method | forwards |
+                  routes | parsed_routes | contacts | parsed_contacts | 
+                  content_type | parsed_content_type | 
+                  headers | body | dialog_id | local | remote.
+
 
 
 %% ===================================================================

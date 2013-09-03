@@ -38,39 +38,39 @@
 
 
 -define(debug(AppId, Txt, Opts), 
-        lager:debug([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:debug([{core, AppId}], "SipApp ~p "++Txt, [AppId|Opts])).
 -define(debug(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {debug, Txt, Opts}),
         lager:debug([{core, AppId}, {call_id, CallId}],
-                     "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+                     "SipApp ~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(info(AppId, Txt, Opts), 
-        lager:info([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:info([{core, AppId}], "SipApp ~p "++Txt, [AppId|Opts])).
 -define(info(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {info, Txt, Opts}),
         lager:info([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+         "SipApp ~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(notice(AppId, Txt, Opts), 
-        lager:notice([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:notice([{core, AppId}], "SipApp ~p "++Txt, [AppId|Opts])).
 -define(notice(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {notice, Txt, Opts}),
         lager:notice([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+         "SipApp ~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(warning(AppId, Txt, Opts), 
-        lager:warning([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:warning([{core, AppId}], "SipApp ~p "++Txt, [AppId|Opts])).
 -define(warning(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {warning, Txt, Opts}),
         lager:warning([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+         "SipApp ~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(error(AppId, Txt, Opts), 
-        lager:error([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:error([{core, AppId}], "SipApp ~p "++Txt, [AppId|Opts])).
 -define(error(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {error, Txt, Opts}),
         lager:error([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+         "SipApp ~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 
 -include_lib("ssl/src/ssl_internal.hrl"). 

@@ -39,7 +39,8 @@
 -define(CALLBACK_TIMEOUT, 30000).
 -define(TIMER, 5000).
 
--type nksip_from() :: {reference(), pid()} | {'fun', atom(), atom(), list()}.
+-type nksip_from() :: from() | {'fun', atom(), atom(), list()} | 
+                      {pid, pid(), reference()}.
 
 
 %% ===================================================================
@@ -119,9 +120,19 @@ sipapp_call_sync(AppId, Fun, Args) ->
                         Other -> 
                             Other
                     end;
-                false -> 
-                    {reply, Reply, none} = apply(nksip_sipapp, Fun, Args++[none, none]),
-                    Reply
+                false ->
+                    Ref = make_ref(),
+                    From = {pid, self(), Ref},
+                    case apply(nksip_sipapp, Fun, Args++[From, none]) of
+                        {reply, Reply, none} -> 
+                            Reply;
+                        {noreply, none} ->
+                            receive
+                                {Ref, Reply} -> Reply
+                            after 60000 ->
+                                {internal_error, <<"SipApp Timeout">>}
+                            end
+                     end
             end;
         not_found ->
             {internal_error, <<"Unknown SipApp">>}
@@ -139,8 +150,10 @@ sipapp_call_async(AppId, Fun, Args, From) ->
                 true -> 
                     gen_server:cast(CorePid, {'$nksip_callback', Fun, Args, From});
                 false -> 
-                    {reply, Reply, none} = apply(nksip_sipapp, Fun, Args++[none, none]),
-                    reply(From, Reply)
+                    case apply(nksip_sipapp, Fun, Args++[From, none]) of
+                        {reply, Reply, none} -> reply(From, Reply);
+                        {noreply, none} -> ok
+                    end
             end;
         not_found ->
             reply(From, {internal_error, <<"Unknown SipApp">>})
@@ -172,6 +185,9 @@ sipapp_cast(AppId, Fun, Args) ->
 
 reply({'fun', Module, Fun, Args}, Reply) ->
     apply(Module, Fun, Args++[Reply]);
+
+reply({pid, Pid, Ref}, Reply) when is_pid(Pid), is_reference(Ref) ->
+    Pid ! {Ref, Reply};
 
 reply(From, Reply) ->
     gen_server:reply(From, Reply).

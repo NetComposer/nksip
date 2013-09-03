@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([create/3, status_update/2, target_update/1, session_update/1, timer/3]).
--export([find/2, update/2, remotes_update/2, new_local_seq/2]).
+-export([find/2, update/2, remotes_update/2]).
 
 -type call() :: nksip_call:call().
 
@@ -333,14 +333,6 @@ session_update(Dialog) ->
     Dialog.
 
 
-%% @private
--spec new_local_seq(nksip:dialog(), call()) ->
-    {nksip:cseq(), call()}.
-
-new_local_seq(#dialog{local_seq=LocalSeq}=Dialog, Call) ->
-    {LocalSeq+1, update(Dialog#dialog{local_seq=LocalSeq+1}, Call)}.
-
-
 %% @private Called when a dialog timer is fired
 -spec timer(retrans|timeout, nksip:dialog(), call()) ->
     call().
@@ -385,14 +377,22 @@ timer(timeout, #dialog{id=DialogId, status=Status}=Dialog, Call) ->
 %% ===================================================================
 
 %% @private
--spec find(integer(), [nksip:dialog()]) ->
+-spec find(nksip_dialog:id(), call()) ->
     nksip:dialog() | not_found.
 
-find(Id, [#dialog{id=Id}=Dialog|_]) ->
+find(Id, #call{dialogs=Dialogs}) ->
+    do_find(Id, Dialogs).
+
+
+%% @private
+-spec do_find(nksip_dialog:id(), [nksip:dialog()]) ->
+    nksip:dialog() | not_found.
+
+do_find(Id, [#dialog{id=Id}=Dialog|_]) ->
     Dialog;
-find(Id, [_|Rest]) ->
-    find(Id, Rest);
-find(_, []) ->
+do_find(Id, [_|Rest]) ->
+    do_find(Id, Rest);
+do_find(_, []) ->
     not_found.
 
 

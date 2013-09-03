@@ -25,7 +25,7 @@
 
 -export([start/2, stop/1, add_callback/2, get_sessions/2]).
 -export([init/1, get_user_pass/4, authorize/4, route/6, options/3, invite/4, reinvite/4,
-        cancel/3, ack/4]).
+        cancel/3, ack/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -241,7 +241,7 @@ reinvite(DialogId, RequestId, From, State) ->
     invite(DialogId, RequestId, From, State).
 
 
-ack(DialogId, RequestId, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
+ack(DialogId, RequestId, #state{id={_, Id}, dialogs=Dialogs}=State) ->
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             case nksip_request:header(RequestId, <<"Nk-Reply">>) of
@@ -254,7 +254,7 @@ ack(DialogId, RequestId, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
         {DialogId, Ref, Pid} -> 
             Pid ! {Ref, {Id, ack}}
     end,
-    {reply, ok, State}.
+    {noreply, State}.
 
 
 cancel(_RequestId, _From, State) ->

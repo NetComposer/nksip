@@ -62,7 +62,6 @@
                 {send, nksip:request()} |
                 {cancel, nksip_call_uac:id(), nksip_lib:proplist()} |
                 {make_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
-                {dialog_new_cseq, nksip_dialog:id()} | 
                 {apply_dialog, nksip_dialog:id(), function()} |
                 get_all_dialogs | 
                 {stop_dialog, nksip_dialog:id()} |
@@ -123,10 +122,10 @@ init([AppId, CallId, AppOpts]) ->
     Call = #call{
         app_id = AppId, 
         call_id = CallId, 
+        app_opts = AppOpts,
         keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
         max_trans_time = MaxTransTime,
         max_dialog_time = MaxDialogTime,
-        send_100 = not lists:member(no_100, AppOpts),
         next = erlang:phash2(make_ref()),
         hibernate = false,
         msgs = [],
@@ -199,7 +198,10 @@ code_change(_OldVsn, Call, _Extra) ->
     gen_server_terminate().
 
 terminate(_Reason, Call) ->
-    ?call_debug("Call process stopped", [], Call),
+    case Call of
+        #call{} -> ?call_debug("Call process stopped", [], Call);
+        _ -> ?P("TERMINATE ERROR EN CALL: ~p", [Call])
+    end,
     ok.
 
 
@@ -259,27 +261,24 @@ work({cancel, ReqId, Opts}, From, Call) ->
 work({make_dialog, DialogId, Method, Opts}, From, Call) ->
     nksip_call_uac:make_dialog(DialogId, Method, Opts, From, Call);
 
-work({dialog_new_cseq, DialogId}, From, Call) ->
+work({apply_dialog, DialogId, Fun}, From, Call) ->
     case find_dialog(DialogId, Call) of
         {ok, Dialog} ->
-            {CSeq, Call1} = nksip_call_dialog_lib:new_local_seq(Dialog, Call),
-            gen_server:reply(From, {ok, CSeq}),
-            Call1;
-        not_found ->
-            gen_server:reply(From, error),
+            case catch Fun(Dialog) of
+                {Reply, {update, #dialog{}=Dialog1}} ->
+                    gen_server:reply(From, Reply),
+                    nksip_call_dialog_lib:update(Dialog1, Call);
+                Reply ->
+                    gen_server:reply(From, Reply),
+                    Call
+            end;
+        not_found -> 
+            gen_server:reply(From, {error, unknown_dialog}),
             Call
     end;
-
-work({apply_dialog, DialogId, Fun}, From, Call) ->
-    Reply = case find_dialog(DialogId, Call) of
-        {ok, Dialog} -> Fun(Dialog);
-        not_found -> {error, unknown_dialog}
-    end,
-    gen_server:reply(From, Reply),
-    Call;
-
-work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
-    Ids = [Dialog#dialog.id || Dialog <- Dialogs],
+    
+work(get_all_dialogs, From, #call{app_id=AppId, call_id=CallId, dialogs=Dialogs}=Call) ->
+    Ids = [{dlg, AppId, CallId, Id} || #dialog{id=Id} <- Dialogs],
     gen_server:reply(From, {ok, Ids}),
     Call;
 
@@ -293,15 +292,23 @@ work({stop_dialog, DialogId}, none, Call) ->
     end;
 
 work({apply_sipmsg, MsgId, Fun}, From, Call) ->
-    Reply = case find_sipmsg(MsgId, Call) of
-        {ok, Msg} -> Fun(Msg);
-        not_found -> {error, unknown_sipmsg}
-    end,
-    gen_server:reply(From, Reply),
-    Call;
+    case find_sipmsg(MsgId, Call) of
+        {ok, Msg} -> 
+            case catch Fun(Msg) of
+                {Reply, {update, #sipmsg{}=SipMsg1}} ->
+                    gen_server:reply(From, Reply),
+                    nksip_call_lib:update_sipmsg(SipMsg1, Call);
+                Reply ->
+                    gen_server:reply(From, Reply),
+                    Call
+            end;
+        not_found -> 
+            gen_server:reply(From, {error, unknown_sipmsg}),
+            Call
+    end;
 
-work(get_all_sipmsgs, From, #call{msgs=Msgs}=Call) ->
-    Ids = [SipMsg#sipmsg.id || SipMsg <- Msgs],
+work(get_all_sipmsgs, From, #call{app_id=AppId, call_id=CallId, msgs=Msgs}=Call) ->
+    Ids = [{Class, AppId, CallId, Id} || #sipmsg{class=Class, id=Id} <- Msgs],
     gen_server:reply(From, {ok, Ids}),
     Call.
 

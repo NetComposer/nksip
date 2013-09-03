@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, ack/2, response/2, make/4]).
+-export([request/2, ack/2, response/2, make/4, new_local_seq/2]).
 -import(nksip_call_dialog_lib, [create/3, status_update/2, remotes_update/2, 
                                 find/2, update/2]).
 
@@ -49,13 +49,13 @@
 request(#trans{method='ACK'}, Call) ->
     {ok, Call};
 
-request(#trans{fork_id=undefined}=UAC, #call{dialogs=Dialogs}=Call) ->
+request(#trans{fork_id=undefined}=UAC, Call) ->
     #trans{method=Method, request=Req} = UAC,
     case nksip_dialog:id(Req) of
         undefined ->
             {ok, Call};
         {dlg, _AppId, _CallId, DialogId} ->
-            case find(DialogId, Dialogs) of
+            case find(DialogId, Call) of
                 #dialog{status=Status, local_seq=LocalSeq}=Dialog ->
                     ?call_debug("Dialog ~p UAC request ~p in ~p", 
                                 [DialogId, Method, Status], Call),
@@ -108,19 +108,19 @@ do_request(_Method, _Status, _Req, Dialog) ->
 -spec ack(trans(), call()) ->
     call().
 
-ack(#trans{method='ACK', request=Req}, #call{dialogs=Dialogs}=Call) ->
+ack(#trans{method='ACK', request=Req}, Call) ->
     #sipmsg{cseq=CSeq} = Req,
     case nksip_dialog:id(Req) of
         undefined ->
             ?call_notice("Dialog UAC invalid ACK", [], Call),
             Call;
         {dlg, _AppId, _CallId, DialogId} ->
-            case find(DialogId, Dialogs) of
+            case find(DialogId, Call) of
                 #dialog{status=Status, request=InvReq}=Dialog ->
                     #sipmsg{cseq=InvCSeq} = InvReq,
                     case Status of
                         accepted_uac when CSeq=:=InvCSeq ->
-                            ?call_debug("Dialog ~p (~p) UAC request 'ACK", 
+                            ?call_debug("Dialog ~p (~p) UAC request 'ACK'", 
                                         [DialogId, Status], Call),
                             Dialog1 = status_update(confirmed, Dialog#dialog{ack=Req}),
                             update(Dialog1, Call);
@@ -147,7 +147,7 @@ response(#trans{fork_id=undefined}=UAC, #call{dialogs=Dialogs}=Call) ->
             Call;
         {dlg, _AppId, _CallId, DialogId} ->
             #sipmsg{response=Code} = Resp,
-            case find(DialogId, Dialogs) of
+            case find(DialogId, Call) of
                 #dialog{status=Status} = Dialog ->
                     ?call_debug("Dialog ~p (~p) UAC response ~p ~p", 
                                 [DialogId, Status, Method, Code], Call),
@@ -255,6 +255,25 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
             end;
         _ ->
             {error, unknown_dialog}
+    end.
+
+
+%% @private
+-spec new_local_seq(nksip:request(), call()) ->
+    {nksip:cseq(), call()}.
+
+new_local_seq(Req, Call) ->
+    case nksip_dialog:id(Req) of
+        undefined ->
+            {nksip_config:cseq(), Call};
+        {dlg, _, _, DialogId} ->
+            case find(DialogId, Call) of
+                #dialog{local_seq=LocalSeq}=Dialog ->
+                    Dialog1 = Dialog#dialog{local_seq=LocalSeq+1},
+                    {LocalSeq+1, update(Dialog1, Call)};
+                not_found ->
+                    {nksip_config:cseq(), Call}
+            end
     end.
 
 

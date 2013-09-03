@@ -22,7 +22,7 @@
 -module(nksip_call_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([add_msg/3, update_msg/2, update/2]).
+-export([new_sipmsg/3, update_sipmsg/2, update/2]).
 -export([timeout_timer/2, retrans_timer/2, expire_timer/2, cancel_timers/2]).
 -export([trace/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
@@ -53,10 +53,10 @@
 
 
 %% @private Adds a new SipMsg to the call's store
--spec add_msg(nksip:request()|nksip:response(), boolean(), call()) ->
+-spec new_sipmsg(nksip:request()|nksip:response(), boolean(), call()) ->
     {nksip:request()|nksip:response(), call()}.
 
-add_msg(SipMsg, NoStore, #call{next=MsgId, keep_time=KeepTime, msgs=Msgs}=Call) ->
+new_sipmsg(SipMsg, NoStore, #call{next=MsgId, keep_time=KeepTime, msgs=Msgs}=Call) ->
     SipMsg1 = SipMsg#sipmsg{id=MsgId},
     case KeepTime > 0 andalso (not NoStore) of
         true ->
@@ -70,10 +70,10 @@ add_msg(SipMsg, NoStore, #call{next=MsgId, keep_time=KeepTime, msgs=Msgs}=Call) 
     
 
 %% @private
--spec update_msg(nksip:request()|nksip:response(), call()) -> 
+-spec update_sipmsg(nksip:request()|nksip:response(), call()) -> 
     call().
 
-update_msg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
+update_sipmsg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
     Msgs1 = lists:keyreplace(MsgId, #sipmsg.id, Msgs, Msg),
     Call#call{msgs=Msgs1}.
 
@@ -85,7 +85,7 @@ update_msg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
 update(#trans{id=Id}=New, #call{trans=[#trans{id=Id}=Old|Rest]}=Call) ->
     #trans{status=NewStatus, method=Method} = New,
     #trans{status=OldStatus} = Old,
-    Call = case NewStatus of
+    Call1 = case NewStatus of
         finished ->
             ?call_debug("UAS ~p ~p (~p) finished", 
                         [Id, Method, OldStatus], Call),
@@ -97,11 +97,11 @@ update(#trans{id=Id}=New, #call{trans=[#trans{id=Id}=Old|Rest]}=Call) ->
                         [Id, Method, OldStatus, NewStatus], Call),
             Call#call{trans=[New|Rest]}
     end,
-    hibernate(New, Call);
+    hibernate(New, Call1);
     
 update(New, #call{trans=Trans}=Call) ->
     #trans{id=Id, status=NewStatus, method=Method} = New,
-    Call = case lists:keytake(Id, #trans.id, Trans) of
+    Call1 = case lists:keytake(Id, #trans.id, Trans) of
         {value, #trans{status=OldStatus}, Rest} -> 
             case NewStatus of
                 finished ->
@@ -118,7 +118,7 @@ update(New, #call{trans=Trans}=Call) ->
         false ->
             Call#call{trans=[New|Trans]}
     end,
-    hibernate(New, Call).
+    hibernate(New, Call1).
 
 
 %% @private 
@@ -207,12 +207,16 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans) when Tag=:=timer_e; Tag=:=ti
 -spec expire_timer(expire_timer(), trans()) ->
     trans().
 
-expire_timer(expire, #trans{request=#sipmsg{opts=Opts}=Req}=Trans) ->
-    Timer = case nksip_sipmsg:header(Req, <<"Expire">>, integers) of
+expire_timer(expire, #trans{id=Id, class=Class, request=#sipmsg{opts=Opts}=Req}=Trans) ->
+    Timer = case nksip_sipmsg:header(Req, <<"Expires">>, integers) of
         [Expires] when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
-                true -> undefined;
-                _ -> start_timer(1000*Expires, expire, Trans)
+                true -> 
+                    undefined;
+                _ -> 
+                    #sipmsg{app_id=AppId, call_id=CallId} = Req,
+                    ?warning(AppId, CallId, "~p ~p started expire timer: ~p secs", [Class, Id, Expires]),
+                    start_timer(1000*Expires, expire, Trans)
             end;
         _ ->
             undefined
@@ -254,8 +258,14 @@ cancel_timers([], Trans) ->
 
 cancel_timer({_Tag, Ref}) when is_reference(Ref) -> 
     case erlang:cancel_timer(Ref) of
-        false -> receive {timeout, Ref, _} -> ok after 0 -> ok end;
-        _ -> ok
+        false -> 
+            receive 
+                {timeout, Ref, _} -> ok
+            after 0 -> 
+                ok
+            end;
+        _Time -> 
+            ok
     end;
 
 cancel_timer(_) -> 

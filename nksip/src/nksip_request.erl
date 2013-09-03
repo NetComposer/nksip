@@ -37,11 +37,14 @@
 
 -type id() :: integer().
 
--type field() :: local | remote | method | ruri | parsed_ruri | aor | call_id | vias | 
-                  parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
-                  cseq_num | cseq_method | forwards | routes | parsed_routes | 
-                  contacts | parsed_contacts | content_type | parsed_content_type | 
-                  headers | body | dialog_id | sipapp_id.
+-type field() ::  sipapp_id | method | call_id | vias | parsed_vias | 
+                  ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
+                  from | from_scheme | from_user | from_domain | parsed_from | 
+                  to | to_scheme | to_user | to_domain | parsed_to | 
+                  cseq | parsed_cseq | cseq_num | cseq_method | forwards |
+                  routes | parsed_routes | contacts | parsed_contacts | 
+                  content_type | parsed_content_type | 
+                  headers | body | dialog_id | local | remote.
 
 
 
@@ -68,6 +71,21 @@
 %%          <td>`ruri'</td>
 %%          <td>`binary()'</td>
 %%          <td>Request-Uri</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`ruri_scheme'</td>
+%%          <td>`nksip:scheme()'</td>
+%%          <td>Request-Uri Scheme</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`ruri_user'</td>
+%%          <td>`binary()'</td>
+%%          <td>Request-Uri User</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`ruri_domain'</td>
+%%          <td>`binary()'</td>
+%%          <td>Request-Uri Domain</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`parsed_ruri'</td>
@@ -100,6 +118,21 @@
 %%          <td>From Header</td>
 %%      </tr>
 %%      <tr>
+%%          <td>`from_scheme'</td>
+%%          <td>`nksip:scheme()'</td>
+%%          <td>From Scheme</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`from_user'</td>
+%%          <td>`binary()'</td>
+%%          <td>From User</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`from_domain'</td>
+%%          <td>`binary()'</td>
+%%          <td>From Domain</td>
+%%      </tr>
+%%      <tr>
 %%          <td>`parsed_from'</td>
 %%          <td>{@link nksip:uri()}</td>
 %%          <td>From Header</td>
@@ -108,6 +141,21 @@
 %%          <td>`to'</td>
 %%          <td>`binary()'</td>
 %%          <td>To Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`to_scheme'</td>
+%%          <td>`nksip:scheme()'</td>
+%%          <td>To Scheme</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`to_user'</td>
+%%          <td>`binary()'</td>
+%%          <td>To User</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`to_domain'</td>
+%%          <td>`binary()'</td>
+%%          <td>To Domain</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`parsed_to'</td>
@@ -249,7 +297,7 @@ body(Req) ->
 %% @doc Sends a <i>provisional response</i> to a request.
 -spec provisional_reply(nksip:request()|nksip:request_id(), nksip:sipreply()) -> 
     ok | {error, Error}
-    when Error :: invalid_response | invalid_call | unknown_call | sipapp_not_found.
+    when Error :: invalid_response | invalid_call | unknown_call | unknown_sipapp.
 
 provisional_reply(#sipmsg{class=req, id=Id, app_id=AppId, call_id=CallId}, SipReply) ->
     provisional_reply({req, AppId, CallId, Id}, SipReply);

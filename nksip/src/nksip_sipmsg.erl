@@ -135,6 +135,9 @@ get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
         remote -> {T#transport.proto, T#transport.remote_ip, T#transport.remote_port};
         method -> S#sipmsg.method;
         ruri -> nksip_unparse:uri(RUri);
+        ruri_scheme -> (S#sipmsg.ruri)#uri.scheme;
+        ruri_user -> (S#sipmsg.ruri)#uri.user;
+        ruri_domain -> (S#sipmsg.ruri)#uri.domain;
         parsed_ruri -> S#sipmsg.ruri;
         scheme -> (S#sipmsg.ruri)#uri.scheme;
         aor -> {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain};
@@ -142,8 +145,14 @@ get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
         vias -> [nksip_lib:to_binary(Via) || Via <- S#sipmsg.vias];
         parsed_vias -> S#sipmsg.vias;
         from -> nksip_unparse:uri(S#sipmsg.from);
+        from_scheme -> (S#sipmsg.from)#uri.scheme;
+        from_user -> (S#sipmsg.from)#uri.user;
+        from_domain -> (S#sipmsg.from)#uri.domain;
         parsed_from -> S#sipmsg.from;
         to -> nksip_unparse:uri(S#sipmsg.to);
+        to_scheme -> (S#sipmsg.to)#uri.scheme;
+        to_user -> (S#sipmsg.to)#uri.user;
+        to_domain -> (S#sipmsg.to)#uri.domain;
         parsed_to -> S#sipmsg.to;
         cseq -> nksip_lib:bjoin([S#sipmsg.cseq, S#sipmsg.cseq_method], <<" ">>);
         parsed_cseq -> {S#sipmsg.cseq, S#sipmsg.cseq_method};
@@ -163,6 +172,7 @@ get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
         dialog_id -> nksip_dialog:id(S);
         expire -> S#sipmsg.expire;
         {header, Name} -> get_header(S, Name);
+        registrar -> lists:member(registrar, S#sipmsg.opts);
         _ -> invalid_field 
     end.
 

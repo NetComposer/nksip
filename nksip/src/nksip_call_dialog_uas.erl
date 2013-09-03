@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, response/2]).
+-export([request/2, response/2, is_authorized/2]).
 -import(nksip_call_dialog_lib, [create/3, status_update/2, remotes_update/2, 
                                 find/2, update/2]).
 
@@ -46,13 +46,13 @@
     when Error :: old_cseq | unknown_dialog | bye | 
                   proceeding_uac | proceeding_uas | invalid.
 
-request(#trans{request=Req}, #call{dialogs=Dialogs}=Call) ->
+request(#trans{request=Req}, Call) ->
     case nksip_dialog:id(Req) of
         undefined ->
             {ok, undefined, Call};
         {dlg, _AppId, _CallId, DialogId} ->
             #sipmsg{method=Method, cseq=CSeq} = Req,
-            case find(DialogId, Dialogs) of
+            case find(DialogId, Call) of
                 #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
                     ?call_debug("Dialog ~p (~p) UAS request ~p", 
                                 [DialogId, Status, Method], Call),
@@ -144,7 +144,7 @@ response(UAS, Call) ->
         undefined ->
             Call;
         {dlg, _AppId, _CallId, DialogId} ->
-            case find(DialogId, Dialogs) of
+            case find(DialogId, Call) of
                 #dialog{status=Status}=Dialog ->
                     #sipmsg{response=Code} = Resp,
                     ?call_debug("Dialog ~p (~p) UAS ~p response ~p", 
@@ -205,4 +205,40 @@ do_response('BYE', _Code, Req, _Resp, #dialog{local_tag=LocalTag}=Dialog) ->
 
 do_response(_, _, _, _, Dialog) ->
     Dialog.
+
+
+
+%% @doc Checks if a request is part of an already authenticated dialog,
+%% and it comes from the same ip and port.
+-spec is_authorized(nksip:request(), call()) ->
+    boolean().
+
+is_authorized(Req, Call) ->
+    #sipmsg{method=Method, transport=Transport} = Req,
+    #transport{remote_ip=Ip, remote_port=Port} = Transport,
+    case nksip_dialog:id(Req) of
+        undefined ->
+            false;
+        {dlg, _, _, DialogId} ->
+            case find(DialogId, Call) of
+                #dialog{remotes=Remotes} ->
+                    case lists:member({Ip, Port}, Remotes) of
+                        true ->
+                            ?call_debug("Dialog ~p authorized ~p request from ~p", 
+                                   [DialogId, Method, {Ip, Port}], Call),
+                            true;
+                        false ->
+                            ?call_debug("Dialog ~p unauthorized ~p request from ~p"
+                                        " (authorized are ~p)", 
+                                   [DialogId, Method, {Ip, Port}, Remotes], Call),
+                            false
+                    end;
+                not_found ->
+                    false
+            end
+    end.
+
+
+
+
 

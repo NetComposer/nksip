@@ -90,11 +90,11 @@ register1() ->
     Ref = make_ref(),
     Self = self(),
     RespFun = fun(Reply) -> Self ! {Ref, Reply} end,
-    async = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {async, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [async, {respfun, RespFun}, make_contact, 
                                      full_request, full_response]),
     [CallId, CSeq] = receive 
-        {ok, {Ref, {request, Req2}}} -> nksip_request:fields(Req2, [call_id, cseq_num])
+        {Ref, {request, Req2}} -> nksip_request:fields(Req2, [call_id, cseq_num])
         after 2000 -> error(register1)
     end,
 
@@ -154,7 +154,7 @@ register1() ->
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
     Request1 = #sipmsg{
-                sipapp_id = Server1, 
+                app_id = Server1, 
                 from = #uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>},
                 transport = #transport{
                                 proto = udp, 
@@ -193,7 +193,7 @@ register2() ->
     {reply, Resp2} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                             [FromS, unregister_all, full_response]),
     200 = nksip_response:code(Resp2),
-    [] = nksip_response:headers(Resp2, <<"Contact">>),
+    [] = nksip_response:header(Resp2, <<"Contact">>),
     [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
     {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
@@ -256,6 +256,5 @@ register2() ->
                 opts = [], ext_opts = [{q,<<"3">>},{expires,<<"3600">>}]}
         ]
     ] = nksip_registrar:qfind(Server1, sip, <<"client2">>, <<"nksip">>),
-    {ok, 200} = nksip_uac:register(Client2, 
-                                            "sip:127.0.0.1", [unregister_all]),
+    {ok, 200} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
     ok.

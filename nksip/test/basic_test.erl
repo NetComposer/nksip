@@ -28,19 +28,19 @@
 -compile([export_all]).
 
 
-% basic_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun running/0}, 
-%             {timeout, 60, fun transport/0}, 
-%             {timeout, 60, fun cast_info/0}, 
-%             {timeout, 60, fun uas/0}, 
-%             {timeout, 60, fun auto/0}, 
-%             {timeout, 60, fun stun/0}
-%         ]
-%     }.
+basic_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun running/0}, 
+            {timeout, 60, fun transport/0}, 
+            {timeout, 60, fun cast_info/0}, 
+            {timeout, 60, fun uas/0}, 
+            {timeout, 60, fun auto/0}, 
+            {timeout, 60, fun stun/0}
+        ]
+    }.
 
 
 start() ->
@@ -76,7 +76,6 @@ stop() ->
 
 
 running() ->
-    % Test services are started
     {error, already_started} = sipapp_server:start({basic, server1}, []),
     {error, already_started} = sipapp_endpoint:start({basic, client1}, []),
     {error, already_started} = sipapp_endpoint:start({basic, client2}, []),
@@ -100,7 +99,7 @@ transport() ->
     {error, invalid_register} = sipapp_endpoint:start(name, [{register, "sip::a"}]),
     {error, invalid_route} = sipapp_endpoint:start(name, [{route, "sip::a"}]),
 
-    {error, unknown_core} = nksip_uac:options(invalid, "", []),
+    {error, unknown_sipapp} = nksip_uac:options(invalid, "", []),
     {error, invalid_uri} = nksip_uac:options(C1, "sip::a", []),
     nksip_trace:info("Next info about connection error to port 50600 is expected"),
     {ok, 503} =
@@ -121,11 +120,11 @@ transport() ->
     Req1 = binary_to_term(base64:decode(nksip_response:body(Resp1))),
     [<<"My SIP">>] = nksip_request:header(Req1, <<"User-Agent">>),
     [<<"<sip:aaa:123>">>,<<"<sips:bbb:321>">>] = 
-        nksip_request:header(Req1, <<"Contact">>),
+        nksip_request:header(Req1,  <<"Contact">>),
     Body = nksip_request:body(Req1),
 
-    {reply, Resp2} = 
-                nksip_uac:options(C1, "sip:127.0.0.1;transport=tcp", [full_response]),
+    {reply, #sipmsg{}=Resp2} = 
+        nksip_uac:options(C1, "sip:127.0.0.1;transport=tcp", [full_response]),
     200 = nksip_response:code(Resp2),
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
@@ -210,11 +209,11 @@ cast_info() ->
 
 uas() ->
     C1 = {basic, client1},
+    
     % Test loop detection
     Opts1 = [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}, full_response],
     {reply, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
     200 = nksip_response:code(Resp1),
-
     [CallId1, From1, CSeq1] = nksip_response:fields(Resp1, [call_id, from, cseq_num]),
     ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq, CSeq1} | Opts1],
     {reply, Resp2} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
@@ -267,7 +266,7 @@ auto() ->
     Ref = make_ref(),
     ok = sipapp_endpoint:add_callback(C1, Ref),
     {ok, true} = nksip_sipapp_auto:start_ping(C1, ping1, 
-                                "sip:127.0.0.1:5080;transport=tcp", 1, []),
+                                "sip:127.0.0.1:5080;transport=tcp", 5, []),
 
     {error, invalid_uri} = nksip_sipapp_auto:start_register(name, reg1, "sip::a", 1, []),
     {ok, true} = nksip_sipapp_auto:start_register(C1, reg1, 
@@ -277,6 +276,7 @@ auto() ->
     [{reg1, true, _}] = nksip_sipapp_auto:get_registers(C1),
 
     ok = tests_util:wait(Ref, [{ping, ping1, true}, {reg, reg1, true}]),
+
     nksip_trace:info("Next infos about connection error to port 9999 are expected"),
     {ok, false} = nksip_sipapp_auto:start_ping(C1, ping2, 
                                             "sip:127.0.0.1:9999;transport=tcp", 1, []),

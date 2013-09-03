@@ -25,8 +25,8 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, id/1, find_callid/2, stop/1, bye_all/0, stop_all/0]).
--export([get_dialog/1, get_all/0, get_all_data/0, is_authorized/1]).
--export([remote_id/2]).
+-export([get_dialog/1, get_all/0, get_all_data/0]).
+-export([forget_remotes/1, remote_id/2]).
 
 -export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
 
@@ -320,39 +320,22 @@ stop_all() ->
     lists:foreach(fun stop/1, get_all()).
 
 
-%% @doc Checks if a request is part of an already authenticated dialog,
-%% and it comes from the same ip and port.
--spec is_authorized(nksip:request()) ->
-    boolean().
-
-is_authorized(Req) ->
-    #sipmsg{app_id=AppId, call_id=CallId, method=Method,
-            transport=#transport{remote_ip=Ip, remote_port=Port}} = Req,
-    Fun = fun(#dialog{remotes=Remotes}) ->
-        case lists:member({Ip, Port}, Remotes) of
-            true ->
-                ?debug(AppId, CallId, 
-                       "authorized ~p dialog request from ~p", 
-                       [Method, {Ip, Port}]),
-                true;
-            false ->
-                ?debug(AppId, CallId, 
-                       "unauthorized ~p dialog request from ~p"
-                       " (authorized are ~p)", 
-                       [Method, {Ip, Port}, Remotes]),
-                false
-        end
-    end,
-    case nksip_call_router:apply_dialog(Req, Fun) of
-        true -> true;
-        _ -> false
-    end.
-
-
 
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+%% @private
+-spec forget_remotes(nksip_dialog:spec()) ->
+    ok | error.
+
+forget_remotes(DialogSpec) ->
+    Fun = fun(#dialog{}=Dialog) -> {ok, {update, Dialog#dialog{remotes=[]}}} end,
+    case nksip_call_router:apply_dialog(DialogSpec, Fun) of
+        ok -> ok;
+        _ -> error
+    end.
 
 
 %% @private
@@ -454,6 +437,7 @@ get_field(D, Field) ->
         from_tag -> nksip_lib:get_binary(tag, (D#dialog.local_uri)#uri.ext_opts);
         to_tag -> nksip_lib:get_binary(tag, (D#dialog.remote_uri)#uri.ext_opts);
         timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
+        auth_remotes -> D#dialog.remotes;
         _ -> invalid_field 
     end.
 

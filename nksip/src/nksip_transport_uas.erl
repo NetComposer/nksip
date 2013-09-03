@@ -83,12 +83,17 @@ send_response(#sipmsg{
     {ok, nksip:response()} | error.
 
 resend_response(#sipmsg{app_id=AppId, response=Code, cseq_method=Method, 
-                        transport=Transport}=Resp) ->
+                        transport=#transport{}=Transport}=Resp) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     MakeResp = fun(_) -> Resp end,
     Return = nksip_transport:send(AppId, [{current, {Proto, Ip, Port}}], MakeResp),
     nksip_trace:insert(Resp, {sent_response, Method, Code}),
-    Return.
+    Return;
+
+resend_response(#sipmsg{app_id=AppId, call_id=CallId}) ->
+    ?warning(AppId, CallId, "Called resend_response/2 without transport"),
+    error.
+
 
 
 %% ===================================================================

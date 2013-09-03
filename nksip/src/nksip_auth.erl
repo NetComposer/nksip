@@ -73,13 +73,9 @@ make_ha1(User, Pass, Realm) ->
     <<"HA1!", (crypto:md5(list_to_binary([User, $:, Realm, $:, Pass])))/binary>>.
 
 
-%% @doc Extracts authentication information from a incoming request.
-%% The following tags can be added to the function's return:
+%% @doc Extracts digest authentication information from a incoming request.
+%% The response can include:
 %% <ul>
-%%    <li>`dialog': the request is `in-dialog' and coming from the same ip and port
-%%        than the last request for an existing dialog.</li>
-%%    <li>`register': the request comes from the same ip, port and transport of a 
-%%        currently valid registration (and the method is not <i>REGISTER</i>).</li>
 %%    <li>`{{digest, Realm}, true}': there is at least one valid user authenticated
 %%        with this `Realm'.</li>
 %%    <li>`{{digest, Realm}, false}': there is at least one user offering 
@@ -87,11 +83,8 @@ make_ha1(User, Pass, Realm) ->
 %%        failed the authentication.</li>
 %% </ul>
 %%
-%% This is the same information sent to the callback function 
-%% {@link nksip_sipapp:authorize/4} for every received request.
-
 -spec get_authentication(nksip:request()) -> [Authorized] when
-    Authorized :: dialog | register | {digest, Realm::binary(), true|false}.
+    Authorized :: {digest, Realm::binary(), true|false}.
 
 get_authentication(Req) ->
     Fun = fun({Ok, _User, Realm}, Acc) ->
@@ -103,28 +96,23 @@ get_authentication(Req) ->
             {Realm, false} -> Acc
         end
     end,
-    lists:flatten([
-        case nksip_dialog:is_authorized(Req) of
-            true -> dialog;
-            false -> []
-        end,
-        case nksip_registrar:is_registered(Req) of
-            true -> register;
-            false -> []
-        end,
-        [{{digest, Realm}, Ok} 
-            || {Realm, Ok} <- lists:foldl(Fun, [], check_digest(Req))]
-    ]).
+    [{{digest, Realm}, Ok} || {Realm, Ok} <- lists:foldl(Fun, [], check_digest(Req))].
 
 
 %% @doc Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header 
 %% and updates <i>CSeq</i> of a request after receiving a 401 or 407 response.
+%% CSeq must be updated after calling this function.
 -spec make_request(Req::nksip:request(), Resp::nksip:response()) ->
     {ok, nksip:request()} | error.
 
-make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts, 
-                      headers=ReqHeaders, to_tag=ToTag}=Req, 
-              #sipmsg{headers=RespHeaders}) ->
+make_request(Req, #sipmsg{headers=RespHeaders}) ->
+    #sipmsg{
+        ruri = RUri, 
+        method = Method, 
+        from = #uri{user=User}, 
+        opts = Opts, 
+        headers=ReqHeaders
+    } = Req,
     try
         ReqAuthHeaders = nksip_lib:extract(ReqHeaders, [?REQ_WWW, ?REQ_PROXY]),
         ReqNOnces = [nksip_lib:get_value(nonce, parse_header(ReqAuthHeader)) 
@@ -163,17 +151,8 @@ make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts,
                 ?RESP_WWW -> ?REQ_WWW;
                 ?RESP_PROXY -> ?REQ_PROXY
             end,
-            case ToTag of
-                <<>> -> 
-                    CSeq1 = nksip_config:cseq();
-                _ ->
-                    case nksip_call_router:dialog_new_cseq(Req) of
-                        {ok, CSeq1} -> ok;
-                        _ -> CSeq1 = nksip_config:cseq()
-                    end
-            end,
             ReqHeaders1 = [{ReqName, ReqData}|ReqHeaders],
-            {ok, Req#sipmsg{cseq=CSeq1, headers=ReqHeaders1}}
+            {ok, Req#sipmsg{headers=ReqHeaders1}}
         end
     catch
         throw:error -> error
@@ -187,11 +166,15 @@ make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts,
 %% A new `nonce' will be generated to be used by the client in its response, 
 %% but will expire after the time configured in global parameter `once_timeout'.
 %%
--spec make_response(binary(), Req::nksip:request()) ->
+-spec make_response(binary(), nksip:request()) ->
     binary().
 
-make_response(Realm, #sipmsg{app_id=AppId, call_id=CallId, 
-                             transport=#transport{remote_ip=Ip, remote_port=Port}}) ->
+make_response(Realm, Req) ->
+    #sipmsg{
+        app_id = AppId, 
+        call_id = CallId,
+        transport=#transport{remote_ip=Ip, remote_port=Port}
+    } = Req,
     Nonce = nksip_lib:luid(),
     Timeout = nksip_config:get(nonce_timeout),
     put_nonce(AppId, CallId, Nonce, {Ip, Port}, Timeout),
@@ -310,13 +293,13 @@ make_auth_request(ServerOpts, UserOpts) ->
                             binary(), nksip:request()) -> 
     true | false | not_found.
 
-check_auth_header(AuthHeader, Resp, User, Realm, Pass, 
-                    #sipmsg{
-                        app_id = AppId,
-                        call_id = CallId,
-                        method = Method,
-                        transport=#transport{remote_ip=Ip, remote_port=Port}
-                    }) ->
+check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
+    #sipmsg{
+        app_id = AppId,
+        call_id = CallId,
+        method = Method,
+        transport = #transport{remote_ip=Ip, remote_port=Port}
+    } = Req,
     case
         nksip_lib:get_value(scheme, AuthHeader) =/= digest orelse
         nksip_lib:get_value(qop, AuthHeader) =/= [auth] orelse

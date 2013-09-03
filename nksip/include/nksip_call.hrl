@@ -92,7 +92,7 @@
 -record(call, {
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
-    send_100 :: boolean(),
+    app_opts :: nksip_lib:proplist(),
     keep_time :: integer(),
     max_trans_time :: integer(),
     max_dialog_time :: integer(),

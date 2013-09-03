@@ -162,11 +162,11 @@ local_ips() ->
     when TSpec :: #uri{} | proto_ip_port() | {current, proto_ip_port()}.
 
 send(AppId, [#uri{}=Uri|Rest]=All, MakeMsg) ->
-    ?debug(AppId, "send to ~p", [All]),
+    ?debug(AppId, "sending to ~p", [All]),
     send(AppId, resolve(Uri)++Rest, MakeMsg);
 
 send(AppId, [{udp, Ip, Port}|Rest]=All, MakeMsg) -> 
-    ?debug(AppId, "send to ~p", [All]),
+    ?debug(AppId, "sending to ~p", [All]),
     case get_listening(AppId, udp) of
         [{Transport1, Pid}|_] -> 
             Transport2 = Transport1#transport{remote_ip=Ip, remote_port=Port},
@@ -187,7 +187,7 @@ send(AppId, [{current, {udp, Ip, Port}}|Rest]
 
 send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg) 
         when Proto=:=tcp; Proto=:=tls ->
-    ?debug(AppId, "send to ~p", [All]),
+    ?debug(AppId, "sending to ~p", [All]),
     case nksip_transport_conn:get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
             SipMsg = MakeMsg(Transport),
@@ -200,7 +200,7 @@ send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg)
     end;
 
 send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg) when Proto=:=tcp; Proto=:=tls ->
-    ?debug(AppId, "send to ~p", [All]),
+    ?debug(AppId, "sending to ~p", [All]),
     case nksip_transport_conn:get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
             SipMsg = MakeMsg(Transport),

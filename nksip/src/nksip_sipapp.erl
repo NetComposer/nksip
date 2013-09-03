@@ -146,7 +146,6 @@
     {noreply, State::term(), Timeout::timeout()} |
     {stop, Reason::term(), Reply::RetType, State::term()} | 
     {stop, Reason::term(), State::term()}.
-
                    
 -type call_noreply() :: 
     {noreply, State::term()} |
@@ -484,22 +483,23 @@ options(_ReqId, _From, State) ->
 -spec register(ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-register(RequestId, _From, State) ->
-    Reply = case catch nksip_sipmsg:get_sipmsg(RequestId) of
-        #sipmsg{from=#uri{user=FUser, domain=FDomain}, 
-                     to=#uri{user=TUser, domain=TDomain}, opts=Opts} = Request ->
-            case lists:member(registrar, Opts) of
-                true when FUser=:=TUser andalso FDomain=:=TDomain ->
-                    nksip_registrar:request(Request);
-                true ->
-                    {invalid_request, "Different From and To"};
-                false ->
-                    {method_not_allowed, ?ALLOW}
-            end;
-        _ -> 
-            {internal_error, <<"Unknown Request">>}
+register(ReqId, From, State) ->
+    Fun = fun() ->
+        [FUser, FDomain, TUser, TDomain, Registrar] = 
+            nksip_request:fields(ReqId, [from_user, from_domain, 
+                                         to_user, to_domain, registrar]),
+        Reply = if
+            Registrar, FUser=:=TUser, FDomain=:=TDomain ->
+                register;
+            Registrar ->
+                {invalid_request, "Different From and To"};
+            true ->
+                {method_not_allowed, ?ALLOW}
+        end,
+        nksip_sipapp_srv:reply(From, Reply)
     end,
-    {reply, Reply, State}.
+    spawn(Fun),
+    {noreply, State}.
 
 
 %% @doc Called when a dialog has changed its state.

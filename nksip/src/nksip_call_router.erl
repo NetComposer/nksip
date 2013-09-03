@@ -29,7 +29,7 @@
 -export([apply_sipmsg/2, get_all_sipmsgs/0, get_all_sipmsgs/2]).
 -export([get_all_calls/0, get_all_data/0]).
 -export([incoming/1, pending_msgs/0, pending_work/0]).
--export([app_reply/5, clear_calls/0, dialog_new_cseq/1]).
+-export([app_reply/5, clear_calls/0]).
 -export([pos2name/1, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
@@ -37,7 +37,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--type sync_error() :: sipapp_not_found | too_many_calls.
+-type sync_error() :: unknown_sipapp | too_many_calls | timeout.
 
 
 
@@ -47,7 +47,7 @@
 
 %% @doc Sends a new request
 -spec send(nksip:request()) ->
-    {ok, nksip:request_id()} | {error, sync_error()}.
+    {async, nksip:request_id()} | {error, sync_error()}.
 
 send(#sipmsg{app_id=AppId, call_id=CallId}=Req) ->
     send_work_sync(AppId, CallId, {send, Req}).
@@ -55,7 +55,7 @@ send(#sipmsg{app_id=AppId, call_id=CallId}=Req) ->
 
 %% @doc Cancels an ongoing INVITE request
 -spec cancel(nksip:request_id(), nksip_lib:proplist()) ->
-    {ok, nksip:request_id()} | {error, Error}
+    {async, nksip:request_id()} | {error, Error}
     when Error :: sync_error() | unknown_request | invalid_request.
 
 cancel({req, AppId, CallId, ReqId}, Opts) ->
@@ -122,7 +122,10 @@ get_all_dialogs() ->
     [nksip:dialog_id()].
 
 get_all_dialogs(AppId, CallId) ->
-    send_work_sync(AppId, CallId, get_all_dialogs).
+    case send_work_sync(AppId, CallId, get_all_dialogs) of
+        {ok, Ids} -> Ids;
+        _ -> []
+    end.
 
 
 %% @doc Stops (deletes) a dialog
@@ -161,7 +164,10 @@ get_all_sipmsgs() ->
     [nksip:request_id() | nksip:response_id()].
 
 get_all_sipmsgs(AppId, CallId) ->
-    send_work_sync(AppId, CallId, get_all_sipmsgs).
+    case send_work_sync(AppId, CallId, get_all_sipmsgs) of
+        {ok, Ids} -> Ids;
+        _ -> []
+    end.
 
 
 %% @doc Get all started calls
@@ -189,19 +195,6 @@ get_all_data() ->
 %% @private
 incoming(#raw_sipmsg{call_id=CallId}=RawMsg) ->
     gen_server:cast(name(CallId), {incoming, RawMsg}).
-
-
-%% @private
--spec dialog_new_cseq(nksip_dialog:spec()) ->
-    {ok, nksip:cseq()} | error.
-
-dialog_new_cseq(DialogSpec) ->
-    case nksip_dialog:id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            send_work_sync(AppId, CallId, {dialog_new_cseq, DialogId});
-        undefined ->
-            error
-    end.
 
 
 %% @private
@@ -266,7 +259,7 @@ handle_call({send_work_sync, AppId, CallId, Work}, From, SD) ->
         {ok, SD1} -> 
             {noreply, SD1};
         {error, Error} ->
-            ?error(AppId, CallId, "Error processing semd request: ~p", [Error]),
+            ?error(AppId, CallId, "Error sending work ~p: ~p", [Work, Error]),
             {reply, {error, Error}, SD}
     end;
 
@@ -328,8 +321,16 @@ handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
     case dict:find(MRef, Pending) of
         {ok, {AppId, CallId, Work}} -> 
             Pending1 = dict:erase(MRef, Pending),
-            SD1 = send_work_sync(AppId, CallId, Work, none, SD#state{pending=Pending1}),
-            {noreply, SD1};
+            SD1 = SD#state{pending=Pending1},
+            case send_work_sync(AppId, CallId, Work, none, SD1) of
+                {ok, SD2} -> 
+                    ?info(AppId, CallId, "Retargeting work ~p", [Work]),
+                    {noreply, SD2};
+                {error, Error} ->
+                    ?error(AppId, CallId, 
+                           "Error retargeting work ~p: ~p", [Work, Error]),
+                    {noreply, SD}
+            end;
         error ->
             {noreply, SD}
     end;
@@ -381,7 +382,16 @@ pos2name(Pos) ->
     any() | {error, sync_error()}.
 
 send_work_sync(AppId, CallId, Work) ->
-    gen_server:call(name(CallId), {send_work_sync, AppId, CallId, Work}, ?SRV_TIMEOUT).
+    WorkSpec = {send_work_sync, AppId, CallId, Work},
+    case catch gen_server:call(name(CallId), WorkSpec, ?SRV_TIMEOUT) of
+        {'EXIT', Error} ->
+            ?warning(AppId, CallId, "Error calling send_work_sync (~p): ~p",
+                     [Work, Error]),
+            {error, timeout};
+        Other ->
+            Other
+    end.
+
 
 
 %% @private
@@ -447,7 +457,7 @@ do_call_start(AppId, CallId, #state{pos=Pos, name=Name, max_calls=MaxCalls}=SD) 
                     true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
                     {ok, SD1};
                 {error, not_found} ->
-                    {error, sipapp_not_found}
+                    {error, unknown_sipapp}
             end;
         false ->
             {error, too_many_calls}

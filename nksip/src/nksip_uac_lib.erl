@@ -36,14 +36,14 @@
 %% It will also add a <i>From</i> tag if not present.
 -spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->    
     {ok, nksip:request()} | {error, Error} when
-    Error :: sipapp_not_found | invalid_uri | invalid_from | invalid_to | invalid_route |
+    Error :: unknown_sipapp | invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq.
 
 make(AppId, Method, Uri, Opts) ->
     try
         Opts1 = case nksip_sipapp_srv:get_opts(AppId) of
             {ok, CoreOpts} -> Opts ++ CoreOpts;
-            {error, not_found} -> throw(sipapp_not_found)
+            {error, not_found} -> throw(unknown_sipapp)
         end,
         case nksip_parse:uris(Uri) of
             [RUri] -> ok;

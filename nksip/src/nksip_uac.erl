@@ -60,10 +60,14 @@
 
 -type nodialog_errors() ::  invalid_uri | invalid_from | invalid_to |
                             invalid_route | invalid_contact | invalid_cseq |
-                            sipapp_not_found | too_many_calls.
+                            unknown_sipapp | too_many_calls | timeout.
 
--type dialog_errors() :: invalid_dialog | unknown_dialog | 
-                         sipapp_not_found | too_many_calls.
+-type dialog_errors() ::    invalid_dialog | unknown_dialog | 
+                            unknown_sipapp | too_many_calls | timeout.
+
+-type cancel_errors() ::    unknown_request | invalid_request | 
+                            unknown_sipapp | too_many_calls | timeout.
+
 
 
 -define(UAC_DEFAULT_TIMEOUT, 60000).
@@ -461,11 +465,11 @@ bye(DialogSpec, Opts) ->
 %%
 -spec cancel(nksip:request_id(), nksip_lib:proplist()) ->
     {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, Error}
-    when Error :: unknown_request | invalid_request | sipapp_not_found | too_many_calls.
+    async | {error, cancel_errors()}.
 
 cancel(ReqId, Opts) ->
-    nksip_call_router:cancel(ReqId, Opts).
+    send_request({cancel, ReqId}, Opts).
+
 
 %% @doc Sends a update on a currently ongoing dialog using reINVITE.
 %%
@@ -575,18 +579,16 @@ send_request(AppId, Method, Uri, Opts) ->
 
 
 %% @private
--spec send_request(nksip:request(), nksip_lib:proplist()) ->
+-spec send_request(nksip:request() | {cancel, nksip:request_id()}, 
+                   nksip_lib:proplist()) ->
     {ok, nksip:response_code()} | {ok, nksip:response_code(), nksip_dialog:id()} |
     ok  | {ok, nksip:request()} | {reply, nksip:response()} |
-    {async, nksip:request_id()} | {error, nodialog_errors()}.
+    {async, nksip:request_id()} | {error, atom()}.
 
-send_request(#sipmsg{method=Method}=Req, Opts) ->
+send_request(Term, Opts) ->
     case lists:member(async, Opts) of
         true ->
-            case nksip_call_router:send(Req) of
-                {ok, ReqId} -> {async, ReqId};
-                {error, Error} -> {error, Error}
-            end;
+            do_send(Term, Opts);
         false ->
             Ref = make_ref(),
             Pid = self(),
@@ -605,34 +607,33 @@ send_request(#sipmsg{method=Method}=Req, Opts) ->
                     false -> Pid ! {Ref, Reply}
                 end
             end,
-            ReqOpts1 = [{respfun, Fun}|Req#sipmsg.opts],
-            case nksip_call_router:send(Req#sipmsg{opts=ReqOpts1}) of
-                {ok, _ReqId} ->
+            Opts1 = case Term of
+                #sipmsg{opts=ReqOpts} -> [{respfun, Fun}|ReqOpts];
+                {cancel, _} -> [{respfun, Fun}|Opts]
+            end,
+            case do_send(Term, Opts1) of
+                {async, _ReqId} ->
                     case nksip_lib:get_integer(timeout, Opts) of
                         Timeout when is_integer(Timeout), Timeout > 0 -> ok;
                         _ -> Timeout = ?UAC_DEFAULT_TIMEOUT
                     end,
-                    receive
-                        {Ref, Reply} -> Reply
-                    after Timeout ->
-                        case Method of
-                            'ACK' ->
-                                {error, network_error};
-                            _ ->
-                                case lists:member(full_response, Opts) of
-                                    true ->  
-                                        {reply, nksip_reply:reply(Req, 408)};
-                                    false when Method=:='INVITE' ->
-                                        {ok, 408, <<>>};
-                                    false -> 
-                                        {ok, 408}
-                                end
-                        end
+                    receive {Ref, Reply} -> Reply
+                    after Timeout -> {error, timeout}
                     end;
                 {error, Error} ->
                     {error, Error}
             end
     end.
+
+
+%% @private
+do_send(#sipmsg{}=Req, Opts) ->
+    nksip_call_router:send(Req#sipmsg{opts=Opts});
+
+do_send({cancel, ReqId}, Opts) ->
+    nksip_call_router:cancel(ReqId, Opts). 
+
+
 
 
 %% @private
