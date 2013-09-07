@@ -165,6 +165,10 @@ send(AppId, [#uri{}=Uri|Rest]=All, MakeMsg) ->
     ?debug(AppId, "send to ~p", [All]),
     send(AppId, resolve(Uri)++Rest, MakeMsg);
 
+send(AppId, [{udp, Ip, 0}|Rest], MakeMsg) ->
+    %% If no port was explicitly specified, use default.
+    send(AppId, [{udp, Ip, 5060}|Rest], MakeMsg);
+
 send(AppId, [{udp, Ip, Port}|Rest]=All, MakeMsg) -> 
     ?debug(AppId, "send to ~p", [All]),
     case get_listening(AppId, udp) of
