@@ -29,7 +29,7 @@
 
 -include("nksip.hrl").
 
-
+-define(APP, nksip).
 
 %% ===================================================================
 %% Private
@@ -40,14 +40,12 @@
     ok | {error, Reason::term()}.
 
 start() ->
-    case application:load(nksip) of
-        ok -> ok;
-        {error, {already_loaded, nksip}} -> ok
-    end,
-    {ok, DepApps} = application:get_key(nksip, applications),
-    ensure_started(DepApps),
-    application:start(nksip).
-
+    case ensure_all_started(?APP, permanent) of
+        {ok, _Started} ->
+            ok;
+        Error ->
+            Error
+    end.
 
 %% @private OTP standard start callback
 start(_Type, _Args) ->
@@ -76,16 +74,6 @@ stop(_) ->
 
 
 %% @private
-ensure_started([App|R]) ->
-    case application:start(App) of
-        ok -> ensure_started(R);
-        {error, {already_started, App}} -> ensure_started(R)
-    end;
-ensure_started([]) ->
-    ok.
-   
-
-%% @private
 -spec profile_output() -> 
     ok.
 
@@ -97,5 +85,30 @@ profile_output() ->
     eprof:analyze(total).
 
 
+%% @doc Ensure that an application and all of its transitive
+%% dependencies are started.
+ensure_all_started(Application, Type) ->
+    case ensure_all_started(Application, Type, []) of
+        {ok, Started} ->
+            {ok, lists:reverse(Started)};
+        {error, Reason, Started} ->
+            [ application:stop(App) || App <- Started ],
+            {error, Reason}
+    end.
 
-
+ensure_all_started(Application, Type, Started) ->
+    case application:start(Application, Type) of
+        ok ->
+            {ok, [Application | Started]};
+        {error, {already_started, Application}} ->
+            {ok, Started};
+        {error, {not_started, Dependency}} ->
+            case ensure_all_started(Dependency, Type, Started) of
+                {ok, NewStarted} ->
+                    ensure_all_started(Application, Type, NewStarted);
+                Error ->
+                    Error
+            end;
+        {error, Reason} ->
+            {error, Reason, Started}
+    end.

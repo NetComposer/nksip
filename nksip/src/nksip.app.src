@@ -4,7 +4,15 @@
     {modules, []},
     {registered, []},
     {mod, {nksip_app, []}},
-    {applications, [kernel, stdlib, crypto, sasl, lager, ranch]},
+    {applications, [
+                    kernel,
+                    stdlib,
+                    crypto,
+                    sasl,
+                    ssl,
+                    lager,
+                    ranch
+                   ]},
     {env, [
         {timer_t1, 500},                % 500 msecs
         {timer_t2, 4000},               % 4 secs
