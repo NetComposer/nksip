@@ -76,9 +76,9 @@ register1() ->
     Server1 = {basic, server1},
 
     % Method not allowed
-    {ok, 405, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1:5070", []),
+    {ok, 405, _} = nksip_uac:register(Client2, "sip:127.0.0.1:5070", []),
 
-    {ok, 400, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {ok, 400, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                         [{from, "sip:one"}, {to, "sip:two"}]),
 
     {resp, Resp1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
@@ -117,10 +117,10 @@ register1() ->
     400 = nksip_response:code(Resp2b),
     <<"Rejected Old CSeq">> = nksip_response:reason(Resp2b),
 
-    {ok, 200, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {ok, 200, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq+1}, make_contact]),
 
-    {ok, 400, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {ok, 400, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq+1}, 
                                      unregister_all]),
     Opts3 = [{expires, Min-1}, make_contact, full_response],
@@ -195,14 +195,14 @@ register2() ->
     [] = nksip_response:header(Resp2, <<"Contact">>),
     [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
-    {ok, 200, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
-    {ok, 200, _, _} = nksip_uac:register(Client1, 
+    {ok, 200, _} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
+    {ok, 200, _} = nksip_uac:register(Client1, 
                                             "sip:127.0.0.1;transport=tcp", Opts1),
-    {ok, 200, _, _} = nksip_uac:register(Client1, 
+    {ok, 200, _} = nksip_uac:register(Client1, 
                                             "sip:127.0.0.1;transport=tls", Opts1),
-    {ok, 200, _, _} = nksip_uac:register(Client1, "sips:127.0.0.1", Opts1),
+    {ok, 200, _} = nksip_uac:register(Client1, "sips:127.0.0.1", Opts1),
 
-    {ok, 400, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts2),
+    {ok, 400, _} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts2),
     {resp, Resp4} = nksip_uac:register(Client1, "sips:127.0.0.1", 
                         [{contact, <<"<sips:client1@127.0.0.1:5071>">>}, 
                             full_response| Opts2--[make_contact]]),
@@ -224,19 +224,19 @@ register2() ->
         nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
     Contact = <<"<sips:client1@127.0.0.1:5071>;expires=0">>,
-    {ok, 200, _, _} = nksip_uac:register(Client1, "sips:127.0.0.1", 
+    {ok, 200, _} = nksip_uac:register(Client1, "sips:127.0.0.1", 
                                         [{contact, Contact}|Opts2--[make_contact]]),
     [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
-    {ok, 200, _, _} = nksip_uac:register(Client2, 
+    {ok, 200, _} = nksip_uac:register(Client2, 
                                         "sip:127.0.0.1", [unregister_all]),
     [] = nksip_registrar:find(Server1, sip, <<"client2">>, <<"nksip">>),
 
-    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+    {ok, 200, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
                                 [{local_host, "aaa"}, make_contact]),
-    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+    {ok, 200, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
                                 [{contact, "<sip:bbb>;q=2.1;expires=180, <sips:ccc>;q=3"}]),
-    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+    {ok, 200, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
                                 [{contact, <<"<sip:ddd:444;transport=tcp>;q=2.1">>}]),
     [
         [
@@ -255,5 +255,5 @@ register2() ->
                 opts = [], ext_opts = [{q,<<"3">>},{expires,<<"3600">>}]}
         ]
     ] = nksip_registrar:qfind(Server1, sip, <<"client2">>, <<"nksip">>),
-    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
+    {ok, 200, _} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
     ok.

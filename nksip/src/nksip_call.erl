@@ -321,8 +321,15 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
             Call
     end;
 
-work(get_all_sipmsgs, From, #call{app_id=AppId, call_id=CallId, msgs=Msgs}=Call) ->
-    Ids = [{Class, AppId, CallId, Id} || #sipmsg{class=Class, id=Id} <- Msgs],
+work(get_all_sipmsgs, From, #call{msgs=Msgs}=Call) ->
+    Ids = [
+        case Class of
+            req -> nksip_request:id(SipMsg);
+            resp -> nksip_response:id(SipMsg)
+        end
+        ||
+        #sipmsg{class=Class}=SipMsg <- Msgs
+    ],
     gen_server:reply(From, {ok, Ids}),
     Call.
 

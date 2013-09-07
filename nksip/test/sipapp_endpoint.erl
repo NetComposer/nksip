@@ -24,8 +24,8 @@
 -behaviour(nksip_sipapp).
 
 -export([start/2, stop/1, add_callback/2, get_sessions/2]).
--export([init/1, get_user_pass/4, authorize/4, route/6, options/3, invite/4, reinvite/4,
-        cancel/3, ack/3]).
+-export([init/1, get_user_pass/4, authorize/4, route/6, options/3, invite/3, reinvite/3,
+        cancel/3, ack/2]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -125,8 +125,9 @@ options(_RequestId, _From, State) ->
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
-invite(DialogId, RequestId, From, #state{id={Test, Id}, dialogs=Dialogs}=State)
+invite(RequestId, From, #state{id={Test, Id}, dialogs=Dialogs}=State)
        when Test=:=basic; Test=:=invite; Test=:=stateless; Test=:=stateful ->
+    DialogId = nksip_dialog:id(RequestId),
     Values = nksip_request:header(RequestId, <<"Nk">>),
     Routes = nksip_request:header(RequestId, <<"Route">>),
     Ids = nksip_request:header(RequestId, <<"Nk-Id">>),
@@ -186,7 +187,8 @@ invite(DialogId, RequestId, From, #state{id={Test, Id}, dialogs=Dialogs}=State)
 % INVITE for fork tests
 % Adds Nk-Id header
 % Gets operation from body
-invite(DialogId, RequestId, From, #state{id={fork, Id}, dialogs=Dialogs}=State) ->
+invite(RequestId, From, #state{id={fork, Id}, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(RequestId),
     Ids = nksip_request:header(RequestId, <<"Nk-Id">>),
     Hds = [{<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}],
     case nksip_request:header(<<"Nk-Reply">>, RequestId) of
@@ -226,7 +228,8 @@ invite(DialogId, RequestId, From, #state{id={fork, Id}, dialogs=Dialogs}=State) 
     end;
 
 % INVITE for auth tests
-invite(DialogId, RequestId, _From, #state{id={auth, _}, dialogs=Dialogs}=State) ->
+invite(RequestId, _From, #state{id={auth, _}, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(RequestId),
     case nksip_request:header(RequestId, <<"Nk-Reply">>) of
         [RepBin] -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
@@ -237,11 +240,12 @@ invite(DialogId, RequestId, _From, #state{id={auth, _}, dialogs=Dialogs}=State) 
     {reply, ok, State1}.
 
 
-reinvite(DialogId, RequestId, From, State) ->
-    invite(DialogId, RequestId, From, State).
+reinvite(RequestId, From, State) ->
+    invite(RequestId, From, State).
 
 
-ack(DialogId, RequestId, #state{id={_, Id}, dialogs=Dialogs}=State) ->
+ack(RequestId, #state{id={_, Id}, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(RequestId),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             case nksip_request:header(RequestId, <<"Nk-Reply">>) of

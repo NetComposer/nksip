@@ -238,6 +238,12 @@ id(#dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
 id({dlg, AppId, CallId, DialogId}) -> 
     {dlg, AppId, CallId, DialogId};
 
+id({Type, AppId, CallId, _MsgId, DialogId}) when Type=:=req; Type=:=resp ->
+    case DialogId of
+        undefined -> undefined;
+        _ -> {dlg, AppId, CallId, DialogId}
+    end;
+
 id(#sipmsg{app_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
     when FromTag =/= <<>>, ToTag =/= <<>> ->
     dialog_id(AppId, CallId, FromTag, ToTag);
@@ -250,12 +256,6 @@ id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), method='INVITE', opts=Opts}=SipMsg)
         ToTag -> dialog_id(AppId, CallId, FromTag, ToTag)
     end;
         
-id({Type, AppId, CallId, _}=SipMsgId) when Type=:=req; Type=:=resp ->
-    case nksip_sipmsg:fields(SipMsgId, [from_tag, to_tag]) of
-        [FromTag, ToTag] -> dialog_id(AppId, CallId, FromTag, ToTag);
-        _ -> undefined
-    end;
-
 id(_) ->
     undefined.
 

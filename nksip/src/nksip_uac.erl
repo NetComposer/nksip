@@ -78,7 +78,7 @@
 %%          <td>`full_response'</td>
 %%          <td></td>
 %%          <td></td>
-%%          <td>Returns the full response object as `{resp, Respnse}' for every
+%%          <td>Returns the full response object as `{resp, Response}' for every
 %%          response instead of `{ok, Code, RespId, DialogId}'.</td>
 %%      </tr>
 %%      <tr>
@@ -191,7 +191,7 @@
         {call_id, binary()} | {cseq, pos_integer()} | {route, nksip:user_uri()}.
 
 -type send() :: 
-        {ok, nksip:response_code(), nksip:response_id(), nksip:dialog_id()} |
+        {ok, nksip:response_code(), nksip:response_id()} |
         {resp, nksip:response()} |
         {async, nksip:request_id()}.
 

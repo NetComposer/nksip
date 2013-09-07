@@ -25,7 +25,7 @@
 -behaviour(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, invite/4, options/3]).
+-export([init/1, invite/3, options/3]).
 
 %% ===================================================================
 %% Callbacks
@@ -44,7 +44,7 @@ init([Id]) ->
 %% If the request has a SDP body, reply 180 Ringing, wait 2 seconds and reply 
 %% 200 Ok with the same body (spawns a new process to avoid blocking the process).
 %% If not, reply 488 Not Acceptable with a Warning header.
-invite(_DialogId, ReqId, From, State) ->
+invite(ReqId, From, State) ->
     SDP = nksip_request:body(ReqId),
     case nksip_sdp:is_sdp(SDP) of
         true ->

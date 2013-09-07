@@ -448,10 +448,9 @@ process(#trans{method=Method}=UAS, uas, Call) ->
 do_process('INVITE', undefined, _Type, UAS, Call) ->
     reply({internal_error, <<"INVITE without dialog">>}, UAS, Call);
 
-do_process('INVITE', DialogId, Type, #trans{cancel=Cancelled}=UAS, Call) ->
-    #call{app_id=AppId, call_id=CallId} = Call,
+do_process('INVITE', _DialogId, Type, #trans{cancel=Cancelled}=UAS, Call) ->
     case Type of uas -> 
-        app_call(invite, [{dlg, AppId, CallId, DialogId}], UAS, Call); 
+        app_call(invite, [], UAS, Call); 
         _ -> ok 
     end,
     UAS1 = expire_timer(expire, UAS),
@@ -463,24 +462,22 @@ do_process('INVITE', DialogId, Type, #trans{cancel=Cancelled}=UAS, Call) ->
 
 do_process('ACK', DialogId, Type, UAS, Call) ->
     UAS1 = cancel_timers([timeout], UAS#trans{status=finished}),
-    #call{app_id=AppId, call_id=CallId} = Call,
     case DialogId of
         undefined -> 
             ?call_notice("received out-of-dialog ACK", [], Call);
         _ when Type=:=uas -> 
-            app_cast(ack, [{dlg, AppId, CallId, DialogId}], UAS, Call);
+            app_cast(ack, [], UAS, Call);
         _ -> 
             ok
     end,
     update(UAS1, Call);
 
 do_process('BYE', DialogId, Type, UAS, Call) ->
-    #call{app_id=AppId, call_id=CallId} = Call,
     case DialogId of
         undefined -> 
             reply(no_transaction, UAS, Call);
         _ when Type=:=uas ->
-            app_call(bye, [{dlg, AppId, CallId, DialogId}], UAS, Call),
+            app_call(bye, [], UAS, Call),
             Call;
         _ ->
             Call
@@ -772,11 +769,11 @@ timer(expire, #trans{id=Id, method=Method, status=Status}=UAS, Call) ->
     ok.
 
 app_call(Fun, Args, UAS, Call) ->
-    #trans{id=TransId, request=#sipmsg{id=ReqId}} = UAS,
+    #trans{id=TransId, request=Req} = UAS,
     #call{app_id=AppId, call_id=CallId} = Call,
-    FullReqId = {req, AppId, CallId, ReqId},
+    ReqId = nksip_request:id(Req),
     From = {'fun', nksip_call_router, app_reply, [AppId, CallId, Fun, TransId]},
-    nksip_sipapp_srv:sipapp_call_async(AppId, Fun, Args++[FullReqId], From).
+    nksip_sipapp_srv:sipapp_call_async(AppId, Fun, Args++[ReqId], From).
 
 
 %% @private
@@ -784,10 +781,10 @@ app_call(Fun, Args, UAS, Call) ->
     ok.
 
 app_cast(Fun, Args, UAS, Call) ->
-    #trans{request=#sipmsg{id=ReqId}} = UAS,
-    #call{app_id=AppId, call_id=CallId} = Call,
-    FullReqId = {req, AppId, CallId, ReqId},
-    nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args++[FullReqId]).
+    #trans{request=Req} = UAS,
+    #call{app_id=AppId} = Call,
+    ReqId = nksip_request:id(Req),
+    nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args++[ReqId]).
 
 
 

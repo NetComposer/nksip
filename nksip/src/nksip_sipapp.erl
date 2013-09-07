@@ -122,8 +122,8 @@
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, get_user_pass/4, authorize/4, route/6, invite/4, reinvite/4, cancel/3, 
-         ack/3, bye/4, options/3, register/3]).
+-export([init/1, get_user_pass/4, authorize/4, route/6, invite/3, reinvite/3, cancel/3, 
+         ack/2, bye/3, options/3, register/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -include("nksip.hrl").
@@ -371,11 +371,10 @@ route(_Scheme, _User, _Domain, _ReqId, _From, State) ->
 %% The remote party should then send an ACK request immediately.
 %% If none is received, NkSIP will automatically stop the dialog.
 %%
--spec invite(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), 
-             From::from(), State::term()) ->
+-spec invite(ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-invite(_DialogId, _ReqId, _From, State) ->
+invite(_ReqId, _From, State) ->
     {reply, decline, State}.
 
 
@@ -387,11 +386,10 @@ invite(_DialogId, _ReqId, _From, State) ->
 %% its response, {@link dialog_update/3} and/or {@link session_update/3} would be
 %% called.
 %%
--spec reinvite(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), 
-                From::from(), State::term()) ->
+-spec reinvite(ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-reinvite(_DialogId, _ReqId, _From, State) ->
+reinvite(_ReqId, _From, State) ->
     {reply, decline, State}.
 
 
@@ -424,10 +422,10 @@ cancel(_ReqId, _From, State) ->
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec ack(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), State::term()) ->
+-spec ack(ReqId::nksip:request_id(), State::term()) ->
     call_reply(ok).
 
-ack(_DialogId, _ReqId, State) ->
+ack(_ReqId, State) ->
     {noreply, State}.
 
 
@@ -438,11 +436,10 @@ ack(_DialogId, _ReqId, State) ->
 %% You won't usually need to implement this function, but in case you do, you
 %% should reply `ok' to send a 200 response back.
 %%
--spec bye(DialogId::nksip:dialog_id(), ReqId::nksip:request_id(), 
-            From::from(), State::term()) ->
+-spec bye(ReqId::nksip:request_id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-bye(_DialogId, _ReqId, _From, State) ->
+bye(_ReqId, _From, State) ->
     {reply, ok, State}.
 
 

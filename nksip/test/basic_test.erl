@@ -121,7 +121,7 @@ uac() ->
     Hds = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}]},
 
     nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
-    {ok, 503, _, _} =
+    {ok, 503, _} =
         nksip_uac:options(C1, "sip:127.0.0.1:50600;transport=tcp", []),
     % Async, error
     {async, ReqId11} = nksip_uac:options(C1, "sip:127.0.0.1:50600;transport=tcp", 
@@ -131,39 +131,41 @@ uac() ->
         after 500 -> error(uac) 
     end,
     receive 
-        {Ref, {ok, 503, _, _}} -> ok
+        {Ref, {ok, 503, _}} -> ok
         after 500 -> error(uac) 
     end,
 
     % Sync
-    {ok, 200, ReqId1, DlgId1} = nksip_uac:options(C1, SipC2, []),
+    {ok, 200, ReqId1} = nksip_uac:options(C1, SipC2, []),
     200 = nksip_response:code(ReqId1),
-    error = nksip_dialog:field(DlgId1, status),
-    {error, unknown_dialog} = nksip_uac:reoptions(DlgId1, []),
+    error = nksip_dialog:field(ReqId1, status),
+    {error, unknown_dialog} = nksip_uac:reoptions(ReqId1, []),
 
     % Sync, full_response
     {resp, #sipmsg{class=resp}} = nksip_uac:options(C1, SipC2, [full_response]),
 
     % Sync, callback for request
-    {ok, 200, RespId3, _} = nksip_uac:options(C1, SipC2, [CB]),
-    CallId3 = nksip_response:field(RespId3, call_id),
+    {ok, 200, RespId3} = nksip_uac:options(C1, SipC2, [CB]),
+    CallId3 = nksip_response:call_id(RespId3),
     receive 
-        {Ref, {req_id, ReqId3}} -> CallId3 = nksip_request:field(ReqId3, call_id)
+        {Ref, {req_id, ReqId3}} -> CallId3 = nksip_request:call_id(ReqId3)
         after 500 -> error(uac) 
     end,
 
     % Sync, callback for request and provisional response
-    {ok, 486, RespId4, DlgId4} = nksip_uac:invite(C1, SipC2, [Hds, CB]),
-    CallId4 = nksip_response:field(RespId4, call_id),
+    {ok, 486, RespId4} = nksip_uac:invite(C1, SipC2, [Hds, CB]),
+    CallId4 = nksip_response:call_id(RespId4),
+    DialogId4 = nksip_dialog:id(RespId4),
     receive 
         {Ref, {req_id, ReqId4}} -> 
-            CallId4 = nksip_request:field(ReqId4, call_id)
+            CallId4 = nksip_request:call_id(ReqId4)
         after 500 -> 
             error(uac) 
     end,
     receive 
-        {Ref, {ok, 180, RespId4_180, DlgId4}} -> 
-            CallId4 = nksip_response:field(RespId4_180, call_id)
+        {Ref, {ok, 180, RespId4_180}} -> 
+            CallId4 = nksip_response:call_id(RespId4_180),
+            DialogId4 = nksip_dialog:id(RespId4_180)
         after 500 -> 
             error(uac) 
     end,
@@ -192,16 +194,16 @@ uac() ->
         after 500 -> error(uac) 
     end,
     Dlg10 = receive 
-        {Ref, {ok, 180, RespId10_180, D10_180}} -> 
+        {Ref, {ok, 180, RespId10_180}} -> 
             [180, CallId10] = nksip_response:fields(RespId10_180, [code, call_id]),
-            D10_180
+            nksip_response:dialog_id(RespId10_180)
         after 500 -> 
             error(uac) 
     end,
     Dlg10 = receive 
-        {Ref, {ok, 486, RespId10_486, D10_486}} -> 
+        {Ref, {ok, 486, RespId10_486}} -> 
             [486, CallId10] = nksip_response:fields(RespId10_486, [code, call_id]),
-            D10_486
+            nksip_response:dialog_id(RespId10_486)
         after 500 -> 
             error(uac) 
     end,
@@ -282,15 +284,15 @@ transport() ->
         ]
     ] = nksip_request:fields(Req5, [parsed_contacts, parsed_routes]),
 
-    {ok, 200, _,  _} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, _} = nksip_uac:options(C1, "sip:127.0.0.1", 
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}]),
-    {ok, 200, _, _} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, _} = nksip_uac:options(C1, "sip:127.0.0.1", 
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}]),
 
     % Cover ip resolution
     case nksip_uac:options(C1, "sip:sip2sip.info;transport=tcp", []) of
-        {ok, 200, _,  _} -> ok;
-        {ok, Code, _,  _} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
+        {ok, 200, _} -> ok;
+        {ok, Code, _} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
         {error, Error} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Error])
     end,
     ok.

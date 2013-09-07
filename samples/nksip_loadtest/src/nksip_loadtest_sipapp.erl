@@ -25,7 +25,7 @@
 -module(nksip_loadtest_sipapp).
 -behaviour(nksip_sipapp).
 
--export([init/1, route/6, invite/4]).
+-export([init/1, route/6, invite/3]).
 
 % -compile([export_all]).
 
@@ -54,7 +54,7 @@ route(_Scheme, _User, _Domain, _Request, _From, SD) ->
     {reply, process, SD}.
 
 %% @doc Answer the call with the same SDP body
-invite(_DialogId, RequestId, _From, State) ->
+invite(RequestId, _From, State) ->
 	Body = nksip_request:body(RequestId),
     {reply, {ok, [], Body}, State}.
 

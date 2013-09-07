@@ -47,7 +47,7 @@
 -type sync_error() :: unknown_sipapp | too_many_calls | timeout.
 
 -type send_common() ::  
-        {ok, nksip:response_code(), nksip:response_id(), nksip:dialog_id()} |
+        {ok, nksip:response_code(), nksip:response_id()} |
         {resp, nksip:response()} |
         {async, nksip:request_id()} |
         ok | {ok, nksip:request()}.     % For ACKs
@@ -105,7 +105,7 @@ send_dialog(DialogSpec, Method, Opts) ->
     when Error :: unknown_request | sync_error().
 
 cancel(ReqSpec) ->
-    {req, AppId, CallId, Id} = nksip_request:id(ReqSpec),
+    {req, AppId, CallId, Id, _DlgId} = nksip_request:id(ReqSpec),
     send_work_sync(AppId, CallId, {cancel, Id}).
 
 
@@ -122,8 +122,8 @@ app_reply(AppId, CallId, Fun, TransId, Reply) ->
     {ok, nksip:response()} | {error, Error}
     when Error :: invalid_call | sync_error().
 
-sync_reply({req, AppId, CallId, ReqId}, Reply) ->
-    send_work_sync(AppId, CallId, {sync_reply, ReqId, Reply}).
+sync_reply({req, AppId, CallId, MsgId, _DlgId}, Reply) ->
+    send_work_sync(AppId, CallId, {sync_reply, MsgId, Reply}).
 
 
 %% @doc Applies a fun to a dialog and returns the result
@@ -178,7 +178,8 @@ stop_dialog(DialogSpec) ->
     term() | {error, Error}
     when Error :: unknown_sipmsg | sync_error().
 
-apply_sipmsg({_, AppId, CallId, MsgId}, Fun) ->
+apply_sipmsg({Class, AppId, CallId, MsgId, _DlgId}, Fun)
+             when Class=:=req; Class=:=resp ->
     send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun}).
 
 

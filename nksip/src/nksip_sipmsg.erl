@@ -24,7 +24,7 @@
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([fields/2, field/2, header/2, header/3, get_sipmsg/1]).
+-export([fields/2, field/2, header/2, header/3, dialog_id/1, call_id/1,get_sipmsg/1]).
 -export_type([id/0]).
 
 -include("nksip.hrl").
@@ -43,9 +43,6 @@
 
 field(#sipmsg{}=SipMsg, Field) ->
     get_field(SipMsg, Field);
-
-field({_, _AppId, CallId, _Id}, call_id) ->
-    CallId;
 
 field(MsgId, Field) ->
     case fields(MsgId, [Field]) of
@@ -100,6 +97,26 @@ header(MsgId, Name, Type) ->
                 dates -> nksip_parse:dates(Values)
             end
     end.
+
+
+%% @doc Gets the dialog's id of a request or response 
+-spec dialog_id(input()) ->
+    nksip:dialog_id() | undefined.
+
+dialog_id(SipMsg) ->
+    nksip_dialog:id(SipMsg).
+
+
+%% @doc Gets the calls's id of a request or response 
+-spec call_id(input()) ->
+    nksip:call_id().
+
+call_id({Class, _AppId, CallId, _MsgId, _DialogId})
+          when Class=:=req; Class=:=resp ->
+    CallId;
+
+call_id(#sipmsg{call_id=CallId}) ->
+    CallId.
 
 
 %% @private

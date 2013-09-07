@@ -667,17 +667,16 @@ send_user_reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     Fun = nksip_lib:get_value(callback, Opts, fun(_) -> ok end),
     #sipmsg{response=Code} = Resp,
     RespId = nksip_response:id(Resp),
-    DlgId = nksip_dialog:id(Resp),
     Full = lists:member(full_response, Opts),
     Async = lists:member(async, Opts),
     if
         Code < 101 -> ok;
         Async, Full -> catch Fun({resp, Resp});
-        Async -> catch Fun({ok, Code, RespId, DlgId});
+        Async -> catch Fun({ok, Code, RespId});
         Code < 200, Full -> catch Fun({resp, Resp});
-        Code < 200 -> catch Fun({ok, Code, RespId, DlgId});
+        Code < 200 -> catch Fun({ok, Code, RespId});
         Full -> gen_server:reply(From, {resp, Resp});
-        true -> gen_server:reply(From, {ok, Code, RespId, DlgId})
+        true -> gen_server:reply(From, {ok, Code, RespId})
     end,
     Call;
 
@@ -721,22 +720,4 @@ transaction_id(#sipmsg{app_id=AppId, call_id=CallId,
                 cseq_method=Method, vias=[Via|_]}) ->
     Branch = nksip_lib:get_value(branch, Via#via.opts),
     erlang:phash2({AppId, CallId, Method, Branch}).
-
-
-% %% @private
-% -spec send_from_reply(uac_from(), {async, nksip:request()}|{error, term()}) ->
-%     ok.
-
-% send_from_reply({Pid, Ref}, {async, #sipmsg{id=ReqId, app_id=AppId, call_id=CallId}})
-%           when is_pid(Pid), is_reference(Ref) -> 
-%     gen_server:reply({Pid, Ref}, {async, {req, AppId, CallId, ReqId}});
-
-% send_from_reply({Pid, Ref}, {error, Error}) when is_pid(Pid), is_reference(Ref) -> 
-%     gen_server:reply({Pid, Ref}, {error, Error});
-
-% send_from_reply(_, _) ->
-%     ok.
-
-
-
 

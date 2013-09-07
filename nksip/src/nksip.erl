@@ -134,10 +134,12 @@
 -type dialog_id() :: {dlg, app_id(), call_id(), nksip_dialog:id()}.
 
 %% Request
--type request_id() :: {req, app_id(), call_id(), nksip_request:id()}.
+-type request_id() :: 
+        {req, app_id(), call_id(), nksip_request:id(), nksip_dialog:id()}.
 
 %% Response
--type response_id() :: {resp, app_id(), call_id(), nksip_response:id()}.
+-type response_id() :: 
+        {resp, app_id(), call_id(), nksip_response:id(), nksip_dialog:id()}.
 
 
 

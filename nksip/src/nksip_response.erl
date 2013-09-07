@@ -24,8 +24,8 @@
 
 -include("nksip.hrl").
 
--export([field/2, fields/2, header/2, body/1, code/1, reason/1, id/1, dialog_id/1]).
--export([wait_491/0]).
+-export([field/2, fields/2, header/2, id/1, dialog_id/1, call_id/1]).
+-export([body/1, code/1, reason/1, wait_491/0]).
 -export_type([id/0, field/0]).
 
 
@@ -44,6 +44,9 @@
                   routes | parsed_routes | contacts | parsed_contacts | 
                   content_type | parsed_content_type | 
                   headers | body | dialog_id | local | remote.
+
+-type input() :: nksip:response()|nksip:response_id().
+
 
 
 
@@ -70,41 +73,67 @@
 %% </table>
 
 %% @doc Get a field from a response
--spec field(nksip:response()|nksip:response_id(), field()) ->
+-spec field(input(), field()) ->
     term() | error.
 
 field(#sipmsg{class=resp}=Resp, Field) -> 
     nksip_sipmsg:field(Resp, Field);
-
-field({resp, _, _, _}=RespId, Field) -> 
+field({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId, Field) -> 
     nksip_sipmsg:field(RespId, Field).
 
 
 %% @doc Get some fields from a response
--spec fields(nksip:response()|nksip:response_id(), [field()]) ->
+-spec fields(input(), [field()]) ->
     [term()] | error.
 
 fields(#sipmsg{class=resp}=Resp, Fields) -> 
     nksip_sipmsg:fields(Resp, Fields);
-
-fields({resp, _, _, _}=RespId, Fields) -> 
+fields({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId, Fields) -> 
     nksip_sipmsg:fields(RespId, Fields).
 
 
 %% @doc Get header values from a response
--spec header(nksip:response()|nksip:response_id(), binary()) ->
+-spec header(input(), binary()) ->
     [binary()] | error.
 
 header(#sipmsg{class=resp}=Resp, Name) -> 
     nksip_sipmsg:header(Resp, Name);
-
-header({resp, _, _, _}=RespId, Name) -> 
+header({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId, Name) -> 
     nksip_sipmsg:header(RespId, Name).
 
 
+%% @doc Gets the {@link nksip:response_id()} of a request
+-spec id(input()) ->
+    nksip:response_id().
+
+id({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId) ->
+    RespId;
+id(#sipmsg{class=resp, id=MsgId, app_id=AppId, call_id=CallId}=Resp) ->
+    case nksip_dialog:id(Resp) of
+        undefined -> DlgId = undefined;
+        {dlg, AppId, CallId, DlgId} -> ok
+    end,
+    {resp, AppId, CallId, MsgId, DlgId}.
+
+
+%% @doc Gets the dialog's id of a request or response 
+-spec dialog_id(input()) ->
+    nksip:dialog_id() | undefined.
+
+dialog_id(Resp) -> 
+    nksip_sipmsg:dialog_id(Resp).
+
+
+%% @doc Gets the call's id of a request or response 
+-spec call_id(input()) ->
+    nksip:call_id().
+
+call_id(Resp) ->
+    nksip_sipmsg:call_id(Resp).
+
 
 %% @doc Gets the <i>response code</i> of a response.
--spec code(nksip:response()|nksip:response_id()) ->
+-spec code(input()) ->
     nksip:response_code() | error.
 
 code(Resp) -> 
@@ -112,37 +141,19 @@ code(Resp) ->
 
 
 %% @doc Gets the <i>reason</i> of a response.
--spec reason(nksip:response()|nksip:response_id()) ->
+-spec reason(input()) ->
     binary() | error.
 
 reason(Resp) ->  
     field(Resp, reason).
 
 
-%% @doc Gets the <i>dialog id</i> of a response.
--spec dialog_id(nksip:response()|nksip:response_id()) ->
-    nksip:dialog_id().
-
-dialog_id(Resp) -> 
-    nksip_dialog:id(Resp).
-
-
 %% @doc Gets the <i>body</i> of a response.
--spec body(nksip:response()|nksip:response_id()) ->
+-spec body(input()) ->
     nksip:body() | error.
 
 body(Resp) -> 
     field(Resp, body).
-
-
-%% @doc Gets the {@link nksip:response_id()} of a request
--spec id(nksip:response()|nksip:response_id()) ->
-    nksip:response_id().
-
-id({resp, _, _, _}=Id) ->
-    Id;
-id(#sipmsg{class=resp, id=Id, app_id=AppId, call_id=CallId}) ->
-    {resp, AppId, CallId, Id}.
 
 
 
