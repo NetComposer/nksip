@@ -26,9 +26,6 @@
 -include("nksip_call.hrl").
 
 -export([request/2, response/2, is_authorized/2]).
--import(nksip_call_dialog_lib, [create/3, status_update/2, remotes_update/2, 
-                                find/2, update/2]).
-
 
 -type call() :: nksip_call:call().
 
@@ -52,20 +49,19 @@ request(#trans{request=Req}, Call) ->
             {ok, undefined, Call};
         {dlg, _AppId, _CallId, DialogId} ->
             #sipmsg{method=Method, cseq=CSeq} = Req,
-            case find(DialogId, Call) of
+            case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
                     ?call_debug("Dialog ~p (~p) UAS request ~p", 
                                 [DialogId, Status, Method], Call),
-                    case 
-                        Method=/='ACK' andalso
-                        RemoteSeq=/=undefined andalso CSeq<RemoteSeq 
-                    of
-                        true -> 
+                    if
+                        Method=/='ACK', RemoteSeq>0, CSeq<RemoteSeq  ->
                             {error, old_cseq};
-                        false -> 
-                            case do_request(Method, Status, Req, Dialog) of
-                                {ok, Dialog1} -> 
-                                    {ok, DialogId, update(Dialog1, Call)};
+                        true -> 
+                            Dialog1 = Dialog#dialog{remote_seq=CSeq},
+                            case do_request(Method, Status, Req, Dialog1) of
+                                {ok, Dialog2} -> 
+                                    {ok, DialogId, 
+                                         nksip_call_dialog:update(Dialog2, Call)};
                                 {error, Error} ->
                                     {error, Error}
                             end
@@ -112,8 +108,7 @@ do_request('ACK', Status, AckReq, #dialog{request=#sipmsg{}=InvReq}=Dialog) ->
             {error, invalid}
     end;
 
-do_request('ACK', _Status, _Req, #dialog{request=InvReq}=_Dialog) ->
-    ?P("ACK INVALID2: ~p, ~p, ~p", [_Status, _Req#sipmsg.cseq, InvReq]),
+do_request('ACK', _Status, _Req, _Dialog) ->
     {error, invalid};
 
 do_request('BYE', Status, _Req, Dialog) ->
@@ -144,16 +139,16 @@ response(UAS, Call) ->
         undefined ->
             Call;
         {dlg, _AppId, _CallId, DialogId} ->
-            case find(DialogId, Call) of
+            case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{status=Status}=Dialog ->
                     #sipmsg{response=Code} = Resp,
                     ?call_debug("Dialog ~p (~p) UAS ~p response ~p", 
                                 [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
-                    Dialog2 = remotes_update(Req, Dialog1),
-                    update(Dialog2, Call);
+                    Dialog2 = nksip_call_dialog:remotes_update(Req, Dialog1),
+                    nksip_call_dialog:update(Dialog2, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
-                    Dialog = create(uas, Req, Resp),
+                    Dialog = nksip_call_dialog:create(uas, Req, Resp),
                     response(UAS, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
                     Call
@@ -196,9 +191,9 @@ do_response('INVITE', Code, _Req, Resp, Dialog) ->
            "Dialog unexpected INVITE response ~p in ~p", [Code, Status]),
     Dialog;
     
-do_response('BYE', _Code, Req, _Resp, #dialog{local_tag=LocalTag}=Dialog) ->
+do_response('BYE', _Code, Req, _Resp, #dialog{caller_tag=CallerTag}=Dialog) ->
     Reason = case Req#sipmsg.from_tag of
-        LocalTag -> caller_bye;
+        CallerTag -> caller_bye;
         _ -> callee_bye
     end,
     status_update({stop, Reason}, Dialog);
@@ -220,7 +215,7 @@ is_authorized(Req, Call) ->
         undefined ->
             false;
         {dlg, _, _, DialogId} ->
-            case find(DialogId, Call) of
+            case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{remotes=Remotes} ->
                     case lists:member({Ip, Port}, Remotes) of
                         true ->
@@ -238,6 +233,13 @@ is_authorized(Req, Call) ->
             end
     end.
 
+
+%% @private
+-spec status_update(nksip_dialog:status(), nksip:dialog()) ->
+    nksip:dialog().
+
+status_update(Status, Dialog) ->
+    nksip_call_dialog:status_update(uas, Status, Dialog).
 
 
 

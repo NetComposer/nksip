@@ -60,6 +60,8 @@
                 {app_reply, atom(), nksip_call_uas:id(), term()} |
                 {sync_reply, nksip_call_uas:id(), nksip:sipreply()} |
                 {send, nksip:request()} |
+                {send, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
+                {send_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
                 {cancel, nksip_call_uac:id(), nksip_lib:proplist()} |
                 {make_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
                 {apply_dialog, nksip_dialog:id(), function()} |
@@ -180,9 +182,9 @@ handle_info({timeout, Ref, Type}, Call) ->
 handle_info(timeout, Call) ->
     next(Call);
 
-handle_info(Info, FsmData) ->
+handle_info(Info, Call) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
-    {noreply, FsmData}.
+    {noreply, Call}.
 
 
 %% @private
@@ -197,12 +199,8 @@ code_change(_OldVsn, Call, _Extra) ->
 -spec terminate(term(), call()) ->
     gen_server_terminate().
 
-terminate(_Reason, Call) ->
-    case Call of
-        #call{} -> ?call_debug("Call process stopped", [], Call);
-        _ -> ?P("TERMINATE ERROR EN CALL: ~p", [Call])
-    end,
-    ok.
+terminate(_Reason, #call{}=Call) ->
+    ?call_debug("Call process stopped", [], Call).
 
 
 
@@ -216,7 +214,7 @@ terminate(_Reason, Call) ->
 -spec work(work(), from()|none, call()) ->
     call().
 
-work({incoming, RawMsg}, none, Call) ->
+work({incoming, RawMsg}, none, #call{app_opts=AppOpts}=Call) ->
     #raw_sipmsg{
         sipapp_id = AppId, 
         call_id = CallId, 
@@ -228,8 +226,8 @@ work({incoming, RawMsg}, none, Call) ->
             ?notice(AppId, CallId, "SIP ~p message could not be decoded: ~s", 
                     [Proto, Binary]),
             Call;
-        #sipmsg{class=req}=Req ->
-            nksip_call_uas:request(Req, Call);
+        #sipmsg{class=req, opts=ReqOpts}=Req ->
+            nksip_call_uas:request(Req#sipmsg{opts=ReqOpts++AppOpts}, Call);
         #sipmsg{class=resp}=Resp ->
             nksip_call_uac:response(Resp, Call)
     end;
@@ -242,24 +240,40 @@ work({sync_reply, ReqId, Reply}, From, Call) ->
         {ok, UAS} -> 
             nksip_call_uas:sync_reply(Reply, UAS, From, Call);
         not_found -> 
-            gen_server:reply(From, {error, unknown_call}),
+            gen_server:reply(From, {error, invalid_call}),
             Call
     end;
 
 work({send, Req}, From, Call) ->
-    nksip_call_uac:request(Req, From, Call);
+    nksip_call_uac:request(Req, {srv, From}, Call);
 
-work({cancel, ReqId, Opts}, From, Call) ->
+work({send, Method, Uri, Opts}, From, #call{app_id=AppId, app_opts=AppOpts}=Call) ->
+    case nksip_uac_lib:make(AppId, Method, Uri, Opts++AppOpts) of
+        {ok, Req} -> 
+            work({send, Req}, From, Call);
+        {error, Error} ->
+            gen_server:reply(From, {error, Error}),
+            Call
+    end;
+
+work({send_dialog, DialogId, Method, Opts}, From, Call) ->
+    case nksip_call_dialog_uac:make(DialogId, Method, Opts, Call) of
+        {ok, {RUri, Opts1}, Call1} -> 
+            work({send, Method, RUri, Opts1}, From, Call1);
+        {error, Error} ->
+            gen_server:reply(From, {error, Error}),
+            Call
+    end;
+
+work({cancel, ReqId}, From, Call) ->
     case find_msg_trans(ReqId, Call) of
         {ok, UAC} -> 
-            nksip_call_uac:cancel(UAC, Opts, From, Call);
+            gen_server:reply(From, ok),
+            nksip_call_uac:cancel(UAC, Call);
         not_found -> 
             gen_server:reply(From, {error, unknown_request}),
             Call
     end;
-
-work({make_dialog, DialogId, Method, Opts}, From, Call) ->
-    nksip_call_uac:make_dialog(DialogId, Method, Opts, From, Call);
 
 work({apply_dialog, DialogId, Fun}, From, Call) ->
     case find_dialog(DialogId, Call) of
@@ -267,7 +281,7 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
             case catch Fun(Dialog) of
                 {Reply, {update, #dialog{}=Dialog1}} ->
                     gen_server:reply(From, Reply),
-                    nksip_call_dialog_lib:update(Dialog1, Call);
+                    nksip_call_dialog:update(Dialog1, Call);
                 Reply ->
                     gen_server:reply(From, Reply),
                     Call
@@ -285,8 +299,8 @@ work(get_all_dialogs, From, #call{app_id=AppId, call_id=CallId, dialogs=Dialogs}
 work({stop_dialog, DialogId}, none, Call) ->
     case find_dialog(DialogId, Call) of
         {ok, Dialog} ->
-            Dialog1 = nksip_call_dialog_lib:status_update({stop, forced}, Dialog),
-            nksip_call_dialog_lib:update(Dialog1, Call);
+            Dialog1 = nksip_call_dialog:status_update({stop, forced}, Dialog),
+            nksip_call_dialog:update(Dialog1, Call);
         not_found ->
             Call
     end;
@@ -347,7 +361,7 @@ timeout({uas, Tag, Id}, _Ref, #call{trans=Trans}=Call) ->
 timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
     case lists:keyfind(Id, #dialog.id, Dialogs) of
         #dialog{} = Dialog -> 
-            nksip_call_dialog_lib:timer(Tag, Dialog, Call);
+            nksip_call_dialog:timer(Tag, Dialog, Call);
         false ->
             ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id], Call),
             Call
@@ -359,8 +373,12 @@ timeout(check_call, _Ref, #call{max_trans_time=MaxTime}=Call) ->
     Forks1 = check_call_forks(Now, Call),
     Dialogs1 = check_call_dialogs(Now, Call),
     erlang:start_timer(round(1000*MaxTime/2), self(), check_call),
-    next(Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}).
+    Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}.
 
+
+%% @private
+-spec check_call_trans(nksip_lib:timestamp(), call()) ->
+    [trans()].
 
 check_call_trans(Now, #call{trans=Trans, max_trans_time=MaxTime}=Call) ->
     lists:filter(
@@ -375,6 +393,11 @@ check_call_trans(Now, #call{trans=Trans, max_trans_time=MaxTime}=Call) ->
         end,
         Trans).
 
+
+%% @private
+-spec check_call_forks(nksip_lib:timestamp(), call()) ->
+    [fork()].
+
 check_call_forks(Now, #call{forks=Forks, max_trans_time=MaxTime}=Call) ->
     lists:filter(
         fun(#fork{id=Id, start=Start}) ->
@@ -388,6 +411,11 @@ check_call_forks(Now, #call{forks=Forks, max_trans_time=MaxTime}=Call) ->
         end,
         Forks).
 
+
+%% @private
+-spec check_call_dialogs(nksip_lib:timestamp(), call()) ->
+    [nksip_dialog:dialog()].
+
 check_call_dialogs(Now, #call{dialogs=Dialogs, max_dialog_time=MaxTime}=Call) ->
     lists:filter(
         fun(#dialog{id=Id, created=Start}) ->
@@ -395,7 +423,7 @@ check_call_dialogs(Now, #call{dialogs=Dialogs, max_dialog_time=MaxTime}=Call) ->
                 true ->
                     true;
                 false ->
-                    ?call_warning("Call removing expired fork ~p", [Id], Call),
+                    ?call_warning("Call removing expired dialog ~p", [Id], Call),
                     false
             end
         end,
@@ -406,12 +434,13 @@ check_call_dialogs(Now, #call{dialogs=Dialogs, max_dialog_time=MaxTime}=Call) ->
 -spec next(call()) ->
     gen_server_cast(call()).
 
-next(#call{trans=[], msgs=[], dialogs=[]}=Call) -> 
+next(#call{msgs=[], trans=[], forks=[], dialogs=[]}=Call) -> 
     {stop, normal, Call};
 next(#call{hibernate=true}=Call) -> 
     {noreply, Call#call{hibernate=false}, hibernate};
-next(Call) ->
+next(#call{}=Call) ->
     {noreply, Call}.
+
 
 
 %% @private

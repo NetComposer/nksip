@@ -24,7 +24,7 @@
 
 -behaviour(gen_server).
 
--export([send/1, cancel/2, make_dialog/3, sync_reply/2]).
+-export([send/1, send/4, send_dialog/3, cancel/1, sync_reply/2]).
 -export([apply_dialog/2, get_all_dialogs/0, get_all_dialogs/2, stop_dialog/1]).
 -export([apply_sipmsg/2, get_all_sipmsgs/0, get_all_sipmsgs/2]).
 -export([get_all_calls/0, get_all_data/0]).
@@ -33,48 +33,80 @@
 -export([pos2name/1, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
+-export_type([send_common/0, send_error/0, make_error/0]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
+
+%% ===================================================================
+%% Types
+%% ===================================================================
+
+
 -type sync_error() :: unknown_sipapp | too_many_calls | timeout.
+
+-type send_common() ::  
+        {ok, nksip:response_code(), nksip:response_id(), nksip:dialog_id()} |
+        {resp, nksip:response()} |
+        {async, nksip:request_id()} |
+        ok | {ok, nksip:request()}.     % For ACKs
+
+-type send_error() :: unknown_dialog | request_pending | network_error | sync_error().
+
+-type make_error() :: invalid_uri | invalid_from | invalid_to | invalid_route |
+                      invalid_contact | invalid_cseq | send_error().
 
 
 
 %% ===================================================================
-%% Private
+%% Public
 %% ===================================================================
 
 %% @doc Sends a new request
 -spec send(nksip:request()) ->
-    {async, nksip:request_id()} | {error, sync_error()}.
+    send_common() | {error, send_error()}.
 
 send(#sipmsg{app_id=AppId, call_id=CallId}=Req) ->
     send_work_sync(AppId, CallId, {send, Req}).
 
 
-%% @doc Cancels an ongoing INVITE request
--spec cancel(nksip:request_id(), nksip_lib:proplist()) ->
-    {async, nksip:request_id()} | {error, Error}
-    when Error :: sync_error() | unknown_request | invalid_request.
+%% @doc Generates and sends a new request
+-spec send(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->
+    send_common() | {error, make_error()}.
 
-cancel({req, AppId, CallId, ReqId}, Opts) ->
-    send_work_sync(AppId, CallId, {cancel, ReqId, Opts}).
+send(AppId, Method, Uri, Opts) ->
+    case nksip_lib:get_binary(call_id, Opts) of
+        <<>> -> 
+            CallId = nksip_lib:luid(),
+            Opts1 = [{call_id, CallId}|Opts];
+        CallId -> 
+            Opts1 = Opts
+    end,
+    send_work_sync(AppId, CallId, {send, Method, Uri, Opts1}).
 
 
-%% @doc Generates a new in-dialog request
--spec make_dialog(nksip_dialog:spec(), nksip:method(), nksip_lib:proplist()) ->
-    {ok, {AppId, RUri, Opts}} | {error, Error}
-    when AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip_lib:proplist(),
-         Error :: sync_error() | invalid_dialog | unknown_dialog.
+%% @doc Generates and sends a new in-dialog request
+-spec send_dialog(nksip_dialog:spec(), nksip:method(), nksip_lib:proplist()) ->
+    send_common() | {error, send_error()}.
 
-make_dialog(DialogSpec, Method, Opts) ->
+send_dialog(DialogSpec, Method, Opts) ->
     case nksip_dialog:id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            send_work_sync(AppId, CallId, {make_dialog, DialogId, Method, Opts});
+        {dlg, AppId, CallId, Id} ->
+            send_work_sync(AppId, CallId, {send_dialog, Id, Method, Opts});
         undefined ->
             {error, unknown_dialog}
     end.
+
+
+%% @doc Cancels an ongoing INVITE request
+-spec cancel(nksip:request_id()) ->
+    ok | {error, Error}
+    when Error :: unknown_request | sync_error().
+
+cancel(ReqSpec) ->
+    {req, AppId, CallId, Id} = nksip_request:id(ReqSpec),
+    send_work_sync(AppId, CallId, {cancel, Id}).
 
 
 %% @doc Sends a callback SipApp response
@@ -88,7 +120,7 @@ app_reply(AppId, CallId, Fun, TransId, Reply) ->
 %% @doc Sends a synchronous request reply
 -spec sync_reply(nksip:request_id(), nksip:sipreply()) ->
     {ok, nksip:response()} | {error, Error}
-    when Error :: sync_error() | invalid_call | unknown_call.
+    when Error :: invalid_call | sync_error().
 
 sync_reply({req, AppId, CallId, ReqId}, Reply) ->
     send_work_sync(AppId, CallId, {sync_reply, ReqId, Reply}).
@@ -97,7 +129,7 @@ sync_reply({req, AppId, CallId, ReqId}, Reply) ->
 %% @doc Applies a fun to a dialog and returns the result
 -spec apply_dialog(nksip_dialog:spec(), function()) ->
     term() | {error, Error}
-    when Error :: sync_error() | unknown_dialog.
+    when Error :: unknown_dialog | sync_error().
 
 apply_dialog(DialogSpec, Fun) ->
     case nksip_dialog:id(DialogSpec) of
@@ -144,7 +176,7 @@ stop_dialog(DialogSpec) ->
 %% @doc Applies a fun to a SipMsg and returns the result
 -spec apply_sipmsg(nksip:request_id() | nksip:response_id(), function()) ->
     term() | {error, Error}
-    when Error :: sync_error() | unknown_sipmsg.
+    when Error :: unknown_sipmsg | sync_error().
 
 apply_sipmsg({_, AppId, CallId, MsgId}, Fun) ->
     send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun}).
@@ -211,9 +243,6 @@ pending_msgs() ->
             Acc + Len
         end,
         0).
-
-
-
 
 
 %% ===================================================================
@@ -383,7 +412,8 @@ pos2name(Pos) ->
 
 send_work_sync(AppId, CallId, Work) ->
     WorkSpec = {send_work_sync, AppId, CallId, Work},
-    case catch gen_server:call(name(CallId), WorkSpec, ?SRV_TIMEOUT) of
+    case catch gen_server:call(name(CallId), WorkSpec, 5000) of
+    % case catch gen_server:call(name(CallId), WorkSpec, ?SRV_TIMEOUT) of
         {'EXIT', Error} ->
             ?warning(AppId, CallId, "Error calling send_work_sync (~p): ~p",
                      [Work, Error]),
@@ -443,7 +473,7 @@ send_work_async(AppId, CallId, Work) ->
 
 %% @private
 -spec do_call_start(nksip:app_id(), nksip:call_id(), #state{}) ->
-    {ok, #state{}} | {error, sync_error()}.
+    {ok, #state{}} | {error, unknown_sipapp | too_many_calls}.
 
 do_call_start(AppId, CallId, #state{pos=Pos, name=Name, max_calls=MaxCalls}=SD) ->
     case nksip_counters:value(nksip_calls) < MaxCalls of
@@ -474,9 +504,7 @@ get_opts(AppId, #state{opts_dict=OptsDict}=SD) ->
             {ok, Opts, SD};
         error ->
             case nksip_sipapp_srv:get_opts(AppId) of
-                {ok, Opts0} ->
-                    Opts = nksip_lib:extract(Opts0, 
-                                             [local_host, registrar, no_100]),
+                {ok, Opts} ->
                     OptsDict1 = dict:store(AppId, Opts, OptsDict),
                     {ok, Opts, SD#state{opts_dict=OptsDict1}};
                 {error, not_found} ->

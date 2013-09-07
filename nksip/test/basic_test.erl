@@ -86,25 +86,133 @@ running() ->
         sipapp_endpoint:start(error1, [{transport, {udp, {0,0,0,0}, 5090}}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
-    ok = gen_udp:close(P1).
-
-
-transport() ->
-    C1 = {basic, client1},
-    C2 = {basic, client2},
+    ok = gen_udp:close(P1),
+    
     {error, invalid_transport} = 
                     sipapp_endpoint:start(name, [{transport, {other, {0,0,0,0}, 0}}]),
     {error, invalid_transport} = 
                     sipapp_endpoint:start(name, [{transport, {udp, {1,2,3}, 0}}]),
     {error, invalid_register} = sipapp_endpoint:start(name, [{register, "sip::a"}]),
-    {error, invalid_route} = sipapp_endpoint:start(name, [{route, "sip::a"}]),
 
-    {error, unknown_sipapp} = nksip_uac:options(invalid, "", []),
+    ok.
+    
+
+uac() ->
+    C1 = {basic, client1},
+    SipC2 = "sip:127.0.0.1:5070",
+
     {error, invalid_uri} = nksip_uac:options(C1, "sip::a", []),
-    nksip_trace:info("Next info about connection error to port 50600 is expected"),
-    {ok, 503} =
-        nksip_uac:options(C1, "sip:127.0.0.1:50600;transport=tcp", []),
+    {error, invalid_from} = nksip_uac:options(C1, SipC2, [{from, "<>"}]),
+    {error, invalid_to} = nksip_uac:options(C1, SipC2, [{to, "<>"}]),
+    {error, invalid_route} = nksip_uac:options(C1, SipC2, [{route, "<>"}]),
+    {error, invalid_contact} = nksip_uac:options(C1, SipC2, [{contact, "<>"}]),
+    {error, invalid_cseq} = nksip_uac:options(C1, SipC2, [{cseq, -1}]),
+    nksip_trace:error("Next error about 'unknown_siapp' is expected"),
+    {error, unknown_sipapp} = nksip_uac:options(none, SipC2, []),
+    nksip_trace:error("Next error about 'too_many_calls' is expected"),
+    nksip_counters:incr(nksip_calls, 1000000000),
+    {error, too_many_calls} = nksip_uac:options(C1, SipC2, []),
+    nksip_counters:incr(nksip_calls, -1000000000),
 
+    Self = self(),
+    Ref = make_ref(),
+    Fun = fun(Reply) -> Self ! {Ref, Reply} end,
+    CB = {callback, Fun},
+    Hds = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}]},
+
+    nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
+    {ok, 503, _, _} =
+        nksip_uac:options(C1, "sip:127.0.0.1:50600;transport=tcp", []),
+    % Async, error
+    {async, ReqId11} = nksip_uac:options(C1, "sip:127.0.0.1:50600;transport=tcp", 
+                                        [async, CB]),
+    receive 
+        {Ref, {req_id, ReqId11}} -> ok 
+        after 500 -> error(uac) 
+    end,
+    receive 
+        {Ref, {ok, 503, _, _}} -> ok
+        after 500 -> error(uac) 
+    end,
+
+    % Sync
+    {ok, 200, ReqId1, DlgId1} = nksip_uac:options(C1, SipC2, []),
+    200 = nksip_response:code(ReqId1),
+    error = nksip_dialog:field(DlgId1, status),
+    {error, unknown_dialog} = nksip_uac:reoptions(DlgId1, []),
+
+    % Sync, full_response
+    {resp, #sipmsg{class=resp}} = nksip_uac:options(C1, SipC2, [full_response]),
+
+    % Sync, callback for request
+    {ok, 200, RespId3, _} = nksip_uac:options(C1, SipC2, [CB]),
+    CallId3 = nksip_response:field(RespId3, call_id),
+    receive 
+        {Ref, {req_id, ReqId3}} -> CallId3 = nksip_request:field(ReqId3, call_id)
+        after 500 -> error(uac) 
+    end,
+
+    % Sync, callback for request and provisional response
+    {ok, 486, RespId4, DlgId4} = nksip_uac:invite(C1, SipC2, [Hds, CB]),
+    CallId4 = nksip_response:field(RespId4, call_id),
+    receive 
+        {Ref, {req_id, ReqId4}} -> 
+            CallId4 = nksip_request:field(ReqId4, call_id)
+        after 500 -> 
+            error(uac) 
+    end,
+    receive 
+        {Ref, {ok, 180, RespId4_180, DlgId4}} -> 
+            CallId4 = nksip_response:field(RespId4_180, call_id)
+        after 500 -> 
+            error(uac) 
+    end,
+
+    % Sync, callback for request and provisional response, full request, full_response
+    {resp, #sipmsg{class=resp, response=486, call_id=CallId5}=Resp5} = 
+        nksip_uac:invite(C1, SipC2, [Hds, CB, full_request, full_response]),
+    DialogId5 = nksip_dialog:id(Resp5),
+    receive 
+        {Ref, {req, #sipmsg{class=req, call_id=CallId5}}} -> ok
+        after 500 -> error(uac) 
+    end,
+    receive 
+        {Ref, {resp, #sipmsg{class=resp, response=180, call_id=CallId5}=Resp5_180}} ->
+            DialogId5 = nksip_dialog:id(Resp5_180)
+        after 500 -> 
+            error(uac) 
+    end,
+
+
+    % Async
+    {async, ReqId10} = nksip_uac:invite(C1, SipC2, [async, CB, Hds]),
+    CallId10 = nksip_request:field(ReqId10, call_id),
+    receive 
+        {Ref, {req_id, ReqId10}} -> CallId10 = nksip_request:field(ReqId10, call_id)
+        after 500 -> error(uac) 
+    end,
+    Dlg10 = receive 
+        {Ref, {ok, 180, RespId10_180, D10_180}} -> 
+            [180, CallId10] = nksip_response:fields(RespId10_180, [code, call_id]),
+            D10_180
+        after 500 -> 
+            error(uac) 
+    end,
+    Dlg10 = receive 
+        {Ref, {ok, 486, RespId10_486, D10_486}} -> 
+            [486, CallId10] = nksip_response:fields(RespId10_486, [code, call_id]),
+            D10_486
+        after 500 -> 
+            error(uac) 
+    end,
+
+    ok.
+
+
+
+transport() ->
+    C1 = {basic, client1},
+    C2 = {basic, client2},
     Body = base64:encode(crypto:rand_bytes(100)),
     Opts1 = [
         {headers, [{<<"Nksip">>, <<"test1">>}, {<<"Nksip-Op">>, <<"reply-request">>}]}, 
@@ -113,7 +221,7 @@ transport() ->
         {body, Body},
         full_response
     ],
-    {reply, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
+    {resp, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
     200 = nksip_response:code(Resp1),
     % Req1 is the request as received at the remote party
 
@@ -123,7 +231,7 @@ transport() ->
         nksip_request:header(Req1,  <<"Contact">>),
     Body = nksip_request:body(Req1),
 
-    {reply, #sipmsg{}=Resp2} = 
+    {resp, #sipmsg{}=Resp2} = 
         nksip_uac:options(C1, "sip:127.0.0.1;transport=tcp", [full_response]),
     200 = nksip_response:code(Resp2),
 
@@ -134,7 +242,7 @@ transport() ->
     ] = nksip_response:fields(Resp2, [parsed_contacts, remote]),
 
     % Remote has generated a SIPS Contact   
-    {reply, Resp3} = nksip_uac:options(C1, "sips:127.0.0.1", [full_response]),
+    {resp, Resp3} = nksip_uac:options(C1, "sips:127.0.0.1", [full_response]),
     200 = nksip_response:code(Resp3),
     [
         [#uri{scheme=sips, port=5061}],
@@ -150,7 +258,7 @@ transport() ->
         {body, BigBody},
         full_response
     ],
-    {reply, Resp4} = nksip_uac:options(C2, "sip:127.0.0.1", Opts4),
+    {resp, Resp4} = nksip_uac:options(C2, "sip:127.0.0.1", Opts4),
     200 = nksip_response:code(Resp4),
     Req4 = binary_to_term(base64:decode(nksip_response:body(Resp4))),
     BigBodyHash = erlang:phash2(nksip_request:body(Req4)),
@@ -163,7 +271,7 @@ transport() ->
         {route, [<<"sip:127.0.0.1;lr">>, "sip:aaa;lr, sips:bbb:123;lr"]},
         full_response
     ],
-    {reply, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
+    {resp, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
     200 = nksip_response:code(Resp5),
     Req5 = binary_to_term(base64:decode(nksip_response:body(Resp5))),
     [
@@ -174,15 +282,15 @@ transport() ->
         ]
     ] = nksip_request:fields(Req5, [parsed_contacts, parsed_routes]),
 
-    {ok, 200} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, _,  _} = nksip_uac:options(C1, "sip:127.0.0.1", 
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}]),
-    {ok, 200} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, _, _} = nksip_uac:options(C1, "sip:127.0.0.1", 
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}]),
 
     % Cover ip resolution
     case nksip_uac:options(C1, "sip:sip2sip.info;transport=tcp", []) of
-        {ok, 200} -> ok;
-        {ok, Code} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
+        {ok, 200, _,  _} -> ok;
+        {ok, Code, _,  _} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
         {error, Error} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Error])
     end,
     ok.
@@ -212,26 +320,26 @@ uas() ->
     
     % Test loop detection
     Opts1 = [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}, full_response],
-    {reply, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
+    {resp, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
     200 = nksip_response:code(Resp1),
     [CallId1, From1, CSeq1] = nksip_response:fields(Resp1, [call_id, from, cseq_num]),
     ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq, CSeq1} | Opts1],
-    {reply, Resp2} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
+    {resp, Resp2} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
     482 = nksip_response:code(Resp2),
     <<"Loop Detected">> = nksip_response:reason(Resp2),
 
     % Stateless proxies do not detect loops
     Opts3 = [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}, full_response],
-    {reply, Resp3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
+    {resp, Resp3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
     200 = nksip_response:code(Resp3),
     [CallId3, From3, CSeq3] = nksip_response:fields(Resp3, [call_id, from, cseq_num]),
     ForceLoopOpts4 = [{call_id, CallId3}, {from, From3}, {cseq, CSeq3} | Opts3],
-    {reply, Resp4} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
+    {resp, Resp4} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
     200 = nksip_response:code(Resp4),
 
     % Test bad extension endpoint and proxy
     Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, full_response],
-    {reply, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
+    {resp, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
     420 = nksip_response:code(Resp5),
     [<<"a,b,d">>] = nksip_response:header(Resp5, <<"Unsupported">>),
     Opts6 = [
@@ -239,14 +347,14 @@ uas() ->
         {route, "<sip:127.0.0.1;lr>"},
         full_response
     ],
-    {reply, Resp6} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
+    {resp, Resp6} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
     420 = nksip_response:code(Resp6),
     [<<"a,b,d">>] = nksip_response:header(Resp6, <<"Unsupported">>),
 
     % Force invalid response
     Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}, full_response],
     tests_util:log(error),
-    {reply, Resp7} = nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
+    {resp, Resp7} = nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
     tests_util:log(),
     500 = nksip_response:code(Resp7),
     <<"Invalid Response">> = nksip_response:reason(Resp7),
@@ -314,5 +422,11 @@ stun() ->
     {ok, {{0,0,0,0}, 5060}, {{127,0,0,1}, 5060}} = 
         nksip_uac:stun({basic, server1}, "sip:127.0.0.1:5070", []),
     ok.
+
+
+
+
+
+
 
 

@@ -32,7 +32,8 @@
 -include("nksip_call.hrl").
 
 -type timeout_timer() :: timer_b | timer_d | timer_f | timer_h | timer_i | 
-                         timer_j | timer_k | timer_l | timer_m | timeout.
+                         timer_j | timer_k | timer_l | timer_m | timeout |
+                         wait_sipapp.
 
 -type retrans_timer() :: timer_a | timer_e | timer_g.
 
@@ -156,7 +157,8 @@ trace(Msg, #call{app_id=AppId, call_id=CallId}) ->
 
 timeout_timer(Tag, Trans) 
             when Tag=:=timer_b; Tag=:=timer_f; Tag=:=timer_m;
-                 Tag=:=timer_h; Tag=:=timer_j; Tag=:=timer_l ->
+                 Tag=:=timer_h; Tag=:=timer_j; Tag=:=timer_l;
+                 Tag=:=wait_sipapp ->
     Time = 64*nksip_config:get(timer_t1),
     Trans#trans{timeout_timer=start_timer(Time, Tag, Trans)};
 
@@ -207,16 +209,20 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans) when Tag=:=timer_e; Tag=:=ti
 -spec expire_timer(expire_timer(), trans()) ->
     trans().
 
-expire_timer(expire, #trans{id=Id, class=Class, request=#sipmsg{opts=Opts}=Req}=Trans) ->
+expire_timer(expire, #trans{id=Id, class=Class, request=Req}=Trans) ->
     Timer = case nksip_sipmsg:header(Req, <<"Expires">>, integers) of
         [Expires] when is_integer(Expires), Expires > 0 -> 
-            case lists:member(no_auto_expire, Opts) of
+            case lists:member(no_auto_expire, Req#sipmsg.opts) of
                 true -> 
+                    #sipmsg{app_id=AppId, call_id=CallId} = Req,
+                    ?debug(AppId, CallId, "UAC ~p skipping INVITE expire", [Id]),
                     undefined;
                 _ -> 
-                    #sipmsg{app_id=AppId, call_id=CallId} = Req,
-                    ?warning(AppId, CallId, "~p ~p started expire timer: ~p secs", [Class, Id, Expires]),
-                    start_timer(1000*Expires, expire, Trans)
+                    Time = case Class of 
+                        uac -> 1000*Expires;
+                        uas -> 1000*Expires+100     % UAC fires first
+                    end,
+                    start_timer(Time, expire, Trans)
             end;
         _ ->
             undefined

@@ -19,13 +19,13 @@
 %% -------------------------------------------------------------------
 
 %% @private Call dialog library module.
--module(nksip_call_dialog_lib).
+-module(nksip_call_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/3, status_update/2, target_update/1, session_update/1, timer/3]).
+-export([create/3, status_update/3, timer/3]).
 -export([find/2, update/2, remotes_update/2]).
 
 -type call() :: nksip_call:call().
@@ -49,7 +49,7 @@ create(Class, Req, Resp) ->
         transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port},
         from_tag = FromTag
     } = Req,
-    #sipmsg{to=To, to_tag=ToTag} = Resp,
+    #sipmsg{to=To} = Resp,
     {dlg, _, _, DialogId} = nksip_dialog:id(Resp),
     ?debug(AppId, CallId, "Dialog ~p (~p) created", [DialogId, Class]),
     nksip_counters:async([nksip_dialogs]),
@@ -67,6 +67,7 @@ create(Class, Req, Resp) ->
         route_set = [],
         secure = Proto=:=tls andalso Scheme=:=sips,
         early = true,
+        caller_tag = FromTag,
         local_sdp = undefined,
         remote_sdp = undefined,
         media_started = false,
@@ -74,12 +75,11 @@ create(Class, Req, Resp) ->
         remotes = [{Ip, Port}]
     },
     if 
-        Class=:=uac; Class=:=proxy ->
+        Class=:=uac ->
             Dialog#dialog{
                 local_seq = CSeq,
                 remote_seq = 0,
                 local_uri = From,
-                local_tag = FromTag,
                 remote_uri = To
             };
         Class=:=uas ->
@@ -87,17 +87,16 @@ create(Class, Req, Resp) ->
                 local_seq = 0,
                 remote_seq = CSeq,
                 local_uri = To,
-                local_tag = ToTag,
                 remote_uri = From
             }
     end.
 
 
 %% @private
--spec status_update(nksip_dialog:status(), nksip:dialog()) ->
+-spec status_update(uac|uas, nksip_dialog:status(), nksip:dialog()) ->
     nksip:dialog().
 
-status_update(Status, Dialog) ->
+status_update(Class, Status, Dialog) ->
     #dialog{
         id = DialogId, 
         app_id = AppId, 
@@ -136,26 +135,26 @@ status_update(Status, Dialog) ->
                 timeout_timer = start_timer(Timeout, timeout, Dialog)
             }
     end,
-    Dialog2 = case Media andalso (Status=:=bye orelse element(1, Status)=:=stop) of
-        true -> 
+    Dialog2 = case Media of
+        true when Status=:=bye; element(1, Status)=:=stop ->
             cast(session_update, stop, Dialog),
             Dialog1#dialog{media_started=false};
-        false -> 
+        _ -> 
             Dialog1
     end,
     case Status of
         proceeding_uac ->
-            Dialog3 = target_update(Dialog2),
-            session_update(Dialog3);
+            Dialog3 = target_update(Class, Dialog2),
+            session_update(Class, Dialog3);
         accepted_uac ->
-            Dialog3 = target_update(Dialog2),
-            session_update(Dialog3);
+            Dialog3 = target_update(Class, Dialog2),
+            session_update(Class, Dialog3);
         proceeding_uas ->
-            Dialog3 = target_update(Dialog2),
-            session_update(Dialog3);
+            Dialog3 = target_update(Class, Dialog2),
+            session_update(Class, Dialog3);
         accepted_uas ->    
-            Dialog3 = target_update(Dialog2),
-            Dialog4 = session_update(Dialog3),
+            Dialog3 = target_update(Class, Dialog2),
+            Dialog4 = session_update(Class, Dialog3),
             T1 = nksip_config:get(timer_t1),
             ?debug(AppId, CallId, "Dialog ~p start retrans timer", [DialogId]),
             Dialog4#dialog{
@@ -163,7 +162,7 @@ status_update(Status, Dialog) ->
                 next_retrans = 2*T1
             };
         confirmed ->
-            Dialog3 = session_update(Dialog2),
+            Dialog3 = session_update(Class, Dialog2),
             Dialog3#dialog{request=undefined, response=undefined, 
                            ack=undefined};
         bye ->
@@ -177,10 +176,10 @@ status_update(Status, Dialog) ->
 
 
 %% @private Performs a target update
--spec target_update(nksip:dialog()) ->
+-spec target_update(uac|uas, nksip:dialog()) ->
     nksip:dialog().
 
-target_update(#dialog{response=#sipmsg{}}=Dialog) ->
+target_update(Class, #dialog{response=#sipmsg{}}=Dialog) ->
     #dialog{
         id = DialogId,
         app_id = AppId,
@@ -190,14 +189,12 @@ target_update(#dialog{response=#sipmsg{}}=Dialog) ->
         answered = Answered,
         remote_target = RemoteTarget,
         local_target = LocalTarget,
-        local_tag = LocalTag,
         route_set = RouteSet,
         request = Req,
         response = Resp
     } = Dialog,
-    #sipmsg{from_tag=FromTag, contacts=ReqContacts} = Req,
+    #sipmsg{contacts=ReqContacts} = Req,
     #sipmsg{response=Code, contacts=RespContacts} = Resp,
-    Class = case FromTag of LocalTag -> uac; _ -> uas end,
     case Class of
         uac -> 
             RemoteTargets = RespContacts,
@@ -270,15 +267,16 @@ target_update(#dialog{response=#sipmsg{}}=Dialog) ->
         route_set = RouteSet1
     };
 
-target_update(Dialog) ->
+target_update(_, Dialog) ->
     Dialog.
 
 
 %% @private Performs a session update
--spec session_update(nksip:dialog()) ->
+-spec session_update(uac|uas, nksip:dialog()) ->
     nksip:dialog().
 
-session_update(#dialog{
+session_update(Class, 
+                #dialog{
                     answered = Answered, 
                     response = #sipmsg{body=RespBody, response=Code}
                 } = Dialog) 
@@ -287,19 +285,17 @@ session_update(#dialog{
                     orelse
                     (Code>=200 andalso Code<300) ->
     #dialog{
-        request = #sipmsg{from_tag=FromTag, body=ReqBody0},
+        request = #sipmsg{body=ReqBody0},
         ack = Ack,
         local_sdp = DLocalSDP, 
         remote_sdp = DRemoteSDP, 
-        media_started = Started,
-        local_tag = LocalTag
+        media_started = Started
     } = Dialog, 
     ReqBody = case ReqBody0 of
         #sdp{} -> ReqBody0;
         _ when is_record(Ack, sipmsg) -> Ack#sipmsg.body;
         _ -> <<>>
     end,
-    Class = case FromTag of LocalTag -> uac; _ -> uas end,
     case Class of
         uac ->
             LocalSDP = case ReqBody of #sdp{} -> ReqBody; _ -> undefined end,
@@ -329,7 +325,7 @@ session_update(#dialog{
             Dialog
     end;
 
-session_update(Dialog) ->
+session_update(_, Dialog) ->
     Dialog.
 
 
@@ -353,7 +349,8 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
             update(Dialog1, Call);
         error ->
             ?call_notice("Dialog ~p could not resend response", [DialogId], Call),
-            status_update({stop, ack_timeout}, Dialog)
+            Dialog1 = status_update(uas, {stop, ack_timeout}, Dialog),
+            update(Dialog1, Call)
     end;
     
 timer(retrans, #dialog{id=DialogId, status=Status}, Call) ->
@@ -367,7 +364,7 @@ timer(timeout, #dialog{id=DialogId, status=Status}=Dialog, Call) ->
         accepted_uas -> ack_timeout;
         _ -> timeout
     end,
-    Dialog1 = status_update({stop, Reason}, Dialog),
+    Dialog1 = status_update(uas, {stop, Reason}, Dialog),
     update(Dialog1, Call).
 
 
@@ -427,8 +424,7 @@ update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
 -spec remotes_update(nksip:request()|nksip:response(), nksip:dialog()) ->
     nksip:dialog().
 
-remotes_update(SipMsg, Dialog) ->
-    #sipmsg{transport=#transport{remote_ip=Ip, remote_port=Port}} = SipMsg,
+remotes_update(#sipmsg{transport=#transport{remote_ip=Ip, remote_port=Port}}, Dialog) ->
     #dialog{
         id = DialogId, 
         status = Status,
@@ -444,7 +440,15 @@ remotes_update(SipMsg, Dialog) ->
             ?debug(AppId, CallId, "Dialog ~p (~p) updated remotes: ~p", 
                    [DialogId, Status, Remotes1]),
             Dialog#dialog{remotes=Remotes1}
-    end.
+    end;
+
+remotes_update(_, Dialog) ->
+    Dialog.
+
+
+%% @private
+-spec cast(atom(), list(), nksip:dialog()) ->
+    ok.
 
 cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
     Id ={dlg, AppId, CallId, DialogId},

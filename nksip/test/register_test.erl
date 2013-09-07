@@ -76,12 +76,12 @@ register1() ->
     Server1 = {basic, server1},
 
     % Method not allowed
-    {ok, 405} = nksip_uac:register(Client2, "sip:127.0.0.1:5070", []),
+    {ok, 405, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1:5070", []),
 
-    {ok, 400} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {ok, 400, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                         [{from, "sip:one"}, {to, "sip:two"}]),
 
-    {reply, Resp1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {resp, Resp1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                                 [unregister_all, full_response]),
     200 = nksip_response:code(Resp1),
     [] = nksip_response:header(Resp1, <<"Contact">>),
@@ -91,14 +91,14 @@ register1() ->
     Self = self(),
     RespFun = fun(Reply) -> Self ! {Ref, Reply} end,
     {async, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
-                                    [async, {respfun, RespFun}, make_contact, 
+                                    [async, {callback, RespFun}, make_contact, 
                                      full_request, full_response]),
     [CallId, CSeq] = receive 
-        {Ref, {request, Req2}} -> nksip_request:fields(Req2, [call_id, cseq_num])
+        {Ref, {req, Req2}} -> nksip_request:fields(Req2, [call_id, cseq_num])
         after 2000 -> error(register1)
     end,
 
-    receive {Ref, {reply, Resp2}} -> ok after 2000 -> Resp2 = error(register1) end,
+    receive {Ref, {resp, Resp2}} -> ok after 2000 -> Resp2 = error(register1) end,
 
     Name = <<"client1">>,
     [#uri{user=Name, domain=Domain, port=Port, ext_opts=[{expires, DefB}]}] = 
@@ -111,26 +111,25 @@ register1() ->
     Contact2 = MakeContact(DefB),
     [Contact2] = nksip_response:header(Resp2, <<"Contact">>),
 
-    {reply, Resp2b} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {resp, Resp2b} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq}, make_contact,
                                      full_response]),
     400 = nksip_response:code(Resp2b),
     <<"Rejected Old CSeq">> = nksip_response:reason(Resp2b),
 
-    {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {ok, 200, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq+1}, make_contact]),
 
-    {ok, 400} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {ok, 400, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq+1}, 
                                      unregister_all]),
-
     Opts3 = [{expires, Min-1}, make_contact, full_response],
-    {reply, Resp3} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts3),
+    {resp, Resp3} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts3),
     423 = nksip_response:code(Resp3),
     [MinB] = nksip_response:header(Resp3, <<"Min-Expires">>),
 
     Opts4 = [{expires, Max+1}, make_contact, full_response],
-    {reply, Resp4} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts4),
+    {resp, Resp4} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts4),
     200 = nksip_response:code(Resp4),
     Contact4 = MakeContact(MaxB),
     [Contact4] = nksip_response:header(Resp4, <<"Contact">>),
@@ -139,7 +138,7 @@ register1() ->
 
     Opts5 = [{expires, Min}, make_contact, full_response],
     ExpB = nksip_lib:to_binary(Min),
-    {reply, Resp5} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts5),
+    {resp, Resp5} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts5),
     200 = nksip_response:code(Resp5),
     Contact5 = MakeContact(ExpB),
     [Contact5] = nksip_response:header(Resp5, <<"Contact">>),
@@ -184,32 +183,32 @@ register2() ->
     Server1 = {basic, server1},
 
 
-    {reply, Resp1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {resp, Resp1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                             [unregister_all, full_response]),
     200 = nksip_response:code(Resp1),
 
     [] = nksip_response:header(Resp1, <<"Contact">>),
     [] = nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
-    {reply, Resp2} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+    {resp, Resp2} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                             [FromS, unregister_all, full_response]),
     200 = nksip_response:code(Resp2),
     [] = nksip_response:header(Resp2, <<"Contact">>),
     [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
-    {ok, 200} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
-    {ok, 200} = nksip_uac:register(Client1, 
+    {ok, 200, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
+    {ok, 200, _, _} = nksip_uac:register(Client1, 
                                             "sip:127.0.0.1;transport=tcp", Opts1),
-    {ok, 200} = nksip_uac:register(Client1, 
+    {ok, 200, _, _} = nksip_uac:register(Client1, 
                                             "sip:127.0.0.1;transport=tls", Opts1),
-    {ok, 200} = nksip_uac:register(Client1, "sips:127.0.0.1", Opts1),
+    {ok, 200, _, _} = nksip_uac:register(Client1, "sips:127.0.0.1", Opts1),
 
-    {ok, 400} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts2),
-    {reply, Resp4} = nksip_uac:register(Client1, "sips:127.0.0.1", 
+    {ok, 400, _, _} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts2),
+    {resp, Resp4} = nksip_uac:register(Client1, "sips:127.0.0.1", 
                         [{contact, <<"<sips:client1@127.0.0.1:5071>">>}, 
                             full_response| Opts2--[make_contact]]),
     200 = nksip_response:code(Resp4),
 
-    {reply, Resp3} = nksip_uac:register(Client1, "sip:127.0.0.1", [full_response]),
+    {resp, Resp3} = nksip_uac:register(Client1, "sip:127.0.0.1", [full_response]),
     200 = nksip_response:code(Resp3),
     [
         #uri{scheme=sip, port=5070, opts=[], ext_opts=[{expires, <<"300">>}]},
@@ -225,19 +224,19 @@ register2() ->
         nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
     Contact = <<"<sips:client1@127.0.0.1:5071>;expires=0">>,
-    {ok, 200} = nksip_uac:register(Client1, "sips:127.0.0.1", 
+    {ok, 200, _, _} = nksip_uac:register(Client1, "sips:127.0.0.1", 
                                         [{contact, Contact}|Opts2--[make_contact]]),
     [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
-    {ok, 200} = nksip_uac:register(Client2, 
+    {ok, 200, _, _} = nksip_uac:register(Client2, 
                                         "sip:127.0.0.1", [unregister_all]),
     [] = nksip_registrar:find(Server1, sip, <<"client2">>, <<"nksip">>),
 
-    {ok, 200} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
                                 [{local_host, "aaa"}, make_contact]),
-    {ok, 200} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
                                 [{contact, "<sip:bbb>;q=2.1;expires=180, <sips:ccc>;q=3"}]),
-    {ok, 200} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", 
                                 [{contact, <<"<sip:ddd:444;transport=tcp>;q=2.1">>}]),
     [
         [
@@ -256,5 +255,5 @@ register2() ->
                 opts = [], ext_opts = [{q,<<"3">>},{expires,<<"3600">>}]}
         ]
     ] = nksip_registrar:qfind(Server1, sip, <<"client2">>, <<"nksip">>),
-    {ok, 200} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
+    {ok, 200, _, _} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
     ok.

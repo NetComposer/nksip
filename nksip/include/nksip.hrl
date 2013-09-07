@@ -145,7 +145,6 @@
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
     expire :: nksip_lib:timestamp(),
-    % pid :: pid(),   % Remove??
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
     opts = [] :: nksip_lib:proplist()
@@ -189,13 +188,13 @@
     local_seq :: 0 | nksip:cseq(),
     remote_seq :: 0 | nksip:cseq(),
     local_uri :: nksip:uri(),
-    local_tag :: nksip:tag(),
     remote_uri :: nksip:uri(),
     local_target :: nksip:uri(),        % Only for use in proxy
     remote_target :: nksip:uri(),
     route_set :: [nksip:uri()],
     early :: boolean(),
     secure :: boolean(),
+    caller_tag :: nksip:tag(),
     local_sdp :: nksip_sdp:sdp(),
     remote_sdp :: nksip_sdp:sdp(),
     media_started :: boolean(),

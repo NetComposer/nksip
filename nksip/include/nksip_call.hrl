@@ -55,7 +55,7 @@
     class :: uac | uas,
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nksip_lib:timestamp(),
-    fork_id :: nksip_call_fork:id(),
+    from :: {srv, from()} | {fork, nksip_call_fork:id()} | none,
     request :: nksip:request(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
@@ -63,15 +63,15 @@
     opts :: nksip_lib:proplist(),
     response :: nksip:response(),
     code :: 0 | nksip:response_code(),
+    to_tags = [] :: [nksip:tag()],
     stateless :: boolean(),
     timeout_timer :: {nksip_call_lib:timeout_timer(), reference()},
     retrans_timer :: {nksip_call_lib:retrans_timer(), reference()},
     next_retrans :: non_neg_integer(),
     expire_timer :: {nksip_call_lib:expire_timer(), reference()},
-    cancel :: undefined | {to_cancel, from()|none, nksip_lib:proplist()} | cancelled,
+    cancel :: undefined | to_cancel | cancelled,
     loop_id :: integer(),
     ack_trans_id :: integer(),
-    first_to_tag = <<>> :: nksip:tag(),
     iter = 1 :: integer()
 }).
 

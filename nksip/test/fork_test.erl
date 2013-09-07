@@ -130,40 +130,40 @@ start() ->
     nksip_registrar:clear(),
     Reg = "sip:nksip",
     Opts = [make_contact, full_response],
-    {reply, Res1} = nksip_uac:register({fork, clientA1}, Reg, Opts),
+    {resp, Res1} = nksip_uac:register({fork, clientA1}, Reg, Opts),
     [200, [#uri{user= <<"clientA1">>}=CA1]] = 
         nksip_response:fields(Res1, [code, parsed_contacts]),
-    {ok, 200} = nksip_uac:register({fork, clientA1}, Reg, 
+    {ok, 200, _, _} = nksip_uac:register({fork, clientA1}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
 
-    {reply, Res3} = nksip_uac:register({fork, clientB1}, Reg, Opts),
+    {resp, Res3} = nksip_uac:register({fork, clientB1}, Reg, Opts),
     [200, [#uri{user= <<"clientB1">>}=CB1]] = 
         nksip_response:fields(Res3, [code, parsed_contacts]),
-    {ok, 200} = nksip_uac:register({fork, clientB1}, Reg, 
+    {ok, 200, _, _} = nksip_uac:register({fork, clientB1}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
 
-    {reply, Res5} = nksip_uac:register({fork, clientC1}, Reg, Opts),
+    {resp, Res5} = nksip_uac:register({fork, clientC1}, Reg, Opts),
     [200, [#uri{user= <<"clientC1">>}=CC1]] = 
         nksip_response:fields(Res5, [code, parsed_contacts]),
-    {ok, 200} = nksip_uac:register({fork, clientC1}, Reg, 
+    {ok, 200, _, _} = nksip_uac:register({fork, clientC1}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
     
-    {reply, Res7} = nksip_uac:register({fork, clientA2}, Reg, Opts),
+    {resp, Res7} = nksip_uac:register({fork, clientA2}, Reg, Opts),
     [200, [#uri{user= <<"clientA2">>}=CA2]] = 
         nksip_response:fields(Res7, [code, parsed_contacts]),
-    {ok, 200} = nksip_uac:register({fork, clientA2}, Reg, 
+    {ok, 200, _, _} = nksip_uac:register({fork, clientA2}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
 
-    {reply, Res9} = nksip_uac:register({fork, clientB2}, Reg, Opts),
+    {resp, Res9} = nksip_uac:register({fork, clientB2}, Reg, Opts),
     [200, [#uri{user= <<"clientB2">>}=CB2]] = 
         nksip_response:fields(Res9, [code, parsed_contacts]),
-    {ok, 200} = nksip_uac:register({fork, clientB2}, Reg, 
+    {ok, 200, _, _} = nksip_uac:register({fork, clientB2}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
 
-    {reply, Res11} = nksip_uac:register({fork, clientC3}, Reg, Opts),
+    {resp, Res11} = nksip_uac:register({fork, clientC3}, Reg, Opts),
     [200, [#uri{user= <<"clientC3">>}=CC3]] = 
         nksip_response:fields(Res11, [code, parsed_contacts]),
-    {ok, 200} = nksip_uac:register({fork, clientC3}, Reg, 
+    {ok, 200, _, _} = nksip_uac:register({fork, clientC3}, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),
 
     tests_util:log(),
@@ -214,7 +214,7 @@ basic() ->
 
     % We have to complete the three iterations
     Opts1 = [{clientC3, 300}],
-    {reply, Res1} = nksip_uac:invite({fork, client1}, QUri, 
+    {resp, Res1} = nksip_uac:invite({fork, client1}, QUri, 
                                           [{body, Opts1}, full_response, 
                                            {headers, [RepHd]}]),
     300 = nksip_response:code(Res1),
@@ -225,7 +225,7 @@ basic() ->
 
     % The first 6xx response aborts everything at first iteration
     Opts2 = [{clientA1, 600}],
-    {reply, Res2} = nksip_uac:invite({fork, client2}, QUri, 
+    {resp, Res2} = nksip_uac:invite({fork, client2}, QUri, 
                                       [{body, Opts2}, full_response, {headers, [RepHd]}]),
     600 = nksip_response:code(Res2),
     [<<"clientA1,serverR,server2">>] = nksip_response:header(Res2, <<"Nk-Id">>),
@@ -233,7 +233,7 @@ basic() ->
 
     % Aborted in second iteration
     Opts3 = [{clientA1, 505}, {clientB2, 600}],
-    {reply, Res3} = nksip_uac:invite({fork, client3}, QUri, 
+    {resp, Res3} = nksip_uac:invite({fork, client3}, QUri, 
                                       [{body, Opts3}, full_response, {headers, [RepHd]}]),
     600 = nksip_response:code(Res3),
     [<<"clientB2,serverR,server3">>] = nksip_response:header(Res3, <<"Nk-Id">>),
@@ -243,9 +243,9 @@ basic() ->
     % Resonse from clientB1 will timeout timer_c. The lower response code will be 408
     nksip_config:put(timer_c, 1),
     Opts4 = [{clientB1, {490, 3000}}],
-    Fun = fun({reply, Resp}) -> Self ! {Ref, {resp, Resp#sipmsg.response}} end,
-    {reply, Res4} = nksip_uac:invite({fork, client1}, QUri, 
-                                      [{body, Opts4}, {respfun, Fun}, full_response,
+    Fun = fun({resp, Resp}) -> Self ! {Ref, {resp, Resp#sipmsg.response}} end,
+    {resp, Res4} = nksip_uac:invite({fork, client1}, QUri, 
+                                      [{body, Opts4}, {callback, Fun}, full_response,
                                        {headers, [RepHd]}]),
     408 = nksip_response:code(Res4),
     <<"Timer C Timeout">> = nksip_response:reason(Res4),
@@ -260,9 +260,9 @@ basic() ->
     nksip_config:put(proxy_timeout, 1),
     nksip_trace:notice("Next notice about Proxy Timeout is expected"),
     Opts5 = [{clientC1, {490, 3000}}],
-    {reply, Res5} = nksip_uac:invite({fork, client1}, QUri, 
+    {resp, Res5} = nksip_uac:invite({fork, client1}, QUri, 
                                       [{headers, [RepHd]}, {body, Opts5}, 
-                                       {respfun, Fun}, full_response]),
+                                       {callback, Fun}, full_response]),
     408 = nksip_response:code(Res5),
     <<"Proxy Timeout">> = nksip_response:reason(Res5),
     [] = nksip_response:header(Res5, <<"Nk-Id">>),
@@ -288,10 +288,10 @@ invite() ->
     nksip_trace:notice("Next notice about UAC stopping secondary dialog is expected"),
     Opts1 = [{clientB1, {488, 3000}}, {clientC1, {486, 3000}}],
     {async, CancelId} = nksip_uac:invite({fork, client1}, QUri, 
-                                         [async, {respfun, Fun}, {body, Opts1},
+                                         [async, {callback, Fun}, {body, Opts1},
                                           {headers, [RepHd]}]),
     timer:sleep(500),
-    {ok, 200} = nksip_uac:cancel(CancelId, []),
+    {ok, 200, _, _} = nksip_uac:cancel(CancelId, []),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {resp, 180}, {resp, 180}, {resp, 487},
                                {clientB1, 488}, {clientC1, 486}]),
 
@@ -300,8 +300,8 @@ invite() ->
     nksip_trace:notice("Next notices about UAC stopping two secondary dialogs are expected"),
     Opts2 = [{clientB1, {503, 500}}, {clientC1, {415, 500}},
              {clientC3, {200, 1000}}],
-    {ok, 200, Dialog1} = nksip_uac:invite({fork, client2}, QUri, 
-                                            [{respfun, Fun}, {body, Opts2},
+    {ok, 200, _, Dialog1} = nksip_uac:invite({fork, client2}, QUri, 
+                                            [{callback, Fun}, {body, Opts2},
                                              {headers, [RepHd]}]),
     ok = nksip_uac:ack(Dialog1, []),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 503}, {clientC1, 415},
@@ -310,13 +310,13 @@ invite() ->
                                {clientC3, ack}]),
 
     % In-dialog OPTIONS
-    {reply, Res3} = nksip_uac:options(Dialog1, [full_response]),
+    {resp, Res3} = nksip_uac:options(Dialog1, [full_response]),
     200 = nksip_response:code(Res3),
     [<<"clientC3,server2">>] = nksip_response:header(Res3, <<"Nk-Id">>),
 
     % Remote party in-dialog OPTIONS
     Dialog2 = nksip_dialog:remote_id({fork, clientC3}, Dialog1),
-    {reply, Res4} = nksip_uac:options(Dialog2, [full_response]),
+    {resp, Res4} = nksip_uac:options(Dialog2, [full_response]),
     200 = nksip_response:code(Res4),
     [<<"client2,server2">>] = nksip_response:header(Res4, <<"Nk-Id">>),
     
@@ -333,7 +333,7 @@ invite() ->
                             [state, local_uri, remote_uri, local_target, remote_target]),
                             
     
-    {ok, 200} = nksip_uac:bye(Dialog1, []),
+    {ok, 200, _, _} = nksip_uac:bye(Dialog1, []),
     timer:sleep(100),
     error = nksip_dialog:field(Dialog1, state),
     error = nksip_dialog:field(Dialog2, state),
@@ -353,7 +353,7 @@ redirect() ->
                 #uri{domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
     Opts1 = [{clientC1, {redirect, Contacts}}, {clientD2, 570}],
-    {reply, Res1} = nksip_uac:invite({fork, clientA1}, QUri, 
+    {resp, Res1} = nksip_uac:invite({fork, clientA1}, QUri, 
                                         [{body, Opts1}, full_response, 
                                          {headers, [RepHd]}]),
     300 = nksip_response:code(Res1),
@@ -368,7 +368,7 @@ redirect() ->
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 300},
                                {clientA2, 580}, {clientB2, 580}, {clientC3, 580}]),
     
-    {ok, 570, _} = nksip_uac:invite({fork, clientA1}, QUri, 
+    {ok, 570, _, _} = nksip_uac:invite({fork, clientA1}, QUri, 
                                      [{headers, [{"Nk-Redirect", true}, RepHd]}, 
                                       {body, Opts1}]),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 300},
@@ -395,14 +395,14 @@ multiple_200() ->
     ok = tests_util:wait(Ref, 
                             [{clientA1, 200}, {clientB1, 200}, {clientC1, 200}, 
                              {clientA1, ack}, {clientB1, ack}, {clientC1, ack}]),
-    {ok, 200} = nksip_uac:bye(Dialog1, []),
+    {ok, 200, _, _} = nksip_uac:bye(Dialog1, []),
 
     % client3 requests are sent to server3, which is stateful and record-routing
     nksip_trace:info("Next two infos about UAC Trans receiving secondary response "
                      "are expected"),
     nksip_trace:info("Next two infos about terminated proxy sending ACK and BYE "
                       "are expected"),
-    {ok, 200, Dialog2} = nksip_uac:invite({fork, client3}, QUri, 
+    {ok, 200, _, Dialog2} = nksip_uac:invite({fork, client3}, QUri, 
                                           [{body, Opts}, {headers, [RepHd]}]),
     ok = nksip_uac:ack(Dialog2, []),
     ok = tests_util:wait(Ref, 
@@ -410,7 +410,7 @@ multiple_200() ->
                              {clientA1, ack}, {clientB1, ack}, {clientC1, ack}]),
 
     % Remove the real dialog created at client3, server3 and the remote party
-    {ok, 200} = nksip_uac:bye(Dialog2, []),
+    {ok, 200, _, _} = nksip_uac:bye(Dialog2, []),
 
     % server3 returns the first 2xx response to client3 and stops (it does not know
     % the request has been forked by serverR). After that, two more 2xx are received. 

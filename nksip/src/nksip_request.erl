@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, header/2, dialog_id/1, body/1, method/1]).
--export([is_local_route/1, provisional_reply/2]).
+-export([is_local_route/1, provisional_reply/2, id/1]).
 -export_type([id/0, field/0]).
 
 -include("nksip.hrl").
@@ -294,6 +294,7 @@ body(Req) ->
     field(Req, body).
 
 
+
 %% @doc Sends a <i>provisional response</i> to a request.
 -spec provisional_reply(nksip:request()|nksip:request_id(), nksip:sipreply()) -> 
     ok | {error, Error}
@@ -325,3 +326,11 @@ is_local_route(Req) ->
     end.
 
 
+%% @doc Gets the {@link nksip:request_id()} of a request
+-spec id(nksip:request()|nksip:request_id()) ->
+    nksip:request_id().
+
+id({req, _, _, _}=Id) ->
+    Id;
+id(#sipmsg{class=req, id=Id, app_id=AppId, call_id=CallId}) ->
+    {req, AppId, CallId, Id}.

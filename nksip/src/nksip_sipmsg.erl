@@ -44,6 +44,9 @@
 field(#sipmsg{}=SipMsg, Field) ->
     get_field(SipMsg, Field);
 
+field({_, _AppId, CallId, _Id}, call_id) ->
+    CallId;
+
 field(MsgId, Field) ->
     case fields(MsgId, [Field]) of
         [Value] -> Value;
@@ -118,7 +121,6 @@ get_sipmsg(MsgId) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
-
 
 
 %% @private Extracts a specific field from the request

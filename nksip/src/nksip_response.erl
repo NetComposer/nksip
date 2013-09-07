@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([field/2, fields/2, header/2, body/1, code/1, reason/1, dialog_id/1]).
+-export([field/2, fields/2, header/2, body/1, code/1, reason/1, id/1, dialog_id/1]).
 -export([wait_491/0]).
 -export_type([id/0, field/0]).
 
@@ -133,6 +133,18 @@ dialog_id(Resp) ->
 
 body(Resp) -> 
     field(Resp, body).
+
+
+%% @doc Gets the {@link nksip:response_id()} of a request
+-spec id(nksip:response()|nksip:response_id()) ->
+    nksip:response_id().
+
+id({resp, _, _, _}=Id) ->
+    Id;
+id(#sipmsg{class=resp, id=Id, app_id=AppId, call_id=CallId}) ->
+    {resp, AppId, CallId, Id}.
+
+
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after

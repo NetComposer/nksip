@@ -174,6 +174,7 @@ response(Req, Code, Headers, Body, Opts) ->
     % If to_tag is present in Opts1, it takes priority. Used by proxy server
     % when it generates a 408 response after a remote party has already sent a 
     % response
+
     case nksip_lib:get_binary(to_tag, Opts1) of
         <<>> when Code < 101 ->
             ToTag1 = <<>>,

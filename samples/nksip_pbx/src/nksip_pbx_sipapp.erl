@@ -249,7 +249,7 @@ test_speed([], Acc) ->
     Acc;
 test_speed([Uri|Rest], Acc) ->
     case timer:tc(fun() -> nksip_uac:options(pbx, Uri, []) end) of
-        {Time, {ok, 200}} -> 
+        {Time, {ok, 200, _, _}} -> 
             test_speed(Rest, [{Time/1000, Uri}|Acc]);
         {_, _} -> 
             test_speed(Rest, Acc)

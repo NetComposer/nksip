@@ -126,7 +126,7 @@ options(_RequestId, _From, State) ->
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
 invite(DialogId, RequestId, From, #state{id={Test, Id}, dialogs=Dialogs}=State)
-       when Test=:=invite; Test=:=stateless; Test=:=stateful ->
+       when Test=:=basic; Test=:=invite; Test=:=stateless; Test=:=stateful ->
     Values = nksip_request:header(RequestId, <<"Nk">>),
     Routes = nksip_request:header(RequestId, <<"Route">>),
     Ids = nksip_request:header(RequestId, <<"Nk-Id">>),
@@ -174,7 +174,7 @@ invite(DialogId, RequestId, From, #state{id={Test, Id}, dialogs=Dialogs}=State)
                 <<"busy">> ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
-                    SDP1 = nksip_dialog:field(RequestId, local_sdp),
+                    SDP1 = nksip_dialog:field(DialogId, local_sdp),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, Hds, SDP2});
                 _ ->
@@ -277,10 +277,11 @@ dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) 
             none;
         {DialogId, Ref, Pid} ->
             case Update of
+                start -> ok;
                 {status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
+                {status, _} -> ok;
                 target_update -> Pid ! {Ref, {Id, dialog_target_update}};
-                {stop, Reason} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}};
-                _ -> ok
+                {stop, Reason} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}}
             end
     end,
     {noreply, State};
