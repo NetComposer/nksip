@@ -37,6 +37,8 @@
 
 -include("nksip.hrl").
 
+-define(SERVER, ?MODULE).
+-define(TABLE, ?MODULE).
 
 %% ===================================================================
 %% Public
@@ -68,7 +70,7 @@ incr(Name, Value) when is_integer(Value) ->
     ok.
 
 incr(Name, Value, Pid) when is_integer(Value), is_pid(Pid) ->
-    gen_server:call(?MODULE, {incr, Name, Value, Pid}).
+    gen_server:call(?SERVER, {incr, Name, Value, Pid}).
 
 
 %% @doc Gets a counter's current value.
@@ -95,7 +97,7 @@ del(Name) ->
     ok.
 
 del(Name, Pid) when is_pid(Pid) -> 
-    gen_server:call(?MODULE, {del, Name, Pid}).
+    gen_server:call(?SERVER, {del, Name, Pid}).
 
 
 %% @doc Performs an asynchronous multiple counter update as a batch.
@@ -105,12 +107,12 @@ del(Name, Pid) when is_pid(Pid) ->
          Name :: term(), Value :: integer(),  Pid :: pid().
 
 async(Ops) when is_list(Ops) ->
-    gen_server:cast(?MODULE, {multi, expand_multi(Ops)}).
+    gen_server:cast(?SERVER, {multi, expand_multi(Ops)}).
 
 
 %% @private
 pending_msgs() ->
-    {_, Len} = erlang:process_info(whereis(?MODULE), message_queue_len),
+    {_, Len} = erlang:process_info(whereis(?SERVER), message_queue_len),
     Len.
 
 
@@ -126,11 +128,16 @@ pending_msgs() ->
 
 %% @private
 start_link() -> 
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+%% @private
+-spec stop() -> ok.
+stop() ->
+    gen_server:call(?SERVER, stop).
         
 %% @private
 init([]) ->
-    ets:new(?MODULE, [protected, named_table]),
+    ets:new(?TABLE, [protected, named_table]),
     {ok, #state{}}.
 
 
@@ -142,6 +149,9 @@ handle_call({incr, Name, Value, Pid}, _From, State) ->
 handle_call({del, Name, Pid}, _From, State) ->
     unregister(Name, Pid),
     {reply, ok, State};
+
+handle_call(stop, _from, State) ->
+    {stop, normal, ok, State};
 
 handle_call(Msg, _From, State) ->
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
@@ -249,7 +259,7 @@ unregister(Name, Pid) ->
     [] | term().
 
 lookup(Name) ->
-    case ets:lookup(?MODULE, Name) of
+    case ets:lookup(?TABLE, Name) of
         [] -> [];
         [{_, Val}] -> Val
     end.
@@ -259,14 +269,14 @@ lookup(Name) ->
     true.
 
 insert(Name, Val) -> 
-    true = ets:insert(?MODULE, {Name, Val}).
+    true = ets:insert(?TABLE, {Name, Val}).
 
 %% @private
 -spec delete(term()) -> 
     true.
 
 delete(Name) -> 
-    true = ets:delete(?MODULE, Name).
+    true = ets:delete(?TABLE, Name).
 
 %% @private
 expand_multi(Ops) ->
@@ -294,18 +304,18 @@ basic_test_() ->
     {setup, 
         fun() -> 
             ?debugFmt("Starting ~p", [?MODULE]),
-            case whereis(?MODULE) of
-                undefined -> 
-                    {ok, _} = gen_server:start({local, ?MODULE}, ?MODULE, [], []),
-                    do_stop;
-                _ -> 
-                    ok
+            case start_link() of
+                {error, {already_started, _}} ->
+                    ok;
+                {ok, _} ->
+                    do_stop
             end
         end,
         fun(Stop) -> 
-            case Stop of 
-                do_stop -> exit(whereis(?MODULE), normal); 
-                ok -> ok end
+            case Stop of
+                do_stop -> stop();
+                ok -> ok
+            end
         end,
         [
             fun test_count/0,
