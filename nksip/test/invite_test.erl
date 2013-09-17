@@ -29,18 +29,18 @@
 
 -define(TIMEOUT, 5000).     
 
-% invite_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         {inparallel, [
-%             {timeout, 60, fun cancel/0},
-%             {timeout, 60, fun dialog/0},
-%             {timeout, 60, fun rr_contact/0},
-%             {timeout, 60, fun multiple_uac/0},
-%             {timeout, 60, fun multiple_uas/0}
-%         ]}
-%     }.
+invite_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        {inparallel, [
+            {timeout, 60, fun cancel/0},
+            {timeout, 60, fun dialog/0},
+            {timeout, 60, fun rr_contact/0},
+            {timeout, 60, fun multiple_uac/0},
+            {timeout, 60, fun multiple_uas/0}
+        ]}
+    }.
 
 
 start() ->
@@ -74,7 +74,12 @@ cancel() ->
     Ref = make_ref(),
     Self = self(),
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
-    Fun = fun({ok, Code, _}) -> Self ! {Ref, Code} end,
+    Fun = fun(Term) ->
+        case Term of
+            {req_id, _} -> ok;
+            {ok, Code, _} -> Self ! {Ref, Code} 
+        end
+    end,
     Remote = "sip:any@127.0.0.1:5070;transport=tcp",
 
     % Receive generated 100 response and busy
@@ -126,7 +131,7 @@ dialog() ->
 
     {ok, 200, LocalResp} = nksip_uac:invite({invite, client1}, "sip:ok@127.0.0.1:5070",
                                                 [{headers, Hds}, {body, SDP}]),
-    ok = nksip_uac:ack(LocalResp, []),
+    {ok, _} = nksip_uac:ack(LocalResp, []),
     LocalDialog = nksip_dialog:id(LocalResp),
     % We don't receive callbacks from client1, since it has not stored the reply in 
     % its state
@@ -233,7 +238,7 @@ dialog() ->
     % Force invalid CSeq
     nksip_trace:notice("Next notice about UAS 'OPTIONS' dialog request error old_cseq "
                        "is expected"),
-    {resp, Resp5} = nksip_uac:reoptions(RemoteDialog, [{cseq, 9998}, full_response]),
+    {ok, 500, Resp5} = nksip_uac:reoptions(RemoteDialog, [{cseq, 9998}]),
     <<"Old CSeq in Dialog">> = nksip_response:reason(Resp5),
 
     [LocalDialog] = nksip_dialog:find_callid(C1, CallId),
@@ -241,7 +246,7 @@ dialog() ->
     
     % Send the dialog de opposite way
     {ok, 200, _} = nksip_uac:reinvite(RemoteDialog, [{headers, Hds}]),
-    ok = nksip_uac:ack(RemoteDialog, []),
+    {ok, _} = nksip_uac:ack(RemoteDialog, []),
 
     % Now we receive callbacks from both
     ok = tests_util:wait(Ref, [{client1, ack}, 
@@ -268,20 +273,18 @@ rr_contact() ->
         {"Nk-Op", "answer"}, RepHd,
         {"Record-Route", nksip_lib:bjoin(lists:reverse(RR), <<", ">>)}],
 
-    {resp, Resp} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", 
-                    [{contact, "sip:abc"}, {headers, Hds1}, full_response]),
-    200 = nksip_response:code(Resp),
+    {ok, 200, Resp} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", 
+                                    [{contact, "sip:abc"}, {headers, Hds1}]),
 
     % Test Record-Route is replied
     RR = lists:reverse(nksip_response:header(Resp, <<"Record-Route">>)),
-    FunAck = fun({req, ACKReq1}) -> 
+    FunAck = fun({ok, ACKReq1}) -> 
         % Test body in ACK, and Route and Contact generated in ACK
         RR = nksip_request:header(ACKReq1, <<"Route">>),
         [<<"<sip:abc>">>] = nksip_request:header(ACKReq1, <<"Contact">>),
         Self ! {Ref, fun_ack_ok}
     end,
-    {async, _} = nksip_uac:ack(Resp, [{body, SDP}, async, {callback, FunAck}, 
-                                      full_request]),
+    {async, _} = nksip_uac:ack(Resp, [{body, SDP}, async, {callback, FunAck}]),
     ok = tests_util:wait(Ref, [fun_ack_ok, {client2, ack}, 
                                {client2, dialog_confirmed},
                                {client2, sdp_start}]),
@@ -314,7 +317,7 @@ rr_contact() ->
 
     Fun = fun(R) ->
         case R of
-            {req, Req} ->
+            {req_id, Req} ->
                 RR = nksip_request:header(Req, <<"Route">>),
                 [<<"<sip:client1@localhost:5060>">>] = 
                     nksip_request:header(Req, <<"Contact">>),
@@ -331,12 +334,12 @@ rr_contact() ->
     % Reinvite updating SDP
     {async, _} = nksip_uac:reinvite(Resp, [
         {body, SDP2}, make_contact, async, {callback, Fun},
-        {headers, Hds2}, full_request]),
+        {headers, Hds2}]),
 
     % Test Route Set cannot change now, it is already answered
     receive {Ref, Code, RespId} -> 
         200 = Code,
-        {req, ACKReq2} = nksip_uac:ack(RespId, [full_request]),
+        {ok, ACKReq2} = nksip_uac:ack(RespId, []),
         ok = tests_util:wait(Ref, [req_ok,
                                    {client2, ack}, 
                                    {client2, sdp_update},
@@ -374,7 +377,7 @@ rr_contact() ->
     % reINVITE from the other party
     Hds3 = [{"Nk-Op", increment}, RepHd],
     {ok, 200, RemoteResp} = nksip_uac:refresh(RemoteDialog, [{headers, Hds3}]),
-    ok = nksip_uac:ack(RemoteResp, []),
+    {ok, _} = nksip_uac:ack(RemoteResp, []),
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
                                {client1, sdp_update},
@@ -415,7 +418,7 @@ rr_contact() ->
 
     ByeFun = fun(Reply) ->
         case Reply of
-            {req, ByeReq} ->
+            {req_id, ByeReq} ->
                 RevRR = nksip_request:header(ByeReq, <<"Route">>),
                 RR = lists:reverse(RevRR),
                 [<<"<sip:ok@127.0.0.1:5070>">>] = 
@@ -426,7 +429,7 @@ rr_contact() ->
         end
     end,
 
-    {async, _} = nksip_uac:bye(RemoteDialog, [async, {callback, ByeFun}, full_request]),
+    {async, _} = nksip_uac:bye(RemoteDialog, [async, {callback, ByeFun}]),
     ok = tests_util:wait(Ref, [bye_ok1, bye_ok2, 
                                {client1, {dialog_stop, callee_bye}}, 
                                {client1, sdp_stop},
@@ -444,18 +447,21 @@ multiple_uac() ->
     OpAnswer = {"Nk-Op", answer},
     % Stablish a dialog between C1 and C2, but do not send the ACK 
     % yet, it will stay in accepted_uac state
-    {resp, Res} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", 
-                                    [{headers, [RepHd, OpAnswer]}, 
-                                     full_response]),
-    200 = nksip_response:code(Res),
+    {ok, 200, Res} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", 
+                                    [{headers, [RepHd, OpAnswer]}]),
     LocalDialog = nksip_dialog:id(Res),
-    RemoteDialog = nksip_dialog:id(Res#sipmsg{app_id=C2}),
+    RemoteDialog = nksip_dialog:remote_id(C2, Res),
     [CSeq, accepted_uac] = nksip_dialog:fields(LocalDialog, [local_seq, status]),
     
     {error, request_pending} = nksip_uac:reinvite(Res, []), 
-    ok = nksip_uac:ack(Res, []),
+    {ok, _} = nksip_uac:ack(Res, []),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
-    Fun = fun({ok, 200, _}) -> Self ! {Ref, ok1} end,
+    Fun = fun(Term) ->
+        case Term of
+            {req_id, _} -> ok;
+            {ok, 200, _} -> Self ! {Ref, ok1}
+        end
+    end,
     {async, Req2} = nksip_uac:reinvite(RemoteDialog, 
                                         [async, {callback, Fun}, {headers, [OpAnswer]}]),
     ok = tests_util:wait(Ref, [ok1]),
@@ -479,7 +485,7 @@ multiple_uas() ->
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     Fun = fun(Reply) ->
         case Reply of
-            {req, _} -> Self ! 
+            {req_id, _} -> Self ! 
                 {Ref, request};
             {ok, Code, _} when Code < 200 -> 
                 Self ! {Ref, provisional};
@@ -490,28 +496,27 @@ multiple_uas() ->
     Hds = [{"Nk-Op", ok}, RepHd],
 
     % Set a new dialog between C1 and C2
-    {resp, Res1} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", 
-                                        [{headers, Hds}, full_response]),
-    200 = nksip_response:code(Res1),
-    ok = nksip_uac:ack(Res1, [{headers, [RepHd]}]),
+    {ok, 200, Res1} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", 
+                                        [{headers, Hds}]),
+    {ok, _} = nksip_uac:ack(Res1, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
     LocalDialog = nksip_dialog:id(Res1),
-    RemoteDialog = nksip_dialog:id(Res1#sipmsg{app_id=C2}),
+    RemoteDialog = nksip_dialog:remote_id(C2, Res1),
     confirmed = nksip_dialog:field(LocalDialog, status),
     confirmed = nksip_dialog:field(RemoteDialog, status),
 
     % Send a new reinvite, it will spend 300msecs before answering
     {async, _} = nksip_uac:reinvite(LocalDialog, 
-                                    [async, {callback, Fun}, full_request,
+                                    [async, {callback, Fun},
                                     {headers, [{"Nk-Sleep", 300}|Hds]}]),
     ok = tests_util:wait(Ref, [request]),   % Wait to be sent
 
     % Before the previous invite has been answered, we send a new one
     % UAC will not block it because of the dialog_force_send option.
     % UAS replies with 500
-    {resp, R6} = nksip_uac:reinvite(LocalDialog, 
-                        [no_dialog, {headers, [Hds]}, full_response]),
+    {ok, 500, R6} = nksip_uac:reinvite(LocalDialog, 
+                        [no_dialog, {headers, [Hds]}]),
     500 = nksip_response:code(R6),
     <<"Processing Previous INVITE">> = nksip_response:reason(R6),
     % Previous invite will reply 200, and Fun will send ACK
@@ -524,14 +529,14 @@ multiple_uas() ->
 
 
     % Set a new dialog
-    {resp, Res2} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", 
-                                     [{headers, Hds}, full_response]),
+    {ok, 200, Res2} = nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", 
+                                       [{headers, Hds}]),
     200 = nksip_response:code(Res2),
-    ok = nksip_uac:ack(Res2, [{headers, [RepHd]}]),
+    {ok, _} = nksip_uac:ack(Res2, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
     LocalDialog2 = nksip_dialog:id(Res2),
-    RemoteDialog2 = nksip_dialog:id(Res2#sipmsg{app_id=C2}),
+    RemoteDialog2 = nksip_dialog:remote_id(C2, Res2),
     [confirmed, LSeq, RSeq] = 
         nksip_dialog:fields(LocalDialog2, [status, local_seq, remote_seq]),
     [confirmed, RSeq, LSeq] = 
@@ -540,8 +545,8 @@ multiple_uas() ->
     % The remote party (C2) will send a reinvite to the local (C1),
     % but the response will be delayed 300msecs
     Hds2 = [{"Nk", 1}, {"Nk-Prov", "true"}, {"Nk-Sleep", 300}|Hds],
-    {async, _} = nksip_uac:reinvite(RemoteDialog2, [async, {callback, Fun}, full_request,
-                                                {headers, Hds2}]),
+    {async, _} = nksip_uac:reinvite(RemoteDialog2, [async, {callback, Fun},
+                                                    {headers, Hds2}]),
     ok = tests_util:wait(Ref, [request, provisional]),   
     % Before answering, the local party sends a new reinvite. The remote party
     % replies a 491
@@ -552,8 +557,7 @@ multiple_uas() ->
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
                                {client2, dialog_confirmed}]),
-    {resp, Bye} = nksip_uac:bye(LocalDialog2, [full_response]),
-    200 = nksip_response:code(Bye),
+    {ok, 200, Bye} = nksip_uac:bye(LocalDialog2, []),
     BCSeq = nksip_response:field(Bye, cseq_num),
     BCSeq = LSeq+2,
     ok = tests_util:wait(Ref, [{client1, {dialog_stop, caller_bye}},

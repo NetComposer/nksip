@@ -104,7 +104,12 @@ digest() ->
 
     Self = self(),
     Ref = make_ref(),
-    Fun = fun({ok, 200, _}) -> Self ! {Ref, digest_ok} end,
+    Fun = fun(Term) ->
+        case Term of
+            {req_id, _} -> ok;
+            {ok, 200, _} -> Self ! {Ref, digest_ok} 
+        end
+    end,
     {async, _} = nksip_uac:options(C1, SipC2, [async, {callback, Fun}, {pass, HA1}]),
     ok = tests_util:wait(Ref, [digest_ok]),
     ok.
@@ -120,35 +125,35 @@ invite() ->
 
     % client3 does not support dialog's authentication, only digest is used
     % ACKHeaders = [{"Nk-Pid", base64:encode(term_to_binary({Ref, self()}))}],
-    {resp, Res} = nksip_uac:invite(C1, SipC3, [full_response]),
-    [CSeq, 401] = nksip_response:fields(Res, [cseq_num, code]),
-    {ok, 200, RespId} = nksip_uac:invite(C1, SipC3, 
+    {ok, 401, Res1} = nksip_uac:invite(C1, SipC3, []),
+    CSeq = nksip_response:field(Res1, cseq_num),
+    {ok, 200, Res2} = nksip_uac:invite(C1, SipC3, 
                                             [{pass, "abcd"}, {headers, [RepHd]}]),
-    Dialog = nksip_dialog:id(RespId),
-    ok = nksip_uac:ack(RespId, []),
+    Dialog = nksip_dialog:id(Res2),
+    {ok, _} = nksip_uac:ack(Res2, []),
     ok = tests_util:wait(Ref, [{client3, ack}]),
-    {ok, 401, _} = nksip_uac:reoptions(RespId, []),
+    {ok, 401, _} = nksip_uac:reoptions(Res2, []),
     {ok, 200, _} = nksip_uac:reoptions(Dialog, [{pass, "abcd"}]),
 
-    {ok, 401, _} = nksip_uac:reinvite(RespId, []),
+    {ok, 401, _} = nksip_uac:reinvite(Res2, []),
 
-    {ok, 200, RespId2} = nksip_uac:reinvite(RespId, [{pass, "abcd"}]),
-    Dialog = nksip_dialog:id(RespId2),
-    {req, ACKReq} = nksip_uac:ack(RespId2, [full_request]),
-    CSeq = nksip_request:field(ACKReq, cseq_num) - 8,
+    {ok, 200, Res3} = nksip_uac:reinvite(Res2, [{pass, "abcd"}]),
+    Dialog = nksip_dialog:id(Res3),
+    {ok, ACK3} = nksip_uac:ack(Res3, []),
+    CSeq = nksip_request:field(ACK3, cseq_num) - 8,
     ok = tests_util:wait(Ref, [{client3, ack}]),
 
     % client1 does support dialog's authentication
-    DialogB = nksip_dialog:remote_id(C3, RespId),
+    DialogB = nksip_dialog:remote_id(C3, Res3),
     DialogB = nksip_dialog:remote_id(C3, Dialog),
-    {resp, Res3} = nksip_uac:reoptions(DialogB, [full_response]),
-    [CSeq2, 200] = nksip_response:fields(Res3, [cseq_num, code]),
-    {ok, 200, RespId4} = nksip_uac:reinvite(DialogB, [{headers, [RepHd]}]),
-    DialogB = nksip_dialog:id(RespId4),
-    ok = nksip_uac:ack(DialogB, [{headers, [RepHd]}]),
+    {ok, 200, Res4} = nksip_uac:reoptions(DialogB, []),
+    CSeq2 = nksip_response:field(Res4, cseq_num),
+    {ok, 200, Res5} = nksip_uac:reinvite(DialogB, [{headers, [RepHd]}]),
+    DialogB = nksip_dialog:id(Res5),
+    {ok, _} = nksip_uac:ack(DialogB, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client1, ack}]),
-    {resp, Res5} = nksip_uac:bye(DialogB, [full_response]),
-    [CSeq3, 200] = nksip_response:fields(Res5, [cseq_num, code]),
+    {ok, 200, Res6} = nksip_uac:bye(DialogB, []),
+    CSeq3 = nksip_response:field(Res6, cseq_num),
     CSeq3 = CSeq2 + 2,
     ok.
 
@@ -161,28 +166,31 @@ dialog() ->
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
     {ok, 200, RespA} = nksip_uac:invite(C1, SipC2, 
                                             [{pass, "1234"}, {headers, [RepHd]}]),
-    ok = nksip_uac:ack(RespA, []),
+    {ok, _} = nksip_uac:ack(RespA, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    DialogB = nksip_dialog:remote_id(C2, RespA),
-    [{{127,0,0,1}, 5071}] = nksip_dialog:field(RespA, auth_remotes),
+    DialogA = nksip_dialog:id(RespA),
+    DialogB = nksip_dialog:remote_id(C2, DialogA),
+    [{{127,0,0,1}, 5071}] = nksip_dialog:field(DialogA, auth_remotes),
     [{{127,0,0,1}, 5070}] = nksip_dialog:field(DialogB, auth_remotes),
 
-    {ok, 200, _} = nksip_uac:reoptions(RespA, []),
+    {ok, 200, _} = nksip_uac:reoptions(DialogA, []),
     {ok, 200, _} = nksip_uac:reoptions(DialogB, []),
 
     ok = nksip_dialog:forget_remotes(DialogB),
-    {ok, 401, _} = nksip_uac:reoptions(RespA, []),
-    {ok, 200, _} = nksip_uac:reoptions(RespA, [{pass, "1234"}]),
-    {ok, 200, _} = nksip_uac:reoptions(RespA, []),
+    {ok, 401, _} = nksip_uac:reoptions(DialogA, []),
+    {ok, 200, _} = nksip_uac:reoptions(DialogA, [{pass, "1234"}]),
+    {ok, 200, _} = nksip_uac:reoptions(DialogA, []),
 
-    ok = nksip_dialog:forget_remotes(RespA),
+    ok = nksip_dialog:forget_remotes(DialogA),
+    [] = nksip_dialog:field(DialogA, auth_remotes),
+
     % Force an invalid password, because the SipApp config has a valid one
     {ok, 403, _} = nksip_uac:reoptions(DialogB, [{pass, {"invalid", "client1"}}]),
     {ok, 200, _} = nksip_uac:reoptions(DialogB, []),
     {ok, 200, _} = nksip_uac:reoptions(DialogB, [{pass, {"invalid", "client1"}}]),
 
-    {ok, 200, _} = nksip_uac:bye(RespA, []),
+    {ok, 200, _} = nksip_uac:bye(DialogA, []),
     ok.
 
 
@@ -215,9 +223,7 @@ proxy() ->
     % % The request is authorized at server1 (registered) but not server server2
     % % (server1 will proxy to server2)
     % Route = {route, "sip:127.0.0.1;lr"},
-    % {resp, Res1} = nksip_uac:invite(C1, "sip:client2@nksip", 
-    %                                       [Route, full_response]),
-    % 407 = nksip_response:code(Res1),
+    % {ok, 407, Res1} = nksip_uac:invite(C1, "sip:client2@nksip", [Route]),
     % [<<"server2">>] = nksip_auth:realms(Res1),
 
     % % Now the request reaches client2, and it is not authorized there. 
