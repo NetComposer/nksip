@@ -121,7 +121,7 @@ start_link(AppId, Transport) ->
 
 
 -record(state, {
-    sipapp_id :: nksip:app_id(),
+    app_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     socket :: port(),
     stuns :: [{Id::binary(), Time::nksip_lib:timestamp(), term()}]
@@ -148,7 +148,7 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transport]) ->
                     nksip_proc:put({nksip_listen, AppId}, Transport1),
                     {ok, 
                         #state{
-                            sipapp_id = AppId, 
+                            app_id = AppId, 
                             transport = Transport1, 
                             socket = Socket,
                             stuns = []
@@ -173,7 +173,7 @@ handle_call({send, Ip, Port, Packet}, _From, #state{socket=Socket}=State) ->
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State};
 
 handle_call({send_stun, Ip, Port}, From, #state{
-                                                sipapp_id=AppId, 
+                                                app_id=AppId, 
                                                 socket=Socket, 
                                                 stuns=Stuns}=State) ->
     {Id, Packet} = nksip_stun:binding_request(),
@@ -221,7 +221,7 @@ handle_info({udp, Socket, _Ip, _Port, <<_, _>>}, #state{socket=Socket}=State) ->
 
 handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, 
             #state{
-                sipapp_id = AppId,
+                app_id = AppId,
                 socket = Socket,
                 stuns = Stuns
             } = State) ->
@@ -300,13 +300,13 @@ read_packets(N, #state{socket=Socket}=State) ->
 
 
 %% @private
-parse(Packet, Ip, Port, #state{sipapp_id=AppId, transport=Transport}=State) ->   
+parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transport}=State) ->   
     Transport1 = Transport#transport{remote_ip=Ip, remote_port=Port},
     case nksip_parse:packet(AppId, Transport1, Packet) of
         {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport1, Packet),
             nksip_trace:insert(AppId, CallId, {in_udp, Class}),
-            nksip_call_router:incoming(RawMsg),
+            nksip_call_router:incoming_async(RawMsg),
             case More of
                 <<>> -> ok;
                 _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])

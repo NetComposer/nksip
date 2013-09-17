@@ -482,18 +482,25 @@ options(_ReqId, _From, State) ->
 
 register(ReqId, From, State) ->
     Fun = fun() ->
-        [FUser, FDomain, TUser, TDomain, Registrar] = 
-            nksip_request:fields(ReqId, [from_user, from_domain, 
-                                         to_user, to_domain, registrar]),
-        Reply = if
-            Registrar, FUser=:=TUser, FDomain=:=TDomain ->
-                register;
-            Registrar ->
-                {invalid_request, "Different From and To"};
-            true ->
-                {method_not_allowed, ?ALLOW}
-        end,
-        nksip_sipapp_srv:reply(From, Reply)
+        AppId = nksip_sipmsg:app_id(ReqId),
+        case nksip_sipapp_srv:get_opts(AppId) of
+            {ok, AppOpts} ->
+                Registrar = lists:member(registrar, AppOpts),
+                [FUser, FDomain, TUser, TDomain] = 
+                    nksip_request:fields(ReqId, 
+                                         [from_user, from_domain, to_user, to_domain]),
+                Reply = if
+                    Registrar, FUser=:=TUser, FDomain=:=TDomain ->
+                        register;
+                    Registrar ->
+                        {invalid_request, "Different From and To"};
+                    true ->
+                        {method_not_allowed, ?ALLOW}
+                end,
+                nksip_sipapp_srv:reply(From, Reply);
+            {error, _} ->
+                {internal_error, "Unknown SipApp"}
+        end
     end,
     spawn(Fun),
     {noreply, State}.

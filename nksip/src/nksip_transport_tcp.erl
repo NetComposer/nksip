@@ -70,7 +70,7 @@ start_link(AppId, Transport, Socket) ->
     gen_server:start_link(?MODULE, [AppId, Transport, Socket], []).
 
 -record(state, {
-    sipapp_id :: nksip:app_id(),
+    app_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     socket :: port() | #sslsocket{},
     timeout :: non_neg_integer(),
@@ -91,7 +91,7 @@ init([AppId, Transport, Socket]) ->
     Timeout = 1000 * nksip_config:get(tcp_timeout),
     {ok, 
         #state{
-            sipapp_id = AppId,
+            app_id = AppId,
             transport = Transport, 
             socket = Socket, 
             timeout = Timeout,
@@ -104,7 +104,7 @@ init([AppId, Transport, Socket]) ->
 
 handle_call({send, Packet}, _From, 
             #state{
-                sipapp_id = AppId, 
+                app_id = AppId, 
                 socket = Socket,
                 transport = #transport{proto=Proto},
                 timeout = Timeout
@@ -139,7 +139,7 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 handle_info({tcp, Socket, Packet}, #state{
-                sipapp_id = AppId, 
+                app_id = AppId, 
                 buffer = Buff, 
                 transport = #transport{proto=Proto},
                 timeout = Timeout
@@ -166,7 +166,7 @@ handle_info({ssl, Socket, Packet}, State) ->
 
 handle_info({tcp_closed, Socket}, 
             #state{
-                sipapp_id = AppId,
+                app_id = AppId,
                 socket = Socket, 
                 transport = #transport{remote_ip=Ip, remote_port=Port}
             } = State) ->
@@ -175,7 +175,7 @@ handle_info({tcp_closed, Socket},
 
 handle_info({ssl_closed, Socket}, 
             #state{
-                sipapp_id = AppId,
+                app_id = AppId,
                 socket = Socket, 
                 transport = #transport{remote_ip=Ip, remote_port=Port}
             } = State) ->
@@ -184,7 +184,7 @@ handle_info({ssl_closed, Socket},
 
 handle_info(timeout,  
             #state{
-                sipapp_id = AppId,
+                app_id = AppId,
                 socket = Socket,
                 transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}
             } = State) ->
@@ -225,16 +225,21 @@ terminate(_Reason, _State) ->
 
 
 %% @private
-parse(Packet, #state{sipapp_id=AppId, socket=Socket, transport=Transport}=State) ->
+parse(Packet, #state{app_id=AppId, socket=Socket, transport=Transport}=State) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port}=Transport,
     case nksip_parse:packet(AppId, Transport, Packet) of
         {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
             nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
-            nksip_call_router:incoming(RawMsg),
-            case More of
-                <<>> -> <<>>;
-                _ -> parse(More, State)
+            case nksip_call_router:incoming_sync(RawMsg) of
+                ok ->
+                    case More of
+                        <<>> -> <<>>;
+                        _ -> parse(More, State)
+                    end;
+                {error, _} ->
+                    socket_close(Proto, Socket),
+                    <<>>
             end;
         {rnrn, More} ->
             socket_send(Proto, Socket, <<"\r\n">>),

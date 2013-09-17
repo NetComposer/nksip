@@ -24,7 +24,8 @@
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([fields/2, field/2, header/2, header/3, dialog_id/1, call_id/1,get_sipmsg/1]).
+-export([fields/2, field/2, header/2, header/3, dialog_id/1, app_id/1, call_id/1, 
+         get_sipmsg/1]).
 -export_type([id/0]).
 
 -include("nksip.hrl").
@@ -107,6 +108,18 @@ dialog_id(SipMsg) ->
     nksip_dialog:id(SipMsg).
 
 
+%% @doc Gets the app_id of a request or response 
+-spec app_id(input()) ->
+    nksip:app_id().
+
+app_id({Class, AppId, _CallId, _MsgId, _DialogId})
+          when Class=:=req; Class=:=resp ->
+    AppId;
+
+app_id(#sipmsg{app_id=AppId}) ->
+    AppId.
+
+
 %% @doc Gets the calls's id of a request or response 
 -spec call_id(input()) ->
     nksip:call_id().
@@ -187,11 +200,10 @@ get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
         headers -> S#sipmsg.headers;
         body -> S#sipmsg.body;
         code -> S#sipmsg.response;   % Only if it is a response
-        reason -> nksip_lib:get_binary(reason, S#sipmsg.opts);
+        reason -> nksip_lib:get_binary(reason, S#sipmsg.data);
         dialog_id -> nksip_dialog:id(S);
         expire -> S#sipmsg.expire;
         {header, Name} -> get_header(S, Name);
-        registrar -> lists:member(registrar, S#sipmsg.opts);
         _ -> invalid_field 
     end.
 

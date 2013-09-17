@@ -23,7 +23,7 @@
 -module(nksip_transport_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([add_via/1, send_request/1, resend_request/1]).
+-export([add_via/2, send_request/2, resend_request/1]).
 
 -include("nksip.hrl").
 
@@ -34,11 +34,12 @@
 %% ===================================================================
 
 %% @doc Sends a new request.
--spec send_request(nksip:request()) -> 
+%% Recognizes options global_id, local_host, record_route, make_contact
+-spec send_request(nksip:request(), nksip_lib:proplist()) -> 
     {ok, nksip:request()} | error.
 
-send_request(Request) ->
-    #sipmsg{app_id=AppId, method=Method, ruri=RUri, routes=Routes} = Request,
+send_request(Req, Opts) ->
+    #sipmsg{app_id=AppId, method=Method, ruri=RUri, routes=Routes} = Req,
     case Routes of
         [] -> 
             DestUri = RUri1 = RUri,
@@ -64,13 +65,13 @@ send_request(Request) ->
                     Routes1 = RestRoutes ++ [nksip_parse:uri2ruri(RUri)]
             end
     end,
-    MakeRequestFun = make_request_fun(Request#sipmsg{ruri=RUri1, routes=Routes1}),  
-    nksip_trace:insert(Request, {uac_out_request, Method}),
-    case nksip_transport:send(AppId, [DestUri], MakeRequestFun) of
+    MakeReqFun = make_request_fun(Req#sipmsg{ruri=RUri1, routes=Routes1}, Opts),  
+    nksip_trace:insert(Req, {uac_out_request, Method}),
+    case nksip_transport:send(AppId, [DestUri], MakeReqFun) of
         {ok, SentReq} -> 
             {ok, SentReq};
         error ->
-            nksip_trace:insert(Request, uac_out_request_error),
+            nksip_trace:insert(Req, uac_out_request_error),
             error
     end.
 
@@ -79,10 +80,10 @@ send_request(Request) ->
 -spec resend_request(nksip:request()) -> 
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{app_id=AppId, transport=Transport}=Request) ->
+resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
-    MakeRequest = fun(_) -> Request end,
-    nksip_transport:send(AppId, [{Proto, Ip, Port}], MakeRequest).
+    MakeReq = fun(_) -> Req end,
+    nksip_transport:send(AppId, [{Proto, Ip, Port}], MakeReq).
         
 
 
@@ -91,10 +92,15 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Request) ->
 %% ===================================================================
 
 %% @private
--spec add_via(nksip:request()) -> nksip:request().
+%% Recognizes options global_id, stateless
+-spec add_via(nksip:request(), nksip_lib:proplist()) -> 
+    nksip:request().
 
-add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias, opts=Opts}=Request) ->
-    GlobalId = nksip_config:get(global_id),
+add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias}=Req, Opts) ->
+    case nksip_lib:get_value(global_id, Opts) of
+        undefined -> GlobalId = nksip_config:get(global_id);
+        GlobalId -> ok
+    end,
     IsStateless = lists:member(stateless, Opts),
     case Vias of
         [Via|_] when IsStateless ->
@@ -106,7 +112,7 @@ add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias, opts=Opts}=Request) ->
                     {AppId, OBranch};
                 _ ->
                     #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId, 
-                                cseq=CSeq} = Request,
+                                cseq=CSeq} = Req,
                     % Any of these will change in every transaction
                     {AppId, Via, ToTag, FromTag, CallId, CSeq, RUri}
             end,
@@ -118,7 +124,7 @@ add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias, opts=Opts}=Request) ->
             NkSip = nksip_lib:hash({Branch, GlobalId})
     end,
     ViaOpts = [rport, {branch, <<"z9hG4bK",Branch/binary>>}, {nksip, NkSip}],
-    Request#sipmsg{vias=[#via{opts=ViaOpts}|Vias]}.
+    Req#sipmsg{vias=[#via{opts=ViaOpts}|Vias]}.
 
 
 
@@ -127,22 +133,26 @@ add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias, opts=Opts}=Request) ->
 %% ===================================================================
 
 %% @private
--spec make_request_fun(nksip:request()) ->
+%% Recognizes options global_id, local_host, record_route, make_contact
+-spec make_request_fun(nksip:request(), nksip_lib:proplist()) ->
     function().
 
-make_request_fun(#sipmsg{
-                    app_id = AppId, 
-                    method = Method, 
-                    ruri = RUri, 
-                    from = From, 
-                    vias = [Via|RestVias],
-                    routes = Routes, 
-                    contacts = Contacts, 
-                    headers = Headers, 
-                    body = Body, 
-                    opts = Opts
-                } = Request) ->
-    GlobalId = nksip_config:get(global_id),
+make_request_fun(Req, Opts) ->
+    #sipmsg{
+        app_id = AppId, 
+        method = Method, 
+        ruri = RUri, 
+        from = From, 
+        vias = [Via|RestVias],
+        routes = Routes, 
+        contacts = Contacts, 
+        headers = Headers, 
+        body = Body
+    } = Req,
+    case nksip_lib:get_value(global_id, Opts) of
+        undefined -> GlobalId = nksip_config:get(global_id);
+        GlobalId -> ok
+    end,
     RouteBranch = case RestVias of
         [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(branch, RBOpts);
         _ -> <<>>
@@ -203,7 +213,7 @@ make_request_fun(#sipmsg{
             #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
             _ -> Body
         end,
-        Request#sipmsg{
+        Req#sipmsg{
             transport = Transport,
             ruri = nksip_parse:uri2ruri(RUri),
             vias = [Via1|RestVias],

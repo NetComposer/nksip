@@ -131,7 +131,7 @@ get_registers(AppId) ->
 
 
 -record(state, {
-    sipapp_id :: nksip:app_id(),
+    app_id :: nksip:app_id(),
     pings :: [#sipreg{}],
     regs :: [#sipreg{}]
 }).
@@ -149,7 +149,7 @@ init(AppId, _Module, _Args, Opts) ->
                     start_register(AppId, <<"auto">>, Reg, RegTime, Opts) 
                 end)
     end,
-    #state{sipapp_id=AppId, pings=[], regs=[]}.
+    #state{app_id=AppId, pings=[], regs=[]}.
 
 
 %% @private
@@ -229,7 +229,7 @@ handle_call(_, _From, _State) ->
 
 %% @private
 handle_cast({'$nksip_ping_update', PingId, OK, CSeq}, 
-            #state{sipapp_id=AppId, pings=Pings}=State) -> 
+            #state{app_id=AppId, pings=Pings}=State) -> 
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OK0, interval=Interval, from=From}=Ping0, Pings1} ->
             case OK of
@@ -257,7 +257,7 @@ handle_cast({'$nksip_ping_update', PingId, OK, CSeq},
     end;
 
 handle_cast({'$nksip_register_update', RegId, OK, CSeq}, 
-            #state{sipapp_id=AppId, regs=Regs}=State) -> 
+            #state{app_id=AppId, regs=Regs}=State) -> 
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OK0, interval=Interval, from=From}=Reg0, Regs1} ->
             case OK of
@@ -338,7 +338,7 @@ call(AppId, Msg) ->
 -spec do_ping(pid(), #sipreg{}, #state{}) -> 
     ok.
 
-do_ping(Pid, SipReg, #state{sipapp_id=AppId}) ->
+do_ping(Pid, SipReg, #state{app_id=AppId}) ->
     #sipreg{id=PingId, ruri=RUri, opts=Opts, cseq=CSeq, call_id=CallId} = SipReg,
     Opts1 = [{call_id, CallId}, {cseq, CSeq}, full_response | Opts],
     {OK, CSeq1} = case nksip_uac:options(AppId, RUri, Opts1) of
@@ -357,7 +357,7 @@ do_ping(Pid, SipReg, #state{sipapp_id=AppId}) ->
 -spec do_register(pid(), #sipreg{}, #state{}) -> 
     ok.
 
-do_register(Pid, SipReg, #state{sipapp_id=AppId})->
+do_register(Pid, SipReg, #state{app_id=AppId})->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, interval=Interval, cseq=CSeq, 
             call_id=CallId} = SipReg,
     Opts1 = [make_contact, {call_id, CallId}, {cseq, CSeq}, 

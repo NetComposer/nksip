@@ -56,7 +56,7 @@
 -type status() :: init | proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
                   confirmed | bye | {stop, stop_reason()}.
 
--type field() :: dialog_id | sipapp_id | call_id | created | updated | answered | 
+-type field() :: dialog_id | app_id | call_id | created | updated | answered | 
                  state | expires |  local_seq | remote_seq | 
                  local_uri | parsed_local_uri | remote_uri |  parsed_remote_uri | 
                  local_target | parsed_local_target | remote_target | 
@@ -77,7 +77,7 @@
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
-%%          <td>`sipapp_id'</td>
+%%          <td>`app_id'</td>
 %%          <td>{@link nksip:app_id()}</td>
 %%          <td>SipApp that created the dialog</td>
 %%      </tr>
@@ -248,10 +248,10 @@ id(#sipmsg{app_id=AppId, call_id=CallId, from_tag=FromTag, to_tag=ToTag})
     when FromTag =/= <<>>, ToTag =/= <<>> ->
     dialog_id(AppId, CallId, FromTag, ToTag);
 
-id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), method='INVITE', opts=Opts}=SipMsg)
+id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), method='INVITE', data=Data}=SipMsg)
     when FromTag =/= <<>> ->
     #sipmsg{app_id=AppId, call_id=CallId} = SipMsg,
-    case nksip_lib:get_binary(to_tag, Opts) of
+    case nksip_lib:get_binary(to_tag, Data) of
         <<>> -> undefined;
         ToTag -> dialog_id(AppId, CallId, FromTag, ToTag)
     end;
@@ -411,7 +411,7 @@ remote_id(AppId, DialogId) ->
 get_field(D, Field) ->
     case Field of
         id -> D#dialog.id;
-        sipapp_id -> D#dialog.app_id;
+        app_id -> D#dialog.app_id;
         call_id -> D#dialog.call_id;
         created -> D#dialog.created;
         updated -> D#dialog.updated;

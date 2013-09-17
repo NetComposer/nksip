@@ -23,7 +23,7 @@
 -module(nksip_transport_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_response/2, send_response/1, resend_response/1]).
+-export([send_user_response/3, send_response/2, resend_response/1]).
     
 -include("nksip.hrl").
 
@@ -33,30 +33,33 @@
 %% ===================================================================
 
 %% @doc Sends a new `Response'.
--spec send_response(nksip:request(), nksip:sipreply()) ->
+-spec send_user_response(nksip:request(), nksip:sipreply(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-send_response(Request, SipReply) ->
-    send_response(nksip_reply:reply(Request, SipReply)).
+send_user_response(#sipmsg{class=req}=Request, SipReply, Opts) ->
+    {Resp, RespOpts} = nksip_reply:reply(Request, SipReply),
+    send_response(Resp, RespOpts++Opts).
 
 
 %% @doc Sends a new `Response'.
--spec send_response(Resp::nksip:response()) ->
+%% Recognizes options global_id, local_host, make_contact
+-spec send_response(nksip:response(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-send_response(#sipmsg{
-                app_id = AppId, 
-                vias = [Via|_],
-                start = Start,
-                cseq_method = Method,
-                response = Code
-            } = Resp) ->
-    #via{proto=Proto, domain=Domain, port=Port, opts=Opts} = Via,
-    {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(received, Opts)),
-    RPort = nksip_lib:get_integer(rport, Opts),
+send_response(#sipmsg{class=resp}=Resp, Opts) ->
+    #sipmsg{
+        app_id = AppId, 
+        vias = [Via|_],
+        start = Start,
+        cseq_method = Method,
+        response = Code
+    } = Resp,
+    #via{proto=Proto, domain=Domain, port=Port, opts=ViaOpts} = Via,
+    {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(received, ViaOpts)),
+    RPort = nksip_lib:get_integer(rport, ViaOpts),
     TranspSpec = case Proto of
         'udp' ->
-            case nksip_lib:get_binary(maddr, Opts) of
+            case nksip_lib:get_binary(maddr, ViaOpts) of
                 <<>> when RPort=:=0 -> [{udp, RIp, Port}];
                 <<>> -> [{udp, RIp, RPort}];
                 MAddr -> [#uri{domain=MAddr, port=Port}]   
@@ -67,10 +70,13 @@ send_response(#sipmsg{
                 #uri{domain=Domain, port=Port, opts=[{transport, Proto}]}
             ]
     end,
-    GlobalId = nksip_config:get(global_id),
-    RouteBranch = nksip_lib:get_binary(branch, Opts),
+    case nksip_lib:get_value(global_id, Opts) of
+        undefined -> GlobalId = nksip_config:get(global_id);
+        GlobalId -> ok
+    end,
+    RouteBranch = nksip_lib:get_binary(branch, ViaOpts),
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
-    MakeRespFun = make_response_fun(RouteHash, Resp),
+    MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
     nksip_trace:insert(Resp, {send_response, Method, Code}),
     Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun),
     Elapsed = nksip_lib:l_timestamp()-Start,
@@ -101,18 +107,18 @@ resend_response(#sipmsg{app_id=AppId, call_id=CallId}) ->
 %% ===================================================================
 
 %% @private
--spec make_response_fun(binary(), nksip:response()) ->
+%% Recognizes options local_host, make_contact
+-spec make_response_fun(binary(), nksip:response(), nksip_lib:proplist()) ->
     function().
 
-make_response_fun(RouteHash, 
-            #sipmsg{
-                vias = [#via{proto=ViaProto, opts=ViaOpts}=Via|ViaR], 
-                to = To, 
-                headers = Headers,
-                contacts = Contacts, 
-                body = Body, 
-                opts = Opts
-            }= Resp) ->
+make_response_fun(RouteHash, Resp, Opts) ->
+    #sipmsg{
+        vias = [#via{proto=ViaProto, opts=ViaOpts}=Via|ViaR], 
+        to = To, 
+        headers = Headers,
+        contacts = Contacts, 
+        body = Body
+    }= Resp,
     fun(#transport{
                     proto = Proto, 
                     listen_ip = ListenIp, 

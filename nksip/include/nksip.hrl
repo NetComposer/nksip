@@ -33,7 +33,7 @@
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 -define(ALLOW_DIALOG, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 
--define(MSG_PROCESSORS, 8).
+-define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 30000).
 
 
@@ -147,8 +147,14 @@
     expire :: nksip_lib:timestamp(),
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
-    opts = [] :: nksip_lib:proplist()
+    data = [] :: nksip_lib:proplist()
 }).
+
+%% Data:
+%% - {reason, binary()}
+%% - {to_tag, binary()}
+
+
 
 -record(reqreply, {
     code = 200 :: nksip:response_code(),

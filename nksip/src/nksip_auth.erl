@@ -23,7 +23,7 @@
 -module(nksip_auth).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_authentication/1, realms/1, make_ha1/3, make_request/2]).
+-export([get_authentication/1, realms/1, make_ha1/3, make_request/3]).
 -export([check_digest/1, make_response/2]).
 
 -include("nksip.hrl").
@@ -102,15 +102,17 @@ get_authentication(Req) ->
 %% @doc Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header 
 %% and updates <i>CSeq</i> of a request after receiving a 401 or 407 response.
 %% CSeq must be updated after calling this function.
--spec make_request(Req::nksip:request(), Resp::nksip:response()) ->
-    {ok, nksip:request()} | error.
+%%
+%% Recognized options are pass, user, cnonce and nc
+-spec make_request(Req::nksip:request(), Resp::nksip:response(), nksip_lib:proplist()) ->
+    {ok, nksip:request()} | {error, Error}
+    when Error :: invalid_auth_header | unknown_nonce | no_pass.
 
-make_request(Req, #sipmsg{headers=RespHeaders}) ->
+make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     #sipmsg{
         ruri = RUri, 
         method = Method, 
         from = #uri{user=User}, 
-        opts = Opts, 
         headers=ReqHeaders
     } = Req,
     try
@@ -120,20 +122,20 @@ make_request(Req, #sipmsg{headers=RespHeaders}) ->
         RespAuthHeaders = nksip_lib:extract(RespHeaders, [?RESP_WWW, ?RESP_PROXY]),
         case RespAuthHeaders of
             [{RespName, RespData}] -> ok;
-            _ -> RespName = RespData = throw(error)
+            _ -> RespName = RespData = throw(invalid_auth_header)
         end,
         case parse_header(RespData) of
-            error -> RespParsed = throw(error);
-            RespParsed -> ok
+            error -> AuthHeaderData = throw(invalid_auth_header);
+            AuthHeaderData -> ok
         end,
-        RespNOnce = nksip_lib:get_value(nonce, RespParsed),
+        RespNOnce = nksip_lib:get_value(nonce, AuthHeaderData),
         case lists:member(RespNOnce, ReqNOnces) of
-            true -> throw(error);
+            true -> throw(unknown_nonce);
             false -> ok
         end,
         case get_passes(Opts, []) of
             [] -> 
-                Opts1 = throw(error);
+                Opts1 = throw(no_pass);
             Passes ->
                 Opts1 = [
                     {method, Method}, 
@@ -143,19 +145,19 @@ make_request(Req, #sipmsg{headers=RespHeaders}) ->
                     | Opts
                 ]
         end,
-        case make_auth_request(RespParsed, Opts1) of
+        case make_auth_request(AuthHeaderData, Opts1) of
             error -> 
-                throw(error);
-          {ok, ReqData} ->
-            ReqName = case RespName of
-                ?RESP_WWW -> ?REQ_WWW;
-                ?RESP_PROXY -> ?REQ_PROXY
-            end,
-            ReqHeaders1 = [{ReqName, ReqData}|ReqHeaders],
-            {ok, Req#sipmsg{headers=ReqHeaders1}}
+                throw(invalid_auth_header);
+            {ok, ReqData} ->
+                ReqName = case RespName of
+                    ?RESP_WWW -> ?REQ_WWW;
+                    ?RESP_PROXY -> ?REQ_PROXY
+                end,
+                ReqHeaders1 = [{ReqName, ReqData}|ReqHeaders],
+                {ok, Req#sipmsg{headers=ReqHeaders1}}
         end
     catch
-        throw:error -> error
+        throw:Error -> {error, Error}
     end.
 
 
@@ -242,18 +244,18 @@ check_digest([_|Rest], Req, Acc) ->
 -spec make_auth_request(nksip_lib:proplist(), nksip_lib:proplist()) ->
     {ok, binary()} | error.
 
-make_auth_request(ServerOpts, UserOpts) ->
-    QOP = nksip_lib:get_value(qop, ServerOpts, []),
-    Algorithm = nksip_lib:get_value(algorithm, ServerOpts, 'MD5'),
+make_auth_request(AuthHeaderData, UserOpts) ->
+    QOP = nksip_lib:get_value(qop, AuthHeaderData, []),
+    Algorithm = nksip_lib:get_value(algorithm, AuthHeaderData, 'MD5'),
     case Algorithm=:='MD5' andalso (QOP=:=[] orelse lists:member(auth, QOP)) of
         true ->
             case nksip_lib:get_binary(cnonce, UserOpts) of
                 <<>> -> CNonce = nksip_lib:luid();
                 CNonce -> ok
             end,
-            Nonce = nksip_lib:get_binary(nonce, ServerOpts, <<>>),  
+            Nonce = nksip_lib:get_binary(nonce, AuthHeaderData, <<>>),  
             Nc = nksip_lib:msg("~8.16.0B", [nksip_lib:get_integer(nc, UserOpts, 1)]),
-            Realm = nksip_lib:get_binary(realm, ServerOpts, <<>>),
+            Realm = nksip_lib:get_binary(realm, AuthHeaderData, <<>>),
             Passes = nksip_lib:get_value(passes, UserOpts, []),
             User = nksip_lib:get_binary(user, UserOpts),
             case get_pass(Passes, Realm, <<>>) of
@@ -277,7 +279,7 @@ make_auth_request(ServerOpts, UserOpts) ->
                     [] -> [];
                     _ -> [", qop=auth, cnonce=\"", CNonce, "\", nc=", Nc]
                 end,
-                case nksip_lib:get_value(opaque, ServerOpts) of
+                case nksip_lib:get_value(opaque, AuthHeaderData) of
                     undefined -> [];
                     Opaque -> [", opaque=\"", Opaque, "\""]
                 end

@@ -22,8 +22,8 @@
 -module(nksip_call_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([new_sipmsg/3, update_sipmsg/2, update/2]).
--export([timeout_timer/2, retrans_timer/2, expire_timer/2, cancel_timers/2]).
+-export([new_sipmsg/2, store_sipmsg/2, update_sipmsg/2, update/2]).
+-export([timeout_timer/3, retrans_timer/3, expire_timer/3, cancel_timers/2]).
 -export([trace/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
 
@@ -54,27 +54,37 @@
 
 
 %% @private Adds a new SipMsg to the call's store
--spec new_sipmsg(nksip:request()|nksip:response(), boolean(), call()) ->
+-spec new_sipmsg(nksip:request()|nksip:response(), call()) ->
     {nksip:request()|nksip:response(), call()}.
 
-new_sipmsg(SipMsg, NoStore, #call{next=MsgId, keep_time=KeepTime, msgs=Msgs}=Call) ->
+new_sipmsg(SipMsg, #call{next=MsgId}=Call) ->
     SipMsg1 = SipMsg#sipmsg{id=MsgId},
-    case KeepTime > 0 andalso (not NoStore) of
+    {SipMsg1, Call#call{next=MsgId+1}}.
+    
+
+%% @private Adds a new SipMsg to the call's store
+-spec store_sipmsg(nksip:request()|nksip:response(), call()) ->
+    call().
+
+store_sipmsg(#sipmsg{id=MsgId}=SipMsg, #call{keep_time=KeepTime, msgs=Msgs}=Call) ->
+    case KeepTime > 0 of
         true ->
             ?call_debug("Storing sipmsg ~p", [MsgId], Call),
             erlang:start_timer(1000*KeepTime, self(), {remove_msg, MsgId}),
             nksip_counters:async([nksip_msgs]),
-            {SipMsg1, Call#call{msgs=[SipMsg1|Msgs], next=MsgId+1}};
+            Call#call{msgs=[SipMsg|Msgs]};
         false ->
-            {SipMsg1, Call#call{next=MsgId+1}}
+            Call
     end.
-    
+
+
 
 %% @private
 -spec update_sipmsg(nksip:request()|nksip:response(), call()) -> 
     call().
 
 update_sipmsg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
+    ?call_debug("Updating sipmsg ~p", [MsgId], Call),
     Msgs1 = lists:keyreplace(MsgId, #sipmsg.id, Msgs, Msg),
     Call#call{msgs=Msgs1}.
 
@@ -83,37 +93,39 @@ update_sipmsg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
 -spec update(trans(), call()) ->
     call().
 
-update(#trans{id=Id}=New, #call{trans=[#trans{id=Id}=Old|Rest]}=Call) ->
+update(#trans{id=Id, class=Class}=New, #call{trans=[#trans{id=Id}=Old|Rest]}=Call) ->
     #trans{status=NewStatus, method=Method} = New,
     #trans{status=OldStatus} = Old,
+    CS = case Class of uac -> "UAC"; uas -> "UAS" end,
     Call1 = case NewStatus of
         finished ->
-            ?call_debug("UAS ~p ~p (~p) finished", 
-                        [Id, Method, OldStatus], Call),
+            ?call_debug("~s ~p ~p (~p) removed", 
+                        [CS, Id, Method, OldStatus], Call),
             Call#call{trans=Rest};
         OldStatus -> 
             Call#call{trans=[New|Rest]};
         _ -> 
-            ?call_debug("UAS ~p ~p (~p) switched to ~p", 
-                        [Id, Method, OldStatus, NewStatus], Call),
+            ?call_debug("~s ~p ~p ~p -> ~p", 
+                        [CS, Id, Method, OldStatus, NewStatus], Call),
             Call#call{trans=[New|Rest]}
     end,
     hibernate(New, Call1);
     
 update(New, #call{trans=Trans}=Call) ->
-    #trans{id=Id, status=NewStatus, method=Method} = New,
+    #trans{id=Id, class=Class, status=NewStatus, method=Method} = New,
+    CS = case Class of uac -> "UAC"; uas -> "UAS" end,
     Call1 = case lists:keytake(Id, #trans.id, Trans) of
         {value, #trans{status=OldStatus}, Rest} -> 
             case NewStatus of
                 finished ->
-                    ?call_debug("UAS ~p ~p (~p) finished!", 
-                                [Id, Method, OldStatus], Call),
+                    ?call_debug("~s ~p ~p (~p) removed!", 
+                                [CS, Id, Method, OldStatus], Call),
                     Call#call{trans=Rest};
                 OldStatus -> 
                     Call#call{trans=[New|Rest]};
                 _ -> 
-                    ?call_debug("UAS ~p ~p (~p) switched to ~p!", 
-                        [Id, Method, OldStatus, NewStatus], Call),
+                    ?call_debug("~s ~p ~p ~p -> ~p!", 
+                        [CS, Id, Method, OldStatus, NewStatus], Call),
                     Call#call{trans=[New|Rest]}
             end;
         false ->
@@ -129,12 +141,10 @@ update(New, #call{trans=Trans}=Call) ->
 hibernate(#trans{status=Status}, Call) 
           when Status=:=invite_accepted; Status=:=completed; 
                Status=:=finished ->
-    ?call_debug("Hibernating (~p)", [Status], Call),
-    Call#call{hibernate=true};
+    Call#call{hibernate=Status};
 
 hibernate(#trans{class=uac, status=invite_completed}, Call) ->
-    ?call_debug("Hibernating (invite_completed)", [], Call),
-    Call#call{hibernate=true};
+    Call#call{hibernate=invite_completed};
 
 hibernate(_, Call) ->
     Call.
@@ -152,67 +162,70 @@ trace(Msg, #call{app_id=AppId, call_id=CallId}) ->
 
 
 %% @private
--spec timeout_timer(timeout_timer(), trans()) ->
+-spec timeout_timer(timeout_timer(), trans(), call()) ->
     trans().
 
-timeout_timer(Tag, Trans) 
+timeout_timer(Tag, Trans, #call{global=#global{t1=T1}}) 
             when Tag=:=timer_b; Tag=:=timer_f; Tag=:=timer_m;
                  Tag=:=timer_h; Tag=:=timer_j; Tag=:=timer_l;
                  Tag=:=wait_sipapp ->
-    Time = 64*nksip_config:get(timer_t1),
-    Trans#trans{timeout_timer=start_timer(Time, Tag, Trans)};
+    Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
 
-timeout_timer(timer_d, Trans) ->
+timeout_timer(timer_d, Trans, _) ->
     Trans#trans{timeout_timer=start_timer(32000, timer_d, Trans)};
 
 
-timeout_timer(Tag, Trans) when Tag=:=timer_k; Tag=:=timer_i ->
-    Time = nksip_config:get(timer_t4),
-    Trans#trans{timeout_timer=start_timer(Time, Tag, Trans)};
+timeout_timer(Tag, Trans, #call{global=#global{t4=T4}}) 
+                when Tag=:=timer_k; Tag=:=timer_i ->
+    Trans#trans{timeout_timer=start_timer(T4, Tag, Trans)};
 
-timeout_timer(timeout, #trans{method=Method}=Trans) ->
+timeout_timer(timeout, #trans{method=Method}=Trans, Call) ->
+    #call{global=#global{tc=TC, t1=T1}} = Call,
     Time = case Method of
-        'INVITE' -> 1000*nksip_config:get(timer_c);
-         _ -> 64*nksip_config:get(timer_t1)
+        'INVITE' -> 1000*TC;
+         _ -> 64*T1
     end,
     Trans#trans{timeout_timer=start_timer(Time, timeout, Trans)}.
 
 
 
 %% @private
--spec retrans_timer(retrans_timer(), trans()) ->
+-spec retrans_timer(retrans_timer(), trans(), call()) ->
     trans().
 
-retrans_timer(timer_a, #trans{next_retrans=Next}=Trans) ->
+retrans_timer(timer_a, #trans{next_retrans=Next}=Trans, Call) ->
+    #call{global=#global{t1=T1}} = Call,
     Time = case is_integer(Next) of
         true -> Next;
-        false -> nksip_config:get(timer_t1)
+        false -> T1
     end,
     Trans#trans{
         retrans_timer = start_timer(Time, timer_a, Trans),
         next_retrans = 2*Time
     };
 
-retrans_timer(Tag, #trans{next_retrans=Next}=Trans) when Tag=:=timer_e; Tag=:=timer_g ->
+retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
+                when Tag=:=timer_e; Tag=:=timer_g ->
+    #call{global=#global{t1=T1, t2=T2}} = Call, 
     Time = case is_integer(Next) of
         true -> Next;
-        false -> nksip_config:get(timer_t1)
+        false -> T1
     end,
     Trans#trans{
         retrans_timer = start_timer(Time, Tag, Trans),
-        next_retrans = min(2*Time, nksip_config:get(timer_t2))
+        next_retrans = min(2*Time, T2)
     }.
 
 
 
 %% @private
--spec expire_timer(expire_timer(), trans()) ->
+-spec expire_timer(expire_timer(), trans(), call()) ->
     trans().
 
-expire_timer(expire, #trans{id=Id, class=Class, request=Req}=Trans) ->
+expire_timer(expire, #trans{id=Id, class=Class, request=Req, opts=Opts}=Trans, _) ->
     Timer = case nksip_sipmsg:header(Req, <<"Expires">>, integers) of
         [Expires] when is_integer(Expires), Expires > 0 -> 
-            case lists:member(no_auto_expire, Req#sipmsg.opts) of
+            case lists:member(no_auto_expire, Opts) of
                 true -> 
                     #sipmsg{app_id=AppId, call_id=CallId} = Req,
                     ?debug(AppId, CallId, "UAC ~p skipping INVITE expire", [Id]),

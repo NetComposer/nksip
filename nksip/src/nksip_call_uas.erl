@@ -24,8 +24,8 @@
 
 -export([request/2, timer/3, app_reply/4, fork_reply/3, sync_reply/4]).
 -export_type([status/0, id/0]).
--import(nksip_call_lib, [update/2, new_sipmsg/3, update_sipmsg/2, 
-                         timeout_timer/2, retrans_timer/2, expire_timer/2, 
+-import(nksip_call_lib, [update/2, new_sipmsg/2, store_sipmsg/2, update_sipmsg/2, 
+                         timeout_timer/3, retrans_timer/3, expire_timer/3, 
                          cancel_timers/2]).
 
 -include("nksip.hrl").
@@ -52,7 +52,7 @@
 -spec request(nksip:request(), call()) ->
     #call{}.
 
-request(Req, Call) -> 
+request(Req, #call{app_opts=AppOpts}=Call) -> 
     case is_trans_ack(Req, Call) of
         {true, UAS} -> 
             process_trans_ack(UAS, Call);
@@ -61,7 +61,7 @@ request(Req, Call) ->
                 {true, UAS} ->
                     process_retrans(UAS, Call);
                 {false, TransId} ->
-                    case nksip_uas_lib:preprocess(Req) of
+                    case nksip_uas_lib:preprocess(Req, AppOpts) of
                         own_ack -> Call;
                         Req1 -> do_request(Req1, TransId, Call)
                     end
@@ -80,9 +80,9 @@ process_trans_ack(UAS, Call) ->
             UAS1 = cancel_timers([retrans, timeout], UAS#trans{response=undefined}),
             UAS2 = case Proto of 
                 udp -> 
-                    timeout_timer(timer_i, UAS1#trans{status=invite_confirmed});
+                    timeout_timer(timer_i, UAS1#trans{status=invite_confirmed}, Call);
                 _ when Cancel=:=cancelled ->
-                    timeout_timer(wait_sipapp, UAS1#trans{status=invite_confirmed});
+                    timeout_timer(wait_sipapp, UAS1#trans{status=invite_confirmed}, Call);
                 _ -> 
                     UAS1#trans{status=finished}
             end,
@@ -193,12 +193,15 @@ do_app_reply(Fun, Status, Reply, UAS, Call)
 
 
 % @doc Sends a syncrhonous request reply
--spec sync_reply(nksip:sipreply(), trans(), from(), call()) ->
+-spec sync_reply(nksip:sipreply(), trans(), {srv, from()}|none, call()) ->
     call().
 
 sync_reply(Reply, UAS, From, Call) ->
     {Result, Call1} = send_reply(Reply, UAS, Call),
-    gen_server:reply(From, Result),
+    case From of
+        {srv, SrvFrom} -> gen_server:reply(SrvFrom, Result);
+        _ -> ok
+    end,
     Call1.
 
 
@@ -212,36 +215,35 @@ sync_reply(Reply, UAS, From, Call) ->
 -spec do_request(nksip:request(), id(), call()) ->
     call().
 
-do_request(Req, TransId, Call) ->
-    #sipmsg{opts=Opts} = Req,
-    #call{trans=Trans} = Call,
-    {Req1, Call1} = new_sipmsg(Req, false, Call),
+do_request(Req, TransId, #call{trans=Trans}=Call) ->
+    {Req1, Call1} = new_sipmsg(Req, Call),
+    Call2 = store_sipmsg(Req1, Call1),
     #sipmsg{id=MsgId, method=Method, ruri=RUri, transport=Transp} = Req1,
     LoopId = loop_id(Req1),
     UAS = #trans{
         class = uas,
         id = TransId, 
         status = authorize,
+        opts = [],
         start = nksip_lib:timestamp(),
         from = none,
-        request = Req1#sipmsg{opts=Opts},
+        request = Req1,
         method = Method,
         ruri = RUri,
         proto = Transp#transport.proto,
-        opts = Opts,
         stateless = true,
         response = undefined,
         code = 0,
         loop_id = LoopId,
         cancel = undefined
     },
-    UAS1 = timeout_timer(timeout, UAS),
-    Call2 = Call1#call{trans=[UAS1|Trans]},
-    ?call_debug("UAS ~p received SipMsg ~p (~p)", [TransId, MsgId, Method], Call2),
+    UAS1 = timeout_timer(timeout, UAS, Call),
+    Call3 = Call2#call{trans=[UAS1|Trans]},
+    ?call_debug("UAS ~p received SipMsg ~p (~p)", [TransId, MsgId, Method], Call3),
     case lists:keymember(LoopId, #trans.loop_id, Trans) of
-        true -> reply(loop_detected, UAS1, Call2);
-        false when Method=:='INVITE' -> send_100(UAS1, Call2);
-        false -> authorize_launch(UAS1, Call2)
+        true -> reply(loop_detected, UAS1, Call3);
+        false when Method=:='INVITE' -> send_100(UAS1, Call3);
+        false -> authorize_launch(UAS1, Call3)
     end.
 
 
@@ -249,11 +251,11 @@ do_request(Req, TransId, Call) ->
 -spec send_100(trans(), call()) ->
     call().
 
-send_100(UAS, Call) ->
-    #trans{id=Id, method=Method, request=Req, opts=Opts} = UAS,
-    case Method=:='INVITE' andalso (not lists:member(no_100, Opts)) of 
+send_100(UAS, #call{app_opts=AppOpts}=Call) ->
+    #trans{id=Id, method=Method, request=Req} = UAS,
+    case Method=:='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
         true ->
-            case nksip_transport_uas:send_response(Req, 100) of
+            case nksip_transport_uas:send_user_response(Req, 100, AppOpts) of
                 {ok, _} -> 
                     authorize_launch(UAS, Call);
                 error ->
@@ -369,14 +371,17 @@ do_route({response, Reply, Opts}, UAS, Call) ->
 
 do_route({process, Opts}, #trans{request=Req}=UAS, Call) ->
     UAS1 = UAS#trans{stateless=lists:member(stateless, Opts)},
-    UAS2 = case nksip_lib:get_value(headers, Opts, []) of
-        [] -> 
-            UAS1;
-        Headers1 -> 
+    case nksip_lib:get_value(headers, Opts) of
+        Headers1 when is_list(Headers1) -> 
             #sipmsg{headers=Headers} = Req,
-            UAS1#trans{request=Req#sipmsg{headers=Headers1++Headers}}
+            Req1 = Req#sipmsg{headers=Headers1++Headers},
+            UAS2 = UAS1#trans{request=Req1},
+            Call2 = update_sipmsg(Req1, Call);
+        _ -> 
+            UAS2 = UAS1,
+            Call2 = Call
     end,
-    process(UAS2, uas, update(UAS2, Call));
+    process(UAS2, uas, update(UAS2, Call2));
 
 % We want to proxy the request
 do_route({proxy, UriList, Opts}, UAS, Call) ->
@@ -453,7 +458,7 @@ do_process('INVITE', _DialogId, Type, #trans{cancel=Cancelled}=UAS, Call) ->
         app_call(invite, [], UAS, Call); 
         _ -> ok 
     end,
-    UAS1 = expire_timer(expire, UAS),
+    UAS1 = expire_timer(expire, UAS, Call),
     Call1 = update(UAS1, Call),
     case Cancelled of
         cancelled -> cancel_launch(Type, UAS1, Call1);
@@ -550,60 +555,63 @@ cancel_reply(Reply, UAS, Call) ->
 -spec reply(nksip:response()|nksip:sipreply(), trans(), call()) ->
     call().
 
-reply(SipReply, UAS, Call) ->
-    {_, Call1} = send_reply(SipReply, UAS, Call),
+reply(Reply, UAS, Call) ->
+    {_, Call1} = send_reply(Reply, UAS, Call),
     Call1.
 
 
 %% @private Sends a transaction reply
--spec send_reply(nksip:response()|nksip:sipreply(), trans(), call()) ->
+-spec send_reply(nksip:sipreply()|{nksip:response(), nksip_lib:proplist()}, 
+                  trans(), call()) ->
     {{ok, nksip:response()} | {error, invalid_call}, call()}.
 
-send_reply(_, #trans{code=487}, Call) ->
-    {{error, invalid_call}, Call};
+% send_reply(_, #trans{code=487}, Call) ->
+%     {{error, invalid_call}, Call};
 
 send_reply(Reply, #trans{method='ACK',id=Id, status=Status}, Call) ->
     ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", 
                  [Id, Status, Reply], Call),
     {{error, invalid_call}, Call};
 
-send_reply(#sipmsg{response=Code}=Resp, UAS, Call) ->
+send_reply({#sipmsg{response=Code}=Resp, SendOpts}, UAS, Call) ->
     #trans{
         id = Id, 
         status = Status, 
+        opts = Opts,
         method = Method,
         request = Req,
-        stateless = Stateless,
-        opts = Opts
+        stateless = Stateless
     } = UAS,
+    #call{app_opts=AppOpts} = Call,
     case 
         Status=:=authorize orelse Status=:=route orelse 
         Status=:=invite_proceeding orelse Status=:=trying orelse 
         Status=:=proceeding
     of
         true ->
-            case nksip_transport_uas:send_response(Resp) of
+            case nksip_transport_uas:send_response(Resp, SendOpts++AppOpts) of
                 {ok, Resp1} -> ok;
-                error -> Resp1 = nksip_reply:reply(Req, service_unavailable)
+                error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
             end,
             #sipmsg{response=Code1} = Resp1,
-            {Resp2, Call1} = new_sipmsg(Resp1, false, Call),
+            {Resp2, Call1} = new_sipmsg(Resp1, Call),
+            Call2 = store_sipmsg(Resp1, Call1),
             UAS1 = UAS#trans{response=Resp2, code=Code},
+            Call3 = case lists:member(no_dialog, Opts) of
+                true -> Call2;
+                false -> nksip_call_dialog_uas:response(UAS1, Call2)
+            end,
             case Stateless of
                 true when Method=/='INVITE' ->
                     ?call_debug("UAS ~p ~p stateless reply ~p", 
                                 [Id, Method, Code1], Call),
                     UAS2 = cancel_timers([timeout], UAS1#trans{status=finished}),
-                    {{ok, Resp2}, update(UAS2, Call1)};
+                    {{ok, Resp2}, update(UAS2, Call3)};
                 _ ->
                     ?call_debug("UAS ~p ~p stateful reply ~p", 
                                 [Id, Method, Code1], Call),
-                    Call2 = case lists:member(no_dialog, Opts) of
-                        true -> Call1;
-                        false -> nksip_call_dialog_uas:response(UAS1, Call1)
-                    end,
-                    UAS2 = do_reply(Method, Code1, UAS1),
-                    {{ok, Resp2}, update(UAS2, Call2)}
+                    UAS2 = do_reply(Method, Code1, UAS1, Call3),
+                    {{ok, Resp2}, update(UAS2, Call3)}
             end;
         false ->
             ?call_info("UAS ~p ~p cannot send ~p response in ~p", 
@@ -622,13 +630,13 @@ send_reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 
 
 %% @private
--spec do_reply(nksip:method(), nksip:response_code(), trans()) ->
+-spec do_reply(nksip:method(), nksip:response_code(), trans(), call()) ->
     trans().
 
-do_reply('INVITE', Code, UAS) when Code < 200 ->
+do_reply('INVITE', Code, UAS, _) when Code < 200 ->
     UAS;
 
-do_reply('INVITE', Code, UAS) when Code < 300 ->
+do_reply('INVITE', Code, UAS, Call) when Code < 300 ->
     #trans{id=Id, request=Req, response=Resp} = UAS,
     UAS1 = case Id < 0 of
         true -> 
@@ -644,29 +652,30 @@ do_reply('INVITE', Code, UAS) when Code < 300 ->
     UAS3 = cancel_timers([timeout, expire], UAS2),
     % RFC6026 accepted state, to wait for INVITE retransmissions
     % Dialog will send 2xx retransmissions
-    timeout_timer(timer_l, UAS3#trans{status=invite_accepted});
+    timeout_timer(timer_l, UAS3#trans{status=invite_accepted}, Call);
 
-do_reply('INVITE', Code, UAS) when Code >= 300 ->
+do_reply('INVITE', Code, UAS, Call) when Code >= 300 ->
     #trans{proto=Proto} = UAS,
     UAS1 = cancel_timers([timeout, expire], UAS),
-    UAS2 = timeout_timer(timer_h, UAS1#trans{request=undefined, status=invite_completed}),
+    UAS2 = UAS1#trans{request=undefined, status=invite_completed},
+    UAS3 = timeout_timer(timer_h, UAS2, Call),
     case Proto of 
         udp -> 
-            retrans_timer(timer_g, UAS2);
+            retrans_timer(timer_g, UAS3, Call);
         _ -> 
-            UAS2#trans{response=undefined}
+            UAS3#trans{response=undefined}
     end;
 
-do_reply(_, Code, UAS) when Code < 200 ->
+do_reply(_, Code, UAS, _) when Code < 200 ->
     UAS#trans{status=proceeding};
 
-do_reply(_, Code, UAS) when Code >= 200 ->
+do_reply(_, Code, UAS, Call) when Code >= 200 ->
     #trans{proto=Proto} = UAS,
     UAS1 = cancel_timers([timeout], UAS),
     case Proto of
         udp -> 
             UAS2 =  UAS1#trans{request=undefined, status=completed},
-            timeout_timer(timer_j, UAS2);
+            timeout_timer(timer_j, UAS2, Call);
         _ -> 
             UAS1#trans{status=finished}
     end.
@@ -715,7 +724,7 @@ timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p response", 
                        [Id, Code], Call),
-            retrans_timer(timer_g, UAS);
+            retrans_timer(timer_g, UAS, Call);
         error -> 
             ?call_notice("UAS ~p could not retransmit 'INVITE' ~p response", 
                          [Id, Code], Call),
@@ -733,7 +742,7 @@ timer(timer_l, #trans{id=Id}=UAS, Call) ->
 timer(timer_i, #trans{id=Id, cancel=Cancel}=UAS, Call) ->
     ?call_debug("UAS ~p 'INVITE' Timer I fired", [Id], Call),
     UAS1 = case Cancel of
-        cancelled -> timeout_timer(wait_sipapp, UAS);
+        cancelled -> timeout_timer(wait_sipapp, UAS, Call);
         _ -> cancel_timers([timeout], UAS#trans{status=finished})
     end,
     update(UAS1, Call);

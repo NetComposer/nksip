@@ -40,6 +40,7 @@
 %% ===================================================================
 
 %% @private
+%% Recognized options are: follow_redirects
 -spec start(nksip_call:trans(), nksip:uri_set(), nksip_lib:proplist(),call()) ->
    call().
 
@@ -52,9 +53,9 @@ start(Trans, UriSet, Opts, #call{next=ForkId, forks=Forks}=Call) ->
         start = nksip_lib:timestamp(),
         uriset = UriSet,
         request  = Req,
+        opts = Opts,
         next = 1000*ForkId,
         pending = [],
-        opts = Opts,
         responses = [],
         final = false
     },
@@ -112,7 +113,7 @@ launch([Uri|Rest], Fork, Call) ->
         true ->
             ?call_warning("Fork ~p tried to stateful proxy a request to itself", 
                          [], Call),
-            Resp = nksip_reply:reply(Req, loop_detected),
+            {Resp, _} = nksip_reply:reply(Req, loop_detected),
             Fork1 = Fork#fork{responses=[Resp|Resps]},
             launch(Rest, Fork1, Call);
         false ->
@@ -183,9 +184,9 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
         id = Id,
         final = Final,
         pending = Pending,
-        opts = Opts,
         responses = Resps,
-        request = #sipmsg{contacts=Contacts, ruri=RUri}
+        request = #sipmsg{contacts=Contacts, ruri=RUri},
+        opts = Opts
     } = Fork,
     Fork1 = Fork#fork{pending=Pending--[Pos]},
     case lists:member(follow_redirects, Opts) of
@@ -245,7 +246,7 @@ cancel(ForkId, #call{forks=Forks}=Call) ->
 delete(#fork{id=Id}, #call{forks=Forks}=Call) ->
     ?call_debug("Fork ~p deleted", [Id], Call),
     Forks1 = lists:keydelete(Id, #fork.id, Forks),
-    Call#call{forks=Forks1, hibernate=true}.
+    Call#call{forks=Forks1, hibernate=fork_finished}.
 
 
 %% @private

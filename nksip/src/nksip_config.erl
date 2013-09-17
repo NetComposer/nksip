@@ -64,6 +64,8 @@
 -export([get/1, get/2, put/2, del/1, cseq/0]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,     handle_info/2]).
 
+-compile({no_auto_import,[put/2]}).
+
 -define(MINUS_CSEQ, 46111468).  % Lower values to debug
 
 
@@ -170,6 +172,9 @@ init([]) ->
             nksip_config:put(Key, Value)
         end,
         default_config()),
+    put(global_id, nksip_lib:luid()),
+    put(local_ips, nksip_lib:get_local_ips()),
+    put(main_ip, nksip_lib:find_main_ip()),
     {ok, #state{}}.
 
 

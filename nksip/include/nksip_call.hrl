@@ -38,9 +38,11 @@
 -define(call_error(Txt, List, SD),
         ?error(SD#call.app_id, SD#call.call_id, Txt, List)).
 
+-define(MSG_KEEP_TIME, 5).          % Time to keep removed sip msgs in memory
+
 
 -record(raw_sipmsg, {
-    sipapp_id :: nksip:app_id(),
+    app_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
     call_id :: nksip:call_id(),
@@ -56,11 +58,11 @@
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nksip_lib:timestamp(),
     from :: {srv, from()} | {fork, nksip_call_fork:id()} | none,
+    opts :: nksip_lib:proplist(),
     request :: nksip:request(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
     proto :: nksip:protocol(),
-    opts :: nksip_lib:proplist(),
     response :: nksip:response(),
     code :: 0 | nksip:response_code(),
     to_tags = [] :: [nksip:tag()],
@@ -81,27 +83,40 @@
     trans_id :: nksip_call_uac:id() | nksip_call_uas:id(),
     start :: nksip_lib:timestamp(),
     request :: nksip:request(),
+    opts :: nksip_lib:proplist(),
     next :: integer(),
-    opts :: nksip_lib:proplist(),       
     uriset :: nksip:uri_set(),          
     pending :: [integer()],
     responses :: [nksip:response()], 
     final :: false | '2xx' | '6xx'
 }).
 
+
+-record(global, {
+    global_id :: binary(),
+    max_calls :: integer(),
+    max_trans_time :: integer(),
+    max_dialog_time :: integer(),
+    t1 :: integer(),
+    t2 :: integer(),
+    t4 :: integer(),
+    tc :: integer()
+}).
+
+
 -record(call, {
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
+    global :: #global{},
     app_opts :: nksip_lib:proplist(),
     keep_time :: integer(),
-    max_trans_time :: integer(),
-    max_dialog_time :: integer(),
+    hibernate :: atom(),
     next :: integer(),
-    hibernate :: boolean(),
     trans = [] :: [#trans{}],
     forks = [] :: [#fork{}],
     msgs = [] :: [#sipmsg{}],
     dialogs = [] :: [#dialog{}]
 }).
+
 
 -endif.

@@ -37,7 +37,7 @@
 
 -type id() :: integer().
 
--type field() ::  sipapp_id | method | call_id | vias | parsed_vias | 
+-type field() ::  app_id | method | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
                   from | from_scheme | from_user | from_domain | parsed_from | 
                   to | to_scheme | to_user | to_domain | parsed_to | 
@@ -59,7 +59,7 @@
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
-%%          <td>`sipapp_id'</td>
+%%          <td>`app_id'</td>
 %%          <td>{@link nksip:app_id()}</td>
 %%          <td>SipApp's Id</td>
 %%      </tr>
@@ -339,7 +339,7 @@ provisional_reply(Req, SipReply) ->
     boolean().
 
 is_local_route(Req) ->
-    case fields(Req, [sipapp_id, parsed_ruri, parsed_routes]) of
+    case fields(Req, [app_id, parsed_ruri, parsed_routes]) of
         [AppId, RUri, []] -> nksip_transport:is_local(AppId, RUri);
         [AppId, _, [Route|_]] -> nksip_transport:is_local(AppId, Route);
         error -> error

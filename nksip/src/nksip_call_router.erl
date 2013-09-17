@@ -24,13 +24,14 @@
 
 -behaviour(gen_server).
 
--export([send/1, send/4, send_dialog/3, cancel/1, sync_reply/2]).
+-export([send/2, send/4, send_dialog/3, cancel/1, sync_reply/2]).
 -export([apply_dialog/2, get_all_dialogs/0, get_all_dialogs/2, stop_dialog/1]).
 -export([apply_sipmsg/2, get_all_sipmsgs/0, get_all_sipmsgs/2]).
+-export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
 -export([get_all_calls/0, get_all_data/0]).
--export([incoming/1, pending_msgs/0, pending_work/0]).
+-export([incoming_async/1, incoming_sync/1, pending_msgs/0, pending_work/0]).
 -export([app_reply/5, clear_calls/0]).
--export([pos2name/1, start_link/2]).
+-export([pos2name/1, send_work_sync/3, send_work_async/3, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
 -export_type([send_common/0, send_error/0, make_error/0]).
@@ -64,11 +65,11 @@
 %% ===================================================================
 
 %% @doc Sends a new request
--spec send(nksip:request()) ->
+-spec send(nksip:request(), nksip_lib:proplist()) ->
     send_common() | {error, send_error()}.
 
-send(#sipmsg{app_id=AppId, call_id=CallId}=Req) ->
-    send_work_sync(AppId, CallId, {send, Req}).
+send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
+    send_work_sync(AppId, CallId, {send, Req, Opts}).
 
 
 %% @doc Generates and sends a new request
@@ -77,13 +78,10 @@ send(#sipmsg{app_id=AppId, call_id=CallId}=Req) ->
 
 send(AppId, Method, Uri, Opts) ->
     case nksip_lib:get_binary(call_id, Opts) of
-        <<>> -> 
-            CallId = nksip_lib:luid(),
-            Opts1 = [{call_id, CallId}|Opts];
-        CallId -> 
-            Opts1 = Opts
+        <<>> -> CallId = nksip_lib:luid();
+        CallId -> ok
     end,
-    send_work_sync(AppId, CallId, {send, Method, Uri, Opts1}).
+    send_work_sync(AppId, CallId, {send, Method, Uri, Opts}).
 
 
 %% @doc Generates and sends a new in-dialog request
@@ -203,6 +201,36 @@ get_all_sipmsgs(AppId, CallId) ->
     end.
 
 
+%% @doc Applies a fun to a Transaction and returns the result
+-spec apply_transaction(nksip:request_id() | nksip:response_id(), function()) ->
+    term() | {error, Error}
+    when Error :: unknown_transaction | sync_error().
+
+apply_transaction({Class, AppId, CallId, MsgId, _DlgId}, Fun)
+             when Class=:=req; Class=:=resp ->
+    send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun}).
+
+
+%% @doc Get all stored SipMsgs for all calls
+-spec get_all_transactions() ->
+    [nksip:request_id() | nksip:response_id()].
+
+get_all_transactions() ->
+    lists:flatten([get_all_transactions(AppId, CallId)
+        ||{AppId, CallId, _} <- get_all_calls()]).
+
+
+%% @doc Get all Transactions for this SipApp and having CallId
+-spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
+    [nksip:request_id() | nksip:response_id()].
+
+get_all_transactions(AppId, CallId) ->
+    case send_work_sync(AppId, CallId, get_all_transactions) of
+        {ok, Ids} -> Ids;
+        _ -> []
+    end.
+
+
 %% @doc Get all started calls
 -spec get_all_calls() ->
     [{nksip:app_id(), nksip:call_id(), pid()}].
@@ -226,8 +254,14 @@ get_all_data() ->
 
 
 %% @private
-incoming(#raw_sipmsg{call_id=CallId}=RawMsg) ->
+incoming_async(#raw_sipmsg{call_id=CallId}=RawMsg) ->
     gen_server:cast(name(CallId), {incoming, RawMsg}).
+
+
+%% @private
+incoming_sync(#raw_sipmsg{call_id=CallId}=RawMsg) ->
+    gen_server:call(name(CallId), {incoming, RawMsg}).
+
 
 
 %% @private
@@ -254,9 +288,9 @@ pending_msgs() ->
 -record(state, {
     pos :: integer(),
     name :: atom(),
-    opts_dict :: dict(),
-    pending :: dict(),
-    max_calls :: integer()
+    global_data :: #global{},
+    opts :: dict(),
+    pending :: dict()
 }).
 
 
@@ -270,11 +304,21 @@ start_link(Pos, Name) ->
 
 init([Pos, Name]) ->
     Name = ets:new(Name, [named_table, protected]),
+    Global = #global{
+        global_id  = nksip_config:get(global_id),
+        max_calls = nksip_config:get(max_calls),
+        max_trans_time = nksip_config:get(transaction_timeout),
+        max_dialog_time = nksip_config:get(dialog_timeout),
+        t1 = nksip_config:get(timer_t1),
+        t2 = nksip_config:get(timer_t2),
+        t4 = nksip_config:get(timer_t4),
+        tc = nksip_config:get(timer_c)
+    },
     SD = #state{
         pos = Pos, 
         name = Name, 
-        max_calls = nksip_config:get(max_calls),
-        opts_dict = dict:new(), 
+        global_data = Global,
+        opts = dict:new(), 
         pending = dict:new()
     },
     {ok, SD}.
@@ -293,6 +337,15 @@ handle_call({send_work_sync, AppId, CallId, Work}, From, SD) ->
             {reply, {error, Error}, SD}
     end;
 
+handle_call({incoming, RawMsg}, _From, SD) ->
+    case incoming(RawMsg, SD) of
+        {ok, SD1} -> 
+            {reply, ok, SD1};
+        {error, Error} ->
+            #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
+            ?error(AppId, CallId, "Error processing incoming message: ~p", [Error]),
+            {reply, {error, Error}, SD}
+    end;
 
 handle_call(pending, _From, #state{pending=Pending}=SD) ->
     {reply, dict:size(Pending), SD};
@@ -307,19 +360,12 @@ handle_call(Msg, _From, SD) ->
     gen_server_cast(#state{}).
 
 handle_cast({incoming, RawMsg}, SD) ->
-    #raw_sipmsg{class=Class, sipapp_id=AppId, call_id=CallId} = RawMsg,
-    case Class of
-        {req, _,  _} ->
-            case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, SD) of
-                {ok, SD1} -> 
-                    {noreply, SD1};
-                {error, Error} ->
-                    ?error(AppId, CallId, 
-                           "Error processing incoming message: ~p", [Error]),
-                    {noreply, SD}
-            end;
-        {resp, _, _} ->
-            send_work_async(AppId, CallId, {incoming, RawMsg}, SD),
+    case incoming(RawMsg, SD) of
+        {ok, SD1} -> 
+            {noreply, SD1};
+        {error, Error} ->
+            #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
+            ?error(AppId, CallId, "Error processing incoming message: ~p", [Error]),
             {noreply, SD}
     end;
 
@@ -349,16 +395,26 @@ handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
             ok
     end,
     case dict:find(MRef, Pending) of
-        {ok, {AppId, CallId, Work}} -> 
+        {ok, {AppId, CallId, From, Work}} -> 
+            % We had pending work for this process.
+            % Actually, we know the process has stopped normally, and hasn't failed.
+            % If the process had failed due to an error processing the work,
+            % the "received work" message would have been received an the work will
+            % not be present in Pending.
             Pending1 = dict:erase(MRef, Pending),
             SD1 = SD#state{pending=Pending1},
-            case send_work_sync(AppId, CallId, Work, none, SD1) of
+            case send_work_sync(AppId, CallId, Work, From, SD1) of
                 {ok, SD2} -> 
-                    ?info(AppId, CallId, "Retargeting work ~p", [Work]),
+                    ?debug(AppId, CallId, "Resending work ~p from ~p", 
+                            [work_id(Work), From]),
                     {noreply, SD2};
                 {error, Error} ->
-                    ?error(AppId, CallId, 
-                           "Error retargeting work ~p: ~p", [Work, Error]),
+                    case From of
+                        {Pid, Ref} when is_pid(Pid), is_reference(Ref) ->
+                            gen_server:reply(From, {error, Error});
+                        _ ->
+                            ok
+                    end,
                     {noreply, SD}
             end;
         error ->
@@ -395,7 +451,7 @@ terminate(_Reason, _SD) ->
     atom().
 
 name(CallId) ->
-    Pos = erlang:phash2(CallId) rem ?MSG_PROCESSORS,
+    Pos = erlang:phash2(CallId) rem ?MSG_ROUTERS,
     pos2name(Pos).
 
 
@@ -417,7 +473,7 @@ send_work_sync(AppId, CallId, Work) ->
     % case catch gen_server:call(name(CallId), WorkSpec, ?SRV_TIMEOUT) of
         {'EXIT', Error} ->
             ?warning(AppId, CallId, "Error calling send_work_sync (~p): ~p",
-                     [Work, Error]),
+                     [work_id(Work), Error]),
             {error, timeout};
         Other ->
             Other
@@ -436,7 +492,7 @@ send_work_sync(AppId, CallId, Work, From, #state{name=Name, pending=Pending}=SD)
             Ref = erlang:monitor(process, Pid),
             Self = self(),
             nksip_call:sync_work(Pid, Ref, Self, Work, From),
-            Pending1 = dict:store(Ref, {AppId, CallId, Work}, Pending),
+            Pending1 = dict:store(Ref, {AppId, CallId, From, Work}, Pending),
             {ok, SD#state{pending=Pending1}};
         not_found ->
             case do_call_start(AppId, CallId, SD) of
@@ -447,42 +503,52 @@ send_work_sync(AppId, CallId, Work, From, #state{name=Name, pending=Pending}=SD)
 
 
 %% @private
--spec send_work_async(nksip:app_id(), nksip:call_id(), nksip_call:work(), #state{}) ->
-    ok.
-
-send_work_async(AppId, CallId, Work, #state{name=Name}) ->
-    case find(Name, AppId, CallId) of
-        {ok, Pid} -> 
-            nksip_call:async_work(Pid, Work);
-        not_found -> 
-            ?info(AppId, CallId, "Trying to send work ~p to deleted call", [Work])
-   end.
-
-
-%% @private
 -spec send_work_async(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
     ok.
 
 send_work_async(AppId, CallId, Work) ->
-    case find(AppId, CallId) of
+    send_work_async(name(CallId), AppId, CallId, Work).
+
+
+%% @private
+-spec send_work_async(atom(), nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
+    ok.
+
+send_work_async(Name, AppId, CallId, Work) ->
+    case find(Name, AppId, CallId) of
         {ok, Pid} -> 
             nksip_call:async_work(Pid, Work);
         not_found -> 
-            ?info(AppId, CallId, "Trying to send work ~p to deleted call", [Work])
+            ?info(AppId, CallId, "Trying to send work ~p to deleted call", 
+                  [work_id(Work)])
    end.
+
+
+%% @private
+incoming(RawMsg, #state{name=Name}=SD) ->
+    #raw_sipmsg{class=Class, app_id=AppId, call_id=CallId} = RawMsg,
+    case Class of
+        {req, _,  _} ->
+            send_work_sync(AppId, CallId, {incoming, RawMsg}, none, SD);
+        {resp, _, _} ->
+            send_work_async(Name, AppId, CallId, {incoming, RawMsg}),
+            {ok, SD}
+    end.
+
 
 
 %% @private
 -spec do_call_start(nksip:app_id(), nksip:call_id(), #state{}) ->
     {ok, #state{}} | {error, unknown_sipapp | too_many_calls}.
 
-do_call_start(AppId, CallId, #state{pos=Pos, name=Name, max_calls=MaxCalls}=SD) ->
+do_call_start(AppId, CallId, #state{pos=Pos, name=Name, global_data=Global}=SD) ->
+    #global{max_calls=MaxCalls} = Global,
     case nksip_counters:value(nksip_calls) < MaxCalls of
         true ->
             case get_opts(AppId, SD) of
-                {ok, Opts, SD1} ->
+                {ok, AppOpts, SD1} ->
                     ?debug(AppId, CallId, "Router ~p launching call", [Pos]),
-                    {ok, Pid} = nksip_call:start(AppId, CallId, Opts),
+                    {ok, Pid} = nksip_call:start(AppId, CallId, AppOpts, Global),
                     erlang:monitor(process, Pid),
                     Id = {call, AppId, CallId},
                     true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
@@ -499,27 +565,19 @@ do_call_start(AppId, CallId, #state{pos=Pos, name=Name, max_calls=MaxCalls}=SD) 
 -spec get_opts(nksip:app_id(), #state{}) ->
     {ok, nksip_lib:proplist(), #state{}} | {error, not_found}.
 
-get_opts(AppId, #state{opts_dict=OptsDict}=SD) ->
+get_opts(AppId, #state{opts=OptsDict}=SD) ->
     case dict:find(AppId, OptsDict) of
-        {ok, Opts} ->
-            {ok, Opts, SD};
+        {ok, AppOpts} ->
+            {ok, AppOpts, SD};
         error ->
             case nksip_sipapp_srv:get_opts(AppId) of
-                {ok, Opts} ->
-                    OptsDict1 = dict:store(AppId, Opts, OptsDict),
-                    {ok, Opts, SD#state{opts_dict=OptsDict1}};
+                {ok, AppOpts} ->
+                    OptsDict1 = dict:store(AppId, AppOpts, OptsDict),
+                    {ok, AppOpts, SD#state{opts=OptsDict1}};
                 {error, not_found} ->
                     {error, not_found}
             end
     end.
-
-
-%% @private
--spec find(nksip:app_id(), nksip:call_id()) ->
-    {ok, pid()} | not_found.
-
-find(AppId, CallId) ->
-    find(name(CallId), AppId, CallId).
 
 
 %% @private
@@ -532,6 +590,10 @@ find(Name, AppId, CallId) ->
         [] -> not_found
     end.
 
+%% @private
+work_id(Tuple) when is_tuple(Tuple) -> element(1, Tuple);
+work_id(Other) -> Other.
+
 
 %% @private
 router_fold(Fun) ->
@@ -541,7 +603,7 @@ router_fold(Fun, Init) ->
     lists:foldl(
         fun(Pos, Acc) -> Fun(pos2name(Pos), Acc) end,
         Init,
-        lists:seq(0, ?MSG_PROCESSORS-1)).
+        lists:seq(0, ?MSG_ROUTERS-1)).
 
 %% @private
 call_fold(Name) ->

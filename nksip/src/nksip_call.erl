@@ -33,7 +33,7 @@
 
 -behaviour(gen_server).
 
--export([start/3, stop/1, sync_work/5, async_work/2]).
+-export([start/4, stop/1, sync_work/5, async_work/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 -export([get_data/1]).
 
@@ -42,7 +42,6 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--define(MSG_KEEP_TIME, 5).          % Time to keep removed sip msgs in memory
 
 
 %% ===================================================================
@@ -59,7 +58,8 @@
 -type work() :: {incoming, #raw_sipmsg{}} | 
                 {app_reply, atom(), nksip_call_uas:id(), term()} |
                 {sync_reply, nksip_call_uas:id(), nksip:sipreply()} |
-                {send, nksip:request()} |
+                {make, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
+                {send, nksip:request(), nksip_lib:proplist()} |
                 {send, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
                 {send_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
                 {cancel, nksip_call_uac:id(), nksip_lib:proplist()} |
@@ -68,7 +68,9 @@
                 get_all_dialogs | 
                 {stop_dialog, nksip_dialog:id()} |
                 {apply_sipmsg, nksip_request:id()|nksip_response:id(), function()} |
-                get_all_sipmsgs.
+                get_all_sipmsgs |
+                {apply_transaction, nksip_request:id()|nksip_response:id(), function()} |
+                get_all_transactions.
 
 
 %% ===================================================================
@@ -76,11 +78,11 @@
 %% ===================================================================
 
 %% @doc Starts a new call
--spec start(nksip:app_id(), nksip:call_id(), nksip_lib:proplist()) ->
+-spec start(nksip:app_id(), nksip:call_id(), nksip_lib:proplist(), #global{}) ->
     {ok, pid()}.
 
-start(AppId, CallId, AppOpts) ->
-    gen_server:start(?MODULE, [AppId, CallId, AppOpts], []).
+start(AppId, CallId, AppOpts, Global) ->
+    gen_server:start(?MODULE, [AppId, CallId, AppOpts, Global], []).
 
 
 %% @doc Stops a call (deleting  all associated transactions, dialogs and forks!)
@@ -117,17 +119,15 @@ async_work(Pid, Work) ->
 -spec init(term()) ->
     gen_server_init(call()).
 
-init([AppId, CallId, AppOpts]) ->
+init([AppId, CallId, AppOpts, Global]) ->
     nksip_counters:async([nksip_calls]),
-    MaxTransTime = nksip_config:get(transaction_timeout),
-    MaxDialogTime = nksip_config:get(dialog_timeout),
+    #global{max_trans_time=MaxTransTime, global_id=GlobalId} = Global,
     Call = #call{
         app_id = AppId, 
         call_id = CallId, 
-        app_opts = AppOpts,
+        app_opts = [{global_id, GlobalId}|AppOpts],
         keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
-        max_trans_time = MaxTransTime,
-        max_dialog_time = MaxDialogTime,
+        global = Global,
         next = erlang:phash2(make_ref()),
         hibernate = false,
         msgs = [],
@@ -135,7 +135,7 @@ init([AppId, CallId, AppOpts]) ->
         forks = [],
         dialogs = []
     },
-    erlang:start_timer(round(1000*MaxTransTime/2), self(), check_call),
+    erlang:start_timer(2*1000*MaxTransTime, self(), check_call),
     ?call_debug("Call process started: ~p", [self()], Call),
     {ok, Call, ?SRV_TIMEOUT}.
 
@@ -214,22 +214,26 @@ terminate(_Reason, #call{}=Call) ->
 -spec work(work(), from()|none, call()) ->
     call().
 
-work({incoming, RawMsg}, none, #call{app_opts=AppOpts}=Call) ->
+work({incoming, RawMsg}, none, Call) ->
     #raw_sipmsg{
-        sipapp_id = AppId, 
+        app_id = AppId, 
         call_id = CallId, 
         class = {_, _, Binary},
         transport = #transport{proto=Proto}
     } = RawMsg,
+    #call{global=#global{global_id=GlobalId}} = Call,
     case nksip_parse:raw_sipmsg(RawMsg) of
         error ->
             ?notice(AppId, CallId, "SIP ~p message could not be decoded: ~s", 
                     [Proto, Binary]),
             Call;
-        #sipmsg{class=req, opts=ReqOpts}=Req ->
-            nksip_call_uas:request(Req#sipmsg{opts=ReqOpts++AppOpts}, Call);
+        #sipmsg{class=req}=Req ->
+            nksip_call_uas:request(Req, Call);
         #sipmsg{class=resp}=Resp ->
-            nksip_call_uac:response(Resp, Call)
+            case nksip_uac_lib:is_stateless(Resp, GlobalId) of
+                true -> nksip_call_proxy:response_stateless(Resp, Call);
+                false -> nksip_call_uac:response(Resp, Call)
+            end
     end;
 
 work({app_reply, Fun, Id, Reply}, none, Call) ->
@@ -238,19 +242,24 @@ work({app_reply, Fun, Id, Reply}, none, Call) ->
 work({sync_reply, ReqId, Reply}, From, Call) ->
     case find_msg_trans(ReqId, Call) of
         {ok, UAS} -> 
-            nksip_call_uas:sync_reply(Reply, UAS, From, Call);
+            nksip_call_uas:sync_reply(Reply, UAS, {srv, From}, Call);
         not_found -> 
             gen_server:reply(From, {error, invalid_call}),
             Call
     end;
 
-work({send, Req}, From, Call) ->
-    nksip_call_uac:request(Req, {srv, From}, Call);
+work({make, Method, Uri, Opts}, From, Call) ->
+    Reply = make(Method, Uri, Opts, Call),
+    gen_server:reply(From, Reply),
+    Call;
 
-work({send, Method, Uri, Opts}, From, #call{app_id=AppId, app_opts=AppOpts}=Call) ->
-    case nksip_uac_lib:make(AppId, Method, Uri, Opts++AppOpts) of
-        {ok, Req} -> 
-            work({send, Req}, From, Call);
+work({send, Req, Opts}, From, Call) ->
+    nksip_call_uac:request(Req, Opts, {srv, From}, Call);
+
+work({send, Method, Uri, Opts}, From, Call) ->
+    case make(Method, Uri, Opts, Call) of
+        {ok, Req, ReqOpts} -> 
+            work({send, Req, ReqOpts++Opts}, From, Call);
         {error, Error} ->
             gen_server:reply(From, {error, Error}),
             Call
@@ -291,8 +300,8 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
             Call
     end;
     
-work(get_all_dialogs, From, #call{app_id=AppId, call_id=CallId, dialogs=Dialogs}=Call) ->
-    Ids = [{dlg, AppId, CallId, Id} || #dialog{id=Id} <- Dialogs],
+work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
+    Ids = [nksip_dialog:id(Dialog) || Dialog <- Dialogs],
     gen_server:reply(From, {ok, Ids}),
     Call;
 
@@ -331,7 +340,23 @@ work(get_all_sipmsgs, From, #call{msgs=Msgs}=Call) ->
         #sipmsg{class=Class}=SipMsg <- Msgs
     ],
     gen_server:reply(From, {ok, Ids}),
-    Call.
+    Call;
+
+work({apply_transaction, MsgId, Fun}, From, Call) ->
+    case find_msg_trans(MsgId, Call) of
+        {ok, Trans} -> gen_server:reply(From, catch Fun(Trans));
+        not_found ->  gen_server:reply(From, {error, unknown_transaction})
+    end,
+    Call;
+
+work(get_all_transactions, From, Call) ->
+    #call{app_id=AppId, call_id=CallId, trans=Trans} = Call,
+    Ids = [{Class, AppId, CallId, Id} || #trans{id=Id, class=Class} <- Trans],
+    gen_server:reply(From, {ok, Ids}),
+    Call;
+
+work(crash, _, _) ->
+    error(forced_crash).
 
 
 %% @private
@@ -342,7 +367,7 @@ timeout({remove_msg, MsgId}, _Ref, #call{msgs=Msgs}=Call) ->
     ?call_debug("Call removing message ~p", [MsgId], Call),
     nksip_counters:async([{nksip_msgs, -1}]),
     case lists:keydelete(MsgId, #sipmsg.id, Msgs) of
-        [] -> Call#call{msgs=[], hibernate=true};
+        [] -> Call#call{msgs=[], hibernate=removed_msg};
         Msgs1 -> Call#call{msgs=Msgs1}
     end;
 
@@ -374,20 +399,22 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
             Call
     end;
 
-timeout(check_call, _Ref, #call{max_trans_time=MaxTime}=Call) ->
+timeout(check_call, _Ref, #call{global=Global}=Call) ->
+    #global{max_trans_time=MaxTrans} = Global,
+    #global{max_dialog_time=MaxDialog} = Global,
     Now = nksip_lib:timestamp(),
-    Trans1 = check_call_trans(Now, Call),
-    Forks1 = check_call_forks(Now, Call),
-    Dialogs1 = check_call_dialogs(Now, Call),
-    erlang:start_timer(round(1000*MaxTime/2), self(), check_call),
+    Trans1 = check_call_trans(Now, MaxTrans, Call),
+    Forks1 = check_call_forks(Now, MaxTrans, Call),
+    Dialogs1 = check_call_dialogs(Now, MaxDialog, Call),
+    erlang:start_timer(round(2000*MaxTrans), self(), check_call),
     Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}.
 
 
 %% @private
--spec check_call_trans(nksip_lib:timestamp(), call()) ->
+-spec check_call_trans(nksip_lib:timestamp(), integer(), call()) ->
     [trans()].
 
-check_call_trans(Now, #call{trans=Trans, max_trans_time=MaxTime}=Call) ->
+check_call_trans(Now, MaxTime, #call{trans=Trans}=Call) ->
     lists:filter(
         fun(#trans{id=Id, start=Start}) ->
             case Now - Start < MaxTime of
@@ -402,10 +429,10 @@ check_call_trans(Now, #call{trans=Trans, max_trans_time=MaxTime}=Call) ->
 
 
 %% @private
--spec check_call_forks(nksip_lib:timestamp(), call()) ->
+-spec check_call_forks(nksip_lib:timestamp(), integer(), call()) ->
     [fork()].
 
-check_call_forks(Now, #call{forks=Forks, max_trans_time=MaxTime}=Call) ->
+check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
     lists:filter(
         fun(#fork{id=Id, start=Start}) ->
             case Now - Start < MaxTime of
@@ -420,10 +447,10 @@ check_call_forks(Now, #call{forks=Forks, max_trans_time=MaxTime}=Call) ->
 
 
 %% @private
--spec check_call_dialogs(nksip_lib:timestamp(), call()) ->
+-spec check_call_dialogs(nksip_lib:timestamp(), integer(), call()) ->
     [nksip_dialog:dialog()].
 
-check_call_dialogs(Now, #call{dialogs=Dialogs, max_dialog_time=MaxTime}=Call) ->
+check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
     lists:filter(
         fun(#dialog{id=Id, created=Start}) ->
             case Now - Start < MaxTime of
@@ -443,24 +470,29 @@ check_call_dialogs(Now, #call{dialogs=Dialogs, max_dialog_time=MaxTime}=Call) ->
 
 next(#call{msgs=[], trans=[], forks=[], dialogs=[]}=Call) -> 
     {stop, normal, Call};
-next(#call{hibernate=true}=Call) -> 
-    {noreply, Call#call{hibernate=false}, hibernate};
-next(#call{}=Call) ->
-    {noreply, Call}.
-
+next(#call{hibernate=Hibernate}=Call) -> 
+    case Hibernate of
+        false ->
+            {noreply, Call};
+        _ ->
+            ?call_debug("Call hibernating: ~p", [Hibernate], Call),
+            {noreply, Call#call{hibernate=false}, hibernate}
+    end.
 
 
 %% @private
--spec find_msg_trans(nksip_request:id(), call()) ->
+-spec find_msg_trans(nksip_request:id()|nksip_response:id(), call()) ->
     {ok, trans()} | not_found.
 
-find_msg_trans(ReqId, #call{trans=Trans}) ->
-    do_find_msg_trans(ReqId, Trans).
+find_msg_trans(MsgId, #call{trans=Trans}) ->
+    do_find_msg_trans(MsgId, Trans).
 
-do_find_msg_trans(ReqId, [#trans{request=#sipmsg{id=ReqId}}=UAS|_]) -> 
-    {ok, UAS};
-do_find_msg_trans(ReqId, [_|Rest]) -> 
-    do_find_msg_trans(ReqId, Rest);
+do_find_msg_trans(MsgId, [#trans{request=#sipmsg{id=MsgId}}=UA|_]) -> 
+    {ok, UA};
+do_find_msg_trans(MsgId, [#trans{response=#sipmsg{id=MsgId}}=UA|_]) -> 
+    {ok, UA};
+do_find_msg_trans(MsgId, [_|Rest]) -> 
+    do_find_msg_trans(MsgId, Rest);
 do_find_msg_trans(_, []) -> 
     not_found.
 
@@ -485,6 +517,13 @@ find_dialog(DialogId, #call{dialogs=Dialogs}) ->
         false -> not_found;
         Dialog -> {ok, Dialog}
     end.
+
+%% @private
+make(Method, Uri, Opts, Call) ->
+    #call{app_id=AppId, call_id=CallId, app_opts=AppOpts} = Call,
+    Opts1 = [{call_id, CallId} | Opts++AppOpts ],
+    nksip_uac_lib:make(AppId, Method, Uri, Opts1).
+
 
 %% @private
 get_data(Pid) ->

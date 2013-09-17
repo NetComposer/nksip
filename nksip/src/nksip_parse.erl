@@ -274,7 +274,7 @@ packet(AppId, Transport, Packet) ->
         {ok, Class, Headers, Body, Rest} ->
             CallId = nksip_lib:get_value(<<"Call-ID">>, Headers),
             Msg = #raw_sipmsg{
-                sipapp_id = AppId,
+                app_id = AppId,
                 transport = Transport,
                 start = Start,
                 call_id = CallId,
@@ -356,7 +356,7 @@ parse_packet(Packet, Class, Rest) ->
 %% @private Second-stage SIP message parser
 %% 15K/sec on i7
 -spec raw_sipmsg(#raw_sipmsg{}) -> #sipmsg{} | error.
-raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport, 
+raw_sipmsg(#raw_sipmsg{app_id=AppId, transport=Transport, 
                         class=Class, headers=Headers, body=Body, start=Start}) ->
     case Class of
         {req, Method, RequestUri} ->
@@ -374,7 +374,7 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                                 response = undefined,
                                 transport = Transport,
                                 start = Start,
-                                opts = []
+                                data = []
                             }
                     end;
                 _ ->
@@ -391,7 +391,7 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                         response = Code,
                         transport = Transport,
                         start = Start,
-                        opts = [{reason, CodeText}]
+                        data = [{reason, CodeText}]
                     }
             end
     end.
@@ -473,7 +473,7 @@ get_sipmsg(Headers, Body) ->
             body = Body1,
             from_tag = nksip_lib:get_value(tag, From#uri.ext_opts, <<>>),
             to_tag = nksip_lib:get_value(tag, To#uri.ext_opts, <<>>),
-            opts = []
+            data = []
         }
     catch
         throw:ErrMsg ->

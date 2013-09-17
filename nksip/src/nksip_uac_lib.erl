@@ -22,7 +22,7 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make/4, make_cancel/1, is_stateless/1]).
+-export([make/4, make_cancel/1, is_stateless/2]).
 -include("nksip.hrl").
  
 
@@ -35,7 +35,7 @@
 %% See {@link nksip_uac} for the decription of most options.
 %% It will also add a <i>From</i> tag if not present.
 -spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->    
-    {ok, nksip:request()} | {error, Error} when
+    {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq.
 
@@ -134,20 +134,7 @@ make(AppId, Method, Uri, Opts) ->
             <<>> -> [];
             ContentTypeSpec -> nksip_parse:tokens([ContentTypeSpec])
         end,
-        Opts1 = [
-            case lists:member(make_contact, Opts) of
-                true -> Opts;
-                false when Method=:='INVITE', Contacts=:=[] -> [make_contact|Opts];
-                false -> Opts
-            end,
-            {to_tag, nksip_lib:hash(make_ref())}
-        ],
-        % to_tag is used in case of returning an error from the UAC
-        Opts2 = nksip_lib:extract(lists:flatten(Opts1), 
-                            [to_tag, make_contact, local_host, pass, 
-                             async, callback, full_response, full_request, 
-                             no_auto_expire, no_dialog]),
-        SipMsg = #sipmsg{
+         Req = #sipmsg{
             class = req,
             app_id = AppId,
             method = nksip_parse:method(Method),
@@ -168,20 +155,27 @@ make(AppId, Method, Uri, Opts) ->
             from_tag = FromTag,
             to_tag = nksip_lib:get_binary(tag, To#uri.ext_opts),
             transport = #transport{},
-            opts = Opts2,
+            data = [],
             start = nksip_lib:l_timestamp()
         },
-        {ok, SipMsg}
+        Opts1 = case lists:member(make_contact, Opts) of
+            false when Method=:='INVITE', Contacts=:=[] -> [make_contact];
+            _ -> []
+        end,
+        {ok, Req, Opts1}
     catch
         throw:Throw -> {error, Throw}
     end.
+
+
+
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{class=req, vias=[Via|_], opts=Opts}=Req) ->
+make_cancel(#sipmsg{class=req, vias=[Via|_]}=Req) ->
     Req#sipmsg{
         method = 'CANCEL',
         cseq_method = 'CANCEL',
@@ -191,19 +185,18 @@ make_cancel(#sipmsg{class=req, vias=[Via|_], opts=Opts}=Req) ->
         contacts = [],
         content_type = [],
         body = <<>>,
-        opts = Opts
+        data = []
     }.
 
 
 %% @doc Checks if a response is a stateless response
--spec is_stateless(nksip:response()) ->
+-spec is_stateless(nksip:response(), binary()) ->
     boolean().
 
-is_stateless(Resp) ->
-    #sipmsg{vias=[#via{opts=Opts}|ViaR]} = Resp,
+is_stateless(Resp, GlobalId) ->
+    #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
     case nksip_lib:get_binary(branch, Opts) of
-        <<"z9hG4bK", Branch/binary>> when ViaR =/= [] ->
-            GlobalId = nksip_config:get(global_id),
+        <<"z9hG4bK", Branch/binary>> ->
             StatelessId = nksip_lib:hash({Branch, GlobalId, stateless}),
             case nksip_lib:get_binary(nksip, Opts) of
                 StatelessId -> true;

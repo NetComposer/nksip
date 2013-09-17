@@ -211,7 +211,7 @@
 %% and `make_contact' will be added automatically, and (if code is 101-299) all
 %% <i>Record-Route</i> headers from the request will be copied in the response.
 -spec reply(nksip:request(), nksip:sipreply()|#reqreply{}) -> 
-    nksip:response().
+    {nksip:response(), nksip_lib:proplist()}.
 
 reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, 
             #reqreply{code=Code, headers=Headers, body=Body, opts=Opts}) ->
