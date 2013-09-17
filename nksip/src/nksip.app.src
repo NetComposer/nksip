@@ -1,26 +1,33 @@
 {application, nksip, [
     {description, "NkSIP Framework"},
-    {vsn, "0.2.0"},
+    {vsn, "0.1.0"},
     {modules, []},
     {registered, []},
     {mod, {nksip_app, []}},
-    {applications, [kernel, stdlib, crypto, sasl, lager, ranch]},
+    {applications, [
+                    kernel,
+                    stdlib,
+                    crypto,
+                    sasl,
+                    ssl,
+                    lager,
+                    ranch
+                   ]},
     {env, [
         {timer_t1, 500},                % 500 msecs
         {timer_t2, 4000},               % 4 secs
         {timer_t4, 5000},               % 5 secs
         {timer_c,  180},                % 3 minutes
-        {transaction_timeout, 900},     % 15 min
-        {dialog_timeout, 900},          % 15 min
-        {tcp_timeout, 180},             % 3 min
-        {nonce_timeout, 30},            % 30 secs
-        {max_calls, 100000},            % Each Call-ID counts as a call
-        {max_connections, 1024},        % Per transport and SipApp
+        {ringing_timeout, 180},         % 3 minutes
+        {proxy_timeout, 600},           % 10 minutes
         {registrar_default_time, 3600}, % 1 hour
         {registrar_min_time, 60},       % 1 min
-        {registrar_max_time, 86400}     % 24 hour
+        {registrar_max_time, 86400},    % 24 hour
+        {max_requests, 10240},          % Maximum concurrent requests and transactions
+        {max_dialogs, 20480},           % Maximum concurrent dialogs
+        {max_connections, 10240},       % Maximum (per transport) TCP/TLS connections
+        {tcp_timeout, 180},             % 3 min
+        {dialog_timeout, 900},          % 15 min
+        {nonce_timeout, 30}             % 30 secs
     ]}
 ]}.
-
-
-
