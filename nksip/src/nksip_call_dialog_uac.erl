@@ -153,7 +153,10 @@ response(UAC, #call{dialogs=Dialogs}=Call) ->
                     ?call_debug("Dialog ~p (~p) UAC response ~p ~p", 
                                 [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
-                    Dialog2 = nksip_call_dialog:remotes_update(Resp, Dialog1),
+                    Dialog2 = case Code>=200 andalso Code<300 of
+                        true -> nksip_call_dialog:remotes_update(Resp, Dialog1);
+                        false -> Dialog1
+                    end,
                     nksip_call_dialog:update(Dialog2, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = nksip_call_dialog:create(uac, Req, Resp),

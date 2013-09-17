@@ -121,7 +121,7 @@ status_update(Class, Status, Dialog) ->
                 true -> 
                     ok;
                 false -> 
-                    ?debug(AppId, CallId, "Dialog ~p (~p) switched to ~p", 
+                    ?debug(AppId, CallId, "Dialog ~p ~p -> ~p", 
                            [DialogId, OldStatus, Status]),
                     cast(dialog_update, {status, Status}, Dialog)
             end,
@@ -156,7 +156,6 @@ status_update(Class, Status, Dialog) ->
             Dialog3 = target_update(Class, Dialog2),
             Dialog4 = session_update(Class, Dialog3),
             T1 = nksip_config:get(timer_t1),
-            ?debug(AppId, CallId, "Dialog ~p start retrans timer", [DialogId]),
             Dialog4#dialog{
                 retrans_timer = start_timer(T1, retrans, Dialog),
                 next_retrans = 2*T1
@@ -209,9 +208,13 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog) ->
                 true -> RT#uri{scheme=sips};
                 false -> RT
             end;
+        [] ->
+            ?notice(AppId, CallId, "Dialog ~p: no Contact in remote target",
+                    [DialogId]),
+            RemoteTarget;
         RTOther -> 
-            ?notice(AppId, CallId, "Dialog ~p: invalid Contact in Remote Target: ~p",
-                    [RTOther, DialogId]),
+            ?notice(AppId, CallId, "Dialog ~p: invalid Contact in remote rarget: ~p",
+                    [DialogId, RTOther]),
             RemoteTarget
     end,
     LocalTarget1 = case LocalTargets of
@@ -399,21 +402,19 @@ do_find(_, []) ->
 
 update(#dialog{id=Id}=Dialog, #call{dialogs=[#dialog{id=Id}|Rest]}=Call) ->
     case Dialog#dialog.status of
-        {stop, _} -> Call#call{dialogs=Rest, hibernate=true};
-        confirmed -> Call#call{dialogs=[Dialog|Rest], hibernate=true};
+        {stop, _} -> Call#call{dialogs=Rest, hibernate=dialog_stop};
+        confirmed -> Call#call{dialogs=[Dialog|Rest], hibernate=dialog_confirmed};
         _ -> Call#call{dialogs=[Dialog|Rest]}
     end;
 
 update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
     case Dialog#dialog.status of
         {stop, _} -> 
-            ?call_debug("Hibernating ('stop')", [], Call),
             Dialogs1 = lists:keydelete(Id, #dialog.id, Dialogs),
-            Call#call{dialogs=Dialogs1, hibernate=true};
+            Call#call{dialogs=Dialogs1, hibernate=dialog_stop};
         confirmed ->
-            ?call_debug("Hibernating ('confirmed')", [], Call),
             Dialogs1 = lists:keystore(Id, #dialog.id, Dialogs, Dialog),
-            Call#call{dialogs=Dialogs1, hibernate=true};
+            Call#call{dialogs=Dialogs1, hibernate=dialog_confirmed};
         _ ->
             Dialogs1 = lists:keystore(Id, #dialog.id, Dialogs, Dialog),
             Call#call{dialogs=Dialogs1}
