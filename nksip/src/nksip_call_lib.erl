@@ -22,7 +22,7 @@
 -module(nksip_call_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([new_sipmsg/2, store_sipmsg/2, update_sipmsg/2, update/2]).
+-export([store_sipmsg/2, update_sipmsg/2, update/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3, cancel_timers/2]).
 -export([trace/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
@@ -52,15 +52,6 @@
 %% Private
 %% ===================================================================
 
-
-%% @private Adds a new SipMsg to the call's store
--spec new_sipmsg(nksip:request()|nksip:response(), call()) ->
-    {nksip:request()|nksip:response(), call()}.
-
-new_sipmsg(SipMsg, #call{next=MsgId}=Call) ->
-    SipMsg1 = SipMsg#sipmsg{id=MsgId},
-    {SipMsg1, Call#call{next=MsgId+1}}.
-    
 
 %% @private Adds a new SipMsg to the call's store
 -spec store_sipmsg(nksip:request()|nksip:response(), call()) ->

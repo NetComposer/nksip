@@ -22,9 +22,9 @@
 -module(nksip_call_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/4, response/2, cancel/2, fork_cancel/2, timer/3]).
+-export([request/4, response/2, cancel/2, timer/3]).
 -export_type([status/0, id/0]).
--import(nksip_call_lib, [update/2, new_sipmsg/2, store_sipmsg/2, update_sipmsg/2, 
+-import(nksip_call_lib, [update/2, store_sipmsg/2, update_sipmsg/2, 
                          timeout_timer/3, retrans_timer/3, expire_timer/3, 
                          cancel_timers/2]).
 
@@ -64,32 +64,29 @@
     call().
 
 request(Req, Opts, From, Call) ->
-    #sipmsg{method=Method} = Req,
+    #sipmsg{method=Method, id=MsgId} = Req,
     #call{app_opts=AppOpts, trans=Trans} = Call,
     Req1 = case Method of 
         'CANCEL' -> Req;
         _ -> nksip_transport_uac:add_via(Req, AppOpts)
     end,
-    {IsFork, Forked} = case From of 
-        {fork, _} -> {true, "(forked) "};
-        _ -> {false, ""}
-    end,
-    {Req2, Call1} = new_sipmsg(Req1, Call),
-    Call2 = case IsFork of
-        true -> Call1;
-        false -> store_sipmsg(Req2, Call1)
-    end,
-    UAC = make_uac(Req2, Opts, From),
+    {#trans{id=Id}=UAC, Call1} = make_uac(Req1, Opts, From, Call),
     case lists:member(async, Opts) andalso From of
         {srv, SrvFrom} -> 
-            FullReqId = nksip_request:id(Req2),
+            FullReqId = nksip_request:id(Req1),
             gen_server:reply(SrvFrom, {async, FullReqId});
         _ ->
             ok
     end,
-    #trans{id=TransId, request=#sipmsg{id=ReqId}} = UAC,
-    ?call_debug("UAC ~p sending ~srequest ~p (~p)", 
-                [TransId, Forked, Method, ReqId], Call1),
+    case From of
+        {fork, ForkId} ->
+            ?call_debug("UAC ~p sending request ~p (~p, fork: ~p)", 
+                        [Id, Method, MsgId, ForkId], Call);
+        _ ->
+            ?call_debug("UAC ~p sending request ~p (~p)", 
+                        [Id, Method, MsgId], Call)
+    end,
+    Call2 = store_sipmsg(Req1, Call1),
     do_send(Method, UAC, Call2#call{trans=[UAC|Trans]}).
 
 
@@ -99,23 +96,24 @@ request(Req, Call) ->
 
 
 %% @private
--spec make_uac(nksip:request(), nksip_lib:prolist(), uac_from()) ->
+-spec make_uac(id(), nksip:request(), nksip_lib:prolist(), uac_from()) ->
     {trans(), call()}.
 
-make_uac(Req, Opts, From) ->
+make_uac(Req, Opts, From, #call{next=Id}=Call) ->
     #sipmsg{method=Method, ruri=RUri} = Req, 
     Status = case Method of
         'ACK' -> ack;
         'INVITE'-> invite_calling;
         _ -> trying
     end,
-    #trans{
+    UAC = #trans{
+        id = Id,
         class = uac,
-        id = transaction_id(Req),
         status = Status,
         start = nksip_lib:timestamp(),
         from = From,
         opts = Opts,
+        trans_id = transaction_id(Req),
         request = Req,
         method = Method,
         ruri = RUri,
@@ -124,7 +122,8 @@ make_uac(Req, Opts, From) ->
         to_tags = [],
         cancel = undefined,
         iter = 1
-    }.
+    },
+    {UAC, Call#call{next=Id+1}}.
 
 
 
@@ -226,12 +225,12 @@ sent_method(_Other, #trans{proto=Proto}=UAC, Call) ->
 response(Resp, #call{trans=Trans}=Call) ->
     #sipmsg{cseq_method=Method, response=Code} = Resp,
     TransId = transaction_id(Resp),
-    case lists:keyfind(TransId, #trans.id, Trans) of
+    case lists:keyfind(TransId, #trans.trans_id, Trans) of
         #trans{class=uac}=UAC -> 
             do_response(Resp, UAC, Call);
         _ -> 
-            ?call_notice("UAC ~p received ~p ~p response for "
-                          "unknown request", [TransId, Method, Code], Call),
+            ?call_notice("UAC received ~p ~p response for "
+                          "unknown request", [Method, Code], Call),
             Call
     end.
 
@@ -249,7 +248,6 @@ do_response(Resp, UAC, Call) ->
         opts = Opts,
         method = Method,
         request = Req, 
-        from = From, 
         ruri = RUri
     } = UAC,
     #call{global=#global{max_trans_time=MaxTime}} = Call,
@@ -258,12 +256,8 @@ do_response(Resp, UAC, Call) ->
         true -> Resp1 = Resp#sipmsg{ruri=RUri};
         false -> {Resp1, _} = nksip_reply:reply(Req, timeout)
     end,
-    {Resp2, Call1} = new_sipmsg(Resp1, Call),
-    Call2 = case From of
-        {fork, _} -> Call1;
-        _ -> store_sipmsg(Resp2, Call1)
-    end,
-    UAC1 = UAC#trans{response=Resp2, code=Code},
+    Call1 = store_sipmsg(Resp1, Call),
+    UAC1 = UAC#trans{response=Resp1, code=Code},
     case Transport of
         undefined -> 
             ok;    % It is own-generated
@@ -271,12 +265,11 @@ do_response(Resp, UAC, Call) ->
             ?call_debug("UAC ~p ~p (~p) received ~p", 
                         [Id, Method, Status, Code], Call)
     end,
-
     Call3 = case lists:member(no_dialog, Opts) of
-        true -> update(UAC1, Call2);
-        false -> nksip_call_dialog_uac:response(UAC1, update(UAC1, Call2))
+        true -> update(UAC1, Call1);
+        false -> nksip_call_dialog_uac:response(UAC1, update(UAC1, Call1))
     end,
-    do_response_status(Status, Resp2, UAC1, Call3).
+    do_response_status(Status, Resp1, UAC1, Call3).
 
 
 %% @private
@@ -472,22 +465,15 @@ do_received_auth(Req, Resp, UAC, Call) ->
             Req2 = Req1#sipmsg{vias=Vias, cseq=CSeq},
             Req3 = nksip_transport_uac:add_via(Req2, AppOpts),
             Opts1 = nksip_lib:delete(Opts, make_contact),
-            {Req4, Call2} = new_sipmsg(Req3, Call1),
-            Call3 = store_sipmsg(Req4, Call2),
-            NewUAC = make_uac(Req4, Opts1, From),
+            {NewUAC, Call1} = make_uac(Req3, Opts1, From, Call),
             NewUAC1 = NewUAC#trans{iter=Iter+1},
-            do_send(Method, NewUAC1, update(NewUAC1, Call3));
+            Call2 = store_sipmsg(Req3, Call1),
+            do_send(Method, NewUAC1, update(NewUAC1, Call2));
         {error, Error} ->
             ?call_debug("UAC ~p could not generate new auth request: ~p", 
                         [Id, Error], Call),    
             send_user_reply({resp, Resp}, UAC, Call)
     end.
-
-
-
-
-
-
 
 
 %% ===================================================================
@@ -703,8 +689,8 @@ send_user_reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
     end,
     Call;
 
-send_user_reply({resp, Resp}, #trans{from={fork, ForkId}}, Call) ->
-    nksip_call_fork:response(ForkId, Resp, Call);
+send_user_reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
+    nksip_call_fork:response(ForkId, Id, Resp, Call);
 
 send_user_reply(_Resp, _UAC, Call) ->
     Call.

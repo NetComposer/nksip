@@ -135,6 +135,7 @@ make(AppId, Method, Uri, Opts) ->
             ContentTypeSpec -> nksip_parse:tokens([ContentTypeSpec])
         end,
          Req = #sipmsg{
+            id = erlang:phash2(make_ref()),
             class = req,
             app_id = AppId,
             method = nksip_parse:method(Method),

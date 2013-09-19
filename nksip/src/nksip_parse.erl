@@ -274,13 +274,14 @@ packet(AppId, Transport, Packet) ->
         {ok, Class, Headers, Body, Rest} ->
             CallId = nksip_lib:get_value(<<"Call-ID">>, Headers),
             Msg = #raw_sipmsg{
-                app_id = AppId,
-                transport = Transport,
-                start = Start,
-                call_id = CallId,
+                id = erlang:phash2(make_ref()), 
                 class = Class,
+                app_id = AppId,
+                call_id = CallId,
+                start = Start,
                 headers = Headers,
-                body = Body
+                body = Body,
+                transport = Transport
             },
             {ok, Msg, Rest};
         {more, More} ->
@@ -356,8 +357,16 @@ parse_packet(Packet, Class, Rest) ->
 %% @private Second-stage SIP message parser
 %% 15K/sec on i7
 -spec raw_sipmsg(#raw_sipmsg{}) -> #sipmsg{} | error.
-raw_sipmsg(#raw_sipmsg{app_id=AppId, transport=Transport, 
-                        class=Class, headers=Headers, body=Body, start=Start}) ->
+raw_sipmsg(Raw) ->
+    #raw_sipmsg{
+        id = Id,
+        class = Class, 
+        app_id = AppId, 
+        start = Start,
+        headers = Headers, 
+        body = Body, 
+        transport = Transport
+    } = Raw,
     case Class of
         {req, Method, RequestUri} ->
             case uris(RequestUri) of
@@ -367,6 +376,7 @@ raw_sipmsg(#raw_sipmsg{app_id=AppId, transport=Transport,
                             error;
                         Request ->
                             Request#sipmsg{
+                                id = Id,
                                 class = req,
                                 app_id = AppId,
                                 method = Method,
@@ -386,6 +396,7 @@ raw_sipmsg(#raw_sipmsg{app_id=AppId, transport=Transport,
                     error;
                 Response ->
                     Response#sipmsg{
+                        id = Id,
                         class = resp,
                         app_id = AppId,
                         response = Code,

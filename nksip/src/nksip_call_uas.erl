@@ -24,7 +24,7 @@
 
 -export([request/2, timer/3, app_reply/4, fork_reply/3, sync_reply/4]).
 -export_type([status/0, id/0]).
--import(nksip_call_lib, [update/2, new_sipmsg/2, store_sipmsg/2, update_sipmsg/2, 
+-import(nksip_call_lib, [update/2, store_sipmsg/2, update_sipmsg/2, 
                          timeout_timer/3, retrans_timer/3, expire_timer/3, 
                          cancel_timers/2]).
 
@@ -60,10 +60,10 @@ request(Req, #call{app_opts=AppOpts}=Call) ->
             case is_retrans(Req, Call) of
                 {true, UAS} ->
                     process_retrans(UAS, Call);
-                {false, TransId} ->
+                {false, ReqTransId} ->
                     case nksip_uas_lib:preprocess(Req, AppOpts) of
                         own_ack -> Call;
-                        Req1 -> do_request(Req1, TransId, Call)
+                        Req1 -> do_request(Req1, ReqTransId, Call)
                     end
             end
     end.
@@ -215,35 +215,32 @@ sync_reply(Reply, UAS, From, Call) ->
 -spec do_request(nksip:request(), id(), call()) ->
     call().
 
-do_request(Req, TransId, #call{trans=Trans}=Call) ->
-    {Req1, Call1} = new_sipmsg(Req, Call),
-    Call2 = store_sipmsg(Req1, Call1),
-    #sipmsg{id=MsgId, method=Method, ruri=RUri, transport=Transp} = Req1,
-    LoopId = loop_id(Req1),
+do_request(Req, TransId, #call{trans=Trans, next=Id}=Call) ->
+    #sipmsg{id=MsgId, method=Method, ruri=RUri, transport=Transp} = Req,
+    ?call_debug("UAS ~p started for ~p (~p)", [Id, Method, MsgId], Call),
+    Call1 = store_sipmsg(Req, Call),
+    LoopId = loop_id(Req),
     UAS = #trans{
+        id = Id,
         class = uas,
-        id = TransId, 
         status = authorize,
         opts = [],
         start = nksip_lib:timestamp(),
-        from = none,
-        request = Req1,
+        from = undefined,
+        trans_id = TransId, 
+        request = Req,
         method = Method,
         ruri = RUri,
         proto = Transp#transport.proto,
         stateless = true,
         response = undefined,
         code = 0,
-        loop_id = LoopId,
-        cancel = undefined
+        loop_id = LoopId
     },
-    UAS1 = timeout_timer(timeout, UAS, Call),
-    Call3 = Call2#call{trans=[UAS1|Trans]},
-    ?call_debug("UAS ~p received SipMsg ~p (~p)", [TransId, MsgId, Method], Call3),
+    Call2 = Call1#call{trans=[UAS|Trans], next=Id+1},
     case lists:keymember(LoopId, #trans.loop_id, Trans) of
-        true -> reply(loop_detected, UAS1, Call3);
-        false when Method=:='INVITE' -> send_100(UAS1, Call3);
-        false -> authorize_launch(UAS1, Call3)
+        true -> reply(loop_detected, UAS, Call2);
+        false -> send_100(UAS, Call2)
     end.
 
 
@@ -593,24 +590,23 @@ send_reply({#sipmsg{response=Code}=Resp, SendOpts}, UAS, Call) ->
                 error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
             end,
             #sipmsg{response=Code1} = Resp1,
-            {Resp2, Call1} = new_sipmsg(Resp1, Call),
-            Call2 = store_sipmsg(Resp1, Call1),
-            UAS1 = UAS#trans{response=Resp2, code=Code},
-            Call3 = case lists:member(no_dialog, Opts) of
-                true -> Call2;
-                false -> nksip_call_dialog_uas:response(UAS1, Call2)
+            Call1 = store_sipmsg(Resp1, Call),
+            UAS1 = UAS#trans{response=Resp1, code=Code},
+            Call2 = case lists:member(no_dialog, Opts) of
+                true -> Call1;
+                false -> nksip_call_dialog_uas:response(UAS1, Call1)
             end,
             case Stateless of
                 true when Method=/='INVITE' ->
                     ?call_debug("UAS ~p ~p stateless reply ~p", 
                                 [Id, Method, Code1], Call),
                     UAS2 = cancel_timers([timeout], UAS1#trans{status=finished}),
-                    {{ok, Resp2}, update(UAS2, Call3)};
+                    {{ok, Resp1}, update(UAS2, Call2)};
                 _ ->
                     ?call_debug("UAS ~p ~p stateful reply ~p", 
                                 [Id, Method, Code1], Call),
-                    UAS2 = do_reply(Method, Code1, UAS1, Call3),
-                    {{ok, Resp2}, update(UAS2, Call3)}
+                    UAS2 = do_reply(Method, Code1, UAS1, Call2),
+                    {{ok, Resp1}, update(UAS2, Call2)}
             end;
         false ->
             ?call_info("UAS ~p ~p cannot send ~p response in ~p", 
@@ -808,13 +804,13 @@ app_cast(Fun, Args, UAS, Call) ->
     {true, trans()} | false.
 
  is_trans_ack(#sipmsg{method='ACK'}=Req, #call{trans=Trans}) ->
-    TransId = transaction_id(Req#sipmsg{method='INVITE'}),
-    case lists:keyfind(TransId, #trans.id, Trans) of
+    ReqTransId = transaction_id(Req#sipmsg{method='INVITE'}),
+    case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
         #trans{class=uas}=UAS -> 
             {true, UAS};
-        false when TransId < 0 ->
+        false when ReqTransId < 0 ->
             % Pre-RFC3261 style
-            case lists:keyfind(TransId, #trans.ack_trans_id, Trans) of
+            case lists:keyfind(ReqTransId, #trans.ack_trans_id, Trans) of
                 #trans{}=UAS -> {true, UAS};
                 false -> false
             end;
@@ -831,10 +827,10 @@ is_trans_ack(_, _) ->
     {true, trans()} | {false, integer()}.
 
 is_retrans(Req, #call{trans=Trans}) ->
-    TransId = transaction_id(Req),
-    case lists:keyfind(TransId, #trans.id, Trans) of
+    ReqTransId = transaction_id(Req),
+    case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
         #trans{class=uas}=UAS -> {true, UAS};
-        _ -> {false, TransId}
+        _ -> {false, ReqTransId}
     end.
 
 
@@ -843,9 +839,9 @@ is_retrans(Req, #call{trans=Trans}) ->
     {true, trans()} | false.
 
 is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -> 
-    TransId = transaction_id(CancelReq#sipmsg{method='INVITE'}),
-    case lists:keyfind(TransId, #trans.id, Trans) of
-        #trans{class=uas, request=InvReq} = InvUAS ->
+    ReqTransId = transaction_id(CancelReq#sipmsg{method='INVITE'}),
+    case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
+        #trans{id=Id, class=uas, request=InvReq} = InvUAS ->
             #sipmsg{transport=#transport{remote_ip=CancelIp, remote_port=CancelPort}} =
                 CancelReq,
             #sipmsg{transport=#transport{remote_ip=InvIp, remote_port=InvPort}} =

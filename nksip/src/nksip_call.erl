@@ -122,13 +122,14 @@ async_work(Pid, Work) ->
 init([AppId, CallId, AppOpts, Global]) ->
     nksip_counters:async([nksip_calls]),
     #global{max_trans_time=MaxTransTime, global_id=GlobalId} = Global,
+    Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
         app_id = AppId, 
         call_id = CallId, 
         app_opts = [{global_id, GlobalId}|AppOpts],
         keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
         global = Global,
-        next = erlang:phash2(make_ref()),
+        next = Id+1,
         hibernate = false,
         msgs = [],
         trans = [],
@@ -136,7 +137,7 @@ init([AppId, CallId, AppOpts, Global]) ->
         dialogs = []
     },
     erlang:start_timer(2*1000*MaxTransTime, self(), check_call),
-    ?call_debug("Call process started: ~p", [self()], Call),
+    ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
     {ok, Call, ?SRV_TIMEOUT}.
 
 
