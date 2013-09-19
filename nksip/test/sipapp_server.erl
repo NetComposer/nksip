@@ -143,7 +143,7 @@ route(Scheme, User, Domain, RequestId, _From,
         {headers, [{<<"Nk-Id">>, SrvId}]},
         case nksip_request:header(RequestId, <<"Nk-Rr">>) of
             [<<"true">>] -> record_route;
-            _ -> []
+            _ -> none
         end
     ],
     case lists:member(Domain, Domains) of

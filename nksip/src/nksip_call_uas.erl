@@ -138,13 +138,13 @@ fork_reply(TransId, Reply, Call) ->
 -spec app_reply(atom(), id(), nksip:sipreply(), call()) ->
     call().
 
-app_reply(Fun, TransId, Reply, #call{trans=Trans}=Call) ->
-    case lists:keyfind(TransId, #trans.id, Trans) of
+app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
+    case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uas, status=Status}=UAS ->
             do_app_reply(Fun, Status, Reply, UAS, Call);
         _ ->
-            ?call_notice("Unknown UAS ~p received unexpected reply ~p",
-                          [TransId, {Fun, Reply}], Call),
+            ?call_debug("Unknown UAS ~p received SipApp reply ~p",
+                        [Id, {Fun, Reply}], Call),
             Call
     end.
 
@@ -154,7 +154,7 @@ app_reply(Fun, TransId, Reply, #call{trans=Trans}=Call) ->
     call().
 
 do_app_reply(Fun, finished, Reply, #trans{id=Id, method=Method}, Call) ->
-    ?call_info("UAS ~p ~p received reply ~p in finished", 
+    ?call_debug("UAS ~p ~p received reply ~p in finished", 
                [Id, Method, {Fun, Reply}], Call),
     Call;
 
@@ -310,9 +310,8 @@ authorize_reply(Reply, #trans{id=Id, method=Method}=UAS, Call) ->
 -spec route_launch(trans(), call()) -> 
     call().
 
-route_launch(#trans{id=Id, method=Method, ruri=RUri}=UAS, Call) ->
+route_launch(#trans{ruri=RUri}=UAS, Call) ->
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
-    ?call_debug("UAS ~p ~p calling route", [Id, Method], Call),
     app_call(route, [Scheme, User, Domain], UAS, Call),
     update(UAS#trans{status=route}, Call).
 
@@ -323,7 +322,7 @@ route_launch(#trans{id=Id, method=Method, ruri=RUri}=UAS, Call) ->
 
 route_reply(Reply, UAS, Call) ->
     #trans{id=Id, method=Method, ruri=RUri, request=Req} = UAS,
-    ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply], Call),
+    ?call_debug("UAS ~p ~p route reply\n~p", [Id, Method, Reply], Call),
     Route = case Reply of
         {response, Resp} -> {response, Resp, []};
         {response, Resp, Opts} -> {response, Resp, Opts};
@@ -775,25 +774,31 @@ timer(expire, #trans{id=Id, method=Method, status=Status}=UAS, Call) ->
 
 %% @private
 -spec app_call(atom(), list(), trans(), call()) ->
-    ok.
+    call().
 
 app_call(Fun, Args, UAS, Call) ->
-    #trans{id=TransId, request=Req} = UAS,
+    #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
     #call{app_id=AppId, call_id=CallId} = Call,
     ReqId = nksip_request:id(Req),
-    From = {'fun', nksip_call_router, app_reply, [AppId, CallId, Fun, TransId]},
-    nksip_sipapp_srv:sipapp_call_async(AppId, Fun, Args++[ReqId], From).
+    ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p\n~p", 
+               [Id, Method, Status, Fun, Args++[ReqId]], Call),
+    From = {'fun', nksip_call_router, app_reply, [AppId, CallId, Fun, Id]},
+    nksip_sipapp_srv:sipapp_call_async(AppId, Fun, Args++[ReqId], From),
+    Call.
 
 
 %% @private
 -spec app_cast(atom(), list(), trans(), call()) ->
-    ok.
+    call().
 
 app_cast(Fun, Args, UAS, Call) ->
-    #trans{request=Req} = UAS,
+    #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
     #call{app_id=AppId} = Call,
+    ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p: ~p", 
+                [Id, Method, Status, Fun, Args], Call),
     ReqId = nksip_request:id(Req),
-    nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args++[ReqId]).
+    nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args++[ReqId]),
+    Call.
 
 
 
