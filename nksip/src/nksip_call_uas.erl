@@ -74,16 +74,14 @@ request(Req, #call{app_opts=AppOpts}=Call) ->
     call().
 
 process_trans_ack(UAS, Call) ->
-    #trans{id=Id, status=Status, proto=Proto, cancel=Cancel} = UAS,
+    #trans{id=Id, status=Status, proto=Proto} = UAS,
     case Status of
         invite_completed ->
             UAS1 = cancel_timers([retrans, timeout], UAS#trans{response=undefined}),
             UAS2 = case Proto of 
                 udp -> 
                     timeout_timer(timer_i, UAS1#trans{status=invite_confirmed}, Call);
-                _ when Cancel=:=cancelled ->
-                    timeout_timer(wait_sipapp, UAS1#trans{status=invite_confirmed}, Call);
-                _ -> 
+                _ ->
                     UAS1#trans{status=finished}
             end,
             ?call_debug("UAS ~p received in-transaction ACK", [Id], Call),
@@ -164,30 +162,20 @@ do_app_reply(authorize, authorize, Reply, UAS, Call) ->
 do_app_reply(route, route, Reply, UAS, Call) ->
     route_reply(Reply, UAS, Call);
 
-do_app_reply(cancel, _, Reply, UAS, Call) ->
-    cancel_reply(Reply, UAS, Call);
-
-do_app_reply(Fun, Status, Reply, UAS, Call)
-             when Fun=:=invite; Fun=:=bye; Fun=:=options; Fun=:=register; Fun=:=fork ->
-    #trans{id=Id, method=Method, cancel=Cancel} = UAS,
-    if
-        Status=:=invite_proceeding; Status=:=trying; Status=:=proceeding ->
-            reply(Reply, UAS, Call);
-        Status=:=invite_completed; Status=:=invite_confirmed ->
-            case Cancel of
-                cancelled ->
-                    ?call_debug("UAS ~p ~p (cancelled) discarding reply ~p in ~p",
-                                [Id, Method, {Fun, Reply}, Status], Call),
-                    UAS1 = cancel_timers([timeout], UAS#trans{status=finished}),
-                    update(UAS1, Call);
-                _ ->
-                    ?call_info("UAS ~p ~p received reply ~p in ~p",
-                                [Id, Method, {Fun, Reply}, Status], Call),
-                    Call
-            end;
+do_app_reply(Fun, Status, Reply, UAS, Call) ->
+    #trans{id=Id, method=Method, code=Code} = UAS,
+    case 
+        (Fun=:=invite orelse Fun=:=bye orelse Fun=:=options orelse 
+            Fun=:=register orelse Fun=:=fork) 
+        andalso
+        (Status=:=invite_proceeding orelse Status=:=trying orelse 
+           Status=:=proceeding)
+    of
         true ->
-           ?call_info("UAS ~p ~p received unexpected reply ~p in ~p",
-                       [Id, Method, {Fun, Reply}, Status], Call),
+            reply(Reply, UAS, Call);
+        false ->
+           ?call_debug("UAS ~p ~p received unexpected reply ~p in (~p, ~p)",
+                       [Id, Method, {Fun, Reply}, Status, Code], Call),
            Call
     end.
 
@@ -254,22 +242,45 @@ send_100(UAS, #call{app_opts=AppOpts}=Call) ->
         true ->
             case nksip_transport_uas:send_user_response(Req, 100, AppOpts) of
                 {ok, _} -> 
-                    authorize_launch(UAS, Call);
+                    check_cancel(UAS, Call);
                 error ->
                     ?call_notice("UAS ~p ~p could not send '100' response", 
                                  [Id, Method], Call),
                     reply(service_unavailable, UAS, Call)
             end;
         false -> 
-            authorize_launch(UAS, Call)
+            check_cancel(UAS, Call)
     end.
         
+
+%% @private
+-spec check_cancel(trans(), call()) ->
+    call().
+
+check_cancel(UAS, Call) ->
+    case is_cancel(UAS, Call) of
+        {true, #trans{status=Status}=InvUAS} ->
+            if
+                Status=:=authorize; Status=:=route ->
+                    Call1 = reply(ok, UAS, Call),
+                    terminate_request(InvUAS, Call1);
+                Status=:=invite_proceeding ->
+                    Call1 = reply(ok, UAS, Call),
+                    terminate_request(InvUAS, Call1);
+                true ->
+                    reply(no_transaction, UAS, Call)
+            end;
+        false ->
+            % Only for case of stateless proxy
+            authorize_launch(UAS, Call)
+    end.
+
 
 %% @private
 -spec authorize_launch(trans(), call()) ->
     call().
 
-authorize_launch(#trans{request=Req, id=Id, method=Method}=UAS, Call) ->
+authorize_launch(#trans{request=Req}=UAS, Call) ->
     IsDialog = case nksip_call_dialog_uas:is_authorized(Req, Call) of
         true -> dialog;
         false -> []
@@ -280,9 +291,8 @@ authorize_launch(#trans{request=Req, id=Id, method=Method}=UAS, Call) ->
     end,
     IsDigest = nksip_auth:get_authentication(Req),
     Auth = lists:flatten([IsDialog, IsRegistered, IsDigest]),
-    ?call_debug("UAS ~p ~p calling authorize: ~p", [Id, Method, Auth],Call),
-    app_call(authorize, [Auth], UAS, Call),
-    Call.
+    UAS1 = timeout_timer(timeout, UAS, Call),
+    app_call(authorize, [Auth], UAS1, update(UAS1, Call)).
 
 
 %% @private
@@ -365,6 +375,10 @@ do_route({response, Reply, Opts}, UAS, Call) ->
     UAS1 = UAS#trans{stateless=lists:member(stateless, Opts)},
     reply(Reply, UAS1, update(UAS1, Call));
 
+%% CANCEL should have been processed already
+do_route({process, _Opts}, #trans{method='CANCEL'}=UAS, Call) ->
+    reply(no_transaction, UAS, Call);
+
 do_route({process, Opts}, #trans{request=Req}=UAS, Call) ->
     UAS1 = UAS#trans{stateless=lists:member(stateless, Opts)},
     case nksip_lib:get_value(headers, Opts) of
@@ -377,18 +391,25 @@ do_route({process, Opts}, #trans{request=Req}=UAS, Call) ->
             UAS2 = UAS1,
             Call2 = Call
     end,
-    process(UAS2, uas, update(UAS2, Call2));
+    process(UAS2, update(UAS2, Call2));
 
 % We want to proxy the request
-do_route({proxy, UriList, Opts}, UAS, Call) ->
-    case nksip_call_proxy:start(UAS, UriList, Opts, Call) of
-        {stateless, Call1} ->
+do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
+    #trans{id=Id, opts=Opts, method=Method} = UAS,
+    case nksip_call_proxy:check(UAS, UriList, ProxyOpts, Call) of
+        stateless_proxy ->
             UAS1 = UAS#trans{status=finished},
-            update(UAS1, Call1);
-        {stateful, {fork, ForkId}, Call1} ->
-            UAS1 = UAS#trans{from={fork, ForkId}, stateless=false},
-            process(UAS1, fork, update(UAS1, Call1));
-        SipReply ->
+            update(UAS1, Call);
+        {fork, _, _} when Method=:='CANCEL' ->
+            reply(no_transaction, UAS, Call);
+        {fork, UAS1, UriSet} ->
+            UAS2 = UAS1#trans{opts=[no_dialog|Opts], stateless=false, from={fork, Id}},
+            UAS3 = case Method of
+                'ACK' -> cancel_timers([timeout], UAS2#trans{status=finished});
+                _ -> UAS2
+            end,
+            nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call));
+        {reply, SipReply} ->
             reply(SipReply, UAS, Call)
     end;
 
@@ -406,16 +427,16 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
 
 
 %% @private 
--spec process(trans(), uas|fork, call()) ->
+-spec process(trans(), call()) ->
     call().
-
-process(#trans{stateless=false, opts=Opts}=UAS, Type, Call) ->
+    
+process(#trans{stateless=false, opts=Opts}=UAS, Call) ->
     #trans{id=Id, method=Method} = UAS,
     case nksip_call_dialog_uas:request(UAS, Call) of
         {ok, DialogId, Call1} -> 
             % Caution: for first INVITEs, DialogId is not yet created!
             ?call_debug("UAS ~p ~p dialog id: ~p", [Id, Method, DialogId], Call),
-            do_process(Method, DialogId, Type, UAS, Call1);
+            do_process(Method, DialogId, UAS, Call1);
         {error, Error} when Method=/='ACK' ->
             Reply = case Error of
                 proceeding_uac ->
@@ -437,110 +458,43 @@ process(#trans{stateless=false, opts=Opts}=UAS, Type, Call) ->
             update(UAS1, Call)
     end;
 
-process(#trans{method=Method}=UAS, uas, Call) ->
-    do_process(Method, undefined, uas, UAS, Call).
+process(#trans{stateless=true, method=Method}=UAS, Call) ->
+    do_process(Method, undefined, UAS, Call).
 
 
 %% @private
--spec do_process(nksip:method(), nksip_dialog:id()|undefined, uas|fork, 
-                 trans(), call()) ->
+-spec do_process(nksip:method(), nksip_dialog:id()|undefined, trans(), call()) ->
     call().
 
-do_process('INVITE', undefined, _Type, UAS, Call) ->
-    reply({internal_error, <<"INVITE without dialog">>}, UAS, Call);
-
-do_process('INVITE', _DialogId, Type, #trans{cancel=Cancelled}=UAS, Call) ->
-    case Type of uas -> 
-        app_call(invite, [], UAS, Call); 
-        _ -> ok 
-    end,
+do_process('INVITE', _DialogId, UAS, Call) ->
     UAS1 = expire_timer(expire, UAS, Call),
-    Call1 = update(UAS1, Call),
-    case Cancelled of
-        cancelled -> cancel_launch(Type, UAS1, Call1);
-        undefined -> Call1
-    end;
-
-do_process('ACK', DialogId, Type, UAS, Call) ->
+    app_call(invite, [], UAS1, update(UAS1, Call));
+    
+do_process('ACK', DialogId, UAS, Call) ->
     UAS1 = cancel_timers([timeout], UAS#trans{status=finished}),
+    Call1 = update(UAS1, Call),
     case DialogId of
         undefined -> 
-            ?call_notice("received out-of-dialog ACK", [], Call);
-        _ when Type=:=uas -> 
-            app_cast(ack, [], UAS, Call);
+            ?call_notice("received out-of-dialog ACK", [], Call),
+            Call1;
         _ -> 
-            ok
-    end,
-    update(UAS1, Call);
+            app_cast(ack, [], UAS1, Call1)
+    end;
 
-do_process('BYE', DialogId, Type, UAS, Call) ->
+do_process('BYE', DialogId, UAS, Call) ->
     case DialogId of
-        undefined -> 
-            reply(no_transaction, UAS, Call);
-        _ when Type=:=uas ->
-            app_call(bye, [], UAS, Call),
-            Call;
-        _ ->
-            Call
+        undefined -> reply(no_transaction, UAS, Call);
+        _ -> app_call(bye, [], UAS, Call)
     end;
 
-do_process('OPTIONS', _DialogId, Type, UAS, Call) ->
-    case Type of uas -> app_call(options, [], UAS, Call); _ -> ok end,
-    Call;
+do_process('OPTIONS', _DialogId, UAS, Call) ->
+    app_call(options, [], UAS, Call); 
 
-do_process('REGISTER', _DialogId, Type, UAS, Call) ->
-    case Type of uas -> app_call(register, [], UAS, Call); _ -> ok end,
-    Call;
+do_process('REGISTER', _DialogId, UAS, Call) ->
+    app_call(register, [], UAS, Call); 
 
-do_process('CANCEL', _DialogId, Type, UAS, Call) ->
-    case is_cancel(UAS, Call) of
-        {true, InvUAS} ->
-            case InvUAS of
-                #trans{status=Status}=InvUAS ->
-                    if
-                        Status=:=authorize; Status=:=route ->
-                            {_, Call1} = send_reply(ok, UAS, Call),
-                            InvUAS1 = InvUAS#trans{cancel=cancelled},
-                            update(InvUAS1, Call1);
-                        Status=:=invite_proceeding ->
-                            {_, Call1} = send_reply(ok, UAS, Call),
-                            cancel_launch(Type, InvUAS, Call1);
-                        true ->
-                            reply(no_transaction, UAS, Call)
-                    end
-            end;
-        false ->
-            reply(no_transaction, UAS, Call)
-    end;
-
-do_process(_Method, _DialogId, uas, UAS, #call{app_id=AppId}=Call) ->
-    reply({method_not_allowed, nksip_sipapp_srv:allowed(AppId)}, UAS, Call);
-
-do_process(_Method, _DialogId, fork, _UAS, Call) ->
-    Call.
-
-
-%% @private
--spec cancel_launch(uas|fork, trans(), call()) ->
-    call().
-
-cancel_launch(uas, UAS, Call) ->
-    app_call(cancel, [], UAS, Call),
-    Call; 
-
-cancel_launch(fork, #trans{from={from, ForkId}}, Call) ->
-    nksip_call_fork:cancel(ForkId, Call).
-
-
-%% @private
--spec cancel_reply(term(), trans(), call()) ->
-    call().
-
-cancel_reply(Reply, UAS, Call) ->
-    case Reply of
-        true -> terminate_request(UAS, Call);
-        _ -> Call
-    end.
+do_process(_Method, _DialogId, UAS, #call{app_id=AppId}=Call) ->
+    reply({method_not_allowed, nksip_sipapp_srv:allowed(AppId)}, UAS, Call).
 
 
 %% ===================================================================
@@ -680,19 +634,27 @@ do_reply(_, Code, UAS, Call) when Code >= 200 ->
 -spec terminate_request(trans(), call()) ->
     call().
 
-terminate_request(#trans{status=Status}=UAS, Call) ->
+terminate_request(#trans{status=Status, from=From}=UAS, Call) ->
     if 
         Status=:=authorize; Status=:=route ->
-            % SipApp callback has not been called yet
-            reply(request_terminated, UAS, Call);
+            case From of
+                {fork, _ForkId} -> ok;
+                _ -> app_cast(cancel, [], UAS, Call)
+            end,
+            UAS1 = UAS#trans{cancel=cancelled},
+            reply(request_terminated, UAS1, update(UAS1, Call));
         Status=:=invite_proceeding ->
-            % Setting cancel=cancelled will make wait for SipApp response after ACK
-            reply(request_terminated, UAS#trans{cancel=cancelled}, Call);
+            case From of
+                {fork, ForkId} -> 
+                    nksip_call_fork:cancel(ForkId, Call);
+                _ -> 
+                    app_cast(cancel, [], UAS, Call),
+                    UAS1 = UAS#trans{cancel=cancelled},
+                    reply(request_terminated, UAS, update(UAS1, Call))
+            end;
         true ->
             Call
     end.
-
-
 
 
 %% ===================================================================
@@ -734,12 +696,9 @@ timer(timer_l, #trans{id=Id}=UAS, Call) ->
     update(UAS1, Call);
 
 % INVITE confirmed finished
-timer(timer_i, #trans{id=Id, cancel=Cancel}=UAS, Call) ->
+timer(timer_i, #trans{id=Id}=UAS, Call) ->
     ?call_debug("UAS ~p 'INVITE' Timer I fired", [Id], Call),
-    UAS1 = case Cancel of
-        cancelled -> timeout_timer(wait_sipapp, UAS, Call);
-        _ -> cancel_timers([timeout], UAS#trans{status=finished})
-    end,
+    UAS1 = cancel_timers([timeout], UAS#trans{status=finished}),
     update(UAS1, Call);
 
 % NoINVITE completed finished
@@ -852,7 +811,7 @@ is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -
                 true ->
                     ?call_notice("UAS ~p rejecting CANCEL because it came from ~p:~p, "
                                  "INVITE came from ~p:~p", 
-                                 [TransId, CancelIp, CancelPort, InvIp, InvPort], Call),
+                                 [Id, CancelIp, CancelPort, InvIp, InvPort], Call),
                     false
             end;
         false ->

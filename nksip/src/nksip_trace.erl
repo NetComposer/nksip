@@ -337,7 +337,7 @@ print_packet(AppId, Info,
                     remote_ip = RIp, 
                     remote_port = RPort
                 }, 
-                Binary, IoDevice) ->
+                Binary, _IoDevice) ->
     case catch inet_parse:ntoa(RIp) of
         {'EXIT', _} -> RHost = <<"undefined">>;
         RHost -> ok
@@ -350,14 +350,18 @@ print_packet(AppId, Info,
         [<<"        ">>, Line, <<"\n">>]
         || Line <- binary:split(Binary, <<"\r\n">>, [global])
     ],
-    Time = nksip_lib:l_timestamp_to_float(nksip_lib:l_timestamp()), 
-    Text = io_lib:format("\n        ---- ~p ~s ~s:~p (~p, ~s:~p) ~f (~p)\n~s\n", 
-        [AppId, Info, RHost, RPort, 
-            Proto, LHost, LPort, Time, self(), list_to_binary(Lines)]),
-    case IoDevice of
-        console -> io:format("~s", [Text]);
-        IoDevice -> catch file:write(IoDevice, Text)
-    end.
+    % Time = nksip_lib:l_timestamp_to_float(nksip_lib:l_timestamp()), 
+    % Text = io_lib:format("\n        ---- ~p ~s ~s:~p (~p, ~s:~p) ~f (~p)\n~s\n", 
+    %     [AppId, Info, RHost, RPort, 
+    %         Proto, LHost, LPort, Time, self(), list_to_binary(Lines)]),
+    Text = io_lib:format("~p ~s ~s:~p (~p, ~s:~p) (~p)\n\n~s", 
+            [AppId, Info, RHost, RPort, 
+            Proto, LHost, LPort, self(), list_to_binary(Lines)]),
+    lager:debug("~s", [Text]).
+    % case IoDevice of
+    %     console -> io:format("~s", [Text]);
+    %     IoDevice -> catch file:write(IoDevice, Text)
+    % end.
 
 
 

@@ -150,16 +150,11 @@ do_send('ACK', UAC, Call) ->
     end;
 
 do_send(_, UAC, Call) ->
-    #trans{method=Method, id=Id, request=Req, from=From, opts=Opts} = UAC,
+    #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
     #call{app_opts=AppOpts} = Call,
-    DialogResult = case From of
-        {fork, _} -> 
-            {ok, Call};
-        _ -> 
-            case lists:member(no_dialog, Opts) of
-                true -> {ok, Call};
-                false -> nksip_call_dialog_uac:request(UAC, Call)
-            end
+    DialogResult = case lists:member(no_dialog, Opts) of
+        true -> {ok, Call};
+        false -> nksip_call_dialog_uac:request(UAC, Call)
     end,
     case DialogResult of
         {ok, Call1} ->
@@ -287,7 +282,7 @@ do_response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
     UAC1 = timeout_timer(timeout, cancel_timers([timeout], UAC), Call),
     Call1 = send_user_reply({resp, Resp}, UAC1, Call),
     case Cancel of
-        to_cancel -> do_cancel(UAC1, update(UAC1, Call1));
+        to_cancel -> cancel(UAC1, update(UAC1, Call1));
         _ -> update(UAC1, Call1)
     end;
 
@@ -483,73 +478,40 @@ do_received_auth(Req, Resp, UAC, Call) ->
 
 %% @doc Used to cancel an ongoing invite request.
 %% It will be blocked until a provisional or final response is received
--spec cancel(trans(), call()) ->
+-spec cancel(id()|trans(), call()) ->
     call().
 
-cancel(UAC, Call) ->
-    case UAC of
-        #trans{
-            id = Id,
-            class = uac, 
-            status = invite_calling, 
-            cancel = undefined
-        }=UAC ->
+cancel(Id, #call{trans=Trans}=Call) when is_integer(Id) ->
+    case lists:keyfind(Id, #trans.id, Trans) of
+        #trans{class=uac, method='INVITE'} = UAC ->
+            cancel(UAC, Call);
+        _ -> 
+            ?call_debug("UAC ~p not found to CANCEL", [Id], Call),
+            Call
+    end;
+
+cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Call)
+       when Cancel=:=undefined; Cancel=:=to_cancel ->
+    case Status of
+        invite_calling ->
             ?call_debug("UAC ~p (invite_calling) delaying CANCEL", [Id], Call),
             UAC1 = UAC#trans{cancel=to_cancel},
             update(UAC1, Call);
-        #trans{
-            class = uac, 
-            status = invite_proceeding, 
-            cancel = undefined
-        }=UAC ->
-            do_cancel(UAC, Call);
+        invite_proceeding ->
+            ?call_debug("UAC ~p (invite_proceeding) generating CANCEL", [Id], Call),
+            CancelReq = nksip_uac_lib:make_cancel(UAC#trans.request),
+            UAC1 = UAC#trans{cancel=cancelled},
+            request(CancelReq, update(UAC1, Call));
         _ ->
+            ?call_debug("UAC ~p (~p) cannot CANCEL request", [Id, Status], Call),
             Call
-    end.
+    end;
 
-do_cancel(#trans{id=Id, status=Status, request=Req}=UAC, Call) ->
-    ?call_debug("UAC ~p (~p) generating CANCEL", [Id, Status], Call),
-    CancelReq = nksip_uac_lib:make_cancel(Req),
-    UAC1 = UAC#trans{cancel=cancelled},
-    request(CancelReq, update(UAC1, Call)).
+cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}, Call) ->
+    ?call_debug("UAC ~p (~p) cannot CANCEL request (~p)", [Id, Status, Cancel], Call),
+    Call.
 
 
-
-
-%% @odc Used to cancel a forked request
--spec fork_cancel(nksip_call_fork:id(), call()) ->
-    call().
-
-fork_cancel(ForkId, #call{trans=Trans}=Call) ->
-    fork_cancel(ForkId, Trans, Call).
-
-fork_cancel(_ForkId, [], Call) ->
-    Call;
-
-fork_cancel(ForkId, [
-            #trans{
-                class = uac, 
-                from = {fork, ForkId}, 
-                status = invite_calling,
-                cancel = undefined
-            }=UAC | Rest], Call) ->
-    UAC1 = UAC#trans{cancel={to_cancel, none, []}},
-    fork_cancel(ForkId, Rest, update(UAC1, Call));
-
-fork_cancel(ForkId, [
-            #trans{
-                class = uac, 
-                from = {fork, ForkId}, 
-                status = invite_proceeding,
-                cancel = undefined,
-                request = Req
-            }=UAC | Rest], Call) ->
-    CancelReq = nksip_uac_lib:make_cancel(Req),
-    Call1 = update(UAC#trans{cancel=cancelled}, Call),
-    fork_cancel(ForkId, Rest, request(CancelReq, Call1));
-
-fork_cancel(ForkId, [_|Rest], Call) ->
-    fork_cancel(ForkId, Rest, Call).
 
 
 
@@ -625,14 +587,14 @@ timer(timer_k,  #trans{id=Id, status=Status, method=Method}=UAC, Call) ->
     UAC1 = UAC#trans{status=finished, timeout_timer=undefined},
     update(UAC1, Call);
 
-timer(expire, #trans{id=Id, status=Status, request=Req}=UAC, Call) ->
+timer(expire, #trans{id=Id, status=Status}=UAC, Call) ->
     UAC1 = UAC#trans{expire_timer=undefined},
     if
         Status=:=invite_calling; Status=:=invite_proceeding ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer EXPIRE fired, sending CANCEL", 
                         [Id, Status], Call),
-            CancelReq = nksip_uac_lib:make_cancel(Req),
-            request(CancelReq, Call);
+            UAC1 = UAC#trans{status=invite_proceeding},
+            cancel(UAC1, update(UAC1, Call));
         true ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer EXPIRE fired", [Id, Status], Call),
             update(UAC1, Call)

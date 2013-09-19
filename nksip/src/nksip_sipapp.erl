@@ -122,7 +122,7 @@
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, get_user_pass/4, authorize/4, route/6, invite/3, reinvite/3, cancel/3, 
+-export([init/1, get_user_pass/4, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
          ack/2, bye/3, options/3, register/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
@@ -393,25 +393,21 @@ reinvite(_ReqId, _From, State) ->
     {reply, decline, State}.
 
 
-%% @doc Called when a valid CANCEL request is received.
+%% @doc Called when a pending INVITE request is cancelled.
 %% When a CANCEL request is received by NkSIP, it will check if it belongs to an 
 %% existing INVITE transaction. If not, a 481 <i>Call/Transaction does not exist</i> 
 %% will be automatically replied.
 %%
-%% If it belongs to an existing INVITE transaction, this callback function will be called. 
-%% If `true' is replied, NkSIP will cancel the ongoing invite transaction sending a 
-%% 487 <i>Request Terminated</i> (this is the same effect as if the `invite/3' 
-%% callback replies with `request_terminated'). If `false' is returned, the INVITE 
-%% transaction is not affected. In both cases, a 200 <i>OK</i> response 
-%% will be replied to the CANCEL request.
+%% If it belongs to an existing INVITE transaction, NkSIP replies 200 <i>OK</i> to the
+%% CANCEL request. If the matching INVITE transaction has not yet replied a
+%% final response, NkSIP replies it with a 487 (Request Terminated) and this function
+%% is called. If a final response has already beeing replied, it has no effect.
 %%
-%% You won't usually need to implement this function, as the default response is `true'.
-%%
--spec cancel(ReqId::nksip:request_id(), From::from(), State::term()) ->
-    call_reply(true | false).
+-spec cancel(ReqId::nksip:request_id(), State::term()) ->
+    call_noreply().
 
-cancel(_ReqId, _From, State) ->
-    {reply, true, State}.
+cancel(_ReqId, State) ->
+    {noreply, State}.
 
 
 %% @doc Called when a valid ACK request is received.
@@ -423,7 +419,7 @@ cancel(_ReqId, _From, State) ->
 %% (you can also get it from the {@link session_update/3} callback).
 %%
 -spec ack(ReqId::nksip:request_id(), State::term()) ->
-    call_reply(ok).
+    call_noreply().
 
 ack(_ReqId, State) ->
     {noreply, State}.

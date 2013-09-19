@@ -27,23 +27,23 @@
 
 -compile([export_all]).
 
-stateless_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateless),
-            ?debugMsg("Starting proxy stateless")
-        end,
-        fun(_) -> 
-            stop(stateless) 
-        end,
-        [
-            fun() -> invalid(stateless) end,
-            fun() -> opts(stateless) end,
-            fun() -> transport(stateless) end, 
-            fun() -> invite(stateless) end,
-            fun() -> servers(stateless) end
-        ]
-    }.
+% stateless_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateless),
+%             ?debugMsg("Starting proxy stateless")
+%         end,
+%         fun(_) -> 
+%             stop(stateless) 
+%         end,
+%         [
+%             fun() -> invalid(stateless) end,
+%             fun() -> opts(stateless) end,
+%             fun() -> transport(stateless) end, 
+%             fun() -> invite(stateless) end,
+%             fun() -> servers(stateless) end
+%         ]
+%     }.
 
 
 % stateful_test_() ->
@@ -341,7 +341,7 @@ invite(Test) ->
     % Cancelled request
     {async, Req7} = nksip_uac:invite(C1, "sip:client2@nksip", 
                                         [{headers, [{"Nk-Op", ok}, 
-                                                    {"Nk-Sleep", 500}, RepHd]},
+                                                    {"Nk-Sleep", 5000}, RepHd]},
                                          async, {callback, RespFun}]),
     ok = nksip_uac:cancel(Req7),
     ok = tests_util:wait(Ref, [487]),

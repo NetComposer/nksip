@@ -22,7 +22,7 @@
 -module(nksip_call_fork).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start/4, cancel/2, response/3]).
+-export([start/4, cancel/2, response/4]).
 -export_type([id/0]).
 
 -include("nksip.hrl").
@@ -44,25 +44,40 @@
 -spec start(nksip_call:trans(), nksip:uri_set(), nksip_lib:proplist(),call()) ->
    call().
 
-start(Trans, UriSet, Opts, #call{next=ForkId, forks=Forks}=Call) ->
+start(Trans, UriSet, ForkOpts, #call{forks=Forks}=Call) ->
     #trans{id=TransId, class=Class, request=Req, method=Method} = Trans,
     Fork = #fork{
-        id = ForkId,
+        id = TransId,
         class = Class,
-        trans_id = TransId,
         start = nksip_lib:timestamp(),
         uriset = UriSet,
         request  = Req,
-        opts = Opts,
-        next = 1000*ForkId,
+        method = Method,
+        opts = ForkOpts,
+        uacs = [],
         pending = [],
         responses = [],
         final = false
     },
-    ?call_debug("Fork ~p ~p started from UAS ~p", 
-                [ForkId, Method, TransId], Call),
-    Call1 = Call#call{forks=[Fork|Forks], next=ForkId+1},
+    ?call_debug("Fork ~p ~p started from UAS", [TransId, Method], Call),
+    Call1 = Call#call{forks=[Fork|Forks]},
     next(Fork, Call1).
+
+
+
+%% @private Called from the UAS when a Cancel is received
+-spec cancel(id(), call()) ->
+   call().
+
+cancel(ForkId, #call{forks=Forks}=Call) ->
+    case lists:keyfind(ForkId, #fork.id, Forks) of
+        #fork{}=Fork -> 
+            ?call_debug("Fork ~p cancelling requests", [ForkId], Call),
+            cancel_all(Fork, Call);
+        false -> 
+            ?call_info("Fork ~p not found for CANCEL", [ForkId], Call),
+            Call
+    end.
 
 
 %% @private
@@ -70,16 +85,16 @@ start(Trans, UriSet, Opts, #call{next=ForkId, forks=Forks}=Call) ->
    call().
 
 next(#fork{pending=[]}=Fork, Call) ->
-    #fork{id=Id, final=Final, uriset=UriSet, responses=Resps} = Fork,
-    ?call_debug("Fork ~p no pending left: ~p, ~p, ~p", 
-               [Id, Final, UriSet, length(Resps)], Call),
+    #fork{id=Id, final=Final, method=Method, uriset=UriSet} = Fork,
     case Final of
         false ->
             case UriSet of
+                [] when Method=:='ACK' ->
+                    delete(Fork, Call);
                 [] ->
-                    Resp = best_response(Resps),
-                    ?call_debug("Fork ~p selected ~p response", 
-                                [Id, Resp#sipmsg.response], Call),
+                    #sipmsg{response=Code} = Resp = best_response(Fork),
+                    ?call_debug("Fork ~p ~p selected ~p response", 
+                                [Id, Method, Code], Call),
                     Call1 = send_reply(Resp, Fork, Call),
                     delete(Fork, Call1);
                 [Next|Rest] ->
@@ -89,13 +104,10 @@ next(#fork{pending=[]}=Fork, Call) ->
             delete(Fork, Call)
     end;
 
-next(#fork{id=Id, pending=Pending}=Fork, #call{forks=[#fork{id=Id}|Rest]}=Call) ->
-    ?call_debug("Fork ~p waiting, ~p pending", [Id, length(Pending)], Call),
-    Call#call{forks=[Fork|Rest]};
-
-next(#fork{id=Id, pending=Pending}=Fork, #call{forks=Forks}=Call) ->
-    ?call_debug("Fork ~p waiting, ~p pending", [Id, length(Pending)], Call),
-    Call#call{forks=lists:keystore(Id, #fork.id, Forks, Fork)}.
+next(#fork{id=Id, method=Method, pending=Pending}=Fork, Call) ->
+    ?call_debug("Fork ~p ~p waiting, ~p pending: ~p", 
+                [Id, Method, length(Pending), Pending], Call),
+    update(Fork, Call).
 
 
 %% @private
@@ -106,54 +118,65 @@ launch([], Fork, Call) ->
     next(Fork, Call);
 
 launch([Uri|Rest], Fork, Call) -> 
-    #fork{id=Id, request=Req, next=Next, pending=Pending, responses=Resps} = Fork,
-    #sipmsg{method=Method} = Req,
-    Req1 = Req#sipmsg{ruri=Uri},
+    #fork{id=Id, request=Req, method=Method, 
+          uacs=UACs, pending=Pending, responses=Resps} = Fork,
+    Req1 = Req#sipmsg{ruri=Uri, id=erlang:phash2(make_ref())},
+    #call{next=Next} = Call,
     case nksip_request:is_local_route(Req1) of
         true ->
-            ?call_warning("Fork ~p tried to stateful proxy a request to itself", 
-                         [], Call),
+            ?call_warning("Fork tried to stateful proxy a request to itself: ~s", 
+                         [nksip_unparse:uri(Uri)], Call),
             {Resp, _} = nksip_reply:reply(Req, loop_detected),
             Fork1 = Fork#fork{responses=[Resp|Resps]},
             launch(Rest, Fork1, Call);
         false ->
-            ?call_debug("Fork ~p launching to ~s", [Id, nksip_unparse:uri(Uri)], Call),
-            Call1 = nksip_call_uac:request(Req1, {fork, Next}, Call),
+            ?call_debug("Fork ~p ~p launching to ~s", 
+                         [Id, Method, nksip_unparse:uri(Uri)], Call),
+            Call1 = nksip_call_uac:request(Req1, [no_dialog], {fork, Id}, Call),
+            Call2 = Call1#call{next=Next+1},
             Fork1 = case Method of
-                'ACK' -> Fork#fork{next=Next+1};
-                _ -> Fork#fork{next=Next+1, pending=[Next|Pending]}
+                'ACK' -> Fork#fork{uacs=[Next|UACs]};
+                _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
             end,
-            launch(Rest, Fork1, Call1)
+            launch(Rest, Fork1, Call2)
     end.
 
 
 %% @private Called when a launched UAC has a response
--spec response(id(), nksip:response(),call()) ->
+-spec response(id(), integer(), nksip:response(),call()) ->
    call().
 
-response(_, #sipmsg{response=Code}, Call) when Code < 101 ->
+response(_, _, #sipmsg{response=Code}, Call) when Code < 101 ->
     Call;
 
-response(Id, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
-    ForkId = Id div 1000,
-    Pos = Id - ForkId,
+response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
     #sipmsg{to_tag=ToTag, response=Code} = Resp,
-    case lists:keyfind(ForkId, #fork.id, Forks) of
-        #fork{pending=Pending}=Fork ->
-            ?call_debug("Fork ~p received ~p (~p)", [ForkId, Code, ToTag], Call),
+    case lists:keyfind(Id, #fork.id, Forks) of
+        #fork{pending=Pending, uacs=UACs, method=Method}=Fork ->
+            ?call_debug("Fork ~p ~p received ~p (~p)", 
+                        [Id, Method, Code, ToTag], Call),
             Resp1 = Resp#sipmsg{vias=Vias},
             case lists:member(Pos, Pending) of
-                true -> 
+                true ->
                     waiting(Code, Resp1, Pos, Fork, Call);
-                false when Code>=200, Code<300 ->
-                    send_reply(Resp1, Fork, Call);
-                false -> 
-                    ?call_info("Fork ~p received unexpected response ~p from ~p",
-                               [ForkId, Code, ToTag], Call),
-                    Call
+                false ->
+                    case lists:member(Pos, UACs) of
+                        true ->
+                            ?call_debug("Fork ~p ~p received new response ~p from ~p",
+                                       [Id, Method, Code, ToTag], Call),
+                            case Code>=200 andalso  Code<300 of
+                                true -> send_reply(Resp1, Fork, Call);
+                                false -> Call
+                            end;
+                        false ->
+                            ?call_debug("Fork ~p ~p received unexpected response "
+                                        "~p from ~p", [Id, Method, Code, ToTag], 
+                                        Call),
+                            Call
+                    end
             end;
         false ->
-            ?call_notice("Fork ~p received ~p while expired", [ForkId, Code], Call),
+            ?call_notice("Unknown fork ~p received ~p", [Id, Code], Call),
             Call
     end.
 
@@ -195,7 +218,8 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
                 sips -> [Contact || #uri{scheme=sips}=Contact <- Contacts];
                 _ -> Contacts
             end,
-            ?call_debug("Fork ~p redirect to ~p", [Id, Contacts1], Call),
+            ?call_debug("Fork ~p redirect to ~p", 
+                       [Id, nksip_unparse:uris(Contacts1)], Call),
             launch(Contacts1, Fork1, Call);
         _ ->
             Fork2 = Fork1#fork{responses=[Resp|Resps]},
@@ -223,15 +247,6 @@ waiting(Code, Resp, Pos, Fork, Call) when Code >= 600 ->
     end.
 
 
-%% @private Called from the UAS when a Cancel is received
--spec cancel(id(), call()) ->
-   call().
-
-cancel(ForkId, #call{forks=Forks}=Call) ->
-    case lists:keyfind(ForkId, #fork.trans_id, Forks) of
-        #fork{}=Fork -> cancel_all(Fork, Call);
-        false -> Call
-    end.
 
 
 
@@ -240,41 +255,26 @@ cancel(ForkId, #call{forks=Forks}=Call) ->
 %% ===================================================================
 
 %% @private
--spec delete(fork(), call()) ->
-   call().
-
-delete(#fork{id=Id}, #call{forks=Forks}=Call) ->
-    ?call_debug("Fork ~p deleted", [Id], Call),
-    Forks1 = lists:keydelete(Id, #fork.id, Forks),
-    Call#call{forks=Forks1, hibernate=fork_finished}.
-
-
-%% @private
 -spec send_reply(nksip:response(), fork(), call()) ->
    call().
 
-send_reply(#sipmsg{response=Code}=Resp, #fork{id=Id, trans_id=TransId}, Call) ->
-    ?call_debug("Fork ~p send reply to ~p: ~p", [Id, TransId, Code], Call),
-    nksip_call_uas:fork_reply(TransId, Resp, Call).
+send_reply(#sipmsg{response=Code}=Resp, #fork{id=Id, method=Method}, Call) ->
+    ?call_debug("Fork ~p ~p send reply to UAS: ~p", [Id, Method, Code], Call),
+    nksip_call_uas:fork_reply(Id, {Resp, []}, Call).
 
 
 %% @private
--spec best_response([#sipmsg{}]) ->
-    nksip:response() | nksip:sipreply().
+-spec best_response(fork()) ->
+    nksip:response().
 
-best_response(Resps) ->
+best_response(#fork{request=Req, responses=Resps}) ->
     Sorted = lists:sort([
         if
-            Code =:= 401; Code =:= 407 -> 
-                {3999, Resp};
-            Code =:= 415; Code =:= 420; Code =:= 484 -> 
-                {4000, Resp};
-            Code =:= 503 -> 
-                {5000, Resp#sipmsg{response=500}};
-            Code >= 600 -> 
-                {Code, Resp};
-            true -> 
-                {10*Code, Resp}
+            Code =:= 401; Code =:= 407 -> {3999, Resp};
+            Code =:= 415; Code =:= 420; Code =:= 484 -> {4000, Resp};
+            Code =:= 503 -> {5000, Resp#sipmsg{response=500}};
+            Code >= 600 -> {Code, Resp};
+            true -> {10*Code, Resp}
         end
         || #sipmsg{response=Code}=Resp <- Resps
     ]),
@@ -293,7 +293,7 @@ best_response(Resps) ->
         [{_, Best}|_] ->
             Best;
         _ ->
-            temporarily_unavailable
+            nksip_reply:reply(Req, temporarily_unavailable)
     end.
 
 
@@ -301,9 +301,30 @@ best_response(Resps) ->
 -spec cancel_all(fork(), call()) ->
    call().
     
-cancel_all(#fork{id=Id}, Call) ->
-    nksip_call_uac:fork_cancel(Id, Call).
+cancel_all(#fork{uacs=UACs}=Fork, Call) ->
+    Call1 = lists:foldl(
+        fun(Id, Acc) -> nksip_call_uac:cancel(Id, Acc) end,
+        Call,
+        UACs),
+    Fork1 = Fork#fork{uriset=[]},
+    next(Fork1, update(Fork1, Call1)).
 
+
+%% @private 
+update(#fork{id=Id}=Fork, #call{forks=[#fork{id=Id}|Rest]}=Call) ->
+    Call#call{forks=[Fork|Rest]};
+
+update(#fork{id=Id}=Fork, #call{forks=Forks}=Call) ->
+    Call#call{forks=lists:keystore(Id, #fork.id, Forks, Fork)}.
+
+%% @private
+-spec delete(fork(), call()) ->
+   call().
+
+delete(#fork{id=Id, method=Method}, #call{forks=Forks}=Call) ->
+    ?call_debug("Fork ~p ~p deleted", [Id, Method], Call),
+    Forks1 = lists:keydelete(Id, #fork.id, Forks),
+    Call#call{forks=Forks1, hibernate=fork_finished}.
 
 
 

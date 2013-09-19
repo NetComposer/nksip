@@ -42,13 +42,14 @@
 
 
 -record(raw_sipmsg, {
-    app_id :: nksip:app_id(),
-    transport :: nksip_transport:transport(),
-    start :: nksip_lib:l_timestamp(),
-    call_id :: nksip:call_id(),
+    id :: nksip_request:id() | nksip_response:id(),
     class :: nksip_parse:msg_class(),
+    app_id :: nksip:app_id(),
+    call_id :: nksip:call_id(),
+    start :: nksip_lib:l_timestamp(),
     headers :: [{binary(), binary()}],
-    body :: nksip:body()
+    body :: nksip:body(),
+    transport :: nksip_transport:transport()
 }).
 
 
@@ -57,8 +58,9 @@
     class :: uac | uas,
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nksip_lib:timestamp(),
-    from :: {srv, from()} | {fork, nksip_call_fork:id()} | none,
+    from :: {srv, from()} | {fork, nksip_call_fork:id()},
     opts :: nksip_lib:proplist(),
+    trans_id :: integer(),
     request :: nksip:request(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
@@ -80,12 +82,12 @@
 -record(fork, {
     id :: nksip_call_fork:id(),
     class :: uac | uas,
-    trans_id :: nksip_call_uac:id() | nksip_call_uas:id(),
     start :: nksip_lib:timestamp(),
     request :: nksip:request(),
+    method :: nksip:method(),
     opts :: nksip_lib:proplist(),
-    next :: integer(),
     uriset :: nksip:uri_set(),          
+    uacs :: [integer()],
     pending :: [integer()],
     responses :: [nksip:response()], 
     final :: false | '2xx' | '6xx'
