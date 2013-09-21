@@ -55,6 +55,7 @@ start() ->
     
     ok = sipapp_endpoint:start({invite, client2}, [
         {from, "sip:client2@nksip"},
+        no_100,
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}]),
@@ -88,31 +89,22 @@ cancel() ->
                                     [{callback, Fun}, {headers, Hds1}]),
     Hds2 = [{"Nk-Sleep", 3000}, {"Nk-Op", ok}, {"Nk-Prov", "true"}, RepHd],
 
-    Test1 = fun() ->
-        % Test manual CANCEL
-        {async, Req3} = nksip_uac:invite(C1, "sip:any@127.0.0.1:5070", 
-                                        [{callback, Fun}, async, {headers, Hds2}]),
-        ok = nksip_uac:cancel(Req3)
-    end,
+    % Test manual CANCEL
+    {async, Req3} = nksip_uac:invite(C1, "sip:any@127.0.0.1:5070", 
+                                    [{callback, Fun}, async, {headers, Hds2}]),
+    timer:sleep(100),
+    ok = nksip_uac:cancel(Req3),
+    
+    % Test invite expire, UAC must send CANCEL
+    {ok, 487, _} = nksip_uac:invite(C1, Remote, 
+                              [{callback, Fun}, {expires, 1}, {headers, Hds2}]),
 
-    Test2 = fun() ->
-        % Test invite expire, UAC must send CANCEL
-        {ok, 487, _} = nksip_uac:invite(C1, Remote, 
-                                 [{callback, Fun}, {expires, 1}, {headers, Hds2}])
-    end,
-
-    Test3 = fun() ->
-        % Test invite expire, UAC will ignore and UAS must CANCEL
-        {ok, 487, _} = nksip_uac:invite(C1, "sip:any@127.0.0.1:5070", 
+    % Test invite expire, UAC will ignore and UAS must CANCEL
+    {ok, 487, _} = nksip_uac:invite(C1, "sip:any@127.0.0.1:5070", 
                                         [{callback, Fun}, {expires, 1}, no_auto_expire,
-                                         {headers, Hds2}])
-     end,
+                                         {headers, Hds2}]),
 
-    % Launch tests in parallel to share the waiting time
-    Test1(),
-    Test2(),
-    Test3(),
-
+    
     ok = tests_util:wait(Ref, [180, 487, 180, 180,
                                {client2, {dialog_stop, cancelled}},
                                {client2, {dialog_stop, cancelled}},

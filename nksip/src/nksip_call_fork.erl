@@ -118,7 +118,7 @@ launch([], Fork, Call) ->
     next(Fork, Call);
 
 launch([Uri|Rest], Fork, Call) -> 
-    #fork{id=Id, request=Req, method=Method, 
+    #fork{id=Id, request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
     Req1 = Req#sipmsg{ruri=Uri, id=erlang:phash2(make_ref())},
     #call{next=Next} = Call,
@@ -132,7 +132,11 @@ launch([Uri|Rest], Fork, Call) ->
         false ->
             ?call_debug("Fork ~p ~p launching to ~s", 
                          [Id, Method, nksip_unparse:uri(Uri)], Call),
-            Call1 = nksip_call_uac:request(Req1, [no_dialog], {fork, Id}, Call),
+            UACOpts = case lists:member(record_route, Opts) of
+                true -> [record_route];
+                false -> []
+            end,
+            Call1 = nksip_call_uac:request(Req1, UACOpts, {fork, Id}, Call),
             Call2 = Call1#call{next=Next+1},
             Fork1 = case Method of
                 'ACK' -> Fork#fork{uacs=[Next|UACs]};

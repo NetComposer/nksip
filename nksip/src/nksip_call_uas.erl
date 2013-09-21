@@ -329,7 +329,7 @@ route_launch(#trans{ruri=RUri}=UAS, Call) ->
 
 route_reply(Reply, UAS, Call) ->
     #trans{id=Id, method=Method, ruri=RUri, request=Req} = UAS,
-    ?call_debug("UAS ~p ~p route reply\n~p", [Id, Method, Reply], Call),
+    ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply], Call),
     Route = case Reply of
         {response, Resp} -> {response, Resp, []};
         {response, Resp, Opts} -> {response, Resp, Opts};
@@ -403,6 +403,10 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
         {fork, _, _} when Method=:='CANCEL' ->
             reply(no_transaction, UAS, Call);
         {fork, UAS1, UriSet} ->
+            % ProxyOpts may include record_route
+            % TODO 16.6.4: If ruri or top route has sips, and not received with 
+            % tls, must record_route. If received with tls, and no sips in ruri
+            % or top route, must record_route also
             UAS2 = UAS1#trans{opts=[no_dialog|Opts], stateless=false, from={fork, Id}},
             UAS3 = case Method of
                 'ACK' -> cancel_timers([timeout], UAS2#trans{status=finished});
@@ -433,9 +437,9 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
 process(#trans{stateless=false, opts=Opts}=UAS, Call) ->
     #trans{id=Id, method=Method} = UAS,
     case nksip_call_dialog_uas:request(UAS, Call) of
-        {ok, DialogId, Call1} -> 
+       {ok, DialogId, Call1} -> 
             % Caution: for first INVITEs, DialogId is not yet created!
-            ?call_debug("UAS ~p ~p dialog id: ~p", [Id, Method, DialogId], Call),
+            ?call_debug("UAS ~p ~p dialog id: ~p", [Id, Method, DialogId], Call1),
             do_process(Method, DialogId, UAS, Call1);
         {error, Error} when Method=/='ACK' ->
             Reply = case Error of
@@ -514,9 +518,6 @@ reply(Reply, UAS, Call) ->
 -spec send_reply(nksip:sipreply()|{nksip:response(), nksip_lib:proplist()}, 
                   trans(), call()) ->
     {{ok, nksip:response()} | {error, invalid_call}, call()}.
-
-% send_reply(_, #trans{code=487}, Call) ->
-%     {{error, invalid_call}, Call};
 
 send_reply(Reply, #trans{method='ACK',id=Id, status=Status}, Call) ->
     ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", 
@@ -735,8 +736,8 @@ app_call(Fun, Args, UAS, Call) ->
     #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
     #call{app_id=AppId, call_id=CallId} = Call,
     ReqId = nksip_request:id(Req),
-    ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p\n~p", 
-               [Id, Method, Status, Fun, Args++[ReqId]], Call),
+    ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
+               [Id, Method, Status, Fun, Args], Call),
     From = {'fun', nksip_call_router, app_reply, [AppId, CallId, Fun, Id]},
     nksip_sipapp_srv:sipapp_call_async(AppId, Fun, Args++[ReqId], From),
     Call.
@@ -749,9 +750,9 @@ app_call(Fun, Args, UAS, Call) ->
 app_cast(Fun, Args, UAS, Call) ->
     #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
     #call{app_id=AppId} = Call,
-    ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p: ~p", 
-                [Id, Method, Status, Fun, Args], Call),
     ReqId = nksip_request:id(Req),
+    ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p ~p", 
+                [Id, Method, Status, Fun, Args], Call),
     nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args++[ReqId]),
     Call.
 

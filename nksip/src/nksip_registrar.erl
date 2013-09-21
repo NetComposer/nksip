@@ -153,7 +153,6 @@ is_registered(#sipmsg{
     is_registered(Regs, Transport).
 
 
-
 %% @doc Process a REGISTER request. 
 %% Can return:
 %% <ul>

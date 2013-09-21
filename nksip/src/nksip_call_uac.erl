@@ -80,11 +80,11 @@ request(Req, Opts, From, Call) ->
     end,
     case From of
         {fork, ForkId} ->
-            ?call_debug("UAC ~p sending request ~p (~p, fork: ~p)", 
-                        [Id, Method, MsgId, ForkId], Call);
+            ?call_debug("UAC ~p sending request ~p ~p (~p, fork: ~p)", 
+                        [Id, Method, Opts, MsgId, ForkId], Call);
         _ ->
-            ?call_debug("UAC ~p sending request ~p (~p)", 
-                        [Id, Method, MsgId], Call)
+            ?call_debug("UAC ~p sending request ~p ~p (~p)", 
+                        [Id, Method, Opts, MsgId], Call)
     end,
     Call2 = store_sipmsg(Req1, Call1),
     do_send(Method, UAC, Call2#call{trans=[UAC|Trans]}).
@@ -593,8 +593,8 @@ timer(expire, #trans{id=Id, status=Status}=UAC, Call) ->
         Status=:=invite_calling; Status=:=invite_proceeding ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer EXPIRE fired, sending CANCEL", 
                         [Id, Status], Call),
-            UAC1 = UAC#trans{status=invite_proceeding},
-            cancel(UAC1, update(UAC1, Call));
+            UAC2 = UAC1#trans{status=invite_proceeding},
+            cancel(UAC2, update(UAC2, Call));
         true ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer EXPIRE fired", [Id, Status], Call),
             update(UAC1, Call)

@@ -75,14 +75,6 @@ preprocess(Req, Opts) ->
         <<>> -> [{to_tag, nksip_lib:hash({GlobalId, Branch})}|ReqData];
         _ -> ReqData
     end,
-    % Filter = fun(T) ->
-    %     case T of
-    %         {to_tag, _} -> true;
-    %         _ when T=:=global_id; T=:=local_host; T=:=registrar;
-    %                T=:=no_auto_expire; T=:=no_100 -> true;
-    %         _ -> false
-    %     end
-    % end,
     case Method=:='ACK' andalso nksip_lib:hash({GlobalId, Branch})=:=ToTag of
         true -> 
             ?debug(AppId, CallId, "Received ACK for own-generated response", []),

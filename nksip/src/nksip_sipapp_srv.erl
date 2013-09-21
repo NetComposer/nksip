@@ -232,6 +232,7 @@ init([AppId, Module, Args, Opts]) ->
     nksip_proc:put(nksip_sipapps, AppId),    
     erlang:start_timer(timeout(), self(), '$nksip_timer'),
     RegState = nksip_sipapp_auto:init(AppId, Module, Args, Opts),
+    nksip_call_router:remove_app_cache(AppId),
     State1 = #state{
         id=AppId, 
         module=Module, 

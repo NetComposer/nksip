@@ -27,43 +27,43 @@
 
 -compile([export_all]).
 
-% stateless_test_() ->
-%     {setup, spawn, 
-%         fun() -> 
-%             start(stateless),
-%             ?debugMsg("Starting proxy stateless")
-%         end,
-%         fun(_) -> 
-%             stop(stateless) 
-%         end,
-%         [
-%             fun() -> invalid(stateless) end,
-%             fun() -> opts(stateless) end,
-%             fun() -> transport(stateless) end, 
-%             fun() -> invite(stateless) end,
-%             fun() -> servers(stateless) end
-%         ]
-%     }.
+stateless_test_() ->
+    {setup, spawn, 
+        fun() -> 
+            start(stateless),
+            ?debugMsg("Starting proxy stateless")
+        end,
+        fun(_) -> 
+            stop(stateless) 
+        end,
+        [
+            fun() -> invalid(stateless) end,
+            fun() -> opts(stateless) end,
+            fun() -> transport(stateless) end, 
+            fun() -> invite(stateless) end,
+            fun() -> servers(stateless) end
+        ]
+    }.
 
 
-% stateful_test_() ->
-%     {setup, spawn, 
-%         fun() -> 
-%             start(stateful),
-%             ?debugMsg("Starting proxy stateful")
-%         end,
-%         fun(_) -> 
-%             stop(stateful) 
-%         end,
-%         [
-%             fun() -> invalid(stateful) end,
-%             fun() -> opts(stateful) end,
-%             fun() -> transport(stateful) end, 
-%             fun() -> invite(stateful) end,
-%             fun() -> servers(stateful) end,
-%             fun() -> dialog() end
-%         ]
-%     }.
+stateful_test_() ->
+    {setup, spawn, 
+        fun() -> 
+            start(stateful),
+            ?debugMsg("Starting proxy stateful")
+        end,
+        fun(_) -> 
+            stop(stateful) 
+        end,
+        [
+            fun() -> invalid(stateful) end,
+            fun() -> opts(stateful) end,
+            fun() -> transport(stateful) end, 
+            fun() -> invite(stateful) end,
+            fun() -> servers(stateful) end,
+            fun() -> dialog() end
+        ]
+    }.
 
 
 start(Test) ->
@@ -436,10 +436,10 @@ dialog() ->
     Self = self(),
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     
-    {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
-    {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
-    {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
-    {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
+    % {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
+    % {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
+    % {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
+    % {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
     {ok, 200, RespC1} = nksip_uac:invite(C1, "sip:client2@nksip",
@@ -450,7 +450,7 @@ dialog() ->
 
     DialogC2 = nksip_dialog:remote_id(C2, RespC1),
     DialogS1 = nksip_dialog:remote_id(S1, RespC1),
-    {ok, 200, _} = nksip_uac:options(DialogC2, []),
+    {ok, 200, _} = nksip_uac:reoptions(DialogC2, []),
 
     [
         C1, 
@@ -465,9 +465,10 @@ dialog() ->
         RSDP, 
         [#uri{domain = <<"localhost">>}]
     ] = 
-        nksip_dialog:fields(RespC1, [sipapp_id, state, local_seq, remote_seq, parsed_local_uri, 
-                             parsed_remote_uri, parsed_local_target, parsed_remote_target, 
-                             local_sdp, remote_sdp, parsed_route_set]),
+        nksip_dialog:fields(RespC1, 
+                [app_id, status, local_seq, remote_seq, parsed_local_uri, 
+                 parsed_remote_uri, parsed_local_target, parsed_remote_target, 
+                 local_sdp, remote_sdp, parsed_route_set]),
 
     [
         C2,
@@ -482,9 +483,10 @@ dialog() ->
         LSDP,
         [#uri{domain = <<"localhost">>}]
     ] = 
-        nksip_dialog:fields(DialogC2, [sipapp_id, state, local_seq, remote_seq, parsed_local_uri, 
-                             parsed_remote_uri, parsed_local_target, parsed_remote_target, 
-                             local_sdp, remote_sdp, parsed_route_set]),
+        nksip_dialog:fields(DialogC2, 
+                [app_id, status, local_seq, remote_seq, parsed_local_uri, 
+                 parsed_remote_uri, parsed_local_target, parsed_remote_target, 
+                 local_sdp, remote_sdp, parsed_route_set]),
     
     [
         S1,
@@ -497,13 +499,14 @@ dialog() ->
         RSDP,
         []          % The first route is deleted (it is itself)
     ] =
-        nksip_dialog:fields(DialogS1, [sipapp_id, state, parsed_local_uri, parsed_remote_uri,
-                             parsed_local_target, parsed_remote_target, local_sdp, 
-                             remote_sdp, parsed_route_set]),
+        nksip_dialog:fields(DialogS1, 
+            [app_id, status, parsed_local_uri, parsed_remote_uri,
+             parsed_local_target, parsed_remote_target, local_sdp, 
+             remote_sdp, parsed_route_set]),
 
     {ok, 200, _} = nksip_uac:bye(DialogC2, [{headers, [{"Nk-Rr", true}]}]),
-    error = nksip_dialog:field(RespC1, state),
-    error = nksip_dialog:field(DialogC2, state),
-    error = nksip_dialog:field(DialogS1, state),
+    error = nksip_dialog:field(RespC1, status),
+    error = nksip_dialog:field(DialogC2, status),
+    error = nksip_dialog:field(DialogS1, status),
     ok.
 

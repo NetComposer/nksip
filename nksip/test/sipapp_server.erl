@@ -138,14 +138,14 @@ route(Scheme, User, Domain, RequestId, _From,
 route(Scheme, User, Domain, RequestId, _From, 
         #state{id={Test, SrvId}=Id, domains=Domains}=State) 
     when Test=:=stateless; Test=:=stateful ->
-    Opts = [
+    Opts = lists:flatten([
         case Test of stateless -> stateless; _ -> [] end,
         {headers, [{<<"Nk-Id">>, SrvId}]},
         case nksip_request:header(RequestId, <<"Nk-Rr">>) of
             [<<"true">>] -> record_route;
-            _ -> none
+            _ -> []
         end
-    ],
+    ]),
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
             {reply, {process, Opts}, State};
@@ -174,7 +174,7 @@ route(Scheme, User, Domain, RequestId, _From,
 % If Nk-Redirect will follow redirects
 route(Scheme, User, Domain, RequestId, _From, 
         #state{id={fork, serverR}=Id, domains=Domains}=State) ->
-    Opts = [
+    Opts = lists:flatten([
         {headers, [{<<"Nk-Id">>, serverR}]},
         case nksip_request:header(RequestId, <<"Nk-Rr">>) of
             [<<"true">>] -> record_route;
@@ -184,7 +184,7 @@ route(Scheme, User, Domain, RequestId, _From,
             [<<"true">>] -> follow_redirects;
             _ -> []
         end
-    ],
+    ]),
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
             {reply, {process, Opts}, State};
@@ -204,11 +204,11 @@ route(Scheme, User, Domain, RequestId, _From,
 % Always Record-Route
 % If domain is "nksip" routes to serverR
 route(_, _, Domain, _RequestId, _From, #state{id={fork, SrvId}, domains=Domains}=State) ->
-    Opts = [
+    Opts = lists:flatten([
         case SrvId of server1 -> stateless; _ -> [] end,
         record_route,
         {headers, [{<<"Nk-Id">>, SrvId}]}
-    ],
+    ]),
     case lists:member(Domain, Domains) of
         true when Domain =:= <<"nksip">> ->
             {reply, {proxy, ruri, [{route, "sip:127.0.0.1;lr"}|Opts]}, State};

@@ -218,40 +218,38 @@ proxy() ->
     {ok, 200, _} = nksip_uac:options(C1, S1, []),
     {ok, 200, _} = nksip_uac:options(C2, S1, []),
     
-    % PROXY TEST NOT YET WORKING!
+    % The request is authorized at server1 (registered) but not server server2
+    % (server1 will proxy to server2)
+    Route = {route, "sip:127.0.0.1;lr"},
+    {ok, 407, Res1} = nksip_uac:invite(C1, "sip:client2@nksip", [Route]),
+    [<<"server2">>] = nksip_auth:realms(Res1),
 
-    % % The request is authorized at server1 (registered) but not server server2
-    % % (server1 will proxy to server2)
-    % Route = {route, "sip:127.0.0.1;lr"},
-    % {ok, 407, Res1} = nksip_uac:invite(C1, "sip:client2@nksip", [Route]),
-    % [<<"server2">>] = nksip_auth:realms(Res1),
+    % Now the request reaches client2, and it is not authorized there. 
+    % C2 replies with 401, but we generate a new request with the SipApp's invalid
+    % password
+    {ok, 403, _} = nksip_uac:invite(C1, "sip:client2@nksip", 
+                                      [Route, {pass, {"1234", "server2"}}, 
+                                       {headers, [RepHd]}]),
 
-    % % Now the request reaches client2, and it is not authorized there. 
-    % % C2 replies with 401, but we generate a new request with the SipApp's invalid
-    % % password
-    % {ok, 403, _} = nksip_uac:invite(C1, "sip:client2@nksip", 
-    %                                   [Route, {pass, {"1234", "server2"}}, 
-    %                                    {headers, [RepHd]}]),
+    % Server1 accepts because of previous registration
+    % Server2 replies with 407, and we generate a new request
+    % Server2 now accepts and sends to C2
+    % C2 replies with 401, and we generate a new request
+    % Server2 and C2 accepts their digests
+    {ok, 200, RespId} = nksip_uac:invite(C1, "sip:client2@nksip", 
+                                            [Route, {pass, {"1234", "server2"}},
+                                            {pass, {"1234", "client2"}},
+                                            {headers, [RepHd]}]),
+    % Server2 inserts a Record-Route, so every in-dialog request is sent to Server2
+    % ACK uses the same authentication headers from last invite
+    {ok, _} = nksip_uac:ack(RespId, []),
+    ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    % % Server1 accepts because of previous registration
-    % % Server2 replies with 407, and we generate a new request
-    % % Server2 now accepts and sends to C2
-    % % C2 replies with 401, and we generate a new request
-    % % Server2 and C2 accepts their digests
-    % {ok, 200, RespId} = nksip_uac:invite(C1, "sip:client2@nksip", 
-    %                                         [Route, {pass, {"1234", "server2"}},
-    %                                         {pass, {"1234", "client2"}},
-    %                                         {headers, [RepHd]}]),
-    
-    % % ACK uses the same authentication headers from last invite
-    % ok = nksip_uac:ack(RespId, []),
-    % ok = tests_util:wait(Ref, [{client2, ack}]),
-
-    % % Server2 and C2 accepts the request beacuse of dialog authentication
-    % {ok, 200, _, _} = nksip_uac:options(RespId, []),
-    % Dialog2 = nksip_dialog:remote_id(C2, RespId),
-    % % The same por C1
-    % {ok, 200, _, _} = nksip_uac:options(Dialog2, []),
-    % {ok, 200, _, _} = nksip_uac:bye(Dialog, []),
+    % Server2 and C2 accepts the request because of dialog authentication
+    {ok, 200, _} = nksip_uac:reoptions(RespId, []),
+    Dialog2 = nksip_dialog:remote_id(C2, RespId),
+    % The same for C1
+    {ok, 200, _} = nksip_uac:reoptions(Dialog2, []),
+    {ok, 200, _} = nksip_uac:bye(Dialog2, []),
     ok.
 

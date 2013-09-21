@@ -330,21 +330,7 @@ generate(Method, Opts, Dialog) ->
                     Contacts0
             end
     end,
-    Opts1 = [
-        {from, From},
-        {to, To},
-        {call_id, CallId},
-        {cseq, RCSeq},
-        {route, RouteSet},
-        case lists:member(make_contact, Opts) of
-            true ->
-                make_contact;
-            false ->
-                case Contacts of
-                    [] -> {contact, [LocalTarget]};
-                    _ -> {contact, Contacts}
-                end
-        end,
+    Opts1 = 
         case Method of
             'ACK' ->
                 case 
@@ -352,13 +338,29 @@ generate(Method, Opts, Dialog) ->
                                       [<<"Authorization">>, <<"Proxy-Authorization">>])
                 of
                     [] -> [];
-                    AuthHds -> {pre_headers, AuthHds}
+                    AuthHds -> [{pre_headers, AuthHds}]
                 end;
             _ ->
                 []
         end
-        | Opts
-    ],
+        ++
+        [
+            {from, From},
+            {to, To},
+            {call_id, CallId},
+            {cseq, RCSeq},
+            {route, RouteSet},
+            case lists:member(make_contact, Opts) of
+                true ->
+                    make_contact;
+                false ->
+                    case Contacts of
+                        [] -> {contact, [LocalTarget]};
+                        _ -> {contact, Contacts}
+                    end
+            end
+            | Opts
+        ],
     {{RUri, Opts1}, Dialog#dialog{local_seq=LCSeq}}.
 
 
