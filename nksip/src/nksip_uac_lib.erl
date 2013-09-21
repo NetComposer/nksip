@@ -22,7 +22,7 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make/4, make_cancel/1, is_stateless/2]).
+-export([make/5, make_cancel/1, is_stateless/2]).
 -include("nksip.hrl").
  
 
@@ -34,22 +34,24 @@
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
 %% It will also add a <i>From</i> tag if not present.
--spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->    
+-spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), 
+           nksip_lib:proplist(), nksip_lib:proplist()) ->    
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq.
 
-make(AppId, Method, Uri, Opts) ->
+make(AppId, Method, Uri, Opts, AppOpts) ->
+    FullOpts = Opts++AppOpts,
     try
         case nksip_parse:uris(Uri) of
             [RUri] -> ok;
             _ -> RUri = throw(invalid_uri)
         end,
-        case nksip_parse:uris(nksip_lib:get_value(from, Opts)) of
+        case nksip_parse:uris(nksip_lib:get_value(from, FullOpts)) of
             [From] -> ok;
             _ -> From = throw(invalid_from) 
         end,
-        case nksip_lib:get_value(to, Opts) of
+        case nksip_lib:get_value(to, FullOpts) of
             undefined -> 
                 To = RUri#uri{port=0, opts=[], 
                                 headers=[], ext_opts=[], ext_headers=[]};
@@ -61,7 +63,7 @@ make(AppId, Method, Uri, Opts) ->
                     _ -> To = throw(invalid_to) 
                 end
         end,
-        case nksip_lib:get_value(route, Opts, []) of
+        case nksip_lib:get_value(route, FullOpts, []) of
             [] ->
                 Routes = [];
             RouteSpec ->
@@ -70,7 +72,7 @@ make(AppId, Method, Uri, Opts) ->
                     Routes -> ok
                 end
         end,
-        case nksip_lib:get_value(contact, Opts, []) of
+        case nksip_lib:get_value(contact, FullOpts, []) of
             [] ->
                 Contacts = [];
             ContactSpec ->
@@ -99,30 +101,30 @@ make(AppId, Method, Uri, Opts) ->
             FromTag -> 
                 FromOpts = From#uri.ext_opts
         end,
-        case nksip_lib:get_binary(user_agent, Opts) of
+        case nksip_lib:get_binary(user_agent, FullOpts) of
             <<>> -> UserAgent = <<"NkSIP ", ?VERSION>>;
             UserAgent -> ok
         end,
         Headers = 
-                proplists:get_all_values(pre_headers, Opts) ++
-                nksip_lib:get_value(headers, Opts, []) ++
-                proplists:get_all_values(post_headers, Opts),
+                proplists:get_all_values(pre_headers, FullOpts) ++
+                nksip_lib:get_value(headers, FullOpts, []) ++
+                proplists:get_all_values(post_headers, FullOpts),
         Body = nksip_lib:get_value(body, Opts, <<>>),
         Headers1 = nksip_headers:update(Headers, [
             {default_single, <<"User-Agent">>, UserAgent},
-            case lists:member(make_allow, Opts) of
+            case lists:member(make_allow, FullOpts) of
                 true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppId)};
                 false -> []
             end,
-            case lists:member(make_supported, Opts) of
+            case lists:member(make_supported, FullOpts) of
                 true -> {default_single, <<"Supported">>, ?SUPPORTED};
                 false -> []
             end,
-            case lists:member(make_accept, Opts) of
+            case lists:member(make_accept, FullOpts) of
                 true -> {default_single, <<"Accept">>, ?ACCEPT};
                 false -> []
             end,
-            case lists:member(make_date, Opts) of
+            case lists:member(make_date, FullOpts) of
                 true -> {default_single, <<"Date">>, nksip_lib:to_binary(
                                                     httpd_util:rfc1123_date())};
                 false -> []
@@ -159,15 +161,35 @@ make(AppId, Method, Uri, Opts) ->
             data = [],
             start = nksip_lib:l_timestamp()
         },
-        Opts1 = case lists:member(make_contact, Opts) of
-            false when Method=:='INVITE', Contacts=:=[] -> [make_contact];
-            _ -> []
+        Opts1 = make_remove_opts(Opts, []),
+        Opts2 = case lists:member(make_contact, Opts) of
+            false when Method=='INVITE', Contacts=:=[] -> [make_contact|Opts1];
+            _ -> Opts1
         end,
-        {ok, Req, Opts1}
+        {ok, Req, Opts2}
     catch
         throw:Throw -> {error, Throw}
     end.
 
+
+%% @private
+make_remove_opts([], Acc) ->
+    lists:reverse(Acc);
+
+make_remove_opts([{Tag, _}|Rest], Acc)
+    when Tag==from; Tag==to; Tag==route; Tag==contact; Tag==call_id; Tag==cseq;
+         Tag==min_cseq; Tag==user_agent; Tag==pre_headers; Tag==post_headers; 
+         Tag==headers; Tag==body; Tag==content_type; Tag==expires ->
+    make_remove_opts(Rest, Acc);
+
+make_remove_opts([Tag|Rest], Acc) 
+    when Tag==make_allow; Tag==make_supported; Tag==make_accept; Tag==make_date;
+         Tag==unregister; Tag==unregister_all;
+         Tag==active; Tag==inactive; Tag==hold ->
+    make_remove_opts(Rest, Acc);
+
+make_remove_opts([Tag|Rest], Acc) ->
+    make_remove_opts(Rest, [Tag|Acc]).
 
 
 
