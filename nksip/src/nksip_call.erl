@@ -316,7 +316,7 @@ work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
 work({stop_dialog, DialogId}, none, Call) ->
     case find_dialog(DialogId, Call) of
         {ok, Dialog} ->
-            Dialog1 = nksip_call_dialog:status_update({stop, forced}, Dialog),
+            Dialog1 = nksip_call_dialog:status_update(uac, {stop, forced}, Dialog),
             nksip_call_dialog:update(Dialog1, Call);
         not_found ->
             Call

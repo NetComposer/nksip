@@ -448,7 +448,7 @@ update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
 
 
 %% @private
--spec cast(atom(), list(), nksip:dialog()) ->
+-spec cast(atom(), term(), nksip:dialog()) ->
     ok.
 
 cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->

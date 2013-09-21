@@ -58,7 +58,7 @@
     class :: uac | uas,
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nksip_lib:timestamp(),
-    from :: {srv, from()} | {fork, nksip_call_fork:id()},
+    from :: none | {srv, from()} | {fork, nksip_call_fork:id()},
     opts :: nksip_lib:proplist(),
     trans_id :: integer(),
     request :: nksip:request(),

@@ -223,7 +223,7 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
                 _ -> Contacts
             end,
             ?call_debug("Fork ~p redirect to ~p", 
-                       [Id, nksip_unparse:uris(Contacts1)], Call),
+                       [Id, nksip_unparse:uri(Contacts1)], Call),
             launch(Contacts1, Fork1, Call);
         _ ->
             Fork2 = Fork1#fork{responses=[Resp|Resps]},

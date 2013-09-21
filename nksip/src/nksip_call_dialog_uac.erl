@@ -209,7 +209,8 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog)
     end;
 
 do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog) 
-            when Code>=300 andalso (Status=:=init orelse Status=:=proceeding_uac) ->
+            when is_integer(Code) andalso Code>=300 andalso 
+            (Status=:=init orelse Status=:=proceeding_uac) ->
     case Dialog#dialog.answered of
         undefined -> status_update({stop, Code}, Dialog);
         _ -> status_update(confirmed, Dialog)
@@ -282,8 +283,8 @@ new_local_seq(Req, Call) ->
 
 %% @private
 -spec generate(nksip:method(), nksip_lib:proplist(), nksip:dialog()) ->
-    {{AppId, RUri, Opts}, nksip:dialog()} 
-    when AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip_lib:proplist().
+    {{RUri, Opts}, nksip:dialog()} 
+    when RUri::nksip:uri(), Opts::nksip_lib:proplist().
 
 generate(Method, Opts, Dialog) ->
     #dialog{

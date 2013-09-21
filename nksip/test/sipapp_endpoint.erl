@@ -191,7 +191,7 @@ invite(RequestId, From, #state{id={fork, Id}, dialogs=Dialogs}=State) ->
     DialogId = nksip_dialog:id(RequestId),
     Ids = nksip_request:header(RequestId, <<"Nk-Id">>),
     Hds = [{<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}],
-    case nksip_request:header(<<"Nk-Reply">>, RequestId) of
+    case nksip_request:header(RequestId, <<"Nk-Reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};

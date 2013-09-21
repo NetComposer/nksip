@@ -146,7 +146,7 @@
 
 -include("nksip.hrl").
 
--export([reply/2, error/2, error/3, reqreply/1]).
+-export([reply/2, reqreply/1]).
 
 -export_type([sipreply/0]).
 
@@ -223,7 +223,8 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req,
                 [] -> 
                     ?warning(AppId, CallId, "UAS returned invalid contact: ~p", 
                             [ContactSpec]),
-                    error(Req, 500, <<"Invalid SipApp Response">>);
+                    Reason = {reason, <<"Invalid SipApp Response">>},
+                    #reqreply{code=500, opts=[Reason, make_date]};
                 Contacts ->
                     Opts1 = [{contact, Contacts}|Opts],
                     nksip_uas_lib:response(Req, Code, Headers, Body, Opts1)
@@ -386,26 +387,6 @@ reqreply({Code, Headers, Body, Opts}) when is_integer(Code), is_list(Headers),
     #reqreply{code=Code, headers=Headers, body=Body, opts=Opts};
 reqreply(_Other) ->
     error.
-
-
-
-%% @private Generares a new `Response' for a `Request' with `ResponseCode', representing
-%% an error. A <i>Date</i> header will be generated.
--spec error(nksip:request(), nksip:response_code()) -> 
-    nksip:response().
-
-error(Req, RespCode) ->
-    reply(Req, #reqreply{code=RespCode, opts=[make_date]}).
-
-
-%% @private Generares a new `Response' for a `Request' with `ResponseCode', representing
-%% an error, and changing the SIP response description text to `Debug'.  
-%% A <i>Date</i> header will be generated.
--spec error(nksip:request(), nksip:response_code(), string() | binary()) -> 
-    nksip:response().
-
-error(Req, RespCode, Debug) ->
-    reply(Req, #reqreply{code=RespCode, opts=[{reason, Debug}, make_date]}).
 
 
 

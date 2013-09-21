@@ -22,7 +22,7 @@
 -module(nksip_call_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/4, response/2, cancel/2, timer/3]).
+-export([request/4, request/2, response/2, cancel/2, timer/3]).
 -export_type([status/0, id/0]).
 -import(nksip_call_lib, [update/2, store_sipmsg/2, update_sipmsg/2, update_auth/2,
                          timeout_timer/3, retrans_timer/3, expire_timer/3, 
@@ -50,7 +50,7 @@
 
 -type call() :: nksip_call:call().
 
--type uac_from() :: {srv, from()} | {fork, nksip_call_fork:id()} | none.
+-type uac_from() :: none | {srv, from()} | {fork, nksip_call_fork:id()}.
 
 
 
@@ -91,12 +91,15 @@ request(Req, Opts, From, Call) ->
 
 
 %% @private
+-spec request(nksip:request(), call()) ->
+    call().
+
 request(Req, Call) ->
     request(Req, [], none, Call).
 
 
 %% @private
--spec make_uac(id(), nksip:request(), nksip_lib:prolist(), uac_from()) ->
+-spec make_uac(nksip:request(), nksip_lib:proplist(), uac_from(), call()) ->
     {trans(), call()}.
 
 make_uac(Req, Opts, From, #call{next=Id}=Call) ->

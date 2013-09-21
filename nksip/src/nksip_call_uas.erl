@@ -125,7 +125,7 @@ process_retrans(UAS, Call) ->
 
 
 %% @private Called by a fork when it has a response available
--spec fork_reply(id(), nksip:response(), call()) ->
+-spec fork_reply(id(), {nksip:response(), nksip_lib:proplist()}, call()) ->
     call().
 
 fork_reply(TransId, Reply, Call) ->
@@ -678,7 +678,7 @@ timer(timeout, #trans{id=Id, method=Method}=UAS, Call) ->
 
 timer(wait_sipapp, #trans{id=Id, method=Method}=UAS, Call) ->
     ?call_notice("UAS ~p ~p (cancelled) timeout, no SipApp response", [Id, Method], Call),
-    update(UAS#trans{status=terminated}, Call);
+    update(UAS#trans{status=finished}, Call);
 
 % INVITE 3456xx retrans
 timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->

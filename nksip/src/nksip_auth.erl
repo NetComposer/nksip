@@ -97,7 +97,7 @@ make_ha1(User, Pass, Realm) ->
 %% </ul>
 %%
 -spec get_authentication(nksip:request()) -> [Authorized] when
-    Authorized :: {digest, Realm::binary(), true|false}.
+    Authorized :: {{digest, Realm::binary()}, true|false}.
 
 get_authentication(Req) ->
     Fun = fun({Ok, _User, Realm}, Acc) ->

@@ -399,7 +399,7 @@ invite(AppId, Uri, Opts) ->
 %% and if `respfun' is provided, it will be called as `ok', `{ok, AckRequest}' or 
 %% `{error, Error}'.
 %%
--spec ack(nksip_dialog:spec(), dialog:opts()) ->
+-spec ack(nksip_dialog:spec(), dialog_opts()) ->
     ok | {ok, nksip:request()} | {async, nksip:request_id()} | 
     dialog_error().
 
