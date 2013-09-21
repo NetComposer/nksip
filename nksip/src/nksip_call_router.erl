@@ -29,8 +29,9 @@
 -export([apply_sipmsg/2, get_all_sipmsgs/0, get_all_sipmsgs/2]).
 -export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
 -export([get_all_calls/0, get_all_data/0]).
+-export([get_authorized_list/1, clear_authorized_list/1]).
 -export([incoming_async/1, incoming_sync/1, pending_msgs/0, pending_work/0]).
--export([app_reply/5, clear_calls/0]).
+-export([app_reply/5, clear_calls/0, remove_app_cache/1]).
 -export([pos2name/1, send_work_sync/3, send_work_async/3, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
@@ -253,6 +254,38 @@ get_all_data() ->
     ].
 
 
+%% @doc Get authorized list
+-spec get_authorized_list(nksip_dialog:spec()) ->
+    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
+
+get_authorized_list(DialogSpec) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DlgId} ->
+            case send_work_sync(AppId, CallId, {get_authorized_list, DlgId}) of
+                {ok, List} -> List;
+                _ -> error
+            end;
+        undefined ->
+            error
+    end.
+
+
+%% @doc Clear authorized list
+-spec clear_authorized_list(nksip_dialog:spec()) ->
+    ok | error.
+
+clear_authorized_list(DialogSpec) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DlgId} ->
+            case send_work_sync(AppId, CallId, {clear_authorized_list, DlgId}) of
+                ok -> ok;
+                _ -> error
+            end;
+        undefined ->
+            error
+    end.
+
+
 %% @private
 incoming_async(#raw_sipmsg{call_id=CallId}=RawMsg) ->
     gen_server:cast(name(CallId), {incoming, RawMsg}).
@@ -262,6 +295,11 @@ incoming_async(#raw_sipmsg{call_id=CallId}=RawMsg) ->
 incoming_sync(#raw_sipmsg{call_id=CallId}=RawMsg) ->
     gen_server:call(name(CallId), {incoming, RawMsg}).
 
+
+%% @private
+remove_app_cache(AppId) ->
+    router_fold(
+        fun(Name, _) -> gen_server:cast(Name, {remove_app_cache, AppId}) end).
 
 
 %% @private
@@ -368,6 +406,9 @@ handle_cast({incoming, RawMsg}, SD) ->
             ?error(AppId, CallId, "Error processing incoming message: ~p", [Error]),
             {noreply, SD}
     end;
+
+handle_cast({remove_app_cache, AppId}, #state{opts=Opts}=SD) ->
+    {noreply, SD#state{opts=dict:erase(AppId, Opts)}};
 
 handle_cast(Msg, SD) ->
     lager:error("Module ~p received unexpected event: ~p", [?MODULE, Msg]),

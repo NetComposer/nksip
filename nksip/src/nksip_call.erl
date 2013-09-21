@@ -70,7 +70,9 @@
                 {apply_sipmsg, nksip_request:id()|nksip_response:id(), function()} |
                 get_all_sipmsgs |
                 {apply_transaction, nksip_request:id()|nksip_response:id(), function()} |
-                get_all_transactions.
+                get_all_transactions |
+                {get_authorized_list, nksip_dialog:id()} | 
+                {clear_authorized_list, nksip_dialog:id()}.
 
 
 %% ===================================================================
@@ -134,7 +136,8 @@ init([AppId, CallId, AppOpts, Global]) ->
         msgs = [],
         trans = [],
         forks = [],
-        dialogs = []
+        dialogs = [],
+        auths = []
     },
     erlang:start_timer(2*1000*MaxTransTime, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
@@ -250,7 +253,9 @@ work({sync_reply, ReqId, Reply}, From, Call) ->
     end;
 
 work({make, Method, Uri, Opts}, From, Call) ->
-    Reply = make(Method, Uri, Opts, Call),
+    #call{app_id=AppId, call_id=CallId, app_opts=AppOpts} = Call,
+    Opts1 = [{call_id, CallId} | Opts],
+    Reply = nksip_uac_lib:make(AppId, Method, Uri, Opts1, AppOpts),
     gen_server:reply(From, Reply),
     Call;
 
@@ -258,9 +263,11 @@ work({send, Req, Opts}, From, Call) ->
     nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    case make(Method, Uri, Opts, Call) of
+    #call{app_id=AppId, call_id=CallId, app_opts=AppOpts} = Call,
+    Opts1 = [{call_id, CallId} | Opts],
+    case nksip_uac_lib:make(AppId, Method, Uri, Opts1, AppOpts) of
         {ok, Req, ReqOpts} -> 
-            work({send, Req, ReqOpts++Opts}, From, Call);
+            work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
             gen_server:reply(From, {error, Error}),
             Call
@@ -355,6 +362,18 @@ work(get_all_transactions, From, Call) ->
     Ids = [{Class, AppId, CallId, Id} || #trans{id=Id, class=Class} <- Trans],
     gen_server:reply(From, {ok, Ids}),
     Call;
+
+work({get_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
+    List = [{Proto, Ip, Port} || 
+            {D, Proto, Ip, Port} <- Auths, D=:=DlgId],
+    gen_server:reply(From, {ok, List}),
+    Call;
+
+work({clear_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
+    Auths1 = [{D, Proto, Ip, Port} || 
+              {D, Proto, Ip, Port} <- Auths, D=/=DlgId],
+    gen_server:reply(From, ok),
+    Call#call{auths=Auths1};
 
 work(crash, _, _) ->
     error(forced_crash).
@@ -518,12 +537,6 @@ find_dialog(DialogId, #call{dialogs=Dialogs}) ->
         false -> not_found;
         Dialog -> {ok, Dialog}
     end.
-
-%% @private
-make(Method, Uri, Opts, Call) ->
-    #call{app_id=AppId, call_id=CallId, app_opts=AppOpts} = Call,
-    Opts1 = [{call_id, CallId} | Opts++AppOpts ],
-    nksip_uac_lib:make(AppId, Method, Uri, Opts1).
 
 
 %% @private

@@ -24,7 +24,7 @@
 
 -export([request/4, response/2, cancel/2, timer/3]).
 -export_type([status/0, id/0]).
--import(nksip_call_lib, [update/2, store_sipmsg/2, update_sipmsg/2, 
+-import(nksip_call_lib, [update/2, store_sipmsg/2, update_sipmsg/2, update_auth/2,
                          timeout_timer/3, retrans_timer/3, expire_timer/3, 
                          cancel_timers/2]).
 
@@ -140,8 +140,12 @@ do_send('ACK', UAC, Call) ->
             Call1 = send_user_reply({req, SentReq}, UAC, Call),
             UAC1 = UAC#trans{status=finished, request=SentReq},
             Call2 = update_sipmsg(SentReq, Call1),
-            Call3 = nksip_call_dialog_uac:ack(UAC1, Call2),
-            update(UAC1, Call3);
+            Call3 = case lists:member(no_dialog, Opts) of
+                true -> Call2;
+                false -> nksip_call_dialog_uac:ack(UAC1, Call2)
+            end,
+            Call4 = update_auth(SentReq, Call3),
+            update(UAC1, Call4);
         error ->
             ?call_debug("UAC ~p error sending 'ACK' request", [Id], Call),
             Call1 = send_user_reply({error, network_error}, UAC, Call),
@@ -168,9 +172,10 @@ do_send(_, UAC, Call) ->
                     Call2 = send_user_reply({req, SentReq}, UAC, Call1),
                     #sipmsg{transport=#transport{proto=Proto}} = SentReq,
                     Call3 = update_sipmsg(SentReq, Call2),
+                    Call4 = update_auth(SentReq, Call3),
                     UAC1 = UAC#trans{request=SentReq, proto=Proto},
-                    UAC2 = sent_method(Method, UAC1, Call3),
-                    update(UAC2, Call3);
+                    UAC2 = sent_method(Method, UAC1, Call4),
+                    update(UAC2, Call4);
                 error ->
                     ?call_debug("UAC ~p error sending ~p request", 
                                 [Id, Method], Call),
@@ -252,17 +257,21 @@ do_response(Resp, UAC, Call) ->
         false -> {Resp1, _} = nksip_reply:reply(Req, timeout)
     end,
     Call1 = store_sipmsg(Resp1, Call),
+    Call2 = case Code>=200 andalso Code<300 of
+        true -> update_auth(Resp1, Call1);
+        false -> Call1
+    end,
     UAC1 = UAC#trans{response=Resp1, code=Code},
     case Transport of
         undefined -> 
             ok;    % It is own-generated
         _ -> 
             ?call_debug("UAC ~p ~p (~p) received ~p", 
-                        [Id, Method, Status, Code], Call)
+                        [Id, Method, Status, Code], Call2)
     end,
     Call3 = case lists:member(no_dialog, Opts) of
-        true -> update(UAC1, Call1);
-        false -> nksip_call_dialog_uac:response(UAC1, update(UAC1, Call1))
+        true -> update(UAC1, Call2);
+        false -> nksip_call_dialog_uac:response(UAC1, update(UAC1, Call2))
     end,
     do_response_status(Status, Resp1, UAC1, Call3).
 
@@ -460,10 +469,10 @@ do_received_auth(Req, Resp, UAC, Call) ->
             Req2 = Req1#sipmsg{vias=Vias, cseq=CSeq},
             Req3 = nksip_transport_uac:add_via(Req2, AppOpts),
             Opts1 = nksip_lib:delete(Opts, make_contact),
-            {NewUAC, Call1} = make_uac(Req3, Opts1, From, Call),
+            {NewUAC, Call2} = make_uac(Req3, Opts1, From, Call1),
             NewUAC1 = NewUAC#trans{iter=Iter+1},
-            Call2 = store_sipmsg(Req3, Call1),
-            do_send(Method, NewUAC1, update(NewUAC1, Call2));
+            Call3 = store_sipmsg(Req3, Call2),
+            do_send(Method, NewUAC1, update(NewUAC1, Call3));
         {error, Error} ->
             ?call_debug("UAC ~p could not generate new auth request: ~p", 
                         [Id, Error], Call),    

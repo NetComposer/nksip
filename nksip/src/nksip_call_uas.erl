@@ -24,7 +24,7 @@
 
 -export([request/2, timer/3, app_reply/4, fork_reply/3, sync_reply/4]).
 -export_type([status/0, id/0]).
--import(nksip_call_lib, [update/2, store_sipmsg/2, update_sipmsg/2, 
+-import(nksip_call_lib, [update/2, store_sipmsg/2, update_sipmsg/2, update_auth/2,
                          timeout_timer/3, retrans_timer/3, expire_timer/3, 
                          cancel_timers/2]).
 
@@ -281,7 +281,7 @@ check_cancel(UAS, Call) ->
     call().
 
 authorize_launch(#trans{request=Req}=UAS, Call) ->
-    IsDialog = case nksip_call_dialog_uas:is_authorized(Req, Call) of
+    IsDialog = case nksip_call_lib:check_auth(Req, Call) of
         true -> dialog;
         false -> []
     end,
@@ -299,11 +299,11 @@ authorize_launch(#trans{request=Req}=UAS, Call) ->
 -spec authorize_reply(term(), trans(), call()) ->
     call().
 
-authorize_reply(Reply, #trans{id=Id, method=Method}=UAS, Call) ->
+authorize_reply(Reply, #trans{id=Id, method=Method, request=Req}=UAS, Call) ->
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply], Call),
     case Reply of
-        ok -> route_launch(UAS, Call);
-        true -> route_launch(UAS, Call);
+        ok -> route_launch(UAS, update_auth(Req, Call));
+        true -> route_launch(UAS, update_auth(Req, Call));
         false -> reply(forbidden, UAS, Call);
         authenticate -> reply(authenticate, UAS, Call);
         {authenticate, Realm} -> reply({authenticate, Realm}, UAS, Call);
@@ -546,22 +546,27 @@ send_reply({#sipmsg{response=Code}=Resp, SendOpts}, UAS, Call) ->
             end,
             #sipmsg{response=Code1} = Resp1,
             Call1 = store_sipmsg(Resp1, Call),
+            % We could have selected a different proto/ip/port form request
+            Call2 = case Code1>=200 andalso Code<300 of
+                true -> update_auth(Resp1, Call1);
+                false -> Call1
+            end,
             UAS1 = UAS#trans{response=Resp1, code=Code},
-            Call2 = case lists:member(no_dialog, Opts) of
-                true -> Call1;
-                false -> nksip_call_dialog_uas:response(UAS1, Call1)
+            Call3 = case lists:member(no_dialog, Opts) of
+                true -> Call2;
+                false -> nksip_call_dialog_uas:response(UAS1, Call2)
             end,
             case Stateless of
                 true when Method=/='INVITE' ->
                     ?call_debug("UAS ~p ~p stateless reply ~p", 
                                 [Id, Method, Code1], Call),
                     UAS2 = cancel_timers([timeout], UAS1#trans{status=finished}),
-                    {{ok, Resp1}, update(UAS2, Call2)};
+                    {{ok, Resp1}, update(UAS2, Call3)};
                 _ ->
                     ?call_debug("UAS ~p ~p stateful reply ~p", 
                                 [Id, Method, Code1], Call),
-                    UAS2 = do_reply(Method, Code1, UAS1, Call2),
-                    {{ok, Resp1}, update(UAS2, Call2)}
+                    UAS2 = do_reply(Method, Code1, UAS1, Call3),
+                    {{ok, Resp1}, update(UAS2, Call3)}
             end;
         false ->
             ?call_info("UAS ~p ~p cannot send ~p response in ~p", 

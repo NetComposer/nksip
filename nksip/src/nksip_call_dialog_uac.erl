@@ -138,9 +138,6 @@ ack(#trans{method='ACK', request=Req}, Call) ->
 -spec response(trans(), call()) ->
     call().
 
-response(#trans{from={fork, _}}, Call) ->
-    Call;
-
 response(UAC, #call{dialogs=Dialogs}=Call) ->
     #trans{method=Method, request=Req, response=Resp} = UAC,
     case nksip_dialog:id(Resp) of
@@ -153,11 +150,8 @@ response(UAC, #call{dialogs=Dialogs}=Call) ->
                     ?call_debug("Dialog ~p (~p) UAC response ~p ~p", 
                                 [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
-                    Dialog2 = case Code>=200 andalso Code<300 of
-                        true -> nksip_call_dialog:remotes_update(Resp, Dialog1);
-                        false -> Dialog1
-                    end,
-                    nksip_call_dialog:update(Dialog2, Call);
+                    % Dialog2 = nksip_call_dialog:remotes_update(Resp, Dialog1),
+                    nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = nksip_call_dialog:create(uac, Req, Resp),
                     response(UAC, Call#call{dialogs=[Dialog|Dialogs]});

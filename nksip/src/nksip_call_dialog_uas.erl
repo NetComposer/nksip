@@ -1,4 +1,4 @@
-%% -------------------------------------------------------------------
+% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, response/2, is_authorized/2]).
+-export([request/2, response/2]).
 
 -type call() :: nksip_call:call().
 
@@ -58,6 +58,7 @@ request(#trans{request=Req}, Call) ->
                             {error, old_cseq};
                         true -> 
                             Dialog1 = Dialog#dialog{remote_seq=CSeq},
+                            % Dialog2 = nksip_call_dialog:remotes_update(Req, Dialog1),
                             case do_request(Method, Status, Req, Dialog1) of
                                 {ok, Dialog2} -> 
                                     {ok, DialogId, 
@@ -145,12 +146,7 @@ response(UAS, Call) ->
                     ?call_debug("Dialog ~p (~p) UAS ~p response ~p", 
                                 [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
-                    Dialog2 = case Code>=200 andalso Code<300 of
-                        true -> nksip_call_dialog:remotes_update(Req
-                            , Dialog1);
-                        false -> Dialog1
-                    end,
-                    nksip_call_dialog:update(Dialog2, Call);
+                    nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = nksip_call_dialog:create(uas, Req, Resp),
                     response(UAS, Call#call{dialogs=[Dialog|Dialogs]});
@@ -207,35 +203,37 @@ do_response(_, _, _, _, Dialog) ->
 
 
 
-%% @doc Checks if a request is part of an already authenticated dialog,
-%% and it comes from the same ip and port.
--spec is_authorized(nksip:request(), call()) ->
-    boolean().
+% %% @doc Checks if a request is part of an already authenticated dialog,
+% %% and it comes from the same ip and port.
+% -spec is_authorized(nksip:request(), call()) ->
+%     boolean().
 
-is_authorized(Req, Call) ->
-    #sipmsg{method=Method, transport=Transport} = Req,
-    #transport{remote_ip=Ip, remote_port=Port} = Transport,
-    case nksip_dialog:id(Req) of
-        undefined ->
-            false;
-        {dlg, _, _, DialogId} ->
-            case nksip_call_dialog:find(DialogId, Call) of
-                #dialog{remotes=Remotes} ->
-                    case lists:member({Ip, Port}, Remotes) of
-                        true ->
-                            ?call_debug("Dialog ~p authorized ~p request from ~p", 
-                                   [DialogId, Method, {Ip, Port}], Call),
-                            true;
-                        false ->
-                            ?call_debug("Dialog ~p unauthorized ~p request from ~p"
-                                        " (authorized are ~p)", 
-                                   [DialogId, Method, {Ip, Port}, Remotes], Call),
-                            false
-                    end;
-                not_found ->
-                    false
-            end
-    end.
+% is_authorized(Req, Call) ->
+%     #sipmsg{method=Method, transport=Transport} = Req,
+%     #transport{remote_ip=Ip, remote_port=Port} = Transport,
+%     case nksip_dialog:id(Req) of
+%         undefined ->
+%             false;
+%         {dlg, _, _, DialogId} ->
+%             case nksip_call_dialog:find(DialogId, Call) of
+%                 #dialog{remotes=Remotes} ->
+%                     case lists:member({Ip, Port}, Remotes) of
+%                         true ->
+%                             ?call_debug(
+%                                     "~p from ~p:~p is in dialog ~p authorized list",
+%                                     [Method, Ip, Port, DialogId], Call),
+%                             true;
+%                         false ->
+%                             ?call_debug(
+%                                     "~p from ~p:~p is NOT in dialog ~p authorized "
+%                                     "list (~p)", 
+%                                     [Method, Ip, Port, DialogId, Remotes], Call),
+%                             false
+%                     end;
+%                 not_found ->
+%                     false
+%             end
+%     end.
 
 
 %% @private

@@ -25,8 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, id/1, find_callid/2, stop/1, bye_all/0, stop_all/0]).
--export([get_dialog/1, get_all/0, get_all_data/0]).
--export([forget_remotes/1, remote_id/2]).
+-export([get_dialog/1, get_all/0, get_all_data/0, remote_id/2]).
 
 -export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
 
@@ -326,16 +325,16 @@ stop_all() ->
 %% ===================================================================
 
 
-%% @private
--spec forget_remotes(nksip_dialog:spec()) ->
-    ok | error.
+% %% @private
+% -spec forget_remotes(nksip_dialog:spec()) ->
+%     ok | error.
 
-forget_remotes(DialogSpec) ->
-    Fun = fun(#dialog{}=Dialog) -> {ok, {update, Dialog#dialog{remotes=[]}}} end,
-    case nksip_call_router:apply_dialog(DialogSpec, Fun) of
-        ok -> ok;
-        _ -> error
-    end.
+% forget_remotes(DialogSpec) ->
+%     Fun = fun(#dialog{}=Dialog) -> {ok, {update, Dialog#dialog{remotes=[]}}} end,
+%     case nksip_call_router:apply_dialog(DialogSpec, Fun) of
+%         ok -> ok;
+%         _ -> error
+%     end.
 
 
 %% @private
@@ -437,7 +436,7 @@ get_field(D, Field) ->
         from_tag -> nksip_lib:get_binary(tag, (D#dialog.local_uri)#uri.ext_opts);
         to_tag -> nksip_lib:get_binary(tag, (D#dialog.remote_uri)#uri.ext_opts);
         timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
-        auth_remotes -> D#dialog.remotes;
+        % auth_remotes -> D#dialog.remotes;
         _ -> invalid_field 
     end.
 

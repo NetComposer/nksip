@@ -106,6 +106,9 @@
 }).
 
 
+-type auth() :: {nksip_dialog:id(), nksip:protocol(), 
+                 inet:ip_address(), inet:port_number()}.
+
 -record(call, {
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
@@ -117,7 +120,8 @@
     trans = [] :: [#trans{}],
     forks = [] :: [#fork{}],
     msgs = [] :: [#sipmsg{}],
-    dialogs = [] :: [#dialog{}]
+    dialogs = [] :: [#dialog{}],
+    auths = [] :: [auth()]
 }).
 
 

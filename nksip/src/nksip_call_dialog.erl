@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([create/3, status_update/3, timer/3]).
--export([find/2, update/2, remotes_update/2]).
+-export([find/2, update/2]).
 
 -type call() :: nksip_call:call().
 
@@ -46,7 +46,7 @@ create(Class, Req, Resp) ->
         from = From, 
         ruri = #uri{scheme=Scheme},
         cseq = CSeq,
-        transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port},
+        transport = #transport{proto=Proto, remote_ip=_Ip, remote_port=_Port},
         from_tag = FromTag
     } = Req,
     #sipmsg{to=To} = Resp,
@@ -71,8 +71,8 @@ create(Class, Req, Resp) ->
         local_sdp = undefined,
         remote_sdp = undefined,
         media_started = false,
-        stop_reason = undefined,
-        remotes = [{Ip, Port}]
+        stop_reason = undefined
+        % remotes = [{Ip, Port}]
     },
     if 
         Class=:=uac ->
@@ -421,30 +421,30 @@ update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
     end.
 
 
-%% @private
--spec remotes_update(nksip:request()|nksip:response(), nksip:dialog()) ->
-    nksip:dialog().
+% %% @private
+% -spec remotes_update(nksip:request()|nksip:response(), nksip:dialog()) ->
+%     nksip:dialog().
 
-remotes_update(#sipmsg{transport=#transport{remote_ip=Ip, remote_port=Port}}, Dialog) ->
-    #dialog{
-        id = DialogId, 
-        status = Status,
-        remotes = Remotes, 
-        app_id = AppId, 
-        call_id = CallId
-    } = Dialog,
-    case lists:member({Ip, Port}, Remotes) of
-        true ->
-            Dialog;
-        false ->
-            Remotes1 = [{Ip, Port}|Remotes],
-            ?debug(AppId, CallId, "Dialog ~p (~p) updated remotes: ~p", 
-                   [DialogId, Status, Remotes1]),
-            Dialog#dialog{remotes=Remotes1}
-    end;
+% remotes_update(#sipmsg{transport=#transport{remote_ip=Ip, remote_port=Port}}, Dialog) ->
+%     #dialog{
+%         id = DialogId, 
+%         status = Status,
+%         remotes = Remotes, 
+%         app_id = AppId, 
+%         call_id = CallId
+%     } = Dialog,
+%     case lists:member({Ip, Port}, Remotes) of
+%         true ->
+%             Dialog;
+%         false ->
+%             Remotes1 = [{Ip, Port}|Remotes],
+%             ?debug(AppId, CallId, "Dialog ~p (~p) updated remotes: ~p", 
+%                    [DialogId, Status, Remotes1]),
+%             Dialog#dialog{remotes=Remotes1}
+%     end;
 
-remotes_update(_, Dialog) ->
-    Dialog.
+% remotes_update(_, Dialog) ->
+%     Dialog.
 
 
 %% @private

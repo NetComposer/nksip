@@ -23,6 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([store_sipmsg/2, update_sipmsg/2, update/2]).
+-export([update_auth/2, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3, cancel_timers/2]).
 -export([trace/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
@@ -141,6 +142,60 @@ hibernate(_, Call) ->
     Call.
 
 
+%% @private
+-spec update_auth(nksip:request()|nksip:response(), call()) ->
+    call().
+
+update_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
+    case nksip_dialog:id(SipMsg) of
+        {dlg, _, _, DlgId} ->
+            #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+            #call{auths=Auths} = Call,
+            case lists:member({DlgId, Proto, Ip, Port}, Auths) of
+                true ->
+                    Call;
+                false -> 
+                    ?call_debug("Added cached auth for ~p:~p:~p", 
+                                [Proto, Ip, Port], Call),
+                    Auths1 = [{DlgId, Proto, Ip, Port}|Auths],
+                    Call#call{auths=Auths1}
+            end;
+        undefined ->
+            Call
+    end;
+
+update_auth(_Resp, Call) ->
+    Call.
+
+
+%% @private
+-spec check_auth(nksip:request()|nksip:response(), call()) ->
+    boolean().
+
+check_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
+    case nksip_dialog:id(SipMsg) of
+        {dlg, _, _, DlgId} ->
+            #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+            #call{auths=Auths} = Call,
+            case lists:member({DlgId, Proto, Ip, Port}, Auths) of
+                true ->
+                    ?call_debug("Origin ~p:~p:~p is in dialog authorized list", 
+                                [Proto, Ip, Port], Call),
+                    true;
+                false ->
+                    AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DlgId],
+                    ?call_debug("Origin ~p:~p:~p is NOT in dialog authorized list (~p)", 
+                                [Proto, Ip, Port, AuthList], Call),
+                    false
+            end;
+        undefined ->
+            false
+    end;
+
+check_auth(_, _) ->
+    false.
+
+    
 %% @private
 trace(Msg, #call{app_id=AppId, call_id=CallId}) ->
     nksip_trace:insert(AppId, CallId, Msg).

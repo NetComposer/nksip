@@ -208,7 +208,7 @@
     request :: nksip:request(),
     response :: nksip:response(),
     ack :: nksip:request(),
-    remotes :: [{inet:ip_address(), inet:port_number()}],
+    % remotes :: [{inet:ip_address(), inet:port_number()}],
     timeout_timer :: reference(),
     retrans_timer :: reference(),
     next_retrans :: integer()

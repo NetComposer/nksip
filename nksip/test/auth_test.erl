@@ -171,19 +171,19 @@ dialog() ->
 
     DialogA = nksip_dialog:id(RespA),
     DialogB = nksip_dialog:remote_id(C2, DialogA),
-    [{{127,0,0,1}, 5071}] = nksip_dialog:field(DialogA, auth_remotes),
-    [{{127,0,0,1}, 5070}] = nksip_dialog:field(DialogB, auth_remotes),
+    [{udp, {127,0,0,1}, 5071}] = nksip_call_router:get_authorized_list(DialogA),
+    [{udp, {127,0,0,1}, 5070}] = nksip_call_router:get_authorized_list(DialogB),
 
     {ok, 200, _} = nksip_uac:reoptions(DialogA, []),
     {ok, 200, _} = nksip_uac:reoptions(DialogB, []),
 
-    ok = nksip_dialog:forget_remotes(DialogB),
+    ok = nksip_call_router:clear_authorized_list(DialogB),
     {ok, 401, _} = nksip_uac:reoptions(DialogA, []),
     {ok, 200, _} = nksip_uac:reoptions(DialogA, [{pass, "1234"}]),
     {ok, 200, _} = nksip_uac:reoptions(DialogA, []),
 
-    ok = nksip_dialog:forget_remotes(DialogA),
-    [] = nksip_dialog:field(DialogA, auth_remotes),
+    ok = nksip_call_router:clear_authorized_list(DialogA),
+    [] = nksip_call_router:get_authorized_list(DialogA),
 
     % Force an invalid password, because the SipApp config has a valid one
     {ok, 403, _} = nksip_uac:reoptions(DialogB, [{pass, {"invalid", "client1"}}]),
@@ -199,7 +199,7 @@ proxy() ->
     C2 = {auth, client2},
     S1 = "sip:127.0.0.1",
     Ref = make_ref(),
-    _RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+    RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
 
     {ok, 407, _} = nksip_uac:register(C1, S1, []),
     {ok, 200, _} = nksip_uac:register(C1, S1, [{pass, "1234"}, unregister_all]),
