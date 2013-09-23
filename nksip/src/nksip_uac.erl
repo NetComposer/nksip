@@ -400,7 +400,7 @@ invite(AppId, Uri, Opts) ->
 %% `{error, Error}'.
 %%
 -spec ack(nksip_dialog:spec(), dialog_opts()) ->
-    ok | {ok, nksip:request()} | {async, nksip:request_id()} | 
+    {ok, nksip:request_id()} | {req, nksip:request()} | 
     dialog_error().
 
 ack(DialogSpec, Opts) ->

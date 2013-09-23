@@ -202,40 +202,6 @@ do_response(_, _, _, _, Dialog) ->
     Dialog.
 
 
-
-% %% @doc Checks if a request is part of an already authenticated dialog,
-% %% and it comes from the same ip and port.
-% -spec is_authorized(nksip:request(), call()) ->
-%     boolean().
-
-% is_authorized(Req, Call) ->
-%     #sipmsg{method=Method, transport=Transport} = Req,
-%     #transport{remote_ip=Ip, remote_port=Port} = Transport,
-%     case nksip_dialog:id(Req) of
-%         undefined ->
-%             false;
-%         {dlg, _, _, DialogId} ->
-%             case nksip_call_dialog:find(DialogId, Call) of
-%                 #dialog{remotes=Remotes} ->
-%                     case lists:member({Ip, Port}, Remotes) of
-%                         true ->
-%                             ?call_debug(
-%                                     "~p from ~p:~p is in dialog ~p authorized list",
-%                                     [Method, Ip, Port, DialogId], Call),
-%                             true;
-%                         false ->
-%                             ?call_debug(
-%                                     "~p from ~p:~p is NOT in dialog ~p authorized "
-%                                     "list (~p)", 
-%                                     [Method, Ip, Port, DialogId, Remotes], Call),
-%                             false
-%                     end;
-%                 not_found ->
-%                     false
-%             end
-%     end.
-
-
 %% @private
 -spec status_update(nksip_dialog:status(), nksip:dialog()) ->
     nksip:dialog().

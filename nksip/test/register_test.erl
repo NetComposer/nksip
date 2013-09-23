@@ -55,6 +55,8 @@ start() ->
     ok = sipapp_endpoint:start({basic, client2}, [
         {from, "sip:client2@nksip"}]),
 
+    nksip_config:put(registrar_min_time, 60),
+
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 

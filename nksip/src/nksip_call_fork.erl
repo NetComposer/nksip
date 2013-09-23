@@ -98,6 +98,7 @@ next(#fork{pending=[]}=Fork, Call) ->
                     Call1 = send_reply(Resp, Fork, Call),
                     delete(Fork, Call1);
                 [Next|Rest] ->
+                    ?call_debug("Fork ~p ~p launching next group", [Id, Method], Call),
                     launch(Next, Fork#fork{uriset=Rest}, Call)
             end;
         _ ->

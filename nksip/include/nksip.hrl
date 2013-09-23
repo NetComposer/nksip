@@ -34,7 +34,7 @@
 -define(ALLOW_DIALOG, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 
 -define(MSG_ROUTERS, 8).
--define(SRV_TIMEOUT, 30000).
+-define(SRV_TIMEOUT, 45000).
 
 
 -define(debug(AppId, Txt, Opts), 
