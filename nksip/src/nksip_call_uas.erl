@@ -291,7 +291,7 @@ authorize_launch(#trans{request=Req}=UAS, Call) ->
     end,
     IsDigest = nksip_auth:get_authentication(Req),
     Auth = lists:flatten([IsDialog, IsRegistered, IsDigest]),
-    UAS1 = timeout_timer(timeout, UAS, Call),
+    UAS1 = timeout_timer(sipapp_call, UAS, Call),
     app_call(authorize, [Auth], UAS1, update(UAS1, Call)).
 
 
@@ -408,11 +408,13 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
             % tls, must record_route. If received with tls, and no sips in ruri
             % or top route, must record_route also
             UAS2 = UAS1#trans{opts=[no_dialog|Opts], stateless=false, from={fork, Id}},
-            UAS3 = case Method of
-                'ACK' -> cancel_timers([timeout], UAS2#trans{status=finished});
-                _ -> UAS2
+            UAS3 = cancel_timers([timeout], UAS2),
+            UAS4 = case Method of
+                'ACK' -> UAS2#trans{status=finished};
+                'INVITE' -> timeout_timer(timer_c, UAS3, Call);
+                _ -> timeout_timer(noinvite, UAS3, Call) 
             end,
-            nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call));
+            nksip_call_fork:start(UAS4, UriSet, ProxyOpts, update(UAS4, Call));
         {reply, SipReply} ->
             reply(SipReply, UAS, Call)
     end;
@@ -440,7 +442,8 @@ process(#trans{stateless=false, opts=Opts}=UAS, Call) ->
        {ok, DialogId, Call1} -> 
             % Caution: for first INVITEs, DialogId is not yet created!
             ?call_debug("UAS ~p ~p dialog id: ~p", [Id, Method, DialogId], Call1),
-            do_process(Method, DialogId, UAS, Call1);
+            UAS1 = cancel_timers([timeout], UAS),
+            do_process(Method, DialogId, UAS1, Call1);
         {error, Error} when Method=/='ACK' ->
             Reply = case Error of
                 proceeding_uac ->
@@ -470,32 +473,42 @@ process(#trans{stateless=true, method=Method}=UAS, Call) ->
 -spec do_process(nksip:method(), nksip_dialog:id()|undefined, trans(), call()) ->
     call().
 
-do_process('INVITE', _DialogId, UAS, Call) ->
-    UAS1 = expire_timer(expire, UAS, Call),
-    app_call(invite, [], UAS1, update(UAS1, Call));
+do_process('INVITE', DialogId, UAS, Call) ->
+    case DialogId of
+        undefined ->
+            reply(no_transaction, UAS, Call);
+        _ ->
+            UAS1 = expire_timer(expire, UAS, Call),
+            UAS2 = timeout_timer(timer_c, UAS1, Call),
+            app_call(invite, [], UAS2, update(UAS2, Call))
+    end;
     
 do_process('ACK', DialogId, UAS, Call) ->
-    UAS1 = cancel_timers([timeout], UAS#trans{status=finished}),
-    Call1 = update(UAS1, Call),
+    UAS1 = UAS#trans{status=finished},
     case DialogId of
         undefined -> 
             ?call_notice("received out-of-dialog ACK", [], Call),
-            Call1;
+            update(UAS1, Call);
         _ -> 
-            app_cast(ack, [], UAS1, Call1)
+            app_cast(ack, [], UAS1, update(UAS1, Call))
     end;
 
 do_process('BYE', DialogId, UAS, Call) ->
     case DialogId of
-        undefined -> reply(no_transaction, UAS, Call);
-        _ -> app_call(bye, [], UAS, Call)
+        undefined -> 
+            reply(no_transaction, UAS, Call);
+        _ -> 
+            UAS1 = timeout_timer(noinvite, UAS, Call),
+            app_call(bye, [], UAS1, update(UAS1, Call))
     end;
 
 do_process('OPTIONS', _DialogId, UAS, Call) ->
-    app_call(options, [], UAS, Call); 
+    UAS1 = timeout_timer(noinvite, UAS, Call),
+    app_call(options, [], UAS1, update(UAS1, Call)); 
 
 do_process('REGISTER', _DialogId, UAS, Call) ->
-    app_call(register, [], UAS, Call); 
+    UAS1 = timeout_timer(noinvite, UAS, Call),
+    app_call(register, [], UAS1, update(UAS1, Call)); 
 
 do_process(_Method, _DialogId, UAS, #call{app_id=AppId}=Call) ->
     reply({method_not_allowed, nksip_sipapp_srv:allowed(AppId)}, UAS, Call).
@@ -565,7 +578,7 @@ send_reply({#sipmsg{response=Code}=Resp, SendOpts}, UAS, Call) ->
                 _ ->
                     ?call_debug("UAS ~p ~p stateful reply ~p", 
                                 [Id, Method, Code1], Call),
-                    UAS2 = do_reply(Method, Code1, UAS1, Call3),
+                    UAS2 = stateful_reply(Method, Code1, UAS1, Call3),
                     {{ok, Resp1}, update(UAS2, Call3)}
             end;
         false ->
@@ -673,13 +686,17 @@ terminate_request(#trans{status=Status, from=From}=UAS, Call) ->
 -spec timer(nksip_call_lib:timer(), trans(), call()) ->
     call().
 
-timer(timeout, #trans{id=Id, method=Method}=UAS, Call) ->
+timer(sipapp_call, #trans{id=Id, method=Method}=UAS, Call) ->
     ?call_notice("UAS ~p ~p timeout, no SipApp response", [Id, Method], Call),
-    reply({internal_error, <<"No SipApp response">>}, UAS, Call);
+    reply({internal_error, <<"No SipApp Response">>}, UAS, Call);
 
-timer(wait_sipapp, #trans{id=Id, method=Method}=UAS, Call) ->
-    ?call_notice("UAS ~p ~p (cancelled) timeout, no SipApp response", [Id, Method], Call),
-    update(UAS#trans{status=finished}, Call);
+timer(timer_c, #trans{id=Id, method=Method}=UAS, Call) ->
+    ?call_notice("UAS ~p ~p Timer C fired", [Id, Method], Call),
+    reply({timeout, <<"Timer C Timeout">>}, UAS, Call);
+
+timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
+    ?call_notice("UAS ~p ~p No INVITE timer fired", [Id, Method], Call),
+    reply({timeout, <<"No Invite Timeout">>}, UAS, Call);
 
 % INVITE 3456xx retrans
 timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->

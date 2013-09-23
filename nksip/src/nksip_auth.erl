@@ -191,7 +191,7 @@ make_response(Realm, Req) ->
         transport=#transport{remote_ip=Ip, remote_port=Port}
     } = Req,
     Nonce = nksip_lib:luid(),
-    Timeout = nksip_config:get(nonce_timeout),
+    Timeout = round(nksip_config:get(nonce_timeout)/1000),
     put_nonce(AppId, CallId, Nonce, {Ip, Port}, Timeout),
     Opaque = nksip_lib:hash(AppId),
     list_to_binary([

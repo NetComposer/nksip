@@ -126,7 +126,7 @@ status_update(Class, Status, Dialog) ->
                     cast(dialog_update, {status, Status}, Dialog)
             end,
             Timeout = case Status of
-                confirmed -> 1000*nksip_config:get(dialog_timeout);
+                confirmed -> nksip_config:get(dialog_timeout);
                 _ -> 64*nksip_config:get(timer_t1)
             end,
             Dialog#dialog{

@@ -291,7 +291,7 @@ do_response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
                    when Code < 200 ->
     #trans{cancel=Cancel} = UAC,
     % Add another 3 minutes
-    UAC1 = timeout_timer(timeout, cancel_timers([timeout], UAC), Call),
+    UAC1 = timeout_timer(timer_c, cancel_timers([timeout], UAC), Call),
     Call1 = send_user_reply({resp, Resp}, UAC1, Call),
     case Cancel of
         to_cancel -> cancel(UAC1, update(UAC1, Call1));
@@ -536,9 +536,9 @@ cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}, Call) ->
 -spec timer(nksip_call_lib:timer(), trans(), call()) ->
     call().
 
-timer(timeout, #trans{id=Id, method=Method, request=Req}, Call) ->
-    ?call_notice("UAC ~p ~p timeout: no final response", [Id, Method], Call),
-    {Resp, _} = nksip_reply:reply(Req, timeout),
+timer(timer_c, #trans{id=Id, request=Req}, Call) ->
+    ?call_notice("UAC ~p 'INVITE' Timer C Fired", [Id], Call),
+    {Resp, _} = nksip_reply:reply(Req, {timeout, <<"Timer C Timeout">>}),
     response(Resp, Call);
 
 % INVITE retrans

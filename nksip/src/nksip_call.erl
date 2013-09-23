@@ -138,7 +138,7 @@ init([AppId, CallId, CallOpts]) ->
         dialogs = [],
         auths = []
     },
-    erlang:start_timer(2*1000*MaxTransTime, self(), check_call),
+    erlang:start_timer(2*MaxTransTime, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
     {ok, Call, ?SRV_TIMEOUT}.
 
@@ -440,7 +440,7 @@ timeout(check_call, _Ref, #call{opts=CallOpts}=Call) ->
 check_call_trans(Now, MaxTime, #call{trans=Trans}=Call) ->
     lists:filter(
         fun(#trans{id=Id, start=Start}) ->
-            case Now - Start < MaxTime of
+            case Now - Start < MaxTime/1000 of
                 true ->
                     true;
                 false ->
@@ -458,7 +458,7 @@ check_call_trans(Now, MaxTime, #call{trans=Trans}=Call) ->
 check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
     lists:filter(
         fun(#fork{id=Id, start=Start}) ->
-            case Now - Start < MaxTime of
+            case Now - Start < MaxTime/1000 of
                 true ->
                     true;
                 false ->
@@ -476,7 +476,7 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
 check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
     lists:filter(
         fun(#dialog{id=Id, created=Start}) ->
-            case Now - Start < MaxTime of
+            case Now - Start < MaxTime/1000 of
                 true ->
                     true;
                 false ->

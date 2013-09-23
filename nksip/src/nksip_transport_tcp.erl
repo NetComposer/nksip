@@ -88,7 +88,7 @@ init([AppId, Transport, Socket]) ->
     nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port}}, Transport), 
     nksip_proc:put(nksip_transports, {AppId, Transport}),
     nksip_counters:async([nksip_transport_tcp]),
-    Timeout = 1000 * nksip_config:get(tcp_timeout),
+    Timeout = nksip_config:get(tcp_timeout),
     {ok, 
         #state{
             app_id = AppId,

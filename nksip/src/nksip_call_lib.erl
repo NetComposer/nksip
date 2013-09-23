@@ -32,9 +32,9 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--type timeout_timer() :: timer_b | timer_d | timer_f | timer_h | timer_i | 
-                         timer_j | timer_k | timer_l | timer_m | timeout |
-                         wait_sipapp.
+-type timeout_timer() :: timer_b | timer_c | timer_d | timer_f | timer_h | 
+                         timer_i | timer_j | timer_k | timer_l | timer_m | 
+                         noinvite | sipapp_call.
 
 -type retrans_timer() :: timer_a | timer_e | timer_g.
 
@@ -211,36 +211,31 @@ trace(Msg, #call{app_id=AppId, call_id=CallId}) ->
 -spec timeout_timer(timeout_timer(), trans(), call()) ->
     trans().
 
-timeout_timer(Tag, Trans, #call{global=#global{t1=T1}}) 
+timeout_timer(Tag, Trans, #call{opts=#call_opts{timer_t1=T1}}) 
             when Tag=:=timer_b; Tag=:=timer_f; Tag=:=timer_m;
                  Tag=:=timer_h; Tag=:=timer_j; Tag=:=timer_l;
-                 Tag=:=wait_sipapp ->
+                 Tag=:=noinvite ->
     Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
 
 timeout_timer(timer_d, Trans, _) ->
     Trans#trans{timeout_timer=start_timer(32000, timer_d, Trans)};
 
-
-timeout_timer(Tag, Trans, #call{global=#global{t4=T4}}) 
+timeout_timer(Tag, Trans, #call{opts=#call_opts{timer_t4=T4}}) 
                 when Tag=:=timer_k; Tag=:=timer_i ->
     Trans#trans{timeout_timer=start_timer(T4, Tag, Trans)};
 
-timeout_timer(timeout, #trans{method=Method}=Trans, Call) ->
-    #call{global=#global{tc=TC, t1=T1}} = Call,
-    Time = case Method of
-        'INVITE' -> 1000*TC;
-         _ -> 64*T1
-    end,
-    Trans#trans{timeout_timer=start_timer(Time, timeout, Trans)}.
+timeout_timer(timer_c, Trans, #call{opts=#call_opts{timer_c=TC}}) ->
+    Trans#trans{timeout_timer=start_timer(TC, timer_c, Trans)};
 
-
+timeout_timer(sipapp_call, Trans, #call{opts=#call_opts{timer_sipapp=Time}}) ->
+    Trans#trans{timeout_timer=start_timer(Time, sipapp_call, Trans)}.
 
 %% @private
 -spec retrans_timer(retrans_timer(), trans(), call()) ->
     trans().
 
 retrans_timer(timer_a, #trans{next_retrans=Next}=Trans, Call) ->
-    #call{global=#global{t1=T1}} = Call,
+    #call{opts=#call_opts{timer_t1=T1}} = Call,
     Time = case is_integer(Next) of
         true -> Next;
         false -> T1
@@ -252,7 +247,7 @@ retrans_timer(timer_a, #trans{next_retrans=Next}=Trans, Call) ->
 
 retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
                 when Tag=:=timer_e; Tag=:=timer_g ->
-    #call{global=#global{t1=T1, t2=T2}} = Call, 
+    #call{opts=#call_opts{timer_t1=T1, timer_t2=T2}} = Call, 
     Time = case is_integer(Next) of
         true -> Next;
         false -> T1

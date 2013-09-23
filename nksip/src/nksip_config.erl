@@ -33,17 +33,17 @@
 %%   <tr><td>`timer_t1'</td><td>500</td><td>Standar SIP T1 timer (msecs)</td></tr>
 %%   <tr><td>`timer_t2'</td><td>4000</td><td>Standar SIP T2 timer (msecs)</td></tr>
 %%   <tr><td>`timer_t4'</td><td>5000</td><td>Standar SIP T4 timer (msecs)</td></tr>
-%%   <tr><td>`timer_c'</td><td>180</td><td>Standar SIP C timer (secs)</td></tr>
-%%   <tr><td>`transaction_timeout'</td><td>900</td><td>INVITE transaction maximum time
+%%   <tr><td>`timer_c'</td><td>180000</td><td>Standar SIP C timer (msecs)</td></tr>
+%%   <tr><td>`transaction_timeout'</td><td>900000</td><td>INVITE transaction maximum time
 %%           (secs)</td></tr>
-%%   <tr><td>`dialog_timeout'</td><td>900</td>
-%%       <td>Time to destroy dialog if no message has been received (secs)</td></tr>
-%%   <tr><td>`tcp_timeout'</td><td>180</td>
+%%   <tr><td>`dialog_timeout'</td><td>900000</td>
+%%       <td>Time to destroy dialog if no message has been received (msecs)</td></tr>
+%%   <tr><td>`tcp_timeout'</td><td>180000</td>
 %%       <td>Time to disconnect TCP/SSL connection if no message 
-%%           has been received (secs)</td></tr>
-%%   <tr><td>`nonce_timeout'</td><td>30</td>
+%%           has been received (msecs)</td></tr>
+%%   <tr><td>`nonce_timeout'</td><td>30000</td>
 %%       <td>Time a new `nonce' in an authenticate header will be usable 
-%%           (secs, only for <i>ACK</i> or requests coming from the same 
+%%           (msecs, only for <i>ACK</i> or requests coming from the same 
 %%           `ip' and `port')</td></tr>
 %%   <tr><td>`max_calls'</td><td>100000</td><td>Maximum number of allowed calls.
 %%           Each different Call-Id counts as a call</td></tr>
@@ -129,11 +129,12 @@ default_config() ->
         {timer_t1, 500},                % 500 msecs
         {timer_t2, 4000},               % 4 secs
         {timer_t4, 5000},               % 5 secs
-        {timer_c,  180},                % 3 minutes
-        {transaction_timeout, 900},     % 15 min
-        {dialog_timeout, 900},          % 15 min
-        {tcp_timeout, 180},             % 3 min
-        {nonce_timeout, 30},            % 30 secs
+        {timer_c,  180000},             % 3 minutes
+        {transaction_timeout, 900000},  % 15 min
+        {dialog_timeout, 900000},       % 15 min
+        {tcp_timeout, 180000},          % 3 min
+        {nonce_timeout, 30000},         % 30 secs
+        {sipapp_timeout, 32000},        % 32 secs  
         {max_calls, 100000},            % Each Call-ID counts as a call
         {max_connections, 1024},        % Per transport and SipApp
         {registrar_default_time, 3600}, % 1 hour
