@@ -51,8 +51,10 @@
 -type send_common() ::  
         {ok, nksip:response_code(), nksip:response_id()} |
         {resp, nksip:response()} |
-        {async, nksip:request_id()} |
-        ok | {ok, nksip:request()}.     % For ACKs
+        {async, nksip:request_id()}.
+
+-type send_ack() ::
+        {ok, nksip:request_id()} | {req, nksip:request()}.  
 
 -type send_error() :: unknown_dialog | request_pending | network_error | sync_error().
 

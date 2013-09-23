@@ -41,7 +41,6 @@
 
 %% @private Routes a `Request' to set of uris, serially and/or in parallel.
 %% See {@link nksip_sipapp:route/6} for an options description.
-%% Recognizes options global_id, stateless, local_host, record_route, make_contact
 -spec check(nksip_call:trans(), nksip:uri_set(), [opt()], nksip_call:call()) -> 
     {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
     {reply, nksip:sipreply()}.

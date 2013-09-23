@@ -155,8 +155,8 @@ update_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
                 true ->
                     Call;
                 false -> 
-                    ?call_debug("Added cached auth for ~p:~p:~p", 
-                                [Proto, Ip, Port], Call),
+                    ?call_debug("Added cached auth for dialog ~p (~p:~p:~p)", 
+                                [DlgId, Proto, Ip, Port], Call),
                     Auths1 = [{DlgId, Proto, Ip, Port}|Auths],
                     Call#call{auths=Auths1}
             end;
@@ -179,13 +179,14 @@ check_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
             #call{auths=Auths} = Call,
             case lists:member({DlgId, Proto, Ip, Port}, Auths) of
                 true ->
-                    ?call_debug("Origin ~p:~p:~p is in dialog authorized list", 
-                                [Proto, Ip, Port], Call),
+                    ?call_debug("Origin ~p:~p:~p is in dialog ~p authorized list", 
+                                [Proto, Ip, Port, DlgId], Call),
                     true;
                 false ->
                     AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DlgId],
-                    ?call_debug("Origin ~p:~p:~p is NOT in dialog authorized list (~p)", 
-                                [Proto, Ip, Port, AuthList], Call),
+                    ?call_debug("Origin ~p:~p:~p is NOT in dialog ~p "
+                                "authorized list (~p)", 
+                                [Proto, Ip, Port, DlgId, AuthList], Call),
                     false
             end;
         undefined ->

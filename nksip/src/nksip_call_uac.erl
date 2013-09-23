@@ -365,7 +365,7 @@ do_response_status(invite_accepted, Resp, UAC, Call) ->
             spawn(
                 fun() ->
                     case nksip_uac:ack(Resp, []) of
-                        ok -> nksip_uac:bye(Resp, [async]);
+                        {ok, _} -> nksip_uac:bye(Resp, [async]);
                         _ -> error
                     end
                 end),
