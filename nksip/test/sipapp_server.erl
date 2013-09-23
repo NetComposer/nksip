@@ -97,7 +97,8 @@ authorize(_Auth, _RequestId, _From, State) ->
 % If user and domain is nksip, proxy to registered contacts
 % Any other case simply route
 route(Scheme, User, Domain, RequestId, _From, 
-        #state{id={basic, Id}, domains=Domains}=State) ->
+        #state{id={Test, Id}, domains=Domains}=State)
+        when Test=:=basic; Test=:=uas ->
     Opts = [
         record_route,
         {headers, [{'Nksip-Server', Id}]}

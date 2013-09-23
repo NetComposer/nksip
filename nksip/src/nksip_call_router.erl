@@ -299,7 +299,7 @@ incoming_sync(#raw_sipmsg{call_id=CallId}=RawMsg) ->
 %% @private
 remove_app_cache(AppId) ->
     router_fold(
-        fun(Name, _) -> gen_server:cast(Name, {remove_app_cache, AppId}) end).
+        fun(Name, _) -> ok=gen_server:call(Name, {remove_app_cache, AppId}) end).
 
 
 %% @private
