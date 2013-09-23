@@ -33,7 +33,7 @@
 
 -behaviour(gen_server).
 
--export([start/4, stop/1, sync_work/5, async_work/2]).
+-export([start/3, stop/1, sync_work/5, async_work/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 -export([get_data/1]).
 
@@ -80,11 +80,11 @@
 %% ===================================================================
 
 %% @doc Starts a new call
--spec start(nksip:app_id(), nksip:call_id(), nksip_lib:proplist(), #global{}) ->
+-spec start(nksip:app_id(), nksip:call_id(), #call_opts{}) ->
     {ok, pid()}.
 
-start(AppId, CallId, AppOpts, Global) ->
-    gen_server:start(?MODULE, [AppId, CallId, AppOpts, Global], []).
+start(AppId, CallId, CallOpts) ->
+    gen_server:start(?MODULE, [AppId, CallId, CallOpts], []).
 
 
 %% @doc Stops a call (deleting  all associated transactions, dialogs and forks!)
@@ -121,16 +121,15 @@ async_work(Pid, Work) ->
 -spec init(term()) ->
     gen_server_init(call()).
 
-init([AppId, CallId, AppOpts, Global]) ->
+init([AppId, CallId, CallOpts]) ->
     nksip_counters:async([nksip_calls]),
-    #global{max_trans_time=MaxTransTime, global_id=GlobalId} = Global,
+    #call_opts{app_opts=AppOpts, max_trans_time=MaxTransTime} = CallOpts,
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
         app_id = AppId, 
         call_id = CallId, 
-        app_opts = [{global_id, GlobalId}|AppOpts],
+        opts = CallOpts,
         keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
-        global = Global,
         next = Id+1,
         hibernate = false,
         msgs = [],
@@ -225,7 +224,7 @@ work({incoming, RawMsg}, none, Call) ->
         class = {_, _, Binary},
         transport = #transport{proto=Proto}
     } = RawMsg,
-    #call{global=#global{global_id=GlobalId}} = Call,
+    #call{opts=#call_opts{global_id=GlobalId}} = Call,
     case nksip_parse:raw_sipmsg(RawMsg) of
         error ->
             ?notice(AppId, CallId, "SIP ~p message could not be decoded: ~s", 
@@ -253,7 +252,8 @@ work({sync_reply, ReqId, Reply}, From, Call) ->
     end;
 
 work({make, Method, Uri, Opts}, From, Call) ->
-    #call{app_id=AppId, call_id=CallId, app_opts=AppOpts} = Call,
+    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
+    #call_opts{app_opts=AppOpts} = CallOpts,
     Opts1 = [{call_id, CallId} | Opts],
     Reply = nksip_uac_lib:make(AppId, Method, Uri, Opts1, AppOpts),
     gen_server:reply(From, Reply),
@@ -263,7 +263,8 @@ work({send, Req, Opts}, From, Call) ->
     nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    #call{app_id=AppId, call_id=CallId, app_opts=AppOpts} = Call,
+    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
+    #call_opts{app_opts=AppOpts} = CallOpts,
     Opts1 = [{call_id, CallId} | Opts],
     case nksip_uac_lib:make(AppId, Method, Uri, Opts1, AppOpts) of
         {ok, Req, ReqOpts} -> 
@@ -419,14 +420,16 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
             Call
     end;
 
-timeout(check_call, _Ref, #call{global=Global}=Call) ->
-    #global{max_trans_time=MaxTrans} = Global,
-    #global{max_dialog_time=MaxDialog} = Global,
+timeout(check_call, _Ref, #call{opts=CallOpts}=Call) ->
+    #call_opts{
+        max_trans_time = MaxTrans,
+        max_dialog_time = MaxDialog
+    } = CallOpts,
     Now = nksip_lib:timestamp(),
     Trans1 = check_call_trans(Now, MaxTrans, Call),
     Forks1 = check_call_forks(Now, MaxTrans, Call),
     Dialogs1 = check_call_dialogs(Now, MaxDialog, Call),
-    erlang:start_timer(round(2000*MaxTrans), self(), check_call),
+    erlang:start_timer(round(2*MaxTrans), self(), check_call),
     Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}.
 
 

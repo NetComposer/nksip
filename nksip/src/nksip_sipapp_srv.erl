@@ -234,11 +234,11 @@ init([AppId, Module, Args, Opts]) ->
     RegState = nksip_sipapp_auto:init(AppId, Module, Args, Opts),
     nksip_call_router:remove_app_cache(AppId),
     State1 = #state{
-        id=AppId, 
-        module=Module, 
-        opts=Opts, 
-        procs=dict:new(),
-        reg_state=RegState
+        id =AppId, 
+        module = Module, 
+        opts = Opts, 
+        procs = dict:new(),
+        reg_state = RegState
     },
     case Module:init(Args) of
         {ok, ModState} -> {ok, State1#state{mod_state=ModState}};

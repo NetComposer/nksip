@@ -100,7 +100,7 @@ route_stateful(#trans{request=Req}=UAS, UriSet, ProxyOpts) ->
 
 route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
     #sipmsg{method=Method} = Req,
-    #call{app_opts=AppOpts} = Call,    
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,    
     Req1 = preprocess(Req#sipmsg{ruri=Uri}, ProxyOpts),
     case nksip_request:is_local_route(Req1) of
         true -> 
@@ -108,8 +108,8 @@ route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
                          [], Call),
             {reply, loop_detected};
         false ->
-            Req2 = nksip_transport_uac:add_via(Req1, [stateless|AppOpts]),
-            case nksip_transport_uac:send_request(Req2, ProxyOpts++AppOpts) of
+            Req2 = nksip_transport_uac:add_via(Req1, GlobalId, [stateless|AppOpts]),
+            case nksip_transport_uac:send_request(Req2, GlobalId, ProxyOpts++AppOpts) of
                 {ok, _} ->  
                     ?call_debug("Stateless proxy routing ~p to ~s", 
                                 [Method, nksip_unparse:uri(Uri)], Call);
@@ -130,8 +130,9 @@ response_stateless(#sipmsg{response=Code}, Call) when Code < 101 ->
 
 response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) when RestVia=/=[] ->
     #sipmsg{cseq_method=Method, response=Code} = Resp,
-    #call{app_opts=AppOpts} = Call,
-    case nksip_transport_uas:send_response(Resp#sipmsg{vias=RestVia}, AppOpts) of
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
+    Resp1 = Resp#sipmsg{vias=RestVia},
+    case nksip_transport_uas:send_response(Resp1, GlobalId, AppOpts) of
         {ok, _} -> 
             ?call_debug("Stateless proxy sent ~p ~p response", 
                         [Method, Code], Call);

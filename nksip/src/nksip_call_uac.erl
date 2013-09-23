@@ -65,10 +65,10 @@
 
 request(Req, Opts, From, Call) ->
     #sipmsg{method=Method, id=MsgId} = Req,
-    #call{app_opts=AppOpts, trans=Trans} = Call,
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}, trans=Trans} = Call,
     Req1 = case Method of 
         'CANCEL' -> Req;
-        _ -> nksip_transport_uac:add_via(Req, AppOpts)
+        _ -> nksip_transport_uac:add_via(Req, GlobalId, AppOpts)
     end,
     {#trans{id=Id}=UAC, Call1} = make_uac(Req1, Opts, From, Call),
     case lists:member(async, Opts) andalso From of
@@ -136,8 +136,8 @@ make_uac(Req, Opts, From, #call{next=Id}=Call) ->
 
 do_send('ACK', UAC, Call) ->
     #trans{id=Id, request=Req, opts=Opts} = UAC,
-    #call{app_opts=AppOpts} = Call,
-    case nksip_transport_uac:send_request(Req, Opts++AppOpts) of
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
+    case nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts) of
        {ok, SentReq} ->
             ?call_debug("UAC ~p sent 'ACK' request", [Id], Call),
             Call1 = send_user_reply({req, SentReq}, UAC, Call),
@@ -158,7 +158,7 @@ do_send('ACK', UAC, Call) ->
 
 do_send(_, UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
-    #call{app_opts=AppOpts} = Call,
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     DialogResult = case lists:member(no_dialog, Opts) of
         true -> {ok, Call};
         false -> nksip_call_dialog_uac:request(UAC, Call)
@@ -167,7 +167,7 @@ do_send(_, UAC, Call) ->
         {ok, Call1} ->
             Send = case Method of 
                 'CANCEL' -> nksip_transport_uac:resend_request(Req);
-                _ -> nksip_transport_uac:send_request(Req, Opts++AppOpts)
+                _ -> nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts)
             end,
             case Send of
                 {ok, SentReq} ->
@@ -232,8 +232,8 @@ response(Resp, #call{trans=Trans}=Call) ->
         #trans{class=uac}=UAC -> 
             do_response(Resp, UAC, Call);
         _ -> 
-            ?call_notice("UAC received ~p ~p response for "
-                          "unknown request", [Method, Code], Call),
+            ?call_info("UAC received ~p ~p response for unknown request", 
+                       [Method, Code], Call),
             Call
     end.
 
@@ -253,7 +253,7 @@ do_response(Resp, UAC, Call) ->
         request = Req, 
         ruri = RUri
     } = UAC,
-    #call{global=#global{max_trans_time=MaxTime}} = Call,
+    #call{opts=#call_opts{max_trans_time=MaxTime}} = Call,
     Now = nksip_lib:timestamp(),
     case Now-Start < MaxTime of
         true -> Resp1 = Resp#sipmsg{ruri=RUri};
@@ -456,7 +456,7 @@ do_received_auth(Req, Resp, UAC, Call) ->
         iter = Iter,
         from = From
     } = UAC,
-    #call{app_opts=AppOpts} = Call,
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     IsFork = case From of {fork, _} -> true; _ -> false end,
     case 
         (Code=:=401 orelse Code=:=407) andalso Iter < ?MAX_AUTH_TRIES
@@ -470,7 +470,7 @@ do_received_auth(Req, Resp, UAC, Call) ->
                         [Id, Method, Status], Call),
             {CSeq, Call1} = nksip_call_dialog_uac:new_local_seq(Req, Call),
             Req2 = Req1#sipmsg{vias=Vias, cseq=CSeq},
-            Req3 = nksip_transport_uac:add_via(Req2, AppOpts),
+            Req3 = nksip_transport_uac:add_via(Req2, GlobalId, AppOpts),
             Opts1 = nksip_lib:delete(Opts, make_contact),
             {NewUAC, Call2} = make_uac(Req3, Opts1, From, Call1),
             NewUAC1 = NewUAC#trans{iter=Iter+1},

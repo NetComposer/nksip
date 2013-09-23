@@ -23,7 +23,7 @@
 -module(nksip_transport_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([add_via/2, send_request/2, resend_request/1]).
+-export([add_via/3, send_request/3, resend_request/1]).
 
 -include("nksip.hrl").
 
@@ -34,11 +34,11 @@
 %% ===================================================================
 
 %% @doc Sends a new request.
-%% Recognizes options global_id, local_host, record_route, make_contact
--spec send_request(nksip:request(), nksip_lib:proplist()) -> 
+%% Recognizes options local_host, record_route, make_contact
+-spec send_request(nksip:request(), binary(), nksip_lib:proplist()) -> 
     {ok, nksip:request()} | error.
 
-send_request(Req, Opts) ->
+send_request(Req, GlobalId, Opts) ->
     #sipmsg{app_id=AppId, method=Method, ruri=RUri, routes=Routes} = Req,
     case Routes of
         [] -> 
@@ -65,7 +65,8 @@ send_request(Req, Opts) ->
                     Routes1 = RestRoutes ++ [nksip_parse:uri2ruri(RUri)]
             end
     end,
-    MakeReqFun = make_request_fun(Req#sipmsg{ruri=RUri1, routes=Routes1}, Opts),  
+    Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
+    MakeReqFun = make_request_fun(Req1, GlobalId, Opts),  
     nksip_trace:insert(Req, {uac_out_request, Method}),
     case nksip_transport:send(AppId, [DestUri], MakeReqFun) of
         {ok, SentReq} -> 
@@ -92,15 +93,11 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req) ->
 %% ===================================================================
 
 %% @private
-%% Recognizes options global_id, stateless
--spec add_via(nksip:request(), nksip_lib:proplist()) -> 
+%% Recognizes options stateless
+-spec add_via(nksip:request(), binary(), nksip_lib:proplist()) -> 
     nksip:request().
 
-add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias}=Req, Opts) ->
-    case nksip_lib:get_value(global_id, Opts) of
-        undefined -> GlobalId = nksip_config:get(global_id);
-        GlobalId -> ok
-    end,
+add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias}=Req, GlobalId, Opts) ->
     IsStateless = lists:member(stateless, Opts),
     case Vias of
         [Via|_] when IsStateless ->
@@ -133,11 +130,10 @@ add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias}=Req, Opts) ->
 %% ===================================================================
 
 %% @private
-%% Recognizes options global_id, local_host, record_route, make_contact
--spec make_request_fun(nksip:request(), nksip_lib:proplist()) ->
+-spec make_request_fun(nksip:request(), binary(), nksip_lib:proplist()) ->
     function().
 
-make_request_fun(Req, Opts) ->
+make_request_fun(Req, GlobalId, Opts) ->
     #sipmsg{
         app_id = AppId, 
         method = Method, 
@@ -149,10 +145,6 @@ make_request_fun(Req, Opts) ->
         headers = Headers, 
         body = Body
     } = Req,
-    case nksip_lib:get_value(global_id, Opts) of
-        undefined -> GlobalId = nksip_config:get(global_id);
-        GlobalId -> ok
-    end,
     RouteBranch = case RestVias of
         [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(branch, RBOpts);
         _ -> <<>>
@@ -172,7 +164,7 @@ make_request_fun(Req, Opts) ->
         end,
         % The user hash is used when the Record-Route is sent back from the UAS
         % to notice it is ours, and change it to the destination transport
-        % (see nksip_transport_uas:send_response/1)
+        % (see nksip_transport_uas:send_response/2)
         % The nksip tag is used to confirm it is ours and to check if a strict router
         % has used it as Request Uri (see nksip_uas:strict_router/1)
         RecordRoute = case lists:member(record_route, Opts) of

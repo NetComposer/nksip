@@ -23,7 +23,7 @@
 -module(nksip_transport_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_user_response/3, send_response/2, resend_response/1]).
+-export([send_user_response/4, send_response/3, resend_response/1]).
     
 -include("nksip.hrl").
 
@@ -33,20 +33,21 @@
 %% ===================================================================
 
 %% @doc Sends a new `Response'.
--spec send_user_response(nksip:request(), nksip:sipreply(), nksip_lib:proplist()) ->
+-spec send_user_response(nksip:request(), nksip:sipreply(), binary(), 
+                         nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-send_user_response(#sipmsg{class=req}=Request, SipReply, Opts) ->
+send_user_response(#sipmsg{class=req}=Request, SipReply, GlobalId, Opts) ->
     {Resp, RespOpts} = nksip_reply:reply(Request, SipReply),
-    send_response(Resp, RespOpts++Opts).
+    send_response(Resp, GlobalId, RespOpts++Opts).
 
 
 %% @doc Sends a new `Response'.
-%% Recognizes options global_id, local_host, make_contact
--spec send_response(nksip:response(), nksip_lib:proplist()) ->
+%% Recognizes options local_host, make_contact
+-spec send_response(nksip:response(), binary(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-send_response(#sipmsg{class=resp}=Resp, Opts) ->
+send_response(#sipmsg{class=resp}=Resp, GlobalId, Opts) ->
     #sipmsg{
         app_id = AppId, 
         vias = [Via|_],
@@ -69,10 +70,6 @@ send_response(#sipmsg{class=resp}=Resp, Opts) ->
                 {current, {Proto, RIp, RPort}}, 
                 #uri{domain=Domain, port=Port, opts=[{transport, Proto}]}
             ]
-    end,
-    case nksip_lib:get_value(global_id, Opts) of
-        undefined -> GlobalId = nksip_config:get(global_id);
-        GlobalId -> ok
     end,
     RouteBranch = nksip_lib:get_binary(branch, ViaOpts),
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
@@ -97,7 +94,7 @@ resend_response(#sipmsg{app_id=AppId, response=Code, cseq_method=Method,
     Return;
 
 resend_response(#sipmsg{app_id=AppId, call_id=CallId}) ->
-    ?warning(AppId, CallId, "Called resend_response/2 without transport"),
+    ?warning(AppId, CallId, "Called resend_response/2 without transport", []),
     error.
 
 

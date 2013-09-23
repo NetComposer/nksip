@@ -44,10 +44,10 @@
 %%
 %% Recognizes global_id option and generates to_tag option
 
--spec preprocess(nksip:request(), nksip_lib:proplist()) ->
+-spec preprocess(nksip:request(), binary()) ->
     nksip:request() | own_ack.
 
-preprocess(Req, Opts) ->
+preprocess(Req, GlobalId) ->
     #sipmsg{
         app_id = AppId, 
         call_id = CallId, 
@@ -66,10 +66,6 @@ preprocess(Req, Opts) ->
         _ -> [{rport, Port} | ViaOpts1 -- [rport]]
     end,
     Via1 = Via#via{opts=ViaOpts2},
-    case nksip_lib:get_value(global_id, Opts) of
-        undefined -> GlobalId = nksip_config:get(global_id);
-        GlobalId -> ok
-    end,
     Branch = nksip_lib:get_binary(branch, ViaOpts2),
     ReqData1 = case ToTag of
         <<>> -> [{to_tag, nksip_lib:hash({GlobalId, Branch})}|ReqData];

@@ -326,9 +326,9 @@ pending_msgs() ->
 -record(state, {
     pos :: integer(),
     name :: atom(),
-    global_data :: #global{},
     opts :: dict(),
-    pending :: dict()
+    pending :: dict(),
+    max_calls :: integer()
 }).
 
 
@@ -342,22 +342,12 @@ start_link(Pos, Name) ->
 
 init([Pos, Name]) ->
     Name = ets:new(Name, [named_table, protected]),
-    Global = #global{
-        global_id  = nksip_config:get(global_id),
-        max_calls = nksip_config:get(max_calls),
-        max_trans_time = nksip_config:get(transaction_timeout),
-        max_dialog_time = nksip_config:get(dialog_timeout),
-        t1 = nksip_config:get(timer_t1),
-        t2 = nksip_config:get(timer_t2),
-        t4 = nksip_config:get(timer_t4),
-        tc = nksip_config:get(timer_c)
-    },
     SD = #state{
         pos = Pos, 
         name = Name, 
-        global_data = Global,
         opts = dict:new(), 
-        pending = dict:new()
+        pending = dict:new(),
+        max_calls = nksip_config:get(max_calls)
     },
     {ok, SD}.
 
@@ -385,6 +375,9 @@ handle_call({incoming, RawMsg}, _From, SD) ->
             {reply, {error, Error}, SD}
     end;
 
+handle_call({remove_app_cache, AppId}, _From, #state{opts=Opts}=SD) ->
+    {reply, ok, SD#state{opts=dict:erase(AppId, Opts)}};
+
 handle_call(pending, _From, #state{pending=Pending}=SD) ->
     {reply, dict:size(Pending), SD};
 
@@ -406,9 +399,6 @@ handle_cast({incoming, RawMsg}, SD) ->
             ?error(AppId, CallId, "Error processing incoming message: ~p", [Error]),
             {noreply, SD}
     end;
-
-handle_cast({remove_app_cache, AppId}, #state{opts=Opts}=SD) ->
-    {noreply, SD#state{opts=dict:erase(AppId, Opts)}};
 
 handle_cast(Msg, SD) ->
     lager:error("Module ~p received unexpected event: ~p", [?MODULE, Msg]),
@@ -510,8 +500,7 @@ pos2name(Pos) ->
 
 send_work_sync(AppId, CallId, Work) ->
     WorkSpec = {send_work_sync, AppId, CallId, Work},
-    case catch gen_server:call(name(CallId), WorkSpec, 5000) of
-    % case catch gen_server:call(name(CallId), WorkSpec, ?SRV_TIMEOUT) of
+    case catch gen_server:call(name(CallId), WorkSpec, ?SRV_TIMEOUT) of
         {'EXIT', Error} ->
             ?warning(AppId, CallId, "Error calling send_work_sync (~p): ~p",
                      [work_id(Work), Error]),
@@ -582,14 +571,14 @@ incoming(RawMsg, #state{name=Name}=SD) ->
 -spec do_call_start(nksip:app_id(), nksip:call_id(), #state{}) ->
     {ok, #state{}} | {error, unknown_sipapp | too_many_calls}.
 
-do_call_start(AppId, CallId, #state{pos=Pos, name=Name, global_data=Global}=SD) ->
-    #global{max_calls=MaxCalls} = Global,
+do_call_start(AppId, CallId, SD) ->
+    #state{pos=Pos, name=Name, max_calls=MaxCalls} = SD,
     case nksip_counters:value(nksip_calls) < MaxCalls of
         true ->
-            case get_opts(AppId, SD) of
-                {ok, AppOpts, SD1} ->
+            case get_call_opts(AppId, SD) of
+                {ok, CallOpts, SD1} ->
                     ?debug(AppId, CallId, "Router ~p launching call", [Pos]),
-                    {ok, Pid} = nksip_call:start(AppId, CallId, AppOpts, Global),
+                    {ok, Pid} = nksip_call:start(AppId, CallId, CallOpts),
                     erlang:monitor(process, Pid),
                     Id = {call, AppId, CallId},
                     true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
@@ -603,18 +592,39 @@ do_call_start(AppId, CallId, #state{pos=Pos, name=Name, global_data=Global}=SD) 
 
 
 %% @private
--spec get_opts(nksip:app_id(), #state{}) ->
-    {ok, nksip_lib:proplist(), #state{}} | {error, not_found}.
+-spec get_call_opts(nksip:app_id(), #state{}) ->
+    {ok, #call_opts{}, #state{}} | {error, not_found}.
 
-get_opts(AppId, #state{opts=OptsDict}=SD) ->
+get_call_opts(AppId, #state{opts=OptsDict}=SD) ->
     case dict:find(AppId, OptsDict) of
-        {ok, AppOpts} ->
-            {ok, AppOpts, SD};
+        {ok, CallOpts} ->
+            {ok, CallOpts, SD};
         error ->
             case nksip_sipapp_srv:get_opts(AppId) of
                 {ok, AppOpts} ->
-                    OptsDict1 = dict:store(AppId, AppOpts, OptsDict),
-                    {ok, AppOpts, SD#state{opts=OptsDict1}};
+                    T1 = nksip_lib:get_integer(timer_t1, AppOpts, 
+                                               nksip_config:get(timer_t1)),
+                    T2 = nksip_lib:get_integer(timer_t2, AppOpts, 
+                                               nksip_config:get(timer_t2)),
+                    T4 = nksip_lib:get_integer(timer_t4, AppOpts, 
+                                               nksip_config:get(timer_t4)),
+                    TC = nksip_lib:get_integer(timer_c, AppOpts, 
+                                               nksip_config:get(timer_c)),
+                    TApp = nksip_lib:get_integer(sipapp_timeout, AppOpts, 
+                                                 nksip_config:get(sipapp_timeout)),
+                    CallOpts = #call_opts{
+                        app_opts = AppOpts,
+                        global_id  = nksip_config:get(global_id),
+                        max_trans_time = nksip_config:get(transaction_timeout),
+                        max_dialog_time = nksip_config:get(dialog_timeout),
+                        timer_t1 = T1,
+                        timer_t2 = T2,
+                        timer_t4 = T4,
+                        timer_c = TC,
+                        timer_sipapp = TApp
+                    },
+                    OptsDict1 = dict:store(AppId, CallOpts, OptsDict),
+                    {ok, CallOpts, SD#state{opts=OptsDict1}};
                 {error, not_found} ->
                     {error, not_found}
             end

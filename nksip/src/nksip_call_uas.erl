@@ -52,7 +52,7 @@
 -spec request(nksip:request(), call()) ->
     #call{}.
 
-request(Req, #call{app_opts=AppOpts}=Call) -> 
+request(Req, #call{opts=#call_opts{global_id=GlobalId}}=Call) -> 
     case is_trans_ack(Req, Call) of
         {true, UAS} -> 
             process_trans_ack(UAS, Call);
@@ -61,7 +61,7 @@ request(Req, #call{app_opts=AppOpts}=Call) ->
                 {true, UAS} ->
                     process_retrans(UAS, Call);
                 {false, ReqTransId} ->
-                    case nksip_uas_lib:preprocess(Req, AppOpts) of
+                    case nksip_uas_lib:preprocess(Req, GlobalId) of
                         own_ack -> Call;
                         Req1 -> do_request(Req1, ReqTransId, Call)
                     end
@@ -236,11 +236,11 @@ do_request(Req, TransId, #call{trans=Trans, next=Id}=Call) ->
 -spec send_100(trans(), call()) ->
     call().
 
-send_100(UAS, #call{app_opts=AppOpts}=Call) ->
+send_100(UAS, #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}}=Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
     case Method=:='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
         true ->
-            case nksip_transport_uas:send_user_response(Req, 100, AppOpts) of
+            case nksip_transport_uas:send_user_response(Req, 100, GlobalId, AppOpts) of
                 {ok, _} -> 
                     check_cancel(UAS, Call);
                 error ->
@@ -533,14 +533,14 @@ send_reply({#sipmsg{response=Code}=Resp, SendOpts}, UAS, Call) ->
         request = Req,
         stateless = Stateless
     } = UAS,
-    #call{app_opts=AppOpts} = Call,
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     case 
         Status=:=authorize orelse Status=:=route orelse 
         Status=:=invite_proceeding orelse Status=:=trying orelse 
         Status=:=proceeding
     of
         true ->
-            case nksip_transport_uas:send_response(Resp, SendOpts++AppOpts) of
+            case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
                 {ok, Resp1} -> ok;
                 error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
             end,
@@ -585,13 +585,14 @@ send_reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 
 
 %% @private
--spec do_reply(nksip:method(), nksip:response_code(), trans(), call()) ->
+-spec stateful_reply(nksip:method(), nksip:response_code(), trans(), call()) ->
     trans().
 
-do_reply('INVITE', Code, UAS, _) when Code < 200 ->
-    UAS;
+stateful_reply('INVITE', Code, UAS, Call) when Code < 200 ->
+    UAS1 = cancel_timers([timeout], UAS),
+    timeout_timer(timer_c, UAS1, Call);
 
-do_reply('INVITE', Code, UAS, Call) when Code < 300 ->
+stateful_reply('INVITE', Code, UAS, Call) when Code < 300 ->
     #trans{id=Id, request=Req, response=Resp} = UAS,
     UAS1 = case Id < 0 of
         true -> 
@@ -609,7 +610,7 @@ do_reply('INVITE', Code, UAS, Call) when Code < 300 ->
     % Dialog will send 2xx retransmissions
     timeout_timer(timer_l, UAS3#trans{status=invite_accepted}, Call);
 
-do_reply('INVITE', Code, UAS, Call) when Code >= 300 ->
+stateful_reply('INVITE', Code, UAS, Call) when Code >= 300 ->
     #trans{proto=Proto} = UAS,
     UAS1 = cancel_timers([timeout, expire], UAS),
     UAS2 = UAS1#trans{request=undefined, status=invite_completed},
@@ -621,10 +622,10 @@ do_reply('INVITE', Code, UAS, Call) when Code >= 300 ->
             UAS3#trans{response=undefined}
     end;
 
-do_reply(_, Code, UAS, _) when Code < 200 ->
+stateful_reply(_, Code, UAS, _) when Code < 200 ->
     UAS#trans{status=proceeding};
 
-do_reply(_, Code, UAS, Call) when Code >= 200 ->
+stateful_reply(_, Code, UAS, Call) when Code >= 200 ->
     #trans{proto=Proto} = UAS,
     UAS1 = cancel_timers([timeout], UAS),
     case Proto of

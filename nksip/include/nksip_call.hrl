@@ -1,3 +1,4 @@
+
 %% -------------------------------------------------------------------
 %%
 %% nksip_call.hrl: SIP call processing types
@@ -94,15 +95,16 @@
 }).
 
 
--record(global, {
+-record(call_opts, {
     global_id :: binary(),
-    max_calls :: integer(),
     max_trans_time :: integer(),
     max_dialog_time :: integer(),
-    t1 :: integer(),
-    t2 :: integer(),
-    t4 :: integer(),
-    tc :: integer()
+    timer_t1 :: integer(),
+    timer_t2 :: integer(),
+    timer_t4 :: integer(),
+    timer_c :: integer(),
+    timer_sipapp :: integer(),
+    app_opts :: nksip_lib:proplist()
 }).
 
 
@@ -112,8 +114,7 @@
 -record(call, {
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
-    global :: #global{},
-    app_opts :: nksip_lib:proplist(),
+    opts :: #call_opts{},
     keep_time :: integer(),
     hibernate :: atom(),
     next :: integer(),
