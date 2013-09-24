@@ -625,17 +625,22 @@ send_user_reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, C
     Async = lists:member(async, Opts),
     if
         Async, Full -> fun_call({req, Req}, Opts);
-        Async -> fun_call({ok, ReqId}, Opts);
+        Async -> fun_call({req, ReqId}, Opts);
         Full -> gen_server:reply(From, {req, Req});
-        true -> gen_server:reply(From, {ok, ReqId})
+        true -> gen_server:reply(From, {req, ReqId})
     end,
     Call;
 
 send_user_reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
     ReqId = nksip_request:id(Req),
-    case lists:member(full_request, Opts) of
-        true -> fun_call({req, Req}, Opts);
-        false -> catch fun_call({req_id, ReqId}, Opts)
+    case lists:member(get_request, Opts) of
+        true -> 
+            fun_call({req, ReqId}, Opts);
+        false ->
+            case lists:member(full_request, Opts) of
+                true -> fun_call({req, Req}, Opts);
+                false -> ok
+            end
     end,
     Call;
 

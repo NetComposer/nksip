@@ -91,9 +91,9 @@ register1() ->
     Self = self(),
     RespFun = fun(Reply) -> Self ! {Ref, Reply} end,
     {async, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
-                                    [async, {callback, RespFun}, make_contact]),
+                                [async, {callback, RespFun}, make_contact, get_request]),
     [CallId, CSeq] = receive 
-        {Ref, {req_id, Req2}} -> nksip_request:fields(Req2, [call_id, cseq_num])
+        {Ref, {req, Req2}} -> nksip_request:fields(Req2, [call_id, cseq_num])
         after 2000 -> error(register1)
     end,
     Resp2 = receive 

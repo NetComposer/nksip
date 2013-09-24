@@ -243,9 +243,9 @@ transport(Test) ->
     
     nksip_uac:register(C2, "sip:127.0.0.1",
                         [{route, "sip:127.0.0.1;transport=tcp;lr"}, make_contact,
-                        async, CB]),
+                        async, CB, get_request]),
     LPort = receive 
-        {Ref, {req_id, ReqId3}} -> 
+        {Ref, {req, ReqId3}} -> 
             {tcp, {127,0,0,1}, LP} = nksip_request:field(ReqId3, local),
             LP
         after 1000 ->
@@ -265,9 +265,9 @@ transport(Test) ->
 
     nksip_uac:options(C2, "sip:client1@nksip", 
                                 [{route, "sip:127.0.0.1;transport=tcp;lr"},
-                                 async, CB]),
+                                 async, CB, get_request]),
     receive 
-        {Ref, {req_id, ReqId5}} -> 
+        {Ref, {req, ReqId5}} -> 
             % Should reuse transport
             {tcp, {127,0,0,1}, LPort} = nksip_request:field(ReqId5, local)
         after 1000 ->
@@ -299,12 +299,7 @@ invite(Test) ->
     Ref = make_ref(),
     Self = self(),
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
-    RespFun = fun(Term) ->
-        case Term of
-            {req_id, _} -> ok;
-            {ok, Code, _} -> Self ! {Ref, Code} 
-        end
-    end,
+    RespFun = fun({ok, Code, _}) -> Self ! {Ref, Code} end,
 
     % Provisional 180 and Busy
     {ok, 486, _} = nksip_uac:invite(C1, "sip:client2@nksip", 
@@ -317,7 +312,7 @@ invite(Test) ->
                                         [{headers, [{"Nk-Op", ok}, {"Nk-Prov", true},
                                                     {"Nk-Sleep", 100}, RepHd]},
                                          {callback, RespFun}]),
-    {ok, _} = nksip_uac:ack(Res1, []),
+    nksip_uac:ack(Res1, []),
     ok = tests_util:wait(Ref, [180, {client2, ack}]),
 
     % Several in-dialog requests
@@ -328,13 +323,13 @@ invite(Test) ->
     [<<"client1">>] = nksip_response:header(Res4, <<"Nk-Id">>),
     {ok, 200, Res5} = nksip_uac:reinvite(Res1, [{headers, [{"Nk-Op", ok}]}]),
     [<<"client2">>] = nksip_response:header(Res5, <<"Nk-Id">>),
-    {ok, _} = nksip_uac:ack(Res5, []),
+    nksip_uac:ack(Res5, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     {ok, 200, Res6} = nksip_uac:reinvite(Dialog2, 
                                         [{headers, [{"Nk-Op", ok}, RepHd]}]),
     [<<"client1">>] = nksip_response:header(Res6, <<"Nk-Id">>),
-    {ok, _} = nksip_uac:ack(Res6, []),
+    nksip_uac:ack(Res6, []),
     ok = tests_util:wait(Ref, [{client1, ack}]),
     {ok, 200, _} = nksip_uac:bye(Res1, []),
 
@@ -414,7 +409,7 @@ servers(Test) ->
     {tls, _, 5061} = nksip_response:field(Res7, remote),
     [<<"client2,server2,server1">>] = nksip_response:header(Res7, <<"Nk-Id">>),
 
-    {ok, AckReq} = nksip_uac:ack(Res6, []),
+    {req, AckReq} = nksip_uac:ack(Res6, []),
     {tls, _, 5061} = nksip_request:field(AckReq, remote),
     [
         <<"<sip:NkS@localhost:5061;lr;transport=tls>">>,
@@ -445,7 +440,7 @@ dialog() ->
     {ok, 200, RespC1} = nksip_uac:invite(C1, "sip:client2@nksip",
                     [{headers, [{"Nk-Op", answer}, {"Nk-Rr", true}, RepHd]}, 
                      {body, SDP}]),
-    {ok, _} = nksip_uac:ack(RespC1, []),
+    nksip_uac:ack(RespC1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     DialogC2 = nksip_dialog:remote_id(C2, RespC1),

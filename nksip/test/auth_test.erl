@@ -104,12 +104,7 @@ digest() ->
 
     Self = self(),
     Ref = make_ref(),
-    Fun = fun(Term) ->
-        case Term of
-            {req_id, _} -> ok;
-            {ok, 200, _} -> Self ! {Ref, digest_ok} 
-        end
-    end,
+    Fun = fun({ok, 200, _}) -> Self ! {Ref, digest_ok} end,
     {async, _} = nksip_uac:options(C1, SipC2, [async, {callback, Fun}, {pass, HA1}]),
     ok = tests_util:wait(Ref, [digest_ok]),
     ok.
@@ -130,7 +125,7 @@ invite() ->
     {ok, 200, Res2} = nksip_uac:invite(C1, SipC3, 
                                             [{pass, "abcd"}, {headers, [RepHd]}]),
     Dialog = nksip_dialog:id(Res2),
-    {ok, _} = nksip_uac:ack(Res2, []),
+    nksip_uac:ack(Res2, []),
     ok = tests_util:wait(Ref, [{client3, ack}]),
     {ok, 401, _} = nksip_uac:reoptions(Res2, []),
     {ok, 200, _} = nksip_uac:reoptions(Dialog, [{pass, "abcd"}]),
@@ -139,7 +134,7 @@ invite() ->
 
     {ok, 200, Res3} = nksip_uac:reinvite(Res2, [{pass, "abcd"}]),
     Dialog = nksip_dialog:id(Res3),
-    {ok, ACK3} = nksip_uac:ack(Res3, []),
+    {req, ACK3} = nksip_uac:ack(Res3, []),
     CSeq = nksip_request:field(ACK3, cseq_num) - 8,
     ok = tests_util:wait(Ref, [{client3, ack}]),
 
@@ -150,7 +145,7 @@ invite() ->
     CSeq2 = nksip_response:field(Res4, cseq_num),
     {ok, 200, Res5} = nksip_uac:reinvite(DialogB, [{headers, [RepHd]}]),
     DialogB = nksip_dialog:id(Res5),
-    {ok, _} = nksip_uac:ack(DialogB, [{headers, [RepHd]}]),
+    nksip_uac:ack(DialogB, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client1, ack}]),
     {ok, 200, Res6} = nksip_uac:bye(DialogB, []),
     CSeq3 = nksip_response:field(Res6, cseq_num),
@@ -166,7 +161,7 @@ dialog() ->
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
     {ok, 200, RespA} = nksip_uac:invite(C1, SipC2, 
                                             [{pass, "1234"}, {headers, [RepHd]}]),
-    {ok, _} = nksip_uac:ack(RespA, []),
+    nksip_uac:ack(RespA, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     DialogA = nksip_dialog:id(RespA),
@@ -242,7 +237,7 @@ proxy() ->
                                             {headers, [RepHd]}]),
     % Server2 inserts a Record-Route, so every in-dialog request is sent to Server2
     % ACK uses the same authentication headers from last invite
-    {ok, _} = nksip_uac:ack(RespId, []),
+    nksip_uac:ack(RespId, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     % Server2 and C2 accepts the request because of dialog authentication

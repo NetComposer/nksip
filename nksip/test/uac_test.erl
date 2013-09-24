@@ -84,9 +84,9 @@ uac() ->
         nksip_uac:options(C2, "sip:127.0.0.1:50600;transport=tcp", []),
     % Async, error
     {async, ReqId11} = nksip_uac:options(C2, "sip:127.0.0.1:50600;transport=tcp", 
-                                        [async, CB]),
+                                        [async, CB, get_request]),
     receive 
-        {Ref, {req_id, ReqId11}} -> ok 
+        {Ref, {req, ReqId11}} -> ok 
         after 500 -> error(uac) 
     end,
     receive 
@@ -104,19 +104,19 @@ uac() ->
     {resp, #sipmsg{class=resp}} = nksip_uac:options(C2, SipC1, [full_response]),
 
     % Sync, callback for request
-    {ok, 200, RespId3} = nksip_uac:options(C2, SipC1, [CB]),
+    {ok, 200, RespId3} = nksip_uac:options(C2, SipC1, [CB, get_request]),
     CallId3 = nksip_response:call_id(RespId3),
     receive 
-        {Ref, {req_id, ReqId3}} -> CallId3 = nksip_request:call_id(ReqId3)
+        {Ref, {req, ReqId3}} -> CallId3 = nksip_request:call_id(ReqId3)
         after 500 -> error(uac) 
     end,
 
     % Sync, callback for request and provisional response
-    {ok, 486, RespId4} = nksip_uac:invite(C2, SipC1, [Hds, CB]),
+    {ok, 486, RespId4} = nksip_uac:invite(C2, SipC1, [Hds, CB, get_request]),
     CallId4 = nksip_response:call_id(RespId4),
     DialogId4 = nksip_dialog:id(RespId4),
     receive 
-        {Ref, {req_id, ReqId4}} -> 
+        {Ref, {req, ReqId4}} -> 
             CallId4 = nksip_request:call_id(ReqId4)
         after 500 -> 
             error(uac) 
@@ -145,10 +145,10 @@ uac() ->
     end,
 
     % Async
-    {async, ReqId10} = nksip_uac:invite(C2, SipC1, [async, CB, Hds]),
+    {async, ReqId10} = nksip_uac:invite(C2, SipC1, [async, CB, get_request, Hds]),
     CallId10 = nksip_request:field(ReqId10, call_id),
     receive 
-        {Ref, {req_id, ReqId10}} -> CallId10 = nksip_request:field(ReqId10, call_id)
+        {Ref, {req, ReqId10}} -> CallId10 = nksip_request:field(ReqId10, call_id)
         after 500 -> error(uac) 
     end,
     Dlg10 = receive 

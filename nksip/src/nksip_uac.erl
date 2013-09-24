@@ -29,24 +29,23 @@
 %% <i>REFER</i> and <i>PUBLISH</i>.
 %%
 %% By default, most functions will block util a final response (or timeout) is received. 
-%% They return return `{ok, Code, RespId, DialogId}' or `{error, Error}' if an error 
+%% They return return `{ok, Code, RespId}' or `{error, Error}' if an error 
 %% is produced before sending the request.
 %% 
 %% Having `RespId', you can use the functions in {@link nksip_response} to get
-%% additional information about the response, only before the response is deleted 
+%% additional information about the response, but only before the response is deleted 
 %% (see `message_keep_time' option in {@link nksip:start/4}).
-%% If the response belongs to a dialog, you can use `DialogId' with the 
+%% If the response belongs to a dialog, you can use the 
 %% functions in {@link nksip_dialog} to get additional information.
-%% If not, `DialogId' would be `undefined'.
 %%
-%% You can define a callback function using option `callback'. 
-%% If it is defined, it will be called rigth after the request is sent, 
-%% as `{req_id, ReqId}'. With `ReqId' and the functions in {@link nksip_request}
-%% you can access any detail of the sent request.
-%% It will be called also for every received provisional response.
+%% You can define a callback function using option `callback', and it will be called
+%% for every received provisional response. If options `get_request' or `full_request'
+%% are used, it will be called also rigth after the request is sent, to be able to
+%% access the actual request.
 %%
 %% You can also call most of these functions <i>asynchronously</i> using
-%% the `async' option, and the call will return immediately instead of blocking. 
+%% the `async' option, and the call will return immediately instead of blocking,
+%% before trying to send the request.
 %% You should then use the callback function to receive provisional 
 %% responses, final response and errors.
 %%
@@ -61,32 +60,39 @@
 %%          <td>If present, the call will return inmediatly as `{async, ReqId}', or
 %%          `{error, Error}' if an error is produced before sending the request.
 %%          `ReqId' can be used with the functions in {@link nksip_request} to get
-%%          information about the request.</td>
+%%          information about the request, but the request may not be sent yet, so
+%%          the information about transport may not be present.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`callback'</td>
 %%          <td>`fun/1'</td>
 %%          <td></td>
-%%          <td>If defined, it will be called once the request is sent as 
-%%          `{req_id, ReqId}', and also for every provisional response as
-%%          `{ok, Code, ReqId, DialogId}'. 
+%%          <td>If defined, it will be called for every received provisional response
+%%          as `{ok, Code, RespId}' or `{resp, Resp}' if option `full_response' is used.
 %%          For `async' requests, it is called also for the final response and, if
 %%          an error is produced before sending the request, as `{error, Error}'. 
-%%          See also `full_request' and `full_response'.</td>
+%%          See also `get_request' and `full_request' options</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`full_response'</td>
 %%          <td></td>
 %%          <td></td>
 %%          <td>Returns the full response object as `{resp, Response}' for every
-%%          response instead of `{ok, Code, RespId, DialogId}'.</td>
+%%          response instead of `{ok, Code, RespId}'.</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`get_request'</td>
+%%          <td></td>
+%%          <td></td>
+%%          <td>If present, the callback function will be called once the request 
+%%          is sent as `{req, ReqId}'.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`full_request'</td>
 %%          <td></td>
 %%          <td></td>
-%%          <td>Returns the full request as `{req, Request}' instead of
-%%          `{ok, ReqId}'.</td>
+%%          <td>If present, the callback function will be called once the request 
+%%          is sent as `{req, Request}'.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`from'</td>
@@ -393,11 +399,11 @@ invite(AppId, Uri, Opts) ->
 %% as an in-dialog request, options `from', `to', `call_id', `cseq' and `route' 
 %% should not used.
 %%
-%% For sync requests, it will return `ok' if the request could be sent, 
-%% (or `{ok, AckRequest}' if `full_request' option is present) or
-%% `{error, Error}' if an error is detected. For async requests, it will return `async', 
-%% and if `respfun' is provided, it will be called as `ok', `{ok, AckRequest}' or 
-%% `{error, Error}'.
+%% For sync requests, it will return `{req, ReqId}' if the request could be sent, 
+%% (or `{req, Req}' if `full_request' option is present) or
+%% `{error, Error}' if an error is detected. For async requests, it will return 
+%% `{async, ReqId}' and, if a `callback' is provied, it will be called as 
+%% `{req, ReqId}', `{req, Req}' or `{error, Error}'.
 %%
 -spec ack(nksip_dialog:spec(), dialog_opts()) ->
     {ok, nksip:request_id()} | {req, nksip:request()} | 
