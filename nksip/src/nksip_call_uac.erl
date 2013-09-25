@@ -141,13 +141,13 @@ do_send('ACK', UAC, Call) ->
        {ok, SentReq} ->
             ?call_debug("UAC ~p sent 'ACK' request", [Id], Call),
             Call1 = send_user_reply({req, SentReq}, UAC, Call),
-            UAC1 = UAC#trans{status=finished, request=SentReq},
             Call2 = update_sipmsg(SentReq, Call1),
             Call3 = case lists:member(no_dialog, Opts) of
                 true -> Call2;
-                false -> nksip_call_dialog_uac:ack(UAC1, Call2)
+                false -> nksip_call_dialog_uac:ack(SentReq, Call2)
             end,
             Call4 = update_auth(SentReq, Call3),
+            UAC1 = UAC#trans{status=finished, request=SentReq},
             update(UAC1, Call4);
         error ->
             ?call_debug("UAC ~p error sending 'ACK' request", [Id], Call),
@@ -161,7 +161,7 @@ do_send(_, UAC, Call) ->
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     DialogResult = case lists:member(no_dialog, Opts) of
         true -> {ok, Call};
-        false -> nksip_call_dialog_uac:request(UAC, Call)
+        false -> nksip_call_dialog_uac:request(Req, Call)
     end,
     case DialogResult of
         {ok, Call1} ->
@@ -274,7 +274,7 @@ do_response(Resp, UAC, Call) ->
     end,
     Call3 = case lists:member(no_dialog, Opts) of
         true -> update(UAC1, Call2);
-        false -> nksip_call_dialog_uac:response(UAC1, update(UAC1, Call2))
+        false -> nksip_call_dialog_uac:response(Req, Resp1, update(UAC1, Call2))
     end,
     do_response_status(Status, Resp1, UAC1, Call3).
 
@@ -351,45 +351,32 @@ do_response_status(invite_accepted, _Resp, #trans{code=Code}, Call)
 
 do_response_status(invite_accepted, Resp, UAC, Call) ->
     #sipmsg{to_tag=ToTag} = Resp,
-    #trans{id=Id, code=Code, to_tags=ToTags} = UAC,
-    case lists:member(ToTag, ToTags) of
-        true ->
-            ?call_debug("UAC ~p (invite_accepted) received ~p retransmission",
-                        [Id, Code], Call),
+    #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
+    case ToTags of
+        [ToTag|_] ->
+            ?call_debug("UAC ~p (~p) received ~p retransmission",
+                        [Id, Status, Code], Call),
             Call;
-        false when Code < 300 ->    
-            % 2xx response
-            ?call_info("UAC ~p (invite_accepted) sending ACK and BYE to "
-                               "secondary response", 
-                               [Id], Call),
-            spawn(
-                fun() ->
-                    case nksip_uac:ack(Resp, []) of
-                        {ok, _} -> nksip_uac:bye(Resp, [async]);
-                        _ -> error
-                    end
-                end),
-            UAC1 = UAC#trans{to_tags=ToTags++[ToTag]},
-            update(UAC1, Call);
-        false ->                    
-            % [3456]xx response
-            ?call_info("UAC ~p (invite_accepted) received new ~p response",
-                        [Id, Code], Call),
-            UAC1 = UAC#trans{to_tags=ToTags++[ToTag]},
-            update(UAC1, Call)
+        _ ->
+            do_received_hangup(Resp, UAC, Call)
     end;
 
 do_response_status(invite_completed, Resp, UAC, Call) ->
-    #sipmsg{to_tag=ToTag} = Resp,
+    #sipmsg{to_tag=ToTag, response=RespCode} = Resp,
     #trans{id=Id, code=Code, to_tags=ToTags} = UAC,
-    case ToTags of
-        [ToTag|_] when Code >= 300 ->
-            send_ack(UAC);
+    case ToTags of 
+        [ToTag|_] ->
+            case RespCode of
+                Code ->
+                    send_ack(UAC);
+                _ ->
+                    ?call_info("UAC ~p (invite_completed) ignoring new ~p response "
+                               "(previous was ~p)", [Id, RespCode, Code], Call)
+            end,
+            Call;
         _ ->  
-            ?call_notice("UAC ~p 'INVITE' (invite_completed) received ~p", 
-                        [Id, Code], Call)
-    end,
-    Call;
+            do_received_hangup(Resp, UAC, Call)
+    end;
 
 do_response_status(trying, Resp, UAC, Call) ->
     UAC1 = cancel_timers([retrans], UAC#trans{status=proceeding}),
@@ -428,17 +415,47 @@ do_response_status(proceeding, Resp, UAC, Call) ->
 do_response_status(completed, Resp, UAC, Call) ->
     #sipmsg{cseq_method=Method, response=Code, to_tag=ToTag} = Resp,
     #trans{id=Id, to_tags=ToTags} = UAC,
-    case lists:member(ToTag, ToTags) of
-        true ->
+    case ToTags of
+        [ToTag|_] ->
             ?call_info("UAC ~p ~p (completed) received ~p retransmission", 
                        [Id, Method, Code], Call),
             Call;
         false ->
             ?call_info("UAC ~p ~p (completed) received new ~p response", 
                        [Id, Method, Code], Call),
-            UAC1 = UAC#trans{to_tags=ToTags++[ToTag]},
+            UAC1 = case lists:member(ToTag, ToTags) of
+                true -> UAC;
+                false -> UAC#trans{to_tags=ToTags++[ToTag]}
+            end,
             update(UAC1, Call)
     end.
+
+
+%% @private
+-spec do_received_hangup(nksip:response(), trans(), call()) ->
+    call().
+
+do_received_hangup(Resp, UAC, Call) ->
+    #sipmsg{to_tag=ToTag} = Resp,
+    #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
+    UAC1 = case lists:member(ToTag, ToTags) of
+        true -> UAC;
+        false -> UAC#trans{to_tags=ToTags++[ToTag]}
+    end,
+    case Code < 300 of
+        true ->
+            ?call_info("UAC ~p (~p) sending ACK and BYE to secondary response", 
+                       [Id, Status], Call),
+            spawn(
+                fun() ->
+                    nksip_uac:ack(Resp, []),
+                    nksip_uac:bye(Resp, [])
+                end);
+        false ->       
+            ?call_info("UAC ~p (~p) received new ~p response",
+                        [Id, Status, Code], Call)
+    end,
+    update(UAC1, Call).
 
 
 %% @private 
@@ -481,6 +498,8 @@ do_received_auth(Req, Resp, UAC, Call) ->
                         [Id, Error], Call),    
             send_user_reply({resp, Resp}, UAC, Call)
     end.
+
+
 
 
 %% ===================================================================

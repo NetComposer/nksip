@@ -25,7 +25,7 @@
 
 -export([start/2, stop/1, add_callback/2, get_sessions/2]).
 -export([init/1, get_user_pass/4, authorize/4, route/6, options/3, invite/3, reinvite/3,
-        cancel/3, ack/2]).
+        cancel/3, ack/2, bye/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -275,6 +275,15 @@ ack(RequestId, #state{id={_, Id}, dialogs=Dialogs}=State) ->
 
 cancel(_RequestId, _From, State) ->
     {reply, true, State}.
+
+bye(RequestId, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(RequestId),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false -> ok;
+        {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, bye}}
+    end,
+    {reply, ok, State}.
+
 
 
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->

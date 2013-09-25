@@ -25,11 +25,9 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, ack/2, response/2, make/4, new_local_seq/2]).
+-export([request/2, ack/2, response/3, make/4, new_local_seq/2]).
 
 -type call() :: nksip_call:call().
-
--type trans() :: nksip_call:trans().
 
 
 
@@ -38,14 +36,14 @@
 %% ===================================================================
 
 %% @private
--spec request(nksip_call:trans(), nksip_call:call()) ->
+-spec request(nksip:request(), nksip_call:call()) ->
     {ok, nksip_call:call()} | {error, Error} 
     when Error :: finished | request_pending.
 
-request(#trans{method='ACK'}, _) ->
+request(#sipmsg{method='ACK'}, _) ->
     error(ack_in_dialog_request);
 
-request(#trans{method=Method, request=Req}, Call) ->
+request(#sipmsg{method=Method}=Req, Call) ->
     case nksip_dialog:id(Req) of
         undefined ->
             {ok, Call};
@@ -102,10 +100,10 @@ do_request(_Method, _Status, _Req, Dialog) ->
 
 
 %% @private
--spec ack(trans(), call()) ->
+-spec ack(nksip:request(), call()) ->
     call().
 
-ack(#trans{method='ACK', request=Req}, Call) ->
+ack(#sipmsg{method='ACK'}=Req, Call) ->
     #sipmsg{cseq=CSeq} = Req,
     case nksip_dialog:id(Req) of
         undefined ->
@@ -135,11 +133,10 @@ ack(#trans{method='ACK', request=Req}, Call) ->
     
 
 %% @private
--spec response(trans(), call()) ->
+-spec response(nksip:request(), nksip:response(), call()) ->
     call().
 
-response(UAC, #call{dialogs=Dialogs}=Call) ->
-    #trans{method=Method, request=Req, response=Resp} = UAC,
+response(#sipmsg{method=Method}=Req, Resp, #call{dialogs=Dialogs}=Call) ->
     case nksip_dialog:id(Resp) of
         undefined ->
             Call;
@@ -154,13 +151,13 @@ response(UAC, #call{dialogs=Dialogs}=Call) ->
                     nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = nksip_call_dialog:create(uac, Req, Resp),
-                    response(UAC, Call#call{dialogs=[Dialog|Dialogs]});
+                    response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
                     Call
             end
     end;
 
-response(_, Call) ->
+response(_, _, Call) ->
     Call.
 
 

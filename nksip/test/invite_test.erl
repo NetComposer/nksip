@@ -244,7 +244,8 @@ dialog() ->
     ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}, 
                                {client1, {dialog_stop, caller_bye}},
                                {client1, sdp_stop},
-                               {client2, sdp_stop}]),
+                               {client2, sdp_stop},
+                               {client2, bye}]),
     ok.
 
 
@@ -421,7 +422,8 @@ rr_contact() ->
                                {client1, {dialog_stop, callee_bye}}, 
                                {client1, sdp_stop},
                                {client2, {dialog_stop, callee_bye}},
-                               {client2, sdp_stop}]),
+                               {client2, sdp_stop},
+                               {client1, bye}]),
     ok.
 
 
@@ -507,7 +509,7 @@ multiple_uas() ->
     confirmed = nksip_dialog:field(LocalDialog, status),
     confirmed = nksip_dialog:field(RemoteDialog, status),
     {ok, 200, _} = nksip_uac:bye(LocalDialog, []),
-    ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}]),
+    ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}, {client2, bye}]),
 
 
     % Set a new dialog
@@ -543,6 +545,7 @@ multiple_uas() ->
     BCSeq = nksip_response:field(Bye, cseq_num),
     BCSeq = LSeq+2,
     ok = tests_util:wait(Ref, [{client1, {dialog_stop, caller_bye}},
-                               {client2, {dialog_stop, caller_bye}}]),
+                               {client2, {dialog_stop, caller_bye}},
+                               {client2, bye}]),
     ok.
 

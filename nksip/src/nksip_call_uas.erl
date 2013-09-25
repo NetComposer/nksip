@@ -141,8 +141,8 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
         #trans{class=uas, status=Status}=UAS ->
             do_app_reply(Fun, Status, Reply, UAS, Call);
         _ ->
-            ?call_debug("Unknown UAS ~p received SipApp reply ~p",
-                        [Id, {Fun, Reply}], Call),
+            ?call_debug("Unknown UAS ~p received SipApp ~p reply",
+                        [Id, Fun], Call),
             Call
     end.
 
@@ -151,31 +151,29 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
 -spec do_app_reply(atom(), atom(), term(), trans(), call()) ->
     call().
 
-do_app_reply(Fun, finished, Reply, #trans{id=Id, method=Method}, Call) ->
-    ?call_debug("UAS ~p ~p received reply ~p in finished", 
-               [Id, Method, {Fun, Reply}], Call),
-    Call;
-
-do_app_reply(authorize, authorize, Reply, UAS, Call) ->
-    authorize_reply(Reply, UAS, Call);
-
-do_app_reply(route, route, Reply, UAS, Call) ->
-    route_reply(Reply, UAS, Call);
-
 do_app_reply(Fun, Status, Reply, UAS, Call) ->
     #trans{id=Id, method=Method, code=Code} = UAS,
-    case 
-        (Fun=:=invite orelse Fun=:=bye orelse Fun=:=options orelse 
-            Fun=:=register orelse Fun=:=fork) 
-        andalso
-        (Status=:=invite_proceeding orelse Status=:=trying orelse 
-           Status=:=proceeding)
-    of
+    if
+        Status=:=finished ->
+            ?call_debug("Finished UAS ~p ~p received ~p reply", 
+                        [Id, Method, Fun], Call),
+            Call;
+        Fun=:=authorize, Status=:=authorize ->
+            authorize_reply(Reply, UAS, Call);
+        Fun=:=route; Status=:=route ->
+            route_reply(Reply, UAS, Call);
+        Fun=:=invite; Fun=:=bye; Fun=:=options; Fun=:=register; Fun=:=fork ->
+            if
+                Status=:=authorize; Status=:=route; Status=:=ack ->
+                    ?call_warning("UAS ~p ~p received unexpected ~p reply in ~p",
+                                  [Id, Method, Fun, Status], Call),
+                    Call;
+                true ->
+                    reply(Reply, UAS, Call)
+            end;
         true ->
-            reply(Reply, UAS, Call);
-        false ->
-           ?call_debug("UAS ~p ~p received unexpected reply ~p in (~p, ~p)",
-                       [Id, Method, {Fun, Reply}, Status, Code], Call),
+           ?call_warning("UAS ~p ~p (~p, ~p) received unexpected ~p reply",
+                        [Id, Method, Status, Code, Fun], Call),
            Call
     end.
 
@@ -437,8 +435,8 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
     call().
     
 process(#trans{stateless=false, opts=Opts}=UAS, Call) ->
-    #trans{id=Id, method=Method} = UAS,
-    case nksip_call_dialog_uas:request(UAS, Call) of
+    #trans{id=Id, method=Method, request=Req} = UAS,
+    case nksip_call_dialog_uas:request(Req, Call) of
        {ok, DialogId, Call1} -> 
             % Caution: for first INVITEs, DialogId is not yet created!
             ?call_debug("UAS ~p ~p dialog id: ~p", [Id, Method, DialogId], Call1),
@@ -532,60 +530,85 @@ reply(Reply, UAS, Call) ->
                   trans(), call()) ->
     {{ok, nksip:response()} | {error, invalid_call}, call()}.
 
-send_reply(Reply, #trans{method='ACK',id=Id, status=Status}, Call) ->
+send_reply(Reply, #trans{method='ACK', id=Id, status=Status}, Call) ->
     ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", 
                  [Id, Status, Reply], Call),
     {{error, invalid_call}, Call};
 
-send_reply({#sipmsg{response=Code}=Resp, SendOpts}, UAS, Call) ->
+send_reply({#sipmsg{response=Code}=Resp, SendOpts}, #trans{status=Status}=UAS, Call)
+           when Status=:=authorize; Status=:=route ->
+    #trans{id=Id, method=Method} = UAS,
+    case Method of
+        'CANCEL' ->
+            UAS1 = UAS#trans{status=trying},
+            send_reply({Resp, SendOpts}, UAS1, update(UAS1, Call));
+        'INVITE' when Code >= 300 -> 
+            UAS1 = UAS#trans{status=invite_proceeding},
+            send_reply({Resp, SendOpts}, UAS1, update(UAS1, Call));
+        _ when Code >= 300 ->
+            UAS1 = UAS#trans{status=trying},
+            send_reply({Resp, SendOpts}, UAS1, update(UAS1, Call));
+        _ ->
+            ?call_notice("UAC ~p ~p (~p) trying to send a ~p reply", 
+                 [Id, Method, Status, Code], Call),
+            {{error, invalid_call}, Call}
+    end;
+
+send_reply({#sipmsg{response=Code}=Resp, SendOpts}, 
+           #trans{status=Status, code=LastCode}=UAS, 
+           Call)
+           when Status=:=invite_proceeding orelse Status=:=trying orelse 
+                Status=:=proceeding orelse
+                ((Status=:=invite_accepted orelse Status=:=invite_confirmed)
+                andalso Code>=200 andalso Code<300) orelse
+                (Status=:=completed andalso Code>=200 andalso Code<300
+                andalso LastCode>=200 andalso LastCode<300) ->
     #trans{
         id = Id, 
-        status = Status, 
         opts = Opts,
         method = Method,
         request = Req,
-        stateless = Stateless
+        stateless = Stateless,
+        code = LastCode
     } = UAS,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-    case 
-        Status=:=authorize orelse Status=:=route orelse 
-        Status=:=invite_proceeding orelse Status=:=trying orelse 
-        Status=:=proceeding
-    of
-        true ->
-            case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
-                {ok, Resp1} -> ok;
-                error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
-            end,
-            #sipmsg{response=Code1} = Resp1,
-            Call1 = store_sipmsg(Resp1, Call),
-            % We could have selected a different proto/ip/port form request
-            Call2 = case Code1>=200 andalso Code<300 of
-                true -> update_auth(Resp1, Call1);
-                false -> Call1
-            end,
-            UAS1 = UAS#trans{response=Resp1, code=Code},
-            Call3 = case lists:member(no_dialog, Opts) of
-                true -> Call2;
-                false -> nksip_call_dialog_uas:response(UAS1, Call2)
-            end,
-            case Stateless of
-                true when Method=/='INVITE' ->
-                    ?call_debug("UAS ~p ~p stateless reply ~p", 
-                                [Id, Method, Code1], Call),
-                    UAS2 = cancel_timers([timeout], UAS1#trans{status=finished}),
-                    {{ok, Resp1}, update(UAS2, Call3)};
-                _ ->
-                    ?call_debug("UAS ~p ~p stateful reply ~p", 
-                                [Id, Method, Code1], Call),
-                    UAS2 = stateful_reply(Method, Code1, UAS1, Call3),
-                    {{ok, Resp1}, update(UAS2, Call3)}
-            end;
-        false ->
-            ?call_info("UAS ~p ~p cannot send ~p response in ~p", 
-                       [Id, Method, Code, Status], Call),
-            {{error, invalid_call}, Call}
+    case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
+        {ok, Resp1} -> ok;
+        error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
+    end,
+    #sipmsg{response=Code1} = Resp1,
+    Call1 = store_sipmsg(Resp1, Call),
+    % We could have selected a different proto/ip/port form request
+    Call2 = case Code1>=200 andalso Code<300 of
+        true -> update_auth(Resp1, Call1);
+        false -> Call1
+    end,
+    Call3 = case lists:member(no_dialog, Opts) of
+        true -> Call2;
+        false -> nksip_call_dialog_uas:response(Req, Resp1, Call2)
+    end,
+    UAS1 = case LastCode < 200 of
+        true -> UAS#trans{response=Resp1, code=Code};
+        false -> UAS
+    end,
+    case Stateless of
+        true when Method=/='INVITE' ->
+            ?call_debug("UAS ~p ~p stateless reply ~p", 
+                        [Id, Method, Code1], Call),
+            UAS2 = cancel_timers([timeout], UAS1#trans{status=finished}),
+            {{ok, Resp1}, update(UAS2, Call3)};
+        _ ->
+            ?call_debug("UAS ~p ~p stateful reply ~p", 
+                        [Id, Method, Code1], Call),
+            UAS2 = stateful_reply(Status, Code1, UAS1, Call3),
+            {{ok, Resp1}, update(UAS2, Call3)}
     end;
+
+send_reply({#sipmsg{response=Code}, _}, UAS, Call) ->
+    #trans{status=Status, id=Id, method=Method} = UAS,
+    ?call_info("UAS ~p ~p cannot send ~p response in ~p", 
+               [Id, Method, Code, Status], Call),
+    {{error, invalid_call}, Call};
 
 send_reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
     send_reply(nksip_reply:reply(Req, SipReply), UAS, Call);
@@ -598,14 +621,14 @@ send_reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 
 
 %% @private
--spec stateful_reply(nksip:method(), nksip:response_code(), trans(), call()) ->
+-spec stateful_reply(status(), nksip:response_code(), trans(), call()) ->
     trans().
 
-stateful_reply('INVITE', Code, UAS, Call) when Code < 200 ->
+stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 200 ->
     UAS1 = cancel_timers([timeout], UAS),
     timeout_timer(timer_c, UAS1, Call);
 
-stateful_reply('INVITE', Code, UAS, Call) when Code < 300 ->
+stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 300 ->
     #trans{id=Id, request=Req, response=Resp} = UAS,
     UAS1 = case Id < 0 of
         true -> 
@@ -623,7 +646,7 @@ stateful_reply('INVITE', Code, UAS, Call) when Code < 300 ->
     % Dialog will send 2xx retransmissions
     timeout_timer(timer_l, UAS3#trans{status=invite_accepted}, Call);
 
-stateful_reply('INVITE', Code, UAS, Call) when Code >= 300 ->
+stateful_reply(invite_proceeding, Code, UAS, Call) when Code >= 300 ->
     #trans{proto=Proto} = UAS,
     UAS1 = cancel_timers([timeout, expire], UAS),
     UAS2 = UAS1#trans{request=undefined, status=invite_completed},
@@ -635,10 +658,13 @@ stateful_reply('INVITE', Code, UAS, Call) when Code >= 300 ->
             UAS3#trans{response=undefined}
     end;
 
-stateful_reply(_, Code, UAS, _) when Code < 200 ->
-    UAS#trans{status=proceeding};
+stateful_reply(trying, Code, UAS, Call) ->
+    stateful_reply(proceeding, Code, UAS#trans{status=proceeding}, Call);
 
-stateful_reply(_, Code, UAS, Call) when Code >= 200 ->
+stateful_reply(proceeding, Code, UAS, _Call) when Code < 200 ->
+    UAS;
+
+stateful_reply(proceeding, Code, UAS, Call) when Code >= 200 ->
     #trans{proto=Proto} = UAS,
     UAS1 = cancel_timers([timeout], UAS),
     case Proto of
@@ -647,7 +673,11 @@ stateful_reply(_, Code, UAS, Call) when Code >= 200 ->
             timeout_timer(timer_j, UAS2, Call);
         _ -> 
             UAS1#trans{status=finished}
-    end.
+    end;
+
+stateful_reply(_, _Code, UAS, _Call) ->
+    UAS.
+
 
 
 %% @private

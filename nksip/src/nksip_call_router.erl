@@ -168,7 +168,7 @@ get_all_dialogs(AppId, CallId) ->
 stop_dialog(DialogSpec) ->
     case nksip_dialog:id(DialogSpec) of
         {dlg, AppId, CallId, DialogId} ->
-            send_work_async(AppId, CallId, {stop_dialog, DialogId});
+            send_work_sync(AppId, CallId, {stop_dialog, DialogId});
         undefined ->
             {error, unknown_dialog}
     end.

@@ -314,12 +314,14 @@ work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
     gen_server:reply(From, {ok, Ids}),
     Call;
 
-work({stop_dialog, DialogId}, none, Call) ->
+work({stop_dialog, DialogId}, From, Call) ->
     case find_dialog(DialogId, Call) of
         {ok, Dialog} ->
+            gen_fsm:reply(From, ok),
             Dialog1 = nksip_call_dialog:status_update(uac, {stop, forced}, Dialog),
             nksip_call_dialog:update(Dialog1, Call);
         not_found ->
+            gen_fsm:reply(From, {error, unknown_dialog}),
             Call
     end;
 

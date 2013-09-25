@@ -339,7 +339,7 @@ invite(Test) ->
                                                     {"Nk-Sleep", 5000}, RepHd]},
                                          async, {callback, RespFun}]),
     ok = nksip_uac:cancel(Req7),
-    ok = tests_util:wait(Ref, [487]),
+    ok = tests_util:wait(Ref, [487, {client2, bye}]),
     ok.
 
 servers(Test) ->

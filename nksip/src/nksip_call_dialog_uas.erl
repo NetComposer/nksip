@@ -25,11 +25,9 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, response/2]).
+-export([request/2, response/3]).
 
 -type call() :: nksip_call:call().
-
--type trans() :: nksip_call:trans().
 
 
 %% ===================================================================
@@ -38,12 +36,12 @@
 
 
 %% @private
--spec request(trans(), call()) ->
+-spec request(nksip:request(), call()) ->
     {ok, nksip:dialog_id(), call()} | {error, Error}
     when Error :: old_cseq | unknown_dialog | bye | 
                   proceeding_uac | proceeding_uas | invalid.
 
-request(#trans{request=Req}, Call) ->
+request(Req, Call) ->
     case nksip_dialog:id(Req) of
         undefined ->
             {ok, undefined, Call};
@@ -129,11 +127,10 @@ do_request(_, _, _, Dialog) ->
 
 
 %% @private
--spec response(trans(), call()) ->
+-spec response(nksip:request(), nksip:response(), call()) ->
     call().
 
-response(UAS, Call) ->
-    #trans{method=Method, request=Req, response=Resp} = UAS,
+response(#sipmsg{method=Method}=Req, Resp, Call) ->
     #sipmsg{response=Code} = Resp,
     #call{dialogs=Dialogs} = Call,
     case nksip_dialog:id(Resp) of
@@ -149,7 +146,7 @@ response(UAS, Call) ->
                     nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
                     Dialog = nksip_call_dialog:create(uas, Req, Resp),
-                    response(UAS, Call#call{dialogs=[Dialog|Dialogs]});
+                    response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
                     Call
             end
