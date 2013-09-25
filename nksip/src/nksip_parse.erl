@@ -816,7 +816,7 @@ token_test() ->
             {<<"e">>, []},
             {<<"f">>, [lr]}
         ],
-        tokens("a b c ; cc=a;cb  = \"ocb\", e, f;lr")).
+        tokens(<<"a b c ; cc=a;cb  = \"ocb\", e, f;lr">>)).
 
 -endif.
 
