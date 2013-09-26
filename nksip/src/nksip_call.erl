@@ -34,7 +34,8 @@
 -behaviour(gen_server).
 
 -export([start/3, stop/1, sync_work/5, async_work/2]).
--export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
+-export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
+         code_change/3]).
 -export([get_data/1]).
 
 -export_type([call/0, trans/0, fork/0, work/0]).
@@ -112,6 +113,11 @@ async_work(Pid, Work) ->
     gen_server:cast(Pid, {async_work, Work}).
 
 
+%% @private
+get_data(Pid) ->
+    gen_server:call(Pid, get_data).
+ 
+
 %% ===================================================================
 %% gen_server
 %% ===================================================================
@@ -150,8 +156,8 @@ init([AppId, CallId, CallOpts]) ->
 handle_call(get_data, _From, Call) ->
     #call{msgs=Msgs, trans=Trans, forks=Forks, dialogs=Dialogs} = Call,
     {reply, {Msgs, Trans, Forks, Dialogs}, Call};
-
-handle_call(Msg, _From, Call) ->
+ 
+ handle_call(Msg, _From, Call) ->
     lager:error("Module ~p received unexpected sync event: ~p", [?MODULE, Msg]),
     {noreply, Call}.
 
@@ -318,7 +324,7 @@ work({stop_dialog, DialogId}, From, Call) ->
     case find_dialog(DialogId, Call) of
         {ok, Dialog} ->
             gen_fsm:reply(From, ok),
-            Dialog1 = nksip_call_dialog:status_update(uac, {stop, forced}, Dialog),
+            Dialog1 = nksip_call_dialog:status_update(uac, {stop, forced}, Dialog, Call),
             nksip_call_dialog:update(Dialog1, Call);
         not_found ->
             gen_fsm:reply(From, {error, unknown_dialog}),
@@ -543,10 +549,6 @@ find_dialog(DialogId, #call{dialogs=Dialogs}) ->
         Dialog -> {ok, Dialog}
     end.
 
-
-%% @private
-get_data(Pid) ->
-    gen_server:call(Pid, get_data).
 
 
 

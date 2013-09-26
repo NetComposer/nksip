@@ -422,7 +422,7 @@ do_response_status(completed, Resp, UAC, Call) ->
             ?call_info("UAC ~p ~p (completed) received ~p retransmission", 
                        [Id, Method, Code], Call),
             Call;
-        false ->
+        _ ->
             ?call_info("UAC ~p ~p (completed) received new ~p response", 
                        [Id, Method, Code], Call),
             UAC1 = case lists:member(ToTag, ToTags) of
