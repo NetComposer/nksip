@@ -57,7 +57,7 @@ request(#sipmsg{method=Method}=Req, Call) ->
                         true -> Dialog#dialog{local_seq=CSeq};
                         false -> Dialog
                     end,
-                    case do_request(Method, Status, Req, Dialog1) of
+                    case do_request(Method, Status, Req, Dialog1, Call) of
                         {ok, Dialog2} -> 
                             {ok, nksip_call_dialog:update(Dialog2, Call)};
                         {error, Error} -> 
@@ -68,34 +68,29 @@ request(#sipmsg{method=Method}=Req, Call) ->
                 not_found ->
                     {error, finished}
             end
-    end;
-
-request(_, Call) ->
-    {ok, Call}.
-
-
+    end.
         
 
 %% @private
 -spec do_request(nksip:method(), nksip_dialog:status(), nksip:request(), 
-                 nksip:dialog()) ->
+                 nksip:dialog(), call()) ->
     {ok, nksip:dialog()} | {error, Error} 
     when Error :: finished | request_pending.
 
-do_request(_, bye, _Req, _Dialog) ->
+do_request(_, bye, _Req, _Dialog, _Call) ->
     {error, finished};
 
-do_request('INVITE', confirmed, Req, Dialog) ->
+do_request('INVITE', confirmed, Req, Dialog, Call) ->
     Dialog1 = Dialog#dialog{request=Req},
-    {ok, status_update(proceeding_uac, Dialog1)};
+    {ok, status_update(proceeding_uac, Dialog1, Call)};
 
-do_request('INVITE', _Status, _Req, _Dialog) ->
+do_request('INVITE', _Status, _Req, _Dialog, _Call) ->
     {error, request_pending};
 
-do_request('BYE', _Status, _Req, Dialog) ->
-    {ok, status_update(bye, Dialog)};
+do_request('BYE', _Status, _Req, Dialog, Call) ->
+    {ok, status_update(bye, Dialog, Call)};
 
-do_request(_Method, _Status, _Req, Dialog) ->
+do_request(_Method, _Status, _Req, Dialog, _Call) ->
     {ok, Dialog}.
 
 
@@ -118,7 +113,7 @@ ack(#sipmsg{method='ACK'}=Req, Call) ->
                             ?call_debug("Dialog ~p (~p) UAC request 'ACK'", 
                                         [DialogId, Status], Call),
                             Dialog1 = Dialog#dialog{ack=Req},
-                            Dialog2 = status_update(confirmed, Dialog1),
+                            Dialog2 = status_update(confirmed, Dialog1, Call),
                             nksip_call_dialog:update(Dialog2, Call);
                         _ ->
                             ?call_notice("Dialog ~p (~p) ignoring ACK", 
@@ -146,7 +141,7 @@ response(#sipmsg{method=Method}=Req, Resp, #call{dialogs=Dialogs}=Call) ->
                 #dialog{status=Status} = Dialog ->
                     ?call_debug("Dialog ~p (~p) UAC response ~p ~p", 
                                 [DialogId, Status, Method, Code], Call),
-                    Dialog1 = do_response(Method, Code, Req, Resp, Dialog),
+                    Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
                     % Dialog2 = nksip_call_dialog:remotes_update(Resp, Dialog1),
                     nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
@@ -163,26 +158,26 @@ response(_, _, Call) ->
 
 %% @private
 -spec do_response(nksip:method(), nksip:response_code(), nksip:request(),
-                  nksip:response(), nksip:dialog()) ->
+                  nksip:response(), nksip:dialog(), call()) ->
     nksip:dialog().
 
-do_response(_Method, Code, _Req, _Resp, Dialog) when Code=:=408; Code=:=481 ->
-    status_update({stop, Code}, Dialog);
+do_response(_Method, Code, _Req, _Resp, Dialog, Call) when Code=:=408; Code=:=481 ->
+    status_update({stop, Code}, Dialog, Call);
 
-do_response(_Method, Code, _Req, _Resp, Dialog) when Code < 101 ->
+do_response(_Method, Code, _Req, _Resp, Dialog, _Call) when Code < 101 ->
     Dialog;
 
-do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog) 
+do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<200 andalso (Status=:=init orelse Status=:=proceeding_uac) ->
     Dialog1 = Dialog#dialog{request=Req, response=Resp, ack=undefined},
-    status_update(proceeding_uac, Dialog1);
+    status_update(proceeding_uac, Dialog1, Call);
 
-do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog) 
+do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso (Status=:=init orelse Status=:=proceeding_uac) ->
     Dialog1 = Dialog#dialog{request=Req, response=Resp, ack=undefined},
-    status_update(accepted_uac, Dialog1);
+    status_update(accepted_uac, Dialog1, Call);
     
-do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog) 
+do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso (Status=:=accepted_uac orelse Status=:=confirmed) ->
     #dialog{app_id=AppId, call_id=CallId, id=DialogId, ack=ACK} = Dialog,
     case ACK of
@@ -196,38 +191,37 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog)
                     ?notice(AppId, CallId,
                             "Dialog ~p (~p) could not retransmit 'ACK'", 
                             [DialogId, Status]),
-                    status_update({stop, 503}, Dialog)
+                    status_update({stop, 503}, Dialog, Call)
             end;
         _ ->
-            ?info(AppId, CallId, 
-                    "Dialog ~p (~p) received 'INVITE' ~p but no ACK yet", 
-                    [DialogId, Status, Code]),
+            ?call_info("Dialog ~p (~p) received 'INVITE' ~p but no ACK yet", 
+                       [DialogId, Status, Code], Call),
             Dialog
     end;
 
-do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog) 
+do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) 
             when is_integer(Code) andalso Code>=300 andalso 
             (Status=:=init orelse Status=:=proceeding_uac) ->
     case Dialog#dialog.answered of
-        undefined -> status_update({stop, Code}, Dialog);
-        _ -> status_update(confirmed, Dialog)
+        undefined -> status_update({stop, Code}, Dialog, Call);
+        _ -> status_update(confirmed, Dialog, Call)
     end;
 
-do_response('INVITE', Code, _Req, Resp, #dialog{id=DialogId, status=Status}=Dialog) ->
+do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
     #sipmsg{response=Code} = Resp,
-    #dialog{app_id=AppId, call_id=CallId} = Dialog,
-    ?notice(AppId, CallId, "Dialog ~p (~p) ignoring 'INVITE' ~p response",
-           [DialogId, Status, Code]),
+    #dialog{id=DialogId, status=Status} = Dialog,
+    ?call_notice("Dialog ~p (~p) ignoring 'INVITE' ~p response",
+                 [DialogId, Status, Code], Call),
     Dialog;
 
-do_response('BYE', _Code, Req, _Resp, #dialog{caller_tag=CallerTag}=Dialog) ->
+do_response('BYE', _Code, Req, _Resp, #dialog{caller_tag=CallerTag}=Dialog, Call) ->
     Reason = case Req#sipmsg.from_tag of
         CallerTag -> caller_bye;
         _ -> callee_bye
     end,
-    status_update({stop, Reason}, Dialog);
+    status_update({stop, Reason}, Dialog, Call);
 
-do_response(_, _Code, _Req, _Resp, Dialog) ->
+do_response(_, _Code, _Req, _Resp, Dialog, _Call) ->
     Dialog.
 
 
@@ -239,9 +233,9 @@ do_response(_, _Code, _Req, _Resp, Dialog) ->
 
 make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
-        #dialog{app_id=AppId, call_id=CallId, status=Status}=Dialog ->
-            ?debug(AppId, CallId, "Dialog ~p make ~p request in ~p", 
-                   [DialogId, Method, Status]),
+        #dialog{status=Status}=Dialog ->
+            ?call_debug("Dialog ~p make ~p request in ~p", 
+                        [DialogId, Method, Status], Call),
             case Method=:='ACK' andalso Status=/=accepted_uac of
                 true ->
                     {error, invalid_dialog};
@@ -357,11 +351,11 @@ generate(Method, Opts, Dialog) ->
 
 
 %% @private
--spec status_update(nksip_dialog:status(), nksip:dialog()) ->
+-spec status_update(nksip_dialog:status(), nksip:dialog(), call()) ->
     nksip:dialog().
 
-status_update(Status, Dialog) ->
-    nksip_call_dialog:status_update(uac, Status, Dialog).
+status_update(Status, Dialog, Call) ->
+    nksip_call_dialog:status_update(uac, Status, Dialog, Call).
 
 
 

@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/3, status_update/3, timer/3]).
+-export([create/3, status_update/4, timer/3]).
 -export([find/2, update/2]).
 
 -type call() :: nksip_call:call().
@@ -93,10 +93,10 @@ create(Class, Req, Resp) ->
 
 
 %% @private
--spec status_update(uac|uas, nksip_dialog:status(), nksip:dialog()) ->
+-spec status_update(uac|uas, nksip_dialog:status(), nksip:dialog(), nksip:call()) ->
     nksip:dialog().
 
-status_update(Class, Status, Dialog) ->
+status_update(Class, Status, Dialog, Call) ->
     #dialog{
         id = DialogId, 
         app_id = AppId, 
@@ -106,6 +106,7 @@ status_update(Class, Status, Dialog) ->
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer
     } = Dialog,
+    #call{opts=#call_opts{timer_t1=T1, max_dialog_time=TDlg}} = Call,
     case OldStatus of
         init -> cast(dialog_update, start, Dialog);
         _ -> ok
@@ -126,8 +127,8 @@ status_update(Class, Status, Dialog) ->
                     cast(dialog_update, {status, Status}, Dialog)
             end,
             Timeout = case Status of
-                confirmed -> nksip_config:get(dialog_timeout);
-                _ -> 64*nksip_config:get(timer_t1)
+                confirmed -> TDlg;
+                _ -> 64*T1
             end,
             Dialog#dialog{
                 status = Status, 
@@ -155,7 +156,6 @@ status_update(Class, Status, Dialog) ->
         accepted_uas ->    
             Dialog3 = target_update(Class, Dialog2),
             Dialog4 = session_update(Class, Dialog3),
-            T1 = nksip_config:get(timer_t1),
             Dialog4#dialog{
                 retrans_timer = start_timer(T1, retrans, Dialog),
                 next_retrans = 2*T1
@@ -342,17 +342,18 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
         response = Resp, 
         next_retrans = Next
     } = Dialog,
+    #call{opts=#call_opts{timer_t2=T2}} = Call,
     ?call_info("Dialog ~p resending response", [DialogId], Call),
     case nksip_transport_uas:resend_response(Resp) of
         {ok, _} ->
             Dialog1 = Dialog#dialog{
                 retrans_timer = start_timer(Next, retrans, Dialog),
-                next_retrans = min(2*Next, nksip_config:get(timer_t2))
+                next_retrans = min(2*Next, T2)
             },
             update(Dialog1, Call);
         error ->
             ?call_notice("Dialog ~p could not resend response", [DialogId], Call),
-            Dialog1 = status_update(uas, {stop, ack_timeout}, Dialog),
+            Dialog1 = status_update(uas, {stop, ack_timeout}, Dialog, Call),
             update(Dialog1, Call)
     end;
     
@@ -367,7 +368,7 @@ timer(timeout, #dialog{id=DialogId, status=Status}=Dialog, Call) ->
         accepted_uas -> ack_timeout;
         _ -> timeout
     end,
-    Dialog1 = status_update(uas, {stop, Reason}, Dialog),
+    Dialog1 = status_update(uas, {stop, Reason}, Dialog, Call),
     update(Dialog1, Call).
 
 
@@ -419,32 +420,6 @@ update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
             Dialogs1 = lists:keystore(Id, #dialog.id, Dialogs, Dialog),
             Call#call{dialogs=Dialogs1}
     end.
-
-
-% %% @private
-% -spec remotes_update(nksip:request()|nksip:response(), nksip:dialog()) ->
-%     nksip:dialog().
-
-% remotes_update(#sipmsg{transport=#transport{remote_ip=Ip, remote_port=Port}}, Dialog) ->
-%     #dialog{
-%         id = DialogId, 
-%         status = Status,
-%         remotes = Remotes, 
-%         app_id = AppId, 
-%         call_id = CallId
-%     } = Dialog,
-%     case lists:member({Ip, Port}, Remotes) of
-%         true ->
-%             Dialog;
-%         false ->
-%             Remotes1 = [{Ip, Port}|Remotes],
-%             ?debug(AppId, CallId, "Dialog ~p (~p) updated remotes: ~p", 
-%                    [DialogId, Status, Remotes1]),
-%             Dialog#dialog{remotes=Remotes1}
-%     end;
-
-% remotes_update(_, Dialog) ->
-%     Dialog.
 
 
 %% @private
