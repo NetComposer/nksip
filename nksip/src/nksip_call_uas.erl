@@ -202,7 +202,7 @@ sync_reply(Reply, UAS, From, Call) ->
     call().
 
 do_request(Req, TransId, #call{trans=Trans, next=Id}=Call) ->
-    #sipmsg{id=MsgId, method=Method, ruri=RUri, transport=Transp} = Req,
+    #sipmsg{id=MsgId, method=Method, ruri=RUri, to_tag=ToTag, transport=Transp} = Req,
     ?call_debug("UAS ~p started for ~p (~p)", [Id, Method, MsgId], Call),
     Call1 = store_sipmsg(Req, Call),
     LoopId = loop_id(Req),
@@ -224,7 +224,7 @@ do_request(Req, TransId, #call{trans=Trans, next=Id}=Call) ->
         loop_id = LoopId
     },
     Call2 = Call1#call{trans=[UAS|Trans], next=Id+1},
-    case lists:keymember(LoopId, #trans.loop_id, Trans) of
+    case ToTag=:=(<<>>) andalso lists:keymember(LoopId, #trans.loop_id, Trans) of
         true -> reply(loop_detected, UAS, Call2);
         false -> send_100(UAS, Call2)
     end.
@@ -904,7 +904,7 @@ transaction_id(Req) ->
     end.
 
 
-%% @privaye
+%% @private
 -spec loop_id(nksip:request()) ->
     integer().
     
