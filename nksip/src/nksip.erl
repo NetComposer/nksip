@@ -403,7 +403,7 @@ get_all() ->
 
 
 %% @doc Sends a response from a synchronous callback function.
-%% (equivalent to `gen_server:reply/2')
+%% Eequivalent to `gen_server:reply/2'.
 -spec reply({reference(), pid()} | {fsm, reference(), pid()}, term()) -> 
     term().
 
@@ -458,7 +458,7 @@ get_pid(Id) ->
     end.
 
 
-%% @doc Gets SipApp'sfirst listening port on this transport protocol.
+%% @doc Gets SipApp's first listening port on this transport protocol.
 -spec get_port(app_id(), protocol()) -> 
     inet:port_number() | not_found.
 
