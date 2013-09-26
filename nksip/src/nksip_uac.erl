@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Request sending functions.
+%% @doc Request sending functions as UAC.
 %%
 %% The functions in this module are used to send requests to remote parties as a UAC.
 %%
@@ -28,8 +28,8 @@
 %% <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>, <i>UPDATE</i>, 
 %% <i>REFER</i> and <i>PUBLISH</i>.
 %%
-%% By default, most functions will block util a final response (or timeout) is received. 
-%% They return return `{ok, Code, RespId}' or `{error, Error}' if an error 
+%% By default, most functions will block util a final response (or error) is received, 
+%% returning `{ok, Code, RespId}' or `{error, Error}' if an error 
 %% is produced before sending the request.
 %% 
 %% Having `RespId', you can use the functions in {@link nksip_response} to get
@@ -41,7 +41,7 @@
 %% You can define a callback function using option `callback', and it will be called
 %% for every received provisional response. If options `get_request' or `full_request'
 %% are used, it will be called also rigth after the request is sent, to be able to
-%% access the actual request.
+%% access the actual sent request.
 %%
 %% You can also call most of these functions <i>asynchronously</i> using
 %% the `async' option, and the call will return immediately instead of blocking,
@@ -71,7 +71,7 @@
 %%          as `{ok, Code, RespId}' or `{resp, Resp}' if option `full_response' is used.
 %%          For `async' requests, it is called also for the final response and, if
 %%          an error is produced before sending the request, as `{error, Error}'. 
-%%          See also `get_request' and `full_request' options</td>
+%%          See also `get_request' and `full_request' options.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`full_response'</td>
@@ -209,7 +209,7 @@
                         {resp, nksip:response()} |
                         {async, nksip:request_id()}.
 
--type send_ack() ::    {ok, nksip:request_id()} | {req, nksip:request()}.  
+-type send_ack() ::    {req, nksip:request_id()} | {req, nksip:request()}.  
 
 -type send_error() :: unknown_dialog | request_pending | network_error | 
                       nksip_call_router:sync_error().
@@ -233,7 +233,7 @@
 %% it has failed or it is not responding requests for any reason. 
 %% It can also be used to measure the remote party response time. 
 %%
-%% Recognized options are described in {@link nksip_uac}.
+%% Recognized options are described in {@link make_opts()}.
 %%
 %% NkSIP has an automatic remote <i>pinging</i> feature that can be activated 
 %% on any SipApp (see {@link nksip_sipapp_auto:start_ping/5}).
@@ -259,7 +259,7 @@ reoptions(DialogSpec, Opts) ->
 %% to register a new `Contact', delete a current registration or get the list of 
 %% current registered contacts from the registrar.
 %%
-%% The recognized options and responses are the same as {@link nksip_uac}, and also:
+%% The recognized options and responses are defined in {@link make_opts()}, and also:
 %%  
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -352,11 +352,9 @@ register(AppId, Uri, Opts) ->
 %% (called <i>reINVITEs</i>) <i>inside</i> this dialog, 
 %% calling {@link reinvite/2}.
 %%
-%% The recognized options and responses are the same as {@link options/3}, but
-%% if not `full_response' is used, the response will also include the `DialogId'; the 
-%% `respfun' function will also be called as `{ok, Code, DialogId}' or `{reply, Resp}'.
-%% If `async' is used, the response would be `{async, CancelId}'. You can use this
-%% `CancelId' to <i>CANCEL</i> the request using {@link cancel/2}.
+%% The recognized options and responses are defined in {@link make_opts()}.
+%% If you want to be able to <i>CANCEL</i> the request, you should use the `async'
+%% option.
 %%
 %% Aditional options are:
 %%
@@ -401,11 +399,10 @@ invite(AppId, Uri, Opts) ->
 %% NkSIP won't send it for you automatically in case of a successful response, 
 %% because you may want to include a SDP body if you didn't do it in the INVITE request.
 %%
-%% To speciy the dialog you should use the `DialogId' or `Response' from 
-%% the return of the {@link invite/3} call or use {@link nksip_sipapp:dialog_update/3}
-%% callback function. Valid options are defined in {@link options/3}, but, 
-%% as an in-dialog request, options `from', `to', `call_id', `cseq' and `route' 
-%% should not used.
+%% To specify the dialog you should use the `RespId' or `Response' from 
+%% the return of the {@link invite/3} call or get the dialogs's id using
+%% {@link nksip_sipapp:dialog_update/3} callback function. 
+%% Valid options are defined in {@link dialog_opts()}.
 %%
 %% For sync requests, it will return `{req, ReqId}' if the request could be sent, 
 %% (or `{req, Req}' if `full_request' option is present) or
@@ -423,9 +420,7 @@ ack(DialogSpec, Opts) ->
 %% @doc Sends a in-dialog <i>INVITE</i> (commonly called reINVITE) for a 
 %% currently ongoing dialog.
 %%
-%% The options and responses are the same as for {@link invite/3}, but in case of
-%% `async' requests no `CancelId' is returned. As an in-dialog request,
-%% options `from', `to', `call_id', `cseq' and `route' should not used.
+%% The options are defined in {@link dialog_opts()}.
 %%
 %% A `make_contact' option will be automatically added if no contact is defined.
 %%
@@ -454,13 +449,12 @@ reinvite(DialogSpec, Opts) ->
 %% @doc Sends an <i>BYE</i> for a current dialog.
 %%
 %% Sends a BYE request and terminates the dialog and the session.
-
-%% You need to know the `DialogId' of the dialog. You can get from the return of
-%% the initial {@link invite/3}, or using {@link nksip_sipapp:dialog_update/3}
-%% callback function.
 %%
-%% Valid options are defined in {@link options/3}, but, as an in-dialog request,
-%% options `from', `to', `call_id', `cseq' and `route' should not used.
+%% You need to know the response id or dialog id of the call. 
+%% You can get from the return of the initial {@link invite/3}, or using 
+%% {@link nksip_sipapp:dialog_update/3} callback function.
+%%
+%% Valid options are defined in {@link dialog_opts()}.
 %%
 -spec bye(nksip_dialog:spec(), nksip_lib:proplist()) -> 
     send_common() | {error, send_error()}.

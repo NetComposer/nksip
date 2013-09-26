@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc UAS Transaction FSM.
+%% @doc Call UAS Management
 -module(nksip_call_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -48,7 +48,7 @@
 %% Public
 %% ===================================================================
 
-%% @doc Called when a new request is received
+%% @doc Called when a new request is received.
 -spec request(nksip:request(), call()) ->
     #call{}.
 
@@ -124,7 +124,7 @@ process_retrans(UAS, Call) ->
 %% ===================================================================
 
 
-%% @private Called by a fork when it has a response available
+%% @private Called by a fork when it has a response available.
 -spec fork_reply(id(), {nksip:response(), nksip_lib:proplist()}, call()) ->
     call().
 

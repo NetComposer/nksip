@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Call proxy management functions
+%% @doc Call Proxy Management
 -module(nksip_call_proxy).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -39,8 +39,7 @@
 %% Private
 %% ===================================================================
 
-%% @private Routes a `Request' to set of uris, serially and/or in parallel.
-%% See {@link nksip_sipapp:route/6} for an options description.
+%% @doc Tries to route a request to set of uris, serially and/or in parallel.
 -spec check(nksip_call:trans(), nksip:uri_set(), [opt()], nksip_call:call()) -> 
     {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
     {reply, nksip:sipreply()}.
@@ -120,7 +119,7 @@ route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
     end.
     
 
-%% @private Called from nksip_call_uac when a stateless request is received
+%% @doc Called from {@link nksip_call} when a stateless request is received.
 -spec response_stateless(nksip:response(), nksip_call:call()) -> 
     nksip_call:call().
 
@@ -190,8 +189,8 @@ preprocess(#sipmsg{forwards=Forwards, routes=Routes, headers=Headers}=Req, Proxy
     Req#sipmsg{forwards=Forwards-1, headers=Headers2, routes=Routes2}.
 
 
-%% @private Process a UriSet generating a standard [[nksip:uri()]]
-%% See test bellow for examples
+%% @doc Process a UriSet generating a standard `[[nksip:uri()]]'.
+%% See test code for examples.
 -spec normalize_uriset(nksip:uri_set()) ->
     [[nksip:uri()]].
 

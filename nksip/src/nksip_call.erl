@@ -18,15 +18,11 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call Server
+%% @doc Call Management Module
 %%
-%% {@link nksip_call_router} starts a new call server process for each new
-%% incoming different Call-Id.
-%%
-%% Each call server process controls each transaction, fork and dialog associated 
-%% with this Call-Id.
-%%
-%% It also stores all SipMsgs (requests and responses) having this Call-Id
+%% A new {@link nksip_call_srv} process is started for every different
+%% Call-ID request or response, incoming or outcoming.
+%% This module offers an interface to this process.
 
 -module(nksip_call).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -78,15 +74,15 @@
 %% Public
 %% ===================================================================
 
-%% @doc Sends a new request
--spec send(nksip:request(), nksip_lib:proplist()) ->
+%% @doc Sends a new request.
+-spec send(Req::nksip:request(), nksip_lib:proplist()) ->
     nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:send_error()}.
 
 send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
     send_work_sync(AppId, CallId, {send, Req, Opts}).
 
 
-%% @doc Generates and sends a new request
+%% @doc Generates and sends a new request.
 -spec send(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->
     nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:make_error()}.
 
@@ -98,7 +94,7 @@ send(AppId, Method, Uri, Opts) ->
     send_work_sync(AppId, CallId, {send, Method, Uri, Opts}).
 
 
-%% @doc Generates and sends a new in-dialog request
+%% @doc Generates and sends a new in-dialog request.
 -spec send_dialog(nksip_dialog:spec(), nksip:method(), nksip_lib:proplist()) ->
     nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:send_error()}.
 
@@ -111,16 +107,16 @@ send_dialog(DialogSpec, Method, Opts) ->
     end.
 
 
-%% @doc Cancels an ongoing INVITE request
+%% @doc Cancels an ongoing INVITE request.
 -spec cancel(nksip:request_id()) ->
     ok | {error, nksip_uac:cancel_error()}.
 
-cancel(ReqSpec) ->
-    {req, AppId, CallId, Id, _DlgId} = nksip_request:id(ReqSpec),
+cancel(Req) ->
+    {req, AppId, CallId, Id, _DlgId} = nksip_request:id(Req),
     send_work_sync(AppId, CallId, {cancel, Id}).
 
 
-%% @doc Sends a callback SipApp response
+%% @private Sends a callback SipApp response.
 -spec app_reply(nksip:app_id(), nksip:call_id(), atom(), nksip_call_uas:id(), term()) ->
     ok.
 
@@ -128,8 +124,8 @@ app_reply(AppId, CallId, Fun, TransId, Reply) ->
     send_work_async(AppId, CallId, {app_reply, Fun, TransId, Reply}).
 
 
-%% @doc Sends a synchronous request reply
--spec sync_reply(nksip:request_id(), nksip:sipreply()) ->
+%% @doc Sends a synchronous request reply.
+-spec sync_reply(Req::nksip:request_id(), nksip:sipreply()) ->
     {ok, nksip:response()} | {error, Error}
     when Error :: invalid_call | nksip_call_router:sync_error().
 
@@ -137,7 +133,7 @@ sync_reply({req, AppId, CallId, MsgId, _DlgId}, Reply) ->
     send_work_sync(AppId, CallId, {sync_reply, MsgId, Reply}).
 
 
-%% @doc Get authorized list
+%% @doc Gets authorized list of transport, ip and ports for a dialog.
 -spec get_authorized_list(nksip_dialog:spec()) ->
     [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
 
@@ -153,7 +149,7 @@ get_authorized_list(DialogSpec) ->
     end.
 
 
-%% @doc Clear authorized list
+%% @doc Clears authorized list of transport, ip and ports for a dialog.
 -spec clear_authorized_list(nksip_dialog:spec()) ->
     ok | error.
 
@@ -169,7 +165,7 @@ clear_authorized_list(DialogSpec) ->
     end.
 
 
-%% @doc Stops (deletes) a dialog
+%% @doc Stops (deletes) a dialog.
 -spec stop_dialog(nksip_dialog:spec()) ->
     ok | {error, unknown_dialog}.
  
@@ -182,7 +178,7 @@ stop_dialog(DialogSpec) ->
     end.
 
 
-%% @doc Get all started calls
+%% @doc Get all started calls.
 -spec get_all() ->
     [{nksip:app_id(), nksip:call_id(), pid()}].
 

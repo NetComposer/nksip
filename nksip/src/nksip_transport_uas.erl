@@ -43,7 +43,7 @@ send_user_response(#sipmsg{class=req}=Request, SipReply, GlobalId, Opts) ->
 
 
 %% @doc Sends a new `Response'.
-%% Recognizes options local_host, make_contact
+%% Recognizes options `local_host' and `make_contact'.
 -spec send_response(nksip:response(), binary(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 

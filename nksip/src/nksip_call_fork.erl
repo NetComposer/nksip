@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Call fork processing module
+%% @doc Call Fork Management
 -module(nksip_call_fork).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -39,8 +39,7 @@
 %% Private
 %% ===================================================================
 
-%% @private
-%% Recognized options are: follow_redirects
+%% @doc Starts a new Forking Proxy.
 -spec start(nksip_call:trans(), nksip:uri_set(), nksip_lib:proplist(),call()) ->
    call().
 
@@ -65,7 +64,7 @@ start(Trans, UriSet, ForkOpts, #call{forks=Forks}=Call) ->
 
 
 
-%% @private Called from the UAS when a Cancel is received
+%% @doc Tries to cancel an ongoing fork.
 -spec cancel(id(), call()) ->
    call().
 

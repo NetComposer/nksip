@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc User Response management functions
+%% @doc User Response Management Functions
 -module(nksip_response).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -71,7 +71,7 @@
 %%          <td>Reason Phrase</td>
 %%      </tr>
 %% </table>
--spec field(input(), field()) ->
+-spec field(Resp::input(), field()) ->
     term() | error.
 
 field(#sipmsg{class=resp}=Resp, Field) -> 
@@ -80,8 +80,8 @@ field({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId, Field) ->
     nksip_sipmsg:field(RespId, Field).
 
 
-%% @doc Get some fields from a response
--spec fields(input(), [field()]) ->
+%% @doc Get some fields from a response.
+-spec fields(Resp::input(), [field()]) ->
     [term()] | error.
 
 fields(#sipmsg{class=resp}=Resp, Fields) -> 
@@ -90,8 +90,8 @@ fields({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId, Fields) ->
     nksip_sipmsg:fields(RespId, Fields).
 
 
-%% @doc Get header values from a response
--spec header(input(), binary()) ->
+%% @doc Get header values from a response.
+-spec header(Resp::input(), binary()) ->
     [binary()] | error.
 
 header(#sipmsg{class=resp}=Resp, Name) -> 
@@ -100,8 +100,8 @@ header({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId, Name) ->
     nksip_sipmsg:header(RespId, Name).
 
 
-%% @doc Gets the {@link nksip:response_id()} of a request
--spec id(input()) ->
+%% @doc Gets the {@link nksip:response_id()} of a response.
+-spec id(Resp::input()) ->
     nksip:response_id().
 
 id({resp, _AppId, _CallId, _MsgId, _DlgId}=RespId) ->
@@ -114,7 +114,7 @@ id(#sipmsg{class=resp, id=MsgId, app_id=AppId, call_id=CallId}=Resp) ->
     {resp, AppId, CallId, MsgId, DlgId}.
 
 
-%% @doc Gets the dialog's id of a request or response 
+%% @doc Gets the dialog's id of a response.
 -spec dialog_id(input()) ->
     nksip:dialog_id() | undefined.
 
@@ -122,7 +122,7 @@ dialog_id(Resp) ->
     nksip_sipmsg:dialog_id(Resp).
 
 
-%% @doc Gets the call's id of a request or response 
+%% @doc Gets the call's id of a response .
 -spec call_id(input()) ->
     nksip:call_id().
 

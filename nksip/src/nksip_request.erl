@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc User Request management functions.
+%% @doc User Request Management Functions.
 
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -236,7 +236,7 @@
 %%          <td>Remote transport protocol, ip and port of a request</td>
 %%      </tr>
 %% </table>
--spec field(input(), field()) ->
+-spec field(Req::input(), field()) ->
     term() | error.
 
 field(#sipmsg{class=req}=Req, Field) -> 
@@ -245,8 +245,8 @@ field({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId, Field) ->
     nksip_sipmsg:field(ReqId, Field).
 
 
-%% @doc Gets some fields from a request
--spec fields(input(), [field()]) ->
+%% @doc Gets some fields from a request.
+-spec fields(Req::input(), [field()]) ->
     [term()] | error.
 
 fields(#sipmsg{class=req}=Req, Fields) -> 
@@ -255,8 +255,8 @@ fields({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId, Fields) ->
     nksip_sipmsg:fields(ReqId, Fields).
 
 
-%% @doc Gets values for a header in a request
--spec header(input(), binary()) ->
+%% @doc Gets values for a header in a request.
+-spec header(Req::input(), binary()) ->
     [binary()] | error.
 
 header(#sipmsg{class=req}=Req, Name) -> 
@@ -265,8 +265,8 @@ header({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId, Name) ->
     nksip_sipmsg:header(ReqId, Name).
 
 
-%% @doc Gets the {@link nksip:request_id()} of a request
--spec id(input()) ->
+%% @doc Gets the {@link nksip:request_id()} of a request.
+-spec id(Req::input()) ->
     nksip:request_id().
 
 id({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId) ->
@@ -279,7 +279,7 @@ id(#sipmsg{class=req, id=MsgId, app_id=AppId, call_id=CallId}=Req) ->
     {req, AppId, CallId, MsgId, DlgId}.
 
 
-%% @doc Gets the dialog's id of a request or response 
+%% @doc Gets the dialog's id of a request.
 -spec dialog_id(input()) ->
     nksip:dialog_id() | undefined.
 
@@ -287,7 +287,7 @@ dialog_id(Req) ->
     nksip_sipmsg:dialog_id(Req).
 
 
-%% @doc Gets the call's id of a request or response 
+%% @doc Gets the call's id of a request.
 -spec call_id(input()) ->
     nksip:call_id().
 
@@ -313,7 +313,7 @@ body(Req) ->
 
 
 %% @doc Sends a <i>provisional response</i> to a request.
--spec provisional_reply(input(), nksip:sipreply()) -> 
+-spec provisional_reply(Req::input(), nksip:sipreply()) -> 
     ok | {error, Error}
     when Error :: invalid_response | invalid_call | unknown_call | unknown_sipapp.
 

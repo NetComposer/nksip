@@ -26,7 +26,6 @@
 %% NkSIP has few global configuration options. Config values are set using standard 
 %% nksip application's erlang environmet (file `nksip.app').
 %% Their default values are defined in the following table. 
-%% All of them can be changed at any time while running using {@link put/2}. 
 %%
 %% <table border="1">
 %%   <tr><th>Name</th><th>Default</th><th>Comments</th></tr>
@@ -50,9 +49,12 @@
 %%   <tr><td>`max_connections'</td><td>1024</td>
 %%       <td>Maximum number of simultaneous TCP/TLS connections NkSIP will accept 
 %%           in each transport belonging to each SipApp.</td></tr>
-%%   <tr><td>`registrar_default_time'</td><td>3600</td><td>(secs)</td></tr>
-%%   <tr><td>`registrar_min_time'</td><td>60</td><td>(secs)</td></tr>
-%%   <tr><td>`registrar_max_time'</td><td>86400</td><td>(secs)</td></tr>
+%%   <tr><td>`registrar_default_time'</td><td>3600</td>
+%%       <td>Registrar default time (secs)</td></tr>
+%%   <tr><td>`registrar_min_time'</td><td>60</td>
+%%       <td>Registrar minimum allowed time (secs)</td></tr>
+%%   <tr><td>`registrar_max_time'</td><td>86400</td>
+%%       <td>Registrar maximum allowed time (secs)</td></tr>
 %% </table>
 
 -module(nksip_config).

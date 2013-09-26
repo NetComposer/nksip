@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc User dialog management module.
+%% @doc User Dialog Management Module.
 %% This module implements several utility functions related to dialogs.
 
 -module(nksip_dialog).
@@ -101,8 +101,8 @@
 %%          <td>Answer (first 2xx response) timestamp</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`state'</td>
-%%          <td>{@link state()}</td>
+%%          <td>`status'</td>
+%%          <td>{@link status()}</td>
 %%          <td>Current dialog state</td>
 %%      </tr>
 %%      <tr>
@@ -209,7 +209,7 @@ field(DialogSpec, Field) ->
     end.
 
 
-%% @doc Gets a number of fields from the `Request' as described in {@link field/2}
+%% @doc Gets a number of fields from the `Request' as described in {@link field/2}.
 -spec fields(spec(), [field()]) -> 
     [term()] | error.
     
@@ -224,10 +224,10 @@ fields(DialogSpec, Fields) when is_list(Fields) ->
     end.
 
 
-%% @doc Calculates a <i>Dialog's Id</i> from a {@link nksip:request_id()}, 
+%% @doc Calculates a <i>dialog's id</i> from a {@link nksip:request_id()}, 
 %% {@link nksip:response_id()}, {@link nksip:request()} or {@link nksip:response()}.
-%% <i>Dialog Ids</i> are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
-%% and <i>To</i> Tag. If From Tag and To Tag are swapped the resulting Id is the same.
+%% Dialog ids are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
+%% and <i>To</i> Tag. If From tag and To tag are swapped the resulting id is the same.
 -spec id(spec()) ->
     nksip:dialog_id() | undefined.
 
@@ -259,7 +259,7 @@ id(_) ->
     undefined.
 
 
-%% @doc Gets a full dialog record
+%% @doc Gets a full dialog record.
 -spec get_dialog(spec()) ->
     dialog() | error.
 
@@ -275,7 +275,7 @@ get_dialog(DialogSpec) ->
     end.
 
 
-%% @doc Gets all started dialog id's
+%% @doc Gets all started dialog ids.
 -spec get_all() ->
     [nksip:dialog_id()].
 
@@ -283,7 +283,7 @@ get_all() ->
     nksip_call_router:get_all_dialogs().
 
 
-%% @doc Finds all existing dialogs' having a `Call-ID'
+%% @doc Finds all existing dialogs having a `Call-ID'.
 -spec find_callid(nksip:app_id(), nksip:call_id()) ->
     [nksip:dialog_id()].
 

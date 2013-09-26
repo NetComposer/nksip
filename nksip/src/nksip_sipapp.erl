@@ -23,7 +23,7 @@
 %% All of the available functions you can implement in your callback module are described 
 %% here, along with the default implementation of each one.
 %%
-%% Every SipApp must define a callback module, using this module's behaviour. 
+%% Every <b>SipApp</b> must define a <i>callback module</i>, using this module's behaviour. 
 %% This behaviour works in a very similar way to any standard Erlang `gen_server''s 
 %% callback module, but only {@link init/1} is mandatory.
 %%
@@ -82,8 +82,8 @@
 %%  <li>If the request is going to be processed locally, {@link invite/4},
 %%      {@link options/3}, {@link register/3} or {@link bye/4} are called,
 %%      and the user must send a reply. 
-%%      If the request is a <i>CANCEL</i>, {@link cancel/3} is called and the
-%%      user must decide to cancel or not the request.</li>
+%%      If the request is a valid <i>CANCEL</i>, belonging to an active <i>INVITE</i>
+%%      transaction, the INVITE is cancelled and {@link cancel/2} is called.</li>
 %%  <li>After sending a successful response to an <i>INVITE</i> request,
 %%      the other party will send an <i>ACK</i> and {@link ack/4} will be called.</li>
 %%  <li>If the request creates or modifies a dialog and/or a SDP session, 
@@ -114,10 +114,8 @@
 %%
 %% Many of the callback functions receive a `RequesId' ({@link nksip:request_id()}) 
 %% object as first parameter, representing a pointer to the actual request. You can
-%% use the helper funcions in {@link nksip_request} to extract any information from it. 
-%% Some other functions receive a `DialogId' ({@link nksip:dialog_id()}) object, 
-%% representing a pointer to an established dialog.
-%% Use {@link nksip_dialog} functions to extract information from it.
+%% use the helper funcions in {@link nksip_request} to extract any information from it,
+%% and, it it is liked to a dialog, the functions in {@link nksip_dialog}.
 %%
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -522,7 +520,8 @@ register(ReqId, From, State) ->
 %%
 -spec dialog_update(DialogId::nksip:dialog_id(), DialogStatus, State::term()) ->
     call_noreply()
-    when DialogStatus :: start|target_update|{stop, nksip_dialog:stop_reason()}.
+    when DialogStatus :: start | target_update | {status, nksip_dialog:status()} |
+                         {stop, nksip_dialog:stop_reason()}.
     
 dialog_update(_DialogId, _Status, State) ->
     {noreply, State}.
@@ -575,7 +574,7 @@ handle_cast(_Msg, State) ->
     {error, unexpected_cast, State}.
 
 
-%% @doc Called when the SipApp process receives an unknown message
+%% @doc Called when the SipApp process receives an unknown message.
 handle_info(_Msg, State) ->
     {noreply, State}.
 

@@ -18,15 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call Server
-%%
-%% {@link nksip_call_router} starts a new call server process for each new
-%% incoming different Call-Id.
-%%
-%% Each call server process controls each transaction, fork and dialog associated 
-%% with this Call-Id.
-%%
-%% It also stores all SipMsgs (requests and responses) having this Call-Id
+%% @doc Call Server Process
 
 -module(nksip_call_srv).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -47,7 +39,7 @@
 %% Public
 %% ===================================================================
 
-%% @doc Starts a new call
+%% @doc Starts a new call process.
 -spec start(nksip:app_id(), nksip:call_id(), #call_opts{}) ->
     {ok, pid()}.
 
@@ -55,7 +47,7 @@ start(AppId, CallId, CallOpts) ->
     gen_server:start(?MODULE, [AppId, CallId, CallOpts], []).
 
 
-%% @doc Stops a call (deleting  all associated transactions, dialogs and forks!)
+%% @doc Stops a call (deleting  all associated transactions, dialogs and forks!).
 -spec stop(pid()) ->
     ok.
 
@@ -63,7 +55,7 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
-%% @doc Sends a synchronous piece of {@link work()} to the call.
+%% @doc Sends a synchronous piece of {@link nksip_call:work()} to the call.
 %% After receiving the work, the call will send `{sync_work_ok, Ref}' to `Sender'
 -spec sync_work(pid(), reference(), pid(), nksip_call:work(), from()|none) ->
     ok.
@@ -72,7 +64,7 @@ sync_work(Pid, Ref, Sender, Work, From) ->
     gen_server:cast(Pid, {sync_work, Ref, Sender, Work, From}).
 
 
-%% doc Sends an asynchronous piece of {@link work()} to the call.
+%% @doc Sends an asynchronous piece of {@link nksip_call:work()} to the call.
 -spec async_work(pid(), nksip_call:work()) ->
     ok.
 

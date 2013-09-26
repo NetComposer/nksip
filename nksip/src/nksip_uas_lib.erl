@@ -19,7 +19,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc UAS Process helper functions
-%% Look at {@link make}
 -module(nksip_uas_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -export([preprocess/2, response/5]).
@@ -42,7 +41,6 @@
 %%  <li>Removes first route if it is poiting to us.</li>
 %% </ul>
 %%
-%% Recognizes global_id option and generates to_tag option
 
 -spec preprocess(nksip:request(), binary()) ->
     nksip:request() | own_ack.
@@ -93,10 +91,11 @@ preprocess(Req, GlobalId) ->
 
 
 %% @doc Generates a new `Response' based on a received `Request'.
-%% Option make_contact is copied from options.
-%% Option to_tag is taken from options or request to generate the response To tag.
-%% The following recognized options generate headers: make_www_auth, make_proxy_auth, 
-%% make_allow, make_supported, make_accept, make_date
+%%
+%% Option `to_tag is' taken from options or request to generate the response To tag.
+%% The following recognized options generate specific headers: 
+%% `make_www_auth', `make_proxy_auth', `make_allow', `make_supported', 
+%% `make_accept', `make_date'.
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
                 nksip:body(), nksip_lib:proplist()) -> 
     {nksip:response(), nksip_lib:proplist()}.

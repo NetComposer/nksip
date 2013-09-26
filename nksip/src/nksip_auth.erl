@@ -113,10 +113,10 @@ get_authentication(Req) ->
 
 
 %% @doc Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header 
-%% and updates <i>CSeq</i> of a request after receiving a 401 or 407 response.
+%% for a request after receiving a 401 or 407 response.
 %% CSeq must be updated after calling this function.
 %%
-%% Recognized options are pass, user, cnonce and nc
+%% Recognized options are `pass', `user', `cnonce' and `nc'.
 -spec make_request(Req::nksip:request(), Resp::nksip:response(), nksip_lib:proplist()) ->
     {ok, nksip:request()} | {error, Error}
     when Error :: invalid_auth_header | unknown_nonce | no_pass.
@@ -175,7 +175,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
 
 
 %% @doc Generates a <i>WWW-Authenticate</i> or <i>Proxy-Authenticate</i> header
-%% in response to a `Request'. 
+%% in response to a request.
 %% Use this function to answer to a request with a 401 or 407 response.
 %%
 %% A new `nonce' will be generated to be used by the client in its response, 

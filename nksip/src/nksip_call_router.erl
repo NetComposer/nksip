@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Call generation and distribution
+%% @doc Call Distribution Router
 -module(nksip_call_router).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -54,17 +54,17 @@
 %% Public
 %% ===================================================================
 
-%% @private
+%% @doc Called when a new request or response has been received.
 incoming_async(#raw_sipmsg{call_id=CallId}=RawMsg) ->
     gen_server:cast(name(CallId), {incoming, RawMsg}).
 
 
-%% @private
+%% @doc Called when a new request or response has been received.
 incoming_sync(#raw_sipmsg{call_id=CallId}=RawMsg) ->
     gen_server:call(name(CallId), {incoming, RawMsg}).
 
 
-%% @private
+%% @doc Sends a synchronous piece of {@link nksip_call:work()} to a call.
 -spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
     any() | {error, sync_error()}.
 
@@ -80,7 +80,7 @@ send_work_sync(AppId, CallId, Work) ->
     end.
 
 
-%% @private
+%% @doc Sends an asynchronous piece of {@link nksip_call:work()} to a call.
 -spec send_work_async(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
     ok.
 
@@ -88,7 +88,7 @@ send_work_async(AppId, CallId, Work) ->
     send_work_async(name(CallId), AppId, CallId, Work).
 
 
-%% @private
+%% @doc Sends an asynchronous piece of {@link nksip_call:work()} to a call.
 -spec send_work_async(atom(), nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
     ok.
 
@@ -102,7 +102,7 @@ send_work_async(Name, AppId, CallId, Work) ->
    end.
 
 
-%% @doc Applies a fun to a dialog and returns the result
+%% @doc Applies a fun to a dialog and returns the result.
 -spec apply_dialog(nksip_dialog:spec(), function()) ->
     term() | {error, Error}
     when Error :: unknown_dialog | sync_error().
@@ -116,7 +116,7 @@ apply_dialog(DialogSpec, Fun) ->
     end.
 
 
-%% @doc Get all dialog ids for all calls
+%% @doc Get all dialog ids for all calls.
 -spec get_all_dialogs() ->
     [nksip:dialog_id()].
 
@@ -125,7 +125,7 @@ get_all_dialogs() ->
         ||{AppId, CallId, _} <- get_all_calls()]).
 
 
-%% @doc Get all dialog for this SipApp and having CallId
+%% @doc Get all dialog ids for this SipApp, having CallId.
 -spec get_all_dialogs(nksip:app_id(), nksip:call_id()) ->
     [nksip:dialog_id()].
 
@@ -136,7 +136,7 @@ get_all_dialogs(AppId, CallId) ->
     end.
 
 
-%% @doc Applies a fun to a SipMsg and returns the result
+%% @doc Applies a fun to a SipMsg and returns the result.
 -spec apply_sipmsg(nksip:request_id() | nksip:response_id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_sipmsg | sync_error().
@@ -146,7 +146,7 @@ apply_sipmsg({Class, AppId, CallId, MsgId, _DlgId}, Fun)
     send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun}).
 
 
-%% @doc Get all stored SipMsgs for all calls
+%% @doc Get all stored SipMsgs for all calls.
 -spec get_all_sipmsgs() ->
     [nksip:request_id() | nksip:response_id()].
 
@@ -155,7 +155,7 @@ get_all_sipmsgs() ->
         ||{AppId, CallId, _} <- get_all_calls()]).
 
 
-%% @doc Get all SipMsgs for this SipApp and having CallId
+%% @doc Get all SipMsgs for this SipApp, having CallId.
 -spec get_all_sipmsgs(nksip:app_id(), nksip:call_id()) ->
     [nksip:request_id() | nksip:response_id()].
 
@@ -166,7 +166,7 @@ get_all_sipmsgs(AppId, CallId) ->
     end.
 
 
-%% @doc Applies a fun to a Transaction and returns the result
+%% @doc Applies a fun to a transaction and returns the result.
 -spec apply_transaction(nksip:request_id() | nksip:response_id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_transaction | sync_error().
@@ -176,7 +176,7 @@ apply_transaction({Class, AppId, CallId, MsgId, _DlgId}, Fun)
     send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun}).
 
 
-%% @doc Get all stored SipMsgs for all calls
+%% @doc Get all active transactions for all calls.
 -spec get_all_transactions() ->
     [nksip:request_id() | nksip:response_id()].
 
@@ -185,7 +185,7 @@ get_all_transactions() ->
         ||{AppId, CallId, _} <- get_all_calls()]).
 
 
-%% @doc Get all Transactions for this SipApp and having CallId
+%% @doc Get all active transactions for this SipApp, having CallId.
 -spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
     [nksip:request_id() | nksip:response_id()].
 
@@ -196,7 +196,7 @@ get_all_transactions(AppId, CallId) ->
     end.
 
 
-%% @doc Get all started calls
+%% @doc Get all started calls.
 -spec get_all_calls() ->
     [{nksip:app_id(), nksip:call_id(), pid()}].
 
@@ -205,7 +205,7 @@ get_all_calls() ->
     lists:flatten(router_fold(Fun)).
 
 
-%% @private 
+%% @doc Removes all calls, dialogs, transactions and forks.
 clear_all_calls() ->
     lists:foreach(fun({_, _, Pid}) -> nksip_call_srv:stop(Pid) end, get_all_calls()).    
 

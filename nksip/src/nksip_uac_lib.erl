@@ -33,7 +33,6 @@
 
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
-%% It will also add a <i>From</i> tag if not present.
 -spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), 
            nksip_lib:proplist(), nksip_lib:proplist()) ->    
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when

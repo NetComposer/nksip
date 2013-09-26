@@ -160,7 +160,7 @@
 %%          <td>`from'</td>
 %%          <td>{@link user_uri()}</td>
 %%          <td>`"NkSIP App <sip:user@nksip>"'</td>
-%%          <td>Default <i>From</i> to use in the requests</td>
+%%          <td>Default <i>From</i> to use in the requests.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`pass'</td>
@@ -181,13 +181,13 @@
 %%          <td>NkSIP will try to <i>REGISTER</i> the SipApp with this registrar server, 
 %%          (i.e. "sips:sip2sip.info"). <br/> 
 %%          See {@link nksip_sipapp_auto:get_registers/1}
-%%          and {@link nksip_sipapp:register_update/3}</td>
+%%          and {@link nksip_sipapp:register_update/3}.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`register_expires'</td>
 %%          <td>`integer()'</td> 
 %%          <td>`300'</td>
-%%          <td>In case of register, registration interval (secs)</td>
+%%          <td>In case of register, registration interval (secs).</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`transports'</td>
@@ -202,26 +202,26 @@
 %%          If an UDP transport is started, a TCP transport on the same IP and port
 %%          will be started automatically.<br/>
 %%          Use `{0,0,0,0}' to use <i>all</i> available IP addresses and `0' to use
-%%          any available port</td>
+%%          any available port.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`listeners'</td>
 %%          <td>`integer()'</td>
 %%          <td>`1'</td>
 %%          <td>Number of pre-started listeners for TCP and TLS
-%%          (see <a href="http://ninenines.eu/docs/en/ranch/HEAD/guide/introduction">Ranch's</a> documentation)</td>
+%%          (see <a href="http://ninenines.eu/docs/en/ranch/HEAD/guide/introduction">Ranch's</a> documentation).</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`certfile'</td>
 %%          <td>`string()'</td>
-%%          <td>`"(privir)/cert.pem"'</td>
-%%          <td> Path to the certificate file for TLS</td>
+%%          <td>`"(privdir)/cert.pem"'</td>
+%%          <td> Path to the certificate file for TLS.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`keyfile'</td>
 %%          <td>`string()'</td>
 %%          <td>`"(privdir)/key.pem"'</td>
-%%          <td>Path to the key file for TLS</td>
+%%          <td>Path to the key file for TLS.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`route'</td>
@@ -229,7 +229,7 @@
 %%          <td></td>
 %%          <td> Route (outbound proxy) to use. Generates one or more `Route' headers
 %%              in every request, for example `<sip:1.2.3.4;lr>, <sip:abcd;lr>' 
-%%              (you will usually append the `lr' option to use <i>loose routing</i>)
+%%              (you will usually append the `lr' option to use <i>loose routing</i>).
 %%          </td>
 %%      </tr>
 %%      <tr>
@@ -242,7 +242,7 @@
 %%          transport selected in every case. If that transport is listening on all
 %%          addresses (`{0,0,0,0}'), NkSIP will try to find the best IP, using the first 
 %%          valid IP of all the network interfaces in this order: `eth0, eth1, en0, en1',
-%%          or any other IP address of the host</td>
+%%          or any other IP address of the host.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`registrar'</td>
@@ -259,12 +259,12 @@
 %%          <td></td>
 %%          <td></td>
 %%          <td>If present, forbids the generation of automatic `100-type' responses
-%%          if no other response has been generated after 100 msecs</td>
+%%          for INVITE requests.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`msg_keep_time'</td>
-%%          <td>integer()</td>
-%%          <td>5</td>
+%%          <td>`integer()'</td>
+%%          <td>`5'</td>
 %%          <td>Minimum time to keep requests and responses in memory after 
 %%              they are received.</td>
 %%      </tr>

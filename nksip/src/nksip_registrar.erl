@@ -20,7 +20,7 @@
 
 %% @doc NkSIP Registrar Server.
 %%
-%% This module includes a full registrar implementation according to RFC3261. 
+%% This module implements a full registrar implementation according to RFC3261. 
 %% Currently only RAM back-end storage is supported, so all registrations will be lost 
 %% in case of a NkSIP application restart. 
 %% Each started SipApp maintains its fully independent set of registrations.

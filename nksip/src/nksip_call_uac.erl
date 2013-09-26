@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc UAC transaction process
+%% @doc Call UAC Management
 -module(nksip_call_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -59,7 +59,7 @@
 %% ===================================================================
 
 
-%% @doc Starts a new UAC transaction
+%% @doc Starts a new UAC transaction.
 -spec request(nksip:request(), nksip_lib:proplist(), uac_from(), call()) ->
     call().
 
@@ -221,7 +221,7 @@ sent_method(_Other, #trans{proto=Proto}=UAC, Call) ->
 %% ===================================================================
 
 
-%% @doc Called when a new response is received
+%% @doc Called when a new response is received.
 -spec response(nksip:response(), call()) ->
     call().
 
@@ -508,8 +508,7 @@ do_received_auth(Req, Resp, UAC, Call) ->
 %% ===================================================================
 
 
-%% @doc Used to cancel an ongoing invite request.
-%% It will be blocked until a provisional or final response is received
+%% @doc Tries to cancel an ongoing invite request.
 -spec cancel(id()|trans(), call()) ->
     call().
 

@@ -34,7 +34,7 @@
 %% ===================================================================
 
 %% @doc Sends a new request.
-%% Recognizes options local_host, record_route, make_contact
+%% Recognizes options `local_host', `record_route' and `make_contact'.
 -spec send_request(nksip:request(), binary(), nksip_lib:proplist()) -> 
     {ok, nksip:request()} | error.
 
