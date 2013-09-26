@@ -267,6 +267,10 @@ handle_call({'$nksip_get_registered', Type}, _From, #state{procs=Procs}=State) -
 handle_call({'$nksip_call', Fun, Args}, From, State) ->
     mod_handle_call(Fun, Args, From, State);
     
+handle_call({'$update_opts', Opts}, _From, #state{id=AppId}=State) ->
+    ok = nksip_proc:put({nksip_sipapp_opts, AppId}, Opts),
+    {reply, ok, State};
+
 handle_call(Msg, From, State) ->
     case nksip_sipapp_auto:handle_call(Msg, From, State#state.reg_state) of
         error -> mod_handle_call(handle_call, [Msg], From, State);

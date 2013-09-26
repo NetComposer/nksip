@@ -31,12 +31,11 @@
 -module(nksip_call).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--behaviour(gen_server).
-
--export([start/3, stop/1, sync_work/5, async_work/2]).
--export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
-         code_change/3]).
--export([get_data/1]).
+-export([send/2, send/4, send_dialog/3, cancel/1, sync_reply/2]).
+-export([get_authorized_list/1, clear_authorized_list/1, stop_dialog/1]).
+-export([get_all/0, clear_all/0]).
+-export([app_reply/5, work/3, timeout/3]).
+-import(nksip_call_router, [send_work_sync/3, send_work_async/3]).
 
 -export_type([call/0, trans/0, fork/0, work/0]).
 
@@ -63,7 +62,7 @@
                 {send, nksip:request(), nksip_lib:proplist()} |
                 {send, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
                 {send_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
-                {cancel, nksip_call_uac:id(), nksip_lib:proplist()} |
+                {cancel, nksip_call_uac:id()} |
                 {make_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
                 {apply_dialog, nksip_dialog:id(), function()} |
                 get_all_dialogs | 
@@ -75,147 +74,129 @@
                 {get_authorized_list, nksip_dialog:id()} | 
                 {clear_authorized_list, nksip_dialog:id()}.
 
-
 %% ===================================================================
 %% Public
 %% ===================================================================
 
-%% @doc Starts a new call
--spec start(nksip:app_id(), nksip:call_id(), #call_opts{}) ->
-    {ok, pid()}.
+%% @doc Sends a new request
+-spec send(nksip:request(), nksip_lib:proplist()) ->
+    nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:send_error()}.
 
-start(AppId, CallId, CallOpts) ->
-    gen_server:start(?MODULE, [AppId, CallId, CallOpts], []).
+send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
+    send_work_sync(AppId, CallId, {send, Req, Opts}).
 
 
-%% @doc Stops a call (deleting  all associated transactions, dialogs and forks!)
--spec stop(pid()) ->
+%% @doc Generates and sends a new request
+-spec send(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->
+    nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:make_error()}.
+
+send(AppId, Method, Uri, Opts) ->
+    case nksip_lib:get_binary(call_id, Opts) of
+        <<>> -> CallId = nksip_lib:luid();
+        CallId -> ok
+    end,
+    send_work_sync(AppId, CallId, {send, Method, Uri, Opts}).
+
+
+%% @doc Generates and sends a new in-dialog request
+-spec send_dialog(nksip_dialog:spec(), nksip:method(), nksip_lib:proplist()) ->
+    nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:send_error()}.
+
+send_dialog(DialogSpec, Method, Opts) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, Id} ->
+            send_work_sync(AppId, CallId, {send_dialog, Id, Method, Opts});
+        undefined ->
+            {error, unknown_dialog}
+    end.
+
+
+%% @doc Cancels an ongoing INVITE request
+-spec cancel(nksip:request_id()) ->
+    ok | {error, nksip_uac:cancel_error()}.
+
+cancel(ReqSpec) ->
+    {req, AppId, CallId, Id, _DlgId} = nksip_request:id(ReqSpec),
+    send_work_sync(AppId, CallId, {cancel, Id}).
+
+
+%% @doc Sends a callback SipApp response
+-spec app_reply(nksip:app_id(), nksip:call_id(), atom(), nksip_call_uas:id(), term()) ->
     ok.
 
-stop(Pid) ->
-    gen_server:cast(Pid, stop).
+app_reply(AppId, CallId, Fun, TransId, Reply) ->
+    send_work_async(AppId, CallId, {app_reply, Fun, TransId, Reply}).
 
 
-%% @doc Sends a synchronous piece of {@link work()} to the call.
-%% After receiving the work, the call will send `{sync_work_ok, Ref}' to `Sender'
--spec sync_work(pid(), reference(), pid(), work(), from()|none) ->
-    ok.
+%% @doc Sends a synchronous request reply
+-spec sync_reply(nksip:request_id(), nksip:sipreply()) ->
+    {ok, nksip:response()} | {error, Error}
+    when Error :: invalid_call | nksip_call_router:sync_error().
 
-sync_work(Pid, Ref, Sender, Work, From) ->
-    gen_server:cast(Pid, {sync_work, Ref, Sender, Work, From}).
-
-
-%% doc Sends an asynchronous piece of {@link work()} to the call.
--spec async_work(pid(), work()) ->
-    ok.
-
-async_work(Pid, Work) ->
-    gen_server:cast(Pid, {async_work, Work}).
+sync_reply({req, AppId, CallId, MsgId, _DlgId}, Reply) ->
+    send_work_sync(AppId, CallId, {sync_reply, MsgId, Reply}).
 
 
-%% @private
-get_data(Pid) ->
-    gen_server:call(Pid, get_data).
+%% @doc Get authorized list
+-spec get_authorized_list(nksip_dialog:spec()) ->
+    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
+
+get_authorized_list(DialogSpec) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DlgId} ->
+            case send_work_sync(AppId, CallId, {get_authorized_list, DlgId}) of
+                {ok, List} -> List;
+                _ -> []
+            end;
+        undefined ->
+            []
+    end.
+
+
+%% @doc Clear authorized list
+-spec clear_authorized_list(nksip_dialog:spec()) ->
+    ok | error.
+
+clear_authorized_list(DialogSpec) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DlgId} ->
+            case send_work_sync(AppId, CallId, {clear_authorized_list, DlgId}) of
+                ok -> ok;
+                _ -> error
+            end;
+        undefined ->
+            error
+    end.
+
+
+%% @doc Stops (deletes) a dialog
+-spec stop_dialog(nksip_dialog:spec()) ->
+    ok | {error, unknown_dialog}.
  
-
-%% ===================================================================
-%% gen_server
-%% ===================================================================
-
-
-% @private 
--spec init(term()) ->
-    gen_server_init(call()).
-
-init([AppId, CallId, CallOpts]) ->
-    nksip_counters:async([nksip_calls]),
-    #call_opts{app_opts=AppOpts, max_trans_time=MaxTransTime} = CallOpts,
-    Id = erlang:phash2(make_ref()) * 1000,
-    Call = #call{
-        app_id = AppId, 
-        call_id = CallId, 
-        opts = CallOpts,
-        keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
-        next = Id+1,
-        hibernate = false,
-        msgs = [],
-        trans = [],
-        forks = [],
-        dialogs = [],
-        auths = []
-    },
-    erlang:start_timer(2*MaxTransTime, self(), check_call),
-    ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
-    {ok, Call, ?SRV_TIMEOUT}.
+stop_dialog(DialogSpec) ->
+    case nksip_dialog:id(DialogSpec) of
+        {dlg, AppId, CallId, DialogId} ->
+            send_work_sync(AppId, CallId, {stop_dialog, DialogId});
+        undefined ->
+            {error, unknown_dialog}
+    end.
 
 
-%% @private
--spec handle_call(term(), from(), call()) ->
-    gen_server_call(call()).
+%% @doc Get all started calls
+-spec get_all() ->
+    [{nksip:app_id(), nksip:call_id(), pid()}].
 
-handle_call(get_data, _From, Call) ->
-    #call{msgs=Msgs, trans=Trans, forks=Forks, dialogs=Dialogs} = Call,
-    {reply, {Msgs, Trans, Forks, Dialogs}, Call};
- 
- handle_call(Msg, _From, Call) ->
-    lager:error("Module ~p received unexpected sync event: ~p", [?MODULE, Msg]),
-    {noreply, Call}.
+get_all() ->
+    nksip_call_router:get_all_calls().
 
 
-%% @private
--spec handle_cast(term(), call()) ->
-    gen_server_cast(call()).
-
-handle_cast({sync_work, Ref, Pid, Work, From}, Call) ->
-    Pid ! {sync_work_ok, Ref},
-    next(work(Work, From, Call));
-
-handle_cast({async_work, Work}, Call) ->
-    next(work(Work, none, Call));
-
-handle_cast(stop, Call) ->
-    {stop, normal, Call};
-
-handle_cast(Msg, Call) ->
-    lager:error("Module ~p received unexpected event: ~p", [?MODULE, Msg]),
-    {noreply, Call}.
-
-
-%% @private
--spec handle_info(term(), call()) ->
-    gen_server_info(call()).
-
-handle_info({timeout, Ref, Type}, Call) ->
-    next(timeout(Type, Ref, Call));
-
-handle_info(timeout, Call) ->
-    next(Call);
-
-handle_info(Info, Call) ->
-    lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
-    {noreply, Call}.
-
-
-%% @private
--spec code_change(term(), call(), term()) ->
-    gen_server_code_change(call()).
-
-code_change(_OldVsn, Call, _Extra) -> 
-    {ok, Call}.
-
-
-%% @private
--spec terminate(term(), call()) ->
-    gen_server_terminate().
-
-terminate(_Reason, #call{}=Call) ->
-    ?call_debug("Call process stopped", [], Call).
-
-
+%% @private 
+clear_all() ->
+    nksip_call_router:clear_all_calls().
 
 
 %% ===================================================================
-%% Internal
+%% Call works
 %% ===================================================================
 
 
@@ -388,6 +369,11 @@ work(crash, _, _) ->
     error(forced_crash).
 
 
+%% ===================================================================
+%% Call timeouts
+%% ===================================================================
+
+
 %% @private
 -spec timeout(term(), reference(), call()) ->
     call().
@@ -440,6 +426,11 @@ timeout(check_call, _Ref, #call{opts=CallOpts}=Call) ->
     erlang:start_timer(round(2*MaxTrans), self(), check_call),
     Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}.
 
+
+
+%% ===================================================================
+%% Internal
+%% ===================================================================
 
 %% @private
 -spec check_call_trans(nksip_lib:timestamp(), integer(), call()) ->
@@ -494,21 +485,6 @@ check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
         end,
         Dialogs).
 
-
-%% @private
--spec next(call()) ->
-    gen_server_cast(call()).
-
-next(#call{msgs=[], trans=[], forks=[], dialogs=[]}=Call) -> 
-    {stop, normal, Call};
-next(#call{hibernate=Hibernate}=Call) -> 
-    case Hibernate of
-        false ->
-            {noreply, Call};
-        _ ->
-            ?call_debug("Call hibernating: ~p", [Hibernate], Call),
-            {noreply, Call#call{hibernate=false}, hibernate}
-    end.
 
 
 %% @private

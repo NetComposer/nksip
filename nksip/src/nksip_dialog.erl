@@ -308,7 +308,7 @@ stop(#dialog{app_id=AppId, call_id=CallId, id=Id}) ->
     stop({dlg, AppId, CallId, Id});
 
 stop(DialogSpec) ->
-    nksip_call_router:stop_dialog(DialogSpec).
+    nksip_call:stop_dialog(DialogSpec).
 
 
 %% @doc Stops (deletes) all current dialogs.

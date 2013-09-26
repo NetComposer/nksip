@@ -323,7 +323,7 @@ provisional_reply(#sipmsg{class=req}=Req, SipReply) ->
 provisional_reply(Req, SipReply) ->
     case nksip_reply:reqreply(SipReply) of
         #reqreply{code=Code} when Code > 100, Code < 200 ->
-            nksip_call_router:sync_reply(Req, SipReply);
+            nksip_call:sync_reply(Req, SipReply);
         _ ->
             {error, invalid_response}
     end.

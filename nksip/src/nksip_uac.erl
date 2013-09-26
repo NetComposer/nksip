@@ -185,32 +185,40 @@
 -export([options/3, reoptions/2, register/3, invite/3, ack/2, reinvite/2, 
             bye/2, cancel/1, refresh/2, stun/3]).
 
+-export_type([make_opts/0, dialog_opts/0]).
+-export_type([send_common/0, send_ack/0, send_error/0, make_error/0, cancel_error/0]).
 
--type dialog_opts() ::  
-        async | {callback, function()} | full_response | full_request | 
-        {contact, nksip:user_uri()} | make_contact | {content_type, binary()} | 
-        {headers, [nksip:header()]} | {body, nksip:body()} |{local_host, auto|binary()}.
+
+
+%% ===================================================================
+%% Types
+%% ===================================================================
+
 
 -type make_opts() ::  
         dialog_opts() |
         {from, nksip:user_uri()} | {to, nksip:user_uri()} | {user_agent, binary()} |
         {call_id, binary()} | {cseq, pos_integer()} | {route, nksip:user_uri()}.
 
--type send() :: 
-        {ok, nksip:response_code(), nksip:response_id()} |
-        {resp, nksip:response()} |
-        {async, nksip:request_id()}.
+-type dialog_opts() ::  
+        async | {callback, function()} | full_response | full_request | 
+        {contact, nksip:user_uri()} | make_contact | {content_type, binary()} | 
+        {headers, [nksip:header()]} | {body, nksip:body()} |{local_host, auto|binary()}.
 
--type dialog_error() :: 
-        unknown_dialog | request_pending | network_error | 
-        unknown_sipapp | too_many_calls | timeout.
+-type send_common() ::  {ok, nksip:response_code(), nksip:response_id()} |
+                        {resp, nksip:response()} |
+                        {async, nksip:request_id()}.
 
--type make_error() :: 
-        invalid_uri | invalid_from | invalid_to | invalid_route |
-        invalid_contact | invalid_cseq | dialog_error(). 
+-type send_ack() ::    {ok, nksip:request_id()} | {req, nksip:request()}.  
 
--type cancel_error() ::
-        unknown_request | unknown_sipapp | too_many_calls | timeout.
+-type send_error() :: unknown_dialog | request_pending | network_error | 
+                      nksip_call_router:sync_error().
+
+-type make_error() :: invalid_uri | invalid_from | invalid_to | invalid_route |
+                      invalid_contact | invalid_cseq | 
+                      nksip_call_router:sync_error().
+
+-type cancel_error() :: unknown_request | nksip_call_router:sync_error().
 
 
 
@@ -230,19 +238,19 @@
 %% NkSIP has an automatic remote <i>pinging</i> feature that can be activated 
 %% on any SipApp (see {@link nksip_sipapp_auto:start_ping/5}).
 %%
--spec options(nksip:app_id(), nksip:user_uri(), make_opts()) ->
-    send() | make_error().
+-spec options(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
+    send_common() | {error, make_error()}.
 
 options(AppId, Uri, Opts) ->
-    nksip_call_router:send(AppId, 'OPTIONS', Uri, Opts).
+    nksip_call:send(AppId, 'OPTIONS', Uri, Opts).
 
 
 %% @private Sends a in-dialog OPTIONS request
--spec reoptions(nksip_dialog:spec(), dialog_opts()) ->
-    send() | dialog_error().
+-spec reoptions(nksip_dialog:spec(), nksip_lib:proplist()) ->
+    send_common() | {error, send_error()}.
 
 reoptions(DialogSpec, Opts) ->
-    nksip_call_router:send_dialog(DialogSpec, 'OPTIONS', Opts).
+    nksip_call:send_dialog(DialogSpec, 'OPTIONS', Opts).
 
 
 %% @doc Sends a REGISTER request.
@@ -285,8 +293,8 @@ reoptions(DialogSpec, Opts) ->
 %%
 %% NkSIP offers also an automatic SipApp registration facility 
 %% (see {@link nksip:start/4}).
--spec register(nksip:app_id(), nksip:user_uri(), RegOpts | make_opts()) ->
-    send() | make_error()
+-spec register(nksip:app_id(), nksip:user_uri(), RegOpts | nksip_lib:proplist()) ->
+    send_common() | {error, make_error()}
     when RegOpts :: {expires, pos_integer()} | unregister | unregister_all.
 
 register(AppId, Uri, Opts) ->
@@ -315,7 +323,7 @@ register(AppId, Uri, Opts) ->
             lists:keystore(headers, 1, Opts, {headers, Headers2})
     end,
     Opts2 = lists:flatten(Opts1++[Contact, {to, as_from}]),
-    nksip_call_router:send(AppId, 'REGISTER', Uri, Opts2).
+    nksip_call:send(AppId, 'REGISTER', Uri, Opts2).
 
 
 %% @doc Sends an INVITE request.
@@ -368,8 +376,8 @@ register(AppId, Uri, Opts) ->
 %% has been received in this period in seconds. The default value for `contact' parameter 
 %% would be `auto' in this case.
 %%
--spec invite(nksip:app_id(), nksip:user_uri(), InvOpts | make_opts()) ->
-    send() | make_error()
+-spec invite(nksip:app_id(), nksip:user_uri(), InvOpts | nksip_lib:proplist()) ->
+    send_common() | {error, make_error()}
     when InvOpts :: {expires, pos_integer()}.
 
 invite(AppId, Uri, Opts) ->
@@ -383,7 +391,7 @@ invite(AppId, Uri, Opts) ->
             Opts
     end,
     Opts2 = [make_supported, make_accept, make_allow  | Opts1],
-    nksip_call_router:send(AppId, 'INVITE', Uri, Opts2).
+    nksip_call:send(AppId, 'INVITE', Uri, Opts2).
 
 
 %% @doc Sends an <i>ACK</i> after a successful <i>INVITE</i> response.
@@ -405,12 +413,11 @@ invite(AppId, Uri, Opts) ->
 %% `{async, ReqId}' and, if a `callback' is provied, it will be called as 
 %% `{req, ReqId}', `{req, Req}' or `{error, Error}'.
 %%
--spec ack(nksip_dialog:spec(), dialog_opts()) ->
-    {ok, nksip:request_id()} | {req, nksip:request()} | 
-    dialog_error().
+-spec ack(nksip_dialog:spec(), nksip_lib:proplist()) ->
+    send_ack() | {error, send_error()}.
 
 ack(DialogSpec, Opts) ->
-    nksip_call_router:send_dialog(DialogSpec, 'ACK', Opts).
+    nksip_call:send_dialog(DialogSpec, 'ACK', Opts).
 
 
 %% @doc Sends a in-dialog <i>INVITE</i> (commonly called reINVITE) for a 
@@ -435,13 +442,13 @@ ack(DialogSpec, Opts) ->
 %% starting another reINVITE transaction right now. You should call 
 %% {@link nksip_response:wait_491()} and try again.
 %%
--spec reinvite(nksip_dialog:spec(), InvOpts | dialog_opts()) ->
-    send() | dialog_error()
+-spec reinvite(nksip_dialog:spec(), InvOpts | nksip_lib:proplist()) ->
+    send_common() | {error, send_error()}
     when InvOpts :: {expires, pos_integer()}.
 
 reinvite(DialogSpec, Opts) ->
     Opts1 = [make_accept, make_supported | Opts],
-    nksip_call_router:send_dialog(DialogSpec, 'INVITE', Opts1).
+    nksip_call:send_dialog(DialogSpec, 'INVITE', Opts1).
 
 
 %% @doc Sends an <i>BYE</i> for a current dialog.
@@ -455,11 +462,11 @@ reinvite(DialogSpec, Opts) ->
 %% Valid options are defined in {@link options/3}, but, as an in-dialog request,
 %% options `from', `to', `call_id', `cseq' and `route' should not used.
 %%
--spec bye(nksip_dialog:spec(), dialog_opts()) -> 
-    send() | dialog_error().
+-spec bye(nksip_dialog:spec(), nksip_lib:proplist()) -> 
+    send_common() | {error, send_error()}.
 
 bye(DialogSpec, Opts) ->
-    nksip_call_router:send_dialog(DialogSpec, 'BYE', Opts).
+    nksip_call:send_dialog(DialogSpec, 'BYE', Opts).
 
 
 %% @doc Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.
@@ -478,7 +485,7 @@ bye(DialogSpec, Opts) ->
     ok | {error, cancel_error()}.
 
 cancel(ReqId) ->
-    nksip_call_router:cancel(ReqId).
+    nksip_call:cancel(ReqId).
 
 
 %% @doc Sends a update on a currently ongoing dialog using reINVITE.
@@ -494,8 +501,8 @@ cancel(ReqId) ->
 %%  <li>`hold': activate the medias on SDP (sending `a=sendonly')</li>
 %% </ul>
 %%
--spec refresh(nksip_dialog:spec(), dialog_opts()) ->
-    send() | dialog_error().
+-spec refresh(nksip_dialog:spec(), nksip_lib:proplist()) ->
+    send_common() | {error, send_error()}.
 
 refresh(DialogSpec, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
