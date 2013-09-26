@@ -431,10 +431,10 @@ dialog() ->
     Self = self(),
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     
-    % {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
-    % {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
-    % {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
-    % {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
+    {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
+    {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
+    {ok, 200, _} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
+    {ok, 200, _} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
     {ok, 200, RespC1} = nksip_uac:invite(C1, "sip:client2@nksip",

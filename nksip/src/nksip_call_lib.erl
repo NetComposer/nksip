@@ -25,7 +25,6 @@
 -export([store_sipmsg/2, update_sipmsg/2, update/2]).
 -export([update_auth/2, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3, cancel_timers/2]).
--export([trace/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
 
 
@@ -197,12 +196,6 @@ check_auth(_, _) ->
     false.
 
     
-%% @private
-trace(Msg, #call{app_id=AppId, call_id=CallId}) ->
-    nksip_trace:insert(AppId, CallId, Msg).
-
-
-
 %% ===================================================================
 %% Util - Timers
 %% ===================================================================

@@ -256,8 +256,10 @@ do_response(Resp, UAC, Call) ->
     #call{opts=#call_opts{max_trans_time=MaxTime}} = Call,
     Now = nksip_lib:timestamp(),
     case Now-Start < MaxTime of
-        true -> Resp1 = Resp#sipmsg{ruri=RUri};
-        false -> {Resp1, _} = nksip_reply:reply(Req, timeout)
+        true -> 
+            Resp1 = Resp#sipmsg{ruri=RUri};
+        false -> 
+            {Resp1, _} = nksip_reply:reply(Req, {timeout, <<"Transaction Timeout">>})
     end,
     Call1 = store_sipmsg(Resp1, Call),
     Call2 = case Code>=200 andalso Code<300 of
@@ -462,7 +464,6 @@ do_received_hangup(Resp, UAC, Call) ->
 -spec do_received_auth(nksip:request(), nksip:response(), trans(), call()) ->
     call().
 
-%% TODO: make_request
 do_received_auth(Req, Resp, UAC, Call) ->
      #trans{
         id = Id,

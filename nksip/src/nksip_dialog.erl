@@ -325,18 +325,6 @@ stop_all() ->
 %% ===================================================================
 
 
-% %% @private
-% -spec forget_remotes(nksip_dialog:spec()) ->
-%     ok | error.
-
-% forget_remotes(DialogSpec) ->
-%     Fun = fun(#dialog{}=Dialog) -> {ok, {update, Dialog#dialog{remotes=[]}}} end,
-%     case nksip_call_router:apply_dialog(DialogSpec, Fun) of
-%         ok -> ok;
-%         _ -> error
-%     end.
-
-
 %% @private
 -spec dialog_id(nksip:app_id(), nksip:call_id(), nksip:tag(), nksip:tag()) ->
     nksip:dialog_id().

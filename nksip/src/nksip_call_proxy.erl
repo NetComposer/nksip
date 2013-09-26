@@ -62,7 +62,7 @@ route(#trans{method='ACK'}=UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
     case check_forwards(UAS) of
         ok when Stateless -> route_stateless(UAS, First, ProxyOpts, Call);
         ok -> route_stateful(UAS, UriSet, ProxyOpts);
-        {reply, Reply} ->{reply, Reply}
+        {reply, Reply} -> {reply, Reply}
     end;
 
 route(UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
@@ -127,7 +127,11 @@ route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
 response_stateless(#sipmsg{response=Code}, Call) when Code < 101 ->
     Call;
 
-response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) when RestVia=/=[] ->
+response_stateless(#sipmsg{vias=[]}, Call) ->
+    ?call_notice("Stateless proxy could not send response: no Via", [], Call),
+    Call;
+
+response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) ->
     #sipmsg{cseq_method=Method, response=Code} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     Resp1 = Resp#sipmsg{vias=RestVia},
@@ -139,11 +143,8 @@ response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) when RestVia=/=[] ->
             ?call_notice("Stateless proxy could not send ~p ~p response", 
                          [Method, Code], Call)
     end,
-    Call;
-
-response_stateless(_, Call) ->
-    ?call_notice("Stateless proxy could not send response: no Via", [], Call),
     Call.
+
 
 
 

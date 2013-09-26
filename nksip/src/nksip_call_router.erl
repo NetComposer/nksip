@@ -265,10 +265,10 @@ get_authorized_list(DialogSpec) ->
         {dlg, AppId, CallId, DlgId} ->
             case send_work_sync(AppId, CallId, {get_authorized_list, DlgId}) of
                 {ok, List} -> List;
-                _ -> error
+                _ -> []
             end;
         undefined ->
-            error
+            []
     end.
 
 
@@ -430,7 +430,7 @@ handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
     case dict:find(MRef, Pending) of
         {ok, {AppId, CallId, From, Work}} -> 
             % We had pending work for this process.
-            % Actually, we know the process has stopped normally, and hasn't failed.
+            % Actually, we know the process has stopped normally (it hasn't failed).
             % If the process had failed due to an error processing the work,
             % the "received work" message would have been received an the work will
             % not be present in Pending.
