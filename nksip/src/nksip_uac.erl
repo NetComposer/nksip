@@ -254,7 +254,7 @@ reoptions(DialogSpec, Opts) ->
 %% The recognized options and responses are the same as {@link nksip_uac}, and also:
 %%  
 %% <table border="1">
-%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</thº></tr>
+%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`expires'</td>
 %%          <td>`integer()'</td>

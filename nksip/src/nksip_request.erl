@@ -236,9 +236,6 @@
 %%          <td>Remote transport protocol, ip and port of a request</td>
 %%      </tr>
 %% </table>
-
-
-%% @doc Gets a field from a request
 -spec field(input(), field()) ->
     term() | error.
 

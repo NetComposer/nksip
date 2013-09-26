@@ -132,7 +132,7 @@ fork_reply(TransId, Reply, Call) ->
     app_reply(fork, TransId, Reply, Call).
 
 
-%% @private Called by {@nksip_call_router} when there is a SipApp response available
+%% @private Called by {@link nksip_call_router} when there is a SipApp response available
 -spec app_reply(atom(), id(), nksip:sipreply(), call()) ->
     call().
 

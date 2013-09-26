@@ -71,8 +71,6 @@
 %%          <td>Reason Phrase</td>
 %%      </tr>
 %% </table>
-
-%% @doc Get a field from a response
 -spec field(input(), field()) ->
     term() | error.
 

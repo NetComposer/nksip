@@ -266,7 +266,7 @@
 %%          <td>integer()</td>
 %%          <td>5</td>
 %%          <td>Minimum time to keep requests and responses in memory after 
-%%              they are received./td>
+%%              they are received.</td>
 %%      </tr>
 %%  </table>
 %%

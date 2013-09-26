@@ -93,7 +93,7 @@ create(Class, Req, Resp) ->
 
 
 %% @private
--spec status_update(uac|uas, nksip_dialog:status(), nksip:dialog(), nksip:call()) ->
+-spec status_update(uac|uas, nksip_dialog:status(), nksip:dialog(), call()) ->
     nksip:dialog().
 
 status_update(Class, Status, Dialog, Call) ->
