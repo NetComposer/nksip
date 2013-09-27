@@ -175,12 +175,18 @@ is_registered(#sipmsg{
 -spec request(nksip:request()) ->
     nksip:sipreply().
 
-request(Request) ->
-    try
-        process(Request)
-    catch
-        throw:Throw -> Throw
+request(#sipmsg{from=From, to=To}=Request) ->
+    case From#uri.user=:=To#uri.user andalso From#uri.domain=:=To#uri.domain of
+        true ->
+            try
+                process(Request)
+            catch
+                throw:Throw -> Throw
+            end;
+        false ->
+            {invalid_request, "Different From and To"}
     end.
+ 
 
 
 %% @doc Clear all stored records for all SipApps.

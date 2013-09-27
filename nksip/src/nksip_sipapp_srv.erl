@@ -28,7 +28,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([get_module/1, get_opts/1, reply/2]).
+-export([get_module/1, get_opts/1, is_registrar/1, reply/2]).
 -export([sipapp_call_sync/3, sipapp_call_async/4, sipapp_cast/3]).
 -export([register/2, get_registered/2, allowed/1, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
@@ -86,18 +86,24 @@ get_opts(Id) ->
 
 
 %% @private Get the allowed methods for this SipApp
+-spec is_registrar(nksip:app_id()) -> 
+    boolean().
+
+is_registrar(AppId) ->
+    case get_opts(AppId) of
+        {ok, Opts} -> lists:member(registrar, Opts);
+        {error, not_found} -> false
+    end.
+
+
+%% @private Get the allowed methods for this SipApp
 -spec allowed(nksip:app_id()) -> 
     binary().
 
 allowed(AppId) ->
-    case get_opts(AppId) of
-        {ok, Opts} ->
-            case lists:member(registrar, Opts) of
-                true -> <<(?ALLOW)/binary, ", REGISTER">>;
-                false -> ?ALLOW
-            end;
-        {error, not_found} ->
-            ?ALLOW
+    case is_registrar(AppId) of
+        true -> <<(?ALLOW)/binary, ", REGISTER">>;
+        false -> ?ALLOW
     end.
 
 
