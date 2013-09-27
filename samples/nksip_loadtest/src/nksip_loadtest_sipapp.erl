@@ -27,8 +27,6 @@
 
 -export([init/1, route/6, invite/3]).
 
-% -compile([export_all]).
-
 -define(PROXY_URI, "sip:127.0.0.1:5061;transport=tcp").
 
 

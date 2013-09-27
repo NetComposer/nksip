@@ -44,7 +44,8 @@ start_server(Name, Port) ->
         registrar,
         {transport, {udp, {0,0,0,0}, Port}},
         {transport, {tls, {0,0,0,0}, Port+1}},
-        no_100
+        no_100,
+        {msg_keep_time, 0}
     ],
     case nksip:start(Name, nksip_loadtest_sipapp, [], CoreOpts) of
         ok -> ok;
@@ -240,7 +241,8 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [], []) of
+    Opts = [{msg_keep_time, 0}],
+    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [], Opts) of
         ok -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
         _ -> error
@@ -275,21 +277,21 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
         case MsgType of
             options -> 
                 case nksip_uac:options({client, Pos}, RUri, Opts) of
-                    {ok, 200, _, _} -> ok;
+                    {ok, 200, _} -> ok;
                     Other -> throw({invalid_options_response, Other})
                 end;
             register ->
                 case nksip_uac:register({client, Pos}, RUri, [make_contact|Opts]) of
-                    {ok, 200, _, _} -> ok;
+                    {ok, 200, _} -> ok;
                     Other -> throw({invalid_register_response, Other})
                 end;
             invite ->
                 case nksip_uac:invite({client, Pos}, RUri, Opts) of
-                    {ok, 200, _, D} -> 
+                    {ok, 200, D} -> 
                         case nksip_uac:ack(D, []) of
-                            ok -> 
+                            {req, _} -> 
                                 case nksip_uac:bye(D, []) of
-                                    {ok, 200, _,  _} -> ok;
+                                    {ok, 200, _} -> ok;
                                     Other3 -> throw({invalid_bye_response, Other3}) 
                                 end;
                             Other2 ->

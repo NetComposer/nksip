@@ -59,9 +59,8 @@ launch() ->
 	{ok, 200, _} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
 									[{pass, "1234"}, make_contact]),
 	
-	{resp, Resp1} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
-									[{pass, "1234"}, full_response]),
-	200 = nksip_response:code(Resp1),
+	{ok, 200, Resp1} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
+									[{pass, "1234"}]),
 	[<<"<sips:client2@", _/binary>>] = nksip_response:header(Resp1, <<"Contact">>),
 
 	{ok, 200, _} = nksip_uac:options(client1, "sip:127.0.0.1", []),
@@ -69,28 +68,26 @@ launch() ->
 	
 	{ok, 407, _} = nksip_uac:options(client1, "sips:client2@nksip", 
 										[{route, "sip:127.0.0.1;lr"}]),
-	{resp, Resp2} = nksip_uac:options(client1, "sips:client2@nksip", 
-										[{route, "sip:127.0.0.1;lr"}, full_response,
-										 {pass, "1234"}]),
-	200 = nksip_response:code(Resp2),
+	{ok, 200, Resp2} = nksip_uac:options(client1, "sips:client2@nksip", 
+										[{route, "sip:127.0.0.1;lr"}, {pass, "1234"}]),
 	[<<"client2">>] = nksip_response:header(Resp2, <<"Nksip-Id">>),
 	
-	{resp, Resp3} = nksip_uac:options(client2, "sip:client1@nksip", 
-										[{route, "sips:127.0.0.1;lr"}, full_response]),
-	200 = nksip_response:code(Resp3),
+	{ok, 200, Resp3} = nksip_uac:options(client2, "sip:client1@nksip", 
+										[{route, "sips:127.0.0.1;lr"}]),
 	[<<"client1">>] = nksip_response:header(Resp3, <<"Nksip-Id">>),
-
 
 	{ok, 488, _} = nksip_uac:invite(client2, "sip:client1@nksip", 
 									 [{route, "sips:127.0.0.1;lr"}]),
-	{ok, 200, Resp1} = nksip_uac:invite(client2, "sip:client1@nksip", 
+	{ok, 200, Resp4} = nksip_uac:invite(client2, "sip:client1@nksip", 
 											[{route, "sips:127.0.0.1;lr"}, 
 											 {body, nksip_sdp:new()}]),
-	ok = nksip_uac:ack(Resp1, []),
-	{ok, 200, _, _} = nksip_uac:bye(Resp1, []),
+	{req, _} = nksip_uac:ack(Resp4, []),
+	{ok, 200, _} = nksip_uac:bye(Resp4, []),
 
 	{ok, _} = nksip:call(server, get_started),
-	nksip:stop_all(),
+	ok = nksip:stop(client1),
+	ok = nksip:stop(client2),
+	ok = nksip:stop(server),
 	ok.
 
 

@@ -21,21 +21,21 @@
 %% -------------------------------------------------------------------
 
 -module(nksip_loadtest).
-
+-compile([export_all]).
 -export([start/0, launch/1, full/0, full/1]).
 
 
-%% @doc Starts a server to launch tests to
+%% @doc Starts a server to launch tests to.
 start() ->
     nksip_loadtest_lib:start_server().
 
 
-%% @doc Launches a new test. See {@link nksip_loadtest_lib:launch/1} for options
+%% @doc Launches a new test. See {@link nksip_loadtest_lib:launch/1} for options.
 launch(Opts) ->
     nksip_loadtest_lib:launch(Opts).
 
 
-%% @doc Equivalent to `full[{messages, 10000}, {clients, 10}]'
+%% @doc Equivalent to `full[{messages, 10000}, {clients, 10}]'.
 full() ->
     full([]).
 
