@@ -312,7 +312,7 @@ handle_cast(Msg, State) ->
 handle_info({'DOWN', _Mon, process, Pid, _}=Msg, #state{procs=Procs}=State) ->
     case dict:is_key(Pid, Procs) of
         true -> {noreply, State#state{procs=dict:erase(Pid, Procs)}};
-        false -> handle_info(Msg, State)
+        false -> mod_handle_info(Msg, State)
     end;
 
 handle_info({timeout, _, '$nksip_timer'}, #state{reg_state=RegState}=State) ->
@@ -320,14 +320,8 @@ handle_info({timeout, _, '$nksip_timer'}, #state{reg_state=RegState}=State) ->
     erlang:start_timer(timeout(), self(), '$nksip_timer'),
     {noreply, State#state{reg_state=RegState1}};
 
-handle_info(Info, #state{module=Module, id=AppId}=State) -> 
-    case erlang:function_exported(Module, handle_info, 2) of
-        true -> 
-            mod_handle_cast(handle_info, [Info], State);
-        false -> 
-            ?warning(AppId, "received unexpected message ~p", [Info]),
-            {noreply, State}
-    end.
+handle_info(Info, State) ->
+    mod_handle_info(Info, State).
 
 
 %% @private
@@ -425,3 +419,16 @@ mod_handle_cast(Fun, Args, #state{module=Module, mod_state=ModState}=State) ->
     end.
 
 
+%% @private
+-spec mod_handle_info(term(), #state{}) ->
+    {noreply, #state{}, non_neg_integer()} |
+    {error, term(), #state{}}.
+
+mod_handle_info(Info, State = #state{module=Module, id=AppId}) ->
+    case erlang:function_exported(Module, handle_info, 2) of
+        true ->
+            mod_handle_cast(handle_info, [Info], State);
+        false ->
+            ?warning(AppId, "received unexpected message ~p", [Info]),
+            {noreply, State}
+    end.
