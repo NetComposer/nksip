@@ -194,7 +194,7 @@ timeout() ->
     Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}, {"Nk-Sleep", 20000}]},
     {ok, 408, Resp4} = nksip_uac:invite(C2, SipC1, [Hds2]),
     <<"Timer C Timeout">> = nksip_response:field(Resp4, reason),
-    nksip_call_router:clear_calls(),
+    nksip_call_router:clear_all_calls(),
     ok.
 
 

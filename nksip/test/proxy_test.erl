@@ -142,13 +142,13 @@ invalid(Test) ->
     CallId4 = nksip_lib:luid(),
     Work4 = {make, 'REGISTER', "sip:any", []},
     {ok, Req4, Opts4} = nksip_call_router:send_work_sync(C1, CallId4, Work4),
-    {ok, 483, _} = nksip_call_router:send(Req4#sipmsg{forwards=0}, Opts4),
+    {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 
     % Force Forwards=0 using OPTIONS. Server will reply
     CallId5 = nksip_lib:luid(),
     Work5 = {make, 'OPTIONS', "sip:any", []},
     {ok, Req5, Opts5} = nksip_call_router:send_work_sync(C1, CallId5, Work5),
-    {ok, 200, Resp5} = nksip_call_router:send(Req5#sipmsg{forwards=0}, Opts5),
+    {ok, 200, Resp5} = nksip_call:send(Req5#sipmsg{forwards=0}, Opts5),
     <<"Max Forwards">> = nksip_response:reason(Resp5),
 
     % User not registered: Temporarily Unavailable

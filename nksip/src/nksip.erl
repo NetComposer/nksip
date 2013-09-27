@@ -266,7 +266,7 @@
 %%          <td>`integer()'</td>
 %%          <td>`5'</td>
 %%          <td>Minimum time to keep requests and responses in memory after 
-%%              they are received.</td>
+%%              they are received (secs, 0 to avoid storing messages).</td>
 %%      </tr>
 %%  </table>
 %%
@@ -354,8 +354,8 @@ start(AppId, Module, Args, Opts) ->
                 true -> no_100;
                 _ -> []
             end,
-            case nksip_lib:get_integer(msg_keep_time, Opts) of
-                MsgKeepTime when MsgKeepTime > 0 -> {msg_keep_time, MsgKeepTime};
+            case nksip_lib:get_integer(msg_keep_time, Opts, -1) of
+                MsgKeepTime when MsgKeepTime >= 0 -> {msg_keep_time, MsgKeepTime};
                 _ -> []
             end
         ],

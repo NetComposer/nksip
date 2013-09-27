@@ -166,19 +166,19 @@ dialog() ->
 
     DialogA = nksip_dialog:id(RespA),
     DialogB = nksip_dialog:remote_id(C2, DialogA),
-    [{udp, {127,0,0,1}, 5071}] = nksip_call_router:get_authorized_list(DialogA),
-    [{udp, {127,0,0,1}, 5070}] = nksip_call_router:get_authorized_list(DialogB),
+    [{udp, {127,0,0,1}, 5071}] = nksip_call:get_authorized_list(DialogA),
+    [{udp, {127,0,0,1}, 5070}] = nksip_call:get_authorized_list(DialogB),
 
     {ok, 200, _} = nksip_uac:reoptions(DialogA, []),
     {ok, 200, _} = nksip_uac:reoptions(DialogB, []),
 
-    ok = nksip_call_router:clear_authorized_list(DialogB),
+    ok = nksip_call:clear_authorized_list(DialogB),
     {ok, 401, _} = nksip_uac:reoptions(DialogA, []),
     {ok, 200, _} = nksip_uac:reoptions(DialogA, [{pass, "1234"}]),
     {ok, 200, _} = nksip_uac:reoptions(DialogA, []),
 
-    ok = nksip_call_router:clear_authorized_list(DialogA),
-    [] = nksip_call_router:get_authorized_list(DialogA),
+    ok = nksip_call:clear_authorized_list(DialogA),
+    [] = nksip_call:get_authorized_list(DialogA),
 
     % Force an invalid password, because the SipApp config has a valid one
     {ok, 403, _} = nksip_uac:reoptions(DialogB, [{pass, {"invalid", "client1"}}]),

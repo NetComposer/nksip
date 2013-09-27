@@ -791,7 +791,7 @@ app_call(Fun, Args, UAS, Call) ->
     ReqId = nksip_request:id(Req),
     ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
                [Id, Method, Status, Fun, Args], Call),
-    From = {'fun', nksip_call_router, app_reply, [AppId, CallId, Fun, Id]},
+    From = {'fun', nksip_call, app_reply, [AppId, CallId, Fun, Id]},
     nksip_sipapp_srv:sipapp_call_async(AppId, Fun, Args++[ReqId], From),
     Call.
 
