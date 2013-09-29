@@ -212,8 +212,8 @@ launch(Opts) ->
                 true -> ok;
                 false -> ok = start_clients(Processes)
             end,
-            RUri = "sip:"++State++"@"++Host++":"++integer_to_list(Port)++";transport="++
-                    atom_to_list(Transport), 
+            RUri = lists:flatten(io_lib:fwrite("<sip:~s@~s:~p;transport=~s>",
+                                               [State, Host, Port, Transport])),
             Fun = fun(Pos) -> 
                 ok = iter_full(MsgType, Pos, RUri, Pid, CallId, PerProcess) 
             end,

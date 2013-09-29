@@ -93,7 +93,7 @@ If we try again with a correct password:
 ```erlang
 6> nksip_uac:options(client1, "sip:127.0.0.1", [{pass, "1234"}]).
 {ok, 200}
-7> nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", [{pass, "1234"}]).
+7> nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}]).
 {ok, 200}
 ```
 
@@ -102,14 +102,14 @@ Let's register now both clients with the server. We use the option `make_contact
 ```erlang
 8> nksip_uac:register(client1, "sip:127.0.0.1", [{pass, "1234"}, make_contact]).
 {ok, 200}
-9> nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", [{pass, "1234"}, make_contact]).
+9> nksip_uac:register(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}, make_contact]).
 {ok, 200}
 ```
 
 We can check that the server has stored the registration. If we send a _REGISTER_ request with no _Contact_ header, the server will include one for each stored registration. We usedthe option `full_response` to tell NkSIP to send the full response as the return, instead of only the code. 
 
 ```erlang
-10> {reply, Resp1} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", [{pass, "1234"}, full_response]).
+10> {reply, Resp1} = nksip_uac:register(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}, full_response]).
 {reply, ...}
 11> nksip_response:code(Resp1).
 200
@@ -121,7 +121,7 @@ Now, if we want to send the same _OPTIONS_ again, we don't need to include the a
 ```erlang
 13> nksip_uac:options(client1, "sip:127.0.0.1", []).
 {ok, 200}
-14> nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", []).
+14> nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", []).
 {ok, 200}
 ```
 
@@ -129,17 +129,17 @@ Now let's send and _OPTIONS_ from `client1` to `client2` through the proxy. As t
 
 The first request is not authorized. The reason is that we are using a `sips` uri as a target, so NkSIP must use tls. But the origin port is then different from the one we registered, so we must authenticate again:
 ```erlang
-15> nksip_uac:options(client1, "sips:client2@nksip", [{route, "sip:127.0.0.1;lr"}]).
+15> nksip_uac:options(client1, "sips:client2@nksip", [{route, "<sip:127.0.0.1;lr>"}]).
 {ok, 407}
 16> {reply, Resp2} = nksip_uac:options(client1, "sips:client2@nksip", 
-                				[{route, "sip:127.0.0.1;lr"}, full_response,{pass, "1234"}]).
+                				[{route, "<sip:127.0.0.1;lr>"}, full_response,{pass, "1234"}]).
 {reply, ...}
 17> nksip_response:code(Resp2).
 200
 18> nksip_response:headers(<<"Nksip-Id">>, Resp2).
 [<<"client2">>]
 19> {reply, Resp3} = nksip_uac:options(client2, "sip:client1@nksip", 
-                                        [{route, "sips:127.0.0.1;lr"}, full_response]).
+                                        [{route, "<sips:127.0.0.1;lr>"}, full_response]).
 {reply, ...}
 20> nksip_response:code(Resp3).
 200
@@ -180,10 +180,10 @@ invite(_DialogId, ReqId, From, State) ->
 In the first call, since we don't include a body, client1 will reply `not_acceptable` (code `488`).
 In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. After receiving each `2xx` response to an _INVITE_, we must send an _ACK_ inmediatly:
 ```erlang
-22> nksip_uac:invite(client2, "sip:client1@nksip", [{route, "sips:127.0.0.1;lr"}]).
+22> nksip_uac:invite(client2, "sip:client1@nksip", [{route, "<sips:127.0.0.1;lr>"}]).
 {ok, 488, ...}
 23> {ok, 200, Dialog1} = nksip_uac:invite(client2, "sip:client1@nksip", 
-					   [{route, "sips:127.0.0.1;lr"}, {body, nksip_sdp:new()}]),
+					   [{route, "<sips:127.0.0.1;lr>"}, {body, nksip_sdp:new()}]),
 	ok = nksip_uac:ack(Dialog1, []).
 ok
 ```

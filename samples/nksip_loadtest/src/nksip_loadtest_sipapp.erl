@@ -29,7 +29,7 @@
 
 % -compile([export_all]).
 
--define(PROXY_URI, "sip:127.0.0.1:5061;transport=tcp").
+-define(PROXY_URI, "<sip:127.0.0.1:5061;transport=tcp>").
 
 
 %% @doc SipApp initialization
