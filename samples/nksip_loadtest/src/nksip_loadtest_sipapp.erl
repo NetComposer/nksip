@@ -30,9 +30,14 @@
 -define(PROXY_URI, "sip:127.0.0.1:5061;transport=tcp").
 
 
+-record(state, {
+	app_id
+}).
+
+
 %% @doc SipApp initialization
-init([]) ->
-    {ok, {}}.
+init([AppId]) ->
+    {ok, #state{app_id=AppId}}.
 
 
 %% @doc Request routing callback
@@ -52,7 +57,7 @@ route(_Scheme, _User, _Domain, _Request, _From, SD) ->
     {reply, process, SD}.
 
 %% @doc Answer the call with the same SDP body
-invite(RequestId, _From, State) ->
-	Body = nksip_request:body(RequestId),
-    {reply, {ok, [], Body}, State}.
+invite(ReqId, _From, #state{app_id=AppId}=SD) ->
+	Body = nksip_request:body(AppId, ReqId),
+    {reply, {ok, [], Body}, SD}.
 

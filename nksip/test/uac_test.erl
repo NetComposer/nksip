@@ -80,13 +80,14 @@ uac() ->
     Hds = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}]},
 
     nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
-    {ok, 503, _} =
+    {ok, 503, []} =
         nksip_uac:options(C2, "sip:127.0.0.1:50600;transport=tcp", []),
+    
     % Async, error
-    {async, ReqId11} = nksip_uac:options(C2, "sip:127.0.0.1:50600;transport=tcp", 
+    {async, ReqId1} = nksip_uac:options(C2, "sip:127.0.0.1:50600;transport=tcp", 
                                         [async, CB, get_request]),
     receive 
-        {Ref, {req, ReqId11}} -> ok 
+        {Ref, {req, Req1}} -> ReqId1 = nksip_sipmsg:field(Req1, id)
         after 500 -> error(uac) 
     end,
     receive 
@@ -95,43 +96,47 @@ uac() ->
     end,
 
     % Sync
-    {ok, 200, ReqId1} = nksip_uac:options(C2, SipC1, []),
-    200 = nksip_response:code(ReqId1),
-    error = nksip_dialog:field(ReqId1, status),
-    {error, unknown_dialog} = nksip_uac:reoptions(ReqId1, []),
+    {ok, 200, Values2} = nksip_uac:options(C2, SipC1, [{fields, [app_id, id, call_id]}]),
+    [{app_id, C2}, {id, RespId2}, {call_id, CallId2}] = Values2,
+    CallId2 = nksip_response:call_id(RespId2),
+    error = nksip_dialog:field(C2, RespId2, status),
+    {error, unknown_dialog} = nksip_uac:options(C2, RespId2, []),
 
-    % Sync, full_response
-    {resp, #sipmsg{class=resp}} = nksip_uac:options(C2, SipC1, [full_response]),
+    % Sync, get_response
+    {resp, #sipmsg{class=resp}} = nksip_uac:options(C2, SipC1, [get_response]),
 
     % Sync, callback for request
-    {ok, 200, RespId3} = nksip_uac:options(C2, SipC1, [CB, get_request]),
+    {ok, 200, [{id, RespId3}]} = 
+        nksip_uac:options(C2, SipC1, [CB, get_request, {fields, [id]}]),
     CallId3 = nksip_response:call_id(RespId3),
     receive 
-        {Ref, {req, ReqId3}} -> CallId3 = nksip_request:call_id(ReqId3)
+        {Ref, {req, #sipmsg{class=req, call_id=CallId3}}} -> ok
         after 500 -> error(uac) 
     end,
 
     % Sync, callback for request and provisional response
-    {ok, 486, RespId4} = nksip_uac:invite(C2, SipC1, [Hds, CB, get_request]),
+    {ok, 486, [{dialog_id, DlgId4}, {call_id, CallId4}, {id, RespId4}]} = 
+        nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, {fields, [call_id, id]}]),
+    CallId4 = nksip_dialog:call_id(DlgId4),
     CallId4 = nksip_response:call_id(RespId4),
-    DialogId4 = nksip_dialog:id(RespId4),
+    DlgId4 = nksip_dialog:id(C2, RespId4),
     receive 
-        {Ref, {req, ReqId4}} -> 
-            CallId4 = nksip_request:call_id(ReqId4)
+        {Ref, {req, Req4}} -> 
+            CallId4 = nksip_sipmsg:field(Req4, call_id)
         after 500 -> 
             error(uac) 
     end,
     receive 
-        {Ref, {ok, 180, RespId4_180}} -> 
-            CallId4 = nksip_response:call_id(RespId4_180),
-            DialogId4 = nksip_dialog:id(RespId4_180)
+        {Ref, {ok, 180, Values4}} ->
+            [{dialog_id, DlgId4}, {call_id, CallId4}, {id, RespId4_180}] = Values4,
+            CallId4 = nksip_response:call_id(RespId4_180)
         after 500 -> 
             error(uac) 
     end,
 
-    % Sync, callback for request and provisional response, full request, full_response
+    % Sync, callback for request and provisional response, get_request, get_response
     {resp, #sipmsg{class=resp, response=486, call_id=CallId5}=Resp5} = 
-        nksip_uac:invite(C2, SipC1, [Hds, CB, full_request, full_response]),
+        nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, get_response]),
     DialogId5 = nksip_dialog:id(Resp5),
     receive 
         {Ref, {req, #sipmsg{class=req, call_id=CallId5}}} -> ok
@@ -145,25 +150,24 @@ uac() ->
     end,
 
     % Async
-    {async, ReqId10} = nksip_uac:invite(C2, SipC1, [async, CB, get_request, Hds]),
-    CallId10 = nksip_request:field(ReqId10, call_id),
+    {async, ReqId6} = nksip_uac:invite(C2, SipC1, 
+                                        [async, CB, get_request, Hds]),
+    CallId6 = nksip_request:call_id(ReqId6),
+    CallId6 = nksip_request:field(C2, ReqId6, call_id),
     receive 
-        {Ref, {req, ReqId10}} -> CallId10 = nksip_request:field(ReqId10, call_id)
+        {Ref, {req, Req6}} -> 
+            ReqId6 = nksip_sipmsg:field(Req6, id),
+            CallId6 = nksip_sipmsg:field(Req6, call_id)
+        after 500 -> 
+            error(uac) 
+    end,
+    Dialog6 = receive 
+        {Ref, {ok, 180, [{dialog_id, Dlg6A}]}} -> Dlg6A
         after 500 -> error(uac) 
     end,
-    Dlg10 = receive 
-        {Ref, {ok, 180, RespId10_180}} -> 
-            [180, CallId10] = nksip_response:fields(RespId10_180, [code, call_id]),
-            nksip_response:dialog_id(RespId10_180)
-        after 500 -> 
-            error(uac) 
-    end,
-    Dlg10 = receive 
-        {Ref, {ok, 486, RespId10_486}} -> 
-            [486, CallId10] = nksip_response:fields(RespId10_486, [code, call_id]),
-            nksip_response:dialog_id(RespId10_486)
-        after 500 -> 
-            error(uac) 
+    Dialog6 = receive 
+        {Ref, {ok, 486, [{dialog_id, Dlg6B}]}} -> Dlg6B
+        after 500 -> error(uac) 
     end,
     ok.
 
@@ -179,21 +183,21 @@ timeout() ->
 
     nksip_trace:notice("Next notices about several timeouts are expected"),
 
-    {ok, 408, Resp1} = nksip_uac:options(C2, "sip:127.0.0.1:9999", []),
-    <<"Timer F Timeout">> = nksip_response:field(Resp1, reason),
+    {ok, 408, [{reason, <<"Timer F Timeout">>}]} = 
+        nksip_uac:options(C2, "sip:127.0.0.1:9999", [{fields, [reason]}]),
 
-    {ok, 408, Resp2} = nksip_uac:invite(C2, "sip:127.0.0.1:9999", []),
-    <<"Timer B Timeout">> = nksip_response:field(Resp2, reason),
+    {ok, 408, [{dialog_id, _}, {reason, <<"Timer B Timeout">>}]} = 
+        nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{fields, [reason]}]),
 
     % REGISTER sends a provisional response, but the timeout is the same
     Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},
-    {ok, 408, Resp3} = nksip_uac:options(C2, SipC1, [Hds1]),
-    <<"Timer F Timeout">> = nksip_response:field(Resp3, reason),
+    {ok, 408, [{reason, <<"Timer F Timeout">>}]} = 
+        nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason]}]),
 
     % INVITE sends 
     Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}, {"Nk-Sleep", 20000}]},
-    {ok, 408, Resp4} = nksip_uac:invite(C2, SipC1, [Hds2]),
-    <<"Timer C Timeout">> = nksip_response:field(Resp4, reason),
+    {ok, 408, [{dialog_id, _}, {reason, <<"Timer C Timeout">>}]} = 
+        nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason]}]),
     nksip_call_router:clear_all_calls(),
     ok.
 

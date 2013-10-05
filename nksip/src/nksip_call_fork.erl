@@ -126,7 +126,8 @@ launch([], Fork, Call) ->
 launch([Uri|Rest], Fork, Call) -> 
     #fork{id=Id, request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
-    Req1 = Req#sipmsg{ruri=Uri, id=erlang:phash2(make_ref())},
+    #sipmsg{call_id=CallId} = Req,
+    Req1 = Req#sipmsg{ruri=Uri, id=nksip_sipmsg:make_id(req, CallId)},
     #call{next=Next} = Call,
     case nksip_request:is_local_route(Req1) of
         true ->

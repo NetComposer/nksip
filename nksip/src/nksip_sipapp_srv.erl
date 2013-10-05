@@ -129,10 +129,10 @@ sipapp_call_sync(AppId, Fun, Args) ->
                 false ->
                     Ref = make_ref(),
                     From = {pid, self(), Ref},
-                    case apply(nksip_sipapp, Fun, Args++[From, none]) of
-                        {reply, Reply, none} -> 
+                    case apply(nksip_sipapp, Fun, Args++[From, AppId]) of
+                        {reply, Reply, _} -> 
                             Reply;
-                        {noreply, none} ->
+                        {noreply, _} ->
                             receive
                                 {Ref, Reply} -> Reply
                             after 60000 ->
@@ -156,9 +156,9 @@ sipapp_call_async(AppId, Fun, Args, From) ->
                 true -> 
                     gen_server:cast(CorePid, {'$nksip_callback', Fun, Args, From});
                 false -> 
-                    case apply(nksip_sipapp, Fun, Args++[From, none]) of
-                        {reply, Reply, none} -> reply(From, Reply);
-                        {noreply, none} -> ok
+                    case apply(nksip_sipapp, Fun, Args++[From, AppId]) of
+                        {reply, Reply, _} -> reply(From, Reply);
+                        {noreply, _} -> ok
                     end
             end;
         not_found ->
@@ -177,7 +177,7 @@ sipapp_cast(AppId, Fun, Args) ->
                 true -> 
                     gen_server:cast(CorePid, {'$nksip_cast', Fun, Args});
                 false -> 
-                    apply(nksip_sipapp, Fun, Args++[none]),
+                    apply(nksip_sipapp, Fun, Args++[AppId]),
                     ok
             end;
         not_found -> 

@@ -97,11 +97,11 @@ init([AppId, CallId, CallOpts]) ->
         keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
         next = Id+1,
         hibernate = false,
-        msgs = [],
         trans = [],
         forks = [],
         dialogs = [],
-        auths = []
+        auths = [],
+        msgs = []
     },
     erlang:start_timer(2*MaxTransTime, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
@@ -113,8 +113,8 @@ init([AppId, CallId, CallOpts]) ->
     gen_server_call(call()).
 
 handle_call(get_data, _From, Call) ->
-    #call{msgs=Msgs, trans=Trans, forks=Forks, dialogs=Dialogs} = Call,
-    {reply, {Msgs, Trans, Forks, Dialogs}, Call};
+    #call{trans=Trans, forks=Forks, dialogs=Dialogs} = Call,
+    {reply, {Trans, Forks, Dialogs}, Call};
  
  handle_call(Msg, _From, Call) ->
     lager:error("Module ~p received unexpected sync event: ~p", [?MODULE, Msg]),
@@ -180,8 +180,12 @@ terminate(_Reason, #call{}=Call) ->
 -spec next(call()) ->
     gen_server_cast(call()).
 
-next(#call{msgs=[], trans=[], forks=[], dialogs=[]}=Call) -> 
-    {stop, normal, Call};
+next(#call{trans=[], forks=[], dialogs=[]}=Call) -> 
+    case erlang:process_info(self(), message_queue_len) of
+        {_, 0} -> {stop, normal, Call};
+        _ -> {noreply, Call}
+    end;
+
 next(#call{hibernate=Hibernate}=Call) -> 
     case Hibernate of
         false ->

@@ -46,25 +46,25 @@ launch() ->
 
 	trace(false),
 
-	{ok, 200, _} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
+	{ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
 	{ok, 407, _} = nksip_uac:options(client1, "sip:127.0.0.1", []),
 	
-	{ok, 200, _} = nksip_uac:options(client1, "sip:127.0.0.1", 
+	{ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
 									[{pass, "1234"}]),
-	{ok, 200, _} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", 
+	{ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", 
 									[{pass, "1234"}]),
 
-	{ok, 200, _} = nksip_uac:register(client1, "sip:127.0.0.1", 
+	{ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", 
 									[{pass, "1234"}, make_contact]),
-	{ok, 200, _} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
+	{ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
 									[{pass, "1234"}, make_contact]),
 	
 	{ok, 200, Resp1} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
 									[{pass, "1234"}]),
 	[<<"<sips:client2@", _/binary>>] = nksip_response:header(Resp1, <<"Contact">>),
 
-	{ok, 200, _} = nksip_uac:options(client1, "sip:127.0.0.1", []),
-	{ok, 200, _} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", []),
+	{ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", []),
+	{ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", []),
 	
 	{ok, 407, _} = nksip_uac:options(client1, "sips:client2@nksip", 
 										[{route, "sip:127.0.0.1;lr"}]),
@@ -82,7 +82,7 @@ launch() ->
 											[{route, "sips:127.0.0.1;lr"}, 
 											 {body, nksip_sdp:new()}]),
 	{req, _} = nksip_uac:ack(Resp4, []),
-	{ok, 200, _} = nksip_uac:bye(Resp4, []),
+	{ok, 200, []} = nksip_uac:bye(Resp4, []),
 
 	{ok, _} = nksip:call(server, get_started),
 	ok = nksip:stop(client1),

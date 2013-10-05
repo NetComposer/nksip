@@ -37,19 +37,19 @@
 
 %% @private
 -spec request(nksip:request(), call()) ->
-    {ok, nksip:dialog_id(), call()} | {error, Error}
+    {ok, nksip_dialog:id(), call()} | {error, Error}
     when Error :: old_cseq | unknown_dialog | bye | 
                   proceeding_uac | proceeding_uas | invalid.
 
 request(Req, Call) ->
     case nksip_dialog:id(Req) of
-        undefined ->
+        <<>> ->
             {ok, undefined, Call};
-        {dlg, _AppId, _CallId, DialogId} ->
+        DialogId ->
             #sipmsg{method=Method, cseq=CSeq} = Req,
             case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
-                    ?call_debug("Dialog ~p (~p) UAS request ~p", 
+                    ?call_debug("Dialog ~s (~p) UAS request ~p", 
                                 [DialogId, Status, Method], Call),
                     if
                         Method=/='ACK', RemoteSeq>0, CSeq<RemoteSeq  ->
@@ -97,13 +97,18 @@ do_request('INVITE', Status, _Req, _Dialog, _Call)
            when Status=:=proceeding_uas; Status=:=accepted_uas ->
     {error, proceeding_uas};
 
-do_request('ACK', Status, AckReq, #dialog{request=#sipmsg{}=InvReq}=Dialog, Call) ->
-    case AckReq#sipmsg.cseq =:= InvReq#sipmsg.cseq of
-        true when Status=:=accepted_uas -> 
-            {ok, status_update(confirmed, Dialog#dialog{ack=AckReq}, Call)};
-        true when Status=:=confirmed ->
+do_request('ACK', Status, ACKReq, #dialog{request=InvReq}=Dialog, Call) ->
+    #sipmsg{cseq=ACKSeq} = ACKReq,
+    case InvReq of
+        #sipmsg{cseq=ACKSeq} when Status=:=accepted_uas -> 
+            {ok, status_update(confirmed, Dialog#dialog{ack=ACKReq}, Call)};
+        #sipmsg{cseq=ACKSeq} when Status=:=confirmed -> 
             {ok, Dialog};   % It is an ACK retransmission
+        #sipmsg{cseq=InvCSeq} ->
+            ?P("INVALID ACK (seq ~p) INV (~p), ~p", [ACKSeq, InvCSeq, Status]),
+            {error, invalid};
         _ -> 
+            ?P("INVALID ACK (seq ~p), NO INV, ~p", [ACKSeq, Status]),
             {error, invalid}
     end;
 
@@ -114,7 +119,7 @@ do_request('BYE', Status, _Req, Dialog, Call) ->
     #dialog{id=DialogId} = Dialog,
     case Status of
         confirmed -> ok;
-        _ -> ?call_debug("Dialog ~p (~p) received BYE", [DialogId, Status], Call)
+        _ -> ?call_debug("Dialog ~s (~p) received BYE", [DialogId, Status], Call)
     end,
     {ok, status_update(bye, Dialog, Call)};
 
@@ -131,13 +136,13 @@ response(#sipmsg{method=Method}=Req, Resp, Call) ->
     #sipmsg{response=Code} = Resp,
     #call{dialogs=Dialogs} = Call,
     case nksip_dialog:id(Resp) of
-        undefined ->
+        <<>> ->
             Call;
-        {dlg, _AppId, _CallId, DialogId} ->
+        DialogId ->
             case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{status=Status}=Dialog ->
                     #sipmsg{response=Code} = Resp,
-                    ?call_debug("Dialog ~p (~p) UAS ~p response ~p", 
+                    ?call_debug("Dialog ~s (~p) UAS ~p response ~p", 
                                 [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
                     nksip_call_dialog:update(Dialog1, Call);

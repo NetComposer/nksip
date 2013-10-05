@@ -274,7 +274,7 @@ packet(AppId, Transport, Packet) ->
         {ok, Class, Headers, Body, Rest} ->
             CallId = nksip_lib:get_value(<<"Call-ID">>, Headers),
             Msg = #raw_sipmsg{
-                id = erlang:phash2(make_ref()), 
+                id = nksip_sipmsg:make_id(element(1, Class), CallId),
                 class = Class,
                 app_id = AppId,
                 call_id = CallId,

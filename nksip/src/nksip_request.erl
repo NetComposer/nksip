@@ -23,8 +23,9 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, header/2, id/1, dialog_id/1, call_id/1]).
--export([body/1, method/1, is_local_route/1, provisional_reply/2]).
+-export([field/3, fields/3, header/3]).
+-export([body/2, method/2, call_id/1, get_request/2]).
+-export([is_local_route/1, is_local_route/2, provisional_reply/3]).
 -export_type([id/0, field/0]).
 
 -include("nksip.hrl").
@@ -35,9 +36,9 @@
 %% Types
 %% ===================================================================
 
--type id() :: integer().
+-type id() :: binary().
 
--type field() ::  app_id | method | call_id | vias | parsed_vias | 
+-type field() ::  method | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
                   from | from_scheme | from_user | from_domain | parsed_from | 
                   to | to_scheme | to_user | to_domain | parsed_to | 
@@ -46,7 +47,6 @@
                   content_type | parsed_content_type | 
                   headers | body | dialog_id | local | remote.
 
--type input() :: nksip:request_id() | nksip:request().
 
 
 %% ===================================================================
@@ -58,11 +58,6 @@
 %%  
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-%%      <tr>
-%%          <td>`app_id'</td>
-%%          <td>{@link nksip:app_id()}</td>
-%%          <td>SipApp's Id</td>
-%%      </tr>
 %%      <tr>
 %%          <td>`method'</td>
 %%          <td>{@link nksip:method()}</td>
@@ -220,7 +215,7 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`dialog_id'</td>
-%%          <td>{@link nksip:dialog_id()}</td>
+%%          <td>{@link nksip_dialog:id()}</td>
 %%          <td>Dialog's Id (if the request has To Tag)</td>
 %%      </tr>
 %%      <tr>
@@ -236,94 +231,84 @@
 %%          <td>Remote transport protocol, ip and port of a request</td>
 %%      </tr>
 %% </table>
--spec field(Req::input(), field()) ->
+-spec field(nksip:app_id(), id(), field()) ->
     term() | error.
 
-field(#sipmsg{class=req}=Req, Field) -> 
-    nksip_sipmsg:field(Req, Field);
-field({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId, Field) -> 
-    nksip_sipmsg:field(ReqId, Field).
-
+field(AppId, ReqId, Field) -> 
+    case fields(AppId, ReqId, [Field]) of
+        [{Field, Value}] -> Value;
+        error -> error
+    end.
 
 %% @doc Gets some fields from a request.
--spec fields(Req::input(), [field()]) ->
-    [term()] | error.
+-spec fields(nksip:app_id(), id(), [field()]) ->
+    [{atom(), term()}] | error.
 
-fields(#sipmsg{class=req}=Req, Fields) -> 
-    nksip_sipmsg:fields(Req, Fields);
-fields({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId, Fields) -> 
-    nksip_sipmsg:fields(ReqId, Fields).
+fields(AppId, <<"R_", _/binary>>=ReqId, Fields) -> 
+    Fun = fun(Req) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Req, Fields))} end,
+    case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
 %% @doc Gets values for a header in a request.
--spec header(Req::input(), binary()) ->
+-spec header(nksip:app_id(), id(), binary()) ->
     [binary()] | error.
 
-header(#sipmsg{class=req}=Req, Name) -> 
-    nksip_sipmsg:header(Req, Name);
-header({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId, Name) -> 
-    nksip_sipmsg:header(ReqId, Name).
-
-
-%% @doc Gets the {@link nksip:request_id()} of a request.
--spec id(Req::input()) ->
-    nksip:request_id().
-
-id({req, _AppId, _CallId, _MsgId, _DlgId}=ReqId) ->
-    ReqId;
-id(#sipmsg{class=req, id=MsgId, app_id=AppId, call_id=CallId}=Req) ->
-    case nksip_dialog:id(Req) of
-        undefined -> DlgId = undefined;
-        {dlg, AppId, CallId, DlgId} -> ok
-    end,
-    {req, AppId, CallId, MsgId, DlgId}.
-
-
-%% @doc Gets the dialog's id of a request.
--spec dialog_id(input()) ->
-    nksip:dialog_id() | undefined.
-
-dialog_id(Req) -> 
-    nksip_sipmsg:dialog_id(Req).
-
-
-%% @doc Gets the call's id of a request.
--spec call_id(input()) ->
-    nksip:call_id().
-
-call_id(Req) ->
-    nksip_sipmsg:call_id(Req).
+header(AppId, <<"R_", _/binary>>=ReqId, Name) -> 
+    Fun = fun(Req) -> {ok, nksip_sipmsg:header(Req, Name)} end,
+    case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
 %% @doc Gets the <i>method</i> of a request.
--spec method(input()) ->
+-spec method(nksip:app_id(), id()) ->
     nksip:method() | error.
 
-method(Req) -> 
-    field(Req, method).
+method(AppId, ReqId) -> 
+    field(AppId, ReqId, method).
 
 
 %% @doc Gets the <i>body</i> of a request.
--spec body(input()) ->
+-spec body(nksip:app_id(), id()) ->
     nksip:body() | error.
 
-body(Req) -> 
-    field(Req, body).
+body(AppId, ReqId) -> 
+    field(AppId, ReqId, body).
 
 
+%% @private
+-spec get_request(nksip:app_id(), id()) ->
+    nksip:request() | error.
 
+get_request(AppId, <<"R_", _/binary>>=ReqId) ->
+    Fun = fun(Req) -> {ok, Req} end,
+    case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
+        {ok, SipMsg} -> SipMsg;
+        _ -> error
+    end.
+
+
+%% @doc Gets the calls's id of a request id
+-spec call_id(id()) ->
+    nksip:call_id().
+
+call_id(<<"R_", Bin/binary>>) ->
+    nksip_lib:bin_last($_, Bin).
+
+   
 %% @doc Sends a <i>provisional response</i> to a request.
--spec provisional_reply(Req::input(), nksip:sipreply()) -> 
+-spec provisional_reply(nksip:app_id(), id(), nksip:sipreply()) -> 
     ok | {error, Error}
     when Error :: invalid_response | invalid_call | unknown_call | unknown_sipapp.
 
-provisional_reply(#sipmsg{class=req}=Req, SipReply) ->
-    provisional_reply(id(Req), SipReply);
-
-provisional_reply(Req, SipReply) ->
+provisional_reply(AppId, <<"R_", _/binary>>=ReqId, SipReply) ->
     case nksip_reply:reqreply(SipReply) of
         #reqreply{code=Code} when Code > 100, Code < 200 ->
-            nksip_call:sync_reply(Req, SipReply);
+            nksip_call:send_reply(AppId, ReqId, SipReply);
         _ ->
             {error, invalid_response}
     end.
@@ -332,14 +317,24 @@ provisional_reply(Req, SipReply) ->
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
 %% It will return `true' if the first <i>Route</i> header points to a local address
 %% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
--spec is_local_route(input()) -> 
+-spec is_local_route(nksip:app_id(), id()) -> 
     boolean().
 
-is_local_route(Req) ->
-    case fields(Req, [app_id, parsed_ruri, parsed_routes]) of
-        [AppId, RUri, []] -> nksip_transport:is_local(AppId, RUri);
-        [AppId, _, [Route|_]] -> nksip_transport:is_local(AppId, Route);
-        error -> error
+is_local_route(AppId, <<"R_", _/binary>>=ReqId) ->
+    case fields(AppId, ReqId, [parsed_ruri, parsed_routes]) of
+        [RUri, []] -> nksip_transport:is_local(AppId, RUri);
+        [_RUri, [Route|_]] -> nksip_transport:is_local(AppId, Route);
+        error -> false
     end.
 
+
+%% @private See {@link is_local_route/2}.
+-spec is_local_route(nksip:request()) -> 
+    boolean().
+
+is_local_route(#sipmsg{app_id=AppId, ruri=RUri, routes=Routes}) ->
+    case Routes of
+        [] -> nksip_transport:is_local(AppId, RUri);
+        [Route|_] -> nksip_transport:is_local(AppId, Route)
+    end.
 

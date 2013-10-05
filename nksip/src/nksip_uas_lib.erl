@@ -103,6 +103,7 @@ preprocess(Req, GlobalId) ->
 response(Req, Code, Headers, Body, Opts) ->
     #sipmsg{
         app_id = AppId, 
+        call_id = CallId,
         method = Method, 
         vias = [LastVia|_] = Vias,
         from = #uri{domain=FromDomain}, 
@@ -218,6 +219,7 @@ response(Req, Code, Headers, Body, Opts) ->
         Reason -> [{reason, Reason}|ReqData]
     end,
     Resp = Req#sipmsg{
+        id = nksip_sipmsg:make_id(resp, CallId),
         class = resp,
         response = Code,
         vias = Vias1,

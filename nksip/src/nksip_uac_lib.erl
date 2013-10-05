@@ -22,7 +22,7 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make/5, make_cancel/1, is_stateless/2]).
+-export([make/5, make_cancel/1, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
 
@@ -136,7 +136,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             ContentTypeSpec -> nksip_parse:tokens([ContentTypeSpec])
         end,
          Req = #sipmsg{
-            id = erlang:phash2(make_ref()),
+            id = nksip_sipmsg:make_id(req, CallId),
             class = req,
             app_id = AppId,
             method = nksip_parse:method(Method),
@@ -191,14 +191,13 @@ make_remove_opts([Tag|Rest], Acc) ->
     make_remove_opts(Rest, [Tag|Acc]).
 
 
-
-
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{class=req, vias=[Via|_]}=Req) ->
+make_cancel(#sipmsg{class=req, call_id=CallId, vias=[Via|_]}=Req) ->
     Req#sipmsg{
+        id = nksip_sipmsg:make_id(req, CallId),
         method = 'CANCEL',
         cseq_method = 'CANCEL',
         forwards = 70,
@@ -209,6 +208,34 @@ make_cancel(#sipmsg{class=req, vias=[Via|_]}=Req) ->
         body = <<>>,
         data = []
     }.
+
+
+%% @doc Generates an <i>ACK</i> request from an <i>INVITE</i> request and a response
+-spec make_ack(nksip:request(), nksip:response()) ->
+    nksip:request().
+
+make_ack(Req, #sipmsg{to=To, to_tag=ToTag}) ->
+    make_ack(Req#sipmsg{to=To, to_tag=ToTag}).
+
+
+%% @private
+-spec make_ack(nksip:request()) ->
+    nksip:request().
+
+make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
+    Req#sipmsg{
+        id = nksip_sipmsg:make_id(req, CallId),
+        method = 'ACK',
+        vias = [Via],
+        cseq_method = 'ACK',
+        forwards = 70,
+        routes = [],
+        contacts = [],
+        headers = [],
+        content_type = [],
+        body = <<>>
+    }.
+
 
 
 %% @doc Checks if a response is a stateless response

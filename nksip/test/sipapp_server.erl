@@ -74,7 +74,7 @@ get_user_pass(_User, _Realm, _From, State) ->
 
 
 % Authorization is only used for "auth" suite
-authorize(Auth, _RequestId, _From, #state{id={auth, Id}}=State) ->
+authorize(Auth, _ReqId, _From, #state{id={auth, Id}}=State) ->
     % ?P("AUTH AT ~p: ~p", [Id, Auth]),
     Reply = case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true ->
@@ -88,7 +88,7 @@ authorize(Auth, _RequestId, _From, #state{id={auth, Id}}=State) ->
             end
     end,
     {reply, Reply, State};
-authorize(_Auth, _RequestId, _From, State) ->
+authorize(_Auth, _ReqId, _From, State) ->
     {reply, ok, State}.
 
 
@@ -96,8 +96,8 @@ authorize(_Auth, _RequestId, _From, State) ->
 % If no user, use Nksip-Op to select an operation
 % If user and domain is nksip, proxy to registered contacts
 % Any other case simply route
-route(Scheme, User, Domain, RequestId, _From, 
-        #state{id={Test, Id}, domains=Domains}=State)
+route(Scheme, User, Domain, ReqId, _From, 
+        #state{id={Test, Id}=AppId, domains=Domains}=State)
         when Test=:=basic; Test=:=uas ->
     Opts = [
         record_route,
@@ -105,9 +105,9 @@ route(Scheme, User, Domain, RequestId, _From,
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
-            case nksip_request:header(RequestId, <<"Nksip-Op">>) of
+            case nksip_request:header(AppId, ReqId, <<"Nksip-Op">>) of
                 [<<"reply-request">>] ->
-                    Request = nksip_sipmsg:get_sipmsg(RequestId),
+                    Request = nksip_request:get_request(AppId, ReqId),
                     Body = base64:encode(term_to_binary(Request)),
                     Hds = [{<<"Content-Type">>, <<"nksip/request">>}],
                     {reply, {200, Hds, Body, [make_contact]}, State};
@@ -136,13 +136,13 @@ route(Scheme, User, Domain, RequestId, _From,
 % If RUri is "client2_op@nksip" will find client2@op and use body as erlang term
 % with options to route
 % If domain is nksip2, route to 127.0.0.1:5080/5081
-route(Scheme, User, Domain, RequestId, _From, 
-        #state{id={Test, SrvId}=Id, domains=Domains}=State) 
+route(Scheme, User, Domain, ReqId, _From, 
+        #state{id={Test, Id}=AppId, domains=Domains}=State) 
     when Test=:=stateless; Test=:=stateful ->
     Opts = lists:flatten([
         case Test of stateless -> stateless; _ -> [] end,
-        {headers, [{<<"Nk-Id">>, SrvId}]},
-        case nksip_request:header(RequestId, <<"Nk-Rr">>) of
+        {headers, [{<<"Nk-Id">>, Id}]},
+        case nksip_request:header(AppId, ReqId, <<"Nk-Rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
         end
@@ -151,13 +151,15 @@ route(Scheme, User, Domain, RequestId, _From,
         true when User =:= <<>> ->
             {reply, {process, Opts}, State};
         true when User =:= <<"client2_op">>, Domain =:= <<"nksip">> ->
-            UriList = nksip_registrar:find(Id, sip, <<"client2">>, Domain),
-            Body = nksip_request:body(RequestId),
+            UriList = nksip_registrar:find(AppId, sip, <<"client2">>, Domain),
+            Body = nksip_request:body(AppId, ReqId),
             ServerOpts = binary_to_term(base64:decode(Body)),
             {reply, {proxy, UriList, ServerOpts++Opts}, State};
         true when Domain =:= <<"nksip">>; Domain =:= <<"nksip2">> ->
-            case nksip_registrar:find(Id, Scheme, User, Domain) of
-                [] -> {reply, temporarily_unavailable, State};
+            case nksip_registrar:find(AppId, Scheme, User, Domain) of
+                [] -> 
+                    % ?P("FIND ~p: []", [{AppId, Scheme, User, Domain}]),
+                    {reply, temporarily_unavailable, State};
                 UriList -> {reply, {proxy, UriList, Opts}, State}
             end;
         true ->
@@ -173,15 +175,15 @@ route(Scheme, User, Domain, RequestId, _From,
 % Route for serverR in fork test
 % Adds Nk-Id header, and Record-Route if Nk-Rr is true
 % If Nk-Redirect will follow redirects
-route(Scheme, User, Domain, RequestId, _From, 
-        #state{id={fork, serverR}=Id, domains=Domains}=State) ->
+route(Scheme, User, Domain, ReqId, _From, 
+        #state{id={fork, serverR}=AppId, domains=Domains}=State) ->
     Opts = lists:flatten([
         {headers, [{<<"Nk-Id">>, serverR}]},
-        case nksip_request:header(RequestId, <<"Nk-Rr">>) of
+        case nksip_request:header(AppId, ReqId, <<"Nk-Rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
         end,
-        case nksip_request:header(RequestId, <<"Nk-Redirect">>) of
+        case nksip_request:header(AppId, ReqId, <<"Nk-Redirect">>) of
             [<<"true">>] -> follow_redirects;
             _ -> []
         end
@@ -190,7 +192,7 @@ route(Scheme, User, Domain, RequestId, _From,
         true when User =:= <<>> ->
             {reply, {process, Opts}, State};
         true when Domain =:= <<"nksip">> ->
-            case nksip_registrar:qfind(Id, Scheme, User, Domain) of
+            case nksip_registrar:qfind(AppId, Scheme, User, Domain) of
                 [] -> {reply, temporarily_unavailable, State};
                 UriList -> {reply, {proxy, UriList, Opts}, State}
             end;
@@ -204,11 +206,11 @@ route(Scheme, User, Domain, RequestId, _From,
 % Adds Nk-Id header. serverA is stateless, rest are stateful
 % Always Record-Route
 % If domain is "nksip" routes to serverR
-route(_, _, Domain, _RequestId, _From, #state{id={fork, SrvId}, domains=Domains}=State) ->
+route(_, _, Domain, _ReqId, _From, #state{id={fork, Id}, domains=Domains}=State) ->
     Opts = lists:flatten([
-        case SrvId of server1 -> stateless; _ -> [] end,
+        case Id of server1 -> stateless; _ -> [] end,
         record_route,
-        {headers, [{<<"Nk-Id">>, SrvId}]}
+        {headers, [{<<"Nk-Id">>, Id}]}
     ]),
     case lists:member(Domain, Domains) of
         true when Domain =:= <<"nksip">> ->
@@ -221,7 +223,7 @@ route(_, _, Domain, _RequestId, _From, #state{id={fork, SrvId}, domains=Domains}
 
 % Route for server1 in auth tests
 % Finds the user and proxies to server2
-route(Scheme, User, Domain, _RequestId, _From, #state{id={auth, server1}}=State) ->
+route(Scheme, User, Domain, _ReqId, _From, #state{id={auth, server1}}=State) ->
     Opts = [{route, "sip:127.0.0.1:5061;lr"}],
     case User of
         <<>> -> 

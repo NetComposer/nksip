@@ -40,24 +40,24 @@
     nksip:dialog().
 
 create(Class, Req, Resp) ->
+    #sipmsg{ruri=#uri{scheme=Scheme}} = Req,
     #sipmsg{
-        app_id = AppId, 
+        app_id = AppId,
         call_id = CallId, 
         from = From, 
-        ruri = #uri{scheme=Scheme},
+        to = To,
         cseq = CSeq,
-        transport = #transport{proto=Proto, remote_ip=_Ip, remote_port=_Port},
+        transport = #transport{proto=Proto},
         from_tag = FromTag
-    } = Req,
-    #sipmsg{to=To} = Resp,
-    {dlg, _, _, DialogId} = nksip_dialog:id(Resp),
-    ?debug(AppId, CallId, "Dialog ~p (~p) created", [DialogId, Class]),
+    } = Resp,
+    DialogId = nksip_dialog:id(Resp),
+    ?debug(AppId, CallId, "Dialog ~s (~p) created", [DialogId, Class]),
     nksip_counters:async([nksip_dialogs]),
     Now = nksip_lib:timestamp(),
     Dialog = #dialog{
         id = DialogId,
         app_id = AppId,
-        call_id = CallId,
+        call_id = CallId, 
         created = Now,
         updated = Now,
         answered = undefined,
@@ -99,7 +99,7 @@ create(Class, Req, Resp) ->
 status_update(Class, Status, Dialog, Call) ->
     #dialog{
         id = DialogId, 
-        app_id = AppId, 
+        app_id = AppId,
         call_id = CallId,
         status = OldStatus, 
         media_started = Media,
@@ -122,7 +122,7 @@ status_update(Class, Status, Dialog, Call) ->
                 true -> 
                     ok;
                 false -> 
-                    ?debug(AppId, CallId, "Dialog ~p ~p -> ~p", 
+                    ?debug(AppId, CallId, "Dialog ~s ~p -> ~p", 
                            [DialogId, OldStatus, Status]),
                     cast(dialog_update, {status, Status}, Dialog)
             end,
@@ -167,7 +167,7 @@ status_update(Class, Status, Dialog, Call) ->
         bye ->
             Dialog2;
         {stop, StopReason} -> 
-            ?debug(AppId, CallId, "Dialog ~p (~p) stopped: ~p", 
+            ?debug(AppId, CallId, "Dialog ~s (~p) stopped: ~p", 
                    [DialogId, OldStatus, StopReason]),
             nksip_counters:async([{nksip_dialogs, -1}]),
             Dialog2
@@ -209,11 +209,11 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog) ->
                 false -> RT
             end;
         [] ->
-            ?notice(AppId, CallId, "Dialog ~p: no Contact in remote target",
+            ?notice(AppId, CallId, "Dialog ~s: no Contact in remote target",
                     [DialogId]),
             RemoteTarget;
         RTOther -> 
-            ?notice(AppId, CallId, "Dialog ~p: invalid Contact in remote rarget: ~p",
+            ?notice(AppId, CallId, "Dialog ~s: invalid Contact in remote rarget: ~p",
                     [DialogId, RTOther]),
             RemoteTarget
     end,
@@ -343,7 +343,7 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
         next_retrans = Next
     } = Dialog,
     #call{opts=#call_opts{timer_t2=T2}} = Call,
-    ?call_info("Dialog ~p resending response", [DialogId], Call),
+    ?call_info("Dialog ~s resending response", [DialogId], Call),
     case nksip_transport_uas:resend_response(Resp) of
         {ok, _} ->
             Dialog1 = Dialog#dialog{
@@ -352,17 +352,17 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
             },
             update(Dialog1, Call);
         error ->
-            ?call_notice("Dialog ~p could not resend response", [DialogId], Call),
+            ?call_notice("Dialog ~s could not resend response", [DialogId], Call),
             Dialog1 = status_update(uas, {stop, ack_timeout}, Dialog, Call),
             update(Dialog1, Call)
     end;
     
 timer(retrans, #dialog{id=DialogId, status=Status}, Call) ->
-    ?call_notice("Dialog ~p retrans timer fired in ~p", [DialogId, Status], Call),
+    ?call_notice("Dialog ~s retrans timer fired in ~p", [DialogId, Status], Call),
     Call;
 
 timer(timeout, #dialog{id=DialogId, status=Status}=Dialog, Call) ->
-    ?call_notice("Dialog ~p (~p) timeout timer fired", [DialogId, Status], Call),
+    ?call_notice("Dialog ~s (~p) timeout timer fired", [DialogId, Status], Call),
     Reason = case Status of
         accepted_uac -> ack_timeout;
         accepted_uas -> ack_timeout;
@@ -426,9 +426,8 @@ update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
 -spec cast(atom(), term(), nksip:dialog()) ->
     ok.
 
-cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId, call_id=CallId}) ->
-    Id ={dlg, AppId, CallId, DialogId},
-    nksip_sipapp_srv:sipapp_cast(AppId, Fun, [Id, Arg]).
+cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId}) ->
+    nksip_sipapp_srv:sipapp_cast(AppId, Fun, [DialogId, Arg]).
 
 
 %% @private

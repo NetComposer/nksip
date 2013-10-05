@@ -213,7 +213,8 @@ clear(AppId) ->
 
 %% @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nksip:aor(), [{URI::nksip:uri(), Remaining::integer(), Q::float()}]}].
+    [{nksip:aor(), [{App::nksip:app_id(), URI::nksip:uri(),
+                     Remaining::integer(), Q::float()}]}].
 
 get_all() ->
     Now = nksip_lib:timestamp(),
@@ -221,7 +222,7 @@ get_all() ->
         {
             {Scheme, User, Domain}, 
             [
-                {C, Exp-Now, Q} || #reg_contact{contact=C, expire=Exp, q=Q} 
+                {AppId, C, Exp-Now, Q} || #reg_contact{contact=C, expire=Exp, q=Q} 
                 <- get(AppId, {Scheme, User, Domain})
             ]
         }
@@ -234,8 +235,9 @@ print_all() ->
     Print = fun({{Scheme, User, Domain}, Regs}) ->
         ?P("\n--- ~p:~s@~s ---", [Scheme, User, Domain]),
         lists:foreach(
-            fun({Contact, Remaining, Q}) ->
-                ?P("    ~s, ~p, ~p", [nksip_unparse:uri(Contact), Remaining, Q])
+            fun({AppId, Contact, Remaining, Q}) ->
+                ?P("    ~p: ~s, ~p, ~p", 
+                   [AppId, nksip_unparse:uri(Contact), Remaining, Q])
             end, Regs)
     end,
     lists:foreach(Print, get_all()),

@@ -64,7 +64,7 @@
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
--export_type([dialog/0, dialog_id/0, request_id/0, response_id/0]).
+-export_type([dialog/0]).
 
 
 
@@ -130,16 +130,6 @@
 
 %% Dialog
 -type dialog() :: #dialog{}.
-
--type dialog_id() :: {dlg, app_id(), call_id(), nksip_dialog:id()}.
-
-%% Request
--type request_id() :: 
-        {req, app_id(), call_id(), nksip_request:id(), nksip_dialog:id()}.
-
-%% Response
--type response_id() :: 
-        {resp, app_id(), call_id(), nksip_response:id(), nksip_dialog:id()}.
 
 
 

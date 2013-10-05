@@ -232,7 +232,8 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req,
     end;
 
 reply(Req, register) -> 
-    nksip_registrar:request(Req);
+    Reply = nksip_registrar:request(Req),
+    reply(Req, Reply);
 
 reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) -> 
     case nksip_reply:reqreply(SipReply) of

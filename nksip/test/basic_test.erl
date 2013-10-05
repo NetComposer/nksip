@@ -103,31 +103,33 @@ transport() ->
         {headers, [{<<"Nksip">>, <<"test1">>}, {<<"Nksip-Op">>, <<"reply-request">>}]}, 
         {contact, "sip:aaa:123, sips:bbb:321"},
         {user_agent, "My SIP"},
-        {body, Body}
+        {body, Body},
+        {fields, [body]}
     ],
-    {ok, 200, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
+    {ok, 200, [{body, RespBody}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
     % Req1 is the request as received at the remote party
 
-    Req1 = binary_to_term(base64:decode(nksip_response:body(Resp1))),
-    [<<"My SIP">>] = nksip_request:header(Req1, <<"User-Agent">>),
+    Req1 = binary_to_term(base64:decode(RespBody)),
+    [<<"My SIP">>] = nksip_sipmsg:header(Req1, <<"User-Agent">>),
     [<<"<sip:aaa:123>">>,<<"<sips:bbb:321>">>] = 
-        nksip_request:header(Req1,  <<"Contact">>),
-    Body = nksip_request:body(Req1),
+        nksip_sipmsg:header(Req1,  <<"Contact">>),
+    Body = nksip_sipmsg:field(Req1, body),
 
-    {ok, 200, Resp2} = nksip_uac:options(C1, "sip:127.0.0.1;transport=tcp", []),
+    Fields2 = {fields, [parsed_contacts, remote]},
+    {ok, 200, Values2} = nksip_uac:options(C1, "sip:127.0.0.1;transport=tcp", [Fields2]),
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
     [
-        [#uri{scheme=sip, port=5060, opts=[{transport, <<"tcp">>}]}],
-        {tcp, {127,0,0,1}, 5060}
-    ] = nksip_response:fields(Resp2, [parsed_contacts, remote]),
+        {_, [#uri{scheme=sip, port=5060, opts=[{transport, <<"tcp">>}]}]},
+        {_, {tcp, {127,0,0,1}, 5060}}
+    ] = Values2,
 
     % Remote has generated a SIPS Contact   
-    {ok, 200, Resp3} = nksip_uac:options(C1, "sips:127.0.0.1", []),
+    {ok, 200, Values3} = nksip_uac:options(C1, "sips:127.0.0.1", [Fields2]),
     [
-        [#uri{scheme=sips, port=5061}],
-        {tls, {127,0,0,1}, 5061}
-    ] = nksip_response:fields(Resp3, [parsed_contacts, remote]),
+        {_, [#uri{scheme=sips, port=5061}]},
+        {_, {tls, {127,0,0,1}, 5061}}
+    ] = Values3,
 
     % Send a big body, switching to TCP
     BigBody = base64:encode(crypto:rand_bytes(1000)),
@@ -135,38 +137,42 @@ transport() ->
     Opts4 = [
         {headers, [{<<"Nksip-Op">>, <<"reply-request">>}]},
         {content_type, <<"nksip/binary">>},
-        {body, BigBody}
+        {body, BigBody},
+        {fields, [body]}
     ],
-    {ok, 200, Resp4} = nksip_uac:options(C2, "sip:127.0.0.1", Opts4),
-    Req4 = binary_to_term(base64:decode(nksip_response:body(Resp4))),
-    BigBodyHash = erlang:phash2(nksip_request:body(Req4)),
+    {ok, 200, Values4} = nksip_uac:options(C2, "sip:127.0.0.1", Opts4),
+    [{body, RespBody4}] = Values4,
+    Req4 = binary_to_term(base64:decode(RespBody4)),
+    BigBodyHash = erlang:phash2(nksip_sipmsg:field(Req4, body)),
 
     % Check local_host is used to generare local Contact, Route headers are received
     Opts5 = [
         {headers, [{<<"Nksip-Op">>, <<"reply-request">>}]},
         make_contact,
         {local_host, "mihost"},
-        {route, [<<"sip:127.0.0.1;lr">>, "sip:aaa;lr, sips:bbb:123;lr"]}
+        {route, [<<"sip:127.0.0.1;lr">>, "sip:aaa;lr, sips:bbb:123;lr"]},
+        {fields, [body]}
     ],
-    {ok, 200, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
-    Req5 = binary_to_term(base64:decode(nksip_response:body(Resp5))),
+    {ok, 200, Values5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
+    [{body, RespBody5}] = Values5,
+    Req5 = binary_to_term(base64:decode(RespBody5)),
     [
         [#uri{user=(<<"client1">>), domain=(<<"mihost">>), port=5070}],
         [
             #uri{domain=(<<"aaa">>), port=0, opts=[lr]},
             #uri{domain=(<<"bbb">>), port=123, opts=[lr]}
         ]
-    ] = nksip_request:fields(Req5, [parsed_contacts, parsed_routes]),
+    ] = nksip_sipmsg:fields(Req5, [parsed_contacts, parsed_routes]),
 
-    {ok, 200, _} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}]),
-    {ok, 200, _} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}]),
 
     % Cover ip resolution
     case nksip_uac:options(C1, "sip:sip2sip.info;transport=tcp", []) of
-        {ok, 200, _} -> ok;
-        {ok, Code, _} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
+        {ok, 200, []} -> ok;
+        {ok, Code, []} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
         {error, Error} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Error])
     end,
     ok.

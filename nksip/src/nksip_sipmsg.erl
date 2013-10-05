@@ -18,134 +18,17 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Internal request and responses management.
+%% @doc Internal request and responses management.
 %% Look at {@link nksip_request} and {@link nksip_response}.
 
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([fields/2, field/2, header/2, header/3, dialog_id/1, app_id/1, call_id/1, 
-         get_sipmsg/1]).
--export_type([id/0]).
+-export([field/2, fields/2, header/2, header/3, make_id/2]).
 
 -include("nksip.hrl").
 
--type id() :: nksip_request:id() | nksip_response:id().
-
--type input() :: nksip:request() | nksip:request_id() |
-                 nksip:response() | nksip:response_id().
-
 -type field() :: nksip_request:field() | nksip_response:field().
-
-
-%% @private
--spec field(input(), field()) ->
-    term() | error.
-
-field(#sipmsg{}=SipMsg, Field) ->
-    get_field(SipMsg, Field);
-
-field(MsgId, Field) ->
-    case fields(MsgId, [Field]) of
-        [Value] -> Value;
-        error -> error
-    end.
-
-
-%% @private
--spec fields(input(), [field()]) ->
-    [term()] | error.
-
-fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
-    [get_field(SipMsg, Field) || Field <- Fields];
-
-fields(MsgId, Fields) when is_list(Fields) ->
-    Fun = fun(#sipmsg{}=SipMsg) -> {ok, fields(SipMsg, Fields)} end,
-    case nksip_call_router:apply_sipmsg(MsgId, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
-
-  
-%% @private
--spec header(input(), binary()) ->
-    [binary()] | error.
-
-header(#sipmsg{}=SipMsg, Name) ->
-    get_header(SipMsg, Name);
-
-header(MsgId, Name) ->
-    Fun = fun(#sipmsg{}=SipMsg) -> {ok, header(SipMsg, Name)} end,
-    case nksip_call_router:apply_sipmsg(MsgId, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
-
-
-%% @private
--spec header(input(), binary(), uris|tokens|integers|dates) ->
-    [term()] | error.
-
-header(MsgId, Name, Type) ->
-    case header(MsgId, Name) of
-        error ->
-            error;
-        Values ->
-            case Type of
-                uris -> nksip_parse:uris(Values);
-                tokens -> nksip_parse:tokens(Values);
-                integers -> nksip_parse:integers(Values);
-                dates -> nksip_parse:dates(Values)
-            end
-    end.
-
-
-%% @doc Gets the dialog's id of a request or response 
--spec dialog_id(input()) ->
-    nksip:dialog_id() | undefined.
-
-dialog_id(SipMsg) ->
-    nksip_dialog:id(SipMsg).
-
-
-%% @doc Gets the app_id of a request or response 
--spec app_id(input()) ->
-    nksip:app_id().
-
-app_id({Class, AppId, _CallId, _MsgId, _DialogId})
-          when Class=:=req; Class=:=resp ->
-    AppId;
-
-app_id(#sipmsg{app_id=AppId}) ->
-    AppId.
-
-
-%% @doc Gets the calls's id of a request or response 
--spec call_id(input()) ->
-    nksip:call_id().
-
-call_id({Class, _AppId, CallId, _MsgId, _DialogId})
-          when Class=:=req; Class=:=resp ->
-    CallId;
-
-call_id(#sipmsg{call_id=CallId}) ->
-    CallId.
-
-
-%% @private
--spec get_sipmsg(input()) ->
-    nksip:request() | nksip:response() | error.
-
-get_sipmsg(#sipmsg{}=SipMsg) ->
-    SipMsg;
-
-get_sipmsg(MsgId) ->
-    Fun = fun(#sipmsg{}=SipMsg) -> {ok, SipMsg} end,
-    case nksip_call_router:apply_sipmsg(MsgId, Fun) of
-        {ok, SipMsg} -> SipMsg;
-        _ -> error
-    end.
-
 
 
 %% ===================================================================
@@ -153,14 +36,14 @@ get_sipmsg(MsgId) ->
 %% ===================================================================
 
 
-%% @private Extracts a specific field from the request
-%% See {@link nksip_request:field/2}.
--spec get_field(nksip:request() | nksip:response(), 
+%% @doc Extracts a specific field from the request.
+-spec field(nksip:request() | nksip:response(), 
             nksip_request:field() | nksip_response:field()) -> 
     term().
 
-get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
+field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
     case Field of
+        id -> S#sipmsg.id;
         app_id -> S#sipmsg.app_id;
         proto -> T#transport.proto;
         local -> {T#transport.proto, T#transport.local_ip, T#transport.local_port};
@@ -197,23 +80,36 @@ get_field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
         parsed_contacts -> S#sipmsg.contacts;
         content_type -> nksip_unparse:tokens(S#sipmsg.content_type);
         parsed_content_type -> S#sipmsg.content_type;
-        headers -> S#sipmsg.headers;
         body -> S#sipmsg.body;
-        code -> S#sipmsg.response;   % Only if it is a response
-        reason -> nksip_lib:get_binary(reason, S#sipmsg.data);
         dialog_id -> nksip_dialog:id(S);
         expire -> S#sipmsg.expire;
-        {header, Name} -> get_header(S, Name);
+        headers -> S#sipmsg.headers;
+        {header, Name} -> header(S, Name);
+        {header, Name, Type} -> header(S, Name, Type);
+        code -> S#sipmsg.response;   % Only if it is a response
+        reason -> nksip_lib:get_binary(reason, S#sipmsg.data);
+        realms -> nksip_auth:realms(S);
         _ -> invalid_field 
     end.
 
 
-%% @private
--spec get_header(nksip:request() | nksip:response(),
+
+
+
+%% @doc
+-spec fields(nksip:request()|nksip:response(), [field()]) ->
+    [term()].
+
+fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
+    [field(SipMsg, Field) || Field <- Fields].
+
+
+%% @doc
+-spec header(nksip:request() | nksip:response(),
                  binary() | string()) -> 
     [binary()].
 
-get_header(#sipmsg{headers=Headers}=SipMsg, Name) ->
+header(#sipmsg{headers=Headers}=SipMsg, Name) ->
     case nksip_lib:to_binary(Name) of
         <<"Call-ID">> -> [field(SipMsg, call_id)];
         <<"Via">> -> field(SipMsg, vias);
@@ -226,5 +122,36 @@ get_header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"Content-Type">> -> [field(SipMsg, content_type)];
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
+
+%% @doc
+-spec header(nksip:app_id(), nksip:request(), uris|tokens|integers|dates) ->
+    [term()] | error.
+
+header(#sipmsg{}=SipMsg, Name, Type) ->
+    Raw = header(SipMsg, Name),
+    case Type of
+        uris -> nksip_parse:uris(Raw);
+        tokens -> nksip_parse:tokens(Raw);
+        integers -> nksip_parse:integers(Raw);
+        dates -> nksip_parse:dates(Raw)
+    end.
+
+
+%% @doc
+-spec make_id(req|resp, nksip:call_id()) ->
+    nksip_request:id() | nksip_response:id().
+
+make_id(Class, CallId) ->
+    <<
+        case Class of
+            req -> $R;
+            resp -> $S
+        end,
+        $_,
+        (nksip_lib:uid())/binary,
+        $_,
+        CallId/binary
+    >>.
+
 
 

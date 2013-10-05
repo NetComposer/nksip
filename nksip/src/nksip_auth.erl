@@ -23,7 +23,7 @@
 -module(nksip_auth).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_authentication/1, realms/1, make_ha1/3, make_request/3]).
+-export([get_authentication/1, realms/1, realms/2, make_ha1/3, make_request/3]).
 -export([check_digest/1, make_response/2]).
 
 -include("nksip.hrl").
@@ -40,37 +40,43 @@
 
 
 %% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
-%% <i>Proxy-Authenticate</i> headers from a response
+%% <i>Proxy-Authenticate</i> headers from a response.
 -spec realms(Response::nksip:response()) ->
     [Realm::binary()].
 
 realms(#sipmsg{headers=Headers}) ->
-    realms(Headers, []);
+    get_realms(Headers, []).
 
-realms(RespId) ->
-    Hd1 = case nksip_response:header(RespId, ?RESP_WWW) of
+
+%% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
+%% <i>Proxy-Authenticate</i> headers from a response.
+-spec realms(nksip:app_id(), nksip_response:id()) ->
+    [Realm::binary()].
+
+realms(AppId, RespId) ->
+    Hd1 = case nksip_response:header(AppId, RespId, ?RESP_WWW) of
         WWW when is_list(WWW) -> [{?RESP_WWW, Data} || Data <- WWW];
         _ -> []
     end,
-    Hd2 = case nksip_response:header(RespId, ?RESP_PROXY) of
+    Hd2 = case nksip_response:header(AppId, RespId, ?RESP_PROXY) of
         Proxy when is_list(Proxy) -> [{?RESP_PROXY, Data} || Data <- Proxy];
         _ -> []
     end,
-    realms(Hd1++Hd2, []).
+    get_realms(Hd1++Hd2, []).
 
 
 %% @private
-realms([{Name, Value}|Rest], Acc) ->
+get_realms([{Name, Value}|Rest], Acc) ->
     if
         Name=:=?RESP_WWW; Name=:=?RESP_PROXY ->
             case parse_header(Value) of
-                error -> realms(Rest, Acc);
-                AuthData -> realms(Rest, [nksip_lib:get_value(realm, AuthData)|Acc])
+                error -> get_realms(Rest, Acc);
+                AuthData -> get_realms(Rest, [nksip_lib:get_value(realm, AuthData)|Acc])
             end;
         true ->
-            realms(Rest, Acc)
+            get_realms(Rest, Acc)
     end;
-realms([], Acc) ->
+get_realms([], Acc) ->
     lists:usort(Acc).
 
 

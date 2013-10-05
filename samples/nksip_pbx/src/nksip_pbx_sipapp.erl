@@ -108,7 +108,7 @@ get_user_pass(_User, _Realm, _From, State) ->
 %%          a challenge to the user.</li>
 %% </ul>
 authorize(Auth, ReqId, _From, State) ->
-    Method = nksip_request:method(ReqId),
+    Method = nksip_request:method(pbx, ReqId),
     lager:notice("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
@@ -169,7 +169,7 @@ route(_Scheme, <<>>, Domain, ReqId, _From, State) ->
         true ->
             process;
         false ->
-            case nksip_request:is_local_route(ReqId) of
+            case nksip_request:is_local_route(pbx, ReqId) of
                 true -> process;
                 false -> proxy
             end
@@ -259,19 +259,19 @@ test_speed([Uri|Rest], Acc) ->
 %% @doc Gets all registered contacts
 find_all() ->
     All = [
-        [Uri || {Uri, _Time, _Q} <- List] 
+        [Uri || {_AppId, Uri, _Time, _Q} <- List] 
         || {_, List} <- nksip_registrar:get_all()
     ],
     lists:flatten(All).
 
 
 %% @doc Gets all registered contacts, excluding the one in `Request'
-find_all_except_me(Request) ->
-    [From] = nksip_request:header(Request, <<"From">>),
+find_all_except_me(ReqId) ->
+    [From] = nksip_request:header(pbx, ReqId, <<"From">>),
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [
-        [Uri || {Uri, _Time, _Q} <- List] 
+        [Uri || {_AppId, Uri, _Time, _Q} <- List] 
         || {R_AOR, List} <- nksip_registrar:get_all(), R_AOR =/= AOR
     ],
     lists:flatten(All).

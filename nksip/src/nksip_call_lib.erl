@@ -24,7 +24,8 @@
 
 -export([store_sipmsg/2, update_sipmsg/2, update/2]).
 -export([update_auth/2, check_auth/2]).
--export([timeout_timer/3, retrans_timer/3, expire_timer/3, cancel_timers/2]).
+-export([timeout_timer/3, retrans_timer/3, expire_timer/3, app_timer/3, 
+         cancel_timers/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
 
 
@@ -33,7 +34,7 @@
 
 -type timeout_timer() :: timer_b | timer_c | timer_d | timer_f | timer_h | 
                          timer_i | timer_j | timer_k | timer_l | timer_m | 
-                         noinvite | sipapp_call.
+                         noinvite.
 
 -type retrans_timer() :: timer_a | timer_e | timer_g.
 
@@ -84,43 +85,44 @@ update_sipmsg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
 -spec update(trans(), call()) ->
     call().
 
-update(#trans{id=Id, class=Class}=New, #call{trans=[#trans{id=Id}=Old|Rest]}=Call) ->
-    #trans{status=NewStatus, method=Method} = New,
-    #trans{status=OldStatus} = Old,
+update(New, Call) ->
+    #trans{
+        id = Id, 
+        class = Class, 
+        status = NewStatus, 
+        method = Method, 
+        app_timer = AppTimer
+    } = New,
+    #call{trans=Trans} = Call,
+    case Trans of
+        [#trans{id=Id, status=OldStatus}|Rest] -> 
+            ok;
+        _ -> 
+            case lists:keytake(Id, #trans.id, Trans) of 
+                {value, #trans{status=OldStatus}, Rest} -> ok;
+                false -> OldStatus=finished, Rest=Trans
+            end
+    end,
     CS = case Class of uac -> "UAC"; uas -> "UAS" end,
     Call1 = case NewStatus of
         finished ->
-            ?call_debug("~s ~p ~p (~p) removed", 
-                        [CS, Id, Method, OldStatus], Call),
-            Call#call{trans=Rest};
-        OldStatus -> 
+            case AppTimer of
+                undefined ->
+                    ?call_debug("~s ~p ~p (~p) removed", 
+                                [CS, Id, Method, OldStatus], Call),
+                    Call#call{trans=Rest};
+                {Fun, _} ->
+                    ?call_debug("~s ~p ~p (~p) is not removed because it is "
+                               "waiting for ~p reply", 
+                               [CS, Id, Method, NewStatus, Fun], Call),
+                    Call#call{trans=[New|Rest]}
+            end;
+        _ when NewStatus=:=OldStatus -> 
             Call#call{trans=[New|Rest]};
         _ -> 
             ?call_debug("~s ~p ~p ~p -> ~p", 
                         [CS, Id, Method, OldStatus, NewStatus], Call),
             Call#call{trans=[New|Rest]}
-    end,
-    hibernate(New, Call1);
-    
-update(New, #call{trans=Trans}=Call) ->
-    #trans{id=Id, class=Class, status=NewStatus, method=Method} = New,
-    CS = case Class of uac -> "UAC"; uas -> "UAS" end,
-    Call1 = case lists:keytake(Id, #trans.id, Trans) of
-        {value, #trans{status=OldStatus}, Rest} -> 
-            case NewStatus of
-                finished ->
-                    ?call_debug("~s ~p ~p (~p) removed!", 
-                                [CS, Id, Method, OldStatus], Call),
-                    Call#call{trans=Rest};
-                OldStatus -> 
-                    Call#call{trans=[New|Rest]};
-                _ -> 
-                    ?call_debug("~s ~p ~p ~p -> ~p!", 
-                        [CS, Id, Method, OldStatus, NewStatus], Call),
-                    Call#call{trans=[New|Rest]}
-            end;
-        false ->
-            Call#call{trans=[New|Trans]}
     end,
     hibernate(New, Call1).
 
@@ -147,20 +149,20 @@ hibernate(_, Call) ->
 
 update_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
     case nksip_dialog:id(SipMsg) of
-        {dlg, _, _, DlgId} ->
+        <<>> ->
+            Call;
+        DialogId ->
             #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
             #call{auths=Auths} = Call,
-            case lists:member({DlgId, Proto, Ip, Port}, Auths) of
+            case lists:member({DialogId, Proto, Ip, Port}, Auths) of
                 true ->
                     Call;
                 false -> 
-                    ?call_debug("Added cached auth for dialog ~p (~p:~p:~p)", 
-                                [DlgId, Proto, Ip, Port], Call),
-                    Auths1 = [{DlgId, Proto, Ip, Port}|Auths],
+                    ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
+                                [DialogId, Proto, Ip, Port], Call),
+                    Auths1 = [{DialogId, Proto, Ip, Port}|Auths],
                     Call#call{auths=Auths1}
-            end;
-        undefined ->
-            Call
+            end
     end;
 
 update_auth(_Resp, Call) ->
@@ -173,23 +175,23 @@ update_auth(_Resp, Call) ->
 
 check_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
     case nksip_dialog:id(SipMsg) of
-        {dlg, _, _, DlgId} ->
+        <<>> ->
+            false;
+        DialogId ->
             #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
             #call{auths=Auths} = Call,
-            case lists:member({DlgId, Proto, Ip, Port}, Auths) of
+            case lists:member({DialogId, Proto, Ip, Port}, Auths) of
                 true ->
                     ?call_debug("Origin ~p:~p:~p is in dialog ~p authorized list", 
-                                [Proto, Ip, Port, DlgId], Call),
+                                [Proto, Ip, Port, DialogId], Call),
                     true;
                 false ->
-                    AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DlgId],
-                    ?call_debug("Origin ~p:~p:~p is NOT in dialog ~p "
+                    AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DialogId],
+                    ?call_debug("Origin ~p:~p:~p is NOT in dialog ~s "
                                 "authorized list (~p)", 
-                                [Proto, Ip, Port, DlgId, AuthList], Call),
+                                [Proto, Ip, Port, DialogId, AuthList], Call),
                     false
-            end;
-        undefined ->
-            false
+            end
     end;
 
 check_auth(_, _) ->
@@ -257,12 +259,13 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
 -spec expire_timer(expire_timer(), trans(), call()) ->
     trans().
 
-expire_timer(expire, #trans{id=Id, class=Class, request=Req, opts=Opts}=Trans, _) ->
+expire_timer(expire, Trans, Call) ->
+    #trans{id=Id, class=Class, request=Req, opts=Opts} = Trans,
+    #call{app_id=AppId, call_id=CallId} = Call,
     Timer = case nksip_sipmsg:header(Req, <<"Expires">>, integers) of
         [Expires] when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
                 true -> 
-                    #sipmsg{app_id=AppId, call_id=CallId} = Req,
                     ?debug(AppId, CallId, "UAC ~p skipping INVITE expire", [Id]),
                     undefined;
                 _ -> 
@@ -279,6 +282,14 @@ expire_timer(expire, #trans{id=Id, class=Class, request=Req, opts=Opts}=Trans, _
 
 
 %% @private
+-spec app_timer(atom(), trans(), call()) ->
+    trans(). 
+
+app_timer(Fun, Trans, #call{opts=#call_opts{timer_sipapp=Time}}) ->
+    Trans#trans{app_timer=start_timer(Time, Fun, Trans)}.
+
+
+%% @private
 -spec start_timer(integer(), timer(), trans()) ->
     {timer(), reference()}.
 
@@ -287,7 +298,7 @@ start_timer(Time, Tag, #trans{class=Class, id=Id}) ->
 
 
 %% @private
--spec cancel_timers([timeout|retrans|expire], trans()) ->
+-spec cancel_timers([timeout|retrans|expire|app], trans()) ->
     trans().
 
 cancel_timers([timeout|Rest], #trans{timeout_timer=Timer}=Trans) ->
@@ -301,6 +312,10 @@ cancel_timers([retrans|Rest], #trans{retrans_timer=Timer}=Trans) ->
 cancel_timers([expire|Rest], #trans{expire_timer=Timer}=Trans) ->
     cancel_timer(Timer),
     cancel_timers(Rest, Trans#trans{expire_timer=undefined});
+
+cancel_timers([app|Rest], #trans{app_timer=Timer}=Trans) ->
+    cancel_timer(Timer),
+    cancel_timers(Rest, Trans#trans{app_timer=undefined});
 
 cancel_timers([], Trans) ->
     Trans.

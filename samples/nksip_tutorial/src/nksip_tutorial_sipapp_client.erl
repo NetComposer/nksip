@@ -44,12 +44,12 @@ init([Id]) ->
 %% If the request has a SDP body, reply 180 Ringing, wait 2 seconds and reply 
 %% 200 Ok with the same body (spawns a new process to avoid blocking the process).
 %% If not, reply 488 Not Acceptable with a Warning header.
-invite(ReqId, From, State) ->
-    SDP = nksip_request:body(ReqId),
+invite(ReqId, From, #state{id=AppId}=State) ->
+    SDP = nksip_request:body(AppId, ReqId),
     case nksip_sdp:is_sdp(SDP) of
         true ->
             Fun = fun() ->
-                nksip_request:provisional_reply(ReqId, ringing),
+                nksip_request:provisional_reply(AppId, ReqId, ringing),
                 timer:sleep(2000),
                 nksip:reply(From, {ok, [], SDP})
             end,

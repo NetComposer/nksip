@@ -74,36 +74,46 @@ uas() ->
     C1 = {uas, client1},
     
     % Test loop detection
-    Opts1 = [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}],
-    {ok, 200, Resp1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
-    [CallId1, From1, CSeq1] = nksip_response:fields(Resp1, [call_id, from, cseq_num]),
-    ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq, CSeq1} | Opts1],
-    {ok, 482, Resp2} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
-    <<"Loop Detected">> = nksip_response:reason(Resp2),
+    Opts1 = [
+        {headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]},
+        {fields, [call_id, from, cseq_num]}
+    ],
+    {ok, 200, Values1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
+    [{call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}] = Values1,
+    ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq, CSeq1}, 
+                      {fields, [reason]} | Opts1],
+    {ok, 482, [{reason, <<"Loop Detected">>}]} = 
+        nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
 
     % Stateless proxies do not detect loops
-    Opts3 = [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}],
-    {ok, 200, Resp3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
-    [CallId3, From3, CSeq3] = nksip_response:fields(Resp3, [call_id, from, cseq_num]),
-    ForceLoopOpts4 = [{call_id, CallId3}, {from, From3}, {cseq, CSeq3} | Opts3],
-    {ok, 200, _} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
+    Opts3 = [
+        {headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]},
+        {fields, [call_id, from, cseq_num]}
+    ],
+    {ok, 200, Values3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
+    [{_, CallId3}, {_, From3}, {_, CSeq3}] = Values3,
+    ForceLoopOpts4 = [{call_id, CallId3}, {from, From3}, {cseq, CSeq3},
+                     {fields, []} | Opts3],
+    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
 
     % Test bad extension endpoint and proxy
-    Opts5 = [{headers, [{"Require", "a,b;c,d"}]}],
-    {ok, 420, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
-    [<<"a,b,d">>] = nksip_response:header(Resp5, <<"Unsupported">>),
+    Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, {fields, [headers]}],
+    {ok, 420, [{headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
+    [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds5),
+    
     Opts6 = [
         {headers, [{"Proxy-Require", "a,b;c,d"}]}, 
-        {route, "<sip:127.0.0.1;lr>"}
+        {route, "<sip:127.0.0.1;lr>"},
+        {fields, [headers]}
     ],
-    {ok, 420, Resp6} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
-    [<<"a,b,d">>] = nksip_response:header(Resp6, <<"Unsupported">>),
+    {ok, 420, [{headers, Hds6}]} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
+    [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds6),
 
     % Force invalid response
-    Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}],
+    Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}, {fields, [reason]}],
     nksip_trace:warning("Next warning about a invalid sipreply is expected"),
-    {ok, 500,  Resp7} = nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
-    <<"Invalid Response">> = nksip_response:reason(Resp7),
+    {ok, 500,  [{reason, <<"Invalid Response">>}]} = 
+        nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
     ok.
 
 
@@ -173,21 +183,20 @@ timeout() ->
     nksip_call_router:remove_app_cache(C1),
 
     % Client1 callback module has a 50msecs delay in route()
-    {ok, 500, Resp1} = nksip_uac:options(C2, SipC1, []),
-    <<"No SipApp Response">> = nksip_response:field(Resp1, reason),
+    {ok, 500, [{reason, <<"No SipApp Response">>}]} = 
+        nksip_uac:options(C2, SipC1, [{fields, [reason]}]),
 
     Opts2 = [{timer_t1, 10}, {timer_c, 500}|Opts] -- [{sipapp_timeout, 50}],
     nksip_proc:put({nksip_sipapp_opts, C1}, Opts2, Pid),
     nksip_call_router:remove_app_cache(C1),
 
     Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},
-    {ok, 408, Resp2} = nksip_uac:options(C2, SipC1, [Hds1]),
-    <<"No Invite Timeout">> = nksip_response:field(Resp2, reason),
+    {ok, 408, [{reason, <<"No-INVITE Timeout">>}]} = 
+        nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason]}]),
 
     Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Sleep", 2000}]},
-    {ok, 408, Resp3} = nksip_uac:invite(C2, SipC1, [Hds2]),
-    <<"Timer C Timeout">> = nksip_response:field(Resp3, reason),
-
+    {ok, 408, [{dialog_id, _}, {reason, <<"Timer C Timeout">>}]} = 
+        nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason]}]),
     ok.
 
 

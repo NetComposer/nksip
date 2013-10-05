@@ -32,7 +32,8 @@
 -export([get_integer/2, get_integer/3]).
 -export([to_binary/1, to_list/1, to_integer/1, to_ip/1, is_string/1]).
 -export([to_lower/1, to_upper/1]).
--export([bjoin/1, bjoin/2, hex/1, extract/2, delete/2, cancel_timer/1, msg/2]).
+-export([bjoin/1, bjoin/2, hex/1, extract/2, delete/2, bin_last/2]).
+-export([cancel_timer/1, msg/2]).
 
 -export_type([proplist/0, timestamp/0, l_timestamp/0, token/0, token_list/0]).
 
@@ -652,6 +653,18 @@ digit(D) when (D >= 0) and (D < 10) -> D + 48;
 digit(D) -> D + 87.
 
 
+%% @doc Gets the subbinary after `Char'.
+-spec bin_last(char(), binary()) ->
+    binary().
+
+bin_last(Char, Bin) ->
+    case binary:match(Bin, <<Char>>) of
+        {First, 1} -> binary:part(Bin, First+1, byte_size(Bin)-First-1);
+        _ -> <<>>
+    end.
+
+
+
 %% @doc Cancels and existig timer.
 -spec cancel_timer(reference()|undefined) ->
     false | integer().
@@ -679,6 +692,7 @@ msg(Msg, Vars) ->
         {'EXIT', _} -> <<"Msg parser error">>;
         Result -> Result
     end.
+
 
 
 %% ===================================================================

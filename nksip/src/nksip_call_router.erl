@@ -26,10 +26,10 @@
 
 -export([incoming_async/1, incoming_sync/1]).
 -export([send_work_sync/3, send_work_async/3, send_work_async/4]).
--export([apply_dialog/2, get_all_dialogs/0, get_all_dialogs/2]).
--export([apply_sipmsg/2, get_all_sipmsgs/0, get_all_sipmsgs/2]).
--export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
--export([get_all_calls/0, get_all_data/0, clear_all_calls/0]).
+-export([apply_dialog/3, get_all_dialogs/0, get_all_dialogs/2]).
+-export([apply_sipmsg/3]).
+-export([apply_transaction/3, get_all_transactions/0, get_all_transactions/2]).
+-export([get_all_calls/0, get_all_data/0, get_all_info/0, clear_all_calls/0]).
 -export([pending_msgs/0, pending_work/0, remove_app_cache/1]).
 -export([pos2name/1, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
@@ -37,9 +37,14 @@
 
 -export_type([sync_error/0]).
 
-
 -include("nksip.hrl").
 -include("nksip_call.hrl").
+
+-define(SYNC_TIMEOUT, 5000).
+
+%% TODO: If there are several pending messages and the process stops,
+%% it will resend the messages in reverse order. The last monitor
+%% comes first
 
 
 %% ===================================================================
@@ -70,7 +75,7 @@ incoming_sync(#raw_sipmsg{call_id=CallId}=RawMsg) ->
 
 send_work_sync(AppId, CallId, Work) ->
     WorkSpec = {send_work_sync, AppId, CallId, Work},
-    case catch gen_server:call(name(CallId), WorkSpec, ?SRV_TIMEOUT) of
+    case catch gen_server:call(name(CallId), WorkSpec, ?SYNC_TIMEOUT) of
         {'EXIT', Error} ->
             ?warning(AppId, CallId, "Error calling send_work_sync (~p): ~p",
                      [work_id(Work), Error]),
@@ -103,22 +108,18 @@ send_work_async(Name, AppId, CallId, Work) ->
 
 
 %% @doc Applies a fun to a dialog and returns the result.
--spec apply_dialog(nksip_dialog:spec(), function()) ->
+-spec apply_dialog(nksip:app_iod(), nksip_dialog:id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_dialog | sync_error().
 
-apply_dialog(DialogSpec, Fun) ->
-    case nksip_dialog:id(DialogSpec) of
-        {dlg, AppId, CallId, DialogId} ->
-            send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun});
-        undefined ->
-            {error, unknown_dialog}
-    end.
+apply_dialog(AppId, DialogId, Fun) ->
+    CallId = nksip_dialog:call_id(DialogId),
+    send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun}).
 
 
 %% @doc Get all dialog ids for all calls.
 -spec get_all_dialogs() ->
-    [nksip:dialog_id()].
+    [{nksip:app_id(), nksip_dialog:id()}].
 
 get_all_dialogs() ->
     lists:flatten([get_all_dialogs(AppId, CallId)
@@ -127,7 +128,7 @@ get_all_dialogs() ->
 
 %% @doc Get all dialog ids for this SipApp, having CallId.
 -spec get_all_dialogs(nksip:app_id(), nksip:call_id()) ->
-    [nksip:dialog_id()].
+    [{nksip:app_id(), nksip_dialog:id()}].
 
 get_all_dialogs(AppId, CallId) ->
     case send_work_sync(AppId, CallId, get_all_dialogs) of
@@ -137,48 +138,28 @@ get_all_dialogs(AppId, CallId) ->
 
 
 %% @doc Applies a fun to a SipMsg and returns the result.
--spec apply_sipmsg(nksip:request_id() | nksip:response_id(), function()) ->
+-spec apply_sipmsg(nksip:app_id(), nksip_request:id()|nksip_response:id(), 
+                   function()) ->
     term() | {error, Error}
     when Error :: unknown_sipmsg | sync_error().
 
-apply_sipmsg({Class, AppId, CallId, MsgId, _DlgId}, Fun)
-             when Class=:=req; Class=:=resp ->
-    send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun}).
-
-
-%% @doc Get all stored SipMsgs for all calls.
--spec get_all_sipmsgs() ->
-    [nksip:request_id() | nksip:response_id()].
-
-get_all_sipmsgs() ->
-    lists:flatten([get_all_sipmsgs(AppId, CallId)
-        ||{AppId, CallId, _} <- get_all_calls()]).
-
-
-%% @doc Get all SipMsgs for this SipApp, having CallId.
--spec get_all_sipmsgs(nksip:app_id(), nksip:call_id()) ->
-    [nksip:request_id() | nksip:response_id()].
-
-get_all_sipmsgs(AppId, CallId) ->
-    case send_work_sync(AppId, CallId, get_all_sipmsgs) of
-        {ok, Ids} -> Ids;
-        _ -> []
-    end.
+apply_sipmsg(AppId, MsgId, Fun) ->
+    send_work_sync(AppId, call_id(MsgId), {apply_sipmsg, MsgId, Fun}).
 
 
 %% @doc Applies a fun to a transaction and returns the result.
--spec apply_transaction(nksip:request_id() | nksip:response_id(), function()) ->
+-spec apply_transaction(nksip:app_id(), nksip_request:id()|nksip_response:id(), 
+                        function()) ->
     term() | {error, Error}
     when Error :: unknown_transaction | sync_error().
 
-apply_transaction({Class, AppId, CallId, MsgId, _DlgId}, Fun)
-             when Class=:=req; Class=:=resp ->
-    send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun}).
+apply_transaction(AppId, MsgId, Fun) ->
+    send_work_sync(AppId, call_id(MsgId), {apply_transaction, MsgId, Fun}).
 
 
 %% @doc Get all active transactions for all calls.
 -spec get_all_transactions() ->
-    [nksip:request_id() | nksip:response_id()].
+    [{nksip:app_id(), nksip_request:id()|nksip_response:id()}].
 
 get_all_transactions() ->
     lists:flatten([get_all_transactions(AppId, CallId)
@@ -187,7 +168,7 @@ get_all_transactions() ->
 
 %% @doc Get all active transactions for this SipApp, having CallId.
 -spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
-    [nksip:request_id() | nksip:response_id()].
+    [nksip_request:id() | nksip_response:id()].
 
 get_all_transactions(AppId, CallId) ->
     case send_work_sync(AppId, CallId, get_all_transactions) of
@@ -203,6 +184,15 @@ get_all_transactions(AppId, CallId) ->
 get_all_calls() ->
     Fun = fun(Name, Acc) -> [call_fold(Name)|Acc] end,
     lists:flatten(router_fold(Fun)).
+
+
+%% @doc Get all started calls.
+-spec get_all_info() ->
+    [term()].
+
+get_all_info() ->
+    lists:sort(lists:flatten([send_work_sync(AppId, CallId, info)
+        || {AppId, CallId, _} <- get_all_calls()])).
 
 
 %% @doc Removes all calls, dialogs, transactions and forks.
@@ -288,7 +278,8 @@ handle_call({send_work_sync, AppId, CallId, Work}, From, SD) ->
     end;
 
 handle_call({incoming, RawMsg}, _From, SD) ->
-    case incoming(RawMsg, SD) of
+    #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
+    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, SD) of
         {ok, SD1} -> 
             {reply, ok, SD1};
         {error, Error} ->
@@ -313,7 +304,8 @@ handle_call(Msg, _From, SD) ->
     gen_server_cast(#state{}).
 
 handle_cast({incoming, RawMsg}, SD) ->
-    case incoming(RawMsg, SD) of
+    #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
+    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, SD) of
         {ok, SD1} -> 
             {noreply, SD1};
         {error, Error} ->
@@ -417,6 +409,14 @@ pos2name(Pos) ->
 
 
 %% @private
+call_id(MsgId) ->
+    case MsgId of
+        <<"R_", _/binary>> -> nksip_request:call_id(MsgId);
+        <<"S_", _/binary>> -> nksip_response:call_id(MsgId)
+    end.
+
+
+%% @private
 -spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work(), 
                      from(), #state{}) ->
     {ok, #state{}} | {error, sync_error()}.
@@ -435,20 +435,6 @@ send_work_sync(AppId, CallId, Work, From, #state{name=Name, pending=Pending}=SD)
                 {error, Error} -> {error, Error}
             end
    end.
-
-
-
-%% @private
-incoming(RawMsg, #state{name=Name}=SD) ->
-    #raw_sipmsg{class=Class, app_id=AppId, call_id=CallId} = RawMsg,
-    case Class of
-        {req, _,  _} ->
-            send_work_sync(AppId, CallId, {incoming, RawMsg}, none, SD);
-        {resp, _, _} ->
-            send_work_async(Name, AppId, CallId, {incoming, RawMsg}),
-            {ok, SD}
-    end.
-
 
 
 %% @private

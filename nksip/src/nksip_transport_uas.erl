@@ -110,6 +110,7 @@ resend_response(#sipmsg{app_id=AppId, call_id=CallId}) ->
 
 make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
+        app_id = AppId,
         vias = [#via{proto=ViaProto, opts=ViaOpts}=Via|ViaR], 
         to = To, 
         headers = Headers,
@@ -159,8 +160,8 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     Route
             end
         end,
-        Routes = lists:map(UpdateRoutes, 
-                                nksip_sipmsg:header(Resp, <<"Record-Route">>, uris)),
+        RRs = nksip_sipmsg:header(Resp, <<"Record-Route">>, uris),
+        Routes = lists:map(UpdateRoutes, RRs),
         Headers1 = nksip_headers:update(Headers, [
                                         {multi, <<"Record-Route">>, Routes}]),
         Body1 = case Body of

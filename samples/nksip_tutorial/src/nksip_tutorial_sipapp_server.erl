@@ -99,12 +99,12 @@ authorize(Auth, _ReqId, _From, State) ->
 %%
 %% - If it has user part, and domain is "nksip", find if it is registered and proxy.
 %%   For other domain, proxy the request.
-route(_Scheme, <<>>, Domain, ReqId, _From, State) ->
+route(_Scheme, <<>>, Domain, ReqId, _From, #state{id=AppId}=State) ->
     Reply = case Domain of
         <<"nksip">> ->
             process;
         _ ->
-            case nksip_request:is_local_route(ReqId) of
+            case nksip_request:is_local_route(AppId, ReqId) of
                 true -> process;
                 false -> proxy
             end
