@@ -208,7 +208,7 @@ cseq() ->
     binary().
 
 luid() ->
-    lhash({make_ref(), now()}).
+    lhash({make_ref(), os:timestamp()}).
 
 
 %% @doc Generates a new printable SHA hash binary over `Base' (using 160 bits).
