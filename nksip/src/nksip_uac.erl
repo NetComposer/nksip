@@ -192,7 +192,7 @@
 -type opt() ::  
     dialog_opt() |
     {from, nksip:user_uri()} | {to, nksip:user_uri()} | {user_agent, binary()} |
-    {call_id, binary()} | {cseq, pos_integer()} | {route, nksip:user_uri()}.
+    {call_id, binary()} | {cseq, nksip:cseq()} | {route, nksip:user_uri()}.
 
 -type dialog_opt() ::  
     {fields, [nksip_response:field()]} | async | {callback, function()} | 
@@ -201,7 +201,7 @@
     {headers, [nksip:header()]} | {body, nksip:body()} | {local_host, auto|binary()}.
 
 -type register_opt() ::
-    {expires, pos_integer()} | unregister | unregister_all.
+    {expires, non_neg_integer()} | unregister | unregister_all.
 
 -type invite_opt() ::
     {expires, pos_integer()}.

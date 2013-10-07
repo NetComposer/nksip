@@ -22,7 +22,7 @@
 -module(nksip_call_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([store_sipmsg/2, update_sipmsg/2, update/2]).
+-export([update_sipmsg/2, update/2]).
 -export([update_auth/2, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3, app_timer/3, 
          cancel_timers/2]).
@@ -52,23 +52,6 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
-
-
-%% @private Adds a new SipMsg to the call's store
--spec store_sipmsg(nksip:request()|nksip:response(), call()) ->
-    call().
-
-store_sipmsg(#sipmsg{id=MsgId}=SipMsg, #call{keep_time=KeepTime, msgs=Msgs}=Call) ->
-    case KeepTime > 0 of
-        true ->
-            ?call_debug("Storing sipmsg ~p", [MsgId], Call),
-            erlang:start_timer(1000*KeepTime, self(), {remove_msg, MsgId}),
-            nksip_counters:async([nksip_msgs]),
-            Call#call{msgs=[SipMsg|Msgs]};
-        false ->
-            Call
-    end.
-
 
 
 %% @private
