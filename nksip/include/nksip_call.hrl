@@ -128,7 +128,6 @@
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
     opts :: #call_opts{},
-    keep_time :: integer(),
     hibernate :: atom(),
     next :: integer(),
     trans = [] :: [#trans{}],

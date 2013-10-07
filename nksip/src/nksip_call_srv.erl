@@ -88,13 +88,12 @@ get_data(Pid) ->
 
 init([AppId, CallId, CallOpts]) ->
     nksip_counters:async([nksip_calls]),
-    #call_opts{app_opts=AppOpts, max_trans_time=MaxTransTime} = CallOpts,
+    #call_opts{max_trans_time=MaxTransTime} = CallOpts,
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
         app_id = AppId, 
         call_id = CallId, 
         opts = CallOpts,
-        keep_time = nksip_lib:get_integer(msg_keep_time, AppOpts, ?MSG_KEEP_TIME),
         next = Id+1,
         hibernate = false,
         trans = [],

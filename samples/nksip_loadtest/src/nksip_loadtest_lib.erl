@@ -44,8 +44,7 @@ start_server(Name, Port) ->
         registrar,
         {transport, {udp, {0,0,0,0}, Port}},
         {transport, {tls, {0,0,0,0}, Port+1}},
-        no_100,
-        {msg_keep_time, 0}
+        no_100
     ],
     case nksip:start(Name, nksip_loadtest_sipapp, [Name], CoreOpts) of
         ok -> ok;
@@ -241,8 +240,7 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    Opts = [{msg_keep_time, 0}],
-    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [], Opts) of
+    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [], []) of
         ok -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
         _ -> error
