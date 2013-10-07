@@ -107,7 +107,7 @@ A successful response to some SIP requests (INVITE, SUBSCRIBE and others) create
 
 When the call is <i>hung up</i>, a BYE is usually sent and NkSIP destroys the dialog.
 
-New requests can be sent <i>inside</i> the newly created dialog. If no new request is sent or received during a specific period of time (see {@section Configuration}), NkSIP would also destroy the dialog. You should <i>refresh</i> the dialog periodically (for example calling {@link nksip_uac:refresh/2} or sending a new in-dialog request).
+New requests can be sent <i>inside</i> the newly created dialog. If no new request is sent or received during a specific period of time (see {@section Configuration}), NkSIP would also destroy the dialog. You should <i>refresh</i> the dialog periodically (for example calling {@link nksip_uac:refresh/3} or sending a new in-dialog request).
 
 When a dialog is created, destroyed or updated the corresponding function in your callback module is called. You can use these calls to know about the dialog current state, for example for billing purposes. Stateless proxies don't generate or process dialogs.
 
@@ -130,7 +130,7 @@ You can use the functions in {@link nksip_sdp} to access, create or modify SDP b
 
 There are several situations in any SIP enabled application where we must send to the other party a SIP URI showing the protocol, IP and port where we are currently listening to receive new requests. A <i>Contact</i> header is used for this. For example when sending a REGISTER we must indicate to the registrar where it must send any request directed to us. When starting a dialog with INVITE we must inform the other party where to receive in-dialog requests.
 
-NkSIP will try to automatically generate a correct <i>Contact</i> header for you, using the same transport, IP and port used to send this specific request. For example, if we have a <i>SipApp</i> listening on 192.168.0.1:5070 for UDP and TCP, and 192.168.0.1:5071 for TLS, sending a REGISTER to the <i>URI</i> `sip:registrar.com;transport=tcp', will generate a `Contact' header like `sip:192.168.0.1:5070;transport=tcp'.
+NkSIP will try to automatically generate a correct <i>Contact</i> header for you, using the same transport, IP and port used to send this specific request. For example, if we have a <i>SipApp</i> listening on 192.168.0.1:5070 for UDP and TCP, and 192.168.0.1:5071 for TLS, sending a REGISTER to the <i>URI</i> `<sip:registrar.com;transport=tcp>', will generate a `Contact' header like `<sip:192.168.0.1:5070;transport=tcp>'.
 
 If the listening address of the selected transport is <i>0.0.0.0</i> (meaning "listen on all interfaces") NkSIP will try to find, among all the IPs of the host, which is the <i>best</i> one to use. It uses a sorted list of network cards (specifically `eth0', `eth1', `en0' and `en1') fetching the IP from the first active network card. If none is available it will get any IP from the host.
 

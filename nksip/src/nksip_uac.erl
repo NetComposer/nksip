@@ -48,7 +48,7 @@
 %% final response and errors.
 %%
 %% Methods <i>OPTIONS</i>, <i>REGISTER</i> and <i>INVITE</i> can be
-%% sent outside or inside a dialog. <i>ACK</i> and <i>BYE<i> can only be sent 
+%% sent outside or inside a dialog. <i>ACK</i> and <i>BYE</i> can only be sent 
 %% inside a dialog, and <i>CANCEL</i> can only be sent outside a dialog.
 %%
 %% Common options for most functions (outside or inside dialog) are:<br/>
@@ -81,7 +81,7 @@
 %%          <td>If defined, it will be called for every received provisional response
 %%          as `{ok, Code, Values}'. For `async' requests, it is called also 
 %%          for the final response and, if an error is produced before sending 
-%%          the request, as `{error, Error}'. 
+%%          the request, as `{error, Error}'.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`contact'</td>
