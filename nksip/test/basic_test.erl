@@ -104,7 +104,7 @@ transport() ->
     {error, invalid_uri} = nksip_uac:options(C1, "sip::a", []),
     nksip_trace:info("Next info about connection error to port 50600 is expected"),
     {error, network_error} =
-        nksip_uac:options(C1, "sip:127.0.0.1:50600;transport=tcp", []),
+        nksip_uac:options(C1, "<sip:127.0.0.1:50600;transport=tcp>", []),
 
     Body = base64:encode(crypto:rand_bytes(100)),
     Opts1 = [
@@ -125,7 +125,7 @@ transport() ->
     Body = nksip_request:body(Req1),
 
     {reply, Resp2} = 
-                nksip_uac:options(C1, "sip:127.0.0.1;transport=tcp", [full_response]),
+                nksip_uac:options(C1, "<sip:127.0.0.1;transport=tcp>", [full_response]),
     200 = nksip_response:code(Resp2),
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
@@ -161,7 +161,7 @@ transport() ->
         {headers, [{<<"Nksip-Op">>, <<"reply-request">>}]},
         make_contact,
         {local_host, "mihost"},
-        {route, [<<"sip:127.0.0.1;lr">>, "sip:aaa;lr, sips:bbb:123;lr"]},
+        {route, [<<"<sip:127.0.0.1;lr>">>, "<sip:aaa;lr>, <sips:bbb:123;lr>"]},
         full_response
     ],
     {reply, Resp5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
@@ -181,7 +181,7 @@ transport() ->
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}]),
 
     % Cover ip resolution
-    case nksip_uac:options(C1, "sip:sip2sip.info;transport=tcp", []) of
+    case nksip_uac:options(C1, "<sip:sip2sip.info;transport=tcp>", []) of
         {ok, 200} -> ok;
         {ok, Code} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
         {error, Error} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Error])
@@ -267,11 +267,11 @@ auto() ->
     Ref = make_ref(),
     ok = sipapp_endpoint:add_callback(C1, Ref),
     {ok, true} = nksip_sipapp_auto:start_ping(C1, ping1, 
-                                "sip:127.0.0.1:5080;transport=tcp", 1, []),
+                                "<sip:127.0.0.1:5080;transport=tcp>", 1, []),
 
     {error, invalid_uri} = nksip_sipapp_auto:start_register(name, reg1, "sip::a", 1, []),
     {ok, true} = nksip_sipapp_auto:start_register(C1, reg1, 
-                                "sip:127.0.0.1:5080;transport=tcp", 1, []),
+                                "<sip:127.0.0.1:5080;transport=tcp>", 1, []),
 
     [{ping1, true, _}] = nksip_sipapp_auto:get_pings(C1),
     [{reg1, true, _}] = nksip_sipapp_auto:get_registers(C1),
@@ -279,9 +279,9 @@ auto() ->
     ok = tests_util:wait(Ref, [{ping, ping1, true}, {reg, reg1, true}]),
     nksip_trace:info("Next infos about connection error to port 9999 are expected"),
     {ok, false} = nksip_sipapp_auto:start_ping(C1, ping2, 
-                                            "sip:127.0.0.1:9999;transport=tcp", 1, []),
+                                            "<sip:127.0.0.1:9999;transport=tcp>", 1, []),
     {ok, false} = nksip_sipapp_auto:start_register(C1, reg2, 
-                                            "sip:127.0.0.1:9999;transport=tcp", 1, []),
+                                            "<sip:127.0.0.1:9999;transport=tcp>", 1, []),
     ok = tests_util:wait(Ref, [{ping, ping2, false}, {reg, reg2, false}]),
 
     [{ping1, true,_}, {ping2, false,_}] = 
@@ -298,7 +298,7 @@ auto() ->
     ok = sipapp_server:stop({basic, server2}),
     nksip_trace:info("Next info about connection error to port 5080 is expected"),
     {ok, false} = nksip_sipapp_auto:start_ping(C1, ping3, 
-                                            "sip:127.0.0.1:5080;transport=tcp", 1, []),
+                                            "<sip:127.0.0.1:5080;transport=tcp>", 1, []),
     ok = nksip_sipapp_auto:stop_ping(C1, ping1),
     ok = nksip_sipapp_auto:stop_ping(C1, ping3),
     ok = nksip_sipapp_auto:stop_register(C1, reg1),
