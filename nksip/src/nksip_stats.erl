@@ -40,15 +40,13 @@
 %% Public
 %% ===================================================================
 
-%% @doc Gets some statistics about current number of active transactions, proxy 
-%% transacions, dialogs, etc.
+%% @doc Gets some statistics about current number of calls, dialogs, queues, etc.
 -spec info() ->
     nksip_lib:proplist().
 
 info() ->
     [
         {calls, nksip_counters:value(nksip_calls)},
-        {sipmsgs, nksip_counters:value(nksip_msgs)},
         {dialogs, nksip_counters:value(nksip_dialogs)},
         {routers_queue, nksip_call_router:pending_msgs()},
         {routers_pending, nksip_call_router:pending_work()},
