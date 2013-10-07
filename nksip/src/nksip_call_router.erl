@@ -108,7 +108,7 @@ send_work_async(Name, AppId, CallId, Work) ->
 
 
 %% @doc Applies a fun to a dialog and returns the result.
--spec apply_dialog(nksip:app_iod(), nksip_dialog:id(), function()) ->
+-spec apply_dialog(nksip:app_id(), nksip_dialog:id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_dialog | sync_error().
 
@@ -159,16 +159,21 @@ apply_transaction(AppId, MsgId, Fun) ->
 
 %% @doc Get all active transactions for all calls.
 -spec get_all_transactions() ->
-    [{nksip:app_id(), nksip_request:id()|nksip_response:id()}].
+    [{nksip:app_id(), nksip:call_id(), uac, nksip_call_uac:id()} |
+     {nksip:app_id(), nksip:call_id(), uas, nksip_call_uas:id()}].
 
 get_all_transactions() ->
-    lists:flatten([get_all_transactions(AppId, CallId)
-        ||{AppId, CallId, _} <- get_all_calls()]).
+    lists:flatten(
+        [
+            [{AppId, CallId, Class, Id} 
+                || {Class, Id} <- get_all_transactions(AppId, CallId)]
+            || {AppId, CallId, _} <- get_all_calls()
+        ]).
 
 
 %% @doc Get all active transactions for this SipApp, having CallId.
 -spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
-    [nksip_request:id() | nksip_response:id()].
+    [{uac, nksip_call_uac:id()} | {uas, nksip_call_uas:id()}].
 
 get_all_transactions(AppId, CallId) ->
     case send_work_sync(AppId, CallId, get_all_transactions) of

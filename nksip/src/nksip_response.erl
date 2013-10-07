@@ -34,7 +34,7 @@
 %% Types
 %% ===================================================================
 
--type id() :: integer().
+-type id() :: binary().
 
 -type field() ::  code | reason | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |

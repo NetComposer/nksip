@@ -54,7 +54,7 @@
 
 -type work() :: {incoming, #raw_sipmsg{}} | 
                 {app_reply, atom(), nksip_call_uas:id(), term()} |
-                {send_reply, nksip_call_uas:id(), nksip:sipreply()} |
+                {send_reply, nksip_request:id(), nksip:sipreply()} |
                 {make, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
                 {send, nksip:request(), nksip_lib:proplist()} |
                 {send, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
@@ -77,7 +77,7 @@
 
 %% @doc Sends a new request.
 -spec send(nksip:request(), nksip_lib:proplist()) ->
-    nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:send_error()}.
+    nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
     send_work_sync(AppId, CallId, {send, Req, Opts}).
@@ -85,7 +85,7 @@ send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
 
 %% @doc Generates and sends a new request.
 -spec send(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->
-    nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:make_error()}.
+    nksip_uac:result() | {error, nksip_uac:error()}.
 
 send(AppId, Method, Uri, Opts) ->
     case nksip_lib:get_binary(call_id, Opts) of
@@ -98,7 +98,7 @@ send(AppId, Method, Uri, Opts) ->
 %% @doc Generates and sends a new in-dialog request.
 -spec send_dialog(nksip:app_id(), nksip_dialog:id(), nksip:method(), 
                   nksip_lib:proplist()) ->
-    nksip_uac:send_common() | nksip_uac:send_ack() | {error, nksip_uac:send_error()}.
+    nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send_dialog(AppId, DialogId, Method, Opts) ->
     CallId = nksip_dialog:call_id(DialogId),
@@ -347,9 +347,8 @@ work({apply_transaction, MsgId, Fun}, From, Call) ->
     end,
     Call;
 
-work(get_all_transactions, From, Call) ->
-    #call{app_id=AppId, call_id=CallId, trans=Trans} = Call,
-    Ids = [{Class, AppId, CallId, Id} || #trans{id=Id, class=Class} <- Trans],
+work(get_all_transactions, From, #call{trans=Trans}=Call) ->
+    Ids = [{Class, Id} || #trans{id=Id, class=Class} <- Trans],
     gen_server:reply(From, {ok, Ids}),
     Call;
 

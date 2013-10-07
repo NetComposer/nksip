@@ -179,6 +179,7 @@
 -include("nksip.hrl").
 
 -export([options/3, register/3, invite/3, ack/3, bye/3, cancel/2, refresh/3, stun/3]).
+-export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
 
 %% ===================================================================

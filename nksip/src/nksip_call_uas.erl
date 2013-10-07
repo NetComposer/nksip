@@ -528,7 +528,8 @@ do_process(_Method, _DialogId, UAS, #call{app_id=AppId}=Call) ->
 %% ===================================================================
 
 %% @private Sends a transaction reply
--spec reply(nksip:response()|nksip:sipreply(), trans(), call()) ->
+-spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}, 
+            trans(), call()) ->
     call().
 
 reply(Reply, UAS, Call) ->
