@@ -38,38 +38,40 @@
 
 
 -define(debug(AppId, Txt, Opts), 
-        lager:debug([{core, AppId}], "~p "++Txt, [AppId|Opts])).
+        % ok).
+        lager:debug([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(debug(AppId, CallId, Txt, Opts), 
+        % ok).
         nksip_trace:insert(AppId, CallId, {debug, Txt, Opts}),
-        lager:debug([{core, AppId}, {call_id, CallId}],
+        lager:debug([{app_id, AppId}, {call_id, CallId}],
                      "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(info(AppId, Txt, Opts), 
-        lager:info([{core, AppId}], "~p "++Txt, [AppId|Opts])).
+        lager:info([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(info(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {info, Txt, Opts}),
-        lager:info([{core, AppId}, {call_id, CallId}],
+        lager:info([{app_id, AppId}, {call_id, CallId}],
          "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(notice(AppId, Txt, Opts), 
-        lager:notice([{core, AppId}], "~p "++Txt, [AppId|Opts])).
+        lager:notice([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(notice(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {notice, Txt, Opts}),
-        lager:notice([{core, AppId}, {call_id, CallId}],
+        lager:notice([{app_id, AppId}, {call_id, CallId}],
          "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(warning(AppId, Txt, Opts), 
-        lager:warning([{core, AppId}], "~p "++Txt, [AppId|Opts])).
+        lager:warning([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(warning(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {warning, Txt, Opts}),
-        lager:warning([{core, AppId}, {call_id, CallId}],
+        lager:warning([{app_id, AppId}, {call_id, CallId}],
          "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(error(AppId, Txt, Opts), 
-        lager:error([{core, AppId}], "~p "++Txt, [AppId|Opts])).
+        lager:error([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(error(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {error, Txt, Opts}),
-        lager:error([{core, AppId}, {call_id, CallId}],
+        lager:error([{app_id, AppId}, {call_id, CallId}],
          "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 

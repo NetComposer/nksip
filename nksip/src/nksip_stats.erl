@@ -26,7 +26,7 @@
 
 -behaviour(gen_server).
 
--export([get_uas_avg/0]).
+-export([info/0, get_uas_avg/0]).
 -export([uas_response/1]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
          handle_cast/2, handle_info/2]).
@@ -39,6 +39,25 @@
 %% ===================================================================
 %% Public
 %% ===================================================================
+
+%% @doc Gets some statistics about current number of active transactions, proxy 
+%% transacions, dialogs, etc.
+-spec info() ->
+    nksip_lib:proplist().
+
+info() ->
+    [
+        {calls, nksip_counters:value(nksip_calls)},
+        {sipmsgs, nksip_counters:value(nksip_msgs)},
+        {dialogs, nksip_counters:value(nksip_dialogs)},
+        {routers_queue, nksip_call_router:pending_msgs()},
+        {routers_pending, nksip_call_router:pending_work()},
+        {tcp_connections, nksip_counters:value(nksip_transport_tcp)},
+        {counters_queue, nksip_counters:pending_msgs()},
+        {core_queues, nksip_sipapp_srv:pending_msgs()},
+        {uas_response, nksip_stats:get_uas_avg()}
+    ].
+
 
 %% @doc Gets the call statistics for the current period.
 -spec get_uas_avg() ->

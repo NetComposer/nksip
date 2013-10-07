@@ -2,10 +2,10 @@
 -pa deps/lager/ebin 
 -pa deps/ranch/ebin 
 -pa nksip/ebin
--pa samples/nksip_pbx/ebin
+-pa samples/nksip_loadtest/ebin
 
 ## Name of the node
--name nksip_pbx@127.0.0.1
+-name nksip_shell@127.0.0.1
 -setcookie nksip
 
 ## More processes
