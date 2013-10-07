@@ -118,12 +118,12 @@ invalid(Test) ->
     {ok, 200, [{call_id, CallId1}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1", [make_contact, {fields, [call_id]}]),
     % The UAC has generated a transaction
-    [{uac, C1, CallId1, _}] = nksip_call_router:get_all_transactions(C1, CallId1),
+    [{uac, _}] = nksip_call_router:get_all_transactions(C1, CallId1),
     case Test of
         stateless -> 
             [] = nksip_call_router:get_all_transactions(S1, CallId1);
         stateful -> 
-            [{uas, S1, CallId1, _}] = 
+            [{uas, _}] = 
                 nksip_call_router:get_all_transactions(S1, CallId1)
     end,
 
