@@ -322,8 +322,8 @@ provisional_reply(AppId, <<"R_", _/binary>>=ReqId, SipReply) ->
 
 is_local_route(AppId, <<"R_", _/binary>>=ReqId) ->
     case fields(AppId, ReqId, [parsed_ruri, parsed_routes]) of
-        [RUri, []] -> nksip_transport:is_local(AppId, RUri);
-        [_RUri, [Route|_]] -> nksip_transport:is_local(AppId, Route);
+        [{_, RUri}, {_, []}] -> nksip_transport:is_local(AppId, RUri);
+        [{_, _RUri}, {_, [Route|_]}] -> nksip_transport:is_local(AppId, Route);
         error -> false
     end.
 
