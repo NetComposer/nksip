@@ -29,32 +29,32 @@
 %%
 %% <table border="1">
 %%   <tr><th>Name</th><th>Default</th><th>Comments</th></tr>
-%%   <tr><td>`timer_t1'</td><td>500</td><td>Standar SIP T1 timer (msecs)</td></tr>
-%%   <tr><td>`timer_t2'</td><td>4000</td><td>Standar SIP T2 timer (msecs)</td></tr>
-%%   <tr><td>`timer_t4'</td><td>5000</td><td>Standar SIP T4 timer (msecs)</td></tr>
-%%   <tr><td>`timer_c'</td><td>180000</td><td>Standar SIP C timer (msecs)</td></tr>
+%%   <tr><td>`timer_t1'</td><td>500</td><td>Standar SIP T1 timer (msecs).</td></tr>
+%%   <tr><td>`timer_t2'</td><td>4000</td><td>Standar SIP T2 timer (msecs).</td></tr>
+%%   <tr><td>`timer_t4'</td><td>5000</td><td>Standar SIP T4 timer (msecs).</td></tr>
+%%   <tr><td>`timer_c'</td><td>180000</td><td>Standar SIP C timer (msecs).</td></tr>
 %%   <tr><td>`transaction_timeout'</td><td>900000</td><td>INVITE transaction maximum time
-%%           (secs)</td></tr>
+%%           (secs).</td></tr>
 %%   <tr><td>`dialog_timeout'</td><td>900000</td>
-%%       <td>Time to destroy dialog if no message has been received (msecs)</td></tr>
+%%       <td>Time to destroy dialog if no message has been received (msecs).</td></tr>
 %%   <tr><td>`tcp_timeout'</td><td>180000</td>
 %%       <td>Time to disconnect TCP/SSL connection if no message 
-%%           has been received (msecs)</td></tr>
+%%           has been received (msecs).</td></tr>
 %%   <tr><td>`nonce_timeout'</td><td>30000</td>
 %%       <td>Time a new `nonce' in an authenticate header will be usable 
 %%           (msecs, only for <i>ACK</i> or requests coming from the same 
-%%           `ip' and `port')</td></tr>
+%%           `ip' and `port').</td></tr>
 %%   <tr><td>`max_calls'</td><td>100000</td><td>Maximum number of allowed calls.
-%%           Each different Call-Id counts as a call</td></tr>
+%%           Each different Call-Id counts as a call.</td></tr>
 %%   <tr><td>`max_connections'</td><td>1024</td>
 %%       <td>Maximum number of simultaneous TCP/TLS connections NkSIP will accept 
 %%           in each transport belonging to each SipApp.</td></tr>
 %%   <tr><td>`registrar_default_time'</td><td>3600</td>
-%%       <td>Registrar default time (secs)</td></tr>
+%%       <td>Registrar default time (secs).</td></tr>
 %%   <tr><td>`registrar_min_time'</td><td>60</td>
-%%       <td>Registrar minimum allowed time (secs)</td></tr>
+%%       <td>Registrar minimum allowed time (secs).</td></tr>
 %%   <tr><td>`registrar_max_time'</td><td>86400</td>
-%%       <td>Registrar maximum allowed time (secs)</td></tr>
+%%       <td>Registrar maximum allowed time (secs).</td></tr>
 %% </table>
 
 -module(nksip_config).

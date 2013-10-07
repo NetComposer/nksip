@@ -36,7 +36,7 @@
 %% ===================================================================
 
 
-%% @doc Extracts a specific field from the request.
+%% @doc Extracts a specific field from a sipmsg.
 -spec field(nksip:request() | nksip:response(), 
             nksip_request:field() | nksip_response:field()) -> 
     term().
@@ -96,7 +96,7 @@ field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
 
 
 
-%% @doc
+%% @doc Extracts a group of fields from a sipmsg.
 -spec fields(nksip:request()|nksip:response(), [field()]) ->
     [term()].
 
@@ -104,7 +104,7 @@ fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
     [field(SipMsg, Field) || Field <- Fields].
 
 
-%% @doc
+%% @doc Extracts a header from a sipmsg.
 -spec header(nksip:request() | nksip:response(),
                  binary() | string()) -> 
     [binary()].
@@ -123,8 +123,9 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 
-%% @doc
--spec header(nksip:app_id(), nksip:request(), uris|tokens|integers|dates) ->
+
+%% @doc Extracts a header from a sipmsg and formats it.
+-spec header(nksip:request() | nksip:response(), binary(), uris|tokens|integers|dates) ->
     [term()] | error.
 
 header(#sipmsg{}=SipMsg, Name, Type) ->
@@ -137,7 +138,7 @@ header(#sipmsg{}=SipMsg, Name, Type) ->
     end.
 
 
-%% @doc
+%% @private
 -spec make_id(req|resp, nksip:call_id()) ->
     nksip_request:id() | nksip_response:id().
 

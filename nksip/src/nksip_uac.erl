@@ -57,10 +57,10 @@
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`fields'</td>
-%%          <td><code>[{link nksip_response:field()}]</code></td>
+%%          <td><code>[{@link nksip_response:field()}]</code></td>
 %%          <td>`[]'</td>
 %%          <td>Use it to select which specific fields from the response are
-%%          returned. See {link nksip_response:field()} for the complete list of
+%%          returned. See {@link nksip_response:field()} for the complete list of
 %%          supported fields. For <i>INVITE</i> requests, the first field is 
 %%          allways the dialog's id of the response.</td>
 %%      </tr>
@@ -427,9 +427,7 @@ ack(AppId, DialogSpec, Opts) ->
     send(AppId, 'ACK', DialogSpec, Opts).
 
 
-%% @doc Sends an <i>BYE</i> for a current dialog.
-%%
-%% Sends a BYE request and terminates the dialog and the session.
+%% @doc Sends an <i>BYE</i> for a current dialog, terminating the session.
 %%
 %% You need to know the dialog's id of the dialog you want to hang up.
 %% You can get from the return of the initial {@link invite/3}, or using 

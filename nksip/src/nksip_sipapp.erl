@@ -79,17 +79,17 @@
 %%      authorized.</li>
 %%  <li>If authorized, it calls {@link route/6} to decide what to do with the 
 %%      request: reply, route or process locally.</li>
-%%  <li>If the request is going to be processed locally, {@link invite/4},
-%%      {@link options/3}, {@link register/3} or {@link bye/4} are called,
+%%  <li>If the request is going to be processed locally, {@link invite/3},
+%%      {@link options/3}, {@link register/3} or {@link bye/3} are called,
 %%      and the user must send a reply. 
 %%      If the request is a valid <i>CANCEL</i>, belonging to an active <i>INVITE</i>
 %%      transaction, the INVITE is cancelled and {@link cancel/2} is called.</li>
 %%  <li>After sending a successful response to an <i>INVITE</i> request,
-%%      the other party will send an <i>ACK</i> and {@link ack/4} will be called.</li>
+%%      the other party will send an <i>ACK</i> and {@link ack/3} will be called.</li>
 %%  <li>If the request creates or modifies a dialog and/or a SDP session, 
 %%      {@link dialog_update/3} and/or {@link session_update/3} are called.</li>
 %%  <li>If the remote party sends an in-dialog invite (a <i>reINVITE</i>),
-%%      NkSIP will call {@link reinvite/4}.</li>
+%%      NkSIP will call {@link reinvite/3}.</li>
 %%  <li>If the user has set up an automatic ping or registration, 
 %%      {@link ping_update/3} or {@link register_update/3} are called on each
 %%      status change.</li>
