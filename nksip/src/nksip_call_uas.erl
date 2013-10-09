@@ -550,7 +550,7 @@ do_process('REGISTER', _DialogId, UAS, Call) ->
 
 do_process(_Method, _DialogId, UAS, Call) ->
     #call{opts=#call_opts{app_opts=Opts}} = Call,
-    reply({method_not_allowed, nksip_call_srv:allowed(Opts)}, UAS, Call).
+    reply({method_not_allowed, nksip_sipapp_srv:allowed(Opts)}, UAS, Call).
 
 
 %% ===================================================================

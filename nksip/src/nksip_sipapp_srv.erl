@@ -122,7 +122,7 @@ sipapp_call_sync(AppId, Fun, Args) ->
             after 180000 ->
                 {internal_error, <<"SipApp Timeout">>}  
             end;
-        error ->
+        not_found ->
             {internal_error, <<"Unknown SipApp">>}
     end.
 

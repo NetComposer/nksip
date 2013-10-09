@@ -714,7 +714,7 @@ fun_response(#sipmsg{cseq_method=Method, response=Code}=Resp, Opts) ->
 
 
 %% @private
--spec send_ack(trans(), nksip_lib:proplist()) ->
+-spec send_ack(trans(), call()) ->
     ok.
 
 send_ack(#trans{request=Req, id=Id}, Call) ->
