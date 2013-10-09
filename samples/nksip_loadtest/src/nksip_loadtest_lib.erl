@@ -240,7 +240,7 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [], []) of
+    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [{client, Pos}], []) of
         ok -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
         _ -> error
@@ -285,10 +285,10 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
                 end;
             invite ->
                 case nksip_uac:invite({client, Pos}, RUri, Opts) of
-                    {ok, 200, D} -> 
-                        case nksip_uac:ack(D, []) of
-                            {req, _} -> 
-                                case nksip_uac:bye(D, []) of
+                    {ok, 200, [{dialog_id, D}]} -> 
+                        case nksip_uac:ack({client, Pos}, D, []) of
+                            ok -> 
+                                case nksip_uac:bye({client, Pos}, D, []) of
                                     {ok, 200, []} -> ok;
                                     Other3 -> throw({invalid_bye_response, Other3}) 
                                 end;
