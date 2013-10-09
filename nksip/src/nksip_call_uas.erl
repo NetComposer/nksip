@@ -104,7 +104,8 @@ process_retrans(UAS, Call) ->
     of
         true when is_record(Resp, sipmsg) ->
             #sipmsg{response=Code} = Resp,
-            case nksip_transport_uas:resend_response(Resp) of
+            #call{opts=#call_opts{app_opts=Opts}} = Call,
+            case nksip_transport_uas:resend_response(Resp, Opts) of
                 {ok, _} ->
                     ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
                                [Id, Method, Status, Code], Call);
@@ -147,7 +148,8 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                 _ when not is_record(Req, sipmsg) ->
                     Call1;
                 _ when Fun=:=invite; Fun=:=bye; Fun=:=options; Fun=:=register ->
-                    {Resp, Opts} = nksip_reply:reply(Req, Reply),
+                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+                    {Resp, Opts} = nksip_reply:reply(Req, Reply, AppOpts),
                     {Resp1, Opts1} = case Resp#sipmsg.response >= 200 of
                         true -> 
                             {Resp, Opts};
@@ -285,17 +287,36 @@ check_cancel(#trans{id=Id}=UAS, Call) ->
     call().
 
 authorize_launch(#trans{request=Req}=UAS, Call) ->
-    IsDialog = case nksip_call_lib:check_auth(Req, Call) of
-        true -> dialog;
-        false -> []
-    end,
-    IsRegistered = case nksip_registrar:is_registered(Req) of
-        true -> register;
-        false -> []
-    end,
-    IsDigest = nksip_auth:get_authentication(Req),
-    Auth = lists:flatten([IsDialog, IsRegistered, IsDigest]),
-    app_call(authorize, [Auth], UAS, Call).
+    #call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=Opts}} = Call,
+    case erlang:function_exported(Module, authorize, 4) of
+        false ->
+            route_launch(UAS, update_auth(Req, Call));
+        true ->
+            IsDialog = case nksip_call_lib:check_auth(Req, Call) of
+                true -> dialog;
+                false -> []
+            end,
+            IsRegistered = case nksip_registrar:is_registered(Req) of
+                true -> register;
+                false -> []
+            end,
+            PassFun = fun(User, Realm) ->
+                case 
+                    nksip_sipapp_srv:try_sipapp_call_sync(AppId, Module, get_user_pass, 
+                                                          [User, Realm])
+                of
+                    not_exported ->
+                        {reply, Reply, _} = 
+                            nksip_sipapp:get_user_pass(User, Realm, none, Opts),
+                            Reply;
+                    Reply ->
+                        Reply
+                end
+            end,
+            IsDigest = nksip_auth:get_authentication(Req, PassFun),
+            Auth = lists:flatten([IsDialog, IsRegistered, IsDigest]),
+            app_call(authorize, [Auth], UAS, Call)
+    end.
 
 
 %% @private
@@ -327,9 +348,17 @@ authorize_reply(_Reply, UAS, Call) ->
     call().
 
 route_launch(#trans{ruri=RUri}=UAS, Call) ->
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
     UAS1 = UAS#trans{status=route},
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
-    app_call(route, [Scheme, User, Domain], UAS1, update(UAS1, Call)).
+    case app_call(route, [Scheme, User, Domain], UAS1, update(UAS1, Call)) of
+        not_exported ->
+           {reply, Reply, _} = 
+                nksip_sipapp:route(Scheme, User, Domain, <<>>, none, Opts),
+            route_reply(Reply, UAS1, update(UAS1, Call)); 
+        Call1 ->
+            Call1
+    end.
     
 
 %% @private
@@ -494,7 +523,7 @@ do_process('INVITE', DialogId, UAS, Call) ->
             reply(no_transaction, UAS, Call);
         _ ->
             UAS1 = expire_timer(expire, UAS, Call),
-            app_call(invite, [], UAS1, update(UAS1, Call))
+            app_call_method(invite, UAS1, update(UAS1, Call))
     end;
     
 do_process('ACK', DialogId, UAS, Call) ->
@@ -504,23 +533,24 @@ do_process('ACK', DialogId, UAS, Call) ->
             ?call_notice("received out-of-dialog ACK", [], Call),
             update(UAS1, Call);
         _ -> 
-            app_call(ack, [], UAS1, update(UAS1, Call))
+            app_call_method(ack, UAS1, update(UAS1, Call))
     end;
 
 do_process('BYE', DialogId, UAS, Call) ->
     case DialogId of
         <<>> -> reply(no_transaction, UAS, Call);
-        _ -> app_call(bye, [], UAS, Call)
+        _ -> app_call_method(bye, UAS, Call)
     end;
 
 do_process('OPTIONS', _DialogId, UAS, Call) ->
-    app_call(options, [], UAS, Call); 
+    app_call_method(options, UAS, Call); 
 
 do_process('REGISTER', _DialogId, UAS, Call) ->
-    app_call(register, [], UAS, Call); 
+    app_call_method(register, UAS, Call); 
 
-do_process(_Method, _DialogId, UAS, #call{app_id=AppId}=Call) ->
-    reply({method_not_allowed, nksip_sipapp_srv:allowed(AppId)}, UAS, Call).
+do_process(_Method, _DialogId, UAS, Call) ->
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    reply({method_not_allowed, nksip_call_srv:allowed(Opts)}, UAS, Call).
 
 
 %% ===================================================================
@@ -621,7 +651,8 @@ send_reply({#sipmsg{response=Code}, _}, #trans{code=LastCode}=UAS, Call) ->
     {{error, invalid_call}, Call};
 
 send_reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
-    send_reply(nksip_reply:reply(Req, SipReply), UAS, Call);
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    send_reply(nksip_reply:reply(Req, SipReply, Opts), UAS, Call);
 
 send_reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
@@ -747,7 +778,8 @@ timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
 % INVITE 3456xx retrans
 timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
     #sipmsg{response=Code} = Resp,
-    UAS1 = case nksip_transport_uas:resend_response(Resp) of
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    UAS1 = case nksip_transport_uas:resend_response(Resp, Opts) of
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p response", 
                        [Id, Code], Call),
@@ -804,32 +836,56 @@ timer(Timer, #trans{id=Id, method=Method}=UAS, Call)
 
 %% @private
 -spec app_call(atom(), list(), trans(), call()) ->
-    call().
+    call() | not_exported.
 
 app_call(Fun, Args, UAS, Call) ->
     #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
-    #call{app_id=AppId, call_id=CallId} = Call,
+    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
     #sipmsg{id=ReqId} = Req,
     ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
-               [Id, Method, Status, Fun, Args], Call),
-    From = {'fun', nksip_call, app_reply, [AppId, CallId, Fun, Id]},
-    nksip_sipapp_srv:sipapp_call_async(AppId, Fun, Args++[ReqId], From),
-    UAS1 = app_timer(Fun, UAS, Call),
-    update(UAS1, Call).
+                [Id, Method, Status, Fun, Args], Call),
+    From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
+    case 
+        nksip_sipapp_srv:try_sipapp_call_async(AppId, Module, Fun, Args++[ReqId], From)
+    of
+        ok -> 
+            UAS1 = app_timer(Fun, UAS, Call),
+            update(UAS1, Call);
+        not_exported ->
+            not_exported;
+        not_found ->
+            reply({internal_error, <<"SipApp not found">>}, UAS, Call)
+    end.
 
 
 %% @private
+-spec app_call_method(atom(), trans(), call()) ->
+    call().
+
+app_call_method(Fun, UAS, Call) ->
+    #trans{request=#sipmsg{id=ReqId}} = UAS,
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    case app_call(Fun, [], UAS, Call) of
+        not_exported ->
+            {reply, Reply, _} = apply(nksip_sipapp, Fun, [ReqId, none, Opts]),
+            reply(Reply, UAS, Call);
+        Call1 ->
+            Call1
+    end.
+
 -spec app_cast(atom(), list(), trans(), call()) ->
     call().
 
 app_cast(Fun, Args, UAS, Call) ->
     #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
-    #call{app_id=AppId} = Call,
+    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
     #sipmsg{id=ReqId} = Req,
     ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p ~p", 
                 [Id, Method, Status, Fun, Args], Call),
-    nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args++[ReqId]),
-    Call.
+    case nksip_sipapp_srv:try_sipapp_cast(AppId, Module, Fun, Args++[ReqId]) of
+        not_exported -> Call;
+        Call1 -> Call1
+    end.
 
 
 

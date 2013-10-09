@@ -146,7 +146,7 @@
 
 -include("nksip.hrl").
 
--export([reply/2, reqreply/1]).
+-export([reply/2, reply/3, reqreply/1]).
 
 -export_type([sipreply/0]).
 
@@ -201,6 +201,14 @@
 %% Public
 %% ===================================================================
 
+%% @doc Equivalent to reply(Req, Reply, [])
+-spec reply(nksip:request(), nksip:sipreply()|#reqreply{}) -> 
+    {nksip:response(), nksip_lib:proplist()}.
+
+reply(Req, Reply) ->
+    reply(Req, Reply, []).
+
+
 %% @doc Generates a new SIP response using helper replies.
 %% Currently recognized replies are describes {@link nksip_reply. here}.
 %%
@@ -210,14 +218,15 @@
 %% If the response is for an INVITE request, options `make_allow', `make_supported'
 %% and `make_contact' will be added automatically, and (if code is 101-299) all
 %% <i>Record-Route</i> headers from the request will be copied in the response.
--spec reply(nksip:request(), nksip:sipreply()|#reqreply{}) -> 
+-spec reply(nksip:request(), nksip:sipreply()|#reqreply{}, nksip_lib:proplist()) -> 
     {nksip:response(), nksip_lib:proplist()}.
 
-reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, 
-            #reqreply{code=Code, headers=Headers, body=Body, opts=Opts}) ->
+reply(Req, #reqreply{}=Reply, AppOpts) ->
+    #sipmsg{app_id=AppId, call_id=CallId} = Req,
+    #reqreply{code=Code, headers=Headers, body=Body, opts=Opts} = Reply,
     case nksip_lib:get_value(contact, Opts, []) of
         [] ->
-            nksip_uas_lib:response(Req, Code, Headers, Body, Opts);
+            nksip_uas_lib:response(Req, Code, Headers, Body, Opts++AppOpts);
         ContactSpec ->
             case nksip_parse:uris(ContactSpec) of
                 [] -> 
@@ -227,15 +236,15 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req,
                     #reqreply{code=500, opts=[Reason, make_date]};
                 Contacts ->
                     Opts1 = [{contact, Contacts}|Opts],
-                    nksip_uas_lib:response(Req, Code, Headers, Body, Opts1)
+                    nksip_uas_lib:response(Req, Code, Headers, Body, Opts1++AppOpts)
             end
     end;
 
-reply(Req, register) -> 
+reply(Req, register, AppOpts) -> 
     Reply = nksip_registrar:request(Req),
-    reply(Req, Reply);
+    reply(Req, Reply, AppOpts);
 
-reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) -> 
+reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, AppOpts) -> 
     case nksip_reply:reqreply(SipReply) of
         #reqreply{} = SipReply1 -> 
             ok;
@@ -244,7 +253,7 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) ->
                             [SipReply, erlang:get_stacktrace()]),
             SipReply1 = reqreply({internal_error, <<"Invalid Response">>})
     end,
-    reply(Req, SipReply1).
+    reply(Req, SipReply1, AppOpts).
 
 
 %% @private Generates an `#reqreply{}' from an `user_sipreply()' like 

@@ -145,7 +145,7 @@ response(#sipmsg{method=Method}=Req, Resp, #call{dialogs=Dialogs}=Call) ->
                     % Dialog2 = nksip_call_dialog:remotes_update(Resp, Dialog1),
                     nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
-                    Dialog = nksip_call_dialog:create(uac, Req, Resp),
+                    Dialog = nksip_call_dialog:create(uac, Req, Resp, Call),
                     response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
                     Call
@@ -180,9 +180,10 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
 do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso (Status=:=accepted_uac orelse Status=:=confirmed) ->
     #dialog{app_id=AppId, call_id=CallId, id=DialogId, ack=ACK} = Dialog,
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
     case ACK of
         #sipmsg{} ->
-            case nksip_transport_uac:resend_request(ACK) of
+            case nksip_transport_uac:resend_request(ACK, Opts) of
                 {ok, _} ->
                     ?info(AppId, CallId, 
                           "Dialog ~s (~p) retransmitting 'ACK'", [DialogId, Status]),

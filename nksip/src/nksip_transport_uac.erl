@@ -23,7 +23,7 @@
 -module(nksip_transport_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([add_via/3, send_request/3, resend_request/1]).
+-export([add_via/3, send_request/3, resend_request/2]).
 
 -include("nksip.hrl").
 
@@ -68,7 +68,7 @@ send_request(Req, GlobalId, Opts) ->
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     MakeReqFun = make_request_fun(Req1, GlobalId, Opts),  
     nksip_trace:insert(Req, {uac_out_request, Method}),
-    case nksip_transport:send(AppId, [DestUri], MakeReqFun) of
+    case nksip_transport:send(AppId, [DestUri], MakeReqFun, Opts) of
         {ok, SentReq} -> 
             {ok, SentReq};
         error ->
@@ -78,13 +78,13 @@ send_request(Req, GlobalId, Opts) ->
 
 
 %% @doc Resend an already sent request to the same ip, port and transport.
--spec resend_request(nksip:request()) -> 
+-spec resend_request(nksip:request(), nksip_lib:proplist()) -> 
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req) ->
+resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     MakeReq = fun(_) -> Req end,
-    nksip_transport:send(AppId, [{Proto, Ip, Port}], MakeReq).
+    nksip_transport:send(AppId, [{Proto, Ip, Port}], MakeReq, Opts).
         
 
 

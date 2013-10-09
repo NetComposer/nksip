@@ -175,11 +175,9 @@ uac() ->
 timeout() ->
     C2 = {uac, client2},
     SipC1 = "sip:127.0.0.1:5070",
-    {ok, Opts} = nksip_sipapp_srv:get_opts(C2),
+    {ok, _Module, Opts, _Pid} = nksip_sipapp_srv:get_opts(C2),
     Opts1 = [{timer_t1, 10}, {timer_c, 1}|Opts],
-    {ok, _, Pid} = nksip_sipapp_srv:get_module(C2),
-    nksip_proc:put({nksip_sipapp_opts, C2}, Opts1, Pid),
-    nksip_call_router:remove_app_cache(C2),
+    ok = nksip_sipapp_srv:put_opts(C2, Opts1),
 
     nksip_trace:notice("Next notices about several timeouts are expected"),
 

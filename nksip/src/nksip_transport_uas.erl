@@ -23,7 +23,7 @@
 -module(nksip_transport_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_user_response/4, send_response/3, resend_response/1]).
+-export([send_user_response/4, send_response/3, resend_response/2]).
     
 -include("nksip.hrl").
 
@@ -75,25 +75,25 @@ send_response(#sipmsg{class=resp}=Resp, GlobalId, Opts) ->
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
     nksip_trace:insert(Resp, {send_response, Method, Code}),
-    Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun),
+    Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun, Opts),
     Elapsed = nksip_lib:l_timestamp()-Start,
     nksip_stats:uas_response(Elapsed),
     Return.
 
 
 %% @doc Resends a previously sent response to the same ip, port and protocol.
--spec resend_response(Resp::nksip:response()) ->
+-spec resend_response(Resp::nksip:response(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
 resend_response(#sipmsg{app_id=AppId, response=Code, cseq_method=Method, 
-                        transport=#transport{}=Transport}=Resp) ->
+                        transport=#transport{}=Transport}=Resp, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     MakeResp = fun(_) -> Resp end,
-    Return = nksip_transport:send(AppId, [{current, {Proto, Ip, Port}}], MakeResp),
+    Return = nksip_transport:send(AppId, [{current, {Proto, Ip, Port}}], MakeResp, Opts),
     nksip_trace:insert(Resp, {sent_response, Method, Code}),
     Return;
 
-resend_response(#sipmsg{app_id=AppId, call_id=CallId}) ->
+resend_response(#sipmsg{app_id=AppId, call_id=CallId}, _Opts) ->
     ?warning(AppId, CallId, "Called resend_response/2 without transport", []),
     error.
 

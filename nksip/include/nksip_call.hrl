@@ -105,6 +105,7 @@
     timer_t4 :: integer(),
     timer_c :: integer(),
     timer_sipapp :: integer(),
+    app_module :: atom(),
     app_opts :: nksip_lib:proplist()
 }).
 

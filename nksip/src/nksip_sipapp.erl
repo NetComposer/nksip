@@ -474,8 +474,9 @@ options(_ReqId, _From, State) ->
     call_reply(nksip:sipreply()).
 
 register(_ReqId, _From, State) ->
-    AppId = State,
-    Reply = case nksip_sipapp_srv:is_registrar(AppId) of
+    %% NOTE: In this default implementation, State contains the SipApp options.
+    %% If you implement this function, State will contain your own state.
+    Reply = case lists:member(registrar, State) of
         true -> register;
         false -> {method_not_allowed, ?ALLOW}
     end,

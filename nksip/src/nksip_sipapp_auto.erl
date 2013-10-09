@@ -371,4 +371,3 @@ do_register(Pid, SipReg, #state{app_id=AppId})->
             {false, CSeq+1}
     end,
     gen_server:cast(Pid, {'$nksip_register_update', RegId, OK, CSeq1}).
-

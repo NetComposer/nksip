@@ -159,7 +159,7 @@ do_send(_, UAC, Call) ->
     case DialogResult of
         {ok, Call1} ->
             Send = case Method of 
-                'CANCEL' -> nksip_transport_uac:resend_request(Req);
+                'CANCEL' -> nksip_transport_uac:resend_request(Req, Opts++AppOpts);
                 _ -> nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts)
             end,
             case Send of
@@ -329,7 +329,7 @@ do_response_status(invite_proceeding, Resp, UAC, Call) ->
     UAC1 = cancel_timers([timeout, expire], UAC#trans{cancel=undefined}),
     Req1 = Req#sipmsg{to=To, to_tag=ToTag},
     UAC2 = UAC1#trans{request=Req1, response=undefined, to_tags=[ToTag]},
-    send_ack(UAC2),
+    send_ack(UAC2, Call),
     UAC3 = case Proto of
         udp -> timeout_timer(timer_d, UAC2#trans{status=invite_completed}, Call);
         _ -> UAC2#trans{status=finished}
@@ -360,7 +360,7 @@ do_response_status(invite_completed, Resp, UAC, Call) ->
         [ToTag|_] ->
             case RespCode of
                 Code ->
-                    send_ack(UAC);
+                    send_ack(UAC, Call);
                 _ ->
                     ?call_info("UAC ~p (invite_completed) ignoring new ~p response "
                                "(previous was ~p)", [Id, RespCode, Code], Call)
@@ -559,8 +559,10 @@ timer(timer_c, #trans{id=Id, request=Req}, Call) ->
     response(Resp, Call);
 
 % INVITE retrans
-timer(timer_a, #trans{id=Id, request=Req, status=Status}=UAC, Call) ->
-    case nksip_transport_uac:resend_request(Req) of
+timer(timer_a, UAC, Call) ->
+    #trans{id=Id, request=Req, status=Status} = UAC,
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    case nksip_transport_uac:resend_request(Req, Opts) of
         {ok, _} ->
             ?call_info("UAC ~p (~p) retransmitting 'INVITE'", [Id, Status], Call),
             UAC1 = retrans_timer(timer_a, UAC, Call),
@@ -591,8 +593,10 @@ timer(timer_m,  #trans{id=Id, status=Status}=UAC, Call) ->
     update(UAC1, Call);
 
 % No INVITE retrans
-timer(timer_e, #trans{id=Id, status=Status, method=Method, request=Req}=UAC, Call) ->
-    case nksip_transport_uac:resend_request(Req) of
+timer(timer_e, UAC, Call) ->
+    #trans{id=Id, status=Status, method=Method, request=Req} = UAC,
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    case nksip_transport_uac:resend_request(Req, Opts) of
         {ok, _} ->
             ?call_info("UAC ~p (~p) retransmitting ~p", [Id, Status, Method], Call),
             UAC1 = retrans_timer(timer_e, UAC, Call),
@@ -710,12 +714,13 @@ fun_response(#sipmsg{cseq_method=Method, response=Code}=Resp, Opts) ->
 
 
 %% @private
--spec send_ack(trans()) ->
+-spec send_ack(trans(), nksip_lib:proplist()) ->
     ok.
 
-send_ack(#trans{request=Req, id=Id}) ->
+send_ack(#trans{request=Req, id=Id}, Call) ->
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
     Ack = nksip_uac_lib:make_ack(Req),
-    case nksip_transport_uac:resend_request(Ack) of
+    case nksip_transport_uac:resend_request(Ack, Opts) of
         {ok, _} -> 
             ok;
         error -> 

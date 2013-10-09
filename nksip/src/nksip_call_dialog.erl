@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/3, status_update/4, timer/3]).
+-export([create/4, status_update/4, timer/3]).
 -export([find/2, update/2]).
 
 -type call() :: nksip_call:call().
@@ -36,10 +36,10 @@
 %% ===================================================================
 
 %% @private Creates a new dialog
--spec create(uac|uas, nksip:request(), nksip:response()) ->
+-spec create(uac|uas, nksip:request(), nksip:response(), call()) ->
     nksip:dialog().
 
-create(Class, Req, Resp) ->
+create(Class, Req, Resp, Call) ->
     #sipmsg{ruri=#uri{scheme=Scheme}} = Req,
     #sipmsg{
         app_id = AppId,
@@ -50,6 +50,7 @@ create(Class, Req, Resp) ->
         transport = #transport{proto=Proto},
         from_tag = FromTag
     } = Resp,
+    #call{opts=#call_opts{app_module=Module}} = Call,
     DialogId = nksip_dialog:id(Resp),
     ?debug(AppId, CallId, "Dialog ~s (~p) created", [DialogId, Class]),
     nksip_counters:async([nksip_dialogs]),
@@ -57,6 +58,7 @@ create(Class, Req, Resp) ->
     Dialog = #dialog{
         id = DialogId,
         app_id = AppId,
+        app_module = Module,
         call_id = CallId, 
         created = Now,
         updated = Now,
@@ -342,9 +344,9 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
         response = Resp, 
         next_retrans = Next
     } = Dialog,
-    #call{opts=#call_opts{timer_t2=T2}} = Call,
+    #call{opts=#call_opts{app_opts=Opts, timer_t2=T2}} = Call,
     ?call_info("Dialog ~s resending response", [DialogId], Call),
-    case nksip_transport_uas:resend_response(Resp) of
+    case nksip_transport_uas:resend_response(Resp, Opts) of
         {ok, _} ->
             Dialog1 = Dialog#dialog{
                 retrans_timer = start_timer(Next, retrans, Dialog),
@@ -426,8 +428,8 @@ update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
 -spec cast(atom(), term(), nksip:dialog()) ->
     ok.
 
-cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId}) ->
-    nksip_sipapp_srv:sipapp_cast(AppId, Fun, [DialogId, Arg]).
+cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId, app_module=Module}) ->
+    nksip_sipapp_srv:try_sipapp_cast(AppId, Module, Fun, [DialogId, Arg]).
 
 
 %% @private

@@ -31,7 +31,7 @@
 -export([dialog_id/2]).
 -export([get_authorized_list/2, clear_authorized_list/2, stop_dialog/2]).
 -export([get_all/0, get_info/0, clear_all/0]).
--export([app_reply/5, work/3, timeout/3]).
+-export([app_reply/4, work/3, timeout/3]).
 -import(nksip_call_router, [send_work_sync/3, send_work_async/3]).
 
 -export_type([call/0, trans/0, fork/0, work/0]).
@@ -128,11 +128,11 @@ dialog_id(AppId, MsgId) ->
 
 
 %% @private Sends a callback SipApp response.
--spec app_reply(nksip:app_id(), nksip:call_id(), atom(), nksip_call_uas:id(), term()) ->
+-spec app_reply(atom(), nksip_call_uas:id(), pid(), term()) ->
     ok.
 
-app_reply(AppId, CallId, Fun, TransId, Reply) ->
-    send_work_async(AppId, CallId, {app_reply, Fun, TransId, Reply}).
+app_reply(Fun, TransId, Pid, Reply) ->
+    gen_server:cast(Pid, {async_work, {app_reply, Fun, TransId, Reply}}).
 
 
 %% @doc Sends a synchronous request reply.

@@ -102,7 +102,6 @@ preprocess(Req, GlobalId) ->
 
 response(Req, Code, Headers, Body, Opts) ->
     #sipmsg{
-        app_id = AppId, 
         call_id = CallId,
         method = Method, 
         vias = [LastVia|_] = Vias,
@@ -150,7 +149,7 @@ response(Req, Code, Headers, Body, Opts) ->
                     nksip_auth:make_response(Realm, Req)}
         end,
         case lists:member(make_allow, Opts1) of
-            true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppId)};
+            true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(Opts)};
             false -> none
         end,
         case lists:member(make_supported, Opts1) of

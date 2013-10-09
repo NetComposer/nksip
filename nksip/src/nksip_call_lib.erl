@@ -165,7 +165,7 @@ check_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
             #call{auths=Auths} = Call,
             case lists:member({DialogId, Proto, Ip, Port}, Auths) of
                 true ->
-                    ?call_debug("Origin ~p:~p:~p is in dialog ~p authorized list", 
+                    ?call_debug("Origin ~p:~p:~p is in dialog ~s authorized list", 
                                 [Proto, Ip, Port, DialogId], Call),
                     true;
                 false ->

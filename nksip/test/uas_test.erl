@@ -176,19 +176,16 @@ timeout() ->
     C2 = {uas, client2},
     SipC1 = "sip:127.0.0.1:5070;transport=tcp",
 
-    {ok, Opts} = nksip_sipapp_srv:get_opts(C1),
+    {ok, _Module, Opts, _Pid} = nksip_sipapp_srv:get_opts(C1),
     Opts1 = [{sipapp_timeout, 20}|Opts],
-    {ok, _, Pid} = nksip_sipapp_srv:get_module(C1),
-    nksip_proc:put({nksip_sipapp_opts, C1}, Opts1, Pid),
-    nksip_call_router:remove_app_cache(C1),
+    ok = nksip_sipapp_srv:put_opts(C1, Opts1),
 
     % Client1 callback module has a 50msecs delay in route()
     {ok, 500, [{reason, <<"No SipApp Response">>}]} = 
         nksip_uac:options(C2, SipC1, [{fields, [reason]}]),
 
     Opts2 = [{timer_t1, 10}, {timer_c, 500}|Opts] -- [{sipapp_timeout, 50}],
-    nksip_proc:put({nksip_sipapp_opts, C1}, Opts2, Pid),
-    nksip_call_router:remove_app_cache(C1),
+    ok = nksip_sipapp_srv:put_opts(C1, Opts2),
 
     Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},
     {ok, 408, [{reason, <<"No-INVITE Timeout">>}]} = 

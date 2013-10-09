@@ -104,7 +104,7 @@ init([AppId, CallId, CallOpts]) ->
     },
     erlang:start_timer(2*MaxTransTime, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
-    {ok, Call, ?SRV_TIMEOUT}.
+    {ok, Call}.
 
 
 %% @private
@@ -193,7 +193,6 @@ next(#call{hibernate=Hibernate}=Call) ->
             ?call_debug("Call hibernating: ~p", [Hibernate], Call),
             {noreply, Call#call{hibernate=false}, hibernate}
     end.
-
 
 
 

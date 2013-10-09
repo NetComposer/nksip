@@ -476,7 +476,7 @@ get_call_opts(AppId, #state{opts=OptsDict}=SD) ->
             {ok, CallOpts, SD};
         error ->
             case nksip_sipapp_srv:get_opts(AppId) of
-                {ok, AppOpts} ->
+                {ok, Module, AppOpts, _Pid} ->
                     T1 = nksip_lib:get_integer(timer_t1, AppOpts, 
                                                nksip_config:get(timer_t1)),
                     T2 = nksip_lib:get_integer(timer_t2, AppOpts, 
@@ -489,6 +489,7 @@ get_call_opts(AppId, #state{opts=OptsDict}=SD) ->
                                                  nksip_config:get(sipapp_timeout)),
                     CallOpts = #call_opts{
                         app_opts = AppOpts,
+                        app_module = Module,
                         global_id  = nksip_config:get(global_id),
                         max_trans_time = nksip_config:get(transaction_timeout),
                         max_dialog_time = nksip_config:get(dialog_timeout),

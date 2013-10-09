@@ -23,8 +23,8 @@
 -module(nksip_auth).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_authentication/1, realms/1, realms/2, make_ha1/3, make_request/3]).
--export([check_digest/1, make_response/2]).
+-export([get_authentication/2, realms/1, realms/2, make_ha1/3]).
+-export([make_request/3, make_response/2]).
 
 -include("nksip.hrl").
 
@@ -102,10 +102,15 @@ make_ha1(User, Pass, Realm) ->
 %%        failed the authentication.</li>
 %% </ul>
 %%
--spec get_authentication(nksip:request()) -> [Authorized] when
-    Authorized :: {{digest, Realm::binary()}, true|false}.
+%% `Fun' will be called when a password for a pair user, realm is needed.
+%% It can return `true' (accepts the request with any password), `false' 
+%% (doesn't accept the request) or a `binary()' pasword or hash.
+%%
+-spec get_authentication(nksip:request(), function()) -> 
+    [Authorized] 
+    when Authorized :: {{digest, Realm::binary()}, true|false}.
 
-get_authentication(Req) ->
+get_authentication(Req, PassFun) ->
     Fun = fun({Ok, _User, Realm}, Acc) ->
         case lists:keyfind(Realm, 1, Acc) of
             false when Ok -> [{Realm, true}|Acc];
@@ -115,7 +120,8 @@ get_authentication(Req) ->
             {Realm, false} -> Acc
         end
     end,
-    [{{digest, Realm}, Ok} || {Realm, Ok} <- lists:foldl(Fun, [], check_digest(Req))].
+    [{{digest, Realm}, Ok} || 
+        {Realm, Ok} <- lists:foldl(Fun, [], check_digest(Req, PassFun))].
 
 
 %% @doc Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header 
@@ -217,46 +223,44 @@ make_response(Realm, Req) ->
 %% realm, calling `get_user_pass/4' callback to check if it is correct.
 %% For each user and realm having a correct password returns `{true, User, Realm}',
 %% and `{false, User, Realm}' for each one having an incorrect password.
--spec check_digest(Req::nksip:request()) ->
+-spec check_digest(Req::nksip:request(), function()) ->
     [{boolean(), User::binary(), Realm::binary()}].
 
-check_digest(#sipmsg{headers=Headers}=Req) ->
-    check_digest(Headers, Req, []).
+check_digest(#sipmsg{headers=Headers}=Req, Fun) ->
+    check_digest(Headers, Req, Fun, []).
 
 
 %% @private
-check_digest([], _Req, Acc) ->
+check_digest([], _Req, _Fun, Acc) ->
     Acc;
 
-check_digest([{Name, Data}|Rest], #sipmsg{app_id=AppId}=Req, Acc) 
+check_digest([{Name, Data}|Rest], Req, Fun, Acc) 
                 when Name=:=?REQ_WWW; Name=:=?REQ_PROXY ->
     case parse_header(Data) of
         error ->
-            check_digest(Rest, Req, Acc);
+            check_digest(Rest, Req, Fun, Acc);
         AuthData ->
             Resp = nksip_lib:get_value(response, AuthData),
             User = nksip_lib:get_binary(username, AuthData),
             Realm = nksip_lib:get_binary(realm, AuthData),
-            Result = case 
-                nksip_sipapp_srv:sipapp_call_sync(AppId, get_user_pass, [User, Realm]) 
-            of
+            Result = case catch Fun(User, Realm) of
+                {'EXIT', _} -> false;
                 true -> true;
                 false -> false;
                 Pass -> check_auth_header(AuthData, Resp, User, Realm, Pass, Req)
             end,
             case Result of
                 true ->
-                    check_digest(Rest, Req, [{true, User, Realm}|Acc]);
+                    check_digest(Rest, Req, Fun, [{true, User, Realm}|Acc]);
                 false ->
-                    check_digest(Rest, Req, [{false, User, Realm}|Acc]);
+                    check_digest(Rest, Req, Fun, [{false, User, Realm}|Acc]);
                 not_found ->
-                    check_digest(Rest, Req, Acc)
+                    check_digest(Rest, Req, Fun, Acc)
             end
     end;
     
-check_digest([_|Rest], Req, Acc) ->
-    check_digest(Rest, Req, Acc).
-
+check_digest([_|Rest], Req, Fun, Acc) ->
+    check_digest(Rest, Req, Fun, Acc).
 
 
 %% @private Generates a Authorization or Proxy-Authorization header

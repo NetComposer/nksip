@@ -112,7 +112,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
         Headers1 = nksip_headers:update(Headers, [
             {default_single, <<"User-Agent">>, UserAgent},
             case lists:member(make_allow, FullOpts) of
-                true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppId)};
+                true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppOpts)};
                 false -> []
             end,
             case lists:member(make_supported, FullOpts) of
