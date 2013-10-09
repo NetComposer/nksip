@@ -97,18 +97,16 @@ do_request('INVITE', Status, _Req, _Dialog, _Call)
            when Status=:=proceeding_uas; Status=:=accepted_uas ->
     {error, proceeding_uas};
 
+do_request('ACK', confirmed, _, Dialog, _Call) ->
+    % It should be a retransmission
+    {ok, Dialog};
+
 do_request('ACK', Status, ACKReq, #dialog{request=InvReq}=Dialog, Call) ->
     #sipmsg{cseq=ACKSeq} = ACKReq,
     case InvReq of
         #sipmsg{cseq=ACKSeq} when Status=:=accepted_uas -> 
             {ok, status_update(confirmed, Dialog#dialog{ack=ACKReq}, Call)};
-        #sipmsg{cseq=ACKSeq} when Status=:=confirmed -> 
-            {ok, Dialog};   % It is an ACK retransmission
-        #sipmsg{cseq=InvCSeq} ->
-            ?P("INVALID ACK (seq ~p) INV (~p), ~p", [ACKSeq, InvCSeq, Status]),
-            {error, invalid};
         _ -> 
-            ?P("INVALID ACK (seq ~p), NO INV, ~p", [ACKSeq, Status]),
             {error, invalid}
     end;
 
@@ -147,7 +145,7 @@ response(#sipmsg{method=Method}=Req, Resp, Call) ->
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
                     nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
-                    Dialog = nksip_call_dialog:create(uas, Req, Resp),
+                    Dialog = nksip_call_dialog:create(uas, Req, Resp, Call),
                     response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
                     Call
