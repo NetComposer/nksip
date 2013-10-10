@@ -120,7 +120,7 @@ options(ReqId, _From, #state{id={_, Id}=AppId}=State) ->
     ],
     case nksip_request:header(AppId, ReqId, <<"Nk-Sleep">>) of
         [Sleep0] -> 
-            nksip_request:provisional_reply(AppId, ReqId, 101), 
+            nksip_request:reply(AppId, ReqId, 101), 
             timer:sleep(nksip_lib:to_integer(Sleep0));
         _ -> 
             ok
@@ -170,7 +170,7 @@ invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
                         Code when is_integer(Code) -> 
                             nksip:reply(From, {Code, Hds});
                         {Code, Wait} when is_integer(Code), is_integer(Wait) ->
-                            nksip_request:provisional_reply(AppId, ReqId, ringing),
+                            nksip_request:reply(AppId, ReqId, ringing),
                             timer:sleep(Wait),
                             nksip:reply(From, {Code, Hds});
                         _ -> 
@@ -224,7 +224,7 @@ invite(ReqId, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     proc_lib:spawn(
         fun() ->
             if 
-                Prov -> nksip_request:provisional_reply(AppId, ReqId, ringing); 
+                Prov -> nksip_request:reply(AppId, ReqId, ringing); 
                 true -> ok 
             end,
             case Sleep of

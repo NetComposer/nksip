@@ -300,18 +300,18 @@ call_id(<<"R_", Bin/binary>>) ->
     nksip_lib:bin_last($_, Bin).
 
    
-%% @doc Sends a <i>provisional response</i> to a request.
--spec provisional_reply(nksip:app_id(), id(), nksip:sipreply()) -> 
+%% @doc Sends a reply to a request.
+-spec reply(nksip:app_id(), id(), nksip:sipreply()) -> 
     ok | {error, Error}
-    when Error :: invalid_response | invalid_call | unknown_call | unknown_sipapp.
+    when Error :: invalid_call | unknown_call | unknown_sipapp.
 
-provisional_reply(AppId, <<"R_", _/binary>>=ReqId, SipReply) ->
-    case nksip_reply:reqreply(SipReply) of
-        #reqreply{code=Code} when Code > 100, Code < 200 ->
-            nksip_call:send_reply(AppId, ReqId, SipReply);
-        _ ->
-            {error, invalid_response}
-    end.
+reply(AppId, <<"R_", _/binary>>=ReqId, SipReply) ->
+    nksip_call:send_reply(AppId, ReqId, SipReply).
+
+
+%% @doc See {@link reply/3}.
+reply(#sipmsg{class=req, app_id=AppId, id=ReqId}, SipReply) ->
+    reply(AppId, ReqId, SipReply).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.

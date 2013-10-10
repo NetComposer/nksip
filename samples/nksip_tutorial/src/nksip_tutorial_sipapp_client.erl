@@ -49,7 +49,7 @@ invite(ReqId, From, #state{id=AppId}=State) ->
     case nksip_sdp:is_sdp(SDP) of
         true ->
             Fun = fun() ->
-                nksip_request:provisional_reply(AppId, ReqId, ringing),
+                nksip_request:reply(AppId, ReqId, ringing),
                 timer:sleep(2000),
                 nksip:reply(From, {ok, [], SDP})
             end,
