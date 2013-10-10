@@ -147,7 +147,8 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                     Call1;
                 _ when not is_record(Req, sipmsg) ->
                     Call1;
-                _ when Fun=:=invite; Fun=:=bye; Fun=:=options; Fun=:=register ->
+                _ when Fun=:=invite; Fun=:=reinvite; Fun=:=bye; 
+                       Fun=:=options; Fun=:=register ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     {Resp, Opts} = nksip_reply:reply(Req, Reply, AppOpts),
                     {Resp1, Opts1} = case Resp#sipmsg.response >= 200 of
@@ -523,7 +524,12 @@ do_process('INVITE', DialogId, UAS, Call) ->
             reply(no_transaction, UAS, Call);
         _ ->
             UAS1 = expire_timer(expire, UAS, Call),
-            app_call_method(invite, UAS1, update(UAS1, Call))
+            #trans{request=#sipmsg{to_tag=ToTag}} = UAS,
+            Fun = case ToTag of
+                <<>> -> invite;
+                _ -> reinvite
+            end,
+            do_process_call(Fun, UAS1, update(UAS1, Call))
     end;
     
 do_process('ACK', DialogId, UAS, Call) ->
