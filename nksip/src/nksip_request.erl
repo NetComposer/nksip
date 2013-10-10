@@ -25,7 +25,7 @@
 
 -export([field/3, fields/3, header/3]).
 -export([body/2, method/2, call_id/1, get_request/2]).
--export([is_local_route/1, is_local_route/2, provisional_reply/3]).
+-export([is_local_route/1, is_local_route/2, reply/3, reply/2]).
 -export_type([id/0, field/0]).
 
 -include("nksip.hrl").
@@ -38,7 +38,7 @@
 
 -type id() :: binary().
 
--type field() ::  method | call_id | vias | parsed_vias | 
+-type field() ::  app_id | method | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
                   from | from_scheme | from_user | from_domain | parsed_from | 
                   to | to_scheme | to_user | to_domain | parsed_to | 
@@ -58,6 +58,11 @@
 %%  
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`app_id'</td>
+%%          <td>{@link nksip:app_id()}</td>
+%%          <td>SipApp this request belongs to</td>
+%%      </tr>
 %%      <tr>
 %%          <td>`method'</td>
 %%          <td>{@link nksip:method()}</td>
@@ -328,11 +333,11 @@ is_local_route(AppId, <<"R_", _/binary>>=ReqId) ->
     end.
 
 
-%% @private See {@link is_local_route/2}.
+%% @doc See {@link is_local_route/2}.
 -spec is_local_route(nksip:request()) -> 
     boolean().
 
-is_local_route(#sipmsg{app_id=AppId, ruri=RUri, routes=Routes}) ->
+is_local_route(#sipmsg{class=req, app_id=AppId, ruri=RUri, routes=Routes}) ->
     case Routes of
         [] -> nksip_transport:is_local(AppId, RUri);
         [Route|_] -> nksip_transport:is_local(AppId, Route)

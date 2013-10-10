@@ -24,7 +24,8 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/3, fields/3, id/1, id/2, call_id/1, stop/2, bye_all/0, stop_all/0]).
+-export([field/3, field/2, fields/3, id/1, id/2, call_id/1]).
+-export([stop/2, bye_all/0, stop_all/0]).
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
 
 -export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
@@ -205,13 +206,50 @@ field(AppId, DialogSpec, Field) ->
     end.
 
 
+%% @doc Extracts a specific field from a #dialog structure
+-spec field(dialog(), field()) -> 
+    any().
+
+field(D, Field) ->
+    case Field of
+        id -> D#dialog.id;
+        app_id -> D#dialog.app_id;
+        call_id -> D#dialog.call_id;
+        created -> D#dialog.created;
+        updated -> D#dialog.updated;
+        answered -> D#dialog.answered;
+        status -> D#dialog.status;
+        local_seq -> D#dialog.local_seq; 
+        remote_seq  -> D#dialog.remote_seq; 
+        local_uri -> nksip_unparse:uri(D#dialog.local_uri);
+        parsed_local_uri -> D#dialog.local_uri;
+        remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
+        parsed_remote_uri -> D#dialog.remote_uri;
+        local_target -> nksip_unparse:uri(D#dialog.local_target);
+        parsed_local_target -> D#dialog.local_target;
+        remote_target -> nksip_unparse:uri(D#dialog.remote_target);
+        parsed_remote_target -> D#dialog.remote_target;
+        route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
+        parsed_route_set -> D#dialog.route_set;
+        early -> D#dialog.early;
+        secure -> D#dialog.secure;
+        local_sdp -> D#dialog.local_sdp;
+        remote_sdp -> D#dialog.remote_sdp;
+        stop_reason -> D#dialog.stop_reason;
+        from_tag -> nksip_lib:get_binary(tag, (D#dialog.local_uri)#uri.ext_opts);
+        to_tag -> nksip_lib:get_binary(tag, (D#dialog.remote_uri)#uri.ext_opts);
+        timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
+        _ -> invalid_field 
+    end.
+
+
 %% @doc Gets a number of fields from the `Request' as described in {@link field/2}.
 -spec fields(nksip:app_id(), spec(), [field()]) -> 
     [{atom(), term()}] | error.
     
 fields(AppId, DialogSpec, Fields) when is_list(Fields) ->
     Fun = fun(Dialog) -> 
-        {ok, [{Field, get_field(Dialog, Field)} || Field <- Fields]}
+        {ok, [{Field, field(Dialog, Field)} || Field <- Fields]}
     end,
     case id(AppId, DialogSpec) of
         <<>> ->
@@ -395,41 +433,6 @@ get_all_data() ->
 %% ===================================================================
 
 
-%% @private Extracts a specific field from the dialog
--spec get_field(dialog(), field()) -> 
-    any().
-
-get_field(D, Field) ->
-    case Field of
-        id -> D#dialog.id;
-        app_id -> D#dialog.app_id;
-        call_id -> D#dialog.call_id;
-        created -> D#dialog.created;
-        updated -> D#dialog.updated;
-        answered -> D#dialog.answered;
-        status -> D#dialog.status;
-        local_seq -> D#dialog.local_seq; 
-        remote_seq  -> D#dialog.remote_seq; 
-        local_uri -> nksip_unparse:uri(D#dialog.local_uri);
-        parsed_local_uri -> D#dialog.local_uri;
-        remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
-        parsed_remote_uri -> D#dialog.remote_uri;
-        local_target -> nksip_unparse:uri(D#dialog.local_target);
-        parsed_local_target -> D#dialog.local_target;
-        remote_target -> nksip_unparse:uri(D#dialog.remote_target);
-        parsed_remote_target -> D#dialog.remote_target;
-        route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
-        parsed_route_set -> D#dialog.route_set;
-        early -> D#dialog.early;
-        secure -> D#dialog.secure;
-        local_sdp -> D#dialog.local_sdp;
-        remote_sdp -> D#dialog.remote_sdp;
-        stop_reason -> D#dialog.stop_reason;
-        from_tag -> nksip_lib:get_binary(tag, (D#dialog.local_uri)#uri.ext_opts);
-        to_tag -> nksip_lib:get_binary(tag, (D#dialog.remote_uri)#uri.ext_opts);
-        timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
-        _ -> invalid_field 
-    end.
 
 
 

@@ -339,13 +339,6 @@ start(AppId, Module, Args, Opts) ->
             end
         ],
         nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts))
-        % case nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts)) of
-        %     ok ->
-        %         {ok, _} = nksip_proc:wait_put({nksip_sipapp_opts, AppId}, 5000),
-        %         ok;
-        %     {error, Error} ->
-        %         {error, Error}
-        % end
     catch
         throw:Throw -> {error, Throw}
     end.

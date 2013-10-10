@@ -36,7 +36,7 @@
 
 -type id() :: binary().
 
--type field() ::  code | reason | call_id | vias | parsed_vias | 
+-type field() ::  app_id | code | reason | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
                   from | from_scheme | from_user | from_domain | parsed_from | 
                   to | to_scheme | to_user | to_domain | parsed_to | 
@@ -56,6 +56,11 @@
 %%  
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`app_id'</td>
+%%          <td>{@link nksip:app_id()}</td>
+%%          <td>SipApp this response belongs to</td>
+%%      </tr>
 %%      <tr>
 %%          <td>`code'</td>
 %%          <td>{@link nksip:response_code()}</td>

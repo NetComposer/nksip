@@ -19,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @doc Internal request and responses management.
-%% Look at {@link nksip_request} and {@link nksip_response}.
+%% This module allows to work with raw requests and responses (#sipmsg{} records)
 
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -37,6 +37,8 @@
 
 
 %% @doc Extracts a specific field from a sipmsg.
+%% Valid fields are defined in {@link nksip_request:field()} and 
+%% {@link nksip_response:field()}.
 -spec field(nksip:request() | nksip:response(), 
             nksip_request:field() | nksip_response:field()) -> 
     term().
@@ -94,9 +96,7 @@ field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
 
 
 
-
-
-%% @doc Extracts a group of fields from a sipmsg.
+%% @doc Extracts a group of fields from a #sipmsg.
 -spec fields(nksip:request()|nksip:response(), [field()]) ->
     [term()].
 
@@ -104,7 +104,7 @@ fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
     [field(SipMsg, Field) || Field <- Fields].
 
 
-%% @doc Extracts a header from a sipmsg.
+%% @doc Extracts a header from a #sipmsg.
 -spec header(nksip:request() | nksip:response(),
                  binary() | string()) -> 
     [binary()].
@@ -124,7 +124,7 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
     end.
 
 
-%% @doc Extracts a header from a sipmsg and formats it.
+%% @doc Extracts a header from a #sipmsg and formats it.
 -spec header(nksip:request() | nksip:response(), binary(), uris|tokens|integers|dates) ->
     [term()] | error.
 
