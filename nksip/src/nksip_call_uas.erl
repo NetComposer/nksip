@@ -110,8 +110,8 @@ process_retrans(UAS, Call) ->
                     ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
                                [Id, Method, Status, Code], Call);
                 error ->
-                    ?call_info("UAS ~p ~p (~p) could not send ~p retransmission", 
-                               [Id, Method, Status, Code], Call)
+                    ?call_notice("UAS ~p ~p (~p) could not send ~p retransmission", 
+                                  [Id, Method, Status, Code], Call)
             end;
         _ ->
             ?call_info("UAS ~p ~p received retransmission in ~p", 
@@ -132,7 +132,7 @@ process_retrans(UAS, Call) ->
 
 app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
-        #trans{class=uas}=UAS when Fun=:=ignore ->
+        #trans{class=uas}=UAS when Reply=:=async ->
             UAS1 = cancel_timers([app], UAS),
             update(UAS1, Call);
         #trans{class=uas, app_timer={Fun, _}, request=Req}=UAS ->
@@ -287,37 +287,53 @@ check_cancel(#trans{id=Id}=UAS, Call) ->
 -spec authorize_launch(trans(), call()) ->
     call().
 
-authorize_launch(#trans{request=Req}=UAS, Call) ->
-    #call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=Opts}} = Call,
-    case erlang:function_exported(Module, authorize, 4) of
-        false ->
-            route_launch(UAS, update_auth(Req, Call));
+authorize_launch(UAS, Call) ->
+    #call{opts=#call_opts{app_module=Module}} = Call,
+    case 
+        erlang:function_exported(Module, authorize, 3) orelse
+        erlang:function_exported(Module, authorize, 4)
+    of
         true ->
-            IsDialog = case nksip_call_lib:check_auth(Req, Call) of
-                true -> dialog;
-                false -> []
-            end,
-            IsRegistered = case nksip_registrar:is_registered(Req) of
-                true -> register;
-                false -> []
-            end,
-            PassFun = fun(User, Realm) ->
-                case 
-                    nksip_sipapp_srv:try_sipapp_call_sync(AppId, Module, get_user_pass, 
-                                                          [User, Realm])
-                of
-                    not_exported ->
-                        {reply, Reply, _} = 
-                            nksip_sipapp:get_user_pass(User, Realm, none, Opts),
-                            Reply;
-                    Reply ->
-                        Reply
-                end
-            end,
-            IsDigest = nksip_auth:get_authentication(Req, PassFun),
-            Auth = lists:flatten([IsDialog, IsRegistered, IsDigest]),
-            app_call(authorize, [Auth], UAS, Call)
+            Auth = authorize_data(UAS, Call),
+            case app_call(authorize, [Auth], UAS, Call) of
+                {reply, Reply} -> authorize_reply(Reply, UAS, Call);
+                #call{} = Call1 -> Call1
+            end;
+        false ->
+            authorize_reply(ok, UAS, Call)
     end.
+
+
+%% @private
+-spec authorize_data(trans(), call()) ->
+    list().
+
+authorize_data(#trans{id=Id,request=Req}, Call) ->
+    #call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=Opts}} = Call,
+    IsDialog = case nksip_call_lib:check_auth(Req, Call) of
+        true -> dialog;
+        false -> []
+    end,
+    IsRegistered = case nksip_registrar:is_registered(Req) of
+        true -> register;
+        false -> []
+    end,
+    PassFun = fun(User, Realm) ->
+        Args = [User, Realm],
+        case nksip_sipapp_srv:sipapp_call(AppId, Module, get_user_pass, Args, Args) of
+            {reply, Reply} -> 
+                ok;
+            error -> 
+                Reply = false;
+            not_exported ->
+                {reply, Reply, _} = nksip_sipapp:get_user_pass(User, Realm, Opts)
+        end,
+        ?call_debug("UAS ~p calling get_user_pass(~p, ~p): ~p", 
+                    [Id, User, Realm, Reply], Call),
+        Reply
+    end,
+    IsDigest = nksip_auth:get_authentication(Req, PassFun),
+    lists:flatten([IsDialog, IsRegistered, IsDigest]).
 
 
 %% @private
@@ -349,16 +365,13 @@ authorize_reply(_Reply, UAS, Call) ->
     call().
 
 route_launch(#trans{ruri=RUri}=UAS, Call) ->
-    #call{opts=#call_opts{app_opts=Opts}} = Call,
     UAS1 = UAS#trans{status=route},
+    Call1 = update(UAS1, Call),
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
-    case app_call(route, [Scheme, User, Domain], UAS1, update(UAS1, Call)) of
-        not_exported ->
-           {reply, Reply, _} = 
-                nksip_sipapp:route(Scheme, User, Domain, <<>>, none, Opts),
-            route_reply(Reply, UAS1, update(UAS1, Call)); 
-        Call1 ->
-            Call1
+    case app_call(route, [Scheme, User, Domain], UAS1, Call1) of
+        {reply, Reply} -> route_reply(Reply, UAS1, Call1);
+        not_exported -> route_reply(process, UAS1, Call1);
+        #call{} = Call2 -> Call2
     end.
     
 
@@ -539,24 +552,45 @@ do_process('ACK', DialogId, UAS, Call) ->
             ?call_notice("received out-of-dialog ACK", [], Call),
             update(UAS1, Call);
         _ -> 
-            app_call_method(ack, UAS1, update(UAS1, Call))
+            do_process_call(ack, UAS1, update(UAS1, Call))
     end;
 
 do_process('BYE', DialogId, UAS, Call) ->
     case DialogId of
         <<>> -> reply(no_transaction, UAS, Call);
-        _ -> app_call_method(bye, UAS, Call)
+        _ -> do_process_call(bye, UAS, Call)
     end;
 
 do_process('OPTIONS', _DialogId, UAS, Call) ->
-    app_call_method(options, UAS, Call); 
+    do_process_call(options, UAS, Call); 
 
 do_process('REGISTER', _DialogId, UAS, Call) ->
-    app_call_method(register, UAS, Call); 
+    do_process_call(register, UAS, Call); 
 
 do_process(_Method, _DialogId, UAS, Call) ->
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     reply({method_not_allowed, nksip_sipapp_srv:allowed(Opts)}, UAS, Call).
+
+
+%% @private
+-spec do_process_call(atom(), trans(), call()) ->
+    call().
+
+do_process_call(Fun, UAS, Call) ->
+    #trans{request=#sipmsg{id=ReqId}, method=Method} = UAS,
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    case app_call(Fun, [], UAS, Call) of
+        {reply, _} when Method=:='ACK' ->
+            update(UAS, Call);
+        {reply, Reply} ->
+            reply(Reply, UAS, Call);
+        not_exported ->
+            {reply, Reply, _} = apply(nksip_sipapp, Fun, [ReqId, none, Opts]),
+            reply(Reply, UAS, Call);
+        #call{} = Call1 -> 
+            Call1
+    end.
+
 
 
 %% ===================================================================
@@ -754,7 +788,7 @@ terminate_request(#trans{status=Status, from=From}=UAS, Call) ->
             case From of
                 {fork, ForkId} -> 
                     nksip_call_fork:cancel(ForkId, Call);
-                _ -> 
+                _ ->  
                     app_cast(cancel, [], UAS, Call),
                     UAS1 = UAS#trans{cancel=cancelled},
                     reply(request_terminated, UAS, update(UAS1, Call))
@@ -842,57 +876,44 @@ timer(Timer, #trans{id=Id, method=Method}=UAS, Call)
 
 %% @private
 -spec app_call(atom(), list(), trans(), call()) ->
-    call() | not_exported.
+    {reply, term()} | call() | not_exported.
 
 app_call(Fun, Args, UAS, Call) ->
-    #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
+    #trans{id=Id, method=Method, status=Status, request=Req} = UAS,
     #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
-    #sipmsg{id=ReqId} = Req,
     ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
                 [Id, Method, Status, Fun, Args], Call),
     From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
+    Args1 = Args ++ [Req],
+    Args2 = Args ++ [Req#sipmsg.id],
     case 
-        nksip_sipapp_srv:try_sipapp_call_async(AppId, Module, Fun, Args++[ReqId], From)
+        nksip_sipapp_srv:sipapp_call(AppId, Module, Fun, Args1, Args2, From)
     of
-        ok -> 
+        {reply, Reply} ->
+            {reply, Reply};
+        async -> 
             UAS1 = app_timer(Fun, UAS, Call),
             update(UAS1, Call);
         not_exported ->
             not_exported;
-        not_found ->
-            reply({internal_error, <<"SipApp not found">>}, UAS, Call)
+        error ->
+            reply({internal_error, <<"Error calling callback">>}, UAS, Call)
     end.
 
 
 %% @private
--spec app_call_method(atom(), trans(), call()) ->
-    call().
-
-app_call_method(Fun, UAS, Call) ->
-    #trans{request=#sipmsg{id=ReqId}} = UAS,
-    #call{opts=#call_opts{app_opts=Opts}} = Call,
-    case app_call(Fun, [], UAS, Call) of
-        not_exported ->
-            {reply, Reply, _} = apply(nksip_sipapp, Fun, [ReqId, none, Opts]),
-            reply(Reply, UAS, Call);
-        Call1 ->
-            Call1
-    end.
-
 -spec app_cast(atom(), list(), trans(), call()) ->
     call().
 
 app_cast(Fun, Args, UAS, Call) ->
-    #trans{id=Id, request=Req, method=Method, status=Status} = UAS,
+    #trans{id=Id, method=Method, status=Status, request=Req} = UAS,
     #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
-    #sipmsg{id=ReqId} = Req,
-    ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p ~p", 
-                [Id, Method, Status, Fun, Args], Call),
-    case nksip_sipapp_srv:try_sipapp_cast(AppId, Module, Fun, Args++[ReqId]) of
-        not_exported -> Call;
-        Call1 -> Call1
-    end.
-
+    ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p", 
+                [Id, Method, Status, Fun], Call),
+    Args1 = Args ++ [Req],
+    Args2 = Args ++ [Req#sipmsg.id],
+    nksip_sipapp_srv:sipapp_cast(AppId, Module, Fun, Args1, Args2),
+    Call.
 
 
 %% @doc Checks if `Req' is an ACK matching an existing transaction
@@ -938,7 +959,7 @@ is_retrans(Req, #call{trans=Trans}) ->
 is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -> 
     ReqTransId = transaction_id(CancelReq#sipmsg{method='INVITE'}),
     case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
-        #trans{id=Id, class=uas, request=InvReq} = InvUAS ->
+        #trans{id=Id, class=uas, request=#sipmsg{}=InvReq} = InvUAS ->
             #sipmsg{transport=#transport{remote_ip=CancelIp, remote_port=CancelPort}} =
                 CancelReq,
             #sipmsg{transport=#transport{remote_ip=InvIp, remote_port=InvPort}} =
@@ -952,7 +973,7 @@ is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -
                                  [Id, CancelIp, CancelPort, InvIp, InvPort], Call),
                     false
             end;
-        false ->
+        _ ->
             ?call_debug("received unknown CANCEL", [], Call),
             false
     end;

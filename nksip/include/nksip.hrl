@@ -188,7 +188,6 @@
 -record(dialog, {
     id :: nksip_dialog:id(),
     app_id :: nksip:app_id(),
-    app_module :: atom(),
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),
     updated :: nksip_lib:timestamp(),

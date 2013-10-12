@@ -93,8 +93,10 @@ resend_response(#sipmsg{app_id=AppId, response=Code, cseq_method=Method,
     nksip_trace:insert(Resp, {sent_response, Method, Code}),
     Return;
 
-resend_response(#sipmsg{app_id=AppId, call_id=CallId}, _Opts) ->
-    ?warning(AppId, CallId, "Called resend_response/2 without transport", []),
+%% Bug to catch
+resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, _Opts) ->
+    ?warning(AppId, CallId, "Called resend_response/2 without transport\n"
+             "Resp: ~p\nStack: ~p", [lager:pr(Resp, ?MODULE), erlang:get_stacktrace()]), 
     error.
 
 

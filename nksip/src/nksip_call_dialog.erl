@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/4, status_update/4, timer/3]).
+-export([create/3, status_update/4, timer/3]).
 -export([find/2, update/2]).
 
 -type call() :: nksip_call:call().
@@ -36,10 +36,10 @@
 %% ===================================================================
 
 %% @private Creates a new dialog
--spec create(uac|uas, nksip:request(), nksip:response(), call()) ->
+-spec create(uac|uas, nksip:request(), nksip:response()) ->
     nksip:dialog().
 
-create(Class, Req, Resp, Call) ->
+create(Class, Req, Resp) ->
     #sipmsg{ruri=#uri{scheme=Scheme}} = Req,
     #sipmsg{
         app_id = AppId,
@@ -50,7 +50,6 @@ create(Class, Req, Resp, Call) ->
         transport = #transport{proto=Proto},
         from_tag = FromTag
     } = Resp,
-    #call{opts=#call_opts{app_module=Module}} = Call,
     DialogId = nksip_dialog:id(Resp),
     ?debug(AppId, CallId, "Dialog ~s (~p) created", [DialogId, Class]),
     nksip_counters:async([nksip_dialogs]),
@@ -58,7 +57,6 @@ create(Class, Req, Resp, Call) ->
     Dialog = #dialog{
         id = DialogId,
         app_id = AppId,
-        app_module = Module,
         call_id = CallId, 
         created = Now,
         updated = Now,
@@ -74,7 +72,6 @@ create(Class, Req, Resp, Call) ->
         remote_sdp = undefined,
         media_started = false,
         stop_reason = undefined
-        % remotes = [{Ip, Port}]
     },
     if 
         Class=:=uac ->
@@ -110,14 +107,14 @@ status_update(Class, Status, Dialog, Call) ->
     } = Dialog,
     #call{opts=#call_opts{timer_t1=T1, max_dialog_time=TDlg}} = Call,
     case OldStatus of
-        init -> cast(dialog_update, start, Dialog);
+        init -> cast(dialog_update, start, Dialog, Call);
         _ -> ok
     end,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     Dialog1 = case Status of
         {stop, Reason} -> 
-            cast(dialog_update, {stop, reason(Reason)}, Dialog),
+            cast(dialog_update, {stop, reason(Reason)}, Dialog, Call),
             Dialog#dialog{status=Status};
         _ ->
             case Status=:=OldStatus of
@@ -126,7 +123,7 @@ status_update(Class, Status, Dialog, Call) ->
                 false -> 
                     ?debug(AppId, CallId, "Dialog ~s ~p -> ~p", 
                            [DialogId, OldStatus, Status]),
-                    cast(dialog_update, {status, Status}, Dialog)
+                    cast(dialog_update, {status, Status}, Dialog, Call)
             end,
             Timeout = case Status of
                 confirmed -> TDlg;
@@ -140,30 +137,30 @@ status_update(Class, Status, Dialog, Call) ->
     end,
     Dialog2 = case Media of
         true when Status=:=bye; element(1, Status)=:=stop ->
-            cast(session_update, stop, Dialog),
+            cast(session_update, stop, Dialog, Call),
             Dialog1#dialog{media_started=false};
         _ -> 
             Dialog1
     end,
     case Status of
         proceeding_uac ->
-            Dialog3 = target_update(Class, Dialog2),
-            session_update(Class, Dialog3);
+            Dialog3 = target_update(Class, Dialog2, Call),
+            session_update(Class, Dialog3, Call);
         accepted_uac ->
-            Dialog3 = target_update(Class, Dialog2),
-            session_update(Class, Dialog3);
+            Dialog3 = target_update(Class, Dialog2, Call),
+            session_update(Class, Dialog3, Call);
         proceeding_uas ->
-            Dialog3 = target_update(Class, Dialog2),
-            session_update(Class, Dialog3);
+            Dialog3 = target_update(Class, Dialog2, Call),
+            session_update(Class, Dialog3, Call);
         accepted_uas ->    
-            Dialog3 = target_update(Class, Dialog2),
-            Dialog4 = session_update(Class, Dialog3),
+            Dialog3 = target_update(Class, Dialog2, Call),
+            Dialog4 = session_update(Class, Dialog3, Call),
             Dialog4#dialog{
                 retrans_timer = start_timer(T1, retrans, Dialog),
                 next_retrans = 2*T1
             };
         confirmed ->
-            Dialog3 = session_update(Class, Dialog2),
+            Dialog3 = session_update(Class, Dialog2, Call),
             Dialog3#dialog{request=undefined, response=undefined, 
                            ack=undefined};
         bye ->
@@ -177,10 +174,10 @@ status_update(Class, Status, Dialog, Call) ->
 
 
 %% @private Performs a target update
--spec target_update(uac|uas, nksip:dialog()) ->
+-spec target_update(uac|uas, nksip:dialog(), call()) ->
     nksip:dialog().
 
-target_update(Class, #dialog{response=#sipmsg{}}=Dialog) ->
+target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
     #dialog{
         id = DialogId,
         app_id = AppId,
@@ -261,7 +258,7 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog) ->
     case RemoteTarget of
         #uri{} -> ok;
         RemoteTarget1 -> ok;
-        _ -> cast(dialog_update, target_update, Dialog)
+        _ -> cast(dialog_update, target_update, Dialog, Call)
     end,
     Dialog#dialog{
         updated = Now,
@@ -272,19 +269,20 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog) ->
         route_set = RouteSet1
     };
 
-target_update(_, Dialog) ->
+target_update(_, Dialog, _) ->
     Dialog.
 
 
 %% @private Performs a session update
--spec session_update(uac|uas, nksip:dialog()) ->
+-spec session_update(uac|uas, nksip:dialog(), call()) ->
     nksip:dialog().
 
 session_update(Class, 
                 #dialog{
                     answered = Answered, 
                     response = #sipmsg{body=RespBody, response=Code}
-                } = Dialog) 
+                } = Dialog,
+                Call) 
                 when 
                     (Code>100 andalso Code<200 andalso Answered=:=undefined)
                     orelse
@@ -311,7 +309,7 @@ session_update(Class,
     end,
     case {Started, LocalSDP, RemoteSDP} of
         {false, #sdp{}, #sdp{}} ->
-            cast(session_update, {start, LocalSDP, RemoteSDP}, Dialog),
+            cast(session_update, {start, LocalSDP, RemoteSDP}, Dialog, Call),
             Dialog#dialog{local_sdp=LocalSDP, remote_sdp=RemoteSDP, media_started=true};
         {false, _, _} ->
             Dialog;
@@ -321,7 +319,7 @@ session_update(Class,
                 nksip_sdp:is_new(LocalSDP, DLocalSDP)
             of
                 true -> 
-                    cast(session_update, {update, LocalSDP, RemoteSDP}, Dialog),
+                    cast(session_update, {update, LocalSDP, RemoteSDP}, Dialog, Call),
                     Dialog#dialog{local_sdp=LocalSDP, remote_sdp=RemoteSDP};
                 false ->
                     Dialog
@@ -330,7 +328,7 @@ session_update(Class,
             Dialog
     end;
 
-session_update(_, Dialog) ->
+session_update(_, Dialog, _) ->
     Dialog.
 
 
@@ -345,9 +343,9 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
         next_retrans = Next
     } = Dialog,
     #call{opts=#call_opts{app_opts=Opts, timer_t2=T2}} = Call,
-    ?call_info("Dialog ~s resending response", [DialogId], Call),
     case nksip_transport_uas:resend_response(Resp, Opts) of
         {ok, _} ->
+            ?call_info("Dialog ~s resent response", [DialogId], Call),
             Dialog1 = Dialog#dialog{
                 retrans_timer = start_timer(Next, retrans, Dialog),
                 next_retrans = min(2*Next, T2)
@@ -425,11 +423,16 @@ update(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
 
 
 %% @private
--spec cast(atom(), term(), nksip:dialog()) ->
+-spec cast(atom(), term(), nksip:dialog(), call()) ->
     ok.
 
-cast(Fun, Arg, #dialog{id=DialogId, app_id=AppId, app_module=Module}) ->
-    nksip_sipapp_srv:try_sipapp_cast(AppId, Module, Fun, [DialogId, Arg]).
+cast(Fun, Arg, Dialog, Call) ->
+    #dialog{id=DialogId} = Dialog,
+    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
+    Args1 = [Dialog, Arg],
+    Args2 = [DialogId, Arg],
+    nksip_sipapp_srv:sipapp_cast(AppId, Module, Fun, Args1, Args2),
+    ok.
 
 
 %% @private

@@ -73,7 +73,7 @@
 %%  <li>When starting the SipApp, {@link init/1} is called to initialize the 
 %%      application state.</li>
 %%  <li>When a request is received having an <i>Authorization</i> or 
-%%      <i>Proxy-Authorization</i> header, {@link get_user_pass/4} is called to check
+%%      <i>Proxy-Authorization</i> header, {@link get_user_pass/3} is called to check
 %%      the user's password.</li>
 %%  <li>NkSIP calls {@link authorize/4} to check is the request should be
 %%      authorized.</li>
@@ -120,7 +120,7 @@
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, get_user_pass/4, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
+-export([init/1, get_user_pass/3, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
          ack/3, bye/3, options/3, register/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
@@ -209,12 +209,13 @@ terminate(_Reason, _State) ->
 %% If you don't define this function, NkSIP will reply with password `<<>>' 
 %% if user is `anonymous', and `false' for any other user.  
 %%
--spec get_user_pass(User::binary(), Realm::binary(), From::from(), State::term()) ->
-    call_reply(true | false | binary()).
+-spec get_user_pass(User::binary(), Realm::binary(), State::term()) ->
+    {reply, Reply, NewState}
+    when Reply :: true | false | binary(), NewState :: term().
 
-get_user_pass(<<"anonymous">>, _, _From, State) ->
+get_user_pass(<<"anonymous">>, _, State) ->
     {reply, <<>>, State};
-get_user_pass(_User, _Realm, _From, State) ->
+get_user_pass(_User, _Realm, State) ->
     {reply, false, State}.
 
 
@@ -345,7 +346,7 @@ route(_Scheme, _User, _Domain, _ReqId, _From, State) ->
 
 %% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
 %% Before replying a final response, you will usually call 
-%% {@link nksip_request:provisional_reply/3} to send a provisional response like 
+%% {@link nksip_request:reply/3} to send a provisional response like 
 %% `ringing' (which would send a 180 <i>Ringing</i> reply).
 %%
 %% If a quick response (like `busy') is not going to be sent immediately 

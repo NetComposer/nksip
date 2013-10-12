@@ -36,7 +36,7 @@
 -behaviour(nksip_sipapp).
 
 -export([start/0, stop/0, check_speed/1, get_speed/0]).
--export([init/1, get_user_pass/4, authorize/4, route/6]). 
+-export([init/1, get_user_pass/3, authorize/4, route/6]). 
 -export([dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -87,9 +87,9 @@ init([]) ->
 %% @doc SipApp Callback: Called to check user's password.
 %% If the incoming user's realm is one of our domains, the password for any 
 %% user is "1234". For other realms, no password is valid.
-get_user_pass(_User, <<"nksip">>, _From, State) -> 
+get_user_pass(_User, <<"nksip">>, State) -> 
     {reply, <<"1234">>, State};
-get_user_pass(_User, _Realm, _From, State) -> 
+get_user_pass(_User, _Realm, State) -> 
     {reply, false, State}.
 
 

@@ -132,13 +132,14 @@ get_registers(AppId) ->
 
 -record(state, {
     app_id :: nksip:app_id(),
+    module :: atom(),
     pings :: [#sipreg{}],
     regs :: [#sipreg{}]
 }).
 
 
 % @private 
-init(AppId, _Module, _Args, Opts) ->
+init(AppId, Module, _Args, Opts) ->
     case nksip_lib:get_value(register, Opts) of
         undefined ->
             ok;
@@ -149,7 +150,7 @@ init(AppId, _Module, _Args, Opts) ->
                     start_register(AppId, <<"auto">>, Reg, RegTime, Opts) 
                 end)
     end,
-    #state{app_id=AppId, pings=[], regs=[]}.
+    #state{app_id=AppId, module=Module, pings=[], regs=[]}.
 
 
 %% @private
@@ -229,12 +230,15 @@ handle_call(_, _From, _State) ->
 
 %% @private
 handle_cast({'$nksip_ping_update', PingId, OK, CSeq}, 
-            #state{app_id=AppId, pings=Pings}=State) -> 
+            #state{app_id=AppId, module=Module, pings=Pings}=State) -> 
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OK0, interval=Interval, from=From}=Ping0, Pings1} ->
             case OK of
-                OK0 -> ok;
-                _ -> nksip_sipapp_srv:sipapp_cast(AppId, ping_update, [PingId, OK])
+                OK0 -> 
+                    ok;
+                _ -> 
+                    Args = [PingId, OK],
+                    nksip_sipapp_srv:sipapp_cast(AppId, Module, ping_update, Args, Args)
             end,
             case From of
                 undefined -> ok;
@@ -245,11 +249,11 @@ handle_cast({'$nksip_ping_update', PingId, OK, CSeq},
                     State#state{pings=Pings1};
                 _ -> 
                     Ping1 = Ping0#sipreg{
-                                        ok = OK, 
-                                        cseq = CSeq, 
-                                        checking = false, 
-                                        from = undefined
-                                    },
+                        ok = OK, 
+                        cseq = CSeq, 
+                        checking = false, 
+                        from = undefined
+                    },
                     State#state{pings=[Ping1|Pings1]}
             end;
         false ->
@@ -257,12 +261,15 @@ handle_cast({'$nksip_ping_update', PingId, OK, CSeq},
     end;
 
 handle_cast({'$nksip_register_update', RegId, OK, CSeq}, 
-            #state{app_id=AppId, regs=Regs}=State) -> 
+            #state{app_id=AppId, module=Module, regs=Regs}=State) -> 
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OK0, interval=Interval, from=From}=Reg0, Regs1} ->
             case OK of
-                OK0 -> ok;
-                _ -> nksip_sipapp_srv:sipapp_cast(AppId, register_update, [RegId, OK])
+                OK0 -> 
+                    ok;
+                _ -> 
+                    Args = [RegId, OK],
+                    nksip_sipapp_srv:sipapp_cast(AppId, Module, register_update, Args, Args)
             end,
             case From of
                 undefined -> ok;
@@ -273,11 +280,11 @@ handle_cast({'$nksip_register_update', RegId, OK, CSeq},
                     State#state{regs=Regs1};
                 _ ->
                     Reg1 = Reg0#sipreg{
-                                ok = OK, 
-                                cseq = CSeq, 
-                                checking = false,
-                                from = undefined
-                            },
+                        ok = OK, 
+                        cseq = CSeq, 
+                        checking = false,
+                        from = undefined
+                    },
                     State#state{regs=[Reg1|Regs1]}
             end;
         false ->

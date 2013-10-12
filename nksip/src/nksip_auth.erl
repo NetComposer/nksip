@@ -83,7 +83,7 @@ get_realms([], Acc) ->
 %% @doc Generates a password hash to use in NkSIP authentication.
 %% In order to avoid storing the user's passwords in clear text, you can generate 
 %% a `hash' (fom `User', `Pass' and `Realm') and store and use it in
-%% {@link nksip_sipapp:get_user_pass/4} instead of the real password.
+%% {@link nksip_sipapp:get_user_pass/3} instead of the real password.
 -spec make_ha1(binary()|string(), binary()|string(), binary()|string()) -> 
     binary().
 
@@ -220,9 +220,7 @@ make_response(Realm, Req) ->
 
 
 %% @private Finds auth headers in request, and for each one extracts user and 
-%% realm, calling `get_user_pass/4' callback to check if it is correct.
-%% For each user and realm having a correct password returns `{true, User, Realm}',
-%% and `{false, User, Realm}' for each one having an incorrect password.
+%% realm, calling `get_user_pass/3' callback to check if it is correct.
 -spec check_digest(Req::nksip:request(), function()) ->
     [{boolean(), User::binary(), Realm::binary()}].
 
@@ -243,8 +241,7 @@ check_digest([{Name, Data}|Rest], Req, Fun, Acc)
             Resp = nksip_lib:get_value(response, AuthData),
             User = nksip_lib:get_binary(username, AuthData),
             Realm = nksip_lib:get_binary(realm, AuthData),
-            Result = case catch Fun(User, Realm) of
-                {'EXIT', _} -> false;
+            Result = case Fun(User, Realm) of
                 true -> true;
                 false -> false;
                 Pass -> check_auth_header(AuthData, Resp, User, Realm, Pass, Req)

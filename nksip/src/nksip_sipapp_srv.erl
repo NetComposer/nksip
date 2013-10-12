@@ -29,8 +29,7 @@
 -behaviour(gen_server).
 
 -export([get_opts/1, reply/2]).
--export([try_sipapp_call_sync/4, try_sipapp_call_async/5, try_sipapp_cast/4]).
--export([sipapp_call_sync/3, sipapp_call_async/4, sipapp_cast/3]).
+-export([sipapp_call/6, sipapp_call/5, sipapp_cast/5]).
 -export([register/2, get_registered/2, put_opts/2, allowed/1, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -97,80 +96,97 @@ allowed(AppOpts) ->
     end.
 
 
-%% @private Calls to a function in the SipApp's callback module synchronously
--spec try_sipapp_call_sync(nksip:app_id(), atom(), atom(), list()) -> 
-    any().
+%% @private Calls to a function in the siapp's callback module.
+%% Args1 are used in case of inline callback. Args2 in case of normal (with state)
+%% callback.
+-spec sipapp_call(nksip:app_id(), atom(), atom(), list(), list(), nksip_from()) ->
+    {reply, term()} | async | not_exported | error.
 
-try_sipapp_call_sync(AppId, Module, Fun, Args) ->
-    case erlang:function_exported(Module, Fun, length(Args)+2) of
-        true -> sipapp_call_sync(AppId, Fun, Args);
-        false -> not_exported
+sipapp_call(AppId, Module, Fun, Args1, Args2, From) ->
+    case erlang:function_exported(Module, Fun, length(Args1)+1) of
+        true ->
+            case catch apply(Module, Fun, Args1++[From]) of
+                {'EXIT', Error} -> 
+                    ?error(AppId, "Error calling inline ~p: ~p", [Fun, Error]),
+                    error;
+                async ->
+                    async;
+                Reply ->
+                    {reply, Reply}
+            end;     
+        false ->
+            case erlang:function_exported(Module, Fun, length(Args2)+2) of
+                true -> 
+                    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+                        undefined -> 
+                            ?error(AppId, "SipApp is not available calling ~p", [Fun]),
+                            error;
+                        Pid -> 
+                            gen_server:cast(Pid, {'$nksip_call', Fun, Args2, From}),
+                            async
+                    end;
+                false ->
+                    not_exported
+            end
     end.
 
 
-%% @private Calls to a function in the SipApp's callback module synchronously
--spec sipapp_call_sync(nksip:app_id(), atom(), list()) -> 
-    any().
+%% @private Calls to a function in the siapp's callback module synchronously,
+%% waiting for an answer. The called callback will not a 'From' parameter.
+-spec sipapp_call(nksip:app_id(), atom(), atom(), list(), list()) ->
+    {reply, term()} | not_exported | error.
 
-sipapp_call_sync(AppId, Fun, Args) ->
-    Ref = make_ref(),
-    From = {pid, self(), Ref},
-    case sipapp_call_async(AppId, Fun, Args, From) of
-        ok ->
-            receive
-                {Ref, Reply} -> Reply
-            after 180000 ->
-                {internal_error, <<"SipApp Timeout">>}  
-            end;
-        not_found ->
-            {internal_error, <<"Unknown SipApp">>}
-    end.
-
-
-%% @private Calls to a function in the siapp's callback module asynchronously
--spec try_sipapp_call_async(nksip:app_id(), atom(), atom(), list(), nksip_from()) ->
-    ok | not_found | not_exported.
-
-try_sipapp_call_async(AppId, Module, Fun, Args, From) ->
-    case erlang:function_exported(Module, Fun, length(Args)+2) of
-        true -> sipapp_call_async(AppId, Fun, Args, From);
-        false -> not_exported
-    end.
-
-
-%% @private Calls to a function in the siapp's callback module asynchronously
--spec sipapp_call_async(nksip:app_id(), atom(), list(), nksip_from()) ->
-    ok | not_found. 
-
-sipapp_call_async(AppId, Fun, Args, From) ->
-    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
-        undefined -> 
-            ?error(AppId, "SipApp is not available calling ~p", [Fun]),
-            not_found;
-        Pid -> 
-            gen_server:cast(Pid, {'$nksip_callback', Fun, Args, From})
+sipapp_call(AppId, Module, Fun, Args1, Args2) ->
+    case erlang:function_exported(Module, Fun, length(Args1)) of
+        true ->
+            case catch apply(Module, Fun, Args1) of
+                {'EXIT', Error} -> 
+                    ?error(AppId, "Error calling inline ~p: ~p", [Fun, Error]),
+                    error;
+                Reply ->
+                    {reply, Reply}
+            end;     
+        false ->
+            case erlang:function_exported(Module, Fun, length(Args2)+1) of
+                true -> 
+                    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+                        undefined -> 
+                            ?error(AppId, "SipApp is not available calling ~p", [Fun]),
+                            error;
+                        Pid -> 
+                            Msg = {'$nksip_call_nofrom', Fun, Args2},
+                            {reply, gen_server:call(Pid, Msg, ?SRV_TIMEOUT)}
+                    end;
+                false ->
+                    not_exported
+            end
     end.
 
 
 %% @private Calls a function in the SipApp's callback module asynchronously
--spec try_sipapp_cast(nksip:app_id(), atom(), atom(), list()) -> 
-    ok | not_found | not_exported.
+-spec sipapp_cast(nksip:app_id(), atom(), atom(), list(), list()) -> 
+    ok | not_exported | error.
 
-try_sipapp_cast(AppId, Module, Fun, Args) ->
-    case erlang:function_exported(Module, Fun, length(Args)+1) of
-        true -> sipapp_cast(AppId, Fun, Args);
-        false -> not_exported
-    end.
-
-
-%% @private Calls a function in the SipApp's callback module asynchronously
--spec sipapp_cast(nksip:app_id(), atom(), list()) -> 
-    ok.
-
-sipapp_cast(AppId, Fun, Args) ->
-    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
-        undefined -> not_found;
-        Pid -> gen_server:cast(Pid, {'$nksip_cast', Fun, Args})
+sipapp_cast(AppId, Module, Fun, Args1, Args2) ->
+    case erlang:function_exported(Module, Fun, length(Args1)) of
+        true ->
+            case catch apply(Module, Fun, Args1) of
+                {'EXIT', Error} -> 
+                    ?error(AppId, "Error calling inline ~p: ~p", [Fun, Error]),
+                    error;
+                _ ->
+                    ok
+            end;     
+        false ->
+            case erlang:function_exported(Module, Fun, length(Args2)+1) of
+                true -> 
+                    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+                        undefined -> sipapp_not_found;
+                        Pid -> gen_server:cast(Pid, {'$nksip_cast', Fun, Args2})
+                    end;
+                false -> 
+                    not_exported
+            end
     end.
 
 
@@ -233,10 +249,18 @@ init([AppId, Module, Args, Opts]) ->
         procs = dict:new(),
         reg_state = RegState
     },
-    case Module:init(Args) of
-        {ok, ModState} -> {ok, State1#state{mod_state=ModState}};
-        {ok, ModState, Timeout} -> {ok, State1#state{mod_state=ModState}, Timeout};
-        {stop, Reason} -> {stop, Reason}
+    case Module of
+        inline ->
+            {ok, State1#state{mod_state={}}};
+        _ ->
+            case Module:init(Args) of
+                {ok, ModState} -> 
+                    {ok, State1#state{mod_state=ModState}};
+                {ok, ModState, Timeout} -> 
+                    {ok, State1#state{mod_state=ModState}, Timeout};
+                {stop, Reason} -> 
+                    {stop, Reason}
+            end
     end.
 
 
@@ -262,6 +286,9 @@ handle_call({'$nksip_put_opts', Opts}, _From, #state{id=AppId}=State) ->
     nksip_call_router:remove_app_cache(AppId),
     {reply, ok, State#state{opts=Opts}};
 
+handle_call({'$nksip_call_nofrom', Fun, Args}, _From, State) -> 
+    mod_handle_call_nofrom(Fun, Args, State);
+
 handle_call({'$nksip_call', Fun, Args}, From, State) ->
     mod_handle_call(Fun, Args, From, State);
     
@@ -280,11 +307,11 @@ handle_cast({'$nksip_register', Type, Pid}, #state{procs=Procs}=State) ->
     erlang:monitor(process, Pid),
     {noreply, State#state{procs=dict:store(Pid, Type, Procs)}};
 
+handle_cast({'$nksip_call', Fun, Args, From}, State) -> 
+    mod_handle_call(Fun, Args, From, State);
+
 handle_cast({'$nksip_cast', Fun, Args}, State) -> 
     mod_handle_cast(Fun, Args, State);
-
-handle_cast({'$nksip_callback', Fun, Args, From}, State) -> 
-    mod_handle_call(Fun, Args, From, State);
 
 handle_cast(Msg, State) -> 
     case nksip_sipapp_auto:handle_cast(Msg, State#state.reg_state) of
@@ -355,55 +382,55 @@ timeout() ->
 %% @private
 -spec mod_handle_call(atom(), [term()], from(), #state{}) -> 
     {noreply, #state{}, non_neg_integer()} |
-    {error, term(), #state{}} |
-    not_found.
+    {stop, term(), #state{}}.
+    
 
 mod_handle_call(Fun, Args, From, #state{module=Module, mod_state=ModState}=State) ->
     case apply(Module, Fun,  Args ++ [From, ModState]) of
         {reply, Reply, ModState1} -> 
             reply(From, Reply),
-            Class = noreply, 
-            Timeout = infinity;
+            {noreply, State#state{mod_state=ModState1}};
         {reply, Reply, ModState1, Timeout} -> 
             reply(From, Reply),
-            Class = noreply;
+            {noreply, State#state{mod_state=ModState1}, Timeout};
         {noreply, ModState1} -> 
-            Class = noreply, 
-            Timeout = infinity;
+            {noreply, State#state{mod_state=ModState1}};
         {noreply, ModState1, Timeout} -> 
-            Class = noreply;
+            {noreply, State#state{mod_state=ModState1}, Timeout};
         {stop, Reason, ModState1} -> 
-            Class = {error, Reason}, 
-            Timeout = none
-    end,
-    State1 = State#state{mod_state=ModState1},
-    case Class of
-        noreply -> {noreply, State1, Timeout};
-        {error, Reason1} -> {error, Reason1, State1}
+            {stop, Reason, State#state{mod_state=ModState1}}
+    end.
+
+
+%% @private
+-spec mod_handle_call_nofrom(atom(), [term()], #state{}) -> 
+    {reply, #state{}, non_neg_integer()} |
+    {stop, term(), #state{}}.
+
+mod_handle_call_nofrom(Fun, Args, #state{module=Module, mod_state=ModState}=State) ->
+    case apply(Module, Fun,  Args ++ [ModState]) of
+        {reply, Reply, ModState1} -> 
+            {reply, Reply, State#state{mod_state=ModState1}};
+        {reply, Reply, ModState1, Timeout} -> 
+            {reply, Reply, State#state{mod_state=ModState1}, Timeout};
+        {stop, Reason, ModState1} -> 
+            {stop, Reason, State#state{mod_state=ModState1}}
     end.
 
 
 %% @private
 -spec mod_handle_cast(atom(), [term()], #state{}) -> 
     {noreply, #state{}, non_neg_integer()} |
-    {error, term(), #state{}} |
-    not_found.
+    {stop, term(), #state{}}.
 
 mod_handle_cast(Fun, Args, #state{module=Module, mod_state=ModState}=State) ->
     case apply(Module, Fun, Args++[ModState]) of
         {noreply, ModState1} -> 
-            Class = noreply, 
-            Timeout = infinity;
+            {noreply, State#state{mod_state=ModState1}};
         {noreply, ModState1, Timeout} -> 
-            Class = noreply;
+            {noreply, State#state{mod_state=ModState1}, Timeout};
         {stop, Reason, ModState1} -> 
-            Class = {error, Reason}, 
-            Timeout = none
-    end,
-    State1 = State#state{mod_state=ModState1},
-    case Class of
-        noreply -> {noreply, State1, Timeout};
-        {error, Reason1} -> {error, Reason1, State1}
+            {stop, Reason, State#state{mod_state=ModState1}}
     end.
 
 

@@ -145,7 +145,7 @@ response(#sipmsg{method=Method}=Req, Resp, Call) ->
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
                     nksip_call_dialog:update(Dialog1, Call);
                 not_found when Method=:='INVITE', Code>100, Code<300 ->
-                    Dialog = nksip_call_dialog:create(uas, Req, Resp, Call),
+                    Dialog = nksip_call_dialog:create(uas, Req, Resp),
                     response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
                 not_found ->
                     Call
