@@ -584,6 +584,8 @@ do_process_call(Fun, UAS, Call) ->
             update(UAS, Call);
         {reply, Reply} ->
             reply(Reply, UAS, Call);
+        not_exported when Method=:='ACK' ->
+            Call;
         not_exported ->
             {reply, Reply, _} = apply(nksip_sipapp, Fun, [ReqId, none, Opts]),
             reply(Reply, UAS, Call);
