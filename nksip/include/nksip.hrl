@@ -30,8 +30,8 @@
 -define(VERSION, "0.1.0").
 -define(SUPPORTED, <<>>).
 -define(ACCEPT, <<"application/sdp">>).
--define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
--define(ALLOW_DIALOG, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
+-define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO">>).
+-define(ALLOW_DIALOG, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO">>).
 
 -define(MSG_QUEUES, 8).
 

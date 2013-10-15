@@ -333,6 +333,9 @@ process(launch, #state{req=#sipmsg{method=Method, to_tag=ToTag}=Req}=SD)
                 'BYE' ->
                     corecall(bye, [DialogId], SD),
                     start_timer(process, SD);
+                'INFO' ->
+                    corecall(info, [DialogId], SD),
+                    start_timer(process, SD);
                 'OPTIONS' ->
                     corecall(options, [], SD),
                     start_timer(process, SD);
@@ -382,6 +385,8 @@ process(launch, #state{req=Req}=SD) ->
             ?notice(AppId, CallId, "received out-of-dialog ACK", []),
             {stop, normal, SD};
         'BYE' ->
+            stop(no_transaction, SD);
+        'INFO'
             stop(no_transaction, SD);
         'OPTIONS' ->
             corecall(options, [], SD),
