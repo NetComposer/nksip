@@ -116,7 +116,7 @@ transport() ->
     Body = nksip_sipmsg:field(Req1, body),
 
     Fields2 = {fields, [parsed_contacts, remote]},
-    {ok, 200, Values2} = nksip_uac:options(C1, "sip:127.0.0.1;transport=tcp", [Fields2]),
+    {ok, 200, Values2} = nksip_uac:options(C1, "<sip:127.0.0.1;transport=tcp>", [Fields2]),
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
     [
@@ -150,7 +150,7 @@ transport() ->
         {headers, [{<<"Nksip-Op">>, <<"reply-request">>}]},
         make_contact,
         {local_host, "mihost"},
-        {route, [<<"sip:127.0.0.1;lr">>, "sip:aaa;lr, sips:bbb:123;lr"]},
+        {route, [<<"<sip:127.0.0.1;lr>">>, "<sip:aaa;lr>, <sips:bbb:123;lr>"]},
         {fields, [body]}
     ],
     {ok, 200, Values5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
@@ -170,7 +170,7 @@ transport() ->
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}]),
 
     % Cover ip resolution
-    case nksip_uac:options(C1, "sip:sip2sip.info;transport=tcp", []) of
+    case nksip_uac:options(C1, "<sip:sip2sip.info;transport=tcp>", []) of
         {ok, 200, []} -> ok;
         {ok, Code, []} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
         {error, Error} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Error])

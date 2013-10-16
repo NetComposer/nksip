@@ -165,9 +165,9 @@ route(Scheme, User, Domain, ReqId, _From,
         true ->
             {reply, {proxy, ruri, Opts}, State};
         false when Domain =:= <<"nksip">> ->
-            {reply, {proxy, ruri, [{route, "sip:127.0.0.1;lr"}|Opts]}, State};
+            {reply, {proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]}, State};
         false when Domain =:= <<"nksip2">> ->
-            {reply, {proxy, ruri, [{route, "sips:127.0.0.1:5081;lr"}|Opts]}, State};
+            {reply, {proxy, ruri, [{route, "<sips:127.0.0.1:5081;lr>"}|Opts]}, State};
         false ->
             {reply, {proxy, ruri, Opts}, State}
     end;
@@ -214,7 +214,7 @@ route(_, _, Domain, _ReqId, _From, #state{id={fork, Id}, domains=Domains}=State)
     ]),
     case lists:member(Domain, Domains) of
         true when Domain =:= <<"nksip">> ->
-            {reply, {proxy, ruri, [{route, "sip:127.0.0.1;lr"}|Opts]}, State};
+            {reply, {proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]}, State};
         true ->
             {reply, {proxy, ruri, Opts}, State};
         false ->
@@ -224,7 +224,7 @@ route(_, _, Domain, _ReqId, _From, #state{id={fork, Id}, domains=Domains}=State)
 % Route for server1 in auth tests
 % Finds the user and proxies to server2
 route(Scheme, User, Domain, _ReqId, _From, #state{id={auth, server1}}=State) ->
-    Opts = [{route, "sip:127.0.0.1:5061;lr"}],
+    Opts = [{route, "<sip:127.0.0.1:5061;lr>"}],
     case User of
         <<>> -> 
             {reply, process, State};

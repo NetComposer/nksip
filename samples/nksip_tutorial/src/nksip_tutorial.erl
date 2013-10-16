@@ -51,33 +51,33 @@ launch() ->
 	
 	{ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
 									[{pass, "1234"}]),
-	{ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", 
+	{ok, 200, []} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", 
 									[{pass, "1234"}]),
 
 	{ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", 
 									[{pass, "1234"}, make_contact]),
-	{ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
+	{ok, 200, []} = nksip_uac:register(client2, "<sip:127.0.0.1;transport=tls>", 
 									[{pass, "1234"}, make_contact]),
 	
-	{ok, 200, Resp1} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", 
+	{ok, 200, Resp1} = nksip_uac:register(client2, "<sip:127.0.0.1;transport=tls>", 
 									[{pass, "1234"}]),
 	[<<"<sips:client2@", _/binary>>] = nksip_response:header(Resp1, <<"Contact">>),
 
 	{ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", []),
-	{ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", []),
+	{ok, 200, []} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", []),
 	
 	{ok, 407, _} = nksip_uac:options(client1, "sips:client2@nksip", 
-										[{route, "sip:127.0.0.1;lr"}]),
+										[{route, "<sip:127.0.0.1;lr>"}]),
 	{ok, 200, Resp2} = nksip_uac:options(client1, "sips:client2@nksip", 
-										[{route, "sip:127.0.0.1;lr"}, {pass, "1234"}]),
+										[{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"}]),
 	[<<"client2">>] = nksip_response:header(Resp2, <<"Nksip-Id">>),
 	
 	{ok, 200, Resp3} = nksip_uac:options(client2, "sip:client1@nksip", 
-										[{route, "sips:127.0.0.1;lr"}]),
+										[{route, "<sips:127.0.0.1;lr>"}]),
 	[<<"client1">>] = nksip_response:header(Resp3, <<"Nksip-Id">>),
 
 	{ok, 488, _} = nksip_uac:invite(client2, "sip:client1@nksip", 
-									 [{route, "sips:127.0.0.1;lr"}]),
+									 [{route, "<sips:127.0.0.1;lr>"}]),
 	{ok, 200, Resp4} = nksip_uac:invite(client2, "sip:client1@nksip", 
 											[{route, "sips:127.0.0.1;lr"}, 
 											 {body, nksip_sdp:new()}]),

@@ -27,7 +27,7 @@
 
 -export([init/1, route/5, invite/2]).
 
--define(PROXY_URI, "sip:127.0.0.1:5061;transport=tcp").
+-define(PROXY_URI, "<sip:127.0.0.1:5061;transport=tcp>").
 
 
 %% All callback functions are "inline"

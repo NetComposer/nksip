@@ -85,14 +85,14 @@ start(Test) ->
 
     ok = sipapp_endpoint:start({Test, client1}, [
         {from, "sip:client1@nksip"},
-        {route, "sip:127.0.0.1;lr"},
+        {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}]),
 
     ok = sipapp_endpoint:start({Test, client2}, [
         {from, "sip:client2@nksip"},
-        {route, "sip:127.0.0.1;lr"},
+        {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 0}},
         {transport, {tls, {0,0,0,0}, 0}}]),
@@ -159,7 +159,7 @@ invalid(Test) ->
     % Force Loop
     nksip_trace:notice("Next message about a loop detection is expected"),
     {ok, 482, []} = nksip_uac:options(C1, "sip:any", 
-                        [{route, "sip:127.0.0.1;lr, sip:127.0.0.1;lr"}]),
+                        [{route, "<sip:127.0.0.1;lr>, <sip:127.0.0.1;lr>"}]),
     
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
@@ -190,7 +190,7 @@ opts(Test) ->
     [{{header, <<"Nk">>}, [<<"server">>]}] = Values2,
     % Add a route at server
     ServerOpts3 = [{headers, [{"Nk", "server2"}]}, 
-                    {route, "sip:127.0.0.1:5070;lr, sip:1.2.3.4;lr"}],
+                    {route, "<sip:127.0.0.1:5070;lr>, <sip:1.2.3.4;lr>"}],
     Body3 = base64:encode(term_to_binary(ServerOpts3)),
     Opts3 = [{headers, [{"Nk", "opts2"}]}, {body, Body3},
              {fields, [{header, <<"Nk">>}, {header, <<"Nk-R">>}]}],
@@ -204,7 +204,7 @@ opts(Test) ->
     ServerOpts4 = [],
     Body4 = base64:encode(term_to_binary(ServerOpts4)),
     [Uri2] = nksip_registrar:find({Test, server1}, sip, <<"client2">>, <<"nksip">>),
-    Opts4 = [{route, ["sip:127.0.0.1;lr", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
+    Opts4 = [{route, ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
              {body, Body4},
              {fields, [{header, <<"Nk">>}, {header, <<"Nk-R">>}]}],
     {ok, 200, Values4} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts4),
@@ -216,7 +216,7 @@ opts(Test) ->
     % Remove route from client at server
     ServerOpts5 = [remove_routes],
     Body5 = base64:encode(term_to_binary(ServerOpts5)),
-    Opts5 = [{route, ["sip:127.0.0.1;lr", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
+    Opts5 = [{route, ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
              {body, Body5}, 
              {fields, [{header, <<"Nk">>}, {header, <<"Nk-R">>}]}],
     {ok, 200, Values5} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts5),
@@ -247,13 +247,13 @@ transport(Test) ->
 
     % Register generating a TCP Contact
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", 
-                        [{route, "sip:127.0.0.1;transport=tcp;lr"}, make_contact]),
+                        [{route, "<sip:127.0.0.1;transport=tcp;lr>"}, make_contact]),
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun(Term) -> Self ! {Ref, Term} end},
     
     nksip_uac:register(C2, "sip:127.0.0.1",
-                        [{route, "sip:127.0.0.1;transport=tcp;lr"}, make_contact,
+                        [{route, "<sip:127.0.0.1;transport=tcp;lr>"}, make_contact,
                         async, CB, get_request, {fields, [remote]}]),
     LPort = receive 
         {Ref, {req, Req3}} -> 
@@ -276,7 +276,7 @@ transport(Test) ->
     ] = Values4,
 
     nksip_uac:options(C2, "sip:client1@nksip", 
-                                [{route, "sip:127.0.0.1;transport=tcp;lr"},
+                                [{route, "<sip:127.0.0.1;transport=tcp;lr>"},
                                  async, CB, get_request,
                                  {fields, [local, remote, {header, <<"Nk-Id">>}]}]),
     receive 

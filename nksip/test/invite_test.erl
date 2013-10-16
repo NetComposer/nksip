@@ -437,7 +437,7 @@ multiple_uac() ->
     % Stablish a dialog between C1 and C2, but do not send the ACK 
     % yet, it will stay in accepted_uac state
     {ok, 200, [{dialog_id, DialogId}]} = 
-        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", 
+        nksip_uac:invite(C1, "<sip:ok@127.0.0.1:5070;transport=tcp>", 
                          [{headers, [RepHd, OpAnswer]}]),
     [{local_seq, _CSeq}, {status, accepted_uac}] = 
         nksip_dialog:fields(C1, DialogId, [local_seq, status]),
@@ -466,7 +466,7 @@ multiple_uas() ->
 
     % Set a new dialog between C1 and C2
     {ok, 200, [{dialog_id, DialogId}]} = 
-        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", [{headers, Hds}]),
+        nksip_uac:invite(C1, "<sip:ok@127.0.0.1:5070;transport=tcp>", [{headers, Hds}]),
     ok = nksip_uac:ack(C1, DialogId, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
@@ -511,7 +511,7 @@ multiple_uas() ->
 
     % Set a new dialog
     {ok, 200, [{dialog_id, DialogId2}]} = 
-        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070;transport=tcp", [{headers, Hds}]),
+        nksip_uac:invite(C1, "<sip:ok@127.0.0.1:5070;transport=tcp>", [{headers, Hds}]),
     ok = nksip_uac:ack(C1, DialogId2, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     

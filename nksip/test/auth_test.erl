@@ -211,7 +211,7 @@ proxy() ->
     
     % The request is authorized at server1 (registered) but not server server2
     % (server1 will proxy to server2)
-    Route = {route, "sip:127.0.0.1;lr"},
+    Route = {route, "<sip:127.0.0.1;lr>"},
     {ok, 407, [{dialog_id, _}, {realms, [<<"server2">>]}]} = 
         nksip_uac:invite(C1, "sip:client2@nksip", [Route, {fields, [realms]}]),
 

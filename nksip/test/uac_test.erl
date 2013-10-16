@@ -81,10 +81,10 @@ uac() ->
 
     nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
     {ok, 503, []} =
-        nksip_uac:options(C2, "sip:127.0.0.1:50600;transport=tcp", []),
+        nksip_uac:options(C2, "<sip:127.0.0.1:50600;transport=tcp>", []),
     
     % Async, error
-    {async, ReqId1} = nksip_uac:options(C2, "sip:127.0.0.1:50600;transport=tcp", 
+    {async, ReqId1} = nksip_uac:options(C2, "<sip:127.0.0.1:50600;transport=tcp>", 
                                         [async, CB, get_request]),
     receive 
         {Ref, {req, Req1}} -> ReqId1 = nksip_sipmsg:field(Req1, id)

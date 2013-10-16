@@ -130,11 +130,11 @@ auto() ->
     Ref = make_ref(),
     ok = sipapp_endpoint:add_callback(C1, Ref),
     {ok, true} = nksip_sipapp_auto:start_ping(C1, ping1, 
-                                "sip:127.0.0.1:5080;transport=tcp", 5, []),
+                                "<sip:127.0.0.1:5080;transport=tcp>", 5, []),
 
     {error, invalid_uri} = nksip_sipapp_auto:start_register(name, reg1, "sip::a", 1, []),
     {ok, true} = nksip_sipapp_auto:start_register(C1, reg1, 
-                                "sip:127.0.0.1:5080;transport=tcp", 1, []),
+                                "<sip:127.0.0.1:5080;transport=tcp>", 1, []),
 
     [{ping1, true, _}] = nksip_sipapp_auto:get_pings(C1),
     [{reg1, true, _}] = nksip_sipapp_auto:get_registers(C1),
@@ -143,9 +143,9 @@ auto() ->
 
     nksip_trace:info("Next infos about connection error to port 9999 are expected"),
     {ok, false} = nksip_sipapp_auto:start_ping(C1, ping2, 
-                                            "sip:127.0.0.1:9999;transport=tcp", 1, []),
+                                            "<sip:127.0.0.1:9999;transport=tcp>", 1, []),
     {ok, false} = nksip_sipapp_auto:start_register(C1, reg2, 
-                                            "sip:127.0.0.1:9999;transport=tcp", 1, []),
+                                            "<sip:127.0.0.1:9999;transport=tcp>", 1, []),
     ok = tests_util:wait(Ref, [{ping, ping2, false}, {reg, reg2, false}]),
 
     [{ping1, true,_}, {ping2, false,_}] = 
@@ -162,7 +162,7 @@ auto() ->
     ok = sipapp_server:stop({uas, server2}),
     nksip_trace:info("Next info about connection error to port 5080 is expected"),
     {ok, false} = nksip_sipapp_auto:start_ping(C1, ping3, 
-                                            "sip:127.0.0.1:5080;transport=tcp", 1, []),
+                                            "<sip:127.0.0.1:5080;transport=tcp>", 1, []),
     ok = nksip_sipapp_auto:stop_ping(C1, ping1),
     ok = nksip_sipapp_auto:stop_ping(C1, ping3),
     ok = nksip_sipapp_auto:stop_register(C1, reg1),
@@ -174,7 +174,7 @@ auto() ->
 timeout() ->
     C1 = {uas, client1},
     C2 = {uas, client2},
-    SipC1 = "sip:127.0.0.1:5070;transport=tcp",
+    SipC1 = "<sip:127.0.0.1:5070;transport=tcp>",
 
     {ok, _Module, Opts, _Pid} = nksip_sipapp_srv:get_opts(C1),
     Opts1 = [{sipapp_timeout, 20}|Opts],

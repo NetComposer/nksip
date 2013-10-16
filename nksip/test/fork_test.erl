@@ -49,7 +49,7 @@ start() ->
 
     ok = sipapp_endpoint:start({fork, client1}, [
         {from, "sip:client1@nksip"},
-        {route, "sip:127.0.0.1:5061;lr"},
+        {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 5071}}]),
 
@@ -62,7 +62,7 @@ start() ->
 
     ok = sipapp_endpoint:start({fork, client2}, [
         {from, "sip:client2@nksip"},
-        {route, "sip:127.0.0.1:5062;lr;transport=tcp"},
+        {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
         {local_host, "127.0.0.1"}]),
 
     ok = sipapp_server:start({fork, server2}, [
@@ -73,7 +73,7 @@ start() ->
 
     ok = sipapp_endpoint:start({fork, client3}, [
         {from, "sip:client3@nksip"},
-        {route, "sip:127.0.0.1:5063;lr"},
+        {route, "<sip:127.0.0.1:5063;lr>"},
         {local_host, "127.0.0.1"}]),
 
     ok = sipapp_server:start({fork, server3}, [
@@ -98,37 +98,37 @@ start() ->
     ok = sipapp_endpoint:start({fork, clientA1}, [
         {from, "sip:clientA1@nksip"},
         no_100,
-        {route, "sip:127.0.0.1:5061;lr"},
+        {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"}]),
 
     ok = sipapp_endpoint:start({fork, clientB1}, [
         {from, "sip:clientB1@nksip"},
         no_100,
-        {route, "sip:127.0.0.1:5062;lr;transport=tcp"},
+        {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
         {local_host, "127.0.0.1"}]),
 
     ok = sipapp_endpoint:start({fork, clientC1}, [
         {from, "sip:clientC1@nksip"},
         no_100,
-        {route, "sip:127.0.0.1:5063;lr"},
+        {route, "<sip:127.0.0.1:5063;lr>"},
         {local_host, "127.0.0.1"}]),
 
     ok = sipapp_endpoint:start({fork, clientA2}, [
         {from, "sip:clientA2@nksip"},
         no_100,
-        {route, "sip:127.0.0.1:5061;lr"},
+        {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"}]),
 
     ok = sipapp_endpoint:start({fork, clientB2}, [
         {from, "sip:clientB2@nksip"},
         no_100,
-        {route, "sip:127.0.0.1:5062;lr;transport=tcp"},
+        {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
         {local_host, "127.0.0.1"}]),
     
     ok = sipapp_endpoint:start({fork, clientC3}, [
         {from, "sip:clientC3@nksip"},
         no_100,
-        {route, "sip:127.0.0.1:5063;lr"},
+        {route, "<sip:127.0.0.1:5063;lr>"},
         {local_host, "127.0.0.1"}]),
 
     ok = sipapp_endpoint:start({fork, clientD1}, []),
