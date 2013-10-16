@@ -84,9 +84,9 @@ route(Scheme, User, Domain, Req, _From) ->
                 UriList -> {proxy, UriList, Opts}
             end;
         true ->
-            temporarily_unavailable;
+            {proxy, ruri, Opts};
         false ->
-             {proxy, ruri, Opts}
+            {proxy, ruri, Opts}
     end.
 
 
