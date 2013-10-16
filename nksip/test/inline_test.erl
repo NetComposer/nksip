@@ -77,18 +77,19 @@ basic() ->
     Pid = self(),
     nksip_config:put(inline_test, {Ref, Pid}),
     nksip_registrar:clear(S1),
+    tests_util:log(debug), 
 
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
     ok = tests_util:wait(Ref, [{S1, route}, {S1, route}]),
 
-    Fs1 = {fields, [{header, <<"Nk-Id">>}]},
-    {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2@nksip", [Fs1]),
-    [{{header, <<"Nk-Id">>}, [<<"server1,client2">>]}] = Values1,
-    ok = tests_util:wait(Ref, [{S1, route}, {C2, options}]),
+    % Fs1 = {fields, [{header, <<"Nk-Id">>}]},
+    % {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2@nksip", [Fs1]),
+    % [{{header, <<"Nk-Id">>}, [<<"server1,client2">>]}] = Values1,
+    % ok = tests_util:wait(Ref, [{S1, route}, {C2, options}]),
 
-    {ok, 480, []} = nksip_uac:options(C2, "sip:client3@nksip", []),
-    ok = tests_util:wait(Ref, [{S1, route}]),
+    % {ok, 480, []} = nksip_uac:options(C2, "sip:client3@nksip", []),
+    % ok = tests_util:wait(Ref, [{S1, route}]),
 
     {ok, 200, [{dialog_id, Dlg1}]} = nksip_uac:invite(C2, "sip:client1@nksip", []),
     ok = nksip_uac:ack(C2, Dlg1, []),
@@ -96,19 +97,19 @@ basic() ->
             {S1, route}, {C1, invite}, {S1, route}, {C1, ack},
             {C1, dialog_start},{C2, dialog_start}]),
 
-    SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-    {ok, 200, _} = nksip_uac:invite(C1, Dlg1, [{body, SDP}]),
-    ok = nksip_uac:ack(C1, Dlg1, []),
+    % SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
+    % {ok, 200, _} = nksip_uac:invite(C1, Dlg1, [{body, SDP}]),
+    % ok = nksip_uac:ack(C1, Dlg1, []),
 
-    ok = tests_util:wait(Ref, [
-            {S1, route}, {C2, reinvite}, {S1, route}, {C2, ack},
-            {C1, session_start},{C2, session_start}]),
+    % ok = tests_util:wait(Ref, [
+    %         {S1, route}, {C2, reinvite}, {S1, route}, {C2, ack},
+    %         {C1, session_start},{C2, session_start}]),
 
-    {ok, 200, []} = nksip_uac:bye(C1, Dlg1, []),
-    ok = tests_util:wait(Ref, [
-            {S1, route}, {C2, bye}, 
-            {C1, session_stop}, {C2, session_stop},
-            {C1, dialog_stop}, {C2, dialog_stop}]),
+    % {ok, 200, []} = nksip_uac:bye(C1, Dlg1, []),
+    % ok = tests_util:wait(Ref, [
+    %         {S1, route}, {C2, bye}, 
+    %         {C1, session_stop}, {C2, session_stop},
+    %         {C1, dialog_stop}, {C2, dialog_stop}]),
     ok.
 
 
