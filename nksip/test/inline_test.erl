@@ -46,17 +46,20 @@ start() ->
     ok = sipapp_inline_server:start({inline, server1}, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
         registrar,
+        {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 5060}},
         {transport, {tls, {0,0,0,0}, 5061}}]),
 
     ok = sipapp_inline_endpoint:start({inline, client1}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {local_host, "127.0.0.1"},
         {route, "sip:127.0.0.1;lr"},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}]),
 
     ok = sipapp_inline_endpoint:start({inline, client2}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
+        {local_host, "127.0.0.1"},
         {route, "sip:127.0.0.1;lr"}]),
 
     tests_util:log(),
