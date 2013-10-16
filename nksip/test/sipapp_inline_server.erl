@@ -84,6 +84,7 @@ route(Scheme, User, Domain, Req, _From) ->
                 UriList -> {proxy, UriList, Opts}
             end;
         true ->
+            % It is for 127.0.0.1 domain, route
             {proxy, ruri, Opts};
         false ->
             {proxy, ruri, Opts}
