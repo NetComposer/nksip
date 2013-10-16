@@ -364,7 +364,7 @@ servers(Test) ->
     Self = self(),
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
-    Opts2 = [{route, "sips:127.0.0.1:5081;lr"}, {from, "sips:client2@nksip2"}],
+    Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sips:127.0.0.1:5081", 
                                                                 [unregister_all|Opts2]),
@@ -388,6 +388,7 @@ servers(Test) ->
         {remote, {tls, {127,0,0,1}, 5081}},
         {_, [<<"client1,server1,server2">>]}
     ] = Values2,
+
 
     % Test a dialog through 2 proxies without Record-Route
     Fs3 = {fields, [{header, <<"Contact">>}, {header, <<"Nk-Id">>}]},
