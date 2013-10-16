@@ -33,7 +33,7 @@ inline_test_() ->
         fun() -> start() end,
         fun(_) -> stop() end,
         [
-            {timeout, 60, fun basic/0}, 
+            {timeout, 60, fun basic/0},
             {timeout, 60, fun cancel/0}, 
             {timeout, 60, fun auth/0}
         ]
@@ -80,19 +80,19 @@ basic() ->
     Pid = self(),
     nksip_config:put(inline_test, {Ref, Pid}),
     nksip_registrar:clear(S1),
-    tests_util:log(debug), 
+    % tests_util:log(debug), 
 
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
     ok = tests_util:wait(Ref, [{S1, route}, {S1, route}]),
 
-    % Fs1 = {fields, [{header, <<"Nk-Id">>}]},
-    % {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2@nksip", [Fs1]),
-    % [{{header, <<"Nk-Id">>}, [<<"server1,client2">>]}] = Values1,
-    % ok = tests_util:wait(Ref, [{S1, route}, {C2, options}]),
+    Fs1 = {fields, [{header, <<"Nk-Id">>}]},
+    {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2@nksip", [Fs1]),
+    [{{header, <<"Nk-Id">>}, [<<"server1,client2">>]}] = Values1,
+    ok = tests_util:wait(Ref, [{S1, route}, {C2, options}]),
 
-    % {ok, 480, []} = nksip_uac:options(C2, "sip:client3@nksip", []),
-    % ok = tests_util:wait(Ref, [{S1, route}]),
+    {ok, 480, []} = nksip_uac:options(C2, "sip:client3@nksip", []),
+    ok = tests_util:wait(Ref, [{S1, route}]),
 
     {ok, 200, [{dialog_id, Dlg1}]} = nksip_uac:invite(C2, "sip:client1@nksip", []),
     ok = nksip_uac:ack(C2, Dlg1, []),
