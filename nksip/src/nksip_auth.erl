@@ -23,8 +23,8 @@
 -module(nksip_auth).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_authentication/1, realms/1, make_ha1/3, make_request/2]).
--export([check_digest/1, make_response/2]).
+-export([get_authentication/2, realms/1, realms/2, make_ha1/3]).
+-export([make_request/3, make_response/2]).
 
 -include("nksip.hrl").
 
@@ -40,31 +40,50 @@
 
 
 %% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
-%% <i>Proxy-Authenticate</i> headers from a response
+%% <i>Proxy-Authenticate</i> headers from a response.
 -spec realms(Response::nksip:response()) ->
     [Realm::binary()].
 
 realms(#sipmsg{headers=Headers}) ->
-    realms(Headers, []).
+    get_realms(Headers, []).
 
-realms([{Name, Value}|Rest], Acc) ->
+
+%% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
+%% <i>Proxy-Authenticate</i> headers from a response.
+-spec realms(nksip:app_id(), nksip_response:id()) ->
+    [Realm::binary()].
+
+realms(AppId, RespId) ->
+    Hd1 = case nksip_response:header(AppId, RespId, ?RESP_WWW) of
+        WWW when is_list(WWW) -> [{?RESP_WWW, Data} || Data <- WWW];
+        _ -> []
+    end,
+    Hd2 = case nksip_response:header(AppId, RespId, ?RESP_PROXY) of
+        Proxy when is_list(Proxy) -> [{?RESP_PROXY, Data} || Data <- Proxy];
+        _ -> []
+    end,
+    get_realms(Hd1++Hd2, []).
+
+
+%% @private
+get_realms([{Name, Value}|Rest], Acc) ->
     if
         Name=:=?RESP_WWW; Name=:=?RESP_PROXY ->
             case parse_header(Value) of
-                error -> realms(Rest, Acc);
-                AuthData -> realms(Rest, [nksip_lib:get_value(realm, AuthData)|Acc])
+                error -> get_realms(Rest, Acc);
+                AuthData -> get_realms(Rest, [nksip_lib:get_value(realm, AuthData)|Acc])
             end;
         true ->
-            realms(Rest, Acc)
+            get_realms(Rest, Acc)
     end;
-realms([], Acc) ->
+get_realms([], Acc) ->
     lists:usort(Acc).
 
 
 %% @doc Generates a password hash to use in NkSIP authentication.
 %% In order to avoid storing the user's passwords in clear text, you can generate 
 %% a `hash' (fom `User', `Pass' and `Realm') and store and use it in
-%% {@link nksip_sipapp:get_user_pass/4} instead of the real password.
+%% {@link nksip_sipapp:get_user_pass/3} instead of the real password.
 -spec make_ha1(binary()|string(), binary()|string(), binary()|string()) -> 
     binary().
 
@@ -73,13 +92,9 @@ make_ha1(User, Pass, Realm) ->
     <<"HA1!", (crypto:md5(list_to_binary([User, $:, Realm, $:, Pass])))/binary>>.
 
 
-%% @doc Extracts authentication information from a incoming request.
-%% The following tags can be added to the function's return:
+%% @doc Extracts digest authentication information from a incoming request.
+%% The response can include:
 %% <ul>
-%%    <li>`dialog': the request is `in-dialog' and coming from the same ip and port
-%%        than the last request for an existing dialog.</li>
-%%    <li>`register': the request comes from the same ip, port and transport of a 
-%%        currently valid registration (and the method is not <i>REGISTER</i>).</li>
 %%    <li>`{{digest, Realm}, true}': there is at least one valid user authenticated
 %%        with this `Realm'.</li>
 %%    <li>`{{digest, Realm}, false}': there is at least one user offering 
@@ -87,13 +102,15 @@ make_ha1(User, Pass, Realm) ->
 %%        failed the authentication.</li>
 %% </ul>
 %%
-%% This is the same information sent to the callback function 
-%% {@link nksip_sipapp:authorize/4} for every received request.
+%% `Fun' will be called when a password for a pair user, realm is needed.
+%% It can return `true' (accepts the request with any password), `false' 
+%% (doesn't accept the request) or a `binary()' pasword or hash.
+%%
+-spec get_authentication(nksip:request(), function()) -> 
+    [Authorized] 
+    when Authorized :: {{digest, Realm::binary()}, true|false}.
 
--spec get_authentication(nksip:request()) -> [Authorized] when
-    Authorized :: dialog | register | {digest, Realm::binary(), true|false}.
-
-get_authentication(Req) ->
+get_authentication(Req, PassFun) ->
     Fun = fun({Ok, _User, Realm}, Acc) ->
         case lists:keyfind(Realm, 1, Acc) of
             false when Ok -> [{Realm, true}|Acc];
@@ -103,28 +120,26 @@ get_authentication(Req) ->
             {Realm, false} -> Acc
         end
     end,
-    lists:flatten([
-        case nksip_dialog:is_authorized(Req) of
-            true -> dialog;
-            false -> []
-        end,
-        case nksip_registrar:is_registered(Req) of
-            true -> register;
-            false -> []
-        end,
-        [{{digest, Realm}, Ok} 
-            || {Realm, Ok} <- lists:foldl(Fun, [], check_digest(Req))]
-    ]).
+    [{{digest, Realm}, Ok} || 
+        {Realm, Ok} <- lists:foldl(Fun, [], check_digest(Req, PassFun))].
 
 
 %% @doc Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header 
-%% and updates <i>CSeq</i> of a request after receiving a 401 or 407 response.
--spec make_request(Req::nksip:request(), Resp::nksip:response()) ->
-    {ok, nksip:request()} | error.
+%% for a request after receiving a 401 or 407 response.
+%% CSeq must be updated after calling this function.
+%%
+%% Recognized options are `pass', `user', `cnonce' and `nc'.
+-spec make_request(Req::nksip:request(), Resp::nksip:response(), nksip_lib:proplist()) ->
+    {ok, nksip:request()} | {error, Error}
+    when Error :: invalid_auth_header | unknown_nonce | no_pass.
 
-make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts, 
-                      headers=ReqHeaders, to_tag=ToTag}=Req, 
-              #sipmsg{headers=RespHeaders}) ->
+make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
+    #sipmsg{
+        ruri = RUri, 
+        method = Method, 
+        from = #uri{user=User}, 
+        headers=ReqHeaders
+    } = Req,
     try
         ReqAuthHeaders = nksip_lib:extract(ReqHeaders, [?REQ_WWW, ?REQ_PROXY]),
         ReqNOnces = [nksip_lib:get_value(nonce, parse_header(ReqAuthHeader)) 
@@ -132,20 +147,20 @@ make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts,
         RespAuthHeaders = nksip_lib:extract(RespHeaders, [?RESP_WWW, ?RESP_PROXY]),
         case RespAuthHeaders of
             [{RespName, RespData}] -> ok;
-            _ -> RespName = RespData = throw(error)
+            _ -> RespName = RespData = throw(invalid_auth_header)
         end,
         case parse_header(RespData) of
-            error -> RespParsed = throw(error);
-            RespParsed -> ok
+            error -> AuthHeaderData = throw(invalid_auth_header);
+            AuthHeaderData -> ok
         end,
-        RespNOnce = nksip_lib:get_value(nonce, RespParsed),
+        RespNOnce = nksip_lib:get_value(nonce, AuthHeaderData),
         case lists:member(RespNOnce, ReqNOnces) of
-            true -> throw(error);
+            true -> throw(unknown_nonce);
             false -> ok
         end,
         case get_passes(Opts, []) of
             [] -> 
-                Opts1 = throw(error);
+                Opts1 = throw(no_pass);
             Passes ->
                 Opts1 = [
                     {method, Method}, 
@@ -155,45 +170,40 @@ make_request(#sipmsg{ruri=RUri, method=Method, from=#uri{user=User}, opts=Opts,
                     | Opts
                 ]
         end,
-        case make_auth_request(RespParsed, Opts1) of
+        case make_auth_request(AuthHeaderData, Opts1) of
             error -> 
-                throw(error);
-          {ok, ReqData} ->
-            ReqName = case RespName of
-                ?RESP_WWW -> ?REQ_WWW;
-                ?RESP_PROXY -> ?REQ_PROXY
-            end,
-            case ToTag of
-                <<>> -> 
-                    CSeq1 = nksip_config:cseq();
-                _ ->
-                    case nksip_dialog_uac:new_cseq(Req) of
-                        {ok, CSeq1} -> ok;
-                        _ -> CSeq1 = nksip_config:cseq()
-                    end
-            end,
-            ReqHeaders1 = [{ReqName, ReqData}|ReqHeaders],
-            {ok, Req#sipmsg{cseq=CSeq1, headers=ReqHeaders1}}
+                throw(invalid_auth_header);
+            {ok, ReqData} ->
+                ReqName = case RespName of
+                    ?RESP_WWW -> ?REQ_WWW;
+                    ?RESP_PROXY -> ?REQ_PROXY
+                end,
+                ReqHeaders1 = [{ReqName, ReqData}|ReqHeaders],
+                {ok, Req#sipmsg{headers=ReqHeaders1}}
         end
     catch
-        throw:error -> error
+        throw:Error -> {error, Error}
     end.
 
 
 %% @doc Generates a <i>WWW-Authenticate</i> or <i>Proxy-Authenticate</i> header
-%% in response to a `Request'. 
+%% in response to a request.
 %% Use this function to answer to a request with a 401 or 407 response.
 %%
 %% A new `nonce' will be generated to be used by the client in its response, 
 %% but will expire after the time configured in global parameter `once_timeout'.
 %%
--spec make_response(binary(), Req::nksip:request()) ->
+-spec make_response(binary(), nksip:request()) ->
     binary().
 
-make_response(Realm, #sipmsg{sipapp_id=AppId, call_id=CallId, 
-                             transport=#transport{remote_ip=Ip, remote_port=Port}}) ->
+make_response(Realm, Req) ->
+    #sipmsg{
+        app_id = AppId, 
+        call_id = CallId,
+        transport=#transport{remote_ip=Ip, remote_port=Port}
+    } = Req,
     Nonce = nksip_lib:luid(),
-    Timeout = nksip_config:get(nonce_timeout),
+    Timeout = round(nksip_config:get(nonce_timeout)/1000),
     put_nonce(AppId, CallId, Nonce, {Ip, Port}, Timeout),
     Opaque = nksip_lib:hash(AppId),
     list_to_binary([
@@ -210,67 +220,62 @@ make_response(Realm, #sipmsg{sipapp_id=AppId, call_id=CallId,
 
 
 %% @private Finds auth headers in request, and for each one extracts user and 
-%% realm, calling `get_user_pass/4' callback to check if it is correct.
-%% For each user and realm having a correct password returns `{true, User, Realm}',
-%% and `{false, User, Realm}' for each one having an incorrect password.
--spec check_digest(Req::nksip:request()) ->
+%% realm, calling `get_user_pass/3' callback to check if it is correct.
+-spec check_digest(Req::nksip:request(), function()) ->
     [{boolean(), User::binary(), Realm::binary()}].
 
-check_digest(#sipmsg{headers=Headers}=Req) ->
-    check_digest(Headers, Req, []).
+check_digest(#sipmsg{headers=Headers}=Req, Fun) ->
+    check_digest(Headers, Req, Fun, []).
 
 
 %% @private
-check_digest([], _Req, Acc) ->
+check_digest([], _Req, _Fun, Acc) ->
     Acc;
 
-check_digest([{Name, Data}|Rest], #sipmsg{sipapp_id=AppId}=Req, Acc) 
+check_digest([{Name, Data}|Rest], Req, Fun, Acc) 
                 when Name=:=?REQ_WWW; Name=:=?REQ_PROXY ->
     case parse_header(Data) of
         error ->
-            check_digest(Rest, Req, Acc);
+            check_digest(Rest, Req, Fun, Acc);
         AuthData ->
             Resp = nksip_lib:get_value(response, AuthData),
             User = nksip_lib:get_binary(username, AuthData),
             Realm = nksip_lib:get_binary(realm, AuthData),
-            Result = case 
-                nksip_sipapp_srv:sipapp_call_sync(AppId, get_user_pass, [User, Realm]) 
-            of
+            Result = case Fun(User, Realm) of
                 true -> true;
                 false -> false;
                 Pass -> check_auth_header(AuthData, Resp, User, Realm, Pass, Req)
             end,
             case Result of
                 true ->
-                    check_digest(Rest, Req, [{true, User, Realm}|Acc]);
+                    check_digest(Rest, Req, Fun, [{true, User, Realm}|Acc]);
                 false ->
-                    check_digest(Rest, Req, [{false, User, Realm}|Acc]);
+                    check_digest(Rest, Req, Fun, [{false, User, Realm}|Acc]);
                 not_found ->
-                    check_digest(Rest, Req, Acc)
+                    check_digest(Rest, Req, Fun, Acc)
             end
     end;
     
-check_digest([_|Rest], Req, Acc) ->
-    check_digest(Rest, Req, Acc).
-
+check_digest([_|Rest], Req, Fun, Acc) ->
+    check_digest(Rest, Req, Fun, Acc).
 
 
 %% @private Generates a Authorization or Proxy-Authorization header
 -spec make_auth_request(nksip_lib:proplist(), nksip_lib:proplist()) ->
     {ok, binary()} | error.
 
-make_auth_request(ServerOpts, UserOpts) ->
-    QOP = nksip_lib:get_value(qop, ServerOpts, []),
-    Algorithm = nksip_lib:get_value(algorithm, ServerOpts, 'MD5'),
+make_auth_request(AuthHeaderData, UserOpts) ->
+    QOP = nksip_lib:get_value(qop, AuthHeaderData, []),
+    Algorithm = nksip_lib:get_value(algorithm, AuthHeaderData, 'MD5'),
     case Algorithm=:='MD5' andalso (QOP=:=[] orelse lists:member(auth, QOP)) of
         true ->
             case nksip_lib:get_binary(cnonce, UserOpts) of
                 <<>> -> CNonce = nksip_lib:luid();
                 CNonce -> ok
             end,
-            Nonce = nksip_lib:get_binary(nonce, ServerOpts, <<>>),  
+            Nonce = nksip_lib:get_binary(nonce, AuthHeaderData, <<>>),  
             Nc = nksip_lib:msg("~8.16.0B", [nksip_lib:get_integer(nc, UserOpts, 1)]),
-            Realm = nksip_lib:get_binary(realm, ServerOpts, <<>>),
+            Realm = nksip_lib:get_binary(realm, AuthHeaderData, <<>>),
             Passes = nksip_lib:get_value(passes, UserOpts, []),
             User = nksip_lib:get_binary(user, UserOpts),
             case get_pass(Passes, Realm, <<>>) of
@@ -294,7 +299,7 @@ make_auth_request(ServerOpts, UserOpts) ->
                     [] -> [];
                     _ -> [", qop=auth, cnonce=\"", CNonce, "\", nc=", Nc]
                 end,
-                case nksip_lib:get_value(opaque, ServerOpts) of
+                case nksip_lib:get_value(opaque, AuthHeaderData) of
                     undefined -> [];
                     Opaque -> [", opaque=\"", Opaque, "\""]
                 end
@@ -310,13 +315,13 @@ make_auth_request(ServerOpts, UserOpts) ->
                             binary(), nksip:request()) -> 
     true | false | not_found.
 
-check_auth_header(AuthHeader, Resp, User, Realm, Pass, 
-                    #sipmsg{
-                        sipapp_id = AppId,
-                        call_id = CallId,
-                        method = Method,
-                        transport=#transport{remote_ip=Ip, remote_port=Port}
-                    }) ->
+check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
+    #sipmsg{
+        app_id = AppId,
+        call_id = CallId,
+        method = Method,
+        transport = #transport{remote_ip=Ip, remote_port=Port}
+    } = Req,
     case
         nksip_lib:get_value(scheme, AuthHeader) =/= digest orelse
         nksip_lib:get_value(qop, AuthHeader) =/= [auth] orelse

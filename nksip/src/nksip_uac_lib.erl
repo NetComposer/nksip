@@ -22,7 +22,7 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make/4, make_cancel/1, response/1]).
+-export([make/5, make_cancel/1, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
 
@@ -33,27 +33,24 @@
 
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
-%% It will also add a <i>From</i> tag if not present.
--spec make(nksip:sipapp_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->    
-    {ok, nksip:request()} | {error, Error} when
-    Error :: unknown_core | invalid_uri | invalid_from | invalid_to | invalid_route |
+-spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), 
+           nksip_lib:proplist(), nksip_lib:proplist()) ->    
+    {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
+    Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq.
 
-make(AppId, Method, Uri, Opts) ->
+make(AppId, Method, Uri, Opts, AppOpts) ->
+    FullOpts = Opts++AppOpts,
     try
-        Opts1 = case catch nksip_sipapp_srv:get_opts(AppId) of
-            {'EXIT', _} -> throw(unknown_core);
-            CoreOpts -> Opts ++ CoreOpts
-        end,
         case nksip_parse:uris(Uri) of
             [RUri] -> ok;
             _ -> RUri = throw(invalid_uri)
         end,
-        case nksip_parse:uris(nksip_lib:get_value(from, Opts1)) of
+        case nksip_parse:uris(nksip_lib:get_value(from, FullOpts)) of
             [From] -> ok;
             _ -> From = throw(invalid_from) 
         end,
-        case nksip_lib:get_value(to, Opts1) of
+        case nksip_lib:get_value(to, FullOpts) of
             undefined -> 
                 To = RUri#uri{port=0, opts=[], 
                                 headers=[], ext_opts=[], ext_headers=[]};
@@ -65,7 +62,7 @@ make(AppId, Method, Uri, Opts) ->
                     _ -> To = throw(invalid_to) 
                 end
         end,
-        case nksip_lib:get_value(route, Opts1, []) of
+        case nksip_lib:get_value(route, FullOpts, []) of
             [] ->
                 Routes = [];
             RouteSpec ->
@@ -74,7 +71,7 @@ make(AppId, Method, Uri, Opts) ->
                     Routes -> ok
                 end
         end,
-        case nksip_lib:get_value(contact, Opts1, []) of
+        case nksip_lib:get_value(contact, FullOpts, []) of
             [] ->
                 Contacts = [];
             ContactSpec ->
@@ -83,16 +80,16 @@ make(AppId, Method, Uri, Opts) ->
                     Contacts -> ok
                 end
         end,
-        case nksip_lib:get_binary(call_id, Opts1) of
+        case nksip_lib:get_binary(call_id, Opts) of
             <<>> -> CallId = nksip_lib:luid();
             CallId -> ok
         end,
-        CSeq = case nksip_lib:get_integer(cseq, Opts1, -1) of
-            -1 -> nksip_config:cseq();
+        CSeq = case nksip_lib:get_value(cseq, Opts) of
+            undefined -> nksip_config:cseq();
             UCSeq when is_integer(UCSeq), UCSeq > 0 -> UCSeq;
             _ -> throw(invalid_cseq)
         end,
-        CSeq1 = case nksip_lib:get_integer(min_cseq, Opts1) of
+        CSeq1 = case nksip_lib:get_integer(min_cseq, Opts) of
             MinCSeq when MinCSeq > CSeq -> MinCSeq;
             _ -> CSeq
         end,
@@ -103,53 +100,45 @@ make(AppId, Method, Uri, Opts) ->
             FromTag -> 
                 FromOpts = From#uri.ext_opts
         end,
-        case nksip_lib:get_binary(user_agent, Opts1) of
+        case nksip_lib:get_binary(user_agent, FullOpts) of
             <<>> -> UserAgent = <<"NkSIP ", ?VERSION>>;
             UserAgent -> ok
         end,
         Headers = 
-                proplists:get_all_values(pre_headers, Opts1) ++
-                nksip_lib:get_value(headers, Opts1, []) ++
-                proplists:get_all_values(post_headers, Opts1),
-        Body = nksip_lib:get_value(body, Opts1, <<>>),
+                proplists:get_all_values(pre_headers, FullOpts) ++
+                nksip_lib:get_value(headers, FullOpts, []) ++
+                proplists:get_all_values(post_headers, FullOpts),
+        Body = nksip_lib:get_value(body, Opts, <<>>),
         Headers1 = nksip_headers:update(Headers, [
             {default_single, <<"User-Agent">>, UserAgent},
-            case lists:member(make_allow, Opts1) of
-                true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppId)};
+            case lists:member(make_allow, FullOpts) of
+                true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppOpts)};
                 false -> []
             end,
-            case lists:member(make_supported, Opts1) of
+            case lists:member(make_supported, FullOpts) of
                 true -> {default_single, <<"Supported">>, ?SUPPORTED};
                 false -> []
             end,
-            case lists:member(make_accept, Opts1) of
+            case lists:member(make_accept, FullOpts) of
                 true -> {default_single, <<"Accept">>, ?ACCEPT};
                 false -> []
             end,
-            case lists:member(make_date, Opts1) of
+            case lists:member(make_date, FullOpts) of
                 true -> {default_single, <<"Date">>, nksip_lib:to_binary(
                                                     httpd_util:rfc1123_date())};
                 false -> []
             end
         ]),
-        ContentType = case nksip_lib:get_binary(content_type, Opts1) of
+        ContentType = case nksip_lib:get_binary(content_type, Opts) of
             <<>> when is_record(Body, sdp) -> [{<<"application/sdp">>, []}];
             <<>> when not is_binary(Body) -> [{<<"application/nksip.ebf.base64">>, []}];
             <<>> -> [];
-            ContentTypeSpec -> nksip_parse:tokens(ContentTypeSpec)
+            ContentTypeSpec -> nksip_parse:tokens([ContentTypeSpec])
         end,
-        Opts2 = case lists:member(make_contact, Opts1) of
-            true -> Opts1;
-            false when Method=:='INVITE', Contacts=:=[] -> [make_contact|Opts1];
-            false -> Opts1
-        end,
-        Opts3 = nksip_lib:extract(lists:flatten(Opts2), 
-                        [respfun, make_contact, local_host, pass, 
-                            full_response, full_request, dialog_force_send,
-                            no_uac_expire]),
-        SipMsg = #sipmsg{
-            class = request,
-            sipapp_id = AppId,
+         Req = #sipmsg{
+            id = nksip_sipmsg:make_id(req, CallId),
+            class = req,
+            app_id = AppId,
             method = nksip_parse:method(Method),
             ruri = nksip_parse:uri2ruri(RUri),
             vias = [],
@@ -168,21 +157,47 @@ make(AppId, Method, Uri, Opts) ->
             from_tag = FromTag,
             to_tag = nksip_lib:get_binary(tag, To#uri.ext_opts),
             transport = #transport{},
-            opts = Opts3,
+            data = [],
             start = nksip_lib:l_timestamp()
         },
-        {ok, SipMsg}
+        Opts1 = make_remove_opts(Opts, []),
+        Opts2 = case lists:member(make_contact, Opts) of
+            false when Method=='INVITE', Contacts=:=[] -> [make_contact|Opts1];
+            _ -> Opts1
+        end,
+        {ok, Req, Opts2}
     catch
         throw:Throw -> {error, Throw}
     end.
+
+
+%% @private
+make_remove_opts([], Acc) ->
+    lists:reverse(Acc);
+
+make_remove_opts([{Tag, _}|Rest], Acc)
+    when Tag==from; Tag==to; Tag==route; Tag==contact; Tag==call_id; Tag==cseq;
+         Tag==min_cseq; Tag==user_agent; Tag==pre_headers; Tag==post_headers; 
+         Tag==headers; Tag==body; Tag==content_type; Tag==expires ->
+    make_remove_opts(Rest, Acc);
+
+make_remove_opts([Tag|Rest], Acc) 
+    when Tag==make_allow; Tag==make_supported; Tag==make_accept; Tag==make_date;
+         Tag==unregister; Tag==unregister_all;
+         Tag==active; Tag==inactive; Tag==hold ->
+    make_remove_opts(Rest, Acc);
+
+make_remove_opts([Tag|Rest], Acc) ->
+    make_remove_opts(Rest, [Tag|Acc]).
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{vias=[Via|_]}=Req) ->
+make_cancel(#sipmsg{class=req, call_id=CallId, vias=[Via|_]}=Req) ->
     Req#sipmsg{
+        id = nksip_sipmsg:make_id(req, CallId),
         method = 'CANCEL',
         cseq_method = 'CANCEL',
         forwards = 70,
@@ -191,53 +206,53 @@ make_cancel(#sipmsg{vias=[Via|_]}=Req) ->
         contacts = [],
         content_type = [],
         body = <<>>,
-        opts = [] 
+        data = []
     }.
 
 
-%% @private Called when a response is received to be processed
--spec response(nksip:response()) ->
-    ok.
+%% @doc Generates an <i>ACK</i> request from an <i>INVITE</i> request and a response
+-spec make_ack(nksip:request(), nksip:response()) ->
+    nksip:request().
 
-response(#sipmsg{vias=[#via{opts=Opts}|ViaR], sipapp_id=AppId, call_id=CallId,
-                    cseq_method=Method, response=Code}=Response) ->
-    case nksip_transaction_uac:response(Response) of
-        ok -> 
-            ?debug(AppId, CallId, "UAC response ~p, (~p) is in transaction", 
-                   [Code, Method]),
-            ok;
-        no_transaction ->
-            case nksip_lib:get_binary(branch, Opts) of
-                <<"z9hG4bK", Branch/binary>> when ViaR =/= [] ->
-                    GlobalId = nksip_config:get(global_id),
-                    StatelessId = nksip_lib:hash({Branch, GlobalId, stateless}),
-                    case nksip_lib:get_binary(nksip, Opts) of
-                        StatelessId -> nksip_uas_proxy:response_stateless(Response);
-                        _ -> response_error(Response)
-                    end;
-                _ ->
-                    response_error(Response)
-            end
-    end.
+make_ack(Req, #sipmsg{to=To, to_tag=ToTag}) ->
+    make_ack(Req#sipmsg{to=To, to_tag=ToTag}).
 
 
 %% @private
--spec response_error(nksip:response()) ->
-    ok.
+-spec make_ack(nksip:request()) ->
+    nksip:request().
 
-response_error(#sipmsg{
-                    sipapp_id = AppId, 
-                    call_id = CallId, 
-                    vias= [Via|_], 
-                    cseq_method = Method,
-                    response = Code, 
-                    transport=#transport{remote_ip=Ip, remote_port=Port}
-                  }) ->
-    case nksip_transport:is_local(AppId, Via) of
-        true ->
-            ?notice(AppId, CallId, "UAC received ~p ~p response with no "
-                    "matching transaction", [Code, Method]);
-        false ->
-            ?notice(AppId, CallId, 
-                    "UAC received non-local ~p response from ~p:~p", [Code, Ip, Port])
+make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
+    Req#sipmsg{
+        id = nksip_sipmsg:make_id(req, CallId),
+        method = 'ACK',
+        vias = [Via],
+        cseq_method = 'ACK',
+        forwards = 70,
+        routes = [],
+        contacts = [],
+        headers = [],
+        content_type = [],
+        body = <<>>
+    }.
+
+
+
+%% @doc Checks if a response is a stateless response
+-spec is_stateless(nksip:response(), binary()) ->
+    boolean().
+
+is_stateless(Resp, GlobalId) ->
+    #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
+    case nksip_lib:get_binary(branch, Opts) of
+        <<"z9hG4bK", Branch/binary>> ->
+            StatelessId = nksip_lib:hash({Branch, GlobalId, stateless}),
+            case nksip_lib:get_binary(nksip, Opts) of
+                StatelessId -> true;
+                _ -> false
+            end;
+        _ ->
+            false
     end.
+
+

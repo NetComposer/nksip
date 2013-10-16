@@ -18,14 +18,14 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc User Response management functions
+%% @doc User Response Management Functions
 -module(nksip_response).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").
 
--export([field/2, fields/2, headers/2, body/1, code/1, reason/1, dialog_id/1]).
--export([wait_491/0, get_sipmsg/1]).
+-export([field/3, fields/3, header/3]).
+-export([body/2, code/2, reason/2, call_id/1, get_response/2, wait_491/0]).
 -export_type([id/0, field/0]).
 
 
@@ -34,13 +34,16 @@
 %% Types
 %% ===================================================================
 
--type id() :: {resp, pid()}.
+-type id() :: binary().
 
--type field() :: local | remote | ruri | parsed_ruri | aor | call_id | vias | 
-                  parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
-                  cseq_num | cseq_method | forwards | routes | parsed_routes | 
-                  contacts | parsed_contacts | content_type | parsed_content_type | 
-                  headers | body  | code | reason | dialog_id | sipapp_id.
+-type field() ::  app_id | code | reason | call_id | vias | parsed_vias | 
+                  ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
+                  from | from_scheme | from_user | from_domain | parsed_from | 
+                  to | to_scheme | to_user | to_domain | parsed_to | 
+                  cseq | parsed_cseq | cseq_num | cseq_method | forwards |
+                  routes | parsed_routes | contacts | parsed_contacts | 
+                  content_type | parsed_content_type | 
+                  headers | body | dialog_id | local | remote.
 
 
 %% ===================================================================
@@ -54,6 +57,11 @@
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
+%%          <td>`app_id'</td>
+%%          <td>{@link nksip:app_id()}</td>
+%%          <td>SipApp this response belongs to</td>
+%%      </tr>
+%%      <tr>
 %%          <td>`code'</td>
 %%          <td>{@link nksip:response_code()}</td>
 %%          <td>Response Code</td>
@@ -64,44 +72,82 @@
 %%          <td>Reason Phrase</td>
 %%      </tr>
 %% </table>
--spec field(field(), Input::id()|nksip:response()) -> any().
+-spec field(nksip:app_id(), id(), field()) ->
+    term() | error.
 
-field(Field, Response) -> 
-    case fields([Field], Response) of
-        [Value|_] -> Value;
-        Other -> Other
+field(AppId, RespId, Field) -> 
+    case fields(AppId, RespId, [Field]) of
+        [{_, Value}] -> Value;
+        error -> error
     end.
 
 
-%% @doc Gets a number of fields from the `Response' as described in {@link field/2}.
--spec fields([field()], Input::id()|nksip:response()) -> [any()].
-fields(Fields, #sipmsg{}=SipMsg) -> nksip_sipmsg:fields(Fields, SipMsg);
-fields(Fields, Response) -> call(Response, {get_fields, Fields}).
+%% @doc Get some fields from a response.
+-spec fields(nksip:app_id(), id(), [field()]) ->
+    [{atom(), term()}] | error.
+
+fields(AppId, <<"S_", _/binary>>=RespId, Fields) -> 
+    Fun = fun(Resp) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Resp, Fields))} end,
+    case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
-%% @doc Gets all `Name' headers from the response.
--spec headers(string()|binary(), Input::id()|nksip:response()) -> [binary()].
-headers(Name, #sipmsg{}=SipMsg) -> nksip_sipmsg:headers(Name, SipMsg);
-headers(Name, Response) -> call(Response, {get_headers, Name}).
+%% @doc Get header values from a response.
+-spec header(nksip:app_id(), id(), binary()) ->
+    [binary()] | error.
+
+header(AppId, <<"S_", _/binary>>=RespId, Name) -> 
+    Fun = fun(Resp) -> {ok, nksip_sipmsg:header(Resp, Name)} end,
+    case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
-%% @doc Gets the <i>response code</i> of a `Response'.
--spec code(Input::id()|nksip:response()) -> nksip:response_code().
-code(Response) -> field(code, Response).
+%% @doc Gets the <i>response code</i> of a response.
+-spec code(nksip:app_id(), id()) ->
+    nksip:response_code() | error.
+
+code(AppId, RespId) -> 
+    field(AppId, RespId, code).
 
 
-%% @doc Gets the <i>reason</i> of a `Response'.
--spec reason(Input::id()|nksip:response()) -> binary.
-reason(Response) ->  field(reason, Response).
+%% @doc Gets the <i>reason</i> of a response.
+-spec reason(nksip:app_id(), id()) ->
+    binary() | error.
+
+reason(AppId, RespId) ->  
+    field(AppId, RespId, reason).
 
 
-%% @doc Gets the <i>dialog id</i> of a `Response'.
--spec dialog_id(Input::id()|nksip:response()) -> nksip_dialog:id().
-dialog_id(Response) -> field(dialog_id, Response).
+%% @doc Gets the <i>body</i> of a response.
+-spec body(nksip:app_id(), id()) ->
+    nksip:body() | error.
 
-%% @doc Gets the <i>body</i> of a `Response'.
--spec body(Input::id()|nksip:response()) -> nksip:body().
-body(Response) -> field(body, Response).
+body(AppId, RespId) -> 
+    field(AppId, RespId, body).
+
+
+%% @doc Gets the calls's id of a response id
+-spec call_id(id()) ->
+    nksip:call_id().
+
+call_id(<<"S_", Bin/binary>>) ->
+    nksip_lib:bin_last($_, Bin).
+
+
+%% @private
+-spec get_response(nksip:app_id(), id()) ->
+    nksip:response() | error.
+
+get_response(AppId, <<"S_", _/binary>>=RespId) ->
+    Fun = fun(Resp) -> {ok, Resp} end,
+    case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
+        {ok, Resp} -> Resp;
+        _ -> error
+    end.
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after
@@ -110,25 +156,6 @@ body(Response) -> field(body, Response).
     ok.
 wait_491() ->
     timer:sleep(10*crypto:rand_uniform(210, 400)).
-
-
-%% @private Gets the full #sipmsg{} record.
--spec get_sipmsg(id()) -> nksip:response().
-
-get_sipmsg(Response) -> 
-    call(Response, get_sipmsg).
-
-
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
-%% @private
--spec call(id(), term()) -> any().
-
-call({resp, Pid}, Msg) when is_pid(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, Msg, 5000).
 
 
 

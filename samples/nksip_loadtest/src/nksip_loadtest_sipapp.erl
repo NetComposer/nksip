@@ -25,35 +25,35 @@
 -module(nksip_loadtest_sipapp).
 -behaviour(nksip_sipapp).
 
--export([init/1, route/6, invite/4]).
-
-% -compile([export_all]).
+-export([init/1, route/5, invite/2]).
 
 -define(PROXY_URI, "<sip:127.0.0.1:5061;transport=tcp>").
 
 
+%% All callback functions are "inline"
+
 %% @doc SipApp initialization
-init([]) ->
+init([_AppId]) ->
     {ok, {}}.
 
 
 %% @doc Request routing callback
-route(_, <<"stateless">>, _, _, _, SD) ->
-    {reply, {process, [stateless]}, SD};
+route(_, <<"stateless">>, _, _, _) ->
+    {process, [stateless]};
 
-route(_, <<"stateful">>, _, _, _, SD) ->
-    {reply, process, SD};
+route(_, <<"stateful">>, _, _, _) ->
+    process;
 
-route(_, <<"proxy_stateful">>, _, _, _, SD) ->
-    {reply, {proxy, ?PROXY_URI}, SD};
+route(_, <<"proxy_stateful">>, _, _, _) ->
+    {proxy, ?PROXY_URI};
         
-route(_, <<"proxy_stateless">>, _, _, _, SD) ->
-    {reply, {proxy, ?PROXY_URI, [stateless]}, SD};
+route(_, <<"proxy_stateless">>, _, _, _) ->
+    {proxy, ?PROXY_URI, [stateless]};
 
-route(_Scheme, _User, _Domain, _Request, _From, SD) ->
-    {reply, process, SD}.
+route(_Scheme, _User, _Domain, _Request, _From) ->
+    process.
 
 %% @doc Answer the call with the same SDP body
-invite(_DialogId, RequestId, _From, State) ->
-    {reply, {ok, [], nksip_request:body(RequestId)}, State}.
+invite(Req, _From) ->
+    {ok, [], nksip_sipmsg:field(Req, body)}.
 

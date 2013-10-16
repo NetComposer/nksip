@@ -33,7 +33,7 @@
 -export([incr/1, incr/2, incr/3, value/1, del/1, del/2, async/1]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
          handle_cast/2, handle_info/2]).
--export([pending_msgs/0]).
+-export([pending_msgs/0, stop/0]).
 
 -include("nksip.hrl").
 
@@ -135,13 +135,19 @@ start_link() ->
 stop() ->
     gen_server:call(?SERVER, stop).
         
-%% @private
+% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
 init([]) ->
     ets:new(?TABLE, [protected, named_table]),
     {ok, #state{}}.
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call({incr, Name, Value, Pid}, _From, State) ->
     register(Name, Value, Pid),
     {reply, ok, State};
@@ -159,6 +165,9 @@ handle_call(Msg, _From, State) ->
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 handle_cast({multi, List}, State) ->
     lists:foreach(fun({Name, Value, Pid}) -> register(Name, Value, Pid) end, List),
     {noreply, State};
@@ -169,6 +178,9 @@ handle_cast(Msg, State) ->
 
 
 %% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info({'DOWN', Ref, process, Pid, _Reason}, State) ->
     case lookup({pid, Pid}) of
         [] -> Values = [];
@@ -184,11 +196,17 @@ handle_info(Info, State) ->
 
 
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(_Reason, _State) ->  
     ok.
 
@@ -264,6 +282,7 @@ lookup(Name) ->
         [{_, Val}] -> Val
     end.
 
+
 %% @private
 -spec insert(term(), term()) -> 
     true.
@@ -271,12 +290,14 @@ lookup(Name) ->
 insert(Name, Val) -> 
     true = ets:insert(?TABLE, {Name, Val}).
 
+
 %% @private
 -spec delete(term()) -> 
     true.
 
 delete(Name) -> 
     true = ets:delete(?TABLE, Name).
+
 
 %% @private
 expand_multi(Ops) ->

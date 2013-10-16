@@ -27,11 +27,12 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").
--include("nksip_internal.hrl").
+-include("nksip_call.hrl").
 
 -export([method/1, header_uris/2, header_dates/2, header_integers/2]).
 -export([header_tokens/2]).
 -export([scheme/1, uri2ruri/1, aors/1, uris/1, vias/1, tokens/1, transport/1]).
+-export([integers/1, dates/1]).
 -export([packet/3, raw_sipmsg/1]).
 
 -export_type([msg_class/0]).
@@ -95,16 +96,7 @@ header_integers(Name, #sipmsg{headers=Headers}) ->
     header_integers(Name, Headers);
 
 header_integers(Name, Headers) when is_list(Headers) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch list_to_integer(string:strip(binary_to_list(Value))) of
-                {'EXIT', _} -> Acc;
-                Integer -> [Integer|Acc]
-            end
-        end,
-        [], 
-        header_values(Name, Headers)),
-    lists:reverse(List).
+    integers(header_values(Name, Headers)).
 
 
 %% @doc Parse all `Name' headers of a request or response and get a list of dates. 
@@ -116,18 +108,7 @@ header_dates(Name, #sipmsg{headers=Headers}) ->
     header_dates(Name, Headers);
 
 header_dates(Name, Headers) when is_list(Headers) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch 
-                httpd_util:convert_request_date(string:strip(binary_to_list(Value)))
-            of
-                {D, H} -> [{D, H}|Acc];
-                _ -> Acc
-            end
-        end,
-        [],
-        header_values(Name, Headers)),
-    lists:reverse(List).
+    dates(header_values(Name, Headers)).
 
 
 %% @doc Parse all `Name' headers of a request or response and get a list of tokens.
@@ -139,7 +120,7 @@ header_tokens(Name, #sipmsg{headers=Headers}) ->
     header_tokens(Name, Headers);
 
 header_tokens(Name, Headers) when is_list(Headers) ->
-    tokens(nksip_lib:bjoin(header_values(Name, Headers))).
+    tokens(header_values(Name, Headers)).
 
 
 %% @doc Cleans any `nksip:uri()' into a valid request-uri.
@@ -187,11 +168,53 @@ vias(Text) ->
 
 
 %% @doc Gets a list of `tokens()' from `Term'
--spec tokens(binary() | string()) -> 
+-spec tokens([binary()]) ->
     [nksip_lib:token()].
 
 tokens(Term) ->
-    parse_tokens(lists:flatten(nksip_lib:tokenize(Term, token)), []).
+    Term1 = case is_binary(Term) of
+        true -> Term;
+        _ -> nksip_lib:bjoin(Term)
+    end,
+    parse_tokens(lists:flatten(nksip_lib:tokenize(Term1, token)), []).
+
+
+%% @doc Parses a list of values as integers
+-spec integers([binary()]) ->
+    [integer()].
+
+integers(Values) ->
+    List = lists:foldl(
+        fun(Value, Acc) ->
+            case catch list_to_integer(string:strip(binary_to_list(Value))) of
+                {'EXIT', _} -> Acc;
+                Integer -> [Integer|Acc]
+            end
+        end,
+        [], 
+        Values),
+    lists:reverse(List).
+
+
+%% @doc Parses a list of values as dates
+-spec dates([binary()]) ->
+    [calendar:datetime()].
+
+dates(Values) ->
+    List = lists:foldl(
+        fun(Value, Acc) ->
+            case catch 
+                httpd_util:convert_request_date(string:strip(binary_to_list(Value)))
+            of
+                {D, H} -> [{D, H}|Acc];
+                _ -> Acc
+            end
+        end,
+        [],
+        Values),
+    lists:reverse(List).
+
+
 
 
 %% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
@@ -228,7 +251,6 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     {Proto, Host, if Port=:=0 -> DefPort; true -> Port end}.
 
 
-
 %% ===================================================================
 %% Internal
 %% ===================================================================
@@ -243,7 +265,7 @@ header_values(Name, Headers) when is_list(Headers) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nksip:sipapp_id(), nksip_transport:transport(), binary()) ->
+-spec packet(nksip:app_id(), nksip_transport:transport(), binary()) ->
     {ok, #raw_sipmsg{}, binary()} | {more, binary()} | {rnrn, binary()}.
 
 packet(AppId, Transport, Packet) ->
@@ -252,13 +274,14 @@ packet(AppId, Transport, Packet) ->
         {ok, Class, Headers, Body, Rest} ->
             CallId = nksip_lib:get_value(<<"Call-ID">>, Headers),
             Msg = #raw_sipmsg{
-                sipapp_id = AppId,
-                transport = Transport,
-                start = Start,
-                call_id = CallId,
+                id = nksip_sipmsg:make_id(element(1, Class), CallId),
                 class = Class,
+                app_id = AppId,
+                call_id = CallId,
+                start = Start,
                 headers = Headers,
-                body = Body
+                body = Body,
+                transport = Transport
             },
             {ok, Msg, Rest};
         {more, More} ->
@@ -334,8 +357,16 @@ parse_packet(Packet, Class, Rest) ->
 %% @private Second-stage SIP message parser
 %% 15K/sec on i7
 -spec raw_sipmsg(#raw_sipmsg{}) -> #sipmsg{} | error.
-raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport, 
-                        class=Class, headers=Headers, body=Body, start=Start}) ->
+raw_sipmsg(Raw) ->
+    #raw_sipmsg{
+        id = Id,
+        class = Class, 
+        app_id = AppId, 
+        start = Start,
+        headers = Headers, 
+        body = Body, 
+        transport = Transport
+    } = Raw,
     case Class of
         {req, Method, RequestUri} ->
             case uris(RequestUri) of
@@ -345,14 +376,15 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                             error;
                         Request ->
                             Request#sipmsg{
-                                class = request,
-                                sipapp_id = AppId,
+                                id = Id,
+                                class = req,
+                                app_id = AppId,
                                 method = Method,
                                 ruri = RUri,
                                 response = undefined,
                                 transport = Transport,
                                 start = Start,
-                                opts = []
+                                data = []
                             }
                     end;
                 _ ->
@@ -364,12 +396,13 @@ raw_sipmsg(#raw_sipmsg{sipapp_id=AppId, transport=Transport,
                     error;
                 Response ->
                     Response#sipmsg{
-                        class = response,
-                        sipapp_id = AppId,
+                        id = Id,
+                        class = resp,
+                        app_id = AppId,
                         response = Code,
                         transport = Transport,
                         start = Start,
-                        opts = [{reason, CodeText}]
+                        data = [{reason, CodeText}]
                     }
             end
     end.
@@ -451,7 +484,7 @@ get_sipmsg(Headers, Body) ->
             body = Body1,
             from_tag = nksip_lib:get_value(tag, From#uri.ext_opts, <<>>),
             to_tag = nksip_lib:get_value(tag, To#uri.ext_opts, <<>>),
-            opts = []
+            data = []
         }
     catch
         throw:ErrMsg ->
@@ -797,7 +830,7 @@ token_test() ->
             {<<"e">>, []},
             {<<"f">>, [lr]}
         ],
-        tokens("a b c ; cc=a;cb  = \"ocb\", e, f;lr")).
+        tokens(<<"a b c ; cc=a;cb  = \"ocb\", e, f;lr">>)).
 
 -endif.
 

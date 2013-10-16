@@ -40,15 +40,14 @@ eunit:
 
 build-plt:
 	@$(DIALYZER) --build_plt --output_plt .$(PROJECT).plt \
-		--apps kernel stdlib sasl tools inets crypto public_key ssl
+		--apps erts kernel stdlib sasl tools inets crypto public_key ssl eunit
 
 dialyze: app
 	@$(DIALYZER) nksip/ebin/nksip*.beam --plt .$(PROJECT).plt \
 	-Werror_handling  #-Wunmatched_returns -Wrace_conditions -Wunderspecs
 
 shell: 
-	erl -config samples/nksip_loadtest/priv/app.config \
-		-args_file samples/nksip_loadtest/priv/vm.args 
+	erl -config nksip/priv/app.config -args_file nksip/priv/vm.args 
 
 tutorial: 
 	erl -config samples/nksip_tutorial/priv/app.config \

@@ -33,9 +33,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
--export([counters/0, get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
+-export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
--export([info/1, notice/1]).
+-export([info/1, notice/1, warning/1, error/1]).
 -export([store_msgs/1, insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
          handle_cast/2, handle_info/2]).
@@ -43,39 +43,10 @@
 -include("nksip.hrl").
 
 
+
 %% ===================================================================
 %% Public
 %% ===================================================================
-
-%% @doc Gets some statistics about current number of active transactions, proxy 
-%% transacions, dialogs, etc.
--spec counters() ->
-    nksip_lib:proplist().
-
-counters() ->
-    CoreQueues = lists:map(
-        fun({Name, Pid}) ->
-            {_, Len} = erlang:process_info(Pid, message_queue_len),
-            {Name, Len}
-        end,
-        nksip_proc:values(nksip_sipapps)),
-    {Queued, Blocked} = nksip_queue:total(),
-    [
-        {msgs, nksip_counters:value(nksip_msgs)},
-        {queued, Queued},
-        {blocked, Blocked},
-        {transactions_uac, nksip_transaction_uac:total()},
-        {transactions_uas, nksip_transaction_uas:total()},
-        {proxys, nksip_proxy:total()},
-        {dialogs, nksip_dialog_fsm:total()},
-        {tcp_connections, nksip_counters:value(nksip_transport_tcp)},
-        {counters_queue, nksip_counters:pending_msgs()},
-        {registry_size, nksip_proc:size()},
-        {registry_queue, nksip_proc:pending_msgs()},
-        {core_queues, CoreQueues},
-        {uas_response, nksip_stats:get_uas_avg()}
-    ].
-
 
 %% @doc Get all SipApps currently tracing messages.
 -spec get_all() ->
@@ -94,14 +65,14 @@ start() ->
 
 
 %% @doc Equivalent to `start(AppId, [], console)'.
--spec start(nksip:sipapp_id()) -> 
+-spec start(nksip:app_id()) -> 
     ok.
 start(AppId) -> 
     start(AppId, [], console).
 
 
 %% @doc Equivalent to `start(AppId, [], File)'.
--spec start(nksip:sipapp_id(), console | string()) -> 
+-spec start(nksip:app_id(), console | string()) -> 
     ok | {error, file:posix()}.
 
 start(AppId, Out) -> 
@@ -113,7 +84,7 @@ start(AppId, Out) ->
 %% and using any of the IPs in `IpList' 
 %% (or <i>all of them</i> if it list is empty) will be traced to `console' 
 %% or a file, that will opened in append mode.
--spec start(nksip:sipapp_id(), [inet:ip4_address()], console|string()) ->
+-spec start(nksip:app_id(), [inet:ip4_address()], console|string()) ->
     ok | {error, file:posix()}.
 
 start(AppId, IpList, Out) when is_list(IpList) ->
@@ -144,7 +115,7 @@ stop() ->
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
--spec stop(nksip:sipapp_id()) ->
+-spec stop(nksip:app_id()) ->
     ok | not_found.
 
 stop(AppId) ->
@@ -190,7 +161,37 @@ info(Text) -> lager:info(Text).
 %% @private
 notice(Text) -> lager:notice(Text).
 
+%% @private
+warning(Text) -> lager:warning(Text).
 
+%% @private
+error(Text) -> lager:error(Text).
+
+
+%% @private
+-spec sipmsg(nksip:app_id(), nksip:call_id(), binary(), 
+             nksip_transport:transport(), binary()) ->
+    ok.
+
+sipmsg(AppId, CallId, Header, Transport, Binary) ->
+    #transport{local_ip=Ip1, remote_ip=Ip2} = Transport,
+    lager:debug([{app_id, AppId}, {call_id, CallId}], 
+                "~s", [print_packet(AppId, Header, Transport, Binary)]),
+    case nksip_config:get({nksip_trace, AppId}) of
+        undefined -> 
+            ok;
+        {[], IoDevice} ->
+            Msg = print_packet(AppId, Header, Transport, Binary),
+            write(Msg, IoDevice);
+        {IpList, IoDevice} ->
+            case lists:member(Ip1, IpList) orelse lists:member(Ip2, IpList) of
+                true -> 
+                    Msg = print_packet(AppId, Header, Transport, Binary),
+                    write(Msg, IoDevice);
+                false -> 
+                    ok
+            end
+    end.
 
 
 
@@ -204,36 +205,55 @@ notice(Text) -> lager:notice(Text).
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
         
-%% @private
+
+% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
 init([]) ->
     ets:new(nksip_trace_msgs, [named_table, public, bag, {write_concurrency, true}]),
     {ok, #state{}}.
 
 
 %% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
 handle_info(Info, State) -> 
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
     {noreply, State}.
 
 
 %% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
 terminate(_Reason, _State) ->  
     ok.
 
@@ -249,7 +269,7 @@ store_msgs(Bool) when Bool=:=true; Bool=:=false ->
 
 
 %% @private
-insert(#sipmsg{sipapp_id=AppId, call_id=CallId}, Info) ->
+insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
     insert(AppId, CallId, Info).
 
 
@@ -295,24 +315,13 @@ reset_msgs() ->
 
 
 %% @private
--spec sipmsg(nksip:sipapp_id(), nksip:call_id(), binary(), 
-             nksip_transport:transport(), binary()) ->
-    ok.
+write(Msg, console) -> 
+    Time = nksip_lib:l_timestamp_to_float(nksip_lib:l_timestamp()), 
+    io:format("\n        ---- ~f ~s", [Time, Msg]);
 
-sipmsg(AppId, _CallId, Header, 
-       #transport{local_ip=Ip1, remote_ip=Ip2}=Transport, Binary) ->
-    case nksip_config:get({nksip_trace, AppId}) of
-        undefined -> 
-            % print_packet(AppId, Header, Transport, Binary, console),
-            ok;
-        {[], IoDevice} ->
-            print_packet(AppId, Header, Transport, Binary, IoDevice);
-        {IpList, IoDevice} ->
-            case lists:member(Ip1, IpList) orelse lists:member(Ip2, IpList) of
-                true -> print_packet(AppId, Header, Transport, Binary, IoDevice);
-                false -> ok
-            end
-    end.
+write(Msg, IoDevice) -> 
+    Time = nksip_lib:l_timestamp_to_float(nksip_lib:l_timestamp()), 
+    catch file:write(IoDevice, io_lib:format("\n        ---- ~f ~s", [Time, Msg])).
 
 
 %% @private
@@ -324,7 +333,7 @@ print_packet(AppId, Info,
                     remote_ip = RIp, 
                     remote_port = RPort
                 }, 
-                Binary, IoDevice) ->
+                Binary) ->
     case catch inet_parse:ntoa(RIp) of
         {'EXIT', _} -> RHost = <<"undefined">>;
         RHost -> ok
@@ -337,14 +346,11 @@ print_packet(AppId, Info,
         [<<"        ">>, Line, <<"\n">>]
         || Line <- binary:split(Binary, <<"\r\n">>, [global])
     ],
-    Time = nksip_lib:l_timestamp_to_float(nksip_lib:l_timestamp()), 
-    Text = io_lib:format("\n        ---- ~p ~s ~s:~p (~p, ~s:~p) ~f (~p)\n~s\n", 
-        [AppId, Info, RHost, RPort, 
-            Proto, LHost, LPort, Time, self(), list_to_binary(Lines)]),
-    case IoDevice of
-        console -> io:format("~s", [Text]);
-        IoDevice -> catch file:write(IoDevice, Text)
-    end.
+    io_lib:format("~p ~s ~s:~p (~p, ~s:~p) (~p)\n\n~s", 
+                    [AppId, Info, RHost, RPort, 
+                    Proto, LHost, LPort, self(), list_to_binary(Lines)]).
+
+
 
 
 

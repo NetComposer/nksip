@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Request sending functions.
+%% @doc Request sending functions as UAC.
 %%
 %% The functions in this module are used to send requests to remote parties as a UAC.
 %%
@@ -28,146 +28,60 @@
 %% <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>, <i>UPDATE</i>, 
 %% <i>REFER</i> and <i>PUBLISH</i>.
 %%
-%% Your SipApp can send any of these requests calling the corresponding functions in 
-%% this module. If there is no error, the request will be sent, and when a response 
-%% is received most functions will return `{ok, Code}'. 
-%% In case you need to access the full response (to get headers, body, etc.), 
-%% you can use the option `full_response' and the response would then be 
-%% `{reply, Response}'. 
-%% You can now use the functions in {@link nksip_response} to extract 
-%% relevant information from the response like body or headers.
-%% If there is a local error processing the request most functions will return 
-%% `{error, Error}'. 
+%% By default, most functions will block util a final response is received
+%% or a an error is produced before sending the request, 
+%% returning `{ok, Code, Values}' or `{error, Error}'.
+%% 
+%% `Values' can include some metadata about the response. Use the option `fields' to
+%% select which metadatas you want to receive. For request-generating methods
+%% (only <i>INVITE</i> currently) the first value is allways the dialog's id
+%% of the response: `{dialog_id, DialogId}'.
+%% You can use the functions in {@link nksip_dialog} to get additional information.
 %%
-%% These functions are called <i>synchronously</i> by default. 
-%% They will block until a final (2xx-6xx) response (or a timeout) is received. 
-%% You can also call them <i>asynchronously</i>, and the call will return immediately. 
-%% NkSIP will then send the received response to an user defined callback function, 
-%% (`respfun' option) which will be called as many times as provisional 
-%% (1xx) responses are received, and once again for the final response. 
-%% In case of <i>INVITE</i>, a `CancelId' value is returned to be able to 
-%% <i>CANCEL</i> the request.
-
--module(nksip_uac).
--author('Carlos Gonzalez <carlosj.gf@gmail.com>').
-
--include("nksip.hrl").
-
--export([options/3, options/2, register/3, invite/3, ack/2, reinvite/2, 
-            bye/2, cancel/2, refresh/2, stun/3]).
--export([send_request/4, send_request/2]).
-
-
--type nodialog_errors() ::  unknown_core | invalid_uri | invalid_from | invalid_to |
-                            invalid_route | invalid_contact | invalid_cseq |
-                            network_error.
-
--type dialog_errors() :: unknown_dialog | timeout_dialog | terminated_dialog |
-                         invalid_dialog | network_error.
-
--type cancel_id() :: {cancel, pid()}.
-
-
--define(UAC_DEFAULT_TIMEOUT, 10000).
-
-
-
-%% ===================================================================
-%% Public
-%% ===================================================================
-
-%% @doc Sends an OPTIONS request.
+%% You can define a callback function using option `callback', and it will be called
+%% for every received provisional response as `{ok, Code, Values}'.
 %%
-%% OPTIONS requests are usually sent to get the current set of SIP features 
-%% and codecs the remote party supports, and to detect if it is <i>up</i>, 
-%% it has failed or it is not responding requests for any reason. 
-%% It can also be used to measure the remote party response time. 
+%% You can also call most of these functions <i>asynchronously</i> using
+%% the `async' option, and the call will return immediately (before trying to send
+%% the request) instead of blocking.
+%% You should use the callback function to receive provisional responses, 
+%% final response and errors.
 %%
-%% NkSIP will start a new client transaction to process the request and its responses.
-%% The recognized options are:<br/>
+%% Methods <i>OPTIONS</i>, <i>REGISTER</i> and <i>INVITE</i> can be
+%% sent outside or inside a dialog. <i>ACK</i> and <i>BYE</i> can only be sent 
+%% inside a dialog, and <i>CANCEL</i> can only be sent outside a dialog.
+%%
+%% Common options for most functions (outside or inside dialog) are:<br/>
 %%  
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
+%%          <td>`fields'</td>
+%%          <td><code>[{@link nksip_response:field()}]</code></td>
+%%          <td>`[]'</td>
+%%          <td>Use it to select which specific fields from the response are
+%%          returned. See {@link nksip_response:field()} for the complete list of
+%%          supported fields. For <i>INVITE</i> requests, the first field is 
+%%          allways the dialog's id of the response.</td>
+%%      </tr>
+%%      <tr>
 %%          <td>`async'</td>
 %%          <td></td>
 %%          <td></td>
-%%          <td>If present, the call will return inmediatly as `async'.
-%%          Use `respfun' to receive responses. If not present, 
-%%          the call will block until a final response is received or an error
-%%          is detected (like a timeout).</td>
+%%          <td>If present, the call will return inmediatly as `{async, ReqId}', or
+%%          `{error, Error}' if an error is produced before sending the request.
+%%          `ReqId' can be used with the functions in {@link nksip_request} to get
+%%          information about the request (the request may not be sent yet, so
+%%          the information about transport may not be present).</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`respfun'</td>
+%%          <td>`callback'</td>
 %%          <td>`fun/1'</td>
 %%          <td></td>
-%%          <td>If defined, it will be called for every provisional response (101-199) as 
-%%          `{ok, Code}' (or `{reply, Response}' if `full_response' option is used). 
-%%          For `async' requests, it will be called also for errors and for the 
-%%          final response (as `{ok, Code}', `{reply, Response}' or `{error, Error}').
-%%          See also `full_request'.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`full_response'</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present NkSIP will return `{reply, Response}' instead of 
-%%          `{ok, Code}' in sync requests. `respfun' function will be called also
-%%           this way for async requests.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`full_request'</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present NkSIP will call the function defined is `respfun' also for
-%%          each generated request (once sent), as `{request, Request}'.
-%%          Several requests can be generated in case of automatic authentication 
-%%          response.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`timeout'</td>
-%%          <td>`integer()'</td>
-%%          <td>30000</td>
-%%          <td>Time to wait for the final response in case of sync request.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`from'</td>
-%%          <td>{@link nksip:user_uri()}</td>
-%%          <td>SipApp's config</td>
-%%          <td><i>From</i> to use in the request.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`to'</td>
-%%          <td>{@link nksip:user_uri()}`|as_from'</td>
-%%          <td>`Uri'</td>
-%%          <td><i>To</i> to use in the request.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`user_agent'</td>
-%%          <td>`string()|binary()'</td>
-%%          <td>"NkSIP (version)"</td>
-%%          <td><i>User-Agent</i> header to use in the request.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`call_id'</td>
-%%          <td>{@link nksip:call_id()}</td>
-%%          <td>(automatic)</td>
-%%          <td>If defined, will be used instead of a newly generated one
-%%          (use {@link nksip_lib:luid/0})</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`cseq'</td>
-%%          <td>{@link nksip:cseq()}</td>
-%%          <td>(automatic)</td>
-%%          <td>If defined, will be used instead of a newly generated one
-%%          (use {@link nksip_lib:cseq/0})</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`route'</td>
-%%          <td>{@link nksip:user_uri()}</td>
-%%          <td>SipApp's config</td>
-%%          <td>If defined, one or several <i>Route</i> headers will be inserted in
-%%          the request.</td>
+%%          <td>If defined, it will be called for every received provisional response
+%%          as `{ok, Code, Values}'. For `async' requests, it is called also 
+%%          for the final response and, if an error is produced before sending 
+%%          the request, as `{error, Error}'.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`contact'</td>
@@ -212,24 +126,128 @@
 %%      </tr>
 %% </table>
 %%
+%% Options available for most methods only when sent outside a dialog are:
+%%
+%% <table border="1">
+%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`from'</td>
+%%          <td>{@link nksip:user_uri()}</td>
+%%          <td>SipApp's config</td>
+%%          <td><i>From</i> to use in the request.</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`to'</td>
+%%          <td>{@link nksip:user_uri()}`|as_from'</td>
+%%          <td>`Uri'</td>
+%%          <td><i>To</i> to use in the request.</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`user_agent'</td>
+%%          <td>`string()|binary()'</td>
+%%          <td>"NkSIP (version)"</td>
+%%          <td><i>User-Agent</i> header to use in the request.</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`call_id'</td>
+%%          <td>{@link nksip:call_id()}</td>
+%%          <td>(automatic)</td>
+%%          <td>If defined, will be used instead of a newly generated one
+%%          (use {@link nksip_lib:luid/0})</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`cseq'</td>
+%%          <td>{@link nksip:cseq()}</td>
+%%          <td>(automatic)</td>
+%%          <td>If defined, will be used instead of a newly generated one
+%%          (use {@link nksip_lib:cseq/0})</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`route'</td>
+%%          <td>{@link nksip:user_uri()}</td>
+%%          <td>SipApp's config</td>
+%%          <td>If defined, one or several <i>Route</i> headers will be inserted in
+%%          the request.</td>
+%%      </tr>
+%% </table>
+%%
+%% Look at the specification for each function to find supported options
+
+-module(nksip_uac).
+-author('Carlos Gonzalez <carlosj.gf@gmail.com>').
+
+-include("nksip.hrl").
+
+-export([options/3, register/3, invite/3, ack/3, bye/3, cancel/2, refresh/3, stun/3]).
+-export_type([result/0, ack_result/0, error/0, cancel_error/0]).
+
+
+%% ===================================================================
+%% Types
+%% ===================================================================
+
+-type dialog_spec() :: 
+    nksip_dialog:id() | nksip_request:id() | nksip_response:id().
+
+-type opt() ::  
+    dialog_opt() |
+    {from, nksip:user_uri()} | {to, nksip:user_uri()} | {user_agent, binary()} |
+    {call_id, binary()} | {cseq, nksip:cseq()} | {route, nksip:user_uri()}.
+
+-type dialog_opt() ::  
+    {fields, [nksip_response:field()]} | async | {callback, function()} | 
+    get_response | get_request | 
+    {contact, nksip:user_uri()} | make_contact | {content_type, binary()} | 
+    {headers, [nksip:header()]} | {body, nksip:body()} | {local_host, auto|binary()}.
+
+-type register_opt() ::
+    {expires, non_neg_integer()} | unregister | unregister_all.
+
+-type invite_opt() ::
+    {expires, pos_integer()}.
+
+-type result() ::  
+    {async, nksip_request:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
+    {resp, nksip:response()}.
+    
+-type ack_result() ::
+    ok | async.
+
+-type error() :: 
+    invalid_uri | invalid_from | invalid_to | invalid_route |
+    invalid_contact | invalid_cseq |
+    unknown_dialog | request_pending | network_error | 
+    nksip_call_router:sync_error().
+
+-type cancel_error() :: 
+    unknown_request | nksip_call_router:sync_error().
+
+
+
+%% ===================================================================
+%% Public
+%% ===================================================================
+
+%% @doc Sends an OPTIONS request.
+%%
+%% OPTIONS requests are usually sent to get the current set of SIP features 
+%% and codecs the remote party supports, and to detect if it is <i>up</i>, 
+%% it has failed or it is not responding requests for any reason. 
+%% It can also be used to measure the remote party response time. 
+%%
+%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% If it is a dialog specification, it will be sent inside that dialog.
+%% Recognized options are described in {@link opt()} when sent outside any dialog,
+%% and {@link dialog_opt()} when sent inside a dialog.
+%%
 %% NkSIP has an automatic remote <i>pinging</i> feature that can be activated 
 %% on any SipApp (see {@link nksip_sipapp_auto:start_ping/5}).
 %%
--spec options(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, nodialog_errors()}.
+-spec options(nksip:app_id(), nksip:user_uri()|dialog_spec(), [opt()|dialog_opt()]) ->
+    result() | {error, error()}.
 
-options(AppId, Uri, Opts) ->
-    send_request(AppId, 'OPTIONS', Uri, Opts).
-
-
-%% @private Sends a in-dialog OPTIONS request
--spec options(nksip_dialog:spec(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, dialog_errors()}.
-
-options(DialogSpec, Opts) ->
-    send_dialog(DialogSpec, 'OPTIONS', Opts).
+options(AppId, Dest, Opts) ->
+    send(AppId, 'OPTIONS', Dest, Opts).
 
 
 %% @doc Sends a REGISTER request.
@@ -238,7 +256,12 @@ options(DialogSpec, Opts) ->
 %% to register a new `Contact', delete a current registration or get the list of 
 %% current registered contacts from the registrar.
 %%
-%% The recognized options and responses are the same as {@link options/3}, and also:
+%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% If it is a dialog specification, it will be sent inside that dialog.
+%% Recognized options are described in {@link opt()} when sent outside any dialog,
+%% and {@link dialog_opt()} when sent inside a dialog.
+%%
+%% Additional recognized options are defined in {@link register_opt()}:
 %%  
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -272,11 +295,11 @@ options(DialogSpec, Opts) ->
 %%
 %% NkSIP offers also an automatic SipApp registration facility 
 %% (see {@link nksip:start/4}).
--spec register(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, nodialog_errors()}.
+-spec register(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+               [opt()|dialog_opt()|register_opt()]) ->
+    result() | {error, error()}.
 
-register(AppId, Uri, Opts) ->
+register(AppId, Dest, Opts) ->
     case lists:member(unregister_all, Opts) of
         true ->
             Contact = {contact, <<"*">>},
@@ -302,7 +325,7 @@ register(AppId, Uri, Opts) ->
             lists:keystore(headers, 1, Opts, {headers, Headers2})
     end,
     Opts2 = lists:flatten(Opts1++[Contact, {to, as_from}]),
-    send_request(AppId, 'REGISTER', Uri, Opts2).
+    send(AppId, 'REGISTER', Dest, Opts2).
 
 
 %% @doc Sends an INVITE request.
@@ -316,28 +339,26 @@ register(AppId, Uri, Opts) ->
 %% will also be called.
 %%
 %% When the first 2xx response is received, the dialog is confirmed. 
-%% <b>You must then call {@link ack/2} immediately</b>, offering an 
+%% <b>You must then call {@link ack/3} immediately</b>, offering an 
 %% SDP body if you haven't done it in the INVITE request.
 %%
 %% The dialog is destroyed when a BYE is sent or received, or a 408 <i>Timeout</i> 
-%% or 481 <i>Call Does Not Exist</i> response is received. If a secondary 2xx response is
-%% received (usually because a proxy server has forked the request) NkSIP will 
-%% automatically acknowledge it and send BYE. 
+%% or 481 <i>Call Does Not Exist</i> response is received. 
+%% If a secondary 2xx response is received (usually because a proxy server 
+%% has forked the request) NkSIP will automatically acknowledge it and send BYE. 
 %% If a 3xx-6xx response is received instead of a 2xx response, the <i>early dialog</i> 
 %% is destroyed. You should not call {@link ack/2} in this case, 
 %% as NkSIP will do it for you automatically.
 %%
 %% After a dialog has being established, you can send new INVITE requests
-%% (called <i>reINVITEs</i>) <i>inside</i> this dialog, 
-%% calling {@link reinvite/2}.
+%% (called <i>reINVITEs</i>) <i>inside</i> this dialog.
 %%
-%% The recognized options and responses are the same as {@link options/3}, but
-%% if not `full_response' is used, the response will also include the `DialogId'; the 
-%% `respfun' function will also be called as `{ok, Code, DialogId}' or `{reply, Resp}'.
-%% If `async' is used, the response would be `{async, CancelId}'. You can use this
-%% `CancelId' to <i>CANCEL</i> the request using {@link cancel/2}.
+%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% If it is a dialog specification, it will be sent inside that dialog.
+%% Recognized options are described in {@link opt()} when sent outside any dialog,
+%% and {@link dialog_opt()} when sent inside a dialog.
 %%
-%% Aditional options are:
+%% Additional recognized options are defined in {@link invite_opts()}:
 %%
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -355,130 +376,94 @@ register(AppId, Uri, Opts) ->
 %% has been received in this period in seconds. The default value for `contact' parameter 
 %% would be `auto' in this case.
 %%
--spec invite(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} | 
-    {async, cancel_id()} | {error, nodialog_errors()}.
-
-invite(AppId, Uri, Opts) ->
-    Expires = nksip_lib:get_integer(expires, Opts, 0), 
-    Headers1 = nksip_lib:get_value(headers, Opts, []),
-    Opts1 = if
-        is_integer(Expires), Expires > 0 ->
-            Headers2 = nksip_headers:update(Headers1, [{single, <<"Expires">>, Expires}]),
-            lists:keystore(headers, 1, Opts, {headers, Headers2});
-        true ->
-            Opts
-    end,
-    Opts2 = [make_supported, make_accept, make_allow  | Opts1],
-    send_request(AppId, 'INVITE', Uri, Opts2).
-
-
-%% @doc Sends an <i>ACK</i> after a successful <i>INVITE</i> response.
-%%
-%% After sending an INVITE or reINVITE and receiving a successfully (2xx) response, 
-%% you must call this function immediately to send the mandatory ACK request. 
-%% NkSIP won't send it for you automatically in case of a successful response, 
-%% because you may want to include a SDP body if you didn't do it in the INVITE request.
-%%
-%% To speciy the dialog you should use the `DialogId' or `Response' from 
-%% the return of the {@link invite/3} call or use {@link nksip_sipapp:dialog_update/3}
-%% callback function. Valid options are defined in {@link options/3}, but, 
-%% as an in-dialog request, options `from', `to', `call_id', `cseq' and `route' 
-%% should not used.
-%%
-%% For sync requests, it will return `ok' if the request could be sent, 
-%% (or `{ok, AckRequest}' if `full_request' option is present) or
-%% `{error, Error}' if an error is detected. For async requests, it will return `async', 
-%% and if `respfun' is provided, it will be called as `ok', `{ok, AckRequest}' or 
-%% `{error, Error}'.
-%%
--spec ack(nksip_dialog:spec(), nksip_lib:proplist()) ->
-    ok | {ok, nksip:request()} | async | {error, dialog_errors()}.
-
-ack(DialogSpec, Opts) ->
-    send_dialog(DialogSpec, 'ACK', Opts).
-
-
-%% @doc Sends a in-dialog <i>INVITE</i> (commonly called reINVITE) for a 
-%% currently ongoing dialog.
-%%
-%% The options and responses are the same as for {@link invite/3}, but in case of
-%% `async' requests no `CancelId' is returned. As an in-dialog request,
-%% options `from', `to', `call_id', `cseq' and `route' should not used.
-%%
-%% A `make_contact' option will be automatically added if no contact is defined.
-%%
-%% You can send a new INVITE during an existing dialog, to refresh it or to 
-%% change its <i>Contact</i> address or SDP media parameters. You will need 
-%% the `DialogId' of the dialog. You can get it from the `dialog_start/2' callback
-%% or the return value of the first {@link invite/3}.
-%%
-%% If you receive a successful (2xx) response you <b>must call {@link ack/2} 
-%% inmediatly</b>, offering an SDP body if you haven't done so in the reINVITE request.
-%% If you receive any other response you must not call {@link ack/2}. 
+%% If you want to be able to <i>CANCEL</i> the request, you should use the `async'
+%% option.
 %%
 %% If a 491 response is received, it usually means that the remote party is 
 %% starting another reINVITE transaction right now. You should call 
 %% {@link nksip_response:wait_491()} and try again.
 %%
--spec reinvite(nksip_dialog:spec(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} | 
-    async | {error, dialog_errors()}.
+-spec invite(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+             [opt()|dialog_opt()|invite_opt()]) ->
+    result() | {error, error()}.
 
-reinvite(DialogSpec, Opts) ->
-    Opts1 = [make_accept, make_supported | Opts],
-    send_dialog(DialogSpec, 'INVITE', Opts1).
+invite(AppId, Dest, Opts) ->
+    Expires = nksip_lib:get_integer(expires, Opts, 0), 
+    Headers1 = nksip_lib:get_value(headers, Opts, []),
+    Opts1 = if
+        is_integer(Expires), Expires > 0 ->
+            Headers2 = nksip_headers:update(Headers1, 
+                                            [{single, <<"Expires">>, Expires}]),
+            lists:keystore(headers, 1, Opts, {headers, Headers2});
+        true ->
+            Opts
+    end,
+    Opts2 = [make_supported, make_accept, make_allow  | Opts1],
+    send(AppId, 'INVITE', Dest, Opts2).
 
 
-%% @doc Sends an <i>BYE</i> for a current dialog.
+
+%% @doc Sends an <i>ACK</i> after a successful <i>INVITE</i> response.
 %%
-%% Sends a BYE request and terminates the dialog and the session.
-
-%% You need to know the `DialogId' of the dialog. You can get from the return of
-%% the initial {@link invite/3}, or using {@link nksip_sipapp:dialog_update/3}
-%% callback function.
+%% After sending an INVITE and receiving a successfully (2xx) response, 
+%% you must call this function immediately to send the mandatory ACK request. 
+%% NkSIP won't send it for you automatically in case of a successful response, 
+%% because you may want to include a SDP body if you didn't do it in the INVITE request.
 %%
-%% Valid options are defined in {@link options/3}, but, as an in-dialog request,
-%% options `from', `to', `call_id', `cseq' and `route' should not used.
+%% To specify the dialog you should use the dialog's id from 
+%% the return of the {@link invite/3} call or using
+%% {@link nksip_sipapp:dialog_update/3} callback function. 
+%% Valid options are `fields', `callback', `async', `content_type', `headers' and 
+%% `body'.
 %%
--spec bye(nksip_dialog:spec(), nksip_lib:proplist()) -> 
-    {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, nodialog_errors()}.
+%% For sync requests, it will return `ok' if the request could be sent or
+%% `{error, Error}' if an error is detected. For async requests, it will return 
+%% `async'. If a callback is defined, it will be called as `ok' or `{error, Error}'.    
+%%
+-spec ack(nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
+    ack_result() | {error, error()}.
 
-bye(DialogSpec, Opts) ->
-    send_dialog(DialogSpec, 'BYE', Opts).
+ack(AppId, DialogSpec, Opts) ->
+    send(AppId, 'ACK', DialogSpec, Opts).
+
+
+%% @doc Sends an <i>BYE</i> for a current dialog, terminating the session.
+%%
+%% You need to know the dialog's id of the dialog you want to hang up.
+%% You can get from the return of the initial {@link invite/3}, or using 
+%% {@link nksip_sipapp:dialog_update/3} callback function.
+%%
+%% Valid options are defined in {@link dialog_opt()}.
+%%
+-spec bye(nksip:app_id(), dialog_spec(), [dialog_opt()]) -> 
+    result() | {error, error()}.
+
+bye(AppId, DialogSpec, Opts) ->
+    send(AppId, 'BYE', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.
 %%
 %% You can use this function to send a CANCEL requests to abort a currently 
-%% <i>calling</i> INVITE request, using the `CancelId' obtained when calling 
+%% <i>calling</i> INVITE request, using the `ReqId' obtained when calling 
 %% {@link invite/3} <i>asynchronously</i>. 
 %% The CANCEL request will eventually be received at the remote end, and, 
 %% if it hasn't yet answered the matching INVITE request, 
 %% it will finish it with a 487 code. 
 %%
-%% The options and responses are the same as for {@link options/3}, but you should not
-%% use any options modifying the request as `from', `to', `call_id', `cseq', `route', etc.
+%% This call is always asychronous. It returns a soon as the request is
+%% received and the cancelling INVITE is found.
 %%
--spec cancel(CancelId::cancel_id(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code()} | {reply, nksip:response()} | 
-    async | {error, Error}
-    when Error :: no_transaction | network_error.
+-spec cancel(nksip:app_id(), nksip_request:id()) ->
+    ok | {error, cancel_error()}.
 
-cancel({cancel, Pid}, Opts) ->
-    case nksip_uac_fsm:get_cancel(Pid) of
-        {ok, CancelReq} -> send_request(CancelReq, Opts);
-        _ -> {error, no_transaction}
-    end;
-
-cancel(_, _) ->
-    {error, no_transaction}.
+cancel(AppId, ReqId) ->
+    nksip_call:cancel(AppId, ReqId).
 
 
-%% @doc Sends a update on a currently ongoing dialog using reINVITE.
+%% @doc Sends a update on a currently ongoing dialog using INVITE.
 %%
-%% This function sends a in-dialog reINVITE, using the same current
+%% This function sends a in-dialog INVITE, using the same current
 %% parameters of the dialog, only to refresh it. The current local SDP version
 %% will be incremented before sending it.
 %%
@@ -489,14 +474,13 @@ cancel(_, _) ->
 %%  <li>`hold': activate the medias on SDP (sending `a=sendonly')</li>
 %% </ul>
 %%
--spec refresh(nksip_dialog:spec(), nksip_lib:proplist()) ->
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} | 
-    async | {error, dialog_errors()}.
+-spec refresh(nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
+    result() | {error, error()}.
 
-refresh(DialogSpec, Opts) ->
+refresh(AppId, DialogSpec, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
         undefined ->
-            case nksip_dialog:field(local_sdp, DialogSpec) of
+            case nksip_dialog:field(AppId, DialogSpec, local_sdp) of
                 #sdp{} = SDP -> SDP;
                 _ -> <<>>
             end;
@@ -523,7 +507,7 @@ refresh(DialogSpec, Opts) ->
         _ -> Body1
     end,
     Opts2 = nksip_lib:delete(Opts, [body, active, inactive, hold]),
-    reinvite(DialogSpec, [{body, Body2}|Opts2]).
+    invite(AppId, DialogSpec, [{body, Body2}|Opts2]).
 
 
 %% @doc Sends a <i>STUN</i> binding request.
@@ -534,7 +518,7 @@ refresh(DialogSpec, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(nksip:sipapp_id(), nksip:user_uri(), nksip_lib:proplist()) ->
+-spec stun(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
     when LocalIp :: inet:ip4_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip4_address(), RemotePort :: inet:port_number(),
@@ -565,92 +549,21 @@ stun(AppId, UriSpec, _Opts) ->
     end.
 
 
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
 %% @private
--spec send_request(nksip:sipapp_id(), nksip:method(), nksip:user_uri(), 
-                    nksip_lib:proplist()) ->
-    ok | {ok, nksip:request()} | {ok, nksip:response_code()} |
-    {ok, nksip:response_code(), nksip_dialog:id()} | {reply, nksip:response()} |
-    async | {async, cancel_id()} | {error, nodialog_errors()}.
+-spec send(nksip:app_id(), nksip:method(), nksip:user_uri()|dialog_spec(), 
+           nksip_lib:proplist()) ->
+    result() | ack_result() | {error, error()}.
 
-send_request(AppId, Method, Uri, Opts) ->
-    case nksip_uac_lib:make(AppId, Method, Uri, Opts) of
-        {ok, Request} -> send_request(Request, Opts);
-        {error, Error} -> {error, Error}
-    end.
+send(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
+    when Class=:=$R; Class=:=$S; Class=:=$D ->
+    case nksip_dialog:id(AppId, Id) of
+        <<>> -> {error, unknown_dialog};
+        DialogId -> nksip_call:send_dialog(AppId, DialogId, Method, Opts)
+    end;
 
-
-%% @private
--spec send_request(nksip:request(), nksip_lib:proplist()) ->
-    ok | {ok, nksip:request()} | {ok, nksip:response_code()} |
-    {ok, nksip:response_code(), cancel_id()} | {reply, nksip:response()} |
-    async | {async, cancel_id()} | {error, nodialog_errors()}.
-
-send_request(#sipmsg{method=Method, to_tag=ToTag}=Request, Opts) ->
-    case lists:member(async, Opts) of
-        true when Method=:='INVITE', ToTag=:=(<<>>) ->
-            {async, {cancel, nksip_uac_fsm:request(Request)}};
-        true ->
-            nksip_uac_fsm:request(Request),
-            async;
-        false ->
-            Ref = make_ref(),
-            Pid = self(),
-            UserFun = nksip_lib:get_value(respfun, Opts),
-            Fun = fun(Reply) ->
-                case Reply of
-                    {ok, Code} -> ok;
-                    {ok, Code, _DialogId} -> ok;
-                    {reply, #sipmsg{response=Code}} -> ok;
-                    {request, _} -> Code = 0;
-                    _ -> Code = 999
-                end,
-                case Code < 200 of
-                    true when is_function(UserFun, 1) -> UserFun(Reply);
-                    true -> ok;
-                    false -> Pid ! {Ref, Reply}
-                end
-            end,
-            Opts1 = [{respfun, Fun}|Request#sipmsg.opts],
-            nksip_uac_fsm:request(Request#sipmsg{opts=Opts1}),
-            case nksip_lib:get_integer(timeout, Opts) of
-                Timeout when is_integer(Timeout), Timeout > 0 -> ok;
-                _ -> Timeout = ?UAC_DEFAULT_TIMEOUT
-            end,
-            receive
-                {Ref, Reply} -> Reply
-            after Timeout ->
-                case Method of
-                    'ACK' ->
-                        {error, network_error};
-                    _ ->
-                        case lists:member(full_response, Opts) of
-                            true ->  
-                                {reply, nksip_reply:reply(Request, 408)};
-                            false when Method=:='INVITE' ->
-
-                                {ok, 408, <<>>};
-                            false -> 
-                                {ok, 408}
-                        end
-                end
-            end
-    end.
+send(AppId, Method, Uri, Opts) ->
+    nksip_call:send(AppId, Method, Uri, Opts).
 
 
-%% @private
--spec send_dialog(nksip_dialog:spec(), nksip:method(), nksip_lib:proplist()) ->
-    ok | {ok, nksip:request()} | {ok, nksip:response_code()} |
-    {ok, nksip:response_code(), cancel_id()} | {reply, nksip:response()} |
-    async | {error, dialog_errors()}.
 
-send_dialog(DialogSpec, Method, Opts) ->
-    case nksip_dialog_uac:make(DialogSpec, Method, Opts) of
-        {ok, {AppId, RUri, Opts1}} ->
-            send_request(AppId, Method, RUri, Opts1);  
-        {error, Error} -> 
-            {error, Error}
-    end.
+

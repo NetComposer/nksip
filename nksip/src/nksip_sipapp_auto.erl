@@ -42,7 +42,7 @@
 %% `PingId' indentifies this request to stop it later.
 %% Use {@link get_pings/1} to know about ping status, or the callback function
 %% {@link nksip_sipapp:register_update/3}.
--spec start_ping(nksip:sipapp_id(), term(), nksip:user_uri(), pos_integer(),
+-spec start_ping(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
                     nksip_lib:proplist()) -> 
     {ok, boolean()} | {error, invalid_uri}.
 
@@ -58,7 +58,7 @@ start_ping(AppId, PingId, Uri, Time, Opts)
 
 
 %% @doc Stops a previously started ping request.
--spec stop_ping(nksip:sipapp_id(), term()) -> 
+-spec stop_ping(nksip:app_id(), term()) -> 
     ok | not_found.
 
 stop_ping(AppId, PingId) ->
@@ -67,7 +67,7 @@ stop_ping(AppId, PingId) ->
 
 %% @doc Get current ping status, including if last ping was successful and time 
 %% remaining to next one.
--spec get_pings(nksip:sipapp_id()) -> 
+-spec get_pings(nksip:app_id()) -> 
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_pings(AppId) ->
@@ -79,7 +79,7 @@ get_pings(AppId) ->
 %% `RegId' indentifies this request to stop it later.
 %% Use {@link get_regs/1} to know about registration status, or the 
 %% callback function {@link nksip_sipapp:ping_update/3}.
--spec start_register(nksip:sipapp_id(), term(), nksip:user_uri(), pos_integer(),
+-spec start_register(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
                         nksip_lib:proplist()) -> 
     {ok, boolean()} | {error, invalid_uri}.
 
@@ -95,7 +95,7 @@ start_register(AppId, RegId, Uri, Time, Opts)
 
 
 %% @doc Stops a previously started registration series.
--spec stop_register(nksip:sipapp_id(), term()) -> 
+-spec stop_register(nksip:app_id(), term()) -> 
     ok | not_found.
 
 stop_register(AppId, RegId) ->
@@ -104,7 +104,7 @@ stop_register(AppId, RegId) ->
 
 %% @doc Get current registration status, including if last registration was successful 
 %% and time remaining to next one.
--spec get_registers(nksip:sipapp_id()) -> 
+-spec get_registers(nksip:app_id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(AppId) ->
@@ -131,14 +131,15 @@ get_registers(AppId) ->
 
 
 -record(state, {
-    sipapp_id :: nksip:sipapp_id(),
+    app_id :: nksip:app_id(),
+    module :: atom(),
     pings :: [#sipreg{}],
     regs :: [#sipreg{}]
 }).
 
 
-%% @private
-init(AppId, _Module, _Args, Opts) ->
+% @private 
+init(AppId, Module, _Args, Opts) ->
     case nksip_lib:get_value(register, Opts) of
         undefined ->
             ok;
@@ -149,7 +150,7 @@ init(AppId, _Module, _Args, Opts) ->
                     start_register(AppId, <<"auto">>, Reg, RegTime, Opts) 
                 end)
     end,
-    #state{sipapp_id=AppId, pings=[], regs=[]}.
+    #state{app_id=AppId, module=Module, pings=[], regs=[]}.
 
 
 %% @private
@@ -229,12 +230,15 @@ handle_call(_, _From, _State) ->
 
 %% @private
 handle_cast({'$nksip_ping_update', PingId, OK, CSeq}, 
-            #state{sipapp_id=AppId, pings=Pings}=State) -> 
+            #state{app_id=AppId, module=Module, pings=Pings}=State) -> 
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OK0, interval=Interval, from=From}=Ping0, Pings1} ->
             case OK of
-                OK0 -> ok;
-                _ -> nksip_sipapp_srv:sipapp_cast(AppId, ping_update, [PingId, OK])
+                OK0 -> 
+                    ok;
+                _ -> 
+                    Args = [PingId, OK],
+                    nksip_sipapp_srv:sipapp_cast(AppId, Module, ping_update, Args, Args)
             end,
             case From of
                 undefined -> ok;
@@ -245,11 +249,11 @@ handle_cast({'$nksip_ping_update', PingId, OK, CSeq},
                     State#state{pings=Pings1};
                 _ -> 
                     Ping1 = Ping0#sipreg{
-                                        ok = OK, 
-                                        cseq = CSeq, 
-                                        checking = false, 
-                                        from = undefined
-                                    },
+                        ok = OK, 
+                        cseq = CSeq, 
+                        checking = false, 
+                        from = undefined
+                    },
                     State#state{pings=[Ping1|Pings1]}
             end;
         false ->
@@ -257,12 +261,15 @@ handle_cast({'$nksip_ping_update', PingId, OK, CSeq},
     end;
 
 handle_cast({'$nksip_register_update', RegId, OK, CSeq}, 
-            #state{sipapp_id=AppId, regs=Regs}=State) -> 
+            #state{app_id=AppId, module=Module, regs=Regs}=State) -> 
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OK0, interval=Interval, from=From}=Reg0, Regs1} ->
             case OK of
-                OK0 -> ok;
-                _ -> nksip_sipapp_srv:sipapp_cast(AppId, register_update, [RegId, OK])
+                OK0 -> 
+                    ok;
+                _ -> 
+                    Args = [RegId, OK],
+                    nksip_sipapp_srv:sipapp_cast(AppId, Module, register_update, Args, Args)
             end,
             case From of
                 undefined -> ok;
@@ -273,11 +280,11 @@ handle_cast({'$nksip_register_update', RegId, OK, CSeq},
                     State#state{regs=Regs1};
                 _ ->
                     Reg1 = Reg0#sipreg{
-                                ok = OK, 
-                                cseq = CSeq, 
-                                checking = false,
-                                from = undefined
-                            },
+                        ok = OK, 
+                        cseq = CSeq, 
+                        checking = false,
+                        from = undefined
+                    },
                     State#state{regs=[Reg1|Regs1]}
             end;
         false ->
@@ -327,7 +334,7 @@ terminate(_Reason, #state{regs=Regs}=State) ->
 
 
 %% @private
--spec call(nksip:sipapp_id(), term()) ->
+-spec call(nksip:app_id(), term()) ->
     term().
 
 call(AppId, Msg) ->
@@ -338,13 +345,13 @@ call(AppId, Msg) ->
 -spec do_ping(pid(), #sipreg{}, #state{}) -> 
     ok.
 
-do_ping(Pid, SipReg, #state{sipapp_id=AppId}) ->
+do_ping(Pid, SipReg, #state{app_id=AppId}) ->
     #sipreg{id=PingId, ruri=RUri, opts=Opts, cseq=CSeq, call_id=CallId} = SipReg,
-    Opts1 = [{call_id, CallId}, {cseq, CSeq}, full_response | Opts],
+    Opts1 = [{call_id, CallId}, {cseq, CSeq}, get_response | Opts],
     {OK, CSeq1} = case nksip_uac:options(AppId, RUri, Opts1) of
-        {reply, #sipmsg{response=Code, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
+        {resp, #sipmsg{response=Code, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
             {true, OK_CSeq+1};
-        {reply, #sipmsg{cseq=Err_CSeq}} -> 
+        {resp, #sipmsg{cseq=Err_CSeq}} -> 
             {false, Err_CSeq+1};
         {error, _Error} -> 
             {false, CSeq+1}
@@ -357,18 +364,17 @@ do_ping(Pid, SipReg, #state{sipapp_id=AppId}) ->
 -spec do_register(pid(), #sipreg{}, #state{}) -> 
     ok.
 
-do_register(Pid, SipReg, #state{sipapp_id=AppId})->
+do_register(Pid, SipReg, #state{app_id=AppId})->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, interval=Interval, cseq=CSeq, 
             call_id=CallId} = SipReg,
     Opts1 = [make_contact, {call_id, CallId}, {cseq, CSeq}, 
-                {expires, Interval}, full_response | Opts],
+                {expires, Interval}, get_response | Opts],
     {OK, CSeq1} = case nksip_uac:register(AppId, RUri, Opts1) of
-        {reply, #sipmsg{response=Code, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
+        {resp, #sipmsg{response=Code, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
             {true, OK_CSeq+1};
-        {reply, #sipmsg{cseq=Err_CSeq, response=_Code}}-> 
+        {resp, #sipmsg{cseq=Err_CSeq, response=_Code}}-> 
             {false, Err_CSeq+1};
         {error, _Error} -> 
             {false, CSeq+1}
     end,
     gen_server:cast(Pid, {'$nksip_register_update', RegId, OK, CSeq1}).
-

@@ -33,45 +33,78 @@
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 -define(ALLOW_DIALOG, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 
--define(MSG_QUEUES, 8).
+-define(MSG_ROUTERS, 8).
+-define(SRV_TIMEOUT, 45000).
+
 
 -define(debug(AppId, Txt, Opts), 
-        lager:debug([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        % ok).
+        lager:debug([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(debug(AppId, CallId, Txt, Opts), 
+        % ok).
         nksip_trace:insert(AppId, CallId, {debug, Txt, Opts}),
-        lager:debug([{core, AppId}, {call_id, CallId}],
-                     "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+        lager:debug([{app_id, AppId}, {call_id, CallId}],
+                     "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(info(AppId, Txt, Opts), 
-        lager:info([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:info([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(info(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {info, Txt, Opts}),
-        lager:info([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+        lager:info([{app_id, AppId}, {call_id, CallId}],
+         "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(notice(AppId, Txt, Opts), 
-        lager:notice([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:notice([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(notice(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {notice, Txt, Opts}),
-        lager:notice([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+        lager:notice([{app_id, AppId}, {call_id, CallId}],
+         "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(warning(AppId, Txt, Opts), 
-        lager:warning([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:warning([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(warning(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {warning, Txt, Opts}),
-        lager:warning([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+        lager:warning([{app_id, AppId}, {call_id, CallId}],
+         "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 -define(error(AppId, Txt, Opts), 
-        lager:error([{core, AppId}], "Core ~p "++Txt, [AppId|Opts])).
+        lager:error([{app_id, AppId}], "~p "++Txt, [AppId|Opts])).
 -define(error(AppId, CallId, Txt, Opts), 
         nksip_trace:insert(AppId, CallId, {error, Txt, Opts}),
-        lager:error([{core, AppId}, {call_id, CallId}],
-         "Core ~p (~s) "++Txt, [AppId, CallId|Opts])).
+        lager:error([{app_id, AppId}, {call_id, CallId}],
+         "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 
 -include_lib("ssl/src/ssl_internal.hrl"). 
+
+
+%% ===================================================================
+%% Types
+%% ===================================================================
+
+-type gen_server_time() :: 
+        non_neg_integer() | hibernate.
+
+-type gen_server_init(State) ::
+        {ok, State} | {ok, State, gen_server_time()} | ignore.
+
+-type gen_server_cast(State) :: 
+        {noreply, State} | {noreply, State, gen_server_time()} |
+        {stop, term(), State}.
+
+-type gen_server_info(State) :: 
+        gen_server_cast(State).
+
+-type gen_server_call(State) :: 
+        {reply, term(), State} | {reply, term(), State, gen_server_time()} |
+        {stop, term(), term(), State} | gen_server_cast(State).
+
+-type gen_server_code_change(State) ::
+        {ok, State}.
+
+-type gen_server_terminate() ::
+        ok.
+
 
 
 %% ===================================================================
@@ -93,8 +126,9 @@
 }).
 
 -record(sipmsg, {
-    class :: request | response,
-    sipapp_id :: nksip:sipapp_id(),
+    id :: nksip_request:id() | nksip_response:id(),
+    class :: req | resp,
+    app_id :: nksip:app_id(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
     vias :: [nksip:via()],
@@ -112,12 +146,17 @@
     response :: nksip:response_code(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
-    auth = [] :: [dialog|register|{digest, Real::binary(), ok|fail}],
-    pid :: pid(),
+    expire :: nksip_lib:timestamp(),
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
-    opts = [] :: nksip_lib:proplist()
+    data = [] :: nksip_lib:proplist()
 }).
+
+%% Data:
+%% - {reason, binary()}
+%% - {to_tag, binary()}
+
+
 
 -record(reqreply, {
     code = 200 :: nksip:response_code(),
@@ -148,15 +187,14 @@
 
 -record(dialog, {
     id :: nksip_dialog:id(),
-    sipapp_id :: nksip:sipapp_id(),
+    app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),
     updated :: nksip_lib:timestamp(),
     answered :: nksip_lib:timestamp(),
-    state :: init | nksip_dialog:state(),
-    expires :: nksip_lib:timestamp(),
-    local_seq :: nksip:cseq(),
-    remote_seq :: nksip:cseq(),
+    status :: nksip_dialog:status(),
+    local_seq :: 0 | nksip:cseq(),
+    remote_seq :: 0 | nksip:cseq(),
     local_uri :: nksip:uri(),
     remote_uri :: nksip:uri(),
     local_target :: nksip:uri(),        % Only for use in proxy
@@ -164,10 +202,17 @@
     route_set :: [nksip:uri()],
     early :: boolean(),
     secure :: boolean(),
+    caller_tag :: nksip:tag(),
     local_sdp :: nksip_sdp:sdp(),
     remote_sdp :: nksip_sdp:sdp(),
-    stop_reason :: none | nksip_dialog:stop_reason(),
-    opts :: nksip_lib:proplist()            
+    media_started :: boolean(),
+    stop_reason :: nksip_dialog:stop_reason(),
+    request :: nksip:request(),
+    response :: nksip:response(),
+    ack :: nksip:request(),
+    timeout_timer :: reference(),
+    retrans_timer :: reference(),
+    next_retrans :: integer()
 }).
 
 

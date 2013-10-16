@@ -36,7 +36,7 @@
 -behaviour(nksip_sipapp).
 
 -export([start/0, stop/0, check_speed/1, get_speed/0]).
--export([init/1, get_user_pass/4, authorize/4, route/6]). 
+-export([init/1, get_user_pass/3, authorize/4, route/6]). 
 -export([dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -87,9 +87,9 @@ init([]) ->
 %% @doc SipApp Callback: Called to check user's password.
 %% If the incoming user's realm is one of our domains, the password for any 
 %% user is "1234". For other realms, no password is valid.
-get_user_pass(_User, <<"nksip">>, _From, State) -> 
+get_user_pass(_User, <<"nksip">>, State) -> 
     {reply, <<"1234">>, State};
-get_user_pass(_User, _Realm, _From, State) -> 
+get_user_pass(_User, _Realm, State) -> 
     {reply, false, State}.
 
 
@@ -108,7 +108,8 @@ get_user_pass(_User, _Realm, _From, State) ->
 %%          a challenge to the user.</li>
 %% </ul>
 authorize(Auth, ReqId, _From, State) ->
-    lager:notice("Request ~p auth data: ~p", [nksip_request:method(ReqId), Auth]),
+    Method = nksip_request:method(pbx, ReqId),
+    lager:notice("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
             {reply, true, State};
@@ -168,7 +169,7 @@ route(_Scheme, <<>>, Domain, ReqId, _From, State) ->
         true ->
             process;
         false ->
-            case nksip_request:is_local_route(ReqId) of
+            case nksip_request:is_local_route(pbx, ReqId) of
                 true -> process;
                 false -> proxy
             end
@@ -248,7 +249,7 @@ test_speed([], Acc) ->
     Acc;
 test_speed([Uri|Rest], Acc) ->
     case timer:tc(fun() -> nksip_uac:options(pbx, Uri, []) end) of
-        {Time, {ok, 200}} -> 
+        {Time, {ok, 200, _, _}} -> 
             test_speed(Rest, [{Time/1000, Uri}|Acc]);
         {_, _} -> 
             test_speed(Rest, Acc)
@@ -258,19 +259,19 @@ test_speed([Uri|Rest], Acc) ->
 %% @doc Gets all registered contacts
 find_all() ->
     All = [
-        [Uri || {Uri, _Time, _Q} <- List] 
+        [Uri || {_AppId, Uri, _Time, _Q} <- List] 
         || {_, List} <- nksip_registrar:get_all()
     ],
     lists:flatten(All).
 
 
 %% @doc Gets all registered contacts, excluding the one in `Request'
-find_all_except_me(Request) ->
-    [From] = nksip_request:headers(<<"From">>, Request),
+find_all_except_me(ReqId) ->
+    [From] = nksip_request:header(pbx, ReqId, <<"From">>),
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [
-        [Uri || {Uri, _Time, _Q} <- List] 
+        [Uri || {_AppId, Uri, _Time, _Q} <- List] 
         || {R_AOR, List} <- nksip_registrar:get_all(), R_AOR =/= AOR
     ],
     lists:flatten(All).

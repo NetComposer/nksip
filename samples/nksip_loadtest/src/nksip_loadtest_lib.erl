@@ -34,7 +34,7 @@
 
 %% @doc Start a test server SipApp called `server' listening on port `5060'.
 start_server() ->
-    start_server(server, 5060).
+    start_server(loadtest, 5060).
 
 
 %% @doc Start a test server SipApp called `Name' listening on port `Port' for 
@@ -46,7 +46,7 @@ start_server(Name, Port) ->
         {transport, {tls, {0,0,0,0}, Port+1}},
         no_100
     ],
-    case nksip:start(Name, nksip_loadtest_sipapp, [], CoreOpts) of
+    case nksip:start(Name, nksip_loadtest_sipapp, [Name], CoreOpts) of
         ok -> ok;
         {error, already_started} -> ok
     end.
@@ -54,7 +54,7 @@ start_server(Name, Port) ->
 
 %% @doc Stops SipApp called `server'.
 stop_server() ->
-    stop_server(server).
+    stop_server(loadtest).
 
 
 %% @doc Stops SipApp called `Name'.
@@ -155,7 +155,7 @@ launch(Opts) ->
         false ->
             case lists:member(register, Opts) of
                 true -> 
-                    nksip_registrar:clear(server),
+                    nksip_registrar:clear(loadtest),
                     register;
                 _ -> 
                     options
@@ -212,8 +212,8 @@ launch(Opts) ->
                 true -> ok;
                 false -> ok = start_clients(Processes)
             end,
-            RUri = lists:flatten(io_lib:fwrite("<sip:~s@~s:~p;transport=~s>",
-                                               [State, Host, Port, Transport])),
+            RUri = "<sip:"++State++"@"++Host++":"++integer_to_list(Port)++";transport="++
+                    atom_to_list(Transport) ++ ">",
             Fun = fun(Pos) -> 
                 ok = iter_full(MsgType, Pos, RUri, Pid, CallId, PerProcess) 
             end,
@@ -240,7 +240,7 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [], []) of
+    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [{client, Pos}], []) of
         ok -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
         _ -> error
@@ -275,21 +275,21 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
         case MsgType of
             options -> 
                 case nksip_uac:options({client, Pos}, RUri, Opts) of
-                    {ok, 200} -> ok;
+                    {ok, 200, []} -> ok;
                     Other -> throw({invalid_options_response, Other})
                 end;
             register ->
                 case nksip_uac:register({client, Pos}, RUri, [make_contact|Opts]) of
-                    {ok, 200} -> ok;
+                    {ok, 200, []} -> ok;
                     Other -> throw({invalid_register_response, Other})
                 end;
             invite ->
                 case nksip_uac:invite({client, Pos}, RUri, Opts) of
-                    {ok, 200, D} -> 
-                        case nksip_uac:ack(D, []) of
+                    {ok, 200, [{dialog_id, D}]} -> 
+                        case nksip_uac:ack({client, Pos}, D, []) of
                             ok -> 
-                                case nksip_uac:bye(D, []) of
-                                    {ok, 200} -> ok;
+                                case nksip_uac:bye({client, Pos}, D, []) of
+                                    {ok, 200, []} -> ok;
                                     Other3 -> throw({invalid_bye_response, Other3}) 
                                 end;
                             Other2 ->

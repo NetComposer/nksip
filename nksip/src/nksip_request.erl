@@ -18,14 +18,14 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc User Request management functions.
+%% @doc User Request Management Functions.
 
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, headers/2, body/1, method/1]).
--export([is_local_route/1, provisional_reply/2]).
--export([reply/2, get_sipmsg/1]).
+-export([field/3, fields/3, header/3]).
+-export([body/2, method/2, call_id/1, get_request/2]).
+-export([is_local_route/1, is_local_route/2, reply/3, reply/2]).
 -export_type([id/0, field/0]).
 
 -include("nksip.hrl").
@@ -36,13 +36,16 @@
 %% Types
 %% ===================================================================
 
--type id() :: {req, pid()}.
+-type id() :: binary().
 
--type field() :: local | remote | method | ruri | parsed_ruri | aor | call_id | vias | 
-                  parsed_vias | from | parsed_from | to | parsed_to | cseq | parsed_cseq |
-                  cseq_num | cseq_method | forwards | routes | parsed_routes | 
-                  contacts | parsed_contacts | content_type | parsed_content_type | 
-                  headers | body | dialog_id | sipapp_id.
+-type field() ::  app_id | method | call_id | vias | parsed_vias | 
+                  ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
+                  from | from_scheme | from_user | from_domain | parsed_from | 
+                  to | to_scheme | to_user | to_domain | parsed_to | 
+                  cseq | parsed_cseq | cseq_num | cseq_method | forwards |
+                  routes | parsed_routes | contacts | parsed_contacts | 
+                  content_type | parsed_content_type | 
+                  headers | body | dialog_id | local | remote.
 
 
 
@@ -56,9 +59,9 @@
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
-%%          <td>`sipapp_id'</td>
-%%          <td>{@link nksip:sipapp_id()}</td>
-%%          <td>SipApp's Id</td>
+%%          <td>`app_id'</td>
+%%          <td>{@link nksip:app_id()}</td>
+%%          <td>SipApp this request belongs to</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`method'</td>
@@ -69,6 +72,21 @@
 %%          <td>`ruri'</td>
 %%          <td>`binary()'</td>
 %%          <td>Request-Uri</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`ruri_scheme'</td>
+%%          <td>`nksip:scheme()'</td>
+%%          <td>Request-Uri Scheme</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`ruri_user'</td>
+%%          <td>`binary()'</td>
+%%          <td>Request-Uri User</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`ruri_domain'</td>
+%%          <td>`binary()'</td>
+%%          <td>Request-Uri Domain</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`parsed_ruri'</td>
@@ -101,6 +119,21 @@
 %%          <td>From Header</td>
 %%      </tr>
 %%      <tr>
+%%          <td>`from_scheme'</td>
+%%          <td>`nksip:scheme()'</td>
+%%          <td>From Scheme</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`from_user'</td>
+%%          <td>`binary()'</td>
+%%          <td>From User</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`from_domain'</td>
+%%          <td>`binary()'</td>
+%%          <td>From Domain</td>
+%%      </tr>
+%%      <tr>
 %%          <td>`parsed_from'</td>
 %%          <td>{@link nksip:uri()}</td>
 %%          <td>From Header</td>
@@ -109,6 +142,21 @@
 %%          <td>`to'</td>
 %%          <td>`binary()'</td>
 %%          <td>To Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`to_scheme'</td>
+%%          <td>`nksip:scheme()'</td>
+%%          <td>To Scheme</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`to_user'</td>
+%%          <td>`binary()'</td>
+%%          <td>To User</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`to_domain'</td>
+%%          <td>`binary()'</td>
+%%          <td>To Domain</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`parsed_to'</td>
@@ -188,108 +236,110 @@
 %%          <td>Remote transport protocol, ip and port of a request</td>
 %%      </tr>
 %% </table>
--spec field(field(), Input::id()|nksip:request()) -> any().
+-spec field(nksip:app_id(), id(), field()) ->
+    term() | error.
 
-field(Field, Request) -> 
-    case fields([Field], Request) of
-        [Value|_] -> Value;
-        Error -> Error
+field(AppId, ReqId, Field) -> 
+    case fields(AppId, ReqId, [Field]) of
+        [{Field, Value}] -> Value;
+        error -> error
+    end.
+
+%% @doc Gets some fields from a request.
+-spec fields(nksip:app_id(), id(), [field()]) ->
+    [{atom(), term()}] | error.
+
+fields(AppId, <<"R_", _/binary>>=ReqId, Fields) -> 
+    Fun = fun(Req) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Req, Fields))} end,
+    case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
     end.
 
 
-%% @doc Gets a number of fields from the `Request' as described in {@link field/2}.
--spec fields([field()], Input::id()|nksip:request()) -> [any()].
+%% @doc Gets values for a header in a request.
+-spec header(nksip:app_id(), id(), binary()) ->
+    [binary()] | error.
 
-fields(Fields, #sipmsg{}=Request) ->
-    nksip_sipmsg:fields(Fields, Request);
-
-fields(Fields, Request) ->
-    call(Request, {get_fields, Fields}).
-
-
-%% @doc Gets all `Name' headers from the request.
--spec headers(string()|binary(), Input::id()|nksip:request()) -> [binary()].
-
-headers(Name, #sipmsg{}=Request) ->
-    nksip_sipmsg:headers(Name, Request);
-
-headers(Name, Request) ->
-    call(Request, {get_headers, Name}).
+header(AppId, <<"R_", _/binary>>=ReqId, Name) -> 
+    Fun = fun(Req) -> {ok, nksip_sipmsg:header(Req, Name)} end,
+    case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
-%% @doc Gets the <i>method</i> of a `Request'.
--spec method(id()|nksip:request()) -> nksip:method().
+%% @doc Gets the <i>method</i> of a request.
+-spec method(nksip:app_id(), id()) ->
+    nksip:method() | error.
 
-method(Request) -> 
-    field(method, Request).
-
-
-%% @doc Gets the <i>body</i> of a `Request'.
--spec body(id()|nksip:request()) -> nksip:body().
-
-body(Request) -> 
-    field(body, Request).
+method(AppId, ReqId) -> 
+    field(AppId, ReqId, method).
 
 
+%% @doc Gets the <i>body</i> of a request.
+-spec body(nksip:app_id(), id()) ->
+    nksip:body() | error.
 
-%% @doc Sends a <i>provisional response</i> to a request.
--spec provisional_reply(id(), nksip:sipreply()) -> 
+body(AppId, ReqId) -> 
+    field(AppId, ReqId, body).
+
+
+%% @private
+-spec get_request(nksip:app_id(), id()) ->
+    nksip:request() | error.
+
+get_request(AppId, <<"R_", _/binary>>=ReqId) ->
+    Fun = fun(Req) -> {ok, Req} end,
+    case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
+        {ok, SipMsg} -> SipMsg;
+        _ -> error
+    end.
+
+
+%% @doc Gets the calls's id of a request id
+-spec call_id(id()) ->
+    nksip:call_id().
+
+call_id(<<"R_", Bin/binary>>) ->
+    nksip_lib:bin_last($_, Bin).
+
+   
+%% @doc Sends a reply to a request.
+-spec reply(nksip:app_id(), id(), nksip:sipreply()) -> 
     ok | {error, Error}
-    when Error :: unknown_request | invalid_response | network_error | invalid_request.
+    when Error :: invalid_call | unknown_call | unknown_sipapp.
 
-provisional_reply(Request, SipReply) ->
-    case nksip_reply:reqreply(SipReply) of
-        #reqreply{code=Code} = Response when Code > 100, Code < 200 ->
-            reply(Request, Response);
-        _ ->
-            {error, invalid_response}
-    end.
+reply(AppId, <<"R_", _/binary>>=ReqId, SipReply) ->
+    nksip_call:send_reply(AppId, ReqId, SipReply).
 
 
-%% @private Gets the full #sipmsg{} record.
--spec get_sipmsg(id()) -> nksip:request().
-
-get_sipmsg(Request) -> 
-    call(Request, get_sipmsg).
+%% @doc See {@link reply/3}.
+reply(#sipmsg{class=req, app_id=AppId, id=ReqId}, SipReply) ->
+    reply(AppId, ReqId, SipReply).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
 %% It will return `true' if the first <i>Route</i> header points to a local address
 %% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
--spec is_local_route(id()|nksip:request()) -> boolean().
+-spec is_local_route(nksip:app_id(), id()) -> 
+    boolean().
 
-is_local_route(Request) ->
-    case fields([sipapp_id, parsed_ruri, parsed_routes], Request) of
-        [AppId, RUri, []] -> nksip_transport:is_local(AppId, RUri);
-        [AppId, _, [Route|_]] -> nksip_transport:is_local(AppId, Route);
-        Error -> Error
+is_local_route(AppId, <<"R_", _/binary>>=ReqId) ->
+    case fields(AppId, ReqId, [parsed_ruri, parsed_routes]) of
+        [{_, RUri}, {_, []}] -> nksip_transport:is_local(AppId, RUri);
+        [{_, _RUri}, {_, [Route|_]}] -> nksip_transport:is_local(AppId, Route);
+        error -> false
     end.
 
 
+%% @doc See {@link is_local_route/2}.
+-spec is_local_route(nksip:request()) -> 
+    boolean().
 
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
-%% @private
--spec reply(id(), nksip:sipreply()|#reqreply{}) -> 
-    {ok, nksip:response()} | {error, Error}
-    when Error :: unknown_request | network_error | invalid_request.
-
-reply({req, Pid}, SipReply) ->
-    nksip_uas_fsm:reply(Pid, SipReply);
-reply(_, _) ->
-    {error, unknown_request}.
-
-
-%% @private
--spec call(id(), term()) -> any().
-
-call({req, Pid}, Msg) when is_pid(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, Msg, 5000).
-
-
-
-
+is_local_route(#sipmsg{class=req, app_id=AppId, ruri=RUri, routes=Routes}) ->
+    case Routes of
+        [] -> nksip_transport:is_local(AppId, RUri);
+        [Route|_] -> nksip_transport:is_local(AppId, Route)
+    end.
 

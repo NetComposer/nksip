@@ -1,16 +1,15 @@
+-pa deps/goldrush/ebin 
 -pa deps/lager/ebin 
 -pa deps/ranch/ebin 
 -pa nksip/ebin
 -pa samples/nksip_tutorial/ebin
 
 ## Name of the node
--name nksip@127.0.0.1
+-name nksip_tutorial@127.0.0.1
 -setcookie nksip
 
-## Enable kernel poll and a few async threads
+## More processes
 +P 1000000
-#+K true
-#+A 64
 
 ## Treat error_logger warnings as warnings
 +W w
