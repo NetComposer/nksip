@@ -59,10 +59,10 @@ launch() ->
         nksip_uac:register(client1, "sip:127.0.0.1", 
                            [{pass, "1234"}, make_contact, {fields, [<<"Contact">>]}]),
     {ok, 400, []} = 
-        nksip_uac:register(client2, "sip:127.0.0.1", [{pass, "1234"}, make_contact]).
+        nksip_uac:register(client2, "sip:127.0.0.1", [{pass, "1234"}, make_contact]),
 
     {ok, 200, []} = 
-        nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, make_contact]).
+        nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, make_contact]),
 
     {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", []),
     {ok, 200, []} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", []),
