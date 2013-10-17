@@ -46,8 +46,8 @@ Documentation
 Full documentation is available [here](http://kalta.github.io/nksip).
 
 There are currently **three sample applications** included with NkSIP:
- * [Simple PBX](http://kalta.github.io/nksip/docs/v0.1.0/nksip_pbx/index.html): Registrar server and forking proxy with endpoints monitoring.
- * [LoadTest](http://kalta.github.io/nksip/docs/v0.1.0/nksip_loadtest/index.html): Heavy-load NkSIP testing. 
+ * [Simple PBX](http://kalta.github.io/nksip/docs/v0.2.0/nksip_pbx/index.html): Registrar server and forking proxy with endpoints monitoring.
+ * [LoadTest](http://kalta.github.io/nksip/docs/v0.2.0/nksip_loadtest/index.html): Heavy-load NkSIP testing. 
  * [Tutorial](docs/TUTORIAL.md): Code base for the included tutorial.
 
 
