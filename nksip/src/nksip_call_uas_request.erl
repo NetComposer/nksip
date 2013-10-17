@@ -362,7 +362,7 @@ do_route({process, Opts}, #trans{request=Req, method=Method}=UAS, Call) ->
 % We want to proxy the request
 do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
     #trans{id=Id, opts=Opts, method=Method} = UAS,
-    case nksip_call_proxy:check(UAS, UriList, ProxyOpts, Call) of
+    case nksip_call_proxy:route(UAS, UriList, ProxyOpts, Call) of
         stateless_proxy ->
             UAS1 = UAS#trans{status=finished},
             update(UAS1, Call);

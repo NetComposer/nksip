@@ -22,7 +22,7 @@
 -module(nksip_call_proxy).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([check/4, response_stateless/2]).
+-export([route/4, response_stateless/2]).
 -export([normalize_uriset/1]).
 
 -include("nksip.hrl").
@@ -40,23 +40,23 @@
 %% ===================================================================
 
 %% @doc Tries to route a request to set of uris, serially and/or in parallel.
--spec check(nksip_call:trans(), nksip:uri_set(), [opt()], nksip_call:call()) -> 
-    {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
-    {reply, nksip:sipreply()}.
-
-check(UAS, UriList, ProxyOpts, Call) ->
-    case normalize_uriset(UriList) of
-        [[]] -> {reply, temporarily_unavailable};
-        UriSet -> route(UAS, UriSet, ProxyOpts, Call)
-    end.
-
-
-%% @private
 -spec route(nksip_call:trans(), nksip:uri_set(), [opt()], nksip_call:call()) -> 
     {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
     {reply, nksip:sipreply()}.
 
-route(#trans{method='ACK'}=UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
+route(UAS, UriList, ProxyOpts, Call) ->
+    case normalize_uriset(UriList) of
+        [[]] -> {reply, temporarily_unavailable};
+        UriSet -> try_route(UAS, UriSet, ProxyOpts, Call)
+    end.
+
+
+%% @private
+-spec try_route(nksip_call:trans(), nksip:uri_set(), [opt()], nksip_call:call()) -> 
+    {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
+    {reply, nksip:sipreply()}.
+
+try_route(#trans{method='ACK'}=UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
     Stateless = lists:member(stateless, ProxyOpts),
     case check_forwards(UAS) of
         ok when Stateless -> route_stateless(UAS, First, ProxyOpts, Call);
@@ -64,7 +64,7 @@ route(#trans{method='ACK'}=UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
         {reply, Reply} -> {reply, Reply}
     end;
 
-route(UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
+try_route(UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
     #trans{request=Req} = UAS,
     Stateless = lists:member(stateless, ProxyOpts),
     case check_forwards(UAS) of
