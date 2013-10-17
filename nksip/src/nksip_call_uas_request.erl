@@ -244,11 +244,11 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
     nksip_call:call().
 
 authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
-    #trans{id=Id, method=Method, request=Req} = UAS,
+    #trans{id=Id, method=Method, request=_Req} = UAS,
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply], Call),
     case Reply of
-        ok -> route_launch(UAS, nksip_call_lib:update_auth(Req, Call));
-        true -> route_launch(UAS, nksip_call_lib:update_auth(Req, Call));
+        ok -> route_launch(UAS, Call);
+        true -> route_launch(UAS, Call);
         false -> reply(forbidden, UAS, Call);
         authenticate -> reply(authenticate, UAS, Call);
         {authenticate, Realm} -> reply({authenticate, Realm}, UAS, Call);

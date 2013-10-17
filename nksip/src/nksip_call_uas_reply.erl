@@ -95,7 +95,7 @@ send_reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts},
     #sipmsg{response=Code1} = Resp1,
     % We could have selected a different proto/ip/port form request
     Call1 = case Code1>=200 andalso Code<300 of
-        true -> nksip_call_lib:update_auth(Resp1, Call);
+        true -> nksip_call_lib:update_auth(Req, Resp1, Call);
         false -> Call
     end,
     Call2 = case lists:member(no_dialog, Opts) of

@@ -57,9 +57,8 @@ send('ACK', UAC, Call) ->
                 true -> Call1;
                 false -> nksip_call_uac_dialog:ack(SentReq, Call1)
             end,
-            Call3 = nksip_call_lib:update_auth(SentReq, Call2),
             UAC1 = UAC#trans{status=finished, request=SentReq},
-            update(UAC1, Call3);
+            update(UAC1, Call2);
         error ->
             ?call_debug("UAC ~p error sending 'ACK' request", [Id], Call),
             Call1 = nksip_call_uac_reply:reply({error, network_error}, UAC, Call),
@@ -85,10 +84,9 @@ send(_, UAC, Call) ->
                     ?call_debug("UAC ~p sent ~p request", [Id, Method], Call),
                     Call2 = nksip_call_uac_reply:reply({req, SentReq}, UAC, Call1),
                     #sipmsg{transport=#transport{proto=Proto}} = SentReq,
-                    Call3 = nksip_call_lib:update_auth(SentReq, Call2),
                     UAC1 = UAC#trans{request=SentReq, proto=Proto},
-                    UAC2 = sent_method(Method, UAC1, Call3),
-                    update(UAC2, Call3);
+                    UAC2 = sent_method(Method, UAC1, Call2),
+                    update(UAC2, Call2);
                 error ->
                     ?call_debug("UAC ~p error sending ~p request", 
                                 [Id, Method], Call),

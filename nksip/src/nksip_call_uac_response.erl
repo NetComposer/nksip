@@ -63,7 +63,7 @@ response(Resp, UAC, Call) ->
             {Resp1, _} = nksip_reply:reply(Req, {timeout, <<"Transaction Timeout">>})
     end,
     Call1 = case Code1>=200 andalso Code1<300 of
-        true -> nksip_call_lib:update_auth(Resp1, Call);
+        true -> nksip_call_lib:update_auth(Req, Resp1, Call);
         false -> Call
     end,
     UAC1 = UAC#trans{response=Resp1, code=Code1},

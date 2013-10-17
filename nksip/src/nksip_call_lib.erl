@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([update_sipmsg/2, update/2]).
--export([update_auth/2, check_auth/2]).
+-export([update_auth/3, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3, app_timer/3, 
          cancel_timers/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
@@ -127,29 +127,42 @@ hibernate(_, Call) ->
 
 
 %% @private
--spec update_auth(nksip:request()|nksip:response(), call()) ->
+-spec update_auth(nksip:request(), nksip:response(), call()) ->
     call().
 
-update_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
-    case nksip_dialog:id(SipMsg) of
+update_auth(Req, Resp, #call{auths=Auths}=Call) ->
+    case nksip_dialog:id(Resp) of
         <<>> ->
             Call;
         DialogId ->
-            #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-            #call{auths=Auths} = Call,
-            case lists:member({DialogId, Proto, Ip, Port}, Auths) of
-                true ->
-                    Call;
-                false -> 
-                    ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
-                                [DialogId, Proto, Ip, Port], Call),
-                    Auths1 = [{DialogId, Proto, Ip, Port}|Auths],
-                    Call#call{auths=Auths1}
-            end
-    end;
-
-update_auth(_Resp, Call) ->
-    Call.
+            Auths1 = case Req#sipmsg.transport of
+                #transport{proto=Proto1, remote_ip=Ip1, remote_port=Port1} ->
+                    case lists:member({DialogId, Proto1, Ip1, Port1}, Auths) of
+                        true ->
+                            Auths;
+                        false -> 
+                            ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
+                                        [DialogId, Proto1, Ip1, Port1], Call),
+                            [{DialogId, Proto1, Ip1, Port1}|Auths]
+                    end;
+                _ ->
+                    Auths
+            end,
+            Auths2 = case Resp#sipmsg.transport of
+                #transport{proto=Proto2, remote_ip=Ip2, remote_port=Port2} ->
+                    case lists:member({DialogId, Proto2, Ip2, Port2}, Auths1) of
+                        true ->
+                            Auths1;
+                        false -> 
+                            ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
+                                        [DialogId, Proto2, Ip2, Port2], Call),
+                            [{DialogId, Proto2, Ip2, Port2}|Auths1]
+                    end;
+                _ ->
+                    Auths1
+            end,
+            Call#call{auths=Auths2}
+    end.
 
 
 %% @private
