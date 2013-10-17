@@ -97,16 +97,16 @@ uas() ->
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
 
     % Test bad extension endpoint and proxy
-    Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, {fields, [headers]}],
-    {ok, 420, [{headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
+    Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, {fields, [all_headers]}],
+    {ok, 420, [{all_headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
     [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds5),
     
     Opts6 = [
         {headers, [{"Proxy-Require", "a,b;c,d"}]}, 
         {route, "<sip:127.0.0.1;lr>"},
-        {fields, [headers]}
+        {fields, [all_headers]}
     ],
-    {ok, 420, [{headers, Hds6}]} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
+    {ok, 420, [{all_headers, Hds6}]} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
     [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds6),
 
     % Force invalid response
