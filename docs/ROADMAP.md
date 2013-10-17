@@ -3,7 +3,7 @@ ROADMAP
 
 In no special order:
 
-* SIP message processing engine rework.
+* ~~SIP message processing engine rework~~.
 * _Bridge_ support for B2BUA.
 * _IPv6_.
 * _SIP Websockets_ support.
