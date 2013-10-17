@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_call</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_call</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Call Management Module.
+
+
+<h2><a name="description">Description</a></h2><p>Call Management Module</p>
+ 
+  A new <a href="nksip_call_srv.html"><code>nksip_call_srv</code></a> process is started for every different
+  Call-ID request or response, incoming or outcoming.
+  This module offers an interface to this process.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-call">call()</a></h3>
+<p><tt>call() = #call{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-fork">fork()</a></h3>
+<p><tt>fork() = #fork{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-trans">trans()</a></h3>
+<p><tt>trans() = #trans{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-work">work()</a></h3>
+<p><tt>work() = {incoming, #raw_sipmsg{}} | {app_reply, atom(), <a href="nksip_call_uas.html#type-id">nksip_call_uas:id()</a>, term()} | {send_reply, <a href="nksip_request.html#type-id">nksip_request:id()</a>, <a href="nksip.html#type-sipreply">nksip:sipreply()</a>} | {make, <a href="nksip.html#type-method">nksip:method()</a>, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | {send, <a href="nksip.html#type-request">nksip:request()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | {send, <a href="nksip.html#type-method">nksip:method()</a>, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | {send_dialog, <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>, <a href="nksip.html#type-method">nksip:method()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | {cancel, <a href="nksip_call_uac.html#type-id">nksip_call_uac:id()</a>} | {make_dialog, <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>, <a href="nksip.html#type-method">nksip:method()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | {apply_dialog, <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>, function()} | {dialog_id, <a href="nksip_request.html#type-id">nksip_request:id()</a> | <a href="nksip_response.html#type-id">nksip_response:id()</a>} | get_all_dialogs | {stop_dialog, <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>} | {apply_sipmsg, <a href="nksip_request.html#type-id">nksip_request:id()</a> | <a href="nksip_response.html#type-id">nksip_response:id()</a>, function()} | {apply_transaction, <a href="nksip_request.html#type-id">nksip_request:id()</a> | <a href="nksip_response.html#type-id">nksip_response:id()</a>, function()} | get_all_transactions | info | {get_authorized_list, <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>} | {clear_authorized_list, <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#cancel-2">cancel/2</a></td><td>Cancels an ongoing INVITE request.</td></tr>
+<tr><td valign="top"><a href="#clear_authorized_list-2">clear_authorized_list/2</a></td><td>Clears authorized list of transport, ip and ports for a dialog.</td></tr>
+<tr><td valign="top"><a href="#dialog_id-2">dialog_id/2</a></td><td>Gets the Dialog Id of a request or response id.</td></tr>
+<tr><td valign="top"><a href="#get_all-0">get_all/0</a></td><td>Get all started calls.</td></tr>
+<tr><td valign="top"><a href="#get_authorized_list-2">get_authorized_list/2</a></td><td>Gets authorized list of transport, ip and ports for a dialog.</td></tr>
+<tr><td valign="top"><a href="#get_info-0">get_info/0</a></td><td>Get information about all started calls.</td></tr>
+<tr><td valign="top"><a href="#send-2">send/2</a></td><td>Sends a new request.</td></tr>
+<tr><td valign="top"><a href="#send-4">send/4</a></td><td>Generates and sends a new request.</td></tr>
+<tr><td valign="top"><a href="#send_dialog-4">send_dialog/4</a></td><td>Generates and sends a new in-dialog request.</td></tr>
+<tr><td valign="top"><a href="#send_reply-3">send_reply/3</a></td><td>Sends a synchronous request reply.</td></tr>
+<tr><td valign="top"><a href="#stop_dialog-2">stop_dialog/2</a></td><td>Stops (deletes) a dialog.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="cancel-2">cancel/2</a></h3>
+<div class="spec">
+<p><tt>cancel(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="nksip_request.html#type-id">nksip_request:id()</a>) -&gt; ok | {error, <a href="nksip_uac.html#type-cancel_error">nksip_uac:cancel_error()</a>}</tt><br></p>
+</div><p>Cancels an ongoing INVITE request.</p>
+
+<h3 class="function"><a name="clear_authorized_list-2">clear_authorized_list/2</a></h3>
+<div class="spec">
+<p><tt>clear_authorized_list(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, DialogId::<a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>) -&gt; ok | error</tt><br></p>
+</div><p>Clears authorized list of transport, ip and ports for a dialog.</p>
+
+<h3 class="function"><a name="dialog_id-2">dialog_id/2</a></h3>
+<div class="spec">
+<p><tt>dialog_id(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, MsgId::<a href="nksip_request.html#type-id">nksip_request:id()</a> | <a href="nksip_response.html#type-id">nksip_response:id()</a>) -&gt; {ok, <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>} | {error, Error}</tt>
+<ul class="definitions"><li><tt>Error = unknown_dialog | <a href="nksip_call_router.html#type-sync_error">nksip_call_router:sync_error()</a></tt></li></ul></p>
+</div><p>Gets the Dialog Id of a request or response id</p>
+
+<h3 class="function"><a name="get_all-0">get_all/0</a></h3>
+<div class="spec">
+<p><tt>get_all() -&gt; [{<a href="nksip.html#type-app_id">nksip:app_id()</a>, <a href="nksip.html#type-call_id">nksip:call_id()</a>, pid()}]</tt><br></p>
+</div><p>Get all started calls.</p>
+
+<h3 class="function"><a name="get_authorized_list-2">get_authorized_list/2</a></h3>
+<div class="spec">
+<p><tt>get_authorized_list(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, DialogId::<a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>) -&gt; [{<a href="nksip.html#type-protocol">nksip:protocol()</a>, <a href="inet.html#type-ip_address">inet:ip_address()</a>, <a href="inet.html#type-port_number">inet:port_number()</a>}]</tt><br></p>
+</div><p>Gets authorized list of transport, ip and ports for a dialog.</p>
+
+<h3 class="function"><a name="get_info-0">get_info/0</a></h3>
+<div class="spec">
+<p><tt>get_info() -&gt; [term()]</tt><br></p>
+</div><p>Get information about all started calls.</p>
+
+<h3 class="function"><a name="send-2">send/2</a></h3>
+<div class="spec">
+<p><tt>send(Sipmsg::<a href="nksip.html#type-request">nksip:request()</a>, Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; <a href="nksip_uac.html#type-result">nksip_uac:result()</a> | <a href="nksip_uac.html#type-ack_result">nksip_uac:ack_result()</a> | {error, <a href="nksip_uac.html#type-error">nksip_uac:error()</a>}</tt><br></p>
+</div><p>Sends a new request.</p>
+
+<h3 class="function"><a name="send-4">send/4</a></h3>
+<div class="spec">
+<p><tt>send(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, Method::<a href="nksip.html#type-method">nksip:method()</a>, Uri::<a href="nksip.html#type-user_uri">nksip:user_uri()</a>, Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; <a href="nksip_uac.html#type-result">nksip_uac:result()</a> | {error, <a href="nksip_uac.html#type-error">nksip_uac:error()</a>}</tt><br></p>
+</div><p>Generates and sends a new request.</p>
+
+<h3 class="function"><a name="send_dialog-4">send_dialog/4</a></h3>
+<div class="spec">
+<p><tt>send_dialog(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, DialogId::<a href="nksip_dialog.html#type-id">nksip_dialog:id()</a>, Method::<a href="nksip.html#type-method">nksip:method()</a>, Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; <a href="nksip_uac.html#type-result">nksip_uac:result()</a> | <a href="nksip_uac.html#type-ack_result">nksip_uac:ack_result()</a> | {error, <a href="nksip_uac.html#type-error">nksip_uac:error()</a>}</tt><br></p>
+</div><p>Generates and sends a new in-dialog request.</p>
+
+<h3 class="function"><a name="send_reply-3">send_reply/3</a></h3>
+<div class="spec">
+<p><tt>send_reply(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="nksip_request.html#type-id">nksip_request:id()</a>, Reply::<a href="nksip.html#type-sipreply">nksip:sipreply()</a>) -&gt; {ok, <a href="nksip.html#type-response">nksip:response()</a>} | {error, Error}</tt>
+<ul class="definitions"><li><tt>Error = invalid_call | <a href="nksip_call_router.html#type-sync_error">nksip_call_router:sync_error()</a></tt></li></ul></p>
+</div><p>Sends a synchronous request reply.</p>
+
+<h3 class="function"><a name="stop_dialog-2">stop_dialog/2</a></h3>
+<div class="spec">
+<p><tt>stop_dialog(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, DialogId::<a href="nksip_dialog.html#type-spec">nksip_dialog:spec()</a>) -&gt; ok | {error, unknown_dialog}</tt><br></p>
+</div><p>Stops (deletes) a dialog.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Oct 17 2013, 19:39:47.</i></p>
+</body>
+</html>

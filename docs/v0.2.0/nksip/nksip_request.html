@@ -1,0 +1,287 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_request</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_request</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>User Request Management Functions.
+
+
+<h2><a name="description">Description</a></h2>User Request Management Functions.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-field">field()</a></h3>
+<p><tt>field() = app_id | method | call_id | vias | parsed_vias | ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor | from | from_scheme | from_user | from_domain | parsed_from | to | to_scheme | to_user | to_domain | parsed_to | cseq | parsed_cseq | cseq_num | cseq_method | forwards | routes | parsed_routes | contacts | parsed_contacts | content_type | parsed_content_type | all_headers | body | dialog_id | local | remote | binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-id">id()</a></h3>
+<p><tt>id() = binary()</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#body-2">body/2</a></td><td>Gets the <i>body</i> of a request.</td></tr>
+<tr><td valign="top"><a href="#call_id-1">call_id/1</a></td><td>Gets the calls's id of a request id.</td></tr>
+<tr><td valign="top"><a href="#field-3">field/3</a></td><td>Gets specific information from the <code>Request</code>.</td></tr>
+<tr><td valign="top"><a href="#fields-3">fields/3</a></td><td>Gets some fields from a request.</td></tr>
+<tr><td valign="top"><a href="#header-3">header/3</a></td><td>Gets values for a header in a request.</td></tr>
+<tr><td valign="top"><a href="#is_local_route-1">is_local_route/1</a></td><td>See <a href="#is_local_route-2"><code>is_local_route/2</code></a>.</td></tr>
+<tr><td valign="top"><a href="#is_local_route-2">is_local_route/2</a></td><td>Checks if this request would be sent to a local address in case of beeing proxied.</td></tr>
+<tr><td valign="top"><a href="#method-2">method/2</a></td><td>Gets the <i>method</i> of a request.</td></tr>
+<tr><td valign="top"><a href="#reply-2">reply/2</a></td><td>See <a href="#reply-3"><code>reply/3</code></a>.</td></tr>
+<tr><td valign="top"><a href="#reply-3">reply/3</a></td><td>Sends a reply to a request.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="body-2">body/2</a></h3>
+<div class="spec">
+<p><tt>body(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="#type-id">id()</a>) -&gt; <a href="nksip.html#type-body">nksip:body()</a> | error</tt><br></p>
+</div><p>Gets the <i>body</i> of a request.</p>
+
+<h3 class="function"><a name="call_id-1">call_id/1</a></h3>
+<div class="spec">
+<p><tt>call_id(X1::<a href="#type-id">id()</a>) -&gt; <a href="nksip.html#type-call_id">nksip:call_id()</a></tt><br></p>
+</div><p>Gets the calls's id of a request id</p>
+
+<h3 class="function"><a name="field-3">field/3</a></h3>
+<div class="spec">
+<p><tt>field(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="#type-id">id()</a>, Field::<a href="#type-field">field()</a>) -&gt; term() | error</tt><br></p>
+</div><p><p>Gets specific information from the <code>Request</code>.  
+The available fields are:</p>
+ 
+  <table border="1">
+       <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+       <tr>
+           <td><code>app_id</code></td>
+           <td><a href="nksip.html#type-app_id"><code>nksip:app_id()</code></a></td>
+           <td>SipApp this request belongs to</td>
+       </tr>
+       <tr>
+           <td><code>method</code></td>
+           <td><a href="nksip.html#type-method"><code>nksip:method()</code></a></td>
+           <td>Method</td>
+       </tr>
+       <tr>
+           <td><code>ruri</code></td>
+           <td><code>binary()</code></td>
+           <td>Request-Uri</td>
+       </tr>
+       <tr>
+           <td><code>ruri_scheme</code></td>
+           <td><code>nksip:scheme()</code></td>
+           <td>Request-Uri Scheme</td>
+       </tr>
+       <tr>
+           <td><code>ruri_user</code></td>
+           <td><code>binary()</code></td>
+           <td>Request-Uri User</td>
+       </tr>
+       <tr>
+           <td><code>ruri_domain</code></td>
+           <td><code>binary()</code></td>
+           <td>Request-Uri Domain</td>
+       </tr>
+       <tr>
+           <td><code>parsed_ruri</code></td>
+           <td><a href="nksip.html#type-uri"><code>nksip:uri()</code></a></td>
+           <td>Request-Uri</td>
+       </tr>
+       <tr>
+           <td><code>aor</code></td>
+           <td><a href="nksip.html#type-aor"><code>nksip:aor()</code></a></td>
+           <td>Address-Of-Record of the Request-Uri</td>
+       </tr>
+       <tr>
+           <td><code>call_id</code></td>
+           <td><a href="nksip.html#type-call_id"><code>nksip:call_id()</code></a></td>
+           <td>Call-ID Header</td>
+       </tr>
+       <tr>
+           <td><code>vias</code></td>
+           <td><code>[binary()]</code></td>
+           <td>Via Headers</td>
+       </tr>
+       <tr>
+           <td><code>parsed_vias</code></td>
+           <td><code>[</code><a href="nksip.html#type-via"><code>nksip:via()</code></a><code>]</code></td>
+           <td>Via Headers</td>
+       </tr>
+       <tr>
+           <td><code>from</code></td>
+           <td><code>binary()</code></td>
+           <td>From Header</td>
+       </tr>
+       <tr>
+           <td><code>from_scheme</code></td>
+           <td><code>nksip:scheme()</code></td>
+           <td>From Scheme</td>
+       </tr>
+       <tr>
+           <td><code>from_user</code></td>
+           <td><code>binary()</code></td>
+           <td>From User</td>
+       </tr>
+       <tr>
+           <td><code>from_domain</code></td>
+           <td><code>binary()</code></td>
+           <td>From Domain</td>
+       </tr>
+       <tr>
+           <td><code>parsed_from</code></td>
+           <td><a href="nksip.html#type-uri"><code>nksip:uri()</code></a></td>
+           <td>From Header</td>
+       </tr>
+       <tr>
+           <td><code>to</code></td>
+           <td><code>binary()</code></td>
+           <td>To Header</td>
+       </tr>
+       <tr>
+           <td><code>to_scheme</code></td>
+           <td><code>nksip:scheme()</code></td>
+           <td>To Scheme</td>
+       </tr>
+       <tr>
+           <td><code>to_user</code></td>
+           <td><code>binary()</code></td>
+           <td>To User</td>
+       </tr>
+       <tr>
+           <td><code>to_domain</code></td>
+           <td><code>binary()</code></td>
+           <td>To Domain</td>
+       </tr>
+       <tr>
+           <td><code>parsed_to</code></td>
+           <td><a href="nksip.html#type-uri"><code>nksip:uri()</code></a></td>
+           <td>To Header</td>
+       </tr>
+       <tr>
+           <td><code>cseq</code></td>
+           <td><code>binary()</code></td>
+           <td>CSeq Header</td>
+       </tr>
+       <tr>
+           <td><code>parsed_cseq</code></td>
+           <td><code>{integer(),</code><a href="nksip.html#type-method"><code>nksip:method()</code></a><code>}</code></td>
+           <td>CSeq Header</td>
+       </tr>
+       <tr>
+           <td><code>forwards</code></td>
+           <td><code>integer()</code></td>
+           <td>Forwards</td>
+       </tr>
+       <tr>
+           <td><code>routes</code></td>
+           <td><code>[binary()]</code></td>
+           <td>Route Headers</td>
+       </tr>
+       <tr>
+           <td><code>parsed_routes</code></td>
+           <td><code>[</code><a href="nksip.html#type-uri"><code>nksip:uri()</code></a><code>]</code></td>
+           <td>Route Headers</td>
+       </tr>
+       <tr>
+           <td><code>contacts</code></td>
+           <td><code>[binary()]</code></td>
+           <td>Contact Headers</td>
+       </tr>
+       <tr>
+           <td><code>parsed_contacts</code></td>
+           <td><code>[</code><a href="nksip.html#type-uri"><code>nksip:uri()</code></a><code>]</code></td>
+           <td>Contact Headers</td>
+       </tr>
+       <tr>
+           <td><code>content_type</code></td>
+           <td><code>binary()</code></td>
+           <td>Content-Type Header</td>
+       </tr>
+       <tr>
+           <td><code>parsed_content_type</code></td>
+           <td><code>[</code><a href="nksip_lib.html#type-token"><code>nksip_lib:token()</code></a><code>]</code></td>
+           <td>Content-Type Header</td>
+       </tr>
+       <tr>
+           <td><code>all_headers</code></td>
+           <td><code>[{binary(), binary()}]</code></td>
+           <td>All headers in the request</td>
+       </tr>
+       <tr>
+           <td><code>body</code></td>
+           <td><a href="nksip.html#type-body"><code>nksip:body()</code></a></td>
+           <td>Parsed Body</td>
+       </tr>
+       <tr>
+           <td><code>dialog_id</code></td>
+           <td><a href="nksip_dialog.html#type-id"><code>nksip_dialog:id()</code></a></td>
+           <td>Dialog's Id (if the request has To Tag)</td>
+       </tr>
+       <tr>
+           <td><code>local</code></td>
+           <td><code>{</code><a href="nksip.html#type-protocol"><code>nksip:protocol()</code></a>, <a href="inet.html#type-ip_address"><code>inet:ip_address()</code></a>,
+                   <a href="inet.html#type-port_number"><code>inet:port_number()</code></a><code>}</code></td>
+           <td>Local transport protocol, ip and port of a request</td>
+       </tr>
+       <tr>
+           <td><code>remote</code></td>
+           <td><code>{</code><a href="nksip.html#type-protocol"><code>nksip:protocol()</code></a>, <a href="inet.html#type-ip_address"><code>inet:ip_address()</code></a>,
+                   <a href="inet.html#type-port_number"><code>inet:port_number()</code></a><code>}</code></td>
+           <td>Remote transport protocol, ip and port of a request</td>
+       </tr>
+       <tr>
+           <td><code>binary()</code></td>
+           <td><code>{binary(), [binary()]}</code></td>
+           <td>If you use a binary as a field name, NkSIP will return all the values
+               of this header, or <code>[]</code> if it is not present</td>
+       </tr>
+  </table></p>
+
+<h3 class="function"><a name="fields-3">fields/3</a></h3>
+<div class="spec">
+<p><tt>fields(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="#type-id">id()</a>, Fields::[<a href="#type-field">field()</a>]) -&gt; [{atom(), term()}] | error</tt><br></p>
+</div><p>Gets some fields from a request.</p>
+
+<h3 class="function"><a name="header-3">header/3</a></h3>
+<div class="spec">
+<p><tt>header(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="#type-id">id()</a>, Name::binary()) -&gt; [binary()] | error</tt><br></p>
+</div><p>Gets values for a header in a request.</p>
+
+<h3 class="function"><a name="is_local_route-1">is_local_route/1</a></h3>
+<div class="spec">
+<p><tt>is_local_route(Sipmsg::<a href="nksip.html#type-request">nksip:request()</a>) -&gt; boolean()</tt><br></p>
+</div><p>See <a href="#is_local_route-2"><code>is_local_route/2</code></a>.</p>
+
+<h3 class="function"><a name="is_local_route-2">is_local_route/2</a></h3>
+<div class="spec">
+<p><tt>is_local_route(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="#type-id">id()</a>) -&gt; boolean()</tt><br></p>
+</div><p>Checks if this request would be sent to a local address in case of beeing proxied.
+  It will return <code>true</code> if the first <i>Route</i> header points to a local address
+  or the <i>Request-Uri</i> if there is no <i>Route</i> headers.</p>
+
+<h3 class="function"><a name="method-2">method/2</a></h3>
+<div class="spec">
+<p><tt>method(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="#type-id">id()</a>) -&gt; <a href="nksip.html#type-method">nksip:method()</a> | error</tt><br></p>
+</div><p>Gets the <i>method</i> of a request.</p>
+
+<h3 class="function"><a name="reply-2">reply/2</a></h3>
+<div class="spec">
+<p><tt>reply(Sipmsg, SipReply) -&gt; any()</tt></p>
+</div><p>See <a href="#reply-3"><code>reply/3</code></a>.</p>
+
+<h3 class="function"><a name="reply-3">reply/3</a></h3>
+<div class="spec">
+<p><tt>reply(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="#type-id">id()</a>, SipReply::<a href="nksip.html#type-sipreply">nksip:sipreply()</a>) -&gt; ok | {error, Error}</tt>
+<ul class="definitions"><li><tt>Error = invalid_call | unknown_call | unknown_sipapp</tt></li></ul></p>
+</div><p>Sends a reply to a request.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Oct 17 2013, 19:39:48.</i></p>
+</body>
+</html>

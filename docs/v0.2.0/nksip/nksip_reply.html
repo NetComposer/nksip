@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_reply</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_reply</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>User Response generation functions.
+
+
+<h2><a name="description">Description</a></h2><p>User Response generation functions.</p>
+ 
+  <p>This module offers helper functions to easy the generation of common SIP responses.  
+Currently the following replies are recognized:</p>
+ 
+  <table border="1">
+    <tr><th>Response</th><th>Code</th><th>Comments</th></tr>
+    <tr><td><code>ringing</code></td><td>180</td><td></td></tr>
+    <tr><td><code>session_progress</code></td><td>183</td><td></td></tr>
+    <tr><td><code>ok</code></td><td>200</td><td></td></tr>
+    <tr><td><code>{ok, [Header]}</code></td><td>200</td>
+        <td>Response will include provided headers</td></tr>
+    <tr><td><code>{ok, [Header] Body}</code></td><td>200</td>
+        <td>Response will include provided headers and body</td></tr>
+    <tr><td><code>{ok, [Header] Body, Options}</code></td><td>200</td>
+        <td>Response will include provided headers and body, allows options</td></tr>
+    <tr><td><code>answer</code></td><td>200</td><td></td></tr>
+    <tr><td><code>{answer, [Header]}</code></td><td>200</td>
+        <td>Response will include provided headers</td></tr>
+    <tr><td><code>{answer, [Header] Body}</code></td><td>200</td>
+        <td>Response will include provided headers and body</td></tr>
+    <tr><td><code>{answer, [Header] Body, Options}</code></td><td>200</td>
+        <td>Response will include provided headers and body allows options</td></tr>
+    <tr><td><code>{redirect, [Contact]}</code></td><td>300</td>
+        <td>Generates <code>Contact</code> headers</td></tr>
+    <tr><td><code>{redirect_permanent, Contact}</code></td><td>301</td>
+        <td>Generates a <code>Contact</code> header</td></tr>
+    <tr><td><code>{redirect_temporary, Contact}</code></td><td>302</td>
+        <td>Generates a <code>Contact</code> header</td></tr>
+    <tr><td><code>invalid_request</code></td><td>400</td><td></td></tr>
+    <tr><td><code>{invalid_request, Text}</code></td><td>400</td>
+        <td><code>Text</code> will be used in SIP reason line</td></tr>
+    <tr><td><code>authenticate</code></td><td>401</td>
+         <td>Generates a new <code>WWW-Authenticate</code> header, using current <code>From</code> domain
+             as <code>Realm</code></td></tr>
+    <tr><td><code>{authenticate, Realm}</code></td><td>401</td>
+        <td>Generates a valid new <code>WWW-Authenticate</code> header, using <code>Realm</code></td></tr>
+    <tr><td><code>forbidden</code></td><td>403</td><td></td></tr>
+    <tr><td><code>{forbidden, Text}</code></td><td>403</td>
+        <td><code>Text</code> will be used in SIP reason line</td></tr>
+    <tr><td><code>not_found</code></td><td>404</td><td></td></tr>
+    <tr><td><code>{not_found, Text}</code></td><td>404</td>
+        <td><code>Text</code> will be used in SIP reason line</td></tr>
+    <tr><td><code>{method_not_allowed, Methods}</code></td><td>405</td>
+        <td>Generates an <code>Allow</code> header using <code>Methods</code></td></tr>
+    <tr><td><code>proxy_authenticate</code></td><td>407</td>
+        <td>Generates a valid new <code>Proxy-Authenticate</code> header, using current <code>From</code>
+            domain as <code>Realm</code></td></tr>
+    <tr><td><code>{proxy_authenticate, Realm}</code></td>
+        <td>407</td><td>Generates a valid new <code>Proxy-Authenticate</code> header,
+                        using <code>Realm</code></td></tr>
+    <tr><td><code>timeout</code></td><td>408</td><td></td></tr>
+    <tr><td><code>{timeout, Text}</code></td><td>408</td>
+        <td><code>Text</code> will be used in SIP reason line</td></tr>
+    <tr><td><code>{unsupported_media_type, Types}</code></td><td>415</td>
+        <td>Generates a new <code>Accept</code> header using <code>Types</code></td></tr>
+    <tr><td><code>{unsupported_media_encoding, Types}</code></td><td>415</td>
+        <td>Generates a new <code>Accept-Encoding</code> header using <code>Types</code></td></tr>
+    <tr><td><code>unsupported_uri_scheme</code></td><td>416</td><td></td></tr>
+    <tr><td><code>{bad_extension, Extensions}</code></td><td>420</td>
+        <td>Generates a new <code>Unsupported</code> header using <code>Extensions</code></td></tr>
+    <tr><td><code>{interval_too_brief, Time}</code></td><td>423</td>
+         <td>Generates a new <code>Min-Expires</code> header using <code>Time</code></td></tr>
+    <tr><td><code>temporarily_unavailable</code></td><td>480</td><td></td></tr>
+    <tr><td><code>no_transaction</code></td><td>481</td><td></td></tr>
+    <tr><td><code>loop_detected</code></td><td>482</td><td></td></tr>
+    <tr><td><code>too_many_hops</code></td><td>483</td><td></td></tr>
+    <tr><td><code>ambiguous</code></td><td>485</td><td></td></tr>
+    <tr><td><code>busy</code></td><td>486</td><td></td></tr>
+    <tr><td><code>request_terminated</code></td><td>487</td><td></td></tr>
+    <tr><td><code>{not_acceptable, Reason}</code></td><td>488</td>
+        <td>Generates a new <code>Warning</code> header using <code>Reason</code></td></tr>
+    <tr><td><code>request_pending</code></td><td>491</td><td></td></tr>
+    <tr><td><code>internal_error</code></td><td>500</td><td></td></tr>
+    <tr><td><code>{internal_error, Text}</code></td><td>500</td>
+        <td>Text will be used in SIP first line</td></tr>
+    <tr><td><code>busy_eveywhere</code></td><td>600</td><td></td></tr>
+    <tr><td><code>decline</code></td><td>603</td><td></td></tr>
+    <tr><td><code>Code</code></td><td><code>Code</code></td><td></td></tr>
+    <tr><td><code>{Code, [Header]}</code></td><td><code>Code</code></td>
+         <td>Will include headers in the response</td></tr>
+    <tr><td><code>{Code, [Header], Body}</code></td><td><code>Code</code></td>
+         <td>Will include headers and body in response</td></tr>
+    <tr><td><code>{Code, [Header], Body, Options}</code></td><td><code>Code</code></td>
+        <td>Will include headers and body in response, using options</td></tr>
+    <tr><td><code>register</code></td><td>See <a href="nksip_registrar.html#request-1"><code>nksip_registrar:request/1</code></a></td>
+        <td>Calls <a href="nksip_registrar.html#request-1"><code>nksip_registrar:request/1</code></a> to process the request as a
+            registration</td></tr>
+  </table>
+  <br>
+  With the following types:
+  <table border="1">
+    <tr><th>Parameter</th><th>Type</th></tr>
+    <tr><td><code>Code</code></td><td><a href="nksip.html#type-response_code"><code>nksip:response_code()</code></a></td></tr>
+    <tr><td><code>Header</code></td><td><a href="nksip.html#type-header"><code>nksip:header()</code></a></td></tr>
+    <tr><td><code>Body</code></td><td><a href="nksip.html#type-body"><code>nksip:body()</code></a></td></tr>
+    <tr><td><code>Options</code></td><td><a href="nksip_lib.html#type-proplist"><code>nksip_lib:proplist()</code></a></td></tr>
+    <tr><td><code>Text</code></td><td><code>binary()</code></td></tr>
+    <tr><td><code>Realm</code></td><td><code>binary()</code></td></tr>
+    <tr><td><code>Methods</code></td><td><code>binary()</code></td></tr>
+    <tr><td><code>Types</code></td><td><code>binary()</code></td></tr>
+    <tr><td><code>Extensions</code></td><td><code>binary()</code></td></tr>
+    <tr><td><code>Min</code></td><td><code>binary()</code></td></tr>
+  </table>
+  <br>
+  Some previous replies allow including options. The recognized options are:
+  <ul>
+   <li><code>make_allow</code>: if present generates an <i>Allow</i> header.</li>
+   <li><code>make_supported</code>: if present generates a <i>Supported</i> header.</li>
+   <li><code>make_accept</code>: if present generates an <i>Accept</i> header.</li>
+   <li><code>make_date</code>: if present generates a <i>Date</i> header.</li>
+   <li><code>make_contact</code>: if present generates a <i>Contact</i> header.</li>
+   <li><code>{local_host, Host::binary()}</code>: uses this Host instead of the default one for
+       <i>Contact</i>, <i>Record-Route</i>, etc.</li>
+   <li><code>{contact, [nksip:user_uri()]}</code>: adds one or more <code>Contact</code> headers.</li>
+   <li><code>{reason, Text::binary()}</code>: changes the default response line to <code>Text</code>.</li>
+   <li><code>{make_www_auth, Realm::from|binary()}</code>: a <i>WWW-Authenticate</i>
+        header will be generated for this <code>Realm</code> (see
+        <a href="nksip_auth.html#make_response-2"><code>nksip_auth:make_response/2</code></a>).</li>
+   <li><code>{make_proxy_auth, Realm::from|binary()}</code>: a <i>Proxy-Authenticate</i> will be
+        generated for this <code>Realm</code>.</li>
+  </ul>
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-sipreply">sipreply()</a></h3>
+<p><tt>sipreply() = ringing | session_progress | ok | {ok, [<a href="nksip.html#type-header">nksip:header()</a>]} | {ok, [<a href="nksip.html#type-header">nksip:header()</a>], <a href="nksip.html#type-body">nksip:body()</a>} | {ok, [<a href="nksip.html#type-header">nksip:header()</a>], <a href="nksip.html#type-body">nksip:body()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | answer | {answer, [<a href="nksip.html#type-header">nksip:header()</a>]} | {answer, [<a href="nksip.html#type-header">nksip:header()</a>], <a href="nksip.html#type-body">nksip:body()</a>} | {answer, [<a href="nksip.html#type-header">nksip:header()</a>], <a href="nksip.html#type-body">nksip:body()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | {redirect, [<a href="nksip.html#type-user_uri">nksip:user_uri()</a>]} | {redirect_permanent, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>} | {redirect_temporary, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>} | invalid_request | {invalid_request, Text::binary()} | authenticate | {authenticate, Realm::binary()} | forbidden | {forbidden, Text::binary()} | not_found | {not_found, Text::binary()} | {method_not_allowed, Methods::binary()} | proxy_authenticate | {proxy_authenticate, Realm::binary()} | timeout | {timeout, Text::binary()} | {unsupported_media_type, Types::binary()} | {unsupported_media_encoding, Types::binary()} | unsupported_uri_scheme | {bad_extension, Exts::binary()} | {interval_too_brief, Min::binary()} | temporarily_unavailable | no_transaction | loop_detected | too_many_hops | ambiguous | busy | request_terminated | {not_acceptable, Reason::binary()} | request_pending | internal_error | {internal_error, Text::binary()} | service_unavailable | busy_eveywhere | decline | <a href="nksip.html#type-response_code">nksip:response_code()</a> | {<a href="nksip.html#type-response_code">nksip:response_code()</a>, binary()} | {<a href="nksip.html#type-response_code">nksip:response_code()</a>, [<a href="nksip.html#type-header">nksip:header()</a>]} | {<a href="nksip.html#type-response_code">nksip:response_code()</a>, [<a href="nksip.html#type-header">nksip:header()</a>], <a href="nksip.html#type-body">nksip:body()</a>} | {<a href="nksip.html#type-response_code">nksip:response_code()</a>, [<a href="nksip.html#type-header">nksip:header()</a>], <a href="nksip.html#type-body">nksip:body()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | register</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#reply-2">reply/2</a></td><td>Equivalent to reply(Req, Reply, []).</td></tr>
+<tr><td valign="top"><a href="#reply-3">reply/3</a></td><td>Generates a new SIP response using helper replies.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="reply-2">reply/2</a></h3>
+<div class="spec">
+<p><tt>reply(Req::<a href="nksip.html#type-request">nksip:request()</a>, Reply::<a href="nksip.html#type-sipreply">nksip:sipreply()</a> | #reqreply{}) -&gt; {<a href="nksip.html#type-response">nksip:response()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>}</tt><br></p>
+</div><p>Equivalent to reply(Req, Reply, [])</p>
+
+<h3 class="function"><a name="reply-3">reply/3</a></h3>
+<div class="spec">
+<p><tt>reply(Req::<a href="nksip.html#type-request">nksip:request()</a>, Reqreply::<a href="nksip.html#type-sipreply">nksip:sipreply()</a> | #reqreply{}, AppOpts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; {<a href="nksip.html#type-response">nksip:response()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>}</tt><br></p>
+</div><p><p>Generates a new SIP response using helper replies.
+  Currently recognized replies are describes <a href="nksip_reply.html">here</a>.</p>
+ 
+  A <i>Timestamp</i> header will be added if it was present in <code>Request</code> and
+  response code is 100. A <i>To</i> tag will be set if parameter
+  <code>{to_tag, Tag}</code> is present in the request's options.
+  If the response is for an INVITE request, options <code>make_allow</code>, <code>make_supported</code>
+  and <code>make_contact</code> will be added automatically, and (if code is 101-299) all
+  <i>Record-Route</i> headers from the request will be copied in the response.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Oct 17 2013, 19:39:48.</i></p>
+</body>
+</html>

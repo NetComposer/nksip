@@ -1,0 +1,432 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_uac</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_uac</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Request sending functions as UAC.
+
+
+<h2><a name="description">Description</a></h2><p>Request sending functions as UAC.</p>
+ 
+  <p>The functions in this module are used to send requests to remote parties as a UAC.</p>
+ 
+  <p>All mandatory SIP methods all supported: <i>OPTIONS</i>, <i>REGISTER</i>,
+  <i>INVITE</i>, <i>ACK</i>, <i>BYE</i> and <i>CANCEL</i>.
+  Future versions will address all currently defined SIP methods:
+  <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>, <i>UPDATE</i>,
+  <i>REFER</i> and <i>PUBLISH</i>.</p>
+ 
+  <p>By default, most functions will block util a final response is received
+  or a an error is produced before sending the request,
+  returning <code>{ok, Code, Values}</code> or <code>{error, Error}</code>.</p>
+ 
+  <p><code>Values</code> can include some metadata about the response. Use the option <code>fields</code> to
+  select which metadatas you want to receive. For request-generating methods
+  (only <i>INVITE</i> currently) the first value is allways the dialog's id
+  of the response: <code>{dialog_id, DialogId}</code>.
+  You can use the functions in <a href="nksip_dialog.html"><code>nksip_dialog</code></a> to get additional information.</p>
+ 
+  <p>You can define a callback function using option <code>callback</code>, and it will be called
+  for every received provisional response as <code>{ok, Code, Values}</code>.</p>
+ 
+  <p>You can also call most of these functions <i>asynchronously</i> using
+  the <code>async</code> option, and the call will return immediately (before trying to send  
+the request) instead of blocking.  
+You should use the callback function to receive provisional responses,  
+final response and errors.</p>
+ 
+  <p>Methods <i>OPTIONS</i>, <i>REGISTER</i> and <i>INVITE</i> can be
+  sent outside or inside a dialog. <i>ACK</i> and <i>BYE</i> can only be sent
+  inside a dialog, and <i>CANCEL</i> can only be sent outside a dialog.</p>
+ 
+  <p>Common options for most functions (outside or inside dialog) are:<br></p>
+ 
+  <table border="1">
+       <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+       <tr>
+           <td><code>fields</code></td>
+           <td><code>[<a href="nksip_response.html#type-field"><code>nksip_response:field()</code></a>]</code></td>
+           <td><code>[]</code></td>
+           <td>Use it to select which specific fields from the response are
+           returned. See <a href="nksip_response.html#type-field"><code>nksip_response:field()</code></a> for the complete list of
+           supported fields. For <i>INVITE</i> requests, the first field is
+           allways the dialog's id of the response.</td>
+       </tr>
+       <tr>
+           <td><code>async</code></td>
+           <td></td>
+           <td></td>
+           <td>If present, the call will return inmediatly as <code>{async, ReqId}</code>, or
+           <code>{error, Error}</code> if an error is produced before sending the request.
+           <code>ReqId</code> can be used with the functions in <a href="nksip_request.html"><code>nksip_request</code></a> to get
+           information about the request (the request may not be sent yet, so
+           the information about transport may not be present).</td>
+       </tr>
+       <tr>
+           <td><code>callback</code></td>
+           <td><code>fun/1</code></td>
+           <td></td>
+           <td>If defined, it will be called for every received provisional response
+           as <code>{ok, Code, Values}</code>. For <code>async</code> requests, it is called also
+           for the final response and, if an error is produced before sending
+           the request, as <code>{error, Error}</code>.</td>
+       </tr>
+       <tr>
+           <td><code>contact</code></td>
+           <td><a href="nksip.html#type-user_uri"><code>nksip:user_uri()</code></a></td>
+           <td></td>
+           <td>If defined, one or several <i>Contact</i> headers will be inserted in
+           the request.</td>
+       </tr>
+       <tr>
+           <td><code>make_contact</code></td>
+           <td></td>
+           <td></td>
+           <td>If present, a <i>Contact</i> header will be automatically generated.</td>
+       </tr>
+       <tr>
+           <td><code>content_type</code></td>
+           <td><code>binary()</code></td>
+           <td></td>
+           <td>If defined, a <i>Content-Type</i> headers will be inserted</td>
+       </tr>
+       <tr>
+           <td><code>headers</code></td>
+           <td><code>[<a href="nksip.html#type-header"><code>nksip:header()</code></a>]</code></td>
+           <td>[]</td>
+           <td>List of headers to add to the request. The following headers should not
+           we used here: <i>From</i>, <i>To</i>, <i>Via</i>, <i>Call-Id</i>,
+           <i>CSeq</i>, <i>Forwards</i>, <i>User-Agent</i>, <i>Content-Type</i>,
+           <i>Route</i>, <i>Contact</i>.</td>
+       </tr>
+       <tr>
+           <td><code>body</code></td>
+           <td><code><a href="nksip.html#type-body"><code>nksip:body()</code></a></code></td>
+           <td><code>&lt;&lt;&gt;&gt;</code></td>
+           <td>Body to use. If it is a <code>nksip_sdp:sdp()</code>, a <i>Content-Type</i>
+           header will be generated.</td>
+       </tr>
+       <tr>
+           <td><code>local_host</code></td>
+           <td><code>auto|string()|binary()</code></td>
+           <td>SipApp's config</td>
+           <td>See <a href="#start-4"><code>start/4</code></a></td>
+       </tr>
+  </table>
+ 
+  <p>Options available for most methods only when sent outside a dialog are:</p>
+ 
+  <table border="1">
+       <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+       <tr>
+           <td><code>from</code></td>
+           <td><a href="nksip.html#type-user_uri"><code>nksip:user_uri()</code></a></td>
+           <td>SipApp's config</td>
+           <td><i>From</i> to use in the request.</td>
+       </tr>
+       <tr>
+           <td><code>to</code></td>
+           <td><a href="nksip.html#type-user_uri"><code>nksip:user_uri()</code></a><code>|as_from</code></td>
+           <td><code>Uri</code></td>
+           <td><i>To</i> to use in the request.</td>
+       </tr>
+       <tr>
+           <td><code>user_agent</code></td>
+           <td><code>string()|binary()</code></td>
+           <td>"NkSIP (version)"</td>
+           <td><i>User-Agent</i> header to use in the request.</td>
+       </tr>
+       <tr>
+           <td><code>call_id</code></td>
+           <td><a href="nksip.html#type-call_id"><code>nksip:call_id()</code></a></td>
+           <td>(automatic)</td>
+           <td>If defined, will be used instead of a newly generated one
+           (use <a href="nksip_lib.html#luid-0"><code>nksip_lib:luid/0</code></a>)</td>
+       </tr>
+       <tr>
+           <td><code>cseq</code></td>
+           <td><a href="nksip.html#type-cseq"><code>nksip:cseq()</code></a></td>
+           <td>(automatic)</td>
+           <td>If defined, will be used instead of a newly generated one
+           (use <a href="nksip_lib.html#cseq-0"><code>nksip_lib:cseq/0</code></a>)</td>
+       </tr>
+       <tr>
+           <td><code>route</code></td>
+           <td><a href="nksip.html#type-user_uri"><code>nksip:user_uri()</code></a></td>
+           <td>SipApp's config</td>
+           <td>If defined, one or several <i>Route</i> headers will be inserted in
+           the request.</td>
+       </tr>
+  </table>
+ 
+ 
+  Look at the specification for each function to find supported options
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-ack_result">ack_result()</a></h3>
+<p><tt>ack_result() = ok | async</tt></p>
+
+
+<h3 class="typedecl"><a name="type-cancel_error">cancel_error()</a></h3>
+<p><tt>cancel_error() = unknown_request | <a href="nksip_call_router.html#type-sync_error">nksip_call_router:sync_error()</a></tt></p>
+
+
+<h3 class="typedecl"><a name="type-dialog_opt">dialog_opt()</a></h3>
+<p><tt>dialog_opt() = {fields, [<a href="nksip_response.html#type-field">nksip_response:field()</a>]} | async | {callback, function()} | get_response | get_request | {contact, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>} | make_contact | {content_type, binary()} | {headers, [<a href="nksip.html#type-header">nksip:header()</a>]} | {body, <a href="nksip.html#type-body">nksip:body()</a>} | {local_host, auto | binary()}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-dialog_spec">dialog_spec()</a></h3>
+<p><tt>dialog_spec() = <a href="nksip_dialog.html#type-id">nksip_dialog:id()</a> | <a href="nksip_request.html#type-id">nksip_request:id()</a> | <a href="nksip_response.html#type-id">nksip_response:id()</a></tt></p>
+
+
+<h3 class="typedecl"><a name="type-error">error()</a></h3>
+<p><tt>error() = invalid_uri | invalid_from | invalid_to | invalid_route | invalid_contact | invalid_cseq | unknown_dialog | request_pending | network_error | <a href="nksip_call_router.html#type-sync_error">nksip_call_router:sync_error()</a></tt></p>
+
+
+<h3 class="typedecl"><a name="type-invite_opt">invite_opt()</a></h3>
+<p><tt>invite_opt() = {expires, pos_integer()}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-opt">opt()</a></h3>
+<p><tt>opt() = <a href="#type-dialog_opt">dialog_opt()</a> | {from, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>} | {to, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>} | {user_agent, binary()} | {call_id, binary()} | {cseq, <a href="nksip.html#type-cseq">nksip:cseq()</a>} | {route, <a href="nksip.html#type-user_uri">nksip:user_uri()</a>}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-register_opt">register_opt()</a></h3>
+<p><tt>register_opt() = {expires, non_neg_integer()} | unregister | unregister_all</tt></p>
+
+
+<h3 class="typedecl"><a name="type-result">result()</a></h3>
+<p><tt>result() = {async, <a href="nksip_request.html#type-id">nksip_request:id()</a>} | {ok, <a href="nksip.html#type-response_code">nksip:response_code()</a>, <a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>} | {resp, <a href="nksip.html#type-response">nksip:response()</a>}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#ack-3">ack/3</a></td><td>Sends an <i>ACK</i> after a successful <i>INVITE</i> response.</td></tr>
+<tr><td valign="top"><a href="#bye-3">bye/3</a></td><td>Sends an <i>BYE</i> for a current dialog, terminating the session.</td></tr>
+<tr><td valign="top"><a href="#cancel-2">cancel/2</a></td><td>Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.</td></tr>
+<tr><td valign="top"><a href="#invite-3">invite/3</a></td><td>Sends an INVITE request.</td></tr>
+<tr><td valign="top"><a href="#options-3">options/3</a></td><td>Sends an OPTIONS request.</td></tr>
+<tr><td valign="top"><a href="#refresh-3">refresh/3</a></td><td>Sends a update on a currently ongoing dialog using INVITE.</td></tr>
+<tr><td valign="top"><a href="#register-3">register/3</a></td><td>Sends a REGISTER request.</td></tr>
+<tr><td valign="top"><a href="#stun-3">stun/3</a></td><td>Sends a <i>STUN</i> binding request.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="ack-3">ack/3</a></h3>
+<div class="spec">
+<p><tt>ack(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, DialogSpec::<a href="#type-dialog_spec">dialog_spec()</a>, Opts::[<a href="#type-dialog_opt">dialog_opt()</a>]) -&gt; <a href="#type-ack_result">ack_result()</a> | {error, <a href="#type-error">error()</a>}</tt><br></p>
+</div><p><p>Sends an <i>ACK</i> after a successful <i>INVITE</i> response.</p>
+ 
+  <p>After sending an INVITE and receiving a successfully (2xx) response,  
+you must call this function immediately to send the mandatory ACK request.  
+NkSIP won't send it for you automatically in case of a successful response,  
+because you may want to include a SDP body if you didn't do it in the INVITE request.</p>
+ 
+  <p>To specify the dialog you should use the dialog's id from
+  the return of the <a href="#invite-3"><code>invite/3</code></a> call or using
+  <a href="nksip_sipapp.html#dialog_update-3"><code>nksip_sipapp:dialog_update/3</code></a> callback function.
+  Valid options are <code>fields</code>, <code>callback</code>, <code>async</code>, <code>content_type</code>, <code>headers</code> and
+  <code>body</code>.</p>
+ 
+  For sync requests, it will return <code>ok</code> if the request could be sent or
+  <code>{error, Error}</code> if an error is detected. For async requests, it will return
+  <code>async</code>. If a callback is defined, it will be called as <code>ok</code> or <code>{error, Error}</code>.
+ </p>
+
+<h3 class="function"><a name="bye-3">bye/3</a></h3>
+<div class="spec">
+<p><tt>bye(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, DialogSpec::<a href="#type-dialog_spec">dialog_spec()</a>, Opts::[<a href="#type-dialog_opt">dialog_opt()</a>]) -&gt; <a href="#type-result">result()</a> | {error, <a href="#type-error">error()</a>}</tt><br></p>
+</div><p><p>Sends an <i>BYE</i> for a current dialog, terminating the session.</p>
+ 
+  <p>You need to know the dialog's id of the dialog you want to hang up.
+  You can get from the return of the initial <a href="#invite-3"><code>invite/3</code></a>, or using
+  <a href="nksip_sipapp.html#dialog_update-3"><code>nksip_sipapp:dialog_update/3</code></a> callback function.</p>
+ 
+  Valid options are defined in <a href="#type-dialog_opt"><code>dialog_opt()</code></a>.
+ </p>
+
+<h3 class="function"><a name="cancel-2">cancel/2</a></h3>
+<div class="spec">
+<p><tt>cancel(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, ReqId::<a href="nksip_request.html#type-id">nksip_request:id()</a>) -&gt; ok | {error, <a href="#type-cancel_error">cancel_error()</a>}</tt><br></p>
+</div><p><p>Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.</p>
+ 
+  <p>You can use this function to send a CANCEL requests to abort a currently
+  <i>calling</i> INVITE request, using the <code>ReqId</code> obtained when calling
+  <a href="#invite-3"><code>invite/3</code></a> <i>asynchronously</i>.  
+The CANCEL request will eventually be received at the remote end, and,  
+if it hasn't yet answered the matching INVITE request,  
+it will finish it with a 487 code.</p>
+ 
+  This call is always asychronous. It returns a soon as the request is
+  received and the cancelling INVITE is found.
+ </p>
+
+<h3 class="function"><a name="invite-3">invite/3</a></h3>
+<div class="spec">
+<p><tt>invite(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, Dest::<a href="nksip.html#type-user_uri">nksip:user_uri()</a> | <a href="#type-dialog_spec">dialog_spec()</a>, Opts::[<a href="#type-opt">opt()</a> | <a href="#type-dialog_opt">dialog_opt()</a> | <a href="#type-invite_opt">invite_opt()</a>]) -&gt; <a href="#type-result">result()</a> | {error, <a href="#type-error">error()</a>}</tt><br></p>
+</div><p><p>Sends an INVITE request.</p>
+ 
+  <p>This functions sends a new session invitation to another endpoint or proxy.
+  When the first provisional response from the remote party is received
+  (as 180 <i>Ringing</i>) a new dialog will be started, and the corresponding callback
+  <a href="nksip_sipapp.html#dialog_update-3"><code>nksip_sipapp:dialog_update/3</code></a> in the callback module will be called.
+  If this response has also a valid SDP body, a new session will be associated
+  with the dialog and the corresponding callback <a href="nksip_sipapp.html#session_update-3"><code>nksip_sipapp:session_update/3</code></a>  
+will also be called.</p>
+ 
+  <p>When the first 2xx response is received, the dialog is confirmed.
+  <b>You must then call <a href="#ack-3"><code>ack/3</code></a> immediately</b>, offering an  
+SDP body if you haven't done it in the INVITE request.</p>
+ 
+  <p>The dialog is destroyed when a BYE is sent or received, or a 408 <i>Timeout</i>
+  or 481 <i>Call Does Not Exist</i> response is received.
+  If a secondary 2xx response is received (usually because a proxy server
+  has forked the request) NkSIP will automatically acknowledge it and send BYE.
+  If a 3xx-6xx response is received instead of a 2xx response, the <i>early dialog</i>
+  is destroyed. You should not call <a href="#ack-2"><code>ack/2</code></a> in this case,  
+as NkSIP will do it for you automatically.</p>
+ 
+  <p>After a dialog has being established, you can send new INVITE requests
+  (called <i>reINVITEs</i>) <i>inside</i> this dialog.</p>
+ 
+  <p>When <code>Dest</code> if an <i>SIP Uri</i> the request will be sent outside any dialog.
+  If it is a dialog specification, it will be sent inside that dialog.
+  Recognized options are described in <a href="#type-opt"><code>opt()</code></a> when sent outside any dialog,
+  and <a href="#type-dialog_opt"><code>dialog_opt()</code></a> when sent inside a dialog.</p>
+ 
+  <p>Additional recognized options are defined in <a href="#type-invite_opts"><code>invite_opts()</code></a>:</p>
+ 
+  <table border="1">
+       <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+       <tr>
+           <td><code>expires</code></td>
+           <td><code>integer()</code></td>
+           <td></td>
+           <td>If included it will generate a <code>Expires</code> header</td>
+       </tr>
+  </table>
+ 
+  <p>A <code>make_contact</code> option will be automatically added if no contact is defined.</p>
+ 
+  <p>If <code>Expires</code> header is used, NkSIP will CANCEL the request if no final response
+  has been received in this period in seconds. The default value for <code>contact</code> parameter
+  would be <code>auto</code> in this case.</p>
+ 
+  <p>If you want to be able to <i>CANCEL</i> the request, you should use the <code>async</code>  
+option.</p>
+ 
+  If a 491 response is received, it usually means that the remote party is
+  starting another reINVITE transaction right now. You should call
+  <a href="nksip_response.html#type-wait_491"><code>nksip_response:wait_491()</code></a> and try again.
+ </p>
+
+<h3 class="function"><a name="options-3">options/3</a></h3>
+<div class="spec">
+<p><tt>options(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, Dest::<a href="nksip.html#type-user_uri">nksip:user_uri()</a> | <a href="#type-dialog_spec">dialog_spec()</a>, Opts::[<a href="#type-opt">opt()</a> | <a href="#type-dialog_opt">dialog_opt()</a>]) -&gt; <a href="#type-result">result()</a> | {error, <a href="#type-error">error()</a>}</tt><br></p>
+</div><p><p>Sends an OPTIONS request.</p>
+ 
+  <p>OPTIONS requests are usually sent to get the current set of SIP features
+  and codecs the remote party supports, and to detect if it is <i>up</i>,  
+it has failed or it is not responding requests for any reason.  
+It can also be used to measure the remote party response time.</p>
+ 
+  <p>When <code>Dest</code> if an <i>SIP Uri</i> the request will be sent outside any dialog.
+  If it is a dialog specification, it will be sent inside that dialog.
+  Recognized options are described in <a href="#type-opt"><code>opt()</code></a> when sent outside any dialog,
+  and <a href="#type-dialog_opt"><code>dialog_opt()</code></a> when sent inside a dialog.</p>
+ 
+  NkSIP has an automatic remote <i>pinging</i> feature that can be activated
+  on any SipApp (see <a href="nksip_sipapp_auto.html#start_ping-5"><code>nksip_sipapp_auto:start_ping/5</code></a>).
+ </p>
+
+<h3 class="function"><a name="refresh-3">refresh/3</a></h3>
+<div class="spec">
+<p><tt>refresh(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, DialogSpec::<a href="#type-dialog_spec">dialog_spec()</a>, Opts::[<a href="#type-dialog_opt">dialog_opt()</a>]) -&gt; <a href="#type-result">result()</a> | {error, <a href="#type-error">error()</a>}</tt><br></p>
+</div><p><p>Sends a update on a currently ongoing dialog using INVITE.</p>
+ 
+  <p>This function sends a in-dialog INVITE, using the same current  
+parameters of the dialog, only to refresh it. The current local SDP version  
+will be incremented before sending it.</p>
+ 
+  Available options are the same as <a href="#reinvite-2"><code>reinvite/2</code></a> and also:
+  <ul>
+   <li><code>active</code>: activate the medias on SDP (sending <code>a=sendrecv</code>)</li>
+   <li><code>inactive</code>: deactivate the medias on SDP (sending <code>a=inactive</code>)</li>
+   <li><code>hold</code>: activate the medias on SDP (sending <code>a=sendonly</code>)</li>
+  </ul>
+ </p>
+
+<h3 class="function"><a name="register-3">register/3</a></h3>
+<div class="spec">
+<p><tt>register(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, Dest::<a href="nksip.html#type-user_uri">nksip:user_uri()</a> | <a href="#type-dialog_spec">dialog_spec()</a>, Opts::[<a href="#type-opt">opt()</a> | <a href="#type-dialog_opt">dialog_opt()</a> | <a href="#type-register_opt">register_opt()</a>]) -&gt; <a href="#type-result">result()</a> | {error, <a href="#type-error">error()</a>}</tt><br></p>
+</div><p><p>Sends a REGISTER request.</p>
+ 
+  <p>This function is used to send a new REGISTER request to any registrar server,
+  to register a new <code>Contact</code>, delete a current registration or get the list of  
+current registered contacts from the registrar.</p>
+ 
+  <p>When <code>Dest</code> if an <i>SIP Uri</i> the request will be sent outside any dialog.
+  If it is a dialog specification, it will be sent inside that dialog.
+  Recognized options are described in <a href="#type-opt"><code>opt()</code></a> when sent outside any dialog,
+  and <a href="#type-dialog_opt"><code>dialog_opt()</code></a> when sent inside a dialog.</p>
+ 
+  <p>Additional recognized options are defined in <a href="#type-register_opt"><code>register_opt()</code></a>:</p>
+ 
+  <table border="1">
+       <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+       <tr>
+           <td><code>expires</code></td>
+           <td><code>integer()</code></td>
+           <td></td>
+           <td>If defined it will generate a <i>Expires</i> header</td>
+       </tr>
+       <tr>
+           <td><code>unregister</code></td>
+           <td></td>
+           <td></td>
+           <td>If present, unregisters the contact (sets <i>Expires</i> to 0)</td>
+       </tr>
+       <tr>
+           <td><code>unregister_all</code></td>
+           <td></td>
+           <td></td>
+           <td>If present, unregisters all registered contacts for this user (sets
+               <i>Contact</i> to <i>*</i> and <i>Expires</i> to 0)</td>
+       </tr>
+  </table>
+ 
+  <p>You will usually want to include a <code>make_contact</code> option to generate a valid
+  <i>Contact</i> header.</p>
+ 
+  <p>Keep in mind that, once you send a REGISTER requests, following refreshers
+  should have the same <code>Call-Id</code> and an incremented <code>CSeq</code> headers.
+  The default value for <code>contact</code> parameter would be <code>auto</code> in this case.</p>
+ 
+  NkSIP offers also an automatic SipApp registration facility
+  (see <a href="nksip.html#start-4"><code>nksip:start/4</code></a>).</p>
+
+<h3 class="function"><a name="stun-3">stun/3</a></h3>
+<div class="spec">
+<p><tt>stun(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, UriSpec::<a href="nksip.html#type-user_uri">nksip:user_uri()</a>, Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}</tt>
+<ul class="definitions"><li><tt>LocalIp = <a href="inet.html#type-ip4_address">inet:ip4_address()</a></tt></li><li><tt>LocalPort = <a href="inet.html#type-port_number">inet:port_number()</a></tt></li><li><tt>RemoteIp = <a href="inet.html#type-ip4_address">inet:ip4_address()</a></tt></li><li><tt>RemotePort = <a href="inet.html#type-port_number">inet:port_number()</a></tt></li><li><tt>Error = unknown_core | invalid_uri | no_host | network_error</tt></li></ul></p>
+</div><p><p>Sends a <i>STUN</i> binding request.</p>
+ 
+  Use this function to send a STUN binding request to a remote STUN or
+  STUN-enabled SIP server, in order to get our remote ip and port.
+  If the remote server is a standard STUN server, use port 3478
+  (i.e. <code>sip:stunserver.org:3478</code>). If it is a STUN server embedded into a SIP UDP
+  server, use a standard SIP uri.
+ </p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Oct 17 2013, 19:39:48.</i></p>
+</body>
+</html>

@@ -1,0 +1,4 @@
+%% encoding: UTF-8
+{application,nksip_loadtest}.
+{packages,[]}.
+{modules,[nksip_loadtest,nksip_loadtest_lib,nksip_loadtest_sipapp]}.

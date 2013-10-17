@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_store</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_store</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>NkSIP In-Memory Database.
+
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>NkSIP In-Memory Database.</p>
+ 
+  This module implements an ETS-based database used for registrations
+  and caches.
+  It is capable of timed auto expiring of records, server-side update funs
+  and calling an user fun on record expire.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#del-1">del/1</a></td><td>Deletes a record from database.</td></tr>
+<tr><td valign="top"><a href="#fold-2">fold/2</a></td><td>Folds over all records in database like <code>lists:foldl/3</code>.</td></tr>
+<tr><td valign="top"><a href="#get-1">get/1</a></td><td>Equivalent to <code>get(Key, not_found)</code>.</td></tr>
+<tr><td valign="top"><a href="#get-2">get/2</a></td><td>Gets a record from database using <code>Default</code> if not found.</td></tr>
+<tr><td valign="top"><a href="#put-2">put/2</a></td><td>Equivalent to <code>put(Key, Value, [])</code>.</td></tr>
+<tr><td valign="top"><a href="#put-3">put/3</a></td><td>Inserts a <code>Value</code> in database under <code>Key</code>.</td></tr>
+<tr><td valign="top"><a href="#update-2">update/2</a></td><td>Equivalent to <code>update(Key, Fun, [])</code>.</td></tr>
+<tr><td valign="top"><a href="#update-3">update/3</a></td><td>Updates a record in database, applying <code>Fun</code> to the old record
+  to get the new value.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="del-1">del/1</a></h3>
+<div class="spec">
+<p><tt>del(Key::term()) -&gt; ok | not_found</tt><br></p>
+</div><p>Deletes a record from database.</p>
+
+<h3 class="function"><a name="fold-2">fold/2</a></h3>
+<div class="spec">
+<p><tt>fold(UserFun::function(), Acc0::term()) -&gt; term()</tt><br></p>
+</div><p>Folds over all records in database like <code>lists:foldl/3</code>.
+  UserFun will be called as <code>UserFun(Key, Value, Acc)</code> for each record.</p>
+
+<h3 class="function"><a name="get-1">get/1</a></h3>
+<div class="spec">
+<p><tt>get(Key::term()) -&gt; term() | not_found</tt><br></p>
+</div><p>Equivalent to <code>get(Key, not_found)</code>.</p>
+
+<h3 class="function"><a name="get-2">get/2</a></h3>
+<div class="spec">
+<p><tt>get(Key::term(), Default::term()) -&gt; term()</tt><br></p>
+</div><p>Gets a record from database using <code>Default</code> if not found</p>
+
+<h3 class="function"><a name="put-2">put/2</a></h3>
+<div class="spec">
+<p><tt>put(Key::term(), Value::term()) -&gt; ok</tt><br></p>
+</div><p>Equivalent to <code>put(Key, Value, [])</code>.</p>
+
+<h3 class="function"><a name="put-3">put/3</a></h3>
+<div class="spec">
+<p><tt>put(Key::term(), Value::term(), Opt::[Opt]) -&gt; ok</tt>
+<ul class="definitions"><li><tt>Opt = {ttl, integer()} | {notify, function()}</tt></li></ul></p>
+</div><p>Inserts a <code>Value</code> in database under <code>Key</code>.
+  If <code>ttl</code> option is used (seconds), record will be deleted after this time.
+  If <code>notify</code> options is used, function will be called on record's delete.</p>
+
+<h3 class="function"><a name="update-2">update/2</a></h3>
+<div class="spec">
+<p><tt>update(Key::term(), Fun::function()) -&gt; {ok, FunResult::term()} | {error, Error::term()}</tt><br></p>
+</div><p>Equivalent to <code>update(Key, Fun, [])</code>.</p>
+
+<h3 class="function"><a name="update-3">update/3</a></h3>
+<div class="spec">
+<p><tt>update(Key::term(), Fun::function(), Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; {ok, FunResult::term()} | {error, Error::term()}</tt><br></p>
+</div><p>Updates a record in database, applying <code>Fun</code> to the old record
+  to get the new value.
+  If no record is found, old value would be <code>[]</code>.
+  If the new generated value is <code>[]</code> record will be deleted.
+  See <a href="#put-3"><code>put/3</code></a> for options.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Oct 17 2013, 19:39:48.</i></p>
+</body>
+</html>

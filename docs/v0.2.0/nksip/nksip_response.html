@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_response</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_response</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>User Response Management Functions.
+
+
+<h2><a name="description">Description</a></h2>User Response Management Functions
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-field">field()</a></h3>
+<p><tt>field() = app_id | code | reason | call_id | vias | parsed_vias | ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor | from | from_scheme | from_user | from_domain | parsed_from | to | to_scheme | to_user | to_domain | parsed_to | cseq | parsed_cseq | cseq_num | cseq_method | forwards | routes | parsed_routes | contacts | parsed_contacts | content_type | parsed_content_type | all_headers | body | dialog_id | local | remote | binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-id">id()</a></h3>
+<p><tt>id() = binary()</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#body-2">body/2</a></td><td>Gets the <i>body</i> of a response.</td></tr>
+<tr><td valign="top"><a href="#call_id-1">call_id/1</a></td><td>Gets the calls's id of a response id.</td></tr>
+<tr><td valign="top"><a href="#code-2">code/2</a></td><td>Gets the <i>response code</i> of a response.</td></tr>
+<tr><td valign="top"><a href="#field-3">field/3</a></td><td>Gets specific information from the <code>Response</code>.</td></tr>
+<tr><td valign="top"><a href="#fields-3">fields/3</a></td><td>Get some fields from a response.</td></tr>
+<tr><td valign="top"><a href="#header-3">header/3</a></td><td>Get header values from a response.</td></tr>
+<tr><td valign="top"><a href="#reason-2">reason/2</a></td><td>Gets the <i>reason</i> of a response.</td></tr>
+<tr><td valign="top"><a href="#wait_491-0">wait_491/0</a></td><td>Sleeps a random time between 2.1 and 4 secs.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="body-2">body/2</a></h3>
+<div class="spec">
+<p><tt>body(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RespId::<a href="#type-id">id()</a>) -&gt; <a href="nksip.html#type-body">nksip:body()</a> | error</tt><br></p>
+</div><p>Gets the <i>body</i> of a response.</p>
+
+<h3 class="function"><a name="call_id-1">call_id/1</a></h3>
+<div class="spec">
+<p><tt>call_id(X1::<a href="#type-id">id()</a>) -&gt; <a href="nksip.html#type-call_id">nksip:call_id()</a></tt><br></p>
+</div><p>Gets the calls's id of a response id</p>
+
+<h3 class="function"><a name="code-2">code/2</a></h3>
+<div class="spec">
+<p><tt>code(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RespId::<a href="#type-id">id()</a>) -&gt; <a href="nksip.html#type-response_code">nksip:response_code()</a> | error</tt><br></p>
+</div><p>Gets the <i>response code</i> of a response.</p>
+
+<h3 class="function"><a name="field-3">field/3</a></h3>
+<div class="spec">
+<p><tt>field(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RespId::<a href="#type-id">id()</a>, Field::<a href="#type-field">field()</a>) -&gt; term() | error</tt><br></p>
+</div><p><p>Gets specific information from the <code>Response</code>.
+  The available fields are the same as <a href="nksip_request.html#field-2"><code>nksip_request:field/2</code></a>,  
+and also:</p>
+ 
+  <table border="1">
+       <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+       <tr>
+           <td><code>code</code></td>
+           <td><a href="nksip.html#type-response_code"><code>nksip:response_code()</code></a></td>
+           <td>Response Code</td>
+       </tr>
+       <tr>
+           <td><code>reason</code></td>
+           <td><code>binary()</code></td>
+           <td>Reason Phrase</td>
+       </tr>
+  </table></p>
+
+<h3 class="function"><a name="fields-3">fields/3</a></h3>
+<div class="spec">
+<p><tt>fields(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RespId::<a href="#type-id">id()</a>, Fields::[<a href="#type-field">field()</a>]) -&gt; [{atom(), term()}] | error</tt><br></p>
+</div><p>Get some fields from a response.</p>
+
+<h3 class="function"><a name="header-3">header/3</a></h3>
+<div class="spec">
+<p><tt>header(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RespId::<a href="#type-id">id()</a>, Name::binary()) -&gt; [binary()] | error</tt><br></p>
+</div><p>Get header values from a response.</p>
+
+<h3 class="function"><a name="reason-2">reason/2</a></h3>
+<div class="spec">
+<p><tt>reason(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RespId::<a href="#type-id">id()</a>) -&gt; binary() | error</tt><br></p>
+</div><p>Gets the <i>reason</i> of a response.</p>
+
+<h3 class="function"><a name="wait_491-0">wait_491/0</a></h3>
+<div class="spec">
+<p><tt>wait_491() -&gt; ok</tt><br></p>
+</div><p>Sleeps a random time between 2.1 and 4 secs. It should be called after
+  receiving a 491 response and before trying the request again.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Oct 17 2013, 19:39:48.</i></p>
+</body>
+</html>

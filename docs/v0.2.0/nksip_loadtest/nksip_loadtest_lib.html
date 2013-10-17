@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_loadtest_lib</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_loadtest_lib</h1>
+<ul class="index"><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#launch-1">launch/1</a></td><td>Launchs a new load test.</td></tr>
+<tr><td valign="top"><a href="#start_clients-1">start_clients/1</a></td><td>Starts <code>N</code> simultaneous clients.</td></tr>
+<tr><td valign="top"><a href="#start_server-0">start_server/0</a></td><td>Start a test server SipApp called <code>server</code> listening on port <code>5060</code>.</td></tr>
+<tr><td valign="top"><a href="#start_server-2">start_server/2</a></td><td>Start a test server SipApp called <code>Name</code> listening on port <code>Port</code> for
+  udp and tcp, and <code>Port+1</code> for tls.</td></tr>
+<tr><td valign="top"><a href="#stop_clients-1">stop_clients/1</a></td><td>Stops <code>N</code> simultaneous clients started using <a href="#start_clients-1"><code>start_clients/1</code></a>.</td></tr>
+<tr><td valign="top"><a href="#stop_server-0">stop_server/0</a></td><td>Stops SipApp called <code>server</code>.</td></tr>
+<tr><td valign="top"><a href="#stop_server-1">stop_server/1</a></td><td>Stops SipApp called <code>Name</code>.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="launch-1">launch/1</a></h3>
+<div class="spec">
+<p><tt>launch(Opt::[Opt]) -&gt; {Total, Ok, PerSecond}</tt>
+<ul class="definitions"><li><tt>Opt = tcp | tls | {messages, integer()} | {clients, integer()} | stateless | register | invite | raw | {host, string()} | {port, integer()} | no_auto_start</tt></li><li><tt>Total = integer()</tt></li><li><tt>Ok = float()</tt></li><li><tt>PerSecond = integer()</tt></li></ul></p>
+</div><p><p>Launchs a new load test.</p>
+ 
+  Recognized options are:
+  <br>
+  <table border="1">
+   <tr><th>Option</th><th>Description</th></tr>
+   <tr>
+       <td><code>tcp</code></td>
+       <td>Use tcp transport (default is udp)</td>
+   </tr>
+   <tr>
+       <td><code>tls</code></td>
+       <td>Use tls transport (default is udp)</td>
+   </tr>
+   <tr>
+       <td><code>messages</code></td>
+       <td>Number of requests to send (default 1)</td>
+   </tr>
+   <tr>
+       <td><code>clients</code></td>
+       <td>Number of parallel clients to start (default 10)</td>
+   </tr>
+   <tr>
+       <td><code>stateless</code></td>
+       <td>Process the request in stateless mode at the server</td>
+   </tr>
+   <tr>
+       <td><code>invite</code></td>
+       <td>Selects the INVITE test (default is OPTIONS)</td>
+   </tr>
+   <tr>
+       <td><code>register</code></td>
+       <td>Selects the REGISTER test (default is OPTIONS)</td>
+   </tr>
+   <tr>
+       <td><code>raw</code></td>
+       <td>Selects "raw" mode. The requests will be generated locally instead of
+           using NkSIP request generation functions. This mode is useful to test
+           a locally started NkSIP as an UAS server, without the UAC processing
+           overhead.</td>
+   </tr>
+   <tr>
+       <td><code>host</code></td>
+       <td>Use it in case the NkSIP server being tested is started at another node.
+           Default is "127.0.0.1"</td>
+   </tr>
+   <tr>
+       <td><code>port</code></td>
+       <td>NkSIP server listening port. Default is 5060 for udp and tcp,
+           and 5061 for tls</td>
+   </tr>
+  </table>
+ 
+  <br>
+  It returns the number of requests sent, the percentage of correct responses and
+  the number or requests per second.</p>
+
+<h3 class="function"><a name="start_clients-1">start_clients/1</a></h3>
+<div class="spec">
+<p><tt>start_clients(N) -&gt; any()</tt></p>
+</div><p>Starts <code>N</code> simultaneous clients.</p>
+
+<h3 class="function"><a name="start_server-0">start_server/0</a></h3>
+<div class="spec">
+<p><tt>start_server() -&gt; any()</tt></p>
+</div><p>Start a test server SipApp called <code>server</code> listening on port <code>5060</code>.</p>
+
+<h3 class="function"><a name="start_server-2">start_server/2</a></h3>
+<div class="spec">
+<p><tt>start_server(Name, Port) -&gt; any()</tt></p>
+</div><p>Start a test server SipApp called <code>Name</code> listening on port <code>Port</code> for
+  udp and tcp, and <code>Port+1</code> for tls.</p>
+
+<h3 class="function"><a name="stop_clients-1">stop_clients/1</a></h3>
+<div class="spec">
+<p><tt>stop_clients(N) -&gt; any()</tt></p>
+</div><p>Stops <code>N</code> simultaneous clients started using <a href="#start_clients-1"><code>start_clients/1</code></a>.</p>
+
+<h3 class="function"><a name="stop_server-0">stop_server/0</a></h3>
+<div class="spec">
+<p><tt>stop_server() -&gt; any()</tt></p>
+</div><p>Stops SipApp called <code>server</code>.</p>
+
+<h3 class="function"><a name="stop_server-1">stop_server/1</a></h3>
+<div class="spec">
+<p><tt>stop_server(Name) -&gt; any()</tt></p>
+</div><p>Stops SipApp called <code>Name</code>.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Oct 17 2013, 19:39:49.</i></p>
+</body>
+</html>
