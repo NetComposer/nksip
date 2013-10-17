@@ -148,7 +148,7 @@ The first request is not authorized. The reason is that we are using a `sips` ur
 16> nksip_uac:options(client1, "sips:client2@nksip", 
                 				[{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"},
                                  {fields, [<<"Nksip-Id">>]}]).
-{ok,200,[{<<"Nk-Id">>, [<<"client2">>]}]}
+{ok,200,[{<<"Nksip-Id">>, [<<"client2">>]}]}
 ```
 In the second case we want to get the _Nksip-Id_ header from the response. 
 Our callback `options/3` is called for every received options request, which includes the custom header:
