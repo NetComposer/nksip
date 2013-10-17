@@ -369,7 +369,8 @@ raw_sipmsg(Raw) ->
     } = Raw,
     case Class of
         {req, Method, RequestUri} ->
-            case uris(RequestUri) of
+            %% Request-Uris behave as having < ... >
+            case uris(<<$<, RequestUri/binary, $>>>) of
                 [RUri] ->
                     case get_sipmsg(Headers, Body) of
                         error ->
