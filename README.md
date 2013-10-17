@@ -76,7 +76,7 @@ Now you can start a simple SipApp using the [client callback module](samples/nks
 1> nksip:start(test1, nksip_sipapp, [], []).
 ok
 2> nksip_uac:options(test1, "sip:sip2sip.info", []).
-{ok, 200, [}
+{ok, 200, []}
 ```
  
 From this point you can read the [tutorial](docs/TUTORIAL.md) or start hacking with the included [nksip_pbx](http://kalta.github.io/nksip/docs/v0.1.0/nksip_pbx/index.html) application:
