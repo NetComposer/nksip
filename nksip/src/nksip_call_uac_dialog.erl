@@ -19,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @private Call dialog UAC processing module
--module(nksip_call_dialog_uac).
+-module(nksip_call_uac_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").

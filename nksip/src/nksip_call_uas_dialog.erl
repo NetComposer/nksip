@@ -19,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @private Call dialog UAS processing module
--module(nksip_call_dialog_uas).
+-module(nksip_call_uas_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").

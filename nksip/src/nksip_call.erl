@@ -231,7 +231,7 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
     end;
 
 work({app_reply, Fun, Id, Reply}, none, Call) ->
-    nksip_call_uas:app_reply(Fun, Id, Reply, Call);
+    nksip_call_uas_request:reply(Fun, Id, Reply, Call);
 
 work({send_reply, ReqId, Reply}, From, Call) ->
     case get_trans(ReqId, Call) of
@@ -266,7 +266,7 @@ work({send, Method, Uri, Opts}, From, Call) ->
     end;
 
 work({send_dialog, DialogId, Method, Opts}, From, Call) ->
-    case nksip_call_dialog_uac:make(DialogId, Method, Opts, Call) of
+    case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
         {ok, {RUri, Opts1}, Call1} -> 
             work({send, Method, RUri, Opts1}, From, Call1);
         {error, Error} ->
