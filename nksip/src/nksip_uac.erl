@@ -62,7 +62,7 @@
 %%          <td>Use it to select which specific fields from the response are
 %%          returned. See {@link nksip_response:field()} for the complete list of
 %%          supported fields. For <i>INVITE</i> requests, the first field is 
-%%          allways the dialog's id of the response.</td>
+%%          always the dialog's id of the response.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`async'</td>

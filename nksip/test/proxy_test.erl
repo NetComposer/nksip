@@ -137,7 +137,7 @@ invalid(Test) ->
     {ok, 420, [{call_id, CallId3}, {<<"Unsupported">>, [<<"a,b,d">>]}]} = 
         nksip_uac:options(C1, "sip:client2@nksip", Opts3),
     
-    % The 420 response is allways stateless
+    % The 420 response is always stateless
     [] = nksip_call_router:get_all_transactions(S1, CallId3),
 
     % Force Forwards=0 using REGISTER
