@@ -28,67 +28,67 @@
 
 %% @doc Launches the full tutorial.
 launch() ->
-	nksip:start(server, nksip_tutorial_sipapp_server, [server], 
-		[
-			registrar, 
-		 	{transport, {udp, {0,0,0,0}, 5060}}, 
-		 	{transport, {tls, {0,0,0,0}, 5061}}
-		 ]),
+    nksip:start(server, nksip_tutorial_sipapp_server, [server], 
+        [
+            registrar, 
+            {transport, {udp, {0,0,0,0}, 5060}}, 
+            {transport, {tls, {0,0,0,0}, 5061}}
+         ]),
 
-	nksip:start(client1, nksip_tutorial_sipapp_client, [client1], 
-		[
-			{from, "sip:client1@nksip"},
-		 	{transport, {udp, {127,0,0,1}, 5070}}, 
-		 	{transport, {tls, {127,0,0,1}, 5071}}
-		]),
-	nksip:start(client2, nksip_tutorial_sipapp_client, [client2], 
-		[{from, "sips:client2@nksip"}]),
+    nksip:start(client1, nksip_tutorial_sipapp_client, [client1], 
+        [
+            {from, "sip:client1@nksip"},
+            {transport, {udp, {127,0,0,1}, 5070}}, 
+            {transport, {tls, {127,0,0,1}, 5071}}
+        ]),
+    nksip:start(client2, nksip_tutorial_sipapp_client, [client2], 
+        [{from, "sips:client2@nksip"}]),
 
-	trace(false),
+    trace(false),
 
-	{ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
-	{ok, 407, _} = nksip_uac:options(client1, "sip:127.0.0.1", []),
-	
-	{ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
-									[{pass, "1234"}]),
-	{ok, 200, []} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", 
-									[{pass, "1234"}]),
+    {ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
+    {ok, 407, [{reason,<<"Proxy Authentication Required">>}]} = 
+        nksip_uac:options(client1, "sip:127.0.0.1", [{fields, [reason]}]),
+    
+    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
+                                    [{pass, "1234"}]),
+    {ok, 200, []} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", 
+                                    [{pass, "1234"}]),
 
-	{ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", 
-									[{pass, "1234"}, make_contact]),
-	{ok, 200, []} = nksip_uac:register(client2, "<sip:127.0.0.1;transport=tls>", 
-									[{pass, "1234"}, make_contact]),
-	
-	{ok, 200, Resp1} = nksip_uac:register(client2, "<sip:127.0.0.1;transport=tls>", 
-									[{pass, "1234"}]),
-	[<<"<sips:client2@", _/binary>>] = nksip_response:header(Resp1, <<"Contact">>),
+    {ok, 200,[{<<"Contact">>, [<<"<sip:client1@127.0.0.1:5070>;expires=3600">>]}]} = 
+        nksip_uac:register(client1, "sip:127.0.0.1", 
+                           [{pass, "1234"}, make_contact, {fields, [<<"Contact">>]}]),
+    {ok, 400, []} = 
+        nksip_uac:register(client2, "sip:127.0.0.1", [{pass, "1234"}, make_contact]).
 
-	{ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", []),
-	{ok, 200, []} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", []),
-	
-	{ok, 407, _} = nksip_uac:options(client1, "sips:client2@nksip", 
-										[{route, "<sip:127.0.0.1;lr>"}]),
-	{ok, 200, Resp2} = nksip_uac:options(client1, "sips:client2@nksip", 
-										[{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"}]),
-	[<<"client2">>] = nksip_response:header(Resp2, <<"Nksip-Id">>),
-	
-	{ok, 200, Resp3} = nksip_uac:options(client2, "sip:client1@nksip", 
-										[{route, "<sips:127.0.0.1;lr>"}]),
-	[<<"client1">>] = nksip_response:header(Resp3, <<"Nksip-Id">>),
+    {ok, 200, []} = 
+        nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, make_contact]).
 
-	{ok, 488, _} = nksip_uac:invite(client2, "sip:client1@nksip", 
-									 [{route, "<sips:127.0.0.1;lr>"}]),
-	{ok, 200, Resp4} = nksip_uac:invite(client2, "sip:client1@nksip", 
-											[{route, "sips:127.0.0.1;lr"}, 
-											 {body, nksip_sdp:new()}]),
-	{req, _} = nksip_uac:ack(Resp4, []),
-	{ok, 200, []} = nksip_uac:bye(Resp4, []),
+    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", []),
+    {ok, 200, []} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", []),
+    
+    {ok, 407, []} = nksip_uac:options(client1, "sips:client2@nksip", 
+                                        [{route, "<sip:127.0.0.1;lr>"}]),
+    {ok, 200, [{<<"Nksip-Id">>, [<<"client2">>]}]} = 
+        nksip_uac:options(client1, "sips:client2@nksip", 
+                          [{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"},
+                           {fields, [<<"Nksip-Id">>]}]),
+   
+    {ok, 488, [{dialog_id, _}]} = nksip_uac:invite(client2, "sip:client1@nksip", 
+                                     [{route, "<sips:127.0.0.1;lr>"}]),
+    {ok, 200, [{dialog_id, DialogId}]} = 
+            nksip_uac:invite(client2, "sip:client1@nksip", 
+                                            [{route, "<sips:127.0.0.1;lr>"}, 
+                                             {body, nksip_sdp:new()}]),
+    ok = nksip_uac:ack(client2, DialogId, []),
 
-	{ok, _} = nksip:call(server, get_started),
-	ok = nksip:stop(client1),
-	ok = nksip:stop(client2),
-	ok = nksip:stop(server),
-	ok.
+    {ok, 200, []} = nksip_uac:bye(client2, DialogId, []),
+
+    {ok, _} = nksip:call(server, get_started),
+    ok = nksip:stop(client1),
+    ok = nksip:stop(client2),
+    ok = nksip:stop(server),
+    ok.
 
 
 %% ===================================================================

@@ -23,7 +23,7 @@ Now you can start a simple SipApp proxy server using the included [server callba
 ok
 ```
 
-Now we can start two clients, using the included [client callback module](../samples/nksip_tutorial/src/nksip_tutorial_sipapp_client.erl). The first is called `client1` and listens on `127.0.0.1` ports `5070` for udp and tcp and `5071` for tls, and the second is called `client2` and listens on all interfaces, random ports. We also configure the _From_ header to be used on each one, the second one, using `sips`:
+Now we can start two clients, using the included [client callback module](../samples/nksip_tutorial/src/nksip_tutorial_sipapp_client.erl). The first is called `client1` and listens on `127.0.0.1` ports `5070` for udp and tcp and `5071` for tls, and the second is called `client2` and listens on all interfaces, random ports. We also configure the _From_ header to be used on each one, the second one using `sips`:
 
 ```erlang
 2> nksip:start(client1, nksip_tutorial_sipapp_client, [client1], 
@@ -38,17 +38,21 @@ ok
 ok
 ```
 
-From now on, you could start tracing to see all SIP messages on the console, using `nksip_trace:start().`
+From now on, you could start tracing to see all SIP messages on the console, using `nksip_trace:start(true).`
 
 Let's try now to send an _OPTIONS_ from `client2` to `client1` and from `client1` to the `server`:
 ```erlang
-4> {ok, 200, _} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []).
-{ok, 200, ...}
-5> {ok, 407, _} = nksip_uac:options(client1, "sip:127.0.0.1", []).
-{ok, 407, ...}
+4> nksip_uac:options(client2, "sip:127.0.0.1:5070", []).
+{ok,200,[]}
+5> nksip_uac:options(client1, "sip:127.0.0.1", [{fields, [reason]}]).
+{ok,407,[{reason,<<"Proxy Authentication Required">>}]}
 ```
 
-Oops, the `server` didn't accept the request. In the client callback module there is no authentication related callback function implemented, so every request is accepted. But server callback module is different:
+Oops, the `server` didn't accept the request (we have used the `fields` option to 
+order NkSIP to return the reason phrase). 
+
+In the client callback module there is no authentication related callback function implemented, so every request is accepted. But server callback module is different:
+
 ```erlang
 %% @doc Called to check user's password.
 %% If the incoming user's realm is "nksip", the password for any user is "1234". 
@@ -89,70 +93,66 @@ authorize(Auth, _ReqId, _From, State) ->
     end.
 ```
 
-If we try again with a correct password:
+If we try again with a correct password. In the second case we are telling NkSIP to 
+use `tls` transport. Note we must use < and > if including uri parameters like `transport`.
 ```erlang
 6> nksip_uac:options(client1, "sip:127.0.0.1", [{pass, "1234"}]).
-{ok, 200, ...}
-7> nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", [{pass, "1234"}]).
-{ok, 200, ...}
+{ok,200,[]}
+7> nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}]).
+{ok,200,[]}
 ```
 
-Let's register now both clients with the server. We use the option `make_contact` to tell NkSIP to include a valid _Contact_ header in the request:
+Let's register now both clients with the server. We use the option `make_contact` to tell NkSIP to include a valid _Contact_ header in the request, and the `fields` option to get the _Contact_ header from the response, to be sure the server has stored the contact:
 
 ```erlang
-8> nksip_uac:register(client1, "sip:127.0.0.1", [{pass, "1234"}, make_contact]).
-{ok, 200, ...}
-9> nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", [{pass, "1234"}, make_contact]).
-{ok, 200, ...}
+8> nksip_uac:register(client1, "sip:127.0.0.1", 
+                      [{pass, "1234"}, make_contact, {fields, [<<"Contact">>]}]).
+{ok,200,[{<<"Contact">>, [<<"<sip:client1@127.0.0.1:5070>;expires=3600">>]}]}
+9> nksip_uac:register(client2, "sip:127.0.0.1", [{pass, "1234"}, make_contact]).
+{ok,400,[]}
+```
+In the second case, it fails because the `From' field we are using for `client2' is
+using `sips` scheme, but the generated _Contact_ is using `sip`. We could generate
+a valid _Contact_ by hand, or simply tell NkSIP to contact the server using sips:
+
+```erlang
+10> nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, make_contact]).
+{ok,200,[]}
 ```
 
-We can check that the server has stored the registration. If we send a _REGISTER_ request with no _Contact_ header, the server will include one for each stored registration. We usedthe option `full_response` to tell NkSIP to send the full response as the return, instead of only the code. 
+We can check this second registration has worked. If we send a _REGISTER_ request with no _Contact_ header, the server will include one for each stored registration. This time, lets get all the header from the response using `fields':
 
 ```erlang
-10> {ok, 200, Resp1} = nksip_uac:register(client2, "sip:127.0.0.1;transport=tls", [{pass, "1234"}]).
-{ok, 200, ...}
-11> nksip_response:code(Resp1).
-200
-12> nksip_response:header(Resp1, <<"Contact">>).
-[<<"<sips:client2@...">>]
+12> nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, {fields, [all_headers]}]).
+{ok,200,[{all_headers, [{<<"CallId">>, ...}]}]}
 ```
 
 Now, if we want to send the same _OPTIONS_ again, we don't need to include the authentication, because the origins of the requests are already registered:
 ```erlang
 13> nksip_uac:options(client1, "sip:127.0.0.1", []).
-{ok, 200, ...}
-14> nksip_uac:options(client2, "sip:127.0.0.1;transport=tls", []).
-{ok, 200, ...}
+{ok,200,[]}
+14> nksip_uac:options(client2, "sips:127.0.0.1", []).
+{ok,200,[]}
 ```
 
 Now let's send and _OPTIONS_ from `client1` to `client2` through the proxy. As they are already registered, we can use their registered names or _address-of-record_. We use the option `route` to send the request to the proxy (you usually include this option in the call to `nksip:start/4`, to send _every_ request to the proxy automatically).
 
 The first request is not authorized. The reason is that we are using a `sips` uri as a target, so NkSIP must use tls. But the origin port is then different from the one we registered, so we must authenticate again:
+
 ```erlang
-15> nksip_uac:options(client1, "sips:client2@nksip", [{route, "sip:127.0.0.1;lr"}]).
-{ok, 407, ...}
-16> {ok, 200, Resp2} = nksip_uac:options(client1, "sips:client2@nksip", 
-                				[{route, "sip:127.0.0.1;lr"}, {pass, "1234"}]).
-17> nksip_response:code(Resp2).
-200
-18> nksip_response:header(Resp2, <<"Nksip-Id">>).
-[<<"client2">>]
-19> {reply, Resp3} = nksip_uac:options(client2, "sip:client1@nksip", 
-                                        [{route, "sips:127.0.0.1;lr"}, full_response]).
-{reply, ...}
-20> nksip_response:code(Resp3).
-200
-21> nksip_response:headers(<<"Nksip-Id">>, Resp3).
-[<<"client1">>]
+15> nksip_uac:options(client1, "sips:client2@nksip", [{route, "<sip:127.0.0.1;lr>"}]).
+{ok,407,[]}
+16> nksip_uac:options(client1, "sips:client2@nksip", 
+                				[{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"},
+                                 {fields, [<<"Nksip-Id">>]}]).
+{ok,200,[{<<"Nk-Id">>, [<<"client2">>]}]}
 ```
-
-
-
-The callback `options/3` is called for every client, which includes the custom header:
+In the second case we want to get the _Nksip-Id_ header from the response. 
+Our callback `options/3` is called for every received options request, which includes the custom header:
 
 ```erlang
 options(_ReqId, _From, #state{id=Id}=State) ->
-    Headers = [{"NkSip-Id", Id}],
+    Headers = [{"Nksip-Id", Id}],
     Opts = [make_contact, make_allow, make_accept, make_supported],
     {reply, {ok, Headers, <<>>, Opts}, State}.
 ```
@@ -165,7 +165,7 @@ invite(_DialogId, ReqId, From, State) ->
     case nksip_sdp:is_sdp(SDP) of
         true ->
             Fun = fun() ->
-                nksip_request:provisional_reply(ReqId, ringing),
+                nksip_request:reply(ReqId, ringing),
                 timer:sleep(2000),
                 nksip:reply(From, {ok, [], SDP})
             end,
@@ -177,31 +177,32 @@ invite(_DialogId, ReqId, From, State) ->
 ```
 
 In the first call, since we don't include a body, client1 will reply `not_acceptable` (code `488`).
-In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. After receiving each `2xx` response to an _INVITE_, we must send an _ACK_ inmediatly:
+In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. For _INVITE_ responses, NkSIP will allways include the `dialog_id` value, After receiving each `2xx` response to an _INVITE_, we must send an _ACK_ inmediatly:
+
 ```erlang
-22> nksip_uac:invite(client2, "sip:client1@nksip", [{route, "sips:127.0.0.1;lr"}]).
-{ok, 488, ...}
-23> {ok, 200, Dialog1} = nksip_uac:invite(client2, "sip:client1@nksip", 
-					   [{route, "sips:127.0.0.1;lr"}, {body, nksip_sdp:new()}]),
-	ok = nksip_uac:ack(Dialog1, []).
+17> nksip_uac:invite(client2, "sip:client1@nksip", [{route, "<sips:127.0.0.1;lr>"}]).
+{ok, 488, [{dialog_id, ...}]}
+18> {ok, 200, [{dialog_id, DlgId}]}= nksip_uac:invite(client2, "sip:client1@nksip", 
+					   [{route, "<sips:127.0.0.1;lr>"}, {body, nksip_sdp:new()}]).
+19> nksip_uac:ack(client2, DlgId, []).
 ok
 ```
 
 The call is accepted and we have started a _dialog_:
 ```erlang
-24> nksip_dialog:field(local_sdp, Dialog1).
+19> nksip_dialog:field(client2, Dlg1, local_sdp).
 ```
 
 You can _print_ all dialogs in the console. We see dialogs at `client1`, `client2` and at `server`. The three dialogs are the same actually, but in different SipApps:
 ```erlang
-25> nksip_dialog:get_all().
+26> nksip_dialog:get_all().
 ```
 
 Ok, let's stop the call, the dialogs and the SipApps:
 ```erlang
-26> nksip_uac:bye(Dialog1, []).
-ok
-27> nksip:stop_all().
+27> nksip_uac:bye(client2, DlgId, []).
+{ok,200,[]}
+28> nksip:stop_all().
 ok
 ```
 

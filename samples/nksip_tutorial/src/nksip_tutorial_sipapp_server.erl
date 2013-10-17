@@ -52,6 +52,7 @@ init([Id]) ->
 %%
 %% If the incoming user's realm is "nksip", the password for any user is "1234". 
 %% For other realms, no password is valid.
+%%
 get_user_pass(_User, <<"nksip">>, State) -> 
     {reply, <<"1234">>, State};
 get_user_pass(_User, _Realm, State) -> 
@@ -74,12 +75,13 @@ get_user_pass(_User, _Realm, State) ->
 %%
 %% 4) If no digest header is present, reply with a 407 response sending 
 %%    a challenge to the user.
+%%
 authorize(Auth, _ReqId, _From, State) ->
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
             {reply, true, State};
         false ->
-            case nksip_lib:get_value({digest, <<"nksip">>}, Auth) of
+            case proplists:get_value({digest, <<"nksip">>}, Auth) of
                 true -> 
                     {reply, true, State};       % Password is valid
                 false -> 
@@ -99,6 +101,7 @@ authorize(Auth, _ReqId, _From, State) ->
 %%
 %% - If it has user part, and domain is "nksip", find if it is registered and proxy.
 %%   For other domain, proxy the request.
+%%
 route(_Scheme, <<>>, Domain, ReqId, _From, #state{id=AppId}=State) ->
     Reply = case Domain of
         <<"nksip">> ->
