@@ -58,17 +58,12 @@
 %% <table border="1">
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
-%%          <td>`app_id'</td>
-%%          <td>{@link nksip:app_id()}</td>
-%%          <td>SipApp this response belongs to</td>
-%%      </tr>
-%%      <tr>
 %%          <td>`code'</td>
 %%          <td>{@link nksip:response_code()}</td>
 %%          <td>Response Code</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`response'</td>
+%%          <td>`reason'</td>
 %%          <td>`binary()'</td>
 %%          <td>Reason Phrase</td>
 %%      </tr>

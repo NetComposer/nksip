@@ -117,6 +117,18 @@
 %% use the helper funcions in {@link nksip_request} to extract any information from it,
 %% and, it it is liked to a dialog, the functions in {@link nksip_dialog}.
 %%
+%% <b>Inline functions</b>
+%%
+%% NkSIP offers another option for defining callback functions. Most of them have
+%% an <i>inline</i> form. If defined, it will be called instead of the <i>normal</i> form.
+%%
+%% Inline functions have the same name of normal functions, but they don't have the
+%% `State' parameter. They are called in-process, inside the call processing process and
+%% not from the SipApp's process like the normal functions.
+%%
+%% Inline functions are much quicker, but they can't modify the SipApp state. See
+%% `inline_test' for an example of use
+
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

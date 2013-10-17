@@ -186,7 +186,7 @@ get_all() ->
     nksip_call_router:get_all_calls().
 
 
-%% @doc Get all started calls.
+%% @doc Get information about all started calls.
 -spec get_info() ->
     [term()].
 
@@ -501,24 +501,6 @@ check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
         Dialogs).
 
 
-
-% %% @private
-% -spec find_msg_trans(nksip_request:id()|nksip_response:id(), call()) ->
-%     {ok, trans(), #sipmsg{}} | not_found.
-
-% find_msg_trans(MsgId, #call{trans=Trans}) ->
-%     do_find_msg_trans(MsgId, Trans).
-
-% do_find_msg_trans(MsgId, [#trans{request=#sipmsg{id=MsgId}=Req}=UA|_]) -> 
-%     {ok, UA, Req};
-% do_find_msg_trans(MsgId, [#trans{response=#sipmsg{id=MsgId}=Resp}=UA|_]) -> 
-%     {ok, UA, Resp};
-% do_find_msg_trans(MsgId, [_|Rest]) -> 
-%     do_find_msg_trans(MsgId, Rest);
-% do_find_msg_trans(_, []) -> 
-%     not_found.
-
-
 %% @private
 -spec find_dialog(nksip_request:id()|nksip_response:id(), call()) ->
     {ok, nksip_dialog:id()} | not_found.
@@ -544,6 +526,7 @@ get_trans(MsgId, #call{msgs=Msgs, trans=AllTrans}) ->
         false -> 
             not_found
     end.
+
 
 %% @private
 -spec get_sipmsg(nksip_request:id()|nksip_response:id(), call()) ->

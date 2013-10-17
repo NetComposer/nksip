@@ -210,9 +210,9 @@
 %%          <td>Content-Type Header</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`headers'</td>
+%%          <td>`all_headers'</td>
 %%          <td>`[{binary(), binary()}]'</td>
-%%          <td>User headers (not listed above)</td>
+%%          <td>All headers in the request</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`body'</td>

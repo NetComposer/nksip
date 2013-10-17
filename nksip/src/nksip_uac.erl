@@ -171,6 +171,7 @@
 %%      </tr>
 %% </table>
 %%
+%%
 %% Look at the specification for each function to find supported options
 
 -module(nksip_uac).
