@@ -112,16 +112,13 @@
 %% ===================================================================
 
 
-% Transport's is calculated, for udp transports, as a hash of {udp, local_ip, local_port},
-% and for other transports as of {proto, remote_ip, remote_port}
-
 -record(transport, {
     proto :: nksip:protocol(),
     local_ip :: inet:ip_address(),
     local_port :: inet:port_number(),
     remote_ip :: inet:ip_address(),
     remote_port :: inet:port_number(),
-    listen_ip :: inet:ip_address(),         % Ip this transport must report as listening
+    listen_ip :: inet:ip_address(),        % Ip this transport must report as listening
     listen_port :: inet:port_number()      % Port
 }).
 
