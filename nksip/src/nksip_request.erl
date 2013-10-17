@@ -45,7 +45,8 @@
                   cseq | parsed_cseq | cseq_num | cseq_method | forwards |
                   routes | parsed_routes | contacts | parsed_contacts | 
                   content_type | parsed_content_type | 
-                  headers | body | dialog_id | local | remote.
+                  all_headers | body | dialog_id | local | remote |
+                  binary().
 
 
 
@@ -234,6 +235,12 @@
 %%          <td>`{'{@link nksip:protocol()}, {@link inet:ip_address()}, 
 %%                  {@link inet:port_number()}`}'</td>
 %%          <td>Remote transport protocol, ip and port of a request</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`binary()'</td>
+%%          <td>`{binary(), [binary()]}'</td>
+%%          <td>If you use a binary as a field name, NkSIP will return all the values
+%%              of this header, or `[]' if it is not present</td>
 %%      </tr>
 %% </table>
 -spec field(nksip:app_id(), id(), field()) ->

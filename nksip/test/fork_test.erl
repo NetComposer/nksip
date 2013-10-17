@@ -218,11 +218,11 @@ basic() ->
 
     % We have to complete the three iterations
     Body1 = {body, [{clientC3, 300}]},
-    Fs = {fields, [{header, <<"Nk-Id">>}]},
+    Fs = {fields, [<<"Nk-Id">>]},
     {ok, 300, Values1} = nksip_uac:invite({fork, client1}, QUri, [Body1, RepHd, Fs]),
     [
         {dialog_id, _},
-        {{header, <<"Nk-Id">>}, [<<"clientC3,serverR,server1">>]}
+        {<<"Nk-Id">>, [<<"clientC3,serverR,server1">>]}
     ] =Values1,
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 580},
                                 {clientA2, 580}, {clientB2, 580},
@@ -233,7 +233,7 @@ basic() ->
     {ok, 600, Values2} = nksip_uac:invite({fork, client2}, QUri, [Body2, RepHd, Fs]),
     [
         {dialog_id, _},
-        {{header, <<"Nk-Id">>}, [<<"clientA1,serverR,server2">>]}
+        {<<"Nk-Id">>, [<<"clientA1,serverR,server2">>]}
     ] =Values2,
     ok = tests_util:wait(Ref, [{clientA1, 600}, {clientB1, 580}, {clientC1, 580}]),
 
@@ -242,7 +242,7 @@ basic() ->
     {ok, 600, Values3} = nksip_uac:invite({fork, client3}, QUri, [Body3, RepHd, Fs]),
     [
         {dialog_id, _},
-        {{header, <<"Nk-Id">>}, [<<"clientB2,serverR,server3">>]}
+        {<<"Nk-Id">>, [<<"clientB2,serverR,server3">>]}
     ] =Values3,
     ok = tests_util:wait(Ref, [{clientA1, 505}, {clientB1, 580}, {clientC1, 580},
                                {clientA2, 580}, {clientB2, 600}]),
@@ -364,13 +364,13 @@ invite2() ->
     ok = nksip_dialog:stop(SR, Dlg1),
 
     % In-dialog OPTIONS
-    Fs = {fields, [{header, <<"Nk-Id">>}]},
+    Fs = {fields, [<<"Nk-Id">>]},
     {ok, 200, Values3} = nksip_uac:options(C2, Dlg1, [Fs]),
-    [{{header, <<"Nk-Id">>}, [<<"clientC3,server2">>]}] = Values3,
+    [{<<"Nk-Id">>, [<<"clientC3,server2">>]}] = Values3,
 
     % Remote party in-dialog OPTIONS
     {ok, 200, Values4} = nksip_uac:options(CC3, Dlg1, [Fs]),
-    [{{header, <<"Nk-Id">>}, [<<"client2,server2">>]}] = Values4,
+    [{<<"Nk-Id">>, [<<"client2,server2">>]}] = Values4,
     
     % Dialog state at clientC1, clientC3 and server2
     [
@@ -422,11 +422,11 @@ redirect() ->
                 #uri{domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
     Body1 = {body, [{clientC1, {redirect, Contacts}}, {clientD2, 570}]},
-    Fs = {fields, [{header, <<"Contact">>}]},
+    Fs = {fields, [<<"Contact">>]},
     {ok, 300, Values1} = nksip_uac:invite(CA1, QUri, [Body1, {headers, [RepHd]}, Fs]),
     [
         {dialog_id, _},
-        {{header, <<"Contact">>}, [C1, C2]}
+        {<<"Contact">>, [C1, C2]}
     ] = Values1,
     {match, [LPortD1]} = re:run(C1, <<"^<sip:127.0.0.1:(\\d+)>">>, 
                                 [{capture, all_but_first, list}]),

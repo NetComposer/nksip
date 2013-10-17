@@ -257,10 +257,10 @@ rr_contact() ->
         {"Nk-Op", "answer"}, RepHd,
         {"Record-Route", nksip_lib:bjoin(lists:reverse(RR), <<", ">>)}],
 
-    {ok, 200, [{dialog_id, DialogId}, {{header, <<"Record-Route">>}, RRH}]} = 
+    {ok, 200, [{dialog_id, DialogId}, {<<"Record-Route">>, RRH}]} = 
             nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", 
                                     [{contact, "sip:abc"}, {headers, Hds1},
-                                     {fields, [{header, <<"Record-Route">>}]}]),
+                                     {fields, [<<"Record-Route">>]}]),
 
     % Test Record-Route is replied
     RR = lists:reverse(RRH),

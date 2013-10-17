@@ -85,12 +85,11 @@ field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
         body -> S#sipmsg.body;
         dialog_id -> nksip_dialog:id(S);
         expire -> S#sipmsg.expire;
-        headers -> S#sipmsg.headers;
-        {header, Name} -> header(S, Name);
-        {header, Name, Type} -> header(S, Name, Type);
+        all_headers -> all_headers(S);
         code -> S#sipmsg.response;   % Only if it is a response
         reason -> nksip_lib:get_binary(reason, S#sipmsg.data);
         realms -> nksip_auth:realms(S);
+        _ when is_binary(Field) -> header(S, Field);
         _ -> invalid_field 
     end.
 
@@ -136,6 +135,31 @@ header(#sipmsg{}=SipMsg, Name, Type) ->
         integers -> nksip_parse:integers(Raw);
         dates -> nksip_parse:dates(Raw)
     end.
+
+
+%% @private
+all_headers(SipMsg) ->
+    lists:flatten([
+        {<<"Call-ID">>, [field(SipMsg, call_id)]},
+        {<<"Via">>, field(SipMsg, vias)},
+        {<<"From">>, [field(SipMsg, from)]},
+        {<<"To">>, [field(SipMsg, to)]},
+        {<<"CSeq">>, [field(SipMsg, cseq)]},
+        {<<"Forwards">>, [nksip_lib:to_binary(field(SipMsg, forwards))]},
+        case field(SipMsg, routes) of
+            [] -> [];
+            Routes -> {<<"Route">>, Routes}
+        end,
+        case field(SipMsg, contacts) of
+            [] -> [];
+            Contacts -> {<<"Contact">>, Contacts}
+        end,
+        case field(SipMsg, content_type) of
+            <<>> -> [];
+            ContentType -> {<<"Content-Type">>, ContentType}
+        end,
+        SipMsg#sipmsg.headers
+    ]).
 
 
 %% @private

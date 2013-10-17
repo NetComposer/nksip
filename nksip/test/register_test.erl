@@ -84,8 +84,8 @@ register1() ->
                         [{from, "sip:one"}, {to, "sip:two"}]),
 
     {ok, 200, Values1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
-                        [unregister_all, {fields, [{header, <<"Contact">>}]}]),
-    [{{header, <<"Contact">>}, []}] = Values1,
+                        [unregister_all, {fields, [<<"Contact">>]}]),
+    [{<<"Contact">>, []}] = Values1,
     [] = nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
     
     Ref = make_ref(),
@@ -93,13 +93,13 @@ register1() ->
     RespFun = fun(Reply) -> Self ! {Ref, Reply} end,
     {async, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                 [async, {callback, RespFun}, make_contact, get_request,
-                                 {fields, [{header, <<"Contact">>}]}]),
+                                 {fields, [<<"Contact">>]}]),
     [CallId, CSeq] = receive 
         {Ref, {req, Req2}} -> nksip_sipmsg:fields(Req2, [call_id, cseq_num])
         after 2000 -> error(register1)
     end,
     Contact2 = receive 
-        {Ref, {ok, 200, [{{header, <<"Contact">>}, [C2]}]}} -> C2
+        {Ref, {ok, 200, [{<<"Contact">>, [C2]}]}} -> C2
         after 2000 -> error(register1) 
     end,
 
@@ -124,18 +124,18 @@ register1() ->
     {ok, 400, []} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq+1}, 
                                      unregister_all]),
-    Opts3 = [{expires, Min-1}, make_contact, {fields, [{header, <<"Min-Expires">>}]}],
+    Opts3 = [{expires, Min-1}, make_contact, {fields, [<<"Min-Expires">>]}],
     {ok, 423, Values4} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts3),
     [{_, [MinB]}] = Values4,
     
-    Opts4 = [{expires, Max+1}, make_contact, {fields, [{header, <<"Contact">>}]}],
+    Opts4 = [{expires, Max+1}, make_contact, {fields, [<<"Contact">>]}],
     {ok, 200, Values5} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts4),
     [{_, [Contact5]}] = Values5,
     Contact5 = MakeContact(MaxB),
     [#uri{user=Name, domain=Domain, port=Port, ext_opts=[{expires, MaxB}]}] = 
         nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
 
-    Opts5 = [{expires, Min}, make_contact, {fields, [{header, <<"Contact">>}]}],
+    Opts5 = [{expires, Min}, make_contact, {fields, [<<"Contact">>]}],
     ExpB = nksip_lib:to_binary(Min),
     {ok, 200, Values6} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts5),
     [{_, [Contact6]}] = Values6,
@@ -181,14 +181,14 @@ register2() ->
     Server1 = {basic, server1},
 
     {ok, 200, Values1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
-                            [unregister_all, {fields, [{header, <<"Contact">>}]}]),
-    [{{header, <<"Contact">>}, []}] = Values1,
+                            [unregister_all, {fields, [<<"Contact">>]}]),
+    [{<<"Contact">>, []}] = Values1,
     [] = nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
 
     {ok, 200, Values2} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                             [FromS, unregister_all, 
-                                             {fields, [{header, <<"Contact">>}]}]),
-    [{{header, <<"Contact">>}, []}] = Values2,
+                                             {fields, [<<"Contact">>]}]),
+    [{<<"Contact">>, []}] = Values2,
     [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
     {ok, 200, []} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts1),
@@ -201,9 +201,10 @@ register2() ->
     {ok, 400, []} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts2),
     {ok, 200, Values3} = nksip_uac:register(Client1, "sips:127.0.0.1", 
                         [{contact, <<"<sips:client1@127.0.0.1:5071>">>},
-                         {fields, [{header, <<"Contact">>, uris}]}
+                         {fields, [<<"Contact">>]}
                             | Opts2--[make_contact]]),
-    [{{header, <<"Contact">>, uris}, Contact3Uris}] = Values3,
+    [{<<"Contact">>, Contact3}] = Values3,
+    Contact3Uris = nksip_parse:uris(Contact3),
 
     {ok, 200, Values4} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                             [{fields, [parsed_contacts]}]),

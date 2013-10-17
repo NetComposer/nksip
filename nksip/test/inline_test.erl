@@ -86,9 +86,9 @@ basic() ->
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
     ok = tests_util:wait(Ref, [{S1, route}, {S1, route}]),
 
-    Fs1 = {fields, [{header, <<"Nk-Id">>}]},
+    Fs1 = {fields, [<<"Nk-Id">>]},
     {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2@nksip", [Fs1]),
-    [{{header, <<"Nk-Id">>}, [<<"server1,client2">>]}] = Values1,
+    [{<<"Nk-Id">>, [<<"server1,client2">>]}] = Values1,
     ok = tests_util:wait(Ref, [{S1, route}, {C2, options}]),
 
     {ok, 480, []} = nksip_uac:options(C2, "sip:client3@nksip", []),
