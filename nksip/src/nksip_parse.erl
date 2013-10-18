@@ -31,7 +31,7 @@
 
 -export([method/1, header_uris/2, header_dates/2, header_integers/2]).
 -export([header_tokens/2]).
--export([scheme/1, uri2ruri/1, aors/1, uris/1, vias/1, tokens/1, transport/1]).
+-export([scheme/1, uri2ruri/1, aors/1, uris/1, ruris/1, vias/1, tokens/1, transport/1]).
 -export([integers/1, dates/1]).
 -export([packet/3, raw_sipmsg/1]).
 
@@ -142,7 +142,7 @@ aors(Term) ->
      #uri{scheme=Scheme, user=User, domain=Domain} <- uris(Term)].
 
 
-%% @doc Parses all URis found in `Term'.
+%% @doc Parses all URIs found in `Term'.
 -spec uris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
     [nksip:uri()].
                 
@@ -157,6 +157,14 @@ uris([Other|Rest]) when is_record(Other, uri); is_binary(Other); is_list(Other) 
 
 uris(Uris) ->
     parse_uris(nksip_lib:tokenize(Uris, uri), []).
+
+
+%% @doc Parses all URIs found in `Term' as <i>Request Uris<i>
+-spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
+    [nksip:uri()].
+
+ruris(Term) ->
+    [Uri#uri{headers=[], ext_opts=[], ext_headers=[]} || Uri <- uris(Term)].
 
 
 %% @doc Extracts all `via()' found in `Term'
