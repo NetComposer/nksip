@@ -192,7 +192,7 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
         response = Resp
     } = Dialog,
     #sipmsg{contacts=ReqContacts} = Req,
-    #sipmsg{response=Code, contacts=RespContacts} = Resp,
+    #sipmsg{class={resp, Code}, contacts=RespContacts} = Resp,
     case Class of
         uac -> 
             RemoteTargets = RespContacts,
@@ -280,7 +280,7 @@ target_update(_, Dialog, _) ->
 session_update(Class, 
                 #dialog{
                     answered = Answered, 
-                    response = #sipmsg{body=RespBody, response=Code}
+                    response = #sipmsg{class={resp, Code}, body=RespBody}
                 } = Dialog,
                 Call) 
                 when 

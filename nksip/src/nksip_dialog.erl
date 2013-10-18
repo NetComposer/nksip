@@ -273,7 +273,7 @@ id(#sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
     when FromTag =/= <<>>, ToTag =/= <<>> ->
     dialog_id(CallId, FromTag, ToTag);
 
-id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), method='INVITE'}=SipMsg)
+id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
     when FromTag =/= <<>> ->
     #sipmsg{call_id=CallId, data=Data} = SipMsg,
     case nksip_lib:get_binary(to_tag, Data) of

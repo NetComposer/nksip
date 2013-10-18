@@ -43,20 +43,26 @@
 -spec send(pid(), #sipmsg{}) ->
     ok | error.
 
-send(Pid, #sipmsg{
-            app_id=AppId, call_id=CallId,
-            transport=#transport{remote_ip=Ip, remote_port=Port}=Transport,
-            method=Method, response=Code}=SipMsg) ->
+send(Pid, SipMsg) ->
+    #sipmsg{
+        class = Class,
+        app_id = AppId, 
+        call_id = CallId,
+        transport=#transport{remote_ip=Ip, remote_port=Port} = Transport
+    } = SipMsg,
     Packet = nksip_unparse:packet(SipMsg),
     case send(Pid, Ip, Port, Packet) of
-        ok when is_integer(Code) -> 
-            nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Code, Packet}),
-            nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transport, Packet),
-            ok;
         ok ->
-            nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Method, Packet}),
-            nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transport, Packet),
-            ok;
+            case Class of
+                {req, Method} ->
+                    nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Method, Packet}),
+                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transport, Packet),
+                    ok;
+                {resp, Code} ->
+                    nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Code, Packet}),
+                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transport, Packet),
+                    ok
+            end;
         {error, closed} ->
             error;
         {error, too_large} ->

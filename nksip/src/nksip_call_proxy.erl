@@ -97,7 +97,7 @@ route_stateful(#trans{request=Req}=UAS, UriSet, ProxyOpts) ->
     stateless_proxy | {reply, nksip:sipreply()}.
 
 route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
-    #sipmsg{method=Method} = Req,
+    #sipmsg{class={req, Method}} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,    
     Req1 = preprocess(Req#sipmsg{ruri=Uri}, ProxyOpts),
     case nksip_request:is_local_route(Req1) of
@@ -123,7 +123,7 @@ route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
 -spec response_stateless(nksip:response(), nksip_call:call()) -> 
     nksip_call:call().
 
-response_stateless(#sipmsg{response=Code}, Call) when Code < 101 ->
+response_stateless(#sipmsg{class={resp, Code}}, Call) when Code < 101 ->
     Call;
 
 response_stateless(#sipmsg{vias=[]}, Call) ->
@@ -131,7 +131,7 @@ response_stateless(#sipmsg{vias=[]}, Call) ->
     Call;
 
 response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) ->
-    #sipmsg{cseq_method=Method, response=Code} = Resp,
+    #sipmsg{cseq_method=Method, class={resp, Code}} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     Resp1 = Resp#sipmsg{vias=RestVia},
     case nksip_transport_uas:send_response(Resp1, GlobalId, AppOpts) of
@@ -156,7 +156,7 @@ response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) ->
 -spec check_forwards(nksip_call:trans()) ->
     ok | {reply, nksip:sipreply()}.
 
-check_forwards(#trans{request=#sipmsg{method=Method, forwards=Forwards}}) ->
+check_forwards(#trans{request=#sipmsg{class={req, Method}, forwards=Forwards}}) ->
     if
         is_integer(Forwards), Forwards > 0 ->   
             ok;

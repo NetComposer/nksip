@@ -47,9 +47,9 @@
 
 preprocess(Req, GlobalId) ->
     #sipmsg{
+        class = {req, Method},
         app_id = AppId, 
         call_id = CallId, 
-        method = Method, 
         to_tag = ToTag,
         transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
         vias = [Via|ViaR], 
@@ -102,8 +102,8 @@ preprocess(Req, GlobalId) ->
 
 response(Req, Code, Headers, Body, Opts) ->
     #sipmsg{
+        class = {req, Method},
         call_id = CallId,
-        method = Method, 
         vias = [LastVia|_] = Vias,
         from = #uri{domain=FromDomain}, 
         to = To, 
@@ -219,8 +219,7 @@ response(Req, Code, Headers, Body, Opts) ->
     end,
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
-        class = resp,
-        response = Code,
+        class = {resp, Code},
         vias = Vias1,
         to = To1,
         forwards = 70,

@@ -349,7 +349,7 @@ do_ping(Pid, SipReg, #state{app_id=AppId}) ->
     #sipreg{id=PingId, ruri=RUri, opts=Opts, cseq=CSeq, call_id=CallId} = SipReg,
     Opts1 = [{call_id, CallId}, {cseq, CSeq}, get_response | Opts],
     {OK, CSeq1} = case nksip_uac:options(AppId, RUri, Opts1) of
-        {resp, #sipmsg{response=Code, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
+        {resp, #sipmsg{class={resp, Code}, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
             {true, OK_CSeq+1};
         {resp, #sipmsg{cseq=Err_CSeq}} -> 
             {false, Err_CSeq+1};
@@ -370,9 +370,9 @@ do_register(Pid, SipReg, #state{app_id=AppId})->
     Opts1 = [make_contact, {call_id, CallId}, {cseq, CSeq}, 
                 {expires, Interval}, get_response | Opts],
     {OK, CSeq1} = case nksip_uac:register(AppId, RUri, Opts1) of
-        {resp, #sipmsg{response=Code, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
+        {resp, #sipmsg{class={resp, Code}, cseq=OK_CSeq}} when Code>=200, Code<300 -> 
             {true, OK_CSeq+1};
-        {resp, #sipmsg{cseq=Err_CSeq, response=_Code}}-> 
+        {resp, #sipmsg{cseq=Err_CSeq}}-> 
             {false, Err_CSeq+1};
         {error, _Error} -> 
             {false, CSeq+1}

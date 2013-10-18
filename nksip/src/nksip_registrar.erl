@@ -141,7 +141,7 @@ delete(AppId, Scheme, User, Domain) ->
 -spec is_registered(Req::nksip:request()) ->
     boolean().
 
-is_registered(#sipmsg{method='REGISTER'}) ->
+is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
     false;
 
 is_registered(#sipmsg{

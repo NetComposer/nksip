@@ -103,8 +103,7 @@ tokens(Tokens) ->
 -spec packet(nksip:request() | nksip:response()) -> 
     binary().
 
-packet(#sipmsg{class=resp, response=Code, data=Data}=Response) 
-        when is_integer(Code)->
+packet(#sipmsg{class={resp, Code}, data=Data}=Response) ->
     list_to_binary([<<"SIP/2.0 ">>, nksip_lib:to_binary(Code), 32, 
         case nksip_lib:get_binary(reason, Data) of
             <<>> -> resp_text(Code);
@@ -112,9 +111,9 @@ packet(#sipmsg{class=resp, response=Code, data=Data}=Response)
         end,
         <<"\r\n">>, serialize(Response)]);
 
-packet(#sipmsg{class=req, response=undefined}=Request)  ->
+packet(#sipmsg{class={req, Method}}=Request)  ->
     list_to_binary([
-        nksip_lib:to_binary(Request#sipmsg.method), 
+        nksip_lib:to_binary(Method), 
         32, raw_ruri(Request#sipmsg.ruri), <<" SIP/2.0\r\n">>,
         serialize(Request)
     ]).

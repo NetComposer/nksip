@@ -124,9 +124,8 @@
 
 -record(sipmsg, {
     id :: nksip_request:id() | nksip_response:id(),
-    class :: req | resp,
+    class :: {req, nksip:method()} | {resp, nksip:response_code()},
     app_id :: nksip:app_id(),
-    method :: nksip:method(),
     ruri :: nksip:uri(),
     vias :: [nksip:via()],
     from :: nksip:uri(),
@@ -140,7 +139,6 @@
     headers :: [nksip:header()],
     content_type :: [nksip_lib:token()],
     body :: nksip:body(),
-    response :: nksip:response_code(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
     expire :: nksip_lib:timestamp(),

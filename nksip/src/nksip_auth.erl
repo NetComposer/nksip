@@ -135,10 +135,10 @@ get_authentication(Req, PassFun) ->
 
 make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     #sipmsg{
+        class = {req, Method},
         ruri = RUri, 
-        method = Method, 
         from = #uri{user=User}, 
-        headers=ReqHeaders
+        headers= ReqHeaders
     } = Req,
     try
         ReqAuthHeaders = nksip_lib:extract(ReqHeaders, [?REQ_WWW, ?REQ_PROXY]),
@@ -317,9 +317,9 @@ make_auth_request(AuthHeaderData, UserOpts) ->
 
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
     #sipmsg{
+        class = {req, Method},
         app_id = AppId,
         call_id = CallId,
-        method = Method,
         transport = #transport{remote_ip=Ip, remote_port=Port}
     } = Req,
     case

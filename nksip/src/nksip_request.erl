@@ -322,7 +322,7 @@ reply(AppId, <<"R_", _/binary>>=ReqId, SipReply) ->
 
 
 %% @doc See {@link reply/3}.
-reply(#sipmsg{class=req, app_id=AppId, id=ReqId}, SipReply) ->
+reply(#sipmsg{class={req, _}, app_id=AppId, id=ReqId}, SipReply) ->
     reply(AppId, ReqId, SipReply).
 
 
@@ -344,7 +344,7 @@ is_local_route(AppId, <<"R_", _/binary>>=ReqId) ->
 -spec is_local_route(nksip:request()) -> 
     boolean().
 
-is_local_route(#sipmsg{class=req, app_id=AppId, ruri=RUri, routes=Routes}) ->
+is_local_route(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri, routes=Routes}) ->
     case Routes of
         [] -> nksip_transport:is_local(AppId, RUri);
         [Route|_] -> nksip_transport:is_local(AppId, Route)

@@ -57,7 +57,7 @@ timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
 
 % INVITE 3456xx retrans
 timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
-    #sipmsg{response=Code} = Resp,
+    #sipmsg{class={resp, Code}} = Resp,
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     UAS1 = case nksip_transport_uas:resend_response(Resp, Opts) of
         {ok, _} ->
@@ -176,9 +176,9 @@ app_cast(Fun, Args, UAS, Call) ->
     
 transaction_id(Req) ->
         #sipmsg{
+            class = {req, Method},
             app_id = AppId, 
             ruri = RUri, 
-            method = Method,
             from_tag = FromTag, 
             to_tag = ToTag, 
             vias = [Via|_], 

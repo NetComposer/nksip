@@ -386,11 +386,9 @@ raw_sipmsg(Raw) ->
                         Request ->
                             Request#sipmsg{
                                 id = Id,
-                                class = req,
+                                class = {req, Method},
                                 app_id = AppId,
-                                method = Method,
                                 ruri = RUri,
-                                response = undefined,
                                 transport = Transport,
                                 start = Start,
                                 data = []
@@ -406,9 +404,8 @@ raw_sipmsg(Raw) ->
                 Response ->
                     Response#sipmsg{
                         id = Id,
-                        class = resp,
+                        class = {resp, Code},
                         app_id = AppId,
-                        response = Code,
                         transport = Transport,
                         start = Start,
                         data = [{reason, CodeText}]

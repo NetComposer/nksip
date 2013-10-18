@@ -40,10 +40,10 @@
     {ok, nksip_call:call()} | {error, Error} 
     when Error :: finished | request_pending.
 
-request(#sipmsg{method='ACK'}, _) ->
+request(#sipmsg{class={req, 'ACK'}}, _) ->
     error(ack_in_dialog_request);
 
-request(#sipmsg{method=Method}=Req, Call) ->
+request(#sipmsg{class={req, Method}}=Req, Call) ->
     case nksip_dialog:id(Req) of
         <<>> ->
             {ok, Call};
@@ -98,7 +98,7 @@ do_request(_Method, _Status, _Req, Dialog, _Call) ->
 -spec ack(nksip:request(), call()) ->
     call().
 
-ack(#sipmsg{method='ACK'}=Req, Call) ->
+ack(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     #sipmsg{cseq=CSeq} = Req,
     case nksip_dialog:id(Req) of
         <<>> ->
@@ -131,12 +131,12 @@ ack(#sipmsg{method='ACK'}=Req, Call) ->
 -spec response(nksip:request(), nksip:response(), call()) ->
     call().
 
-response(#sipmsg{method=Method}=Req, Resp, #call{dialogs=Dialogs}=Call) ->
+response(#sipmsg{class={req, Method}}=Req, Resp, #call{dialogs=Dialogs}=Call) ->
     case nksip_dialog:id(Resp) of
         <<>> ->
             Call;
         DialogId ->
-            #sipmsg{response=Code} = Resp,
+            #sipmsg{class={resp, Code}} = Resp,
             case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{status=Status} = Dialog ->
                     ?call_debug("Dialog ~s (~p) UAC response ~p ~p", 
@@ -209,7 +209,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
     end;
 
 do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
-    #sipmsg{response=Code} = Resp,
+    #sipmsg{class={resp, Code}} = Resp,
     #dialog{id=DialogId, status=Status} = Dialog,
     ?call_notice("Dialog ~s (~p) ignoring 'INVITE' ~p response",
                  [DialogId, Status, Code], Call),

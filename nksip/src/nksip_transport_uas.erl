@@ -37,7 +37,7 @@
                          nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-send_user_response(#sipmsg{class=req}=Request, SipReply, GlobalId, Opts) ->
+send_user_response(#sipmsg{class={req, _}}=Request, SipReply, GlobalId, Opts) ->
     {Resp, RespOpts} = nksip_reply:reply(Request, SipReply),
     send_response(Resp, GlobalId, RespOpts++Opts).
 
@@ -47,13 +47,12 @@ send_user_response(#sipmsg{class=req}=Request, SipReply, GlobalId, Opts) ->
 -spec send_response(nksip:response(), binary(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-send_response(#sipmsg{class=resp}=Resp, GlobalId, Opts) ->
+send_response(#sipmsg{class={resp, Code}}=Resp, GlobalId, Opts) ->
     #sipmsg{
         app_id = AppId, 
         vias = [Via|_],
         start = Start,
-        cseq_method = Method,
-        response = Code
+        cseq_method = Method
     } = Resp,
     #via{proto=Proto, domain=Domain, port=Port, opts=ViaOpts} = Via,
     {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(received, ViaOpts)),
@@ -85,7 +84,7 @@ send_response(#sipmsg{class=resp}=Resp, GlobalId, Opts) ->
 -spec resend_response(Resp::nksip:response(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-resend_response(#sipmsg{app_id=AppId, response=Code, cseq_method=Method, 
+resend_response(#sipmsg{class={resp, Code}, app_id=AppId, cseq_method=Method, 
                         transport=#transport{}=Transport}=Resp, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     MakeResp = fun(_) -> Resp end,

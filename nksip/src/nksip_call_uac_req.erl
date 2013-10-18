@@ -48,7 +48,7 @@
     nksip_call:call().
 
 request(Req, Opts, From, Call) ->
-    #sipmsg{method=Method, id=MsgId} = Req,
+    #sipmsg{class={req, Method}, id=MsgId} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     Req1 = case Method of 
         'CANCEL' -> Req;
@@ -105,7 +105,7 @@ resend_auth(Req, UAC, Call) ->
     {nksip_call:trans(), nksip_call:call()}.
 
 new_uac(Req, Opts, From, Call) ->
-    #sipmsg{id=MsgId, method=Method, ruri=RUri} = Req, 
+    #sipmsg{class={req, Method}, id=MsgId, ruri=RUri} = Req, 
     #call{next=Id, trans=Trans, msgs=Msgs} = Call,
     Status = case Method of
         'ACK' -> ack;

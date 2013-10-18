@@ -57,8 +57,9 @@ request(Req, #call{opts=#call_opts{global_id=GlobalId}}=Call) ->
 -spec is_trans_ack(nksip:request(), nksip_call:call()) ->
     {true, nksip_call:trans()} | false.
 
-is_trans_ack(#sipmsg{method='ACK'}=Req, #call{trans=Trans}) ->
-    ReqTransId = nksip_call_uas:transaction_id(Req#sipmsg{method='INVITE'}),
+is_trans_ack(#sipmsg{class={req, 'ACK'}}=Req, #call{trans=Trans}) ->
+    TransReq = Req#sipmsg{class={req, 'INVITE'}},
+    ReqTransId = nksip_call_uas:transaction_id(TransReq),
     case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
         #trans{class=uas}=UAS -> 
             {true, UAS};
@@ -125,7 +126,7 @@ process_retrans(UAS, Call) ->
         orelse Status=:=proceeding orelse Status=:=completed
     of
         true when is_record(Resp, sipmsg) ->
-            #sipmsg{response=Code} = Resp,
+            #sipmsg{class={resp, Code}} = Resp,
             #call{opts=#call_opts{app_opts=Opts}} = Call,
             case nksip_transport_uas:resend_response(Resp, Opts) of
                 {ok, _} ->
@@ -147,7 +148,13 @@ process_retrans(UAS, Call) ->
     nksip_call:call().
 
 process_request(Req, TransId, Call) ->
-    #sipmsg{id=MsgId, method=Method, ruri=RUri, transport=Transp, to_tag=ToTag} = Req,
+    #sipmsg{
+        class = {req, Method}, 
+        id = MsgId, 
+        ruri = RUri, 
+        transport = Transp, 
+        to_tag = ToTag
+    } = Req,
     #call{trans=Trans, next=Id, msgs=Msgs} = Call,
     ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId], Call),
     LoopId = loop_id(Req),

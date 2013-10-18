@@ -43,14 +43,14 @@
             nksip_request:field() | nksip_response:field()) -> 
     term().
 
-field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
+field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
     case Field of
         id -> S#sipmsg.id;
         app_id -> S#sipmsg.app_id;
         proto -> T#transport.proto;
         local -> {T#transport.proto, T#transport.local_ip, T#transport.local_port};
         remote -> {T#transport.proto, T#transport.remote_ip, T#transport.remote_port};
-        method -> S#sipmsg.method;
+        method -> case Class of {req, Method} -> Method; {resp, _} -> undefined end;
         ruri -> nksip_unparse:uri(RUri);
         ruri_scheme -> (S#sipmsg.ruri)#uri.scheme;
         ruri_user -> (S#sipmsg.ruri)#uri.user;
@@ -86,7 +86,7 @@ field(#sipmsg{ruri=RUri, transport=T}=S, Field) ->
         dialog_id -> nksip_dialog:id(S);
         expire -> S#sipmsg.expire;
         all_headers -> all_headers(S);
-        code -> S#sipmsg.response;   % Only if it is a response
+        code -> case Class of {resp, Code} -> Code; {req, _} -> 0 end;
         reason -> nksip_lib:get_binary(reason, S#sipmsg.data);
         realms -> nksip_auth:realms(S);
         _ when is_binary(Field) -> header(S, Field);

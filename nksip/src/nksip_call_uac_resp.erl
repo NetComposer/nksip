@@ -42,7 +42,7 @@
     nksip_call:call().
 
 response(Resp, #call{trans=Trans}=Call) ->
-    #sipmsg{cseq_method=Method, response=Code} = Resp,
+    #sipmsg{class={resp, Code}, cseq_method=Method} = Resp,
     TransId = nksip_call_uac:transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of
         #trans{class=uac}=UAC -> 
@@ -59,7 +59,7 @@ response(Resp, #call{trans=Trans}=Call) ->
     nksip_call:call().
 
 response(Resp, UAC, Call) ->
-    #sipmsg{id=MsgId, transport=Transport, response=Code} = Resp,
+    #sipmsg{class={resp, Code}, id=MsgId, transport=Transport} = Resp,
     #trans{
         id = Id, 
         start = Start, 
@@ -190,7 +190,7 @@ response_status(invite_accepted, Resp, UAC, Call) ->
     end;
 
 response_status(invite_completed, Resp, UAC, Call) ->
-    #sipmsg{to_tag=ToTag, response=RespCode} = Resp,
+    #sipmsg{class={resp, RespCode}, to_tag=ToTag} = Resp,
     #trans{id=Id, code=Code, to_tags=ToTags} = UAC,
     case ToTags of 
         [ToTag|_] ->
@@ -211,7 +211,7 @@ response_status(trying, Resp, UAC, Call) ->
     UAC2 = nksip_call_lib:cancel_timers([retrans], UAC1),
     response_status(proceeding, Resp, UAC2, Call);
 
-response_status(proceeding, #sipmsg{response=Code}=Resp, UAC, Call) 
+response_status(proceeding, #sipmsg{class={resp, Code}}=Resp, UAC, Call) 
                    when Code < 200 ->
     nksip_call_uac_reply:reply({resp, Resp}, UAC, Call);
 
@@ -241,7 +241,7 @@ response_status(proceeding, Resp, UAC, Call) ->
     do_received_auth(Req, Resp, UAC3, update(UAC3, Call));
 
 response_status(completed, Resp, UAC, Call) ->
-    #sipmsg{cseq_method=Method, response=Code, to_tag=ToTag} = Resp,
+    #sipmsg{class={resp, Code}, cseq_method=Method, to_tag=ToTag} = Resp,
     #trans{id=Id, to_tags=ToTags} = UAC,
     case ToTags of
         [ToTag|_] ->

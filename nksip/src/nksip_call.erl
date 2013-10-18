@@ -221,9 +221,9 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
             ?notice(AppId, CallId, "SIP ~p message could not be decoded: ~s", 
                     [Proto, Binary]),
             Call;
-        #sipmsg{class=req}=Req ->
+        #sipmsg{class={req, _}}=Req ->
             nksip_call_uas_req:request(Req, Call);
-        #sipmsg{class=resp}=Resp ->
+        #sipmsg{class={resp, _}}=Resp ->
             case nksip_uac_lib:is_stateless(Resp, GlobalId) of
                 true -> nksip_call_proxy:response_stateless(Resp, Call);
                 false -> nksip_call_uac_resp:response(Resp, Call)

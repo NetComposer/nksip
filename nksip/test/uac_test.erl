@@ -99,14 +99,14 @@ uac() ->
     {error, unknown_dialog} = nksip_uac:options(C2, RespId2, []),
 
     % Sync, get_response
-    {resp, #sipmsg{class=resp}} = nksip_uac:options(C2, SipC1, [get_response]),
+    {resp, #sipmsg{class={resp, _}}} = nksip_uac:options(C2, SipC1, [get_response]),
 
     % Sync, callback for request
     {ok, 200, [{id, RespId3}]} = 
         nksip_uac:options(C2, SipC1, [CB, get_request, {fields, [id]}]),
     CallId3 = nksip_response:call_id(RespId3),
     receive 
-        {Ref, {req, #sipmsg{class=req, call_id=CallId3}}} -> ok
+        {Ref, {req, #sipmsg{class={req, _}, call_id=CallId3}}} -> ok
         after 500 -> error(uac) 
     end,
 
@@ -131,15 +131,15 @@ uac() ->
     end,
 
     % Sync, callback for request and provisional response, get_request, get_response
-    {resp, #sipmsg{class=resp, response=486, call_id=CallId5}=Resp5} = 
+    {resp, #sipmsg{class={resp, 486}, call_id=CallId5}=Resp5} = 
         nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, get_response]),
     DialogId5 = nksip_dialog:id(Resp5),
     receive 
-        {Ref, {req, #sipmsg{class=req, call_id=CallId5}}} -> ok
+        {Ref, {req, #sipmsg{class={req, _}, call_id=CallId5}}} -> ok
         after 500 -> error(uac) 
     end,
     receive 
-        {Ref, {resp, #sipmsg{class=resp, response=180, call_id=CallId5}=Resp5_180}} ->
+        {Ref, {resp, #sipmsg{class={resp, 180}, call_id=CallId5}=Resp5_180}} ->
             DialogId5 = nksip_dialog:id(Resp5_180)
         after 500 -> 
             error(uac) 

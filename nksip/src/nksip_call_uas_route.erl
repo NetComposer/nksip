@@ -67,7 +67,8 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                        Fun=:=options; Fun=:=register ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     {Resp, Opts} = nksip_reply:reply(Req, Reply, AppOpts),
-                    {Resp1, Opts1} = case Resp#sipmsg.response >= 200 of
+                    #sipmsg{class={resp, Code}} = Resp,
+                    {Resp1, Opts1} = case Code >= 200 of
                         true -> 
                             {Resp, Opts};
                         false -> 
@@ -131,7 +132,8 @@ check_cancel(#trans{id=Id}=UAS, Call) ->
     {true, nksip_call:trans()} | false.
 
 is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -> 
-    ReqTransId = nksip_call_uas:transaction_id(CancelReq#sipmsg{method='INVITE'}),
+    TransReq = CancelReq#sipmsg{class={req, 'INVITE'}},
+    ReqTransId = nksip_call_uas:transaction_id(TransReq),
     case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
         #trans{id=Id, class=uas, request=#sipmsg{}=InvReq} = InvUAS ->
             #sipmsg{transport=#transport{remote_ip=CancelIp, remote_port=CancelPort}} =

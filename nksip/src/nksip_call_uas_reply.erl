@@ -52,7 +52,7 @@ reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
     end,
     reply(Reply, UAS1, nksip_call_lib:update(UAS1, Call));
 
-reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts}, 
+reply({#sipmsg{class={resp, Code}, id=MsgId}=Resp, SendOpts}, 
            #trans{status=Status, code=LastCode}=UAS, 
            #call{msgs=Msgs}=Call)
            when Status=:=invite_proceeding orelse 
@@ -82,7 +82,7 @@ reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts},
         {ok, Resp1} -> ok;
         error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
     end,
-    #sipmsg{response=Code1} = Resp1,
+    #sipmsg{class={resp, Code1}} = Resp1,
     Call1 = case Req of
         #sipmsg{} when Code1>=200, Code<300 ->
             nksip_call_lib:update_auth(nksip_dialog:id(Resp1), Req, Call);
@@ -113,7 +113,7 @@ reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts},
             {{ok, Resp1}, nksip_call_lib:update(UAS2, Call3)}
     end;
 
-reply({#sipmsg{response=Code}, _}, #trans{code=LastCode}=UAS, Call) ->
+reply({#sipmsg{class={resp, Code}}, _}, #trans{code=LastCode}=UAS, Call) ->
     #trans{status=Status, id=Id, method=Method} = UAS,
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (last code was ~p)", 
                [Id, Method, Code, Status, LastCode], Call),

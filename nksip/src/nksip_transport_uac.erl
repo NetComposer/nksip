@@ -39,7 +39,7 @@
     {ok, nksip:request()} | error.
 
 send_request(Req, GlobalId, Opts) ->
-    #sipmsg{app_id=AppId, method=Method, ruri=RUri, routes=Routes} = Req,
+    #sipmsg{class={req, Method}, app_id=AppId, ruri=RUri, routes=Routes} = Req,
     case Routes of
         [] -> 
             DestUri = RUri1 = RUri,
@@ -135,8 +135,8 @@ add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias}=Req, GlobalId, Opts) ->
 
 make_request_fun(Req, GlobalId, Opts) ->
     #sipmsg{
+        class = {req, Method},
         app_id = AppId, 
-        method = Method, 
         ruri = RUri, 
         from = From, 
         vias = [Via|RestVias],
