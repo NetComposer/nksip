@@ -23,6 +23,7 @@ NkSIP is a pure SIP framework, so it _does not support any real RTP media proces
 
 Documentation
 =============
+
 * API documentation is available [here](http://kalta.github.io/nksip).
 * [Change log](docs/CHANGELOG.md)
 * [Current features](docs/FEATURES.md)
@@ -47,12 +48,6 @@ NkSIP has been tested on OSX and Linux, using Erlang R15B y R16B
 > make tests
 ```
 
-You could also perform a heavy load test using the included application [nksip_loadtest](http://kalta.github.io/nksip/docs/v0.1.0/nksip_loadtest/index.html):
-```erlang
-> make loadtest
-1> nksip_loadtest:full().
-```
-
 Now you can start a simple SipApp using the [client callback module](samples/nksip_tutorial/src/nksip_tutorial_sipapp_client.erl) included in the tutorial:
 ```erlang
 > make shell
@@ -68,11 +63,16 @@ From this point you can read the [tutorial](docs/TUTORIAL.md) or start hacking w
 1> nksip_pbx:start().
 ```
 
+You could also perform a heavy load test using the included application [nksip_loadtest](http://kalta.github.io/nksip/docs/v0.1.0/nksip_loadtest/index.html):
+```erlang
+> make loadtest
+1> nksip_loadtest:full().
+```
+
+
 Contributing
 ============
 
 Please contribute with code, bug fixes, documentation fixes, testing with SIP devices or any other form. Use 
 GitHub Issues and Pull Requests, forking this repository.
-
-Just make sure your code is dialyzer-friendly before submitting!!
 
