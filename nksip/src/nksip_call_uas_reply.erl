@@ -93,13 +93,14 @@ send_reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts},
         error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
     end,
     #sipmsg{response=Code1} = Resp1,
-    % We could have selected a different proto/ip/port form request
-    Call1 = case Code1>=200 andalso Code<300 of
-        true -> nksip_call_lib:update_auth(Req, Resp1, Call);
-        false -> Call
+    Call1 = case Req of
+        #sipmsg{} when Code1>=200, Code<300 ->
+            nksip_call_lib:update_auth(nksip_dialog:id(Resp1), Req, Call);
+        _ ->
+            Call
     end,
     Call2 = case lists:member(no_dialog, Opts) of
-        true -> Call;
+        true -> Call1;
         false -> nksip_call_uas_dialog:response(Req, Resp1, Call1)
     end,
     UAS1 = case LastCode < 200 of

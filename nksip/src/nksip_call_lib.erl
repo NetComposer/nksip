@@ -127,47 +127,35 @@ hibernate(_, Call) ->
 
 
 %% @private
--spec update_auth(nksip:request(), nksip:response(), call()) ->
+-spec update_auth(nksip_dialog:id(), nksip:request()|nksip:response(), call()) ->
     call().
 
-update_auth(Req, Resp, #call{auths=Auths}=Call) ->
-    case nksip_dialog:id(Resp) of
-        <<>> ->
-            Call;
-        DialogId ->
-            Auths1 = case Req#sipmsg.transport of
-                #transport{proto=Proto1, remote_ip=Ip1, remote_port=Port1} ->
-                    case lists:member({DialogId, Proto1, Ip1, Port1}, Auths) of
-                        true ->
-                            Auths;
-                        false -> 
-                            ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
-                                        [DialogId, Proto1, Ip1, Port1], Call),
-                            [{DialogId, Proto1, Ip1, Port1}|Auths]
-                    end;
-                _ ->
-                    Auths
-            end,
-            Auths2 = case Resp#sipmsg.transport of
-                #transport{proto=Proto2, remote_ip=Ip2, remote_port=Port2} ->
-                    case lists:member({DialogId, Proto2, Ip2, Port2}, Auths1) of
-                        true ->
-                            Auths1;
-                        false -> 
-                            ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
-                                        [DialogId, Proto2, Ip2, Port2], Call),
-                            [{DialogId, Proto2, Ip2, Port2}|Auths1]
-                    end;
-                _ ->
-                    Auths1
-            end,
-            Call#call{auths=Auths2}
+update_auth(<<>>, _SipMsg, Call) ->
+    Call;
+
+update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
+    case SipMsg of
+        #sipmsg{transport=#transport{proto=Proto, remote_ip=Ip, remote_port=Port}} ->
+            case lists:member({DialogId, Proto, Ip, Port}, Auths) of
+                true ->
+                    Call;
+                false -> 
+                    ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
+                                [DialogId, Proto, Ip, Port], Call),
+                    Call#call{auths=[{DialogId, Proto, Ip, Port}|Auths]}
+            end;
+        _ ->
+            ?call_error("Calling UPDATE AUTH: ~p", [SipMsg], Call),
+            Call
     end.
 
 
 %% @private
 -spec check_auth(nksip:request()|nksip:response(), call()) ->
     boolean().
+
+check_auth(#sipmsg{to_tag=(<<>>)}, _Call) ->
+    false;
 
 check_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
     case nksip_dialog:id(SipMsg) of

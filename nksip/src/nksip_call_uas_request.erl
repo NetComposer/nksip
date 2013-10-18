@@ -244,17 +244,27 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
     nksip_call:call().
 
 authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
-    #trans{id=Id, method=Method, request=_Req} = UAS,
+    #trans{id=Id, method=Method, request=Req} = UAS,
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply], Call),
     case Reply of
-        ok -> route_launch(UAS, Call);
-        true -> route_launch(UAS, Call);
-        false -> reply(forbidden, UAS, Call);
-        authenticate -> reply(authenticate, UAS, Call);
-        {authenticate, Realm} -> reply({authenticate, Realm}, UAS, Call);
-        proxy_authenticate -> reply(proxy_authenticate, UAS, Call);
-        {proxy_authenticate, Realm} -> reply({proxy_authenticate, Realm}, UAS, Call);
-        Other -> reply(Other, UAS, Call)
+        _ when Reply=:=ok; Reply=:=true ->
+            Call1 = case Req#sipmsg.to_tag of
+                <<>> -> Call;
+                _ -> nksip_call_lib:update_auth(nksip_dialog:id(Req), Req, Call)
+            end,
+            route_launch(UAS, Call1);
+        false -> 
+            reply(forbidden, UAS, Call);
+        authenticate -> 
+            reply(authenticate, UAS, Call);
+        {authenticate, Realm} -> 
+            reply({authenticate, Realm}, UAS, Call);
+        proxy_authenticate -> 
+            reply(proxy_authenticate, UAS, Call);
+        {proxy_authenticate, Realm} -> 
+            reply({proxy_authenticate, Realm}, UAS, Call);
+        Other -> 
+            reply(Other, UAS, Call)
     end;
 
 % Request has been already answered (i.e. cancelled)
