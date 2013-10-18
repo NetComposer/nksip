@@ -19,10 +19,12 @@
 %% -------------------------------------------------------------------
 
 %% @private Call UAS Management: Request Processing
--module(nksip_call_uas_request).
+-module(nksip_call_uas_route).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/3, reply/4]).
+-export([launch/2, reply/4]).
+
+-import(nksip_call_lib, [update/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -32,47 +34,15 @@
 %% Private
 %% ===================================================================
 
-%% @private
--spec request(nksip:request(), nksip_call_uas:id(), nksip_call:call()) ->
+%% @private 
+-spec launch(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-request(Req, TransId, Call) ->
-    #sipmsg{id=MsgId, method=Method, ruri=RUri, transport=Transp, to_tag=ToTag} = Req,
-    #call{trans=Trans, next=Id, msgs=Msgs} = Call,
-    ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId], Call),
-    LoopId = loop_id(Req),
-    UAS = #trans{
-        id = Id,
-        class = uas,
-        status = authorize,
-        opts = [],
-        start = nksip_lib:timestamp(),
-        from = undefined,
-        trans_id = TransId, 
-        request = Req,
-        method = Method,
-        ruri = RUri,
-        proto = Transp#transport.proto,
-        stateless = true,
-        response = undefined,
-        code = 0,
-        loop_id = LoopId
-    },
-     UAS1 = case Method of
-        'INVITE' -> nksip_call_lib:timeout_timer(timer_c, UAS, Call);
-        'ACK' -> UAS;
-        _ -> nksip_call_lib:timeout_timer(noinvite, UAS, Call)
-    end,
-    Msg = {MsgId, Id, nksip_dialog:id(Req)},
-    Call1 = Call#call{trans=[UAS1|Trans], next=Id+1, msgs=[Msg|Msgs]},
-    case ToTag=:=(<<>>) andalso lists:keymember(LoopId, #trans.loop_id, Trans) of
-        true -> reply(loop_detected, UAS1, Call1);
-        false -> send_100(UAS1, Call1)
-    end.
+launch(UAS, Call) ->
+    send_100(UAS, Call).
 
 
-
-%% @private Called by {@link nksip_call_router} when there is a SipApp response available
+%% @private Called when there is a SipApp response available
 -spec reply(atom(), nksip_call_uas:id(), nksip:sipreply(), nksip_call:call()) ->
     nksip_call:call().
 
@@ -515,6 +485,16 @@ do_process_call(Fun, UAS, Call) ->
 %% ===================================================================
 
 
+%% @private Sends a transaction reply
+-spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}, 
+            nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+reply(Reply, UAS, Call) ->
+    {_, Call1} = nksip_call_uas_reply:reply(Reply, UAS, Call),
+    Call1.
+
+
 %% @private
 -spec app_call(atom(), list(), nksip_call:trans(), nksip_call:call()) ->
     {reply, term()} | nksip_call:call() | not_exported.
@@ -542,35 +522,8 @@ app_call(Fun, Args, UAS, Call) ->
     end.
 
 
-%% @private
--spec loop_id(nksip:request()) ->
-    integer().
-    
-loop_id(Req) ->
-    #sipmsg{
-        app_id = AppId, 
-        from_tag = FromTag, 
-        call_id = CallId, 
-        cseq = CSeq, 
-        cseq_method = CSeqMethod
-    } = Req,
-    erlang:phash2({AppId, CallId, FromTag, CSeq, CSeqMethod}).
 
 
-%% @private Sends a transaction reply
--spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}, 
-            nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
 
-reply(Reply, UAS, Call) ->
-    nksip_call_uas_reply:reply(Reply, UAS, Call).
-
-
-%% @private
--spec update(nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-update(UAS, Call) ->
-    nksip_call_lib:update(UAS, Call).
 
 

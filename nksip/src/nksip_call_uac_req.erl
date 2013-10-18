@@ -18,11 +18,11 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Call UAC Management: Request sending
--module(nksip_call_uac_send).
+%% @doc Call UAC Management: Request sending
+-module(nksip_call_uac_req).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send/2]).
+-export([request/4, resend_auth/3]).
 
 -import(nksip_call_lib, [update/2]).
 
@@ -31,15 +31,106 @@
 
 
 %% ===================================================================
+%% Types
+%% ===================================================================
+
+
+-type uac_from() :: none | {srv, from()} | {fork, nksip_call_fork:id()}.
+
+
+%% ===================================================================
 %% Private
 %% ===================================================================
 
-%% @private
--spec send(nksip_call:trans(), nksip_call:call()) ->
+
+%% @doc Starts a new UAC transaction.
+-spec request(nksip:request(), nksip_lib:proplist(), uac_from(), nksip_call:call()) ->
     nksip_call:call().
 
-send(#trans{method=Method}=UAC, Call) ->
-    send(Method, UAC, Call).
+request(Req, Opts, From, Call) ->
+    #sipmsg{method=Method, id=MsgId} = Req,
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
+    Req1 = case Method of 
+        'CANCEL' -> Req;
+        _ -> nksip_transport_uac:add_via(Req, GlobalId, AppOpts)
+    end,
+    {#trans{id=Id}=UAC, Call1} = new_uac(Req1, Opts, From, Call),
+    case lists:member(async, Opts) andalso From of
+        {srv, SrvFrom} when Method=:='ACK' -> 
+            gen_server:reply(SrvFrom, async);
+        {srv, SrvFrom} ->
+            gen_server:reply(SrvFrom, {async, MsgId});
+        _ ->
+            ok
+    end,
+    case From of
+        {fork, ForkId} ->
+            ?call_debug("UAC ~p sending request ~p ~p (~s, fork: ~p)", 
+                        [Id, Method, Opts, MsgId, ForkId], Call);
+        _ ->
+            ?call_debug("UAC ~p sending request ~p ~p (~s)", 
+                        [Id, Method, Opts, MsgId], Call)
+    end,
+    send(Method, UAC, Call1).
+
+
+%% @private
+-spec resend_auth(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+resend_auth(Req, UAC, Call) ->
+     #trans{
+        id = Id,
+        status = Status,
+        opts = Opts,
+        method = Method, 
+        iter = Iter,
+        from = From
+    } = UAC,
+    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
+    #sipmsg{vias=[_|Vias]} = Req,
+    ?call_debug("UAC ~p ~p (~p) resending authorized request", 
+                [Id, Method, Status], Call),
+    {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
+    Req1 = Req#sipmsg{vias=Vias, cseq=CSeq},
+    Req2 = nksip_transport_uac:add_via(Req1, GlobalId, AppOpts),
+    Opts1 = nksip_lib:delete(Opts, make_contact),
+    {NewUAC, Call2} = new_uac(Req2, Opts1, From, Call1),
+    NewUAC1 = NewUAC#trans{iter=Iter+1},
+    send(Method, NewUAC1, update(NewUAC1, Call2)).
+    
+
+%% @private
+-spec new_uac(nksip:request(), nksip_lib:proplist(), uac_from(), nksip_call:call()) ->
+    {nksip_call:trans(), nksip_call:call()}.
+
+new_uac(Req, Opts, From, Call) ->
+    #sipmsg{id=MsgId, method=Method, ruri=RUri} = Req, 
+    #call{next=Id, trans=Trans, msgs=Msgs} = Call,
+    Status = case Method of
+        'ACK' -> ack;
+        'INVITE'-> invite_calling;
+        _ -> trying
+    end,
+    UAC = #trans{
+        id = Id,
+        class = uac,
+        status = Status,
+        start = nksip_lib:timestamp(),
+        from = From,
+        opts = Opts,
+        trans_id = nksip_call_uac:transaction_id(Req),
+        request = Req,
+        method = Method,
+        ruri = RUri,
+        response = undefined,
+        code = 0,
+        to_tags = [],
+        cancel = undefined,
+        iter = 1
+    },
+    Msg = {MsgId, Id, nksip_dialog:id(Req)},
+    {UAC, Call#call{trans=[UAC|Trans], msgs=[Msg|Msgs], next=Id+1}}.
 
 
 % @private
@@ -124,3 +215,4 @@ sent_method(_Other, #trans{proto=Proto}=UAC, Call) ->
         _ -> UAC2
     end.
     
+

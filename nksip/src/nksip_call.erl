@@ -222,25 +222,27 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
                     [Proto, Binary]),
             Call;
         #sipmsg{class=req}=Req ->
-            nksip_call_uas:request(Req, Call);
+            nksip_call_uas_req:request(Req, Call);
         #sipmsg{class=resp}=Resp ->
             case nksip_uac_lib:is_stateless(Resp, GlobalId) of
                 true -> nksip_call_proxy:response_stateless(Resp, Call);
-                false -> nksip_call_uac:response(Resp, Call)
+                false -> nksip_call_uac_resp:response(Resp, Call)
             end
     end;
 
 work({app_reply, Fun, Id, Reply}, none, Call) ->
-    nksip_call_uas_request:reply(Fun, Id, Reply, Call);
+    nksip_call_uas_route:reply(Fun, Id, Reply, Call);
 
 work({send_reply, ReqId, Reply}, From, Call) ->
     case get_trans(ReqId, Call) of
         {ok, #trans{class=uas}=UAS} ->
-            nksip_call_uas:send_reply(Reply, UAS, {srv, From}, Call);
+            {Result, Call1} = nksip_call_uas_reply:reply(Reply, UAS, Call);
         _ -> 
-            gen_server:reply(From, {error, invalid_call}),
-            Call
-    end;
+            Result = {error, invalid_call},
+            Call1 = Call
+    end,
+    gen_server:reply(From, Result),
+    Call1;
 
 work({make, Method, Uri, Opts}, From, Call) ->
     #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
@@ -251,7 +253,7 @@ work({make, Method, Uri, Opts}, From, Call) ->
     Call;
 
 work({send, Req, Opts}, From, Call) ->
-    nksip_call_uac:request(Req, Opts, {srv, From}, Call);
+    nksip_call_uac_req:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
     #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,

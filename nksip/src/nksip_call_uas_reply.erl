@@ -18,11 +18,11 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Call UAS Management: Reply
+%% @doc Call UAS Management: Reply
 -module(nksip_call_uas_reply).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([reply/3, send_reply/3]).
+-export([reply/3]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -33,36 +33,26 @@
 %% ===================================================================
 
 
-%% @private Sends a transaction reply
--spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}, 
-            nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-reply(Reply, UAS, Call) ->
-    {_, Call1} = send_reply(Reply, UAS, Call),
-    Call1.
-
-
-%% @private Sends a transaction reply
--spec send_reply(nksip:sipreply()|{nksip:response(), nksip_lib:proplist()}, 
+%% @doc Sends a transaction reply
+-spec reply(nksip:sipreply()|{nksip:response(), nksip_lib:proplist()}, 
                   nksip_call:trans(), nksip_call:call()) ->
     {{ok, nksip:response()} | {error, invalid_call}, nksip_call:call()}.
 
-send_reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
+reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
     ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", 
                  [Id, Status, Reply], Call),
     UAS1 = UAS#trans{status=finished},
     {{error, invalid_call}, nksip_call_lib:update(UAS1, Call)};
 
-send_reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
+reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
           when Status=:=authorize; Status=:=route ->
     UAS1 = case Method of
         'INVITE' -> UAS#trans{status=invite_proceeding};
         _ -> UAS#trans{status=trying}
     end,
-    send_reply(Reply, UAS1, nksip_call_lib:update(UAS1, Call));
+    reply(Reply, UAS1, nksip_call_lib:update(UAS1, Call));
 
-send_reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts}, 
+reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts}, 
            #trans{status=Status, code=LastCode}=UAS, 
            #call{msgs=Msgs}=Call)
            when Status=:=invite_proceeding orelse 
@@ -123,17 +113,17 @@ send_reply({#sipmsg{id=MsgId, response=Code}=Resp, SendOpts},
             {{ok, Resp1}, nksip_call_lib:update(UAS2, Call3)}
     end;
 
-send_reply({#sipmsg{response=Code}, _}, #trans{code=LastCode}=UAS, Call) ->
+reply({#sipmsg{response=Code}, _}, #trans{code=LastCode}=UAS, Call) ->
     #trans{status=Status, id=Id, method=Method} = UAS,
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (last code was ~p)", 
                [Id, Method, Code, Status, LastCode], Call),
     {{error, invalid_call}, Call};
 
-send_reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
+reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
     #call{opts=#call_opts{app_opts=Opts}} = Call,
-    send_reply(nksip_reply:reply(Req, SipReply, Opts), UAS, Call);
+    reply(nksip_reply:reply(Req, SipReply, Opts), UAS, Call);
 
-send_reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
+reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
                [Id, Method, SipReply, Status], Call),
     {{error, invalid_call}, Call}.

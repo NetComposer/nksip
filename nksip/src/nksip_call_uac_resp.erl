@@ -18,11 +18,11 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private Call UAC Management: Response processing
--module(nksip_call_uac_response).
+%% @doc Call UAC Management: Response processing
+-module(nksip_call_uac_resp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([response/3]).
+-export([response/2]).
 
 -import(nksip_call_lib, [update/2]).
 
@@ -35,6 +35,23 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+%% @doc Called when a new response is received.
+-spec response(nksip:response(), nksip_call:call()) ->
+    nksip_call:call().
+
+response(Resp, #call{trans=Trans}=Call) ->
+    #sipmsg{cseq_method=Method, response=Code} = Resp,
+    TransId = nksip_call_uac:transaction_id(Resp),
+    case lists:keyfind(TransId, #trans.trans_id, Trans) of
+        #trans{class=uac}=UAC -> 
+            response(Resp, UAC, Call);
+        _ -> 
+            ?call_info("UAC received ~p ~p response for unknown request", 
+                       [Method, Code], Call),
+            Call
+    end.
 
 
 %% @private
@@ -290,14 +307,13 @@ do_received_hangup(Resp, UAC, Call) ->
 do_received_auth(Req, Resp, UAC, Call) ->
      #trans{
         id = Id,
-        status = Status,
         opts = Opts,
         method = Method, 
         code = Code, 
         iter = Iter,
         from = From
     } = UAC,
-    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     IsFork = case From of {fork, _} -> true; _ -> false end,
     case 
         (Code=:=401 orelse Code=:=407) andalso Iter < ?MAX_AUTH_TRIES
@@ -306,16 +322,8 @@ do_received_auth(Req, Resp, UAC, Call) ->
     of
         false ->
             nksip_call_uac_reply:reply({resp, Resp}, UAC, Call);
-        {ok, #sipmsg{vias=[_|Vias]}=Req1} ->
-            ?call_debug("UAC ~p ~p (~p) resending authorized request", 
-                        [Id, Method, Status], Call),
-            {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
-            Req2 = Req1#sipmsg{vias=Vias, cseq=CSeq},
-            Req3 = nksip_transport_uac:add_via(Req2, GlobalId, AppOpts),
-            Opts1 = nksip_lib:delete(Opts, make_contact),
-            {NewUAC, Call2} = nksip_call_uac:new_uac(Req3, Opts1, From, Call1),
-            NewUAC1 = NewUAC#trans{iter=Iter+1},
-            nksip_call_uac_send:send(NewUAC1, update(NewUAC1, Call2));
+        {ok, Req1} ->
+            nksip_call_uac_req:resend_auth(Req1, UAC, Call);
         {error, Error} ->
             ?call_debug("UAC ~p could not generate new auth request: ~p", 
                         [Id, Error], Call),    

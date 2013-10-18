@@ -143,7 +143,7 @@ launch([Uri|Rest], Fork, Call) ->
                 true -> [record_route];
                 false -> []
             end,
-            Call1 = nksip_call_uac:request(Req1, UACOpts, {fork, Id}, Call),
+            Call1 = nksip_call_uac_req:request(Req1, UACOpts, {fork, Id}, Call),
             Call2 = Call1#call{next=Next+1},
             Fork1 = case Method of
                 'ACK' -> Fork#fork{uacs=[Next|UACs]};
@@ -270,9 +270,21 @@ waiting(Code, Resp, Pos, Fork, Call) when Code >= 600 ->
 -spec send_reply(nksip:response(), fork(), call()) ->
    call().
 
-send_reply(#sipmsg{response=Code}=Resp, #fork{id=Id, method=Method}, Call) ->
-    ?call_debug("Fork ~p ~p send reply to UAS: ~p", [Id, Method, Code], Call),
-    nksip_call_uas:fork_reply(Id, {Resp, []}, Call).
+send_reply(Resp, Fork, Call) ->
+    #sipmsg{response=Code} = Resp,
+    #fork{id=TransId, method=Method} = Fork,
+    #call{trans=Trans} = Call,
+    case lists:keyfind(TransId, #trans.id, Trans) of
+        #trans{class=uas}=UAS ->
+            ?call_debug("Fork ~p ~p send reply to UAS: ~p", 
+                        [TransId, Method, Code], Call),
+            {_, Call1} = nksip_call_uas_reply:reply({Resp, []}, UAS, Call),
+            Call1;
+        _ ->
+            ?call_debug("Unknown UAS ~p received fork reply",
+                        [TransId], Call),
+            Call
+    end.
 
 
 %% @private

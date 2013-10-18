@@ -40,7 +40,8 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--define(SYNC_TIMEOUT, 45000).
+-define(SYNC_TIMEOUT, 5000).
+% -define(SYNC_TIMEOUT, 45000).
 
 %% TODO: If there are several pending messages and the process stops,
 %% it will resend the messages in reverse order. The last monitor
