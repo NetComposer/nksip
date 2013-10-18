@@ -159,7 +159,7 @@ uris(Uris) ->
     parse_uris(nksip_lib:tokenize(Uris, uri), []).
 
 
-%% @doc Parses all URIs found in `Term' as <i>Request Uris<i>
+%% @doc Parses all URIs found in `Term' as <i>Request Uris</i>.
 -spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
     [nksip:uri()].
 
