@@ -195,10 +195,10 @@ preprocess(#sipmsg{forwards=Forwards, routes=Routes, headers=Headers}=Req, Proxy
     [[nksip:uri()]].
 
 normalize_uriset(#uri{}=Uri) ->
-    [[Uri]];
+    [[ruri(Uri)]];
 
 normalize_uriset(UriSet) when is_binary(UriSet) ->
-    case nksip_parse:uris(UriSet) of
+    case nksip_parse:ruris(UriSet) of
         [] -> [[]];
         UriList -> [UriList]
     end;
@@ -206,7 +206,7 @@ normalize_uriset(UriSet) when is_binary(UriSet) ->
 normalize_uriset(UriSet) when is_list(UriSet) ->
     case nksip_lib:is_string(UriSet) of
         true ->
-            case nksip_parse:uris(UriSet) of
+            case nksip_parse:ruris(UriSet) of
                 [] -> [[]];
                 UriList -> [UriList]
             end;
@@ -219,39 +219,39 @@ normalize_uriset(_) ->
 
 
 normalize_uriset(single, [#uri{}=Uri|R], Acc1, Acc2) -> 
-    normalize_uriset(single, R, Acc1++[Uri], Acc2);
+    normalize_uriset(single, R, Acc1++[ruri(Uri)], Acc2);
 
 normalize_uriset(multi, [#uri{}=Uri|R], Acc1, Acc2) -> 
     case Acc1 of
-        [] -> normalize_uriset(multi, R, [], Acc2++[[Uri]]);
-        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[[Uri]])
+        [] -> normalize_uriset(multi, R, [], Acc2++[[ruri(Uri)]]);
+        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[[ruri(Uri)]])
     end;
 
 normalize_uriset(single, [Bin|R], Acc1, Acc2) when is_binary(Bin) -> 
-    normalize_uriset(single, R, Acc1++nksip_parse:uris(Bin), Acc2);
+    normalize_uriset(single, R, Acc1++nksip_parse:ruris(Bin), Acc2);
 
 normalize_uriset(multi, [Bin|R], Acc1, Acc2) when is_binary(Bin) -> 
     case Acc1 of
-        [] -> normalize_uriset(multi, R, [], Acc2++[nksip_parse:uris(Bin)]);
-        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:uris(Bin)])
+        [] -> normalize_uriset(multi, R, [], Acc2++[nksip_parse:ruris(Bin)]);
+        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:ruris(Bin)])
     end;
 
 normalize_uriset(single, [List|R], Acc1, Acc2) when is_list(List) -> 
     case nksip_lib:is_string(List) of
-        true -> normalize_uriset(single, R, Acc1++nksip_parse:uris(List), Acc2);
+        true -> normalize_uriset(single, R, Acc1++nksip_parse:ruris(List), Acc2);
         false -> normalize_uriset(multi, [List|R], Acc1, Acc2)
     end;
 
 normalize_uriset(multi, [List|R], Acc1, Acc2) when is_list(List) -> 
     case nksip_lib:is_string(List) of
         true when Acc1=:=[] ->
-            normalize_uriset(multi, R, [], Acc2++[nksip_parse:uris(List)]);
+            normalize_uriset(multi, R, [], Acc2++[nksip_parse:ruris(List)]);
         true ->
-            normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:uris(List)]);
+            normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:ruris(List)]);
         false when Acc1=:=[] ->  
-            normalize_uriset(multi, R, [], Acc2++[nksip_parse:uris(List)]);
+            normalize_uriset(multi, R, [], Acc2++[nksip_parse:ruris(List)]);
         false ->
-            normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:uris(List)])
+            normalize_uriset(multi, R, [], Acc2++[Acc1]++[nksip_parse:ruris(List)])
     end;
 
 normalize_uriset(Type, [_|R], Acc1, Acc2) ->
@@ -265,6 +265,10 @@ normalize_uriset(_Type, [], [], Acc2) ->
 
 normalize_uriset(_Type, [], Acc1, Acc2) ->
     Acc2++[Acc1].
+
+ruri(#uri{}=Uri) ->
+    Uri#uri{headers=[], ext_opts=[], ext_headers=[]}.
+
 
 
 
