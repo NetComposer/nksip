@@ -54,7 +54,7 @@
 -include("nksip.hrl").
 
 -export([options/3, options/2, register/3, invite/3, ack/2, reinvite/2, 
-            bye/2, cancel/2, refresh/2, stun/3]).
+            bye/2, cancel/2, refresh/2, stun/3, info/2]).
 -export([send_request/4, send_request/2]).
 
 
@@ -564,6 +564,20 @@ stun(AppId, UriSpec, _Opts) ->
             end
     end.
 
+%% @doc Sends an <i>INFO</i> for a current dialog.
+%%
+%% Sends an INFO request. Doesn't change the state of the current session.
+
+%% You need to know the `DialogId' of the dialog. You can get from the return of
+%% the initial {@link invite/3}, or using {@link nksip_sipapp:dialog_update/3}
+%% callback function.
+%%
+-spec info(nksip_dialog:spec(), nksip_lib:proplist()) ->
+  {ok, nksip:response_code()} | {reply, nksip:response()} |
+  async | {error, nodialog_errors()}.
+
+info(DialogSpec, Opts) ->
+  send_dialog(DialogSpec, 'INFO', Opts).
 
 %% ===================================================================
 %% Internal

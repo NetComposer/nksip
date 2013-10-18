@@ -123,7 +123,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/1, get_user_pass/4, authorize/4, route/6, invite/4, reinvite/4, cancel/3, 
-         ack/4, bye/4, options/3, register/3]).
+         ack/4, bye/4, info/4, options/3, register/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -include("nksip.hrl").
@@ -447,6 +447,19 @@ ack(_DialogId, _ReqId, _From, State) ->
 
 bye(_DialogId, _ReqId, _From, State) ->
     {reply, ok, State}.
+
+%% @doc Called when a valid INFO request is received.
+%% When an INFO request is received, NkSIP will automatically response 481
+%% <i>Call/Transaction does not exist</i> if it doesn't belong to a current dialog.
+%% If it does, NkSIP this callback functions is called.
+%% If implement this function, you should reply `ok' to send a 200 response back.
+%%
+-spec info(DialogId::nksip_dialog:id(), ReqId::nksip_request:id(),
+    From::from(), State::term()) ->
+  call_reply(nksip:sipreply()).
+
+info(_DialogId, _ReqId, _From, State) ->
+  {reply, ok, State}.
 
 
 %% @doc Called when a OPTIONS request is received.
