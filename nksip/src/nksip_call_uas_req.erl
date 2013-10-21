@@ -197,11 +197,9 @@ process_request(Req, TransId, Call) ->
     
 loop_id(Req) ->
     #sipmsg{
-        app_id = AppId, 
         from_tag = FromTag, 
-        call_id = CallId, 
         cseq = CSeq, 
         cseq_method = CSeqMethod
     } = Req,
-    erlang:phash2({AppId, CallId, FromTag, CSeq, CSeqMethod}).
+    erlang:phash2({FromTag, CSeq, CSeqMethod}).
 

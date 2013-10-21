@@ -193,14 +193,14 @@ make_remove_opts([Tag|Rest], Acc) ->
 -spec make_cancel(nksip:request()) ->
     nksip:request().
 
-make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_]}=Req) ->
+make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds}=Req) ->
     Req#sipmsg{
         class = {req, 'CANCEL'},
         id = nksip_sipmsg:make_id(req, CallId),
         cseq_method = 'CANCEL',
         forwards = 70,
         vias = [Via],
-        headers = [],
+        headers = nksip_lib:extract(Hds, <<"Route">>),
         contacts = [],
         content_type = [],
         body = <<>>,
@@ -231,7 +231,8 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
         contacts = [],
         headers = [],
         content_type = [],
-        body = <<>>
+        body = <<>>,
+        data = []
     }.
 
 
