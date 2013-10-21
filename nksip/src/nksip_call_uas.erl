@@ -177,22 +177,20 @@ app_cast(Fun, Args, UAS, Call) ->
 transaction_id(Req) ->
         #sipmsg{
             class = {req, Method},
-            app_id = AppId, 
             ruri = RUri, 
             from_tag = FromTag, 
             to_tag = ToTag, 
             vias = [Via|_], 
-            call_id = CallId, 
             cseq = CSeq
         } = Req,
     {_Transp, ViaIp, ViaPort} = nksip_parse:transport(Via),
     case nksip_lib:get_value(branch, Via#via.opts) of
         <<"z9hG4bK", Branch/binary>> ->
-            erlang:phash2({AppId, CallId, Method, ViaIp, ViaPort, Branch});
+            erlang:phash2({Method, ViaIp, ViaPort, Branch});
         _ ->
             % pre-RFC3261 style
             {_, UriIp, UriPort} = nksip_parse:transport(RUri),
-            -erlang:phash2({AppId, UriIp, UriPort, FromTag, ToTag, CallId, CSeq, 
+            -erlang:phash2({UriIp, UriPort, FromTag, ToTag, CSeq, 
                             Method, ViaIp, ViaPort})
     end.
 
