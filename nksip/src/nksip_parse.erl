@@ -230,7 +230,7 @@ dates(Values) ->
     {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
-    {Class, DefPort} = case Scheme of
+    {Proto, DefPort} = case Scheme of
         sips -> 
             {tls, 5061};
         sip ->
@@ -248,7 +248,7 @@ transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
         _ ->
             {unknown, 0}
     end,
-    {Class, Host, if Port =:= 0 -> DefPort; true -> Port end};
+    {Proto, Host, if Port =:= 0 -> DefPort; true -> Port end};
 
 transport(#via{proto=Proto, domain=Host, port=Port}) ->
     DefPort = case Proto of
