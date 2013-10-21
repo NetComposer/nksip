@@ -66,7 +66,7 @@ send_request(Req, GlobalId, Opts) ->
             end
     end,
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
-    MakeReqFun = make_request_fun(Req1, GlobalId, Opts),  
+    MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts),  
     nksip_trace:insert(Req, {uac_out_request, Method}),
     case nksip_transport:send(AppId, [DestUri], MakeReqFun, Opts) of
         {ok, SentReq} -> 
@@ -130,10 +130,10 @@ add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias}=Req, GlobalId, Opts) ->
 %% ===================================================================
 
 %% @private
--spec make_request_fun(nksip:request(), binary(), nksip_lib:proplist()) ->
+-spec make_request_fun(nksip:request(), nksip:uri(), binary(), nksip_lib:proplist()) ->
     function().
 
-make_request_fun(Req, GlobalId, Opts) ->
+make_request_fun(Req, Dest, GlobalId, Opts) ->
     #sipmsg{
         class = {req, Method},
         app_id = AppId, 
@@ -186,7 +186,7 @@ make_request_fun(Req, GlobalId, Opts) ->
         Contacts1 = case lists:member(make_contact, Opts) of
             true ->
                 [#uri{
-                    scheme = case Proto of tls -> sips; _ -> sip end,
+                    scheme = case Dest#uri.scheme of sips -> sips; _ -> sip end,
                     user = From#uri.user,
                     domain = ListenHost,
                     port = ListenPort,
