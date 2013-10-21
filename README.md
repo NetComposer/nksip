@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/kalta/nksip.png?branch=master)](https://travis-ci.org/kalta/nksip)
+[![Build Status](https://travis-ci.org/kalta/nksip.png?branch=v0.3)](https://travis-ci.org/kalta/nksip)
 
 Introduction
 ============
