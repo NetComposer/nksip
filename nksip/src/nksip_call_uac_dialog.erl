@@ -211,8 +211,13 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
 do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
     #sipmsg{class={resp, Code}} = Resp,
     #dialog{id=DialogId, status=Status} = Dialog,
-    ?call_notice("Dialog ~s (~p) ignoring 'INVITE' ~p response",
-                 [DialogId, Status, Code], Call),
+    case Status of
+        bye ->
+            ok;
+        _ ->
+            ?call_notice("Dialog ~s (~p) ignoring 'INVITE' ~p response",
+                         [DialogId, Status, Code], Call)
+    end,
     Dialog;
 
 do_response('BYE', _Code, Req, _Resp, #dialog{caller_tag=CallerTag}=Dialog, Call) ->
