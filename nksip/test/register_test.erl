@@ -80,9 +80,6 @@ register1() ->
     % Method not allowed
     {ok, 405, []} = nksip_uac:register(Client2, "sip:127.0.0.1:5070", []),
 
-    {ok, 400, []} = nksip_uac:register(Client1, "sip:127.0.0.1", 
-                        [{from, "sip:one"}, {to, "sip:two"}]),
-
     {ok, 200, Values1} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                         [unregister_all, {fields, [<<"Contact">>]}]),
     [{<<"Contact">>, []}] = Values1,
