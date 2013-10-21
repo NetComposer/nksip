@@ -2,6 +2,7 @@ In the current version the following RFCs are supported:
 
 RFC|Description|Coverage
 ---|---|---
+[RFC2976](http://tools.ietf.org/html/rfc2976)|INFO||
 [RFC3261](http://tools.ietf.org/html/rfc3261)|SIP 2.0|Full
 [RFC2617](http://tools.ietf.org/html/rfc2617)|Digest authentication|Full
 [RFC3263](http://tools.ietf.org/html/rfc3263)|SRV Resolution|Full (no SRV/NAPTR weight support)

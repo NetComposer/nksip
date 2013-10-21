@@ -24,7 +24,6 @@ In no special order:
 
 Many common SIP featured are still missing and will be addressed in following versions, including:
 
-* [RFC2976](http://tools.ietf.org/html/rfc2976): INFO
 * [RFC3262](http://tools.ietf.org/html/rfc3262): PRACK
 * [RFC3265](http://tools.ietf.org/html/rfc3265): SUBSCRIBE, NOTIFY
 * [RFC3311](http://tools.ietf.org/html/rfc3311): UPDATE

@@ -30,7 +30,7 @@
 -define(VERSION, "0.1.0").
 -define(SUPPORTED, <<>>).
 -define(ACCEPT, <<"application/sdp">>).
--define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
+-define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).

@@ -448,11 +448,18 @@ do_process('BYE', DialogId, UAS, Call) ->
         _ -> do_process_call(bye, UAS, Call)
     end;
 
+do_process('INFO', DialogId, UAS, Call) ->
+    case DialogId of
+        <<>> -> reply(no_transaction, UAS, Call);
+        _ -> do_process_call(info, UAS, Call)
+    end;
+
 do_process('OPTIONS', _DialogId, UAS, Call) ->
     do_process_call(options, UAS, Call); 
 
 do_process('REGISTER', _DialogId, UAS, Call) ->
     do_process_call(register, UAS, Call); 
+
 
 do_process(_Method, _DialogId, UAS, Call) ->
     #call{opts=#call_opts{app_opts=Opts}} = Call,

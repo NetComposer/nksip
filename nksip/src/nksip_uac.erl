@@ -24,6 +24,7 @@
 %%
 %% All mandatory SIP methods all supported: <i>OPTIONS</i>, <i>REGISTER</i>, 
 %% <i>INVITE</i>, <i>ACK</i>, <i>BYE</i> and <i>CANCEL</i>. 
+%% The following optional methods are also supported: <i>INFO</i>.
 %% Future versions will address all currently defined SIP methods: 
 %% <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>, <i>UPDATE</i>, 
 %% <i>REFER</i> and <i>PUBLISH</i>.
@@ -48,8 +49,8 @@
 %% final response and errors.
 %%
 %% Methods <i>OPTIONS</i>, <i>REGISTER</i> and <i>INVITE</i> can be
-%% sent outside or inside a dialog. <i>ACK</i> and <i>BYE</i> can only be sent 
-%% inside a dialog, and <i>CANCEL</i> can only be sent outside a dialog.
+%% sent outside or inside a dialog. <i>ACK</i>, <i>BYE</i> and <i>INFO</i> 
+%% can only be sent inside a dialog, and <i>CANCEL</i> can only be sent outside a dialog.
 %%
 %% Common options for most functions (outside or inside dialog) are:<br/>
 %%  
@@ -179,7 +180,8 @@
 
 -include("nksip.hrl").
 
--export([options/3, register/3, invite/3, ack/3, bye/3, cancel/2, refresh/3, stun/3]).
+-export([options/3, register/3, invite/3, ack/3, bye/3, info/3, cancel/2]).
+-export([refresh/3, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
 
@@ -431,7 +433,7 @@ ack(AppId, DialogSpec, Opts) ->
 %% @doc Sends an <i>BYE</i> for a current dialog, terminating the session.
 %%
 %% You need to know the dialog's id of the dialog you want to hang up.
-%% You can get from the return of the initial {@link invite/3}, or using 
+%% You can get it from the return of the initial {@link invite/3}, or using 
 %% {@link nksip_sipapp:dialog_update/3} callback function.
 %%
 %% Valid options are defined in {@link dialog_opt()}.
@@ -441,6 +443,21 @@ ack(AppId, DialogSpec, Opts) ->
 
 bye(AppId, DialogSpec, Opts) ->
     send(AppId, 'BYE', DialogSpec, Opts).
+
+
+%% @doc Sends an <i>INFO</i> for a current dialog.
+%%
+%% Sends an INFO request. Doesn't change the state of the current session.
+%% You need to know the dialog's id. You can get it from the return of the initial 
+%% {@link invite/3}, or using {@link nksip_sipapp:dialog_update/3} callback function.
+%%
+%% Valid options are defined in {@link dialog_opt()}.
+%%
+-spec info(nksip:app_id(), dialog_spec(), [dialog_opt()]) -> 
+    result() | {error, error()}.
+
+info(AppId, DialogSpec, Opts) ->
+    send(AppId, 'INFO', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.
@@ -564,7 +581,4 @@ send(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
 
 send(AppId, Method, Uri, Opts) ->
     nksip_call:send(AppId, Method, Uri, Opts).
-
-
-
 
