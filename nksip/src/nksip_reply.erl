@@ -218,8 +218,9 @@ reply(Req, Reply) ->
 %% response code is 100. A <i>To</i> tag will be set if parameter 
 %% `{to_tag, Tag}' is present in the request's options.
 %% If the response is for an INVITE request, options `make_allow', `make_supported'
-%% and `make_contact' will be added automatically, and (if code is 101-299) all
-%% <i>Record-Route</i> headers from the request will be copied in the response.
+%% and `make_contact' will be added automatically, 
+%% and (if code is 101-299) all <i>Record-Route</i> headers from the request 
+%% will be copied in the response.
 -spec reply(nksip:request(), nksip:sipreply()|#reqreply{}, nksip_lib:proplist()) -> 
     {nksip:response(), nksip_lib:proplist()}.
 

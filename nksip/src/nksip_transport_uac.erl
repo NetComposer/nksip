@@ -157,8 +157,8 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                     domain = ListenHost,
                     port = ListenPort,
                     opts = case Proto of
-                        udp -> []; 
                         tls when Scheme=:=sips -> [];
+                        udp when Scheme=:=sip -> [];
                         _ -> [{transport, Proto}] 
                     end
                 }|Contacts];

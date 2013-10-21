@@ -103,11 +103,14 @@ preprocess(Req, GlobalId) ->
 response(Req, Code, Headers, Body, Opts) ->
     #sipmsg{
         class = {req, Method},
+        ruri = RUri,
         call_id = CallId,
         vias = [LastVia|_] = Vias,
         from = #uri{domain=FromDomain}, 
         to = To, 
         to_tag = ToTag, 
+        contacts = ReqContacts,
+        routes = ReqRoutes,
         headers = ReqHeaders, 
         data = ReqData         
     } = Req, 
@@ -213,6 +216,26 @@ response(Req, Code, Headers, Body, Opts) ->
         100 -> [LastVia];
         _ -> Vias
     end,
+    Secure = case RUri#uri.scheme of
+        sips ->
+            true;
+        _ ->
+            case ReqRoutes of
+                [#uri{scheme=sips}|_] -> 
+                    true;
+                [] ->
+                    case ReqContacts of
+                        [#uri{scheme=sips}|_] -> true;
+                        _ -> false
+                    end;
+                _ ->
+                    false
+            end
+    end,
+    Opts2 = case Secure of
+        true -> [secure|Opts1];
+        _ -> Opts1
+    end,
     RespData = case nksip_lib:get_value(reason, Opts1) of
         undefined -> ReqData;
         Reason -> [{reason, Reason}|ReqData]
@@ -233,7 +256,7 @@ response(Req, Code, Headers, Body, Opts) ->
         transport = undefined,
         data = RespData
     },
-    {Resp, Opts1}.
+    {Resp, Opts2}.
 
 
 %% @private Process RFC3261 16.4

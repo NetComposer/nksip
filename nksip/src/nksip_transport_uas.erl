@@ -111,8 +111,7 @@ resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, _Opts) ->
 
 make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
-        app_id = AppId,
-        vias = [#via{proto=ViaProto, opts=ViaOpts}=Via|ViaR], 
+        vias = [#via{opts=ViaOpts}=Via|ViaR], 
         to = To, 
         headers = Headers,
         contacts = Contacts, 
@@ -131,15 +130,21 @@ make_response_fun(RouteHash, Resp, Opts) ->
             Host -> 
                 nksip_lib:to_binary(Host)
         end,
+        Scheme = case Proto=:=tls andalso lists:member(secure, Opts) of
+            true -> sips;
+            _ -> sip
+        end,
         Contacts1 = case lists:member(make_contact, Opts) of
             true ->
                 [#uri{
-                    scheme = case Proto of tls -> sips; _ -> sip end,
+                    scheme = Scheme,
                     user = To#uri.user,
                     domain = ListenHost,
                     port = ListenPort,
-                    opts = if 
-                        Proto=:=tls; Proto=:=udp -> []; true -> [{transport, Proto}]
+                    opts = case Proto of 
+                        tls when Scheme=:=sips -> [];
+                        udp when Scheme=:=sip -> [];
+                        _ -> [{transport, Proto}]
                     end}|Contacts];
             false ->
                 Contacts
