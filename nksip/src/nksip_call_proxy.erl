@@ -106,8 +106,9 @@ route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
                          [], Call),
             {reply, loop_detected};
         false ->
-            Req2 = nksip_transport_uac:add_via(Req1, GlobalId, [stateless|AppOpts]),
-            case nksip_transport_uac:send_request(Req2, GlobalId, ProxyOpts++AppOpts) of
+            % Req2 = nksip_transport_uac:add_via(Req1, GlobalId, [stateless|AppOpts]),
+            SendOpts = [stateless_via | ProxyOpts++AppOpts],
+            case nksip_transport_uac:send_request(Req1, GlobalId, SendOpts) of
                 {ok, _} ->  
                     ?call_debug("Stateless proxy routing ~p to ~s", 
                                 [Method, nksip_unparse:uri(Uri)], Call);
