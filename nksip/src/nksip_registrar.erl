@@ -53,9 +53,14 @@
 %% Types and records
 %% ===================================================================
 
--type index() :: {Proto::nksip:protocol(), User::binary(),
-                   Domain::binary(), Port::inet:port_number()} |
-                 {instance, Instance::binary(), RegId::binary()}.
+-type index() :: {
+                    Scheme::sip|sips,
+                    Proto::nksip:protocol(), 
+                    User::binary(),
+                    Domain::binary(), 
+                    Port::inet:port_number()
+                } |
+                {instance, Instance::binary(), RegId::binary()}.
 
 -record(reg_contact, {
     index :: index(),
@@ -166,8 +171,8 @@ is_registered(#sipmsg{
 %% If <i>Contact</i> header is `*', all previous contacts will be unregistered.
 %%
 %% The requested <i>Contact</i> will replace a previous registration if it has 
-%% the same `reg-id' and `+sip_instace' values, or has the same transport protocol,
-%% user, domain and port.
+%% the same `reg-id' and `+sip_instace' values, or has the same transport scheme,
+%% protocol, user, domain and port.
 %%
 %% If the request is successful, a 200-code `nksip:sipreply()' is returned,
 %% including one or more <i>Contact</i> headers (for all of the current registered
@@ -175,19 +180,13 @@ is_registered(#sipmsg{
 -spec request(nksip:request()) ->
     nksip:sipreply().
 
-request(#sipmsg{from=From, to=To}=Request) ->
-    case From#uri.user=:=To#uri.user andalso From#uri.domain=:=To#uri.domain of
-        true ->
-            try
-                process(Request)
-            catch
-                throw:Throw -> Throw
-            end;
-        false ->
-            {invalid_request, "Different From and To"}
+request(Request) ->
+    try
+        process(Request)
+    catch
+        throw:Throw -> Throw
     end.
  
-
 
 %% @doc Clear all stored records for all SipApps.
 %% Returns the number of deleted items.
@@ -328,8 +327,7 @@ update(#sipmsg{app_id=AppId}=Req, AOR, Contacts, Default) ->
     Min = nksip_config:get(registrar_min_time),
     Max = nksip_config:get(registrar_max_time),
     Now = nksip_lib:timestamp(),
-    {Scheme, _, _} = AOR,
-    Updates = make_updates(Scheme, Min, Max, Default, Now, Contacts, []),
+    Updates = make_updates(Min, Max, Default, Now, Contacts, []),
     OldContacts = [
         RegContact ||
         #reg_contact{expire=Exp} = RegContact <- get(AppId, AOR), Exp > Now],
@@ -345,18 +343,13 @@ update(#sipmsg{app_id=AppId}=Req, AOR, Contacts, Default) ->
 
 
 % @private
--spec make_updates(nksip:scheme(), integer(), integer(), integer(),
-                    nksip_lib:timestamp(), [#uri{}], 
+-spec make_updates(integer(), integer(), integer(), nksip_lib:timestamp(), [#uri{}], 
                     [{index(), nksip:uri(), nksip_lib:timestamp(), float()}]) ->
     [{index(), nksip:uri(), nksip_lib:timestamp(), float()}].               
 
-make_updates(Scheme, Min, Max, Default, Now,
-                [#uri{scheme=CScheme, user=User, ext_opts=Opts}=Contact|Rest], 
+make_updates(Min, Max, Default, Now,
+                [#uri{scheme=Scheme, user=User, ext_opts=Opts}=Contact|Rest], 
                 Acc) ->
-    case Scheme=:=sips andalso CScheme=/=sips of
-        true -> throw({invalid_request, "Contact Should Use SIPS"});
-        false -> ok
-    end,
     Exp1 = case nksip_lib:get_list(expires, Opts) of
         [] ->
             Default;
@@ -391,20 +384,20 @@ make_updates(Scheme, Min, Max, Default, Now,
     end,
     Opts1 = lists:keystore(expires, 1, Opts, 
                 {expires, list_to_binary(integer_to_list(Exp2))}),
-    {Class, Domain, Port} = nksip_parse:transport(Contact),
+    {Proto, Domain, Port} = nksip_parse:transport(Contact),
     Index = case nksip_lib:get_value('reg-id', Opts) of
         undefined ->
-            {Class, User, Domain, Port};
+            {Scheme, Proto, User, Domain, Port};
         RegId ->
             case nksip_lib:get_value('+sip.instance', Opts) of
-                undefined -> {Class, User, Domain, Port};
+                undefined -> {Scheme, Proto, User, Domain, Port};
                 SipInstance -> {instance, SipInstance, RegId}
             end
     end,
     Update = {Index, Contact#uri{ext_opts=Opts1}, ExpTime, Q},
-    make_updates(Scheme, Min, Max, Default, Now, Rest, [Update|Acc]);
+    make_updates(Min, Max, Default, Now, Rest, [Update|Acc]);
 
-make_updates(_Scheme, _Min, _Max, _Default, _Now, [], Acc) ->
+make_updates(_Min, _Max, _Default, _Now, [], Acc) ->
     Acc.
 
 update_iter([], _, Acc) ->

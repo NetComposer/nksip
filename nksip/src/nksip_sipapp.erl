@@ -483,9 +483,9 @@ options(_ReqId, _From, State) ->
 %% @doc This function is called by NkSIP to process a new incoming REGISTER request. 
 %% If it is not defined, but `registrar' option was present in the SipApp's 
 %% startup config, NkSIP will process the request. 
-%% It will check if <i>From</i> and <i>To</i> headers contains the same URI 
-%% (it not, a 400 <i>Bad Request</i> response will be sent) and, if the request is valid,
-%% it will call {@link nksip_registrar:request/1} to proceed with the registration. 
+%% It will NOT check if <i>From</i> and <i>To</i> headers contains the same URI,
+%% or if the registered domain is valid or not. If you need to check this,
+%% implement this function returning `register' if everything is ok.
 %% See {@link nksip_registrar} for other possible response codes defined in the SIP 
 %% standard registration process.
 %%

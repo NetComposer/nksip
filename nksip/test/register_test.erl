@@ -197,8 +197,9 @@ register2() ->
     {ok, 200, []} = nksip_uac:register(Client1, 
                                             "<sip:127.0.0.1;transport=tls>", Opts1),
     {ok, 200, []} = nksip_uac:register(Client1, "sips:127.0.0.1", Opts1),
+    {ok, 200, []} = nksip_uac:register(Client1, "sip:127.0.0.1", 
+                    [{contact, "tel:123456"}, {expires, 300}]),
 
-    {ok, 400, []} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts2),
     {ok, 200, Values3} = nksip_uac:register(Client1, "sips:127.0.0.1", 
                         [{contact, <<"<sips:client1@127.0.0.1:5071>">>},
                          {fields, [<<"Contact">>]}
@@ -213,7 +214,10 @@ register2() ->
         #uri{scheme=sip, port=5070, opts=[], ext_opts=[{expires, <<"300">>}]},
         #uri{scheme=sip, port=5070, opts=[{transport, <<"tcp">>}], 
                                                 ext_opts=[{expires, <<"300">>}]},
-        #uri{scheme=sips, port=5071, opts=[], ext_opts=[{expires, <<"300">>}]}
+        #uri{scheme=sip, port=5071, opts=[{transport, <<"tls">>}], 
+                                                ext_opts=[{expires, <<"300">>}]},
+        #uri{scheme=sips, port=5071, opts=[], ext_opts=[{expires, <<"300">>}]},
+        #uri{scheme=tel, domain=(<<"123456">>), opts=[], ext_opts=[{expires, <<"300">>}]}
     ]  = lists:sort(Contacts4),
 
     [#uri{scheme=sips, port=5071, opts=[], ext_opts=[{expires, <<"300">>}]}] = 
