@@ -64,7 +64,7 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                 _ when not is_record(Req, sipmsg) ->
                     Call1;
                 _ when Fun=:=invite; Fun=:=reinvite; Fun=:=bye; 
-                       Fun=:=options; Fun=:=register ->
+                       Fun=:=options; Fun=:=register; Fun=:=info ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     {Resp, Opts} = nksip_reply:reply(Req, Reply, AppOpts),
                     #sipmsg{class={resp, Code}} = Resp,
