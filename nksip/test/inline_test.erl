@@ -100,19 +100,22 @@ basic() ->
             {S1, route}, {C1, invite}, {S1, route}, {C1, ack},
             {C1, dialog_start},{C2, dialog_start}]),
 
-    % SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-    % {ok, 200, _} = nksip_uac:invite(C1, Dlg1, [{body, SDP}]),
-    % ok = nksip_uac:ack(C1, Dlg1, []),
+    {ok, 200, []} = nksip_uac:info(C2, Dlg1, []),
+    ok = tests_util:wait(Ref, [{S1, route}, {C1, info}]),
 
-    % ok = tests_util:wait(Ref, [
-    %         {S1, route}, {C2, reinvite}, {S1, route}, {C2, ack},
-    %         {C1, session_start},{C2, session_start}]),
+    SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
+    {ok, 200, _} = nksip_uac:invite(C1, Dlg1, [{body, SDP}]),
+    ok = nksip_uac:ack(C1, Dlg1, []),
 
-    % {ok, 200, []} = nksip_uac:bye(C1, Dlg1, []),
-    % ok = tests_util:wait(Ref, [
-    %         {S1, route}, {C2, bye}, 
-    %         {C1, session_stop}, {C2, session_stop},
-    %         {C1, dialog_stop}, {C2, dialog_stop}]),
+    ok = tests_util:wait(Ref, [
+            {S1, route}, {C2, reinvite}, {S1, route}, {C2, ack},
+            {C1, session_start},{C2, session_start}]),
+
+    {ok, 200, []} = nksip_uac:bye(C1, Dlg1, []),
+    ok = tests_util:wait(Ref, [
+            {S1, route}, {C2, bye}, 
+            {C1, session_stop}, {C2, session_stop},
+            {C1, dialog_stop}, {C2, dialog_stop}]),
     ok.
 
 

@@ -25,7 +25,7 @@
 
 -export([start/2, stop/1, add_callback/2, get_sessions/2]).
 -export([init/1, get_user_pass/3, authorize/4, route/6, options/3, invite/3, reinvite/3,
-        cancel/3, ack/3, bye/3]).
+        cancel/3, ack/3, bye/3, info/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -284,6 +284,10 @@ bye(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     end,
     {reply, ok, State}.
 
+
+info(ReqId, _From, #state{id=AppId}=State) ->
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    {reply, {ok, [{"Nk-Method", "info"}, {"Nk-Dialog", DialogId}]}, State}.
 
 
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->

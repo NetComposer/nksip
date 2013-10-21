@@ -34,6 +34,7 @@ uac_test_() ->
         fun(_) -> stop() end,
         [
             {timeout, 60, fun uac/0},
+            {timeout, 60, fun info/0},
             {timeout, 60, fun timeout/0}
         ]
     }.
@@ -168,6 +169,27 @@ uac() ->
     ok.
 
 
+
+info() ->
+    C1 = {uac, client1},
+    C2 = {uac, client2},
+    SipC1 = "sip:127.0.0.1:5070",
+    Hds1 = {headers, [{<<"Nk-Op">>, <<"ok">>}]},
+    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C2, SipC1, [Hds1]),
+    ok = nksip_uac:ack(C2, DialogId, []),
+    Fs = {fields, [<<"Nk-Method">>, <<"Nk-Dialog">>]},
+    {ok, 200, Values1} = nksip_uac:info(C2, DialogId, [Fs]),
+    [{<<"Nk-Method">>, [<<"info">>]}, {<<"Nk-Dialog">>, [DialogId]}] = Values1,
+
+    % Now we forcefully stop dialog at C1. At C2 is still valid, and can send the INFO
+    ok = nksip_dialog:stop(C1, DialogId),
+    {ok, 481, []} = nksip_uac:info(C2, DialogId, []), 
+
+    % The dialog at C2, at receiving a 481 (even for INFO) is destroyed before the BYE
+    {error, unknown_dialog} = nksip_uac:bye(C2, DialogId, []),
+    ok.
+
+
 timeout() ->
     C2 = {uac, client2},
     SipC1 = "sip:127.0.0.1:5070",
@@ -200,8 +222,6 @@ timeout() ->
     end,
     nksip_call_router:clear_all_calls(),
     ok.
-
-
 
 
 
