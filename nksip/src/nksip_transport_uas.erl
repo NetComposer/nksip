@@ -23,7 +23,7 @@
 -module(nksip_transport_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_user_response/4, send_response/3, resend_response/2]).
+-export([send_response/3, resend_response/3]).
     
 -include("nksip.hrl").
 
@@ -32,19 +32,11 @@
 %% Public
 %% ===================================================================
 
-%% @doc Sends a new `Response'.
--spec send_user_response(nksip:request(), nksip:sipreply(), binary(), 
-                         nksip_lib:proplist()) ->
-    {ok, nksip:response()} | error.
 
-send_user_response(#sipmsg{class={req, _}}=Request, SipReply, GlobalId, Opts) ->
-    {Resp, RespOpts} = nksip_reply:reply(Request, SipReply),
-    send_response(Resp, GlobalId, RespOpts++Opts).
-
+-type send_opt() :: {local_host, auto|binary()} | make_contact | secure.
 
 %% @doc Sends a new `Response'.
-%% Recognizes options `local_host' and `make_contact'.
--spec send_response(nksip:response(), binary(), nksip_lib:proplist()) ->
+-spec send_response(nksip:response(), binary(), [send_opt()]) ->
     {ok, nksip:response()} | error.
 
 send_response(#sipmsg{class={resp, Code}}=Resp, GlobalId, Opts) ->
@@ -81,22 +73,20 @@ send_response(#sipmsg{class={resp, Code}}=Resp, GlobalId, Opts) ->
 
 
 %% @doc Resends a previously sent response to the same ip, port and protocol.
--spec resend_response(Resp::nksip:response(), nksip_lib:proplist()) ->
+-spec resend_response(Resp::nksip:response(), binary(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
 resend_response(#sipmsg{class={resp, Code}, app_id=AppId, cseq_method=Method, 
-                        transport=#transport{}=Transport}=Resp, Opts) ->
+                        transport=#transport{}=Transport}=Resp, _GlobalId, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     MakeResp = fun(_) -> Resp end,
     Return = nksip_transport:send(AppId, [{current, {Proto, Ip, Port}}], MakeResp, Opts),
     nksip_trace:insert(Resp, {sent_response, Method, Code}),
     Return;
 
-%% Bug to catch
-resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, _Opts) ->
-    ?warning(AppId, CallId, "Called resend_response/2 without transport\n"
-             "Resp: ~p\nStack: ~p", [lager:pr(Resp, ?MODULE), erlang:get_stacktrace()]), 
-    error.
+resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, GlobalId, Opts) ->
+    ?warning(AppId, CallId, "Called resend_response/2 without transport\n", []),
+    send_response(Resp, GlobalId, Opts).
 
 
 

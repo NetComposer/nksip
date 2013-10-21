@@ -342,8 +342,8 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
         response = Resp, 
         next_retrans = Next
     } = Dialog,
-    #call{opts=#call_opts{app_opts=Opts, timer_t2=T2}} = Call,
-    case nksip_transport_uas:resend_response(Resp, Opts) of
+    #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId, timer_t2=T2}} = Call,
+    case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
         {ok, _} ->
             ?call_info("Dialog ~s resent response", [DialogId], Call),
             Dialog1 = Dialog#dialog{

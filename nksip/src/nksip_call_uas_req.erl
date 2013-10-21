@@ -127,8 +127,8 @@ process_retrans(UAS, Call) ->
     of
         true when is_record(Resp, sipmsg) ->
             #sipmsg{class={resp, Code}} = Resp,
-            #call{opts=#call_opts{app_opts=Opts}} = Call,
-            case nksip_transport_uas:resend_response(Resp, Opts) of
+            #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
+            case nksip_transport_uas:resend_response(Resp, GlobalId, AppOpts) of
                 {ok, _} ->
                     ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
                                [Id, Method, Status, Code], Call);
