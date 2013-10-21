@@ -31,7 +31,6 @@
 -define(SUPPORTED, <<>>).
 -define(ACCEPT, <<"application/sdp">>).
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
--define(ALLOW_DIALOG, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
