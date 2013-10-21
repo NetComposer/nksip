@@ -250,7 +250,7 @@
     result() | {error, error()}.
 
 options(AppId, Dest, Opts) ->
-    send(AppId, 'OPTIONS', Dest, Opts).
+    send_any(AppId, 'OPTIONS', Dest, Opts).
 
 
 %% @doc Sends a REGISTER request.
@@ -328,7 +328,7 @@ register(AppId, Dest, Opts) ->
             lists:keystore(headers, 1, Opts, {headers, Headers2})
     end,
     Opts2 = lists:flatten(Opts1++[Contact, {to, as_from}]),
-    send(AppId, 'REGISTER', Dest, Opts2).
+    send_any(AppId, 'REGISTER', Dest, Opts2).
 
 
 %% @doc Sends an INVITE request.
@@ -402,7 +402,7 @@ invite(AppId, Dest, Opts) ->
             Opts
     end,
     Opts2 = [make_supported, make_accept, make_allow  | Opts1],
-    send(AppId, 'INVITE', Dest, Opts2).
+    send_any(AppId, 'INVITE', Dest, Opts2).
 
 
 
@@ -427,7 +427,7 @@ invite(AppId, Dest, Opts) ->
     ack_result() | {error, error()}.
 
 ack(AppId, DialogSpec, Opts) ->
-    send(AppId, 'ACK', DialogSpec, Opts).
+    send_dialog(AppId, 'ACK', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>BYE</i> for a current dialog, terminating the session.
@@ -442,7 +442,7 @@ ack(AppId, DialogSpec, Opts) ->
     result() | {error, error()}.
 
 bye(AppId, DialogSpec, Opts) ->
-    send(AppId, 'BYE', DialogSpec, Opts).
+    send_dialog(AppId, 'BYE', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>INFO</i> for a current dialog.
@@ -457,7 +457,7 @@ bye(AppId, DialogSpec, Opts) ->
     result() | {error, error()}.
 
 info(AppId, DialogSpec, Opts) ->
-    send(AppId, 'INFO', DialogSpec, Opts).
+    send_dialog(AppId, 'INFO', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.
@@ -567,18 +567,32 @@ stun(AppId, UriSpec, _Opts) ->
     end.
 
 
-%% @private
--spec send(nksip:app_id(), nksip:method(), nksip:user_uri()|dialog_spec(), 
-           nksip_lib:proplist()) ->
+%% ===================================================================
+%% Internal
+%% ===================================================================
+
+-spec send_any(nksip:app_id(), nksip:method(), nksip:user_uri()|dialog_spec(), 
+               nksip_lib:proplist()) ->
     result() | ack_result() | {error, error()}.
 
-send(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
-    when Class=:=$R; Class=:=$S; Class=:=$D ->
+send_any(AppId, Method, UriOrDialog, Opts) ->
+    case UriOrDialog of
+        <<Class, $_, _/binary>> when Class=:=$R; Class=:=$S; Class=:=$D ->
+            send_dialog(AppId, Method, UriOrDialog, Opts);
+        UserUri ->
+            nksip_call:send(AppId, Method, UserUri, Opts)
+    end.
+
+
+%% @private
+-spec send_dialog(nksip:app_id(), nksip:method(), dialog_spec(), 
+                  nksip_lib:proplist()) ->
+    result() | ack_result() | {error, error()}.
+
+send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
+            when Class=:=$R; Class=:=$S; Class=:=$D ->
     case nksip_dialog:id(AppId, Id) of
         <<>> -> {error, unknown_dialog};
         DialogId -> nksip_call:send_dialog(AppId, DialogId, Method, Opts)
-    end;
-
-send(AppId, Method, Uri, Opts) ->
-    nksip_call:send(AppId, Method, Uri, Opts).
+    end.
 
