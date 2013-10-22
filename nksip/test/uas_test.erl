@@ -112,7 +112,7 @@ uas() ->
     % Force invalid response
     Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}, {fields, [reason]}],
     nksip_trace:warning("Next warning about a invalid sipreply is expected"),
-    {ok, 500,  [{reason, <<"Invalid Response">>}]} = 
+    {ok, 500,  [{reason, <<"Invalid SipApp Response">>}]} = 
         nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
     ok.
 

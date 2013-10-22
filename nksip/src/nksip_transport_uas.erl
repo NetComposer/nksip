@@ -85,7 +85,7 @@ resend_response(#sipmsg{class={resp, Code}, app_id=AppId, cseq_method=Method,
     Return;
 
 resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, GlobalId, Opts) ->
-    ?warning(AppId, CallId, "Called resend_response/2 without transport\n", []),
+    ?info(AppId, CallId, "Called resend_response/2 without transport\n", []),
     send_response(Resp, GlobalId, Opts).
 
 
