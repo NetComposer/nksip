@@ -65,17 +65,16 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                     Call1;
                 _ when Fun=:=invite; Fun=:=reinvite; Fun=:=bye; 
                        Fun=:=options; Fun=:=register; Fun=:=info ->
-                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-                    {Resp, Opts} = nksip_reply:reply(Req, Reply, AppOpts),
+                    {Resp, SendOpts} = nksip_reply:reply(Req, Reply),
                     #sipmsg{class={resp, Code}} = Resp,
-                    {Resp1, Opts1} = case Code >= 200 of
+                    {Resp1, SendOpts1} = case Code >= 200 of
                         true -> 
-                            {Resp, Opts};
+                            {Resp, SendOpts};
                         false -> 
                             Reply1 = {internal_error, <<"Invalid SipApp reply">>},
                             nksip_reply:reply(Req, Reply1)
                     end,
-                    reply({Resp1, Opts1}, UAS1, Call1)
+                    reply({Resp1, SendOpts1}, UAS1, Call1)
             end;
         _ ->
             ?call_debug("Unknown UAS ~p received SipApp ~p reply",
@@ -92,8 +91,8 @@ send_100(UAS, #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}}=Call)
     #trans{id=Id, method=Method, request=Req} = UAS,
     case Method=:='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
         true ->
-            {Resp, RespOpts} = nksip_reply:reply(Req, 100),
-            case nksip_transport_uas:send_response(Resp, GlobalId, RespOpts++AppOpts) of
+            {Resp, SendOpts} = nksip_reply:reply(Req, 100),
+            case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
                 {ok, _} -> 
                     check_cancel(UAS, Call);
                 error ->

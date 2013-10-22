@@ -120,8 +120,7 @@ reply({#sipmsg{class={resp, Code}}, _}, #trans{code=LastCode}=UAS, Call) ->
     {{error, invalid_call}, Call};
 
 reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
-    #call{opts=#call_opts{app_opts=Opts}} = Call,
-    reply(nksip_reply:reply(Req, SipReply, Opts), UAS, Call);
+    reply(nksip_reply:reply(Req, SipReply), UAS, Call);
 
 reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
