@@ -110,7 +110,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         headers = Headers, 
         body = Body
     } = Req,
-    #uri{scheme=Scheme} = Dest,
+    #uri{scheme=Scheme} = Dest,     % RUri or first route
     fun(#transport{
                     proto = Proto, 
                     listen_ip = ListenIp, 
