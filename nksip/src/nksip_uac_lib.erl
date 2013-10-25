@@ -135,11 +135,12 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             <<>> -> [];
             ContentTypeSpec -> nksip_parse:tokens([ContentTypeSpec])
         end,
-         Req = #sipmsg{
+        RUri1 = nksip_parse:uri2ruri(RUri),
+        Req = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
             class = {req, nksip_parse:method(Method)},
             app_id = AppId,
-            ruri = nksip_parse:uri2ruri(RUri),
+            ruri = RUri1,
             vias = [],
             from = From#uri{ext_opts=FromOpts},
             to = To,
