@@ -27,6 +27,7 @@
         {max_connections, 1024},        % Per transport and SipApp
         {registrar_default_time, 3600}, % 1 hour
         {registrar_min_time, 60},       % 1 min
-        {registrar_max_time, 86400}     % 24 hour    
+        {registrar_max_time, 86400},    % 24 hour    
+        {dns_cache_ttl, 3600}           % 1 hour
     ]}
 ]}.

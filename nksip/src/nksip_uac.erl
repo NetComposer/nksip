@@ -551,7 +551,7 @@ stun(AppId, UriSpec, _Opts) ->
                 [] -> 
                     {error, invalid_uri};
                 [Uri|_] ->
-                    Transp = nksip_transport:resolve(Uri),
+                    Transp = nksip_dns:resolve(Uri),
                     case nksip_lib:extract(Transp, udp) of
                         [{udp, Ip, Port}|_] -> 
                             case nksip_transport_udp:send_stun(Pid, Ip, Port) of

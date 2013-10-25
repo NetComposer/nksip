@@ -94,7 +94,7 @@
 -type header() :: {binary(), binary() | atom() | integer()}.
 
 %% Recognized transport schemes
--type protocol() :: udp | tcp | tls | binary().
+-type protocol() :: udp | tcp | tls | sctp | ws | wss | binary().
 
 %% Recognized SIP schemes
 -type scheme() :: sip | sips | tel | mailto | binary().

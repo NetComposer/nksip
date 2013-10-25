@@ -55,6 +55,8 @@
 %%       <td>Registrar minimum allowed time (secs).</td></tr>
 %%   <tr><td>`registrar_max_time'</td><td>86400</td>
 %%       <td>Registrar maximum allowed time (secs).</td></tr>
+%%   <tr><td>`dns_cache_ttl'</td><td>3600</td>
+%%       <td>DNS cache TTL (See {@link nksip_dns}) (secs).</td></tr>
 %% </table>
 
 -module(nksip_config).
@@ -141,7 +143,8 @@ default_config() ->
         {max_connections, 1024},        % Per transport and SipApp
         {registrar_default_time, 3600}, % 1 hour
         {registrar_min_time, 60},       % 1 min
-        {registrar_max_time, 86400}     % 24 hour
+        {registrar_max_time, 86400},    % 24 hour
+        {dns_cache_ttl, 3600}           % 1 hour
     ].
 
 

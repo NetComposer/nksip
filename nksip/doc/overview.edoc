@@ -167,10 +167,15 @@ Many of the functions in the callback module allow to send a response to the inc
 NkSIP includes a full registrar implementation according to RFC3261. Its functionality is described in {@link nksip_registrar}.
 
 
+== Resolver ==
+
+NkSIP includes a caching SIP location server. Every DNS access (for A/AAAA, SRV and NAPTR records) is 
+cached (see configuration for default time). Use the functions in {@link nksip_dns} to clear the cache.
+
+
 == Configuration ==
 
 NkSIP has few global configuration options. Their default values are defined in the {@link nksip_config}.
-
 
 == Log and Tracing ==
 

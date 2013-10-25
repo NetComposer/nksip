@@ -25,8 +25,7 @@
 
 -export([get_all/0, get_all/1, get_protocol/1]).
 -export([send/4]).
--export([is_local/2, is_local_ip/1, main_ip/0, local_ips/0, get_listening/2, resolve/1]).
--export([get_naptr/2, get_srvs/2]).
+-export([is_local/2, is_local_ip/1, main_ip/0, local_ips/0, get_listening/2]).
 
 -export_type([transport/0]).
 
@@ -98,7 +97,7 @@ is_local(AppId, #uri{}=Uri) ->
         {#transport{proto=Proto, listen_ip=Ip, listen_port=Port}, _Pid} 
         <- nksip_proc:values({nksip_listen, AppId})
     ],
-    is_local(Listen, resolve(Uri), local_ips());
+    is_local(Listen, nksip_dns:resolve(Uri), local_ips());
 
 is_local(AppId, #via{}=Via) ->
     {Proto, Host, Port} = nksip_parse:transport(Via),
@@ -163,7 +162,7 @@ local_ips() ->
 
 send(AppId, [#uri{}=Uri|Rest]=All, MakeMsg, Opts) ->
     ?debug(AppId, "Transport send to ~p", [All]),
-    send(AppId, resolve(Uri)++Rest, MakeMsg, Opts);
+    send(AppId, nksip_dns:resolve(Uri)++Rest, MakeMsg, Opts);
 
 send(AppId, [{udp, Ip, 0}|Rest], MakeMsg, Opts) ->
     %% If no port was explicitly specified, use default.
@@ -237,142 +236,4 @@ send(_, [], _MakeMsg, _Opts) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
-
-%% @doc Finds the transports, servers and ports available for the indicated 
-%% `nksip:uri()' or `nksip:via()' following RFC3263 (SRV weights not honored).
--spec resolve(nksip:uri()|nksip:via()) -> 
-    [proto_ip_port()].
-
-resolve(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) 
-        when Scheme=:=sip; Scheme=:=sips -> 
-    Target = nksip_lib:get_list(maddr, Opts, Host),
-    case nksip_lib:to_ip(Target) of 
-        {ok, TargetIp} -> IsNumeric = true;
-        _ -> TargetIp = IsNumeric = false
-    end,
-    Proto = case nksip_lib:get_value(transport, Opts) of
-        _ when Scheme=:=sips ->
-            tls;
-        udp -> 
-            udp;
-        tcp -> 
-            tcp;
-        tls -> 
-            tls;
-        undefined ->
-            undefined;
-        OtherProto ->
-            case string:to_lower(nksip_lib:to_list(OtherProto)) of
-                "udp" -> udp;
-                "tcp" -> tcp;
-                "tls" -> tls;
-                _ -> undefined
-            end
-    end,
-    if
-        IsNumeric; Port=/=0 ->
-            case IsNumeric of
-                true -> 
-                    Addrs = [TargetIp];
-                false ->
-                    case inet:getaddrs(Target, inet) of
-                        {ok, Addrs} -> ok;
-                        _ -> Addrs = []
-                    end
-            end,
-            Proto1 = case Proto of 
-                undefined -> udp; 
-                _ -> Proto 
-            end,
-            Port1 = case Port of
-                0 when Proto=:=tls -> 5061;
-                0 -> 5060;
-                _ -> Port
-            end,
-            [{Proto1, Addr, Port1} || Addr <- Addrs];
-        true ->
-            case get_srvs(Scheme, Target) of
-                [] ->
-                   case inet:getaddrs(Target, inet) of
-                        {ok, Addrs} -> 
-                            Proto1 = case Proto of undefined -> udp; _ -> Proto end,
-                            Port1 = case Proto of tls -> 5061; _ -> 5060 end,
-                            [{Proto1, Addr, Port1} || Addr <- Addrs];
-                        _ ->
-                            []
-                    end;
-                Transports when Proto=:=undefined ->
-                    Transports;
-                Transports ->
-                    [{TProto, TAddr, TPort} || 
-                     {TProto, TAddr, TPort} <- Transports, TProto=:=Proto]
-            end
-    end.
-
-
-%% @private
--spec get_srvs(nksip:scheme(), string()) ->
-    [proto_ip_port()].
-
-get_srvs(Scheme, Domain) ->
-    Naptr = get_naptr(Scheme, Domain),
-    get_srvs_iter(Naptr, []).
-
-
--spec get_srvs_iter([{nksip:protocol(), string()}], [proto_ip_port()]) ->
-    [proto_ip_port()].
-
-get_srvs_iter([], Acc) ->
-    Acc;
-
-get_srvs_iter([{Proto, SrvDomain}|Rest], Acc) ->
-    Fun = fun({_Order, _Weight, Port, Host}, FAcc) ->
-        case inet:getaddrs(Host, inet) of
-            {ok, Addrs} -> 
-                FAcc ++ [{Proto, Addr, Port} || Addr <- Addrs];
-            _ -> 
-                FAcc
-        end
-    end,
-    Srvs = lists:sort(inet_res:lookup(SrvDomain, in, srv)),
-    Res = lists:foldl(Fun, [], Srvs),
-    get_srvs_iter(Rest, Acc++Res).
-
-
-%% @private
--spec get_naptr(nksip:scheme(), string()) -> 
-    [{nksip:protocol(), string()}].
-
-get_naptr(Scheme, Domain) ->
-    Fun = fun({_Order, _Prio, _Flag, Service, _Re, SrvDomain}, Acc) ->
-        case Service of
-            "sips+d2t" -> [{tls, SrvDomain}|Acc];
-            "sip+d2t" when Scheme=:=sip -> [{tcp, SrvDomain}|Acc];
-            "sip+d2u" when Scheme=:=sip -> [{udp, SrvDomain}|Acc];
-            % "sip+d2s" when Scheme=:=sip -> [{sctp, SrvDomain}|Acc];
-            _ -> Acc
-        end
-    end,
-    Naptr = lists:sort(inet_res:lookup(Domain, in, naptr)),
-    case lists:foldl(Fun, [], Naptr) of
-        [] ->
-            [
-                {tls, "_sips._tcp."++Domain},
-                {tcp, "_sip._tcp."++Domain},
-                {udp, "_sip._udp."++Domain}
-            ];
-        Srvs ->
-            lists:reverse(Srvs)
-    end.
-
-
-
-
-
-
-
-
-
-
-
 
