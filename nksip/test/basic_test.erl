@@ -170,7 +170,7 @@ transport() ->
                                 [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}]),
 
     % Cover ip resolution
-    case nksip_uac:options(C1, "<sip:sip2sip.info;transport=tcp>", []) of
+    case nksip_uac:options(C1, "<sip:sip2sip.info>", []) of
         {ok, 200, []} -> ok;
         {ok, Code, []} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
         {error, Error} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Error])
