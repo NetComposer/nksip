@@ -102,13 +102,13 @@ init([AppId, Transport, Socket]) ->
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
 
-handle_call({send, Packet}, _From, 
-            #state{
-                app_id = AppId, 
-                socket = Socket,
-                transport = #transport{proto=Proto},
-                timeout = Timeout
-            }=State) ->
+handle_call({send, Packet}, _From, State) ->
+    #state{
+        app_id = AppId, 
+        socket = Socket,
+        transport = #transport{proto=Proto},
+        timeout = Timeout
+    } = State,
     case socket_send(Proto, Socket, Packet) of
         ok -> 
             {reply, ok, State, Timeout};
@@ -138,25 +138,25 @@ handle_cast(Msg, State) ->
 -spec handle_info(term(), #state{}) ->
     gen_server_info(#state{}).
 
-handle_info({tcp, Socket, Packet}, #state{
-                app_id = AppId, 
-                buffer = Buff, 
-                transport = #transport{proto=Proto},
-                timeout = Timeout
-            } = State)
+handle_info({tcp, Socket, Packet}, #state{buffer=Buff}=State)
             when byte_size(<<Buff/binary, Packet/binary>>) > ?MAX_BUFFER ->
+    #state{
+        app_id = AppId, 
+        transport = #transport{proto=Proto},
+        timeout = Timeout
+    } = State,
     ?warning(AppId, "dropping TCP/TLS closing because of max_buffer", []),
     socket_close(Proto, Socket),
     {noreply, State, Timeout};
 
 %% @private
-handle_info({tcp, Socket, Packet}, 
-            #state{
-                transport = #transport{proto=Proto},
-                buffer = Buff, 
-                socket = Socket,
-                timeout = Timeout
-            } = State) ->
+handle_info({tcp, Socket, Packet}, State) ->
+    #state{
+        transport = #transport{proto=Proto},
+        buffer = Buff, 
+        socket = Socket,
+        timeout = Timeout
+    } = State,
     socket_active(Proto, Socket),
     Rest = parse(<<Buff/binary, Packet/binary>>, State),
     {noreply, State#state{buffer=Rest}, Timeout};
@@ -164,37 +164,37 @@ handle_info({tcp, Socket, Packet},
 handle_info({ssl, Socket, Packet}, State) ->
     handle_info({tcp, Socket, Packet}, State);
 
-handle_info({tcp_closed, Socket}, 
-            #state{
-                app_id = AppId,
-                socket = Socket, 
-                transport = #transport{remote_ip=Ip, remote_port=Port}
-            } = State) ->
+handle_info({tcp_closed, Socket}, State) ->
+    #state{
+        app_id = AppId,
+        transport = #transport{remote_ip=Ip, remote_port=Port},
+        socket = Socket
+    } = State,
     ?debug(AppId, "closed TCP connection from ~p:~p", [Ip, Port]),
     {stop, normal, State};
 
-handle_info({ssl_closed, Socket}, 
-            #state{
-                app_id = AppId,
-                socket = Socket, 
-                transport = #transport{remote_ip=Ip, remote_port=Port}
-            } = State) ->
+handle_info({ssl_closed, Socket}, State) ->
+    #state{
+        app_id = AppId,
+        socket = Socket, 
+        transport = #transport{remote_ip=Ip, remote_port=Port}
+    } = State,
     ?debug(AppId, "closed TLS connection from ~p:~p", [Ip, Port]),
     {stop, normal, State};
 
-handle_info(timeout,  
-            #state{
-                app_id = AppId,
-                socket = Socket,
-                transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}
-            } = State) ->
+handle_info(timeout, State) ->
+    #state{
+        app_id = AppId,
+        socket = Socket,
+        transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}
+    } = State,
     ?debug(AppId, "TCP/TLS connection from ~p:~p timeout", [Ip, Port]),
     socket_close(Proto, Socket),
     {stop, normal, State};
 
 % Received from Ranch when the listener is ready
-handle_info({shoot, _ListenerPid}, 
-            #state{socket=Socket, transport=#transport{proto=Proto}}=State) ->
+handle_info({shoot, _ListenerPid}, State) ->
+    #state{socket=Socket, transport=#transport{proto=Proto}} = State,
     socket_active(Proto, Socket),
     {noreply, State, State#state.timeout};
 
