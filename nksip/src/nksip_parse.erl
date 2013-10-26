@@ -230,33 +230,32 @@ dates(Values) ->
     {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
-    {Proto, DefPort} = case Scheme of
-        sips -> 
-            {tls, 5061};
-        sip ->
-            case nksip_lib:get_list(transport, Opts) of
-                [] -> 
-                    {udp, 5060};
-                T0 ->
-                    case string:to_lower(T0) of
-                        "udp" -> {udp, 5060};
-                        "tcp" -> {tcp, 5060};
-                        "tls" -> {tls, 5061};
-                        "sctp" -> {sctp, 5060}
-                    end
-            end;
-        _ ->
-            {unknown, 0}
+    Proto1 = case nksip_lib:get_value(transport, Opts) of
+        Atom when is_atom(Atom) -> 
+            Atom;
+        Other ->
+            case catch list_to_existing_atom(nksip_lib:to_list(Other)) of
+                {'EXIT', _} -> nksip_lib:to_binary(Other);
+                Atom -> Atom
+            end
     end,
-    {Proto, Host, if Port =:= 0 -> DefPort; true -> Port end};
+    Proto2 = case Proto1 of
+        undefined when Scheme=:=sips -> tls;
+        undefined -> udp;
+        Other2 -> Other2
+    end,
+    Port1 = case Port > 0 of
+        true -> Port;
+        _ -> nksip_transport_lib:default_port(Proto2)
+    end,
+    {Proto2, Host, Port1};
 
 transport(#via{proto=Proto, domain=Host, port=Port}) ->
-    DefPort = case Proto of
-        udp -> 5060;
-        tcp -> 5060;
-        tls -> 5061
+    Port1 = case Port > 0 of
+        true -> Port;
+        _ -> nksip_transport_lilb:default_port(Proto)
     end,
-    {Proto, Host, if Port=:=0 -> DefPort; true -> Port end}.
+    {Proto, Host, Port1}.
 
 
 %% ===================================================================
@@ -676,6 +675,8 @@ parse_vias([Tokens|Rest], Acc) ->
                     "TCP" -> tcp;
                     "TLS" -> tls;
                     "SCTP" -> sctp;
+                    "WS" -> ws;
+                    "WSS" -> wss;
                     _ -> list_to_binary(Transport)
                 end,
             domain = list_to_binary(Host), 

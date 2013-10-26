@@ -23,7 +23,7 @@
 -module(nksip_transport_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_transport/5, start_connection/5]).
+-export([start_transport/5, start_connection/5, default_port/1]).
 -export([ranch_start_link/6, start_link/4]).
 
 -include("nksip.hrl").
@@ -272,6 +272,12 @@ setopts(tls, Socket, Opts) ->
     ssl:setopts(Socket, Opts).
 
 
-
+default_port(udp) -> 5060;
+default_port(tcp) -> 5060;
+default_port(tls) -> 5061;
+default_port(sctp) -> 5060;
+default_port(ws) -> 80;
+default_port(wss) -> 443;
+default_port(_) -> 0.
 
 

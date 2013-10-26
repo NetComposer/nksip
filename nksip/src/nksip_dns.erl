@@ -105,17 +105,12 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
         _ -> TargetIp = IsNumeric = false
     end,
     Proto1 = case nksip_lib:get_value(transport, Opts) of
-        Proto0 when is_atom(Proto0) -> 
-            Proto0;
-        Proto0 -> 
-            case string:to_lower(nksip_lib:to_list(Proto0)) of
-                "udp" -> udp;
-                "tcp" -> tcp;
-                "tls" -> tls;
-                "sctp" -> sctp;
-                "ws" -> ws;
-                "wss" -> wss;
-                _ -> error
+        Atom when is_atom(Atom) -> 
+            Atom;
+        Other -> 
+            case catch list_to_existing_atom(nksip_lib:to_list(Other)) of
+                {'EXIT', _} -> nksip_lib:to_binary(Other);
+                Atom -> Atom
             end
     end,
     Addrs = case IsNumeric of
@@ -124,32 +119,29 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
         false -> []
     end,
     OK = fun(FProto) -> 
-        Port1 = case FProto of
-            _ when Port > 0 -> Port;
-            ws -> 0;
-            wss -> 0;
-            udp -> 5060;
-            tcp -> 5060;
-            tls -> 5061;
-            sctp -> 5060
+        Port1 = case Port > 0 of
+            true -> Port;
+            false -> nksip_transport_lib:default_port(FProto)
         end,
         {ok, [{FProto, Addr, Port1} || Addr <- Addrs]} 
     end,
     case {Scheme, Proto1} of
-        {sips, udp} -> {ok, []};
         {sip, udp} -> OK(udp);
-        {sips, tcp} -> OK(tls);
         {sip, tcp} -> OK(tcp);
-        {_, tls} -> OK(tls);
-        {sips, sctp} -> {ok, []};
+        {sip, tls} -> OK(tls);
         {sip, sctp} -> OK(sctp);
-        {sips, ws} -> OK(wss);
         {sip, ws} -> OK(ws);
-        {_, wss} -> OK(wss);
-        {sips, undefined} when IsNumeric; Port>0 -> OK(tls);
-        {sip, undefined} when IsNumeric; Port>0  -> OK(udp);
-        {sips, undefined} -> {naptr, sips, Target};
+        {sip, wss} -> OK(wss);
+        {sip, undefined} when IsNumeric; Port>0 -> OK(udp);
         {sip, undefined} -> {naptr, sip, Target};
+        {sips, udp} -> {ok, []};
+        {sips, tcp} -> OK(tls);
+        {sips, tls} -> OK(tls);
+        {sips, sctp} -> {ok, []};
+        {sips, ws} -> OK(wss);
+        {sips, wss} -> OK(wss);
+        {sips, undefined} when IsNumeric; Port>0 -> OK(tls);
+        {sips, undefined} -> {naptr, sips, Target};
         _ -> {ok, []}
     end.
 
@@ -508,16 +500,16 @@ uri_test() ->
         {"<sip:1.2.3.4;transport=tcp>",  {ok, [{tcp, {1,2,3,4}, 5060}]}},
         {"<sip:1.2.3.4;transport=tls>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
         {"<sip:1.2.3.4;transport=sctp>", {ok, [{sctp, {1,2,3,4}, 5060}]}},
-        {"<sip:1.2.3.4;transport=ws>",   {ok, [{ws, {1,2,3,4}, 0}]}},
-        {"<sip:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 0}]}},
+        {"<sip:1.2.3.4;transport=ws>",   {ok, [{ws, {1,2,3,4}, 80}]}},
+        {"<sip:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 443}]}},
         {"<sip:1.2.3.4;transport=other>",  {ok, []}},
 
         {"<sips:1.2.3.4;transport=udp>",  {ok, []}},
         {"<sips:1.2.3.4;transport=tcp>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
         {"<sips:1.2.3.4;transport=tls>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
         {"<sips:1.2.3.4;transport=sctp>", {ok, []}},
-        {"<sips:1.2.3.4;transport=ws>",   {ok, [{wss, {1,2,3,4}, 0}]}},
-        {"<sips:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 0}]}},
+        {"<sips:1.2.3.4;transport=ws>",   {ok, [{wss, {1,2,3,4}, 443}]}},
+        {"<sips:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 443}]}},
         {"<sip:1.2.3.4;transport=other>",  {ok, []}},
 
         {"<sip:1.2.3.4:4321;transport=tcp>",  {ok, [{tcp, {1,2,3,4}, 4321}]}},
