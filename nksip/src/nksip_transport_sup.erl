@@ -48,7 +48,9 @@ add_transport(AppId, Spec) ->
 -spec start_link(nksip:app_id(), nksip_lib:proplist()) -> 
     {ok, pid()} | {error, Error}
     when Error ::  could_not_start_udp | could_not_start_tcp |
-                    could_not_start_tls | no_matching_tcp.
+                   could_not_start_tls | no_matching_tcp |
+                   could_not_start_sctp.
+
 
 start_link(AppId, Opts) ->
     Reg = {nksip_transport_sup, AppId},
@@ -72,14 +74,15 @@ init([Reg, ChildSpecs]) ->
 -spec start_transports(nksip:app_id(), [term()], nksip_lib:proplist()) ->
     ok | {error, Error}
     when Error ::  {could_not_start_udp, term()} | {could_not_start_tcp, term()} |
-                   {could_not_start_tls, term()}.
+                   {could_not_start_tls, term()} | {could_not_start_sctp, term()}.
 
 start_transports(AppId, [{Proto, Ip, Port}|Rest], Opts) ->
     case nksip_transport:start_transport(AppId, Proto, Ip, Port, Opts) of
         {ok, _} -> start_transports(AppId, Rest, Opts);
         {error, Error} when Proto=:=udp -> {error, {could_not_start_udp, Error}};
         {error, Error} when Proto=:=tcp -> {error, {could_not_start_tcp, Error}};
-        {error, Error} when Proto=:=tls -> {error, {could_not_start_tls, Error}}
+        {error, Error} when Proto=:=tls -> {error, {could_not_start_tls, Error}};
+        {error, Error} when Proto=:=sctp -> {error, {could_not_start_sctp, Error}}
     end;
 
 start_transports(_AppId, [], __Opts) ->

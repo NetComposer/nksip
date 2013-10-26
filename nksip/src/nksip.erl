@@ -22,7 +22,7 @@
 %%
 %% This module allows to manage <i>NkSIP application instances</i> or <b>SipApps</b>. 
 %% NkSIP can start any number of SipApps, each one listening on one or several sets of 
-%% ip, port and transport (UDP, TCP or TLS currently).
+%% ip, port and transport (UDP, TCP, TLS or SCTP currently).
 %%
 %% To register a SipApp, you must first create a <i>callback module</i> using 
 %% behaviour {@link nksip_sipapp} (you can also use the <i>default callback module</i>
@@ -258,14 +258,15 @@
 	ok | {error, Error} 
     when Error :: invalid_from | invalid_transport | invalid_register | invalid_route |
                   no_matching_tcp | could_not_start_udp | could_not_start_tcp |
-                  could_not_start_tls.
+                  could_not_start_tls | could_not_start_sctp.
 
 start(AppId, Module, Args, Opts) ->
     try
         Transports = [
             case Transport of
                 {Scheme, Ip, Port} 
-                    when (Scheme=:=udp orelse Scheme=:=tcp orelse Scheme=:=tls)
+                    when (Scheme=:=udp orelse Scheme=:=tcp orelse 
+                          Scheme=:=tls orelse Scheme=:=sctp)
                     andalso is_integer(Port) ->
                         case catch inet_parse:ntoa(Ip) of
                             {'EXIT', _} -> throw(invalid_transport);

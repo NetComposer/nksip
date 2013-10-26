@@ -27,6 +27,7 @@
 -export([ranch_start_link/6, start_link/4]).
 
 -include("nksip.hrl").
+-include_lib("kernel/include/inet_sctp.hrl").
 
 
 %% ===================================================================
@@ -91,8 +92,28 @@ get_listener(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
         [AppId, Transport]),
     % Little hack to use our start_link instead of ranch's one
     {ranch_listener_sup, start_link, StartOpts} = element(2, Spec),
-    setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}).
+    setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts});
     
+
+get_listener(AppId, sctp, Ip, Port, _Opts) ->
+    Transport = #transport{
+        proto = sctp,
+        local_ip = Ip, 
+        local_port = Port,
+        listen_ip = Ip,
+        listen_port = Port,
+        remote_ip = {0,0,0,0},
+        remote_port = 0
+    },
+    {
+        {AppId, sctp, Ip, Port}, 
+        {nksip_transport_sctp, start_server, [AppId, Transport]},
+        permanent, 
+        5000, 
+        worker, 
+        [nksip_transport_sctp]
+    }.
+
 
 %% @private Starts a new outbound connection.
 -spec start_connection(nksip:app_id(), nksip:protocol(),
@@ -116,6 +137,50 @@ start_connection(AppId, Proto, Ip, Port, Opts)
             error
     end;
 
+start_connection(AppId, sctp, Ip, Port, Opts) ->
+    case nksip_transport:get_listening(AppId, sctp) of
+        [{ListenTransport, ListenPid}|_] ->
+            case nksip_transport_sctp:get_socket(ListenPid) of
+                {ok, Socket} ->
+                    Timeout = 64 * nksip_config:get(timer_t1),
+                    SocketOpts = outbound_opts(sctp, Opts),
+                    case gen_sctp:connect(Socket, Ip, Port, SocketOpts, Timeout) of
+                        {ok, Assoc} ->
+                        Transport = ListenTransport#transport{
+                            remote_ip = Ip,
+                            remote_port = Port
+                        },
+                        Spec = {
+                            {AppId, sctp, Ip, Port, make_ref()},
+                            {nksip_transport_sctp, start_assoc, 
+                                [AppId, Transport, Socket, Assoc]},
+                            temporary,
+                            5000,
+                            worker,
+                            [nksip_transport_sctp]
+                        },
+                        {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
+                        controlling_process(sctp, Socket, Pid),
+                        setopts(sctp, Socket, [{active, once}]),
+                        ?debug(AppId, "connected to ~s:~p (sctp)", 
+                               [nksip_lib:to_binary(Ip), Port]),
+                        {ok, Pid, Transport};
+                    {error, Error} ->
+                        ?notice(AppId, "could not connect to ~s, ~p (sctp): ~p", 
+                                [nksip_lib:to_binary(Ip), Port, Error]),
+                        error
+                    end;
+                Error ->
+                    ?notice(AppId, "could not connect to ~s, ~p (sctp): ~p", 
+                            [nksip_lib:to_binary(Ip), Port, Error]),
+                    error
+            end;
+        [] ->
+            ?notice(AppId, "could not connect to ~s, ~p (sctp): no server", 
+                    [nksip_lib:to_binary(Ip), Port]),
+            error
+    end;
+
 start_connection(_AppId, _Proto, _Ip, _Port, _Opts) ->
     error.
 
@@ -129,12 +194,10 @@ start_connection(_AppId, _Proto, _Ip, _Port, _Opts) ->
     
 get_outbound(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
     SocketOpts = outbound_opts(Proto, Opts),
-    Host = nksip_lib:to_binary(Ip),
     Timeout = 64 * nksip_config:get(timer_t1),
-    SHost = binary_to_list(Host),
     Connect = case Proto of
-        tcp -> gen_tcp:connect(SHost, Port, SocketOpts, Timeout);
-        tls -> ssl:connect(SHost, Port, SocketOpts, Timeout)
+        tcp -> gen_tcp:connect(Ip, Port, SocketOpts, Timeout);
+        tls -> ssl:connect(Ip, Port, SocketOpts, Timeout)
     end,
     case Connect of
         {ok, Socket} -> 
@@ -204,14 +267,17 @@ listen_opts(tls, Ip, Port, Opts) ->
         end
     ]).
 
-
 %% @private Gets socket options for outbound connections
 -spec outbound_opts(nksip:protocol(), nksip_lib:proplist()) ->
     nksip_lib:proplist().
 
-outbound_opts(Proto, Opts) ->
+outbound_opts(Proto, Opts) when Proto=:=tcp; Proto=:=tls ->
     Opts1 = listen_opts(Proto, {0,0,0,0}, 0, Opts),
-    [binary|nksip_lib:delete(Opts1, [ip, port, max_connections])].
+    [binary|nksip_lib:delete(Opts1, [ip, port, max_connections])];
+
+outbound_opts(sctp, _Opts) ->
+    SendParam = #sctp_sndrcvinfo{stream=0, flags=[unordered]},
+    [binary, {active, false}, {reuseaddr, true}, {sctp_default_send_param, SendParam}].
 
 
 %% @private Our version of ranch_listener_sup:start_link/5
