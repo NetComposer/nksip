@@ -286,7 +286,7 @@ terminate(_Reason, _State) ->
 %% @private
 start_tcp(AppId, Ip, Port, Socket, Pid) ->
     gen_tcp:close(Socket),
-    case nksip_transport_conn:start_transport(AppId, tcp, Ip, Port, []) of
+    case nksip_transport:start_transport(AppId, tcp, Ip, Port, []) of
         {ok, _} -> ok;
         {error, _} -> gen_server:cast(Pid, no_matching_tcp)
     end.

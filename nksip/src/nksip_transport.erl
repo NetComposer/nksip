@@ -24,8 +24,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_all/0, get_all/1, get_protocol/1]).
--export([send/4]).
 -export([is_local/2, is_local_ip/1, main_ip/0, local_ips/0, get_listening/2]).
+-export([start_transport/5, start_connection/5, get_connected/4]).
+-export([send/4]).
 
 -export_type([transport/0]).
 
@@ -33,14 +34,10 @@
 
 -compile({no_auto_import,[get/1]}).
 
--define(QUEUE_TIMEOUT, 30000).
-
-
 
 %% ===================================================================
 %% Types
 %% ===================================================================
-
 
 -type transport() :: #transport{}.
 
@@ -150,6 +147,40 @@ local_ips() ->
     nksip_config:get(local_ips).
 
 
+%% @doc Start a new listening transport.
+-spec start_transport(nksip:app_id(), nksip:protocol(), inet:ip_address(), 
+                      inet:port_number(), nksip_lib:proplist()) ->
+    {ok, pid()} | {error, term()}.
+
+start_transport(AppId, Proto, Ip, Port, Opts) ->
+    Listening = [
+        {{LIp, LPort}, Pid} || 
+            {#transport{listen_ip=LIp, listen_port=LPort}, Pid} 
+            <- get_listening(AppId, Proto)
+    ],
+    case nksip_lib:get_value({Ip, Port}, Listening) of
+        undefined -> 
+            nksip_transport_lib:start_transport(AppId, Proto, Ip, Port, Opts);
+        Pid when is_pid(Pid) -> 
+            {ok, Pid}
+    end.
+
+
+%% @private Starts a new outbound connection.
+-spec start_connection(nksip:app_id(), nksip:protocol(),
+                       inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+    {ok, pid(), nksip_transport:transport()} | error.
+
+start_connection(AppId, Proto, Ip, Port, Opts) ->
+    Max = nksip_config:get(max_connections),
+    case nksip_counters:value(nksip_transport_tcp) of
+        Current when Current > Max ->
+            error;
+        _ ->
+            nksip_transport_srv:start_connection(AppId, Proto, Ip, Port, Opts)
+    end.
+                
+
 
 %% ===================================================================
 %% Internal
@@ -190,7 +221,7 @@ send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
 send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts) 
         when Proto=:=tcp; Proto=:=tls ->
     ?debug(AppId, "Transport send to ~p", [All]),
-    case nksip_transport_conn:get_connected(AppId, Proto, Ip, Port) of
+    case get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
             SipMsg = MakeMsg(Transport),
             case nksip_transport_tcp:send(Pid, SipMsg) of
@@ -201,9 +232,10 @@ send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts)
             send(AppId, Rest, MakeMsg, Opts)
     end;
 
-send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg, Opts) when Proto=:=tcp; Proto=:=tls ->
+send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg, Opts) 
+     when Proto=:=tcp; Proto=:=tls ->
     ?debug(AppId, "Transport send to ~p", [All]),
-    case nksip_transport_conn:get_connected(AppId, Proto, Ip, Port) of
+    case get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
             SipMsg = MakeMsg(Transport),
             case nksip_transport_tcp:send(Pid, SipMsg) of
@@ -211,7 +243,7 @@ send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg, Opts) when Proto=:=tcp; Proto
                 error -> send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
-            case nksip_transport_conn:start_connection(AppId, Proto, Ip, Port, Opts) of
+            case start_connection(AppId, Proto, Ip, Port, Opts) of
                 {ok, Pid, Transport} ->
                     SipMsg = MakeMsg(Transport),
                     case nksip_transport_tcp:send(Pid, SipMsg) of
@@ -232,8 +264,16 @@ send(_, [], _MakeMsg, _Opts) ->
         
 
 
-
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+%% @private Finds a listening transport of Proto
+-spec get_connected(nksip:app_id(), nksip:protocol(), 
+                    inet:ip_address(), inet:port_number()) ->
+    [{nksip_transport:transport(), pid()}].
+
+get_connected(AppId, Proto, Ip, Port) ->
+    nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port}}).
+
 

@@ -75,7 +75,7 @@ init([Reg, ChildSpecs]) ->
                    {could_not_start_tls, term()}.
 
 start_transports(AppId, [{Proto, Ip, Port}|Rest], Opts) ->
-    case nksip_transport_conn:start_transport(AppId, Proto, Ip, Port, Opts) of
+    case nksip_transport:start_transport(AppId, Proto, Ip, Port, Opts) of
         {ok, _} -> start_transports(AppId, Rest, Opts);
         {error, Error} when Proto=:=udp -> {error, {could_not_start_udp, Error}};
         {error, Error} when Proto=:=tcp -> {error, {could_not_start_tcp, Error}};

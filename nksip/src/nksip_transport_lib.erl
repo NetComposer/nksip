@@ -20,84 +20,28 @@
 
 %% @doc Connection Management Module.
 
--module(nksip_transport_conn).
+-module(nksip_transport_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_transport/5, start_connection/5, get_connected/4]).
+-export([start_transport/5, start_connection/5]).
 -export([ranch_start_link/6, start_link/4]).
 
 -include("nksip.hrl").
 
 
 %% ===================================================================
-%% Public
+%% Private
 %% ===================================================================
 
-%% @doc Start a new listening transport.
+%% @private Start a new listening transport.
 -spec start_transport(nksip:app_id(), nksip:protocol(), inet:ip_address(), 
                       inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid()} | {error, term()}.
 
 start_transport(AppId, Proto, Ip, Port, Opts) ->
-    Listening = [
-        {LIp, LPort} || 
-            {#transport{listen_ip=LIp, listen_port=LPort}, _Pid} 
-            <- nksip_transport:get_listening(AppId, Proto)
-    ],
-    case lists:member({Ip, Port}, Listening) of
-        true ->
-            ok;
-        false ->
-            Spec = get_listener(AppId, Proto, Ip, Port, Opts),
-            nksip_transport_sup:add_transport(AppId, Spec)
-    end.
+    Spec = get_listener(AppId, Proto, Ip, Port, Opts),
+    nksip_transport_sup:add_transport(AppId, Spec).
 
-
-%% @doc Starts a new outbound connection.
--spec start_connection(nksip:app_id(), nksip:protocol(),
-                       inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
-    {ok, pid(), nksip_transport:transport()} | error.
-
-start_connection(AppId, Proto, Ip, Port, Opts)
-                    when Proto=:=tcp; Proto=:=tls ->
-    Max = nksip_config:get(max_connections),
-    case nksip_counters:value(nksip_transport_tcp) of
-        Current when Current > Max ->
-            error;
-        _ ->
-            case get_outbound(AppId, Proto, Ip, Port, Opts) of
-                {ok, Socket, Transport, Spec} ->
-                    % Starts a new nksip_transport_tcp control process
-                    {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
-                    controlling_process(Proto, Socket, Pid),
-                    setopts(Proto, Socket, [{active, once}]),
-                    ?debug(AppId, "connected to ~s:~p (~p)", 
-                           [nksip_lib:to_binary(Ip), Port, Proto]),
-                    {ok, Pid, Transport};
-                {error, Error} ->
-                    ?info(AppId, "could not connect to ~s, ~p (~p): ~p", 
-                          [nksip_lib:to_binary(Ip), Port, Proto, Error]),
-                    error
-            end
-    end;
-
-start_connection(_AppId, _Proto, _Ip, _Port, _Opts) ->
-    error.
-
-
-%% @private Finds a listening transport of Proto
--spec get_connected(nksip:app_id(), nksip:protocol(), 
-                    inet:ip_address(), inet:port_number()) ->
-    [{nksip_transport:transport(), pid()}].
-
-get_connected(AppId, Proto, Ip, Port) ->
-    nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port}}).
-
-
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
 
 %% @private Get supervisor spec for a new listening server
 -spec get_listener(nksip:app_id(), nksip:protocol(), 
@@ -150,6 +94,32 @@ get_listener(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
     setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}).
     
 
+%% @private Starts a new outbound connection.
+-spec start_connection(nksip:app_id(), nksip:protocol(),
+                       inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+    {ok, pid(), nksip_transport:transport()} | error.
+
+start_connection(AppId, Proto, Ip, Port, Opts)
+                    when Proto=:=tcp; Proto=:=tls ->
+    case get_outbound(AppId, Proto, Ip, Port, Opts) of
+        {ok, Socket, Transport, Spec} ->
+            % Starts a new nksip_transport_tcp control process
+            {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
+            controlling_process(Proto, Socket, Pid),
+            setopts(Proto, Socket, [{active, once}]),
+            ?debug(AppId, "connected to ~s:~p (~p)", 
+                   [nksip_lib:to_binary(Ip), Port, Proto]),
+            {ok, Pid, Transport};
+        {error, Error} ->
+            ?info(AppId, "could not connect to ~s, ~p (~p): ~p", 
+                  [nksip_lib:to_binary(Ip), Port, Proto, Error]),
+            error
+    end;
+
+start_connection(_AppId, _Proto, _Ip, _Port, _Opts) ->
+    error.
+
+
 %% @private Starts a new outbound connection and returns supervisor spec
 -spec get_outbound(nksip:app_id(), nksip:protocol(),
                     inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
@@ -161,7 +131,12 @@ get_outbound(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
     SocketOpts = outbound_opts(Proto, Opts),
     Host = nksip_lib:to_binary(Ip),
     Timeout = 64 * nksip_config:get(timer_t1),
-    case connect(Proto, binary_to_list(Host), Port, SocketOpts, Timeout) of
+    SHost = binary_to_list(Host),
+    Connect = case Proto of
+        tcp -> gen_tcp:connect(SHost, Port, SocketOpts, Timeout);
+        tls -> ssl:connect(SHost, Port, SocketOpts, Timeout)
+    end,
+    case Connect of
         {ok, Socket} -> 
             {ok, {LocalIp, LocalPort}} = sockname(Proto, Socket),
             % If we have a listening transport of this class,
@@ -281,12 +256,6 @@ start_link(_ListenerPid, Socket, Module, [AppId, #transport{proto=Proto}=Transpo
 
 
 %% @private
-connect(tcp, Host, Port, Opts, Timeout) ->
-    gen_tcp:connect(Host, Port, Opts, Timeout);
-connect(tls, Host, Port, Opts, Timeout) ->
-    ssl:connect(Host, Port, Opts, Timeout).
-
-%% @private
 sockname(tcp, Socket) -> inet:sockname(Socket);
 sockname(tls, Socket) -> ssl:sockname(Socket).
 
@@ -301,6 +270,7 @@ setopts(tcp, Socket, Opts) ->
     inet:setopts(Socket, Opts);
 setopts(tls, Socket, Opts) ->
     ssl:setopts(Socket, Opts).
+
 
 
 

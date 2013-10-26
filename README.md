@@ -20,14 +20,23 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 NkSIP is a pure SIP framework, so it _does not support any real RTP media processing_ it can't record a call, host an audio conference or transcode. These type of tasks should be done with a SIP media server, like [Freeswitch](http://www.freeswitch.org) or [Asterisk](http://www.asterisk.org). However NkSIP can act as a standard endpoint (or a B2BUA, actually), which is very useful in many scenarios: registering with an external server, answering and redirecting a call or recovering in real time from a failed media server.
 
 
+New Features
+============
+
+Current version is v0.3.0. New features include:
+
+* INFO method.
+* New caching locating server with NAPTR and SRVS support.
+* Outbound connection controlling process.
+
 
 Documentation
 =============
 
 * API documentation is available [here](http://kalta.github.io/nksip).
-* [Change log](docs/CHANGELOG.md)
-* [Current features](docs/FEATURES.md)
-* [Roadmap](docs/ROADMAP.md)
+* [Change log](docs/CHANGELOG.md).
+* [Current features](docs/FEATURES.md).
+* [Roadmap](docs/ROADMAP.md).
 
 There are currently **three sample applications** included with NkSIP:
  * [Simple PBX](http://kalta.github.io/nksip/docs/v0.2.0/nksip_pbx/index.html): Registrar server and forking proxy with endpoints monitoring.
