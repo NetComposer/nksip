@@ -229,7 +229,7 @@ get_all() ->
     ].
 
 
-% @private
+%% @private
 print_all() ->
     Print = fun({{Scheme, User, Domain}, Regs}) ->
         ?P("\n--- ~p:~s@~s ---", [Scheme, User, Domain]),
@@ -342,7 +342,7 @@ update(#sipmsg{app_id=AppId}=Req, AOR, Contacts, Default) ->
     ok.
 
 
-% @private
+%% @private
 -spec make_updates(integer(), integer(), integer(), nksip_lib:timestamp(), [#uri{}], 
                     [{index(), nksip:uri(), nksip_lib:timestamp(), float()}]) ->
     [{index(), nksip:uri(), nksip_lib:timestamp(), float()}].               

@@ -254,7 +254,7 @@ pending_msgs() ->
 start_link(Pos, Name) ->
     gen_server:start_link({local, Name}, ?MODULE, [Pos, Name], []).
         
-% @private 
+%% @private 
 -spec init(term()) ->
     gen_server_init(#state{}).
 

@@ -134,7 +134,7 @@ new_uac(Req, Opts, From, Call) ->
     {UAC, Call#call{trans=[UAC|Trans], msgs=[Msg|Msgs], next=Id+1}}.
 
 
-% @private
+%% @private
 -spec send(nksip:method(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 

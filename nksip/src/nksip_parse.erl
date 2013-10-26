@@ -263,7 +263,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 %% Internal
 %% ===================================================================
 
-% @private
+%% @private
 -spec header_values(binary(), [nksip:header()]) -> 
     [binary()].
 
@@ -704,7 +704,7 @@ parse_tokens(_O, Acc) ->
     lists:reverse(Acc).
 
 
-% @private
+%% @private
 -spec parse_opts(nksip_lib:token_list()) -> 
     {Opts::nksip_lib:proplist(), Rest::nksip_lib:token_list()}.
 

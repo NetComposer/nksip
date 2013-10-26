@@ -477,7 +477,7 @@ get_pass([{Pass, Realm}|_], Realm, _FirstPass) -> Pass;
 get_pass([_|Rest], Realm, FirstPass) -> get_pass(Rest, Realm, FirstPass).
 
 
-% @private
+%% @private
 get_nonce(AppId, CallId, Nonce) ->
     nksip_store:get({nksip_auth_nonce, AppId, CallId, Nonce}).
 

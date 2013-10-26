@@ -135,7 +135,7 @@ start_link(AppId, Transport) ->
 
 
 
-% @private 
+%% @private 
 -spec init(term()) ->
     gen_server_init(#state{}).
 

@@ -374,7 +374,6 @@ get_all() ->
     [AppId || {AppId, _Pid} <- nksip_proc:values(nksip_sipapps)].
 
 
-
 %% @doc Sends a response from a synchronous callback function.
 %% Eequivalent to `gen_server:reply/2'.
 -spec reply({reference(), pid()} | {fsm, reference(), pid()}, term()) -> 

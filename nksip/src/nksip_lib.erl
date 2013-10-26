@@ -508,7 +508,7 @@ to_ip(Address) when is_list(Address) ->
     end.
 
 
-% @doc converts a `string()' or `binary()' to a lower `binary()'.
+%% @doc converts a `string()' or `binary()' to a lower `binary()'.
 -spec to_lower(string()|binary()|atom()) ->
     binary().
 
@@ -518,7 +518,7 @@ to_lower(Other) ->
     to_lower(to_list(Other)).
 
 
-% @doc converts a `string()' or `binary()' to an upper `binary()'.
+%% @doc converts a `string()' or `binary()' to an upper `binary()'.
 -spec to_upper(string()|binary()|atom()) ->
     binary().
     
@@ -600,7 +600,7 @@ delete(PropList, KeyOrKeys) ->
     lists:filter(Fun, PropList).
 
 
-% @doc Checks if `Term' is a `string()' or `[]'.
+%% @doc Checks if `Term' is a `string()' or `[]'.
 -spec is_string(Term::term()) -> 
     boolean().
 

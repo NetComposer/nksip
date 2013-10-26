@@ -40,6 +40,7 @@
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
 
+
 %% ===================================================================
 %% Public
 %% ===================================================================
@@ -135,7 +136,7 @@ start_link() ->
 stop() ->
     gen_server:call(?SERVER, stop).
         
-% @private 
+%% @private 
 -spec init(term()) ->
     gen_server_init(#state{}).
 

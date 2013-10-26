@@ -251,7 +251,7 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
         
 
-% @private 
+%% @private 
 -spec init(term()) ->
     gen_server_init(#state{}).
 
@@ -493,7 +493,7 @@ lookup_store(Name) ->
 insert_store(Name, []) -> ets:delete(nksip_proc_store, Name);
 insert_store(Name, Items) -> ets:insert(nksip_proc_store, {Name, Items}).
 
-% @doc Gets the number of registered processes
+%% @doc Gets the number of registered processes
 -spec size() -> integer().
 size() -> ets:info(nksip_proc_pids, size).
  

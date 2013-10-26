@@ -93,7 +93,7 @@ resolve_srvs(_, [], Acc) ->
     lists:flatten(lists:reverse(Acc)).
 
 
-% @private
+%% @private
 -spec resolve_uri(nksip:uri()) -> 
     {ok, [{nksip:protocol(), inet:ip_address(), inet:port_number()}]} | 
     {naptr, sip|sips, string()}.
@@ -253,7 +253,7 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
         
 
-% @private 
+%% @private 
 -spec init(term()) ->
     gen_server_init(#state{}).
 

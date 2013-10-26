@@ -138,7 +138,7 @@ get_registers(AppId) ->
 }).
 
 
-% @private 
+%% @private 
 init(AppId, Module, _Args, Opts) ->
     case nksip_lib:get_value(register, Opts) of
         undefined ->

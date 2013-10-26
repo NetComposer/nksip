@@ -302,7 +302,7 @@ preprocess_route(Request) ->
 %% ===================================================================
 
 
-% @private If the Request-URI has a value we have placed on a Record-Route header, 
+%% @private If the Request-URI has a value we have placed on a Record-Route header, 
 % change it to the last Route header and remove it. This gets back the original 
 % RUri "stored" at the end of the Route header when proxing through a strict router
 % This could happen if
@@ -329,7 +329,7 @@ strict_router(#sipmsg{app_id=AppId, ruri=RUri, call_id=CallId,
     end.    
 
 
-% @private If RUri has a maddr address that corresponds to a local ip and has the 
+%% @private If RUri has a maddr address that corresponds to a local ip and has the 
 % same transport class and local port than the transport, change the Ruri to
 % this address, default port and no transport parameter
 ruri_has_maddr(#sipmsg{

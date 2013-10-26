@@ -82,7 +82,7 @@ get_data(Pid) ->
 %% ===================================================================
 
 
-% @private 
+%% @private 
 -spec init(term()) ->
     gen_server_init(call()).
 
