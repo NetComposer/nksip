@@ -192,8 +192,9 @@ start_connection(AppId, Proto, Ip, Port, Opts) ->
     when TSpec :: #uri{} | proto_ip_port() | {current, proto_ip_port()}.
 
 send(AppId, [#uri{}=Uri|Rest]=All, MakeMsg, Opts) ->
-    ?debug(AppId, "Transport send to ~p", [All]),
-    send(AppId, nksip_dns:resolve(Uri)++Rest, MakeMsg, Opts);
+    Resolv = nksip_dns:resolve(Uri),
+    ?debug(AppId, "Transport send to ~p (~p)", [All, Resolv]),
+    send(AppId, Resolv++Rest, MakeMsg, Opts);
 
 send(AppId, [{udp, Ip, 0}|Rest], MakeMsg, Opts) ->
     %% If no port was explicitly specified, use default.
