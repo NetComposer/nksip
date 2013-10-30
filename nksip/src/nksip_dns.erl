@@ -121,7 +121,7 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
     OK = fun(FProto) -> 
         Port1 = case Port > 0 of
             true -> Port;
-            false -> nksip_transport_lib:default_port(FProto)
+            false -> nksip_transport:default_port(FProto)
         end,
         {ok, [{FProto, Addr, Port1} || Addr <- Addrs]} 
     end,

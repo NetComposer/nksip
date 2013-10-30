@@ -40,6 +40,9 @@
 %%   <tr><td>`tcp_timeout'</td><td>180000</td>
 %%       <td>Time to disconnect TCP/SSL connection if no message 
 %%           has been received (msecs).</td></tr>
+%%   <tr><td>`sctp_timeout'</td><td>180000</td>
+%%       <td>Time to disconnect SCTP associations if no message 
+%%           has been received (msecs).</td></tr>
 %%   <tr><td>`nonce_timeout'</td><td>30000</td>
 %%       <td>Time a new `nonce' in an authenticate header will be usable 
 %%           (msecs, only for <i>ACK</i> or requests coming from the same 
@@ -137,6 +140,7 @@ default_config() ->
         {transaction_timeout, 900000},  % 15 min
         {dialog_timeout, 900000},       % 15 min
         {tcp_timeout, 180000},          % 3 min
+        {sctp_timeout, 180000},         % 3 min
         {nonce_timeout, 30000},         % 30 secs
         {sipapp_timeout, 32000},        % 32 secs  
         {max_calls, 100000},            % Each Call-ID counts as a call

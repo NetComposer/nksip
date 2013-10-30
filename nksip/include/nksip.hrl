@@ -75,6 +75,7 @@
 
 
 -include_lib("ssl/src/ssl_internal.hrl"). 
+-include_lib("kernel/include/inet_sctp.hrl").
 
 
 %% ===================================================================
@@ -117,9 +118,23 @@
     local_port :: inet:port_number(),
     remote_ip :: inet:ip_address(),
     remote_port :: inet:port_number(),
-    listen_ip :: inet:ip_address(),        % Ip this transport must report as listening
-    listen_port :: inet:port_number()      % Port
+    listen_ip :: inet:ip_address(),         % Ip this transport must report as listening
+    listen_port :: inet:port_number(),
+    sctp_id :: integer()        
 }).
+
+
+-record(raw_sipmsg, {
+    id :: nksip_request:id() | nksip_response:id(),
+    class :: nksip_parse:msg_class(),
+    app_id :: nksip:app_id(),
+    call_id :: nksip:call_id(),
+    start :: nksip_lib:l_timestamp(),
+    headers :: [{binary(), binary()}],
+    body :: nksip:body(),
+    transport :: nksip_transport:transport()
+}).
+
 
 -record(sipmsg, {
     id :: nksip_request:id() | nksip_response:id(),

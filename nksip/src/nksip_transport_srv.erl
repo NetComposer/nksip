@@ -38,10 +38,10 @@
 %% @doc Starts a new outbound connection.
 -spec start_connection(nksip:app_id(), nksip:protocol(),
                        inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
-    {ok, pid(), nksip_transport:transport()} | error.
+    {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 start_connection(AppId, Proto, Ip, Port, Opts)
-                    when Proto=:=tcp; Proto=:=tls ->
+                    when Proto=:=tcp; Proto=:=tls; Proto=:=sctp ->
     ConnId = {AppId, Proto, Ip, Port},
     gen_server:call(?MODULE, {new, ConnId, Opts}, infinity).
 
@@ -137,7 +137,11 @@ terminate(_Reason, _State) ->
 
 
 connect({AppId, Proto, Ip, Port}=Key, Opts, Pid) ->
-    Result = nksip_transport_lib:start_connection(AppId, Proto, Ip, Port, Opts),
+    Result = case Proto of
+        tcp -> nksip_transport_tcp:connect(AppId, Proto, Ip, Port, Opts);
+        tls -> nksip_transport_tcp:connect(AppId, Proto, Ip, Port, Opts);
+        sctp -> nksip_transport_sctp:connect(AppId, Ip, Port, Opts)
+    end,
     gen_server:cast(Pid, {conn, Key, Result}).
 
 

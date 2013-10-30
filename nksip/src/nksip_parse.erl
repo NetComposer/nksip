@@ -246,7 +246,7 @@ transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
     end,
     Port1 = case Port > 0 of
         true -> Port;
-        _ -> nksip_transport_lib:default_port(Proto2)
+        _ -> nksip_transport:default_port(Proto2)
     end,
     {Proto2, Host, Port1};
 

@@ -21,6 +21,7 @@
         {transaction_timeout, 900000},  % 15 min
         {dialog_timeout, 900000},       % 15 min
         {tcp_timeout, 180000},          % 3 min
+        {sctp_timeout, 180000},         % 3 min
         {nonce_timeout, 30000},         % 30 secs
         {sipapp_timeout, 32000},        % 32 secs  
         {max_calls, 100000},            % Each Call-ID counts as a call

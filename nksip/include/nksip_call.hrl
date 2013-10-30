@@ -41,19 +41,6 @@
 
 -define(MSG_KEEP_TIME, 5).          % Time to keep removed sip msgs in memory
 
-
--record(raw_sipmsg, {
-    id :: nksip_request:id() | nksip_response:id(),
-    class :: nksip_parse:msg_class(),
-    app_id :: nksip:app_id(),
-    call_id :: nksip:call_id(),
-    start :: nksip_lib:l_timestamp(),
-    headers :: [{binary(), binary()}],
-    body :: nksip:body(),
-    transport :: nksip_transport:transport()
-}).
-
-
 -record(trans, {
     id :: nksip_call_uac:id() | nksip_call_uas:id(),
     class :: uac | uas,

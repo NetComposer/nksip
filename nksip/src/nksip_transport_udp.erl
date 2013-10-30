@@ -19,17 +19,15 @@
 %% -------------------------------------------------------------------
 
 %% @private UDP Transport Module.
-
 -module(nksip_transport_udp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([send/2, send/4, send_stun/3, get_port/1]).
+-export([start_listener/4, send/2, send/4, send_stun/3, get_port/1]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
              handle_info/2]).
 
 -include("nksip.hrl").
--include("nksip_call.hrl").
 
 -define(MAX_UDP, 1500).
 
@@ -37,6 +35,34 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+
+%% @private Starts a new listening server
+-spec start_listener(nksip:app_id(), inet:ip_address(), inet:port_number(), 
+                   nksip_lib:proplist()) ->
+    {ok, pid()} | {error, term()}.
+
+start_listener(AppId, Ip, Port, _Opts) ->
+    Transp = #transport{
+        proto = udp,
+        local_ip = Ip, 
+        local_port = Port,
+        listen_ip = Ip,
+        listen_port = Port,
+        remote_ip = {0,0,0,0},
+        remote_port = 0
+    },
+    Spec = {
+        {AppId, udp, Ip, Port}, 
+        {?MODULE, start_link, [AppId, Transp]},
+        permanent, 
+        5000, 
+        worker, 
+        [?MODULE]
+    },
+    nksip_transport_sup:add_transport(AppId, Spec).
+
 
 
 %% @private Sends a new UDP request or response
