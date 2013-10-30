@@ -335,10 +335,12 @@ print_packet(AppId, Info,
                 }, 
                 Binary) ->
     case catch inet_parse:ntoa(RIp) of
+        {error, _} -> RHost = <<"undefined">>;
         {'EXIT', _} -> RHost = <<"undefined">>;
         RHost -> ok
     end,
     case catch inet_parse:ntoa(LIp) of
+        {error, _} -> LHost = <<"undefined">>;
         {'EXIT', _} -> LHost = <<"undefined">>;
         LHost -> ok
     end,

@@ -269,6 +269,7 @@ start(AppId, Module, Args, Opts) ->
                           Scheme=:=tls orelse Scheme=:=sctp)
                     andalso is_integer(Port) ->
                         case catch inet_parse:ntoa(Ip) of
+                            {error, _} -> throw(invalid_transport);
                             {'EXIT', _} -> throw(invalid_transport);
                             _ -> {Scheme, Ip, Port}
                         end;
