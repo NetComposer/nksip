@@ -4,7 +4,7 @@ RFC|Description|Coverage
 ---|---|---
 [RFC3261](http://tools.ietf.org/html/rfc3261)|SIP 2.0|Full
 [RFC2617](http://tools.ietf.org/html/rfc2617)|Digest authentication|Full
-[RFC3263](http://tools.ietf.org/html/rfc3263)|SRV Resolution|Full (no SRV/NAPTR weight support)
+[RFC3263](http://tools.ietf.org/html/rfc3263)|SRV Resolution|Full (~~no SRV/NAPTR weight support~~)
 [RFC3264](http://tools.ietf.org/html/rfc3264)|Offer/Answer Model|Full
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|Full
 [RFC4566](http://tools.ietf.org/html/rfc4566)|SDP Parser and Generator|Full (limited processing utilities)
