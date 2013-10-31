@@ -12,7 +12,7 @@ In no special order:
 * ~~DNS stateful processing~~.
 * ~~Outbound connection server~~.
 * _Bridge_ support for B2BUA.
-* _IPv6_.
+* ~~_IPv6_~~.
 * Fully distributed, highly available version based on [Riak Core](https://github.com/basho/riak_core).
 * IMS and RCS extensions.
 * More application examples.
