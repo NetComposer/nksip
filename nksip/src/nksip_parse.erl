@@ -253,7 +253,7 @@ transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
 transport(#via{proto=Proto, domain=Host, port=Port}) ->
     Port1 = case Port > 0 of
         true -> Port;
-        _ -> nksip_transport_lilb:default_port(Proto)
+        _ -> nksip_transport:default_port(Proto)
     end,
     {Proto, Host, Port1}.
 
