@@ -74,7 +74,7 @@
 %% or a standard SDP 'a' attribute (like `<<"inactive">>' or `<<"ptime:30">>').
 %% The class will be `RTP/AVP'.
 %%
-%% If `Host' is `"local.nksip"', it will be changed to the current local address
+%% If `Host' is `"auto.nksip"', it will be changed to the current local address
 %% before sending.
 %%
 %% See sdp3_test/0 for an example.
@@ -113,13 +113,13 @@ new(Host, MediaSpecList) ->
 
 
 %% @doc Generates a simple base SDP record (see {@link new/2}), 
-%% using host `"local.nksip"', port <i>1080</i>, codec <i>PCMU</i>, and <i>inactive</i>
+%% using host `"auto.nksip"', port <i>1080</i>, codec <i>PCMU</i>, and <i>inactive</i>
 -spec new() ->
     sdp().
 
 new() ->
     Medias = [{<<"audio">>, 1080, [{rtpmap, 0, <<"PCMU/8000">>}, <<"inactive">>]}],
-    new(<<"auto4.nksip">>, Medias).
+    new(<<"auto.nksip">>, Medias).
 
 
 %% @doc Generates an empty SDP record, using host `"local.nksip"' (see {@link new/2}).
@@ -127,7 +127,7 @@ new() ->
     sdp().
 
 empty() ->
-    new(<<"auto4.nksip">>, []).
+    new(<<"auto.nksip">>, []).
 
 
 %% @doc Increments the SDP version by one
@@ -276,24 +276,24 @@ unparse(_) ->
 %% Internal
 %% ===================================================================
 
-%% @private Updates the IP in SDP in case it is "0.0.0.1" to the local IP
--spec update_ip(sdp(), inet:ip4_address() | binary()) ->
+%% @private Updates the IP in SDP in case it is "auto.nksip" to the local IP
+-spec update_ip(sdp(), inet:ip_address() | binary()) ->
     sdp().
 
-update_ip(#sdp{
-                address = {<<"IN">>, <<"IP4">>, _},
-                connect = {<<"IN">>, <<"IP4">>, <<"local.nksip">>}
-            } = SDP, ListenAddr) ->
-    Ip = if
-        is_tuple(ListenAddr) ->
-            ListenAddr;
+update_ip(#sdp{connect = {_, _, <<"auto.nksip">>}} = SDP, ListenAddr) ->
+    if
+        is_tuple(ListenAddr), size(ListenAddr)=:=4 ->
+            Ip = ListenAddr, Class = <<"IP4">>;
+        is_tuple(ListenAddr), size(ListenAddr)=:=8 ->
+            Ip = ListenAddr, Class = <<"IP6">>;
         true ->
-            case inet:getaddr(nksip_lib:to_list(ListenAddr), inet) of
-                {ok, FoundIp} -> FoundIp;
-                _ -> {0,0,0,0}
+            case nksip_dns:get_ips(ListenAddr) of
+                [Ip|_] when size(Ip)=:=4 -> Class = <<"IP4">>;
+                [Ip|_] when size(Ip)=:=8 -> Class = <<"IP6">>;
+                _ -> Ip = {0,0,0,0}, Class = <<"IP4">>
             end
     end,
-    Addr = {<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Ip)}, 
+    Addr = {<<"IN">>, Class, nksip_lib:to_binary(Ip)}, 
     SDP#sdp{address=Addr, connect=Addr};
 
 update_ip(Any, _) ->

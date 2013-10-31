@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_all/0, get_all/1, get_listening/2, get_connected/4]).
--export([is_local/2, is_local_ip/1, main_ip/0, local_ips/0]).
+-export([is_local/2, is_local_ip/1, main_ip/0]).
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([send/4]).
 
@@ -101,6 +101,8 @@ is_local(AppId, #via{}=Via) ->
     Uri = #uri{domain=Host, port=Port, opts=[{transport, Proto}]},
     is_local(AppId, Uri).
 
+
+%% @private
 is_local(Listen, [{Proto, Ip, Port}|Rest], LocalIps) -> 
     case lists:member(Ip, LocalIps) of
         true ->
@@ -108,9 +110,20 @@ is_local(Listen, [{Proto, Ip, Port}|Rest], LocalIps) ->
                 true ->
                     true;
                 false ->
-                    case lists:member({Proto, {0,0,0,0}, Port}, Listen) of
-                        true -> true;
-                        false -> is_local(Listen, Rest, LocalIps)
+                    case 
+                        is_tuple(Ip) andalso size(Ip)=:=4 andalso
+                        lists:member({Proto, {0,0,0,0}, Port}, Listen) 
+                    of
+                        true -> 
+                            true;
+                        false -> 
+                            case 
+                                is_tuple(Ip) andalso size(Ip)=:=8 andalso
+                                lists:member({Proto, {0,0,0,0,0,0,0,0}, Port}, Listen) 
+                            of
+                                true -> true;
+                                false -> is_local(Listen, Rest, LocalIps)
+                            end
                     end
             end;
         false ->
@@ -122,10 +135,12 @@ is_local(_, [], _) ->
 
 
 %% @doc Checks if an IP is local to this node.
--spec is_local_ip(inet:ip4_address()) -> 
+-spec is_local_ip(inet:ip_address()) -> 
     boolean().
 
 is_local_ip({0,0,0,0}) ->
+    true;
+is_local_ip({0,0,0,0,0,0,0,0}) ->
     true;
 is_local_ip(Ip) ->
     lists:member(Ip, local_ips()).
@@ -133,7 +148,7 @@ is_local_ip(Ip) ->
 
 %% @doc Gets a cached version of node's main IP address.
 -spec main_ip() -> 
-    inet:ip4_address().
+    inet:ip_address().
 
 main_ip() ->
     nksip_config:get(main_ip). 
@@ -141,7 +156,7 @@ main_ip() ->
 
 %% @doc Gets a cached version of all detected local node IPs.
 -spec local_ips() -> 
-    [inet:ip4_address()].
+    [inet:ip_address()].
 
 local_ips() ->
     nksip_config:get(local_ips).

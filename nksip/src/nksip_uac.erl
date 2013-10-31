@@ -538,8 +538,8 @@ refresh(AppId, DialogSpec, Opts) ->
 %%
 -spec stun(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
-    when LocalIp :: inet:ip4_address(), LocalPort :: inet:port_number(),
-         RemoteIp :: inet:ip4_address(), RemotePort :: inet:port_number(),
+    when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
+         RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),
          Error :: unknown_core | invalid_uri | no_host | network_error.
 
 stun(AppId, UriSpec, _Opts) ->

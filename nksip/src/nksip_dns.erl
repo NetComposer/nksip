@@ -149,55 +149,63 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
 %% @doc Gets all IPs for this host, or `[]' if not found.
 %% It will first try to get it form the cache.
 %% Each new invocation rotates the list of IPs.
--spec get_ips(string()) ->
+-spec get_ips(string()|binary()) ->
     [inet:ip_address()].
 
 get_ips(Host) ->
-    case ets:lookup(?MODULE, {ips, Host}) of
+    Host1 = nksip_lib:to_list(Host),
+    case ets:lookup(?MODULE, {ips, Host1}) of
         [{_, Ips, _Time}] ->
             random(Ips);
         [] ->
-            case inet:getaddrs(Host, inet) of
-                {ok, Ips} -> ok;
-                {error, _} -> Ips = []
+            case inet:getaddrs(Host1, inet) of
+                {ok, Ips} -> 
+                    ok;
+                {error, _} -> 
+                    case inet:getaddrs(Host1, inet6) of
+                        {ok, Ips} -> ok;
+                        {error, _} -> Ips = []
+                    end
             end,
             Now = nksip_lib:timestamp(),
-            ets:insert(?MODULE, {{ips, Host}, Ips, Now}),
+            ets:insert(?MODULE, {{ips, Host1}, Ips, Now}),
             random(Ips)
     end.
 
 
 %% @doc Gets all hosts for a SRV domain, sorting the result
 %% according to RFC2782
--spec get_srvs(string()) ->
+-spec get_srvs(string()|binary()) ->
     [{string(), inet:port_number()}].
 
 get_srvs(Domain) ->
-    case ets:lookup(?MODULE, {srvs, Domain}) of
+    Domain1 = nksip_lib:to_list(Domain),
+    case ets:lookup(?MODULE, {srvs, Domain1}) of
         [{_, Srvs, _Time}] ->
             rfc2782_sort(Srvs);
         [] ->
-            Srvs = case inet_res:lookup(Domain, in, srv) of
+            Srvs = case inet_res:lookup(Domain1, in, srv) of
                 [] -> [];
                 Res -> [{O, W, {D, P}} || {O, W, P, D} <- Res]
             end,
             Now = nksip_lib:timestamp(),
-            ets:insert(?MODULE, {{srvs, Domain}, Srvs, Now}),
+            ets:insert(?MODULE, {{srvs, Domain1}, Srvs, Now}),
             rfc2782_sort(Srvs)
     end.
 
 
 %% @doc Finds published services using DNS NAPTR search.
--spec get_naptr(string()) -> 
+-spec get_naptr(string()|binary()) -> 
     [{sip|sips, nksip:protocol(), string()}].
 
 %% TODO: Check site certificates in case of tls
 get_naptr(Domain) ->
-    case ets:lookup(?MODULE, {naptr, Domain}) of
+    Domain1 = nksip_lib:to_list(Domain),
+    case ets:lookup(?MODULE, {naptr, Domain1}) of
         [{_, Naptr, _Time}] ->
             Naptr;
         [] ->
-            Naptr = case inet_res:lookup(Domain, in, naptr) of
+            Naptr = case inet_res:lookup(Domain1, in, naptr) of
                 [] ->
                     [];
                 Res ->
@@ -205,7 +213,7 @@ get_naptr(Domain) ->
                               (Value = naptr_filter(Term)) =/= false]
             end,
             Now = nksip_lib:timestamp(),
-            ets:insert(?MODULE, {{naptr, Domain}, Naptr, Now}),
+            ets:insert(?MODULE, {{naptr, Domain1}, Naptr, Now}),
             Naptr
     end.
 

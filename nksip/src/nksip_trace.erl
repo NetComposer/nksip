@@ -84,7 +84,7 @@ start(AppId, Out) ->
 %% and using any of the IPs in `IpList' 
 %% (or <i>all of them</i> if it list is empty) will be traced to `console' 
 %% or a file, that will opened in append mode.
--spec start(nksip:app_id(), [inet:ip4_address()], console|string()) ->
+-spec start(nksip:app_id(), [inet:ip_address()], console|string()) ->
     ok | {error, file:posix()}.
 
 start(AppId, IpList, Out) when is_list(IpList) ->

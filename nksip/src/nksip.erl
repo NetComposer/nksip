@@ -184,10 +184,10 @@
 %%          <td>
 %%              `[{Proto, Ip, Port}]'<br/>
 %%              <code>Proto::{@link protocol()}</code><br/>
-%%              `Ip::inet:ip_address()'<br/>
-%%              `Port::inet:port_number()'
+%%              `Ip::inet:ip_address()|string()|binary()|any|any6'<br/>
+%%              `Port::inet:port_number()|all'
 %%          </td>
-%%          <td>`[{udp,{0,0,0,0},0}, {tls, {0,0,0,0}, 0}]'</td>
+%%          <td>`[{udp, any, all}, {tls, any, all}]'</td>
 %%          <td>The SipApp can start any number of transports. 
 %%          If an UDP transport is started, a TCP transport on the same IP and port
 %%          will be started automatically.<br/>
@@ -266,13 +266,30 @@ start(AppId, Module, Args, Opts) ->
             case Transport of
                 {Scheme, Ip, Port} 
                     when (Scheme=:=udp orelse Scheme=:=tcp orelse 
-                          Scheme=:=tls orelse Scheme=:=sctp)
-                    andalso is_integer(Port) ->
-                        case catch inet_parse:ntoa(Ip) of
-                            {error, _} -> throw(invalid_transport);
-                            {'EXIT', _} -> throw(invalid_transport);
-                            _ -> {Scheme, Ip, Port}
-                        end;
+                          Scheme=:=tls orelse Scheme=:=sctp) ->
+                    Ip1 = case Ip of
+                        any -> 
+                            {0,0,0,0};
+                        any6 ->
+                            {0,0,0,0,0,0,0,0};
+                        _ when is_tuple(Ip) ->
+                            case catch inet_parse:ntoa(Ip) of
+                                {error, _} -> throw(invalid_transport);
+                                {'EXIT', _} -> throw(invalid_transport);
+                                _ -> Ip
+                            end;
+                        _ ->
+                            case nksip_lib:to_ip(Ip) of
+                                {ok, PIp} -> PIp;
+                                error -> throw(invalid_transport)
+                            end
+                    end,
+                    Port1 = case Port of
+                        all -> 0;
+                        _ when is_integer(Port), Port >= 0 -> Port;
+                        _ -> throw(invalid_transport)
+                    end,
+                    {Scheme, Ip1, Port1};
                 _ ->
                     throw(invalid_transport)
             end

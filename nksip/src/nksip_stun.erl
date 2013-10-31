@@ -41,7 +41,7 @@
 -type method() :: binding | unknown.
 
 -type attribute() :: 
-        {mapped_address, {inet:ip4_address(), inet:port_number()}} | {username, binary()} |
+        {mapped_address, {inet:ip_address(), inet:port_number()}} | {username, binary()} |
         {message_integrity, binary()} | {error_code, binary()} |
         {unknown_attributes, binary()} | {realm, binary()} | {nonce, binary()} |
         {xor_mapped_address, {inet:ip4_address(), inet:port_number()}} | {software, binary()} |
@@ -126,8 +126,9 @@ attributes(<<Type:16, Length:16, Rest/binary>>, Acc) ->
                     case Data of
                         <<1:16, Port:16, A:8, B:8, C:8, D:8>> -> 
                             {mapped_address, {{A,B,C,D}, Port}};
-                        <<2:16, Port:16, Ip:128>> ->  
-                            {mapped_address, {Ip, Port}};
+                        <<2:16, Port:16, A:16, B:16, C:16, D:16, 
+                                         E:16, F:16, G:16, H:16>> ->  
+                            {mapped_address, {{A,B,C,D,E,F,G,H}, Port}};
                         _ -> 
                             {{error, Type}, Data}
                     end;
@@ -145,9 +146,9 @@ attributes(<<Type:16, Length:16, Rest/binary>>, Acc) ->
                             <<A:8, B:8, C:8, D:8>> 
                                 = crypto:exor(<<IA, IB, IC, ID>>, <<33,18,164,66>>),
                             {xor_mapped_address, {{A,B,C,D}, P2}};
-                        <<2:16, Port:16, Ip:128>> ->  
-                            % IPv6 NOT DONE YET
-                            {xor_mapped_address, {Ip, Port}};
+                        % <<2:16, Port:16, Ip:128>> ->  
+                        %     % IPv6 NOT DONE YET
+                        %     {xor_mapped_address, {Ip, Port}};
                         _ -> 
                             {{error, Type}, Data}
                     end;

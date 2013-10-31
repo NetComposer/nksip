@@ -24,7 +24,7 @@
 
 -export([tokenize/2, untokenize/1]).
 -export([cseq/0, luid/0, lhash/1, uid/0, hash/1]).
--export([get_local_ips/0, find_main_ip/0, find_main_ip/1]).
+-export([get_local_ips/0, find_main_ip/0, find_main_ip/2, normalize_ipv6/1]).
 -export([timestamp/0, l_timestamp/0, l_timestamp_to_float/1]).
 -export([timestamp_to_local/1, timestamp_to_gmt/1]).
 -export([local_to_timestamp/1, gmt_to_timestamp/1]).
@@ -117,19 +117,34 @@ tokenize([Ch|Rest], Quote, Class, Chs, Words, Lines) ->
         Ch=:=$,, Quote=:=none ->
             Words1 = [{lists:reverse(Chs)}|Words],
             tokenize(Rest, none, Class, [], [], [lists:reverse(Words1)|Lines]);
+        Ch=:=$[, Quote=:=none, Chs=:=[], (Class=:=uri orelse Class=:=via) -> 
+            tokenize(Rest, ipv6, Class, [$[], Words, Lines);
+        Ch=:=$], Quote=:=ipv6 ->
+            Words1 = [{lists:reverse([$]|Chs])}|Words],
+            tokenize(Rest, none, Class, [], Words1, Lines);
         (Ch=:=32 orelse Ch=:=9) andalso Quote=:=none ->
             case Chs of
                 [] -> tokenize(Rest, Quote, Class, [], Words, Lines);
                 _ -> tokenize(Rest, Quote, Class, [], [{lists:reverse(Chs)}|Words], Lines)
             end;
-        Class=/=[] andalso Quote=:=none ->
-            case is_token(Ch, Class) of
+        Quote=:=none ->
+            {IsToken, Class1} = case Class of
+                uri when Ch==$;; Ch=:=$& -> {true, token}; 
+                uri when Ch==$<; Ch==$>; Ch==$:; Ch==$@ -> {true, uri};
+                via when Ch==$; -> {true, token};
+                via when Ch==$/; Ch==$: -> {true, via};
+                token when Ch==$;; Ch==$= -> {true, token};
+                equal when Ch==$= -> {true, equal};
+                _ -> {false, Class}
+            end,
+            case IsToken of
                 true when Chs=:=[] -> 
-                    tokenize(Rest, Quote, Class, [], [Ch|Words], Lines);
+                    tokenize(Rest, Quote, Class1, [], [Ch|Words], Lines);
                 true -> 
-                    tokenize(Rest, Quote, Class, [], [Ch, {lists:reverse(Chs)}|Words], Lines);
+                    Words1 = [Ch, {lists:reverse(Chs)}|Words],
+                    tokenize(Rest, Quote, Class1, [], Words1, Lines);
                 false ->
-                    tokenize(Rest, Quote, Class, [Ch|Chs], Words, Lines)
+                    tokenize(Rest, Quote, Class1, [Ch|Chs], Words, Lines)
             end;
         true ->
             tokenize(Rest, Quote, Class, [Ch|Chs], Words, Lines)
@@ -139,6 +154,8 @@ tokenize([], Quote, Class, Chs, Words, Lines) ->
     if
         Quote=:=double -> 
             tokenize([$"], double, Class, Chs, Words, Lines);
+        Quote=:=ipv6 ->
+            tokenize([$]], ipv6, Class, Chs, Words, Lines);
         Chs=:=[] -> 
             lists:reverse([lists:reverse(Words)|Lines]);
         true ->
@@ -146,24 +163,27 @@ tokenize([], Quote, Class, Chs, Words, Lines) ->
             lists:reverse([lists:reverse(Words1)|Lines])
     end.
 
-%% @private
-is_token($<, none) -> false;
-is_token($<, uri) -> true;
-is_token($>, uri) -> true;
-is_token($:, uri) -> true;
-is_token($@, uri) -> true;
-is_token($;, uri) -> true;
-is_token($=, uri) -> true;
-is_token($?, uri) -> true;
-is_token($&, uri) -> true;
-is_token($/, via) -> true;
-is_token($:, via) -> true;
-is_token($;, via) -> true;
-is_token($=, via) -> true;
-is_token($;, token) -> true;
-is_token($=, token) -> true;
-is_token($=, equal) -> true;
-is_token(_, _) -> false.
+% %% @private
+% is_token($<, none) -> false;
+
+% is_token($<, uri) -> true;
+% is_token($>, uri) -> true;
+% is_token($:, uri) -> true;
+% is_token($@, uri) -> true;
+% is_token($;, uri) -> true;
+% is_token($=, uri) -> true;
+% is_token($?, uri) -> true;
+% is_token($&, uri) -> true;
+
+% is_token($/, via) -> true;
+% is_token($:, via) -> true;
+% is_token($;, via) -> true;
+% is_token($=, via) -> true;
+
+% is_token($;, token) -> true;
+% is_token($=, token) -> true;
+% is_token($=, equal) -> true;
+% is_token(_, _) -> false.
 
 
 %% @doc Serializes a `token_list()' list
@@ -240,47 +260,45 @@ hash(Base) ->
 
 %% @doc Get all local network ips.
 -spec get_local_ips() -> 
-    [inet:ip4_address()].
+    [inet:ip_address()].
 
 get_local_ips() ->
     {ok, All} = inet:getifaddrs(),
-    lists:flatten([
-        [{A,B,C,D} || {A,B,C,D} <- proplists:get_all_values(addr, Data)]
-        || {_, Data} <- All
-    ]).
+    lists:flatten([proplists:get_all_values(addr, Data) || {_, Data} <- All]).
 
 
 %% @doc Equivalent to `find_main_ip(auto)'.
 -spec find_main_ip() -> 
-    inet:ip4_address().
+    {inet:ip_address(), Iface::string()}.
 
 find_main_ip() ->
-    find_main_ip(auto).
+    find_main_ip(auto, ipv4).
 
 
 %% @doc Finds the <i>best</i> local IP.
 %% If a network interface is supplied (as "en0") it returns its ip.
 %% If `auto' is used, probes `eth0', `eth1', `en0' and `en1'. If none is available returns 
 %% any other of the host's addresses.
--spec find_main_ip(auto|string()) -> 
-    inet:ip4_address().
+-spec find_main_ip(auto|string(), ipv4|ipv6) -> 
+    {inet:ip_address(), Iface::string()}.
 
-find_main_ip(NetInterface) ->
+find_main_ip(NetInterface, Type) ->
     {ok, All} = inet:getifaddrs(),
     case NetInterface of
         auto ->
-            IFaces = ["eth0", "eth1", "en0", "en1" | proplists:get_keys(All)],
-            find_main_ip(IFaces, All);
+            IFaces = ["eth0", "eth1", "en0", "en1", "lo0", "lo" | 
+                      proplists:get_keys(All)],
+            find_main_ip(IFaces, All, Type);
         _ ->
-            find_main_ip([NetInterface], All)   
+            find_main_ip([NetInterface], All, Type)   
     end.
 
 
 %% @private
-find_main_ip([], _) ->
-    error(not_ip_found);
+find_main_ip([], _, _Type) ->
+    error(no_ip_found);
 
-find_main_ip([IFace|R], All) ->
+find_main_ip([IFace|R], All, Type) ->
     Data = get_value(IFace, All, []),
     Flags = get_value(flags, Data, []),
     case lists:member(up, Flags) andalso lists:member(running, Flags) of
@@ -288,23 +306,40 @@ find_main_ip([IFace|R], All) ->
             Addrs = lists:zip(
                 proplists:get_all_values(addr, Data),
                 proplists:get_all_values(netmask, Data)),
-            case find_real_ip(Addrs) of
-                error -> find_main_ip(R, All);
-                Ip -> Ip
+            case find_real_ip(Addrs, Type) of
+                error -> find_main_ip(R, All, Type);
+                Ip -> {Ip, IFace}
             end;
         false ->
-            find_main_ip(R, All)
+            find_main_ip(R, All, Type)
     end.
 
 %% @private
-find_real_ip([]) ->
+find_real_ip([], _Type) ->
     error;
 
-find_real_ip([{{A,B,C,D}, Netmask}|_]) when Netmask =/= {255,255,255,255} ->
+find_real_ip([{{A,B,C,D}, Netmask}|_], ipv4) 
+             when Netmask =/= {255,255,255,255} ->
     {A,B,C,D};
 
-find_real_ip([_|R]) ->
-    find_real_ip(R).
+find_real_ip([{{A,B,C,D,E,F,G,H}, Netmask}|_], ipv6) 
+             when Netmask =/= {65535,65535,65535,65535,65535,65535,65535,65535} ->
+    {A,B,C,D,E,F,G,H};
+
+find_real_ip([_|R], Type) ->
+    find_real_ip(R, Type).
+
+
+%% @doc Normalizes a IPv6 in case of a fe80 address
+-spec normalize_ipv6({{inet:ipv6_address(), string()}}) ->
+    binary().
+
+normalize_ipv6({{65152, _, _, _, _, _, _, _}=Ip, Iface}) -> 
+    list_to_binary([$[, inet_parse:ntoa(Ip), $%, Iface, $]]);
+
+normalize_ipv6({{_, _, _, _, _, _, _, _}=Ip, _Iface}) -> 
+    list_to_binary([$[, inet_parse:ntoa(Ip), $]]).
+
 
 
 % calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}).
@@ -500,6 +535,13 @@ to_integer(_) ->
 
 to_ip(Address) when is_binary(Address) ->
     to_ip(binary_to_list(Address));
+
+% For IPv6
+to_ip([$[ | Address1]) ->
+    case lists:reverse(Address1) of
+        [$] | Address2] -> to_ip(lists:reverse(Address2));
+        _ -> error
+    end;
 
 to_ip(Address) when is_list(Address) ->
     case inet_parse:address(Address) of
