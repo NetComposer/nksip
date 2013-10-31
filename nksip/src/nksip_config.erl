@@ -184,8 +184,7 @@ init([]) ->
         default_config()),
     put(global_id, nksip_lib:luid()),
     put(local_ips, nksip_lib:get_local_ips()),
-    {MainIp, _Iface} = nksip_lib:find_main_ip(),
-    put(main_ip, MainIp),
+    put(main_ip, nksip_lib:find_main_ip()),
     {ok, #state{}}.
 
 

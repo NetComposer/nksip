@@ -27,23 +27,23 @@
 
 -compile([export_all]).
 
-% ipv6_test_() ->
-%   {setup, spawn, 
-%       fun() -> start() end,
-%       fun(_) -> stop() end,
-%       [
-%           fun digest/0, 
-%           fun invite/0, 
-%           fun dialog/0, 
-%           fun proxy/0
-%       ]
-%   }.
+ipv6_test_() ->
+  {setup, spawn, 
+      fun() -> start() end,
+      fun(_) -> stop() end,
+      [
+          fun basic/0
+      ]
+  }.
 
+
+get_main_ip() ->
+    Ip = nksip_lib:find_main_ip(auto, ipv6),
+    list_to_binary([$[, nksip_lib:to_binary(Ip), $]]).
 
 start() ->
     tests_util:start_nksip(),
-    Main = nksip_lib:find_main_ip(auto, ipv6),
-    MainIp = nksip_lib:normalize_ipv6(Main),
+    MainIp = get_main_ip(),
 
     ok = sipapp_server:start({ipv6, server1}, [
         {from, "sip:server1@nksip"},
@@ -86,11 +86,40 @@ stop() ->
 
 
 basic() ->
-    C1 = {ipv6, client1},
-    % C2 = {ipv6, client2},
-    % SipC1 = "sip:127.0.0.1:5070",
-    SipC2 = "<sip:[::1]:5071;transport=tcp>",
-    nksip_uac:options(C1, SipC2, []).
+    MainIp = get_main_ip(),
+    Self = self(),
+    Ref = make_ref(),
+
+    Fun = fun({req, #sipmsg{contacts=[Contact]}}) ->
+        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=[{transport, tcp}]} =
+            Contact,
+        Self ! {Ref, ok_1}
+    end,
+    Opts = [{callback, Fun}, get_request, get_response, make_contact],
+    RUri = "<sip:[::1]:5071;transport=tcp>",
+    {resp, Resp1} = nksip_uac:options({ipv6, client1}, RUri, Opts),
+    #sipmsg{
+        ruri = #uri{domain=(<<"[::1]">>)}, 
+        vias = [#via{domain=MainIp, opts=ViaOpts}],
+        transport = Transp
+    } = Resp1,
+    <<"::1">> = nksip_lib:get_value(received, ViaOpts),
+    RPort = nksip_lib:get_integer(rport, ViaOpts),
+    #transport{
+        proto = tcp,
+        local_ip =  {0,0,0,0,0,0,0,1},
+        local_port = RPort,
+        remote_ip = {0,0,0,0,0,0,0,1},
+        remote_port = 5071,
+        listen_ip = {0,0,0,0,0,0,0,0},
+        listen_port = 5070
+    } = Transp,
+
+    ok = tests_util:wait(Ref, [ok_1]).
+
+
+
+
 
 
 

@@ -24,7 +24,7 @@
 
 -export([tokenize/2, untokenize/1]).
 -export([cseq/0, luid/0, lhash/1, uid/0, hash/1]).
--export([get_local_ips/0, find_main_ip/0, find_main_ip/2, normalize_ipv6/1]).
+-export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([timestamp/0, l_timestamp/0, l_timestamp_to_float/1]).
 -export([timestamp_to_local/1, timestamp_to_gmt/1]).
 -export([local_to_timestamp/1, gmt_to_timestamp/1]).
@@ -129,13 +129,24 @@ tokenize([Ch|Rest], Quote, Class, Chs, Words, Lines) ->
             end;
         Quote=:=none ->
             {IsToken, Class1} = case Class of
-                uri when Ch==$;; Ch=:=$& -> {true, token}; 
-                uri when Ch==$<; Ch==$>; Ch==$:; Ch==$@ -> {true, uri};
-                via when Ch==$; -> {true, token};
-                via when Ch==$/; Ch==$: -> {true, via};
-                token when Ch==$;; Ch==$= -> {true, token};
-                equal when Ch==$= -> {true, equal};
-                _ -> {false, Class}
+                uri when Ch==$<; Ch==$>; Ch==$:; Ch==$@ -> 
+                    {true, uri};
+                uri when Ch==$;; Ch==$? -> 
+                    {true, uri_token}; 
+                uri_token when Ch==$;; Ch==$?; Ch==$=; Ch==$&; Ch==$> -> 
+                    {true, uri_token};
+                via when Ch==$/; Ch==$: -> 
+                    {true, via};
+                via when Ch==$; -> 
+                    {true, via_token};
+                via_token when Ch==$;; Ch==$= -> 
+                    {true, via_token};
+                token when Ch==$;; Ch==$= -> 
+                    {true, token};
+                equal when Ch==$= -> 
+                    {true, equal};
+                _ -> 
+                    {false, Class}
             end,
             case IsToken of
                 true when Chs=:=[] -> 
@@ -267,9 +278,9 @@ get_local_ips() ->
     lists:flatten([proplists:get_all_values(addr, Data) || {_, Data} <- All]).
 
 
-%% @doc Equivalent to `find_main_ip(auto)'.
+%% @doc Equivalent to `find_main_ip(auto, ipv4)'.
 -spec find_main_ip() -> 
-    {inet:ip_address(), Iface::string()}.
+    inet:ip_address().
 
 find_main_ip() ->
     find_main_ip(auto, ipv4).
@@ -280,14 +291,13 @@ find_main_ip() ->
 %% If `auto' is used, probes `eth0', `eth1', `en0' and `en1'. If none is available returns 
 %% any other of the host's addresses.
 -spec find_main_ip(auto|string(), ipv4|ipv6) -> 
-    {inet:ip_address(), Iface::string()}.
+    inet:ip_address().
 
 find_main_ip(NetInterface, Type) ->
     {ok, All} = inet:getifaddrs(),
     case NetInterface of
         auto ->
-            IFaces = ["eth0", "eth1", "en0", "en1", "lo0", "lo" | 
-                      proplists:get_keys(All)],
+            IFaces = ["eth0", "eth1", "en0", "en1" | proplists:get_keys(All)],
             find_main_ip(IFaces, All, Type);
         _ ->
             find_main_ip([NetInterface], All, Type)   
@@ -295,8 +305,11 @@ find_main_ip(NetInterface, Type) ->
 
 
 %% @private
-find_main_ip([], _, _Type) ->
-    error(no_ip_found);
+find_main_ip([], _, ipv4) ->
+    {127,0,0,1};
+
+find_main_ip([], _, ipv6) ->
+    {0,0,0,0,0,0,0,1};
 
 find_main_ip([IFace|R], All, Type) ->
     Data = get_value(IFace, All, []),
@@ -308,7 +321,7 @@ find_main_ip([IFace|R], All, Type) ->
                 proplists:get_all_values(netmask, Data)),
             case find_real_ip(Addrs, Type) of
                 error -> find_main_ip(R, All, Type);
-                Ip -> {Ip, IFace}
+                Ip -> Ip
             end;
         false ->
             find_main_ip(R, All, Type)
@@ -317,6 +330,10 @@ find_main_ip([IFace|R], All, Type) ->
 %% @private
 find_real_ip([], _Type) ->
     error;
+
+% Skip link-local addresses
+find_real_ip([{{65152,_,_,_,_,_,_,_}, _Netmask}|R], Type) ->
+    find_real_ip(R, Type);
 
 find_real_ip([{{A,B,C,D}, Netmask}|_], ipv4) 
              when Netmask =/= {255,255,255,255} ->
@@ -330,15 +347,15 @@ find_real_ip([_|R], Type) ->
     find_real_ip(R, Type).
 
 
-%% @doc Normalizes a IPv6 in case of a fe80 address
--spec normalize_ipv6({{inet:ipv6_address(), string()}}) ->
-    binary().
+% %% @doc Normalizes a IPv6 in case of a fe80 address
+% -spec normalize_ipv6({{inet:ipv6_address(), string()}}) ->
+%     binary().
 
-normalize_ipv6({{65152, _, _, _, _, _, _, _}=Ip, Iface}) -> 
-    list_to_binary([$[, inet_parse:ntoa(Ip), $%, Iface, $]]);
+% normalize_ipv6({{65152, _, _, _, _, _, _, _}=Ip, Iface}) -> 
+%     list_to_binary([$[, inet_parse:ntoa(Ip), $%, Iface, $]]);
 
-normalize_ipv6({{_, _, _, _, _, _, _, _}=Ip, _Iface}) -> 
-    list_to_binary([$[, inet_parse:ntoa(Ip), $]]).
+% normalize_ipv6({{_, _, _, _, _, _, _, _}=Ip, _Iface}) -> 
+%     list_to_binary([$[, inet_parse:ntoa(Ip), $]]).
 
 
 
