@@ -10,9 +10,9 @@ In no special order:
 * Socket external control (to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM).
 * Javascript, Python, Ruby, Lua, Java libraries. Elixir DSL?
 * DNS stateful processing.
-* Outbound connection server.
+* ~~Outbound connection server~~.
 * _Bridge_ support for B2BUA.
-* _IPv6_.
+* ~~_IPv6_~~.
 * Fully distributed, highly available version based on [Riak Core](https://github.com/basho/riak_core).
 * IMS and RCS extensions.
 * More application examples.

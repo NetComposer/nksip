@@ -1,6 +1,16 @@
 Changelog
 ========
 
+0.3.0 (not yet released)
+------------------------
+ 
+* Full NAPTR/SRV caching resolver.
+* Outbound connection controller.
+* INFO Method.
+* SCTP transport.
+* IPv6.
+* Bug corrections.
+
 
 0.2.0
 -----
