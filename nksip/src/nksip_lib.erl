@@ -124,8 +124,8 @@ find_main_ip() ->
 
 %% @doc Finds the <i>best</i> local IP.
 %% If a network interface is supplied (as "en0") it returns its ip.
-%% If `auto' is used, probes `eth0', `eth1', `en0' and `en1'. If none is available returns 
-%% any other of the host's addresses.
+%% If `auto' is used, probes `ethX' and `enX' interfaces. If none is available returns 
+%% localhost
 -spec find_main_ip(auto|string(), ipv4|ipv6) -> 
     inet:ip_address().
 
@@ -133,8 +133,16 @@ find_main_ip(NetInterface, Type) ->
     {ok, All} = inet:getifaddrs(),
     case NetInterface of
         auto ->
-            IFaces = ["eth0", "eth1", "en0", "en1" | proplists:get_keys(All)],
-            find_main_ip(IFaces, All, Type);
+            IFaces = lists:filter(
+                fun(Name) ->
+                    case Name of
+                        "eth" ++ _ -> true;
+                        "en" ++ _ -> true;
+                        _ -> false
+                    end
+                end,
+                proplists:get_keys(All)),
+            find_main_ip(lists:sort(IFaces), All, Type);
         _ ->
             find_main_ip([NetInterface], All, Type)   
     end.
@@ -181,18 +189,6 @@ find_real_ip([{{A,B,C,D,E,F,G,H}, Netmask}|_], ipv6)
 
 find_real_ip([_|R], Type) ->
     find_real_ip(R, Type).
-
-
-% %% @doc Normalizes a IPv6 in case of a fe80 address
-% -spec normalize_ipv6({{inet:ipv6_address(), string()}}) ->
-%     binary().
-
-% normalize_ipv6({{65152, _, _, _, _, _, _, _}=Ip, Iface}) -> 
-%     list_to_binary([$[, inet_parse:ntoa(Ip), $%, Iface, $]]);
-
-% normalize_ipv6({{_, _, _, _, _, _, _, _}=Ip, _Iface}) -> 
-%     list_to_binary([$[, inet_parse:ntoa(Ip), $]]).
-
 
 
 % calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}).
