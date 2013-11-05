@@ -497,7 +497,8 @@ multiple_uas() ->
 
     % Before the previous invite has been answered, we send a new one
     % UAS replies with 500
-    {ok, 500, [{dialog_id, DialogId}, {reason, <<"Processing Previous INVITE">>}]} = 
+    % {ok, 500, [{dialog_id, DialogId}, {reason, <<"Processing Previous INVITE">>}]} = 
+    {error, request_pending} = 
         nksip_uac:invite(C1, DialogId, 
                            [no_dialog, {headers, [Hds]}, {fields, [reason]}]),
 
@@ -528,7 +529,9 @@ multiple_uas() ->
     ok = tests_util:wait(Ref, [request, provisional]),   
     % Before answering, the local party sends a new reinvite. The remote party
     % replies a 491
-    {ok, 491, _} = nksip_uac:invite(C1, DialogId2, [no_dialog, {headers, [{"Nk", 2}]}]),
+    % {ok, 491, _} = nksip_uac:invite(C1, DialogId2, [no_dialog, {headers, [{"Nk", 2}]}]),
+    {error, request_pending} = 
+        nksip_uac:invite(C1, DialogId2, [no_dialog, {headers, [{"Nk", 2}]}]),
     % The previous invite will be answered, and Fun will send the ACK
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
