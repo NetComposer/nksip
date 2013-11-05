@@ -151,7 +151,7 @@
     routes :: [nksip:uri()],
     contacts :: [nksip:uri()],
     headers :: [nksip:header()],
-    content_type :: [nksip_lib:token()],
+    content_type :: [nksip_tokenizer:token()],
     body :: nksip:body(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),

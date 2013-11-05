@@ -37,9 +37,9 @@
 
 -export_type([msg_class/0]).
 
-
 -type msg_class() :: {req, nksip:method(), binary()} | 
                      {resp, nksip:response_code(), binary()}.
+
 
 
 %% ===================================================================
@@ -114,7 +114,7 @@ header_dates(Name, Headers) when is_list(Headers) ->
 %% @doc Parse all `Name' headers of a request or response and get a list of tokens.
 %% If any of them is not recognized it will return `error'.
 -spec header_tokens(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
-    [nksip_lib:token()] | error.
+    [nksip_tokenizer:token()] | error.
 
 header_tokens(Name, #sipmsg{headers=Headers}) ->
     header_tokens(Name, Headers);
@@ -156,7 +156,7 @@ uris([Other|Rest]) when is_record(Other, uri); is_binary(Other); is_list(Other) 
     uris([Other|Rest], []);
 
 uris(Uris) ->
-    parse_uris(nksip_lib:tokenize(Uris, uri), []).
+    parse_uris(nksip_tokenizer:tokenize(Uris, uri), []).
 
 
 %% @doc Parses all URIs found in `Term' as <i>Request Uris</i>.
@@ -172,19 +172,19 @@ ruris(Term) ->
     [nksip:via()].
 
 vias(Text) ->
-    parse_vias(nksip_lib:tokenize(Text, via), []).
+    parse_vias(nksip_tokenizer:tokenize(Text, via), []).
 
 
 %% @doc Gets a list of `tokens()' from `Term'
 -spec tokens([binary()]) ->
-    [nksip_lib:token()].
+    [nksip_tokenizer:token()].
 
 tokens(Term) ->
     Term1 = case is_binary(Term) of
         true -> Term;
         _ -> nksip_lib:bjoin(Term)
     end,
-    parse_tokens(lists:flatten(nksip_lib:tokenize(Term1, token)), []).
+    parse_tokens(lists:flatten(nksip_tokenizer:tokenize(Term1, token)), []).
 
 
 %% @doc Parses a list of values as integers
@@ -437,7 +437,7 @@ get_sipmsg(Headers, Body) ->
         end,
         case header_values(<<"CSeq">>, Headers) of
             [CSeqHeader] ->
-                case nksip_lib:tokenize(CSeqHeader, none) of
+                case nksip_tokenizer:tokenize(CSeqHeader, none) of
                     [[{CSeqInt0}, {CSeqMethod0}]] ->                
                         CSeqMethod = method(CSeqMethod0),
                         case (catch list_to_integer(CSeqInt0)) of
@@ -580,7 +580,7 @@ uris([#uri{}=Uri|Rest], Acc) ->
     uris(Rest, [Uri|Acc]);
 
 uris([Other|Rest], Acc) ->
-    Tokens = nksip_lib:tokenize(Other, uri),
+    Tokens = nksip_tokenizer:tokenize(Other, uri),
     uris(Rest, [lists:reverse(parse_uris(Tokens, []))|Acc]);
 
 uris([], Acc) ->
@@ -588,7 +588,7 @@ uris([], Acc) ->
 
 
 %% @private
--spec parse_uris([nksip_lib:token_list()], list()) -> 
+-spec parse_uris([nksip_tokenizer:token_list()], list()) -> 
     [nksip:uri()].
 
 parse_uris([[{"*"}]], []) ->
@@ -657,7 +657,7 @@ parse_uris([], Acc) ->
 
 
 %% @private
--spec parse_vias([nksip_lib:token_list()], list()) -> 
+-spec parse_vias([nksip_tokenizer:token_list()], list()) -> 
     [nksip:via()] | error.
 
 parse_vias([Tokens|Rest], Acc) ->
@@ -695,8 +695,8 @@ parse_vias([], Acc) ->
 
 
 %% @private
--spec parse_tokens(nksip_lib:token_list(), list()) -> 
-    [nksip_lib:token()].
+-spec parse_tokens(nksip_tokenizer:token_list(), list()) -> 
+    [nksip_tokenizer:token()].
 
 parse_tokens([{Name}|R1], Acc) ->
     {Opts, R2} = parse_opts(R1),
@@ -706,8 +706,8 @@ parse_tokens(_O, Acc) ->
 
 
 %% @private
--spec parse_opts(nksip_lib:token_list()) -> 
-    {Opts::nksip_lib:proplist(), Rest::nksip_lib:token_list()}.
+-spec parse_opts(nksip_tokenizer:token_list()) -> 
+    {Opts::nksip_lib:proplist(), Rest::nksip_tokenizer:token_list()}.
 
 parse_opts(TokenList) ->
     parse_opts(TokenList, []).
@@ -747,8 +747,8 @@ parse_opts(TokenList, Acc) ->
 
 
 %% @private
--spec parse_headers(nksip_lib:token_list()) ->
-    {Headers::nksip_lib:proplist(), Rest::nksip_lib:token_list()}.
+-spec parse_headers(nksip_tokenizer:token_list()) ->
+    {Headers::nksip_lib:proplist(), Rest::nksip_tokenizer:token_list()}.
 
 parse_headers([$?|Rest]) ->
     parse_headers([$&|Rest], []);
@@ -771,7 +771,6 @@ parse_headers(TokenList, Acc) ->
                 _ -> parse_headers(Rest, [{Key, list_to_binary(Value0)}|Acc])
             end
     end.
-
 
 
 %% ===================================================================

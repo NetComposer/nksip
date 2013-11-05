@@ -415,7 +415,7 @@ make_auth_response(QOP, Method, BinUri, HA1bin, Nonce, CNonce, Nc) ->
 
 parse_header(Header) ->
     try
-        [{Scheme0}|Rest] = lists:flatten(nksip_lib:tokenize(Header, equal)),
+        [{Scheme0}|Rest] = lists:flatten(nksip_tokenizer:tokenize(Header, equal)),
         Scheme = case string:to_lower(Scheme0) of
             "digest" -> digest;
             "basic" -> basic;
@@ -455,7 +455,7 @@ parse_header_auth([{Key0}, $=, {Val0}|Rest], Acc) ->
                     "auth-int" -> 'auth-int';
                     _ -> list_to_binary(QOPToken)
                 end
-                || [{QOPToken}] <- nksip_lib:tokenize(Val, none)
+                || [{QOPToken}] <- nksip_tokenizer:tokenize(Val, none)
             ],
             {qop, QOP};
         Other ->

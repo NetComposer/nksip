@@ -86,12 +86,11 @@ via(#via{}=Via) ->
 
 
 %% @doc Serializes a list of `token()'
--spec tokens([nksip_lib:token()]) ->
+-spec tokens([nksip_tokenizer:token()]) ->
     binary().
 
 tokens(Tokens) ->
     list_to_binary(raw_tokens(Tokens)).
-
 
 
 %% ===================================================================
@@ -194,7 +193,7 @@ raw_via(#via{}=Via) ->
     ].
 
 %% @private Serializes a list of `token()'
--spec raw_tokens([nksip_lib:token()]) ->
+-spec raw_tokens([nksip_tokenizer:token()]) ->
     iolist().
 
 raw_tokens([]) ->
@@ -205,7 +204,7 @@ raw_tokens(Tokens) ->
 
 
 %% @private
--spec raw_tokens([nksip_lib:token()], iolist()) ->
+-spec raw_tokens([nksip_tokenizer:token()], iolist()) ->
     iolist().
 
 raw_tokens([{Head, Opts}, Second | Rest], Acc) ->
