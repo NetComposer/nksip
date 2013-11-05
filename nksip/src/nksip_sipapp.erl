@@ -301,7 +301,7 @@ authorize(_AuthList, _ReqId, _From, State) ->
 %%      to this proxy.</li>
 %%  <li>`follow_redirects': If any 3xx response is received, the received contacts
 %%      will be inserted in the list of uris to try.</li>
-%%  <li><code>{route_set, {@link nksip:user_uri()}}</code>: 
+%%  <li><code>{route, {@link nksip:user_uri()}}</code>: 
 %%      NkSIP will insert theses routes as <i>Route</i> headers
 %%      in the request, before any other existing `Route' header.
 %%      The request would then be sent to the first <i>Route</i>.</li>
