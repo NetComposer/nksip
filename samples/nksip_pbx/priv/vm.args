@@ -1,7 +1,7 @@
 -pa deps/goldrush/ebin 
 -pa deps/lager/ebin 
 -pa deps/ranch/ebin 
--pa nksip/ebin
+-pa ../nksip/ebin
 -pa samples/nksip_pbx/ebin
 
 ## Name of the node
