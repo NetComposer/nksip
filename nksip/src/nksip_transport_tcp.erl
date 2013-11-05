@@ -78,7 +78,8 @@ start_listener(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
     {ok, pid(), nksip_transport:transport()} | error.
          
 connect(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
-    case nksip_transport:get_listening(AppId, Proto) of
+    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
+    case nksip_transport:get_listening(AppId, Proto, Class) of
         [{ListenTransp, _Pid}|_] -> 
             SocketOpts = outbound_opts(Proto, Opts),
             Timeout = 64 * nksip_config:get(timer_t1),
@@ -106,7 +107,7 @@ connect(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
                     controlling_process(Proto, Socket, Pid),
                     setopts(Proto, Socket, [{active, once}]),
                     ?debug(AppId, "connected to ~s:~p (~p)", 
-                        [nksip_lib:to_binary(Ip), Port, Proto]),
+                        [nksip_lib:to_host(Ip), Port, Proto]),
                     {ok, Pid, Transp};
                 {error, Error} ->
                     {error, Error}

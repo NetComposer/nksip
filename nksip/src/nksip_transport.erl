@@ -23,8 +23,8 @@
 -module(nksip_transport).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_all/0, get_all/1, get_listening/2, get_connected/4]).
--export([is_local/2, is_local_ip/1, main_ip/0]).
+-export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
+-export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([send/4]).
 
@@ -67,11 +67,22 @@ get_all(AppId) ->
 
 
 %% @private Finds a listening transport of Proto.
--spec get_listening(nksip:app_id(), nksip:protocol()) -> 
+-spec get_listening(nksip:app_id(), nksip:protocol(), ip4|ip6) -> 
     [{transport(), pid()}].
 
-get_listening(AppId, Proto) ->
-    Fun = fun({#transport{proto=TP}, _}) -> TP=:=Proto end,
+get_listening(AppId, Proto, Class) ->
+    Fun = fun({#transport{proto=TProto, listen_ip=TListen}, _}) -> 
+        case TProto=:=Proto of
+            true ->
+                case Class of
+                    ipv4 when size(TListen)=:=4 -> true;
+                    ipv6 when size(TListen)=:=8 -> true;
+                    _ -> false
+                end;
+            false ->
+                false
+        end
+    end,
     lists:filter(Fun, nksip_proc:values({nksip_listen, AppId})).
 
 
@@ -146,12 +157,20 @@ is_local_ip(Ip) ->
     lists:member(Ip, local_ips()).
 
 
-%% @doc Gets a cached version of node's main IP address.
+%% @doc Gets a cached version of node's main IPv4 address.
 -spec main_ip() -> 
-    inet:ip_address().
+    inet:ip4_address().
 
 main_ip() ->
     nksip_config:get(main_ip). 
+
+
+%% @doc Gets a cached version of node's main IPv6 address.
+-spec main_ip6() -> 
+    inet:ip6_address().
+
+main_ip6() ->
+    nksip_config:get(main_ip6). 
 
 
 %% @doc Gets a cached version of all detected local node IPs.
@@ -168,10 +187,11 @@ local_ips() ->
     {ok, pid()} | {error, term()}.
 
 start_transport(AppId, Proto, Ip, Port, Opts) ->
+    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     Listening = [
         {{LIp, LPort}, Pid} || 
             {#transport{listen_ip=LIp, listen_port=LPort}, Pid} 
-            <- get_listening(AppId, Proto)
+            <- get_listening(AppId, Proto, Class)
     ],
     case nksip_lib:get_value({Ip, Port}, Listening) of
         undefined when Proto=:= udp ->
@@ -223,7 +243,8 @@ send(AppId, [{udp, Ip, 0}|Rest], MakeMsg, Opts) ->
 
 send(AppId, [{udp, Ip, Port}|Rest]=All, MakeMsg, Opts) -> 
     ?debug(AppId, "Transport send to ~p (udp)", [All]),
-    case get_listening(AppId, udp) of
+    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
+    case get_listening(AppId, udp, Class) of
         [{Transport1, Pid}|_] -> 
             Transport2 = Transport1#transport{remote_ip=Ip, remote_port=Port},
             SipMsg = MakeMsg(Transport2),

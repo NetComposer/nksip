@@ -72,7 +72,8 @@ start_listener(AppId, Ip, Port, Opts) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 connect(AppId, Ip, Port, Opts) ->
-    case nksip_transport:get_listening(AppId, sctp) of
+    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
+    case nksip_transport:get_listening(AppId, sctp, Class) of
         [{ListenTransp, _Pid}|_] ->
             SocketOpts = outbound_opts(Opts),
             case gen_sctp:open(0, SocketOpts) of
@@ -101,7 +102,7 @@ connect(AppId, Ip, Port, Opts) ->
                             gen_sctp:controlling_process(Socket, Pid),
                             inet:setopts(Socket, [{active, once}]),
                             ?debug(AppId, "connected to ~s:~p (sctp)", 
-                                   [nksip_lib:to_binary(Ip), Port]),
+                                   [nksip_lib:to_host(Ip), Port]),
                             {ok, Pid, Transp};
                         {error, Error} ->
                             {error, Error}

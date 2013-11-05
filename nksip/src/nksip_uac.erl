@@ -543,7 +543,7 @@ refresh(AppId, DialogSpec, Opts) ->
          Error :: unknown_core | invalid_uri | no_host | network_error.
 
 stun(AppId, UriSpec, _Opts) ->
-    case nksip_transport:get_listening(AppId, udp) of
+    case nksip_transport:get_listening(AppId, udp, ipv4) of
         [] -> 
             {error, unknown_core};
         [{#transport{listen_ip=LIp, listen_port=LPort}, Pid}|_] ->
