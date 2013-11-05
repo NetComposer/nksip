@@ -56,10 +56,11 @@ preprocess(Req, GlobalId) ->
         vias = [Via|ViaR], 
         data = ReqData
     } = Req,
-    ViaOpts1 = [{received, nksip_lib:to_binary(Ip)}|Via#via.opts],
+    Received = nksip_lib:to_host(Ip, false), 
+    ViaOpts1 = [{received, Received}|Via#via.opts],
     % For UDP, we honor de rport option
-    % For connection transports, we force inclusion of remote port to reuse the same
-    % connection
+    % For connection transports, we force inclusion of remote port 
+    % to reuse the same connection
     ViaOpts2 = case lists:member(rport, ViaOpts1) of
         false when Proto=:=udp -> ViaOpts1;
         _ -> [{rport, Port} | ViaOpts1 -- [rport]]

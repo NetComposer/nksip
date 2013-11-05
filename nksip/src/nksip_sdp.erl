@@ -101,7 +101,7 @@ new(Host, MediaSpecList) ->
         }
         || {Media, Port, Attributes} <- MediaSpecList
     ],
-    Address = {<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Host)},
+    Address = {<<"IN">>, <<"IP4">>, nksip_lib:to_host(Host)},
     #sdp{
         id = Now, 
         vsn = Now, 
@@ -293,7 +293,7 @@ update_ip(#sdp{connect = {_, _, <<"auto.nksip">>}} = SDP, ListenAddr) ->
                 _ -> Ip = {0,0,0,0}, Class = <<"IP4">>
             end
     end,
-    Addr = {<<"IN">>, Class, nksip_lib:to_binary(Ip)}, 
+    Addr = {<<"IN">>, Class, nksip_lib:to_host(Ip, false)}, 
     SDP#sdp{address=Addr, connect=Addr};
 
 update_ip(Any, _) ->

@@ -29,12 +29,12 @@
 -export([local_to_timestamp/1, gmt_to_timestamp/1]).
 -export([get_value/2, get_value/3, get_binary/2, get_binary/3, get_list/2, get_list/3]).
 -export([get_integer/2, get_integer/3]).
--export([to_binary/1, to_list/1, to_integer/1, to_ip/1, is_string/1]).
--export([to_lower/1, to_upper/1]).
+-export([to_binary/1, to_list/1, to_integer/1, to_ip/1, to_host/1, to_host/2]).
+-export([to_lower/1, to_upper/1, is_string/1]).
 -export([bjoin/1, bjoin/2, hex/1, extract/2, delete/2, bin_last/2]).
 -export([cancel_timer/1, msg/2]).
 
--export_type([proplist/0, timestamp/0, l_timestamp/0, token/0, token_list/0]).
+-export_type([proplist/0, timestamp/0, l_timestamp/0]).
 
 -include("nksip.hrl").
 
@@ -344,15 +344,7 @@ to_binary(A) when is_atom(A) -> atom_to_binary(A, latin1);
 to_binary(I) when is_integer(I) -> list_to_binary(erlang:integer_to_list(I));
 to_binary(#uri{}=Uri) -> nksip_unparse:uri(Uri);
 to_binary(#via{}=Via) -> nksip_unparse:via(Via);
-to_binary({A,B,C,D}=Address) 
-    when is_integer(A), is_integer(B), is_integer(C), is_integer(D) ->
-    list_to_binary(inet_parse:ntoa(Address));
-to_binary({A,B,C,D,E,F,G,H}=Address) 
-    when is_integer(A), is_integer(B), is_integer(C), is_integer(D),
-    is_integer(E), is_integer(F), is_integer(G), is_integer(H) ->
-    list_to_binary(inet_parse:ntoa(Address));
-to_binary(N) -> 
-    msg("~p", [N]).
+to_binary(N) -> msg("~p", [N]).
 
 
 %% @doc Converts anything into a `string()'.
@@ -401,6 +393,33 @@ to_ip(Address) when is_list(Address) ->
         {ok, Ip} -> {ok, Ip};
         _ -> error
     end.
+
+
+%% @doc Converts an IP or host to a binary host value
+-spec to_host(inet:ip_address() | string() | binary()) ->
+    binary().
+
+to_host(IpOrHost) ->
+    to_host(IpOrHost, false).
+
+
+%% @doc Converts an IP or host to a binary host value. 
+% If `IsUri' and it is an IPv6 address, it will be enclosed in `[' and `]'
+-spec to_host(inet:ip_address() | string() | binary(), boolean()) ->
+    binary().
+
+to_host({A,B,C,D}=Address, _IsUri) 
+    when is_integer(A), is_integer(B), is_integer(C), is_integer(D) ->
+    list_to_binary(inet_parse:ntoa(Address));
+to_host({A,B,C,D,E,F,G,H}=Address, IsUri) 
+    when is_integer(A), is_integer(B), is_integer(C), is_integer(D),
+    is_integer(E), is_integer(F), is_integer(G), is_integer(H) ->
+    case IsUri of
+        true -> list_to_binary([$[, inet_parse:ntoa(Address), $]]);
+        false -> list_to_binary(inet_parse:ntoa(Address))
+    end;
+to_host(Host, _IsUri) ->
+    to_binary(Host).
 
 
 %% @doc converts a `string()' or `binary()' to a lower `binary()'.
