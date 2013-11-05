@@ -159,35 +159,78 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             data = [],
             start = nksip_lib:l_timestamp()
         },
-        Opts1 = make_remove_opts(Opts, []),
-        Opts2 = case lists:member(make_contact, Opts) of
-            false when Method=='INVITE', Contacts=:=[] -> [make_contact|Opts1];
-            _ -> Opts1
-        end,
-        {ok, Req, Opts2}
+        Opts1 = [
+            nksip_lib:extract(Opts, pass),
+            case lists:member(make_contact, Opts) of
+                true -> make_contact;
+                false when Method=='INVITE', Contacts=:=[] -> make_contact;
+                _ -> []
+            end,
+            case lists:member(record_route, Opts) of
+                true  -> record_route;
+                _ -> []
+            end,
+            case nksip_lib:get_value(local_host, Opts, auto) of
+                auto -> [];
+                Host -> {local_host, nksip_lib:to_host(Host)}
+            end,
+            case nksip_lib:get_value(local_host6, Opts, auto) of
+                auto -> 
+                    [];
+                Host6 -> 
+                    case nksip_lib:to_ip(Host6) of
+                        {ok, HostIp6} -> 
+                            % Ensure it is enclosed in `[]'
+                            {local_host6, nksip_lib:to_host(HostIp6, true)};
+                        error -> 
+                            {local_host6, nksip_lib:to_binary(Host6)}
+                    end
+            end,            
+            case nksip_lib:get_value(fields, Opts) of
+                undefined -> [];
+                Fields -> {fields, Fields}
+            end,
+            case lists:member(async, Opts) of
+                true -> async;
+                false -> []
+            end,
+            case nksip_lib:get_value(callback, Opts) of
+                undefined -> [];
+                Callback -> {callback, Callback}
+            end,
+            case lists:member(get_request, Opts) of
+                true -> get_request;
+                false -> []
+            end,
+            case lists:member(get_response, Opts) of
+                true -> get_response;
+                false -> []
+            end
+        ],
+        {ok, Req, lists:flatten(Opts1)}
     catch
         throw:Throw -> {error, Throw}
     end.
 
 
-%% @private
-make_remove_opts([], Acc) ->
-    lists:reverse(Acc);
+% %% @private
+% make_remove_opts([], Acc) ->
+%     lists:reverse(Acc);
 
-make_remove_opts([{Tag, _}|Rest], Acc)
-    when Tag==from; Tag==to; Tag==route; Tag==contact; Tag==call_id; Tag==cseq;
-         Tag==min_cseq; Tag==user_agent; Tag==pre_headers; Tag==post_headers; 
-         Tag==headers; Tag==body; Tag==content_type; Tag==expires ->
-    make_remove_opts(Rest, Acc);
+% make_remove_opts([{Tag, _}|Rest], Acc)
+%     when Tag==from; Tag==to; Tag==route; Tag==contact; Tag==call_id; Tag==cseq;
+%          Tag==min_cseq; Tag==user_agent; Tag==pre_headers; Tag==post_headers; 
+%          Tag==headers; Tag==body; Tag==content_type; Tag==expires ->
+%     make_remove_opts(Rest, Acc);
 
-make_remove_opts([Tag|Rest], Acc) 
-    when Tag==make_allow; Tag==make_supported; Tag==make_accept; Tag==make_date;
-         Tag==unregister; Tag==unregister_all;
-         Tag==active; Tag==inactive; Tag==hold ->
-    make_remove_opts(Rest, Acc);
+% make_remove_opts([Tag|Rest], Acc) 
+%     when Tag==make_allow; Tag==make_supported; Tag==make_accept; Tag==make_date;
+%          Tag==unregister; Tag==unregister_all;
+%          Tag==active; Tag==inactive; Tag==hold ->
+%     make_remove_opts(Rest, Acc);
 
-make_remove_opts([Tag|Rest], Acc) ->
-    make_remove_opts(Rest, [Tag|Acc]).
+% make_remove_opts([Tag|Rest], Acc) ->
+%     make_remove_opts(Rest, [Tag|Acc]).
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
