@@ -56,7 +56,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start/4, stop/1, stop_all/0, get_all/0]).
--export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/2]).
+-export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3]).
 
 -include("nksip.hrl").
 
@@ -191,7 +191,8 @@
 %%          <td>The SipApp can start any number of transports. 
 %%          If an UDP transport is started, a TCP transport on the same IP and port
 %%          will be started automatically.<br/>
-%%          Use `{0,0,0,0}' to use <i>all</i> available IP addresses and `0' to use
+%%          Use `any' to use <i>all</i> available IPv4 addresses and 
+%%          `any6' for all IPv6 addresses, and `all' to use
 %%          any available port.</td>
 %%      </tr>
 %%      <tr>
@@ -228,11 +229,19 @@
 %%          <td>`auto'</td>
 %%          <td>Default host or IP to use in headers like `Via', `Contact' and 
 %%          `Record-Route'.<br/>
-%%          If set to `auto', NkSIP will use the IP of the
+%%          If set to `auto' NkSIP will use the IP of the
 %%          transport selected in every case. If that transport is listening on all
-%%          addresses (`{0,0,0,0}'), NkSIP will try to find the best IP, using the first 
-%%          valid IP of all the network interfaces in this order: `eth0, eth1, en0, en1',
-%%          or any other IP address of the host.</td>
+%%          addresses NkSIP will try to find the best IP using the first 
+%%          valid IP among the network interfaces `ethX' and 'enX',
+%%          or localhost if none is found.</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`local_host6'</td>
+%%          <td>`auto|string()|binary()'</td>
+%%          <td>`auto'</td>
+%%          <td>Default host or IP to use in headers like `Via', `Contact' and 
+%%          `Record-Route' for IPv6 transports.<br/>
+%%          See `local_host' option.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`registrar'</td>
@@ -346,7 +355,19 @@ start(AppId, Module, Args, Opts) ->
             end,
             case nksip_lib:get_value(local_host, Opts, auto) of
                 auto -> [];
-                Host -> {local_host, nksip_lib:to_binary(Host)}
+                Host -> {local_host, nksip_lib:to_host(Host)}
+            end,
+            case nksip_lib:get_value(local_host6, Opts, auto) of
+                auto -> 
+                    [];
+                Host6 -> 
+                    case nksip_lib:to_ip(Host6) of
+                        {ok, HostIp6} -> 
+                            % Ensure it is enclosed in `[]'
+                            {local_host6, nksip_lib:to_host(HostIp6, true)};
+                        error -> 
+                            {local_host6, nksip_lib:to_binary(Host6)}
+                    end
             end,
             case lists:member(registrar, Opts) of
                 true -> registrar;
@@ -450,11 +471,11 @@ get_pid(Id) ->
 
 
 %% @doc Gets SipApp's first listening port on this transport protocol.
--spec get_port(app_id(), protocol()) -> 
+-spec get_port(app_id(), protocol(), ipv4|ipv6) -> 
     inet:port_number() | not_found.
 
-get_port(AppId, Proto) ->
-    case nksip_transport:get_listening(AppId, Proto) of
+get_port(AppId, Proto, Class) ->
+    case nksip_transport:get_listening(AppId, Proto, Class) of
         [{#transport{listen_port=Port}, _Pid}|_] -> Port;
         _ -> not_found
     end.

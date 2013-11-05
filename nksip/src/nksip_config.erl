@@ -185,6 +185,7 @@ init([]) ->
     put(global_id, nksip_lib:luid()),
     put(local_ips, nksip_lib:get_local_ips()),
     put(main_ip, nksip_lib:find_main_ip()),
+    put(main_ip6, nksip_lib:find_main_ip(auto, ipv6)),
     {ok, #state{}}.
 
 

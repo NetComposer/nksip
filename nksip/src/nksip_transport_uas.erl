@@ -101,6 +101,8 @@ resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, GlobalId, Opts) ->
 
 make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
+        app_id = AppId,
+        call_id = CallId,
         vias = [#via{opts=ViaOpts}=Via|ViaR], 
         to = To, 
         headers = Headers,
@@ -112,14 +114,27 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     listen_ip = ListenIp, 
                     listen_port = ListenPort
                 } = Transport) ->
-        ListenHost = case nksip_lib:get_value(local_host, Opts, auto) of
-            auto when ListenIp =:= {0,0,0,0} -> 
-                nksip_lib:to_binary(nksip_transport:main_ip());
-            auto -> 
-                nksip_lib:to_binary(ListenIp);
-            Host -> 
-                nksip_lib:to_binary(Host)
+        ListenHost = case size(ListenIp) of
+            4 ->
+                case nksip_lib:get_value(local_host, Opts, auto) of
+                    auto when ListenIp =:= {0,0,0,0} -> 
+                        nksip_lib:to_host(nksip_transport:main_ip());
+                    auto -> 
+                        nksip_lib:to_host(ListenIp);
+                    Host -> 
+                        Host
+                end;
+            8 ->
+                case nksip_lib:get_value(local_host6, Opts, auto) of
+                    auto when ListenIp =:= {0,0,0,0,0,0,0,0} -> 
+                        nksip_lib:to_host(nksip_transport:main_ip6(), true);
+                    auto -> 
+                        nksip_lib:to_host(ListenIp, true);
+                    Host -> 
+                        Host
+                end
         end,
+        ?debug(AppId, CallId, "UAS listenhost is ~s", [ListenHost]),
         Scheme = case Proto=:=tls andalso lists:member(secure, Opts) of
             true -> sips;
             _ -> sip
