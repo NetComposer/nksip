@@ -415,9 +415,9 @@ redirect() ->
     Ref = make_ref(),
     Self = self(),
     RepHd = [{"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}],
-    not_found = nksip:get_port(other, udp),
-    PortD1 = nksip:get_port({fork, clientD1}, udp),
-    PortD2 = nksip:get_port({fork, clientD2}, tcp),
+    not_found = nksip:get_port(other, udp, ipv4),
+    PortD1 = nksip:get_port({fork, clientD1}, udp, ipv4),
+    PortD2 = nksip:get_port({fork, clientD2}, tcp, ipv4),
     Contacts = ["sip:127.0.0.1:"++integer_to_list(PortD1),
                 #uri{domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
