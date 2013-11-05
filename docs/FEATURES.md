@@ -2,7 +2,6 @@ In the current version the following RFCs are supported:
 
 RFC|Description|Notes
 ---|---|---
-
 [RFC2782](http://tools.ietf.org/html/rfc2782)|DNS SRV|
 [RFC2915](http://tools.ietf.org/html/rfc2915)|DNS NAPTR|
 [RFC2976](http://tools.ietf.org/html/rfc2976)|INFO|
