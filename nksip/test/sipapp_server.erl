@@ -55,9 +55,9 @@ set_domains(Id, Domains) ->
 init(Id) ->
     % Sets the domains for each combination of test/server
     Domains = case Id of
-        {fork, _} -> [<<"nksip">>, <<"127.0.0.1">>];
-        {_, server1} -> [<<"nksip">>, <<"127.0.0.1">>];
-        {_, server2} -> [<<"nksip2">>, <<"127.0.0.1">>];
+        {fork, _} -> [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>];
+        {_, server1} -> [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>];
+        {_, server2} -> [<<"nksip2">>, <<"127.0.0.1">>, <<"[::1]">>];
         _ -> []
     end,
     {ok, #state{id=Id, domains=Domains, callbacks=[]}}.
@@ -123,7 +123,7 @@ route(Scheme, User, Domain, ReqId, _From,
                     {reply, {process, Opts}, State}
             end;
         true when Domain =:= <<"nksip">> ->
-            case nksip_registrar:find(Id, Scheme, User, Domain) of
+            case nksip_registrar:find(AppId, Scheme, User, Domain) of
                 [] -> {reply, temporarily_unavailable, State};
                 UriList -> {reply, {proxy, UriList, Opts}, State}
             end;
@@ -238,7 +238,37 @@ route(Scheme, User, Domain, _ReqId, _From, #state{id={auth, server1}}=State) ->
     end;
 
 route(_Scheme, _User, _Domain, _Request, _From, #state{id={auth, server2}}=State) ->
-    {reply, {proxy, ruri, [record_route]}, State}.
+    {reply, {proxy, ruri, [record_route]}, State};
+
+% Route for "ipv6" test suite.
+route(Scheme, User, Domain, _ReqId, _From, 
+        #state{id={ipv6, server1}=AppId, domains=Domains}=State) ->
+    Opts = [
+        {headers, [{'Nk-Id', server1}]},
+        stateless,
+        {route, "<sip:[::1]:5061;lr;transport=tcp>"}
+    ],
+    case lists:member(Domain, Domains) of
+        true when User =:= <<>> ->
+            {reply, {process, Opts}, State};
+        true when Domain =:= <<"nksip">> ->
+            case nksip_registrar:find(AppId, Scheme, User, Domain) of
+                [] -> 
+                    {reply, temporarily_unavailable, State};
+                UriList -> 
+                    {reply, {proxy, UriList, Opts}, State}
+            end;
+        _ ->
+            {reply, {proxy, ruri, Opts}, State}
+    end;
+
+route(_Scheme, _User, _Domain, _ReqId, _From, #state{id={ipv6, server2}}=State) ->
+    Opts = [
+        record_route,
+        {headers, [{'Nk-Id', server2}]}
+    ],
+    {reply, {proxy, ruri, Opts}, State}.
+
 
 
 

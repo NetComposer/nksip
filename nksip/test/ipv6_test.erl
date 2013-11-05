@@ -32,47 +32,48 @@ ipv6_test_() ->
       fun() -> start() end,
       fun(_) -> stop() end,
       [
-          fun basic/0
+        fun basic/0,
+        fun invite/0,
+        fun proxy/0,
+        fun bridge_4_6/0,
+        fun torture/0
       ]
   }.
 
 
-get_main_ip() ->
-    Ip = nksip_lib:find_main_ip(auto, ipv6),
-    list_to_binary([$[, nksip_lib:to_binary(Ip), $]]).
+main_ip6() ->
+    nksip_lib:to_host(nksip_transport:main_ip6(), true).
 
 start() ->
     tests_util:start_nksip(),
-    MainIp = get_main_ip(),
 
     ok = sipapp_server:start({ipv6, server1}, [
         {from, "sip:server1@nksip"},
         registrar,
-        {local_host, "::1"},
+        {local_host6, "::1"},
+        {transport, {udp, any, 5060}},
         {transport, {udp, any6, 5060}}]),
 
     ok = sipapp_server:start({ipv6, server2}, [
         {from, "sip:server2@nksip"},
-        {local_host, "::1"},
+        {local_host, "127.0.0.1"},
+        {transport, {udp, any, 5061}},
+        {local_host6, "::1"},
         {transport, {udp, any6, 5061}}]),
 
     ok = sipapp_endpoint:start({ipv6, client1}, [
         {from, "sip:client1@nksip"},
-        {local_host, MainIp},
         {transport, {udp, any6, 5070}}]),
     
     ok = sipapp_endpoint:start({ipv6, client2}, [
         {from, "sip:client2@nksip"},
-        {pass, "jj"},
-        {pass, {"4321", "client1"}},
-        {local_host, MainIp},
         {transport, {udp, any6, 5071}}]),
 
     ok = sipapp_endpoint:start({ipv6, client3}, [
         {from, "sip:client3@nksip"},
-        {local_host, MainIp},
-        {transport, {udp, any6, 5072}}]),
-    
+        {local_host, "127.0.0.1"},
+        {transport, {udp, any, 5072}}]),
+
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
@@ -86,204 +87,390 @@ stop() ->
 
 
 basic() ->
-    MainIp = get_main_ip(),
+    MainIp = main_ip6(),
     Self = self(),
     Ref = make_ref(),
 
-    Fun = fun({req, #sipmsg{contacts=[Contact]}}) ->
-        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=[{transport, tcp}]} =
+    Fun1 = fun({req, #sipmsg{contacts=[Contact]}}) ->
+        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=[]} =
             Contact,
         Self ! {Ref, ok_1}
     end,
-    Opts = [{callback, Fun}, get_request, get_response, make_contact],
-    RUri = "<sip:[::1]:5071;transport=tcp>",
-    {resp, Resp1} = nksip_uac:options({ipv6, client1}, RUri, Opts),
+    Opts1 = [{callback, Fun1}, get_request, get_response, make_contact],
+    RUri1 = "<sip:[::1]:5071>",
+    {resp, Resp1} = nksip_uac:options({ipv6, client1}, RUri1, Opts1),
     #sipmsg{
         ruri = #uri{domain=(<<"[::1]">>)}, 
-        vias = [#via{domain=MainIp, opts=ViaOpts}],
-        transport = Transp
+        vias = [#via{domain=MainIp, opts=ViaOpts1}],
+        transport = Transp1
     } = Resp1,
-    <<"::1">> = nksip_lib:get_value(received, ViaOpts),
-    RPort = nksip_lib:get_integer(rport, ViaOpts),
+    <<"::1">> = nksip_lib:get_value(received, ViaOpts1),
+    RPort1 = nksip_lib:get_integer(rport, ViaOpts1),
+    %% For UDP transport, local ip is set to [:::] (?)
     #transport{
-        proto = tcp,
-        local_ip =  {0,0,0,0,0,0,0,1},
-        local_port = RPort,
+        proto = udp,
+        local_ip =  {0,0,0,0,0,0,0,0},
+        local_port = RPort1,
         remote_ip = {0,0,0,0,0,0,0,1},
         remote_port = 5071,
         listen_ip = {0,0,0,0,0,0,0,0},
         listen_port = 5070
-    } = Transp,
-
-    ok = tests_util:wait(Ref, [ok_1]).
-
+    } = Transp1,
+    ok = tests_util:wait(Ref, [ok_1]),
 
 
+    Fun2 = fun({req, #sipmsg{contacts=[Contact]}}) ->
+        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=[{transport, tcp}]} =
+            Contact,
+        Self ! {Ref, ok_2}
+    end,
+    Opts2 = [{callback, Fun2}, get_request, get_response, make_contact],
+    RUri2 = "<sip:[::1]:5071;transport=tcp>",
+    {resp, Resp2} = nksip_uac:options({ipv6, client1}, RUri2, Opts2),
+    #sipmsg{
+        ruri = #uri{domain=(<<"[::1]">>)}, 
+        vias = [#via{domain=MainIp, opts=ViaOpts2}],
+        transport = Transp2
+    } = Resp2,
+    <<"::1">> = nksip_lib:get_value(received, ViaOpts2),
+    RPort2 = nksip_lib:get_integer(rport, ViaOpts2),
+    %% For TCP transport, local ip is set to [::1]
+    #transport{
+        proto = tcp,
+        local_ip =  {0,0,0,0,0,0,0,1},
+        local_port = RPort2,
+        remote_ip = {0,0,0,0,0,0,0,1},
+        remote_port = 5071,
+        listen_ip = {0,0,0,0,0,0,0,0},
+        listen_port = 5070
+    } = Transp2,
+    ok = tests_util:wait(Ref, [ok_2]),
+    ok.
+
+
+invite() ->
+    C1 = {ipv6, client1},
+    C2 = {ipv6, client2},
+    RUri = "sip:[::1]:5071",
+    Ref = make_ref(),
+    Hds = {headers, [
+        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+        {"Nk-Op", "ok"}
+    ]},
+    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, RUri, [Hds]),
+    ok = nksip_uac:ack(C1, DialogId, []),
+    ok = tests_util:wait(Ref, [{client2, ack}]),
+
+    {ok, 200, []} = nksip_uac:options(C1, DialogId, []),
+
+    {ok, 200, _} = nksip_uac:invite(C1, DialogId, [Hds]),
+    ok = nksip_uac:ack(C1, DialogId, []),
+    ok = tests_util:wait(Ref, [{client2, ack}]),
+
+    {ok, 200, []} = nksip_uac:options(C2, DialogId, []),
+    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C2, DialogId, [Hds]),
+    ok = nksip_uac:ack(C2, DialogId, []),
+    ok = tests_util:wait(Ref, [{client1, ack}]),
+    {ok, 200, []} = nksip_uac:bye(C2, DialogId, []),
+    ok = tests_util:wait(Ref, [{client1, bye}]),
+    ok.
 
 
 
+proxy() ->
+    C1 = {ipv6, client1},
+    C2 = {ipv6, client2},
+    S1Uri = "sip:[::1]",
+    Ref = make_ref(),
+    Hds = {headers, [
+        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+        {"Nk-Op", "ok"}
+    ]},
 
-
-
-
-% digest() ->
-%     C1 = {ipv6, client1},
-%     C2 = {ipv6, client2},
-%     SipC1 = "sip:127.0.0.1:5070",
-%     SipC2 = "sip:127.0.0.1:5071",
-
-%     {ok, 401, []} = nksip_uac:options(C1, SipC2, []),
-%     {ok, 200, []} = nksip_uac:options(C1, SipC2, [{pass, "1234"}]),
-%     {ok, 403, []} = nksip_uac:options(C1, SipC2, [{pass, "12345"}]),
-%     {ok, 200, []} = nksip_uac:options(C1, SipC2, [{pass, {"1234", "client2"}}]),
-%     {ok, 403, []} = nksip_uac:options(C1, SipC2, [{pass, {"1234", "other"}}]),
-
-%     HA1 = nksip_auth:make_ha1("client1", "1234", "client2"),
-%     {ok, 200, []} = nksip_uac:options(C1, SipC2, [{pass, HA1}]),
+    {ok, 200, []} = nksip_uac:register(C1, S1Uri, [unregister_all]),
+    {ok, 200, []} = nksip_uac:register(C2, S1Uri, [unregister_all]),
     
-%     % Pass is invalid, but there is a valid one in SipApp's options
-%     {ok, 200, []} = nksip_uac:options(C2, SipC1, []),
-%     {ok, 200, []} = nksip_uac:options(C2, SipC1, [{pass, "kk"}]),
-%     {ok, 403, []} = nksip_uac:options(C2, SipC1, [{pass, {"kk", "client1"}}]),
+    {ok, 200, []} = nksip_uac:register(C1, S1Uri, [make_contact]),
+    {ok, 200, []} = nksip_uac:register(C2, S1Uri, [make_contact]),
 
-%     Self = self(),
-%     Ref = make_ref(),
-%     Fun = fun({ok, 200, []}) -> Self ! {Ref, digest_ok} end,
-%     {async, _} = nksip_uac:options(C1, SipC2, [async, {callback, Fun}, {pass, HA1}]),
-%     ok = tests_util:wait(Ref, [digest_ok]),
-%     ok.
+    %% C1 will send an INVITE to C2
+    %% First, it is sent to Server1, which changes the uri to the registered one
+    %% and routes the request (stateless, no record_route) to Server2
+    %% Server2 routes to C2 (stateful, record_route)
+    Route = {route, "<sip:[::1];lr>"},
+    {ok, 200, [{dialog_id, DialogId}, {<<"Nk-Id">>, [<<"client2,server2,server1">>]}]} = 
+        nksip_uac:invite(C1, "sip:client2@nksip", [Route, Hds, {fields, [<<"Nk-Id">>]}]),
 
+    %% The ACK is sent to Server2, and it sends it to Client2
+    {req, ACK} = nksip_uac:ack(C1, DialogId, [get_request]),
+    [#uri{domain=(<<"[::1]">>), port=5061, opts=[lr, {transport, <<"tcp">>}]}]   = 
+        nksip_sipmsg:field(ACK, parsed_routes),
 
-
-% invite() ->
-%     C1 = {ipv6, client1},
-%     C3 = {ipv6, client3},
-%     SipC3 = "sip:127.0.0.1:5072",
-%     Ref = make_ref(),
-%     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
-
-%     % client3 does not support dialog's authentication, only digest is used
-%     {ok, 401, [{dialog_id, _}, {cseq_num, CSeq}]} = 
-%         nksip_uac:invite(C1, SipC3, [{fields, [cseq_num]}]),
-%     {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, SipC3, 
-%                                              [{pass, "abcd"}, {headers, [RepHd]}]),
-%     ok = nksip_uac:ack(C1, DialogId, []),
-%     ok = tests_util:wait(Ref, [{client3, ack}]),
-%     {ok, 401, []} = nksip_uac:options(C1, DialogId, []),
-%     {ok, 200, []} = nksip_uac:options(C1, DialogId, [{pass, "abcd"}]),
-
-%     {ok, 401, _} = nksip_uac:invite(C1, DialogId, []),
-
-%     {ok, 200, _} = nksip_uac:invite(C1, DialogId, [{pass, "abcd"}]),
-%     {req, ACK3} = nksip_uac:ack(C1, DialogId, [get_request]),
-%     CSeq = nksip_sipmsg:field(ACK3, cseq_num) - 8,
-%     ok = tests_util:wait(Ref, [{client3, ack}]),
-
-%     % client1 does support dialog's authentication
-%     % DialogB = nksip_dialog:remote_id(C3, Res3),
-%     % DialogB = nksip_dialog:remote_id(C3, Dialog),
-%     {ok, 200, [{cseq_num, CSeq2}]} = 
-%         nksip_uac:options(C3, DialogId, [{fields, [cseq_num]}]),
-%     {ok, 200, [{dialog_id, DialogId}]} = 
-%         nksip_uac:invite(C3, DialogId, [{headers, [RepHd]}]),
-%     ok = nksip_uac:ack(C3, DialogId, [{headers, [RepHd]}]),
-%     ok = tests_util:wait(Ref, [{client1, ack}]),
-%     {ok, 200, [{_, CSeq3}]} = nksip_uac:bye(C3, DialogId, [{fields, [cseq_num]}]),
-%     ok = tests_util:wait(Ref, [{client1, bye}]),
-%     CSeq3 = CSeq2 + 2,
-%     ok.
+    {ok, 200, []} = nksip_uac:options(C2, DialogId, []),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
+    ok.
 
 
-% dialog() ->
-%     C1 = {ipv6, client1},
-%     C2 = {ipv6, client2},
-%     SipC2 = "sip:127.0.0.1:5071",
-%     Ref = make_ref(),
-%     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
-%     {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, SipC2, 
-%                                             [{pass, "1234"}, {headers, [RepHd]}]),
-%     ok = nksip_uac:ack(C1, DialogId, []),
-%     ok = tests_util:wait(Ref, [{client2, ack}]),
+bridge_4_6() ->
+    %% Client1 is IPv6
+    %% Client3 is IPv4
+    %% Server1 and Server2 listens on both
+    C1 = {ipv6, client1},
+    C3 = {ipv6, client3},
+    Hds = {headers, [{"Nk-Op", "ok"}]},
 
-%     [{udp, {127,0,0,1}, 5071}] = nksip_call:get_authorized_list(C1, DialogId),
-%     [{udp, {127,0,0,1}, 5070}] = nksip_call:get_authorized_list(C2, DialogId),
-
-%     {ok, 200, []} = nksip_uac:options(C1, DialogId, []),
-%     {ok, 200, []} = nksip_uac:options(C2, DialogId, []),
-
-%     ok = nksip_call:clear_authorized_list(C2, DialogId),
-%     {ok, 401, []} = nksip_uac:options(C1, DialogId, []),
-%     {ok, 200, []} = nksip_uac:options(C1, DialogId, [{pass, "1234"}]),
-%     {ok, 200, []} = nksip_uac:options(C1, DialogId, []),
-
-%     ok = nksip_call:clear_authorized_list(C1, DialogId),
-%     [] = nksip_call:get_authorized_list(C1, DialogId),
-
-%     % Force an invalid password, because the SipApp config has a valid one
-%     {ok, 403, []} = nksip_uac:options(C2, DialogId, [{pass, {"invalid", "client1"}}]),
-%     {ok, 200, []} = nksip_uac:options(C2, DialogId, []),
-%     {ok, 200, []} = nksip_uac:options(C2, DialogId, [{pass, {"invalid", "client1"}}]),
-
-%     {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
-%     ok = tests_util:wait(Ref, [{client2, bye}]),
-%     ok.
-
-
-% proxy() ->
-%     C1 = {ipv6, client1},
-%     C2 = {ipv6, client2},
-%     S1 = "sip:127.0.0.1",
-%     Ref = make_ref(),
-%     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
-
-%     {ok, 407, []} = nksip_uac:register(C1, S1, []),
-%     {ok, 200, []} = nksip_uac:register(C1, S1, [{pass, "1234"}, unregister_all]),
+    {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [unregister_all]),
+    {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [unregister_all]),
     
-%     {ok, 200, []} = nksip_uac:register(C2, S1, [{pass, "4321"}, unregister_all]),
+    {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [make_contact]),
+    {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [make_contact]),
+
+    %% C1 will send an INVITE to C3
+    %% First, it is sent to Server1 (IPv6), which changes the uri to the registered one
+    %% and routes the request (stateless, no record_route, IPv6) to Server2
+    %% Server2 routes to C3 (stateful, record_route, IPv4)
+    Route1 = {route, "<sip:[::1];lr>"},
+    Fields1 = {fields, [<<"Nk-Id">>, parsed_contacts]},
+    {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client3@nksip", [Route1, Hds, Fields1]),
+    %% C3 has generated a IPv4 Contact
+    [
+        {dialog_id, DialogId1}, 
+        {<<"Nk-Id">>, [<<"client3,server2,server1">>]},
+        {parsed_contacts, [#uri{domain = <<"127.0.0.1">>}]}
+    ] = Values1,
+
+    %% The ACK is sent to Server2, and it sends it to Client2
+    {req, ACK1} = nksip_uac:ack(C1, DialogId1, [get_request]),
+    [#uri{domain=(<<"[::1]">>), port=5061, opts=[lr, {transport, <<"tcp">>}]}]   = 
+        nksip_sipmsg:field(ACK1, parsed_routes),
+    #uri{domain=(<<"127.0.0.1">>)} = nksip_sipmsg:field(ACK1, parsed_ruri),
+
+    {ok, 200, []} = nksip_uac:options(C3, DialogId1, []),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogId1, []),
+    ok.
+
+
+
+
+
+
+
+
+
+torture() ->
+    Msg1 = 
+        <<"REGISTER sip:[2001:db8::10] SIP/2.0\r\n"
+        "To: sip:user@example.com\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Max-Forwards: 70\r\n"
+        "Contact: \"Caller\" <sip:caller@[2001:db8::1]>\r\n"
+        "CSeq: 98176 REGISTER\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n">>,
+   #sipmsg{
+        ruri = #uri{domain = <<"[2001:db8::10]">>, port = 0},
+        vias = [#via{domain = <<"[2001:db8::9:1]">>, 
+                     opts = [{branch,<<"z9hG4bKas3-111">>}]}],
+        contacts = [#uri{disp = <<"\"Caller\"">>, user = <<"caller">>,
+                         domain = <<"[2001:db8::1]">>}]
+    } = parse(Msg1),
+
+    Msg2 = 
+        <<"REGISTER sip:2001:db8::10 SIP/2.0\r\n"
+        "To: sip:user@example.com\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Max-Forwards: 70\r\n"
+        "Contact: \"Caller\" <sip:caller@[2001:db8::1]>\r\n"
+        "CSeq: 98176 REGISTER\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n">>,
+    error = parse(Msg2),
+
+    Msg3 = 
+        <<"REGISTER sip:[2001:db8::10:5070] SIP/2.0\r\n"
+        "To: sip:user@example.com\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Contact: \"Caller\" <sip:caller@[2001:db8::1]>\r\n"
+        "Max-Forwards: 70\r\n"
+        "CSeq: 98176 REGISTER\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n">>,
+    #sipmsg{ruri = #uri{domain = <<"[2001:db8::10:5070]">>, port=0}} = parse(Msg3),
+
+    Msg4 = 
+        <<"REGISTER sip:[2001:db8::10]:5070 SIP/2.0\r\n"
+        "To: sip:user@example.com\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Contact: \"Caller\" <sip:caller@[2001:db8::1]>\r\n"
+        "Max-Forwards: 70\r\n"
+        "CSeq: 98176 REGISTER\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n">>,
+    #sipmsg{ruri = #uri{domain = <<"[2001:db8::10]">>, port=5070}} = parse(Msg4),
+
+    Msg5 = 
+        <<"BYE sip:[2001:db8::10] SIP/2.0\r\n"
+        "To: sip:user@example.com;tag=bd76ya\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1];received=[2001:db8::9:255];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Max-Forwards: 70\r\n"
+        "CSeq: 321 BYE\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n">>,
+    #sipmsg{
+        vias = [#via{domain = <<"[2001:db8::9:1]">>,
+                     opts = [{received, Rec1 = <<"[2001:db8::9:255]">>},
+                             {branch, <<"z9hG4bKas3-111">>}]}]
+    } = parse(Msg5),
+    {ok,{16#2001,16#db8,0,0,0,0,16#9,16#255}} = nksip_lib:to_ip(Rec1),
+
+    Msg6 = 
+        <<"OPTIONS sip:[2001:db8::10] SIP/2.0\r\n"
+        "To: sip:user@example.com\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1];received=2001:db8::9:255;branch=z9hG4bKas3\r\n"
+        "Call-ID: SSG95523997077@hlau_4100\r\n"
+        "Max-Forwards: 70\r\n"
+        "Contact: \"Caller\" <sip:caller@[2001:db8::9:1]>\r\n"
+        "CSeq: 921 OPTIONS\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n">>,
+    #sipmsg{
+        vias = [#via{domain = <<"[2001:db8::9:1]">>,
+                     opts = [{received, Rec2 = <<"2001:db8::9:255">>},
+                             {branch, <<"z9hG4bKas3">>}]}]
+    } = parse(Msg6),
+    {ok,{8193,3512,0,0,0,0,9,597}} = nksip_lib:to_ip(Rec2),
+
+    Msg7 = 
+        <<"INVITE sip:user@[2001:db8::10] SIP/2.0\r\n"
+        "To: sip:user@[2001:db8::10]\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::20];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Contact: \"Caller\" <sip:caller@[2001:db8::20]>\r\n"
+        "CSeq: 8612 INVITE\r\n"
+        "Max-Forwards: 70\r\n"
+        "Content-Type: application/sdp\r\n"
+        "Content-Length: 251\r\n"   %% RFC says 268!! errata??
+        "\r\n"
+        "v=0\r\n"
+        "o=assistant 971731711378798081 0 IN IP6 2001:db8::20\r\n"
+        "s=Live video feed for today's meeting\r\n"
+        "c=IN IP6 2001:db8::20\r\n"
+        "t=3338481189 3370017201\r\n"
+        "m=audio 6000 RTP/AVP 2\r\n"
+        "a=rtpmap:2 G726-32/8000\r\n"
+        "m=video 6024 RTP/AVP 107\r\n"
+        "a=rtpmap:107 H263-1998/90000\r\n">>,
+    #sipmsg{
+        body = #sdp{address = {<<"IN">>,<<"IP6">>,<<"2001:db8::20">>},
+                    connect = {<<"IN">>,<<"IP6">>,<<"2001:db8::20">>}}
+    } = parse(Msg7),
     
-%     % Users are not registered and no digest
-%     {ok, 407, []} = nksip_uac:options(C1, S1, []),
-%     % C2's SipApp has a password, but it is invalid
-%     {ok, 403, []} = nksip_uac:options(C2, S1, []),
+    Msg8 = 
+        <<"BYE sip:user@host.example.net SIP/2.0\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1]:6050;branch=z9hG4bKas3-111\r\n"
+        "Via: SIP/2.0/UDP 192.0.2.1;branch=z9hG4bKjhja8781hjuaij65144\r\n"
+        "Via: SIP/2.0/TCP [2001:db8::9:255];branch=z9hG4bK451jj;received=192.0.2.200\r\n"
+        "Call-ID: 997077@lau_4100\r\n"
+        "Max-Forwards: 70\r\n"
+        "CSeq: 89187 BYE\r\n"
+        "To: sip:user@example.net;tag=9817--94\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n">>,
+    #sipmsg{vias = [
+        #via{domain = <<"[2001:db8::9:1]">>, port = 6050,
+             opts = [{branch,<<"z9hG4bKas3-111">>}]},
+        #via{domain = <<"192.0.2.1">>, port = 0,
+             opts = [{branch,<<"z9hG4bKjhja8781hjuaij65144">>}]},
+        #via{proto = tcp, domain = <<"[2001:db8::9:255]">>, port = 0,
+             opts = [{branch,<<"z9hG4bK451jj">>}, {received,<<"192.0.2.200">>}]}
+    ]} = parse(Msg8),
 
-%     {ok, 200, []} = nksip_uac:register(C1, S1, [{pass, "1234"}, make_contact]),
-%     {ok, 200, []} = nksip_uac:register(C2, S1, [{pass, "4321"}, make_contact]),
+    Msg9 = 
+        <<"INVITE sip:user@[2001:db8::10] SIP/2.0\r\n"
+        "To: sip:user@[2001:db8::10]\r\n"
+        "From: sip:user@example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [2001:db8::9:1];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Contact: \"Caller\" <sip:caller@[2001:db8::9:1]>\r\n"
+        "Max-Forwards: 70\r\n"
+        "CSeq: 8912 INVITE\r\n"
+        "Content-Type: application/sdp\r\n"
+        "Content-Length: 189\r\n"   %% RFC says 181!!
+        "\r\n"
+        "v=0\r\n"
+        "o=bob 280744730 28977631 IN IP4 host.example.com\r\n"
+        "s=\r\n"
+        "t=0 0\r\n"
+        "m=audio 22334 RTP/AVP 0\r\n"
+        "c=IN IP4 192.0.2.1\r\n"
+        "m=video 6024 RTP/AVP 107\r\n"
+        "c=IN IP6 2001:db8::1\r\n"
+        "a=rtpmap:107 H263-1998/90000\r\n">>,
+    #sipmsg{
+        body = #sdp{
+            address = {<<"IN">>,<<"IP4">>,<<"host.example.com">>},
+            medias = [
+                #sdp_m{connect = {<<"IN">>,<<"IP4">>,<<"192.0.2.1">>}},
+                #sdp_m{connect = {<<"IN">>,<<"IP6">>,<<"2001:db8::1">>}}
+            ]
+        }
+    } = parse(Msg9),
+ 
+    Msg10 = 
+        <<"INVITE sip:user@example.com SIP/2.0\r\n"
+        "To: sip:user@example.com\r\n"
+        "From: sip:user@east.example.com;tag=81x2\r\n"
+        "Via: SIP/2.0/UDP [::ffff:192.0.2.10]:19823;branch=z9hG4bKbh19\r\n"
+        "Via: SIP/2.0/UDP [::ffff:192.0.2.2];branch=z9hG4bKas3-111\r\n"
+        "Call-ID: SSG9559905523997077@hlau_4100\r\n"
+        "Contact: \"T. desk phone\" <sip:ted@[::ffff:192.0.2.2]>\r\n"
+        "CSeq: 612 INVITE\r\n"
+        "Max-Forwards: 70\r\n"
+        "Content-Type: application/sdp\r\n"
+        "Content-Length: 245\r\n"     %% RFC says 236!!
+        "\r\n"
+        "v=0\r\n"
+        "o=assistant 971731711378798081 0 IN IP6 ::ffff:192.0.2.2\r\n"
+        "s=Call me soon, please!\r\n"
+        "c=IN IP6 ::ffff:192.0.2.2\r\n"
+        "t=3338481189 3370017201\r\n"
+        "m=audio 6000 RTP/AVP 2\r\n"
+        "a=rtpmap:2 G726-32/8000\r\n"
+        "m=video 6024 RTP/AVP 107\r\n"
+        "a=rtpmap:107 H263-1998/90000\r\n">>,
+    #sipmsg{
+        vias = [
+            #via{domain = <<"[::ffff:192.0.2.10]">>, port = 19823},
+            #via{domain = <<"[::ffff:192.0.2.2]">>,port = 0}
+        ],
+        body = #sdp{
+            address = {<<"IN">>,<<"IP6">>,<<"::ffff:192.0.2.2">>},
+            connect = {<<"IN">>,<<"IP6">>,<<"::ffff:192.0.2.2">>}
+        }
+    } = parse(Msg10),
 
-%     % Authorized because of previous registration
-%     {ok, 200, []} = nksip_uac:options(C1, S1, []),
-%     {ok, 200, []} = nksip_uac:options(C2, S1, []),
-    
-%     % The request is authorized at server1 (registered) but not server server2
-%     % (server1 will proxy to server2)
-%     Route = {route, "<sip:127.0.0.1;lr>"},
-%     {ok, 407, [{dialog_id, _}, {realms, [<<"server2">>]}]} = 
-%         nksip_uac:invite(C1, "sip:client2@nksip", [Route, {fields, [realms]}]),
+    error = nksip_lib:to_ip(<<"2001:db8:::192.0.2.1">>),
+    {ok, {0,0,0,0,0,16#ffff,16#C000,16#0202}} = 
+        nksip_lib:to_ip(<<"::ffff:192.0.2.2">>).
 
-%     % Now the request reaches client2, and it is not authorized there. 
-%     % C2 replies with 401, but we generate a new request with the SipApp's invalid
-%     % password
-%     {ok, 403, _} = nksip_uac:invite(C1, "sip:client2@nksip", 
-%                                       [Route, {pass, {"1234", "server2"}}, 
-%                                        {headers, [RepHd]}]),
 
-%     % Server1 accepts because of previous registration
-%     % Server2 replies with 407, and we generate a new request
-%     % Server2 now accepts and sends to C2
-%     % C2 replies with 401, and we generate a new request
-%     % Server2 and C2 accepts their digests
-%     {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, "sip:client2@nksip", 
-%                                             [Route, {pass, {"1234", "server2"}},
-%                                             {pass, {"1234", "client2"}},
-%                                             {headers, [RepHd]}]),
-%     % Server2 inserts a Record-Route, so every in-dialog request is sent to Server2
-%     % ACK uses the same authentication headers from last invite
-%     ok = nksip_uac:ack(C1, DialogId, []),
-%     ok = tests_util:wait(Ref, [{client2, ack}]),
+parse(Msg) ->
+    case nksip_parse:packet(test, #transport{}, Msg) of
+        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
+        error -> error
+    end.
 
-%     % Server2 and C2 accepts the request because of dialog authentication
-%     {ok, 200, []} = nksip_uac:options(C1, DialogId, []),
-%     % The same for C1
-%     {ok, 200, []} = nksip_uac:options(C2, DialogId, []),
-%     {ok, 200, []} = nksip_uac:bye(C2, DialogId, []),
-%     ok.
 
