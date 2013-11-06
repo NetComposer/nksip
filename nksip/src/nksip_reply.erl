@@ -176,7 +176,7 @@
     {unsupported_media_type, Types::binary()} | 
     {unsupported_media_encoding, Types::binary()} |
     unsupported_uri_scheme | 
-    {bad_extension, Exts::binary()} |
+    {bad_extension, [Exts::binary()]} |
     {interval_too_brief, Min::binary()} |
     temporarily_unavailable |
     no_transaction |
@@ -347,7 +347,7 @@ reqreply({unsupported_media_encoding, Types}) ->
 reqreply(unsupported_uri_scheme) -> 
     #reqreply{code=416};
 reqreply({bad_extension, Exts}) -> 
-    Exts1 = nksip_lib:to_binary(Exts),  
+    Exts1 = nksip_lib:bjoin(Exts),
     #reqreply{
         code = 420, 
         headers = nksip_headers:new([{single, <<"Unsupported">>, Exts1}])

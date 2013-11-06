@@ -24,7 +24,7 @@
 -behaviour(nksip_sipapp).
 
 -export([start/2, stop/1, get_domains/1, set_domains/2]).
--export([init/1, get_user_pass/3, authorize/4, route/6, 
+-export([init/1, get_user_pass/3, authorize/4, route/6, supported/1,
         handle_call/3, handle_cast/2, handle_info/2]).
 
 -include_lib("nksip/include/nksip.hrl").
@@ -71,6 +71,11 @@ get_user_pass(<<"client2">>, _, State) ->
     {reply, "4321", State};
 get_user_pass(_User, _Realm, State) -> 
     {reply, false, State}.
+
+
+%% Example extension that this server supports.
+supported(State) ->
+    {reply, [<<"x-supported">>], State}.
 
 
 % Authorization is only used for "auth" suite

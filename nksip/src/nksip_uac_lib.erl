@@ -116,7 +116,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 false -> []
             end,
             case lists:member(make_supported, FullOpts) of
-                true -> {default_single, <<"Supported">>, ?SUPPORTED};
+                true -> {default_single, <<"Supported">>, nksip_lib:bjoin(?SUPPORTED)};
                 false -> []
             end,
             case lists:member(make_accept, FullOpts) of

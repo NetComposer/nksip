@@ -265,7 +265,7 @@ route_launch(#trans{ruri=RUri}=UAS, Call) ->
     nksip_call:call().
 
 route_reply(Reply, #trans{status=route}=UAS, Call) ->
-    #trans{id=Id, method=Method, ruri=RUri, request=Req} = UAS,
+    #trans{id=Id, method=Method, ruri=RUri} = UAS,
     ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply], Call),
     Route = case Reply of
         {response, Resp} -> {response, Resp, []};
@@ -289,12 +289,13 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
     Call1 = update(UAS1, Call),
     case Route of
         {process, _} when Method=/='CANCEL', Method=/='ACK' ->
-            case nksip_sipmsg:header(Req, <<"Require">>, tokens) of
-                [] -> 
+            case check_required_extensions(UAS1, Call1) of
+                [] ->
                     do_route(Route, UAS1, Call1);
-                Requires -> 
-                    RequiresTxt = nksip_lib:bjoin([T || {T, _} <- Requires]),
-                    reply({bad_extension,  RequiresTxt}, UAS1, Call1)
+                Required when is_list(Required) ->
+                    reply({bad_extension, Required}, UAS1, Call1);
+                error ->
+                    reply({internal_error, <<"Error calling callback">>}, UAS1, Call1)
             end;
         _ ->
             do_route(Route, UAS1, Call1)
@@ -303,6 +304,30 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
 % Request has been already answered
 route_reply(_Reply, UAS, Call) ->
     update(UAS, Call).
+
+
+%% @private Determine if support is required for any extensions.
+check_required_extensions(#trans{request=Req}, Call) ->
+    Required = [Option || {Option, _} <- nksip_parse:header_tokens(<<"Require">>, Req)],
+    case supported_extensions(Call) of
+        error ->
+            error;
+        Supported ->
+            (Required -- ?SUPPORTED) -- Supported
+    end.
+
+
+%% @private Determine which, if any, extensions are supported by the SipApp.
+supported_extensions(#call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=AppOpts}}) ->
+    case nksip_sipapp_srv:sipapp_call(AppId, Module, supported, [], []) of
+        {reply, Supported} ->
+            Supported;
+        error ->
+            error;
+        not_exported ->
+            {reply, Supported, _} = nksip_sipapp:supported(AppOpts),
+            Supported
+    end.
 
 
 %% @private
