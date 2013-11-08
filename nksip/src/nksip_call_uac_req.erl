@@ -130,7 +130,7 @@ new_uac(Req, Opts, From, Call) ->
         cancel = undefined,
         iter = 1
     },
-    Msg = {MsgId, Id, nksip_dialog:id(Req)},
+    Msg = {MsgId, Id, nksip_dialog:uac_id(Req)},
     {UAC, Call#call{trans=[UAC|Trans], msgs=[Msg|Msgs], next=Id+1}}.
 
 

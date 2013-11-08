@@ -83,7 +83,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         content_type -> nksip_unparse:tokens(S#sipmsg.content_type);
         parsed_content_type -> S#sipmsg.content_type;
         body -> S#sipmsg.body;
-        dialog_id -> nksip_dialog:id(S);
+        dialog_id -> exit({nksip_dialog,id,S});
         expire -> S#sipmsg.expire;
         all_headers -> all_headers(S);
         code -> case Class of {resp, Code} -> Code; {req, _} -> 0 end;

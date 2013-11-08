@@ -80,7 +80,7 @@ response(Resp, UAC, Call) ->
             {Resp1, _} = nksip_reply:reply(Req, {timeout, <<"Transaction Timeout">>})
     end,
     Call1 = case Code1>=200 andalso Code1<300 of
-        true -> nksip_call_lib:update_auth(nksip_dialog:id(Resp1), Resp1, Call);
+        true -> nksip_call_lib:update_auth(nksip_dialog:uac_id(Resp1), Resp1, Call);
         false -> Call
     end,
     UAC1 = UAC#trans{response=Resp1, code=Code1},
@@ -97,7 +97,7 @@ response(Resp, UAC, Call) ->
         true -> update(UAC1, Call1);
         false -> nksip_call_uac_dialog:response(Req, Resp1, update(UAC1, Call1))
     end,
-    Msg = {MsgId, Id, nksip_dialog:id(Resp)},
+    Msg = {MsgId, Id, nksip_dialog:uac_id(Resp)},
     Call4 = Call3#call{msgs=[Msg|Msgs]},
     response_status(Status, Resp1, UAC1, Call4).
 
@@ -271,7 +271,7 @@ do_received_hangup(Resp, UAC, Call) ->
         true -> UAC;
         false -> UAC#trans{to_tags=ToTags++[ToTag]}
     end,
-    DialogId = nksip_dialog:id(Resp),
+    DialogId = nksip_dialog:uac_id(Resp),
     case Code < 300 of
         true ->
             ?call_info("UAC ~p (~p) sending ACK and BYE to secondary response " 
