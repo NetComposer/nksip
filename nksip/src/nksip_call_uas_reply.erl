@@ -85,7 +85,7 @@ reply({#sipmsg{class={resp, Code}, id=MsgId}=Resp, SendOpts},
     #sipmsg{class={resp, Code1}} = Resp1,
     Call1 = case Req of
         #sipmsg{} when Code1>=200, Code<300 ->
-            nksip_call_lib:update_auth(nksip_dialog:id(Resp1), Req, Call);
+            nksip_call_lib:update_auth(nksip_dialog:uas_id(Resp1), Req, Call);
         _ ->
             Call
     end,
@@ -97,7 +97,7 @@ reply({#sipmsg{class={resp, Code}, id=MsgId}=Resp, SendOpts},
         true -> UAS#trans{response=Resp1, code=Code};
         false -> UAS
     end,
-    Msg = {MsgId, Id, nksip_dialog:id(Resp1)},
+    Msg = {MsgId, Id, nksip_dialog:uas_id(Resp1)},
     Call3 = Call2#call{msgs=[Msg|Msgs]},
     case Stateless of
         true when Method=/='INVITE' ->

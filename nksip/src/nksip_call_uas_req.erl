@@ -180,7 +180,7 @@ process_request(Req, TransId, Call) ->
         'ACK' -> UAS;
         _ -> nksip_call_lib:timeout_timer(noinvite, UAS, Call)
     end,
-    Msg = {MsgId, Id, nksip_dialog:id(Req)},
+    Msg = {MsgId, Id, nksip_dialog:uas_id(Req)},
     Call1 = Call#call{trans=[UAS1|Trans], next=Id+1, msgs=[Msg|Msgs]},
     case ToTag=:=(<<>>) andalso lists:keymember(LoopId, #trans.loop_id, Trans) of
         true -> 

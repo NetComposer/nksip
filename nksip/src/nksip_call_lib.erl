@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([update_sipmsg/2, update/2]).
--export([update_auth/3, check_auth/2]).
+-export([update_auth/3, check_auth/3]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3, app_timer/3, 
          cancel_timers/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
@@ -151,14 +151,14 @@ update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
 
 
 %% @private
--spec check_auth(nksip:request()|nksip:response(), call()) ->
+-spec check_auth(uac|uas,nksip:request()|nksip:response(), call()) ->
     boolean().
 
-check_auth(#sipmsg{to_tag=(<<>>)}, _Call) ->
+check_auth(_, #sipmsg{to_tag=(<<>>)}, _Call) ->
     false;
 
-check_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
-    case nksip_dialog:id(SipMsg) of
+check_auth(Class, #sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
+    case nksip_dialog:class_id(Class, SipMsg) of
         <<>> ->
             false;
         DialogId ->
@@ -178,7 +178,7 @@ check_auth(#sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
             end
     end;
 
-check_auth(_, _) ->
+check_auth(_, _, _) ->
     false.
 
 

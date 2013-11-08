@@ -50,7 +50,7 @@ create(Class, Req, Resp) ->
         transport = #transport{proto=Proto},
         from_tag = FromTag
     } = Resp,
-    DialogId = nksip_dialog:id(Resp),
+    DialogId = nksip_dialog:class_id(Class, Resp),
     ?debug(AppId, CallId, "Dialog ~s (~p) created", [DialogId, Class]),
     nksip_counters:async([nksip_dialogs]),
     Now = nksip_lib:timestamp(),

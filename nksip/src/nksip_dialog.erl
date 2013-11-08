@@ -24,7 +24,7 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/3, field/2, fields/3, id/1, id/2, call_id/1]).
+-export([field/3, field/2, fields/3, class_id/2, uac_id/1, uas_id/1, id/2, call_id/1]).
 -export([stop/2, bye_all/0, stop_all/0]).
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
 
@@ -263,26 +263,30 @@ fields(AppId, DialogSpec, Fields) when is_list(Fields) ->
 
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip:request()} or
-%% {@link nksip:response()}.
+%% {@link nksip:response()} and endpoint class.
 %% Dialog ids are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
-%% and <i>To</i> Tag. If From tag and To tag are swapped the resulting id is the same.
--spec id(nksip:request()|nksip:response()) ->
+%% and <i>To</i> Tag. Dialog ids with same From and To are different
+%% for different endpoint classes.
+-spec class_id(uac|uas, nksip:request()|nksip:response()) ->
     id().
 
-id(#sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
+class_id(Class, #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
     when FromTag =/= <<>>, ToTag =/= <<>> ->
-    dialog_id(CallId, FromTag, ToTag);
+    dialog_id(Class, CallId, FromTag, ToTag);
 
-id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
+class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
     when FromTag =/= <<>> ->
     #sipmsg{call_id=CallId, data=Data} = SipMsg,
     case nksip_lib:get_binary(to_tag, Data) of
         <<>> -> <<>>;
-        ToTag -> dialog_id(CallId, FromTag, ToTag)
+        ToTag -> dialog_id(Class, CallId, FromTag, ToTag)
     end;
 
-id(#sipmsg{}) ->
+class_id(_, #sipmsg{}) ->
     <<>>.
+
+uac_id(SipMsg) -> class_id(uac, SipMsg).
+uas_id(SipMsg) -> class_id(uas, SipMsg).
 
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip_request:id()}, 
@@ -375,14 +379,14 @@ stop_all() ->
 
 
 %% @private
--spec dialog_id(nksip:call_id(), nksip:tag(), nksip:tag()) ->
+-spec dialog_id(uac | uas, nksip:call_id(), nksip:tag(), nksip:tag()) ->
     id().
 
-dialog_id(CallId, FromTag, ToTag) ->
-    {A, B} = case FromTag < ToTag of
-        true -> {FromTag, ToTag};
-        false -> {ToTag, FromTag}
-    end,
+dialog_id(Class, CallId, FromTag, ToTag) ->
+    {A, B} = case Class of
+                 uac -> {ToTag, FromTag};
+                 uas -> {FromTag, ToTag}
+             end,
     <<"D_", (nksip_lib:hash({A, B}))/binary, $_, CallId/binary>>.
 
 
