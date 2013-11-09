@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% sipapp_endpoint: Server Callback module for all tests
+%% sipapp_server: Server Callback module for all tests
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%

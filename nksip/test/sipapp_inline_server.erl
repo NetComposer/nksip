@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% uas_test: Inline Test Suite
+%% sipapp_inline_server: Inline Test Suite Server
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%

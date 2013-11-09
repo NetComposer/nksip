@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% sctp_SUITE: SCTP Tests
+%% sctp_test: SCTP Tests
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
