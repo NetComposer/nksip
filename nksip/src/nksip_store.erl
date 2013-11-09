@@ -33,13 +33,13 @@
 -export([put/2, put/3, put_dirty/2, update/2, update/3]).
 -export([get/1, get/2, del/1]).
 -export([pending/0, fold/2]).
--export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
+-export([start_link/0, stop/0]).
+-export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
 -include("nksip.hrl").
 
 -define(STORE_TIMER, 5000).
-
 
 %% ===================================================================
 %% Public
@@ -129,7 +129,12 @@ pending() ->
 %% @private
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-        
+
+
+%% @private
+stop() ->
+    gen_server:call(?MODULE, stop).
+
 
 %% @private 
 -spec init(term()) ->
@@ -222,6 +227,9 @@ handle_call(get_pending, _From, State) ->
     Pending = pending_iter(ets:first(nksip_store_ord), Now, []),
     {reply, Pending, State};
 
+handle_call(stop, _From, State) ->
+    {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
     {noreply, State}.
@@ -310,17 +318,16 @@ basic_test_() ->
     {setup, 
         fun() -> 
             ?debugFmt("Starting ~p", [?MODULE]),
-            case whereis(?MODULE) of
-                undefined -> 
-                    {ok, _} = gen_server:start({local, ?MODULE}, ?MODULE, [], []),
-                    do_stop;
-                _ -> 
-                    ok
+            case start_link() of
+                {error, {already_started, _}} ->
+                    ok;
+                {ok, _} ->
+                    do_stop
             end
         end,
         fun(Stop) -> 
             case Stop of 
-                do_stop -> exit(whereis(?MODULE), kill); 
+                do_stop -> stop();
                 ok -> ok 
             end
         end,
