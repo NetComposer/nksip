@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% stateless_test: Stateless Proxy Suite Test
+%% proxy_test: Stateless and Stateful Proxy Tests
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%

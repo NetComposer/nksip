@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% auth_SUITE: Authentication Tests
+%% auth_test: Authentication Tests
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
