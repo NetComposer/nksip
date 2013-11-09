@@ -330,9 +330,7 @@ start(AppId, Module, Args, Opts) ->
                     [];
                 RegSpec ->
                     case nksip_parse:uris(RegSpec) of
-                        [] ->
-                            throw(invalid_register);
-                        [RegUri|_] ->
+                        [RegUri] ->
                             case nksip_lib:get_value(register_expires, Opts, 300) of
                                 RegExpires when is_integer(RegExpires) ->
                                     [
@@ -341,7 +339,9 @@ start(AppId, Module, Args, Opts) ->
                                     ];
                                 _ ->
                                     {register, RegUri}
-                            end
+                            end;
+                        _ ->
+                            throw(invalid_register)
                     end
             end,
             case nksip_lib:get_value(route, Opts, false) of
@@ -349,7 +349,7 @@ start(AppId, Module, Args, Opts) ->
                     [];
                 RouteSpec -> 
                     case nksip_parse:uris(RouteSpec) of
-                        [] -> throw(invalid_route);
+                        error -> throw(invalid_route);
                         RouteUris -> {route, RouteUris}
                     end
             end,

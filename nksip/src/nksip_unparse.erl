@@ -127,11 +127,7 @@ raw_uri(#uri{domain=(<<"*">>)}) ->
 
 raw_uri(#uri{}=Uri) ->
     [
-        case Uri#uri.disp of
-            <<>> -> <<>>;
-            Disp -> [Disp, 32]
-        end,
-        $<, nksip_lib:to_binary(Uri#uri.scheme), $:,
+        Uri#uri.disp, $<, nksip_lib:to_binary(Uri#uri.scheme), $:,
         case Uri#uri.user of
             <<>> -> <<>>;
             User ->

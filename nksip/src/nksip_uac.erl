@@ -218,7 +218,7 @@
 
 -type error() :: 
     invalid_uri | invalid_from | invalid_to | invalid_route |
-    invalid_contact | invalid_cseq |
+    invalid_contact | invalid_cseq | invalid_content_type |
     unknown_dialog | request_pending | network_error | 
     nksip_call_router:sync_error().
 
@@ -548,9 +548,7 @@ stun(AppId, UriSpec, _Opts) ->
             {error, unknown_core};
         [{#transport{listen_ip=LIp, listen_port=LPort}, Pid}|_] ->
             case nksip_parse:uris(UriSpec) of
-                [] -> 
-                    {error, invalid_uri};
-                [Uri|_] ->
+                [Uri] ->
                     Transp = nksip_dns:resolve(Uri),
                     case nksip_lib:extract(Transp, udp) of
                         [{udp, Ip, Port}|_] -> 
@@ -562,7 +560,9 @@ stun(AppId, UriSpec, _Opts) ->
                             end;
                         _ ->
                             {error, no_host}
-                    end
+                    end;
+                _ ->
+                    {error, invalid_uri}
             end
     end.
 

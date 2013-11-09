@@ -314,12 +314,12 @@ generate(Method, Opts, Dialog) ->
             [];
         ContactSpec ->
             case nksip_parse:uris(ContactSpec) of
-                [] -> 
+                [Contact0] -> 
+                    [Contact0];
+                _ -> 
                     ?notice(AppId, CallId, "Dialog ~s UAC request has invalid "
                                             "contact: ~p", [DialogId, ContactSpec]),
-                    [];
-                Contacts0 -> 
-                    Contacts0
+                    []
             end
     end,
     Opts1 = 

@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% auth_SUITE: Authentication Tests
+%% ipv6_test: IPv6 Tests
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
@@ -36,7 +36,16 @@ ipv6_test_() ->
         fun invite/0,
         fun proxy/0,
         fun bridge_4_6/0,
-        fun torture/0
+        fun torture_1/0,
+        fun torture_2/0,
+        fun torture_3/0,
+        fun torture_4/0,
+        fun torture_5/0,
+        fun torture_6/0,
+        fun torture_7/0,
+        fun torture_8/0,
+        fun torture_9/0,
+        fun torture_10/0
       ]
   }.
 
@@ -250,14 +259,7 @@ bridge_4_6() ->
     ok.
 
 
-
-
-
-
-
-
-
-torture() ->
+torture_1() ->
     Msg1 = 
         <<"REGISTER sip:[2001:db8::10] SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -273,10 +275,12 @@ torture() ->
         ruri = #uri{domain = <<"[2001:db8::10]">>, port = 0},
         vias = [#via{domain = <<"[2001:db8::9:1]">>, 
                      opts = [{branch,<<"z9hG4bKas3-111">>}]}],
-        contacts = [#uri{disp = <<"\"Caller\"">>, user = <<"caller">>,
+        contacts = [#uri{disp = <<"\"Caller\" ">>, user = <<"caller">>,
                          domain = <<"[2001:db8::1]">>}]
     } = parse(Msg1),
+    ok.
 
+torture_2() ->
     Msg2 = 
         <<"REGISTER sip:2001:db8::10 SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -289,7 +293,9 @@ torture() ->
         "Content-Length: 0\r\n"
         "\r\n">>,
     error = parse(Msg2),
+    ok.
 
+torture_3() ->
     Msg3 = 
         <<"REGISTER sip:[2001:db8::10:5070] SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -302,7 +308,9 @@ torture() ->
         "Content-Length: 0\r\n"
         "\r\n">>,
     #sipmsg{ruri = #uri{domain = <<"[2001:db8::10:5070]">>, port=0}} = parse(Msg3),
+    ok.
 
+torture_4() ->
     Msg4 = 
         <<"REGISTER sip:[2001:db8::10]:5070 SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -315,7 +323,9 @@ torture() ->
         "Content-Length: 0\r\n"
         "\r\n">>,
     #sipmsg{ruri = #uri{domain = <<"[2001:db8::10]">>, port=5070}} = parse(Msg4),
+    ok.
 
+torture_5() ->
     Msg5 = 
         <<"BYE sip:[2001:db8::10] SIP/2.0\r\n"
         "To: sip:user@example.com;tag=bd76ya\r\n"
@@ -332,7 +342,9 @@ torture() ->
                              {branch, <<"z9hG4bKas3-111">>}]}]
     } = parse(Msg5),
     {ok,{16#2001,16#db8,0,0,0,0,16#9,16#255}} = nksip_lib:to_ip(Rec1),
+    ok.
 
+torture_6() ->
     Msg6 = 
         <<"OPTIONS sip:[2001:db8::10] SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -350,7 +362,9 @@ torture() ->
                              {branch, <<"z9hG4bKas3">>}]}]
     } = parse(Msg6),
     {ok,{8193,3512,0,0,0,0,9,597}} = nksip_lib:to_ip(Rec2),
+    ok.
 
+torture_7() ->
     Msg7 = 
         <<"INVITE sip:user@[2001:db8::10] SIP/2.0\r\n"
         "To: sip:user@[2001:db8::10]\r\n"
@@ -376,7 +390,9 @@ torture() ->
         body = #sdp{address = {<<"IN">>,<<"IP6">>,<<"2001:db8::20">>},
                     connect = {<<"IN">>,<<"IP6">>,<<"2001:db8::20">>}}
     } = parse(Msg7),
+    ok.
     
+torture_8() ->
     Msg8 = 
         <<"BYE sip:user@host.example.net SIP/2.0\r\n"
         "Via: SIP/2.0/UDP [2001:db8::9:1]:6050;branch=z9hG4bKas3-111\r\n"
@@ -397,7 +413,9 @@ torture() ->
         #via{proto = tcp, domain = <<"[2001:db8::9:255]">>, port = 0,
              opts = [{branch,<<"z9hG4bK451jj">>}, {received,<<"192.0.2.200">>}]}
     ]} = parse(Msg8),
+    ok.
 
+torture_9() ->
     Msg9 = 
         <<"INVITE sip:user@[2001:db8::10] SIP/2.0\r\n"
         "To: sip:user@[2001:db8::10]\r\n"
@@ -428,7 +446,9 @@ torture() ->
             ]
         }
     } = parse(Msg9),
+    ok.
  
+torture_10() ->
     Msg10 = 
         <<"INVITE sip:user@example.com SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -464,7 +484,10 @@ torture() ->
 
     error = nksip_lib:to_ip(<<"2001:db8:::192.0.2.1">>),
     {ok, {0,0,0,0,0,16#ffff,16#C000,16#0202}} = 
-        nksip_lib:to_ip(<<"::ffff:192.0.2.2">>).
+        nksip_lib:to_ip(<<"::ffff:192.0.2.2">>),
+    ok.
+
+
 
 
 parse(Msg) ->

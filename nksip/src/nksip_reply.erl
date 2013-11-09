@@ -217,7 +217,7 @@ reply(Req, #reqreply{}=ReqReply) ->
             nksip_uas_lib:response(Req, Code, Headers, Body, Opts);
         ContactSpec ->
             case nksip_parse:uris(ContactSpec) of
-                [] -> 
+                error -> 
                     ?warning(AppId, CallId, "UAS returned invalid contact: ~p", 
                             [ContactSpec]),
                     Opts1 = [{reason, <<"Invalid SipApp Response">>}],
@@ -273,7 +273,7 @@ reqreply({answer, Headers, Body, Opts}) ->
     #reqreply{code=200, headers=Headers, body=Body, opts=Opts};
 reqreply({redirect, RawContacts}) ->
     case nksip_parse:uris(RawContacts) of
-        [] -> error;
+        error -> error;
         Contacts -> #reqreply{code=300, opts=[{contact, Contacts}]}
     end;
 reqreply({redirect_permanent, RawContact}) ->

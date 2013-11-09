@@ -41,7 +41,6 @@
                      {resp, nksip:response_code(), binary()}.
 
 
-
 %% ===================================================================
 %% Public
 %% ===================================================================
@@ -71,12 +70,12 @@ method(Method) ->
         "INFO" -> 'INFO';
         "PRACK" -> 'PRACK';
         "UPDATE" -> 'UPDATE';
-        Other -> list_to_binary(Other) 
+        _ -> list_to_binary(Method) 
     end.
 
 
 %% @doc Parses all `Name' headers of a request or response and gets a list 
-%% of `nksip:uri()'. Non-valid entries will be skipped.
+%% of `nksip:uri()'. If non-valid values are found, `[]' is returned.
 -spec header_uris(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
     [nksip:uri()].
 
@@ -84,11 +83,14 @@ header_uris(Name, #sipmsg{headers=Headers}) ->
     header_uris(Name, Headers);
 
 header_uris(Name, Headers) when is_list(Headers) ->
-    uris(nksip_lib:bjoin(header_values(Name, Headers))).
+    case uris(nksip_lib:bjoin(header_values(Name, Headers))) of
+        error -> [];
+        UriList -> UriList
+    end.
 
 
 %% @doc Parse all `Name' headers of a request or response and get a list of `integer()'.
-%% Non-valid entries will be skipped.
+%% If non-valid values are found, `[]' is returned.
 -spec header_integers(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
     [integer()].
 
@@ -96,11 +98,14 @@ header_integers(Name, #sipmsg{headers=Headers}) ->
     header_integers(Name, Headers);
 
 header_integers(Name, Headers) when is_list(Headers) ->
-    integers(header_values(Name, Headers)).
+    case integers(header_values(Name, Headers)) of
+        error -> [];
+        Integers -> Integers
+    end.
 
 
 %% @doc Parse all `Name' headers of a request or response and get a list of dates. 
-%% Non-valid entries will be skipped.
+%% If non-valid values are found, `[]' is returned.
 -spec header_dates(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
     [calendar:datetime()].
 
@@ -108,19 +113,25 @@ header_dates(Name, #sipmsg{headers=Headers}) ->
     header_dates(Name, Headers);
 
 header_dates(Name, Headers) when is_list(Headers) ->
-    dates(header_values(Name, Headers)).
+    case dates(header_values(Name, Headers)) of
+        error -> [];
+        Dates -> Dates
+    end.
 
 
 %% @doc Parse all `Name' headers of a request or response and get a list of tokens.
-%% If any of them is not recognized it will return `error'.
+%% If non-valid values are found, `[]' is returned.
 -spec header_tokens(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
-    [nksip_tokenizer:token()] | error.
+    [nksip_tokenizer:token()].
 
 header_tokens(Name, #sipmsg{headers=Headers}) ->
     header_tokens(Name, Headers);
 
 header_tokens(Name, Headers) when is_list(Headers) ->
-    tokens(header_values(Name, Headers)).
+    case tokens(header_values(Name, Headers)) of
+        error -> [];
+        Tokens -> Tokens
+    end.
 
 
 %% @doc Cleans any `nksip:uri()' into a valid request-uri.
@@ -128,8 +139,7 @@ header_tokens(Name, Headers) when is_list(Headers) ->
 -spec uri2ruri(nksip:uri()) -> 
     nksip:uri().
 
-uri2ruri(#uri{opts=Opts}=RUri) ->
-    _Opts1 = [{N, V} || {N, V} <- Opts, N=/=ob],
+uri2ruri(#uri{}=RUri) ->
     RUri#uri{headers=[], ext_opts=[], ext_headers=[]}.
 
 
@@ -144,7 +154,7 @@ aors(Term) ->
 
 %% @doc Parses all URIs found in `Term'.
 -spec uris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
-    [nksip:uri()].
+    [nksip:uri()] | error.
                 
 uris(#uri{}=Uri) ->
     [Uri];
@@ -161,68 +171,54 @@ uris(Uris) ->
 
 %% @doc Parses all URIs found in `Term' as <i>Request Uris</i>.
 -spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
-    [nksip:uri()].
+    [nksip:uri()] | error.
 
 ruris(Term) ->
-    [Uri#uri{headers=[], ext_opts=[], ext_headers=[]} || Uri <- uris(Term)].
+    case uris(Term) of
+        error -> error;
+        UriList -> [uri2ruri(Uri) || Uri <- UriList]
+    end.
 
 
 %% @doc Extracts all `via()' found in `Term'
 -spec vias(Term :: binary() | string()) -> 
-    [nksip:via()].
+    [nksip:via()] | error.
 
 vias(Text) ->
     parse_vias(nksip_tokenizer:tokenize(Text, via), []).
 
 
 %% @doc Gets a list of `tokens()' from `Term'
--spec tokens([binary()]) ->
-    [nksip_tokenizer:token()].
+-spec tokens(binary() | [binary()]) ->
+    [nksip_tokenizer:token()] | error.
 
-tokens(Term) ->
-    Term1 = case is_binary(Term) of
-        true -> Term;
-        _ -> nksip_lib:bjoin(Term)
-    end,
-    parse_tokens(lists:flatten(nksip_tokenizer:tokenize(Term1, token)), []).
+tokens(Term) when is_binary(Term) -> 
+    parse_tokens(nksip_tokenizer:tokenize(Term, token), []);
+
+tokens(Term) -> 
+    tokens(nksip_lib:bjoin(Term)).
 
 
 %% @doc Parses a list of values as integers
--spec integers([binary()]) ->
-    [integer()].
+-spec integers(binary() | [binary()]) ->
+    [integer()] | error.
 
-integers(Values) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch list_to_integer(string:strip(binary_to_list(Value))) of
-                {'EXIT', _} -> Acc;
-                Integer -> [Integer|Acc]
-            end
-        end,
-        [], 
-        Values),
-    lists:reverse(List).
+integers(Value) when is_binary(Value) -> 
+    parse_integers([Value]);
+
+integers(Values) when is_list(Values) ->
+    parse_integers(Values).
 
 
 %% @doc Parses a list of values as dates
--spec dates([binary()]) ->
-    [calendar:datetime()].
+-spec dates(binary() | [binary()]) ->
+    [calendar:datetime()] | error.
 
-dates(Values) ->
-    List = lists:foldl(
-        fun(Value, Acc) ->
-            case catch 
-                httpd_util:convert_request_date(string:strip(binary_to_list(Value)))
-            of
-                {D, H} -> [{D, H}|Acc];
-                _ -> Acc
-            end
-        end,
-        [],
-        Values),
-    lists:reverse(List).
+dates(Value) when is_binary(Value) ->
+    parse_dates([Value]);
 
-
+dates(Values) when is_list(Values) ->
+    parse_dates(Values).
 
 
 %% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
@@ -534,7 +530,9 @@ get_raw_headers(Packet, Acc) ->
                         "UNSUPPORTED" -> <<"Unsupported">>;
                         "TIMESTAMP" -> <<"Timestamp">>;
                         "TO" -> <<"To">>;
+                        "T" -> <<"To">>;
                         "VIA" -> <<"Via">>;
+                        "V" -> <<"Via">>;
                         _ -> list_to_binary(Name0)
                     end
             end,
@@ -589,7 +587,7 @@ uris([], Acc) ->
 
 %% @private
 -spec parse_uris([nksip_tokenizer:token_list()], list()) -> 
-    [nksip:uri()].
+    [nksip:uri()] | error.
 
 parse_uris([[{"*"}]], []) ->
     [#uri{domain=(<<"*">>)}];
@@ -617,14 +615,28 @@ parse_uris([Tokens|Rest], Acc) ->
         end,
         case Block of
             true ->
-                {UriOpts, R3} = parse_opts(R2),
-                {UriHds, R4} = parse_headers(R3),
+                case parse_opts(R2) of
+                    {UriOpts, R3} -> 
+                        case parse_headers(R3) of  
+                            {UriHds, R4} -> ok;
+                            error -> UriHds = R4 = throw(error4)
+                        end;
+                    error ->
+                        UriOpts = UriHds = R4 = throw(error5)
+                end,
                 case R4 of
                     [$> | R5] -> 
-                        {HdOpts, R6} = parse_opts(R5),
-                        {HdHds, _} = parse_headers(R6);
-                    _ -> 
-                        HdOpts=HdHds=throw(error4)
+                        case parse_opts(R5) of
+                            {HdOpts, R6} ->
+                                case parse_headers(R6) of
+                                    {HdHds, []} -> ok;
+                                    O -> HdHds = throw({error6, O})
+                                end;
+                            error ->
+                                HdOpts = HdHds = throw(error7)
+                        end; 
+                    _ ->
+                        HdOpts=HdHds=throw(error8)
                 end;
             false ->
                 %% Per section 20 of RFC3261:
@@ -633,12 +645,19 @@ parse_uris([Tokens|Rest], Acc) ->
                 %% semicolon-delimited parameters are
                 %% header-parameters, not URI parameters."
                 UriOpts = UriHds = [],
-                {HdOpts, R3} = parse_opts(R2),
-                {HdHds, _} = parse_headers(R3)
+                case parse_opts(R2) of
+                    {HdOpts, R3} ->
+                        case parse_headers(R3) of
+                            {HdHds, []} -> ok;
+                            _ -> HdHds = throw(error9)
+                        end;
+                    error ->
+                        HdOpts = HdHds = throw(error10)
+                end
         end,
         Uri = #uri{
             scheme = scheme(Scheme),
-            disp = list_to_binary(Disp),
+            disp = list_to_binary(string:strip(Disp, left)),
             user = list_to_binary(User),
             pass = list_to_binary(Pass),
             domain = list_to_binary(Host),
@@ -650,8 +669,9 @@ parse_uris([Tokens|Rest], Acc) ->
         },
         parse_uris(Rest, [Uri|Acc])
     catch
-        throw:_ -> parse_uris(Rest, Acc)
+        throw:_ -> error
     end;
+
 parse_uris([], Acc) ->
     lists:reverse(Acc).
 
@@ -665,111 +685,170 @@ parse_vias([Tokens|Rest], Acc) ->
         case Tokens of
             [{"SIP"}, $/, {"2.0"}, $/, {Transport}, {Host}, $:, {Port} | R] -> ok;
             [{"SIP"}, $/, {"2.0"}, $/, {Transport}, {Host} | R] -> Port="0";
-            _ -> Transport=Host=Port=R=throw(error)
+            O -> Transport=Host=Port=R=throw(error1)
         end,
-        {Opts, _} = parse_opts(R),
+        case parse_opts(R) of
+            {Opts, []} -> ok;
+            _ -> Opts = throw(error)
+        end,
         Via = #via{
             proto = 
-                case string:to_upper(Transport) of
-                    "UDP" -> udp;
-                    "TCP" -> tcp;
-                    "TLS" -> tls;
-                    "SCTP" -> sctp;
-                    "WS" -> ws;
-                    "WSS" -> wss;
+                case string:to_lower(Transport) of
+                    "udp" -> udp;
+                    "tcp" -> tcp;
+                    "tls" -> tls;
+                    "sctp" -> sctp;
+                    "ws" -> ws;
+                    "wss" -> wss;
                     _ -> list_to_binary(Transport)
                 end,
             domain = list_to_binary(Host), 
             port = 
                 case catch list_to_integer(Port) of
                     Port1 when is_integer(Port1) -> Port1;
-                    _ -> throw(error)
+                    _ -> throw(error2)
                 end,
             opts = Opts},
         parse_vias(Rest, [Via|Acc])
     catch
-        throw:_ -> parse_vias(Rest, Acc)
+        throw:_ -> error
     end;
+
 parse_vias([], Acc) ->
     lists:reverse(Acc).
 
 
 %% @private
--spec parse_tokens(nksip_tokenizer:token_list(), list()) -> 
-    [nksip_tokenizer:token()].
+parse_tokens([[]], Acc) ->
+    lists:reverse(Acc);
 
-parse_tokens([{Name}|R1], Acc) ->
-    {Opts, R2} = parse_opts(R1),
-    parse_tokens(R2, [{list_to_binary(string:to_lower(Name)), Opts}|Acc]);
-parse_tokens(_O, Acc) ->
-    lists:reverse(Acc).
+parse_tokens([], Acc) ->
+    lists:reverse(Acc);
+
+parse_tokens([[{Token}]|Rest], Acc) ->
+    Token1 = list_to_binary(string:to_lower(Token)),
+    parse_tokens(Rest, [{Token1, []}|Acc]);
+
+parse_tokens([[{Token}|Opts]|Rest], Acc) ->
+    Token1 = list_to_binary(string:to_lower(Token)),
+    case parse_opts(Opts) of
+        {ParsedOpts, []} -> parse_tokens(Rest, [{Token1, ParsedOpts}|Acc]);
+        error -> error
+    end.
 
 
 %% @private
 -spec parse_opts(nksip_tokenizer:token_list()) -> 
-    {Opts::nksip_lib:proplist(), Rest::nksip_tokenizer:token_list()}.
+    {Opts::nksip_lib:proplist(), Rest::nksip_tokenizer:token_list()} | error.
 
-parse_opts(TokenList) ->
+parse_opts(TokenList) -> 
     parse_opts(TokenList, []).
 
+
+%% @private
+parse_opts([], Acc) ->
+    {lists:reverse(Acc), []};
+
+parse_opts([Char|_]=Rest, Acc) when Char==$?; Char==$>; Char==$, ->
+    {lists:reverse(Acc), Rest};
+
 parse_opts(TokenList, Acc) ->
-    case TokenList of
-        [$;, {Key0}, $=, {Value0} | Rest] -> ok; 
-        [$;, {Key0} | Rest] -> Value0 = none; 
-        Rest -> Key0 = none, Value0 = none
-    end,
-    case Key0 of
-        none -> 
-            {lists:reverse(Acc), Rest};
-        _ ->
-            Key = case string:to_lower(Key0) of
-                "lr" -> lr;
-                "maddr" -> maddr;
-                "transport" -> transport;
-                "tag" -> tag;
-                "branch" -> branch;
-                "received" -> received;
-                "rport" -> rport;
-                "expires" -> expires;
-                "q" -> q;
-                "nksip" -> nksip;
-                "nksip_transport" -> nksip_transport;
-                "ob" -> ob;
-                "reg-id" -> 'reg-id';
-                "+sip.instance" -> '+sip.instance';
-                _ -> list_to_binary(Key0) 
-            end,
-            case Value0 of
-                none -> parse_opts(Rest, [Key|Acc]);
-                _ -> parse_opts(Rest, [{Key, list_to_binary(Value0)}|Acc])
-            end
+    try
+        case TokenList of
+            [$;, {Key0}, $=, {Value0} | Rest] -> ok; 
+            [$;, {Key0} | Rest] -> Value0 = none; 
+            _ -> Key0 = Value0 = Rest = throw(error)
+        end,
+        Key = case string:to_lower(Key0) of
+            "lr" -> lr;
+            "maddr" -> maddr;
+            "transport" -> transport;
+            "tag" -> tag;
+            "branch" -> branch;
+            "received" -> received;
+            "rport" -> rport;
+            "expires" -> expires;
+            "q" -> q;
+            "nksip" -> nksip;
+            "nksip_transport" -> nksip_transport;
+            "ob" -> ob;
+            "reg-id" -> 'reg-id';
+            "+sip.instance" -> '+sip.instance';
+            _ -> list_to_binary(Key0) 
+        end,
+        case Value0 of
+            none -> parse_opts(Rest, [Key|Acc]);
+            _ -> parse_opts(Rest, [{Key, list_to_binary(Value0)}|Acc])
+        end
+    catch
+        throw:error -> error
     end.
 
 
 %% @private
 -spec parse_headers(nksip_tokenizer:token_list()) ->
-    {Headers::nksip_lib:proplist(), Rest::nksip_tokenizer:token_list()}.
+    {Headers::nksip_lib:proplist(), Rest::nksip_tokenizer:token_list()} | error.
 
-parse_headers([$?|Rest]) ->
-    parse_headers([$&|Rest], []);
-parse_headers(Rest) ->
-    {[], Rest}.
+parse_headers([$?|Rest]) -> parse_headers([$&|Rest], []);
+parse_headers([$>|_]=Rest) -> {[], Rest};
+parse_headers([]) -> {[], []};
+parse_headers(_) -> error.
+
+
+%% @private
+parse_headers([], Acc) ->
+    {lists:reverse(Acc), []};
+
+parse_headers([$>|_]=Rest, Acc) ->
+    {lists:reverse(Acc), Rest};
 
 parse_headers(TokenList, Acc) ->
-    case TokenList of
-        [$&, {Key0}, $=, {Value0} | Rest] -> ok; 
-        [$&, {Key0} | Rest] -> Value0 = none; 
-        Rest -> Key0 = none, Value0 = none
-    end,
-    case Key0 of
-        none -> 
-            {lists:reverse(Acc), Rest};
-        _ ->
-            Key = list_to_binary(Key0),
-            case Value0 of
-                none -> parse_headers(Rest, [Key|Acc]);
-                _ -> parse_headers(Rest, [{Key, list_to_binary(Value0)}|Acc])
-            end
+    try
+        case TokenList of
+            [$&, {Key0}, $=, {Value0} | Rest] -> ok; 
+            [$&, {Key0} | Rest] -> Value0 = none; 
+            _ -> Key0 = Value0 = Rest = throw(error)
+        end,
+        Key = list_to_binary(Key0),
+        case Value0 of
+            none -> parse_headers(Rest, [Key|Acc]);
+            _ -> parse_headers(Rest, [{Key, list_to_binary(Value0)}|Acc])
+        end
+    catch
+        throw:error -> error
+    end.
+
+
+%% @private
+parse_integers(List) ->
+    parse_integers(List, []).
+
+
+%% @private
+parse_integers([], Acc) ->
+    lists:reverse(Acc);
+
+parse_integers([Value|Rest], Acc) ->
+    case catch list_to_integer(string:strip(binary_to_list(Value))) of
+        {'EXIT', _} -> error;
+        Integer -> parse_integers(Rest, [Integer|Acc])
+    end.
+
+
+%% @private
+parse_dates(List) ->
+    parse_dates(List, []).
+
+
+%% @private
+parse_dates([], Acc) ->
+    lists:reverse(Acc);
+
+parse_dates([Value|Rest], Acc) ->
+    Base = string:strip(binary_to_list(Value)),
+    case catch httpd_util:convert_request_date(Base) of
+        {'EXIT', _} -> error;
+        Date -> parse_dates(Rest, [Date|Acc])
     end.
 
 
@@ -787,12 +866,12 @@ uri_test() ->
         [#uri{scheme=sips, domain= <<"host">>, port=5061}],
         uris("  sips  :  host  :  5061  ")),
     ?assertMatch(
-        [#uri{disp=(<<"\"My name\"">>), user=(<<"user">>), pass=(<<"pass">>), 
+        [#uri{disp=(<<"\"My name\" ">>), user=(<<"user">>), pass=(<<"pass">>), 
             domain= <<"host">>, port=5061, opts=[{transport,<<"tcp">>}],
             headers=[<<"head1">>], ext_opts=[{<<"op1">>,<<"\"1\"">>}]}],
         uris(" \"My name\" <sip:user:pass@host:5061;transport=tcp?head1> ; op1=\"1\"")),
     ?assertMatch(
-        [#uri{disp=(<<"Name">>), domain= <<"host">>, port=5061,
+        [#uri{disp=(<<"Name   ">>), domain= <<"host">>, port=5061,
             ext_headers=[{<<"hd2">>,<<"2">>},{<<"hd3">>,<<"a">>}]}],
         uris(" Name   < sips : host:  5061 > ?hd2=2&hd3=a")),
     ?assertMatch(
@@ -814,7 +893,7 @@ uri_test() ->
             #uri{domain= <<"host2">>, opts=[rport], ext_opts=[{<<"ttl">>,<<"5">>}], 
                 ext_headers=[<<"a">>]}
         ],
-        uris("  sip : user@host ;lr; t=1 ;d ? a=1, <sip:host2;rport>;ttl=5?a>")).
+        uris("  sip : user@host ;lr; t=1 ;d ? a=1, <sip:host2;rport>;ttl=5?a")).
 
 via_test() ->
     ?assertMatch([#via{domain= <<"host">>, port=12}], vias("  SIP / 2.0/TCP host:12")),
@@ -830,13 +909,11 @@ via_test() ->
 token_test() ->
     ?assertMatch(
         [
-            {<<"a">>, []},
-            {<<"b">>, []},
-            {<<"c">>, [{<<"cc">>,<<"a">>},{<<"cb">>,<<"\"ocb\"">>}]},
+            {<<"abc">>, [{<<"cc">>,<<"a">>},{<<"cb">>,<<"\"ocb\"">>}]},
             {<<"e">>, []},
             {<<"f">>, [lr]}
         ],
-        tokens(<<"a b c ; cc=a;cb  = \"ocb\", e, f;lr">>)).
+        tokens(<<"abc ; cc=a;cb  = \"ocb\", e, f;lr">>)).
 
 -endif.
 

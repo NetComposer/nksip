@@ -37,7 +37,7 @@
            nksip_lib:proplist(), nksip_lib:proplist()) ->    
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
-             invalid_contact | invalid_cseq.
+             invalid_contact | invalid_cseq | invalid_content_type.
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
     FullOpts = Opts++AppOpts,
@@ -67,7 +67,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 Routes = [];
             RouteSpec ->
                 case nksip_parse:uris(RouteSpec) of
-                    [] -> Routes = throw(invalid_route);
+                    error -> Routes = throw(invalid_route);
                     Routes -> ok
                 end
         end,
@@ -76,7 +76,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 Contacts = [];
             ContactSpec ->
                 case nksip_parse:uris(ContactSpec) of
-                    [] -> Contacts = throw(invalid_contact);
+                    error -> Contacts = throw(invalid_contact);
                     Contacts -> ok
                 end
         end,
@@ -130,10 +130,17 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             end
         ]),
         ContentType = case nksip_lib:get_binary(content_type, Opts) of
-            <<>> when is_record(Body, sdp) -> [{<<"application/sdp">>, []}];
-            <<>> when not is_binary(Body) -> [{<<"application/nksip.ebf.base64">>, []}];
-            <<>> -> [];
-            ContentTypeSpec -> nksip_parse:tokens([ContentTypeSpec])
+            <<>> when is_record(Body, sdp) -> 
+                [{<<"application/sdp">>, []}];
+            <<>> when not is_binary(Body) -> 
+                [{<<"application/nksip.ebf.base64">>, []}];
+            <<>> -> 
+                [];
+            ContentTypeSpec -> 
+                case nksip_parse:tokens(ContentTypeSpec) of
+                    error -> throw(invalid_content_type);
+                    ContentTypeTokens -> ContentTypeTokens
+                end
         end,
         RUri1 = nksip_parse:uri2ruri(RUri),
         Req = #sipmsg{
