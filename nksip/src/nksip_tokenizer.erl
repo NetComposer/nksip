@@ -91,8 +91,9 @@ tokenize([Ch|Rest], Quote, Class, Chs, Words) ->
             Words1 = [{lists:reverse([$"|Chs])}|Words],
             tokenize(Rest, none, Class, [], Words1);
         Ch==$,, Quote==none, 
-                (Class==uri_host orelse Class==via orelse Class==via_token 
-                 orelse Class==token orelse Class==equal) ->
+                (Class==uri_host orelse Class==uri_opts orelse
+                 Class==via orelse Class==via_token orelse 
+                 Class==token orelse Class==equal) ->
             Words1 = case Chs of
                 [] -> Words;
                 _ -> [{lists:reverse(Chs)}|Words]
@@ -123,8 +124,12 @@ tokenize([Ch|Rest], Quote, Class, Chs, Words) ->
                     {true, uri_user};
                 uri_user when Ch==$@ -> 
                     {true, uri_host};
-                uri_host when Ch==$:; Ch==$;; Ch==$?; Ch==$=; Ch==$&; Ch==$> -> 
+                uri_host when Ch==$: -> 
                     {true, uri_host};
+                uri_host when Ch==$;; Ch==$?; Ch==$> -> 
+                    {true, uri_opts};
+                uri_opts when Ch==$;; Ch==$?; Ch==$=; Ch==$&; Ch==$> -> 
+                    {true, uri_opts};
                 via when Ch==$/; Ch==$: -> 
                     {true, via};
                 via when Ch==$; -> 
@@ -201,6 +206,7 @@ pre_uri(List) ->
 pre_uri([], Acc, _) -> {lists:reverse(Acc), []};
 pre_uri([13,10|Rest], Acc, Quote) -> pre_uri(Rest, Acc, Quote);
 pre_uri([$<|Rest], Acc, false) -> {lists:reverse(Acc), [$<|Rest]};
+pre_uri([$,|_Rest], _Acc, false) -> abort;
 pre_uri([$:|_Rest], _Acc, false) -> abort;
 pre_uri([92, $"|Rest], Acc, true) -> pre_uri(Rest, [$", 92|Acc], true);
 pre_uri([$"|Rest], Acc, false) -> pre_uri(Rest, [$"|Acc], true);

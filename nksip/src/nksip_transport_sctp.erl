@@ -131,11 +131,11 @@ send(Pid, #sipmsg{}=SipMsg) ->
         ok ->
             case Class of
                 {req, Method} ->
-                    nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Method, Packet}),
+                    nksip_trace:insert(SipMsg, {sctp_out, Ip, Port, Method, Packet}),
                     nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
                     ok;
                 {resp, Code} ->
-                    nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Code, Packet}),
+                    nksip_trace:insert(SipMsg, {sctp_out, Ip, Port, Code, Packet}),
                     nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
                     ok
             end;
@@ -332,16 +332,18 @@ parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transp}=State) ->
     case nksip_parse:packet(AppId, Transp1, Packet) of
         {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp1, Packet),
-            nksip_trace:insert(AppId, CallId, {in_udp, Class}),
+            nksip_trace:insert(AppId, CallId, {in_sctp, Class}),
             nksip_call_router:incoming_async(RawMsg),
             case More of
                 <<>> -> ok;
-                _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])
+                _ -> ?notice(AppId, "ignoring data after SCTP msg: ~p", [More])
             end;
         {rnrn, More} ->
             parse(More, Ip, Port, State);
         {more, More} -> 
-            ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More])
+            ?notice(AppId, "ignoring incomplete SCTP msg: ~p", [More]);
+        {error, Error} ->
+            ?notice(AppId, "error ~p processing SCTP msg", [Error])
     end.
 
 

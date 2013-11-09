@@ -292,7 +292,7 @@ torture_2() ->
         "CSeq: 98176 REGISTER\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    error = parse(Msg2),
+    {error, invalid_ruri} = parse(Msg2),
     ok.
 
 torture_3() ->
@@ -492,8 +492,8 @@ torture_10() ->
 
 parse(Msg) ->
     case nksip_parse:packet(test, #transport{}, Msg) of
-        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
-        error -> error
+        {ok, Raw, <<>>}  -> nksip_parse:raw_sipmsg(Raw);
+        {error, Error} -> {error, Error}
     end.
 
 

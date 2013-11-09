@@ -325,7 +325,11 @@ parse(Packet, #state{app_id=AppId, socket=Socket, transport=Transport}=State) ->
             socket_send(Proto, Socket, <<"\r\n">>),
             parse(More, State);
         {more, More} -> 
-            More
+            More;
+        {error, Error} ->
+            ?notice(AppId, "error ~p processing TCP request", [Error]),
+            socket_close(Proto, Socket),
+            <<>>           
     end.
 
 

@@ -269,7 +269,8 @@ header_values(Name, Headers) when is_list(Headers) ->
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
 -spec packet(nksip:app_id(), nksip_transport:transport(), binary()) ->
-    {ok, #raw_sipmsg{}, binary()} | {more, binary()} | {rnrn, binary()}.
+    {ok, #raw_sipmsg{}, binary()} | {more, binary()} | 
+    {rnrn, binary()} | {error, term()}.
 
 packet(AppId, Transport, Packet) ->
     Start = nksip_lib:l_timestamp(),
@@ -287,16 +288,15 @@ packet(AppId, Transport, Packet) ->
                 transport = Transport
             },
             {ok, Msg, Rest};
-        {more, More} ->
-            {more, More};
-        {rnrn, More} ->
-            {rnrn, More}
+        Other ->
+            Other
     end.
 
 
 %% @private
 -spec parse_packet(binary()) ->
-    {ok, Class, Headers, Body, Rest} | {more, binary()} | {rnrn, binary()}
+    {ok, Class, Headers, Body, Rest} | {more, binary()} | 
+    {rnrn, binary()} | {error, term()}
     when Class :: msg_class(), Headers :: [nksip:header()], 
          Body::binary(), Rest::binary().
 
@@ -305,8 +305,7 @@ parse_packet(Packet) ->
         nomatch when byte_size(Packet) < 65535 ->
             {more, Packet};
         nomatch ->
-            lager:error("Skipping unrecognized big chunk parsing message"),
-            {more, <<>>};
+            {error, message_too_large};
         _ ->
             case binary:split(Packet, <<"\r\n">>) of
                 [<<>>, <<"\r\n", Rest/binary>>] ->
@@ -319,17 +318,13 @@ parse_packet(Packet) ->
                         [<<"SIP/2.0">>, Code | TextList] -> 
                             CodeText = nksip_lib:bjoin(TextList, <<" ">>),
                             case catch list_to_integer(binary_to_list(Code)) of
-                                Code1 when is_integer(Code1) -> 
+                                Code1 when is_integer(Code1), Code1>=100, Code1=<699 -> 
                                     parse_packet(Packet, {resp, Code1, CodeText}, Rest);
                                 _ ->
-                                    lager:notice("Skipping unrecognized line ~p "
-                                                 "parsing message", [First]),
-                                    parse_packet(Rest)
+                                    {error, invalid_code}
                             end;
                         _ ->
-                            lager:notice("Skipping unrecognized line ~p "
-                                         "parsing message", [First]),
-                            parse_packet(Rest)
+                            {error, message_unrecognized}
                     end
             end
     end.
@@ -343,23 +338,36 @@ parse_packet(Packet) ->
     
 parse_packet(Packet, Class, Rest) ->
     {Headers, Rest2} = get_raw_headers(Rest, []),
-    CL = nksip_lib:get_integer(<<"Content-Length">>, Headers),
-    case byte_size(Rest2) of
-        CL -> 
+    case nksip_lib:get_list(<<"Content-Length">>, Headers) of
+        [] ->
             {ok, Class, Headers, Rest2, <<>>};
-        BS when BS < CL -> 
-            {more, Packet};
-        _ when CL > 0 -> 
-            {Body, Rest3} = split_binary(Rest2, CL),
-            {ok, Class, Headers, Body, Rest3};
-        _ -> 
-            {ok, Class, Headers, <<>>, Rest2}
+        String ->
+            case catch list_to_integer(String) of
+                {'EXIT', _} ->
+                    {error, invalid_content_length};
+                CL when CL < 0 ->
+                    {error, invalid_content_length};
+                CL ->
+                    case byte_size(Rest2) of
+                        CL -> 
+                            {ok, Class, Headers, Rest2, <<>>};
+                        BS when BS < CL -> 
+                            {more, Packet};
+                        _ when CL > 0 -> 
+                            {Body, Rest3} = split_binary(Rest2, CL),
+                            {ok, Class, Headers, Body, Rest3};
+                        _ -> 
+                            {ok, Class, Headers, <<>>, Rest2}
+                    end
+            end
     end.
 
 
 %% @private Second-stage SIP message parser
 %% 15K/sec on i7
--spec raw_sipmsg(#raw_sipmsg{}) -> #sipmsg{} | error.
+-spec raw_sipmsg(#raw_sipmsg{}) -> 
+    #sipmsg{} | {error, term()}.
+
 raw_sipmsg(Raw) ->
     #raw_sipmsg{
         id = Id,
@@ -376,9 +384,9 @@ raw_sipmsg(Raw) ->
             case uris(<<$<, RequestUri/binary, $>>>) of
                 [RUri] ->
                     case get_sipmsg(Headers, Body) of
-                        error ->
-                            error;
-                        Request ->
+                        {error, Error} ->
+                            {error, Error};
+                        Request when Request#sipmsg.cseq_method==Method ->
                             Request#sipmsg{
                                 id = Id,
                                 class = {req, Method},
@@ -387,15 +395,17 @@ raw_sipmsg(Raw) ->
                                 transport = Transport,
                                 start = Start,
                                 data = []
-                            }
+                            };
+                        _ ->
+                            {error, method_mismatch}
                     end;
                 _ ->
-                    error
+                    {error, invalid_ruri}
             end;
         {resp, Code, CodeText} ->
             case get_sipmsg(Headers, Body) of
-                error ->
-                    error;
+                {error, Error} ->
+                    {error, Error};
                 Response ->
                     Response#sipmsg{
                         id = Id,
@@ -411,25 +421,25 @@ raw_sipmsg(Raw) ->
 
 %% @private
 -spec get_sipmsg([nksip:header()], binary()) -> 
-    #sipmsg{} | error.
+    #sipmsg{} | {error, term()}.
 
 get_sipmsg(Headers, Body) ->
     try
         case header_uris(<<"From">>, Headers) of
             [#uri{} = From] -> ok;
-            _ -> From = throw("Could not parse From")
+            _ -> From = throw(invalid_from)
         end,
         case header_uris(<<"To">>, Headers) of
             [#uri{} = To] -> ok;
-            _ -> To = throw("Could not parse To")
+            _ -> To = throw(invalid_to)
         end,
         case header_values(<<"Call-ID">>, Headers) of
             [CallId] when is_binary(CallId) -> CallId;
-            _ -> CallId = throw("Could not parse Call-ID")
+            _ -> CallId = throw(invalid_call_id)
         end,
         case vias(nksip_lib:bjoin(header_values(<<"Via">>, Headers))) of
             [_|_] = Vias -> ok;
-            _ -> Vias = throw("Could not parse Via")
+            _ -> Vias = throw(invalid_via)
         end,
         case header_values(<<"CSeq">>, Headers) of
             [CSeqHeader] ->
@@ -438,18 +448,22 @@ get_sipmsg(Headers, Body) ->
                         CSeqMethod = method(CSeqMethod0),
                         case (catch list_to_integer(CSeqInt0)) of
                             CSeqInt when is_integer(CSeqInt) -> ok;
-                            true -> CSeqInt = throw("Invalid CSeq")
+                            true -> CSeqInt = throw(invalid_cseq)
                         end;
                     _ -> 
-                        CSeqInt=CSeqMethod=throw("Could not parse CSeq")
+                        CSeqInt=CSeqMethod=throw(invalid_cseq)
                 end;
             _ ->
-                CSeqInt=CSeqMethod=throw("Invalid CSeq")
+                CSeqInt=CSeqMethod=throw(invalid_cseq)
+        end,
+        case CSeqInt > 4294967295 of      % (2^32-1)
+            true -> throw(invalid_cseq);
+            false -> ok
         end,
         case header_integers(<<"Max-Forwards">>, Headers) of
             [] -> Forwards = 70;
-            [Forwards] when is_integer(Forwards) -> ok;
-            _ -> Forwards = throw("Could not parse Max-Forwards")
+            [Forwards] when is_integer(Forwards), Forwards>0, Forwards<300 -> ok;
+            _ -> Forwards = throw(invalid_max_forwards)
         end,
         ContentType = header_tokens(<<"Content-Type">>, Headers),
         Body1 = case ContentType of
@@ -488,9 +502,7 @@ get_sipmsg(Headers, Body) ->
             data = []
         }
     catch
-        throw:ErrMsg ->
-            lager:warning("Error parsing message: ~s", [ErrMsg]),
-            error
+        throw:Error -> {error, Error}
     end.
 
 
@@ -617,6 +629,7 @@ parse_uris([Tokens|Rest], Acc) ->
             true ->
                 case parse_opts(R2) of
                     {UriOpts, R3} -> 
+                        % ?P("R3: ~p", [R3]),
                         case parse_headers(R3) of  
                             {UriHds, R4} -> ok;
                             error -> UriHds = R4 = throw(error4)
@@ -669,7 +682,9 @@ parse_uris([Tokens|Rest], Acc) ->
         },
         parse_uris(Rest, [Uri|Acc])
     catch
-        throw:_ -> error
+        throw:_E -> 
+            % lager:warning("Error processing URI: ~p", [_E]),
+            error
     end;
 
 parse_uris([], Acc) ->
@@ -846,10 +861,17 @@ parse_dates([], Acc) ->
 
 parse_dates([Value|Rest], Acc) ->
     Base = string:strip(binary_to_list(Value)),
-    case catch httpd_util:convert_request_date(Base) of
-        {'EXIT', _} -> error;
-        Date -> parse_dates(Rest, [Date|Acc])
+    case lists:reverse(Base) of
+        "TMG " ++ _ ->               % Should en in "GMT"
+            case catch httpd_util:convert_request_date(Base) of
+                {_, _} = Date -> parse_dates(Rest, [Date|Acc]);
+                _ -> error
+            end;
+        _ ->
+            error
     end.
+
+
 
 
 %% ===================================================================

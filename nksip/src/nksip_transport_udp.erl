@@ -346,7 +346,9 @@ parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transport}=State) ->
         {rnrn, More} ->
             parse(More, Ip, Port, State);
         {more, More} -> 
-            ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More])
+            ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More]);
+        {error, Error} ->
+            ?notice(AppId, "error ~p processing UDP msg", [Error])
     end.
 
 
