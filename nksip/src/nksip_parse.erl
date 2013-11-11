@@ -29,10 +29,8 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([method/1, header_uris/2, header_dates/2, header_integers/2]).
--export([header_tokens/2]).
--export([scheme/1, uri2ruri/1, aors/1, uris/1, ruris/1, vias/1, tokens/1, transport/1]).
--export([integers/1, dates/1]).
+-export([method/1, scheme/1, uri2ruri/1, aors/1, uris/1, ruris/1, vias/1]).
+-export([tokens/1, integers/1, dates/1, transport/1]).
 -export([packet/3, raw_sipmsg/1]).
 
 -export_type([msg_class/0]).
@@ -71,66 +69,6 @@ method(Method) ->
         "PRACK" -> 'PRACK';
         "UPDATE" -> 'UPDATE';
         _ -> list_to_binary(Method) 
-    end.
-
-
-%% @doc Parses all `Name' headers of a request or response and gets a list 
-%% of `nksip:uri()'. If non-valid values are found, `[]' is returned.
--spec header_uris(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
-    [nksip:uri()].
-
-header_uris(Name, #sipmsg{headers=Headers}) ->
-    header_uris(Name, Headers);
-
-header_uris(Name, Headers) when is_list(Headers) ->
-    case uris(nksip_lib:bjoin(header_values(Name, Headers))) of
-        error -> [];
-        UriList -> UriList
-    end.
-
-
-%% @doc Parse all `Name' headers of a request or response and get a list of `integer()'.
-%% If non-valid values are found, `[]' is returned.
--spec header_integers(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
-    [integer()].
-
-header_integers(Name, #sipmsg{headers=Headers}) ->
-    header_integers(Name, Headers);
-
-header_integers(Name, Headers) when is_list(Headers) ->
-    case integers(header_values(Name, Headers)) of
-        error -> [];
-        Integers -> Integers
-    end.
-
-
-%% @doc Parse all `Name' headers of a request or response and get a list of dates. 
-%% If non-valid values are found, `[]' is returned.
--spec header_dates(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
-    [calendar:datetime()].
-
-header_dates(Name, #sipmsg{headers=Headers}) ->
-    header_dates(Name, Headers);
-
-header_dates(Name, Headers) when is_list(Headers) ->
-    case dates(header_values(Name, Headers)) of
-        error -> [];
-        Dates -> Dates
-    end.
-
-
-%% @doc Parse all `Name' headers of a request or response and get a list of tokens.
-%% If non-valid values are found, `[]' is returned.
--spec header_tokens(binary(), nksip:request()|nksip:response()|[nksip:header()]) -> 
-    [nksip_tokenizer:token()].
-
-header_tokens(Name, #sipmsg{headers=Headers}) ->
-    header_tokens(Name, Headers);
-
-header_tokens(Name, Headers) when is_list(Headers) ->
-    case tokens(header_values(Name, Headers)) of
-        error -> [];
-        Tokens -> Tokens
     end.
 
 
@@ -460,11 +398,11 @@ raw_sipmsg(Raw) ->
     #sipmsg{} | {error, term()}.
 
 get_sipmsg(Headers, Body, Proto) ->
-    case header_uris(<<"From">>, Headers) of
+    case uris(proplists:get_all_values(<<"From">>, Headers)) of
         [#uri{} = From] -> ok;
         _ -> From = throw({400, <<"Invalid From">>})
     end,
-    case header_uris(<<"To">>, Headers) of
+    case uris(proplists:get_all_values(<<"To">>, Headers)) of
         [#uri{} = To] -> ok;
         _ -> To = throw({400, <<"Invalid To">>})
     end,
@@ -495,13 +433,24 @@ get_sipmsg(Headers, Body, Proto) ->
         true -> throw({400, <<"Invalid CSeq">>});
         false -> ok
     end,
-    case header_integers(<<"Max-Forwards">>, Headers) of
+    case integers(proplists:get_all_values(<<"Max-Forwards">>, Headers)) of
         [] -> Forwards = 70;
         [0] -> Forwards=throw({483, "Too Many Hops"});
         [Forwards] when is_integer(Forwards), Forwards>0, Forwards<300 -> ok;
         _ -> Forwards = throw({400, <<"Invalid Max-Forwards">>})
     end,
-    ContentType = header_tokens(<<"Content-Type">>, Headers),
+    case uris(proplists:get_all_values(<<"Route">>, Headers)) of
+        error -> Routes = throw({400, <<"Invalid Route">>});
+        Routes -> ok
+    end,
+    case uris(proplists:get_all_values(<<"Contact">>, Headers)) of
+        error -> Contacts = throw({400, <<"Invalid Contact">>});
+        Contacts -> ok
+    end,
+    case tokens(proplists:get_all_values(<<"Content-Type">>, Headers)) of
+        error -> ContentType = throw({400, <<"Invalid Content-Type">>});
+        ContentType -> ok
+    end,
     case header_values(<<"Content-Length">>, Headers) of
         [] when Proto=/=tcp, Proto=/=tls -> 
             ok;
@@ -544,8 +493,8 @@ get_sipmsg(Headers, Body, Proto) ->
         cseq = CSeqInt,
         cseq_method = CSeqMethod,
         forwards = Forwards,
-        routes = header_uris(<<"Route">>, Headers),
-        contacts = header_uris(<<"Contact">>, Headers),
+        routes = Routes,
+        contacts = Contacts,
         headers = Headers1,
         content_type = ContentType,
         body = Body1,
