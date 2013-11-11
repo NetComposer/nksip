@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([uri/1, uri2proplist/1, via/1, tokens/1, packet/1]).
+-export([uri/1, uri2proplist/1, via/1, tokens/1, packet/1, raw_packet/3]).
 
 
 %% ===================================================================
@@ -105,7 +105,7 @@ tokens(Tokens) ->
 packet(#sipmsg{class={resp, Code}, data=Data}=Response) ->
     list_to_binary([<<"SIP/2.0 ">>, nksip_lib:to_binary(Code), 32, 
         case nksip_lib:get_binary(reason, Data) of
-            <<>> -> resp_text(Code);
+            <<>> -> response_phrase(Code);
             RespText -> RespText
         end,
         <<"\r\n">>, serialize(Response)]);
@@ -116,6 +116,32 @@ packet(#sipmsg{class={req, Method}}=Request)  ->
         32, raw_ruri(Request#sipmsg.ruri), <<" SIP/2.0\r\n">>,
         serialize(Request)
     ]).
+
+
+%% @private Generates a binary packet for a request or response
+-spec raw_packet(#raw_sipmsg{}, nksip:response_code(), nksip:reason()) -> 
+    binary().
+
+raw_packet(#raw_sipmsg{headers=Hds}, Code, Reason) ->
+    Hds1 = [{string:to_lower(nksip_lib:to_list(N)), V} || {N, V} <- Hds],
+    list_to_binary([
+        "SIP/2.0 ", nksip_lib:to_list(Code), 32,
+            case Reason of
+                <<>> -> response_phrase(Code);
+                _ -> Reason
+            end,
+            "\r\n",
+        "Via: ", nksip_lib:get_binary("via", Hds1), "\r\n",
+        "From: ", nksip_lib:get_binary("from", Hds1), "\r\n",
+        "To: ", nksip_lib:get_binary("to", Hds1), "\r\n",
+        "Call-ID: ", nksip_lib:get_binary("call-id", Hds1), "\r\n",
+        "CSeq: ", nksip_lib:get_binary("cseq", Hds1), "\r\n",
+        "Max-Forwards: ", nksip_lib:get_binary("max-forwards", Hds1), "\r\n",
+        "Content-Length: 0", nksip_lib:get_binary("contentlLength", Hds1), "\r\n",
+        "\r\n"
+    ]).
+
+
 
 
 %% @private Serializes an `nksip:uri()', using `<' and `>' as delimiters
@@ -264,10 +290,10 @@ serialize(#sipmsg{
 
 
 %% @private
--spec resp_text(nksip:response_code()) -> 
+-spec response_phrase(nksip:response_code()) -> 
     binary().
 
-resp_text(Code) ->
+response_phrase(Code) ->
     case Code of
         100 -> <<"Trying">>;
         180 -> <<"Ringing">>;

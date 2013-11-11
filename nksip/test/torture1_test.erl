@@ -28,16 +28,9 @@
 -compile([export_all]).
 
 
-
-parse(Msg) ->
-    case nksip_parse:packet(test, #transport{}, Msg) of
-        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
-        {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail}
-    end.
-
-
-
 valid_1_test() ->
+    ?debugFmt("Starting ~p", [?MODULE]),
+
     Msg1 = 
         <<"INVITE sip:vivekg@chair-dnrc.example.com;unknownparam SIP/2.0\r\n"
         "TO :\r\n"
@@ -139,6 +132,7 @@ valid_1_test() ->
     } = parse(Msg1),
     ok.
 
+
 valid_2_test() ->
     Msg = 
         <<"!interesting-Method0123456789_*+`.%indeed'~ sip:1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*:&it+has=1,weird!*pas$wo~d_too.(doesn't-it)@example.com SIP/2.0\r\n"
@@ -194,6 +188,7 @@ valid_2_test() ->
     } = parse(Msg),
     ok.
 
+
 valid_3_test() ->
     Msg = 
         <<"INVITE sip:sips%3Auser%40example.com@example.net SIP/2.0\r\n"
@@ -239,6 +234,7 @@ valid_3_test() ->
     } = parse(Msg),
     ok.
 
+
 valid_4_test() ->
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
@@ -266,6 +262,7 @@ valid_4_test() ->
         ]
     } = parse(Msg),
     ok.
+
 
 valid_5_test() ->
     Msg = 
@@ -300,6 +297,7 @@ valid_5_test() ->
     } = parse(Msg),
     ok.
 
+
 valid_6_test() ->
     Msg = 
         <<"OPTIONS sip:user@example.com SIP/2.0\r\n"
@@ -320,6 +318,7 @@ valid_6_test() ->
                 }
     } = parse(Msg),
     ok.
+
 
 valid_7_test() ->
     Msg = 
@@ -456,38 +455,40 @@ valid_7_test() ->
     ] = nksip_parse:tokens(HeaderValue),
     ok.
 
-    valid_8_test() ->
-        Msg = 
-            <<"REGISTER sip:example.com SIP/2.0\r\n"
-            "To: sip:j.user@example.com\r\n"
-            "From: sip:j.user@example.com;tag=43251j3j324\r\n"
-            "Max-Forwards: 8\r\n"
-            "I: dblreq.0ha0isndaksdj99sdfafnl3lk233412\r\n"
-            "Contact: sip:j.user@host.example.com\r\n"
-            "CSeq: 8 REGISTER\r\n"
-            "Via: SIP/2.0/UDP 192.0.2.125;branch=z9hG4bKkdjuw23492\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n"
-            "INVITE sip:joe@example.com SIP/2.0\r\n"
-            "t: sip:joe@example.com\r\n"
-            "From: sip:caller@example.net;tag=141334\r\n"
-            "Max-Forwards: 8\r\n"
-            "Call-ID: dblreq.0ha0isnda977644900765@192.0.2.15\r\n"
-            "CSeq: 8 INVITE\r\n"
-            "Via: SIP/2.0/UDP 192.0.2.15;branch=z9hG4bKkdjuw380234\r\n"
-            "Content-Type: application/sdp\r\n"
-            "Content-Length: 150\r\n"
-            "\r\n"
-            "v=0\r\n"
-            "o=mhandley 29739 7272939 IN IP4 192.0.2.15\r\n"
-            "s=-\r\n"
-            "c=IN IP4 192.0.2.15\r\n"
-            "t=0 0\r\n"
-            "m=audio 49217 RTP/AVP 0 12\r\n"
-            "m =video 3227 RTP/AVP 31\r\n"
-            "a=rtpmap:31 LPC\r\n">>,
-        {tail, #sipmsg{}, <<"INVITE ", _/binary>>} = parse(Msg),
-        ok.
+
+valid_8_test() ->
+    Msg = 
+        <<"REGISTER sip:example.com SIP/2.0\r\n"
+        "To: sip:j.user@example.com\r\n"
+        "From: sip:j.user@example.com;tag=43251j3j324\r\n"
+        "Max-Forwards: 8\r\n"
+        "I: dblreq.0ha0isndaksdj99sdfafnl3lk233412\r\n"
+        "Contact: sip:j.user@host.example.com\r\n"
+        "CSeq: 8 REGISTER\r\n"
+        "Via: SIP/2.0/UDP 192.0.2.125;branch=z9hG4bKkdjuw23492\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n"
+        "INVITE sip:joe@example.com SIP/2.0\r\n"
+        "t: sip:joe@example.com\r\n"
+        "From: sip:caller@example.net;tag=141334\r\n"
+        "Max-Forwards: 8\r\n"
+        "Call-ID: dblreq.0ha0isnda977644900765@192.0.2.15\r\n"
+        "CSeq: 8 INVITE\r\n"
+        "Via: SIP/2.0/UDP 192.0.2.15;branch=z9hG4bKkdjuw380234\r\n"
+        "Content-Type: application/sdp\r\n"
+        "Content-Length: 150\r\n"
+        "\r\n"
+        "v=0\r\n"
+        "o=mhandley 29739 7272939 IN IP4 192.0.2.15\r\n"
+        "s=-\r\n"
+        "c=IN IP4 192.0.2.15\r\n"
+        "t=0 0\r\n"
+        "m=audio 49217 RTP/AVP 0 12\r\n"
+        "m =video 3227 RTP/AVP 31\r\n"
+        "a=rtpmap:31 LPC\r\n">>,
+    {tail, #sipmsg{}, <<"INVITE ", _/binary>>} = parse(Msg),
+    ok.
+
 
 valid_9_test() ->
     Msg = 
@@ -529,6 +530,7 @@ valid_9_test() ->
     ] = nksip_parse:tokens(Accept),
     ok.
 
+
 valid_10_test() ->
     Msg = 
         <<"OPTIONS sip:user@example.com SIP/2.0\r\n"
@@ -569,6 +571,7 @@ valid_10_test() ->
         ]
     } = parse(Msg),
     ok.
+
 
 valid_11_test() ->
     Msg = 
@@ -649,6 +652,7 @@ valid_11_test() ->
     [{{2005,10,15},{4,44,56}}] = nksip_parse:dates(Date),
     ok.
 
+
 valid_12_test() ->
     Msg = 
         <<"SIP/2.0 200 = 2**3 * 5**2 \xD0\xBD\xD0\xBE\x20\xD1\x81\xD1\x82\xD0\xBE\x20\xD0\xB4\xD0\xB5\xD0\xB2\xD1\x8F\xD0\xBD\xD0\xBE\xD1\x81\xD1\x82\xD0\xBE\x20\xD0\xB4\xD0\xB5\xD0\xB2\xD1\x8F\xD1\x82\xD1\x8C\x20\x2D\x20\xD0\xBF\xD1\x80\xD0\xBE\xD1\x81\xD1\x82\xD0\xBE\xD0\xB5\r\n"
@@ -688,5 +692,16 @@ valid_13_test() ->
         "\r\n">>,
     #sipmsg{data = [{reason, <<>>}]} = parse(Msg),
     ok.
+
+
+
+
+%% Internal
+
+parse(Msg) ->
+    case nksip_parse:packet(test, #transport{}, Msg) of
+        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
+        {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail}
+    end.
 
 

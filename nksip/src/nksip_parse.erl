@@ -269,14 +269,14 @@ header_values(Name, Headers) when is_list(Headers) ->
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
 -spec packet(nksip:app_id(), nksip_transport:transport(), binary()) ->
-    {ok, #raw_sipmsg{}, binary()} | {more, binary()} | 
-    {rnrn, binary()} | {error, term()}.
+    {ok, #raw_sipmsg{}, binary()} | {more, binary()} | {rnrn, binary()} | 
+    {error, term()}.
 
-packet(AppId, Transport, Packet) ->
+packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
     Start = nksip_lib:l_timestamp(),
-    case parse_packet(Packet) of
+    case parse_packet1(Packet, Proto) of
         {ok, Class, Headers, Body, Rest} ->
-            CallId = nksip_lib:get_value(<<"Call-ID">>, Headers),
+            CallId = nksip_lib:get_binary(<<"Call-ID">>, Headers),
             Msg = #raw_sipmsg{
                 id = nksip_sipmsg:make_id(element(1, Class), CallId),
                 class = Class,
@@ -285,7 +285,7 @@ packet(AppId, Transport, Packet) ->
                 start = Start,
                 headers = Headers,
                 body = Body,
-                transport = Transport
+                transport = Transp
             },
             {ok, Msg, Rest};
         Other ->
@@ -294,13 +294,13 @@ packet(AppId, Transport, Packet) ->
 
 
 %% @private
--spec parse_packet(binary()) ->
-    {ok, Class, Headers, Body, Rest} | {more, binary()} | 
-    {rnrn, binary()} | {error, term()}
+-spec parse_packet1(binary(), nksip:protocol()) ->
+    {ok, Class, Headers, Body, Rest} | {more, binary()} | {rnrn, binary()} | 
+    {error, term()}
     when Class :: msg_class(), Headers :: [nksip:header()], 
          Body::binary(), Rest::binary().
 
-parse_packet(Packet) ->
+parse_packet1(Packet, Proto) ->
     case binary:match(Packet, <<"\r\n\r\n">>) of
         nomatch when byte_size(Packet) < 65535 ->
             {more, Packet};
@@ -313,15 +313,16 @@ parse_packet(Packet) ->
                 [First, Rest] ->
                     case binary:split(First, <<" ">>, [global]) of
                         [Method, RUri, <<"SIP/2.0">>] ->
-                            Method1 = method(Method),
-                            parse_packet(Packet, {req, Method1, RUri}, Rest);
+                            Class = {req, method(Method), RUri},
+                            parse_packet2(Packet, Proto, Class, Rest);
                         [<<"SIP/2.0">>, Code | TextList] -> 
                             CodeText = nksip_lib:bjoin(TextList, <<" ">>),
                             case catch list_to_integer(binary_to_list(Code)) of
-                                Code1 when is_integer(Code1), Code1>=100, Code1=<699 -> 
-                                    parse_packet(Packet, {resp, Code1, CodeText}, Rest);
+                                Code1 when is_integer(Code1) ->
+                                    Class= {resp, Code1, CodeText},
+                                    parse_packet2(Packet, Proto, Class, Rest);
                                 _ ->
-                                    {error, invalid_code}
+                                    {error, message_unrecognized}
                             end;
                         _ ->
                             {error, message_unrecognized}
@@ -331,42 +332,75 @@ parse_packet(Packet) ->
 
 
 %% @private 
--spec parse_packet(binary(), msg_class(), binary()) ->
-    {ok, Class, Headers, Body, Rest} | {more, binary()} | {rnrn, binary()}
+-spec parse_packet2(binary(), nksip:protocol(), msg_class(), binary()) ->
+    {ok, Class, Headers, Body, Rest} | {more, binary()}
     when Class :: msg_class(), Headers :: [nksip:header()], 
          Body::binary(), Rest::binary().
-    
-parse_packet(Packet, Class, Rest) ->
-    {Headers, Rest2} = get_raw_headers(Rest, []),
-    case nksip_lib:get_list(<<"Content-Length">>, Headers) of
-        [] ->
-            {ok, Class, Headers, Rest2, <<>>};
+
+
+parse_packet2(Packet, Proto, Class, Rest) when Proto=:=tcp; Proto=:=tls ->
+    {Headers, Rest1} = get_raw_headers(Rest, []),
+    CL = case nksip_lib:get_list(<<"Content-Length">>, Headers) of
+        "" -> 
+            0;
         String ->
             case catch list_to_integer(String) of
-                {'EXIT', _} ->
-                    {error, invalid_content_length};
-                CL when CL < 0 ->
-                    {error, invalid_content_length};
-                CL ->
-                    case byte_size(Rest2) of
-                        CL -> 
-                            {ok, Class, Headers, Rest2, <<>>};
-                        BS when BS < CL -> 
-                            {more, Packet};
-                        _ when CL > 0 -> 
-                            {Body, Rest3} = split_binary(Rest2, CL),
-                            {ok, Class, Headers, Body, Rest3};
-                        _ -> 
-                            {ok, Class, Headers, <<>>, Rest2}
-                    end
+                Int when is_integer(Int), Int >= 0 -> Int;
+                _ -> -1
             end
-    end.
+    end,
+    if 
+        CL =< 0 ->
+            {ok, Class, Headers, <<>>, Rest1};
+        true ->
+            case byte_size(Rest1) of
+                CL -> 
+                    {ok, Class, Headers, Rest1, <<>>};
+                BS when BS < CL -> 
+                    {more, Packet};
+                _ ->
+                    {Body, Rest3} = split_binary(Rest1, CL),
+                    {ok, Class, Headers, Body, Rest3}
+            end
+    end;
+
+parse_packet2(_Packet, _Proto, Class, Rest) ->
+    {Headers, Rest1} = get_raw_headers(Rest, []),
+    {ok, Class, Headers, Rest1, <<>>}.
+    
+
+
+% parse_packet2(Packet, Class, Rest) ->
+%     {Headers, Rest1} = get_raw_headers(Rest, []),
+%     case nksip_lib:get_list(<<"Content-Length">>, Headers) of
+%         "" ->
+%             {ok, Class, Headers, Rest1, <<>>};
+%         String ->
+%             case catch list_to_integer(String) of
+%                 {'EXIT', _} ->
+%                     {error, invalid_content_length};
+%                 CL when CL < 0 ->
+%                     {error, invalid_content_length};
+%                 CL ->
+%                     case byte_size(Rest1) of
+%                         CL -> 
+%                             {ok, Class, Headers, Rest1, <<>>};
+%                         BS when BS < CL -> 
+%                             {more, Packet};
+%                         _ when CL > 0 -> 
+%                             {Body, Rest3} = split_binary(Rest1, CL),
+%                             {ok, Class, Headers, Body, Rest3};
+%                         _ -> 
+%                             {ok, Class, Headers, <<>>, Rest1}
+%                     end
+%             end
+%     end.
 
 
 %% @private Second-stage SIP message parser
 %% 15K/sec on i7
 -spec raw_sipmsg(#raw_sipmsg{}) -> 
-    #sipmsg{} | {error, term()}.
+    #sipmsg{} | {error, nksip:response_code(), nksip:reason()}.
 
 raw_sipmsg(Raw) ->
     #raw_sipmsg{
@@ -376,134 +410,149 @@ raw_sipmsg(Raw) ->
         start = Start,
         headers = Headers, 
         body = Body, 
-        transport = Transport
+        transport = #transport{proto=Proto}=Transp
     } = Raw,
-    case Class of
-        {req, Method, RequestUri} ->
-            %% Request-Uris behave as having < ... >
-            case uris(<<$<, RequestUri/binary, $>>>) of
-                [RUri] ->
-                    case get_sipmsg(Headers, Body) of
-                        {error, Error} ->
-                            {error, Error};
-                        Request when Request#sipmsg.cseq_method==Method ->
-                            Request#sipmsg{
-                                id = Id,
-                                class = {req, Method},
-                                app_id = AppId,
-                                ruri = RUri,
-                                transport = Transport,
-                                start = Start,
-                                data = []
-                            };
-                        _ ->
-                            {error, method_mismatch}
-                    end;
-                _ ->
-                    {error, invalid_ruri}
-            end;
-        {resp, Code, CodeText} ->
-            case get_sipmsg(Headers, Body) of
-                {error, Error} ->
-                    {error, Error};
-                Response ->
-                    Response#sipmsg{
-                        id = Id,
-                        class = {resp, Code},
-                        app_id = AppId,
-                        transport = Transport,
-                        start = Start,
-                        data = [{reason, CodeText}]
-                    }
-            end
+    try 
+        case Class of
+            {req, Method, RequestUri} ->
+                %% Request-Uris behave as having < ... >
+                case uris(<<$<, RequestUri/binary, $>>>) of
+                    [RUri] ->
+                        Request = get_sipmsg(Headers, Body, Proto),
+                        case Request#sipmsg.cseq_method of
+                            Method -> 
+                                Request#sipmsg{
+                                    id = Id,
+                                    class = {req, Method},
+                                    app_id = AppId,
+                                    ruri = RUri,
+                                    transport = Transp,
+                                    start = Start,
+                                    data = []
+                                };
+                            _ ->
+                                throw({400, <<"Method Mismatch">>})
+                        end;
+                    _ ->
+                        throw({400, <<"Invalid URI">>})
+                end;
+            {resp, Code, CodeText} when Code>=100, Code=<699 ->
+                Response = get_sipmsg(Headers, Body, Proto),
+                Response#sipmsg{
+                    id = Id,
+                    class = {resp, Code},
+                    app_id = AppId,
+                    transport = Transp,
+                    start = Start,
+                    data = [{reason, CodeText}]
+                };
+            {resp, _, _} ->
+                throw({400, <<"Invalid Code">>})
+        end
+    catch
+        throw:{ErrCode, ErrReason} -> {error, ErrCode, ErrReason}
     end.
+
     
 
 %% @private
--spec get_sipmsg([nksip:header()], binary()) -> 
+-spec get_sipmsg([nksip:header()], binary(), nksip:protocol()) -> 
     #sipmsg{} | {error, term()}.
 
-get_sipmsg(Headers, Body) ->
-    try
-        case header_uris(<<"From">>, Headers) of
-            [#uri{} = From] -> ok;
-            _ -> From = throw(invalid_from)
-        end,
-        case header_uris(<<"To">>, Headers) of
-            [#uri{} = To] -> ok;
-            _ -> To = throw(invalid_to)
-        end,
-        case header_values(<<"Call-ID">>, Headers) of
-            [CallId] when is_binary(CallId) -> CallId;
-            _ -> CallId = throw(invalid_call_id)
-        end,
-        case vias(nksip_lib:bjoin(header_values(<<"Via">>, Headers))) of
-            [_|_] = Vias -> ok;
-            _ -> Vias = throw(invalid_via)
-        end,
-        case header_values(<<"CSeq">>, Headers) of
-            [CSeqHeader] ->
-                case nksip_tokenizer:tokenize(CSeqHeader, none) of
-                    [[{CSeqInt0}, {CSeqMethod0}]] ->                
-                        CSeqMethod = method(CSeqMethod0),
-                        case (catch list_to_integer(CSeqInt0)) of
-                            CSeqInt when is_integer(CSeqInt) -> ok;
-                            true -> CSeqInt = throw(invalid_cseq)
-                        end;
-                    _ -> 
-                        CSeqInt=CSeqMethod=throw(invalid_cseq)
-                end;
-            _ ->
-                CSeqInt=CSeqMethod=throw(invalid_cseq)
-        end,
-        case CSeqInt > 4294967295 of      % (2^32-1)
-            true -> throw(invalid_cseq);
-            false -> ok
-        end,
-        case header_integers(<<"Max-Forwards">>, Headers) of
-            [] -> Forwards = 70;
-            [Forwards] when is_integer(Forwards), Forwards>0, Forwards<300 -> ok;
-            _ -> Forwards = throw(invalid_max_forwards)
-        end,
-        ContentType = header_tokens(<<"Content-Type">>, Headers),
-        Body1 = case ContentType of
-            [{<<"application/sdp">>, _}|_] ->
-                case nksip_sdp:parse(Body) of
-                    error -> Body;
-                    SDP -> SDP
-                end;
-            [{<<"application/nksip.ebf.base64">>, _}] ->
-                case catch binary_to_term(base64:decode(Body)) of
-                    {'EXIT', _} -> Body;
-                    ErlBody -> ErlBody
-                end;
-            _ ->
-                Body
-        end,
-        Headers1 = nksip_lib:delete(Headers, [
-                            <<"From">>, <<"To">>, <<"Call-ID">>, <<"Via">>, <<"CSeq">>,
-                            <<"Max-Forwards">>, <<"Content-Type">>, 
-                            <<"Content-Length">>, <<"Route">>, <<"Contact">>]),
-        #sipmsg{
-            from = From,
-            to = To,
-            call_id = CallId, 
-            vias = Vias,
-            cseq = CSeqInt,
-            cseq_method = CSeqMethod,
-            forwards = Forwards,
-            routes = header_uris(<<"Route">>, Headers),
-            contacts = header_uris(<<"Contact">>, Headers),
-            headers = Headers1,
-            content_type = ContentType,
-            body = Body1,
-            from_tag = nksip_lib:get_value(tag, From#uri.ext_opts, <<>>),
-            to_tag = nksip_lib:get_value(tag, To#uri.ext_opts, <<>>),
-            data = []
-        }
-    catch
-        throw:Error -> {error, Error}
-    end.
+get_sipmsg(Headers, Body, Proto) ->
+    case header_uris(<<"From">>, Headers) of
+        [#uri{} = From] -> ok;
+        _ -> From = throw({400, <<"Invalid From">>})
+    end,
+    case header_uris(<<"To">>, Headers) of
+        [#uri{} = To] -> ok;
+        _ -> To = throw({400, <<"Invalid To">>})
+    end,
+    case header_values(<<"Call-ID">>, Headers) of
+        [CallId] when is_binary(CallId), byte_size(CallId)>0 -> CallId;
+        _ -> CallId = throw({400, <<"Invalid Call-ID">>})
+    end,
+    case vias(nksip_lib:bjoin(header_values(<<"Via">>, Headers))) of
+        [_|_] = Vias -> ok;
+        _ -> Vias = throw({400, <<"Invalid Via">>})
+    end,
+    case header_values(<<"CSeq">>, Headers) of
+        [CSeqHeader] ->
+            case nksip_tokenizer:tokenize(CSeqHeader, none) of
+                [[{CSeqInt0}, {CSeqMethod0}]] ->                
+                    CSeqMethod = method(CSeqMethod0),
+                    case (catch list_to_integer(CSeqInt0)) of
+                        CSeqInt when is_integer(CSeqInt) -> ok;
+                        true -> CSeqInt = throw({400, <<"Invalid CSeq">>})
+                    end;
+                _ -> 
+                    CSeqInt=CSeqMethod=throw({400, <<"Invalid CSeq">>})
+            end;
+        _ ->
+            CSeqInt=CSeqMethod=throw({400, <<"Invalid CSeq">>})
+    end,
+    case CSeqInt > 4294967295 of      % (2^32-1)
+        true -> throw({400, <<"Invalid CSeq">>});
+        false -> ok
+    end,
+    case header_integers(<<"Max-Forwards">>, Headers) of
+        [] -> Forwards = 70;
+        [0] -> Forwards=throw({483, "Too Many Hops"});
+        [Forwards] when is_integer(Forwards), Forwards>0, Forwards<300 -> ok;
+        _ -> Forwards = throw({400, <<"Invalid Max-Forwards">>})
+    end,
+    ContentType = header_tokens(<<"Content-Type">>, Headers),
+    case header_values(<<"Content-Length">>, Headers) of
+        [] when Proto=/=tcp, Proto=/=tls -> 
+            ok;
+        [CL] ->
+            case catch list_to_integer(binary_to_list(CL)) of
+                0 when Proto=/=tcp, Proto=/=tls -> 
+                    ok;
+                BS ->
+                    case byte_size(Body) of
+                        BS -> ok;
+                        _ -> throw({400, <<"Invalid Content-Length">>})
+                    end
+            end;
+        _ -> 
+            throw({400, <<"Invalid Content-Length">>})
+    end,
+    Body1 = case ContentType of
+        [{<<"application/sdp">>, _}|_] ->
+            case nksip_sdp:parse(Body) of
+                error -> Body;
+                SDP -> SDP
+            end;
+        [{<<"application/nksip.ebf.base64">>, _}] ->
+            case catch binary_to_term(base64:decode(Body)) of
+                {'EXIT', _} -> Body;
+                ErlBody -> ErlBody
+            end;
+        _ ->
+            Body
+    end,
+    Headers1 = nksip_lib:delete(Headers, [
+                        <<"From">>, <<"To">>, <<"Call-ID">>, <<"Via">>, <<"CSeq">>,
+                        <<"Max-Forwards">>, <<"Content-Type">>, 
+                        <<"Content-Length">>, <<"Route">>, <<"Contact">>]),
+    #sipmsg{
+        from = From,
+        to = To,
+        call_id = CallId, 
+        vias = Vias,
+        cseq = CSeqInt,
+        cseq_method = CSeqMethod,
+        forwards = Forwards,
+        routes = header_uris(<<"Route">>, Headers),
+        contacts = header_uris(<<"Contact">>, Headers),
+        headers = Headers1,
+        content_type = ContentType,
+        body = Body1,
+        from_tag = nksip_lib:get_value(tag, From#uri.ext_opts, <<>>),
+        to_tag = nksip_lib:get_value(tag, To#uri.ext_opts, <<>>),
+        data = []
+    }.
 
 
 %% @private
@@ -698,9 +747,9 @@ parse_uris([], Acc) ->
 parse_vias([Tokens|Rest], Acc) ->
     try
         case Tokens of
-            [{"SIP"}, $/, {"2.0"}, $/, {Transport}, {Host}, $:, {Port} | R] -> ok;
-            [{"SIP"}, $/, {"2.0"}, $/, {Transport}, {Host} | R] -> Port="0";
-            O -> Transport=Host=Port=R=throw(error1)
+            [{"SIP"}, $/, {"2.0"}, $/, {Transp}, {Host}, $:, {Port} | R] -> ok;
+            [{"SIP"}, $/, {"2.0"}, $/, {Transp}, {Host} | R] -> Port="0";
+            O -> Transp=Host=Port=R=throw(error1)
         end,
         case parse_opts(R) of
             {Opts, []} -> ok;
@@ -708,14 +757,14 @@ parse_vias([Tokens|Rest], Acc) ->
         end,
         Via = #via{
             proto = 
-                case string:to_lower(Transport) of
+                case string:to_lower(Transp) of
                     "udp" -> udp;
                     "tcp" -> tcp;
                     "tls" -> tls;
                     "sctp" -> sctp;
                     "ws" -> ws;
                     "wss" -> wss;
-                    _ -> list_to_binary(Transport)
+                    _ -> list_to_binary(Transp)
                 end,
             domain = list_to_binary(Host), 
             port = 

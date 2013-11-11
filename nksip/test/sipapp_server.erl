@@ -267,7 +267,15 @@ route(_Scheme, _User, _Domain, _ReqId, _From, #state{id={ipv6, server2}}=State) 
         record_route,
         {headers, [{'Nk-Id', server2}]}
     ],
-    {reply, {proxy, ruri, Opts}, State}.
+    {reply, {proxy, ruri, Opts}, State};
+
+
+route(Scheme, _User, _Domain, _ReqId, _From, #state{id={torture, server1}}=State)
+      when Scheme=/=sip, Scheme=/=sips ->
+    {reply, unsupported_uri_scheme, State};
+
+route(_, _, _, _, _, #state{id={torture, server1}}=State) ->
+    {reply, process, State}.
 
 
 
