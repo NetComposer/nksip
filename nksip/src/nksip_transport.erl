@@ -26,7 +26,7 @@
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
 -export([start_transport/5, start_connection/5, default_port/1]).
--export([send/4]).
+-export([send/4, raw_send/2]).
 
 -export_type([transport/0]).
 
@@ -312,6 +312,29 @@ send(_, [], _MakeMsg, _Opts) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+raw_send(#raw_sipmsg{app_id=AppId, transport=#transport{proto=udp}=Transp}, Reply) ->
+    #transport{remote_ip=Ip, remote_port=Port} = Transp,
+    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
+    case get_listening(AppId, udp, Class) of
+        [{_, Pid}|_] -> nksip_transport_udp:send(Pid, Ip, Port, Reply);
+        [] -> ok
+    end;
+
+raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
+    case get_connected(AppId, Proto, Ip, Port) of
+        [{_, Pid}|_] ->
+            case Proto of
+                tcp -> nksip_transport_tcp:send(Pid, Reply);
+                tls -> nksip_transport_tcp:send(Pid, Reply);
+                sctp -> nksip_transport_sctp:send(Pid, AssocId, Reply)
+            end;
+        [] -> 
+            ok
+    end.
+               
 
 
 %% @private

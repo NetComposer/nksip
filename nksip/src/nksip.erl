@@ -64,7 +64,7 @@
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
--export_type([dialog/0]).
+-export_type([dialog/0, token/0]).
 
 
 
@@ -131,6 +131,8 @@
 %% Dialog
 -type dialog() :: #dialog{}.
 
+%% Token
+-type token() :: {Name::binary(), [Key::binary() | {Key::binary(), Value::binary()}]}.
 
 
 %% ===================================================================

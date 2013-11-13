@@ -74,7 +74,7 @@ send(Pid, SipMsg) ->
         class = Class,
         app_id = AppId, 
         call_id = CallId,
-        transport=#transport{remote_ip=Ip, remote_port=Port} = Transport
+        transport=#transport{remote_ip=Ip, remote_port=Port} = Transp
     } = SipMsg,
     Packet = nksip_unparse:packet(SipMsg),
     case send(Pid, Ip, Port, Packet) of
@@ -82,11 +82,11 @@ send(Pid, SipMsg) ->
             case Class of
                 {req, Method} ->
                     nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Method, Packet}),
-                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transport, Packet),
+                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
                     ok;
                 {resp, Code} ->
                     nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Code, Packet}),
-                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transport, Packet),
+                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
                     ok
             end;
         {error, closed} ->
@@ -148,8 +148,8 @@ get_port(Pid) ->
 %% ===================================================================
 
 %% @private
-start_link(AppId, Transport) -> 
-    gen_server:start_link(?MODULE, [AppId, Transport], []).
+start_link(AppId, Transp) -> 
+    gen_server:start_link(?MODULE, [AppId, Transp], []).
 
 
 -record(state, {
@@ -165,7 +165,7 @@ start_link(AppId, Transport) ->
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transport]) ->
+init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp]) ->
     Opts = [binary, {reuseaddr, true}, {ip, Ip}, {active, once}],
     case gen_udp:open(Port, Opts) of
         {ok, Socket}  ->
@@ -175,13 +175,13 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transport]) ->
                 {ok, TCPSocket} ->
                     Self = self(),
                     spawn(fun() -> start_tcp(AppId, Ip, Port1, TCPSocket, Self) end),
-                    Transport1 = Transport#transport{local_port=Port1, listen_port=Port1},
-                    nksip_proc:put(nksip_transports, {AppId, Transport1}),
-                    nksip_proc:put({nksip_listen, AppId}, Transport1),
+                    Transp1 = Transp#transport{local_port=Port1, listen_port=Port1},
+                    nksip_proc:put(nksip_transports, {AppId, Transp1}),
+                    nksip_proc:put({nksip_listen, AppId}, Transp1),
                     {ok, 
                         #state{
                             app_id = AppId, 
-                            transport = Transport1, 
+                            transport = Transp1, 
                             socket = Socket,
                             stuns = []
                     }};
@@ -332,11 +332,11 @@ read_packets(N, #state{socket=Socket}=State) ->
 
 
 %% @private
-parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transport}=State) ->   
-    Transport1 = Transport#transport{remote_ip=Ip, remote_port=Port},
-    case nksip_parse:packet(AppId, Transport1, Packet) of
+parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transp}=State) ->   
+    Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
+    case nksip_parse:packet(AppId, Transp1, Packet) of
         {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport1, Packet),
+            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp1, Packet),
             nksip_trace:insert(AppId, CallId, {in_udp, Class}),
             nksip_call_router:incoming_async(RawMsg),
             case More of
@@ -345,8 +345,6 @@ parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transport}=State) ->
             end;
         {rnrn, More} ->
             parse(More, Ip, Port, State);
-        {more, More} -> 
-            ?notice(AppId, "ignoring incomplete UDP msg: ~p", [More]);
         {error, Error} ->
             ?notice(AppId, "error ~p processing UDP msg", [Error])
     end.

@@ -350,7 +350,7 @@ update(#sipmsg{app_id=AppId}=Req, AOR, Contacts, Default) ->
 make_updates(Min, Max, Default, Now,
                 [#uri{scheme=Scheme, user=User, ext_opts=Opts}=Contact|Rest], 
                 Acc) ->
-    Exp1 = case nksip_lib:get_list(expires, Opts) of
+    Exp1 = case nksip_lib:get_list(<<"expires">>, Opts) of
         [] ->
             Default;
         Exp1List ->
@@ -368,7 +368,7 @@ make_updates(Min, Max, Default, Now,
         Exp2 =:= 0 -> 0; 
         true -> Now+Exp2 
     end,
-    Q = case nksip_lib:get_list(q, Opts) of
+    Q = case nksip_lib:get_list(<<"q">>, Opts) of
         [] -> 
             1.0;
         Q0 ->
@@ -385,11 +385,11 @@ make_updates(Min, Max, Default, Now,
     Opts1 = lists:keystore(expires, 1, Opts, 
                 {expires, list_to_binary(integer_to_list(Exp2))}),
     {Proto, Domain, Port} = nksip_parse:transport(Contact),
-    Index = case nksip_lib:get_value('reg-id', Opts) of
+    Index = case nksip_lib:get_value(<<"reg-id">>, Opts) of
         undefined ->
             {Scheme, Proto, User, Domain, Port};
         RegId ->
-            case nksip_lib:get_value('+sip.instance', Opts) of
+            case nksip_lib:get_value(<<"+sip.instance">>, Opts) of
                 undefined -> {Scheme, Proto, User, Domain, Port};
                 SipInstance -> {instance, SipInstance, RegId}
             end

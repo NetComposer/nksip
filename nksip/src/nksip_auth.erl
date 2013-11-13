@@ -409,63 +409,63 @@ make_auth_response(QOP, Method, BinUri, HA1bin, Nonce, CNonce, Nc) ->
     end.
 
 
-%% @private Parses an WWW-Authenticate or Proxy-Authenticate header
--spec parse_header(binary()) -> 
-    [nksip_lib:proplist()] | error.
+% %% @private Parses an WWW-Authenticate or Proxy-Authenticate header
+% -spec parse_header(binary()) -> 
+%     [nksip_lib:proplist()] | error.
 
-parse_header(Header) ->
-    try
-        [{Scheme0}|Rest] = lists:flatten(nksip_tokenizer:tokenize(Header, equal)),
-        Scheme = case string:to_lower(Scheme0) of
-            "digest" -> digest;
-            "basic" -> basic;
-            SchOther -> list_to_binary(SchOther)
-        end,
-        [{scheme, Scheme}|parse_header_auth(Rest, [])]
-    catch
-        _:_ -> error
-    end.
+% parse_header(Header) ->
+%     try
+%         [{Scheme0}|Rest] = lists:flatten(nksip_tokenizer:tokenize(Header, equal)),
+%         Scheme = case string:to_lower(Scheme0) of
+%             "digest" -> digest;
+%             "basic" -> basic;
+%             SchOther -> list_to_binary(SchOther)
+%         end,
+%         [{scheme, Scheme}|parse_header_auth(Rest, [])]
+%     catch
+%         _:_ -> error
+%     end.
 
 
-%% @private
--spec parse_header_auth([term()], [term()]) -> 
-    nksip_lib:proplist().
+% %% @private
+% -spec parse_header_auth([term()], [term()]) -> 
+%     nksip_lib:proplist().
 
-parse_header_auth([{Key0}, $=, {Val0}|Rest], Acc) ->
-    Val = string:strip(Val0, both, $"),
-    Term = case string:to_lower(Key0) of
-        "realm" -> {realm, list_to_binary(string:to_lower(Val))};
-        "nonce" -> {nonce, list_to_binary(Val)};
-        "opaque" -> {opaque, list_to_binary(Val)};
-        "username" -> {username, list_to_binary(Val)};
-        "uri" -> {uri, list_to_binary(Val)};
-        "response" -> {response, list_to_binary(Val)};
-        "cnonce" -> {cnonce, list_to_binary(Val)};
-        "nc" -> {nc, list_to_binary(Val)};
-        "algorithm" -> 
-            {algorithm, 
-                case string:to_lower(Val) of
-                    "md5" -> 'MD5';
-                    A0 -> list_to_binary(A0) 
-                end};
-        "qop" -> 
-            QOP = [
-                case string:to_lower(QOPToken) of
-                    "auth" -> auth;
-                    "auth-int" -> 'auth-int';
-                    _ -> list_to_binary(QOPToken)
-                end
-                || [{QOPToken}] <- nksip_tokenizer:tokenize(Val, none)
-            ],
-            {qop, QOP};
-        Other ->
-            {list_to_binary(Other), list_to_binary(Val)}
-    end,
-    parse_header_auth(Rest, [Term|Acc]);
-parse_header_auth([_|Rest], Acc) ->
-    parse_header_auth(Rest, Acc);
-parse_header_auth([], Acc) ->
-    Acc.
+% parse_header_auth([{Key0}, $=, {Val0}|Rest], Acc) ->
+%     Val = string:strip(Val0, both, $"),
+%     Term = case string:to_lower(Key0) of
+%         "realm" -> {realm, list_to_binary(string:to_lower(Val))};
+%         "nonce" -> {nonce, list_to_binary(Val)};
+%         "opaque" -> {opaque, list_to_binary(Val)};
+%         "username" -> {username, list_to_binary(Val)};
+%         "uri" -> {uri, list_to_binary(Val)};
+%         "response" -> {response, list_to_binary(Val)};
+%         "cnonce" -> {cnonce, list_to_binary(Val)};
+%         "nc" -> {nc, list_to_binary(Val)};
+%         "algorithm" -> 
+%             {algorithm, 
+%                 case string:to_lower(Val) of
+%                     "md5" -> 'MD5';
+%                     A0 -> list_to_binary(A0) 
+%                 end};
+%         "qop" -> 
+%             QOP = [
+%                 case string:to_lower(QOPToken) of
+%                     "auth" -> auth;
+%                     "auth-int" -> 'auth-int';
+%                     _ -> list_to_binary(QOPToken)
+%                 end
+%                 || [QOPToken] <- nksip_lib:tokens(Val)
+%             ],
+%             {qop, QOP};
+%         Other ->
+%             {list_to_binary(Other), list_to_binary(Val)}
+%     end,
+%     parse_header_auth(Rest, [Term|Acc]);
+% parse_header_auth([_|Rest], Acc) ->
+%     parse_header_auth(Rest, Acc);
+% parse_header_auth([], Acc) ->
+%     Acc.
 
 
 %% @private Extracts password from user options.
@@ -485,6 +485,130 @@ get_nonce(AppId, CallId, Nonce) ->
 put_nonce(AppId, CallId, Nonce, Term, Timeout) ->
     nksip_store:put({nksip_auth_nonce, AppId, CallId, Nonce}, Term,
                     [{ttl, Timeout}]).
+
+
+%% @private
+parse_header(Bin) when is_binary(Bin) ->
+    parse_header(binary_to_list(Bin));
+
+parse_header(List) when is_list(List) ->
+    case parse_header_scheme(strip(List), []) of
+        {error, Error} -> {error, Error};
+        Opts -> lists:reverse(Opts)
+    end.
+
+
+%% @private 
+parse_header_scheme([], _Acc) ->
+    {error, ?LINE};
+
+parse_header_scheme([Ch|Rest], Acc) when Ch==32; Ch==9; Ch==13 ->
+    case Acc of
+        [] -> 
+            error;
+        _ -> 
+            Scheme = case string:to_lower(lists:reverse(Acc)) of
+                "digest" -> digest;
+                "basic" -> basic;
+                Other -> list_to_binary(Other)
+            end,
+            parse_header_key(strip(Rest), [], [{scheme, Scheme}])
+    end;
+
+parse_header_scheme([Ch|Rest], Acc) ->
+    parse_header_scheme(Rest, [Ch|Acc]).
+
+
+%% @private
+parse_header_key([], _Acc, _Data) ->
+    {error, ?LINE};
+
+parse_header_key([$=|Rest], Acc, Data) ->
+    Key = lists:reverse(Acc),
+    parse_header_value(strip(Rest), Key, [], false, Data);
+
+parse_header_key([Ch|Rest], Acc, Data) when Ch==32; Ch==9; Ch==13 ->
+    case strip(Rest) of
+        [$=|_]=Rest1 -> parse_header_key(Rest1, Acc, Data);
+        _ -> {error, ?LINE}
+    end;
+
+parse_header_key([Ch|Rest], Acc, Data) ->
+    parse_header_key(Rest, [Ch|Acc], Data).
+
+
+%% @private
+parse_header_value([], Key, Acc, Quoted, Data) ->
+    case Acc==[] orelse Quoted of
+        true -> {error, ?LINE};
+        false -> [parse_header_value_check(Key, lists:reverse(Acc))|Data]
+    end;
+
+parse_header_value([92, $"|Rest], Key, Acc, true, Data) ->
+    parse_header_value(Rest, Key, [$", 92|Acc], true, Data);
+
+parse_header_value([$"|Rest], Key, Acc, Quoted, Data) ->
+    parse_header_value(Rest, Key, [$"|Acc], not Quoted, Data);
+
+parse_header_value([$,|Rest], Key, Acc, false, Data) ->
+    case Acc of
+        [] -> 
+            {error, ?LINE};
+        _ ->
+            Data1 = [parse_header_value_check(Key, lists:reverse(Acc))|Data],
+            parse_header_key(strip(Rest), [], Data1)
+    end;
+
+parse_header_value([Ch|Rest], Key, Acc, false, Data) when Ch==32; Ch==9; Ch==13 ->
+    case strip(Rest) of
+        [] -> parse_header_value([], Key, Acc, false, Data);
+        [$,|_]=Rest1 -> parse_header_value(Rest1, Key, Acc, false, Data);
+        R -> {error, ?LINE, R}
+    end;
+
+parse_header_value([Ch|Rest], Key, Acc, Quoted, Data) ->
+    parse_header_value(Rest, Key, [Ch|Acc], Quoted, Data).
+
+
+%% @private
+parse_header_value_check(Key, Val) ->
+    Val1 = string:strip(Val, both, $"),
+    case string:to_lower(Key) of
+        "realm" -> {realm, list_to_binary(string:to_lower(Val1))};
+        "nonce" -> {nonce, list_to_binary(Val1)};
+        "opaque" -> {opaque, list_to_binary(Val1)};
+        "username" -> {username, list_to_binary(Val1)};
+        "uri" -> {uri, list_to_binary(Val1)};
+        "response" -> {response, list_to_binary(Val1)};
+        "cnonce" -> {cnonce, list_to_binary(Val1)};
+        "nc" -> {nc, list_to_binary(Val1)};
+        "algorithm" -> 
+            {algorithm, 
+                case string:to_lower(Val1) of
+                    "md5" -> 'MD5';
+                    A0 -> list_to_binary(A0) 
+                end};
+        "qop" -> 
+            QOP = [
+                case string:to_lower(QOPToken) of
+                    "auth" -> auth;
+                    "auth-int" -> 'auth-int';
+                    _ -> list_to_binary(QOPToken)
+                end
+                || QOPToken <- string:tokens(Val1, " ,")
+            ],
+            {qop, QOP};
+        Other ->
+            {list_to_binary(Other), list_to_binary(Val1)}
+    end.
+
+
+%% @private
+strip([32|Rest]) -> strip(Rest);
+strip([13|Rest]) -> strip(Rest);
+strip([10|Rest]) -> strip(Rest);
+strip([9|Rest]) -> strip(Rest);
+strip(Rest) -> Rest.
 
 
 
@@ -508,8 +632,15 @@ ha1_test() ->
         make_auth_response([other, auth], 'INVITE', <<"test@test.com">>, HA1, 
                             <<"gfedcba">>, <<"abcdefg">>, 1)),
     ?assertMatch(<<>>, make_auth_response([other], 'INVITE', <<"any">>, HA1, <<"any">>,
-                 <<"any">>, 1)).
-
+                 <<"any">>, 1)),
+    [
+        {scheme,digest},
+        {realm,<<"av">>},
+        {<<"b">>, <<"1, 2\\\"bc\\\" ">>},
+        {qop,[auth,'auth-int',<<"other">>]}
+    ] = 
+        parse_header("   Digest   realm   =   AV,b=\"1, 2\\\"bc\\\" \", "
+                      "qop = \"auth,  auth-int,other\"").
 -endif.
 
 

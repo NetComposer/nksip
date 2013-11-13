@@ -212,7 +212,6 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
     #raw_sipmsg{
         app_id = AppId, 
         call_id = CallId, 
-        class = {_, _, Binary},
         transport = #transport{proto=Proto}
     } = RawMsg,
     #call{opts=#call_opts{global_id=GlobalId}} = Call,
@@ -224,9 +223,11 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
                 true -> nksip_call_proxy:response_stateless(Resp, Call);
                 false -> nksip_call_uac_resp:response(Resp, Call)
             end;
-        {error, Error} ->
-            ?notice(AppId, CallId, "SIP ~p message could not be decoded: ~p (~s)", 
-                    [Proto, Error, Binary]),
+        {error, Code, Reason} ->
+            ?notice(AppId, CallId, "error in received ~p SIP message: ~s", 
+                    [Proto, Reason]),
+            Reply = nksip_unparse:raw_packet(RawMsg, Code, Reason),
+            nksip_transport:raw_send(RawMsg, Reply),
             Call
     end;
 

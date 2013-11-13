@@ -132,6 +132,12 @@ send(Pid, #sipmsg{app_id=AppId, call_id=CallId, transport=Transport}=SipMsg) ->
         {'EXIT', Error} ->
             ?notice(AppId, CallId, "could not send TCP message: ~p", [Error]),
             error
+    end;
+
+send(Pid, Packet) when is_binary(Packet) ->
+    case catch gen_server:call(Pid, {send, Packet}) of
+        ok -> ok;
+        {'EXIT', _} -> error
     end.
 
 
@@ -327,7 +333,7 @@ parse(Packet, #state{app_id=AppId, socket=Socket, transport=Transport}=State) ->
         {more, More} -> 
             More;
         {error, Error} ->
-            ?notice(AppId, "error ~p processing TCP request", [Error]),
+            ?notice(AppId, "error ~p processing TCP/TLS request", [Error]),
             socket_close(Proto, Socket),
             <<>>           
     end.

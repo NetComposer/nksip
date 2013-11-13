@@ -31,7 +31,7 @@
 -export([get_integer/2, get_integer/3]).
 -export([to_binary/1, to_list/1, to_integer/1, to_ip/1, to_host/1, to_host/2]).
 -export([to_lower/1, to_upper/1, is_string/1]).
--export([bjoin/1, bjoin/2, hex/1, extract/2, delete/2, bin_last/2]).
+-export([bjoin/1, bjoin/2, tokens/1, hex/1, extract/2, delete/2, bin_last/2]).
 -export([cancel_timer/1, msg/2]).
 
 -export_type([proplist/0, timestamp/0, l_timestamp/0]).
@@ -543,6 +543,33 @@ bjoin2([Next|Rest], Acc, J) ->
     bjoin2(Rest, <<Acc/binary, J/binary, (to_binary(Next))/binary>>, J);
 bjoin2([], Acc, _J) ->
     Acc.
+
+
+%% @doc Splits a `string()' or `binary()' into a list of tokens
+-spec tokens(string() | binary()) ->
+    [string()].
+
+tokens(Bin) when is_binary(Bin) ->
+    tokens(binary_to_list(Bin));
+
+tokens(List) ->
+    tokens(List, [], []).
+
+
+tokens([], [], Tokens) ->
+    lists:reverse(Tokens);
+
+tokens([], Chs, Tokens) ->
+    lists:reverse([lists:reverse(Chs)|Tokens]);
+
+tokens([Ch|Rest], Chs, Tokens) when Ch==32; Ch==9; Ch==13; Ch==10 ->
+    case Chs of
+        [] -> tokens(Rest, [], Tokens);
+        _ -> tokens(Rest, [], [lists:reverse(Chs)|Tokens])
+    end;
+
+tokens([Ch|Rest], Chs, Tokens) ->
+    tokens(Rest, [Ch|Chs], Tokens).
 
 
 %% @private

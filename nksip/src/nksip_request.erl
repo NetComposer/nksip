@@ -206,7 +206,7 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`parsed_content_type'</td>
-%%          <td>`['{@link nksip_tokenizer:token()}`]'</td>
+%%          <td>`['{@link nksip:token()}`]'</td>
 %%          <td>Content-Type Header</td>
 %%      </tr>
 %%      <tr>

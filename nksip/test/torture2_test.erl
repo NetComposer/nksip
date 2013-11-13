@@ -28,18 +28,51 @@
 -compile([export_all]).
 
 
+torture2_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            fun invalid_1/0, 
+            fun invalid_2/0, 
+            fun invalid_3/0, 
+            fun invalid_4/0, 
+            fun invalid_5/0, 
+            fun invalid_6/0, 
+            fun invalid_7/0, 
+            fun invalid_8/0, 
+            fun invalid_9/0, 
+            fun invalid_10/0, 
+            fun invalid_11/0, 
+            fun invalid_12/0, 
+            fun invalid_13/0, 
+            fun invalid_14/0, 
+            fun invalid_15/0, 
+            fun invalid_16/0, 
+            fun invalid_17/0, 
+            fun invalid_18/0, 
+            fun invalid_19/0
+        ]
+    }.
 
-parse(Msg) ->
-    case nksip_parse:packet(test, #transport{}, Msg) of
-        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
-        {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail};
-        {more, More} -> {more, More};
-        {error, Error} -> {error, Error}
-    end.
+
+start() ->
+    tests_util:start_nksip(),
+
+    ok = sipapp_server:start({torture, server1}, [
+        {transport, {udp, {0,0,0,0}, 5060}},
+        no_100
+    ]),
+
+    tests_util:log(),
+    ?debugFmt("Starting ~p", [?MODULE]).
+
+stop() ->
+    ok = sipapp_server:stop({torture, server1}).
 
 
 
-invalid_1_test() ->
+invalid_1() ->
     Msg = 
         <<"INVITE sip:user@example.com SIP/2.0\r\n"
         "To: sip:j.user@example.com\r\n"
@@ -60,11 +93,11 @@ invalid_1_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {error, invalid_via} = parse(Msg),
+    <<"SIP/2.0 400 Invalid Via\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
-invalid_2_test() ->
+invalid_2() ->
     Msg =
         <<"INVITE sip:user@example.com SIP/2.0\r\n"
         "Max-Forwards: 80\r\n"
@@ -85,11 +118,11 @@ invalid_2_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {more, <<"INVITE sip:user@example", _/binary>>} = parse(Msg),
+    <<"SIP/2.0 400 Invalid Content-Length\r\n", _/binary>> = send(udp, Msg),
     ok.
 
 
-invalid_3_test() ->
+invalid_3() ->
     Msg = 
         <<"INVITE sip:user@example.com SIP/2.0\r\n"
         "Max-Forwards: 254\r\n"
@@ -110,11 +143,11 @@ invalid_3_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {error, invalid_content_length} = parse(Msg),
+    <<"SIP/2.0 400 Invalid Content-Length\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
-invalid_4_test() ->
+invalid_4() ->
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
         "Via: SIP/2.0/TCP host129.example.com;branch=z9hG4bK342sdfoi3\r\n"
@@ -128,11 +161,11 @@ invalid_4_test() ->
         "  ;expires=280297596632815\r\n"
         "Content-Length: 0""\r\n"
         "\r\n">>,
-    {error, invalid_cseq} = parse(Msg),
+    <<"SIP/2.0 400 Invalid CSeq\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
-invalid_5_test() ->
+invalid_5() ->
     Msg = 
         <<"SIP/2.0 503 Service Unavailable\r\n"
         "Via: SIP/2.0/TCP host129.example.com;branch=z9hG4bKzzxdiwo34sw;received=192.0.2.129\r\n"
@@ -144,11 +177,11 @@ invalid_5_test() ->
         "Warning: 1812 overture \"In Progress\"\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    {error, invalid_cseq} = parse(Msg),
+    <<"SIP/2.0 400 Invalid CSeq\r\n", _/binary>> = send(udp, Msg),
     ok.
 
 
-invalid_6_test() ->
+invalid_6() ->
     Msg = 
         <<"INVITE sip:user@example.com SIP/2.0\r\n"
         "To: \"Mr. J. User <sip:j.user@example.com>\r\n"
@@ -169,12 +202,12 @@ invalid_6_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {error, invalid_to} = parse(Msg),
+    <<"SIP/2.0 400 Invalid To\r\n", _/binary>> = send(udp, Msg),
     ok.
 
 
 
-invalid_7_test() ->
+invalid_7() ->
     Msg = 
         <<"INVITE <sip:user@example.com> SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -195,11 +228,12 @@ invalid_7_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {error, invalid_ruri} = parse(Msg),
+    <<"SIP/2.0 400 Invalid URI\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
-invalid_8_test() ->
+%% NOTE: NkSIP consideres this message a invalid one, and it is discarded
+invalid_8() ->
     Msg = 
         <<"INVITE sip:user@example.com; lr SIP/2.0\r\n"
         "To: sip:user@example.com;tag=3xfe-9921883-z9f\r\n"
@@ -224,7 +258,7 @@ invalid_8_test() ->
     ok.
 
 
-invalid_9_test() ->
+invalid_9() ->
     Msg = 
         <<"INVITE  sip:user@example.com  SIP/2.0\r\n"
         "Max-Forwards: 8\r\n"
@@ -249,7 +283,7 @@ invalid_9_test() ->
     ok.
 
 
-invalid_10_test() ->
+invalid_10() ->
     Msg = 
         <<"OPTIONS sip:remote-target@example.com SIP/2.0\x20\x20\r\n"
         "Via: SIP/2.0/TCP host1.example.com;branch=z9hG4bK299342093\r\n"
@@ -266,7 +300,7 @@ invalid_10_test() ->
 
 
 %% NOTE: NkSIP accepts escaped characters in RURI
-invalid_11_test() ->
+invalid_11() ->
     Msg = 
          <<"INVITE sip:user@example.com?Route=%3Csip:example.com%3E SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -291,7 +325,7 @@ invalid_11_test() ->
     ok.
 
 
-invalid_12_test() ->
+invalid_12() ->
     Msg = 
         <<"INVITE sip:user@example.com SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -320,7 +354,7 @@ invalid_12_test() ->
 
 %% NOTE: NkSIP accepts escaped characters without <>,
 %% but in this example, it is an "external" header
-invalid_13_test() ->
+invalid_13() ->
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -337,7 +371,7 @@ invalid_13_test() ->
     ok.
 
 
-invalid_14_test() ->
+invalid_14() ->
     Msg = 
         <<"OPTIONS sip:user@example.org SIP/2.0\r\n"
         "Via: SIP/2.0/UDP host4.example.com:5060;branch=z9hG4bKkdju43234\r\n"
@@ -359,7 +393,7 @@ invalid_14_test() ->
     ok.
 
 
-invalid_15_test() ->
+invalid_15() ->
     Msg = 
          <<"OPTIONS sip:t.watson@example.org SIP/2.0\r\n"
         "Via:     SIP/2.0/UDP c.example.com:5060;branch=z9hG4bKkdjuw\r\n"
@@ -371,12 +405,12 @@ invalid_15_test() ->
         "CSeq:    3923239 OPTIONS\r\n"
         "l: 0\r\n"
         "\r\n">>,
-    {error, invalid_from} = parse(Msg),
+    <<"SIP/2.0 400 Invalid From\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
-%% NOTE: NkSIP treats this message as invalid, not having a invalid SIP version
-invalid_16_test() ->
+%% NOTE: NkSIP treats this message as invalid, not as having a invalid SIP version
+invalid_16() ->
     Msg = 
         <<"OPTIONS sip:t.watson@example.org SIP/7.0\r\n"
         "Via:     SIP/7.0/UDP c.example.com;branch=z9hG4bKkdjuw\r\n"
@@ -391,7 +425,7 @@ invalid_16_test() ->
     ok.
 
 
-invalid_17_test() ->
+invalid_17() ->
     Msg = 
          <<"OPTIONS sip:user@example.com SIP/2.0\r\n"
         "To: sip:j.user@example.com\r\n"
@@ -402,11 +436,11 @@ invalid_17_test() ->
         "Via: SIP/2.0/UDP host.example.com;branch=z9hG4bKkdjuw\r\n"
         "l: 0\r\n"
         "\r\n">>,
-    {error, method_mismatch} = parse(Msg),
+    <<"SIP/2.0 400 Method Mismatch\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
-invalid_18_test() ->
+invalid_18() ->
     Msg = 
         <<"NEWMETHOD sip:user@example.com SIP/2.0\r\n"
         "To: sip:j.user@example.com\r\n"
@@ -425,11 +459,11 @@ invalid_18_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {error, method_mismatch} = parse(Msg),
+    <<"SIP/2.0 400 Method Mismatch\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
-invalid_19_test() ->
+invalid_19() ->
     Msg = 
         <<"SIP/2.0 4294967301 better not break the receiver\r\n"
         "Via: SIP/2.0/UDP 192.0.2.105;branch=z9hG4bK2398ndaoe\r\n"
@@ -440,5 +474,31 @@ invalid_19_test() ->
         "Content-Length: 0\r\n"
         "Contact: <sip:user@host105.example.com>\r\n"
         "\r\n">>,
-    {error, invalid_code} = parse(Msg),
+    <<"SIP/2.0 400 Invalid Code\r\n", _/binary>> = send(tcp, Msg),
     ok.
+
+
+
+parse(Msg) ->
+    case nksip_parse:packet(test, #transport{}, Msg) of
+        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
+        {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail};
+        {more, More} -> {more, More};
+        {error, Error} -> {error, Error}
+    end.
+
+
+send(udp, Msg) ->
+    {ok, S} = gen_udp:open(0, [binary, {active, false}]),
+    ok = gen_udp:send(S, {127,0,0,1}, 5060, Msg),
+    {ok, {_, _, Bin}} = gen_udp:recv(S, 0, 1000),
+    gen_udp:close(S),
+    Bin;
+
+send(tcp, Msg) ->
+    {ok, S} = gen_tcp:connect({127,0,0,1}, 5060, [binary, {active, false}]),
+    ok = gen_tcp:send(S, Msg),
+    {ok, Bin} = gen_tcp:recv(S, 0, 1000),
+    gen_tcp:close(S),
+    Bin.
+
