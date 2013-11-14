@@ -291,7 +291,8 @@ application_10() ->
 
 
 application_11() ->
-    Msg = 
+    %% Control of Max-Forwards=0 is already done in proxy_test
+    _Msg = 
         <<"OPTIONS sip:user@example.com SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
         "From: sip:caller@example.net;tag=3ghsd41\r\n"
@@ -301,7 +302,6 @@ application_11() ->
         "Max-Forwards: 0\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    <<"SIP/2.0 483 Too Many Hops\r\n", _/binary>> = send(udp, Msg),
     ok.
 
 
@@ -326,7 +326,7 @@ application_12() ->
             #uri{
                 scheme = sip, user = <<"+19725552222">>,
                 domain = <<"gw1.example.net">>, port = 0, 
-                opts = [],  ext_opts = [<<"unknownparam">>,{expires,<<"3600">>}]
+                opts = [],  ext_opts = [<<"unknownparam">>,{<<"expires">>,<<"3600">>}]
             }
         ]
     } = parse(Reply),
@@ -354,7 +354,7 @@ application_13() ->
             #uri{
                 scheme = sip, user = <<"+19725552222">>,
                 domain = <<"gw1.example.net">>, port = 0,
-                opts = [<<"unknownparam">>], ext_opts = [{expires,<<"3600">>}]
+                opts = [<<"unknownparam">>], ext_opts = [{<<"expires">>,<<"3600">>}]
             }
         ]
     } = parse(Reply),
@@ -383,7 +383,7 @@ application_14() ->
                 scheme = sip, user = <<"user">>,
                 domain = <<"example.com">>, port = 0, opts = [],
                 headers = [{<<"Route">>,<<"%3Csip:sip.example.com%3E">>}],
-                ext_opts = [{expires,<<"3600">>}],
+                ext_opts = [{<<"expires">>,<<"3600">>}],
                 ext_headers = []
             }
         ]
@@ -423,7 +423,7 @@ application_15() ->
 %% Internal
 
 parse(Msg) ->
-    case nksip_parse:packet(test, #transport{}, Msg) of
+    case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
         {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
         {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail};
         {more, More} -> {more, More};

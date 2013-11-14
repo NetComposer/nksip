@@ -292,7 +292,7 @@ torture_2() ->
         "CSeq: 98176 REGISTER\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    {error, invalid_ruri} = parse(Msg2),
+    {reply_error, 400, <<"Invalid Request-URI">>} = parse(Msg2),
     ok.
 
 torture_3() ->

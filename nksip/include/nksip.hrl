@@ -113,7 +113,7 @@
 
 
 -record(transport, {
-    proto :: nksip:protocol(),
+    proto = udp :: nksip:protocol(),
     local_ip :: inet:ip_address(),
     local_port :: inet:port_number(),
     remote_ip :: inet:ip_address(),
@@ -151,7 +151,7 @@
     routes :: [nksip:uri()],
     contacts :: [nksip:uri()],
     headers :: [nksip:header()],
-    content_type :: [nksip_tokenizer:token()],
+    content_type :: [nksip:token()],
     body :: nksip:body(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),

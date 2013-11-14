@@ -700,7 +700,7 @@ valid_13_test() ->
 %% Internal
 
 parse(Msg) ->
-    case nksip_parse:packet(test, #transport{}, Msg) of
+    case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
         {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
         {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail}
     end.

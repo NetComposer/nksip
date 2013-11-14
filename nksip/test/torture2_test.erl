@@ -63,7 +63,7 @@ start() ->
         {transport, {udp, {0,0,0,0}, 5060}},
         no_100
     ]),
-
+    timer:sleep(100),
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
@@ -177,7 +177,7 @@ invalid_5() ->
         "Warning: 1812 overture \"In Progress\"\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    <<"SIP/2.0 400 Invalid CSeq\r\n", _/binary>> = send(udp, Msg),
+    {error, <<"Invalid CSeq">>} = parse(Msg),
     ok.
 
 
@@ -228,7 +228,7 @@ invalid_7() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    <<"SIP/2.0 400 Invalid URI\r\n", _/binary>> = send(tcp, Msg),
+    <<"SIP/2.0 400 Invalid Request-URI\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
@@ -474,13 +474,13 @@ invalid_19() ->
         "Content-Length: 0\r\n"
         "Contact: <sip:user@host105.example.com>\r\n"
         "\r\n">>,
-    <<"SIP/2.0 400 Invalid Code\r\n", _/binary>> = send(tcp, Msg),
+    {error, <<"Invalid Code">>} = parse(Msg),
     ok.
 
 
 
 parse(Msg) ->
-    case nksip_parse:packet(test, #transport{}, Msg) of
+    case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
         {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
         {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail};
         {more, More} -> {more, More};
