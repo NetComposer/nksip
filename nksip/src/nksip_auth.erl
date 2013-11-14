@@ -70,7 +70,7 @@ get_realms([{Name, Value}|Rest], Acc) ->
     if
         Name=:=?RESP_WWW; Name=:=?RESP_PROXY ->
             case parse_header(Value) of
-                error -> get_realms(Rest, Acc);
+                {error, _} -> get_realms(Rest, Acc);
                 AuthData -> get_realms(Rest, [nksip_lib:get_value(realm, AuthData)|Acc])
             end;
         true ->
@@ -138,19 +138,24 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
         class = {req, Method},
         ruri = RUri, 
         from = #uri{user=User}, 
-        headers= ReqHeaders
+        headers = ReqHeaders
     } = Req,
     try
         ReqAuthHeaders = nksip_lib:extract(ReqHeaders, [?REQ_WWW, ?REQ_PROXY]),
-        ReqNOnces = [nksip_lib:get_value(nonce, parse_header(ReqAuthHeader)) 
-                        || {_, ReqAuthHeader} <- ReqAuthHeaders],
+        ReqNOnces = [
+            case parse_header(ReqAuthHeader) of
+                {error, _} -> throw(invalid_auth_header);
+                ParsedReqHeader -> nksip_lib:get_value(nonce, ParsedReqHeader)
+            end 
+            || {_, ReqAuthHeader} <- ReqAuthHeaders
+        ],
         RespAuthHeaders = nksip_lib:extract(RespHeaders, [?RESP_WWW, ?RESP_PROXY]),
         case RespAuthHeaders of
             [{RespName, RespData}] -> ok;
             _ -> RespName = RespData = throw(invalid_auth_header)
         end,
         case parse_header(RespData) of
-            error -> AuthHeaderData = throw(invalid_auth_header);
+            {error, _} -> AuthHeaderData = throw(invalid_auth_header);
             AuthHeaderData -> ok
         end,
         RespNOnce = nksip_lib:get_value(nonce, AuthHeaderData),
@@ -235,7 +240,7 @@ check_digest([], _Req, _Fun, Acc) ->
 check_digest([{Name, Data}|Rest], Req, Fun, Acc) 
                 when Name=:=?REQ_WWW; Name=:=?REQ_PROXY ->
     case parse_header(Data) of
-        error ->
+        {error, _} ->
             check_digest(Rest, Req, Fun, Acc);
         AuthData ->
             Resp = nksip_lib:get_value(response, AuthData),
@@ -409,65 +414,6 @@ make_auth_response(QOP, Method, BinUri, HA1bin, Nonce, CNonce, Nc) ->
     end.
 
 
-% %% @private Parses an WWW-Authenticate or Proxy-Authenticate header
-% -spec parse_header(binary()) -> 
-%     [nksip_lib:proplist()] | error.
-
-% parse_header(Header) ->
-%     try
-%         [{Scheme0}|Rest] = lists:flatten(nksip_tokenizer:tokenize(Header, equal)),
-%         Scheme = case string:to_lower(Scheme0) of
-%             "digest" -> digest;
-%             "basic" -> basic;
-%             SchOther -> list_to_binary(SchOther)
-%         end,
-%         [{scheme, Scheme}|parse_header_auth(Rest, [])]
-%     catch
-%         _:_ -> error
-%     end.
-
-
-% %% @private
-% -spec parse_header_auth([term()], [term()]) -> 
-%     nksip_lib:proplist().
-
-% parse_header_auth([{Key0}, $=, {Val0}|Rest], Acc) ->
-%     Val = string:strip(Val0, both, $"),
-%     Term = case string:to_lower(Key0) of
-%         "realm" -> {realm, list_to_binary(string:to_lower(Val))};
-%         "nonce" -> {nonce, list_to_binary(Val)};
-%         "opaque" -> {opaque, list_to_binary(Val)};
-%         "username" -> {username, list_to_binary(Val)};
-%         "uri" -> {uri, list_to_binary(Val)};
-%         "response" -> {response, list_to_binary(Val)};
-%         "cnonce" -> {cnonce, list_to_binary(Val)};
-%         "nc" -> {nc, list_to_binary(Val)};
-%         "algorithm" -> 
-%             {algorithm, 
-%                 case string:to_lower(Val) of
-%                     "md5" -> 'MD5';
-%                     A0 -> list_to_binary(A0) 
-%                 end};
-%         "qop" -> 
-%             QOP = [
-%                 case string:to_lower(QOPToken) of
-%                     "auth" -> auth;
-%                     "auth-int" -> 'auth-int';
-%                     _ -> list_to_binary(QOPToken)
-%                 end
-%                 || [QOPToken] <- nksip_lib:tokens(Val)
-%             ],
-%             {qop, QOP};
-%         Other ->
-%             {list_to_binary(Other), list_to_binary(Val)}
-%     end,
-%     parse_header_auth(Rest, [Term|Acc]);
-% parse_header_auth([_|Rest], Acc) ->
-%     parse_header_auth(Rest, Acc);
-% parse_header_auth([], Acc) ->
-%     Acc.
-
-
 %% @private Extracts password from user options.
 %% The first matching realm is used, otherwise first password without realm
 -spec get_pass([{binary(), binary()}], binary(), binary()) ->   Pass::binary().
@@ -488,6 +434,9 @@ put_nonce(AppId, CallId, Nonce, Term, Timeout) ->
 
 
 %% @private
+-spec parse_header(string() | binary()) ->
+    nksip_lib:proplist() | {error, term()}.
+
 parse_header(Bin) when is_binary(Bin) ->
     parse_header(binary_to_list(Bin));
 
