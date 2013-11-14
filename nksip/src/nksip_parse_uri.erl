@@ -65,6 +65,15 @@ uris(String, Acc) ->
 disp([], _Acc, _Quoted, _Uri, _Full) -> 
     {error, disp, ?LINE};
 
+%% Case for "*"
+disp([$*|Rest], [], false, Uri, Full) ->
+    Uri1 = Uri#uri{domain = <<"*">>},
+    case strip(Rest) of
+        [] -> {Uri1, []};
+        [Ch1|_]=Rest1 when Ch1==$,; Ch1==$; -> opts(Rest1, false, Uri1);
+         _ -> disp(Rest, [$*], false, Uri, Full)
+    end;
+
 disp([$<|Rest], Acc, false, Uri, _Full) -> 
     Uri1 = Uri#uri{disp=list_to_binary(lists:reverse(Acc))},
     scheme(strip(Rest), [], true, Uri1);
@@ -556,6 +565,11 @@ uri1_test() ->
     [#uri{opts = [<<"b">>,{<<"c">>, <<"2">>}], headers = [{<<"d">>,<<"2">>},<<"f">>],
          ext_opts = [{<<"g">>, <<"3">>}], ext_headers = [<<"h">>,<<"i">>]}] = 
          uris("<sip:a;b;c=2?d=2&f>;g=3?h&i"),
+
+    [#uri{domain = <<"*">>}] = uris("*"),
+    [#uri{domain = <<"*">>}] = uris("  *  "),
+    [#uri{domain = <<"*">>, ext_opts = [<<"a">>]}] = uris("*;a"),
+    [#uri{domain = <<"*">>}, #uri{domain = <<"b">>}] = uris("*, sip:b"),
     ok.
 
 
