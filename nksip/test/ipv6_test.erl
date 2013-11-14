@@ -56,27 +56,30 @@ main_ip6() ->
 start() ->
     tests_util:start_nksip(),
 
+    %% NOTE: using 'any6' as ip for hosts fails in Linux
+    %% (it works in OSX)
+
     ok = sipapp_server:start({ipv6, server1}, [
         {from, "sip:server1@nksip"},
         registrar,
         {local_host6, "::1"},
         {transport, {udp, any, 5060}},
-        {transport, {udp, any6, 5060}}]),
+        {transport, {udp, "::1", 5060}}]),
 
     ok = sipapp_server:start({ipv6, server2}, [
         {from, "sip:server2@nksip"},
         {local_host, "127.0.0.1"},
         {transport, {udp, any, 5061}},
         {local_host6, "::1"},
-        {transport, {udp, any6, 5061}}]),
+        {transport, {udp, "::1", 5061}}]),
 
     ok = sipapp_endpoint:start({ipv6, client1}, [
         {from, "sip:client1@nksip"},
-        {transport, {udp, any6, 5070}}]),
+        {transport, {udp, "::1", 5070}}]),
     
     ok = sipapp_endpoint:start({ipv6, client2}, [
         {from, "sip:client2@nksip"},
-        {transport, {udp, any6, 5071}}]),
+        {transport, {udp, "::1", 5071}}]),
 
     ok = sipapp_endpoint:start({ipv6, client3}, [
         {from, "sip:client3@nksip"},
@@ -118,11 +121,11 @@ basic() ->
     %% For UDP transport, local ip is set to [:::] (?)
     #transport{
         proto = udp,
-        local_ip =  {0,0,0,0,0,0,0,0},
+        local_ip =  {0,0,0,0,0,0,0,1},
         local_port = RPort1,
         remote_ip = {0,0,0,0,0,0,0,1},
         remote_port = 5071,
-        listen_ip = {0,0,0,0,0,0,0,0},
+        listen_ip = {0,0,0,0,0,0,0,1},
         listen_port = 5070
     } = Transp1,
     ok = tests_util:wait(Ref, [ok_1]),
@@ -150,7 +153,7 @@ basic() ->
         local_port = RPort2,
         remote_ip = {0,0,0,0,0,0,0,1},
         remote_port = 5071,
-        listen_ip = {0,0,0,0,0,0,0,0},
+        listen_ip = {0,0,0,0,0,0,0,1},
         listen_port = 5070
     } = Transp2,
     ok = tests_util:wait(Ref, [ok_2]),
