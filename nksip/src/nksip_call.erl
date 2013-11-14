@@ -223,11 +223,15 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
                 true -> nksip_call_proxy:response_stateless(Resp, Call);
                 false -> nksip_call_uac_resp:response(Resp, Call)
             end;
-        {error, Code, Reason} ->
-            ?notice(AppId, CallId, "error in received ~p SIP message: ~s", 
+        {reply_error, Code, Reason} ->
+            ?notice(AppId, CallId, "error in received ~p SIP request, sending ~s", 
                     [Proto, Reason]),
             Reply = nksip_unparse:raw_packet(RawMsg, Code, Reason),
             nksip_transport:raw_send(RawMsg, Reply),
+            Call;
+        {error, Reason} ->
+            ?notice(AppId, CallId, "error in received ~p SIP response: ~s", 
+                    [Proto, Reason]),
             Call
     end;
 

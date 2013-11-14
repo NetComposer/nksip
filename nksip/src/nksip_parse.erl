@@ -268,10 +268,12 @@ parse_packet1(Packet, Proto) ->
          Body::binary(), Rest::binary().
 
 
-parse_packet2(Packet, Proto, Class, Rest) when Proto=:=tcp; Proto=:=tls ->
+parse_packet2(Packet, Proto, Class, Rest) ->
     {Headers, Rest1} = get_raw_headers(Rest, []),
     CL = case nksip_lib:get_list(<<"Content-Length">>, Headers) of
-        "" -> 
+        "" when Proto==udp; Proto==sctp -> 
+            byte_size(Rest1);
+        "" ->
             0;
         String ->
             case catch list_to_integer(String) of
@@ -286,24 +288,23 @@ parse_packet2(Packet, Proto, Class, Rest) when Proto=:=tcp; Proto=:=tls ->
             case byte_size(Rest1) of
                 CL -> 
                     {ok, Class, Headers, Rest1, <<>>};
+                BS when BS < CL andalso (Proto==udp orelse Proto==sctp) ->
+                    %% Second-stage parser will generate an error
+                    {ok, Class, Headers, Rest1, <<>>};
                 BS when BS < CL -> 
                     {more, Packet};
                 _ ->
                     {Body, Rest3} = split_binary(Rest1, CL),
                     {ok, Class, Headers, Body, Rest3}
             end
-    end;
-
-parse_packet2(_Packet, _Proto, Class, Rest) ->
-    {Headers, Rest1} = get_raw_headers(Rest, []),
-    {ok, Class, Headers, Rest1, <<>>}.
+    end.
     
-
 
 %% @private Second-stage SIP message parser
 %% 15K/sec on i7
 -spec raw_sipmsg(#raw_sipmsg{}) -> 
-    #sipmsg{} | {error, nksip:response_code(), nksip:reason()}.
+    #sipmsg{} | {reply_error, nksip:response_code(), binary()} |
+    {error, binary()}.
 
 raw_sipmsg(Raw) ->
     #raw_sipmsg{
@@ -337,7 +338,7 @@ raw_sipmsg(Raw) ->
                                 throw({400, <<"Method Mismatch">>})
                         end;
                     _ ->
-                        throw({400, <<"Invalid URI">>})
+                        throw({400, <<"Invalid Request-URI">>})
                 end;
             {resp, Code, CodeText} when Code>=100, Code=<699 ->
                 Response = get_sipmsg(Headers, Body, Proto),
@@ -353,14 +354,18 @@ raw_sipmsg(Raw) ->
                 throw({400, <<"Invalid Code">>})
         end
     catch
-        throw:{ErrCode, ErrReason} -> {error, ErrCode, ErrReason}
+        throw:{ErrCode, ErrReason} -> 
+            case Class of
+                {req, _, _} -> {reply_error, ErrCode, ErrReason};
+                {resp, _, _} -> {error, ErrReason}
+            end
     end.
 
     
 
 %% @private
 -spec get_sipmsg([nksip:header()], binary(), nksip:protocol()) -> 
-    #sipmsg{} | {error, term()}.
+    #sipmsg{}.
 
 get_sipmsg(Headers, Body, Proto) ->
     case uris(proplists:get_all_values(<<"From">>, Headers)) of
@@ -400,8 +405,7 @@ get_sipmsg(Headers, Body, Proto) ->
     end,
     case integers(proplists:get_all_values(<<"Max-Forwards">>, Headers)) of
         [] -> Forwards = 70;
-        [0] -> Forwards=throw({483, "Too Many Hops"});
-        [Forwards] when is_integer(Forwards), Forwards>0, Forwards<300 -> ok;
+        [Forwards] when is_integer(Forwards), Forwards>=0, Forwards<300 -> ok;
         _ -> Forwards = throw({400, <<"Invalid Max-Forwards">>})
     end,
     case uris(proplists:get_all_values(<<"Route">>, Headers)) of
