@@ -119,7 +119,7 @@ packet(#sipmsg{class={req, Method}}=Request)  ->
 
 
 %% @private Generates a binary packet for a request or response
--spec raw_packet(#raw_sipmsg{}, nksip:response_code(), nksip:reason()) -> 
+-spec raw_packet(#raw_sipmsg{}, nksip:response_code(), binary()) -> 
     binary().
 
 raw_packet(#raw_sipmsg{headers=Hds}, Code, Reason) ->

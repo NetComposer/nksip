@@ -67,7 +67,7 @@ get_all(AppId) ->
 
 
 %% @private Finds a listening transport of Proto.
--spec get_listening(nksip:app_id(), nksip:protocol(), ip4|ip6) -> 
+-spec get_listening(nksip:app_id(), nksip:protocol(), ipv4|ipv6) -> 
     [{transport(), pid()}].
 
 get_listening(AppId, Proto, Class) ->

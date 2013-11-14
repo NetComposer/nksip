@@ -220,26 +220,6 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
     end.
 
 
-% %% @private
-% make_remove_opts([], Acc) ->
-%     lists:reverse(Acc);
-
-% make_remove_opts([{Tag, _}|Rest], Acc)
-%     when Tag==from; Tag==to; Tag==route; Tag==contact; Tag==call_id; Tag==cseq;
-%          Tag==min_cseq; Tag==user_agent; Tag==pre_headers; Tag==post_headers; 
-%          Tag==headers; Tag==body; Tag==content_type; Tag==expires ->
-%     make_remove_opts(Rest, Acc);
-
-% make_remove_opts([Tag|Rest], Acc) 
-%     when Tag==make_allow; Tag==make_supported; Tag==make_accept; Tag==make_date;
-%          Tag==unregister; Tag==unregister_all;
-%          Tag==active; Tag==inactive; Tag==hold ->
-%     make_remove_opts(Rest, Acc);
-
-% make_remove_opts([Tag|Rest], Acc) ->
-%     make_remove_opts(Rest, [Tag|Acc]).
-
-
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
 -spec make_cancel(nksip:request()) ->
     nksip:request().
