@@ -156,6 +156,7 @@ start_link(AppId, Transp) ->
     app_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     socket :: port(),
+    tcp_pid :: pid(),
     stuns :: [{Id::binary(), Time::nksip_lib:timestamp(), term()}]
 }).
 
@@ -166,32 +167,25 @@ start_link(AppId, Transp) ->
     gen_server_init(#state{}).
 
 init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp]) ->
-    Opts = [binary, {reuseaddr, true}, {ip, Ip}, {active, once}],
-    case gen_udp:open(Port, Opts) of
+    case open_port(AppId, Ip, Port, 5) of
         {ok, Socket}  ->
             process_flag(priority, high),
             {ok, Port1} = inet:port(Socket),
-            case gen_tcp:listen(Port1, [{ip, Ip}, {reuseaddr, true}]) of
-                {ok, TCPSocket} ->
-                    Self = self(),
-                    spawn(fun() -> start_tcp(AppId, Ip, Port1, TCPSocket, Self) end),
-                    Transp1 = Transp#transport{local_port=Port1, listen_port=Port1},
-                    nksip_proc:put(nksip_transports, {AppId, Transp1}),
-                    nksip_proc:put({nksip_listen, AppId}, Transp1),
-                    {ok, 
-                        #state{
-                            app_id = AppId, 
-                            transport = Transp1, 
-                            socket = Socket,
-                            stuns = []
-                    }};
-                Error ->
-                    ?error(AppId, "could not start matching TCP transport on ~p:~p: ~p", 
-                           [Ip, Port1, Error]),
-                    {stop, no_matching_tcp}
-            end;
+            Self = self(),
+            spawn(fun() -> start_tcp(AppId, Ip, Port1, Self) end),
+            Transp1 = Transp#transport{local_port=Port1, listen_port=Port1},
+            nksip_proc:put(nksip_transports, {AppId, Transp1}),
+            nksip_proc:put({nksip_listen, AppId}, Transp1),
+            State = #state{
+                app_id = AppId, 
+                transport = Transp1, 
+                socket = Socket,
+                tcp_pid = undefined,
+                stuns = []
+            },
+            {ok, State};
         {error, Error} ->
-            ?error(AppId, "could not start UDP transport on ~p:~p (~p)", 
+            ?error(AppId, "B could not start UDP transport on ~p:~p (~p)", 
                    [Ip, Port, Error]),
             {stop, Error}
     end.
@@ -234,8 +228,11 @@ handle_call(Msg, _Form, State) ->
 -spec handle_cast(term(), #state{}) ->
     gen_server_cast(#state{}).
 
-handle_cast(no_matching_tcp, State) ->
-    {stop, no_matching_tcp, State};
+handle_cast({matching_tcp, {ok, Pid}}, State) ->
+    {noreply, State#state{tcp_pid=Pid}};
+
+handle_cast({matching_tcp, {error, Error}}, State) ->
+    {stop, {matching_tcp, {error, Error}}, State};
 
 handle_cast(Msg, State) -> 
     lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
@@ -309,12 +306,28 @@ terminate(_Reason, _State) ->
 %% ===================================================================
 
 
-%% @private
-start_tcp(AppId, Ip, Port, Socket, Pid) ->
-    gen_tcp:close(Socket),
+% %% @private
+start_tcp(AppId, Ip, Port, Pid) ->
     case nksip_transport:start_transport(AppId, tcp, Ip, Port, []) of
-        {ok, _} -> ok;
-        {error, _} -> gen_server:cast(Pid, no_matching_tcp)
+        {ok, TcpPid} -> gen_server:cast(Pid, {matching_tcp, {ok, TcpPid}});
+        {error, Error} -> gen_server:cast(Pid, {matching_tcp, {error, Error}})
+    end.
+
+%% @private Checks if a port is available for UDP and TCP
+-spec open_port(nksip:app_id(), inet:ip_address(), inet:port_number(), integer()) ->
+    {ok, port()} | {error, term()}.
+
+open_port(AppId, Ip, Port, Iter) ->
+    Opts = [binary, {reuseaddr, true}, {ip, Ip}, {active, once}],
+    case gen_udp:open(Port, Opts) of
+        {ok, Socket} ->
+            {ok, Socket};
+        {error, eaddrinuse} when Iter > 0 ->
+            lager:warning("UDP port ~p is in use, waiting (~p)", [Port, Iter]),
+            timer:sleep(1000),
+            open_port(AppId, Ip, Port, Iter-1);
+        {error, Error} ->
+            {error, Error}
     end.
 
 
@@ -345,6 +358,8 @@ parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transp}=State) ->
             end;
         {rnrn, More} ->
             parse(More, Ip, Port, State);
+        {more, More} ->
+            ?notice(AppId, "ignoring extrada data ~s processing UDP msg", [More]);
         {error, Error} ->
             ?notice(AppId, "error ~p processing UDP msg", [Error])
     end.
