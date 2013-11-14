@@ -382,8 +382,8 @@ make_updates(Min, Max, Default, Now,
                     end
             end
     end,
-    Opts1 = lists:keystore(expires, 1, Opts, 
-                {expires, list_to_binary(integer_to_list(Exp2))}),
+    Opts1 = lists:keystore(<<"expires">>, 1, Opts, 
+                {<<"expires">>, list_to_binary(integer_to_list(Exp2))}),
     {Proto, Domain, Port} = nksip_parse:transport(Contact),
     Index = case nksip_lib:get_value(<<"reg-id">>, Opts) of
         undefined ->
