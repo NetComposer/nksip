@@ -97,7 +97,7 @@ uas() ->
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
 
     % Test bad extension endpoint and proxy
-    Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, {fields, [all_headers]}],
+    Opts5 = [{headers, [{"Require", "a,b;c,x-supported,d"}]}, {fields, [all_headers]}],
     {ok, 420, [{all_headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
     [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds5),
     
@@ -114,6 +114,11 @@ uas() ->
     nksip_trace:warning("Next warning about a invalid sipreply is expected"),
     {ok, 500,  [{reason, <<"Invalid Response">>}]} = 
         nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
+
+    %% Test supported extension endpoint
+    Opts8 = [{headers, [{"Require", "x-supported"}]}, {fields, [all_headers]}],
+    {ok, 200, _} = nksip_uac:options(C1, "sip:127.0.0.1", Opts8),
+
     ok.
 
 

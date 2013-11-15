@@ -75,8 +75,8 @@ try_route(UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
                 [] when Stateless ->
                     route_stateless(UAS, First, ProxyOpts, Call);
                 PR ->
-                    Text = nksip_lib:bjoin([T || {T, _} <- PR]),
-                    {reply, {bad_extension, Text}}
+                    Required = [T || {T, _} <- PR],
+                    {reply, {bad_extension, Required}}
             end;
         {reply, Reply} ->
             {reply, Reply}

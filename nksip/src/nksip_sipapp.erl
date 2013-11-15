@@ -133,7 +133,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/1, get_user_pass/3, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
-         ack/3, bye/3, options/3, register/3]).
+         ack/3, bye/3, options/3, register/3, supported/1]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -include("nksip.hrl").
@@ -494,6 +494,22 @@ register(_ReqId, _From, State) ->
         false -> {method_not_allowed, ?ALLOW}
     end,
     {reply, Reply, State}.
+
+
+%% @doc Called to check which extensions are supported by the application.
+%%
+%% Only called if a request is made to the server with the `Require'
+%% header.
+%%
+%% If this function is not defined, then NkSIP will reply with only
+%% those extensions that it is capable of handling directly.
+%%
+-spec supported(State::term()) ->
+    {reply, Reply, NewState}
+    when Reply :: [binary()], NewState :: term().
+
+supported(State) ->
+    {reply, [], State}.
 
 
 %% @doc Called when a dialog has changed its state.

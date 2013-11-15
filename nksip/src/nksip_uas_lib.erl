@@ -153,7 +153,7 @@ response(Req, Code, Headers, Body, Opts) ->
             false -> none
         end,
         case lists:member(make_supported, Opts1) of
-            true -> {default_single, <<"Supported">>, ?SUPPORTED};
+            true -> {default_single, <<"Supported">>, nksip_lib:bjoin(?SUPPORTED)};
             false -> none
         end,
         case lists:member(make_accept, Opts1) of

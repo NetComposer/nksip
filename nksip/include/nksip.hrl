@@ -28,7 +28,7 @@
 %% ===================================================================
 
 -define(VERSION, "0.1.0").
--define(SUPPORTED, <<>>).
+-define(SUPPORTED, []).
 -define(ACCEPT, <<"application/sdp">>).
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS">>).
 
