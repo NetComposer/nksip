@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_parse</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_parse</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>SIP message parsing functions.
+
+
+<h2><a name="description">Description</a></h2><p>SIP message parsing functions</p>
+ 
+  This module implements several functions to parse sip requests, responses
+  headers, uris, vias, etc.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-msg_class">msg_class()</a></h3>
+<p><tt>msg_class() = {req, <a href="nksip.html#type-method">nksip:method()</a>, binary()} | {resp, <a href="nksip.html#type-response_code">nksip:response_code()</a>, binary()}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#aors-1">aors/1</a></td><td>Parses all AORs found in <code>Term</code>.</td></tr>
+<tr><td valign="top"><a href="#dates-1">dates/1</a></td><td>Gets a list of <code>calendar:datetime()</code> from <code>Term</code></td></tr>
+<tr><td valign="top"><a href="#integers-1">integers/1</a></td><td>Gets a list of <code>integer()</code> from <code>Term</code></td></tr>
+<tr><td valign="top"><a href="#method-1">method/1</a></td><td>Parses any <code>term()</code> into a valid <code>nksip:method()</code>.</td></tr>
+<tr><td valign="top"><a href="#ruris-1">ruris/1</a></td><td>Parses all URIs found in <code>Term</code> as <i>Request Uris</i>.</td></tr>
+<tr><td valign="top"><a href="#tokens-1">tokens/1</a></td><td>Gets a list of <code>tokens()</code> from <code>Term</code></td></tr>
+<tr><td valign="top"><a href="#uri2ruri-1">uri2ruri/1</a></td><td>Cleans any <code>nksip:uri()</code> into a valid request-uri.</td></tr>
+<tr><td valign="top"><a href="#uris-1">uris/1</a></td><td>Parses all URIs found in <code>Term</code>.</td></tr>
+<tr><td valign="top"><a href="#vias-1">vias/1</a></td><td>Extracts all <code>via()</code> found in <code>Term</code></td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="aors-1">aors/1</a></h3>
+<div class="spec">
+<p><tt>aors(Term::<a href="nksip.html#type-user_uri">nksip:user_uri()</a> | [<a href="nksip.html#type-user_uri">nksip:user_uri()</a>]) -&gt; [<a href="nksip.html#type-aor">nksip:aor()</a>]</tt><br></p>
+</div><p>Parses all AORs found in <code>Term</code>.</p>
+
+<h3 class="function"><a name="dates-1">dates/1</a></h3>
+<div class="spec">
+<p><tt>dates(Term::binary() | string() | [binary() | string()]) -&gt; [<a href="calendar.html#type-datetime">calendar:datetime()</a>] | error</tt><br></p>
+</div><p>Gets a list of <code>calendar:datetime()</code> from <code>Term</code></p>
+
+<h3 class="function"><a name="integers-1">integers/1</a></h3>
+<div class="spec">
+<p><tt>integers(Term::binary() | string() | [binary() | string()]) -&gt; [integer()] | error</tt><br></p>
+</div><p>Gets a list of <code>integer()</code> from <code>Term</code></p>
+
+<h3 class="function"><a name="method-1">method/1</a></h3>
+<div class="spec">
+<p><tt>method(Method::binary() | atom() | string()) -&gt; <a href="nksip.html#type-method">nksip:method()</a> | binary()</tt><br></p>
+</div><p>Parses any <code>term()</code> into a valid <code>nksip:method()</code>. If recognized it will be an
+  <code>atom</code>, or a <code>binary</code> if not.</p>
+
+<h3 class="function"><a name="ruris-1">ruris/1</a></h3>
+<div class="spec">
+<p><tt>ruris(Term::<a href="nksip.html#type-user_uri">nksip:user_uri()</a> | [<a href="nksip.html#type-user_uri">nksip:user_uri()</a>]) -&gt; [<a href="nksip.html#type-uri">nksip:uri()</a>] | error</tt><br></p>
+</div><p>Parses all URIs found in <code>Term</code> as <i>Request Uris</i>.</p>
+
+<h3 class="function"><a name="tokens-1">tokens/1</a></h3>
+<div class="spec">
+<p><tt>tokens(Term::binary() | string() | [binary() | string()]) -&gt; [<a href="nksip.html#type-token">nksip:token()</a>] | error</tt><br></p>
+</div><p>Gets a list of <code>tokens()</code> from <code>Term</code></p>
+
+<h3 class="function"><a name="uri2ruri-1">uri2ruri/1</a></h3>
+<div class="spec">
+<p><tt>uri2ruri(Uri::<a href="nksip.html#type-uri">nksip:uri()</a>) -&gt; <a href="nksip.html#type-uri">nksip:uri()</a></tt><br></p>
+</div><p>Cleans any <code>nksip:uri()</code> into a valid request-uri.
+  Remove all headers and parameters out of the uri.</p>
+
+<h3 class="function"><a name="uris-1">uris/1</a></h3>
+<div class="spec">
+<p><tt>uris(Term::<a href="nksip.html#type-user_uri">nksip:user_uri()</a> | [<a href="nksip.html#type-user_uri">nksip:user_uri()</a>]) -&gt; [<a href="nksip.html#type-uri">nksip:uri()</a>] | error</tt><br></p>
+</div><p>Parses all URIs found in <code>Term</code>.</p>
+
+<h3 class="function"><a name="vias-1">vias/1</a></h3>
+<div class="spec">
+<p><tt>vias(Term::binary() | string() | [binary() | string()]) -&gt; [<a href="nksip.html#type-via">nksip:via()</a>] | error</tt><br></p>
+</div><p>Extracts all <code>via()</code> found in <code>Term</code></p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 15 2013, 19:13:40.</i></p>
+</body>
+</html>

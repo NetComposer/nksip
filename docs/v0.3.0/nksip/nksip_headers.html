@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_headers</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_headers</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>General SIP header processing functions.
+
+
+<h2><a name="description">Description</a></h2>General SIP header processing functions.
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-value">value()</a></h3>
+<p><tt>value() = binary() | string() | atom() | integer() | <a href="nksip.html#type-user_uri">nksip:user_uri()</a></tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#header-2">header/2</a></td><td>Generates a single header.</td></tr>
+<tr><td valign="top"><a href="#new-1">new/1</a></td><td>Generates a header list from a list of specifications.</td></tr>
+<tr><td valign="top"><a href="#update-2">update/2</a></td><td>Performs a serie of modifications to a headers list (or the header list of
+  a request or response).</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="header-2">header/2</a></h3>
+<div class="spec">
+<p><tt>header(Name::binary(), Value::<a href="#type-value">value()</a> | [<a href="#type-value">value()</a>]) -&gt; <a href="nksip.html#type-header">nksip:header()</a></tt><br></p>
+</div><p>Generates a single header. If <code>Value</code> is a list, all values will be joined
+  using comma as separator.</p>
+
+<h3 class="function"><a name="new-1">new/1</a></h3>
+<div class="spec">
+<p><tt>new(Operations::[{Operation, Name, Value} | none]) -&gt; [<a href="nksip.html#type-header">nksip:header()</a>]</tt>
+<ul class="definitions"><li><tt>Operation = single | multi | after_single | before_single | after_multi | before_multi | default_single | default_multi</tt></li><li><tt>Name = binary()</tt></li><li><tt>Value = <a href="#type-value">value()</a> | [<a href="#type-value">value()</a>]</tt></li></ul></p>
+</div><p>Generates a header list from a list of specifications.
+  See <a href="#update-2"><code>update/2</code></a> for options description</p>
+
+<h3 class="function"><a name="update-2">update/2</a></h3>
+<div class="spec">
+<p><tt>update(Input, Operations::[{Operation, Name, Value} | none]) -&gt; [<a href="nksip.html#type-header">nksip:header()</a>]</tt>
+<ul class="definitions"><li><tt>Input = <a href="nksip.html#type-request">nksip:request()</a> | <a href="nksip.html#type-response">nksip:response()</a> | [<a href="nksip.html#type-header">nksip:header()</a>]</tt></li><li><tt>Operation = single | multi | after_single | before_single | after_multi | before_multi | default_single | default_multi</tt></li><li><tt>Name = binary()</tt></li><li><tt>Value = <a href="#type-value">value()</a> | [<a href="#type-value">value()</a>]</tt></li></ul></p>
+</div><p>Performs a serie of modifications to a headers list (or the header list of
+  a request or response).
+  Each modification is applied serially, and has the from <code>{Op, Name, Value}</code>.
+  <code>Value</code> can be a single value or a list of values, affecting the behaviour of
+  <code>single</code> and <code>multi</code> version of the operations (see <a href="#header-2"><code>header/2</code></a>).
+  Valid values for <code>Op</code> are:
+  <ul>
+   <li><code>single</code>: Deletes old <code>Name</code> headers and adds a single new one.
+       If <code>Value</code> is <code>[]</code> headers will be deleted.</li>
+   <li><code>multi</code>: Deletes old <code>Name</code> headers and adds one or more new ones.
+       If <code>Value</code> is <code>[]</code> headers will be deleted.</li>
+   <li><code>add_after_single</code>: Combine previous headers into a single new one appending
+        value or values in <code>Value</code> after old values.</li>
+   <li><code>add_before_single</code>: Combine previous headers into a single new one appending
+        value or values in <code>Value</code> before old values.</li>
+   <li><code>add_after_multi</code>: Generates multiple headers, one for each value or values in
+        <code>Value</code>, after any existing header/s.</li>
+   <li><code>add_before_multi</code>: Generates multiple headers, one for each value or values in
+        <code>Value</code>, before any existing header/s.</li>
+   <li><code>default_single</code>: adds a single header only if it was not already present
+        and <code>Value</code> is not <code>[]</code></li>
+   <li><code>default_multi</code>: adds multiple headers only if it was not already present
+        and <code>Value</code> is not <code>[]</code></li>
+  </ul>
+ </p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 15 2013, 19:13:40.</i></p>
+</body>
+</html>

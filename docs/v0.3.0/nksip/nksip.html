@@ -1,0 +1,337 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul><i>SipApps</i> management module.
+
+
+<h2><a name="description">Description</a></h2><p><i>SipApps</i> management module.</p>
+ 
+  <p>This module allows to manage <i>NkSIP application instances</i> or <b>SipApps</b>.  
+NkSIP can start any number of SipApps, each one listening on one or several sets of  
+ip, port and transport (UDP, TCP, TLS or SCTP currently).</p>
+ 
+  <p>To register a SipApp, you must first create a <i>callback module</i> using
+  behaviour <a href="nksip_sipapp.html"><code>nksip_sipapp</code></a> (you can also use the <i>default callback module</i>
+  included with NkSIP, defined in the same  <code>nksip_sipapp</code> module).
+  This behaviour is very similar to OTP standard <code>gen_server</code> behaviour, but
+  the only mandatory callback function is <a href="nksip_sipapp.html#init-1"><code>nksip_sipapp:init/1</code></a>.
+  The callback module can also implement a number of
+  optional callbacks functions, have a look at <a href="nksip_sipapp.html"><code>nksip_sipapp</code></a> to find  
+the currently available callbacks and default implementation for each of  
+these functions.</p>
+ 
+  <p>Once defined the callback module, call <a href="#start-4"><code>start/4</code></a> to start the SipApp.
+  NkSIP will call <code>init/1</code> inmediatly, setting up the inital application's state.</p>
+ 
+  <p>From this moment on, you can start sending requests using the functions in
+  <a href="nksip_uac.html"><code>nksip_uac</code></a>. When a incoming request is received in our SipApp
+  (sent from another SIP endpoint or proxy), NkSIP starts a process to manage it.
+  This process starts calling specific functions in the SipApp's callback module
+  as explained in <a href="nksip_sipapp.html"><code>nksip_sipapp</code></a>.</p>
+ 
+  <p>Should the SipApp process stop due to an error, it will be automatically restarted
+  by its supervisor, but the Erlang application's state would be lost like a standard
+  <code>gen_server</code>.</p>
+ 
+  Please notice that it is not necessary to tell NkSIP which kind of SIP element
+  your SipApp is implementing. For every request, depending on the return of
+  the call to your <a href="nksip_sipapp.html#route-6"><code>nksip_sipapp:route/6</code></a> callback function
+  NkSIP will act as an endpoint, B2BUA or proxy, request by request.
+ 
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-aor">aor()</a></h3>
+<p><tt>aor() = {Scheme::<a href="#type-scheme">scheme()</a>, User::binary(), Domain::binary()}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-app_id">app_id()</a></h3>
+<p><tt>app_id() = term()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-body">body()</a></h3>
+<p><tt>body() = binary() | <a href="nksip_sdp.html#type-sdp">nksip_sdp:sdp()</a></tt></p>
+
+
+<h3 class="typedecl"><a name="type-call_id">call_id()</a></h3>
+<p><tt>call_id() = binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-cseq">cseq()</a></h3>
+<p><tt>cseq() = pos_integer()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-dialog">dialog()</a></h3>
+<p><tt>dialog() = #dialog{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-header">header()</a></h3>
+<p><tt>header() = {binary(), binary() | atom() | integer()}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-method">method()</a></h3>
+<p><tt>method() = 'INVITE' | 'ACK' | 'CANCEL' | 'BYE' | 'REGISTER' | 'OPTIONS' | 'SUBSCRIBE' | 'NOTIFY' | 'PUBLISH' | 'REFER' | 'MESSAGE' | 'INFO' | 'PRACK' | 'UPDATE' | binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-protocol">protocol()</a></h3>
+<p><tt>protocol() = udp | tcp | tls | sctp | ws | wss | binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-request">request()</a></h3>
+<p><tt>request() = #sipmsg{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-response">response()</a></h3>
+<p><tt>response() = #sipmsg{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-response_code">response_code()</a></h3>
+<p><tt>response_code() = 100..699</tt></p>
+
+
+<h3 class="typedecl"><a name="type-scheme">scheme()</a></h3>
+<p><tt>scheme() = sip | sips | tel | mailto | binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-sipreply">sipreply()</a></h3>
+<p><tt>sipreply() = <a href="nksip_reply.html#type-sipreply">nksip_reply:sipreply()</a></tt></p>
+
+
+<h3 class="typedecl"><a name="type-tag">tag()</a></h3>
+<p><tt>tag() = binary()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-token">token()</a></h3>
+<p><tt>token() = {Name::binary(), [Key::binary() | {Key::binary(), Value::binary()}]}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-uri">uri()</a></h3>
+<p><tt>uri() = #uri{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-uri_set">uri_set()</a></h3>
+<p><tt>uri_set() = <a href="nksip.html#type-user_uri">nksip:user_uri()</a> | [<a href="nksip.html#type-user_uri">nksip:user_uri()</a> | [<a href="nksip.html#type-user_uri">nksip:user_uri()</a>]]</tt></p>
+
+
+<h3 class="typedecl"><a name="type-user_uri">user_uri()</a></h3>
+<p><tt>user_uri() = string() | binary() | <a href="#type-uri">uri()</a></tt></p>
+
+
+<h3 class="typedecl"><a name="type-via">via()</a></h3>
+<p><tt>via() = #via{}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#call-2">call/2</a></td><td>Sends a synchronous message to the SipApp's process,
+  similar to <code>gen_server:call/2</code>.</td></tr>
+<tr><td valign="top"><a href="#call-3">call/3</a></td><td>Sends a synchronous message to the SipApp's process with a timeout,
+  similar to <code>gen_server:call/3</code>.</td></tr>
+<tr><td valign="top"><a href="#cast-2">cast/2</a></td><td>Sends an asynchronous message to the SipApp's process,
+  similar to <code>gen_server:cast/2</code>.</td></tr>
+<tr><td valign="top"><a href="#get_all-0">get_all/0</a></td><td>Gets the <code>AppIds</code> of all started SipApps.</td></tr>
+<tr><td valign="top"><a href="#get_pid-1">get_pid/1</a></td><td>Gets the SipApp's process <code>pid()</code>.</td></tr>
+<tr><td valign="top"><a href="#get_port-3">get_port/3</a></td><td>Gets SipApp's first listening port on this transport protocol.</td></tr>
+<tr><td valign="top"><a href="#reply-2">reply/2</a></td><td>Sends a response from a synchronous callback function.</td></tr>
+<tr><td valign="top"><a href="#start-4">start/4</a></td><td>Starts a new SipApp.</td></tr>
+<tr><td valign="top"><a href="#stop-1">stop/1</a></td><td>Stops a started SipApp, stopping any registered transports.</td></tr>
+<tr><td valign="top"><a href="#stop_all-0">stop_all/0</a></td><td>Stops all started SipApps.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="call-2">call/2</a></h3>
+<div class="spec">
+<p><tt>call(AppId::<a href="#type-app_id">app_id()</a>, Msg::term()) -&gt; any()</tt><br></p>
+</div><p>Sends a synchronous message to the SipApp's process,
+  similar to <code>gen_server:call/2</code>.
+  The SipApp's callback module must implement <code>handle_call/3</code>.</p>
+
+<h3 class="function"><a name="call-3">call/3</a></h3>
+<div class="spec">
+<p><tt>call(AppId::<a href="#type-app_id">app_id()</a>, Msg::term(), Timeout::infinity | pos_integer()) -&gt; any()</tt><br></p>
+</div><p>Sends a synchronous message to the SipApp's process with a timeout,
+  similar to <code>gen_server:call/3</code>.
+  The SipApp's callback module must implement <code>handle_call/3</code>.</p>
+
+<h3 class="function"><a name="cast-2">cast/2</a></h3>
+<div class="spec">
+<p><tt>cast(AppId::<a href="#type-app_id">app_id()</a>, Msg::term()) -&gt; ok</tt><br></p>
+</div><p>Sends an asynchronous message to the SipApp's process,
+  similar to <code>gen_server:cast/2</code>.
+  The SipApp's callback module must implement <code>handle_cast/2</code>.</p>
+
+<h3 class="function"><a name="get_all-0">get_all/0</a></h3>
+<div class="spec">
+<p><tt>get_all() -&gt; [AppId::<a href="#type-app_id">app_id()</a>]</tt><br></p>
+</div><p>Gets the <code>AppIds</code> of all started SipApps.</p>
+
+<h3 class="function"><a name="get_pid-1">get_pid/1</a></h3>
+<div class="spec">
+<p><tt>get_pid(Id::<a href="#type-app_id">app_id()</a>) -&gt; pid() | not_found</tt><br></p>
+</div><p>Gets the SipApp's process <code>pid()</code>.</p>
+
+<h3 class="function"><a name="get_port-3">get_port/3</a></h3>
+<div class="spec">
+<p><tt>get_port(AppId::<a href="#type-app_id">app_id()</a>, Proto::<a href="#type-protocol">protocol()</a>, Class::ipv4 | ipv6) -&gt; <a href="inet.html#type-port_number">inet:port_number()</a> | not_found</tt><br></p>
+</div><p>Gets SipApp's first listening port on this transport protocol.</p>
+
+<h3 class="function"><a name="reply-2">reply/2</a></h3>
+<div class="spec">
+<p><tt>reply(From::{reference(), pid()} | {fsm, reference(), pid()}, Reply::term()) -&gt; term()</tt><br></p>
+</div><p>Sends a response from a synchronous callback function.
+  Eequivalent to <code>gen_server:reply/2</code>.</p>
+
+<h3 class="function"><a name="start-4">start/4</a></h3>
+<div class="spec">
+<p><tt>start(AppId::<a href="#type-app_id">app_id()</a>, Module::atom(), Args::term(), Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; ok | {error, Error}</tt>
+<ul class="definitions"><li><tt>Error = invalid_from | invalid_transport | invalid_register | invalid_route | no_matching_tcp | could_not_start_udp | could_not_start_tcp | could_not_start_tls | could_not_start_sctp</tt></li></ul></p>
+</div><p><p>Starts a new SipApp.
+  A <b>SipApp</b> is a SIP application started by NkSIP, listening on one or several
+  sets of transport protocol, IP and port of the host. You must supply an <code>AppId</code>
+  for the SipApp, a <i>callbacke</i> <code>Module</code> with <a href="nksip_sipapp.html"><code>nksip_sipapp</code></a> behaviour,
+  an <code>Args</code> for calling <code>init/1</code> and a set of <code>Options</code></p>
+ 
+  The recognized options are:<br><br>
+  <table border="1">
+       <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+       <tr>
+           <td><code>from</code></td>
+           <td><a href="#type-user_uri"><code>user_uri()</code></a></td>
+           <td><code>"NkSIP App &lt;sip:user@nksip&gt;"</code></td>
+           <td>Default <i>From</i> to use in the requests.</td>
+       </tr>
+       <tr>
+           <td><code>pass</code></td>
+           <td><code>Pass | {Pass, Realm} | [Pass | {Pass, Realm}]</code><br>
+               <code>Pass::binary(), Realm::binary()</code></td>
+           <td></td>
+           <td>Passwords to use in case of receiving an <i>authenticate</i> response
+           using <a href="nksip_uac.html"><code>nksip_uac</code></a> functions.<br>
+           The first password matching the response's realm will be used,
+           or the first without any realm if none matches. <br>
+           A hash of the password can be used instead
+           (see <a href="nksip_auth.html#make_ha1-3"><code>nksip_auth:make_ha1/3</code></a>).</td>
+       </tr>
+       <tr>
+           <td><code>register</code></td>
+           <td><a href="#type-user_uri"><code>user_uri()</code></a></td>
+           <td></td>
+           <td>NkSIP will try to <i>REGISTER</i> the SipApp with this registrar server,
+           (i.e. "sips:sip2sip.info"). <br>
+           See <a href="nksip_sipapp_auto.html#get_registers-1"><code>nksip_sipapp_auto:get_registers/1</code></a>
+           and <a href="nksip_sipapp.html#register_update-3"><code>nksip_sipapp:register_update/3</code></a>.</td>
+       </tr>
+       <tr>
+           <td><code>register_expires</code></td>
+           <td><code>integer()</code></td>
+           <td><code>300</code></td>
+           <td>In case of register, registration interval (secs).</td>
+       </tr>
+       <tr>
+           <td><code>transports</code></td>
+           <td>
+               <code>[{Proto, Ip, Port}]</code><br>
+               <code>Proto::<a href="#type-protocol"><code>protocol()</code></a></code><br>
+               <code>Ip::inet:ip_address()|string()|binary()|any|any6</code><br>
+               <code>Port::inet:port_number()|all</code>
+           </td>
+           <td><code>[{udp, any, all}, {tls, any, all}]</code></td>
+           <td>The SipApp can start any number of transports.
+           If an UDP transport is started, a TCP transport on the same IP and port
+           will be started automatically.<br>
+           Use <code>any</code> to use <i>all</i> available IPv4 addresses and
+           <code>any6</code> for all IPv6 addresses, and <code>all</code> to use
+           any available port.</td>
+       </tr>
+       <tr>
+           <td><code>listeners</code></td>
+           <td><code>integer()</code></td>
+           <td><code>1</code></td>
+           <td>Number of pre-started listeners for TCP and TLS
+           (see <a href="http://ninenines.eu/docs/en/ranch/HEAD/guide/introduction">Ranch's</a> documentation).</td>
+       </tr>
+       <tr>
+           <td><code>certfile</code></td>
+           <td><code>string()</code></td>
+           <td><code>"(privdir)/cert.pem"</code></td>
+           <td> Path to the certificate file for TLS.</td>
+       </tr>
+       <tr>
+           <td><code>keyfile</code></td>
+           <td><code>string()</code></td>
+           <td><code>"(privdir)/key.pem"</code></td>
+           <td>Path to the key file for TLS.</td>
+       </tr>
+       <tr>
+           <td><code>route</code></td>
+           <td><a href="#type-user_uri"><code>user_uri()</code></a></td>
+           <td></td>
+           <td> Route (outbound proxy) to use. Generates one or more <code>Route</code> headers
+               in every request, for example <code>&lt;sip:1.2.3.4;lr&gt;, &lt;sip:abcd;lr&gt;</code>
+               (you will usually append the <code>lr</code> option to use <i>loose routing</i>).
+           </td>
+       </tr>
+       <tr>
+           <td><code>local_host</code></td>
+           <td><code>auto|string()|binary()</code></td>
+           <td><code>auto</code></td>
+           <td>Default host or IP to use in headers like <code>Via</code>, <code>Contact</code> and
+           <code>Record-Route</code>.<br>
+           If set to <code>auto</code> NkSIP will use the IP of the
+           transport selected in every case. If that transport is listening on all
+           addresses NkSIP will try to find the best IP using the first
+           valid IP among the network interfaces <code>ethX</code> and 'enX',
+           or localhost if none is found.</td>
+       </tr>
+       <tr>
+           <td><code>local_host6</code></td>
+           <td><code>auto|string()|binary()</code></td>
+           <td><code>auto</code></td>
+           <td>Default host or IP to use in headers like <code>Via</code>, <code>Contact</code> and
+           <code>Record-Route</code> for IPv6 transports.<br>
+           See <code>local_host</code> option.</td>
+       </tr>
+       <tr>
+           <td><code>registrar</code></td>
+           <td></td>
+           <td></td>
+           <td>If present, allows the automatic processing <i>REGISTER</i> requests,
+           even if no <code>register/3</code> callback  is defined, using
+           <a href="nksip_sipapp.html#register-3"><code>nksip_sipapp:register/3</code></a>.<br>
+           The word <i>REGISTER</i> will also be present in all <i>Allow</i> headers.
+           </td>
+       </tr>
+       <tr>
+           <td><code>no_100</code></td>
+           <td></td>
+           <td></td>
+           <td>If present, forbids the generation of automatic <code>100-type</code> responses
+           for INVITE requests.</td>
+       </tr>
+   </table>
+ 
+  <br></p>
+
+<h3 class="function"><a name="stop-1">stop/1</a></h3>
+<div class="spec">
+<p><tt>stop(AppId::<a href="#type-app_id">app_id()</a>) -&gt; ok | error</tt><br></p>
+</div><p>Stops a started SipApp, stopping any registered transports.</p>
+
+<h3 class="function"><a name="stop_all-0">stop_all/0</a></h3>
+<div class="spec">
+<p><tt>stop_all() -&gt; ok</tt><br></p>
+</div><p>Stops all started SipApps.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 15 2013, 19:13:40.</i></p>
+</body>
+</html>

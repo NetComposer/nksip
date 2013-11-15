@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_sipapp_auto</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_sipapp_auto</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Automatic pings and registrations support for SipApps.
+
+
+<h2><a name="description">Description</a></h2>Automatic pings and registrations support for SipApps.
+  This module allows a SipApp to program automatic periodic sending of
+  <i>OPTION</i> or <i>REGISTER</i> requests and related functions.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#get_pings-1">get_pings/1</a></td><td>Get current ping status, including if last ping was successful and time
+  remaining to next one.</td></tr>
+<tr><td valign="top"><a href="#get_registers-1">get_registers/1</a></td><td>Get current registration status, including if last registration was successful
+  and time remaining to next one.</td></tr>
+<tr><td valign="top"><a href="#start_ping-5">start_ping/5</a></td><td>Programs the SipApp to start a series of <i>pings</i> (OPTION requests)
+  to the SIP element at <code>Uri</code>, at <code>Time</code> (in seconds) intervals.</td></tr>
+<tr><td valign="top"><a href="#start_register-5">start_register/5</a></td><td>Programs the SipApp to start a series of <i>registrations</i>
+  to the registrar at <code>Uri</code>, at <code>Time</code> (in seconds) intervals.</td></tr>
+<tr><td valign="top"><a href="#stop_ping-2">stop_ping/2</a></td><td>Stops a previously started ping request.</td></tr>
+<tr><td valign="top"><a href="#stop_register-2">stop_register/2</a></td><td>Stops a previously started registration series.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="get_pings-1">get_pings/1</a></h3>
+<div class="spec">
+<p><tt>get_pings(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>) -&gt; [{PingId::term(), OK::boolean(), Time::non_neg_integer()}]</tt><br></p>
+</div><p>Get current ping status, including if last ping was successful and time
+  remaining to next one.</p>
+
+<h3 class="function"><a name="get_registers-1">get_registers/1</a></h3>
+<div class="spec">
+<p><tt>get_registers(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>) -&gt; [{RegId::term(), OK::boolean(), Time::non_neg_integer()}]</tt><br></p>
+</div><p>Get current registration status, including if last registration was successful
+  and time remaining to next one.</p>
+
+<h3 class="function"><a name="start_ping-5">start_ping/5</a></h3>
+<div class="spec">
+<p><tt>start_ping(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, PingId::term(), Uri::<a href="nksip.html#type-user_uri">nksip:user_uri()</a>, Time::pos_integer(), Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; {ok, boolean()} | {error, invalid_uri}</tt><br></p>
+</div><p>Programs the SipApp to start a series of <i>pings</i> (OPTION requests)
+  to the SIP element at <code>Uri</code>, at <code>Time</code> (in seconds) intervals.
+  <code>PingId</code> indentifies this request to stop it later.
+  Use <a href="#get_pings-1"><code>get_pings/1</code></a> to know about ping status, or the callback function
+  <a href="nksip_sipapp.html#register_update-3"><code>nksip_sipapp:register_update/3</code></a>.</p>
+
+<h3 class="function"><a name="start_register-5">start_register/5</a></h3>
+<div class="spec">
+<p><tt>start_register(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RegId::term(), Uri::<a href="nksip.html#type-user_uri">nksip:user_uri()</a>, Time::pos_integer(), Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; {ok, boolean()} | {error, invalid_uri}</tt><br></p>
+</div><p>Programs the SipApp to start a series of <i>registrations</i>
+  to the registrar at <code>Uri</code>, at <code>Time</code> (in seconds) intervals.
+  <code>RegId</code> indentifies this request to stop it later.
+  Use <a href="#get_regs-1"><code>get_regs/1</code></a> to know about registration status, or the
+  callback function <a href="nksip_sipapp.html#ping_update-3"><code>nksip_sipapp:ping_update/3</code></a>.</p>
+
+<h3 class="function"><a name="stop_ping-2">stop_ping/2</a></h3>
+<div class="spec">
+<p><tt>stop_ping(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, PingId::term()) -&gt; ok | not_found</tt><br></p>
+</div><p>Stops a previously started ping request.</p>
+
+<h3 class="function"><a name="stop_register-2">stop_register/2</a></h3>
+<div class="spec">
+<p><tt>stop_register(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RegId::term()) -&gt; ok | not_found</tt><br></p>
+</div><p>Stops a previously started registration series.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 15 2013, 19:13:41.</i></p>
+</body>
+</html>

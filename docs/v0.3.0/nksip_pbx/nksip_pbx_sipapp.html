@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_pbx_sipapp</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_pbx_sipapp</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>SipApp callback module.
+
+<p><b>Behaviours:</b> <a href="nksip_sipapp.html"><tt>nksip_sipapp</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>SipApp callback module.</p>
+ 
+  <p>This module implements the mandatory callback module of each SipApp application,
+  with behaviour <code>nksip_sipapp</code>.</p>
+ 
+  <p>This SipApp implements a SIP proxy, allowing  endpoints to register  
+and call each other using its registered uri.  
+Each registered endpoint's speed is monitored and special "extensions" are  
+available to call all nodes, call the fastest, etc.</p>
+ 
+  See <a href="/Users/carlosj/Desarrollo/NkSystem/nksip/samples/nksip_pbx/doc/index.html" target="_top"><code>//nksip_pbx</code></a> for an overview.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#authorize-4">authorize/4</a></td><td>SipApp Callback: Called to check if a request should be authorized.</td></tr>
+<tr><td valign="top"><a href="#check_speed-1">check_speed/1</a></td><td>Stops or restart automatic response time detection.</td></tr>
+<tr><td valign="top"><a href="#dialog_update-3">dialog_update/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#get_speed-0">get_speed/0</a></td><td>Get all registered endpoints with their last respnse time.</td></tr>
+<tr><td valign="top"><a href="#get_user_pass-3">get_user_pass/3</a></td><td>SipApp Callback: Called to check user's password.</td></tr>
+<tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td>SipApp Callback: Synchronous user call.</td></tr>
+<tr><td valign="top"><a href="#handle_cast-2">handle_cast/2</a></td><td>SipApp Callback: Asynchronous user cast.</td></tr>
+<tr><td valign="top"><a href="#handle_info-2">handle_info/2</a></td><td>SipApp Callback: External erlang message received.</td></tr>
+<tr><td valign="top"><a href="#init-1">init/1</a></td><td>SipApp Callback: initialization.</td></tr>
+<tr><td valign="top"><a href="#route-6">route/6</a></td><td>SipApp Callback: Called to decide how to route every new request.</td></tr>
+<tr><td valign="top"><a href="#session_update-3">session_update/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#start-0">start/0</a></td><td>Starts a new SipApp, listening on port 5060 for udp and tcp and 5061 for tls,
+  and acting as a registrar.</td></tr>
+<tr><td valign="top"><a href="#stop-0">stop/0</a></td><td>Stops the SipApp.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="authorize-4">authorize/4</a></h3>
+<div class="spec">
+<p><tt>authorize(Auth, ReqId, From, State) -&gt; any()</tt></p>
+</div><p>SipApp Callback: Called to check if a request should be authorized.
+  <ul>
+       <li>We first check to see if the request is an in-dialog request, coming from
+           the same ip and port of a previously authorized request.</li>
+       <li>If not, we check if we have a previous authorized REGISTER request from
+           the same ip and port.</li>
+       <li>Next, we check if the request has a valid authentication header with realm
+           "nksip". If <code>{{digest, &lt;&lt;"nksip"&gt;&gt;}, true}</code> is present, the user has
+           provided a valid password and it is authorized.
+           If <code>{{digest, &lt;&lt;"nksip"&gt;&gt;}, false}</code> is present, we have presented
+           a challenge, but the user has failed it. We send 403.</li>
+       <li>If no digest header is present, reply with a 407 response sending
+           a challenge to the user.</li>
+  </ul></p>
+
+<h3 class="function"><a name="check_speed-1">check_speed/1</a></h3>
+<div class="spec">
+<p><tt>check_speed(Bool) -&gt; any()</tt></p>
+</div><p>Stops or restart automatic response time detection.</p>
+
+<h3 class="function"><a name="dialog_update-3">dialog_update/3</a></h3>
+<div class="spec">
+<p><tt>dialog_update(DialogId, Update, State) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="get_speed-0">get_speed/0</a></h3>
+<div class="spec">
+<p><tt>get_speed() -&gt; any()</tt></p>
+</div><p>Get all registered endpoints with their last respnse time.</p>
+
+<h3 class="function"><a name="get_user_pass-3">get_user_pass/3</a></h3>
+<div class="spec">
+<p><tt>get_user_pass(User, Realm, State) -&gt; any()</tt></p>
+</div><p>SipApp Callback: Called to check user's password.
+  If the incoming user's realm is one of our domains, the password for any
+  user is "1234". For other realms, no password is valid.</p>
+
+<h3 class="function"><a name="handle_call-3">handle_call/3</a></h3>
+<div class="spec">
+<p><tt>handle_call(X1, From, State) -&gt; any()</tt></p>
+</div><p>SipApp Callback: Synchronous user call.</p>
+
+<h3 class="function"><a name="handle_cast-2">handle_cast/2</a></h3>
+<div class="spec">
+<p><tt>handle_cast(X1, State) -&gt; any()</tt></p>
+</div><p>SipApp Callback: Asynchronous user cast.</p>
+
+<h3 class="function"><a name="handle_info-2">handle_info/2</a></h3>
+<div class="spec">
+<p><tt>handle_info(X1, State) -&gt; any()</tt></p>
+</div><p>SipApp Callback: External erlang message received.
+  The programmed timer sends a <code>{timeout, _Ref, check_speed}</code> message
+  periodically to the SipApp.</p>
+
+<h3 class="function"><a name="init-1">init/1</a></h3>
+<div class="spec">
+<p><tt>init(X1) -&gt; any()</tt></p>
+</div><p>SipApp Callback: initialization.
+  This function is called by NkSIP after calling <code>nksip:start/4</code>.
+  We program a timer to check our nodes.</p>
+
+<h3 class="function"><a name="route-6">route/6</a></h3>
+<div class="spec">
+<p><tt>route(Scheme, User, Domain, ReqId, From, State) -&gt; any()</tt></p>
+</div><p><p>SipApp Callback: Called to decide how to route every new request.</p>
+ 
+  <ul>
+       <li>If the user part of the request-uri is 200, proxy in parallel to all
+           registered endpoints but me, including a <i>Record-Route</i>, so
+           all dialog requests will go to this proxy.</li>
+       <li>If it is 201, call in parallel each two random endpoints, including
+           a custom header but no <i>Record-Route</i>, so next dialog requests will
+           go directly to the endpoint.</li>
+       <li>For 202, send the request to the fastest registered endpoint.</li>
+       <li>For 203, to the slowest.</li>
+       <li>If there is a different user part in the request-uri, check to see if
+           it is already registered with us and redirect to it.</li>
+       <li>If the there is no user part in the request-uri (only the domain)
+           process locally if it is one of our domains.
+           (Since we have not implemented <code>invite/4</code>, <code>options/4,</code> etc., all responses
+           will be default responses). REGISTER will be processed as configured
+           when starting the SipApp.</li>
+  </ul></p>
+
+<h3 class="function"><a name="session_update-3">session_update/3</a></h3>
+<div class="spec">
+<p><tt>session_update(DialogId, Update, State) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="start-0">start/0</a></h3>
+<div class="spec">
+<p><tt>start() -&gt; any()</tt></p>
+</div><p>Starts a new SipApp, listening on port 5060 for udp and tcp and 5061 for tls,
+  and acting as a registrar.</p>
+
+<h3 class="function"><a name="stop-0">stop/0</a></h3>
+<div class="spec">
+<p><tt>stop() -&gt; any()</tt></p>
+</div><p>Stops the SipApp.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 15 2013, 19:13:39.</i></p>
+</body>
+</html>

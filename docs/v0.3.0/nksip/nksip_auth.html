@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_auth</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_auth</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Authentication management module.
+
+
+<h2><a name="description">Description</a></h2>Authentication management module.
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#get_authentication-2">get_authentication/2</a></td><td>Extracts digest authentication information from a incoming request.</td></tr>
+<tr><td valign="top"><a href="#make_ha1-3">make_ha1/3</a></td><td>Generates a password hash to use in NkSIP authentication.</td></tr>
+<tr><td valign="top"><a href="#make_request-3">make_request/3</a></td><td>Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header  
+for a request after receiving a 401 or 407 response.</td></tr>
+<tr><td valign="top"><a href="#make_response-2">make_response/2</a></td><td>Generates a <i>WWW-Authenticate</i> or <i>Proxy-Authenticate</i> header  
+in response to a request.</td></tr>
+<tr><td valign="top"><a href="#realms-1">realms/1</a></td><td>Extracts all the realms present in <i>WWW-Authenticate</i> or
+  <i>Proxy-Authenticate</i> headers from a response.</td></tr>
+<tr><td valign="top"><a href="#realms-2">realms/2</a></td><td>Extracts all the realms present in <i>WWW-Authenticate</i> or
+  <i>Proxy-Authenticate</i> headers from a response.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="get_authentication-2">get_authentication/2</a></h3>
+<div class="spec">
+<p><tt>get_authentication(Req::<a href="nksip.html#type-request">nksip:request()</a>, PassFun::function()) -&gt; [Authorized]</tt>
+<ul class="definitions"><li><tt>Authorized = {{digest, Realm::binary()}, true | false}</tt></li></ul></p>
+</div><p>Extracts digest authentication information from a incoming request.
+  The response can include:
+  <ul>
+     <li><code>{{digest, Realm}, true}</code>: there is at least one valid user authenticated
+         with this <code>Realm</code>.</li>
+     <li><code>{{digest, Realm}, false}</code>: there is at least one user offering
+         an authentication header for this <code>Realm</code>, but all of them have
+         failed the authentication.</li>
+  </ul>
+ 
+  <code>Fun</code> will be called when a password for a pair user, realm is needed.
+  It can return <code>true</code> (accepts the request with any password), <code>false</code>
+  (doesn't accept the request) or a <code>binary()</code> pasword or hash.
+ </p>
+
+<h3 class="function"><a name="make_ha1-3">make_ha1/3</a></h3>
+<div class="spec">
+<p><tt>make_ha1(User::binary() | string(), Pass::binary() | string(), Realm::binary() | string()) -&gt; binary()</tt><br></p>
+</div><p>Generates a password hash to use in NkSIP authentication.
+  In order to avoid storing the user's passwords in clear text, you can generate
+  a <code>hash</code> (fom <code>User</code>, <code>Pass</code> and <code>Realm</code>) and store and use it in
+  <a href="nksip_sipapp.html#get_user_pass-3"><code>nksip_sipapp:get_user_pass/3</code></a> instead of the real password.</p>
+
+<h3 class="function"><a name="make_request-3">make_request/3</a></h3>
+<div class="spec">
+<p><tt>make_request(Req::<a href="nksip.html#type-request">nksip:request()</a>, Resp::<a href="nksip.html#type-response">nksip:response()</a>, Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; {ok, <a href="nksip.html#type-request">nksip:request()</a>} | {error, Error}</tt>
+<ul class="definitions"><li><tt>Error = invalid_auth_header | unknown_nonce | no_pass</tt></li></ul></p>
+</div><p><p>Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header  
+for a request after receiving a 401 or 407 response.  
+CSeq must be updated after calling this function.</p>
+ 
+  Recognized options are <code>pass</code>, <code>user</code>, <code>cnonce</code> and <code>nc</code>.</p>
+
+<h3 class="function"><a name="make_response-2">make_response/2</a></h3>
+<div class="spec">
+<p><tt>make_response(Realm::binary(), Req::<a href="nksip.html#type-request">nksip:request()</a>) -&gt; binary()</tt><br></p>
+</div><p><p>Generates a <i>WWW-Authenticate</i> or <i>Proxy-Authenticate</i> header  
+in response to a request.  
+Use this function to answer to a request with a 401 or 407 response.</p>
+ 
+  A new <code>nonce</code> will be generated to be used by the client in its response,
+  but will expire after the time configured in global parameter <code>once_timeout</code>.
+ </p>
+
+<h3 class="function"><a name="realms-1">realms/1</a></h3>
+<div class="spec">
+<p><tt>realms(Response::<a href="nksip.html#type-response">nksip:response()</a>) -&gt; [Realm::binary()]</tt><br></p>
+</div><p>Extracts all the realms present in <i>WWW-Authenticate</i> or
+  <i>Proxy-Authenticate</i> headers from a response.</p>
+
+<h3 class="function"><a name="realms-2">realms/2</a></h3>
+<div class="spec">
+<p><tt>realms(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, RespId::<a href="nksip_response.html#type-id">nksip_response:id()</a>) -&gt; [Realm::binary()]</tt><br></p>
+</div><p>Extracts all the realms present in <i>WWW-Authenticate</i> or
+  <i>Proxy-Authenticate</i> headers from a response.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Nov 15 2013, 19:13:40.</i></p>
+</body>
+</html>
