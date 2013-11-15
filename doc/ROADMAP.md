@@ -5,14 +5,13 @@ In no special order:
 
 * ~~SIP message processing engine rework~~.
 * ~~_Inline_ callback functions~~.
-* Extract examples into new repository.
+* ~~DNS stateful processing~~.
+* ~~Outbound connection server~~.
+* ~~_IPv6_~~.
 * _Websockets_ and _SCTP_ support.
 * Socket external control (to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM).
 * Javascript, Python, Ruby, Lua, Java libraries. Elixir DSL?
-* ~~DNS stateful processing~~.
-* ~~Outbound connection server~~.
 * _Bridge_ support for B2BUA.
-* ~~_IPv6_~~.
 * Fully distributed, highly available version based on [Riak Core](https://github.com/basho/riak_core).
 * IMS and RCS extensions.
 * More application examples.
@@ -20,10 +19,12 @@ In no special order:
 * Admin web console.
 * Flood control.
 * Congestion control.
+* Extract examples into new repository.
 
 
 Many common SIP featured are still missing and will be addressed in following versions, including:
 
+* ~~[RFC4475](http://tools.ietf.org/html/rfc4475): Torture tests~~
 * [RFC3262](http://tools.ietf.org/html/rfc3262): PRACK
 * [RFC3265](http://tools.ietf.org/html/rfc3265): SUBSCRIBE, NOTIFY
 * [RFC3311](http://tools.ietf.org/html/rfc3311): UPDATE
@@ -37,7 +38,6 @@ Many common SIP featured are still missing and will be addressed in following ve
 * [RFC4028](http://tools.ietf.org/html/rfc4028): Session Timers
 * [RFC4320](http://tools.ietf.org/html/rfc4320): Invite transactions
 * [RFC4321](http://tools.ietf.org/html/rfc4321): Non-invite transactions
-* [RFC4475](http://tools.ietf.org/html/rfc4475): Torture tests
 * [RFC5027](http://tools.ietf.org/html/rfc5057): Multiple dialog
 * [RFC5626](http://tools.ietf.org/html/rfc5626): Outbound
 * [RFC5627](http://tools.ietf.org/html/rfc5626): GRUU

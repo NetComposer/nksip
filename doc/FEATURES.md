@@ -1,4 +1,4 @@
-In the current version the following RFCs are supported:
+In the current version the following RFCs are fully implemented (see notes):
 
 RFC|Description|Notes
 ---|---|---
@@ -11,9 +11,10 @@ RFC|Description|Notes
 [RFC3264](http://tools.ietf.org/html/rfc3264)|Offer/Answer Model|
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|
 [RFC4168](http://tools.ietf.org/html/rfc4168)|SCTP Transport|No TLS-SCTP
+[RFC4475](http://tools.ietf.org/html/rfc4475)|Torture Tests|Included in unit tests
 [RFC4566](http://tools.ietf.org/html/rfc4566)|SDP|Only parser and generator
-[RFC5518](http://tools.ietf.org/html/rfc5118)|IPv6 Torture Tests|
-[RFC5389](http://tools.ietf.org/html/rfc5389)|STUN|Basic STUN client and server
+[RFC5518](http://tools.ietf.org/html/rfc5118)|IPv6 Torture Tests|Included in unit tests
+[RFC5389](http://tools.ietf.org/html/rfc5389)|STUN|Basic STUN client and server (no IPv6)
 [RFC6026]([http://tools.ietf.org/html/rfc6026)|2xx responses|
 [RFC6157]([http://tools.ietf.org/html/rfc6157)|IPv6 Transition|
 
@@ -32,5 +33,6 @@ NkSIP features also:
  * Dialog and SDP media start and stop detection.
  * SDP processing utilities.
  * Simple STUN server (for future SIP Outbound support).
+ * Full RFC4475 and RFC5518 Torture Tests passing.
  * Robust and highly scalable, using all available processor cores.
 

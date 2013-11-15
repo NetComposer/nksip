@@ -5,7 +5,7 @@
 
 @author Carlos Gonzalez Florido <carlosj.gf@gmail.com>
 @copyright 2013 Carlos Gonzalez Florido
-@version 0.2.0
+@version 0.3.0
 @title Welcome to NkSIP
 
 @doc NkSIP is an Erlang <a href="http://en.wikipedia.org/wiki/Session_Initiation_Protocol">SIP</a> framework (or <i>application server</i>), which greatly facilitates the development of robust and scalable server-side SIP applications like proxy, registrar, redirect or outbound servers and <a href="http://en.wikipedia.org/wiki/Back-to-back_user_agent">B2BUAs</a>.
@@ -200,78 +200,12 @@ Lager supports several backends, typically console and disk. You can change the 
 NkSIP can also activate SIP tracing on any SipApp, using the trace facilities in {@link nksip_trace}. Use {@link nksip_trace:start/3} to start tracing all SIP messages coming from or going to specific IP addresses, in either the console or a file on disk.
 
 
-
-
 == Supported RFCs and features ==
 
- In the current version the following RFCs are supported:
-
-<table border="1">
-  <tr><th>RFC</th><th>Description</th><th>Coverage</th></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc2976">RFC2976</a></td><td>INFO</td><td></td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc3261">RFC3261</a></td><td>SIP 2.0</td><td>Full</td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc2617">RFC2617</a></td><td>Digest authentication</td><td>Full</td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc3263">RFC3263</a></td><td>SRV Resolution</td><td>Full (but no SRV/NAPTR weights support)</td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc3264">RFC3264</a></td><td>Offer/Answer Model</td><td>Full</td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc3581">RFC3581</a></td><td>RPort</td><td>Full</td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc4566">RFC4566</a></td><td>SDP Parser and Generator</td><td>Full (limited processing utilities)</td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc5389">RFC5389</a></td><td>STUN</td><td>Basic STUN client and server</td></tr>
-  <tr><td><a href="http://tools.ietf.org/html/rfc6026">RFC6026</a></td><td>2xx responses</td><td>Full</td></tr>
-</table>
-
-
-NkSIP features also:
+See the <a href="https://github.com/kalta/nksip">GitHub NkSIP repository</a> for up to date information about:
 
 <ul>
-  <li>Full RFC3261 coverage, including SIP Registrar (RAM storage only).</li>
-  <li>A written from scratch, fully typed Erlang code easy to understand and extend. 60 unit tests convering most functionality.</li>
-  <li>Hot core and application code upgrade.</li>
-  <li>Very few external dependencies: <a href="https://github.com/basho/lager">Lager</a> for error logging and <a href="http://ninenines.eu">Cowboy</a> as TCP/SSL acceptor and Websocket server.</li>
-  <li>UDP, TCP and TLS transports, capable of handling thousands of simultaneous sessions.</li>
-  <li>Stateful proxy servers with serial and parallel forking.</li>
-  <li>Stateless proxy servers, even using TCP/TLS.</li>
-  <li>Automatic registrations and timed pings.</li>
-  <li>Dialog and SDP media start and stop detection.</li>
-  <li>SDP processing utilities.</li>
-  <li>Simple STUN server (for SIP Outbound).</li>
-  <li>Robust and highly scalable, using all available processor cores.</li>
+  <li><a href="https://github.com/kalta/nksip/blob/master/docs/FEATURES.md">Features</a> and supported RFCs.</li>
+  <li><a href="https://github.com/kalta/nksip/blob/master/docs/ROADMAP.md">Roadmap</a>.</li>
+  <li><a href="https://github.com/kalta/nksip/blob/master/docs/CHANGELOG.md">Change log</a> and releases.</li>
 </ul>
-
-
-Many common SIP featured are still missing and will be addressed in following versions, including (but not in any particular priority order):
-
-<ul>
-  <li><a href="http://tools.ietf.org/html/rfc3262">RFC3262</a>: PRACK</li>
-  <li><a href="http://tools.ietf.org/html/rfc3265">RFC3265</a>: SUBSCRIBE, NOTIFY</li>
-  <li><a href="http://tools.ietf.org/html/rfc3311">RFC3311</a>: UPDATE</li>
-  <li><a href="http://tools.ietf.org/html/rfc3327">RFC3327</a>: Path</li>
-  <li><a href="http://tools.ietf.org/html/rfc3428">RFC3428</a>: MESSAGE</li>
-  <li><a href="http://tools.ietf.org/html/rfc3515">RFC3515</a>: REFER</li>
-  <li><a href="http://tools.ietf.org/html/rfc3608">RFC3608</a>: Service-Route</li>
-  <li><a href="http://tools.ietf.org/html/rfc3891">RFC3891</a>: Replaces</li>
-  <li><a href="http://tools.ietf.org/html/rfc3892">RFC3892</a>: Referred-By</li>
-  <li><a href="http://tools.ietf.org/html/rfc3903">RFC3903</a>: PUBLISH</li>
-  <li><a href="http://tools.ietf.org/html/rfc4028">RFC4028</a>: Session Timers</li>
-  <li><a href="http://tools.ietf.org/html/rfc4320">RFC4320</a>: Invite transactions</li>
-  <li><a href="http://tools.ietf.org/html/rfc4321">RFC4321</a>: Non-invite transactions</li>
-  <li><a href="http://tools.ietf.org/html/rfc4475">RFC4475</a>: Torture tests</li>
-  <li><a href="http://tools.ietf.org/html/rfc5057">RFC5027</a>: Multiple dialog</li>
-  <li><a href="http://tools.ietf.org/html/rfc5626">RFC5626</a>: Outbound</li>
-  <li><a href="http://tools.ietf.org/html/rfc5626">RFC5627</a>: GRUU</li>
-</ul>
-
-Priority planned features include:
-
-<ul>
-  <li><i>Bridge</i> helpers for B2BUA support.</li>
-  <li>IPv6.</li>
-  <li>SIP Websockets transport.</li>
-  <li>External control, to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM.</li>
-  <li>Fully distributed, highly available distributed version based on Riak Core.</li>
-</ul>
-
-
-
-
-
-

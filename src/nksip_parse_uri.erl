@@ -31,7 +31,7 @@
 %% ===================================================================
 
 %% @doc Parse a serie of uris in a string
-%% Can parse > 100.000 urls/sec (<sip:user@host.com;transport=tcp;lr>) on i7
+%% Can parse > 100.000 urls/sec (`<sip:user@host.com;transport=tcp;lr>') on i7
 -spec uris(binary() | string() | #uri{}) ->
     [#uri{}] | error.
 
