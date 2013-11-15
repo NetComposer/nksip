@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% ipv6_test: IPv6 Tests
+%% ipv6_test: IPv6 Tests and RFC5118 Torture Tests
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
@@ -99,7 +99,7 @@ stop() ->
 
 
 basic() ->
-    MainIp = main_ip6(),
+    MainIp = <<"[::1]">>,
     Self = self(),
     Ref = make_ref(),
 
@@ -498,5 +498,3 @@ parse(Msg) ->
         {ok, Raw, <<>>}  -> nksip_parse:raw_sipmsg(Raw);
         {error, Error} -> {error, Error}
     end.
-
-
