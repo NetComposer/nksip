@@ -59,9 +59,10 @@ start(_Type, _Args) ->
     end,
     {ok, Pid} = nksip_sup:start_link(),
     MainIp = nksip_config:get(main_ip),
+    MainIp6 = nksip_config:get(main_ip6),
     {ok, Vsn} = application:get_key(nksip, vsn),
-    lager:notice("NkSIP v~s has started. Main IP is ~s", 
-                    [Vsn, nksip_lib:to_host(MainIp)]),
+    lager:notice("NkSIP v~s has started. Main IP is ~s (~s)", 
+                    [Vsn, nksip_lib:to_host(MainIp), nksip_lib:to_host(MainIp6)]),
     {ok, Pid}.
 
 
