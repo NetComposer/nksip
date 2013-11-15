@@ -9,7 +9,7 @@ Changelog
 * INFO Method.
 * SCTP transport.
 * IPv6.
-* Torture Tests.
+* New parsers fully RFC4476 _Torture Tests_ compliant.
 * Bug corrections.
 
 
