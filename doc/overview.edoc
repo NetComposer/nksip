@@ -205,7 +205,7 @@ NkSIP can also activate SIP tracing on any SipApp, using the trace facilities in
 See the <a href="https://github.com/kalta/nksip">GitHub NkSIP repository</a> for up to date information about:
 
 <ul>
-  <li><a href="https://github.com/kalta/nksip/blob/master/docs/FEATURES.md">Features</a> and supported RFCs.</li>
-  <li><a href="https://github.com/kalta/nksip/blob/master/docs/ROADMAP.md">Roadmap</a>.</li>
-  <li><a href="https://github.com/kalta/nksip/blob/master/docs/CHANGELOG.md">Change log</a> and releases.</li>
+  <li><a href="https://github.com/kalta/nksip/blob/master/doc/FEATURES.md">Features</a> and supported RFCs.</li>
+  <li><a href="https://github.com/kalta/nksip/blob/master/doc/ROADMAP.md">Roadmap</a>.</li>
+  <li><a href="https://github.com/kalta/nksip/blob/master/doc/CHANGELOG.md">Change log</a> and releases.</li>
 </ul>
