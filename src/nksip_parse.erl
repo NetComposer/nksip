@@ -240,20 +240,24 @@ parse_packet1(Packet, Proto) ->
             case binary:split(Packet, <<"\r\n">>) of
                 [<<>>, <<"\r\n", Rest/binary>>] ->
                     {rnrn, Rest};
-                [First, Rest] ->
-                    case binary:split(First, <<" ">>, [global]) of
-                        [Method, RUri, <<"SIP/2.0">>] ->
-                            Class = {req, method(Method), RUri},
-                            parse_packet2(Packet, Proto, Class, Rest);
-                        [<<"SIP/2.0">>, Code | TextList] -> 
-                            CodeText = nksip_lib:bjoin(TextList, <<" ">>),
-                            case catch list_to_integer(binary_to_list(Code)) of
-                                Code1 when is_integer(Code1) ->
-                                    Class= {resp, Code1, CodeText},
+                [<<"SIP/2.0 ", Resp/binary>>, Rest] ->
+                    case binary:split(Resp, <<" ">>) of
+                        [CodeB, Reason] -> 
+                            case catch list_to_integer(binary_to_list(CodeB)) of
+                                Code when is_integer(Code) ->
+                                    Class = {resp, Code, Reason},
                                     parse_packet2(Packet, Proto, Class, Rest);
                                 _ ->
                                     {error, message_unrecognized}
                             end;
+                        _ ->
+                            {error, message_unrecognized}
+                    end;
+                [Req, Rest] ->
+                    case binary:split(Req, <<" ">>, [global]) of
+                        [Method, RUri, <<"SIP/2.0">>] ->
+                            Class = {req, method(Method), RUri},
+                            parse_packet2(Packet, Proto, Class, Rest);
                         _ ->
                             {error, message_unrecognized}
                     end
@@ -496,22 +500,29 @@ get_raw_headers(Packet, Acc) ->
                         "CONTENT-DISPOSITION" -> <<"Content-Disposition">>;
                         "CONTENT-ENCODING" -> <<"Content-Encoding">>;
                         "E" -> <<"Content-Encoding">>;
+                        "CONTENT-LENGTH" -> <<"Content-Length">>;
                         "L" -> <<"Content-Length">>;
+                        "CONTENT-TYPE" -> <<"Content-Type">>;
                         "C" -> <<"Content-Type">>;
                         "CSEQ" -> <<"CSeq">>;
+                        "FROM" -> <<"From">>;
                         "F" -> <<"From">>;
+                        "MAX-FORWARDS" -> <<"Max-Forwards">>;
                         "PROXY-REQUIRE" -> <<"Proxy-Require">>;
                         "RECORD-ROUTE" -> <<"Record-Route">>;
                         "REQUIRE" -> <<"Require">>;
                         "ROUTE" -> <<"Route">>;
+                        "SUBJECT" -> <<"Subject">>;
                         "S" -> <<"Subject">>;
                         "SUPPORTED" -> <<"Supported">>;
-                        "UNSUPPORTED" -> <<"Unsupported">>;
                         "TIMESTAMP" -> <<"Timestamp">>;
                         "TO" -> <<"To">>;
                         "T" -> <<"To">>;
+                        "UNSUPPORTED" -> <<"Unsupported">>;
                         "VIA" -> <<"Via">>;
                         "V" -> <<"Via">>;
+                        "WWW-AUTHENTICATE" -> <<"WWW-Authenticate">>;
+                        "PROXY-AUTHENTICATE" -> <<"PROXY-Authenticate">>;
                         _ -> list_to_binary(Name0)
                     end
             end,
