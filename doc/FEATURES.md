@@ -2,11 +2,11 @@ In the current version the following RFCs are fully implemented (see notes):
 
 RFC|Description|Notes
 ---|---|---
+[RFC2617](http://tools.ietf.org/html/rfc2617)|Digest authentication|
 [RFC2782](http://tools.ietf.org/html/rfc2782)|DNS SRV|
 [RFC2915](http://tools.ietf.org/html/rfc2915)|DNS NAPTR|
 [RFC2976](http://tools.ietf.org/html/rfc2976)|INFO|
 [RFC3261](http://tools.ietf.org/html/rfc3261)|SIP 2.0|
-[RFC2617](http://tools.ietf.org/html/rfc2617)|Digest authentication|
 [RFC3263](http://tools.ietf.org/html/rfc3263)|Locating SIP Services|
 [RFC3264](http://tools.ietf.org/html/rfc3264)|Offer/Answer Model|
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|
