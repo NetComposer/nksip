@@ -23,25 +23,28 @@ NkSIP is a pure SIP framework, so it _does not support any real RTP media proces
 New Features
 ============
 
-Current version is v0.3.0. New features include:
+Last released version is [v0.3.0](https://github.com/kalta/nksip/releases/tag/v0.3.0). New features include:
 
 * INFO method.
 * New caching locating server with NAPTR and SRVS support.
 * Outbound connection controlling process.
+* SCTP transport.
+* IPv6 support.
+* New SIP parsers fully RFC4475 _Torture Tests_ compliant.
 
 
 Documentation
 =============
 
 * API documentation is available [here](http://kalta.github.io/nksip).
-* [Change log](docs/CHANGELOG.md).
-* [Current features](docs/FEATURES.md).
-* [Roadmap](docs/ROADMAP.md).
+* [Change log](doc/CHANGELOG.md).
+* [Current features](doc/FEATURES.md).
+* [Roadmap](doc/ROADMAP.md).
 
 There are currently **three sample applications** included with NkSIP:
  * [Simple PBX](http://kalta.github.io/nksip/docs/v0.2.0/nksip_pbx/index.html): Registrar server and forking proxy with endpoints monitoring.
  * [LoadTest](http://kalta.github.io/nksip/docs/v0.2.0/nksip_loadtest/index.html): Heavy-load NkSIP testing. 
- * [Tutorial](docs/TUTORIAL.md): Code base for the included tutorial.
+ * [Tutorial](doc/TUTORIAL.md): Code base for the included tutorial.
 
 
 
@@ -57,7 +60,7 @@ NkSIP has been tested on OSX and Linux, using Erlang R15B y R16B
 > make tests
 ```
 
-Now you can start a simple SipApp using the [client callback module](samples/nksip_tutorial/src/nksip_tutorial_sipapp_client.erl) included in the tutorial:
+Now you can start a simple SipApp using the included [default callback module](src/nksip_sipapp.erl):
 ```erlang
 > make shell
 1> nksip:start(test1, nksip_sipapp, [], []).
@@ -66,13 +69,13 @@ ok
 {ok, 200, []}
 ```
  
-From this point you can read the [tutorial](docs/TUTORIAL.md) or start hacking with the included [nksip_pbx](http://kalta.github.io/nksip/docs/v0.1.0/nksip_pbx/index.html) application:
+From this point you can read the [tutorial](doc/TUTORIAL.md) or start hacking with the included [nksip_pbx](http://kalta.github.io/nksip/docs/v0.1.0/nksip_pbx/index.html) application:
 ```erlang
 > make pbx
 1> nksip_pbx:start().
 ```
 
-You could also perform a heavy load test using the included application [nksip_loadtest](http://kalta.github.io/nksip/docs/v0.1.0/nksip_loadtest/index.html):
+You could also perform a heavy-load test using the included application [nksip_loadtest](http://kalta.github.io/nksip/docs/v0.1.0/nksip_loadtest/index.html):
 ```erlang
 > make loadtest
 1> nksip_loadtest:full().
