@@ -15,7 +15,7 @@ clean: clean-docs clean-logs
 	rm -f erl_crash.dump
 
 clean-logs:
-	rm -rf nksip/log 
+	rm -rf log 
 	rm -rf samples/nksip_loadtest/log 
 	rm -rf samples/nksip_pbx/log 
 	rm -rf samples/nksip_tutorial/log 
@@ -24,8 +24,8 @@ docs: clean-docs
 	@$(REBAR) doc skip_deps=true
 
 clean-docs:
-	rm -f nksip/doc/*.css nksip/doc/*.html \
-	      nksip/doc/*.png nksip/doc/edoc-info
+	rm -f doc/*.css doc/*.html \
+	      doc/*.png doc/edoc-info
 	rm -f samples/nksip_loadtest/doc/*.css samples/nksip_loadtest/doc/*.html \
 	      samples/nksip_loadtest/doc/*.png samples/nksip_loadtest/doc/edoc-info
 	rm -f samples/nksip_pbx/doc/*.css samples/nksip_pbx/doc/*.html \
@@ -43,11 +43,11 @@ build-plt:
 		--apps erts kernel stdlib sasl tools inets crypto public_key ssl eunit
 
 dialyze: app
-	@$(DIALYZER) nksip/ebin/nksip*.beam --plt .$(PROJECT).plt \
+	@$(DIALYZER) ebin/nksip*.beam --plt .$(PROJECT).plt \
 	-Werror_handling  #-Wunmatched_returns -Wrace_conditions -Wunderspecs
 
 shell: 
-	erl -config nksip/priv/app.config -args_file nksip/priv/vm.args 
+	erl -config priv/app.config -args_file priv/vm.args 
 
 tutorial: 
 	erl -config samples/nksip_tutorial/priv/app.config \
@@ -62,7 +62,7 @@ pbx: app
 		-args_file samples/nksip_pbx/priv/vm.args -s nksip_pbx
 
 build_tests:
-	erlc -pa nksip/ebin -pa deps/lager/ebin -o nksip/ebin -I include \
-	+export_all +debug_info nksip/test/*.erl
+	erlc -pa ebin -pa deps/lager/ebin -o ebin -I include \
+	+export_all +debug_info test/*.erl
 
 

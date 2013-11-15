@@ -27,7 +27,7 @@
 -export([init/1, options/2, invite/2, reinvite/2, cancel/1, ack/2, bye/2, info/2]).
 -export([dialog_update/2, session_update/2]).
 
--include_lib("nksip/include/nksip.hrl").
+-include("../include/nksip.hrl").
 
 
 start(AppId, Opts) ->

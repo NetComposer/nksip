@@ -23,7 +23,7 @@
 -module(fork_test).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("nksip/include/nksip.hrl").
+-include("../include/nksip.hrl").
 
 -compile([export_all]).
 

@@ -26,7 +26,7 @@
 -export([start/2, stop/1]).
 -export([init/1, get_user_pass/2, authorize/3, route/5]).
 
--include_lib("nksip/include/nksip.hrl").
+-include("../include/nksip.hrl").
 
 
 start(AppId, Opts) ->

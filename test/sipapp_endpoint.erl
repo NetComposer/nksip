@@ -29,7 +29,7 @@
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
--include_lib("nksip/include/nksip.hrl").
+-include("../include/nksip.hrl").
 
 
 start(AppId, Opts) ->
