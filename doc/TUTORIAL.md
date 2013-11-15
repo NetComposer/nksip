@@ -18,8 +18,8 @@ Now you can start a simple SipApp proxy server using the included [server callba
 1> nksip:start(server, nksip_tutorial_sipapp_server, [server], 
 		[
 			registrar, 
-		 	{transport, {udp, {0,0,0,0}, 5060}}, 
-		 	{transport, {tls, {0,0,0,0}, 5061}}
+		 	{transport, {udp, any, 5060}}, 
+		 	{transport, {tls, any, 5061}}
 		 ]).
 ok
 ```
@@ -112,14 +112,6 @@ Let's register now both clients with the server. We use the option `make_contact
 8> nksip_uac:register(client1, "sip:127.0.0.1", 
                       [{pass, "1234"}, make_contact, {fields, [<<"Contact">>]}]).
 {ok,200,[{<<"Contact">>, [<<"<sip:client1@127.0.0.1:5070>;expires=3600">>]}]}
-9> nksip_uac:register(client2, "sip:127.0.0.1", [{pass, "1234"}, make_contact]).
-{ok,400,[]}
-```
-In the second case, it fails because the _From_ field we are using for `client2` is
-using `sips` scheme, but the generated _Contact_ is using `sip`. We could generate
-a valid _Contact_ by hand, or simply tell NkSIP to contact the server using sips:
-
-```erlang
 10> nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, make_contact]).
 {ok,200,[]}
 ```

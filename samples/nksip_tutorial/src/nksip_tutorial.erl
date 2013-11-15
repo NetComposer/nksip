@@ -31,8 +31,8 @@ launch() ->
     ok = nksip:start(server, nksip_tutorial_sipapp_server, [server], 
         [
             registrar, 
-            {transport, {udp, {0,0,0,0}, 5060}}, 
-            {transport, {tls, {0,0,0,0}, 5061}}
+            {transport, {udp, any, 5060}}, 
+            {transport, {tls, any, 5061}}
          ]),
     ok = nksip:start(client1, nksip_tutorial_sipapp_client, [client1], 
         [
@@ -56,9 +56,6 @@ launch() ->
     {ok,200,[{<<"Contact">>, [<<"<sip:client1@127.0.0.1:5070>;expires=3600">>]}]} = 
         nksip_uac:register(client1, "sip:127.0.0.1", 
                            [{pass, "1234"}, make_contact, {fields, [<<"Contact">>]}]),
-
-    {ok,400,[]} = 
-        nksip_uac:register(client2, "sip:127.0.0.1", [{pass, "1234"}, make_contact]),
 
     {ok,200,[]} = nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, make_contact]),
 
