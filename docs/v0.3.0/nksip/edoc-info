@@ -10,4 +10,4 @@
           nksip_sdp,nksip_sipapp,nksip_sipapp_auto,nksip_sipmsg,nksip_stats,
           nksip_store,nksip_stun,nksip_trace,nksip_transport,
           nksip_transport_uac,nksip_transport_uas,nksip_uac,nksip_uac_lib,
-          nksip_uas_lib,nksip_unparse,reloader,user_default]}.
+          nksip_uas_lib,nksip_unparse]}.
