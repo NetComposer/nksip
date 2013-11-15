@@ -8,7 +8,7 @@ In no special order:
 * ~~DNS stateful processing~~.
 * ~~Outbound connection server~~.
 * ~~_IPv6_~~.
-* _Websockets_ and _SCTP_ support.
+* _Websockets_ ~~and _SCTP_ support~~.
 * Socket external control (to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM).
 * Javascript, Python, Ruby, Lua, Java libraries. Elixir DSL?
 * _Bridge_ support for B2BUA.
