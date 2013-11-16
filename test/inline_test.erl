@@ -94,16 +94,17 @@ basic() ->
     {ok, 480, []} = nksip_uac:options(C2, "sip:client3@nksip", []),
     ok = tests_util:wait(Ref, [{S1, route}]),
 
-    {ok, 200, [{dialog_id, Dlg1}]} = nksip_uac:invite(C2, "sip:client1@nksip", []),
-    ok = nksip_uac:ack(C2, Dlg1, []),
+    {ok, 200, [{dialog_id, Dlg2}]} = nksip_uac:invite(C2, "sip:client1@nksip", []),
+    ok = nksip_uac:ack(C2, Dlg2, []),
     ok = tests_util:wait(Ref, [
             {S1, route}, {C1, invite}, {S1, route}, {C1, ack},
             {C1, dialog_start},{C2, dialog_start}]),
 
-    {ok, 200, []} = nksip_uac:info(C2, Dlg1, []),
+    {ok, 200, []} = nksip_uac:info(C2, Dlg2, []),
     ok = tests_util:wait(Ref, [{S1, route}, {C1, info}]),
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
+    Dlg1 = nksip_dialog:field(C2, Dlg2, remote_id),
     {ok, 200, _} = nksip_uac:invite(C1, Dlg1, [{body, SDP}]),
     ok = nksip_uac:ack(C1, Dlg1, []),
 

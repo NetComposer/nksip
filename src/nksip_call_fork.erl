@@ -104,7 +104,7 @@ next(#fork{pending=[]}=Fork, Call) ->
                 [Next|Rest] ->
                     ?call_debug("Fork ~p ~p launching next group", [Id, Method], Call),
                     Fork1 = Fork#fork{uriset=Rest},
-                    launch(Next, Fork1, update(Fork1, Call))
+                    launch(Next, Id, update(Fork1, Call))
             end;
         _ ->
             delete(Fork, Call)
@@ -117,14 +117,18 @@ next(#fork{id=Id, method=Method, pending=Pending}, Call) ->
 
 
 %% @private
--spec launch([nksip:uri()], fork(), call()) ->
+-spec launch([nksip:uri()], id(), call()) ->
    call().
 
-launch([], Fork, Call) ->
-    next(Fork, Call);
+launch([], Id, Call) ->
+    case lists:keyfind(Id, #fork.id, Call#call.forks) of
+        #fork{} = Fork -> next(Fork, Call);
+        false -> Call
+    end;
 
-launch([Uri|Rest], Fork, Call) -> 
-    #fork{id=Id, request=Req, method=Method, opts=Opts,
+launch([Uri|Rest], Id, Call) -> 
+    Fork = lists:keyfind(Id, #fork.id, Call#call.forks),
+    #fork{request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
     #sipmsg{call_id=CallId} = Req,
     Req1 = Req#sipmsg{ruri=Uri, id=nksip_sipmsg:make_id(req, CallId)},
@@ -135,21 +139,20 @@ launch([Uri|Rest], Fork, Call) ->
                          [nksip_unparse:uri(Uri)], Call),
             {Resp, _} = nksip_reply:reply(Req, loop_detected),
             Fork1 = Fork#fork{responses=[Resp|Resps]},
-            launch(Rest, Fork1, update(Fork1, Call));
+            launch(Rest, Id, update(Fork1, Call));
         false ->
             ?call_debug("Fork ~p ~p launching to ~s", 
                          [Id, Method, nksip_unparse:uri(Uri)], Call),
-            UACOpts = case lists:member(record_route, Opts) of
-                true -> [record_route];
-                false -> []
-            end,
-            Call1 = nksip_call_uac_req:request(Req1, UACOpts, {fork, Id}, Call),
-            Call2 = Call1#call{next=Next+1},
             Fork1 = case Method of
                 'ACK' -> Fork#fork{uacs=[Next|UACs]};
                 _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
             end,
-            launch(Rest, Fork1, update(Fork1, Call2))
+            Call1 = update(Fork1, Call),
+            ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
+            UACOpts = nksip_lib:extract(Opts, [record_route, no_dialog, update_dialog]),
+            %% CAUTION: This call can update the fork's state, even delete it!
+            Call2 = nksip_call_uac_req:request(Req1, UACOpts, {fork, Id}, Call1),
+            launch(Rest, Id, Call2#call{next=Next+1})
     end.
 
 
@@ -164,8 +167,8 @@ response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
     #sipmsg{class={resp, Code}, to_tag=ToTag} = Resp,
     case lists:keyfind(Id, #fork.id, Forks) of
         #fork{pending=Pending, uacs=UACs, method=Method}=Fork ->
-            ?call_debug("Fork ~p ~p received ~p (~s)", 
-                        [Id, Method, Code, ToTag], Call),
+            ?call_debug("Fork ~p ~p received ~p (~p, ~s)", 
+                        [Id, Method, Code, Pos, ToTag], Call),
             Resp1 = Resp#sipmsg{vias=Vias},
             case lists:member(Pos, Pending) of
                 true ->
@@ -235,7 +238,7 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
             end,
             ?call_debug("Fork ~p redirect to ~p", 
                        [Id, nksip_unparse:uri(Contacts1)], Call),
-            launch(Contacts1, Fork1, update(Fork1, Call));
+            launch(Contacts1, Id, update(Fork1, Call));
         _ ->
             Fork2 = Fork1#fork{responses=[Resp|Resps]},
             next(Fork2, update(Fork2, Call))

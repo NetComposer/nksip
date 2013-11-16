@@ -73,11 +73,24 @@ reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
     end,
     Call;
 
+reply({req, _Req}, #trans{from={fork, _}}, Call) ->
+    Call;
+
 reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
     nksip_call_fork:response(ForkId, Id, Resp, Call);
 
-reply(_Resp, _UAC, Call) ->
-    Call.
+reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
+    Reply = case Error of
+        network_error -> service_unavailable;
+        unknown_dialog -> no_transaction;
+        request_pending -> request_pending;
+        _ -> 
+            {internal_error, <<"Proxy UAC Error ", (nksip_lib:to_binary(Error))/binary>>}
+    end,
+    {Resp, _} = nksip_reply:reply(Req, Reply),
+    % nksip_call_fork:response() is going to discard first Via
+    Resp1 = Resp#sipmsg{vias=[#via{}|Resp#sipmsg.vias]},
+    nksip_call_fork:response(ForkId, Id, Resp1, Call).
 
 
 %% @private

@@ -27,7 +27,7 @@
 -export([field/3, field/2, fields/3, class_id/2, uac_id/1, uas_id/1, id/2, call_id/1]).
 -export([stop/2, bye_all/0, stop_all/0]).
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
-
+-export([remote_id/1]).
 -export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
 
 -include("nksip.hrl").
@@ -213,6 +213,7 @@ field(AppId, DialogSpec, Field) ->
 field(D, Field) ->
     case Field of
         id -> D#dialog.id;
+        remote_id -> remote_id(D);
         app_id -> D#dialog.app_id;
         call_id -> D#dialog.call_id;
         created -> D#dialog.created;
@@ -399,6 +400,16 @@ dialog_id(uac, CallId, FromTag, ToTag) ->
 
 dialog_id(uas, CallId, FromTag, ToTag) ->
     <<"D_", (nksip_lib:hash({FromTag, ToTag}))/binary, $_, CallId/binary>>.
+
+
+%% @private Hack to find the UAS dialog from the UAC and the opposite way
+remote_id(#dialog{id=BaseId, call_id=CallId, local_uri=LUri, remote_uri=RUri}) ->
+    FromTag = nksip_lib:get_binary(tag, LUri#uri.ext_opts),
+    ToTag = nksip_lib:get_binary(tag, RUri#uri.ext_opts),
+    case dialog_id(uac, CallId, FromTag, ToTag) of
+        BaseId -> dialog_id(uas, CallId, FromTag,ToTag);
+        RemoteId -> RemoteId
+    end.
 
 
 %% @private Dumps all dialog information

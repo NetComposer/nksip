@@ -343,7 +343,7 @@ do_route({process, Opts}, #trans{request=Req, method=Method}=UAS, Call) ->
 
 % We want to proxy the request
 do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
-    #trans{id=Id, opts=Opts, method=Method} = UAS,
+    #trans{id=Id, opts=Opts, method=Method, request=Req} = UAS,
     case nksip_call_proxy:route(UAS, UriList, ProxyOpts, Call) of
         stateless_proxy ->
             UAS1 = UAS#trans{status=finished},
@@ -355,12 +355,33 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
             % TODO 16.6.4: If ruri or top route has sips, and not received with 
             % tls, must record_route. If received with tls, and no sips in ruri
             % or top route, must record_route also
-            UAS2 = UAS1#trans{opts=[no_dialog|Opts], stateless=false, from={fork, Id}},
-            UAS3 = case Method of
-                'ACK' -> UAS2#trans{status=finished};
-                _ -> UAS2
+            DialogResult = case lists:member(no_dialog, ProxyOpts) of
+                true -> 
+                    {ok, Call, [no_dialog|Opts]};
+                false -> 
+                    UpdateDialog = lists:member(update_dialog, ProxyOpts),
+                    case nksip_call_uas_dialog:request(Req, Call) of
+                        {ok, _, DlgCall} -> 
+                            {ok, DlgCall, Opts};
+                        {error, DlgError} when UpdateDialog ->
+                            ?call_info("UAS ~p ~p (fork) dialog request error: ~p", 
+                                [Id, Method, DlgError], Call),
+                            {ok, Call, Opts};
+                        {error, DlgError} ->
+                            {error, DlgError}
+                    end
             end,
-            nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call));
+            case DialogResult of
+                {ok, Call1, Opts1} ->
+                    UAS2 = UAS1#trans{opts=Opts1, stateless=false, from={fork, Id}},
+                    UAS3 = case Method of
+                        'ACK' -> UAS2#trans{status=finished};
+                        _ -> UAS2
+                    end,
+                    nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call1));
+                {error, Error} ->
+                    process_dialog_error(Error, UAS, Call)
+            end;
         {reply, SipReply} ->
             reply(SipReply, UAS, Call)
     end;
@@ -382,35 +403,43 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
 -spec process(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
     
-process(#trans{stateless=false, opts=Opts}=UAS, Call) ->
-    #trans{id=Id, method=Method, request=Req} = UAS,
+process(#trans{stateless=false}=UAS, Call) ->
+    #trans{method=Method, request=Req} = UAS,
     case nksip_call_uas_dialog:request(Req, Call) of
        {ok, DialogId, Call1} -> 
             % Caution: for first INVITEs, DialogId is not yet created!
             do_process(Method, DialogId, UAS, Call1);
-        {error, Error} when Method=/='ACK' ->
-            Reply = case Error of
-                proceeding_uac ->
-                    request_pending;
-                proceeding_uas -> 
-                    {500, [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
-                                <<>>, [{reason, <<"Processing Previous INVITE">>}]};
-                old_cseq ->
-                    {internal_error, <<"Old CSeq in Dialog">>};
-                _ ->
-                    ?call_info("UAS ~p ~p dialog request error: ~p", 
-                                [Id, Method, Error], Call),
-                    no_transaction
-            end,
-            reply(Reply, UAS#trans{opts=[no_dialog|Opts]}, Call);
-        {error, Error} when Method=:='ACK' ->
-            ?call_notice("UAS ~p 'ACK' dialog request error: ~p", [Id, Error], Call),
-            UAS1 = UAS#trans{status=finished},
-            update(UAS1, Call)
+        {error, Error}  ->
+            process_dialog_error(Error, UAS, Call)
     end;
 
 process(#trans{stateless=true, method=Method}=UAS, Call) ->
     do_process(Method, <<>>, UAS, Call).
+
+
+%% @private
+process_dialog_error(Error, #trans{method='ACK', id=Id}=UAS, Call) ->
+    ?call_notice("UAS ~p 'ACK' dialog request error: ~p", [Id, Error], Call),
+    UAS1 = UAS#trans{status=finished},
+    update(UAS1, Call);
+
+process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) ->
+    Reply = case Error of
+        proceeding_uac ->
+            request_pending;
+        proceeding_uas -> 
+            {500, [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
+                        <<>>, [{reason, <<"Processing Previous INVITE">>}]};
+        old_cseq ->
+            {internal_error, <<"Old CSeq in Dialog">>};
+        _ ->
+            ?call_info("UAS ~p ~p dialog request error: ~p", 
+                        [Id, Method, Error], Call),
+            no_transaction
+    end,
+    reply(Reply, UAS#trans{opts=[no_dialog|Opts]}, Call).
+
+
 
 
 %% @private

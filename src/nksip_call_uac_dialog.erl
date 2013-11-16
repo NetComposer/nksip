@@ -38,7 +38,7 @@
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
     {ok, nksip_call:call()} | {error, Error} 
-    when Error :: finished | request_pending.
+    when Error :: unknown_dialog | request_pending.
 
 request(#sipmsg{class={req, 'ACK'}}, _) ->
     error(ack_in_dialog_request);
@@ -66,7 +66,7 @@ request(#sipmsg{class={req, Method}}=Req, Call) ->
                 not_found when Method=:='INVITE' ->
                     {ok, Call};
                 not_found ->
-                    {error, finished}
+                    {error, unknown_dialog}
             end
     end.
         
@@ -75,10 +75,10 @@ request(#sipmsg{class={req, Method}}=Req, Call) ->
 -spec do_request(nksip:method(), nksip_dialog:status(), nksip:request(), 
                  nksip:dialog(), call()) ->
     {ok, nksip:dialog()} | {error, Error} 
-    when Error :: finished | request_pending.
+    when Error :: unknown_dialog | request_pending.
 
 do_request(_, bye, _Req, _Dialog, _Call) ->
-    {error, finished};
+    {error, unknown_dialog};
 
 do_request('INVITE', confirmed, Req, Dialog, Call) ->
     Dialog1 = Dialog#dialog{request=Req},

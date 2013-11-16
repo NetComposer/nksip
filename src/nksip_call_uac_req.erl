@@ -50,10 +50,6 @@
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
     #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
-    % Req1 = case Method of 
-    %     'CANCEL' -> Req;
-    %     _ -> nksip_transport_uac:add_via(Req, GlobalId, AppOpts)
-    % end,
     {#trans{id=Id}=UAC, Call1} = new_uac(Req, Opts, From, Call),
     case lists:member(async, Opts) andalso From of
         {srv, SrvFrom} when Method=:='ACK' -> 
@@ -166,8 +162,23 @@ send(_, UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     DialogResult = case lists:member(no_dialog, Opts) of
-        true -> {ok, Call};
-        false -> nksip_call_uac_dialog:request(Req, Call)
+        true -> 
+            {ok, Call};
+        false -> 
+            case lists:member(update_dialog, Opts) of
+                true ->
+                    % {error, unknown_dialog}    ;
+                    case nksip_call_uac_dialog:request(Req, Call) of
+                        {ok, DlgCall} ->
+                            {ok, DlgCall};
+                        {error, DlgError} ->
+                            ?call_debug("UAC ~p error updating dialog: ~p", 
+                                        [DlgError], Call),
+                            {ok, Call} 
+                    end;
+                false ->
+                    {ok, Call}
+            end
     end,
     case DialogResult of
         {ok, Call1} ->
@@ -194,11 +205,9 @@ send(_, UAC, Call) ->
                                                        UAC, Call1),
                     update(UAC#trans{status=finished}, Call2)
             end;
-        {error, finished} ->
-            Call1 = nksip_call_uac_reply:reply({error, unknown_dialog}, UAC, Call),
-            update(UAC#trans{status=finished}, Call1);
-        {error, request_pending} ->
-            Call1 = nksip_call_uac_reply:reply({error, request_pending}, UAC, Call),
+        {error, Error} ->
+            ?call_info("UAC ~p dialog error: ~p", [Id, Error], Call),
+            Call1 = nksip_call_uac_reply:reply({error, Error}, UAC, Call),
             update(UAC#trans{status=finished}, Call1)
     end.
 

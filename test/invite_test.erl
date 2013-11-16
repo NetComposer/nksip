@@ -114,9 +114,9 @@ dialog() ->
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     Hds = [{"Nk-Op", answer}, RepHd],
 
-    {ok, 200, [{dialog_id, DialogId}]} = 
+    {ok, 200, [{dialog_id, DialogIdA}]} = 
         nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{headers, Hds}, {body, SDP}]),
-    ok = nksip_uac:ack(C1, DialogId, []),
+    ok = nksip_uac:ack(C1, DialogIdA, []),
     % We don't receive callbacks from client1, since it has not stored the reply in 
     % its state
     ok = tests_util:wait(Ref, [{client2, ack}, 
@@ -166,7 +166,7 @@ dialog() ->
                 }]      
         } = RemoteSDP},
         {call_id, CallId}
-    ] = nksip_dialog:fields(C1, DialogId, [
+    ] = nksip_dialog:fields(C1, DialogIdA, [
                                 status, created, updated, answered, local_target, 
                                 remote_target, route_set, early, secure, local_seq, 
                                 remote_seq, local_sdp, remote_sdp, call_id]),
@@ -178,6 +178,9 @@ dialog() ->
     true = (Now - RemoteSDPId) < 2,
 
     % Hack to find remote dialog
+    DialogIdB = nksip_dialog:field(C1, DialogIdA, remote_id),
+    ?P("LOCAL DIALOG: ~p", [DialogIdA]),
+    ?P("REMOTE DIALOG: ~p", [DialogIdB]),
     [
         {status, confirmed},
         {created, Created2},
@@ -193,7 +196,7 @@ dialog() ->
         {local_sdp, RemoteSDP},
         {remote_sdp, LocalSDP},
         {call_id, CallId}
-    ] = nksip_dialog:fields(C2, DialogId, [
+    ] = nksip_dialog:fields(C2, DialogIdB, [
                                 status, created, updated, answered, local_target, 
                                 remote_target, route_set, early, secure, local_seq,
                                 remote_seq, local_sdp, remote_sdp, call_id]),
@@ -201,42 +204,42 @@ dialog() ->
     true = (Now - Updated2) < 2,
     true = (Now - Answered2) < 2,
 
-    {RemoteSDP, LocalSDP} = sipapp_endpoint:get_sessions(C2, DialogId),
+    {RemoteSDP, LocalSDP} = sipapp_endpoint:get_sessions(C2, DialogIdB),
 
 
     % Sends an in-dialog OPTIONS. Local CSeq should be incremented
     {ok, 200, [{cseq_num, CSeq1}]} = 
-        nksip_uac:options(C1, DialogId, [{fields, [cseq_num]}]),
+        nksip_uac:options(C1, DialogIdA, [{fields, [cseq_num]}]),
     CSeq = CSeq1 - 1,
-    0 = nksip_dialog:field(C1, DialogId, remote_seq),
-    0 = nksip_dialog:field(C2, DialogId, local_seq),
-    CSeq = nksip_dialog:field(C2, DialogId, remote_seq) - 1,
+    0 = nksip_dialog:field(C1, DialogIdA, remote_seq),
+    0 = nksip_dialog:field(C2, DialogIdB, local_seq),
+    CSeq = nksip_dialog:field(C2, DialogIdB, remote_seq) - 1,
 
     % Sends now from the remote party to us, forcing initial CSeq
-    {ok, 200, []} = nksip_uac:options(C2, DialogId, [{cseq, 9999}]),
-    CSeq = nksip_dialog:field(C1, DialogId, local_seq) -1,
-    9999 = nksip_dialog:field(C1, DialogId, remote_seq),
-    9999 = nksip_dialog:field(C2, DialogId, local_seq),
-    CSeq = nksip_dialog:field(C2, DialogId, remote_seq) -1,
+    {ok, 200, []} = nksip_uac:options(C2, DialogIdB, [{cseq, 9999}]),
+    CSeq = nksip_dialog:field(C1, DialogIdA, local_seq) -1,
+    9999 = nksip_dialog:field(C1, DialogIdA, remote_seq),
+    9999 = nksip_dialog:field(C2, DialogIdB, local_seq),
+    CSeq = nksip_dialog:field(C2, DialogIdB, remote_seq) -1,
 
     % Force invalid CSeq
     {ok, 500, [{reason, <<"Old CSeq in Dialog">>}]} = 
-        nksip_uac:options(C2, DialogId, [{cseq, 9998}, {fields, [reason]}]),
+        nksip_uac:options(C2, DialogIdB, [{cseq, 9998}, {fields, [reason]}]),
 
-    [DialogId] = nksip_dialog:get_all(C1, CallId),
-    [DialogId] = nksip_dialog:get_all(C2, CallId),
+    [DialogIdA] = nksip_dialog:get_all(C1, CallId),
+    [DialogIdB] = nksip_dialog:get_all(C2, CallId),
     
     % Send the dialog de opposite way
-    {ok, 200, [{dialog_id, DialogId}]} = 
-        nksip_uac:invite(C2, DialogId, [{headers, Hds}]),
-    ok = nksip_uac:ack(C2, DialogId, []),
+    {ok, 200, [{dialog_id, DialogIdB}]} = 
+        nksip_uac:invite(C2, DialogIdB, [{headers, Hds}]),
+    ok = nksip_uac:ack(C2, DialogIdB, []),
 
     % Now we receive callbacks from both
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
                                {client2, dialog_confirmed}]),
 
-    {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogIdA, []),
     ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}, 
                                {client1, {dialog_stop, caller_bye}},
                                {client1, sdp_stop},
@@ -257,7 +260,7 @@ rr_contact() ->
         {"Nk-Op", "answer"}, RepHd,
         {"Record-Route", nksip_lib:bjoin(lists:reverse(RR), <<", ">>)}],
 
-    {ok, 200, [{dialog_id, DialogId}, {<<"Record-Route">>, RRH}]} = 
+    {ok, 200, [{dialog_id, DialogIdA}, {<<"Record-Route">>, RRH}]} = 
             nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", 
                                     [{contact, "sip:abc"}, {headers, Hds1},
                                      {fields, [<<"Record-Route">>]}]),
@@ -270,7 +273,7 @@ rr_contact() ->
         [<<"<sip:abc>">>] = nksip_sipmsg:header(ACKReq1, <<"Contact">>),
         Self ! {Ref, fun_ack_ok}
     end,
-    async = nksip_uac:ack(C1, DialogId, 
+    async = nksip_uac:ack(C1, DialogIdA, 
                           [{body, SDP}, async, get_request, {callback, FunAck}]),
     ok = tests_util:wait(Ref, [fun_ack_ok, {client2, ack}, 
                                {client2, dialog_confirmed},
@@ -285,21 +288,22 @@ rr_contact() ->
             #sdp{vsn=LVsn1, connect={_, _, <<"client1">>}, medias=[LMed1]} = LocalSDP},
         {remote_sdp, 
             #sdp{vsn=RVsn1, connect={_, _, <<"client2">>}} = RemoteSDP}
-    ] = nksip_dialog:fields(C1, DialogId, [local_target, remote_target, route_set, 
+    ] = nksip_dialog:fields(C1, DialogIdA, [local_target, remote_target, route_set, 
                                               local_sdp, remote_sdp]),
 
+    DialogIdB = nksip_dialog:field(C1, DialogIdA, remote_id),
     [
         {local_target, <<"<sip:ok@127.0.0.1:5070>">>},
         {remote_target, <<"<sip:abc>">>},
         {route_set, RR1},
         {local_sdp, RemoteSDP}, 
         {remote_sdp, LocalSDP}
-    ] = nksip_dialog:fields(C2, DialogId, [local_target, remote_target, route_set, 
+    ] = nksip_dialog:fields(C2, DialogIdB, [local_target, remote_target, route_set, 
                                 local_sdp, remote_sdp]),
     true = lists:member({<<"sendrecv">>, []}, LMed1#sdp_m.attributes),
     RR1 = lists:reverse(RR),
 
-    {RemoteSDP, LocalSDP} = sipapp_endpoint:get_sessions(C2, DialogId),
+    {RemoteSDP, LocalSDP} = sipapp_endpoint:get_sessions(C2, DialogIdB),
 
     Fun = fun(R) ->
         case R of
@@ -308,7 +312,7 @@ rr_contact() ->
                 [<<"<sip:client1@localhost:5060>">>] = 
                     nksip_sipmsg:header(Req, <<"Contact">>),
                 Self ! {Ref, req_ok};
-            {ok, Code, [{dialog_id, DialogId}]} ->
+            {ok, Code, [{dialog_id, _}]} ->
                 if 
                     Code < 200 -> ok;
                     Code < 300 -> Self ! {Ref, Code}
@@ -319,13 +323,13 @@ rr_contact() ->
     % Reinvite updating SDP
     SDP2 = nksip_sdp:update(SDP, sendonly), 
     Hds2 = [{"Nk-Op", increment}, {"Record-Route", "<sip:ddd>"}, RepHd],
-    {async, _} = nksip_uac:invite(C1, DialogId, [
+    {async, _} = nksip_uac:invite(C1, DialogIdA, [
         {body, SDP2}, make_contact, async, {callback, Fun}, get_request,
         {headers, Hds2}]),
 
     % Test Route Set cannot change now, it is already answered
     receive {Ref, 200} -> 
-        {req, ACKReq2} = nksip_uac:ack(C1, DialogId, [get_request]),
+        {req, ACKReq2} = nksip_uac:ack(C1, DialogIdA, [get_request]),
         RR = nksip_sipmsg:header(ACKReq2, <<"Route">>),
         [<<"<sip:client1@localhost:5060>">>] = 
             nksip_sipmsg:header(ACKReq2, <<"Contact">>),
@@ -347,7 +351,7 @@ rr_contact() ->
             #sdp{vsn=RVsn2, connect={_, _, <<"client2">>}} = RemoteSDP2},
         {local_target, <<"<sip:client1@localhost:5060>">>},
         {remote_target, <<"<sip:ok@127.0.0.1:5070>">>}
-    ] = nksip_dialog:fields(C1, DialogId, 
+    ] = nksip_dialog:fields(C1, DialogIdA, 
                                 [local_sdp, remote_sdp, local_target, remote_target]),
 
     [
@@ -355,18 +359,18 @@ rr_contact() ->
         {remote_sdp, LocalSDP2},
         {remote_target, <<"<sip:client1@localhost:5060>">>},
         {local_target, <<"<sip:ok@127.0.0.1:5070>">>}
-    ] = nksip_dialog:fields(C2, DialogId, 
+    ] = nksip_dialog:fields(C2, DialogIdB, 
                                 [local_sdp, remote_sdp, remote_target, local_target]),
     true = lists:member({<<"sendonly">>, []}, LMed2#sdp_m.attributes),
 
-    {RemoteSDP2, LocalSDP2} = sipapp_endpoint:get_sessions(C2, DialogId),
+    {RemoteSDP2, LocalSDP2} = sipapp_endpoint:get_sessions(C2, DialogIdB),
 
 
     % reINVITE from the other party
     Hds3 = [{"Nk-Op", increment}, RepHd],
-    {ok, 200, [{dialog_id, DialogId}]} = 
-        nksip_uac:refresh(C2, DialogId, [{headers, Hds3}]),
-    ok = nksip_uac:ack(C2, DialogId, []),
+    {ok, 200, [{dialog_id, DialogIdB}]} = 
+        nksip_uac:refresh(C2, DialogIdB, [{headers, Hds3}]),
+    ok = nksip_uac:ack(C2, DialogIdB, []),
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
                                {client1, sdp_update},
@@ -377,32 +381,32 @@ rr_contact() ->
     [
         {local_sdp, #sdp{vsn=LVsn3, connect={_, _, <<"client1">>}} = LocalSDP3},
         {remote_sdp, #sdp{vsn=RVsn3, connect={_, _, <<"client2">>}} = RemoteSDP3}
-    ] = nksip_dialog:fields(C1, DialogId, [local_sdp, remote_sdp]),
+    ] = nksip_dialog:fields(C1, DialogIdA, [local_sdp, remote_sdp]),
     
     [
         {local_sdp, RemoteSDP3},
         {remote_sdp, LocalSDP3}
-    ] = nksip_dialog:fields(C2, DialogId, [local_sdp, remote_sdp]),
+    ] = nksip_dialog:fields(C2, DialogIdB, [local_sdp, remote_sdp]),
 
     %% Test Contact is not modified
-    {ok, 200, []} = nksip_uac:options(C1, DialogId, [{contact, <<"sip:aaa">>}]),
+    {ok, 200, []} = nksip_uac:options(C1, DialogIdA, [{contact, <<"sip:aaa">>}]),
     [
         {local_sdp, #sdp{vsn=LVsn3}},
         {remote_sdp, #sdp{vsn=RVsn3}},
         {local_target, <<"<sip:client1@localhost:5060>">>},
         {remote_target, <<"<sip:ok@127.0.0.1:5070>">>}
-    ] = nksip_dialog:fields(C1, DialogId, 
+    ] = nksip_dialog:fields(C1, DialogIdA, 
                             [local_sdp, remote_sdp, local_target, remote_target]),
     
     [
         {remote_target, <<"<sip:client1@localhost:5060>">>},
         {local_target, <<"<sip:ok@127.0.0.1:5070>">>},
         {local_sdp, #sdp{vsn=RVsn3}}
-    ] = nksip_dialog:fields(C2, DialogId, [remote_target, local_target, local_sdp]),
+    ] = nksip_dialog:fields(C2, DialogIdB, [remote_target, local_target, local_sdp]),
    
 
-    {LocalSDP3, RemoteSDP3} = sipapp_endpoint:get_sessions(C1, DialogId),
-    {RemoteSDP3, LocalSDP3} = sipapp_endpoint:get_sessions(C2, DialogId),
+    {LocalSDP3, RemoteSDP3} = sipapp_endpoint:get_sessions(C1, DialogIdA),
+    {RemoteSDP3, LocalSDP3} = sipapp_endpoint:get_sessions(C2, DialogIdB),
 
     ByeFun = fun(Reply) ->
         case Reply of
@@ -417,7 +421,7 @@ rr_contact() ->
         end
     end,
 
-    {async, _} = nksip_uac:bye(C2, DialogId, [async, {callback, ByeFun}, get_request]),
+    {async, _} = nksip_uac:bye(C2, DialogIdB, [async, {callback, ByeFun}, get_request]),
     ok = tests_util:wait(Ref, [bye_ok1, bye_ok2, 
                                {client1, {dialog_stop, callee_bye}}, 
                                {client1, sdp_stop},
@@ -436,22 +440,23 @@ multiple_uac() ->
     OpAnswer = {"Nk-Op", answer},
     % Stablish a dialog between C1 and C2, but do not send the ACK 
     % yet, it will stay in accepted_uac state
-    {ok, 200, [{dialog_id, DialogId}]} = 
+    {ok, 200, [{dialog_id, DialogIdA}]} = 
         nksip_uac:invite(C1, "<sip:ok@127.0.0.1:5070;transport=tcp>", 
                          [{headers, [RepHd, OpAnswer]}]),
     [{local_seq, _CSeq}, {status, accepted_uac}] = 
-        nksip_dialog:fields(C1, DialogId, [local_seq, status]),
+        nksip_dialog:fields(C1, DialogIdA, [local_seq, status]),
     
-    {error, request_pending} = nksip_uac:invite(C1, DialogId, []), 
-    ok = nksip_uac:ack(C1, DialogId, []),
+    {error, request_pending} = nksip_uac:invite(C1, DialogIdA, []), 
+    ok = nksip_uac:ack(C1, DialogIdA, []),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     Fun = fun({ok, 200, [{dialog_id, _}]}) -> Self ! {Ref, ok1} end,
-    {async, _} = nksip_uac:invite(C2, DialogId, 
+    DialogIdB = nksip_dialog:field(C1, DialogIdA, remote_id),
+    {async, _} = nksip_uac:invite(C2, DialogIdB, 
                                         [async, {callback, Fun}, {headers, [OpAnswer]}]),
     ok = tests_util:wait(Ref, [ok1]),
     % % CSeq uses next NkSIP's cseq. The next for dialog is CSeq+1, the first 
     % % dialog's reverse CSeq is next+1000
-    {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogIdA, []),
     ok = tests_util:wait(Ref, [{client2, bye}, {client2, {dialog_stop, caller_bye}}]),
     ok.
 
@@ -465,13 +470,14 @@ multiple_uas() ->
     Hds = [{"Nk-Op", ok}, RepHd],
 
     % Set a new dialog between C1 and C2
-    {ok, 200, [{dialog_id, DialogId}]} = 
+    {ok, 200, [{dialog_id, DialogId1A}]} = 
         nksip_uac:invite(C1, "<sip:ok@127.0.0.1:5070;transport=tcp>", [{headers, Hds}]),
-    ok = nksip_uac:ack(C1, DialogId, [{headers, [RepHd]}]),
+    ok = nksip_uac:ack(C1, DialogId1A, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
-    confirmed = nksip_dialog:field(C1, DialogId, status),
-    confirmed = nksip_dialog:field(C2, DialogId, status),
+    confirmed = nksip_dialog:field(C1, DialogId1A, status),
+    DialogId1B = nksip_dialog:field(C1, DialogId1A, remote_id),
+    confirmed = nksip_dialog:field(C2, DialogId1B, status),
 
     MakeFun = fun(AppId) ->
         fun(Reply) ->
@@ -490,53 +496,54 @@ multiple_uas() ->
     end,
 
     % Send a new reinvite, it will spend 300msecs before answering
-    {async, _} = nksip_uac:invite(C1, DialogId,  
+    {async, _} = nksip_uac:invite(C1, DialogId1A,  
                                     [async, {callback, MakeFun(C1)}, get_request,
                                     {headers, [{"Nk-Sleep", 300}|Hds]}]),
     ok = tests_util:wait(Ref, [request]),   % Wait to be sent
 
     % Before the previous invite has been answered, we send a new one
     % UAS replies with 500
-    % {ok, 500, [{dialog_id, DialogId}, {reason, <<"Processing Previous INVITE">>}]} = 
+    % {ok, 500, [{dialog_id, DialogId1A}, {reason, <<"Processing Previous INVITE">>}]} = 
     {error, request_pending} = 
-        nksip_uac:invite(C1, DialogId, 
+        nksip_uac:invite(C1, DialogId1A, 
                            [no_dialog, {headers, [Hds]}, {fields, [reason]}]),
 
     % % Previous invite will reply 200, and Fun will send ACK
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]), 
     
-    confirmed = nksip_dialog:field(C1, DialogId, status),
-    confirmed = nksip_dialog:field(C2, DialogId, status),
-    {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
+    confirmed = nksip_dialog:field(C1, DialogId1A, status),
+    confirmed = nksip_dialog:field(C2, DialogId1B, status),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogId1A, []),
     ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}, {client2, bye}]),
 
     % Set a new dialog
-    {ok, 200, [{dialog_id, DialogId2}]} = 
+    {ok, 200, [{dialog_id, DialogId2A}]} = 
         nksip_uac:invite(C1, "<sip:ok@127.0.0.1:5070;transport=tcp>", [{headers, Hds}]),
-    ok = nksip_uac:ack(C1, DialogId2, [{headers, [RepHd]}]),
+    ok = nksip_uac:ack(C1, DialogId2A, [{headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
     [{status, confirmed}, {local_seq, LSeq}, {remote_seq, RSeq}] = 
-        nksip_dialog:fields(C1, DialogId2, [status, local_seq, remote_seq]),
+        nksip_dialog:fields(C1, DialogId2A, [status, local_seq, remote_seq]),
+    DialogId2B = nksip_dialog:field(C1, DialogId2A, remote_id),
     [{status, confirmed}, {local_seq, RSeq}, {remote_seq, LSeq}] = 
-        nksip_dialog:fields(C2, DialogId2, [status, local_seq, remote_seq]),
+        nksip_dialog:fields(C2, DialogId2B, [status, local_seq, remote_seq]),
 
     % The remote party (C2) will send a reinvite to the local (C1),
     % but the response will be delayed 300msecs
     Hds2 = [{"Nk", 1}, {"Nk-Prov", "true"}, {"Nk-Sleep", 300}|Hds],
-    {async, _} = nksip_uac:invite(C2, DialogId2, [async, {callback, MakeFun(C2)}, 
+    {async, _} = nksip_uac:invite(C2, DialogId2B, [async, {callback, MakeFun(C2)}, 
                                                   get_request, {headers, Hds2}]),
     ok = tests_util:wait(Ref, [request, provisional]),   
     % Before answering, the local party sends a new reinvite. The remote party
     % replies a 491
-    % {ok, 491, _} = nksip_uac:invite(C1, DialogId2, [no_dialog, {headers, [{"Nk", 2}]}]),
+    % {ok, 491, _} = nksip_uac:invite(C1, DialogId2A, [no_dialog, {headers, [{"Nk", 2}]}]),
     {error, request_pending} = 
-        nksip_uac:invite(C1, DialogId2, [no_dialog, {headers, [{"Nk", 2}]}]),
+        nksip_uac:invite(C1, DialogId2A, [no_dialog, {headers, [{"Nk", 2}]}]),
     % The previous invite will be answered, and Fun will send the ACK
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
                                {client2, dialog_confirmed}]),
-    {ok, 200, [{cseq_num, BCSeq}]} = nksip_uac:bye(C1, DialogId2, [{fields, [cseq_num]}]),
+    {ok, 200, [{cseq_num, BCSeq}]} = nksip_uac:bye(C1, DialogId2A, [{fields, [cseq_num]}]),
     BCSeq = LSeq+2,
     ok = tests_util:wait(Ref, [{client1, {dialog_stop, caller_bye}},
                                {client2, {dialog_stop, caller_bye}},
