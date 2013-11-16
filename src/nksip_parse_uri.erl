@@ -56,7 +56,7 @@ uris(String, Acc) ->
         {#uri{}=Uri, []} -> lists:reverse([Uri|Acc]);
         {#uri{}=Uri, Rest} -> uris(Rest, [Uri|Acc]);
         {error, Type, Line} -> 
-            lager:warning("Error parsing uri ~s: ~p (~p)", [String, Type, Line]),
+            lager:debug("Error parsing uri ~s: ~p (~p)", [String, Type, Line]),
             error
     end.
 
