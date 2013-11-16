@@ -56,7 +56,7 @@ uris(String, Acc) ->
         {#uri{}=Uri, []} -> lists:reverse([Uri|Acc]);
         {#uri{}=Uri, Rest} -> uris(Rest, [Uri|Acc]);
         {error, Type, Line} -> 
-            lager:debug("Error parsing uri ~s: ~p (~p)", [String, Type, Line]),
+            lager:warning("Error parsing uri ~s: ~p (~p)", [String, Type, Line]),
             error
     end.
 
@@ -106,8 +106,13 @@ scheme([$:|Rest], Acc, Block, Uri) ->
             Uri1 = Uri#uri{scheme=nksip_parse:scheme(lists:reverse(Acc))},
             Rest1 = strip(Rest),
             case user(Rest1, [], Block, Uri1) of
-                {error, _, _} -> domain(Rest1, [], false, Block, Uri1);
-                {Uri2, Rest2} -> {Uri2, Rest2}
+                {error, Error, Line} -> 
+                    case domain(Rest1, [], false, Block, Uri1) of
+                        {error, _, _} -> {error, Error, Line};
+                        {Uri2, Rest2} -> {Uri2, Rest2}
+                    end;
+                {Uri2, Rest2} -> 
+                    {Uri2, Rest2}
             end
     end;
 
@@ -348,7 +353,7 @@ opts_key([$=|Rest], Acc, Block, Uri) ->
         [] -> 
             {error, opts_key, ?LINE};
         _ ->
-            opts_value(strip(Rest), lists:reverse(Acc), [], Block, Uri)
+            opts_value(strip(Rest), lists:reverse(Acc), [], false, Block, Uri)
     end;
 
 opts_key([Ch|_]=Rest, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
@@ -366,11 +371,11 @@ opts_key([Ch|Rest], Acc, Block, Uri) ->
 
 
 %% @private URI Opts Values
-opts_value([], Key, Acc, Block, Uri) ->
-    case Acc of
-        [] ->
+opts_value([], Key, Acc, Quoted, Block, Uri) ->
+    case Acc==[] orelse Quoted of
+        true ->
             {error, opts_value, ?LINE};
-        _ ->
+        false ->
             Opt = {opts_key_filter(Key, Block), list_to_binary(lists:reverse(Acc))},
             Uri1 = case Block of
                 true -> Uri#uri{opts = Uri#uri.opts++[Opt]};
@@ -379,7 +384,14 @@ opts_value([], Key, Acc, Block, Uri) ->
             opts([], Block, Uri1)
     end;
 
-opts_value([Ch|_]=Rest, Key, Acc, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$, ->
+opts_value([92, $"|Rest], Key, Acc, true, Block, Uri) ->
+    opts_value(Rest, Key, [$", 92|Acc], true, Block, Uri);
+
+opts_value([$"|Rest], Key, Acc, Quoted, Block, Uri) ->
+    opts_value(Rest, Key, [$"|Acc], not Quoted, Block, Uri);
+
+opts_value([Ch|_]=Rest, Key, Acc, false, Block, Uri) 
+            when Ch==$;; Ch==$?; Ch==$>; Ch==$, ->
     case Acc of
         [] ->
             {error, opts_value, ?LINE};
@@ -392,18 +404,18 @@ opts_value([Ch|_]=Rest, Key, Acc, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$
             opts(Rest, Block, Uri1)
     end;
 
-opts_value([Ch|_]=Rest, Key, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
+opts_value([Ch|_]=Rest, Key, Acc, false, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
     case strip(Rest) of
         [] ->
-            opts_value([], Key, Acc, Block, Uri);
+            opts_value([], Key, Acc, false, Block, Uri);
         [Ch1|_]=Rest1 when Ch1==$;; Ch1==$?; Ch1==$>; Ch1==$, ->
-            opts_value(Rest1, Key, Acc, Block, Uri);
+            opts_value(Rest1, Key, Acc, false, Block, Uri);
         _ ->
             {error, opts_value, ?LINE}
     end;
 
-opts_value([Ch|Rest], Key, Acc, Block, Uri) ->
-    opts_value(Rest, Key, [Ch|Acc], Block, Uri).
+opts_value([Ch|Rest], Key, Acc, Quoted, Block, Uri) ->
+    opts_value(Rest, Key, [Ch|Acc], Quoted, Block, Uri).
 
 
 %% @private URI Header Keys
@@ -438,7 +450,7 @@ headers_key([$=|Rest], Acc, Block, Uri) ->
         [] -> 
             {error, headers_key, ?LINE};
         _ ->
-            headers_value(strip(Rest), lists:reverse(Acc), [], Block, Uri)
+            headers_value(strip(Rest), lists:reverse(Acc), [], false, Block, Uri)
     end;
 
 headers_key([Ch|_]=Rest, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
@@ -456,11 +468,11 @@ headers_key([Ch|Rest], Acc, Block, Uri) ->
 
 
 %% @private URI Opts Values
-headers_value([], Key, Acc, Block, Uri) ->
-    case Acc of
-        [] ->
+headers_value([], Key, Acc, Quoted, Block, Uri) ->
+    case Acc==[] orelse Quoted of
+        true ->
             {error, headers_value, ?LINE};
-        _ ->
+        false ->
             Opt = {list_to_binary(Key), list_to_binary(lists:reverse(Acc))},
             Uri1 = case Block of
                 true -> Uri#uri{headers = Uri#uri.headers++[Opt]};
@@ -469,7 +481,13 @@ headers_value([], Key, Acc, Block, Uri) ->
             opts([], Block, Uri1)
     end;
 
-headers_value([Ch|_]=Rest, Key, Acc, Block, Uri) when Ch==$&; Ch==$>; Ch==$, ->
+headers_value([92, $"|Rest], Key, Acc, true, Block, Uri) ->
+    headers_value(Rest, Key, [$", 92|Acc], true, Block, Uri);
+
+headers_value([$"|Rest], Key, Acc, Quoted, Block, Uri) ->
+    headers_value(Rest, Key, [$"|Acc], not Quoted, Block, Uri);
+
+headers_value([Ch|_]=Rest, Key, Acc, false, Block, Uri) when Ch==$&; Ch==$>; Ch==$, ->
     case Acc of
         [] ->
             {error, headers_value, ?LINE};
@@ -482,18 +500,18 @@ headers_value([Ch|_]=Rest, Key, Acc, Block, Uri) when Ch==$&; Ch==$>; Ch==$, ->
             opts(Rest, Block, Uri1)
     end;
 
-headers_value([Ch|_]=Rest, Key, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
+headers_value([Ch|_]=Rest, Key, Acc, false, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
     case strip(Rest) of
         [] ->
-            headers_value([], Key, Acc, Block, Uri);
+            headers_value([], Key, Acc, false, Block, Uri);
         [Ch1|_]=Rest1 when Ch1==$&; Ch1==$>; Ch1==$, ->
-            headers_value(Rest1, Key, Acc, Block, Uri);
+            headers_value(Rest1, Key, Acc, false, Block, Uri);
         _ ->
             {error, headers_key, ?LINE}
     end;
 
-headers_value([Ch|Rest], Key, Acc, Block, Uri) ->
-    headers_value(Rest, Key, [Ch|Acc], Block, Uri).
+headers_value([Ch|Rest], Key, Acc, Quoted, Block, Uri) ->
+    headers_value(Rest, Key, [Ch|Acc], Quoted, Block, Uri).
 
 
 %% @private URI Strip white space
@@ -587,22 +605,42 @@ uri3_test() ->
     [#uri{domain= <<"host">>}] = uris("sip:host"),
     [#uri{scheme=sips, domain= <<"host">>, port=5061}] = 
         uris("  sips  :  host  :  5061  "),
-    [#uri{disp=(<<"\"My name\" ">>), user=(<<"user">>), pass=(<<"pass">>), 
+    [#uri{
+        disp=(<<"\"My name\" ">>), user=(<<"user">>), pass=(<<"pass">>), 
         domain= <<"host">>, port=5061, opts=[{transport,<<"tcp">>}],
-        headers=[<<"head1">>], ext_opts=[{<<"op1">>,<<"\"1\"">>}]}] = 
-        uris(" \"My name\" <sip:user:pass@host:5061;transport=tcp?head1> ; op1=\"1\""),
-    [#uri{disp=(<<"Name   ">>), domain= <<"host">>, port=5061,
-        ext_headers=[{<<"hd2">>,<<"2">>},{<<"hd3">>,<<"a">>}]}] = 
-        uris(" Name   < sips : host:  5061 > ?hd2=2&hd3=a"),
+        headers=[<<"head1">>], ext_opts=[{<<"op1">>,<<"\"1\"">>}]
+    }] = uris(" \"My name\" <sip:user:pass@host:5061;transport=tcp?head1> ; op1=\"1\""),
+    [#uri{
+        disp=(<<"Name   ">>), domain= <<"host">>, port=5061,
+        ext_headers=[{<<"hd2">>,<<"2">>},{<<"hd3">>,<<"a">>}]
+    }] = uris(" Name   < sips : host:  5061 > ?hd2=2&hd3=a"),
     [#uri{user=(<<"user">>), domain= <<"host">>, opts=[lr,{<<"t">>,<<"1">>},<<"d">>]}] = 
         uris(" < sip : user@host ;lr; t=1 ;d ? a=1 >"),
     [#uri{ext_opts = [{tag, <<"a48s">>}]}] = 
         uris("\"A. G. Bell\" <sip:agb@bell-telephone.com> ;tag=a48s"),
-    [#uri{scheme = sip,
-         user = <<"+12125551212">>,
-         domain = <<"server.phone2net.com">>,
-         ext_opts = [{tag, <<"887s">>}]}] = 
-        uris("sip:+12125551212@server.phone2net.com;tag=887s").
+    [#uri{
+        scheme = sip,
+        user = <<"+12125551212">>,
+        domain = <<"server.phone2net.com">>,
+        ext_opts = [{tag, <<"887s">>}]
+    }] = uris("sip:+12125551212@server.phone2net.com;tag=887s"),
+    [#uri{
+        scheme = sip,user = <<"xxxx">>,
+        pass = <<>>,domain = <<"192.168.1.2">>,port = 5060,
+        opts = [{transport,<<"TCP">>},<<"ob">>],
+        headers = [],
+        ext_opts = [
+            {<<"reg-id">>,<<"1">>},
+            {<<"+sip.instance">>,
+                <<"\"<urn:uuid:00000000-0000-0000-0000-000097ee887e>\"">>}]
+    }] =
+        uris("<sip:xxxx@192.168.1.2:5060;transport=TCP;ob>;reg-id=1;"
+             "+sip.instance=\"<urn:uuid:00000000-0000-0000-0000-000097ee887e>\""),
+    [#uri{
+        domain = <<"host">>, opts = [{<<"key">>,<<"\"my \\\"\"">>}],
+        headers = [{<<"hd">>,<<"\"your \\\"\"">>}]
+    }] = uris("<sip:host;key=\"my \\\"\"?hd=\"your \\\"\">").
+
 
 uri4_test() ->
     [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}] = uris("sip:a,sip:b"),
