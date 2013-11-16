@@ -285,8 +285,20 @@ class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=
 class_id(_, #sipmsg{}) ->
     <<>>.
 
-uac_id(SipMsg) -> class_id(uac, SipMsg).
-uas_id(SipMsg) -> class_id(uas, SipMsg).
+%% @private
+-spec uac_id(nksip:request()|nksip:response()) ->
+    id().
+
+uac_id(SipMsg) -> 
+    class_id(uac, SipMsg).
+
+
+%% @private
+-spec uas_id(nksip:request()|nksip:response()) ->
+    id().
+
+uas_id(SipMsg) -> 
+    class_id(uas, SipMsg).
 
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip_request:id()}, 
@@ -382,12 +394,11 @@ stop_all() ->
 -spec dialog_id(uac | uas, nksip:call_id(), nksip:tag(), nksip:tag()) ->
     id().
 
-dialog_id(Class, CallId, FromTag, ToTag) ->
-    {A, B} = case Class of
-                 uac -> {ToTag, FromTag};
-                 uas -> {FromTag, ToTag}
-             end,
-    <<"D_", (nksip_lib:hash({A, B}))/binary, $_, CallId/binary>>.
+dialog_id(uac, CallId, FromTag, ToTag) ->
+    <<"D_", (nksip_lib:hash({ToTag, FromTag}))/binary, $_, CallId/binary>>;
+
+dialog_id(uas, CallId, FromTag, ToTag) ->
+    <<"D_", (nksip_lib:hash({FromTag, ToTag}))/binary, $_, CallId/binary>>.
 
 
 %% @private Dumps all dialog information
