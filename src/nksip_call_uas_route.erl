@@ -185,7 +185,7 @@ authorize_launch(UAS, Call) ->
 
 authorize_data(#trans{id=Id,request=Req}, Call) ->
     #call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=Opts}} = Call,
-    IsDialog = case nksip_call_lib:check_auth(Req, Call) of
+    IsDialog = case nksip_call_lib:check_auth(uas, Req, Call) of
         true -> dialog;
         false -> []
     end,
@@ -222,7 +222,7 @@ authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
         _ when Reply=:=ok; Reply=:=true ->
             Call1 = case Req#sipmsg.to_tag of
                 <<>> -> Call;
-                _ -> nksip_call_lib:update_auth(nksip_dialog:id(Req), Req, Call)
+                _ -> nksip_call_lib:update_auth(nksip_dialog:uas_id(Req), Req, Call)
             end,
             route_launch(UAS, Call1);
         false -> 

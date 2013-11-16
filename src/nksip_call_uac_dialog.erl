@@ -44,7 +44,7 @@ request(#sipmsg{class={req, 'ACK'}}, _) ->
     error(ack_in_dialog_request);
 
 request(#sipmsg{class={req, Method}}=Req, Call) ->
-    case nksip_dialog:id(Req) of
+    case nksip_dialog:uac_id(Req) of
         <<>> ->
             {ok, Call};
         DialogId ->
@@ -100,7 +100,7 @@ do_request(_Method, _Status, _Req, Dialog, _Call) ->
 
 ack(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     #sipmsg{cseq=CSeq} = Req,
-    case nksip_dialog:id(Req) of
+    case nksip_dialog:uac_id(Req) of
         <<>> ->
             ?call_notice("Dialog UAC invalid ACK", [], Call),
             Call;
@@ -132,7 +132,7 @@ ack(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     call().
 
 response(#sipmsg{class={req, Method}}=Req, Resp, #call{dialogs=Dialogs}=Call) ->
-    case nksip_dialog:id(Resp) of
+    case nksip_dialog:uac_id(Resp) of
         <<>> ->
             Call;
         DialogId ->
@@ -259,7 +259,7 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
     {nksip:cseq(), call()}.
 
 new_local_seq(Req, Call) ->
-    case nksip_dialog:id(Req) of
+    case nksip_dialog:uac_id(Req) of
         <<>> ->
             {nksip_config:cseq(), Call};
         DialogId ->

@@ -94,7 +94,7 @@ fun_response(#sipmsg{class={resp, Code}, cseq_method=Method}=Resp, Opts) ->
             {resp, Resp};
         false ->
             Fields0 = case Method of
-                'INVITE' -> [{dialog_id, nksip_dialog:id(Resp)}];
+                'INVITE' -> [{dialog_id, nksip_dialog:uac_id(Resp)}];
                 _ -> []
             end,
             Values = case nksip_lib:get_value(fields, Opts, []) of

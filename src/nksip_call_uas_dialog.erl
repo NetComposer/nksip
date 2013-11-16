@@ -42,7 +42,7 @@
                   proceeding_uac | proceeding_uas | invalid.
 
 request(Req, Call) ->
-    case nksip_dialog:id(Req) of
+    case nksip_dialog:uas_id(Req) of
         <<>> ->
             {ok, undefined, Call};
         DialogId ->
@@ -133,7 +133,7 @@ do_request(_, _, _, Dialog, _Call) ->
 response(#sipmsg{class={req, Method}}=Req, Resp, Call) ->
     #sipmsg{class={resp, Code}} = Resp,
     #call{dialogs=Dialogs} = Call,
-    case nksip_dialog:id(Resp) of
+    case nksip_dialog:uas_id(Resp) of
         <<>> ->
             Call;
         DialogId ->
