@@ -196,7 +196,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
 %% Use this function to answer to a request with a 401 or 407 response.
 %%
 %% A new `nonce' will be generated to be used by the client in its response, 
-%% but will expire after the time configured in global parameter `once_timeout'.
+%% but will expire after the time configured in global parameter `nonce_timeout'.
 %%
 -spec make_response(binary(), nksip:request()) ->
     binary().
