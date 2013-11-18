@@ -27,43 +27,43 @@
 
 -compile([export_all]).
 
-stateless_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateless),
-            ?debugMsg("Starting proxy stateless")
-        end,
-        fun(_) -> 
-            stop(stateless) 
-        end,
-        [
-            fun() -> invalid(stateless) end,
-            fun() -> opts(stateless) end,
-            fun() -> transport(stateless) end, 
-            fun() -> invite(stateless) end,
-            fun() -> servers(stateless) end
-        ]
-    }.
+% stateless_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateless),
+%             ?debugMsg("Starting proxy stateless")
+%         end,
+%         fun(_) -> 
+%             stop(stateless) 
+%         end,
+%         [
+%             fun() -> invalid(stateless) end,
+%             fun() -> opts(stateless) end,
+%             fun() -> transport(stateless) end, 
+%             fun() -> invite(stateless) end,
+%             fun() -> servers(stateless) end
+%         ]
+%     }.
 
 
-stateful_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateful),
-            ?debugMsg("Starting proxy stateful")
-        end,
-        fun(_) -> 
-            stop(stateful) 
-        end,
-        [
-            fun() -> invalid(stateful) end,
-            fun() -> opts(stateful) end,
-            fun() -> transport(stateful) end, 
-            fun() -> invite(stateful) end,
-            fun() -> servers(stateful) end,
-            fun() -> dialog() end
-        ]
-    }.
+% stateful_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateful),
+%             ?debugMsg("Starting proxy stateful")
+%         end,
+%         fun(_) -> 
+%             stop(stateful) 
+%         end,
+%         [
+%             fun() -> invalid(stateful) end,
+%             fun() -> opts(stateful) end,
+%             fun() -> transport(stateful) end, 
+%             fun() -> invite(stateful) end,
+%             fun() -> servers(stateful) end,
+%             fun() -> dialog() end
+%         ]
+%     }.
 
 
 start(Test) ->
@@ -321,31 +321,32 @@ invite(Test) ->
     ok = tests_util:wait(Ref, [180]),
 
     % Provisional 180 and 200
-    {ok, 200, [{dialog_id, DialogId}]} = 
+    {ok, 200, [{dialog_id, DialogId1}]} = 
         nksip_uac:invite(C1, "sip:client2@nksip", 
                                 [{headers, [{"Nk-Op", ok}, {"Nk-Prov", true},
                                             {"Nk-Sleep", 100}, RepHd]},
                                  {callback, RespFun}]),
-    ok = nksip_uac:ack(C1, DialogId, []),
+    ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [180, {client2, ack}]),
 
     % Several in-dialog requests
     {ok, 200, [{<<"Nk-Id">>, [<<"client2">>]}]} = 
-        nksip_uac:options(C1, DialogId, [{fields, [<<"Nk-Id">>]}]),
+        nksip_uac:options(C1, DialogId1, [{fields, [<<"Nk-Id">>]}]),
+    DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
     {ok, 200, [{<<"Nk-Id">>, [<<"client1">>]}]} = 
-        nksip_uac:options(C2, DialogId, [{fields, [<<"Nk-Id">>]}]),
-    {ok, 200, [{dialog_id, DialoId}, {<<"Nk-Id">>, [<<"client2">>]}]} = 
-        nksip_uac:invite(C1, DialogId, [{headers, [{"Nk-Op", ok}]},
+        nksip_uac:options(C2, DialogId2, [{fields, [<<"Nk-Id">>]}]),
+    {ok, 200, [{dialog_id, DialogId1}, {<<"Nk-Id">>, [<<"client2">>]}]} = 
+        nksip_uac:invite(C1, DialogId1, [{headers, [{"Nk-Op", ok}]},
                                          {fields, [<<"Nk-Id">>]}]),
-    ok = nksip_uac:ack(C1, DialogId, []),
+    ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    {ok, 200, [{dialog_id, DialoId}, {<<"Nk-Id">>, [<<"client1">>]}]} = 
-        nksip_uac:invite(C2, DialogId, [{headers, [{"Nk-Op", ok}, RepHd]},     
+    {ok, 200, [{dialog_id, DialogId2}, {<<"Nk-Id">>, [<<"client1">>]}]} = 
+        nksip_uac:invite(C2, DialogId2, [{headers, [{"Nk-Op", ok}, RepHd]},     
                                          {fields, [<<"Nk-Id">>]}]),
-    ok = nksip_uac:ack(C2, DialogId, []),
+    ok = nksip_uac:ack(C2, DialogId2, []),
     ok = tests_util:wait(Ref, [{client1, ack}]),
-    {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogId1, []),
 
     % Cancelled request
     {async, ReqId7} = nksip_uac:invite(C1, "sip:client2@nksip", 
@@ -394,7 +395,7 @@ servers(Test) ->
     {ok, 200, Values3} = nksip_uac:invite(C1, "sips:client2@nksip2", 
                                             [Fs3, {headers, [{"Nk-Op", ok}, RepHd]}]),
     [
-        {dialog_id, DialogId},
+        {dialog_id, DialogIdA1},
         {<<"Contact">>, [C2Contact]},
         {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
     ] = Values3,
@@ -402,24 +403,25 @@ servers(Test) ->
 
     % ACK is sent directly
     {req, #sipmsg{ruri=#uri{scheme=sips, port=C2Port}}} = 
-        nksip_uac:ack(C1, DialogId, [get_request, {headers, [RepHd]}]),
+        nksip_uac:ack(C1, DialogIdA1, [get_request, {headers, [RepHd]}]),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     % OPTIONS is also sent directly
     Fs4 = {fields, [remote, <<"Nk-Id">>]},
-    {ok, 200, Values4} = nksip_uac:options(C1, DialogId, [Fs4]),
+    {ok, 200, Values4} = nksip_uac:options(C1, DialogIdA1, [Fs4]),
     [
         {remote, {tls, {127,0,0,1}, _}},
         {<<"Nk-Id">>, [<<"client2">>]}
     ] = Values4,
 
-    {ok, 200, Values5} = nksip_uac:options(C2, DialogId, [Fs4]),
+    DialogIdA2 = nksip_dialog:field(C1, DialogIdA1, remote_id),
+    {ok, 200, Values5} = nksip_uac:options(C2, DialogIdA2, [Fs4]),
     [
         {remote, {tls, {127,0,0,1}, 5071}},
         {<<"Nk-Id">>, [<<"client1">>]}
     ] = Values5,
 
-    {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogIdA1, []),
     ok = tests_util:wait(Ref, [{client2, bye}]),
 
     % Test a dialog through 2 proxies with Record-Route
@@ -427,7 +429,7 @@ servers(Test) ->
     Fs6 = {fields, [<<"Record-Route">>, <<"Nk-Id">>]},
     {ok, 200, Values6} = nksip_uac:invite(C1, "sips:client2@nksip2", [Hds6, Fs6]),
     [
-        {dialog_id, DialogId2},
+        {dialog_id, DialogIdB1},
         {<<"Record-Route">>, [RR1, RR2]},
         {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
     ] = Values6,
@@ -435,13 +437,13 @@ servers(Test) ->
     [#uri{port=5061, opts=[lr, {transport, <<"tls">>}]}] = nksip_parse:uris(RR2),
 
     % Sends an options in the dialog before the ACK
-    {ok, 200, Values7} = nksip_uac:options(C1, DialogId2, [Fs4]),
+    {ok, 200, Values7} = nksip_uac:options(C1, DialogIdB1, [Fs4]),
     [
         {remote, {tls, _, 5061}},
         {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
     ] = Values7,
 
-    {req, AckReq} = nksip_uac:ack(C1, DialogId2, [get_request]),
+    {req, AckReq} = nksip_uac:ack(C1, DialogIdB1, [get_request]),
     {tls, _, 5061} = nksip_sipmsg:field(AckReq, remote),
     [
         <<"<sip:NkS@localhost:5061;lr;transport=tls>">>,
@@ -449,10 +451,11 @@ servers(Test) ->
     ] = nksip_sipmsg:header(AckReq, <<"Route">>),
     ok = tests_util:wait(Ref, [{client2, ack}]),
  
+    DialogIdB2 = nksip_dialog:field(C1, DialogIdB1, remote_id),
     Fs8 = {fields, [<<"Nk-Id">>]},
-    {ok, 200, Values8} = nksip_uac:options(C2, DialogId2, [Fs8]),
+    {ok, 200, Values8} = nksip_uac:options(C2, DialogIdB2, [Fs8]),
     [{<<"Nk-Id">>, [<<"client1,server1,server2">>]}] = Values8,
-    {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{headers, [{"Nk-Rr", true}]}]),
+    {ok, 200, []} = nksip_uac:bye(C2, DialogIdB2, [{headers, [{"Nk-Rr", true}]}]),
     ok.
 
 
@@ -475,11 +478,12 @@ dialog() ->
     {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client2@nksip",
                                 [{headers, [{"Nk-Op", answer}, {"Nk-Rr", true}, RepHd]}, 
                                  {body, SDP}]),
-    [{dialog_id, DialogId}] = Values1,
-    ok = nksip_uac:ack(C1, DialogId, []),
+    [{dialog_id, DialogId1}] = Values1,
+    ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    {ok, 200, []} = nksip_uac:options(C2, DialogId, []),
+    DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
+    {ok, 200, []} = nksip_uac:options(C2, DialogId2, []),
 
     [
         {app_id, C1}, 
@@ -494,7 +498,7 @@ dialog() ->
         {remote_sdp, RSDP}, 
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
-        nksip_dialog:fields(C1, DialogId, 
+        nksip_dialog:fields(C1, DialogId1, 
                 [app_id, status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
                  local_sdp, remote_sdp, parsed_route_set]),
@@ -517,7 +521,7 @@ dialog() ->
         {remote_sdp, LSDP},
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
-        nksip_dialog:fields(C2, DialogId,
+        nksip_dialog:fields(C2, DialogId2,
                 [app_id, status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
                  local_sdp, remote_sdp, parsed_route_set]),
@@ -533,14 +537,14 @@ dialog() ->
         {remote_sdp, RSDP},
         {parsed_route_set, []}          % The first route is deleted (it is itself)
     ] =
-        nksip_dialog:fields(S1, DialogId, 
+        nksip_dialog:fields(S1, DialogId1, 
             [app_id, status, parsed_local_uri, parsed_remote_uri,
              parsed_local_target, parsed_remote_target, local_sdp, 
              remote_sdp, parsed_route_set]),
 
-    {ok, 200, []} = nksip_uac:bye(C2, DialogId, [{headers, [{"Nk-Rr", true}]}]),
-    error = nksip_dialog:field(C1, DialogId, status),
-    error = nksip_dialog:field(C2, DialogId, status),
-    error = nksip_dialog:field(S1, DialogId, status),
+    {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{headers, [{"Nk-Rr", true}]}]),
+    error = nksip_dialog:field(C1, DialogId1, status),
+    error = nksip_dialog:field(C2, DialogId2, status),
+    error = nksip_dialog:field(S1, DialogId1, status),
     ok.
 

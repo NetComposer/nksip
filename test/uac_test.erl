@@ -134,14 +134,14 @@ uac() ->
     % Sync, callback for request and provisional response, get_request, get_response
     {resp, #sipmsg{class={resp, 486}, call_id=CallId5}=Resp5} = 
         nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, get_response]),
-    DialogId5 = nksip_dialog:id(Resp5),
+    DialogId5 = nksip_dialog:class_id(uac, Resp5),
     receive 
         {Ref, {req, #sipmsg{class={req, _}, call_id=CallId5}}} -> ok
         after 500 -> error(uac) 
     end,
     receive 
         {Ref, {resp, #sipmsg{class={resp, 180}, call_id=CallId5}=Resp5_180}} ->
-            DialogId5 = nksip_dialog:id(Resp5_180)
+            DialogId5 = nksip_dialog:class_id(uac, Resp5_180)
         after 500 -> 
             error(uac) 
     end,
@@ -175,18 +175,20 @@ info() ->
     C2 = {uac, client2},
     SipC1 = "sip:127.0.0.1:5070",
     Hds1 = {headers, [{<<"Nk-Op">>, <<"ok">>}]},
-    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C2, SipC1, [Hds1]),
-    ok = nksip_uac:ack(C2, DialogId, []),
+    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(C2, SipC1, [Hds1]),
+    ok = nksip_uac:ack(C2, DialogId2, []),
     Fs = {fields, [<<"Nk-Method">>, <<"Nk-Dialog">>]},
-    {ok, 200, Values1} = nksip_uac:info(C2, DialogId, [Fs]),
-    [{<<"Nk-Method">>, [<<"info">>]}, {<<"Nk-Dialog">>, [DialogId]}] = Values1,
+    DialogId1 = nksip_dialog:field(C2, DialogId2, remote_id),
+
+    {ok, 200, Values1} = nksip_uac:info(C2, DialogId2, [Fs]),
+    [{<<"Nk-Method">>, [<<"info">>]}, {<<"Nk-Dialog">>, [DialogId1]}] = Values1,
 
     % Now we forcefully stop dialog at C1. At C2 is still valid, and can send the INFO
-    ok = nksip_dialog:stop(C1, DialogId),
-    {ok, 481, []} = nksip_uac:info(C2, DialogId, []), 
+    ok = nksip_dialog:stop(C1, DialogId1),
+    {ok, 481, []} = nksip_uac:info(C2, DialogId2, []), 
 
     % The dialog at C2, at receiving a 481 (even for INFO) is destroyed before the BYE
-    {error, unknown_dialog} = nksip_uac:bye(C2, DialogId, []),
+    {error, unknown_dialog} = nksip_uac:bye(C2, DialogId2, []),
     ok.
 
 

@@ -27,27 +27,27 @@
 
 -compile([export_all]).
 
-% ipv6_test_() ->
-%   {setup, spawn, 
-%       fun() -> start() end,
-%       fun(_) -> stop() end,
-%       [
-%         fun basic/0,
-%         fun invite/0,
-%         fun proxy/0,
-%         fun bridge_4_6/0,
-%         fun torture_1/0,
-%         fun torture_2/0,
-%         fun torture_3/0,
-%         fun torture_4/0,
-%         fun torture_5/0,
-%         fun torture_6/0,
-%         fun torture_7/0,
-%         fun torture_8/0,
-%         fun torture_9/0,
-%         fun torture_10/0
-%       ]
-%   }.
+ipv6_test_() ->
+  {setup, spawn, 
+      fun() -> start() end,
+      fun(_) -> stop() end,
+      [
+        fun basic/0,
+        fun invite/0,
+        fun proxy/0,
+        fun bridge_4_6/0,
+        fun torture_1/0,
+        fun torture_2/0,
+        fun torture_3/0,
+        fun torture_4/0,
+        fun torture_5/0,
+        fun torture_6/0,
+        fun torture_7/0,
+        fun torture_8/0,
+        fun torture_9/0,
+        fun torture_10/0
+      ]
+  }.
 
 
 main_ip6() ->
@@ -260,10 +260,9 @@ bridge_4_6() ->
     #uri{domain=(<<"127.0.0.1">>)} = nksip_sipmsg:field(ACK1, parsed_ruri),
 
     DialogId3 = nksip_dialog:field(C1, DialogId1, remote_id),
-    ?P("DId3: ~p", [DialogId3]),
-    % {ok, 200, []} = nksip_uac:options(C3, DialogId3, []),
-    % {ok, 200, []} = nksip_uac:bye(C1, DialogId1, []),
-    DialogId3.
+    {ok, 200, []} = nksip_uac:options(C3, DialogId3, []),
+    {ok, 200, []} = nksip_uac:bye(C1, DialogId1, []),
+    ok.
 
 
 torture_1() ->
