@@ -36,7 +36,7 @@
 %% ===================================================================
 
 %% @private Creates a new dialog
--spec create(uac|uas, nksip:request(), nksip:response()) ->
+-spec create(uac|uas|proxy, nksip:request(), nksip:response()) ->
     nksip:dialog().
 
 create(Class, Req, Resp) ->
@@ -73,15 +73,15 @@ create(Class, Req, Resp) ->
         media_started = false,
         stop_reason = undefined
     },
-    if 
-        Class=:=uac ->
+    case Class of 
+        uac ->
             Dialog#dialog{
                 local_seq = CSeq,
                 remote_seq = 0,
                 local_uri = From,
                 remote_uri = To
             };
-        Class=:=uas ->
+        uas ->
             Dialog#dialog{
                 local_seq = 0,
                 remote_seq = CSeq,
@@ -92,7 +92,7 @@ create(Class, Req, Resp) ->
 
 
 %% @private
--spec status_update(uac|uas, nksip_dialog:status(), nksip:dialog(), call()) ->
+-spec status_update(uac|uas|proxy, nksip_dialog:status(), nksip:dialog(), call()) ->
     nksip:dialog().
 
 status_update(Class, Status, Dialog, Call) ->
@@ -174,7 +174,7 @@ status_update(Class, Status, Dialog, Call) ->
 
 
 %% @private Performs a target update
--spec target_update(uac|uas, nksip:dialog(), call()) ->
+-spec target_update(uac|uas|proxy, nksip:dialog(), call()) ->
     nksip:dialog().
 
 target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
@@ -194,7 +194,7 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
     #sipmsg{contacts=ReqContacts} = Req,
     #sipmsg{class={resp, Code}, contacts=RespContacts} = Resp,
     case Class of
-        uac -> 
+        uac ->
             RemoteTargets = RespContacts,
             LocalTargets = ReqContacts;
         uas -> 
@@ -227,7 +227,7 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
         _ -> Answered
     end,
     RouteSet1 = case Answered of
-        undefined when Class=:=uac-> 
+        undefined when Class==uac ->
             RR = nksip_sipmsg:header(Resp, <<"Record-Route">>, uris),
             case lists:reverse(RR) of
                 [] ->
@@ -241,7 +241,7 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
                         false -> [FirstRS|RestRS]
                     end
             end;
-        undefined when Class=:=uas ->
+        undefined when Class==uas ->
             RR = nksip_sipmsg:header(Req, <<"Record-Route">>, uris),
             case RR of
                 [] ->

@@ -269,27 +269,29 @@ invite1() ->
     
     Body1 = {body, [{clientB1, {488, 3000}}, {clientC1, {486, 3000}}]},
     {async, ReqId1} = nksip_uac:invite(C1, QUri, [async, Fun1, Body1, RepHd]),
-    Dlg1 = receive
-        {Ref, {code, 180, [{dialog_id, Dlg1_0}]}} -> Dlg1_0
+    Dlg_C1_1 = receive
+        {Ref, {code, 180, [{dialog_id, Dlg_1_1_tmp}]}} -> Dlg_1_1_tmp
         after 5000 -> error(invite)
     end,
-    Dlg2 = receive
-        {Ref, {code, 180, [{dialog_id, Dlg2_0}]}} -> Dlg2_0
+    Dlg_C1_2 = receive
+        {Ref, {code, 180, [{dialog_id, Dlg_2_1_tmp}]}} -> Dlg_2_1_tmp
         after 5000 -> error(invite)
     end,
-    proceeding_uac = nksip_dialog:field(C1, Dlg1, status),
-    proceeding_uac = nksip_dialog:field(C1, Dlg2, status),
-    proceeding_uac = nksip_dialog:field(SR, Dlg1, status),
-    proceeding_uac = nksip_dialog:field(SR, Dlg2, status),
-    case nksip_dialog:field(CB1, Dlg1, status) of
-        proceeding_uas -> 
-            error = nksip_dialog:field(CB1, Dlg2, status),
-            proceeding_uas = nksip_dialog:field(CC1, Dlg2, status),
-            error = nksip_dialog:field(CC1, Dlg1, status);
-        error ->
-            proceeding_uas = nksip_dialog:field(CB1, Dlg2, status),
-            proceeding_uas = nksip_dialog:field(CC1, Dlg1, status),
-            error = nksip_dialog:field(CC1, Dlg2, status)
+    proceeding_uac = nksip_dialog:field(C1, Dlg_C1_1, status),
+    proceeding_uac = nksip_dialog:field(C1, Dlg_C1_2, status),
+    proceeding_uac = nksip_dialog:field(SR, Dlg_C1_1, status),
+    proceeding_uac = nksip_dialog:field(SR, Dlg_C1_2, status),
+    Dlg_CB1_1 = Dlg_CC1_1 = nksip_dialog:field(C1, Dlg_C1_1, remote_id),
+    Dlg_CB1_2 = Dlg_CC1_2 = nksip_dialog:field(C1, Dlg_C1_2, remote_id),
+    case nksip_dialog:field(CB1, Dlg_CB1_1, status) of
+        proceeding_uas ->   % B1 has "A" dialog
+            error = nksip_dialog:field(CB1, Dlg_CB1_2, status),
+            proceeding_uas = nksip_dialog:field(CC1, Dlg_CC1_2, status),
+            error = nksip_dialog:field(CC1, Dlg_CC1_1, status);
+        error ->            % B1 has "B" dialog
+            proceeding_uas = nksip_dialog:field(CB1, Dlg_CB1_2, status),
+            proceeding_uas = nksip_dialog:field(CC1, Dlg_CC1_1, status),
+            error = nksip_dialog:field(CC1, Dlg_CC1_2, status)
     end,
 
     timer:sleep(500),
@@ -300,7 +302,7 @@ invite1() ->
     end,
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 488}, {clientC1, 486}]),
     % The second "zombie" dialog is still active at client1
-    CallId1 = nksip_dialog:call_id(Dlg1),
+    CallId1 = nksip_dialog:call_id(Dlg_C1_1),
     [Zombie] = nksip_dialog:get_all(C1, CallId1), 
     [] = nksip_dialog:get_all(SR, CallId1), 
     [] = nksip_dialog:get_all(CB1, CallId1), 
@@ -325,20 +327,17 @@ invite2() ->
     % C1, B1 and C3 sends 180
     % clientC3 answers, the other two dialogs are deleted by the UAC sending ACK and BYE
 
-    {ok, 200, [{dialog_id, Dlg1}]} = nksip_uac:invite(C2, QUri, [CB, Body2, RepHd]),
-    ok = nksip_uac:ack(C2, Dlg1, []),
+    {ok, 200, [{dialog_id, Dlg_C2_1}]} = nksip_uac:invite(C2, QUri, [CB, Body2, RepHd]),
+    ok = nksip_uac:ack(C2, Dlg_C2_1, []),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 503}, {clientC1, 415},
                                {clientA2, 580}, {clientB2, 580}, {clientC3, 200},
                                {code, 180}, {code, 180}, {code, 180},
                                {clientC3, ack}]),
 
-    % All = nksip_dialog:get_all(),
-    % [Dlg2A] = [D || {{fork, clientC3}, D} <- All, nksip_dialog:call_id(D)==CallId],
-    % {dlg, C2, CallId, Dlg2A} = Dialog2A = nksip_dialog:id(Resp2),
-
-    confirmed = nksip_dialog:field(C2, Dlg1, status),
-    confirmed = nksip_dialog:field(S2, Dlg1, status),
-    confirmed = nksip_dialog:field(CC3, Dlg1, status),
+    confirmed = nksip_dialog:field(C2, Dlg_C2_1, status),
+    confirmed = nksip_dialog:field(S2, Dlg_C2_1, status),
+    Dlg_CC3_1 = nksip_dialog:field(C2, Dlg_C2_1, remote_id),
+    confirmed = nksip_dialog:field(CC3, Dlg_CC3_1, status),
     % ServerR receives the three 180 responses and creates three dialogs.
     % It then receives the 503 and 415 final responses for two of them, and deletes
     % two dialogs, but, as these responses are not sent back, server2 and client2 
@@ -348,28 +347,28 @@ invite2() ->
     % accepted_uac = nksip_dialog:field(SR, Dlg1, status),
 
     All = nksip_dialog:get_all(),
-    CallId = nksip_dialog:call_id(Dlg1),
-    [Dlg2, Dlg3] = [D || {{fork, client2}, D} <- All, 
-                         nksip_dialog:call_id(D)=:=CallId, D=/=Dlg1],
-    proceeding_uac = nksip_dialog:field(C2, Dlg2, status),
-    proceeding_uac = nksip_dialog:field(C2, Dlg3, status),
-    proceeding_uac = nksip_dialog:field(S2, Dlg2, status),
-    proceeding_uac = nksip_dialog:field(S2, Dlg3, status),
+    CallId = nksip_dialog:call_id(Dlg_C2_1),
+    [Dlg_C2_2, Dlg_C2_3] = [D || {{fork, client2}, D} <- All, 
+                         nksip_dialog:call_id(D)=:=CallId, D/=Dlg_C2_1],
+    proceeding_uac = nksip_dialog:field(C2, Dlg_C2_2, status),
+    proceeding_uac = nksip_dialog:field(C2, Dlg_C2_3, status),
+    proceeding_uac = nksip_dialog:field(S2, Dlg_C2_2, status),
+    proceeding_uac = nksip_dialog:field(S2, Dlg_C2_3, status),
 
-    % Remove dialogs before waiting fot timeout
-    ok = nksip_dialog:stop(C2, Dlg2),
-    ok = nksip_dialog:stop(C2, Dlg3),
-    ok = nksip_dialog:stop(S2, Dlg2),
-    ok = nksip_dialog:stop(S2, Dlg3),
-    ok = nksip_dialog:stop(SR, Dlg1),
+    % Remove dialogs before waiting for timeout
+    ok = nksip_dialog:stop(C2, Dlg_C2_2),
+    ok = nksip_dialog:stop(C2, Dlg_C2_3),
+    ok = nksip_dialog:stop(S2, Dlg_C2_2),
+    ok = nksip_dialog:stop(S2, Dlg_C2_3),
+    ok = nksip_dialog:stop(SR, Dlg_C2_1),
 
     % In-dialog OPTIONS
     Fs = {fields, [<<"Nk-Id">>]},
-    {ok, 200, Values3} = nksip_uac:options(C2, Dlg1, [Fs]),
+    {ok, 200, Values3} = nksip_uac:options(C2, Dlg_C2_1, [Fs]),
     [{<<"Nk-Id">>, [<<"clientC3,server2">>]}] = Values3,
 
     % Remote party in-dialog OPTIONS
-    {ok, 200, Values4} = nksip_uac:options(CC3, Dlg1, [Fs]),
+    {ok, 200, Values4} = nksip_uac:options(CC3, Dlg_CC3_1, [Fs]),
     [{<<"Nk-Id">>, [<<"client2,server2">>]}] = Values4,
     
     % Dialog state at clientC1, clientC3 and server2
@@ -379,8 +378,8 @@ invite2() ->
         {remote_uri, RUri}, 
         {local_target, LTarget}, 
         {remote_target, RTarget}
-    ] = nksip_dialog:fields(C2, Dlg1, [status, local_uri, remote_uri, 
-                                       local_target, remote_target]),
+    ] = nksip_dialog:fields(C2, Dlg_C2_1, [status, local_uri, remote_uri, 
+                                          local_target, remote_target]),
     
     [
         {status, confirmed}, 
@@ -388,8 +387,8 @@ invite2() ->
         {remote_uri, LUri}, 
         {local_target, RTarget}, 
         {remote_target, LTarget}
-    ] = nksip_dialog:fields(CC3, Dlg1,[status, local_uri, remote_uri, 
-                                       local_target, remote_target]),
+    ] = nksip_dialog:fields(CC3, Dlg_CC3_1,[status, local_uri, remote_uri, 
+                                          local_target, remote_target]),
 
     [
         {status, confirmed}, 
@@ -397,15 +396,15 @@ invite2() ->
         {remote_uri, RUri}, 
         {local_target, LTarget}, 
         {remote_target, RTarget}
-    ] = nksip_dialog:fields(S2, Dlg1, [status, local_uri, remote_uri, 
-                                           local_target, remote_target]),
+    ] = nksip_dialog:fields(S2, Dlg_C2_1, [status, local_uri, remote_uri, 
+                                          local_target, remote_target]),
                            
-    {ok, 200, []} = nksip_uac:bye(C2, Dlg1, []),
+    {ok, 200, []} = nksip_uac:bye(C2, Dlg_C2_1, []),
     ok = tests_util:wait(Ref, [{clientC3, bye}]),
 
-    error = nksip_dialog:field(C2, Dlg1, state),
-    error = nksip_dialog:field(CC3, Dlg1, state),
-    error = nksip_dialog:field(S2, Dlg1, state),
+    error = nksip_dialog:field(C2, Dlg_C2_1, state),
+    error = nksip_dialog:field(CC3, Dlg_CC3_1, state),
+    error = nksip_dialog:field(S2, Dlg_C2_1, state),
     ok.
 
 
@@ -460,9 +459,9 @@ multiple_200() ->
     % client1 ACKs and BYEs second and third. They will not go to serverR, so
     % dialogs stay in accepted_uac state there.
     Body1 = {body, [{clientA1, 200}, {clientB1, 200}, {clientC1, 200}]},
-    {ok, 200, [{dialog_id, Dlg1}]} = nksip_uac:invite(C1, QUri, [Body1, RepHd]),
-    CallId1 = nksip_dialog:call_id(Dlg1),
-    ok = nksip_uac:ack(C1, Dlg1, []),
+    {ok, 200, [{dialog_id, Dlg_C1_1}]} = nksip_uac:invite(C1, QUri, [Body1, RepHd]),
+    CallId1 = nksip_dialog:call_id(Dlg_C1_1),
+    ok = nksip_uac:ack(C1, Dlg_C1_1, []),
 
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
@@ -471,7 +470,7 @@ multiple_200() ->
                              {clientA1, ack}, {clientB1, ack}, {clientC1, ack}]),
 
     [R1, R2, R3]= nksip_dialog:get_all(SR, CallId1),
-    true = lists:member(Dlg1, [R1, R2, R3]),
+    true = lists:member(Dlg_C1_1, [R1, R2, R3]),
     accepted_uac = nksip_dialog:field(SR, R1, status),
     accepted_uac = nksip_dialog:field(SR, R2, status),
     accepted_uac = nksip_dialog:field(SR, R3, status),
@@ -479,13 +478,14 @@ multiple_200() ->
     ok = nksip_dialog:stop(SR, R2),
     ok = nksip_dialog:stop(SR, R3),
 
-    confirmed = nksip_dialog:field(C1, Dlg1, status),
+    confirmed = nksip_dialog:field(C1, Dlg_C1_1, status),
+    Dlg_CA1_1 = Dlg_CB1_1 = Dlg_CC1_1 = nksip_dialog:field(C1, Dlg_C1_1, remote_id),
     [confirmed, error, error] = 
         lists:sort([
-            nksip_dialog:field({fork, clientA1}, Dlg1, status),
-            nksip_dialog:field({fork, clientB1}, Dlg1, status),
-            nksip_dialog:field({fork, clientC1}, Dlg1, status)]),
-    {ok, 200, []} = nksip_uac:bye(C1, Dlg1, []),
+            nksip_dialog:field({fork, clientA1}, Dlg_CA1_1, status),
+            nksip_dialog:field({fork, clientB1}, Dlg_CB1_1, status),
+            nksip_dialog:field({fork, clientC1}, Dlg_CC1_1, status)]),
+    {ok, 200, []} = nksip_uac:bye(C1, Dlg_C1_1, []),
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
     [] = 
         nksip_dialog:get_all({fork, client1}, CallId1) ++
@@ -495,30 +495,30 @@ multiple_200() ->
 
 
     % client3 requests are sent to server3, which is stateful and record-routing
-    {ok, 200, [{dialog_id, Dlg2}]} = nksip_uac:invite(C3, QUri, [Body1, RepHd]),
-    CallId2 = nksip_dialog:call_id(Dlg2),
-    ok = nksip_uac:ack(C3, Dlg2, []),
+    {ok, 200, [{dialog_id, Dlg_C3_2}]} = nksip_uac:invite(C3, QUri, [Body1, RepHd]),
+    CallId2 = nksip_dialog:call_id(Dlg_C3_2),
+    ok = nksip_uac:ack(C3, Dlg_C3_2, []),
 
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
     ok = tests_util:wait(Ref, 
                             [{clientA1, 200}, {clientB1, 200}, {clientC1, 200}, 
                              {clientA1, ack}, {clientB1, ack}, {clientC1, ack}]),
-    % {dlg, C3, CallId2, Dlg2} = nksip_dialog:id(Resp2),
 
     [R4, R5, R6] = nksip_dialog:get_all(SR, CallId2),
     ok = nksip_dialog:stop(SR, R4),
     ok = nksip_dialog:stop(SR, R5),
     ok = nksip_dialog:stop(SR, R6),
 
-    confirmed = nksip_dialog:field(C3, Dlg2, status),
-    confirmed = nksip_dialog:field({fork, server3}, Dlg2, status),
-    [confirmed, error, error] = 
-        lists:sort([
-            nksip_dialog:field({fork, clientA1}, Dlg2, status),
-            nksip_dialog:field({fork, clientB1}, Dlg2, status),
-            nksip_dialog:field({fork, clientC1}, Dlg2, status)]),
-    {ok, 200, []} = nksip_uac:bye(C3, Dlg2, []),
+    confirmed = nksip_dialog:field(C3, Dlg_C3_2, status),
+    confirmed = nksip_dialog:field({fork, server3}, Dlg_C3_2, status),
+    Dlg_A1_2 = Dlg_B1_2 = Dlg_C1_2 = nksip_dialog:field(C3, Dlg_C3_2, remote_id),
+
+    [confirmed, error, error] =         lists:sort([
+            nksip_dialog:field({fork, clientA1}, Dlg_A1_2, status),
+            nksip_dialog:field({fork, clientB1}, Dlg_B1_2, status),
+            nksip_dialog:field({fork, clientC1}, Dlg_C1_2, status)]),
+    {ok, 200, []} = nksip_uac:bye(C3, Dlg_C3_2, []),
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
 
     [] = 
@@ -532,23 +532,24 @@ multiple_200() ->
     % ServerR receives the 200 from clientB1 and CANCELs A1 y C1
     % Client1 make the dialog with B1, but can receive a 180 form A1 and/or C1
     Body3 = {body, [{clientA1, {200, 500}}, {clientB1, 200}, {clientC1, {200, 500}}]},
-    {ok, 200, [{dialog_id, Dlg3}]} = nksip_uac:invite(C1, QUri, [Body3, RepHd]),
-    CallId3 = nksip_dialog:call_id(Dlg3),
-    ok = nksip_uac:ack(C1, Dlg3, []),
+    {ok, 200, [{dialog_id, Dlg_C1_3}]} = nksip_uac:invite(C1, QUri, [Body3, RepHd]),
+    CallId3 = nksip_dialog:call_id(Dlg_C1_3),
+    ok = nksip_uac:ack(C1, Dlg_C1_3, []),
     ok = tests_util:wait(Ref, 
                             [{clientA1, 200}, {clientB1, 200}, {clientC1, 200}, 
                              {clientB1, ack}]),
 
-    confirmed = nksip_dialog:field(C1, Dlg3, status),
-    confirmed = nksip_dialog:field({fork, clientB1}, Dlg3, status),
+    confirmed = nksip_dialog:field(C1, Dlg_C1_3, status),
+    Dlg_B1_3 = nksip_dialog:field(C1, Dlg_C1_3, remote_id),
+    confirmed = nksip_dialog:field({fork, clientB1}, Dlg_B1_3, status),
 
     % ServerR sends two CANCELs to A1 and C1, and receives each 487, so only 1
     % dialog stays in accepted_uac
-    [Dlg3] = nksip_dialog:get_all(SR, CallId3),
-    accepted_uac = nksip_dialog:field(SR, Dlg3, status),
-    ok = nksip_dialog:stop(SR, Dlg3),
+    [Dlg_C1_3] = nksip_dialog:get_all(SR, CallId3),
+    accepted_uac = nksip_dialog:field(SR, Dlg_C1_3, status),
+    ok = nksip_dialog:stop(SR, Dlg_C1_3),
 
-    {ok, 200, []} = nksip_uac:bye(C1, Dlg3, []),
+    {ok, 200, []} = nksip_uac:bye(C1, Dlg_C1_3, []),
     ok = tests_util:wait(Ref, [{clientB1, bye}]),
 
     % Remove remaining dialogs in client1 from A1 and/or C1

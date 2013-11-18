@@ -41,35 +41,33 @@
     when Error :: old_cseq | unknown_dialog | bye | 
                   proceeding_uac | proceeding_uas | invalid.
 
+request(#sipmsg{dialog_id = <<>>}, Call) ->
+    {ok, undefined, Call};
+
 request(Req, Call) ->
-    case nksip_dialog:uas_id(Req) of
-        <<>> ->
-            {ok, undefined, Call};
-        DialogId ->
-            #sipmsg{class={req, Method}, cseq=CSeq} = Req,
-            case nksip_call_dialog:find(DialogId, Call) of
-                #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
-                    ?call_debug("Dialog ~s (~p) UAS request ~p", 
-                                [DialogId, Status, Method], Call),
-                    if
-                        Method=/='ACK', RemoteSeq>0, CSeq<RemoteSeq  ->
-                            {error, old_cseq};
-                        true -> 
-                            Dialog1 = Dialog#dialog{remote_seq=CSeq},
-                            % Dialog2 = nksip_call_dialog:remotes_update(Req, Dialog1),
-                            case do_request(Method, Status, Req, Dialog1, Call) of
-                                {ok, Dialog2} -> 
-                                    {ok, DialogId, 
-                                         nksip_call_dialog:update(Dialog2, Call)};
-                                {error, Error} ->
-                                    {error, Error}
-                            end
-                    end;
-                not_found when Method=:='INVITE' -> 
-                    {ok, DialogId, Call};
-                not_found -> 
-                    {error, unknown_dialog}
-            end
+    #sipmsg{class={req, Method}, cseq=CSeq, dialog_id=DialogId} = Req,
+    case nksip_call_dialog:find(DialogId, Call) of
+        #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
+            ?call_debug("Dialog ~s (~p) UAS request ~p", 
+                        [DialogId, Status, Method], Call),
+            if
+                Method=/='ACK', RemoteSeq>0, CSeq<RemoteSeq  ->
+                    {error, old_cseq};
+                true -> 
+                    Dialog1 = Dialog#dialog{remote_seq=CSeq},
+                    % Dialog2 = nksip_call_dialog:remotes_update(Req, Dialog1),
+                    case do_request(Method, Status, Req, Dialog1, Call) of
+                        {ok, Dialog2} -> 
+                            {ok, DialogId, 
+                                 nksip_call_dialog:update(Dialog2, Call)};
+                        {error, Error} ->
+                            {error, Error}
+                    end
+            end;
+        not_found when Method=:='INVITE' -> 
+            {ok, DialogId, Call};
+        not_found -> 
+            {error, unknown_dialog}
     end.
 
 
@@ -130,26 +128,25 @@ do_request(_, _, _, Dialog, _Call) ->
 -spec response(nksip:request(), nksip:response(), call()) ->
     call().
 
-response(#sipmsg{class={req, Method}}=Req, Resp, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+response(_, #sipmsg{dialog_id = <<>>}, Call) ->
+    Call;
+
+response(Req, Resp, Call) ->
+    #sipmsg{class={req, Method}} = Req,
+    #sipmsg{class={resp, Code}, dialog_id=DialogId} = Resp,
     #call{dialogs=Dialogs} = Call,
-    case nksip_dialog:uas_id(Resp) of
-        <<>> ->
-            Call;
-        DialogId ->
-            case nksip_call_dialog:find(DialogId, Call) of
-                #dialog{status=Status}=Dialog ->
-                    #sipmsg{class={resp, Code}} = Resp,
-                    ?call_debug("Dialog ~s (~p) UAS ~p response ~p", 
-                                [DialogId, Status, Method, Code], Call),
-                    Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
-                    nksip_call_dialog:update(Dialog1, Call);
-                not_found when Method=:='INVITE', Code>100, Code<300 ->
-                    Dialog = nksip_call_dialog:create(uas, Req, Resp),
-                    response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
-                not_found ->
-                    Call
-            end
+    case nksip_call_dialog:find(DialogId, Call) of
+        #dialog{status=Status}=Dialog ->
+            #sipmsg{class={resp, Code}} = Resp,
+            ?call_debug("Dialog ~s (~p) UAS ~p response ~p", 
+                        [DialogId, Status, Method, Code], Call),
+            Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
+            nksip_call_dialog:update(Dialog1, Call);
+        not_found when Method=:='INVITE', Code>100, Code<300 ->
+            Dialog = nksip_call_dialog:create(uas, Req, Resp),
+            response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
+        not_found ->
+            Call
     end.
 
 

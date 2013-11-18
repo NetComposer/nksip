@@ -140,6 +140,7 @@
     id :: nksip_request:id() | nksip_response:id(),
     class :: {req, nksip:method()} | {resp, nksip:response_code()},
     app_id :: nksip:app_id(),
+    dialog_id :: nksip_dialog:id(),
     ruri :: nksip:uri(),
     vias :: [nksip:via()],
     from :: nksip:uri(),

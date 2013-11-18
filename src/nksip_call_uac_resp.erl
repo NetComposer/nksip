@@ -70,17 +70,24 @@ response(Resp, UAC, Call) ->
         ruri = RUri
     } = UAC,
     #call{msgs=Msgs, opts=#call_opts{max_trans_time=MaxTime}} = Call,
+
+    % We don't use the Req's DialogId
+    % If it was a dialog creation, it is goint to be <<>>
+    % If it is a uac in-dialog, it has to be the same
+    % If it is a proxy in-dialog, it has to be the same
+    DialogId = nksip_dialog:class_id(uac, Resp),
     Now = nksip_lib:timestamp(),
     case Now-Start < MaxTime of
         true -> 
             Code1 = Code,
-            Resp1 = Resp#sipmsg{ruri=RUri};
+            Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId};
         false -> 
             Code1 = 408,
+            % Copy DialogId from Req if present
             {Resp1, _} = nksip_reply:reply(Req, {timeout, <<"Transaction Timeout">>})
     end,
     Call1 = case Code1>=200 andalso Code1<300 of
-        true -> nksip_call_lib:update_auth(nksip_dialog:uac_id(Resp1), Resp1, Call);
+        true -> nksip_call_lib:update_auth(DialogId, Resp1, Call);
         false -> Call
     end,
     UAC1 = UAC#trans{response=Resp1, code=Code1},
@@ -93,13 +100,14 @@ response(Resp, UAC, Call) ->
                         [Id, Method, Status, 
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
     end,
-    Call3 = case NoDialog of
-        true -> update(UAC1, Call1);
-        false -> nksip_call_uac_dialog:response(Req, Resp1, update(UAC1, Call1))
+    Call3 = update(UAC1, Call1),
+    Call4 = case NoDialog of
+        true -> Call3;
+        false -> nksip_call_uac_dialog:response(Req, Resp1, Call3)
     end,
-    Msg = {MsgId, Id, nksip_dialog:uac_id(Resp)},
-    Call4 = Call3#call{msgs=[Msg|Msgs]},
-    response_status(Status, Resp1, UAC1, Call4).
+    Msg = {MsgId, Id, DialogId},
+    Call5 = Call4#call{msgs=[Msg|Msgs]},
+    response_status(Status, Resp1, UAC1, Call5).
 
 
 %% @private
@@ -264,14 +272,13 @@ response_status(completed, Resp, UAC, Call) ->
     nksip_call:call().
 
 do_received_hangup(Resp, UAC, Call) ->
-    #sipmsg{id=_RespId, to_tag=ToTag} = Resp,
+    #sipmsg{id=_RespId, to_tag=ToTag, dialog_id=DialogId} = Resp,
     #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
     #call{app_id=AppId} = Call,
     UAC1 = case lists:member(ToTag, ToTags) of
         true -> UAC;
         false -> UAC#trans{to_tags=ToTags++[ToTag]}
     end,
-    DialogId = nksip_dialog:uac_id(Resp),
     case Code < 300 of
         true ->
             ?call_info("UAC ~p (~p) sending ACK and BYE to secondary response " 

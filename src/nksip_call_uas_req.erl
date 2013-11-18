@@ -158,6 +158,7 @@ process_request(Req, TransId, Call) ->
     #call{trans=Trans, next=Id, msgs=Msgs} = Call,
     ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId], Call),
     LoopId = loop_id(Req),
+    DialogId = nksip_dialog:class_id(uas, Req),
     UAS = #trans{
         id = Id,
         class = uas,
@@ -166,7 +167,7 @@ process_request(Req, TransId, Call) ->
         start = nksip_lib:timestamp(),
         from = undefined,
         trans_id = TransId, 
-        request = Req,
+        request = Req#sipmsg{dialog_id=DialogId},
         method = Method,
         ruri = RUri,
         proto = Transp#transport.proto,
@@ -180,7 +181,7 @@ process_request(Req, TransId, Call) ->
         'ACK' -> UAS;
         _ -> nksip_call_lib:timeout_timer(noinvite, UAS, Call)
     end,
-    Msg = {MsgId, Id, nksip_dialog:uas_id(Req)},
+    Msg = {MsgId, Id, DialogId},
     Call1 = Call#call{trans=[UAS1|Trans], next=Id+1, msgs=[Msg|Msgs]},
     case ToTag=:=(<<>>) andalso lists:keymember(LoopId, #trans.loop_id, Trans) of
         true -> 

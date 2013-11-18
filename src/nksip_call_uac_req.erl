@@ -102,11 +102,32 @@ resend_auth(Req, UAC, Call) ->
 
 new_uac(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId, ruri=RUri} = Req, 
-    #call{next=Id, trans=Trans, msgs=Msgs} = Call,
+    #call{next=Id, trans=Trans, msgs=Msgs, dialogs=Dialogs} = Call,
     Status = case Method of
         'ACK' -> ack;
         'INVITE'-> invite_calling;
         _ -> trying
+    end,
+    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    DialogId = case nksip_dialog:class_id(uac, Req) of
+        <<>> ->
+            <<>>;
+        DlgIdA when not IsProxy ->
+            DlgIdA;
+        DlgIdA ->
+            % If it is a proxy, we can be proxying a request in the opposite
+            % direction, DlgIdA is not goint to exist, but DlgIdB is the
+            % original dialog, use it
+            case lists:keymember(DlgIdA, #dialog.id, Call#call.dialogs) of
+                true ->
+                    DlgIdA;
+                false ->
+                    DlgIdB = nksip_dialog:class_id(uas, Req),
+                    case lists:keymember(DlgIdB, #dialog.id, Dialogs) of
+                        true -> DlgIdB;
+                        false -> DlgIdA
+                    end
+            end
     end,
     UAC = #trans{
         id = Id,
@@ -116,8 +137,7 @@ new_uac(Req, Opts, From, Call) ->
         from = From,
         opts = Opts,
         trans_id = undefined,
-        % trans_id = nksip_call_uac:transaction_id(Req),
-        request = Req,
+        request = Req#sipmsg{dialog_id=DialogId},
         method = Method,
         ruri = RUri,
         response = undefined,
@@ -126,7 +146,7 @@ new_uac(Req, Opts, From, Call) ->
         cancel = undefined,
         iter = 1
     },
-    Msg = {MsgId, Id, nksip_dialog:uac_id(Req)},
+    Msg = {MsgId, Id, DialogId},
     {UAC, Call#call{trans=[UAC|Trans], msgs=[Msg|Msgs], next=Id+1}}.
 
 
@@ -165,19 +185,16 @@ send(_, UAC, Call) ->
         true -> 
             {ok, Call};
         false -> 
-            case lists:member(update_dialog, Opts) of
-                true ->
-                    % {error, unknown_dialog}    ;
-                    case nksip_call_uac_dialog:request(Req, Call) of
-                        {ok, DlgCall} ->
-                            {ok, DlgCall};
-                        {error, DlgError} ->
-                            ?call_debug("UAC ~p error updating dialog: ~p", 
-                                        [DlgError], Call),
-                            {ok, Call} 
-                    end;
-                false ->
-                    {ok, Call}
+            OnlyUpdate = lists:member(update_dialog, Opts),
+            case nksip_call_uac_dialog:request(Req, Call) of
+                {ok, DlgCall} ->
+                    {ok, DlgCall};
+                {error, DlgError} when OnlyUpdate ->
+                    ?call_debug("UAC ~p error updating dialog: ~p", 
+                                [DlgError], Call),
+                    {ok, Call};
+                {error, DlgError} ->
+                    {error, DlgError}
             end
     end,
     case DialogResult of

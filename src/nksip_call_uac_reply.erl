@@ -90,7 +90,10 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     {Resp, _} = nksip_reply:reply(Req, Reply),
     % nksip_call_fork:response() is going to discard first Via
     Resp1 = Resp#sipmsg{vias=[#via{}|Resp#sipmsg.vias]},
-    nksip_call_fork:response(ForkId, Id, Resp1, Call).
+    nksip_call_fork:response(ForkId, Id, Resp1, Call);
+
+reply(_, _, Call) ->
+    Call.
 
 
 %% @private
@@ -101,13 +104,15 @@ fun_call(Msg, Opts) ->
     end.
 
 
-fun_response(#sipmsg{class={resp, Code}, cseq_method=Method}=Resp, Opts) ->
+%% @private
+fun_response(Resp, Opts) ->
+    #sipmsg{class={resp, Code}, cseq_method=Method, dialog_id=DialogId} = Resp,
     case lists:member(get_response, Opts) of
         true ->
             {resp, Resp};
         false ->
             Fields0 = case Method of
-                'INVITE' -> [{dialog_id, nksip_dialog:uac_id(Resp)}];
+                'INVITE' -> [{dialog_id, DialogId}];
                 _ -> []
             end,
             Values = case nksip_lib:get_value(fields, Opts, []) of

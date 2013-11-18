@@ -125,6 +125,7 @@ response(Req, Code, Headers, Body, Opts) ->
     #sipmsg{
         class = {req, Method},
         ruri = RUri,
+        dialog_id = DialogId,
         call_id = CallId,
         vias = [LastVia|_] = Vias,
         from = #uri{domain=FromDomain}, 
@@ -271,6 +272,7 @@ response(Req, Code, Headers, Body, Opts) ->
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
         class = {resp, Code},
+        dialog_id = DialogId,
         vias = Vias1,
         to = To1,
         forwards = 70,

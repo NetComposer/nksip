@@ -24,7 +24,7 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/3, field/2, fields/3, class_id/2, uac_id/1, uas_id/1, id/2, call_id/1]).
+-export([field/3, field/2, fields/3, class_id/2, id/2, call_id/1]).
 -export([stop/2, bye_all/0, stop_all/0]).
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
 -export([remote_id/1]).
@@ -286,22 +286,6 @@ class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=
 class_id(_, #sipmsg{}) ->
     <<>>.
 
-%% @private
--spec uac_id(nksip:request()|nksip:response()) ->
-    id().
-
-uac_id(SipMsg) -> 
-    class_id(uac, SipMsg).
-
-
-%% @private
--spec uas_id(nksip:request()|nksip:response()) ->
-    id().
-
-uas_id(SipMsg) -> 
-    class_id(uas, SipMsg).
-
-
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip_request:id()}, 
 %% {@link nksip_response:id()}.
 -spec id(nksip:app_id(), id()|nksip_request:id()|nksip_response:id()) ->
@@ -392,7 +376,7 @@ stop_all() ->
 
 
 %% @private
--spec dialog_id(uac | uas, nksip:call_id(), nksip:tag(), nksip:tag()) ->
+-spec dialog_id(uac|uas, nksip:call_id(), nksip:tag(), nksip:tag()) ->
     id().
 
 dialog_id(uac, CallId, FromTag, ToTag) ->

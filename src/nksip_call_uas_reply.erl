@@ -78,26 +78,28 @@ reply({#sipmsg{class={resp, Code}, id=MsgId}=Resp, SendOpts},
         code = LastCode
     } = UAS,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-    case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
-        {ok, Resp1} -> ok;
-        error -> {Resp1, _} = nksip_reply:reply(Req, service_unavailable)
+    DialogId = nksip_dialog:class_id(uas, Resp),
+    Resp1 = Resp#sipmsg{dialog_id=DialogId},
+    case nksip_transport_uas:send_response(Resp1, GlobalId, SendOpts++AppOpts) of
+        {ok, Resp2} -> ok;
+        error -> {Resp2, _} = nksip_reply:reply(Req, service_unavailable)
     end,
-    #sipmsg{class={resp, Code1}} = Resp1,
+    #sipmsg{class={resp, Code1}} = Resp2,
     Call1 = case Req of
         #sipmsg{} when Code1>=200, Code<300 ->
-            nksip_call_lib:update_auth(nksip_dialog:uas_id(Resp1), Req, Call);
+            nksip_call_lib:update_auth(DialogId, Req, Call);
         _ ->
             Call
     end,
     Call2 = case lists:member(no_dialog, Opts) of
         true -> Call1;
-        false -> nksip_call_uas_dialog:response(Req, Resp1, Call1)
+        false -> nksip_call_uas_dialog:response(Req, Resp2, Call1)
     end,
     UAS1 = case LastCode < 200 of
-        true -> UAS#trans{response=Resp1, code=Code};
+        true -> UAS#trans{response=Resp2, code=Code};
         false -> UAS
     end,
-    Msg = {MsgId, Id, nksip_dialog:uas_id(Resp1)},
+    Msg = {MsgId, Id, DialogId},
     Call3 = Call2#call{msgs=[Msg|Msgs]},
     case Stateless of
         true when Method=/='INVITE' ->
@@ -105,12 +107,12 @@ reply({#sipmsg{class={resp, Code}, id=MsgId}=Resp, SendOpts},
                         [Id, Method, Code1], Call3),
             UAS2 = UAS1#trans{status=finished},
             UAS3 = nksip_call_lib:cancel_timers([timeout], UAS2),
-            {{ok, Resp1}, nksip_call_lib:update(UAS3, Call3)};
+            {{ok, Resp2}, nksip_call_lib:update(UAS3, Call3)};
         _ ->
             ?call_debug("UAS ~p ~p stateful reply ~p", 
                         [Id, Method, Code1], Call3),
             UAS2 = stateful_reply(Status, Code1, UAS1, Call3),
-            {{ok, Resp1}, nksip_call_lib:update(UAS2, Call3)}
+            {{ok, Resp2}, nksip_call_lib:update(UAS2, Call3)}
     end;
 
 reply({#sipmsg{class={resp, Code}}, _}, #trans{code=LastCode}=UAS, Call) ->

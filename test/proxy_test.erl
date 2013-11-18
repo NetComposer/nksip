@@ -27,43 +27,43 @@
 
 -compile([export_all]).
 
-% stateless_test_() ->
-%     {setup, spawn, 
-%         fun() -> 
-%             start(stateless),
-%             ?debugMsg("Starting proxy stateless")
-%         end,
-%         fun(_) -> 
-%             stop(stateless) 
-%         end,
-%         [
-%             fun() -> invalid(stateless) end,
-%             fun() -> opts(stateless) end,
-%             fun() -> transport(stateless) end, 
-%             fun() -> invite(stateless) end,
-%             fun() -> servers(stateless) end
-%         ]
-%     }.
+stateless_test_() ->
+    {setup, spawn, 
+        fun() -> 
+            start(stateless),
+            ?debugMsg("Starting proxy stateless")
+        end,
+        fun(_) -> 
+            stop(stateless) 
+        end,
+        [
+            fun() -> invalid(stateless) end,
+            fun() -> opts(stateless) end,
+            fun() -> transport(stateless) end, 
+            fun() -> invite(stateless) end,
+            fun() -> servers(stateless) end
+        ]
+    }.
 
 
-% stateful_test_() ->
-%     {setup, spawn, 
-%         fun() -> 
-%             start(stateful),
-%             ?debugMsg("Starting proxy stateful")
-%         end,
-%         fun(_) -> 
-%             stop(stateful) 
-%         end,
-%         [
-%             fun() -> invalid(stateful) end,
-%             fun() -> opts(stateful) end,
-%             fun() -> transport(stateful) end, 
-%             fun() -> invite(stateful) end,
-%             fun() -> servers(stateful) end,
-%             fun() -> dialog() end
-%         ]
-%     }.
+stateful_test_() ->
+    {setup, spawn, 
+        fun() -> 
+            start(stateful),
+            ?debugMsg("Starting proxy stateful")
+        end,
+        fun(_) -> 
+            stop(stateful) 
+        end,
+        [
+            fun() -> invalid(stateful) end,
+            fun() -> opts(stateful) end,
+            fun() -> transport(stateful) end, 
+            fun() -> invite(stateful) end,
+            fun() -> servers(stateful) end,
+            fun() -> dialog() end
+        ]
+    }.
 
 
 start(Test) ->
@@ -545,6 +545,6 @@ dialog() ->
     {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{headers, [{"Nk-Rr", true}]}]),
     error = nksip_dialog:field(C1, DialogId1, status),
     error = nksip_dialog:field(C2, DialogId2, status),
-    error = nksip_dialog:field(S1, DialogId1, status),
+    bye = nksip_dialog:field(S1, DialogId1, status),
     ok.
 

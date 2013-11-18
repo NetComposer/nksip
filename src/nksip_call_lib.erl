@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([update_sipmsg/2, update/2]).
--export([update_auth/3, check_auth/3]).
+-export([update_auth/3, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3, app_timer/3, 
          cancel_timers/2]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
@@ -151,34 +151,29 @@ update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
 
 
 %% @private
--spec check_auth(uac|uas,nksip:request()|nksip:response(), call()) ->
+-spec check_auth(nksip:request()|nksip:response(), call()) ->
     boolean().
 
-check_auth(_, #sipmsg{to_tag=(<<>>)}, _Call) ->
+check_auth(#sipmsg{dialog_id = <<>>}, _Call) ->
     false;
 
-check_auth(Class, #sipmsg{transport=#transport{}=Transp}=SipMsg, Call) ->
-    case nksip_dialog:class_id(Class, SipMsg) of
-        <<>> ->
-            false;
-        DialogId ->
-            #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-            #call{auths=Auths} = Call,
-            case lists:member({DialogId, Proto, Ip, Port}, Auths) of
-                true ->
-                    ?call_debug("Origin ~p:~p:~p is in dialog ~s authorized list", 
-                                [Proto, Ip, Port, DialogId], Call),
-                    true;
-                false ->
-                    AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DialogId],
-                    ?call_debug("Origin ~p:~p:~p is NOT in dialog ~s "
-                                "authorized list (~p)", 
-                                [Proto, Ip, Port, DialogId, AuthList], Call),
-                    false
-            end
+check_auth(#sipmsg{dialog_id=DialogId, transport=#transport{}=Transp}, Call) ->
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+    #call{auths=Auths} = Call,
+    case lists:member({DialogId, Proto, Ip, Port}, Auths) of
+        true ->
+            ?call_debug("Origin ~p:~p:~p is in dialog ~s authorized list", 
+                        [Proto, Ip, Port, DialogId], Call),
+            true;
+        false ->
+            AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DialogId],
+            ?call_debug("Origin ~p:~p:~p is NOT in dialog ~s "
+                        "authorized list (~p)", 
+                        [Proto, Ip, Port, DialogId, AuthList], Call),
+            false
     end;
 
-check_auth(_, _, _) ->
+check_auth(_, _) ->
     false.
 
 

@@ -185,7 +185,7 @@ authorize_launch(UAS, Call) ->
 
 authorize_data(#trans{id=Id,request=Req}, Call) ->
     #call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=Opts}} = Call,
-    IsDialog = case nksip_call_lib:check_auth(uas, Req, Call) of
+    IsDialog = case nksip_call_lib:check_auth(Req, Call) of
         true -> dialog;
         false -> []
     end,
@@ -217,12 +217,13 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
 
 authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
+    #sipmsg{dialog_id=DialogId} = Req,
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply], Call),
     case Reply of
         _ when Reply=:=ok; Reply=:=true ->
             Call1 = case Req#sipmsg.to_tag of
                 <<>> -> Call;
-                _ -> nksip_call_lib:update_auth(nksip_dialog:uas_id(Req), Req, Call)
+                _ -> nksip_call_lib:update_auth(DialogId, Req, Call)
             end,
             route_launch(UAS, Call1);
         false -> 
@@ -343,7 +344,7 @@ do_route({process, Opts}, #trans{request=Req, method=Method}=UAS, Call) ->
 
 % We want to proxy the request
 do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
-    #trans{id=Id, opts=Opts, method=Method, request=Req} = UAS,
+    #trans{id=Id, opts=Opts, method=Method} = UAS,
     case nksip_call_proxy:route(UAS, UriList, ProxyOpts, Call) of
         stateless_proxy ->
             UAS1 = UAS#trans{status=finished},
@@ -355,33 +356,13 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
             % TODO 16.6.4: If ruri or top route has sips, and not received with 
             % tls, must record_route. If received with tls, and no sips in ruri
             % or top route, must record_route also
-            DialogResult = case lists:member(no_dialog, ProxyOpts) of
-                true -> 
-                    {ok, Call, [no_dialog|Opts]};
-                false -> 
-                    UpdateDialog = lists:member(update_dialog, ProxyOpts),
-                    case nksip_call_uas_dialog:request(Req, Call) of
-                        {ok, _, DlgCall} -> 
-                            {ok, DlgCall, Opts};
-                        {error, DlgError} when UpdateDialog ->
-                            ?call_info("UAS ~p ~p (fork) dialog request error: ~p", 
-                                [Id, Method, DlgError], Call),
-                            {ok, Call, Opts};
-                        {error, DlgError} ->
-                            {error, DlgError}
-                    end
+            % Do not process dialogs on response
+            UAS2 = UAS1#trans{opts=[no_dialog|Opts], stateless=false, from={fork, Id}},
+            UAS3 = case Method of
+                'ACK' -> UAS2#trans{status=finished};
+                _ -> UAS2
             end,
-            case DialogResult of
-                {ok, Call1, Opts1} ->
-                    UAS2 = UAS1#trans{opts=Opts1, stateless=false, from={fork, Id}},
-                    UAS3 = case Method of
-                        'ACK' -> UAS2#trans{status=finished};
-                        _ -> UAS2
-                    end,
-                    nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call1));
-                {error, Error} ->
-                    process_dialog_error(Error, UAS, Call)
-            end;
+            nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call));
         {reply, SipReply} ->
             reply(SipReply, UAS, Call)
     end;
