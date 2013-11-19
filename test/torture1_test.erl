@@ -73,27 +73,27 @@ valid_1_test() ->
         ruri = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
                     port = 0, opts = [<<"unknownparam">>]},
         to = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
-                  port = 0, ext_opts = [{tag,<<"1918181833n">>}],
+                  port = 0, ext_opts = [{<<"tag">>,<<"1918181833n">>}],
                   ext_headers = []},
         from = #uri{disp = <<"\"J Rosenberg \\\\\\\"\"       ">>,
                     user = <<"jdrosen">>, domain = <<"example.com">>,
-                    port = 0, ext_opts = [{tag,<<"98asjd8">>}]},
+                    port = 0, ext_opts = [{<<"tag">>,<<"98asjd8">>}]},
         forwards = 68,
         call_id = <<"wsinv.ndaksdj@192.0.2.1">>,
         cseq = 9,
         cseq_method = 'INVITE',
         vias = [
             #via{proto = udp, domain = <<"192.0.2.2">>, port = 0,
-                 opts = [{branch,<<"390skdjuw">>}]},
+                 opts = [{<<"branch">>, <<"390skdjuw">>}]},
             #via{proto = tcp, domain = <<"spindle.example.com">>, port = 0,
-                 opts = [{branch,<<"z9hG4bK9ikj8">>}]},
+                 opts = [{<<"branch">>,<<"z9hG4bK9ikj8">>}]},
             #via{proto = udp, domain = <<"192.168.255.111">>, port = 0,
-                 opts = [{branch,<<"z9hG4bK30239">>}]}
+                 opts = [{<<"branch">>,<<"z9hG4bK30239">>}]}
         ],
         content_type = [{<<"application/sdp">>,[]}],
         routes = [#uri{scheme = sip,user = <<>>,
                        domain = <<"services.example.com">>,port = 0,
-                       opts = [lr,
+                       opts = [<<"lr">>,
                                {<<"unknownwith">>,<<"value">>},
                                <<"unknown-no-value">>]}],
         contacts = [#uri{disp = <<"\"Quoted string \\\"\\\"\" ">>,
@@ -161,7 +161,7 @@ valid_2_test() ->
             vias = [
                 #via{
                     proto = tcp, domain = <<"host1.example.com">>,
-                    port = 0, opts = [{branch,<<"z9hG4bK-.!%66*_+`'~">>}]}
+                    port = 0, opts = [{<<"branch">>,<<"z9hG4bK-.!%66*_+`'~">>}]}
             ],
             to = #uri{
                 disp = L2,
@@ -176,7 +176,7 @@ valid_2_test() ->
                 domain = <<"example.com">>, port = 0,opts = [],headers = [],
                 ext_opts = [
                     {<<"fromParam''~+*_!.-%">>, L1},
-                    {tag,<<"_token~1'+`*%!-.">>}
+                    {<<"tag">>,<<"_token~1'+`*%!-.">>}
                 ]
             },
             call_id = <<"intmeth.word%ZK-!.*_+'@word`~)(><:\\/\"][?}{">>,
@@ -221,7 +221,7 @@ valid_3_test() ->
         },
         from = #uri{
             user = <<"I%20have%20spaces">>, domain = <<"example.net">>,port = 0,
-            ext_opts = [{tag,<<"938">>}]
+            ext_opts = [{<<"tag">>,<<"938">>}]
         },
         contacts = [
             #uri{
@@ -254,7 +254,7 @@ valid_4_test() ->
         },
         from = #uri{
             user = <<"null-%00-null">>, domain = <<"example.com">>,
-            port = 0, ext_opts = [{tag,<<"839923423">>}]
+            port = 0, ext_opts = [{<<"tag">>,<<"839923423">>}]
         },
         contacts = [
             #uri{user = <<"%00">>, domain = <<"host5.example.com">>},
@@ -287,7 +287,7 @@ valid_5_test() ->
         },
         from = #uri{
             disp = <<"\"%Z%45\" ">>, user = <<"resource">>,pass = <<>>,
-            domain = <<"example.com">>,port = 0, ext_opts = [{tag,<<"f232jadfj23">>}]
+            domain = <<"example.com">>,port = 0, ext_opts = [{<<"tag">>,<<"f232jadfj23">>}]
         },
         contacts = [
             #uri{user = <<"alias1">>, domain = <<"host1.example.com">>},
@@ -313,7 +313,7 @@ valid_6_test() ->
         from = #uri{disp = <<"caller">>, scheme = sip,
                     user = <<"caller">>, pass = <<>>, domain = <<"example.com">>,
                     port = 0,opts = [],headers = [],
-                    ext_opts = [{tag,<<"323">>}],
+                    ext_opts = [{<<"tag">>,<<"323">>}],
                     ext_headers = []
                 }
     } = parse(Msg),
@@ -391,7 +391,7 @@ valid_7_test() ->
             user = <<"amazinglylongcallernameamazinglylongcallernameamazinglylongcallernameamazinglylongcallernameamazinglylongcallername">>,
             pass = <<>>,domain = <<"example.net">>,port = 0,opts = [],
             ext_opts = [
-                {tag,<<"12982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982424">>},
+                {<<"tag">>,<<"12982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982982424">>},
                 {<<"unknownheaderparamnamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamename">>,
                     <<"unknowheaderparamvaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue">>},
                 <<"unknownValuelessparamnameparamnameparamnameparamnameparamnameparamnameparamnameparamnameparamnameparamname">>
@@ -436,8 +436,8 @@ valid_7_test() ->
             #via{
                 proto = tcp,domain = <<"host.example.com">>, port = 0,
                 opts = [
-                    {received,<<"192.0.2.5">>},
-                    {branch,<<"verylonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglongbranchvalue">>}]
+                    {<<"received">>,<<"192.0.2.5">>},
+                    {<<"branch">>,<<"verylonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglongbranchvalue">>}]
             }
         ], 
         contacts = [
@@ -516,7 +516,7 @@ valid_9_test() ->
         from = #uri{
             disp = <<>>,scheme = sip,user = <<"caller">>,
             pass = <<>>,domain = <<"example.org">>,port = 0,
-            ext_opts = [{tag,<<"33242">>}]
+            ext_opts = [{<<"tag">>,<<"33242">>}]
         },
         headers = [{<<"Accept">>, Accept}]
     } = parse(Msg),
@@ -551,23 +551,23 @@ valid_10_test() ->
         vias = [
             #via{
                 proto = udp, domain = <<"t1.example.com">>, port = 0,
-                opts = [{branch,<<"z9hG4bKkdjuw">>}]
+                opts = [{<<"branch">>,<<"z9hG4bKkdjuw">>}]
             },
             #via{
                 proto = sctp, domain = <<"t2.example.com">>, port = 0,
-                opts = [{branch,<<"z9hG4bKklasjdhf">>}]
+                opts = [{<<"branch">>,<<"z9hG4bKklasjdhf">>}]
             },
             #via{
                 proto = tls, domain = <<"t3.example.com">>, port = 0,
-                opts = [{branch,<<"z9hG4bK2980unddj">>}]
+                opts = [{<<"branch">>,<<"z9hG4bK2980unddj">>}]
             },
             #via{
                 proto = <<"UNKNOWN">>,domain = <<"t4.example.com">>, port = 0,
-                opts = [{branch,<<"z9hG4bKasd0f3en">>}]
+                opts = [{<<"branch">>,<<"z9hG4bKasd0f3en">>}]
             },
             #via{
                 proto = tcp, domain = <<"t5.example.com">>, port = 0,
-                opts = [{branch,<<"z9hG4bK0a9idfnee">>}]
+                opts = [{<<"branch">>,<<"z9hG4bK0a9idfnee">>}]
             }
         ]
     } = parse(Msg),
@@ -628,7 +628,7 @@ valid_11_test() ->
         vias = [
             #via{proto = udp,domain = <<"127.0.0.1">>, port = 5070,
                  opts = [
-                    {branch,<<"z9hG4bK-d87543-4dade06d0bdb11ee-1--d87543-">>}, rport]
+                    {<<"branch">>,<<"z9hG4bK-d87543-4dade06d0bdb11ee-1--d87543-">>}, <<"rport">>]
             }
         ],
         routes = [

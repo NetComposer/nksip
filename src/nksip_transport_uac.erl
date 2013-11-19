@@ -207,7 +207,11 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             proto = Proto, 
             domain = ListenHost, 
             port = ListenPort, 
-            opts = [rport, {<<"branch">>, <<"z9hG4bK",Branch/binary>>}, {nksip, NkSip}]
+            opts = [
+                <<"rport">>, 
+                {<<"branch">>, <<"z9hG4bK",Branch/binary>>}, 
+                {<<"nksip">>, NkSip}
+            ]
         },
         Headers1 = nksip_headers:update(Headers, 
                                     [{before_multi, <<"Record-Route">>, RecordRoute}]),
@@ -226,37 +230,6 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         }
     end.
 
-
-% %% @private
-% %% Recognizes options stateless
-% -spec add_via(nksip:request(), binary(), nksip_lib:proplist()) -> 
-%     nksip:request().
-
-% add_via(#sipmsg{app_id=AppId, ruri=RUri, vias=Vias}=Req, GlobalId, Opts) ->
-%     IsStateless = lists:member(stateless, Opts),
-%     case Vias of
-%         [Via|_] when IsStateless ->
-%             % If it is a stateless proxy, generates the new Branch as a hash
-%             % of the main NkSIP's id and the old branch. It generates also 
-%             % a nksip tag to detect the response correctly
-%             Base = case nksip_lib:get_binary(branch, Via#via.opts) of
-%                 <<"z9hG4bK", OBranch/binary>> ->
-%                     {AppId, OBranch};
-%                 _ ->
-%                     #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId, 
-%                                 cseq=CSeq} = Req,
-%                     % Any of these will change in every transaction
-%                     {AppId, Via, ToTag, FromTag, CallId, CSeq, RUri}
-%             end,
-%             Branch = nksip_lib:hash(Base),
-%             NkSip = nksip_lib:hash({Branch, GlobalId, stateless});
-%         _ ->
-%             % Generate a brand new Branch
-%             Branch = nksip_lib:uid(),
-%             NkSip = nksip_lib:hash({Branch, GlobalId})
-%     end,
-%     ViaOpts = [rport, {branch, <<"z9hG4bK",Branch/binary>>}, {nksip, NkSip}],
-%     Req#sipmsg{vias=[#via{opts=ViaOpts}|Vias]}.
 
 
 

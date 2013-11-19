@@ -275,7 +275,7 @@ is_stateless(Resp, GlobalId) ->
     case nksip_lib:get_binary(<<"branch">>, Opts) of
         <<"z9hG4bK", Branch/binary>> ->
             StatelessId = nksip_lib:hash({Branch, GlobalId, stateless}),
-            case nksip_lib:get_binary(nksip, Opts) of
+            case nksip_lib:get_binary(<<"nksip">>, Opts) of
                 StatelessId -> true;
                 _ -> false
             end;

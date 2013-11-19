@@ -83,7 +83,7 @@ transaction_1() ->
         "CSeq: 8 OPTIONS\r\n"
         "l: 0\r\n"
         "\r\n">>,
-    #sipmsg{vias=[#via{opts = [{branch,<<"z9hG4bK">>}]}]} = Req = parse(Msg),
+    #sipmsg{vias=[#via{opts = [{<<"branch">>,<<"z9hG4bK">>}]}]} = Req = parse(Msg),
     % It is detected as a pre-RFC3261 tag
     true = nksip_call_uas:transaction_id(Req) < 0,
     ok.

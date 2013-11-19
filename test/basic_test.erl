@@ -165,8 +165,8 @@ transport() ->
     [
         [#uri{user=(<<"client1">>), domain=(<<"mihost">>), port=5070}],
         [
-            #uri{domain=(<<"aaa">>), port=0, opts=[lr]},
-            #uri{domain=(<<"bbb">>), port=123, opts=[lr]}
+            #uri{domain=(<<"aaa">>), port=0, opts=[<<"lr">>]},
+            #uri{domain=(<<"bbb">>), port=123, opts=[<<"lr">>]}
         ]
     ] = nksip_sipmsg:fields(Req5, [parsed_contacts, parsed_routes]),
 

@@ -47,8 +47,8 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
         cseq_method = Method
     } = Resp,
     #via{proto=Proto, domain=Domain, port=Port, opts=ViaOpts} = Via,
-    {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(received, ViaOpts)),
-    RPort = nksip_lib:get_integer(rport, ViaOpts),
+    {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(<<"received">>, ViaOpts)),
+    RPort = nksip_lib:get_integer(<<"rport">>, ViaOpts),
     TranspSpec = case Proto of
         'udp' ->
             case nksip_lib:get_binary(<<"maddr">>, ViaOpts) of
@@ -104,7 +104,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
         app_id = AppId,
         call_id = CallId,
-        vias = [#via{opts=ViaOpts}=Via|ViaR], 
+        % vias = [#via{opts=ViaOpts}|ViaR],
         to = To, 
         headers = Headers,
         contacts = Contacts, 
@@ -185,10 +185,10 @@ make_response_fun(RouteHash, Resp, Opts) ->
             #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
             _ -> Body
         end,
-        ViaOpts1 = lists:keydelete(nksip_transport, 1, ViaOpts), 
+        % ViaOpts1 = lists:keydelete(<<"nksip_transport">>, 1, ViaOpts), 
         Resp#sipmsg{
             transport = Transport, 
-            vias = [Via#via{opts=ViaOpts1}|ViaR],
+            % vias = [Via#via{opts=ViaOpts}|ViaR],
             contacts = Contacts1,
             headers = Headers1, 
             body = Body1

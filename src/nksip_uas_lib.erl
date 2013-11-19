@@ -56,13 +56,13 @@ preprocess(Req, GlobalId) ->
         vias = [Via|ViaR]
     } = Req,
     Received = nksip_lib:to_host(Ip, false), 
-    ViaOpts1 = [{received, Received}|Via#via.opts],
+    ViaOpts1 = [{<<"received">>, Received}|Via#via.opts],
     % For UDP, we honor de rport option
     % For connection transports, we force inclusion of remote port 
     % to reuse the same connection
-    ViaOpts2 = case lists:member(rport, ViaOpts1) of
+    ViaOpts2 = case lists:member(<<"rport">>, ViaOpts1) of
         false when Proto=:=udp -> ViaOpts1;
-        _ -> [{rport, Port} | ViaOpts1 -- [rport]]
+        _ -> [{<<"rport">>, nksip_lib:to_binary(Port)} | ViaOpts1 -- [<<"rport">>]]
     end,
     Via1 = Via#via{opts=ViaOpts2},
     Branch = nksip_lib:get_binary(<<"branch">>, ViaOpts2),
@@ -309,7 +309,7 @@ preprocess_route(Request) ->
 strict_router(#sipmsg{app_id=AppId, ruri=RUri, call_id=CallId, 
                       routes=Routes}=Request) ->
     case 
-        nksip_lib:get_value(nksip, RUri#uri.opts) =/= undefined 
+        nksip_lib:get_value(<<"nksip">>, RUri#uri.opts) =/= undefined 
         andalso nksip_transport:is_local(AppId, RUri) of
     true ->
         case lists:reverse(Routes) of
