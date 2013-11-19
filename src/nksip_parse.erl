@@ -335,8 +335,7 @@ raw_sipmsg(Raw) ->
                                     app_id = AppId,
                                     ruri = RUri,
                                     transport = Transp,
-                                    start = Start,
-                                    data = []
+                                    start = Start
                                 };
                             _ ->
                                 throw({400, <<"Method Mismatch">>})
@@ -348,11 +347,10 @@ raw_sipmsg(Raw) ->
                 Response = get_sipmsg(Headers, Body, Proto),
                 Response#sipmsg{
                     id = Id,
-                    class = {resp, Code},
+                    class = {resp, Code, CodeText},
                     app_id = AppId,
                     transport = Transp,
-                    start = Start,
-                    data = [{reason, CodeText}]
+                    start = Start
                 };
             {resp, _, _} ->
                 throw({400, <<"Invalid Code">>})
@@ -473,7 +471,7 @@ get_sipmsg(Headers, Body, Proto) ->
         body = Body1,
         from_tag = nksip_lib:get_value(tag, From#uri.ext_opts, <<>>),
         to_tag = nksip_lib:get_value(tag, To#uri.ext_opts, <<>>),
-        data = []
+        to_tag_candidate = <<>>
     }.
 
 

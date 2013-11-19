@@ -100,7 +100,7 @@ uac() ->
     {error, unknown_dialog} = nksip_uac:options(C2, RespId2, []),
 
     % Sync, get_response
-    {resp, #sipmsg{class={resp, _}}} = nksip_uac:options(C2, SipC1, [get_response]),
+    {resp, #sipmsg{class={resp, _, _}}} = nksip_uac:options(C2, SipC1, [get_response]),
 
     % Sync, callback for request
     {ok, 200, [{id, RespId3}]} = 
@@ -132,7 +132,7 @@ uac() ->
     end,
 
     % Sync, callback for request and provisional response, get_request, get_response
-    {resp, #sipmsg{class={resp, 486}, call_id=CallId5}=Resp5} = 
+    {resp, #sipmsg{class={resp, 486, _}, call_id=CallId5}=Resp5} = 
         nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, get_response]),
     DialogId5 = nksip_dialog:id(Resp5),
     receive 

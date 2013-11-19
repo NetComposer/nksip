@@ -275,10 +275,10 @@ id(#sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
 
 id(#sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
     when FromTag =/= <<>> ->
-    #sipmsg{call_id=CallId, data=Data} = SipMsg,
-    case nksip_lib:get_binary(to_tag, Data) of
+    #sipmsg{call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
+    case ToTag of
         <<>> -> <<>>;
-        ToTag -> dialog_id(CallId, FromTag, ToTag)
+        _ -> dialog_id(CallId, FromTag, ToTag)
     end;
 
 id(#sipmsg{}) ->

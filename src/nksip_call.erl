@@ -218,7 +218,7 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
     case nksip_parse:raw_sipmsg(RawMsg) of
         #sipmsg{class={req, _}}=Req ->
             nksip_call_uas_req:request(Req, Call);
-        #sipmsg{class={resp, _}}=Resp ->
+        #sipmsg{class={resp, _, _}}=Resp ->
             case nksip_uac_lib:is_stateless(Resp, GlobalId) of
                 true -> nksip_call_proxy:response_stateless(Resp, Call);
                 false -> nksip_call_uac_resp:response(Resp, Call)

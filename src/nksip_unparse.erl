@@ -102,9 +102,9 @@ tokens(Tokens) ->
 -spec packet(nksip:request() | nksip:response()) -> 
     binary().
 
-packet(#sipmsg{class={resp, Code}, data=Data}=Response) ->
+packet(#sipmsg{class={resp, Code, Reason}}=Response) ->
     list_to_binary([<<"SIP/2.0 ">>, nksip_lib:to_binary(Code), 32, 
-        case nksip_lib:get_binary(reason, Data) of
+        case Reason of
             <<>> -> response_phrase(Code);
             RespText -> RespText
         end,

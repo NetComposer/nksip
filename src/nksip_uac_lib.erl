@@ -162,8 +162,8 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             body = Body,
             from_tag = FromTag,
             to_tag = nksip_lib:get_binary(tag, To#uri.ext_opts),
+            to_tag_candidate = <<>>,
             transport = #transport{},
-            data = [],
             start = nksip_lib:l_timestamp()
         },
         Opts1 = [
@@ -234,8 +234,7 @@ make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds}=R
         headers = nksip_lib:extract(Hds, <<"Route">>),
         contacts = [],
         content_type = [],
-        body = <<>>,
-        data = []
+        body = <<>>
     }.
 
 
@@ -262,8 +261,7 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
         contacts = [],
         headers = [],
         content_type = [],
-        body = <<>>,
-        data = []
+        body = <<>>
     }.
 
 

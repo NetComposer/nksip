@@ -321,7 +321,7 @@ application_12() ->
         "\r\n">>,
     Reply = send(tcp, Msg),
     #sipmsg{
-        class = {resp, 200},
+        class = {resp, 200, _},
         contacts = [
             #uri{
                 scheme = sip, user = <<"+19725552222">>,
@@ -349,7 +349,7 @@ application_13() ->
         "\r\n">>,
     Reply = send(tcp, Msg),
     #sipmsg{
-        class = {resp, 200},
+        class = {resp, 200, _},
         contacts = [
             #uri{
                 scheme = sip, user = <<"+19725552222">>,
@@ -377,7 +377,7 @@ application_14() ->
         "\r\n">>,
     Reply = send(tcp, Msg),
     #sipmsg{
-        class = {resp, 200},
+        class = {resp, 200, _},
         contacts = [
             #uri{
                 scheme = sip, user = <<"user">>,

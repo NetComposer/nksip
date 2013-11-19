@@ -131,7 +131,7 @@ do_request(_, _, _, Dialog, _Call) ->
     call().
 
 response(#sipmsg{class={req, Method}}=Req, Resp, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+    #sipmsg{class={resp, Code, _Reason}} = Resp,
     #call{dialogs=Dialogs} = Call,
     case nksip_dialog:id(Resp) of
         <<>> ->
@@ -139,7 +139,7 @@ response(#sipmsg{class={req, Method}}=Req, Resp, Call) ->
         DialogId ->
             case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{status=Status}=Dialog ->
-                    #sipmsg{class={resp, Code}} = Resp,
+                    #sipmsg{class={resp, Code, _Reason}} = Resp,
                     ?call_debug("Dialog ~s (~p) UAS ~p response ~p", 
                                 [DialogId, Status, Method, Code], Call),
                     Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
@@ -182,7 +182,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{answered=Answered}=Dialog, Call
     end;
 
 do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+    #sipmsg{class={resp, Code, _Reason}} = Resp,
     #dialog{status=Status} = Dialog,
     ?call_notice("Dialog unexpected INVITE response ~p in ~p", [Code, Status], Call),
     Dialog;

@@ -138,7 +138,7 @@
 
 -record(sipmsg, {
     id :: nksip_request:id() | nksip_response:id(),
-    class :: {req, nksip:method()} | {resp, nksip:response_code()},
+    class :: {req, nksip:method()} | {resp, nksip:response_code(), nksip:reason()},
     app_id :: nksip:app_id(),
     ruri :: nksip:uri(),
     vias :: [nksip:via()],
@@ -155,10 +155,11 @@
     body :: nksip:body(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
+    to_tag_candidate :: nksip:tag(),
     expire :: nksip_lib:timestamp(),
     transport :: nksip_transport:transport(),
-    start :: nksip_lib:l_timestamp(),
-    data = [] :: nksip_lib:proplist()
+    start :: nksip_lib:l_timestamp()
+    % data = [] :: nksip_lib:proplist()
 }).
 
 %% Data:

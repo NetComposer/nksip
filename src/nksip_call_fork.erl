@@ -96,7 +96,7 @@ next(#fork{pending=[]}=Fork, Call) ->
                 [] when Method=:='ACK' ->
                     delete(Fork, Call);
                 [] ->
-                    #sipmsg{class={resp, Code}} = Resp = best_response(Fork),
+                    #sipmsg{class={resp, Code, _}} = Resp = best_response(Fork),
                     ?call_debug("Fork ~p ~p selected ~p response", 
                                 [Id, Method, Code], Call),
                     Call1 = send_reply(Resp, Fork, Call),
@@ -157,11 +157,11 @@ launch([Uri|Rest], Fork, Call) ->
 -spec response(id(), integer(), nksip:response(),call()) ->
    call().
 
-response(_, _, #sipmsg{class={resp, Code}}, Call) when Code < 101 ->
+response(_, _, #sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
     Call;
 
 response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
-    #sipmsg{class={resp, Code}, to_tag=ToTag} = Resp,
+    #sipmsg{class={resp, Code, _}, to_tag=ToTag} = Resp,
     case lists:keyfind(Id, #fork.id, Forks) of
         #fork{pending=Pending, uacs=UACs, method=Method}=Fork ->
             ?call_debug("Fork ~p ~p received ~p (~s)", 
@@ -271,7 +271,7 @@ waiting(Code, Resp, Pos, Fork, Call) when Code >= 600 ->
    call().
 
 send_reply(Resp, Fork, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+    #sipmsg{class={resp, Code, _}} = Resp,
     #fork{id=TransId, method=Method} = Fork,
     #call{trans=Trans} = Call,
     case lists:keyfind(TransId, #trans.id, Trans) of
@@ -296,11 +296,11 @@ best_response(#fork{request=Req, responses=Resps}) ->
         if
             Code =:= 401; Code =:= 407 -> {3999, Resp};
             Code =:= 415; Code =:= 420; Code =:= 484 -> {4000, Resp};
-            Code =:= 503 -> {5000, Resp#sipmsg{class={resp, 500}}};
+            Code =:= 503 -> {5000, Resp#sipmsg{class={resp, 500, <<>>}}};
             Code >= 600 -> {Code, Resp};
             true -> {10*Code, Resp}
         end
-        || #sipmsg{class={resp, Code}}=Resp <- Resps
+        || #sipmsg{class={resp, Code, _Reason}}=Resp <- Resps
     ]),
     case Sorted of
         [{3999, Best}|_] ->
@@ -309,7 +309,7 @@ best_response(#fork{request=Req, responses=Resps}) ->
                 nksip_lib:delete(Best#sipmsg.headers, Names) |
                 [
                     nksip_lib:extract(Headers, Names) || 
-                    #sipmsg{class={resp, Code}, headers=Headers}
+                    #sipmsg{class={resp, Code, _}, headers=Headers}
                     <- Resps, Code=:=401 orelse Code=:=407
                 ]
             ],

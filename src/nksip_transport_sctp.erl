@@ -134,7 +134,7 @@ send(Pid, #sipmsg{}=SipMsg) ->
                     nksip_trace:insert(SipMsg, {sctp_out, Ip, Port, Method, Packet}),
                     nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
                     ok;
-                {resp, Code} ->
+                {resp, Code, _Reason} ->
                     nksip_trace:insert(SipMsg, {sctp_out, Ip, Port, Code, Packet}),
                     nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
                     ok

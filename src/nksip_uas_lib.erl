@@ -53,8 +53,7 @@ preprocess(Req, GlobalId) ->
         call_id = CallId, 
         to_tag = ToTag,
         transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
-        vias = [Via|ViaR], 
-        data = ReqData
+        vias = [Via|ViaR]
     } = Req,
     Received = nksip_lib:to_host(Ip, false), 
     ViaOpts1 = [{received, Received}|Via#via.opts],
@@ -67,9 +66,9 @@ preprocess(Req, GlobalId) ->
     end,
     Via1 = Via#via{opts=ViaOpts2},
     Branch = nksip_lib:get_binary(branch, ViaOpts2),
-    ReqData1 = case ToTag of
-        <<>> -> [{to_tag, nksip_lib:hash({GlobalId, Branch})}|ReqData];
-        _ -> ReqData
+    ToTag1 = case ToTag of
+        <<>> -> nksip_lib:hash({GlobalId, Branch});
+        _ -> ToTag
     end,
     case Method=:='ACK' andalso nksip_lib:hash({GlobalId, Branch})=:=ToTag of
         true -> 
@@ -78,7 +77,7 @@ preprocess(Req, GlobalId) ->
         false ->
             Req1 = Req#sipmsg{
                 vias = [Via1|ViaR], 
-                data = ReqData1
+                to_tag_candidate = ToTag1
             },
             preprocess_route(Req1)
     end.
@@ -133,7 +132,7 @@ response(Req, Code, Headers, Body, Opts) ->
         contacts = ReqContacts,
         routes = ReqRoutes,
         headers = ReqHeaders, 
-        data = ReqData         
+        to_tag_candidate = ToTagCandidate
     } = Req, 
     case Method of 
         'INVITE' when Code > 100 ->
@@ -209,7 +208,7 @@ response(Req, Code, Headers, Body, Opts) ->
             case ToTag of
                 <<>> ->
                     % The request has no previous To tag
-                    case nksip_lib:get_binary(to_tag, ReqData) of
+                    case ToTagCandidate of
                         <<>> ->
                             ToTag1 = nksip_lib:hash(make_ref()),
                             To1 = To#uri{ext_opts=[{tag, ToTag1}|To#uri.ext_opts]};
@@ -250,10 +249,7 @@ response(Req, Code, Headers, Body, Opts) ->
                     false
             end
     end,
-    RespData = case nksip_lib:get_value(reason, Opts) of
-        undefined -> ReqData;
-        Reason -> [{reason, Reason}|ReqData]
-    end,
+    Reason = nksip_lib:get_binary(reason, Opts),
     Contacts = nksip_lib:get_value(contact, Opts, []),
     SendOpts1 = case Method of
         'INVITE' when Code > 100, Contacts=:=[] -> 
@@ -270,7 +266,7 @@ response(Req, Code, Headers, Body, Opts) ->
     end,
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
-        class = {resp, Code},
+        class = {resp, Code, Reason},
         vias = Vias1,
         to = To1,
         forwards = 70,
@@ -281,8 +277,7 @@ response(Req, Code, Headers, Body, Opts) ->
         content_type = ContentType,
         body = Body,
         to_tag = ToTag1,
-        transport = undefined,
-        data = RespData
+        transport = undefined
     },
     {Resp, SendOpts2}.
 

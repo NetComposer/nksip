@@ -39,7 +39,7 @@
 -spec send_response(nksip:response(), binary(), [send_opt()]) ->
     {ok, nksip:response()} | error.
 
-send_response(#sipmsg{class={resp, Code}}=Resp, GlobalId, Opts) ->
+send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
     #sipmsg{
         app_id = AppId, 
         vias = [Via|_],
@@ -76,7 +76,7 @@ send_response(#sipmsg{class={resp, Code}}=Resp, GlobalId, Opts) ->
 -spec resend_response(Resp::nksip:response(), binary(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-resend_response(#sipmsg{class={resp, Code}, app_id=AppId, cseq_method=Method, 
+resend_response(#sipmsg{class={resp, Code, _}, app_id=AppId, cseq_method=Method, 
                         transport=#transport{}=Transport}=Resp, _GlobalId, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     MakeResp = fun(_) -> Resp end,

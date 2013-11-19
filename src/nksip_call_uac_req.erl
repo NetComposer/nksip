@@ -50,10 +50,6 @@
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
     #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
-    % Req1 = case Method of 
-    %     'CANCEL' -> Req;
-    %     _ -> nksip_transport_uac:add_via(Req, GlobalId, AppOpts)
-    % end,
     {#trans{id=Id}=UAC, Call1} = new_uac(Req, Opts, From, Call),
     case lists:member(async, Opts) andalso From of
         {srv, SrvFrom} when Method=:='ACK' -> 

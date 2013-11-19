@@ -136,7 +136,7 @@ response(#sipmsg{class={req, Method}}=Req, Resp, #call{dialogs=Dialogs}=Call) ->
         <<>> ->
             Call;
         DialogId ->
-            #sipmsg{class={resp, Code}} = Resp,
+            #sipmsg{class={resp, Code, _Reason}} = Resp,
             case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{status=Status} = Dialog ->
                     ?call_debug("Dialog ~s (~p) UAC response ~p ~p", 
@@ -209,7 +209,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
     end;
 
 do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+    #sipmsg{class={resp, Code, _Reason}} = Resp,
     #dialog{id=DialogId, status=Status} = Dialog,
     case Status of
         bye ->
