@@ -184,7 +184,7 @@ transaction_id(Req) ->
             cseq = CSeq
         } = Req,
     {_Transp, ViaIp, ViaPort} = nksip_parse:transport(Via),
-    case nksip_lib:get_value(branch, Via#via.opts) of
+    case nksip_lib:get_value(<<"branch">>, Via#via.opts) of
         <<"z9hG4bK", Branch/binary>> when byte_size(Branch) > 0 ->
             erlang:phash2({Method, ViaIp, ViaPort, Branch});
         _ ->

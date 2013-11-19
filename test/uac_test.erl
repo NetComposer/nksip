@@ -140,7 +140,7 @@ uac() ->
         after 500 -> error(uac) 
     end,
     receive 
-        {Ref, {resp, #sipmsg{class={resp, 180}, call_id=CallId5}=Resp5_180}} ->
+        {Ref, {resp, #sipmsg{class={resp, 180, _}, call_id=CallId5}=Resp5_180}} ->
             DialogId5 = nksip_dialog:id(Resp5_180)
         after 500 -> 
             error(uac) 

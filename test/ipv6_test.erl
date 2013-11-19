@@ -132,8 +132,12 @@ basic() ->
 
 
     Fun2 = fun({req, #sipmsg{contacts=[Contact]}}) ->
-        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=[{transport, tcp}]} =
-            Contact,
+        ?debugFmt("CONTACT: ~p", [Contact]),
+
+        #uri{
+            user=(<<"client1">>), domain=MainIp, port=5070, 
+            opts=[{<<"transport">>, <<"tcp">>}]
+        } = Contact,
         Self ! {Ref, ok_2}
     end,
     Opts2 = [{callback, Fun2}, get_request, get_response, make_contact],

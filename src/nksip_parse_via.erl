@@ -304,10 +304,10 @@ strip(Rest) -> Rest.
 %% @private VIA Opts Key filters
 opts_key_filter(List) ->
     case string:to_lower(List) of
-        "branch" -> branch;
+        % "branch" -> branch;
         "received" -> received;
         "rport" -> rport;
-        "maddr" -> maddr;
+        % "maddr" -> maddr;
         "nksip" -> nksip;
         "nksip_transport" -> nksip_transport;
         _ -> list_to_binary(List)
@@ -338,7 +338,7 @@ via_test() ->
     [
         #via{proto=tls, domain= <<"host">>, port=0},
         #via{domain= <<"host2">>, port=5061, 
-            opts=[maddr, {received, <<"1.2.3.4">>}, <<"a">>]}
+            opts=[<<"maddr">>, {received, <<"1.2.3.4">>}, <<"a">>]}
     ] = 
         vias("SIP/2.0/TLS  host  ,  SIP / 2.0 / UDP host2 : 5061  "
                 "; maddr; received = 1.2.3.4 ; a"). 

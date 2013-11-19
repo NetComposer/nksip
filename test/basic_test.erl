@@ -126,7 +126,7 @@ transport() ->
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
     [
-        {_, [#uri{scheme=sip, port=5060, opts=[{transport, <<"tcp">>}]}]},
+        {_, [#uri{scheme=sip, port=5060, opts=[{<<"transport">>, <<"tcp">>}]}]},
         {_, {tcp, {127,0,0,1}, 5060}}
     ] = Values2,
 

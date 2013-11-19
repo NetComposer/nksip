@@ -99,12 +99,12 @@ resolve_srvs(_, [], Acc) ->
     {naptr, sip|sips, string()}.
 
 resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
-    Target = nksip_lib:get_list(maddr, Opts, Host),
+    Target = nksip_lib:get_list(<<"maddr">>, Opts, Host),
     case nksip_lib:to_ip(Target) of 
         {ok, TargetIp} -> IsNumeric = true;
         _ -> TargetIp = IsNumeric = false
     end,
-    Proto1 = case nksip_lib:get_value(transport, Opts) of
+    Proto1 = case nksip_lib:get_value(<<"transport">>, Opts) of
         Atom when is_atom(Atom) -> 
             Atom;
         Other -> 

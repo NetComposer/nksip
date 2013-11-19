@@ -236,8 +236,8 @@ field(D, Field) ->
         local_sdp -> D#dialog.local_sdp;
         remote_sdp -> D#dialog.remote_sdp;
         stop_reason -> D#dialog.stop_reason;
-        from_tag -> nksip_lib:get_binary(tag, (D#dialog.local_uri)#uri.ext_opts);
-        to_tag -> nksip_lib:get_binary(tag, (D#dialog.remote_uri)#uri.ext_opts);
+        from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
+        to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
         timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
         _ -> invalid_field 
     end.

@@ -51,18 +51,19 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
     RPort = nksip_lib:get_integer(rport, ViaOpts),
     TranspSpec = case Proto of
         'udp' ->
-            case nksip_lib:get_binary(maddr, ViaOpts) of
+            case nksip_lib:get_binary(<<"maddr">>, ViaOpts) of
                 <<>> when RPort=:=0 -> [{udp, RIp, Port}];
                 <<>> -> [{udp, RIp, RPort}];
                 MAddr -> [#uri{domain=MAddr, port=Port}]   
             end;
         _ ->
+            UriOpt = {<<"transport">>, nksip_lib:to_binary(Proto)},
             [
                 {current, {Proto, RIp, RPort}}, 
-                #uri{domain=Domain, port=Port, opts=[{transport, Proto}]}
+                #uri{domain=Domain, port=Port, opts=[UriOpt]}
             ]
     end,
-    RouteBranch = nksip_lib:get_binary(branch, ViaOpts),
+    RouteBranch = nksip_lib:get_binary(<<"branch">>, ViaOpts),
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
     nksip_trace:insert(Resp, {send_response, Method, Code}),
@@ -149,7 +150,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     opts = case Proto of 
                         tls when Scheme=:=sips -> [];
                         udp when Scheme=:=sip -> [];
-                        _ -> [{transport, Proto}]
+                        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}]
                     end}|Contacts];
             false ->
                 Contacts
@@ -163,8 +164,13 @@ make_response_fun(RouteHash, Resp, Opts) ->
                         domain = ListenHost,
                         port = ListenPort,
                         opts = if
-                            Proto=:=udp -> [lr];
-                            true -> [lr, {transport, Proto}] 
+                            Proto=:=udp -> 
+                                [<<"lr">>];
+                            true -> 
+                                [
+                                    <<"lr">>, 
+                                    {<<"transport">>, nksip_lib:to_binary(Proto)}
+                                ] 
                         end
                     };
                 _ ->

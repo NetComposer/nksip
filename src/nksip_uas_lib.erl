@@ -65,7 +65,7 @@ preprocess(Req, GlobalId) ->
         _ -> [{rport, Port} | ViaOpts1 -- [rport]]
     end,
     Via1 = Via#via{opts=ViaOpts2},
-    Branch = nksip_lib:get_binary(branch, ViaOpts2),
+    Branch = nksip_lib:get_binary(<<"branch">>, ViaOpts2),
     ToTag1 = case ToTag of
         <<>> -> nksip_lib:hash({GlobalId, Branch});
         _ -> ToTag
@@ -201,7 +201,7 @@ response(Req, Code, Headers, Body, Opts) ->
     case nksip_lib:get_binary(to_tag, Opts) of
         _ when Code < 101 ->
             ToTag1 = <<>>,
-            ToOpts1 = lists:keydelete(tag, 1, To#uri.ext_opts),
+            ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
             To1 = To#uri{ext_opts=ToOpts1};
         <<>> ->
             % To tag is not forced
@@ -211,10 +211,10 @@ response(Req, Code, Headers, Body, Opts) ->
                     case ToTagCandidate of
                         <<>> ->
                             ToTag1 = nksip_lib:hash(make_ref()),
-                            To1 = To#uri{ext_opts=[{tag, ToTag1}|To#uri.ext_opts]};
+                            To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|To#uri.ext_opts]};
                         ToTag1 ->
                             % We have prepared a To tag in preprocess/2
-                            To1 = To#uri{ext_opts=[{tag, ToTag1}|To#uri.ext_opts]}
+                            To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|To#uri.ext_opts]}
                     end;
                 _ ->
                     % The request already has a To tag
@@ -222,8 +222,8 @@ response(Req, Code, Headers, Body, Opts) ->
                     ToTag1 = ToTag
             end;
         ToTag1 ->
-            ToOpts1 = lists:keydelete(tag, 1, To#uri.ext_opts),
-            To1 = To#uri{ext_opts=[{tag, ToTag1}|ToOpts1]}
+            ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
+            To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|ToOpts1]}
     end,
     ContentType = case Body of 
         #sdp{} -> [{<<"application/sdp">>, []}]; 
@@ -333,7 +333,7 @@ ruri_has_maddr(#sipmsg{
                     ruri = RUri, 
                     transport=#transport{proto=Proto, local_port=LPort}
                 } = Request) ->
-    case nksip_lib:get_binary(maddr, RUri#uri.opts) of
+    case nksip_lib:get_binary(<<"maddr">>, RUri#uri.opts) of
         <<>> ->
             Request;
         MAddr -> 
@@ -343,7 +343,8 @@ ruri_has_maddr(#sipmsg{
                         {Proto, _, LPort} ->
                             RUri1 = RUri#uri{
                                 port = 0,
-                                opts = nksip_lib:delete(RUri#uri.opts, [maddr,transport])
+                                opts = nksip_lib:delete(RUri#uri.opts, 
+                                                        [<<"maddr">>, <<"transport">>])
                             },
                             Request#sipmsg{ruri=RUri1};
                         _ ->

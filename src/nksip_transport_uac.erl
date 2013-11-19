@@ -47,7 +47,7 @@ send_request(Req, GlobalId, Opts) ->
             DestUri = RUri1 = RUri,
             Routes1 = [];
         [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
-            case lists:member(lr, RouteOpts) of
+            case lists:member(<<"lr">>, RouteOpts) of
                 true ->     
                     DestUri = TopRoute#uri{
                         scheme = case RUri#uri.scheme of
@@ -139,7 +139,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         end,
         ?debug(AppId, CallId, "UAC listenhost is ~s", [ListenHost]),
         RouteBranch = case Vias of
-            [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(branch, RBOpts);
+            [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
             _ -> <<>>
         end,
         % The user hash is used when the Record-Route is sent back from the UAS
@@ -156,8 +156,10 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                     domain = ListenHost,
                     port = ListenPort,
                     opts = if
-                        Proto=:=udp -> [lr];
-                        true -> [lr, {transport, Proto}] 
+                        Proto=:=udp -> 
+                            [<<"lr">>];
+                        true -> 
+                            [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
                     end
                 };
             _ ->
@@ -173,7 +175,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                     opts = case Proto of
                         tls when Scheme=:=sips -> [];
                         udp when Scheme=:=sip -> [];
-                        _ -> [{transport, Proto}] 
+                        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}] 
                     end
                 }|Contacts];
             false ->
@@ -185,7 +187,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                 % If it is a stateless proxy, generates the new Branch as a hash
                 % of the main NkSIP's id and the old branch. It generates also 
                 % a nksip tag to detect the response correctly
-                Base = case nksip_lib:get_binary(branch, Via0#via.opts) of
+                Base = case nksip_lib:get_binary(<<"branch">>, Via0#via.opts) of
                     <<"z9hG4bK", OBranch/binary>> ->
                         {AppId, OBranch};
                     _ ->
@@ -205,7 +207,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             proto = Proto, 
             domain = ListenHost, 
             port = ListenPort, 
-            opts = [rport, {branch, <<"z9hG4bK",Branch/binary>>}, {nksip, NkSip}]
+            opts = [rport, {<<"branch">>, <<"z9hG4bK",Branch/binary>>}, {nksip, NkSip}]
         },
         Headers1 = nksip_headers:update(Headers, 
                                     [{before_multi, <<"Record-Route">>, RecordRoute}]),

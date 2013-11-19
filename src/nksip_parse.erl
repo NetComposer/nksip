@@ -156,7 +156,7 @@ dates(Term) -> dates([Term]).
     {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
-    Proto1 = case nksip_lib:get_value(transport, Opts) of
+    Proto1 = case nksip_lib:get_value(<<"transport">>, Opts) of
         Atom when is_atom(Atom) -> 
             Atom;
         Other ->
@@ -469,8 +469,8 @@ get_sipmsg(Headers, Body, Proto) ->
         headers = Headers1,
         content_type = ContentType,
         body = Body1,
-        from_tag = nksip_lib:get_value(tag, From#uri.ext_opts, <<>>),
-        to_tag = nksip_lib:get_value(tag, To#uri.ext_opts, <<>>),
+        from_tag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
+        to_tag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
         to_tag_candidate = <<>>
     }.
 

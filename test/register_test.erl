@@ -209,9 +209,9 @@ register2() ->
     [{parsed_contacts, Contacts4}] = Values4, 
     [
         #uri{scheme=sip, port=5070, opts=[], ext_opts=[{<<"expires">>, <<"300">>}]},
-        #uri{scheme=sip, port=5070, opts=[{transport, <<"tcp">>}], 
+        #uri{scheme=sip, port=5070, opts=[{<<"transport">>, <<"tcp">>}], 
              ext_opts=[{<<"expires">>, <<"300">>}]},
-        #uri{scheme=sip, port=5071, opts=[{transport, <<"tls">>}], 
+        #uri{scheme=sip, port=5071, opts=[{<<"transport">>, <<"tls">>}], 
              ext_opts=[{<<"expires">>, <<"300">>}]},
         #uri{scheme=sips, port=5071, opts=[], ext_opts=[{<<"expires">>, <<"300">>}]},
         #uri{scheme=tel, domain=(<<"123456">>), opts=[], 
@@ -245,7 +245,7 @@ register2() ->
         ],
         [
             #uri{user= <<>>, domain = <<"ddd">>,port = 444,
-                opts = [{transport,<<"tcp">>}],
+                opts = [{<<"transport">>,<<"tcp">>}],
                ext_opts = [{<<"q">>,<<"2.1">>},{<<"expires">>,<<"3600">>}]},
              #uri{user = <<>>, domain = <<"bbb">>, port = 0,
                 opts = [], ext_opts = [{<<"q">>,<<"2.1">>},{<<"expires">>,<<"180">>}]}

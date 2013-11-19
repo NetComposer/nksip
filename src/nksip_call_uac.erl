@@ -192,6 +192,6 @@ timer(expire, #trans{id=Id, status=Status}=UAC, Call) ->
     integer().
 
 transaction_id(#sipmsg{cseq_method=Method, vias=[Via|_]}) ->
-    Branch = nksip_lib:get_value(branch, Via#via.opts),
+    Branch = nksip_lib:get_value(<<"branch">>, Via#via.opts),
     erlang:phash2({Method, Branch}).
 
