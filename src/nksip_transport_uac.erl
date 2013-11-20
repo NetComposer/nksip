@@ -182,7 +182,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                 Contacts
         end,
         IsStateless = lists:member(stateless_via, Opts),
-        case Vias of
+        Branch = case Vias of
             [Via0|_] when IsStateless ->
                 % If it is a stateless proxy, generates the new Branch as a hash
                 % of the main NkSIP's id and the old branch. It generates also 
@@ -196,22 +196,20 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                         % Any of these will change in every transaction
                         {AppId, Via0, ToTag, FromTag, CallId, CSeq, RUri}
                 end,
-                Branch = nksip_lib:hash(Base),
-                NkSip = nksip_lib:hash({Branch, GlobalId, stateless});
+                BaseBranch = nksip_lib:hash(Base),
+                NkSip = nksip_lib:hash({BaseBranch, GlobalId, stateless}),
+                <<"z9hG4bK", BaseBranch/binary, $-, NkSip/binary>>;
             _ ->
                 % Generate a brand new Branch
-                Branch = nksip_lib:uid(),
-                NkSip = nksip_lib:hash({Branch, GlobalId})
+                BaseBranch = nksip_lib:uid(),
+                NkSip = nksip_lib:hash({BaseBranch, GlobalId}),
+                <<"z9hG4bK", BaseBranch/binary, $-, NkSip/binary>>
         end,
         Via1 = #via{
             proto = Proto, 
             domain = ListenHost, 
             port = ListenPort, 
-            opts = [
-                <<"rport">>, 
-                {<<"branch">>, <<"z9hG4bK",Branch/binary>>}, 
-                {<<"nksip">>, NkSip}
-            ]
+            opts = [<<"rport">>, {<<"branch">>, Branch}]
         },
         Headers1 = nksip_headers:update(Headers, 
                                     [{before_multi, <<"Record-Route">>, RecordRoute}]),

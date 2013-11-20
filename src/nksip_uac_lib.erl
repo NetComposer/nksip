@@ -274,10 +274,14 @@ is_stateless(Resp, GlobalId) ->
     #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
     case nksip_lib:get_binary(<<"branch">>, Opts) of
         <<"z9hG4bK", Branch/binary>> ->
-            StatelessId = nksip_lib:hash({Branch, GlobalId, stateless}),
-            case nksip_lib:get_binary(<<"nksip">>, Opts) of
-                StatelessId -> true;
-                _ -> false
+            case binary:split(Branch, <<"-">>) of
+                [BaseBranch, NkSip] ->
+                    case nksip_lib:hash({BaseBranch, GlobalId, stateless}) of
+                        NkSip -> true;
+                        _ -> false
+                    end;
+                _ ->
+                    false
             end;
         _ ->
             false
