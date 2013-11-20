@@ -433,8 +433,8 @@ servers(Test) ->
         {<<"Record-Route">>, [RR1, RR2]},
         {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
     ] = Values6,
-    [#uri{port=5081, opts=[lr, {transport, <<"tls">>}]}] = nksip_parse:uris(RR1),
-    [#uri{port=5061, opts=[lr, {transport, <<"tls">>}]}] = nksip_parse:uris(RR2),
+    [#uri{port=5081, opts=[<<"lr">>, {<<"transport">>, <<"tls">>}]}] = nksip_parse:uris(RR1),
+    [#uri{port=5061, opts=[<<"lr">>, {<<"transport">>, <<"tls">>}]}] = nksip_parse:uris(RR2),
 
     % Sends an options in the dialog before the ACK
     {ok, 200, Values7} = nksip_uac:options(C1, DialogIdB1, [Fs4]),

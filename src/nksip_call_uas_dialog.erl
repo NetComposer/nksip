@@ -68,6 +68,7 @@ request(Req, Call) ->
             {ok, DialogId, Call};
         not_found -> 
             {error, unknown_dialog}
+            end
     end.
 
 
@@ -135,18 +136,19 @@ response(Req, Resp, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #sipmsg{class={resp, Code}, dialog_id=DialogId} = Resp,
     #call{dialogs=Dialogs} = Call,
-    case nksip_call_dialog:find(DialogId, Call) of
-        #dialog{status=Status}=Dialog ->
-            #sipmsg{class={resp, Code}} = Resp,
-            ?call_debug("Dialog ~s (~p) UAS ~p response ~p", 
-                        [DialogId, Status, Method, Code], Call),
-            Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
-            nksip_call_dialog:update(Dialog1, Call);
-        not_found when Method=:='INVITE', Code>100, Code<300 ->
-            Dialog = nksip_call_dialog:create(uas, Req, Resp),
-            response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
-        not_found ->
-            Call
+            case nksip_call_dialog:find(DialogId, Call) of
+                #dialog{status=Status}=Dialog ->
+                    #sipmsg{class={resp, Code, _Reason}} = Resp,
+                    ?call_debug("Dialog ~s (~p) UAS ~p response ~p", 
+                                [DialogId, Status, Method, Code], Call),
+                    Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
+                    nksip_call_dialog:update(Dialog1, Call);
+                not_found when Method=:='INVITE', Code>100, Code<300 ->
+                    Dialog = nksip_call_dialog:create(uas, Req, Resp),
+                    response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
+                not_found ->
+                    Call
+            end
     end.
 
 
@@ -179,7 +181,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{answered=Answered}=Dialog, Call
     end;
 
 do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+    #sipmsg{class={resp, Code, _Reason}} = Resp,
     #dialog{status=Status} = Dialog,
     ?call_notice("Dialog unexpected INVITE response ~p in ~p", [Code, Status], Call),
     Dialog;

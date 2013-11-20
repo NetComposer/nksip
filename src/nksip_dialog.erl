@@ -237,8 +237,8 @@ field(D, Field) ->
         local_sdp -> D#dialog.local_sdp;
         remote_sdp -> D#dialog.remote_sdp;
         stop_reason -> D#dialog.stop_reason;
-        from_tag -> nksip_lib:get_binary(tag, (D#dialog.local_uri)#uri.ext_opts);
-        to_tag -> nksip_lib:get_binary(tag, (D#dialog.remote_uri)#uri.ext_opts);
+        from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
+        to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
         timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
         _ -> invalid_field 
     end.
@@ -264,7 +264,7 @@ fields(AppId, DialogSpec, Fields) when is_list(Fields) ->
 
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip:request()} or
-%% {@link nksip:response()} and endpoint class.
+%% {@link nksip:response()} and a endpoint class.
 %% Dialog ids are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
 %% and <i>To</i> Tag. Dialog ids with same From and To are different
 %% for different endpoint classes.
@@ -277,14 +277,15 @@ class_id(Class, #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
 
 class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
     when FromTag =/= <<>> ->
-    #sipmsg{call_id=CallId, data=Data} = SipMsg,
-    case nksip_lib:get_binary(to_tag, Data) of
+    #sipmsg{call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
+    case ToTag of
         <<>> -> <<>>;
-        ToTag -> dialog_id(Class, CallId, FromTag, ToTag)
+        _ -> dialog_id(CallId, FromTag, ToTag)
     end;
 
 class_id(_, #sipmsg{}) ->
     <<>>.
+
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip_request:id()}, 
 %% {@link nksip_response:id()}.
@@ -388,8 +389,8 @@ dialog_id(uas, CallId, FromTag, ToTag) ->
 
 %% @private Hack to find the UAS dialog from the UAC and the opposite way
 remote_id(#dialog{id=BaseId, call_id=CallId, local_uri=LUri, remote_uri=RUri}) ->
-    FromTag = nksip_lib:get_binary(tag, LUri#uri.ext_opts),
-    ToTag = nksip_lib:get_binary(tag, RUri#uri.ext_opts),
+    FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
+    ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),
     case dialog_id(uac, CallId, FromTag, ToTag) of
         BaseId -> dialog_id(uas, CallId, FromTag,ToTag);
         RemoteId -> RemoteId

@@ -53,23 +53,22 @@ preprocess(Req, GlobalId) ->
         call_id = CallId, 
         to_tag = ToTag,
         transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
-        vias = [Via|ViaR], 
-        data = ReqData
+        vias = [Via|ViaR]
     } = Req,
     Received = nksip_lib:to_host(Ip, false), 
-    ViaOpts1 = [{received, Received}|Via#via.opts],
+    ViaOpts1 = [{<<"received">>, Received}|Via#via.opts],
     % For UDP, we honor de rport option
     % For connection transports, we force inclusion of remote port 
     % to reuse the same connection
-    ViaOpts2 = case lists:member(rport, ViaOpts1) of
+    ViaOpts2 = case lists:member(<<"rport">>, ViaOpts1) of
         false when Proto=:=udp -> ViaOpts1;
-        _ -> [{rport, Port} | ViaOpts1 -- [rport]]
+        _ -> [{<<"rport">>, nksip_lib:to_binary(Port)} | ViaOpts1 -- [<<"rport">>]]
     end,
     Via1 = Via#via{opts=ViaOpts2},
-    Branch = nksip_lib:get_binary(branch, ViaOpts2),
-    ReqData1 = case ToTag of
-        <<>> -> [{to_tag, nksip_lib:hash({GlobalId, Branch})}|ReqData];
-        _ -> ReqData
+    Branch = nksip_lib:get_binary(<<"branch">>, ViaOpts2),
+    ToTag1 = case ToTag of
+        <<>> -> nksip_lib:hash({GlobalId, Branch});
+        _ -> ToTag
     end,
     case Method=:='ACK' andalso nksip_lib:hash({GlobalId, Branch})=:=ToTag of
         true -> 
@@ -78,7 +77,7 @@ preprocess(Req, GlobalId) ->
         false ->
             Req1 = Req#sipmsg{
                 vias = [Via1|ViaR], 
-                data = ReqData1
+                to_tag_candidate = ToTag1
             },
             preprocess_route(Req1)
     end.
@@ -134,7 +133,7 @@ response(Req, Code, Headers, Body, Opts) ->
         contacts = ReqContacts,
         routes = ReqRoutes,
         headers = ReqHeaders, 
-        data = ReqData         
+        to_tag_candidate = ToTagCandidate
     } = Req, 
     case Method of 
         'INVITE' when Code > 100 ->
@@ -203,20 +202,20 @@ response(Req, Code, Headers, Body, Opts) ->
     case nksip_lib:get_binary(to_tag, Opts) of
         _ when Code < 101 ->
             ToTag1 = <<>>,
-            ToOpts1 = lists:keydelete(tag, 1, To#uri.ext_opts),
+            ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
             To1 = To#uri{ext_opts=ToOpts1};
         <<>> ->
             % To tag is not forced
             case ToTag of
                 <<>> ->
                     % The request has no previous To tag
-                    case nksip_lib:get_binary(to_tag, ReqData) of
+                    case ToTagCandidate of
                         <<>> ->
                             ToTag1 = nksip_lib:hash(make_ref()),
-                            To1 = To#uri{ext_opts=[{tag, ToTag1}|To#uri.ext_opts]};
+                            To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|To#uri.ext_opts]};
                         ToTag1 ->
                             % We have prepared a To tag in preprocess/2
-                            To1 = To#uri{ext_opts=[{tag, ToTag1}|To#uri.ext_opts]}
+                            To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|To#uri.ext_opts]}
                     end;
                 _ ->
                     % The request already has a To tag
@@ -224,8 +223,8 @@ response(Req, Code, Headers, Body, Opts) ->
                     ToTag1 = ToTag
             end;
         ToTag1 ->
-            ToOpts1 = lists:keydelete(tag, 1, To#uri.ext_opts),
-            To1 = To#uri{ext_opts=[{tag, ToTag1}|ToOpts1]}
+            ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
+            To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|ToOpts1]}
     end,
     ContentType = case Body of 
         #sdp{} -> [{<<"application/sdp">>, []}]; 
@@ -251,10 +250,7 @@ response(Req, Code, Headers, Body, Opts) ->
                     false
             end
     end,
-    RespData = case nksip_lib:get_value(reason, Opts) of
-        undefined -> ReqData;
-        Reason -> [{reason, Reason}|ReqData]
-    end,
+    Reason = nksip_lib:get_binary(reason, Opts),
     Contacts = nksip_lib:get_value(contact, Opts, []),
     SendOpts1 = case Method of
         'INVITE' when Code > 100, Contacts=:=[] -> 
@@ -271,7 +267,7 @@ response(Req, Code, Headers, Body, Opts) ->
     end,
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
-        class = {resp, Code},
+        class = {resp, Code, Reason},
         dialog_id = DialogId,
         vias = Vias1,
         to = To1,
@@ -283,8 +279,7 @@ response(Req, Code, Headers, Body, Opts) ->
         content_type = ContentType,
         body = Body,
         to_tag = ToTag1,
-        transport = undefined,
-        data = RespData
+        transport = undefined
     },
     {Resp, SendOpts2}.
 
@@ -316,7 +311,7 @@ preprocess_route(Request) ->
 strict_router(#sipmsg{app_id=AppId, ruri=RUri, call_id=CallId, 
                       routes=Routes}=Request) ->
     case 
-        nksip_lib:get_value(nksip, RUri#uri.opts) =/= undefined 
+        nksip_lib:get_value(<<"nksip">>, RUri#uri.opts) =/= undefined 
         andalso nksip_transport:is_local(AppId, RUri) of
     true ->
         case lists:reverse(Routes) of
@@ -340,7 +335,7 @@ ruri_has_maddr(#sipmsg{
                     ruri = RUri, 
                     transport=#transport{proto=Proto, local_port=LPort}
                 } = Request) ->
-    case nksip_lib:get_binary(maddr, RUri#uri.opts) of
+    case nksip_lib:get_binary(<<"maddr">>, RUri#uri.opts) of
         <<>> ->
             Request;
         MAddr -> 
@@ -350,7 +345,8 @@ ruri_has_maddr(#sipmsg{
                         {Proto, _, LPort} ->
                             RUri1 = RUri#uri{
                                 port = 0,
-                                opts = nksip_lib:delete(RUri#uri.opts, [maddr,transport])
+                                opts = nksip_lib:delete(RUri#uri.opts, 
+                                                        [<<"maddr">>, <<"transport">>])
                             },
                             Request#sipmsg{ruri=RUri1};
                         _ ->

@@ -83,7 +83,7 @@ transaction_1() ->
         "CSeq: 8 OPTIONS\r\n"
         "l: 0\r\n"
         "\r\n">>,
-    #sipmsg{vias=[#via{opts = [{branch,<<"z9hG4bK">>}]}]} = Req = parse(Msg),
+    #sipmsg{vias=[#via{opts = [{<<"branch">>,<<"z9hG4bK">>}]}]} = Req = parse(Msg),
     % It is detected as a pre-RFC3261 tag
     true = nksip_call_uas:transaction_id(Req) < 0,
     ok.
@@ -321,7 +321,7 @@ application_12() ->
         "\r\n">>,
     Reply = send(tcp, Msg),
     #sipmsg{
-        class = {resp, 200},
+        class = {resp, 200, _},
         contacts = [
             #uri{
                 scheme = sip, user = <<"+19725552222">>,
@@ -349,7 +349,7 @@ application_13() ->
         "\r\n">>,
     Reply = send(tcp, Msg),
     #sipmsg{
-        class = {resp, 200},
+        class = {resp, 200, _},
         contacts = [
             #uri{
                 scheme = sip, user = <<"+19725552222">>,
@@ -377,7 +377,7 @@ application_14() ->
         "\r\n">>,
     Reply = send(tcp, Msg),
     #sipmsg{
-        class = {resp, 200},
+        class = {resp, 200, _},
         contacts = [
             #uri{
                 scheme = sip, user = <<"user">>,

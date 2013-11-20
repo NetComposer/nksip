@@ -56,7 +56,7 @@ reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
     Call;
 
 reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+    #sipmsg{class={resp, Code, _}} = Resp,
     Async = lists:member(async, Opts),
     if
         Code < 101 -> ok;
@@ -106,7 +106,7 @@ fun_call(Msg, Opts) ->
 
 %% @private
 fun_response(Resp, Opts) ->
-    #sipmsg{class={resp, Code}, cseq_method=Method, dialog_id=DialogId} = Resp,
+    #sipmsg{class={resp, Code, _}, cseq_method=Method, dialog_id=DialogId}=Resp,
     case lists:member(get_response, Opts) of
         true ->
             {resp, Resp};

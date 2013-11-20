@@ -109,7 +109,8 @@ is_local(AppId, #uri{}=Uri) ->
 
 is_local(AppId, #via{}=Via) ->
     {Proto, Host, Port} = nksip_parse:transport(Via),
-    Uri = #uri{domain=Host, port=Port, opts=[{transport, Proto}]},
+    Transp = {<<"transport">>, nksip_lib:to_binary(Proto)},
+    Uri = #uri{domain=Host, port=Port, opts=[Transp]},
     is_local(AppId, Uri).
 
 

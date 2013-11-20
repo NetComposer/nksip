@@ -126,7 +126,7 @@ process_retrans(UAS, Call) ->
         orelse Status=:=proceeding orelse Status=:=completed
     of
         true when is_record(Resp, sipmsg) ->
-            #sipmsg{class={resp, Code}} = Resp,
+            #sipmsg{class={resp, Code, _Reason}} = Resp,
             #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
             case nksip_transport_uas:resend_response(Resp, GlobalId, AppOpts) of
                 {ok, _} ->

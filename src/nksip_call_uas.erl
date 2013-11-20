@@ -57,7 +57,7 @@ timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
 
 % INVITE 3456xx retrans
 timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
-    #sipmsg{class={resp, Code}} = Resp,
+    #sipmsg{class={resp, Code, _Reason}} = Resp,
     #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId}} = Call,
     UAS1 = case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
         {ok, _} ->
@@ -184,7 +184,7 @@ transaction_id(Req) ->
             cseq = CSeq
         } = Req,
     {_Transp, ViaIp, ViaPort} = nksip_parse:transport(Via),
-    case nksip_lib:get_value(branch, Via#via.opts) of
+    case nksip_lib:get_value(<<"branch">>, Via#via.opts) of
         <<"z9hG4bK", Branch/binary>> when byte_size(Branch) > 0 ->
             erlang:phash2({Method, ViaIp, ViaPort, Branch});
         _ ->

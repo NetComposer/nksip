@@ -116,8 +116,8 @@ basic() ->
         vias = [#via{domain=MainIp, opts=ViaOpts1}],
         transport = Transp1
     } = Resp1,
-    <<"::1">> = nksip_lib:get_value(received, ViaOpts1),
-    RPort1 = nksip_lib:get_integer(rport, ViaOpts1),
+    <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts1),
+    RPort1 = nksip_lib:get_integer(<<"rport">>, ViaOpts1),
     %% For UDP transport, local ip is set to [:::] (?)
     #transport{
         proto = udp,
@@ -132,8 +132,10 @@ basic() ->
 
 
     Fun2 = fun({req, #sipmsg{contacts=[Contact]}}) ->
-        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=[{transport, tcp}]} =
-            Contact,
+        #uri{
+            user=(<<"client1">>), domain=MainIp, port=5070, 
+            opts=[{<<"transport">>, <<"tcp">>}]
+        } = Contact,
         Self ! {Ref, ok_2}
     end,
     Opts2 = [{callback, Fun2}, get_request, get_response, make_contact],
@@ -144,8 +146,8 @@ basic() ->
         vias = [#via{domain=MainIp, opts=ViaOpts2}],
         transport = Transp2
     } = Resp2,
-    <<"::1">> = nksip_lib:get_value(received, ViaOpts2),
-    RPort2 = nksip_lib:get_integer(rport, ViaOpts2),
+    <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts2),
+    RPort2 = nksip_lib:get_integer(<<"rport">>, ViaOpts2),
     %% For TCP transport, local ip is set to [::1]
     #transport{
         proto = tcp,
@@ -216,7 +218,7 @@ proxy() ->
 
     %% The ACK is sent to Server2, and it sends it to Client2
     {req, ACK} = nksip_uac:ack(C1, DialogId1, [get_request]),
-    [#uri{domain=(<<"[::1]">>), port=5061, opts=[lr, {transport, <<"tcp">>}]}]   = 
+    [#uri{domain=(<<"[::1]">>), port=5061, opts=[<<"lr">>, {<<"transport">>, <<"tcp">>}]}]   = 
         nksip_sipmsg:field(ACK, parsed_routes),
 
     DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
@@ -255,7 +257,7 @@ bridge_4_6() ->
 
     %% The ACK is sent to Server2, and it sends it to Client2
     {req, ACK1} = nksip_uac:ack(C1, DialogId1, [get_request]),
-    [#uri{domain=(<<"[::1]">>), port=5061, opts=[lr, {transport, <<"tcp">>}]}] = 
+    [#uri{domain=(<<"[::1]">>), port=5061, opts=[<<"lr">>, {<<"transport">>, <<"tcp">>}]}]   = 
         nksip_sipmsg:field(ACK1, parsed_routes),
     #uri{domain=(<<"127.0.0.1">>)} = nksip_sipmsg:field(ACK1, parsed_ruri),
 
@@ -280,7 +282,7 @@ torture_1() ->
    #sipmsg{
         ruri = #uri{domain = <<"[2001:db8::10]">>, port = 0},
         vias = [#via{domain = <<"[2001:db8::9:1]">>, 
-                     opts = [{branch,<<"z9hG4bKas3-111">>}]}],
+                     opts = [{<<"branch">>,<<"z9hG4bKas3-111">>}]}],
         contacts = [#uri{disp = <<"\"Caller\" ">>, user = <<"caller">>,
                          domain = <<"[2001:db8::1]">>}]
     } = parse(Msg1),
@@ -344,8 +346,8 @@ torture_5() ->
         "\r\n">>,
     #sipmsg{
         vias = [#via{domain = <<"[2001:db8::9:1]">>,
-                     opts = [{received, Rec1 = <<"[2001:db8::9:255]">>},
-                             {branch, <<"z9hG4bKas3-111">>}]}]
+                     opts = [{<<"received">>, Rec1 = <<"[2001:db8::9:255]">>},
+                             {<<"branch">>, <<"z9hG4bKas3-111">>}]}]
     } = parse(Msg5),
     {ok,{16#2001,16#db8,0,0,0,0,16#9,16#255}} = nksip_lib:to_ip(Rec1),
     ok.
@@ -364,8 +366,8 @@ torture_6() ->
         "\r\n">>,
     #sipmsg{
         vias = [#via{domain = <<"[2001:db8::9:1]">>,
-                     opts = [{received, Rec2 = <<"2001:db8::9:255">>},
-                             {branch, <<"z9hG4bKas3">>}]}]
+                     opts = [{<<"received">>, Rec2 = <<"2001:db8::9:255">>},
+                             {<<"branch">>, <<"z9hG4bKas3">>}]}]
     } = parse(Msg6),
     {ok,{8193,3512,0,0,0,0,9,597}} = nksip_lib:to_ip(Rec2),
     ok.
@@ -413,11 +415,11 @@ torture_8() ->
         "\r\n">>,
     #sipmsg{vias = [
         #via{domain = <<"[2001:db8::9:1]">>, port = 6050,
-             opts = [{branch,<<"z9hG4bKas3-111">>}]},
+             opts = [{<<"branch">>,<<"z9hG4bKas3-111">>}]},
         #via{domain = <<"192.0.2.1">>, port = 0,
-             opts = [{branch,<<"z9hG4bKjhja8781hjuaij65144">>}]},
+             opts = [{<<"branch">>,<<"z9hG4bKjhja8781hjuaij65144">>}]},
         #via{proto = tcp, domain = <<"[2001:db8::9:255]">>, port = 0,
-             opts = [{branch,<<"z9hG4bK451jj">>}, {received,<<"192.0.2.200">>}]}
+             opts = [{<<"branch">>,<<"z9hG4bK451jj">>}, {<<"received">>,<<"192.0.2.200">>}]}
     ]} = parse(Msg8),
     ok.
 

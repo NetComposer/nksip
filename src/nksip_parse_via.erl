@@ -229,7 +229,7 @@ opts_key([], Acc, Via) ->
         [] ->
             {error, opts_key, ?LINE};
         _ ->
-            Opt = opts_key_filter(lists:reverse(Acc)),
+            Opt = list_to_binary(lists:reverse(Acc)),
             Via1 = Via#via{opts = Via#via.opts++[Opt]},
             opts([], Via1)
     end;
@@ -239,7 +239,7 @@ opts_key([Ch|_]=Rest, Acc, Via) when Ch==$;; Ch==$, ->
         [] ->
             {error, opts_key, ?LINE};
         _ ->
-            Opt = opts_key_filter(lists:reverse(Acc)),
+            Opt = list_to_binary(lists:reverse(Acc)),
             Via1 = Via#via{opts = Via#via.opts++[Opt]},
             opts(Rest, Via1)
     end;
@@ -267,7 +267,7 @@ opts_value([], Key, Acc, Via) ->
         [] ->
             {error, opts_value, ?LINE};
         _ ->
-            Opt = {opts_key_filter(Key), list_to_binary(lists:reverse(Acc))},
+            Opt = {list_to_binary(Key), list_to_binary(lists:reverse(Acc))},
             Via1 = Via#via{opts = Via#via.opts++[Opt]},
             opts([], Via1)
     end;
@@ -277,7 +277,7 @@ opts_value([Ch|_]=Rest, Key, Acc, Via) when Ch==$;; Ch==$, ->
         [] ->
             {error, opts_value, ?LINE};
         _ ->
-            Opt = {opts_key_filter(Key), list_to_binary(lists:reverse(Acc))},
+            Opt = {list_to_binary(Key), list_to_binary(lists:reverse(Acc))},
             Via1 = Via#via{opts = Via#via.opts++[Opt]},
             opts(Rest, Via1)
     end;
@@ -301,19 +301,6 @@ strip([9|Rest]) -> strip(Rest);
 strip(Rest) -> Rest.
 
 
-%% @private VIA Opts Key filters
-opts_key_filter(List) ->
-    case string:to_lower(List) of
-        "branch" -> branch;
-        "received" -> received;
-        "rport" -> rport;
-        "maddr" -> maddr;
-        "nksip" -> nksip;
-        "nksip_transport" -> nksip_transport;
-        _ -> list_to_binary(List)
-    end.
-
-
 
 %% ===================================================================
 %% EUnit tests
@@ -327,7 +314,7 @@ via_test() ->
     error = vias("SIP/3.0/udp host"),
     error = vias("SIP/2.0/udp "),
     error = vias("SIP/2.0/udp a, "),
-    [#via{proto=udp, port=0, opts=[rport, {received, <<"1.2.3.4">>}, <<"c">>]}] =
+    [#via{proto=udp, port=0, opts=[<<"rport">>, {<<"received">>, <<"1.2.3.4">>}, <<"c">>]}] =
         vias("SIP/2.0/udp host;rport;received=1.2.3.4 ; c"),
     [
         #via{proto = <<"kkk">>, domain = <<"host">>, port=1500, opts=[]},
@@ -338,7 +325,7 @@ via_test() ->
     [
         #via{proto=tls, domain= <<"host">>, port=0},
         #via{domain= <<"host2">>, port=5061, 
-            opts=[maddr, {received, <<"1.2.3.4">>}, <<"a">>]}
+            opts=[<<"maddr">>, {<<"received">>, <<"1.2.3.4">>}, <<"a">>]}
     ] = 
         vias("SIP/2.0/TLS  host  ,  SIP / 2.0 / UDP host2 : 5061  "
                 "; maddr; received = 1.2.3.4 ; a"). 

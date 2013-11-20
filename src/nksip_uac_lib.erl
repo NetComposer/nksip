@@ -93,10 +93,10 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             MinCSeq when MinCSeq > CSeq -> MinCSeq;
             _ -> CSeq
         end,
-        case nksip_lib:get_value(tag, From#uri.ext_opts) of
+        case nksip_lib:get_value(<<"tag">>, From#uri.ext_opts) of
             undefined -> 
                 FromTag = nksip_lib:uid(),
-                FromOpts = [{tag, FromTag}|From#uri.ext_opts];
+                FromOpts = [{<<"tag">>, FromTag}|From#uri.ext_opts];
             FromTag -> 
                 FromOpts = From#uri.ext_opts
         end,
@@ -161,9 +161,9 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             content_type = ContentType,
             body = Body,
             from_tag = FromTag,
-            to_tag = nksip_lib:get_binary(tag, To#uri.ext_opts),
+            to_tag = nksip_lib:get_binary(<<"tag">>, To#uri.ext_opts),
+            to_tag_candidate = <<>>,
             transport = #transport{},
-            data = [],
             start = nksip_lib:l_timestamp()
         },
         Opts1 = [
@@ -234,8 +234,7 @@ make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds}=R
         headers = nksip_lib:extract(Hds, <<"Route">>),
         contacts = [],
         content_type = [],
-        body = <<>>,
-        data = []
+        body = <<>>
     }.
 
 
@@ -262,8 +261,7 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
         contacts = [],
         headers = [],
         content_type = [],
-        body = <<>>,
-        data = []
+        body = <<>>
     }.
 
 
@@ -274,10 +272,10 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
 
 is_stateless(Resp, GlobalId) ->
     #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
-    case nksip_lib:get_binary(branch, Opts) of
+    case nksip_lib:get_binary(<<"branch">>, Opts) of
         <<"z9hG4bK", Branch/binary>> ->
             StatelessId = nksip_lib:hash({Branch, GlobalId, stateless}),
-            case nksip_lib:get_binary(nksip, Opts) of
+            case nksip_lib:get_binary(<<"nksip">>, Opts) of
                 StatelessId -> true;
                 _ -> false
             end;

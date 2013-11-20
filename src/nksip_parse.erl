@@ -156,7 +156,7 @@ dates(Term) -> dates([Term]).
     {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
-    Proto1 = case nksip_lib:get_value(transport, Opts) of
+    Proto1 = case nksip_lib:get_value(<<"transport">>, Opts) of
         Atom when is_atom(Atom) -> 
             Atom;
         Other ->
@@ -335,8 +335,7 @@ raw_sipmsg(Raw) ->
                                     app_id = AppId,
                                     ruri = RUri,
                                     transport = Transp,
-                                    start = Start,
-                                    data = []
+                                    start = Start
                                 };
                             _ ->
                                 throw({400, <<"Method Mismatch">>})
@@ -348,11 +347,10 @@ raw_sipmsg(Raw) ->
                 Response = get_sipmsg(Headers, Body, Proto),
                 Response#sipmsg{
                     id = Id,
-                    class = {resp, Code},
+                    class = {resp, Code, CodeText},
                     app_id = AppId,
                     transport = Transp,
-                    start = Start,
-                    data = [{reason, CodeText}]
+                    start = Start
                 };
             {resp, _, _} ->
                 throw({400, <<"Invalid Code">>})
@@ -471,9 +469,9 @@ get_sipmsg(Headers, Body, Proto) ->
         headers = Headers1,
         content_type = ContentType,
         body = Body1,
-        from_tag = nksip_lib:get_value(tag, From#uri.ext_opts, <<>>),
-        to_tag = nksip_lib:get_value(tag, To#uri.ext_opts, <<>>),
-        data = []
+        from_tag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
+        to_tag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
+        to_tag_candidate = <<>>
     }.
 
 

@@ -124,7 +124,7 @@ route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
 -spec response_stateless(nksip:response(), nksip_call:call()) -> 
     nksip_call:call().
 
-response_stateless(#sipmsg{class={resp, Code}}, Call) when Code < 101 ->
+response_stateless(#sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
     Call;
 
 response_stateless(#sipmsg{vias=[]}, Call) ->
@@ -132,7 +132,7 @@ response_stateless(#sipmsg{vias=[]}, Call) ->
     Call;
 
 response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) ->
-    #sipmsg{cseq_method=Method, class={resp, Code}} = Resp,
+    #sipmsg{cseq_method=Method, class={resp, Code, _}} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     Resp1 = Resp#sipmsg{vias=RestVia},
     case nksip_transport_uas:send_response(Resp1, GlobalId, AppOpts) of

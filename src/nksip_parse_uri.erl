@@ -327,7 +327,7 @@ opts_key([], Acc, Block, Uri) ->
         [] ->
             {error, opts_key, ?LINE};
         _ ->
-            Opt = opts_key_filter(lists:reverse(Acc), Block),
+            Opt = list_to_binary(lists:reverse(Acc)),
             Uri1 = case Block of
                 true -> Uri#uri{opts = Uri#uri.opts++[Opt]};
                 false -> Uri#uri{ext_opts = Uri#uri.ext_opts++[Opt]}
@@ -340,7 +340,7 @@ opts_key([Ch|_]=Rest, Acc, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$, ->
         [] ->
             {error, opts_key, ?LINE};
         _ ->
-            Opt = opts_key_filter(lists:reverse(Acc), Block),
+            Opt = list_to_binary(lists:reverse(Acc)),
             Uri1 = case Block of
                 true -> Uri#uri{opts = Uri#uri.opts++[Opt]};
                 false -> Uri#uri{ext_opts = Uri#uri.ext_opts++[Opt]}
@@ -376,7 +376,7 @@ opts_value([], Key, Acc, Quoted, Block, Uri) ->
         true ->
             {error, opts_value, ?LINE};
         false ->
-            Opt = {opts_key_filter(Key, Block), list_to_binary(lists:reverse(Acc))},
+            Opt = {list_to_binary(Key), list_to_binary(lists:reverse(Acc))},
             Uri1 = case Block of
                 true -> Uri#uri{opts = Uri#uri.opts++[Opt]};
                 false -> Uri#uri{ext_opts = Uri#uri.ext_opts++[Opt]}
@@ -396,7 +396,7 @@ opts_value([Ch|_]=Rest, Key, Acc, false, Block, Uri)
         [] ->
             {error, opts_value, ?LINE};
         _ ->
-            Opt = {opts_key_filter(Key, Block), list_to_binary(lists:reverse(Acc))},
+            Opt = {list_to_binary(Key), list_to_binary(lists:reverse(Acc))},
             Uri1 = case Block of
                 true -> Uri#uri{opts = Uri#uri.opts++[Opt]};
                 false -> Uri#uri{ext_opts = Uri#uri.ext_opts++[Opt]}
@@ -522,20 +522,20 @@ strip([9|Rest]) -> strip(Rest);
 strip(Rest) -> Rest.
 
 
-%% @private UIR Opts Key filters
-opts_key_filter(List, true) ->
-    case string:to_lower(List) of
-        "transport" -> transport;
-        "lr" -> lr;
-        "maddr" -> maddr;
-        _ -> list_to_binary(List) 
-    end;
+% %% @private UIR Opts Key filters
+% list_to_binary(List, true) ->
+%     case string:to_lower(List) of
+%         % "transport" -> transport;
+%         %"lr" -> lr;
+%         "maddr" -> maddr;
+%         _ -> list_to_binary(List) 
+%     end;
 
-opts_key_filter(List, false) ->
-    case string:to_lower(List) of
-        "tag" -> tag;
-        _ -> list_to_binary(List) 
-    end.
+% list_to_binary(List, false) ->
+%     case string:to_lower(List) of
+%         "tag" -> tag;
+%         _ -> list_to_binary(List) 
+%     end.
 
 
 
@@ -607,27 +607,27 @@ uri3_test() ->
         uris("  sips  :  host  :  5061  "),
     [#uri{
         disp=(<<"\"My name\" ">>), user=(<<"user">>), pass=(<<"pass">>), 
-        domain= <<"host">>, port=5061, opts=[{transport,<<"tcp">>}],
+        domain= <<"host">>, port=5061, opts=[{<<"transport">>,<<"tcp">>}],
         headers=[<<"head1">>], ext_opts=[{<<"op1">>,<<"\"1\"">>}]
     }] = uris(" \"My name\" <sip:user:pass@host:5061;transport=tcp?head1> ; op1=\"1\""),
     [#uri{
         disp=(<<"Name   ">>), domain= <<"host">>, port=5061,
         ext_headers=[{<<"hd2">>,<<"2">>},{<<"hd3">>,<<"a">>}]
     }] = uris(" Name   < sips : host:  5061 > ?hd2=2&hd3=a"),
-    [#uri{user=(<<"user">>), domain= <<"host">>, opts=[lr,{<<"t">>,<<"1">>},<<"d">>]}] = 
+    [#uri{user=(<<"user">>), domain= <<"host">>, opts=[<<"lr">>,{<<"t">>,<<"1">>},<<"d">>]}] = 
         uris(" < sip : user@host ;lr; t=1 ;d ? a=1 >"),
-    [#uri{ext_opts = [{tag, <<"a48s">>}]}] = 
+    [#uri{ext_opts = [{<<"tag">>, <<"a48s">>}]}] = 
         uris("\"A. G. Bell\" <sip:agb@bell-telephone.com> ;tag=a48s"),
     [#uri{
         scheme = sip,
         user = <<"+12125551212">>,
         domain = <<"server.phone2net.com">>,
-        ext_opts = [{tag, <<"887s">>}]
+        ext_opts = [{<<"tag">>, <<"887s">>}]
     }] = uris("sip:+12125551212@server.phone2net.com;tag=887s"),
     [#uri{
         scheme = sip,user = <<"xxxx">>,
         pass = <<>>,domain = <<"192.168.1.2">>,port = 5060,
-        opts = [{transport,<<"TCP">>},<<"ob">>],
+        opts = [{<<"transport">>,<<"TCP">>},<<"ob">>],
         headers = [],
         ext_opts = [
             {<<"reg-id">>,<<"1">>},
