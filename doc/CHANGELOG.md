@@ -1,6 +1,14 @@
 Changelog
 ========
 
+0.4.0 (not yet released)
+------------------------
+ 
+* Allow an endpoint to start a dialog with itself
+* Bug corrections
+
+
+
 [0.3.0](https://github.com/kalta/nksip/releases/tag/v0.3.0)
 ------------------------
  
