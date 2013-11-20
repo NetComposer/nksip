@@ -57,6 +57,8 @@
     code :: 0 | nksip:response_code(),
     to_tags = [] :: [nksip:tag()],
     stateless :: boolean(),
+    pracks = [] :: [{RSeq::nksip:cseq(), CSeq::nksip:cseq(), 
+                     CSeqMethod:: nksip:method(), DialogId::nksip_dialog:id()}],
     timeout_timer :: {nksip_call_lib:timeout_timer(), reference()},
     retrans_timer :: {nksip_call_lib:retrans_timer(), reference()},
     next_retrans :: non_neg_integer(),

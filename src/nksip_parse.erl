@@ -422,6 +422,14 @@ get_sipmsg(Headers, Body, Proto) ->
         error -> ContentType = throw({400, <<"Invalid Content-Type">>});
         ContentType -> ok
     end,
+    case tokens(proplists:get_all_values(<<"Require">>, Headers)) of
+        error -> Require = throw({400, <<"Invalid Require">>});
+        Require -> ok
+    end,
+    case tokens(proplists:get_all_values(<<"Supported">>, Headers)) of
+        error -> Supported = throw({400, <<"Invalid Supported">>});
+        Supported -> ok
+    end,
     case header_values(<<"Content-Length">>, Headers) of
         [] when Proto=/=tcp, Proto=/=tls -> 
             ok;
@@ -455,7 +463,8 @@ get_sipmsg(Headers, Body, Proto) ->
     Headers1 = nksip_lib:delete(Headers, [
                         <<"From">>, <<"To">>, <<"Call-ID">>, <<"Via">>, <<"CSeq">>,
                         <<"Max-Forwards">>, <<"Content-Type">>, 
-                        <<"Content-Length">>, <<"Route">>, <<"Contact">>]),
+                        <<"Content-Length">>, <<"Route">>, <<"Contact">>,
+                        <<"Require">>, <<"Supported">>]),
     #sipmsg{
         from = From,
         to = To,
@@ -466,8 +475,10 @@ get_sipmsg(Headers, Body, Proto) ->
         forwards = Forwards,
         routes = Routes,
         contacts = Contacts,
-        headers = Headers1,
         content_type = ContentType,
+        require = Require,
+        supported = Supported,
+        headers = Headers1,
         body = Body1,
         from_tag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
         to_tag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
@@ -510,6 +521,7 @@ get_raw_headers(Packet, Acc) ->
                         "RECORD-ROUTE" -> <<"Record-Route">>;
                         "REQUIRE" -> <<"Require">>;
                         "ROUTE" -> <<"Route">>;
+                        "RSEQ" -> <<"RSeq">>;
                         "SUBJECT" -> <<"Subject">>;
                         "S" -> <<"Subject">>;
                         "SUPPORTED" -> <<"Supported">>;

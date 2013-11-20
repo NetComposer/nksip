@@ -80,6 +80,12 @@ reply({#sipmsg{class={resp, Code, _Reason}, id=MsgId}=Resp, SendOpts},
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     DialogId = nksip_dialog:class_id(uas, Resp),
     Resp1 = Resp#sipmsg{dialog_id=DialogId},
+
+
+
+
+
+    
     case nksip_transport_uas:send_response(Resp1, GlobalId, SendOpts++AppOpts) of
         {ok, Resp2} -> ok;
         error -> {Resp2, _} = nksip_reply:reply(Req, service_unavailable)

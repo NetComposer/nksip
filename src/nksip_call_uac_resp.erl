@@ -45,8 +45,18 @@ response(Resp, #call{trans=Trans}=Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq_method=Method} = Resp,
     TransId = nksip_call_uac:transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of
-        #trans{class=uac}=UAC -> 
-            response(Resp, UAC, Call);
+        #trans{class=uac, from=From}=UAC -> 
+            IsProxy = case From of {fork, _} -> true; _ -> false end,
+            DialogId = nksip_call_uac_dialog:uac_id(Resp, IsProxy, Call),
+            Resp1 = Resp#sipmsg{dialog_id=DialogId},
+            case is_prack_retrans(Resp1, UAC) of
+                true ->
+                    ?call_info("UAC received retransmission of reliable provisional "
+                               "response", [], Call),
+                    Call;
+                false ->
+                    response(Resp1, UAC, Call)
+            end;
         _ -> 
             ?call_info("UAC received ~p ~p response for unknown request", 
                        [Method, Code], Call),
@@ -59,7 +69,13 @@ response(Resp, #call{trans=Trans}=Call) ->
     nksip_call:call().
 
 response(Resp, UAC, Call) ->
-    #sipmsg{class={resp, Code, _Reason}, id=MsgId, transport=Transport} = Resp,
+    #sipmsg{
+        class = {resp, Code, _Reason}, 
+        id = MsgId, 
+        dialog_id = DialogId,
+        transport = Transport,
+        require = Require
+    } = Resp,
     #trans{
         id = Id, 
         start = Start, 
@@ -67,16 +83,13 @@ response(Resp, UAC, Call) ->
         opts = Opts,
         method = Method,
         request = Req, 
-        ruri = RUri,
-        from = From
+        ruri = RUri
     } = UAC,
     #call{msgs=Msgs, opts=#call_opts{max_trans_time=MaxTime}} = Call,
     % We don't use the Req's DialogId
     % If it was a dialog creation, it is goint to be <<>>
     % If it is a uac in-dialog, it has to be the same
     % If it is a proxy in-dialog, it has to be the same
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
-    DialogId = nksip_call_uac_dialog:uac_id(Resp, IsProxy, Call),
     Now = nksip_lib:timestamp(),
     case Now-Start < MaxTime of
         true -> 
@@ -108,7 +121,16 @@ response(Resp, UAC, Call) ->
     end,
     Msg = {MsgId, Id, DialogId},
     Call5 = Call4#call{msgs=[Msg|Msgs]},
-    response_status(Status, Resp1, UAC1, Call5).
+    Call6 = response_status(Status, Resp1, UAC1, Call5),
+    case Method of
+        'INVITE' when Code > 100 ->
+            case lists:keymember(<<"100rel">>, 1, Require) of
+                true -> send_prack(Resp1, Id, DialogId, Call6);
+                false -> Call6
+            end;
+        _ ->
+            Call6
+    end.
 
 
 %% @private
@@ -352,6 +374,72 @@ send_ack(#trans{request=Req, id=Id}, Call) ->
         error -> 
             #sipmsg{app_id=AppId, call_id=CallId} = Ack,
             ?notice(AppId, CallId, "UAC ~p could not send non-2xx ACK", [Id])
+    end.
+
+
+%% @private
+-spec is_prack_retrans(nksip:response(), nksip_call:trans()) ->
+    boolean().
+
+is_prack_retrans(Resp, UAC) ->
+    #sipmsg{dialog_id=DialogId, cseq=CSeq, cseq_method=Method} = Resp,
+    #trans{pracks=PRs} = UAC,
+    case nksip_sipmsg:header(Resp, <<"RSeq">>, integer) of
+        RSeq when is_integer(RSeq) ->
+            lists:member({RSeq, CSeq, Method, DialogId}, PRs);
+        _ ->
+            false
+    end.
+
+
+%% @private
+-spec send_prack(nksip:response(), nksip_call_uac:id(), 
+                 nksip_dialog:id(), nksip_call:call()) ->
+    nksip_call:call().
+
+send_prack(Resp, Id, DialogId, Call) ->
+    #sipmsg{cseq=CSeq} = Resp,
+    #call{app_id=AppId, trans=Trans, opts=#call_opts{app_opts=AppOpts}} = Call,
+    try
+        case nksip_sipmsg:header(Resp, <<"RSeq">>, integer) of
+            RSeq when RSeq > 0 -> ok;
+            _ -> RSeq = throw(invalid_rseq)
+        end,
+        case lists:keyfind(Id, #trans.id, Trans) of
+            #trans{} = UAC -> ok;
+            _ -> UAC = throw(no_trans)
+        end,
+        #trans{method=Method, pracks=OldPRs} = UAC,
+        case OldPRs of
+            [] -> ok;
+            [{OldRSeq, _, _, _}] when RSeq==OldRSeq+1 -> ok;
+            _ -> throw(rseq_out_of_order)
+        end,
+        RACK = list_to_binary([ 
+            integer_to_list(RSeq),
+            32,
+            integer_to_list(CSeq),
+            32,
+            nksip_lib:to_list(Method)
+        ]),
+        Opts = [{post_headers, [{<<"RAck">>, RACK}]}],
+        case nksip_call_uac_dialog:make(DialogId, 'PRACK', Opts, Call) of
+            {ok, {Uri, Opts1}, Call1} -> 
+                case nksip_uac_lib:make(AppId, 'PRACK', Uri, Opts1, AppOpts) of
+                   {ok, Req, ReqOpts} -> 
+                        UAC1 = UAC#trans{pracks=[{RSeq, CSeq, Method, DialogId}|OldPRs]},
+                        Call2 = update(UAC1, Call1),
+                        nksip_call_uac_req:request(Req, ReqOpts, none, Call2);
+                    {error, Error} ->
+                        throw(Error)
+                end;
+            {error, Error} ->
+                throw(Error)
+        end
+    catch
+        throw:TError ->
+            ?call_warning("could not send PRACK: ~p", [TError], Call),
+            Call
     end.
 
 

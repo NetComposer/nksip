@@ -94,6 +94,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`make_supported': Generated a Supported header</li>
 %%  <li>`make_accept': Generates an Accept header</li>
 %%  <li>`make_date': Generates a Date header</li>
+%%  <li>`make_100rel': If present a Require: 100rel header will be included</li>
 %%  <li>`reason': Custom reason phrase</li>
 %%  <li>`to_tag': If present, it will override the To tag in the request</li>
 %% </ul>
@@ -133,8 +134,34 @@ response(Req, Code, Headers, Body, Opts) ->
         contacts = ReqContacts,
         routes = ReqRoutes,
         headers = ReqHeaders, 
-        to_tag_candidate = ToTagCandidate
+        to_tag_candidate = ToTagCandidate,
+        require = Require,
+        supported = Supported
     } = Req, 
+    Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
+        true ->
+            case lists:keymember(<<"100rel">>, 1, Require) of
+                true ->
+                    true;
+                false ->
+                    case lists:keymember(<<"100rel">>, 1, Supported) of
+                        true ->
+                            case lists:member(make_100rel, Opts) of
+                                true ->
+                                    true;
+                                false ->
+                                    case lists:member(no_100rel, Opts) of
+                                        true -> false;
+                                        false -> true
+                                    end
+                            end;
+                        false ->
+                            false
+                    end
+            end;
+        false ->
+            false
+    end,
     case Method of 
         'INVITE' when Code > 100 ->
             MakeAllow = MakeSupported = true;
@@ -174,10 +201,6 @@ response(Req, Code, Headers, Body, Opts) ->
             true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(Opts)};
             false -> none
         end,
-        case MakeSupported of
-            true -> {default_single, <<"Supported">>, ?SUPPORTED};
-            false -> none
-        end,
         case lists:member(make_accept, Opts) of
             true -> {default_single, <<"Accept">>, ?ACCEPT};
             false -> none
@@ -188,7 +211,7 @@ response(Req, Code, Headers, Body, Opts) ->
             false -> none
         end,
         if
-            Method =:= 'INVITE', Code > 100, Code < 300 ->
+            Method=='INVITE', Code>100, Code<300 ->
                 {multi, <<"Record-Route">>, 
                         proplists:get_all_values(<<"Record-Route">>, ReqHeaders)};
             true ->
@@ -229,6 +252,14 @@ response(Req, Code, Headers, Body, Opts) ->
     ContentType = case Body of 
         #sdp{} -> [{<<"application/sdp">>, []}]; 
         _ -> [] 
+    end,
+    Supported = case MakeSupported of
+        true -> ?SUPPORTED;
+        false -> []
+    end,
+    Require = case Reliable of
+        true -> [{<<"100rel">>, []}];
+        false -> []
     end,
     Vias1 = case Code of
         100 -> [LastVia];
@@ -277,6 +308,8 @@ response(Req, Code, Headers, Body, Opts) ->
         contacts = Contacts,
         headers = Headers1,
         content_type = ContentType,
+        supported = Supported,
+        require = Require,
         body = Body,
         to_tag = ToTag1,
         transport = undefined

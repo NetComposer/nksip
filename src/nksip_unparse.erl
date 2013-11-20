@@ -253,6 +253,8 @@ serialize(#sipmsg{
             contacts = Contacts, 
             headers = Headers, 
             content_type = ContentType, 
+            require = Require, 
+            supported = Supported,
             body = Body
         }) ->
     Body1 = case Body of
@@ -279,6 +281,14 @@ serialize(#sipmsg{
         case ContentType of
             [] -> [];
             _ -> [{<<"Content-Type">>, raw_tokens(ContentType)}]
+        end,
+        case Require of
+            [] -> [];
+            _ -> [{<<"Require">>, raw_tokens(Require)}]
+        end,
+        case Supported of
+            [] -> [];
+            _ -> [{<<"Supported">>, raw_tokens(Supported)}]
         end,
         Headers
     ],

@@ -115,10 +115,6 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppOpts)};
                 false -> []
             end,
-            case lists:member(make_supported, FullOpts) of
-                true -> {default_single, <<"Supported">>, ?SUPPORTED};
-                false -> []
-            end,
             case lists:member(make_accept, FullOpts) of
                 true -> {default_single, <<"Accept">>, ?ACCEPT};
                 false -> []
@@ -142,6 +138,14 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     ContentTypeTokens -> ContentTypeTokens
                 end
         end,
+        Require = case lists:member(make_100rel, FullOpts) andalso Method=='INVITE' of
+            true -> [{<<"100rel">>, []}];
+            false -> []
+        end,
+        Supported = case lists:member(make_supported, FullOpts) of
+            true -> ?SUPPORTED;
+            false -> []
+        end,
         RUri1 = nksip_parse:uri2ruri(RUri),
         Req = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
@@ -159,6 +163,8 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             contacts = Contacts,
             headers = Headers1,
             content_type = ContentType,
+            require = Require,
+            supported = Supported,
             body = Body,
             from_tag = FromTag,
             to_tag = nksip_lib:get_binary(<<"tag">>, To#uri.ext_opts),
@@ -263,7 +269,6 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
         content_type = [],
         body = <<>>
     }.
-
 
 
 %% @doc Checks if a response is a stateless response

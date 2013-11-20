@@ -27,8 +27,8 @@
 %% Defines
 %% ===================================================================
 
--define(VERSION, "0.1.0").
--define(SUPPORTED, <<>>).
+-define(VERSION, "0.4.0").
+-define(SUPPORTED, <<"100rel">>).
 -define(ACCEPT, <<"application/sdp">>).
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO">>).
 
@@ -151,8 +151,10 @@
     forwards :: non_neg_integer(),
     routes :: [nksip:uri()],
     contacts :: [nksip:uri()],
-    headers :: [nksip:header()],
     content_type :: [nksip:token()],
+    require :: [nksip:token()],
+    supported :: [nksip:token()],
+    headers :: [nksip:header()],
     body :: nksip:body(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),

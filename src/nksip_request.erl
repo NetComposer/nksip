@@ -45,6 +45,8 @@
                   cseq | parsed_cseq | cseq_num | cseq_method | forwards |
                   routes | parsed_routes | contacts | parsed_contacts | 
                   content_type | parsed_content_type | 
+                  require | parsed_require | 
+                  supported | parsed_supported | 
                   all_headers | body | dialog_id | local | remote |
                   binary().
 
@@ -208,6 +210,26 @@
 %%          <td>`parsed_content_type'</td>
 %%          <td>`['{@link nksip:token()}`]'</td>
 %%          <td>Content-Type Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`require</td>
+%%          <td>`binary()'</td>
+%%          <td>Require Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`parsed_require</td>
+%%          <td>`['{@link nksip:token()}`]'</td>
+%%          <td>Require Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`supported</td>
+%%          <td>`binary()'</td>
+%%          <td>Supported Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`parsed_supported</td>
+%%          <td>`['{@link nksip:token()}`]'</td>
+%%          <td>Supported Header</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`all_headers'</td>

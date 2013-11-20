@@ -82,6 +82,10 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_contacts -> S#sipmsg.contacts;
         content_type -> nksip_unparse:tokens(S#sipmsg.content_type);
         parsed_content_type -> S#sipmsg.content_type;
+        require -> nksip_unparse:tokens(S#sipmsg.require);
+        parsed_require -> S#sipmsg.require;
+        supported -> nksip_unparse:tokens(S#sipmsg.supported);
+        parsed_supported -> S#sipmsg.supported;
         body -> S#sipmsg.body;
         dialog_id -> S#sipmsg.dialog_id;
         expire -> S#sipmsg.expire;
@@ -119,6 +123,8 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"Route">> -> field(SipMsg, routes);
         <<"Contact">> -> field(SipMsg, contacts);
         <<"Content-Type">> -> [field(SipMsg, content_type)];
+        <<"Require">> -> [field(SipMsg, require)];
+        <<"Supported">> -> [field(SipMsg, supported)];
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 
@@ -157,6 +163,14 @@ all_headers(SipMsg) ->
         case field(SipMsg, content_type) of
             <<>> -> [];
             ContentType -> {<<"Content-Type">>, ContentType}
+        end,
+        case field(SipMsg, require) of
+            <<>> -> [];
+            Require -> {<<"Require">>, Require}
+        end,
+        case field(SipMsg, supported) of
+            <<>> -> [];
+            Supported -> {<<"Supported">>, Supported}
         end,
         SipMsg#sipmsg.headers
     ]).

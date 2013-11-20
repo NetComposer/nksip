@@ -371,6 +371,13 @@ register(AppId, Dest, Opts) ->
 %%          <td></td>
 %%          <td>If included it will generate a `Expires' header</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`make_100rel</td>
+%%          <td></td>
+%%          <td></td>
+%%          <td>If present, a <i>Require: 100rel</i> will be generated, and the other
+%%          party must then send provisional responses.</td>
+%%      </tr>
 %% </table>
 %%
 %% A `make_contact' option will be automatically added if no contact is defined.

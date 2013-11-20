@@ -290,11 +290,14 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
     Call1 = update(UAS1, Call),
     case Route of
         {process, _} when Method=/='CANCEL', Method=/='ACK' ->
-            case nksip_sipmsg:header(Req, <<"Require">>, tokens) of
+            #sipmsg{require=Require} = Req,
+            case
+                [Token || {Token, _} <- Require, Token /= <<"100rel">>]
+            of
                 [] -> 
                     do_route(Route, UAS1, Call1);
-                Requires -> 
-                    RequiresTxt = nksip_lib:bjoin([T || {T, _} <- Requires]),
+                BadRequires -> 
+                    RequiresTxt = nksip_lib:bjoin(BadRequires),
                     reply({bad_extension,  RequiresTxt}, UAS1, Call1)
             end;
         _ ->

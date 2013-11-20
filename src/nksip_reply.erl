@@ -157,7 +157,7 @@
 %% ===================================================================
 
 -type sipreply() ::
-    ringing | session_progress | 
+    ringing | session_progress | rel_ringing | rel_session_progress |
     ok | {ok, [nksip:header()]} | {ok, [nksip:header()], nksip:body()} | 
     {ok, [nksip:header()], nksip:body(), nksip_lib:proplist()} | 
     answer | {answer, [nksip:header()]} | {answer, [nksip:header()], nksip:body()} | 
@@ -253,8 +253,12 @@ reqreply(#reqreply{}=Reply) ->
     Reply;
 reqreply(ringing) ->
     #reqreply{code=180};
+reqreply(rel_ringing) ->
+    #reqreply{code=180, opts=['100rel']};
 reqreply(session_progress) ->
     #reqreply{code=183};
+reqreply(rel_session_progress) ->
+    #reqreply{code=183, opts=['100rel']};
 reqreply(ok) ->
     #reqreply{code=200};
 reqreply({ok, Headers}) ->
