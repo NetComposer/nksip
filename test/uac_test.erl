@@ -132,7 +132,7 @@ uac() ->
     end,
 
     % Sync, callback for request and provisional response, get_request, get_response
-    {resp, #sipmsg{class={resp, 486, _, _}, call_id=CallId5}=Resp5} = 
+    {resp, #sipmsg{class={resp, 486, _}, call_id=CallId5}=Resp5} = 
         nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, get_response]),
     DialogId5 = nksip_dialog:class_id(uac, Resp5),
     receive 

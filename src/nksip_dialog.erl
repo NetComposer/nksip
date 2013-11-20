@@ -280,7 +280,7 @@ class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=
     #sipmsg{call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
     case ToTag of
         <<>> -> <<>>;
-        _ -> dialog_id(CallId, FromTag, ToTag)
+        _ -> dialog_id(Class, CallId, FromTag, ToTag)
     end;
 
 class_id(_, #sipmsg{}) ->
