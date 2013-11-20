@@ -88,3 +88,5 @@ Contributing
 Please contribute with code, bug fixes, documentation fixes, testing with SIP devices or any other form. Use 
 GitHub Issues and Pull Requests, forking this repository.
 
+
+[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/eaae4b01a225feae6da3b7142c17d8c0 "githalytics.com")](http://githalytics.com/kalta/nksip)
