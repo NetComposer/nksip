@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, ack/2, response/3, make/4, new_local_seq/2]).
+-export([request/2, ack/2, response/3, make/4, new_local_seq/2, uac_id/3]).
 
 -type call() :: nksip_call:call().
 
@@ -264,6 +264,34 @@ new_local_seq(#sipmsg{dialog_id=DialogId}, Call) ->
         not_found ->
             {nksip_config:cseq(), Call}
     end.
+
+
+%% @private
+-spec uac_id(nksip:request()|nksip:response(), boolean(), call()) ->
+    nksip_dialog:id().
+
+uac_id(SipMsg, IsProxy, #call{dialogs=Dialogs}) ->
+    case nksip_dialog:class_id(uac, SipMsg) of
+        <<>> ->
+            <<>>;
+        DlgIdA when not IsProxy ->
+            DlgIdA;
+        DlgIdA ->
+            % If it is a proxy, we can be proxying a request in the opposite
+            % direction, DlgIdA is not goint to exist, but DlgIdB is the
+            % original dialog, use it
+            case lists:keymember(DlgIdA, #dialog.id, Dialogs) of
+                true ->
+                    DlgIdA;
+                false ->
+                    DlgIdB = nksip_dialog:class_id(uas, SipMsg),
+                    case lists:keymember(DlgIdB, #dialog.id, Dialogs) of
+                        true -> DlgIdB;
+                        false -> DlgIdA
+                    end
+            end
+    end.
+
 
 
 

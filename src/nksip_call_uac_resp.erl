@@ -67,15 +67,16 @@ response(Resp, UAC, Call) ->
         opts = Opts,
         method = Method,
         request = Req, 
-        ruri = RUri
+        ruri = RUri,
+        from = From
     } = UAC,
     #call{msgs=Msgs, opts=#call_opts{max_trans_time=MaxTime}} = Call,
-
     % We don't use the Req's DialogId
     % If it was a dialog creation, it is goint to be <<>>
     % If it is a uac in-dialog, it has to be the same
     % If it is a proxy in-dialog, it has to be the same
-    DialogId = nksip_dialog:class_id(uac, Resp),
+    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    DialogId = nksip_call_uac_dialog:uac_id(Resp, IsProxy, Call),
     Now = nksip_lib:timestamp(),
     case Now-Start < MaxTime of
         true -> 

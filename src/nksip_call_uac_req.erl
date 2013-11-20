@@ -102,33 +102,14 @@ resend_auth(Req, UAC, Call) ->
 
 new_uac(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId, ruri=RUri} = Req, 
-    #call{next=Id, trans=Trans, msgs=Msgs, dialogs=Dialogs} = Call,
+    #call{next=Id, trans=Trans, msgs=Msgs} = Call,
     Status = case Method of
         'ACK' -> ack;
         'INVITE'-> invite_calling;
         _ -> trying
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
-    DialogId = case nksip_dialog:class_id(uac, Req) of
-        <<>> ->
-            <<>>;
-        DlgIdA when not IsProxy ->
-            DlgIdA;
-        DlgIdA ->
-            % If it is a proxy, we can be proxying a request in the opposite
-            % direction, DlgIdA is not goint to exist, but DlgIdB is the
-            % original dialog, use it
-            case lists:keymember(DlgIdA, #dialog.id, Call#call.dialogs) of
-                true ->
-                    DlgIdA;
-                false ->
-                    DlgIdB = nksip_dialog:class_id(uas, Req),
-                    case lists:keymember(DlgIdB, #dialog.id, Dialogs) of
-                        true -> DlgIdB;
-                        false -> DlgIdA
-                    end
-            end
-    end,
+    DialogId = nksip_call_uac_dialog:uac_id(Req, IsProxy, Call),
     UAC = #trans{
         id = Id,
         class = uac,

@@ -545,6 +545,6 @@ dialog() ->
     {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{headers, [{"Nk-Rr", true}]}]),
     error = nksip_dialog:field(C1, DialogId1, status),
     error = nksip_dialog:field(C2, DialogId2, status),
-    bye = nksip_dialog:field(S1, DialogId1, status),
+    error = nksip_dialog:field(S1, DialogId1, status),
     ok.
 
