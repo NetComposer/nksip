@@ -159,13 +159,7 @@
     expire :: nksip_lib:timestamp(),
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp()
-    % data = [] :: nksip_lib:proplist()
 }).
-
-%% Data:
-%% - {reason, binary()}
-%% - {to_tag, binary()}
-
 
 
 -record(reqreply, {
