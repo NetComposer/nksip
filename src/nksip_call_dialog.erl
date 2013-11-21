@@ -125,10 +125,12 @@ status_update(Class, Status, Dialog, Call) ->
                            [DialogId, OldStatus, Status]),
                     cast(dialog_update, {status, Status}, Dialog, Call)
             end,
-            Timeout = case Status of
-                confirmed -> TDlg;
-                _ -> 64*T1
-            end,
+            % Testing using only a single timeout time
+            Timeout = TDlg,
+            % Timeout = case Status of
+            %     confirmed -> TDlg;
+            %     _ -> 64*T1
+            % end,
             Dialog#dialog{
                 status = Status, 
                 retrans_timer = undefined,
