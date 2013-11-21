@@ -93,8 +93,28 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
         reason -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
         realms -> nksip_auth:realms(S);
-        _ when is_binary(Field) -> header(S, Field);
-        _ -> invalid_field 
+        rseq_num -> 
+            case header(S, <<"RSeq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
+        parsed_rack ->
+            case header(S, <<"RAck">>) of 
+                [RAck] ->
+                    case nksip_lib:tokens(RAck) of
+                        [RSeq, CSeq, Method] ->
+                            {
+                                nksip_lib:to_integer(RSeq),
+                                nksip_lib:to_integer(CSeq),
+                                nksip_parse:method(Method)
+                            };
+                        _ ->
+                            undefined
+                    end;
+                _ ->
+                    undefined
+            end;
+        _ when is_binary(Field) -> 
+            header(S, Field);
+        _ -> 
+            invalid_field 
     end.
 
 

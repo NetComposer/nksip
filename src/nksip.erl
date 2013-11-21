@@ -263,10 +263,10 @@
 %%          for INVITE requests.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`make_100rel'</td>
+%%          <td>`require_100rel'</td>
 %%          <td></td>
 %%          <td></td>
-%%          <td>If present, all <i>INVITE</i> requests will have 'make_100rel' option 
+%%          <td>If present, all <i>INVITE</i> requests will have 'require_100rel' option 
 %%          activated.</td>
 %%      </tr>
 %%  </table>
@@ -386,8 +386,8 @@ start(AppId, Module, Args, Opts) ->
                 true -> no_100;
                 _ -> []
             end,
-            case lists:member(make_100rel, Opts) of
-                true -> make_100rel;
+            case lists:member(require_100rel, Opts) of
+                true -> require_100rel;
                 _ -> []
             end
         ],

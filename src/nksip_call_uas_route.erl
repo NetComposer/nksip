@@ -64,7 +64,8 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                 _ when not is_record(Req, sipmsg) ->
                     Call1;
                 _ when Fun=:=invite; Fun=:=reinvite; Fun=:=bye; 
-                       Fun=:=options; Fun=:=register; Fun=:=info ->
+                       Fun=:=options; Fun=:=register; Fun=:=info;
+                       Fun=:=prack ->
                     {Resp, SendOpts} = nksip_reply:reply(Req, Reply),
                     #sipmsg{class={resp, Code, _Reason}} = Resp,
                     {Resp1, SendOpts1} = case Code >= 200 of

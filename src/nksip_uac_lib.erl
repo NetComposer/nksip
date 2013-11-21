@@ -138,7 +138,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     ContentTypeTokens -> ContentTypeTokens
                 end
         end,
-        Require = case lists:member(make_100rel, FullOpts) andalso Method=='INVITE' of
+        Require = case Method=='INVITE' andalso lists:member(require_100rel, FullOpts) of
             true -> [{<<"100rel">>, []}];
             false -> []
         end,

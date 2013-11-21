@@ -372,7 +372,7 @@ register(AppId, Dest, Opts) ->
 %%          <td>If included it will generate a `Expires' header</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`make_100rel</td>
+%%          <td>`require_100rel</td>
 %%          <td></td>
 %%          <td></td>
 %%          <td>If present, a <i>Require: 100rel</i> will be generated, and the other

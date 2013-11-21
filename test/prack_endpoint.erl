@@ -1,0 +1,165 @@
+%% -------------------------------------------------------------------
+%%
+%% sipapp_endpoint: Endpoint callback module for all tests
+%%
+%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% -------------------------------------------------------------------
+
+-module(prack_endpoint).
+-behaviour(nksip_sipapp).
+
+-export([init/1, invite/3, reinvite/3, ack/3, prack/3]).
+-export([dialog_update/3, session_update/3]).
+
+-include("../include/nksip.hrl").
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  NkSipCore CallBack %%%%%%%%%%%%%%%%%%%%%
+
+
+-record(state, {
+    id,
+    dialogs,
+    sessions
+}).
+
+
+init([Id]) ->
+    {ok, #state{id=Id, dialogs=[]}}.
+
+
+% INVITE for basic, uac, uas, invite and proxy_test
+% Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
+% if to send provisional response from Nk-Prov
+% Copies all received Nk-Id headers adding our own Id
+invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
+    AppId = {prack, Id},
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
+        [Op0] -> Op0;
+        _ -> <<"decline">>
+    end,
+    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+        [RepBin] ->
+            {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+            State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
+        _ ->
+            State1 = State
+    end,
+    proc_lib:spawn(
+        fun() ->
+            case Op of
+                <<"prov-busy">> ->
+                    ok = nksip_request:reply(AppId, ReqId, ringing),
+                    timer:sleep(100),
+                    ok = nksip_request:reply(AppId, ReqId, session_progress),
+                    timer:sleep(100),
+                    nksip:reply(From, busy);
+                <<"rel-prov-busy">> ->
+                    ok = nksip_request:reply(AppId, ReqId, rel_ringing),
+                    timer:sleep(100),
+                    ok = nksip_request:reply(AppId, ReqId, rel_session_progress),
+                    timer:sleep(100),
+                    nksip:reply(From, busy);
+                    % SDP = nksip_sdp:new("client2", 
+                    %                         [{"test", 4321, [{rtpmap, 0, "codec1"}]}]),
+                _ ->
+                    nksip:reply(From, decline)
+            end
+        end),
+    {noreply, State1}.
+
+
+reinvite(ReqId, From, State) ->
+    invite(ReqId, From, State).
+
+
+ack(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false -> 
+            case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+                [RepBin] -> 
+                    {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+                    Pid ! {Ref, {Id, ack}};
+                _ ->
+                    ok
+            end;
+        {DialogId, Ref, Pid} -> 
+            Pid ! {Ref, {Id, ack}}
+    end,
+    {reply, ok, State}.
+
+
+prack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
+    AppId = {prack, Id},
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false ->  
+            ok;
+        {DialogId, Ref, Pid} -> 
+            RAck = nksip_request:field(AppId, ReqId, parsed_rack),
+            Pid ! {Ref, {Id, prack, RAck}}
+    end,
+    {reply, ok, State}.
+
+
+dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) ->
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false -> 
+            none;
+        {DialogId, Ref, Pid} ->
+            case Update of
+                start -> ok;
+                {status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
+                {status, _} -> ok;
+                target_update -> Pid ! {Ref, {Id, dialog_target_update}};
+                {stop, Reason} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}}
+            end
+    end,
+    {noreply, State};
+
+dialog_update(_DialogId, _Update, State) ->
+    {noreply, State}.
+
+
+session_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs, 
+                                        sessions=Sessions}=State) ->
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false -> 
+            {noreply, State};
+        {DialogId, Ref, Pid} ->
+            case Update of
+                {start, Local, Remote} ->
+                    Pid ! {Ref, {Id, sdp_start}},
+                    Sessions1 = [{DialogId, Local, Remote}|Sessions],
+                    {noreply, State#state{sessions=Sessions1}};
+                {update, Local, Remote} ->
+                    Pid ! {Ref, {Id, sdp_update}},
+                    Sessions1 = [{DialogId, Local, Remote}|Sessions],
+                    {noreply, State#state{sessions=Sessions1}};
+                stop ->
+                    Pid ! {Ref, {Id, sdp_stop}},
+                    {noreply, State}
+            end
+    end;
+
+session_update(_DialogId, _Update, State) ->
+    {noreply, State}.
+
