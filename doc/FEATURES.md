@@ -7,6 +7,7 @@ RFC|Description|Notes
 [RFC2915](http://tools.ietf.org/html/rfc2915)|DNS NAPTR|
 [RFC2976](http://tools.ietf.org/html/rfc2976)|INFO|
 [RFC3261](http://tools.ietf.org/html/rfc3261)|SIP 2.0|
+[RFC3262](http://tools.ietf.org/html/rfc3262)|Reliable provisional responses|
 [RFC3263](http://tools.ietf.org/html/rfc3263)|Locating SIP Services|
 [RFC3264](http://tools.ietf.org/html/rfc3264)|Offer/Answer Model|
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|

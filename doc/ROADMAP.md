@@ -25,7 +25,7 @@ In no special order:
 Many common SIP featured are still missing and will be addressed in following versions, including:
 
 * ~~[RFC4475](http://tools.ietf.org/html/rfc4475): Torture tests~~
-* [RFC3262](http://tools.ietf.org/html/rfc3262): PRACK
+* ~~[RFC3262](http://tools.ietf.org/html/rfc3262): PRACK~~
 * [RFC3265](http://tools.ietf.org/html/rfc3265): SUBSCRIBE, NOTIFY
 * [RFC3311](http://tools.ietf.org/html/rfc3311): UPDATE
 * [RFC3327](http://tools.ietf.org/html/rfc3327): Path
