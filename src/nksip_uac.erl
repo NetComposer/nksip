@@ -376,7 +376,7 @@ register(AppId, Dest, Opts) ->
 %%          <td></td>
 %%          <td></td>
 %%          <td>If present, a <i>Require: 100rel</i> will be generated, and the other
-%%          party must then send provisional responses.</td>
+%%          party must then send reliable provisional responses.</td>
 %%      </tr>
 %% </table>
 %%

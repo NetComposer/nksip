@@ -23,6 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([reply/3]).
+-import(nksip_call_lib, [update/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -42,7 +43,7 @@ reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
     ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", 
                  [Id, Status, Reply], Call),
     UAS1 = UAS#trans{status=finished},
-    {{error, invalid_call}, nksip_call_lib:update(UAS1, Call)};
+    {{error, invalid_call}, update(UAS1, Call)};
 
 reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
           when Status=:=authorize; Status=:=route ->
@@ -50,7 +51,7 @@ reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
         'INVITE' -> UAS#trans{status=invite_proceeding};
         _ -> UAS#trans{status=trying}
     end,
-    reply(Reply, UAS1, nksip_call_lib:update(UAS1, Call));
+    reply(Reply, UAS1, update(UAS1, Call));
 
 reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts}, 
            #trans{status=Status, code=LastCode}=UAS, Call)
@@ -73,8 +74,7 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
         true ->
             case check_prack(Resp1, UAS) of
                 {ok, Resp2, UAS1} ->
-                    Call1 = nksip_call_lib:update(UAS1, Call),
-                    send({Resp2, SendOpts}, UAS1, Call1);
+                    send({Resp2, SendOpts}, UAS1, update(UAS1, Call));
                 {error, Error} ->
                     {{error, Error}, Call}
             end;
@@ -138,7 +138,7 @@ send({Resp, SendOpts}, UAS, #call{}=Call) ->
         true -> Call1;
         false -> nksip_call_uas_dialog:response(Req, Resp2, Call1)
     end,
-    UAS1 = case LastCode < 200 of
+    UAS1 = case LastCode<200 of
         true -> UAS#trans{response=Resp2, code=Code};
         false -> UAS
     end,
@@ -146,17 +146,15 @@ send({Resp, SendOpts}, UAS, #call{}=Call) ->
     Call3 = Call2#call{msgs=[Msg|Msgs]},
     case Stateless of
         true when Method=/='INVITE' ->
-            ?call_debug("UAS ~p ~p stateless reply ~p", 
-                        [Id, Method, Code1], Call3),
+            ?call_debug("UAS ~p ~p stateless reply ~p", [Id, Method, Code1], Call3),
             UAS2 = UAS1#trans{status=finished},
             UAS3 = nksip_call_lib:timeout_timer(cancel, UAS2, Call),
-            {UserReply, nksip_call_lib:update(UAS3, Call3)};
+            {UserReply, update(UAS3, Call3)};
         _ ->
             Rel = lists:member(make_rseq, SendOpts),
-            ?call_debug("UAS ~p ~p stateful reply ~p", 
-                        [Id, Method, Code1], Call3),
+            ?call_debug("UAS ~p ~p stateful reply ~p", [Id, Method, Code1], Call3),
             UAS2 = stateful_reply(Status, Code1, Rel, UAS1, Call3),
-            {UserReply, nksip_call_lib:update(UAS2, Call3)}
+            {UserReply, update(UAS2, Call3)}
     end.
 
 

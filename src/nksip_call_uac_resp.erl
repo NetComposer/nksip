@@ -109,28 +109,21 @@ response(Resp, UAC, Call) ->
                         [Id, Method, Status, 
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
     end,
-    Call3 = update(UAC1, Call1),
-
-    
-    Call4 = case NoDialog of
-        true -> Call3;
-        false -> 
-            case Req of
-                #sipmsg{} -> nksip_call_uac_dialog:response(Req, Resp1, Call3);
-                undefined -> ?call_error("UNDEFINED, ~p", [lager:pr(Resp1, ?MODULE)], Call)
-            end
+    Call2 = case NoDialog of
+        true -> update(UAC1, Call1);
+        false -> nksip_call_uac_dialog:response(Req, Resp1, update(UAC1, Call1))
     end,
     Msg = {MsgId, Id, DialogId},
-    Call5 = Call4#call{msgs=[Msg|Msgs]},
-    Call6 = response_status(Status, Resp1, UAC1, Call5),
+    Call3 = Call2#call{msgs=[Msg|Msgs]},
+    Call4 = response_status(Status, Resp1, UAC1, Call3),
     case Method of
-        'INVITE' when Code > 100, Code < 200 ->
+        'INVITE' when Code>100, Code<200 ->
             case lists:keymember(<<"100rel">>, 1, Require) of
-                true -> send_prack(Resp1, Id, DialogId, Call6);
-                false -> Call6
+                true -> send_prack(Resp1, Id, DialogId, Call4);
+                false -> Call4
             end;
         _ ->
-            Call6
+            Call4
     end.
 
 

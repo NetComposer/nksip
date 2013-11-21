@@ -263,13 +263,6 @@
 %%          for INVITE requests.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`no_100rel'</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present, no reliable provisional response (RFC3262) will be sent
-%%          (unless a Require: 100rel header is found)</td>
-%%      </tr>
-%%      <tr>
 %%          <td>`make_100rel'</td>
 %%          <td></td>
 %%          <td></td>
@@ -391,10 +384,6 @@ start(AppId, Module, Args, Opts) ->
             end,
             case lists:member(no_100, Opts) of
                 true -> no_100;
-                _ -> []
-            end,
-            case lists:member(no_100rel, Opts) of
-                true -> no_100rel;
                 _ -> []
             end,
             case lists:member(make_100rel, Opts) of

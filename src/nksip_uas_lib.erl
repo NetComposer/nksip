@@ -146,18 +146,8 @@ response(Req, Code, Headers, Body, Opts) ->
                     true;
                 false ->
                     case lists:keymember(<<"100rel">>, 1, ReqSupported) of
-                        true ->
-                            case lists:member(make_100rel, Opts) of
-                                true ->
-                                    true;
-                                false ->
-                                    case lists:member(no_100rel, Opts) of
-                                        true -> false;
-                                        false ->  false     % CHANGE!!
-                                    end
-                            end;
-                        false ->
-                            false
+                        true -> lists:member(make_100rel, Opts);
+                        false -> false
                     end
             end;
         false ->
@@ -286,7 +276,7 @@ response(Req, Code, Headers, Body, Opts) ->
     RespContacts = nksip_lib:get_value(contact, Opts, []),
     SendOpts = lists:flatten([
         case Method of
-            'INVITE' when Code > 100, RespContacts=:=[] -> 
+            'INVITE' when Code>100, RespContacts=:=[] -> 
                 make_contact;
             _ ->
                 case lists:member(make_contact, Opts) of
@@ -295,11 +285,11 @@ response(Req, Code, Headers, Body, Opts) ->
                 end
         end,
         case Secure of
-            true -> [secure];
+            true -> secure;
             _ -> []
         end,
         case Reliable of
-            true -> [make_rseq];
+            true -> make_rseq;
             false -> []
         end
     ]),

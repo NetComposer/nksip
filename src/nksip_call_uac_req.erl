@@ -23,7 +23,6 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([request/4, resend_auth/3]).
-
 -import(nksip_call_lib, [update/2]).
 
 -include("nksip.hrl").
