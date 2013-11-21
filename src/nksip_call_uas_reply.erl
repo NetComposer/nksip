@@ -52,9 +52,8 @@ reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
     end,
     reply(Reply, UAS1, nksip_call_lib:update(UAS1, Call));
 
-reply({#sipmsg{class={resp, Code, _Reason}, id=MsgId}=Resp, SendOpts}, 
-           #trans{status=Status, code=LastCode}=UAS, 
-           #call{msgs=Msgs}=Call)
+reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts}, 
+           #trans{status=Status, code=LastCode}=UAS, Call)
            when Status=:=invite_proceeding orelse 
                 Status=:=trying orelse 
                 Status=:=proceeding orelse
@@ -68,27 +67,65 @@ reply({#sipmsg{class={resp, Code, _Reason}, id=MsgId}=Resp, SendOpts},
                         LastCode>=200 andalso LastCode<300
                     )
                 ) ->
+    DialogId = nksip_dialog:class_id(uas, Resp),
+    Resp1 = Resp#sipmsg{dialog_id=DialogId},
+    case lists:member(make_rseq, SendOpts) of
+        true ->
+            case check_prack(Resp1, UAS) of
+                {ok, Resp2, UAS1} ->
+                    Call1 = nksip_call_lib:update(UAS1, Call),
+                    send({Resp2, SendOpts}, UAS1, Call1);
+                {error, Error} ->
+                    {{error, Error}, Call}
+            end;
+        false ->
+            send({Resp1, SendOpts}, UAS, Call)
+    end;
 
+reply({#sipmsg{class={resp, Code, _Reason}}, _}, #trans{code=LastCode}=UAS, Call) ->
+    #trans{status=Status, id=Id, method=Method} = UAS,
+    ?call_info("UAS ~p ~p cannot send ~p response in ~p (last code was ~p)", 
+               [Id, Method, Code, Status, LastCode], Call),
+    {{error, invalid_call}, Call};
+
+reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
+    reply(nksip_reply:reply(Req, SipReply), UAS, Call);
+
+reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
+    ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
+               [Id, Method, SipReply, Status], Call),
+    {{error, invalid_call}, Call}.
+
+
+%% @private
+-spec send({nksip:response(), nksip_lib:proplist()}, 
+           nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+send({Resp, SendOpts}, UAS, #call{}=Call) ->
+    #sipmsg{
+        class ={resp, Code, _Reason}, 
+        id = MsgId, dialog_id = DialogId
+    } = Resp,
     #trans{
         id = Id, 
+        status = Status,
         opts = Opts,
         method = Method,
         request = Req,
         stateless = Stateless,
         code = LastCode
-    } = UAS,
-    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-    DialogId = nksip_dialog:class_id(uas, Resp),
-    Resp1 = Resp#sipmsg{dialog_id=DialogId},
-
-
-
-
-
-    
-    case nksip_transport_uas:send_response(Resp1, GlobalId, SendOpts++AppOpts) of
-        {ok, Resp2} -> ok;
-        error -> {Resp2, _} = nksip_reply:reply(Req, service_unavailable)
+    } = UAS,    
+    #call{
+        opts = #call_opts{app_opts=AppOpts, global_id=GlobalId},
+        msgs = Msgs
+    } = Call,
+    case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
+        {ok, Resp2} -> 
+            UserReply = {ok, Resp2};
+        error -> 
+            UserReply = {error, network_error},
+            {Resp2, _} = nksip_reply:reply(Req, service_unavailable)
     end,
     #sipmsg{class={resp, Code1, _Reason}} = Resp2,
     Call1 = case Req of
@@ -112,41 +149,32 @@ reply({#sipmsg{class={resp, Code, _Reason}, id=MsgId}=Resp, SendOpts},
             ?call_debug("UAS ~p ~p stateless reply ~p", 
                         [Id, Method, Code1], Call3),
             UAS2 = UAS1#trans{status=finished},
-            UAS3 = nksip_call_lib:cancel_timers([timeout], UAS2),
-            {{ok, Resp2}, nksip_call_lib:update(UAS3, Call3)};
+            UAS3 = nksip_call_lib:timeout_timer(cancel, UAS2, Call),
+            {UserReply, nksip_call_lib:update(UAS3, Call3)};
         _ ->
+            Rel = lists:member(make_rseq, SendOpts),
             ?call_debug("UAS ~p ~p stateful reply ~p", 
                         [Id, Method, Code1], Call3),
-            UAS2 = stateful_reply(Status, Code1, UAS1, Call3),
-            {{ok, Resp2}, nksip_call_lib:update(UAS2, Call3)}
-    end;
-
-reply({#sipmsg{class={resp, Code, _Reason}}, _}, #trans{code=LastCode}=UAS, Call) ->
-    #trans{status=Status, id=Id, method=Method} = UAS,
-    ?call_info("UAS ~p ~p cannot send ~p response in ~p (last code was ~p)", 
-               [Id, Method, Code, Status, LastCode], Call),
-    {{error, invalid_call}, Call};
-
-reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
-    reply(nksip_reply:reply(Req, SipReply), UAS, Call);
-
-reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
-    ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
-               [Id, Method, SipReply, Status], Call),
-    {{error, invalid_call}, Call}.
-
+            UAS2 = stateful_reply(Status, Code1, Rel, UAS1, Call3),
+            {UserReply, nksip_call_lib:update(UAS2, Call3)}
+    end.
 
 
 %% @private
 -spec stateful_reply(nksip_call_uas:status(), nksip:response_code(), 
-                     nksip_call:trans(), nksip_call:call()) ->
+                     boolean(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:trans().
 
-stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 200 ->
-    UAS1 = nksip_call_lib:cancel_timers([timeout], UAS),
-    nksip_call_lib:timeout_timer(timer_c, UAS1, Call);
+stateful_reply(invite_proceeding, Code, true, UAS, Call) when Code < 200 ->
+    UAS1 = nksip_call_lib:timeout_timer(prack_timeout, UAS, Call),
+    nksip_call_lib:retrans_timer(prack_retrans, UAS1, Call);
 
-stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 300 ->
+stateful_reply(invite_proceeding, Code, false, UAS, Call) when Code < 200 ->
+    nksip_call_lib:timeout_timer(timer_c, UAS, Call);
+
+% RFC6026 accepted state, to wait for INVITE retransmissions
+% Dialog will send 2xx retransmissionshrl
+stateful_reply(invite_proceeding, Code, _, UAS, Call) when Code < 300 ->
     #trans{id=Id, request=Req, response=Resp, app_timer=AppTimer} = UAS,
     UAS1 = case Id < 0 of
         true -> 
@@ -160,19 +188,18 @@ stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 300 ->
     end,
     % If the invite/3 call has not returned, maintain values
     UAS2 = case AppTimer of
-        undefined -> UAS1#trans{request=undefined, response=undefined};
-        _ -> UAS1
+        undefined -> 
+            UAS1#trans{status=invite_accepted, request=undefined, response=undefined};
+        _ -> 
+            UAS1#trans{status=invite_accepted}
     end,
-    UAS3 = nksip_call_lib:cancel_timers([timeout, expire], UAS2),
-    % RFC6026 accepted state, to wait for INVITE retransmissions
-    % Dialog will send 2xx retransmissionshrl
-    UAS4 = UAS3#trans{status=invite_accepted},
-    nksip_call_lib:timeout_timer(timer_l, UAS4, Call);
+    UAS3 = nksip_call_lib:expire_timer(cancel, UAS2, Call),
+    nksip_call_lib:timeout_timer(timer_l, UAS3, Call);
 
-stateful_reply(invite_proceeding, Code, UAS, Call) when Code >= 300 ->
+stateful_reply(invite_proceeding, Code, _, UAS, Call) when Code >= 300 ->
     #trans{proto=Proto, app_timer=AppTimer} = UAS,
     UAS1 = UAS#trans{status=invite_completed},
-    UAS2 = nksip_call_lib:cancel_timers([timeout, expire], UAS1),
+    UAS2 = nksip_call_lib:expire_timer(cancel, UAS1, Call),
     UAS3 = case AppTimer of
         undefined -> UAS2#trans{request=undefined};
         _ -> UAS2
@@ -183,27 +210,55 @@ stateful_reply(invite_proceeding, Code, UAS, Call) when Code >= 300 ->
         _ -> UAS4#trans{response=undefined}
     end;
 
-stateful_reply(trying, Code, UAS, Call) ->
-    stateful_reply(proceeding, Code, UAS#trans{status=proceeding}, Call);
+stateful_reply(trying, Code, Rel, UAS, Call) ->
+    stateful_reply(proceeding, Code, Rel, UAS#trans{status=proceeding}, Call);
 
-stateful_reply(proceeding, Code, UAS, _Call) when Code < 200 ->
+stateful_reply(proceeding, Code, _, UAS, _Call) when Code < 200 ->
     UAS;
 
-stateful_reply(proceeding, Code, UAS, Call) when Code >= 200 ->
+stateful_reply(proceeding, Code, _, UAS, Call) when Code >= 200 ->
     #trans{proto=Proto, app_timer=AppTimer} = UAS,
     UAS1 = UAS#trans{request=undefined, status=completed},
-    UAS2 = nksip_call_lib:cancel_timers([timeout], UAS1),
     case Proto of
         udp -> 
-            UAS3 = case AppTimer of
-                undefined ->  UAS2#trans{request=undefined};
-                _ -> UAS2
+            UAS2 = case AppTimer of
+                undefined ->  UAS1#trans{request=undefined};
+                _ -> UAS1
             end,
-            nksip_call_lib:timeout_timer(timer_j, UAS3, Call);
+            nksip_call_lib:timeout_timer(timer_j, UAS2, Call);
         _ -> 
-            UAS2#trans{status=finished}
+            UAS2 = UAS1#trans{status=finished},
+            nksip_call_lib:timeout_timer(cancel, UAS2, Call)
     end;
 
-stateful_reply(_, _Code, UAS, _Call) ->
+stateful_reply(_, _Code, _, UAS, _Call) ->
     UAS.
+
+
+%% @private
+-spec check_prack(nksip:response(), nksip_call:trans()) ->
+    {ok, nksip:response(), nksip_call:trans()} | {error, term()}.
+
+check_prack(_, #trans{stateless=true}) ->
+    {error, stateless_not_allowed};
+
+check_prack(Resp, UAS) ->
+    #sipmsg{dialog_id=DialogId, cseq=CSeq, cseq_method=Method} = Resp,
+    #trans{rseq=LastRSeq, pracks=WaitPRAcks} = UAS,
+    case WaitPRAcks of
+        [] ->
+            RSeq = case LastRSeq of
+                0 -> crypto:rand_uniform(1, 2147483647);
+                _ -> LastRSeq+1
+            end,
+            Headers1 = nksip_headers:update(Resp, [{single, <<"RSeq">>, RSeq}]),
+            Resp1 = Resp#sipmsg{headers=Headers1},
+            PRAcks = [{RSeq, CSeq, Method, DialogId}],
+            UAS1 = UAS#trans{rseq=RSeq, pracks=PRAcks},
+            {ok, Resp1, UAS1};
+        _ ->
+            {error, pending_prack}
+    end.
+
+
 

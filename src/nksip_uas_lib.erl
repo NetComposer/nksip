@@ -115,6 +115,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`make_contact' when the request is INVITE and no `contact' option is present
 %%      or it is present in options</li>
 %%  <li>`secure' if request-uri, first route, or Contact (if no route), are `sips'</li>
+%%  <li>`make_rseq' must generate a RSeq header</li>
 %% </ul>
 %%
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
@@ -135,16 +136,16 @@ response(Req, Code, Headers, Body, Opts) ->
         routes = ReqRoutes,
         headers = ReqHeaders, 
         to_tag_candidate = ToTagCandidate,
-        require = Require,
-        supported = Supported
+        require = ReqRequire,
+        supported = ReqSupported
     } = Req, 
     Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
         true ->
-            case lists:keymember(<<"100rel">>, 1, Require) of
+            case lists:keymember(<<"100rel">>, 1, ReqRequire) of
                 true ->
                     true;
                 false ->
-                    case lists:keymember(<<"100rel">>, 1, Supported) of
+                    case lists:keymember(<<"100rel">>, 1, ReqSupported) of
                         true ->
                             case lists:member(make_100rel, Opts) of
                                 true ->
@@ -152,7 +153,7 @@ response(Req, Code, Headers, Body, Opts) ->
                                 false ->
                                     case lists:member(no_100rel, Opts) of
                                         true -> false;
-                                        false -> true
+                                        false ->  false     % CHANGE!!
                                     end
                             end;
                         false ->
@@ -218,7 +219,7 @@ response(Req, Code, Headers, Body, Opts) ->
                 none
         end
     ],
-    Headers1 = nksip_headers:update(Headers, HeaderOps),
+    RespHeaders = nksip_headers:update(Headers, HeaderOps),
     % If to_tag is present in Opts, it takes priority. Used by proxy server
     % when it generates a 408 response after a remote party has already sent a 
     % response
@@ -249,19 +250,19 @@ response(Req, Code, Headers, Body, Opts) ->
             ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
             To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|ToOpts1]}
     end,
-    ContentType = case Body of 
+    RespContentType = case Body of 
         #sdp{} -> [{<<"application/sdp">>, []}]; 
         _ -> [] 
     end,
-    Supported = case MakeSupported of
+    RespSupported = case MakeSupported of
         true -> ?SUPPORTED;
         false -> []
     end,
-    Require = case Reliable of
+    RespRequire = case Reliable of
         true -> [{<<"100rel">>, []}];
         false -> []
     end,
-    Vias1 = case Code of
+    RespVias = case Code of
         100 -> [LastVia];
         _ -> Vias
     end,
@@ -282,39 +283,45 @@ response(Req, Code, Headers, Body, Opts) ->
             end
     end,
     Reason = nksip_lib:get_binary(reason, Opts),
-    Contacts = nksip_lib:get_value(contact, Opts, []),
-    SendOpts1 = case Method of
-        'INVITE' when Code > 100, Contacts=:=[] -> 
-            [make_contact];
-        _ ->
-            case lists:member(make_contact, Opts) of
-                true -> [make_contact];
-                false -> []
-            end
-    end,
-    SendOpts2 = case Secure of
-        true -> [secure|SendOpts1];
-        _ -> SendOpts1
-    end,
+    RespContacts = nksip_lib:get_value(contact, Opts, []),
+    SendOpts = lists:flatten([
+        case Method of
+            'INVITE' when Code > 100, RespContacts=:=[] -> 
+                make_contact;
+            _ ->
+                case lists:member(make_contact, Opts) of
+                    true -> make_contact;
+                    false -> []
+                end
+        end,
+        case Secure of
+            true -> [secure];
+            _ -> []
+        end,
+        case Reliable of
+            true -> [make_rseq];
+            false -> []
+        end
+    ]),
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
         class = {resp, Code, Reason},
         dialog_id = DialogId,
-        vias = Vias1,
+        vias = RespVias,
         to = To1,
         forwards = 70,
         cseq_method = Method,
         routes = [],
-        contacts = Contacts,
-        headers = Headers1,
-        content_type = ContentType,
-        supported = Supported,
-        require = Require,
+        contacts = RespContacts,
+        headers = RespHeaders,
+        content_type = RespContentType,
+        supported = RespSupported,
+        require = RespRequire,
         body = Body,
         to_tag = ToTag1,
         transport = undefined
     },
-    {Resp, SendOpts2}.
+    {Resp, SendOpts}.
 
 
 %% @private Process RFC3261 16.4

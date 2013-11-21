@@ -59,7 +59,7 @@ timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
 timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
     #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId}} = Call,
-    UAS1 = case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
+    UAS2 = case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p response", 
                        [Id, Code], Call),
@@ -67,47 +67,74 @@ timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
         error -> 
             ?call_notice("UAS ~p could not retransmit 'INVITE' ~p response", 
                          [Id, Code], Call),
-            nksip_call_lib:cancel_timers([timeout], UAS#trans{status=finished})
+            UAS1 = UAS#trans{status=finished},
+            nksip_call_lib:timeout_timer(cancel, UAS1, Call)
     end,
-    update(UAS1, Call);
+    update(UAS2, Call);
 
 % INVITE accepted finished
 timer(timer_l, #trans{id=Id}=UAS, Call) ->
     ?call_debug("UAS ~p 'INVITE' Timer L fired", [Id], Call),
-    UAS1 = nksip_call_lib:cancel_timers([timeout], UAS#trans{status=finished}),
-    update(UAS1, Call);
+    UAS1 = UAS#trans{status=finished},
+    UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
+    update(UAS2, Call);
 
 % INVITE confirmed finished
 timer(timer_i, #trans{id=Id}=UAS, Call) ->
     ?call_debug("UAS ~p 'INVITE' Timer I fired", [Id], Call),
-    UAS1 = nksip_call_lib:cancel_timers([timeout], UAS#trans{status=finished}),
-    update(UAS1, Call);
+    UAS1 = UAS#trans{status=finished},
+    UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
+    update(UAS2, Call);
 
 % NoINVITE completed finished
 timer(timer_j, #trans{id=Id, method=Method}=UAS, Call) ->
     ?call_debug("UAS ~p ~p Timer J fired", [Id, Method], Call),
-    UAS1 = nksip_call_lib:cancel_timers([timeout], UAS#trans{status=finished}),
-    update(UAS1, Call);
+    UAS1 = UAS#trans{status=finished},
+    UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
+    update(UAS2, Call);
 
 % INVITE completed timeout
 timer(timer_h, #trans{id=Id}=UAS, Call) ->
     ?call_notice("UAS ~p 'INVITE' timeout (Timer H) fired, no ACK received", 
                 [Id], Call),
     UAS1 = UAS#trans{status=finished},
-    UAS2 = nksip_call_lib:cancel_timers([timeout, retrans], UAS1),
-    update(UAS2, Call);
+    UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
+    UAS3 = nksip_call_lib:retrans_timer(cancel, UAS2, Call),
+    update(UAS3, Call);
 
 timer(expire, #trans{id=Id, method=Method, status=Status}=UAS, Call) ->
     ?call_debug("UAS ~p ~p (~p) Timer Expire fired: sending 487",
                 [Id, Method, Status], Call),
     terminate_request(UAS, Call);
 
+% Reliable response retrans
+timer(prack_retrans, #trans{id=Id, response=Resp}=UAS, Call) ->
+    #sipmsg{class={resp, Code, _Reason}} = Resp,
+    #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId}} = Call,
+    UAS2 = case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
+        {ok, _} ->
+            ?call_info("UAS ~p retransmitting 'INVITE' ~p reliable response", 
+                       [Id, Code], Call),
+            nksip_call_lib:retrans_timer(prack_retrans, UAS, Call);
+        error -> 
+            ?call_notice("UAS ~p could not retransmit 'INVITE' ~p reliable response", 
+                         [Id, Code], Call),
+            UAS1 = UAS#trans{status=finished},
+            nksip_call_lib:timeout_timer(cancel, UAS1, Call)
+    end,
+    update(UAS2, Call);
+
+timer(prack_timeout, #trans{id=Id, method=Method}=UAS, Call) ->
+    ?call_notice("UAS ~p ~p reliable provisional response timeout", 
+                 [Id, Method], Call),
+    reply({internal_error, <<"Reliable Provisional Response Timeout">>}, UAS, Call);
+
 timer(Timer, #trans{id=Id, method=Method}=UAS, Call)
       when Timer=:=authorize; Timer=:=route; Timer=:=invite; Timer=:=bye;
            Timer=:=options; Timer=:=register ->
-    UAS1 = nksip_call_lib:cancel_timers([app], UAS),
     ?call_notice("UAS ~p ~p timeout, no SipApp response", [Id, Method], Call),
     Msg = {internal_error, <<"No SipApp Response">>},
+    UAS1 = nksip_call_lib:app_timer(cancel, UAS, Call),
     reply(Msg, UAS1, update(UAS1, Call)).
 
 

@@ -86,10 +86,6 @@ response(Resp, UAC, Call) ->
         ruri = RUri
     } = UAC,
     #call{msgs=Msgs, opts=#call_opts{max_trans_time=MaxTime}} = Call,
-    % We don't use the Req's DialogId
-    % If it was a dialog creation, it is goint to be <<>>
-    % If it is a uac in-dialog, it has to be the same
-    % If it is a proxy in-dialog, it has to be the same
     Now = nksip_lib:timestamp(),
     case Now-Start < MaxTime of
         true -> 
@@ -97,7 +93,6 @@ response(Resp, UAC, Call) ->
             Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId};
         false -> 
             Code1 = 408,
-            % Copy DialogId from Req if present
             {Resp1, _} = nksip_reply:reply(Req, {timeout, <<"Transaction Timeout">>})
     end,
     Call1 = case Code1>=200 andalso Code1<300 of
@@ -115,15 +110,21 @@ response(Resp, UAC, Call) ->
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
     end,
     Call3 = update(UAC1, Call1),
+
+    
     Call4 = case NoDialog of
         true -> Call3;
-        false -> nksip_call_uac_dialog:response(Req, Resp1, Call3)
+        false -> 
+            case Req of
+                #sipmsg{} -> nksip_call_uac_dialog:response(Req, Resp1, Call3);
+                undefined -> ?call_error("UNDEFINED, ~p", [lager:pr(Resp1, ?MODULE)], Call)
+            end
     end,
     Msg = {MsgId, Id, DialogId},
     Call5 = Call4#call{msgs=[Msg|Msgs]},
     Call6 = response_status(Status, Resp1, UAC1, Call5),
     case Method of
-        'INVITE' when Code > 100 ->
+        'INVITE' when Code > 100, Code < 200 ->
             case lists:keymember(<<"100rel">>, 1, Require) of
                 true -> send_prack(Resp1, Id, DialogId, Call6);
                 false -> Call6
@@ -140,20 +141,18 @@ response(Resp, UAC, Call) ->
 
 response_status(invite_calling, Resp, UAC, Call) ->
     UAC1 = UAC#trans{status=invite_proceeding},
-    UAC2 = nksip_call_lib:cancel_timers([retrans], UAC1),
+    UAC2 = nksip_call_lib:retrans_timer(cancel, UAC1, Call),
     response_status(invite_proceeding, Resp, UAC2, Call);
 
 response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) 
                    when Code < 200 ->
     #trans{cancel=Cancel} = UAC,
     % Add another 3 minutes
-    UAC1 = nksip_call_lib:cancel_timers([timeout], UAC),
-    UAC2 = nksip_call_lib:timeout_timer(timer_c, UAC1, Call),
-    Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC2, Call),
-    Call2 = update(UAC2, Call1),
+    UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
+    Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC1, Call),
     case Cancel of
-        to_cancel -> nksip_call_uac:cancel(UAC2, Call2);
-        _ -> Call2
+        to_cancel -> nksip_call_uac:cancel(UAC1, update(UAC1, Call1));
+        _ -> update(UAC1, Call1)
     end;
 
 % Final 2xx response received
@@ -163,13 +162,13 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
                    when Code < 300 ->
     #sipmsg{to_tag=ToTag} = Resp,
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
-    UAC1 = nksip_call_lib:cancel_timers([timeout, expire], UAC),
-    UAC2 = UAC1#trans{
+    UAC1 = UAC#trans{
         cancel = undefined,
         status = invite_accepted, 
         response = undefined,       % Leave the request in case a new 2xx 
         to_tags = [ToTag]           % response is received
     },
+    UAC2 = nksip_call_lib:expire_timer(cancel, UAC1, Call1),
     UAC3 = nksip_call_lib:timeout_timer(timer_m, UAC2, Call),
     update(UAC3, Call1);
 
@@ -177,31 +176,33 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
 % Final [3456]xx response received, own error response
 response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
-    UAC1 = nksip_call_lib:cancel_timers([timeout, expire], UAC),
-    update(UAC1#trans{status=finished, cancel=undefined}, Call1);
+    UAC1 = UAC#trans{status=finished, cancel=undefined},
+    UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
+    UAC3 = nksip_call_lib:expire_timer(cancel, UAC2, Call),
+    update(UAC3, Call1);
 
 
 % Final [3456]xx response received, real response
 response_status(invite_proceeding, Resp, UAC, Call) ->
     #sipmsg{to=To, to_tag=ToTag} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
-    UAC1 = nksip_call_lib:cancel_timers([timeout, expire], UAC),
-    Req1 = Req#sipmsg{to=To, to_tag=ToTag},
-    UAC2 = UAC1#trans{
-        request = Req1, 
+    UAC1 = UAC#trans{
+        request = Req#sipmsg{to=To, to_tag=ToTag}, 
         response = undefined, 
         to_tags = [ToTag], 
         cancel = undefined
     },
-    send_ack(UAC2, Call),
-    UAC4 = case Proto of
+    UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
+    UAC3 = nksip_call_lib:expire_timer(cancel, UAC2, Call),
+    send_ack(UAC3, Call),
+    UAC5 = case Proto of
         udp -> 
-            UAC3 = UAC2#trans{status=invite_completed},
-            nksip_call_lib:timeout_timer(timer_d, UAC3, Call);
+            UAC4 = UAC3#trans{status=invite_completed},
+            nksip_call_lib:timeout_timer(timer_d, UAC4, Call);
         _ -> 
-            UAC2#trans{status=finished}
+            UAC3#trans{status=finished}
     end,
-    do_received_auth(Req, Resp, UAC4, update(UAC4, Call));
+    do_received_auth(Req, Resp, UAC5, update(UAC5, Call));
 
 
 response_status(invite_accepted, _Resp, #trans{code=Code}, Call) 
@@ -239,7 +240,7 @@ response_status(invite_completed, Resp, UAC, Call) ->
 
 response_status(trying, Resp, UAC, Call) ->
     UAC1 = UAC#trans{status=proceeding},
-    UAC2 = nksip_call_lib:cancel_timers([retrans], UAC1),
+    UAC2 = nksip_call_lib:retrans_timer(cancel, UAC1, Call),
     response_status(proceeding, Resp, UAC2, Call);
 
 response_status(proceeding, #sipmsg{class={resp, Code, _Reason}}=Resp, UAC, Call) 
@@ -249,27 +250,28 @@ response_status(proceeding, #sipmsg{class={resp, Code, _Reason}}=Resp, UAC, Call
 % Final response received, own error response
 response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
-    UAC1 = nksip_call_lib:cancel_timers([timeout], UAC),
-    update(UAC1#trans{status=finished}, Call1);
+    UAC1 = UAC#trans{status=finished},
+    UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
+    update(UAC2, Call1);
 
 % Final response received, real response
 response_status(proceeding, Resp, UAC, Call) ->
     #sipmsg{to_tag=ToTag} = Resp,
     #trans{proto=Proto, request=Req} = UAC,
-    UAC1 = nksip_call_lib:cancel_timers([timeout], UAC),
-    UAC3 = case Proto of
+    UAC2 = case Proto of
         udp -> 
-            UAC2 = UAC1#trans{
+            UAC1 = UAC#trans{
                 status = completed, 
                 request = undefined, 
                 response = undefined,
                 to_tags = [ToTag]
             },
-            nksip_call_lib:timeout_timer(timer_k, UAC2, Call);
+            nksip_call_lib:timeout_timer(timer_k, UAC1, Call);
         _ -> 
-            UAC1#trans{status=finished}
+            UAC1 = UAC#trans{status=finished},
+            nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
-    do_received_auth(Req, Resp, UAC3, update(UAC3, Call));
+    do_received_auth(Req, Resp, UAC2, update(UAC2, Call));
 
 response_status(completed, Resp, UAC, Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq_method=Method, to_tag=ToTag} = Resp,
@@ -383,10 +385,10 @@ send_ack(#trans{request=Req, id=Id}, Call) ->
 
 is_prack_retrans(Resp, UAC) ->
     #sipmsg{dialog_id=DialogId, cseq=CSeq, cseq_method=Method} = Resp,
-    #trans{pracks=PRs} = UAC,
-    case nksip_sipmsg:header(Resp, <<"RSeq">>, integer) of
-        RSeq when is_integer(RSeq) ->
-            lists:member({RSeq, CSeq, Method, DialogId}, PRs);
+    #trans{pracks=PRAcks} = UAC,
+    case nksip_sipmsg:header(Resp, <<"RSeq">>, integers) of
+        [RSeq] when is_integer(RSeq) ->
+            lists:member({RSeq, CSeq, Method, DialogId}, PRAcks);
         _ ->
             false
     end.
@@ -399,20 +401,24 @@ is_prack_retrans(Resp, UAC) ->
 
 send_prack(Resp, Id, DialogId, Call) ->
     #sipmsg{cseq=CSeq} = Resp,
-    #call{app_id=AppId, trans=Trans, opts=#call_opts{app_opts=AppOpts}} = Call,
+    #call{
+        app_id = AppId, 
+        trans = Trans, 
+        opts = #call_opts{app_opts=AppOpts}
+    } = Call,
     try
-        case nksip_sipmsg:header(Resp, <<"RSeq">>, integer) of
-            RSeq when RSeq > 0 -> ok;
+        case nksip_sipmsg:header(Resp, <<"RSeq">>, integers) of
+            [RSeq] when RSeq > 0 -> ok;
             _ -> RSeq = throw(invalid_rseq)
         end,
         case lists:keyfind(Id, #trans.id, Trans) of
             #trans{} = UAC -> ok;
-            _ -> UAC = throw(no_trans)
+            _ -> UAC = throw(no_transaction)
         end,
-        #trans{method=Method, pracks=OldPRs} = UAC,
-        case OldPRs of
-            [] -> ok;
-            [{OldRSeq, _, _, _}] when RSeq==OldRSeq+1 -> ok;
+        #trans{method=Method, rseq=LastRSeq, pracks=PRAcks} = UAC,
+        case LastRSeq of
+            0 -> ok;
+            _ when RSeq==LastRSeq+1 -> ok;
             _ -> throw(rseq_out_of_order)
         end,
         RACK = list_to_binary([ 
@@ -427,7 +433,8 @@ send_prack(Resp, Id, DialogId, Call) ->
             {ok, {Uri, Opts1}, Call1} -> 
                 case nksip_uac_lib:make(AppId, 'PRACK', Uri, Opts1, AppOpts) of
                    {ok, Req, ReqOpts} -> 
-                        UAC1 = UAC#trans{pracks=[{RSeq, CSeq, Method, DialogId}|OldPRs]},
+                        PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
+                        UAC1 = UAC#trans{rseq=RSeq, pracks=PRAcks1},
                         Call2 = update(UAC1, Call1),
                         nksip_call_uac_req:request(Req, ReqOpts, none, Call2);
                     {error, Error} ->

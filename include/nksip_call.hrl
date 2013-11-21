@@ -41,6 +41,14 @@
 
 -define(MSG_KEEP_TIME, 5).          % Time to keep removed sip msgs in memory
 
+
+-type prack() :: {
+    RSeq::nksip:cseq(), 
+    CSeq::nksip:cseq(), 
+    CSeqMethod:: nksip:method(),
+    DialogId :: nksip_dialog:id()
+}.
+
 -record(trans, {
     id :: nksip_call_uac:id() | nksip_call_uas:id(),
     class :: uac | uas,
@@ -57,8 +65,8 @@
     code :: 0 | nksip:response_code(),
     to_tags = [] :: [nksip:tag()],
     stateless :: boolean(),
-    pracks = [] :: [{RSeq::nksip:cseq(), CSeq::nksip:cseq(), 
-                     CSeqMethod:: nksip:method(), DialogId::nksip_dialog:id()}],
+    rseq = 0 :: 0 | nksip:cseq(),
+    pracks = [] :: [prack()],
     timeout_timer :: {nksip_call_lib:timeout_timer(), reference()},
     retrans_timer :: {nksip_call_lib:retrans_timer(), reference()},
     next_retrans :: non_neg_integer(),

@@ -518,6 +518,7 @@ get_raw_headers(Packet, Acc) ->
                         "F" -> <<"From">>;
                         "MAX-FORWARDS" -> <<"Max-Forwards">>;
                         "PROXY-REQUIRE" -> <<"Proxy-Require">>;
+                        "RACK" -> <<"RAck">>;
                         "RECORD-ROUTE" -> <<"Record-Route">>;
                         "REQUIRE" -> <<"Require">>;
                         "ROUTE" -> <<"Route">>;

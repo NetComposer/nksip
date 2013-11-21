@@ -86,13 +86,14 @@ process_trans_ack(UAS, Call) ->
     case Status of
         invite_completed ->
             UAS1 = UAS#trans{response=undefined},
-            UAS2 = nksip_call_lib:cancel_timers([retrans, timeout], UAS1),
+            UAS2 = nksip_call_lib:retrans_timer(cancel, UAS1, Call),
             UAS4 = case Proto of 
                 udp -> 
                     UAS3 = UAS2#trans{status=invite_confirmed},
                     nksip_call_lib:timeout_timer(timer_i, UAS3, Call);
                 _ ->
-                    UAS2#trans{status=finished}
+                    UAS3 = UAS2#trans{status=finished},
+                    nksip_call_lib:timeout_timer(cancel, UAS3, Call)
             end,
             ?call_debug("UAS ~p received in-transaction ACK", [Id], Call),
             update(UAS4, Call);

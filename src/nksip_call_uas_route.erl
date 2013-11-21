@@ -49,10 +49,10 @@ launch(UAS, Call) ->
 reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uas}=UAS when Reply=:=async ->
-            UAS1 = nksip_call_lib:cancel_timers([app], UAS),
+            UAS1 = nksip_call_lib:app_timer(cancel, UAS, Call),
             update(UAS1, Call);
         #trans{class=uas, app_timer={Fun, _}, request=Req}=UAS ->
-            UAS1 = nksip_call_lib:cancel_timers([app], UAS),
+            UAS1 = nksip_call_lib:app_timer(cancel, UAS, Call),
             Call1 = update(UAS1, Call),
             case Fun of
                 authorize -> 
@@ -473,6 +473,36 @@ do_process('OPTIONS', _DialogId, UAS, Call) ->
 do_process('REGISTER', _DialogId, UAS, Call) ->
     do_process_call(register, UAS, Call); 
 
+do_process('PRACK', DialogId, UAS, Call) ->
+    #trans{request=Req} = UAS,
+    #call{trans=Trans} = Call,
+    try
+        {RSeq, CSeq, Method} = case nksip_sipmsg:header(Req, <<"RAck">>) of
+            [RACK] ->
+                case nksip_lib:tokens(RACK) of
+                    [RSeqB, CSeqB, MethodB] ->
+                        {
+                            nksip_lib:to_integer(RSeqB),
+                            nksip_lib:to_integer(CSeqB),
+                            nksip_parse:method(MethodB)
+                        };
+                    _ ->
+                        throw({invalid_request, <<"Invalid RAck">>})
+                end;
+            _ ->
+                throw({invalid_request, <<"Invalid RAck">>})
+        end,
+        case lists:keyfind([{RSeq, CSeq, Method, DialogId}], #trans.pracks, Trans) of
+            #trans{status=invite_proceeding} = OrigUAS -> ok;
+            _ -> OrigUAS = throw(no_transaction)
+        end,
+        OrigUAS1 = OrigUAS#trans{pracks=[]},
+        OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
+        OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
+        do_process_call(prack, UAS, update(OrigUAS3, Call))
+    catch
+        throw:Reply -> reply(Reply, UAS, Call)
+    end;             
 
 do_process(_Method, _DialogId, UAS, Call) ->
     #call{opts=#call_opts{app_opts=Opts}} = Call,

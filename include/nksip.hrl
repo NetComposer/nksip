@@ -28,9 +28,9 @@
 %% ===================================================================
 
 -define(VERSION, "0.4.0").
--define(SUPPORTED, <<"100rel">>).
+-define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, <<"application/sdp">>).
--define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO">>).
+-define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
@@ -191,6 +191,7 @@
     port = 0 :: inet:port_number(),
     opts = [] :: nksip_lib:proplist()
 }).
+
 
 -record(dialog, {
     id :: nksip_dialog:id(),

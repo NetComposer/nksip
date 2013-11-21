@@ -133,7 +133,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/1, get_user_pass/3, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
-         ack/3, bye/3, options/3, register/3, info/3]).
+         ack/3, bye/3, options/3, register/3, info/3, prack/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -include("nksip.hrl").
@@ -507,6 +507,21 @@ register(_ReqId, _From, State) ->
         false -> {method_not_allowed, ?ALLOW}
     end,
     {reply, Reply, State}.
+
+
+%% @doc Called when a valid PRACK request is received.
+%%
+%% This function is called by NkSIP when a new valid in-dialog PRACK request has to
+%% be processed locally, in response to a sent reliable provisional response
+%% You don't usually need to implement this callback. One possible reason to do it is 
+%% to receive the SDP body from the other party in case it was not present in the INVITE
+%% (you can also get it from the {@link session_update/3} callback).
+%%
+-spec prack(ReqId::nksip_request:id(), From::from(), State::term()) ->
+    call_reply(ok).
+
+prack(_ReqId, _From, State) ->
+    {reply, ok, State}.
 
 
 %% @doc Called when a dialog has changed its state.

@@ -30,7 +30,7 @@
 -export([apply_sipmsg/3]).
 -export([apply_transaction/3, get_all_transactions/0, get_all_transactions/2]).
 -export([get_all_calls/0, get_all_data/0, get_all_info/0, clear_all_calls/0]).
--export([pending_msgs/0, pending_work/0, remove_app_cache/1]).
+-export([pending_msgs/0, pending_work/0, clear_app_cache/1]).
 -export([pos2name/1, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
@@ -214,9 +214,9 @@ get_all_data() ->
 
 
 %% @private
-remove_app_cache(AppId) ->
+clear_app_cache(AppId) ->
     router_fold(
-        fun(Name, _) -> ok=gen_server:call(Name, {remove_app_cache, AppId}) end).
+        fun(Name, _) -> ok=gen_server:call(Name, {clear_app_cache, AppId}) end).
 
 
 %% @private
@@ -293,7 +293,7 @@ handle_call({incoming, RawMsg}, _From, SD) ->
             {reply, {error, Error}, SD}
     end;
 
-handle_call({remove_app_cache, AppId}, _From, #state{opts=Opts}=SD) ->
+handle_call({clear_app_cache, AppId}, _From, #state{opts=Opts}=SD) ->
     {reply, ok, SD#state{opts=dict:erase(AppId, Opts)}};
 
 handle_call(pending, _From, #state{pending=Pending}=SD) ->

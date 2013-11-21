@@ -241,7 +241,7 @@ init([AppId, Module, Args, Opts]) ->
     nksip_proc:put(nksip_sipapps, AppId),    
     erlang:start_timer(timeout(), self(), '$nksip_timer'),
     RegState = nksip_sipapp_auto:init(AppId, Module, Args, Opts),
-    nksip_call_router:remove_app_cache(AppId),
+    nksip_call_router:clear_app_cache(AppId),
     State1 = #state{
         id = AppId, 
         module = Module, 
@@ -283,7 +283,7 @@ handle_call('$nksip_get_opts', _From, State) ->
     {reply, {ok, Module, Opts, self()}, State};
 
 handle_call({'$nksip_put_opts', Opts}, _From, #state{id=AppId}=State) ->
-    nksip_call_router:remove_app_cache(AppId),
+    nksip_call_router:clear_app_cache(AppId),
     {reply, ok, State#state{opts=Opts}};
 
 handle_call({'$nksip_call_nofrom', Fun, Args}, _From, State) -> 

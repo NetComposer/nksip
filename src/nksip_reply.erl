@@ -254,11 +254,11 @@ reqreply(#reqreply{}=Reply) ->
 reqreply(ringing) ->
     #reqreply{code=180};
 reqreply(rel_ringing) ->
-    #reqreply{code=180, opts=['100rel']};
+    #reqreply{code=180, opts=[make_100rel]};
 reqreply(session_progress) ->
     #reqreply{code=183};
 reqreply(rel_session_progress) ->
-    #reqreply{code=183, opts=['100rel']};
+    #reqreply{code=183, opts=[make_100rel]};
 reqreply(ok) ->
     #reqreply{code=200};
 reqreply({ok, Headers}) ->

@@ -241,7 +241,10 @@ work({app_reply, Fun, Id, Reply}, none, Call) ->
 work({send_reply, ReqId, Reply}, From, Call) ->
     case get_trans(ReqId, Call) of
         {ok, #trans{class=uas}=UAS} ->
-            {Result, Call1} = nksip_call_uas_reply:reply(Reply, UAS, Call);
+            case nksip_call_uas_reply:reply(Reply, UAS, Call) of
+                {{ok, _SipMsg}, Call1} -> Result = ok;
+                {{error, Error}, Call1} -> Result = {error, Error}
+            end;
         _ -> 
             Result = {error, invalid_call},
             Call1 = Call
