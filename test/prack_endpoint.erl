@@ -60,6 +60,7 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
         _ ->
+            Ref = Pid = undefined,
             State1 = State
     end,
     proc_lib:spawn(
@@ -77,8 +78,19 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
                     ok = nksip_request:reply(AppId, ReqId, rel_session_progress),
                     timer:sleep(100),
                     nksip:reply(From, busy);
-                    % SDP = nksip_sdp:new("client2", 
-                    %                         [{"test", 4321, [{rtpmap, 0, "codec1"}]}]),
+                <<"pending">> ->
+                    spawn(
+                        fun() -> 
+                            ok = nksip_request:reply(AppId, ReqId, rel_ringing)
+                        end),
+                    spawn(
+                        fun() -> 
+                            {error, pending_prack} = 
+                                nksip_request:reply(AppId, ReqId, rel_session_progress),
+                            Pid ! {Ref, pending_prack_ok}
+                        end),
+                    timer:sleep(100),
+                    nksip:reply(From, busy);
                 _ ->
                     nksip:reply(From, decline)
             end
@@ -163,3 +175,7 @@ session_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs,
 session_update(_DialogId, _Update, State) ->
     {noreply, State}.
 
+
+
+                    % SDP = nksip_sdp:new("client2", 
+                    %                         [{"test", 4321, [{rtpmap, 0, "codec1"}]}]),

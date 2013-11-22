@@ -27,14 +27,15 @@
 
 -compile([export_all]).
 
-invite_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            fun basic/0
-        ]
-    }.
+% invite_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             fun basic/0
+%             fun pending/0
+%         ]
+%     }.
 
 
 start() ->
@@ -78,8 +79,7 @@ basic() ->
     % No make_100rel in call to invite, neither in app config
     Hds1 = {headers, [{"Nk-Op", "prov-busy"}]},
     Fields1 = {fields, [parsed_supported, parsed_require]},
-    {ok, 486, Values1} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds1, Fields1]),
-    [
+    {ok, 486, Values1} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds1, Fields1]),    [
         {dialog_id, _},
         {parsed_supported, [{<<"100rel">>, []}]},
         {parsed_require, []}
@@ -169,8 +169,25 @@ basic() ->
         error(basic)
     end,
     RSeq2b = RSeq2a+1,
-
     ok.
+
+
+pending() ->
+    C1 = {prack, client1},
+    SipC2 = "sip:127.0.0.1:5070",
+    Ref = make_ref(),
+    Self = self(),
+    Hds = {headers, [
+        {"Nk-Op", "pending"},
+        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+
+    {ok, 486, _} = nksip_uac:invite(C1, SipC2, [Hds]),
+    receive
+        {Ref, pending_prack_ok} -> ok
+    after 1000 ->
+        error(pending)
+    end.
+
 
 
 
