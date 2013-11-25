@@ -44,18 +44,40 @@
 request(#sipmsg{dialog_id = <<>>}, Call) ->
     {ok, undefined, Call};
 
+request(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
+    #sipmsg{cseq=AckSeq, dialog_id=DialogId} = AckReq,
+    case nksip_call_dialog:find(DialogId, Call) of
+        #dialog{status=Status, invite_req=#sipmsg{cseq=InvSeq}}=Dialog ->
+            ?call_debug("Dialog ~s (~p) UAS request 'ACK'", 
+                        [DialogId, Status], Call),
+            case Status of
+                accepted_uas when InvSeq==AckSeq->
+                    Dialog1 = Dialog#dialog{ack_req=AckReq},
+                    Dialog2 = status_update(confirmed, Dialog1, Call),
+                    {ok, DialogId, nksip_call_dialog:update(Dialog2, Call)};
+                confirmed ->
+                    % It should be a retransmission
+                    {ok, Dialog};
+                bye ->
+                    {ok, Dialog};
+                _ ->
+                    {error, invalid}
+            end;
+        not_found -> 
+            {error, unknown_dialog}
+    end;
+
 request(Req, Call) ->
     #sipmsg{class={req, Method}, cseq=CSeq, dialog_id=DialogId} = Req,
     case nksip_call_dialog:find(DialogId, Call) of
         #dialog{status=Status, remote_seq=RemoteSeq}=Dialog ->
             ?call_debug("Dialog ~s (~p) UAS request ~p", 
                         [DialogId, Status, Method], Call),
-            if
-                Method=/='ACK', RemoteSeq>0, CSeq<RemoteSeq  ->
+            case RemoteSeq>0 andalso CSeq<RemoteSeq of
+                true ->
                     {error, old_cseq};
-                true -> 
+                false -> 
                     Dialog1 = Dialog#dialog{remote_seq=CSeq},
-                    % Dialog2 = nksip_call_dialog:remotes_update(Req, Dialog1),
                     case do_request(Method, Status, Req, Dialog1, Call) of
                         {ok, Dialog2} -> 
                             {ok, DialogId, 
@@ -78,14 +100,12 @@ request(Req, Call) ->
     {ok, nksip:dialog()} | {error, Error}
     when Error :: bye | proceeding_uac | proceeding_uas | invalid.
 
-do_request('ACK', bye, _Req, Dialog, _Call) ->
-    {ok, Dialog};
-
 do_request(_, bye, _Req, _Dialog, _Call) ->
     {error, bye};
 
 do_request('INVITE', confirmed, Req, Dialog, Call) ->
-    {ok, status_update(proceeding_uas, Dialog#dialog{request=Req}, Call)};
+    Dialog1 = Dialog#dialog{invite_req=Req, invite_resp=undefined, ack_req=undefined},
+    {ok, status_update(proceeding_uas, Dialog1, Call)};
 
 do_request('INVITE', Status, _Req, _Dialog, _Call) 
            when Status=:=proceeding_uac; Status=:=accepted_uac ->
@@ -95,22 +115,6 @@ do_request('INVITE', Status, _Req, _Dialog, _Call)
            when Status=:=proceeding_uas; Status=:=accepted_uas ->
     {error, proceeding_uas};
 
-do_request('ACK', confirmed, _, Dialog, _Call) ->
-    % It should be a retransmission
-    {ok, Dialog};
-
-do_request('ACK', Status, ACKReq, #dialog{request=InvReq}=Dialog, Call) ->
-    #sipmsg{cseq=ACKSeq} = ACKReq,
-    case InvReq of
-        #sipmsg{cseq=ACKSeq} when Status=:=accepted_uas -> 
-            {ok, status_update(confirmed, Dialog#dialog{ack=ACKReq}, Call)};
-        _ -> 
-            {error, invalid}
-    end;
-
-do_request('ACK', _Status, _Req, _Dialog, _Call) ->
-    {error, invalid};
-
 do_request('BYE', Status, _Req, Dialog, Call) ->
     #dialog{id=DialogId} = Dialog,
     case Status of
@@ -118,6 +122,14 @@ do_request('BYE', Status, _Req, Dialog, Call) ->
         _ -> ?call_debug("Dialog ~s (~p) received BYE", [DialogId, Status], Call)
     end,
     {ok, status_update(bye, Dialog, Call)};
+
+do_request('PRACK', proceeding_uas, Req, Dialog, Call) ->
+    Dialog1 = Dialog#dialog{prack_req=Req},
+    {ok, status_update(proceeding_uas, Dialog1, Call)};
+
+do_request('PRACK', Status, _Req, Dialog, Call) ->
+    ?call_notice("ignoring PRACK in ~p", [Status], Call),
+    {ok, Dialog};
 
 do_request(_, _, _, Dialog, _Call) ->
     {ok, Dialog}.
@@ -137,7 +149,6 @@ response(Req, Resp, Call) ->
     #call{dialogs=Dialogs} = Call,
     case nksip_call_dialog:find(DialogId, Call) of
         #dialog{status=Status}=Dialog ->
-            #sipmsg{class={resp, Code, _Reason}} = Resp,
             ?call_debug("Dialog ~s (~p) UAS ~p response ~p", 
                         [DialogId, Status, Method, Code], Call),
             Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
@@ -162,13 +173,15 @@ do_response(_, Code, _Req, _Resp, Dialog, _Call) when Code<101 ->
     Dialog;
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
-            when Code<200 andalso (Status=:=init orelse Status=:=proceeding_uas) ->
-    Dialog1 = Dialog#dialog{request=Req, response=Resp},
+            when Code<200 andalso 
+            (Status=:=init orelse Status=:=proceeding_uas) ->
+    Dialog1 = Dialog#dialog{invite_req=Req, invite_resp=Resp},
     status_update(proceeding_uas, Dialog1, Call);
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
-            when Code<300 andalso (Status=:=init orelse Status=:=proceeding_uas) ->
-    Dialog1 = Dialog#dialog{request=Req, response=Resp}, 
+            when Code<300 andalso 
+            (Status=:=init orelse Status=:=proceeding_uas) ->
+    Dialog1 = Dialog#dialog{invite_req=Req, invite_resp=Resp}, 
     status_update(accepted_uas, Dialog1, Call);
 
 do_response('INVITE', Code, _Req, _Resp, #dialog{answered=Answered}=Dialog, Call)
@@ -178,8 +191,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{answered=Answered}=Dialog, Call
         _ -> status_update(confirmed, Dialog, Call)
     end;
 
-do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
-    #sipmsg{class={resp, Code, _Reason}} = Resp,
+do_response('INVITE', Code, _Req, _Resp, Dialog, Call) ->
     #dialog{status=Status} = Dialog,
     ?call_notice("Dialog unexpected INVITE response ~p in ~p", [Code, Status], Call),
     Dialog;
@@ -190,6 +202,15 @@ do_response('BYE', _Code, Req, _Resp, #dialog{caller_tag=CallerTag}=Dialog, Call
         _ -> callee_bye
     end,
     status_update({stop, Reason}, Dialog, Call);
+
+do_response('PRACK', Code, Req, Resp, #dialog{status=proceeding_uas}=Dialog, Call)
+            when Code>=200, Code<300 ->
+    Dialog1 = Dialog#dialog{prack_req=Req, prack_resp=Resp},
+    {ok, status_update(proceeding_uas, Dialog1, Call)};
+
+do_response('PRACK', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) ->
+    ?call_notice("ignoring PRACK ~p response in ~p", [Code, Status], Call),
+    {ok, Dialog};
 
 do_response(_, _, _, _, Dialog, _Call) ->
     Dialog.

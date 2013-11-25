@@ -71,7 +71,12 @@ create(Class, Req, Resp) ->
         local_sdp = undefined,
         remote_sdp = undefined,
         media_started = false,
-        stop_reason = undefined
+        stop_reason = undefined,
+        invite_req = undefined,
+        invite_resp = undefined,
+        ack_req = undefined,
+        sdp_offer = undefined,
+        sdp_answer = undefined
     },
     case Class of 
         uac ->
@@ -163,8 +168,8 @@ status_update(Class, Status, Dialog, Call) ->
             };
         confirmed ->
             Dialog3 = session_update(Class, Dialog2, Call),
-            Dialog3#dialog{request=undefined, response=undefined, 
-                           ack=undefined};
+            Dialog3#dialog{invite_req=undefined, invite_resp=undefined,
+                           prack_req=undefined, prack_resp=undefined};
         bye ->
             Dialog2;
         {stop, StopReason} -> 
@@ -175,11 +180,131 @@ status_update(Class, Status, Dialog, Call) ->
     end.
 
 
+% %% @private Performs a session update
+% -spec session_update(uac|uas, nksip:dialog(), call()) ->
+%     nksip:dialog().
+
+session_update(Dialog) ->
+    #dialog{
+        invite_req = PRAck, 
+        invite_resp = InvResp, 
+        ack_req = Ack,
+        prack_req = PRAckReq, 
+        prack_resp = PRAckResp
+    } = Dialog,
+    InvReqSDP = case is_record(InvReq, sipmsg) andalso InvReq#sipmsg.body of
+        #sdp{} -> true;
+        _ -> false
+    end,
+    InvRespSDP = case is_record(InvResp, sipmsg) andalso InvResp#sipmsg.body of
+        #sdp{} = true;
+        _ -> false
+    end,
+    AckSDP = case is_record(Ack, sipmsg) Ack#sipmsg.body of
+        #sdp{} = true;
+        _ -> false
+    end,
+    PRAckReqSDP = case is_record(PRAckReq, sipmsg) andalso PRAckReq#sipmsg.body of
+        #sdp{} -> true;
+        _ -> false
+    end,
+    PRAckRespSDP = case is_record(PRAckResp, sipmsg) andalso PRAckResp#sipmsg.body of
+        #sdp{} = true;
+        _ -> false
+    end,
+    case {InvReqSDP, InvRespSDP, AckSDP, PRAckReqSDP, PRAckRespSDP} of
+        {true, true, _, _, _} -> {InvReq#sipmsg.body, InvResp#sipmsg.body};
+        {false, true, true, _, _} -> {InvResp#sipmsg.body, Ack#sipmsg.body};
+        {false, true, false, true, _} -> {InvResp#sipmsg.body, PRAckReq#sipmsg.body};
+
+
+
+
+
+    case Dialog of
+        #dialog{
+            request = #sipmsg{method='INVITE', body=#sdp{}=Offer},
+            response = #sipmsg{body=#sdp{}=Answer},
+            ack = undefined
+        } ->
+            {Offer, Answer};
+        #dialog{
+            request = #sipmsg{method='INVITE', body=ReqBody}=Offer},
+            response = #sipmsg{body=#sdp{}=Answer},
+            ack = undefined
+
+        }
+
+
+    session_update(Req, Resp, Ack, Dialog).
+
+
+
+session_update(#sipmsg{method='INVITE', body=#sdp{}=Offer}, undefined, undefined) ->
+    {}
+
+
+
+
+                    answered = Answered, 
+                    response = #sipmsg{class={resp, Code, _}, body=RespBody}
+                } = Dialog,
+                Call) 
+                when 
+                    (Code>100 andalso Code<200 andalso Answered=:=undefined)
+                    orelse
+                    (Code>=200 andalso Code<300) ->
+    #dialog{
+        request = #sipmsg{body=ReqBody0},
+        ack = Ack,
+        local_sdp = DLocalSDP, 
+        remote_sdp = DRemoteSDP, 
+        media_started = Started
+    } = Dialog, 
+    ReqBody = case ReqBody0 of
+        #sdp{} -> ReqBody0;
+        _ when is_record(Ack, sipmsg) -> Ack#sipmsg.body;
+        _ -> <<>>
+    end,
+    case Class of
+        uac ->
+            LocalSDP = case ReqBody of #sdp{} -> ReqBody; _ -> undefined end,
+            RemoteSDP = case RespBody of #sdp{} -> RespBody; _ -> undefined end;
+        uas ->
+            LocalSDP = case RespBody of #sdp{} -> RespBody; _ -> undefined end,
+            RemoteSDP = case ReqBody of #sdp{} -> ReqBody; _ -> undefined end
+    end,
+    case {Started, LocalSDP, RemoteSDP} of
+        {false, #sdp{}, #sdp{}} ->
+            cast(session_update, {start, LocalSDP, RemoteSDP}, Dialog, Call),
+            Dialog#dialog{local_sdp=LocalSDP, remote_sdp=RemoteSDP, media_started=true};
+        {false, _, _} ->
+            Dialog;
+        {true, #sdp{}, #sdp{}} ->
+            case 
+                nksip_sdp:is_new(RemoteSDP, DRemoteSDP) orelse
+                nksip_sdp:is_new(LocalSDP, DLocalSDP)
+            of
+                true -> 
+                    cast(session_update, {update, LocalSDP, RemoteSDP}, Dialog, Call),
+                    Dialog#dialog{local_sdp=LocalSDP, remote_sdp=RemoteSDP};
+                false ->
+                    Dialog
+            end;
+        {true, _, _} ->
+            Dialog
+    end;
+
+session_update(_, Dialog, _) ->
+    Dialog.
+
+
+
 %% @private Performs a target update
 -spec target_update(uac|uas|proxy, nksip:dialog(), call()) ->
     nksip:dialog().
 
-target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
+target_update(Class, #dialog{invite_resp=#sipmsg{}}=Dialog, Call) ->
     #dialog{
         id = DialogId,
         app_id = AppId,
@@ -190,8 +315,8 @@ target_update(Class, #dialog{response=#sipmsg{}}=Dialog, Call) ->
         remote_target = RemoteTarget,
         local_target = LocalTarget,
         route_set = RouteSet,
-        request = Req,
-        response = Resp
+        invite_req = Req,
+        invite_resp = Resp
     } = Dialog,
     #sipmsg{contacts=ReqContacts} = Req,
     #sipmsg{class={resp, Code, _Reason}, contacts=RespContacts} = Resp,
@@ -282,7 +407,7 @@ target_update(_, Dialog, _) ->
 session_update(Class, 
                 #dialog{
                     answered = Answered, 
-                    response = #sipmsg{class={resp, Code, _}, body=RespBody}
+                    invite_resp = #sipmsg{class={resp, Code, _}, body=RespBody}
                 } = Dialog,
                 Call) 
                 when 
@@ -290,8 +415,8 @@ session_update(Class,
                     orelse
                     (Code>=200 andalso Code<300) ->
     #dialog{
-        request = #sipmsg{body=ReqBody0},
-        ack = Ack,
+        invite_req = #sipmsg{body=ReqBody0},
+        ack_req = Ack,
         local_sdp = DLocalSDP, 
         remote_sdp = DRemoteSDP, 
         media_started = Started
@@ -341,7 +466,7 @@ session_update(_, Dialog, _) ->
 timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
     #dialog{
         id = DialogId, 
-        response = Resp, 
+        invite_resp = Resp, 
         next_retrans = Next
     } = Dialog,
     #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId, timer_t2=T2}} = Call,

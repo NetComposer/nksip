@@ -412,33 +412,33 @@ send_prack(Resp, Id, DialogId, Call) ->
             method = Method, 
             rseq = LastRSeq, 
             pracks = PRAcks,
-            opts = UACOpts
+            opts = _UACOpts
         } = UAC,
         case LastRSeq of
             0 -> ok;
             _ when RSeq==LastRSeq+1 -> ok;
             _ -> throw(rseq_out_of_order)
         end,
-        Opts1 = case nksip_lib:get_value(callback, Opts) of
-            Fun when is_function(Fun, 1) -> 
-                case catch Fun({prack, Resp}) of
-                    {ok, Opts1_0} ->
-                        Opts1_0;
-                    _ ->
-                        ?call_warning("error calling callback for PRACK", [], Call),
-                        []
-                end;
-            _ ->
-                []
-        end,
-        RACK = list_to_binary([ 
+        % Opts1 = case nksip_lib:get_value(callback, Opts) of
+        %     Fun when is_function(Fun, 1) -> 
+        %         case catch Fun({prack, Resp}) of
+        %             {ok, Opts1_0} ->
+        %                 Opts1_0;
+        %             _ ->
+        %                 ?call_warning("error calling callback for PRACK", [], Call),
+        %                 []
+        %         end;
+        %     _ ->
+        %         []
+        % end,
+        RAck = list_to_binary([ 
             integer_to_list(RSeq),
             32,
             integer_to_list(CSeq),
             32,
             nksip_lib:to_list(Method)
         ]),
-        Opts2 = [{post_headers, [{<<"RAck">>, RACK}]} | Opts1],
+        Opts2 = [{post_headers, [{<<"RAck">>, RAck}]}],
         case nksip_call_uac_dialog:make(DialogId, 'PRACK', Opts2, Call) of
             {ok, {Uri, Opts3}, Call1} -> 
                 case nksip_uac_lib:make(AppId, 'PRACK', Uri, Opts3, AppOpts) of
