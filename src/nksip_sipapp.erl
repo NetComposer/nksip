@@ -126,8 +126,11 @@
 %% `State' parameter. They are called in-process, inside the call processing process and
 %% not from the SipApp's process like the normal functions.
 %%
-%% Inline functions are much quicker, but they can't modify the SipApp state. See
-%% `inline_test' for an example of use
+%% Inline functions are much quicker, but they can't modify the SipApp state. 
+%% They received a full {@link nksip:request()} object instead of a request's id, 
+%% so they must use the functions in {@link nksip_sipmsg} instead of 
+%% {@link nksip_request}.
+%% See `inline_test' for an example of use
 
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').

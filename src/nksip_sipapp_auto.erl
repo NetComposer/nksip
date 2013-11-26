@@ -238,7 +238,8 @@ handle_cast({'$nksip_ping_update', PingId, OK, CSeq},
                     ok;
                 _ -> 
                     Args = [PingId, OK],
-                    nksip_sipapp_srv:sipapp_cast(AppId, Module, ping_update, Args, Args)
+                    nksip_sipapp_srv:sipapp_cast(AppId, Module, 
+                                                 ping_update, Args, Args)
             end,
             case From of
                 undefined -> ok;
@@ -269,7 +270,8 @@ handle_cast({'$nksip_register_update', RegId, OK, CSeq},
                     ok;
                 _ -> 
                     Args = [RegId, OK],
-                    nksip_sipapp_srv:sipapp_cast(AppId, Module, register_update, Args, Args)
+                    nksip_sipapp_srv:sipapp_cast(AppId, Module, 
+                                                 register_update, Args, Args)
             end,
             case From of
                 undefined -> ok;

@@ -27,15 +27,16 @@
 
 -compile([export_all]).
 
-% invite_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun basic/0
-%             fun pending/0
-%         ]
-%     }.
+prack_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            fun basic/0,
+            fun pending/0,
+            fun media/0
+        ]
+    }.
 
 
 start() ->
@@ -187,6 +188,108 @@ pending() ->
     after 1000 ->
         error(pending)
     end.
+
+
+media() ->
+    C1 = {prack, client1},
+    C2 = {prack, client2},
+    Ref = make_ref(),
+    Self = self(),
+    SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
+    RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+
+    % A session with media offer in INVITE, answer in reliable provisional 
+    % and final responses.
+    % Although it is not valid, in each one a new SDP is generated, so three 
+    % session are received.
+    % We don't receive callbacks from client1, since it has not stored the reply in 
+    % its state
+    Hds1 = [{"Nk-Op", "rel-prov-answer"}, RepHd],
+    {ok, 200, [{dialog_id, DialogId1}]} = 
+        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{headers, Hds1}, {body, SDP}]),
+    ok = nksip_uac:ack(C1, DialogId1, []),
+    receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
+    receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
+    ok = tests_util:wait(Ref, [{client2, ack}, 
+                               {client2, dialog_confirmed},
+                               {client2, sdp_start},
+                               {client2, sdp_update},
+                               {client2, sdp_update}]),
+    RemoteSDP1 = SDP#sdp{
+        address = {<<"IN">>, <<"IP4">>, <<"client2">>},
+        vsn = SDP#sdp.vsn+2
+    },
+    % Hack to find remote dialog
+    DialogId1B = nksip_dialog:field(C1, DialogId1, remote_id),
+    {RemoteSDP1, SDP} = prack_endpoint:get_sessions(C2, DialogId1B),
+    {ok, 200, _} = nksip_uac:bye(C1, DialogId1, []),
+    ok = tests_util:wait(Ref, [{client2, sdp_stop},
+                               {client2, {dialog_stop, caller_bye}}]), 
+
+    % A session with media offer in INVITE, answer in reliable provisional 
+    % and new offer in PRACK (answer in respone to PRACk)
+    Hds2 = [{"Nk-Op", "rel-prov-answer2"}, RepHd],
+    CB = {prack, 
+            fun(<<>>, #sipmsg{}) -> 
+                Self ! {Ref, prack_sdp_ok},
+                nksip_sdp:increment(SDP)
+            end},
+    {ok, 200, [{dialog_id, DialogId2}]} = 
+        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{headers, Hds2}, {body, SDP}, CB]),
+    ok = nksip_uac:ack(C1, DialogId2, []),
+    receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
+    ok = tests_util:wait(Ref, [prack_sdp_ok,
+                               {client2, ack}, 
+                               {client2, dialog_confirmed},
+                               {client2, sdp_start},
+                               {client2, sdp_update}]),
+    LocalSDP2 = SDP#sdp{vsn = SDP#sdp.vsn+1},
+    RemoteSDP2 = SDP#sdp{
+        address = {<<"IN">>, <<"IP4">>, <<"client2">>},
+        vsn = SDP#sdp.vsn+1
+    },
+    DialogId2B = nksip_dialog:field(C1, DialogId2, remote_id),
+    {RemoteSDP2, LocalSDP2} = prack_endpoint:get_sessions(C2, DialogId2B),
+    {ok, 200, _} = nksip_uac:bye(C1, DialogId2, []),
+    ok = tests_util:wait(Ref, [{client2, sdp_stop},
+                               {client2, {dialog_stop, caller_bye}}]), 
+
+    % A session with no media offer in INVITE, offer in reliable provisional 
+    % and answer in PRACK
+    Hds3 = [{"Nk-Op", "rel-prov-answer3"}, RepHd],
+    CB3 = {prack, 
+            fun(FunSDP, #sipmsg{}) -> 
+                FunLocalSDP = FunSDP#sdp{
+                    address={<<"IN">>, <<"IP4">>, <<"client1">>},            
+                    connect={<<"IN">>, <<"IP4">>, <<"client1">>}
+                },
+                Self ! {Ref, {prack_sdp_ok, FunLocalSDP}},
+                FunLocalSDP
+            end},
+    {ok, 200, [{dialog_id, DialogId3}]} = 
+        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{headers, Hds3}, CB3]),
+    ok = nksip_uac:ack(C1, DialogId3, []),
+    receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
+    LocalSDP3 = receive {Ref, {prack_sdp_ok, L3}} -> L3 after 1000 -> error(media) end,
+    ok = tests_util:wait(Ref, [
+                               {client2, ack}, 
+                               {client2, dialog_confirmed},
+                               {client2, sdp_start}]),
+    
+    RemoteSDP3 = LocalSDP3#sdp{
+        address = {<<"IN">>, <<"IP4">>, <<"client2">>},
+        connect = {<<"IN">>, <<"IP4">>, <<"client2">>}
+    },
+    DialogId3B = nksip_dialog:field(C1, DialogId3, remote_id),
+    {RemoteSDP3, LocalSDP3} = prack_endpoint:get_sessions(C2, DialogId3B),
+    {ok, 200, _} = nksip_uac:bye(C1, DialogId3, []),
+    ok = tests_util:wait(Ref, [{client2, sdp_stop},
+                               {client2, {dialog_stop, caller_bye}}]), 
+    ok.
+
+
+
+    
 
 
 

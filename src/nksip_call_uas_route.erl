@@ -196,7 +196,10 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
     end,
     PassFun = fun(User, Realm) ->
         Args = [User, Realm],
-        case nksip_sipapp_srv:sipapp_call(AppId, Module, get_user_pass, Args, Args) of
+        case 
+            nksip_sipapp_srv:sipapp_call_wait(AppId, Module, 
+                                              get_user_pass, Args, Args, 30000) 
+        of
             {reply, Reply} -> 
                 ok;
             error -> 

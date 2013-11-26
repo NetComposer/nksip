@@ -208,8 +208,12 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 false -> []
             end,
             case nksip_lib:get_value(callback, Opts) of
-                undefined -> [];
-                Callback -> {callback, Callback}
+                Callback when is_function(Callback, 1) -> {callback, Callback};
+                _ -> []
+            end,
+            case nksip_lib:get_value(prack, Opts) of
+                PrAck when is_function(PrAck, 2) -> {prack, PrAck};
+                _ -> []
             end,
             case lists:member(get_request, Opts) of
                 true -> get_request;

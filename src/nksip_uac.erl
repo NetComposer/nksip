@@ -378,6 +378,26 @@ register(AppId, Dest, Opts) ->
 %%          <td>If present, a <i>Require: 100rel</i> will be generated, and the other
 %%          party must then send reliable provisional responses.</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`prack'</td>
+%%          <td><code>`fun/2'</code></td>
+%%          <td></td>
+%%          <td>If included, this function will be called when the original INVITE
+%%          when a reliable provisional response has been received, and before 
+%%          sending the corresponding PRACK.
+%%          It will be called as `{RemoteSDP, Response}' where 
+%%          RemoteSDP :: <<>> | {@link nksip_sdp:sdp()} and Response :: {@link nksip:response()}.
+%%          If RemoteSDP is a SDP, it is an offer and you must supply an answer as 
+%%          function return. If it is <<>>, you can return <<>> or send a new offer.
+%%          If this option is not included, PRACKs will be sent with no body.
+%%      </tr>
+%%      <tr>
+%%          <td>`require_100rel</td>
+%%          <td></td>
+%%          <td></td>
+%%          <td>If present, a <i>Require: 100rel</i> will be generated, and the other
+%%          party must then send reliable provisional responses.</td>
+%%      </tr>
 %% </table>
 %%
 %% A `make_contact' option will be automatically added if no contact is defined.

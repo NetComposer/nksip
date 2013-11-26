@@ -73,8 +73,7 @@ response(Resp, UAC, Call) ->
         class = {resp, Code, _Reason}, 
         id = MsgId, 
         dialog_id = DialogId,
-        transport = Transport,
-        require = Require
+        transport = Transport
     } = Resp,
     #trans{
         id = Id, 
@@ -116,15 +115,7 @@ response(Resp, UAC, Call) ->
     Msg = {MsgId, Id, DialogId},
     Call3 = Call2#call{msgs=[Msg|Msgs]},
     Call4 = response_status(Status, Resp1, UAC1, Call3),
-    case Method of
-        'INVITE' when Code>100, Code<200 ->
-            case lists:keymember(<<"100rel">>, 1, Require) of
-                true -> send_prack(Resp1, Id, DialogId, Call4);
-                false -> Call4
-            end;
-        _ ->
-            Call4
-    end.
+    check_prack(Resp, UAC1, Call4).
 
 
 %% @private
@@ -388,6 +379,37 @@ is_prack_retrans(Resp, UAC) ->
 
 
 %% @private
+-spec check_prack(nksip:response(), nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+check_prack(Resp, UAC, Call) ->
+    #sipmsg{
+        class = {resp, Code, _Reason}, 
+        dialog_id = DialogId,
+        require = Require
+    } = Resp,
+    #trans{
+        id = Id, 
+        from = From,
+        method = Method
+    } = UAC,
+    case From of
+        {fork, _} ->
+            Call;
+        _ ->
+            case Method of
+                'INVITE' when Code>100, Code<200 ->
+                    case lists:keymember(<<"100rel">>, 1, Require) of
+                        true -> send_prack(Resp, Id, DialogId, Call);
+                        false -> Call
+                    end;
+                _ ->
+                    Call
+            end
+    end.
+
+
+%% @private
 -spec send_prack(nksip:response(), nksip_call_uac:id(), 
                  nksip_dialog:id(), nksip_call:call()) ->
     nksip_call:call().
@@ -412,25 +434,32 @@ send_prack(Resp, Id, DialogId, Call) ->
             method = Method, 
             rseq = LastRSeq, 
             pracks = PRAcks,
-            opts = _UACOpts
+            opts = UACOpts
         } = UAC,
         case LastRSeq of
             0 -> ok;
             _ when RSeq==LastRSeq+1 -> ok;
             _ -> throw(rseq_out_of_order)
         end,
-        % Opts1 = case nksip_lib:get_value(callback, Opts) of
-        %     Fun when is_function(Fun, 1) -> 
-        %         case catch Fun({prack, Resp}) of
-        %             {ok, Opts1_0} ->
-        %                 Opts1_0;
-        %             _ ->
-        %                 ?call_warning("error calling callback for PRACK", [], Call),
-        %                 []
-        %         end;
-        %     _ ->
-        %         []
-        % end,
+        case nksip_call_dialog:find(DialogId, Call) of
+            #dialog{sdp_offer={remote, RemoteSDP}, sdp_answer=undefined} -> ok;
+            _ -> RemoteSDP = <<>>
+        end,
+        Body = case nksip_lib:get_value(prack, UACOpts) of
+            Fun when is_function(Fun, 2) -> 
+                case catch Fun(RemoteSDP, Resp) of
+                    Bin when is_binary(Bin) ->
+                        Bin;
+                    #sdp{} = LocalSDP -> 
+                        LocalSDP;
+                    Other ->
+                        ?call_warning("error calling prack_sdp/2: ~p", 
+                                      [Other], Call),
+                        <<>>
+                end;
+            _ ->
+                <<>>
+        end,
         RAck = list_to_binary([ 
             integer_to_list(RSeq),
             32,
@@ -438,7 +467,7 @@ send_prack(Resp, Id, DialogId, Call) ->
             32,
             nksip_lib:to_list(Method)
         ]),
-        Opts2 = [{post_headers, [{<<"RAck">>, RAck}]}],
+        Opts2 = [{post_headers, [{<<"RAck">>, RAck}]}, {body, Body}],
         case nksip_call_uac_dialog:make(DialogId, 'PRACK', Opts2, Call) of
             {ok, {Uri, Opts3}, Call1} -> 
                 case nksip_uac_lib:make(AppId, 'PRACK', Uri, Opts3, AppOpts) of

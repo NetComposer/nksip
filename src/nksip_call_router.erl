@@ -25,12 +25,12 @@
 -behaviour(gen_server).
 
 -export([incoming_async/1, incoming_sync/1]).
--export([send_work_sync/3, send_work_async/3, send_work_async/4]).
 -export([apply_dialog/3, get_all_dialogs/0, get_all_dialogs/2]).
 -export([apply_sipmsg/3]).
 -export([apply_transaction/3, get_all_transactions/0, get_all_transactions/2]).
 -export([get_all_calls/0, get_all_data/0, get_all_info/0, clear_all_calls/0]).
 -export([pending_msgs/0, pending_work/0, clear_app_cache/1]).
+-export([send_work_sync/3, send_work_async/3]).
 -export([pos2name/1, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
@@ -52,7 +52,7 @@
 %% ===================================================================
 
 
--type sync_error() :: unknown_sipapp | too_many_calls | timeout.
+-type sync_error() :: unknown_sipapp | too_many_calls | timeout | loop_detected.
 
 
 %% ===================================================================
@@ -65,46 +65,14 @@ incoming_async(#raw_sipmsg{call_id=CallId}=RawMsg) ->
 
 
 %% @doc Called when a new request or response has been received.
-incoming_sync(#raw_sipmsg{call_id=CallId}=RawMsg) ->
-    gen_server:call(name(CallId), {incoming, RawMsg}).
-
-
-%% @doc Sends a synchronous piece of {@link nksip_call:work()} to a call.
--spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
-    any() | {error, sync_error()}.
-
-send_work_sync(AppId, CallId, Work) ->
-    WorkSpec = {send_work_sync, AppId, CallId, Work},
-    case catch gen_server:call(name(CallId), WorkSpec, ?SYNC_TIMEOUT) of
-        {'EXIT', Error} ->
-            ?warning(AppId, CallId, "Error calling send_work_sync (~p): ~p",
-                     [work_id(Work), Error]),
+incoming_sync(#raw_sipmsg{app_id=AppId, call_id=CallId}=RawMsg) ->
+    case catch gen_server:call(name(CallId), {incoming, RawMsg}, ?SYNC_TIMEOUT) of
+        {'EXIT', Error} -> 
+            ?warning(AppId, CallId, "Error calling incoming_sync: ~p", [Error]),
             {error, timeout};
-        Other ->
-            Other
+        Result -> 
+            Result
     end.
-
-
-%% @doc Sends an asynchronous piece of {@link nksip_call:work()} to a call.
--spec send_work_async(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
-    ok.
-
-send_work_async(AppId, CallId, Work) ->
-    send_work_async(name(CallId), AppId, CallId, Work).
-
-
-%% @doc Sends an asynchronous piece of {@link nksip_call:work()} to a call.
--spec send_work_async(atom(), nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
-    ok.
-
-send_work_async(Name, AppId, CallId, Work) ->
-    case find(Name, AppId, CallId) of
-        {ok, Pid} -> 
-            nksip_call_srv:async_work(Pid, Work);
-        not_found -> 
-            ?info(AppId, CallId, "Trying to send work ~p to deleted call", 
-                  [work_id(Work)])
-   end.
 
 
 %% @doc Applies a fun to a dialog and returns the result.
@@ -273,8 +241,8 @@ init([Pos, Name]) ->
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
 
-handle_call({send_work_sync, AppId, CallId, Work}, From, SD) ->
-    case send_work_sync(AppId, CallId, Work, From, SD) of
+handle_call({send_work_sync, AppId, CallId, Work, Caller}, From, SD) ->
+    case send_work_sync(AppId, CallId, Work, Caller, From, SD) of
         {ok, SD1} -> 
             {noreply, SD1};
         {error, Error} ->
@@ -284,7 +252,7 @@ handle_call({send_work_sync, AppId, CallId, Work}, From, SD) ->
 
 handle_call({incoming, RawMsg}, _From, SD) ->
     #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
-    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, SD) of
+    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, none, SD) of
         {ok, SD1} -> 
             {reply, ok, SD1};
         {error, Error} ->
@@ -310,7 +278,7 @@ handle_call(Msg, _From, SD) ->
 
 handle_cast({incoming, RawMsg}, SD) ->
     #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
-    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, SD) of
+    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, none, SD) of
         {ok, SD1} -> 
             {noreply, SD1};
         {error, Error} ->
@@ -353,7 +321,7 @@ handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
             % not be present in Pending.
             Pending1 = dict:erase(MRef, Pending),
             SD1 = SD#state{pending=Pending1},
-            case send_work_sync(AppId, CallId, Work, From, SD1) of
+            case send_work_sync(AppId, CallId, Work, none, From, SD1) of
                 {ok, SD2} -> 
                     ?debug(AppId, CallId, "Resending work ~p from ~p", 
                             [work_id(Work), From]),
@@ -396,6 +364,22 @@ terminate(_Reason, _SD) ->
 %% Internal
 %% ===================================================================
 
+%% @doc Sends a synchronous piece of {@link nksip_call:work()} to a call.
+-spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
+    any() | {error, sync_error()}.
+
+send_work_sync(AppId, CallId, Work) ->
+    WorkSpec = {send_work_sync, AppId, CallId, Work, self()},
+    case catch gen_server:call(name(CallId), WorkSpec, ?SYNC_TIMEOUT) of
+        {'EXIT', Error} ->
+            ?warning(AppId, CallId, "Error calling send_work_sync (~p): ~p",
+                     [work_id(Work), Error]),
+            {error, timeout};
+        Other ->
+            Other
+    end.
+
+
 %% @private 
 -spec name(nksip:call_id()) ->
     atom().
@@ -423,11 +407,14 @@ call_id(MsgId) ->
 
 %% @private
 -spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work(), 
-                     from(), #state{}) ->
+                     pid() | none, from(), #state{}) ->
     {ok, #state{}} | {error, sync_error()}.
 
-send_work_sync(AppId, CallId, Work, From, #state{name=Name, pending=Pending}=SD) ->
+send_work_sync(AppId, CallId, Work, Caller, From, SD) ->
+    #state{name=Name, pending=Pending} = SD,
     case find(Name, AppId, CallId) of
+        {ok, Caller} ->
+            {error, loop_detected};
         {ok, Pid} -> 
             Ref = erlang:monitor(process, Pid),
             Self = self(),
@@ -436,7 +423,7 @@ send_work_sync(AppId, CallId, Work, From, #state{name=Name, pending=Pending}=SD)
             {ok, SD#state{pending=Pending1}};
         not_found ->
             case do_call_start(AppId, CallId, SD) of
-                {ok, SD1} -> send_work_sync(AppId, CallId, Work, From, SD1);
+                {ok, SD1} -> send_work_sync(AppId, CallId, Work, Caller, From, SD1);
                 {error, Error} -> {error, Error}
             end
    end.
@@ -464,6 +451,28 @@ do_call_start(AppId, CallId, SD) ->
         false ->
             {error, too_many_calls}
     end.
+
+
+%% @doc Sends an asynchronous piece of {@link nksip_call:work()} to a call.
+-spec send_work_async(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
+    ok.
+
+send_work_async(AppId, CallId, Work) ->
+    send_work_async(name(CallId), AppId, CallId, Work).
+
+
+%% @private Sends an asynchronous piece of {@link nksip_call:work()} to a call.
+-spec send_work_async(atom(), nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
+    ok.
+
+send_work_async(Name, AppId, CallId, Work) ->
+    case find(Name, AppId, CallId) of
+        {ok, Pid} -> 
+            nksip_call_srv:async_work(Pid, Work);
+        not_found -> 
+            ?info(AppId, CallId, "Trying to send work ~p to deleted call", 
+                  [work_id(Work)])
+   end.
 
 
 %% @private

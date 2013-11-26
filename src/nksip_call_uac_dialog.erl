@@ -99,8 +99,9 @@ do_request('PRACK', proceeding_uac, Req, Dialog, Call) ->
     {Offer1, Answer1} = case Req#sipmsg.body of
         #sdp{}=SDP ->
             case {Offer, Answer} of
-                {undefined, undefined} -> {SDP, undefined};
-                {#sdp{}, undefined} -> {Offer, SDP}
+                {undefined, undefined} -> {{local, SDP}, undefined};
+                {{remote, _}, undefined} -> {Offer, {local, SDP}};
+                _ -> {Offer, Answer}
             end;
         _ ->
             {Offer, Answer}
@@ -158,8 +159,8 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
             (Status=:=init orelse Status=:=proceeding_uac) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
     {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
-        {#sdp{}=SDP1, #sdp{}=SDP2} -> {SDP1, SDP2};
-        {_, #sdp{}=SDP2} -> {SDP2, undefined};
+        {#sdp{}=SDP1, #sdp{}=SDP2} -> {{local, SDP1}, {remote, SDP2}};
+        {_, #sdp{}=SDP2} -> {{remote, SDP2}, undefined};
         _ -> {Offer, Answer}
     end,
     Dialog1 = Dialog#dialog{
@@ -175,8 +176,8 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
             (Status=:=init orelse Status=:=proceeding_uac) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
     {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
-        {#sdp{}=SDP1, #sdp{}=SDP2} -> {SDP1, SDP2};
-        {_, #sdp{}=SDP2} -> {SDP2, undefined};
+        {#sdp{}=SDP1, #sdp{}=SDP2} -> {{local, SDP1}, {remote, SDP2}};
+        {_, #sdp{}=SDP2} -> {{remote, SDP2}, undefined};
         _ -> {Offer, Answer}
     end,
     Dialog1 = Dialog#dialog{
@@ -245,18 +246,18 @@ do_response('PRACK', Code, _Req, Resp, #dialog{status=proceeding_uac}=Dialog, Ca
     {Offer1, Answer1} = case Resp#sipmsg.body of
         #sdp{}=SDP ->
             case {Offer, Answer} of
-                {#sdp{}, undefined} -> {Offer, SDP};
+                {{local, _}, undefined} -> {Offer, {remote, SDP}};
                 _ -> {Offer, Answer}
             end;
         _ ->
             {Offer, Answer}
     end,
     Dialog1 = Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1},
-    {ok, status_update(proceeding_uac, Dialog1, Call)};
+    status_update(proceeding_uac, Dialog1, Call);
 
 do_response('PRACK', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) ->
     ?call_notice("ignoring PRACK ~p response in ~p", [Code, Status], Call),
-    {ok, Dialog};
+    Dialog;
 
 do_response(_, _Code, _Req, _Resp, Dialog, _Call) ->
     Dialog.
@@ -270,8 +271,7 @@ ack(#sipmsg{class={req, 'ACK'}, dialog_id = <<>>}, Call) ->
     ?call_notice("Dialog UAC invalid ACK", [], Call),
     Call;
 
-ack(#sipmsg{class={req, 'ACK'}, dialog_id=DialogId}=Req, Call) ->
-    #sipmsg{cseq=CSeq} = Req,
+ack(#sipmsg{class={req, 'ACK'}, cseq=CSeq, dialog_id=DialogId}=AckReq, Call) ->
     case nksip_call_dialog:find(DialogId, Call) of
         #dialog{id=DialogId, status=Status, invite_req=InvReq}=Dialog ->
             #sipmsg{cseq=InvCSeq} = InvReq,
@@ -280,17 +280,17 @@ ack(#sipmsg{class={req, 'ACK'}, dialog_id=DialogId}=Req, Call) ->
                     ?call_debug("Dialog ~s (~p) UAC request 'ACK'", 
                                 [DialogId, Status], Call),
                     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
-                    {Offer1, Answer1} = case Req#sipmsg.body of
+                    {Offer1, Answer1} = case AckReq#sipmsg.body of
                         #sdp{}=SDP ->
                             case {Offer, Answer} of
-                                {#sdp{}, undefined} -> {Offer, SDP};
+                                {{remote, _},  undefined} -> {Offer, {local, SDP}};
                                 _ -> {Offer, Answer}
                             end;
                         _ ->
                             {Offer, Answer}
                     end,
                     Dialog1 = Dialog#dialog{
-                        ack_req = Req, 
+                        ack_req = AckReq, 
                         sdp_offer = Offer1, 
                         sdp_answer = Answer1
                     },

@@ -179,8 +179,6 @@ dialog() ->
 
     % Hack to find remote dialog
     DialogIdB = nksip_dialog:field(C1, DialogIdA, remote_id),
-    ?P("LOCAL DIALOG: ~p", [DialogIdA]),
-    ?P("REMOTE DIALOG: ~p", [DialogIdB]),
     [
         {status, confirmed},
         {created, Created2},

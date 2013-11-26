@@ -23,11 +23,14 @@
 -module(prack_endpoint).
 -behaviour(nksip_sipapp).
 
+-export([get_sessions/2]).
 -export([init/1, invite/3, reinvite/3, ack/3, prack/3]).
--export([dialog_update/3, session_update/3]).
+-export([dialog_update/3, session_update/3, handle_call/3]).
 
 -include("../include/nksip.hrl").
 
+get_sessions(AppId, DialogId) ->
+    nksip:call(AppId, {get_sessions, DialogId}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%  NkSipCore CallBack %%%%%%%%%%%%%%%%%%%%%
@@ -91,6 +94,35 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
                         end),
                     timer:sleep(100),
                     nksip:reply(From, busy);
+                <<"rel-prov-answer">> ->
+                    SDP = case nksip_request:body(AppId, ReqId) of
+                        #sdp{} = RemoteSDP ->
+                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
+                        _ -> 
+                            <<>>
+                    end,
+                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
+                    timer:sleep(100),
+                    SDP1 = nksip_sdp:increment(SDP),
+                    ok = nksip_request:reply(AppId, ReqId, {rel_session_progress, SDP1}),
+                    timer:sleep(100),
+                    SDP2 = nksip_sdp:increment(SDP1),
+                    nksip:reply(From, {ok, [], SDP2});
+                <<"rel-prov-answer2">> ->
+                    SDP = case nksip_request:body(AppId, ReqId) of
+                        #sdp{} = RemoteSDP ->
+                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
+                        _ -> 
+                            <<>>
+                    end,
+                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
+                    timer:sleep(100),
+                    nksip:reply(From, ok);
+                <<"rel-prov-answer3">> ->
+                    SDP = nksip_sdp:new(nksip_lib:to_binary(Id), [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
+                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
+                    timer:sleep(100),
+                    nksip:reply(From, ok);
                 _ ->
                     nksip:reply(From, decline)
             end
@@ -102,7 +134,8 @@ reinvite(ReqId, From, State) ->
     invite(ReqId, From, State).
 
 
-ack(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+ack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
+    AppId = {prack, Id},
     DialogId = nksip_dialog:id(AppId, ReqId),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
@@ -129,10 +162,17 @@ prack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
             RAck = nksip_request:field(AppId, ReqId, parsed_rack),
             Pid ! {Ref, {Id, prack, RAck}}
     end,
-    {reply, ok, State}.
+    Body = case nksip_request:body(AppId, ReqId) of
+        #sdp{} = RemoteSDP ->
+            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
+        _ -> 
+            <<>>
+    end,        
+    {reply, {ok, [], Body}, State}.
 
 
-dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) ->
+dialog_update(DialogId, Update, State) ->
+    #state{id=Id, dialogs=Dialogs} = State,
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             none;
@@ -145,14 +185,11 @@ dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) 
                 {stop, Reason} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}}
             end
     end,
-    {noreply, State};
-
-dialog_update(_DialogId, _Update, State) ->
     {noreply, State}.
 
 
-session_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs, 
-                                        sessions=Sessions}=State) ->
+session_update(DialogId, Update, State) ->
+    #state{id=Id, dialogs=Dialogs, sessions=Sessions} = State,
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             {noreply, State};
@@ -170,12 +207,12 @@ session_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs,
                     Pid ! {Ref, {Id, sdp_stop}},
                     {noreply, State}
             end
-    end;
-
-session_update(_DialogId, _Update, State) ->
-    {noreply, State}.
+    end.
 
 
+handle_call({get_sessions, DialogId}, _From, #state{sessions=Sessions}=State) ->
+    case lists:keyfind(DialogId, 1, Sessions) of
+        {_DialogId, Local, Remote} -> {reply, {Local, Remote}, State};
+        false -> {reply, not_found, State}
+    end.
 
-                    % SDP = nksip_sdp:new("client2", 
-                    %                         [{"test", 4321, [{rtpmap, 0, "codec1"}]}]),

@@ -52,7 +52,21 @@ request(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
                         [DialogId, Status], Call),
             case Status of
                 accepted_uas when InvSeq==AckSeq->
-                    Dialog1 = Dialog#dialog{ack_req=AckReq},
+                    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+                    {Offer1, Answer1} = case AckReq#sipmsg.body of
+                        #sdp{}=SDP ->
+                            case {Offer, Answer} of
+                                {{local, _},  undefined} -> {Offer, {remote, SDP}};
+                                _ -> {Offer, Answer}
+                            end;
+                        _ ->
+                            {Offer, Answer}
+                    end,
+                    Dialog1 = Dialog#dialog{
+                        ack_req = AckReq, 
+                        sdp_offer = Offer1, 
+                        sdp_answer = Answer1
+                    },
                     Dialog2 = status_update(confirmed, Dialog1, Call),
                     {ok, DialogId, nksip_call_dialog:update(Dialog2, Call)};
                 confirmed ->
@@ -104,7 +118,13 @@ do_request(_, bye, _Req, _Dialog, _Call) ->
     {error, bye};
 
 do_request('INVITE', confirmed, Req, Dialog, Call) ->
-    Dialog1 = Dialog#dialog{invite_req=Req, invite_resp=undefined, ack_req=undefined},
+    Dialog1 = Dialog#dialog{
+        invite_req = Req, 
+        invite_resp = undefined, 
+        ack_req = undefined,
+        sdp_offer = undefined,
+        sdp_answer = undefined
+    },
     {ok, status_update(proceeding_uas, Dialog1, Call)};
 
 do_request('INVITE', Status, _Req, _Dialog, _Call) 
@@ -124,7 +144,18 @@ do_request('BYE', Status, _Req, Dialog, Call) ->
     {ok, status_update(bye, Dialog, Call)};
 
 do_request('PRACK', proceeding_uas, Req, Dialog, Call) ->
-    Dialog1 = Dialog#dialog{prack_req=Req},
+    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+    {Offer1, Answer1} = case Req#sipmsg.body of
+        #sdp{}=SDP ->
+            case {Offer, Answer} of
+                {undefined, undefined} -> {{remote, SDP}, undefined};
+                {{local, _}, undefined} -> {Offer, {remote, SDP}};
+                _ -> {Offer, Answer}
+            end;
+        _ ->
+            {Offer, Answer}
+    end,
+    Dialog1 = Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1},
     {ok, status_update(proceeding_uas, Dialog1, Call)};
 
 do_request('PRACK', Status, _Req, Dialog, Call) ->
@@ -175,13 +206,35 @@ do_response(_, Code, _Req, _Resp, Dialog, _Call) when Code<101 ->
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<200 andalso 
             (Status=:=init orelse Status=:=proceeding_uas) ->
-    Dialog1 = Dialog#dialog{invite_req=Req, invite_resp=Resp},
+    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+    {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
+        {#sdp{}=SDP1, #sdp{}=SDP2} -> {{remote, SDP1}, {local, SDP2}};
+        {_, #sdp{}=SDP2} -> {{local, SDP2}, undefined};
+        _ -> {Offer, Answer}
+    end,
+    Dialog1 = Dialog#dialog{
+        invite_req = Req, 
+        invite_resp = Resp,
+        sdp_offer = Offer1,
+        sdp_answer = Answer1
+    },
     status_update(proceeding_uas, Dialog1, Call);
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso 
             (Status=:=init orelse Status=:=proceeding_uas) ->
-    Dialog1 = Dialog#dialog{invite_req=Req, invite_resp=Resp}, 
+    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+    {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
+        {#sdp{}=SDP1, #sdp{}=SDP2} -> {{remote, SDP1}, {local, SDP2}};
+        {_, #sdp{}=SDP2} -> {{local, SDP2}, undefined};
+        _ -> {Offer, Answer}
+    end,
+    Dialog1 = Dialog#dialog{
+        invite_req = Req, 
+        invite_resp = Resp,
+        sdp_offer = Offer1,
+        sdp_answer = Answer1
+    },
     status_update(accepted_uas, Dialog1, Call);
 
 do_response('INVITE', Code, _Req, _Resp, #dialog{answered=Answered}=Dialog, Call)
@@ -203,14 +256,24 @@ do_response('BYE', _Code, Req, _Resp, #dialog{caller_tag=CallerTag}=Dialog, Call
     end,
     status_update({stop, Reason}, Dialog, Call);
 
-do_response('PRACK', Code, Req, Resp, #dialog{status=proceeding_uas}=Dialog, Call)
+do_response('PRACK', Code, _Req, Resp, #dialog{status=proceeding_uas}=Dialog, Call)
             when Code>=200, Code<300 ->
-    Dialog1 = Dialog#dialog{prack_req=Req, prack_resp=Resp},
-    {ok, status_update(proceeding_uas, Dialog1, Call)};
+    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+    {Offer1, Answer1} = case Resp#sipmsg.body of
+        #sdp{}=SDP ->
+            case {Offer, Answer} of
+                {{remote, _}, undefined} -> {Offer, {local, SDP}};
+                _ -> {Offer, Answer}
+            end;
+        _ ->
+            {Offer, Answer}
+    end,
+    Dialog1 = Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1},
+    status_update(proceeding_uas, Dialog1, Call);
 
 do_response('PRACK', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) ->
     ?call_notice("ignoring PRACK ~p response in ~p", [Code, Status], Call),
-    {ok, Dialog};
+    Dialog;
 
 do_response(_, _, _, _, Dialog, _Call) ->
     Dialog.

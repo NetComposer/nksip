@@ -29,7 +29,7 @@
 -behaviour(gen_server).
 
 -export([get_opts/1, reply/2]).
--export([sipapp_call/6, sipapp_call/5, sipapp_cast/5]).
+-export([sipapp_call/6, sipapp_call_wait/6, sipapp_cast/5]).
 -export([register/2, get_registered/2, put_opts/2, allowed/1, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -96,7 +96,7 @@ allowed(AppOpts) ->
     end.
 
 
-%% @private Calls to a function in the siapp's callback module.
+%% @private Calls a function in the siapp's callback module.
 %% Args1 are used in case of inline callback. Args2 in case of normal (with state)
 %% callback.
 -spec sipapp_call(nksip:app_id(), atom(), atom(), list(), list(), nksip_from()) ->
@@ -131,12 +131,12 @@ sipapp_call(AppId, Module, Fun, Args1, Args2, From) ->
     end.
 
 
-%% @private Calls to a function in the siapp's callback module synchronously,
-%% waiting for an answer. The called callback will not a 'From' parameter.
--spec sipapp_call(nksip:app_id(), atom(), atom(), list(), list()) ->
+%% @private Calls a function in the siapp's callback module synchronously,
+%% waiting for an answer. The called callback shouldn't have a 'From' parameter.
+-spec sipapp_call_wait(nksip:app_id(), atom(), atom(), list(), list(), integer()) ->
     {reply, term()} | not_exported | error.
 
-sipapp_call(AppId, Module, Fun, Args1, Args2) ->
+sipapp_call_wait(AppId, Module, Fun, Args1, Args2, Timeout) ->
     case erlang:function_exported(Module, Fun, length(Args1)) of
         true ->
             case catch apply(Module, Fun, Args1) of
@@ -155,7 +155,17 @@ sipapp_call(AppId, Module, Fun, Args1, Args2) ->
                             error;
                         Pid -> 
                             Msg = {'$nksip_call_nofrom', Fun, Args2},
-                            {reply, gen_server:call(Pid, Msg, ?SRV_TIMEOUT)}
+                            Reply = case catch 
+                                gen_server:call(Pid, Msg, Timeout)
+                            of
+                                {'EXIT', Error} -> 
+                                    ?error(AppId, "Error calling callback ~p: ~p", 
+                                           [Fun, Error]),
+                                    error;
+                                Ok -> 
+                                    Ok
+                            end,
+                            {reply, Reply}
                     end;
                 false ->
                     not_exported

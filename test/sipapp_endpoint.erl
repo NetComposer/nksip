@@ -188,25 +188,6 @@ invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
     end;
 
 
-%% INVITE for prack tests
-invite(ReqId, From, #state{id={prack, _}=AppId}=State) ->
-    proc_lib:spawn(
-        fun() ->
-            spawn(fun() ->
-                R = nksip_request:reply(AppId, ReqId, rel_ringing),
-                lager:error("REL RINGING1: ~p", [R])
-            end),
-            timer:sleep(100),
-            spawn(fun() ->
-                R2 = nksip_request:reply(AppId, ReqId, rel_session_progress),
-                lager:error("REL RINGING2: ~p", [R2])
-            end),
-            timer:sleep(10000),
-            nksip:reply(From, busy)
-        end),
-    {noreply, State};
-
-
 % INVITE for basic, uac, uas, invite and proxy_test
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov

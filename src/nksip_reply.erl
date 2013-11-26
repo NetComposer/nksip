@@ -26,7 +26,13 @@
 %% <table border="1">
 %%   <tr><th>Response</th><th>Code</th><th>Comments</th></tr>
 %%   <tr><td>`ringing'</td><td>180</td><td></td></tr>
+%%   <tr><td>`{ringing, Body}'</td><td>180</td><td></td></tr>
 %%   <tr><td>`session_progress'</td><td>183</td><td></td></tr>
+%%   <tr><td>`{session_progress, Body}'</td><td>183</td><td></td></tr>
+%%   <tr><td>`rel_ringing'</td><td>180 (reliable)</td><td></td></tr>
+%%   <tr><td>`{rel_ringing, Body}'</td><td>180 (reliable)</td><td></td></tr>
+%%   <tr><td>`rel_session_progress'</td><td>183 (reliable)</td><td></td></tr>
+%%   <tr><td>`{rel_session_progress, Body}'</td><td>183 (reliable)</td><td></td></tr>
 %%   <tr><td>`ok'</td><td>200</td><td></td></tr>
 %%   <tr><td>`{ok, [Header]}'</td><td>200</td>
 %%       <td>Response will include provided headers</td></tr>
@@ -157,7 +163,10 @@
 %% ===================================================================
 
 -type sipreply() ::
-    ringing | session_progress | rel_ringing | rel_session_progress |
+    ringing | {ringing, nksip:body()} | 
+    session_progress | {session_progress, nksip:body()} |
+    rel_ringing | {rel_ringing, nksip:body()} | 
+    rel_session_progress | {rel_session_progress, nksip:body()} |
     ok | {ok, [nksip:header()]} | {ok, [nksip:header()], nksip:body()} | 
     {ok, [nksip:header()], nksip:body(), nksip_lib:proplist()} | 
     answer | {answer, [nksip:header()]} | {answer, [nksip:header()], nksip:body()} | 
@@ -253,12 +262,20 @@ reqreply(#reqreply{}=Reply) ->
     Reply;
 reqreply(ringing) ->
     #reqreply{code=180};
+reqreply({ringing, Body}) ->
+    #reqreply{code=180, body=Body};
 reqreply(rel_ringing) ->
     #reqreply{code=180, opts=[make_100rel]};
+reqreply({rel_ringing, Body}) ->
+    #reqreply{code=180, body=Body, opts=[make_100rel]};
 reqreply(session_progress) ->
     #reqreply{code=183};
+reqreply({session_progress, Body}) ->
+    #reqreply{code=183, body=Body};
 reqreply(rel_session_progress) ->
     #reqreply{code=183, opts=[make_100rel]};
+reqreply({rel_session_progress, Body}) ->
+    #reqreply{code=183, body=Body, opts=[make_100rel]};
 reqreply(ok) ->
     #reqreply{code=200};
 reqreply({ok, Headers}) ->
