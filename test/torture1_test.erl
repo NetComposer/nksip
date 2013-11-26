@@ -31,7 +31,7 @@
 valid_1_test() ->
     ?debugFmt("Starting ~p", [?MODULE]),
 
-    Msg1 = 
+    Msg = 
         <<"INVITE sip:vivekg@chair-dnrc.example.com;unknownparam SIP/2.0\r\n"
         "TO :\r\n"
         " sip:vivekg@chair-dnrc.example.com ;   tag    = 1918181833n\r\n"
@@ -69,7 +69,7 @@ valid_1_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    #sipmsg{
+    A = #sipmsg{
         ruri = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
                     port = 0, opts = [<<"unknownparam">>]},
         to = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
@@ -129,7 +129,14 @@ valid_1_test() ->
                     attributes = [{<<"rtpmap">>,[<<"31">>,<<"LPC">>]}]}
             ]
         }
-    } = parse(Msg1),
+    },
+    case parse(Msg) of
+        A ->
+            ok;
+        B ->
+            ?debugFmt("Error ~p\nA: ~p\nB: ~p\n", 
+                [?LINE, lager:pr(A, ?MODULE), lager:pr(B, ?MODULE)])
+    end,
     ok.
 
 
@@ -150,7 +157,7 @@ valid_2_test() ->
     L1 = list_to_binary("\xD1\x80\xD0\xB0\xD0\xB1\xD0\xBE\xD1\x82\xD0\xB0\xD1\x8E\xD1\x89\xD0\xB8\xD0\xB9"),
     L2 = list_to_binary("\"BEL:\\\x07 NUL:\\\x00 DEL:\\\x7F\" "),
     L3 = list_to_binary("\xEF\xBB\xBF\xE5\xA4\xA7\xE5\x81\x9C\xE9\x9B\xBB"),    
-    #sipmsg{
+    A = #sipmsg{
             class = {req,<<"!interesting-Method0123456789_*+`.%indeed'~">>},
             ruri = #uri{
                     scheme = sip, 
@@ -185,7 +192,14 @@ valid_2_test() ->
             forwards = 255,
             headers = [{<<"Extensionheader-!.%*+_`'~">>, L3}], 
             from_tag = <<"_token~1'+`*%!-.">>, to_tag = <<>>
-    } = parse(Msg),
+    },
+    case parse(Msg) of
+        A ->
+            ok;
+        B ->
+            ?debugFmt("Error ~p\nA: ~p\nB: ~p\n", 
+                [?LINE, lager:pr(A, ?MODULE), lager:pr(B, ?MODULE)])
+    end,
     ok.
 
 

@@ -457,7 +457,7 @@ naptr_filter(_) -> false.
 %% ===================================================================
 
 
-% -ifdef(TEST).
+-ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
 weigth_test() ->
@@ -537,11 +537,7 @@ uri_test() ->
     lists:foreach(
         fun({Uri, Result}) -> 
             [PUri] = nksip_parse:uris(Uri),
-            case resolve_uri(PUri) of
-                Result -> ok;
-                Other -> ?debugFmt("ERROR DNS: ~p, ~p", [PUri, Other])
-            end
-            % ?assertMatch(Result, resolve_uri(PUri)) 
+            ?assertMatch(Result, resolve_uri(PUri)) 
         end,
         Test).
 
@@ -584,11 +580,7 @@ resolv_test() ->
     ets:insert(?MODULE, {{ips, "test400.local"}, [], Now}),
     ets:insert(?MODULE, {{ips, "test500.local"}, [{1,1,500,1}], Now}),
 
-    ?debugFmt("RESOLVE SIP LOCALHOST: ~p", [resolve("sip:localhost")]),
-    ?debugFmt("RESOLVE SIPS LOCALHOST: ~p", [resolve("sips:localhost")]),
-
-
-    %% Travis test machine returns two hosts...
+     %% Travis test machine returns two hosts...
     [{udp, {127,0,0,1}, 5060}|_] = resolve("sip:localhost"),
     [{tls, {127,0,0,1}, 5061}|_] = resolve("sips:localhost"),
 
@@ -618,7 +610,7 @@ resolv_test() ->
     end,
     ok.
 
-% -endif.
+-endif.
 
 
 

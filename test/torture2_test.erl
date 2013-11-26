@@ -491,14 +491,14 @@ parse(Msg) ->
 send(udp, Msg) ->
     {ok, S} = gen_udp:open(0, [binary, {active, false}]),
     ok = gen_udp:send(S, {127,0,0,1}, 5060, Msg),
-    {ok, {_, _, Bin}} = gen_udp:recv(S, 0, 1000),
+    {ok, {_, _, Bin}} = gen_udp:recv(S, 0, 5000),
     gen_udp:close(S),
     Bin;
 
 send(tcp, Msg) ->
     {ok, S} = gen_tcp:connect({127,0,0,1}, 5060, [binary, {active, false}]),
     ok = gen_tcp:send(S, Msg),
-    {ok, Bin} = gen_tcp:recv(S, 0, 1000),
+    {ok, Bin} = gen_tcp:recv(S, 0, 5000),
     gen_tcp:close(S),
     Bin.
 
