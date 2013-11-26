@@ -493,7 +493,7 @@ get_sipmsg(Headers, Body, Proto) ->
 %% @private
 get_sipmsg2(Headers, Body, Proto) ->
     SipMsg = get_sipmsg_iter(Headers, #sipmsg{}),
-    #sipmsg{body=RawCL, content_type=ContentType, headers=Headers} = SipMsg,
+    #sipmsg{body=RawCL, content_type=ContentType, headers=Headers1} = SipMsg,
     case RawCL of
         undefined when Proto=/=tcp, Proto=/=tls -> 
             ok;
@@ -527,7 +527,7 @@ get_sipmsg2(Headers, Body, Proto) ->
             Body
     end,
     SipMsg#sipmsg{
-        headers = lists:reverse(Headers), 
+        headers = lists:reverse(Headers1), 
         body = Body1, 
         to_tag_candidate = <<>>
     }.
