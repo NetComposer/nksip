@@ -457,7 +457,7 @@ naptr_filter(_) -> false.
 %% ===================================================================
 
 
--ifdef(TEST).
+% -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
 weigth_test() ->
@@ -521,15 +521,15 @@ uri_test() ->
         {"<sip:1.2.3.4;transport=other>",  {ok, []}},
 
         {"<sip:1.2.3.4:4321;transport=tcp>",  {ok, [{tcp, {1,2,3,4}, 4321}]}},
-        {"<sips:localhost:4321;transport=tls>",  {ok, [{tls, {127,0,0,1}, 4321}]}},
+        {"<sips:127.0.0.1:4321;transport=tls>",  {ok, [{tls, {127,0,0,1}, 4321}]}},
 
         {"<sip:1.2.3.4>",  {ok, [{udp, {1,2,3,4}, 5060}]}},
         {"<sip:1.2.3.4:4321>",  {ok, [{udp, {1,2,3,4}, 4321}]}},
         {"<sips:1.2.3.4>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
         {"<sips:1.2.3.4:4321>",  {ok, [{tls, {1,2,3,4}, 4321}]}},
 
-        {"<sip:localhost:1234>",  {ok, [{udp, {127,0,0,1}, 1234}]}},
-        {"<sips:localhost:1234>",  {ok, [{tls, {127,0,0,1}, 1234}]}},
+        {"<sip:127.0.0.1:1234>",  {ok, [{udp, {127,0,0,1}, 1234}]}},
+        {"<sips:127.0.0.1:1234>",  {ok, [{tls, {127,0,0,1}, 1234}]}},
 
         {"<sip:anyhost>",  {naptr, sip, "anyhost"}},
         {"<sips:anyhost>",  {naptr, sips, "anyhost"}}
@@ -588,8 +588,9 @@ resolv_test() ->
     ?debugFmt("RESOLVE SIPS LOCALHOST: ~p", [resolve("sips:localhost")]),
 
 
-    [{udp, {127,0,0,1}, 5060}] = resolve("sip:localhost"),
-    [{tls, {127,0,0,1}, 5061}] = resolve("sips:localhost"),
+    %% Travis test machine returns two hosts...
+    [{udp, {127,0,0,1}, 5060}|_] = resolve("sip:localhost"),
+    [{tls, {127,0,0,1}, 5061}|_] = resolve("sips:localhost"),
 
     [A, B, C, D, E, F, G] = resolve("sip:test.local"),
 
@@ -617,7 +618,7 @@ resolv_test() ->
     end,
     ok.
 
--endif.
+% -endif.
 
 
 
