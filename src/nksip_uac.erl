@@ -310,22 +310,13 @@ register(AppId, Dest, Opts) ->
         false ->
             Contact = [], 
             case lists:member(unregister, Opts) of
-                true ->
-                    Expires = 0;
-                false ->
-                    Expires = case nksip_lib:get_integer(expires, Opts, -1) of
-                        Exp0 when Exp0 >= 0 -> Exp0;
-                        _ -> undefined
-                    end
+                true -> Expires = 0;
+                false -> Expires = same
             end
     end,
     Opts1 = case Expires of
-        undefined -> 
-            Opts;
-        _ -> 
-            Headers1 = nksip_lib:get_value(headers, Opts, []),
-            Headers2 = nksip_headers:update(Headers1, [{single, <<"Expires">>, Expires}]),
-            lists:keystore(headers, 1, Opts, {headers, Headers2})
+        same -> Opts;
+        _ -> [{expires, Expires}|Opts]
     end,
     Opts2 = lists:flatten(Opts1++[Contact, {to, as_from}]),
     send_any(AppId, 'REGISTER', Dest, Opts2).
@@ -418,18 +409,8 @@ register(AppId, Dest, Opts) ->
     result() | {error, error()}.
 
 invite(AppId, Dest, Opts) ->
-    Expires = nksip_lib:get_integer(expires, Opts, 0), 
-    Headers1 = nksip_lib:get_value(headers, Opts, []),
-    Opts1 = if
-        is_integer(Expires), Expires > 0 ->
-            Headers2 = nksip_headers:update(Headers1, 
-                                            [{single, <<"Expires">>, Expires}]),
-            lists:keystore(headers, 1, Opts, {headers, Headers2});
-        true ->
-            Opts
-    end,
-    Opts2 = [make_supported, make_accept, make_allow  | Opts1],
-    send_any(AppId, 'INVITE', Dest, Opts2).
+    Opts1 = [make_supported, make_accept, make_allow | Opts],
+    send_any(AppId, 'INVITE', Dest, Opts1).
 
 
 

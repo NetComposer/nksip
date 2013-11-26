@@ -306,8 +306,8 @@ process(#sipmsg{
         true -> throw(unsupported_uri_scheme)
     end,
     AOR = {Scheme, ToUser, ToDomain},
-    Expires = case nksip_sipmsg:header(Req, <<"Expires">>, integers) of
-        [T|_] when is_integer(T) -> T;
+    Expires = case nksip_sipmsg:field(Req, expires) of
+        T when is_integer(T) -> T;
         _ -> nksip_config:get(registrar_default_time)
     end,
     case Contacts of

@@ -146,6 +146,10 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             true -> ?SUPPORTED;
             false -> []
         end,
+        Expires = case nksip_lib:get_integer(expires, Opts, -1) of
+            Exp when is_integer(Exp), Exp>=0 -> Exp;
+            _ -> undefined
+        end,
         RUri1 = nksip_parse:uri2ruri(RUri),
         Req = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
@@ -161,6 +165,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             forwards = 70,
             routes = Routes,
             contacts = Contacts,
+            expires = Expires,
             headers = Headers1,
             content_type = ContentType,
             require = Require,

@@ -154,12 +154,12 @@
     content_type :: [nksip:token()],
     require = [] :: [nksip:token()],
     supported = [] :: [nksip:token()],
+    expires :: non_neg_integer(),
     headers = [] :: [nksip:header()],
     body :: nksip:body(),
     from_tag :: nksip:tag(),
     to_tag :: nksip:tag(),
     to_tag_candidate :: nksip:tag(),
-    expire :: nksip_lib:timestamp(),
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp()
 }).

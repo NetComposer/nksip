@@ -88,7 +88,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_supported -> S#sipmsg.supported;
         body -> S#sipmsg.body;
         dialog_id -> S#sipmsg.dialog_id;
-        expire -> S#sipmsg.expire;
+        expires -> S#sipmsg.expires;
         all_headers -> all_headers(S);
         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
         reason -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
@@ -109,6 +109,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
                             undefined
                     end;
                 _ ->
+                
                     undefined
             end;
         _ when is_binary(Field) -> 

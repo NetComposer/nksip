@@ -575,7 +575,7 @@ get_sipmsg_iter([{<<"CSeq">>, RawCSeq}|Rest], SipMsg) ->
         [Int0, Method0] when SipMsg#sipmsg.cseq==undefined ->                
             Method = method(Method0),
             case (catch list_to_integer(Int0)) of
-                Int when Int>0, Int<4294967295 ->       % (2^32-1)
+                Int when Int>0, Int<4294967296 ->       % (2^32)
                     SipMsg1 = SipMsg#sipmsg{cseq=Int, cseq_method=Method},
                     get_sipmsg_iter(Rest, SipMsg1);
                 _ ->
@@ -635,6 +635,14 @@ get_sipmsg_iter([{<<"Supported">>, Value}|Rest], SipMsg) ->
         Supported ->
             Supported1 = SipMsg#sipmsg.supported ++ Supported,
             get_sipmsg_iter(Rest, SipMsg#sipmsg{supported=Supported1})
+    end;
+
+get_sipmsg_iter([{<<"Expires">>, Value}|Rest], SipMsg) ->
+    case integers(Value) of
+        [Int] when Int>=0, Int<4294967296, SipMsg#sipmsg.expires==undefined ->
+            get_sipmsg_iter(Rest, SipMsg#sipmsg{expires=Int});
+        _ -> 
+            throw({400, <<"Invalid Expiresº">>})
     end;
 
 get_sipmsg_iter([{<<"Content-Length">>, Value}|Rest], SipMsg) ->
