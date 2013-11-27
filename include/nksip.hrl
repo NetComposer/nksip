@@ -193,6 +193,9 @@
 }).
 
 
+-type sdp_offer() ::
+    {local|remote, invite|prack|update|ack, nksip_sdp:sdp()} | undefined.
+
 -record(dialog, {
     id :: nksip_dialog:id(),
     app_id :: nksip:app_id(),
@@ -218,8 +221,8 @@
     invite_req :: nksip:request(),
     invite_resp :: nksip:response(),
     ack_req :: nksip:request(),
-    sdp_offer :: nksip_sdp:sdp(),
-    sdp_answer :: nksip_sdp:sdp(),
+    sdp_offer :: sdp_offer(),
+    sdp_answer :: sdp_offer(),
     timeout_timer :: reference(),
     retrans_timer :: reference(),
     next_retrans :: integer()

@@ -153,28 +153,28 @@ status_update(Class, Status, Dialog, Call) ->
     end,
     case Status of
         proceeding_uac ->
-            Dialog3 = target_update(Class, Req, Resp, Dialog2, Call),
-            Dialog4 = route_update(Class, Req, Resp, Dialog3),
+            Dialog3 = route_update(Class, Req, Resp, Dialog2),
+            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
             session_update(Dialog4, Call);
         accepted_uac ->
-            Dialog3 = target_update(Class, Req, Resp, Dialog2, Call),
-            Dialog4 = route_update(Class, Req, Resp, Dialog3),
+            Dialog3 = route_update(Class, Req, Resp, Dialog2),
+            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
             session_update(Dialog4, Call);
         proceeding_uas ->
-            Dialog3 = target_update(Class, Req, Resp, Dialog2, Call),
-            Dialog4 = route_update(Class, Req, Resp, Dialog3),
+            Dialog3 = route_update(Class, Req, Resp, Dialog2),
+            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
             session_update(Dialog4, Call);
         accepted_uas ->    
-            Dialog3 = target_update(Class, Req, Resp, Dialog2, Call),
-            Dialog4 = route_update(Class, Req, Resp, Dialog3),
+            Dialog3 = route_update(Class, Req, Resp, Dialog2),
+            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
             Dialog5 = session_update(Dialog4, Call),
             Dialog5#dialog{
                 retrans_timer = start_timer(T1, retrans, Dialog),
                 next_retrans = 2*T1
             };
         confirmed ->
-            Dialog3 = session_update(Dialog2, Call),
-            Dialog3#dialog{invite_req=undefined, invite_resp=undefined};
+            Dialog5 = session_update(Dialog2, Call),
+            Dialog5#dialog{invite_req=undefined, invite_resp=undefined};
         bye ->
             Dialog2;
         {stop, StopReason} -> 
@@ -301,8 +301,8 @@ route_update(_Class, _Req, _Resp, Dialog) ->
 
 session_update(
             #dialog{
-                sdp_offer = {OfferParty, #sdp{}=OfferSDP},
-                sdp_answer = {AnswerParty, #sdp{}=AnswerSDP},
+                sdp_offer = {OfferParty, _, #sdp{}=OfferSDP},
+                sdp_answer = {AnswerParty, _, #sdp{}=AnswerSDP},
                 local_sdp = LocalSDP,
                 remote_sdp = RemoteSDP,
                 media_started = Started,
