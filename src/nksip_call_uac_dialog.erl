@@ -26,6 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([request/2, ack/2, response/3, make/4, new_local_seq/2, uac_id/3]).
+-import(nksip_call_dialog, [status_update/4, target_update/5, session_update/2, store/2]).
 
 -type call() :: nksip_call:call().
 
@@ -57,10 +58,8 @@ request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
                 false -> Dialog
             end,
             case do_request(Method, Status, Req, Dialog1, Call) of
-                {ok, Dialog2} -> 
-                    {ok, nksip_call_dialog:update(Dialog2, Call)};
-                {error, Error} -> 
-                    {error, Error}
+                {ok, Dialog2} -> {ok, store(Dialog2, Call)};
+                {error, Error} -> {error, Error}
             end;
         not_found when Method=:='INVITE' ->
             {ok, Call};
@@ -79,39 +78,64 @@ do_request(_, bye, _Req, _Dialog, _Call) ->
     {error, unknown_dialog};
 
 do_request('INVITE', confirmed, Req, Dialog, Call) ->
-    Dialog1 = Dialog#dialog{
-        invite_req = Req, 
-        invite_resp = undefined, 
-        ack_req = undefined,
-        sdp_offer = undefined,
-        sdp_answer = undefined
-    },
-    {ok, status_update(proceeding_uac, Dialog1, Call)};
+    #dialog{sdp_offer=Offer} = Dialog,
+    case Req#sipmsg.body of
+        #sdp{} = SDP -> HasSDP = true;
+        _ -> SDP = HasSDP = false
+    end,
+    case HasSDP of
+        true when Offer/=undefined ->
+            {error, request_pending};
+        _ ->
+            Offer = case HasSDP of 
+                true -> {local, invite, SDP};
+                false -> undefined
+            end,
+            Dialog1 = Dialog#dialog{
+                invite_req = Req, 
+                invite_resp = undefined, 
+                ack_req = undefined,
+                sdp_offer = Offer,
+                sdp_answer = undefined
+            },
+            {ok, status_update(uac, proceeding_uac, Dialog1, Call)}
+    end;
 
 do_request('INVITE', _Status, _Req, _Dialog, _Call) ->
     {error, request_pending};
 
 do_request('BYE', _Status, _Req, Dialog, Call) ->
-    {ok, status_update(bye, Dialog, Call)};
+    {ok, status_update(uac, bye, Dialog, Call)};
 
 do_request('PRACK', proceeding_uac, Req, Dialog, Call) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
-    {Offer1, Answer1} = case Req#sipmsg.body of
-        #sdp{}=SDP ->
-            case {Offer, Answer} of
-                {undefined, undefined} -> {{local, SDP}, undefined};
-                {{remote, _}, undefined} -> {Offer, {local, SDP}};
-                _ -> {Offer, Answer}
-            end;
-        _ ->
-            {Offer, Answer}
+    case Req#sipmsg.body of
+        #sdp{} = SDP -> HasSDP = true;
+        _ -> SDP = HasSDP = false
+    end,
+    {Offer1, Answer1} = case Offer of
+        undefined when HasSDP -> {{local, prack, SDP}, undefined};
+        {remote, invite, _} when HasSDP -> {Offer, {local, prack, SDP}};
+        _ -> {Offer, Answer}
     end,
     Dialog1 = Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1},
-    {ok, status_update(proceeding_uac, Dialog1, Call)};
+    {ok, session_update(Dialog1, Call)};
 
 do_request('PRACK', Status, _Req, Dialog, Call) ->
     ?call_notice("ignoring PRACK in ~p", [Status], Call),
     {ok, Dialog};
+
+do_request('UPDATE', _Status, Req, Dialog, _Call) ->
+    #dialog{sdp_offer=Offer} = Dialog,
+    case Req#sipmsg.body of
+        #sdp{} = SDP -> HasSDP = true;
+        _ -> SDP = HasSDP = false
+    end,
+    case Offer of
+        undefined when HasSDP -> {ok, Dialog#dialog{sdp_offer={local, update, SDP}}};
+        undefined -> {ok, Dialog};
+        _ -> {error, request_pending}
+    end;
 
 do_request(_Method, _Status, _Req, Dialog, _Call) ->
     {ok, Dialog}.
@@ -133,7 +157,7 @@ response(Req, Resp, Call) ->
             ?call_debug("Dialog ~s (~p) UAC response ~p ~p", 
                         [DialogId, Status, Method, Code], Call),
             Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
-            nksip_call_dialog:update(Dialog1, Call);
+            store(Dialog1, Call);
         not_found when Method=:='INVITE', Code>100, Code<300 ->
             Dialog = nksip_call_dialog:create(uac, Req, Resp),
             response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
@@ -149,19 +173,34 @@ response(Req, Resp, Call) ->
 
 do_response(_Method, Code, _Req, _Resp, Dialog, Call) 
             when Code=:=408; Code=:=481 ->
-    status_update({stop, Code}, Dialog, Call);
+    status_update(uac, {stop, Code}, Dialog, Call);
 
 do_response(_Method, Code, _Req, _Resp, Dialog, _Call) when Code < 101 ->
     Dialog;
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
-            when Code<200 andalso 
+            when Code>100 andalso Code<300 andalso
             (Status=:=init orelse Status=:=proceeding_uac) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
-    {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
-        {#sdp{}=SDP1, #sdp{}=SDP2} -> {{local, SDP1}, {remote, SDP2}};
-        {_, #sdp{}=SDP2} -> {{remote, SDP2}, undefined};
-        _ -> {Offer, Answer}
+    case Resp#sipmsg.body of
+        #sdp{} = SDP -> HasSDP = true;
+        _ -> SDP = HasSDP = false
+    end,
+    {Offer1, Answer1} = case Offer of
+        {local, invite, _} when HasSDP ->
+            {Offer, {remote, invite, SDP}};
+        {local, invite, _} when Code>=200 ->
+            {undefined, undefined};
+        % New answer to previous INVITE offer, it is not a new offer
+        undefined when element(1, Req#sipmsg.body)==sdp, HasSDP ->
+           {{local, invite, Req#sipmsg.body}, {remote, invite, SDP}};
+        undefined when HasSDP ->
+            {{remote, invite, SDP}, undefined};
+        % We are repeating a remote request
+        {remote, invite, _} when HasSDP ->
+            {{remote, invite, SDP}, undefined};
+        _ ->
+            {Offer, Answer}
     end,
     Dialog1 = Dialog#dialog{
         invite_req = Req, 
@@ -169,24 +208,11 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
         sdp_offer = Offer1,
         sdp_answer = Answer1
     },
-    status_update(proceeding_uac, Dialog1, Call);
-
-do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
-            when Code<300 andalso 
-            (Status=:=init orelse Status=:=proceeding_uac) ->
-    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
-    {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
-        {#sdp{}=SDP1, #sdp{}=SDP2} -> {{local, SDP1}, {remote, SDP2}};
-        {_, #sdp{}=SDP2} -> {{remote, SDP2}, undefined};
-        _ -> {Offer, Answer}
-    end,
-    Dialog1 = Dialog#dialog{
-        invite_req = Req, 
-        invite_resp = Resp,
-        sdp_offer = Offer1,
-        sdp_answer = Answer1
-    },
-    status_update(accepted_uac, Dialog1, Call);
+    case Code >= 200 of
+        true -> status_update(uac, accepted_uac, Dialog1, Call);
+        false -> status_update(uac, proceeding_uac, Dialog1, Call)
+    end;
+   
     
 do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso 
@@ -204,7 +230,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
                     ?notice(AppId, CallId,
                             "Dialog ~s (~p) could not retransmit 'ACK'", 
                             [DialogId, Status]),
-                    status_update({stop, 503}, Dialog, Call)
+                    status_update(uac, {stop, 503}, Dialog, Call)
             end;
         _ ->
             ?call_info("Dialog ~s (~p) received 'INVITE' ~p but no ACK yet", 
@@ -215,9 +241,18 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
 do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) 
             when Code>=300 andalso 
             (Status=:=init orelse Status=:=proceeding_uac) ->
-    case Dialog#dialog.answered of
-        undefined -> status_update({stop, Code}, Dialog, Call);
-        _ -> status_update(confirmed, Dialog, Call)
+    #dialog{answered=Answered, sdp_offer=Offer} = Dialog,
+    case Answered of
+        undefined -> 
+            status_update(uac, {stop, Code}, Dialog, Call);
+        _ -> 
+            Offer1 = case Offer of
+                {_, invite, _} -> undefined;
+                {_, prack, _} -> undefined;
+                _ -> Offer
+            end,
+            Dialog1 = Dialog#dialog{sdp_offer=Offer1},
+            status_update(uac, confirmed, Dialog1, Call)
     end;
 
 do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
@@ -238,27 +273,55 @@ do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
         CallerTag -> caller_bye;
         _ -> callee_bye
     end,
-    status_update({stop, Reason}, Dialog, Call);
+    status_update(uac, {stop, Reason}, Dialog, Call);
 
 do_response('PRACK', Code, _Req, Resp, #dialog{status=proceeding_uac}=Dialog, Call)
             when Code>=200, Code<300 ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
-    {Offer1, Answer1} = case Resp#sipmsg.body of
-        #sdp{}=SDP ->
-            case {Offer, Answer} of
-                {{local, _}, undefined} -> {Offer, {remote, SDP}};
-                _ -> {Offer, Answer}
-            end;
-        _ ->
-            {Offer, Answer}
+    case Resp#sipmsg.body of
+        #sdp{} = SDP -> HasSDP = true;
+        _ -> SDP = HasSDP = false
+    end,
+    {Offer1, Answer1} = case Offer of
+        {local, prack, _} when HasSDP -> {Offer, {remote, prack, SDP}};
+        {local, prack, _} -> {undefined, undefined};
+        _ -> {Offer, Answer}
     end,
     Dialog1 = Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1},
-    status_update(proceeding_uac, Dialog1, Call);
+    session_update(Dialog1, Call);
 
-do_response('PRACK', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) ->
-    ?call_notice("ignoring PRACK ~p response in ~p", [Code, Status], Call),
-    Dialog;
+do_response('PRACK', Code, _Req, _Resp, Dialog, _Call) 
+            when Code>300 ->
+    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+    {Offer1, Answer1} = case Offer of
+        {local, prack, _} -> {undefined, undefined};
+        _ -> {Offer, Answer}
+    end,
+    Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1};
+    
+do_response('UPDATE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
+    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+    case Resp#sipmsg.body of
+        #sdp{}=SDP -> HasSDP = true;
+        _ -> HasSDP = SDP = false
+    end,
+    {Offer1, Answer1} = case Offer of
+        {local, update, _} when HasSDP -> {Offer, {remote, update, SDP}};
+        {local, update, _} -> {undefined, undefined};
+        _ -> {Offer, Answer}
+    end,
+    Dialog1 = Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1},
+    Dialog2 = target_update(uac, Req, Resp, Dialog1, Call),
+    session_update(Dialog2, Call);
 
+do_response('UPDATE', Code, _Req, _Resp, Dialog, _Call) when Code>300 ->
+    #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
+    {Offer1, Answer1} = case Offer of
+        {local, update, _} -> {undefined, undefined};
+        _ -> {Offer, Answer}
+    end,
+    Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1};
+    
 do_response(_, _Code, _Req, _Resp, Dialog, _Call) ->
     Dialog.
 
@@ -272,6 +335,10 @@ ack(#sipmsg{class={req, 'ACK'}, dialog_id = <<>>}, Call) ->
     Call;
 
 ack(#sipmsg{class={req, 'ACK'}, cseq=CSeq, dialog_id=DialogId}=AckReq, Call) ->
+    case AckReq#sipmsg.body of
+        #sdp{} = SDP -> HasSDP = true;
+        _ -> SDP = HasSDP = false
+    end,
     case nksip_call_dialog:find(DialogId, Call) of
         #dialog{id=DialogId, status=Status, invite_req=InvReq}=Dialog ->
             #sipmsg{cseq=InvCSeq} = InvReq,
@@ -280,22 +347,18 @@ ack(#sipmsg{class={req, 'ACK'}, cseq=CSeq, dialog_id=DialogId}=AckReq, Call) ->
                     ?call_debug("Dialog ~s (~p) UAC request 'ACK'", 
                                 [DialogId, Status], Call),
                     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
-                    {Offer1, Answer1} = case AckReq#sipmsg.body of
-                        #sdp{}=SDP ->
-                            case {Offer, Answer} of
-                                {{remote, _},  undefined} -> {Offer, {local, SDP}};
-                                _ -> {Offer, Answer}
-                            end;
-                        _ ->
-                            {Offer, Answer}
+                    {Offer1, Answer1} = case Offer of
+                        {remote, invite, _} when HasSDP -> {Offer, {local, ack, SDP}};
+                        {remote, invite, _} -> {undefined, undefined};
+                        _ -> {Offer, Answer}
                     end,
                     Dialog1 = Dialog#dialog{
                         ack_req = AckReq, 
                         sdp_offer = Offer1, 
                         sdp_answer = Answer1
                     },
-                    Dialog2 = status_update(confirmed, Dialog1, Call),
-                    nksip_call_dialog:update(Dialog2, Call);
+                    Dialog2 = status_update(uac, confirmed, Dialog1, Call),
+                    store(Dialog2, Call);
                 _ ->
                     ?call_notice("Dialog ~s (~p) ignoring ACK", 
                                  [DialogId, Status], Call),
@@ -323,7 +386,7 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
                     {error, invalid_dialog};
                 false ->
                     {Result, Dialog1} = generate(Method, Opts, Dialog),
-                    {ok, Result, nksip_call_dialog:update(Dialog1, Call)}
+                    {ok, Result, store(Dialog1, Call)}
             end;
         _ ->
             {error, unknown_dialog}
@@ -341,7 +404,7 @@ new_local_seq(#sipmsg{dialog_id=DialogId}, Call) ->
     case nksip_call_dialog:find(DialogId, Call) of
         #dialog{local_seq=LocalSeq}=Dialog ->
             Dialog1 = Dialog#dialog{local_seq=LocalSeq+1},
-            {LocalSeq+1, nksip_call_dialog:update(Dialog1, Call)};
+            {LocalSeq+1, store(Dialog1, Call)};
         not_found ->
             {nksip_config:cseq(), Call}
     end.
@@ -457,13 +520,6 @@ generate(Method, Opts, Dialog) ->
         ],
     {{RUri, Opts1}, Dialog#dialog{local_seq=LCSeq}}.
 
-
-%% @private
--spec status_update(nksip_dialog:status(), nksip:dialog(), call()) ->
-    nksip:dialog().
-
-status_update(Status, Dialog, Call) ->
-    nksip_call_dialog:status_update(uac, Status, Dialog, Call).
 
 
 

@@ -300,7 +300,7 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
             case catch Fun(Dialog) of
                 {Reply, {update, #dialog{}=Dialog1}} ->
                     gen_server:reply(From, Reply),
-                    nksip_call_dialog:update(Dialog1, Call);
+                    nksip_call_dialog:store(Dialog1, Call);
                 Reply ->
                     gen_server:reply(From, Reply),
                     Call
@@ -320,7 +320,7 @@ work({stop_dialog, DialogId}, From, Call) ->
         {ok, Dialog} ->
             gen_fsm:reply(From, ok),
             Dialog1 = nksip_call_dialog:status_update(uac, {stop, forced}, Dialog, Call),
-            nksip_call_dialog:update(Dialog1, Call);
+            nksip_call_dialog:store(Dialog1, Call);
         not_found ->
             gen_fsm:reply(From, {error, unknown_dialog}),
             Call

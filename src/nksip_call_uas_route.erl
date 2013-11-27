@@ -413,9 +413,9 @@ process_dialog_error(Error, #trans{method='ACK', id=Id}=UAS, Call) ->
 
 process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) ->
     Reply = case Error of
-        proceeding_uac ->
+        request_pending ->
             request_pending;
-        proceeding_uas -> 
+        retry -> 
             {500, [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
                         <<>>, [{reason, <<"Processing Previous INVITE">>}]};
         old_cseq ->

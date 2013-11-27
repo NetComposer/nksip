@@ -181,7 +181,7 @@
 -include("nksip.hrl").
 
 -export([options/3, register/3, invite/3, ack/3, bye/3, info/3, cancel/2]).
--export([refresh/3, stun/3]).
+-export([update/3, refresh/3, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
 
@@ -485,6 +485,20 @@ info(AppId, DialogSpec, Opts) ->
 
 cancel(AppId, ReqId) ->
     nksip_call:cancel(AppId, ReqId).
+
+
+%% @doc Sends a update on a currently ongoing dialog using UPDATE.
+%%
+%% This function sends a in-dialog UPDATE, allowing to change the media
+%% session before the dialog has been confirmed.
+%%
+%% Valid options are defined in {@link dialog_opt()}.
+%%
+-spec update(nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
+    result() | {error, error()}.
+
+update(AppId, DialogSpec, Opts) ->
+    send_dialog(AppId, 'UPDATE', DialogSpec, Opts).
 
 
 %% @doc Sends a update on a currently ongoing dialog using INVITE.
