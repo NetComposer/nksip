@@ -151,7 +151,7 @@
     forwards :: non_neg_integer(),
     routes = [] :: [nksip:uri()],
     contacts = [] :: [nksip:uri()],
-    content_type :: [nksip:token()],
+    content_type :: nksip:token(),
     require = [] :: [nksip:token()],
     supported = [] :: [nksip:token()],
     expires :: non_neg_integer(),

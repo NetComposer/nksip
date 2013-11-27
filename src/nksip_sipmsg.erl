@@ -80,8 +80,6 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_routes -> S#sipmsg.routes;
         contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
         parsed_contacts -> S#sipmsg.contacts;
-        content_type -> nksip_unparse:tokens(S#sipmsg.content_type);
-        parsed_content_type -> S#sipmsg.content_type;
         require -> nksip_unparse:tokens(S#sipmsg.require);
         parsed_require -> S#sipmsg.require;
         supported -> nksip_unparse:tokens(S#sipmsg.supported);
@@ -95,6 +93,12 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         realms -> nksip_auth:realms(S);
         rseq_num -> 
             case header(S, <<"RSeq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
+        content_type -> 
+            case S#sipmsg.content_type of 
+                undefined -> <<>>; 
+                CT -> nksip_unparse:tokens(CT)
+            end;
+        parsed_content_type -> S#sipmsg.content_type;
         parsed_rack ->
             case header(S, <<"RAck">>) of 
                 [RAck] ->
@@ -146,6 +150,7 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"Content-Type">> -> [field(SipMsg, content_type)];
         <<"Require">> -> [field(SipMsg, require)];
         <<"Supported">> -> [field(SipMsg, supported)];
+        <<"Expires">> -> [field(SipMsg, expires)];
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 
@@ -192,6 +197,10 @@ all_headers(SipMsg) ->
         case field(SipMsg, supported) of
             <<>> -> [];
             Supported -> {<<"Supported">>, Supported}
+        end,
+        case field(SipMsg, expires) of
+            <<>> -> [];
+            Expires -> {<<"Expires">>, Expires}
         end,
         SipMsg#sipmsg.headers
     ]).

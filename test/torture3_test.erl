@@ -191,7 +191,7 @@ application_6() ->
         " <pcmu port=\"443\"/>\r\n"
         "</audio>\r\n">>,
     #sipmsg{
-        content_type = [{<<"application/unknownformat">>,[]}],
+        content_type = {<<"application/unknownformat">>,[]},
         body = <<"<audio>\r\n <pcmu port=\"443\"/>\r\n</audio>\r\n">>
     } = parse(Msg),
     ok.

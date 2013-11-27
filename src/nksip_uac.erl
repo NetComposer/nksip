@@ -108,7 +108,7 @@
 %%          <td><code>[{@link nksip:header()}]</code></td>
 %%          <td>[]</td>
 %%          <td>List of headers to add to the request. The following headers should not
-%%          we used here: <i>From</i>, <i>To</i>, <i>Via</i>, <i>Call-Id</i>, 
+%%          we used here: <i>From</i>, <i>To</i>, <i>Via</i>, <i>Call-ID</i>, 
 %%          <i>CSeq</i>, <i>Forwards</i>, <i>User-Agent</i>, <i>Content-Type</i>, 
 %%          <i>Route</i>, <i>Contact</i>.</td>
 %%      </tr>
@@ -293,7 +293,7 @@ options(AppId, Dest, Opts) ->
 %% <i>Contact</i> header.
 %%
 %% Keep in mind that, once you send a REGISTER requests, following refreshers
-%% should have the same `Call-Id' and an incremented `CSeq' headers. 
+%% should have the same `Call-ID' and an incremented `CSeq' headers. 
 %% The default value for `contact' parameter would be `auto' in this case.
 %%
 %% NkSIP offers also an automatic SipApp registration facility 

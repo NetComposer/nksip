@@ -33,10 +33,6 @@
 -export([tokens/1, integers/1, dates/1, transport/1]).
 -export([packet/3, raw_sipmsg/1]).
 
-
--export([get_sipmsg2/3]).
-
-
 -export_type([msg_class/0]).
 
 -type msg_class() :: {req, nksip:method(), binary()} | 
@@ -193,10 +189,10 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 %% ===================================================================
 
 %% @private
--spec header_values(binary(), [nksip:header()]) -> 
+-spec all_values(binary(), [nksip:header()]) -> 
     [binary()].
 
-header_values(Name, Headers) when is_list(Headers) ->
+all_values(Name, Headers) when is_list(Headers) ->
     proplists:get_all_values(Name, Headers).
 
 
@@ -374,23 +370,23 @@ raw_sipmsg(Raw) ->
     #sipmsg{}.
 
 get_sipmsg(Headers, Body, Proto) ->
-    case uris(proplists:get_all_values(<<"From">>, Headers)) of
+    case uris(all_values(<<"From">>, Headers)) of
         [#uri{} = From] -> ok;
         _ -> From = throw({400, <<"Invalid From">>})
     end,
-    case uris(proplists:get_all_values(<<"To">>, Headers)) of
+    case uris(all_values(<<"To">>, Headers)) of
         [#uri{} = To] -> ok;
         _ -> To = throw({400, <<"Invalid To">>})
     end,
-    case header_values(<<"Call-ID">>, Headers) of
+    case all_values(<<"Call-ID">>, Headers) of
         [CallId] when is_binary(CallId), byte_size(CallId)>0 -> CallId;
         _ -> CallId = throw({400, <<"Invalid Call-ID">>})
     end,
-    case vias(nksip_lib:bjoin(header_values(<<"Via">>, Headers))) of
+    case vias(all_values(<<"Via">>, Headers)) of
         [_|_] = Vias -> ok;
         _ -> Vias = throw({400, <<"Invalid Via">>})
     end,
-    case header_values(<<"CSeq">>, Headers) of
+    case all_values(<<"CSeq">>, Headers) of
         [CSeqHeader] ->
             case nksip_lib:tokens(CSeqHeader) of
                 [CSeqInt0, CSeqMethod0] ->                
@@ -405,36 +401,42 @@ get_sipmsg(Headers, Body, Proto) ->
         _ ->
             CSeqInt=CSeqMethod=throw({400, <<"Invalid CSeq">>})
     end,
-    case CSeqInt > 4294967295 of      % (2^32-1)
-        true -> throw({400, <<"Invalid CSeq">>});
-        false -> ok
+    case CSeqInt>=0 andalso CSeqInt<4294967296 of      % (2^32-1)
+        true -> ok;
+        false -> throw({400, <<"Invalid CSeq">>})
     end,
-    case integers(proplists:get_all_values(<<"Max-Forwards">>, Headers)) of
+    case integers(all_values(<<"Max-Forwards">>, Headers)) of
         [] -> Forwards = 70;
         [Forwards] when is_integer(Forwards), Forwards>=0, Forwards<300 -> ok;
         _ -> Forwards = throw({400, <<"Invalid Max-Forwards">>})
     end,
-    case uris(proplists:get_all_values(<<"Route">>, Headers)) of
+    case uris(all_values(<<"Route">>, Headers)) of
         error -> Routes = throw({400, <<"Invalid Route">>});
         Routes -> ok
     end,
-    case uris(proplists:get_all_values(<<"Contact">>, Headers)) of
+    case uris(all_values(<<"Contact">>, Headers)) of
         error -> Contacts = throw({400, <<"Invalid Contact">>});
         Contacts -> ok
     end,
-    case tokens(proplists:get_all_values(<<"Content-Type">>, Headers)) of
-        error -> ContentType = throw({400, <<"Invalid Content-Type">>});
-        ContentType -> ok
+    case integers(all_values(<<"Expires">>, Headers)) of
+        [] -> Expires = undefined;
+        [Expires] when is_integer(Expires), Expires>=0 -> ok;
+        _ -> Expires = throw({400, <<"Invalid Expires">>})
     end,
-    case tokens(proplists:get_all_values(<<"Require">>, Headers)) of
+    case tokens(all_values(<<"Require">>, Headers)) of
         error -> Require = throw({400, <<"Invalid Require">>});
         Require -> ok
     end,
-    case tokens(proplists:get_all_values(<<"Supported">>, Headers)) of
+    case tokens(all_values(<<"Supported">>, Headers)) of
         error -> Supported = throw({400, <<"Invalid Supported">>});
         Supported -> ok
     end,
-    case header_values(<<"Content-Length">>, Headers) of
+    case tokens(all_values(<<"Content-Type">>, Headers)) of
+        [] -> ContentType = undefined;
+        [ContentType] -> ok;
+        _ -> ContentType = throw({400, <<"Invalid Content-Type">>})
+    end,
+    case all_values(<<"Content-Length">>, Headers) of
         [] when Proto=/=tcp, Proto=/=tls -> 
             ok;
         [CL] ->
@@ -451,12 +453,12 @@ get_sipmsg(Headers, Body, Proto) ->
             throw({400, <<"Invalid Content-Length">>})
     end,
     Body1 = case ContentType of
-        [{<<"application/sdp">>, _}|_] ->
+        {<<"application/sdp">>, _} ->
             case nksip_sdp:parse(Body) of
                 error -> Body;
                 SDP -> SDP
             end;
-        [{<<"application/nksip.ebf.base64">>, _}] ->
+        {<<"application/nksip.ebf.base64">>, _} ->
             case catch binary_to_term(base64:decode(Body)) of
                 {'EXIT', _} -> Body;
                 ErlBody -> ErlBody
@@ -464,11 +466,25 @@ get_sipmsg(Headers, Body, Proto) ->
         _ ->
             Body
     end,
-    Headers1 = nksip_lib:delete(Headers, [
-                        <<"From">>, <<"To">>, <<"Call-ID">>, <<"Via">>, <<"CSeq">>,
-                        <<"Max-Forwards">>, <<"Content-Type">>, 
-                        <<"Content-Length">>, <<"Route">>, <<"Contact">>,
-                        <<"Require">>, <<"Supported">>]),
+    Headers1 = lists:filter(
+        fun({Name, _}) ->
+            case Name of
+                <<"From">> -> false;
+                <<"To">> -> false;
+                <<"Call-ID">> -> false;
+                <<"Via">> -> false;
+                <<"CSeq">> -> false;
+                <<"Max-Forwards">> -> false;
+                <<"Route">> -> false;
+                <<"Contact">> -> false;
+                <<"Expires">> -> false;
+                <<"Require">> -> false;
+                <<"Supported">> -> false;
+                <<"Content-Type">> -> false;
+                <<"Content-Length">> -> false;
+                _ -> true
+            end
+        end, Headers),
     #sipmsg{
         from = From,
         to = To,
@@ -479,6 +495,7 @@ get_sipmsg(Headers, Body, Proto) ->
         forwards = Forwards,
         routes = Routes,
         contacts = Contacts,
+        expires = Expires,
         content_type = ContentType,
         require = Require,
         supported = Supported,
@@ -488,172 +505,6 @@ get_sipmsg(Headers, Body, Proto) ->
         to_tag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
         to_tag_candidate = <<>>
     }.
-
-
-%% @private
-get_sipmsg2(Headers, Body, Proto) ->
-    SipMsg = get_sipmsg_iter(Headers, #sipmsg{}),
-    #sipmsg{body=RawCL, content_type=ContentType, headers=Headers1} = SipMsg,
-    case RawCL of
-        undefined when Proto=/=tcp, Proto=/=tls -> 
-            ok;
-        undefined ->
-            throw({400, <<"Invalid Content-Type">>});
-        _ ->
-            case catch list_to_integer(binary_to_list(RawCL)) of
-                0 when Proto=/=tcp, Proto=/=tls -> 
-                    ok;
-                CL when is_integer(CL) ->
-                    case byte_size(Body) of
-                        CL -> ok;
-                        _ -> throw({400, <<"Invalid Content-Type">>})
-                    end;
-                _ ->
-                    throw({400, <<"Invalid Content-Type">>})
-            end
-    end,
-    Body1 = case ContentType of
-        [{<<"application/sdp">>, _}] ->
-            case nksip_sdp:parse(Body) of
-                error -> Body;
-                SDP -> SDP
-            end;
-        [{<<"application/nksip.ebf.base64">>, _}] ->
-            case catch binary_to_term(base64:decode(Body)) of
-                {'EXIT', _} -> Body;
-                ErlBody -> ErlBody
-            end;
-        _ ->
-            Body
-    end,
-    SipMsg#sipmsg{
-        headers = lists:reverse(Headers1), 
-        body = Body1, 
-        to_tag_candidate = <<>>
-    }.
-
-
-%% @private
-get_sipmsg_iter([], SipMsg) ->
-    SipMsg;
-
-get_sipmsg_iter([{<<"From">>, Value}|Rest], SipMsg) ->
-    case uris(Value) of
-        [#uri{ext_opts=Opts} = From] when SipMsg#sipmsg.from==undefined ->
-            Tag = nksip_lib:get_value(<<"tag">>, Opts, <<>>),
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{from=From, from_tag=Tag});
-        _ ->
-            throw({400, <<"Invalid From">>})
-    end;
-
-get_sipmsg_iter([{<<"To">>, Value}|Rest], SipMsg) ->
-    case uris(Value) of
-        [#uri{ext_opts=Opts} = To] when SipMsg#sipmsg.to==undefined ->
-            Tag = nksip_lib:get_value(<<"tag">>, Opts, <<>>),
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{to=To, to_tag=Tag});
-        _ ->
-            throw({400, <<"Invalid To">>})
-    end;
-
-get_sipmsg_iter([{<<"CallId">>, Value}|Rest], SipMsg) ->
-    case byte_size(Value)>0 andalso SipMsg#sipmsg.call_id==undefined of
-        true -> get_sipmsg_iter(Rest, SipMsg#sipmsg{call_id=Value});
-        _ -> throw({400, <<"Invalid Call-ID">>})
-    end;
-
-get_sipmsg_iter([{<<"Via">>, Value}|Rest], SipMsg) ->
-    case vias(Value) of
-        [_|_] = Vias -> 
-            Vias1 = SipMsg#sipmsg.vias ++ Vias,
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{vias=Vias1});
-        _ ->
-            throw({400, <<"Invalid Via">>})
-    end;
-
-get_sipmsg_iter([{<<"CSeq">>, RawCSeq}|Rest], SipMsg) ->
-    case nksip_lib:tokens(RawCSeq) of
-        [Int0, Method0] when SipMsg#sipmsg.cseq==undefined ->                
-            Method = method(Method0),
-            case (catch list_to_integer(Int0)) of
-                Int when Int>0, Int<4294967296 ->       % (2^32)
-                    SipMsg1 = SipMsg#sipmsg{cseq=Int, cseq_method=Method},
-                    get_sipmsg_iter(Rest, SipMsg1);
-                _ ->
-                    throw({400, <<"Invalid CSeq">>})
-            end;
-        _ ->
-            throw({400, <<"Invalid CSeq">>})
-    end;
-
-get_sipmsg_iter([{<<"Max-Forwards">>, Value}|Rest], SipMsg) ->
-    case integers(Value) of
-        [Int] when Int>=0, Int<300, SipMsg#sipmsg.forwards==undefined ->
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{forwards=Int});
-        _ -> 
-            throw({400, <<"Invalid Max-Forwards">>})
-    end;
-
-get_sipmsg_iter([{<<"Route">>, Value}|Rest], SipMsg) ->
-    case uris(Value) of
-        error -> 
-            throw({400, <<"Invalid Route">>});
-        Routes -> 
-            Routes1 = SipMsg#sipmsg.routes ++ Routes,
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{routes=Routes1})
-    end;
-
-get_sipmsg_iter([{<<"Contact">>, Value}|Rest], SipMsg) ->
-    case uris(Value) of
-        error -> 
-            throw({400, <<"Invalid Contact">>});
-        Contacts -> 
-            Contacts1 = SipMsg#sipmsg.contacts ++ Contacts,
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{contacts=Contacts1})
-    end;
-
-get_sipmsg_iter([{<<"Content-Type">>, Value}|Rest], SipMsg) ->
-    case tokens(Value) of
-        error -> 
-            throw({400, <<"Invalid Content-Type">>});
-        ContentType when SipMsg#sipmsg.content_type==undefined -> 
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{content_type=ContentType})
-    end;
-
-get_sipmsg_iter([{<<"Require">>, Value}|Rest], SipMsg) ->
-    case tokens(Value) of
-        error -> 
-            throw({400, <<"Invalid Require">>});
-        Require ->
-            Require1 = SipMsg#sipmsg.require ++ Require,
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{require=Require1})
-    end;
-
-get_sipmsg_iter([{<<"Supported">>, Value}|Rest], SipMsg) ->
-    case tokens(Value) of
-        error -> 
-            throw({400, <<"Invalid Supported">>});
-        Supported ->
-            Supported1 = SipMsg#sipmsg.supported ++ Supported,
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{supported=Supported1})
-    end;
-
-get_sipmsg_iter([{<<"Expires">>, Value}|Rest], SipMsg) ->
-    case integers(Value) of
-        [Int] when Int>=0, Int<4294967296, SipMsg#sipmsg.expires==undefined ->
-            get_sipmsg_iter(Rest, SipMsg#sipmsg{expires=Int});
-        _ -> 
-            throw({400, <<"Invalid Expiresº">>})
-    end;
-
-get_sipmsg_iter([{<<"Content-Length">>, Value}|Rest], SipMsg) ->
-    case SipMsg#sipmsg.body of
-        undefined -> get_sipmsg_iter(Rest, SipMsg#sipmsg{body=Value});
-        _ -> throw({400, <<"Invalid Content-Length">>})
-    end;
-
-get_sipmsg_iter([{Name, Value}|Rest], SipMsg) ->
-    Headers = [{Name, Value} | SipMsg#sipmsg.headers],
-    get_sipmsg_iter(Rest, SipMsg#sipmsg{headers=Headers}).
 
 
 %% @private
@@ -696,6 +547,7 @@ get_raw_headers(Packet, Acc) ->
                         "SUBJECT" -> <<"Subject">>;
                         "S" -> <<"Subject">>;
                         "SUPPORTED" -> <<"Supported">>;
+                        "K" -> <<"Supported">>;
                         "TIMESTAMP" -> <<"Timestamp">>;
                         "TO" -> <<"To">>;
                         "T" -> <<"To">>;
@@ -779,7 +631,7 @@ parse_tokens([], Acc) ->
 parse_tokens([Next|Rest], Acc) ->
     case nksip_parse_tokens:tokens(Next) of
         error -> error;
-        UriList -> parse_tokens(Rest, Acc++UriList)
+        TokenList -> parse_tokens(Rest, Acc++TokenList)
     end.
 
 

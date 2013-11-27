@@ -240,9 +240,18 @@ response(Req, Code, Headers, Body, Opts) ->
             ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
             To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|ToOpts1]}
     end,
-    RespContentType = case Body of 
-        #sdp{} -> [{<<"application/sdp">>, []}]; 
-        _ -> [] 
+    RespContentType = case nksip_lib:get_binary(content_type, Opts) of
+        <<>> when is_record(Body, sdp) -> 
+            {<<"application/sdp">>, []};
+        <<>> when not is_binary(Body) -> 
+            {<<"application/nksip.ebf.base64">>, []};
+        <<>> -> 
+            undefined;
+        ContentTypeSpec -> 
+            case nksip_parse:tokens(ContentTypeSpec) of
+                [ContentTypeToken] -> ContentTypeToken;
+                error -> undefined
+            end
     end,
     RespSupported = case MakeSupported of
         true -> ?SUPPORTED;
@@ -307,6 +316,7 @@ response(Req, Code, Headers, Body, Opts) ->
         content_type = RespContentType,
         supported = RespSupported,
         require = RespRequire,
+        expires = undefined,
         body = Body,
         to_tag = ToTag1,
         transport = undefined

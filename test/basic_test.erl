@@ -43,12 +43,6 @@ basic_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    % ok = tests_util:wait_port([
-    %     {udp, 5060}, {tcp, 5060}, {tls, 5061},
-    %     {udp, 5070}, {tcp, 5070}, {tls, 5071}
-    % ]),
-    % timer:sleep(1000),
-
     nksip_config:put(nksip_store_timer, 200),
     nksip_config:put(nksip_sipapp_timer, 10000),
 

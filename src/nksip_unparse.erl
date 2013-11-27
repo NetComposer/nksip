@@ -215,11 +215,14 @@ raw_via(#via{}=Via) ->
     ].
 
 %% @private Serializes a list of `token()'
--spec raw_tokens([nksip:token()]) ->
+-spec raw_tokens(nksip:token() | [nksip:token()]) ->
     iolist().
 
 raw_tokens([]) ->
     [];
+
+raw_tokens({Name, Opts}) ->
+    raw_tokens([{Name, Opts}]);
 
 raw_tokens(Tokens) ->
     raw_tokens(Tokens, []).
@@ -255,6 +258,7 @@ serialize(#sipmsg{
             content_type = ContentType, 
             require = Require, 
             supported = Supported,
+            expires = Expires,
             body = Body
         }) ->
     Body1 = case Body of
@@ -279,16 +283,20 @@ serialize(#sipmsg{
             _ -> [{<<"Contact">>, raw_uri(Contact)} || Contact <- Contacts]
         end,
         case ContentType of
-            [] -> [];
-            _ -> [{<<"Content-Type">>, raw_tokens(ContentType)}]
+            undefined -> [];
+            _ -> {<<"Content-Type">>, raw_tokens(ContentType)}
         end,
         case Require of
             [] -> [];
-            _ -> [{<<"Require">>, raw_tokens(Require)}]
+            _ -> {<<"Require">>, raw_tokens(Require)}
         end,
         case Supported of
             [] -> [];
-            _ -> [{<<"Supported">>, raw_tokens(Supported)}]
+            _ -> {<<"Supported">>, raw_tokens(Supported)}
+        end,
+        case Expires of
+            undefined -> [];
+            _ -> {<<"Expires">>, nksip_lib:to_binary(Expires)}
         end,
         Headers
     ],

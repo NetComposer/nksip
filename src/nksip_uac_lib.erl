@@ -127,15 +127,15 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
         ]),
         ContentType = case nksip_lib:get_binary(content_type, Opts) of
             <<>> when is_record(Body, sdp) -> 
-                [{<<"application/sdp">>, []}];
+                {<<"application/sdp">>, []};
             <<>> when not is_binary(Body) -> 
-                [{<<"application/nksip.ebf.base64">>, []}];
+                {<<"application/nksip.ebf.base64">>, []};
             <<>> -> 
-                [];
+                undefined;
             ContentTypeSpec -> 
                 case nksip_parse:tokens(ContentTypeSpec) of
-                    error -> throw(invalid_content_type);
-                    ContentTypeTokens -> ContentTypeTokens
+                    [ContentTypeToken] -> ContentTypeToken;
+                    error -> throw(invalid_content_type)
                 end
         end,
         Require = case Method=='INVITE' andalso lists:member(require_100rel, FullOpts) of
@@ -248,7 +248,10 @@ make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds}=R
         vias = [Via],
         headers = nksip_lib:extract(Hds, <<"Route">>),
         contacts = [],
-        content_type = [],
+        content_type = undefined,
+        require = [],
+        supported = [],
+        expires = undefined,
         body = <<>>
     }.
 
@@ -275,7 +278,10 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
         routes = [],
         contacts = [],
         headers = [],
-        content_type = [],
+        content_type = undefined,
+        require = [],
+        supported = [],
+        expires = undefined,
         body = <<>>
     }.
 

@@ -48,7 +48,7 @@
 %%           (msecs, only for <i>ACK</i> or requests coming from the same 
 %%           `ip' and `port').</td></tr>
 %%   <tr><td>`max_calls'</td><td>100000</td><td>Maximum number of allowed calls.
-%%           Each different Call-Id counts as a call.</td></tr>
+%%           Each different Call-ID counts as a call.</td></tr>
 %%   <tr><td>`max_connections'</td><td>1024</td>
 %%       <td>Maximum number of simultaneous TCP/TLS connections NkSIP will accept 
 %%           in each transport belonging to each SipApp.</td></tr>
