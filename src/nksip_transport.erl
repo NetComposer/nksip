@@ -63,7 +63,7 @@ get_all() ->
     [{transport(), pid()}].
 
 get_all(AppId) ->
-    [{Transport, Pid} || {A, Transport, Pid} <- get_all(), AppId=:=A].
+    [{Transport, Pid} || {A, Transport, Pid} <- get_all(), AppId==A].
 
 
 %% @private Finds a listening transport of Proto.
@@ -72,11 +72,11 @@ get_all(AppId) ->
 
 get_listening(AppId, Proto, Class) ->
     Fun = fun({#transport{proto=TProto, listen_ip=TListen}, _}) -> 
-        case TProto=:=Proto of
+        case TProto==Proto of
             true ->
                 case Class of
-                    ipv4 when size(TListen)=:=4 -> true;
-                    ipv6 when size(TListen)=:=8 -> true;
+                    ipv4 when size(TListen)==4 -> true;
+                    ipv6 when size(TListen)==8 -> true;
                     _ -> false
                 end;
             false ->
@@ -123,14 +123,14 @@ is_local(Listen, [{Proto, Ip, Port}|Rest], LocalIps) ->
                     true;
                 false ->
                     case 
-                        is_tuple(Ip) andalso size(Ip)=:=4 andalso
+                        is_tuple(Ip) andalso size(Ip)==4 andalso
                         lists:member({Proto, {0,0,0,0}, Port}, Listen) 
                     of
                         true -> 
                             true;
                         false -> 
                             case 
-                                is_tuple(Ip) andalso size(Ip)=:=8 andalso
+                                is_tuple(Ip) andalso size(Ip)==8 andalso
                                 lists:member({Proto, {0,0,0,0,0,0,0,0}, Port}, Listen) 
                             of
                                 true -> true;
@@ -195,11 +195,11 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
             <- get_listening(AppId, Proto, Class)
     ],
     case nksip_lib:get_value({Ip, Port}, Listening) of
-        undefined when Proto=:= udp ->
+        undefined when Proto== udp ->
             nksip_transport_udp:start_listener(AppId, Ip, Port, Opts);
-        undefined when Proto=:=tcp; Proto=:=tls ->
+        undefined when Proto==tcp; Proto==tls ->
             nksip_transport_tcp:start_listener(AppId, Proto, Ip, Port, Opts);
-        undefined when Proto=:=sctp ->
+        undefined when Proto==sctp ->
             nksip_transport_sctp:start_listener(AppId, Ip, Port, Opts);
         undefined ->
             {error, invalid_transport};
@@ -263,7 +263,7 @@ send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
     send(AppId, [{udp, Ip,Port}|Rest], MakeMsg, Opts);
 
 send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts) 
-        when Proto=:=tcp; Proto=:=tls; Proto=:=sctp ->
+        when Proto==tcp; Proto==tls; Proto==sctp ->
     ?debug(AppId, "Transport send to ~p (current, ~p)", [All, Proto]),
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
@@ -277,7 +277,7 @@ send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts)
     end;
 
 send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg, Opts) 
-     when Proto=:=tcp; Proto=:=tls; Proto=:=sctp ->
+     when Proto==tcp; Proto==tls; Proto==sctp ->
     ?debug(AppId, "Transport send to ~p (~p)", [All, Proto]),
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 

@@ -44,7 +44,7 @@
                     inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid()} | {error, term()}.
 
-start_listener(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
+start_listener(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
     Listeners = nksip_lib:get_value(listeners, Opts, 1),
     Module = case Proto of
         tcp -> ranch_tcp;
@@ -77,7 +77,7 @@ start_listener(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
                     inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | error.
          
-connect(AppId, Proto, Ip, Port, Opts) when Proto=:=tcp; Proto=:=tls ->
+connect(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, Proto, Class) of
         [{ListenTransp, _Pid}|_] -> 
@@ -344,7 +344,7 @@ parse(Packet, #state{app_id=AppId, socket=Socket, transport=Transport}=State) ->
 -spec outbound_opts(nksip:protocol(), nksip_lib:proplist()) ->
     nksip_lib:proplist().
 
-outbound_opts(Proto, Opts) when Proto=:=tcp; Proto=:=tls ->
+outbound_opts(Proto, Opts) when Proto==tcp; Proto==tls ->
     Opts1 = listen_opts(Proto, {0,0,0,0}, 0, Opts),
     [binary|nksip_lib:delete(Opts1, [ip, port, max_connections])].
 

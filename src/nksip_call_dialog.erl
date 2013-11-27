@@ -65,7 +65,7 @@ create(Class, Req, Resp) ->
         local_target = #uri{},
         remote_target = #uri{},
         route_set = [],
-        secure = Proto=:=tls andalso Scheme=:=sips,
+        secure = Proto==tls andalso Scheme==sips,
         early = true,
         caller_tag = FromTag,
         local_sdp = undefined,
@@ -122,7 +122,7 @@ status_update(Class, Status, Dialog, Call) ->
             cast(dialog_update, {stop, reason(Reason)}, Dialog, Call),
             Dialog#dialog{status=Status};
         _ ->
-            case Status=:=OldStatus of
+            case Status==OldStatus of
                 true -> 
                     ok;
                 false -> 
@@ -143,7 +143,7 @@ status_update(Class, Status, Dialog, Call) ->
             }
     end,
     Dialog2 = case Media of
-        true when Status=:=bye; element(1, Status)=:=stop ->
+        true when Status==bye; element(1, Status)==stop ->
             cast(session_update, stop, Dialog, Call),
             Dialog1#dialog{media_started=false};
         _ -> 
@@ -339,7 +339,7 @@ session_update(Dialog, _Call) ->
 %                 } = Dialog,
 %                 Call) 
 %                 when 
-%                     (Code>100 andalso Code<200 andalso Answered=:=undefined)
+%                     (Code>100 andalso Code<200 andalso Answered==undefined)
 %                     orelse
 %                     (Code>=200 andalso Code<300) ->
 %     #dialog{

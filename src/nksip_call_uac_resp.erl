@@ -332,8 +332,8 @@ do_received_auth(Req, Resp, UAC, Call) ->
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     IsFork = case From of {fork, _} -> true; _ -> false end,
     case 
-        (Code=:=401 orelse Code=:=407) andalso Iter < ?MAX_AUTH_TRIES
-        andalso Method=/='CANCEL' andalso (not IsFork) andalso
+        (Code==401 orelse Code==407) andalso Iter < ?MAX_AUTH_TRIES
+        andalso Method/='CANCEL' andalso (not IsFork) andalso
         nksip_auth:make_request(Req, Resp, Opts++AppOpts) 
     of
         false ->

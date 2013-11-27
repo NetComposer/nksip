@@ -388,13 +388,13 @@ work(info, From, Call) ->
 
 work({get_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
     List = [{Proto, Ip, Port} || 
-            {D, Proto, Ip, Port} <- Auths, D=:=DlgId],
+            {D, Proto, Ip, Port} <- Auths, D==DlgId],
     gen_server:reply(From, {ok, List}),
     Call;
 
 work({clear_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
     Auths1 = [{D, Proto, Ip, Port} || 
-              {D, Proto, Ip, Port} <- Auths, D=/=DlgId],
+              {D, Proto, Ip, Port} <- Auths, D/=DlgId],
     gen_server:reply(From, ok),
     Call#call{auths=Auths1};
 

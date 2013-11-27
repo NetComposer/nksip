@@ -53,7 +53,7 @@
     [AppId::term()].
 
 get_all() ->
-    Fun = fun(AppId) -> nksip_config:get({nksip_trace, AppId}) =/= undefined end,
+    Fun = fun(AppId) -> nksip_config:get({nksip_trace, AppId}) /= undefined end,
     lists:filter(Fun, nksip:get_all()).
 
 
@@ -264,7 +264,7 @@ terminate(_Reason, _State) ->
 
 
 %% @private
-store_msgs(Bool) when Bool=:=true; Bool=:=false ->
+store_msgs(Bool) when Bool==true; Bool==false ->
     nksip_config:put(nksip_store_msgs, Bool).
 
 
@@ -279,8 +279,8 @@ insert(AppId, CallId, Info) ->
         true ->
             Time = nksip_lib:l_timestamp(),
             Info1 = case Info of
-                {Type, Str, Fmt} when Type=:=debug; Type=:=info; Type=:=notice; 
-                                      Type=:=warning; Type=:=error ->
+                {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
+                                      Type==warning; Type==error ->
                     {Type, nksip_lib:msg(Str, Fmt)};
                 _ ->
                     Info
@@ -301,7 +301,7 @@ find(CallId) ->
 
 %% @private
 find(AppId, CallId) ->
-    [{Start, Info} || {Start, C, Info} <- find(CallId), C=:=AppId].
+    [{Start, Info} || {Start, C, Info} <- find(CallId), C==AppId].
 
 
 %% @private

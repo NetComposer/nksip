@@ -61,7 +61,7 @@
 
 decode(<<0:2, M1:5, C1:1, M2:3, C2:1, M3:4, Length:16, 16#2112A442:32, 
         Id:96, Msg/binary>>) 
-        when byte_size(Msg)=:=Length ->
+        when byte_size(Msg)==Length ->
     Class = case <<C1:1, C2:1>> of
         <<2#00:2>> -> request;
         <<2#01:2>> -> indication;

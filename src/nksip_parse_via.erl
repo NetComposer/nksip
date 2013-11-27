@@ -133,7 +133,7 @@ domain([$[|Rest], Acc, Ip6, Via) ->
     end;
 
 domain([$]|Rest], Acc, Ip6, Via) ->
-    case Acc=/=[] andalso Ip6 of
+    case Acc/=[] andalso Ip6 of
         true -> domain(Rest, [$]|Acc], false, Via);
         false -> {error, domain, ?LINE}
     end;

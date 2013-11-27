@@ -123,8 +123,8 @@ is_retrans(Req, #call{trans=Trans}) ->
 process_retrans(UAS, Call) ->
     #trans{id=Id, status=Status, method=Method, response=Resp} = UAS,
     case 
-        Status=:=invite_proceeding orelse Status=:=invite_completed
-        orelse Status=:=proceeding orelse Status=:=completed
+        Status==invite_proceeding orelse Status==invite_completed
+        orelse Status==proceeding orelse Status==completed
     of
         true when is_record(Resp, sipmsg) ->
             #sipmsg{class={resp, Code, _Reason}} = Resp,
@@ -184,7 +184,7 @@ process_request(Req, TransId, Call) ->
     end,
     Msg = {MsgId, Id, DialogId},
     Call1 = Call#call{trans=[UAS1|Trans], next=Id+1, msgs=[Msg|Msgs]},
-    case ToTag=:=(<<>>) andalso lists:keymember(LoopId, #trans.loop_id, Trans) of
+    case ToTag==(<<>>) andalso lists:keymember(LoopId, #trans.loop_id, Trans) of
         true -> 
             {_, Call2} = nksip_call_uas_reply:reply(loop_detected, UAS1, Call1),
             Call2;

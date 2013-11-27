@@ -283,8 +283,8 @@ start(AppId, Module, Args, Opts) ->
         Transports = [
             case Transport of
                 {Scheme, Ip, Port} 
-                    when (Scheme=:=udp orelse Scheme=:=tcp orelse 
-                          Scheme=:=tls orelse Scheme=:=sctp) ->
+                    when (Scheme==udp orelse Scheme==tcp orelse 
+                          Scheme==tls orelse Scheme==sctp) ->
                     Ip1 = case Ip of
                         any -> 
                             {0,0,0,0};

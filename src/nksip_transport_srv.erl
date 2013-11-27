@@ -41,7 +41,7 @@
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 start_connection(AppId, Proto, Ip, Port, Opts)
-                    when Proto=:=tcp; Proto=:=tls; Proto=:=sctp ->
+                    when Proto==tcp; Proto==tls; Proto==sctp ->
     ConnId = {AppId, Proto, Ip, Port},
     gen_server:call(?MODULE, {new, ConnId, Opts}, infinity).
 

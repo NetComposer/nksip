@@ -380,7 +380,7 @@ register(Name, Type, Value, Pid) ->
             [{Type, Value, Pid}];
         OldNameItems -> 
             NameItemsR = [{T, V, P} || {T, V, P } <- OldNameItems,
-                                       T=/=Type orelse P=/=Pid],
+                                       T/=Type orelse P/=Pid],
             case Type of
                 reg -> NameItemsR ++ [{Type, Value, Pid}];
                 _ -> [{Type, Value, Pid}|NameItemsR]
@@ -407,8 +407,8 @@ register(Name, Type, Value, Pid) ->
 unregister(Name, Type, Pid) ->
     remove_pid(Pid, Type, Name),
     NameItems = [{T, Val, P} || {T, Val, P} <- lookup_store(Name), 
-                                T=/=Type orelse P=/=Pid],
-    case Type=:=val andalso not lists:keymember(val, 1, NameItems) of
+                                T/=Type orelse P/=Pid],
+    case Type==val andalso not lists:keymember(val, 1, NameItems) of
         true ->
             DelFun = fun
                 ({del, PutRef, PutPid}) -> 
@@ -546,16 +546,16 @@ do_start(Type, Name, Module, Args, Pid, Ref) ->
     case reg(Name) of
         true ->
             case catch Module:init(Args) of
-                {ok, StateData} when Type=:=server ->
+                {ok, StateData} when Type==server ->
                     Pid ! {Ref, {ok, self()}},
                     gen_server:enter_loop(Module, [], StateData);
-                {ok, StateData, Timeout} when Type=:=server ->
+                {ok, StateData, Timeout} when Type==server ->
                     Pid ! {Ref, {ok, self()}},
                     gen_server:enter_loop(Module, [], StateData, Timeout);
-                {ok, StateName, StateData} when Type=:=fsm->
+                {ok, StateName, StateData} when Type==fsm->
                     Pid ! {Ref, {ok, self()}},
                     gen_fsm:enter_loop(Module, [], StateName, StateData);
-                {ok, StateName, StateData, Timeout} when Type=:=fsm->
+                {ok, StateName, StateData, Timeout} when Type==fsm->
                     Pid ! {Ref, {ok, self()}},
                     gen_fsm:enter_loop(Module, [], StateName, StateData, Timeout);
                 {stop, Reason} ->

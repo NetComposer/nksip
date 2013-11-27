@@ -100,7 +100,7 @@ request(Req, Call) ->
                             {error, Error}
                     end
             end;
-        not_found when Method=:='INVITE' -> 
+        not_found when Method=='INVITE' -> 
             {ok, DialogId, Call};
         not_found -> 
             {error, unknown_dialog}
@@ -128,11 +128,11 @@ do_request('INVITE', confirmed, Req, Dialog, Call) ->
     {ok, status_update(proceeding_uas, Dialog1, Call)};
 
 do_request('INVITE', Status, _Req, _Dialog, _Call) 
-           when Status=:=proceeding_uac; Status=:=accepted_uac ->
+           when Status==proceeding_uac; Status==accepted_uac ->
     {error, proceeding_uac};
 
 do_request('INVITE', Status, _Req, _Dialog, _Call) 
-           when Status=:=proceeding_uas; Status=:=accepted_uas ->
+           when Status==proceeding_uas; Status==accepted_uas ->
     {error, proceeding_uas};
 
 do_request('BYE', Status, _Req, Dialog, Call) ->
@@ -184,7 +184,7 @@ response(Req, Resp, Call) ->
                         [DialogId, Status, Method, Code], Call),
             Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
             nksip_call_dialog:update(Dialog1, Call);
-        not_found when Method=:='INVITE', Code>100, Code<300 ->
+        not_found when Method=='INVITE', Code>100, Code<300 ->
             Dialog = nksip_call_dialog:create(uas, Req, Resp),
             response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
         not_found ->
@@ -197,7 +197,7 @@ response(Req, Resp, Call) ->
                   nksip:response(), nksip:dialog(), call()) ->
     nksip:dialog().
 
-do_response(_, Code, _Req, _Resp, Dialog, Call) when Code=:=408; Code=:=481 ->
+do_response(_, Code, _Req, _Resp, Dialog, Call) when Code==408; Code==481 ->
     status_update({stop, Code}, Dialog, Call);
 
 do_response(_, Code, _Req, _Resp, Dialog, _Call) when Code<101 ->
@@ -205,7 +205,7 @@ do_response(_, Code, _Req, _Resp, Dialog, _Call) when Code<101 ->
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<200 andalso 
-            (Status=:=init orelse Status=:=proceeding_uas) ->
+            (Status==init orelse Status==proceeding_uas) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
     {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
         {#sdp{}=SDP1, #sdp{}=SDP2} -> {{remote, SDP1}, {local, SDP2}};
@@ -222,7 +222,7 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso 
-            (Status=:=init orelse Status=:=proceeding_uas) ->
+            (Status==init orelse Status==proceeding_uas) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
     {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
         {#sdp{}=SDP1, #sdp{}=SDP2} -> {{remote, SDP1}, {local, SDP2}};

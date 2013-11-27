@@ -62,7 +62,7 @@ request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
                 {error, Error} -> 
                     {error, Error}
             end;
-        not_found when Method=:='INVITE' ->
+        not_found when Method=='INVITE' ->
             {ok, Call};
         not_found ->
             {error, unknown_dialog}
@@ -134,7 +134,7 @@ response(Req, Resp, Call) ->
                         [DialogId, Status, Method, Code], Call),
             Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
             nksip_call_dialog:update(Dialog1, Call);
-        not_found when Method=:='INVITE', Code>100, Code<300 ->
+        not_found when Method=='INVITE', Code>100, Code<300 ->
             Dialog = nksip_call_dialog:create(uac, Req, Resp),
             response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
         not_found ->
@@ -148,7 +148,7 @@ response(Req, Resp, Call) ->
     nksip:dialog().
 
 do_response(_Method, Code, _Req, _Resp, Dialog, Call) 
-            when Code=:=408; Code=:=481 ->
+            when Code==408; Code==481 ->
     status_update({stop, Code}, Dialog, Call);
 
 do_response(_Method, Code, _Req, _Resp, Dialog, _Call) when Code < 101 ->
@@ -156,7 +156,7 @@ do_response(_Method, Code, _Req, _Resp, Dialog, _Call) when Code < 101 ->
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<200 andalso 
-            (Status=:=init orelse Status=:=proceeding_uac) ->
+            (Status==init orelse Status==proceeding_uac) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
     {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
         {#sdp{}=SDP1, #sdp{}=SDP2} -> {{local, SDP1}, {remote, SDP2}};
@@ -173,7 +173,7 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso 
-            (Status=:=init orelse Status=:=proceeding_uac) ->
+            (Status==init orelse Status==proceeding_uac) ->
     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
     {Offer1, Answer1} = case {Req#sipmsg.body, Resp#sipmsg.body} of
         {#sdp{}=SDP1, #sdp{}=SDP2} -> {{local, SDP1}, {remote, SDP2}};
@@ -190,7 +190,7 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
     
 do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) 
             when Code<300 andalso 
-            (Status=:=accepted_uac orelse Status=:=confirmed) ->
+            (Status==accepted_uac orelse Status==confirmed) ->
     #dialog{app_id=AppId, call_id=CallId, id=DialogId, ack_req=ACK} = Dialog,
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     case ACK of
@@ -214,7 +214,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
 
 do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call) 
             when Code>=300 andalso 
-            (Status=:=init orelse Status=:=proceeding_uac) ->
+            (Status==init orelse Status==proceeding_uac) ->
     case Dialog#dialog.answered of
         undefined -> status_update({stop, Code}, Dialog, Call);
         _ -> status_update(confirmed, Dialog, Call)
@@ -276,7 +276,7 @@ ack(#sipmsg{class={req, 'ACK'}, cseq=CSeq, dialog_id=DialogId}=AckReq, Call) ->
         #dialog{id=DialogId, status=Status, invite_req=InvReq}=Dialog ->
             #sipmsg{cseq=InvCSeq} = InvReq,
             case Status of
-                accepted_uac when CSeq=:=InvCSeq ->
+                accepted_uac when CSeq==InvCSeq ->
                     ?call_debug("Dialog ~s (~p) UAC request 'ACK'", 
                                 [DialogId, Status], Call),
                     #dialog{sdp_offer=Offer, sdp_answer=Answer} = Dialog,
@@ -318,7 +318,7 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
         #dialog{status=Status}=Dialog ->
             ?call_debug("Dialog ~s make ~p request in ~p", 
                         [DialogId, Method, Status], Call),
-            case Method=:='ACK' andalso Status=/=accepted_uac of
+            case Method=='ACK' andalso Status/=accepted_uac of
                 true ->
                     {error, invalid_dialog};
                 false ->
@@ -399,7 +399,7 @@ generate(Method, Opts, Dialog) ->
         invite_req = Req
     } = Dialog,
     case nksip_lib:get_integer(cseq, Opts) of
-        0 when Method =:= 'ACK' -> 
+        0 when Method == 'ACK' -> 
             RCSeq = Req#sipmsg.cseq, 
             LCSeq = CurrentCSeq;
         0 when CurrentCSeq > 0 -> 

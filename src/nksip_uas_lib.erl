@@ -61,7 +61,7 @@ preprocess(Req, GlobalId) ->
     % For connection transports, we force inclusion of remote port 
     % to reuse the same connection
     ViaOpts2 = case lists:member(<<"rport">>, ViaOpts1) of
-        false when Proto=:=udp -> ViaOpts1;
+        false when Proto==udp -> ViaOpts1;
         _ -> [{<<"rport">>, nksip_lib:to_binary(Port)} | ViaOpts1 -- [<<"rport">>]]
     end,
     Via1 = Via#via{opts=ViaOpts2},
@@ -70,7 +70,7 @@ preprocess(Req, GlobalId) ->
         <<>> -> nksip_lib:hash({GlobalId, Branch});
         _ -> ToTag
     end,
-    case Method=:='ACK' andalso nksip_lib:hash({GlobalId, Branch})=:=ToTag of
+    case Method=='ACK' andalso nksip_lib:hash({GlobalId, Branch})==ToTag of
         true -> 
             ?debug(AppId, CallId, "Received ACK for own-generated response", []),
             own_ack;
@@ -285,7 +285,7 @@ response(Req, Code, Headers, Body, Opts) ->
     RespContacts = nksip_lib:get_value(contact, Opts, []),
     SendOpts = lists:flatten([
         case Method of
-            'INVITE' when Code>100, RespContacts=:=[] -> 
+            'INVITE' when Code>100, RespContacts==[] -> 
                 make_contact;
             _ ->
                 case lists:member(make_contact, Opts) of
@@ -351,7 +351,7 @@ preprocess_route(Request) ->
 strict_router(#sipmsg{app_id=AppId, ruri=RUri, call_id=CallId, 
                       routes=Routes}=Request) ->
     case 
-        nksip_lib:get_value(<<"nksip">>, RUri#uri.opts) =/= undefined 
+        nksip_lib:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
         andalso nksip_transport:is_local(AppId, RUri) of
     true ->
         case lists:reverse(Routes) of

@@ -145,7 +145,7 @@ launch(Opts) ->
         false -> "stateful"
     end,
     Port = case proplists:get_value(port, Opts) of
-        undefined when Transport=:=tls -> 5061;
+        undefined when Transport==tls -> 5061;
         undefined -> 5060;
         P0 -> P0
     end,
@@ -317,7 +317,7 @@ iter_raw(_, _, _, _, _, _, _, _, 0) ->
     ok;
 
 iter_raw(MsgType, Pos, Host, TransStr, State, Transport, Pid, CallId0, Messages) 
-         when MsgType=:=options; MsgType=:=register->
+         when MsgType==options; MsgType==register->
     CallId = list_to_binary([integer_to_list(Pos), $-, integer_to_list(Messages),
                              $-, CallId0]),
     Msg = case MsgType of
@@ -343,7 +343,7 @@ iter_raw(MsgType, Pos, Host, TransStr, State, Transport, Pid, CallId0, Messages)
     iter_raw(MsgType, Pos, Host, TransStr, State, Transport, Pid, CallId0, Messages-1);
 
 iter_raw(MsgType, Pos, Host, TransStr, State, Transport, Pid, CallId0, Messages) 
-        when MsgType=:=invite ->
+        when MsgType==invite ->
     CallId = list_to_binary([integer_to_list(Pos), $-, integer_to_list(Messages),
                              $-, CallId0]),
     Invite = invite("stateful@"++Host, TransStr, CallId),
@@ -376,7 +376,7 @@ empty() ->
 wait(0, Ok) -> 
     Ok;
 wait(Messages, Ok) ->
-    if Messages rem 1000 =:= 0 -> io:format("~p ", [Messages]); true -> ok end,
+    if Messages rem 1000 == 0 -> io:format("~p ", [Messages]); true -> ok end,
     receive
         {nk, true} -> wait(Messages-1, Ok+1);
         {nk, false} -> wait(Messages-1, Ok)

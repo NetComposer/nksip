@@ -161,10 +161,10 @@ check_forwards(#trans{request=#sipmsg{class={req, Method}, forwards=Forwards}}) 
     if
         is_integer(Forwards), Forwards > 0 ->   
             ok;
-        Forwards=:=0, Method=:='OPTIONS' ->
+        Forwards==0, Method=='OPTIONS' ->
             {reply, {ok, [], <<>>, [make_supported, make_accept, make_allow, 
                                         {reason, <<"Max Forwards">>}]}};
-        Forwards=:=0 ->
+        Forwards==0 ->
             {reply, too_many_hops};
         true -> 
             {reply, invalid_request}
@@ -242,11 +242,11 @@ normalize_uriset(single, [List|R], Acc1, Acc2) when is_list(List) ->
 
 normalize_uriset(multi, [List|R], Acc1, Acc2) when is_list(List) -> 
     case nksip_lib:is_string(List) of
-        true when Acc1=:=[] ->
+        true when Acc1==[] ->
             normalize_uriset(multi, R, [], Acc2++[pruris(List)]);
         true ->
             normalize_uriset(multi, R, [], Acc2++[Acc1]++[pruris(List)]);
-        false when Acc1=:=[] ->  
+        false when Acc1==[] ->  
             normalize_uriset(multi, R, [], Acc2++[pruris(List)]);
         false ->
             normalize_uriset(multi, R, [], Acc2++[Acc1]++[pruris(List)])
@@ -292,20 +292,20 @@ normalize_test() ->
     UriD = #uri{domain=(<<"d">>)},
     UriE = #uri{domain=(<<"e">>)},
 
-    ?assert(normalize_uriset([]) =:= [[]]),
-    ?assert(normalize_uriset(a) =:= [[]]),
-    ?assert(normalize_uriset([a,b]) =:= [[]]),
-    ?assert(normalize_uriset("sip:a") =:= [[UriA]]),
-    ?assert(normalize_uriset(<<"sip:b">>) =:= [[UriB]]),
-    ?assert(normalize_uriset("other") =:= [[]]),
-    ?assert(normalize_uriset(UriC) =:= [[UriC]]),
-    ?assert(normalize_uriset([UriD]) =:= [[UriD]]),
+    ?assert(normalize_uriset([]) == [[]]),
+    ?assert(normalize_uriset(a) == [[]]),
+    ?assert(normalize_uriset([a,b]) == [[]]),
+    ?assert(normalize_uriset("sip:a") == [[UriA]]),
+    ?assert(normalize_uriset(<<"sip:b">>) == [[UriB]]),
+    ?assert(normalize_uriset("other") == [[]]),
+    ?assert(normalize_uriset(UriC) == [[UriC]]),
+    ?assert(normalize_uriset([UriD]) == [[UriD]]),
     ?assert(normalize_uriset(["sip:a", "sip:b", UriC, <<"sip:d">>, "sip:e"]) 
-                                            =:= [[UriA, UriB, UriC, UriD, UriE]]),
+                                            == [[UriA, UriB, UriC, UriD, UriE]]),
     ?assert(normalize_uriset(["sip:a", ["sip:b", UriC], <<"sip:d">>, ["sip:e"]]) 
-                                            =:= [[UriA], [UriB, UriC], [UriD], [UriE]]),
+                                            == [[UriA], [UriB, UriC], [UriD], [UriE]]),
     ?assert(normalize_uriset([["sip:a", "sip:b", UriC], <<"sip:d">>, "sip:e"]) 
-                                            =:= [[UriA, UriB, UriC], [UriD], [UriE]]),
+                                            == [[UriA, UriB, UriC], [UriD], [UriE]]),
     ok.
 
 -endif.

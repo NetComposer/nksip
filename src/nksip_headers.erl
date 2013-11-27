@@ -110,7 +110,7 @@ update(Headers, []) ->
 
 update(Headers, [{default_single, Name, ValueOrValues}|R]) ->
     case lists:keymember(Name, 1, Headers) of
-        false when ValueOrValues=:=[]-> update(Headers, R);
+        false when ValueOrValues==[]-> update(Headers, R);
         false -> update([header(Name, ValueOrValues)|Headers], R);
         true  -> update(Headers, R)
     end;

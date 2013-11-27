@@ -272,7 +272,7 @@ find_all_except_me(ReqId) ->
     AOR = {Scheme, User, Domain},
     All = [
         [Uri || {_AppId, Uri, _Time, _Q} <- List] 
-        || {R_AOR, List} <- nksip_registrar:get_all(), R_AOR =/= AOR
+        || {R_AOR, List} <- nksip_registrar:get_all(), R_AOR /= AOR
     ],
     lists:flatten(All).
 
