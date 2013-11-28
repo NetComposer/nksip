@@ -144,7 +144,6 @@ update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
                     Call#call{auths=[{DialogId, Proto, Ip, Port}|Auths]}
             end;
         _ ->
-            ?call_error("Calling UPDATE AUTH: ~p", [SipMsg], Call),
             Call
     end.
 
