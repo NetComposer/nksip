@@ -326,8 +326,7 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
 -spec make(nksip:response(), nksip_lib:proplist(), call()) ->
     {nksip:response(), nksip_lib:proplist()}.
 
-make(#sipmsg{cseq_method=Method, contacts=Contacts}=Resp, Opts, Call)
-        when Method=='INVITE'; Method=='UPDATE' ->
+make(#sipmsg{cseq_method=Method, contacts=Contacts}=Resp, Opts, Call) ->
     #sipmsg{contacts=Contacts} = Resp,
     DialogId = nksip_dialog:class_id(uas, Resp),
     case lists:member(make_contact, Opts) of
@@ -335,20 +334,17 @@ make(#sipmsg{cseq_method=Method, contacts=Contacts}=Resp, Opts, Call)
             case nksip_call_dialog:find(DialogId, Call) of
                 #dialog{local_target=LTarget} ->
                     {
-                        Resp#sipmsg{contacts=[LTarget], dialog_id=DialogId},
+                        Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
                         Opts
                     };
+                not_found when Method=='INVITE' orelse Method=='UPDATE' ->
+                    {Resp#sipmsg{dialog_id=DialogId}, [make_contact|Opts]};
                 not_found ->
-                    {Resp#sipmsg{dialog_id=DialogId}, [make_contact|Opts]}
+                    {Resp#sipmsg{dialog_id=DialogId}, Opts}
             end; 
         _ ->
             {Resp#sipmsg{dialog_id=DialogId}, Opts}
-    end;
-
-make(Resp, Opts, _Call) ->
-    DialogId = nksip_dialog:class_id(uas, Resp),
-    {Resp#sipmsg{dialog_id=DialogId}, Opts}.
-
+    end.
 
 %% @private
 -spec get_sdp(nksip:request()|nksip:respomse(), nksip_dialog:dialog()) ->
