@@ -334,6 +334,7 @@ rr_contact() ->
         ok = tests_util:wait(Ref, [req_ok,
                                    {client2, ack}, 
                                    {client2, sdp_update},
+                                   {client2, dialog_target_update},
                                    {client2, dialog_confirmed}])
     after 5000 -> 
         error(dialog2) 
