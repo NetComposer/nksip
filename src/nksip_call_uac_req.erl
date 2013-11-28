@@ -161,24 +161,24 @@ send('ACK', UAC, Call) ->
 send(_, UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-    DialogResult = case lists:member(no_dialog, Opts) of
+    TestDialog = case lists:member(no_dialog, Opts) of
         true -> 
-            {ok, Call};
+            ok;
         false -> 
             OnlyUpdate = lists:member(update_dialog, Opts),
-            case nksip_call_uac_dialog:request(Req, Call) of
-                {ok, DlgCall} ->
-                    {ok, DlgCall};
+            case nksip_call_uac_dialog:test_request(Req, Call) of
+                ok ->
+                    ok;
                 {error, DlgError} when OnlyUpdate ->
                     ?call_debug("UAC ~p error updating dialog: ~p", 
-                                [DlgError], Call),
-                    {ok, Call};
+                                [Id, DlgError], Call),
+                    ok;
                 {error, DlgError} ->
                     {error, DlgError}
             end
     end,
-    case DialogResult of
-        {ok, Call1} ->
+    case TestDialog of
+        ok ->
             Send = case Method of 
                 'CANCEL' -> nksip_transport_uac:resend_request(Req, Opts++AppOpts);
                 _ -> nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts)
@@ -192,15 +192,23 @@ send(_, UAC, Call) ->
                         proto = Proto,
                         trans_id = nksip_call_uac:transaction_id(SentReq)
                     },
+                    case nksip_call_uac_dialog:request(SentReq, Call) of
+                        {ok, Call1} ->
+                            ok;
+                        {error, DlgError2} ->
+                            ?call_warning("UAC ~p error in dialog request: ~p", 
+                                [Id, DlgError2], Call),
+                            Call1 = Call
+                    end,
                     Call2 = nksip_call_uac_reply:reply({req, SentReq}, UAC1, Call1),
                     UAC2 = sent_method(Method, UAC1, Call2),
                     update(UAC2, Call2);
                 error ->
                     ?call_debug("UAC ~p error sending ~p request", 
                                 [Id, Method], Call),
-                    Call2 = nksip_call_uac_reply:reply({error, network_error}, 
-                                                       UAC, Call1),
-                    update(UAC#trans{status=finished}, Call2)
+                    Call1 = nksip_call_uac_reply:reply({error, network_error}, 
+                                                       UAC, Call),
+                    update(UAC#trans{status=finished}, Call1)
             end;
         {error, Error} ->
             ?call_info("UAC ~p dialog error: ~p", [Id, Error], Call),

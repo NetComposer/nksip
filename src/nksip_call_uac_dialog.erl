@@ -25,7 +25,8 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, ack/2, response/3, make/4, new_local_seq/2, uac_id/3]).
+-export([test_request/2, request/2, ack/2, response/3]).
+-export([make/4, new_local_seq/2, uac_id/3]).
 -import(nksip_call_dialog, [status_update/3, target_update/5, session_update/2, store/2]).
 
 -type call() :: nksip_call:call().
@@ -35,6 +36,37 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+%% @private
+-spec test_request(nksip:request(), nksip_call:call()) ->
+    ok | {error, Error} 
+    when Error :: unknown_dialog | request_pending.
+
+test_request(#sipmsg{class={req, 'ACK'}}, _) ->
+    error(ack_in_dialog_test_request);
+
+test_request(#sipmsg{to_tag = <<>>}, _Call) ->
+    ok;
+
+test_request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
+    case nksip_call_dialog:find(DialogId, Call) of
+        #dialog{status=Status}=Dialog ->
+            {HasSDP, _SDP, Offer, _} = get_sdp(Req, Dialog),
+            if 
+                Method=='INVITE', Status==confirmed, HasSDP, Offer/=undefined -> 
+                    {error, request_pending};
+                Method=='INVITE', Status/=confirmed -> 
+                    {error, request_pending};
+                Method=='UPDATE', HasSDP, Offer/=undefined ->
+                    {error, request_pending};
+                true ->
+                    ok
+            end;
+        not_found ->
+            {error, unknown_dialog}
+    end.
+
 
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
