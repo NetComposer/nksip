@@ -67,7 +67,7 @@ request(Req, Call) ->
                             {error, Error}
                     end
             end;
-        not_found when Method=:='INVITE' -> 
+        not_found when Method=='INVITE' -> 
             {ok, DialogId, Call};
         not_found -> 
             {error, unknown_dialog}
@@ -105,11 +105,11 @@ do_request('INVITE', confirmed, Req, Dialog, Call) ->
     end;
 
 do_request('INVITE', Status, _Req, _Dialog, _Call) 
-           when Status=:=proceeding_uac; Status=:=accepted_uac ->
+           when Status==proceeding_uac; Status==accepted_uac ->
     {error, request_pending};
 
 do_request('INVITE', Status, _Req, _Dialog, _Call) 
-           when Status=:=proceeding_uas; Status=:=accepted_uas ->
+           when Status==proceeding_uas; Status==accepted_uas ->
     {error, retry};
 
 do_request('BYE', Status, _Req, Dialog, Call) ->
@@ -165,7 +165,7 @@ response(Req, Resp, Call) ->
                         [DialogId, Status, Method, Code], Call),
             Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
             store(Dialog1, Call);
-        not_found when Method=:='INVITE', Code>100, Code<300 ->
+        not_found when Method=='INVITE', Code>100, Code<300 ->
             Dialog = nksip_call_dialog:create(uas, Req, Resp),
             {ok, Dialog1} = do_request('INVITE', confirmed, Req, Dialog, Call),
             response(Req, Resp, Call#call{dialogs=[Dialog1|Dialogs]});
@@ -179,7 +179,7 @@ response(Req, Resp, Call) ->
                   nksip:response(), nksip:dialog(), call()) ->
     nksip:dialog().
 
-do_response(_, Code, _Req, _Resp, Dialog, Call) when Code=:=408; Code=:=481 ->
+do_response(_, Code, _Req, _Resp, Dialog, Call) when Code==408; Code==481 ->
     status_update({stop, Code}, Dialog, Call);
 
 do_response(_, Code, _Req, _Resp, Dialog, _Call) when Code<101 ->
@@ -187,7 +187,7 @@ do_response(_, Code, _Req, _Resp, Dialog, _Call) when Code<101 ->
 
 do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call) 
             when Code>100 andalso Code<300 andalso
-            (Status=:=init orelse Status=:=proceeding_uas) ->
+            (Status==init orelse Status==proceeding_uas) ->
     {HasSDP, SDP, Offer, Answer} = get_sdp(Resp, Dialog),
     {Offer1, Answer1} = case Offer of
         {remote, invite, _} when HasSDP ->
@@ -217,7 +217,7 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
 
 do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
             when Code>=300 andalso 
-            (Status=:=init orelse Status=:=proceeding_uas) ->
+            (Status==init orelse Status==proceeding_uas) ->
     #dialog{answered=Answered, sdp_offer=Offer} = Dialog,
     case Answered of
         undefined -> 

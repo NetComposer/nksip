@@ -138,11 +138,11 @@ process_call(Fun, UAS, Call) ->
     #trans{request=#sipmsg{id=ReqId}, method=Method} = UAS,
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     case nksip_call_uas:app_call(Fun, [], UAS, Call) of
-        {reply, _} when Method=:='ACK' ->
+        {reply, _} when Method=='ACK' ->
             update(UAS, Call);
         {reply, Reply} ->
             reply(Reply, UAS, Call);
-        not_exported when Method=:='ACK' ->
+        not_exported when Method=='ACK' ->
             Call;
         not_exported ->
             {reply, Reply, _} = apply(nksip_sipapp, Fun, [ReqId, none, Opts]),
