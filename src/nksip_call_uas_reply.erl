@@ -68,18 +68,17 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                         LastCode>=200 andalso LastCode<300
                     )
                 ) ->
-    DialogId = nksip_dialog:class_id(uas, Resp),
-    Resp1 = Resp#sipmsg{dialog_id=DialogId},
-    case lists:member(make_rseq, SendOpts) of
+    {Resp1, SendOpts1} = nksip_call_uas_dialog:make(Resp, SendOpts, Call),
+    case lists:member(make_rseq, SendOpts1) of
         true ->
             case check_prack(Resp1, UAS) of
                 {ok, Resp2, UAS1} ->
-                    send({Resp2, SendOpts}, UAS1, update(UAS1, Call));
+                    send({Resp2, SendOpts1}, UAS1, update(UAS1, Call));
                 {error, Error} ->
                     {{error, Error}, Call}
             end;
         false ->
-            send({Resp1, SendOpts}, UAS, Call)
+            send({Resp1, SendOpts1}, UAS, Call)
     end;
 
 reply({#sipmsg{class={resp, Code, _Reason}}, _}, #trans{code=LastCode}=UAS, Call) ->

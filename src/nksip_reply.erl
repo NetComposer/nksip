@@ -223,17 +223,17 @@ reply(Req, #reqreply{}=ReqReply) ->
     #reqreply{code=Code, headers=Headers, body=Body, opts=Opts} = ReqReply,
     case nksip_lib:get_value(contact, Opts, []) of
         [] ->
-            nksip_uas_lib:response(Req, Code, Headers, Body, Opts);
+            response(Req, Code, Headers, Body, Opts);
         ContactSpec ->
             case nksip_parse:uris(ContactSpec) of
                 error -> 
                     ?warning(AppId, CallId, "UAS returned invalid contact: ~p", 
                             [ContactSpec]),
                     Opts1 = [{reason, <<"Invalid SipApp Response">>}],
-                    nksip_uas_lib:response(Req, 500, [], <<>>, Opts1);
+                    response(Req, 500, [], <<>>, Opts1);
                 Contacts ->
                     Opts1 = [{contact, Contacts}],
-                    nksip_uas_lib:response(Req, Code, Headers, Body, Opts1)
+                    response(Req, Code, Headers, Body, Opts1)
             end
     end;
 
@@ -425,3 +425,20 @@ helper_debug(#reqreply{opts=Opts}=SipReply, Text) ->
     SipReply#reqreply{opts=[{reason, Text}, make_date|Opts]}.
 
 
+%% @private
+-spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
+                nksip:body(), nksip_lib:proplist()) -> 
+    {nksip:response(), nksip_lib:proplist()}.
+
+response(Req, Code, Headers, Body, Opts) ->
+    case nksip_uas_lib:response(Req, Code, Headers, Body, Opts) of
+        {ok, Resp, RespOpts} ->
+            {Resp, RespOpts};
+        {error, Error} ->
+            lager:error("Error procesing response {~p,~p,~p,~p}: ~p",
+                        [Code, Headers, Body, Opts, Error]),
+            case nksip_uas_lib:response(Req, 500, [], <<>>, []) of
+                {ok, Resp, RespOpts} -> {Resp, RespOpts};
+                {error, Error} -> error(Error)
+            end
+    end.

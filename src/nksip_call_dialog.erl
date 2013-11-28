@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/3, status_update/4, target_update/5, session_update/2, timer/3]).
+-export([create/3, status_update/3, target_update/5, session_update/2, timer/3]).
 -export([find/2, store/2]).
 
 -type call() :: nksip_call:call().
@@ -74,6 +74,7 @@ create(Class, Req, Resp) ->
         stop_reason = undefined,
         invite_req = undefined,
         invite_resp = undefined,
+        invite_class = undefined,
         ack_req = undefined,
         sdp_offer = undefined,
         sdp_answer = undefined
@@ -97,10 +98,10 @@ create(Class, Req, Resp) ->
 
 
 %% @private
--spec status_update(uac|uas|proxy, nksip_dialog:status(), nksip:dialog(), call()) ->
+-spec status_update(nksip_dialog:status(), nksip:dialog(), call()) ->
     nksip:dialog().
 
-status_update(Class, Status, Dialog, Call) ->
+status_update(Status, Dialog, Call) ->
     #dialog{
         id = DialogId, 
         app_id = AppId,
@@ -108,9 +109,7 @@ status_update(Class, Status, Dialog, Call) ->
         status = OldStatus, 
         media_started = Media,
         retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer,
-        invite_req = Req,
-        invite_resp = Resp
+        timeout_timer = TimeoutTimer
     } = Dialog,
     #call{opts=#call_opts{timer_t1=T1, max_dialog_time=TDlg}} = Call,
     case OldStatus of
@@ -153,20 +152,20 @@ status_update(Class, Status, Dialog, Call) ->
     end,
     case Status of
         proceeding_uac ->
-            Dialog3 = route_update(Class, Req, Resp, Dialog2),
-            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
+            Dialog3 = route_update(Dialog2),
+            Dialog4 = target_update(Dialog3, Call),
             session_update(Dialog4, Call);
         accepted_uac ->
-            Dialog3 = route_update(Class, Req, Resp, Dialog2),
-            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
+            Dialog3 = route_update(Dialog2),
+            Dialog4 = target_update(Dialog3, Call),
             session_update(Dialog4, Call);
         proceeding_uas ->
-            Dialog3 = route_update(Class, Req, Resp, Dialog2),
-            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
+            Dialog3 = route_update(Dialog2),
+            Dialog4 = target_update(Dialog3, Call),
             session_update(Dialog4, Call);
         accepted_uas ->    
-            Dialog3 = route_update(Class, Req, Resp, Dialog2),
-            Dialog4 = target_update(Class, Req, Resp, Dialog3, Call),
+            Dialog3 = route_update(Dialog2),
+            Dialog4 = target_update(Dialog3, Call),
             Dialog5 = session_update(Dialog4, Call),
             Dialog5#dialog{
                 retrans_timer = start_timer(T1, retrans, Dialog),
@@ -174,7 +173,7 @@ status_update(Class, Status, Dialog, Call) ->
             };
         confirmed ->
             Dialog5 = session_update(Dialog2, Call),
-            Dialog5#dialog{invite_req=undefined, invite_resp=undefined};
+            Dialog5#dialog{invite_req=undefined, invite_resp=undefined, invite_class=undefined};
         bye ->
             Dialog2;
         {stop, StopReason} -> 
@@ -184,8 +183,18 @@ status_update(Class, Status, Dialog, Call) ->
             Dialog2
     end.
 
+
 %% @private Performs a target update
--spec target_update(uac|uas|proxy, nksip:request(), nksip:response(),
+-spec target_update(nksip:dialog(), call()) ->
+    nksip:dialog().
+
+target_update(Dialog, Call) ->
+    #dialog{invite_req=Req, invite_resp=Resp, invite_class=Class} = Dialog,
+    target_update(Class, Req, Resp, Dialog, Call).
+
+
+%% @private Performs a target update
+-spec target_update(uac|uas, nksip:request(), nksip:response(), 
                     nksip:dialog(), call()) ->
     nksip:dialog().
 
@@ -198,7 +207,9 @@ target_update(Class, Req, #sipmsg{}=Resp, Dialog, Call) ->
         secure = Secure,
         answered = Answered,
         remote_target = RemoteTarget,
-        local_target = LocalTarget
+        local_target = LocalTarget,
+        invite_req = InvReq,
+        invite_class = InvClass
     } = Dialog,
     #sipmsg{contacts=ReqContacts} = Req,
     #sipmsg{class={resp, Code, _Reason}, contacts=RespContacts} = Resp,
@@ -236,16 +247,34 @@ target_update(Class, Req, #sipmsg{}=Resp, Dialog, Call) ->
         _ -> Answered
     end,
     case RemoteTarget of
-        #uri{} -> ok;
+        #uri{domain = <<"invalid.invalid">>} -> ok;
         RemoteTarget1 -> ok;
         _ -> cast(dialog_update, target_update, Dialog, Call)
+    end,
+    % If we are updating the remote target inside an uncompleted INVITE UAS
+    % transaction, update original INVITE so that, when the final
+    % response is sent, we don't use the old remote target but the new one.
+    InvReq1 = case InvClass of
+        uas ->
+            case InvReq of
+                #sipmsg{contacts=[RemoteTarget1]} -> InvReq; 
+                #sipmsg{} -> InvReq#sipmsg{contacts=[RemoteTarget1]};
+                undefined -> undefined
+            end;
+        uac ->
+            case InvReq of
+                #sipmsg{contacts=[LocalTarget1]} -> InvReq; 
+                #sipmsg{} -> InvReq#sipmsg{contacts=[LocalTarget1]};
+                undefined -> undefined
+            end
     end,
     Dialog#dialog{
         updated = Now,
         answered = Answered1,
         local_target = LocalTarget1,
         remote_target = RemoteTarget1,
-        early = Early1
+        early = Early1,
+        invite_req = InvReq1
     };
 
 target_update(_Class, _Req, _Resp, Dialog, _Call) ->
@@ -253,12 +282,17 @@ target_update(_Class, _Req, _Resp, Dialog, _Call) ->
 
 
 %% @private Performs a target update
--spec route_update(uac|uas|proxy, nksip:request(), nksip:response(),
-                    nksip:dialog()) ->
+-spec route_update(nksip:dialog()) ->
     nksip:dialog().
 
-route_update(Class, Req, #sipmsg{}=Resp, Dialog) ->
-    #dialog{app_id=AppId, answered=Answered} = Dialog,
+route_update(#dialog{invite_resp=#sipmsg{}}=Dialog) ->
+    #dialog{
+        app_id = AppId,
+        invite_req = Req, 
+        invite_resp = Resp, 
+        invite_class = Class,
+        answered = Answered
+    } = Dialog,
     case Answered of
         undefined when Class==uac ->
             RR = nksip_sipmsg:header(Resp, <<"Record-Route">>, uris),
@@ -291,7 +325,7 @@ route_update(Class, Req, #sipmsg{}=Resp, Dialog) ->
             Dialog
     end;
 
-route_update(_Class, _Req, _Resp, Dialog) ->
+route_update(Dialog) ->
     Dialog.
 
 
@@ -360,7 +394,7 @@ timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
             store(Dialog1, Call);
         error ->
             ?call_notice("Dialog ~s could not resend response", [DialogId], Call),
-            Dialog1 = status_update(uas, {stop, ack_timeout}, Dialog, Call),
+            Dialog1 = status_update({stop, ack_timeout}, Dialog, Call),
             store(Dialog1, Call)
     end;
     
@@ -375,7 +409,7 @@ timer(timeout, #dialog{id=DialogId, status=Status}=Dialog, Call) ->
         accepted_uas -> ack_timeout;
         _ -> timeout
     end,
-    Dialog1 = status_update(uas, {stop, Reason}, Dialog, Call),
+    Dialog1 = status_update({stop, Reason}, Dialog, Call),
     store(Dialog1, Call).
 
 
@@ -438,6 +472,7 @@ cast(Fun, Arg, Dialog, Call) ->
     #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
     Args1 = [Dialog, Arg],
     Args2 = [DialogId, Arg],
+    ?call_debug("called dialog ~s ~p: ~p", [DialogId, Fun, Arg], Call),
     nksip_sipapp_srv:sipapp_cast(AppId, Module, Fun, Args1, Args2),
     ok.
 

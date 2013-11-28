@@ -319,7 +319,7 @@ work({stop_dialog, DialogId}, From, Call) ->
     case get_dialog(DialogId, Call) of
         {ok, Dialog} ->
             gen_fsm:reply(From, ok),
-            Dialog1 = nksip_call_dialog:status_update(uac, {stop, forced}, Dialog, Call),
+            Dialog1 = nksip_call_dialog:status_update({stop, forced}, Dialog, Call),
             nksip_call_dialog:store(Dialog1, Call);
         not_found ->
             gen_fsm:reply(From, {error, unknown_dialog}),

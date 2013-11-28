@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% sipapp_endpoint: Endpoint callback module for prack_test
+%% update_endpoint: Endpoint callback module for update_test
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
@@ -20,11 +20,11 @@
 %%
 %% -------------------------------------------------------------------
 
--module(prack_endpoint).
+-module(update_endpoint).
 -behaviour(nksip_sipapp).
 
 -export([get_sessions/2]).
--export([init/1, invite/3, reinvite/3, ack/3, prack/3]).
+-export([init/1, invite/3, ack/3, update/3]).
 -export([dialog_update/3, session_update/3, handle_call/3]).
 
 -include("../include/nksip.hrl").
@@ -38,13 +38,13 @@ get_sessions(AppId, DialogId) ->
 
 -record(state, {
     id,
-    dialogs,
-    sessions
+    dialogs = [],
+    sessions = []
 }).
 
 
 init([Id]) ->
-    {ok, #state{id=Id, dialogs=[]}}.
+    {ok, #state{id=Id}}.
 
 
 % INVITE for basic, uac, uas, invite and proxy_test
@@ -52,7 +52,7 @@ init([Id]) ->
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
 invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
-    AppId = {prack, Id},
+    AppId = {update, Id},
     DialogId = nksip_dialog:id(AppId, ReqId),
     Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
         [Op0] -> Op0;
@@ -63,64 +63,20 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
         _ ->
-            Ref = Pid = undefined,
             State1 = State
     end,
     proc_lib:spawn(
         fun() ->
             case Op of
-                <<"prov-busy">> ->
-                    ok = nksip_request:reply(AppId, ReqId, ringing),
-                    timer:sleep(100),
-                    ok = nksip_request:reply(AppId, ReqId, session_progress),
-                    timer:sleep(100),
-                    nksip:reply(From, busy);
-                <<"rel-prov-busy">> ->
-                    ok = nksip_request:reply(AppId, ReqId, rel_ringing),
-                    timer:sleep(100),
-                    ok = nksip_request:reply(AppId, ReqId, rel_session_progress),
-                    timer:sleep(100),
-                    nksip:reply(From, busy);
-                <<"pending">> ->
-                    spawn(
-                        fun() -> 
-                            ok = nksip_request:reply(AppId, ReqId, rel_ringing)
-                        end),
-                    spawn(
-                        fun() -> 
-                            {error, pending_prack} = 
-                                nksip_request:reply(AppId, ReqId, rel_session_progress),
-                            Pid ! {Ref, pending_prack_ok}
-                        end),
-                    timer:sleep(100),
-                    nksip:reply(From, busy);
-                <<"rel-prov-answer">> ->
-                    SDP = case nksip_request:body(AppId, ReqId) of
-                        #sdp{} = RemoteSDP ->
-                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
-                        _ -> 
-                            <<>>
-                    end,
-                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
-                    timer:sleep(100),
-                    SDP1 = nksip_sdp:increment(SDP),
-                    ok = nksip_request:reply(AppId, ReqId, {rel_session_progress, SDP1}),
-                    timer:sleep(100),
-                    SDP2 = nksip_sdp:increment(SDP1),
-                    nksip:reply(From, {ok, [], SDP2});
-                <<"rel-prov-answer2">> ->
-                    SDP = case nksip_request:body(AppId, ReqId) of
-                        #sdp{} = RemoteSDP ->
-                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
-                        _ -> 
-                            <<>>
-                    end,
-                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
-                    timer:sleep(100),
+                <<"basic">> ->
+                    Body = nksip_request:body(AppId, ReqId),
+                    SDP1 = nksip_sdp:increment(Body),
+                    ok = nksip_request:reply(AppId, ReqId, 
+                                                {rel_ringing, SDP1}),
+                    timer:sleep(500),
                     nksip:reply(From, ok);
-                <<"rel-prov-answer3">> ->
-                    SDP = nksip_sdp:new(nksip_lib:to_binary(Id), [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
+                <<"pending1">> ->
+                    ok = nksip_request:reply(AppId, ReqId, ringing),
                     timer:sleep(100),
                     nksip:reply(From, ok);
                 _ ->
@@ -130,12 +86,8 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
     {noreply, State1}.
 
 
-reinvite(ReqId, From, State) ->
-    invite(ReqId, From, State).
-
-
 ack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
-    AppId = {prack, Id},
+    AppId = {update, Id},
     DialogId = nksip_dialog:id(AppId, ReqId),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
@@ -152,21 +104,16 @@ ack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
     {reply, ok, State}.
 
 
-prack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
-    AppId = {prack, Id},
+update(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
+    AppId = {update, Id},
     DialogId = nksip_dialog:id(AppId, ReqId),
     case lists:keyfind(DialogId, 1, Dialogs) of
-        false ->  
-            ok;
-        {DialogId, Ref, Pid} -> 
-            RAck = nksip_request:field(AppId, ReqId, parsed_rack),
-            Pid ! {Ref, {Id, prack, RAck}}
+        false -> ok;
+        {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, update}}
     end,
     Body = case nksip_request:body(AppId, ReqId) of
-        #sdp{} = RemoteSDP ->
-            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
-        _ -> 
-            <<>>
+        #sdp{} = SDP -> nksip_sdp:increment(SDP);
+        _ -> <<>>
     end,        
     {reply, {ok, [], Body}, State}.
 

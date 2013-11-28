@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([request/2, ack/2, response/3, make/4, new_local_seq/2, uac_id/3]).
--import(nksip_call_dialog, [status_update/4, target_update/5, session_update/2, store/2]).
+-import(nksip_call_dialog, [status_update/3, target_update/5, session_update/2, store/2]).
 
 -type call() :: nksip_call:call().
 
@@ -90,18 +90,19 @@ do_request('INVITE', confirmed, Req, Dialog, Call) ->
             Dialog1 = Dialog#dialog{
                 invite_req = Req, 
                 invite_resp = undefined, 
+                invite_class = uac,
                 ack_req = undefined,
                 sdp_offer = Offer1,
                 sdp_answer = undefined
             },
-            {ok, status_update(uac, proceeding_uac, Dialog1, Call)}
+            {ok, status_update(proceeding_uac, Dialog1, Call)}
     end;
 
 do_request('INVITE', _Status, _Req, _Dialog, _Call) ->
     {error, request_pending};
 
 do_request('BYE', _Status, _Req, Dialog, Call) ->
-    {ok, status_update(uac, bye, Dialog, Call)};
+    {ok, status_update(bye, Dialog, Call)};
 
 do_request('PRACK', proceeding_uac, Req, Dialog, Call) ->
     {HasSDP, SDP, Offer, Answer} = get_sdp(Req, Dialog),
@@ -149,7 +150,8 @@ response(Req, Resp, Call) ->
             store(Dialog1, Call);
         not_found when Method=:='INVITE', Code>100, Code<300 ->
             Dialog = nksip_call_dialog:create(uac, Req, Resp),
-            response(Req, Resp, Call#call{dialogs=[Dialog|Dialogs]});
+            {ok, Dialog1} = do_request('INVITE', confirmed, Req, Dialog, Call),
+            response(Req, Resp, Call#call{dialogs=[Dialog1|Dialogs]});
         not_found ->
             Call
     end.
@@ -162,7 +164,7 @@ response(Req, Resp, Call) ->
 
 do_response(_Method, Code, _Req, _Resp, Dialog, Call) 
             when Code=:=408; Code=:=481 ->
-    status_update(uac, {stop, Code}, Dialog, Call);
+    status_update({stop, Code}, Dialog, Call);
 
 do_response(_Method, Code, _Req, _Resp, Dialog, _Call) when Code < 101 ->
     Dialog;
@@ -188,14 +190,13 @@ do_response('INVITE', Code, Req, Resp, #dialog{status=Status}=Dialog, Call)
             {Offer, Answer}
     end,
     Dialog1 = Dialog#dialog{
-        invite_req = Req, 
         invite_resp = Resp,
         sdp_offer = Offer1,
         sdp_answer = Answer1
     },
     case Code >= 200 of
-        true -> status_update(uac, accepted_uac, Dialog1, Call);
-        false -> status_update(uac, proceeding_uac, Dialog1, Call)
+        true -> status_update(accepted_uac, Dialog1, Call);
+        false -> status_update(proceeding_uac, Dialog1, Call)
     end;
    
     
@@ -215,7 +216,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
                     ?notice(AppId, CallId,
                             "Dialog ~s (~p) could not retransmit 'ACK'", 
                             [DialogId, Status]),
-                    status_update(uac, {stop, 503}, Dialog, Call)
+                    status_update({stop, 503}, Dialog, Call)
             end;
         _ ->
             ?call_info("Dialog ~s (~p) received 'INVITE' ~p but no ACK yet", 
@@ -229,7 +230,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
     #dialog{answered=Answered, sdp_offer=Offer} = Dialog,
     case Answered of
         undefined -> 
-            status_update(uac, {stop, Code}, Dialog, Call);
+            status_update({stop, Code}, Dialog, Call);
         _ -> 
             Offer1 = case Offer of
                 {_, invite, _} -> undefined;
@@ -237,7 +238,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{status=Status}=Dialog, Call)
                 _ -> Offer
             end,
             Dialog1 = Dialog#dialog{sdp_offer=Offer1},
-            status_update(uac, confirmed, Dialog1, Call)
+            status_update(confirmed, Dialog1, Call)
     end;
 
 do_response('INVITE', Code, _Req, Resp, Dialog, Call) ->
@@ -258,7 +259,7 @@ do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
         CallerTag -> caller_bye;
         _ -> callee_bye
     end,
-    status_update(uac, {stop, Reason}, Dialog, Call);
+    status_update({stop, Reason}, Dialog, Call);
 
 do_response('PRACK', Code, _Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
     {HasSDP, SDP, Offer, Answer} = get_sdp(Resp, Dialog),
@@ -328,7 +329,7 @@ ack(#sipmsg{class={req, 'ACK'}, cseq=CSeq, dialog_id=DialogId}=AckReq, Call) ->
                         sdp_offer = Offer1, 
                         sdp_answer = Answer1
                     },
-                    Dialog2 = status_update(uac, confirmed, Dialog1, Call),
+                    Dialog2 = status_update(confirmed, Dialog1, Call),
                     store(Dialog2, Call);
                 _ ->
                     ?call_notice("Dialog ~s (~p) ignoring ACK", 

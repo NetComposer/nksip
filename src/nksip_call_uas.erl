@@ -22,7 +22,7 @@
 -module(nksip_call_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([timer/3, terminate_request/2, transaction_id/1]).
+-export([timer/3, terminate_request/2, transaction_id/1, app_call/4]).
 -export_type([status/0, id/0]).
 
 -import(nksip_call_lib, [update/2]).
@@ -181,6 +181,33 @@ terminate_request(#trans{status=invite_proceeding, from=From}=UAS, Call) ->
 terminate_request(_, Call) ->
     Call.
     
+
+%% @private
+-spec app_call(atom(), list(), nksip_call:trans(), nksip_call:call()) ->
+    {reply, term()} | nksip_call:call() | not_exported.
+
+app_call(Fun, Args, UAS, Call) ->
+    #trans{id=Id, method=Method, status=Status, request=Req} = UAS,
+    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
+    ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
+                [Id, Method, Status, Fun, Args], Call),
+    From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
+    Args1 = Args ++ [Req],
+    Args2 = Args ++ [Req#sipmsg.id],
+    case 
+        nksip_sipapp_srv:sipapp_call(AppId, Module, Fun, Args1, Args2, From)
+    of
+        {reply, Reply} ->
+            {reply, Reply};
+        async -> 
+            UAS1 = nksip_call_lib:app_timer(Fun, UAS, Call),
+            update(UAS1, Call);
+        not_exported ->
+            not_exported;
+        error ->
+            reply({internal_error, <<"Error calling callback">>}, UAS, Call)
+    end.
+
 
 %% @private
 -spec app_cast(atom(), list(), nksip_call:trans(), nksip_call:call()) ->

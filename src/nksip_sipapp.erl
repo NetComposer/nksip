@@ -136,7 +136,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/1, get_user_pass/3, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
-         ack/3, bye/3, options/3, register/3, info/3, prack/3]).
+         ack/3, bye/3, options/3, register/3, info/3, prack/3, update/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -include("nksip.hrl").
@@ -525,6 +525,21 @@ register(_ReqId, _From, State) ->
 
 prack(_ReqId, _From, State) ->
     {reply, ok, State}.
+
+
+%% @doc Called when a valid UPDATE request is received.
+%% When a UPDATE request is received, NkSIP will automatically response 481 
+%% <i>Call/Transaction does not exist</i> if it doesn't belong to a current dialog.
+%% If it does, this function is called. The requiest will probably have a
+%% SDP body. If a `ok' is replied, a SDP answer is inclued, the session may change
+%% (and the corresponding callback function will be called). 
+%% If other non 2xx response is replied (like decline) the media is not changed.
+%%
+-spec update(ReqId::nksip_request:id(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
+update(_ReqId, _From, State) ->
+    {reply, decline, State}.
 
 
 %% @doc Called when a dialog has changed its state.

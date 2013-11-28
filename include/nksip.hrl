@@ -30,7 +30,7 @@
 -define(VERSION, "0.4.0").
 -define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, <<"application/sdp">>).
--define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK">>).
+-define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
@@ -220,6 +220,7 @@
     stop_reason :: nksip_dialog:stop_reason(),
     invite_req :: nksip:request(),
     invite_resp :: nksip:response(),
+    invite_class :: uac | uas,
     ack_req :: nksip:request(),
     sdp_offer :: sdp_offer(),
     sdp_answer :: sdp_offer(),

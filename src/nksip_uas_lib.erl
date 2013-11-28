@@ -120,9 +120,23 @@ preprocess(Req, GlobalId) ->
 %%
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
                 nksip:body(), nksip_lib:proplist()) -> 
-    {nksip:response(), nksip_lib:proplist()}.
+    {ok, nksip:response(), nksip_lib:proplist()} | {error, Error}
+    when Error :: invalid_contact.
 
 response(Req, Code, Headers, Body, Opts) ->
+    try 
+        response2(Req, Code, Headers, Body, Opts)
+    catch
+        throw:Error -> {error, Error}
+    end.
+
+
+%% @private
+-spec response2(nksip:request(), nksip:response_code(), [nksip:header()], 
+                nksip:body(), nksip_lib:proplist()) -> 
+    {nksip:response(), nksip_lib:proplist()}.
+
+response2(Req, Code, Headers, Body, Opts) ->
     #sipmsg{
         class = {req, Method},
         ruri = RUri,
@@ -153,8 +167,8 @@ response(Req, Code, Headers, Body, Opts) ->
         false ->
             false
     end,
-    case Method of 
-        'INVITE' when Code > 100 ->
+    case Code > 100 of
+        true when Method=='INVITE'; Method=='UPDATE' ->
             MakeAllow = MakeSupported = true;
         _ ->
             MakeAllow = lists:member(make_allow, Opts),
@@ -171,7 +185,8 @@ response(Req, Code, Headers, Body, Opts) ->
                 none
         end,
         case nksip_lib:get_value(make_www_auth, Opts) of
-            undefined -> none;
+            undefined -> 
+                none;
             from -> 
                 {multi, <<"WWW-Authenticate">>, 
                     nksip_auth:make_response(FromDomain, Req)};
@@ -180,7 +195,8 @@ response(Req, Code, Headers, Body, Opts) ->
                     nksip_auth:make_response(Realm, Req)}
         end,
         case nksip_lib:get_value(make_proxy_auth, Opts) of
-            undefined -> none;
+            undefined -> 
+                none;
             from -> 
                 {multi, <<"Proxy-Authenticate">>,
                     nksip_auth:make_response(FromDomain, Req)};
@@ -189,8 +205,10 @@ response(Req, Code, Headers, Body, Opts) ->
                     nksip_auth:make_response(Realm, Req)}
         end,
         case MakeAllow of
-            true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(Opts)};
-            false -> none
+            true -> 
+                {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(Opts)};
+            false -> 
+                none
         end,
         case lists:member(make_accept, Opts) of
             true -> {default_single, <<"Accept">>, ?ACCEPT};
@@ -282,16 +300,15 @@ response(Req, Code, Headers, Body, Opts) ->
             end
     end,
     Reason = nksip_lib:get_binary(reason, Opts),
-    RespContacts = nksip_lib:get_value(contact, Opts, []),
+    AllRespContacts = lists:flatten(proplists:get_all_values(contact, Opts)),
+    RespContacts = case nksip_parse:uris(AllRespContacts) of
+        error -> throw(invalid_contact);
+        RCs1 -> RCs1
+    end,
     SendOpts = lists:flatten([
-        case Method of
-            'INVITE' when Code>100, RespContacts=:=[] -> 
-                make_contact;
-            _ ->
-                case lists:member(make_contact, Opts) of
-                    true -> make_contact;
-                    false -> []
-                end
+        case lists:member(make_contact, Opts) of
+            true -> make_contact;
+            false -> []
         end,
         case Secure of
             true -> secure;
@@ -321,7 +338,7 @@ response(Req, Code, Headers, Body, Opts) ->
         to_tag = ToTag1,
         transport = undefined
     },
-    {Resp, SendOpts}.
+    {ok, Resp, SendOpts}.
 
 
 %% @private Process RFC3261 16.4

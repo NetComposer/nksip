@@ -48,27 +48,27 @@
 -spec method(binary() | atom() | string()) -> 
     nksip:method() | binary().
 
-method(Method) when is_binary(Method) ->
-    method(binary_to_list(Method));
 method(Method) when is_atom(Method) ->
-    method(atom_to_list(Method));
-method(Method) ->
-    case string:to_upper(Method) of
-        "INVITE" -> 'INVITE';
-        "REGISTER" -> 'REGISTER';
-        "BYE" -> 'BYE';
-        "ACK" -> 'ACK';
-        "CANCEL" -> 'CANCEL';
-        "OPTIONS" -> 'OPTIONS';
-        "SUBSCRIBE" -> 'SUBSCRIBE';
-        "NOTIFY" -> 'NOTIFY';
-        "PUBLISH" -> 'PUBLISH';
-        "REFER" -> 'REFER';
-        "MESSAGE" -> 'MESSAGE';
-        "INFO" -> 'INFO';
-        "PRACK" -> 'PRACK';
-        "UPDATE" -> 'UPDATE';
-        _ -> list_to_binary(Method) 
+    Method;
+method(Method) when is_list(Method) ->
+    method(list_to_binary(Method));
+method(Method) when is_binary(Method) ->
+    case Method of
+        <<"INVITE">> -> 'INVITE';
+        <<"REGISTER">> -> 'REGISTER';
+        <<"BYE">> -> 'BYE';
+        <<"ACK">> -> 'ACK';
+        <<"CANCEL">> -> 'CANCEL';
+        <<"OPTIONS">> -> 'OPTIONS';
+        <<"SUBSCRIBE">> -> 'SUBSCRIBE';
+        <<"NOTIFY">> -> 'NOTIFY';
+        <<"PUBLISH">> -> 'PUBLISH';
+        <<"REFER">> -> 'REFER';
+        <<"MESSAGE">> -> 'MESSAGE';
+        <<"INFO">> -> 'INFO';
+        <<"PRACK">> -> 'PRACK';
+        <<"UPDATE">> -> 'UPDATE';
+        _ -> Method 
     end.
 
 
