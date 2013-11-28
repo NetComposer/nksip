@@ -46,7 +46,7 @@ reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
     {{error, invalid_call}, update(UAS1, Call)};
 
 reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
-          when Status=:=authorize; Status=:=route ->
+          when Status==authorize; Status==route ->
     UAS1 = case Method of
         'INVITE' -> UAS#trans{status=invite_proceeding};
         _ -> UAS#trans{status=trying}
@@ -55,14 +55,14 @@ reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
 
 reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts}, 
            #trans{status=Status, code=LastCode}=UAS, Call)
-           when Status=:=invite_proceeding orelse 
-                Status=:=trying orelse 
-                Status=:=proceeding orelse
+           when Status==invite_proceeding orelse 
+                Status==trying orelse 
+                Status==proceeding orelse
                 (
                     (
-                        Status=:=invite_accepted orelse 
-                        Status=:=invite_confirmed orelse
-                        Status=:=completed
+                        Status==invite_accepted orelse 
+                        Status==invite_confirmed orelse
+                        Status==completed
                     ) andalso (
                         Code>=200 andalso Code<300 andalso 
                         LastCode>=200 andalso LastCode<300
@@ -144,7 +144,7 @@ send({Resp, SendOpts}, UAS, #call{}=Call) ->
     Msg = {MsgId, Id, DialogId},
     Call3 = Call2#call{msgs=[Msg|Msgs]},
     case Stateless of
-        true when Method=/='INVITE' ->
+        true when Method/='INVITE' ->
             ?call_debug("UAS ~p ~p stateless reply ~p", [Id, Method, Code1], Call3),
             UAS2 = UAS1#trans{status=finished},
             UAS3 = nksip_call_lib:timeout_timer(cancel, UAS2, Call),

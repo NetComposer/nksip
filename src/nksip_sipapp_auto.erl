@@ -303,7 +303,7 @@ timer(#state{pings=Pings, regs=Regs}=State) ->
     Self = self(),
     Pings1 = [
         if
-            Now > Last + Interval, Checking=:=false -> 
+            Now > Last + Interval, Checking==false -> 
                 proc_lib:spawn(fun() -> do_ping(Self, Ping, State) end),
                 Ping#sipreg{checking=true, last=Now};
             true ->
@@ -313,7 +313,7 @@ timer(#state{pings=Pings, regs=Regs}=State) ->
     ],
     Regs1 = [
         if
-            Now > Last + Interval, Checking=:=false -> 
+            Now > Last + Interval, Checking==false -> 
                 proc_lib:spawn(fun() -> do_register(Self, Reg, State) end),
                 Reg#sipreg{checking=true, last=Now};
             true ->

@@ -272,11 +272,11 @@ fields(AppId, DialogSpec, Fields) when is_list(Fields) ->
     id().
 
 class_id(Class, #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
-    when FromTag =/= <<>>, ToTag =/= <<>> ->
+    when FromTag /= <<>>, ToTag /= <<>> ->
     dialog_id(Class, CallId, FromTag, ToTag);
 
 class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
-    when FromTag =/= <<>> ->
+    when FromTag /= <<>> ->
     #sipmsg{call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
     case ToTag of
         <<>> -> <<>>;
@@ -296,7 +296,7 @@ class_id(_, #sipmsg{}) ->
 id(_, <<"D_", _/binary>>=DialogId) ->
     DialogId;
 
-id(AppId, <<Class, $_, _/binary>>=MsgId) when Class=:=$R; Class=:=$S ->
+id(AppId, <<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
     case nksip_call:dialog_id(AppId, MsgId) of
         {ok, DialogId} -> DialogId;
         {error, _} -> <<>>

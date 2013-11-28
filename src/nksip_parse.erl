@@ -166,7 +166,7 @@ transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
             end
     end,
     Proto2 = case Proto1 of
-        undefined when Scheme=:=sips -> tls;
+        undefined when Scheme==sips -> tls;
         undefined -> udp;
         Other2 -> Other2
     end,
@@ -437,11 +437,11 @@ get_sipmsg(Headers, Body, Proto) ->
         _ -> ContentType = throw({400, <<"Invalid Content-Type">>})
     end,
     case all_values(<<"Content-Length">>, Headers) of
-        [] when Proto=/=tcp, Proto=/=tls -> 
+        [] when Proto/=tcp, Proto/=tls -> 
             ok;
         [CL] ->
             case catch list_to_integer(binary_to_list(CL)) of
-                0 when Proto=/=tcp, Proto=/=tls -> 
+                0 when Proto/=tcp, Proto/=tls -> 
                     ok;
                 BS ->
                     case byte_size(Body) of
@@ -515,7 +515,7 @@ get_raw_headers(Packet, Acc) ->
     case erlang:decode_packet(httph, Packet, []) of
         {ok, {http_header, _Int, Name0, _Res, Value0}, Rest} ->
             Header = if
-                Name0 =:= 'Www-Authenticate' -> 
+                Name0 == 'Www-Authenticate' -> 
                     <<"WWW-Authenticate">>;
                 is_atom(Name0) -> 
                     atom_to_binary(Name0, latin1);

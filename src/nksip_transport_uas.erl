@@ -52,7 +52,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
     TranspSpec = case Proto of
         'udp' ->
             case nksip_lib:get_binary(<<"maddr">>, ViaOpts) of
-                <<>> when RPort=:=0 -> [{udp, RIp, Port}];
+                <<>> when RPort==0 -> [{udp, RIp, Port}];
                 <<>> -> [{udp, RIp, RPort}];
                 MAddr -> [#uri{domain=MAddr, port=Port}]   
             end;
@@ -118,7 +118,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
         ListenHost = case size(ListenIp) of
             4 ->
                 case nksip_lib:get_value(local_host, Opts, auto) of
-                    auto when ListenIp =:= {0,0,0,0} -> 
+                    auto when ListenIp == {0,0,0,0} -> 
                         nksip_lib:to_host(nksip_transport:main_ip());
                     auto -> 
                         nksip_lib:to_host(ListenIp);
@@ -127,7 +127,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                 end;
             8 ->
                 case nksip_lib:get_value(local_host6, Opts, auto) of
-                    auto when ListenIp =:= {0,0,0,0,0,0,0,0} -> 
+                    auto when ListenIp == {0,0,0,0,0,0,0,0} -> 
                         nksip_lib:to_host(nksip_transport:main_ip6(), true);
                     auto -> 
                         nksip_lib:to_host(ListenIp, true);
@@ -136,7 +136,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                 end
         end,
         ?debug(AppId, CallId, "UAS listenhost is ~s", [ListenHost]),
-        Scheme = case Proto=:=tls andalso lists:member(secure, Opts) of
+        Scheme = case Proto==tls andalso lists:member(secure, Opts) of
             true -> sips;
             _ -> sip
         end,
@@ -148,8 +148,8 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     domain = ListenHost,
                     port = ListenPort,
                     opts = case Proto of 
-                        tls when Scheme=:=sips -> [];
-                        udp when Scheme=:=sip -> [];
+                        tls when Scheme==sips -> [];
+                        udp when Scheme==sip -> [];
                         _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}]
                     end}|Contacts];
             false ->
@@ -164,7 +164,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                         domain = ListenHost,
                         port = ListenPort,
                         opts = if
-                            Proto=:=udp -> 
+                            Proto==udp -> 
                                 [<<"lr">>];
                             true -> 
                                 [

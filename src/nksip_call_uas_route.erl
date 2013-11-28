@@ -48,7 +48,7 @@ launch(UAS, Call) ->
 
 reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
-        #trans{class=uas}=UAS when Reply=:=async ->
+        #trans{class=uas}=UAS when Reply==async ->
             UAS1 = nksip_call_lib:app_timer(cancel, UAS, Call),
             update(UAS1, Call);
         #trans{class=uas, app_timer={Fun, _}, request=Req}=UAS ->
@@ -63,9 +63,9 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                     Call1;
                 _ when not is_record(Req, sipmsg) ->
                     Call1;
-                _ when Fun=:=invite; Fun=:=reinvite; Fun=:=bye; 
-                       Fun=:=options; Fun=:=register; Fun=:=info;
-                       Fun=:=prack; Fun==update ->
+                _ when Fun==invite; Fun==reinvite; Fun==bye; 
+                       Fun==options; Fun==register; Fun==info;
+                       Fun==prack; Fun==update ->
                     {Resp, SendOpts} = nksip_reply:reply(Req, Reply),
                     #sipmsg{class={resp, Code, _Reason}} = Resp,
                     {Resp1, SendOpts1} = case Code >= 200 of
@@ -90,7 +90,7 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
 
 send_100(UAS, #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}}=Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
-    case Method=:='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
+    case Method=='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
         true ->
             {Resp, SendOpts} = nksip_reply:reply(Req, 100),
             case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
@@ -116,7 +116,7 @@ check_cancel(#trans{id=Id}=UAS, Call) ->
             ?call_debug("UAS ~p matched 'CANCEL' as ~p (~p)", 
                         [Id, InvId, Status], Call),
             if
-                Status=:=authorize; Status=:=route; Status=:=invite_proceeding ->
+                Status==authorize; Status==route; Status==invite_proceeding ->
                     Call1 = reply(ok, UAS, Call),
                     nksip_call_uas:terminate_request(InvUAS, Call1);
                 true ->
@@ -142,7 +142,7 @@ is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -
             #sipmsg{transport=#transport{remote_ip=InvIp, remote_port=InvPort}} =
                 InvReq,
             if
-                CancelIp=:=InvIp, CancelPort=:=InvPort ->
+                CancelIp==InvIp, CancelPort==InvPort ->
                     {true, InvUAS};
                 true ->
                     ?call_notice("UAS ~p rejecting CANCEL because it came from ~p:~p, "
@@ -224,7 +224,7 @@ authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
     #sipmsg{dialog_id=DialogId} = Req,
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply], Call),
     case Reply of
-        _ when Reply=:=ok; Reply=:=true ->
+        _ when Reply==ok; Reply==true ->
             Call1 = case Req#sipmsg.to_tag of
                 <<>> -> Call;
                 _ -> nksip_call_lib:update_auth(DialogId, Req, Call)
@@ -295,7 +295,7 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
     UAS1 = UAS#trans{status=Status},
     Call1 = update(UAS1, Call),
     case Route of
-        {process, _} when Method=/='CANCEL', Method=/='ACK' ->
+        {process, _} when Method/='CANCEL', Method/='ACK' ->
             #sipmsg{require=Require} = Req,
             case
                 [Token || {Token, _} <- Require, Token /= <<"100rel">>]
@@ -358,7 +358,7 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
         stateless_proxy ->
             UAS1 = UAS#trans{status=finished},
             update(UAS1, Call);
-        {fork, _, _} when Method=:='CANCEL' ->
+        {fork, _, _} when Method=='CANCEL' ->
             reply(no_transaction, UAS, Call);
         {fork, UAS1, UriSet} ->
             % ProxyOpts may include record_route
@@ -432,7 +432,6 @@ process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) -
 
 
 
-
 % ===================================================================
 % Utils
 % ===================================================================
@@ -446,3 +445,4 @@ process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) -
 reply(Reply, UAS, Call) ->
     {_, Call1} = nksip_call_uas_reply:reply(Reply, UAS, Call),
     Call1.
+

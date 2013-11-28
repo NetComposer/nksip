@@ -181,8 +181,8 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             nksip_lib:extract(Opts, pass),
             case lists:member(make_contact, Opts) of
                 true -> make_contact;
-                false when Method=='INVITE', Contacts=:=[] -> make_contact;
-                false when Method=='UPDATE', Contacts=:=[] -> make_contact;
+                false when Method=='INVITE', Contacts==[] -> make_contact;
+                false when Method=='UPDATE', Contacts==[] -> make_contact;
                 _ -> []
             end,
             case lists:member(record_route, Opts) of

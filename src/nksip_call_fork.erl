@@ -93,7 +93,7 @@ next(#fork{pending=[]}=Fork, Call) ->
     case Final of
         false ->
             case UriSet of
-                [] when Method=:='ACK' ->
+                [] when Method=='ACK' ->
                     delete(Fork, Call);
                 [] ->
                     #sipmsg{class={resp, Code, _}} = Resp = best_response(Fork),
@@ -231,7 +231,7 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
     #sipmsg{contacts=Contacts} = Resp,
     Fork1 = Fork#fork{pending=Pending--[Pos]},
     case lists:member(follow_redirects, Opts) of
-        true when Final=:=false, Contacts =/= [] -> 
+        true when Final==false, Contacts /= [] -> 
             Contacts1 = case RUri#uri.scheme of
                 sips -> [Contact || #uri{scheme=sips}=Contact <- Contacts];
                 _ -> Contacts
@@ -297,9 +297,9 @@ send_reply(Resp, Fork, Call) ->
 best_response(#fork{request=Req, responses=Resps}) ->
     Sorted = lists:sort([
         if
-            Code =:= 401; Code =:= 407 -> {3999, Resp};
-            Code =:= 415; Code =:= 420; Code =:= 484 -> {4000, Resp};
-            Code =:= 503 -> {5000, Resp#sipmsg{class={resp, 500, <<>>}}};
+            Code == 401; Code == 407 -> {3999, Resp};
+            Code == 415; Code == 420; Code == 484 -> {4000, Resp};
+            Code == 503 -> {5000, Resp#sipmsg{class={resp, 500, <<>>}}};
             Code >= 600 -> {Code, Resp};
             true -> {10*Code, Resp}
         end
@@ -313,7 +313,7 @@ best_response(#fork{request=Req, responses=Resps}) ->
                 [
                     nksip_lib:extract(Headers, Names) || 
                     #sipmsg{class={resp, Code, _}, headers=Headers}
-                    <- Resps, Code=:=401 orelse Code=:=407
+                    <- Resps, Code==401 orelse Code==407
                 ]
             ],
             Best#sipmsg{headers=lists:flatten(Headers1)};

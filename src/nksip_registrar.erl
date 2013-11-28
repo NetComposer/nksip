@@ -203,7 +203,7 @@ clear() ->
 clear(AppId) -> 
     Fun = fun(Id, AOR, _Val, Acc) ->
         if
-            AppId=:='$nk_any'; AppId=:=Id -> del(Id, AOR), Acc+1;
+            AppId=='$nk_any'; AppId==Id -> del(Id, AOR), Acc+1;
             true -> Acc
         end
     end,
@@ -302,7 +302,7 @@ process(#sipmsg{
             contacts = Contacts
         }=Req) ->
     if
-        Scheme=:=sip; Scheme=:=sips -> ok;
+        Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
     AOR = {Scheme, ToUser, ToDomain},
@@ -365,7 +365,7 @@ make_updates(Min, Max, Default, Now,
         true -> Exp1
     end,
     ExpTime = if 
-        Exp2 =:= 0 -> 0; 
+        Exp2 == 0 -> 0; 
         true -> Now+Exp2 
     end,
     Q = case nksip_lib:get_list(<<"q">>, Opts) of
@@ -417,13 +417,13 @@ update_iter([{Index, Contact, ExpTime, Q}|Rest],
     },
     % A new registration will overwite an old Contact if it has the same index
     NewAcc = case lists:keytake(Index, #reg_contact.index, Acc) of
-        false when ExpTime=:=0 ->
+        false when ExpTime==0 ->
             Acc;
         false ->
             [RegContact|Acc];
         {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq -> 
             throw({invalid_request, "Rejected Old CSeq"});
-        {value, _, Acc0} when ExpTime =:= 0 ->
+        {value, _, Acc0} when ExpTime == 0 ->
             Acc0;
         {value, _, Acc0} ->
             [RegContact|Acc0]
@@ -439,7 +439,7 @@ del_all(AppId, AOR, #sipmsg{call_id=CallId, cseq=CSeq}) ->
     lists:foreach(
         fun(#reg_contact{call_id=CCallId, cseq=CCSeq}) ->
             if
-                CallId =/= CCallId -> ok;
+                CallId /= CCallId -> ok;
                 CSeq > CCSeq -> ok;
                 true -> throw({invalid_request, "Rejected Old CSeq"})
             end

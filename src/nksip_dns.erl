@@ -57,7 +57,7 @@ resolve(#uri{}=Uri) ->
                     ok
             end,
             case resolve_srvs(Scheme, Naptr, []) of
-                [] when Scheme=:=sips -> 
+                [] when Scheme==sips -> 
                     [{tls, Addr, 5061} || Addr <- get_ips(Domain)];
                 [] -> 
                     [{udp, Addr, 5060} || Addr <- get_ips(Domain)];
@@ -74,7 +74,7 @@ resolve(Uri) ->
 
 
 %% @private
-resolve_srvs(sips, [{Scheme, _, _}|Rest], Acc) when Scheme=/=sips -> 
+resolve_srvs(sips, [{Scheme, _, _}|Rest], Acc) when Scheme/=sips -> 
     resolve_srvs(sips, Rest, Acc);
 
 resolve_srvs(Scheme, [{_, NProto, NDomain}|Rest], Acc) -> 
@@ -210,7 +210,7 @@ get_naptr(Domain) ->
                     [];
                 Res ->
                     [Value || Term <- lists:sort(Res), 
-                              (Value = naptr_filter(Term)) =/= false]
+                              (Value = naptr_filter(Term)) /= false]
             end,
             Now = nksip_lib:timestamp(),
             ets:insert(?MODULE, {{naptr, Domain1}, Naptr, Now}),
@@ -478,9 +478,9 @@ weigth_test() ->
     Total = [
         begin
             [A, B, C] = do_sort([{1,a}, {9,b}, {90,c}], []),
-            false = A=:=B,
-            false = A=:=C,
-            false = B=:=C,
+            false = A==B,
+            false = A==C,
+            false = B==C,
             A
         end
         || _ <- lists:seq(0,1000)
@@ -497,8 +497,8 @@ weigth_test() ->
 
     [b, A1, A2, c] = 
         rfc2782_sort([{2,10,a}, {1,1,b}, {3,3,c}, {2,10,d}]),
-    true = A1=:=a orelse A1=:=d,
-    true = A1=/=A2,
+    true = A1==a orelse A1==d,
+    true = A1/=A2,
     ok.
 
 
@@ -586,23 +586,23 @@ resolv_test() ->
 
     [A, B, C, D, E, F, G] = resolve("sip:test.local"),
 
-    true = (A=:={tls, {1,1,100,1}, 100} orelse A=:={tls, {1,1,100,2}, 100}),
-    true = (B=:={tls, {1,1,100,1}, 100} orelse B=:={tls, {1,1,100,2}, 100}),
-    true = A=/=B,
+    true = (A=={tls, {1,1,100,1}, 100} orelse A=={tls, {1,1,100,2}, 100}),
+    true = (B=={tls, {1,1,100,1}, 100} orelse B=={tls, {1,1,100,2}, 100}),
+    true = A/=B,
 
     C = {tcp, {1,1,200,1}, 200},
-    true = (D=:={tcp, {1,1,201,1}, 201} orelse D=:={tcp, {1,1,202,1}, 202}),
-    true = (E=:={tcp, {1,1,201,1}, 201} orelse E=:={tcp, {1,1,202,1}, 202}),
-    true = D=/=E,
+    true = (D=={tcp, {1,1,201,1}, 201} orelse D=={tcp, {1,1,202,1}, 202}),
+    true = (E=={tcp, {1,1,201,1}, 201} orelse E=={tcp, {1,1,202,1}, 202}),
+    true = D/=E,
 
     F = {tcp, {1,1,300,1}, 300},
     G = {udp, {1,1,500,1}, 500},
 
     [H, I] = resolve("sips:test.local"),
 
-    true = (H=:={tls, {1,1,100,1}, 100} orelse H=:={tls, {1,1,100,2}, 100}),
-    true = (I=:={tls, {1,1,100,1}, 100} orelse I=:={tls, {1,1,100,2}, 100}),
-    true = H=/=I,
+    true = (H=={tls, {1,1,100,1}, 100} orelse H=={tls, {1,1,100,2}, 100}),
+    true = (I=={tls, {1,1,100,1}, 100} orelse I=={tls, {1,1,100,2}, 100}),
+    true = H/=I,
 
     case EtsStarted of
         true -> ets:delete(?MODULE);

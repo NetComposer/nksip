@@ -120,7 +120,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         ListenHost = case size(ListenIp) of
             4 ->
                 case nksip_lib:get_value(local_host, Opts, auto) of
-                    auto when ListenIp =:= {0,0,0,0} -> 
+                    auto when ListenIp == {0,0,0,0} -> 
                         nksip_lib:to_host(nksip_transport:main_ip());
                     auto -> 
                         nksip_lib:to_host(ListenIp);
@@ -129,7 +129,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                 end;
             8 ->
                 case nksip_lib:get_value(local_host6, Opts, auto) of
-                    auto when ListenIp =:= {0,0,0,0,0,0,0,0} -> 
+                    auto when ListenIp == {0,0,0,0,0,0,0,0} -> 
                         nksip_lib:to_host(nksip_transport:main_ip6(), true);
                     auto -> 
                         nksip_lib:to_host(ListenIp, true);
@@ -148,7 +148,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         % The nksip tag is used to confirm it is ours and to check if a strict router
         % has used it as Request Uri (see nksip_uas:strict_router/1)
         RecordRoute = case lists:member(record_route, Opts) of
-            true when Method =/= 'REGISTER' -> 
+            true when Method /= 'REGISTER' -> 
                 Hash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
                 #uri{
                     scheme = sip,
@@ -156,7 +156,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                     domain = ListenHost,
                     port = ListenPort,
                     opts = if
-                        Proto=:=udp -> 
+                        Proto==udp -> 
                             [<<"lr">>];
                         true -> 
                             [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
@@ -173,8 +173,8 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                     domain = ListenHost,
                     port = ListenPort,
                     opts = case Proto of
-                        tls when Scheme=:=sips -> [];
-                        udp when Scheme=:=sip -> [];
+                        tls when Scheme==sips -> [];
+                        udp when Scheme==sip -> [];
                         _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}] 
                     end
                 }|Contacts];

@@ -282,14 +282,14 @@ unparse(_) ->
 
 update_ip(#sdp{connect = {_, _, <<"auto.nksip">>}} = SDP, ListenAddr) ->
     if
-        is_tuple(ListenAddr), size(ListenAddr)=:=4 ->
+        is_tuple(ListenAddr), size(ListenAddr)==4 ->
             Ip = ListenAddr, Class = <<"IP4">>;
-        is_tuple(ListenAddr), size(ListenAddr)=:=8 ->
+        is_tuple(ListenAddr), size(ListenAddr)==8 ->
             Ip = ListenAddr, Class = <<"IP6">>;
         true ->
             case nksip_dns:get_ips(ListenAddr) of
-                [Ip|_] when size(Ip)=:=4 -> Class = <<"IP4">>;
-                [Ip|_] when size(Ip)=:=8 -> Class = <<"IP6">>;
+                [Ip|_] when size(Ip)==4 -> Class = <<"IP4">>;
+                [Ip|_] when size(Ip)==8 -> Class = <<"IP6">>;
                 _ -> Ip = {0,0,0,0}, Class = <<"IP4">>
             end
     end,
@@ -607,7 +607,7 @@ sdp2_test() ->
             ]
         },
         SDP),
-    ?assert(Bin =:= nksip_sdp:unparse(SDP)).
+    ?assert(Bin == nksip_sdp:unparse(SDP)).
 
 sdp3_test() ->
     Media = [

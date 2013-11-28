@@ -51,7 +51,7 @@ request(Req, Opts, From, Call) ->
     #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
     {#trans{id=Id}=UAC, Call1} = new_uac(Req, Opts, From, Call),
     case lists:member(async, Opts) andalso From of
-        {srv, SrvFrom} when Method=:='ACK' -> 
+        {srv, SrvFrom} when Method=='ACK' -> 
             gen_server:reply(SrvFrom, async);
         {srv, SrvFrom} ->
             gen_server:reply(SrvFrom, {async, MsgId});

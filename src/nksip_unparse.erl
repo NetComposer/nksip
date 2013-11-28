@@ -302,7 +302,7 @@ serialize(#sipmsg{
     ],
     [
         [[nksip_lib:to_binary(Name), $:, 32, nksip_lib:to_binary(Value), 13, 10] 
-            || {Name, Value} <- lists:flatten(Headers1), Value=/=empty],
+            || {Name, Value} <- lists:flatten(Headers1), Value/=empty],
         "\r\n", Body1
     ].
 

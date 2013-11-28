@@ -63,7 +63,7 @@ cancel(Id, #call{trans=Trans}=Call) when is_integer(Id) ->
     end;
 
 cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Call)
-       when Cancel=:=undefined; Cancel=:=to_cancel ->
+       when Cancel==undefined; Cancel==to_cancel ->
     case Status of
         invite_calling ->
             ?call_debug("UAC ~p (invite_calling) delaying CANCEL", [Id], Call),
@@ -168,7 +168,7 @@ timer(timer_k,  #trans{id=Id, status=Status, method=Method}=UAC, Call) ->
 timer(expire, #trans{id=Id, status=Status}=UAC, Call) ->
     UAC1 = UAC#trans{expire_timer=undefined},
     if
-        Status=:=invite_calling; Status=:=invite_proceeding ->
+        Status==invite_calling; Status==invite_proceeding ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer Expire fired, sending CANCEL", 
                         [Id, Status], Call),
             UAC2 = UAC1#trans{status=invite_proceeding},

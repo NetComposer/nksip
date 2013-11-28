@@ -68,7 +68,7 @@ realms(AppId, RespId) ->
 %% @private
 get_realms([{Name, Value}|Rest], Acc) ->
     if
-        Name=:=?RESP_WWW; Name=:=?RESP_PROXY ->
+        Name==?RESP_WWW; Name==?RESP_PROXY ->
             case parse_header(Value) of
                 {error, _} -> get_realms(Rest, Acc);
                 AuthData -> get_realms(Rest, [nksip_lib:get_value(realm, AuthData)|Acc])
@@ -238,7 +238,7 @@ check_digest([], _Req, _Fun, Acc) ->
     Acc;
 
 check_digest([{Name, Data}|Rest], Req, Fun, Acc) 
-                when Name=:=?REQ_WWW; Name=:=?REQ_PROXY ->
+                when Name==?REQ_WWW; Name==?REQ_PROXY ->
     case parse_header(Data) of
         {error, _} ->
             check_digest(Rest, Req, Fun, Acc);
@@ -272,7 +272,7 @@ check_digest([_|Rest], Req, Fun, Acc) ->
 make_auth_request(AuthHeaderData, UserOpts) ->
     QOP = nksip_lib:get_value(qop, AuthHeaderData, []),
     Algorithm = nksip_lib:get_value(algorithm, AuthHeaderData, 'MD5'),
-    case Algorithm=:='MD5' andalso (QOP=:=[] orelse lists:member(auth, QOP)) of
+    case Algorithm=='MD5' andalso (QOP==[] orelse lists:member(auth, QOP)) of
         true ->
             case nksip_lib:get_binary(cnonce, UserOpts) of
                 <<>> -> CNonce = nksip_lib:luid();
@@ -328,9 +328,9 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
         transport = #transport{remote_ip=Ip, remote_port=Port}
     } = Req,
     case
-        nksip_lib:get_value(scheme, AuthHeader) =/= digest orelse
-        nksip_lib:get_value(qop, AuthHeader) =/= [auth] orelse
-        nksip_lib:get_value(algorithm, AuthHeader, 'MD5') =/= 'MD5'
+        nksip_lib:get_value(scheme, AuthHeader) /= digest orelse
+        nksip_lib:get_value(qop, AuthHeader) /= [auth] orelse
+        nksip_lib:get_value(algorithm, AuthHeader, 'MD5') /= 'MD5'
     of
         true ->
             ?notice(AppId, "received invalid parameters in Authorization Header: ~p", 
@@ -342,14 +342,14 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
             Nonce = nksip_lib:get_value(nonce, AuthHeader),
             Found = get_nonce(AppId, CallId, Nonce),
             if
-                Found=:=not_found ->
+                Found==not_found ->
                     Opaque = nksip_lib:get_value(opaque, AuthHeader),
                     case nksip_lib:hash(AppId) of
                         Opaque -> ?notice(AppId, "received invalid nonce", []);
                         _ -> ok
                     end,
                     not_found;
-                Method=:='ACK' orelse Found=:={Ip, Port} ->
+                Method=='ACK' orelse Found=={Ip, Port} ->
                     CNonce = nksip_lib:get_value(cnonce, AuthHeader),
                     Nc = nksip_lib:get_value(nc, AuthHeader),
                     case nksip_lib:to_binary(Pass) of
@@ -367,7 +367,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
                     %       [User, Pass, Realm, Resp, ValidResp]),
                     % ?P("AUTH RESP: ~p, ~p, ~p, ~p, ~p, ~p, ~p", 
                     %       [QOP, Method1, Uri, HA1, Nonce, CNonce, Nc]),
-                    Resp =:= ValidResp;
+                    Resp == ValidResp;
                 true ->
                     ?warning(AppId, "received nonce from different Ip or Port", []),
                     false

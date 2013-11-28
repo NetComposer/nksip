@@ -99,7 +99,7 @@ update(New, Call) ->
                                [CS, Id, Method, NewStatus, Fun], Call),
                     Call#call{trans=[New|Rest]}
             end;
-        _ when NewStatus=:=OldStatus -> 
+        _ when NewStatus==OldStatus -> 
             Call#call{trans=[New|Rest]};
         _ -> 
             ?call_debug("~s ~p ~p ~p -> ~p", 
@@ -114,8 +114,8 @@ update(New, Call) ->
     call().
 
 hibernate(#trans{status=Status}, Call) 
-          when Status=:=invite_accepted; Status=:=completed; 
-               Status=:=finished ->
+          when Status==invite_accepted; Status==completed; 
+               Status==finished ->
     Call#call{hibernate=Status};
 
 hibernate(#trans{class=uac, status=invite_completed}, Call) ->
@@ -190,9 +190,9 @@ timeout_timer(cancel, Trans, _Call) ->
     Trans#trans{timeout_timer=undefined};
 
 timeout_timer(Tag, Trans, #call{opts=#call_opts{timer_t1=T1}}) 
-            when Tag=:=timer_b; Tag=:=timer_f; Tag=:=timer_m;
-                 Tag=:=timer_h; Tag=:=timer_j; Tag=:=timer_l;
-                 Tag=:=noinvite; Tag==prack_timeout ->
+            when Tag==timer_b; Tag==timer_f; Tag==timer_m;
+                 Tag==timer_h; Tag==timer_j; Tag==timer_l;
+                 Tag==noinvite; Tag==prack_timeout ->
     cancel_timer(Trans#trans.timeout_timer),
     Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
 
@@ -201,7 +201,7 @@ timeout_timer(timer_d, Trans, _) ->
     Trans#trans{timeout_timer=start_timer(32000, timer_d, Trans)};
 
 timeout_timer(Tag, Trans, #call{opts=#call_opts{timer_t4=T4}}) 
-                when Tag=:=timer_k; Tag=:=timer_i ->
+                when Tag==timer_k; Tag==timer_i ->
     cancel_timer(Trans#trans.timeout_timer),
     Trans#trans{timeout_timer=start_timer(T4, Tag, Trans)};
 
@@ -236,7 +236,7 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
     };
 
 retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
-                when Tag=:=timer_e; Tag=:=timer_g ->
+                when Tag==timer_e; Tag==timer_g ->
     #call{opts=#call_opts{timer_t1=T1, timer_t2=T2}} = Call, 
     cancel_timer(Trans#trans.retrans_timer),
     Time = case is_integer(Next) of

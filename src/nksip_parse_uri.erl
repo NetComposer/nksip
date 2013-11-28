@@ -213,7 +213,7 @@ domain([$[|Rest], Acc, Ip6, Block, Uri) ->
     end;
 
 domain([$]|Rest], Acc, Ip6, Block, Uri) ->
-    case Acc=/=[] andalso Ip6 of
+    case Acc/=[] andalso Ip6 of
         true -> domain(Rest, [$]|Acc], false, Block, Uri);
         false -> {error, domain, ?LINE}
     end;

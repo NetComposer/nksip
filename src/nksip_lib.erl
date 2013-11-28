@@ -85,7 +85,7 @@ luid() ->
 lhash(Base) -> 
     <<I:160/integer>> = crypto:sha(term_to_binary(Base)),
     case encode_integer(I) of
-        Hash when byte_size(Hash) =:= 27 -> Hash;
+        Hash when byte_size(Hash) == 27 -> Hash;
         Hash -> <<(binary:copy(<<"Z">>, 27-byte_size(Hash)))/binary, Hash/binary>>
     end.
 
@@ -180,11 +180,11 @@ find_real_ip([{{65152,_,_,_,_,_,_,_}, _Netmask}|R], Type) ->
     find_real_ip(R, Type);
 
 find_real_ip([{{A,B,C,D}, Netmask}|_], ipv4) 
-             when Netmask =/= {255,255,255,255} ->
+             when Netmask /= {255,255,255,255} ->
     {A,B,C,D};
 
 find_real_ip([{{A,B,C,D,E,F,G,H}, Netmask}|_], ipv6) 
-             when Netmask =/= {65535,65535,65535,65535,65535,65535,65535,65535} ->
+             when Netmask /= {65535,65535,65535,65535,65535,65535,65535,65535} ->
     {A,B,C,D,E,F,G,H};
 
 find_real_ip([_|R], Type) ->
@@ -459,7 +459,7 @@ integer_to_list(I0, Base, R0) ->
         true -> [D+$0|R0]
     end,
     if 
-        I1 =:= 0 -> R1;
+        I1 == 0 -> R1;
        true -> integer_to_list(I1, Base, R1)
     end.
 
@@ -475,10 +475,10 @@ extract(PropList, KeyOrKeys) ->
             is_tuple(Term), is_list(KeyOrKeys) -> 
                 lists:member(element(1, Term), KeyOrKeys);
             is_tuple(Term) ->
-                element(1, Term) =:= KeyOrKeys;
+                element(1, Term) == KeyOrKeys;
             is_list(KeyOrKeys) -> 
                 lists:member(Term, KeyOrKeys);
-            Term =:= KeyOrKeys ->
+            Term == KeyOrKeys ->
                 true;
             true ->
                 false
@@ -498,10 +498,10 @@ delete(PropList, KeyOrKeys) ->
             is_tuple(Term), is_list(KeyOrKeys) -> 
                 not lists:member(element(1, Term), KeyOrKeys);
             is_tuple(Term) ->
-                element(1, Term) =/= KeyOrKeys;
+                element(1, Term) /= KeyOrKeys;
             is_list(KeyOrKeys) -> 
                 not lists:member(Term, KeyOrKeys);
-            Term =/= KeyOrKeys ->
+            Term /= KeyOrKeys ->
                 true;
             true ->
                 false

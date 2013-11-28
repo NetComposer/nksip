@@ -542,7 +542,7 @@ refresh(AppId, DialogSpec, Opts) ->
             end
     end,
     Body2 = case Body1 of
-        #sdp{} when Op =/= none -> nksip_sdp:update(Body1, Op);
+        #sdp{} when Op /= none -> nksip_sdp:update(Body1, Op);
         #sdp{} -> nksip_sdp:increment(Body1);
         _ -> Body1
     end,
@@ -599,7 +599,7 @@ stun(AppId, UriSpec, _Opts) ->
 
 send_any(AppId, Method, UriOrDialog, Opts) ->
     case UriOrDialog of
-        <<Class, $_, _/binary>> when Class=:=$R; Class=:=$S; Class=:=$D ->
+        <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D ->
             send_dialog(AppId, Method, UriOrDialog, Opts);
         UserUri ->
             nksip_call:send(AppId, Method, UserUri, Opts)
@@ -612,7 +612,7 @@ send_any(AppId, Method, UriOrDialog, Opts) ->
     result() | ack_result() | {error, error()}.
 
 send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
-            when Class=:=$R; Class=:=$S; Class=:=$D ->
+            when Class==$R; Class==$S; Class==$D ->
     case nksip_dialog:id(AppId, Id) of
         <<>> -> {error, unknown_dialog};
         DialogId -> nksip_call:send_dialog(AppId, DialogId, Method, Opts)
