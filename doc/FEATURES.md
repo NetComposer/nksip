@@ -10,6 +10,7 @@ RFC|Description|Notes
 [RFC3262](http://tools.ietf.org/html/rfc3262)|Reliable provisional responses|
 [RFC3263](http://tools.ietf.org/html/rfc3263)|Locating SIP Services|
 [RFC3264](http://tools.ietf.org/html/rfc3264)|Offer/Answer Model|
+[RFC3311](http://tools.ietf.org/html/rfc3311)|UPDATE|
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|
 [RFC4168](http://tools.ietf.org/html/rfc4168)|SCTP Transport|No TLS-SCTP
 [RFC4475](http://tools.ietf.org/html/rfc4475)|Torture Tests|Included in unit tests

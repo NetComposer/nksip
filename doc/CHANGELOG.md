@@ -6,6 +6,7 @@ Changelog
  
 * Allow an endpoint to start a dialog with itself
 * Reliable provisional responses
+* UPDATE method
 * Bug corrections
 
 

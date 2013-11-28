@@ -24,10 +24,10 @@
 %%
 %% All mandatory SIP methods all supported: <i>OPTIONS</i>, <i>REGISTER</i>, 
 %% <i>INVITE</i>, <i>ACK</i>, <i>BYE</i> and <i>CANCEL</i>. 
-%% The following optional methods are also supported: <i>INFO</i>.
+%% The following optional methods are also supported: <i>INFO</i>, <i>UPDATE</i>,
+%% <i>PRACK</i>.
 %% Future versions will address all currently defined SIP methods: 
-%% <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>, <i>UPDATE</i>, 
-%% <i>REFER</i> and <i>PUBLISH</i>.
+%% <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>, <i>REFER</i> and <i>PUBLISH</i>.
 %%
 %% By default, most functions will block util a final response is received
 %% or a an error is produced before sending the request, 
@@ -49,8 +49,9 @@
 %% final response and errors.
 %%
 %% Methods <i>OPTIONS</i>, <i>REGISTER</i> and <i>INVITE</i> can be
-%% sent outside or inside a dialog. <i>ACK</i>, <i>BYE</i> and <i>INFO</i> 
-%% can only be sent inside a dialog, and <i>CANCEL</i> can only be sent outside a dialog.
+%% sent outside or inside a dialog. <i>ACK</i>, <i>BYE</i>, <i>INFO</i> and
+%% <i>UPDATE</i> can only be sent inside a dialog, 
+%% and <i>CANCEL</i> can only be sent outside a dialog.
 %%
 %% Common options for most functions (outside or inside dialog) are:<br/>
 %%  
@@ -377,10 +378,10 @@ register(AppId, Dest, Opts) ->
 %%          when a reliable provisional response has been received, and before 
 %%          sending the corresponding PRACK.
 %%          It will be called as `{RemoteSDP, Response}' where 
-%%          RemoteSDP :: <<>> | {@link nksip_sdp:sdp()} and Response :: {@link nksip:response()}.
+%%          <code>RemoteSDP :: `<<>>' | {@link nksip_sdp:sdp()} and Response :: {@link nksip:response()}</code>.
 %%          If RemoteSDP is a SDP, it is an offer and you must supply an answer as 
-%%          function return. If it is <<>>, you can return <<>> or send a new offer.
-%%          If this option is not included, PRACKs will be sent with no body.
+%%          function return. If it is `<<>>', you can return `<<>>' or send a new offer.
+%%          If this option is not included, PRACKs will be sent with no body.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`require_100rel</td>
