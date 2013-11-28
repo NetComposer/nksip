@@ -156,7 +156,8 @@ do_request('UPDATE', _Status, Req, Dialog, _Call) ->
     case Offer of
         undefined when HasSDP -> {ok, Dialog#dialog{sdp_offer={local, update, SDP}}};
         undefined -> {ok, Dialog};
-        _ -> {error, request_pending}
+        _ when HasSDP -> {error, request_pending};
+        _ -> {ok, Dialog}
     end;
 
 do_request(_Method, _Status, _Req, Dialog, _Call) ->
