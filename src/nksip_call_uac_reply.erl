@@ -84,8 +84,7 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
         network_error -> service_unavailable;
         unknown_dialog -> no_transaction;
         request_pending -> request_pending;
-        _ -> 
-            {internal_error, <<"Proxy UAC Error ", (nksip_lib:to_binary(Error))/binary>>}
+        _ -> {internal, <<"Proxy UAC Error ", (nksip_lib:to_binary(Error))/binary>>}
     end,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),

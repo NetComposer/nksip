@@ -127,13 +127,13 @@ timer(prack_retrans, #trans{id=Id, response=Resp}=UAS, Call) ->
 timer(prack_timeout, #trans{id=Id, method=Method}=UAS, Call) ->
     ?call_notice("UAS ~p ~p reliable provisional response timeout", 
                  [Id, Method], Call),
-    reply({internal_error, <<"Reliable Provisional Response Timeout">>}, UAS, Call);
+    reply({internal, <<"Reliable Provisional Response Timeout">>}, UAS, Call);
 
 timer(Timer, #trans{id=Id, method=Method}=UAS, Call)
       when Timer==authorize; Timer==route; Timer==invite; Timer==bye;
            Timer==options; Timer==register ->
     ?call_notice("UAS ~p ~p timeout, no SipApp response", [Id, Method], Call),
-    Msg = {internal_error, <<"No SipApp Response">>},
+    Msg = {internal, <<"No SipApp Response">>},
     UAS1 = nksip_call_lib:app_timer(cancel, UAS, Call),
     reply(Msg, UAS1, update(UAS1, Call)).
 
@@ -205,7 +205,7 @@ app_call(Fun, Args, UAS, Call) ->
         not_exported ->
             not_exported;
         error ->
-            reply({internal_error, <<"Error calling callback">>}, UAS, Call)
+            reply({internal, <<"Error calling callback">>}, UAS, Call)
     end.
 
 

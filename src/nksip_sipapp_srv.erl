@@ -28,7 +28,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([get_opts/1, reply/2]).
+-export([get_module/1, get_opts/1, reply/2]).
 -export([sipapp_call/6, sipapp_call_wait/6, sipapp_cast/5]).
 -export([register/2, get_registered/2, put_opts/2, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
@@ -62,6 +62,17 @@ register(AppId, Type) ->
 get_registered(AppId, Type) ->
     nksip:call(AppId, {'$nksip_get_registered', Type}).
 
+
+%% @doc Gets SipApp's module and pid
+-spec get_module(nksip:app_id()) -> 
+    {ok, atom(), pid()} | {error, not_found}.
+
+get_module(AppId) ->
+    case nksip_proc:values({nksip_sipapp, AppId}) of
+        [{Module, Pid}] -> {ok, Module, Pid};
+        [] -> {error, not_found}
+    end.
+        
 
 %% @doc Gets SipApp's module, options and pid
 -spec get_opts(nksip:app_id()) -> 
@@ -237,7 +248,8 @@ start_link(AppId, Module, Args, Opts) ->
 %% @private
 init([AppId, Module, Args, Opts]) ->
     process_flag(trap_exit, true),
-    nksip_proc:put(nksip_sipapps, AppId),    
+    nksip_proc:put(nksip_sipapps, AppId),   
+    nksip_proc:put({nksip_sipapp, AppId}, Module), 
     erlang:start_timer(timeout(), self(), '$nksip_timer'),
     RegState = nksip_sipapp_auto:init(AppId, Module, Args, Opts),
     nksip_call_router:clear_app_cache(AppId),

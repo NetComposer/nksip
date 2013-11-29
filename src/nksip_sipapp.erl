@@ -139,6 +139,7 @@
          ack/3, bye/3, options/3, register/3, info/3, prack/3, update/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
+-export([registrar_store/3]).
 -include("nksip.hrl").
 
 
@@ -606,19 +607,88 @@ register_update(_RegId, _OK, State) ->
 
 %% @doc Called when a direct call to the SipApp process is made using 
 %% {@link nksip:call/2} or {@link nksip:call/3}.
+-spec handle_call(Msg::term(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
 handle_call(_Msg, _From, State) ->
     {error, unexpected_call, State}.
 
 
 %% @doc Called when a direct cast to the SipApp process is made using 
 %% {@link nksip:cast/2}.
+-spec handle_cast(Msg::term(), State::term()) ->
+    call_noreply().
+
 handle_cast(_Msg, State) ->
     {error, unexpected_cast, State}.
 
 
 %% @doc Called when the SipApp process receives an unknown message.
+-spec handle_info(Msg::term(), State::term()) ->
+    call_noreply().
+
 handle_info(_Msg, State) ->
     {noreply, State}.
+
+
+
+%% @doc Called when a operation over the registrar database must be done
+%%
+%% The possible values for Op and their allowed reply are:
+%%
+%% - {get, AOR}, State} -> [Contact]
+%%   when AOR::nksip:aor(), Contact::nksip_registrar:reg_contact().
+%%
+%%   Retrieve all stored contacts for this AOR.
+%%
+%% - {put, AOR, [Contact], TTL} -> ok
+%%   when AOR::nksip:aor(), Contact::nksip_registrar:reg_contact(), TTL::integer().
+%%   
+%%   Store the list of contacts for this AOR. The record must be deleted after
+%%   TTL seconds.
+%%
+%% - {del, AOR} -> ok 
+%%   when AOR::nksip:aor().
+%%
+%%   Delete all stored contacts for this AOR, returning `ok' or 
+%%   `not_found' if the AOR is not found.
+%%
+%% - del_all -> ok.
+%%
+%%   Delete all stored information for this AppId.
+%%
+%% The function must return {reply, Reply, NewState}.
+%% This default implementation uses the built-in memory database.
+-type registrar_store_op() ::
+    {get, nksip:aor()} | 
+    {put, nksip:aor(), [nksip_registrar:reg_contact()], integer()} |
+    {del, nksip:aor()} |
+    del_all.
+
+-spec registrar_store(nksip:app_id(), registrar_store_op(), term()) ->
+    {reply, term(), term()}.
+
+registrar_store(AppId, Op, State) ->
+    Reply = case Op of
+        {get, AOR} ->
+            nksip_store:get({nksip_registrar, AppId, AOR}, []);
+        {put, AOR, Contacts, TTL} -> 
+            nksip_store:put({nksip_registrar, AppId, AOR}, Contacts, [{ttl, TTL}]);
+        {del, AOR} ->
+            nksip_store:del({nksip_registrar, AppId, AOR});
+        del_all ->
+            FoldFun = fun(Key, _Value, Acc) ->
+                case Key of
+                    {nksip_registrar, AppId, AOR} -> 
+                        nksip_store:del({nksip_registrar, AppId, AOR});
+                    _ -> 
+                        Acc
+                end
+            end,
+            nksip_store:fold(FoldFun, none)
+    end,
+    {reply, Reply, State}.
+
 
 
 

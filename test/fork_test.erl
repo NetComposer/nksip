@@ -160,7 +160,7 @@ regs() ->
     % A2 = B2 = 0.2
     % C3 = 0.3
     
-    nksip_registrar:clear(),
+    nksip_registrar:internal_clear(),
     Reg = "sip:nksip",
     Opts = [make_contact, {fields, [parsed_contacts]}],
     {ok, 200, Values1} = nksip_uac:register({fork, clientA1}, Reg, Opts),

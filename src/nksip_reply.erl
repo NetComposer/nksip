@@ -98,8 +98,8 @@
 %%   <tr><td>`{not_acceptable, Reason}'</td><td>488</td>
 %%       <td>Generates a new `Warning' header using `Reason'</td></tr>
 %%   <tr><td>`request_pending'</td><td>491</td><td></td></tr>
-%%   <tr><td>`internal_error'</td><td>500</td><td></td></tr>
-%%   <tr><td>`{internal_error, Text}'</td><td>500</td>
+%%   <tr><td>`internal'</td><td>500</td><td></td></tr>
+%%   <tr><td>`{internal, Text}'</td><td>500</td>
 %%       <td>Text will be used in SIP first line</td></tr>
 %%   <tr><td>`busy_eveywhere'</td><td>600</td><td></td></tr>
 %%   <tr><td>`decline'</td><td>603</td><td></td></tr>
@@ -196,7 +196,7 @@
     request_terminated |
     {not_acceptable, Reason::binary()} |
     request_pending |
-    internal_error | {internal_error, Text::binary()} |
+    internal | {internal, Text::binary()} |
     service_unavailable |
     busy_eveywhere |
     decline |
@@ -248,7 +248,7 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, AppOpts) ->
         error -> 
             ?warning(AppId, CallId, "Invalid sipreply: ~p, ~p", 
                             [SipReply, erlang:get_stacktrace()]),
-            ReqReply = reqreply({internal_error, <<"Invalid SipApp Response">>})
+            ReqReply = reqreply({internal, <<"Invalid SipApp Response">>})
     end,
     reply(Req, ReqReply, AppOpts).
 
@@ -383,9 +383,9 @@ reqreply({not_acceptable, Reason}) ->
     #reqreply{code=488, headers=[{<<"Warning">>, nksip_lib:to_binary(Reason)}]};
 reqreply(request_pending) ->
     #reqreply{code=491};
-reqreply(internal_error) ->
+reqreply(internal) ->
     #reqreply{code=500};
-reqreply({internal_error, Text}) ->
+reqreply({internal, Text}) ->
     helper_debug(#reqreply{code=500}, Text);
 reqreply(service_unavailable) ->
     #reqreply{code=503};

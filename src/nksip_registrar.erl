@@ -44,23 +44,18 @@
 
 -include("nksip.hrl").
 
--export([get_all/0, find/2, find/4, qfind/2, qfind/4, get_info/4, delete/4]).
--export([is_registered/1, clear/0, clear/1, print_all/0]).
--export([request/1]).
+-export([find/2, find/4, qfind/2, qfind/4, get_info/4, delete/4, clear/1]).
+-export([is_registered/1, request/1]).
+-export([internal_get_all/0, internal_clear/0, internal_print_all/0]).
+
+-export_type([reg_contact/0]).
+
+-define(TIMEOUT, 15000).
 
 
 %% ===================================================================
 %% Types and records
 %% ===================================================================
-
--type index() :: {
-                    Scheme::sip|sips,
-                    Proto::nksip:protocol(), 
-                    User::binary(),
-                    Domain::binary(), 
-                    Port::inet:port_number()
-                } |
-                {instance, Instance::binary(), RegId::binary()}.
 
 -record(reg_contact, {
     index :: index(),
@@ -72,6 +67,20 @@
     cseq :: nksip:cseq(),
     transport :: nksip_transport:transport()
 }).
+
+-type reg_contact() :: #reg_contact{}.
+
+-type index() :: 
+    {
+        Scheme::sip|sips,
+        Proto::nksip:protocol(), 
+        User::binary(),
+        Domain::binary(), 
+        Port::inet:port_number()
+    } 
+    |
+    {instance, Instance::binary(), RegId::binary()}.
+
 
 
 %% ===================================================================
@@ -100,7 +109,10 @@ find(AppId, Scheme, User, Domain) ->
 
 get_info(AppId, Scheme, User, Domain) ->
     AOR = {Scheme, nksip_lib:to_binary(User), nksip_lib:to_binary(Domain)},
-    get(AppId, AOR).
+    case catch callback_get(AppId, AOR) of
+        {ok, RegContacts} -> RegContacts;
+        _ -> []
+    end.
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
@@ -129,7 +141,7 @@ qfind(AppId, Scheme, User, Domain) ->
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
 -spec delete(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
-    ok | not_found.
+    ok | not_found | callback_error.
 
 delete(AppId, Scheme, User, Domain) ->
     AOR = {
@@ -137,7 +149,11 @@ delete(AppId, Scheme, User, Domain) ->
         nksip_lib:to_binary(User), 
         nksip_lib:to_binary(Domain)
     },
-    del(AppId, AOR).
+    case callback(AppId, {del, AOR}) of
+        ok -> ok;
+        not_found -> not_found;
+        _ -> callback_error
+    end.
 
 
 %% @doc Finds if a request has a <i>From</i> that has been already registered
@@ -154,8 +170,10 @@ is_registered(#sipmsg{
                 from = #uri{scheme=Scheme, user=User, domain=Domain},
                 transport=Transport
             }) ->
-    Regs = get(AppId, {Scheme, User, Domain}),
-    is_registered(Regs, Transport).
+    case catch callback_get(AppId, {Scheme, User, Domain}) of
+        {ok, Regs} -> is_registered(Regs, Transport);
+        _ -> false
+    end.
 
 
 %% @doc Process a REGISTER request. 
@@ -188,59 +206,15 @@ request(Request) ->
     end.
  
 
-%% @doc Clear all stored records for all SipApps.
-%% Returns the number of deleted items.
--spec clear() -> integer().
-
-clear() ->
-    clear('$nk_any').
-
-
 %% @doc Clear all stored records by a SipApp's core.
-%% Returns the number of deleted items.
--spec clear(nksip:app_id()) -> integer().
+-spec clear(nksip:app_id()) -> 
+    ok | callback_error.
 
 clear(AppId) -> 
-    Fun = fun(Id, AOR, _Val, Acc) ->
-        if
-            AppId=='$nk_any'; AppId==Id -> del(Id, AOR), Acc+1;
-            true -> Acc
-        end
-    end,
-    fold(Fun, 0).
-
-
-%% @private Get all current registrations. Use it with care.
--spec get_all() ->
-    [{nksip:aor(), [{App::nksip:app_id(), URI::nksip:uri(),
-                     Remaining::integer(), Q::float()}]}].
-
-get_all() ->
-    Now = nksip_lib:timestamp(),
-    [
-        {
-            {Scheme, User, Domain}, 
-            [
-                {AppId, C, Exp-Now, Q} || #reg_contact{contact=C, expire=Exp, q=Q} 
-                <- get(AppId, {Scheme, User, Domain})
-            ]
-        }
-        || {AppId, {Scheme, User, Domain}} <- all()
-    ].
-
-
-%% @private
-print_all() ->
-    Print = fun({{Scheme, User, Domain}, Regs}) ->
-        ?P("\n--- ~p:~s@~s ---", [Scheme, User, Domain]),
-        lists:foreach(
-            fun({AppId, Contact, Remaining, Q}) ->
-                ?P("    ~p: ~s, ~p, ~p", 
-                   [AppId, nksip_unparse:uri(Contact), Remaining, Q])
-            end, Regs)
-    end,
-    lists:foreach(Print, get_all()),
-    ?P("\n").
+    case callback(AppId, del_all) of
+        ok -> ok;
+        _ -> callback_error
+    end.
 
 
 %% ===================================================================
@@ -315,7 +289,8 @@ process(#sipmsg{
         [#uri{domain=(<<"*">>)}] -> del_all(AppId, AOR, Req);
         _ -> update(Req, AOR, Contacts, Expires)
     end,
-    NewContacts = [Contact || #reg_contact{contact=Contact} <- get(AppId, AOR)],
+    {ok, Regs} = callback_get(AppId, AOR),
+    NewContacts = [Contact || #reg_contact{contact=Contact} <- Regs],
     {ok, [], <<>>, [{contact, NewContacts}, make_date, make_allow]}.
 
 
@@ -328,16 +303,24 @@ update(#sipmsg{app_id=AppId}=Req, AOR, Contacts, Default) ->
     Max = nksip_config:get(registrar_max_time),
     Now = nksip_lib:timestamp(),
     Updates = make_updates(Min, Max, Default, Now, Contacts, []),
+    {ok, Regs} = callback_get(AppId, AOR),
     OldContacts = [
         RegContact ||
-        #reg_contact{expire=Exp} = RegContact <- get(AppId, AOR), Exp > Now],
+        #reg_contact{expire=Exp} = RegContact <- Regs, Exp > Now],
     case update_iter(Updates, Req, OldContacts) of
         [] -> 
-            del(AppId, AOR);
+            case callback(AppId, {del, AOR}) of
+                ok -> ok;
+                not_found -> ok;
+                _ -> throw({internal, "Error calling registrar 'del' callback"})
+            end;
         NewContacts -> 
             GroupExp0 = lists:max([CExp-Now||#reg_contact{expire=CExp} <- NewContacts]),
             GroupExp1 = max(GroupExp0, 5),
-            put(AppId, AOR, NewContacts, GroupExp1)
+            case callback(AppId, {put, AOR, NewContacts, GroupExp1}) of
+                ok -> ok;
+                _ -> throw({internal, "Error calling registrar 'put' callback"})
+            end
     end,
     ok.
 
@@ -433,9 +416,10 @@ update_iter([{Index, Contact, ExpTime, Q}|Rest],
 
 %% @private
 -spec del_all(nksip:app_id(), nksip:aor(), nksip:request()) ->
-    ok | no_return().
+    ok | not_found | no_return().
 
 del_all(AppId, AOR, #sipmsg{call_id=CallId, cseq=CSeq}) ->
+    {ok, RegContacts} = callback_get(AppId, AOR),
     lists:foreach(
         fun(#reg_contact{call_id=CCallId, cseq=CCSeq}) ->
             if
@@ -444,29 +428,118 @@ del_all(AppId, AOR, #sipmsg{call_id=CallId, cseq=CSeq}) ->
                 true -> throw({invalid_request, "Rejected Old CSeq"})
             end
         end,
-        get(AppId, AOR)),
-    del(AppId, AOR).
-
+        RegContacts),
+    case callback(AppId, {del, AOR}) of
+        ok -> ok;
+        not_found -> not_found;
+        _ -> throw({internal, "Error calling registrar 'del' callback"})
+    end.
 
 
 %% @private
-get(AppId, AOR) -> 
-    nksip_store:get({nksip_registrar, AppId, AOR}, []).
+callback_get(AppId, AOR) -> 
+    case callback(AppId, {get, AOR}) of
+        List when is_list(List) ->
+            lists:foreach(
+                fun(Term) ->
+                    case Term of
+                        #reg_contact{} -> 
+                            ok;
+                        _ -> 
+                            Msg = "Invalid return in registrar 'get' callback",
+                            throw({internal, Msg})
+                    end
+                end, List),
+            {ok, List};
+        _ -> 
+            throw({internal, "Error calling registrar 'get' callback"})
+    end.
+
+
+%% @private 
+-spec callback(nksip:app_id(), term()) ->
+    term() | error.
+
+callback(AppId, Op) -> 
+    case nksip_sipapp_srv:get_module(AppId) of
+        {ok, Module, _Pid} ->
+            case 
+                nksip_sipapp_srv:sipapp_call_wait(AppId, Module, 
+                                                  registrar_store, [Op], [Op], 
+                                                  ?TIMEOUT)
+            of
+                not_exported -> 
+                    {reply, Reply, none} = 
+                        nksip_sipapp:registrar_store(AppId, Op, none),
+                    Reply;
+                {reply, Reply} -> 
+                    Reply;
+                _ -> 
+                    error
+            end;
+        {error, not_found} ->
+            error
+    end.
+
+
+%% ===================================================================
+%% Utilities available only using internal store
+%% ===================================================================
+
+
+%% @private Get all current registrations. Use it with care.
+-spec internal_get_all() ->
+    [{nksip:aor(), [{App::nksip:app_id(), URI::nksip:uri(),
+                     Remaining::integer(), Q::float()}]}].
+
+internal_get_all() ->
+    Now = nksip_lib:timestamp(),
+    [
+        {
+            AOR, 
+            [
+                {AppId, C, Exp-Now, Q} || #reg_contact{contact=C, expire=Exp, q=Q} 
+                <- nksip_store:get({nksip_registrar, AppId, AOR}, [])
+            ]
+        }
+        || {AppId, AOR} <- internal_all()
+    ].
+
 
 %% @private
-all() -> 
-    fold(fun(AppId, AOR, _Value, Acc) -> [{AppId, AOR}|Acc] end, []).
+internal_print_all() ->
+    Print = fun({{Scheme, User, Domain}, Regs}) ->
+        ?P("\n--- ~p:~s@~s ---", [Scheme, User, Domain]),
+        lists:foreach(
+            fun({AppId, Contact, Remaining, Q}) ->
+                ?P("    ~p: ~s, ~p, ~p", 
+                   [AppId, nksip_unparse:uri(Contact), Remaining, Q])
+            end, Regs)
+    end,
+    lists:foreach(Print, internal_get_all()),
+    ?P("\n").
+
+
+%% @private Clear all stored records for all SipApps, only with buil-in database
+%% Returns the number of deleted items.
+-spec internal_clear() -> 
+    integer().
+
+internal_clear() ->
+    Fun = fun(AppId, AOR, _Val, Acc) ->
+        nksip_store:del({nksip_registrar, AppId, AOR}),
+        Acc+1
+    end,
+    internal_fold(Fun, 0).
+
 
 %% @private
-put(AppId, AOR, Contacts, TTL) ->
-    nksip_store:put({nksip_registrar, AppId, AOR}, Contacts, [{ttl, TTL}]).
+internal_all() -> 
+    internal_fold(fun(AppId, AOR, _Value, Acc) -> [{AppId, AOR}|Acc] end, []).
+
 
 %% @private
-del(AppId, AOR) -> 
-    nksip_store:del({nksip_registrar, AppId, AOR}).
-
-
-fold(Fun, Acc0) when is_function(Fun, 4) ->
+internal_fold(Fun, Acc0) when is_function(Fun, 4) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
             {nksip_registrar, AppId, AOR} -> Fun(AppId, AOR, Value, Acc);
@@ -474,7 +547,6 @@ fold(Fun, Acc0) when is_function(Fun, 4) ->
         end
     end,
     nksip_store:fold(FoldFun, Acc0).
-
 
 
 

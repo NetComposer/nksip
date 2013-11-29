@@ -73,7 +73,7 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                         true -> 
                             {Resp, SendOpts};
                         false -> 
-                            Reply1 = {internal_error, <<"Invalid SipApp reply">>},
+                            Reply1 = {internal, <<"Invalid SipApp reply">>},
                             nksip_reply:reply(Req, Reply1, AppOpts)
                     end,
                     reply({Resp1, SendOpts1}, UAS1, Call1)
@@ -387,7 +387,7 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
             ?call_info("strict routing to ~p", [Next], Call),
             do_route({proxy, Next, [stateless|Opts]}, UAS, Call);
         _ ->
-            reply({internal_error, <<"Invalid Srict Routing">>}, UAS, Call)
+            reply({internal, <<"Invalid Srict Routing">>}, UAS, Call)
     end.
 
 
@@ -423,7 +423,7 @@ process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) -
             {500, [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
                         <<>>, [{reason, <<"Processing Previous INVITE">>}]};
         old_cseq ->
-            {internal_error, <<"Old CSeq in Dialog">>};
+            {internal, <<"Old CSeq in Dialog">>};
         _ ->
             ?call_info("UAS ~p ~p dialog request error: ~p", 
                         [Id, Method, Error], Call),

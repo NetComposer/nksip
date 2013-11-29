@@ -143,7 +143,7 @@ register1() ->
     Reg1 = {{sip,<<"client1">>,<<"nksip">>},
         [{Server1, #uri{user = <<"client1">>, domain=Domain, port=Port, 
         ext_opts=[{<<"expires">>, ExpB}]}, Min, 1.0}]},
-    true = lists:member(Reg1, nksip_registrar:get_all()),
+    true = lists:member(Reg1, nksip_registrar:internal_get_all()),
 
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,

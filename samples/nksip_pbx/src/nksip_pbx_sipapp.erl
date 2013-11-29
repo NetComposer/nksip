@@ -260,7 +260,7 @@ test_speed([Uri|Rest], Acc) ->
 find_all() ->
     All = [
         [Uri || {_AppId, Uri, _Time, _Q} <- List] 
-        || {_, List} <- nksip_registrar:get_all()
+        || {_, List} <- nksip_registrar:internal_get_all()
     ],
     lists:flatten(All).
 
@@ -272,7 +272,7 @@ find_all_except_me(ReqId) ->
     AOR = {Scheme, User, Domain},
     All = [
         [Uri || {_AppId, Uri, _Time, _Q} <- List] 
-        || {R_AOR, List} <- nksip_registrar:get_all(), R_AOR /= AOR
+        || {R_AOR, List} <- nksip_registrar:internal_get_all(), R_AOR /= AOR
     ],
     lists:flatten(All).
 
