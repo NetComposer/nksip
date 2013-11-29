@@ -47,6 +47,7 @@ start() ->
 
     ok = sipapp_server:start({uas, server1}, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
+        {supported, "a;a_param, 100rel"},
         registrar,
         {listeners, 10},
         {transport, {udp, {0,0,0,0}, 5060}},
@@ -99,7 +100,8 @@ uas() ->
     % Test bad extension endpoint and proxy
     Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, {fields, [all_headers]}],
     {ok, 420, [{all_headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
-    [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds5),
+    % 'a' is supported because of app config
+    [<<"b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds5),
     
     Opts6 = [
         {headers, [{"Proxy-Require", "a,b;c,d"}]}, 

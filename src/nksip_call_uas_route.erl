@@ -66,14 +66,15 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                 _ when Fun==invite; Fun==reinvite; Fun==bye; 
                        Fun==options; Fun==register; Fun==info;
                        Fun==prack; Fun==update ->
-                    {Resp, SendOpts} = nksip_reply:reply(Req, Reply),
+                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+                    {Resp, SendOpts} = nksip_reply:reply(Req, Reply, AppOpts),
                     #sipmsg{class={resp, Code, _Reason}} = Resp,
                     {Resp1, SendOpts1} = case Code >= 200 of
                         true -> 
                             {Resp, SendOpts};
                         false -> 
                             Reply1 = {internal_error, <<"Invalid SipApp reply">>},
-                            nksip_reply:reply(Req, Reply1)
+                            nksip_reply:reply(Req, Reply1, AppOpts)
                     end,
                     reply({Resp1, SendOpts1}, UAS1, Call1)
             end;
@@ -92,7 +93,7 @@ send_100(UAS, #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}}=Call)
     #trans{id=Id, method=Method, request=Req} = UAS,
     case Method=='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
         true ->
-            {Resp, SendOpts} = nksip_reply:reply(Req, 100),
+            {Resp, SendOpts} = nksip_reply:reply(Req, 100, AppOpts),
             case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
                 {ok, _} -> 
                     check_cancel(UAS, Call);
@@ -296,10 +297,11 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
     Call1 = update(UAS1, Call),
     case Route of
         {process, _} when Method/='CANCEL', Method/='ACK' ->
+            #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+            Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+            SupportedTokens = [T || {T, _} <- Supported],
             #sipmsg{require=Require} = Req,
-            case
-                [Token || {Token, _} <- Require, Token /= <<"100rel">>]
-            of
+            case [T || {T, _} <- Require, not lists:member(T, SupportedTokens)] of
                 [] -> 
                     do_route(Route, UAS1, Call1);
                 BadRequires -> 

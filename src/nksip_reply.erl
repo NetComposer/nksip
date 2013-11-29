@@ -153,7 +153,7 @@
 
 -include("nksip.hrl").
 
--export([reply/2, reqreply/1]).
+-export([reply/3, reqreply/1]).
 
 -export_type([sipreply/0]).
 
@@ -215,33 +215,33 @@
 %% @doc Generates a new SIP response and send options using helper replies.
 %% Currently recognized replies are described in this module.
 %% See {@link nksip_uas_lib:response/5}.
--spec reply(nksip:request(), nksip:sipreply()|#reqreply{}) -> 
+-spec reply(nksip:request(), nksip:sipreply()|#reqreply{}, nksip_lib:proplist()) -> 
     {nksip:response(), nksip_lib:proplist()}.
 
-reply(Req, #reqreply{}=ReqReply) ->
+reply(Req, #reqreply{}=ReqReply, AppOpts) ->
     #sipmsg{app_id=AppId, call_id=CallId} = Req,
     #reqreply{code=Code, headers=Headers, body=Body, opts=Opts} = ReqReply,
     case nksip_lib:get_value(contact, Opts, []) of
         [] ->
-            response(Req, Code, Headers, Body, Opts);
+            response(Req, Code, Headers, Body, Opts, AppOpts);
         ContactSpec ->
             case nksip_parse:uris(ContactSpec) of
                 error -> 
                     ?warning(AppId, CallId, "UAS returned invalid contact: ~p", 
                             [ContactSpec]),
                     Opts1 = [{reason, <<"Invalid SipApp Response">>}],
-                    response(Req, 500, [], <<>>, Opts1);
+                    response(Req, 500, [], <<>>, Opts1, AppOpts);
                 Contacts ->
                     Opts1 = [{contact, Contacts}],
-                    response(Req, Code, Headers, Body, Opts1)
+                    response(Req, Code, Headers, Body, Opts1, AppOpts)
             end
     end;
 
-reply(Req, register) -> 
+reply(Req, register, AppOpts) -> 
     Reply = nksip_registrar:request(Req),
-    reply(Req, Reply);
+    reply(Req, Reply, AppOpts);
 
-reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) -> 
+reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, AppOpts) -> 
     case nksip_reply:reqreply(SipReply) of
         #reqreply{} = ReqReply -> 
             ok;
@@ -250,7 +250,7 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) ->
                             [SipReply, erlang:get_stacktrace()]),
             ReqReply = reqreply({internal_error, <<"Invalid SipApp Response">>})
     end,
-    reply(Req, ReqReply).
+    reply(Req, ReqReply, AppOpts).
 
 
 %% @private Generates an `#reqreply{}' from an `user_sipreply()' like 
@@ -427,17 +427,17 @@ helper_debug(#reqreply{opts=Opts}=SipReply, Text) ->
 
 %% @private
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
-                nksip:body(), nksip_lib:proplist()) -> 
+                nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
     {nksip:response(), nksip_lib:proplist()}.
 
-response(Req, Code, Headers, Body, Opts) ->
-    case nksip_uas_lib:response(Req, Code, Headers, Body, Opts) of
+response(Req, Code, Headers, Body, Opts, AppOpts) ->
+    case nksip_uas_lib:response(Req, Code, Headers, Body, Opts, AppOpts) of
         {ok, Resp, RespOpts} ->
             {Resp, RespOpts};
         {error, Error} ->
             lager:error("Error procesing response {~p,~p,~p,~p}: ~p",
                         [Code, Headers, Body, Opts, Error]),
-            case nksip_uas_lib:response(Req, 500, [], <<>>, []) of
+            case nksip_uas_lib:response(Req, 500, [], <<>>, [], AppOpts) of
                 {ok, Resp, RespOpts} -> {Resp, RespOpts};
                 {error, Error} -> error(Error)
             end

@@ -87,7 +87,8 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
         _ -> 
             {internal_error, <<"Proxy UAC Error ", (nksip_lib:to_binary(Error))/binary>>}
     end,
-    {Resp, _} = nksip_reply:reply(Req, Reply),
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+    {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
     % nksip_call_fork:response() is going to discard first Via
     Resp1 = Resp#sipmsg{vias=[#via{}|Resp#sipmsg.vias]},
     nksip_call_fork:response(ForkId, Id, Resp1, Call);

@@ -30,7 +30,7 @@
 
 -export([get_opts/1, reply/2]).
 -export([sipapp_call/6, sipapp_call_wait/6, sipapp_cast/5]).
--export([register/2, get_registered/2, put_opts/2, allowed/1, pending_msgs/0]).
+-export([register/2, get_registered/2, put_opts/2, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
 
@@ -82,17 +82,6 @@ put_opts(AppId, Opts) ->
     case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
         undefined -> {error, not_found};
         Pid -> gen_server:call(Pid, {'$nksip_put_opts', Opts}, ?SRV_TIMEOUT)
-    end.
-
-
-%% @private Get the allowed methods for this SipApp
--spec allowed(nksip_lib:proplist()) -> 
-    binary().
-
-allowed(AppOpts) ->
-    case lists:member(registrar, AppOpts) of
-        true -> <<(?ALLOW)/binary, ", REGISTER">>;
-        false -> ?ALLOW
     end.
 
 

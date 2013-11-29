@@ -100,9 +100,22 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`content_type'</td>
-%%          <td>`binary()'</td>
+%%          <td>`string()|binary()'</td>
 %%          <td></td>
 %%          <td>If defined, a <i>Content-Type</i> headers will be inserted</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`require</td>
+%%          <td>`string()|binary()'</td>
+%%          <td></td>
+%%          <td>If defined, a <i>Require</i> headers will be inserted</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`accept</td>
+%%          <td>`string()|binary()'</td>
+%%          <td>"*/*"</td>
+%%          <td>If defined, this value will be used instead of default when 
+%%          option `make_accept' is used
 %%      </tr>
 %%      <tr>
 %%          <td>`headers'</td>
@@ -111,7 +124,8 @@
 %%          <td>List of headers to add to the request. The following headers should not
 %%          we used here: <i>From</i>, <i>To</i>, <i>Via</i>, <i>Call-ID</i>, 
 %%          <i>CSeq</i>, <i>Forwards</i>, <i>User-Agent</i>, <i>Content-Type</i>, 
-%%          <i>Route</i>, <i>Contact</i>.</td>
+%%          <i>Route</i>, <i>Contact</i>, <i>Require</i>, <i>Supported</i>, 
+%%          <i>Expires</i>.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`body'</td>
@@ -219,7 +233,8 @@
 
 -type error() :: 
     invalid_uri | invalid_from | invalid_to | invalid_route |
-    invalid_contact | invalid_cseq | invalid_content_type |
+    invalid_contact | invalid_cseq | invalid_content_type | invalid_require |
+    invalid_accept |
     unknown_dialog | request_pending | network_error | 
     nksip_call_router:sync_error().
 

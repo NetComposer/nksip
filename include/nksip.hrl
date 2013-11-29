@@ -29,7 +29,7 @@
 
 -define(VERSION, "0.4.0").
 -define(SUPPORTED, [{<<"100rel">>, []}]).
--define(ACCEPT, <<"application/sdp">>).
+-define(ACCEPT, [{<<"*/*">>, []}]).
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE">>).
 
 -define(MSG_ROUTERS, 8).

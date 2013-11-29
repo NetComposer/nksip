@@ -96,7 +96,7 @@ next(#fork{pending=[]}=Fork, Call) ->
                 [] when Method=='ACK' ->
                     delete(Fork, Call);
                 [] ->
-                    #sipmsg{class={resp, Code, _}} = Resp = best_response(Fork),
+                    #sipmsg{class={resp, Code, _}} = Resp = best_response(Fork, Call),
                     ?call_debug("Fork ~p ~p selected ~p response", 
                                 [Id, Method, Code], Call),
                     Call1 = send_reply(Resp, Fork, Call),
@@ -127,6 +127,7 @@ launch([], Id, Call) ->
     end;
 
 launch([Uri|Rest], Id, Call) -> 
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     Fork = lists:keyfind(Id, #fork.id, Call#call.forks),
     #fork{request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
@@ -150,7 +151,7 @@ launch([Uri|Rest], Id, Call) ->
         true ->
             ?call_notice("Fork tried to stateful proxy a request to itself: ~s", 
                          [nksip_unparse:uri(Uri)], Call),
-            {Resp, _} = nksip_reply:reply(Req, loop_detected),
+            {Resp, _} = nksip_reply:reply(Req, loop_detected, AppOpts),
             Fork1 = Fork#fork{responses=[Resp|Resps]},
             launch(Rest, Id, update(Fork1, Call))
     end.
@@ -291,10 +292,10 @@ send_reply(Resp, Fork, Call) ->
 
 
 %% @private
--spec best_response(fork()) ->
+-spec best_response(fork(), call()) ->
     nksip:response().
 
-best_response(#fork{request=Req, responses=Resps}) ->
+best_response(#fork{request=Req, responses=Resps}, Call) ->
     Sorted = lists:sort([
         if
             Code == 401; Code == 407 -> {3999, Resp};
@@ -320,7 +321,8 @@ best_response(#fork{request=Req, responses=Resps}) ->
         [{_, Best}|_] ->
             Best;
         _ ->
-            {Best, _} = nksip_reply:reply(Req, temporarily_unavailable),
+            #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+            {Best, _} = nksip_reply:reply(Req, temporarily_unavailable, AppOpts),
             Best
     end.
 

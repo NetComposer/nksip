@@ -119,8 +119,12 @@ process('UPDATE', DialogId, UAS, Call) ->
     end;
 
 process(_Method, _DialogId, UAS, Call) ->
-    #call{opts=#call_opts{app_opts=Opts}} = Call,
-    reply({method_not_allowed, nksip_sipapp_srv:allowed(Opts)}, UAS, Call).
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+    Allowed = case lists:member(registrar, AppOpts) of
+        true -> <<(?ALLOW)/binary, ", REGISTER">>;
+        false -> ?ALLOW
+    end,
+    reply({method_not_allowed, Allowed}, UAS, Call).
 
 
 

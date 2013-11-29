@@ -84,7 +84,7 @@ response(Resp, UAC, Call) ->
         request = Req, 
         ruri = RUri
     } = UAC,
-    #call{msgs=Msgs, opts=#call_opts{max_trans_time=MaxTime}} = Call,
+    #call{msgs=Msgs, opts=#call_opts{app_opts=AppOpts, max_trans_time=MaxTime}} = Call,
     Now = nksip_lib:timestamp(),
     case Now-Start < MaxTime of
         true -> 
@@ -92,7 +92,8 @@ response(Resp, UAC, Call) ->
             Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId};
         false -> 
             Code1 = 408,
-            {Resp1, _} = nksip_reply:reply(Req, {timeout, <<"Transaction Timeout">>})
+            Reply = {timeout, <<"Transaction Timeout">>},
+            {Resp1, _} = nksip_reply:reply(Req, Reply, AppOpts)
     end,
     Call1 = case Code1>=200 andalso Code1<300 of
         true -> nksip_call_lib:update_auth(DialogId, Resp1, Call);

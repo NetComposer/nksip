@@ -37,7 +37,8 @@
            nksip_lib:proplist(), nksip_lib:proplist()) ->    
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
-             invalid_contact | invalid_cseq | invalid_content_type.
+             invalid_contact | invalid_cseq | invalid_content_type |
+             invalid_require | invalid_accept.
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
     FullOpts = Opts++AppOpts,
@@ -112,12 +113,29 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
         Headers1 = nksip_headers:update(Headers, [
             {default_single, <<"User-Agent">>, UserAgent},
             case lists:member(make_allow, FullOpts) of
-                true -> {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(AppOpts)};
-                false -> []
+                true -> 
+                    Allow = case lists:member(registrar, AppOpts) of
+                        true -> <<(?ALLOW)/binary, ", REGISTER">>;
+                        false -> ?ALLOW
+                    end,
+                    {default_single, <<"Allow">>, Allow};
+                false -> 
+                    []
             end,
-            case lists:member(make_accept, FullOpts) of
-                true -> {default_single, <<"Accept">>, ?ACCEPT};
-                false -> []
+            case lists:member(make_accept, Opts) of
+                true -> 
+                    Accept = case nksip_lib:get_value(accept, FullOpts) of
+                        undefined -> 
+                            ?ACCEPT;
+                        AcceptList ->
+                            case nksip_parse:tokens(AcceptList) of
+                                error -> throw(invalid_accept);
+                                AcceptTokens -> AcceptTokens
+                            end
+                    end,
+                    {default_single, <<"Accept">>, nksip_unparse:tokens(Accept)};
+                false -> 
+                    []
             end,
             case lists:member(make_date, FullOpts) of
                 true -> {default_single, <<"Date">>, nksip_lib:to_binary(
@@ -138,12 +156,28 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     error -> throw(invalid_content_type)
                 end
         end,
-        Require = case Method=='INVITE' andalso lists:member(require_100rel, FullOpts) of
-            true -> [{<<"100rel">>, []}];
-            false -> []
+        Require0 = case nksip_lib:get_value(require, Opts) of
+            undefined -> 
+                [];
+            ReqOpts ->
+                case nksip_parse:tokens(ReqOpts) of
+                    error -> throw(invalid_require);
+                    ReqTokens0 -> ReqTokens0
+                end
+        end,
+        Require = case 
+            Method=='INVITE' andalso lists:member(require_100rel, FullOpts) 
+        of
+            true -> 
+                case lists:keymember(<<"100rel">>, 1, Require0) of
+                    true -> Require0;
+                    false -> [{<<"100rel">>, []}|Require0]
+                end;
+            false -> 
+                Require0
         end,
         Supported = case lists:member(make_supported, FullOpts) of
-            true -> ?SUPPORTED;
+            true -> nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
             false -> []
         end,
         Expires = case nksip_lib:get_integer(expires, Opts, -1) of

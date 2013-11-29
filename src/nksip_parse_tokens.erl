@@ -31,9 +31,12 @@
 %% ===================================================================
 
 %% @doc Parse a serie of tokens in a string
--spec tokens(binary() | string()) ->
+-spec tokens(nksip:token() | binary() | string()) ->
     [Token] | error 
     when Token :: {binary(), [binary() | {binary(), binary()}]}.
+
+tokens({Token, Opts}) when is_binary(Token), is_list(Opts) ->
+    [{Token, Opts}];
 
 tokens(Bin) when is_binary(Bin) ->
     tokens(binary_to_list(Bin));

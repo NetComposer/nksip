@@ -94,7 +94,7 @@ cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}, Call) ->
 
 timer(timer_c, #trans{id=Id, request=Req}, Call) ->
     ?call_notice("UAC ~p 'INVITE' Timer C Fired", [Id], Call),
-    {Resp, _} = nksip_reply:reply(Req, {timeout, <<"Timer C Timeout">>}),
+    {Resp, _} = reply(Req, {timeout, <<"Timer C Timeout">>}, Call),
     nksip_call_uac_resp:response(Resp, Call);
 
 % INVITE retrans
@@ -111,7 +111,7 @@ timer(timer_a, UAC, Call) ->
             ?call_notice("UAC ~p (~p) could not retransmit 'INVITE'", 
                          [Id, Status], Call),
             Reply = {service_unavailable, <<"Resend Error">>},
-            {Resp, _} = nksip_reply:reply(Req, Reply),
+            {Resp, _} = reply(Req, Reply, Call),
             nksip_call_uac_resp:response(Resp, Call)
     end;
 
@@ -119,7 +119,7 @@ timer(timer_a, UAC, Call) ->
 timer(timer_b, #trans{id=Id, request=Req, status=Status}, Call) ->
     ?call_notice("UAC ~p 'INVITE' (~p) timeout (Timer B) fired", 
                  [Id, Status], Call),
-    {Resp, _} = nksip_reply:reply(Req, {timeout, <<"Timer B Timeout">>}),
+    {Resp, _} = reply(Req, {timeout, <<"Timer B Timeout">>}, Call),
     nksip_call_uac_resp:response(Resp, Call);
 
 % Finished in INVITE completed
@@ -148,7 +148,7 @@ timer(timer_e, UAC, Call) ->
             ?call_notice("UAC ~p (~p) could not retransmit ~p", 
                          [Id, Status, Method], Call),
             Msg = {service_unavailable, <<"Resend Error">>},
-            {Resp, _} = nksip_reply:reply(Req, Msg),
+            {Resp, _} = reply(Req, Msg, Call),
             nksip_call_uac_resp:response(Resp, Call)
     end;
 
@@ -156,7 +156,7 @@ timer(timer_e, UAC, Call) ->
 timer(timer_f, #trans{id=Id, status=Status, method=Method, request=Req}, Call) ->
     ?call_notice("UAC ~p ~p (~p) timeout (Timer F) fired", 
                  [Id, Method, Status], Call),
-    {Resp, _} = nksip_reply:reply(Req, {timeout, <<"Timer F Timeout">>}),
+    {Resp, _} = reply(Req, {timeout, <<"Timer F Timeout">>}, Call),
     nksip_call_uac_resp:response(Resp, Call);
 
 % No INVITE completed finished
@@ -195,3 +195,7 @@ transaction_id(#sipmsg{cseq_method=Method, vias=[Via|_]}) ->
     Branch = nksip_lib:get_value(<<"branch">>, Via#via.opts),
     erlang:phash2({Method, Branch}).
 
+%% @private
+reply(Req, Reply, Call) ->
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+    nksip_reply:reply(Req, Reply, AppOpts).

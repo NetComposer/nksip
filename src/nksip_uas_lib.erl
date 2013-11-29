@@ -21,7 +21,7 @@
 %% @doc UAS Process helper functions
 -module(nksip_uas_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
--export([preprocess/2, response/5]).
+-export([preprocess/2, response/6]).
 -include("nksip.hrl").
 
 
@@ -119,13 +119,13 @@ preprocess(Req, GlobalId) ->
 %% </ul>
 %%
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
-                nksip:body(), nksip_lib:proplist()) -> 
+                nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
     {ok, nksip:response(), nksip_lib:proplist()} | {error, Error}
     when Error :: invalid_contact.
 
-response(Req, Code, Headers, Body, Opts) ->
+response(Req, Code, Headers, Body, Opts, AppOpts) ->
     try 
-        response2(Req, Code, Headers, Body, Opts)
+        response2(Req, Code, Headers, Body, Opts, AppOpts)
     catch
         throw:Error -> {error, Error}
     end.
@@ -133,10 +133,10 @@ response(Req, Code, Headers, Body, Opts) ->
 
 %% @private
 -spec response2(nksip:request(), nksip:response_code(), [nksip:header()], 
-                nksip:body(), nksip_lib:proplist()) -> 
+                nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
     {nksip:response(), nksip_lib:proplist()}.
 
-response2(Req, Code, Headers, Body, Opts) ->
+response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     #sipmsg{
         class = {req, Method},
         ruri = RUri,
@@ -206,13 +206,20 @@ response2(Req, Code, Headers, Body, Opts) ->
         end,
         case MakeAllow of
             true -> 
-                {default_single, <<"Allow">>, nksip_sipapp_srv:allowed(Opts)};
+                Allow = case lists:member(registrar, AppOpts) of
+                    true -> <<(?ALLOW)/binary, ", REGISTER">>;
+                    false -> ?ALLOW
+                end,
+                {default_single, <<"Allow">>, Allow};
             false -> 
                 none
         end,
         case lists:member(make_accept, Opts) of
-            true -> {default_single, <<"Accept">>, ?ACCEPT};
-            false -> none
+            true -> 
+                Accept = nksip_lib:get_value(accept, AppOpts, ?ACCEPT),
+                {default_single, <<"Accept">>, nksip_unparse:tokens(Accept)};
+            false -> 
+                none
         end,
         case lists:member(make_date, Opts) of
             true -> {default_single, <<"Date">>, nksip_lib:to_binary(
@@ -272,7 +279,7 @@ response2(Req, Code, Headers, Body, Opts) ->
             end
     end,
     RespSupported = case MakeSupported of
-        true -> ?SUPPORTED;
+        true -> nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
         false -> []
     end,
     RespRequire = case Reliable of

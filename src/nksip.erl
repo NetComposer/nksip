@@ -269,12 +269,28 @@
 %%          <td>If present, all <i>INVITE</i> requests will have 'require_100rel' option 
 %%          activated.</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`supported'</td>
+%%          <td>string()|binary()</td>
+%%          <td>"100rel"</td>
+%%          <td>If present, these tokens will be used in Supported headers instead of
+%%          the default supported list (only '100rel' currently), for example
+%%          "my_token1;opt1, mytoken2, 100rel".</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`accept</td>
+%%          <td>`string()|binary()'</td>
+%%          <td>"*/*"</td>
+%%          <td>If defined, this value will be used instead of default when 
+%%          option `make_accept' is used
+%%      </tr>
 %%  </table>
 %%
 %% <br/>
 -spec start(app_id(), atom(), term(), nksip_lib:proplist()) -> 
 	ok | {error, Error} 
     when Error :: invalid_from | invalid_transport | invalid_register | invalid_route |
+                  invalid_supported | invalid_accept |
                   no_matching_tcp | could_not_start_udp | could_not_start_tcp |
                   could_not_start_tls | could_not_start_sctp.
 
@@ -389,6 +405,24 @@ start(AppId, Module, Args, Opts) ->
             case lists:member(require_100rel, Opts) of
                 true -> require_100rel;
                 _ -> []
+            end,
+            case nksip_lib:get_value(supported, Opts) of
+                undefined -> 
+                    [];
+                SupList ->
+                    case nksip_parse:tokens(SupList) of
+                        error -> throw(invalid_supported);
+                        Supported -> {supported, Supported}
+                    end
+            end,
+            case nksip_lib:get_value(accept, Opts) of
+                undefined -> 
+                    [];
+                AcceptList ->
+                    case nksip_parse:tokens(AcceptList) of
+                        error -> throw(invalid_accept);
+                        Accept -> {accept, Accept}
+                    end
             end
         ],
         nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts))
