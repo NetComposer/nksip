@@ -22,7 +22,7 @@ RFC|Description|Notes
 
 
 NkSIP features also:
- * Full RFC3261 coverage, including SIP Registrar (RAM storage only).
+ * Full RFC3261 coverage, including SIP Registrar (using the RAM built-in store or any other external database).
  * A written from scratch, fully typed Erlang code easy to understand and extend. Unit tests cover nearly all of the functionality.
  * Hot core and application code upgrade.
  * Very few external dependencies: [Lager](https://github.com/basho/lager) for error logging and [Cowboy](http://ninenines.eu") as TCP/SSL acceptor and Websocket server.

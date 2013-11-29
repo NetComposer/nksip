@@ -21,8 +21,9 @@
 %% @doc NkSIP Registrar Server.
 %%
 %% This module implements a full registrar implementation according to RFC3261. 
-%% Currently only RAM back-end storage is supported, so all registrations will be lost 
-%% in case of a NkSIP application restart. 
+%% By default, it uses the RAM-only built-in store, but any SipApp can implement 
+%% {@link nksip_sipapp:registrar/3} callback to hook into the registration process
+%% and use any external database.
 %% Each started SipApp maintains its fully independent set of registrations.
 %%
 %% When a new REGISTER request arrives at a SipApp, and if you order to `process' 

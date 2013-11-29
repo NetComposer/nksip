@@ -158,13 +158,18 @@ Once started a SipApp and listening on a set of transports, IPs and ports, it ca
 
 === Sending a response ===
 
-Many of the functions in the callback module allow to send a response to the incoming request. NkSIP allows you to use easy response codes like `busy', `redirect', etc. Specific responses like `authenticate' are used to send an authentication request to the other party. In case you need to, you can also reply any response code, headers, and body. The full list of recognized responses is a available in {@link nksip_reply}.
+Many of the functions in the callback module allow to send a response to the incoming request. NkSIP allows you to use easy response codes like `busy', `redirect', etc. Specific responses like `authenticate' are used to send an authentication request to the other party. In case you need to, you can also reply any response code, headers, and body. 
+
+It is also possible to send <i>reliable provisional responses</i>, that the other party will acknoledge with a <i>PRACK</i> request. All of it is handled by NkSIOP automatically.
+The full list of recognized responses is a available in {@link nksip_reply}.
 
 
 
 == Registrar ==
 
 NkSIP includes a full registrar implementation according to RFC3261. Its functionality is described in {@link nksip_registrar}.
+
+It uses by default the buil-in, RAM-only store, but can be configured to use any other database implementing a callback.
 
 
 == Resolver ==

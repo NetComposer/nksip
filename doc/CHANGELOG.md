@@ -4,10 +4,12 @@ Changelog
 0.4.0 (not yet released)
 ------------------------
  
-* Allow an endpoint to start a dialog with itself
-* Reliable provisional responses
-* UPDATE method
-* Bug corrections
+* Allow an endpoint to start a dialog with itself.
+* Reliable provisional responses.
+* UPDATE method.
+* New options to customize supported extensions and to generate Require and Accept headers.
+* Use of any external store for registrar instead of in-memory built-in.
+* Bug corrections.
 
 
 
