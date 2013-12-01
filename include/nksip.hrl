@@ -193,6 +193,19 @@
     opts = [] :: nksip_lib:proplist()
 }).
 
+-type dialog_sub_id() :: {Event::binary(), Id::binary()}.
+
+-type dialog_sub_reason() :: 
+    deacivated | probation | rejected | timeout |
+    giveup | noresource | invariant.
+
+-record(dialog_sub, {
+    id :: dialog_sub_id(),
+    status :: init | active | pending | {terminated, dialog_sub_reason()},
+    timer_notiy :: reference(),
+    timer_expire :: reference()
+}).
+
 
 -type sdp_offer() ::
     {local|remote, invite|prack|update|ack, nksip_sdp:sdp()} | undefined.
@@ -227,19 +240,11 @@
     sdp_answer :: sdp_offer(),
     timeout_timer :: reference(),
     retrans_timer :: reference(),
-    next_retrans :: integer()
+    next_retrans :: integer(),
+    subs = [] :: [#dialog_sub{}]
 }).
 
 
--type sub_terminated_reason() :: timeout.
-
--record(subscription, {
-    event,
-    id,
-    state :: active | pending | {terminated, Reason::sub_terminated_reason()}
-
-
-}).
 
 
 

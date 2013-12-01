@@ -109,7 +109,8 @@ request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
 do_request(_, bye, _Req, _Dialog, _Call) ->
     {error, unknown_dialog};
 
-do_request('INVITE', confirmed, Req, Dialog, Call) ->
+do_request('INVITE', Status, Req, Dialog, Call)
+           when Status==init; Status==confirmed ->
     {HasSDP, SDP, Offer, _} = get_sdp(Req, Dialog),
     case HasSDP of
         true when Offer/=undefined ->
@@ -181,9 +182,10 @@ response(Req, Resp, Call) ->
                         [DialogId, Status, Method, Code], Call),
             Dialog1 = do_response(Method, Code, Req, Resp, Dialog, Call),
             store(Dialog1, Call);
-        not_found when Method=='INVITE', Code>100, Code<300 ->
+        not_found when Code>100 andalso Code<300 andalso 
+                       (Method=='INVITE' orelse Method=='SUBSCRIBE') ->
             Dialog = nksip_call_dialog:create(uac, Req, Resp),
-            {ok, Dialog1} = do_request('INVITE', confirmed, Req, Dialog, Call),
+            {ok, Dialog1} = do_request(Method, init, Req, Dialog, Call),
             response(Req, Resp, Call#call{dialogs=[Dialog1|Dialogs]});
         not_found ->
             Call
@@ -331,6 +333,49 @@ do_response('UPDATE', Code, _Req, Resp, Dialog, _Call) when Code>300 ->
     end,
     Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1};
     
+
+% do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
+%     EventId = case nksip_sipmsg:header(Req, <<"Event">>, tokens) of
+%         [{Event, Opts}|] -> {Event, nksip_lib:get_value(<<"id">>, Opts)};
+%         _ -> {<<"undefined">>, <<>>}
+%     end,
+%     case nksip_call_dialog:find_sub(EventId, Dialog) of
+%         not_found ->
+%             #call{opts=#call_opts{timer_t1=T1}} = Call,
+%             Timer = nksip_call_dialog:start_timer(64*T1, {sub_expire, EventId}, Dialog),
+%             Sub = #dialog_sub{
+%                 id = EventId,
+%                 status = init,
+%                 timer_expire = Timer
+%             },
+            
+
+
+
+
+%             #dialog{subs=Subs},
+%             case lists:keyfind(EventId, Subs)
+
+
+%                 <<>> -> 
+
+
+
+
+%     {HasSDP, SDP, Offer, Answer} = get_sdp(Resp, Dialog),
+%     {Offer1, Answer1} = case Offer of
+%         {local, update, _} when HasSDP -> {Offer, {remote, update, SDP}};
+%         {local, update, _} -> {undefined, undefined};
+%         _ -> {Offer, Answer}
+%     end,
+%     Dialog1 = Dialog#dialog{sdp_offer=Offer1, sdp_answer=Answer1},
+%     Dialog2 = target_update(uac, Req, Resp, Dialog1, Call),
+%     session_update(Dialog2, Call);
+
+
+
+
+
 do_response(_, _Code, _Req, _Resp, Dialog, _Call) ->
     Dialog.
 

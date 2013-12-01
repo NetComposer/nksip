@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([create/3, status_update/3, target_update/5, session_update/2, timer/3]).
--export([find/2, store/2]).
+-export([find/2, store/2, find_sub/2, store_sub/2]).
 
 -type call() :: nksip_call:call().
 
@@ -287,6 +287,18 @@ target_update(_Class, _Req, _Resp, Dialog, _Call) ->
 
 route_update(#dialog{invite_resp=#sipmsg{}}=Dialog) ->
     #dialog{
+        invite_req = Req, 
+        invite_resp = Resp, 
+        invite_class = Class,
+        answered = Answered
+    } = Dialog,
+    route_update(Class, Req, Resp, Answered, Dialog).
+
+
+
+
+route_update(#dialog{invite_resp=#sipmsg{}}=Dialog) ->
+    #dialog{
         app_id = AppId,
         invite_req = Req, 
         invite_resp = Resp, 
@@ -461,6 +473,44 @@ store(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
             Dialogs1 = lists:keystore(Id, #dialog.id, Dialogs, Dialog),
             Call#call{dialogs=Dialogs1}
     end.
+
+
+%% @private Finds a subscription
+-spec find_sub(dialog_sub_id(), nksip:dialog()) ->
+    #dialog_sub{} | not_found.
+
+find_sub(EventId, #dialog{subs=Subs}) ->
+    do_find_sub(EventId, Subs).
+
+
+%% @private 
+do_find_sub(_, []) ->
+    not_found;
+
+do_find_sub(EventId, [#dialog_sub{id=EventId}=Sub|_]) ->
+    Sub;
+
+do_find_sub(EventId, #dialog{subs=[_|Rest]}) ->
+    do_find_sub(EventId, Rest).
+
+
+
+%% @private Updates an updated subscription into dialog
+-spec store_sub(#dialog_sub{}, nksip:dialog()) ->
+    nksip:dialog().
+
+store_sub(#dialog_sub{id=Id}=Sub, #dialog{subs=[#dialog_sub{id=Id}|Rest]}=Dialog) ->
+    case Sub#dialog_sub.status of
+        {terminated, _} -> Dialog#dialog{subs=Rest};
+        _ -> Dialog#dialog{subs=[Sub|Rest]}
+    end;
+
+store_sub(#dialog_sub{id=Id}=Sub, #dialog{subs=Subs}=Dialog) ->
+    Subs1 = case Sub#dialog_sub.status of
+        {terminated, _} -> lists:keydelete(Id, #dialog_sub.id, Subs);
+        _ -> lists:keystore(Id, #dialog_sub.id, Subs)
+    end,
+    Dialog#dialog{subs=Subs1}.
 
 
 %% @private
