@@ -278,6 +278,12 @@
 %%          "my_token1;opt1, mytoken2, 100rel".</td>
 %%      </tr>
 %%      <tr>
+%%          <td>`supported_event_packeges'</td>
+%%          <td>string()|binary()</td>
+%%          <td>""</td>
+%%          <td>Lists the Event Packages this SipApp supports.</td>
+%%      </tr>
+%%      <tr>
 %%          <td>`accept</td>
 %%          <td>`string()|binary()'</td>
 %%          <td>"*/*"</td>
@@ -422,6 +428,15 @@ start(AppId, Module, Args, Opts) ->
                     case nksip_parse:tokens(AcceptList) of
                         error -> throw(invalid_accept);
                         Accept -> {accept, Accept}
+                    end
+            end,
+            case nksip_lib:get_value(event_packages, Opts) of
+                undefined -> 
+                    [];
+                PkgList ->
+                    case nksip_parse:tokens(PkgList) of
+                        error -> throw(invalid_event_packages);
+                        Events -> {events, [T||{T, []}<-Events]}
                     end
             end
         ],

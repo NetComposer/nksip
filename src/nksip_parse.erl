@@ -522,6 +522,7 @@ get_raw_headers(Packet, Acc) ->
                 true ->
                     case string:to_upper(Name0) of
                         "ALLOW-EVENTS" -> <<"Allow-Events">>;
+                        "U" -> <<"Allow-Events">>;
                         "AUTHENTICATION-INFO" -> <<"Authentication-Info">>;
                         "CALL-ID" -> <<"Call-ID">>;
                         "I" -> <<"Call-ID">>;
@@ -535,6 +536,8 @@ get_raw_headers(Packet, Acc) ->
                         "CONTENT-TYPE" -> <<"Content-Type">>;
                         "C" -> <<"Content-Type">>;
                         "CSEQ" -> <<"CSeq">>;
+                        "EVENT" -> <<"Event">>;
+                        "O" -> <<"Event">>;
                         "FROM" -> <<"From">>;
                         "F" -> <<"From">>;
                         "MAX-FORWARDS" -> <<"Max-Forwards">>;
@@ -546,6 +549,7 @@ get_raw_headers(Packet, Acc) ->
                         "RSEQ" -> <<"RSeq">>;
                         "SUBJECT" -> <<"Subject">>;
                         "S" -> <<"Subject">>;
+                        "SUBSCRIPTION-STATE" -> <<"Subscription-State">>;
                         "SUPPORTED" -> <<"Supported">>;
                         "K" -> <<"Supported">>;
                         "TIMESTAMP" -> <<"Timestamp">>;

@@ -30,7 +30,8 @@
 -define(VERSION, "0.4.0").
 -define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
--define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE">>).
+-define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE", 
+                 "SUBSCRIBE, NOTIFY">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
@@ -228,6 +229,22 @@
     retrans_timer :: reference(),
     next_retrans :: integer()
 }).
+
+
+-type sub_terminated_reason() :: timeout.
+
+-record(subscription, {
+    event,
+    id,
+    state :: active | pending | {terminated, Reason::sub_terminated_reason()}
+
+
+}).
+
+
+
+
+
 
 
 -record(sdp_m, {

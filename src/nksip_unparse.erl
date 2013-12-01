@@ -318,6 +318,7 @@ response_phrase(Code) ->
         182 -> <<"Queued">>;
         183 -> <<"Session Progress">>;
         200 -> <<"OK">>;
+        202 -> <<"Accepted">>;
         300 -> <<"Multiple Choices">>;
         301 -> <<"Moved Permanently">>;
         302 -> <<"Moved Temporarily">>;
@@ -348,6 +349,7 @@ response_phrase(Code) ->
         486 -> <<"Busy Here">>;
         487 -> <<"Request Terminated">>;
         488 -> <<"Not Acceptable Here">>;
+        489 -> <<"Bad Event">>;
         491 -> <<"Request Pending">>;
         493 -> <<"Undecipherable">>;
         500 -> <<"Server Internal Error">>;

@@ -122,6 +122,18 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 false -> 
                     []
             end,
+            case lists:member(make_allow_event, FullOpts) of
+                true -> 
+                    case nksip_lib:get_value(events, AppOpts) of
+                        [] ->
+                            [];
+                        Events ->
+                            AllowEvents = nksip_lib:bjoin(Events),
+                            {default_single, <<"Allow-Event">>, AllowEvents}
+                    end;
+                false -> 
+                    []
+            end,
             case lists:member(make_accept, Opts) of
                 true -> 
                     Accept = case nksip_lib:get_value(accept, FullOpts) of
