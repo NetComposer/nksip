@@ -374,16 +374,22 @@ do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300
             end
     end;
 
-do_response('SUBSCRIBE', Code, _Req, Resp, Dialog, Call) 
-            when Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
-                 Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
-                 Code==604 ->
+do_response('SUBSCRIBE', Code, _Req, Resp, Dialog, Call) when Code>=300 ->
     #sipmsg{event=EventId} = Resp,
     case find_event(EventId, Dialog) of
         not_found ->
             Dialog;
-        #dialog_event{} = Event ->
-            event_update({terminated, Code}, Event, Dialog, Call)
+        #dialog_event{answered=undefined} = Event ->
+            event_update({terminated, Code}, Event, Dialog, Call);
+        #dialog_event{} ->
+            if
+                Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
+                Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
+                Code==604 ->
+                    event_update({terminated, Code}, Event, Dialog, Call);
+                true ->
+                    Dialog
+            end
     end;
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->

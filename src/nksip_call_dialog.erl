@@ -29,9 +29,6 @@
 -export([find/2, store/2, find_event/2, timer/3]).
 -export_type([sdp_offer/0]).
 
--define(DEFAULT_EXPIRES, 60).
-
-
 -type sdp_offer() ::
     {local|remote, invite|prack|update|ack, nksip_sdp:sdp()} | undefined.
 
