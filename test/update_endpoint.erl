@@ -126,10 +126,11 @@ dialog_update(DialogId, Update, State) ->
         {DialogId, Ref, Pid} ->
             case Update of
                 start -> ok;
-                {status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
-                {status, _} -> ok;
-                target_update -> Pid ! {Ref, {Id, dialog_target_update}};
-                {stop, Reason} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}}
+                {invite_status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
+                {invite_status, {stop, Reason}} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}};
+                {invite_status, _} -> ok;
+                target_update -> Pid ! {Ref, {Id, target_update}};
+                stop -> ok
             end
     end,
     {noreply, State}.

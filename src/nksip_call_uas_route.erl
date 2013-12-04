@@ -49,10 +49,10 @@ launch(UAS, Call) ->
 reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uas}=UAS when Reply==async ->
-            UAS1 = nksip_call_lib:app_timer(cancel, UAS, Call),
+            UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
             update(UAS1, Call);
-        #trans{class=uas, app_timer={Fun, _}, request=Req}=UAS ->
-            UAS1 = nksip_call_lib:app_timer(cancel, UAS, Call),
+        #trans{class=uas, callback_timer={{callback, Fun}, _}, request=Req}=UAS ->
+            UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
             Call1 = update(UAS1, Call),
             case Fun of
                 authorize -> 
@@ -395,18 +395,24 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
 -spec process(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
     
-process(#trans{stateless=false}=UAS, Call) ->
-    #trans{method=Method, request=Req} = UAS,
-    case nksip_call_uas_dialog:request(Req, Call) of
-       {ok, DialogId, Call1} -> 
-            % Caution: for first INVITEs, DialogId is not yet created!
-            nksip_call_uas_method:process(Method, DialogId, UAS, Call1);
-        {error, Error}  ->
-            process_dialog_error(Error, UAS, Call)
-    end;
-
-process(#trans{stateless=true, method=Method}=UAS, Call) ->
-    nksip_call_uas_method:process(Method, <<>>, UAS, Call).
+process(UAS, Call) ->
+    #trans{
+        method = Method, 
+        request = #sipmsg{dialog_id=DialogId} = Req,
+        stateless = Stateless
+    } = UAS,
+    case Stateless of
+        true ->
+            nksip_call_uas_method:process(Method, DialogId, UAS, Call);
+        false ->           
+            case nksip_call_uas_dialog:request(Req, Call) of
+               {ok, Call1} -> 
+                    % Caution: for first INVITEs, DialogId is not yet created!
+                    nksip_call_uas_method:process(Method, DialogId, UAS, Call1);
+                {error, Error}  ->
+                    process_dialog_error(Error, UAS, Call)
+            end
+    end.
 
 
 %% @private

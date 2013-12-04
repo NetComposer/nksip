@@ -241,7 +241,7 @@ invite(ReqId, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
                 <<"busy">> ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
-                    SDP1 = nksip_dialog:field(AppId, DialogId, local_sdp),
+                    SDP1 = nksip_dialog:field(AppId, DialogId, invite_local_sdp),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, Hds, SDP2});
                 _ ->
@@ -307,10 +307,11 @@ dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) 
         {DialogId, Ref, Pid} ->
             case Update of
                 start -> ok;
-                {status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
-                {status, _} -> ok;
-                target_update -> Pid ! {Ref, {Id, dialog_target_update}};
-                {stop, Reason} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}}
+                target_update -> Pid ! {Ref, {Id, target_update}};
+                {invite_status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
+                {invite_status, {stop, Reason}} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}};
+                {invite_status, _} -> ok;
+                stop -> ok
             end
     end,
     {noreply, State};
@@ -321,6 +322,7 @@ dialog_update(_DialogId, _Update, State) ->
 
 session_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs, 
                                         sessions=Sessions}=State) ->
+    % ?P("SS: ~p", [Update]),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             {noreply, State};

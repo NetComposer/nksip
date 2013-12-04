@@ -92,7 +92,7 @@ options(Req, From) ->
 dialog_update(Dialog, State) ->
     case State of
         start -> send_reply(Dialog, dialog_start);
-        {stop, _} -> send_reply(Dialog, dialog_stop);
+        stop -> send_reply(Dialog, dialog_stop);
         _ -> ok
     end.
 

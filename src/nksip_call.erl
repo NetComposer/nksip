@@ -319,7 +319,7 @@ work({stop_dialog, DialogId}, From, Call) ->
     case get_dialog(DialogId, Call) of
         {ok, Dialog} ->
             gen_fsm:reply(From, ok),
-            Dialog1 = nksip_call_dialog:status_update({stop, forced}, Dialog, Call),
+            Dialog1 = nksip_call_dialog:stop(forced, Dialog, Call),
             nksip_call_dialog:store(Dialog1, Call);
         not_found ->
             gen_fsm:reply(From, {error, unknown_dialog}),
@@ -375,7 +375,11 @@ work(info, From, Call) ->
         end,
         Trans),
     InfoDialog = lists:map(
-        fun(#dialog{id=Id, status=Status, timeout_timer=Timer}) ->
+        fun(#dialog{id=Id, invite=Invite}) ->
+            case Invite of
+                #dialog_invite{status=Status, timeout_timer=Timer} -> ok;
+                _ -> Status = Timer = undefined
+            end,
             T = case Timer of
                 Timer when is_reference(Timer) ->  erlang:read_timer(Timer);
                 undefined -> undefined
@@ -495,7 +499,7 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
 
 %% @private
 -spec check_call_dialogs(nksip_lib:timestamp(), integer(), call()) ->
-    [nksip_dialog:dialog()].
+    [nksip:dialog()].
 
 check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
     lists:filter(

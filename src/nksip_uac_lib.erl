@@ -137,7 +137,10 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             case lists:member(make_accept, Opts) of
                 true -> 
                     Accept = case nksip_lib:get_value(accept, FullOpts) of
-                        undefined -> 
+                        undefined when Method=='INVITE'; Method=='UPDATE'; 
+                                       Method=='PRACK' -> 
+                            [{<<"application/sdp">>, []}];
+                        undefined ->
                             ?ACCEPT;
                         AcceptList ->
                             case nksip_parse:tokens(AcceptList) of
@@ -299,6 +302,7 @@ make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds}=R
         require = [],
         supported = [],
         expires = undefined,
+        event = undefined,
         body = <<>>
     }.
 
@@ -329,6 +333,7 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
         require = [],
         supported = [],
         expires = undefined,
+        event = undefined,
         body = <<>>
     }.
 

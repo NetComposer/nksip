@@ -341,6 +341,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         supported = RespSupported,
         require = RespRequire,
         expires = undefined,
+        event = undefined,
         body = Body,
         to_tag = ToTag1,
         transport = undefined

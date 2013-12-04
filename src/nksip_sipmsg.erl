@@ -86,7 +86,10 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_supported -> S#sipmsg.supported;
         body -> S#sipmsg.body;
         dialog_id -> S#sipmsg.dialog_id;
-        expires -> S#sipmsg.expires;
+        expires -> case S#sipmsg.expires of undefined -> <<>>; Exp -> Exp end;
+        parsed_expires -> S#sipmsg.expires;
+        event -> nksip_unparse:event(S#sipmsg.event);
+        parsed_event -> S#sipmsg.event;
         all_headers -> all_headers(S);
         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
         reason -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
@@ -151,6 +154,7 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"Require">> -> [field(SipMsg, require)];
         <<"Supported">> -> [field(SipMsg, supported)];
         <<"Expires">> -> [field(SipMsg, expires)];
+        <<"Event">> -> [field(SipMsg, event)];
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 
@@ -201,6 +205,10 @@ all_headers(SipMsg) ->
         case field(SipMsg, expires) of
             <<>> -> [];
             Expires -> {<<"Expires">>, Expires}
+        end,
+        case field(SipMsg, event) of
+            <<>> -> [];
+            Event -> {<<"Expires">>, Event}
         end,
         SipMsg#sipmsg.headers
     ]).

@@ -124,7 +124,7 @@
 %%          we used here: <i>From</i>, <i>To</i>, <i>Via</i>, <i>Call-ID</i>, 
 %%          <i>CSeq</i>, <i>Forwards</i>, <i>User-Agent</i>, <i>Content-Type</i>, 
 %%          <i>Route</i>, <i>Contact</i>, <i>Require</i>, <i>Supported</i>, 
-%%          <i>Expires</i>.</td>
+%%          <i>Expires</i>, <i>Event</i>.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`body'</td>
@@ -252,7 +252,7 @@
     invalid_uri | invalid_from | invalid_to | invalid_route |
     invalid_contact | invalid_cseq | invalid_content_type | invalid_require |
     invalid_accept |
-    unknown_dialog | request_pending | network_error | 
+    unknown_dialog | unknown_subscription | request_pending | network_error | 
     nksip_call_router:sync_error().
 
 -type cancel_error() :: 
@@ -527,7 +527,8 @@ cancel(AppId, ReqId) ->
     result() | {error, error()}.
 
 update(AppId, DialogSpec, Opts) ->
-    send_dialog(AppId, 'UPDATE', DialogSpec, Opts).
+    Opts1 = [make_supported, make_accept, make_allow | Opts],
+    send_dialog(AppId, 'UPDATE', DialogSpec, Opts1).
 
 
 %% @doc Sends a update on a currently ongoing dialog using INVITE.
@@ -549,7 +550,7 @@ update(AppId, DialogSpec, Opts) ->
 refresh(AppId, DialogSpec, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
         undefined ->
-            case nksip_dialog:field(AppId, DialogSpec, local_sdp) of
+            case nksip_dialog:field(AppId, DialogSpec, invite_local_sdp) of
                 #sdp{} = SDP -> SDP;
                 _ -> <<>>
             end;

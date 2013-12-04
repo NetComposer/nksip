@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([uri/1, uri2proplist/1, via/1, tokens/1, packet/1, raw_packet/3]).
+-export([uri/1, uri2proplist/1, via/1, tokens/1, event/1, packet/1, raw_packet/3]).
 
 
 %% ===================================================================
@@ -91,6 +91,19 @@ via(#via{}=Via) ->
 
 tokens(Tokens) ->
     list_to_binary(raw_tokens(Tokens)).
+
+
+%% @doc Serializes a {@nksip_dialog:event}
+-spec event(nksip_dialog:event_id()) ->
+    binary().
+
+event(Event) ->
+    case Event of
+        {EventToken, <<>>} -> EventToken;
+        {EventToken, EventId} -> <<EventToken/binary, ";id=", EventId/binary>>;
+        undefined -> <<>>
+    end.
+
 
 
 %% ===================================================================
@@ -259,6 +272,7 @@ serialize(#sipmsg{
             require = Require, 
             supported = Supported,
             expires = Expires,
+            event = Event,
             body = Body
         }) ->
     Body1 = case Body of
@@ -297,6 +311,10 @@ serialize(#sipmsg{
         case Expires of
             undefined -> [];
             _ -> {<<"Expires">>, nksip_lib:to_binary(Expires)}
+        end,
+        case Event of
+            undefined -> [];
+            _ -> {<<"Event">>, event(Event)}
         end,
         Headers
     ],

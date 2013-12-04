@@ -43,6 +43,7 @@
                   cseq | parsed_cseq | cseq_num | cseq_method | forwards |
                   routes | parsed_routes | contacts | parsed_contacts | 
                   content_type | parsed_content_type | 
+                  expires | parsed_expires | event | parsed_event |
                   all_headers | body | dialog_id | local | remote |
                   binary().
 

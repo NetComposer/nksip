@@ -109,14 +109,15 @@ response(Resp, UAC, Call) ->
                         [Id, Method, Status, 
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
     end,
-    Call2 = case NoDialog of
-        true -> update(UAC1, Call1);
-        false -> nksip_call_uac_dialog:response(Req, Resp1, update(UAC1, Call1))
+    Call2 = update(UAC1, Call1),
+    Call3 = case NoDialog of
+        true -> Call2;
+        false -> nksip_call_uac_dialog:response(Req, Resp1, Call2)
     end,
     Msg = {MsgId, Id, DialogId},
-    Call3 = Call2#call{msgs=[Msg|Msgs]},
-    Call4 = response_status(Status, Resp1, UAC1, Call3),
-    check_prack(Resp, UAC1, Call4).
+    Call4 = Call3#call{msgs=[Msg|Msgs]},
+    Call5 = response_status(Status, Resp1, UAC1, Call4),
+    check_prack(Resp, UAC1, Call5).
 
 
 %% @private
@@ -139,6 +140,7 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
         to_cancel -> nksip_call_uac:cancel(UAC1, update(UAC1, Call1));
         _ -> update(UAC1, Call1)
     end;
+
 
 % Final 2xx response received
 % Enters new RFC6026 'invite_accepted' state, to absorb 2xx retransmissions
@@ -443,7 +445,7 @@ send_prack(Resp, Id, DialogId, Call) ->
             _ -> throw(rseq_out_of_order)
         end,
         case nksip_call_dialog:find(DialogId, Call) of
-            #dialog{sdp_offer={remote, invite, RemoteSDP}} -> ok;
+            #dialog{invite=#dialog_invite{sdp_offer={remote, invite, RemoteSDP}}} -> ok;
             _ -> RemoteSDP = <<>>
         end,
         Body = case nksip_lib:get_value(prack, UACOpts) of

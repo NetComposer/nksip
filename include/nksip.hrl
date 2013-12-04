@@ -30,8 +30,8 @@
 -define(VERSION, "0.4.0").
 -define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
--define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE", 
-                 "SUBSCRIBE, NOTIFY">>).
+-define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE, "
+                 "SUBSCRIBE,NOTIFY">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
@@ -156,6 +156,7 @@
     require = [] :: [nksip:token()],
     supported = [] :: [nksip:token()],
     expires :: non_neg_integer(),
+    event :: nksip_dialog:event_id(),
     headers = [] :: [nksip:header()],
     body :: nksip:body(),
     from_tag :: nksip:tag(),
@@ -193,22 +194,36 @@
     opts = [] :: nksip_lib:proplist()
 }).
 
--type dialog_sub_id() :: {Event::binary(), Id::binary()}.
 
--type dialog_sub_reason() :: 
-    deacivated | probation | rejected | timeout |
-    giveup | noresource | invariant.
-
--record(dialog_sub, {
-    id :: dialog_sub_id(),
-    status :: init | active | pending | {terminated, dialog_sub_reason()},
-    timer_notiy :: reference(),
-    timer_expire :: reference()
+-record(dialog_invite, {
+    status :: nksip_dialog:invite_status(),
+    answered :: nksip_lib:timestamp(),
+    class :: uac | uas,
+    request :: nksip:request(),
+    response :: nksip:response(),
+    ack :: nksip:request(),
+    local_sdp :: nksip_sdp:sdp(),
+    remote_sdp :: nksip_sdp:sdp(),
+    media_started :: boolean(),
+    sdp_offer :: nksip_call_dialog:sdp_offer(),
+    sdp_answer :: nksip_call_dialog:sdp_offer(),
+    timeout_timer :: reference(),
+    retrans_timer :: reference(),
+    next_retrans :: integer()
 }).
 
 
--type sdp_offer() ::
-    {local|remote, invite|prack|update|ack, nksip_sdp:sdp()} | undefined.
+-record(dialog_subscription, {
+    id :: nksip_dialog:event_id(),
+    status :: nksip_dialog:subscription_status(),
+    class :: uac | uas,
+    answered :: nksip_lib:timestamp(),
+    request :: nksip:request(),
+    response :: nksip:response(),
+    expires :: integer(),
+    timer :: reference()
+}).
+
 
 -record(dialog, {
     id :: nksip_dialog:id(),
@@ -216,8 +231,6 @@
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),
     updated :: nksip_lib:timestamp(),
-    answered :: nksip_lib:timestamp(),
-    status :: nksip_dialog:status(),
     local_seq :: 0 | nksip:cseq(),
     remote_seq :: 0 | nksip:cseq(),
     local_uri :: nksip:uri(),
@@ -228,28 +241,10 @@
     early :: boolean(),
     secure :: boolean(),
     caller_tag :: nksip:tag(),
-    local_sdp :: nksip_sdp:sdp(),
-    remote_sdp :: nksip_sdp:sdp(),
-    media_started :: boolean(),
-    stop_reason :: nksip_dialog:stop_reason(),
-    invite_req :: nksip:request(),
-    invite_resp :: nksip:response(),
-    invite_class :: uac | uas,
-    ack_req :: nksip:request(),
-    sdp_offer :: sdp_offer(),
-    sdp_answer :: sdp_offer(),
-    timeout_timer :: reference(),
-    retrans_timer :: reference(),
-    next_retrans :: integer(),
-    subs = [] :: [#dialog_sub{}]
+    % stop_reason :: nksip_dialog:stop_reason(),
+    invite :: #dialog_invite{} | undefined,
+    subscriptions = [] :: [#dialog_subscription{}]
 }).
-
-
-
-
-
-
-
 
 
 -record(sdp_m, {

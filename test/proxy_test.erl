@@ -487,21 +487,21 @@ dialog() ->
 
     [
         {app_id, C1}, 
-        {status, confirmed}, 
+        {invite_status, confirmed}, 
         {local_seq, LSeq}, 
         {remote_seq, RSeq}, 
         {parsed_local_uri, LUri}, 
         {parsed_remote_uri, RUri}, 
         {parsed_local_target, LTarget}, 
         {parsed_remote_target, RTarget}, 
-        {local_sdp, LSDP}, 
-        {remote_sdp, RSDP}, 
+        {invite_local_sdp, LSDP}, 
+        {invite_remote_sdp, RSDP}, 
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
         nksip_dialog:fields(C1, DialogId1, 
-                [app_id, status, local_seq, remote_seq, parsed_local_uri, 
+                [app_id, invite_status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
-                 local_sdp, remote_sdp, parsed_route_set]),
+                 invite_local_sdp, invite_remote_sdp, parsed_route_set]),
 
     #uri{user = <<"client1">>, domain = <<"nksip">>} = LUri, 
     #uri{user = <<"client2">>, domain = <<"nksip">>} = RUri, 
@@ -510,37 +510,37 @@ dialog() ->
 
     [
         {app_id, C2},
-        {status, confirmed},
+        {invite_status, confirmed},
         {local_seq, RSeq},
         {remote_seq, LSeq},
         {parsed_local_uri, RUri},
         {parsed_remote_uri, LUri},
         {parsed_local_target, RTarget},
         {parsed_remote_target, LTarget},
-        {local_sdp, RSDP},
-        {remote_sdp, LSDP},
+        {invite_local_sdp, RSDP},
+        {invite_remote_sdp, LSDP},
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
         nksip_dialog:fields(C2, DialogId2,
-                [app_id, status, local_seq, remote_seq, parsed_local_uri, 
+                [app_id, invite_status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
-                 local_sdp, remote_sdp, parsed_route_set]),
+                 invite_local_sdp, invite_remote_sdp, parsed_route_set]),
     
     [
         {app_id, S1},
-        {status, confirmed},
+        {invite_status, confirmed},
         {parsed_local_uri, LUri},
         {parsed_remote_uri, RUri},
         {parsed_local_target, LTarget},
         {parsed_remote_target, RTarget},
-        {local_sdp, LSDP},
-        {remote_sdp, RSDP},
+        {invite_local_sdp, LSDP},
+        {invite_remote_sdp, RSDP},
         {parsed_route_set, []}          % The first route is deleted (it is itself)
     ] =
         nksip_dialog:fields(S1, DialogId1, 
-            [app_id, status, parsed_local_uri, parsed_remote_uri,
-             parsed_local_target, parsed_remote_target, local_sdp, 
-             remote_sdp, parsed_route_set]),
+            [app_id, invite_status, parsed_local_uri, parsed_remote_uri,
+             parsed_local_target, parsed_remote_target, invite_local_sdp, 
+             invite_remote_sdp, parsed_route_set]),
 
     {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{headers, [{"Nk-Rr", true}]}]),
     error = nksip_dialog:field(C1, DialogId1, status),

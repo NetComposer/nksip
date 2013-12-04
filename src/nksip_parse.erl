@@ -326,7 +326,7 @@ raw_sipmsg(Raw) ->
                 %% Request-Uris behave as having < ... >
                 case uris(<<$<, RequestUri/binary, $>>>) of
                     [RUri] ->
-                        Request = get_sipmsg(Headers, Body, Proto),
+                        Request = get_sipmsg(Class, Headers, Body, Proto),
                         case Request#sipmsg.cseq_method of
                             Method -> 
                                 Request#sipmsg{
@@ -344,7 +344,7 @@ raw_sipmsg(Raw) ->
                         throw({400, <<"Invalid Request-URI">>})
                 end;
             {resp, Code, CodeText} when Code>=100, Code=<699 ->
-                Response = get_sipmsg(Headers, Body, Proto),
+                Response = get_sipmsg(Class, Headers, Body, Proto),
                 Response#sipmsg{
                     id = Id,
                     class = {resp, Code, CodeText},
@@ -366,10 +366,10 @@ raw_sipmsg(Raw) ->
     
 
 %% @private
--spec get_sipmsg([nksip:header()], binary(), nksip:protocol()) -> 
+-spec get_sipmsg(msg_class(), [nksip:header()], binary(), nksip:protocol()) -> 
     #sipmsg{}.
 
-get_sipmsg(Headers, Body, Proto) ->
+get_sipmsg(Class, Headers, Body, Proto) ->
     case uris(all_values(<<"From">>, Headers)) of
         [#uri{} = From] -> ok;
         _ -> From = throw({400, <<"Invalid From">>})
@@ -430,6 +430,21 @@ get_sipmsg(Headers, Body, Proto) ->
     case tokens(all_values(<<"Supported">>, Headers)) of
         error -> Supported = throw({400, <<"Invalid Supported">>});
         Supported -> ok
+    end,
+    case Class of
+        {req, Method, _} -> ok;
+        {resp, _Code, _} -> Method=CSeqMethod
+    end,
+    Event = case Method=='SUBSCRIBE' orelse Method=='NOTIFY' of
+        true ->
+            case tokens(all_values(<<"Event">>, Headers)) of
+                [{EventToken, EventOpts}] ->
+                    {EventToken, nksip_lib:get_value(<<"id">>, EventOpts)};
+                _ ->
+                    throw({400, <<"Invalid Event">>})
+            end;
+        false ->
+            undefined
     end,
     case tokens(all_values(<<"Content-Type">>, Headers)) of
         [] -> ContentType = undefined;
@@ -499,6 +514,7 @@ get_sipmsg(Headers, Body, Proto) ->
         content_type = ContentType,
         require = Require,
         supported = Supported,
+        event = Event,
         headers = Headers1,
         body = Body1,
         from_tag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),

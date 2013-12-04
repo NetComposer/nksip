@@ -47,6 +47,7 @@
                   content_type | parsed_content_type | 
                   require | parsed_require | 
                   supported | parsed_supported | 
+                  expires | parsed_expires | event | parsed_event |
                   all_headers | body | dialog_id | local | remote |
                   binary().
 
@@ -212,24 +213,44 @@
 %%          <td>Content-Type Header</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`require</td>
+%%          <td>`require'</td>
 %%          <td>`binary()'</td>
 %%          <td>Require Header</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`parsed_require</td>
+%%          <td>`parsed_require'</td>
 %%          <td>`['{@link nksip:token()}`]'</td>
 %%          <td>Require Header</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`supported</td>
+%%          <td>`expires'</td>
+%%          <td>`binary()'</td>
+%%          <td>Expires Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`parsed_expires'</td>
+%%          <td>`undefined | integer()'</td>
+%%          <td>Expires Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`supported'</td>
 %%          <td>`binary()'</td>
 %%          <td>Supported Header</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`parsed_supported</td>
+%%          <td>`parsed_supported'</td>
 %%          <td>`['{@link nksip:token()}`]'</td>
 %%          <td>Supported Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`event</td>
+%%          <td>`undefined | binary()'</td>
+%%          <td>Event Header</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`parsed_event'</td>
+%%          <td><code>undefined | {@link nksip_dialog:event_id()}'</td>
+%%          <td>Event Header</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`all_headers'</td>

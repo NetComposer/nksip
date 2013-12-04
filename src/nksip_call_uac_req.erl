@@ -161,12 +161,13 @@ send('ACK', UAC, Call) ->
 send(_, UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-    TestDialog = case lists:member(no_dialog, Opts) of
+    NoDialog = lists:member(no_dialog, Opts),
+    TestDialog = case NoDialog of
         true -> 
             ok;
         false -> 
             OnlyUpdate = lists:member(update_dialog, Opts),
-            case nksip_call_uac_dialog:test_request(Req, Call) of
+            case nksip_call_uac_dialog:pre_request(Req, Call) of
                 ok ->
                     ok;
                 {error, DlgError} when OnlyUpdate ->
@@ -192,20 +193,15 @@ send(_, UAC, Call) ->
                         proto = Proto,
                         trans_id = nksip_call_uac:transaction_id(SentReq)
                     },
-                    case nksip_call_uac_dialog:request(SentReq, Call) of
-                        {ok, Call1} ->
-                            ok;
-                        {error, DlgError2} ->
-                            ?call_warning("UAC ~p error in dialog request: ~p", 
-                                [Id, DlgError2], Call),
-                            Call1 = Call
+                    Call1 = case NoDialog of
+                        true -> Call;
+                        false -> nksip_call_uac_dialog:request(SentReq, Call)
                     end,
                     Call2 = nksip_call_uac_reply:reply({req, SentReq}, UAC1, Call1),
                     UAC2 = sent_method(Method, UAC1, Call2),
                     update(UAC2, Call2);
                 error ->
-                    ?call_debug("UAC ~p error sending ~p request", 
-                                [Id, Method], Call),
+                    ?call_debug("UAC ~p error sending ~p request", [Id, Method], Call),
                     Call1 = nksip_call_uac_reply:reply({error, network_error}, 
                                                        UAC, Call),
                     update(UAC#trans{status=finished}, Call1)

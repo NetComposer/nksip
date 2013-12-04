@@ -588,7 +588,9 @@ notify(_ReqId, _From, State) ->
 %%
 -spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
     call_noreply()
-    when DialogStatus :: start | target_update | {status, nksip_dialog:status()} |
+    when DialogStatus :: start | target_update | 
+                         {invite_status, nksip_dialog:invite_status()} |
+                         {subscription_status, nksip_dialog:subscription_status()} |
                          {stop, nksip_dialog:stop_reason()}.
     
 dialog_update(_DialogId, _Status, State) ->
