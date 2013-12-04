@@ -95,6 +95,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`make_accept': Generates an Accept header</li>
 %%  <li>`make_date': Generates a Date header</li>
 %%  <li>`make_100rel': If present a Require: 100rel header will be included</li>
+%%  <li>`{expires, non_neg_integer()}: If present generates a Event header</li>
 %%  <li>`reason': Custom reason phrase</li>
 %%  <li>`to_tag': If present, it will override the To tag in the request</li>
 %% </ul>
@@ -312,6 +313,21 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         error -> throw(invalid_contact);
         RCs1 -> RCs1
     end,
+    Expires = case nksip_lib:get_value(expires, Opts) of
+        OptExpires when is_integer(OptExpires), OptExpires>=0 -> 
+            OptExpires;
+        _ when Method=='SUBSCRIBE', Code>=200, Code<300 -> 
+            case Req#sipmsg.expires of
+                ReqExpires when is_integer(ReqExpires), ReqExpires>=0 -> ReqExpires;
+                _ -> ?DEFAULT_EVENT_EXPIRES
+            end;
+        _ ->
+            undefined
+    end,
+    Event = case Method of
+        'SUBSCRIBE' -> Req#sipmsg.event;
+        _ -> undefined
+    end,
     SendOpts = lists:flatten([
         case lists:member(make_contact, Opts) of
             true -> make_contact;
@@ -340,8 +356,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         content_type = RespContentType,
         supported = RespSupported,
         require = RespRequire,
-        expires = undefined,
-        event = undefined,
+        expires = Expires,
+        event = Event,
         body = Body,
         to_tag = ToTag1,
         transport = undefined

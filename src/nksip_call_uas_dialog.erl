@@ -27,7 +27,7 @@
 
 -export([request/2, response/3, make/3]).
 -import(nksip_call_dialog, [find/2, invite_update/3, store/2,
-                            find_subs/2, subs_update/4]).
+                            find_event/2, event_update/4]).
 
 -type call() :: nksip_call:call().
 
@@ -162,6 +162,7 @@ do_request(_, _, Dialog, _Call) ->
 response(Req, Resp, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
+    #call{dialogs=Dialogs} = Call,
     case nksip_call_dialog:find(DialogId, Call) of
         #dialog{}=Dialog ->
             ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code], Call),
@@ -172,18 +173,8 @@ response(Req, Resp, Call) ->
                (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
                 Method=='NOTIFY') ->
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
-            Dialog2 = case Method of
-                'INVITE' ->
-                    Invite = #dialog_invite{status=confirmed},
-                    Dialog1#dialog{invite=Invite};
-                _ ->
-                    #sipmsg{event=EventId} = Resp,
-                    Subs = #dialog_subscription{id=EventId},
-                    Dialog1#dialog{subscriptions=[Subs]}
-            end,
-            {ok, Dialog3} = do_request(Method, Req, Dialog2, Call),
-            #call{dialogs=Dialogs} = Call,
-            response(Req, Resp, Call#call{dialogs=[Dialog3|Dialogs]});
+            {ok, Dialog2} = do_request(Method, Req, Dialog1, Call),
+            response(Req, Resp, Call#call{dialogs=[Dialog2|Dialogs]});
         not_found ->
             Call
     end.
@@ -313,6 +304,100 @@ do_response('UPDATE', Code, _Req, _Resp,
             Dialog
     end;
     
+do_response('UPDATE', Code, Req, Resp,
+            #dialog{invite=#dialog_invite{}=Invite}=Dialog, Call)
+            when Code>=200, Code<300 ->
+    {HasSDP, SDP, Offer, Answer} = get_sdp(Resp, Invite),
+    {Offer1, Answer1} = case Offer of
+        {local, update, _} when HasSDP -> {Offer, {remote, update, SDP}};
+        {local, update, _} -> {undefined, undefined};
+        _ -> {Offer, Answer}
+    end,
+    Invite1 = Invite#dialog_invite{sdp_offer=Offer1, sdp_answer=Answer1},
+    invite_update({update, uac, Req, Resp}, Dialog#dialog{invite=Invite1}, Call);
+
+do_response('UPDATE', Code, _Req, _Resp, 
+            #dialog{invite=#dialog_invite{}=Invite}=Dialog, _Call)
+            when Code>300 ->
+    case Invite#dialog_invite.sdp_offer of
+        {local, update, _} -> 
+            Invite1 = Invite#dialog_invite{sdp_offer=undefined, sdp_answer=undefined},
+            Dialog#dialog{invite=Invite1};
+        _ ->
+            Dialog
+    end;
+    
+do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
+    #sipmsg{event=EventId, expires=Expires} = Resp,
+    case find_event(EventId, Dialog) of
+        not_found ->
+            #dialog{events=Events} = Dialog,
+            Dialog1 = Dialog#dialog{events=[#dialog_event{id=EventId}|Events]},
+            do_response('SUBSCRIBE', Code, Req, Resp, Dialog1, Call);
+        #dialog_event{} = Event ->
+            Expires1 = case is_integer(Expires) andalso Expires>=0 of
+                true -> Expires; 
+                false -> ?DEFAULT_EVENT_EXPIRES
+            end,
+            Event1 = Event#dialog_event{
+                class = uas,
+                request = Req,
+                response = Resp,
+                expires = Expires1
+            },
+            case Expires1 of
+                0 -> event_update({terminated, timeout}, Event1, Dialog, Call);
+                _ -> event_update(neutral, Event1, Dialog, Call)
+            end
+    end;
+
+
+do_response('SUBSCRIBE', Code, _Req, Resp, Dialog, Call) 
+            when Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
+                 Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
+                 Code==604 ->
+    #sipmsg{event=EventId} = Resp,
+    case find_event(EventId, Dialog) of
+        not_found ->
+            Dialog;
+        #dialog_event{} = Event ->
+            event_update({terminated, Code}, Event, Dialog, Call)
+    end;
+
+do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
+    #sipmsg{event=EventId} = Resp,
+    {Status1, Expires} = nksip_parse:notify_status(Resp),
+     case find_event(EventId, Dialog) of
+        not_found ->
+            #dialog{events=Events} = Dialog,
+            Dialog1 = Dialog#dialog{events=[#dialog_event{id=EventId}|Events]},
+            do_response('NOTIFY', Code, Req, Resp, Dialog1, Call);
+        #dialog_event{}=Event ->
+            Expires1 = case is_integer(Expires) andalso Expires>=0 of
+                true -> Expires; 
+                false -> ?DEFAULT_EVENT_EXPIRES
+            end,
+            Event1 = Event#dialog_event{
+                class = uas,
+                request = Req, 
+                response = Resp, 
+                expires = Expires1
+            },
+            event_update(Status1, Event1, Dialog, Call)
+    end;
+
+do_response('NOTIFY', Code, _Req, Resp, Dialog, Call) 
+            when Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
+                 Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
+                 Code==604 ->
+    #sipmsg{event=EventId} = Resp,
+    case find_event(EventId, Dialog) of
+        not_found ->
+            Dialog;
+        #dialog_event{} = Event ->
+            event_update({terminated, Code}, Event, Dialog, Call)
+    end;
+
 do_response(_, _, _, _, Dialog, _Call) ->
     Dialog.
 

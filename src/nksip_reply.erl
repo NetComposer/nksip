@@ -148,6 +148,7 @@
 %%       {@link nksip_auth:make_response/2}).</li>
 %%  <li>`{make_proxy_auth, Realm::from|binary()}': a <i>Proxy-Authenticate</i> will be 
 %%       generated for this `Realm'.</li>
+%%  <li>`{expires, non_neg_integer()': generates a <i>Event</i> header.</li>
 %% </ul>
 
 -module(nksip_reply).

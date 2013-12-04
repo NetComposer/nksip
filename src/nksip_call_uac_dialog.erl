@@ -28,7 +28,7 @@
 -export([pre_request/2, request/2, ack/2, response/3]).
 -export([make/4, new_local_seq/2, uac_id/3]).
 -import(nksip_call_dialog, [find/2, invite_update/3, store/2,
-                            find_subs/2, subs_update/4]).
+                            find_event/2, event_update/4]).
 
 -type call() :: nksip_call:call().
 
@@ -41,7 +41,7 @@
 %% @private
 -spec pre_request(nksip:request(), nksip_call:call()) ->
     ok | {error, Error} 
-    when Error :: unknown_dialog | unknown_subscription | request_pending.
+    when Error :: unknown_dialog | unknown_event | request_pending.
 
 pre_request(#sipmsg{class={req, 'ACK'}}, _) ->
     error(ack_in_dialog_pre_request);
@@ -50,7 +50,7 @@ pre_request(#sipmsg{to_tag = <<>>}, _Call) ->
     ok;
 
 pre_request(Req, Call) ->
-    #sipmsg{class={req, Method}, dialog_id=DialogId} = Req,
+    #sipmsg{class={req, Method}, dialog_id=DialogId, event=EventId} = Req,
     case find(DialogId, Call) of
         #dialog{invite=Invite} = Dialog ->
             if
@@ -72,18 +72,15 @@ pre_request(Req, Call) ->
                                     ok 
                             end;
                         undefined when Method=='INVITE' ->
-                            % Sending a INVITE over a subscription-created dialog
+                            % Sending a INVITE over a event-created dialog
                             ok;
                         undefined ->
                             {error, unknown_dialog}
                     end;
                 Method=='NOTIFY' ->
-                    case find_subs(Req, Dialog) of
-                        #dialog_subscription{status=Status}
-                            when Status==pending; Status==active -> 
-                            ok;
-                        _ -> 
-                            {error, unknown_subscription}
+                    case find_event(EventId, Dialog) of
+                        #dialog_event{} -> ok;
+                        _ -> {error, unknown_event}
                     end;
                 true ->
                     ok
@@ -196,9 +193,7 @@ response(Req, Resp, Call) ->
                     Invite = #dialog_invite{status=confirmed},
                     Dialog1#dialog{invite=Invite};
                 _ ->
-                    #sipmsg{event=EventId} = Resp,
-                    Subs = #dialog_subscription{id=EventId},
-                    Dialog1#dialog{subscriptions=[Subs]}
+                    Dialog1
             end,
             Dialog3 = do_request(Method, Req, Dialog2, Call),
             response(Req, Resp, Call#call{dialogs=[Dialog3|Dialogs]});
@@ -357,69 +352,72 @@ do_response('UPDATE', Code, _Req, _Resp,
     
 do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
     #sipmsg{event=EventId, expires=Expires} = Resp,
-    Subs1 = case find_subs(EventId, Dialog) of
+    case find_event(EventId, Dialog) of
         not_found ->
-            #dialog_subscription{
-                id = EventId,
+            #dialog{events=Events} = Dialog,
+            Dialog1 = Dialog#dialog{events=[#dialog_event{id=EventId}|Events]},
+            do_response('SUBSCRIBE', Code, Req, Resp, Dialog1, Call);
+        #dialog_event{} = Event ->
+            Expires1 = case is_integer(Expires) andalso Expires>=0 of
+                true -> Expires; 
+                false -> ?DEFAULT_EVENT_EXPIRES
+            end,
+            Event1 = Event#dialog_event{
                 class = uac,
                 request = Req,
                 response = Resp,
-                expires = Expires
-            };
-        #dialog_subscription{} = Subs ->
-            Subs#dialog_subscription{
-                class = uac,
-                request = Req,
-                response = Resp,
-                expires = Expires
-            }
-    end,
-    subs_update(neutral, Subs1, Dialog, Call);
+                expires = Expires1
+            },
+            case Expires1 of
+                0 -> event_update({terminated, timeout}, Event1, Dialog, Call);
+                _ -> event_update(neutral, Event1, Dialog, Call)
+            end
+    end;
 
 do_response('SUBSCRIBE', Code, _Req, Resp, Dialog, Call) 
             when Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
                  Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
                  Code==604 ->
     #sipmsg{event=EventId} = Resp,
-    case find_subs(EventId, Dialog) of
+    case find_event(EventId, Dialog) of
         not_found ->
             Dialog;
-        #dialog_subscription{} = Subs ->
-            subs_update({terminated, Code}, Subs, Dialog, Call)
+        #dialog_event{} = Event ->
+            event_update({terminated, Code}, Event, Dialog, Call)
     end;
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
     #sipmsg{event=EventId} = Resp,
-    {Status1, Expires} = nksip_call_dialog:notify_status(Resp),
-    Subs1 = case find_subs(EventId, Dialog) of
+    {Status1, Expires} = nksip_parse:notify_status(Resp),
+    case find_event(EventId, Dialog) of
         not_found ->
-            #dialog_subscription{
-                id = EventId, 
-                class = uac,
-                request = Req,
-                response = Resp,
-                expires = Expires
-            };
-        #dialog_subscription{}=Subs ->
-            Subs#dialog_subscription{
+            #dialog{events=Events} = Dialog,
+            Dialog1 = Dialog#dialog{events=[#dialog_event{id=EventId}|Events]},
+            do_response('NOTIFY', Code, Req, Resp, Dialog1, Call);
+        #dialog_event{}=Event ->
+            Expires1 = case is_integer(Expires) andalso Expires>=0 of
+                true -> Expires; 
+                false -> ?DEFAULT_EVENT_EXPIRES
+            end,
+            Event1 = Event#dialog_event{
                 class = uac,
                 request = Req, 
                 response = Resp, 
-                expires = Expires
-            }
-    end,
-    subs_update(Status1, Subs1, Dialog, Call);
+                expires = Expires1
+            },
+            event_update(Status1, Event1, Dialog, Call)
+    end;
 
 do_response('NOTIFY', Code, _Req, Resp, Dialog, Call) 
             when Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
                  Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
                  Code==604 ->
     #sipmsg{event=EventId} = Resp,
-    case find_subs(EventId, Dialog) of
+    case find_event(EventId, Dialog) of
         not_found ->
             Dialog;
-        #dialog_subscription{} = Subs ->
-            subs_update({terminated, Code}, Subs, Dialog, Call)
+        #dialog_event{} = Event ->
+            event_update({terminated, Code}, Event, Dialog, Call)
     end;
 
 do_response(_, _Code, _Req, _Resp, Dialog, _Call) ->

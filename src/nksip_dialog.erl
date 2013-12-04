@@ -28,8 +28,8 @@
 -export([stop/2, bye_all/0, stop_all/0]).
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
 -export([remote_id/1]).
--export_type([id/0, event_id/0, stop_reason/0, spec/0, invite_status/0, field/0]).
--export_type([subscription_reason/0, subscription_status/0]).
+-export_type([id/0, stop_reason/0, spec/0, invite_status/0, field/0]).
+-export_type([event_id/0, event_status/0, event_terminated_reason/0]).
 
 -include("nksip.hrl").
 
@@ -48,7 +48,7 @@
 -type stop_reason() :: 
     nksip:response_code() | caller_bye | callee_bye | forced |
     busy | cancelled | service_unavailable | declined | timeout |
-    ack_timeout | no_subscriptions.
+    ack_timeout | no_events.
 
 %% All the ways to specify a dialog
 -type spec() :: id() | nksip_request:id() | nksip_response:id().
@@ -68,13 +68,13 @@
     confirmed | bye.
 
 
--type subscription_reason() :: 
+-type event_terminated_reason() :: 
     deacivated | probation | rejected | timeout |
     giveup | noresource | invariant | binary().
 
-%% All dialog subscription states
--type subscription_status() :: 
-    neutral | active | pending | {terminated, subscription_reason()} | binary().
+%% All dialog event states
+-type event_status() :: 
+    neutral | active | pending | {terminated, event_terminated_reason()} | binary().
 
 
 
@@ -447,7 +447,7 @@ get_all_data() ->
                         } ->
                             {invite, {InvStatus, LSDP, RSDP}};
                         undefined ->
-                            {subscriptions, Dialog#dialog.subscriptions}
+                            {events, Dialog#dialog.events}
                    end
                 ]},
                 [Data|Acc];

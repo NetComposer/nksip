@@ -35,7 +35,7 @@
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
-
+-define(DEFAULT_EVENT_EXPIRES, 60).
 
 -define(debug(AppId, Txt, Opts), 
         % ok).
@@ -213,9 +213,9 @@
 }).
 
 
--record(dialog_subscription, {
+-record(dialog_event, {
     id :: nksip_dialog:event_id(),
-    status :: nksip_dialog:subscription_status(),
+    status :: nksip_dialog:event_status(),
     class :: uac | uas,
     answered :: nksip_lib:timestamp(),
     request :: nksip:request(),
@@ -243,7 +243,7 @@
     caller_tag :: nksip:tag(),
     % stop_reason :: nksip_dialog:stop_reason(),
     invite :: #dialog_invite{} | undefined,
-    subscriptions = [] :: [#dialog_subscription{}]
+    events = [] :: [#dialog_event{}]
 }).
 
 

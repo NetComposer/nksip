@@ -38,7 +38,7 @@
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq | invalid_content_type |
-             invalid_require | invalid_accept.
+             invalid_require | invalid_accept | invalid_event.
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
     FullOpts = Opts++AppOpts,
@@ -199,6 +199,17 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             Exp when is_integer(Exp), Exp>=0 -> Exp;
             _ -> undefined
         end,
+        Event = case nksip_lib:get_value(event, Opts) of
+            undefined ->
+                undefined;
+            EventData ->
+                case nksip_parse:tokens(EventData) of
+                    [{EventToken, EventOpts}] ->
+                        {EventToken, nksip_lib:get_value(<<"id">>, EventOpts)};
+                    _ ->
+                        throw(invalid_event)
+                end
+        end,
         RUri1 = nksip_parse:uri2ruri(RUri),
         Req = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
@@ -219,6 +230,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             content_type = ContentType,
             require = Require,
             supported = Supported,
+            event = Event,
             body = Body,
             from_tag = FromTag,
             to_tag = nksip_lib:get_binary(<<"tag">>, To#uri.ext_opts),

@@ -251,8 +251,8 @@
 -type error() :: 
     invalid_uri | invalid_from | invalid_to | invalid_route |
     invalid_contact | invalid_cseq | invalid_content_type | invalid_require |
-    invalid_accept |
-    unknown_dialog | unknown_subscription | request_pending | network_error | 
+    invalid_accept | invalid_event |
+    unknown_dialog | unknown_event | request_pending | network_error | 
     nksip_call_router:sync_error().
 
 -type cancel_error() :: 
@@ -599,24 +599,18 @@ refresh(AppId, DialogSpec, Opts) ->
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
-%%          <td>`event_package'</td>
+%%          <td>`event'</td>
 %%          <td>`binary()'</td>
 %%          <td></td>
 %%          <td>If generates the mandatory "Event" header including this
-%%          event package"</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`event_id'</td>
-%%          <td>`binary()'</td>
-%%          <td></td>
-%%          <td>Adds an "id" parameter to the Event header</td>
+%%          event package, like `{event "MyEvent}' or `{event, "MyEvent;id=first"}'</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`expires'</td>
 %%          <td>`integer()'</td>
 %%          <td></td>
 %%          <td>If included, it will generate a `Expires' header, meaning the
-%%          remove the subscription.</td>
+%%          time before removing the subscription if no refresh is received.</td>
 %%      </tr>
 %% </table>
 %%
@@ -661,21 +655,15 @@ subscribe(AppId, Dest, Opts) ->
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
-%%          <td>`event_package'</td>
+%%          <td>`event'</td>
 %%          <td>`binary()'</td>
 %%          <td></td>
 %%          <td>If generates the mandatory "Event" header including this
-%%          event package"</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`event_id'</td>
-%%          <td>`binary()'</td>
-%%          <td></td>
-%%          <td>Adds an "id" parameter to the Event header</td>
+%%          event package, like `{event "MyEvent}' or `{event, "MyEvent;id=first"}'</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`state'</td>
-%%          <td><code>active | pending | {terminated, {@link notify_reason()}}</code></td>
+%%          <td><code>active | pending | {terminated, {@link nksip_dialog:event_terminated_reason()}}</code></td>
 %%          <td>`active'</td>
 %%          <td>Generates the mandatory <i>Subscription-State</i> header (see bellow)</td>
 %%      </tr>
@@ -721,15 +709,6 @@ subscribe(AppId, Dest, Opts) ->
     result() | {error, error()}.
 
 notify(AppId, DialogSpec, Opts) ->
-    Event = case nksip_lib:get_binary(event_package, Opts) of
-        <<>> ->
-            <<>>;
-        Token ->
-            case nksip_lib:get_binary(event_id, Opts) of
-                <<>> -> Token;
-                Id -> <<Token/binary, ";id=", Id/binary>>
-            end
-    end,
     Expires = nksip_lib:get_value_bin(expires, Opts),
     State = case nksip_lib:get_value(state, Opts, active) of
         active when Expires == <<>> -> 
@@ -757,11 +736,9 @@ notify(AppId, DialogSpec, Opts) ->
         Other ->
             nksip_lib:to_binary(Other)
     end,
-    Opts1 = case Event of
-        <<>> -> Opts;
-        _ -> [{pre_headers, [{<<"Subscription-State">>, State}]}]
-    end,
-    send_dialog(AppId, 'NOTIFY', DialogSpec, Opts1).
+    Opts1 = [{pre_headers, [{<<"Subscription-State">>, State}]}],
+    Opts2 = lists:keydelete(expires, 1, Opts1),
+    send_dialog(AppId, 'NOTIFY', DialogSpec, Opts2).
 
 
 

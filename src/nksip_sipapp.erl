@@ -551,6 +551,10 @@ update(_ReqId, _From, State) ->
 %% If you reply a 2xx response like `ok'  or `accepted', a dialog and a subscription
 %% will start, and you must inmeditaly send a NOTIFY using nksip_uac:notify/3.
 %%
+%% You can use the option `{expires, integer()}' to override the expires present
+%% in the request, but the new value must be lower, or even 0 to cancel the
+%% subscription
+%%
 -spec subscribe(ReqId::nksip_request:id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 

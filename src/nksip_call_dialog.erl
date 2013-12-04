@@ -25,8 +25,8 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/4, invite_update/3, subs_update/4, stop/3]).
--export([find/2, store/2, find_subs/2, notify_status/1, timer/3]).
+-export([create/4, invite_update/3, event_update/4, stop/3]).
+-export([find/2, store/2, find_event/2, timer/3]).
 -export_type([sdp_offer/0]).
 
 -define(DEFAULT_EXPIRES, 60).
@@ -72,7 +72,7 @@ create(Class, Req, Resp, Call) ->
         early = true,
         caller_tag = FromTag,
         invite = undefined,
-        subscriptions = []
+        events = []
     },
     cast(dialog_update, start, Dialog, Call),
     case Class of 
@@ -351,12 +351,12 @@ session_update(Dialog, _Call) ->
 
 
 %% @private
--spec subs_update(nksip_dialog:subscription_status(), #dialog_subscription{}, 
+-spec event_update(nksip_dialog:event_status(), #dialog_event{}, 
                           nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
-subs_update(Status, Subs, Dialog, Call) ->
-    #dialog_subscription{
+event_update(Status, Event, Dialog, Call) ->
+    #dialog_event{
         id = EventId, 
         status = OldStatus,
         class = Class,
@@ -365,44 +365,48 @@ subs_update(Status, Subs, Dialog, Call) ->
         response = Resp,
         expires = Expires,
         timer = OldTimer
-    } = Subs,
+    } = Event,
     #dialog{id=DialogId, app_id=AppId, call_id=CallId} = Dialog,
     cancel_timer(OldTimer),
     case Status==OldStatus of
         true -> 
             ok;
         false -> 
-            ?debug(AppId, CallId, "Dialog ~s subscription ~p ~p -> ~p", 
+            ?debug(AppId, CallId, "Dialog ~s event ~p ~p -> ~p", 
                    [DialogId, EventId, OldStatus, Status]),
-            Notice = {subscription_status, Status, EventId},
-            cast(subscription_update, Notice, Dialog, Call)
+            Notice = {event_status, Status, nksip_unparse:event(EventId)},
+            cast(dialog_update, Notice, Dialog, Call)
     end,
     case Status of
         neutral ->
             #call{opts=#call_opts{timer_t1=T1}} = Call,
-            Subs1 = Subs#dialog_subscription{
+            Event1 = Event#dialog_event{
                 status = neutral,
-                timer = start_timer(64*T1, {sub_expire, EventId}, Dialog)
+                timer = start_timer(64*T1, {event_timeout, EventId}, Dialog)
             },
             Dialog1 = route_update(Class, Req, Resp, is_integer(Answered), Dialog),
             Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
-            store_subs(Subs1, Dialog2, Call);
+            store_event(Event1, Dialog2, Call);
         _ when Status==active; Status==pending ->
-            Subs1 = Subs#dialog_subscription{
+            Answered1 = case Answered of
+                undefined -> nksip_lib:timestamp();
+                _ -> Answered
+            end,
+            Event1 = Event#dialog_event{
                 status = Status,
-                answered = true,
-                timer = start_timer(Expires, {sub_timeout, EventId}, Dialog)
+                answered = Answered1,
+                timer = start_timer(1000*Expires, {event_timeout, EventId}, Dialog)
             },
             Dialog1 = route_update(Class, Req, Resp, is_integer(Answered), Dialog),
             Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
-            store_subs(Subs1, Dialog2, Call);
+            store_event(Event1, Dialog2, Call);
         {terminated, Reason} ->
             ?debug(AppId, CallId, "Dialog ~s subs ~p (~p) stopped: ~p", 
                    [DialogId, EventId, OldStatus, Reason]),
-            Subs1 = Subs#dialog_subscription{status=Status},
-            store_subs(Subs1, Dialog, Call);
+            Event1 = Event#dialog_event{status=Status},
+            store_event(Event1, Dialog, Call);
         _ ->
-            subs_update({terminated, Status}, Subs, Dialog, Call)
+            event_update({terminated, Status}, Event, Dialog, Call)
     end.
 
 
@@ -410,11 +414,11 @@ subs_update(Status, Subs, Dialog, Call) ->
 -spec stop(term(), nksip:dialog(), nksip_call:call()) ->
     nksip:dialog(). 
 
-stop(Reason, #dialog{subscriptions=Subscriptions}=Dialog, Call) ->
+stop(Reason, #dialog{events=Events}=Dialog, Call) ->
     Dialog1 = lists:foldl(
-        fun(Subs, D) -> subs_update({terminated, noresource}, Subs, D, Call) end,
+        fun(Event, D) -> event_update({terminated, noresource}, Event, D, Call) end,
         Dialog,
-        Subscriptions),
+        Events),
     invite_update({stop, reason(Reason)}, Dialog1, Call).
 
 
@@ -466,10 +470,22 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
             Dialog1 = invite_update({stop, Reason}, Dialog, Call),
             store(Dialog1, Call);
         _ ->
-            ?call_notice("Dialog ~s timeout timer fired with no INVITE", 
+            ?call_notice("Dialog ~s unknown INVITE timeout timer", 
                          [DialogId], Call),
             Call
+    end;
+
+timer({event_timeout, EventId}, #dialog{id=DialogId}=Dialog, Call) ->
+    case find_event(EventId, Dialog) of
+        #dialog_event{} = Event ->
+            Dialog1 = event_update({terminated, timeout}, Event, Dialog, Call),
+            store(Dialog1, Call);
+        not_found ->
+            ?call_notice("Dialog ~s unknown EVENT ~p timeout timer", 
+                         [DialogId, EventId], Call),
+            Call
     end.
+
 
 
 
@@ -500,12 +516,12 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
     nksip:call().
 
 store(Dialog, #call{dialogs=Dialogs}=Call) ->
-    #dialog{id=Id, invite=Invite, subscriptions=Subs} = Dialog,
+    #dialog{id=Id, invite=Invite, events=Events} = Dialog,
     case Dialogs of
         [#dialog{id=Id}|Rest] -> IsFirst = true;
         _ -> Rest=[], IsFirst = false
     end,
-    case Invite==undefined andalso Subs==[] of
+    case Invite==undefined andalso Events==[] of
         true ->
             cast(dialog_update, stop, Dialog, Call),
             Dialogs1 = case IsFirst of
@@ -526,87 +542,45 @@ store(Dialog, #call{dialogs=Dialogs}=Call) ->
     end.
 
 
-%% @private Finds a subscription
--spec find_subs(nksip_dialog:event_id(), nksip:dialog()) ->
-    #dialog_subscription{} | not_found.
+%% @private Finds a event
+-spec find_event(nksip_dialog:event_id(), nksip:dialog()) ->
+    #dialog_event{} | not_found.
 
-find_subs(EventId, #dialog{subscriptions=Subs}) ->
-    do_find_subs(EventId, Subs).
+find_event(EventId, #dialog{events=Events}) ->
+    do_find_event(EventId, Events).
 
 
 %% @private 
-do_find_subs(_EventId, []) -> not_found;
-do_find_subs(EventId, [#dialog_subscription{id=EventId}=Subs|_]) -> Subs;
-do_find_subs(EventId, [_|Rest]) -> do_find_subs(EventId, Rest).
+do_find_event(_EventId, []) -> not_found;
+do_find_event(EventId, [#dialog_event{id=EventId}=Event|_]) -> Event;
+do_find_event(EventId, [_|Rest]) -> do_find_event(EventId, Rest).
 
 
-%% @private Updates an updated subscription into dialog
--spec store_subs(#dialog_subscription{}, nksip:dialog(), nksip_call:call()) ->
+%% @private Updates an updated event into dialog
+-spec store_event(#dialog_event{}, nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
-store_subs(Subs, Dialog, Call) ->
-    #dialog_subscription{id=Id, status=Status} = Subs,
-    #dialog{subscriptions=AllSubs} = Dialog,
-    case AllSubs of
-        [#dialog_subscription{id=Id}|Rest] -> IsFirst = true;
+store_event(Event, Dialog, Call) ->
+    #dialog_event{id=Id, status=Status} = Event,
+    #dialog{events=Events} = Dialog,
+    case Events of
+        [#dialog_event{id=Id}|Rest] -> IsFirst = true;
         _ -> Rest = [], IsFirst = false
     end,
-    AllSubs1 = case Status of
+    Events1 = case Status of
         {terminated, Reason} ->
-            cast(subscription_update, {stop, Reason, Id}, Dialog, Call),
+            CastId = nksip_unparse:event(Id),
+            cast(dialog_update, {event_update, {stop, Reason, CastId}}, Dialog, Call),
             case IsFirst of
                 true -> Rest;
-                false -> lists:keydelete(Id, #dialog_subscription.id, AllSubs)
+                false -> lists:keydelete(Id, #dialog_event.id, Events)
             end;
         _ when IsFirst -> 
-            [Subs|Rest];
+            [Event|Rest];
         _ -> 
-            lists:keystore(Id, #dialog_subscription.id, Subs, AllSubs)
+            lists:keystore(Id, #dialog_event.id, Event, Events)
     end,
-    Dialog#dialog{subscriptions=AllSubs1}.
-
-
-%% @private
--spec notify_status(nksip:sipmsg()) ->
-    {nksip_dialog:subscription_status(), undefined | integer()}.
-
-notify_status(SipMsg) ->
-    case nksip_sipmsg:header(SipMsg, <<"Subscription-State">>, tokens) of
-        [{Status0, Opts0}] ->
-            case nksip_lib:get_list(<<"expires">>, Opts0) of
-                "" -> 
-                    Expires = undefined;
-                Expires0 ->
-                    case catch list_to_integer(Expires0) of
-                        Expires when is_integer(Expires) -> Expires;
-                        _ -> Expires = undefined
-                    end
-            end,
-            case Status0 of
-                <<"active">> -> 
-                    {active, Expires};
-                <<"pending">> -> 
-                    {pending, Expires};
-                <<"terminated">> ->
-                    case nksip_lib:get_value(<<"reason">>, Opts0) of
-                        undefined -> 
-                            {{terminated, undefined}, undefined};
-                        Reason0 ->
-                            case catch 
-                                binary_to_existing_atom(Reason0, latin1) 
-                            of
-                                {'EXIT', _} -> {{terminated, undefined}, undefined};
-                                Reason -> {{terminated, Reason}, undefined}
-                            end
-                    end;
-                _ ->
-                    {Status0, Expires}
-            end;
-        _ ->
-            {<<"undefined">>, undefined}
-    end.
-
-
+    Dialog#dialog{events=Events1}.
 
 
 %% @private
