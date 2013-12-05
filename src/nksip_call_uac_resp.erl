@@ -445,7 +445,7 @@ send_prack(Resp, Id, DialogId, Call) ->
             _ -> throw(rseq_out_of_order)
         end,
         case nksip_call_dialog:find(DialogId, Call) of
-            #dialog{invite=#dialog_invite{sdp_offer={remote, invite, RemoteSDP}}} -> ok;
+            #dialog{invite=#invite{sdp_offer={remote, invite, RemoteSDP}}} -> ok;
             _ -> RemoteSDP = <<>>
         end,
         Body = case nksip_lib:get_value(prack, UACOpts) of

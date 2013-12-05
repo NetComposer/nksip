@@ -152,7 +152,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         headers = ReqHeaders, 
         to_tag_candidate = ToTagCandidate,
         require = ReqRequire,
-        supported = ReqSupported
+        supported = ReqSupported,
+        expires = ReqExpires
     } = Req, 
     Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
         true ->
@@ -315,12 +316,14 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     end,
     Expires = case nksip_lib:get_value(expires, Opts) of
         OptExpires when is_integer(OptExpires), OptExpires>=0 -> 
-            OptExpires;
-        _ when Method=='SUBSCRIBE', Code>=200, Code<300 -> 
-            case Req#sipmsg.expires of
-                ReqExpires when is_integer(ReqExpires), ReqExpires>=0 -> ReqExpires;
-                _ -> ?DEFAULT_EVENT_EXPIRES
+            case Method of 
+                'SUBSCRIBE' when is_integer(ReqExpires), Code>=200, Code<300 -> 
+                    min(ReqExpires, OptExpires);
+               _ ->
+                    OptExpires
             end;
+        _ when Method=='SUBSCRIBE', is_integer(ReqExpires), Code>=200, Code<300 -> 
+            ReqExpires;
         _ ->
             undefined
     end,

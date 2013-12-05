@@ -64,7 +64,7 @@
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
--export_type([dialog/0, token/0]).
+-export_type([dialog/0, event/0, token/0]).
 
 
 
@@ -130,6 +130,9 @@
 
 %% Dialog
 -type dialog() :: #dialog{}.
+
+%% Dialog
+-type event() :: #event{}.
 
 %% Token
 -type token() :: {Name::binary(), [Key::binary() | {Key::binary(), Value::binary()}]}.
@@ -278,7 +281,7 @@
 %%          "my_token1;opt1, mytoken2, 100rel".</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`supported_event_packeges'</td>
+%%          <td>`supported_event'</td>
 %%          <td>string()|binary()</td>
 %%          <td>""</td>
 %%          <td>Lists the Event Packages this SipApp supports.</td>
@@ -430,13 +433,13 @@ start(AppId, Module, Args, Opts) ->
                         Accept -> {accept, Accept}
                     end
             end,
-            case nksip_lib:get_value(event_packages, Opts) of
+            case nksip_lib:get_value(supported_events, Opts) of
                 undefined -> 
                     [];
                 PkgList ->
                     case nksip_parse:tokens(PkgList) of
                         error -> throw(invalid_event_packages);
-                        Events -> {events, [T||{T, []}<-Events]}
+                        Events -> {supported_events, [T||{T, _}<-Events]}
                     end
             end
         ],

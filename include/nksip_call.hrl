@@ -107,7 +107,7 @@
 }).
 
 
--type auth() :: {
+-type call_auth() :: {
     nksip_dialog:id(), 
     nksip:protocol(), 
     inet:ip_address(), 
@@ -131,8 +131,9 @@
     trans = [] :: [#trans{}],
     forks = [] :: [#fork{}],
     dialogs = [] :: [#dialog{}],
-    auths = [] :: [auth()],
-    msgs = [] :: [call_msg()]
+    auths = [] :: [call_auth()],
+    msgs = [] :: [call_msg()],
+    events = [] :: [nksip:event()]
 }).
 
 

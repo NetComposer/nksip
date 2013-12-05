@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([uri/1, uri2proplist/1, via/1, tokens/1, event/1, packet/1, raw_packet/3]).
+-export([uri/1, uri2proplist/1, via/1, tokens/1, packet/1, raw_packet/3]).
 
 
 %% ===================================================================
@@ -89,21 +89,8 @@ via(#via{}=Via) ->
 -spec tokens([nksip:token()]) ->
     binary().
 
-tokens(Tokens) ->
+tokens(Tokens) when is_list(Tokens) ->
     list_to_binary(raw_tokens(Tokens)).
-
-
-%% @doc Serializes a {@nksip_dialog:event}
--spec event(nksip_dialog:event_id()) ->
-    binary().
-
-event(Event) ->
-    case Event of
-        {EventToken, <<>>} -> EventToken;
-        {EventToken, EventId} -> <<EventToken/binary, ";id=", EventId/binary>>;
-        undefined -> <<>>
-    end.
-
 
 
 %% ===================================================================
@@ -314,7 +301,7 @@ serialize(#sipmsg{
         end,
         case Event of
             undefined -> [];
-            _ -> {<<"Event">>, event(Event)}
+            _ -> {<<"Event">>, raw_tokens(Event)}
         end,
         Headers
     ],
@@ -381,7 +368,7 @@ response_phrase(Code) ->
         603 -> <<"Decline">>;
         604 -> <<"Does Not Exist Anywhere">>;
         606 -> <<"Not Acceptable">>;
-        _ -> <<"Unknown Code">>
+        _   -> <<"Unknown Code">>
     end.
 
 %% @private

@@ -83,7 +83,7 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Reply = case Error of
         network_error -> service_unavailable;
         unknown_dialog -> no_transaction;
-        unknown_event -> no_transaction;
+        bad_event -> bad_event;
         request_pending -> request_pending;
         _ -> {internal, <<"Proxy UAC Error ", (nksip_lib:to_binary(Error))/binary>>}
     end,

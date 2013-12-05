@@ -482,10 +482,8 @@ get_sipmsg(Class, Headers, Body, Proto) ->
     Event = case Method=='SUBSCRIBE' orelse Method=='NOTIFY' of
         true ->
             case tokens(all_values(<<"Event">>, Headers)) of
-                [{EventToken, EventOpts}] ->
-                    {EventToken, nksip_lib:get_value(<<"id">>, EventOpts)};
-                _ ->
-                    throw({400, <<"Invalid Event">>})
+                [EventToken] -> EventToken;
+                _ -> throw({400, <<"Invalid Event">>})
             end;
         false ->
             undefined
@@ -539,6 +537,7 @@ get_sipmsg(Class, Headers, Body, Proto) ->
                 <<"Expires">> -> false;
                 <<"Require">> -> false;
                 <<"Supported">> -> false;
+                <<"Event">> -> false;
                 <<"Content-Type">> -> false;
                 <<"Content-Length">> -> false;
                 _ -> true

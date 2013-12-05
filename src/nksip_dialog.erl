@@ -223,8 +223,8 @@ field(AppId, DialogSpec, Field) ->
 
 field(D, Field) ->
     case D#dialog.invite of
-        #dialog_invite{} = I -> ok;
-        undefined -> I = #dialog_invite{}
+        #invite{} = I -> ok;
+        undefined -> I = #invite{}
     end,
     case Field of
         id -> D#dialog.id;
@@ -250,11 +250,11 @@ field(D, Field) ->
         from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
         to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
         
-        invite_answered -> I#dialog_invite.answered;
-        invite_status -> I#dialog_invite.status;
-        invite_local_sdp -> I#dialog_invite.local_sdp;
-        invite_remote_sdp -> I#dialog_invite.remote_sdp;
-        invite_timeout -> round(erlang:read_timer(I#dialog_invite.timeout_timer)/1000);
+        invite_answered -> I#invite.answered;
+        invite_status -> I#invite.status;
+        invite_local_sdp -> I#invite.local_sdp;
+        invite_remote_sdp -> I#invite.remote_sdp;
+        invite_timeout -> round(erlang:read_timer(I#invite.timeout_timer)/1000);
 
         _ -> invalid_field 
     end.
@@ -440,7 +440,7 @@ get_all_data() ->
                         [nksip_unparse:uri(Route) || Route <- Dialog#dialog.route_set]},
                     {early, Dialog#dialog.early},
                     case Dialog#dialog.invite of
-                        #dialog_invite{
+                        #invite{
                             status = InvStatus, 
                             local_sdp = LSDP, 
                             remote_sdp = RSDP
