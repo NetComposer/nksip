@@ -319,8 +319,7 @@ work({stop_dialog, DialogId}, From, Call) ->
     case get_dialog(DialogId, Call) of
         {ok, Dialog} ->
             gen_fsm:reply(From, ok),
-            Dialog1 = nksip_call_dialog:stop(forced, Dialog, Call),
-            nksip_call_dialog:store(Dialog1, Call);
+            nksip_call_dialog:stop(forced, Dialog, Call);
         not_found ->
             gen_fsm:reply(From, {error, unknown_dialog}),
             Call
@@ -377,7 +376,7 @@ work(info, From, Call) ->
     InfoDialog = lists:map(
         fun(#dialog{id=Id, invite=Invite}) ->
             case Invite of
-                #dialog_invite{status=Status, timeout_timer=Timer} -> ok;
+                #invite{status=Status, timeout_timer=Timer} -> ok;
                 _ -> Status = Timer = undefined
             end,
             T = case Timer of
@@ -440,6 +439,15 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
             nksip_call_dialog:timer(Tag, Dialog, Call);
         false ->
             ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id], Call),
+            Call
+    end;
+
+timeout({event, Tag, Id}, _Ref, #call{events=Events}=Call) ->
+    case lists:keyfind(Id, #event.id, Events) of
+        #event{} = Event -> 
+            nksip_call_event:timer(Tag, Event, Call);
+        false ->
+            ?call_warning("Call ignoring event timer (~p, ~p)", [Tag, Id], Call),
             Call
     end;
 

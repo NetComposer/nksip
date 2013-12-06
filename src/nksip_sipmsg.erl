@@ -88,7 +88,8 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         dialog_id -> S#sipmsg.dialog_id;
         expires -> case S#sipmsg.expires of undefined -> <<>>; Exp -> Exp end;
         parsed_expires -> S#sipmsg.expires;
-        event -> nksip_unparse:event(S#sipmsg.event);
+        event -> 
+            case S#sipmsg.event of undefined -> <<>>; E -> nksip_unparse:tokens(E) end;
         parsed_event -> S#sipmsg.event;
         all_headers -> all_headers(S);
         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;

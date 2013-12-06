@@ -156,7 +156,7 @@
     require = [] :: [nksip:token()],
     supported = [] :: [nksip:token()],
     expires :: non_neg_integer(),
-    event :: nksip_dialog:event_id(),
+    event :: nksip:token(),
     headers = [] :: [nksip:header()],
     body :: nksip:body(),
     from_tag :: nksip:tag(),
@@ -195,7 +195,7 @@
 }).
 
 
--record(dialog_invite, {
+-record(invite, {
     status :: nksip_dialog:invite_status(),
     answered :: nksip_lib:timestamp(),
     class :: uac | uas,
@@ -213,18 +213,6 @@
 }).
 
 
--record(dialog_event, {
-    id :: nksip_dialog:event_id(),
-    status :: nksip_dialog:event_status(),
-    class :: uac | uas,
-    answered :: nksip_lib:timestamp(),
-    request :: nksip:request(),
-    response :: nksip:response(),
-    expires :: integer(),
-    timer :: reference()
-}).
-
-
 -record(dialog, {
     id :: nksip_dialog:id(),
     app_id :: nksip:app_id(),
@@ -238,12 +226,24 @@
     local_target :: nksip:uri(),        % Only for use in proxy
     remote_target :: nksip:uri(),
     route_set :: [nksip:uri()],
+    blocked_route_set :: boolean(),
     early :: boolean(),
     secure :: boolean(),
     caller_tag :: nksip:tag(),
-    % stop_reason :: nksip_dialog:stop_reason(),
-    invite :: #dialog_invite{} | undefined,
-    events = [] :: [#dialog_event{}]
+    invite :: #invite{},
+    events = [] :: [{binary(), binary()}]
+}).
+
+
+-record(event, {
+    id :: nksip_dialog:event_id(),
+    dialog_id :: nksip_dialog:id(),
+    tag :: nksip:tag(),
+    status :: nksip_dialog:event_status(),
+    class :: uac | uas,
+    answered :: nksip_lib:timestamp(),
+    expires :: integer(),
+    timer :: reference()
 }).
 
 

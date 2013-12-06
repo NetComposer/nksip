@@ -252,7 +252,7 @@
     invalid_uri | invalid_from | invalid_to | invalid_route |
     invalid_contact | invalid_cseq | invalid_content_type | invalid_require |
     invalid_accept | invalid_event |
-    unknown_dialog | unknown_event | request_pending | network_error | 
+    unknown_dialog | bad_event | request_pending | network_error | 
     nksip_call_router:sync_error().
 
 -type cancel_error() :: 
