@@ -39,6 +39,9 @@ sctp_test_() ->
                 ]
             };
         {error, eprotonosupport} ->
+            ?debugMsg("Skipping SCTP test (no Erlang support)"),
+            [];
+        {error, esocktnosupport} ->
             ?debugMsg("Skipping SCTP test (no OS support)"),
             []
     end.
