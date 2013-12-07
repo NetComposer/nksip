@@ -118,6 +118,9 @@ process('UPDATE', DialogId, UAS, Call) ->
         _ -> process_call(update, UAS, Call)
     end;
 
+process('SUBSCRIBE', _DialogId, UAS, Call) ->
+    process_call(subscribe, UAS, Call);
+
 process(_Method, _DialogId, UAS, Call) ->
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     Allowed = case lists:member(registrar, AppOpts) of

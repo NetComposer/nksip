@@ -281,7 +281,7 @@
 %%          "my_token1;opt1, mytoken2, 100rel".</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`supported_event'</td>
+%%          <td>`event'</td>
 %%          <td>string()|binary()</td>
 %%          <td>""</td>
 %%          <td>Lists the Event Packages this SipApp supports.</td>
@@ -299,7 +299,7 @@
 -spec start(app_id(), atom(), term(), nksip_lib:proplist()) -> 
 	ok | {error, Error} 
     when Error :: invalid_from | invalid_transport | invalid_register | invalid_route |
-                  invalid_supported | invalid_accept |
+                  invalid_supported | invalid_accept | invalid_event |
                   no_matching_tcp | could_not_start_udp | could_not_start_tcp |
                   could_not_start_tls | could_not_start_sctp.
 
@@ -433,13 +433,13 @@ start(AppId, Module, Args, Opts) ->
                         Accept -> {accept, Accept}
                     end
             end,
-            case nksip_lib:get_value(supported_events, Opts) of
-                undefined -> 
+            case proplists:get_all_values(event, Opts) of
+                [] -> 
                     [];
                 PkgList ->
                     case nksip_parse:tokens(PkgList) of
-                        error -> throw(invalid_event_packages);
-                        Events -> {supported_events, [T||{T, _}<-Events]}
+                        error -> throw(invalid_event);
+                        Events -> {event, [T||{T, _}<-Events]}
                     end
             end
         ],

@@ -124,8 +124,8 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             end,
             case lists:member(make_allow_event, FullOpts) of
                 true -> 
-                    case nksip_lib:get_value(events, AppOpts) of
-                        [] ->
+                    case nksip_lib:get_value(event, AppOpts) of
+                        undefined ->
                             [];
                         Events ->
                             AllowEvents = nksip_lib:bjoin(Events),
@@ -204,10 +204,8 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 undefined;
             EventData ->
                 case nksip_parse:tokens(EventData) of
-                    [{EventToken, EventOpts}] ->
-                        {EventToken, nksip_lib:get_value(<<"id">>, EventOpts)};
-                    _ ->
-                        throw(invalid_event)
+                    [EventToken] -> EventToken;
+                    _ -> throw(invalid_event)
                 end
         end,
         RUri1 = nksip_parse:uri2ruri(RUri),

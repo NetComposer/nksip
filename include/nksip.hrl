@@ -231,7 +231,7 @@
     secure :: boolean(),
     caller_tag :: nksip:tag(),
     invite :: #invite{},
-    events = [] :: [{binary(), binary()}]
+    events = [] :: [nksip_dialog:event_id()]
 }).
 
 
@@ -242,8 +242,10 @@
     status :: nksip_dialog:event_status(),
     class :: uac | uas,
     answered :: nksip_lib:timestamp(),
-    expires :: integer(),
-    timer :: reference()
+    % expires :: integer(),
+    timer_n :: reference(),
+    timer_expire :: reference(),
+    timer_middle :: reference()
 }).
 
 

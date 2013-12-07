@@ -90,8 +90,7 @@ pre_request(Req, Call) ->
 
 
 request(#sipmsg{class={req, 'SUBSCRIBE'}, to_tag=(<<>>)}=Req, Call) ->
-    {ok, Call1} = nksip_call_event:uac_request(Req, Call),
-    Call1;
+    nksip_call_event:uac_request(Req, Call);
 
 request(#sipmsg{to_tag = <<>>}, Call) ->
     Call;
@@ -161,11 +160,13 @@ do_request('UPDATE', Req, #dialog{invite=Invite}=Dialog, Call) ->
             update(none, Dialog, Call)
     end;    
 
-do_request('SUBSCRIBE', Req, _Dialog, Call) ->
-    nksip_call_event:uac_request(Req, Call);
+do_request('SUBSCRIBE', Req, Dialog, Call) ->
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uac_request(Req, Call1);
         
-do_request('NOTIFY', Req, _Dialog, Call) ->
-    nksip_call_event:uac_request(Req, Call);
+do_request('NOTIFY', Req, Dialog, Call) ->
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uac_request(Req, Call1);
 
 do_request(_Method, _Req, Dialog, Call) ->
     update(none, Dialog, Call).
@@ -175,9 +176,6 @@ do_request(_Method, _Req, Dialog, Call) ->
 -spec response(nksip:request(), nksip:response(), nksip_call:call()) ->
     nksip_call:call().
 
-response(_, #sipmsg{to_tag = <<>>}, Call) ->
-    Call;
-
 response(Req, Resp, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
@@ -185,20 +183,17 @@ response(Req, Resp, Call) ->
         #dialog{} = Dialog ->
             ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
             do_response(Method, Code, Req, Resp, Dialog, Call);
-        not_found 
-            when Code>100 andalso Code<300 andalso
-               (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
-                Method=='NOTIFY') ->
+        not_found when Code>100 andalso Code<300 andalso
+                       (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
+                        Method=='NOTIFY') ->
             Dialog1 = nksip_call_dialog:create(uac, Req, Resp, Call),
-            Dialog2 = case Method of
-                'INVITE' ->
-                    Invite = #invite{status=confirmed},
-                    Dialog1#dialog{invite=Invite};
-                _ ->
-                    Dialog1
-            end,
-            Call1 = do_request(Method, Req, Dialog2, Call),
-            response(Req, Resp, Call1);
+            Call1 = do_request(Method, Req, Dialog1, Call),
+            #dialog{} = Dialog2 = find(DialogId, Call1),
+            ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
+            do_response(Method, Code, Req, Resp, Dialog2, Call1);
+        not_found when Method=='SUBSCRIBE', Code>=300 ->
+            % A non-2xx response before we have created the dialog
+            nksip_call_event:uac_response(Req, Resp, Call);
         not_found ->
             Call
     end.
@@ -356,17 +351,19 @@ do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300
     Call1 = update({subscribe, uac, Req, Resp}, Dialog, Call),
     nksip_call_event:uac_response(Req, Resp, Call1);
         
-do_response('SUBSCRIBE', Code, Req, Resp, _Dialog, Call) when Code>=300 ->
+do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=300 ->
     % If subscription ends, it will call nksip_call_dialog:update/3, removing
     % the dialog if no other use
-    nksip_call_event:uac_response(Req, Resp, Call);
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uac_response(Req, Resp, Call1);
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
     Call1 = update({notify, uac, Req, Resp}, Dialog, Call),
     nksip_call_event:uac_response(Req, Resp, Call1);
 
-do_response('NOTIFY', Code, Req, Resp, _Dialog, Call) when Code>=300 ->
-    nksip_call_event:uac_response(Req, Resp, Call);
+do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=300 ->
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uac_response(Req, Resp, Call1);
 
 do_response(_, _Code, _Req, _Resp, Dialog, Call) ->
     update(none, Dialog, Call).

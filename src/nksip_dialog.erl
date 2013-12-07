@@ -42,7 +42,7 @@
 -type id() :: binary().
 
 %% SIP dialog Event ID
--type event_id() :: {Event::binary(), Id::binary()} | undefined.
+-type event_id() :: {Type::binary(), Id::binary()}.
 
 %% SIP Dialog stop reason
 -type stop_reason() :: 

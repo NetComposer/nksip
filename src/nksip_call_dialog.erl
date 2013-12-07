@@ -104,23 +104,19 @@ update({update, Class, Req, Resp}, Dialog, Call) ->
     Dialog2 = session_update(Dialog1, Call),
     store(Dialog2, Call);
 
-update({subscribe, Class, Req, Resp}, #dialog{events=Events}=Dialog, Call) ->
+update({subscribe, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = route_update(Class, Req, Resp, Dialog),
     Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
-    EventId = nksip_call_event:id(Req),
-    Dialog3 = case lists:member(EventId, Events) of
-        true -> Dialog2;
-        false -> Dialog2#dialog{events=[EventId|Events]}
-    end,
-    store(Dialog3, Call);
+    store(Dialog2, Call);
 
 update({notify, Class, Req, Resp}, Dialog, Call) ->
-    Dialog1 = update({subcribe, Class, Req, Resp}, Dialog, Call),
-    Dialog2 = case Dialog1#dialog.blocked_route_set of
-        true -> Dialog1;
-        false -> Dialog1#dialog{blocked_route_set=true}
+    Dialog1 = route_update(Class, Req, Resp, Dialog),
+    Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
+    Dialog3 = case Dialog2#dialog.blocked_route_set of
+        true -> Dialog2;
+        false -> Dialog2#dialog{blocked_route_set=true}
     end,
-    store(Dialog2, Call);
+    store(Dialog3, Call);
 
 update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{
@@ -175,7 +171,7 @@ update({invite, Status}, Dialog, Call) ->
     end,
     #call{opts=#call_opts{timer_t1=T1, max_dialog_time=Timeout}} = Call,
     {RetransTimer1, NextRetras1} = case Status of
-        accepted_uas -> {start_timer(T1, invite_retrans, Dialog), 2*T1};
+        accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
         _ -> {undefined, undefined}
     end,
     #dialog{invite=Invite1} = Dialog1,
@@ -183,7 +179,7 @@ update({invite, Status}, Dialog, Call) ->
         status = Status,
         retrans_timer = RetransTimer1,
         next_retrans = NextRetras1,
-        timeout_timer = start_timer(Timeout, invite_timeout, Dialog)
+        timeout_timer = start_timer(Timeout, invite_timeout, DialogId)
     },
     BlockedRouteSet1 = if
         Status==accepted_uac; Status==accepted_uas -> true;
@@ -392,7 +388,7 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                         {ok, _} ->
                             ?call_info("Dialog ~s resent response", [DialogId], Call),
                             Invite1 = Invite#invite{
-                                retrans_timer = start_timer(Next, invite_retrans, Dialog),
+                                retrans_timer = start_timer(Next, invite_retrans, DialogId),
                                 next_retrans = min(2*Next, T2)
                             },
                             store(Dialog#dialog{invite=Invite1}, Call);
@@ -519,9 +515,9 @@ cancel_timer(_) ->
 
 
 %% @private
--spec start_timer(integer(), atom(), nksip:dialog()) ->
+-spec start_timer(integer(), atom(), nksip_dialog:id()) ->
     reference().
 
-start_timer(Time, Tag, #dialog{id=Id}) ->
+start_timer(Time, Tag, Id) ->
     erlang:start_timer(Time , self(), {dlg, Tag, Id}).
 

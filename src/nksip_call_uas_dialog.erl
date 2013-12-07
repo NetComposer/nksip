@@ -52,7 +52,7 @@ request(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
 
 request(Req, Call) ->
     #sipmsg{class={req, Method}, cseq=CSeq, dialog_id=DialogId} = Req,
-    case nksip_call_dialog:find(DialogId, Call) of
+    case find(DialogId, Call) of
         #dialog{remote_seq=RemoteSeq}=Dialog ->
             ?call_debug("Dialog ~s UAS request ~p", [DialogId, Method], Call),
             case RemoteSeq>0 andalso CSeq<RemoteSeq of
@@ -149,11 +149,13 @@ do_request('UPDATE', Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
             {error, retry}
     end;
 
-do_request('SUBSCRIBE', Req, _Dialog, Call) ->
-    nksip_call_event:uas_request(Req, Call);
+do_request('SUBSCRIBE', Req, Dialog, Call) ->
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uas_request(Req, Call1);
         
-do_request('NOTIFY', Req, _Dialog, Call) ->
-    nksip_call_event:uas_request(Req, Call);
+do_request('NOTIFY', Req, Dialog, Call) ->
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uas_request(Req, Call1);
 
 do_request(_, _, Dialog, Call) ->
     {ok, update(none, Dialog, Call)}.
@@ -166,9 +168,10 @@ do_request(_, _, Dialog, Call) ->
 response(Req, Resp, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
-    case nksip_call_dialog:find(DialogId, Call) of
+    case find(DialogId, Call) of
         #dialog{}=Dialog ->
-            ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code], Call),
+            ?call_notice("Dialog ~s UAS ~p response ~p", 
+                         [DialogId, Method, Code], Call),
             do_response(Method, Code, Req, Resp, Dialog, Call);
         not_found
             when Code>100 andalso Code<300 andalso
@@ -176,7 +179,10 @@ response(Req, Resp, Call) ->
                 Method=='NOTIFY') ->
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
             {ok, Call1} = do_request(Method, Req, Dialog1, Call),
-            response(Req, Resp, Call1);
+            #dialog{} = Dialog2 = find(DialogId, Call1),
+            ?call_notice("Dialog ~s UAS ~p response ~p", 
+                        [DialogId, Method, Code], Call),
+            do_response(Method, Code, Req, Resp, Dialog2, Call1);
         not_found ->
             Call
     end.
@@ -333,17 +339,19 @@ do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300
     Call1 = update({subscribe, uas, Req, Resp}, Dialog, Call),
     nksip_call_event:uas_response(Req, Resp, Call1);
         
-do_response('SUBSCRIBE', Code, Req, Resp, _Dialog, Call) when Code>=300 ->
+do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=300 ->
     % If subscription ends, it will call nksip_call_dialog:update/3, removing
     % the dialog if no other use
-    nksip_call_event:uas_response(Req, Resp, Call);
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uas_response(Req, Resp, Call1);
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
     Call1 = update({notify, uas, Req, Resp}, Dialog, Call),
     nksip_call_event:uas_response(Req, Resp, Call1);
 
-do_response('NOTIFY', Code, Req, Resp, _Dialog, Call) when Code>=300 ->
-    nksip_call_event:uas_response(Req, Resp, Call);
+do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=300 ->
+    Call1 = update(none, Dialog, Call),
+    nksip_call_event:uas_response(Req, Resp, Call1);
 
 do_response(_, _, _, _, Dialog, Call) ->
     update(none, Dialog, Call).
@@ -355,7 +363,7 @@ do_response(_, _, _, _, Dialog, Call) ->
 
 ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
     #sipmsg{cseq=CSeq, dialog_id=DialogId} = AckReq,
-    case nksip_call_dialog:find(DialogId, Call) of
+    case find(DialogId, Call) of
         #dialog{invite=#invite{}=Invite}=Dialog ->
             #invite{status=Status, request=InvReq} = Invite,
             #sipmsg{cseq=InvSeq} = InvReq,
@@ -397,7 +405,7 @@ make(#sipmsg{cseq_method=Method, contacts=Contacts}=Resp, Opts, Call) ->
     DialogId = nksip_dialog:class_id(uas, Resp),
     case lists:member(make_contact, Opts) of
         false when Contacts==[] ->
-            case nksip_call_dialog:find(DialogId, Call) of
+            case find(DialogId, Call) of
                 #dialog{local_target=LTarget} ->
                     {
                         Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},

@@ -30,7 +30,7 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, uri2ruri/1, aors/1, uris/1, ruris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, transport/1, notify_status/1]).
+-export([tokens/1, integers/1, dates/1, transport/1]).
 -export([packet/3, raw_sipmsg/1]).
 
 -export_type([msg_class/0]).
@@ -182,48 +182,6 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
         _ -> nksip_transport:default_port(Proto)
     end,
     {Proto, Host, Port1}.
-
-
-%% @private
--spec notify_status(nksip:sipmsg()) ->
-    {nksip_dialog:event_status(), undefined | integer()}.
-
-notify_status(SipMsg) ->
-    case nksip_sipmsg:header(SipMsg, <<"Subscription-State">>, tokens) of
-        [{Status, Opts}] ->
-            case nksip_lib:get_list(<<"expires">>, Opts) of
-                "" -> 
-                    Expires = undefined;
-                Expires0 ->
-                    case catch list_to_integer(Expires0) of
-                        Expires when is_integer(Expires) -> Expires;
-                        _ -> Expires = undefined
-                    end
-            end,
-            case Status of
-                <<"active">> -> 
-                    {active, Expires};
-                <<"pending">> -> 
-                    {pending, Expires};
-                <<"terminated">> ->
-                    case nksip_lib:get_value(<<"reason">>, Opts) of
-                        undefined -> 
-                            {{terminated, undefined}, undefined};
-                        Reason0 ->
-                            case catch 
-                                binary_to_existing_atom(Reason0, latin1) 
-                            of
-                                {'EXIT', _} -> {{terminated, undefined}, undefined};
-                                Reason -> {{terminated, Reason}, undefined}
-                            end
-                    end;
-                _ ->
-                    {Status, Expires}
-            end;
-        _ ->
-            {<<"undefined">>, undefined}
-    end.
-
 
 
 

@@ -209,7 +209,7 @@ all_headers(SipMsg) ->
         end,
         case field(SipMsg, event) of
             <<>> -> [];
-            Event -> {<<"Expires">>, Event}
+            Event -> {<<"Event">>, Event}
         end,
         SipMsg#sipmsg.headers
     ]).

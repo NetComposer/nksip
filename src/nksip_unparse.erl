@@ -86,8 +86,11 @@ via(#via{}=Via) ->
 
 
 %% @doc Serializes a list of `token()'
--spec tokens([nksip:token()]) ->
+-spec tokens(nksip:token() | [nksip:token()]) ->
     binary().
+
+tokens({Token, Opts}) ->
+    tokens([{Token, Opts}]);
 
 tokens(Tokens) when is_list(Tokens) ->
     list_to_binary(raw_tokens(Tokens)).

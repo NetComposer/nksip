@@ -629,21 +629,9 @@ refresh(AppId, DialogSpec, Opts) ->
     result() | {error, error()}.
 
 subscribe(AppId, Dest, Opts) ->
-    Event = case nksip_lib:get_binary(event_package, Opts) of
-        <<>> ->
-            <<>>;
-        Token ->
-            case nksip_lib:get_binary(event_id, Opts) of
-                <<>> -> Token;
-                Id -> <<Token/binary, ";id=", Id/binary>>
-            end
-    end,
-    Opts1 = case Event of
-        <<>> -> Opts;
-        _ -> [{pre_headers, [{<<"Event">>, Event}]}]
-    end,
-    Opts2 = [make_supported, make_accept, make_allow, make_allow_events | Opts1],
-    send_any(AppId, 'SUBSCRIBE', Dest, Opts2).
+    % event and expires options are detected later
+    Opts1 = [make_supported, make_accept, make_allow, make_allow_event | Opts],
+    send_any(AppId, 'SUBSCRIBE', Dest, Opts1).
 
 
 %% @doc Sends an <i>NOTIFY</i> for a current dialog

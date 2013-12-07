@@ -65,7 +65,8 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                     Call1;
                 _ when Fun==invite; Fun==reinvite; Fun==bye; 
                        Fun==options; Fun==register; Fun==info;
-                       Fun==prack; Fun==update ->
+                       Fun==prack; Fun==update; Fun==subscribe;
+                       Fun==notify ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     {Resp, SendOpts} = nksip_reply:reply(Req, Reply, AppOpts),
                     #sipmsg{class={resp, Code, _Reason}} = Resp,
@@ -430,6 +431,10 @@ process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) -
                         <<>>, [{reason, <<"Processing Previous INVITE">>}]};
         old_cseq ->
             {internal, <<"Old CSeq in Dialog">>};
+        bad_event ->
+            bad_event;
+        no_transaction ->
+            no_transaction;
         _ ->
             ?call_info("UAS ~p ~p dialog request error: ~p", 
                         [Id, Method, Error], Call),
