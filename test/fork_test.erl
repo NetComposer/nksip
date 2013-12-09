@@ -220,10 +220,7 @@ basic() ->
     Body1 = {body, [{clientC3, 300}]},
     Fs = {fields, [<<"Nk-Id">>]},
     {ok, 300, Values1} = nksip_uac:invite({fork, client1}, QUri, [Body1, RepHd, Fs]),
-    [
-        {dialog_id, _},
-        {<<"Nk-Id">>, [<<"clientC3,serverR,server1">>]}
-    ] =Values1,
+    [{<<"Nk-Id">>, [<<"clientC3,serverR,server1">>]}] =Values1,
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 580},
                                 {clientA2, 580}, {clientB2, 580},
                                 {clientC3, 300}]),
@@ -231,19 +228,13 @@ basic() ->
     % The first 6xx response aborts everything at first iteration
     Body2 = {body, [{clientA1, 600}]},
     {ok, 600, Values2} = nksip_uac:invite({fork, client2}, QUri, [Body2, RepHd, Fs]),
-    [
-        {dialog_id, _},
-        {<<"Nk-Id">>, [<<"clientA1,serverR,server2">>]}
-    ] =Values2,
+    [{<<"Nk-Id">>, [<<"clientA1,serverR,server2">>]}] =Values2,
     ok = tests_util:wait(Ref, [{clientA1, 600}, {clientB1, 580}, {clientC1, 580}]),
 
     % Aborted in second iteration
     Body3 = {body, [{clientA1, 505}, {clientB2, 600}]},
     {ok, 600, Values3} = nksip_uac:invite({fork, client3}, QUri, [Body3, RepHd, Fs]),
-    [
-        {dialog_id, _},
-        {<<"Nk-Id">>, [<<"clientB2,serverR,server3">>]}
-    ] =Values3,
+    [{<<"Nk-Id">>, [<<"clientB2,serverR,server3">>]}] =Values3,
     ok = tests_util:wait(Ref, [{clientA1, 505}, {clientB1, 580}, {clientC1, 580},
                                {clientA2, 580}, {clientB2, 600}]),
     ok.
@@ -423,10 +414,7 @@ redirect() ->
     Body1 = {body, [{clientC1, {redirect, Contacts}}, {clientD2, 570}]},
     Fs = {fields, [<<"Contact">>]},
     {ok, 300, Values1} = nksip_uac:invite(CA1, QUri, [Body1, {headers, [RepHd]}, Fs]),
-    [
-        {dialog_id, _},
-        {<<"Contact">>, [C1, C2]}
-    ] = Values1,
+    [{<<"Contact">>, [C1, C2]}] = Values1,
     {match, [LPortD1]} = re:run(C1, <<"^<sip:127.0.0.1:(\\d+)>">>, 
                                 [{capture, all_but_first, list}]),
     LPortD1 = integer_to_list(PortD1),

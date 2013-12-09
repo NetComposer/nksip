@@ -112,9 +112,8 @@ uac() ->
     end,
 
     % Sync, callback for request and provisional response
-    {ok, 486, [{dialog_id, DlgId4}, {call_id, CallId4}, {id, RespId4}]} = 
+    {ok, 486, [{call_id, CallId4}, {id, RespId4}]} = 
         nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, {fields, [call_id, id]}]),
-    CallId4 = nksip_dialog:call_id(DlgId4),
     CallId4 = nksip_response:call_id(RespId4),
     DlgId4 = nksip_dialog:id(C2, RespId4),
     receive 
@@ -158,12 +157,12 @@ uac() ->
         after 500 -> 
             error(uac) 
     end,
-    Dialog6 = receive 
-        {Ref, {ok, 180, [{dialog_id, Dlg6A}]}} -> Dlg6A
+    receive 
+        {Ref, {ok, 180, [{dialog_id, _}]}} -> ok
         after 500 -> error(uac) 
     end,
-    Dialog6 = receive 
-        {Ref, {ok, 486, [{dialog_id, Dlg6B}]}} -> Dlg6B
+    receive 
+        {Ref, {ok, 486, []}} -> ok
         after 500 -> error(uac) 
     end,
     ok.
@@ -204,7 +203,7 @@ timeout() ->
     {ok, 408, [{reason, <<"Timer F Timeout">>}]} = 
         nksip_uac:options(C2, "sip:127.0.0.1:9999", [{fields, [reason]}]),
 
-    {ok, 408, [{dialog_id, _}, {reason, <<"Timer B Timeout">>}]} = 
+    {ok, 408, [{reason, <<"Timer B Timeout">>}]} = 
         nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{fields, [reason]}]),
 
     % REGISTER sends a provisional response, but the timeout is the same
@@ -214,7 +213,7 @@ timeout() ->
 
     % INVITE sends 
     Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}, {"Nk-Sleep", 20000}]},
-    {ok, 408, [{dialog_id, _}, {reason, Reason}]} = 
+    {ok, 408, [{reason, Reason}]} = 
         nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason]}]),
     
     % TODO: Should fire timer C, sometimes it fires timer B 

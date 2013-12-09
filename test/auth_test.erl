@@ -119,7 +119,7 @@ invite() ->
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
 
     % client3 does not support dialog's authentication, only digest is used
-    {ok, 401, [{dialog_id, _}, {cseq_num, CSeq}]} = 
+    {ok, 401, [{cseq_num, CSeq}]} = 
         nksip_uac:invite(C1, SipC3, [{fields, [cseq_num]}]),
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, SipC3, 
                                              [{pass, "abcd"}, {headers, [RepHd]}]),
@@ -212,7 +212,7 @@ proxy() ->
     % The request is authorized at server1 (registered) but not server server2
     % (server1 will proxy to server2)
     Route = {route, "<sip:127.0.0.1;lr>"},
-    {ok, 407, [{dialog_id, _}, {realms, [<<"server2">>]}]} = 
+    {ok, 407, [{realms, [<<"server2">>]}]} = 
         nksip_uac:invite(C1, "sip:client2@nksip", [Route, {fields, [realms]}]),
 
     % Now the request reaches client2, and it is not authorized there. 

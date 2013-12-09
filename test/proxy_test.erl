@@ -315,9 +315,9 @@ invite(Test) ->
     RespFun = fun({ok, Code, _}) -> Self ! {Ref, Code} end,
 
     % Provisional 180 and Busy
-    {ok, 486, [{dialog_id, _}]} = nksip_uac:invite(C1, "sip:client2@nksip", 
-                                         [{headers, [{"Nk-Op", busy}, {"Nk-Prov", true}]},
-                                          {callback, RespFun}]),
+    {ok, 486, []} = nksip_uac:invite(C1, "sip:client2@nksip", 
+                                     [{headers, [{"Nk-Op", busy}, {"Nk-Prov", true}]},
+                                      {callback, RespFun}]),
     ok = tests_util:wait(Ref, [180]),
 
     % Provisional 180 and 200
