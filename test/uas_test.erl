@@ -194,7 +194,7 @@ timeout() ->
         nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason]}]),
 
     Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Sleep", 2000}]},
-    {ok, 408, [{dialog_id, _}, {reason, <<"Timer C Timeout">>}]} = 
+    {ok, 408, [{reason, <<"Timer C Timeout">>}]} = 
         nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason]}]),
     ok.
 

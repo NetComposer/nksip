@@ -227,16 +227,14 @@
     {prack, function()}.
 
 -type subscribe_opt() ::
-    {event_package, binary()} |
-    {event_id, binary()} |
+    {event, binary()} |
     {expires, non_neg_integer()}.
 
 -type notify_reason() ::
     deactivated | probation | rejected | timeout | giveup | noresource | invariant.
 
 -type notify_opt() ::
-    {event_package, binary()} |
-    {event_id, binary()} |
+    {event, binary()} |
     {state, active | pending | {terminated, notify_reason()}} | 
     {expires, non_neg_integer()} |
     {retry_after, non_neg_integer()}.

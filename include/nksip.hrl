@@ -31,11 +31,11 @@
 -define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE, "
-                 "SUBSCRIBE,NOTIFY">>).
+                 "SUBSCRIBE, NOTIFY">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
--define(DEFAULT_EVENT_EXPIRES, 60).
+-define(DEFAULT_EVENT_EXPIRES, 10).
 
 -define(debug(AppId, Txt, Opts), 
         % ok).
@@ -231,19 +231,17 @@
     secure :: boolean(),
     caller_tag :: nksip:tag(),
     invite :: #invite{},
-    events = [] :: [nksip_dialog:event_id()]
+    subscriptions = [] :: [nksip:subscription()]
 }).
 
 
--record(event, {
-    id :: nksip_dialog:event_id(),
-    dialog_id :: nksip_dialog:id(),
-    tag :: nksip:tag(),
-    status :: nksip_dialog:event_status(),
+-record(subscription, {
+    id :: nksip_subscription:id(),
+    app_id :: nksip:app_id(),
+    event :: nksip:token(),
+    status :: nksip_subscription:status(),
     class :: uac | uas,
     answered :: nksip_lib:timestamp(),
-    % expires :: integer(),
-    timer_n :: reference(),
     timer_expire :: reference(),
     timer_middle :: reference()
 }).

@@ -241,7 +241,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             case lists:member(make_contact, Opts) of
                 true -> make_contact;
                 false when Method=='INVITE', Contacts==[] -> make_contact;
-                false when Method=='UPDATE', Contacts==[] -> make_contact;
+                false when Method=='SUBSCRIBE', Contacts==[] -> make_contact;
                 _ -> []
             end,
             case lists:member(record_route, Opts) of

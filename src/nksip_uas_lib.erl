@@ -170,7 +170,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             false
     end,
     case Code > 100 of
-        true when Method=='INVITE'; Method=='UPDATE' ->
+        true when Method=='INVITE'; Method=='UPDATE'; Method=='SUBSCRIBE' ->
             MakeAllow = MakeSupported = true;
         _ ->
             MakeAllow = lists:member(make_allow, Opts),
@@ -329,22 +329,9 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     end,
     Event = case Method of
         'SUBSCRIBE' -> Req#sipmsg.event;
+        'NOTIFY' -> Req#sipmsg.event;
         _ -> undefined
     end,
-    SendOpts = lists:flatten([
-        case lists:member(make_contact, Opts) of
-            true -> make_contact;
-            false -> []
-        end,
-        case Secure of
-            true -> secure;
-            _ -> []
-        end,
-        case Reliable of
-            true -> make_rseq;
-            false -> []
-        end
-    ]),
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
         class = {resp, Code, Reason},
@@ -365,6 +352,22 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         to_tag = ToTag1,
         transport = undefined
     },
+    SendOpts = lists:flatten([
+        case lists:member(make_contact, Opts) of
+            true -> make_contact;
+            false when Method=='INVITE', RespContacts==[] -> make_contact;
+            false when Method=='SUBSCRIBE', RespContacts==[] -> make_contact;
+            _ -> []
+        end,
+        case Secure of
+            true -> secure;
+            _ -> []
+        end,
+        case Reliable of
+            true -> make_rseq;
+            false -> []
+        end
+    ]),
     {ok, Resp, SendOpts}.
 
 

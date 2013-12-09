@@ -68,7 +68,7 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                         LastCode>=200 andalso LastCode<300
                     )
                 ) ->
-    {Resp1, SendOpts1} = nksip_call_uas_dialog:make(Resp, SendOpts, Call),
+    {Resp1, SendOpts1} = nksip_call_uas_dialog:update_response(Resp, SendOpts, Call),
     case lists:member(make_rseq, SendOpts1) of
         true ->
             case check_prack(Resp1, UAS) of

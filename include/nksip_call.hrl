@@ -93,6 +93,11 @@
 }).
 
 
+-record(provisional_event, {
+    id :: {Type::binary(), Id::binary(), Tag::binary()},
+    timer_n :: reference()
+}).
+
 -record(call_opts, {
     global_id :: binary(),
     max_trans_time :: integer(),
@@ -133,7 +138,7 @@
     dialogs = [] :: [#dialog{}],
     auths = [] :: [call_auth()],
     msgs = [] :: [call_msg()],
-    events = [] :: [nksip:event()]
+    events = [] :: [#provisional_event{}]
 }).
 
 

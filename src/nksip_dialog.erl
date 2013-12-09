@@ -1,3 +1,4 @@
+
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
@@ -29,7 +30,6 @@
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
 -export([remote_id/1]).
 -export_type([id/0, stop_reason/0, spec/0, invite_status/0, field/0]).
--export_type([event_id/0, event_status/0, event_terminated_reason/0]).
 
 -include("nksip.hrl").
 
@@ -40,9 +40,6 @@
 
 %% SIP Dialog unique ID
 -type id() :: binary().
-
-%% SIP dialog Event ID
--type event_id() :: {Type::binary(), Id::binary()}.
 
 %% SIP Dialog stop reason
 -type stop_reason() :: 
@@ -59,25 +56,13 @@
     local_target | parsed_local_target | remote_target | parsed_remote_target | 
     route_set | parsed_route_set | from_tag | to_tag |
     invite_status | invite_answered | invite_local_sdp | invite_remote_sdp |
-    invite_timeout.
+    invite_timeout | subscriptions.
 
 
 %% All dialog INVITE states
 -type invite_status() :: 
     init | proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
     confirmed | bye.
-
-
--type event_terminated_reason() :: 
-    deacivated | probation | rejected | timeout |
-    giveup | noresource | invariant | binary().
-
-%% All dialog event states
--type event_status() :: 
-    neutral | active | pending | {terminated, event_terminated_reason()} | binary().
-
-
-
 
 
 
@@ -206,6 +191,11 @@
 %%          <td>`integer()'</td>
 %%          <td>Seconds to expire current state</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`subscriptions</td>
+%%          <td><code>[{@link nksip_subscription:id()}]</code></td>
+%%          <td>Lists all active subscriptions</td>
+%%      </tr>
 %% </table>
 -spec field(nksip:app_id(), spec(), field()) -> 
     term() | error.
@@ -256,6 +246,8 @@ field(D, Field) ->
         invite_remote_sdp -> I#invite.remote_sdp;
         invite_timeout -> round(erlang:read_timer(I#invite.timeout_timer)/1000);
 
+        subscriptions -> [Id || #subscription{id=Id} <- D#dialog.subscriptions];
+
         _ -> invalid_field 
     end.
 
@@ -291,8 +283,9 @@ class_id(Class, #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
     when FromTag /= <<>>, ToTag /= <<>> ->
     dialog_id(Class, CallId, FromTag, ToTag);
 
-class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
-    when FromTag /= <<>> ->
+class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, Method}}=SipMsg)
+    when FromTag /= <<>> andalso
+         Method=='INVITE' orelse Method=='SUBSCRIBE' orelse Method=='NOTIFY' ->
     #sipmsg{call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
     case ToTag of
         <<>> -> <<>>;
@@ -439,16 +432,19 @@ get_all_data() ->
                     {route_set, 
                         [nksip_unparse:uri(Route) || Route <- Dialog#dialog.route_set]},
                     {early, Dialog#dialog.early},
-                    case Dialog#dialog.invite of
-                        #invite{
-                            status = InvStatus, 
-                            local_sdp = LSDP, 
-                            remote_sdp = RSDP
-                        } ->
-                            {invite, {InvStatus, LSDP, RSDP}};
-                        undefined ->
-                            {events, Dialog#dialog.events}
-                   end
+                    {invite, 
+                        case Dialog#dialog.invite of
+                            #invite{
+                                status = InvStatus, 
+                                local_sdp = LSDP, 
+                                remote_sdp = RSDP
+                            } -> 
+                                {InvStatus, LSDP, RSDP};
+                            undefined ->
+                                undefined
+                        end},
+                   {subscriptions,
+                        [Id || #subscription{id=Id} <- Dialog#dialog.subscriptions]}
                 ]},
                 [Data|Acc];
             _ ->

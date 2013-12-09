@@ -27,18 +27,14 @@
 
 -compile([export_all]).
 
-% event_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         {inparallel, [
-%             {timeout, 60, fun cancel/0},
-%             {timeout, 60, fun dialog/0},
-%             {timeout, 60, fun rr_contact/0},
-%             {timeout, 60, fun multiple_uac/0},
-%             {timeout, 60, fun multiple_uas/0}
-%         ]}
-%     }.
+event_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        {inparallel, [
+            {timeout, 60, fun basic/0}
+        ]}
+    }.
 
 
 start() ->
@@ -79,17 +75,20 @@ basic() ->
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun(R) -> Self ! {Ref, R} end},
-    % {ok, 489, []} = 
-    %     nksip_uac:subscribe(C1, SipC2, [{event, "myevent1;id=a"}, CB, get_request]),
+    {ok, 489, []} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent1;id=a"}, CB, get_request]),
 
-    % receive {Ref, {req, Req1}} -> 
-    %     [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
-    %         nksip_sipmsg:fields(Req1, [<<"Event">>, <<"Allow-Event">>])
-    % after 1000 -> 
-    %     error(event) 
-    % end,
+    receive {Ref, {req, Req1}} -> 
+        [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
+            nksip_sipmsg:fields(Req1, [<<"Event">>, <<"Allow-Event">>])
+    after 1000 -> 
+        error(event) 
+    end,
 
-    {ok, 200, []} = nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4"}]).
+    {ok, 200, [{subscription_id, _Ev1}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4"}, {expires, 1}]),
+    ok.
+
 
 
 

@@ -113,8 +113,12 @@ fun_response(Resp, Opts) ->
             {resp, Resp};
         false ->
             Fields0 = case Method of
-                'INVITE' -> [{dialog_id, DialogId}];
-                _ -> []
+                'INVITE' when Code>100, Code<300 -> 
+                    [{dialog_id, DialogId}];
+                'SUBSCRIBE' when Code>=200, Code<300 -> 
+                    [{subscription_id, nksip_subscription:id(Resp)}];
+                _ -> 
+                    []
             end,
             Values = case nksip_lib:get_value(fields, Opts, []) of
                 [] ->

@@ -362,7 +362,13 @@ work(get_all_transactions, From, #call{trans=Trans}=Call) ->
     Call;
 
 work(info, From, Call) -> 
-    #call{app_id=AppId, call_id=CallId, trans=Trans, dialogs=Dialogs} = Call,
+    #call{
+        app_id = AppId, 
+        call_id = CallId, 
+        trans = Trans, 
+        dialogs = Dialogs,
+        events = ProvEvents
+    } = Call,
     InfoTrans = lists:map(
         fun(#trans{id=Id, class=Class, method=Method, 
                    status=Status, timeout_timer=Timeout}) ->
@@ -370,23 +376,35 @@ work(info, From, Call) ->
                 {Tag, Timer} -> {Tag, erlang:read_timer(Timer)};
                 undefined -> undefined
             end,
-            {AppId, CallId, Id, Class, Method, Status, T}
+            {trans, AppId, CallId, Id, Class, Method, Status, T}
         end,
         Trans),
     InfoDialog = lists:map(
-        fun(#dialog{id=Id, invite=Invite}) ->
-            case Invite of
-                #invite{status=Status, timeout_timer=Timer} -> ok;
-                _ -> Status = Timer = undefined
+        fun(#dialog{id=DlgId, invite=Invite, subscriptions=Subs}) ->
+            Inv = case Invite of
+                #invite{status=Status, timeout_timer=Timer} ->
+                    T = case Timer of
+                        Timer when is_reference(Timer) ->  erlang:read_timer(Timer);
+                        undefined -> undefined
+                    end,
+                    {Status, T};
+                undefined ->
+                    undefined
             end,
-            T = case Timer of
-                Timer when is_reference(Timer) ->  erlang:read_timer(Timer);
-                undefined -> undefined
-            end,
-            {AppId, Id, Status, T}
+            Ev = [
+                    {EvId, Status, Class, erlang:read_timer(Exp)}
+                    ||
+                    #subscription{id=EvId, status=Status, class=Class, timer_expire=Exp} 
+                    <- Subs
+                ],
+            {dlg, AppId, DlgId, {invite, Inv}, {event, Ev}}
         end,
         Dialogs),
-    gen_server:reply(From, InfoTrans++InfoDialog),
+    InfoProvEvents = case ProvEvents of
+        [] -> [];
+        _ -> [{prov_events, length(ProvEvents)}]
+    end,
+    gen_server:reply(From, InfoTrans++InfoDialog++InfoProvEvents),
     Call;
 
 work({get_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
@@ -442,14 +460,8 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
             Call
     end;
 
-timeout({event, Tag, Id}, _Ref, #call{events=Events}=Call) ->
-    case lists:keyfind(Id, #event.id, Events) of
-        #event{} = Event -> 
-            nksip_call_event:timer(Tag, Event, Call);
-        false ->
-            ?call_warning("Call ignoring event timer (~p, ~p)", [Tag, Id], Call),
-            Call
-    end;
+timeout({provisional_event, Id}, _Ref, Call) ->
+    nksip_call_event:remove_provisional(Id, Call);
 
 timeout(check_call, _Ref, #call{opts=CallOpts}=Call) ->
     #call_opts{

@@ -53,7 +53,8 @@ create(Class, Req, Resp, Call) ->
         transport = #transport{proto=Proto},
         from_tag = FromTag
     } = Resp,
-    ?call_debug("Dialog ~s (~p) created", [DialogId, Class], Call),
+    UA = case Class of uac -> "UAC"; uas -> "UAS" end,
+    ?call_debug("Dialog ~s ~s created", [DialogId, UA], Call),
     nksip_counters:async([nksip_dialogs]),
     Now = nksip_lib:timestamp(),
     Dialog = #dialog{
@@ -70,7 +71,7 @@ create(Class, Req, Resp, Call) ->
         early = true,
         caller_tag = FromTag,
         invite = undefined,
-        events = []
+        subscriptions = []
     },
     cast(dialog_update, start, Dialog, Call),
     case Class of 
@@ -366,12 +367,12 @@ session_update(Dialog, _Call) ->
 -spec stop(term(), nksip:dialog(), nksip_call:call()) ->
     nksip:dialog(). 
 
-stop(Reason, #dialog{events=Events}=Dialog, Call) ->
-    Call1 = lists:foldl(
-        fun(EventId, C) -> nksip_call_event:stop(EventId, C) end,
-        Call,
-        Events),
-    update({invite, {stop, reason(Reason)}}, Dialog, Call1).
+stop(Reason, #dialog{subscriptions=Subs}=Dialog, Call) ->
+    Dialog1 = lists:foldl(
+        fun(Sub, Acc) -> nksip_call_event:stop(Sub, Acc, Call) end,
+        Dialog,
+        Subs),
+    update({invite, {stop, reason(Reason)}}, Dialog1, Call).
 
 
 %% @private Called when a dialog timer is fired
@@ -425,7 +426,11 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
             ?call_notice("Dialog ~s unknown INVITE timeout timer", 
                          [DialogId], Call),
             Call
-    end.
+    end;
+
+timer({event, Tag}, Dialog, Call) ->
+    nksip_call_event:timer(Tag, Dialog, Call).
+
 
 
 %% ===================================================================
@@ -454,13 +459,13 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
     nksip:call().
 
 store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
-    #dialog{id=Id, invite=Invite, events=Events} = Dialog,
+    #dialog{id=Id, invite=Invite, subscriptions=Subs} = Dialog,
     case Dialogs of
         [] -> Rest = [], IsFirst = true;
         [#dialog{id=Id}|Rest] -> IsFirst = true;
         _ -> Rest=[], IsFirst = false
     end,
-    case Invite==undefined andalso Events==[] of
+    case Invite==undefined andalso Subs==[] of
         true ->
             cast(dialog_update, stop, Dialog, Call),
             Dialogs1 = case IsFirst of

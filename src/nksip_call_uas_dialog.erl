@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([request/2, response/3, make/3]).
+-export([request/2, response/3, update_response/3]).
 -import(nksip_call_dialog, [find/2, update/3, store/2]).
 
 
@@ -40,9 +40,8 @@
     when Error :: request_pending | retry | old_cseq | no_transaction | bad_event.
 
 
-request(#sipmsg{class={req, Method}, to_tag=(<<>>)}=Req, Call) when
-        Method=='SUBSCRIBE'; Method=='NOTIFY' ->
-    nksip_call_event:uas_request(Req, Call);
+request(#sipmsg{class={req, 'SUBSCRIBE'}, to_tag=(<<>>)}=Req, Call) ->
+    nksip_call_event:uas_pre_request(Req, Call);
 
 request(#sipmsg{to_tag = <<>>}, Call) ->
     {ok, Call};
@@ -71,11 +70,6 @@ request(Req, Call) ->
 -spec do_request(nksip:method(), nksip:request(), nksip:dialog(), nksip_call:call()) ->
     {ok, nksip_call:call()} | {error, Error}
     when Error :: request_pending | retry.
-
-
-do_request('INVITE', Req, #dialog{invite=undefined}=Dialog, Call) ->
-    Invite = #invite{status=confirmed},
-    do_request('INVITE', Req, Dialog#dialog{invite=Invite}, Call);
 
 do_request('INVITE', Req, 
            #dialog{invite=#invite{status=confirmed}=Invite}=Dialog, Call) ->
@@ -150,12 +144,12 @@ do_request('UPDATE', Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
     end;
 
 do_request('SUBSCRIBE', Req, Dialog, Call) ->
-    Call1 = update(none, Dialog, Call),
-    nksip_call_event:uas_request(Req, Call1);
+    Dialog1 = nksip_call_event:uas_request(Req, Dialog, Call),
+    update(none, Dialog1, Call);
         
 do_request('NOTIFY', Req, Dialog, Call) ->
-    Call1 = update(none, Dialog, Call),
-    nksip_call_event:uas_request(Req, Call1);
+    Dialog1 = nksip_call_event:uas_request(Req, Dialog, Call),
+    update(none, Dialog1, Call);
 
 do_request(_, _, Dialog, Call) ->
     {ok, update(none, Dialog, Call)}.
@@ -166,23 +160,37 @@ do_request(_, _, Dialog, Call) ->
     nksip_call:call().
 
 response(Req, Resp, Call) ->
-    #sipmsg{class={req, Method}} = Req,
+    #sipmsg{class={req, Method}, body=Body} = Req,
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
     case find(DialogId, Call) of
         #dialog{}=Dialog ->
             ?call_notice("Dialog ~s UAS ~p response ~p", 
                          [DialogId, Method, Code], Call),
             do_response(Method, Code, Req, Resp, Dialog, Call);
-        not_found
-            when Code>100 andalso Code<300 andalso
-               (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
-                Method=='NOTIFY') ->
-            Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
-            {ok, Call1} = do_request(Method, Req, Dialog1, Call),
-            #dialog{} = Dialog2 = find(DialogId, Call1),
+        not_found when Code>100 andalso Code<300 andalso Method=='INVITE' ->
             ?call_notice("Dialog ~s UAS ~p response ~p", 
                         [DialogId, Method, Code], Call),
-            do_response(Method, Code, Req, Resp, Dialog2, Call1);
+            Offer = case Body of 
+                #sdp{}=SDP -> {remote, invite, SDP};
+                false -> undefined
+            end,
+            Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
+            Invite = #invite{
+                status = proceeding_uas,
+                class = uas,
+                request = Req, 
+                response = undefined, 
+                ack = undefined,
+                sdp_offer = Offer,
+                sdp_answer = undefined
+            },
+            Dialog2 = Dialog1#dialog{invite=Invite},
+            do_response(Method, Code, Req, Resp, Dialog2, Call);
+        not_found when Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' ->
+            ?call_notice("Dialog ~s UAS ~p response ~p", 
+                        [DialogId, Method, Code], Call),
+            Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
+            do_response(Method, Code, Req, Resp, Dialog1, Call);
         not_found ->
             Call
     end.
@@ -336,22 +344,22 @@ do_response('UPDATE', Code, _Req, _Resp,
     end;
  
 do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
-    Call1 = update({subscribe, uas, Req, Resp}, Dialog, Call),
-    nksip_call_event:uas_response(Req, Resp, Call1);
+    Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
+    update({subscribe, uas, Req, Resp}, Dialog1, Call);
         
 do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=300 ->
     % If subscription ends, it will call nksip_call_dialog:update/3, removing
     % the dialog if no other use
-    Call1 = update(none, Dialog, Call),
-    nksip_call_event:uas_response(Req, Resp, Call1);
+    Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
+    update(none, Dialog1, Call);
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
-    Call1 = update({notify, uas, Req, Resp}, Dialog, Call),
-    nksip_call_event:uas_response(Req, Resp, Call1);
+    Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
+    update({notify, uas, Req, Resp}, Dialog1, Call);
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=300 ->
-    Call1 = update(none, Dialog, Call),
-    nksip_call_event:uas_response(Req, Resp, Call1);
+    Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
+    update(none, Dialog1, Call);
 
 do_response(_, _, _, _, Dialog, Call) ->
     update(none, Dialog, Call).
@@ -397,10 +405,10 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
 
 
 %% private
--spec make(nksip:response(), nksip_lib:proplist(), nksip_call:call()) ->
+-spec update_response(nksip:response(), nksip_lib:proplist(), nksip_call:call()) ->
     {nksip:response(), nksip_lib:proplist()}.
 
-make(#sipmsg{cseq_method=Method, contacts=Contacts}=Resp, Opts, Call) ->
+update_response(Resp, Opts, Call) ->
     #sipmsg{contacts=Contacts} = Resp,
     DialogId = nksip_dialog:class_id(uas, Resp),
     case lists:member(make_contact, Opts) of
@@ -411,8 +419,6 @@ make(#sipmsg{cseq_method=Method, contacts=Contacts}=Resp, Opts, Call) ->
                         Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
                         Opts
                     };
-                not_found when Method=='INVITE' orelse Method=='UPDATE' ->
-                    {Resp#sipmsg{dialog_id=DialogId}, [make_contact|Opts]};
                 not_found ->
                     {Resp#sipmsg{dialog_id=DialogId}, Opts}
             end; 
