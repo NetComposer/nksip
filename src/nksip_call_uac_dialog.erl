@@ -184,7 +184,7 @@ response(Req, Resp, Call) ->
             Dialog1 = nksip_call_dialog:create(uac, Req, Resp, Call),
             Offer = case Body of 
                 #sdp{}=SDP -> {local, invite, SDP};
-                false -> undefined
+                _ -> undefined
             end,
             Invite = #invite{
                 status = proceeding_uac,

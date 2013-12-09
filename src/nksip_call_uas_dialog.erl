@@ -164,15 +164,15 @@ response(Req, Resp, Call) ->
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
     case find(DialogId, Call) of
         #dialog{}=Dialog ->
-            ?call_notice("Dialog ~s UAS ~p response ~p", 
+            ?call_debug("Dialog ~s UAS ~p response ~p", 
                          [DialogId, Method, Code], Call),
             do_response(Method, Code, Req, Resp, Dialog, Call);
         not_found when Code>100 andalso Code<300 andalso Method=='INVITE' ->
-            ?call_notice("Dialog ~s UAS ~p response ~p", 
+            ?call_debug("Dialog ~s UAS ~p response ~p", 
                         [DialogId, Method, Code], Call),
             Offer = case Body of 
                 #sdp{}=SDP -> {remote, invite, SDP};
-                false -> undefined
+                _ -> undefined
             end,
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
             Invite = #invite{
@@ -187,7 +187,7 @@ response(Req, Resp, Call) ->
             Dialog2 = Dialog1#dialog{invite=Invite},
             do_response(Method, Code, Req, Resp, Dialog2, Call);
         not_found when Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' ->
-            ?call_notice("Dialog ~s UAS ~p response ~p", 
+            ?call_debug("Dialog ~s UAS ~p response ~p", 
                         [DialogId, Method, Code], Call),
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
             do_response(Method, Code, Req, Resp, Dialog1, Call);
@@ -411,13 +411,13 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
 update_response(Resp, Opts, Call) ->
     #sipmsg{contacts=Contacts} = Resp,
     DialogId = nksip_dialog:class_id(uas, Resp),
-    case lists:member(make_contact, Opts) of
-        false when Contacts==[] ->
+    case Contacts of
+        [] ->
             case find(DialogId, Call) of
                 #dialog{local_target=LTarget} ->
                     {
                         Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
-                        Opts
+                        Opts -- [make_contact]
                     };
                 not_found ->
                     {Resp#sipmsg{dialog_id=DialogId}, Opts}
