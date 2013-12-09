@@ -239,9 +239,11 @@
     id :: nksip_subscription:id(),
     app_id :: nksip:app_id(),
     event :: nksip:token(),
+    expires :: pos_integer(),
     status :: nksip_subscription:status(),
     class :: uac | uas,
     answered :: nksip_lib:timestamp(),
+    timer_n :: reference(),
     timer_expire :: reference(),
     timer_middle :: reference()
 }).

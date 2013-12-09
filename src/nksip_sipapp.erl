@@ -569,7 +569,7 @@ subscribe(_ReqId, _From, State) ->
     call_reply(nksip:sipreply()).
 
 notify(_ReqId, _From, State) ->
-    {reply, decline, State}.
+    {reply, ok, State}.
 
 
 %% @doc Called when a dialog has changed its state.

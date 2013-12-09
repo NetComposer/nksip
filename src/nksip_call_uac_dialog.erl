@@ -423,7 +423,7 @@ ack(#sipmsg{class={req, 'ACK'}, cseq=CSeq, dialog_id=DialogId}=AckReq, Call) ->
  %% @private
 -spec make(integer(), nksip:method(), nksip_lib:proplist(), nksip_call:call()) ->
     {ok, {AppId, RUri, Opts}, nksip_call:call()} | {error, Error}
-    when Error :: invalid_dialog | unknown_dialog,
+    when Error :: invalid_dialog | unknown_dialog | unknown_subscription,
          AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip_lib:proplist().
 
 make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
@@ -435,6 +435,14 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
                 #invite{status=Status} when
                     Method=='ACK' andalso Status/=accepted_uac ->
                     {error, invalid_dialog};
+                _ when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
+                    case nksip_call_event:request_uac_opts(Method, Opts, Dialog) of
+                        {ok, Opts1} -> 
+                            {Result, Dialog1} = generate(Method, Opts1, Dialog),
+                            {ok, Result, store(Dialog1, Call)};
+                        {error, Error} ->
+                            {error, Error}
+                    end;
                 _ ->
                     {Result, Dialog1} = generate(Method, Opts, Dialog),
                     {ok, Result, store(Dialog1, Call)}

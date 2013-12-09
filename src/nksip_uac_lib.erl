@@ -156,6 +156,13 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 true -> {default_single, <<"Date">>, nksip_lib:to_binary(
                                                     httpd_util:rfc1123_date())};
                 false -> []
+            end,
+            case nksip_lib:get_value(subscription_state, Opts) of
+                undefined -> 
+                    [];
+                SubsState0 -> 
+                    SubsState = nksip_unparse:tokens(SubsState0),
+                    {default_single, <<"Subscription-State">>, SubsState}
             end
         ]),
         ContentType = case nksip_lib:get_binary(content_type, Opts) of

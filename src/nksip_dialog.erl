@@ -305,6 +305,9 @@ class_id(_, #sipmsg{}) ->
 id(_, <<"D_", _/binary>>=DialogId) ->
     DialogId;
 
+id(_, <<"U_", _/binary>>=SubscriptionId) ->
+    nksip_subscription:dialog_id(SubscriptionId);
+
 id(AppId, <<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
     case nksip_call:dialog_id(AppId, MsgId) of
         {ok, DialogId} -> DialogId;

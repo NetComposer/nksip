@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([create/4, update/3, stop/3, find/2, store/2]).
--export([timer/3]).
+-export([timer/3, cast/4]).
 -export_type([sdp_offer/0]).
 
 -type sdp_offer() ::
@@ -365,14 +365,18 @@ session_update(Dialog, _Call) ->
 
 %% @private Fully stops a dialog
 -spec stop(term(), nksip:dialog(), nksip_call:call()) ->
-    nksip:dialog(). 
+    nksip_call:call(). 
 
-stop(Reason, #dialog{subscriptions=Subs}=Dialog, Call) ->
+stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
     Dialog1 = lists:foldl(
         fun(Sub, Acc) -> nksip_call_event:stop(Sub, Acc, Call) end,
         Dialog,
         Subs),
-    update({invite, {stop, reason(Reason)}}, Dialog1, Call).
+    case Invite of
+        #invite{} -> update({invite, {stop, reason(Reason)}}, Dialog1, Call);
+        undefined -> update(none, Dialog1, Call)
+    end.
+
 
 
 %% @private Called when a dialog timer is fired

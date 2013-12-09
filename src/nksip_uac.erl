@@ -207,6 +207,9 @@
 -type dialog_spec() :: 
     nksip_dialog:id() | nksip_request:id() | nksip_response:id().
 
+-type subscription_spec() :: 
+    nksip_subscription:id().
+
 -type opt() ::  
     dialog_opt() |
     {from, nksip:user_uri()} | {to, nksip:user_uri()} | {user_agent, binary()} |
@@ -622,7 +625,7 @@ refresh(AppId, DialogSpec, Opts) ->
 %% The first returned value is allways {dialog_id, DialogId}, even if the
 %% `fields' option is not used.
 
--spec subscribe(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+-spec subscribe(nksip:app_id(), nksip:user_uri()|dialog_spec()|subscription_spec(),
              [opt()|dialog_opt()|subscribe_opt()]) ->
     result() | {error, error()}.
 
@@ -649,7 +652,7 @@ subscribe(AppId, Dest, Opts) ->
 %%      </tr>
 %%      <tr>
 %%          <td>`state'</td>
-%%          <td><code>active | pending | {terminated, {@link nksip_dialog:event_terminated_reason()}}</code></td>
+%%          <td><code>active | pending | {terminated, {@link nksip_subscription:terminated_reason()}}</code></td>
 %%          <td>`active'</td>
 %%          <td>Generates the mandatory <i>Subscription-State</i> header (see bellow)</td>
 %%      </tr>
@@ -691,40 +694,43 @@ subscribe(AppId, Dest, Opts) ->
 %% </ul> 
 %%
 
--spec notify(nksip:app_id(), dialog_spec(), [dialog_opt()|notify_opt()]) -> 
+-spec notify(nksip:app_id(), subscription_spec(), [dialog_opt()|notify_opt()]) -> 
     result() | {error, error()}.
 
-notify(AppId, DialogSpec, Opts) ->
-    Expires = nksip_lib:get_value_bin(expires, Opts),
+notify(AppId, Dest, Opts) ->
+    Expires = nksip_lib:get_binary(expires, Opts),
     State = case nksip_lib:get_value(state, Opts, active) of
         active when Expires == <<>> -> 
-            <<"active">>;
+            {<<"active">>, []};
         active ->
-            <<"active;expires=", Expires/binary>>;
+            {<<"active">>, [{<<"expires">>, Expires}]};
         pending when Expires == <<>> -> 
-            <<"pending">>;
+            {<<"pending">>, []};
         pending -> 
-            <<"pending;expires=", Expires/binary>>;
+            {<<"pending">>, [{<<"expires">>, Expires}]};
         {terminated, Reason} 
             when Reason==deactivated; Reason==rejected; Reason==timeout; 
                  Reason==noresource; Reason==invariant ->
-            <<"terminated;reason=", (nksip_lib:to_binary(Reason))/binary>>;
+            {<<"terminated">>, [{<<"reason">>, nksip_lib:to_binary(Reason)}]};
         {terminated, Reason}
             when Reason==probation; Reason==giveup ->
             case nksip_lib:get_value_bin(retry_after, Opts) of
                 <<>> -> 
-                    <<"terminated;reason=", (nksip_lib:to_binary(Reason))/binary>>;
+                    {<<"terminated">>, [{<<"reason">>, nksip_lib:to_binary(Reason)}]};
                 Retry ->
-                    <<
-                        "terminated;reason=", (nksip_lib:to_binary(Reason))/binary,
-                        ", retry_after=", (nksip_lib:to_binary(Retry))/binary>>
+                    {
+                        <<"terminated">>, [
+                            {<<"reason">>, nksip_lib:to_binary(Reason)},
+                            {<<"retry_after">>, nksip_lib:to_binary(Retry)}
+                        ]
+                    }
             end;
         Other ->
-            nksip_lib:to_binary(Other)
+            {nksip_lib:to_binary(Other), []}
     end,
-    Opts1 = [{pre_headers, [{<<"Subscription-State">>, State}]}],
+    Opts1 = [{subscription_state, State}|Opts],
     Opts2 = lists:keydelete(expires, 1, Opts1),
-    send_dialog(AppId, 'NOTIFY', DialogSpec, Opts2).
+    send_dialog(AppId, 'NOTIFY', Dest, Opts2).
 
 
 
@@ -790,9 +796,13 @@ send_any(AppId, Method, UriOrDialog, Opts) ->
     result() | ack_result() | {error, error()}.
 
 send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
-            when Class==$R; Class==$S; Class==$D ->
+            when Class==$R; Class==$S; Class==$D; Class==$U ->
     case nksip_dialog:id(AppId, Id) of
-        <<>> -> {error, unknown_dialog};
-        DialogId -> nksip_call:send_dialog(AppId, DialogId, Method, Opts)
+        <<>> -> 
+            {error, unknown_dialog};
+        DialogId when Class==$U ->
+            nksip_call:send_dialog(AppId, DialogId, Method, [{subscription_id, Id}|Opts]);
+        DialogId ->
+            nksip_call:send_dialog(AppId, DialogId, Method, Opts)
     end.
 

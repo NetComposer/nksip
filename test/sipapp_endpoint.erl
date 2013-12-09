@@ -188,7 +188,7 @@ invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
     end;
 
 
-% INVITE for basic, uac, uas, invite and proxy_test
+% INVITE for basic, uac, uas, invite, proxy and event test
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
@@ -214,12 +214,12 @@ invite(ReqId, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
         [<<"true">>] -> true;
         _ -> false
     end,
-    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
-            State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
+            State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
         _ ->
-            State1 = State
+            State
     end,
     proc_lib:spawn(
         fun() ->
@@ -290,8 +290,33 @@ info(ReqId, _From, #state{id=AppId}=State) ->
     {reply, {ok, [{"Nk-Method", "info"}, {"Nk-Dialog", DialogId}]}, State}.
 
 
-subscribe(_ReqId, _From, #state{id=_AppId}=State) ->
-    {reply, ok, State}.
+subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    Values = nksip_request:header(AppId, ReqId, <<"Nk">>),
+    Routes = nksip_request:header(AppId, ReqId, <<"Route">>),
+    Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
+    Hds = [
+        case Values of [] -> []; _ -> {<<"Nk">>, nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> []; _ -> {<<"Nk-R">>, nksip_lib:bjoin(Routes)} end,
+        {<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}
+    ],
+    Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
+        [Op0] -> Op0;
+        _ -> <<"decline">>
+    end,
+    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+        [RepBin] ->
+            {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+            State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
+        _ ->
+            State
+    end,
+    case Op of
+        <<"ok">> ->
+            {reply, {ok, Hds}, State1};
+        _ ->
+            {reply, ok, State1}
+    end.
 
 
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->
@@ -304,7 +329,8 @@ register_update(RegId, OK, #state{callbacks=CBs}=State) ->
     {noreply, State}.
 
 
-dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) ->
+dialog_update(DialogId, Update, #state{id={Test, Id}, dialogs=Dialogs}=State)
+              when Test==invite; Test==event ->
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             none;
@@ -315,6 +341,7 @@ dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) 
                 {invite_status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
                 {invite_status, {stop, Reason}} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}};
                 {invite_status, _} -> ok;
+                {subscription_status, SubsId, Status} -> Pid ! {Ref, {subs, SubsId, Status}};
                 stop -> ok
             end
     end,

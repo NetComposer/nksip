@@ -144,12 +144,16 @@ do_request('UPDATE', Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
     end;
 
 do_request('SUBSCRIBE', Req, Dialog, Call) ->
-    Dialog1 = nksip_call_event:uas_request(Req, Dialog, Call),
-    update(none, Dialog1, Call);
+    case nksip_call_event:uas_request(Req, Dialog, Call) of
+        {ok, Dialog1} -> {ok, update(none, Dialog1, Call)};
+        {error, Error} -> {error, Error}
+    end;
         
 do_request('NOTIFY', Req, Dialog, Call) ->
-    Dialog1 = nksip_call_event:uas_request(Req, Dialog, Call),
-    update(none, Dialog1, Call);
+    case nksip_call_event:uas_request(Req, Dialog, Call) of
+        {ok, Dialog1} -> {ok, update(none, Dialog1, Call)};
+        {error, Error} -> {error, Error}
+    end;
 
 do_request(_, _, Dialog, Call) ->
     {ok, update(none, Dialog, Call)}.

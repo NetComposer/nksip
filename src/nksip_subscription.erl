@@ -271,6 +271,6 @@ remote_id(AppId, SubsId) ->
     [_, _ | Rest] = lists:reverse(binary:split(SubsId, <<"_">>, [global])),
     <<"D_", RemoteDlg/binary>> = nksip_dialog:field(AppId, dialog_id(SubsId), remote_id),
     Base = nksip_lib:bjoin(lists:reverse(Rest), <<"_">>),
-    <<Base/binary, RemoteDlg/binary>>.
+    <<Base/binary, $_, RemoteDlg/binary>>.
 
 
