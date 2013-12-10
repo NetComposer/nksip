@@ -74,66 +74,168 @@ basic() ->
     SipC2 = "sip:127.0.0.1:5070",
     Ref = make_ref(),
     Self = self(),
-    % CB = {callback, fun(R) -> Self ! {Ref, R} end},
-    % {ok, 489, []} = 
-    %     nksip_uac:subscribe(C1, SipC2, [{event, "myevent1;id=a"}, CB, get_request]),
+    
+    CB = {callback, fun(R) -> Self ! {Ref, R} end},
+    {ok, 489, []} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent1;id=a"}, CB, get_request]),
 
-    % receive {Ref, {req, Req1}} -> 
-    %     [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
-    %         nksip_sipmsg:fields(Req1, [<<"Event">>, <<"Allow-Event">>])
-    % after 1000 -> 
-    %     error(event) 
-    % end,
+    receive {Ref, {req, Req1}} -> 
+        [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
+            nksip_sipmsg:fields(Req1, [<<"Event">>, <<"Allow-Event">>])
+    after 1000 -> 
+        error(event) 
+    end,
 
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
-    % {ok, 200, [{subscription_id, Subs1A}]} = 
-    %     nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 1},
-    %                                     {headers, [RepHd]}]),
+    {ok, 200, [{subscription_id, Subs1A}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 1},
+                                        {headers, [RepHd]}]),
 
-    % Dialog1A = nksip_subscription:dialog_id(Subs1A),
-    % Dialog1B = nksip_dialog:field(C1, Dialog1A, remote_id),
-    % Subs1B = nksip_subscription:remote_id(C1, Subs1A),
-    % [
-    %     {status, neutral},
-    %     {event, <<"myevent4;id=4;o=2">>},
-    %     {class, uac},
-    %     {answered, undefined},
-    %     {expires, 1}    % It will be something link round(0.99)
-    % ] = nksip_subscription:fields(C1, Subs1A, [status, event, class, answered, expires]),
+    Dialog1A = nksip_subscription:dialog_id(Subs1A),
+    Dialog1B = nksip_dialog:field(C1, Dialog1A, remote_id),
+    Subs1B = nksip_subscription:remote_id(C1, Subs1A),
+    [
+        {status, neutral},
+        {event, <<"myevent4;id=4;o=2">>},
+        {class, uac},
+        {answered, undefined},
+        {expires, 1}    % It will be something link round(0.99)
+    ] = nksip_subscription:fields(C1, Subs1A, [status, event, class, answered, expires]),
 
-    % [
-    %     {status, neutral},
-    %     {parsed_event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
-    %     {class, uas},
-    %     {answered, undefined},
-    %     {expires, 1} 
-    % ] = nksip_subscription:fields(C2, Subs1B, [status, parsed_event, class, answered, expires]),
+    [
+        {status, neutral},
+        {parsed_event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
+        {class, uas},
+        {answered, undefined},
+        {expires, 1} 
+    ] = nksip_subscription:fields(C2, Subs1B, [status, parsed_event, class, answered, expires]),
 
-    % [
-    %     {invite_status, undefined},
-    %     {subscriptions, [Subs1A]}
-    % ] = nksip_dialog:fields(C1, Dialog1A, [invite_status, subscriptions]),
-    % [
-    %     {invite_status, undefined},
-    %     {subscriptions, [Subs1B]}
-    % ] = nksip_dialog:fields(C2, Dialog1B, [invite_status, subscriptions]),
+    [
+        {invite_status, undefined},
+        {subscriptions, [Subs1A]}
+    ] = nksip_dialog:fields(C1, Dialog1A, [invite_status, subscriptions]),
+    [
+        {invite_status, undefined},
+        {subscriptions, [Subs1B]}
+    ] = nksip_dialog:fields(C2, Dialog1B, [invite_status, subscriptions]),
 
-    % ok = tests_util:wait(Ref, [{subs, Subs1B, neutral}, {subs, Subs1B, middle_timer}]),
-    % 0 = nksip_subscription:field(C1, Subs1A, expires), % Would be round(0.4)
-    % ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, timeout}}]),
+    ok = tests_util:wait(Ref, [
+            {subs, Subs1B, started}, 
+            {subs, Subs1B, neutral}, 
+            {subs, Subs1B, middle_timer}
+        ]),
+    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, timeout}}]),
+    timer:sleep(100),
 
-    % error = nksip_subscription:field(C1, Subs1A, status),
-    % error = nksip_subscription:field(C2, Subs1B, status),
+    error = nksip_subscription:field(C1, Subs1A, status),
+    error = nksip_subscription:field(C2, Subs1B, status),
 
 
     {ok, 200, [{subscription_id, Subs2A}]} = 
-        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 1},
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 2
+            },
                                         {headers, [RepHd]}]),
  
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
     ok = tests_util:wait(Ref, [{subs, Subs2B, started}, {subs, Subs2B, neutral}]),
 
-    nksip_uac:notify(C2, Subs2B, []).
+    Dialog2A = nksip_subscription:dialog_id(Subs2A),
+    sipapp_endpoint:start_events(C1, Ref, Self, Dialog2A),
+
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, [{state, pending}, {body, <<"notify1">>}]),
+
+    ok = tests_util:wait(Ref, [
+        {subs, Subs2B, pending}, 
+        {subs, Subs2A, pending},
+        {client1, notify, <<"notify1">>},
+        {subs, Subs2A, middle_timer},
+        {subs, Subs2B, middle_timer}]),
+
+
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, [{body, <<"notify2">>}]),
+
+    ok = tests_util:wait(Ref, [
+        {subs, Subs2B, active}, 
+        {subs, Subs2A, active},
+        {client1, notify, <<"notify2">>},
+        {subs, Subs2A, middle_timer},         % C1 has re-scheduled timers 
+        {subs, Subs2B, middle_timer}  
+    ]),
+
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, [{state, {terminated, giveup}}, {retry_after, 5}]),
+
+ok = tests_util:wait(Ref, [
+        {client1, notify, <<>>},
+        {subs, Subs2B, {terminated, {giveup, 5}}}, 
+        {subs, Subs2A, {terminated, {giveup, 5}}}
+    ]),
+
+    ok.
+
+
+dialog() ->
+    C1 = {event, client1},
+    C2 = {event, client2},
+    SipC2 = "sip:127.0.0.1:5070",
+    _Ref = make_ref(),
+    _Self = self(),
+    
+    % CB = {callback, fun(R) -> Self ! {Ref, R} end},
+    {ok, 200, [{subscription_id, SubsId1A}, {dialog_id, DialogId1A}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=1"}, {expires, 5}, 
+                                        {contact, "sip:a@127.0.0.1"}, 
+                                        {fields, [dialog_id]}]),
+    SubsId1B = nksip_subscription:remote_id(C1, SubsId1A),
+    RS1 = {"Record-Route", "<sip:b1@127.0.0.1:5070;lr>,<sip:b@b>,<sip:a2@127.0.0.1;lr>"},
+
+    % Now the remote party (the server) sends a NOTIFY, and updates the Route Set
+    {ok, 200, []} = nksip_uac:notify(C2, SubsId1B, [{headers, [RS1]}]),
+    [
+        {local_target, <<"<sip:a@127.0.0.1>">>},
+        {remote_target, <<"<sip:127.0.0.1:5070>">>},
+        {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
+    ] = nksip_dialog:fields(C1, DialogId1A, [local_target, remote_target, route_set]),
+
+    % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
+    % The remote target is successfully updated
+    RS2 = {"Record-Route", "<sip:b@b>"},
+    {ok, 200, []} = nksip_uac:notify(C2, SubsId1B, [{headers, [RS2]}, {contact, "sip:b@127.0.0.1:5070"}]),
+    [
+        {local_target, <<"<sip:a@127.0.0.1>">>},
+        {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
+        {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
+    ] = nksip_dialog:fields(C1, DialogId1A, [local_target, remote_target, route_set]),
+
+    % We send another subscription request using the same dialog, but different Event Id
+    % We update our local target
+    {ok, 200, [{subscription_id, SubsId2A}]} = 
+        nksip_uac:subscribe(C1, DialogId1A, [{event, "myevent4;id=2"}, {expires, 5}, 
+                                             {contact, "sip:a3@127.0.0.1"}]),
+    SubsId2B = nksip_subscription:remote_id(C1, SubsId2A),
+    DialogId1A = nksip_subscription:dialog_id(SubsId2A),
+    DialogId1B = nksip_dialog:field(C1, DialogId1A, remote_id),
+
+    % Remote party updates remote target again
+    {ok, 200, []} = nksip_uac:notify(C2, SubsId2B, [{contact, "sip:b2@127.0.0.1:5070"}]),
+    [
+        {local_target, <<"<sip:a3@127.0.0.1>">>},
+        {remote_target, <<"<sip:b2@127.0.0.1:5070>">>},
+        {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
+    ] = nksip_dialog:fields(C1, DialogId1A, [local_target, remote_target, route_set]),
+    [
+        {local_target, <<"<sip:b2@127.0.0.1:5070>">>},
+        {remote_target, <<"<sip:a3@127.0.0.1>">>},
+        {route_set, [<<"<sip:a2@127.0.0.1;lr>">>, <<"<sip:b@b>">>, <<"<sip:b1@127.0.0.1:5070;lr>">>]}
+    ] = nksip_dialog:fields(C2, DialogId1B, [local_target, remote_target, route_set]),
+
+    % Now we have a dialog with 2 subscriptions
+    [SubsId1A, SubsId2A] = nksip_dialog:field(C1, DialogId1A, subscriptions),
+
+
+    {ok, 200, [{dialog_id, DialogId1B}]} = nksip_uac:invite(C2, DialogId1B, []),
+    ok = nksip_uac:ack(C2, DialogId1B, []),
+
+    ok.
 
 
 

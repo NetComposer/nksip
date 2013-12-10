@@ -645,6 +645,8 @@ uri3_test() ->
 uri4_test() ->
     [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}] = uris("sip:a,sip:b"),
     [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}] = uris("<sip:a>  ,  sip:b  "),
+    [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}, #uri{domain = <<"c">>}] = 
+        uris(<<"<sip:a>,<sip:b@b>,<sip:c>">>),
     [
         #uri{user = <<"u1">>, pass = <<"p1">>, domain = <<"a">>, ext_headers = [<<"a1">>]}, 
         #uri{user = <<"u2">>, pass = <<"p2">>, domain = <<"b">>, opts = [<<"b1">>]}

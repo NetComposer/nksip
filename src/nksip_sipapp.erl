@@ -482,7 +482,8 @@ info(_ReqId, _From, State) ->
     call_reply(nksip:sipreply()).
 
 options(_ReqId, _From, State) ->
-    Reply = {ok, [], <<>>, [make_contact, make_allow, make_accept, make_supported]},
+    Reply = {ok, [], <<>>, [make_contact, make_allow, make_allow_event, 
+                            make_accept, make_supported]},
     {reply, Reply, State}.
 
 

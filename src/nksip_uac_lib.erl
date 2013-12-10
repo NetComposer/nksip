@@ -148,7 +148,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                                 AcceptTokens -> AcceptTokens
                             end
                     end,
-                    {default_single, <<"Accept">>, nksip_unparse:tokens(Accept)};
+                    {default_single, <<"Accept">>, nksip_unparse:token(Accept)};
                 false -> 
                     []
             end,
@@ -161,7 +161,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 undefined -> 
                     [];
                 SubsState0 -> 
-                    SubsState = nksip_unparse:tokens(SubsState0),
+                    SubsState = nksip_unparse:token(SubsState0),
                     {default_single, <<"Subscription-State">>, SubsState}
             end
         ]),

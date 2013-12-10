@@ -122,7 +122,7 @@ field(#subscription{}=U, Field) ->
         id -> U#subscription.id;
         app_id -> U#subscription.app_id;
         status -> U#subscription.status;
-        event -> nksip_unparse:tokens(U#subscription.event);
+        event -> nksip_unparse:token(U#subscription.event);
         parsed_event -> U#subscription.event;
         class -> U#subscription.class;
         answered -> U#subscription.answered;

@@ -104,7 +104,7 @@ preprocess(Req, GlobalId) ->
 %% <ul>
 %%  <li>If code is 100, and a Timestamp header is present in the request, it is
 %%      copied in the response</li>
-%%  <li>For INVITE requests, it will generate automatically Support, Allowed
+%%  <li>For INVITE requests, it will generate automatically Support, Allow
 %%      and Contact headers (if not `contact' option is present).
 %%      If response code is 101-299 it will copy Record-Route headers 
 %%      from the request to the response</li>
@@ -219,7 +219,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         case lists:member(make_accept, Opts) of
             true -> 
                 Accept = nksip_lib:get_value(accept, AppOpts, ?ACCEPT),
-                {default_single, <<"Accept">>, nksip_unparse:tokens(Accept)};
+                {default_single, <<"Accept">>, nksip_unparse:token(Accept)};
             false -> 
                 none
         end,
@@ -229,7 +229,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             false -> none
         end,
         if
-            Method=='INVITE', Code>100, Code<300 ->
+            (Method=='INVITE' orelse Method=='NOTIFY') andalso Code>100 andalso Code<300 ->
                 {multi, <<"Record-Route">>, 
                         proplists:get_all_values(<<"Record-Route">>, ReqHeaders)};
             true ->

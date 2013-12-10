@@ -23,9 +23,9 @@
 -module(sipapp_endpoint).
 -behaviour(nksip_sipapp).
 
--export([start/2, stop/1, add_callback/2, get_sessions/2]).
+-export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
 -export([init/1, get_user_pass/3, authorize/4, route/6, options/3, invite/3, reinvite/3,
-        cancel/3, ack/3, bye/3, info/3, subscribe/3]).
+        cancel/3, ack/3, bye/3, info/3, subscribe/3, notify/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -40,6 +40,10 @@ stop(AppId) ->
 
 add_callback(AppId, Ref) ->
     ok = nksip:call(AppId, {add_callback, Ref, self()}).
+
+start_events(AppId, Reg, Pid, DialogId) ->
+    ok = nksip:call(AppId, {start_events, Reg, Pid, DialogId}).
+
 
 get_sessions(AppId, DialogId) ->
     nksip:call(AppId, {get_sessions, DialogId}).
@@ -318,6 +322,15 @@ subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
             {reply, ok, State1}
     end.
 
+notify(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    Body = nksip_request:body(AppId, ReqId),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false -> none;
+        {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, notify, Body}}
+    end,
+    {reply, ok, State}.
+
 
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->
     [Pid ! {Ref, {ping, PingId, OK}} || {Ref, Pid} <- CBs],
@@ -384,6 +397,10 @@ session_update(_DialogId, _Update, State) ->
 
 handle_call({add_callback, Ref, Pid}, _From, #state{callbacks=CB}=State) ->
     {reply, ok, State#state{callbacks=[{Ref, Pid}|CB]}};
+
+handle_call({start_events, Ref, Pid, DialogId}, _From, #state{dialogs=Dialogs}=State) ->
+    State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]},
+    {reply, ok, State1};
 
 handle_call({get_sessions, DialogId}, _From, #state{sessions=Sessions}=State) ->
     case lists:keyfind(DialogId, 1, Sessions) of

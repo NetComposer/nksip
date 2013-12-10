@@ -62,6 +62,7 @@ request(Req, Call) ->
                     do_request(Method, Req, Dialog1, Call)
             end;
         not_found -> 
+            lager:error("NO TRANS1 ~p, ~p", [DialogId, Call#call.dialogs]),
             {error, no_transaction}
     end.
 
