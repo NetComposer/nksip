@@ -83,12 +83,13 @@ uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
             ?call_debug("Subscription ~s UAC response ~p ~p", 
                           [Id, Method, Code], Call),
             uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
-        _ when Method=='SUBSCRIBE', Code>=200, Code<300 ->
+        not_found when Method=='SUBSCRIBE', Code>=200, Code<300 ->
             Subs = #subscription{id=Id} = Subs = create(uac, Req, Dialog, Call),
             ?call_debug("Subscription ~s UAC response ~p ~p", 
                           [Id, Method, Code], Call),
             uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         _ ->
+            ?call_notice("UAC event ignoring ~p ~p", [Method, Code], Call),
             Dialog
     end;
 
@@ -162,7 +163,7 @@ uas_pre_request(#sipmsg{class={req, 'SUBSCRIBE'}}=Req, Call) ->
 
 %% @private
 -spec uas_request(nksip:request(), nksip:dialog(), nksip_call:call()) ->
-    nksip_dialog:dialog().
+    {ok, nksip_dialog:dialog()} | {error, bad_event | no_transaction}.
 
 uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
             when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
@@ -170,13 +171,15 @@ uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
         #subscription{class=Class, id=Id} when
             (Method=='SUBSCRIBE' andalso Class==uas) orelse
             (Method=='NOTIFY' andalso Class==uac) ->
-            %% CHECK EVENT
             ?call_debug("Subscription ~s UAS request ~p", [Id, Method], Call), 
             {ok, Dialog};
         not_found when Method=='SUBSCRIBE' ->
-            {ok, Dialog};
+            case uas_pre_request(Req, Call) of
+                {ok, _} -> {ok, Dialog};
+                {error, Error} -> {error, Error}
+            end;
         _ ->
-            ?call_notice("UAS received ~p for unknown subscription", [Method], Call),
+            ?call_notice("UAS event ignoring ~p", [Method], Call),
             {error, no_transaction}
     end;
 
@@ -199,14 +202,13 @@ uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
             ?call_debug("Subscription ~s UAS response ~p ~p", 
                           [Id, Method, Code], Call),
             uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
-        _ when Code>=200, Code<300 ->
+        not_found when Code>=200, Code<300 ->
             #subscription{id=Id} = Subs = create(uas, Req, Dialog, Call),
             ?call_debug("Subscription ~s UAS response ~p, ~p", 
                           [Id, Method, Code], Call), 
             uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         _ ->
-            ?call_notice("UAS received ~p ~p response for unknown subscription",
-                         [Method, Code], Call),
+            ?call_notice("UAS event ignoring ~p ~p", [Method, Code], Call),
             Dialog
     end;
 
@@ -288,7 +290,7 @@ update({terminated, Reason}, Subs, Dialog, Call) ->
     cancel_timer(N),
     cancel_timer(Expire),
     cancel_timer(Middle),
-    ?call_notice("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason], Call),
+    ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason], Call),
     cast({terminated, Reason}, Subs, Dialog, Call),
     store(Subs#subscription{status={terminated, Reason}}, Dialog, Call);
 
@@ -309,7 +311,7 @@ update({Status, Expires}, Subs, Dialog, Call)
         true -> 
             ok;
         false -> 
-            ?call_notice("Subscription ~s ~p -> ~p", [Id, OldStatus, Status], Call),
+            ?call_debug("Subscription ~s ~p -> ~p", [Id, OldStatus, Status], Call),
             cast(Status, Subs, Dialog, Call)
     end,
     Expires1 = case is_integer(Expires) andalso Expires>0 of

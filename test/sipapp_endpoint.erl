@@ -191,8 +191,11 @@ invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
             {reply, {500, Hds}, State1}
     end;
 
+% INVITE for event test
+invite(_ReqId, _From, #state{id={event, _}}=State) ->
+    {reply, ok, State};
 
-% INVITE for basic, uac, uas, invite, proxy and event test
+% INVITE for basic, uac, uas, invite and proxy test
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id

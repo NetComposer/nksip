@@ -310,7 +310,6 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                     end
             end
     end,
-    lager:error("UPDATED RR ~p, ~p, ~p", [AppId, Class, nksip_unparse:uri(RouteSet)]),
     Dialog#dialog{route_set=RouteSet};
 
 route_update(_Class, _Req, _Resp, Dialog) ->

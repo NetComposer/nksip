@@ -110,6 +110,10 @@ request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
 -spec do_request(nksip:method(), nksip:request(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
+do_request('INVITE', Req, #dialog{invite=undefined}=Dialog, Call) ->
+    Invite = #invite{status=confirmed},
+    do_request('INVITE', Req, Dialog#dialog{invite=Invite}, Call);
+
 do_request('INVITE', Req, #dialog{invite=Invite}=Dialog, Call) ->
     confirmed = Invite#invite.status,
     {HasSDP, SDP, _Offer, _} = get_sdp(Req, Invite),

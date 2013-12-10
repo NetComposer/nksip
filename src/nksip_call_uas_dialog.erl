@@ -62,7 +62,6 @@ request(Req, Call) ->
                     do_request(Method, Req, Dialog1, Call)
             end;
         not_found -> 
-            lager:error("NO TRANS1 ~p, ~p", [DialogId, Call#call.dialogs]),
             {error, no_transaction}
     end.
 
@@ -71,6 +70,10 @@ request(Req, Call) ->
 -spec do_request(nksip:method(), nksip:request(), nksip:dialog(), nksip_call:call()) ->
     {ok, nksip_call:call()} | {error, Error}
     when Error :: request_pending | retry.
+
+do_request('INVITE', Req, #dialog{invite=undefined}=Dialog, Call) ->
+    Invite = #invite{status=confirmed},
+    do_request('INVITE', Req, Dialog#dialog{invite=Invite}, Call);
 
 do_request('INVITE', Req, 
            #dialog{invite=#invite{status=confirmed}=Invite}=Dialog, Call) ->
