@@ -165,7 +165,7 @@ id(_, <<"U_", _/binary>>=SubscriptionId) ->
 
 id(AppId, <<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
     Fun = fun(#sipmsg{}=SipMsg) -> {ok, id(SipMsg)} end,
-    case nksip_call:apply_sipmsg(AppId, MsgId, Fun) of
+    case nksip_call_router:apply_sipmsg(AppId, MsgId, Fun) of
         {ok, SubscriptionId} -> SubscriptionId;
         {error, _} -> <<>>
     end.
