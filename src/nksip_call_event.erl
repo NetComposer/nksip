@@ -144,6 +144,11 @@ uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
             {ok, Dialog};
         not_found when Method=='SUBSCRIBE' ->
             {ok, Dialog};
+        not_found when Method=='NOTIFY' ->
+            case is_event(Req, Call) of
+                true -> {ok, Dialog};
+                false -> {error, no_transaction}
+            end;
         _ ->
             ?call_notice("UAS event ignoring ~p", [Method], Call),
             {error, no_transaction}

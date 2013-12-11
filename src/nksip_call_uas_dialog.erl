@@ -188,7 +188,8 @@ response(Req, Resp, Call) ->
             },
             Dialog2 = Dialog1#dialog{invite=Invite},
             do_response(Method, Code, Req, Resp, Dialog2, Call);
-        not_found when Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' ->
+        not_found when Code>=200 andalso Code<300 andalso 
+                       (Method=='SUBSCRIBE' orelse Method=='NOTIFY') ->
             ?call_debug("Dialog ~s UAS ~p response ~p", 
                         [DialogId, Method, Code], Call),
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
