@@ -79,7 +79,12 @@ uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
                           [Id, Method, Code], Call),
             uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         _ ->
-            ?call_notice("UAC event ignoring ~p ~p", [Method, Code], Call),
+            case Code>=200 andalso Code<300 of
+                true -> 
+                    ?call_notice("UAC event ignoring ~p ~p", [Method, Code], Call);
+                false ->
+                    ok
+            end,
             Dialog
     end;
 
@@ -179,7 +184,12 @@ uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
                           [Id, Method, Code], Call), 
             uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         _ ->
-            ?call_notice("UAS event ignoring ~p ~p", [Method, Code], Call),
+            case Code>=200 andalso Code<300 of
+                true ->
+                    ?call_notice("UAS event ignoring ~p ~p", [Method, Code], Call);
+                false ->
+                    ok
+            end,
             Dialog
     end;
 
