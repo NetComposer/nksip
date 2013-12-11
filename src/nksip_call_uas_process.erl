@@ -44,7 +44,8 @@ process(#trans{request=#sipmsg{class={req, 'ACK'}, to_tag = <<>>}}=UAS, Call) ->
     update(UAS#trans{status=finished}, Call);
     
 process(#trans{request=#sipmsg{class={req, Method}, to_tag = <<>>}}=UAS, Call)
-        when Method=='BYE'; Method=='INFO'; Method=='PRACK'; Method=='UPDATE' ->
+        when Method=='BYE'; Method=='INFO'; Method=='PRACK'; Method=='UPDATE';
+             Method=='NOTIFY' ->
     reply(no_transaction, UAS, Call);
 
 process(#trans{request=Req}=UAS, Call) ->
