@@ -430,8 +430,15 @@ request_uac_opts('SUBSCRIBE', Opts, #subscription{event=Event, expires=Expires})
 request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer}) ->
     SS = case nksip_lib:get_value(subscription_state, Opts) of
         State when State==active; State==pending ->
-            Expires = round(erlang:read_timer(Timer)/1000),
-            {State, [{expires, Expires}]};
+            case is_reference(Timer) of
+                true -> 
+                    Expires = round(erlang:read_timer(Timer)/1000),
+                    {State, [{expires, Expires}]};
+                false ->
+                    {terminated, [{reason, timeout}]}
+            end;
+        {terminated, undefined, _} ->
+            {terminated, []};
         {terminated, Reason, undefined} ->
             {terminated, [{reason, Reason}]};
         {terminated, Reason, Retry} ->
