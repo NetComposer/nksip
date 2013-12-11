@@ -105,13 +105,8 @@ uac_response(_Req, _Resp, Dialog, _Call) ->
 
 uac_do_response('SUBSCRIBE', Code, Req, Resp, Subs, Dialog, Call) 
                 when Code>=200, Code<300 ->
-    case Subs#subscription.status of
-        notify_wait -> 
-            Expires = min(Req#sipmsg.expires, Resp#sipmsg.expires),
-            update({neutral, Expires}, Subs, Dialog, Call);
-        _ -> 
-            update(none, Subs, Dialog, Call)
-    end;
+    Expires = min(Req#sipmsg.expires, Resp#sipmsg.expires),
+    update({subscribe, Expires}, Subs, Dialog, Call);
 
 uac_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call) 
                 when Code>=300 ->
@@ -227,16 +222,8 @@ uas_do_response(_, Code, _Req, _Resp, _Subs, Dialog, _Call) when Code<200 ->
 
 uas_do_response('SUBSCRIBE', Code, Req, Resp, Subs, Dialog, Call) 
                 when Code>=200, Code<300 ->
-    case Subs#subscription.status of
-        notify_wait -> 
-            Expires = case min(Req#sipmsg.expires, Resp#sipmsg.expires) of
-                Expires0 when is_integer(Expires0), Expires0>=0 -> Expires0;
-                _ -> ?DEFAULT_EVENT_EXPIRES
-            end,
-            update({neutral, Expires}, Subs, Dialog, Call);
-        _ -> 
-            update(none, Subs, Dialog, Call)
-    end;
+    Expires = min(Req#sipmsg.expires, Resp#sipmsg.expires),
+    update({subscribe, Expires}, Subs, Dialog, Call);
         
 uas_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call) 
                 when Code>=300 ->
@@ -279,26 +266,36 @@ uas_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
 update(none, Subs, Dialog, Call) ->
     store(Subs, Dialog, Call);
 
-update({terminated, Reason}, Subs, Dialog, Call) ->
-    #subscription{
-        id = Id,
-        status = OldStatus,
-        timer_n = N, 
-        timer_expire = Expire, 
-        timer_middle = Middle
-    } = Subs,
-    cancel_timer(N),
-    cancel_timer(Expire),
-    cancel_timer(Middle),
-    ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason], Call),
-    cast({terminated, Reason}, Subs, Dialog, Call),
-    store(Subs#subscription{status={terminated, Reason}}, Dialog, Call);
-
-update({Status, 0}, Subs, Dialog, Call) when Status==neutral; Status==active; Status==pending ->
+update({Status, 0}, Subs, Dialog, Call) 
+        when Status==subscribe; Status==active; Status==pending ->
     update({terminated, timeout}, Subs, Dialog, Call);
 
+update({subscribe, Expires}, Subs, Dialog, Call) ->
+    #subscription{
+        id = Id, 
+        timer_n = TimerN,
+        timer_expire = TimerExpire,
+        timer_middle = TimerMiddle
+    } = Subs,
+    Expires1 = case is_integer(Expires) andalso Expires>0 of
+        true -> Expires;
+        false -> ?DEFAULT_EVENT_EXPIRES
+    end,
+    cancel_timer(TimerN),
+    cancel_timer(TimerExpire),
+    cancel_timer(TimerMiddle),
+    ?call_debug("Event ~s expires updated to ~p", [Id, Expires1], Call),
+    #call{opts=#call_opts{timer_t1=T1}} = Call,
+    Subs1 = Subs#subscription{
+        expires = Expires1,
+        timer_n = start_timer(64*T1, {timeout, Id}, Dialog),
+        timer_expire = start_timer(1000*Expires1, {timeout, Id}, Dialog),
+        timer_middle = start_timer(500*Expires1, {middle, Id}, Dialog)
+    },
+    store(Subs1, Dialog, Call);
+
 update({Status, Expires}, Subs, Dialog, Call) 
-       when Status==neutral; Status==active; Status==pending ->
+        when Status==active; Status==pending ->
     #subscription{
         id = Id, 
         status = OldStatus,
@@ -318,38 +315,40 @@ update({Status, Expires}, Subs, Dialog, Call)
         true -> Expires;
         false -> ?DEFAULT_EVENT_EXPIRES
     end,
-    case Status of
-        neutral ->
-            cancel_timer(TimerN),
-            cancel_timer(TimerExpire),
-            cancel_timer(TimerMiddle),
-            #call{opts=#call_opts{timer_t1=T1}} = Call,
-            Subs1 = Subs#subscription{
-                status = neutral,
-                expires = Expires1,
-                timer_n = start_timer(64*T1, {timeout, Id}, Dialog),
-                timer_expire = start_timer(1000*Expires1, {timeout, Id}, Dialog),
-                timer_middle = start_timer(500*Expires1, {middle, Id}, Dialog)
-            },
-            store(Subs1, Dialog, Call);
-        _ ->
-            cancel_timer(TimerN),
-            cancel_timer(TimerExpire),
-            cancel_timer(TimerMiddle),
-            ?call_debug("Event ~s expired updated to ~p", [Id, Expires1], Call),
-            Answered1 = case Answered of
-                undefined -> nksip_lib:timestamp();
-                _ -> Answered
-            end,
-            Subs1 = Subs#subscription{
-                status = Status,
-                answered = Answered1,
-                timer_n = undefined,
-                timer_expire = start_timer(1000*Expires1, {timeout, Id}, Dialog),
-                timer_middle = start_timer(500*Expires1, {middle, Id}, Dialog)
-            },
-            store(Subs1, Dialog, Call)
-    end;
+    cancel_timer(TimerN),
+    cancel_timer(TimerExpire),
+    cancel_timer(TimerMiddle),
+    ?call_debug("Event ~s expires updated to ~p", [Id, Expires1], Call),
+    Answered1 = case Answered of
+        undefined -> nksip_lib:timestamp();
+        _ -> Answered
+    end,
+    Subs1 = Subs#subscription{
+        status = Status,
+        answered = Answered1,
+        timer_n = undefined,
+        timer_expire = start_timer(1000*Expires1, {timeout, Id}, Dialog),
+        timer_middle = start_timer(500*Expires1, {middle, Id}, Dialog)
+    },
+    store(Subs1, Dialog, Call);
+
+update({terminated, Reason}, Subs, Dialog, Call) ->
+    #subscription{
+        id = Id,
+        status = OldStatus,
+        timer_n = N, 
+        timer_expire = Expire, 
+        timer_middle = Middle
+    } = Subs,
+    cancel_timer(N),
+    cancel_timer(Expire),
+    cancel_timer(Middle),
+    ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason], Call),
+    cast({terminated, Reason}, Subs, Dialog, Call),
+    store(Subs#subscription{status={terminated, Reason}}, Dialog, Call);
+
+
+
 
 update(Status, Subs, Dialog, Call) ->
     update({terminated, Status}, Subs, Dialog, Call).
@@ -473,7 +472,7 @@ create(Class, Req, Dialog, Call) ->
         id = Id,
         app_id = AppId,
         event = Event,
-        status = notify_wait,
+        status = start,
         class = Class,
         answered = undefined,
         timer_n = start_timer(64*T1, {tixmeout, Id}, Dialog)
