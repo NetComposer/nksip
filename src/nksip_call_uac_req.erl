@@ -150,10 +150,13 @@ send('ACK', UAC, Call) ->
 
 send(_, UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
+    #sipmsg{to_tag=ToTag} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     NoDialog = lists:member(no_dialog, Opts),
     TestDialog = case NoDialog of
         true -> 
+            ok;
+        false when ToTag == <<>> ->
             ok;
         false -> 
             OnlyUpdate = lists:member(update_dialog, Opts),
@@ -210,7 +213,11 @@ sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
     update(UAC1, Call2);
 
 sent_request(Req, UAC, Call) ->
-    #sipmsg{class={req, Method}, transport=#transport{proto=Proto}} = Req,
+    #sipmsg{
+        class = {req, Method}, 
+        to_tag = ToTag, 
+        transport = #transport{proto=Proto}
+    } = Req,
     #trans{id=Id, opts=Opts} = UAC,
     ?call_debug("UAC ~p sent ~p request", [Id, Method], Call),
     UAC1 = UAC#trans{
@@ -221,6 +228,7 @@ sent_request(Req, UAC, Call) ->
     Call1 = update(UAC1, Call),
     Call2 = case lists:member(no_dialog, Opts) of
         true -> Call1;
+        false when ToTag == <<>> -> Call1;
         false -> nksip_call_uac_dialog:request(Req, Call1)
     end,
     Call3 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call2),

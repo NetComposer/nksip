@@ -79,8 +79,11 @@ process(#trans{request=Req}=UAS, Call) ->
 %% @private 
 do_process(UAS, Call) ->
     #trans{method=Method, request=Req, stateless=Stateless} = UAS,
+    #sipmsg{to_tag=ToTag} = Req,
     case Stateless of
         true ->
+            method(Method, UAS, Call);
+        false when ToTag == <<>> ->
             method(Method, UAS, Call);
         false ->           
             case nksip_call_uas_dialog:request(Req, Call) of

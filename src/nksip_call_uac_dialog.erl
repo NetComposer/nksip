@@ -43,9 +43,6 @@
 pre_request(#sipmsg{class={req, 'ACK'}}, _) ->
     error(ack_in_dialog_pre_request);
 
-pre_request(#sipmsg{to_tag = <<>>}, _Call) ->
-    ok;
-
 pre_request(Req, Call) ->
     #sipmsg{class={req, Method}, dialog_id=DialogId} = Req,
     case find(DialogId, Call) of
@@ -87,10 +84,6 @@ pre_request(Req, Call) ->
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
     nksip_call:call().
-
-
-request(#sipmsg{to_tag = <<>>}, Call) ->
-    Call;
 
 request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
     ?call_debug("Dialog ~s UAC request ~p", [DialogId, Method], Call), 

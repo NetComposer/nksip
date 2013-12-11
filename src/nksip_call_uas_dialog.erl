@@ -40,9 +40,6 @@
     when Error :: request_pending | retry | old_cseq | no_transaction.
 
 
-request(#sipmsg{to_tag = <<>>}, Call) ->
-    {ok, Call};
-
 request(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     ack(Req, Call);
 
