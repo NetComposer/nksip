@@ -37,11 +37,8 @@
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
     {ok, nksip_call:call()} | {error, Error}
-    when Error :: request_pending | retry | old_cseq | no_transaction | bad_event.
+    when Error :: request_pending | retry | old_cseq | no_transaction.
 
-
-request(#sipmsg{class={req, 'SUBSCRIBE'}, to_tag=(<<>>)}=Req, Call) ->
-    nksip_call_event:uas_pre_request(Req, Call);
 
 request(#sipmsg{to_tag = <<>>}, Call) ->
     {ok, Call};

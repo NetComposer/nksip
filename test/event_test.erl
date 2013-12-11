@@ -27,16 +27,16 @@
 
 -compile([export_all]).
 
-% event_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         {inparallel, [
-%             {timeout, 60, fun basic/0},
-%             {timeout, 60, fun refresh/0},
-%             {timeout, 60, fun dialog/0}
-%         ]}
-%     }.
+event_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        {inparallel, [
+            {timeout, 60, fun basic/0},
+            {timeout, 60, fun refresh/0},
+            {timeout, 60, fun dialog/0}
+        ]}
+    }.
 
 
 start() ->
@@ -97,7 +97,7 @@ basic() ->
     Dialog1B = nksip_dialog:field(C1, Dialog1A, remote_id),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
     [
-        {status, neutral},
+        {status, start},
         {event, <<"myevent4;id=4;o=2">>},
         {class, uac},
         {answered, undefined},
@@ -105,7 +105,7 @@ basic() ->
     ] = nksip_subscription:fields(C1, Subs1A, [status, event, class, answered, expires]),
 
     [
-        {status, neutral},
+        {status, start},
         {parsed_event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
         {class, uas},
         {answered, undefined},
@@ -123,10 +123,9 @@ basic() ->
 
     ok = tests_util:wait(Ref, [
             {subs, Subs1B, started}, 
-            {subs, Subs1B, neutral}, 
-            {subs, Subs1B, middle_timer}
-        ]),
-    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, timeout}}]),
+            {subs, Subs1B, middle_timer},
+            {subs, Subs1B, {terminated, timeout}}
+    ]),
     timer:sleep(100),
 
     error = nksip_subscription:field(C1, Subs1A, status),
@@ -139,7 +138,7 @@ basic() ->
                                         {headers, [RepHd]}]),
  
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
-    ok = tests_util:wait(Ref, [{subs, Subs2B, started}, {subs, Subs2B, neutral}]),
+    ok = tests_util:wait(Ref, [{subs, Subs2B, started}]),
 
     Dialog2A = nksip_subscription:dialog_id(Subs2A),
     sipapp_endpoint:start_events(C1, Ref, Self, Dialog2A),
@@ -209,26 +208,19 @@ refresh() ->
     % But we finish de dialog
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{state, {terminated, giveup}}]),
     ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, {giveup, undefined}}}]),
+    ok.
     
 
-    % A new subscription
-    {ok, 200, [{subscription_id, Subs2A}]} = 
-        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
-                                        {headers, [Hds]}]),
-    Subs2B = nksip_subscription:remote_id(C1, Subs2A),
-    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
+    % % A new subscription
+    % {ok, 200, [{subscription_id, Subs2A}]} = 
+    %     nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
+    %                                     {headers, [Hds]}]),
+    % Subs2B = nksip_subscription:remote_id(C1, Subs2A),
+    % {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
 
-    % And a refresh to expire
-    {ok, 200, [{subscription_id, Subs2A}]} = 
-        nksip_uac:subscribe(C1, Subs2A, [{expires, 0}]).
-
-
-
-
-
-
-
-
+    % % And a refresh to expire
+    % {ok, 200, [{subscription_id, Subs2A}]} = 
+    %     nksip_uac:subscribe(C1, Subs2A, [{expires, 0}]).
 
 
 dialog() ->

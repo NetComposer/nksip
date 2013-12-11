@@ -89,9 +89,6 @@ pre_request(Req, Call) ->
     nksip_call:call().
 
 
-request(#sipmsg{class={req, 'SUBSCRIBE'}, to_tag=(<<>>)}=Req, Call) ->
-    nksip_call_event:create_provisional(Req, Call);
-
 request(#sipmsg{to_tag = <<>>}, Call) ->
     Call;
 
@@ -205,9 +202,6 @@ response(Req, Resp, Call) ->
             ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
             Dialog1 = nksip_call_dialog:create(uac, Req, Resp, Call),
             do_response(Method, Code, Req, Resp, Dialog1, Call);
-        not_found when Method=='SUBSCRIBE', Code>=300 ->
-            % A non-2xx response before we have created the dialog
-            nksip_call_event:remove_provisional(Req, Call);
         not_found ->
             Call
     end.

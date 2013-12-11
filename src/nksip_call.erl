@@ -460,8 +460,8 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
             Call
     end;
 
-timeout({provisional_event, Id}, _Ref, Call) ->
-    nksip_call_event:remove_provisional(Id, Call);
+timeout({remove_event, Id}, _Ref, Call) ->
+    nksip_call_event:remove_event(Id, Call);
 
 timeout(check_call, _Ref, #call{opts=CallOpts}=Call) ->
     #call_opts{
