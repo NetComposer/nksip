@@ -345,7 +345,12 @@ update({terminated, Reason}, Subs, Dialog, Call) ->
     cancel_timer(Expire),
     cancel_timer(Middle),
     ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason], Call),
-    cast({terminated, Reason}, Subs, Dialog, Call),
+    CastReason = case Reason of
+        {BaseReason, undefined} -> BaseReason;
+        {BaseReason, Retry} -> {BaseReason, Retry};
+        BaseReason when is_atom(Reason) -> BaseReason
+    end,
+    cast({terminated, CastReason}, Subs, Dialog, Call),
     store(Subs#subscription{status={terminated, Reason}}, Dialog, Call);
 
 update(Status, Subs, Dialog, Call) ->
