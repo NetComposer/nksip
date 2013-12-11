@@ -299,17 +299,9 @@ info(ReqId, _From, #state{id=AppId}=State) ->
 
 subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_dialog:id(AppId, ReqId),
-    Values = nksip_request:header(AppId, ReqId, <<"Nk">>),
-    Routes = nksip_request:header(AppId, ReqId, <<"Route">>),
-    Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
-    Hds = [
-        case Values of [] -> []; _ -> {<<"Nk">>, nksip_lib:bjoin(Values)} end,
-        case Routes of [] -> []; _ -> {<<"Nk-R">>, nksip_lib:bjoin(Routes)} end,
-        {<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}
-    ],
     Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
         [Op0] -> Op0;
-        _ -> <<"decline">>
+        _ -> <<"ok">>
     end,
     State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
         [RepBin] ->
@@ -320,9 +312,9 @@ subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     end,
     case Op of
         <<"ok">> ->
-            {reply, {ok, Hds}, State1};
-        _ ->
-            {reply, ok, State1}
+            {reply, ok, State1};
+        <<"expires-2">> ->
+            {reply, {ok, [], <<>>, [{expires, 2}]}, State1}
     end.
 
 notify(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->

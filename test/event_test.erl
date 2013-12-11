@@ -27,15 +27,16 @@
 
 -compile([export_all]).
 
-event_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        {inparallel, [
-            {timeout, 60, fun basic/0},
-            {timeout, 60, fun dialog/0}
-        ]}
-    }.
+% event_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         {inparallel, [
+%             {timeout, 60, fun basic/0},
+%             {timeout, 60, fun refresh/0},
+%             {timeout, 60, fun dialog/0}
+%         ]}
+%     }.
 
 
 start() ->
@@ -172,6 +173,62 @@ ok = tests_util:wait(Ref, [
     ]),
 
     ok.
+
+
+refresh() ->
+    C1 = {event, client1},
+    C2 = {event, client2},
+    SipC2 = "sip:127.0.0.1:5070",
+    Ref = make_ref(),
+    Self = self(),
+    Hds = [
+        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+        {"Nk-Op", "expires-2"}
+    ],
+    {ok, 200, [{subscription_id, Subs1A}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
+                                        {headers, [Hds]}]),
+    Subs1B = nksip_subscription:remote_id(C1, Subs1A),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, []),
+
+    % 2xx response to subscribe has changed timeout to 2 secs
+    2 = nksip_subscription:field(C1, Subs1A, expires),
+    2 = nksip_subscription:field(C2, Subs1B, expires),
+    ok = tests_util:wait(Ref, [
+        {subs, Subs1B, started},
+        {subs, Subs1B, active},
+        {subs, Subs1B, middle_timer}
+    ]),
+
+    % We send a refresh, changing timeout to 20 secs
+    {ok, 200, [{subscription_id, Subs1A}]} = 
+        nksip_uac:subscribe(C1, Subs1A, [{expires, 20}]),
+    20 = nksip_subscription:field(C1, Subs1A, expires),
+    20 = nksip_subscription:field(C2, Subs1B, expires),
+    
+    % But we finish de dialog
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{state, {terminated, giveup}}]),
+    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, {giveup, undefined}}}]),
+    
+
+    % A new subscription
+    {ok, 200, [{subscription_id, Subs2A}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
+                                        {headers, [Hds]}]),
+    Subs2B = nksip_subscription:remote_id(C1, Subs2A),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
+
+    % And a refresh to expire
+    {ok, 200, [{subscription_id, Subs2A}]} = 
+        nksip_uac:subscribe(C1, Subs2A, [{expires, 0}]).
+
+
+
+
+
+
+
+
 
 
 dialog() ->
