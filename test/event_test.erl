@@ -207,30 +207,32 @@ refresh() ->
     
     % But we finish de dialog
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{state, {terminated, giveup}}]),
-    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, {giveup, undefined}}}]),
-    ok.
+    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, giveup}}]),
     
 
-    % % A new subscription
-    % {ok, 200, [{subscription_id, Subs2A}]} = 
-    %     nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
-    %                                     {headers, [Hds]}]),
-    % Subs2B = nksip_subscription:remote_id(C1, Subs2A),
-    % {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
+    % A new subscription
+    {ok, 200, [{subscription_id, Subs2A}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
+                                        {headers, [Hds]}]),
+    Subs2B = nksip_subscription:remote_id(C1, Subs2A),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
+    ok = tests_util:wait(Ref, [{subs, Subs2B, started}, {subs, Subs2B, active}
+    ]),
 
-    % % And a refresh to expire
-    % {ok, 200, [{subscription_id, Subs2A}]} = 
-    %     nksip_uac:subscribe(C1, Subs2A, [{expires, 0}]).
+    % And a refresh with expire=0, actually it is not removed until notify
+    {ok, 200, [{subscription_id, Subs2A}]} = 
+        nksip_uac:subscribe(C1, Subs2A, [{expires, 0}]),
+    % Notify will use status:terminated;reason=timeout automatically
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
+    ok = tests_util:wait(Ref, [{subs, Subs2B, {terminated, timeout}}]),
+    ok.
 
 
 dialog() ->
     C1 = {event, client1},
     C2 = {event, client2},
     SipC2 = "sip:127.0.0.1:5070",
-    _Ref = make_ref(),
-    _Self = self(),
-    
-    % CB = {callback, fun(R) -> Self ! {Ref, R} end},
+
     {ok, 200, [{subscription_id, Subs1A}, {dialog_id, DialogA}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=1"}, {expires, 2}, 
                                         {contact, "sip:a@127.0.0.1"}, 
@@ -312,6 +314,29 @@ dialog() ->
     error = nksip_dialog:field(C1, DialogA, invite_status),
     error = nksip_dialog:field(C2, DialogB, invite_status),
     ok.
+
+
+% fork() ->
+%     C1 = {event, client1},
+%     C2 = {event, client2},
+%     SipC2 = "sip:127.0.0.1:5070",
+%     Self = self(),
+%     Ref = make_ref(),
+
+%     CB = {callback, fun(R) -> Self ! {Ref, R} end},
+%     HDs = {headers, [
+%         {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+%         {"Nk-Op", "wait-3"}
+%     ]},
+%     {async, _} = 
+%         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, HDs, CB, async, get_request]),
+
+%     receive {Ref, {wait_3_id, Resp}} -> ?P("R: ~p", [Resp]) 
+%     after 1000 -> error(fork)
+%     end,
+
+%     ok.
+
 
 
 

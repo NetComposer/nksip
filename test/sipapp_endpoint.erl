@@ -297,7 +297,7 @@ info(ReqId, _From, #state{id=AppId}=State) ->
     {reply, {ok, [{"Nk-Method", "info"}, {"Nk-Dialog", DialogId}]}, State}.
 
 
-subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+subscribe(ReqId, From, #state{id=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_dialog:id(AppId, ReqId),
     Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
         [Op0] -> Op0;
@@ -308,6 +308,7 @@ subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
         _ ->
+            Ref = Pid = undefined,
             State
     end,
     case Op of
@@ -315,6 +316,17 @@ subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
             {reply, ok, State1};
         <<"expires-2">> ->
             {reply, {ok, [], <<>>, [{expires, 2}]}, State1}
+        % <<"wait-3">> ->
+        %     Req = nksip_request:get_request(AppId, ReqId),
+        %     Resp = nksip_reply:reply(Req, {ok, [], <<>>, [{event, "myevent4"}, {subscription_state, active}]}, []),
+        %     Pid ! {Ref, {wait_3_id, Resp}},
+        %     spawn(
+        %         fun() ->
+        %             timer:sleep(3000),
+        %             nksip:reply(From, ok)
+        %         end),
+        %     {noreply, State1}
+
     end.
 
 notify(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
