@@ -195,7 +195,7 @@
 -include("nksip.hrl").
 
 -export([options/3, register/3, invite/3, ack/3, bye/3, info/3, cancel/2]).
--export([update/3, subscribe/3, notify/3]).
+-export([update/3, subscribe/3, notify/3, message/3]).
 -export([refresh/3, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
@@ -241,6 +241,9 @@
     {state, active | pending | {terminated, notify_reason()}} | 
     {expires, non_neg_integer()} |
     {retry_after, non_neg_integer()}.
+
+-type message_opt() ::
+    {expires, non_neg_integer()}.
 
 -type result() ::  
     {async, nksip_request:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
@@ -725,6 +728,41 @@ notify(AppId, Dest, Opts) ->
         invalid -> {error, invalid_state};
         _ -> send_dialog(AppId, 'NOTIFY', Dest, [{subscription_state, State}|Opts])
     end.
+
+
+%% @doc Sends an MESSAGE request.
+%%
+%% This functions sends a new MESSAGE request to the other party.
+%%
+%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% If it is a dialog specification, it will be sent inside that dialog.
+%% Recognized options are described in {@link opt()} when sent outside any dialog,
+%% and {@link dialog_opt()} when sent inside a dialog.
+%%
+%% Additional recognized options are defined in {@link message_opts()}:
+%%
+%% <table border="1">
+%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`expires'</td>
+%%          <td>`integer()'</td>
+%%          <td></td>
+%%          <td>If included it will generate a <i>Expires</i> header. NkSIP will 
+%%              also add a <i>Date</i> header</td>
+%%      </tr>
+%% </table>
+%%
+
+-spec message(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+             [opt()|dialog_opt()|message_opt()]) ->
+    result() | {error, error()}.
+
+message(AppId, Dest, Opts) ->
+    Opts1 = case lists:keymember(expires, 1, Opts) of
+        true -> [make_date|Opts];
+        _ -> Opts
+    end,
+    send_any(AppId, 'MESSAGE', Dest, Opts1).
 
 
 

@@ -31,7 +31,7 @@
 -define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
 -define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE, "
-                 "SUBSCRIBE, NOTIFY">>).
+                 "SUBSCRIBE, NOTIFY, MESSAGE">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).

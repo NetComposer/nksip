@@ -35,6 +35,7 @@ uac_test_() ->
         [
             {timeout, 60, fun uac/0},
             {timeout, 60, fun info/0},
+            {timeout, 60, fun message/0},
             {timeout, 60, fun timeout/0}
         ]
     }.
@@ -225,6 +226,23 @@ timeout() ->
     ok.
 
 
+message() ->
+    Ref = make_ref(),
+    Self = self(),
+    Hds = {headers, [
+        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
+    ]},
+    {ok, 200, []} = nksip_uac:message({uac,client2}, "sip:user@127.0.0.1:5070", [
+                                      Hds, {expires, 10}, {content_type, "text/plain"},
+                                      {body, <<"Message">>}]),
+
+    receive 
+        {Ref, {ok, 10, RawDate, <<"text/plain">>, <<"Message">>}} ->
+            Date = httpd_util:convert_request_date(binary_to_list(RawDate)),
+            true = nksip_lib:timestamp() - nksip_lib:gmt_to_timestamp(Date) < 2
+   
+    after 1000 -> error(message)
+    end.
 
 
 

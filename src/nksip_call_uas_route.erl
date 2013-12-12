@@ -66,7 +66,7 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                 _ when Fun==invite; Fun==reinvite; Fun==bye; 
                        Fun==options; Fun==register; Fun==info;
                        Fun==prack; Fun==update; Fun==subscribe;
-                       Fun==notify ->
+                       Fun==notify; Fun==message ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     {Resp, SendOpts} = nksip_reply:reply(Req, Reply, AppOpts),
                     #sipmsg{class={resp, Code, _Reason}} = Resp,

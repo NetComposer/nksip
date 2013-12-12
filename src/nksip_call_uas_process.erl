@@ -187,6 +187,30 @@ method('SUBSCRIBE', UAS, Call) ->
 method('NOTIFY', UAS, Call) ->
     process_call(notify, UAS, Call);
 
+method('MESSAGE', UAS, Call) ->
+    #trans{request=#sipmsg{expires=Expires, start=Start}=Req} = UAS,
+    _Expired = case is_integer(Expires) of
+        true ->
+            case nksip_sipmsg:header(Req, <<"Date">>, dates) of
+                [Date] ->
+                    Final = nksip_lib:gmt_to_timestamp(Date) + Expires,
+                    case nksip_lib:timestamp() of
+                        TS when TS > Final -> true;
+                        _ -> false
+                    end;
+                _ ->
+                    Final = Start/1000 + Expires,
+                    case nksip_lib:timestamp() of
+                        TS when TS > Final -> true;
+                        _ -> false
+                    end
+            end;
+        _ ->
+            false
+    end,
+    % TODO: Expired to be included in future UAS metadata
+    process_call(message, UAS, Call);
+
 method(_Method, UAS, Call) ->
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     Allowed = case lists:member(registrar, AppOpts) of

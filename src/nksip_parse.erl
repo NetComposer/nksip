@@ -680,7 +680,7 @@ parse_dates([], Acc) ->
 parse_dates([Next|Rest], Acc) ->
     Base = string:strip(nksip_lib:to_list(Next)),
     case lists:reverse(Base) of
-        "TMG " ++ _ ->               % Should en in "GMT"
+        "TMG " ++ _ ->               % Should be in "GMT"
             case catch httpd_util:convert_request_date(Base) of
                 {_, _} = Date -> parse_dates(Rest, Acc++[Date]);
                 _ -> error

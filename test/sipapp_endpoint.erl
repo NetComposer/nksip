@@ -25,7 +25,7 @@
 
 -export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
 -export([init/1, get_user_pass/3, authorize/4, route/6, options/3, invite/3, reinvite/3,
-        cancel/3, ack/3, bye/3, info/3, subscribe/3, notify/3]).
+        cancel/3, ack/3, bye/3, info/3, subscribe/3, notify/3, message/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -336,6 +336,26 @@ notify(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
         {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, notify, Body}}
     end,
     {reply, ok, State}.
+
+
+message(ReqId, _From, #state{id=AppId}=State) ->
+    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+        [RepBin] ->
+            {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+            [
+                {_, Expires},
+                {_, [Date]},
+                {_, ContentType},
+                {_, Body}
+
+            ] = nksip_request:fields(AppId, ReqId, 
+                    [parsed_expires, <<"Date">>, content_type, body]),
+            Pid ! {Ref, {ok, Expires, Date, ContentType, Body}},
+            {reply, ok, State};
+        _ ->
+            {reply, decline, State}
+    end.
+
 
 
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->

@@ -6,7 +6,7 @@ Changelog
  
 * Allow an endpoint to start a dialog with itself.
 * Reliable provisional responses.
-* UPDATE method.
+* UPDATE and MESSAGE methods.
 * Full event support (SUBSCRIBE/NOTIFY).
 * New options to customize supported extensions and to generate Require and Accept headers.
 * Use of any external store for registrar instead of in-memory built-in.
