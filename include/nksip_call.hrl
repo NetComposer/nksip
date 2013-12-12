@@ -71,7 +71,7 @@
     retrans_timer :: {nksip_call_lib:retrans_timer(), reference()},
     next_retrans :: non_neg_integer(),
     expire_timer :: {nksip_call_lib:expire_timer(), reference()},
-    callback_timer :: {atom(), reference()},
+    callback_timer :: {term(), reference()},
     cancel :: undefined | to_cancel | cancelled,
     loop_id :: integer(),
     ack_trans_id :: integer(),

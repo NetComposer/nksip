@@ -39,7 +39,9 @@
 
 -type expire_timer() ::  expire | cancel.
 
--type timer() :: timeout_timer() | retrans_timer() | expire_timer().
+-type callback_timer() :: {callback, atom()}.
+
+-type timer() :: timeout_timer() | retrans_timer() | expire_timer() | callback_timer().
 
 -type call() :: nksip_call:call().
 

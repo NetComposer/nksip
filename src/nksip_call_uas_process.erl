@@ -100,7 +100,7 @@ process_dialog_error(Error, #trans{method='ACK', id=Id}=UAS, Call) ->
     UAS1 = UAS#trans{status=finished},
     update(UAS1, Call);
 
-process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) ->
+process_dialog_error(Error, #trans{method=_Method, id=_Id, opts=Opts}=UAS, Call) ->
     Reply = case Error of
         request_pending ->
             request_pending;
@@ -110,10 +110,6 @@ process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) -
         old_cseq ->
             {internal, <<"Old CSeq in Dialog">>};
         no_transaction ->
-            no_transaction;
-        _ ->
-            ?call_info("UAS ~p ~p dialog request error: ~p", 
-                        [Id, Method, Error], Call),
             no_transaction
     end,
     reply(Reply, UAS#trans{opts=[no_dialog|Opts]}, Call).

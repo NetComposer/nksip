@@ -501,8 +501,8 @@ uac_id(SipMsg, IsProxy, #call{dialogs=Dialogs}) ->
 %% ===================================================================
 
 %% @private
--spec get_sdp(nksip:request()|nksip:respomse(), #invite{}) ->
-    {boolean(), #sdp{}|undefined, nksip_call_dialog:sdp_offer()}.
+-spec get_sdp(nksip:request()|nksip:response(), #invite{}) ->
+    {boolean(), #sdp{}|undefined, nksip_call_dialog:sdp_offer(), nksip_call_dialog:sdp_offer()}.
 
 get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
     case Body of

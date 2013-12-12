@@ -93,7 +93,7 @@ create(Class, Req, Resp, Call) ->
 
 
 %% @private
--spec update(term(), nksip:dialog(), nksip:call()) ->
+-spec update(term(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
 update(prack, Dialog, Call) ->
@@ -195,7 +195,7 @@ update(none, Dialog, Call) ->
 
 %% @private Performs a target update
 -spec target_update(uac|uas, nksip:request(), nksip:response(), 
-                    nksip:dialog(), nksip:call()) ->
+                    nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
 target_update(Class, Req, Resp, Dialog, Call) ->
@@ -317,7 +317,7 @@ route_update(_Class, _Req, _Resp, Dialog) ->
 
 
 % %% @private Performs a session update
--spec session_update(nksip:dialog(), nksip:call()) ->
+-spec session_update(nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
 session_update(
@@ -380,8 +380,8 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
 
 
 %% @private Called when a dialog timer is fired
--spec timer(invite_retrans | invite_timeout, nksip:dialog(), nksip:call()) ->
-    nksip:call().
+-spec timer(invite_retrans | invite_timeout, nksip:dialog(), nksip_call:call()) ->
+    nksip_call:call().
 
 timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId, timer_t2=T2}} = Call,
@@ -396,12 +396,11 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                                 retrans_timer = start_timer(Next, invite_retrans, DialogId),
                                 next_retrans = min(2*Next, T2)
                             },
-                            store(Dialog#dialog{invite=Invite1}, Call);
+                            update(none, Dialog#dialog{invite=Invite1}, Call);
                         error ->
                             ?call_notice("Dialog ~s could not resend response", 
                                          [DialogId], Call),
-                            Dialog1 = update({stop, ack_timeout}, Dialog, Call),
-                            store(Dialog1, Call)
+                            update({invite, {stop, ack_timeout}}, Dialog, Call)
                     end;
                 _ ->
                     ?call_notice("Dialog ~s retrans timer fired in ~p", 
@@ -424,8 +423,7 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                 accepted_uas -> ack_timeout;
                 _ -> timeout
             end,
-            Dialog1 = update({stop, Reason}, Dialog, Call),
-            store(Dialog1, Call);
+            update({invite, {stop, Reason}}, Dialog, Call);
         _ ->
             ?call_notice("Dialog ~s unknown INVITE timeout timer", 
                          [DialogId], Call),
@@ -442,7 +440,7 @@ timer({event, Tag}, Dialog, Call) ->
 %% ===================================================================
 
 %% @private
--spec find(nksip_dialog:id(), nksip:call()) ->
+-spec find(nksip_dialog:id(), nksip_call:call()) ->
     nksip:dialog() | not_found.
 
 find(Id, #call{dialogs=Dialogs}) ->
@@ -459,8 +457,8 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
 
 %% @private Updates a dialog into the call
--spec store(nksip:dialog(), nksip:call()) ->
-    nksip:call().
+-spec store(nksip:dialog(), nksip_call:call()) ->
+    nksip_call:call().
 
 store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
     #dialog{id=Id, invite=Invite, subscriptions=Subs} = Dialog,
@@ -491,7 +489,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
 
 
 %% @private
--spec cast(atom(), term(), nksip:dialog(), nksip:call()) ->
+-spec cast(atom(), term(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
 cast(Fun, Arg, Dialog, Call) ->

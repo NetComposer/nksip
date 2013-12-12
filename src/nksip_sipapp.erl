@@ -612,7 +612,7 @@ message(_ReqId, _From, State) ->
     call_noreply()
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |
-                         {subscription_status, nksip_dialog:subscription_status()} |
+                         {subscription_status, nksip_subscription:status()} |
                          {stop, nksip_dialog:stop_reason()}.
     
 dialog_update(_DialogId, _Status, State) ->
@@ -672,8 +672,9 @@ register_update(_RegId, _OK, State) ->
 -spec handle_call(Msg::term(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-handle_call(_Msg, _From, State) ->
-    {error, unexpected_call, State}.
+handle_call(Msg, _From, State) ->
+    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
 
 
 %% @doc Called when a direct cast to the SipApp process is made using 
@@ -681,8 +682,9 @@ handle_call(_Msg, _From, State) ->
 -spec handle_cast(Msg::term(), State::term()) ->
     call_noreply().
 
-handle_cast(_Msg, State) ->
-    {error, unexpected_cast, State}.
+handle_cast(Msg, State) ->
+    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
 
 
 %% @doc Called when the SipApp process receives an unknown message.
