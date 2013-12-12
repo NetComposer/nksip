@@ -111,8 +111,8 @@ basic() ->
                                 {client2, sdp_start}, 
                                 {client2, update},
                                 {client2, sdp_update}, % First UPDATE
-                                {client2, sdp_update}, % Seconds UPDATE
-                                {client2, dialog_target_update},
+                                {client2, sdp_update}, % Second UPDATE
+                                {client2, target_update},
                                 {client2, dialog_confirmed}, 
                                 {client2, ack}
                             ]),
@@ -124,16 +124,18 @@ basic() ->
     [
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
-        {local_sdp, SDP5},
-        {remote_sdp, SDP4} 
-    ] = nksip_dialog:fields(C1, DialogId, [local_target, remote_target, local_sdp, remote_sdp]),
+        {invite_local_sdp, SDP5},
+        {invite_remote_sdp, SDP4} 
+    ] = nksip_dialog:fields(C1, DialogId, 
+                    [local_target, remote_target, invite_local_sdp, invite_remote_sdp]),
     [
         {local_target, <<"<sip:b@127.0.0.1:5070>">>},
         {remote_target, <<"<sip:a@127.0.0.1>">>},        
-        {local_sdp, SDP4},
-        {remote_sdp, SDP5} 
+        {invite_local_sdp, SDP4},
+        {invite_remote_sdp, SDP5} 
     ] = 
-        nksip_dialog:fields(C2, DialogId2, [local_target, remote_target, local_sdp, remote_sdp]),
+        nksip_dialog:fields(C2, DialogId2, 
+            [local_target, remote_target, invite_local_sdp, invite_remote_sdp]),
 
     {ok, 200, []} = nksip_uac:bye(C1, DialogId, []),
     ok.

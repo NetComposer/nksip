@@ -81,7 +81,6 @@ basic() ->
     Hds1 = {headers, [{"Nk-Op", "prov-busy"}]},
     Fields1 = {fields, [parsed_supported, parsed_require]},
     {ok, 486, Values1} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds1, Fields1]),    [
-        {dialog_id, _},
         {parsed_supported, [{<<"100rel">>, []}]},
         {parsed_require, []}
     ] = Values1,
@@ -121,7 +120,6 @@ basic() ->
     Fields2 = {fields, [parsed_supported, parsed_require, cseq_num, rseq_num]},
     {ok, 486, Values2} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds2, Fields2, require_100rel]),
     [
-        {dialog_id, _},
         {parsed_supported, [{<<"100rel">>, []}]},
         {parsed_require, []},
         {cseq_num, CSeq2},

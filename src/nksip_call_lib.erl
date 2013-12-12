@@ -24,7 +24,7 @@
 
 -export([update_sipmsg/2, update/2]).
 -export([update_auth/3, check_auth/2]).
--export([timeout_timer/3, retrans_timer/3, expire_timer/3, app_timer/3]).
+-export([timeout_timer/3, retrans_timer/3, expire_timer/3, callback_timer/3]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
 
 
@@ -73,7 +73,7 @@ update(New, Call) ->
         class = Class, 
         status = NewStatus, 
         method = Method, 
-        app_timer = AppTimer
+        callback_timer = AppTimer
     } = New,
     #call{trans=Trans} = Call,
     case Trans of
@@ -280,16 +280,16 @@ expire_timer(expire, Trans, Call) ->
 
 
 %% @private
--spec app_timer(atom(), trans(), call()) ->
+-spec callback_timer(atom(), trans(), call()) ->
     trans(). 
 
-app_timer(cancel, Trans, _Call) ->
-    cancel_timer(Trans#trans.app_timer),
-    Trans#trans{app_timer=undefined};
+callback_timer(cancel, Trans, _Call) ->
+    cancel_timer(Trans#trans.callback_timer),
+    Trans#trans{callback_timer=undefined};
 
-app_timer(Fun, Trans, #call{opts=#call_opts{timer_sipapp=Time}}) ->
-    cancel_timer(Trans#trans.app_timer),
-    Trans#trans{app_timer=start_timer(Time, Fun, Trans)}.
+callback_timer(Fun, Trans, #call{opts=#call_opts{timer_sipapp=Time}}) ->
+    cancel_timer(Trans#trans.callback_timer),
+    Trans#trans{callback_timer=start_timer(Time, {callback, Fun}, Trans)}.
 
 
 %% @private

@@ -1,3 +1,4 @@
+
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
@@ -28,7 +29,7 @@
 -export([stop/2, bye_all/0, stop_all/0]).
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
 -export([remote_id/1]).
--export_type([id/0, dialog/0, stop_reason/0, spec/0, status/0, field/0]).
+-export_type([id/0, stop_reason/0, spec/0, invite_status/0, field/0]).
 
 -include("nksip.hrl").
 
@@ -41,27 +42,27 @@
 -type id() :: binary().
 
 %% SIP Dialog stop reason
--type stop_reason() :: nksip:response_code() | caller_bye | callee_bye | forced |
-                       busy | cancelled | service_unavailable | declined | timeout |
-                       ack_timeout. 
-
-%% SIP Dialog State
--type dialog() :: #dialog{}.
+-type stop_reason() :: 
+    nksip:response_code() | caller_bye | callee_bye | forced |
+    busy | cancelled | service_unavailable | declined | timeout |
+    ack_timeout | no_events.
 
 %% All the ways to specify a dialog
 -type spec() :: id() | nksip_request:id() | nksip_response:id().
 
-%% All dialog states
--type status() :: init | proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
-                  confirmed | bye | {stop, stop_reason()}.
+-type field() :: 
+    dialog_id | app_id | call_id | created | updated | local_seq | remote_seq | 
+    local_uri | parsed_local_uri | remote_uri | parsed_remote_uri | 
+    local_target | parsed_local_target | remote_target | parsed_remote_target | 
+    route_set | parsed_route_set | from_tag | to_tag |
+    invite_status | invite_answered | invite_local_sdp | invite_remote_sdp |
+    invite_timeout | subscriptions.
 
--type field() :: dialog_id | app_id | call_id | created | updated | answered | 
-                 state | expires |  local_seq | remote_seq | 
-                 local_uri | parsed_local_uri | remote_uri |  parsed_remote_uri | 
-                 local_target | parsed_local_target | remote_target | 
-                 parsed_remote_target | route_set | parsed_route_set |
-                 local_sdp | remote_sdp | stop_reason |
-                 from_tag | to_tag.
+
+%% All dialog INVITE states
+-type invite_status() :: 
+    init | proceeding_uac | proceeding_uas |accepted_uac | accepted_uas |
+    confirmed | bye.
 
 
 
@@ -94,21 +95,6 @@
 %%          <td>`updated'</td>
 %%          <td>{@link nksip_lib:timestamp()}</td>
 %%          <td>Last update timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`answered'</td>
-%%          <td>{@link nksip_lib:timestamp()}`|undefined'</td>
-%%          <td>Answer (first 2xx response) timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`status'</td>
-%%          <td>{@link status()}</td>
-%%          <td>Current dialog state</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`expires'</td>
-%%          <td>`integer()'</td>
-%%          <td>Seconds to expire current state</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`local_seq'</td>
@@ -181,19 +167,34 @@
 %%          <td>Route Set</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`local_sdp'</td>
+%%          <td>`invite_answered'</td>
+%%          <td>{@link nksip_lib:timestamp()}`|undefined'</td>
+%%          <td>Answer (first 2xx response) timestamp</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`invite_status'</td>
+%%          <td>{@link status()}</td>
+%%          <td>Current dialog's INVITE status</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`invite_local_sdp'</td>
 %%          <td>{@link nksip:sdp()}`|undefined'</td>
 %%          <td>Current local SDP</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`remote_sdp'</td>
+%%          <td>`invite_remote_sdp'</td>
 %%          <td>{@link nksip:sdp()}`|undefined'</td>
 %%          <td>Current remote SDP</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`stop_reason'</td>
-%%          <td>{@link stop_reason()}</td>
-%%          <td>Dialog stop reason</td>
+%%          <td>`invite_timeout'</td>
+%%          <td>`integer()'</td>
+%%          <td>Seconds to expire current state</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`subscriptions</td>
+%%          <td><code>[{@link nksip_subscription:id()}]</code></td>
+%%          <td>Lists all active subscriptions</td>
 %%      </tr>
 %% </table>
 -spec field(nksip:app_id(), spec(), field()) -> 
@@ -207,10 +208,14 @@ field(AppId, DialogSpec, Field) ->
 
 
 %% @doc Extracts a specific field from a #dialog structure
--spec field(dialog(), field()) -> 
+-spec field(nksip:dialog(), field()) -> 
     any().
 
 field(D, Field) ->
+    case D#dialog.invite of
+        #invite{} = I -> ok;
+        undefined -> I = #invite{}
+    end,
     case Field of
         id -> D#dialog.id;
         remote_id -> remote_id(D);
@@ -218,8 +223,6 @@ field(D, Field) ->
         call_id -> D#dialog.call_id;
         created -> D#dialog.created;
         updated -> D#dialog.updated;
-        answered -> D#dialog.answered;
-        status -> D#dialog.status;
         local_seq -> D#dialog.local_seq; 
         remote_seq  -> D#dialog.remote_seq; 
         local_uri -> nksip_unparse:uri(D#dialog.local_uri);
@@ -234,12 +237,17 @@ field(D, Field) ->
         parsed_route_set -> D#dialog.route_set;
         early -> D#dialog.early;
         secure -> D#dialog.secure;
-        local_sdp -> D#dialog.local_sdp;
-        remote_sdp -> D#dialog.remote_sdp;
-        stop_reason -> D#dialog.stop_reason;
         from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
         to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
-        timeout -> round(erlang:read_timer(D#dialog.timeout_timer)/1000);
+        
+        invite_answered -> I#invite.answered;
+        invite_status -> I#invite.status;
+        invite_local_sdp -> I#invite.local_sdp;
+        invite_remote_sdp -> I#invite.remote_sdp;
+        invite_timeout -> round(erlang:read_timer(I#invite.timeout_timer)/1000);
+
+        subscriptions -> [Id || #subscription{id=Id} <- D#dialog.subscriptions];
+
         _ -> invalid_field 
     end.
 
@@ -275,8 +283,9 @@ class_id(Class, #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
     when FromTag /= <<>>, ToTag /= <<>> ->
     dialog_id(Class, CallId, FromTag, ToTag);
 
-class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, 'INVITE'}}=SipMsg)
-    when FromTag /= <<>> ->
+class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, Method}}=SipMsg)
+    when FromTag /= <<>> andalso
+         Method=='INVITE' orelse Method=='SUBSCRIBE' orelse Method=='NOTIFY' ->
     #sipmsg{call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
     case ToTag of
         <<>> -> <<>>;
@@ -296,6 +305,9 @@ class_id(_, #sipmsg{}) ->
 id(_, <<"D_", _/binary>>=DialogId) ->
     DialogId;
 
+id(_, <<"U_", _/binary>>=SubscriptionId) ->
+    nksip_subscription:dialog_id(SubscriptionId);
+
 id(AppId, <<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
     case nksip_call:dialog_id(AppId, MsgId) of
         {ok, DialogId} -> DialogId;
@@ -314,7 +326,7 @@ call_id(<<"D_", Rest/binary>>) ->
 
 %% @doc Gets a full dialog record.
 -spec get_dialog(nksip:app_id(), spec()) ->
-    dialog() | error.
+    nksip:dialog() | error.
 
 get_dialog(AppId, DialogSpec) ->
     Fun = fun(Dialog) -> {ok, Dialog} end,
@@ -411,13 +423,11 @@ get_all_data() ->
                     {id, Dialog#dialog.id},
                     {app_id, Dialog#dialog.app_id},
                     {call_id, Dialog#dialog.call_id},
-                    {status, Dialog#dialog.status},
                     {local_uri, nksip_unparse:uri(Dialog#dialog.local_uri)},
                     {remote_uri, nksip_unparse:uri(Dialog#dialog.remote_uri)},
                     {created, Dialog#dialog.created},
                     {elapsed, Now - Dialog#dialog.created},
                     {updated, Dialog#dialog.updated},
-                    {answered, Dialog#dialog.answered},
                     {local_seq, Dialog#dialog.local_seq},
                     {remote_seq, Dialog#dialog.remote_seq},
                     {local_target, nksip_unparse:uri(Dialog#dialog.local_target)},
@@ -425,10 +435,19 @@ get_all_data() ->
                     {route_set, 
                         [nksip_unparse:uri(Route) || Route <- Dialog#dialog.route_set]},
                     {early, Dialog#dialog.early},
-                    % {local_sdp, nksip_sdp:unparse(Dialog#dialog.local_sdp)},
-                    % {remote_sdp, nksip_sdp:unparse(Dialog#dialog.remote_sdp)}
-                    {local_sdp, Dialog#dialog.local_sdp},
-                    {remote_sdp, Dialog#dialog.remote_sdp}
+                    {invite, 
+                        case Dialog#dialog.invite of
+                            #invite{
+                                status = InvStatus, 
+                                local_sdp = LSDP, 
+                                remote_sdp = RSDP
+                            } -> 
+                                {InvStatus, LSDP, RSDP};
+                            undefined ->
+                                undefined
+                        end},
+                   {subscriptions,
+                        [Id || #subscription{id=Id} <- Dialog#dialog.subscriptions]}
                 ]},
                 [Data|Acc];
             _ ->

@@ -5,7 +5,7 @@
 
 @author Carlos Gonzalez Florido <carlosj.gf@gmail.com>
 @copyright 2013 Carlos Gonzalez Florido
-@version 0.3.0
+@version 0.4.0
 @title Welcome to NkSIP
 
 @doc NkSIP is an Erlang <a href="http://en.wikipedia.org/wiki/Session_Initiation_Protocol">SIP</a> framework (or <i>application server</i>), which greatly facilitates the development of robust and scalable server-side SIP applications like proxy, registrar, redirect or outbound servers and <a href="http://en.wikipedia.org/wiki/Back-to-back_user_agent">B2BUAs</a>.

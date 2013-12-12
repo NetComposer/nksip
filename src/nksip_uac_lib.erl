@@ -38,7 +38,7 @@
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq | invalid_content_type |
-             invalid_require | invalid_accept.
+             invalid_require | invalid_accept | invalid_event.
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
     FullOpts = Opts++AppOpts,
@@ -122,10 +122,25 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 false -> 
                     []
             end,
+            case lists:member(make_allow_event, FullOpts) of
+                true -> 
+                    case nksip_lib:get_value(event, AppOpts) of
+                        undefined ->
+                            [];
+                        Events ->
+                            AllowEvents = nksip_lib:bjoin(Events),
+                            {default_single, <<"Allow-Event">>, AllowEvents}
+                    end;
+                false -> 
+                    []
+            end,
             case lists:member(make_accept, Opts) of
                 true -> 
                     Accept = case nksip_lib:get_value(accept, FullOpts) of
-                        undefined -> 
+                        undefined when Method=='INVITE'; Method=='UPDATE'; 
+                                       Method=='PRACK' -> 
+                            [{<<"application/sdp">>, []}];
+                        undefined ->
                             ?ACCEPT;
                         AcceptList ->
                             case nksip_parse:tokens(AcceptList) of
@@ -133,7 +148,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                                 AcceptTokens -> AcceptTokens
                             end
                     end,
-                    {default_single, <<"Accept">>, nksip_unparse:tokens(Accept)};
+                    {default_single, <<"Accept">>, nksip_unparse:token(Accept)};
                 false -> 
                     []
             end,
@@ -141,6 +156,13 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 true -> {default_single, <<"Date">>, nksip_lib:to_binary(
                                                     httpd_util:rfc1123_date())};
                 false -> []
+            end,
+            case nksip_lib:get_value(subscription_state, Opts) of
+                undefined -> 
+                    [];
+                SubsState0 -> 
+                    SubsState = nksip_unparse:token(SubsState0),
+                    {default_single, <<"Subscription-State">>, SubsState}
             end
         ]),
         ContentType = case nksip_lib:get_binary(content_type, Opts) of
@@ -184,6 +206,15 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             Exp when is_integer(Exp), Exp>=0 -> Exp;
             _ -> undefined
         end,
+        Event = case nksip_lib:get_value(event, Opts) of
+            undefined ->
+                undefined;
+            EventData ->
+                case nksip_parse:tokens(EventData) of
+                    [EventToken] -> EventToken;
+                    _ -> throw(invalid_event)
+                end
+        end,
         RUri1 = nksip_parse:uri2ruri(RUri),
         Req = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
@@ -204,6 +235,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             content_type = ContentType,
             require = Require,
             supported = Supported,
+            event = Event,
             body = Body,
             from_tag = FromTag,
             to_tag = nksip_lib:get_binary(<<"tag">>, To#uri.ext_opts),
@@ -216,7 +248,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             case lists:member(make_contact, Opts) of
                 true -> make_contact;
                 false when Method=='INVITE', Contacts==[] -> make_contact;
-                false when Method=='UPDATE', Contacts==[] -> make_contact;
+                false when Method=='SUBSCRIBE', Contacts==[] -> make_contact;
                 _ -> []
             end,
             case lists:member(record_route, Opts) of
@@ -287,6 +319,7 @@ make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds}=R
         require = [],
         supported = [],
         expires = undefined,
+        event = undefined,
         body = <<>>
     }.
 
@@ -317,6 +350,7 @@ make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
         require = [],
         supported = [],
         expires = undefined,
+        event = undefined,
         body = <<>>
     }.
 

@@ -63,8 +63,7 @@
 %%          <td>`[]'</td>
 %%          <td>Use it to select which specific fields from the response are
 %%          returned. See {@link nksip_response:field()} for the complete list of
-%%          supported fields. For <i>INVITE</i> requests, the first field is 
-%%          always the dialog's id of the response.</td>
+%%          supported fields.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`async'</td>
@@ -125,7 +124,7 @@
 %%          we used here: <i>From</i>, <i>To</i>, <i>Via</i>, <i>Call-ID</i>, 
 %%          <i>CSeq</i>, <i>Forwards</i>, <i>User-Agent</i>, <i>Content-Type</i>, 
 %%          <i>Route</i>, <i>Contact</i>, <i>Require</i>, <i>Supported</i>, 
-%%          <i>Expires</i>.</td>
+%%          <i>Expires</i>, <i>Event</i>.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`body'</td>
@@ -196,7 +195,8 @@
 -include("nksip.hrl").
 
 -export([options/3, register/3, invite/3, ack/3, bye/3, info/3, cancel/2]).
--export([update/3, refresh/3, stun/3]).
+-export([update/3, subscribe/3, notify/3]).
+-export([refresh/3, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
 
@@ -206,6 +206,9 @@
 
 -type dialog_spec() :: 
     nksip_dialog:id() | nksip_request:id() | nksip_response:id().
+
+-type subscription_spec() :: 
+    nksip_subscription:id().
 
 -type opt() ::  
     dialog_opt() |
@@ -222,7 +225,22 @@
     {expires, non_neg_integer()} | unregister | unregister_all.
 
 -type invite_opt() ::
-    {expires, pos_integer()}.
+    {expires, pos_integer()} |
+    require_100rel |
+    {prack, function()}.
+
+-type subscribe_opt() ::
+    {event, binary()} |
+    {expires, non_neg_integer()}.
+
+-type notify_reason() ::
+    deactivated | probation | rejected | timeout | giveup | noresource | invariant.
+
+-type notify_opt() ::
+    {event, binary()} |
+    {state, active | pending | {terminated, notify_reason()}} | 
+    {expires, non_neg_integer()} |
+    {retry_after, non_neg_integer()}.
 
 -type result() ::  
     {async, nksip_request:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
@@ -234,8 +252,8 @@
 -type error() :: 
     invalid_uri | invalid_from | invalid_to | invalid_route |
     invalid_contact | invalid_cseq | invalid_content_type | invalid_require |
-    invalid_accept |
-    unknown_dialog | request_pending | network_error | 
+    invalid_accept | invalid_event |
+    unknown_dialog | bad_event | request_pending | network_error | 
     nksip_call_router:sync_error().
 
 -type cancel_error() :: 
@@ -398,13 +416,6 @@ register(AppId, Dest, Opts) ->
 %%          function return. If it is `<<>>', you can return `<<>>' or send a new offer.
 %%          If this option is not included, PRACKs will be sent with no body.</td>
 %%      </tr>
-%%      <tr>
-%%          <td>`require_100rel</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present, a <i>Require: 100rel</i> will be generated, and the other
-%%          party must then send reliable provisional responses.</td>
-%%      </tr>
 %% </table>
 %%
 %% A `make_contact' option will be automatically added if no contact is defined.
@@ -420,12 +431,15 @@ register(AppId, Dest, Opts) ->
 %% starting another reINVITE transaction right now. You should call 
 %% {@link nksip_response:wait_491()} and try again.
 %%
+%% The first returned value is allways {dialog_id, DialogId}, even if the
+%% `fields' option is not used.
+
 -spec invite(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
              [opt()|dialog_opt()|invite_opt()]) ->
     result() | {error, error()}.
 
 invite(AppId, Dest, Opts) ->
-    Opts1 = [make_supported, make_accept, make_allow | Opts],
+    Opts1 = [make_supported, make_allow, make_allow_event | Opts],
     send_any(AppId, 'INVITE', Dest, Opts1).
 
 
@@ -514,7 +528,8 @@ cancel(AppId, ReqId) ->
     result() | {error, error()}.
 
 update(AppId, DialogSpec, Opts) ->
-    send_dialog(AppId, 'UPDATE', DialogSpec, Opts).
+    Opts1 = [make_supported, make_accept, make_allow | Opts],
+    send_dialog(AppId, 'UPDATE', DialogSpec, Opts1).
 
 
 %% @doc Sends a update on a currently ongoing dialog using INVITE.
@@ -536,7 +551,7 @@ update(AppId, DialogSpec, Opts) ->
 refresh(AppId, DialogSpec, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
         undefined ->
-            case nksip_dialog:field(AppId, DialogSpec, local_sdp) of
+            case nksip_dialog:field(AppId, DialogSpec, invite_local_sdp) of
                 #sdp{} = SDP -> SDP;
                 _ -> <<>>
             end;
@@ -564,6 +579,153 @@ refresh(AppId, DialogSpec, Opts) ->
     end,
     Opts2 = nksip_lib:delete(Opts, [body, active, inactive, hold]),
     invite(AppId, DialogSpec, [{body, Body2}|Opts2]).
+
+
+%% @doc Sends an SUBSCRIBE request.
+%%
+%% This functions sends a new subscription request to the other party.
+%% If the remote party returns a 2xx response, it means that he subscription
+%% has been accepted, and a NOTIFY request should arrive inmediatly. 
+%% After the reception of the NOTIFY, the subscription state will change and 
+%% NkSIP will call callback `dialog_status' as 
+%% `{subscrition_status, Status, SubscriptionId}.
+%%
+%% In case of 2xx response, the first returned value is allways 
+%% `{subscription_id, SubscriptionId}', even if the `fields' option is not used.
+%%
+%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog,
+%% creating a new dialog and subscroption.
+%% If it is a dialog specification, it will be sent inside that dialog, but creating a
+%% new subscription.
+%% If it is a subscription specification, it will send as a re-SUBSCRIBE, using by
+%% the same event and expires as the last one.
+%% Recognized options are described in {@link opt()} 
+%% when sent outside any dialog, and {@link dialog_opt()} when sent inside a dialog.
+%%
+%% Additional recognized options are defined in {@link subscribe_opts()}:
+%%
+%% <table border="1">
+%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`event'</td>
+%%          <td>`binary()'</td>
+%%          <td></td>
+%%          <td>If generates the mandatory "Event" header including this
+%%          event package, like `{event "MyEvent}' or `{event, "MyEvent;id=first"}'.
+%%          Don't use it in case of re-subscriptions</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`expires'</td>
+%%          <td>`integer()'</td>
+%%          <td></td>
+%%          <td>If included, it will generate a `Expires' header, meaning the
+%%          time before removing the subscription if no refresh is received.
+%%          Don't use in re-subscriptions to use the same expire as last SUBSCRIBE</td>
+%%      </tr>
+%% </table>
+%%
+%% After a 2xx response, you should send a new re-SUBSCRIBE request to
+%% refresh the subscription before the indicated Expires, 
+%% using this function but using the subscription specification, 
+%% using the included `subscription_id' returned value.
+%%
+%% When half the time of expire has been completed, NkSIP will call callback
+%% `dialog_update' as `{subscription_state, middle_timer, SubscriptionId}'
+
+-spec subscribe(nksip:app_id(), nksip:user_uri()|dialog_spec()|subscription_spec(),
+             [opt()|dialog_opt()|subscribe_opt()]) ->
+    result() | {error, error()}.
+
+subscribe(AppId, Dest, Opts) ->
+    % event and expires options are detected later
+    Opts1 = [make_supported, make_allow, make_allow_event | Opts],
+    send_any(AppId, 'SUBSCRIBE', Dest, Opts1).
+
+
+%% @doc Sends an <i>NOTIFY</i> for a current server subscription
+%%
+%% When your SipApp accepts a incoming SUBSCRIBE request, replying a 2xx response,
+%% you should send a NOTIFY inmediatly. You have to use the subscription's id
+%% from the call to callback `subscribe/3'.
+%%
+%% Valid options are defined in {@link dialog_opt()} and {@link notify_opts()}.
+%% NkSIP will include mandatory Event and Subscription-State headers for you, 
+%% depending on the following parameters:
+%%
+%% <table border="1">
+%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`state'</td>
+%%          <td><code>active|pending|{terminated,{@link nksip_subscription:terminated_reason()}}</code></td>
+%%          <td>`active'</td>
+%%          <td>Generates the mandatory <i>Subscription-State</i> header (see bellow)</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`retry_after'</td>
+%%          <td>`non_neg_integer()'</td>
+%%          <td></td>
+%%          <td>If included, it will added to the indicated state (see bellow).</td>
+%%      </tr>
+%% </table>
+%%
+%% Valid states are the following:
+%% <ul>
+%%   <li>active: the subscription is active. NkSIP will add a `expires' parameter
+%%       indicating the remaining time</li>
+%%   <li>pending: the subscription has not yet been authorized. A `expires' parameter
+%%       will be added.</li>
+%%   <li>terminated: the subscription has been terminated. You must use a reason:
+%%       <ul>
+%%          <li>deactivated: the remote party should retry again inmediatly.</li>
+%%          <li>probation: the remote party should retry again. Use `retry_after' 
+%%              to inform of the minimum time for a new try.</li>
+%%          <li>rejected: the remote party should no retry again.</li>
+%%          <li>timeout: the subscription has timed out, the remote party can 
+%%              send a new one inmediatly.</li>
+%%          <li>giveup: we have not been able to authorize the request. The remote
+%%              party can try again. You can use `retry_after'.</li>
+%%          <li>noresource: the subscription has ended because of the resource 
+%%              does not exists any more. Do not retry.</li>
+%%          <li>invariant: the subscription has ended because of the resource 
+%%              is not going to change soon. Do not retry.</li>
+%%       </ul></li>
+%% </ul> 
+%%
+
+-spec notify(nksip:app_id(), subscription_spec(), [dialog_opt()|notify_opt()]) -> 
+    result() | {error, error()} |  {error, invalid_state}.
+
+notify(AppId, Dest, Opts) ->
+    State = case nksip_lib:get_value(state, Opts, active) of
+        active ->
+            active;
+        pending -> 
+            pending;
+        {terminated, Reason} 
+            when Reason==deactivated; Reason==rejected; Reason==timeout; 
+                 Reason==noresource; Reason==invariant ->
+            {terminated, Reason, undefined};
+        {terminated, Reason}
+            when Reason==probation; Reason==giveup ->
+            case nksip_lib:get_value(retry_after, Opts) of
+                undefined -> 
+                    {terminated, Reason, undefined};
+                Retry0 ->
+                    case nksip_lib:to_integer(Retry0) of
+                        Retry when is_integer(Retry), Retry>=0 -> 
+                            {terminated, Reason, Retry};
+                        _ ->
+                            invalid
+                    end
+            end;
+        _ ->
+            invalid
+    end,
+    case State of
+        invalid -> {error, invalid_state};
+        _ -> send_dialog(AppId, 'NOTIFY', Dest, [{subscription_state, State}|Opts])
+    end.
+
 
 
 %% @doc Sends a <i>STUN</i> binding request.
@@ -628,9 +790,13 @@ send_any(AppId, Method, UriOrDialog, Opts) ->
     result() | ack_result() | {error, error()}.
 
 send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
-            when Class==$R; Class==$S; Class==$D ->
+            when Class==$R; Class==$S; Class==$D; Class==$U ->
     case nksip_dialog:id(AppId, Id) of
-        <<>> -> {error, unknown_dialog};
-        DialogId -> nksip_call:send_dialog(AppId, DialogId, Method, Opts)
+        <<>> -> 
+            {error, unknown_dialog};
+        DialogId when Class==$U ->
+            nksip_call:send_dialog(AppId, DialogId, Method, [{subscription_id, Id}|Opts]);
+        DialogId ->
+            nksip_call:send_dialog(AppId, DialogId, Method, Opts)
     end.
 

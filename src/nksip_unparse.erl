@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([uri/1, uri2proplist/1, via/1, tokens/1, packet/1, raw_packet/3]).
+-export([uri/1, uri2proplist/1, via/1, token/1, packet/1, raw_packet/3]).
 
 
 %% ===================================================================
@@ -86,10 +86,13 @@ via(#via{}=Via) ->
 
 
 %% @doc Serializes a list of `token()'
--spec tokens([nksip:token()]) ->
+-spec token(nksip:token() | [nksip:token()]) ->
     binary().
 
-tokens(Tokens) ->
+token({Token, Opts}) ->
+    token([{Token, Opts}]);
+
+token(Tokens) when is_list(Tokens) ->
     list_to_binary(raw_tokens(Tokens)).
 
 
@@ -233,10 +236,12 @@ raw_tokens(Tokens) ->
     iolist().
 
 raw_tokens([{Head, Opts}, Second | Rest], Acc) ->
-    raw_tokens([Second|Rest], [[Head, gen_opts(Opts), $,]|Acc]);
+    Head1 = nksip_lib:to_binary(Head),
+    raw_tokens([Second|Rest], [[Head1, gen_opts(Opts), $,]|Acc]);
 
 raw_tokens([{Head, Opts}], Acc) ->
-    lists:reverse([[Head, gen_opts(Opts)]|Acc]).
+    Head1 = nksip_lib:to_binary(Head),
+    lists:reverse([[Head1, gen_opts(Opts)]|Acc]).
 
 
 %% @private Serializes a request or response. If `body' is a `nksip_sdp:sdp()' it will be
@@ -259,6 +264,7 @@ serialize(#sipmsg{
             require = Require, 
             supported = Supported,
             expires = Expires,
+            event = Event,
             body = Body
         }) ->
     Body1 = case Body of
@@ -298,6 +304,10 @@ serialize(#sipmsg{
             undefined -> [];
             _ -> {<<"Expires">>, nksip_lib:to_binary(Expires)}
         end,
+        case Event of
+            undefined -> [];
+            _ -> {<<"Event">>, raw_tokens(Event)}
+        end,
         Headers
     ],
     [
@@ -318,6 +328,7 @@ response_phrase(Code) ->
         182 -> <<"Queued">>;
         183 -> <<"Session Progress">>;
         200 -> <<"OK">>;
+        202 -> <<"Accepted">>;
         300 -> <<"Multiple Choices">>;
         301 -> <<"Moved Permanently">>;
         302 -> <<"Moved Temporarily">>;
@@ -357,6 +368,7 @@ response_phrase(Code) ->
         486 -> <<"Busy Here">>;
         487 -> <<"Request Terminated">>;
         488 -> <<"Not Acceptable Here">>;
+        489 -> <<"Bad Event">>;
         491 -> <<"Request Pending">>;
         493 -> <<"Undecipherable">>;
         494 -> <<"Security Agreement Required">>;
@@ -372,7 +384,7 @@ response_phrase(Code) ->
         603 -> <<"Decline">>;
         604 -> <<"Does Not Exist Anywhere">>;
         606 -> <<"Not Acceptable">>;
-        _ -> <<"Unknown Code">>
+        _   -> <<"Unknown Code">>
     end.
 
 

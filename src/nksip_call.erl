@@ -319,8 +319,7 @@ work({stop_dialog, DialogId}, From, Call) ->
     case get_dialog(DialogId, Call) of
         {ok, Dialog} ->
             gen_fsm:reply(From, ok),
-            Dialog1 = nksip_call_dialog:status_update({stop, forced}, Dialog, Call),
-            nksip_call_dialog:store(Dialog1, Call);
+            nksip_call_dialog:stop(forced, Dialog, Call);
         not_found ->
             gen_fsm:reply(From, {error, unknown_dialog}),
             Call
@@ -363,7 +362,13 @@ work(get_all_transactions, From, #call{trans=Trans}=Call) ->
     Call;
 
 work(info, From, Call) -> 
-    #call{app_id=AppId, call_id=CallId, trans=Trans, dialogs=Dialogs} = Call,
+    #call{
+        app_id = AppId, 
+        call_id = CallId, 
+        trans = Trans, 
+        dialogs = Dialogs,
+        events = ProvEvents
+    } = Call,
     InfoTrans = lists:map(
         fun(#trans{id=Id, class=Class, method=Method, 
                    status=Status, timeout_timer=Timeout}) ->
@@ -371,19 +376,35 @@ work(info, From, Call) ->
                 {Tag, Timer} -> {Tag, erlang:read_timer(Timer)};
                 undefined -> undefined
             end,
-            {AppId, CallId, Id, Class, Method, Status, T}
+            {trans, AppId, CallId, Id, Class, Method, Status, T}
         end,
         Trans),
     InfoDialog = lists:map(
-        fun(#dialog{id=Id, status=Status, timeout_timer=Timer}) ->
-            T = case Timer of
-                Timer when is_reference(Timer) ->  erlang:read_timer(Timer);
-                undefined -> undefined
+        fun(#dialog{id=DlgId, invite=Invite, subscriptions=Subs}) ->
+            Inv = case Invite of
+                #invite{status=Status, timeout_timer=Timer} ->
+                    T = case Timer of
+                        Timer when is_reference(Timer) ->  erlang:read_timer(Timer);
+                        undefined -> undefined
+                    end,
+                    {Status, T};
+                undefined ->
+                    undefined
             end,
-            {AppId, Id, Status, T}
+            Ev = [
+                    {EvId, Status, Class, erlang:read_timer(Exp)}
+                    ||
+                    #subscription{id=EvId, status=Status, class=Class, timer_expire=Exp} 
+                    <- Subs
+                ],
+            {dlg, AppId, DlgId, {invite, Inv}, {event, Ev}}
         end,
         Dialogs),
-    gen_server:reply(From, InfoTrans++InfoDialog),
+    InfoProvEvents = case ProvEvents of
+        [] -> [];
+        _ -> [{prov_events, length(ProvEvents)}]
+    end,
+    gen_server:reply(From, InfoTrans++InfoDialog++InfoProvEvents),
     Call;
 
 work({get_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
@@ -438,6 +459,9 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
             ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id], Call),
             Call
     end;
+
+timeout({provisional_event, Id}, _Ref, Call) ->
+    nksip_call_event:remove_provisional(Id, Call);
 
 timeout(check_call, _Ref, #call{opts=CallOpts}=Call) ->
     #call_opts{
@@ -495,7 +519,7 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
 
 %% @private
 -spec check_call_dialogs(nksip_lib:timestamp(), integer(), call()) ->
-    [nksip_dialog:dialog()].
+    [nksip:dialog()].
 
 check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
     lists:filter(

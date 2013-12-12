@@ -71,7 +71,7 @@
     retrans_timer :: {nksip_call_lib:retrans_timer(), reference()},
     next_retrans :: non_neg_integer(),
     expire_timer :: {nksip_call_lib:expire_timer(), reference()},
-    app_timer :: {atom(), reference()},
+    callback_timer :: {atom(), reference()},
     cancel :: undefined | to_cancel | cancelled,
     loop_id :: integer(),
     ack_trans_id :: integer(),
@@ -93,6 +93,11 @@
 }).
 
 
+-record(provisional_event, {
+    id :: {Type::binary(), Id::binary(), Tag::binary()},
+    timer_n :: reference()
+}).
+
 -record(call_opts, {
     global_id :: binary(),
     max_trans_time :: integer(),
@@ -107,7 +112,7 @@
 }).
 
 
--type auth() :: {
+-type call_auth() :: {
     nksip_dialog:id(), 
     nksip:protocol(), 
     inet:ip_address(), 
@@ -131,8 +136,9 @@
     trans = [] :: [#trans{}],
     forks = [] :: [#fork{}],
     dialogs = [] :: [#dialog{}],
-    auths = [] :: [auth()],
-    msgs = [] :: [call_msg()]
+    auths = [] :: [call_auth()],
+    msgs = [] :: [call_msg()],
+    events = [] :: [#provisional_event{}]
 }).
 
 

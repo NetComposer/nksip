@@ -139,18 +139,7 @@ send('ACK', UAC, Call) ->
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     case nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts) of
        {ok, SentReq} ->
-            ?call_debug("UAC ~p sent 'ACK' request", [Id], Call),
-            Call1 = nksip_call_uac_reply:reply({req, SentReq}, UAC, Call),
-            Call2 = case lists:member(no_dialog, Opts) of
-                true -> Call1;
-                false -> nksip_call_uac_dialog:ack(SentReq, Call1)
-            end,
-            UAC1 = UAC#trans{
-                status = finished, 
-                request = SentReq,
-                trans_id = nksip_call_uac:transaction_id(SentReq)
-            },
-            update(UAC1, Call2);
+            sent_request(SentReq, UAC, Call);
         error ->
             ?call_debug("UAC ~p error sending 'ACK' request", [Id], Call),
             Call1 = nksip_call_uac_reply:reply({error, network_error}, UAC, Call),
@@ -161,12 +150,13 @@ send('ACK', UAC, Call) ->
 send(_, UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-    TestDialog = case lists:member(no_dialog, Opts) of
+    NoDialog = lists:member(no_dialog, Opts),
+    TestDialog = case NoDialog of
         true -> 
             ok;
         false -> 
             OnlyUpdate = lists:member(update_dialog, Opts),
-            case nksip_call_uac_dialog:test_request(Req, Call) of
+            case nksip_call_uac_dialog:pre_request(Req, Call) of
                 ok ->
                     ok;
                 {error, DlgError} when OnlyUpdate ->
@@ -184,28 +174,10 @@ send(_, UAC, Call) ->
                 _ -> nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts)
             end,
             case Send of
-                {ok, SentReq} ->
-                    ?call_debug("UAC ~p sent ~p request", [Id, Method], Call),
-                    #sipmsg{transport=#transport{proto=Proto}} = SentReq,
-                    UAC1 = UAC#trans{
-                        request = SentReq, 
-                        proto = Proto,
-                        trans_id = nksip_call_uac:transaction_id(SentReq)
-                    },
-                    case nksip_call_uac_dialog:request(SentReq, Call) of
-                        {ok, Call1} ->
-                            ok;
-                        {error, DlgError2} ->
-                            ?call_warning("UAC ~p error in dialog request: ~p", 
-                                [Id, DlgError2], Call),
-                            Call1 = Call
-                    end,
-                    Call2 = nksip_call_uac_reply:reply({req, SentReq}, UAC1, Call1),
-                    UAC2 = sent_method(Method, UAC1, Call2),
-                    update(UAC2, Call2);
+                {ok, SentReq} -> 
+                    sent_request(SentReq, UAC, Call);
                 error ->
-                    ?call_debug("UAC ~p error sending ~p request", 
-                                [Id, Method], Call),
+                    ?call_debug("UAC ~p error sending ~p request", [Id, Method], Call),
                     Call1 = nksip_call_uac_reply:reply({error, network_error}, 
                                                        UAC, Call),
                     update(UAC#trans{status=finished}, Call1)
@@ -215,6 +187,43 @@ send(_, UAC, Call) ->
             Call1 = nksip_call_uac_reply:reply({error, Error}, UAC, Call),
             update(UAC#trans{status=finished}, Call1)
     end.
+
+
+%% @private
+-spec sent_request(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
+    #trans{id=Id, opts=Opts} = UAC,
+    ?call_debug("UAC ~p sent 'ACK' request", [Id], Call),
+    Call1 = nksip_call_uac_reply:reply({req, Req}, UAC, Call),
+    Call2 = case lists:member(no_dialog, Opts) of
+        true -> Call1;
+        false -> nksip_call_uac_dialog:ack(Req, Call1)
+    end,
+    UAC1 = UAC#trans{
+        status = finished, 
+        request = Req,
+        trans_id = nksip_call_uac:transaction_id(Req)
+    },
+    update(UAC1, Call2);
+
+sent_request(Req, UAC, Call) ->
+    #sipmsg{class={req, Method}, transport=#transport{proto=Proto}} = Req,
+    #trans{id=Id, opts=Opts} = UAC,
+    ?call_debug("UAC ~p sent ~p request", [Id, Method], Call),
+    UAC1 = UAC#trans{
+        request = Req, 
+        proto = Proto,
+        trans_id = nksip_call_uac:transaction_id(Req)
+    },
+    Call1 = case lists:member(no_dialog, Opts) of
+        true -> Call;
+        false -> nksip_call_uac_dialog:request(Req, Call)
+    end,
+    Call2 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call1),
+    UAC2 = sent_method(Method, UAC1, Call2),
+    update(UAC2, Call2).
 
 
 %% @private 

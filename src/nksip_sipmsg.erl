@@ -80,13 +80,17 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_routes -> S#sipmsg.routes;
         contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
         parsed_contacts -> S#sipmsg.contacts;
-        require -> nksip_unparse:tokens(S#sipmsg.require);
+        require -> nksip_unparse:token(S#sipmsg.require);
         parsed_require -> S#sipmsg.require;
-        supported -> nksip_unparse:tokens(S#sipmsg.supported);
+        supported -> nksip_unparse:token(S#sipmsg.supported);
         parsed_supported -> S#sipmsg.supported;
         body -> S#sipmsg.body;
         dialog_id -> S#sipmsg.dialog_id;
-        expires -> S#sipmsg.expires;
+        expires -> case S#sipmsg.expires of undefined -> <<>>; Exp -> Exp end;
+        parsed_expires -> S#sipmsg.expires;
+        event -> 
+            case S#sipmsg.event of undefined -> <<>>; E -> nksip_unparse:token(E) end;
+        parsed_event -> S#sipmsg.event;
         all_headers -> all_headers(S);
         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
         reason -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
@@ -96,7 +100,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         content_type -> 
             case S#sipmsg.content_type of 
                 undefined -> <<>>; 
-                CT -> nksip_unparse:tokens(CT)
+                CT -> nksip_unparse:token(CT)
             end;
         parsed_content_type -> S#sipmsg.content_type;
         parsed_rack ->
@@ -151,6 +155,7 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"Require">> -> [field(SipMsg, require)];
         <<"Supported">> -> [field(SipMsg, supported)];
         <<"Expires">> -> [field(SipMsg, expires)];
+        <<"Event">> -> [field(SipMsg, event)];
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 
@@ -201,6 +206,10 @@ all_headers(SipMsg) ->
         case field(SipMsg, expires) of
             <<>> -> [];
             Expires -> {<<"Expires">>, Expires}
+        end,
+        case field(SipMsg, event) of
+            <<>> -> [];
+            Event -> {<<"Event">>, Event}
         end,
         SipMsg#sipmsg.headers
     ]).

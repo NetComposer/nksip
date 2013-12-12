@@ -95,6 +95,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`make_accept': Generates an Accept header</li>
 %%  <li>`make_date': Generates a Date header</li>
 %%  <li>`make_100rel': If present a Require: 100rel header will be included</li>
+%%  <li>`{expires, non_neg_integer()}: If present generates a Event header</li>
 %%  <li>`reason': Custom reason phrase</li>
 %%  <li>`to_tag': If present, it will override the To tag in the request</li>
 %% </ul>
@@ -103,7 +104,7 @@ preprocess(Req, GlobalId) ->
 %% <ul>
 %%  <li>If code is 100, and a Timestamp header is present in the request, it is
 %%      copied in the response</li>
-%%  <li>For INVITE requests, it will generate automatically Support, Allowed
+%%  <li>For INVITE requests, it will generate automatically Support, Allow
 %%      and Contact headers (if not `contact' option is present).
 %%      If response code is 101-299 it will copy Record-Route headers 
 %%      from the request to the response</li>
@@ -151,7 +152,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         headers = ReqHeaders, 
         to_tag_candidate = ToTagCandidate,
         require = ReqRequire,
-        supported = ReqSupported
+        supported = ReqSupported,
+        expires = ReqExpires
     } = Req, 
     Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
         true ->
@@ -168,7 +170,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             false
     end,
     case Code > 100 of
-        true when Method=='INVITE'; Method=='UPDATE' ->
+        true when Method=='INVITE'; Method=='UPDATE'; Method=='SUBSCRIBE' ->
             MakeAllow = MakeSupported = true;
         _ ->
             MakeAllow = lists:member(make_allow, Opts),
@@ -217,7 +219,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         case lists:member(make_accept, Opts) of
             true -> 
                 Accept = nksip_lib:get_value(accept, AppOpts, ?ACCEPT),
-                {default_single, <<"Accept">>, nksip_unparse:tokens(Accept)};
+                {default_single, <<"Accept">>, nksip_unparse:token(Accept)};
             false -> 
                 none
         end,
@@ -227,7 +229,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             false -> none
         end,
         if
-            Method=='INVITE', Code>100, Code<300 ->
+            (Method=='INVITE' orelse Method=='NOTIFY') andalso Code>100 andalso Code<300 ->
                 {multi, <<"Record-Route">>, 
                         proplists:get_all_values(<<"Record-Route">>, ReqHeaders)};
             true ->
@@ -312,20 +314,24 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         error -> throw(invalid_contact);
         RCs1 -> RCs1
     end,
-    SendOpts = lists:flatten([
-        case lists:member(make_contact, Opts) of
-            true -> make_contact;
-            false -> []
-        end,
-        case Secure of
-            true -> secure;
-            _ -> []
-        end,
-        case Reliable of
-            true -> make_rseq;
-            false -> []
-        end
-    ]),
+    Expires = case nksip_lib:get_value(expires, Opts) of
+        OptExpires when is_integer(OptExpires), OptExpires>=0 -> 
+            case Method of 
+                'SUBSCRIBE' when is_integer(ReqExpires), Code>=200, Code<300 -> 
+                    min(ReqExpires, OptExpires);
+               _ ->
+                    OptExpires
+            end;
+        _ when Method=='SUBSCRIBE', is_integer(ReqExpires), Code>=200, Code<300 -> 
+            ReqExpires;
+        _ ->
+            undefined
+    end,
+    Event = case Method of
+        'SUBSCRIBE' -> Req#sipmsg.event;
+        'NOTIFY' -> Req#sipmsg.event;
+        _ -> undefined
+    end,
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
         class = {resp, Code, Reason},
@@ -340,11 +346,28 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         content_type = RespContentType,
         supported = RespSupported,
         require = RespRequire,
-        expires = undefined,
+        expires = Expires,
+        event = Event,
         body = Body,
         to_tag = ToTag1,
         transport = undefined
     },
+    SendOpts = lists:flatten([
+        case lists:member(make_contact, Opts) of
+            true -> make_contact;
+            false when Method=='INVITE', RespContacts==[] -> make_contact;
+            false when Method=='SUBSCRIBE', RespContacts==[] -> make_contact;
+            _ -> []
+        end,
+        case Secure of
+            true -> secure;
+            _ -> []
+        end,
+        case Reliable of
+            true -> make_rseq;
+            false -> []
+        end
+    ]),
     {ok, Resp, SendOpts}.
 
 

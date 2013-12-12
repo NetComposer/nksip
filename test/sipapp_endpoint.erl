@@ -23,9 +23,9 @@
 -module(sipapp_endpoint).
 -behaviour(nksip_sipapp).
 
--export([start/2, stop/1, add_callback/2, get_sessions/2]).
+-export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
 -export([init/1, get_user_pass/3, authorize/4, route/6, options/3, invite/3, reinvite/3,
-        cancel/3, ack/3, bye/3, info/3]).
+        cancel/3, ack/3, bye/3, info/3, subscribe/3, notify/3]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -40,6 +40,10 @@ stop(AppId) ->
 
 add_callback(AppId, Ref) ->
     ok = nksip:call(AppId, {add_callback, Ref, self()}).
+
+start_events(AppId, Reg, Pid, DialogId) ->
+    ok = nksip:call(AppId, {start_events, Reg, Pid, DialogId}).
+
 
 get_sessions(AppId, DialogId) ->
     nksip:call(AppId, {get_sessions, DialogId}).
@@ -187,8 +191,11 @@ invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
             {reply, {500, Hds}, State1}
     end;
 
+% INVITE for event test
+invite(_ReqId, _From, #state{id={event, _}}=State) ->
+    {reply, ok, State};
 
-% INVITE for basic, uac, uas, invite and proxy_test
+% INVITE for basic, uac, uas, invite and proxy test
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
@@ -214,12 +221,12 @@ invite(ReqId, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
         [<<"true">>] -> true;
         _ -> false
     end,
-    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
-            State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
+            State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
         _ ->
-            State1 = State
+            State
     end,
     proc_lib:spawn(
         fun() ->
@@ -241,7 +248,7 @@ invite(ReqId, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
                 <<"busy">> ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
-                    SDP1 = nksip_dialog:field(AppId, DialogId, local_sdp),
+                    SDP1 = nksip_dialog:field(AppId, DialogId, invite_local_sdp),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, Hds, SDP2});
                 _ ->
@@ -290,6 +297,44 @@ info(ReqId, _From, #state{id=AppId}=State) ->
     {reply, {ok, [{"Nk-Method", "info"}, {"Nk-Dialog", DialogId}]}, State}.
 
 
+subscribe(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    Values = nksip_request:header(AppId, ReqId, <<"Nk">>),
+    Routes = nksip_request:header(AppId, ReqId, <<"Route">>),
+    Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
+    Hds = [
+        case Values of [] -> []; _ -> {<<"Nk">>, nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> []; _ -> {<<"Nk-R">>, nksip_lib:bjoin(Routes)} end,
+        {<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}
+    ],
+    Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
+        [Op0] -> Op0;
+        _ -> <<"decline">>
+    end,
+    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+        [RepBin] ->
+            {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+            State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
+        _ ->
+            State
+    end,
+    case Op of
+        <<"ok">> ->
+            {reply, {ok, Hds}, State1};
+        _ ->
+            {reply, ok, State1}
+    end.
+
+notify(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_dialog:id(AppId, ReqId),
+    Body = nksip_request:body(AppId, ReqId),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false -> none;
+        {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, notify, Body}}
+    end,
+    {reply, ok, State}.
+
+
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->
     [Pid ! {Ref, {ping, PingId, OK}} || {Ref, Pid} <- CBs],
     {noreply, State}.
@@ -300,17 +345,20 @@ register_update(RegId, OK, #state{callbacks=CBs}=State) ->
     {noreply, State}.
 
 
-dialog_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs}=State) ->
+dialog_update(DialogId, Update, #state{id={Test, Id}, dialogs=Dialogs}=State)
+              when Test==invite; Test==event ->
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             none;
         {DialogId, Ref, Pid} ->
             case Update of
                 start -> ok;
-                {status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
-                {status, _} -> ok;
-                target_update -> Pid ! {Ref, {Id, dialog_target_update}};
-                {stop, Reason} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}}
+                target_update -> Pid ! {Ref, {Id, target_update}};
+                {invite_status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
+                {invite_status, {stop, Reason}} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}};
+                {invite_status, _} -> ok;
+                {subscription_status, SubsId, Status} -> Pid ! {Ref, {subs, SubsId, Status}};
+                stop -> ok
             end
     end,
     {noreply, State};
@@ -321,6 +369,7 @@ dialog_update(_DialogId, _Update, State) ->
 
 session_update(DialogId, Update, #state{id={invite, Id}, dialogs=Dialogs, 
                                         sessions=Sessions}=State) ->
+    % ?P("SS: ~p", [Update]),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             {noreply, State};
@@ -351,6 +400,10 @@ session_update(_DialogId, _Update, State) ->
 
 handle_call({add_callback, Ref, Pid}, _From, #state{callbacks=CB}=State) ->
     {reply, ok, State#state{callbacks=[{Ref, Pid}|CB]}};
+
+handle_call({start_events, Ref, Pid, DialogId}, _From, #state{dialogs=Dialogs}=State) ->
+    State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]},
+    {reply, ok, State1};
 
 handle_call({get_sessions, DialogId}, _From, #state{sessions=Sessions}=State) ->
     case lists:keyfind(DialogId, 1, Sessions) of

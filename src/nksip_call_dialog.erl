@@ -25,10 +25,12 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/3, status_update/3, target_update/5, session_update/2, timer/3]).
--export([find/2, store/2]).
+-export([create/4, update/3, stop/3, find/2, store/2]).
+-export([timer/3, cast/4]).
+-export_type([sdp_offer/0]).
 
--type call() :: nksip_call:call().
+-type sdp_offer() ::
+    {local|remote, invite|prack|update|ack, nksip_sdp:sdp()} | undefined.
 
 
 %% ===================================================================
@@ -36,22 +38,23 @@
 %% ===================================================================
 
 %% @private Creates a new dialog
--spec create(uac|uas|proxy, nksip:request(), nksip:response()) ->
+-spec create(uac|uas, nksip:request(), nksip:response(), nksip_call:call()) ->
     nksip:dialog().
 
-create(Class, Req, Resp) ->
+create(Class, Req, Resp, Call) ->
     #sipmsg{ruri=#uri{scheme=Scheme}} = Req,
     #sipmsg{
         app_id = AppId,
         call_id = CallId, 
+        dialog_id = DialogId,
         from = From, 
         to = To,
         cseq = CSeq,
         transport = #transport{proto=Proto},
         from_tag = FromTag
     } = Resp,
-    DialogId = nksip_dialog:class_id(Class, Resp),
-    ?debug(AppId, CallId, "Dialog ~s (~p) created", [DialogId, Class]),
+    UA = case Class of uac -> "UAC"; uas -> "UAS" end,
+    ?call_debug("Dialog ~s ~s created", [DialogId, UA], Call),
     nksip_counters:async([nksip_dialogs]),
     Now = nksip_lib:timestamp(),
     Dialog = #dialog{
@@ -60,25 +63,17 @@ create(Class, Req, Resp) ->
         call_id = CallId, 
         created = Now,
         updated = Now,
-        answered = undefined,
-        status = init,
         local_target = #uri{},
         remote_target = #uri{},
         route_set = [],
+        blocked_route_set = false,
         secure = Proto==tls andalso Scheme==sips,
         early = true,
         caller_tag = FromTag,
-        local_sdp = undefined,
-        remote_sdp = undefined,
-        media_started = false,
-        stop_reason = undefined,
-        invite_req = undefined,
-        invite_resp = undefined,
-        invite_class = undefined,
-        ack_req = undefined,
-        sdp_offer = undefined,
-        sdp_answer = undefined
+        invite = undefined,
+        subscriptions = []
     },
+    cast(dialog_update, start, Dialog, Call),
     case Class of 
         uac ->
             Dialog#dialog{
@@ -98,118 +93,119 @@ create(Class, Req, Resp) ->
 
 
 %% @private
--spec status_update(nksip_dialog:status(), nksip:dialog(), call()) ->
-    nksip:dialog().
+-spec update(term(), nksip:dialog(), nksip:call()) ->
+    nksip_call:call().
 
-status_update(Status, Dialog, Call) ->
-    #dialog{
-        id = DialogId, 
-        app_id = AppId,
-        call_id = CallId,
-        status = OldStatus, 
+update(prack, Dialog, Call) ->
+    Dialog1 = session_update(Dialog, Call),
+    store(Dialog1, Call);
+
+update({update, Class, Req, Resp}, Dialog, Call) ->
+    Dialog1 = target_update(Class, Req, Resp, Dialog, Call),
+    Dialog2 = session_update(Dialog1, Call),
+    store(Dialog2, Call);
+
+update({subscribe, Class, Req, Resp}, Dialog, Call) ->
+    Dialog1 = route_update(Class, Req, Resp, Dialog),
+    Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
+    store(Dialog2, Call);
+
+update({notify, Class, Req, Resp}, Dialog, Call) ->
+    Dialog1 = route_update(Class, Req, Resp, Dialog),
+    Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
+    Dialog3 = case Dialog2#dialog.blocked_route_set of
+        true -> Dialog2;
+        false -> Dialog2#dialog{blocked_route_set=true}
+    end,
+    store(Dialog3, Call);
+
+update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
+    #invite{
         media_started = Media,
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer
-    } = Dialog,
-    #call{opts=#call_opts{timer_t1=T1, max_dialog_time=TDlg}} = Call,
-    case OldStatus of
-        init -> cast(dialog_update, start, Dialog, Call);
-        _ -> ok
-    end,
+    } = Invite,    
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
-    Dialog1 = case Status of
-        {stop, Reason} -> 
-            cast(dialog_update, {stop, reason(Reason)}, Dialog, Call),
-            Dialog#dialog{status=Status};
-        _ ->
-            case Status==OldStatus of
-                true -> 
-                    ok;
-                false -> 
-                    ?debug(AppId, CallId, "Dialog ~s ~p -> ~p", 
-                           [DialogId, OldStatus, Status]),
-                    cast(dialog_update, {status, Status}, Dialog, Call)
-            end,
-            % Testing using only a single timeout time
-            Timeout = TDlg,
-            % Timeout = case Status of
-            %     confirmed -> TDlg;
-            %     _ -> 64*T1
-            % end,
-            Dialog#dialog{
-                status = Status, 
-                retrans_timer = undefined,
-                timeout_timer = start_timer(Timeout, timeout, Dialog)
-            }
+    cast(dialog_update, {invite_status, {stop, reason(Reason)}}, Dialog, Call),
+    case Media of
+        true -> cast(session_update, stop, Dialog, Call);
+        _ -> ok
     end,
-    Dialog2 = case Media of
-        true when Status==bye; element(1, Status)==stop ->
-            cast(session_update, stop, Dialog, Call),
-            Dialog1#dialog{media_started=false};
-        _ -> 
-            Dialog1
+    store(Dialog#dialog{invite=undefined}, Call);
+
+update({invite, Status}, Dialog, Call) ->
+    #dialog{
+        id = DialogId, 
+        blocked_route_set = BlockedRouteSet,
+        invite = #invite{
+            status = OldStatus, 
+            media_started = Media,
+            retrans_timer = RetransTimer,
+            timeout_timer = TimeoutTimer,
+            class = Class,
+            request = Req, 
+            response = Resp
+        } = Invite
+    } = Dialog,
+    cancel_timer(RetransTimer),
+    cancel_timer(TimeoutTimer),
+    ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status], Call),
+    Dialog1 = if
+        Status==proceeding_uac; Status==proceeding_uas; 
+        Status==accepted_uac; Status==accepted_uas ->
+            D1 = route_update(Class, Req, Resp, Dialog),
+            D2 = target_update(Class, Req, Resp, D1, Call),
+            session_update(D2, Call);
+        Status==confirmed ->
+            session_update(Dialog, Call);
+        Status==bye ->
+            case Media of
+                true -> cast(session_update, stop, Dialog, Call);
+                _ -> ok
+            end,
+            Dialog#dialog{invite=Invite#invite{media_started=false}}
     end,
     case Status of
-        proceeding_uac ->
-            Dialog3 = route_update(Dialog2),
-            Dialog4 = target_update(Dialog3, Call),
-            session_update(Dialog4, Call);
-        accepted_uac ->
-            Dialog3 = route_update(Dialog2),
-            Dialog4 = target_update(Dialog3, Call),
-            session_update(Dialog4, Call);
-        proceeding_uas ->
-            Dialog3 = route_update(Dialog2),
-            Dialog4 = target_update(Dialog3, Call),
-            session_update(Dialog4, Call);
-        accepted_uas ->    
-            Dialog3 = route_update(Dialog2),
-            Dialog4 = target_update(Dialog3, Call),
-            Dialog5 = session_update(Dialog4, Call),
-            Dialog5#dialog{
-                retrans_timer = start_timer(T1, retrans, Dialog),
-                next_retrans = 2*T1
-            };
-        confirmed ->
-            Dialog5 = session_update(Dialog2, Call),
-            Dialog5#dialog{invite_req=undefined, invite_resp=undefined, invite_class=undefined};
-        bye ->
-            Dialog2;
-        {stop, StopReason} -> 
-            ?debug(AppId, CallId, "Dialog ~s (~p) stopped: ~p", 
-                   [DialogId, OldStatus, StopReason]),
-            nksip_counters:async([{nksip_dialogs, -1}]),
-            Dialog2
-    end.
+        OldStatus -> ok;
+        _ -> cast(dialog_update, {invite_status, Status}, Dialog, Call)
+    end,
+    #call{opts=#call_opts{timer_t1=T1, max_dialog_time=Timeout}} = Call,
+    {RetransTimer1, NextRetras1} = case Status of
+        accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
+        _ -> {undefined, undefined}
+    end,
+    #dialog{invite=Invite1} = Dialog1,
+    Invite2 = Invite1#invite{
+        status = Status,
+        retrans_timer = RetransTimer1,
+        next_retrans = NextRetras1,
+        timeout_timer = start_timer(Timeout, invite_timeout, DialogId)
+    },
+    BlockedRouteSet1 = if
+        Status==accepted_uac; Status==accepted_uas -> true;
+        true -> BlockedRouteSet
+    end,
+    Dialog2 = Dialog1#dialog{invite=Invite2, blocked_route_set=BlockedRouteSet1},
+    store(Dialog2, Call);
 
-
-%% @private Performs a target update
--spec target_update(nksip:dialog(), call()) ->
-    nksip:dialog().
-
-target_update(Dialog, Call) ->
-    #dialog{invite_req=Req, invite_resp=Resp, invite_class=Class} = Dialog,
-    target_update(Class, Req, Resp, Dialog, Call).
-
+update(none, Dialog, Call) ->
+    store(Dialog, Call).
+    
 
 %% @private Performs a target update
 -spec target_update(uac|uas, nksip:request(), nksip:response(), 
-                    nksip:dialog(), call()) ->
+                    nksip:dialog(), nksip:call()) ->
     nksip:dialog().
 
-target_update(Class, Req, #sipmsg{}=Resp, Dialog, Call) ->
+target_update(Class, Req, Resp, Dialog, Call) ->
     #dialog{
         id = DialogId,
-        app_id = AppId,
-        call_id = CallId,
         early = Early, 
         secure = Secure,
-        answered = Answered,
         remote_target = RemoteTarget,
         local_target = LocalTarget,
-        invite_req = InvReq,
-        invite_class = InvClass
+        invite = Invite
     } = Dialog,
     #sipmsg{contacts=ReqContacts} = Req,
     #sipmsg{class={resp, Code, _Reason}, contacts=RespContacts} = Resp,
@@ -228,12 +224,12 @@ target_update(Class, Req, #sipmsg{}=Resp, Dialog, Call) ->
                 false -> RT
             end;
         [] ->
-            ?notice(AppId, CallId, "Dialog ~s: no Contact in remote target",
-                    [DialogId]),
+            ?call_notice("Dialog ~s: no Contact in remote target",
+                         [DialogId], Call),
             RemoteTarget;
         RTOther -> 
-            ?notice(AppId, CallId, "Dialog ~s: invalid Contact in remote rarget: ~p",
-                    [DialogId, RTOther]),
+            ?call_notice("Dialog ~s: invalid Contact in remote rarget: ~p",
+                         [DialogId, RTOther], Call),
             RemoteTarget
     end,
     LocalTarget1 = case LocalTargets of
@@ -242,61 +238,55 @@ target_update(Class, Req, #sipmsg{}=Resp, Dialog, Call) ->
     end,
     Now = nksip_lib:timestamp(),
     Early1 = Early andalso Code >= 100 andalso Code < 200,
-    Answered1 = case Answered of
-        undefined when Code >= 200 -> Now;
-        _ -> Answered
-    end,
     case RemoteTarget of
         #uri{domain = <<"invalid.invalid">>} -> ok;
         RemoteTarget1 -> ok;
         _ -> cast(dialog_update, target_update, Dialog, Call)
     end,
-    % If we are updating the remote target inside an uncompleted INVITE UAS
-    % transaction, update original INVITE so that, when the final
-    % response is sent, we don't use the old remote target but the new one.
-    InvReq1 = case InvClass of
-        uas ->
-            case InvReq of
-                #sipmsg{contacts=[RemoteTarget1]} -> InvReq; 
-                #sipmsg{} -> InvReq#sipmsg{contacts=[RemoteTarget1]};
-                undefined -> undefined
-            end;
-        uac ->
-            case InvReq of
-                #sipmsg{contacts=[LocalTarget1]} -> InvReq; 
-                #sipmsg{} -> InvReq#sipmsg{contacts=[LocalTarget1]};
-                undefined -> undefined
-            end
+    Invite1 = case Invite of
+        #invite{answered=InvAnswered, class=InvClass, request=InvReq} ->
+            InvAnswered1 = case InvAnswered of
+                undefined when Code >= 200 -> Now;
+                _ -> InvAnswered
+            end,
+            % If we are updating the remote target inside an uncompleted INVITE UAS
+            % transaction, update original INVITE so that, when the final
+            % response is sent, we don't use the old remote target but the new one.
+            InvReq1 = case InvClass of
+                uas ->
+                    case InvReq of
+                        #sipmsg{contacts=[RemoteTarget1]} -> InvReq; 
+                        #sipmsg{} -> InvReq#sipmsg{contacts=[RemoteTarget1]}
+                    end;
+                uac ->
+                    case InvReq of
+                        #sipmsg{contacts=[LocalTarget1]} -> InvReq; 
+                        #sipmsg{} -> InvReq#sipmsg{contacts=[LocalTarget1]}
+                    end
+            end,
+            Invite#invite{answered=InvAnswered1, request=InvReq1};
+        undefined ->
+            undefined
     end,
     Dialog#dialog{
         updated = Now,
-        answered = Answered1,
         local_target = LocalTarget1,
         remote_target = RemoteTarget1,
         early = Early1,
-        invite_req = InvReq1
-    };
-
-target_update(_Class, _Req, _Resp, Dialog, _Call) ->
-    Dialog.
+        invite = Invite1
+    }.
 
 
-%% @private Performs a target update
--spec route_update(nksip:dialog()) ->
+%% @private
+-spec route_update(uac|uas, nksip:request(), nksip:response(), nksip:dialog()) ->
     nksip:dialog().
 
-route_update(#dialog{invite_resp=#sipmsg{}}=Dialog) ->
-    #dialog{
-        app_id = AppId,
-        invite_req = Req, 
-        invite_resp = Resp, 
-        invite_class = Class,
-        answered = Answered
-    } = Dialog,
-    case Answered of
-        undefined when Class==uac ->
+route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
+    #dialog{app_id=AppId} = Dialog,
+    RouteSet = case Class of
+        uac ->
             RR = nksip_sipmsg:header(Resp, <<"Record-Route">>, uris),
-            RouteSet = case lists:reverse(RR) of
+            case lists:reverse(RR) of
                 [] ->
                     [];
                 [FirstRS|RestRS] ->
@@ -307,11 +297,10 @@ route_update(#dialog{invite_resp=#sipmsg{}}=Dialog) ->
                         true -> RestRS;
                         false -> [FirstRS|RestRS]
                     end
-            end,
-            Dialog#dialog{route_set=RouteSet};
-        undefined when Class==uas ->
+            end;
+        uas ->
             RR = nksip_sipmsg:header(Req, <<"Record-Route">>, uris),
-            RouteSet = case RR of
+            case RR of
                 [] ->
                     [];
                 [FirstRS|RestRS] ->
@@ -319,28 +308,27 @@ route_update(#dialog{invite_resp=#sipmsg{}}=Dialog) ->
                         true -> RestRS;
                         false -> [FirstRS|RestRS]
                     end
-            end,
-            Dialog#dialog{route_set=RouteSet};
-        _ ->
-            Dialog
-    end;
+            end
+    end,
+    Dialog#dialog{route_set=RouteSet};
 
-route_update(Dialog) ->
+route_update(_Class, _Req, _Resp, Dialog) ->
     Dialog.
 
 
 % %% @private Performs a session update
--spec session_update(nksip:dialog(), call()) ->
+-spec session_update(nksip:dialog(), nksip:call()) ->
     nksip:dialog().
 
 session_update(
             #dialog{
-                sdp_offer = {OfferParty, _, #sdp{}=OfferSDP},
-                sdp_answer = {AnswerParty, _, #sdp{}=AnswerSDP},
-                local_sdp = LocalSDP,
-                remote_sdp = RemoteSDP,
-                media_started = Started,
-                invite_req = _InvReq
+                invite = #invite{
+                    sdp_offer = {OfferParty, _, #sdp{}=OfferSDP},
+                    sdp_answer = {AnswerParty, _, #sdp{}=AnswerSDP},
+                    local_sdp = LocalSDP,
+                    remote_sdp = RemoteSDP,
+                    media_started = Started
+                } = Invite
             } = Dialog,
             Call) ->
     {LocalSDP1, RemoteSDP1} = case OfferParty of
@@ -348,8 +336,6 @@ session_update(
         remote when AnswerParty==local -> {AnswerSDP, OfferSDP}
     end,
     case Started of
-        false ->
-            cast(session_update, {start, LocalSDP1, RemoteSDP1}, Dialog, Call);
         true ->
             case 
                 nksip_sdp:is_new(RemoteSDP1, RemoteSDP) orelse
@@ -359,58 +345,95 @@ session_update(
                     cast(session_update, {update, LocalSDP1, RemoteSDP1}, Dialog, Call);
                 false ->
                     ok
-            end
+            end;
+        _ ->
+            cast(session_update, {start, LocalSDP1, RemoteSDP1}, Dialog, Call)
     end,
-    Dialog#dialog{
+    Invite1 = Invite#invite{
         local_sdp = LocalSDP1, 
         remote_sdp = RemoteSDP1, 
         media_started = true,
         sdp_offer = undefined,
         sdp_answer = undefined
-    };
+    },
+    Dialog#dialog{invite=Invite1};
             
 session_update(Dialog, _Call) ->
     Dialog.
 
 
+
+%% @private Fully stops a dialog
+-spec stop(term(), nksip:dialog(), nksip_call:call()) ->
+    nksip_call:call(). 
+
+stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
+    Dialog1 = lists:foldl(
+        fun(Sub, Acc) -> nksip_call_event:stop(Sub, Acc, Call) end,
+        Dialog,
+        Subs),
+    case Invite of
+        #invite{} -> update({invite, {stop, reason(Reason)}}, Dialog1, Call);
+        undefined -> update(none, Dialog1, Call)
+    end.
+
+
+
 %% @private Called when a dialog timer is fired
--spec timer(retrans|timeout, nksip:dialog(), call()) ->
-    call().
+-spec timer(invite_retrans | invite_timeout, nksip:dialog(), nksip:call()) ->
+    nksip:call().
 
-timer(retrans, #dialog{status=accepted_uas}=Dialog, Call) ->
-    #dialog{
-        id = DialogId, 
-        invite_resp = Resp, 
-        next_retrans = Next
-    } = Dialog,
+timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId, timer_t2=T2}} = Call,
-    case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
-        {ok, _} ->
-            ?call_info("Dialog ~s resent response", [DialogId], Call),
-            Dialog1 = Dialog#dialog{
-                retrans_timer = start_timer(Next, retrans, Dialog),
-                next_retrans = min(2*Next, T2)
-            },
-            store(Dialog1, Call);
-        error ->
-            ?call_notice("Dialog ~s could not resend response", [DialogId], Call),
-            Dialog1 = status_update({stop, ack_timeout}, Dialog, Call),
-            store(Dialog1, Call)
+    case Invite of
+        #invite{status=Status, response=Resp, next_retrans=Next} ->
+            case Status of
+                accepted_uas ->
+                    case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
+                        {ok, _} ->
+                            ?call_info("Dialog ~s resent response", [DialogId], Call),
+                            Invite1 = Invite#invite{
+                                retrans_timer = start_timer(Next, invite_retrans, DialogId),
+                                next_retrans = min(2*Next, T2)
+                            },
+                            store(Dialog#dialog{invite=Invite1}, Call);
+                        error ->
+                            ?call_notice("Dialog ~s could not resend response", 
+                                         [DialogId], Call),
+                            Dialog1 = update({stop, ack_timeout}, Dialog, Call),
+                            store(Dialog1, Call)
+                    end;
+                _ ->
+                    ?call_notice("Dialog ~s retrans timer fired in ~p", 
+                                [DialogId, Status], Call),
+                    Call
+            end;
+        _ ->
+            ?call_notice("Dialog ~s retrans timer fired with no INVITE", 
+                         [DialogId], Call),
+            Call
     end;
-    
-timer(retrans, #dialog{id=DialogId, status=Status}, Call) ->
-    ?call_notice("Dialog ~s retrans timer fired in ~p", [DialogId, Status], Call),
-    Call;
 
-timer(timeout, #dialog{id=DialogId, status=Status}=Dialog, Call) ->
-    ?call_notice("Dialog ~s (~p) timeout timer fired", [DialogId, Status], Call),
-    Reason = case Status of
-        accepted_uac -> ack_timeout;
-        accepted_uas -> ack_timeout;
-        _ -> timeout
-    end,
-    Dialog1 = status_update({stop, Reason}, Dialog, Call),
-    store(Dialog1, Call).
+timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
+    case Invite of
+        #invite{status=Status} ->
+            ?call_notice("Dialog ~s (~p) timeout timer fired", 
+                         [DialogId, Status], Call),
+            Reason = case Status of
+                accepted_uac -> ack_timeout;
+                accepted_uas -> ack_timeout;
+                _ -> timeout
+            end,
+            Dialog1 = update({stop, Reason}, Dialog, Call),
+            store(Dialog1, Call);
+        _ ->
+            ?call_notice("Dialog ~s unknown INVITE timeout timer", 
+                         [DialogId], Call),
+            Call
+    end;
+
+timer({event, Tag}, Dialog, Call) ->
+    nksip_call_event:timer(Tag, Dialog, Call).
 
 
 
@@ -419,7 +442,7 @@ timer(timeout, #dialog{id=DialogId, status=Status}=Dialog, Call) ->
 %% ===================================================================
 
 %% @private
--spec find(nksip_dialog:id(), call()) ->
+-spec find(nksip_dialog:id(), nksip:call()) ->
     nksip:dialog() | not_found.
 
 find(Id, #call{dialogs=Dialogs}) ->
@@ -430,41 +453,45 @@ find(Id, #call{dialogs=Dialogs}) ->
 -spec do_find(nksip_dialog:id(), [nksip:dialog()]) ->
     nksip:dialog() | not_found.
 
-do_find(Id, [#dialog{id=Id}=Dialog|_]) ->
-    Dialog;
-do_find(Id, [_|Rest]) ->
-    do_find(Id, Rest);
-do_find(_, []) ->
-    not_found.
+do_find(_, []) -> not_found;
+do_find(Id, [#dialog{id=Id}=Dialog|_]) -> Dialog;
+do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
 
 %% @private Updates a dialog into the call
--spec store(nksip:dialog(), call()) ->
-    call().
+-spec store(nksip:dialog(), nksip:call()) ->
+    nksip:call().
 
-store(#dialog{id=Id}=Dialog, #call{dialogs=[#dialog{id=Id}|Rest]}=Call) ->
-    case Dialog#dialog.status of
-        {stop, _} -> Call#call{dialogs=Rest, hibernate=dialog_stop};
-        confirmed -> Call#call{dialogs=[Dialog|Rest], hibernate=dialog_confirmed};
-        _ -> Call#call{dialogs=[Dialog|Rest]}
-    end;
-
-store(#dialog{id=Id}=Dialog, #call{dialogs=Dialogs}=Call) ->
-    case Dialog#dialog.status of
-        {stop, _} -> 
-            Dialogs1 = lists:keydelete(Id, #dialog.id, Dialogs),
+store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
+    #dialog{id=Id, invite=Invite, subscriptions=Subs} = Dialog,
+    case Dialogs of
+        [] -> Rest = [], IsFirst = true;
+        [#dialog{id=Id}|Rest] -> IsFirst = true;
+        _ -> Rest=[], IsFirst = false
+    end,
+    case Invite==undefined andalso Subs==[] of
+        true ->
+            cast(dialog_update, stop, Dialog, Call),
+            Dialogs1 = case IsFirst of
+                true -> Rest;
+                false -> lists:keydelete(Id, #dialog.id, Dialogs)
+            end,
             Call#call{dialogs=Dialogs1, hibernate=dialog_stop};
-        confirmed ->
-            Dialogs1 = lists:keystore(Id, #dialog.id, Dialogs, Dialog),
-            Call#call{dialogs=Dialogs1, hibernate=dialog_confirmed};
-        _ ->
-            Dialogs1 = lists:keystore(Id, #dialog.id, Dialogs, Dialog),
-            Call#call{dialogs=Dialogs1}
+        false ->
+            Hibernate = case Invite of
+                #invite{status=confirmed} -> dialog_confirmed;
+                _ -> Call#call.hibernate
+            end,
+            Dialogs1 = case IsFirst of
+                true -> [Dialog|Rest];
+                false -> lists:keystore(Id, #dialog.id, Dialogs, Dialog)
+            end,
+            Call#call{dialogs=Dialogs1, hibernate=Hibernate}
     end.
 
 
 %% @private
--spec cast(atom(), term(), nksip:dialog(), call()) ->
+-spec cast(atom(), term(), nksip:dialog(), nksip:call()) ->
     ok.
 
 cast(Fun, Arg, Dialog, Call) ->
@@ -497,9 +524,9 @@ cancel_timer(_) ->
 
 
 %% @private
--spec start_timer(integer(), atom(), nksip:dialog()) ->
+-spec start_timer(integer(), atom(), nksip_dialog:id()) ->
     reference().
 
-start_timer(Time, Tag, #dialog{id=Id}) ->
+start_timer(Time, Tag, Id) ->
     erlang:start_timer(Time , self(), {dlg, Tag, Id}).
 

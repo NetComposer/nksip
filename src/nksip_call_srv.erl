@@ -100,7 +100,8 @@ init([AppId, CallId, CallOpts]) ->
         forks = [],
         dialogs = [],
         auths = [],
-        msgs = []
+        msgs = [],
+        events = []
     },
     erlang:start_timer(2*MaxTransTime, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
@@ -179,7 +180,7 @@ terminate(_Reason, #call{}=Call) ->
 -spec next(call()) ->
     gen_server_cast(call()).
 
-next(#call{trans=[], forks=[], dialogs=[]}=Call) -> 
+next(#call{trans=[], forks=[], dialogs=[], events=[]}=Call) -> 
     case erlang:process_info(self(), message_queue_len) of
         {_, 0} -> {stop, normal, Call};
         _ -> {noreply, Call}

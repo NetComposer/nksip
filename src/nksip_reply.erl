@@ -47,6 +47,7 @@
 %%       <td>Response will include provided headers and body</td></tr>
 %%   <tr><td>`{answer, [Header] Body, Options}'</td><td>200</td>
 %%       <td>Response will include provided headers and body allows options</td></tr>
+%%   <tr><td>`accepted'</td><td>202</td><td></td></tr>
 %%   <tr><td>`{redirect, [Contact]}'</td><td>300</td>
 %%       <td>Generates `Contact' headers</td></tr>
 %%   <tr><td>`{redirect_permanent, Contact}'</td><td>301</td>
@@ -97,6 +98,7 @@
 %%   <tr><td>`request_terminated'</td><td>487</td><td></td></tr>
 %%   <tr><td>`{not_acceptable, Reason}'</td><td>488</td>
 %%       <td>Generates a new `Warning' header using `Reason'</td></tr>
+%%   <tr><td>`bad_event'</td><td>489</td><td></td></tr>
 %%   <tr><td>`request_pending'</td><td>491</td><td></td></tr>
 %%   <tr><td>`internal'</td><td>500</td><td></td></tr>
 %%   <tr><td>`{internal, Text}'</td><td>500</td>
@@ -146,6 +148,7 @@
 %%       {@link nksip_auth:make_response/2}).</li>
 %%  <li>`{make_proxy_auth, Realm::from|binary()}': a <i>Proxy-Authenticate</i> will be 
 %%       generated for this `Realm'.</li>
+%%  <li>`{expires, non_neg_integer()': generates a <i>Event</i> header.</li>
 %% </ul>
 
 -module(nksip_reply).
@@ -171,6 +174,7 @@
     {ok, [nksip:header()], nksip:body(), nksip_lib:proplist()} | 
     answer | {answer, [nksip:header()]} | {answer, [nksip:header()], nksip:body()} | 
     {answer, [nksip:header()], nksip:body(), nksip_lib:proplist()} | 
+    accepted | 
     {redirect, [nksip:user_uri()]} | 
     {redirect_permanent, nksip:user_uri()} | 
     {redirect_temporary, nksip:user_uri()} |
@@ -195,6 +199,7 @@
     busy |
     request_terminated |
     {not_acceptable, Reason::binary()} |
+    bad_event |
     request_pending |
     internal | {internal, Text::binary()} |
     service_unavailable |
@@ -292,6 +297,8 @@ reqreply({answer, Headers, Body}) ->
     #reqreply{code=200, headers=Headers, body=Body};
 reqreply({answer, Headers, Body, Opts}) ->
     #reqreply{code=200, headers=Headers, body=Body, opts=Opts};
+reqreply(accepted) ->
+    #reqreply{code=202};
 reqreply({redirect, RawContacts}) ->
     case nksip_parse:uris(RawContacts) of
         error -> error;
@@ -381,6 +388,8 @@ reqreply(request_terminated) ->
     #reqreply{code=487};
 reqreply({not_acceptable, Reason}) ->
     #reqreply{code=488, headers=[{<<"Warning">>, nksip_lib:to_binary(Reason)}]};
+reqreply(bad_event) ->
+    #reqreply{code=489};
 reqreply(request_pending) ->
     #reqreply{code=491};
 reqreply(internal) ->

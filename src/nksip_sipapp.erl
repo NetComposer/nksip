@@ -136,8 +136,10 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/1, get_user_pass/3, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
-         ack/3, bye/3, options/3, register/3, info/3, prack/3, update/3]).
--export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
+         ack/3, bye/3, options/3, register/3, info/3, prack/3, update/3,
+         subscribe/3, notify/3]).
+-export([ping_update/3, register_update/3, dialog_update/3, session_update/3,
+         subscription_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([registrar_store/3]).
 -include("nksip.hrl").
@@ -480,7 +482,8 @@ info(_ReqId, _From, State) ->
     call_reply(nksip:sipreply()).
 
 options(_ReqId, _From, State) ->
-    Reply = {ok, [], <<>>, [make_contact, make_allow, make_accept, make_supported]},
+    Reply = {ok, [], <<>>, [make_contact, make_allow, make_allow_event, 
+                            make_accept, make_supported]},
     {reply, Reply, State}.
 
 
@@ -543,6 +546,33 @@ update(_ReqId, _From, State) ->
     {reply, decline, State}.
 
 
+%% @doc This function is called by NkSIP to process a new incoming SUBSCRIBE
+%% request that has an allowed Event type.
+%%
+%% If you reply a 2xx response like `ok'  or `accepted', a dialog and a subscription
+%% will start, and you must inmeditaly send a NOTIFY using nksip_uac:notify/3.
+%%
+%% You can use the option `{expires, integer()}' to override the expires present
+%% in the request, but the new value must be lower, or even 0 to cancel the
+%% subscription
+%%
+-spec subscribe(ReqId::nksip_request:id(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
+subscribe(_ReqId, _From, State) ->
+    {reply, decline, State}.
+
+
+%% @doc This function is called by NkSIP to process a new incoming NOTIFY
+%% request that has an allowed Event type and belongs to a started subscription.
+%%
+-spec notify(ReqId::nksip_request:id(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
+notify(_ReqId, _From, State) ->
+    {reply, ok, State}.
+
+
 %% @doc Called when a dialog has changed its state.
 %%
 %% A new dialog will be created when you send an INVITE request 
@@ -563,7 +593,9 @@ update(_ReqId, _From, State) ->
 %%
 -spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
     call_noreply()
-    when DialogStatus :: start | target_update | {status, nksip_dialog:status()} |
+    when DialogStatus :: start | target_update | 
+                         {invite_status, nksip_dialog:invite_status()} |
+                         {subscription_status, nksip_dialog:subscription_status()} |
                          {stop, nksip_dialog:stop_reason()}.
     
 dialog_update(_DialogId, _Status, State) ->
@@ -585,6 +617,19 @@ dialog_update(_DialogId, _Status, State) ->
 session_update(_DialogId, _Status, State) ->
     {noreply, State}.
 
+
+
+%% @doc Called when a subscription has started, renewed or stopped, and also
+%% when it is time to renew a started subscription sending NOTIFY
+%%
+-spec subscription_update(DialogId::nksip_dialog:id(), SubStatus, State::term()) ->
+    call_noreply()
+    when SubStatus :: {start, Event} | {renewed, Event} | {stop, Event} |
+                      {should_renew, Event},
+         Event :: binary().
+
+subscription_update(_DialogId, _Status, State) ->
+    {noreply, State}.
 
 
 %% @doc Called when the status of an automatic ping configuration changes.

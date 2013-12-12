@@ -68,7 +68,7 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                         LastCode>=200 andalso LastCode<300
                     )
                 ) ->
-    {Resp1, SendOpts1} = nksip_call_uas_dialog:make(Resp, SendOpts, Call),
+    {Resp1, SendOpts1} = nksip_call_uas_dialog:update_response(Resp, SendOpts, Call),
     case lists:member(make_rseq, SendOpts1) of
         true ->
             case check_prack(Resp1, UAS) of
@@ -127,7 +127,7 @@ send({Resp, SendOpts}, UAS, #call{}=Call) ->
             UserReply = {error, network_error},
             {Resp2, _} = nksip_reply:reply(Req, service_unavailable, AppOpts)
     end,
-    #sipmsg{class={resp, Code1, _Reason}} = Resp2,
+    #sipmsg{class={resp, Code1, _}} = Resp2,
     Call1 = case Req of
         #sipmsg{} when Code1>=200, Code<300 ->
             nksip_call_lib:update_auth(DialogId, Req, Call);
@@ -173,7 +173,7 @@ stateful_reply(invite_proceeding, Code, false, UAS, Call) when Code < 200 ->
 % RFC6026 accepted state, to wait for INVITE retransmissions
 % Dialog will send 2xx retransmissionshrl
 stateful_reply(invite_proceeding, Code, _, UAS, Call) when Code < 300 ->
-    #trans{id=Id, request=Req, response=Resp, app_timer=AppTimer} = UAS,
+    #trans{id=Id, request=Req, response=Resp, callback_timer=AppTimer} = UAS,
     UAS1 = case Id < 0 of
         true -> 
             % In old-style transactions, save Id to be used in
@@ -195,7 +195,7 @@ stateful_reply(invite_proceeding, Code, _, UAS, Call) when Code < 300 ->
     nksip_call_lib:timeout_timer(timer_l, UAS3, Call);
 
 stateful_reply(invite_proceeding, Code, _, UAS, Call) when Code >= 300 ->
-    #trans{proto=Proto, app_timer=AppTimer} = UAS,
+    #trans{proto=Proto, callback_timer=AppTimer} = UAS,
     UAS1 = UAS#trans{status=invite_completed},
     UAS2 = nksip_call_lib:expire_timer(cancel, UAS1, Call),
     UAS3 = case AppTimer of
@@ -215,7 +215,7 @@ stateful_reply(proceeding, Code, _, UAS, _Call) when Code < 200 ->
     UAS;
 
 stateful_reply(proceeding, Code, _, UAS, Call) when Code >= 200 ->
-    #trans{proto=Proto, app_timer=AppTimer} = UAS,
+    #trans{proto=Proto, callback_timer=AppTimer} = UAS,
     UAS1 = UAS#trans{request=undefined, status=completed},
     case Proto of
         udp -> 
