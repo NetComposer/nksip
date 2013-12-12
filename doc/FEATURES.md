@@ -36,13 +36,12 @@ RFC|Description|Notes
 [RFC4168](http://tools.ietf.org/html/rfc4168)|SCTP Transport|No TLS-SCTP
 [RFC4475](http://tools.ietf.org/html/rfc4475)|Torture Tests|Included in unit tests
 [RFC4566](http://tools.ietf.org/html/rfc4566)|SDP|Only parser and generator
-[RFC4660](http://tools.ietf.org/html/rfc4660)|Event Notification|Obsoletes 3265
 [RFC5057](http://tools.ietf.org/html/rfc5057)|Multiple Dialogs|
 [RFC5118](http://tools.ietf.org/html/rfc5118)|IPv6 Torture Tests|Included in unit tests
 [RFC5389](http://tools.ietf.org/html/rfc5389)|STUN|Basic STUN client and server (no IPv6)
 [RFC6026](http://tools.ietf.org/html/rfc6026)|2xx responses|
 [RFC6157](http://tools.ietf.org/html/rfc6157)|IPv6 Transition|
-[RFC6665](http://tools.ietf.org/html/rfc6665)|Event Notification|Obsoletes 3265,4660. GRUU support pending
+[RFC6665](http://tools.ietf.org/html/rfc6665)|Event Notification|Obsoletes 3265. GRUU support pending
 
 
 
