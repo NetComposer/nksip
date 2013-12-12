@@ -561,6 +561,7 @@ get_raw_headers(Packet, Acc) ->
                         "PROXY-REQUIRE" -> <<"Proxy-Require">>;
                         "RACK" -> <<"RAck">>;
                         "RECORD-ROUTE" -> <<"Record-Route">>;
+                        "REFER-TO" -> <<"Refer-To">>;
                         "REQUIRE" -> <<"Require">>;
                         "ROUTE" -> <<"Route">>;
                         "RSEQ" -> <<"RSeq">>;
