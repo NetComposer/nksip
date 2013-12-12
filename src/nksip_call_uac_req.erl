@@ -82,6 +82,12 @@ new_uac(Req, Opts, From, Call) ->
         _ -> trying
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
+    Opts1 = case 
+        IsProxy andalso (Method=='SUBSCRIBE' orelse Method=='NOTIFY') 
+    of
+        true -> [no_dialog|Opts];
+        false -> Opts
+    end,
     DialogId = nksip_call_uac_dialog:uac_id(Req, IsProxy, Call),
     UAC = #trans{
         id = Id,
@@ -89,7 +95,7 @@ new_uac(Req, Opts, From, Call) ->
         status = Status,
         start = nksip_lib:timestamp(),
         from = From,
-        opts = Opts,
+        opts = Opts1,
         trans_id = undefined,
         request = Req#sipmsg{dialog_id=DialogId},
         method = Method,
@@ -153,6 +159,7 @@ send(_, UAC, Call) ->
     #sipmsg{to_tag=ToTag} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     NoDialog = lists:member(no_dialog, Opts),
+    % For proxies sending SUBSCRIBE or NOTIFY, NoDialog will be true
     TestDialog = case NoDialog of
         true -> 
             ok;
