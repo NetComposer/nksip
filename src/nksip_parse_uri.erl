@@ -151,6 +151,9 @@ user([$@|Rest], Acc, Block, Uri) ->
             domain(strip(Rest), [], false, Block, Uri1)
     end;
 
+user([$>|_], _Acc, true, _Uri) ->
+    {error, user, ?LINE};
+
 user([Ch|_]=Rest, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
     case strip(Rest) of
         [] -> user([], Acc, Block, Uri);
@@ -522,23 +525,6 @@ strip([9|Rest]) -> strip(Rest);
 strip(Rest) -> Rest.
 
 
-% %% @private UIR Opts Key filters
-% list_to_binary(List, true) ->
-%     case string:to_lower(List) of
-%         % "transport" -> transport;
-%         %"lr" -> lr;
-%         "maddr" -> maddr;
-%         _ -> list_to_binary(List) 
-%     end;
-
-% list_to_binary(List, false) ->
-%     case string:to_lower(List) of
-%         "tag" -> tag;
-%         _ -> list_to_binary(List) 
-%     end.
-
-
-
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
@@ -645,8 +631,7 @@ uri3_test() ->
 uri4_test() ->
     [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}] = uris("sip:a,sip:b"),
     [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}] = uris("<sip:a>  ,  sip:b  "),
-    % TODO: This one is failing
-    % [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}, #uri{domain = <<"c">>}] = 
+    [#uri{domain = <<"a">>}, #uri{domain = <<"b">>}, #uri{domain = <<"c">>}] = 
         uris(<<"<sip:a>,<sip:b@b>,<sip:c>">>),
     [
         #uri{user = <<"u1">>, pass = <<"p1">>, domain = <<"a">>, ext_headers = [<<"a1">>]}, 
