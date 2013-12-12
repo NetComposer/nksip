@@ -187,12 +187,12 @@ terminate_request(_, Call) ->
 
 app_call(Fun, Args, UAS, Call) ->
     #trans{id=Id, method=Method, status=Status, request=Req} = UAS,
-    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
+    #call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=AppOpts}} = Call,
     ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
                 [Id, Method, Status, Fun, Args], Call),
     From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
-    Args1 = Args ++ [Req],
-    Args2 = Args ++ [Req#sipmsg.id],
+    Args1 = [Req#sipmsg.id|[{request, Req}, {app_opts, AppOpts}]],
+    Args2 = [Req#sipmsg.id|Args],
     case 
         nksip_sipapp_srv:sipapp_call(AppId, Module, Fun, Args1, Args2, From)
     of
