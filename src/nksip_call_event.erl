@@ -42,6 +42,7 @@
 
 uac_pre_request(#sipmsg{class={req, 'NOTIFY'}}=Req, Dialog, _Call) ->
     case find(Req, Dialog) of
+        not_found ->  {error, no_transaction};
         #subscription{class=uas} -> ok;
         _ -> {error, no_transaction}
     end;
@@ -52,7 +53,7 @@ uac_pre_request(_Req, _Dialog, _Call) ->
 
 %% @private
 -spec uac_request(nksip:request(), nksip:dialog(), nksip_call:call()) ->
-    nksip_dialog:dialog().
+    nksip:dialog().
 
 uac_request(_Req, Dialog, _Call) ->
     Dialog.
@@ -61,7 +62,7 @@ uac_request(_Req, Dialog, _Call) ->
 %% @private
 -spec uac_response(nksip:request(), nksip:response(), 
                    nksip:dialog(), nksip_call:call()) ->
-    nksip_dialog:dialog().
+    nksip:dialog().
 
 uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
              when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
@@ -94,9 +95,9 @@ uac_response(_Req, _Resp, Dialog, _Call) ->
 
 %% @private
 -spec uac_do_response(nksip:method(), nksip:response_code(), nksip:request(), 
-                      nksip:response(), nksip:event(), nksip:dialog(), 
+                      nksip:response(), nksip:subscription(), nksip:dialog(), 
                       nksip_call:call()) ->
-    nksip_dialog:dialog().
+    nksip:dialog().
 
 uac_do_response('SUBSCRIBE', Code, Req, Resp, Subs, Dialog, Call) 
                 when Code>=200, Code<300 ->
@@ -107,9 +108,9 @@ uac_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call)
                 when Code>=300 ->
     case Subs#subscription.answered of
         undefined ->
-            update({terminated, Code}, Subs, Dialog, Call);
+            update({terminated, {code, Code}}, Subs, Dialog, Call);
         _ when Code==405; Code==408; Code==481; Code==501 ->
-            update({terminated, Code}, Subs, Dialog, Call);
+            update({terminated, {code, Code}}, Subs, Dialog, Call);
         _ ->
             update(none, Subs, Dialog, Call)
     end;
@@ -120,7 +121,7 @@ uac_do_response('NOTIFY', Code, Req, _Resp, Subs, Dialog, Call)
         
 uac_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call)
                 when Code==405; Code==408; Code==481; Code==501 ->
-    update({terminated, Code}, Subs, Dialog, Call);
+    update({terminated, {code, Code}}, Subs, Dialog, Call);
 
 uac_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
     Dialog.
@@ -134,7 +135,7 @@ uac_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
 
 %% @private
 -spec uas_request(nksip:request(), nksip:dialog(), nksip_call:call()) ->
-    {ok, nksip_dialog:dialog()} | {error, no_transaction}.
+    {ok, nksip:dialog()} | {error, no_transaction}.
 
 uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
             when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
@@ -163,7 +164,7 @@ uas_request(_Req, Dialog, _Call) ->
 %% @private
 -spec uas_response(nksip:request(), nksip:response(), 
                    nksip:dialog(), nksip_call:call()) ->
-    nksip_dialog:dialog().
+    nksip:dialog().
 
 uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
              when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
@@ -197,9 +198,9 @@ uas_response(_Req, _Resp, Dialog, _Call) ->
 
 %% @private
 -spec uas_do_response(nksip:method(), nksip:response_code(), nksip:request(), 
-                      nksip:response(), nksip:event(), nksip:dialog(), 
+                      nksip:response(), nksip:subscription(), nksip:dialog(), 
                       nksip_call:call()) ->
-    nksip_dialog:dialog().
+    nksip:dialog().
 
 uas_do_response(_, Code, _Req, _Resp, _Subs, Dialog, _Call) when Code<200 ->
     Dialog;
@@ -212,9 +213,9 @@ uas_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call)
                 when Code>=300 ->
     case Subs#subscription.answered of
         undefined ->
-            update({terminated, Code}, Subs, Dialog, Call);
+            update({terminated, {code, Code}}, Subs, Dialog, Call);
         _ when Code==405; Code==408; Code==481; Code==501 ->
-            update({terminated, Code}, Subs, Dialog, Call);
+            update({terminated, {code, Code}}, Subs, Dialog, Call);
         _ ->
             update(none, Subs, Dialog, Call)
 
@@ -226,7 +227,7 @@ uas_do_response('NOTIFY', Code, Req, _Resp, Subs, Dialog, Call)
         
 uas_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call) 
                 when Code==405; Code==408; Code==481; Code==501 ->
-    update({terminated, Code}, Subs, Dialog, Call);
+    update({terminated, {code, Code}}, Subs, Dialog, Call);
 
 uas_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
     Dialog.
@@ -239,8 +240,8 @@ uas_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
 
 
 %% @private
--spec update(term(), nksip:event(), nksip:dialog(), nksip_call:call()) ->
-    nksip_dialog:dialog().
+-spec update(term(), nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
+    nksip:dialog().
 
 update(none, Subs, Dialog, Call) ->
     store(Subs, Dialog, Call);
@@ -285,9 +286,8 @@ update({subscribe, Req, Resp}, Subs, Dialog, Call) ->
     store(Subs1, Dialog, Call);
 
 update({notify, Req}, Subs, Dialog, Call) ->
-    {Status, Expires} = notify_status(Req),
     Subs1 = Subs#subscription{last_notify_cseq=Req#sipmsg.cseq},
-    update({Status, Expires}, Subs1, Dialog, Call);
+    update(notify_status(Req), Subs1, Dialog, Call);
 
 update({Status, Expires}, Subs, Dialog, Call) 
         when Status==active; Status==pending ->
@@ -339,16 +339,11 @@ update({terminated, Reason}, Subs, Dialog, Call) ->
     cancel_timer(Expire),
     cancel_timer(Middle),
     ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason], Call),
-    CastReason = case Reason of
-        {BaseReason, undefined} -> BaseReason;
-        {BaseReason, Retry} -> {BaseReason, Retry};
-        BaseReason when is_atom(Reason) -> BaseReason
-    end,
-    cast({terminated, CastReason}, Subs, Dialog, Call),
+    cast({terminated, Reason}, Subs, Dialog, Call),
     store(Subs#subscription{status={terminated, Reason}}, Dialog, Call);
 
-update(Status, Subs, Dialog, Call) ->
-    update({terminated, Status}, Subs, Dialog, Call).
+update(_Status, Subs, Dialog, Call) ->
+    update({terminated, undefined}, Subs, Dialog, Call).
 
 
 %% @private. Create a provisional event and start timer N.
@@ -442,8 +437,8 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
 
 
 %% @private Called when a dialog timer is fired
--spec timer(middle|timeout, nksip:dialog(), nksip:call()) ->
-    nksip:call().
+-spec timer({middle|timeout, nksip_subscription:id()}, nksip:dialog(), nksip_call:call()) ->
+    nksip_call:call().
 
 timer({Type, Id}, Dialog, Call) ->
     case find(Id, Dialog) of
@@ -466,7 +461,7 @@ timer({Type, Id}, Dialog, Call) ->
 
 %% @private Creates a new event
 -spec create(uac|uas, nksip:request(), nksip:dialog(), nksip_call:call()) ->
-    nksip:event().
+    nksip:subscription().
 
 create(Class, Req, Dialog, Call) ->
     #sipmsg{event=Event, app_id=AppId} = Req,
@@ -476,18 +471,18 @@ create(Class, Req, Dialog, Call) ->
         id = Id,
         app_id = AppId,
         event = Event,
-        status = start,
+        status = init,
         class = Class,
         answered = undefined,
-        timer_n = start_timer(64*T1, {tixmeout, Id}, Dialog)
+        timer_n = start_timer(64*T1, {timeout, Id}, Dialog)
     },
-    cast(started, Subs, Dialog, Call),
+    cast(init, Subs, Dialog, Call),
     Subs.
 
 
 %% @private Finds a event.
 -spec find(nksip:request()|nksip:response()|nksip_subscription:id(), nksip:dialog()) ->
-    nksip:event() | not_found.
+    nksip:subscription() | not_found.
 
 find(#sipmsg{event=Event}, #dialog{id=DialogId, subscriptions=Subs}) ->
     Id = nksip_subscription:subscription_id(Event, DialogId),
@@ -524,8 +519,8 @@ do_is_event(Id, [_|Rest]) -> do_is_event(Id, Rest).
 
 
 %% @private Updates an updated event into dialog
--spec store(nksip:event(), nksip:dialog(), nksip_call:call()) ->
-    nksip_dialog:dialog().
+-spec store(nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
+    nksip:dialog().
 
 store(Subs, Dialog, Call) ->
     #subscription{id=Id, status=Status, class=Class} = Subs,
@@ -555,8 +550,9 @@ store(Subs, Dialog, Call) ->
 
 
 %% @private
--spec notify_status(nksip:sipmsg()) ->
-    {active|pending, non_neg_integer()} | {terminated, {atom(), undefined|non_neg_integer()}}.
+-spec notify_status(nksip:request()) ->
+    {active|pending, non_neg_integer()} | 
+    {terminated, nksip_subscription:terminated_reason()}.
 
 notify_status(SipMsg) ->
     case nksip_sipmsg:header(SipMsg, <<"Subscription-State">>, tokens) of
@@ -587,20 +583,22 @@ notify_status(SipMsg) ->
                     end, 
                     case nksip_lib:get_value(<<"reason">>, Opts) of
                         undefined -> 
-                            {terminated, {undefined, undefined}};
+                            {terminated, undefined};
                         Reason0 ->
                             case catch 
                                 binary_to_existing_atom(Reason0, latin1) 
                             of
-                                {'EXIT', _} -> {terminated, {undefined, undefined}};
-                                Reason -> {terminated, {Reason, Retry}}
+                                {'EXIT', _} -> {terminated, undefined};
+                                deactivated -> {terminated, {deactivated, Retry}};
+                                giveup -> {terminated, {giveup, Retry}};
+                                Reason -> Reason
                             end
                     end;
                 _ ->
-                    {terminated, {invalid, undefined}}
+                    {terminated, undefined}
             end;
         _ ->
-            {terminated, {invalid, undefined}}
+            {terminated, undefined}
     end.
 
 
@@ -626,7 +624,7 @@ cancel_timer(_) ->
 
 
 %% @private
--spec start_timer(integer(), atom(), nksip:dialog()) ->
+-spec start_timer(integer(), {atom(), nksip_subscription:id()}, nksip:dialog()) ->
     reference().
 
 start_timer(Time, Tag, #dialog{id=Id}) ->

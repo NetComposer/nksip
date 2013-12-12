@@ -135,7 +135,7 @@ response(Req, Code, Headers, Body, Opts, AppOpts) ->
 %% @private
 -spec response2(nksip:request(), nksip:response_code(), [nksip:header()], 
                 nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
-    {nksip:response(), nksip_lib:proplist()}.
+    {ok, nksip:response(), nksip_lib:proplist()}.
 
 response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     #sipmsg{

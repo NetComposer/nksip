@@ -37,22 +37,23 @@
 
 %% SIP dialog Event ID
 -type id() :: 
-    {Type::binary(), Id::binary()}.
+    binary().
 
 %% All the ways to specify an event
 -type spec() :: 
     id() | nksip_request:id() | nksip_response:id().
 
 -type field() :: 
-    subscription_id | event | parsed_event | class |answered | expires.
+    subscription_id | event | parsed_event | class | answered | expires.
 
 -type terminated_reason() :: 
-    deacivated | probation | rejected | timeout |
-    giveup | noresource | invariant | binary().
+    {deactivated, undefined|non_neg_integer()} | probation | rejected | timeout |
+    {giveup, undefined|non_neg_integer()} | noresource | invariant | forced | 
+    undefined | {code, nksip:response_code()} | binary().
 
 %% All dialog event states
 -type status() :: 
-    neutral | active | pending | {terminated, terminated_reason()} | binary().
+    init | active | pending | {terminated, terminated_reason()} | binary().
 
 
 
@@ -114,7 +115,7 @@ field(AppId, SubscriptionSpec, Field) ->
 
 
 %% @doc Extracts a specific field from a #subscription structure
--spec field(nksip:event(), field()) -> 
+-spec field(nksip:subscription(), field()) -> 
     any().
 
 field(#subscription{}=U, Field) ->
@@ -255,7 +256,7 @@ subscription_id(Event, <<"D_", DialogId/binary>>) ->
 
 %% @private Finds a event.
 -spec find(id(), nksip:dialog()) ->
-    nksip:event() | not_found.
+    nksip:subscription() | not_found.
 
 find(<<"U_", _/binary>>=Id, #dialog{subscriptions=Subscriptions}) ->
     do_find(Id, Subscriptions).

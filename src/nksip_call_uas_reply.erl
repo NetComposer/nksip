@@ -100,7 +100,7 @@ reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 %% @private
 -spec send({nksip:response(), nksip_lib:proplist()}, 
            nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
+    {Reply, nksip_call:call()} when Reply :: {ok, nksip:response()} | {error, network_error}.
 
 send({Resp, SendOpts}, UAS, #call{}=Call) ->
     #sipmsg{
