@@ -315,17 +315,16 @@ subscribe(ReqId, From, #state{id=AppId, dialogs=Dialogs}=State) ->
         <<"ok">> ->
             {reply, ok, State1};
         <<"expires-2">> ->
-            {reply, {ok, [], <<>>, [{expires, 2}]}, State1}
-        % <<"wait-3">> ->
-        %     Req = nksip_request:get_request(AppId, ReqId),
-        %     Resp = nksip_reply:reply(Req, {ok, [], <<>>, [{event, "myevent4"}, {subscription_state, active}]}, []),
-        %     Pid ! {Ref, {wait_3_id, Resp}},
-        %     spawn(
-        %         fun() ->
-        %             timer:sleep(3000),
-        %             nksip:reply(From, ok)
-        %         end),
-        %     {noreply, State1}
+            {reply, {ok, [], <<>>, [{expires, 2}]}, State1};
+        <<"wait">> ->
+            Req = nksip_request:get_request(AppId, ReqId),
+            Pid ! {Ref, {wait, Req}},
+            spawn(
+                fun() ->
+                    timer:sleep(1000),
+                    nksip:reply(From, ok)
+                end),
+            {noreply, State1}
 
     end.
 

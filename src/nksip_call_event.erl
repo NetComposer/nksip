@@ -24,7 +24,7 @@
 
 -export([uac_pre_request/3, uac_request/3, uac_response/4]).
 -export([uas_request/3, uas_response/4]).
--export([stop/3, create_event/2, remove_event/2, timer/3]).
+-export([stop/3, create_event/2, remove_event/2, is_event/2, timer/3]).
 -export([request_uac_opts/3]).
 
 -include("nksip.hrl").
@@ -102,14 +102,13 @@ uac_do_response('SUBSCRIBE', Code, Req, Resp, Subs, Dialog, Call)
                 when Code>=200, Code<300 ->
     update({subscribe, Req, Resp}, Subs, Dialog, Call);
 
+%% See RFC5070 for termination codes
 uac_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call) 
                 when Code>=300 ->
     case Subs#subscription.answered of
         undefined ->
             update({terminated, Code}, Subs, Dialog, Call);
-        _ when Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
-               Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
-               Code==604 ->
+        _ when Code==405; Code==408; Code==481; Code==501 ->
             update({terminated, Code}, Subs, Dialog, Call);
         _ ->
             update(none, Subs, Dialog, Call)
@@ -119,10 +118,8 @@ uac_do_response('NOTIFY', Code, Req, _Resp, Subs, Dialog, Call)
                 when Code>=200, Code<300 ->
     update({notify, Req}, Subs, Dialog, Call);
         
-uac_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call) when 
-                Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
-                Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
-                Code==604 ->
+uac_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call)
+                when Code==405; Code==408; Code==481; Code==501 ->
     update({terminated, Code}, Subs, Dialog, Call);
 
 uac_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
@@ -179,7 +176,8 @@ uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
                           [Id, Method, Code], Call),
             uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
         not_found when Code>=200, Code<300 ->
-            #subscription{id=Id} = Subs = create(uas, Req, Dialog, Call),
+            Class = case Method of 'SUBSCRIBE' -> uas; 'NOTIFY' -> uac end,
+            #subscription{id=Id} = Subs = create(Class, Req, Dialog, Call),
             ?call_debug("Subscription ~s UAS response ~p, ~p", 
                           [Id, Method, Code], Call), 
             uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
@@ -215,9 +213,7 @@ uas_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call)
     case Subs#subscription.answered of
         undefined ->
             update({terminated, Code}, Subs, Dialog, Call);
-        _ when Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
-               Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
-               Code==604 ->
+        _ when Code==405; Code==408; Code==481; Code==501 ->
             update({terminated, Code}, Subs, Dialog, Call);
         _ ->
             update(none, Subs, Dialog, Call)
@@ -228,10 +224,8 @@ uas_do_response('NOTIFY', Code, Req, _Resp, Subs, Dialog, Call)
                 when Code>=200, Code<300 ->
     update({notify, Req}, Subs, Dialog, Call);
         
-uas_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call) when 
-                Code==404; Code==405; Code==410; Code==416; Code==480; Code==481;
-                Code==482; Code==483; Code==484; Code==485; Code==489; Code==501; 
-                Code==604 ->
+uas_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call) 
+                when Code==405; Code==408; Code==481; Code==501 ->
     update({terminated, Code}, Subs, Dialog, Call);
 
 uas_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
@@ -476,7 +470,7 @@ timer({Type, Id}, Dialog, Call) ->
 
 create(Class, Req, Dialog, Call) ->
     #sipmsg{event=Event, app_id=AppId} = Req,
-    Id = nksip_subscription:subscription_id(Req#sipmsg.event, Dialog#dialog.id),
+    Id = nksip_subscription:subscription_id(Event, Dialog#dialog.id),
     #call{opts=#call_opts{timer_t1=T1}} = Call,
     Subs = #subscription{
         id = Id,

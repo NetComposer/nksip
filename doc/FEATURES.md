@@ -16,8 +16,9 @@ RFC|Description|Notes
 [RFC4168](http://tools.ietf.org/html/rfc4168)|SCTP Transport|No TLS-SCTP
 [RFC4475](http://tools.ietf.org/html/rfc4475)|Torture Tests|Included in unit tests
 [RFC4566](http://tools.ietf.org/html/rfc4566)|SDP|Only parser and generator
-[RFC4660](http://tools.ietf.org/html/rfc4660)|Event Notification|Updates 3261
-[RFC5518](http://tools.ietf.org/html/rfc5118)|IPv6 Torture Tests|Included in unit tests
+[RFC4660](http://tools.ietf.org/html/rfc4660)|Event Notification|Obsoletes 3265
+[RFC5057](http://tools.ietf.org/html/rfc5057)|Multiple Dialogs|
+[RFC5118](http://tools.ietf.org/html/rfc5118)|IPv6 Torture Tests|Included in unit tests
 [RFC5389](http://tools.ietf.org/html/rfc5389)|STUN|Basic STUN client and server (no IPv6)
 [RFC6026](http://tools.ietf.org/html/rfc6026)|2xx responses|
 [RFC6157](http://tools.ietf.org/html/rfc6157)|IPv6 Transition|
@@ -26,7 +27,7 @@ RFC|Description|Notes
 
 NkSIP features also:
  * Full RFC3261 coverage, including SIP Registrar (using the RAM built-in store or any other external database).
- * Full support for PRACK,INFO,UPDATE,SUBSCRIBE,NOTIFY.
+ * Full support for PRACK, INFO, UPDATE, SUBSCRIBE, NOTIFY, as UAC, UAS and Proxy.
  * A written from scratch, fully typed Erlang code easy to understand and extend. Unit tests cover nearly all of the functionality.
  * Hot core and application code upgrade.
  * Very few external dependencies: [Lager](https://github.com/basho/lager) for error logging and [Cowboy](http://ninenines.eu") as TCP/SSL acceptor and Websocket server.
@@ -38,6 +39,7 @@ NkSIP features also:
  * Automatic registrations and timed pings.
  * Dialog and SDP media start and stop detection.
  * SDP processing utilities.
+ * Powerful event support.
  * Simple STUN server (for future SIP Outbound support).
  * Full RFC4475 and RFC5518 Torture Tests passing.
  * Robust and highly scalable, using all available processor cores.

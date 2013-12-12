@@ -22,7 +22,7 @@ In no special order:
 * Extract examples into new repository.
 
 
-Many common SIP featured are still missing and will be addressed in following versions, including:
+Some common SIP featured are still missing and can be addressed in following versions, including:
 
 * ~~[RFC4475](http://tools.ietf.org/html/rfc4475): Torture tests~~
 * ~~[RFC3262](http://tools.ietf.org/html/rfc3262): PRACK~~
@@ -35,10 +35,13 @@ Many common SIP featured are still missing and will be addressed in following ve
 * [RFC3891](http://tools.ietf.org/html/rfc3891): Replaces
 * [RFC3892](http://tools.ietf.org/html/rfc3892): Referred-By
 * [RFC3903](http://tools.ietf.org/html/rfc3903): PUBLISH
+* [RFC3911](http://tools.ietf.org/html/rfc3903): Join
 * [RFC4028](http://tools.ietf.org/html/rfc4028): Session Timers
 * [RFC4320](http://tools.ietf.org/html/rfc4320): Invite transactions
-* [RFC4321](http://tools.ietf.org/html/rfc4321): Non-invite transactions
-* [RFC5027](http://tools.ietf.org/html/rfc5057): Multiple dialog
+* [RFC4321](http://tools.ietf.org/html/rfc4321): Invite recomendations
+* [RFC4488](http://tools.ietf.org/html/rfc4488): REFER without subscription
+* [RFC4538](http://tools.ietf.org/html/rfc4538): Dialog authorization
+* ~~[RFC5027](http://tools.ietf.org/html/rfc5057): Multiple dialog~~
 * [RFC5626](http://tools.ietf.org/html/rfc5626): Outbound
 * [RFC5627](http://tools.ietf.org/html/rfc5626): GRUU
 

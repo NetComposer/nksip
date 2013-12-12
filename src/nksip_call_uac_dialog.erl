@@ -205,11 +205,18 @@ response(Req, Resp, Call) ->
                   nksip:response(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-do_response(_Method, Code, _Req, _Resp, Dialog, Call) when Code==408; Code==481 ->
-    nksip_call_dialog:stop(Code, Dialog, Call);
-
 do_response(_Method, Code, _Req, _Resp, _Dialog, Call) when Code < 101 ->
     Call;
+
+%% Full dialog stop reasons (RFC5057)
+do_response(_Method, Code, _Req, _Resp, Dialog, Call) 
+            when Code==404; Code==410; Code==416; Code==482; Code==483; Code==484;
+                 Code==485; Code==502; Code==604 ->
+    nksip_call_dialog:stop(Code, Dialog, Call);
+
+do_response(_Method, Code, _Req, _Resp, #dialog{invite=#invite{}}=Dialog, Call) 
+            when Code==481 ->
+    update({invite, {stop, Code}}, Dialog, Call);
 
 do_response('INVITE', Code, Req, Resp, 
             #dialog{invite=#invite{status=proceeding_uac}=Invite}=Dialog, Call) 
