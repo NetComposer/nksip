@@ -28,8 +28,8 @@ Some common SIP featured are still missing and can be addressed in following ver
 * ~~[RFC3262](http://tools.ietf.org/html/rfc3262): PRACK~~
 * ~~[RFC3265](http://tools.ietf.org/html/rfc3265): SUBSCRIBE, NOTIFY~~
 * ~~[RFC3311](http://tools.ietf.org/html/rfc3311): UPDATE~~
-* ~~[RFC3327](http://tools.ietf.org/html/rfc3327): Path~~
-* [RFC3428](http://tools.ietf.org/html/rfc3428): MESSAGE
+* [RFC3327](http://tools.ietf.org/html/rfc3327): Path
+* ~~[RFC3428](http://tools.ietf.org/html/rfc3428): MESSAGE~~
 * [RFC3515](http://tools.ietf.org/html/rfc3515): REFER
 * [RFC3608](http://tools.ietf.org/html/rfc3608): Service-Route
 * [RFC3891](http://tools.ietf.org/html/rfc3891): Replaces

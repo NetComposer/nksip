@@ -1,3 +1,22 @@
+NkSIP main features:
+ * Full RFC3261 coverage, including SIP Registrar (using the RAM built-in store or any other external database).
+ * Full support for PRACK, INFO, UPDATE, SUBSCRIBE, NOTIFY and MESSAGE, as UAC, UAS and Proxy.
+ * A written from scratch, fully typed Erlang code easy to understand and extend. Unit tests cover nearly all of the functionality.
+ * Hot core and application code upgrade.
+ * Very few external dependencies: [Lager](https://github.com/basho/lager) for error logging and [Cowboy](http://ninenines.eu") as TCP/SSL acceptor and Websocket server.
+ * UDP, TCP, TLS and SCTP transports, capable of handling thousands of simultaneous sessions.
+ * Stateful proxy servers with serial and parallel forking.
+ * Stateless proxy servers, even using TCP/TLS.
+ * Full IPv6 support. NkSIP can connect IPv4-only with IPv6-only hosts.
+ * Full support for NAPTR and SRV location, including priority and weights.
+ * Automatic registrations and timed pings.
+ * Dialog and SDP media start and stop detection.
+ * SDP processing utilities.
+ * Powerful event support.
+ * Simple STUN server (for future SIP Outbound support).
+ * Full RFC4475 and RFC5518 Torture Tests passing.
+ * Robust and highly scalable, using all available processor cores.
+
 In the current version the following RFCs are fully implemented (see notes):
 
 RFC|Description|Notes
@@ -26,22 +45,4 @@ RFC|Description|Notes
 [RFC6665](http://tools.ietf.org/html/rfc6665)|Event Notification|Obsoletes 3265,4660. GRUU support pending
 
 
-NkSIP features also:
- * Full RFC3261 coverage, including SIP Registrar (using the RAM built-in store or any other external database).
- * Full support for PRACK, INFO, UPDATE, SUBSCRIBE, NOTIFY and MESSAGE, as UAC, UAS and Proxy.
- * A written from scratch, fully typed Erlang code easy to understand and extend. Unit tests cover nearly all of the functionality.
- * Hot core and application code upgrade.
- * Very few external dependencies: [Lager](https://github.com/basho/lager) for error logging and [Cowboy](http://ninenines.eu") as TCP/SSL acceptor and Websocket server.
- * UDP, TCP, TLS and SCTP transports, capable of handling thousands of simultaneous sessions.
- * Stateful proxy servers with serial and parallel forking.
- * Stateless proxy servers, even using TCP/TLS.
- * Full IPv6 support. NkSIP can connect IPv4-only with IPv6-only hosts.
- * Full support for NAPTR and SRV location, including priority and weights.
- * Automatic registrations and timed pings.
- * Dialog and SDP media start and stop detection.
- * SDP processing utilities.
- * Powerful event support.
- * Simple STUN server (for future SIP Outbound support).
- * Full RFC4475 and RFC5518 Torture Tests passing.
- * Robust and highly scalable, using all available processor cores.
 
