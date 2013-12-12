@@ -329,16 +329,25 @@ response_phrase(Code) ->
         403 -> <<"Forbidden">>;
         404 -> <<"Not Found">>;
         405 -> <<"Method Not Allowed">>;
+        406 -> <<"Not Acceptable">>;
         407 -> <<"Proxy Authentication Required">>;
         408 -> <<"Request Timeout">>;
         410 -> <<"Gone">>;
+        412 -> <<"Conditional Request Failed">>;
         413 -> <<"Request Entity Too Large">>;
         414 -> <<"Request-URI Too Long">>;
         415 -> <<"Unsupported Media Type">>;
         416 -> <<"Unsupported URI Scheme">>;
+        417 -> <<"Unknown Resource Priority">>;
         420 -> <<"Bad Extension">>;
         421 -> <<"Extension Required">>;
+        422 -> <<"Session Interval Too Small">>;
         423 -> <<"Interval Too Brief">>;
+        428 -> <<"Use Identity Header">>;
+        429 -> <<"Provide Referrer Identity">>;
+        436 -> <<"Bad Indentity-Info">>;
+        437 -> <<"Unsupported Certificate">>;
+        438 -> <<"Invalid Identity Header">>;
         480 -> <<"Temporarily Unavailable">>;
         481 -> <<"Call/Transaction Does Not Exist">>;
         482 -> <<"Loop Detected">>;
@@ -350,6 +359,7 @@ response_phrase(Code) ->
         488 -> <<"Not Acceptable Here">>;
         491 -> <<"Request Pending">>;
         493 -> <<"Undecipherable">>;
+        494 -> <<"Security Agreement Required">>;
         500 -> <<"Server Internal Error">>;
         501 -> <<"Not Implemented">>;
         502 -> <<"Bad Gateway">>;
@@ -357,12 +367,14 @@ response_phrase(Code) ->
         504 -> <<"Server Time-out">>;
         505 -> <<"Version Not Supported">>;
         513 -> <<"Message Too Large">>;
+        580 -> <<"Precondition Faillure">>;
         600 -> <<"Busy Everywhere">>;
         603 -> <<"Decline">>;
         604 -> <<"Does Not Exist Anywhere">>;
         606 -> <<"Not Acceptable">>;
         _ -> <<"Unknown Code">>
     end.
+
 
 %% @private
 gen_opts(Opts) ->
