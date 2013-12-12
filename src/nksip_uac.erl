@@ -25,36 +25,36 @@
 %% All mandatory SIP methods all supported: <i>OPTIONS</i>, <i>REGISTER</i>, 
 %% <i>INVITE</i>, <i>ACK</i>, <i>BYE</i> and <i>CANCEL</i>. 
 %% The following optional methods are also supported: <i>INFO</i>, <i>UPDATE</i>,
-%% <i>PRACK</i>.
-%% Future versions will address all currently defined SIP methods: 
-%% <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>, <i>REFER</i> and <i>PUBLISH</i>.
+%% <i>PRACK</i>, <i>SUBSCRIBE</i>, <i>NOTIFY</i> and <i>MESSAGE</i>.
+%% Future versions will address remaining currently defined SIP methods: 
+%% <i>REFER</i> and <i>PUBLISH</i>.
 %%
-%% By default, most functions will block util a final response is received
+%% By default, most functions will block until a final response is received
 %% or a an error is produced before sending the request, 
-%% returning `{ok, Code, Values}' or `{error, Error}'.
+%% returning `{ok, Code, Meta}' or `{error, Error}'.
 %% 
-%% `Values' can include some metadata about the response. Use the option `fields' to
-%% select which metadatas you want to receive. For request-generating methods
-%% (only <i>INVITE</i> currently) the first value is allways the dialog's id
-%% of the response: `{dialog_id, DialogId}'.
+%% `Meta' can include some metadata about the response. Use the option `fields' to
+%% select which metadatas you want to receive. Some methods (like INVITE and 
+%% SUBSCRIBE) will allways include some metadata (see bellow).
 %% You can use the functions in {@link nksip_dialog} to get additional information.
 %%
 %% You can define a callback function using option `callback', and it will be called
-%% for every received provisional response as `{ok, Code, Values}'.
+%% for every received provisional response as `{ok, Code, Meta}'.
 %%
 %% You can also call most of these functions <i>asynchronously</i> using
-%% the `async' option, and the call will return immediately (before trying to send
-%% the request) instead of blocking.
+%% the `async' option, and the call will return immediately, before even trying 
+%% to send the request, instead of blocking.
 %% You should use the callback function to receive provisional responses, 
 %% final response and errors.
 %%
-%% Methods <i>OPTIONS</i>, <i>REGISTER</i> and <i>INVITE</i> can be
-%% sent outside or inside a dialog. <i>ACK</i>, <i>BYE</i>, <i>INFO</i> and
-%% <i>UPDATE</i> can only be sent inside a dialog, 
-%% and <i>CANCEL</i> can only be sent outside a dialog.
+%% Methods <i>OPTIONS</i>, <i>REGISTER</i>, <i>INVITE</i>, <i>SUBSCRIBE</i>
+%% and <i>MESSAGE</i> can be sent outside or inside a dialog. 
+%% <i>ACK</i>, <i>BYE</i>, <i>INFO</i>, <i>UPDATE</i> and <i>NOTIFY</i> 
+%% can only be sent inside a dialog, 
+%% and <i>CANCEL</i> can only be sent outside any dialog.
 %%
-%% Common options for most functions (outside or inside dialog) are:<br/>
-%%  
+%% Common options for most functions (outside or inside dialogs) are:<br/>
+%%
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
@@ -80,7 +80,7 @@
 %%          <td>`fun/1'</td>
 %%          <td></td>
 %%          <td>If defined, it will be called for every received provisional response
-%%          as `{ok, Code, Values}'. For `async' requests, it is called also 
+%%          as `{ok, Code, Meta}'. For `async' requests, it is called also 
 %%          for the final response and, if an error is produced before sending 
 %%          the request, as `{error, Error}'.</td>
 %%      </tr>
@@ -101,20 +101,20 @@
 %%          <td>`content_type'</td>
 %%          <td>`string()|binary()'</td>
 %%          <td></td>
-%%          <td>If defined, a <i>Content-Type</i> headers will be inserted</td>
+%%          <td>If defined, a <i>Content-Type</i> header will be inserted.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`require</td>
+%%          <td>`require'</td>
 %%          <td>`string()|binary()'</td>
 %%          <td></td>
-%%          <td>If defined, a <i>Require</i> headers will be inserted</td>
+%%          <td>If defined, a <i>Require</i> header will be inserted.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`accept</td>
+%%          <td>`accept'</td>
 %%          <td>`string()|binary()'</td>
-%%          <td>"*/*"</td>
+%%          <td>`"*/*"'</td>
 %%          <td>If defined, this value will be used instead of default when 
-%%          option `make_accept' is used
+%%          option `make_accept' is used.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`headers'</td>
@@ -136,19 +136,19 @@
 %%      <tr>
 %%          <td>`local_host'</td>
 %%          <td>`auto|string()|binary()'</td>
-%%          <td>SipApp's config</td>
-%%          <td>See {@link start/4}</td>
+%%          <td>`SipApp config'</td>
+%%          <td>See {@link start/4.}</td>
 %%      </tr>
 %% </table>
 %%
-%% Options available for most methods only when sent outside a dialog are:
+%% Options available for most methods only when sent outside any dialog are:
 %%
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`from'</td>
 %%          <td>{@link nksip:user_uri()}</td>
-%%          <td>SipApp's config</td>
+%%          <td>`SipApp config'</td>
 %%          <td><i>From</i> to use in the request.</td>
 %%      </tr>
 %%      <tr>
@@ -160,27 +160,27 @@
 %%      <tr>
 %%          <td>`user_agent'</td>
 %%          <td>`string()|binary()'</td>
-%%          <td>"NkSIP (version)"</td>
+%%          <td>`"NkSIP (version)"'</td>
 %%          <td><i>User-Agent</i> header to use in the request.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`call_id'</td>
 %%          <td>{@link nksip:call_id()}</td>
-%%          <td>(automatic)</td>
+%%          <td>`(automatic)'</td>
 %%          <td>If defined, will be used instead of a newly generated one
-%%          (use {@link nksip_lib:luid/0})</td>
+%%          (use {@link nksip_lib:luid/0}).</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`cseq'</td>
 %%          <td>{@link nksip:cseq()}</td>
-%%          <td>(automatic)</td>
+%%          <td>`(automatic)'</td>
 %%          <td>If defined, will be used instead of a newly generated one
-%%          (use {@link nksip_lib:cseq/0})</td>
+%%          (use {@link nksip_lib:cseq/0}).</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`route'</td>
 %%          <td>{@link nksip:user_uri()}</td>
-%%          <td>SipApp's config</td>
+%%          <td>`SipApp config'</td>
 %%          <td>If defined, one or several <i>Route</i> headers will be inserted in
 %%          the request.</td>
 %%      </tr>
@@ -188,7 +188,6 @@
 %%
 %%
 %% Look at the specification for each function to find supported options
-
 -module(nksip_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -275,7 +274,7 @@
 %% it has failed or it is not responding requests for any reason. 
 %% It can also be used to measure the remote party response time. 
 %%
-%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% When `Dest' is a <i>SIP Uri</i> the request will be sent outside any dialog.
 %% If it is a dialog specification, it will be sent inside that dialog.
 %% Recognized options are described in {@link opt()} when sent outside any dialog,
 %% and {@link dialog_opt()} when sent inside a dialog.
@@ -296,7 +295,7 @@ options(AppId, Dest, Opts) ->
 %% to register a new `Contact', delete a current registration or get the list of 
 %% current registered contacts from the registrar.
 %%
-%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% When `Dest' is a <i>SIP Uri</i> the request will be sent outside any dialog.
 %% If it is a dialog specification, it will be sent inside that dialog.
 %% Recognized options are described in {@link opt()} when sent outside any dialog,
 %% and {@link dialog_opt()} when sent inside a dialog.
@@ -384,7 +383,7 @@ register(AppId, Dest, Opts) ->
 %% After a dialog has being established, you can send new INVITE requests
 %% (called <i>reINVITEs</i>) <i>inside</i> this dialog.
 %%
-%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% When `Dest' is a <i>SIP Uri</i> the request will be sent outside any dialog.
 %% If it is a dialog specification, it will be sent inside that dialog.
 %% Recognized options are described in {@link opt()} when sent outside any dialog,
 %% and {@link dialog_opt()} when sent inside a dialog.
@@ -397,21 +396,21 @@ register(AppId, Dest, Opts) ->
 %%          <td>`expires'</td>
 %%          <td>`integer()'</td>
 %%          <td></td>
-%%          <td>If included it will generate a `Expires' header</td>
+%%          <td>If included it will generate a `Expires' header.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`require_100rel</td>
+%%          <td>`require_100rel'</td>
 %%          <td></td>
 %%          <td></td>
-%%          <td>If present, a <i>Require: 100rel</i> will be generated, and the other
-%%          party must then send reliable provisional responses.</td>
+%%          <td>If present, a <i>Require: 100rel</i> header will be generated, 
+%%          and the other party must then send reliable provisional responses.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`prack'</td>
 %%          <td><code>`fun/2'</code></td>
 %%          <td></td>
-%%          <td>If included, this function will be called when the original INVITE
-%%          when a reliable provisional response has been received, and before 
+%%          <td>If included, this function will be called when 
+%%          a reliable provisional response has been received, and before 
 %%          sending the corresponding PRACK.
 %%          It will be called as `{RemoteSDP, Response}' where 
 %%          <code>RemoteSDP :: `<<>>' | {@link nksip_sdp:sdp()} and Response :: {@link nksip:response()}</code>.
@@ -520,7 +519,7 @@ cancel(AppId, ReqId) ->
     nksip_call:cancel(AppId, ReqId).
 
 
-%% @doc Sends a update on a currently ongoing dialog using UPDATE.
+%% @doc Sends a UPDATE on a currently ongoing dialog.
 %%
 %% This function sends a in-dialog UPDATE, allowing to change the media
 %% session before the dialog has been confirmed.
@@ -587,24 +586,24 @@ refresh(AppId, DialogSpec, Opts) ->
 %% @doc Sends an SUBSCRIBE request.
 %%
 %% This functions sends a new subscription request to the other party.
-%% If the remote party returns a 2xx response, it means that he subscription
+%% If the remote party returns a 2xx response, it means that the subscription
 %% has been accepted, and a NOTIFY request should arrive inmediatly. 
 %% After the reception of the NOTIFY, the subscription state will change and 
-%% NkSIP will call callback `dialog_status' as 
-%% `{subscrition_status, Status, SubscriptionId}.
+%% NkSIP will call {@link nksip_sipapp:dialog_update/3}.
 %%
 %% In case of 2xx response, the first returned value is allways 
 %% `{subscription_id, SubscriptionId}', even if the `fields' option is not used.
 %%
-%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog,
-%% creating a new dialog and subscroption.
-%% If it is a dialog specification, it will be sent inside that dialog, but creating a
-%% new subscription.
-%% If it is a subscription specification, it will send as a re-SUBSCRIBE, using by
-%% the same event and expires as the last one.
+%% When `Dest' is a <i>SIP Uri</i> the request will be sent outside any dialog,
+%% creating a new dialog and a new subscription.
+%% If it is a <i>dialog specification</i>, it will be sent inside that dialog, creating a
+%% new 'subscription usage'.
+%% If it is a <i>subscription specification</i>, it will send as a re-SUBSCRIBE, using
+%% the same <i>Event</i> and <i>Expires</i> as the last <i>SUBSCRIBE</i> and
+%% refreshing the subscription in order to avoid its expiration.
+%%
 %% Recognized options are described in {@link opt()} 
 %% when sent outside any dialog, and {@link dialog_opt()} when sent inside a dialog.
-%%
 %% Additional recognized options are defined in {@link subscribe_opts()}:
 %%
 %% <table border="1">
@@ -613,28 +612,27 @@ refresh(AppId, DialogSpec, Opts) ->
 %%          <td>`event'</td>
 %%          <td>`binary()'</td>
 %%          <td></td>
-%%          <td>If generates the mandatory "Event" header including this
-%%          event package, like `{event "MyEvent}' or `{event, "MyEvent;id=first"}'.
-%%          Don't use it in case of re-subscriptions</td>
+%%          <td>Generates the mandatory <i>Event</i> header for the event package
+%%          we want to use (like `{event "MyEvent}' or `{event, "MyEvent;id=first"}'.
+%%          Don't use it in case of re-subscriptions.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`expires'</td>
 %%          <td>`integer()'</td>
 %%          <td></td>
-%%          <td>If included, it will generate a `Expires' header, meaning the
-%%          time before removing the subscription if no refresh is received.
-%%          Don't use in re-subscriptions to use the same expire as last SUBSCRIBE</td>
+%%          <td>If included, it will generate a <i>Expires</i> proposing a 
+%%          expiration time to the server. Don't use in re-subscriptions 
+%%          to use the same expire as last SUBSCRIBE.</td>
 %%      </tr>
 %% </table>
 %%
 %% After a 2xx response, you should send a new re-SUBSCRIBE request to
 %% refresh the subscription before the indicated Expires, 
-%% using this function but using the subscription specification, 
-%% using the included `subscription_id' returned value.
+%% calling this function again but using the subscription specification.
 %%
-%% When half the time of expire has been completed, NkSIP will call callback
-%% `dialog_update' as `{subscription_state, middle_timer, SubscriptionId}'
-
+%% When half the time before expire has been completed, NkSIP will call callback
+%% {@link nksip_sipapp:dialog_update/3} as 
+%% `{subscription_state, SubscriptionId, middle_timer}'fialog
 -spec subscribe(nksip:app_id(), nksip:user_uri()|dialog_spec()|subscription_spec(),
              [opt()|dialog_opt()|subscribe_opt()]) ->
     result() | {error, error()}.
@@ -645,51 +643,52 @@ subscribe(AppId, Dest, Opts) ->
     send_any(AppId, 'SUBSCRIBE', Dest, Opts1).
 
 
-%% @doc Sends an <i>NOTIFY</i> for a current server subscription
+%% @doc Sends an <i>NOTIFY</i> for a current server subscription.
 %%
 %% When your SipApp accepts a incoming SUBSCRIBE request, replying a 2xx response,
 %% you should send a NOTIFY inmediatly. You have to use the subscription's id
 %% from the call to callback `subscribe/3'.
 %%
 %% Valid options are defined in {@link dialog_opt()} and {@link notify_opts()}.
-%% NkSIP will include mandatory Event and Subscription-State headers for you, 
+%% NkSIP will include the mandatory <i>Event</i> and 
+%% <i>Subscription-State</i> headers for you, 
 %% depending on the following parameters:
 %%
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`state'</td>
-%%          <td><code>active|pending|{terminated,{@link nksip_subscription:terminated_reason()}}</code></td>
+%%          <td>`active|pending|{terminated,Reason} (see bellow)'</td>
 %%          <td>`active'</td>
-%%          <td>Generates the mandatory <i>Subscription-State</i> header (see bellow)</td>
+%%          <td>Generates the mandatory <i>Subscription-State</i> header</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`retry_after'</td>
 %%          <td>`non_neg_integer()'</td>
-%%          <td></td>
-%%          <td>If included, it will added to the indicated state (see bellow).</td>
+%%          <td>`undefined'</td>
+%%          <td>If included, it will be added to the indicated state (see bellow).</td>
 %%      </tr>
 %% </table>
 %%
 %% Valid states are the following:
 %% <ul>
-%%   <li>active: the subscription is active. NkSIP will add a `expires' parameter
-%%       indicating the remaining time</li>
-%%   <li>pending: the subscription has not yet been authorized. A `expires' parameter
+%%   <li>`active': the subscription is active. NkSIP will add a `expires' parameter
+%%       indicating the remaining time.</li>
+%%   <li>`pending': the subscription has not yet been authorized. A `expires' parameter
 %%       will be added.</li>
-%%   <li>terminated: the subscription has been terminated. You must use a reason:
+%%   <li>`terminated': the subscription has been terminated. You must use a reason:
 %%       <ul>
-%%          <li>deactivated: the remote party should retry again inmediatly.</li>
-%%          <li>probation: the remote party should retry again. Use `retry_after' 
-%%              to inform of the minimum time for a new try.</li>
-%%          <li>rejected: the remote party should no retry again.</li>
-%%          <li>timeout: the subscription has timed out, the remote party can 
+%%          <li>`deactivated': the remote party should retry again inmediatly.</li>
+%%          <li>`probation': the remote party should retry again. You can use
+%%              `retry_after' to inform of the minimum time for a new try.</li>
+%%          <li>`rejected': the remote party should no retry again.</li>
+%%          <li>`timeout': the subscription has timed out, the remote party can 
 %%              send a new one inmediatly.</li>
-%%          <li>giveup: we have not been able to authorize the request. The remote
+%%          <li>`giveup': we have not been able to authorize the request. The remote
 %%              party can try again. You can use `retry_after'.</li>
-%%          <li>noresource: the subscription has ended because of the resource 
+%%          <li>`noresource': the subscription has ended because of the resource 
 %%              does not exists any more. Do not retry.</li>
-%%          <li>invariant: the subscription has ended because of the resource 
+%%          <li>`invariant': the subscription has ended because of the resource 
 %%              is not going to change soon. Do not retry.</li>
 %%       </ul></li>
 %% </ul> 
@@ -732,9 +731,7 @@ notify(AppId, Dest, Opts) ->
 
 %% @doc Sends an MESSAGE request.
 %%
-%% This functions sends a new MESSAGE request to the other party.
-%%
-%% When `Dest' if an <i>SIP Uri</i> the request will be sent outside any dialog.
+%% When `Dest' is a <i>SIP Uri</i> the request will be sent outside any dialog.
 %% If it is a dialog specification, it will be sent inside that dialog.
 %% Recognized options are described in {@link opt()} when sent outside any dialog,
 %% and {@link dialog_opt()} when sent inside a dialog.
@@ -748,7 +745,7 @@ notify(AppId, Dest, Opts) ->
 %%          <td>`integer()'</td>
 %%          <td></td>
 %%          <td>If included it will generate a <i>Expires</i> header. NkSIP will 
-%%              also add a <i>Date</i> header</td>
+%%              also add a <i>Date</i> header.</td>
 %%      </tr>
 %% </table>
 %%

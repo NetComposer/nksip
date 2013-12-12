@@ -274,24 +274,24 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`supported'</td>
-%%          <td>string()|binary()</td>
-%%          <td>"100rel"</td>
+%%          <td>`string()|binary()'</td>
+%%          <td>`"100rel"'</td>
 %%          <td>If present, these tokens will be used in Supported headers instead of
 %%          the default supported list (only '100rel' currently), for example
 %%          "my_token1;opt1, mytoken2, 100rel".</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`event'</td>
-%%          <td>string()|binary()</td>
-%%          <td>""</td>
+%%          <td>`string()|binary()'</td>
+%%          <td>`""'</td>
 %%          <td>Lists the Event Packages this SipApp supports.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`accept</td>
+%%          <td>`accept'</td>
 %%          <td>`string()|binary()'</td>
-%%          <td>"*/*"</td>
+%%          <td>`"*/*"'</td>
 %%          <td>If defined, this value will be used instead of default when 
-%%          option `make_accept' is used
+%%          option `make_accept' is used</td>
 %%      </tr>
 %%  </table>
 %%

@@ -192,7 +192,7 @@
 %%          <td>Seconds to expire current state</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`subscriptions</td>
+%%          <td>`subscriptions'</td>
 %%          <td><code>[{@link nksip_subscription:id()}]</code></td>
 %%          <td>Lists all active subscriptions</td>
 %%      </tr>

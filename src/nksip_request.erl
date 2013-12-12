@@ -249,7 +249,7 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`parsed_event'</td>
-%%          <td><code>undefined | {@link nksip:token()}'</td>
+%%          <td><code>undefined | {@link nksip:token()}'</code></td>
 %%          <td>Event Header</td>
 %%      </tr>
 %%      <tr>

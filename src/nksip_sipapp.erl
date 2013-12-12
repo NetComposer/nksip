@@ -182,8 +182,10 @@
 %% ==================================================================
 
 %% @doc SipApp initialization.
+%%
 %% This callback function is called when the SipApp is launched using 
 %% {@link nksip:start/4}.
+%%
 %% If `{ok, State}' or `{ok, State, Timeout}' is returned the SipApp is started with
 %% this initial state. If a `Timeout' is provided (in milliseconds) a 
 %% `timeout' message will be sent to the process 
@@ -206,6 +208,7 @@ terminate(_Reason, _State) ->
 
 
 %% @doc Called to check a user password for a realm.
+%%
 %% When a request is received containing a `Authorization' or `Proxy-Authorization' 
 %% header, this function is called by NkSIP including the header's `User' and `Realm', 
 %% to check if the authorization data in the header corresponds to the user's password.
@@ -363,6 +366,7 @@ route(_Scheme, _User, _Domain, _ReqId, _From, State) ->
 
 
 %% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
+%%
 %% Before replying a final response, you will usually call 
 %% {@link nksip_request:reply/3} to send a provisional response like 
 %% `ringing' (which would send a 180 <i>Ringing</i> reply).
@@ -395,6 +399,7 @@ invite(_ReqId, _From, State) ->
 
 
 %% @doc This function is called when a new in-dialog INVITE request is received.
+%%
 %% The guidelines in {@link invite/4} are valid, but you shouldn't send provisional
 %% responses, but a final response inmediatly.
 %% 
@@ -410,6 +415,7 @@ reinvite(_ReqId, _From, State) ->
 
 
 %% @doc Called when a pending INVITE request is cancelled.
+%%
 %% When a CANCEL request is received by NkSIP, it will check if it belongs to an 
 %% existing INVITE transaction. If not, a 481 <i>Call/Transaction does not exist</i> 
 %% will be automatically replied.
@@ -442,6 +448,7 @@ ack(_ReqId, _From, State) ->
 
 
 %% @doc Called when a valid BYE request is received.
+%%
 %% When a BYE request is received, NkSIP will automatically response 481 
 %% <i>Call/Transaction does not exist</i> if it doesn't belong to a current dialog.
 %% If it does, NkSIP stops the dialog and this callback functions is called.
@@ -456,6 +463,7 @@ bye(_ReqId, _From, State) ->
 
 
 %% @doc Called when a valid INFO request is received.
+%%
 %% When an INFO request is received, NkSIP will automatically response 481
 %% <i>Call/Transaction does not exist</i> if it doesn't belong to a current dialog.
 %% If it does, NkSIP this callback functions is called.
@@ -469,6 +477,7 @@ info(_ReqId, _From, State) ->
 
 
 %% @doc Called when a OPTIONS request is received.
+%%
 %% This function is called by NkSIP to process a new incoming OPTIONS request as 
 %% an endpoint. If not defined, NkSIP will reply with a 200 <i>OK</i> response, 
 %% including automatically generated `Allow', `Accept' and `Supported' headers.
@@ -488,6 +497,7 @@ options(_ReqId, _From, State) ->
 
 
 %% @doc This function is called by NkSIP to process a new incoming REGISTER request. 
+%%
 %% If it is not defined, but `registrar' option was present in the SipApp's 
 %% startup config, NkSIP will process the request. 
 %% It will NOT check if <i>From</i> and <i>To</i> headers contains the same URI,
@@ -519,7 +529,7 @@ register(_ReqId, _From, State) ->
 %% @doc Called when a valid PRACK request is received.
 %%
 %% This function is called by NkSIP when a new valid in-dialog PRACK request has to
-%% be processed locally, in response to a sent reliable provisional response
+%% be processed locally, in response to a sent reliable provisional response.
 %% You don't usually need to implement this callback. One possible reason to do it is 
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
@@ -532,10 +542,13 @@ prack(_ReqId, _From, State) ->
 
 
 %% @doc Called when a valid UPDATE request is received.
+%%
 %% When a UPDATE request is received, NkSIP will automatically response 481 
 %% <i>Call/Transaction does not exist</i> if it doesn't belong to a current dialog.
-%% If it does, this function is called. The requiest will probably have a
-%% SDP body. If a `ok' is replied, a SDP answer is inclued, the session may change
+%% If it does, this function is called. 
+%%
+%% The request will probably have a SDP body. 
+%% If a `ok' is replied, a SDP answer is inclued, the session may change
 %% (and the corresponding callback function will be called). 
 %% If other non 2xx response is replied (like decline) the media is not changed.
 %%
@@ -550,11 +563,12 @@ update(_ReqId, _From, State) ->
 %% request that has an allowed Event type.
 %%
 %% If you reply a 2xx response like `ok'  or `accepted', a dialog and a subscription
-%% will start, and you must inmeditaly send a NOTIFY using nksip_uac:notify/3.
+%% will start, and you must inmeditaly send a NOTIFY using 
+%% {@link nksip_uac:notify/3}.
 %%
 %% You can use the option `{expires, integer()}' to override the expires present
 %% in the request, but the new value must be lower, or even 0 to cancel the
-%% subscription
+%% subscription.
 %%
 -spec subscribe(ReqId::nksip_request:id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
@@ -564,7 +578,9 @@ subscribe(_ReqId, _From, State) ->
 
 
 %% @doc This function is called by NkSIP to process a new incoming NOTIFY
-%% request that has an allowed Event type and belongs to a started subscription.
+%% request belonging to a current active subscription.
+%%
+%% You should always return `ok'.
 %%
 -spec notify(ReqId::nksip_request:id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
@@ -576,16 +592,14 @@ notify(_ReqId, _From, State) ->
 %% @doc This function is called by NkSIP to process a new incoming MESSAGE
 %% request.
 %%
-%% If you reply a 2xx response like `ok'  or `accepted', it means the message
-%% has been received. Use a 6xx response (like `decline') to refuse it.
+%% If you reply a 2xx response like `ok'  or `accepted', you are telling 
+%% to the remote party that the message has been received. 
+%% Use a 6xx response (like `decline') to tell it has been refused.
 %%
 -spec message(ReqId::nksip_request:id(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 message(_ReqId, _From, State) ->
-
-
-
     {reply, decline, State}.
 
 
@@ -599,20 +613,30 @@ message(_ReqId, _From, State) ->
 %% will be marked as temporary or <i>early</i>, waiting for the final response 
 %% to be confirmed or deleted.
 %%
-%% The dialog is destroyed when a valid in-dialog BYE request is sent or received 
-%% (and for many other reasons, see {@link nksip_dialog:stop_reason()}). 
+%% Dialogs will also be created for <b>subscriptions</b>, after a valid NOTIFY is sent or
+%% received. Any dialog can have multiple usages simultaneously, as much as <i>one</i>
+%% 'INVITE usage' and a unlimited number of 'SUBSCRIBE usages'.
 %%
-%% Once the dialog is established, some in-dialog methods (like INVITE) can update the
-%% `target' of the dialog. 
+%% Once the dialog is established, some in-dialog methods
+%% (like INVITE, UPDATE, SUBSCRIBE and NOTIFY) can update the `target' of the dialog. 
+%%
+%% The 'INVITE usage' is destroyed when a valid in-dialog BYE request is sent or received.
+%% A 'SUBSCRIPTION' usage is destroyed when a NOTIFY with status=terminated is 
+%% received. When no usage is left, the dialog itself is destroyed.
 %%
 %% NkSIP will call this function every time a dialog is created, its target is updated
 %% or it is destroyed.
+%%
+%% For INVITE usages, it will be called also when the status of the usage changes,
+%% as <code>{invite_status, {@link nksip_dialog:invite_status()}}</code>.
+%% For SUBSCRIBE usages, also when the status of that usage changes, as
+%% {subscription_status, {@link nksip_subscription:status()}}.
 %%
 -spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
     call_noreply()
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |
-                         {subscription_status, nksip_dialog:subscription_status()} |
+                         {subscription_status, nksip:subscription_status()} |
                          {stop, nksip_dialog:stop_reason()}.
     
 dialog_update(_DialogId, _Status, State) ->
@@ -620,6 +644,7 @@ dialog_update(_DialogId, _Status, State) ->
 
 
 %% @doc Called when a dialog has updated its SDP session parameters.
+%%
 %% When NkSIP detects that, inside an existing dialog, both parties have agreed on 
 %% a specific SDP defined session, it will call this function.
 %% You can use the functions in {@link nksip_sdp} to process the SDP data.
@@ -632,20 +657,6 @@ dialog_update(_DialogId, _Status, State) ->
                           Local::nksip_sdp:sdp(), Remote::nksip_sdp:sdp().
 
 session_update(_DialogId, _Status, State) ->
-    {noreply, State}.
-
-
-
-%% @doc Called when a subscription has started, renewed or stopped, and also
-%% when it is time to renew a started subscription sending NOTIFY
-%%
--spec subscription_update(DialogId::nksip_dialog:id(), SubStatus, State::term()) ->
-    call_noreply()
-    when SubStatus :: {start, Event} | {renewed, Event} | {stop, Event} |
-                      {should_renew, Event},
-         Event :: binary().
-
-subscription_update(_DialogId, _Status, State) ->
     {noreply, State}.
 
 
@@ -694,33 +705,32 @@ handle_info(_Msg, State) ->
 
 
 
-%% @doc Called when a operation over the registrar database must be done
+%% @doc Called when a operation database must be done on the registrar database.
 %%
 %% The possible values for Op and their allowed reply are:
 %%
-%% - {get, AOR}, State} -> [Contact]
-%%   when AOR::nksip:aor(), Contact::nksip_registrar:reg_contact().
+%%<table border="1">
+%%   <tr><th>Op</th><th>Response</th><th>Comments</th></tr>
+%%   <tr><td><code>{get, AOR::{@link nksip:aor()}}</code></td>
+%%      <td><code>[Contact::{@link nksip_registrar:reg_contact()}]</code></td>
+%%      <td>Retrieve all stored contacts for this AOR.</td></tr>
+%%   <tr><td><code>{put, AOR::{@link nksip:aor()}, [Contact::{@link nksip_registrar:reg_contact()}], TTL::integer()}</code></td>
+%%       <td>`ok'</td>
+%%       <td>Store the list of contacts for this AOR. The record must be 
+%%           automatically deleted after TTL seconds.</td></tr>
+%%  <tr><td><code>{del, AOR::{@link nksip:aor()}}</code></td>
+%%      <td>`ok|not_found'</td>
+%%      <td>Delete all stored contacts for this AOR, returning `ok' or 
+%%          `not_found' if the AOR is not found.</td></tr>
+%%  <tr><td>`del_all'</td>
+%%      <td>`ok'</td>
+%%      <td>Delete all stored information for this AppId.</td></tr>
+%%</table>
 %%
-%%   Retrieve all stored contacts for this AOR.
 %%
-%% - {put, AOR, [Contact], TTL} -> ok
-%%   when AOR::nksip:aor(), Contact::nksip_registrar:reg_contact(), TTL::integer().
-%%   
-%%   Store the list of contacts for this AOR. The record must be deleted after
-%%   TTL seconds.
-%%
-%% - {del, AOR} -> ok 
-%%   when AOR::nksip:aor().
-%%
-%%   Delete all stored contacts for this AOR, returning `ok' or 
-%%   `not_found' if the AOR is not found.
-%%
-%% - del_all -> ok.
-%%
-%%   Delete all stored information for this AppId.
-%%
-%% The function must return {reply, Reply, NewState}.
+%% The function must return `{reply, Reply, NewState}'.
 %% This default implementation uses the built-in memory database.
+
 -type registrar_store_op() ::
     {get, nksip:aor()} | 
     {put, nksip:aor(), [nksip_registrar:reg_contact()], integer()} |

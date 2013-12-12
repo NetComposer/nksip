@@ -68,7 +68,7 @@
 %%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`app_id'</td>
-%%          <td>nksip:app_id()</td>
+%%          <td>{link nksip:app_id()}</td>
 %%          <td>SipApp that created the subscription</td>
 %%      </tr>
 %%      <tr>
@@ -78,7 +78,7 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`event'</td>
-%%          <td>binary()</td>
+%%          <td>`binary()'</td>
 %%          <td>Full <i>Event</i> header</td>
 %%      </tr>
 %%      <tr>
@@ -87,7 +87,7 @@
 %%          <td>Parsed <i>Event</i> header</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`class</td>
+%%          <td>`class'</td>
 %%          <td>`uac|uas'</td>
 %%          <td>Class of the event, as a UAC or a UAS</td>
 %%      </tr>
@@ -131,7 +131,7 @@ field(#subscription{}=U, Field) ->
     end.
 
 
-%% @doc Gets a number of fields from the Subscription as described in {@link field/2}.
+%% @doc Gets a number of fields from the Subscription as described in {@link field/3}.
 -spec fields(nksip:app_id(), spec(), [field()]) -> 
     [{atom(), term()}] | error.
     
@@ -156,7 +156,7 @@ fields(AppId, SubscriptionSpec, Fields) when is_list(Fields) ->
     end.
 
 
-
+%% @doc Get the subscripion's id from a request or response.
 -spec id(nksip:app_id(), id()|nksip_request:id()|nksip_response:id()) ->
     id().
 
@@ -180,7 +180,7 @@ dialog_id(<<"U_", Rest/binary>>) ->
     <<"D_", Dlg/binary, $_, CallId/binary>>.
 
 
-%% @doc Gets a full dialog record.
+%% @doc Gets a full subscription record.
 -spec get_subscription(nksip:app_id(), spec()) ->
     nksip:dialog() | error.
 
@@ -204,7 +204,7 @@ get_subscription(AppId, SubscriptionSpec) ->
     end.
 
 
-%% @doc Gets all started dialog ids.
+%% @doc Gets all started subscription ids.
 -spec get_all() ->
     [{nksip:app_id(), id()}].
 
@@ -215,7 +215,7 @@ get_all() ->
     ]).
 
 
-%% @doc Finds all existing dialogs having a `Call-ID'.
+%% @doc Finds all existing subscriptions having a `Call-ID'.
 -spec get_all(nksip:app_id(), nksip:call_id()) ->
     [id()].
 

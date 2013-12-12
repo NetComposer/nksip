@@ -29,10 +29,14 @@
 %%   <tr><td>`{ringing, Body}'</td><td>180</td><td></td></tr>
 %%   <tr><td>`session_progress'</td><td>183</td><td></td></tr>
 %%   <tr><td>`{session_progress, Body}'</td><td>183</td><td></td></tr>
-%%   <tr><td>`rel_ringing'</td><td>180 (reliable)</td><td></td></tr>
-%%   <tr><td>`{rel_ringing, Body}'</td><td>180 (reliable)</td><td></td></tr>
-%%   <tr><td>`rel_session_progress'</td><td>183 (reliable)</td><td></td></tr>
-%%   <tr><td>`{rel_session_progress, Body}'</td><td>183 (reliable)</td><td></td></tr>
+%%   <tr><td>`rel_ringing'</td><td>180</td>
+%%       <td><i>Reliable responses</i> will be used</td></tr>
+%%   <tr><td>`{rel_ringing, Body}'</td><td>180</td>
+%%       <td><i>Reliable responses</i> will be used</td></tr>
+%%   <tr><td>`rel_session_progress'</td><td>183</td>
+%%       <td><i>Reliable responses</i> will be used</td></tr>
+%%   <tr><td>`{rel_session_progress, Body}'</td>
+%%        <td>183</td><td><i>Reliable responses</i> will be used</td></tr>
 %%   <tr><td>`ok'</td><td>200</td><td></td></tr>
 %%   <tr><td>`{ok, [Header]}'</td><td>200</td>
 %%       <td>Response will include provided headers</td></tr>
