@@ -1,0 +1,4 @@
+%% encoding: UTF-8
+{application,nksip_pbx}.
+{packages,[]}.
+{modules,[nksip_pbx,nksip_pbx_sipapp]}.

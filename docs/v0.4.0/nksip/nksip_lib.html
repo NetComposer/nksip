@@ -1,0 +1,293 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_lib</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_lib</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Common library utility funcions.
+
+
+<h2><a name="description">Description</a></h2>Common library utility funcions
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-l_timestamp">l_timestamp()</a></h3>
+<p><tt>l_timestamp() = non_neg_integer()</tt></p>
+
+
+<h3 class="typedecl"><a name="type-proplist">proplist()</a></h3>
+<p><tt>proplist() = [atom() | binary() | {atom() | binary(), term()}]</tt></p>
+
+
+<h3 class="typedecl"><a name="type-timestamp">timestamp()</a></h3>
+<p><tt>timestamp() = non_neg_integer()</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#bin_last-2">bin_last/2</a></td><td>Gets the subbinary after <code>Char</code>.</td></tr>
+<tr><td valign="top"><a href="#bjoin-1">bjoin/1</a></td><td>Joins each element in <code>List</code> into a <code>binary()</code> using <code>&lt;&lt;","&gt;&gt;</code> as separator.</td></tr>
+<tr><td valign="top"><a href="#bjoin-2">bjoin/2</a></td><td>Join each element in <code>List</code> into a <code>binary()</code>, using the indicated <code>Separator</code>.</td></tr>
+<tr><td valign="top"><a href="#cancel_timer-1">cancel_timer/1</a></td><td>Cancels and existig timer.</td></tr>
+<tr><td valign="top"><a href="#cseq-0">cseq/0</a></td><td>Generates an incrementing-each-second 31 bit integer.</td></tr>
+<tr><td valign="top"><a href="#delete-2">delete/2</a></td><td>Deletes all elements in <code>Proplist</code> having key <code>KeyOrKeys</code> or having key in
+  <code>KeyOrKeys</code> if <code>KeyOrKeys</code> is a list.</td></tr>
+<tr><td valign="top"><a href="#extract-2">extract/2</a></td><td>Extracts all elements in <code>Proplist</code> having key <code>KeyOrKeys</code> or having key in
+  <code>KeyOrKeys</code> if <code>KeyOrKeys</code> is a list.</td></tr>
+<tr><td valign="top"><a href="#find_main_ip-0">find_main_ip/0</a></td><td>Equivalent to <code>find_main_ip(auto, ipv4)</code>.</td></tr>
+<tr><td valign="top"><a href="#find_main_ip-2">find_main_ip/2</a></td><td>Finds the <i>best</i> local IP.</td></tr>
+<tr><td valign="top"><a href="#get_binary-2">get_binary/2</a></td><td>Similar to <code>get_value(Key, List, &lt;&lt;&gt;&gt;)</code> but converting the result into
+  a <code>binary()</code>.</td></tr>
+<tr><td valign="top"><a href="#get_binary-3">get_binary/3</a></td><td>Similar to <code>get_value(Key, List, Default)</code> but converting the result into
+  a <code>binary()</code>.</td></tr>
+<tr><td valign="top"><a href="#get_integer-2">get_integer/2</a></td><td>Similar to <code>get_value(Key, List, 0)</code> but converting the result into
+  an <code>integer()</code> or <code>error</code>.</td></tr>
+<tr><td valign="top"><a href="#get_integer-3">get_integer/3</a></td><td>Similar to <code>get_value(Key, List, Default)</code> but converting the result into
+  a <code>integer()</code> or <code>error</code>.</td></tr>
+<tr><td valign="top"><a href="#get_list-2">get_list/2</a></td><td>Similar to <code>get_value(Key, List, [])</code> but converting the result into a <code>list()</code>.</td></tr>
+<tr><td valign="top"><a href="#get_list-3">get_list/3</a></td><td>Similar to <code>get_value(Key, List, Default)</code> but converting the result
+  into a <code>list()</code>.</td></tr>
+<tr><td valign="top"><a href="#get_local_ips-0">get_local_ips/0</a></td><td>Get all local network ips.</td></tr>
+<tr><td valign="top"><a href="#get_value-2">get_value/2</a></td><td>Equivalent to <code>proplists:get_value/2</code> but faster.</td></tr>
+<tr><td valign="top"><a href="#get_value-3">get_value/3</a></td><td>Requivalent to <code>proplists:get_value/3</code> but faster.</td></tr>
+<tr><td valign="top"><a href="#gmt_to_timestamp-1">gmt_to_timestamp/1</a></td><td>Converts a local <code>datetime()</code> to a <code>timestamp()</code>,.</td></tr>
+<tr><td valign="top"><a href="#hash-1">hash/1</a></td><td>Generates a new random tag based on a value.</td></tr>
+<tr><td valign="top"><a href="#is_string-1">is_string/1</a></td><td>Checks if <code>Term</code> is a <code>string()</code> or <code>[]</code>.</td></tr>
+<tr><td valign="top"><a href="#l_timestamp-0">l_timestamp/0</a></td><td>Gets an microsecond-resolution timestamp.</td></tr>
+<tr><td valign="top"><a href="#l_timestamp_to_float-1">l_timestamp_to_float/1</a></td><td>Generates a float representing <code>HHMMSS.MicroSecs</code> for a high resolution timer.</td></tr>
+<tr><td valign="top"><a href="#lhash-1">lhash/1</a></td><td>Generates a new printable SHA hash binary over <code>Base</code> (using 160 bits).</td></tr>
+<tr><td valign="top"><a href="#local_to_timestamp-1">local_to_timestamp/1</a></td><td>Converts a gmt <code>datetime()</code> to a <code>timestamp()</code>.</td></tr>
+<tr><td valign="top"><a href="#luid-0">luid/0</a></td><td>Generates a new printable random UUID.</td></tr>
+<tr><td valign="top"><a href="#timestamp-0">timestamp/0</a></td><td>Gets an second-resolution timestamp.</td></tr>
+<tr><td valign="top"><a href="#timestamp_to_gmt-1">timestamp_to_gmt/1</a></td><td>Converts a <code>timestamp()</code> to a gmt <code>datetime()</code>.</td></tr>
+<tr><td valign="top"><a href="#timestamp_to_local-1">timestamp_to_local/1</a></td><td>Converts a <code>timestamp()</code> to a local <code>datetime()</code>.</td></tr>
+<tr><td valign="top"><a href="#to_binary-1">to_binary/1</a></td><td>Converts anything into a <code>binary()</code>.</td></tr>
+<tr><td valign="top"><a href="#to_host-1">to_host/1</a></td><td>Converts an IP or host to a binary host value.</td></tr>
+<tr><td valign="top"><a href="#to_host-2">to_host/2</a></td><td>Converts an IP or host to a binary host value.</td></tr>
+<tr><td valign="top"><a href="#to_integer-1">to_integer/1</a></td><td>Converts anything into a <code>integer()</code> or <code>error</code>.</td></tr>
+<tr><td valign="top"><a href="#to_ip-1">to_ip/1</a></td><td>Converts a <code>list()</code> or <code>binary()</code> into a <code>inet:ip_address()</code> or <code>error</code>.</td></tr>
+<tr><td valign="top"><a href="#to_list-1">to_list/1</a></td><td>Converts anything into a <code>string()</code>.</td></tr>
+<tr><td valign="top"><a href="#to_lower-1">to_lower/1</a></td><td>converts a <code>string()</code> or <code>binary()</code> to a lower <code>binary()</code>.</td></tr>
+<tr><td valign="top"><a href="#to_upper-1">to_upper/1</a></td><td>converts a <code>string()</code> or <code>binary()</code> to an upper <code>binary()</code>.</td></tr>
+<tr><td valign="top"><a href="#tokens-1">tokens/1</a></td><td>Splits a <code>string()</code> or <code>binary()</code> into a list of tokens.</td></tr>
+<tr><td valign="top"><a href="#uid-0">uid/0</a></td><td>Generates a new random tag.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="bin_last-2">bin_last/2</a></h3>
+<div class="spec">
+<p><tt>bin_last(Char::char(), Bin::binary()) -&gt; binary()</tt><br></p>
+</div><p>Gets the subbinary after <code>Char</code>.</p>
+
+<h3 class="function"><a name="bjoin-1">bjoin/1</a></h3>
+<div class="spec">
+<p><tt>bjoin(List::[term()]) -&gt; binary()</tt><br></p>
+</div><p>Joins each element in <code>List</code> into a <code>binary()</code> using <code>&lt;&lt;","&gt;&gt;</code> as separator.</p>
+
+<h3 class="function"><a name="bjoin-2">bjoin/2</a></h3>
+<div class="spec">
+<p><tt>bjoin(List::[term()], Separator::binary()) -&gt; binary()</tt><br></p>
+</div><p>Join each element in <code>List</code> into a <code>binary()</code>, using the indicated <code>Separator</code>.</p>
+
+<h3 class="function"><a name="cancel_timer-1">cancel_timer/1</a></h3>
+<div class="spec">
+<p><tt>cancel_timer(Ref::reference() | undefined) -&gt; false | integer()</tt><br></p>
+</div><p>Cancels and existig timer.</p>
+
+<h3 class="function"><a name="cseq-0">cseq/0</a></h3>
+<div class="spec">
+<p><tt>cseq() -&gt; non_neg_integer()</tt><br></p>
+</div><p>Generates an incrementing-each-second 31 bit integer.
+  It will not wrap around until until {{2080,1,19},{3,14,7}} GMT.</p>
+
+<h3 class="function"><a name="delete-2">delete/2</a></h3>
+<div class="spec">
+<p><tt>delete(PropList::[term()], KeyOrKeys::term() | [term()]) -&gt; [term()]</tt><br></p>
+</div><p>Deletes all elements in <code>Proplist</code> having key <code>KeyOrKeys</code> or having key in
+  <code>KeyOrKeys</code> if <code>KeyOrKeys</code> is a list.</p>
+
+<h3 class="function"><a name="extract-2">extract/2</a></h3>
+<div class="spec">
+<p><tt>extract(PropList::[term()], KeyOrKeys::term() | [term()]) -&gt; [term()]</tt><br></p>
+</div><p>Extracts all elements in <code>Proplist</code> having key <code>KeyOrKeys</code> or having key in
+  <code>KeyOrKeys</code> if <code>KeyOrKeys</code> is a list.</p>
+
+<h3 class="function"><a name="find_main_ip-0">find_main_ip/0</a></h3>
+<div class="spec">
+<p><tt>find_main_ip() -&gt; <a href="inet.html#type-ip_address">inet:ip_address()</a></tt><br></p>
+</div><p>Equivalent to <code>find_main_ip(auto, ipv4)</code>.</p>
+
+<h3 class="function"><a name="find_main_ip-2">find_main_ip/2</a></h3>
+<div class="spec">
+<p><tt>find_main_ip(NetInterface::auto | string(), Type::ipv4 | ipv6) -&gt; <a href="inet.html#type-ip_address">inet:ip_address()</a></tt><br></p>
+</div><p>Finds the <i>best</i> local IP.
+  If a network interface is supplied (as "en0") it returns its ip.
+  If <code>auto</code> is used, probes <code>ethX</code> and <code>enX</code> interfaces. If none is available returns
+  localhost</p>
+
+<h3 class="function"><a name="get_binary-2">get_binary/2</a></h3>
+<div class="spec">
+<p><tt>get_binary(Key::term(), List::list()) -&gt; binary()</tt><br></p>
+</div><p>Similar to <code>get_value(Key, List, &lt;&lt;&gt;&gt;)</code> but converting the result into
+  a <code>binary()</code>.</p>
+
+<h3 class="function"><a name="get_binary-3">get_binary/3</a></h3>
+<div class="spec">
+<p><tt>get_binary(Key::term(), List::list(), Default::term()) -&gt; binary()</tt><br></p>
+</div><p>Similar to <code>get_value(Key, List, Default)</code> but converting the result into
+  a <code>binary()</code>.</p>
+
+<h3 class="function"><a name="get_integer-2">get_integer/2</a></h3>
+<div class="spec">
+<p><tt>get_integer(Key::term(), List::list()) -&gt; integer() | error</tt><br></p>
+</div><p>Similar to <code>get_value(Key, List, 0)</code> but converting the result into
+  an <code>integer()</code> or <code>error</code>.</p>
+
+<h3 class="function"><a name="get_integer-3">get_integer/3</a></h3>
+<div class="spec">
+<p><tt>get_integer(Key::term(), List::list(), Default::term()) -&gt; integer() | error</tt><br></p>
+</div><p>Similar to <code>get_value(Key, List, Default)</code> but converting the result into
+  a <code>integer()</code> or <code>error</code>.</p>
+
+<h3 class="function"><a name="get_list-2">get_list/2</a></h3>
+<div class="spec">
+<p><tt>get_list(Key::term(), List::list()) -&gt; list()</tt><br></p>
+</div><p>Similar to <code>get_value(Key, List, [])</code> but converting the result into a <code>list()</code>.</p>
+
+<h3 class="function"><a name="get_list-3">get_list/3</a></h3>
+<div class="spec">
+<p><tt>get_list(Key::term(), List::list(), Default::term()) -&gt; list()</tt><br></p>
+</div><p>Similar to <code>get_value(Key, List, Default)</code> but converting the result
+  into a <code>list()</code>.</p>
+
+<h3 class="function"><a name="get_local_ips-0">get_local_ips/0</a></h3>
+<div class="spec">
+<p><tt>get_local_ips() -&gt; [<a href="inet.html#type-ip_address">inet:ip_address()</a>]</tt><br></p>
+</div><p>Get all local network ips.</p>
+
+<h3 class="function"><a name="get_value-2">get_value/2</a></h3>
+<div class="spec">
+<p><tt>get_value(Key::term(), List::list()) -&gt; term()</tt><br></p>
+</div><p>Equivalent to <code>proplists:get_value/2</code> but faster.</p>
+
+<h3 class="function"><a name="get_value-3">get_value/3</a></h3>
+<div class="spec">
+<p><tt>get_value(Key::term(), List::list(), Default::term()) -&gt; term()</tt><br></p>
+</div><p>Requivalent to <code>proplists:get_value/3</code> but faster.</p>
+
+<h3 class="function"><a name="gmt_to_timestamp-1">gmt_to_timestamp/1</a></h3>
+<div class="spec">
+<p><tt>gmt_to_timestamp(DateTime::<a href="calendar.html#type-datetime">calendar:datetime()</a>) -&gt; <a href="#type-timestamp">timestamp()</a></tt><br></p>
+</div><p>Converts a local <code>datetime()</code> to a <code>timestamp()</code>,</p>
+
+<h3 class="function"><a name="hash-1">hash/1</a></h3>
+<div class="spec">
+<p><tt>hash(Base::term()) -&gt; binary()</tt><br></p>
+</div><p>Generates a new random tag based on a value.</p>
+
+<h3 class="function"><a name="is_string-1">is_string/1</a></h3>
+<div class="spec">
+<p><tt>is_string(Term::term()) -&gt; boolean()</tt><br></p>
+</div><p>Checks if <code>Term</code> is a <code>string()</code> or <code>[]</code>.</p>
+
+<h3 class="function"><a name="l_timestamp-0">l_timestamp/0</a></h3>
+<div class="spec">
+<p><tt>l_timestamp() -&gt; <a href="#type-l_timestamp">l_timestamp()</a></tt><br></p>
+</div><p>Gets an microsecond-resolution timestamp</p>
+
+<h3 class="function"><a name="l_timestamp_to_float-1">l_timestamp_to_float/1</a></h3>
+<div class="spec">
+<p><tt>l_timestamp_to_float(LStamp::<a href="#type-l_timestamp">l_timestamp()</a>) -&gt; float()</tt><br></p>
+</div><p>Generates a float representing <code>HHMMSS.MicroSecs</code> for a high resolution timer.</p>
+
+<h3 class="function"><a name="lhash-1">lhash/1</a></h3>
+<div class="spec">
+<p><tt>lhash(Base::term()) -&gt; binary()</tt><br></p>
+</div><p>Generates a new printable SHA hash binary over <code>Base</code> (using 160 bits).</p>
+
+<h3 class="function"><a name="local_to_timestamp-1">local_to_timestamp/1</a></h3>
+<div class="spec">
+<p><tt>local_to_timestamp(DateTime::<a href="calendar.html#type-datetime">calendar:datetime()</a>) -&gt; <a href="#type-timestamp">timestamp()</a></tt><br></p>
+</div><p>Converts a gmt <code>datetime()</code> to a <code>timestamp()</code>.</p>
+
+<h3 class="function"><a name="luid-0">luid/0</a></h3>
+<div class="spec">
+<p><tt>luid() -&gt; binary()</tt><br></p>
+</div><p>Generates a new printable random UUID.</p>
+
+<h3 class="function"><a name="timestamp-0">timestamp/0</a></h3>
+<div class="spec">
+<p><tt>timestamp() -&gt; <a href="#type-timestamp">timestamp()</a></tt><br></p>
+</div><p>Gets an second-resolution timestamp</p>
+
+<h3 class="function"><a name="timestamp_to_gmt-1">timestamp_to_gmt/1</a></h3>
+<div class="spec">
+<p><tt>timestamp_to_gmt(Secs::<a href="#type-timestamp">timestamp()</a>) -&gt; <a href="calendar.html#type-datetime">calendar:datetime()</a></tt><br></p>
+</div><p>Converts a <code>timestamp()</code> to a gmt <code>datetime()</code>.</p>
+
+<h3 class="function"><a name="timestamp_to_local-1">timestamp_to_local/1</a></h3>
+<div class="spec">
+<p><tt>timestamp_to_local(Secs::<a href="#type-timestamp">timestamp()</a>) -&gt; <a href="calendar.html#type-datetime">calendar:datetime()</a></tt><br></p>
+</div><p>Converts a <code>timestamp()</code> to a local <code>datetime()</code>.</p>
+
+<h3 class="function"><a name="to_binary-1">to_binary/1</a></h3>
+<div class="spec">
+<p><tt>to_binary(B::term()) -&gt; binary()</tt><br></p>
+</div><p>Converts anything into a <code>binary()</code>. Can convert ip addresses also.</p>
+
+<h3 class="function"><a name="to_host-1">to_host/1</a></h3>
+<div class="spec">
+<p><tt>to_host(IpOrHost::<a href="inet.html#type-ip_address">inet:ip_address()</a> | string() | binary()) -&gt; binary()</tt><br></p>
+</div><p>Converts an IP or host to a binary host value</p>
+
+<h3 class="function"><a name="to_host-2">to_host/2</a></h3>
+<div class="spec">
+<p><tt>to_host(Address::<a href="inet.html#type-ip_address">inet:ip_address()</a> | string() | binary(), IsUri::boolean()) -&gt; binary()</tt><br></p>
+</div><p>Converts an IP or host to a binary host value.
+ If <code>IsUri</code> and it is an IPv6 address, it will be enclosed in <code>[</code> and <code>]</code></p>
+
+<h3 class="function"><a name="to_integer-1">to_integer/1</a></h3>
+<div class="spec">
+<p><tt>to_integer(I::integer() | binary() | string()) -&gt; integer() | error</tt><br></p>
+</div><p>Converts anything into a <code>integer()</code> or <code>error</code>.</p>
+
+<h3 class="function"><a name="to_ip-1">to_ip/1</a></h3>
+<div class="spec">
+<p><tt>to_ip(Address::string() | binary()) -&gt; {ok, <a href="inet.html#type-ip_address">inet:ip_address()</a>} | error</tt><br></p>
+</div><p>Converts a <code>list()</code> or <code>binary()</code> into a <code>inet:ip_address()</code> or <code>error</code>.</p>
+
+<h3 class="function"><a name="to_list-1">to_list/1</a></h3>
+<div class="spec">
+<p><tt>to_list(L::string() | binary() | atom() | integer()) -&gt; string()</tt><br></p>
+</div><p>Converts anything into a <code>string()</code>.</p>
+
+<h3 class="function"><a name="to_lower-1">to_lower/1</a></h3>
+<div class="spec">
+<p><tt>to_lower(List::string() | binary() | atom()) -&gt; binary()</tt><br></p>
+</div><p>converts a <code>string()</code> or <code>binary()</code> to a lower <code>binary()</code>.</p>
+
+<h3 class="function"><a name="to_upper-1">to_upper/1</a></h3>
+<div class="spec">
+<p><tt>to_upper(List::string() | binary() | atom()) -&gt; binary()</tt><br></p>
+</div><p>converts a <code>string()</code> or <code>binary()</code> to an upper <code>binary()</code>.</p>
+
+<h3 class="function"><a name="tokens-1">tokens/1</a></h3>
+<div class="spec">
+<p><tt>tokens(Bin::string() | binary()) -&gt; [string()]</tt><br></p>
+</div><p>Splits a <code>string()</code> or <code>binary()</code> into a list of tokens</p>
+
+<h3 class="function"><a name="uid-0">uid/0</a></h3>
+<div class="spec">
+<p><tt>uid() -&gt; binary()</tt><br></p>
+</div><p>Generates a new random tag.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Dec 12 2013, 19:52:58.</i></p>
+</body>
+</html>

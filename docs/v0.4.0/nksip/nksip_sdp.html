@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_sdp</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_sdp</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>RFC4566 SDP parser and generator utilities.
+
+
+<h2><a name="description">Description</a></h2>RFC4566 SDP parser and generator utilities
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-address">address()</a></h3>
+<p><tt>address() = {Type::binary(), AddrType::binary(), Addr::binary()}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-media_spec">media_spec()</a></h3>
+<p><tt>media_spec() = {Media::binary(), Port::<a href="inet.html#type-port_number">inet:port_number()</a>, Attributes::[{rtpmap, Pos::integer(), Data::binary()} | binary()]}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-media_status">media_status()</a></h3>
+<p><tt>media_status() = inactive | recvonly | sendonly | sendrecv</tt></p>
+
+
+<h3 class="typedecl"><a name="type-sdp">sdp()</a></h3>
+<p><tt>sdp() = #sdp{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-sdp_a">sdp_a()</a></h3>
+<p><tt>sdp_a() = {Attribute::binary(), Values::[binary()]}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-sdp_m">sdp_m()</a></h3>
+<p><tt>sdp_m() = #sdp_m{}</tt></p>
+
+
+<h3 class="typedecl"><a name="type-sdp_t">sdp_t()</a></h3>
+<p><tt>sdp_t() = {Start::integer(), Stop::integer(), Reps::[binary()]}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#empty-0">empty/0</a></td><td>Generates an empty SDP record, using host <code>"local.nksip"</code> (see <a href="#new-2"><code>new/2</code></a>).</td></tr>
+<tr><td valign="top"><a href="#increment-1">increment/1</a></td><td>Increments the SDP version by one.</td></tr>
+<tr><td valign="top"><a href="#is_new-2">is_new/2</a></td><td>Checks if <code>SDP2</code> is newer than <code>SDP1</code>.</td></tr>
+<tr><td valign="top"><a href="#is_sdp-1">is_sdp/1</a></td><td>Checks if term is an valid SDP.</td></tr>
+<tr><td valign="top"><a href="#new-0">new/0</a></td><td>Generates a simple base SDP record (see <a href="#new-2"><code>new/2</code></a>),
+  using host <code>"auto.nksip"</code>, port <i>1080</i>, codec <i>PCMU</i>, and <i>inactive</i></td></tr>
+<tr><td valign="top"><a href="#new-2">new/2</a></td><td>Generates a simple base SDP record.</td></tr>
+<tr><td valign="top"><a href="#parse-1">parse/1</a></td><td>Parses a binary SDP packet into a <code>sdp()</code> record or <code>error</code></td></tr>
+<tr><td valign="top"><a href="#unparse-1">unparse/1</a></td><td>Generates a binary SDP packet from an <code>sdp()</code> record.</td></tr>
+<tr><td valign="top"><a href="#update-2">update/2</a></td><td>Updates and SDP changing all medias to <code>inactive</code>, <code>recvonly</code>,
+  <code>sendonly</code> or <code>sendrecv</code> and incrementing the SDP version.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="empty-0">empty/0</a></h3>
+<div class="spec">
+<p><tt>empty() -&gt; <a href="#type-sdp">sdp()</a></tt><br></p>
+</div><p>Generates an empty SDP record, using host <code>"local.nksip"</code> (see <a href="#new-2"><code>new/2</code></a>).</p>
+
+<h3 class="function"><a name="increment-1">increment/1</a></h3>
+<div class="spec">
+<p><tt>increment(Sdp::<a href="#type-sdp">sdp()</a>) -&gt; <a href="#type-sdp">sdp()</a></tt><br></p>
+</div><p>Increments the SDP version by one</p>
+
+<h3 class="function"><a name="is_new-2">is_new/2</a></h3>
+<div class="spec">
+<p><tt>is_new(SDP2::undefined | <a href="#type-sdp">sdp()</a>, SDP1::undefined | <a href="#type-sdp">sdp()</a>) -&gt; boolean()</tt><br></p>
+</div><p>Checks if <code>SDP2</code> is newer than <code>SDP1</code>.
+  If any of them are <code>undefined</code>, returns <code>false</code>.</p>
+
+<h3 class="function"><a name="is_sdp-1">is_sdp/1</a></h3>
+<div class="spec">
+<p><tt>is_sdp(Sdp::term()) -&gt; boolean()</tt><br></p>
+</div><p>Checks if term is an valid SDP.</p>
+
+<h3 class="function"><a name="new-0">new/0</a></h3>
+<div class="spec">
+<p><tt>new() -&gt; <a href="#type-sdp">sdp()</a></tt><br></p>
+</div><p>Generates a simple base SDP record (see <a href="#new-2"><code>new/2</code></a>),
+  using host <code>"auto.nksip"</code>, port <i>1080</i>, codec <i>PCMU</i>, and <i>inactive</i></p>
+
+<h3 class="function"><a name="new-2">new/2</a></h3>
+<div class="spec">
+<p><tt>new(Host::string() | binary(), Medias::[<a href="#type-media_spec">media_spec()</a>]) -&gt; <a href="#type-sdp">sdp()</a></tt><br></p>
+</div><p><p>Generates a simple base SDP record.</p>
+ 
+  <p>It will use the indicated <code>Host</code> and a <code>Medias</code> description
+  to generate a new <code>sdp()</code> record, having several 'm' sections,  
+one for each media.</p>
+ 
+  <p>Each media must define a <code>Media</code> (like <code>&lt;&lt;"audio"&gt;&gt;</code> or <code>&lt;&lt;"video"&gt;&gt;</code>),
+  a <code>Port</code> and a list of <code>Attributes</code>. Each attributes can have the form
+  <code>{rtpmap, Pos, Data}</code> to define a codec (like <code>{rtpmap, 0, &lt;&lt;"PCMU/8000"&gt;&gt;}</code>)
+  or a standard SDP 'a' attribute (like <code>&lt;&lt;"inactive"&gt;&gt;</code> or <code>&lt;&lt;"ptime:30"&gt;&gt;</code>).
+  The class will be <code>RTP/AVP</code>.</p>
+ 
+  <p>If <code>Host</code> is <code>"auto.nksip"</code>, it will be changed to the current local address  
+before sending.</p>
+ 
+  See sdp3_test/0 for an example.
+ </p>
+
+<h3 class="function"><a name="parse-1">parse/1</a></h3>
+<div class="spec">
+<p><tt>parse(Bin::binary()) -&gt; <a href="#type-sdp">sdp()</a> | error</tt><br></p>
+</div><p>Parses a binary SDP packet into a <code>sdp()</code> record or <code>error</code></p>
+
+<h3 class="function"><a name="unparse-1">unparse/1</a></h3>
+<div class="spec">
+<p><tt>unparse(Sdp::<a href="#type-sdp">sdp()</a>) -&gt; binary()</tt><br></p>
+</div><p>Generates a binary SDP packet from an <code>sdp()</code> record</p>
+
+<h3 class="function"><a name="update-2">update/2</a></h3>
+<div class="spec">
+<p><tt>update(Sdp::<a href="#type-sdp">sdp()</a>, State::<a href="#type-media_status">media_status()</a>) -&gt; <a href="#type-sdp">sdp()</a></tt><br></p>
+</div><p>Updates and SDP changing all medias to <code>inactive</code>, <code>recvonly</code>,
+  <code>sendonly</code> or <code>sendrecv</code> and incrementing the SDP version.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Dec 12 2013, 19:52:59.</i></p>
+</body>
+</html>

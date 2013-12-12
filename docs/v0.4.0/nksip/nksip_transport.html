@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Module nksip_transport</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module nksip_transport</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>NkSIP Transport control module.
+
+
+<h2><a name="description">Description</a></h2>NkSIP Transport control module
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-transport">transport()</a></h3>
+<p><tt>transport() = #transport{}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#get_all-0">get_all/0</a></td><td>Gets all registered transports in all SipApps.</td></tr>
+<tr><td valign="top"><a href="#get_all-1">get_all/1</a></td><td>Gets all registered transports for a SipApp.</td></tr>
+<tr><td valign="top"><a href="#is_local-2">is_local/2</a></td><td>Checks if an <code>nksip:uri()</code> or <code>nksip:via()</code> refers to a local started transport.</td></tr>
+<tr><td valign="top"><a href="#is_local_ip-1">is_local_ip/1</a></td><td>Checks if an IP is local to this node.</td></tr>
+<tr><td valign="top"><a href="#main_ip-0">main_ip/0</a></td><td>Gets a cached version of node's main IPv4 address.</td></tr>
+<tr><td valign="top"><a href="#main_ip6-0">main_ip6/0</a></td><td>Gets a cached version of node's main IPv6 address.</td></tr>
+<tr><td valign="top"><a href="#raw_send-2">raw_send/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#start_transport-5">start_transport/5</a></td><td>Start a new listening transport.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="get_all-0">get_all/0</a></h3>
+<div class="spec">
+<p><tt>get_all() -&gt; [{<a href="nksip.html#type-app_id">nksip:app_id()</a>, <a href="#type-transport">transport()</a>, pid()}]</tt><br></p>
+</div><p>Gets all registered transports in all SipApps.</p>
+
+<h3 class="function"><a name="get_all-1">get_all/1</a></h3>
+<div class="spec">
+<p><tt>get_all(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>) -&gt; [{<a href="#type-transport">transport()</a>, pid()}]</tt><br></p>
+</div><p>Gets all registered transports for a SipApp.</p>
+
+<h3 class="function"><a name="is_local-2">is_local/2</a></h3>
+<div class="spec">
+<p><tt>is_local(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, Input::<a href="nksip.html#type-uri">nksip:uri()</a> | <a href="nksip.html#type-via">nksip:via()</a>) -&gt; boolean()</tt><br></p>
+</div><p>Checks if an <code>nksip:uri()</code> or <code>nksip:via()</code> refers to a local started transport.</p>
+
+<h3 class="function"><a name="is_local_ip-1">is_local_ip/1</a></h3>
+<div class="spec">
+<p><tt>is_local_ip(Ip::<a href="inet.html#type-ip_address">inet:ip_address()</a>) -&gt; boolean()</tt><br></p>
+</div><p>Checks if an IP is local to this node.</p>
+
+<h3 class="function"><a name="main_ip-0">main_ip/0</a></h3>
+<div class="spec">
+<p><tt>main_ip() -&gt; <a href="inet.html#type-ip4_address">inet:ip4_address()</a></tt><br></p>
+</div><p>Gets a cached version of node's main IPv4 address.</p>
+
+<h3 class="function"><a name="main_ip6-0">main_ip6/0</a></h3>
+<div class="spec">
+<p><tt>main_ip6() -&gt; <a href="inet.html#type-ip6_address">inet:ip6_address()</a></tt><br></p>
+</div><p>Gets a cached version of node's main IPv6 address.</p>
+
+<h3 class="function"><a name="raw_send-2">raw_send/2</a></h3>
+<div class="spec">
+<p><tt>raw_send(Raw_sipmsg, Reply) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="start_transport-5">start_transport/5</a></h3>
+<div class="spec">
+<p><tt>start_transport(AppId::<a href="nksip.html#type-app_id">nksip:app_id()</a>, Proto::<a href="nksip.html#type-protocol">nksip:protocol()</a>, Ip::<a href="inet.html#type-ip_address">inet:ip_address()</a>, Port::<a href="inet.html#type-port_number">inet:port_number()</a>, Opts::<a href="nksip_lib.html#type-proplist">nksip_lib:proplist()</a>) -&gt; {ok, pid()} | {error, term()}</tt><br></p>
+</div><p>Start a new listening transport.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Dec 12 2013, 19:52:59.</i></p>
+</body>
+</html>
