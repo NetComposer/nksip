@@ -417,7 +417,7 @@ request_uac_opts('SUBSCRIBE', Opts, #subscription{event=Event, expires=Expires})
     end;
 
 request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer}) ->
-    SS = case nksip_lib:get_value(subscription_state, Opts) of
+    PSS = case nksip_lib:get_value(subscription_state, Opts) of
         State when State==active; State==pending ->
             case is_reference(Timer) of
                 true -> 
@@ -426,14 +426,12 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
                 false ->
                     {terminated, [{reason, timeout}]}
             end;
-        {terminated, undefined, _} ->
-            {terminated, []};
-        {terminated, Reason, undefined} ->
-            {terminated, [{reason, Reason}]};
-        {terminated, Reason, Retry} ->
-            {terminated, [{reason, Reason}, {retry_after, Retry}]}
+        {terminated, {Reason, Retry}} ->
+            {terminated, [{reason, Reason}, {retry_after, Retry}]};
+        {terminated, Reason} ->
+            {terminated, [{reason, Reason}]}
     end,
-    [{event, Event}, {subscription_state, SS} | Opts].
+    [{event, Event}, {parsed_subscription_state, PSS} | Opts].
 
 
 %% @private Called when a dialog timer is fired
@@ -585,14 +583,15 @@ notify_status(SipMsg) ->
                         undefined -> 
                             {terminated, undefined};
                         Reason0 ->
-                            case catch 
+                            Reason1 = case catch 
                                 binary_to_existing_atom(Reason0, latin1) 
                             of
-                                {'EXIT', _} -> {terminated, undefined};
-                                deactivated -> {terminated, {deactivated, Retry}};
-                                giveup -> {terminated, {giveup, Retry}};
+                                {'EXIT', _} -> undefined;
+                                probation -> {probation, Retry};
+                                giveup -> {giveup, Retry};
                                 Reason -> Reason
-                            end
+                            end,
+                            {terminated, Reason1}
                     end;
                 _ ->
                     {terminated, undefined}

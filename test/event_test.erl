@@ -99,7 +99,7 @@ basic() ->
     Dialog1B = nksip_dialog:field(C1, Dialog1A, remote_id),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
     [
-        {status, start},
+        {status, init},
         {event, <<"myevent4;id=4;o=2">>},
         {class, uac},
         {answered, undefined},
@@ -107,7 +107,7 @@ basic() ->
     ] = nksip_subscription:fields(C1, Subs1A, [status, event, class, answered, expires]),
 
     [
-        {status, start},
+        {status, init},
         {parsed_event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
         {class, uas},
         {answered, undefined},
@@ -124,7 +124,7 @@ basic() ->
     ] = nksip_dialog:fields(C2, Dialog1B, [invite_status, subscriptions]),
 
     ok = tests_util:wait(Ref, [
-            {subs, Subs1B, started}, 
+            {subs, Subs1B, init}, 
             {subs, Subs1B, middle_timer},
             {subs, Subs1B, {terminated, timeout}}
     ]),
@@ -140,7 +140,7 @@ basic() ->
                                         {headers, [RepHd]}]),
  
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
-    ok = tests_util:wait(Ref, [{subs, Subs2B, started}]),
+    ok = tests_util:wait(Ref, [{subs, Subs2B, init}]),
 
     Dialog2A = nksip_subscription:dialog_id(Subs2A),
     sipapp_endpoint:start_events(C1, Ref, Self, Dialog2A),
@@ -196,7 +196,7 @@ refresh() ->
     2 = nksip_subscription:field(C1, Subs1A, expires),
     2 = nksip_subscription:field(C2, Subs1B, expires),
     ok = tests_util:wait(Ref, [
-        {subs, Subs1B, started},
+        {subs, Subs1B, init},
         {subs, Subs1B, active},
         {subs, Subs1B, middle_timer}
     ]),
@@ -209,16 +209,15 @@ refresh() ->
     
     % But we finish de dialog
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{state, {terminated, giveup}}]),
-    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, giveup}}]),
+    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, {giveup, undefined}}}]),
     
-
     % A new subscription
     {ok, 200, [{subscription_id, Subs2A}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
                                         {headers, [Hds]}]),
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
     {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
-    ok = tests_util:wait(Ref, [{subs, Subs2B, started}, {subs, Subs2B, active}
+    ok = tests_util:wait(Ref, [{subs, Subs2B, init}, {subs, Subs2B, active}
     ]),
 
     % And a refresh with expire=0, actually it is not removed until notify
@@ -351,7 +350,7 @@ out_or_order() ->
 
     % 'active' is not received, the remote party does not see the NOTIFY
     ok = tests_util:wait(Ref, [
-        {subs, Subs1B, started},
+        {subs, Subs1B, init},
         {subs, Subs1B, middle_timer},
         {subs, Subs1B, {terminated, timeout}}
     ]),

@@ -157,7 +157,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                                                     httpd_util:rfc1123_date())};
                 false -> []
             end,
-            case nksip_lib:get_value(subscription_state, Opts) of
+            case nksip_lib:get_value(parsed_subscription_state, Opts) of
                 undefined -> 
                     [];
                 SubsState0 -> 

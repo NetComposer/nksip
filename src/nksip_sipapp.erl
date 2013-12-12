@@ -138,8 +138,7 @@
 -export([init/1, get_user_pass/3, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
          ack/3, bye/3, options/3, register/3, info/3, prack/3, update/3,
          subscribe/3, notify/3, message/3]).
--export([ping_update/3, register_update/3, dialog_update/3, session_update/3,
-         subscription_update/3]).
+-export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([registrar_store/3]).
 -include("nksip.hrl").

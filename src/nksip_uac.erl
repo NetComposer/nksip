@@ -632,7 +632,7 @@ refresh(AppId, DialogSpec, Opts) ->
 %%
 %% When half the time before expire has been completed, NkSIP will call callback
 %% {@link nksip_sipapp:dialog_update/3} as 
-%% `{subscription_state, SubscriptionId, middle_timer}'fialog
+%% `{subscription_state, SubscriptionId, middle_timer}'.
 -spec subscribe(nksip:app_id(), nksip:user_uri()|dialog_spec()|subscription_spec(),
              [opt()|dialog_opt()|subscribe_opt()]) ->
     result() | {error, error()}.
@@ -706,20 +706,19 @@ notify(AppId, Dest, Opts) ->
         {terminated, Reason} 
             when Reason==deactivated; Reason==rejected; Reason==timeout; 
                  Reason==noresource; Reason==invariant ->
-            {terminated, Reason, undefined};
+            {terminated, Reason};
         {terminated, Reason}
             when Reason==probation; Reason==giveup ->
-            case nksip_lib:get_value(retry_after, Opts) of
-                undefined -> 
-                    {terminated, Reason, undefined};
+            Retry = case nksip_lib:get_value(retry_after, Opts) of
+                undefined ->
+                    undefined;
                 Retry0 ->
                     case nksip_lib:to_integer(Retry0) of
-                        Retry when is_integer(Retry), Retry>=0 -> 
-                            {terminated, Reason, Retry};
-                        _ ->
-                            invalid
+                        Retry1 when is_integer(Retry1), Retry1>=0 -> Retry1;
+                        _ -> undefined
                     end
-            end;
+            end,
+            {terminated, {Reason, Retry}};
         _ ->
             invalid
     end,
