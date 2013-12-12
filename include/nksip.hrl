@@ -245,7 +245,8 @@
     answered :: nksip_lib:timestamp(),
     timer_n :: reference(),
     timer_expire :: reference(),
-    timer_middle :: reference()
+    timer_middle :: reference(),
+    last_notify_cseq :: nksip:cseq()
 }).
 
 

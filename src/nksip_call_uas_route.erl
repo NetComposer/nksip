@@ -274,7 +274,7 @@ route_launch(#trans{ruri=RUri}=UAS, Call) ->
     nksip_call:call().
 
 route_reply(Reply, #trans{status=route}=UAS, Call) ->
-    #trans{id=Id, method=Method, ruri=RUri, request=Req} = UAS,
+    #trans{id=Id, method=Method, ruri=RUri} = UAS,
     ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply], Call),
     Route = case Reply of
         {response, Resp} -> {response, Resp, []};
@@ -295,23 +295,7 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
         _ -> trying
     end,
     UAS1 = UAS#trans{status=Status},
-    Call1 = update(UAS1, Call),
-    case Route of
-        {process, _} when Method/='CANCEL', Method/='ACK' ->
-            #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-            Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
-            SupportedTokens = [T || {T, _} <- Supported],
-            #sipmsg{require=Require} = Req,
-            case [T || {T, _} <- Require, not lists:member(T, SupportedTokens)] of
-                [] -> 
-                    do_route(Route, UAS1, Call1);
-                BadRequires -> 
-                    RequiresTxt = nksip_lib:bjoin(BadRequires),
-                    reply({bad_extension,  RequiresTxt}, UAS1, Call1)
-            end;
-        _ ->
-            do_route(Route, UAS1, Call1)
-    end;
+    do_route(Route, UAS1, update(UAS1, Call));
 
 % Request has been already answered
 route_reply(_Reply, UAS, Call) ->
@@ -352,7 +336,7 @@ do_route({process, Opts}, #trans{request=Req, method=Method}=UAS, Call) ->
         _ -> 
             UAS1
     end,
-    process(UAS2, update(UAS2, Call));
+    nksip_call_uas_process:process(UAS2, update(UAS2, Call));
 
 % We want to proxy the request
 do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
@@ -390,58 +374,6 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
         _ ->
             reply({internal, <<"Invalid Srict Routing">>}, UAS, Call)
     end.
-
-
-%% @private 
--spec process(nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-    
-process(UAS, Call) ->
-    #trans{
-        method = Method, 
-        request = #sipmsg{dialog_id=DialogId} = Req,
-        stateless = Stateless
-    } = UAS,
-    case Stateless of
-        true ->
-            nksip_call_uas_method:process(Method, DialogId, UAS, Call);
-        false ->           
-            case nksip_call_uas_dialog:request(Req, Call) of
-               {ok, Call1} -> 
-                    % Caution: for first INVITEs, DialogId is not yet created!
-                    nksip_call_uas_method:process(Method, DialogId, UAS, Call1);
-                {error, Error}  ->
-                    process_dialog_error(Error, UAS, Call)
-            end
-    end.
-
-
-%% @private
-process_dialog_error(Error, #trans{method='ACK', id=Id}=UAS, Call) ->
-    ?call_notice("UAS ~p 'ACK' dialog request error: ~p", [Id, Error], Call),
-    UAS1 = UAS#trans{status=finished},
-    update(UAS1, Call);
-
-process_dialog_error(Error, #trans{method=Method, id=Id, opts=Opts}=UAS, Call) ->
-    Reply = case Error of
-        request_pending ->
-            request_pending;
-        retry -> 
-            {500, [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
-                        <<>>, [{reason, <<"Processing Previous INVITE">>}]};
-        old_cseq ->
-            {internal, <<"Old CSeq in Dialog">>};
-        bad_event ->
-            bad_event;
-        no_transaction ->
-            no_transaction;
-        _ ->
-            ?call_info("UAS ~p ~p dialog request error: ~p", 
-                        [Id, Method, Error], Call),
-            no_transaction
-    end,
-    reply(Reply, UAS#trans{opts=[no_dialog|Opts]}, Call).
-
 
 
 

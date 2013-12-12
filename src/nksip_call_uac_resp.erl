@@ -100,6 +100,7 @@ response(Resp, UAC, Call) ->
         false -> Call
     end,
     UAC1 = UAC#trans{response=Resp1, code=Code1},
+    Call2 = update(UAC1, Call1),
     NoDialog = lists:member(no_dialog, Opts),
     case Transport of
         undefined -> 
@@ -109,15 +110,18 @@ response(Resp, UAC, Call) ->
                         [Id, Method, Status, 
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
     end,
-    Call2 = update(UAC1, Call1),
     Call3 = case NoDialog of
         true -> Call2;
         false -> nksip_call_uac_dialog:response(Req, Resp1, Call2)
     end,
+    Call4 = case Method=='SUBSCRIBE' andalso Code>=300 of
+        true -> nksip_call_event:remove_event(Req, Call3);
+        false -> Call3
+    end,
     Msg = {MsgId, Id, DialogId},
-    Call4 = Call3#call{msgs=[Msg|Msgs]},
-    Call5 = response_status(Status, Resp1, UAC1, Call4),
-    check_prack(Resp, UAC1, Call5).
+    Call5 = Call4#call{msgs=[Msg|Msgs]},
+    Call6 = response_status(Status, Resp1, UAC1, Call5),
+    check_prack(Resp, UAC1, Call6).
 
 
 %% @private

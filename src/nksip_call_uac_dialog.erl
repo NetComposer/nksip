@@ -43,9 +43,6 @@
 pre_request(#sipmsg{class={req, 'ACK'}}, _) ->
     error(ack_in_dialog_pre_request);
 
-pre_request(#sipmsg{to_tag = <<>>}, _Call) ->
-    ok;
-
 pre_request(Req, Call) ->
     #sipmsg{class={req, Method}, dialog_id=DialogId} = Req,
     case find(DialogId, Call) of
@@ -87,13 +84,6 @@ pre_request(Req, Call) ->
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
     nksip_call:call().
-
-
-request(#sipmsg{class={req, 'SUBSCRIBE'}, to_tag=(<<>>)}=Req, Call) ->
-    nksip_call_event:create_provisional(Req, Call);
-
-request(#sipmsg{to_tag = <<>>}, Call) ->
-    Call;
 
 request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
     ?call_debug("Dialog ~s UAC request ~p", [DialogId, Method], Call), 
@@ -205,9 +195,6 @@ response(Req, Resp, Call) ->
             ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
             Dialog1 = nksip_call_dialog:create(uac, Req, Resp, Call),
             do_response(Method, Code, Req, Resp, Dialog1, Call);
-        not_found when Method=='SUBSCRIBE', Code>=300 ->
-            % A non-2xx response before we have created the dialog
-            nksip_call_event:remove_provisional(Req, Call);
         not_found ->
             Call
     end.
@@ -218,11 +205,18 @@ response(Req, Resp, Call) ->
                   nksip:response(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-do_response(_Method, Code, _Req, _Resp, Dialog, Call) when Code==408; Code==481 ->
-    nksip_call_dialog:stop(Code, Dialog, Call);
-
 do_response(_Method, Code, _Req, _Resp, _Dialog, Call) when Code < 101 ->
     Call;
+
+%% Full dialog stop reasons (RFC5057)
+do_response(_Method, Code, _Req, _Resp, Dialog, Call) 
+            when Code==404; Code==410; Code==416; Code==482; Code==483; Code==484;
+                 Code==485; Code==502; Code==604 ->
+    nksip_call_dialog:stop(Code, Dialog, Call);
+
+do_response(_Method, Code, _Req, _Resp, #dialog{invite=#invite{}}=Dialog, Call) 
+            when Code==481 ->
+    update({invite, {stop, Code}}, Dialog, Call);
 
 do_response('INVITE', Code, Req, Resp, 
             #dialog{invite=#invite{status=proceeding_uac}=Invite}=Dialog, Call) 

@@ -33,7 +33,10 @@ event_test_() ->
         fun(_) -> stop() end,
         {inparallel, [
             {timeout, 60, fun basic/0},
-            {timeout, 60, fun dialog/0}
+            {timeout, 60, fun refresh/0},
+            {timeout, 60, fun dialog/0},
+            {timeout, 60, fun out_or_order/0},
+            {timeout, 60, fun fork/0}
         ]}
     }.
 
@@ -96,7 +99,7 @@ basic() ->
     Dialog1B = nksip_dialog:field(C1, Dialog1A, remote_id),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
     [
-        {status, neutral},
+        {status, start},
         {event, <<"myevent4;id=4;o=2">>},
         {class, uac},
         {answered, undefined},
@@ -104,7 +107,7 @@ basic() ->
     ] = nksip_subscription:fields(C1, Subs1A, [status, event, class, answered, expires]),
 
     [
-        {status, neutral},
+        {status, start},
         {parsed_event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
         {class, uas},
         {answered, undefined},
@@ -122,10 +125,9 @@ basic() ->
 
     ok = tests_util:wait(Ref, [
             {subs, Subs1B, started}, 
-            {subs, Subs1B, neutral}, 
-            {subs, Subs1B, middle_timer}
-        ]),
-    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, timeout}}]),
+            {subs, Subs1B, middle_timer},
+            {subs, Subs1B, {terminated, timeout}}
+    ]),
     timer:sleep(100),
 
     error = nksip_subscription:field(C1, Subs1A, status),
@@ -138,7 +140,7 @@ basic() ->
                                         {headers, [RepHd]}]),
  
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
-    ok = tests_util:wait(Ref, [{subs, Subs2B, started}, {subs, Subs2B, neutral}]),
+    ok = tests_util:wait(Ref, [{subs, Subs2B, started}]),
 
     Dialog2A = nksip_subscription:dialog_id(Subs2A),
     sipapp_endpoint:start_events(C1, Ref, Self, Dialog2A),
@@ -174,14 +176,65 @@ ok = tests_util:wait(Ref, [
     ok.
 
 
+refresh() ->
+    C1 = {event, client1},
+    C2 = {event, client2},
+    SipC2 = "sip:127.0.0.1:5070",
+    Ref = make_ref(),
+    Self = self(),
+    Hds = [
+        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+        {"Nk-Op", "expires-2"}
+    ],
+    {ok, 200, [{subscription_id, Subs1A}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
+                                        {headers, [Hds]}]),
+    Subs1B = nksip_subscription:remote_id(C1, Subs1A),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, []),
+
+    % 2xx response to subscribe has changed timeout to 2 secs
+    2 = nksip_subscription:field(C1, Subs1A, expires),
+    2 = nksip_subscription:field(C2, Subs1B, expires),
+    ok = tests_util:wait(Ref, [
+        {subs, Subs1B, started},
+        {subs, Subs1B, active},
+        {subs, Subs1B, middle_timer}
+    ]),
+
+    % We send a refresh, changing timeout to 20 secs
+    {ok, 200, [{subscription_id, Subs1A}]} = 
+        nksip_uac:subscribe(C1, Subs1A, [{expires, 20}]),
+    20 = nksip_subscription:field(C1, Subs1A, expires),
+    20 = nksip_subscription:field(C2, Subs1B, expires),
+    
+    % But we finish de dialog
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{state, {terminated, giveup}}]),
+    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, giveup}}]),
+    
+
+    % A new subscription
+    {ok, 200, [{subscription_id, Subs2A}]} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
+                                        {headers, [Hds]}]),
+    Subs2B = nksip_subscription:remote_id(C1, Subs2A),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
+    ok = tests_util:wait(Ref, [{subs, Subs2B, started}, {subs, Subs2B, active}
+    ]),
+
+    % And a refresh with expire=0, actually it is not removed until notify
+    {ok, 200, [{subscription_id, Subs2A}]} = 
+        nksip_uac:subscribe(C1, Subs2A, [{expires, 0}]),
+    % Notify will use status:terminated;reason=timeout automatically
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
+    ok = tests_util:wait(Ref, [{subs, Subs2B, {terminated, timeout}}]),
+    ok.
+
+
 dialog() ->
     C1 = {event, client1},
     C2 = {event, client2},
     SipC2 = "sip:127.0.0.1:5070",
-    _Ref = make_ref(),
-    _Self = self(),
-    
-    % CB = {callback, fun(R) -> Self ! {Ref, R} end},
+
     {ok, 200, [{subscription_id, Subs1A}, {dialog_id, DialogA}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=1"}, {expires, 2}, 
                                         {contact, "sip:a@127.0.0.1"}, 
@@ -265,7 +318,129 @@ dialog() ->
     ok.
 
 
+% Test reception of NOTIFY before SUBSCRIPTION's response
+out_or_order() ->
+    C1 = {event, client1},
+    SipC2 = "sip:127.0.0.1:5070",
+    Self = self(),
+    Ref = make_ref(),
+    Reply = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+
+    CB = {callback, fun(R) -> Self ! {Ref, R} end},
+    {async, _} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
+                                        {headers, [Reply, {"Nk-Op", "wait"}]}, 
+                                        {expires, 2}]),
+
+    % Right after sending the SUBSCRIBE, and before replying with 200
+    RecvReq1 = receive {Ref, {wait, Req1}} -> Req1
+    after 1000 -> error(fork)
+    end,
+
+    % Generate a NOTIFY similar to what C2 would send after 200, simulating
+    % coming to C1 before the 200 response to SUBSCRIBE
+    Notify1 = make_notify(RecvReq1),
+    {ok, 200, []} = nksip_call:send(Notify1, [no_dialog]),
+
+    Subs1A = receive {Ref, {ok, 200, [{subscription_id, S1}]}} -> S1
+    after 5000 -> error(fork)
+    end,
+    Subs1B = nksip_subscription:remote_id(C1, Subs1A),
+
+    receive {Ref, {req, _}} -> ok after 1000 -> error(fork) end,
+
+    % 'active' is not received, the remote party does not see the NOTIFY
+    ok = tests_util:wait(Ref, [
+        {subs, Subs1B, started},
+        {subs, Subs1B, middle_timer},
+        {subs, Subs1B, {terminated, timeout}}
+    ]),
+
+    % Another subscription
+    {async, _} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
+                                        {headers, [Reply, {"Nk-Op", "wait"}]}, 
+                                        {expires, 2}]),
+    RecvReq2 = receive {Ref, {wait, Req2}} -> Req2
+    after 1000 -> error(fork)
+    end,
+    % If we use another FromTag, it is not accepted
+    RecvReq3 = RecvReq2#sipmsg{
+        from = (RecvReq2#sipmsg.from)#uri{ext_opts=[{<<"tag">>, <<"a">>}]},
+        from_tag = <<"a">>
+    },
+    Notify3 = make_notify(RecvReq3),
+    {ok, 481, []} = nksip_call:send(Notify3, [no_dialog]),
+    ok.
 
 
+fork() ->
+    C1 = {event, client1},
+    C2 = {event, client2},
+    SipC2 = "sip:127.0.0.1:5070",
+    Self = self(),
+    Ref = make_ref(),
+    Reply = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    CB = {callback, fun(R) -> Self ! {Ref, R} end},
 
+    {async, _} = 
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
+                                        {headers, [Reply, {"Nk-Op", "wait"}]}, 
+                                        {expires, 2}]),
+
+    % Right after sending the SUBSCRIBE, and before replying with 200
+    RecvReq1 = receive {Ref, {wait, Req1}} -> Req1
+    after 1000 -> error(fork)
+    end,
+    #sipmsg{call_id=CallId} = RecvReq1,
+
+    % Generate a NOTIFY similar to what C2 would send after 200, simulating
+    % coming to C1 before the 200 response to SUBSCRIBE
+    Notify1 = make_notify(RecvReq1#sipmsg{to_tag_candidate = <<"a">>}),
+    {ok, 200, []} = nksip_call:send(Notify1, [no_dialog]),
+
+    Notify2 = make_notify(RecvReq1#sipmsg{to_tag_candidate = <<"b">>}),
+    {ok, 200, []} = nksip_call:send(Notify2, [no_dialog]),
+
+    SubsA = receive {Ref, {ok, 200, [{subscription_id, S1}]}} -> S1
+    after 5000 -> error(fork)
+    end,
+
+    receive {Ref, {req, _}} -> ok after 1000 -> error(fork) end,
+
+    SubsB = nksip_subscription:remote_id(C1, SubsA),
+    {ok, 200, []} = nksip_uac:notify(C2, SubsB, []),
+
+    Notify4 = make_notify(RecvReq1#sipmsg{to_tag_candidate = <<"c">>}),
+    {ok, 200, []} = nksip_call:send(Notify4, [no_dialog]),
+
+    % We have created four dialogs, each one with one subscription
+    [D1, D2, D3, D4] = nksip_dialog:get_all(C1, CallId),
+    [_] = nksip_dialog:field(C1, D1, subscriptions),
+    [_] = nksip_dialog:field(C1, D2, subscriptions),
+    [_] = nksip_dialog:field(C1, D3, subscriptions),
+    [_] = nksip_dialog:field(C1, D4, subscriptions),
+
+    {ok, 200, []} = nksip_uac:notify(C2, SubsB, [{state, {terminated, giveup}}]),
+    ok.
+
+
+make_notify(#sipmsg{to_tag_candidate=ToTag}=Req) ->
+    Req#sipmsg{
+        id = nksip_sipmsg:make_id(req, Req#sipmsg.call_id),
+        class = {req, 'NOTIFY'},
+        ruri = hd(nksip_parse:uris("sip:127.0.0.1")),
+        vias = [],
+        from = (Req#sipmsg.to)#uri{ext_opts=[{<<"tag">>, ToTag}]},
+        to = Req#sipmsg.from,
+        cseq = Req#sipmsg.cseq+1,
+        cseq_method = 'NOTIFY',
+        routes = [],
+        contacts = nksip_parse:uris("sip:127.0.0.1:5070"),
+        expires = 0,
+        headers = [{<<"Subscription-State">>, <<"active;expires=5">>}],
+        from_tag = ToTag,
+        to_tag = Req#sipmsg.from_tag,
+        transport = undefined
+    }.
 

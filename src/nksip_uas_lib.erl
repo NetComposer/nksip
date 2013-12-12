@@ -324,6 +324,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             end;
         _ when Method=='SUBSCRIBE', is_integer(ReqExpires), Code>=200, Code<300 -> 
             ReqExpires;
+        _ when Method=='SUBSCRIBE' ->
+            ?DEFAULT_EVENT_EXPIRES;
         _ ->
             undefined
     end,

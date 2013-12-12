@@ -37,14 +37,8 @@
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
     {ok, nksip_call:call()} | {error, Error}
-    when Error :: request_pending | retry | old_cseq | no_transaction | bad_event.
+    when Error :: request_pending | retry | old_cseq | no_transaction.
 
-
-request(#sipmsg{class={req, 'SUBSCRIBE'}, to_tag=(<<>>)}=Req, Call) ->
-    nksip_call_event:uas_pre_request(Req, Call);
-
-request(#sipmsg{to_tag = <<>>}, Call) ->
-    {ok, Call};
 
 request(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     ack(Req, Call);
@@ -60,6 +54,11 @@ request(Req, Call) ->
                 false -> 
                     Dialog1 = Dialog#dialog{remote_seq=CSeq},
                     do_request(Method, Req, Dialog1, Call)
+            end;
+        not_found when Method=='NOTIFY' ->
+            case nksip_call_event:is_event(Req, Call) of
+                true -> {ok, Call};
+                false -> {error, no_transaction}
             end;
         not_found -> 
             {error, no_transaction}
@@ -194,7 +193,8 @@ response(Req, Resp, Call) ->
             },
             Dialog2 = Dialog1#dialog{invite=Invite},
             do_response(Method, Code, Req, Resp, Dialog2, Call);
-        not_found when Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' ->
+        not_found when Code>=200 andalso Code<300 andalso 
+                       (Method=='SUBSCRIBE' orelse Method=='NOTIFY') ->
             ?call_debug("Dialog ~s UAS ~p response ~p", 
                         [DialogId, Method, Code], Call),
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
@@ -209,11 +209,18 @@ response(Req, Resp, Call) ->
                   nksip:response(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-do_response(_, Code, _Req, _Resp, Dialog, Call) when Code==408; Code==481 ->
-    nksip_call_dialog:stop(Code, Dialog, Call);
-
 do_response(_, Code, _Req, _Resp, _Dialog, Call) when Code<101 ->
     Call;
+
+%% Full dialog stop reasons (RFC5057)
+do_response(_Method, Code, _Req, _Resp, Dialog, Call) 
+            when Code==404; Code==410; Code==416; Code==482; Code==483; Code==484;
+                 Code==485; Code==502; Code==604 ->
+    nksip_call_dialog:stop(Code, Dialog, Call);
+
+do_response(_Method, Code, _Req, _Resp, #dialog{invite=#invite{}}=Dialog, Call) 
+            when Code==481 ->
+    update({invite, {stop, Code}}, Dialog, Call);
 
 do_response('INVITE', Code, Req, Resp, 
             #dialog{invite=#invite{status=proceeding_uas}=Invite}=Dialog, Call) 

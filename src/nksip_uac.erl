@@ -771,13 +771,14 @@ stun(AppId, UriSpec, _Opts) ->
 %% Internal
 %% ===================================================================
 
--spec send_any(nksip:app_id(), nksip:method(), nksip:user_uri()|dialog_spec(), 
+-spec send_any(nksip:app_id(), nksip:method(), 
+               nksip:user_uri()|dialog_spec()|subscription_spec(),
                nksip_lib:proplist()) ->
     result() | ack_result() | {error, error()}.
 
 send_any(AppId, Method, UriOrDialog, Opts) ->
     case UriOrDialog of
-        <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D ->
+        <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
             send_dialog(AppId, Method, UriOrDialog, Opts);
         UserUri ->
             nksip_call:send(AppId, Method, UserUri, Opts)

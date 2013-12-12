@@ -70,32 +70,6 @@ request(Req, Opts, From, Call) ->
 
 
 %% @private
--spec resend_auth(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-resend_auth(Req, UAC, Call) ->
-     #trans{
-        id = Id,
-        status = Status,
-        opts = Opts,
-        method = Method, 
-        iter = Iter,
-        from = From
-    } = UAC,
-    #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
-    #sipmsg{vias=[_|Vias]} = Req,
-    ?call_debug("UAC ~p ~p (~p) resending authorized request", 
-                [Id, Method, Status], Call),
-    {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
-    Req1 = Req#sipmsg{vias=Vias, cseq=CSeq},
-    % Req2 = nksip_transport_uac:add_via(Req1, GlobalId, AppOpts),
-    Opts1 = nksip_lib:delete(Opts, make_contact),
-    {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),
-    NewUAC1 = NewUAC#trans{iter=Iter+1},
-    send(Method, NewUAC1, update(NewUAC1, Call2)).
-    
-
-%% @private
 -spec new_uac(nksip:request(), nksip_lib:proplist(), uac_from(), nksip_call:call()) ->
     {nksip_call:trans(), nksip_call:call()}.
 
@@ -131,6 +105,33 @@ new_uac(Req, Opts, From, Call) ->
 
 
 %% @private
+-spec resend_auth(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+resend_auth(Req, UAC, Call) ->
+     #trans{
+        id = Id,
+        status = Status,
+        opts = Opts,
+        method = Method, 
+        iter = Iter,
+        from = From
+    } = UAC,
+    #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
+    #sipmsg{vias=[_|Vias]} = Req,
+    ?call_debug("UAC ~p ~p (~p) resending authorized request", 
+                [Id, Method, Status], Call),
+    {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
+    Req1 = Req#sipmsg{vias=Vias, cseq=CSeq},
+    % Req2 = nksip_transport_uac:add_via(Req1, GlobalId, AppOpts),
+    Opts1 = nksip_lib:delete(Opts, make_contact),
+    {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),
+    NewUAC1 = NewUAC#trans{iter=Iter+1},
+    send(Method, NewUAC1, update(NewUAC1, Call2)).
+    
+
+
+%% @private
 -spec send(nksip:method(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
@@ -149,10 +150,13 @@ send('ACK', UAC, Call) ->
 
 send(_, UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
+    #sipmsg{to_tag=ToTag} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     NoDialog = lists:member(no_dialog, Opts),
     TestDialog = case NoDialog of
         true -> 
+            ok;
+        false when ToTag == <<>> ->
             ok;
         false -> 
             OnlyUpdate = lists:member(update_dialog, Opts),
@@ -209,7 +213,11 @@ sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
     update(UAC1, Call2);
 
 sent_request(Req, UAC, Call) ->
-    #sipmsg{class={req, Method}, transport=#transport{proto=Proto}} = Req,
+    #sipmsg{
+        class = {req, Method}, 
+        to_tag = ToTag, 
+        transport = #transport{proto=Proto}
+    } = Req,
     #trans{id=Id, opts=Opts} = UAC,
     ?call_debug("UAC ~p sent ~p request", [Id, Method], Call),
     UAC1 = UAC#trans{
@@ -217,34 +225,42 @@ sent_request(Req, UAC, Call) ->
         proto = Proto,
         trans_id = nksip_call_uac:transaction_id(Req)
     },
-    Call1 = case lists:member(no_dialog, Opts) of
-        true -> Call;
-        false -> nksip_call_uac_dialog:request(Req, Call)
+    Call1 = update(UAC1, Call),
+    Call2 = case lists:member(no_dialog, Opts) of
+        true -> Call1;
+        false when ToTag == <<>> -> Call1;
+        false -> nksip_call_uac_dialog:request(Req, Call1)
     end,
-    Call2 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call1),
-    UAC2 = sent_method(Method, UAC1, Call2),
-    update(UAC2, Call2).
+    Call3 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call2),
+    sent_update(Req, UAC1, Call3).
 
 
 %% @private 
--spec sent_method(nksip:method(), nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:trans().
+-spec sent_update(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
 
-sent_method('INVITE', #trans{proto=Proto}=UAC, Call) ->
+sent_update(#sipmsg{class={req, 'INVITE'}}, #trans{proto=Proto}=UAC, Call) ->
     UAC1 = UAC#trans{status=invite_calling},
     UAC2 = nksip_call_lib:expire_timer(expire, UAC1, Call),
     UAC3 = nksip_call_lib:timeout_timer(timer_b, UAC2, Call),
-    case Proto of 
+    UAC4 = case Proto of 
         udp -> nksip_call_lib:retrans_timer(timer_a, UAC3, Call);
         _ -> UAC3
-    end;
+    end,
+    update(UAC4, Call);
 
-sent_method(_Other, #trans{proto=Proto}=UAC, Call) ->
+sent_update(#sipmsg{class={req, Method}}=Req, #trans{proto=Proto}=UAC, Call) ->
     UAC1 = UAC#trans{status=trying},
     UAC2 = nksip_call_lib:timeout_timer(timer_f, UAC1, Call),
-    case Proto of 
+    UAC3 = case Proto of 
         udp -> nksip_call_lib:retrans_timer(timer_e, UAC2, Call);
         _ -> UAC2
-    end.
+    end,
+    Call1 = case Method=='SUBSCRIBE' andalso Req#sipmsg.to_tag == <<>> of
+        true -> nksip_call_event:create_event(Req, Call);
+        false -> Call
+    end,
+    update(UAC3, Call1).
+
     
 
