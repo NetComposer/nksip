@@ -347,6 +347,23 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
     end.
 
 
+% make(Uri) ->
+%     case nksip_parse:uris(Uri) of
+%         [#uri{opts=Opts1, headers=Headers}] ->
+%             {Method, Opts2} = case lists:keytake(<<"method">>, 1, Opts1) of
+%                 {value, {_, RawMethod}, Rest1} ->
+%                     {nksip_parse:method(RawMethod), Rest1};
+%                 false ->
+%                     {'INVITE', Opts1}
+%             end,
+%         _ ->
+%             {error, invalid_uri}    
+%     end.
+
+
+
+
+
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
 -spec make_cancel(nksip:request()) ->
     nksip:request().
