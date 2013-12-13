@@ -97,8 +97,8 @@ put_opts(AppId, Opts) ->
 
 
 %% @private Calls a function in the siapp's callback module.
-%% Args1 are used in case of inline callback. Args2 in case of normal (with state)
-%% callback.
+%% Args1 are used in case of inline callback. 
+%% Args2 in case of normal (with state) callback.
 -spec sipapp_call(nksip:app_id(), atom(), atom(), list(), list(), nksip_from()) ->
     {reply, term()} | async | not_exported | error.
 

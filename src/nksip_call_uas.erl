@@ -22,7 +22,7 @@
 -module(nksip_call_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([timer/3, terminate_request/2, transaction_id/1, app_call/4]).
+-export([timer/3, terminate_request/2, transaction_id/1, app_call/4, app_cast/4]).
 -export_type([status/0, id/0]).
 
 -import(nksip_call_lib, [update/2]).
@@ -156,12 +156,8 @@ reply(Reply, UAS, Call) ->
 -spec terminate_request(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-terminate_request(#trans{status=Status, from=From}=UAS, Call)
+terminate_request(#trans{status=Status}=UAS, Call)
                   when Status==authorize; Status==route ->
-    case From of
-        {fork, _ForkId} -> ok;
-        _ -> app_cast(cancel, [], UAS, Call)
-    end,
     UAS1 = UAS#trans{cancel=cancelled},
     Call1 = update(UAS1, Call),
     reply(request_terminated, UAS1, Call1);
@@ -171,7 +167,6 @@ terminate_request(#trans{status=invite_proceeding, from=From}=UAS, Call) ->
         {fork, ForkId} -> 
             nksip_call_fork:cancel(ForkId, Call);
         _ ->  
-            app_cast(cancel, [], UAS, Call),
             UAS1 = UAS#trans{cancel=cancelled},
             Call1 = update(UAS1, Call),
             reply(request_terminated, UAS1, Call1)
@@ -191,8 +186,8 @@ app_call(Fun, Args, UAS, Call) ->
     ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
                 [Id, Method, Status, Fun, Args], Call),
     From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
-    Args1 = Args ++ [Req],
-    Args2 = Args ++ [Req#sipmsg.id],
+    Args1 = [Req | Args],
+    Args2 = [Req#sipmsg.id | Args],
     case 
         nksip_sipapp_srv:sipapp_call(AppId, Module, Fun, Args1, Args2, From)
     of
@@ -217,8 +212,8 @@ app_cast(Fun, Args, UAS, Call) ->
     #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
     ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p", 
                 [Id, Method, Status, Fun], Call),
-    Args1 = Args ++ [Req],
-    Args2 = Args ++ [Req#sipmsg.id],
+    Args1 = [Req | Args],
+    Args2 = [Req#sipmsg.id | Args],
     nksip_sipapp_srv:sipapp_cast(AppId, Module, Fun, Args1, Args2),
     Call.
 

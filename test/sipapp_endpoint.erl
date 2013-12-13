@@ -24,8 +24,9 @@
 -behaviour(nksip_sipapp).
 
 -export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
--export([init/1, get_user_pass/3, authorize/4, route/6, options/3, invite/3, reinvite/3,
-        cancel/3, ack/3, bye/3, info/3, subscribe/3, notify/3, message/3]).
+-export([init/1, get_user_pass/3, authorize/4, route/6]).
+-export([options/4, invite/4, reinvite/4, ack/4, bye/4, info/4, subscribe/4, 
+         resubscribe/4, notify/4, message/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -81,7 +82,7 @@ get_user_pass(_User, _Realm, State) ->
 
 % Authorization is only used for "auth" suite
 % client3 doesn't support dialog authorization
-authorize(Auth, _ReqId, _From, #state{id={auth, Id}}=State) ->
+authorize(_ReqId, Auth, _From, #state{id={auth, Id}}=State) ->
     case Id=/=client3 andalso lists:member(dialog, Auth) of
         true ->
             {reply, true, State};
@@ -93,27 +94,27 @@ authorize(Auth, _ReqId, _From, #state{id={auth, Id}}=State) ->
                 undefined -> {reply, {authenticate, BinId}, State} % No auth header
             end
     end;
-authorize(_Auth, _ReqId, _From, State) ->
+authorize(_ReqId, _Auth, _From, State) ->
     {reply, ok, State}.
 
 
-route(_Scheme, _User, _Domain, _ReqId, _From, #state{id={speed, client1}}=SD) ->
+route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={speed, client1}}=SD) ->
     {reply, {process, [stateless]}, SD};
 
-route(_Scheme, _User, _Domain, _ReqId, _From, #state{id={speed, client2}}=SD) ->
+route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={speed, client2}}=SD) ->
     {reply, process, SD};
 
-route(_Scheme, _User, _Domain, _ReqId, _From, #state{id={uas, client1}}=SD) ->
+route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={uas, client1}}=SD) ->
     timer:sleep(50),
     {reply, process, SD};
 
-route(_Scheme, _User, _Domain, _ReqId, _From, SD) ->
+route(_ReqId, _Scheme, _User, _Domain, _From, SD) ->
     {reply, process, SD}.
 
 
 % For OPTIONS requests, we copy in the response "Nk" headers and "Nk-Id" headers
 % adding our own id, and "Nk-R" header with the received routes 
-options(ReqId, _From, #state{id={_, Id}=AppId}=State) ->
+options(ReqId, _Meta, _From, #state{id={_, Id}=AppId}=State) ->
     Values = nksip_request:header(AppId, ReqId, <<"Nk">>),
     Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
     Routes = nksip_request:header(AppId, ReqId, <<"Route">>),
@@ -131,14 +132,14 @@ options(ReqId, _From, #state{id={_, Id}=AppId}=State) ->
     end,
     {reply, {ok, lists:flatten(Hds)}, State};
 
-options(_ReqId, _From, State) ->
+options(_ReqId, _Meta, _From, State) ->
     {reply, ok, State}.
 
 
 
 % INVITE for auth tests
-invite(ReqId, _From, #state{id={auth, _}=AppId, dialogs=Dialogs}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
+invite(ReqId, Meta, _From, #state{id={auth, _}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
         [RepBin] -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
@@ -151,8 +152,8 @@ invite(ReqId, _From, #state{id={auth, _}=AppId, dialogs=Dialogs}=State) ->
 % INVITE for fork tests
 % Adds Nk-Id header
 % Gets operation from body
-invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
+invite(ReqId, Meta, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
     Hds = [{<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}],
     case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
@@ -163,7 +164,7 @@ invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
             Ref = Pid = none,
             State1 = State
     end,
-    case nksip_request:body(AppId, ReqId) of
+    case nksip_lib:get_value(body, Meta) of
         Ops when is_list(Ops) ->
             proc_lib:spawn(
                 fun() ->
@@ -192,15 +193,15 @@ invite(ReqId, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
     end;
 
 % INVITE for event test
-invite(_ReqId, _From, #state{id={event, _}}=State) ->
+invite(_ReqId, _Meta, _From, #state{id={event, _}}=State) ->
     {reply, ok, State};
 
 % INVITE for basic, uac, uas, invite and proxy test
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
-invite(ReqId, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
+invite(ReqId, Meta, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     Values = nksip_request:header(AppId, ReqId, <<"Nk">>),
     Routes = nksip_request:header(AppId, ReqId, <<"Route">>),
     Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
@@ -259,12 +260,12 @@ invite(ReqId, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
 
 
 
-reinvite(ReqId, From, State) ->
-    invite(ReqId, From, State).
+reinvite(ReqId, Meta, From, State) ->
+    invite(ReqId, Meta, From, State).
 
 
-ack(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
+ack(ReqId, Meta, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
@@ -280,11 +281,8 @@ ack(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     {reply, ok, State}.
 
 
-cancel(_ReqId, _From, State) ->
-    {reply, true, State}.
-
-bye(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
+bye(_ReqId, Meta, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> ok;
         {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, bye}}
@@ -292,13 +290,13 @@ bye(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     {reply, ok, State}.
 
 
-info(ReqId, _From, #state{id=AppId}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
+info(ReqId, _Meta, _From, #state{id=AppId}=State) ->
+    DialogId = nksip_request:dialog_id(AppId, ReqId),
     {reply, {ok, [{"Nk-Method", "info"}, {"Nk-Dialog", DialogId}]}, State}.
 
 
-subscribe(ReqId, From, #state{id=AppId, dialogs=Dialogs}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
+subscribe(ReqId, Meta, From, #state{id=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
         [Op0] -> Op0;
         _ -> <<"ok">>
@@ -328,9 +326,12 @@ subscribe(ReqId, From, #state{id=AppId, dialogs=Dialogs}=State) ->
 
     end.
 
-notify(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
-    DialogId = nksip_dialog:id(AppId, ReqId),
-    Body = nksip_request:body(AppId, ReqId),
+resubscribe(_ReqId, _Meta, _From, State) ->
+    {reply, ok, State}.
+
+notify(_ReqId, Meta, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
+    Body = nksip_lib:get_value(body, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> none;
         {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, notify, Body}}
@@ -338,7 +339,8 @@ notify(ReqId, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     {reply, ok, State}.
 
 
-message(ReqId, _From, #state{id=AppId}=State) ->
+message(ReqId, _Meta, _From, #state{id=AppId}=State) ->
+    % We could also use info in Meta
     case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),

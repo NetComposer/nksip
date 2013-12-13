@@ -24,7 +24,7 @@
 -behaviour(nksip_sipapp).
 
 -export([start/2, stop/1]).
--export([init/1, options/2, invite/2, reinvite/2, cancel/1, ack/2, bye/2, info/2]).
+-export([init/1, options/3, invite/3, reinvite/3, cancel/2, ack/3, bye/3, info/3]).
 -export([dialog_update/2, session_update/2]).
 
 -include("../include/nksip.hrl").
@@ -43,7 +43,7 @@ stop(AppId) ->
 init([]) ->
     {ok, []}.
 
-invite(Req, From) ->
+invite(Req, _Meta, From) ->
     send_reply(Req, invite),
     case nksip_sipmsg:header(Req, <<"Nk-Op">>) of
         [<<"wait">>] ->
@@ -58,27 +58,27 @@ invite(Req, From) ->
             {ok, [], nksip_sipmsg:field(Req, body)}
     end.
 
-reinvite(Req, _From) ->
+reinvite(Req, _Meta, _From) ->
     send_reply(Req, reinvite),
-     {ok, [], nksip_sipmsg:field(Req, body)}.
+    {ok, [], nksip_sipmsg:field(Req, body)}.
 
-cancel(Req) ->
+cancel(Req, _Meta) ->
     send_reply(Req, cancel),
     ok.
 
-bye(Req, _From) ->
+bye(Req, _Meta, _From) ->
     send_reply(Req, bye),
     ok.
 
-info(Req, _From) ->
+info(Req, _Meta, _From) ->
     send_reply(Req, info),
     ok.
 
-ack(Req, _From) ->
+ack(Req, _Meta, _From) ->
     send_reply(Req, ack),
     ok.
 
-options(Req, From) ->
+options(Req, _Meta, From) ->
     send_reply(Req, options),
     spawn(
         fun() ->
@@ -111,7 +111,8 @@ session_update(Dialog, State) ->
 send_reply(Elem, Msg) ->
     AppId = case Elem of
         #sipmsg{} -> nksip_sipmsg:field(Elem, app_id);
-        #dialog{} -> nksip_dialog:field(Elem, app_id)
+        #dialog{} -> nksip_dialog:field(Elem, app_id);
+        _ -> lager:error("ELEM: ~p", [Msg]), error(a)
     end,
     case nksip_config:get(inline_test) of
         {Ref, Pid} -> Pid ! {Ref, {AppId, Msg}};

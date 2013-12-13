@@ -24,7 +24,7 @@
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, header/2, header/3, make_id/2]).
+-export([field/2, fields/2, named_fields/2, header/2, header/3, make_id/2]).
 
 -include("nksip.hrl").
 
@@ -47,6 +47,8 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
     case Field of
         id -> S#sipmsg.id;
         app_id -> S#sipmsg.app_id;
+        dialog_id -> dialog_id(S);
+        subscription_id -> nksip_subscription:id(S);
         proto -> T#transport.proto;
         local -> {T#transport.proto, T#transport.local_ip, T#transport.local_port};
         remote -> {T#transport.proto, T#transport.remote_ip, T#transport.remote_port};
@@ -84,8 +86,8 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_require -> S#sipmsg.require;
         supported -> nksip_unparse:token(S#sipmsg.supported);
         parsed_supported -> S#sipmsg.supported;
+        allow -> header(S, <<"Allow">>);
         body -> S#sipmsg.body;
-        dialog_id -> S#sipmsg.dialog_id;
         expires -> case S#sipmsg.expires of undefined -> <<>>; Exp -> Exp end;
         parsed_expires -> S#sipmsg.expires;
         event -> 
@@ -120,10 +122,9 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
                 
                     undefined
             end;
-        _ when is_binary(Field) -> 
-            header(S, Field);
-        _ -> 
-            invalid_field 
+        _ when is_binary(Field) -> header(S, Field);
+        {value, _Name, Value} -> Value;
+        _ -> invalid_field 
     end.
 
 
@@ -134,6 +135,23 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
 
 fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
     [field(SipMsg, Field) || Field <- Fields].
+
+
+%% @doc Extracts a group of fields from a #sipmsg.
+-spec named_fields(nksip:request()|nksip:response(), [field()]) ->
+    [term()].
+
+named_fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
+    [
+        {
+            case Field of 
+                {value, Name, _} -> Name;
+                _ -> Field
+            end,
+            field(SipMsg, Field)
+        } 
+        || Field <- Fields
+    ].
 
 
 %% @doc Extracts a header from a #sipmsg.
@@ -230,6 +248,23 @@ make_id(Class, CallId) ->
         $_,
         CallId/binary
     >>.
+
+
+%% @private
+dialog_id(#sipmsg{class={req, Method}, to_tag=ToTag, dialog_id=DialogId}) ->
+    case ToTag of
+        <<>> when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY' ->
+            DialogId;
+        <<>> ->
+            <<>>;
+        _ ->
+            DialogId
+    end;
+
+dialog_id(#sipmsg{class={resp, _, _}, dialog_id=DialogId}) ->
+    DialogId.
+
+
 
 
 

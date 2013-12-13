@@ -76,7 +76,7 @@ get_user_pass(_User, _Realm, State) ->
 %% 4) If no digest header is present, reply with a 407 response sending 
 %%    a challenge to the user.
 %%
-authorize(Auth, _ReqId, _From, State) ->
+authorize(_ReqId, Auth, _From, State) ->
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
             {reply, true, State};
@@ -102,7 +102,7 @@ authorize(Auth, _ReqId, _From, State) ->
 %% - If it has user part, and domain is "nksip", find if it is registered and proxy.
 %%   For other domain, proxy the request.
 %%
-route(_Scheme, <<>>, Domain, ReqId, _From, #state{id=AppId}=State) ->
+route(ReqId, _Scheme, <<>>, Domain, _From, #state{id=AppId}=State) ->
     Reply = case Domain of
         <<"nksip">> ->
             process;
@@ -114,7 +114,7 @@ route(_Scheme, <<>>, Domain, ReqId, _From, #state{id=AppId}=State) ->
     end,
     {reply, Reply, State};
 
-route(Scheme, User, Domain, _ReqId, _From, #state{id=Id}=State) ->
+route(_ReqId, Scheme, User, Domain, _From, #state{id=Id}=State) ->
     Reply = case Domain of
         <<"nksip">> ->
             UriList = nksip_registrar:find(Id, Scheme, User, <<"nksip">>),

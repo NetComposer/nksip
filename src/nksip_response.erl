@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 
 -export([field/3, fields/3, header/3]).
--export([body/2, code/2, reason/2, call_id/1, get_response/2, wait_491/0]).
+-export([body/2, code/2, reason/2, dialog_id/2, call_id/1, get_response/2, wait_491/0]).
 -export_type([id/0, field/0]).
 
 
@@ -125,6 +125,14 @@ reason(AppId, RespId) ->
 
 body(AppId, RespId) -> 
     field(AppId, RespId, body).
+
+
+%% @doc Gets the <i>dialog_id</i> of a request.
+-spec dialog_id(nksip:app_id(), id()) ->
+    nksip_dialog:id() | error.
+
+dialog_id(AppId, ReqId) -> 
+    field(AppId, ReqId, dialog_id).
 
 
 %% @doc Gets the calls's id of a response id

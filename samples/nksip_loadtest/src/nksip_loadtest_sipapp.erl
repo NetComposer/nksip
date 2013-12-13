@@ -25,7 +25,7 @@
 -module(nksip_loadtest_sipapp).
 -behaviour(nksip_sipapp).
 
--export([init/1, route/5, invite/2]).
+-export([init/1, route/5, invite/3]).
 
 -define(PROXY_URI, "<sip:127.0.0.1:5061;transport=tcp>").
 
@@ -50,10 +50,10 @@ route(_, <<"proxy_stateful">>, _, _, _) ->
 route(_, <<"proxy_stateless">>, _, _, _) ->
     {proxy, ?PROXY_URI, [stateless]};
 
-route(_Scheme, _User, _Domain, _Request, _From) ->
+route(_Request, _Scheme, _User, _Domain, _From) ->
     process.
 
 %% @doc Answer the call with the same SDP body
-invite(Req, _From) ->
+invite(Req, _Meta, _From) ->
     {ok, [], nksip_sipmsg:field(Req, body)}.
 

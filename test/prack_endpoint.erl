@@ -24,7 +24,7 @@
 -behaviour(nksip_sipapp).
 
 -export([get_sessions/2]).
--export([init/1, invite/3, reinvite/3, ack/3, prack/3]).
+-export([init/1, invite/4, reinvite/4, ack/4, prack/4]).
 -export([dialog_update/3, session_update/3, handle_call/3]).
 
 -include("../include/nksip.hrl").
@@ -51,9 +51,9 @@ init([Id]) ->
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
-invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
+invite(ReqId, Meta, From, #state{id=Id, dialogs=Dialogs}=State) ->
     AppId = {prack, Id},
-    DialogId = nksip_dialog:id(AppId, ReqId),
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
@@ -95,7 +95,7 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
                     timer:sleep(100),
                     nksip:reply(From, busy);
                 <<"rel-prov-answer">> ->
-                    SDP = case nksip_request:body(AppId, ReqId) of
+                    SDP = case nksip_lib:get_value(body, Meta) of
                         #sdp{} = RemoteSDP ->
                             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
                         _ -> 
@@ -109,7 +109,7 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, [], SDP2});
                 <<"rel-prov-answer2">> ->
-                    SDP = case nksip_request:body(AppId, ReqId) of
+                    SDP = case nksip_lib:get_value(body, Meta) of
                         #sdp{} = RemoteSDP ->
                             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
                         _ -> 
@@ -130,13 +130,13 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
     {noreply, State1}.
 
 
-reinvite(ReqId, From, State) ->
-    invite(ReqId, From, State).
+reinvite(ReqId, Meta, From, State) ->
+    invite(ReqId, Meta, From, State).
 
 
-ack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
+ack(ReqId, Meta, _From, #state{id=Id, dialogs=Dialogs}=State) ->
     AppId = {prack, Id},
-    DialogId = nksip_dialog:id(AppId, ReqId),
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
@@ -152,9 +152,9 @@ ack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
     {reply, ok, State}.
 
 
-prack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
+prack(ReqId, Meta, _From, #state{id=Id, dialogs=Dialogs}=State) ->
     AppId = {prack, Id},
-    DialogId = nksip_dialog:id(AppId, ReqId),
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false ->  
             ok;
@@ -162,7 +162,7 @@ prack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
             RAck = nksip_request:field(AppId, ReqId, parsed_rack),
             Pid ! {Ref, {Id, prack, RAck}}
     end,
-    Body = case nksip_request:body(AppId, ReqId) of
+    Body = case nksip_lib:get_value(body, Meta) of
         #sdp{} = RemoteSDP ->
             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(Id)}};
         _ -> 

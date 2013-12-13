@@ -8,6 +8,7 @@ Changelog
 * Reliable provisional responses.
 * UPDATE and MESSAGE methods.
 * Full event support (SUBSCRIBE/NOTIFY).
+* UAS callback functions receive contextual metadata.
 * New options to customize supported extensions and to generate Require and Accept headers.
 * Use of any external store for registrar instead of in-memory built-in.
 * Bug corrections.
