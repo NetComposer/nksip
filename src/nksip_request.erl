@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/3, fields/3, header/3]).
--export([body/2, method/2, call_id/1, get_request/2]).
+-export([body/2, method/2, dialog_id/2, call_id/1, get_request/2]).
 -export([is_local_route/1, is_local_route/2, reply/3, reply/2]).
 -export_type([id/0, field/0]).
 
@@ -333,6 +333,14 @@ method(AppId, ReqId) ->
 
 body(AppId, ReqId) -> 
     field(AppId, ReqId, body).
+
+
+%% @doc Gets the <i>dialog_id</i> of a request.
+-spec dialog_id(nksip:app_id(), id()) ->
+    nksip_dialog:id() | error.
+
+dialog_id(AppId, ReqId) -> 
+    field(AppId, ReqId, dialog_id).
 
 
 %% @private

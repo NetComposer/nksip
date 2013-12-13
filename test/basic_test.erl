@@ -107,12 +107,12 @@ transport() ->
         {fields, [body]}
     ],
     {ok, 200, [{body, RespBody}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
-    % Req1 is the request as received at the remote party
 
+    % Req1 is the request as received at the remote party
     Req1 = binary_to_term(base64:decode(RespBody)),
     [<<"My SIP">>] = nksip_sipmsg:header(Req1, <<"User-Agent">>),
     [<<"<sip:aaa:123>">>,<<"<sips:bbb:321>">>] = 
-        nksip_sipmsg:header(Req1,  <<"Contact">>),
+        nksip_sipmsg:header(Req1, <<"Contact">>),
     Body = nksip_sipmsg:field(Req1, body),
 
     Fields2 = {fields, [parsed_contacts, remote]},

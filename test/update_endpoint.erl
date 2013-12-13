@@ -24,7 +24,7 @@
 -behaviour(nksip_sipapp).
 
 -export([get_sessions/2]).
--export([init/1, invite/3, ack/3, update/3]).
+-export([init/1, invite/4, ack/4, update/4]).
 -export([dialog_update/3, session_update/3, handle_call/3]).
 
 -include("../include/nksip.hrl").
@@ -51,9 +51,9 @@ init([Id]) ->
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
 % Copies all received Nk-Id headers adding our own Id
-invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
+invite(ReqId, Meta, From, #state{id=Id, dialogs=Dialogs}=State) ->
     AppId = {update, Id},
-    DialogId = nksip_dialog:id(AppId, ReqId),
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
@@ -69,7 +69,7 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
         fun() ->
             case Op of
                 <<"basic">> ->
-                    Body = nksip_request:body(AppId, ReqId),
+                    Body = nksip_lib:get_value(body, Meta),
                     SDP1 = nksip_sdp:increment(Body),
                     ok = nksip_request:reply(AppId, ReqId, 
                                                 {rel_ringing, SDP1}),
@@ -86,9 +86,9 @@ invite(ReqId, From, #state{id=Id, dialogs=Dialogs}=State) ->
     {noreply, State1}.
 
 
-ack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
+ack(ReqId, Meta, _From, #state{id=Id, dialogs=Dialogs}=State) ->
     AppId = {update, Id},
-    DialogId = nksip_dialog:id(AppId, ReqId),
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
@@ -104,14 +104,13 @@ ack(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
     {reply, ok, State}.
 
 
-update(ReqId, _From, #state{id=Id, dialogs=Dialogs}=State) ->
-    AppId = {update, Id},
-    DialogId = nksip_dialog:id(AppId, ReqId),
+update(_ReqId, Meta, _From, #state{id=Id, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> ok;
         {DialogId, Ref, Pid} -> Pid ! {Ref, {Id, update}}
     end,
-    Body = case nksip_request:body(AppId, ReqId) of
+    Body = case nksip_lib:get_value(body, Meta) of
         #sdp{} = SDP -> nksip_sdp:increment(SDP);
         _ -> <<>>
     end,        

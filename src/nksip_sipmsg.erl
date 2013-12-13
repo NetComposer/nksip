@@ -86,6 +86,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_require -> S#sipmsg.require;
         supported -> nksip_unparse:token(S#sipmsg.supported);
         parsed_supported -> S#sipmsg.supported;
+        allow -> header(S, <<"Allow">>);
         body -> S#sipmsg.body;
         expires -> case S#sipmsg.expires of undefined -> <<>>; Exp -> Exp end;
         parsed_expires -> S#sipmsg.expires;
@@ -258,7 +259,10 @@ dialog_id(#sipmsg{class={req, Method}, to_tag=ToTag, dialog_id=DialogId}) ->
             <<>>;
         _ ->
             DialogId
-    end.
+    end;
+
+dialog_id(#sipmsg{class={resp, _, _}, dialog_id=DialogId}) ->
+    DialogId.
 
 
 

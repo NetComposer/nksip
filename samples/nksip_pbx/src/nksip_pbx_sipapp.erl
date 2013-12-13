@@ -107,7 +107,7 @@ get_user_pass(_User, _Realm, State) ->
 %%      <li>If no digest header is present, reply with a 407 response sending 
 %%          a challenge to the user.</li>
 %% </ul>
-authorize(Auth, ReqId, _From, State) ->
+authorize(ReqId, Auth, _From, State) ->
     Method = nksip_request:method(pbx, ReqId),
     lager:notice("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
@@ -146,25 +146,25 @@ authorize(Auth, ReqId, _From, State) ->
 %%          when starting the SipApp.</li>
 %% </ul>
 
-route(_Scheme, <<"200">>, _, ReqId, _From, State) ->
+route(ReqId, _Scheme, <<"200">>, _, _From, State) ->
     Reply = {proxy, find_all_except_me(ReqId), [record_route]},
     {reply, Reply, State};
 
-route(_Scheme, <<"201">>, _, ReqId, _From, State) ->
+route(ReqId, _Scheme, <<"201">>, _, _From, State) ->
     All = random_list(find_all_except_me(ReqId)),
     Opts = [{headers, [{<<"Nksip-Server">>, <<"201">>}]}],
     Reply =  {proxy, take_in_pairs(All), Opts},
     {reply, Reply, State};
 
-route(_Scheme, <<"202">>, _, _ReqId, _From, #state{speed=Speed}=State) ->
+route(_ReqId, _Scheme, <<"202">>, _, _From, #state{speed=Speed}=State) ->
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {reply, {proxy, UriList}, State};
 
-route(_Scheme, <<"203">>, _, _ReqId, _From, #state{speed=Speed}=State) ->
+route(_ReqId, _Scheme, <<"203">>, _, _From, #state{speed=Speed}=State) ->
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {reply, {proxy, lists:reverse(UriList)}, State};
 
-route(_Scheme, <<>>, Domain, ReqId, _From, State) ->
+route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
     Reply = case lists:member(Domain, ?DOMAINS) of
         true ->
             process;
@@ -176,7 +176,7 @@ route(_Scheme, <<>>, Domain, ReqId, _From, State) ->
     end,
     {reply, Reply, State};
 
-route(Scheme, User, Domain, _Request, _From, State) ->
+route(_ReqId, Scheme, User, Domain, _From, State) ->
     Reply = case lists:member(Domain, ?DOMAINS) of
         true ->
             UriList = nksip_registrar:find(pbx, Scheme, User, Domain),

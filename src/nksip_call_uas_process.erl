@@ -120,9 +120,14 @@ process_dialog_error(Error, #trans{method=_Method, id=_Id, opts=Opts}=UAS, Call)
     nksip_call:call().
 
 method('INVITE', UAS, Call) ->
+    #trans{request=#sipmsg{to_tag=ToTag}} = UAS,
     Fields = [aor, dialog_id, content_type, body],
     UAS1 = nksip_call_lib:expire_timer(expire, UAS, Call),
-    process_call(invite, Fields, UAS1, update(UAS1, Call));
+    Fun = case ToTag of
+        <<>> -> invite;
+        _ -> reinvite
+    end,
+    process_call(Fun, Fields, UAS1, update(UAS1, Call));
     
 method('ACK', UAS, Call) ->
     Fields = [dialog_id, content_type, body],
@@ -138,7 +143,7 @@ method('INFO', UAS, Call) ->
     process_call(info, Fields, UAS, Call);
     
 method('OPTIONS', UAS, Call) ->
-    Fields = [aor, content_type, body],
+    Fields = [aor, allow, supported, content_type, body],
     process_call(options, Fields, UAS, Call); 
 
 method('REGISTER', UAS, Call) ->
@@ -182,11 +187,18 @@ method('UPDATE', UAS, Call) ->
     process_call(update, Fields, UAS, Call);
     
 method('SUBSCRIBE', UAS, Call) ->
-    Fields = [aor, dialog_id, event, subscription_id],
-    process_call(subscribe, Fields, UAS, Call);
+    #trans{request=#sipmsg{to_tag=ToTag}} = UAS,
+    Fields = [aor, dialog_id, event, subscription_id, parsed_expires],
+    Fun = case ToTag of
+        <<>> -> subscribe;
+        _ -> resubscribe
+    end,
+    process_call(Fun, Fields, UAS, Call);
 
 method('NOTIFY', UAS, Call) ->
-    Fields = [aor, dialog_id, event, subscription_id, notify_status, 
+    #trans{request=Req} = UAS,
+    Status = nksip_subscription:notify_status(Req),
+    Fields = [aor, dialog_id, event, subscription_id, {value, notify_status, Status},
               content_type, body],
     process_call(notify, Fields, UAS, Call);
 
@@ -238,16 +250,17 @@ process_call(Fun, Fields, UAS, Call) ->
     #trans{request=#sipmsg{id=ReqId}=Req, method=Method} = UAS,
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     Meta = nksip_sipmsg:named_fields(Req, Fields),
-    case nksip_call_uas:app_call(Fun, Meta, UAS, Call) of
+    case nksip_call_uas:app_call(Fun, [Meta], UAS, Call) of
         {reply, _} when Method=='ACK' ->
             update(UAS, Call);
         {reply, Reply} ->
             reply(Reply, UAS, Call);
         not_exported when Method=='ACK' ->
             Call;
+        % Not exported and no in-line
         not_exported ->
             Meta1 = [{req, Req}, {app_opts, Opts}],
-            {reply, Reply, _} = apply(nksip_sipapp, Fun, [ReqId, Meta1, []]),
+            {reply, Reply, []} = apply(nksip_sipapp, Fun, [ReqId, Meta1, none, []]),
             reply(Reply, UAS, Call);
         #call{} = Call1 -> 
             Call1

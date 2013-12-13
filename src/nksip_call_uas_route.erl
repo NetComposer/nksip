@@ -65,8 +65,9 @@ reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                     Call1;
                 _ when Fun==invite; Fun==reinvite; Fun==bye; 
                        Fun==options; Fun==register; Fun==info;
-                       Fun==prack; Fun==update; Fun==subscribe;
-                       Fun==notify; Fun==message ->
+                       Fun==prack; Fun==update; Fun==message;
+                       Fun==subscribe; Fun==resubscribe;
+                       Fun==notify ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     {Resp, SendOpts} = nksip_reply:reply(Req, Reply, AppOpts),
                     #sipmsg{class={resp, Code, _Reason}} = Resp,
@@ -119,7 +120,8 @@ check_cancel(#trans{id=Id}=UAS, Call) ->
                         [Id, InvId, Status], Call),
             if
                 Status==authorize; Status==route; Status==invite_proceeding ->
-                    Call1 = reply(ok, UAS, Call),
+                    Call1 = reply(ok, UAS, Call), 
+                    nksip_call_uas:app_cast(cancel, [{req_id, InvId}], UAS, Call),
                     nksip_call_uas:terminate_request(InvUAS, Call1);
                 true ->
                     reply(no_transaction, UAS, Call)

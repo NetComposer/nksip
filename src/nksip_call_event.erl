@@ -287,7 +287,8 @@ update({subscribe, Req, Resp}, Subs, Dialog, Call) ->
 
 update({notify, Req}, Subs, Dialog, Call) ->
     Subs1 = Subs#subscription{last_notify_cseq=Req#sipmsg.cseq},
-    update(notify_status(Req), Subs1, Dialog, Call);
+    Status = nksip_subscription:notify_status(Req),
+    update(Status, Subs1, Dialog, Call);
 
 update({Status, Expires}, Subs, Dialog, Call) 
         when Status==active; Status==pending ->
@@ -544,60 +545,6 @@ store(Subs, Dialog, Call) ->
                 false -> lists:keystore(Id, #subscription.id, Subscriptions, Subs)
             end,
             Dialog#dialog{subscriptions=Subscriptions1}
-    end.
-
-
-%% @private
--spec notify_status(nksip:request()) ->
-    {active|pending, non_neg_integer()} | 
-    {terminated, nksip_subscription:terminated_reason()}.
-
-notify_status(SipMsg) ->
-    case nksip_sipmsg:header(SipMsg, <<"Subscription-State">>, tokens) of
-        [{Status, Opts}] ->
-            case nksip_lib:get_list(<<"expires">>, Opts) of
-                "" -> 
-                    Expires = undefined;
-                Expires0 ->
-                    case catch list_to_integer(Expires0) of
-                        Expires when is_integer(Expires) -> Expires;
-                        _ -> Expires = undefined
-                    end
-            end,
-            case Status of
-                <<"active">> -> 
-                    {active, Expires};
-                <<"pending">> -> 
-                    {pending, Expires};
-                <<"terminated">> ->
-                    Retry = case nksip_lib:get_value(<<"retry_after">>, Opts) of
-                        undefined ->
-                            undefined;
-                        Retry0 ->
-                            case nksip_lib:to_integer(Retry0) of
-                                Retry1 when is_integer(Retry1), Retry1>=0 -> Retry1;
-                                _ -> undefined
-                            end
-                    end, 
-                    case nksip_lib:get_value(<<"reason">>, Opts) of
-                        undefined -> 
-                            {terminated, undefined};
-                        Reason0 ->
-                            Reason1 = case catch 
-                                binary_to_existing_atom(Reason0, latin1) 
-                            of
-                                {'EXIT', _} -> undefined;
-                                probation -> {probation, Retry};
-                                giveup -> {giveup, Retry};
-                                Reason -> Reason
-                            end,
-                            {terminated, Reason1}
-                    end;
-                _ ->
-                    {terminated, undefined}
-            end;
-        _ ->
-            {terminated, undefined}
     end.
 
 

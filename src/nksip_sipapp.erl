@@ -24,7 +24,7 @@
 %% here, along with the default implementation of each one.
 %%
 %% Every <b>SipApp</b> must define a <i>callback module</i>, using this module's behaviour. 
-%% This behaviour works in a very similar way to any standard Erlang `gen_server''s 
+%% This behaviour works in a very similar way to any standard Erlang `gen_server' 
 %% callback module, but only {@link init/1} is mandatory.
 %%
 %% Depending on the phase of the request processing, different functions will be called. 
@@ -68,7 +68,7 @@
 %% Some of the callback functions allow the SipApp to send a response back
 %% to the calling party. See the available responses in {@link nksip_reply}.
 %%
-%% The usual call order is the following:
+%% A typical call order would be the following:
 %% <ol>
 %%  <li>When starting the SipApp, {@link init/1} is called to initialize the 
 %%      application state.</li>
@@ -113,31 +113,34 @@
 %% so in case of doubt follow this recommendation.
 %%
 %% Many of the callback functions receive a `RequesId' ({@link nksip_request:id()}) 
-%% object as first parameter, representing a pointer to the actual request. You can
-%% use the helper funcions in {@link nksip_request} to extract any information from it,
-%% and, it it is liked to a dialog, the functions in {@link nksip_dialog}.
+%% and a `Meta' (a list of properties) parameters.
+%% Depending on the function, `Meta' will contain the most useful parameters you
+%% will need to process the request (like de content-type and body). 
+%% You can use `ReqId' to obtain any oher parameter from the request or dialog, 
+%% using the helper funcions in {@link nksip_request} and {@link nksip_dialog}.
 %%
 %% <b>Inline functions</b>
 %%
-%% NkSIP offers another option for defining callback functions. Most of them have
-%% an <i>inline</i> form. If defined, it will be called instead of the <i>normal</i> form.
+%% NkSIP offers another option for defining callback functions. Many of them have
+%% an <i>inline</i> form, which, if defined, it will be called instead of 
+%% the <i>normal</i> form.
 %%
 %% Inline functions have the same name of normal functions, but they don't have the
-%% `State' parameter. They are called in-process, inside the call processing process and
+%% last `State' parameter. 
+%% They are called in-process, inside the call processing process and
 %% not from the SipApp's process like the normal functions.
 %%
 %% Inline functions are much quicker, but they can't modify the SipApp state. 
-%% They received a full {@link nksip:request()} object instead of a request's id, 
-%% so they must use the functions in {@link nksip_sipmsg} instead of 
-%% {@link nksip_request}.
+%% They received a full {@link nksip:request()} object in `Meta', so it can use
+%% the functions in {@link nksip_sipmsg} to process it.
 %% See `inline_test' for an example of use
 
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, get_user_pass/3, authorize/4, route/6, invite/3, reinvite/3, cancel/2, 
-         ack/3, bye/3, options/3, register/3, info/3, prack/3, update/3,
-         subscribe/3, notify/3, message/3]).
+-export([init/1, get_user_pass/3, authorize/4, route/6]).
+-export([invite/4, reinvite/4, cancel/3, ack/4, bye/4, options/4, register/4]).
+-export([info/4, prack/4, update/4, subscribe/4, resubscribe/4, notify/4, message/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([registrar_store/3]).
@@ -166,6 +169,10 @@
     {noreply, State::term()} |
     {noreply, State::term(), Timeout::timeout()} |
     {stop, Reason::term(), State::term()}.
+
+-type meta() ::
+    nksip_lib:proplist().
+
 
 
 %% ===================================================================
@@ -269,11 +276,11 @@ get_user_pass(_User, _Realm, State) ->
 %% previous registration and/or dialog authentication. 
 %% If you don't define this function all requests will be authenticated.
 %%
--spec authorize(AuthList, ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec authorize(ReqId::nksip_request:id(), AuthList, From::from(), State::term()) ->
     call_reply(ok | authenticate | proxy_authenticate | forbidden)
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
 
-authorize(_AuthList, _ReqId, _From, State) ->
+authorize(_ReqId, _AuthList, _From, State) ->
     {reply, ok, State}.
 
 
@@ -356,32 +363,31 @@ authorize(_AuthList, _ReqId, _From, State) ->
     {response, nksip:sipreply()} | 
     {response, nksip:sipreply(), nksip_lib:proplist()}.
 
--spec route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
-            ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec route(ReqId::nksip_request:id(), Scheme::nksip:scheme(), 
+            User::binary(), Domain::binary(), From::from(), State::term()) ->
     call_reply(route_reply()).
 
-route(_Scheme, _User, _Domain, _ReqId, _From, State) ->
+route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
     {reply, process, State}.
 
 
 %% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
 %%
+%% `Meta' will include at least the following parameters: aor, dialog_id, content_type
+%% and body (see {@link nksip_request} for details). If content-type is 
+%% `application/sdp' the body will be decoded as a {@link nksip_sdp:sdp()} object
+%% you can manage with the functions in {@link nksip_sdp}.
+%%
 %% Before replying a final response, you will usually call 
 %% {@link nksip_request:reply/3} to send a provisional response like 
-%% `ringing' (which would send a 180 <i>Ringing</i> reply).
+%% `ringing' (which would send a 180 <i>Ringing</i> reply) or `ringing_rel' to send
+%% a <i>reliable provisional response</i>.%% 
 %%
 %% If a quick response (like `busy') is not going to be sent immediately 
 %% (which is typical for INVITE requests, as the user would normally need to accept 
 %% the call) you must return `{noreply, NewState}' and spawn a new process, 
 %% calling {@link nksip:reply/2} from the new process, in order to avoid 
 %% blocking the SipApp process.
-%%
-%% You can access the body of the request by calling {@link nksip_request:body/2}. 
-%% INVITE requests will usually have a SDP body. If this is the case, and the 
-%% `Content-Type' header contains `application/sdp', NkSIP will decode the SDP and 
-%% `nksip_request:body/2' will return a {@link nksip_sdp:sdp()} object you can manage 
-%% with the functions in {@link nksip_sdp}. 
-%% If it is not recognized it would return a binary, or `<<>>' if it is missing.
 %%
 %% You must then answer the request. The possible responses are defined in 
 %% {@link nksip_reply}.
@@ -390,26 +396,26 @@ route(_Scheme, _User, _Domain, _ReqId, _From, State) ->
 %% The remote party should then send an ACK request immediately.
 %% If none is received, NkSIP will automatically stop the dialog.
 %%
--spec invite(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec invite(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-invite(_ReqId, _From, State) ->
+invite(_ReqId, _Meta, _From, State) ->
     {reply, decline, State}.
 
 
 %% @doc This function is called when a new in-dialog INVITE request is received.
 %%
-%% The guidelines in {@link invite/4} are valid, but you shouldn't send provisional
-%% responses, but a final response inmediatly.
+%% The guidelines and `Meta' in {@link invite/4} are still valid, 
+%% but you shouldn't send provisional responses, sending a final response inmediatly.
 %% 
 %% If the dialog's target or the SDP session parameters are updated by the request or
 %% its response, {@link dialog_update/3} and/or {@link session_update/3} would be
 %% called.
 %%
--spec reinvite(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec reinvite(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-reinvite(_ReqId, _From, State) ->
+reinvite(_ReqId, _Meta, __From, State) ->
     {reply, decline, State}.
 
 
@@ -423,11 +429,14 @@ reinvite(_ReqId, _From, State) ->
 %% CANCEL request. If the matching INVITE transaction has not yet replied a
 %% final response, NkSIP replies it with a 487 (Request Terminated) and this function
 %% is called. If a final response has already beeing replied, it has no effect.
+%% 
+%% `Meta' will include a parameter `{req_id, InviteId}' showing the request id of the
+%% INVITE being cancelled.
 %%
--spec cancel(ReqId::nksip_request:id(), State::term()) ->
+-spec cancel(ReqId::nksip_request:id(), Meta::meta(), State::term()) ->
     call_noreply().
 
-cancel(_ReqId, State) ->
+cancel(_ReqId, _Meta, State) ->
     {noreply, State}.
 
 
@@ -435,14 +444,18 @@ cancel(_ReqId, State) ->
 %%
 %% This function is called by NkSIP when a new valid in-dialog ACK request has to
 %% be processed locally.
+%%
+%% `Meta' will include at least the following parameters: dialog_id, content_type
+%% and body (see {@link nksip_request} for details).
+%%
 %% You don't usually need to implement this callback. One possible reason to do it is 
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec ack(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec ack(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(ok).
 
-ack(_ReqId, _From, State) ->
+ack(_ReqId, _Meta, _From, State) ->
     {reply, ok, State}.
 
 
@@ -454,10 +467,13 @@ ack(_ReqId, _From, State) ->
 %% You won't usually need to implement this function, but in case you do, you
 %% should reply `ok' to send a 200 response back.
 %%
--spec bye(ReqId::nksip_request:id(), From::from(), State::term()) ->
+%% `Meta' will include at least the following parameters: aor, dialog_id
+%% (see {@link nksip_request} for details).
+%%
+-spec bye(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-bye(_ReqId, _From, State) ->
+bye(_ReqId, _Meta, _From, State) ->
     {reply, ok, State}.
 
 
@@ -468,10 +484,13 @@ bye(_ReqId, _From, State) ->
 %% If it does, NkSIP this callback functions is called.
 %% If implementing this function, you should reply `ok' to send a 200 response back.
 %%
--spec info(ReqId::nksip_request:id(), From::from(), State::term()) ->
+%% `Meta' will include at least the following parameters: aor, content-type, body
+%% (see {@link nksip_request} for details).
+%%
+-spec info(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
   call_reply(nksip:sipreply()).
 
-info(_ReqId, _From, State) ->
+info(_ReqId, _Meta, _From, State) ->
   {reply, ok, State}.
 
 
@@ -486,10 +505,13 @@ info(_ReqId, _From, State) ->
 %% and include in your response a SDP body representing your supported list of codecs, 
 %% and also `Allow', `Accept' and `Supported' headers.
 %%
--spec options(ReqId::nksip_request:id(), From::from(), State::term()) ->
+%% `Meta' will include at least the following parameters: aor
+%% (see {@link nksip_request} for details).
+%%
+-spec options(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-options(_ReqId, _From, State) ->
+options(_ReqId, _Meta, _From, State) ->
     Reply = {ok, [], <<>>, [make_contact, make_allow, make_allow_event, 
                             make_accept, make_supported]},
     {reply, Reply, State}.
@@ -505,6 +527,9 @@ options(_ReqId, _From, State) ->
 %% See {@link nksip_registrar} for other possible response codes defined in the SIP 
 %% standard registration process.
 %%
+%% `Meta' will include at least the following parameters: aor
+%% (see {@link nksip_request} for details).
+%%
 %% If this function is not defined, and no `registrar' option is found, 
 %% a 405 <i>Method not allowed</i> would be replied. 
 %%
@@ -512,13 +537,13 @@ options(_ReqId, _From, State) ->
 %% and need a specific REGISTER processing 
 %% (for example to add some headers to the response).
 %%
--spec register(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec register(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-register(_ReqId, _From, State) ->
-    %% NOTE: In this default implementation, State contains the SipApp options.
-    %% If you implement this function, State will contain your own state.
-    Reply = case lists:member(registrar, State) of
+register(_ReqId, Meta, _From, State) ->
+    %% NOTE: In this default implementation, Meta contains the SipApp options.
+    AppOpts = nksip_lib:get_value(app_opts, Meta),
+    Reply = case lists:member(registrar, AppOpts) of
         true -> register;
         false -> {method_not_allowed, ?ALLOW}
     end,
@@ -533,10 +558,13 @@ register(_ReqId, _From, State) ->
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec prack(ReqId::nksip_request:id(), From::from(), State::term()) ->
+%% `Meta' will include at least the following parameters: dialog_id, content_type
+%% and body (see {@link nksip_request} for details).
+%%
+-spec prack(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(ok).
 
-prack(_ReqId, _From, State) ->
+prack(_ReqId, _Meta, _From, State) ->
     {reply, ok, State}.
 
 
@@ -551,10 +579,13 @@ prack(_ReqId, _From, State) ->
 %% (and the corresponding callback function will be called). 
 %% If other non 2xx response is replied (like decline) the media is not changed.
 %%
--spec update(ReqId::nksip_request:id(), From::from(), State::term()) ->
+%% `Meta' will include at least the following parameters: dialog_id, content_type
+%% and body (see {@link nksip_request} for details).
+%%
+-spec update(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-update(_ReqId, _From, State) ->
+update(_ReqId, _Meta, _From, State) ->
     {reply, decline, State}.
 
 
@@ -569,22 +600,42 @@ update(_ReqId, _From, State) ->
 %% in the request, but the new value must be lower, or even 0 to cancel the
 %% subscription.
 %%
--spec subscribe(ReqId::nksip_request:id(), From::from(), State::term()) ->
+%% `Meta' will include at least the following parameters: aor, dialog_id, event,
+%% subscription_id and parsed_expires (see {@link nksip_request} for details).
+%%
+-spec subscribe(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-subscribe(_ReqId, _From, State) ->
+subscribe(_ReqId, _Meta, _From, State) ->
     {reply, decline, State}.
+
+
+%% @doc This function is called by NkSIP to process a new in-subscription SUBSCRIBE
+%% request, sent in order to refresh the subscription.
+%%
+%% You don't usually have to implement this function.
+%%
+-spec resubscribe(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
+resubscribe(_ReqId, _Meta, _From, State) ->
+    {reply, ok, State}.
 
 
 %% @doc This function is called by NkSIP to process a new incoming NOTIFY
 %% request belonging to a current active subscription.
 %%
+%% `Meta' will include at least the following parameters: aor, dialog_id, event,
+%% subscription_id, notify_status, content_type and body.
+%% Field `notify_status' will have the status of the NOTIFY: `active', `pending' or 
+%% <code>{terminated, Reason::{@link nksip_subscription:terminated_reason()}}</code>.
+%%
 %% You should always return `ok'.
 %%
--spec notify(ReqId::nksip_request:id(), From::from(), State::term()) ->
+-spec notify(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-notify(_ReqId, _From, State) ->
+notify(_ReqId, _Meta, _From, State) ->
     {reply, ok, State}.
 
 
@@ -595,10 +646,14 @@ notify(_ReqId, _From, State) ->
 %% to the remote party that the message has been received. 
 %% Use a 6xx response (like `decline') to tell it has been refused.
 %%
--spec message(ReqId::nksip_request:id(), From::from(), State::term()) ->
+%% `Meta' will include at least the following parameters: aor, expired, 
+%% content_type and body.
+%% Field `expired' will have `true' if the MESSAGE has already expired.
+%%
+-spec message(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
-message(_ReqId, _From, State) ->
+message(_ReqId, _Meta, _From, State) ->
     {reply, decline, State}.
 
 

@@ -47,7 +47,7 @@ get_user_pass(<<"client1">>, <<"nksip">>) -> <<"1234">>;
 get_user_pass(<<"client2">>, <<"nksip">>) -> <<"4321">>;
 get_user_pass(_, _) -> false.
 
-authorize(Auth, Req, From) ->
+authorize(Req, Auth, From) ->
     Reply = case nksip_sipmsg:header(Req, <<"Nksip-Auth">>) of
         [<<"true">>] ->
             case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
@@ -68,7 +68,7 @@ authorize(Auth, Req, From) ->
     async.
 
 
-route(Scheme, User, Domain, Req, _From) ->
+route(Req, Scheme, User, Domain, _From) ->
     {inline, Id} = AppId = nksip_sipmsg:field(Req, app_id),
     send_reply(Req, route),
     Opts = [

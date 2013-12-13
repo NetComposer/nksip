@@ -74,7 +74,7 @@ get_user_pass(_User, _Realm, State) ->
 
 
 % Authorization is only used for "auth" suite
-authorize(Auth, _ReqId, _From, #state{id={auth, Id}}=State) ->
+authorize(_ReqId, Auth, _From, #state{id={auth, Id}}=State) ->
     % ?P("AUTH AT ~p: ~p", [Id, Auth]),
     Reply = case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true ->
@@ -88,7 +88,7 @@ authorize(Auth, _ReqId, _From, #state{id={auth, Id}}=State) ->
             end
     end,
     {reply, Reply, State};
-authorize(_Auth, _ReqId, _From, State) ->
+authorize(_ReqId, _Auth, _From, State) ->
     {reply, ok, State}.
 
 
@@ -96,7 +96,7 @@ authorize(_Auth, _ReqId, _From, State) ->
 % If no user, use Nksip-Op to select an operation
 % If user and domain is nksip, proxy to registered contacts
 % Any other case simply route
-route(Scheme, User, Domain, ReqId, _From, 
+route(ReqId, Scheme, User, Domain, _From, 
         #state{id={Test, Id}=AppId, domains=Domains}=State)
         when Test=:=basic; Test=:=uas ->
     Opts = [
@@ -136,7 +136,7 @@ route(Scheme, User, Domain, ReqId, _From,
 % If RUri is "client2_op@nksip" will find client2@op and use body as erlang term
 % with options to route
 % If domain is nksip2, route to 127.0.0.1:5080/5081
-route(Scheme, User, Domain, ReqId, _From, 
+route(ReqId, Scheme, User, Domain, _From, 
         #state{id={Test, Id}=AppId, domains=Domains}=State) 
     when Test=:=stateless; Test=:=stateful ->
     Opts = lists:flatten([
@@ -175,7 +175,7 @@ route(Scheme, User, Domain, ReqId, _From,
 % Route for serverR in fork test
 % Adds Nk-Id header, and Record-Route if Nk-Rr is true
 % If Nk-Redirect will follow redirects
-route(Scheme, User, Domain, ReqId, _From, 
+route(ReqId, Scheme, User, Domain, _From, 
         #state{id={fork, serverR}=AppId, domains=Domains}=State) ->
     Opts = lists:flatten([
         {headers, [{<<"Nk-Id">>, serverR}]},
@@ -206,7 +206,7 @@ route(Scheme, User, Domain, ReqId, _From,
 % Adds Nk-Id header. serverA is stateless, rest are stateful
 % Always Record-Route
 % If domain is "nksip" routes to serverR
-route(_, _, Domain, _ReqId, _From, #state{id={fork, Id}, domains=Domains}=State) ->
+route(_, _, _, Domain, _From, #state{id={fork, Id}, domains=Domains}=State) ->
     Opts = lists:flatten([
         case Id of server1 -> stateless; _ -> [] end,
         record_route,
@@ -223,7 +223,7 @@ route(_, _, Domain, _ReqId, _From, #state{id={fork, Id}, domains=Domains}=State)
 
 % Route for server1 in auth tests
 % Finds the user and proxies to server2
-route(Scheme, User, Domain, _ReqId, _From, #state{id={auth, server1}}=State) ->
+route(_ReqId, Scheme, User, Domain, _From, #state{id={auth, server1}}=State) ->
     Opts = [{route, "<sip:127.0.0.1:5061;lr>"}],
     case User of
         <<>> -> 
@@ -237,11 +237,11 @@ route(Scheme, User, Domain, _ReqId, _From, #state{id={auth, server1}}=State) ->
             end
     end;
 
-route(_Scheme, _User, _Domain, _Request, _From, #state{id={auth, server2}}=State) ->
+route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={auth, server2}}=State) ->
     {reply, {proxy, ruri, [record_route]}, State};
 
 % Route for "ipv6" test suite.
-route(Scheme, User, Domain, _ReqId, _From, 
+route(_ReqId, Scheme, User, Domain, _From, 
         #state{id={ipv6, server1}=AppId, domains=Domains}=State) ->
     Opts = [
         {headers, [{'Nk-Id', server1}]},
@@ -262,7 +262,7 @@ route(Scheme, User, Domain, _ReqId, _From,
             {reply, {proxy, ruri, Opts}, State}
     end;
 
-route(_Scheme, _User, _Domain, _ReqId, _From, #state{id={ipv6, server2}}=State) ->
+route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={ipv6, server2}}=State) ->
     Opts = [
         record_route,
         {headers, [{'Nk-Id', server2}]}
@@ -270,7 +270,7 @@ route(_Scheme, _User, _Domain, _ReqId, _From, #state{id={ipv6, server2}}=State) 
     {reply, {proxy, ruri, Opts}, State};
 
 
-route(Scheme, _User, _Domain, _ReqId, _From, #state{id={torture, server1}}=State)
+route(_ReqId, Scheme, _User, _Domain, _From, #state{id={torture, server1}}=State)
       when Scheme=/=sip, Scheme=/=sips ->
     {reply, unsupported_uri_scheme, State};
 
