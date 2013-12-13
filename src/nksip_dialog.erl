@@ -28,8 +28,8 @@
 -export([field/3, field/2, fields/3, class_id/2, id/2, call_id/1]).
 -export([stop/2, bye_all/0, stop_all/0]).
 -export([get_dialog/2, get_all/0, get_all/2, get_all_data/0]).
--export([remote_id/1]).
--export_type([id/0, stop_reason/0, spec/0, invite_status/0, field/0]).
+-export([remote_id/2]).
+-export_type([id/0, spec/0, invite_status/0, field/0, stop_reason/0]).
 
 -include("nksip.hrl").
 
@@ -285,7 +285,8 @@ class_id(Class, #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
 
 class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, Method}}=SipMsg)
     when FromTag /= <<>> andalso
-         Method=='INVITE' orelse Method=='SUBSCRIBE' orelse Method=='NOTIFY' ->
+         (Method=='INVITE' orelse Method=='REFER' orelse
+          Method=='SUBSCRIBE' orelse Method=='NOTIFY') ->
     #sipmsg{call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
     case ToTag of
         <<>> -> <<>>;
@@ -400,6 +401,10 @@ dialog_id(uas, CallId, FromTag, ToTag) ->
 
 
 %% @private Hack to find the UAS dialog from the UAC and the opposite way
+remote_id(AppId, DialogId) ->
+    field(AppId, DialogId, remote_id).
+
+%% @private
 remote_id(#dialog{id=BaseId, call_id=CallId, local_uri=LUri, remote_uri=RUri}) ->
     FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
     ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),

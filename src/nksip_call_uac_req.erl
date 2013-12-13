@@ -83,7 +83,8 @@ new_uac(Req, Opts, From, Call) ->
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
     Opts1 = case 
-        IsProxy andalso (Method=='SUBSCRIBE' orelse Method=='NOTIFY') 
+        IsProxy andalso 
+        (Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse Method=='REFER') 
     of
         true -> [no_dialog|Opts];
         false -> Opts
@@ -263,7 +264,10 @@ sent_update(#sipmsg{class={req, Method}}=Req, #trans{proto=Proto}=UAC, Call) ->
         udp -> nksip_call_lib:retrans_timer(timer_e, UAC2, Call);
         _ -> UAC2
     end,
-    Call1 = case Method=='SUBSCRIBE' andalso Req#sipmsg.to_tag == <<>> of
+    #sipmsg{to_tag=ToTag} = Req,
+    Call1 = case 
+        (Method=='SUBSCRIBE' orelse Method=='REFER') andalso ToTag == <<>> 
+    of
         true -> nksip_call_event:create_event(Req, Call);
         false -> Call
     end,

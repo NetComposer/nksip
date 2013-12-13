@@ -30,8 +30,8 @@
 -define(VERSION, "0.4.0").
 -define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
--define(ALLOW, <<"INVITE, ACK, CANCEL, BYE, OPTIONS, INFO, PRACK, UPDATE, "
-                 "SUBSCRIBE, NOTIFY, MESSAGE">>).
+-define(ALLOW, <<"INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
+                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).

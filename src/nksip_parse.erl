@@ -562,6 +562,7 @@ get_raw_headers(Packet, Acc) ->
                         "RACK" -> <<"RAck">>;
                         "RECORD-ROUTE" -> <<"Record-Route">>;
                         "REFER-TO" -> <<"Refer-To">>;
+                        "R" -> <<"Refer-To">>;
                         "REQUIRE" -> <<"Require">>;
                         "ROUTE" -> <<"Route">>;
                         "RSEQ" -> <<"RSeq">>;

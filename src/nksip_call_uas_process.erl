@@ -62,7 +62,7 @@ process(#trans{request=Req}=UAS, Call) ->
                     SupEvents = nksip_lib:get_value(event, AppOpts, []),
                     case Event of
                         {Type, _} ->
-                            case lists:member(Type, SupEvents) of
+                            case lists:member(Type, [<<"refer">>|SupEvents]) of
                                 true -> do_process(UAS, Call);
                                 false -> reply(bad_event, UAS, Call)
                             end;
@@ -79,7 +79,7 @@ process(#trans{request=Req}=UAS, Call) ->
 
 %% @private 
 do_process(UAS, Call) ->
-    #trans{method=Method, request=Req, stateless=Stateless} = UAS,
+    #trans{id=Id, method=Method, request=Req, opts=Opts, stateless=Stateless} = UAS,
     #sipmsg{to_tag=ToTag} = Req,
     case Stateless of
         true ->
@@ -88,31 +88,18 @@ do_process(UAS, Call) ->
             method(Method, UAS, Call);
         false ->           
             case nksip_call_uas_dialog:request(Req, Call) of
-                {ok, Call1} -> method(Method, UAS, Call1);
-                {error, Error}  -> process_dialog_error(Error, UAS, Call)
+                {ok, Call1} -> 
+                    method(Method, UAS, Call1);
+                {error, Error} when Method=='ACK' -> 
+                    ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
+                                [Id, Error], Call),
+                    UAS1 = UAS#trans{status=finished},
+                    update(UAS1, Call);
+                {error, Error} ->
+                    UAS1 = UAS#trans{opts=[no_dialog|Opts]},
+                    reply(Error, UAS1, Call)
             end
     end.
-
-
-%% @private
-process_dialog_error(Error, #trans{method='ACK', id=Id}=UAS, Call) ->
-    ?call_notice("UAS ~p 'ACK' dialog request error: ~p", [Id, Error], Call),
-    UAS1 = UAS#trans{status=finished},
-    update(UAS1, Call);
-
-process_dialog_error(Error, #trans{method=_Method, id=_Id, opts=Opts}=UAS, Call) ->
-    Reply = case Error of
-        request_pending ->
-            request_pending;
-        retry -> 
-            {500, [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
-                        <<>>, [{reason, <<"Processing Previous INVITE">>}]};
-        old_cseq ->
-            {internal, <<"Old CSeq in Dialog">>};
-        no_transaction ->
-            no_transaction
-    end,
-    reply(Reply, UAS#trans{opts=[no_dialog|Opts]}, Call).
 
 
 %% @private
@@ -121,7 +108,7 @@ process_dialog_error(Error, #trans{method=_Method, id=_Id, opts=Opts}=UAS, Call)
 
 method('INVITE', UAS, Call) ->
     #trans{request=#sipmsg{to_tag=ToTag}} = UAS,
-    Fields = [aor, dialog_id, content_type, body],
+    Fields = [app_id, aor, dialog_id, content_type, body],
     UAS1 = nksip_call_lib:expire_timer(expire, UAS, Call),
     Fun = case ToTag of
         <<>> -> invite;
@@ -130,24 +117,24 @@ method('INVITE', UAS, Call) ->
     process_call(Fun, Fields, UAS1, update(UAS1, Call));
     
 method('ACK', UAS, Call) ->
-    Fields = [dialog_id, content_type, body],
+    Fields = [app_id, dialog_id, content_type, body],
     UAS1 = UAS#trans{status=finished},
     process_call(ack, Fields, UAS1, update(UAS1, Call));
 
 method('BYE', UAS, Call) ->
-    Fields = [aor, dialog_id],
+    Fields = [app_id, aor, dialog_id],
     process_call(bye, Fields, UAS, Call);
 
 method('INFO', UAS, Call) ->
-    Fields = [aor, content_type, body],
+    Fields = [app_id, aor, content_type, body],
     process_call(info, Fields, UAS, Call);
     
 method('OPTIONS', UAS, Call) ->
-    Fields = [aor, allow, supported, content_type, body],
+    Fields = [app_id, aor, allow, supported, content_type, body],
     process_call(options, Fields, UAS, Call); 
 
 method('REGISTER', UAS, Call) ->
-    Fields = [aor],
+    Fields = [app_id, aor],
     process_call(register, Fields, UAS, Call); 
 
 method('PRACK', UAS, Call) ->
@@ -176,19 +163,19 @@ method('PRACK', UAS, Call) ->
         OrigUAS1 = OrigUAS#trans{pracks=[]},
         OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
         OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
-        Fields = [dialog_id, content_type, body],
+        Fields = [app_id, dialog_id, content_type, body],
         process_call(prack, Fields, UAS, update(OrigUAS3, Call))
     catch
         throw:Reply -> reply(Reply, UAS, Call)
     end;             
 
 method('UPDATE', UAS, Call) ->
-    Fields = [dialog_id, content_type, body],
+    Fields = [app_id, dialog_id, content_type, body],
     process_call(update, Fields, UAS, Call);
     
 method('SUBSCRIBE', UAS, Call) ->
     #trans{request=#sipmsg{to_tag=ToTag}} = UAS,
-    Fields = [aor, dialog_id, event, subscription_id, parsed_expires],
+    Fields = [app_id, aor, dialog_id, event, subscription_id, parsed_expires],
     Fun = case ToTag of
         <<>> -> subscribe;
         _ -> resubscribe
@@ -198,8 +185,8 @@ method('SUBSCRIBE', UAS, Call) ->
 method('NOTIFY', UAS, Call) ->
     #trans{request=Req} = UAS,
     Status = nksip_subscription:notify_status(Req),
-    Fields = [aor, dialog_id, event, subscription_id, {value, notify_status, Status},
-              content_type, body],
+    Fields = [app_id, aor, dialog_id, event, subscription_id, 
+              {value, notify_status, Status}, content_type, body],
     process_call(notify, Fields, UAS, Call);
 
 method('MESSAGE', UAS, Call) ->
@@ -223,8 +210,19 @@ method('MESSAGE', UAS, Call) ->
         _ ->
             false
     end,
-    Fields = [aor, {value, expired, Expired}, content_type, body],
+    Fields = [app_id, aor, {value, expired, Expired}, content_type, body],
     process_call(message, Fields, UAS, Call);
+
+method('REFER', UAS, Call) ->
+    #trans{request=#sipmsg{headers=Headers}} = UAS,
+    case proplists:get_all_values(<<"Refer-To">>, Headers) of
+        [ReferTo] ->
+            Fields = [app_id, aor, dialog_id, subscription_id, 
+                      {value, refer_to, ReferTo}],
+            process_call(refer, Fields, UAS, Call);
+        _ ->
+            reply(invalid_request, UAS, Call)    
+    end;
 
 method(_Method, UAS, Call) ->
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,

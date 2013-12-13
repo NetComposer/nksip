@@ -194,9 +194,11 @@
 -include("nksip.hrl").
 
 -export([options/3, register/3, invite/3, ack/3, bye/3, info/3, cancel/2]).
--export([update/3, subscribe/3, notify/3, message/3]).
+-export([update/3, subscribe/3, notify/3, message/3, refer/3]).
 -export([refresh/3, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
+
+-import(nksip_uac_lib, [send_any/4, send_dialog/4]).
 
 
 %% ===================================================================
@@ -243,6 +245,9 @@
 
 -type message_opt() ::
     {expires, non_neg_integer()}.
+
+-type refer_opt() ::
+    {refer_to, string()|binary()}.
 
 -type result() ::  
     {async, nksip_request:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
@@ -388,7 +393,7 @@ register(AppId, Dest, Opts) ->
 %% Recognized options are described in {@link opt()} when sent outside any dialog,
 %% and {@link dialog_opt()} when sent inside a dialog.
 %%
-%% Additional recognized options are defined in {@link invite_opts()}:
+%% Additional recognized options are defined in {@link invite_opt()}:
 %%
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -604,7 +609,7 @@ refresh(AppId, DialogSpec, Opts) ->
 %%
 %% Recognized options are described in {@link opt()} 
 %% when sent outside any dialog, and {@link dialog_opt()} when sent inside a dialog.
-%% Additional recognized options are defined in {@link subscribe_opts()}:
+%% Additional recognized options are defined in {@link subscribe_opt()}:
 %%
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -649,7 +654,7 @@ subscribe(AppId, Dest, Opts) ->
 %% you should send a NOTIFY inmediatly. You have to use the subscription's id
 %% from the call to callback `subscribe/3'.
 %%
-%% Valid options are defined in {@link dialog_opt()} and {@link notify_opts()}.
+%% Valid options are defined in {@link dialog_opt()} and {@link notify_opt()}.
 %% NkSIP will include the mandatory <i>Event</i> and 
 %% <i>Subscription-State</i> headers for you, 
 %% depending on the following parameters:
@@ -735,7 +740,7 @@ notify(AppId, Dest, Opts) ->
 %% Recognized options are described in {@link opt()} when sent outside any dialog,
 %% and {@link dialog_opt()} when sent inside a dialog.
 %%
-%% Additional recognized options are defined in {@link message_opts()}:
+%% Additional recognized options are defined in {@link message_opt()}:
 %%
 %% <table border="1">
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -760,6 +765,51 @@ message(AppId, Dest, Opts) ->
     end,
     send_any(AppId, 'MESSAGE', Dest, Opts1).
 
+
+%% @doc Sends an <i>REFER</i> for a remote party
+%%
+%% Asks the remote party to start a new connection to the indicated uri in
+%% `refer_to' parameter. If a 2xx response is received, the remote
+%% party has agreed and will start a new connection. A new subscription will
+%% be stablished, and you will start to receive NOTIFYs.
+%%
+%% Implement the callback function {@link nksip_sipapp:notify/4} to receive
+%% them, filtering using the indicated `subscription_id'
+%%
+%% In case of 2xx response, the first returned value is allways 
+%% `{subscription_id, SubscriptionId}', even if the `fields' option is not used.
+%%
+%% When `Dest' is a <i>SIP Uri</i> the request will be sent outside any dialog,
+%% creating a new dialog and a new subscription.
+%% If it is a <i>dialog specification</i>, it will be sent inside that dialog, creating a
+%% new 'subscription usage'.
+%%
+%% Recognized options are described in {@link opt()} 
+%% when sent outside any dialog, and {@link dialog_opt()} when sent inside a dialog.
+%% Additional recognized options are defined in {@link notify_opt()}:
+%%
+%% <table border="1">
+%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`refer_to'</td>
+%%          <td>{@link nksip:user_uri()}</td>
+%%          <td></td>
+%%          <td>Generates the mandatory <i>Refer-To</i> header</td>
+%%      </tr>
+%% </table>
+%%
+
+-spec refer(nksip:app_id(), nksip:user_uri(), [opt()|refer_opt()]) -> 
+    result() | {error, error()} |  {error, invalid_refer_to}.
+
+refer(AppId, Dest, Opts) ->
+    case nksip_lib:get_binary(refer_to, Opts) of
+        <<>> ->
+            {error, invalid_refer_to};
+        ReferTo ->
+            Opts1 = [{pre_headers, [{<<"Refer-To">>, ReferTo}]}|Opts],
+            send_any(AppId, 'REFER', Dest, Opts1)
+    end.
 
 
 %% @doc Sends a <i>STUN</i> binding request.
@@ -798,40 +848,5 @@ stun(AppId, UriSpec, _Opts) ->
                 _ ->
                     {error, invalid_uri}
             end
-    end.
-
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
--spec send_any(nksip:app_id(), nksip:method(), 
-               nksip:user_uri()|dialog_spec()|subscription_spec(),
-               nksip_lib:proplist()) ->
-    result() | ack_result() | {error, error()}.
-
-send_any(AppId, Method, UriOrDialog, Opts) ->
-    case UriOrDialog of
-        <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
-            send_dialog(AppId, Method, UriOrDialog, Opts);
-        UserUri ->
-            nksip_call:send(AppId, Method, UserUri, Opts)
-    end.
-
-
-%% @private
--spec send_dialog(nksip:app_id(), nksip:method(), dialog_spec(), 
-                  nksip_lib:proplist()) ->
-    result() | ack_result() | {error, error()}.
-
-send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
-            when Class==$R; Class==$S; Class==$D; Class==$U ->
-    case nksip_dialog:id(AppId, Id) of
-        <<>> -> 
-            {error, unknown_dialog};
-        DialogId when Class==$U ->
-            nksip_call:send_dialog(AppId, DialogId, Method, [{subscription_id, Id}|Opts]);
-        DialogId ->
-            nksip_call:send_dialog(AppId, DialogId, Method, Opts)
     end.
 

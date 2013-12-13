@@ -280,9 +280,6 @@ notify_status(#sipmsg{}=SipMsg) ->
     end.
 
 
-
-
-
 %% ===================================================================
 %% Private
 %% ===================================================================
@@ -292,6 +289,10 @@ notify_status(#sipmsg{}=SipMsg) ->
 -spec id(nksip:request()|nksip:response()) ->
     id().
 
+id(#sipmsg{cseq_method='REFER', cseq=CSeq, dialog_id=DialogId}) ->
+    Event = {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]},
+    subscription_id(Event, DialogId);
+
 id(#sipmsg{event = Event, dialog_id = <<"D_", _/binary>>=DialogId}) ->
     subscription_id(Event, DialogId).
 
@@ -300,12 +301,13 @@ id(#sipmsg{event = Event, dialog_id = <<"D_", _/binary>>=DialogId}) ->
 -spec subscription_id(nksip:token()|undefined, nksip_dialog:id()) ->
     id().
 
-subscription_id(Event, <<"D_", DialogId/binary>>) ->
-    {Type, Id} = case Event of
-        undefined -> {<<"undefined">>, <<>>};
-        {Type0, Opts0} -> {Type0, nksip_lib:get_value(<<"id">>, Opts0, <<>>)}
-    end,
-    <<$U, $_, Type/binary, $_, Id/binary, $_, DialogId/binary>>.
+subscription_id({Type, Opts}, <<"D_", DialogId/binary>>)
+                when is_binary(Type), is_list(Opts) ->
+    Id = nksip_lib:get_binary(<<"id">>, Opts, <<>>),
+    <<$U, $_, Type/binary, $_, Id/binary, $_, DialogId/binary>>;
+
+subscription_id(_, _) ->
+    <<>>.
 
 
 %% @private Finds a event.

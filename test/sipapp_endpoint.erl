@@ -26,7 +26,7 @@
 -export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
 -export([init/1, get_user_pass/3, authorize/4, route/6]).
 -export([options/4, invite/4, reinvite/4, ack/4, bye/4, info/4, subscribe/4, 
-         resubscribe/4, notify/4, message/4]).
+         resubscribe/4, notify/4, message/4, refer/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -196,6 +196,18 @@ invite(ReqId, Meta, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
 invite(_ReqId, _Meta, _From, #state{id={event, _}}=State) ->
     {reply, ok, State};
 
+invite(ReqId, _Meta, From, #state{id={refer, _}=AppId}=State) ->
+    spawn(
+        fun() ->
+            nksip_request:reply(AppId, 
+
+                ReqId, 180),
+            timer:sleep(1000),
+            nksip:reply(From, ok)
+        end),
+    {noreply, State};
+
+
 % INVITE for basic, uac, uas, invite and proxy test
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
@@ -358,6 +370,14 @@ message(ReqId, _Meta, _From, #state{id=AppId}=State) ->
             {reply, decline, State}
     end.
 
+refer(ReqId, Meta, _From, #state{id=AppId}=State) ->
+    ReferTo = nksip_lib:get_value(refer_to, Meta),
+    SubsId = nksip_lib:get_value(subscription_id, Meta),
+    CallId = nksip_request:call_id(ReqId),
+    InvCallId = <<CallId/binary, "_inv">>,
+    Opts = [async, auto_2xx_ack, {call_id, InvCallId}, {refer_subscription_id, SubsId}],
+    spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
+    {reply, ok, State}.
 
 
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->

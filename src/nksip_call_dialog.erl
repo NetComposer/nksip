@@ -171,16 +171,22 @@ update({invite, Status}, Dialog, Call) ->
         _ -> cast(dialog_update, {invite_status, Status}, Dialog, Call)
     end,
     #call{opts=#call_opts{timer_t1=T1, max_dialog_time=Timeout}} = Call,
+    TimeoutTimer1 = case Status of
+        confirmed -> start_timer(Timeout, invite_timeout, DialogId);
+        _ -> start_timer(64*T1, invite_timeout, DialogId)
+    end,
     {RetransTimer1, NextRetras1} = case Status of
-        accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
-        _ -> {undefined, undefined}
+        accepted_uas -> 
+            {start_timer(T1, invite_retrans, DialogId), 2*T1};
+        _ -> 
+            {undefined, undefined}
     end,
     #dialog{invite=Invite1} = Dialog1,
     Invite2 = Invite1#invite{
         status = Status,
         retrans_timer = RetransTimer1,
         next_retrans = NextRetras1,
-        timeout_timer = start_timer(Timeout, invite_timeout, DialogId)
+        timeout_timer = TimeoutTimer1
     },
     BlockedRouteSet1 = if
         Status==accepted_uac; Status==accepted_uas -> true;

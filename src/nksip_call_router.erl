@@ -90,8 +90,11 @@ apply_dialog(AppId, DialogId, Fun) ->
     [{nksip:app_id(), nksip_dialog:id()}].
 
 get_all_dialogs() ->
-    lists:flatten([get_all_dialogs(AppId, CallId)
-        ||{AppId, CallId, _} <- get_all_calls()]).
+    lists:flatten([
+        get_all_dialogs(AppId, CallId)
+        || 
+        {AppId, CallId, _} <- get_all_calls()
+    ]).
 
 
 %% @doc Get all dialog ids for this SipApp, having CallId.

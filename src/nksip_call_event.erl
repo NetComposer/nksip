@@ -65,20 +65,23 @@ uac_request(_Req, Dialog, _Call) ->
     nksip:dialog().
 
 uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
-             when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
+             when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    case find(Req, Dialog) of
+    Req1 = add_refer_event(Req, Call),
+    case find(Req1, Dialog) of
         #subscription{class=Class, id=Id} = Subs
             when (Class==uac andalso Method=='SUBSCRIBE') orelse
+                 (Class==uac andalso Method=='REFER') orelse
                  (Class==uas andalso Method=='NOTIFY') ->
             ?call_debug("Subscription ~s UAC response ~p ~p", 
                           [Id, Method, Code], Call),
-            uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
-        not_found when Method=='SUBSCRIBE', Code>=200, Code<300 ->
-            Subs = #subscription{id=Id} = Subs = create(uac, Req, Dialog, Call),
+            uac_do_response(Method, Code, Req1, Resp, Subs, Dialog, Call);
+        not_found when Code>=200 andalso Code<300 andalso
+                       (Method=='SUBSCRIBE' orelse Method=='REFER') ->
+            Subs = #subscription{id=Id} = Subs = create(uac, Req1, Dialog, Call),
             ?call_debug("Subscription ~s UAC response ~p ~p", 
                           [Id, Method, Code], Call),
-            uac_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
+            uac_do_response(Method, Code, Req1, Resp, Subs, Dialog, Call);
         _ ->
             case Code>=200 andalso Code<300 of
                 true -> 
@@ -123,6 +126,9 @@ uac_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call)
                 when Code==405; Code==408; Code==481; Code==501 ->
     update({terminated, {code, Code}}, Subs, Dialog, Call);
 
+uac_do_response('REFER', Code, Req, Resp, Subs, Dialog, Call) ->
+    uac_do_response('SUBSCRIBE', Code, Req, Resp, Subs, Dialog, Call);
+
 uac_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
     Dialog.
 
@@ -138,17 +144,22 @@ uac_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
     {ok, nksip:dialog()} | {error, no_transaction}.
 
 uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
-            when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
-    case find(Req, Dialog) of
+            when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
+    Req1 = add_refer_event(Req, Call),
+    case find(Req1, Dialog) of
         #subscription{class=Class, id=Id} when
             (Method=='SUBSCRIBE' andalso Class==uas) orelse
+            (Method=='REFER' andalso Class==uas) orelse
             (Method=='NOTIFY' andalso Class==uac) ->
             ?call_debug("Subscription ~s UAS request ~p", [Id, Method], Call), 
             {ok, Dialog};
-        not_found when Method=='SUBSCRIBE' ->
+        not_found when Method=='SUBSCRIBE' andalso
+                       element(1, Req1#sipmsg.event) == <<"refer">> ->
+            {error, forbidden};
+        not_found when Method=='SUBSCRIBE'; Method=='REFER' ->
             {ok, Dialog};
         not_found when Method=='NOTIFY' ->
-            case is_event(Req, Call) of
+            case is_event(Req1, Call) of
                 true -> {ok, Dialog};
                 false -> {error, no_transaction}
             end;
@@ -167,21 +178,27 @@ uas_request(_Req, Dialog, _Call) ->
     nksip:dialog().
 
 uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
-             when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
+             when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    case find(Resp, Dialog) of
+    Req1 = add_refer_event(Req, Call),
+    case find(Req1, Dialog) of
         #subscription{class=Class, id=Id} = Subs when
             (Method=='SUBSCRIBE' andalso Class==uas) orelse
+            (Method=='REFER' andalso Class==uas) orelse
             (Method=='NOTIFY' andalso Class==uac) ->
             ?call_debug("Subscription ~s UAS response ~p ~p", 
                           [Id, Method, Code], Call),
-            uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
+            uas_do_response(Method, Code, Req1, Resp, Subs, Dialog, Call);
         not_found when Code>=200, Code<300 ->
-            Class = case Method of 'SUBSCRIBE' -> uas; 'NOTIFY' -> uac end,
-            #subscription{id=Id} = Subs = create(Class, Req, Dialog, Call),
+            Class = case Method of 
+                'SUBSCRIBE' -> uas; 
+                'REFER' -> uas; 
+                'NOTIFY' -> uac 
+            end,
+            #subscription{id=Id} = Subs = create(Class, Req1, Dialog, Call),
             ?call_debug("Subscription ~s UAS response ~p, ~p", 
                           [Id, Method, Code], Call), 
-            uas_do_response(Method, Code, Req, Resp, Subs, Dialog, Call);
+            uas_do_response(Method, Code, Req1, Resp, Subs, Dialog, Call);
         _ ->
             case Code>=200 andalso Code<300 of
                 true ->
@@ -228,6 +245,9 @@ uas_do_response('NOTIFY', Code, Req, _Resp, Subs, Dialog, Call)
 uas_do_response('NOTIFY', Code, _Req, _Resp, Subs, Dialog, Call) 
                 when Code==405; Code==408; Code==481; Code==501 ->
     update({terminated, {code, Code}}, Subs, Dialog, Call);
+
+uas_do_response('REFER', Code, Req, Resp, Subs, Dialog, Call) ->
+    uas_do_response('SUBSCRIBE', Code, Req, Resp, Subs, Dialog, Call);
 
 uas_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
     Dialog.
@@ -352,7 +372,7 @@ update(_Status, Subs, Dialog, Call) ->
     nksip_call:call().
 
 create_event(Req, Call) ->
-    #sipmsg{event={EvType, EvOpts}, from_tag=Tag} = Req,
+    #sipmsg{event={EvType, EvOpts}, from_tag=Tag} = add_refer_event(Req, Call),
     EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
     ?call_debug("Event ~s_~s_~s UAC created", [EvType, EvId, Tag], Call),
     #call{opts=#call_opts{timer_t1=T1}, events=Events} = Call,
@@ -369,7 +389,8 @@ create_event(Req, Call) ->
                      nksip_call:call()) ->
     nksip_call:call().
 
-remove_event(#sipmsg{event={EvType, EvOpts}, from_tag=Tag}, Call) ->
+remove_event(#sipmsg{}=Req, Call) ->
+    #sipmsg{event={EvType, EvOpts}, from_tag=Tag} = add_refer_event(Req, Call),
     EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
     remove_event({EvType, EvId, Tag}, Call);
 
@@ -433,6 +454,18 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
             {terminated, [{reason, Reason}]}
     end,
     [{event, Event}, {parsed_subscription_state, PSS} | Opts].
+
+
+%% @private
+add_refer_event(#sipmsg{class={req, 'REFER'}, cseq=CSeq}=Req, Call) ->
+    #call{opts=#call_opts{timer_c=TimerC}} = Call,
+    Req#sipmsg{
+        event = {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]},
+        expires = round(TimerC/1000)
+    };
+
+add_refer_event(Req, _) ->
+    Req.
 
 
 %% @private Called when a dialog timer is fired

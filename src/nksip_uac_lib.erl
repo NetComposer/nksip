@@ -22,6 +22,7 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-export([send_any/4, send_dialog/4]).
 -export([make/5, make_cancel/1, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
@@ -29,6 +30,38 @@
 %% ===================================================================
 %% Public
 %% ===================================================================
+
+
+-spec send_any(nksip:app_id(), nksip:method(), 
+               nksip:user_uri() | nksip_dialog:spec() | nksip_subscription:id(),
+               nksip_lib:proplist()) ->
+    nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
+
+send_any(AppId, Method, UriOrDialog, Opts) ->
+    case UriOrDialog of
+        <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
+            send_dialog(AppId, Method, UriOrDialog, Opts);
+        UserUri ->
+            nksip_call:send(AppId, Method, UserUri, Opts)
+    end.
+
+
+%% @private
+-spec send_dialog(nksip:app_id(), nksip:method(), 
+                  nksip_dialog:spec() | nksip_subscription:id(),
+                  nksip_lib:proplist()) ->
+    nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
+
+send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
+            when Class==$R; Class==$S; Class==$D; Class==$U ->
+    case nksip_dialog:id(AppId, Id) of
+        <<>> -> 
+            {error, unknown_dialog};
+        DialogId when Class==$U ->
+            nksip_call:send_dialog(AppId, DialogId, Method, [{subscription_id, Id}|Opts]);
+        DialogId ->
+            nksip_call:send_dialog(AppId, DialogId, Method, Opts)
+    end.
 
 
 %% @doc Generates a new request.
@@ -246,10 +279,14 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
         Opts1 = [
             nksip_lib:extract(Opts, pass),
             case lists:member(make_contact, Opts) of
-                true -> make_contact;
-                false when Method=='INVITE', Contacts==[] -> make_contact;
-                false when Method=='SUBSCRIBE', Contacts==[] -> make_contact;
-                _ -> []
+                true -> 
+                    make_contact;
+                false when Contacts==[] andalso
+                           (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
+                            Method=='REFER') -> 
+                    make_contact;
+                _ -> 
+                    []
             end,
             case lists:member(record_route, Opts) of
                 true  -> record_route;
@@ -294,6 +331,14 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             case lists:member(get_response, Opts) of
                 true -> get_response;
                 false -> []
+            end,
+            case lists:member(auto_2xx_ack, Opts) of
+                true -> auto_2xx_ack;
+                false -> []
+            end,
+            case nksip_lib:get_binary(refer_subscription_id, Opts) of
+                <<>> -> [];
+                ReferSubsId -> {refer_subscription_id, ReferSubsId}
             end
         ],
         {ok, Req, lists:flatten(Opts1)}

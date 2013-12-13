@@ -47,7 +47,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
     case Field of
         id -> S#sipmsg.id;
         app_id -> S#sipmsg.app_id;
-        dialog_id -> dialog_id(S);
+        dialog_id -> S#sipmsg.dialog_id;
         subscription_id -> nksip_subscription:id(S);
         proto -> T#transport.proto;
         local -> {T#transport.proto, T#transport.local_ip, T#transport.local_port};
@@ -248,23 +248,5 @@ make_id(Class, CallId) ->
         $_,
         CallId/binary
     >>.
-
-
-%% @private
-dialog_id(#sipmsg{class={req, Method}, to_tag=ToTag, dialog_id=DialogId}) ->
-    case ToTag of
-        <<>> when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY' ->
-            DialogId;
-        <<>> ->
-            <<>>;
-        _ ->
-            DialogId
-    end;
-
-dialog_id(#sipmsg{class={resp, _, _}, dialog_id=DialogId}) ->
-    DialogId.
-
-
-
 
 

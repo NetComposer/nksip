@@ -114,7 +114,9 @@ response(Resp, UAC, Call) ->
         true -> Call2;
         false -> nksip_call_uac_dialog:response(Req, Resp1, Call2)
     end,
-    Call4 = case Method=='SUBSCRIBE' andalso Code>=300 of
+    Call4 = case 
+        Code>=300 andalso (Method=='SUBSCRIBE' orelse Method=='REFER')
+    of
         true -> nksip_call_event:remove_event(Req, Call3);
         false -> Call3
     end,
@@ -149,9 +151,9 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
 % Final 2xx response received
 % Enters new RFC6026 'invite_accepted' state, to absorb 2xx retransmissions
 % and forked responses
-response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) 
+response_status(invite_proceeding, Resp, #trans{code=Code, opts=Opts}=UAC, Call) 
                    when Code < 300 ->
-    #sipmsg{to_tag=ToTag} = Resp,
+    #sipmsg{to_tag=ToTag, dialog_id=DialogId} = Resp,
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
     UAC1 = UAC#trans{
         cancel = undefined,
@@ -161,7 +163,11 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
     },
     UAC2 = nksip_call_lib:expire_timer(cancel, UAC1, Call1),
     UAC3 = nksip_call_lib:timeout_timer(timer_m, UAC2, Call),
-    update(UAC3, Call1);
+    Call2 = update(UAC3, Call1),
+    case lists:member(auto_2xx_ack, Opts) of
+        true -> send_2xx_ack(DialogId, Call2);
+        false -> Call2
+    end;
 
 
 % Final [3456]xx response received, own error response
@@ -367,6 +373,29 @@ send_ack(#trans{request=Req, id=Id}, Call) ->
         error -> 
             #sipmsg{app_id=AppId, call_id=CallId} = Ack,
             ?notice(AppId, CallId, "UAC ~p could not send non-2xx ACK", [Id])
+    end.
+
+
+%% @private
+-spec send_2xx_ack(nksip_dialog:id(), nksip_call:call()) ->
+    nksip_call:call().
+
+send_2xx_ack(DialogId, Call) ->
+    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
+    #call_opts{app_opts=AppOpts} = CallOpts,
+    case nksip_call_uac_dialog:make(DialogId, 'ACK', [async], Call) of
+        {ok, {RUri, Opts1}, Call1} -> 
+            Opts2 = [{call_id, CallId} | Opts1],
+            case nksip_uac_lib:make(AppId, 'ACK', RUri, Opts2, AppOpts) of
+                {ok, Req, ReqOpts} -> 
+                    nksip_call_uac_req:request(Req, ReqOpts, none, Call1);
+                {error, Error} ->
+                    ?call_warning("Could not generate 2xx ACK: ~p", [Error], Call),
+                    Call1
+            end;
+        {error, Error} ->
+            ?call_warning("Could not generate 2xx ACK: ~p", [Error], Call),
+            Call
     end.
 
 

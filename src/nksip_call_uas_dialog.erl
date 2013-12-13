@@ -36,9 +36,7 @@
 
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
-    {ok, nksip_call:call()} | {error, Error}
-    when Error :: request_pending | retry | old_cseq | no_transaction.
-
+    {ok, nksip_call:call()} | {error, nksip:user_reply()}.
 
 request(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     ack(Req, Call);
@@ -50,7 +48,7 @@ request(Req, Call) ->
             ?call_debug("Dialog ~s UAS request ~p", [DialogId, Method], Call),
             case RemoteSeq>0 andalso CSeq<RemoteSeq of
                 true ->
-                    {error, old_cseq};
+                    {error, {internal, <<"Old CSeq in Dialog">>}};
                 false -> 
                     Dialog1 = Dialog#dialog{remote_seq=CSeq},
                     do_request(Method, Req, Dialog1, Call)
@@ -67,8 +65,7 @@ request(Req, Call) ->
 
 %% @private
 -spec do_request(nksip:method(), nksip:request(), nksip:dialog(), nksip_call:call()) ->
-    {ok, nksip_call:call()} | {error, Error}
-    when Error :: request_pending | retry.
+    {ok, nksip_call:call()} | {error, nksip:user_reply()}.
 
 do_request('INVITE', Req, #dialog{invite=undefined}=Dialog, Call) ->
     Invite = #invite{status=confirmed},
@@ -101,8 +98,8 @@ do_request('INVITE', _Req, #dialog{invite=#invite{status=Status}}, _Call) ->
     case Status of
         proceeding_uac -> {error, request_pending};
         accepted_uac -> {error, request_pending};
-        proceeding_uas -> {error, retry};
-        accepted_uas -> {error, retry}
+        proceeding_uas -> {error, retry()};
+        accepted_uas -> {error, retry()}
     end;
 
 do_request('BYE', _Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
@@ -143,7 +140,7 @@ do_request('UPDATE', Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
         {local, _, _} -> 
             {error, request_pending};
         {remote, _, _} -> 
-            {error, retry}
+            {error, retry()}
     end;
 
 do_request('SUBSCRIBE', Req, Dialog, Call) ->
@@ -157,6 +154,9 @@ do_request('NOTIFY', Req, Dialog, Call) ->
         {ok, Dialog1} -> {ok, update(none, Dialog1, Call)};
         {error, Error} -> {error, Error}
     end;
+
+do_request('REFER', Req, Dialog, Call) ->
+    do_request('SUBSCRIBE', Req, Dialog, Call);
 
 do_request(_, _, Dialog, Call) ->
     {ok, update(none, Dialog, Call)}.
@@ -194,7 +194,8 @@ response(Req, Resp, Call) ->
             Dialog2 = Dialog1#dialog{invite=Invite},
             do_response(Method, Code, Req, Resp, Dialog2, Call);
         not_found when Code>=200 andalso Code<300 andalso 
-                       (Method=='SUBSCRIBE' orelse Method=='NOTIFY') ->
+                       (Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse
+                        Method=='REFER') ->
             ?call_debug("Dialog ~s UAS ~p response ~p", 
                         [DialogId, Method, Code], Call),
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
@@ -376,6 +377,9 @@ do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=300 ->
     Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
     update(none, Dialog1, Call);
 
+do_response('REFER', Code, Req, Resp, Dialog, Call) ->
+    do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call);
+
 do_response(_, _, _, _, Dialog, Call) ->
     update(none, Dialog, Call).
 
@@ -417,6 +421,16 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
         not_found -> 
             {error, no_transaction}
     end.
+
+
+%% @private
+retry() ->
+    {
+        500, 
+        [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
+        <<>>, 
+        [{reason, <<"Processing Previous INVITE">>}]
+    }.
 
 
 %% private

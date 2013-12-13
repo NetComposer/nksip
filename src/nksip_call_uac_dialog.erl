@@ -158,6 +158,9 @@ do_request('NOTIFY', Req, Dialog, Call) ->
     Dialog1 = nksip_call_event:uac_request(Req, Dialog, Call),
     update(none, Dialog1, Call);
 
+do_request('REFER', Req, Dialog, Call) ->
+    do_request('SUBSCRIBE', Req, Dialog, Call);
+
 do_request(_Method, _Req, Dialog, Call) ->
     update(none, Dialog, Call).
 
@@ -191,7 +194,8 @@ response(Req, Resp, Call) ->
             },
             Dialog2 = Dialog1#dialog{invite=Invite},
             do_response(Method, Code, Req, Resp, Dialog2, Call);
-        not_found when Code>=200, Code<300, Method=='SUBSCRIBE' ->
+        not_found when Code>=200 andalso Code<300 andalso
+                       (Method=='SUBSCRIBE' orelse Method=='REFER') ->
             ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
             Dialog1 = nksip_call_dialog:create(uac, Req, Resp, Call),
             do_response(Method, Code, Req, Resp, Dialog1, Call);
@@ -373,6 +377,9 @@ do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=300 ->
     Dialog1 = nksip_call_event:uac_response(Req, Resp, Dialog, Call),
     update(none, Dialog1, Call);
 
+do_response('REFER', Code, Req, Resp, Dialog, Call) ->
+    do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call);
+    
 do_response(_, _Code, _Req, _Resp, Dialog, Call) ->
     update(none, Dialog, Call).
 

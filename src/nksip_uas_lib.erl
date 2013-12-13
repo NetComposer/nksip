@@ -170,7 +170,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             false
     end,
     case Code > 100 of
-        true when Method=='INVITE'; Method=='UPDATE'; Method=='SUBSCRIBE' ->
+        true when Method=='INVITE'; Method=='UPDATE'; 
+                  Method=='SUBSCRIBE'; Method=='REFER' ->
             MakeAllow = MakeSupported = true;
         _ ->
             MakeAllow = lists:member(make_allow, Opts),
@@ -356,10 +357,15 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     },
     SendOpts = lists:flatten([
         case lists:member(make_contact, Opts) of
-            true -> make_contact;
-            false when Method=='INVITE', RespContacts==[] -> make_contact;
-            false when Method=='SUBSCRIBE', RespContacts==[] -> make_contact;
-            _ -> []
+            true -> 
+                make_contact;
+            false when 
+                RespContacts==[] andalso
+                (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse 
+                 Method=='REFER') ->
+            make_contact;
+            _ -> 
+                []
         end,
         case Secure of
             true -> secure;

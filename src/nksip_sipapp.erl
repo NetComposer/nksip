@@ -141,6 +141,7 @@
 -export([init/1, get_user_pass/3, authorize/4, route/6]).
 -export([invite/4, reinvite/4, cancel/3, ack/4, bye/4, options/4, register/4]).
 -export([info/4, prack/4, update/4, subscribe/4, resubscribe/4, notify/4, message/4]).
+-export([refer/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([registrar_store/3]).
@@ -656,6 +657,41 @@ notify(_ReqId, _Meta, _From, State) ->
 message(_ReqId, _Meta, _From, State) ->
     {reply, decline, State}.
 
+
+%% @doc This function is called by NkSIP to process a new incoming REFER.
+%%
+%% `Meta' will include at least the following parameters: aor, dialog_id, event,
+%% subscription_id and refer_to. 
+%% Field `refer_to' contains the mandatory <i>Refer-To</i> header.
+%%
+%% If you reply a 2xx response like `ok'  or `accepted', a dialog and a subscription
+%% will start. You must connect to the url in `refer_to' and send any response
+%% back to the subscription using {link nksip_uac:notify/3}, according to RFC3515.
+%% 
+%% You should send `ok' if the request has been accepte or `decline' if not.
+%% If you are going to spend more than a few seconds to reply, you should reply
+%% `accepted', and if the request is not accepted later on, send a
+%% NOTIFY with appropiate reason.
+%%
+%% You can use the functions in {@link nksip_uac} like invite/4, options/4, etc.,
+%% using parameter `refer_subscription_id', and NkSIP will automatically send
+%% a valid NOTIFY after each provisional or the final response.
+%%
+%% This would be a typical implementation:
+%%
+%% refer(_ReqId, Meta, _From, #state{id=AppId}=State) ->
+%%     ReferTo = nksip_lib:get_value(refer_to, Meta),
+%%     SubsId = nksip_lib:get_value(subscription_id, Meta),
+%%     Opts = [async, auto_2xx_ack, {refer_subscription_id, SubsId}],
+%%     spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
+%%     {reply, ok, State}.
+%%
+
+-spec refer(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
+refer(_ReqId, _Meta, _From, State) ->
+    {reply, decline, State}.
 
 
 %% @doc Called when a dialog has changed its state.
