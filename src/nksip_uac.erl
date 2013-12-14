@@ -186,7 +186,9 @@
 %%      </tr>
 %% </table>
 %%
-%%
+%% In case of using a SIP URI as destination, is is possible to include
+%% custom headers: "<sip:host;method=REGISTER?contact=*&expires=10>"
+%% 
 %% Look at the specification for each function to find supported options
 -module(nksip_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -195,7 +197,7 @@
 
 -export([options/3, register/3, invite/3, ack/3, bye/3, info/3, cancel/2]).
 -export([update/3, subscribe/3, notify/3, message/3, refer/3]).
--export([refresh/3, stun/3]).
+-export([request/3, refresh/3, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
 -import(nksip_uac_lib, [send_any/4, send_dialog/4]).
@@ -810,6 +812,20 @@ refer(AppId, Dest, Opts) ->
             Opts1 = [{pre_headers, [{<<"Refer-To">>, ReferTo}]}|Opts],
             send_any(AppId, 'REFER', Dest, Opts1)
     end.
+
+
+%% @doc Sends a request constructed from a SIP-Uri
+%%
+%% This function constructs and send an out-of-dialog request from a SIP-Uri.
+%% Common options in {@link opt()} are supported.
+%%
+
+-spec request(nksip:app_id(), nksip:user_uri(), [opt()]) -> 
+    result() | {error, error()}.
+
+request(AppId, Dest, Opts) ->
+    send_any(AppId, undefined, Dest, Opts).
+
 
 
 %% @doc Sends a <i>STUN</i> binding request.

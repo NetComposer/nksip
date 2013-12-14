@@ -31,7 +31,7 @@
 
 -export([method/1, scheme/1, uri2ruri/1, aors/1, uris/1, ruris/1, vias/1]).
 -export([tokens/1, integers/1, dates/1, transport/1]).
--export([packet/3, raw_sipmsg/1]).
+-export([packet/3, raw_sipmsg/1, raw_header/1]).
 
 -export_type([msg_class/0]).
 
@@ -531,57 +531,7 @@ get_sipmsg(Class, Headers, Body, Proto) ->
 get_raw_headers(Packet, Acc) ->
     case erlang:decode_packet(httph, Packet, []) of
         {ok, {http_header, _Int, Name0, _Res, Value0}, Rest} ->
-            Header = if
-                Name0 == 'Www-Authenticate' -> 
-                    <<"WWW-Authenticate">>;
-                is_atom(Name0) -> 
-                    atom_to_binary(Name0, latin1);
-                true ->
-                    case string:to_upper(Name0) of
-                        "ALLOW-EVENTS" -> <<"Allow-Events">>;
-                        "U" -> <<"Allow-Events">>;
-                        "AUTHENTICATION-INFO" -> <<"Authentication-Info">>;
-                        "CALL-ID" -> <<"Call-ID">>;
-                        "I" -> <<"Call-ID">>;
-                        "CONTACT" -> <<"Contact">>;
-                        "M" -> <<"Contact">>;
-                        "CONTENT-DISPOSITION" -> <<"Content-Disposition">>;
-                        "CONTENT-ENCODING" -> <<"Content-Encoding">>;
-                        "E" -> <<"Content-Encoding">>;
-                        "CONTENT-LENGTH" -> <<"Content-Length">>;
-                        "L" -> <<"Content-Length">>;
-                        "CONTENT-TYPE" -> <<"Content-Type">>;
-                        "C" -> <<"Content-Type">>;
-                        "CSEQ" -> <<"CSeq">>;
-                        "EVENT" -> <<"Event">>;
-                        "O" -> <<"Event">>;
-                        "FROM" -> <<"From">>;
-                        "F" -> <<"From">>;
-                        "MAX-FORWARDS" -> <<"Max-Forwards">>;
-                        "PROXY-REQUIRE" -> <<"Proxy-Require">>;
-                        "RACK" -> <<"RAck">>;
-                        "RECORD-ROUTE" -> <<"Record-Route">>;
-                        "REFER-TO" -> <<"Refer-To">>;
-                        "R" -> <<"Refer-To">>;
-                        "REQUIRE" -> <<"Require">>;
-                        "ROUTE" -> <<"Route">>;
-                        "RSEQ" -> <<"RSeq">>;
-                        "SUBJECT" -> <<"Subject">>;
-                        "S" -> <<"Subject">>;
-                        "SUBSCRIPTION-STATE" -> <<"Subscription-State">>;
-                        "SUPPORTED" -> <<"Supported">>;
-                        "K" -> <<"Supported">>;
-                        "TIMESTAMP" -> <<"Timestamp">>;
-                        "TO" -> <<"To">>;
-                        "T" -> <<"To">>;
-                        "UNSUPPORTED" -> <<"Unsupported">>;
-                        "VIA" -> <<"Via">>;
-                        "V" -> <<"Via">>;
-                        "WWW-AUTHENTICATE" -> <<"WWW-Authenticate">>;
-                        "PROXY-AUTHENTICATE" -> <<"PROXY-Authenticate">>;
-                        _ -> list_to_binary(Name0)
-                    end
-            end,
+            Header = raw_header(Name0),
             get_raw_headers(Rest, [{Header, list_to_binary(Value0)}|Acc]);
         {ok, http_eoh, Rest} ->
             {lists:reverse(Acc), Rest};
@@ -591,6 +541,66 @@ get_raw_headers(Packet, Acc) ->
         _ ->
             lager:warning("Error decoding packet headers: ~s", [Packet]),
             {lists:reverse(Acc), <<>>}
+    end.
+
+
+%% @private
+-spec raw_header(atom()|list()) ->
+    binary().
+
+raw_header('Www-Authenticate') ->
+    <<"WWW-Authenticate">>;
+
+raw_header(Name) when is_atom(Name) ->
+    atom_to_binary(Name, latin1);
+
+raw_header(Name) ->
+    case string:to_upper(Name) of
+        "ALLOW-EVENTS" -> <<"Allow-Events">>;
+        "U" -> <<"Allow-Events">>;
+        "AUTHENTICATION-INFO" -> <<"Authentication-Info">>;
+        "CALL-ID" -> <<"Call-ID">>;
+        "I" -> <<"Call-ID">>;
+        "CONTACT" -> <<"Contact">>;
+        "M" -> <<"Contact">>;
+        "CONTENT-DISPOSITION" -> <<"Content-Disposition">>;
+        "CONTENT-ENCODING" -> <<"Content-Encoding">>;
+        "E" -> <<"Content-Encoding">>;
+        "CONTENT-LENGTH" -> <<"Content-Length">>;
+        "L" -> <<"Content-Length">>;
+        "CONTENT-TYPE" -> <<"Content-Type">>;
+        "C" -> <<"Content-Type">>;
+        "CSEQ" -> <<"CSeq">>;
+        "EVENT" -> <<"Event">>;
+        "O" -> <<"Event">>;
+        "EXPIRES" -> <<"Expires">>;
+        "FROM" -> <<"From">>;
+        "F" -> <<"From">>;
+        "MAX-FORWARDS" -> <<"Max-Forwards">>;
+        "PROXY-REQUIRE" -> <<"Proxy-Require">>;
+        "RACK" -> <<"RAck">>;
+        "RECORD-ROUTE" -> <<"Record-Route">>;
+        "REFER-TO" -> <<"Refer-To">>;
+        "R" -> <<"Refer-To">>;
+        "REQUIRE" -> <<"Require">>;
+        "ROUTE" -> <<"Route">>;
+        "RSEQ" -> <<"RSeq">>;
+        "SUBJECT" -> <<"Subject">>;
+        "S" -> <<"Subject">>;
+        "SUBSCRIPTION-STATE" -> <<"Subscription-State">>;
+        "SUPPORTED" -> <<"Supported">>;
+        "K" -> <<"Supported">>;
+        "TIMESTAMP" -> <<"Timestamp">>;
+        "TO" -> <<"To">>;
+        "T" -> <<"To">>;
+        "UNSUPPORTED" -> <<"Unsupported">>;
+        "USER-AGENT" -> <<"User-Agent">>;
+        "VIA" -> <<"Via">>;
+        "V" -> <<"Via">>;
+        "WWW-AUTHENTICATE" -> <<"WWW-Authenticate">>;
+        "PROXY-AUTHENTICATE" -> <<"PROXY-Authenticate">>;
+        <<"BODY">> -> <<"body">>;
+        _ -> list_to_binary(Name)
     end.
 
 

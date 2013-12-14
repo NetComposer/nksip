@@ -74,9 +74,22 @@ send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
              invalid_require | invalid_accept | invalid_event.
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
-    FullOpts = Opts++AppOpts,
     try
-        case nksip_parse:uris(Uri) of
+        case opts_from_uri(Uri) of
+            error -> 
+                Method1 = Uri1 = Opts1 = throw(invalid_uri);
+            {UriMethod, Uri1, UriOpts} ->
+                Method1 = case UriMethod of
+                    Method when Method/=undefined -> Method;
+                    _ when Method==undefined, UriMethod/=undefined -> UriMethod;
+                    undefined when Method/=undefined -> Method;
+                    undefined -> 'INVITE';
+                    _ -> throw(invalid_uri)
+                end,
+                Opts1 = Opts++UriOpts
+        end,
+        FullOpts = Opts1++AppOpts,
+        case nksip_parse:uris(Uri1) of
             [RUri] -> ok;
             _ -> RUri = throw(invalid_uri)
         end,
@@ -114,18 +127,27 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     Contacts -> ok
                 end
         end,
-        case nksip_lib:get_binary(call_id, Opts) of
+        case nksip_lib:get_binary(call_id, Opts1) of
             <<>> -> CallId = nksip_lib:luid();
             CallId -> ok
         end,
-        CSeq = case nksip_lib:get_value(cseq, Opts) of
+        CSeq = case nksip_lib:get_value(cseq, Opts1) of
             undefined -> nksip_config:cseq();
             UCSeq when is_integer(UCSeq), UCSeq > 0 -> UCSeq;
             _ -> throw(invalid_cseq)
         end,
-        CSeq1 = case nksip_lib:get_integer(min_cseq, Opts) of
+        CSeq1 = case nksip_lib:get_integer(min_cseq, Opts1) of
             MinCSeq when MinCSeq > CSeq -> MinCSeq;
             _ -> CSeq
+        end,
+        Forwards = case nksip_lib:get_value(max_forwards, Opts1) of
+            undefined -> 
+                70;
+            Forw0 ->
+                case nksip_lib:to_integer(Forw0) of
+                    Forw1 when is_integer(Forw1), Forw1>=0 -> Forw1;
+                    _ -> 70
+                end
         end,
         case nksip_lib:get_value(<<"tag">>, From#uri.ext_opts) of
             undefined -> 
@@ -138,11 +160,67 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             <<>> -> UserAgent = <<"NkSIP ", ?VERSION>>;
             UserAgent -> ok
         end,
+        Body = nksip_lib:get_value(body, Opts1, <<>>),
+        ContentType = case nksip_lib:get_binary(content_type, Opts1) of
+            <<>> when is_record(Body, sdp) -> 
+                {<<"application/sdp">>, []};
+            <<>> when not is_binary(Body) -> 
+                {<<"application/nksip.ebf.base64">>, []};
+            <<>> -> 
+                undefined;
+            ContentTypeSpec -> 
+                case nksip_parse:tokens(ContentTypeSpec) of
+                    [ContentTypeToken] -> ContentTypeToken;
+                    error -> throw(invalid_content_type)
+                end
+        end,
+        Require1 = case nksip_lib:get_value(require, Opts1) of
+            undefined -> 
+                [];
+            ReqOpts ->
+                case nksip_parse:tokens(ReqOpts) of
+                    error -> throw(invalid_require);
+                    ReqTokens0 -> ReqTokens0
+                end
+        end,
+        Require2 = case 
+            Method1=='INVITE' andalso lists:member(require_100rel, FullOpts) 
+        of
+            true -> 
+                case lists:keymember(<<"100rel">>, 1, Require1) of
+                    true -> Require1;
+                    false -> [{<<"100rel">>, []}|Require1]
+                end;
+            false -> 
+                Require1
+        end,
+        Supported = case lists:member(make_supported, FullOpts) of
+            true -> nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
+            false -> []
+        end,
+        Expires = case nksip_lib:get_value(expires, Opts1) of
+            undefined -> 
+                undefined;
+            Exp0 ->
+                case nksip_lib:to_integer(Exp0) of
+                    Exp1 when is_integer(Exp1), Exp1>=0 -> Exp1;
+                    _ -> undefined
+                end
+        end,
+        Event = case nksip_lib:get_value(event, Opts1) of
+            undefined ->
+                undefined;
+            EventData ->
+                case nksip_parse:tokens(EventData) of
+                    [EventToken] -> EventToken;
+                    _ -> throw(invalid_event)
+                end
+        end,
         Headers = 
                 proplists:get_all_values(pre_headers, FullOpts) ++
                 nksip_lib:get_value(headers, FullOpts, []) ++
                 proplists:get_all_values(post_headers, FullOpts),
-        Body = nksip_lib:get_value(body, Opts, <<>>),
+        
         Headers1 = nksip_headers:update(Headers, [
             {default_single, <<"User-Agent">>, UserAgent},
             case lists:member(make_allow, FullOpts) of
@@ -167,11 +245,11 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 false -> 
                     []
             end,
-            case lists:member(make_accept, Opts) of
+            case lists:member(make_accept, Opts1) of
                 true -> 
                     Accept = case nksip_lib:get_value(accept, FullOpts) of
-                        undefined when Method=='INVITE'; Method=='UPDATE'; 
-                                       Method=='PRACK' -> 
+                        undefined when Method1=='INVITE'; Method1=='UPDATE'; 
+                                       Method1=='PRACK' -> 
                             [{<<"application/sdp">>, []}];
                         undefined ->
                             ?ACCEPT;
@@ -190,7 +268,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                                                     httpd_util:rfc1123_date())};
                 false -> []
             end,
-            case nksip_lib:get_value(parsed_subscription_state, Opts) of
+            case nksip_lib:get_value(parsed_subscription_state, Opts1) of
                 undefined -> 
                     [];
                 SubsState0 -> 
@@ -198,60 +276,10 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     {default_single, <<"Subscription-State">>, SubsState}
             end
         ]),
-        ContentType = case nksip_lib:get_binary(content_type, Opts) of
-            <<>> when is_record(Body, sdp) -> 
-                {<<"application/sdp">>, []};
-            <<>> when not is_binary(Body) -> 
-                {<<"application/nksip.ebf.base64">>, []};
-            <<>> -> 
-                undefined;
-            ContentTypeSpec -> 
-                case nksip_parse:tokens(ContentTypeSpec) of
-                    [ContentTypeToken] -> ContentTypeToken;
-                    error -> throw(invalid_content_type)
-                end
-        end,
-        Require0 = case nksip_lib:get_value(require, Opts) of
-            undefined -> 
-                [];
-            ReqOpts ->
-                case nksip_parse:tokens(ReqOpts) of
-                    error -> throw(invalid_require);
-                    ReqTokens0 -> ReqTokens0
-                end
-        end,
-        Require = case 
-            Method=='INVITE' andalso lists:member(require_100rel, FullOpts) 
-        of
-            true -> 
-                case lists:keymember(<<"100rel">>, 1, Require0) of
-                    true -> Require0;
-                    false -> [{<<"100rel">>, []}|Require0]
-                end;
-            false -> 
-                Require0
-        end,
-        Supported = case lists:member(make_supported, FullOpts) of
-            true -> nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
-            false -> []
-        end,
-        Expires = case nksip_lib:get_integer(expires, Opts, -1) of
-            Exp when is_integer(Exp), Exp>=0 -> Exp;
-            _ -> undefined
-        end,
-        Event = case nksip_lib:get_value(event, Opts) of
-            undefined ->
-                undefined;
-            EventData ->
-                case nksip_parse:tokens(EventData) of
-                    [EventToken] -> EventToken;
-                    _ -> throw(invalid_event)
-                end
-        end,
         RUri1 = nksip_parse:uri2ruri(RUri),
         Req = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
-            class = {req, nksip_parse:method(Method)},
+            class = {req, Method1},
             app_id = AppId,
             ruri = RUri1,
             vias = [],
@@ -259,14 +287,14 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             to = To,
             call_id = CallId,
             cseq = CSeq1,
-            cseq_method = Method,
-            forwards = 70,
+            cseq_method = Method1,
+            forwards = Forwards,
             routes = Routes,
             contacts = Contacts,
             expires = Expires,
             headers = Headers1,
             content_type = ContentType,
-            require = Require,
+            require = Require2,
             supported = Supported,
             event = Event,
             body = Body,
@@ -276,27 +304,27 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             transport = #transport{},
             start = nksip_lib:l_timestamp()
         },
-        Opts1 = [
-            nksip_lib:extract(Opts, pass),
-            case lists:member(make_contact, Opts) of
+        ExtOpts = [
+            nksip_lib:extract(Opts1, pass),
+            case lists:member(make_contact, Opts1) of
                 true -> 
                     make_contact;
                 false when Contacts==[] andalso
-                           (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
-                            Method=='REFER') -> 
+                           (Method1=='INVITE' orelse Method1=='SUBSCRIBE' orelse
+                            Method1=='REFER') -> 
                     make_contact;
                 _ -> 
                     []
             end,
-            case lists:member(record_route, Opts) of
+            case lists:member(record_route, Opts1) of
                 true  -> record_route;
                 _ -> []
             end,
-            case nksip_lib:get_value(local_host, Opts, auto) of
+            case nksip_lib:get_value(local_host, Opts1, auto) of
                 auto -> [];
                 Host -> {local_host, nksip_lib:to_host(Host)}
             end,
-            case nksip_lib:get_value(local_host6, Opts, auto) of
+            case nksip_lib:get_value(local_host6, Opts1, auto) of
                 auto -> 
                     [];
                 Host6 -> 
@@ -308,60 +336,95 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                             {local_host6, nksip_lib:to_binary(Host6)}
                     end
             end,            
-            case nksip_lib:get_value(fields, Opts) of
+            case nksip_lib:get_value(fields, Opts1) of
                 undefined -> [];
                 Fields -> {fields, Fields}
             end,
-            case lists:member(async, Opts) of
+            case lists:member(async, Opts1) of
                 true -> async;
                 false -> []
             end,
-            case nksip_lib:get_value(callback, Opts) of
+            case nksip_lib:get_value(callback, Opts1) of
                 Callback when is_function(Callback, 1) -> {callback, Callback};
                 _ -> []
             end,
-            case nksip_lib:get_value(prack, Opts) of
+            case nksip_lib:get_value(prack, Opts1) of
                 PrAck when is_function(PrAck, 2) -> {prack, PrAck};
                 _ -> []
             end,
-            case lists:member(get_request, Opts) of
+            case lists:member(get_request, Opts1) of
                 true -> get_request;
                 false -> []
             end,
-            case lists:member(get_response, Opts) of
+            case lists:member(get_response, Opts1) of
                 true -> get_response;
                 false -> []
             end,
-            case lists:member(auto_2xx_ack, Opts) of
+            case lists:member(auto_2xx_ack, Opts1) of
                 true -> auto_2xx_ack;
                 false -> []
             end,
-            case nksip_lib:get_binary(refer_subscription_id, Opts) of
+            case nksip_lib:get_binary(refer_subscription_id, Opts1) of
                 <<>> -> [];
                 ReferSubsId -> {refer_subscription_id, ReferSubsId}
             end
         ],
-        {ok, Req, lists:flatten(Opts1)}
+        {ok, Req, lists:flatten(ExtOpts)}
     catch
         throw:Throw -> {error, Throw}
     end.
 
 
-% make(Uri) ->
-%     case nksip_parse:uris(Uri) of
-%         [#uri{opts=Opts1, headers=Headers}] ->
-%             {Method, Opts2} = case lists:keytake(<<"method">>, 1, Opts1) of
-%                 {value, {_, RawMethod}, Rest1} ->
-%                     {nksip_parse:method(RawMethod), Rest1};
-%                 false ->
-%                     {'INVITE', Opts1}
-%             end,
-%         _ ->
-%             {error, invalid_uri}    
-%     end.
+
+%% @private
+-spec opts_from_uri(nksip:user_uri()) ->
+    {undefined|nksip:method(), nksip:uri(), nksip_lib:proplist()} | error.
+
+opts_from_uri(Uri) ->
+    case nksip_parse:uris(Uri) of
+        [#uri{opts=UriOpts, headers=Headers}=Uri1] ->
+            {Method, Uri2} = case lists:keytake(<<"method">>, 1, UriOpts) of
+                {value, {_, RawMethod}, Rest} ->
+                    {nksip_parse:method(RawMethod), Uri1#uri{opts=Rest}};
+                false ->
+                    {undefined, Uri1}
+            end,
+            Opts = make_from_uri(Headers, []),
+            case is_atom(Method) of
+                true -> {Method, Uri2#uri{headers=[]}, Opts};
+                _ -> error
+            end;
+        _ ->
+            error
+    end.
 
 
+%% @private
+make_from_uri([], Opts) ->
+    lists:reverse(Opts);
 
+make_from_uri([{Name, Value}|Rest], Opts) ->
+    Value1 = list_to_binary(http_uri:decode(nksip_lib:to_list(Value))), 
+    Opts1 = case nksip_parse:raw_header(nksip_lib:to_list(Name)) of
+        <<"From">> -> [{from, Value1}|Opts];
+        <<"To">> -> [{to, Value1}|Opts];
+        <<"Route">> -> [{route, Value1}|Opts];
+        <<"Contact">> -> [{contact, Value1}|Opts];
+        <<"Call-ID">> -> [{call_id, Value1}|Opts];
+        <<"User-Agent">> -> [{user_agent, Value1}|Opts];
+        <<"Content-Type">> -> [{content_type, Value1}|Opts];
+        <<"Require">> -> [{require, Value1}|Opts];
+        <<"Supported">> -> [{supported, Value1}, make_supported|Opts];
+        <<"Expires">> -> [{expires, Value1}|Opts];
+        <<"Event">> -> [{event, Value1}|Opts];
+        <<"Max-Forwards">> -> [{max_forwards, Value1}|Opts];
+        <<"CSeq">> -> Opts;
+        <<"Via">> -> Opts;
+        <<"Content-Length">> -> Opts;
+        <<"body">> -> [{body, Value1}|Opts];    
+        _ -> [{post_headers, [{Name, Value1}]}|Opts]
+    end,
+    make_from_uri(Rest, Opts1).
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
@@ -437,5 +500,51 @@ is_stateless(Resp, GlobalId) ->
         _ ->
             false
     end.
+
+
+
+%% ===================================================================
+%% EUnit tests
+%% ===================================================================
+
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+uri_test() ->
+    {'REGISTER', #uri{opts=[<<"lr">>]}, []} = 
+        opts_from_uri("<sip:host;method=REGISTER;lr>"),
+
+    {undefined, #uri{}, 
+        [
+            {from, <<"sip:u1@from">>},
+            {to, <<"sip:to">>},
+            {contact, <<"sip:a">>},
+            {post_headers, [{<<"user1">>, <<"data1">>}]},
+            {call_id, <<"abc">>},
+            {user_agent, <<"user">>},
+            {content_type, <<"application/sdp">>},
+            {require, <<"a;b;c">>},
+            make_supported,
+            {supported, <<"d;e">>},
+            {expires, <<"5">>},
+            {max_forwards, <<"69">>},
+            {body, <<"my body">>},
+            {post_headers, [{<<"user2">>, <<"data2">>}]}
+
+        ]
+    } = opts_from_uri("<sip:host?FROM=sip:u1%40from&to=sip:to&contact=sip:a"
+                      "&user1=data1&call-ID=abc&user-agent=user"
+                      "&content-type = application/sdp"
+                      "&require=a;b;c&supported=d;e & expires=5"
+                      "&cseq=ignored&via=ignored&max-forwards=69"
+                      "&content-length=ignored&body=my%20body"
+                      "&user2=data2>").
+-endif.
+
+
+
+
+
+
 
 
