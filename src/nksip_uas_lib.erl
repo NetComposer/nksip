@@ -333,6 +333,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     Event = case Method of
         'SUBSCRIBE' -> Req#sipmsg.event;
         'NOTIFY' -> Req#sipmsg.event;
+        'PUBLISH' -> Req#sipmsg.event;
         _ -> undefined
     end,
     Resp = Req#sipmsg{

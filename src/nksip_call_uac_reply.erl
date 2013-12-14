@@ -138,6 +138,12 @@ fun_response(Resp, Opts) ->
                     [{subscription_id, nksip_subscription:id(Resp)}];
                 'REFER' when Code>=200, Code<300 -> 
                     [{subscription_id, nksip_subscription:id(Resp)}];
+                'PUBLISH' when Code>=200, Code<300 ->
+                    Expires = nksip_sipmsg:field(Resp, parsed_expires),
+                    case nksip_sipmsg:header(Resp, <<"SIP-ETag">>) of
+                        [SipETag] -> [{sip_etag, SipETag}, {expires, Expires}];
+                        _ -> []
+                    end;
                 _ -> 
                     []
             end,

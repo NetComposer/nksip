@@ -58,7 +58,7 @@ process(#trans{request=Req}=UAS, Call) ->
             Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
             SupportedTokens = [T || {T, _} <- Supported],
             case [T || {T, _} <- Require, not lists:member(T, SupportedTokens)] of
-                [] when Method=='SUBSCRIBE' ->
+                [] when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
                     SupEvents = nksip_lib:get_value(event, AppOpts, []),
                     case Event of
                         {Type, _} ->
@@ -223,6 +223,15 @@ method('REFER', UAS, Call) ->
         _ ->
             reply(invalid_request, UAS, Call)    
     end;
+
+method('PUBLISH', UAS, Call) ->
+    #trans{request=Req} = UAS,
+    case nksip_sipmsg:header(Req, <<"SIP-If-Match">>) of
+        [Tag] -> ok;
+        _ -> Tag = <<>>
+    end,
+    Fields = [app_id, aor, event, {value, etag, Tag}, parsed_expires, body],
+    process_call(publish, Fields, UAS, Call);
 
 method(_Method, UAS, Call) ->
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,

@@ -26,7 +26,7 @@
 -export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
 -export([init/1, get_user_pass/3, authorize/4, route/6]).
 -export([options/4, invite/4, reinvite/4, ack/4, bye/4, info/4, subscribe/4, 
-         resubscribe/4, notify/4, message/4, refer/4]).
+         resubscribe/4, notify/4, message/4, refer/4, publish/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -378,6 +378,16 @@ refer(ReqId, Meta, _From, #state{id=AppId}=State) ->
     Opts = [async, auto_2xx_ack, {call_id, InvCallId}, {refer_subscription_id, SubsId}],
     spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
     {reply, ok, State}.
+
+
+publish(_ReqId, Meta, _From, State) ->
+    AppId = nksip_lib:get_value(app_id, Meta),
+    AOR = nksip_lib:get_value(aor, Meta),
+    ETag = nksip_lib:get_value(etag, Meta),
+    Expires = nksip_lib:get_value(parsed_expires, Meta),
+    Body = nksip_lib:get_value(body, Meta),
+    Reply = nksip_publish:request(AppId, AOR, ETag, Expires, Body),
+    {reply, Reply, State}.
 
 
 ping_update(PingId, OK, #state{callbacks=CBs}=State) ->

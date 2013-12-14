@@ -141,10 +141,10 @@
 -export([init/1, get_user_pass/3, authorize/4, route/6]).
 -export([invite/4, reinvite/4, cancel/3, ack/4, bye/4, options/4, register/4]).
 -export([info/4, prack/4, update/4, subscribe/4, resubscribe/4, notify/4, message/4]).
--export([refer/4]).
+-export([refer/4, publish/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
--export([registrar_store/3]).
+-export([registrar_store/3, publish_store/3]).
 -include("nksip.hrl").
 
 
@@ -694,6 +694,23 @@ refer(_ReqId, _Meta, _From, State) ->
     {reply, decline, State}.
 
 
+%% @doc This function is called by NkSIP to process a new incoming PUBLISH request. 
+%%
+%% `Meta' will include at least the following parameters: app_id, aor, event,
+%% etag, parsed_expires
+%% Parameter `etag' will include the incoming <i>SIP-If-Match</i> header if present.
+%%
+%% If the event package is ok, you can use the funcion {@link nksip_publish:request}
+%% to process it according to RFC3903
+
+%%
+-spec publish(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
+publish(_ReqId, _Meta, _From, State) ->
+    {reply, forbidden, State}.
+
+
 %% @doc Called when a dialog has changed its state.
 %%
 %% A new dialog will be created when you send an INVITE request 
@@ -853,6 +870,63 @@ registrar_store(AppId, Op, State) ->
     end,
     {reply, Reply, State}.
 
+
+%% @doc Called when a operation database must be done on the publiser database.
+%%
+%% The possible values for Op and their allowed reply are:
+%%
+%%<table border="1">
+%%   <tr><th>Op</th><th>Response</th><th>Comments</th></tr>
+%%   <tr><td><code>{get, AOR::{@link nksip:aor()}, Tag::binary()}</code></td>
+%%      <td><code>{@link nksip_publish:reg_publish()}|not_found</code></td>
+%%      <td>Retrieve store information this AOR and Tag.</td></tr>
+%%   <tr><td><code>{put, AOR::{@link nksip:aor()}, Tag::binary(), 
+%%                 {@link nksip_publish:reg_publish()}], TTL::integer()}</code></td>
+%%       <td>`ok'</td>
+%%       <td>Store this information this AOR and Tag. The record must be 
+%%           automatically deleted after TTL seconds.</td></tr>
+%%  <tr><td><code>{del, AOR::{@link nksip:aor()}, Type::binary()}</code></td>
+%%      <td>`ok|not_found'</td>
+%%      <td>Delete stored information for this AOR and Tag, returning `ok' or 
+%%          `not_found' if it is not found.</td></tr>
+%%  <tr><td>`del_all'</td>
+%%      <td>`ok'</td>
+%%      <td>Delete all stored information for this AppId.</td></tr>
+%%</table>
+%%
+%%
+%% The function must return `{reply, Reply, NewState}'.
+%% This default implementation uses the built-in memory database.
+
+-type publish_store_op() ::
+    {get, nksip:aor(), binary()} | 
+    {put, nksip:aor(), binary(), nksip_publis:reg_publish(), integer()} |
+    {del, nksip:aor(), binary()} |
+    del_all.
+
+-spec publish_store(nksip:app_id(), publish_store_op(), term()) ->
+    {reply, term(), term()}.
+
+publish_store(AppId, Op, State) ->
+    Reply = case Op of
+        {get, AOR, Tag} ->
+            nksip_store:get({nksip_publish, AppId, AOR, Tag}, not_found);
+        {put, AOR, Tag, Record, TTL} -> 
+            nksip_store:put({nksip_publish, AppId, AOR, Tag}, Record, [{ttl, TTL}]);
+        {del, AOR, Tag} ->
+            nksip_store:del({nksip_publish, AppId, AOR, Tag});
+        del_all ->
+            FoldFun = fun(Key, _Value, Acc) ->
+                case Key of
+                    {nksip_publish, AppId, AOR, Tag} -> 
+                        nksip_store:del({nksip_publish, AppId, AOR, Tag});
+                    _ -> 
+                        Acc
+                end
+            end,
+            nksip_store:fold(FoldFun, none)
+    end,
+    {reply, Reply, State}.
 
 
 

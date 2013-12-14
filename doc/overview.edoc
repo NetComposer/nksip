@@ -158,7 +158,7 @@ First of all, you need to start the SipApps you are going to work with. See {@li
 
 === Sending requests ===
 
-NkSIP supports all mandatory SIP methods: <i>OPTIONS</i>, <i>REGISTER</i>, <i>INVITE</i>, <i>ACK</i>, <i>BYE</i> and <i>CANCEL</i>. Optional methods <i>INFO</i>, <i>PRACK</i>, <i>UPDATE</i>, <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>REFER</i> and <i>MESSAGE</i> are also supported. <i>PUBLISH</i> will be supported shortly. Use the functions in {@link nksip_uac} to send any of these requests as an UAC.
+NkSIP supports all defined SIP methods: <i>OPTIONS</i>, <i>REGISTER</i>, <i>INVITE</i>, <i>ACK</i>, <i>BYE</i> and <i>CANCEL</i>, <i>INFO</i>, <i>PRACK</i>, <i>UPDATE</i>, <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>REFER</i>, <i>PUBLISH</i> and <i>MESSAGE</i> are also supported.
 
 
 === Receiving requests ===
@@ -179,7 +179,14 @@ The full list of recognized responses is a available in {@link nksip_reply}.
 
 NkSIP includes a full registrar implementation according to RFC3261. Its functionality is described in {@link nksip_registrar}.
 
-It uses by default the buil-in, RAM-only store, but can be configured to use any other database implementing a callback.
+It uses by default the buil-in, RAM-only store, but can be configured to use any other database implementing callback {@link nksip_sipapp:registrar_store/3}.
+
+
+== Event State Compositor ==
+
+NkSIP includes full support to receive PUBLISH requests and store the the publisher state, according to RFC3903 Its functionality is described in {@link nksip_publish}.
+
+It uses by default the buil-in, RAM-only store, but can be configured to use any other database implementing callback {@link nksip_sipapp:publish_store/3}.
 
 
 == Resolver ==

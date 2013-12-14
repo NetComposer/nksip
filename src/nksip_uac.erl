@@ -22,11 +22,9 @@
 %%
 %% The functions in this module are used to send requests to remote parties as a UAC.
 %%
-%% All mandatory SIP methods all supported: <i>OPTIONS</i>, <i>REGISTER</i>, 
-%% <i>INVITE</i>, <i>ACK</i>, <i>BYE</i> and <i>CANCEL</i>. 
-%% The following optional methods are also supported: <i>INFO</i>, <i>UPDATE</i>,
-%% <i>PRACK</i>, <i>SUBSCRIBE</i>, <i>NOTIFY</i> and <i>MESSAGE</i>.
-%% Future versions will address remaining currently defined SIP methods: 
+%% All defined SIP methods all supported: <i>OPTIONS</i>, <i>REGISTER</i>, 
+%% <i>INVITE</i>, <i>ACK</i>, <i>BYE</i>, <i>CANCEL</i>, <i>INFO</i>, 
+%% <i>UPDATE</i>, <i>PRACK</i>, <i>SUBSCRIBE</i>, <i>NOTIFY</i>, <i>MESSAGE</i>
 %% <i>REFER</i> and <i>PUBLISH</i>.
 %%
 %% By default, most functions will block until a final response is received
@@ -196,7 +194,7 @@
 -include("nksip.hrl").
 
 -export([options/3, register/3, invite/3, ack/3, bye/3, info/3, cancel/2]).
--export([update/3, subscribe/3, notify/3, message/3, refer/3]).
+-export([update/3, subscribe/3, notify/3, message/3, refer/3, publish/3]).
 -export([request/3, refresh/3, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
@@ -250,6 +248,11 @@
 
 -type refer_opt() ::
     {refer_to, string()|binary()}.
+
+-type publish_opt() ::
+    {event, binary()} |
+    {expires, non_neg_integer()} |
+    {sip_etag, binary()}.
 
 -type result() ::  
     {async, nksip_request:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
@@ -812,6 +815,65 @@ refer(AppId, Dest, Opts) ->
             Opts1 = [{pre_headers, [{<<"Refer-To">>, ReferTo}]}|Opts],
             send_any(AppId, 'REFER', Dest, Opts1)
     end.
+
+
+%% @doc Sends an PUBLISH request.
+%%
+%% This functions sends a new publishing to the other party, using a
+%% remote supported event package and including a body.
+%%
+%% If the remote party returns a 2xx response, it means that the publishing
+%% has been accepted, and the body has been stored. A SIP-ETag header will 
+%% be returned (a `sip_etag' parameter will always be returned in `Meta'). 
+%% You can use this parameter to update the stored information (sending a
+%% new body), or deleting it (using `{expires, 0}')
+%%
+%% When `Dest' is a <i>SIP Uri</i> the request will be sent outside any dialog.
+%% If it is a <i>dialog specification</i>, it will be sent inside that dialog.
+%%
+%% Recognized options are described in {@link opt()} 
+%% when sent outside any dialog, and {@link dialog_opt()} when sent inside a dialog.
+%% Additional recognized options are defined in {@link publish_opt()}:
+%%
+%% <table border="1">
+%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+%%      <tr>
+%%          <td>`event'</td>
+%%          <td>`string()|binary()'</td>
+%%          <td></td>
+%%          <td>Generates the mandatory <i>Event</i> header for the event package
+%%          we want to use (like `{event "MyEvent}' or `{event, "MyEvent;id=first"}'.
+%%          Don't use it in case of re-subscriptions.</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`expires'</td>
+%%          <td>`integer()'</td>
+%%          <td></td>
+%%          <td>If included, it will generate a <i>Expires</i> proposing a 
+%%          expiration time to the server. Send a value of `0' to expire
+%%          the published information.</td>
+%%      </tr>
+%%      <tr>
+%%          <td>`sip_etag</td>
+%%          <td>`string()|binary()'</td>
+%%          <td></td>
+%%          <td>If included, it will generate a <i>SIP-If-Math</i> header,
+%%          to update a published information or expire it.</td>
+%%      </tr>
+%% </table>
+%%
+-spec publish(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+             [opt()|dialog_opt()|publish_opt()]) ->
+    result() | {error, error()}.
+
+publish(AppId, Dest, Opts) ->
+    % event and expires options are detected later
+    Opts1 = case nksip_lib:get_binary(sip_etag, Opts) of
+        <<>> -> Opts;
+        ETag -> [{pre_headers, [{<<"SIP-If-Match">>, ETag}]}|Opts]
+    end,
+    Opts2 = [make_supported, make_allow, make_allow_event | Opts1],
+    send_any(AppId, 'PUBLISH', Dest, Opts2).
 
 
 %% @doc Sends a request constructed from a SIP-Uri

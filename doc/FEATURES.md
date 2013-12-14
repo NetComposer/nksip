@@ -1,6 +1,6 @@
 NkSIP main features:
- * Full RFC3261 coverage, including SIP Registrar (using the RAM built-in store or any other external database).
- * Full support for PRACK, INFO, UPDATE, SUBSCRIBE, NOTIFY, REFER and MESSAGE, as UAC, UAS and Proxy.
+ * Full RFC3261 coverage, including SIP Registrar and Event State Compositor (using the RAM built-in store or any other external database).
+ * Full support for PRACK, INFO, UPDATE, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as UAC, UAS and Proxy.
  * A written from scratch, fully typed Erlang code easy to understand and extend. Unit tests cover nearly all of the functionality.
  * Hot core and application code upgrade.
  * Very few external dependencies: [Lager](https://github.com/basho/lager) for error logging and [Cowboy](http://ninenines.eu") as TCP/SSL acceptor and Websocket server.
@@ -34,6 +34,7 @@ RFC|Description|Notes
 [RFC3428](http://tools.ietf.org/html/rfc3428)|MESSAGE|
 [RFC3515](http://tools.ietf.org/html/rfc3515)|REFER|
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|
+[RFC3903](http://tools.ietf.org/html/rfc3903)|PUBLISH|
 [RFC4168](http://tools.ietf.org/html/rfc4168)|SCTP Transport|No TLS-SCTP
 [RFC4475](http://tools.ietf.org/html/rfc4475)|Torture Tests|Included in unit tests
 [RFC4566](http://tools.ietf.org/html/rfc4566)|SDP|Only parser and generator

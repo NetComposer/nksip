@@ -434,17 +434,20 @@ get_sipmsg(Class, Headers, Body, Proto) ->
         Supported -> ok
     end,
     case Class of
-        {req, Method, _} -> ok;
-        {resp, _Code, _} -> Method=CSeqMethod
+        {req, ReqMethod, _} -> ok;
+        _ -> ReqMethod = undefined
     end,
-    Event = case Method=='SUBSCRIBE' orelse Method=='NOTIFY' of
-        true ->
-            case tokens(all_values(<<"Event">>, Headers)) of
-                [EventToken] -> EventToken;
-                _ -> throw({400, <<"Invalid Event">>})
-            end;
-        false ->
-            undefined
+    Event = case tokens(all_values(<<"Event">>, Headers)) of
+        [] -> undefined;
+        [EventToken] -> EventToken;
+        _ -> throw({400, <<"Invalid Event">>})
+    end,
+    case 
+        ReqMethod=='SUBSCRIBE' orelse ReqMethod=='NOTIFY' orelse
+        ReqMethod=='PUBLISH'
+    of
+        true when Event==undefined -> throw({400, <<"Invalid Event">>});
+        _ -> ok
     end,
     case tokens(all_values(<<"Content-Type">>, Headers)) of
         [] -> ContentType = undefined;
@@ -585,6 +588,8 @@ raw_header(Name) ->
         "REQUIRE" -> <<"Require">>;
         "ROUTE" -> <<"Route">>;
         "RSEQ" -> <<"RSeq">>;
+        "SIP-IF-MATCH" -> <<"SIP-If-Match">>;
+        "SIP-ETAG" -> <<"SIP-ETag">>;
         "SUBJECT" -> <<"Subject">>;
         "S" -> <<"Subject">>;
         "SUBSCRIPTION-STATE" -> <<"Subscription-State">>;

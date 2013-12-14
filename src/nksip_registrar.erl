@@ -22,8 +22,7 @@
 %%
 %% This module implements a full registrar implementation according to RFC3261. 
 %% By default, it uses the RAM-only built-in store, but any SipApp can implement 
-%% {@link nksip_sipapp:registrar/3} callback to hook into the registration process
-%% and use any external database.
+%% {@link nksip_sipapp:registrar_store/3} callback use any external database.
 %% Each started SipApp maintains its fully independent set of registrations.
 %%
 %% When a new REGISTER request arrives at a SipApp, and if you order to `process' 

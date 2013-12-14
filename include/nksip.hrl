@@ -31,11 +31,12 @@
 -define(SUPPORTED, [{<<"100rel">>, []}]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
 -define(ALLOW, <<"INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
-                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE">>).
+                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE,PUBLISH">>).
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
--define(DEFAULT_EVENT_EXPIRES, 10).
+-define(DEFAULT_EVENT_EXPIRES, 60).
+-define(DEFAULT_PUBLISH_EXPIRES, 60).
 
 -define(debug(AppId, Txt, Opts), 
         % ok).
@@ -282,6 +283,12 @@
     attributes = [] :: [nksip_sdp:sdp_a()],
     medias = [] :: [nksip_sdp:sdp_m()]
 }).
+
+
+-record(reg_publish, {
+    data :: nksip:body()
+}).
+
 
 -endif.
 

@@ -83,6 +83,7 @@
 %%   <tr><td>`timeout'</td><td>408</td><td></td></tr>
 %%   <tr><td>`{timeout, Text}'</td><td>408</td>
 %%       <td>`Text' will be used in SIP reason line</td></tr>
+%%   <tr><td>`conditional_request_failed</td><td>412</td><td></td></tr>
 %%   <tr><td>`too_large'</td><td>413</td><td></td></tr>
 %%   <tr><td>`{unsupported_media_type, Types}'</td><td>415</td>
 %%       <td>Generates a new `Accept' header using `Types'</td></tr>
@@ -189,6 +190,7 @@
     {method_not_allowed, Methods::binary()} |
     proxy_authenticate | {proxy_authenticate, Realm::binary()} |
     timeout | {timeout, Text::binary()} | 
+    conditional_request_failed |
     too_large |
     {unsupported_media_type, Types::binary()} | 
     {unsupported_media_encoding, Types::binary()} |
@@ -354,6 +356,8 @@ reqreply({unsupported_media_type, Types}) ->
         code=415, 
         headers = nksip_headers:new([{single, <<"Accept">>, Types1}])
     };
+reqreply(conditional_request_failed) ->
+    #reqreply{code=412};
 reqreply(too_large) ->
     #reqreply{code=413};
 reqreply({unsupported_media_encoding, Types}) ->
