@@ -149,19 +149,13 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         % has used it as Request Uri (see nksip_uas:strict_router/1)
         RecordRoute = case lists:member(record_route, Opts) of
             true when Method /= 'REGISTER' -> 
-                Hash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
-                #uri{
-                    scheme = sip,
-                    user = <<"NkQ", Hash/binary>>,
-                    domain = ListenHost,
-                    port = ListenPort,
-                    opts = if
-                        Proto==udp -> 
-                            [<<"lr">>];
-                        true -> 
-                            [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
-                    end
-                };
+                make_route(GlobalId, AppId, RouteBranch, ListenHost, ListenPort, Proto);
+            _ ->
+                []
+        end,
+        Path = case lists:member(make_path, Opts) of
+            true when Method == 'REGISTER' -> 
+                make_route(GlobalId, AppId, RouteBranch, ListenHost, ListenPort, Proto);
             _ ->
                 []
         end,
@@ -211,8 +205,9 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             port = ListenPort, 
             opts = [<<"rport">>, {<<"branch">>, Branch}]
         },
-        Headers1 = nksip_headers:update(Headers, 
-                                    [{before_multi, <<"Record-Route">>, RecordRoute}]),
+        Headers1 = nksip_headers:update(Headers, [
+                                    {before_multi, <<"Record-Route">>, RecordRoute},
+                                    {before_multi, <<"Path">>, Path}]),
         Body1 = case Body of 
             #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
             _ -> Body
@@ -230,7 +225,19 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
 
 
 
-
+%% @private
+make_route(GlobalId, AppId, Branch, ListenHost, ListenPort, Proto) ->
+    Hash = nksip_lib:hash({GlobalId, AppId, Branch}),
+    #uri{
+        scheme = sip,
+        user = <<"NkQ", Hash/binary>>,
+        domain = ListenHost,
+        port = ListenPort,
+        opts = case Proto of
+            udp -> [<<"lr">>];
+            _ -> [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
+        end
+    }.
 
 
 

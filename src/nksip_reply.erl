@@ -92,6 +92,8 @@
 %%   <tr><td>`unsupported_uri_scheme'</td><td>416</td><td></td></tr>
 %%   <tr><td>`{bad_extension, Extensions}'</td><td>420</td>
 %%       <td>Generates a new `Unsupported' header using `Extensions'</td></tr>
+%%   <tr><td>`{extension_required, Extension}'</td><td>421</td>
+%%       <td>Generates a new `Require' header using `Extension'</td></tr>
 %%   <tr><td>`{interval_too_brief, Time}'</td><td>423</td>
 %%        <td>Generates a new `Min-Expires' header using `Time'</td></tr>
 %%   <tr><td>`temporarily_unavailable'</td><td>480</td><td></td></tr>
@@ -196,6 +198,7 @@
     {unsupported_media_encoding, Types::binary()} |
     unsupported_uri_scheme | 
     {bad_extension, Exts::binary()} |
+    {extension_required, Exts::binary} |
     {interval_too_brief, Min::binary()} |
     temporarily_unavailable |
     no_transaction |
@@ -374,6 +377,8 @@ reqreply({bad_extension, Exts}) ->
         code = 420, 
         headers = nksip_headers:new([{single, <<"Unsupported">>, Exts1}])
     };
+reqreply({extension_required, Exts}) -> 
+    #reqreply{code=421, opts=[{require, Exts}]};
 reqreply({interval_too_brief, Min}) ->
     Min1 = nksip_lib:to_binary(Min),    
     #reqreply{

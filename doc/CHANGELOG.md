@@ -9,6 +9,7 @@ Changelog
 * UPDATE and MESSAGE methods.
 * Full event support (SUBSCRIBE/NOTIFY).
 * Full PUBLISH support, using in-memory or external database.
+* Path support.
 * UAS callback functions receive contextual metadata.
 * New options to customize supported extensions and to generate Require and Accept headers.
 * Use of any external store for registrar instead of in-memory built-in.

@@ -31,6 +31,7 @@ RFC|Description|Notes
 [RFC3264](http://tools.ietf.org/html/rfc3264)|Offer/Answer Model|
 [RFC3265](http://tools.ietf.org/html/rfc3265)|Event Notification|
 [RFC3311](http://tools.ietf.org/html/rfc3311)|UPDATE|
+[RFC3327](http://tools.ietf.org/html/rfc3327)|Registering Non-Adjacent Contacts|path
 [RFC3428](http://tools.ietf.org/html/rfc3428)|MESSAGE|
 [RFC3515](http://tools.ietf.org/html/rfc3515)|REFER|
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|

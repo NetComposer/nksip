@@ -45,68 +45,68 @@
     {reply, nksip:sipreply()}.
 
 route(UAS, UriList, ProxyOpts, Call) ->
-    case normalize_uriset(UriList) of
-        [[]] -> {reply, temporarily_unavailable};
-        UriSet -> try_route(UAS, UriSet, ProxyOpts, Call)
+    try
+        UriSet = case normalize_uriset(UriList) of
+            [[]] -> throw(temporarily_unavailable);
+            UriSet0 -> UriSet0
+        end,
+        check_forwards(UAS),
+        #trans{request=Req, method=Method} = UAS,
+        Req1 = preprocess(Req, ProxyOpts),
+        Stateless = lists:member(stateless, ProxyOpts),
+        case Method of
+            'ACK' when Stateless ->
+                [[First|_]|_] = UriSet,
+                route_stateless(Req1, First, ProxyOpts, Call);
+            'ACK' ->
+                {fork, UAS#trans{request=Req1}, UriSet};
+            _ ->
+                case nksip_sipmsg:header(Req, <<"Proxy-Require">>, tokens) of
+                    [] -> 
+                        ok;
+                    PR ->
+                        Text = nksip_lib:bjoin([T || {T, _} <- PR]),
+                        throw({bad_extension, Text})
+                end,
+                case 
+                    Method=='REGISTER' andalso lists:member(make_path, ProxyOpts)
+                of
+                    true ->
+                        #sipmsg{supported=Supported} = Req,
+                        case lists:keymember(<<"path">>, 1, Supported) of
+                            true -> ok;
+                            false -> throw({extension_required, <<"path">>})
+                        end;
+                    false ->
+                        ok
+                end,
+                case Stateless of
+                    true -> 
+                        [[First|_]|_] = UriSet,
+                        route_stateless(Req1, First, ProxyOpts, Call);
+                    false ->
+                        {fork, UAS#trans{request=Req1}, UriSet}
+                end
+        end
+    catch
+        throw:Reply -> {reply, Reply}
     end.
 
 
 %% @private
--spec try_route(nksip_call:trans(), nksip:uri_set(), [opt()], nksip_call:call()) -> 
-    {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
-    {reply, nksip:sipreply()}.
+-spec route_stateless(nksip:request(), nksip:uri(), [opt()], nksip_call:call()) -> 
+    stateless_proxy.
 
-try_route(#trans{method='ACK'}=UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
-    Stateless = lists:member(stateless, ProxyOpts),
-    case check_forwards(UAS) of
-        ok when Stateless -> route_stateless(UAS, First, ProxyOpts, Call);
-        ok -> route_stateful(UAS, UriSet, ProxyOpts);
-        {reply, Reply} -> {reply, Reply}
-    end;
-
-try_route(UAS, [[First|_]|_]=UriSet, ProxyOpts, Call) ->
-    #trans{request=Req} = UAS,
-    Stateless = lists:member(stateless, ProxyOpts),
-    case check_forwards(UAS) of
-        ok -> 
-            case nksip_sipmsg:header(Req, <<"Proxy-Require">>, tokens) of
-                [] when not Stateless ->
-                    route_stateful(UAS, UriSet, ProxyOpts);
-                [] when Stateless ->
-                    route_stateless(UAS, First, ProxyOpts, Call);
-                PR ->
-                    Text = nksip_lib:bjoin([T || {T, _} <- PR]),
-                    {reply, {bad_extension, Text}}
-            end;
-        {reply, Reply} ->
-            {reply, Reply}
-    end.
-
-
-%% @private
--spec route_stateful(nksip_call:trans(), nksip:uri_set(), [opt()]) -> 
-    {fork, nksip_call:trans(), nksip:uri_set()}.
-
-route_stateful(#trans{request=Req}=UAS, UriSet, ProxyOpts) ->
-    Req1 = preprocess(Req, ProxyOpts),
-    {fork, UAS#trans{request=Req1}, UriSet}.
-
-
-%% @private
--spec route_stateless(nksip_call:trans(), nksip:uri(), [opt()], nksip_call:call()) -> 
-    stateless_proxy | {reply, nksip:sipreply()}.
-
-route_stateless(#trans{request=Req}, Uri, ProxyOpts, Call) ->
+route_stateless(Req, Uri, ProxyOpts, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,    
-    Req1 = preprocess(Req#sipmsg{ruri=Uri}, ProxyOpts),
+    Req1 = Req#sipmsg{ruri=Uri},
     case nksip_request:is_local_route(Req1) of
         true -> 
             ?call_notice("Stateless proxy tried to loop a request to itself", 
                          [], Call),
-            {reply, loop_detected};
+            throw(loop_detected);
         false ->
-            % Req2 = nksip_transport_uac:add_via(Req1, GlobalId, [stateless|AppOpts]),
             SendOpts = [stateless_via | ProxyOpts++AppOpts],
             case nksip_transport_uac:send_request(Req1, GlobalId, SendOpts) of
                 {ok, _} ->  
@@ -155,19 +155,19 @@ response_stateless(#sipmsg{vias=[_|RestVia]}=Resp, Call) ->
 
 %% @private
 -spec check_forwards(nksip_call:trans()) ->
-    ok | {reply, nksip:sipreply()}.
+    ok.
 
 check_forwards(#trans{request=#sipmsg{class={req, Method}, forwards=Forwards}}) ->
     if
         is_integer(Forwards), Forwards > 0 ->   
             ok;
         Forwards==0, Method=='OPTIONS' ->
-            {reply, {ok, [], <<>>, [make_supported, make_accept, make_allow, 
-                                        {reason, <<"Max Forwards">>}]}};
+            throw({ok, [], <<>>, [make_supported, make_accept, make_allow, 
+                                        {reason, <<"Max Forwards">>}]});
         Forwards==0 ->
-            {reply, too_many_hops};
+            throw(too_many_hops);
         true -> 
-            {reply, invalid_request}
+            throw(invalid_request)
     end.
 
 
@@ -185,8 +185,6 @@ preprocess(#sipmsg{forwards=Forwards, routes=Routes, headers=Headers}=Req, Proxy
         false -> Headers
     end,
     Headers2 = lists:flatten([proplists:get_all_values(headers, ProxyOpts), Headers1]),
-    
-
     SpecRoutes = lists:flatten(proplists:get_all_values(route, ProxyOpts), Routes1),
     case nksip_parse:uris(SpecRoutes) of
         error -> Routes2 = Routes1;

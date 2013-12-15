@@ -28,7 +28,7 @@
 %% ===================================================================
 
 -define(VERSION, "0.4.0").
--define(SUPPORTED, [{<<"100rel">>, []}]).
+-define(SUPPORTED, [{<<"100rel">>, []}, {<<"path">>, []}]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
 -define(ALLOW, <<"INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
                  "SUBSCRIBE,NOTIFY,REFER,MESSAGE,PUBLISH">>).
@@ -282,6 +282,19 @@
     key :: binary(),
     attributes = [] :: [nksip_sdp:sdp_a()],
     medias = [] :: [nksip_sdp:sdp_m()]
+}).
+
+
+-record(reg_contact, {
+    index :: nksip_registrar:index(),
+    contact :: nksip:uri(), 
+    updated :: nksip_lib:l_timestamp(),
+    expire :: nksip_lib:timestamp(),
+    q :: float(),  
+    call_id :: nksip:call_id(),
+    cseq :: nksip:cseq(),
+    transport :: nksip_transport:transport(),
+    path :: [nksip:uri()]
 }).
 
 

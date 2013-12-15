@@ -134,10 +134,24 @@ method('OPTIONS', UAS, Call) ->
     process_call(options, Fields, UAS, Call); 
 
 method('REGISTER', UAS, Call) ->
+    #trans{request=#sipmsg{supported=Supported}=Req} = UAS,
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     Registrar = lists:member(registrar, Opts),
     Fields = [app_id, aor, {value, registrar, Registrar}],
-    process_call(register, Fields, UAS, Call); 
+    case nksip_sipmsg:header(Req, <<"Path">>, uris) of
+        error ->
+            reply(invalid_request, UAS, Call);
+        [] ->
+            process_call(register, Fields, UAS, Call); 
+        Path ->
+            case lists:keymember(<<"path">>, 1, Supported) of
+                true ->
+                    Fields1 = Fields++[{path, Path}],
+                    process_call(register, Fields1, UAS, Call); 
+                false ->
+                    reply({bad_extension, <<"path">>}, UAS, Call)
+            end
+    end;
 
 method('PRACK', UAS, Call) ->
     #trans{request=#sipmsg{dialog_id=DialogId}=Req} = UAS,

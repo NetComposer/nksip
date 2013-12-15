@@ -21,6 +21,7 @@
 %% @doc NkSIP Registrar Server.
 %%
 %% This module implements a full registrar implementation according to RFC3261. 
+%% "Path" is also supported according to RFC3327.
 %% By default, it uses the RAM-only built-in store, but any SipApp can implement 
 %% {@link nksip_sipapp:registrar_store/3} callback use any external database.
 %% Each started SipApp maintains its fully independent set of registrations.
@@ -48,7 +49,7 @@
 -export([is_registered/1, request/1]).
 -export([internal_get_all/0, internal_clear/0, internal_print_all/0]).
 
--export_type([reg_contact/0]).
+-export_type([reg_contact/0, index/0]).
 
 -define(TIMEOUT, 15000).
 
@@ -56,17 +57,6 @@
 %% ===================================================================
 %% Types and records
 %% ===================================================================
-
--record(reg_contact, {
-    index :: index(),
-    contact :: nksip:uri(), 
-    updated :: nksip_lib:l_timestamp(),
-    expire :: nksip_lib:timestamp(),
-    q :: float(),  
-    call_id :: nksip:call_id(),
-    cseq :: nksip:cseq(),
-    transport :: nksip_transport:transport()
-}).
 
 -type reg_contact() :: #reg_contact{}.
 
@@ -100,7 +90,7 @@ find(AppId, {Scheme, User, Domain}) ->
     [nksip:uri()].
 
 find(AppId, Scheme, User, Domain) ->
-    [Contact || #reg_contact{contact=Contact} <- get_info(AppId, Scheme, User, Domain)].
+    [make_contact(Reg) || Reg <- get_info(AppId, Scheme, User, Domain)].
 
 
 %% @private Gets all current stored info for an AOR.
@@ -131,8 +121,8 @@ qfind(AppId, {Scheme, User, Domain}) ->
 
 qfind(AppId, Scheme, User, Domain) ->
     All = [
-        {1/Q, Updated, Contact} || 
-        #reg_contact{q=Q, updated=Updated, contact=Contact} 
+        {1/Q, Updated, make_contact(Reg)} || 
+        #reg_contact{q=Q, updated=Updated} = Reg 
         <- get_info(AppId, Scheme, User, Domain)
     ],
     do_qfind(lists:sort(All), []).
@@ -388,6 +378,10 @@ update_iter([], _, Acc) ->
 
 update_iter([{Index, Contact, ExpTime, Q}|Rest], 
             #sipmsg{transport=Transport, call_id=CallId, cseq=CSeq}=Req, Acc) ->
+    Path = case nksip_sipmsg:header(Req, <<"Path">>, uris) of
+        error -> throw(invalid_request);
+        PathUris -> PathUris
+    end,
     RegContact = #reg_contact{
         index = Index,
         contact = Contact,
@@ -396,7 +390,8 @@ update_iter([{Index, Contact, ExpTime, Q}|Rest],
         q = Q, 
         call_id = CallId, 
         cseq = CSeq,
-        transport = Transport
+        transport = Transport,
+        path = Path
     },
     % A new registration will overwite an old Contact if it has the same index
     NewAcc = case lists:keytake(Index, #reg_contact.index, Acc) of
@@ -413,6 +408,18 @@ update_iter([{Index, Contact, ExpTime, Q}|Rest],
     end,
     update_iter(Rest, Req, NewAcc).
         
+
+%% @private Generates a contact value including Path
+make_contact(#reg_contact{contact=Contact, path=[]}) ->
+    Contact;
+make_contact(#reg_contact{contact=Contact, path=Path}) ->
+    #uri{headers=Headers} = Contact,
+    Route1 = nksip_unparse:uri(Path),
+    Routes2 = http_uri:encode(binary_to_list(Route1)),
+    Headers1 = [{<<"Route">>, Routes2}|Headers],
+    Contact#uri{headers=Headers1}.
+
+
 
 %% @private
 -spec del_all(nksip:app_id(), nksip:aor(), nksip:request()) ->

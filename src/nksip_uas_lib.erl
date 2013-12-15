@@ -122,7 +122,7 @@ preprocess(Req, GlobalId) ->
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
                 nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
     {ok, nksip:response(), nksip_lib:proplist()} | {error, Error}
-    when Error :: invalid_contact.
+    when Error :: invalid_contact | invalid_content_type | invalid_require.
 
 response(Req, Code, Headers, Body, Opts, AppOpts) ->
     try 
@@ -155,20 +155,6 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         supported = ReqSupported,
         expires = ReqExpires
     } = Req, 
-    Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
-        true ->
-            case lists:keymember(<<"100rel">>, 1, ReqRequire) of
-                true ->
-                    true;
-                false ->
-                    case lists:keymember(<<"100rel">>, 1, ReqSupported) of
-                        true -> lists:member(make_100rel, Opts);
-                        false -> false
-                    end
-            end;
-        false ->
-            false
-    end,
     case Code > 100 of
         true when Method=='INVITE'; Method=='UPDATE'; 
                   Method=='SUBSCRIBE'; Method=='REFER' ->
@@ -210,7 +196,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         case MakeAllow of
             true -> 
                 Allow = case lists:member(registrar, AppOpts) of
-                    true -> <<(?ALLOW)/binary, ", REGISTER">>;
+                    true -> <<(?ALLOW)/binary, ",REGISTER">>;
                     false -> ?ALLOW
                 end,
                 {default_single, <<"Allow">>, Allow};
@@ -229,15 +215,26 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                                                 httpd_util:rfc1123_date())};
             false -> none
         end,
+        % Copy Record-Route from Request
         if
-            (Method=='INVITE' orelse Method=='NOTIFY') andalso Code>100 andalso Code<300 ->
+            Code>100 andalso Code<300 andalso
+            (Method=='INVITE' orelse Method=='NOTIFY') ->
                 {multi, <<"Record-Route">>, 
                         proplists:get_all_values(<<"Record-Route">>, ReqHeaders)};
             true ->
                 none
+        end,
+        % Copy Path from Request
+        if
+            Code>=200 andalso Code<300 andalso Method=='REGISTER' ->
+                {multi, <<"Path">>, 
+                        proplists:get_all_values(<<"Path">>, ReqHeaders)};
+                true ->
+                    none
         end
     ],
     RespHeaders = nksip_headers:update(Headers, HeaderOps),
+    % Get To1 and ToTag1 
     % If to_tag is present in Opts, it takes priority. Used by proxy server
     % when it generates a 408 response after a remote party has already sent a 
     % response
@@ -278,20 +275,39 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         ContentTypeSpec -> 
             case nksip_parse:tokens(ContentTypeSpec) of
                 [ContentTypeToken] -> ContentTypeToken;
-                error -> undefined
+                error -> throw(invalid_content_type)
             end
     end,
     RespSupported = case MakeSupported of
         true -> nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
         false -> []
     end,
-    RespRequire = case Reliable of
-        true -> [{<<"100rel">>, []}];
-        false -> []
+    RespRequire1 = case nksip_lib:get_value(require, Opts) of
+        undefined -> 
+            [];
+        RR1 ->
+            case nksip_parse:tokens(RR1) of
+                error -> throw(invalid_require);
+                RR2 -> RR2
+            end
     end,
-    RespVias = case Code of
-        100 -> [LastVia];
-        _ -> Vias
+    Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
+        true ->
+            case lists:keymember(<<"100rel">>, 1, ReqRequire) of
+                true ->
+                    true;
+                false ->
+                    case lists:keymember(<<"100rel">>, 1, ReqSupported) of
+                        true -> lists:member(make_100rel, Opts);
+                        false -> false
+                    end
+            end;
+        false ->
+            false
+    end,
+    RespRequire2 = case Reliable of
+        true -> [{<<"100rel">>, []}|RespRequire1];
+        false -> RespRequire1
     end,
     Secure = case RUri#uri.scheme of
         sips ->
@@ -330,11 +346,15 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         _ ->
             undefined
     end,
-    Event = case Method of
-        'SUBSCRIBE' -> Req#sipmsg.event;
-        'NOTIFY' -> Req#sipmsg.event;
-        'PUBLISH' -> Req#sipmsg.event;
+    Event = case 
+        Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse Method=='PUBLISH'
+    of
+        true -> Req#sipmsg.event;
         _ -> undefined
+    end,
+    RespVias = case Code of
+        100 -> [LastVia];
+        _ -> Vias
     end,
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
@@ -349,7 +369,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         headers = RespHeaders,
         content_type = RespContentType,
         supported = RespSupported,
-        require = RespRequire,
+        require = RespRequire2,
         expires = Expires,
         event = Event,
         body = Body,
@@ -364,7 +384,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                 RespContacts==[] andalso
                 (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse 
                  Method=='REFER') ->
-            make_contact;
+                make_contact;
             _ -> 
                 []
         end,

@@ -295,7 +295,7 @@ authorize(_ReqId, _AuthList, _From, State) ->
 %% NkSIP will then make additional checks to the request (like inspecting the 
 %% `Proxy-Require' header) and will route it statefully to the same `Request-URI' 
 %% contained in the request.
-%%
+%% 
 %% If we are the resposible proxy for `Domain' we can provide a new list 
 %% of URIs to route the request to. NkSIP will use <b><i>serial</i> and/or 
 %% <i>parallel</i> forking</b> depending on the format of `UriSet'. 
@@ -315,6 +315,10 @@ authorize(_ReqId, _AuthList, _From, State) ->
 %%  <li>`record_route': NkSIP will insert a <i>Record-Route</i> header before sending 
 %%      the request, so that following request inside the dialog will be routed 
 %%      to this proxy.</li>
+%%  <li>`make_path': For REGISTER requests, if the request includes "path" as part of
+%%      the supported tokens, it will insert a <i>Path</i> header (see RFC3327).
+%%      If path it is not supported, it will reply a 421 ("Extension Required")
+%%      response</li>
 %%  <li>`follow_redirects': If any 3xx response is received, the received contacts
 %%      will be inserted in the list of uris to try.</li>
 %%  <li><code>{route, {@link nksip:user_uri()}}</code>: 

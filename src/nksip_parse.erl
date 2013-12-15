@@ -580,6 +580,7 @@ raw_header(Name) ->
         "FROM" -> <<"From">>;
         "F" -> <<"From">>;
         "MAX-FORWARDS" -> <<"Max-Forwards">>;
+        "PATH" -> <<"Path">>;
         "PROXY-REQUIRE" -> <<"Proxy-Require">>;
         "RACK" -> <<"RAck">>;
         "RECORD-ROUTE" -> <<"Record-Route">>;
