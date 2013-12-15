@@ -134,7 +134,9 @@ method('OPTIONS', UAS, Call) ->
     process_call(options, Fields, UAS, Call); 
 
 method('REGISTER', UAS, Call) ->
-    Fields = [app_id, aor],
+    #call{opts=#call_opts{app_opts=Opts}} = Call,
+    Registrar = lists:member(registrar, Opts),
+    Fields = [app_id, aor, {value, registrar, Registrar}],
     process_call(register, Fields, UAS, Call); 
 
 method('PRACK', UAS, Call) ->

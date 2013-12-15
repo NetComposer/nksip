@@ -543,8 +543,14 @@ options(_ReqId, _Meta, _From, State) ->
 
 register(_ReqId, Meta, _From, State) ->
     %% NOTE: In this default implementation, Meta contains the SipApp options.
-    AppOpts = nksip_lib:get_value(app_opts, Meta),
-    Reply = case lists:member(registrar, AppOpts) of
+    Registrar = case nksip_lib:get_value(registrar, Meta) of
+        undefined ->
+            AppOpts = nksip_lib:get_value(app_opts, Meta),
+            lists:member(registrar, AppOpts);
+        Value ->
+            Value
+    end,
+    Reply= case Registrar of
         true -> register;
         false -> {method_not_allowed, ?ALLOW}
     end,
