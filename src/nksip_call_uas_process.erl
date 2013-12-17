@@ -137,7 +137,11 @@ method('REGISTER', UAS, Call) ->
     #trans{request=#sipmsg{supported=Supported}=Req} = UAS,
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     Registrar = lists:member(registrar, Opts),
-    Fields = [app_id, aor, {value, registrar, Registrar}],
+    Fields = [
+        app_id, 
+        {value, registrar, Registrar}, 
+        {value, req, Req}
+    ],
     case nksip_sipmsg:header(Req, <<"Path">>, uris) of
         error ->
             reply(invalid_request, UAS, Call);
@@ -282,7 +286,7 @@ process_call(Fun, Fields, UAS, Call) ->
             Call;
         % Not exported and no in-line
         not_exported ->
-            Meta1 = [{req, Req}, {app_opts, Opts}],
+            Meta1 = [{app_opts, Opts}|Meta],
             {reply, Reply, []} = apply(nksip_sipapp, Fun, [ReqId, Meta1, none, []]),
             reply(Reply, UAS, Call);
         #call{} = Call1 -> 

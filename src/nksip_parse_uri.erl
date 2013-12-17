@@ -495,7 +495,11 @@ headers_value([Ch|_]=Rest, Key, Acc, false, Block, Uri) when Ch==$&; Ch==$>; Ch=
         [] ->
             {error, headers_value, ?LINE};
         _ ->
-            Opt = {list_to_binary(Key), list_to_binary(lists:reverse(Acc))},
+            Key1 = case Block of
+                true -> nksip_parse:raw_header(Key);
+                false -> list_to_binary(Key)
+            end,
+            Opt = {Key1, list_to_binary(lists:reverse(Acc))},
             Uri1 = case Block of
                 true -> Uri#uri{headers = Uri#uri.headers++[Opt]};
                 false -> Uri#uri{ext_headers = Uri#uri.ext_headers++[Opt]}
@@ -643,6 +647,12 @@ uri4_test() ->
         #uri{user = <<"u2">>, pass = <<"p2">>, domain = <<"b">>, opts = [<<"b1">>]}
     ] = 
         uris("sip:u1:p1@a?a1,<sip:u2:p2@b;b1>").
+
+uri5_test() ->
+    [#uri{headers=[{<<"Route">>, <<"a">>}], ext_headers=[{<<"route">>, <<"b">>}]}] = 
+        uris("<sip:a?routE=a>?route=b"),
+    [#uri{headers=[], ext_headers=[{<<"routE">>, <<"a">>}]}] = 
+        uris("sip:a?routE=a").
 
 -endif.
 

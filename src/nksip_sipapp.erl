@@ -334,6 +334,8 @@ authorize(_ReqId, _AuthList, _From, State) ->
 %%      A proxy should not usually do this. Use it with care.</li>
 %% </ul>
 %% 
+%% You can also add headers to the request if the URI contains a `<<"Route">>' header
+%%
 %% If we want to <b>act as an endpoint or B2BUA</b> and answer to the request 
 %% from this SipApp, we must return `process' or `{process, ProcessOpts}'. 
 %% NkSIP will then make additional checks to the request (like inspecting 
@@ -532,8 +534,9 @@ options(_ReqId, _Meta, _From, State) ->
 %% See {@link nksip_registrar} for other possible response codes defined in the SIP 
 %% standard registration process.
 %%
-%% `Meta' will include at least the following parameters: aor
-%% (see {@link nksip_request} for details).
+%% `Meta' will include at least the following parameters: app_id, registrar, req
+%% Parameter `registrar' will be `true' if this `registrar' is present in
+%% SipApp's config. Parameter `req' will have the full #sipmsg{} object.
 %%
 %% If this function is not defined, and no `registrar' option is found, 
 %% a 405 <i>Method not allowed</i> would be replied. 
@@ -547,16 +550,12 @@ options(_ReqId, _Meta, _From, State) ->
 
 register(_ReqId, Meta, _From, State) ->
     %% NOTE: In this default implementation, Meta contains the SipApp options.
-    Registrar = case nksip_lib:get_value(registrar, Meta) of
-        undefined ->
-            AppOpts = nksip_lib:get_value(app_opts, Meta),
-            lists:member(registrar, AppOpts);
-        Value ->
-            Value
-    end,
-    Reply= case Registrar of
-        true -> register;
-        false -> {method_not_allowed, ?ALLOW}
+    Reply = case nksip_lib:get_value(registrar, Meta) of
+        true -> 
+            Req = nksip_lib:get_value(req, Meta),
+            nksip_registrar:request(Req);
+        false -> 
+            {method_not_allowed, ?ALLOW}
     end,
     {reply, Reply, State}.
 

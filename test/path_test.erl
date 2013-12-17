@@ -41,31 +41,36 @@ start() ->
     tests_util:start_nksip(),
 
     ok = path_server:start({path, p1}, [
+        {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5060}},
         {transport, {tls, {0,0,0,0}, 5061}}]),
 
     ok = path_server:start({path, p2}, [
+        {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}]),
 
     ok = path_server:start({path, p3}, [
+        {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5080}},
         {transport, {tls, {0,0,0,0}, 5081}}]),
 
     ok = path_server:start({path, registrar}, [
         registrar,
+        {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5090}},
         {transport, {tls, {0,0,0,0}, 5091}}]),
-
 
     ok = sipapp_endpoint:start({path, ua1}, [
         {from, "sip:ua1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
+        {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 0}},
         {transport, {tls, {0,0,0,0}, 0}}]),
 
     ok = sipapp_endpoint:start({path, ua2}, [
         {route, "<sip:127.0.0.1:5090;lr>"},
+        {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 0}},
         {transport, {tls, {0,0,0,0}, 0}}]),
 
@@ -105,11 +110,11 @@ basic() ->
                         [make_supported, make_contact, {fields, [<<"Path">>]}]),
 
     [#reg_contact{
-        contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"192.168.0.7">>},
+        contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},
         path = [
-            #uri{scheme = sip,domain = <<"192.168.0.7">>,port = 5080,
+            #uri{scheme = sip,domain = <<"localhost">>,port = 5080,
                     opts = [<<"lr">>]} = P1Uri,
-            #uri{scheme = sip,domain = <<"192.168.0.7">>,port = 5061,
+            #uri{scheme = sip,domain = <<"localhost">>,port = 5061,
                     opts = [<<"lr">>,{<<"transport">>,<<"tls">>}]} = P2Uri
         ]
     }] = nksip_registrar:get_info({path, registrar}, sip, <<"ua1">>, <<"nksip">>),
@@ -117,8 +122,11 @@ basic() ->
     P1 = nksip_unparse:uri(P1Uri),
     P2 = nksip_unparse:uri(P2Uri),
 
-    % Pending: Check the route has been correct
-    {ok, 200, []} = nksip_uac:options(C2, "sip:ua1@nksip", []),
+
+    % Now, if send a request to UA1, the registrar inserts the stored path
+    % as routes, and requests pases throw P3, P1 and to UA1
+    {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
+        nksip_uac:options(C2, "sip:ua1@nksip", [{fields, [<<"Nk-Id">>]}]),
     ok.
 
 

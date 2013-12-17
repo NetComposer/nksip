@@ -29,7 +29,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([method/1, scheme/1, uri2ruri/1, aors/1, uris/1, ruris/1, vias/1]).
+-export([method/1, scheme/1, aors/1, uris/1, vias/1]).
 -export([tokens/1, integers/1, dates/1, transport/1]).
 -export([packet/3, raw_sipmsg/1, raw_header/1]).
 
@@ -72,15 +72,6 @@ method(Method) when is_binary(Method) ->
     end.
 
 
-%% @doc Cleans any `nksip:uri()' into a valid request-uri.
-%% Remove all headers and parameters out of the uri.
--spec uri2ruri(nksip:uri()) -> 
-    nksip:uri().
-
-uri2ruri(#uri{}=RUri) ->
-    RUri#uri{headers=[], ext_opts=[], ext_headers=[]}.
-
-
 %% @doc Parses all AORs found in `Term'.
 -spec aors(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
     [nksip:aor()].
@@ -98,17 +89,6 @@ uris([]) -> [];
 uris([First|_]=String) when is_integer(First) -> uris([String]);    % It's a string
 uris(List) when is_list(List) -> parse_uris(List, []);
 uris(Term) -> uris([Term]).
-
-
-%% @doc Parses all URIs found in `Term' as <i>Request Uris</i>.
--spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
-    [nksip:uri()] | error.
-
-ruris(Term) ->
-    case uris(Term) of
-        error -> error;
-        UriList -> [uri2ruri(Uri) || Uri <- UriList]
-    end.
 
 
 %% @doc Extracts all `via()' found in `Term'
@@ -548,7 +528,7 @@ get_raw_headers(Packet, Acc) ->
 
 
 %% @private
--spec raw_header(atom()|list()) ->
+-spec raw_header(atom()|list()|binary()) ->
     binary().
 
 raw_header('Www-Authenticate') ->
@@ -556,6 +536,9 @@ raw_header('Www-Authenticate') ->
 
 raw_header(Name) when is_atom(Name) ->
     atom_to_binary(Name, latin1);
+
+raw_header(Name) when is_binary(Name) ->
+    raw_header(binary_to_list(Name));
 
 raw_header(Name) ->
     case string:to_upper(Name) of

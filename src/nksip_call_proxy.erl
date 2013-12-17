@@ -264,12 +264,12 @@ normalize_uriset(_Type, [], Acc1, Acc2) ->
 
 
 uri2ruri(Uri) ->
-    nksip_parse:uri2ruri(Uri).
+    Uri#uri{ext_opts=[], ext_headers=[]}.
 
 pruris(RUri) ->
-    case nksip_parse:ruris(RUri) of
+    case nksip_parse:uris(RUri) of
         error -> [];
-        RUris -> RUris
+        RUris -> [uri2ruri(Uri) || Uri <- RUris]
     end.
 
 

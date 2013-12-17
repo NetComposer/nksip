@@ -276,12 +276,11 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     {default_single, <<"Subscription-State">>, SubsState}
             end
         ]),
-        RUri1 = nksip_parse:uri2ruri(RUri),
         Req = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
             class = {req, Method1},
             app_id = AppId,
-            ruri = RUri1,
+            ruri = RUri#uri{headers=[], ext_opts=[], ext_headers=[]},
             vias = [],
             from = From#uri{ext_opts=FromOpts},
             to = To,

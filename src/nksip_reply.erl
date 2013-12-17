@@ -119,9 +119,6 @@
 %%        <td>Will include headers and body in response</td></tr>
 %%   <tr><td>`{Code, [Header], Body, Options}'</td><td>`Code'</td>
 %%       <td>Will include headers and body in response, using options</td></tr>
-%%   <tr><td>`register'</td><td>See {@link nksip_registrar:request/1}</td>
-%%       <td>Calls {@link nksip_registrar:request/1} to process the request as a 
-%%           registration</td></tr>
 %% </table> 
 %% <br/>
 %% With the following types:
@@ -218,8 +215,7 @@
     {nksip:response_code(), binary()} | 
     {nksip:response_code(), [nksip:header()]} | 
     {nksip:response_code(), [nksip:header()], nksip:body()} | 
-    {nksip:response_code(), [nksip:header()], nksip:body(), nksip_lib:proplist()} | 
-    register.
+    {nksip:response_code(), [nksip:header()], nksip:body(), nksip_lib:proplist()}.
 
 
 %% ===================================================================
@@ -250,10 +246,6 @@ reply(Req, #reqreply{}=ReqReply, AppOpts) ->
                     response(Req, Code, Headers, Body, Opts1, AppOpts)
             end
     end;
-
-reply(Req, register, AppOpts) -> 
-    Reply = nksip_registrar:request(Req),
-    reply(Req, Reply, AppOpts);
 
 reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, AppOpts) -> 
     case nksip_reply:reqreply(SipReply) of

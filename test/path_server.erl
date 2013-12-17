@@ -50,41 +50,33 @@ init(Id) ->
 % P1 is UA1's outbound proxy.
 % It sends everything to P2, inserting Path header
 route(_, _, _, Domain, _, #state{id={path, p1}}=State) ->
-    Opts = [
-        {headers, [{"Nk-Id", "p1"}]},
-        {route, "<sip:127.0.0.1:5071;lr;transport=tls>"},
-        make_path
-    ],
+    OptsA = [{headers, [{"Nk-Id", "p1"}]}],
+    OptsB = [{route, "<sip:127.0.0.1:5071;lr;transport=tls>"}, make_path|OptsA],
     case Domain of 
-        <<"nksip">> -> {reply, {proxy, ruri, Opts}, State};
-        _ -> {reply, proxy, State}
+        <<"nksip">> -> {reply, {proxy, ruri, OptsB}, State};
+        _ -> {reply, {proxy, ruri, OptsA}, State}
     end;
 
 % P2 is an intermediate proxy.
 % It sends everything to P3
 % It sends everything to P2, inserting Path header
 route(_, _, _, Domain, _, #state{id={path, p2}}=State) ->
-    Opts = [
-        {headers, [{"Nk-Id", "p2"}]},
-        {route, "<sip:127.0.0.1:5080;lr;transport=tcp>"}
-    ],
+    OptsA = [{headers, [{"Nk-Id", "p2"}]}],
+    OptsB = [{route, "<sip:127.0.0.1:5080;lr;transport=tcp>"}|OptsA],
     case Domain of 
-        <<"nksip">> -> {reply, {proxy, ruri, Opts}, State};
-        _ -> {reply, proxy, State}
+        <<"nksip">> -> {reply, {proxy, ruri, OptsB}, State};
+        _ -> {reply, {proxy, ruri, OptsA}, State}
     end;
 
 
 % P3 is the SBC. 
 % It sends everything to the registrar, inserting Path header
 route(_, _, _, Domain, _, #state{id={path, p3}}=State) ->
-    Opts = [
-        {headers, [{"Nk-Id", "p3"}]},
-        {route, "<sip:127.0.0.1:5090;lr>"},
-        make_path
-    ],
+    OptsA = [{headers, [{"Nk-Id", "p3"}]}],
+    OptsB = [{route, "<sip:127.0.0.1:5090;lr>"}, make_path|OptsA],
     case Domain of 
-        <<"nksip">> -> {reply, {proxy, ruri, Opts}, State};
-        _ -> {reply, proxy, State}
+        <<"nksip">> -> {reply, {proxy, ruri, OptsB}, State};
+        _ -> {reply, {proxy, ruri, OptsA}, State}
     end;
 
 
@@ -95,17 +87,8 @@ route(_ReqId, Scheme, User, Domain, _From, #state{id={path, registrar}}=State) -
             {reply, process, State};
         <<"nksip">> ->
             case nksip_registrar:find({path, registrar}, Scheme, User, Domain) of
-                [] -> 
-                    {reply, temporarily_unavailable, State};
-                [#uri{headers=Headers}]=UriList -> 
-                    Opts = case nksip_lib:get_value(<<"Route">>, Headers) of
-                        undefined -> 
-                            [];
-                        RawRoute1 ->
-                            RawRoute2 = http_uri:decode(RawRoute1),
-                            [{route, RawRoute2}]
-                    end,
-                    {reply, {proxy, UriList, Opts}, State}
+                [] -> {reply, temporarily_unavailable, State};
+                UriList -> {reply, {proxy, UriList}, State}
             end;
         _ ->
             {reply, {proxy, ruri, []}, State}

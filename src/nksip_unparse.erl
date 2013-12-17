@@ -113,10 +113,10 @@ packet(#sipmsg{class={resp, Code, Reason}}=Response) ->
         end,
         <<"\r\n">>, serialize(Response)]);
 
-packet(#sipmsg{class={req, Method}}=Request)  ->
+packet(#sipmsg{class={req, Method}, ruri=RUri}=Request)  ->
     list_to_binary([
         nksip_lib:to_binary(Method), 
-        32, raw_ruri(Request#sipmsg.ruri), <<" SIP/2.0\r\n">>,
+        32, raw_ruri(RUri), <<" SIP/2.0\r\n">>,
         serialize(Request)
     ]).
 

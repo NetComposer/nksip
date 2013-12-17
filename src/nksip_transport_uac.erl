@@ -64,7 +64,8 @@ send_request(Req, GlobalId, Opts) ->
                             _ -> TopRoute#uri.scheme
                         end
                     },
-                    Routes1 = RestRoutes ++ [nksip_parse:uri2ruri(RUri)]
+                    CRUri = RUri#uri{headers=[], ext_opts=[], ext_headers=[]},
+                    Routes1 = RestRoutes ++ [CRUri]
             end
     end,
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
@@ -214,7 +215,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         end,
         Req#sipmsg{
             transport = Transport,
-            ruri = nksip_parse:uri2ruri(RUri),
+            ruri = RUri#uri{ext_opts=[], ext_headers=[]},
             vias = [Via1|Vias],
             routes = Routes,
             contacts = Contacts1,
