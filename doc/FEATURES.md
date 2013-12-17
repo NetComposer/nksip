@@ -36,6 +36,7 @@ RFC|Description|Notes
 [RFC3428](http://tools.ietf.org/html/rfc3428)|MESSAGE|
 [RFC3515](http://tools.ietf.org/html/rfc3515)|REFER|
 [RFC3581](http://tools.ietf.org/html/rfc3581)|RPort|
+[RFC3608](http://tools.ietf.org/html/rfc3608)|Service-Route|
 [RFC3903](http://tools.ietf.org/html/rfc3903)|PUBLISH|
 [RFC4168](http://tools.ietf.org/html/rfc4168)|SCTP Transport|No TLS-SCTP
 [RFC4475](http://tools.ietf.org/html/rfc4475)|Torture Tests|Included in unit tests

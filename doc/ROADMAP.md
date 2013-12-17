@@ -31,7 +31,7 @@ Some common SIP featured are still missing and can be addressed in following ver
 * ~~[RFC3327](http://tools.ietf.org/html/rfc3327): Path~~
 * ~~[RFC3428](http://tools.ietf.org/html/rfc3428): MESSAGE~~
 * ~~[RFC3515](http://tools.ietf.org/html/rfc3515): REFER~~
-* [RFC3608](http://tools.ietf.org/html/rfc3608): Service-Route
+* ~~[RFC3608](http://tools.ietf.org/html/rfc3608): Service-Route~~
 * [RFC3891](http://tools.ietf.org/html/rfc3891): Replaces
 * [RFC3892](http://tools.ietf.org/html/rfc3892): Referred-By
 * ~~[RFC3903](http://tools.ietf.org/html/rfc3903): PUBLISH~~

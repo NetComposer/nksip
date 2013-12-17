@@ -123,7 +123,7 @@ preprocess(Req, GlobalId) ->
                 nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
     {ok, nksip:response(), nksip_lib:proplist()} | {error, Error}
     when Error :: invalid_contact | invalid_content_type | invalid_require | 
-                  invalid_reason.
+                  invalid_reason | invalid_service_route.
 
 response(Req, Code, Headers, Body, Opts, AppOpts) ->
     try 
@@ -226,21 +226,32 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                 none
         end,
         % Copy Path from Request
-        if
-            Code>=200 andalso Code<300 andalso Method=='REGISTER' ->
+        case Code>=200 andalso Code<300 andalso Method=='REGISTER' of
+            true ->
                 {multi, <<"Path">>, 
                         proplists:get_all_values(<<"Path">>, ReqHeaders)};
-                true ->
-                    none
+            false ->
+                 none
         end,
-        case nksip_lib:get_value(reason, Opts
-            ) of
+        case nksip_lib:get_value(reason, Opts) of
             undefined ->
                 [];
             Reason1 ->
                 case nksip_unparse:error_reason(Reason1) of
                     error -> throw(invalid_reason);
                     Reason2 -> {default_single, <<"Reason">>, Reason2}
+                end
+        end,
+        case 
+            Code>=200 andalso Code<300 andalso Method=='REGISTER' andalso
+            nksip_lib:get_value(service_route, Opts, false) 
+        of
+            false ->
+                [];
+            ServiceRoute1 ->
+                case nksip_parse:uris(ServiceRoute1) of
+                    error -> throw(invalid_service_route);
+                    ServiceRoute2 -> {default_single, <<"Service-Route">>, ServiceRoute2}
                 end
         end
     ],

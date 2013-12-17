@@ -155,6 +155,8 @@
 %%  <li>`{expires, non_neg_integer()': generates a <i>Event</i> header.</li>
 %%  <li><code>{reason, {@link nksip:error_reason()}}</code>: 
 %%       generates a <i>Reason</i> header.</li>
+%%  <li><code>{service_route, {@link nksip:user_uri()}}</code>: 
+%%       generates a <i>Service-Route</i> header, only for 2xx to REGISTER</li>
 %% </ul>
 
 -module(nksip_reply).

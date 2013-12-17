@@ -572,6 +572,7 @@ raw_header(Name) ->
         "REQUIRE" -> <<"Require">>;
         "ROUTE" -> <<"Route">>;
         "RSEQ" -> <<"RSeq">>;
+        "SERVICE-ROUTE" -> <<"Service-Route">>;
         "SIP-IF-MATCH" -> <<"SIP-If-Match">>;
         "SIP-ETAG" -> <<"SIP-ETag">>;
         "SUBJECT" -> <<"Subject">>;

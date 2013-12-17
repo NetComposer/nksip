@@ -11,6 +11,7 @@ Changelog
 * Full PUBLISH support, using in-memory or external database.
 * Path support, as client, proxy and registrar.
 * Reason header support in request and responses. 
+* Service-Route header support.
 * Support for headers in URIs.
 * UAS callback functions receive contextual metadata.
 * New options to customize supported extensions and to generate Require and Accept headers.
