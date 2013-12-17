@@ -25,6 +25,7 @@
 -include("nksip.hrl").
 
 -export([uri/1, uri2proplist/1, via/1, token/1, packet/1, raw_packet/3]).
+-export([error_reason/1]).
 
 
 %% ===================================================================
@@ -94,6 +95,35 @@ token({Token, Opts}) ->
 
 token(Tokens) when is_list(Tokens) ->
     list_to_binary(raw_tokens(Tokens)).
+
+
+%% @doc Serializes a 'reason' header
+-spec error_reason(nksip:error_reason()) ->
+    binary() | error.
+
+error_reason({sip, Code}) ->
+    error_reason({sip, Code, response_phrase(Code)});
+
+error_reason({q850, Code}) ->
+    error_reason({q850, Code, q850_prase(Code)});
+
+error_reason({sip, Code, Text}) ->
+    error_reason({<<"SIP">>, Code, Text});
+
+error_reason({q850, Code, Text}) ->
+    error_reason({<<"Q.850">>, Code, Text});
+
+error_reason({Name, Code, Text}) ->
+    Token = {nksip_lib:to_binary(Name), [
+        {<<"cause">>, nksip_lib:to_binary(Code)},
+        {<<"text">>, <<$", (nksip_lib:to_binary(Text))/binary, $">>}
+    ]},
+    nksip_unparse:token(Token);
+
+error_reason(_) ->
+    error.
+
+
 
 
 %% ===================================================================
@@ -421,3 +451,74 @@ gen_headers([K|Rest], Acc) ->
     gen_headers(Rest, [[$&, nksip_lib:to_binary(K)] | Acc]).
 
 
+
+%% @private
+%% http://wiki.freeswitch.org/wiki/Hangup_Causes
+q850_prase(Code) ->
+    case Code of
+        0 -> <<"UNSPECIFIED">>;
+        1 -> <<"UNALLOCATED_NUMBER">>;      
+        2 -> <<"NO_ROUTE_TRANSIT_NET">>;
+        3 -> <<"NO_ROUTE_DESTINATION">>;
+        6 -> <<"CHANNEL_UNACCEPTABLE">>;
+        7 -> <<"CALL_AWARDED_DELIVERED">>;
+        16 -> <<"NORMAL_CLEARING">>;
+        17 -> <<"USER_BUSY">>;
+        18 -> <<"NO_USER_RESPONSE">>;
+        19 -> <<"NO_ANSWER">>;
+        20 -> <<"SUBSCRIBER_ABSENT">>;
+        21 -> <<"CALL_REJECTED">>;
+        22 -> <<"NUMBER_CHANGED">>;
+        23 -> <<"REDIRECTION_TO_NEW_DESTINATION">>;
+        25 -> <<"EXCHANGE_ROUTING_ERROR">>;
+        27 -> <<"DESTINATION_OUT_OF_ORDER">>;
+        28 -> <<"INVALID_NUMBER_FORMAT">>;
+        29 -> <<"FACILITY_REJECTED">>;
+        30 -> <<"RESPONSE_TO_STATUS_ENQUIRY">>;
+        31 -> <<"NORMAL_UNSPECIFIED">>;
+        34 -> <<"NORMAL_CIRCUIT_CONGESTION">>;
+        38 -> <<"NETWORK_OUT_OF_ORDER">>;
+        41 -> <<"NORMAL_TEMPORARY_FAILURE">>;
+        42 -> <<"SWITCH_CONGESTION">>;
+        43 -> <<"ACCESS_INFO_DISCARDED">>;
+        44 -> <<"REQUESTED_CHAN_UNAVAIL">>;
+        45 -> <<"PRE_EMPTED">>;
+        47 -> <<"RESOURCE_UNAVAILABLE">>;
+        50 -> <<"FACILITY_NOT_SUBSCRIBED">>;
+        52 -> <<"OUTGOING_CALL_BARRED">>;
+        54 -> <<"INCOMING_CALL_BARRED">>;
+        57 -> <<"BEARERCAPABILITY_NOTAUTH">>;
+        58 -> <<"BEARERCAPABILITY_NOTAVAIL">>;
+        63 -> <<"SERVICE_UNAVAILABLE">>;
+        65 -> <<"BEARERCAPABILITY_NOTIMPL">>;
+        66 -> <<"CHAN_NOT_IMPLEMENTED">>;
+        69 -> <<"FACILITY_NOT_IMPLEMENTED">>;
+        79 -> <<"SERVICE_NOT_IMPLEMENTED">>;
+        81 -> <<"INVALID_CALL_REFERENCE">>;
+        88 -> <<"INCOMPATIBLE_DESTINATION">>;
+        95 -> <<"INVALID_MSG_UNSPECIFIED">>;
+        96 -> <<"MANDATORY_IE_MISSING">>;
+        97 -> <<"MESSAGE_TYPE_NONEXIST">>;
+        99 -> <<"IE_NONEXIST">>;
+        100 -> <<"INVALID_IE_CONTENTS">>;
+        101 -> <<"WRONG_CALL_STATE">>;
+        102 -> <<"RECOVERY_ON_TIMER_EXPIRE">>;
+        103 -> <<"MANDATORY_IE_LENGTH_ERROR">>;
+        111 -> <<"PROTOCOL_ERROR">>;
+        127 -> <<"INTERWORKING">>;
+        487 -> <<"ORIGINATOR_CANCEL">>;
+        500 -> <<"CRASH">>;
+        501 -> <<"SYSTEM_SHUTDOWN">>;
+        502 -> <<"LOSE_RACE">>;
+        503 -> <<"MANAGER_REQUEST">>;
+        600 -> <<"BLIND_TRANSFER">>;
+        601 -> <<"ATTENDED_TRANSFER">>;
+        602 -> <<"ALLOTTED_TIMEOUT">>;
+        603 -> <<"USER_CHALLENGE">>;
+        604 -> <<"MEDIA_TIMEOUT">>;
+        605 -> <<"PICKED_OFF">>;
+        606 -> <<"USER_NOT_REGISTERED">>;
+        607 -> <<"PROGRESS_TIMEOUT">>;
+        609 -> <<"GATEWAY_DOWN">>;
+        _ -> <<"UNDEFINED">>
+    end.

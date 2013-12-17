@@ -153,6 +153,8 @@
 %%  <li>`{make_proxy_auth, Realm::from|binary()}': a <i>Proxy-Authenticate</i> will be 
 %%       generated for this `Realm'.</li>
 %%  <li>`{expires, non_neg_integer()': generates a <i>Event</i> header.</li>
+%%  <li><code>{reason, {@link nksip:error_reason()}}</code>: 
+%%       generates a <i>Reason</i> header.</li>
 %% </ul>
 
 -module(nksip_reply).

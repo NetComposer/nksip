@@ -137,6 +137,12 @@
 %%          <td>`SipApp config'</td>
 %%          <td>See {@link start/4.}</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`reason</td>
+%%          <td>{@link nksip:error_reason()}'</td>
+%%          <td></td>
+%%          <td>Generates a <i>Reason</i> header</td>
+%%      </tr>
 %% </table>
 %%
 %% Options available for most methods only when sent outside any dialog are:

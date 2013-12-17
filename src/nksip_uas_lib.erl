@@ -122,7 +122,8 @@ preprocess(Req, GlobalId) ->
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
                 nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
     {ok, nksip:response(), nksip_lib:proplist()} | {error, Error}
-    when Error :: invalid_contact | invalid_content_type | invalid_require.
+    when Error :: invalid_contact | invalid_content_type | invalid_require | 
+                  invalid_reason.
 
 response(Req, Code, Headers, Body, Opts, AppOpts) ->
     try 
@@ -231,6 +232,16 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                         proplists:get_all_values(<<"Path">>, ReqHeaders)};
                 true ->
                     none
+        end,
+        case nksip_lib:get_value(reason, Opts
+            ) of
+            undefined ->
+                [];
+            Reason1 ->
+                case nksip_unparse:error_reason(Reason1) of
+                    error -> throw(invalid_reason);
+                    Reason2 -> {default_single, <<"Reason">>, Reason2}
+                end
         end
     ],
     RespHeaders = nksip_headers:update(Headers, HeaderOps),
@@ -325,7 +336,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                     false
             end
     end,
-    Reason = nksip_lib:get_binary(reason_phrase, Opts),
+    ReasonPhrase = nksip_lib:get_binary(reason_phrase, Opts),
     AllRespContacts = lists:flatten(proplists:get_all_values(contact, Opts)),
     RespContacts = case nksip_parse:uris(AllRespContacts) of
         error -> throw(invalid_contact);
@@ -358,7 +369,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     end,
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
-        class = {resp, Code, Reason},
+        class = {resp, Code, ReasonPhrase},
         dialog_id = DialogId,
         vias = RespVias,
         to = To1,

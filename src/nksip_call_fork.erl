@@ -73,7 +73,7 @@ cancel(ForkId, #call{forks=Forks}=Call) ->
         #fork{method='INVITE'}=Fork -> 
             ?call_debug("Fork ~p cancelling requests", [ForkId], Call),
             Fork1 = Fork#fork{uriset=[]},
-            cancel_all(Fork1, update(Fork1, Call));
+            cancel_all(Fork1, undefined, update(Fork1, Call));
         #fork{method=Method}=Fork -> 
             ?call_debug("Fork ~p cannot cancel ~p", [ForkId, Method], Call),
             Fork1 = Fork#fork{uriset=[]},
@@ -236,7 +236,7 @@ waiting(Code, Resp, _Pos, #fork{final=Final}=Fork, Call) when Code < 200 ->
 waiting(Code, Resp, Pos, Fork, Call) when Code < 300 ->
     #fork{final=Final, pending=Pending} = Fork,
     Fork1 = Fork#fork{pending=Pending--[Pos], uriset=[]},
-    Call1 = cancel_all(Fork1, Call),
+    Call1 = cancel_all(Fork1, {sip, 200, "Call completed elsewhere"}, Call),
     Fork2 = case Final of
         false -> Fork1#fork{final='2xx'};
         _ -> Fork1
@@ -280,7 +280,7 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 600 ->
 waiting(Code, Resp, Pos, Fork, Call) when Code >= 600 ->
     #fork{final=Final, pending=Pending} = Fork,
     Fork1 = Fork#fork{pending=Pending--[Pos], uriset=[]},
-    Call1 = cancel_all(Fork1, Call),
+    Call1 = cancel_all(Fork1, {sip, Code}, Call),
     case Final of
         false -> 
             Fork2 = Fork1#fork{final='6xx'},
@@ -353,14 +353,14 @@ best_response(#fork{request=Req, responses=Resps}, Call) ->
 
 
 %% @private
--spec cancel_all(fork(), call()) ->
+-spec cancel_all(fork(), nksip:error_reason()|undefined, call()) ->
    call().
     
-cancel_all(#fork{method='INVITE', pending=[UAC|Rest]}=Fork, Call) ->
-    Call1 = nksip_call_uac:cancel(UAC, Call),
-    cancel_all(Fork#fork{pending=Rest}, Call1);
+cancel_all(#fork{method='INVITE', pending=[UAC|Rest]}=Fork, Reason, Call) ->
+    Call1 = nksip_call_uac:cancel(UAC, Reason, Call),
+    cancel_all(Fork#fork{pending=Rest}, Reason, Call1);
 
-cancel_all(_Fork, Call) ->
+cancel_all(_Fork, _Reason, Call) ->
     Call.
 
 

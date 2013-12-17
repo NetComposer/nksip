@@ -22,7 +22,7 @@
 -module(nksip_call_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([cancel/2, timer/3, transaction_id/1]).
+-export([cancel/3, timer/3, transaction_id/1]).
 -export_type([status/0, id/0]).
 
 -import(nksip_call_lib, [update/2]).
@@ -49,20 +49,21 @@
 %% ===================================================================
 
 
-%% @doc Tries to cancel an ongoing invite request.
--spec cancel(id()|nksip_call:trans(), nksip_call:call()) ->
+%% @doc Tries to cancel an ongoing invite request with a reason
+-spec cancel(id()|nksip_call:trans(), nksip:error_reason()|undefined, 
+             nksip_call:call()) ->
     nksip_call:call().
 
-cancel(Id, #call{trans=Trans}=Call) when is_integer(Id) ->
+cancel(Id, Reason, #call{trans=Trans}=Call) when is_integer(Id) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uac, method='INVITE'} = UAC ->
-            cancel(UAC, Call);
+            cancel(UAC, Reason, Call);
         _ -> 
             ?call_debug("UAC ~p not found to CANCEL", [Id], Call),
             Call
     end;
 
-cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Call)
+cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Reason, Call)
        when Cancel==undefined; Cancel==to_cancel ->
     case Status of
         invite_calling ->
@@ -71,12 +72,12 @@ cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Call)
             update(UAC1, Call);
         invite_proceeding ->
             ?call_debug("UAC ~p (invite_proceeding) generating CANCEL", [Id], Call),
-            CancelReq = nksip_uac_lib:make_cancel(UAC#trans.request),
+            CancelReq = nksip_uac_lib:make_cancel(UAC#trans.request, Reason),
             UAC1 = UAC#trans{cancel=cancelled},
             nksip_call_uac_req:request(CancelReq, [no_dialog], none, update(UAC1, Call))
     end;
 
-cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}, Call) ->
+cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}, _Reason, Call) ->
     ?call_debug("UAC ~p (~p) cannot CANCEL request: (~p)", 
                 [Id, Status, Cancel], Call),
     Call.
@@ -172,7 +173,7 @@ timer(expire, #trans{id=Id, status=Status}=UAC, Call) ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer Expire fired, sending CANCEL", 
                         [Id, Status], Call),
             UAC2 = UAC1#trans{status=invite_proceeding},
-            cancel(UAC2, update(UAC2, Call));
+            cancel(UAC2, undefined, update(UAC2, Call));
         true ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer Expire fired", 
                         [Id, Status], Call),

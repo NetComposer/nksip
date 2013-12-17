@@ -64,7 +64,7 @@
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
--export_type([dialog/0, subscription/0, token/0]).
+-export_type([dialog/0, subscription/0, token/0, error_reason/0]).
 
 
 
@@ -136,6 +136,9 @@
 
 %% Token
 -type token() :: {Name::binary(), [Key::binary() | {Key::binary(), Value::binary()}]}.
+
+%% Reason
+-type error_reason() :: {sip|q850, pos_integer(), string()|binary()}.
 
 
 %% ===================================================================
@@ -299,7 +302,7 @@
 -spec start(app_id(), atom(), term(), nksip_lib:proplist()) -> 
 	ok | {error, Error} 
     when Error :: invalid_from | invalid_transport | invalid_register | invalid_route |
-                  invalid_supported | invalid_accept | invalid_event |
+                  invalid_supported | invalid_accept | invalid_event | invalid_reason |
                   no_matching_tcp | could_not_start_udp | could_not_start_tcp |
                   could_not_start_tls | could_not_start_sctp.
 

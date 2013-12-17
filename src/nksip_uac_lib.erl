@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send_any/4, send_dialog/4]).
--export([make/5, make_cancel/1, make_ack/2, make_ack/1, is_stateless/2]).
+-export([make/5, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
 
@@ -71,7 +71,7 @@ send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq | invalid_content_type |
-             invalid_require | invalid_accept | invalid_event.
+             invalid_require | invalid_accept | invalid_event | invalid_reason.
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
     try
@@ -274,6 +274,15 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 SubsState0 -> 
                     SubsState = nksip_unparse:token(SubsState0),
                     {default_single, <<"Subscription-State">>, SubsState}
+            end,
+            case nksip_lib:get_value(reason, Opts1) of
+                undefined ->
+                    [];
+                Reason1 ->
+                    case nksip_unparse:error_reason(Reason1) of
+                        error -> throw(invalid_reason);
+                        Reason2 -> {default_single, <<"Reason">>, Reason2}
+                    end
             end
         ]),
         Req = #sipmsg{
@@ -427,17 +436,28 @@ make_from_uri([{Name, Value}|Rest], Opts) ->
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
--spec make_cancel(nksip:request()) ->
+-spec make_cancel(nksip:request(), nksip:error_reason()|undefined) ->
     nksip:request().
 
-make_cancel(#sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds}=Req) ->
+make_cancel(Req, Reason) ->
+    #sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds} = Req,
+    Headers1 = nksip_lib:extract(Hds, <<"Route">>),
+    Headers2 = case Reason of
+        undefined ->
+            Headers1;
+        Reason ->
+            case nksip_unparse:error_reason(Reason) of
+                error -> Headers1;
+                BinReason -> [{<<"Reason">>, BinReason}|Headers1]
+            end
+    end,
     Req#sipmsg{
         class = {req, 'CANCEL'},
         id = nksip_sipmsg:make_id(req, CallId),
         cseq_method = 'CANCEL',
         forwards = 70,
         vias = [Via],
-        headers = nksip_lib:extract(Hds, <<"Route">>),
+        headers = Headers2,
         contacts = [],
         content_type = undefined,
         require = [],

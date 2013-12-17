@@ -288,7 +288,7 @@ work({cancel, ReqId}, From, Call) ->
     case get_trans(ReqId, Call) of
         {ok, #trans{class=uac}=UAC} -> 
             gen_server:reply(From, ok),
-            nksip_call_uac:cancel(UAC, Call);
+            nksip_call_uac:cancel(UAC, undefined, Call);
         _ ->
             gen_server:reply(From, {error, unknown_request}),
             Call
