@@ -95,7 +95,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_event -> S#sipmsg.event;
         all_headers -> all_headers(S);
         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
-        reason -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
+        reason_phrase -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
         realms -> nksip_auth:realms(S);
         rseq_num -> 
             case header(S, <<"RSeq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;

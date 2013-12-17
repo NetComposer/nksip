@@ -163,7 +163,7 @@ check_forwards(#trans{request=#sipmsg{class={req, Method}, forwards=Forwards}}) 
             ok;
         Forwards==0, Method=='OPTIONS' ->
             throw({ok, [], <<>>, [make_supported, make_accept, make_allow, 
-                                        {reason, <<"Max Forwards">>}]});
+                                        {reason_phrase, <<"Max Forwards">>}]});
         Forwards==0 ->
             throw(too_many_hops);
         true -> 

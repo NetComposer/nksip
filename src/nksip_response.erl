@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 
 -export([field/3, fields/3, header/3]).
--export([body/2, code/2, reason/2, dialog_id/2, call_id/1, get_response/2, wait_491/0]).
+-export([body/2, code/2, dialog_id/2, call_id/1, get_response/2, wait_491/0]).
 -export_type([id/0, field/0]).
 
 
@@ -36,7 +36,7 @@
 
 -type id() :: binary().
 
--type field() ::  app_id | code | reason | call_id | vias | parsed_vias | 
+-type field() ::  app_id | code | reason_phrase | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
                   from | from_scheme | from_user | from_domain | parsed_from | 
                   to | to_scheme | to_user | to_domain | parsed_to | 
@@ -64,7 +64,7 @@
 %%          <td>Response Code</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`reason'</td>
+%%          <td>`reason_phrase'</td>
 %%          <td>`binary()'</td>
 %%          <td>Reason Phrase</td>
 %%      </tr>
@@ -109,14 +109,6 @@ header(AppId, <<"S_", _/binary>>=RespId, Name) ->
 
 code(AppId, RespId) -> 
     field(AppId, RespId, code).
-
-
-%% @doc Gets the <i>reason</i> of a response.
--spec reason(nksip:app_id(), id()) ->
-    binary() | error.
-
-reason(AppId, RespId) ->  
-    field(AppId, RespId, reason).
 
 
 %% @doc Gets the <i>body</i> of a response.

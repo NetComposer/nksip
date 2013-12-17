@@ -429,7 +429,7 @@ retry() ->
         500, 
         [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
         <<>>, 
-        [{reason, <<"Processing Previous INVITE">>}]
+        [{reason_phrase, <<"Processing Previous INVITE">>}]
     }.
 
 

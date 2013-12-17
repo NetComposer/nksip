@@ -96,7 +96,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`make_date': Generates a Date header</li>
 %%  <li>`make_100rel': If present a Require: 100rel header will be included</li>
 %%  <li>`{expires, non_neg_integer()}: If present generates a Event header</li>
-%%  <li>`reason': Custom reason phrase</li>
+%%  <li>`reason_phrase': Custom reason phrase</li>
 %%  <li>`to_tag': If present, it will override the To tag in the request</li>
 %% </ul>
 %%
@@ -325,7 +325,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                     false
             end
     end,
-    Reason = nksip_lib:get_binary(reason, Opts),
+    Reason = nksip_lib:get_binary(reason_phrase, Opts),
     AllRespContacts = lists:flatten(proplists:get_all_values(contact, Opts)),
     RespContacts = case nksip_parse:uris(AllRespContacts) of
         error -> throw(invalid_contact);

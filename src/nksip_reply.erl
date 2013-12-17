@@ -146,7 +146,7 @@
 %%  <li>`{local_host, Host::binary()}': uses this Host instead of the default one for 
 %%      <i>Contact</i>, <i>Record-Route</i>, etc.</li>
 %%  <li>`{contact, [nksip:user_uri()]}': adds one or more `Contact' headers.</li>
-%%  <li>`{reason, Text::binary()}': changes the default response line to `Text'.</li>
+%%  <li>`{reason_phrase, Text::binary()}': changes the default response line to `Text'.</li>
 %%  <li>`{make_www_auth, Realm::from|binary()}': a <i>WWW-Authenticate</i>
 %%       header will be generated for this `Realm' (see 
 %%       {@link nksip_auth:make_response/2}).</li>
@@ -239,7 +239,7 @@ reply(Req, #reqreply{}=ReqReply, AppOpts) ->
                 error -> 
                     ?warning(AppId, CallId, "UAS returned invalid contact: ~p", 
                             [ContactSpec]),
-                    Opts1 = [{reason, <<"Invalid SipApp Response">>}],
+                    Opts1 = [{reason_phrase, <<"Invalid SipApp Response">>}],
                     response(Req, 500, [], <<>>, Opts1, AppOpts);
                 Contacts ->
                     Opts1 = [{contact, Contacts}],
@@ -412,7 +412,7 @@ reqreply(decline) ->
 reqreply(Code) when is_integer(Code) ->
     #reqreply{code=Code};
 reqreply({Code, Text}) when is_integer(Code), is_binary(Text) ->
-    #reqreply{code=Code, opts=[{reason, Text}]};
+    #reqreply{code=Code, opts=[{reason_phrase, Text}]};
 reqreply({Code, Headers}) when is_integer(Code), is_list(Headers) ->
     #reqreply{code=Code, headers=Headers};
 reqreply({Code, Headers, Body}) when is_integer(Code), is_list(Headers) ->
@@ -436,7 +436,7 @@ reqreply(_Other) ->
     #reqreply{}.
 
 helper_debug(#reqreply{opts=Opts}=SipReply, Text) ->
-    SipReply#reqreply{opts=[{reason, Text}, make_date|Opts]}.
+    SipReply#reqreply{opts=[{reason_phrase, Text}, make_date|Opts]}.
 
 
 %% @private

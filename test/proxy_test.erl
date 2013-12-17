@@ -150,8 +150,8 @@ invalid(Test) ->
     CallId5 = nksip_lib:luid(),
     Work5 = {make, 'OPTIONS', "sip:any", []},
     {ok, Req5, Opts5} = nksip_call_router:send_work_sync(C1, CallId5, Work5),
-    {ok, 200, [{reason, <<"Max Forwards">>}]} = 
-        nksip_call:send(Req5#sipmsg{forwards=0}, [{fields, [reason]}|Opts5]),
+    {ok, 200, [{reason_phrase, <<"Max Forwards">>}]} = 
+        nksip_call:send(Req5#sipmsg{forwards=0}, [{fields, [reason_phrase]}|Opts5]),
 
     % User not registered: Temporarily Unavailable
     {ok, 480, []} = nksip_uac:options(C1, "sip:other@nksip", []),

@@ -223,8 +223,8 @@ dialog() ->
     CSeq = nksip_dialog:field(C2, DialogIdB, remote_seq) -1,
 
     % Force invalid CSeq
-    {ok, 500, [{reason, <<"Old CSeq in Dialog">>}]} = 
-        nksip_uac:options(C2, DialogIdB, [{cseq, 9998}, {fields, [reason]}]),
+    {ok, 500, [{reason_phrase, <<"Old CSeq in Dialog">>}]} = 
+        nksip_uac:options(C2, DialogIdB, [{cseq, 9998}, {fields, [reason_phrase]}]),
 
     [DialogIdA] = nksip_dialog:get_all(C1, CallId),
     [DialogIdB] = nksip_dialog:get_all(C2, CallId),
@@ -504,10 +504,10 @@ multiple_uas() ->
 
     % Before the previous invite has been answered, we send a new one
     % UAS replies with 500
-    % {ok, 500, [{dialog_id, DialogId1A}, {reason, <<"Processing Previous INVITE">>}]} = 
+    % {ok, 500, [{dialog_id, DialogId1A}, {reason_phrase, <<"Processing Previous INVITE">>}]} = 
     {error, request_pending} = 
         nksip_uac:invite(C1, DialogId1A, 
-                           [no_dialog, {headers, [Hds]}, {fields, [reason]}]),
+                           [no_dialog, {headers, [Hds]}, {fields, [reason_phrase]}]),
 
     % % Previous invite will reply 200, and Fun will send ACK
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]), 

@@ -47,8 +47,8 @@ launch() ->
         ]),
 
     {ok,200,[]} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
-    {ok,407,[{reason,<<"Proxy Authentication Required">>}]} =
-        nksip_uac:options(client1, "sip:127.0.0.1", [{fields, [reason]}]),
+    {ok,407,[{reason_phrase,<<"Proxy Authentication Required">>}]} =
+        nksip_uac:options(client1, "sip:127.0.0.1", [{fields, [reason_phrase]}]),
 
     {ok,200,[]} = nksip_uac:options(client1, "sip:127.0.0.1", [{pass, "1234"}]),
     {ok,200,[]} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}]),

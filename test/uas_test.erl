@@ -82,8 +82,8 @@ uas() ->
     {ok, 200, Values1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
     [{call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}] = Values1,
     ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq, CSeq1}, 
-                      {fields, [reason]} | Opts1],
-    {ok, 482, [{reason, <<"Loop Detected">>}]} = 
+                      {fields, [reason_phrase]} | Opts1],
+    {ok, 482, [{reason_phrase, <<"Loop Detected">>}]} = 
         nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
 
     % Stateless proxies do not detect loops
@@ -112,9 +112,9 @@ uas() ->
     [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds6),
 
     % Force invalid response
-    Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}, {fields, [reason]}],
+    Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}, {fields, [reason_phrase]}],
     nksip_trace:warning("Next warning about a invalid sipreply is expected"),
-    {ok, 500,  [{reason, <<"Invalid SipApp Response">>}]} = 
+    {ok, 500,  [{reason_phrase, <<"Invalid SipApp Response">>}]} = 
         nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
     ok.
 
@@ -183,19 +183,19 @@ timeout() ->
     ok = nksip_sipapp_srv:put_opts(C1, Opts1),
 
     % Client1 callback module has a 50msecs delay in route()
-    {ok, 500, [{reason, <<"No SipApp Response">>}]} = 
-        nksip_uac:options(C2, SipC1, [{fields, [reason]}]),
+    {ok, 500, [{reason_phrase, <<"No SipApp Response">>}]} = 
+        nksip_uac:options(C2, SipC1, [{fields, [reason_phrase]}]),
 
     Opts2 = [{timer_t1, 10}, {timer_c, 500}|Opts] -- [{sipapp_timeout, 50}],
     ok = nksip_sipapp_srv:put_opts(C1, Opts2),
 
     Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},
-    {ok, 408, [{reason, <<"No-INVITE Timeout">>}]} = 
-        nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason]}]),
+    {ok, 408, [{reason_phrase, <<"No-INVITE Timeout">>}]} = 
+        nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason_phrase]}]),
 
     Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Sleep", 2000}]},
-    {ok, 408, [{reason, <<"Timer C Timeout">>}]} = 
-        nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason]}]),
+    {ok, 408, [{reason_phrase, <<"Timer C Timeout">>}]} = 
+        nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason_phrase]}]),
     ok.
 
 

@@ -201,21 +201,21 @@ timeout() ->
 
     nksip_trace:notice("Next notices about several timeouts are expected"),
 
-    {ok, 408, [{reason, <<"Timer F Timeout">>}]} = 
-        nksip_uac:options(C2, "sip:127.0.0.1:9999", [{fields, [reason]}]),
+    {ok, 408, [{reason_phrase, <<"Timer F Timeout">>}]} = 
+        nksip_uac:options(C2, "sip:127.0.0.1:9999", [{fields, [reason_phrase]}]),
 
-    {ok, 408, [{reason, <<"Timer B Timeout">>}]} = 
-        nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{fields, [reason]}]),
+    {ok, 408, [{reason_phrase, <<"Timer B Timeout">>}]} = 
+        nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{fields, [reason_phrase]}]),
 
     % REGISTER sends a provisional response, but the timeout is the same
     Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},
-    {ok, 408, [{reason, <<"Timer F Timeout">>}]} = 
-        nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason]}]),
+    {ok, 408, [{reason_phrase, <<"Timer F Timeout">>}]} = 
+        nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason_phrase]}]),
 
     % INVITE sends 
     Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}, {"Nk-Sleep", 20000}]},
-    {ok, 408, [{reason, Reason}]} = 
-        nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason]}]),
+    {ok, 408, [{reason_phrase, Reason}]} = 
+        nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason_phrase]}]),
     
     % TODO: Should fire timer C, sometimes it fires timer B 
     case Reason of

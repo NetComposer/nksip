@@ -112,8 +112,8 @@ register1() ->
 
     {ok, 400, Values3} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq}, make_contact,
-                                     {fields, [reason]}]),
-    [{reason, <<"Rejected Old CSeq">>}] = Values3,
+                                     {fields, [reason_phrase]}]),
+    [{reason_phrase, <<"Rejected Old CSeq">>}] = Values3,
 
     {ok, 200, []} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq+1}, make_contact]),
