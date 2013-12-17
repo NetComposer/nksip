@@ -34,22 +34,22 @@ torture3_test_() ->
         fun() -> start() end,
         fun(_) -> stop() end,
         [
-            fun transaction_1/0, 
-            fun application_1/0, 
-            fun application_2/0, 
-            fun application_3/0, 
-            fun application_4/0, 
-            fun application_5/0, 
-            fun application_6/0, 
-            fun application_7/0, 
-            fun application_8/0, 
-            fun application_9/0, 
-            fun application_10/0, 
-            fun application_11/0, 
-            fun application_12/0, 
-            fun application_13/0, 
-            fun application_14/0, 
-            fun application_15/0
+            {timeout, 60, fun transaction_1/0}, 
+            {timeout, 60, fun application_1/0}, 
+            {timeout, 60, fun application_2/0}, 
+            {timeout, 60, fun application_3/0}, 
+            {timeout, 60, fun application_4/0}, 
+            {timeout, 60, fun application_5/0}, 
+            {timeout, 60, fun application_6/0}, 
+            {timeout, 60, fun application_7/0}, 
+            {timeout, 60, fun application_8/0}, 
+            {timeout, 60, fun application_9/0}, 
+            {timeout, 60, fun application_10/0}, 
+            {timeout, 60, fun application_11/0}, 
+            {timeout, 60, fun application_12/0}, 
+            {timeout, 60, fun application_13/0}, 
+            {timeout, 60, fun application_14/0}, 
+            {timeout, 60, fun application_15/0}
         ]
     }.
 
