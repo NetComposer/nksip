@@ -85,6 +85,7 @@ basic() ->
 
     % C2 has sent the INVITE to C3, and it has replied 180
     ok = tests_util:wait(Ref, [{client1, notify, <<"SIP/2.0 180 Ringing">>}]),
+    timer:sleep(100),
 
     [Subs1A] = nksip_dialog:field(C1, Dialog1A, subscriptions),
     [
