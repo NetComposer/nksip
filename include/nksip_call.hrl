@@ -49,6 +49,10 @@
     DialogId :: nksip_dialog:id()
 }.
 
+
+%% Meta field is used for add-on functionality. 
+%% Currently defined:
+%% - {min_se, integer()}: current Min-SE header
 -record(trans, {
     id :: nksip_call_uac:id() | nksip_call_uas:id(),
     class :: uac | uas,
@@ -75,8 +79,10 @@
     cancel :: undefined | to_cancel | cancelled,
     loop_id :: integer(),
     ack_trans_id :: integer(),
-    iter = 1 :: integer()
+    iter = 1 :: integer(),
+    meta = [] :: nksip_lib:proplist()
 }).
+
 
 -record(fork, {
     id :: nksip_call_fork:id(),
@@ -100,15 +106,14 @@
 
 -record(call_opts, {
     global_id :: binary(),
-    max_trans_time :: integer(),
-    max_dialog_time :: integer(),
+    app_module :: atom(),
+    app_opts :: nksip_lib:proplist(),
     timer_t1 :: integer(),
     timer_t2 :: integer(),
     timer_t4 :: integer(),
     timer_c :: integer(),
     timer_sipapp :: integer(),
-    app_module :: atom(),
-    app_opts :: nksip_lib:proplist()
+    timer_session :: integer()
 }).
 
 

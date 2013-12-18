@@ -196,6 +196,11 @@ invite(ReqId, Meta, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
 invite(_ReqId, _Meta, _From, #state{id={event, _}}=State) ->
     {reply, ok, State};
 
+% INVITE for timer test
+invite(_ReqId, _Meta, _From, #state{id={timer, _}}=State) ->
+    {reply, ok, State};
+
+
 invite(ReqId, _Meta, From, #state{id={refer, _}=AppId}=State) ->
     spawn(
         fun() ->

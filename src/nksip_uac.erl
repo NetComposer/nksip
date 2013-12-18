@@ -434,6 +434,13 @@ register(AppId, Dest, Opts) ->
 %%          function return. If it is `<<>>', you can return `<<>>' or send a new offer.
 %%          If this option is not included, PRACKs will be sent with no body.</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`session_expires'</td>
+%%          <td>`integer()'</td>
+%%          <td><code>SipApp's config</code></td>
+%%          <td>Diable session timers (using 0 value) or modify current value for
+%%          session timer (global config parameter `session_timer').</td>
+%%      </tr>
 %% </table>
 %%
 %% A `make_contact' option will be automatically added if no contact is defined.
@@ -444,6 +451,9 @@ register(AppId, Dest, Opts) ->
 %%
 %% If you want to be able to <i>CANCEL</i> the request, you should use the `async'
 %% option.
+%%
+%% NkSIP will automatically start a session timer (according to RFC4028). Use
+%% option `session_expire' to 0 to disable
 %%
 %% If a 491 response is received, it usually means that the remote party is 
 %% starting another reINVITE transaction right now. You should call 

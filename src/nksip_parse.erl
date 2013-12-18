@@ -563,6 +563,7 @@ raw_header(Name) ->
         "FROM" -> <<"From">>;
         "F" -> <<"From">>;
         "MAX-FORWARDS" -> <<"Max-Forwards">>;
+        "MIN-SE" -> <<"Min-SE">>;
         "PATH" -> <<"Path">>;
         "PROXY-REQUIRE" -> <<"Proxy-Require">>;
         "RACK" -> <<"RAck">>;
@@ -573,6 +574,8 @@ raw_header(Name) ->
         "ROUTE" -> <<"Route">>;
         "RSEQ" -> <<"RSeq">>;
         "SERVICE-ROUTE" -> <<"Service-Route">>;
+        "SESSION-EXPIRES" -> <<"Session-Expires">>;
+        "X" -> <<"Session-Expires">>;
         "SIP-IF-MATCH" -> <<"SIP-If-Match">>;
         "SIP-ETAG" -> <<"SIP-ETag">>;
         "SUBJECT" -> <<"Subject">>;

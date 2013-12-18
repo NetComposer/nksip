@@ -463,16 +463,14 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
 timeout({remove_event, Id}, _Ref, Call) ->
     nksip_call_event:remove_event(Id, Call);
 
-timeout(check_call, _Ref, #call{opts=CallOpts}=Call) ->
-    #call_opts{
-        max_trans_time = MaxTrans,
-        max_dialog_time = MaxDialog
-    } = CallOpts,
+timeout(check_call, _Ref, Call) ->
+    TransTime = 1000*?MAX_TRANS_TIME,
+    DialogTime = 1000*?MAX_DIALOG_TIME,
     Now = nksip_lib:timestamp(),
-    Trans1 = check_call_trans(Now, MaxTrans, Call),
-    Forks1 = check_call_forks(Now, MaxTrans, Call),
-    Dialogs1 = check_call_dialogs(Now, MaxDialog, Call),
-    erlang:start_timer(round(2*MaxTrans), self(), check_call),
+    Trans1 = check_call_trans(Now, TransTime, Call),
+    Forks1 = check_call_forks(Now, TransTime, Call),
+    Dialogs1 = check_call_dialogs(Now, DialogTime, Call),
+    erlang:start_timer(round(2*TransTime), self(), check_call),
     Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}.
 
 
@@ -492,7 +490,7 @@ check_call_trans(Now, MaxTime, #call{trans=Trans}=Call) ->
                 true ->
                     true;
                 false ->
-                    ?call_warning("Call removing expired transaction ~p", [Id], Call),
+                    ?call_error("Call removing expired transaction ~p", [Id], Call),
                     false
             end
         end,
@@ -510,7 +508,7 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
                 true ->
                     true;
                 false ->
-                    ?call_warning("Call removing expired fork ~p", [Id], Call),
+                    ?call_error("Call removing expired fork ~p", [Id], Call),
                     false
             end
         end,
@@ -523,8 +521,8 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
 
 check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
     lists:filter(
-        fun(#dialog{id=Id, created=Start}) ->
-            case Now - Start < MaxTime/1000 of
+        fun(#dialog{id=Id, updated=Updated}) ->
+            case Now - Updated < MaxTime/1000 of
                 true ->
                     true;
                 false ->

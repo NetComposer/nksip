@@ -22,7 +22,7 @@
 -module(nksip_call_uac_req).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/4, resend_auth/3]).
+-export([request/4, resend_auth/3, resend_422/4]).
 -import(nksip_call_lib, [update/2]).
 
 -include("nksip.hrl").
@@ -105,7 +105,8 @@ new_uac(Req, Opts, From, Call) ->
         code = 0,
         to_tags = [],
         cancel = undefined,
-        iter = 1
+        iter = 1,
+        meta = []
     },
     Msg = {MsgId, Id, DialogId},
     {UAC, Call#call{trans=[UAC|Trans], msgs=[Msg|Msgs], next=Id+1}}.
@@ -137,6 +138,39 @@ resend_auth(Req, UAC, Call) ->
     send(Method, NewUAC1, update(NewUAC1, Call2)).
     
 
+
+%% @private
+-spec resend_422(integer(), nksip:request(), nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+resend_422(MinSE, Req, UAC, Call) ->
+     #trans{
+        id = Id,
+        status = Status,
+        opts = Opts,
+        method = Method, 
+        iter = Iter,
+        from = From
+    } = UAC,
+    #sipmsg{vias=[_|Vias]} = Req,
+    ?call_debug("UAC ~p ~p (~p) resending MinSE request: ~p", 
+                [Id, Method, Status, MinSE], Call),
+    {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
+    SE = case nksip_sipmsg:header(Req, <<"Session-Expires">>, integers) of
+        [SE0] when SE0 > MinSE -> SE0;
+        _ -> MinSE
+    end,
+    Headers1 = nksip_headers:update(Req, [
+        {single, <<"Session-Expires">>, SE},
+        {single, <<"Min-SE">>, MinSE}
+    ]),
+    Req1 = Req#sipmsg{vias=Vias, cseq=CSeq, headers=Headers1},
+    % Contact would be already generated
+    Opts1 = nksip_lib:delete(Opts, make_contact),
+    {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),
+    NewUAC1 = NewUAC#trans{iter=Iter+1},
+    send(Method, NewUAC1, update(NewUAC1, Call2)).
+    
 
 %% @private
 -spec send(nksip:method(), nksip_call:trans(), nksip_call:call()) ->

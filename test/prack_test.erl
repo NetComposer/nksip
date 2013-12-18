@@ -48,6 +48,7 @@ start() ->
         {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5060}},
         {transport, {tls, {0,0,0,0}, 5061}},
+        {supported, "100rel"},
         no_100
     ]),
     
@@ -57,6 +58,7 @@ start() ->
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}},
         no_100,
+        {supported, "100rel"},
         make_100rel
     ]),
 
@@ -76,7 +78,7 @@ basic() ->
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun(Reply) -> Self ! {Ref, Reply} end},
-    Supported = [{<<"100rel">>, []},{<<"path">>, []}],
+    Supported = [{<<"100rel">>, []}],
 
     % No make_100rel in call to invite, neither in app config
     Hds1 = {headers, [{"Nk-Op", "prov-busy"}]},

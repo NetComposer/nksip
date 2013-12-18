@@ -28,7 +28,7 @@
 %% ===================================================================
 
 -define(VERSION, "0.4.0").
--define(SUPPORTED, [{<<"100rel">>, []}, {<<"path">>, []}]).
+-define(SUPPORTED, [{S, []} || S <- [<<"100rel">>, <<"path">>, <<"timer">>]]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
 -define(ALLOW, <<"INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
                  "SUBSCRIBE,NOTIFY,REFER,MESSAGE,PUBLISH">>).
@@ -37,6 +37,13 @@
 -define(SRV_TIMEOUT, 45000).
 -define(DEFAULT_EVENT_EXPIRES, 60).
 -define(DEFAULT_PUBLISH_EXPIRES, 60).
+
+% Maximum transaction time (15min)
+-define(MAX_TRANS_TIME, 15*60).
+
+% Maximum time in dialogs between updates (30min)
+-define(MAX_DIALOG_TIME, 30*60).
+
 
 -define(debug(AppId, Txt, Opts), 
         % ok).
@@ -164,7 +171,8 @@
     to_tag :: nksip:tag(),
     to_tag_candidate :: nksip:tag(),
     transport :: nksip_transport:transport(),
-    start :: nksip_lib:l_timestamp()
+    start :: nksip_lib:l_timestamp(),
+    meta = [] :: nksip_lib:proplist()
 }).
 
 
@@ -196,24 +204,6 @@
 }).
 
 
--record(invite, {
-    status :: nksip_dialog:invite_status(),
-    answered :: nksip_lib:timestamp(),
-    class :: uac | uas,
-    request :: nksip:request(),
-    response :: nksip:response(),
-    ack :: nksip:request(),
-    local_sdp :: nksip_sdp:sdp(),
-    remote_sdp :: nksip_sdp:sdp(),
-    media_started :: boolean(),
-    sdp_offer :: nksip_call_dialog:sdp_offer(),
-    sdp_answer :: nksip_call_dialog:sdp_offer(),
-    timeout_timer :: reference(),
-    retrans_timer :: reference(),
-    next_retrans :: integer()
-}).
-
-
 -record(dialog, {
     id :: nksip_dialog:id(),
     app_id :: nksip:app_id(),
@@ -231,8 +221,31 @@
     early :: boolean(),
     secure :: boolean(),
     caller_tag :: nksip:tag(),
-    invite :: #invite{},
-    subscriptions = [] :: [nksip:subscription()]
+    invite :: nksip:invite(),
+    subscriptions = [] :: [nksip:subscription()],
+    meta = [] :: nksip_lib:proplist()
+}).
+
+
+-record(invite, {
+    status :: nksip_dialog:invite_status(),
+    answered :: nksip_lib:timestamp(),
+    class :: uac | uas,
+    request :: nksip:request(),
+    response :: nksip:response(),
+    ack :: nksip:request(),
+    local_sdp :: nksip_sdp:sdp(),
+    remote_sdp :: nksip_sdp:sdp(),
+    media_started :: boolean(),
+    sdp_offer :: nksip_call_dialog:sdp_offer(),
+    sdp_answer :: nksip_call_dialog:sdp_offer(),
+    timeout_timer :: reference(),
+    retrans_timer :: reference(),
+    next_retrans :: integer(),
+    session_expires :: integer(),
+    refresh_timer :: reference(),
+    refresher :: uac | uas,
+    meta = [] :: nksip_lib:proplist()
 }).
 
 
@@ -247,7 +260,8 @@
     timer_n :: reference(),
     timer_expire :: reference(),
     timer_middle :: reference(),
-    last_notify_cseq :: nksip:cseq()
+    last_notify_cseq :: nksip:cseq(),
+    meta = [] :: nksip_lib:proplist()
 }).
 
 
@@ -294,12 +308,14 @@
     call_id :: nksip:call_id(),
     cseq :: nksip:cseq(),
     transport :: nksip_transport:transport(),
-    path :: [nksip:uri()]
+    path :: [nksip:uri()],
+    meta = [] :: nksip_lib:proplist()
 }).
 
 
 -record(reg_publish, {
-    data :: nksip:body()
+    data :: nksip:body(),
+    meta = [] :: nksip_lib:proplist()
 }).
 
 

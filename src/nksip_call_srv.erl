@@ -88,7 +88,6 @@ get_data(Pid) ->
 
 init([AppId, CallId, CallOpts]) ->
     nksip_counters:async([nksip_calls]),
-    #call_opts{max_trans_time=MaxTransTime} = CallOpts,
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
         app_id = AppId, 
@@ -103,7 +102,7 @@ init([AppId, CallId, CallOpts]) ->
         msgs = [],
         events = []
     },
-    erlang:start_timer(2*MaxTransTime, self(), check_call),
+    erlang:start_timer(2000*?MAX_TRANS_TIME, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
     {ok, Call}.
 

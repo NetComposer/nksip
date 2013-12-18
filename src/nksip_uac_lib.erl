@@ -194,8 +194,9 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             false -> 
                 Require1
         end,
+        CurrentSupported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
         Supported = case lists:member(make_supported, FullOpts) of
-            true -> nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
+            true -> CurrentSupported;
             false -> []
         end,
         Expires = case nksip_lib:get_value(expires, Opts1) of
@@ -231,19 +232,19 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     end,
                     {default_single, <<"Allow">>, Allow};
                 false -> 
-                    []
+                    none
             end,
             case lists:member(make_allow_event, FullOpts) of
                 true -> 
                     case nksip_lib:get_value(event, AppOpts) of
                         undefined ->
-                            [];
+                            none;
                         Events ->
                             AllowEvents = nksip_lib:bjoin(Events),
                             {default_single, <<"Allow-Event">>, AllowEvents}
                     end;
                 false -> 
-                    []
+                    none
             end,
             case lists:member(make_accept, Opts1) of
                 true -> 
@@ -261,28 +262,49 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     end,
                     {default_single, <<"Accept">>, nksip_unparse:token(Accept)};
                 false -> 
-                    []
+                    none
             end,
             case lists:member(make_date, FullOpts) of
                 true -> {default_single, <<"Date">>, nksip_lib:to_binary(
                                                     httpd_util:rfc1123_date())};
-                false -> []
+                false -> none
             end,
             case nksip_lib:get_value(parsed_subscription_state, Opts1) of
                 undefined -> 
-                    [];
+                    none;
                 SubsState0 -> 
                     SubsState = nksip_unparse:token(SubsState0),
                     {default_single, <<"Subscription-State">>, SubsState}
             end,
             case nksip_lib:get_value(reason, Opts1) of
                 undefined ->
-                    [];
+                    none;
                 Reason1 ->
                     case nksip_unparse:error_reason(Reason1) of
                         error -> throw(invalid_reason);
                         Reason2 -> {default_single, <<"Reason">>, Reason2}
                     end
+            end,
+            case 
+                (Method=='INVITE' orelse Method=='UPDATE') andalso 
+                lists:keymember(<<"timer">>, 1, CurrentSupported)
+            of
+                true ->
+                    case nksip_lib:get_value(session_expires, FullOpts) of
+                        undefined ->
+                            SE = nksip_config:get(session_expires),
+                            {default_single, <<"Session-Expires">>, SE};
+                        SE ->
+                            MinSE = nksip_config:get(min_session_expires),
+                            case is_integer(SE) andalso SE >= MinSE of
+                                true ->
+                                    {default_single, <<"Session-Expires">>, SE};
+                                false ->
+                                    throw(invalid_session_expires)
+                            end
+                    end;
+                false ->
+                    none
             end
         ]),
         Req = #sipmsg{

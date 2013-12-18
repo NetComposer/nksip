@@ -102,8 +102,20 @@ update(prack, Dialog, Call) ->
 
 update({update, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = target_update(Class, Req, Resp, Dialog, Call),
-    Dialog2 = session_update(Dialog1, Call),
+    #dialog{id=_DialogId, invite=_Invite2} = Dialog2 = session_update(Dialog1, Call),
+    % #invite{status=Status, timeout_timer=TimeoutTimer} = Invite2,
+    % cancel_timer(TimeoutTimer),
+    % Invite3 = case Resp of
+    %     #sipmsg{class={resp, Code, _}} when
+    %     Status==confirmed, Code>=200, Code<300 ->
+    %         session_timer_update(Req, Resp, Invite2, Dialog2, Call);
+    %     _ ->
+    %         TimeoutTimer1 = start_timer(?MAX_DIALOG_TIME, invite_timeout, DialogId),
+    %         Invite2#invite{timeout_timer=TimeoutTimer1}
+    % end,
+    % store(Dialog2#dialog{invite=Invite3}, Call);
     store(Dialog2, Call);
+
 
 update({subscribe, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = route_update(Class, Req, Resp, Dialog),
@@ -150,6 +162,10 @@ update({invite, Status}, Dialog, Call) ->
     } = Dialog,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
+    case Status of
+        OldStatus -> ok;
+        _ -> cast(dialog_update, {invite_status, Status}, Dialog, Call)
+    end,
     ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status], Call),
     Dialog1 = if
         Status==proceeding_uac; Status==proceeding_uas; 
@@ -166,15 +182,7 @@ update({invite, Status}, Dialog, Call) ->
             end,
             Dialog#dialog{invite=Invite#invite{media_started=false}}
     end,
-    case Status of
-        OldStatus -> ok;
-        _ -> cast(dialog_update, {invite_status, Status}, Dialog, Call)
-    end,
-    #call{opts=#call_opts{timer_t1=T1, max_dialog_time=Timeout}} = Call,
-    TimeoutTimer1 = case Status of
-        confirmed -> start_timer(Timeout, invite_timeout, DialogId);
-        _ -> start_timer(64*T1, invite_timeout, DialogId)
-    end,
+    #call{opts=#call_opts{timer_t1=T1}} = Call,
     {RetransTimer1, NextRetras1} = case Status of
         accepted_uas -> 
             {start_timer(T1, invite_retrans, DialogId), 2*T1};
@@ -185,14 +193,21 @@ update({invite, Status}, Dialog, Call) ->
     Invite2 = Invite1#invite{
         status = Status,
         retrans_timer = RetransTimer1,
-        next_retrans = NextRetras1,
-        timeout_timer = TimeoutTimer1
+        next_retrans = NextRetras1
     },
+    Invite3 = case Status of
+        confirmed -> 
+            session_timer_update(Req, Resp, Invite2, Dialog1, Call);
+        _ ->
+            TimeoutTimer1 = start_timer(64*T1, invite_timeout, DialogId),
+            Invite2#invite{timeout_timer=TimeoutTimer1}
+    end,
+
     BlockedRouteSet1 = if
         Status==accepted_uac; Status==accepted_uas -> true;
         true -> BlockedRouteSet
     end,
-    Dialog2 = Dialog1#dialog{invite=Invite2, blocked_route_set=BlockedRouteSet1},
+    Dialog2 = Dialog1#dialog{invite=Invite3, blocked_route_set=BlockedRouteSet1},
     store(Dialog2, Call);
 
 update(none, Dialog, Call) ->
@@ -368,6 +383,75 @@ session_update(Dialog, _Call) ->
     Dialog.
 
 
+%% @private
+-spec session_timer_update(nksip:request(), nksip:response(), nksip:invite(),
+                             nksip:dialog(), nksip_call:call()) ->
+    nksip:invite().
+
+session_timer_update(Req, #sipmsg{class={resp, Code, _}, cseq_method='INVITE'}=Resp, 
+                     Invite, Dialog, Call)
+                     when Code>=200, Code<300 ->
+    #invite{class=Class, refresh_timer=Refresh} = Invite,
+    #dialog{id=DialogId} = Dialog,
+    #call{app_id=AppId, opts=#call_opts{timer_session=ConfigSE}} = Call,
+    cancel_timer(Refresh),
+    ReqSE = case nksip_sipmsg:header(Req, <<"Session-Expires">>, tokens) of
+        [{BinReqSE, _}] ->
+            case nksip_lib:to_integer(BinReqSE) of
+                ReqSE0 when is_integer(ReqSE0), ReqSE0>0 -> 1000*ReqSE0;
+                _ -> -ConfigSE
+            end;
+        _ ->
+            % Negative means "no automatic refresh"
+            -ConfigSE
+    end,
+
+
+
+    case nksip_sipmsg:supported(Resp, <<"timer">>) of
+        true ->
+            case nksip_sipmsg:header(Resp, <<"Session-Expires">>, tokens) of
+                [{BinSE, OptsSE}] ->
+                    case nksip_lib:to_integer(BinSE) of
+                        SE when is_integer(SE), SE>0 -> ok;
+                        _ -> SE = ReqSE
+                    end,
+                    Refresher = case nksip_lib:get_binary(<<"refresher">>, OptsSE) of
+                        <<"uac">> -> uac;
+                        <<"uas">> -> uas;
+                        _ -> Class
+                    end;
+                _ ->
+                    SE = ReqSE,
+                    Refresher = Class
+            end;
+        false ->
+            SE = ReqSE,
+            Refresher = Class
+    end,
+    Timeout1 = start_timer(abs(SE), invite_timeout, DialogId),
+    {SE1, Refresh1} = case SE>0 andalso Refresher==Class of
+        true -> 
+            lager:warning("REFRESH: ~p SE: ~p, R: ~p", [AppId, abs(SE), Refresher]),
+            {abs(SE), start_timer(abs(SE) div 2, invite_refresh, DialogId)};
+        false -> 
+            lager:warning("NO REFRESH ~p RQ:~p, SE:~p", [AppId, ReqSE, abs(SE)]),
+            {undefined, undefined}
+    end,
+    Invite#invite{
+        session_expires = SE1,
+        timeout_timer = Timeout1, 
+        refresh_timer = Refresh1,
+        refresher = Refresher
+    };
+
+session_timer_update(_Req, _Resp, Invite, #dialog{id=DialogId}, _Call) ->
+    Timeout = start_timer(1000*?MAX_DIALOG_TIME, invite_timeout, DialogId),
+    Invite#invite{timeout_timer=Timeout}.
+
+
+
+
 
 %% @private Fully stops a dialog
 -spec stop(term(), nksip:dialog(), nksip_call:call()) ->
@@ -386,7 +470,8 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
 
 
 %% @private Called when a dialog timer is fired
--spec timer(invite_retrans | invite_timeout, nksip:dialog(), nksip_call:call()) ->
+-spec timer(invite_retrans|invite_timeout|invite_refresh, 
+            nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
 timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
@@ -418,6 +503,12 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                          [DialogId], Call),
             Call
     end;
+
+timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
+    #invite{local_sdp=SDP} = Invite,
+    lager:warning("Calling REFRESH: ~p", [SDP]),
+    cast(dialog_update, {invite_refresh, SDP}, Dialog, Call),
+    Call;
 
 timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of

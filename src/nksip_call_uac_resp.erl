@@ -30,6 +30,7 @@
 -include("nksip_call.hrl").
 
 -define(MAX_AUTH_TRIES, 5).
+-define(MAX_422_TRIES, 5).
 
 
 %% ===================================================================
@@ -84,9 +85,9 @@ response(Resp, UAC, Call) ->
         request = Req, 
         ruri = RUri
     } = UAC,
-    #call{msgs=Msgs, opts=#call_opts{app_opts=AppOpts, max_trans_time=MaxTime}} = Call,
+    #call{msgs=Msgs, opts=#call_opts{app_opts=AppOpts}} = Call,
     Now = nksip_lib:timestamp(),
-    case Now-Start < MaxTime of
+    case Now-Start < ?MAX_TRANS_TIME of
         true -> 
             Code1 = Code,
             Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId};
@@ -350,13 +351,52 @@ do_received_auth(Req, Resp, UAC, Call) ->
         nksip_auth:make_request(Req, Resp, Opts++AppOpts) 
     of
         false ->
-            nksip_call_uac_reply:reply({resp, Resp}, UAC, Call);
+            do_received_422(Req, Resp, UAC, Call);
         {ok, Req1} ->
             nksip_call_uac_req:resend_auth(Req1, UAC, Call);
         {error, Error} ->
             ?call_debug("UAC ~p could not generate new auth request: ~p", 
                         [Id, Error], Call),    
-            nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)
+            do_received_422(Req, Resp, UAC, Call)
+    end.
+
+
+%% @private 
+-spec do_received_422(nksip:request(), nksip:response(), 
+                       nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+do_received_422(Req, Resp, UAC, Call) ->
+     #trans{
+        method = Method, 
+        code = Code, 
+        iter = Iter,
+        meta = Meta
+    } = UAC,
+    case 
+        Code==422 andalso 
+        (Method=='INVITE' orelse Method=='UPDATE') andalso
+        Iter < ?MAX_422_TRIES
+    of
+        true ->
+            case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
+                [RespMinSE] ->
+                    CurrentMinSE = nksip_lib:get_integer(min_se, Meta, 90),
+                    MinSE = max(CurrentMinSE, RespMinSE),
+                    case MinSE > RespMinSE of
+                        true -> 
+                            Meta1 = lists:keystore(min_se, 1, Meta, {min_se, MinSE}),
+                            UAC1 = UAC#trans{meta=Meta1},
+                            Call1 = update(UAC1, Call),
+                            nksip_call_uac_req:resend_422(MinSE, Req, UAC1, Call1);
+                        false ->
+                            nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)
+                    end;
+                _ ->
+                    nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)
+            end;
+        false ->
+            nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)    
     end.
 
 

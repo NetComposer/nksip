@@ -443,11 +443,10 @@ update_response(Resp, Opts, Call) ->
     case Contacts of
         [] ->
             case find(DialogId, Call) of
-                #dialog{local_target=LTarget} ->
-                    {
-                        Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
-                        Opts -- [make_contact]
-                    };
+                #dialog{local_target=LTarget, invite=_Invite} ->
+                    Resp1 = Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
+                    % Resp2 = update_session_timer(Resp1, Invite),
+                    {Resp1, Opts -- [make_contact]};
                 not_found ->
                     {Resp#sipmsg{dialog_id=DialogId}, Opts}
             end; 
@@ -455,9 +454,22 @@ update_response(Resp, Opts, Call) ->
             {Resp#sipmsg{dialog_id=DialogId}, Opts}
     end.
 
+
+% %% @private
+% update_session_timer(Resp, #invite{session_expires=SE}) when SE>0 ->
+%     #sipmsg{require=Require} = Resp,
+%     Headers1 = nksip_headers:update(Resp, [{default_single, <<"Session-Expires">>, SE}]),
+%     Require1 = lists:keystore(<<"timer">>, 1, Require, {<<"timer">>, []}),
+%     Resp#sipmsg{require=Require1, headers=Headers1};
+
+% update_session_timer(Resp, _) ->
+%     Resp.
+
+
 %% @private
--spec get_sdp(nksip:request()|nksip:response(), #invite{}) ->
-    {boolean(), #sdp{}|undefined, nksip_call_dialog:sdp_offer(), nksip_call_dialog:sdp_offer()}.
+-spec get_sdp(nksip:request()|nksip:response(), nksip:invite()) ->
+    {boolean(), #sdp{}|undefined, nksip_call_dialog:sdp_offer(), 
+        nksip_call_dialog:sdp_offer()}.
 
 get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
     case Body of

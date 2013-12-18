@@ -64,7 +64,7 @@
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
--export_type([dialog/0, subscription/0, token/0, error_reason/0]).
+-export_type([dialog/0, invite/0, subscription/0, token/0, error_reason/0]).
 
 
 
@@ -133,6 +133,9 @@
 
 %% Dialog
 -type subscription() :: #subscription{}.
+
+%% Dialog
+-type invite() :: #invite{}.
 
 %% Token
 -type token() :: {Name::binary(), [Key::binary() | {Key::binary(), Value::binary()}]}.
@@ -280,7 +283,7 @@
 %%          <td>`string()|binary()'</td>
 %%          <td>`"100rel"'</td>
 %%          <td>If present, these tokens will be used in Supported headers instead of
-%%          the default supported list (only '100rel' currently), for example
+%%          the default supported list, for example
 %%          "my_token1;opt1, mytoken2, 100rel".</td>
 %%      </tr>
 %%      <tr>

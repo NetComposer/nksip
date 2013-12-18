@@ -179,14 +179,14 @@ timeout() ->
     SipC1 = "<sip:127.0.0.1:5070;transport=tcp>",
 
     {ok, _Module, Opts, _Pid} = nksip_sipapp_srv:get_opts(C1),
-    Opts1 = [{sipapp_timeout, 20}|Opts],
+    Opts1 = [{sipapp_timeout, 0.02}|Opts],
     ok = nksip_sipapp_srv:put_opts(C1, Opts1),
 
     % Client1 callback module has a 50msecs delay in route()
     {ok, 500, [{reason_phrase, <<"No SipApp Response">>}]} = 
         nksip_uac:options(C2, SipC1, [{fields, [reason_phrase]}]),
 
-    Opts2 = [{timer_t1, 10}, {timer_c, 500}|Opts] -- [{sipapp_timeout, 50}],
+    Opts2 = [{timer_t1, 10}, {timer_c, 0.5}|Opts] -- [{sipapp_timeout, 0.02}],
     ok = nksip_sipapp_srv:put_opts(C1, Opts2),
 
     Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},

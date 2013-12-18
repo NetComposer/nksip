@@ -508,8 +508,9 @@ uac_id(SipMsg, IsProxy, #call{dialogs=Dialogs}) ->
 %% ===================================================================
 
 %% @private
--spec get_sdp(nksip:request()|nksip:response(), #invite{}) ->
-    {boolean(), #sdp{}|undefined, nksip_call_dialog:sdp_offer(), nksip_call_dialog:sdp_offer()}.
+-spec get_sdp(nksip:request()|nksip:response(), nksip:invite()) ->
+    {boolean(), #sdp{}|undefined, 
+     nksip_call_dialog:sdp_offer(), nksip_call_dialog:sdp_offer()}.
 
 get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
     case Body of
@@ -536,13 +537,9 @@ generate(Method, Opts, Dialog) ->
         route_set = RouteSet,
         invite = Invite
     } = Dialog,
-    case Invite of
-        #invite{request=#sipmsg{cseq=InvCSeq}=Req} -> ok;
-        _ -> Req = undefined, InvCSeq = 0
-    end,
     case nksip_lib:get_integer(cseq, Opts) of
         0 when Method == 'ACK' -> 
-            RCSeq = InvCSeq, 
+            #invite{request=#sipmsg{cseq=RCSeq}} = Invite,
             LCSeq = CurrentCSeq;
         0 when CurrentCSeq > 0 -> 
             RCSeq = LCSeq = CurrentCSeq+1;
@@ -569,8 +566,9 @@ generate(Method, Opts, Dialog) ->
     Opts1 = 
         case Method of
             'ACK' ->
+                #invite{request=#sipmsg{headers=Headers}} = Invite,
                 case 
-                    nksip_lib:extract(Req#sipmsg.headers,
+                    nksip_lib:extract(Headers,
                                       [<<"Authorization">>, <<"Proxy-Authorization">>])
                 of
                     [] -> [];
@@ -580,6 +578,17 @@ generate(Method, Opts, Dialog) ->
                 []
         end
         ++
+        % case Invite of
+        %     #invite{
+        %         session_expires = SE,
+        %         refresher = Refresher
+        %     } when SE > 0 ->
+        %         SEHd = nksip_unparse:token({SE, [{refresher, Refresher}]}),
+        %         [{pre_headers, [{<<"Session-Expires">>, SEHd}]}];
+        %     _ ->
+        %         []
+        % end
+        % ++
         [
             {from, From},
             {to, To},

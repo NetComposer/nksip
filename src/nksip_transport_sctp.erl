@@ -195,7 +195,7 @@ start_client(AppId, Transp, Socket) ->
 
 init([server, AppId, Transp, _Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
-    Autoclose = round(nksip_config:get(sctp_timeout)/1000),
+    Autoclose = nksip_config:get(sctp_timeout),
     Opts1 = [
         binary, {reuseaddr, true}, {ip, Ip}, {active, once},
         {sctp_initmsg, 
@@ -396,7 +396,7 @@ add_ip(Ip, Port, AssocId, State) ->
    
 %% @private
 outbound_opts(_Opts) ->
-    Autoclose = round(nksip_config:get(sctp_timeout)/1000),
+    Autoclose = nksip_config:get(sctp_timeout),
     [
         binary, {active, false},
         {sctp_initmsg, #sctp_initmsg{num_ostreams=1, max_instreams=1}},

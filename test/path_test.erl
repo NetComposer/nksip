@@ -92,7 +92,7 @@ basic() ->
     C2 = {path, ua2},
     nksip_registrar:clear({path, registrar}),
     
-    % We didn't send the Supported header, son first proxy 
+    % We didn't send the Supported header, so first proxy 
     % (P1, configured to include Path) sends a 421 (Extension Required)
     {ok, 421, [{<<"Require">>, [<<"path">>]}]} = 
         nksip_uac:register(C1, "sip:nksip", [{fields, [<<"Require">>]}]),

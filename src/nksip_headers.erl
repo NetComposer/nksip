@@ -95,7 +95,7 @@ new(Operations) ->
 %%       and `Value' is not `[]'</li>
 %% </ul> 
 %%
--spec update(Input, [{Operation, Name, Value} | none]) -> 
+-spec update(Input, [{Operation, Name, Value} | list() | none]) -> 
     [nksip:header()] 
     when Input :: nksip:request() | nksip:response() | [nksip:header()],
          Operation :: single|multi|after_single|before_single|after_multi|
@@ -188,6 +188,10 @@ update(Headers, [{before_multi, Name, ValueOrValues}|R]) ->
         false -> [ValueOrValues | OldValues]
     end,
     update([header(Name, V) || V <- Values1] ++ Headers1, R);
+
+update(Headers, [List|R]) when is_list(List) ->
+    Headers1 = update(Headers, List),
+    update(Headers1, R);
 
 update(Headers, [_|R]) ->
     update(Headers, R).
