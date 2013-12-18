@@ -71,7 +71,8 @@ send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
     {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
     Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
              invalid_contact | invalid_cseq | invalid_content_type |
-             invalid_require | invalid_accept | invalid_event | invalid_reason.
+             invalid_require | invalid_accept | invalid_event | invalid_reason |
+             invalid_supported.
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
     try
@@ -194,7 +195,15 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             false -> 
                 Require1
         end,
-        CurrentSupported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+        CurrentSupported = case nksip_lib:get_value(supported, Opts1) of
+            undefined ->
+                nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
+            CS0 ->
+                case nksip_parse:tokens(CS0) of
+                    error -> throw(invalid_supported);
+                    CS1 -> CS1
+                end
+        end,
         Supported = case lists:member(make_supported, FullOpts) of
             true -> CurrentSupported;
             false -> []

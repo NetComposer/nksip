@@ -86,7 +86,8 @@ basic() ->
     % {error, invalid_session_expires} = 
     %     nksip_uac:invite(C1, "sip:any", [{session_expires, 1}]),
 
-    {ok, 200, _} = nksip_uac:invite(C1, "sip:127.0.0.1:5090", [auto_2xx_ack, {session_expires, 10}]),    
+    {ok, 200, _} = nksip_uac:invite(C1, "sip:127.0.0.1:5090", 
+        [auto_2xx_ack, {session_expires, 10}]),    
 
         ok.
 

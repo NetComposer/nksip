@@ -445,9 +445,11 @@ get_all_data() ->
                             #invite{
                                 status = InvStatus, 
                                 local_sdp = LSDP, 
-                                remote_sdp = RSDP
+                                remote_sdp = RSDP,
+                                timeout_timer  = Timeout
                             } -> 
-                                {InvStatus, LSDP, RSDP};
+                                Time = erlang:read_timer(Timeout)/1000,
+                                {InvStatus, Time, LSDP, RSDP};
                             undefined ->
                                 undefined
                         end},

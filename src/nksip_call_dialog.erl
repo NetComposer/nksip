@@ -395,61 +395,93 @@ session_timer_update(Req, #sipmsg{class={resp, Code, _}, cseq_method='INVITE'}=R
     #dialog{id=DialogId} = Dialog,
     #call{app_id=AppId, opts=#call_opts{timer_session=ConfigSE}} = Call,
     cancel_timer(Refresh),
-    ReqSE = case nksip_sipmsg:header(Req, <<"Session-Expires">>, tokens) of
-        [{BinReqSE, _}] ->
-            case nksip_lib:to_integer(BinReqSE) of
-                ReqSE0 when is_integer(ReqSE0), ReqSE0>0 -> 1000*ReqSE0;
-                _ -> -ConfigSE
+    case nksip_sipmsg:supported(Req, <<"timer">>) of
+        true ->
+            case nksip_sipmsg:header(Req, <<"Session-Expires">>, tokens) of
+                [{BinReqSE, OptsReqSE}] ->
+                    case nksip_lib:to_integer(BinReqSE) of
+                        ReqSE when is_integer(ReqSE), ReqSE>0 -> ReqSE;
+                        _ -> ReqSE = 0
+                    end,
+                    Refresher0 = case 
+                        nksip_lib:get_binary(<<"refresher">>, OptsReqSE) 
+                    of
+                        <<"uac">> -> uac;
+                        <<"uas">> -> uas;
+                        _ -> undefined
+                    end;
+                _ ->
+                    ReqSE = 0, Refresher0 =undefined
             end;
-        _ ->
-            % Negative means "no automatic refresh"
-            -ConfigSE
+        false ->
+            ReqSE = 0, Refresher0 = undefined
     end,
-
-
-
     case nksip_sipmsg:supported(Resp, <<"timer">>) of
         true ->
             case nksip_sipmsg:header(Resp, <<"Session-Expires">>, tokens) of
-                [{BinSE, OptsSE}] ->
-                    case nksip_lib:to_integer(BinSE) of
-                        SE when is_integer(SE), SE>0 -> ok;
-                        _ -> SE = ReqSE
+                [{BinRespSE, OptsRespSE}] ->
+                    case nksip_lib:to_integer(BinRespSE) of
+                        RespSE when is_integer(RespSE), RespSE>0 -> ok;
+                        _ -> RespSE = 0
                     end,
-                    Refresher = case nksip_lib:get_binary(<<"refresher">>, OptsSE) of
-                        <<"uac">> -> uac;
-                        <<"uas">> -> uas;
-                        _ -> Class
+                    Refresher = case Refresher0 of
+                        undefined ->
+                            case nksip_lib:get_binary(<<"refresher">>, OptsRespSE) of
+                                <<"uac">> -> uac;
+                                <<"uas">> -> uas;
+                                _ -> Class
+                            end;        
+                        _ ->
+                            Refresher0
                     end;
                 _ ->
-                    SE = ReqSE,
-                    Refresher = Class
+                    RespSE = 0,
+                    Refresher = undefined
             end;
         false ->
-            SE = ReqSE,
-            Refresher = Class
+            RespSE = 0,
+            Refresher = undefined
     end,
-    Timeout1 = start_timer(abs(SE), invite_timeout, DialogId),
-    {SE1, Refresh1} = case SE>0 andalso Refresher==Class of
-        true -> 
-            lager:warning("REFRESH: ~p SE: ~p, R: ~p", [AppId, abs(SE), Refresher]),
-            {abs(SE), start_timer(abs(SE) div 2, invite_refresh, DialogId)};
-        false -> 
-            lager:warning("NO REFRESH ~p RQ:~p, SE:~p", [AppId, ReqSE, abs(SE)]),
-            {undefined, undefined}
+    lager:warning("Req: ~p, Resp: ~p", [ReqSE, RespSE]),
+    Time = case {ReqSE, RespSE} of
+        {0, 0} -> ConfigSE;
+        {A, 0} -> 1000*A;
+        {_, B} -> 1000*B
     end,
-    Invite#invite{
-        session_expires = SE1,
-        timeout_timer = Timeout1, 
-        refresh_timer = Refresh1,
-        refresher = Refresher
-    };
+    ToRefresh = case Class of 
+        uac when ReqSE > 0, Refresher /= uas -> true;
+        uas when RespSE > 0, Refresher /= uac -> true;
+        _ -> false
+    end,
+    lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(Time/1000), ToRefresh]),
+    case ToRefresh of
+        true ->
+            Invite#invite{
+                session_expires = Time,
+                timeout_timer = start_timer(Time, invite_timeout, DialogId),
+                refresh_timer = start_timer(Time div 2, invite_refresh, DialogId)
+            };
+        false ->
+            Invite#invite{
+                session_expires = undefined,
+                timeout_timer = start_timer(Time, invite_timeout, DialogId),
+                refresh_timer = undefined
+            }
+    end;
+
 
 session_timer_update(_Req, _Resp, Invite, #dialog{id=DialogId}, _Call) ->
     Timeout = start_timer(1000*?MAX_DIALOG_TIME, invite_timeout, DialogId),
     Invite#invite{timeout_timer=Timeout}.
 
 
+% UAC con timer
+% - mando invite, cuando recibo respuesta, si no timer, refresco con el mio
+%   si timer, el tiempo es el maximo de los dos, puedo refrescar o no
+% 
+% UAS 
+% - recibo, si no timer, el mío 
+% 
 
 
 

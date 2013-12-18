@@ -65,25 +65,25 @@ check_missing_dialog(Method, Req, UAS, Call) ->
                 nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-% check_422(Method, Req, UAS, Call) when Method=='INVITE'; Method=='UPDATE' ->
-%     case nksip_sipmsg:header(Req, <<"Session-Expires">>, tokens) of
-%         [] ->
-%             check_supported(Method, Req, UAS, Call);
-%         [{BinSE, _}] ->
-%             case nksip_lib:to_integer(BinSE) of
-%                 SE when is_integer(SE), SE > 90 ->
-%                     case nksip_config:get(min_session_expires) of
-%                         MinSE when SE < MinSE ->
-%                             reply({422, [{<<"MinSE">>, MinSE}]}, UAS, Call);
-%                         _ ->
-%                             check_supported(Method, Req, UAS, Call)
-%                     end;
-%                 _ ->
-%                     reply(invalid_request, UAS, Call)
-%             end;
-%         _ ->
-%             reply(invalid_request, UAS, Call)
-%     end;
+check_422(Method, Req, UAS, Call) when Method=='INVITE'; Method=='UPDATE' ->
+    case nksip_sipmsg:header(Req, <<"Session-Expires">>, tokens) of
+        [] ->
+            check_supported(Method, Req, UAS, Call);
+        [{BinSE, _}] ->
+            case nksip_lib:to_integer(BinSE) of
+                SE when is_integer(SE), SE > 0 ->
+                    case nksip_config:get(min_session_expires) of
+                        MinSE when SE < MinSE ->
+                            reply({422, [{<<"MinSE">>, MinSE}]}, UAS, Call);
+                        _ ->
+                            check_supported(Method, Req, UAS, Call)
+                    end;
+                _ ->
+                    reply(invalid_request, UAS, Call)
+            end;
+        _ ->
+            reply(invalid_request, UAS, Call)
+    end;
 
 check_422(Method, Req, UAS, Call) ->
     check_supported(Method, Req, UAS, Call).
