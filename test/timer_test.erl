@@ -59,13 +59,15 @@ start() ->
         {from, "sip:ua1@nksip"},
         % {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 0}},
-        {transport, {tls, {0,0,0,0}, 0}}]),
+        {transport, {udp, {0,0,0,0}, 5071}}
+    ]),
 
     ok = sipapp_endpoint:start({timer, ua2}, [
         {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5090}}]),
+        {transport, {udp, {0,0,0,0}, 5072}}
+    ]),
+
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -83,14 +85,27 @@ basic() ->
     C1 = {timer, ua1},
     C2 = {timer, ua2},
 
-    % {error, invalid_session_expires} = 
-    %     nksip_uac:invite(C1, "sip:any", [{session_expires, 1}]),
+    {ok, _, Opts1a, _} = nksip_sipapp_srv:get_opts(C1),
+    Opts1b = [{min_session_expires, 1}|Opts1a],
+    ok = nksip_sipapp_srv:put_opts(C1, Opts1b),
 
-    {ok, 200, _} = nksip_uac:invite(C1, "sip:127.0.0.1:5090", 
-        [auto_2xx_ack, {session_expires, 10}]),    
+    {ok, _, Opts2a, _} = nksip_sipapp_srv:get_opts(C2),
+    Opts2b = [{min_session_expires, 2}|Opts2a],
+    ok = nksip_sipapp_srv:put_opts(C2, Opts2b),
 
-        ok.
+    {error, invalid_session_expires} = 
+        nksip_uac:invite(C2, "sip:any", [{session_expires, 1}]),
 
+    {ok, 200, [{dialog_id, Dialog1}, {<<"Session-Expires">>,[<<"2;refresher=uas">>]}]} = 
+        nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
+            [{session_expires, 1}, {fields, [<<"Session-Expires">>]}, auto_2xx_ack]).
+
+
+
+    % {ok, 200, _} = nksip_uac:invite(C1, "sip:127.0.0.1:5090", 
+    %     [auto_2xx_ack, {session_expires, 10}]),    
+
+        
 
 
 

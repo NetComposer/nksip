@@ -299,18 +299,11 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 lists:keymember(<<"timer">>, 1, CurrentSupported)
             of
                 true ->
-                    case nksip_lib:get_value(session_expires, FullOpts) of
-                        undefined ->
-                            SE = nksip_config:get(session_expires),
-                            {default_single, <<"Session-Expires">>, SE};
-                        SE ->
-                            MinSE = nksip_config:get(min_session_expires),
-                            case is_integer(SE) andalso SE >= MinSE of
-                                true ->
-                                    {default_single, <<"Session-Expires">>, SE};
-                                false ->
-                                    throw(invalid_session_expires)
-                            end
+                    SE = nksip_config:get_cached(session_expires, FullOpts),
+                    MinSE = nksip_config:get_cached(min_session_expires, FullOpts),
+                    case is_integer(SE) andalso SE >= MinSE of
+                        true -> {default_single, <<"Session-Expires">>, SE};
+                        false -> throw(invalid_session_expires)
                     end;
                 false ->
                     none

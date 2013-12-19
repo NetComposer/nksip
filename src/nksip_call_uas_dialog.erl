@@ -423,47 +423,63 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
     end.
 
 
-%% @private
-retry() ->
-    {
-        500, 
-        [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
-        <<>>, 
-        [{reason_phrase, <<"Processing Previous INVITE">>}]
-    }.
-
-
 %% private
--spec update_response(nksip:response(), nksip_lib:proplist(), nksip_call:call()) ->
+-spec update_response(nksip:request(), {nksip:response(), nksip_lib:proplist()}, 
+                      nksip_call:call()) ->
     {nksip:response(), nksip_lib:proplist()}.
 
-update_response(Resp, Opts, Call) ->
-    #sipmsg{contacts=Contacts} = Resp,
+update_response(Req, {Resp, Opts}, Call) ->
+    #sipmsg{contacts = Contacts} = Resp,
     DialogId = nksip_dialog:class_id(uas, Resp),
-    case Contacts of
+    {Resp1, Opts1} = case Contacts of
         [] ->
             case find(DialogId, Call) of
-                #dialog{local_target=LTarget, invite=_Invite} ->
-                    Resp1 = Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
-                    % Resp2 = update_session_timer(Resp1, Invite),
-                    {Resp1, Opts -- [make_contact]};
+                #dialog{local_target=LTarget} ->
+                    Resp0 = Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
+                    {Resp0, Opts -- [make_contact]};
                 not_found ->
                     {Resp#sipmsg{dialog_id=DialogId}, Opts}
-            end; 
+            end;
         _ ->
             {Resp#sipmsg{dialog_id=DialogId}, Opts}
-    end.
+    end,
+    Resp2 = update_session_timer(Req, Resp1, Call),
+    {Resp2, Opts1}.
 
 
-% %% @private
-% update_session_timer(Resp, #invite{session_expires=SE}) when SE>0 ->
-%     #sipmsg{require=Require} = Resp,
-%     Headers1 = nksip_headers:update(Resp, [{default_single, <<"Session-Expires">>, SE}]),
-%     Require1 = lists:keystore(<<"timer">>, 1, Require, {<<"timer">>, []}),
-%     Resp#sipmsg{require=Require1, headers=Headers1};
+%% @private
+-spec update_session_timer(nksip:request(), nksip:response(), nksip_call:call()) ->
+    nksip:response().
 
-% update_session_timer(Resp, _) ->
-%     Resp.
+update_session_timer(
+        Req, #sipmsg{class={resp, Code, _}, cseq_method=Method}=Resp, Call)
+        when Code>=200 andalso Code<300 andalso 
+             (Method=='INVITE' orelse Method=='UPDATE') ->
+    #sipmsg{require=Require} = Resp,
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+    {ReqSE, ReqRefresh} = case nksip_parse:session_expires(Req) of
+        {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
+        _ -> {0, undefined}
+    end,
+    {SE, Refresh} = case ReqSE > 0 of 
+        true when ReqRefresh/=undefined -> {ReqSE, ReqRefresh};
+        true -> {ReqSE, uas};
+        false -> {nksip_config:get_cached(session_expires, AppOpts), uas}
+    end,
+    SEHd = <<(nksip_lib:to_binary(SE))/binary, ";refresher=", 
+             (nksip_lib:to_binary(Refresh))/binary>>,
+    Headers1 = nksip_headers:update(Resp, 
+                    [{default_single, <<"Session-Expires">>, SEHd}]),
+    Require1 = lists:keystore(<<"timer">>, 1, Require, {<<"timer">>, []}),
+    Resp#sipmsg{require=Require1, headers=Headers1};
+
+update_session_timer(_Req, Resp, _Call) ->
+    Resp.
+
+
+%% ===================================================================
+%% Utils
+%% ===================================================================
 
 
 %% @private
@@ -476,4 +492,15 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
         #sdp{} = SDP -> {true, SDP, Offer, Answer};
         _ -> {false, undefined, Offer, Answer}
     end.
+
+
+%% @private
+retry() ->
+    {
+        500, 
+        [{<<"Retry-After">>, crypto:rand_uniform(0, 11)}], 
+        <<>>, 
+        [{reason_phrase, <<"Processing Previous INVITE">>}]
+    }.
+
 

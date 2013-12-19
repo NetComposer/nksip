@@ -39,7 +39,40 @@
     nksip_call:call().
     
 process(#trans{method=Method, request=Req}=UAS, Call) ->
-    check_missing_dialog(Method, Req, UAS, Call).
+    check_supported(Method, Req, UAS, Call).
+
+
+%% @private
+-spec check_supported(nksip:method(), nksip:request(), 
+                      nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+check_supported(Method, Req, UAS, Call) when Method=='ACK'; Method=='CANCEL' ->
+    check_missing_dialog(Method, Req, UAS, Call);
+
+check_supported(Method, Req, UAS, Call) ->
+    #sipmsg{require=Require, event=Event} = Req,
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+    Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+    SupportedTokens = [T || {T, _} <- Supported],
+    case [T || {T, _} <- Require, not lists:member(T, SupportedTokens)] of
+        [] when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
+            SupEvents = nksip_lib:get_value(event, AppOpts, []),
+            case Event of
+                {Type, _} ->
+                    case lists:member(Type, [<<"refer">>|SupEvents]) of
+                        true -> check_missing_dialog(Method, Req, UAS, Call);
+                        false -> reply(bad_event, UAS, Call)
+                    end;
+                _ ->
+                    reply(bad_event, UAS, Call)
+            end;
+        [] ->
+            check_missing_dialog(Method, Req, UAS, Call);
+        BadRequires -> 
+            RequiresTxt = nksip_lib:bjoin(BadRequires),
+            reply({bad_extension,  RequiresTxt}, UAS, Call)
+    end.
 
 
 %% @private
@@ -66,60 +99,23 @@ check_missing_dialog(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 check_422(Method, Req, UAS, Call) when Method=='INVITE'; Method=='UPDATE' ->
-    case nksip_sipmsg:header(Req, <<"Session-Expires">>, tokens) of
-        [] ->
-            check_supported(Method, Req, UAS, Call);
-        [{BinSE, _}] ->
-            case nksip_lib:to_integer(BinSE) of
-                SE when is_integer(SE), SE > 0 ->
-                    case nksip_config:get(min_session_expires) of
-                        MinSE when SE < MinSE ->
-                            reply({422, [{<<"MinSE">>, MinSE}]}, UAS, Call);
-                        _ ->
-                            check_supported(Method, Req, UAS, Call)
-                    end;
+    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+    case nksip_parse:session_expires(Req) of
+        undefined ->
+            dialog(Method, Req, UAS, Call);
+        invalid ->
+            reply(invalid_request, UAS, Call);
+        {ok, SE, _} ->
+            case nksip_config:get_cached(min_session_expires, AppOpts) of
+                MinSE when SE < MinSE ->
+                    reply({422, [{<<"Min-SE">>, MinSE}]}, UAS, Call);
                 _ ->
-                    reply(invalid_request, UAS, Call)
-            end;
-        _ ->
-            reply(invalid_request, UAS, Call)
+                    dialog(Method, Req, UAS, Call)
+            end
     end;
 
 check_422(Method, Req, UAS, Call) ->
-    check_supported(Method, Req, UAS, Call).
-
-
-%% @private
--spec check_supported(nksip:method(), nksip:request(), 
-                      nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-check_supported(Method, Req, UAS, Call) when Method=='ACK'; Method=='CANCEL' ->
-    dialog(Method, Req, UAS, Call);
-
-check_supported(Method, Req, UAS, Call) ->
-    #sipmsg{require=Require, event=Event} = Req,
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
-    SupportedTokens = [T || {T, _} <- Supported],
-    case [T || {T, _} <- Require, not lists:member(T, SupportedTokens)] of
-        [] when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
-            SupEvents = nksip_lib:get_value(event, AppOpts, []),
-            case Event of
-                {Type, _} ->
-                    case lists:member(Type, [<<"refer">>|SupEvents]) of
-                        true -> dialog(Method, Req, UAS, Call);
-                        false -> reply(bad_event, UAS, Call)
-                    end;
-                _ ->
-                    reply(bad_event, UAS, Call)
-            end;
-        [] ->
-            dialog(Method, Req, UAS, Call);
-        BadRequires -> 
-            RequiresTxt = nksip_lib:bjoin(BadRequires),
-            reply({bad_extension,  RequiresTxt}, UAS, Call)
-    end.
+    dialog(Method, Req, UAS, Call).
 
 
 %% @private

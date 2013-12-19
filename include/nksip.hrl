@@ -244,7 +244,6 @@
     next_retrans :: integer(),
     session_expires :: integer(),
     refresh_timer :: reference(),
-    refresher :: uac | uas,
     meta = [] :: nksip_lib:proplist()
 }).
 

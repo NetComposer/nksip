@@ -490,18 +490,11 @@ get_call_opts(AppId, #state{opts=OptsDict}=SD) ->
             case nksip_sipapp_srv:get_opts(AppId) of
                 {ok, Module, AppOpts, _Pid} ->
                     GlobalId = nksip_config:get(global_id),
-                    Session = nksip_lib:get_value(session_expires, AppOpts, 
-                                                  nksip_config:get(session_expires)),
-                    T1 = nksip_lib:get_value(timer_t1, AppOpts, 
-                                             nksip_config:get(timer_t1)),
-                    T2 = nksip_lib:get_value(timer_t2, AppOpts, 
-                                             nksip_config:get(timer_t2)),
-                    T4 = nksip_lib:get_value(timer_t4, AppOpts, 
-                                             nksip_config:get(timer_t4)),
-                    TC = nksip_lib:get_value(timer_c, AppOpts, 
-                                             nksip_config:get(timer_c)),
-                    TApp = nksip_lib:get_value(sipapp_timeout, AppOpts, 
-                                               nksip_config:get(sipapp_timeout)),
+                    T1 = nksip_config:get_cached(timer_t1, AppOpts),
+                    T2 = nksip_config:get_cached(timer_t2, AppOpts),
+                    T4 = nksip_config:get_cached(timer_t4, AppOpts),
+                    TC = nksip_config:get_cached(timer_c, AppOpts),
+                    TApp = nksip_config:get_cached(sipapp_timeout, AppOpts),
                     CallOpts = #call_opts{
                         global_id  = GlobalId,
                         app_opts = AppOpts,
@@ -510,8 +503,7 @@ get_call_opts(AppId, #state{opts=OptsDict}=SD) ->
                         timer_t2 = T2,
                         timer_t4 = T4,
                         timer_c = round(1000*TC),
-                        timer_sipapp = round(1000*TApp),
-                        timer_session = round(1000*Session)
+                        timer_sipapp = round(1000*TApp)
                     },
                     OptsDict1 = dict:store(AppId, CallOpts, OptsDict),
                     {ok, CallOpts, SD#state{opts=OptsDict1}};

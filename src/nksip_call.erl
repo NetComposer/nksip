@@ -236,7 +236,7 @@ work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
     end;
 
 work({app_reply, Fun, Id, Reply}, none, Call) ->
-    nksip_call_uas_route:reply(Fun, Id, Reply, Call);
+    nksip_call_uas_route:app_reply(Fun, Id, Reply, Call);
 
 work({send_reply, ReqId, Reply}, From, Call) ->
     case get_trans(ReqId, Call) of

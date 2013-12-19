@@ -381,9 +381,11 @@ do_received_422(Req, Resp, UAC, Call) ->
         true ->
             case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
                 [RespMinSE] ->
-                    CurrentMinSE = nksip_lib:get_integer(min_se, Meta, 90),
+                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+                    ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
+                    CurrentMinSE = nksip_lib:get_integer(min_se, Meta, ConfigMinSE),
                     MinSE = max(CurrentMinSE, RespMinSE),
-                    case MinSE > RespMinSE of
+                    case MinSE >= RespMinSE of
                         true -> 
                             Meta1 = lists:keystore(min_se, 1, Meta, {min_se, MinSE}),
                             UAC1 = UAC#trans{meta=Meta1},

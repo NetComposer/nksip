@@ -22,7 +22,7 @@
 -module(nksip_call_uas_route).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([launch/2, reply/4]).
+-export([launch/2, app_reply/4]).
 
 -import(nksip_call_lib, [update/2]).
 
@@ -31,7 +31,7 @@
 
 
 %% ===================================================================
-%% Private
+%% Route processing
 %% ===================================================================
 
 %% @private 
@@ -40,51 +40,6 @@
 
 launch(UAS, Call) ->
     send_100(UAS, Call).
-
-
-%% @private Called when there is a SipApp response available
--spec reply(atom(), nksip_call_uas:id(), nksip:sipreply(), nksip_call:call()) ->
-    nksip_call:call().
-
-reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
-    case lists:keyfind(Id, #trans.id, Trans) of
-        #trans{class=uas}=UAS when Reply==async ->
-            UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
-            update(UAS1, Call);
-        #trans{class=uas, callback_timer={{callback, Fun}, _}, request=Req}=UAS ->
-            UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
-            Call1 = update(UAS1, Call),
-            case Fun of
-                authorize -> 
-                    authorize_reply(Reply, UAS1, Call1);
-                route -> 
-                    route_reply(Reply, UAS1, Call1);
-                ack ->
-                    Call1;
-                _ when not is_record(Req, sipmsg) ->
-                    Call1;
-                _ when Fun==invite; Fun==reinvite; Fun==bye; 
-                       Fun==options; Fun==register; Fun==info;
-                       Fun==prack; Fun==update; Fun==message;
-                       Fun==subscribe; Fun==resubscribe;
-                       Fun==notify; Fun==refer; Fun==publish ->
-                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-                    {Resp, SendOpts} = nksip_reply:reply(Req, Reply, AppOpts),
-                    #sipmsg{class={resp, Code, _Reason}} = Resp,
-                    {Resp1, SendOpts1} = case Code >= 200 of
-                        true -> 
-                            {Resp, SendOpts};
-                        false -> 
-                            Reply1 = {internal, <<"Invalid SipApp reply">>},
-                            nksip_reply:reply(Req, Reply1, AppOpts)
-                    end,
-                    reply({Resp1, SendOpts1}, UAS1, Call1)
-            end;
-        _ ->
-            ?call_debug("Unknown UAS ~p received SipApp ~p reply",
-                        [Id, Fun], Call),
-            Call
-    end.
 
 
 %% @private 
@@ -376,6 +331,58 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
         _ ->
             reply({internal, <<"Invalid Srict Routing">>}, UAS, Call)
     end.
+
+
+
+% ===================================================================
+% App Reply
+% ===================================================================
+
+
+%% @private Called when there is a SipApp response available
+-spec app_reply(atom(), nksip_call_uas:id(), nksip:sipreply(), nksip_call:call()) ->
+    nksip_call:call().
+
+app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
+    case lists:keyfind(Id, #trans.id, Trans) of
+        #trans{class=uas}=UAS when Reply==async ->
+            UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
+            update(UAS1, Call);
+        #trans{class=uas, callback_timer={{callback, Fun}, _}, request=Req}=UAS ->
+            UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
+            Call1 = update(UAS1, Call),
+            case Fun of
+                authorize -> 
+                    authorize_reply(Reply, UAS1, Call1);
+                route -> 
+                    route_reply(Reply, UAS1, Call1);
+                ack ->
+                    Call1;
+                _ when not is_record(Req, sipmsg) ->
+                    Call1;
+                _ when Fun==invite; Fun==reinvite; Fun==bye; 
+                       Fun==options; Fun==register; Fun==info;
+                       Fun==prack; Fun==update; Fun==message;
+                       Fun==subscribe; Fun==resubscribe;
+                       Fun==notify; Fun==refer; Fun==publish ->
+                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+                    {Resp, SendOpts} = nksip_reply:reply(Req, Reply, AppOpts),
+                    #sipmsg{class={resp, Code, _Reason}} = Resp,
+                    {Resp1, SendOpts1} = case Code >= 200 of
+                        true -> 
+                            {Resp, SendOpts};
+                        false -> 
+                            Reply1 = {internal, <<"Invalid SipApp reply">>},
+                            nksip_reply:reply(Req, Reply1, AppOpts)
+                    end,
+                    reply({Resp1, SendOpts1}, UAS1, Call1)
+            end;
+        _ ->
+            ?call_debug("Unknown UAS ~p received SipApp ~p reply",
+                        [Id, Fun], Call),
+            Call
+    end.
+
 
 
 

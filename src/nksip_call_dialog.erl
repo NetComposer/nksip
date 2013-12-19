@@ -391,66 +391,29 @@ session_update(Dialog, _Call) ->
 session_timer_update(Req, #sipmsg{class={resp, Code, _}, cseq_method='INVITE'}=Resp, 
                      Invite, Dialog, Call)
                      when Code>=200, Code<300 ->
-    #invite{class=Class, refresh_timer=Refresh} = Invite,
+    #invite{class=Class, refresh_timer=RefreshTimer} = Invite,
     #dialog{id=DialogId} = Dialog,
-    #call{app_id=AppId, opts=#call_opts{timer_session=ConfigSE}} = Call,
-    cancel_timer(Refresh),
-    case nksip_sipmsg:supported(Req, <<"timer">>) of
-        true ->
-            case nksip_sipmsg:header(Req, <<"Session-Expires">>, tokens) of
-                [{BinReqSE, OptsReqSE}] ->
-                    case nksip_lib:to_integer(BinReqSE) of
-                        ReqSE when is_integer(ReqSE), ReqSE>0 -> ReqSE;
-                        _ -> ReqSE = 0
-                    end,
-                    Refresher0 = case 
-                        nksip_lib:get_binary(<<"refresher">>, OptsReqSE) 
-                    of
-                        <<"uac">> -> uac;
-                        <<"uas">> -> uas;
-                        _ -> undefined
-                    end;
-                _ ->
-                    ReqSE = 0, Refresher0 =undefined
-            end;
-        false ->
-            ReqSE = 0, Refresher0 = undefined
+    #call{app_id=AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
+    cancel_timer(RefreshTimer),
+    {ReqSE, ReqRefresh} = case nksip_parse:session_expires(Req) of
+        {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
+        _ -> {0, undefined}
     end,
-    case nksip_sipmsg:supported(Resp, <<"timer">>) of
-        true ->
-            case nksip_sipmsg:header(Resp, <<"Session-Expires">>, tokens) of
-                [{BinRespSE, OptsRespSE}] ->
-                    case nksip_lib:to_integer(BinRespSE) of
-                        RespSE when is_integer(RespSE), RespSE>0 -> ok;
-                        _ -> RespSE = 0
-                    end,
-                    Refresher = case Refresher0 of
-                        undefined ->
-                            case nksip_lib:get_binary(<<"refresher">>, OptsRespSE) of
-                                <<"uac">> -> uac;
-                                <<"uas">> -> uas;
-                                _ -> Class
-                            end;        
-                        _ ->
-                            Refresher0
-                    end;
-                _ ->
-                    RespSE = 0,
-                    Refresher = undefined
-            end;
-        false ->
-            RespSE = 0,
-            Refresher = undefined
+    {RespSE, Refresh} = case nksip_parse:session_expires(Resp) of
+        {ok, RespSE0, _} when ReqRefresh/=undefined -> {RespSE0, ReqRefresh};
+        {ok, RespSE0, RespRefresh0} -> {RespSE0, RespRefresh0};
+        _ when ReqRefresh/=undefined -> {0, ReqRefresh};
+        _ -> {0, undefined}
     end,
     lager:warning("Req: ~p, Resp: ~p", [ReqSE, RespSE]),
     Time = case {ReqSE, RespSE} of
-        {0, 0} -> ConfigSE;
-        {A, 0} -> 1000*A;
-        {_, B} -> 1000*B
+        {0, 0} -> nksip_config:get_cached(session_expires, AppOpts);
+        {TA, 0} -> TA;
+        {_, TB} -> TB
     end,
     ToRefresh = case Class of 
-        uac when ReqSE > 0, Refresher /= uas -> true;
-        uas when RespSE > 0, Refresher /= uac -> true;
+        uac when ReqSE > 0, Refresh /= uas -> true;
+        uas when RespSE > 0, Refresh /= uac -> true;
         _ -> false
     end,
     lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(Time/1000), ToRefresh]),
@@ -458,31 +421,20 @@ session_timer_update(Req, #sipmsg{class={resp, Code, _}, cseq_method='INVITE'}=R
         true ->
             Invite#invite{
                 session_expires = Time,
-                timeout_timer = start_timer(Time, invite_timeout, DialogId),
-                refresh_timer = start_timer(Time div 2, invite_refresh, DialogId)
+                timeout_timer = start_timer(1000*Time, invite_timeout, DialogId),
+                refresh_timer = start_timer(500*Time, invite_refresh, DialogId)
             };
         false ->
             Invite#invite{
                 session_expires = undefined,
-                timeout_timer = start_timer(Time, invite_timeout, DialogId),
+                timeout_timer = start_timer(1000*Time, invite_timeout, DialogId),
                 refresh_timer = undefined
             }
     end;
 
-
 session_timer_update(_Req, _Resp, Invite, #dialog{id=DialogId}, _Call) ->
     Timeout = start_timer(1000*?MAX_DIALOG_TIME, invite_timeout, DialogId),
     Invite#invite{timeout_timer=Timeout}.
-
-
-% UAC con timer
-% - mando invite, cuando recibo respuesta, si no timer, refresco con el mio
-%   si timer, el tiempo es el maximo de los dos, puedo refrescar o no
-% 
-% UAS 
-% - recibo, si no timer, el mío 
-% 
-
 
 
 %% @private Fully stops a dialog
@@ -655,5 +607,5 @@ cancel_timer(_) ->
     reference().
 
 start_timer(Time, Tag, Id) ->
-    erlang:start_timer(Time , self(), {dlg, Tag, Id}).
+    erlang:start_timer(round(Time) , self(), {dlg, Tag, Id}).
 

@@ -578,17 +578,14 @@ generate(Method, Opts, Dialog) ->
                 []
         end
         ++
-        % case Invite of
-        %     #invite{
-        %         session_expires = SE,
-        %         refresher = Refresher
-        %     } when SE > 0 ->
-        %         SEHd = nksip_unparse:token({SE, [{refresher, Refresher}]}),
-        %         [{pre_headers, [{<<"Session-Expires">>, SEHd}]}];
-        %     _ ->
-        %         []
-        % end
-        % ++
+        case Invite of
+            #invite{session_expires=SE} when
+                is_integer(SE) andalso (Method=='INVITE' orelse Method=='UPDATE') ->
+                [{session_exires, SE}];
+            _ ->
+                []
+        end
+        ++
         [
             {from, From},
             {to, To},

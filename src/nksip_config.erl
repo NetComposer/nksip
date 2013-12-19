@@ -69,7 +69,9 @@
 -include("nksip.hrl").
 
 -export([get/1, get/2, put/2, del/1, cseq/0]).
--export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,     handle_info/2]).
+-export([get_cached/2, get_cached/3]).
+-export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
+         handle_info/2]).
 
 -compile({no_auto_import,[put/2]}).
 
@@ -98,6 +100,30 @@ get(Key, Default) ->
         [] -> Default;
         [{_, Value}] -> Value
     end.
+
+
+%% @doc Equivalent to `get_cached(Key, undefined)'.
+-spec get_cached(term(), nksip_lib:proplist()) -> 
+    Value :: term().
+
+get_cached(Key, CachedList) ->
+    case nksip_lib:get_value(Key, CachedList, '$nksip_config_undefined') of
+        '$nksip_config_undefined' -> ?MODULE:get(Key);
+        Cached -> Cached
+    end.
+
+
+%% @doc Tries to get a value from `CacheList' if it is not present,
+%% gets it from config.
+-spec get_cached(term(), nksip_lib:proplist(), term()) -> 
+    Value :: term().
+
+get_cached(Key, CachedList, Default) ->
+    case nksip_lib:get_value(Key, CachedList, '$nksip_config_undefined') of
+        '$nksip_config_undefined' -> get(Key, Default);
+        Cached -> Cached
+    end.
+
 
 %% @doc Sets a config value.
 -spec put(term(), term()) -> 

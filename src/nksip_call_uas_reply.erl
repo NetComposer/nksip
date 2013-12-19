@@ -28,6 +28,15 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
+-type incoming() :: 
+    nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}.
+
+-type reply_error() :: 
+    invalid_call | pending_prack | stateless_not_allowed | network_error.
+
+-type reply_return() :: 
+    {{ok, nksip:response()} | {error, reply_error()}, nksip_call:call()}.
+
 
 %% ===================================================================
 %% Private
@@ -35,9 +44,8 @@
 
 
 %% @doc Sends a transaction reply
--spec reply(nksip:sipreply()|{nksip:response(), nksip_lib:proplist()}, 
-                  nksip_call:trans(), nksip_call:call()) ->
-    {{ok, nksip:response()} | {error, invalid_call}, nksip_call:call()}.
+-spec reply(incoming(), nksip_call:trans(), nksip_call:call()) ->
+    reply_return().
 
 reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
     ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", 
@@ -68,18 +76,7 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                         LastCode>=200 andalso LastCode<300
                     )
                 ) ->
-    {Resp1, SendOpts1} = nksip_call_uas_dialog:update_response(Resp, SendOpts, Call),
-    case lists:member(make_rseq, SendOpts1) of
-        true ->
-            case check_prack(Resp1, UAS) of
-                {ok, Resp2, UAS1} ->
-                    send({Resp2, SendOpts1}, UAS1, update(UAS1, Call));
-                {error, Error} ->
-                    {{error, Error}, Call}
-            end;
-        false ->
-            send({Resp1, SendOpts1}, UAS, Call)
-    end;
+    dialog({Resp, SendOpts}, UAS, Call);
 
 reply({#sipmsg{class={resp, Code, _Reason}}, _}, #trans{code=LastCode}=UAS, Call) ->
     #trans{status=Status, id=Id, method=Method} = UAS,
@@ -98,14 +95,62 @@ reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 
 
 %% @private
--spec send({nksip:response(), nksip_lib:proplist()}, 
-           nksip_call:trans(), nksip_call:call()) ->
-    {Reply, nksip_call:call()} when Reply :: {ok, nksip:response()} | {error, network_error}.
+-spec dialog(incoming(), nksip_call:trans(), nksip_call:call()) ->
+    reply_return().
 
-send({Resp, SendOpts}, UAS, #call{}=Call) ->
+dialog({Resp, SendOpts}, #trans{request=Req}=UAS, Call) ->
+    {Resp1, SendOpts1} = 
+        nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
+    case lists:member(make_rseq, SendOpts1) of
+        true ->
+            case check_prack(Resp1, UAS) of
+                {ok, Resp2, UAS1} ->
+                    send({Resp2, SendOpts1}, UAS1, update(UAS1, Call));
+                {error, Error} ->
+                    {{error, Error}, Call}
+            end;
+        false ->
+            send({Resp1, SendOpts1}, UAS, Call)
+    end.
+
+
+%% @private
+-spec check_prack(nksip:response(), nksip_call:trans()) ->
+    {ok, nksip:response(), nksip_call:trans()} | {error, Error}
+    when Error :: stateless_not_allowed | pending_prack.
+
+check_prack(_, #trans{stateless=true}) ->
+    {error, stateless_not_allowed};
+
+check_prack(Resp, UAS) ->
+    #sipmsg{dialog_id=DialogId, cseq=CSeq, cseq_method=Method} = Resp,
+    #trans{rseq=LastRSeq, pracks=WaitPRAcks} = UAS,
+    case WaitPRAcks of
+        [] ->
+            RSeq = case LastRSeq of
+                0 -> crypto:rand_uniform(1, 2147483647);
+                _ -> LastRSeq+1
+            end,
+            Headers1 = nksip_headers:update(Resp, [{single, <<"RSeq">>, RSeq}]),
+            Resp1 = Resp#sipmsg{headers=Headers1},
+            PRAcks = [{RSeq, CSeq, Method, DialogId}],
+            UAS1 = UAS#trans{rseq=RSeq, pracks=PRAcks},
+            {ok, Resp1, UAS1};
+        _ ->
+            
+            {error, pending_prack}
+    end.
+
+
+%% @private
+-spec send(incoming(), nksip_call:trans(), nksip_call:call()) ->
+    reply_return().
+
+send({Resp, SendOpts}, UAS, Call) ->
     #sipmsg{
         class ={resp, Code, _Reason}, 
-        id = MsgId, dialog_id = DialogId
+        id = MsgId, 
+        dialog_id = DialogId
     } = Resp,
     #trans{
         id = Id, 
@@ -233,30 +278,7 @@ stateful_reply(_, _Code, _, UAS, _Call) ->
     UAS.
 
 
-%% @private
--spec check_prack(nksip:response(), nksip_call:trans()) ->
-    {ok, nksip:response(), nksip_call:trans()} | {error, term()}.
 
-check_prack(_, #trans{stateless=true}) ->
-    {error, stateless_not_allowed};
-
-check_prack(Resp, UAS) ->
-    #sipmsg{dialog_id=DialogId, cseq=CSeq, cseq_method=Method} = Resp,
-    #trans{rseq=LastRSeq, pracks=WaitPRAcks} = UAS,
-    case WaitPRAcks of
-        [] ->
-            RSeq = case LastRSeq of
-                0 -> crypto:rand_uniform(1, 2147483647);
-                _ -> LastRSeq+1
-            end,
-            Headers1 = nksip_headers:update(Resp, [{single, <<"RSeq">>, RSeq}]),
-            Resp1 = Resp#sipmsg{headers=Headers1},
-            PRAcks = [{RSeq, CSeq, Method, DialogId}],
-            UAS1 = UAS#trans{rseq=RSeq, pracks=PRAcks},
-            {ok, Resp1, UAS1};
-        _ ->
-            {error, pending_prack}
-    end.
 
 
 

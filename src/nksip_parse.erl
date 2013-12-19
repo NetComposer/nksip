@@ -30,7 +30,7 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, aors/1, uris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, transport/1]).
+-export([tokens/1, integers/1, dates/1, transport/1, session_expires/1]).
 -export([packet/3, raw_sipmsg/1, raw_header/1]).
 
 -export_type([msg_class/0]).
@@ -164,6 +164,33 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     {Proto, Host, Port1}.
 
 
+%% @doc Parses a Session-Expires header in the request or response
+-spec session_expires(nksip:request()|nksip:response()) ->
+    {ok, integer(), uac|uas|undefined} | undefined | invalid.
+
+session_expires(SipMsg) ->
+    case nksip_sipmsg:supported(SipMsg, <<"timer">>) of
+        true ->
+            case nksip_sipmsg:header(SipMsg, <<"Session-Expires">>, tokens) of
+                [] ->
+                    undefined;
+                [{SE, Opts}] ->
+                    case nksip_lib:to_integer(SE) of
+                        SE1 when is_integer(SE1), SE1>0 -> 
+                            case nksip_lib:get_binary(<<"refresher">>, Opts) of
+                                <<"uac">> -> {ok, SE1, uac};
+                                <<"uas">> -> {ok, SE1, uas};
+                                _ -> {ok, SE1, undefined}
+                            end;
+                        _ ->
+                            invalid
+                    end;
+                _ ->
+                    invalid
+            end;
+        false ->
+            undefined
+    end.
 
 
 %% ===================================================================

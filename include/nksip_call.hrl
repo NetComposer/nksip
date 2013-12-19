@@ -112,8 +112,7 @@
     timer_t2 :: integer(),
     timer_t4 :: integer(),
     timer_c :: integer(),
-    timer_sipapp :: integer(),
-    timer_session :: integer()
+    timer_sipapp :: integer()
 }).
 
 
