@@ -26,7 +26,7 @@
 -export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
 -export([init/1, get_user_pass/3, authorize/4, route/6]).
 -export([options/4, invite/4, reinvite/4, ack/4, bye/4, info/4, subscribe/4, 
-         resubscribe/4, notify/4, message/4, refer/4, publish/4]).
+         resubscribe/4, notify/4, message/4, refer/4, publish/4, update/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3]).
 
@@ -197,8 +197,18 @@ invite(_ReqId, _Meta, _From, #state{id={event, _}}=State) ->
     {reply, ok, State};
 
 % INVITE for timer test
-invite(_ReqId, _Meta, _From, #state{id={timer, _}}=State) ->
-    {reply, ok, State};
+invite(ReqId, Meta, _From, #state{id={timer, _}=AppId, dialogs=Dialogs}=State) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
+    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+        [RepBin] ->
+            {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+            State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
+        _ ->
+            State
+    end,
+    Body = nksip_lib:get_value(body, Meta),
+    Body1 = nksip_sdp:increment(Body),
+    {reply, {ok, [], Body1}, State1};
 
 
 invite(ReqId, _Meta, From, #state{id={refer, _}=AppId}=State) ->
@@ -312,6 +322,10 @@ info(ReqId, _Meta, _From, #state{id=AppId}=State) ->
     {reply, {ok, [{"Nk-Method", "info"}, {"Nk-Dialog", DialogId}]}, State}.
 
 
+update(_ReqId, _Meta, _From, #state{id={timer, _}}=State) ->
+    {reply, ok, State}.
+
+
 subscribe(ReqId, Meta, From, #state{id=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
     Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
@@ -406,7 +420,7 @@ register_update(RegId, OK, #state{callbacks=CBs}=State) ->
 
 
 dialog_update(DialogId, Update, #state{id={Test, Id}, dialogs=Dialogs}=State)
-              when Test==invite; Test==event ->
+              when Test==invite; Test==event; Test==timer ->
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             none;
@@ -417,6 +431,7 @@ dialog_update(DialogId, Update, #state{id={Test, Id}, dialogs=Dialogs}=State)
                 {invite_status, confirmed} -> Pid ! {Ref, {Id, dialog_confirmed}};
                 {invite_status, {stop, Reason}} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}};
                 {invite_status, _} -> ok;
+                {invite_refresh, SDP} -> Pid ! {Ref, {Id, {refresh, SDP}}};
                 {subscription_status, SubsId, Status} -> Pid ! {Ref, {subs, SubsId, Status}};
                 stop -> ok
             end

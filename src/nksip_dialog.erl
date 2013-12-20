@@ -244,7 +244,8 @@ field(D, Field) ->
         invite_status -> I#invite.status;
         invite_local_sdp -> I#invite.local_sdp;
         invite_remote_sdp -> I#invite.remote_sdp;
-        invite_timeout -> round(erlang:read_timer(I#invite.timeout_timer)/1000);
+        invite_timeout -> read_timer(I#invite.timeout_timer);
+        invite_session_expires -> I#invite.session_expires;
 
         subscriptions -> [Id || #subscription{id=Id} <- D#dialog.subscriptions];
 
@@ -469,7 +470,9 @@ get_all_data() ->
 %% Internal
 %% ===================================================================
 
-
+%% @private
+read_timer(Ref) when is_reference(Ref) -> (erlang:read_timer(Ref))/1000;
+read_timer(_) -> undefined.
 
 
 

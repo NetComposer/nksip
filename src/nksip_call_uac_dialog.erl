@@ -581,7 +581,10 @@ generate(Method, Opts, Dialog) ->
         case Invite of
             #invite{session_expires=SE} when
                 is_integer(SE) andalso (Method=='INVITE' orelse Method=='UPDATE') ->
-                [{session_exires, SE}];
+                case lists:keymember(session_expires, 1, Opts) of
+                    true -> [];
+                    false -> [{session_expires, SE}]
+                end;
             _ ->
                 []
         end

@@ -153,7 +153,7 @@ resend_422(MinSE, Req, UAC, Call) ->
         from = From
     } = UAC,
     #sipmsg{vias=[_|Vias]} = Req,
-    ?call_warning("UAC ~p ~p (~p) resending MinSE request: ~p", 
+    ?call_warning("UAC ~p ~p (~p) resending Min-SE request: ~p", 
                 [Id, Method, Status, MinSE], Call),
     {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
     SE = case nksip_parse:session_expires(Req) of
