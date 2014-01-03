@@ -108,7 +108,8 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
         Atom when is_atom(Atom) -> 
             Atom;
         Other -> 
-            case catch list_to_existing_atom(nksip_lib:to_list(Other)) of
+            LcTransp = string:to_lower(nksip_lib:to_list(Other)),
+            case catch list_to_existing_atom(LcTransp) of
                 {'EXIT', _} -> nksip_lib:to_binary(Other);
                 Atom -> Atom
             end
