@@ -76,13 +76,14 @@
          "~p (~s) "++Txt, [AppId, CallId|Opts])).
 
 
--include_lib("ssl/src/ssl_internal.hrl"). 
 -include_lib("kernel/include/inet_sctp.hrl").
 
 
 %% ===================================================================
 %% Types
 %% ===================================================================
+
+-type from() :: term().
 
 -type gen_server_time() :: 
         non_neg_integer() | hibernate.
