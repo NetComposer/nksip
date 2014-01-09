@@ -199,9 +199,7 @@ invite(_ReqId, _Meta, _From, #state{id={event, _}}=State) ->
 invite(ReqId, _Meta, From, #state{id={refer, _}=AppId}=State) ->
     spawn(
         fun() ->
-            nksip_request:reply(AppId, 
-
-                ReqId, 180),
+            nksip_request:reply(AppId, ReqId, 180),
             timer:sleep(1000),
             nksip:reply(From, ok)
         end),
