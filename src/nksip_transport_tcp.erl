@@ -158,7 +158,7 @@ start_link(AppId, Transport, Socket) ->
 -record(state, {
     app_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
-    socket :: port() | #sslsocket{},
+    socket :: port() | ssl:sslsocket(),
     timeout :: non_neg_integer(),
     buffer = <<>> :: binary()
 }).

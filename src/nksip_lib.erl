@@ -83,7 +83,7 @@ luid() ->
     binary().
 
 lhash(Base) -> 
-    <<I:160/integer>> = crypto:sha(term_to_binary(Base)),
+    <<I:160/integer>> = crypto:hash(sha, term_to_binary(Base)),
     case encode_integer(I) of
         Hash when byte_size(Hash) == 27 -> Hash;
         Hash -> <<(binary:copy(<<"Z">>, 27-byte_size(Hash)))/binary, Hash/binary>>

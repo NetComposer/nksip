@@ -89,7 +89,7 @@ get_realms([], Acc) ->
 
 make_ha1(User, Pass, Realm) ->
     % <<"HA1!">> is a custom header to be detected as a ha1 hash
-    <<"HA1!", (crypto:md5(list_to_binary([User, $:, Realm, $:, Pass])))/binary>>.
+    <<"HA1!", (crypto:hash(md5, list_to_binary([User, $:, Realm, $:, Pass])))/binary>>.
 
 
 %% @doc Extracts digest authentication information from a incoming request.
@@ -399,14 +399,14 @@ get_passes([Opt|Rest], Acc) ->
 make_auth_response(QOP, Method, BinUri, HA1bin, Nonce, CNonce, Nc) ->
     HA1 = nksip_lib:hex(HA1bin),
     HA2_base = <<(nksip_lib:to_binary(Method))/binary, ":", BinUri/binary>>,
-    HA2 = nksip_lib:hex(crypto:md5(HA2_base)),
+    HA2 = nksip_lib:hex(crypto:hash(md5, HA2_base)),
     case QOP of
         [] ->
-            nksip_lib:hex(crypto:md5(list_to_binary([HA1, $:, Nonce, $:, HA2])));
+            nksip_lib:hex(crypto:hash(md5, list_to_binary([HA1, $:, Nonce, $:, HA2])));
         _ ->    
             case lists:member(auth, QOP) of
                 true ->
-                    nksip_lib:hex(crypto:md5(list_to_binary(
+                    nksip_lib:hex(crypto:hash(md5, list_to_binary(
                         [HA1, $:, Nonce, $:, Nc, $:, CNonce, ":auth:", HA2])));
                 _ ->
                     <<>>
