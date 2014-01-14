@@ -102,11 +102,8 @@ update(prack, Dialog, Call) ->
 
 update({update, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = target_update(Class, Req, Resp, Dialog, Call),
-    #dialog{invite=Invite2} = Dialog2 = session_update(Dialog1, Call),
-    Dialog3 = case Invite2#invite.status of
-        confirmed -> session_timer_update(Req, Resp, Dialog2, Call);
-        _ -> Dialog2
-    end,
+    Dialog2 = session_update(Dialog1, Call),
+    Dialog3 = timer_update(Req, Resp, Dialog2, Call),
     store(Dialog3, Call);
 
 update({subscribe, Class, Req, Resp}, Dialog, Call) ->
@@ -127,10 +124,12 @@ update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{
         media_started = Media,
         retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer
+        timeout_timer = TimeoutTimer,
+        refresh_timer = RefreshTimer
     } = Invite,    
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
+    cancel_timer(RefreshTimer),
     cast(dialog_update, {invite_status, {stop, reason(Reason)}}, Dialog, Call),
     case Media of
         true -> cast(session_update, stop, Dialog, Call);
@@ -145,62 +144,46 @@ update({invite, Status}, Dialog, Call) ->
         invite = #invite{
             status = OldStatus, 
             media_started = Media,
-            retrans_timer = RetransTimer,
-            timeout_timer = TimeoutTimer,
             class = Class,
             request = Req, 
             response = Resp
         } = Invite
     } = Dialog,
-    cancel_timer(RetransTimer),
-    cancel_timer(TimeoutTimer),
-    case Status of
-        OldStatus -> ok;
-        _ -> cast(dialog_update, {invite_status, Status}, Dialog, Call)
+    Dialog1 = case Status of
+        OldStatus -> 
+            Dialog;
+        _ -> 
+            cast(dialog_update, {invite_status, Status}, Dialog, Call),
+            Dialog#dialog{invite=Invite#invite{status=Status}}
     end,
     ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status], Call),
-    Dialog1 = if
+    Dialog2 = if
         Status==proceeding_uac; Status==proceeding_uas; 
         Status==accepted_uac; Status==accepted_uas ->
-            D1 = route_update(Class, Req, Resp, Dialog),
+            D1 = route_update(Class, Req, Resp, Dialog1),
             D2 = target_update(Class, Req, Resp, D1, Call),
             session_update(D2, Call);
         Status==confirmed ->
-            session_update(Dialog, Call);
+            session_update(Dialog1, Call);
         Status==bye ->
             case Media of
-                true -> cast(session_update, stop, Dialog, Call);
-                _ -> ok
-            end,
-            Dialog#dialog{invite=Invite#invite{media_started=false}}
+                true -> 
+                    cast(session_update, stop, Dialog1, Call),
+                    #dialog{invite=I1} = Dialog1,
+                    Dialog1#dialog{invite=I1#invite{media_started=false}};
+                false ->
+                    Dialog1
+            end
     end,
-    BlockedRouteSet1 = if
-        Status==accepted_uac; Status==accepted_uas -> true;
-        true -> BlockedRouteSet
+    Dialog3 = case 
+        (not BlockedRouteSet) andalso 
+        (Status==accepted_uac orelse Status==accepted_uas)
+    of
+        true -> Dialog2#dialog{blocked_route_set=true};
+        false -> Dialog2
     end,
-    #call{opts=#call_opts{timer_t1=T1}} = Call,
-    {RetransTimer1, NextRetras1} = case Status of
-        accepted_uas -> 
-            {start_timer(T1, invite_retrans, DialogId), 2*T1};
-        _ -> 
-            {undefined, undefined}
-    end,
-    #dialog{invite=Invite1} = Dialog1,
-    Invite2 = Invite1#invite{
-        status = Status,
-        retrans_timer = RetransTimer1,
-        next_retrans = NextRetras1
-    },
-    Dialog2 = Dialog1#dialog{invite=Invite2, blocked_route_set=BlockedRouteSet1},
-    Dialog3 = case Status of
-        confirmed -> 
-            session_timer_update(Req, Resp, Dialog2, Call);
-        _ ->
-            TimeoutTimer1 = start_timer(64*T1, invite_timeout, DialogId),
-            Invite3 = Invite2#invite{timeout_timer=TimeoutTimer1},
-            Dialog2#dialog{invite=Invite3}
-    end,
-    store(Dialog3, Call);
+    Dialog4 = timer_update(Req, Resp, Dialog3, Call),
+    store(Dialog4, Call);
 
 update(none, Dialog, Call) ->
     store(Dialog, Call).
@@ -376,20 +359,23 @@ session_update(Dialog, _Call) ->
 
 
 %% @private
--spec session_timer_update(nksip:request(), nksip:response(), 
+-spec timer_update(nksip:request(), nksip:response(), 
                              nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
-session_timer_update(#sipmsg{class={req, Method}}=Req, 
-                     #sipmsg{class={resp, Code, _}}=Resp, 
-                     #dialog{invite=#invite{status=confirmed}} = Dialog,
-                     Call)
-                     when 
-                        (Method=='INVITE' orelse Method=='UPDATE') andalso
-                        Code>=200 andalso Code<300 ->
+timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, 
+             #dialog{invite=#invite{status=confirmed}}=Dialog, Call)
+             when Code>=200 andalso Code<300 ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
-    #invite{class=Class, refresh_timer=RefreshTimer} = Invite,
+    #invite{
+        class = Class, 
+        retrans_timer = RetransTimer,
+        timeout_timer = TimeoutTimer, 
+        refresh_timer = RefreshTimer
+    } = Invite,
     #call{app_id=AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
+    cancel_timer(RetransTimer),
+    cancel_timer(TimeoutTimer),
     cancel_timer(RefreshTimer),
     {ReqSE, ReqRefresh} = case nksip_parse:session_expires(Req) of
         {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
@@ -416,12 +402,14 @@ session_timer_update(#sipmsg{class={req, Method}}=Req,
     Invite1 = case ToRefresh of
         true ->
             Invite#invite{
+                retrans_timer = undefined,
                 session_expires = Time,
                 timeout_timer = start_timer(1000*Time, invite_timeout, DialogId),
                 refresh_timer = start_timer(500*Time, invite_refresh, DialogId)
             };
         false ->
             Invite#invite{
+                retrans_timer = undefined,
                 session_expires = undefined,
                 timeout_timer = start_timer(1000*Time, invite_timeout, DialogId),
                 refresh_timer = undefined
@@ -429,16 +417,36 @@ session_timer_update(#sipmsg{class={req, Method}}=Req,
     end,
     Dialog#dialog{invite=Invite1};
 
-session_timer_update(#sipmsg{class={req, 'INVITE'}}, _Resp, Dialog, _Call) ->
-    #dialog{id=DialogId, invite=#invite{status=Status}=Invite} = Dialog,
-    
-
-
+timer_update(_Req, _Resp, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
+    #invite{
+        status = Status,
+        retrans_timer = RetransTimer,
+        session_expires = SessionExpires,
+        timeout_timer = TimeoutTimer, 
+        refresh_timer = RefreshTimer
+    } = Invite,
+    #call{opts=#call_opts{timer_t1=T1}} = Call,
+    cancel_timer(RetransTimer),
+    {RetransTimer1, NextRetrans1} = case Status of
+        accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
+        _ -> {undefined, undefined}
+    end,
+    {SessionExpires1, TimeoutTimer1, RefreshTimer1} = case Status of
+        confirmed -> 
+            % It is a non-2xx back to confirmed
+            {SessionExpires, TimeoutTimer, RefreshTimer};  
+        _ -> 
+            cancel_timer(TimeoutTimer),
+            cancel_timer(RefreshTimer),
+            {undefined, start_timer(64*T1, invite_timeout, DialogId), undefined}
+    end,
     Invite1 = Invite#invite{
-        session_expires = undefined,
-        timeout_timer = start_timer(1000*?MAX_DIALOG_TIME, invite_timeout, DialogId),
-        refresh_timer = undefined
+        retrans_timer = RetransTimer1,
+        next_retrans = NextRetrans1,
+        session_expires = SessionExpires1,
+        timeout_timer = TimeoutTimer1,
+        refresh_timer = RefreshTimer1
     },
     Dialog#dialog{invite=Invite1}.
 

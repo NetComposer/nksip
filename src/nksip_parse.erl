@@ -165,7 +165,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     {Proto, Host, Port1}.
 
 
-%% @doc Parses a Session-Expires header in the request or response
+%% @doc Parses a Session-Expires header in a request or response
 -spec session_expires(nksip:request()|nksip:response()) ->
     {ok, integer(), uac|uas|undefined} | undefined | invalid.
 

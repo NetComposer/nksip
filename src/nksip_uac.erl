@@ -453,7 +453,9 @@ register(AppId, Dest, Opts) ->
 %% option.
 %%
 %% NkSIP will automatically start a session timer (according to RFC4028). Use
-%% option `session_expire' to 0 to disable
+%% option `session_expires' to 0 to disable. If the session timer is active, and
+%% a 422 (Session Interval Too Small) is received, NkSIP will automatically resend
+%% the request updating Session-Expires header.
 %%
 %% If a 491 response is received, it usually means that the remote party is 
 %% starting another reINVITE transaction right now. You should call 
@@ -549,6 +551,8 @@ cancel(AppId, ReqId) ->
 %%
 %% This function sends a in-dialog UPDATE, allowing to change the media
 %% session before the dialog has been confirmed.
+%%
+%% A session timer will be started (see {@link invite/3}).
 %%
 %% Valid options are defined in {@link dialog_opt()}.
 %%

@@ -138,7 +138,6 @@ resend_auth(Req, UAC, Call) ->
     send(Method, NewUAC1, update(NewUAC1, Call2)).
     
 
-
 %% @private
 -spec resend_422(integer(), nksip:request(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().

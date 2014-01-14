@@ -37,6 +37,11 @@
                nksip_lib:proplist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
+% R: requests
+% S: responses
+% D: dialogs
+% U: subscriptions
+
 send_any(AppId, Method, UriOrDialog, Opts) ->
     case UriOrDialog of
         <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
