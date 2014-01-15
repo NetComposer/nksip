@@ -171,7 +171,7 @@ update({invite, Status}, Dialog, Call) ->
                     cast(session_update, stop, Dialog1, Call),
                     #dialog{invite=I1} = Dialog1,
                     Dialog1#dialog{invite=I1#invite{media_started=false}};
-                false ->
+                _ ->
                     Dialog1
             end
     end,
@@ -394,7 +394,7 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp,
         {_, TB} -> TB
     end,
     ToRefresh = if
-        (Class==uac orelse Class==proxy) andalso ReqSE>0 andalso Refresh/=uas -> true;
+        Class==uac andalso ReqSE>0 andalso Refresh/=uas -> true;
         Class==uas andalso RespSE>0 andalso Refresh/=uac -> true;
         true -> false
     end,
@@ -517,7 +517,10 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                 proxy ->
                     update({invite, {stop, timeout}}, Dialog, Call);
                 _ ->
-                    case nksip_call:sync_send_dialog(DialogId, 'BYE', [async], Call) of
+                    case 
+                        nksip_call:sync_send_dialog(DialogId, 'BYE', 
+                            [async, {reason, {sip, 408, "Dialog Timeout"}}], Call) 
+                    of
                         {ok, Call1} ->
                             cast(dialog_update, invite_timeout, Dialog, Call),
                             Call1;
