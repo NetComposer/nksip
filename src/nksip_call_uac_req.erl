@@ -66,7 +66,7 @@ request(Req, Opts, From, Call) ->
             ?call_debug("UAC ~p sending request ~p ~p (~s)", 
                         [Id, Method, Opts, MsgId], Call)
     end,
-    send(Method, UAC, Call1).
+    send(UAC, Call1).
 
 
 %% @private
@@ -134,14 +134,14 @@ resend(Req, UAC, Call) ->
     Opts1 = nksip_lib:delete(Opts, make_contact),
     {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),
     NewUAC1 = NewUAC#trans{iter=Iter+1},
-    send(Method, NewUAC1, update(NewUAC1, Call2)).
+    send(NewUAC1, update(NewUAC1, Call2)).
 
 
 %% @private
--spec send(nksip:method(), nksip_call:trans(), nksip_call:call()) ->
+-spec send(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-send('ACK', UAC, Call) ->
+send(#trans{method='ACK'}=UAC, Call) ->
     #trans{id=Id, request=Req, opts=Opts} = UAC,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     case nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts) of
@@ -154,7 +154,7 @@ send('ACK', UAC, Call) ->
             update(UAC1, Call1)
     end;
 
-send(_, UAC, Call) ->
+send(UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
     #sipmsg{to_tag=ToTag} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,

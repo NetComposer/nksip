@@ -53,6 +53,7 @@
 %% Meta field is used for add-on functionality. 
 %% Currently defined:
 %% - {min_se, integer()}: current Min-SE header
+
 -record(trans, {
     id :: nksip_call_uac:id() | nksip_call_uas:id(),
     class :: uac | uas,
