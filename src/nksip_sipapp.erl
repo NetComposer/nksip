@@ -748,6 +748,7 @@ publish(_ReqId, _Meta, _From, State) ->
 %% For SUBSCRIBE usages, also when the status of that usage changes, as
 %% {subscription_status, {@link nksip_subscription:status()}}.
 %%
+%%
 -spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
     call_noreply()
     when DialogStatus :: start | target_update | 

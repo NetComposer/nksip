@@ -423,13 +423,17 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
     end.
 
 
-%% private
+%% @private
+%% - Adds a dialog id to the response
+%% - If it has no Contact, it adds the dialog's one if found
+%% - For 2xx INVITE or UPDATE requests, adds a session timer to the response
+
 -spec update_response(nksip:request(), {nksip:response(), nksip_lib:proplist()}, 
                       nksip_call:call()) ->
     {nksip:response(), nksip_lib:proplist()}.
 
 update_response(Req, {Resp, Opts}, Call) ->
-    #sipmsg{contacts = Contacts} = Resp,
+    #sipmsg{contacts=Contacts} = Resp,
     DialogId = nksip_dialog:class_id(uas, Resp),
     {Resp1, Opts1} = case Contacts of
         [] ->
@@ -457,20 +461,24 @@ update_session_timer(
              (Method=='INVITE' orelse Method=='UPDATE') ->
     #sipmsg{require=Require} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    {ReqSE, ReqRefresh} = case nksip_parse:session_expires(Req) of
-        {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
-        _ -> {0, undefined}
+    {ReqTimer, ReqSE, ReqRefresh} = case nksip_parse:session_expires(Req) of
+        undefined -> {false, 0, undefined};
+        {ok, ReqSE0, ReqRefresh0} -> {true, ReqSE0, ReqRefresh0}
     end,
     {SE, Refresh} = case ReqSE > 0 of 
         true when ReqRefresh/=undefined -> {ReqSE, ReqRefresh};
         true -> {ReqSE, uas};
         false -> {nksip_config:get_cached(session_expires, AppOpts), uas}
     end,
-    SEHd = <<(nksip_lib:to_binary(SE))/binary, ";refresher=", 
+    SE_Header = <<(nksip_lib:to_binary(SE))/binary, ";refresher=", 
              (nksip_lib:to_binary(Refresh))/binary>>,
     Headers1 = nksip_headers:update(Resp, 
-                    [{default_single, <<"Session-Expires">>, SEHd}]),
-    Require1 = lists:keystore(<<"timer">>, 1, Require, {<<"timer">>, []}),
+                    [{default_single, <<"Session-Expires">>, SE_Header}]),
+    % Add 'timer' to response's Require only if supported by uac
+    Require1 = case ReqTimer of
+        true -> lists:keystore(<<"timer">>, 1, Require, {<<"timer">>, []});
+        false -> Require
+    end,
     Resp#sipmsg{require=Require1, headers=Headers1};
 
 update_session_timer(_Req, Resp, _Call) ->

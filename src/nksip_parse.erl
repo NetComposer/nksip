@@ -174,7 +174,7 @@ session_expires(SipMsg) ->
         true ->
             case nksip_sipmsg:header(SipMsg, <<"Session-Expires">>, tokens) of
                 [] ->
-                    undefined;
+                    {ok, 0, undefined};
                 [{SE, Opts}] ->
                     case nksip_lib:to_integer(SE) of
                         SE1 when is_integer(SE1), SE1>0 -> 

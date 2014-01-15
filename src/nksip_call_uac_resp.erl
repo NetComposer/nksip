@@ -353,7 +353,7 @@ do_received_auth(Req, Resp, UAC, Call) ->
         false ->
             do_received_422(Req, Resp, UAC, Call);
         {ok, Req1} ->
-            nksip_call_uac_req:resend_auth(Req1, UAC, Call);
+            nksip_call_uac_req:resend(Req1, UAC, Call);
         {error, Error} ->
             ?call_debug("UAC ~p could not generate new auth request: ~p", 
                         [Id, Error], Call),    
@@ -377,23 +377,27 @@ do_received_422(Req, Resp, UAC, Call) ->
         Code==422 andalso 
         (Method=='INVITE' orelse Method=='UPDATE') andalso
         Iter < ?MAX_422_TRIES
-    of
+    of 
         true ->
             case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
                 [RespMinSE] ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
                     CurrentMinSE = nksip_lib:get_integer(min_se, Meta, ConfigMinSE),
-                    MinSE = max(CurrentMinSE, RespMinSE),
-                    case MinSE >= RespMinSE of
-                        true -> 
-                            Meta1 = lists:keystore(min_se, 1, Meta, {min_se, MinSE}),
-                            UAC1 = UAC#trans{meta=Meta1},
-                            Call1 = update(UAC1, Call),
-                            nksip_call_uac_req:resend_422(MinSE, Req, UAC1, Call1);
-                        false ->
-                            nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)
-                    end;
+                    NewMinSE = max(CurrentMinSE, RespMinSE),
+                    SE = case nksip_parse:session_expires(Req) of
+                        {ok, SE0, _} when SE0 >= NewMinSE -> SE0;
+                        _ -> NewMinSE
+                    end,
+                    Headers1 = nksip_headers:update(Req, [
+                        {single, <<"Session-Expires">>, SE},
+                        {single, <<"Min-SE">>, NewMinSE}
+                    ]),
+                    Req1 = Req#sipmsg{headers=Headers1},
+                    Meta1 = lists:keystore(min_se, 1, Meta, {min_se, NewMinSE}),
+                    UAC1 = UAC#trans{meta=Meta1},
+                    Call1 = update(UAC1, Call),
+                    nksip_call_uac_req:resend(Req1, UAC1, Call1);
                 _ ->
                     nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)
             end;

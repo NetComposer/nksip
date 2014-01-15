@@ -513,12 +513,7 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
         #invite{status=Status} ->
             ?call_notice("Dialog ~s (~p) timeout timer fired", 
                          [DialogId, Status], Call),
-            Reason = case Status of
-                accepted_uac -> ack_timeout;
-                accepted_uas -> ack_timeout;
-                _ -> timeout
-            end,
-            update({invite, {stop, Reason}}, Dialog, Call);
+            update({invite, {stop, timeout}}, Dialog, Call);
         _ ->
             ?call_notice("Dialog ~s unknown INVITE timeout timer", 
                          [DialogId], Call),

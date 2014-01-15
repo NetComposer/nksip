@@ -22,7 +22,7 @@
 -module(nksip_call_uac_req).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/4, resend_auth/3, resend_422/4]).
+-export([request/4, resend/3]).
 -import(nksip_call_lib, [update/2]).
 
 -include("nksip.hrl").
@@ -113,10 +113,11 @@ new_uac(Req, Opts, From, Call) ->
 
 
 %% @private
--spec resend_auth(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
+%% Resend a requests using same Call-Id, incremented CSeq
+-spec resend(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-resend_auth(Req, UAC, Call) ->
+resend(Req, UAC, Call) ->
      #trans{
         id = Id,
         status = Status,
@@ -125,51 +126,16 @@ resend_auth(Req, UAC, Call) ->
         iter = Iter,
         from = From
     } = UAC,
-    #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
     #sipmsg{vias=[_|Vias]} = Req,
-    ?call_debug("UAC ~p ~p (~p) resending authorized request", 
-                [Id, Method, Status], Call),
+    ?call_warning("UAC ~p ~p (~p) resending request", [Id, Method, Status], Call),
     {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
     Req1 = Req#sipmsg{vias=Vias, cseq=CSeq},
-    % Req2 = nksip_transport_uac:add_via(Req1, GlobalId, AppOpts),
-    Opts1 = nksip_lib:delete(Opts, make_contact),
-    {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),
-    NewUAC1 = NewUAC#trans{iter=Iter+1},
-    send(Method, NewUAC1, update(NewUAC1, Call2)).
-    
-
-%% @private
--spec resend_422(integer(), nksip:request(), nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-resend_422(MinSE, Req, UAC, Call) ->
-     #trans{
-        id = Id,
-        status = Status,
-        opts = Opts,
-        method = Method, 
-        iter = Iter,
-        from = From
-    } = UAC,
-    #sipmsg{vias=[_|Vias]} = Req,
-    ?call_warning("UAC ~p ~p (~p) resending Min-SE request: ~p", 
-                [Id, Method, Status, MinSE], Call),
-    {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
-    SE = case nksip_parse:session_expires(Req) of
-        {ok, SE0, _} when SE0 > MinSE -> SE0;
-        _ -> MinSE
-    end,
-    Headers1 = nksip_headers:update(Req, [
-        {single, <<"Session-Expires">>, SE},
-        {single, <<"Min-SE">>, MinSE}
-    ]),
-    Req1 = Req#sipmsg{vias=Vias, cseq=CSeq, headers=Headers1},
     % Contact would be already generated
     Opts1 = nksip_lib:delete(Opts, make_contact),
     {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),
     NewUAC1 = NewUAC#trans{iter=Iter+1},
     send(Method, NewUAC1, update(NewUAC1, Call2)).
-    
+
 
 %% @private
 -spec send(nksip:method(), nksip_call:trans(), nksip_call:call()) ->
