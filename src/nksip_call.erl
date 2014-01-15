@@ -32,6 +32,7 @@
 -export([get_authorized_list/2, clear_authorized_list/2, stop_dialog/2]).
 -export([get_all/0, get_info/0, clear_all/0]).
 -export([app_reply/4, work/3, timeout/3]).
+-export([sync_send_dialog/4, make_dialog/4]).
 -import(nksip_call_router, [send_work_sync/3, send_work_async/3]).
 
 -export_type([call/0, trans/0, fork/0, work/0]).
@@ -478,6 +479,40 @@ timeout(check_call, _Ref, Call) ->
 %% ===================================================================
 %% Internal
 %% ===================================================================
+
+%% @private Sends a new in-dialog request from inside the call process
+-spec sync_send_dialog(nksip_dialog:id(), nksip:method(), nksip_lib:proplist(), call()) ->
+    {ok, call()} | {error, term()}.
+
+sync_send_dialog(DialogId, Method, Opts, Call) ->
+    case make_dialog(DialogId, Method, Opts, Call) of
+        {ok, Req, ReqOpts, Call1} ->
+            {ok, nksip_call_uac_req:request(Req, ReqOpts, none, Call1)};
+        {error, Error} ->
+            {error, Error}
+    end.
+
+
+%% @private Generates a new in-dialog request from inside the call process
+-spec make_dialog(nksip_dialog:id(), nksip:method(), nksip_lib:proplist(), call()) ->
+    {ok, nksip:request(), nksip_lib:proplist(), call()} | {error, term()}.
+
+make_dialog(DialogId, Method, Opts, Call) ->
+    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
+    #call_opts{app_opts=AppOpts} = CallOpts,
+    case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
+        {ok, {RUri, Opts1}, Call1} -> 
+            Opts2 = [{call_id, CallId} | Opts1],
+            case nksip_uac_lib:make(AppId, Method, RUri, Opts2, AppOpts) of
+                {ok, Req, ReqOpts} ->
+                    {ok, Req, ReqOpts, Call1};
+                {error, Error} ->
+                    {error, Error}
+            end;
+        {error, Error} ->
+            {error, Error}
+    end.
+
 
 %% @private
 -spec check_call_trans(nksip_lib:timestamp(), integer(), call()) ->

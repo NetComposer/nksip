@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([pre_request/2, request/2, ack/2, response/3]).
+-export([pre_request/2, request/3, ack/2, response/4]).
 -export([make/4, new_local_seq/2, uac_id/3]).
 -import(nksip_call_dialog, [find/2, update/3, store/2]).
 
@@ -82,10 +82,10 @@ pre_request(Req, Call) ->
 
 
 %% @private
--spec request(nksip:request(), nksip_call:call()) ->
+-spec request(nksip:request(), boolean(), nksip_call:call()) ->
     nksip_call:call().
 
-request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
+request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, IsProxy, Call) ->
     ?call_debug("Dialog ~s UAC request ~p", [DialogId, Method], Call), 
     #dialog{local_seq=LocalSeq} = Dialog = find(DialogId, Call),
     #sipmsg{cseq=CSeq} = Req,
@@ -93,18 +93,19 @@ request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, Call) ->
         true -> Dialog#dialog{local_seq=CSeq};
         false -> Dialog
     end,
-    do_request(Method, Req, Dialog1, Call).
+    do_request(Method, Req, IsProxy, Dialog1, Call).
         
       
 %% @private
--spec do_request(nksip:method(), nksip:request(), nksip:dialog(), nksip_call:call()) ->
+-spec do_request(nksip:method(), nksip:request(), boolean(), 
+                 nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-do_request('INVITE', Req, #dialog{invite=undefined}=Dialog, Call) ->
+do_request('INVITE', Req, IsProxy, #dialog{invite=undefined}=Dialog, Call) ->
     Invite = #invite{status=confirmed},
-    do_request('INVITE', Req, Dialog#dialog{invite=Invite}, Call);
+    do_request('INVITE', Req, IsProxy, Dialog#dialog{invite=Invite}, Call);
 
-do_request('INVITE', Req, #dialog{invite=Invite}=Dialog, Call) ->
+do_request('INVITE', Req, IsProxy, #dialog{invite=Invite}=Dialog, Call) ->
     confirmed = Invite#invite.status,
     {HasSDP, SDP, _Offer, _} = get_sdp(Req, Invite),
     Offer1 = case HasSDP of 
@@ -113,7 +114,7 @@ do_request('INVITE', Req, #dialog{invite=Invite}=Dialog, Call) ->
     end,
     Invite1 = Invite#invite{
         status = proceeding_uac,
-        class = uac,
+        class = case IsProxy of true -> proxy; false -> uac end,
         request = Req, 
         response = undefined, 
         ack = undefined,
@@ -122,10 +123,10 @@ do_request('INVITE', Req, #dialog{invite=Invite}=Dialog, Call) ->
     },
     update(none, Dialog#dialog{invite=Invite1}, Call);
 
-do_request('BYE', _Req, Dialog, Call) ->
+do_request('BYE', _Req, _IsProxy, Dialog, Call) ->
     update({invite, bye}, Dialog, Call);
 
-do_request('PRACK', Req, #dialog{invite=Invite}=Dialog, Call) ->
+do_request('PRACK', Req, _IsProxy, #dialog{invite=Invite}=Dialog, Call) ->
     proceeding_uac = Invite#invite.status,
     {HasSDP, SDP, Offer, _Answer} = get_sdp(Req, Invite),
     case Offer of
@@ -140,7 +141,7 @@ do_request('PRACK', Req, #dialog{invite=Invite}=Dialog, Call) ->
             update(none, Dialog, Call)
     end;
 
-do_request('UPDATE', Req, #dialog{invite=Invite}=Dialog, Call) ->
+do_request('UPDATE', Req, _IsProxy, #dialog{invite=Invite}=Dialog, Call) ->
     {HasSDP, SDP, Offer, _} = get_sdp(Req, Invite),
     case Offer of
         undefined when HasSDP -> 
@@ -150,26 +151,26 @@ do_request('UPDATE', Req, #dialog{invite=Invite}=Dialog, Call) ->
             update(none, Dialog, Call)
     end;    
 
-do_request('SUBSCRIBE', Req, Dialog, Call) ->
+do_request('SUBSCRIBE', Req, _IsProxy, Dialog, Call) ->
     Dialog1 = nksip_call_event:uac_request(Req, Dialog, Call),
     update(none, Dialog1, Call);
         
-do_request('NOTIFY', Req, Dialog, Call) ->
+do_request('NOTIFY', Req, _IsProxy, Dialog, Call) ->
     Dialog1 = nksip_call_event:uac_request(Req, Dialog, Call),
     update(none, Dialog1, Call);
 
-do_request('REFER', Req, Dialog, Call) ->
-    do_request('SUBSCRIBE', Req, Dialog, Call);
+do_request('REFER', Req, IsProxy, Dialog, Call) ->
+    do_request('SUBSCRIBE', Req, IsProxy, Dialog, Call);
 
-do_request(_Method, _Req, Dialog, Call) ->
+do_request(_Method, _Req, _IsProxy, Dialog, Call) ->
     update(none, Dialog, Call).
 
 
 %% @private
--spec response(nksip:request(), nksip:response(), nksip_call:call()) ->
+-spec response(nksip:request(), nksip:response(), boolean(), nksip_call:call()) ->
     nksip_call:call().
 
-response(Req, Resp, Call) ->
+response(Req, Resp, IsProxy, Call) ->
     #sipmsg{class={req, Method}, body=Body} = Req,
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
     case find(DialogId, Call) of
@@ -185,7 +186,7 @@ response(Req, Resp, Call) ->
             end,
             Invite = #invite{
                 status = proceeding_uac,
-                class = uac,
+                class = case IsProxy of true -> proxy; false -> uac end,
                 request = Req, 
                 response = undefined, 
                 ack = undefined,

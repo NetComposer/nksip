@@ -83,7 +83,8 @@ response(Resp, UAC, Call) ->
         opts = Opts,
         method = Method,
         request = Req, 
-        ruri = RUri
+        ruri = RUri,
+        from = From
     } = UAC,
     #call{msgs=Msgs, opts=#call_opts{app_opts=AppOpts}} = Call,
     Now = nksip_lib:timestamp(),
@@ -111,9 +112,10 @@ response(Resp, UAC, Call) ->
                         [Id, Method, Status, 
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
     end,
+    IsProxy = case From of {fork, _} -> true; _ -> false end,
     Call3 = case NoDialog of
         true -> Call2;
-        false -> nksip_call_uac_dialog:response(Req, Resp1, Call2)
+        false -> nksip_call_uac_dialog:response(Req, Resp1, IsProxy, Call2)
     end,
     Call4 = case 
         Code>=300 andalso (Method=='SUBSCRIBE' orelse Method=='REFER')
@@ -427,23 +429,13 @@ send_ack(#trans{request=Req, id=Id}, Call) ->
     nksip_call:call().
 
 send_2xx_ack(DialogId, Call) ->
-    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
-    #call_opts{app_opts=AppOpts} = CallOpts,
-    case nksip_call_uac_dialog:make(DialogId, 'ACK', [async], Call) of
-        {ok, {RUri, Opts1}, Call1} -> 
-            Opts2 = [{call_id, CallId} | Opts1],
-            case nksip_uac_lib:make(AppId, 'ACK', RUri, Opts2, AppOpts) of
-                {ok, Req, ReqOpts} -> 
-                    nksip_call_uac_req:request(Req, ReqOpts, none, Call1);
-                {error, Error} ->
-                    ?call_warning("Could not generate 2xx ACK: ~p", [Error], Call),
-                    Call1
-            end;
+    case nksip_call:sync_send_dialog(DialogId, 'ACK', [async], Call) of
+        {ok, Call1} ->
+            Call1;
         {error, Error} ->
             ?call_warning("Could not generate 2xx ACK: ~p", [Error], Call),
             Call
     end.
-
 
 %% @private
 -spec is_prack_retrans(nksip:response(), nksip_call:trans()) ->
@@ -498,11 +490,7 @@ check_prack(Resp, UAC, Call) ->
 
 send_prack(Resp, Id, DialogId, Call) ->
     #sipmsg{cseq=CSeq} = Resp,
-    #call{
-        app_id = AppId, 
-        trans = Trans, 
-        opts = #call_opts{app_opts=AppOpts}
-    } = Call,
+    #call{trans=Trans} = Call,
     try
         case nksip_sipmsg:header(Resp, <<"RSeq">>, integers) of
             [RSeq] when RSeq > 0 -> ok;
@@ -550,17 +538,12 @@ send_prack(Resp, Id, DialogId, Call) ->
             nksip_lib:to_list(Method)
         ]),
         Opts2 = [{post_headers, [{<<"RAck">>, RAck}]}, {body, Body}],
-        case nksip_call_uac_dialog:make(DialogId, 'PRACK', Opts2, Call) of
-            {ok, {Uri, Opts3}, Call1} -> 
-                case nksip_uac_lib:make(AppId, 'PRACK', Uri, Opts3, AppOpts) of
-                   {ok, Req, ReqOpts} -> 
-                        PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
-                        UAC1 = UAC#trans{rseq=RSeq, pracks=PRAcks1},
-                        Call2 = update(UAC1, Call1),
-                        nksip_call_uac_req:request(Req, ReqOpts, none, Call2);
-                    {error, Error} ->
-                        throw(Error)
-                end;
+        case nksip_call:make_dialog(DialogId, 'PRACK', Opts2, Call) of
+            {ok, Req, ReqOpts, Call1} -> 
+                PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
+                UAC1 = UAC#trans{rseq=RSeq, pracks=PRAcks1},
+                Call2 = update(UAC1, Call1),
+                nksip_call_uac_req:request(Req, ReqOpts, none, Call2);
             {error, Error} ->
                 throw(Error)
         end

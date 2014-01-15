@@ -205,11 +205,11 @@ target_update(Class, Req, Resp, Dialog, Call) ->
     } = Dialog,
     #sipmsg{contacts=ReqContacts} = Req,
     #sipmsg{class={resp, Code, _Reason}, contacts=RespContacts} = Resp,
-    case Class of
-        uac ->
+    if 
+        Class==uac; Class==proxy ->
             RemoteTargets = RespContacts,
             LocalTargets = ReqContacts;
-        uas -> 
+        Class==uas -> 
             RemoteTargets = ReqContacts,
             LocalTargets = RespContacts
     end,
@@ -248,16 +248,16 @@ target_update(Class, Req, Resp, Dialog, Call) ->
             % If we are updating the remote target inside an uncompleted INVITE UAS
             % transaction, update original INVITE so that, when the final
             % response is sent, we don't use the old remote target but the new one.
-            InvReq1 = case InvClass of
-                uas ->
-                    case InvReq of
-                        #sipmsg{contacts=[RemoteTarget1]} -> InvReq; 
-                        #sipmsg{} -> InvReq#sipmsg{contacts=[RemoteTarget1]}
-                    end;
-                uac ->
+            InvReq1 = if
+                InvClass==uac; InvClass==proxy ->
                     case InvReq of
                         #sipmsg{contacts=[LocalTarget1]} -> InvReq; 
                         #sipmsg{} -> InvReq#sipmsg{contacts=[LocalTarget1]}
+                    end;
+                InvClass==uas ->
+                    case InvReq of
+                        #sipmsg{contacts=[RemoteTarget1]} -> InvReq; 
+                        #sipmsg{} -> InvReq#sipmsg{contacts=[RemoteTarget1]}
                     end
             end,
             Invite#invite{answered=InvAnswered1, request=InvReq1};
@@ -279,8 +279,8 @@ target_update(Class, Req, Resp, Dialog, Call) ->
 
 route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
     #dialog{app_id=AppId} = Dialog,
-    RouteSet = case Class of
-        uac ->
+    RouteSet = if
+        Class==uac; Class==proxy ->
             RR = nksip_sipmsg:header(Resp, <<"Record-Route">>, uris),
             case lists:reverse(RR) of
                 [] ->
@@ -294,7 +294,7 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                         false -> [FirstRS|RestRS]
                     end
             end;
-        uas ->
+        Class==uas ->
             RR = nksip_sipmsg:header(Req, <<"Record-Route">>, uris),
             case RR of
                 [] ->
@@ -393,10 +393,10 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp,
         {TA, 0} -> TA;
         {_, TB} -> TB
     end,
-    ToRefresh = case Class of 
-        uac when ReqSE > 0, Refresh /= uas -> true;
-        uas when RespSE > 0, Refresh /= uac -> true;
-        _ -> false
+    ToRefresh = if
+        (Class==uac orelse Class==proxy) andalso ReqSE>0 andalso Refresh/=uas -> true;
+        Class==uas andalso RespSE>0 andalso Refresh/=uac -> true;
+        true -> false
     end,
     lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(Time/1000), ToRefresh]),
     Invite1 = case ToRefresh of
@@ -510,10 +510,23 @@ timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
 
 timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of
-        #invite{status=Status} ->
+        #invite{class=Class, status=Status} ->
             ?call_notice("Dialog ~s (~p) timeout timer fired", 
                          [DialogId, Status], Call),
-            update({invite, {stop, timeout}}, Dialog, Call);
+            case Class of
+                proxy ->
+                    update({invite, {stop, timeout}}, Dialog, Call);
+                _ ->
+                    case nksip_call:sync_send_dialog(DialogId, 'BYE', [async], Call) of
+                        {ok, Call1} ->
+                            cast(dialog_update, invite_timeout, Dialog, Call),
+                            Call1;
+                        {error, Error} ->
+                            ?call_warning("Could not send timeout BYE: ~p", 
+                                          [Error], Call),
+                            update({invite, {stop, timeout}}, Dialog, Call)
+                    end
+            end;
         _ ->
             ?call_notice("Dialog ~s unknown INVITE timeout timer", 
                          [DialogId], Call),

@@ -231,7 +231,7 @@
 -record(invite, {
     status :: nksip_dialog:invite_status(),
     answered :: nksip_lib:timestamp(),
-    class :: uac | uas,
+    class :: uac | uas | proxy,
     request :: nksip:request(),
     response :: nksip:response(),
     ack :: nksip:request(),

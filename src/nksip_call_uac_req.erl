@@ -225,7 +225,7 @@ sent_request(Req, UAC, Call) ->
         to_tag = ToTag, 
         transport = #transport{proto=Proto}
     } = Req,
-    #trans{id=Id, opts=Opts} = UAC,
+    #trans{id=Id, opts=Opts, from=From} = UAC,
     ?call_debug("UAC ~p sent ~p request", [Id, Method], Call),
     UAC1 = UAC#trans{
         request = Req, 
@@ -233,10 +233,11 @@ sent_request(Req, UAC, Call) ->
         trans_id = nksip_call_uac:transaction_id(Req)
     },
     Call1 = update(UAC1, Call),
+    IsProxy = case From of {fork, _} -> true; _ -> false end,
     Call2 = case lists:member(no_dialog, Opts) of
         true -> Call1;
         false when ToTag == <<>> -> Call1;
-        false -> nksip_call_uac_dialog:request(Req, Call1)
+        false -> nksip_call_uac_dialog:request(Req, IsProxy,  Call1)
     end,
     Call3 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call2),
     sent_update(Req, UAC1, Call3).
