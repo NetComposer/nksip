@@ -28,7 +28,7 @@
 -export([timestamp_to_local/1, timestamp_to_gmt/1]).
 -export([local_to_timestamp/1, gmt_to_timestamp/1]).
 -export([get_value/2, get_value/3, get_binary/2, get_binary/3, get_list/2, get_list/3]).
--export([get_integer/2, get_integer/3]).
+-export([get_integer/2, get_integer/3, store_value/3]).
 -export([to_binary/1, to_list/1, to_integer/1, to_ip/1, to_host/1, to_host/2]).
 -export([to_lower/1, to_upper/1, is_string/1]).
 -export([bjoin/1, bjoin/2, tokens/1, hex/1, extract/2, delete/2, bin_last/2]).
@@ -328,6 +328,15 @@ get_integer(Key, List) ->
 
 get_integer(Key, List, Default) ->
     to_integer(get_value(Key, List, Default)).
+
+
+
+%% @doc Stores a value in a proplist
+-spec store_value(term(), term(), nksip_lib:proplist()) ->
+    nksip_lib:proplist().
+ 
+store_value(Key, Val, List) ->
+    lists:keystore(Key, 1, List, {Key, Val}).
 
 
 %% @doc Converts anything into a `binary()'. Can convert ip addresses also.
