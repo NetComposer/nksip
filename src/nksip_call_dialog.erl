@@ -369,60 +369,34 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp,
              when Code>=200 andalso Code<300 ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{
-        class = Class, 
+        class = Class,
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer, 
         refresh_timer = RefreshTimer
     } = Invite,
-    #call{app_id=AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     cancel_timer(RefreshTimer),
-    Default = nksip_config:get_cached(session_expires, AppOpts),
-    {SE, Refresh} = case nksip_sipmsg:require(Resp, <<"timer">>) of
-        true ->
-            case nksip_parse:session_expires(Req) of
-                {ok, SE0, Refresh0} ->
-                    {SE0, Refresh0};
-                undefined ->                % Remote said 'no session timer'
-                    {Default, undefined};
-                invalid ->
-                    ?call_warning("Invalid Session-Expires in response", [], Call),
-                    {Default, undefined}
-            end;
-        false ->
-            case nksip_sipmsg:supported(Req, <<"timer">>) of
-                true ->
-                    case nksip_parse:session_expires(Req) of
-                        {ok, SE0, _} -> {SE0, uac};
-                        _ -> {Default, undefined}
-                    end;
-                false->
-                    {Default, undefined}
-            end
-    end,
-    lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(SE/1000), Refresh]),
-    Invite1 = case Class==Refresh of
-        true ->                                     % We are the "refresher"
+    Invite1 = case nksip_call_timer:get_timer(Req, Resp, Class, Call) of
+        {refresher, SE, Timeout, Refresh} ->
             Invite#invite{
                 retrans_timer = undefined,
                 session_expires = SE,
-                timeout_timer = start_timer(1000*SE, invite_timeout, DialogId),
-                refresh_timer = start_timer(500*SE, invite_refresh, DialogId)
+                timeout_timer = start_timer(Timeout, invite_timeout, DialogId),
+                refresh_timer = start_timer(Refresh, invite_refresh, DialogId)
             };
-        false when Refresh/=undefined ->            % We are the "refreshed"
-            Timeout = min(32, round(SE/3)),
+        {refreshed, SE, Timeout} ->
             Invite#invite{
                 retrans_timer = undefined,
                 session_expires = SE,
-                timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId),
+                timeout_timer = start_timer(Timeout, invite_timeout, DialogId),
                 refresh_timer = undefined
             };
-        false ->
+        {none, Timeout} ->
             Invite#invite{
                 retrans_timer = undefined,
                 session_expires = undefined,
-                timeout_timer = start_timer(1000*SE, invite_timeout, DialogId),
+                timeout_timer = start_timer(Timeout, invite_timeout, DialogId),
                 refresh_timer = undefined
             }
     end,

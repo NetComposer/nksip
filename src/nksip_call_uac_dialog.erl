@@ -579,36 +579,9 @@ generate(Method, Opts, Dialog, Call) ->
                 []
         end
         ++
-        case Invite of
-            #invite{session_expires=SE} when
-                is_integer(SE) andalso (Method=='INVITE' orelse Method=='UPDATE') ->
-                case lists:keymember(session_expires, 1, Opts) of
-                    true -> 
-                        [];
-                    false -> 
-                        {SE1, MinSE} = case 
-                            nksip_call_dialog:get_meta({core, min_se}, DialogId, Call)
-                        of
-                            undefined -> {SE, undefined};
-                            CurrMinSE -> {max(SE, CurrMinSE), CurrMinSE}
-                        end,
-                        % Do not change the roles, if a refresh is sent from the 
-                        % refreshed instead of the refresher
-                        Class = case is_reference(Invite#invite.refresh_timer) of
-                            true -> <<"uac">>;
-                            false -> <<"uas">>
-                        end,
-                        SEHd = nksip_unparse:token({SE1, [{<<"refresher">>, Class}]}),
-                        [{pre_headers, [
-                            {<<"Session-Expires">>, SEHd} |
-                            case MinSE of
-                                undefined -> [];
-                                _ -> [{<<"Min-SE">>, nksip_lib:to_binary(MinSE)}]
-                            end
-                        ]}]
-                end;
-            _ ->
-                []
+        case nksip_call_timer:uac_update_timer(Method, Opts, Dialog, Call) of
+            [] -> [];
+            SE_Hds -> [{pre_headers, SE_Hds}]
         end
         ++
         [

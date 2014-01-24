@@ -33,7 +33,6 @@
 -include("nksip_call.hrl").
 
 -define(MAX_AUTH_TRIES, 5).
--define(MAX_422_TRIES, 5).
 
 
 %% ===================================================================
@@ -371,57 +370,10 @@ received_auth(Req, Resp, UAC, Call) ->
     nksip_call:call().
 
 received_422(Req, Resp, UAC, Call) ->
-    #sipmsg{dialog_id=DialogId} = Resp,
-    #trans{
-        method = Method, 
-        code = Code, 
-        iter = Iter
-    } = UAC,
-    case 
-        Code==422 andalso 
-        (Method=='INVITE' orelse Method=='UPDATE') andalso
-        Iter < ?MAX_422_TRIES
-    of 
-        true ->
-            case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
-                [RespMinSE] ->
-                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-                    ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
-                    CurrentMinSE = case 
-                        nksip_call_dialog:get_meta({core, min_se}, DialogId, Call)
-                    of
-                        undefined -> ConfigMinSE;
-                        CurrentMinSE0 -> CurrentMinSE0
-                    end,
-                    NewMinSE = max(CurrentMinSE, RespMinSE),
-                    Call1 = case NewMinSE of 
-                        CurrentMinSE -> 
-                            Call;
-                        _ -> 
-                            nksip_call_dialog:update_meta({core, min_se}, NewMinSE, 
-                                                          DialogId, Call)
-                    end,
-                    case nksip_parse:session_expires(Req) of
-                        {ok, SE0, Class0} ->
-                            SE1 = max(SE0, NewMinSE),
-                            SEHd = case Class0 of
-                                uac -> {SE1, [{<<"refresher">>, <<"uac">>}]};
-                                uas -> {SE1, [{<<"refresher">>, <<"uas">>}]};
-                                undefined -> SE1
-                            end,
-                            Headers1 = nksip_headers:update(Req, [
-                                {single, <<"Session-Expires">>, SEHd},
-                                {single, <<"Min-SE">>, NewMinSE}
-                            ]),
-                            Req1 = Req#sipmsg{headers=Headers1},
-                            nksip_call_uac_req:resend(Req1, UAC, Call1);
-                        _ -> 
-                            received_reply(Resp, UAC, Call)
-                    end;
-                _ ->
-                    received_reply(Resp, UAC, Call)
-            end;
-        false ->
+    case nksip_call_timer:uac_received_422(Req, Resp, UAC, Call) of
+        {resend, Req1, Call1} ->
+            nksip_call_uac_req:resend(Req1, UAC, Call1);
+        continue ->
             received_reply(Resp, UAC, Call)
     end.
 

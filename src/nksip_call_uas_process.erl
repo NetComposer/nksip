@@ -99,35 +99,14 @@ check_missing_dialog(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 check_422(Method, Req, UAS, Call) ->
-    case Method=='INVITE' orelse Method=='UPDATE' of
-        true ->
-            case nksip_parse:session_expires(Req) of
-                undefined ->
-                    dialog(Method, Req, UAS, Call);
-                invalid ->
-                    reply(invalid_request, UAS, Call);
-                {ok, SE, _} ->
-                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-                    case nksip_config:get_cached(min_session_expires, AppOpts) of
-                        MinSE when SE < MinSE ->
-                            case nksip_sipmsg:supported(Req, <<"timer">>) of
-                                true ->
-                                    reply({422, [{<<"Min-SE">>, MinSE}]}, UAS, Call);
-                                false ->
-                                    % No point in returning 422
-                                    % Update in case we are a proxy
-                                    Headers1 = nksip_headers:update(Req, 
-                                                    [{single, <<"Min-SE">>, MinSE}]),
-                                    Req1 = Req#sipmsg{headers=Headers1},
-                                    UAS1 = UAS#trans{request=Req1},
-                                    dialog(Method, Req1, UAS1, update(UAS1, Call))
-                            end;
-                        _ ->
-                            dialog(Method, Req, UAS, Call)
-                    end
-            end;
-        false ->
-            dialog(Method, Req, UAS, Call)
+    case nksip_call_timer:uas_check_422(Method, Req, Call) of
+        continue -> 
+            dialog(Method, Req, UAS, Call);
+        {update, Req1} ->
+            UAS1 = UAS#trans{request=Req1},
+            dialog(Method, Req1, UAS1, update(UAS1, Call));
+        {reply, Reply} ->
+            reply(Reply, UAS, Call)
     end.
 
 

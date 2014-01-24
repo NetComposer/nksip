@@ -152,7 +152,7 @@ launch([Uri|Rest], Id, Call) ->
             id = nksip_sipmsg:make_id(req, CallId),
             routes = Routes2
         },
-        Req2 = update_req_timer(Req1, Call),
+        Req2 = nksip_call_timer:proxy_request(Req1, Call),
         case nksip_request:is_local_route(Req2) of
             false ->
                 ?call_debug("Fork ~p ~p launching to ~s", 
@@ -182,38 +182,6 @@ launch([Uri|Rest], Id, Call) ->
     end.
 
 
-%% @private
--spec update_req_timer(nksip:request(), nksip_call:call()) ->
-    nksip:request().
-
-update_req_timer(#sipmsg{class={req, Method}}=Req, Call)
-                 when Method=='INVITE'; Method=='UPDATE' ->
-    ReqMinSE = case nksip_sipmsg:headers(Req, <<"Min-SE">>, integers) of
-        [ReqMinSE0] -> ReqMinSE0;
-        _ -> 90
-    end,
-    ReqSE = case nksip_parse:session_expires(Req) of
-        {ok, ReqSE0, _} -> ReqSE0;
-        _ -> 0
-    end,
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    Default = nksip_config:get_cached(session_expires, AppOpts),
-    SE = case ReqSE of
-        0 -> max(ReqMinSE, Default);
-        _ -> max(ReqMinSE, min(ReqSE, Default))
-    end,
-    case SE of
-        ReqSE -> 
-            Req;
-        _ -> 
-            Headers1 = nksip_headers:update(Req, [{single, <<"Session-Expires">>, SE}]),
-            Req#sipmsg{headers=Headers1}
-    end;
-
-update_req_timer(Req, _Call) ->
-    Req.
-
-
 %% @private Called when a launched UAC has a response
 -spec response(id(), integer(), nksip:request(), nksip:response(),call()) ->
    call().
@@ -228,7 +196,7 @@ response(Id, Pos, Req, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
             ?call_debug("Fork ~p ~p received ~p (~p, ~s)", 
                         [Id, Method, Code, Pos, ToTag], Call),
             Resp1 = Resp#sipmsg{vias=Vias},
-            Resp2 = update_resp_timer(Req, Resp1),
+            Resp2 = nksip_call_timer:proxy_response(Req, Resp1),
             case lists:member(Pos, Pending) of
                 true ->
                     waiting(Code, Resp2, Pos, Fork, Call);
@@ -251,34 +219,6 @@ response(Id, Pos, Req, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
         false ->
             ?call_notice("Unknown fork ~p received ~p", [Id, Code], Call),
             Call
-    end.
-
-
-%% @private
--spec update_resp_timer(nksip:request(), nksip:response()) ->
-    nksip:response().
-
-update_resp_timer(Req, Resp) ->
-    case nksip_parse:session_expires(Resp) of
-        {ok, _, _} ->
-            Resp;
-        undefined ->
-            case nksip_parse:session_expires(Req) of
-                {ok, SE, _} ->
-                    case nksip_sipmsg:supported(Req, <<"timer">>) of
-                        true ->
-                            SE_Token = {SE, [{<<"refresher">>, <<"uac">>}]},
-                            Headers1 = nksip_headers:update(Resp, 
-                                [{single, <<"Session-Expires">>, SE_Token}]),
-                            #sipmsg{require=Require} = Resp,
-                            Require1 = nksip_lib:store_value(<<"timer">>, [], Require),
-                            Resp#sipmsg{require=Require1, headers=Headers1};
-                        false ->
-                            Resp
-                    end;
-                _ ->
-                    Resp
-            end
     end.
 
 
