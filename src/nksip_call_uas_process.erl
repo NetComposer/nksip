@@ -98,24 +98,29 @@ check_missing_dialog(Method, Req, UAS, Call) ->
                 nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-check_422(Method, Req, UAS, Call) when Method=='INVITE'; Method=='UPDATE' ->
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    case nksip_parse:session_expires(Req) of
-        undefined ->
-            dialog(Method, Req, UAS, Call);
-        invalid ->
-            reply(invalid_request, UAS, Call);
-        {ok, SE, _} ->
-            case nksip_config:get_cached(min_session_expires, AppOpts) of
-                MinSE when SE < MinSE ->
-                    reply({422, [{<<"Min-SE">>, MinSE}]}, UAS, Call);
-                _ ->
-                    dialog(Method, Req, UAS, Call)
-            end
-    end;
-
 check_422(Method, Req, UAS, Call) ->
-    dialog(Method, Req, UAS, Call).
+    case 
+        (Method=='INVITE' orelse Method=='UPDATE') andalso
+        nksip_sipmsg:supported(Req, <<"timer">>) 
+    of
+        true ->
+            case nksip_parse:session_expires(Req) of
+                undefined ->
+                    dialog(Method, Req, UAS, Call);
+                invalid ->
+                    reply(invalid_request, UAS, Call);
+                {ok, SE, _} ->
+                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
+                    case nksip_config:get_cached(min_session_expires, AppOpts) of
+                        MinSE when SE < MinSE ->
+                            reply({422, [{<<"Min-SE">>, MinSE}]}, UAS, Call);
+                        _ ->
+                            dialog(Method, Req, UAS, Call)
+                    end
+            end;
+        false ->
+            dialog(Method, Req, UAS, Call)
+    end.
 
 
 %% @private

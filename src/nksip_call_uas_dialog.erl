@@ -461,21 +461,32 @@ update_session_timer(
              (Method=='INVITE' orelse Method=='UPDATE') ->
     #sipmsg{require=Require} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    {ReqTimer, ReqSE, ReqRefresh} = case nksip_parse:session_expires(Req) of
-        undefined -> {false, 0, undefined};
-        {ok, ReqSE0, ReqRefresh0} -> {true, ReqSE0, ReqRefresh0}
+    ReqSupport = nksip_sipmsg:supported(Req, <<"timer">>),
+    ReqMinSE = case nksip_sipmsg:headers(Req, <<"Min-SE">>, integers) of
+        [ReqMinSE0] -> ReqMinSE0;
+        _ -> 90
     end,
-    {SE, Refresh} = case ReqSE > 0 of 
-        true when ReqRefresh/=undefined -> {ReqSE, ReqRefresh};
-        true -> {ReqSE, uas};
-        false -> {nksip_config:get_cached(session_expires, AppOpts), uas}
+    {ReqSE, ReqRefresh} = case 
+        ReqSupport andalso nksip_parse:session_expires(Req) 
+    of
+        {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
+        _ -> {0, undefined}
     end,
-    SE_Header = <<(nksip_lib:to_binary(SE))/binary, ";refresher=", 
-             (nksip_lib:to_binary(Refresh))/binary>>,
+    Default = nksip_config:get_cached(session_expires, AppOpts),
+    SE = case ReqSE of
+        0 -> max(ReqMinSE, Default);
+        _ -> max(ReqMinSE, min(ReqSE, Default))
+    end,
+    Refresh = case ReqRefresh of
+        uac -> <<"uac">>;
+        uas -> <<"uas">>;
+        undefined -> <<"uas">>
+    end,
+    SE_Token = {SE, [{<<"refresher">>, Refresh}]},
     Headers1 = nksip_headers:update(Resp, 
-                    [{default_single, <<"Session-Expires">>, SE_Header}]),
+                    [{default_single, <<"Session-Expires">>, SE_Token}]),
     % Add 'timer' to response's Require only if supported by uac
-    Require1 = case ReqTimer of
+    Require1 = case ReqSupport of
         true -> nksip_lib:store_value(<<"timer">>, [], Require);
         false -> Require
     end,
