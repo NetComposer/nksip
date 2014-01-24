@@ -28,7 +28,7 @@
 
 -export([header/2, new/1, update/2]).
 
--type value() :: binary()|string()|atom()|integer()|nksip:user_uri().
+-type value() :: binary()|string()|atom()|integer()|nksip:user_uri()|nksip:token().
 
 
 %% ===================================================================
@@ -42,6 +42,8 @@
 
 header(Name, #uri{}=Uri) ->
     {Name, nksip_unparse:uri(Uri)};
+header(Name, {Name, List}) when is_list(List)->
+    {Name, nksip_unparse:token({Name, List})};
 header(Name, Binary) when is_binary(Binary) ->
     {Name, Binary};
 header(Name, [F|Rest]) when is_integer(F) ->
