@@ -173,7 +173,7 @@
     to_tag_candidate :: nksip:tag(),
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
-    meta = [] :: nksip_lib:proplist()
+    meta = [] :: nksip_lib:proplist()   % No current use
 }).
 
 
@@ -205,6 +205,9 @@
 }).
 
 
+%% Meta current uses:
+%% - {{core, min_se}, MinSE}
+
 -record(dialog, {
     id :: nksip_dialog:id(),
     app_id :: nksip:app_id(),
@@ -224,6 +227,8 @@
     caller_tag :: nksip:tag(),
     invite :: nksip:invite(),
     subscriptions = [] :: [nksip:subscription()],
+    supported = [] :: [nksip:token()],
+    allowed = [] :: [nksip:method()],
     meta = [] :: nksip_lib:proplist()
 }).
 
@@ -245,7 +250,7 @@
     next_retrans :: integer(),
     session_expires :: integer(),
     refresh_timer :: reference(),
-    meta = [] :: nksip_lib:proplist()
+    meta = [] :: nksip_lib:proplist()   % No current use
 }).
 
 
@@ -261,7 +266,7 @@
     timer_expire :: reference(),
     timer_middle :: reference(),
     last_notify_cseq :: nksip:cseq(),
-    meta = [] :: nksip_lib:proplist()
+    meta = [] :: nksip_lib:proplist()   % No current use
 }).
 
 
@@ -309,13 +314,13 @@
     cseq :: nksip:cseq(),
     transport :: nksip_transport:transport(),
     path :: [nksip:uri()],
-    meta = [] :: nksip_lib:proplist()
+    meta = [] :: nksip_lib:proplist()  % No current use
 }).
 
 
 -record(reg_publish, {
     data :: nksip:body(),
-    meta = [] :: nksip_lib:proplist()
+    meta = [] :: nksip_lib:proplist()   % No current use
 }).
 
 

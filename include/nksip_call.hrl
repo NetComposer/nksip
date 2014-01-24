@@ -50,10 +50,6 @@
 }.
 
 
-%% Meta field is used for add-on functionality. 
-%% Currently defined:
-%% - {min_se, integer()}: current Min-SE header
-
 -record(trans, {
     id :: nksip_call_uac:id() | nksip_call_uas:id(),
     class :: uac | uas,
@@ -81,7 +77,7 @@
     loop_id :: integer(),
     ack_trans_id :: integer(),
     iter = 1 :: integer(),
-    meta = [] :: nksip_lib:proplist()
+    meta1 = [] :: nksip_lib:proplist()
 }).
 
 
@@ -96,7 +92,8 @@
     uacs :: [integer()],
     pending :: [integer()],
     responses :: [nksip:response()], 
-    final :: false | '2xx' | '6xx'
+    final :: false | '2xx' | '6xx',
+    meta = [] :: nksip_lib:proplist()   % No current use
 }).
 
 
@@ -132,6 +129,10 @@
 }.
 
 
+
+%% Current Meta uses:
+%% - {core, min_se}: Pre-dialog received MinSE header
+
 -record(call, {
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
@@ -143,7 +144,8 @@
     dialogs = [] :: [#dialog{}],
     auths = [] :: [call_auth()],
     msgs = [] :: [call_msg()],
-    events = [] :: [#provisional_event{}]
+    events = [] :: [#provisional_event{}],
+    meta = [] :: nksip_lib:proplist()
 }).
 
 
