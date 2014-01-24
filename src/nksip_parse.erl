@@ -170,27 +170,22 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     {ok, integer(), uac|uas|undefined} | undefined | invalid.
 
 session_expires(SipMsg) ->
-    case nksip_sipmsg:supported(SipMsg, <<"timer">>) of
-        true ->
-            case nksip_sipmsg:header(SipMsg, <<"Session-Expires">>, tokens) of
-                [] ->
-                    {ok, 0, undefined};
-                [{SE, Opts}] ->
-                    case nksip_lib:to_integer(SE) of
-                        SE1 when is_integer(SE1), SE1>0 -> 
-                            case nksip_lib:get_binary(<<"refresher">>, Opts) of
-                                <<"uac">> -> {ok, SE1, uac};
-                                <<"uas">> -> {ok, SE1, uas};
-                                _ -> {ok, SE1, undefined}
-                            end;
-                        _ ->
-                            invalid
+    case nksip_sipmsg:header(SipMsg, <<"Session-Expires">>, tokens) of
+        [] ->
+            undefined;
+        [{SE, Opts}] ->
+            case nksip_lib:to_integer(SE) of
+                SE1 when is_integer(SE1), SE1>0 -> 
+                    case nksip_lib:get_binary(<<"refresher">>, Opts) of
+                        <<"uac">> -> {ok, SE1, uac};
+                        <<"uas">> -> {ok, SE1, uas};
+                        _ -> {ok, SE1, undefined}
                     end;
                 _ ->
                     invalid
             end;
-        false ->
-            undefined
+        _ ->
+            invalid
     end.
 
 
