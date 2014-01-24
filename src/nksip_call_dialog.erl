@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/4, update/3, stop/3, find/2, store/2]).
+-export([create/4, update/3, stop/3, find/2, store/2, update_min_se/2]).
 -export([timer/3, cast/4]).
 -export_type([sdp_offer/0]).
 
@@ -464,6 +464,50 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
         #invite{} -> update({invite, {stop, reason(Reason)}}, Dialog1, Call);
         undefined -> update(none, Dialog1, Call)
     end.
+
+
+-spec update_min_se(nksip:response(), nksip_call:call()) ->
+    {ok, integer(), nksip_call:call()} | error.
+
+update_min_se(Resp, Call) ->
+    case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
+        [RespMinSE] ->
+            #sipmsg{dialog_id=DialogId} = Resp,
+            #call{opts=#call_opts{app_opts=AppOpts}, meta=CallMeta} = Call,
+            ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
+            CurrentMinSE = case find(DialogId, Call) of
+                #dialog{meta=DlgMeta} = Dialog ->
+                    case nksip_lib:get_value({core, min_se}, DlgMeta) of
+                        undefined ->
+                            case nksip_lib:get_value({core, min_se}, CallMeta) of
+                                undefined -> ConfigMinSE;
+                                CallMinSE -> CallMinSE
+                            end;
+                        DlgMinSE ->
+                            DlgMinSE
+                    end;
+                not_found ->
+                    Dialog = undefined,
+                    case nksip_lib:get_value({core, min_se}, CallMeta) of
+                        undefined -> ConfigMinSE;
+                        CallMinSE -> CallMinSE
+                    end
+            end,
+            NewMinSE = max(CurrentMinSE, RespMinSE),
+            Call1 = case Dialog of
+                undefined ->
+                    CallMeta1 = nksip_lib:store_value({core, min_se}, NewMinSE, CallMeta),
+                    Call#call{meta=CallMeta1};
+                #dialog{meta=DlgMeta1} ->
+                    DlgMeta2 = nksip_lib:store_value({core, min_se}, NewMinSE, DlgMeta1),
+                    Dialog2 = Dialog#dialog{meta=DlgMeta2},
+                    store(Dialog2, Call)
+            end,
+            {ok, NewMinSE, Call1};
+        _ ->
+            error
+    end.
+
 
 
 
