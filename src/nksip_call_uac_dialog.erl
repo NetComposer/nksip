@@ -444,13 +444,13 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
                 _ when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
                     case nksip_call_event:request_uac_opts(Method, Opts, Dialog) of
                         {ok, Opts1} -> 
-                            {Result, Dialog1} = generate(Method, Opts1, Dialog),
+                            {Result, Dialog1} = generate(Method, Opts1, Dialog, Call),
                             {ok, Result, store(Dialog1, Call)};
                         {error, Error} ->
                             {error, Error}
                     end;
                 _ ->
-                    {Result, Dialog1} = generate(Method, Opts, Dialog),
+                    {Result, Dialog1} = generate(Method, Opts, Dialog, Call),
                     {ok, Result, store(Dialog1, Call)}
             end;
         _ ->
@@ -521,11 +521,11 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
 
 
 %% @private
--spec generate(nksip:method(), nksip_lib:proplist(), nksip:dialog()) ->
+-spec generate(nksip:method(), nksip_lib:proplist(), nksip:dialog(), nksip_call:call()) ->
     {{RUri, Opts}, nksip:dialog()} 
     when RUri::nksip:uri(), Opts::nksip_lib:proplist().
 
-generate(Method, Opts, Dialog) ->
+generate(Method, Opts, Dialog, Call) ->
     #dialog{
         id = DialogId,
         app_id = AppId,
@@ -583,8 +583,29 @@ generate(Method, Opts, Dialog) ->
             #invite{session_expires=SE} when
                 is_integer(SE) andalso (Method=='INVITE' orelse Method=='UPDATE') ->
                 case lists:keymember(session_expires, 1, Opts) of
-                    true -> [];
-                    false -> [{session_expires, {uac, SE}}]
+                    true -> 
+                        [];
+                    false -> 
+                        {SE1, MinSE} = case 
+                            nksip_call_dialog:get_meta({core, min_se}, DialogId, Call)
+                        of
+                            undefined -> {SE, undefined};
+                            CurrMinSE -> {max(SE, CurrMinSE), CurrMinSE}
+                        end,
+                        % Do not change the roles, if a refresh is sent from the 
+                        % refreshed instead of the refresher
+                        Class = case is_reference(Invite#invite.refresh_timer) of
+                            true -> <<"uac">>;
+                            false -> <<"uas">>
+                        end,
+                        SEHd = nksip_unparse:token({SE1, [{<<"refresher">>, Class}]}),
+                        [{pre_headers, [
+                            {<<"Session-Expires">>, SEHd} |
+                            case MinSE of
+                                undefined -> [];
+                                _ -> [{<<"Min-SE">>, nksip_lib:to_binary(MinSE)}]
+                            end
+                        ]}]
                 end;
             _ ->
                 []

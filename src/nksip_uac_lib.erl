@@ -306,11 +306,13 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 true ->
                     MinSE = nksip_config:get_cached(min_session_expires, FullOpts),
                     case nksip_config:get_cached(session_expires, FullOpts) of
+                        0 ->
+                            none;
                         {Class, SE} when 
                                     (Class==uac orelse Class==uas) andalso
                                     is_integer(SE) andalso SE >= MinSE ->
-                            SE_Hd = nksip_unparse:token({SE, [{<<"refresher">>, Class}]}),
-                            {default_single, <<"Session-Expires">>, SE_Hd};
+                            SEHd = {SE, [{<<"refresher">>, Class}]},
+                            {default_single, <<"Session-Expires">>, SEHd};
                         SE when is_integer(SE) andalso SE >= MinSE ->
                             {default_single, <<"Session-Expires">>, SE};
                         _ ->
