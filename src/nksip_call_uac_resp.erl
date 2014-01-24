@@ -1,3 +1,6 @@
+
+
+
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
@@ -46,10 +49,10 @@ response(Resp, #call{trans=Trans}=Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq_method=Method} = Resp,
     TransId = nksip_call_uac:transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of
-        #trans{class=uac, from=From}=UAC -> 
+        #trans{class=uac, from=From, ruri=RUri}=UAC -> 
             IsProxy = case From of {fork, _} -> true; _ -> false end,
             DialogId = nksip_call_uac_dialog:uac_id(Resp, IsProxy, Call),
-            Resp1 = Resp#sipmsg{dialog_id=DialogId},
+            Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId},
             case is_prack_retrans(Resp1, UAC) of
                 true ->
                     ?call_info("UAC received retransmission of reliable provisional "
@@ -83,7 +86,6 @@ response(Resp, UAC, Call) ->
         opts = Opts,
         method = Method,
         request = Req, 
-        ruri = RUri,
         from = From
     } = UAC,
     #call{msgs=Msgs, opts=#call_opts{app_opts=AppOpts}} = Call,
@@ -91,7 +93,7 @@ response(Resp, UAC, Call) ->
     case Now-Start < ?MAX_TRANS_TIME of
         true -> 
             Code1 = Code,
-            Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId};
+            Resp1 = Resp;
         false -> 
             Code1 = 408,
             Reply = {timeout, <<"Transaction Timeout">>},
@@ -202,7 +204,7 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
         _ -> 
             UAC3#trans{status=finished}
     end,
-    do_received_auth(Req, Resp, UAC5, update(UAC5, Call));
+    received_auth(Req, Resp, UAC5, update(UAC5, Call));
 
 
 response_status(invite_accepted, _Resp, #trans{code=Code}, Call) 
@@ -271,7 +273,7 @@ response_status(proceeding, Resp, UAC, Call) ->
             UAC1 = UAC#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
-    do_received_auth(Req, Resp, UAC2, update(UAC2, Call));
+    received_auth(Req, Resp, UAC2, update(UAC2, Call));
 
 response_status(completed, Resp, UAC, Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq_method=Method, to_tag=ToTag} = Resp,
@@ -332,11 +334,11 @@ do_received_hangup(Resp, UAC, Call) ->
 
 
 %% @private 
--spec do_received_auth(nksip:request(), nksip:response(), 
+-spec received_auth(nksip:request(), nksip:response(), 
                        nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-do_received_auth(Req, Resp, UAC, Call) ->
+received_auth(Req, Resp, UAC, Call) ->
      #trans{
         id = Id,
         opts = Opts,
@@ -353,27 +355,26 @@ do_received_auth(Req, Resp, UAC, Call) ->
         nksip_auth:make_request(Req, Resp, Opts++AppOpts) 
     of
         false ->
-            do_received_422(Req, Resp, UAC, Call);
+            received_422(Req, Resp, UAC, Call);
         {ok, Req1} ->
             nksip_call_uac_req:resend(Req1, UAC, Call);
         {error, Error} ->
             ?call_debug("UAC ~p could not generate new auth request: ~p", 
                         [Id, Error], Call),    
-            do_received_422(Req, Resp, UAC, Call)
+            received_422(Req, Resp, UAC, Call)
     end.
 
 
 %% @private 
--spec do_received_422(nksip:request(), nksip:response(), 
+-spec received_422(nksip:request(), nksip:response(), 
                        nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-do_received_422(Req, Resp, UAC, Call) ->
+received_422(Req, Resp, UAC, Call) ->
      #trans{
         method = Method, 
         code = Code, 
-        iter = Iter,
-        meta = Meta
+        iter = Iter
     } = UAC,
     case 
         Code==422 andalso 
@@ -381,6 +382,7 @@ do_received_422(Req, Resp, UAC, Call) ->
         Iter < ?MAX_422_TRIES
     of 
         true ->
+            Meta = [],
             case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
                 [RespMinSE] ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
@@ -397,15 +399,23 @@ do_received_422(Req, Resp, UAC, Call) ->
                     ]),
                     Req1 = Req#sipmsg{headers=Headers1},
                     Meta1 = lists:keystore(min_se, 1, Meta, {min_se, NewMinSE}),
-                    UAC1 = UAC#trans{meta=Meta1},
+                    UAC1 = UAC, %#trans{meta=Meta1},
                     Call1 = update(UAC1, Call),
                     nksip_call_uac_req:resend(Req1, UAC1, Call1);
                 _ ->
-                    nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)
+                    received_reply(Resp, UAC, Call)
             end;
         false ->
-            nksip_call_uac_reply:reply({resp, Resp}, UAC, Call)    
+            received_reply(Resp, UAC, Call)
     end.
+
+
+%% @private 
+-spec received_reply(nksip:response(), nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+received_reply(Resp, UAC, Call) ->
+    nksip_call_uac_reply:reply({resp, Resp}, UAC, Call) .
 
 
 %% @private
