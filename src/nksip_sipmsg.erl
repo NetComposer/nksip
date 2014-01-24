@@ -24,7 +24,7 @@
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2]).
+-export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2, require/2]).
 -export([make_id/2]).
 
 -include("nksip.hrl").
@@ -239,6 +239,14 @@ all_headers(SipMsg) ->
 
 supported(#sipmsg{supported=Supported}, Token) ->
     lists:keymember(Token, 1, Supported).
+
+
+%% @doc Checks if a token is in Require header
+-spec require(nksip:request()|nksip:response(), binary()) ->
+    boolean().
+
+require(#sipmsg{require=Require}, Token) ->
+    lists:keymember(Token, 1, Require).
 
 
 %% @private
