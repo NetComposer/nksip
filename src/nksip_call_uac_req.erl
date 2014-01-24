@@ -105,8 +105,7 @@ new_uac(Req, Opts, From, Call) ->
         code = 0,
         to_tags = [],
         cancel = undefined,
-        iter = 1,
-        meta = []
+        iter = 1
     },
     Msg = {MsgId, Id, DialogId},
     {UAC, Call#call{trans=[UAC|Trans], msgs=[Msg|Msgs], next=Id+1}}.
@@ -122,7 +121,7 @@ resend(Req, UAC, Call) ->
         id = Id,
         status = Status,
         opts = Opts,
-        method = Method, 
+        method = Method,
         iter = Iter,
         from = From
     } = UAC,
@@ -131,7 +130,7 @@ resend(Req, UAC, Call) ->
     {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
     Req1 = Req#sipmsg{vias=Vias, cseq=CSeq},
     % Contact would be already generated
-    Opts1 = nksip_lib:delete(Opts, make_contact),
+    Opts1 = Opts -- [make_contact],
     {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),
     NewUAC1 = NewUAC#trans{iter=Iter+1},
     send(NewUAC1, update(NewUAC1, Call2)).
@@ -237,7 +236,7 @@ sent_request(Req, UAC, Call) ->
     Call2 = case lists:member(no_dialog, Opts) of
         true -> Call1;
         false when ToTag == <<>> -> Call1;
-        false -> nksip_call_uac_dialog:request(Req, IsProxy,  Call1)
+        false -> nksip_call_uac_dialog:request(Req, IsProxy, Call1)
     end,
     Call3 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call2),
     sent_update(Req, UAC1, Call3).
