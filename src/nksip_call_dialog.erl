@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([create/4, update/3, stop/3, find/2, store/2, update_min_se/2]).
+-export([create/4, update/3, stop/3, find/2, store/2, get_meta/3, update_meta/4]).
 -export([timer/3, cast/4]).
 -export_type([sdp_offer/0]).
 
@@ -358,6 +358,7 @@ session_update(Dialog, _Call) ->
     Dialog.
 
 
+
 %% @private
 -spec timer_update(nksip:request(), nksip:response(), 
                              nksip:dialog(), nksip_call:call()) ->
@@ -377,45 +378,56 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     cancel_timer(RefreshTimer),
-    {ReqSE, ReqRefresh} = case nksip_parse:session_expires(Req) of
-        {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
-        _ -> {0, undefined}
-    end,
-    {RespSE, Refresh} = case nksip_parse:session_expires(Resp) of
-        {ok, RespSE0, _} when ReqRefresh/=undefined -> {RespSE0, ReqRefresh};
-        {ok, RespSE0, RespRefresh0} -> {RespSE0, RespRefresh0};
-        _ when ReqRefresh/=undefined -> {0, ReqRefresh};
-        _ -> {0, undefined}
-    end,
-    lager:warning("Req: ~p, Resp: ~p", [ReqSE, RespSE]),
-    Time = case {ReqSE, RespSE} of
-        {0, 0} -> nksip_config:get_cached(session_expires, AppOpts);
-        {TA, 0} -> TA;
-        {_, TB} -> TB
-    end,
-    ToRefresh = if
-        Class==uac andalso ReqSE>0 andalso Refresh/=uas -> true;
-        Class==uas andalso RespSE>0 andalso Refresh/=uac -> true;
-        true -> false
-    end,
-    lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(Time/1000), ToRefresh]),
-    Invite1 = case ToRefresh of
+    Default = nksip_config:get_cached(session_expires, AppOpts),
+    {SE, Refresh} = case nksip_sipmsg:require(Resp, <<"timer">>) of
         true ->
+            case nksip_parse:session_expires(Req) of
+                {ok, SE0, Refresh0} ->
+                    {SE0, Refresh0};
+                undefined ->                % Remote said 'no session timer'
+                    {Default, undefined};
+                invalid ->
+                    ?call_warning("Invalid Session-Expires in response", [], Call),
+                    {Default, undefined}
+            end;
+        false ->
+            case nksip_sipmsg:supported(Req, <<"timer">>) of
+                true ->
+                    case nksip_parse:session_expires(Req) of
+                        {ok, SE0, _} -> {SE0, uac};
+                        _ -> {Default, undefined}
+                    end;
+                false->
+                    {Default, undefined}
+            end
+    end,
+    lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(SE/1000), Refresh]),
+    Invite1 = case Class==Refresh of
+        true ->                                     % We are the "refresher"
             Invite#invite{
                 retrans_timer = undefined,
-                session_expires = Time,
-                timeout_timer = start_timer(1000*Time, invite_timeout, DialogId),
-                refresh_timer = start_timer(500*Time, invite_refresh, DialogId)
+                session_expires = SE,
+                timeout_timer = start_timer(1000*SE, invite_timeout, DialogId),
+                refresh_timer = start_timer(500*SE, invite_refresh, DialogId)
+            };
+        false when Refresh/=undefined ->            % We are the "refreshed"
+            Timeout = min(32, round(SE/3)),
+            Invite#invite{
+                retrans_timer = undefined,
+                session_expires = SE,
+                timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId),
+                refresh_timer = undefined
             };
         false ->
             Invite#invite{
                 retrans_timer = undefined,
                 session_expires = undefined,
-                timeout_timer = start_timer(1000*Time, invite_timeout, DialogId),
+                timeout_timer = start_timer(1000*SE, invite_timeout, DialogId),
                 refresh_timer = undefined
             }
     end,
     Dialog#dialog{invite=Invite1};
+
 
 timer_update(_Req, _Resp, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
@@ -466,49 +478,32 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
     end.
 
 
--spec update_min_se(nksip:response(), nksip_call:call()) ->
-    {ok, integer(), nksip_call:call()} | error.
+%% @private Gets a value from dialog's meta, or call's meta if no dialog found
+-spec get_meta(term(), nksip:dialog_id(), nksip_call:call()) ->
+    term() | undefined.
 
-update_min_se(Resp, Call) ->
-    case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
-        [RespMinSE] ->
-            #sipmsg{dialog_id=DialogId} = Resp,
-            #call{opts=#call_opts{app_opts=AppOpts}, meta=CallMeta} = Call,
-            ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
-            CurrentMinSE = case find(DialogId, Call) of
-                #dialog{meta=DlgMeta} = Dialog ->
-                    case nksip_lib:get_value({core, min_se}, DlgMeta) of
-                        undefined ->
-                            case nksip_lib:get_value({core, min_se}, CallMeta) of
-                                undefined -> ConfigMinSE;
-                                CallMinSE -> CallMinSE
-                            end;
-                        DlgMinSE ->
-                            DlgMinSE
-                    end;
-                not_found ->
-                    Dialog = undefined,
-                    case nksip_lib:get_value({core, min_se}, CallMeta) of
-                        undefined -> ConfigMinSE;
-                        CallMinSE -> CallMinSE
-                    end
-            end,
-            NewMinSE = max(CurrentMinSE, RespMinSE),
-            Call1 = case Dialog of
-                undefined ->
-                    CallMeta1 = nksip_lib:store_value({core, min_se}, NewMinSE, CallMeta),
-                    Call#call{meta=CallMeta1};
-                #dialog{meta=DlgMeta1} ->
-                    DlgMeta2 = nksip_lib:store_value({core, min_se}, NewMinSE, DlgMeta1),
-                    Dialog2 = Dialog#dialog{meta=DlgMeta2},
-                    store(Dialog2, Call)
-            end,
-            {ok, NewMinSE, Call1};
-        _ ->
-            error
+get_meta(Key, DialogId, Call) ->
+    case find(DialogId, Call) of
+        #dialog{meta=DlgMeta} -> nksip_lib:get_value(Key, DlgMeta);
+        not_found -> nksip_lib:get_value(Key, Call#call.meta)
     end.
 
 
+%% @private Stores a value in dialog's meta, or call's meta if no dialog found
+-spec update_meta(term(), term(), nksip:dialog_id(), nksip_call:call()) ->
+    nksip_call:call().
+
+update_meta(Key, Value, DialogId, Call) ->
+    case find(DialogId, Call) of
+        #dialog{meta=DialogMeta1} = Dialog1 ->
+            DialogMeta2 = nksip_lib:store_value(Key, Value, DialogMeta1),
+            Dialog2 = Dialog1#dialog{meta=DialogMeta2},
+            store(Dialog2, Call);
+        not_found ->
+            #call{meta=CallMeta1} = Call,
+            CallMeta2 = nksip_lib:store_value(Key, Value, CallMeta1),
+            Call#call{meta=CallMeta2}
+    end.
 
 
 %% @private Called when a dialog timer is fired
