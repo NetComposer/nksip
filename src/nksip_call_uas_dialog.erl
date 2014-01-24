@@ -476,7 +476,7 @@ update_session_timer(
                     [{default_single, <<"Session-Expires">>, SE_Header}]),
     % Add 'timer' to response's Require only if supported by uac
     Require1 = case ReqTimer of
-        true -> lists:keystore(<<"timer">>, 1, Require, {<<"timer">>, []});
+        true -> nksip_lib:store_value(<<"timer">>, [], Require);
         false -> Require
     end,
     Resp#sipmsg{require=Require1, headers=Headers1};

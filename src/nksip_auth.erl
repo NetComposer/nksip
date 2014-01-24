@@ -116,7 +116,7 @@ get_authentication(Req, PassFun) ->
             false when Ok -> [{Realm, true}|Acc];
             false -> [{Realm, false}|Acc];
             {Realm, true} -> Acc;
-            {Realm, false} when Ok -> lists:keystore(Realm, 1, Acc, {Realm, true});
+            {Realm, false} when Ok -> nksip_lib:store_value(Realm, true, Acc);
             {Realm, false} -> Acc
         end
     end,

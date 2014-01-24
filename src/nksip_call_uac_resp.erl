@@ -398,7 +398,7 @@ received_422(Req, Resp, UAC, Call) ->
                         {single, <<"Min-SE">>, NewMinSE}
                     ]),
                     Req1 = Req#sipmsg{headers=Headers1},
-                    Meta1 = lists:keystore(min_se, 1, Meta, {min_se, NewMinSE}),
+                    Meta1 = nksip_lib:store_value(min_se, NewMinSE, Meta),
                     UAC1 = UAC, %#trans{meta=Meta1},
                     Call1 = update(UAC1, Call),
                     nksip_call_uac_req:resend(Req1, UAC1, Call1);
