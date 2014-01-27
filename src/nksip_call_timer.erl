@@ -22,7 +22,7 @@
 -module(nksip_call_timer).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([uac_received_422/4, uac_update_timer/4, uas_check_422/3, uas_update_timer/3, get_timer/4, proxy_request/2, proxy_response/2]).
+-export([uac_received_422/4, uac_update_timer/3, uas_check_422/3, uas_update_timer/3, get_timer/4, proxy_request/2, proxy_response/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -35,40 +35,30 @@
 
 
 %% @private
--spec uac_update_timer(nksip:method(), nksip_lib:proplist(), 
-                       nksip:dialog(), nksip_call:call()) ->
+-spec uac_update_timer(nksip:method(), nksip:dialog(), nksip_call:call()) ->
     [nksip:header()].
 
-uac_update_timer(Method, Opts, Dialog, Call) ->
+uac_update_timer(Method, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     case Invite of
         #invite{session_expires=SE, refresh_timer=RefreshTimer} when
                 is_integer(SE) andalso (Method=='INVITE' orelse Method=='UPDATE') ->
-            case lists:keymember(session_expires, 1, Opts) of
-                true -> 
-                    [];
-                false -> 
-                    {SE1, MinSE} = case 
-                        nksip_call_dialog:get_meta({core, min_se}, DialogId, Call)
-                    of
-                        undefined -> {SE, undefined};
-                        CurrMinSE -> {max(SE, CurrMinSE), CurrMinSE}
-                    end,
-                    % Do not change the roles, if a refresh is sent from the 
-                    % refreshed instead of the refresher
-                    Class = case is_reference(RefreshTimer) of
-                        true -> <<"uac">>;
-                        false -> <<"uas">>
-                    end,
-                    SEHd = nksip_unparse:token({SE1, [{<<"refresher">>, Class}]}),
-                    [
-                        {<<"Session-Expires">>, SEHd} |
-                        case MinSE of
-                            undefined -> [];
-                            _ -> [{<<"Min-SE">>, nksip_lib:to_binary(MinSE)}]
-                        end
-                    ]
-            end;
+            {SE1, MinSE} = case 
+                nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
+            of
+                undefined -> {SE, undefined};
+                CurrMinSE -> {max(SE, CurrMinSE), CurrMinSE}
+            end,
+            % Do not change the roles, if a refresh is sent from the 
+            % refreshed instead of the refresher
+            Class = case is_reference(RefreshTimer) of
+                true -> uac;
+                false -> uas
+            end,
+            [
+                {session_expires, {SE1, Class}} |
+                case is_integer(MinSE) of true -> [{min_se, MinSE}]; false -> [] end
+            ];
         _ ->
             []
     end.
@@ -97,7 +87,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
                     CurrentMinSE = case 
-                        nksip_call_dialog:get_meta({core, min_se}, DialogId, Call)
+                        nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
                     of
                         undefined -> ConfigMinSE;
                         CurrentMinSE0 -> CurrentMinSE0
@@ -107,7 +97,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
                         CurrentMinSE -> 
                             Call;
                         _ -> 
-                            nksip_call_dialog:update_meta({core, min_se}, NewMinSE, 
+                            nksip_call_dialog:update_meta(nksip_min_se, NewMinSE, 
                                                           DialogId, Call)
                     end,
                     case nksip_parse:session_expires(Req) of
@@ -229,7 +219,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
     Default = nksip_config:get_cached(session_expires, AppOpts),
     {SE, Refresh} = case nksip_sipmsg:require(Resp, <<"timer">>) of
         true ->
-            case nksip_parse:session_expires(Req) of
+            case nksip_parse:session_expires(Resp) of
                 {ok, SE0, Refresh0} ->
                     {SE0, Refresh0};
                 undefined ->                % Remote said 'no session timer'
@@ -249,12 +239,13 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
                     {Default, undefined}
             end
     end,
-    % lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(SE/1000), Refresh]),
-    case Class==Refresh of
+    Return = case Class==Refresh of
         true -> {refresher, SE, 1000*SE, 500*SE};
-        false when Refresh/=undefined -> {refreshed, SE, 1000*min(32, round(SE/3))};
+        false when Refresh/=undefined -> {refreshed, SE, 750*SE};
         false -> {none, 1000*SE}
-    end.
+    end,
+    ?call_error("TIMER UPDATE: ~p, ~p, ~p", [Class, Refresh, Return], Call),
+    Return.
 
 
 %% @private
