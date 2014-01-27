@@ -182,7 +182,7 @@ uas_update_timer(
              (Method=='INVITE' orelse Method=='UPDATE') ->
     #sipmsg{require=Require} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    ReqSupport = nksip_sipmsg:supported(Req, <<"timer">>),
+    ReqSupport = nksip_sipmsg:supported(Req, <<"timer">>), 
     ReqMinSE = case nksip_sipmsg:header(Req, <<"Min-SE">>, integers) of
         [ReqMinSE0] -> ReqMinSE0;
         _ -> 90
@@ -225,7 +225,7 @@ uas_update_timer(_Req, Resp, _Call) ->
 
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
-    #call{app_id=AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
+    #call{app_id=_AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
     Default = nksip_config:get_cached(session_expires, AppOpts),
     {SE, Refresh} = case nksip_sipmsg:require(Resp, <<"timer">>) of
         true ->
@@ -298,7 +298,7 @@ proxy_response(Req, Resp) ->
         {ok, _, _} ->
             Resp;
         undefined ->
-            case nksip_parse:session_expires(Req) of    % FAILING
+            case nksip_parse:session_expires(Req) of
                 {ok, SE, _} ->
                     case nksip_sipmsg:supported(Req, <<"timer">>) of
                         true ->
