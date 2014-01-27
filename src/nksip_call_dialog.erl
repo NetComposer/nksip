@@ -472,10 +472,12 @@ update_meta(Key, Value, DialogId, Call) ->
         #dialog{meta=DialogMeta1} = Dialog1 ->
             DialogMeta2 = nksip_lib:store_value(Key, Value, DialogMeta1),
             Dialog2 = Dialog1#dialog{meta=DialogMeta2},
+            ?call_warning("Meta ~p, ~p updated in dialog", [Key, Value], Call),
             store(Dialog2, Call);
         not_found ->
             #call{meta=CallMeta1} = Call,
             CallMeta2 = nksip_lib:store_value(Key, Value, CallMeta1),
+            ?call_warning("Meta ~p, ~p updated in call", [Key, Value], Call),
             Call#call{meta=CallMeta2}
     end.
 
