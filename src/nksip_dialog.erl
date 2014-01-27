@@ -246,6 +246,16 @@ field(D, Field) ->
         invite_remote_sdp -> I#invite.remote_sdp;
         invite_timeout -> read_timer(I#invite.timeout_timer);
         invite_session_expires -> I#invite.session_expires;
+        invite_refresh ->
+            case is_reference(I#invite.refresh_timer) of
+                true -> 
+                    case erlang:read_timer(I#invite.refresh_timer) of
+                        false -> expired;
+                        IR -> IR
+                    end;
+                false ->
+                 undefined
+            end;
 
         subscriptions -> [Id || #subscription{id=Id} <- D#dialog.subscriptions];
 
