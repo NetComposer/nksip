@@ -36,7 +36,6 @@
 %         ]
 %     }.
 
-% This configuration resembles the example in RFC3327
 start() ->
     tests_util:start_nksip(),
 
@@ -60,25 +59,18 @@ start() ->
         % {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         no_100,
-        {transport, {udp, {0,0,0,0}, 5071}}
+        {transport, {udp, {0,0,0,0}, 5071}},
+        {min_session_expires, 1}
     ]),
 
     ok = sipapp_endpoint:start({timer, ua2}, [
-        {route, "<sip:127.0.0.1:5090;lr>"},
+        % {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
         no_100,
-        {transport, {udp, {0,0,0,0}, 5072}}
+        {transport, {udp, {0,0,0,0}, 5072}},
+        {min_session_expires, 2}
     ]),
     
-    % NkSIP does not currently allow to set this parameter in config
-    {ok, _, Opts1a, _} = nksip_sipapp_srv:get_opts({timer, ua1}),
-    Opts1b = [{min_session_expires, 1}|Opts1a],
-    ok = nksip_sipapp_srv:put_opts({timer, ua1}, Opts1b),
-
-    {ok, _, Opts2a, _} = nksip_sipapp_srv:get_opts({timer, ua2}),
-    Opts2b = [{min_session_expires, 2}|Opts2a],
-    ok = nksip_sipapp_srv:put_opts({timer, ua2}, Opts2b),
-
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
@@ -148,35 +140,37 @@ basic() ->
         {ua2, dialog_confirmed},
         {ua1, dialog_confirmed},
         {ua2, ack},
-        {ua2, {refresh, SDP2}}
+        {ua2, {refresh, SDP2}}      % The same SDP C2 sent
     ]),
 
     Dialog1B = nksip_dialog:remote_id(C1, Dialog1A),
-    undefined = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
+    2 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
+    undefined = nksip_dialog:field(C1, Dialog1A, invite_refresh),
     2 = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
+    expired = nksip_dialog:field(C2, Dialog1B, invite_refresh),
 
-    % Now C2 (current refresher) "refreshs" the dialog, in the negotiation
-    % 'uas' is selected as new refresher, in this case C1
-    {ok, 200, _} = nksip_uac:invite(C2, Dialog1B, [auto_2xx_ack, {body, SDP2}]),
+    % % Now C2 (current refresher) "refreshs" the dialog, in the negotiation
+    % % 'uas' is selected as new refresher, in this case C1
+    {ok, 200, _} = nksip_uac:invite(C2, Dialog1B, [auto_2xx_ack, {body, SDP2}, {min_se, 3}]),
 
     SDP3 = nksip_sdp:increment(SDP2),
     ok = tests_util:wait(Ref, [
         {ua2, dialog_confirmed},
         {ua1, dialog_confirmed},
         {ua1, ack},
-        {ua1, {refresh, SDP3}}
+        {ua2, {refresh, SDP3}}
     ]),
 
-    2 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
-    undefined = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
+    % 2 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
+    % undefined = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
 
-    {ok, 200, [{<<"Session-Expires">>, [<<"90;refresher=uac">>]}]} = 
-        nksip_uac:update(C2, Dialog1B, 
-                    [{headers, [{<<"Session-Expires">>, <<"90;refresher=uac">>}]},
-                     {fields, [<<"Session-Expires">>]}]),
+    % {ok, 200, [{<<"Session-Expires">>, [<<"90;refresher=uac">>]}]} = 
+    %     nksip_uac:update(C2, Dialog1B, 
+    %                 [{headers, [{<<"Session-Expires">>, <<"90;refresher=uac">>}]},
+    %                  {fields, [<<"Session-Expires">>]}]),
 
-    90 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
-    undefined = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
+    % 90 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
+    % undefined = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
 
 
 
