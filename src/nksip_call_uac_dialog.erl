@@ -579,9 +579,9 @@ generate(Method, Opts, Dialog, Call) ->
                 []
         end
         ++
-        case nksip_call_timer:uac_update_timer(Method, Opts, Dialog, Call) of
-            [] -> [];
-            SE_Hds -> [{pre_headers, SE_Hds}]
+        case lists:keymember(session_expires, 1, Opts) of
+            true -> [];
+            false -> nksip_call_timer:uac_update_timer(Method, Dialog, Call)
         end
         ++
         [
