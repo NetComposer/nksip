@@ -447,6 +447,12 @@ start(AppId, Module, Args, Opts) ->
                         error -> throw(invalid_event);
                         Events -> {event, [T||{T, _}<-Events]}
                     end
+            end,
+            case nksip_lib:get_value(min_session_expires, Opts) of
+                MinSE when is_integer(MinSE), MinSE > 0 ->
+                    {min_session_expires, MinSE};
+                _ ->
+                    throw({invalid, min_session_expires})
             end
         ],
         nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts))
