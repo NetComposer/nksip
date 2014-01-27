@@ -131,7 +131,7 @@
 
 
 %% Current Meta uses:
-%% - {core, min_se}: Pre-dialog received MinSE header
+%% - nksip_min_se: Pre-dialog received MinSE header
 
 -record(call, {
     app_id :: nksip:app_id(),

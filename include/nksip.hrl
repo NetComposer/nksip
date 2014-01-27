@@ -206,7 +206,7 @@
 
 
 %% Meta current uses:
-%% - {{core, min_se}, MinSE}
+%% - {nksip_min_se, MinSE}
 
 -record(dialog, {
     id :: nksip_dialog:id(),
