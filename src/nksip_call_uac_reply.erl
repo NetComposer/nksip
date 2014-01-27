@@ -96,8 +96,8 @@ reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
 reply({req, _Req}, #trans{from={fork, _}}, Call) ->
     Call;
 
-reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
-    nksip_call_fork:response(ForkId, Id, Req, Resp, Call);
+reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
+    nksip_call_fork:response(ForkId, Id, Resp, Call);
 
 reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Reply = case Error of
@@ -110,7 +110,7 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
     % nksip_call_fork:response() is going to discard first Via
     Resp1 = Resp#sipmsg{vias=[#via{}|Resp#sipmsg.vias]},
-    nksip_call_fork:response(ForkId, Id, Req, Resp1, Call);
+    nksip_call_fork:response(ForkId, Id, Resp1, Call);
 
 reply(_, _, Call) ->
     Call.

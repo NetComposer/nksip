@@ -183,7 +183,7 @@ uas_update_timer(
     #sipmsg{require=Require} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     ReqSupport = nksip_sipmsg:supported(Req, <<"timer">>),
-    ReqMinSE = case nksip_sipmsg:headers(Req, <<"Min-SE">>, integers) of
+    ReqMinSE = case nksip_sipmsg:header(Req, <<"Min-SE">>, integers) of
         [ReqMinSE0] -> ReqMinSE0;
         _ -> 90
     end,
@@ -249,7 +249,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
                     {Default, undefined}
             end
     end,
-    lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(SE/1000), Refresh]),
+    % lager:warning("REFRESH at ~p: ~p, ~p", [AppId, round(SE/1000), Refresh]),
     case Class==Refresh of
         true -> {refresher, SE, 1000*SE, 500*SE};
         false when Refresh/=undefined -> {refreshed, SE, 1000*min(32, round(SE/3))};
@@ -263,7 +263,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
 
 proxy_request(#sipmsg{class={req, Method}}=Req, Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
-    ReqMinSE = case nksip_sipmsg:headers(Req, <<"Min-SE">>, integers) of
+    ReqMinSE = case nksip_sipmsg:header(Req, <<"Min-SE">>, integers) of
         [ReqMinSE0] -> ReqMinSE0;
         _ -> 90
     end,
@@ -298,7 +298,7 @@ proxy_response(Req, Resp) ->
         {ok, _, _} ->
             Resp;
         undefined ->
-            case nksip_parse:session_expires(Req) of
+            case nksip_parse:session_expires(Req) of    % FAILING
                 {ok, SE, _} ->
                     case nksip_sipmsg:supported(Req, <<"timer">>) of
                         true ->
