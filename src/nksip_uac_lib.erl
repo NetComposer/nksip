@@ -308,7 +308,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     case nksip_config:get_cached(session_expires, FullOpts) of
                         0 ->
                             none;
-                        {Class, SE} when 
+                        {SE, Class} when 
                                     (Class==uac orelse Class==uas) andalso
                                     is_integer(SE) andalso SE >= MinSE ->
                             SEHd = {SE, [{<<"refresher">>, Class}]},
@@ -320,6 +320,14 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                     end;
                 false ->
                     none
+            end,
+            case nksip_lib:get_value(min_se, Opts) of
+                undefined ->
+                    none;
+                UserMinSE when is_integer(UserMinSE), UserMinSE > 0 ->
+                    {default_single, <<"Min-SE">>, UserMinSE};
+                _ ->
+                    throw({invalid_field, min_se})
             end
         ]),
         Req = #sipmsg{
