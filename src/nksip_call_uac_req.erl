@@ -126,7 +126,7 @@ resend(Req, UAC, Call) ->
         from = From
     } = UAC,
     #sipmsg{vias=[_|Vias]} = Req,
-    ?call_warning("UAC ~p ~p (~p) resending request", [Id, Method, Status], Call),
+    ?call_info("UAC ~p ~p (~p) resending updated request", [Id, Method, Status], Call),
     {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
     Req1 = Req#sipmsg{vias=Vias, cseq=CSeq},
     % Contact would be already generated
