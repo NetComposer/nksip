@@ -449,6 +449,8 @@ start(AppId, Module, Args, Opts) ->
                     end
             end,
             case nksip_lib:get_value(min_session_expires, Opts) of
+                undefined ->
+                    [];
                 MinSE when is_integer(MinSE), MinSE > 0 ->
                     {min_session_expires, MinSE};
                 _ ->
