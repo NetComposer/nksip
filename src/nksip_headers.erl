@@ -42,12 +42,16 @@
 
 header(Name, #uri{}=Uri) ->
     {Name, nksip_unparse:uri(Uri)};
-header(Name, {Name, List}) when is_list(List)->
-    {Name, nksip_unparse:token({Name, List})};
+header(Name, {Token, Opts}) when is_list(Opts)->
+    {Name, nksip_unparse:token({Token, Opts})};
+header(Name, [{_Token, Opts}|_]=List) when is_list(Opts) ->
+    {Name, nksip_unparse:token(List)};
 header(Name, Binary) when is_binary(Binary) ->
     {Name, Binary};
-header(Name, [F|Rest]) when is_integer(F) ->
-    {Name, nksip_lib:to_binary([F|Rest])};
+header(Name, Integer) when is_integer(Integer) ->
+    {Name, nksip_lib:to_binary(Integer)};
+header(Name, [F|_]=List) when is_integer(F) ->
+    {Name, nksip_lib:to_binary(List)};
 header(Name, List) when is_list(List) ->
     Values = [
         case Term of
