@@ -430,6 +430,7 @@ dialog_update(DialogId, Update, #state{id={Test, Id}, dialogs=Dialogs}=State)
                 {invite_status, {stop, Reason}} -> Pid ! {Ref, {Id, {dialog_stop, Reason}}};
                 {invite_status, _} -> ok;
                 {invite_refresh, SDP} -> Pid ! {Ref, {Id, {refresh, SDP}}};
+                invite_timeout -> Pid ! {Ref, {Id, timeout}};
                 {subscription_status, SubsId, Status} -> Pid ! {Ref, {subs, SubsId, Status}};
                 stop -> ok
             end
