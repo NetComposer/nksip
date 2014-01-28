@@ -36,7 +36,7 @@ Some common SIP featured are still missing and can be addressed in following ver
 * [RFC3892](http://tools.ietf.org/html/rfc3892): Referred-By
 * ~~[RFC3903](http://tools.ietf.org/html/rfc3903): PUBLISH~~
 * [RFC3911](http://tools.ietf.org/html/rfc3903): Join
-* [RFC4028](http://tools.ietf.org/html/rfc4028): Session Timers
+* ~~[RFC4028](http://tools.ietf.org/html/rfc4028): Session Timers~~
 * [RFC4320](http://tools.ietf.org/html/rfc4320): Invite transactions
 * [RFC4321](http://tools.ietf.org/html/rfc4321): Invite recomendations
 * [RFC4488](http://tools.ietf.org/html/rfc4488): REFER without subscription
