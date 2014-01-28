@@ -53,6 +53,7 @@ Planned featured for 0.4.0 (not yet released) include:
 Documentation
 =============
 
+* [Wiki](https://github.com/kalta/nksip/wiki)
 * API documentation is available [here](http://kalta.github.io/nksip).
 * [Change log](doc/CHANGELOG.md).
 * [Current features](doc/FEATURES.md).
