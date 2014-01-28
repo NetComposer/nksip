@@ -197,7 +197,7 @@ get_subscription(AppId, SubscriptionSpec) ->
                 end
             end,
             DialogId = dialog_id(SubscriptionId),
-            ?P("DLGID: ~p", [DialogId]),
+            % ?P("DLGID: ~p", [DialogId]),
             case nksip_call_router:apply_dialog(AppId, DialogId, Fun) of
                 {ok, Event} -> Event;
                 _ -> error

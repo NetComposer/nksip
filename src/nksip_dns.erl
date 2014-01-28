@@ -489,7 +489,7 @@ weigth_test() ->
     As = length([true || a <-Total]),
     Bs = length([true || b <-Total]),
     Cs = length([true || c <-Total]),
-    ?P("As: ~p vs 1%, Bs: ~p vs 9%, Cs: ~p vs 90%", [As/10, Bs/10, Cs/10]),
+    % ?P("As: ~p vs 1%, Bs: ~p vs 9%, Cs: ~p vs 90%", [As/10, Bs/10, Cs/10]),
     true = Cs > Bs andalso Bs > As,
 
     [] = rfc2782_sort([]),

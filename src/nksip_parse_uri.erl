@@ -30,8 +30,8 @@
 %% Public
 %% ===================================================================
 
-%% @doc Parse a serie of uris in a string
-%% Can parse > 100.000 urls/sec (`<sip:user@host.com;transport=tcp;lr>') on i7
+%% @doc Parse a series of uris in a string
+%% Can parse > 100.000 uris/sec (`<sip:user@host.com;transport=tcp;lr>') on i7
 -spec uris(binary() | string() | #uri{}) ->
     [#uri{}] | error.
 
@@ -56,7 +56,7 @@ uris(String, Acc) ->
         {#uri{}=Uri, []} -> lists:reverse([Uri|Acc]);
         {#uri{}=Uri, Rest} -> uris(Rest, [Uri|Acc]);
         {error, Type, Line} -> 
-            lager:debug("Error parsing uri ~s: ~p (~p)", [String, Type, Line]),
+            lager:notice("Error parsing uri ~s: ~p (~p)", [String, Type, Line]),
             error
     end.
 

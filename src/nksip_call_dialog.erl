@@ -472,12 +472,12 @@ update_meta(Key, Value, DialogId, Call) ->
         #dialog{meta=DialogMeta1} = Dialog1 ->
             DialogMeta2 = nksip_lib:store_value(Key, Value, DialogMeta1),
             Dialog2 = Dialog1#dialog{meta=DialogMeta2},
-            ?call_warning("Meta {~p,~p} updated in dialog", [Key, Value], Call),
+            ?call_debug("Meta {~p,~p} updated in dialog", [Key, Value], Call),
             store(Dialog2, Call);
         not_found ->
             #call{meta=CallMeta1} = Call,
             CallMeta2 = nksip_lib:store_value(Key, Value, CallMeta1),
-            ?call_warning("Meta {~p,~p} updated in call", [Key, Value], Call),
+            ?call_debug("Meta {~p,~p} updated in call", [Key, Value], Call),
             Call#call{meta=CallMeta2}
     end.
 
@@ -519,7 +519,6 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
 
 timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{local_sdp=SDP} = Invite,
-    lager:notice("Refresh at ~p", [Call#call.app_id]),
     cast(dialog_update, {invite_refresh, SDP}, Dialog, Call),
     Call;
 
@@ -532,6 +531,7 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                 proxy ->
                     update({invite, {stop, timeout}}, Dialog, Call);
                 _ ->
+                    ?call_notice("Dialog ~s sending BYE on timeout", [DialogId], Call),
                     case 
                         nksip_call:sync_send_dialog(DialogId, 'BYE', 
                             [async, {reason, {sip, 408, "Dialog Timeout"}}], Call) 
