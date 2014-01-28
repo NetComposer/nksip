@@ -114,9 +114,13 @@ response(Resp, UAC, Call) ->
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
+    Resp2 = case IsProxy of
+        true -> nksip_call_timer:proxy_response(Req, Resp1);
+        false -> Resp1
+    end,
     Call3 = case NoDialog of
         true -> Call2;
-        false -> nksip_call_uac_dialog:response(Req, Resp1, IsProxy, Call2)
+        false -> nksip_call_uac_dialog:response(Req, Resp2, IsProxy, Call2)
     end,
     Call4 = case 
         Code>=300 andalso (Method=='SUBSCRIBE' orelse Method=='REFER')
@@ -126,7 +130,7 @@ response(Resp, UAC, Call) ->
     end,
     Msg = {MsgId, Id, DialogId},
     Call5 = Call4#call{msgs=[Msg|Msgs]},
-    Call6 = response_status(Status, Resp1, UAC1, Call5),
+    Call6 = response_status(Status, Resp2, UAC1, Call5),
     check_prack(Resp, UAC1, Call6).
 
 
@@ -347,10 +351,10 @@ received_auth(Req, Resp, UAC, Call) ->
         from = From
     } = UAC,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    IsFork = case From of {fork, _} -> true; _ -> false end,
+    IsProxy = case From of {fork, _} -> true; _ -> false end,
     case 
         (Code==401 orelse Code==407) andalso Iter < ?MAX_AUTH_TRIES
-        andalso Method/='CANCEL' andalso (not IsFork) andalso
+        andalso Method/='CANCEL' andalso (not IsProxy) andalso
         nksip_auth:make_request(Req, Resp, Opts++AppOpts) 
     of
         false ->
@@ -370,10 +374,15 @@ received_auth(Req, Resp, UAC, Call) ->
     nksip_call:call().
 
 received_422(Req, Resp, UAC, Call) ->
-    case nksip_call_timer:uac_received_422(Req, Resp, UAC, Call) of
+    #trans{from=From} = UAC,
+    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    case 
+        (not IsProxy) andalso 
+        nksip_call_timer:uac_received_422(Req, Resp, UAC, Call) 
+    of
         {resend, Req1, Call1} ->
             nksip_call_uac_req:resend(Req1, UAC, Call1);
-        continue ->
+        false ->
             received_reply(Resp, UAC, Call)
     end.
 

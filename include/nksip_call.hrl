@@ -90,7 +90,7 @@
     opts :: nksip_lib:proplist(),
     uriset :: nksip:uri_set(),          
     uacs :: [integer()],
-    pending :: [{integer(), nksip:request()}],
+    pending :: [integer()],
     responses :: [nksip:response()], 
     final :: false | '2xx' | '6xx',
     meta = [] :: nksip_lib:proplist()   % No current use

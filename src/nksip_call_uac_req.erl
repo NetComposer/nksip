@@ -49,7 +49,11 @@
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
     #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
-    {#trans{id=Id}=UAC, Call1} = new_uac(Req, Opts, From, Call),
+    Req1 = case From of 
+        {fork, _} -> nksip_call_timer:proxy_request(Req, Call);
+        _ -> Req
+    end,
+    {#trans{id=Id}=UAC, Call1} = new_uac(Req1, Opts, From, Call),
     case lists:member(async, Opts) andalso From of
         {srv, SrvFrom} when Method=='ACK' -> 
             gen_server:reply(SrvFrom, async);

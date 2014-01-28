@@ -316,8 +316,8 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
                 _ -> UAS2
             end,
             nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call));
-        {reply, SipReply} ->
-            reply(SipReply, UAS, Call)
+        {reply, SipReply, Call1} ->
+            reply(SipReply, UAS, Call1)
     end;
 
 
