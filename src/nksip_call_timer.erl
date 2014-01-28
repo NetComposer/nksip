@@ -127,7 +127,8 @@ uac_received_422(Req, Resp, UAC, Call) ->
 
 %% @private
 -spec uas_check_422(nksip:method(), nksip:request(), nksip_call:call()) ->
-    continue | {update, nksip:request()} | {reply, nksip:user_reply()}.
+    continue | {update, nksip:request(), nksip_call:call()} | 
+               {reply, nksip:user_reply(), nksip_call:call()}.
 
 uas_check_422(Method, Req, Call) ->
     case Method=='INVITE' orelse Method=='UPDATE' of
@@ -136,20 +137,28 @@ uas_check_422(Method, Req, Call) ->
                 undefined ->
                     continue;
                 invalid ->
-                    {reply, invalid_request};
+                    {reply, invalid_request, Call};
                 {ok, SE, _} ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     case nksip_config:get_cached(min_session_expires, AppOpts) of
                         MinSE when SE < MinSE ->
+                            #sipmsg{dialog_id=DialogId} = Req,
+                            Call1 = case 
+                                nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
+                            of
+                                MinSE -> Call;
+                                _ -> nksip_call_dialog:update_meta(nksip_min_se, MinSE, 
+                                                                   DialogId, Call)
+                            end,
                             case nksip_sipmsg:supported(Req, <<"timer">>) of
                                 true ->
-                                    {reply, {422, [{<<"Min-SE">>, MinSE}]}};
+                                    {reply, {422, [{<<"Min-SE">>, MinSE}]}, Call1};
                                 false ->
                                     % No point in returning 422
                                     % Update in case we are a proxy
                                     Headers1 = nksip_headers:update(Req, 
                                                     [{single, <<"Min-SE">>, MinSE}]),
-                                    {update, Req#sipmsg{headers=Headers1}}
+                                    {update, Req#sipmsg{headers=Headers1}, Call1}
                             end;
                         _ ->
                             continue

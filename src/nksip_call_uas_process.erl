@@ -102,11 +102,11 @@ check_422(Method, Req, UAS, Call) ->
     case nksip_call_timer:uas_check_422(Method, Req, Call) of
         continue -> 
             dialog(Method, Req, UAS, Call);
-        {update, Req1} ->
+        {update, Req1, Call1} ->
             UAS1 = UAS#trans{request=Req1},
-            dialog(Method, Req1, UAS1, update(UAS1, Call));
-        {reply, Reply} ->
-            reply(Reply, UAS, Call)
+            dialog(Method, Req1, UAS1, update(UAS1, Call1));
+        {reply, Reply, Call1} ->
+            reply(Reply, UAS, Call1)
     end.
 
 
