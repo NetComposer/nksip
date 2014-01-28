@@ -9,6 +9,7 @@ Changelog
 * UPDATE and MESSAGE methods.
 * Full event support (SUBSCRIBE/NOTIFY).
 * Full PUBLISH support, using in-memory or external database.
+* RFC4028 Session Timers
 * Path support, as client, proxy and registrar.
 * Reason header support in request and responses. 
 * Service-Route header support.
