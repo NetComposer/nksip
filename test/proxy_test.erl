@@ -156,10 +156,12 @@ invalid(Test) ->
     % User not registered: Temporarily Unavailable
     {ok, 480, []} = nksip_uac:options(C1, "sip:other@nksip", []),
 
-    % Force Loop
-    nksip_trace:notice("Next message about a loop detection is expected"),
-    {ok, 482, []} = nksip_uac:options(C1, "sip:any", 
-                        [{route, "<sip:127.0.0.1;lr>, <sip:127.0.0.1;lr>"}]),
+
+    % Now all headers pointing us are removed...
+    % % Force Loop
+    % nksip_trace:notice("Next message about a loop detection is expected"),
+    % {ok, 482, []} = nksip_uac:options(C1, "sip:any", 
+    %                     [{route, "<sip:127.0.0.1;lr>, <sip:127.0.0.1;lr>"}]),
     
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
