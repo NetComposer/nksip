@@ -32,6 +32,23 @@ Last released version is [v0.3.0](https://github.com/kalta/nksip/releases/tag/v0
 * IPv6 support.
 * New SIP parsers fully RFC4475 _Torture Tests_ compliant.
 
+Planned featured for 0.4.0 (not yet released) include:
+
+* Allow an endpoint to start a dialog with itself.
+* Reliable provisional responses.
+* UPDATE and MESSAGE methods.
+* Full event support (SUBSCRIBE/NOTIFY).
+* Full PUBLISH support, using in-memory or external database.
+* RFC4028 Session Timers
+* Path support, as client, proxy and registrar.
+* Reason header support in request and responses. 
+* Service-Route header support.
+* Support for headers in URIs.
+* UAS callback functions receive contextual metadata.
+* New options to customize supported extensions and to generate Require and Accept headers.
+* Use of any external store for registrar instead of in-memory built-in.
+* Bug corrections.
+
 
 Documentation
 =============
