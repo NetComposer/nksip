@@ -275,9 +275,15 @@ route(_ReqId, Scheme, _User, _Domain, _From, #state{id={torture, server1}}=State
     {reply, unsupported_uri_scheme, State};
 
 route(_, _, _, _, _, #state{id={torture, server1}}=State) ->
-    {reply, process, State}.
+    {reply, process, State};
 
+route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={timer, p1}}=State) ->
+    Opts = [record_route, {route, "<sip:127.0.0.1:5070;lr>"}],
+    {reply, {proxy, ruri, Opts}, State};
 
+route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={timer, p2}}=State) ->
+    Opts = [record_route],
+    {reply, {proxy, ruri, Opts}, State}.
 
 
 

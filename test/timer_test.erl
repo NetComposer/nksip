@@ -27,36 +27,21 @@
 
 -compile([export_all]).
 
-% timer_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun basic/0
-%         ]
-%     }.
+timer_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun basic/0},
+            {timeout, 60, fun proxy/0}
+        ]
+    }.
 
 start() ->
     tests_util:start_nksip(),
 
-    % ok = timer_server:start({timer, p1}, [
-    %     {local_host, "localhost"},
-    %     {transport, {udp, {0,0,0,0}, 5060}},
-    %     {transport, {tls, {0,0,0,0}, 5061}}]),
-
-    % ok = timer_server:start({timer, p2}, [
-    %     {local_host, "localhost"},
-    %     {transport, {udp, {0,0,0,0}, 5070}},
-    %     {transport, {tls, {0,0,0,0}, 5071}}]),
-
-    % ok = timer_server:start({timer, p3}, [
-    %     {local_host, "localhost"},
-    %     {transport, {udp, {0,0,0,0}, 5080}},
-    %     {transport, {tls, {0,0,0,0}, 5081}}]),
-
     ok = sipapp_endpoint:start({timer, ua1}, [
         {from, "sip:ua1@nksip"},
-        % {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         no_100,
         {transport, {udp, {0,0,0,0}, 5071}},
@@ -64,24 +49,45 @@ start() ->
     ]),
 
     ok = sipapp_endpoint:start({timer, ua2}, [
-        % {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
         no_100,
         {transport, {udp, {0,0,0,0}, 5072}},
         {min_session_expires, 2}
     ]),
     
+    ok = sipapp_endpoint:start({timer, ua3}, [
+        {local_host, "127.0.0.1"},
+        no_100,
+        {supported, ""},
+        {transport, {udp, {0,0,0,0}, 5073}}
+    ]),
+
+
+    ok = sipapp_server:start({timer, p1}, [
+        {local_host, "localhost"},
+        no_100,
+        {transport, {udp, {0,0,0,0}, 5060}},
+        {min_session_expires, 2}
+    ]),
+
+    ok = sipapp_server:start({timer, p2}, [
+        {local_host, "localhost"},
+        no_100,
+        {transport, {udp, {0,0,0,0}, 5070}},
+        {min_session_expires, 3}
+    ]),
+
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
 
 stop() ->
 
-    % ok = sipapp_server:stop({timer, p1}),
-    % ok = sipapp_server:stop({timer, p2}),
-    % ok = sipapp_server:stop({timer, p3}),
+    ok = sipapp_server:stop({timer, p1}),
+    ok = sipapp_server:stop({timer, p2}),
     ok = sipapp_endpoint:stop({timer, ua1}),
-    ok = sipapp_endpoint:stop({timer, ua2}).
+    ok = sipapp_endpoint:stop({timer, ua2}),
+    ok = sipapp_endpoint:stop({timer, ua3}).
 
 
 basic() ->
@@ -92,10 +98,9 @@ basic() ->
     CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
     RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
-    % % C2 has a min_session_expires of 2
-    % {error, invalid_session_expires} = 
-    %     nksip_uac:invite(C2, "sip:any", [{session_expires, 1}]),
-
+    % C2 has a min_session_expires of 2
+    {error, invalid_session_expires} = 
+        nksip_uac:invite(C2, "sip:any", [{session_expires, 1}]),
 
     % C1 sends a INVITE to C2, with session_expires=1
     % C2 rejects the request, with a 422 response, including Min-SE=2
@@ -245,21 +250,163 @@ basic() ->
     ok = tests_util:wait(Ref, [
         {ua1, {refresh, SDP3}},
         {ua2, timeout},
-        {ua1, bye},
+        {ua1, bye},                         % C1 receives BYE
         {ua1, {dialog_stop, callee_bye}},
         {ua2, {dialog_stop, callee_bye}}
     ]),
 
+    ok.
 
 
+proxy() ->
+    C1 = {timer, ua1},
+    C2 = {timer, ua2},
+    C3 = {timer, ua3},
+    P1 = {timer, p1},
+    P2 = {timer, p2},
+    Ref = make_ref(),
+    Self = self(),
+    CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
+    RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
+    SDP1 = nksip_sdp:new(),
+    {ok, 200, [{dialog_id, Dialog1A}, {<<"Session-Expires">>,[<<"3;refresher=uas">>]}]} = 
+        nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
+            [{session_expires, 1}, {fields, [<<"Session-Expires">>]}, 
+             CB, auto_2xx_ack, get_request, {body, SDP1}, {headers, [RepHd]},
+             {route, "<sip:127.0.0.1:5060;lr>"}
+            ]),
+   
+    % Start events also at C1
+    sipapp_endpoint:start_events(C1, Ref, Self, Dialog1A),
+
+    CallId1 = nksip_dialog:call_id(Dialog1A),
+    receive 
+        {Ref, #sipmsg{headers=Headers1, call_id=CallId1}} ->
+            <<"1">> = proplists:get_value(<<"Session-Expires">>, Headers1),
+            undefined = proplists:get_value(<<"Min-SE">>, Headers1)
+    after 1000 ->
+        error(basic)
+    end,
+
+    receive 
+        {Ref, #sipmsg{headers=Headers2, call_id=CallId1}} ->
+            <<"2">> = proplists:get_value(<<"Session-Expires">>, Headers2),
+            <<"2">> = proplists:get_value(<<"Min-SE">>, Headers2)
+    after 1000 ->
+        error(basic)
+    end,
+    
+    receive 
+        {Ref, #sipmsg{headers=Headers3, call_id=CallId1}} ->
+            <<"3">> = proplists:get_value(<<"Session-Expires">>, Headers3),
+            <<"3">> = proplists:get_value(<<"Min-SE">>, Headers3)
+    after 1000 ->
+        error(basic)
+    end,
+
+    
+    ok = tests_util:wait(Ref, [
+        {ua2, dialog_confirmed},
+        {ua1, dialog_confirmed},
+        {ua2, ack}
+    ]),
+
+    Dialog1B = nksip_dialog:remote_id(C1, Dialog1A),
+    3 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
+    undefined = nksip_dialog:field(C1, Dialog1A, invite_refresh),
+    3 = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
+    true = is_integer(nksip_dialog:field(C2, Dialog1B, invite_refresh)),
+
+    3 = nksip_dialog:field(P1, Dialog1A, invite_session_expires),
+    undefined = nksip_dialog:field(P1, Dialog1A, invite_refresh),
+    3 = nksip_dialog:field(P2, Dialog1A, invite_session_expires),
+    undefined = nksip_dialog:field(P2, Dialog1A, invite_refresh),
+
+    {ok, 200, []} = nksip_uac:update(C1, Dialog1A, [{session_expires, 1000}]),
+    1000 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
+    1000 = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
+    1000 = nksip_dialog:field(P1, Dialog1A, invite_session_expires),
+    1000 = nksip_dialog:field(P2, Dialog1A, invite_session_expires),
+
+    {ok, 200, []} = nksip_uac:bye(C2, Dialog1B, []),
+
+
+    % P1 received a Session-Timer of 1801. Since it has configured a 
+    % time of 1800, and it is > MinSE, it chages the value
+    {ok, 200, [{dialog_id, Dialog2}, {<<"Session-Expires">>,[<<"1800;refresher=uas">>]}]} = 
+        nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
+            [{session_expires, 1801}, {fields, [<<"Session-Expires">>]}, 
+             auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
+            ]),
+    {ok, 200, []} = nksip_uac:bye(C1, Dialog2, []),
+
+    
+    % Now C1 does not support the timer extension. P1 adds a Session-Expires
+    % header. C2 accepts the session proposal, but it doesn't add the
+    % 'Require' header
+    {ok, 200, [{dialog_id, Dialog3A}, {<<"Session-Expires">>,[<<"1800;refresher=uas">>]}, 
+               {parsed_require, []}]} = 
+        nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
+            [{session_expires, 0}, {supported, "100rel,path"}, 
+             {fields, [<<"Session-Expires">>, parsed_require]}, 
+             auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
+            ]),
+
+    timer:sleep(100),
+    Dialog3B = nksip_dialog:remote_id(C1, Dialog3A),
+    1800 = nksip_dialog:field(C1, Dialog3A, invite_session_expires),
+    undefined = nksip_dialog:field(C1, Dialog3A, invite_refresh),
+    1800 = nksip_dialog:field(C2, Dialog3B, invite_session_expires),
+    true = is_integer(nksip_dialog:field(C2, Dialog3B, invite_refresh)),
+    1800 = nksip_dialog:field(P1, Dialog3A, invite_session_expires),
+    1800 = nksip_dialog:field(P2, Dialog3A, invite_session_expires),
+    {ok, 200, []} = nksip_uac:bye(C1, Dialog3A, []),
+
+    % Now C3 not support the timer extension. It does not return any
+    % Session-Expires, but P2 remembers C1 supports the extension
+    % and adds a response and require
+    {ok, 200, [{dialog_id, Dialog4A}, {<<"Session-Expires">>,[<<"1800;refresher=uac">>]}, 
+               {parsed_require, [{<<"timer">>, []}]}]} = 
+        nksip_uac:invite(C1, "sip:127.0.0.1:5073", 
+            [{fields, [<<"Session-Expires">>, parsed_require]}, 
+             auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
+            ]),
+
+    timer:sleep(100),
+    Dialog4B = nksip_dialog:remote_id(C1, Dialog4A),
+    1800 = nksip_dialog:field(C1, Dialog4A, invite_session_expires),
+    true = is_integer(nksip_dialog:field(C1, Dialog4A, invite_refresh)),
+    undefined = nksip_dialog:field(C3, Dialog4B, invite_session_expires),
+    undefined  = nksip_dialog:field(C3, Dialog4B, invite_refresh),
+    1800 = nksip_dialog:field(P1, Dialog4A, invite_session_expires),
+    1800 = nksip_dialog:field(P2, Dialog4A, invite_session_expires),
+    {ok, 200, []} = nksip_uac:bye(C1, Dialog4A, []),
+
+
+    % None of UAC and UAS supports the extension
+    % Router adds a Session-Expires header, but it is not honored
+    {ok, 200, [{dialog_id, Dialog5A}, {<<"Session-Expires">>,[]}, 
+               {parsed_require, []}]} = 
+        nksip_uac:invite(C1, "sip:127.0.0.1:5073", 
+            [{session_expires, 0}, {supported, "100rel,path"}, 
+             {fields, [<<"Session-Expires">>, parsed_require]}, 
+             auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
+            ]),
+
+    timer:sleep(100),
+    Dialog5B = nksip_dialog:remote_id(C1, Dialog5A),
+    undefined = nksip_dialog:field(C1, Dialog5A, invite_session_expires),
+    undefined = nksip_dialog:field(C1, Dialog5A, invite_refresh),
+    undefined = nksip_dialog:field(C3, Dialog5B, invite_session_expires),
+    undefined = nksip_dialog:field(C3, Dialog5B, invite_refresh),
+    undefined = nksip_dialog:field(P1, Dialog5A, invite_session_expires),
+    undefined = nksip_dialog:field(P2, Dialog5A, invite_session_expires),
+    {ok, 200, []} = nksip_uac:bye(C1, Dialog5A, []),
 
     ok.
 
-    % {ok, 200, _} = nksip_uac:invite(C1, "sip:127.0.0.1:5090", 
-    %     [auto_2xx_ack, {session_expires, 10}]),    
 
-        
 
 
 
