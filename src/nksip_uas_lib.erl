@@ -496,16 +496,16 @@ ruri_has_maddr(#sipmsg{
     end.
 
 
-%% @private Remove top route if reached
+%% @private Remove top routes if reached
 remove_local_route(#sipmsg{app_id=AppId, routes=Routes}=Request) ->
     case Routes of
         [] ->
             Request;
         [Route|RestRoutes] ->
             case nksip_transport:is_local(AppId, Route) of
-                true -> Request#sipmsg{routes=RestRoutes};
+                true -> remove_local_route(Request#sipmsg{routes=RestRoutes});
                 false -> Request
-            end
+            end 
     end.
 
 
