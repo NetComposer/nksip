@@ -22,7 +22,8 @@
 -module(nksip_call_timer).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([uac_received_422/4, uac_update_timer/3, uas_check_422/3, uas_update_timer/3, get_timer/4, proxy_request/2, proxy_response/2]).
+-export([uac_received_422/4, uac_update_timer/3, uas_check_422/3, uas_update_timer/3]).
+-export([get_timer/4, proxy_request/2, proxy_response/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -32,6 +33,44 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+%% @private
+-spec get_timer(nksip:request(), nksip:response(), uac|uas, nksip_call:call()) ->
+    {refresher | refreshed | none, integer()}.
+
+get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
+             when Code>=200 andalso Code<300 ->
+    #call{app_id=_AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
+    Default = nksip_config:get_cached(session_expires, AppOpts),
+    {SE, Refresh} = case nksip_sipmsg:require(Resp, <<"timer">>) of
+        true ->
+            case nksip_parse:session_expires(Resp) of
+                {ok, SE0, Refresh0} ->
+                    {SE0, Refresh0};
+                undefined ->                % Remote said 'no session timer'
+                    {Default, undefined};
+                invalid ->
+                    ?call_warning("Invalid Session-Expires in response", [], Call),
+                    {Default, undefined}
+            end;
+        false ->
+            case nksip_sipmsg:supported(Req, <<"timer">>) of
+                true ->
+                    case nksip_parse:session_expires(Req) of
+                        {ok, SE0, _} -> {SE0, uac};
+                        _ -> {Default, undefined}
+                    end;
+                false->
+                    {Default, undefined}
+            end
+    end,
+    Type = case Class==Refresh of
+        true -> refresher;
+        false when Refresh/=undefined -> refreshed;
+        false -> none
+    end,
+    ?call_error("Session Timer updated (~p, ~p, ~p, ~p)", [Class, Refresh, Type, SE], Call),
+    {Type, SE}.
 
 
 %% @private
@@ -214,47 +253,6 @@ uas_update_timer(
 
 uas_update_timer(_Req, Resp, _Call) ->
     Resp.
-
-
-%% @private
--spec get_timer(nksip:request(), nksip:response(), uac|uas, nksip_call:call()) ->
-    {refresher, integer(), integer(), integer()} |
-    {refreshed, integer(), integer()} |
-    {none, integer()}.
-
-get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
-             when Code>=200 andalso Code<300 ->
-    #call{app_id=_AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
-    Default = nksip_config:get_cached(session_expires, AppOpts),
-    {SE, Refresh} = case nksip_sipmsg:require(Resp, <<"timer">>) of
-        true ->
-            case nksip_parse:session_expires(Resp) of
-                {ok, SE0, Refresh0} ->
-                    {SE0, Refresh0};
-                undefined ->                % Remote said 'no session timer'
-                    {Default, undefined};
-                invalid ->
-                    ?call_warning("Invalid Session-Expires in response", [], Call),
-                    {Default, undefined}
-            end;
-        false ->
-            case nksip_sipmsg:supported(Req, <<"timer">>) of
-                true ->
-                    case nksip_parse:session_expires(Req) of
-                        {ok, SE0, _} -> {SE0, uac};
-                        _ -> {Default, undefined}
-                    end;
-                false->
-                    {Default, undefined}
-            end
-    end,
-    Return = case Class==Refresh of
-        true -> {refresher, SE, 1000*SE, 500*SE};
-        false when Refresh/=undefined -> {refreshed, SE, 750*SE};
-        false -> {none, 1000*SE}
-    end,
-    ?call_error("TIMER UPDATE: ~p, ~p, ~p", [Class, Refresh, Return], Call),
-    Return.
 
 
 %% @private

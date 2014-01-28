@@ -103,7 +103,7 @@ update(prack, Dialog, Call) ->
 update({update, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = target_update(Class, Req, Resp, Dialog, Call),
     Dialog2 = session_update(Dialog1, Call),
-    Dialog3 = timer_update(Req, Resp, Dialog2, Call),
+    Dialog3 = timer_update(Req, Resp, Class, Dialog2, Call),
     store(Dialog3, Call);
 
 update({subscribe, Class, Req, Resp}, Dialog, Call) ->
@@ -182,7 +182,7 @@ update({invite, Status}, Dialog, Call) ->
         true -> Dialog2#dialog{blocked_route_set=true};
         false -> Dialog2
     end,
-    Dialog4 = timer_update(Req, Resp, Dialog3, Call),
+    Dialog4 = timer_update(Req, Resp, Class, Dialog3, Call),
     store(Dialog4, Call);
 
 update(none, Dialog, Call) ->
@@ -360,16 +360,16 @@ session_update(Dialog, _Call) ->
 
 
 %% @private
--spec timer_update(nksip:request(), nksip:response(), 
-                             nksip:dialog(), nksip_call:call()) ->
+-spec timer_update(nksip:request(), nksip:response(), uac|uas,
+                   nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
-timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, 
+timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
              #dialog{invite=#invite{status=confirmed}}=Dialog, Call)
              when Code>=200 andalso Code<300 ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{
-        class = Class,
+        % class from #invite{} can only be used for INVITE, not UPDATE
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer, 
         refresh_timer = RefreshTimer
@@ -378,32 +378,32 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp,
     cancel_timer(TimeoutTimer),
     cancel_timer(RefreshTimer),
     Invite1 = case nksip_call_timer:get_timer(Req, Resp, Class, Call) of
-        {refresher, SE, Timeout, Refresh} ->
+        {refresher, SE} ->
             Invite#invite{
                 retrans_timer = undefined,
                 session_expires = SE,
-                timeout_timer = start_timer(Timeout, invite_timeout, DialogId),
-                refresh_timer = start_timer(Refresh, invite_refresh, DialogId)
+                timeout_timer = start_timer(1000*SE, invite_timeout, DialogId),
+                refresh_timer = start_timer(500*SE, invite_refresh, DialogId)
             };
-        {refreshed, SE, Timeout} ->
+        {refreshed, SE} ->
             Invite#invite{
                 retrans_timer = undefined,
                 session_expires = SE,
-                timeout_timer = start_timer(Timeout, invite_timeout, DialogId),
+                timeout_timer = start_timer(750*SE, invite_timeout, DialogId),
                 refresh_timer = undefined
             };
         {none, Timeout} ->
             Invite#invite{
                 retrans_timer = undefined,
                 session_expires = undefined,
-                timeout_timer = start_timer(Timeout, invite_timeout, DialogId),
+                timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId),
                 refresh_timer = undefined
             }
     end,
     Dialog#dialog{invite=Invite1};
 
 
-timer_update(_Req, _Resp, Dialog, Call) ->
+timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{
         status = Status,
@@ -472,12 +472,12 @@ update_meta(Key, Value, DialogId, Call) ->
         #dialog{meta=DialogMeta1} = Dialog1 ->
             DialogMeta2 = nksip_lib:store_value(Key, Value, DialogMeta1),
             Dialog2 = Dialog1#dialog{meta=DialogMeta2},
-            ?call_warning("Meta ~p, ~p updated in dialog", [Key, Value], Call),
+            ?call_warning("Meta {~p,~p} updated in dialog", [Key, Value], Call),
             store(Dialog2, Call);
         not_found ->
             #call{meta=CallMeta1} = Call,
             CallMeta2 = nksip_lib:store_value(Key, Value, CallMeta1),
-            ?call_warning("Meta ~p, ~p updated in call", [Key, Value], Call),
+            ?call_warning("Meta {~p,~p} updated in call", [Key, Value], Call),
             Call#call{meta=CallMeta2}
     end.
 
