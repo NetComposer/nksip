@@ -162,7 +162,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         end,
         Contacts1 = case lists:member(make_contact, Opts) of
             true ->
-                [#uri{
+                C1 = #uri{
                     scheme = case Scheme of sips -> sips; _ -> sip end,
                     user = From#uri.user,
                     domain = ListenHost,
@@ -172,7 +172,26 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                         udp when Scheme==sip -> [];
                         _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}] 
                     end
-                }|Contacts];
+                },
+                C2 = case nksip_sipmsg:get_supported(<<"outbound">>, Req) of
+                    true when Method=='REGISTER' ->
+                        ExtOpts = [
+                            {<<"+sip.instance">>, nksip_sipapp_srv:get_uuid(AppId)} |
+                            case nksip_lib:get_integer(reg_id, Opts) of
+                                RegId when RegId > 0 -> 
+                                    {<<"reg_id">>, nksip_lib:to_binary(RegId)};
+                                _ ->
+                                    []
+                            end
+                        ],
+                        C1#uri{ext_opts=ExtOpts};
+                    true ->
+                        Opts1 = [<<"ob">> | C1#uri.opts],
+                        C1#uri{opts=Opts1};
+                    false ->
+                        C1
+                end,
+                [C2|Contacts];
             false ->
                 Contacts
         end,
