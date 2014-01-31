@@ -420,6 +420,10 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             case nksip_lib:get_binary(refer_subscription_id, Opts1) of
                 <<>> -> [];
                 ReferSubsId -> {refer_subscription_id, ReferSubsId}
+            end,
+            case nksip_lib:integer(outbound_reg_id, Opts1) of
+                ObRegId when ObRegId>0 -> {outbound_reg_id, ObRegId};
+                _ -> []
             end
         ],
         {ok, Req, lists:flatten(ExtOpts)}

@@ -299,6 +299,12 @@
 %%          <td>If defined, this value will be used instead of default when 
 %%          option `make_accept' is used</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`outbound_proxy'</td>
+%%          <td>`string()|binary()'</td>
+%%          <td></td>
+%%          <td></td>
+%%      </tr>
 %%  </table>
 %%
 %% <br/>
@@ -455,6 +461,14 @@ start(AppId, Module, Args, Opts) ->
                     {min_session_expires, MinSE};
                 _ ->
                     throw({invalid, min_session_expires})
+            end,
+            case 
+                get_outbound_proxies(
+                    proplists:get_all_values(outbound_proxy, Opts), 1, []) 
+            of
+                error -> throw({invalid, outbound_proxy});
+                [] -> [];
+                OBPs -> {oubound_proxies, OBPs}
             end
         ],
         nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts))
@@ -558,6 +572,31 @@ get_port(AppId, Proto, Class) ->
         [{#transport{listen_port=Port}, _Pid}|_] -> Port;
         _ -> not_found
     end.
+
+
+
+%% ===================================================================
+%% Private
+%% ===================================================================
+
+
+%% @private
+get_outbound_proxies([#uri{}=Uri|Rest], Pos, Acc) ->
+    get_outbound_proxies(Rest, Pos+1, Acc++[{Pos, Uri}]);
+
+get_outbound_proxies([Uri|Rest], Pos, Acc) ->
+    case nksip_parse:uris(Uri) of
+        error -> error;
+        Uris -> get_outbound_proxies(Uris++Rest, Pos, Acc)
+    end;
+
+get_outbound_proxies([], _Pos, Acc) ->
+    Acc.
+
+
+
+
+
 
 
 

@@ -339,6 +339,12 @@ options(AppId, Dest, Opts) ->
 %%          <td>If present, unregisters all registered contacts for this user (sets
 %%              <i>Contact</i> to <i>*</i> and <i>Expires</i> to 0)</td>
 %%      </tr>
+%%      <tr>
+%%          <td>`outbound_reg_id</td>
+%%          <td></td>
+%%          <td></td>
+%%          <td>If present, </td>
+%%      </tr>
 %% </table>
 %% 
 %% You will usually want to include a `make_contact' option to generate a valid
