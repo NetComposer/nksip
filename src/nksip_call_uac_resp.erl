@@ -383,8 +383,26 @@ received_422(Req, Resp, UAC, Call) ->
         {resend, Req1, Call1} ->
             nksip_call_uac_req:resend(Req1, UAC, Call1);
         false ->
-            received_reply(Resp, UAC, Call)
+            received_outbound(Req, Resp, UAC, Call)
     end.
+
+
+%% @private
+received_outbound(Req, Resp, UAC, Call) ->
+    #sipmsg{class={req, Method}, supported=Supported} = Req,
+    #sipmsg{class={resp, Code, _}, require=Require} = Resp,
+    case 
+        Method=='REGISTER' andalso Code>=200 andalso Code<300 andalso
+        lists:member(<<"outboud">>, Supported) andalso
+        lists:member(<<"outboud">>, Require) 
+    of
+        true ->
+            nksip_sipapp_auto:start_timealives(Req, Resp);
+        false ->
+            ok
+    end,
+    received_reply(Resp, UAC, Call).
+
 
 
 %% @private 
