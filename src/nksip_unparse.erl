@@ -25,6 +25,7 @@
 -include("nksip.hrl").
 
 -export([uri/1, uri2proplist/1, via/1, token/1, packet/1, raw_packet/3]).
+-export([add_sip_instance/2]).
 -export([error_reason/1]).
 
 
@@ -124,6 +125,19 @@ error_reason(_) ->
     error.
 
 
+%% @doc Adds a "+sip_instance" media feature tag to a Contact
+-spec add_sip_instance(nksip:app_id(), nksip:uri()) ->
+    nksip:uri().
+
+add_sip_instance(AppId, #uri{ext_opts=ExtOpts}=Uri) ->
+    case nksip_sipapp_srv:get_uuid(AppId) of
+        {ok, UUID} ->
+            Text = <<"<urn:uuid:", UUID/binary, ">">>,
+            ExtOpts1 = nksip_lib:store_value(<<"+sip.instance">>, Text, ExtOpts),
+            {ok, Uri#uri{ext_opts=ExtOpts1}};
+        {error, not_found} ->
+            {error, sipapp_not_found}
+    end.
 
 
 %% ===================================================================
