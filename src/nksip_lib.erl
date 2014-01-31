@@ -22,7 +22,7 @@
 -module(nksip_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([cseq/0, luid/0, lhash/1, uid/0, hash/1]).
+-export([cseq/0, luid/0, lhash/1, uid/0, uuid_4122/0, hash/1]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([timestamp/0, l_timestamp/0, l_timestamp_to_float/1]).
 -export([timestamp_to_local/1, timestamp_to_gmt/1]).
@@ -76,6 +76,18 @@ cseq() ->
 
 luid() ->
     lhash({make_ref(), os:timestamp()}).
+
+
+%% @doc Generates a RFC4122 compatible uuid
+-spec uuid_4122() ->
+    binary().
+
+uuid_4122() ->
+    Rand = hex(crypto:rand_bytes(4)),
+    <<A:16/bitstring, B:16/bitstring, C:16/bitstring>> = <<(nksip_lib:l_timestamp()):48>>,
+    Hw = get_hwaddr(),
+    <<Rand/binary, $-, (hex(A))/binary, $-, (hex(B))/binary, $-, 
+      (hex(C))/binary, $-, Hw/binary>>.
 
 
 %% @doc Generates a new printable SHA hash binary over `Base' (using 160 bits).
@@ -189,6 +201,35 @@ find_real_ip([{{A,B,C,D,E,F,G,H}, Netmask}|_], ipv6)
 
 find_real_ip([_|R], Type) ->
     find_real_ip(R, Type).
+
+
+%% @private Finds the MAC addr for enX or ethX, or a random one if none is found
+get_hwaddr() ->
+    {ok, Addrs} = inet:getifaddrs(),
+    get_hwaddrs(Addrs).
+
+
+%% @private
+get_hwaddrs([{Name, Data}|Rest]) ->
+    case Name of
+        "en"++_ ->
+            case nksip_lib:get_value(hwaddr, Data) of
+                Hw when is_list(Hw), length(Hw)==6 -> hex(Hw);
+                _ -> get_hwaddrs(Rest)
+            end;
+        "eth"++_ ->
+            case nksip_lib:get_value(hwaddr, Data) of
+                Hw when is_list(Hw), length(Hw)==6 -> hex(Hw);
+                _ -> get_hwaddrs(Rest)
+            end;
+        _ ->
+            get_hwaddrs(Rest)
+    end;
+
+get_hwaddrs([]) ->
+    hex(crypto:rand_bytes(6)).
+
+
 
 
 % calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}).
