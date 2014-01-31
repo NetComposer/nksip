@@ -42,7 +42,10 @@ uris(Bin) when is_binary(Bin) ->
     uris(binary_to_list(Bin));
 
 uris(String) when is_list(String) ->
-    uris(strip(String), []).
+    uris(strip(String), []);
+
+uris(_) ->
+    error.
 
 
 %% ===================================================================
