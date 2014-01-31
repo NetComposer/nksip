@@ -140,15 +140,29 @@ get_registers(AppId) ->
 
 %% @private 
 init(AppId, Module, _Args, Opts) ->
+    RegTime = nksip_lib:get_integer(register_expires, Opts, 300),
     case nksip_lib:get_value(register, Opts) of
         undefined ->
             ok;
         Reg ->
-            RegTime = nksip_lib:get_integer(register_expires, Opts, 300),
-            spawn(
+            spawn_link(
                 fun() -> 
                     start_register(AppId, <<"auto">>, Reg, RegTime, Opts) 
                 end)
+    end,
+    case nksip_lib:get_value(outbound_proxies, Opts) of
+        undefined ->
+            ok;
+        ObRegs ->
+            lists:foreach(
+                fun({Pos, Uri}) ->
+                    Opts1 = [{outbound_reg_id, Pos}],
+                    spawn_link(
+                        fun() -> 
+                            start_register(AppId, <<"auto">>, Uri, RegTime, Opts1) 
+                        end)
+                end,
+                ObRegs)
     end,
     #state{app_id=AppId, module=Module, pings=[], regs=[]}.
 
