@@ -80,7 +80,7 @@ get_module(AppId) ->
 
 get_uuid(AppId) ->
     case nksip_proc:values({nksip_sipapp_uuid, AppId}) of
-        [{UUID, _Pid}] -> {ok, UUID};
+        [{UUID, _Pid}] -> {ok, <<"<urn:uuid:", UUID/binary, ">">>};
         [] -> {error, not_found}
     end.
 

@@ -132,8 +132,7 @@ error_reason(_) ->
 add_sip_instance(AppId, #uri{ext_opts=ExtOpts}=Uri) ->
     case nksip_sipapp_srv:get_uuid(AppId) of
         {ok, UUID} ->
-            Text = <<"<urn:uuid:", UUID/binary, ">">>,
-            ExtOpts1 = nksip_lib:store_value(<<"+sip.instance">>, Text, ExtOpts),
+            ExtOpts1 = nksip_lib:store_value(<<"+sip.instance">>, UUID, ExtOpts),
             {ok, Uri#uri{ext_opts=ExtOpts1}};
         {error, not_found} ->
             {error, sipapp_not_found}
