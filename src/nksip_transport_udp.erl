@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([start_listener/4, send/2, send/4, send_stun/3, get_port/1]).
+-export([start_listener/4, send/2, send/4, send_stun/3, get_port/1, connect/3]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
              handle_info/2]).
 
@@ -63,6 +63,20 @@ start_listener(AppId, Ip, Port, _Opts) ->
     },
     nksip_transport_sup:add_transport(AppId, Spec).
 
+
+%% @private Registers a new connection
+connect(AppId, Ip, Port) ->
+    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
+    case nksip_transport:get_listening(AppId, udp, Class) of
+        [{_Transp, Pid}|_] -> 
+            Timeout = 64 * nksip_config:get(timer_t1),
+            case catch gen_server:call(Pid, {connect, Ip, Port, Timeout}) of
+                ok -> ok;
+                _ -> {error, no_response}
+            end;
+        [] ->
+            {error, no_listening_transport}
+    end.
 
 
 %% @private Sends a new UDP request or response
@@ -157,7 +171,8 @@ start_link(AppId, Transp) ->
     transport :: nksip_transport:transport(),
     socket :: port(),
     tcp_pid :: pid(),
-    stuns :: [{Id::binary(), Time::nksip_lib:timestamp(), term()}]
+    stuns :: [{Id::binary(), Time::nksip_lib:timestamp(), term()}],
+    conns :: [{Ref::reference(), Ip::inet:ip_address(), Port::inet:port_number()}]
 }).
 
 
@@ -218,10 +233,22 @@ handle_call({send_stun, Ip, Port}, From, #state{
 handle_call(get_port, _From, #state{transport=#transport{listen_port=Port}}=State) ->
     {reply, {ok, Port}, State};
 
+handle_call({connect, Ip, Port, Timeout}, _From, State) ->
+    #state{app_id=AppId, transport=Transp, conns=Conns} = State,
+    Transp1 = Transp#transport{
+        remote_ip = Ip,
+        remote_port = Port
+    },
+    ?debug(AppId, "connected to ~s:~p (udp)", 
+        [nksip_lib:to_host(Ip), Port]),
+    nksip_proc:put({nksip_connection, {AppId, udp, Ip, Port}}, Transp1), 
+    Ref = erlang:start_timer(Timeout, self(), check_connection),
+    Conns1 = [{Ref, Ip, Port}|Conns],
+    {reply, ok, State#state{conns=Conns1}};
+
 handle_call(Msg, _Form, State) -> 
     lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
     {noreply, State}.
-
 
 
 %% @private
@@ -280,6 +307,15 @@ handle_info({udp, Socket, Ip, Port, Packet}, #state{socket=Socket}=State) ->
     read_packets(100, State),
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, State};
+
+handle_info({timeout, Ref, check_connection}, #state{app_id=AppId, conns=Conns}=State) ->
+    case lists:keytake(Ref, 1, Conns) of
+        {value, {Ref, Ip, Port}, Conns1} ->
+            nksip_proc:del({nksip_connection, {AppId, udp, Ip, Port}}),
+            {noreply, State#state{conns=Conns1}};
+        false ->
+            {noreply, State}
+    end;
 
 handle_info(Info, State) -> 
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
