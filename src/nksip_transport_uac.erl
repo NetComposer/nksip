@@ -173,7 +173,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                         _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}] 
                     end
                 },
-                C2 = case nksip_sipmsg:get_supported(<<"outbound">>, Req) of
+                C2 = case nksip_sipmsg:supported(Req, <<"outbound">>) of
                     true when Method=='REGISTER' ->
                         ExtOpts = [
                             {<<"+sip.instance">>, nksip_sipapp_srv:get_uuid(AppId)} |
