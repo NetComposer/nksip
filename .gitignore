@@ -3,3 +3,4 @@ ebin
 log/
 *.beam
 .eunit
+uuid_*

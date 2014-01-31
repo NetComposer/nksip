@@ -60,6 +60,8 @@
 %%       <td>Registrar maximum allowed time (secs).</td></tr>
 %%   <tr><td>`dns_cache_ttl'</td><td>3600</td>
 %%       <td>DNS cache TTL (See {@link nksip_dns}) (secs).</td></tr>
+%%   <tr><td>`local_data_path</td><td>"log"</td>
+%%       <td>Path to store UUID files.</td></tr>
 %% </table>
 
 -module(nksip_config).
@@ -174,7 +176,8 @@ default_config() ->
         {registrar_default_time, 3600},     % (secs) 1 hour
         {registrar_min_time, 60},           % (secs) 1 min
         {registrar_max_time, 86400},        % (secs) 24 hour
-        {dns_cache_ttl, 3600}               % (secs) 1 hour
+        {dns_cache_ttl, 3600},              % (secs) 1 hour
+        {local_data_path, "log"}            % 
     ].
 
 

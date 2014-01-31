@@ -28,7 +28,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([get_module/1, get_opts/1, reply/2]).
+-export([get_module/1, get_uuid/1, get_opts/1, reply/2]).
 -export([sipapp_call/6, sipapp_call_wait/6, sipapp_cast/5]).
 -export([register/2, get_registered/2, put_opts/2, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
@@ -73,6 +73,17 @@ get_module(AppId) ->
         [] -> {error, not_found}
     end.
         
+
+%% @doc Gets SipApp's module and pid
+-spec get_uuid(nksip:app_id()) -> 
+    {ok, binary()} | {error, not_found}.
+
+get_uuid(AppId) ->
+    case nksip_proc:values({nksip_sipapp_uuid, AppId}) of
+        [{UUID, _Pid}] -> {ok, UUID};
+        [] -> {error, not_found}
+    end.
+
 
 %% @doc Gets SipApp's module, options and pid
 -spec get_opts(nksip:app_id()) -> 
@@ -253,6 +264,14 @@ init([AppId, Module, Args, Opts]) ->
     erlang:start_timer(timeout(), self(), '$nksip_timer'),
     RegState = nksip_sipapp_auto:init(AppId, Module, Args, Opts),
     nksip_call_router:clear_app_cache(AppId),
+    case read_uuid(AppId) of
+        {ok, UUID} ->
+            ok;
+        {error, Path} ->
+            UUID = nksip_lib:uuid_4122(),
+            save_uuid(AppId, Path, UUID)
+    end,
+    nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
     State1 = #state{
         id = AppId, 
         module = Module, 
@@ -458,3 +477,33 @@ mod_handle_info(Info, State = #state{module=Module, id=AppId}) ->
             ?warning(AppId, "received unexpected message ~p", [Info]),
             {noreply, State}
     end.
+
+
+%% @private
+read_uuid(AppId) ->
+    BasePath = nksip_config:get(local_data_path),
+    File = "uuid_"++integer_to_list(erlang:phash2(AppId)),
+    Path = filename:join(BasePath, File),
+    case file:read_file(Path) of
+        {ok, Binary} ->
+            case binary:split(Binary, <<$,>>) of
+                [UUID|_] when byte_size(UUID)==36 -> {ok, UUID};
+                _ -> {error, Path}
+            end;
+        _ -> 
+            {error, Path}
+    end.
+
+%% @private
+save_uuid(AppId, Path, UUID) ->
+    Content = [UUID, $,, nksip_lib:to_binary(AppId)],
+    case file:write_file(Path, Content) of
+        ok ->
+            ok;
+        Error ->
+            lager:warning("Could not write file ~s: ~p", [Path, Error]),
+            ok
+    end.
+
+
+
