@@ -40,6 +40,9 @@
                        inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
+start_connection(AppId, udp, Ip, Port, Opts) ->
+    nksip_transport_udp:connect(AppId, Ip, Port, Opts);
+
 start_connection(AppId, Proto, Ip, Port, Opts)
                     when Proto==tcp; Proto==tls; Proto==sctp ->
     ConnId = {AppId, Proto, Ip, Port},
