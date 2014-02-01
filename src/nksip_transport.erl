@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
--export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
+-export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0, start_ping/2]).
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([send/4, raw_send/2]).
 
@@ -182,6 +182,17 @@ local_ips() ->
     nksip_config:get(local_ips).
 
 
+%% @doc
+-spec start_ping(nksip:app_id(), nksip:transport()) ->
+    ok | {error, not_found}.
+
+start_ping(AppId, #transport{proto=Proto, remote_ip=Ip, remote_port=Port}) ->
+    case get_connected(AppId, Proto, Ip, Port) of
+        [{_, Pid}|_] -> do_start_ping(Proto, Pid, Ip, Port);
+        [] -> {error, not_found}
+    end.
+
+
 %% @doc Start a new listening transport.
 -spec start_transport(nksip:app_id(), nksip:protocol(), inet:ip_address(), 
                       inet:port_number(), nksip_lib:proplist()) ->
@@ -213,6 +224,9 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
                        inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
+start_connection(AppId, udp, Ip, Port, Opts) ->
+    nksip_transport_srv:start_connection(AppId, udp, Ip, Port, Opts);
+
 start_connection(AppId, Proto, Ip, Port, Opts) ->
     Max = nksip_config:get(max_connections),
     case nksip_counters:value(nksip_transport_tcp) of
@@ -238,29 +252,8 @@ send(AppId, [#uri{}=Uri|Rest]=All, MakeMsg, Opts) ->
     ?debug(AppId, "Transport send to ~p (~p)", [All, Resolv]),
     send(AppId, Resolv++Rest, MakeMsg, Opts);
 
-send(AppId, [{udp, Ip, 0}|Rest], MakeMsg, Opts) ->
-    %% If no port was explicitly specified, use default.
-    send(AppId, [{udp, Ip, 5060}|Rest], MakeMsg, Opts);
-
-send(AppId, [{udp, Ip, Port}|Rest]=All, MakeMsg, Opts) -> 
-    ?debug(AppId, "Transport send to ~p (udp)", [All]),
-    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-    case get_listening(AppId, udp, Class) of
-        [{Transport1, Pid}|_] -> 
-            Transport2 = Transport1#transport{remote_ip=Ip, remote_port=Port},
-            SipMsg = MakeMsg(Transport2),
-            case nksip_transport_udp:send(Pid, SipMsg) of
-                ok -> 
-                    {ok, SipMsg};
-                error -> 
-                    send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts)
-            end;
-        [] ->
-            send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts)
-    end;
-
 send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
-    send(AppId, [{udp, Ip,Port}|Rest], MakeMsg, Opts);
+    send(AppId, [{udp, Ip, Port}|Rest], MakeMsg, Opts);
 
 send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
@@ -276,23 +269,52 @@ send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts)
             send(AppId, Rest, MakeMsg, Opts)
     end;
 
+send(AppId, [{Proto, Ip, 0}|Rest], MakeMsg, Opts)
+    when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
+    send(AppId, [{Proto, Ip, default_port(Proto)}|Rest], MakeMsg, Opts);
+
+% send(AppId, [{udp, Ip, Port}|Rest]=All, MakeMsg, Opts) -> 
+%     ?debug(AppId, "Transport send to ~p (udp)", [All]),
+%     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
+%     case get_listening(AppId, udp, Class) of
+%         [{Transport1, Pid}|_] -> 
+%             Transport2 = Transport1#transport{remote_ip=Ip, remote_port=Port},
+%             SipMsg = MakeMsg(Transport2),
+%             case nksip_transport_udp:send(Pid, SipMsg) of
+%                 ok -> 
+%                     {ok, SipMsg};
+%                 error -> 
+%                     send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts)
+%             end;
+%         [] ->
+%             send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts)
+%     end;
+
 send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg, Opts) 
-     when Proto==tcp; Proto==tls; Proto==sctp ->
+    when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
     ?debug(AppId, "Transport send to ~p (~p)", [All, Proto]),
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
             SipMsg = MakeMsg(Transport),
             case do_send(Proto, Pid, SipMsg) of
-                ok -> {ok, SipMsg};
-                error -> send(AppId, Rest, MakeMsg, Opts)
+                ok -> 
+                    {ok, SipMsg};
+                error when Proto==udp ->
+                    send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts);
+                error -> 
+                    send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
             case start_connection(AppId, Proto, Ip, Port, Opts) of
                 {ok, Pid, Transport} ->
                     SipMsg = MakeMsg(Transport),
                     case do_send(Proto, Pid, SipMsg) of
-                        ok -> {ok, SipMsg};
-                        error -> send(AppId, Rest, MakeMsg, Opts)
+                        ok -> 
+                            {ok, SipMsg};
+                        error when Proto==udp ->
+                            send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts);
+                        error -> 
+                            send(AppId, Rest, MakeMsg, Opts)
                     end;
                 {error, Error} ->
                     ?notice(AppId, "error connecting to ~p:~p (~p): ~p",
@@ -339,9 +361,17 @@ raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
 
 
 %% @private
+do_send(udp, Pid, SipMsg) -> nksip_transport_udp:send(Pid, SipMsg);
 do_send(tcp, Pid, SipMsg) -> nksip_transport_tcp:send(Pid, SipMsg);
 do_send(tls, Pid, SipMsg) -> nksip_transport_tcp:send(Pid, SipMsg);
 do_send(sctp, Pid, SipMsg) -> nksip_transport_sctp:send(Pid, SipMsg).
+
+
+%% @private
+do_start_ping(udp, Pid, Ip, Port) -> nksip_transport_udp:start_ping(Pid, Ip, Port);
+do_start_ping(tcp, Pid, _Ip, _Port) -> nksip_transport_tcp:start_ping(Pid);
+do_start_ping(tls, Pid, _Ip, _Port) -> nksip_transport_tcp:start_ping(Pid);
+do_start_ping(sctp, Pid, _Ip, _Port) -> nksip_transport_sctp:start_ping(Pid).
 
 
 %% @private
