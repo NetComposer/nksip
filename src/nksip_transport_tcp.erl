@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([start_listener/5, connect/5, send/2, stop/1]).
+-export([start_listener/5, connect/5, send/2, stop/1, start_ping/1, start_ping/2]).
 -export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3,   
             handle_cast/2, handle_info/2]).
 -export([ranch_start_link/6, start_link/4]).
@@ -146,7 +146,24 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
+%% @doc Start a time-alive series (default time)
+-spec start_ping(pid()) ->
+    ok.
 
+start_ping(Pid) ->
+    start_ping(Pid, ?DEFAULT_TCP_KEEPALIVE).
+
+
+%% @doc Start a time-alive series
+-spec start_ping(pid(), pos_integer()) ->
+    ok.
+
+start_ping(Pid, Secs) ->
+    Rand = crypto:rand_uniform(80, 101),
+    Time = (Rand*Secs) div 100,
+    gen_server:cast(Pid, {start_ping, Time}).
+
+    
 %% ===================================================================
 %% gen_server
 %% ===================================================================
@@ -160,6 +177,7 @@ start_link(AppId, Transport, Socket) ->
     transport :: nksip_transport:transport(),
     socket :: port() | ssl:sslsocket(),
     timeout :: non_neg_integer(),
+    refresh :: pos_integer(),
     buffer = <<>> :: binary()
 }).
 
@@ -175,13 +193,14 @@ init([AppId, Transport, Socket]) ->
     nksip_proc:put(nksip_transports, {AppId, Transport}),
     nksip_counters:async([?MODULE]),
     Timeout = 1000*nksip_config:get(tcp_timeout),
-    {ok, 
-        #state{
-            app_id = AppId,
-            transport = Transport, 
-            socket = Socket, 
-            timeout = Timeout,
-            buffer = <<>>}, Timeout}.
+    State = #state{
+        app_id = AppId,
+        transport = Transport, 
+        socket = Socket, 
+        timeout = Timeout,
+        buffer = <<>>
+    },
+    {ok, State, Timeout}.
 
 
 %% @private
@@ -211,6 +230,11 @@ handle_call(Msg, _From, State) ->
 %% @private
 -spec handle_cast(term(), #state{}) ->
     gen_server_cast(#state{}).
+
+handle_cast({start_ping, Secs}, State) ->
+    Time = 1000*Secs,
+    _Ref = erlang:start_timer(Time, self(), do_ping),
+    {noreply, State#state{refresh=Time}, infinity};
 
 handle_cast(stop, State) ->
     {stop, normal, State};
@@ -283,6 +307,22 @@ handle_info({shoot, _ListenerPid}, State) ->
     #state{socket=Socket, transport=#transport{proto=Proto}} = State,
     setopts(Proto, Socket, [{active, once}]),
     {noreply, State, State#state.timeout};
+
+handle_info({timeout, _, do_ping}, State) ->
+    #state{
+        app_id = AppId, 
+        socket = Socket,
+        transport = #transport{proto=Proto},
+        refresh = Refresh
+    } = State,
+    case socket_send(Proto, Socket, <<"\r\n\r\n">>) of
+        ok -> 
+            erlang:start_timer(Refresh, self(), do_ping),
+            {noreply, State#state{timeout=10000}, 10000};
+        {error, Error} ->
+            ?notice(AppId, "could not send TCP message: ~p", [Error]),
+            {stop, normal, State}
+    end;
 
 handle_info(Info, State) -> 
     lager:warning("Module ~p received nexpected info: ~p", [?MODULE, Info]),
