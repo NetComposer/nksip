@@ -224,7 +224,7 @@ handle_call({send, Packet}, _From, State) ->
 
 handle_call(Msg, _From, State) ->
     lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
-    {noreply, State}.
+    {noreply, State, State#state.timeout}.
 
 
 %% @private
@@ -241,7 +241,7 @@ handle_cast(stop, State) ->
 
 handle_cast(Msg, State) ->
     lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
-    {noreply, State}.
+    {noreply, State, State#state.timeout}.
 
 
 %% @private
@@ -326,7 +326,7 @@ handle_info({timeout, _, do_ping}, State) ->
 
 handle_info(Info, State) -> 
     lager:warning("Module ~p received nexpected info: ~p", [?MODULE, Info]),
-    {noreply, State}.
+    {noreply, State, State#state.timeout}.
 
 
 %% @private

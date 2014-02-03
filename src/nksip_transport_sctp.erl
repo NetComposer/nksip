@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/4, connect/4, send/2, send/3, stop/1]).
--export([start_server/3, start_client/3]).
+-export([start_server/3, start_client/3, start_ping/1, start_ping/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,   
          handle_cast/2, handle_info/2]).
 
@@ -165,6 +165,25 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
+%% @doc Start a time-alive series (default time)
+-spec start_ping(pid()) ->
+    ok.
+
+start_ping(Pid) ->
+    start_ping(Pid, ?DEFAULT_TCP_KEEPALIVE).
+
+
+%% @doc Start a time-alive series
+-spec start_ping(pid(), pos_integer()) ->
+    ok.
+
+start_ping(Pid, Secs) ->
+    Rand = crypto:rand_uniform(80, 101),
+    Time = (Rand*Secs) div 100,
+    gen_server:cast(Pid, {start_ping, Time}).
+
+
+
 %% ===================================================================
 %% gen_server
 %% ===================================================================
@@ -185,7 +204,9 @@ start_client(AppId, Transp, Socket) ->
     app_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     socket :: port(),
-    assocs :: dict()
+    assocs :: dict(),
+    timeout :: non_neg_integer(),
+    refresh :: pos_integer()
 }).
 
 
@@ -216,9 +237,11 @@ init([server, AppId, Transp, _Opts]) ->
                 app_id = AppId, 
                 transport = Transp1, 
                 socket = Socket,
-                assocs = dict:new()
+                assocs = dict:new(),
+                timeout = 1000*Autoclose,
+                refresh = undefine
             },
-            {ok, State};
+            {ok, State#state.timeout};
         {error, Error} ->
             ?error(AppId, "could not start SCTP transport on ~p:~p (~p)", 
                    [Ip, Port, Error]),
@@ -233,10 +256,12 @@ init([client, AppId, Transp, Socket]) ->
         app_id = AppId, 
         transport = Transp, 
         socket = Socket,
-        assocs = dict:new()
+        assocs = dict:new(),
+        timeout = 1000*nksip_config:get(sctp_timeout),
+        refresh = undefined
     },
     State1 = add_connection(Ip, Port, AssocId, State),
-    {ok, State1}.
+    {ok, State1, State1#state.timeout}.
 
 
 %% @private
@@ -244,26 +269,31 @@ init([client, AppId, Transp, Socket]) ->
     gen_server_call(#state{}).
 
 handle_call(get_socket, _From, #state{socket=Socket}=State) ->
-    {reply, {ok, Socket}, State};
+    {reply, {ok, Socket}, State#state.timeout};
 
 handle_call(get_assocs, _From, #state{assocs=Assocs}=State) ->
-    {reply, {ok, dict:to_list(Assocs)}, State};
+    {reply, {ok, dict:to_list(Assocs)}, State#state.timeout};
 
 handle_call(Msg, _From, State) ->
     lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
-    {noreply, State}.
+    {noreply, State#state.timeout}.
 
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
     gen_server_cast(#state{}).
 
+handle_cast({start_ping, Secs}, State) ->
+    Time = 1000*Secs,
+    _Ref = erlang:start_timer(Time, self(), do_ping),
+    {noreply, State#state{refresh=Time}, infinity};
+
 handle_cast(stop, State) ->
     {stop, normal, State};
 
 handle_cast(Msg, State) ->
     lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
-    {noreply, State}.
+    {noreply, State#state.timeout}.
 
 
 %% @private
@@ -296,11 +326,37 @@ handle_info({sctp, Socket, Ip, Port, {_Anc, SAC}}, #state{socket=Socket}=State) 
             State
     end,
     ok = inet:setopts(Socket, [{active, once}]),
-    {noreply, State1};
+    {noreply, State1, State#state.timeout};
+
+handle_info({timeout, _, do_ping}, State) ->
+    #state{
+        app_id = AppId, 
+        socket = Socket,
+        refresh = Refresh,
+        assocs = Assocs
+    } = State,
+    lists:foreach(
+        fun({AssocId, _}) ->
+            case gen_sctp:send(Socket, AssocId, 0, <<"\r\n\r\n">>) of
+                ok -> 
+                    ok;
+                {error, Error} ->
+                    ?notice(AppId, "Could not send keep-alive on SCTP to ~p: ~p", 
+                            [AssocId, Error])
+            end
+        end, Assocs),
+    erlang:start_timer(Refresh, self(), do_ping),
+    {noreply, State#state{timeout=10000}, 10000};
+
+handle_info(timeout, State) ->
+    #state{app_id=AppId, socket=Socket} = State,
+    ?debug(AppId, "SCTP connection timeout", []),
+    gen_sctp:close(Socket),
+    {stop, normal, State};
 
 handle_info(Info, State) -> 
     lager:warning("Module ~p received nexpected info: ~p", [?MODULE, Info]),
-    {noreply, State}.
+    {noreply, State, State#state.timeout}.
 
 
 %% @private
