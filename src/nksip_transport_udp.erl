@@ -307,24 +307,26 @@ handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, S
         socket = Socket
     } = State,
     ok = inet:setopts(Socket, [{active, once}]),
+    State1 = inbound(Ip, Port, State),
     case nksip_stun:decode(Packet) of
         {request, binding, TransId, _} ->
             Response = nksip_stun:binding_response(TransId, Ip, Port),
             gen_udp:send(Socket, Ip, Port, Response),
             ?debug(AppId, "sent STUN bind response to ~p:~p", [Ip, Port]),
-            {noreply, State};
+            {noreply, State1};
         {response, binding, TransId, Attrs} ->
-            {noreply, do_stun_response(TransId, Attrs, State)};
+            {noreply, do_stun_response(TransId, Attrs, State1)};
         error ->
             ?notice(AppId, "received unrecognized UDP packet: ~s", [Packet]),
-            {noreply, State}
+            {noreply, State1}
     end;
 
 handle_info({udp, Socket, Ip, Port, Packet}, #state{socket=Socket}=State) ->
     parse(Packet, Ip, Port, State),
     read_packets(100, State),
     ok = inet:setopts(Socket, [{active, once}]),
-    {noreply, State};
+    State1 = inbound(Ip, Port, State),
+    {noreply, State1};
 
 handle_info({timeout, Ref, stun_retrans}, #state{stuns=Stuns}=State) ->
     {value, Stun1, Stuns1} = lists:keytake(Ref, #stun.retrans_timer, Stuns),
@@ -542,7 +544,26 @@ do_connect_timeout(Conn, #state{app_id=AppId}=State) ->
 %% ===================================================================
 
 
-% %% @private
+%% @private
+inbound(Ip, Port, State) ->
+    #state{app_id=AppId, conns=Conns, transport=Transp, timer_t1=T1} = State,    
+    case lists:keymember({Ip, Port}, #conn.dest, Conns) of
+        true -> 
+            State;
+        false -> 
+            ?debug(AppId, "connected from ~s:~p (udp)", [nksip_lib:to_host(Ip), Port]),
+            Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
+            nksip_proc:put({nksip_connection, {AppId, udp, Ip, Port}}, Transp1), 
+            Conn = #conn{
+                dest = {Ip, Port},
+                timeout_timer = start_timer(64*T1, conn_timeout),
+                time = undefined
+            },
+            State#state{conns=[Conn|Conns]}
+    end.
+
+
+%% @private
 start_tcp(AppId, Ip, Port, Pid) ->
     case nksip_transport:start_transport(AppId, tcp, Ip, Port, []) of
         {ok, TcpPid} -> gen_server:cast(Pid, {matching_tcp, {ok, TcpPid}});
