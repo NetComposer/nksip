@@ -92,5 +92,25 @@ route(_ReqId, Scheme, User, Domain, _From, #state{id={path, registrar}}=State) -
             end;
         _ ->
             {reply, {proxy, ruri, []}, State}
+    end;
+
+
+
+
+
+% Registrar is the registrar proxy for "nksip" domain
+route(_ReqId, Scheme, User, Domain, _From, #state{id={outbound, registrar}}=State) ->
+    case Domain of
+        <<"nksip">> when User == <<>> ->
+            {reply, process, State};
+        <<"127.0.0.1">> when User == <<>> ->
+            {reply, process, State};
+        <<"nksip">> ->
+            case nksip_registrar:find({path, registrar}, Scheme, User, Domain) of
+                [] -> {reply, temporarily_unavailable, State};
+                UriList -> {reply, {proxy, UriList}, State}
+            end;
+        _ ->
+            {reply, {proxy, ruri, []}, State}
     end.
 
