@@ -105,7 +105,6 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         app_id = AppId, 
         ruri = RUri, 
         call_id = CallId,
-        from = From, 
         vias = Vias,
         routes = Routes, 
         contacts = Contacts, 
@@ -162,36 +161,8 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         end,
         Contacts1 = case lists:member(make_contact, Opts) of
             true ->
-                C1 = #uri{
-                    scheme = case Scheme of sips -> sips; _ -> sip end,
-                    user = From#uri.user,
-                    domain = ListenHost,
-                    port = ListenPort,
-                    opts = case Proto of
-                        tls when Scheme==sips -> [];
-                        udp when Scheme==sip -> [];
-                        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}] 
-                    end
-                },
-                C2 = case nksip_sipmsg:supported(Req, <<"outbound">>) of
-                    true when Method=='REGISTER' ->
-                        ExtOpts = [
-                            {<<"+sip.instance">>, nksip_sipapp_srv:get_uuid(AppId)} |
-                            case nksip_lib:get_integer(reg_id, Opts) of
-                                RegId when RegId > 0 -> 
-                                    {<<"reg_id">>, nksip_lib:to_binary(RegId)};
-                                _ ->
-                                    []
-                            end
-                        ],
-                        C1#uri{ext_opts=ExtOpts};
-                    true ->
-                        Opts1 = [<<"ob">> | C1#uri.opts],
-                        C1#uri{opts=Opts1};
-                    false ->
-                        C1
-                end,
-                [C2|Contacts];
+                Contact = make_contact(Req, Scheme, Proto, ListenHost, ListenPort, Opts),
+                [Contact|Contacts];
             false ->
                 Contacts
         end,
@@ -260,7 +231,43 @@ make_route(GlobalId, AppId, Branch, ListenHost, ListenPort, Proto) ->
     }.
 
 
-
-
-
+%% @private
+make_contact(Req, Scheme, Proto, ListenHost, ListenPort, Opts) ->
+    #sipmsg{app_id=AppId, from=From, class={req, Method}} = Req,
+    OB = nksip_sipmsg:supported(Req, <<"outbound">>),
+    ExtOpts = case OB of
+        true ->
+            {ok, UUID} = nksip_sipapp_srv:get_uuid(AppId),
+            [
+                {<<"+sip.instance">>, <<$", UUID/binary, $">>} |
+                case 
+                    Method=='REGISTER' andalso 
+                    nksip_lib:get_integer(reg_id, Opts)
+                of
+                    RegId when is_integer(RegId), RegId > 0 -> 
+                        [{<<"reg-id">>, nksip_lib:to_binary(RegId)}];
+                    _ ->
+                        []
+                end
+            ];
+        false ->
+           []
+    end, 
+    Opts1 = case OB of
+        true -> [<<"ob">>];
+        false -> []
+    end,
+    Opts2 = case Proto of
+        tls when Scheme==sips -> Opts1;
+        udp when Scheme==sip -> Opts1;
+        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}|Opts1] 
+    end,
+    #uri{
+        scheme = case Scheme of sips -> sips; _ -> sip end,
+        user = From#uri.user,
+        domain = ListenHost,
+        port = ListenPort,
+        opts = Opts2,
+        ext_opts = ExtOpts
+    }.
 
