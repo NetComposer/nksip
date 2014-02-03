@@ -233,23 +233,8 @@
     {nksip:response(), nksip_lib:proplist()}.
 
 reply(Req, #reqreply{}=ReqReply, AppOpts) ->
-    #sipmsg{app_id=AppId, call_id=CallId} = Req,
     #reqreply{code=Code, headers=Headers, body=Body, opts=Opts} = ReqReply,
-    case nksip_lib:get_value(contact, Opts, []) of
-        [] ->
-            response(Req, Code, Headers, Body, Opts, AppOpts);
-        ContactSpec ->
-            case nksip_parse:uris(ContactSpec) of
-                error -> 
-                    ?warning(AppId, CallId, "UAS returned invalid contact: ~p", 
-                            [ContactSpec]),
-                    Opts1 = [{reason_phrase, <<"Invalid SipApp Response">>}],
-                    response(Req, 500, [], <<>>, Opts1, AppOpts);
-                Contacts ->
-                    Opts1 = [{contact, Contacts}],
-                    response(Req, Code, Headers, Body, Opts1, AppOpts)
-            end
-    end;
+    response(Req, Code, Headers, Body, Opts, AppOpts);
 
 reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, AppOpts) -> 
     case nksip_reply:reqreply(SipReply) of

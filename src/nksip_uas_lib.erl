@@ -91,7 +91,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`make_www_auth': Generates a WWW-Authenticate header</li>
 %%  <li>`make_proxy_auth': Generates a Proxy-Authenticate header</li>
 %%  <li>`make_allow': Generates an Allow header</li>
-%%  <li>`make_supported': Generated a Supported header</li>
+%%  <li>`make_supported': Generates a Supported header</li>
 %%  <li>`make_accept': Generates an Accept header</li>
 %%  <li>`make_date': Generates a Date header</li>
 %%  <li>`make_100rel': If present a Require: 100rel header will be included</li>
@@ -348,10 +348,14 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             end
     end,
     ReasonPhrase = nksip_lib:get_binary(reason_phrase, Opts),
-    AllRespContacts = lists:flatten(proplists:get_all_values(contact, Opts)),
-    RespContacts = case nksip_parse:uris(AllRespContacts) of
-        error -> throw(invalid_contact);
-        RCs1 -> RCs1
+    RespContacts = case nksip_lib:get_value(contact, Opts) of
+        undefined ->
+            [];
+        RespContacts0 ->
+            case nksip_parse:uris(RespContacts0) of
+                error -> throw(invalid_contact);
+                RespContacts1 -> RespContacts1
+            end
     end,
     Expires = case nksip_lib:get_value(expires, Opts) of
         OptExpires when is_integer(OptExpires), OptExpires>=0 -> 
