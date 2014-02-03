@@ -302,7 +302,8 @@
     result() | {error, error()}.
 
 options(AppId, Dest, Opts) ->
-    send_any(AppId, 'OPTIONS', Dest, Opts).
+    Opts1 = [make_supported, make_allow, make_allow_event | Opts],
+    send_any(AppId, 'OPTIONS', Dest, Opts1).
 
 
 %% @doc Sends a REGISTER request.
@@ -340,7 +341,7 @@ options(AppId, Dest, Opts) ->
 %%              <i>Contact</i> to <i>*</i> and <i>Expires</i> to 0)</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`outbound_reg_id</td>
+%%          <td>`reg_id</td>
 %%          <td></td>
 %%          <td></td>
 %%          <td>If present, </td>
@@ -377,7 +378,8 @@ register(AppId, Dest, Opts) ->
         _ -> [{expires, Expires}|Opts]
     end,
     Opts2 = lists:flatten(Opts1++[Contact, {to, as_from}]),
-    send_any(AppId, 'REGISTER', Dest, Opts2).
+    Opts3 = [make_supported, make_allow, make_allow_event | Opts2],
+    send_any(AppId, 'REGISTER', Dest, Opts3).
 
 
 %% @doc Sends an INVITE request.

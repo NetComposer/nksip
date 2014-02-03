@@ -421,8 +421,8 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
                 <<>> -> [];
                 ReferSubsId -> {refer_subscription_id, ReferSubsId}
             end,
-            case nksip_lib:get_integer(outbound_reg_id, Opts1) of
-                ObRegId when ObRegId>0 -> {outbound_reg_id, ObRegId};
+            case nksip_lib:get_integer(reg_id, Opts1) of
+                RegId when RegId>0 -> {reg_id, RegId};
                 _ -> []
             end
         ],
