@@ -65,14 +65,21 @@ start_listener(AppId, Ip, Port, _Opts) ->
     nksip_transport_sup:add_transport(AppId, Spec).
 
 
+%% @private Starts a new connection to a remote server
+-spec connect(nksip:app_id(), inet:ip_address(), inet:port_number()) ->
+    {ok, pid(), nksip_transport:transport()} | {error, term()}.
+         
 %% @private Registers a new connection
 connect(AppId, Ip, Port) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, udp, Class) of
-        [{_Transp, Pid}|_] -> 
+        [{Transp, Pid}|_] -> 
             case catch gen_server:call(Pid, {connect, Ip, Port}) of
-                ok -> ok;
-                _ -> {error, no_response}
+                ok -> 
+                    Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
+                    {ok, Pid, Transp1};
+                _ -> 
+                    {error, no_response}
             end;
         [] ->
             {error, no_listening_transport}
