@@ -156,7 +156,7 @@ init(AppId, Module, _Args, Opts) ->
         ObRegs ->
             lists:foreach(
                 fun({Pos, Uri}) ->
-                    Opts1 = [{outbound_reg_id, Pos}],
+                    Opts1 = [{reg_id, Pos}],
                     spawn_link(
                         fun() -> 
                             start_register(AppId, <<"auto">>, Uri, RegTime, Opts1) 

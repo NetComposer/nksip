@@ -75,7 +75,7 @@ start_listener(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
 %% @private Starts a new connection to a remote server
 -spec connect(nksip:app_id(), tcp|tls,
                     inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
-    {ok, pid(), nksip_transport:transport()} | error.
+    {ok, pid(), nksip_transport:transport()} | {error, term()}.
          
 connect(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
