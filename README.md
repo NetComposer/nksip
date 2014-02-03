@@ -41,6 +41,7 @@ Planned featured for 0.4.0 (not yet released) include:
 * Full PUBLISH support, using in-memory or external database.
 * RFC4028 Session Timers
 * Path support, as client, proxy and registrar.
+* Outbound (RFC5626) and GRUU (RFC5627) support.
 * Reason header support in request and responses. 
 * Service-Route header support.
 * Support for headers in URIs.
