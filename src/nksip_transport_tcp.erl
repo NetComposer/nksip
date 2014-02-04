@@ -23,11 +23,8 @@
 
 -module(nksip_transport_tcp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
--behaviour(gen_server).
 
--export([start_listener/5, connect/5, send/2, stop/1, start_ping/1, start_ping/2]).
--export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3,   
-            handle_cast/2, handle_info/2]).
+-export([start_listener/5, connect/5, send/2, stop/1, start_refresh/1, start_refresh/2]).
 -export([ranch_start_link/6, start_link/4]).
 
 -include("nksip.hrl").
@@ -65,7 +62,7 @@ start_listener(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
         Module,
         listen_opts(Proto, Ip, Port, Opts), 
         ?MODULE,
-        [AppId, Transp]),
+        [AppId, Transp, Opts]),
     % Little hack to use our start_link instead of ranch's one
     {ranch_listener_sup, start_link, StartOpts} = element(2, Spec),
     Spec1 = setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}),
@@ -82,7 +79,7 @@ connect(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
     case nksip_transport:get_listening(AppId, Proto, Class) of
         [{ListenTransp, _Pid}|_] -> 
             SocketOpts = outbound_opts(Proto, Opts),
-            Timeout = 64 * nksip_config:get(timer_t1),
+            Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
             case socket_connect(Proto, Ip, Port, SocketOpts, Timeout) of
                 {ok, Socket} -> 
                     {ok, {LocalIp, LocalPort}} = case Proto of
@@ -97,7 +94,8 @@ connect(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
                     },
                     Spec = {
                         {AppId, Proto, Ip, Port, make_ref()},
-                        {?MODULE, start_link, [AppId, Transp, Socket]},
+                        {nksip_transport_tcp_conn, start_link, 
+                            [AppId, Transp, Socket, Timeout]},
                         temporary,
                         5000,
                         worker,
@@ -147,237 +145,26 @@ stop(Pid) ->
 
 
 %% @doc Start a time-alive series (default time)
--spec start_ping(pid()) ->
+-spec start_refresh(pid()) ->
     ok.
 
-start_ping(Pid) ->
-    start_ping(Pid, ?DEFAULT_TCP_KEEPALIVE).
+start_refresh(Pid) ->
+    start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE).
 
 
 %% @doc Start a time-alive series
--spec start_ping(pid(), pos_integer()) ->
+-spec start_refresh(pid(), pos_integer()) ->
     ok.
 
-start_ping(Pid, Secs) ->
+start_refresh(Pid, Secs) ->
     Rand = crypto:rand_uniform(80, 101),
     Time = (Rand*Secs) div 100,
-    gen_server:cast(Pid, {start_ping, Time}).
-
-    
-%% ===================================================================
-%% gen_server
-%% ===================================================================
-
-%% @private
-start_link(AppId, Transport, Socket) -> 
-    gen_server:start_link(?MODULE, [AppId, Transport, Socket], []).
-
--record(state, {
-    app_id :: nksip:app_id(),
-    transport :: nksip_transport:transport(),
-    socket :: port() | ssl:sslsocket(),
-    timeout :: non_neg_integer(),
-    refresh :: pos_integer(),
-    buffer = <<>> :: binary()
-}).
-
-
-%% @private 
--spec init(term()) ->
-    gen_server_init(#state{}).
-
-init([AppId, Transport, Socket]) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
-    process_flag(priority, high),
-    nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port}}, Transport), 
-    nksip_proc:put(nksip_transports, {AppId, Transport}),
-    nksip_counters:async([?MODULE]),
-    Timeout = 1000*nksip_config:get(tcp_timeout),
-    State = #state{
-        app_id = AppId,
-        transport = Transport, 
-        socket = Socket, 
-        timeout = Timeout,
-        buffer = <<>>
-    },
-    {ok, State, Timeout}.
-
-
-%% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
-
-handle_call({send, Packet}, _From, State) ->
-    #state{
-        app_id = AppId, 
-        socket = Socket,
-        transport = #transport{proto=Proto},
-        timeout = Timeout
-    } = State,
-    case socket_send(Proto, Socket, Packet) of
-        ok -> 
-            {reply, ok, State, Timeout};
-        {error, Error} ->
-            ?notice(AppId, "could not send TCP message: ~p", [Error]),
-            {stop, normal, State}
-    end;
-
-handle_call(Msg, _From, State) ->
-    lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
-    {noreply, State, State#state.timeout}.
-
-
-%% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
-handle_cast({start_ping, Secs}, State) ->
-    Time = 1000*Secs,
-    _Ref = erlang:start_timer(Time, self(), do_ping),
-    {noreply, State#state{refresh=Time}, infinity};
-
-handle_cast(stop, State) ->
-    {stop, normal, State};
-
-handle_cast(Msg, State) ->
-    lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
-    {noreply, State, State#state.timeout}.
-
-
-%% @private
--spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
-
-handle_info({tcp, Socket, Packet}, #state{buffer=Buff}=State)
-            when byte_size(<<Buff/binary, Packet/binary>>) > ?MAX_BUFFER ->
-    #state{
-        app_id = AppId, 
-        transport = #transport{proto=Proto},
-        timeout = Timeout
-    } = State,
-    ?warning(AppId, "dropping TCP/TLS closing because of max_buffer", []),
-    socket_close(Proto, Socket),
-    {noreply, State, Timeout};
-
-%% @private
-handle_info({tcp, Socket, Packet}, State) ->
-    #state{
-        transport = #transport{proto=Proto},
-        buffer = Buff, 
-        socket = Socket,
-        timeout = Timeout
-    } = State,
-    setopts(Proto, Socket, [{active, once}]),
-    Rest = parse(<<Buff/binary, Packet/binary>>, State),
-    {noreply, State#state{buffer=Rest}, Timeout};
-
-handle_info({ssl, Socket, Packet}, State) ->
-    handle_info({tcp, Socket, Packet}, State);
-
-handle_info({tcp_closed, Socket}, State) ->
-    #state{
-        app_id = AppId,
-        transport = #transport{remote_ip=Ip, remote_port=Port},
-        socket = Socket
-    } = State,
-    ?debug(AppId, "closed TCP connection from ~p:~p", [Ip, Port]),
-    {stop, normal, State};
-
-handle_info({ssl_closed, Socket}, State) ->
-    #state{
-        app_id = AppId,
-        socket = Socket, 
-        transport = #transport{remote_ip=Ip, remote_port=Port}
-    } = State,
-    ?debug(AppId, "closed TLS connection from ~p:~p", [Ip, Port]),
-    {stop, normal, State};
-
-handle_info(timeout, State) ->
-    #state{
-        app_id = AppId,
-        socket = Socket,
-        transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}
-    } = State,
-    ?debug(AppId, "TCP/TLS connection from ~p:~p timeout", [Ip, Port]),
-    socket_close(Proto, Socket),
-    {stop, normal, State};
-
-% Received from Ranch when the listener is ready
-handle_info({shoot, _ListenerPid}, State) ->
-    #state{socket=Socket, transport=#transport{proto=Proto}} = State,
-    setopts(Proto, Socket, [{active, once}]),
-    {noreply, State, State#state.timeout};
-
-handle_info({timeout, _, do_ping}, State) ->
-    #state{
-        app_id = AppId, 
-        socket = Socket,
-        transport = #transport{proto=Proto},
-        refresh = Refresh
-    } = State,
-    case socket_send(Proto, Socket, <<"\r\n\r\n">>) of
-        ok -> 
-            erlang:start_timer(Refresh, self(), do_ping),
-            {noreply, State#state{timeout=10000}, 10000};
-        {error, Error} ->
-            ?notice(AppId, "could not send TCP message: ~p", [Error]),
-            {stop, normal, State}
-    end;
-
-handle_info(Info, State) -> 
-    lager:warning("Module ~p received nexpected info: ~p", [?MODULE, Info]),
-    {noreply, State, State#state.timeout}.
-
-
-%% @private
--spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-
-%% @private
--spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
-terminate(_Reason, _State) ->  
-    ok.
+    gen_server:cast(Pid, {start_refresh, Time}).
 
 
 %% ===================================================================
 %% Internal
 %% ===================================================================
-
-
-%% @private
-parse(Packet, #state{app_id=AppId, socket=Socket, transport=Transport}=State) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port}=Transport,
-    case nksip_parse:packet(AppId, Transport, Packet) of
-        {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
-            nksip_trace:insert(AppId, CallId, {tcp_in, Proto, Ip, Port, Packet}),
-            case nksip_call_router:incoming_sync(RawMsg) of
-                ok ->
-                    case More of
-                        <<>> -> <<>>;
-                        _ -> parse(More, State)
-                    end;
-                {error, _} ->
-                    socket_close(Proto, Socket),
-                    <<>>
-            end;
-        {rnrn, More} ->
-            socket_send(Proto, Socket, <<"\r\n">>),
-            parse(More, State);
-        {more, More} -> 
-            More;
-        {error, Error} ->
-            ?notice(AppId, "error ~p processing TCP/TLS request", [Error]),
-            socket_close(Proto, Socket),
-            <<>>           
-    end.
-
 
 
 %% @private Gets socket options for outbound connections
@@ -432,10 +219,10 @@ listen_opts(tls, Ip, Port, Opts) ->
     {ok, pid()}.
 
 ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol, 
-                    [AppId, Transp]) ->
+                    [AppId, Transp, Opts]) ->
     case 
         ranch_listener_sup:start_link(Ref, NbAcceptors, RanchTransp, TransOpts, 
-                                      Protocol, [AppId, Transp])
+                                      Protocol, [AppId, Transp, Opts])
     of
         {ok, Pid} ->
             Port = ranch:get_port(Ref),
@@ -452,7 +239,8 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol,
 -spec start_link(pid(), port(), atom(), term()) ->
     {ok, pid()}.
 
-start_link(_ListenerPid, Socket, Module, [AppId, #transport{proto=Proto}=Transp]) ->
+start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
+    #transport{proto=Proto} = Transp,
     {ok, {LocalIp, LocalPort}} = Module:sockname(Socket),
     {ok, {RemoteIp, RemotePort}} = Module:peername(Socket),
     Transp1 = Transp#transport{
@@ -465,7 +253,8 @@ start_link(_ListenerPid, Socket, Module, [AppId, #transport{proto=Proto}=Transp]
     },
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
     ?debug(AppId, "new connection from ~p:~p (~p)", [RemoteIp, RemotePort, Proto]),
-    start_link(AppId, Transp1, Socket).
+    Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
+    nksip_transport_tcp_conn:start_link(AppId, Transp1, Socket, Timeout).
 
 
 %% @private
@@ -474,19 +263,10 @@ socket_connect(tcp, Ip, Port, Opts, Timeout) ->
 socket_connect(tls, Ip, Port, Opts, Timeout) -> 
     ssl:connect(Ip, Port, Opts, Timeout).
 
-%% @private
-socket_send(tcp, Socket, Packet) -> gen_tcp:send(Socket, Packet);
-socket_send(tls, Socket, Packet) -> ssl:send(Socket, Packet).
-
 
 %% @private
 setopts(tcp, Socket, Opts) -> inet:setopts(Socket, Opts);
 setopts(tls, Socket, Opts) -> ssl:setopts(Socket, Opts).
-
-
-%% @private
-socket_close(tcp, Socket) -> gen_tcp:close(Socket);
-socket_close(tls, Socket) -> ssl:close(Socket).
 
 
 %% @private
