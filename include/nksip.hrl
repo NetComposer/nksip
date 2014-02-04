@@ -36,10 +36,12 @@
 
 -define(MSG_ROUTERS, 8).
 -define(SRV_TIMEOUT, 45000).
--define(DEFAULT_EVENT_EXPIRES, 60).
--define(DEFAULT_PUBLISH_EXPIRES, 60).
 -define(DEFAULT_TCP_KEEPALIVE, 120).
 -define(DEFAULT_UDP_KEEPALIVE, 25).
+-define(DEFAULT_EVENT_EXPIRES, 60).
+-define(DEFAULT_PUBLISH_EXPIRES, 60).
+
+
 
 % Maximum transaction time (15min)
 -define(MAX_TRANS_TIME, 15*60).

@@ -396,7 +396,7 @@ received_outbound(Req, Resp, UAC, Call) ->
         nksip_sipmsg:supported(Req, <<"outbound">>) andalso
         nksip_sipmsg:require(Resp, <<"outbound">>)
     of
-        true -> nksip_transport:start_ping(AppId, Transp);
+        true -> nksip_transport:start_refresh(AppId, Transp);
         false -> ok
     end,
     received_reply(Resp, UAC, Call).

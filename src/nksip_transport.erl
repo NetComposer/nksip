@@ -24,9 +24,10 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
--export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0, start_ping/2]).
+-export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0, start_refresh/2]).
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([send/4, raw_send/2]).
+-export([get_all_connected/0]).
 
 -export_type([transport/0]).
 
@@ -93,6 +94,21 @@ get_listening(AppId, Proto, Class) ->
 
 get_connected(AppId, Proto, Ip, Port) ->
     nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port}}).
+
+
+%% @private
+get_all_connected() ->
+    nksip_proc:fold_names(
+        fun(Name, Values, Acc) ->
+            case Name of
+                {nksip_connection, {AppId, Proto, Ip, Port}} -> 
+                    [{val, _Transp, Pid}] = Values,
+                    [{AppId, Proto, Ip, Port, Pid}|Acc];
+                _ ->
+                    Acc
+            end
+        end,
+        []).
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
@@ -183,12 +199,12 @@ local_ips() ->
 
 
 %% @doc
--spec start_ping(nksip:app_id(), nksip:transport()) ->
+-spec start_refresh(nksip:app_id(), nksip:transport()) ->
     ok | {error, not_found}.
 
-start_ping(AppId, #transport{proto=Proto, remote_ip=Ip, remote_port=Port}) ->
+start_refresh(AppId, #transport{proto=Proto, remote_ip=Ip, remote_port=Port}) ->
     case get_connected(AppId, Proto, Ip, Port) of
-        [{_, Pid}|_] -> do_start_ping(Proto, Pid, Ip, Port);
+        [{_, Pid}|_] -> do_start_refresh(Proto, Pid);
         [] -> {error, not_found}
     end.
 
@@ -368,10 +384,10 @@ do_send(sctp, Pid, SipMsg) -> nksip_transport_sctp:send(Pid, SipMsg).
 
 
 %% @private
-do_start_ping(udp, Pid, Ip, Port) -> nksip_transport_udp:start_ping(Pid, Ip, Port);
-do_start_ping(tcp, Pid, _Ip, _Port) -> nksip_transport_tcp:start_ping(Pid);
-do_start_ping(tls, Pid, _Ip, _Port) -> nksip_transport_tcp:start_ping(Pid);
-do_start_ping(sctp, Pid, _Ip, _Port) -> nksip_transport_sctp:start_ping(Pid).
+do_start_refresh(udp, Pid) -> nksip_transport_udp:start_refresh(Pid);
+do_start_refresh(tcp, Pid) -> nksip_transport_tcp:start_refresh(Pid);
+do_start_refresh(tls, Pid) -> nksip_transport_tcp:start_refresh(Pid);
+do_start_refresh(sctp, Pid) -> nksip_transport_sctp:start_refresh(Pid).
 
 
 %% @private

@@ -167,6 +167,7 @@ default_config() ->
         {timer_c,  180},                    % (secs) 3min
         {session_expires, 1800},            % (secs) 30 min
         {min_session_expires, 90},          % (secs) 90 secs (min 90, recomended 1800)
+        {udp_timeout, 180},                 % (secs) 3 min
         {tcp_timeout, 180},                 % (secs) 3 min
         {sctp_timeout, 180},                % (secs) 3 min
         {nonce_timeout, 30},                % (secs) 30 secs
