@@ -59,20 +59,25 @@ start() ->
         registrar,
         {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5090}},
-        {transport, {tls, {0,0,0,0}, 5091}}]),
+        {transport, {tls, {0,0,0,0}, 5091}},
+        {transport, {sctp, {0,0,0,0}, 5090}}
+    ]),
 
     ok = sipapp_endpoint:start({outbound, ua1}, [
         {from, "sip:ua1@nksip"},
         % {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 0}},
-        {transport, {tls, {0,0,0,0}, 0}}]),
+        {transport, {tls, {0,0,0,0}, 0}},
+        {transport, {sctp, {0,0,0,0}, 0}}
+    ]),
 
     ok = sipapp_endpoint:start({outbound, ua2}, [
         % {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 0}},
-        {transport, {tls, {0,0,0,0}, 0}}]),
+        {transport, {tls, {0,0,0,0}, 0}}
+    ]),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).

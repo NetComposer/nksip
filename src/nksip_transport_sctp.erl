@@ -262,6 +262,9 @@ init([client, AppId, Transp, Socket, Opts]) ->
         timeout = Timeout
     },
     State1 = add_connection(Ip, Port, AssocId, State),
+
+    lager:notice("START CLIENT: ~p", [dict:to_list(State1#state.assocs)]),
+
     {ok, State1, State1#state.timeout}.
 
 
@@ -270,14 +273,14 @@ init([client, AppId, Transp, Socket, Opts]) ->
     gen_server_call(#state{}).
 
 handle_call(get_socket, _From, #state{socket=Socket}=State) ->
-    {reply, {ok, Socket}, State#state.timeout};
+    {reply, {ok, Socket}, State, State#state.timeout};
 
 handle_call(get_assocs, _From, #state{assocs=Assocs}=State) ->
-    {reply, {ok, dict:to_list(Assocs)}, State#state.timeout};
+    {reply, {ok, dict:to_list(Assocs)}, State, State#state.timeout};
 
 handle_call(Msg, _From, State) ->
     lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
-    {noreply, State#state.timeout}.
+    {noreply, State, State#state.timeout}.
 
 
 %% @private
@@ -294,7 +297,7 @@ handle_cast(stop, State) ->
 
 handle_cast(Msg, State) ->
     lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
-    {noreply, State#state.timeout}.
+    {noreply, State, State#state.timeout}.
 
 
 %% @private
@@ -307,8 +310,8 @@ handle_info({sctp, Socket, _Ip, _Port,
     gen_sctp:close(Socket),
     {stop, normal, State};
 
-handle_info({sctp, Socket, Ip, Port, {_Anc, SAC}}, #state{socket=Socket}=State) ->
-    #state{app_id=AppId} = State,
+handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
+    #state{app_id=AppId, socket=Socket, transport=Transp} = State,
     State1 = case SAC of
         #sctp_assoc_change{state=comm_up, assoc_id=AssocId} ->
             add_connection(Ip, Port, AssocId, State);
@@ -320,7 +323,9 @@ handle_info({sctp, Socket, Ip, Port, {_Anc, SAC}}, #state{socket=Socket}=State) 
         #sctp_shutdown_event{assoc_id=AssocId} ->
             remove_connection(AssocId, State);
         Data when is_binary(Data) ->
-            parse(Data, Ip, Port, State),
+            [#sctp_sndrcvinfo{assoc_id=AssocId}|_] = Anc,
+            Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
+            parse(AppId, Transp1, Socket, Data),
             State;
         Other ->
             ?warning(AppId, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other]),
@@ -356,7 +361,7 @@ handle_info(timeout, State) ->
     {stop, normal, State};
 
 handle_info(Info, State) -> 
-    lager:warning("Module ~p received nexpected info: ~p", [?MODULE, Info]),
+    lager:warning("Module ~p received unexpected info: ~p (~p)", [?MODULE, Info, State]),
     {noreply, State, State#state.timeout}.
 
 
@@ -384,11 +389,10 @@ terminate(_Reason, #state{app_id=AppId, type=Type, socket=Socket}) ->
 
 
 %% @private
-parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transp}=State) ->   
-    Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
-    case nksip_parse:packet(AppId, Transp1, Packet) of
+parse(AppId, Transp,  Socket, Packet) ->   
+    case nksip_parse:packet(AppId, Transp, Packet) of
         {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp1, Packet),
+            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
             nksip_trace:insert(AppId, CallId, {in_sctp, Class}),
             nksip_call_router:incoming_async(RawMsg),
             case More of
@@ -396,8 +400,9 @@ parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transp}=State) ->
                 _ -> ?notice(AppId, "ignoring data after SCTP msg: ~p", [More])
             end;
         {rnrn, More} ->
-            % gen_sctp:send(Socket, AssocId, 0, <<"\r\n\r\n">>),
-            parse(More, Ip, Port, State);
+            #transport{sctp_id=AssocId} = Transp,
+            gen_sctp:send(Socket, AssocId, 0, <<"\r\n\r\n">>),
+            parse(AppId, Transp, Socket, More);
         {more, More} -> 
             ?notice(AppId, "ignoring incomplete SCTP msg: ~p", [More]);
         {error, Error} ->
@@ -408,7 +413,7 @@ parse(Packet, Ip, Port, #state{app_id=AppId, transport=Transp}=State) ->
 %% @private
 add_connection(Ip, Port, AssocId, State) ->
     #state{type=Type, app_id=AppId, assocs=Assocs, transport=Transp} = State,
-    ?debug(AppId, "SCTP (~p) new connection from ~p:~p: ~p", 
+    ?warning(AppId, "SCTP (~p) new connection from ~p:~p: ~p", 
            [Type, Ip, Port, AssocId]),
     Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
     nksip_proc:put({nksip_connection, {AppId, sctp, Ip, Port}}, Transp1),
