@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([start_listener/4, send/2, send/4, send_stun_sync/3, send_stun_async/3]).
+-export([start_listener/4, send/2, send_stun_sync/3, send_stun_async/3]).
 -export([get_port/1, connect/3, start_refresh/1, start_refresh/2]).
 -export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
              handle_info/2]).
@@ -96,7 +96,7 @@ send(Pid, SipMsg) ->
         transport=#transport{remote_ip=Ip, remote_port=Port} = Transp
     } = SipMsg,
     Packet = nksip_unparse:packet(SipMsg),
-    case send(Pid, Ip, Port, Packet) of
+    case do_send(Pid, Packet) of
         ok ->
             case Class of
                 {req, Method} ->
@@ -120,19 +120,19 @@ send(Pid, SipMsg) ->
 
 
 %% @private Sends a new packet
--spec send(pid(), inet:ip4_address(), inet:port_number(), binary()) ->
+-spec do_send(pid(), binary()) ->
     ok | {error, term()}.
 
-send(Pid, Ip, Port, Packet) when byte_size(Packet) =< ?MAX_UDP ->
+do_send(Pid, Packet) when byte_size(Packet) =< ?MAX_UDP ->
     % This call can be sent to the nksip_transport_udp_conn process
-    case catch gen_server:call(Pid, {send, Ip, Port, Packet}, 60000) of
+    case catch gen_server:call(Pid, {send, Packet}, 60000) of
         ok -> ok;
         {error, Error} -> {error, Error};
         {'EXIT', {noproc, _}} -> {error, closed};
         {'EXIT', Error} -> {error, Error}
     end;
 
-send(_Pid, _Ip, _Port, Packet) ->
+do_send(_Pid, Packet) ->
     lager:debug("Coult not send UDP packet (too large: ~p)", [byte_size(Packet)]),
     {error, too_large}.
 
@@ -484,15 +484,13 @@ do_process(Ip, Port, Packet, State) ->
 
 %% @private
 do_connect(Ip, Port, State) ->
-    #state{app_id=AppId, transport=Transp, socket=Socket, timer_t1=T1}= State,
+    #state{app_id=AppId, transport=Transp, socket=Socket}= State,
     case nksip_transport:get_connected(AppId, udp, Ip, Port) of
         [{Transp1, Pid}] -> 
             {Pid, Transp1};
         [] ->
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
-            {ok, Pid} = 
-                nksip_transport_udp_conn:start_link(AppId, Socket, 
-                                                    Transp1, [{timer_t1, T1}]),
+            {ok, Pid} = nksip_transport_udp_conn:start_link(AppId, Transp1, Socket, []),
             {Pid, Transp1}
     end.
 

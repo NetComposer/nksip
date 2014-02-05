@@ -101,7 +101,11 @@ handle_call(Msg, _From, State) ->
     gen_server_cast(#state{}).
 
 handle_cast({start_refresh, Secs}, State) ->
-    #state{refresher_timer=RefresherTimer, refreshed_timer=RefreshedTimer} = State,
+    #state{
+        refresher_timer = RefresherTimer, 
+        refreshed_timer = RefreshedTimer,
+        timeout = Timeout
+    } = State,
     nksip_lib:cancel_timer(RefresherTimer),
     nksip_lib:cancel_timer(RefreshedTimer),
     Time = 1000*Secs,
@@ -110,7 +114,7 @@ handle_cast({start_refresh, Secs}, State) ->
         refresher_time = Time,
         refreshed_timer = undefined
     },
-    {noreply, State1, State#state.timeout};
+    {noreply, State1, Timeout};
 
 handle_cast(stop, State) ->
     {stop, normal, State};

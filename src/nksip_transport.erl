@@ -352,26 +352,30 @@ send(_, [], _MakeMsg, _Opts) ->
 %% Private
 %% ===================================================================
 
+%% @private
+-spec raw_send(#raw_sipmsg{}, binary()) ->
+    ok | error.
 
-raw_send(#raw_sipmsg{app_id=AppId, transport=#transport{proto=udp}=Transp}, Reply) ->
-    #transport{remote_ip=Ip, remote_port=Port} = Transp,
-    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-    case get_listening(AppId, udp, Class) of
-        [{_, Pid}|_] -> nksip_transport_udp:send(Pid, Ip, Port, Reply);
-        [] -> ok
-    end;
+% raw_send(#raw_sipmsg{app_id=AppId, transport=#transport{proto=udp}=Transp}, Reply) ->
+%     #transport{remote_ip=Ip, remote_port=Port} = Transp,
+%     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
+%     case get_listening(AppId, udp, Class) of
+%         [{_, Pid}|_] -> nksip_transport_udp:send(Pid, Ip, Port, Reply);
+%         [] -> ok
+%     end;
 
 raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
     case get_connected(AppId, Proto, Ip, Port) of
         [{_, Pid}|_] ->
             case Proto of
+                udp -> nksip_transport_udp:send(Pid, Reply);
                 tcp -> nksip_transport_tcp:send(Pid, Reply);
                 tls -> nksip_transport_tcp:send(Pid, Reply);
                 sctp -> nksip_transport_sctp:send(Pid, AssocId, Reply)
             end;
         [] -> 
-            ok
+            error
     end.
                
 

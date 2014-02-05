@@ -79,8 +79,7 @@ connect(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
     case nksip_transport:get_listening(AppId, Proto, Class) of
         [{ListenTransp, _Pid}|_] -> 
             SocketOpts = outbound_opts(Proto, Opts),
-            Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
-            case socket_connect(Proto, Ip, Port, SocketOpts, Timeout) of
+            case socket_connect(Proto, Ip, Port, SocketOpts) of
                 {ok, Socket} -> 
                     {ok, {LocalIp, LocalPort}} = case Proto of
                         tcp -> inet:sockname(Socket);
@@ -92,6 +91,7 @@ connect(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
                         remote_ip = Ip,
                         remote_port = Port
                     },
+                    Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
                     Spec = {
                         {AppId, Proto, Ip, Port, make_ref()},
                         {nksip_transport_tcp_conn, start_link, 
@@ -258,10 +258,8 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
 
 
 %% @private
-socket_connect(tcp, Ip, Port, Opts, Timeout) -> 
-    gen_tcp:connect(Ip, Port, Opts, Timeout);
-socket_connect(tls, Ip, Port, Opts, Timeout) -> 
-    ssl:connect(Ip, Port, Opts, Timeout).
+socket_connect(tcp, Ip, Port, Opts) -> gen_tcp:connect(Ip, Port, Opts);
+socket_connect(tls, Ip, Port, Opts) -> ssl:connect(Ip, Port, Opts).
 
 
 %% @private

@@ -34,8 +34,8 @@
 %% ===================================================================
 
 %% @private
-start_link(AppId, Socket, Transp, Opts) -> 
-    gen_server:start_link(?MODULE, [AppId, Socket, Transp, Opts, self()], []).
+start_link(AppId, Transp, Socket, Opts) -> 
+    gen_server:start_link(?MODULE, [AppId, Transp, Socket, Opts, self()], []).
 
 
 -record(state, {
@@ -55,7 +55,7 @@ start_link(AppId, Socket, Transp, Opts) ->
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([AppId, Socket, Transp, Opts, Master]) ->
+init([AppId, Transp, Socket, Opts, Master]) ->
     #transport{remote_ip=Ip, remote_port=Port} = Transp,
     nksip_proc:put({nksip_connection, {AppId, udp, Ip, Port}}, Transp), 
     ?notice(AppId, "UDP created connection to ~p (~p)", [{Ip, Port}, self()]),
@@ -74,8 +74,9 @@ init([AppId, Socket, Transp, Opts, Master]) ->
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
 
-handle_call({send, Ip, Port, Packet}, _From, State) ->
-    #state{socket=Socket, timeout=Timeout} = State,
+handle_call({send, Packet}, _From, State) ->
+    #state{socket=Socket, transport=Transp, timeout=Timeout} = State,
+    #transport{remote_ip=Ip, remote_port=Port} = Transp,
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State, Timeout};
 
 handle_call(Msg, _Form, State) -> 
@@ -132,6 +133,9 @@ handle_cast({stun_response, error}, #state{app_id=AppId}=State) ->
 
 handle_cast(stun_request, #state{timeout=Timeout}=State) ->
     {noreply, State, Timeout};
+
+handle_cast(stop, State) ->
+    {stop, normal, State};
 
 handle_cast(Msg, State) -> 
     lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
