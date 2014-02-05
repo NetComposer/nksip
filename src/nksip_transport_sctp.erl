@@ -88,7 +88,7 @@ connect(AppId, Ip, Port, Opts) ->
             case gen_sctp:open(0, SocketOpts) of
                 {ok, Socket}  ->
                     {ok, {LocalIp, LocalPort}} = inet:sockname(Socket),
-                    case gen_sctp:connect(Socket, Ip, Port, SocketOpts) of
+                    case gen_sctp:connect(Socket, Ip, Port, []) of
                         {ok, Assoc} ->
                             #sctp_assoc_change{assoc_id=AssocId} = Assoc,
                             Transp = ListenTransp#transport{
@@ -101,7 +101,7 @@ connect(AppId, Ip, Port, Opts) ->
                             Spec = {
                                 {AppId, sctp, Ip, Port, make_ref()},
                                 {nksip_transport_sctp_conn, start_link, 
-                                    [AppId, Transp, Socket, 1000*Autoclose]},
+                                    [AppId, Transp, Socket, 2000*Autoclose]},
                                 temporary,
                                 5000,
                                 worker,
@@ -112,7 +112,7 @@ connect(AppId, Ip, Port, Opts) ->
                             inet:setopts(Socket, [{active, once}]),
                             ?debug(AppId, "connected to ~s:~p (sctp)", 
                                 [nksip_lib:to_host(Ip), Port]),
-                            {ok, Pid, Transp};
+                            {ok, Pid, Transp, Socket};
                         {error, Error} ->
                             {error, Error}
                     end;
@@ -200,7 +200,7 @@ start_refresh(Pid, Secs) ->
 
 %% @private
 start_link(AppId, Transp, Opts) -> 
-    gen_server:start_link(?MODULE, [server, AppId, Transp, Opts], []).
+    gen_server:start_link(?MODULE, [AppId, Transp, Opts], []).
 
 
 -record(state, {
@@ -218,14 +218,14 @@ start_link(AppId, Transp, Opts) ->
 
 init([AppId, Transp, Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
+    Autoclose = nksip_config:get_cached(sctp_timeout, Opts),
     Opts1 = [
         binary, {reuseaddr, true}, {ip, Ip}, {active, once},
         {sctp_initmsg, 
             #sctp_initmsg{num_ostreams=?OUT_STREAMS, max_instreams=?IN_STREAMS}},
-        % {sctp_autoclose, Autoclose},    
+        {sctp_autoclose, Autoclose},    
         {sctp_default_send_param, #sctp_sndrcvinfo{stream=0, flags=[unordered]}}
     ],
-    Timeout = 1000*nksip_config:get_cached(sctp_timeout, Opts),
     case gen_sctp:open(Port, Opts1) of
         {ok, Socket}  ->
             process_flag(priority, high),
@@ -238,8 +238,7 @@ init([AppId, Transp, Opts]) ->
                 app_id = AppId, 
                 transport = Transp1, 
                 socket = Socket,
-                % assocs = dict:new()
-                timeout = Timeout
+                timeout = 2000*Autoclose
             },
             {ok, State};
         {error, Error} ->
@@ -253,6 +252,15 @@ init([AppId, Transp, Opts]) ->
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
 
+
+handle_call({connect, Ip, Port}, _From, #state{socket=Socket}=State) ->
+    case gen_sctp:connect(Socket, Ip, Port, []) of
+        {ok, Assoc} ->
+            #sctp_assoc_change{assoc_id=AssocId} = Assoc,  
+            {reply, {ok, AssocId}, State};
+        {error, Error} ->
+            {reply, {error, Error}, State}
+    end;
 
 handle_call(get_socket, _From, #state{socket=Socket}=State) ->
     {reply, {ok, Socket}, State};
@@ -295,7 +303,7 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
             nksip_transport_sctp_conn:start_link(AppId, Transp1, Socket, Timeout);
         #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
-            ?warning(AppId, "Server SCTP: shutdown_comp", []),
+            ?warning(AppId, "Server SCTP: shutdown_comp: ~p", [AssocId]),
             case nksip_transport:get_connected(AppId, sctp, Ip, Port) of
                 [{#transport{sctp_id=AssocId}, Pid}] ->
                     gen_server:cast(Pid, stop);
@@ -303,27 +311,11 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
                     ?notice(AppId, 
                             "SCTP received shutdown_comp for unknown connection", [])
             end;
-        #sctp_paddr_change{addr=Addr, state=addr_confirmed, assoc_id=AssocId} ->
-            ?warning(AppId, "Server SCTP: addr_confirmed: ~p, ~p", [Addr, AssocId]),
-            {Ip1, Port1} = Addr,
-            case nksip_transport:get_connected(AppId, sctp, Ip1, Port1) of
-                [{#transport{sctp_id=AssocId}, _Pid}] ->
-                    ?notice(AppId, 
-                            "SCTP received addr_confirmed for known connection", []);
-                _ ->
-                    Transp1 = Transp#transport{remote_ip=Ip1, remote_port=Port1, 
-                                               sctp_id=AssocId},
-                    nksip_transport_sctp_conn:start_link(AppId, Transp1, Socket, Timeout)
-            end;
-        #sctp_shutdown_event{assoc_id=AssocId} ->
-            ?warning(AppId, "Server SCTP: #sctp_shutdown_event: ~p", [AssocId]),
-            case nksip_transport:get_connected(AppId, sctp, Ip, Port) of
-                [{#transport{sctp_id=AssocId}, Pid}] ->
-                    gen_server:cast(Pid, stop);
-                _ ->
-                    ?notice(AppId, 
-                            "SCTP received shutdown_comp for unknown connection", [])
-            end;
+        #sctp_paddr_change{} ->
+            ok;
+        #sctp_shutdown_event{assoc_id=_AssocId} ->
+            % Should be already processed
+            ok; 
         Data when is_binary(Data) ->
             [#sctp_sndrcvinfo{assoc_id=AssocId}] = Anc,
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},

@@ -58,11 +58,12 @@ start_link(AppId, Transp, Socket, Timeout) ->
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([AppId, Transp, Socket, Timeout]) ->
+init([AppId, Transp, Socket, _Timeout]) ->
     #transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
     % nksip_proc:put(nksip_transports, {AppId, Transp}),
     nksip_proc:put({nksip_connection, {AppId, sctp, Ip, Port}}, Transp), 
-    ?notice(AppId, "SCTP new connection from ~p:~p (~p)", [Ip, Port, AssocId]),
+    ?notice(AppId, "SCTP new connection from ~p:~p (~p, ~p)", [Ip, Port, AssocId, self()]),
+    Timeout = infinity,
     State = #state{
         app_id = AppId, 
         transport = Transp, 
@@ -123,24 +124,28 @@ handle_cast(Msg, State) ->
 -spec handle_info(term(), #state{}) ->
     gen_server_info(#state{}).
 
-handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
+handle_info({sctp, Socket, _Ip, _Port, {_Anc, #sctp_shutdown_event{assoc_id=AssocId}}}, 
+            #state{socket=Socket, transport=#transport{sctp_id=AssocId}}=State) ->
+    {stop, normal, State};
+
+handle_info({sctp, _Socket, _Ip, _Port, {_Anc, #sctp_paddr_change{}}}, State) ->
+    % Address change not supported yet
+    #state{socket=Socket, timeout=Timeout} = State,
+    ok = inet:setopts(Socket, [{active, once}]),
+    {noreply, State, Timeout};
+  
+handle_info({sctp, Socket, Ip, Port, {Anc, Data}}, State) when is_binary(Data) ->
     #state{app_id=AppId, socket=Socket, transport=Transp} = State,
-    case SAC of
-        #sctp_assoc_change{state=comm_up, assoc_id=AssocId} ->
-            ?warning(AppId, "SCTP: comm_up: ~p", [AssocId]);
-        #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
-            ?warning(AppId, "SCTP: shutdown_comp: ~p", [AssocId]);
-        #sctp_paddr_change{addr=Addr, state=addr_confirmed, assoc_id=AssocId} ->
-            ?warning(AppId, "SCTP: addr_confirmed: ~p, ~p", [Addr, AssocId]);
-        #sctp_shutdown_event{assoc_id=AssocId} ->
-            ?warning(AppId, "SCTP: #sctp_shutdown_event: ~p", [AssocId]);
-        Data when is_binary(Data) ->
-            [#sctp_sndrcvinfo{assoc_id=AssocId}] = Anc,
-            Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
-            nksip_transport_sctp:parse(AppId, Transp1, Socket, Data);
-        Other ->
-            ?warning(AppId, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other])
-    end,
+    #transport{sctp_id=AssocId} = Transp,
+    [#sctp_sndrcvinfo{assoc_id=AssocId}] = Anc,
+    Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
+    nksip_transport_sctp:parse(AppId, Transp1, Socket, Data),
+    ok = inet:setopts(Socket, [{active, once}]),
+    {noreply, State};
+
+handle_info({sctp, Socket, Ip, Port, {_Anc, SAC}}, State) ->
+    #state{app_id=AppId, socket=Socket} = State,
+    ?warning(AppId, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, SAC]),
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, State};
 
@@ -189,8 +194,8 @@ code_change(_OldVsn, State, _Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(_Reason, #state{app_id=AppId}) ->  
-    ?debug(AppId, "SCTP connection process stopped", []).
+terminate(_Reason, #state{app_id=AppId, transport=#transport{sctp_id=AssocId}}) ->  
+    ?notice(AppId, "SCTP connection process stopped: ~p, ~p", [AssocId, self()]).
 
 
 

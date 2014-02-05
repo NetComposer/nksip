@@ -101,9 +101,8 @@ get_all_connected() ->
     nksip_proc:fold_names(
         fun(Name, Values, Acc) ->
             case Name of
-                {nksip_connection, {AppId, Proto, Ip, Port}} -> 
-                    [{val, _Transp, Pid}] = Values,
-                    [{AppId, Proto, Ip, Port, Pid}|Acc];
+                {nksip_connection, {AppId, _Proto, _Ip, _Port}} -> 
+                    [{AppId, Transp, Pid} || {val, Transp, Pid} <- Values] ++ Acc;
                 _ ->
                     Acc
             end
