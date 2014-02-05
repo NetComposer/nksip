@@ -24,7 +24,8 @@
 -module(nksip_transport_tcp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_listener/5, connect/5, send/2, stop/1, start_refresh/1, start_refresh/2]).
+-export([start_listener/5, connect/5, send/2, stop/1]).
+-export([start_refresh/2, receive_refresh/2]).
 -export([ranch_start_link/6, start_link/4]).
 
 -include("nksip.hrl").
@@ -144,22 +145,32 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
-%% @doc Start a time-alive series (default time)
--spec start_refresh(pid()) ->
-    ok.
-
-start_refresh(Pid) ->
-    start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE).
-
-
 %% @doc Start a time-alive series
 -spec start_refresh(pid(), pos_integer()) ->
-    ok.
+    ok | error.
 
 start_refresh(Pid, Secs) ->
     Rand = crypto:rand_uniform(80, 101),
     Time = (Rand*Secs) div 100,
-    gen_server:cast(Pid, {start_refresh, Time}).
+    case catch gen_server:call(Pid, {start_refresh, Time}) of
+        ok -> ok;
+        _ -> error
+    end.
+
+
+%% @doc Updates timeout on no incoming packet
+-spec receive_refresh(pid(), pos_integer()) ->
+    ok | error.
+
+receive_refresh(Pid, Secs) ->
+    Rand = crypto:rand_uniform(80, 101),
+    Time = (Rand*Secs) div 100,
+    case catch gen_server:call(Pid, {receive_refresh, Time}) of
+        ok -> ok;
+        _ -> error
+    end.
+
+
 
 
 %% ===================================================================

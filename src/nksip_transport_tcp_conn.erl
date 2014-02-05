@@ -91,16 +91,7 @@ handle_call({send, Packet}, _From, State) ->
             {stop, normal, State}
     end;
 
-handle_call(Msg, _From, State) ->
-    lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
-    {noreply, State, State#state.timeout}.
-
-
-%% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
-handle_cast({start_refresh, Secs}, State) ->
+handle_call({start_refresh, Secs}, _From, State) ->
     #state{
         refresher_timer = RefresherTimer, 
         refreshed_timer = RefreshedTimer,
@@ -114,7 +105,21 @@ handle_cast({start_refresh, Secs}, State) ->
         refresher_time = Time,
         refreshed_timer = undefined
     },
-    {noreply, State1, Timeout};
+    {reply, ok, State1, Timeout};
+
+handle_call({receive_refresh, Secs}, _From, State) ->
+    State1 = State#state{timeout=1000*Secs},
+    {reply, ok, State1, State1#state.timeout};
+
+handle_call(Msg, _From, State) ->
+    lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
+    {noreply, State, State#state.timeout}.
+
+
+%% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
 
 handle_cast(stop, State) ->
     {stop, normal, State};
@@ -226,7 +231,7 @@ handle_info({timeout, _, refreshed}, #state{app_id=AppId}=State) ->
     {stop, normal, State};
 
 handle_info(Info, State) -> 
-    lager:warning("Module ~p received nexpected info: ~p", [?MODULE, Info]),
+    lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
     {noreply, State, State#state.timeout}.
 
 

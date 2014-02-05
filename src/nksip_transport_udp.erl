@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/4, send/2, send_stun_sync/3, send_stun_async/3]).
--export([get_port/1, connect/3, start_refresh/1, start_refresh/2]).
+-export([get_port/1, connect/3, start_refresh/2, receive_refresh/2]).
 -export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
              handle_info/2]).
 -export([parse/3]).
@@ -158,25 +158,28 @@ get_port(Pid) ->
     gen_server:call(Pid, get_port).
 
 
-%% @doc Start a time-alive series (defualt time)
--spec start_refresh(pid()) ->
-    ok.
-
-start_refresh(Pid) ->
-    start_refresh(Pid, ?DEFAULT_UDP_KEEPALIVE).
-
-
 %% @doc Start a time-alive series
 -spec start_refresh(pid(), pos_integer()) ->
-    ok.
+    ok | error.
 
 start_refresh(Pid, Secs) ->
     Rand = crypto:rand_uniform(80, 101),
     Time = (Rand*Secs) div 100,
-    % It should be sent to the nksip_transport_udp_conn process
-    lager:warning("START REFRESH: ~p, ~p", [Pid, Secs]),
-    gen_server:cast(Pid, {start_refresh, Time}).
+    case catch gen_server:call(Pid, {start_refresh, Time}) of
+        ok -> ok;
+        _ -> error
+    end.
 
+
+%% @doc Updates timeout on no incoming packet
+-spec receive_refresh(pid(), pos_integer()) ->
+    ok | error.
+
+receive_refresh(Pid, Secs) ->
+    case catch gen_server:call(Pid, {receive_refresh, Secs}) of
+        ok -> ok;
+        _ -> error
+    end.
 
 
 %% ===================================================================

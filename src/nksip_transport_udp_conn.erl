@@ -79,6 +79,20 @@ handle_call({send, Packet}, _From, State) ->
     #transport{remote_ip=Ip, remote_port=Port} = Transp,
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State, Timeout};
 
+handle_call({start_refresh, Secs}, _From, State) ->
+    #state{refresh_timer=RefreshTimer, timeout=Timeout} = State,
+    nksip_lib:cancel_timer(RefreshTimer),
+    RefreshTime = 1000*Secs,
+    State1 = State#state{
+        refresh_timer = erlang:start_timer(RefreshTime, self(), refresh),
+        refresh_time = RefreshTime
+    },
+    {reply, ok, State1, Timeout};
+
+handle_call({receive_refresh, Secs}, _From, State) ->
+    State1 = State#state{timeout=1000*Secs},
+    {reply, ok, State1, State1#state.timeout};
+
 handle_call(Msg, _Form, State) -> 
     lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
     {noreply, State, State#state.timeout}.
@@ -92,16 +106,6 @@ handle_cast({udp, Packet}, State) ->
     #state{app_id=AppId, transport=Transp, timeout=Timeout} = State,
     nksip_transport_udp:parse(AppId, Transp, Packet),
     {noreply, State, Timeout};
-
-handle_cast({start_refresh, Secs}, State) ->
-    #state{refresh_timer=RefreshTimer, timeout=Timeout} = State,
-    nksip_lib:cancel_timer(RefreshTimer),
-    RefreshTime = 1000*Secs,
-    State1 = State#state{
-        refresh_timer = erlang:start_timer(RefreshTime, self(), refresh),
-        refresh_time = RefreshTime
-    },
-    {noreply, State1, Timeout};
 
 handle_cast({stun_response, {StunIp, StunPort}}, State) ->
     #state{

@@ -387,10 +387,14 @@ do_send(sctp, Pid, SipMsg) -> nksip_transport_sctp:send(Pid, SipMsg).
 
 
 %% @private
-do_start_refresh(udp, Pid) -> nksip_transport_udp:start_refresh(Pid);
-do_start_refresh(tcp, Pid) -> nksip_transport_tcp:start_refresh(Pid);
-do_start_refresh(tls, Pid) -> nksip_transport_tcp:start_refresh(Pid);
-do_start_refresh(sctp, Pid) -> nksip_transport_sctp:start_refresh(Pid).
+do_start_refresh(udp, Pid) -> 
+    nksip_transport_udp:start_refresh(Pid, ?DEFAULT_UDP_KEEPALIVE);
+do_start_refresh(tcp, Pid) -> 
+    nksip_transport_tcp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE);
+do_start_refresh(tls, Pid) -> 
+    nksip_transport_tcp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE);
+do_start_refresh(sctp, Pid) -> 
+    nksip_transport_sctp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE).
 
 
 %% @private
