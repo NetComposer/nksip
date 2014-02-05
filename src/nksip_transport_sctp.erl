@@ -74,7 +74,10 @@ connect(AppId, Ip, Port, _Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, sctp, Class) of
         [{_ListenTransp, ListenPid}|_] ->
-            nksip_lib:safe_call(ListenPid, {connect, Ip, Port}, 60000);
+            case catch gen_server:call(ListenPid, {connect, Ip, Port}, 60000) of
+                {ok, Pid, Transp} -> {ok, Pid, Transp};
+                {error, Error} -> {error, Error}
+            end;
         [] ->
             {error, no_listening_transport}
     end.
@@ -115,9 +118,9 @@ send(Pid, #sipmsg{}=SipMsg) ->
     ok | {error, term()}.
 
 send(Pid, AssocId, Data) ->
-    case nksip_lib:safe_call(Pid, get_socket, 30000) of
+    case catch gen_server:call(Pid, get_socket, 30000) of
         {ok, Socket} -> gen_sctp:send(Socket, AssocId, 0, Data);
-        {error, Error} -> {error, Error}
+        _ -> {error, unknown_transport}
     end.
 
 
