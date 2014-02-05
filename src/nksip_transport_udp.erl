@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/4, send/2, send_stun_sync/3, send_stun_async/3]).
--export([get_port/1, connect/3, start_refresh/2, receive_refresh/2]).
+-export([get_port/1, connect/3, stop/1, start_refresh/2, receive_refresh/2]).
 -export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
              handle_info/2]).
 -export([parse/3]).
@@ -156,6 +156,11 @@ send_stun_async(Pid, Ip, Port) ->
 
 get_port(Pid) ->
     gen_server:call(Pid, get_port).
+
+
+%% @private
+stop(Pid) ->
+    gen_server:cast(Pid, stop).
 
 
 %% @doc Start a time-alive series

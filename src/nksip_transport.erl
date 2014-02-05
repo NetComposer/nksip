@@ -27,7 +27,7 @@
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0, start_refresh/2]).
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([send/4, raw_send/2]).
--export([get_all_connected/0]).
+-export([get_all_connected/0, stop_all_connected/0]).
 
 -export_type([transport/0]).
 
@@ -108,6 +108,13 @@ get_all_connected() ->
             end
         end,
         []).
+
+
+%% @private
+stop_all_connected() ->
+    lists:foreach(
+        fun({_, #transport{proto=Proto}, Pid}) -> do_stop(Proto, Pid) end,
+        get_all_connected()).
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
@@ -395,6 +402,13 @@ do_start_refresh(tls, Pid) ->
     nksip_transport_tcp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE);
 do_start_refresh(sctp, Pid) -> 
     nksip_transport_sctp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE).
+
+
+%% @private
+do_stop(udp, Pid) -> nksip_transport_udp:stop(Pid);
+do_stop(tcp, Pid) -> nksip_transport_tcp:stop(Pid);
+do_stop(tls, Pid) -> nksip_transport_tcp:stop(Pid);
+do_stop(sctp, Pid) -> nksip_transport_sctp:stop(Pid).
 
 
 %% @private
