@@ -24,9 +24,10 @@
 -behaviour(gen_server).
 
 -export([start_listener/4, connect/4, send/2, send/3, stop/1]).
--export([start_server/3, start_client/4, start_refresh/1, start_refresh/2]).
+-export([start_link/3, start_refresh/1, start_refresh/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,   
          handle_cast/2, handle_info/2]).
+-export([parse/4]).
 
 -include("nksip.hrl").
 
@@ -57,7 +58,7 @@ start_listener(AppId, Ip, Port, Opts) ->
     },
     Spec = {
         {AppId, sctp, Ip, Port}, 
-        {?MODULE, start_server, [AppId, Transp, Opts]},
+        {?MODULE, start_link, [AppId, Transp, Opts]},
         permanent, 
         5000, 
         worker, 
@@ -75,12 +76,19 @@ connect(AppId, Ip, Port, Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, sctp, Class) of
         [{ListenTransp, _Pid}|_] ->
-            SocketOpts = outbound_opts(Opts),
+            Autoclose = nksip_config:get_cached(sctp_timeout, Opts),
+            SocketOpts = [
+                binary, {active, false},
+                {sctp_initmsg, #sctp_initmsg{num_ostreams=1, max_instreams=1}},
+                {sctp_autoclose, Autoclose},    
+                {sctp_default_send_param, #sctp_sndrcvinfo{stream=0, flags=[unordered]}}
+            ],
+            % We could start a new association using existing listening socket
+            % but it is not clear how many to allow
             case gen_sctp:open(0, SocketOpts) of
                 {ok, Socket}  ->
                     {ok, {LocalIp, LocalPort}} = inet:sockname(Socket),
-                    Timeout = 1000 * nksip_config:get_cached(sctp_timeout, Opts),
-                    case gen_sctp:connect(Socket, Ip, Port, [], Timeout) of
+                    case gen_sctp:connect(Socket, Ip, Port, SocketOpts) of
                         {ok, Assoc} ->
                             #sctp_assoc_change{assoc_id=AssocId} = Assoc,
                             Transp = ListenTransp#transport{
@@ -88,11 +96,12 @@ connect(AppId, Ip, Port, Opts) ->
                                 local_port = LocalPort,
                                 remote_ip = Ip,
                                 remote_port = Port,
-                                sctp_id = AssocId
+                                sctp_id=AssocId
                             },
                             Spec = {
                                 {AppId, sctp, Ip, Port, make_ref()},
-                                {?MODULE, start_client, [AppId, Transp, Socket, Opts]},
+                                {nksip_transport_sctp_conn, start_link, 
+                                    [AppId, Transp, Socket, 1000*Autoclose]},
                                 temporary,
                                 5000,
                                 worker,
@@ -102,7 +111,7 @@ connect(AppId, Ip, Port, Opts) ->
                             gen_sctp:controlling_process(Socket, Pid),
                             inet:setopts(Socket, [{active, once}]),
                             ?debug(AppId, "connected to ~s:~p (sctp)", 
-                                   [nksip_lib:to_host(Ip), Port]),
+                                [nksip_lib:to_host(Ip), Port]),
                             {ok, Pid, Transp};
                         {error, Error} ->
                             {error, Error}
@@ -150,7 +159,7 @@ send(Pid, #sipmsg{}=SipMsg) ->
     ok | {error, term()}.
 
 send(Pid, AssocId, Data) ->
-    case catch gen_server:call(Pid, get_socket, 6000) of
+    case catch gen_server:call(Pid, get_socket, 30000) of
         {ok, Socket} -> 
             gen_sctp:send(Socket, AssocId, 0, Data);
         {'EXIT', Error} -> 
@@ -190,25 +199,16 @@ start_refresh(Pid, Secs) ->
 
 
 %% @private
-start_server(AppId, Transp, Opts) -> 
+start_link(AppId, Transp, Opts) -> 
     gen_server:start_link(?MODULE, [server, AppId, Transp, Opts], []).
 
 
-%% @private
-start_client(AppId, Transp, Socket, Opts) -> 
-    gen_server:start_link(?MODULE, [client, AppId, Transp, Socket, Opts], []).
-
-
 -record(state, {
-    type :: server | client,
     app_id :: nksip:app_id(),
     transport :: nksip_transport:transport(),
     socket :: port(),
-    assocs :: dict(),
-    timeout :: non_neg_integer(),
-    refresher_timer :: reference(),
-    refresher_time :: integer(),
-    refreshed_timer :: reference()
+    % assocs :: dict(),
+    timeout :: integer()
 }).
 
 
@@ -216,16 +216,16 @@ start_client(AppId, Transp, Socket, Opts) ->
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([server, AppId, Transp, Opts]) ->
+init([AppId, Transp, Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
-    Autoclose = nksip_config:get_cached(sctp_timeout, Opts),
     Opts1 = [
         binary, {reuseaddr, true}, {ip, Ip}, {active, once},
         {sctp_initmsg, 
             #sctp_initmsg{num_ostreams=?OUT_STREAMS, max_instreams=?IN_STREAMS}},
-        {sctp_autoclose, Autoclose},    
+        % {sctp_autoclose, Autoclose},    
         {sctp_default_send_param, #sctp_sndrcvinfo{stream=0, flags=[unordered]}}
     ],
+    Timeout = 1000*nksip_config:get_cached(sctp_timeout, Opts),
     case gen_sctp:open(Port, Opts1) of
         {ok, Socket}  ->
             process_flag(priority, high),
@@ -235,134 +235,114 @@ init([server, AppId, Transp, Opts]) ->
             nksip_proc:put(nksip_transports, {AppId, Transp1}),
             nksip_proc:put({nksip_listen, AppId}, Transp1),
             State = #state{
-                type = server,
                 app_id = AppId, 
                 transport = Transp1, 
                 socket = Socket,
-                assocs = dict:new(),
-                timeout = 1000*Autoclose
+                % assocs = dict:new()
+                timeout = Timeout
             },
             {ok, State};
         {error, Error} ->
             ?error(AppId, "could not start SCTP transport on ~p:~p (~p)", 
                    [Ip, Port, Error]),
             {stop, Error}
-    end;
-
-init([client, AppId, Transp, Socket, Opts]) ->
-    #transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
-    nksip_proc:put(nksip_transports, {AppId, Transp}),
-    Timeout = 1000 * nksip_config:get_cached(sctp_timeout, Opts),
-    State = #state{
-        type = client,
-        app_id = AppId, 
-        transport = Transp, 
-        socket = Socket,
-        assocs = dict:new(),
-        timeout = Timeout
-    },
-    State1 = add_connection(Ip, Port, AssocId, State),
-
-    lager:notice("START CLIENT: ~p", [dict:to_list(State1#state.assocs)]),
-
-    {ok, State1, State1#state.timeout}.
+    end.
 
 
 %% @private
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
 
-handle_call(get_socket, _From, #state{socket=Socket}=State) ->
-    {reply, {ok, Socket}, State, State#state.timeout};
 
-handle_call(get_assocs, _From, #state{assocs=Assocs}=State) ->
-    {reply, {ok, dict:to_list(Assocs)}, State, State#state.timeout};
+handle_call(get_socket, _From, #state{socket=Socket}=State) ->
+    {reply, {ok, Socket}, State};
+
+% handle_call(get_assocs, _From, #state{assocs=Assocs}=State) ->
+%     {reply, {ok, dict:to_list(Assocs)}, State};
 
 handle_call(Msg, _From, State) ->
     lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
-    {noreply, State, State#state.timeout}.
+    {noreply, State}.
 
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
     gen_server_cast(#state{}).
 
-% handle_cast({start_refresh, Secs}, State) ->
-%     Time = 1000*Secs,
-%     _Ref = erlang:start_timer(Time, self(), do_ping),
-%     {noreply, State#state{refresh=Time}, infinity};
-
 handle_cast(stop, State) ->
     {stop, normal, State};
 
 handle_cast(Msg, State) ->
     lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
-    {noreply, State, State#state.timeout}.
+    {noreply, State}.
 
 
 %% @private
 -spec handle_info(term(), #state{}) ->
     gen_server_info(#state{}).
 
-handle_info({sctp, Socket, _Ip, _Port, 
-            {_Anc, #sctp_assoc_change{state=shutdown_comp}}}, 
-            #state{socket=Socket, type=client}=State) ->
-    gen_sctp:close(Socket),
-    {stop, normal, State};
+% handle_info({sctp, Socket, _Ip, _Port, 
+%             {_Anc, #sctp_assoc_change{state=shutdown_comp}}}, 
+%             #state{socket=Socket, type=client}=State) ->
+%     gen_sctp:close(Socket),
+%     {stop, normal, State};
 
 handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
-    #state{app_id=AppId, socket=Socket, transport=Transp} = State,
-    State1 = case SAC of
+    #state{app_id=AppId, socket=Socket, transport=Transp, timeout=Timeout} = State,
+    case SAC of
         #sctp_assoc_change{state=comm_up, assoc_id=AssocId} ->
-            add_connection(Ip, Port, AssocId, State);
-        #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
-            remove_connection(AssocId, State);
-        #sctp_paddr_change{addr=Addr, state=addr_confirmed, assoc_id=AssocId} ->
-            {Ip1, Port1} = Addr,
-            add_ip(Ip1, Port1, AssocId, State);
-        #sctp_shutdown_event{assoc_id=AssocId} ->
-            remove_connection(AssocId, State);
-        Data when is_binary(Data) ->
-            [#sctp_sndrcvinfo{assoc_id=AssocId}|_] = Anc,
+            ?warning(AppId, "Server SCTP: comm_up: ~p", [AssocId]),
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
-            parse(AppId, Transp1, Socket, Data),
-            State;
+            nksip_transport_sctp_conn:start_link(AppId, Transp1, Socket, Timeout);
+        #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
+            ?warning(AppId, "Server SCTP: shutdown_comp", []),
+            case nksip_transport:get_connected(AppId, sctp, Ip, Port) of
+                [{#transport{sctp_id=AssocId}, Pid}] ->
+                    gen_server:cast(Pid, stop);
+                _ ->
+                    ?notice(AppId, 
+                            "SCTP received shutdown_comp for unknown connection", [])
+            end;
+        #sctp_paddr_change{addr=Addr, state=addr_confirmed, assoc_id=AssocId} ->
+            ?warning(AppId, "Server SCTP: addr_confirmed: ~p, ~p", [Addr, AssocId]),
+            {Ip1, Port1} = Addr,
+            case nksip_transport:get_connected(AppId, sctp, Ip1, Port1) of
+                [{#transport{sctp_id=AssocId}, _Pid}] ->
+                    ?notice(AppId, 
+                            "SCTP received addr_confirmed for known connection", []);
+                _ ->
+                    Transp1 = Transp#transport{remote_ip=Ip1, remote_port=Port1, 
+                                               sctp_id=AssocId},
+                    nksip_transport_sctp_conn:start_link(AppId, Transp1, Socket, Timeout)
+            end;
+        #sctp_shutdown_event{assoc_id=AssocId} ->
+            ?warning(AppId, "Server SCTP: #sctp_shutdown_event: ~p", [AssocId]),
+            case nksip_transport:get_connected(AppId, sctp, Ip, Port) of
+                [{#transport{sctp_id=AssocId}, Pid}] ->
+                    gen_server:cast(Pid, stop);
+                _ ->
+                    ?notice(AppId, 
+                            "SCTP received shutdown_comp for unknown connection", [])
+            end;
+        Data when is_binary(Data) ->
+            [#sctp_sndrcvinfo{assoc_id=AssocId}] = Anc,
+            Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
+            parse(AppId, Transp1, Socket, Data);
         Other ->
-            ?warning(AppId, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other]),
-            State
+            ?warning(AppId, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other])
     end,
     ok = inet:setopts(Socket, [{active, once}]),
-    {noreply, State1, State#state.timeout};
+    {noreply, State};
 
-% handle_info({timeout, _, do_ping}, State) ->
-%     #state{
-%         app_id = AppId, 
-%         socket = Socket,
-%         refresh = Refresh,
-%         assocs = Assocs
-%     } = State,
-%     lists:foreach(
-%         fun({AssocId, _}) ->
-%             case gen_sctp:send(Socket, AssocId, 0, <<"\r\n\r\n">>) of
-%                 ok -> 
-%                     ok;
-%                 {error, Error} ->
-%                     ?notice(AppId, "Could not send keep-alive on SCTP to ~p: ~p", 
-%                             [AssocId, Error])
-%             end
-%         end, Assocs),
-%     erlang:start_timer(Refresh, self(), do_ping),
-%     {noreply, State#state{timeout=10000}, 10000};
-
-handle_info(timeout, State) ->
-    #state{app_id=AppId, socket=Socket} = State,
-    ?debug(AppId, "SCTP connection timeout", []),
-    gen_sctp:close(Socket),
-    {stop, normal, State};
+% handle_info(timeout, State) ->
+%     #state{app_id=AppId, socket=Socket} = State,
+%     ?debug(AppId, "SCTP connection timeout", []),
+%     gen_sctp:close(Socket),
+%     {stop, normal, State};
 
 handle_info(Info, State) -> 
     lager:warning("Module ~p received unexpected info: ~p (~p)", [?MODULE, Info, State]),
-    {noreply, State, State#state.timeout}.
+    {noreply, State}.
 
 
 %% @private
@@ -377,8 +357,8 @@ code_change(_OldVsn, State, _Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(_Reason, #state{app_id=AppId, type=Type, socket=Socket}) ->  
-    ?debug(AppId, "SCTP ~p process stopped", [Type]),
+terminate(_Reason, #state{app_id=AppId, socket=Socket}) ->  
+    ?debug(AppId, "SCTP server process stopped", []),
     gen_sctp:close(Socket).
 
 
@@ -388,8 +368,9 @@ terminate(_Reason, #state{app_id=AppId, type=Type, socket=Socket}) ->
 %% ===================================================================
 
 
+
 %% @private
-parse(AppId, Transp,  Socket, Packet) ->   
+parse(AppId, Transp, Socket, Packet) ->   
     case nksip_parse:packet(AppId, Transp, Packet) of
         {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
@@ -410,60 +391,52 @@ parse(AppId, Transp,  Socket, Packet) ->
     end.
 
 
-%% @private
-add_connection(Ip, Port, AssocId, State) ->
-    #state{type=Type, app_id=AppId, assocs=Assocs, transport=Transp} = State,
-    ?warning(AppId, "SCTP (~p) new connection from ~p:~p: ~p", 
-           [Type, Ip, Port, AssocId]),
-    Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
-    nksip_proc:put({nksip_connection, {AppId, sctp, Ip, Port}}, Transp1),
-    State#state{assocs=dict:store(AssocId, [{Ip, Port}], Assocs)}.
+% %% @private
+% add_connection(Ip, Port, AssocId, State) ->
+%     #state{type=Type, app_id=AppId, assocs=Assocs, transport=Transp} = State,
+%     ?warning(AppId, "SCTP (~p) new connection from ~p:~p: ~p", 
+%            [Type, Ip, Port, AssocId]),
+%     Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
+%     nksip_proc:put({nksip_connection, {AppId, sctp, Ip, Port}}, Transp1),
+%     State#state{assocs=dict:store(AssocId, [{Ip, Port}], Assocs)}.
 
 
 %% @private
-remove_connection(AssocId, State) ->
-    #state{type=Type, app_id=AppId, assocs=Assocs} = State,
-    case dict:find(AssocId, Assocs) of
-        {ok, Dests} -> 
-            ?debug(AppId, "SCTP (~p) removed connection: ~p", [Type, AssocId]),
-            lists:foreach(
-                fun({Ip, Port}) -> 
-                    nksip_proc:del({nksip_connection, {AppId, sctp, Ip, Port}})
-                end,
-                Dests),
-            State#state{assocs=dict:erase(AssocId, Assocs)};
-        error ->
-            State
-    end.
+% remove_connection(AssocId, State) ->
+%     #state{type=Type, app_id=AppId, assocs=Assocs} = State,
+%     case dict:find(AssocId, Assocs) of
+%         {ok, Dests} -> 
+%             ?debug(AppId, "SCTP (~p) removed connection: ~p", [Type, AssocId]),
+%             lists:foreach(
+%                 fun({Ip, Port}) -> 
+%                     nksip_proc:del({nksip_connection, {AppId, sctp, Ip, Port}})
+%                 end,
+%                 Dests),
+%             State#state{assocs=dict:erase(AssocId, Assocs)};
+%         error ->
+%             State
+%     end.
 
 
-%% @private
-add_ip(Ip, Port, AssocId, State) ->
-    #state{type=Type, app_id=AppId, assocs=Assocs, transport=Transp} = State,
-    Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
-    case dict:find(AssocId, Assocs) of
-        {ok, Dests} ->
-            case lists:member({Ip, Port}, Dests) of
-                true ->
-                    State;
-                false ->
-                    ?debug(AppId, "SCTP ~p (~p) updated connection: ~p:~p", 
-                             [AssocId, Type, Ip, Port]),
-                    nksip_proc:put({nksip_connection, {AppId, sctp, Ip, Port}}, Transp1),
-                    State#state{assocs=dict:append(AssocId, {Ip, Port}, Assocs)}
-            end;
-        error ->
-            State
-    end.
+% %% @private
+% add_ip(Ip, Port, AssocId, State) ->
+%     #state{type=Type, app_id=AppId, assocs=Assocs, transport=Transp} = State,
+%     Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
+%     case dict:find(AssocId, Assocs) of
+%         {ok, Dests} ->
+%             case lists:member({Ip, Port}, Dests) of
+%                 true ->
+%                     State;
+%                 false ->
+%                     ?debug(AppId, "SCTP ~p (~p) updated connection: ~p:~p", 
+%                              [AssocId, Type, Ip, Port]),
+%                     nksip_proc:put({nksip_connection, {AppId, sctp, Ip, Port}}, Transp1),
+%                     State#state{assocs=dict:append(AssocId, {Ip, Port}, Assocs)}
+%             end;
+%         error ->
+%             State
+%     end.
 
    
-%% @private
-outbound_opts(_Opts) ->
-    Autoclose = nksip_config:get(sctp_timeout),
-    [
-        binary, {active, false},
-        {sctp_initmsg, #sctp_initmsg{num_ostreams=1, max_instreams=1}},
-        {sctp_autoclose, Autoclose},    
-        {sctp_default_send_param, #sctp_sndrcvinfo{stream=0, flags=[unordered]}}
-    ].
+    
 
