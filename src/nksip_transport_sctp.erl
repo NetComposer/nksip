@@ -72,56 +72,33 @@ start_listener(AppId, Ip, Port, Opts) ->
                    nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
-connect(AppId, Ip, Port, Opts) ->
+connect(AppId, Ip, Port, _Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, sctp, Class) of
-        [{ListenTransp, _Pid}|_] ->
-            Autoclose = nksip_config:get_cached(sctp_timeout, Opts),
-            SocketOpts = [
-                binary, {active, false},
-                {sctp_initmsg, #sctp_initmsg{num_ostreams=1, max_instreams=1}},
-                {sctp_autoclose, Autoclose},    
-                {sctp_default_send_param, #sctp_sndrcvinfo{stream=0, flags=[unordered]}}
-            ],
-            % We could start a new association using existing listening socket
-            % but it is not clear how many to allow
-            case gen_sctp:open(0, SocketOpts) of
-                {ok, Socket}  ->
-                    {ok, {LocalIp, LocalPort}} = inet:sockname(Socket),
-                    case gen_sctp:connect(Socket, Ip, Port, []) of
-                        {ok, Assoc} ->
-                            #sctp_assoc_change{assoc_id=AssocId} = Assoc,
-                            Transp = ListenTransp#transport{
-                                local_ip = LocalIp,
-                                local_port = LocalPort,
-                                remote_ip = Ip,
-                                remote_port = Port,
-                                sctp_id=AssocId
-                            },
-                            Spec = {
-                                {AppId, sctp, Ip, Port, make_ref()},
-                                {nksip_transport_sctp_conn, start_link, 
-                                    [AppId, Transp, Socket, 2000*Autoclose]},
-                                temporary,
-                                5000,
-                                worker,
-                                [?MODULE]
-                            },
-                            {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
-                            gen_sctp:controlling_process(Socket, Pid),
-                            inet:setopts(Socket, [{active, once}]),
-                            ?debug(AppId, "connected to ~s:~p (sctp)", 
-                                [nksip_lib:to_host(Ip), Port]),
-                            {ok, Pid, Transp, Socket};
-                        {error, Error} ->
-                            {error, Error}
-                    end;
-                {error, Error} ->
-                    {error, Error}
+        [{_ListenTransp, Pid}|_] ->
+            case catch gen_server:call(Pid, {connect, Ip, Port}, 60000) of
+                {ok, Transp} -> {ok, Pid, Transp};
+                {error, Error} -> {error, Error};
+                {'EXIT', Error} -> {error, Error}
             end;
         [] ->
             {error, no_listening_transport}
     end.
+
+
+do_connect(Socket, Transp, From) ->
+    #transport{remote_ip=Ip, remote_port=Port} = Transp,
+    Reply = case gen_sctp:connect(Socket, Ip, Port, []) of
+        {ok, Assoc} ->
+            #sctp_assoc_change{assoc_id=AssocId} = Assoc,
+            Transp1 = Transp#transport{sctp_id=AssocId},
+            {ok, Transp1};
+        {error, Error} ->
+            {error, Error}
+    end,
+    gen_server:reply(From, Reply).
+
+
 
 
 %% @private Sends a new SCTP request or response
@@ -253,14 +230,11 @@ init([AppId, Transp, Opts]) ->
     gen_server_call(#state{}).
 
 
-handle_call({connect, Ip, Port}, _From, #state{socket=Socket}=State) ->
-    case gen_sctp:connect(Socket, Ip, Port, []) of
-        {ok, Assoc} ->
-            #sctp_assoc_change{assoc_id=AssocId} = Assoc,  
-            {reply, {ok, AssocId}, State};
-        {error, Error} ->
-            {reply, {error, Error}, State}
-    end;
+handle_call({connect, Ip, Port}, From, State) ->
+    #state{socket=Socket, transport=Transp} = State,
+    Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
+    spawn_link(fun() -> do_connect(Socket, Transp1, From) end),
+    {noreply, State};
 
 handle_call(get_socket, _From, #state{socket=Socket}=State) ->
     {reply, {ok, Socket}, State};
