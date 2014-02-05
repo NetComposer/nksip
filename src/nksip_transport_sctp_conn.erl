@@ -91,9 +91,12 @@ handle_call({receive_refresh, Secs}, _From, State) ->
     State1 = State#state{timeout=1000*Secs},
     {reply, ok, State1, State1#state.timeout};
 
+handle_call(get_socket, _From, #state{socket=Socket}=State) ->
+    {reply, {ok, Socket}, State};
+
 handle_call(Msg, _From, State) ->
     lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
-    {noreply, State#state.timeout}.
+    {noreply, State, State#state.timeout}.
 
 
 %% @private
@@ -163,7 +166,7 @@ handle_info({timeout, _, refreshed}, #state{app_id=AppId}=State) ->
 
 handle_info(timeout, State) ->
     #state{app_id=AppId, transport=#transport{sctp_id=AssocId}} = State,
-    ?notice(AppId, "SCTP connection TIMEOUT: ~p", [AssocId]),
+    ?debug(AppId, "SCTP connection timeout: ~p", [AssocId]),
     {stop, normal, State};
 
 handle_info(Info, State) -> 
