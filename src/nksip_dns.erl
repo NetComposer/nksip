@@ -32,7 +32,6 @@
 -define(CHECK_INTERVAL, 60).    % secs
 
 
-
 %% ===================================================================
 %% Public
 %% ===================================================================
@@ -104,7 +103,7 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
         {ok, TargetIp} -> IsNumeric = true;
         _ -> TargetIp = IsNumeric = false
     end,
-    Proto1 = case nksip_lib:get_value(<<"transport">>, Opts) of
+    Proto = case nksip_lib:get_value(<<"transport">>, Opts) of
         Atom when is_atom(Atom) -> 
             Atom;
         Other -> 
@@ -114,34 +113,33 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
                 Atom -> Atom
             end
     end,
-    Addrs = case IsNumeric of
-        true -> [TargetIp];
-        false when Port>0 -> get_ips(Target);
-        false -> []
-    end,
-    OK = fun(FProto) -> 
+    Resolve = fun(FProto) -> 
         Port1 = case Port > 0 of
             true -> Port;
             false -> nksip_transport:default_port(FProto)
         end,
+        Addrs = case IsNumeric of
+            true -> [TargetIp];
+            false -> get_ips(Target)
+        end,
         {ok, [{FProto, Addr, Port1} || Addr <- Addrs]} 
     end,
-    case {Scheme, Proto1} of
-        {sip, udp} -> OK(udp);
-        {sip, tcp} -> OK(tcp);
-        {sip, tls} -> OK(tls);
-        {sip, sctp} -> OK(sctp);
-        {sip, ws} -> OK(ws);
-        {sip, wss} -> OK(wss);
-        {sip, undefined} when IsNumeric; Port>0 -> OK(udp);
+    case {Scheme, Proto} of
+        {sip, udp} -> Resolve(udp);
+        {sip, tcp} -> Resolve(tcp);
+        {sip, tls} -> Resolve(tls);
+        {sip, sctp} -> Resolve(sctp);
+        {sip, ws} -> Resolve(ws);
+        {sip, wss} -> Resolve(wss);
+        {sip, undefined} when IsNumeric; Port>0 -> Resolve(udp);
         {sip, undefined} -> {naptr, sip, Target};
         {sips, udp} -> {ok, []};
-        {sips, tcp} -> OK(tls);
-        {sips, tls} -> OK(tls);
+        {sips, tcp} -> Resolve(tls);
+        {sips, tls} -> Resolve(tls);
         {sips, sctp} -> {ok, []};
-        {sips, ws} -> OK(wss);
-        {sips, wss} -> OK(wss);
-        {sips, undefined} when IsNumeric; Port>0 -> OK(tls);
+        {sips, ws} -> Resolve(wss);
+        {sips, wss} -> Resolve(wss);
+        {sips, undefined} when IsNumeric; Port>0 -> Resolve(tls);
         {sips, undefined} -> {naptr, sips, Target};
         _ -> {ok, []}
     end.
