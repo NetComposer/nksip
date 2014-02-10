@@ -24,8 +24,7 @@
 -module(nksip_transport_tcp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_listener/5, connect/5, send/2, stop/1]).
--export([start_refresh/2, receive_refresh/2]).
+-export([get_listener/3, connect/3]).
 -export([ranch_start_link/6, start_link/4]).
 
 -include("nksip.hrl").
@@ -38,25 +37,16 @@
 %% ===================================================================
 
 %% @private Starts a new listening server
--spec start_listener(nksip:app_id(), nksip:protocol(), 
-                    inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
-    {ok, pid()} | {error, term()}.
+-spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+    term().
 
-start_listener(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
+get_listener(AppId, Transp, Opts) ->
+    #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     Listeners = nksip_lib:get_value(listeners, Opts, 1),
     Module = case Proto of
         tcp -> ranch_tcp;
         tls -> ranch_ssl
     end,
-    Transp = #transport{
-        proto = Proto,
-        local_ip = Ip, 
-        local_port = Port,
-        listen_ip = Ip,
-        listen_port = Port,
-        remote_ip = {0,0,0,0},
-        remote_port = 0
-    },
     Spec = ranch:child_spec(
         {AppId, Proto, Ip, Port}, 
         Listeners, 
@@ -66,111 +56,46 @@ start_listener(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
         [AppId, Transp, Opts]),
     % Little hack to use our start_link instead of ranch's one
     {ranch_listener_sup, start_link, StartOpts} = element(2, Spec),
-    Spec1 = setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}),
-    nksip_transport_sup:add_transport(AppId, Spec1).
+    setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}).
 
     
 %% @private Starts a new connection to a remote server
--spec connect(nksip:app_id(), tcp|tls,
-                    inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
-    {ok, pid(), nksip_transport:transport()} | {error, term()}.
+-spec connect(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+    {ok, term()} | {error, term()}.
          
-connect(AppId, Proto, Ip, Port, Opts) when Proto==tcp; Proto==tls ->
-    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-    case nksip_transport:get_listening(AppId, Proto, Class) of
-        [{ListenTransp, _Pid}|_] -> 
-            SocketOpts = outbound_opts(Proto, Opts),
-            case socket_connect(Proto, Ip, Port, SocketOpts) of
-                {ok, Socket} -> 
-                    {ok, {LocalIp, LocalPort}} = case Proto of
-                        tcp -> inet:sockname(Socket);
-                        tls -> ssl:sockname(Socket)
-                    end,
-                    Transp = ListenTransp#transport{
-                        local_ip = LocalIp,
-                        local_port = LocalPort,
-                        remote_ip = Ip,
-                        remote_port = Port
-                    },
-                    Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
-                    Spec = {
-                        {AppId, Proto, Ip, Port, make_ref()},
-                        {nksip_transport_tcp_conn, start_link, 
-                            [AppId, Transp, Socket, Timeout]},
-                        temporary,
-                        5000,
-                        worker,
-                        [?MODULE]
-                    },
-                    {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
-                    controlling_process(Proto, Socket, Pid),
-                    setopts(Proto, Socket, [{active, once}]),
-                    ?debug(AppId, "connected to ~s:~p (~p)", 
-                        [nksip_lib:to_host(Ip), Port, Proto]),
-                    {ok, Pid, Transp};
-                {error, Error} ->
-                    {error, Error}
-            end;
-        [] ->
-            {error, no_listening_transport}
+connect(AppId, Transp, Opts) ->
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+    SocketOpts = outbound_opts(Proto, Opts),
+    case socket_connect(Proto, Ip, Port, SocketOpts) of
+        {ok, Socket} -> 
+            {ok, {LocalIp, LocalPort}} = case Proto of
+                tcp -> inet:sockname(Socket);
+                tls -> ssl:sockname(Socket)
+            end,
+            Transp1 = Transp#transport{
+                local_ip = LocalIp,
+                local_port = LocalPort,
+                remote_ip = Ip,
+                remote_port = Port
+            },
+            Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
+            Spec = {
+                {AppId, Proto, Ip, Port, make_ref()},
+                {nksip_transport_conn, start_link, 
+                    [AppId, Transp1, Socket, Timeout]},
+                temporary,
+                5000,
+                worker,
+                [?MODULE]
+            },
+            {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
+            controlling_process(Proto, Socket, Pid),
+            setopts(Proto, Socket, [{active, once}]),
+            ?debug(AppId, "~p connected to ~p", [Proto, {Ip, Port}]),
+            {ok, Pid, Transp1};
+        {error, Error} ->
+            {error, Error}
     end.
-
-
-%% @private Sends a new TCP or TLS request or response
--spec send(pid(), #sipmsg{}) ->
-    ok | error.
-
-send(Pid, #sipmsg{app_id=AppId, call_id=CallId, transport=Transport}=SipMsg) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
-    Packet = nksip_unparse:packet(SipMsg),
-    case catch gen_server:call(Pid, {send, Packet}) of
-        ok ->
-            nksip_trace:insert(SipMsg, {tcp_out, Proto, Ip, Port, Packet}),
-            nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transport, Packet),
-            ok;
-        {'EXIT', Error} ->
-            ?notice(AppId, CallId, "could not send TCP message: ~p", [Error]),
-            error
-    end;
-
-send(Pid, Packet) when is_binary(Packet) ->
-    case catch gen_server:call(Pid, {send, Packet}) of
-        ok -> ok;
-        {'EXIT', _} -> error
-    end.
-
-
-%% @private
-stop(Pid) ->
-    gen_server:cast(Pid, stop).
-
-
-%% @doc Start a time-alive series
--spec start_refresh(pid(), pos_integer()) ->
-    ok | error.
-
-start_refresh(Pid, Secs) ->
-    Rand = crypto:rand_uniform(80, 101),
-    Time = (Rand*Secs) div 100,
-    case catch gen_server:call(Pid, {start_refresh, Time}) of
-        ok -> ok;
-        _ -> error
-    end.
-
-
-%% @doc Updates timeout on no incoming packet
--spec receive_refresh(pid(), pos_integer()) ->
-    ok | error.
-
-receive_refresh(Pid, Secs) ->
-    Rand = crypto:rand_uniform(80, 101),
-    Time = (Rand*Secs) div 100,
-    case catch gen_server:call(Pid, {receive_refresh, Time}) of
-        ok -> ok;
-        _ -> error
-    end.
-
-
 
 
 %% ===================================================================
@@ -265,7 +190,7 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
     ?debug(AppId, "new connection from ~p:~p (~p)", [RemoteIp, RemotePort, Proto]),
     Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
-    nksip_transport_tcp_conn:start_link(AppId, Transp1, Socket, Timeout).
+    nksip_transport_conn:start_link(AppId, Transp1, Socket, Timeout).
 
 
 %% @private
@@ -281,4 +206,5 @@ setopts(tls, Socket, Opts) -> ssl:setopts(Socket, Opts).
 %% @private
 controlling_process(tcp, Socket, Pid) -> gen_tcp:controlling_process(Socket, Pid);
 controlling_process(tls, Socket, Pid) -> ssl:controlling_process(Socket, Pid).
+
 

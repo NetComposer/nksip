@@ -23,11 +23,10 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([start_listener/4, send/2, send_stun_sync/3, send_stun_async/3]).
--export([get_port/1, connect/3, stop/1, start_refresh/2, receive_refresh/2]).
+-export([send_stun_sync/3, send_stun_async/3, get_port/1]).
+-export([get_listener/3, connect/3]).
 -export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
              handle_info/2]).
--export([parse/3]).
 
 -include("nksip.hrl").
 
@@ -35,113 +34,16 @@
 
 
 %% ===================================================================
-%% Private
+%% Public
 %% ===================================================================
 
 
-
-%% @private Starts a new listening server
--spec start_listener(nksip:app_id(), inet:ip_address(), inet:port_number(), 
-                   nksip_lib:proplist()) ->
-    {ok, pid()} | {error, term()}.
-
-start_listener(AppId, Ip, Port, Opts) ->
-    Transp = #transport{
-        proto = udp,
-        local_ip = Ip, 
-        local_port = Port,
-        listen_ip = Ip,
-        listen_port = Port,
-        remote_ip = {0,0,0,0},
-        remote_port = 0
-    },
-    Spec = {
-        {AppId, udp, Ip, Port}, 
-        {?MODULE, start_link, [AppId, Transp, Opts]},
-        permanent, 
-        5000, 
-        worker, 
-        [?MODULE]
-    },
-    nksip_transport_sup:add_transport(AppId, Spec).
-
-
-%% @private Starts a new connection to a remote server
--spec connect(nksip:app_id(), inet:ip_address(), inet:port_number()) ->
-    {ok, pid(), nksip_transport:transport()} | {error, term()}.
-         
-%% @private Registers a new connection
-connect(AppId, Ip, Port) ->
-    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-    case nksip_transport:get_listening(AppId, udp, Class) of
-        [{_Transp, Pid}|_] -> 
-            case catch gen_server:call(Pid, {connect, Ip, Port}) of
-                {ok, Pid1, Transp1} -> {ok, Pid1, Transp1};
-                _ -> {error, internal_error}
-            end;
-        [] -> 
-            {error, no_listening_transport}
-    end.
-
-
-%% @private Sends a new UDP request or response
--spec send(pid(), #sipmsg{}) ->
-    ok | error.
-
-send(Pid, SipMsg) ->
-    #sipmsg{
-        class = Class,
-        app_id = AppId, 
-        call_id = CallId,
-        transport=#transport{remote_ip=Ip, remote_port=Port} = Transp
-    } = SipMsg,
-    Packet = nksip_unparse:packet(SipMsg),
-    case do_send(Pid, Packet) of
-        ok ->
-            case Class of
-                {req, Method} ->
-                    nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Method, Packet}),
-                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
-                    ok;
-                {resp, Code, _Reaosn} ->
-                    nksip_trace:insert(SipMsg, {udp_out, Ip, Port, Code, Packet}),
-                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
-                    ok
-            end;
-        {error, closed} ->
-            error;
-        {error, too_large} ->
-            error;
-        {error, Error} ->
-            ?notice(AppId, CallId, "could not send UDP msg to ~p:~p: ~p", 
-                  [Ip, Port, Error]),
-            error
-    end.
-
-
-%% @private Sends a new packet
--spec do_send(pid(), binary()) ->
-    ok | {error, term()}.
-
-do_send(Pid, Packet) when byte_size(Packet) =< ?MAX_UDP ->
-    % This call can be sent to the nksip_transport_udp_conn process
-    case catch gen_server:call(Pid, {send, Packet}, 60000) of
-        ok -> ok;
-        {error, Error} -> {error, Error};
-        {'EXIT', {noproc, _}} -> {error, closed};
-        {'EXIT', Error} -> {error, Error}
-    end;
-
-do_send(_Pid, Packet) ->
-    lager:debug("Coult not send UDP packet (too large: ~p)", [byte_size(Packet)]),
-    {error, too_large}.
-
-
 %% @private Sends a STUN binding request
+%% It does not open a new NkSIP's UDP connection
 send_stun_sync(Pid, Ip, Port) ->
     case catch gen_server:call(Pid, {send_stun, Ip, Port}, 30000) of
-        {stun, {StunIp, StunPort}} -> {ok, StunIp, StunPort};
-        _ -> error
+        {ok, StunIp, StunPort} -> {ok, StunIp, StunPort};
+        error -> error
     end.
 
 
@@ -158,32 +60,36 @@ get_port(Pid) ->
     gen_server:call(Pid, get_port).
 
 
-%% @private
-stop(Pid) ->
-    gen_server:cast(Pid, stop).
+
+%% ===================================================================
+%% Private
+%% ===================================================================
 
 
-%% @doc Start a time-alive series
--spec start_refresh(pid(), pos_integer()) ->
-    ok | error.
+%% @private Starts a new listening server
+-spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+    {ok, term()}.
 
-start_refresh(Pid, Secs) ->
-    Rand = crypto:rand_uniform(80, 101),
-    Time = (Rand*Secs) div 100,
-    case catch gen_server:call(Pid, {start_refresh, Time}) of
-        ok -> ok;
-        _ -> error
-    end.
+get_listener(AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts) ->
+    {
+        {AppId, udp, Ip, Port}, 
+        {?MODULE, start_link, [AppId, Transp, Opts]},
+        permanent, 
+        5000, 
+        worker, 
+        [?MODULE]
+    }.
 
 
-%% @doc Updates timeout on no incoming packet
--spec receive_refresh(pid(), pos_integer()) ->
-    ok | error.
-
-receive_refresh(Pid, Secs) ->
-    case catch gen_server:call(Pid, {receive_refresh, Secs}) of
-        ok -> ok;
-        _ -> error
+%% @private Starts a new connection to a remote server
+-spec connect(pid(), nksip:transport(), nksip_lib:proplist()) ->
+    {ok, pid(), nksip_transport:transport()} | {error, term()}.
+         
+%% @private Registers a new connection
+connect(Pid, #transport{remote_ip=Ip, remote_port=Port}, _Opts) ->
+    case catch gen_server:call(Pid, {connect, Ip, Port}) of
+        {ok, Pid1, Transp1} -> {ok, Pid1, Transp1};
+        _ -> {error, internal_error}
     end.
 
 
@@ -211,7 +117,8 @@ start_link(AppId, Transp, Opts) ->
     socket :: port(),
     tcp_pid :: pid(),
     stuns :: [#stun{}],
-    timer_t1 :: pos_integer()
+    timer_t1 :: pos_integer(),
+    timeout :: pos_integer()
 }).
 
 
@@ -235,7 +142,8 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
                 socket = Socket,
                 tcp_pid = undefined,
                 stuns = [],
-                timer_t1 = nksip_config:get_cached(timer_t1, Opts)
+                timer_t1 = nksip_config:get_cached(timer_t1, Opts),
+                timeout = 1000*nksip_config:get_cached(udp_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->
@@ -253,7 +161,7 @@ handle_call({connect, Ip, Port}, _From, State) ->
     {Pid, Transp1} = do_connect(Ip, Port, State),
     {reply, {ok, Pid, Transp1}, State};
 
-% It should not be used normally, use the nksip_transport_udp_conn version
+% It should not be used normally, use the nksip_transport_conn version
 handle_call({send, Ip, Port, Packet}, _From, #state{socket=Socket}=State) ->
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State};
 
@@ -302,10 +210,9 @@ handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, S
     ok = inet:setopts(Socket, [{active, once}]),
     case nksip_stun:decode(Packet) of
         {request, binding, TransId, _} ->
-            Response = nksip_stun:binding_response(TransId, Ip, Port),
-            gen_udp:send(Socket, Ip, Port, Response),
             {Pid, _Transp} = do_connect(Ip, Port, State),
-            gen_server:cast(Pid, stun_request),
+            Response = nksip_stun:binding_response(TransId, Ip, Port),
+            nksip_transport_conn:async_send(Pid, Response),
             ?debug(AppId, "sent STUN bind response to ~p:~p", [Ip, Port]),
             {noreply, State};
         {response, binding, TransId, Attrs} ->
@@ -316,8 +223,7 @@ handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, S
     end;
 
 handle_info({udp, Socket, Ip, Port, Packet}, #state{socket=Socket}=State) ->
-    do_process(Ip, Port, Packet, State),
-    read_packets(100, State),
+    read_packets(Ip, Port, Packet, State, 100),
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, State};
 
@@ -368,10 +274,9 @@ do_send_stun(Ip, Port, From, State) ->
         {error, Error} ->
             ?notice(AppId, "could not send UDP STUN request to ~p:~p: ~p", 
                   [Ip, Port, Error]),
-            Msg = {stun_request, error},
             case From of
-                {call, CallFrom} -> gen_server:reply(CallFrom, Msg);
-                {cast, CastPid} -> gen_server:cast(CastPid, Msg)
+                {call, CallFrom} -> gen_server:reply(CallFrom, error);
+                {cast, CastPid} -> gen_server:cast(CastPid, {stun, error})
             end,
             State
     end.
@@ -416,10 +321,10 @@ do_stun_response(TransId, Attrs, State) ->
                         _ -> StunIp = StunPort = undefined
                     end
             end,
-            Msg = {stun_response, {StunIp, StunPort}},
+            Msg = {ok, StunIp, StunPort},
             case From of
                 {call, CallFrom} -> gen_server:reply(CallFrom, Msg);
-                {cast, CastPid} -> gen_server:cast(CastPid, Msg)
+                {cast, CastPid} -> gen_server:cast(CastPid, {stun, Msg})
             end,
             State#state{stuns=Stuns1};
         false ->
@@ -433,7 +338,7 @@ do_stun_timeout(Stun, #state{app_id=AppId}=State) ->
     #stun{dest={Ip, Port}, from=From} = Stun,
     ?notice(AppId, "STUN request to ~p timeout", [{Ip, Port}]),
     case From of
-        {call, CallFrom} -> gen_server:reply(CallFrom, {stun, error});
+        {call, CallFrom} -> gen_server:reply(CallFrom, error);
         {cast, CastPid} -> gen_server:cast(CastPid, {stun, error})
     end,
     State.
@@ -470,55 +375,28 @@ open_port(AppId, Ip, Port, Iter) ->
 
 
 %% @private 
-read_packets(0, _State) ->
-    ok;
-read_packets(N, #state{socket=Socket}=State) ->
-    case gen_udp:recv(Socket, 0, 0) of
-        {error, _} -> 
-            ok;
-        {ok, {Ip, Port, Packet}} -> 
-            do_process(Ip, Port, Packet, State),
-            read_packets(N-1, State)
-    end.
-
-
-%% @private
-%% TODO: test if it is quicket to parse locally and send only a notification
-%% to process
-do_process(Ip, Port, Packet, State) ->
+read_packets(Ip, Port, Packet, #state{socket=Socket}=State, N) ->
     {Pid, _} = do_connect(Ip, Port, State),
-    gen_server:cast(Pid, {udp, Packet}).
+    nksip_transport_conn:incoming(Pid, Packet),
+    case N>0 andalso gen_udp:recv(Socket, 0, 0) of
+        {ok, {Ip1, Port1, Packet1}} -> 
+            read_packets(Ip1, Port1, Packet1, State, N-1);
+        _ ->
+            ok
+    end.
 
 
 %% @private
 do_connect(Ip, Port, State) ->
-    #state{app_id=AppId, transport=Transp, socket=Socket}= State,
+    #state{app_id=AppId, transport=Transp, socket=Socket, timeout=Timeout}= State,
     case nksip_transport:get_connected(AppId, udp, Ip, Port) of
-        [{Transp1, Pid}] -> 
+        [{Transp1, Pid}|_] -> 
             {Pid, Transp1};
         [] ->
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
-            {ok, Pid} = nksip_transport_udp_conn:start_link(AppId, Transp1, Socket, []),
+            {ok, Pid} = nksip_transport_conn:start_link(AppId, Transp1, Socket, Timeout),
             {Pid, Transp1}
     end.
 
 
-%% @private
-parse(AppId, Transp, Packet) ->
-    case nksip_parse:packet(AppId, Transp, Packet) of
-        {ok, #raw_sipmsg{call_id=CallId, class=Class}=RawMsg, More} -> 
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
-            nksip_trace:insert(AppId, CallId, {in_udp, Class}),
-            nksip_call_router:incoming_async(RawMsg),
-            case More of
-                <<>> -> ok;
-                _ -> ?notice(AppId, "ignoring data after UDP msg: ~p", [More])
-            end;
-        {rnrn, More} ->
-            parse(AppId, Transp, More);
-        {more, More} ->
-            ?notice(AppId, "ignoring extrada data ~s processing UDP msg", [More]);
-        {error, Error} ->
-            ?notice(AppId, "error ~p processing UDP msg", [Error])
-    end.
 

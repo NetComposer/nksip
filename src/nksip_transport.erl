@@ -113,7 +113,7 @@ get_all_connected() ->
 %% @private
 stop_all_connected() ->
     lists:foreach(
-        fun({_, #transport{proto=Proto}, Pid}) -> do_stop(Proto, Pid) end,
+        fun({_, _, Pid}) -> nksip_transport_conn:stop(Pid, normal) end,
         get_all_connected()).
 
 
@@ -210,8 +210,14 @@ local_ips() ->
 
 start_refresh(AppId, #transport{proto=Proto, remote_ip=Ip, remote_port=Port}) ->
     case get_connected(AppId, Proto, Ip, Port) of
-        [{_, Pid}|_] -> do_start_refresh(Proto, Pid);
-        [] -> {error, not_found}
+        [{_, Pid}|_] -> 
+            Secs = case Proto of
+                udp -> ?DEFAULT_UDP_KEEPALIVE;
+                _ -> ?DEFAULT_TCP_KEEPALIVE
+            end,
+            nksip_transport_conn:start_refresh(Pid, Secs);
+        [] -> 
+            {error, not_found}
     end.
 
 
@@ -228,16 +234,8 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
             <- get_listening(AppId, Proto, Class)
     ],
     case nksip_lib:get_value({Ip, Port}, Listening) of
-        undefined when Proto== udp ->
-            nksip_transport_udp:start_listener(AppId, Ip, Port, Opts);
-        undefined when Proto==tcp; Proto==tls ->
-            nksip_transport_tcp:start_listener(AppId, Proto, Ip, Port, Opts);
-        undefined when Proto==sctp ->
-            nksip_transport_sctp:start_listener(AppId, Ip, Port, Opts);
-        undefined ->
-            {error, invalid_transport};
-        Pid when is_pid(Pid) -> 
-            {ok, Pid}
+        undefined -> nksip_transport_conn:start_listener(AppId, Proto, Ip, Port, Opts);
+        Pid when is_pid(Pid) -> {ok, Pid}
     end.
 
 
@@ -247,15 +245,13 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 start_connection(AppId, udp, Ip, Port, Opts) ->
-    nksip_transport_srv:start_connection(AppId, udp, Ip, Port, Opts);
+    nksip_transport_conn:connect(AppId, udp, Ip, Port, Opts);
 
 start_connection(AppId, Proto, Ip, Port, Opts) ->
     Max = nksip_config:get(max_connections),
     case nksip_counters:value(nksip_transport_tcp) of
-        Current when Current > Max ->
-            error;
-        _ ->
-            nksip_transport_srv:start_connection(AppId, Proto, Ip, Port, Opts)
+        Current when Current > Max -> error;
+        _ -> nksip_transport_srv:connect(AppId, Proto, Ip, Port, Opts)
     end.
                 
 
@@ -283,9 +279,9 @@ send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts)
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
             SipMsg = MakeMsg(Transport),
-            case do_send(Proto, Pid, SipMsg) of
+            case nksip_transport_conn:send(Pid, SipMsg) of
                 ok -> {ok, SipMsg};
-                error -> send(AppId, Rest, MakeMsg, Opts)
+                {error, _} -> send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
             send(AppId, Rest, MakeMsg, Opts)
@@ -318,24 +314,24 @@ send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg, Opts)
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transport, Pid}|_] -> 
             SipMsg = MakeMsg(Transport),
-            case do_send(Proto, Pid, SipMsg) of
+            case nksip_transport_conn:send(Pid, SipMsg) of
                 ok -> 
                     {ok, SipMsg};
-                error when Proto==udp ->
+                {error, _} when Proto==udp ->
                     send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts);
-                error -> 
+                {error, _} -> 
                     send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
             case start_connection(AppId, Proto, Ip, Port, Opts) of
                 {ok, Pid, Transport} ->
                     SipMsg = MakeMsg(Transport),
-                    case do_send(Proto, Pid, SipMsg) of
+                    case nksip_transport_conn:send(Pid, SipMsg) of
                         ok -> 
                             {ok, SipMsg};
-                        error when Proto==udp ->
+                        {error, _} when Proto==udp ->
                             send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts);
-                        error -> 
+                        {error, _} -> 
                             send(AppId, Rest, MakeMsg, Opts)
                     end;
                 {error, Error} ->
@@ -383,32 +379,6 @@ raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
         [] -> 
             error
     end.
-               
-
-
-%% @private
-do_send(udp, Pid, SipMsg) -> nksip_transport_udp:send(Pid, SipMsg);
-do_send(tcp, Pid, SipMsg) -> nksip_transport_tcp:send(Pid, SipMsg);
-do_send(tls, Pid, SipMsg) -> nksip_transport_tcp:send(Pid, SipMsg);
-do_send(sctp, Pid, SipMsg) -> nksip_transport_sctp:send(Pid, SipMsg).
-
-
-%% @private
-do_start_refresh(udp, Pid) -> 
-    nksip_transport_udp:start_refresh(Pid, ?DEFAULT_UDP_KEEPALIVE);
-do_start_refresh(tcp, Pid) -> 
-    nksip_transport_tcp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE);
-do_start_refresh(tls, Pid) -> 
-    nksip_transport_tcp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE);
-do_start_refresh(sctp, Pid) -> 
-    nksip_transport_sctp:start_refresh(Pid, ?DEFAULT_TCP_KEEPALIVE).
-
-
-%% @private
-do_stop(udp, Pid) -> nksip_transport_udp:stop(Pid);
-do_stop(tcp, Pid) -> nksip_transport_tcp:stop(Pid);
-do_stop(tls, Pid) -> nksip_transport_tcp:stop(Pid);
-do_stop(sctp, Pid) -> nksip_transport_sctp:stop(Pid).
 
 
 %% @private
