@@ -304,7 +304,7 @@ handle_info({tcp, Socket, Packet}, #state{socket=Socket}=State) ->
     parse(Packet, State);
 
 handle_info({ssl, Socket, Packet}, #state{socket=Socket}=State) ->
-    inet:setopts(Socket, [{active, once}]),
+    ssl:setopts(Socket, [{active, once}]),
     parse(Packet, State);
 
 handle_info({tcp_closed, Socket}, #state{socket=Socket}=State) ->
