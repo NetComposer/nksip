@@ -140,6 +140,7 @@ get_registers(AppId) ->
     next :: nksip_lib:timestamp(),
     ok :: boolean(),
     monitor :: reference(),
+    pid :: pid(),
     fails :: non_neg_integer()
 }).
 
@@ -239,10 +240,16 @@ handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From,
     },
     timer(State#state{regs=lists:keystore(RegId, #sipreg.id, Regs, Reg)});
 
-handle_call({'$nksip_stop_register', RegId}, From, #state{regs=Regs}=State) ->
+handle_call({'$nksip_stop_register', RegId}, From, State) ->
+    #state{app_id=AppId, regs=Regs} = State,
     case lists:keytake(RegId, #sipreg.id, Regs) of
-        {value, _, Regs1} -> 
+        {value, #sipreg{monitor=Monitor}=Reg, Regs1} -> 
             gen_server:reply(From, ok),
+            case is_reference(Monitor) of
+                true -> erlang:demonitor(Monitor);
+                false -> ok
+            end, 
+            spawn(fun() -> launch_unregister(AppId, Reg) end),
             State#state{regs=Regs1};
         false -> 
             gen_server:reply(From, not_found),
@@ -255,7 +262,7 @@ handle_call('$nksip_get_registers', From, #state{regs=Regs}=State) ->
     %     {RegId, Ok, (Last+Interval)-Now}
     %     ||  #sipreg{id=RegId, ok=Ok, last=Last, interval=Interval} <- Regs
     % ],
-    gen_server:reply(From, Regs),
+    gen_server:reply(From, {State#state.base_time, Regs}),
     State;
 
 handle_call(_, _From, _State) ->
@@ -289,9 +296,6 @@ handle_cast({'$nksip_register_answer', RegId, Code, Meta},
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OldOK, interval=Interval}=Reg, Regs1} ->
             #sipreg{ok=OK} = Reg1 = update_register(Reg, Code, Meta, State),
-            
-            lager:warning("REG: ~p", [lager:pr(Reg1, ?MODULE)]),
-
             case OK of
                 OldOK ->
                     ok;
@@ -317,7 +321,7 @@ handle_cast(_, _) ->
 handle_info({'DOWN', Mon, process, _Pid, _}, #state{app_id=AppId, regs=Regs}=State) ->
     case lists:keyfind(Mon, #sipreg.monitor, Regs) of
         #sipreg{id=RegId, cseq=CSeq} ->
-            ?notice(AppId, "flow ~p has failed", [RegId]),
+            ?info(AppId, "flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
             gen_server:cast(self(), {'$nksip_register_answer', RegId, 503, Meta});
         false ->
@@ -325,18 +329,23 @@ handle_info({'DOWN', Mon, process, _Pid, _}, #state{app_id=AppId, regs=Regs}=Sta
     end,
     State;
 
+handle_info({'$nksip_register_notify', RegId}, #state{regs=Regs}=State) ->
+    case lists:keytake(RegId, #sipreg.id, Regs) of
+        {value, Reg, Regs1} -> 
+            State1 = State#state{regs=[Reg#sipreg{fails=0}|Regs1]},
+            update_basetime(State1);
+        false -> 
+            State
+    end;
+
 handle_info(_, _) ->
     error.
 
 
 %% @private
-terminate(_Reason, #state{app_id=_AppId, regs=_Regs}) ->  
-    % lists:foreach(
-    %     fun(#sipreg{ruri=RUri}=Reg) ->
-    %         nksip_uac:register(AppId, RUri, register_opts(Reg#sipreg{interval=0}))
-    %     end,
-    %     Regs).
-    ok.
+terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->  
+    lists:foreach(fun(Reg) -> launch_unregister(AppId, Reg) end, Regs).
+
 
 
 %% ===================================================================
@@ -385,7 +394,7 @@ launch_register(AppId, Reg)->
         make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, Interval}, 
         {fields, [cseq_num, remote, parsed_require, <<"Retry-After">>]} 
         | Opts
-    ],
+    ],   
     Self = self(),
     Fun = fun() ->
         case nksip_uac:register(AppId, RUri, Opts1) of
@@ -396,8 +405,29 @@ launch_register(AppId, Reg)->
     end,
     spawn_link(Fun),
     Reg#sipreg{next=undefined}.
+    
 
+%% @private
+-spec launch_unregister(nksip:app_id(), #sipreg{}) -> 
+    ok.
 
+launch_unregister(AppId, Reg)->
+    #sipreg{
+        ruri = RUri,
+        opts = Opts, 
+        cseq = CSeq,
+        call_id = CallId,
+        pid = Pid
+    } = Reg,
+    Opts1 = [
+        make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, 0}
+        | Opts
+    ],
+    nksip_uac:register(AppId, RUri, Opts1),
+    case is_pid(Pid) of
+        true -> nksip_transport_conn:stop_refresh(Pid);
+        false -> ok
+    end.
 
    
 %% @private
@@ -405,7 +435,7 @@ launch_register(AppId, Reg)->
     #sipreg{}.
 
 update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 ->
-    #sipreg{monitor=Monitor, interval=Interval, from=From} = Reg,
+    #sipreg{id=RegId, monitor=Monitor, interval=Interval, from=From} = Reg,
     case From of
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, true})
@@ -416,22 +446,25 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
     end,
     {Proto, Ip, Port} = nksip_lib:get_value(remote, Meta),
     Require = nksip_lib:get_value(parsed_require, Meta),
-    Monitor1 = case lists:member(<<"outbound">>, Require) of
-        true when Interval>0 ->
-            case nksip_transport:start_refresh(AppId, Proto, Ip, Port) of
-                {ok, Pid} -> erlang:monitor(process, Pid);
-                error -> undefined
+    {Monitor1, Pid1} = case lists:member(<<"outbound">>, Require) of
+        true ->
+            Ref = {'$nksip_register_notify', RegId},
+            case nksip_transport:start_refresh(AppId, Proto, Ip, Port, Ref) of
+                {ok, Pid} -> {erlang:monitor(process, Pid), Pid};
+                error -> {undefined, undefined}
             end;
         _ ->
-            undefined
+            {undefined, undefined}
     end,
+    % 'fails' is not updated until the connection confirmation arrives
+    % (or process down)
     Reg#sipreg{
         ok = true,
         cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
         from = undefined,
         monitor = Monitor1,
-        next = nksip_lib:timestamp() + Interval,
-        fails = 0
+        pid = Pid1,
+        next = nksip_lib:timestamp() + Interval
     };
 
 update_register(Reg, Code, Meta, #state{base_time=BaseTime}) ->
@@ -468,10 +501,11 @@ update_register(Reg, Code, Meta, #state{base_time=BaseTime}) ->
 
 %% @private
 update_basetime(#state{regs=Regs}=State) ->
-    Base = case [true || #sipreg{ok=Ok} <-Regs, Ok==true] of
+    Base = case [true || #sipreg{fails=0} <- Regs] of
         [] -> ?DEFAULT_OB_TIME_ALL_FAIL;
         _ -> ?DEFAULT_OB_TIME_OK
     end,
+    lager:warning("BaseTime: ~p", [Base]),
     State#state{base_time=Base}.
 
 

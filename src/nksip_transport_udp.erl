@@ -210,10 +210,10 @@ handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, S
     ok = inet:setopts(Socket, [{active, once}]),
     case nksip_stun:decode(Packet) of
         {request, binding, TransId, _} ->
-            % {Pid, _Transp} = do_connect(Ip, Port, State),
-            % Response = nksip_stun:binding_response(TransId, Ip, Port),
-            % nksip_transport_conn:async_send(Pid, Response),
-            % ?debug(AppId, "sent STUN bind response to ~p:~p", [Ip, Port]),
+            {Pid, _Transp} = do_connect(Ip, Port, State),
+            Response = nksip_stun:binding_response(TransId, Ip, Port),
+            nksip_transport_conn:async_send(Pid, Response),
+            ?debug(AppId, "sent STUN bind response to ~p:~p", [Ip, Port]),
             {noreply, State};
         {response, binding, TransId, Attrs} ->
             {noreply, do_stun_response(TransId, Attrs, State)};
@@ -290,7 +290,7 @@ do_stun_retrans(Stun, State) ->
         true ->
             case gen_udp:send(Socket, Ip, Port, Packet) of
                 ok -> 
-                    ?notice(AppId, "sent STUN refresh", []),
+                    ?info(AppId, "sent STUN refresh", []),
                     Stun1 = Stun#stun{
                         retrans_timer = erlang:start_timer(Next, self(), stun_retrans),
                         next_retrans = 2*Next

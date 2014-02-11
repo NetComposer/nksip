@@ -24,7 +24,8 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
--export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0, start_refresh/4]).
+-export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
+-export([start_refresh/5, stop_refresh/4]).
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([send/4, raw_send/2]).
 -export([get_all_connected/0, stop_all_connected/0]).
@@ -204,21 +205,35 @@ local_ips() ->
     nksip_config:get(local_ips).
 
 
-%% @doc
+%% @doc Starts the refresh mechanism in a connected transport.
+%% After the first successful refresh, `Ref' will be sent to self(),
+%% unless Ref = undefined.
 -spec start_refresh(nksip:app_id(), nksip:protocol(), 
-                   inet:ip_address(), inet:port_number()) ->
+                   inet:ip_address(), inet:port_number(), undefined | term()) ->
     {ok, pid()} | error.
 
-start_refresh(AppId, Proto, Ip, Port) ->
+start_refresh(AppId, Proto, Ip, Port, Ref) ->
     case get_connected(AppId, Proto, Ip, Port) of
         [{_, Pid}|_] -> 
             Secs = case Proto of
                 udp -> ?DEFAULT_UDP_KEEPALIVE;
                 _ -> ?DEFAULT_TCP_KEEPALIVE
             end,
-            nksip_transport_conn:start_refresh(Pid, Secs);
+            nksip_transport_conn:start_refresh_notify(Pid, Secs, Ref);
         [] -> 
             error
+    end.
+
+
+%% @doc
+-spec stop_refresh(nksip:app_id(), nksip:protocol(), 
+                   inet:ip_address(), inet:port_number()) ->
+    ok.
+
+stop_refresh(AppId, Proto, Ip, Port) ->
+    case get_connected(AppId, Proto, Ip, Port) of
+        [{_, Pid}|_] -> nksip_transport_conn:stop_refresh_notify(Pid);
+        [] -> ok
     end.
 
 

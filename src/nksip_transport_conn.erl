@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/5, connect/5, send/2, async_send/2, stop/2]).
--export([start_refresh/2, start_refresh_notify/3, receive_refresh/2]).
+-export([start_refresh_notify/3, stop_refresh/1, receive_refresh/2]).
 -export([incoming/2]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
             handle_cast/2, handle_info/2]).
@@ -131,14 +131,6 @@ stop(Pid, Reason) ->
     gen_server:cast(Pid, {stop, Reason}).
 
 
-%% @doc Start a time-alive series
--spec start_refresh(pid(), pos_integer()) ->
-    ok | error.
-
-start_refresh(Pid, Secs) ->
-    start_refresh_notify(Pid, Secs, undefined).
-
-
 %% @doc Start a time-alive series, with result notify
 -spec start_refresh_notify(pid(), pos_integer(), term()) ->
     ok | error.
@@ -151,6 +143,12 @@ start_refresh_notify(Pid, Secs, Ref) ->
         _ -> error
     end.
 
+%% @doc Start a time-alive series, with result notify
+-spec stop_refresh(pid()) ->
+    ok.
+
+stop_refresh(Pid) ->
+    gen_server:cast(Pid, stop_refresh).
 
 
 %% @doc Updates timeout on no incoming packet
@@ -297,6 +295,15 @@ handle_cast({stun, {ok, StunIp, StunPort}}, State) ->
 
 handle_cast({stun, error}, State) ->
     do_stop(stun_error, State);
+
+handle_cast(stop_refresh, #state{refresh_timer=RefreshTimer}=State) ->
+    nksip_lib:cancel_timer(RefreshTimer),
+    State1 = State#state{
+        in_refresh = false, 
+        refresh_timer = undefined, 
+        refresh_time = undefined
+    },
+    do_noreply(State1);
 
 handle_cast({stop, Reason}, State) ->
     do_stop(Reason, State);
