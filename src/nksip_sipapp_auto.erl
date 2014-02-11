@@ -27,13 +27,15 @@
 
 -export([start_ping/5, stop_ping/2, get_pings/1]).
 -export([start_register/5, stop_register/2, get_registers/1]).
--export([init/4, handle_call/3, handle_cast/2, timer/1, terminate/2]).
+-export([init/4, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
+-export([timer/1]).
+
 
 -include("nksip.hrl").
 
--define(DEFAULT_OB_OK_TIME, 90).
--define(DEFAULT_OB_FAIL_TIME, 30).
--define(DEFAULT_OB_MAX_TIME, 1800).
+-define(DEFAULT_OB_TIME_ALL_FAIL, 3).
+-define(DEFAULT_OB_TIME_OK, 9).
+-define(DEFAULT_OB_TIME_MAX, 1800).
 
 
 
@@ -56,7 +58,10 @@ start_ping(AppId, PingId, Uri, Time, Opts)
     case nksip_parse:uris(Uri) of
         [ValidUri] -> 
             Msg = {'$nksip_start_ping', PingId, ValidUri, Time, Opts},
-            {ok, call(AppId, Msg)};
+            case catch nksip:call(AppId, Msg) of
+                {ok, Reply} -> {ok, Reply};
+                {'EXIT', _} -> {error, sipapp_not_found}
+            end;
         _ -> 
             {error, invalid_uri}
     end.
@@ -93,7 +98,10 @@ start_register(AppId, RegId, Uri, Time, Opts)
     case nksip_parse:uris(Uri) of
         [ValidUri] -> 
             Msg = {'$nksip_start_register', RegId, ValidUri, Time, Opts},
-            {ok, nksip:call(AppId, Msg)};
+            case catch nksip:call(AppId, Msg) of
+                {ok, Reply} -> {ok, Reply};
+                {'EXIT', E} -> {error, sipapp_not_found, E}
+            end;
         _ -> 
             {error, invalid_uri}
     end.
@@ -126,14 +134,13 @@ get_registers(AppId) ->
     ruri :: nksip:uri(),
     opts :: nksip_lib:proplist(),
     call_id :: nksip:call_id(),
-    cseq :: nksip:cseq(),
-    ok :: boolean(),
-    last :: nksip_lib:timestamp(),
     interval :: non_neg_integer(),
-    user_interval :: non_neg_integer(),
-    checking :: boolean(),
-    fails :: non_neg_integer(),
-    from :: any()
+    from :: any(),
+    cseq :: nksip:cseq(),
+    next :: nksip_lib:timestamp(),
+    ok :: boolean(),
+    monitor :: reference(),
+    fails :: non_neg_integer()
 }).
 
 
@@ -175,7 +182,7 @@ init(AppId, Module, _Args, Opts) ->
     #state{
         app_id = AppId, 
         module = Module, 
-        base_time = ?DEFAULT_OB_OK_TIME,
+        base_time = ?DEFAULT_OB_TIME_OK,
         pings = [], 
         regs = []
     }.
@@ -189,13 +196,11 @@ handle_call({'$nksip_start_ping', PingId, Uri, Time, Opts}, From,
         ruri = Uri,
         opts = Opts,
         call_id = nksip_lib:luid(),
-        cseq = nksip_config:cseq(),
-        ok = undefined,
-        last = 0,
         interval = Time,
-        user_internal = Time,
-        checking = false,
-        from = From
+        from = From,
+        cseq = nksip_config:cseq(),
+        next = 0,
+        ok = undefined
     },
     timer(State#state{pings=lists:keystore(PingId, #sipreg.id, Pings, Ping)});
 
@@ -210,12 +215,12 @@ handle_call({'$nksip_stop_ping', PingId}, From, #state{pings=Pings}=State) ->
     end;
 
 handle_call('$nksip_get_pings', From, #state{pings=Pings}=State) ->
-    Now = nksip_lib:timestamp(),
-    Info = [
-        {PingId, Ok, (Last+Interval)-Now}
-        ||  #sipreg{id=PingId, ok=Ok, last=Last, interval=Interval} <- Pings
-    ],
-    gen_server:reply(From, Info),
+    % Now = nksip_lib:timestamp(),
+    % Info = [
+    %     {PingId, Ok, (Last+Interval)-Now}
+    %     ||  #sipreg{id=PingId, ok=Ok, last=Last, interval=Interval} <- Pings
+    % ],
+    gen_server:reply(From, Pings),
     State;
 
 handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From, 
@@ -225,14 +230,12 @@ handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From,
         ruri = Uri,
         opts = Opts,
         call_id = nksip_lib:luid(),
-        cseq = nksip_config:cseq(),
-        ok = undefined,
-        last = 0,
         interval = Time,
-        user_internal = Time,
-        checking = false,
-        fails = 0,
-        from = From
+        from = From,
+        cseq = nksip_config:cseq(),
+        next = 0,
+        ok = undefined,
+        fails = 0
     },
     timer(State#state{regs=lists:keystore(RegId, #sipreg.id, Regs, Reg)});
 
@@ -247,12 +250,12 @@ handle_call({'$nksip_stop_register', RegId}, From, #state{regs=Regs}=State) ->
     end;
 
 handle_call('$nksip_get_registers', From, #state{regs=Regs}=State) ->
-    Now = nksip_lib:timestamp(),
-    Info = [
-        {RegId, Ok, (Last+Interval)-Now}
-        ||  #sipreg{id=RegId, ok=Ok, last=Last, interval=Interval} <- Regs
-    ],
-    gen_server:reply(From, Info),
+    % Now = nksip_lib:timestamp(),
+    % Info = [
+    %     {RegId, Ok, (Last+Interval)-Now}
+    %     ||  #sipreg{id=RegId, ok=Ok, last=Last, interval=Interval} <- Regs
+    % ],
+    gen_server:reply(From, Regs),
     State;
 
 handle_call(_, _From, _State) ->
@@ -260,66 +263,48 @@ handle_call(_, _From, _State) ->
 
 
 %% @private
-handle_cast({'$nksip_ping_update', PingId, OK, CSeq}, 
+handle_cast({'$nksip_ping_answer', PingId, Code, Meta}, 
             #state{app_id=AppId, module=Module, pings=Pings}=State) -> 
     case lists:keytake(PingId, #sipreg.id, Pings) of
-        {value, #sipreg{ok=OK0, interval=Interval, from=From}=Ping0, Pings1} ->
+        {value, #sipreg{ok=OldOK, interval=Interval}=Ping, Pings1} ->
+            #sipreg{ok=OK} = Ping1 = update_ping(Ping, Code, Meta, State),
             case OK of
-                OK0 -> 
+                OldOK -> 
                     ok;
                 _ -> 
                     Args = [PingId, OK],
                     nksip_sipapp_srv:sipapp_cast(AppId, Module, 
                                                  ping_update, Args, Args)
             end,
-            case From of
-                undefined -> ok;
-                _ -> gen_server:reply(From, OK)
-            end,
             case Interval of
-                0 ->
-                    State#state{pings=Pings1};
-                _ -> 
-                    Ping1 = Ping0#sipreg{
-                        ok = OK, 
-                        cseq = CSeq, 
-                        checking = false, 
-                        from = undefined
-                    },
-                    State#state{pings=[Ping1|Pings1]}
+                0 -> State#state{pings=Pings1};
+                _ -> State#state{pings=[Ping1|Pings1]}
             end;
         false ->
             State
     end;
 
-handle_cast({'$nksip_register_update', RegId, OK, CSeq}, 
+handle_cast({'$nksip_register_answer', RegId, Code, Meta}, 
             #state{app_id=AppId, module=Module, regs=Regs}=State) -> 
     case lists:keytake(RegId, #sipreg.id, Regs) of
-        {value, #sipreg{ok=OldOK, interval=Interval, from=From}=Reg0, Regs1} ->
+        {value, #sipreg{ok=OldOK, interval=Interval}=Reg, Regs1} ->
+            #sipreg{ok=OK} = Reg1 = update_register(Reg, Code, Meta, State),
+            
+            lager:warning("REG: ~p", [lager:pr(Reg1, ?MODULE)]),
+
             case OK of
-                OldOk ->
+                OldOK ->
                     ok;
                 _ -> 
                     Args = [RegId, OK],
                     nksip_sipapp_srv:sipapp_cast(AppId, Module, 
                                                  register_update, Args, Args)
             end,
-            case From of
-                undefined -> ok;
-                _ -> gen_server:reply(From, OK)
+            State1 = case Interval of
+                0 -> State#state{regs=Regs1};
+                _ -> State#state{regs=[Reg1|Regs1]}
             end,
-            case Interval of
-                0 ->
-                    State#state{regs=Regs1};
-                _ ->
-                    Reg1 = Reg0#sipreg{
-                        ok = OK, 
-                        cseq = CSeq, 
-                        checking = false,
-                        from = undefined
-                    },
-                    State#state{regs=[Reg1|Regs1]}
-            end;
+            update_basetime(State1);
         false ->
             State
     end;
@@ -329,40 +314,29 @@ handle_cast(_, _) ->
 
 
 %% @private
-timer(#state{app_id=AppId, pings=Pings, regs=Regs}=State) ->
-    Now = nksip_lib:timestamp(),
-    Self = self(),
-    Pings1 = [
-        if
-            Now > Last + Interval, Checking==false -> 
-                proc_lib:spawn(fun() -> do_ping(Self, Ping, State) end),
-                Ping#sipreg{checking=true, last=Now};
-            true ->
-                Ping
-        end
-        || #sipreg{last=Last, interval=Interval, checking=Checking}=Ping <- Pings
-    ],
-    Regs1 = lists:map(
-        fun(#sipreg{ruri=RUri, last=Last, interval=Interval, checking=Checking}=Reg) ->
-            case Now>(Last+Interval) andalso not Checking of 
-                true ->
-                    nksip_uac:register(AppId, RUri, register_opts(Reg)),
-                    Reg#sipreg{checking=true, last=Now};
-                false ->
-                    Reg
-            end
-        end,
-        Regs),
-    State#state{pings=Pings1, regs=Regs1}.
+handle_info({'DOWN', Mon, process, _Pid, _}, #state{app_id=AppId, regs=Regs}=State) ->
+    case lists:keyfind(Mon, #sipreg.monitor, Regs) of
+        #sipreg{id=RegId, cseq=CSeq} ->
+            ?notice(AppId, "flow ~p has failed", [RegId]),
+            Meta = [{cseq_num, CSeq}],
+            gen_server:cast(self(), {'$nksip_register_answer', RegId, 503, Meta});
+        false ->
+            ok
+    end,
+    State;
+
+handle_info(_, _) ->
+    error.
 
 
 %% @private
-terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->  
-    lists:foreach(
-        fun(#sipreg{ruri=RUri}=Reg) ->
-            nksip_uac:register(AppId, RUri, register_opts(Reg#sipreg{interval=0}))
-        end,
-        Regs).
+terminate(_Reason, #state{app_id=_AppId, regs=_Regs}) ->  
+    % lists:foreach(
+    %     fun(#sipreg{ruri=RUri}=Reg) ->
+    %         nksip_uac:register(AppId, RUri, register_opts(Reg#sipreg{interval=0}))
+    %     end,
+    %     Regs).
+    ok.
 
 
 %% ===================================================================
@@ -371,65 +345,191 @@ terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->
 
 
 %% @private
--spec call(nksip:app_id(), term()) ->
-    term().
+timer(#state{app_id=AppId, pings=Pings, regs=Regs}=State) ->
+    Now = nksip_lib:timestamp(),
+    Pings1 = lists:map(
+        fun(#sipreg{next=Next}=Ping) ->
+            case is_integer(Next) andalso Now>=Next of 
+                true -> launch_ping(AppId, Ping);
+                false -> Ping
+            end
+        end,
+        Pings),
+    Regs1 = lists:map(
+        fun(#sipreg{next=Next}=Reg) ->
+            case is_integer(Next) andalso Now>=Next of 
+                true -> launch_register(AppId, Reg);
+                false -> Reg
+            end
+        end,
+        Regs),
+    State#state{pings=Pings1, regs=Regs1}.
 
-call(AppId, Msg) ->
-    nksip:call(AppId, Msg).
 
-
-%% @private
--spec do_ping(pid(), #sipreg{}, #state{}) -> 
-    ok.
-
-do_ping(Pid, SipReg, #state{app_id=AppId}) ->
-    #sipreg{id=PingId, ruri=RUri, opts=Opts, cseq=CSeq, call_id=CallId} = SipReg,
-    Opts1 = [{call_id, CallId}, {cseq, CSeq}, get_response | Opts],
-    {OK, CSeq1} = case nksip_uac:options(AppId, RUri, Opts1) of
-        {resp, #sipmsg{class={resp, Code, _}, cseq=OK_CSeq}} 
-            when Code>=200, Code<300 -> 
-            {true, OK_CSeq+1};
-        {resp, #sipmsg{cseq=Err_CSeq}} -> 
-            {false, Err_CSeq+1};
-        {error, _Error} -> 
-            {false, CSeq+1}
-
-    end,
-    gen_server:cast(Pid, {'$nksip_ping_update', PingId, OK, CSeq1}).
-            
+%%%%%% Register
 
 %% @private
--spec register_opts(#sipreg{}) -> 
-    ok.
+-spec launch_register(nksip:app_id(), #sipreg{}) -> 
+    #sipreg{}.
 
-register_opts(SipReg)->
+launch_register(AppId, Reg)->
     #sipreg{
         id = RegId, 
+        ruri = RUri,
         opts = Opts, 
         interval = Interval, 
         cseq = CSeq,
         call_id = CallId
-    } = SipReg,
-    Self = self(),
-    CB = fun(Resp) ->
-        case Resp of
-            {ok, Code, [{cseq_num, CSeq1}]} when Code>=200, Code<300 ->
-                gen_server:cast(Self, {'$nksip_register_update', RegId, true, CSeq1});
-            {ok, Code, [{cseq_num, CSeq1}]} when Code>300 ->
-                gen_server:cast(Self, {'$nksip_register_update', RegId, false, CSeq1});
-            _ ->
-                ok
-        end
-    end,
-    [
+    } = Reg,
+    Opts1 = [
         make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, Interval}, 
-        async, {callback, CB}, {fields, [cseq_num]} 
+        {fields, [cseq_num, remote, parsed_require, <<"Retry-After">>]} 
         | Opts
-    ].
+    ],
+    Self = self(),
+    Fun = fun() ->
+        case nksip_uac:register(AppId, RUri, Opts1) of
+            {ok, Code, Meta} -> ok;
+            _ -> Code=500, Meta=[{cseq_num, CSeq}]
+        end,
+        gen_server:cast(Self, {'$nksip_register_answer', RegId, Code, Meta})
+    end,
+    spawn_link(Fun),
+    Reg#sipreg{next=undefined}.
 
 
-    
 
+   
+%% @private
+-spec update_register(#sipreg{}, nksip:code(), nksip_lib:proplist(), #state{}) ->
+    #sipreg{}.
+
+update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 ->
+    #sipreg{monitor=Monitor, interval=Interval, from=From} = Reg,
+    case From of
+        undefined -> ok;
+        _ -> gen_server:reply(From, {ok, true})
+    end,
+    case is_reference(Monitor) of
+        true -> erlang:demonitor(Monitor);
+        false -> ok
+    end,
+    {Proto, Ip, Port} = nksip_lib:get_value(remote, Meta),
+    Require = nksip_lib:get_value(parsed_require, Meta),
+    Monitor1 = case lists:member(<<"outbound">>, Require) of
+        true when Interval>0 ->
+            case nksip_transport:start_refresh(AppId, Proto, Ip, Port) of
+                {ok, Pid} -> erlang:monitor(process, Pid);
+                error -> undefined
+            end;
+        _ ->
+            undefined
+    end,
+    Reg#sipreg{
+        ok = true,
+        cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
+        from = undefined,
+        monitor = Monitor1,
+        next = nksip_lib:timestamp() + Interval,
+        fails = 0
+    };
+
+update_register(Reg, Code, Meta, #state{base_time=BaseTime}) ->
+    #sipreg{monitor=Monitor, fails=Fails, from=From} = Reg,
+    case From of
+        undefined -> ok;
+        _ -> gen_server:reply(From, {ok, false})
+    end,
+    case is_reference(Monitor) of
+        true -> erlang:demonitor(Monitor);
+        false -> ok
+    end,
+    Upper = min(?DEFAULT_OB_TIME_MAX, BaseTime*math:pow(2, Fails+1)),
+    Elap = round(crypto:rand_uniform(50, 101) * Upper / 100),
+    Add = case Code==503 andalso nksip_lib:get_value(<<"Retry-After">>, Meta) of
+        [Retry1] ->
+            case nksip_lib:to_integer(Retry1) of
+                Retry2 when Retry2 > 0 -> Retry2;
+                _ -> 0
+            end;
+        _ -> 
+            0
+    end,
+    lager:warning("REG FAIL: ~p, ~p, ~p, ~p, ~p", [BaseTime, Fails, Upper, Elap, Add]),
+
+    Reg#sipreg{
+        ok = false,
+        cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
+        from = undefined,
+        monitor = undefined,
+        next = nksip_lib:timestamp() + Elap + Add,
+        fails = Fails+1
+    }.
+
+%% @private
+update_basetime(#state{regs=Regs}=State) ->
+    Base = case [true || #sipreg{ok=Ok} <-Regs, Ok==true] of
+        [] -> ?DEFAULT_OB_TIME_ALL_FAIL;
+        _ -> ?DEFAULT_OB_TIME_OK
+    end,
+    State#state{base_time=Base}.
+
+
+
+%%%%%% Ping
+
+%% @private
+-spec launch_ping(nksip:app_id(), #sipreg{}) -> 
+    #sipreg{}.
+
+launch_ping(AppId, Ping)->
+    #sipreg{
+        id = PingId,
+        ruri = RUri, 
+        opts = Opts, 
+        cseq = CSeq,
+        call_id = CallId
+    } = Ping,
+    Opts1 = [{call_id, CallId}, {cseq, CSeq}, {fields, [cseq_num]} | Opts],
+    Self = self(),
+    Fun = fun() ->
+        case nksip_uac:options(AppId, RUri, Opts1) of
+            {ok, Code, Meta} -> ok;
+            _ -> Code=500, Meta=[{cseq_num, CSeq}]
+        end,
+        gen_server:cast(Self, {'$nksip_ping_answer', PingId, Code, Meta})
+    end,
+    spawn_link(Fun),
+    Ping#sipreg{next=undefined}.
+
+
+   
+%% @private
+-spec update_ping(#sipreg{}, nksip:code(), nksip_lib:proplist(), #state{}) ->
+    #sipreg{}.
+
+update_ping(Ping, Code, Meta, _State) ->
+    Ok = Code>=200 andalso Code<300,
+    #sipreg{from=From, interval=Interval} = Ping,
+    case From of
+        undefined -> ok;
+        _ -> gen_server:reply(From, {ok, Ok})
+    end,
+    Add = case Code==503 andalso nksip_lib:get_value(<<"Retry-After">>, Meta) of
+        [Retry1] ->
+            case nksip_lib:to_integer(Retry1) of
+                Retry2 when Retry2 > 0 -> Retry2;
+                _ -> 0
+            end;
+        _ -> 
+            0
+    end,
+    Ping#sipreg{
+        ok = Ok,
+        cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
+        from = undefined,
+        next = nksip_lib:timestamp() + Interval + Add
+    }.
 
 
 

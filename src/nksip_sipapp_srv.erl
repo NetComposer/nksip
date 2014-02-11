@@ -354,10 +354,18 @@ handle_cast(Msg, State) ->
 -spec handle_info(term(), #state{}) ->
     gen_server_info(#state{}).
 
-handle_info({'DOWN', _Mon, process, Pid, _}=Msg, #state{procs=Procs}=State) ->
+handle_info({'DOWN', _Mon, process, Pid, _}=Info, #state{procs=Procs}=State) ->
+
+    lager:notice("DOWN ~p, ~p", [_Mon, Pid]),
+
     case dict:is_key(Pid, Procs) of
-        true -> {noreply, State#state{procs=dict:erase(Pid, Procs)}};
-        false -> mod_handle_info(Msg, State)
+        true -> 
+            {noreply, State#state{procs=dict:erase(Pid, Procs)}};
+        false -> 
+            case nksip_sipapp_auto:handle_info(Info, State#state.reg_state) of
+                error -> mod_handle_info(Info, State);
+                RegState1 -> {noreply, State#state{reg_state=RegState1}}
+            end
     end;
 
 handle_info({timeout, _, '$nksip_timer'}, #state{reg_state=RegState}=State) ->
@@ -366,7 +374,10 @@ handle_info({timeout, _, '$nksip_timer'}, #state{reg_state=RegState}=State) ->
     {noreply, State#state{reg_state=RegState1}};
 
 handle_info(Info, State) ->
-    mod_handle_info(Info, State).
+    case nksip_sipapp_auto:handle_info(Info, State#state.reg_state) of
+        error -> mod_handle_info(Info, State);
+        RegState1 -> {noreply, State#state{reg_state=RegState1}}
+    end.
 
 
 %% @private

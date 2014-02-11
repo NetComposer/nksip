@@ -231,7 +231,7 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
 %% @private
 -spec parse_packet1(binary(), nksip:protocol()) ->
     {ok, Class, Headers, Body, Rest} | {more, binary()} | {rnrn, binary()} | 
-    {error, term()}
+    {rn, binary()} | {error, term()}
     when Class :: msg_class(), Headers :: [nksip:header()], 
          Body::binary(), Rest::binary().
 
@@ -245,6 +245,8 @@ parse_packet1(Packet, Proto) ->
             case binary:split(Packet, <<"\r\n">>) of
                 [<<>>, <<"\r\n", Rest/binary>>] ->
                     {rnrn, Rest};
+                [<<>>, Rest] ->
+                    {rn, Rest};
                 [<<"SIP/2.0 ", Resp/binary>>, Rest] ->
                     case binary:split(Resp, <<" ">>) of
                         [CodeB, Reason] -> 

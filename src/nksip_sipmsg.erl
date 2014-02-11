@@ -84,7 +84,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
         parsed_contacts -> S#sipmsg.contacts;
         require -> nksip_unparse:token(S#sipmsg.require);
-        parsed_require -> S#sipmsg.require;
+        parsed_require -> [Token || {Token, _} <- S#sipmsg.require];
         supported -> nksip_unparse:token(S#sipmsg.supported);
         parsed_supported -> S#sipmsg.supported;
         allow -> header(S, <<"Allow">>);

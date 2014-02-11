@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
--export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0, start_refresh/2]).
+-export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0, start_refresh/4]).
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([send/4, raw_send/2]).
 -export([get_all_connected/0, stop_all_connected/0]).
@@ -205,10 +205,11 @@ local_ips() ->
 
 
 %% @doc
--spec start_refresh(nksip:app_id(), nksip:transport()) ->
-    ok | {error, not_found}.
+-spec start_refresh(nksip:app_id(), nksip:protocol(), 
+                   inet:ip_address(), inet:port_number()) ->
+    {ok, pid()} | error.
 
-start_refresh(AppId, #transport{proto=Proto, remote_ip=Ip, remote_port=Port}) ->
+start_refresh(AppId, Proto, Ip, Port) ->
     case get_connected(AppId, Proto, Ip, Port) of
         [{_, Pid}|_] -> 
             Secs = case Proto of
@@ -217,7 +218,7 @@ start_refresh(AppId, #transport{proto=Proto, remote_ip=Ip, remote_port=Port}) ->
             end,
             nksip_transport_conn:start_refresh(Pid, Secs);
         [] -> 
-            {error, not_found}
+            error
     end.
 
 

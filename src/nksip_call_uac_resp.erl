@@ -383,23 +383,23 @@ received_422(Req, Resp, UAC, Call) ->
         {resend, Req1, Call1} ->
             nksip_call_uac_req:resend(Req1, UAC, Call1);
         false ->
-            received_outbound(Req, Resp, UAC, Call)
+            received_reply(Resp, UAC, Call)
     end.
 
 
-%% @private
-received_outbound(Req, Resp, UAC, Call) ->
-    #sipmsg{class = {req, Method}, app_id=AppId, transport=Transp} = Req,
-    #sipmsg{class = {resp, Code, _}} = Resp,
-    case 
-        Method=='REGISTER' andalso Code>=200 andalso Code<300 andalso
-        nksip_sipmsg:supported(Req, <<"outbound">>) andalso
-        nksip_sipmsg:require(Resp, <<"outbound">>)
-    of
-        true -> nksip_transport:start_refresh(AppId, Transp);
-        false -> ok
-    end,
-    received_reply(Resp, UAC, Call).
+% %% @private
+% received_outbound(Req, Resp, UAC, Call) ->
+%     #sipmsg{class = {req, Method}, app_id=AppId, transport=Transp} = Req,
+%     #sipmsg{class = {resp, Code, _}} = Resp,
+%     case 
+%         Method=='REGISTER' andalso Code>=200 andalso Code<300 andalso
+%         nksip_sipmsg:supported(Req, <<"outbound">>) andalso
+%         nksip_sipmsg:require(Resp, <<"outbound">>)
+%     of
+%         true -> nksip_transport:start_refresh(AppId, Transp);
+%         false -> ok
+%     end,
+%     received_reply(Resp, UAC, Call).
 
 
 %% @private 

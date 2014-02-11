@@ -367,7 +367,7 @@ proxy() ->
     % Session-Expires, but P2 remembers C1 supports the extension
     % and adds a response and require
     {ok, 200, [{dialog_id, Dialog4A}, {<<"Session-Expires">>,[<<"1800;refresher=uac">>]}, 
-               {parsed_require, [{<<"timer">>, []}]}]} = 
+               {parsed_require, [<<"timer">>]}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5073", 
             [{fields, [<<"Session-Expires">>, parsed_require]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}

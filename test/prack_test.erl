@@ -139,7 +139,7 @@ basic() ->
             [
                 {dialog_id, _},
                 {parsed_supported, Supported},
-                {parsed_require, [{<<"100rel">>,[]}]},
+                {parsed_require, [<<"100rel">>]},
                 {cseq_num, CSeq2},
                 {rseq_num, RSeq2a_0}
             ] = Values2a,
@@ -152,7 +152,7 @@ basic() ->
             [
                 {dialog_id, _},
                 {parsed_supported, Supported},
-                {parsed_require, [{<<"100rel">>,[]}]},
+                {parsed_require, [<<"100rel">>]},
                 {cseq_num, CSeq2},
                 {rseq_num, RSeq2b_0}
             ] = Values2b,
