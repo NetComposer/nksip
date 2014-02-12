@@ -96,6 +96,7 @@
 %%       <td>Generates a new `Require' header using `Extension'</td></tr>
 %%   <tr><td>`{interval_too_brief, Time}'</td><td>423</td>
 %%        <td>Generates a new `Min-Expires' header using `Time'</td></tr>
+%%   <tr><td>`flow_failed'</td><td>430</td><td></td></tr>
 %%   <tr><td>`temporarily_unavailable'</td><td>480</td><td></td></tr>
 %%   <tr><td>`no_transaction'</td><td>481</td><td></td></tr>
 %%   <tr><td>`loop_detected'</td><td>482</td><td></td></tr>
@@ -201,6 +202,7 @@
     {bad_extension, Exts::binary()} |
     {extension_required, Exts::binary} |
     {interval_too_brief, Min::binary()} |
+    flow_failed |
     temporarily_unavailable |
     no_transaction |
     loop_detected | 
@@ -366,6 +368,8 @@ reqreply({interval_too_brief, Min}) ->
         code = 423, 
         headers = nksip_headers:new([{single, <<"Min-Expires">>, Min1}])
     };
+reqreply(flow_failed) ->
+    #reqreply{code=430};
 reqreply(temporarily_unavailable) ->
     #reqreply{code=480};
 reqreply(no_transaction) ->

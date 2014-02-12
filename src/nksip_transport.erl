@@ -270,6 +270,18 @@ send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts)
             send(AppId, Rest, MakeMsg, Opts)
     end;
 
+send(AppId, [{pid, Pid}|Rest], MakeMsg, Opts) ->
+    case nksip_transport_conn:get_transport(Pid) of
+        {ok, Transport} ->
+            SipMsg = MakeMsg(Transport),
+            case nksip_transport_conn:send(Pid, SipMsg) of
+                ok -> {ok, SipMsg};
+                {error, _} -> send(AppId, Rest, MakeMsg, Opts)
+            end;
+        error ->
+            send(AppId, Rest, MakeMsg, Opts)
+    end;
+
 send(AppId, [{Proto, Ip, 0}|Rest], MakeMsg, Opts)
     when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
     send(AppId, [{Proto, Ip, default_port(Proto)}|Rest], MakeMsg, Opts);

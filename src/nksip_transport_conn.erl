@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/5, connect/5, send/2, async_send/2, stop/2]).
--export([start_refresh/3, stop_refresh/1, receive_refresh/2]).
+-export([start_refresh/3, stop_refresh/1, receive_refresh/2, get_transport/1]).
 -export([incoming/2]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
             handle_cast/2, handle_info/2]).
@@ -166,6 +166,22 @@ receive_refresh(Pid, Secs) ->
     end.
 
 
+%% @private Gets the transport record (and extends the timeout)
+-spec get_transport(pid()) ->
+    {ok, nksip:transport()} | error.
+
+get_transport(Pid) ->
+    case is_process_alive(Pid) of
+        true ->
+            case catch gen_server:call(Pid, get_transport) of
+                {ok, Transp} -> {ok, Transp};
+                _ -> error
+            end;
+        false ->
+            error 
+    end.
+
+
 %% @private 
 -spec parse(pid(), binary()) ->
     ok.
@@ -249,8 +265,8 @@ handle_call({receive_refresh, Secs}, From, State) ->
     gen_server:reply(From, ok),
     do_noreply(State#state{timeout=1000*Secs});
 
-handle_call(get_socket, From, #state{socket=Socket}=State) ->
-    gen_server:reply(From, {ok, Socket}),
+handle_call(get_transport, From, #state{transport=Transp}=State) ->
+    gen_server:reply(From, {ok, Transp}),
     do_noreply(State);
 
 handle_call(Msg, _From, State) ->

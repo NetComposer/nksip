@@ -73,24 +73,14 @@ route(UAS, UriList, ProxyOpts, Call) ->
                         Text = nksip_lib:bjoin([T || {T, _} <- PR]),
                         throw({reply, {bad_extension, Text}})
                 end,
-                case 
-                    Method=='REGISTER' andalso lists:member(make_path, ProxyOpts)
-                of
-                    true ->
-                        #sipmsg{supported=Supported} = Req,
-                        case lists:member(<<"path">>, Supported) of
-                            true -> ok;
-                            false -> throw({reply, {extension_required, <<"path">>}})
-                        end;
-                    false ->
-                        ok
-                end,
+                ProxyOpts1 = check_path(Req2, ProxyOpts, Call),
+                Req3 = remove_local_routes(Req2),
                 case Stateless of
                     true -> 
                         [[First|_]|_] = UriSet,
-                        route_stateless(Req2, First, ProxyOpts, Call1);
+                        route_stateless(Req3, First, ProxyOpts1, Call1);
                     false ->
-                        {fork, UAS#trans{request=Req2}, UriSet}
+                        {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1}
                 end
         end
     catch
@@ -197,6 +187,90 @@ preprocess(#sipmsg{forwards=Forwards, routes=Routes, headers=Headers}=Req, Proxy
         Routes2 -> ok
     end,
     Req#sipmsg{forwards=Forwards-1, headers=Headers2, routes=Routes2}.
+
+
+%% @private
+check_path(#sipmsg{class={req, 'REGISTER'}}=Req, ProxyOpts, Call) ->
+    #sipmsg{
+        vias = Vias, 
+        contacts = Contacts,
+        transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}
+    } = Req,
+    case lists:member(make_path, ProxyOpts) of     
+        true ->
+            case nksip_sipmsg:supported(Req, <<"path">>) of
+                true ->
+                    #call{app_id=AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
+                    Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+                    case Contacts of
+                        [#uri{opts=ContactOpts}] ->
+                            case 
+                                lists:member(<<"outbound">>, Supported) andalso
+                                lists:member(<<"reg-id">>, ContactOpts) andalso
+                                length(Vias)==1
+                            of
+                                true ->
+                                    [{_, Pid}|_] = nksip_transport:get_connected(
+                                                                AppId, Proto, Ip, Port),
+                                    [{flow, Pid}|ProxyOpts];
+                                false ->
+                                    ProxyOpts
+                            end;
+                        _ ->
+                            ProxyOpts
+                    end;
+                false -> 
+                    throw({reply, {extension_required, <<"path">>}})
+            end;
+        false ->
+            ProxyOpts
+    end;
+
+check_path(Req, ProxyOpts, Call) ->
+    #sipmsg{class={req, Method}, to_tag=ToTag, routes=Routes} = Req,
+    #call{app_id=AppId} = Call,
+    case Routes of
+        [#uri{user = <<"NkF", Flow/binary>>, opts=RouteOpts}=Route|_] ->
+            case nksip_transport:is_local(AppId, Route) of
+                true ->
+                    RR = case 
+                        lists:member(<<"ob">>, RouteOpts) andalso
+                        (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
+                         Method=='NOTIFY') andalso
+                        ToTag == <<>>
+                    of
+                        true -> [record_route];
+                        false -> []
+                    end,
+                    case catch binary_to_term(base64:decode(Flow)) of
+                        Pid when is_pid(Pid) ->
+                            case nksip_transport_conn:get_transport(Pid) of
+                                {ok, _Transp} -> [[{flow, Pid}|RR]|ProxyOpts];
+                                false -> throw({repy, flow_failed})
+                            end;
+                        _ ->
+                            ?call_notice("Received invalid flow token", [], Call),
+                            throw({reply, forbidden})
+                    end;
+                false ->
+                    []
+            end;
+        _ ->
+            []
+    end.
+
+
+%% @private Remove top routes if reached
+remove_local_routes(#sipmsg{app_id=AppId, routes=Routes}=Request) ->
+    case Routes of
+        [] ->
+            Request;
+        [Route|RestRoutes] ->
+            case nksip_transport:is_local(AppId, Route) of
+                true -> remove_local_routes(Request#sipmsg{routes=RestRoutes});
+                false -> Request
+            end 
+    end.
 
 
 %% @doc Process a UriSet generating a standard `[[nksip:uri()]]'.

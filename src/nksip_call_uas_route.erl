@@ -302,9 +302,9 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
         stateless_proxy ->
             UAS1 = UAS#trans{status=finished},
             update(UAS1, Call);
-        {fork, _, _} when Method=='CANCEL' ->
+        {fork, _, _, _} when Method=='CANCEL' ->
             reply(no_transaction, UAS, Call);
-        {fork, UAS1, UriSet} ->
+        {fork, UAS1, UriSet, ProxyOpts1} ->
             % ProxyOpts may include record_route
             % TODO 16.6.4: If ruri or top route has sips, and not received with 
             % tls, must record_route. If received with tls, and no sips in ruri
@@ -315,7 +315,7 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
                 'ACK' -> UAS2#trans{status=finished};
                 _ -> UAS2
             end,
-            nksip_call_fork:start(UAS3, UriSet, ProxyOpts, update(UAS3, Call));
+            nksip_call_fork:start(UAS3, UriSet, ProxyOpts1, update(UAS3, Call));
         {reply, SipReply, Call1} ->
             reply(SipReply, UAS, Call1)
     end;

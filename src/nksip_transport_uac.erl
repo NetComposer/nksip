@@ -71,7 +71,11 @@ send_request(Req, GlobalId, Opts) ->
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts),  
     nksip_trace:insert(Req, {uac_out_request, Method}),
-    case nksip_transport:send(AppId, [DestUri], MakeReqFun, Opts) of
+    Dests = case Method/='REGISTER' andalso nksip_lib:get_value(flow, Opts) of
+        Pid when is_pid(Pid) -> [{pid, Pid}, DestUri];
+        _ -> [DestUri]
+    end,
+    case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
         {ok, SentReq} -> 
             {ok, SentReq};
         error ->
@@ -147,16 +151,39 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         % (see nksip_transport_uas:send_response/2)
         % The nksip tag is used to confirm it is ours and to check if a strict router
         % has used it as Request Uri (see nksip_uas:strict_router/1)
+
+        BaseUri = #uri{
+            scheme = sip,
+            user = <<>>,
+            domain = ListenHost,
+            port = ListenPort,
+            opts = case Proto of
+                udp -> [<<"lr">>];
+                _ -> [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
+            end
+        },
+        RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
+        Flow = case nksip_lib:get_value(make_flow, Opts) of
+            undefined -> undefined;
+            FlowPid -> base64:encode(term_to_binary(FlowPid))
+        end,
         RecordRoute = case lists:member(record_route, Opts) of
-            true when Method /= 'REGISTER' -> 
-                make_route(GlobalId, AppId, RouteBranch, ListenHost, ListenPort, Proto);
+            true when Method/='REGISTER', Flow==undefined -> 
+                BaseUri#uri{user = <<"NkQ", RouteHash/binary>>};
+            true when Method/='REGISTER' ->
+                BaseUri#uri{user = <<"NkF", Flow/binary>>};
             _ ->
                 []
         end,
         Path = case lists:member(make_path, Opts) of
-            true when Method == 'REGISTER' -> 
-                make_route(GlobalId, AppId, RouteBranch, ListenHost, ListenPort, Proto);
-            _ ->
+            true when Method=='REGISTER', Flow==undefined ->
+                BaseUri#uri{user = <<"NkQ", RouteHash/binary>>};
+            true when Method=='REGISTER' ->
+                BaseUri#uri{
+                    user = <<"NkF", Flow/binary>>,
+                    opts = [<<"ob">>|BaseUri#uri.opts]
+                };
+            false ->
                 []
         end,
         Contacts1 = case lists:member(make_contact, Opts) of
@@ -216,19 +243,19 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
 
 
 
-%% @private
-make_route(GlobalId, AppId, Branch, ListenHost, ListenPort, Proto) ->
-    Hash = nksip_lib:hash({GlobalId, AppId, Branch}),
-    #uri{
-        scheme = sip,
-        user = <<"NkQ", Hash/binary>>,
-        domain = ListenHost,
-        port = ListenPort,
-        opts = case Proto of
-            udp -> [<<"lr">>];
-            _ -> [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
-        end
-    }.
+% %% @private
+% make_route(GlobalId, AppId, Branch, ListenHost, ListenPort, Proto) ->
+%     Hash = nksip_lib:hash({GlobalId, AppId, Branch}),
+%     #uri{
+%         scheme = sip,
+%         user = <<"NkQ", Hash/binary>>,
+%         domain = ListenHost,
+%         port = ListenPort,
+%         opts = case Proto of
+%             udp -> [<<"lr">>];
+%             _ -> [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
+%         end
+%     }.
 
 
 %% @private
@@ -270,4 +297,7 @@ make_contact(Req, Scheme, Proto, ListenHost, ListenPort, Opts) ->
         opts = Opts2,
         ext_opts = ExtOpts
     }.
+
+
+
 
