@@ -54,8 +54,7 @@ check_supported(Method, Req, UAS, Call) ->
     #sipmsg{require=Require, event=Event} = Req,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
-    SupportedTokens = [T || {T, _} <- Supported],
-    case [T || {T, _} <- Require, not lists:member(T, SupportedTokens)] of
+    case [T || T <- Require, not lists:member(T, Supported)] of
         [] when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
             SupEvents = nksip_lib:get_value(event, AppOpts, []),
             case Event of
@@ -186,7 +185,7 @@ method('REGISTER', Req, UAS, Call) ->
         [] ->
             process_call(register, Fields, UAS, Call); 
         Path ->
-            case lists:keymember(<<"path">>, 1, Supported) of
+            case lists:keymember(<<"path">>, Supported) of
                 true ->
                     Fields1 = Fields++[{path, Path}],
                     process_call(register, Fields1, UAS, Call); 

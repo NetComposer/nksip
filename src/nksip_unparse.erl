@@ -337,11 +337,11 @@ serialize(#sipmsg{
         end,
         case Require of
             [] -> [];
-            _ -> {<<"Require">>, raw_tokens(Require)}
+            _ -> {<<"Require">>, nksip_lib:bjoin(Require)}
         end,
         case Supported of
             [] -> [];
-            _ -> {<<"Supported">>, raw_tokens(Supported)}
+            _ -> {<<"Supported">>, nksip_lib:bjoin(Supported)}
         end,
         case Expires of
             undefined -> [];

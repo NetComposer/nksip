@@ -238,7 +238,7 @@ uas_update_timer(
                             [{default_single, <<"Session-Expires">>, SE_Token}]),
             % Add 'timer' to response's Require only if supported by uac
             Require1 = case ReqSupport of
-                true -> nksip_lib:store_value(<<"timer">>, [], Require);
+                true -> nksip_lib:store_value(<<"timer">>, Require);
                 false -> Require
             end,
             Resp#sipmsg{require=Require1, headers=Headers1};
@@ -299,7 +299,7 @@ proxy_response(Req, Resp) ->
                             Headers1 = nksip_headers:update(Resp, 
                                 [{single, <<"Session-Expires">>, SE_Token}]),
                             #sipmsg{require=Require} = Resp,
-                            Require1 = nksip_lib:store_value(<<"timer">>, [], Require),
+                            Require1 = nksip_lib:store_value(<<"timer">>, Require),
                             Resp#sipmsg{require=Require1, headers=Headers1};
                         false ->
                             Resp

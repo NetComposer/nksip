@@ -475,7 +475,7 @@ check_prack(Resp, UAC, Call) ->
         _ ->
             case Method of
                 'INVITE' when Code>100, Code<200 ->
-                    case lists:keymember(<<"100rel">>, 1, Require) of
+                    case lists:member(<<"100rel">>, Require) of
                         true -> send_prack(Resp, Id, DialogId, Call);
                         false -> Call
                     end;

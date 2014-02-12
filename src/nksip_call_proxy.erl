@@ -78,7 +78,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
                 of
                     true ->
                         #sipmsg{supported=Supported} = Req,
-                        case lists:keymember(<<"path">>, 1, Supported) of
+                        case lists:member(<<"path">>, Supported) of
                             true -> ok;
                             false -> throw({reply, {extension_required, <<"path">>}})
                         end;

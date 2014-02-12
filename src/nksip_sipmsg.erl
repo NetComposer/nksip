@@ -83,9 +83,9 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_routes -> S#sipmsg.routes;
         contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
         parsed_contacts -> S#sipmsg.contacts;
-        require -> nksip_unparse:token(S#sipmsg.require);
-        parsed_require -> [Token || {Token, _} <- S#sipmsg.require];
-        supported -> nksip_unparse:token(S#sipmsg.supported);
+        require -> nksip_lib:bjoin(S#sipmsg.require);
+        parsed_require -> S#sipmsg.require;
+        supported -> nksip_lib:bjoin(S#sipmsg.supported);
         parsed_supported -> S#sipmsg.supported;
         allow -> header(S, <<"Allow">>);
         body -> S#sipmsg.body;
@@ -238,7 +238,7 @@ all_headers(SipMsg) ->
     boolean().
 
 supported(#sipmsg{supported=Supported}, Token) ->
-    lists:keymember(Token, 1, Supported).
+    lists:member(Token, Supported).
 
 
 %% @doc Checks if a token is in Require header
@@ -246,7 +246,7 @@ supported(#sipmsg{supported=Supported}, Token) ->
     boolean().
 
 require(#sipmsg{require=Require}, Token) ->
-    lists:keymember(Token, 1, Require).
+    lists:member(Token, Require).
 
 
 %% @private

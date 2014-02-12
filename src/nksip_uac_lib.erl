@@ -186,19 +186,14 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             ReqOpts ->
                 case nksip_parse:tokens(ReqOpts) of
                     error -> throw(invalid_require);
-                    ReqTokens0 -> ReqTokens0
+                    ReqTokens0 -> [T||{T, _}<-ReqTokens0]
                 end
         end,
         Require2 = case 
             Method1=='INVITE' andalso lists:member(require_100rel, FullOpts) 
         of
-            true -> 
-                case lists:keymember(<<"100rel">>, 1, Require1) of
-                    true -> Require1;
-                    false -> [{<<"100rel">>, []}|Require1]
-                end;
-            false -> 
-                Require1
+            true -> nksip_lib:store_value(<<"100rel">>, Require1);
+            false -> Require1
         end,
         CurrentSupported = case nksip_lib:get_value(supported, Opts1) of
             undefined ->
@@ -206,7 +201,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             CS0 ->
                 case nksip_parse:tokens(CS0) of
                     error -> throw(invalid_supported);
-                    CS1 -> CS1
+                    CS1 -> [T||{T,_}<-CS1]
                 end
         end,
         Supported = case lists:member(make_supported, FullOpts) of

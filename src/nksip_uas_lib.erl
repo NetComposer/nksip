@@ -315,11 +315,11 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     end,
     Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
         true ->
-            case lists:keymember(<<"100rel">>, 1, ReqRequire) of
+            case lists:member(<<"100rel">>, ReqRequire) of
                 true ->
                     true;
                 false ->
-                    case lists:keymember(<<"100rel">>, 1, ReqSupported) of
+                    case lists:member(<<"100rel">>, ReqSupported) of
                         true -> lists:member(make_100rel, Opts);
                         false -> false
                     end
@@ -328,7 +328,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             false
     end,
     RespRequire2 = case Reliable of
-        true -> [{<<"100rel">>, []}|RespRequire1];
+        true -> [<<"100rel">>|RespRequire1];
         false -> RespRequire1
     end,
     Secure = case RUri#uri.scheme of

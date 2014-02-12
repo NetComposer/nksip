@@ -430,13 +430,13 @@ get_sipmsg(Class, Headers, Body, Proto) ->
         [Expires] when is_integer(Expires), Expires>=0 -> ok;
         _ -> Expires = throw({400, <<"Invalid Expires">>})
     end,
-    case tokens(all_values(<<"Require">>, Headers)) of
-        error -> Require = throw({400, <<"Invalid Require">>});
-        Require -> ok
+    Require = case tokens(all_values(<<"Require">>, Headers)) of
+        error -> throw({400, <<"Invalid Require">>});
+        Require0 -> [T||{T,_}<-Require0]
     end,
-    case tokens(all_values(<<"Supported">>, Headers)) of
-        error -> Supported = throw({400, <<"Invalid Supported">>});
-        Supported -> ok
+    Supported = case tokens(all_values(<<"Supported">>, Headers)) of
+        error -> throw({400, <<"Invalid Supported">>});
+        Supported0 -> [T||{T,_}<-Supported0]
     end,
     case Class of
         {req, ReqMethod, _} -> ok;

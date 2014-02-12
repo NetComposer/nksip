@@ -284,7 +284,7 @@
 %%          <td>`"100rel"'</td>
 %%          <td>If present, these tokens will be used in Supported headers instead of
 %%          the default supported list, for example
-%%          "my_token1;opt1, mytoken2, 100rel".</td>
+%%          "my_token1, mytoken2, 100rel".</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`event'</td>
@@ -433,7 +433,7 @@ start(AppId, Module, Args, Opts) ->
                 SupList ->
                     case nksip_parse:tokens(SupList) of
                         error -> throw(invalid_supported);
-                        Supported -> {supported, Supported}
+                        Supported -> {supported, [T || {T, _}<-Supported]}
                     end
             end,
             case nksip_lib:get_value(accept, Opts) of
