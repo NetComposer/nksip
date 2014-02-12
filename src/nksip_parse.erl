@@ -596,6 +596,7 @@ raw_header(Name) ->
         "REFER-TO" -> <<"Refer-To">>;
         "R" -> <<"Refer-To">>;
         "REQUIRE" -> <<"Require">>;
+        "RETRY-AFTER" -> <<"Retry-After">>;
         "ROUTE" -> <<"Route">>;
         "RSEQ" -> <<"RSeq">>;
         "SERVICE-ROUTE" -> <<"Service-Route">>;
@@ -617,7 +618,7 @@ raw_header(Name) ->
         "V" -> <<"Via">>;
         "WWW-AUTHENTICATE" -> <<"WWW-Authenticate">>;
         "PROXY-AUTHENTICATE" -> <<"PROXY-Authenticate">>;
-        <<"BODY">> -> <<"body">>;
+        % <<"BODY">> -> <<"body">>;
         _ -> list_to_binary(Name)
     end.
 

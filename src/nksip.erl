@@ -179,8 +179,12 @@
 %%          <td>`register'</td>
 %%          <td>{@link user_uri()}</td>
 %%          <td></td>
-%%          <td>NkSIP will try to <i>REGISTER</i> the SipApp with this registrar server, 
-%%          (i.e. "sips:sip2sip.info"). <br/> 
+%%          <td>NkSIP will try to <i>REGISTER</i> the SipApp with this registrar server
+%%          or servers (i.e. "sips:sip2sip.info,sips:other.com"). <br/> 
+%%          If the SipApp supports outbound (RFC5626), a new reg_id will be generated 
+%%          for each one, a flow will be stablished, and,
+%%          if the remote party also supports outbound, keep alive messages will be
+%%          sent over each flow.
 %%          See {@link nksip_sipapp_auto:get_registers/1}
 %%          and {@link nksip_sipapp:register_update/3}.</td>
 %%      </tr>
@@ -299,12 +303,6 @@
 %%          <td>If defined, this value will be used instead of default when 
 %%          option `make_accept' is used</td>
 %%      </tr>
-%%      <tr>
-%%          <td>`outbound_proxy'</td>
-%%          <td>`string()|binary()'</td>
-%%          <td></td>
-%%          <td></td>
-%%      </tr>
 %%  </table>
 %%
 %% <br/>
@@ -376,18 +374,18 @@ start(AppId, Module, Args, Opts) ->
                     [];
                 RegSpec ->
                     case nksip_parse:uris(RegSpec) of
-                        [RegUri] ->
+                        error -> 
+                            throw(invalid_register);
+                        RegUris -> 
                             case nksip_lib:get_value(register_expires, Opts, 300) of
                                 RegExpires when is_integer(RegExpires) ->
                                     [
-                                        {register, RegUri}, 
+                                        {register, RegUris}, 
                                         {register_expires, RegExpires}
                                     ];
                                 _ ->
-                                    {register, RegUri}
-                            end;
-                        _ ->
-                            throw(invalid_register)
+                                    {register, RegUris}
+                            end                            
                     end
             end,
             case nksip_lib:get_value(route, Opts, false) of

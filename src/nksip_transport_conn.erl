@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/5, connect/5, send/2, async_send/2, stop/2]).
--export([start_refresh_notify/3, stop_refresh/1, receive_refresh/2]).
+-export([start_refresh/3, stop_refresh/1, receive_refresh/2]).
 -export([incoming/2]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
             handle_cast/2, handle_info/2]).
@@ -132,10 +132,12 @@ stop(Pid, Reason) ->
 
 
 %% @doc Start a time-alive series, with result notify
--spec start_refresh_notify(pid(), pos_integer(), term()) ->
+%% If `Ref' is not `undefined', a message will be sent to self() using `Ref'
+%% after the fist successful ping response
+-spec start_refresh(pid(), pos_integer(), term()) ->
     ok | error.
 
-start_refresh_notify(Pid, Secs, Ref) ->
+start_refresh(Pid, Secs, Ref) ->
     Rand = crypto:rand_uniform(80, 101),
     Time = (Rand*Secs) div 100,
     case catch gen_server:call(Pid, {start_refresh, Time, Ref, self()}) of
@@ -235,7 +237,7 @@ handle_call({send, Packet}, From, State) ->
 handle_call({start_refresh, Secs, Ref, Pid}, From, State) ->
     #state{refresh_timer=RefreshTimer, refresh_notify=RefreshNotify} = State,
     nksip_lib:cancel_timer(RefreshTimer),
-    gen_server:reply(From, {ok, self()}),
+    gen_server:reply(From, ok),
     RefreshNotify1 = case Ref of
         undefined -> RefreshNotify;
         _ -> [{Ref, Pid}|RefreshNotify]
