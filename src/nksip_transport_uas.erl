@@ -115,26 +115,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     listen_ip = ListenIp, 
                     listen_port = ListenPort
                 } = Transport) ->
-        ListenHost = case size(ListenIp) of
-            4 ->
-                case nksip_lib:get_value(local_host, Opts, auto) of
-                    auto when ListenIp == {0,0,0,0} -> 
-                        nksip_lib:to_host(nksip_transport:main_ip());
-                    auto -> 
-                        nksip_lib:to_host(ListenIp);
-                    Host -> 
-                        Host
-                end;
-            8 ->
-                case nksip_lib:get_value(local_host6, Opts, auto) of
-                    auto when ListenIp == {0,0,0,0,0,0,0,0} -> 
-                        nksip_lib:to_host(nksip_transport:main_ip6(), true);
-                    auto -> 
-                        nksip_lib:to_host(ListenIp, true);
-                    Host -> 
-                        Host
-                end
-        end,
+        ListenHost = nksip_transport:get_listenhost(ListenIp, Opts),
         ?debug(AppId, CallId, "UAS listenhost is ~s", [ListenHost]),
         Scheme = case Proto==tls andalso lists:member(secure, Opts) of
             true -> sips;
@@ -142,37 +123,17 @@ make_response_fun(RouteHash, Resp, Opts) ->
         end,
         Contacts1 = case lists:member(make_contact, Opts) of
             true ->
-                [#uri{
-                    scheme = Scheme,
-                    user = To#uri.user,
-                    domain = ListenHost,
-                    port = ListenPort,
-                    opts = case Proto of 
-                        tls when Scheme==sips -> [];
-                        udp when Scheme==sip -> [];
-                        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}]
-                    end}|Contacts];
+                Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
+                                                     ListenPort, To#uri.user, []),
+                [Contact|Contacts];
             false ->
                 Contacts
         end,
         UpdateRoutes = fun(#uri{user=User}=Route) ->
             case User of
                 RouteHash ->
-                    Route#uri{
-                        user = <<"NkS">>,
-                        scheme = sip,
-                        domain = ListenHost,
-                        port = ListenPort,
-                        opts = if
-                            Proto==udp -> 
-                                [<<"lr">>];
-                            true -> 
-                                [
-                                    <<"lr">>, 
-                                    {<<"transport">>, nksip_lib:to_binary(Proto)}
-                                ] 
-                        end
-                    };
+                    nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                               <<"NkS">>, [<<"lr">>]);
                 _ ->
                     Route
             end

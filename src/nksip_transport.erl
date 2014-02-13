@@ -26,6 +26,7 @@
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
 -export([start_transport/5, start_connection/5, default_port/1]).
+-export([get_listenhost/2, make_route/6]).
 -export([send/4, raw_send/2]).
 -export([get_all_connected/0, stop_all_connected/0]).
 
@@ -237,6 +238,55 @@ start_connection(AppId, Proto, Ip, Port, Opts) ->
         _ -> nksip_transport_srv:connect(AppId, Proto, Ip, Port, Opts)
     end.
                 
+
+%% @private Makes a route from a Scheme and Transport
+-spec get_listenhost(inet:ip_address(), nksip_lib:proplist()) ->
+    binary().
+
+get_listenhost(Ip, Opts) ->
+    case size(Ip) of
+        4 ->
+            case nksip_lib:get_value(local_host, Opts, auto) of
+                auto when Ip == {0,0,0,0} -> 
+                    nksip_lib:to_host(nksip_transport:main_ip());
+                auto -> 
+                    nksip_lib:to_host(Ip);
+                Host -> 
+                    Host
+            end;
+        8 ->
+            case nksip_lib:get_value(local_host6, Opts, auto) of
+                auto when Ip == {0,0,0,0,0,0,0,0} -> 
+                    nksip_lib:to_host(nksip_transport:main_ip6(), true);
+                auto -> 
+                    nksip_lib:to_host(Ip, true);
+                Host -> 
+                    Host
+            end
+    end.
+
+    
+%% @private Makes a route record
+-spec make_route(nksip:scheme(), nksip:protocol(), binary(), inet:port_number(),
+                 binary(), nksip_lib:proplist()) ->
+    #uri{}.
+
+make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
+    UriOpts = case Proto of
+        tls when Scheme==sips -> Opts;
+        udp when Scheme==sip -> Opts;
+        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}|Opts] 
+    end,
+    #uri{
+        scheme = Scheme,
+        user = User,
+        domain = ListenHost,
+        port = Port,
+        opts = UriOpts
+    }.
+
+
+
 
 
 %% ===================================================================

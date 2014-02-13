@@ -116,31 +116,13 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         body = Body
     } = Req,
     #uri{scheme=Scheme} = Dest,     % RUri or first route
-    fun(#transport{
-                    proto = Proto, 
-                    listen_ip = ListenIp, 
-                    listen_port = ListenPort
-                } = Transport) ->
-        ListenHost = case size(ListenIp) of
-            4 ->
-                case nksip_lib:get_value(local_host, Opts, auto) of
-                    auto when ListenIp == {0,0,0,0} -> 
-                        nksip_lib:to_host(nksip_transport:main_ip());
-                    auto -> 
-                        nksip_lib:to_host(ListenIp);
-                    Host -> 
-                        Host
-                end;
-            8 ->
-                case nksip_lib:get_value(local_host6, Opts, auto) of
-                    auto when ListenIp == {0,0,0,0,0,0,0,0} -> 
-                        nksip_lib:to_host(nksip_transport:main_ip6(), true);
-                    auto -> 
-                        nksip_lib:to_host(ListenIp, true);
-                    Host -> 
-                        Host
-                end
-        end,
+    fun(Transp) ->
+        #transport{
+            proto = Proto, 
+            listen_ip = ListenIp, 
+            listen_port = ListenPort
+        } = Transp,
+        ListenHost = nksip_transport:get_listenhost(ListenIp, Opts),
         ?debug(AppId, CallId, "UAC listenhost is ~s", [ListenHost]),
         RouteBranch = case Vias of
             [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
@@ -152,16 +134,6 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         % The nksip tag is used to confirm it is ours and to check if a strict router
         % has used it as Request Uri (see nksip_uas:strict_router/1)
 
-        BaseUri = #uri{
-            scheme = sip,
-            user = <<>>,
-            domain = ListenHost,
-            port = ListenPort,
-            opts = case Proto of
-                udp -> [<<"lr">>];
-                _ -> [<<"lr">>, {<<"transport">>, nksip_lib:to_binary(Proto)}] 
-            end
-        },
         RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
         Flow = case nksip_lib:get_value(make_flow, Opts) of
             undefined -> undefined;
@@ -169,20 +141,21 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         end,
         RecordRoute = case lists:member(record_route, Opts) of
             true when Method/='REGISTER', Flow==undefined -> 
-                BaseUri#uri{user = <<"NkQ", RouteHash/binary>>};
+                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                           <<"NkQ", RouteHash/binary>>, [<<"lr">>]);
             true when Method/='REGISTER' ->
-                BaseUri#uri{user = <<"NkF", Flow/binary>>};
+                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                           <<"NkF", Flow/binary>>, [<<"lr">>]);
             _ ->
                 []
         end,
         Path = case lists:member(make_path, Opts) of
             true when Method=='REGISTER', Flow==undefined ->
-                BaseUri#uri{user = <<"NkQ", RouteHash/binary>>};
+                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                           <<"NkQ", RouteHash/binary>>, [<<"lr">>]);
             true when Method=='REGISTER' ->
-                BaseUri#uri{
-                    user = <<"NkF", Flow/binary>>,
-                    opts = [<<"ob">>|BaseUri#uri.opts]
-                };
+                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                           <<"NkF", Flow/binary>>, [<<"lr">>, <<"ob">>]);
             false ->
                 []
         end,
@@ -231,7 +204,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             _ -> Body
         end,
         Req#sipmsg{
-            transport = Transport,
+            transport = Transp,
             ruri = RUri#uri{ext_opts=[], ext_headers=[]},
             vias = [Via1|Vias],
             routes = Routes,
@@ -262,7 +235,13 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
 make_contact(Req, Scheme, Proto, ListenHost, ListenPort, Opts) ->
     #sipmsg{app_id=AppId, from=From, class={req, Method}} = Req,
     OB = nksip_sipmsg:supported(Req, <<"outbound">>),
-    ExtOpts = case OB of
+    UriOpts = case OB of
+        true -> [<<"ob">>];
+        false -> []
+    end,
+    Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, ListenPort,
+                                         From#uri.user, UriOpts),
+    case OB of
         true ->
             {ok, UUID} = nksip_sipapp_srv:get_uuid(AppId),
             [
@@ -272,32 +251,15 @@ make_contact(Req, Scheme, Proto, ListenHost, ListenPort, Opts) ->
                     nksip_lib:get_integer(reg_id, Opts)
                 of
                     RegId when is_integer(RegId), RegId > 0 -> 
-                        [{<<"reg-id">>, nksip_lib:to_binary(RegId)}];
+                        ExtOpts = [{<<"reg-id">>, nksip_lib:to_binary(RegId)}],
+                        Contact#uri{ext_opts=ExtOpts};
                     _ ->
-                        []
+                        Contact
                 end
             ];
         false ->
-           []
-    end, 
-    Opts1 = case OB of
-        true -> [<<"ob">>];
-        false -> []
-    end,
-    Opts2 = case Proto of
-        tls when Scheme==sips -> Opts1;
-        udp when Scheme==sip -> Opts1;
-        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}|Opts1] 
-    end,
-    #uri{
-        scheme = case Scheme of sips -> sips; _ -> sip end,
-        user = From#uri.user,
-        domain = ListenHost,
-        port = ListenPort,
-        opts = Opts2,
-        ext_opts = ExtOpts
-    }.
-
+           Contact
+    end.
 
 
 
