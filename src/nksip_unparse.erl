@@ -400,6 +400,7 @@ response_phrase(Code) ->
         428 -> <<"Use Identity Header">>;
         429 -> <<"Provide Referrer Identity">>;
         430 -> <<"Flow Failed">>;
+        439 -> <<"First Hop Lacks Outbound Support">>;
         436 -> <<"Bad Indentity-Info">>;
         437 -> <<"Unsupported Certificate">>;
         438 -> <<"Invalid Identity Header">>;
