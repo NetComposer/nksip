@@ -244,19 +244,18 @@ make_contact(Req, Scheme, Proto, ListenHost, ListenPort, Opts) ->
     case OB of
         true ->
             {ok, UUID} = nksip_sipapp_srv:get_uuid(AppId),
-            [
-                {<<"+sip.instance">>, <<$", UUID/binary, $">>} |
+            ExtOpts = [
+                {<<"+sip.instance">>, <<$", UUID/binary, $">>} | 
                 case 
-                    Method=='REGISTER' andalso 
-                    nksip_lib:get_integer(reg_id, Opts)
+                    Method=='REGISTER' andalso nksip_lib:get_integer(reg_id, Opts)
                 of
-                    RegId when is_integer(RegId), RegId > 0 -> 
-                        ExtOpts = [{<<"reg-id">>, nksip_lib:to_binary(RegId)}],
-                        Contact#uri{ext_opts=ExtOpts};
+                    RegId when is_integer(RegId), RegId>0 -> 
+                        [{<<"reg-id">>, nksip_lib:to_binary(RegId)}];
                     _ ->
-                        Contact
+                        []
                 end
-            ];
+            ],
+            Contact#uri{ext_opts=ExtOpts};
         false ->
            Contact
     end.
