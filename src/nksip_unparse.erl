@@ -125,6 +125,8 @@ error_reason(_) ->
     error.
 
 
+
+
 %% @doc Adds a "+sip_instance" media feature tag to a Contact
 -spec add_sip_instance(nksip:app_id(), nksip:uri()) ->
     nksip:uri().
@@ -368,10 +370,13 @@ response_phrase(Code) ->
     case Code of
         100 -> <<"Trying">>;
         180 -> <<"Ringing">>;
+        181 -> <<"Call Is Being Forwarded">>;
         182 -> <<"Queued">>;
         183 -> <<"Session Progress">>;
+        199 -> <<"Early Dialog Terminated">>;
         200 -> <<"OK">>;
         202 -> <<"Accepted">>;
+        204 -> <<"No Notification">>;
         300 -> <<"Multiple Choices">>;
         301 -> <<"Moved Permanently">>;
         302 -> <<"Moved Temporarily">>;
@@ -397,13 +402,18 @@ response_phrase(Code) ->
         421 -> <<"Extension Required">>;
         422 -> <<"Session Interval Too Small">>;
         423 -> <<"Interval Too Brief">>;
+        424 -> <<"Bad Location Information">>;
         428 -> <<"Use Identity Header">>;
         429 -> <<"Provide Referrer Identity">>;
         430 -> <<"Flow Failed">>;
-        439 -> <<"First Hop Lacks Outbound Support">>;
-        436 -> <<"Bad Indentity-Info">>;
+        433 -> <<"Anonymity Disallowed">>;
+        436 -> <<"Bad Identity-Info">>;
         437 -> <<"Unsupported Certificate">>;
         438 -> <<"Invalid Identity Header">>;
+        439 -> <<"First Hop Lacks Outbound Support">>;
+        440 -> <<"Max-Breadth Exceeded">>;
+        469 -> <<"Bad Info Package">>;
+        470 -> <<"Consent Needed">>;
         480 -> <<"Temporarily Unavailable">>;
         481 -> <<"Call/Transaction Does Not Exist">>;
         482 -> <<"Loop Detected">>;

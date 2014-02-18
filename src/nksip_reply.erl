@@ -166,7 +166,7 @@
 
 -include("nksip.hrl").
 
--export([reply/3, reqreply/1]).
+-export([reply/3, reqreply/1, warning/1]).
 
 -export_type([sipreply/0]).
 
@@ -419,6 +419,30 @@ reqreply({Code, Headers, Body, Opts}) when is_integer(Code), is_list(Headers),
     #reqreply{code=Code, headers=Headers, body=Body, opts=Opts};
 reqreply(_Other) ->
     error.
+
+
+%% @doc Generates a Warning
+-spec warning(atom()) -> 
+    integer().
+
+warning(Warn) ->
+    case Warn of
+        incompatible_network_protocol -> 300;
+        incompatible_network_address_formats -> 301;
+        incompatible_transport_protocol -> 302;
+        incompatible_bandwidth_units -> 303;
+        media_type_not_available -> 304;
+        incompatible_media_format -> 305;
+        attribute_not_understood -> 306;
+        session_description_parameter_not_understood -> 307;
+        multicast_not_available -> 330;
+        unicast_not_available -> 331;
+        insufficient_bandwidth -> 370;
+        sips_not_allowed -> 380;
+        sips_required -> 381;
+        _ -> 399
+    end.
+
 
 
 
