@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/5, connect/5, send/2, async_send/2, stop/2]).
--export([start_refresh/3, stop_refresh/1, receive_refresh/2, get_transport/1]).
+-export([start_refresh/3, stop_refresh/1, set_timeout/2, get_transport/1]).
 -export([incoming/2]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
             handle_cast/2, handle_info/2]).
@@ -154,13 +154,11 @@ stop_refresh(Pid) ->
 
 
 %% @doc Updates timeout on no incoming packet
--spec receive_refresh(pid(), pos_integer()) ->
+-spec set_timeout(pid(), pos_integer()) ->
     ok | error.
 
-receive_refresh(Pid, Secs) ->
-    Rand = crypto:rand_uniform(80, 101),
-    Time = (Rand*Secs) div 100,
-    case catch gen_server:call(Pid, {receive_refresh, Time}) of
+set_timeout(Pid, Secs) ->
+    case catch gen_server:call(Pid, {set_timeout, Secs}) of
         ok -> ok;
         _ -> error
     end.
@@ -261,7 +259,7 @@ handle_call({start_refresh, Secs, Ref, Pid}, From, State) ->
     State1 = State#state{refresh_time=1000*Secs, refresh_notify = RefreshNotify1},
     handle_info({timeout, none, refresh}, State1);
 
-handle_call({receive_refresh, Secs}, From, State) ->
+handle_call({set_timeout, Secs}, From, State) ->
     gen_server:reply(From, ok),
     do_noreply(State#state{timeout=1000*Secs});
 

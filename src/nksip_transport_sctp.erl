@@ -181,8 +181,7 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
                 [{#transport{sctp_id=AssocId}, Pid}|_] ->
                     nksip_transport_conn:stop(Pid, normal);
                 _ ->
-                    ?debug(AppId, 
-                            "SCTP received shutdown_comp for unknown connection", [])
+                    ok
             end,
             State;
         #sctp_paddr_change{} ->

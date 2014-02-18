@@ -96,7 +96,7 @@ get_listening(AppId, Proto, Class) ->
 get_connected(AppId, Proto, Ip, Port) ->
     nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port}}).
 
-
+ 
 %% @private
 get_all_connected() ->
     nksip_proc:fold_names(
