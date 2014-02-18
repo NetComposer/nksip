@@ -281,28 +281,38 @@ is_registered([
 
 check_outbound(Req) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
-    case nksip_sipmsg:supported(Req, <<"outbound">>) of
+    {ok, _, AppOpts, _} = nksip_sipapp_srv:get_opts(AppId),
+    AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+    case 
+        lists:member(<<"outbound">>, AppSupp) andalso
+        nksip_sipmsg:supported(Req, <<"outbound">>)
+    of
         true when length(Vias) > 1 ->  % We are not the first host
-            ObProc = case nksip_sipmsg:headers(Req, <<"Path">>, uris) of
-                [#uri{opts=PathOpts}] -> lists:member(<<"ob">>, PathOpts);
-                _ -> false
-            end,
-            {ObProc, Req};
+            case nksip_sipmsg:headers(Req, <<"Path">>, uris) of
+                [#uri{opts=PathOpts}] -> {lists:member(<<"ob">>, PathOpts), Req};
+                _ -> {false, Req}
+            end;
         true ->
-            {ok, _, AppOpts, _} = nksip_sipapp_srv:get_opts(AppId),
-            #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
-            Host = nksip_transport:get_listenhost(Ip, AppOpts),
-            case nksip_transport:get_connected(AppId, Proto, Ip, Port) of
+            #transport{
+                proto = Proto, 
+                listen_ip = ListenIp, 
+                listen_port = ListenPort,
+                remote_ip = RemoteIp,
+                remote_port = RemotePort
+            } = Transp,
+            case nksip_transport:get_connected(AppId, Proto, RemoteIp, RemotePort) of
                 [{_, Pid}|_] ->
                     Flow = base64:encode(term_to_binary(Pid)),
-                    Path = nksip_transport:make_route(sip, Proto, Host, Port, 
+                    Host = nksip_transport:get_listenhost(ListenIp, AppOpts),
+                    Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>]),
                     Headers1 = nksip_headers:update(Req, 
-                        [{add_before_single, <<"Path">>, Path}]),
+                        [{before_single, <<"Path">>, Path}]),
                     Req1 = Req#sipmsg{headers=Headers1},
                     {true, Req1};
                 [] ->
+                        lager:notice("D:"),
                     {false, Req}
             end;
         false ->
@@ -315,10 +325,7 @@ check_outbound(Req) ->
     ok.
 
 process(Req, ObProc) ->
-    #sipmsg{
-        to = #uri{scheme=Scheme},
-        contacts = Contacts
-    } = Req,
+    #sipmsg{to=#uri{scheme=Scheme}, contacts=Contacts} = Req,
     if
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
@@ -327,11 +334,13 @@ process(Req, ObProc) ->
         Default0 when is_integer(Default0) -> Default0;
         _ -> nksip_config:get(registrar_default_time)
     end,
+    Long = nksip_lib:l_timestamp(),
     Times = {
         nksip_config:get(registrar_min_time), 
         nksip_config:get(registrar_max_time),
         Default,
-        nksip_lib:timestamp()
+        Long div 1000000,
+        Long
     },
     case Contacts of
         [] -> ok;
@@ -341,7 +350,7 @@ process(Req, ObProc) ->
 
 
 %% @private
--spec update(nksip:request(), {integer(), integer(), integer(), integer()}, 
+-spec update(nksip:request(), {integer(), integer(), integer(), integer(), integer()}, 
              true|false|unsupported) ->
     ok.
 
@@ -358,21 +367,24 @@ update(Req, Times, ObProc) ->
         error -> throw(invalid_request);
         Path0 -> Path0
     end,
+    {_, _, _, Now, LongNow} = Times,
     Base = #reg_contact{
         call_id = CallId, 
         cseq = CSeq,
+        updated = LongNow,
         transport = Transp,
         path = Path
     },
     RegContacts = gen_regcontacts(Contacts, Base, Times, ObProc, []),
     % Check no several reg-id allowed
-    case [true || #reg_contact{index={ob, _, _}, expire=Exp} <- RegContacts, Exp>0] of
+    case 
+        [true || #reg_contact{index={ob, _, _}, expire=Exp} <- RegContacts, Exp>0] 
+    of
         [_, _|_] -> throw(invalid_request);
         _ -> ok
     end,
     AOR = {Scheme, ToUser, ToDomain},
     {ok, Regs} = callback_get(AppId, AOR),
-    {_, _, _, Now} = Times,
     Contacts1 = [
         RegContact ||
         #reg_contact{expire=Exp} = RegContact <- Regs, 
@@ -398,13 +410,13 @@ update(Req, Times, ObProc) ->
 
 %% @private Extracts from each contact a index, uri, expire time and q
 -spec gen_regcontacts([#uri{}], #reg_contact{}, 
-                      {integer(), integer(), integer(), nksip_lib:timestamp()}, 
+                      {integer(), integer(), integer(), integer(), integer()}, 
                       true|false|unsupported, [reg_info()]) ->
     [reg_info()].
 
 gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
-    #uri{scheme=Scheme, user=User, ext_opts=Opts, domain=Domain} = Contact,
-    {Min, Max, Default, Now} = Times,
+    #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=Opts} = Contact,
+    {Min, Max, Default, Now, _LongNow} = Times,
     case Domain of
         <<"*">> -> throw(invalid_request);
         _ -> ok
@@ -418,11 +430,11 @@ gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
                 _ -> Default
             end
     end,
-    Expire = if
+    Expires = if
         UriExp==0 -> 0;
         UriExp>0, UriExp<3600, UriExp<Min -> throw({interval_too_brief, Min});
-        UriExp>Max -> Now+Max;
-        true -> Now+UriExp
+        UriExp>Max -> Max;
+        true -> UriExp
     end,
     Q = case nksip_lib:get_list(<<"q">>, Opts) of
         [] -> 
@@ -438,7 +450,7 @@ gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
                     end
             end
     end,
-    ExpireBin = list_to_binary(integer_to_list(Expire)),
+    ExpireBin = list_to_binary(integer_to_list(Expires)),
     Opts1 = nksip_lib:store_value(<<"expires">>, ExpireBin, Opts),
     {Proto, Domain, Port} = nksip_parse:transport(Contact),
     Instance = nksip_lib:get_value(<<"+sip.instance">>, Opts),
@@ -457,7 +469,7 @@ gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
     RegContact = Base#reg_contact{
         index = Index,
         contact = Contact#uri{ext_opts=Opts1},
-        expire = Expire, 
+        expire = Now + Expires, 
         q = Q
     },
     gen_regcontacts(Rest, Base, Times, ObProc, [RegContact|Acc]);
@@ -491,9 +503,6 @@ update_regcontacts([], Acc) ->
     lists:reverse(lists:keysort(#reg_contact.updated, Acc)).
 
 
-
-
-
 %% @private Generates a contact value including Path
 make_contact(#reg_contact{contact=Contact, path=[]}) ->
     Contact;
@@ -503,7 +512,6 @@ make_contact(#reg_contact{contact=Contact, path=Path}) ->
     Routes2 = http_uri:encode(binary_to_list(Route1)),
     Headers1 = [{<<"Route">>, Routes2}|Headers],
     Contact#uri{headers=Headers1}.
-
 
 
 %% @private
