@@ -121,7 +121,50 @@ basic() ->
     %     error(basic)
     % end,
 
+
+    % REGISTER with no reg-id, it is not processed using outbound (no Require)
+    % but, as both parties support otbound, and the connection is direct,
+    % registrar adds a path with the flow
+
+    {ok, 200, [{<<"Require">>, []}, {parsed_contacts, [PC1]}]} = 
+        nksip_uac:register(C1, "sip:127.0.0.1", 
+            [make_contact, {fields, [<<"Require">>, parsed_contacts]}]),
+
+    % #uri{
+    %     user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5070, opts = [<<"ob">>],
+    %     ext_opts = [{<<"+sip.instance">>, QInstanceC1}, {<<"expires">>, <<"3600">>}]
+    % } = PC1,
+    % {ok, InstanceC1} = nksip_sipapp_srv:get_uuid(C1),
+    % true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
+    % [#reg_contact{
+    %     index = {sip, udp, <<"ua1">>, <<"127.0.0.1">>, 5070},
+    %     contact = PC1,
+    %     transport = Transp1,
+    %     path = [#uri{
+    %         user = <<"NkF", Flow1/binary>>,
+    %         domain = <<"localhost">>,
+    %         port = 5060,
+    %         opts = [<<"lr">>]
+    %     }=Path1]
+    % }] = nksip_registrar:get_info(R1, sip, <<"ua1">>, <<"nksip">>),
+
+    % Pid1 = binary_to_term(base64:decode(Flow1)),
+    % {ok, Transp1} = nksip_transport_conn:get_transport(Pid1),
+
+    [#uri{
+        user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5070, opts = [<<"ob">>],
+        headers = [{<<"Route">>, QRoute1}],
+        ext_opts = [{<<"+sip.instance">>, QInstanceC1}, {<<"expires">>,<<"3600">>}]
+    }=Contact1] = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
+
+    % true = list_to_binary(http_uri:decode(QRoute1)) == nksip_unparse:uri(Path1),
+
+    % Now, if a send a request to this Contact, it goes to the registrar first, and the
+    % same transport is reused
+    nksip_uac:options(C1, Contact1, []),
+
+
 
 
 
