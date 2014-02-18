@@ -89,10 +89,9 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_supported -> S#sipmsg.supported;
         allow -> header(S, <<"Allow">>);
         body -> S#sipmsg.body;
-        expires -> case S#sipmsg.expires of undefined -> <<>>; Exp -> Exp end;
+        expires -> nksip_lib:to_binary(S#sipmsg.expires);
         parsed_expires -> S#sipmsg.expires;
-        event -> 
-            case S#sipmsg.event of undefined -> <<>>; E -> nksip_unparse:token(E) end;
+        event -> nksip_unparse:token(S#sipmsg.event);
         parsed_event -> S#sipmsg.event;
         all_headers -> all_headers(S);
         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
@@ -100,11 +99,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         realms -> nksip_auth:realms(S);
         rseq_num -> 
             case header(S, <<"RSeq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
-        content_type -> 
-            case S#sipmsg.content_type of 
-                undefined -> <<>>; 
-                CT -> nksip_unparse:token(CT)
-            end;
+        content_type -> nksip_unparse:token(S#sipmsg.content_type);
         parsed_content_type -> S#sipmsg.content_type;
         parsed_rack ->
             case header(S, <<"RAck">>) of 
@@ -171,10 +166,10 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"Route">> -> field(SipMsg, routes);
         <<"Contact">> -> field(SipMsg, contacts);
         <<"Content-Type">> -> [field(SipMsg, content_type)];
-        <<"Require">> -> [field(SipMsg, require)];
-        <<"Supported">> -> [field(SipMsg, supported)];
-        <<"Expires">> -> [field(SipMsg, expires)];
-        <<"Event">> -> [field(SipMsg, event)];
+        <<"Require">> -> case field(SipMsg, require) of <<>> -> []; R -> R end;
+        <<"Supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> S end;
+        <<"Expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> E end;
+        <<"Event">> -> case field(SipMsg, event) of <<>> -> []; E -> E end;
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 

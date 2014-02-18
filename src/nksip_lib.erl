@@ -397,6 +397,7 @@ store_value(Key, Val, List) ->
 
 to_binary(B) when is_binary(B) -> B;
 to_binary(L) when is_list(L) -> list_to_binary(L);
+to_binary(undefined) -> <<>>;
 to_binary(A) when is_atom(A) -> atom_to_binary(A, latin1);
 to_binary(I) when is_integer(I) -> list_to_binary(erlang:integer_to_list(I));
 to_binary(#uri{}=Uri) -> nksip_unparse:uri(Uri);

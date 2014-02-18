@@ -88,8 +88,11 @@ via(#via{}=Via) ->
 
 
 %% @doc Serializes a list of `token()'
--spec token(nksip:token() | [nksip:token()]) ->
+-spec token(nksip:token() | [nksip:token()] | undefined) ->
     binary().
+
+token(undefined) ->
+    <<>>;
 
 token({Token, Opts}) ->
     token([{Token, Opts}]);
