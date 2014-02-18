@@ -36,7 +36,6 @@
 %         ]
 %     }.
 
-% This configuration resembles the example in RFC3327
 start() ->
     tests_util:start_nksip(),
 
@@ -58,25 +57,25 @@ start() ->
     ok = path_server:start({outbound, registrar}, [
         registrar,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5090}},
-        {transport, {tls, {0,0,0,0}, 5091}},
-        {transport, {sctp, {0,0,0,0}, 5090}}
+        {transport, {udp, {0,0,0,0}, 5060}},
+        {transport, {tls, {0,0,0,0}, 5061}}
+        % {transport, {sctp, {0,0,0,0}, 5060}}
     ]),
 
     ok = sipapp_endpoint:start({outbound, ua1}, [
         {from, "sip:ua1@nksip"},
         % {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 0}},
-        {transport, {tls, {0,0,0,0}, 0}},
-        {transport, {sctp, {0,0,0,0}, 0}}
+        {transport, {udp, {0,0,0,0}, 5070}},
+        {transport, {tls, {0,0,0,0}, 5071}}
+        % {transport, {sctp, {0,0,0,0}, 0}}
     ]),
 
     ok = sipapp_endpoint:start({outbound, ua2}, [
         % {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 0}},
-        {transport, {tls, {0,0,0,0}, 0}}
+        {transport, {udp, {0,0,0,0}, 5080}},
+        {transport, {tls, {0,0,0,0}, 5081}}
     ]),
 
     tests_util:log(),
@@ -95,31 +94,32 @@ stop() ->
 basic() ->
     C1 = {outbound, ua1},
     C2 = {outbound, ua2},
-    nksip_registrar:clear({outbound, registrar}),
+    R1 = {outbound, registrar},
+    nksip_registrar:clear(R1),
     
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
     % RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
-    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1:5090", 
-                                        [make_contact, CB, get_request]),
-    receive 
-        {Ref, #sipmsg{contacts=[#uri{opts=Opts1}]}} ->
-            true = lists:member(<<"ob">>, Opts1)
-    after 1000 ->
-        error(basic)
-    end,
-
-    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1:5090", 
-                                        [make_contact, CB, get_request, 
-                                         {supported, "path"}]),
-    receive 
-        {Ref, #sipmsg{contacts=[#uri{opts=Opts2}]}} ->
-            false = lists:member(<<"ob">>, Opts2)
-    after 1000 ->
-        error(basic)
-    end,
+    % {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    %                                     [make_contact, CB, get_request]),
+    % receive 
+    %     {Ref, #sipmsg{contacts=[#uri{opts=Opts1}]}} ->
+    %         true = lists:member(<<"ob">>, Opts1)
+    % after 1000 ->
+    %     error(basic)
+    % end,
+  
+    % {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    %                                     [make_contact, CB, get_request, 
+    %                                      {supported, "path"}]),
+    % receive 
+    %     {Ref, #sipmsg{contacts=[#uri{opts=Opts2}]}} ->
+    %         false = lists:member(<<"ob">>, Opts2)
+    % after 1000 ->
+    %     error(basic)
+    % end,
 
     
 
