@@ -308,11 +308,10 @@ check_outbound(Req) ->
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>]),
                     Headers1 = nksip_headers:update(Req, 
-                        [{before_single, <<"Path">>, Path}]),
+                                                [{before_single, <<"Path">>, Path}]),
                     Req1 = Req#sipmsg{headers=Headers1},
                     {true, Req1};
                 [] ->
-                        lager:notice("D:"),
                     {false, Req}
             end;
         false ->
@@ -364,7 +363,7 @@ update(Req, Times, ObProc) ->
         transport = Transp
     } = Req,
     Path = case nksip_sipmsg:header(Req, <<"Path">>, uris) of
-        error -> throw(invalid_request);
+        error -> throw({invalid_request, "Invalid Path"});
         Path0 -> Path0
     end,
     {_, _, _, Now, LongNow} = Times,
@@ -376,11 +375,10 @@ update(Req, Times, ObProc) ->
         path = Path
     },
     RegContacts = gen_regcontacts(Contacts, Base, Times, ObProc, []),
-    % Check no several reg-id allowed
     case 
         [true || #reg_contact{index={ob, _, _}, expire=Exp} <- RegContacts, Exp>0] 
     of
-        [_, _|_] -> throw(invalid_request);
+        [_, _|_] -> throw({invalid_request, "Several 'reg-id' Options"});
         _ -> ok
     end,
     AOR = {Scheme, ToUser, ToDomain},
@@ -457,7 +455,7 @@ gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
     RegId = case nksip_lib:get_value(<<"reg-id">>, Opts) of
         undefined -> undefined;
         _ when ObProc==unsupported -> undefined;
-        _ when ObProc==false -> throw(no_outbound);
+        _ when ObProc==false -> throw(first_hop_lacks_outbound);
         _ when Instance==undefined -> undefined;
         RegId0 -> RegId0
     end,

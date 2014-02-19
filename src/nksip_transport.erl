@@ -28,7 +28,7 @@
 -export([start_transport/5, start_connection/5, default_port/1]).
 -export([get_listenhost/2, make_route/6]).
 -export([send/4, raw_send/2]).
--export([get_all_connected/0, stop_all_connected/0]).
+-export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
 
 -export_type([transport/0]).
 
@@ -55,8 +55,8 @@
     [{nksip:app_id(), transport(), pid()}].
 
 get_all() ->
-    All = [{AppId, Transport, Pid} 
-            || {{AppId, Transport}, Pid} <- nksip_proc:values(nksip_transports)],
+    All = [{AppId, Transp, Pid} 
+            || {{AppId, Transp}, Pid} <- nksip_proc:values(nksip_transports)],
     lists:sort(All).
 
 
@@ -65,7 +65,7 @@ get_all() ->
     [{transport(), pid()}].
 
 get_all(AppId) ->
-    [{Transport, Pid} || {A, Transport, Pid} <- get_all(), AppId==A].
+    [{Transp, Pid} || {A, Transp, Pid} <- get_all(), AppId==A].
 
 
 %% @private Finds a listening transport of Proto.
@@ -97,27 +97,6 @@ get_connected(AppId, Proto, Ip, Port) ->
     nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port}}).
 
  
-%% @private
-get_all_connected() ->
-    nksip_proc:fold_names(
-        fun(Name, Values, Acc) ->
-            case Name of
-                {nksip_connection, {AppId, _Proto, _Ip, _Port}} -> 
-                    [{AppId, Transp, Pid} || {val, Transp, Pid} <- Values] ++ Acc;
-                _ ->
-                    Acc
-            end
-        end,
-        []).
-
-
-%% @private
-stop_all_connected() ->
-    lists:foreach(
-        fun({_, _, Pid}) -> nksip_transport_conn:stop(Pid, normal) end,
-        get_all_connected()).
-
-
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
 -spec is_local(nksip:app_id(), Input::nksip:uri()|nksip:via()) -> 
     boolean().
@@ -296,22 +275,23 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 %% @private
 -spec send(nksip:app_id(), [TSpec], function(), nksip_lib:proplist()) ->
     {ok, nksip:request()|nksip:response()} | error
-    when TSpec :: #uri{} | proto_ip_port() | {current, proto_ip_port()}.
+    when TSpec :: #uri{} | proto_ip_port() | {current, proto_ip_port()} | 
+                  {flow, {pid(), nksip:transport()}}.
 
-send(AppId, [#uri{}=Uri|Rest]=All, MakeMsg, Opts) ->
+send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     Resolv = nksip_dns:resolve(Uri),
-    ?debug(AppId, "Transport send to ~p (~p)", [All, Resolv]),
+    ?notice(AppId, "Transport send to uri ~p (~p)", [Resolv, Rest]),
     send(AppId, Resolv++Rest, MakeMsg, Opts);
 
 send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
     send(AppId, [{udp, Ip, Port}|Rest], MakeMsg, Opts);
 
-send(AppId, [{current, {Proto, Ip, Port}}|Rest]=All, MakeMsg, Opts) 
+send(AppId, [{current, {Proto, Ip, Port}=D}|Rest], MakeMsg, Opts) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
-    ?debug(AppId, "Transport send to ~p (current, ~p)", [All, Proto]),
+    ?notice(AppId, "Transport send to current ~p (~p)", [D, Rest]),
     case get_connected(AppId, Proto, Ip, Port) of
-        [{Transport, Pid}|_] -> 
-            SipMsg = MakeMsg(Transport),
+        [{Transp, Pid}|_] -> 
+            SipMsg = MakeMsg(Transp),
             case nksip_transport_conn:send(Pid, SipMsg) of
                 ok -> {ok, SipMsg};
                 {error, _} -> send(AppId, Rest, MakeMsg, Opts)
@@ -340,9 +320,9 @@ send(AppId, [{Proto, Ip, 0}|Rest], MakeMsg, Opts)
 %     ?debug(AppId, "Transport send to ~p (udp)", [All]),
 %     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
 %     case get_listening(AppId, udp, Class) of
-%         [{Transport1, Pid}|_] -> 
-%             Transport2 = Transport1#transport{remote_ip=Ip, remote_port=Port},
-%             SipMsg = MakeMsg(Transport2),
+%         [{Transp1, Pid}|_] -> 
+%             Transp2 = Transp1#transport{remote_ip=Ip, remote_port=Port},
+%             SipMsg = MakeMsg(Transp2),
 %             case nksip_transport_udp:send(Pid, SipMsg) of
 %                 ok -> 
 %                     {ok, SipMsg};
@@ -368,9 +348,10 @@ send(AppId, [{Proto, Ip, Port}|Rest]=All, MakeMsg, Opts)
                     send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
+            ?notice(AppId, "Transport send to new ~p (~p)", [D, Rest]),
             case start_connection(AppId, Proto, Ip, Port, Opts) of
-                {ok, Pid, Transport} ->
-                    SipMsg = MakeMsg(Transport),
+                {ok, Pid, Transp} ->
+                    SipMsg = MakeMsg(Transp),
                     case nksip_transport_conn:send(Pid, SipMsg) of
                         ok -> 
                             {ok, SipMsg};
@@ -434,6 +415,39 @@ default_port(sctp) -> 5060;
 default_port(ws) -> 80;
 default_port(wss) -> 443;
 default_port(_) -> 0.
+
+
+
+%% ===================================================================
+%% Only testing
+%% ===================================================================
+
+
+%% @private
+get_all_connected() ->
+    nksip_proc:fold_names(
+        fun(Name, Values, Acc) ->
+            case Name of
+                {nksip_connection, {AppId, _Proto, _Ip, _Port}} -> 
+                    [{AppId, Transp, Pid} || {val, Transp, Pid} <- Values] ++ Acc;
+                _ ->
+                    Acc
+            end
+        end,
+        []).
+
+
+%% @private
+get_all_connected(AppId) ->
+    [{Transp, Pid} || {LAppId, Transp, Pid} <- get_all_connected(), AppId==LAppId].
+
+
+%% @private
+stop_all_connected() ->
+    lists:foreach(
+        fun({_, _, Pid}) -> nksip_transport_conn:stop(Pid, normal) end,
+        get_all_connected()).
+
 
 
 

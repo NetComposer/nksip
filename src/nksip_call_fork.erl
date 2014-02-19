@@ -58,7 +58,7 @@ start(Trans, UriSet, ForkOpts, #call{forks=Forks}=Call) ->
         responses = [],
         final = false
     },
-    ?call_debug("Fork ~p ~p started from UAS", [TransId, Method], Call),
+    ?call_debug("Fork ~p ~p started from UAS (~p)", [TransId, Method, ForkOpts], Call),
     Call1 = Call#call{forks=[Fork|Forks]},
     next(Fork, Call1).
 

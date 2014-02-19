@@ -28,7 +28,7 @@
 %% ===================================================================
 
 -define(VERSION, "0.4.0").
--define(SUPPORTED, [<<"100rel">>, <<"path">>, <<"timer">>, <<"outbound">>]).
+-define(SUPPORTED, [<<"100rel">>, <<"timer">>, <<"path">>, <<"outbound">>]).
 -define(ACCEPT, [{<<"*/*">>, []}]).
 -define(ALLOW, <<"INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
                  "SUBSCRIBE,NOTIFY,REFER,MESSAGE,PUBLISH">>).
