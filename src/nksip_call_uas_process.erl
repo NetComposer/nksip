@@ -185,7 +185,7 @@ method('REGISTER', Req, UAS, Call) ->
         [] ->
             process_call(register, Fields, UAS, Call); 
         Path ->
-            case lists:keymember(<<"path">>, Supported) of
+            case lists:member(<<"path">>, Supported) of
                 true ->
                     Fields1 = Fields++[{path, Path}],
                     process_call(register, Fields1, UAS, Call); 

@@ -71,8 +71,8 @@ send_request(Req, GlobalId, Opts) ->
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts),  
     nksip_trace:insert(Req, {uac_out_request, Method}),
-    Dests = case Method/='REGISTER' andalso nksip_lib:get_value(flow, Opts) of
-        Pid when is_pid(Pid) -> [{pid, Pid}, DestUri];
+    Dests = case nksip_lib:get_value(flow, Opts) of
+        {Pid, Transp} -> [{flow, {Pid, Transp}}, DestUri];
         _ -> [DestUri]
     end,
     case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
@@ -134,28 +134,31 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         % The nksip tag is used to confirm it is ours and to check if a strict router
         % has used it as Request Uri (see nksip_uas:strict_router/1)
 
-        RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
-        Flow = case nksip_lib:get_value(make_flow, Opts) of
-            undefined -> undefined;
-            FlowPid -> base64:encode(term_to_binary(FlowPid))
+        RouteUser = case nksip_lib:get_value(make_flow, Opts) of
+            undefined -> 
+                RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
+                <<"NkQ", RouteHash/binary>>;
+            FlowPid -> 
+                FlowToken = base64:encode(term_to_binary(FlowPid)),
+                <<"NkF", FlowToken/binary>>
         end,
         RecordRoute = case lists:member(record_route, Opts) of
-            true when Method/='REGISTER', Flow==undefined -> 
+            true when Method/='REGISTER' -> 
                 nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
-                                           <<"NkQ", RouteHash/binary>>, [<<"lr">>]);
-            true when Method/='REGISTER' ->
-                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
-                                           <<"NkF", Flow/binary>>, [<<"lr">>]);
+                                           RouteUser, [<<"lr">>]);
             _ ->
                 []
         end,
         Path = case lists:member(make_path, Opts) of
-            true when Method=='REGISTER', Flow==undefined ->
-                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
-                                           <<"NkQ", RouteHash/binary>>, [<<"lr">>]);
             true when Method=='REGISTER' ->
-                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
-                                           <<"NkF", Flow/binary>>, [<<"lr">>, <<"ob">>]);
+                case RouteUser of
+                    <<"NkQ", _/binary>> ->
+                        nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                                   RouteUser, [<<"lr">>]);
+                    <<"NkF", _/binary>> ->
+                        nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                                   RouteUser, [<<"lr">>, <<"ob">>])
+                end;
             false ->
                 []
         end,

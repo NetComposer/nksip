@@ -57,14 +57,17 @@ route(UAS, UriList, ProxyOpts, Call) ->
             {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
             {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
         end,
-        Req2 = preprocess(Req1, ProxyOpts),
+        Req2 = remove_local_routes(Req1),
+        Req3 = preprocess(Req2, ProxyOpts),
+        % Note: pass original request with original routes
+        ProxyOpts1 = check_path(Req1, ProxyOpts, Call),
         Stateless = lists:member(stateless, ProxyOpts),
         case Method of
             'ACK' when Stateless ->
                 [[First|_]|_] = UriSet,
-                route_stateless(Req2, First, ProxyOpts, Call1);
+                route_stateless(Req3, First, ProxyOpts1, Call1);
             'ACK' ->
-                {fork, UAS#trans{request=Req2}, UriSet};
+                {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1};
             _ ->
                 case nksip_sipmsg:header(Req, <<"Proxy-Require">>, tokens) of
                     [] -> 
@@ -73,8 +76,6 @@ route(UAS, UriList, ProxyOpts, Call) ->
                         Text = nksip_lib:bjoin([T || {T, _} <- PR]),
                         throw({reply, {bad_extension, Text}})
                 end,
-                ProxyOpts1 = check_path(Req2, ProxyOpts, Call),
-                Req3 = remove_local_routes(Req2),
                 case Stateless of
                     true -> 
                         [[First|_]|_] = UriSet,
@@ -203,16 +204,16 @@ check_path(#sipmsg{class={req, 'REGISTER'}}=Req, ProxyOpts, Call) ->
                     #call{app_id=AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
                     Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
                     case Contacts of
-                        [#uri{opts=ContactOpts}] ->
+                        [#uri{ext_opts=ContactOpts}] ->
                             case 
                                 lists:member(<<"outbound">>, Supported) andalso
-                                lists:member(<<"reg-id">>, ContactOpts) andalso
+                                lists:keymember(<<"reg-id">>, 1, ContactOpts) andalso
                                 length(Vias)==1
                             of
                                 true ->
                                     [{_, Pid}|_] = nksip_transport:get_connected(
                                                                 AppId, Proto, Ip, Port),
-                                    [{flow, Pid}|ProxyOpts];
+                                    [{make_flow, Pid}|ProxyOpts];
                                 false ->
                                     ProxyOpts
                             end;
@@ -233,30 +234,34 @@ check_path(Req, ProxyOpts, Call) ->
         [#uri{user = <<"NkF", Flow/binary>>, opts=RouteOpts}=Route|_] ->
             case nksip_transport:is_local(AppId, Route) of
                 true ->
-                    RR = case 
-                        lists:member(<<"ob">>, RouteOpts) andalso
-                        (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
-                         Method=='NOTIFY') andalso
-                        ToTag == <<>>
-                    of
-                        true -> [record_route];
-                        false -> []
-                    end,
                     case catch binary_to_term(base64:decode(Flow)) of
                         Pid when is_pid(Pid) ->
                             case nksip_transport_conn:get_transport(Pid) of
-                                {ok, _Transp} -> [[{flow, Pid}|RR]|ProxyOpts];
-                                false -> throw({repy, flow_failed})
+                                {ok, Transp} -> 
+                                    P2 = [{flow, {Pid, Transp}}|ProxyOpts],
+                                    case 
+                                        lists:member(<<"ob">>, RouteOpts) andalso
+                                        (Method=='INVITE' orelse Method=='SUBSCRIBE' 
+                                            orelse Method=='NOTIFY') 
+                                        andalso ToTag == <<>>
+                                    of
+                                        true -> 
+                                            [record_route, {make_flow, Pid}|P2];
+                                        false ->
+                                             P2
+                                    end;
+                                error -> 
+                                    throw({reply, flow_failed})
                             end;
                         _ ->
                             ?call_notice("Received invalid flow token", [], Call),
                             throw({reply, forbidden})
                     end;
                 false ->
-                    []
+                    ProxyOpts
             end;
         _ ->
-            []
+            ProxyOpts
     end.
 
 

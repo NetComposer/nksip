@@ -287,10 +287,17 @@ check_outbound(Req) ->
         lists:member(<<"outbound">>, AppSupp) andalso
         nksip_sipmsg:supported(Req, <<"outbound">>)
     of
-        true when length(Vias) > 1 ->  % We are not the first host
-            case nksip_sipmsg:headers(Req, <<"Path">>, uris) of
-                [#uri{opts=PathOpts}] -> {lists:member(<<"ob">>, PathOpts), Req};
-                _ -> {false, Req}
+        true when length(Vias) > 1 ->       % We are not the first host
+            case nksip_sipmsg:header(Req, <<"Path">>, uris) of
+                error ->
+                    throw({invalid_request, <<"Invalid Path">>});
+                Paths ->
+                    case lists:reverse(Paths) of
+                        [#uri{opts=PathOpts}|_] -> 
+                            {lists:member(<<"ob">>, PathOpts), Req};
+                        _ -> 
+                            {false, Req}
+                    end
             end;
         true ->
             #transport{
@@ -507,7 +514,7 @@ make_contact(#reg_contact{contact=Contact, path=[]}) ->
 make_contact(#reg_contact{contact=Contact, path=Path}) ->
     #uri{headers=Headers} = Contact,
     Route1 = nksip_unparse:uri(Path),
-    Routes2 = http_uri:encode(binary_to_list(Route1)),
+    Routes2 = list_to_binary(http_uri:encode(binary_to_list(Route1))),
     Headers1 = [{<<"Route">>, Routes2}|Headers],
     Contact#uri{headers=Headers1}.
 
