@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% path_server: Server Callback module for path test
+%% path_server: Server Callback module for path/outbound test
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
@@ -47,9 +47,10 @@ init(Id) ->
    {ok, #state{id=Id}}.
 
 
-% P1 is UA1's outbound proxy.
-% It sends everything to P2, inserting Path header
-route(_, _, _, Domain, _, #state{id={path, p1}}=State) ->
+% P1 is the outbound proxy.
+% It domain is 'nksip', it sends the request to P2, inserting Path and Nk-Id headers
+% If not, simply proxies the request adding a Nk-Id header
+route(_, _, _, Domain, _, #state{id={_, p1}}=State) ->
     OptsA = [{headers, [{"Nk-Id", "p1"}]}],
     OptsB = [{route, "<sip:127.0.0.1:5071;lr;transport=tls>"}, make_path|OptsA],
     case Domain of 
@@ -58,9 +59,9 @@ route(_, _, _, Domain, _, #state{id={path, p1}}=State) ->
     end;
 
 % P2 is an intermediate proxy.
-% It sends everything to P3
-% It sends everything to P2, inserting Path header
-route(_, _, _, Domain, _, #state{id={path, p2}}=State) ->
+% For 'nksip' domain, sends the request to P3, inserting Nk-Id header
+% For other, simply proxies and adds header
+route(_, _, _, Domain, _, #state{id={_, p2}}=State) ->
     OptsA = [{headers, [{"Nk-Id", "p2"}]}],
     OptsB = [{route, "<sip:127.0.0.1:5080;lr;transport=tcp>"}|OptsA],
     case Domain of 
@@ -70,8 +71,9 @@ route(_, _, _, Domain, _, #state{id={path, p2}}=State) ->
 
 
 % P3 is the SBC. 
-% It sends everything to the registrar, inserting Path header
-route(_, _, _, Domain, _, #state{id={path, p3}}=State) ->
+% For 'nksip', it sends everything to the registrar, inserting Path header
+% For other proxies the request
+route(_, _, _, Domain, _, #state{id={_, p3}}=State) ->
     OptsA = [{headers, [{"Nk-Id", "p3"}]}],
     OptsB = [{route, "<sip:127.0.0.1:5090;lr>"}, make_path|OptsA],
     case Domain of 
@@ -81,7 +83,7 @@ route(_, _, _, Domain, _, #state{id={path, p3}}=State) ->
 
 
 % Registrar is the registrar proxy for "nksip" domain
-route(_ReqId, Scheme, User, Domain, _From, #state{id={path, registrar}}=State) ->
+route(_ReqId, Scheme, User, Domain, _From, #state{id={_, registrar}}=State) ->
     case Domain of
         <<"nksip">> when User == <<>> ->
             {reply, process, State};
@@ -95,9 +97,6 @@ route(_ReqId, Scheme, User, Domain, _From, #state{id={path, registrar}}=State) -
     end;
 
 
-
-
-
 % Registrar is the registrar proxy for "nksip" domain
 route(_ReqId, Scheme, User, Domain, _From, #state{id={outbound, registrar}}=State) ->
     case Domain of
@@ -106,7 +105,7 @@ route(_ReqId, Scheme, User, Domain, _From, #state{id={outbound, registrar}}=Stat
         <<"127.0.0.1">> when User == <<>> ->
             {reply, process, State};
         <<"nksip">> ->
-            case nksip_registrar:find({path, registrar}, Scheme, User, Domain) of
+            case nksip_registrar:find({outbound, registrar}, Scheme, User, Domain) of
                 [] -> {reply, temporarily_unavailable, State};
                 UriList -> {reply, {proxy, UriList}, State}
             end;
