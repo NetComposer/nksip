@@ -430,16 +430,64 @@ proxy() ->
 
 
 outbound() ->
-    ok = sipapp_endpoint:start({outbound, ua3}, [
+    C3 = {outbound, ua3},
+    R1 = {outbound, registrar},
+
+    nksip_registrar:clear(R1),
+    nksip_transport:stop_all_connected(),
+    ok = sipapp_endpoint:start(C3, [
         % {route, "<sip:127.0.0.1:5090;lr>"},
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 5106}},
         {transport, {tls, {0,0,0,0}, 5107}},
         {register, "<sip:127.0.0.1:5090;transport=tcp>"},
-        {register_expires, 20}
+        {register, "<sip:127.0.0.1:5090;transport=udp>"}
     ]),
+    timer:sleep(100),
 
+    % UA3 should have to connections to Registrar
+    [
+        {
+            #transport{proto = tcp, local_port = Local1,
+                       remote_port = 5090, listen_port = 5106},
+            Pid1
+        },
+        {
+            #transport{proto = udp, local_port = 5106,
+                       remote_port = 5090, listen_port = 5106},
+            Pid2
+        }
+    ] = lists:sort(nksip_transport:get_all_connected(C3)),
+
+    [
+        {
+            #transport{proto = tcp, local_port = 5090,
+                       remote_port = Local1, listen_port=5090},
+            Pid3
+        },
+        {
+            #transport{proto = udp, local_port = 5090, 
+             remote_port = 5106, listen_port = 5090},
+            Pid4
+        }
+    ] = lists:sort(nksip_transport:get_all_connected(R1)),
+
+    {true, _, Refresh1} = nksip_transport_conn:get_refresh(Pid1),
+    {true, _, Refresh2} = nksip_transport_conn:get_refresh(Pid2),
+    true = Refresh1 > 1 andalso Refresh2 > 1,
+
+    {false, _} = nksip_transport_conn:get_refresh(Pid3),
+    {false, _} = nksip_transport_conn:get_refresh(Pid4),
+
+
+    % ok = nksip:stop(C3),
+    % timer:sleep(100),
+    % [] = nksip_transport:get_all_connected(C3),
+    % [{#transport{proto=udp}] = nksip_transport:get_all_connected(R1),
+
+    % Pending:
+    % - check after failings the times
 
 
 

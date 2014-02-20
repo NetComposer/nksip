@@ -50,15 +50,18 @@ start() ->
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         registrar,
         {listeners, 10},
+        {supported, []},
         {transport, {udp, {0,0,0,0}, 5060}},
         {transport, {tls, {0,0,0,0}, 5061}}]),
 
     ok = sipapp_endpoint:start({basic, client1}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {supported, []},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}]),
 
     ok = sipapp_endpoint:start({basic, client2}, [
+        {supported, []},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
     tests_util:log(),
