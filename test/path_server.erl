@@ -83,7 +83,7 @@ route(_, _, _, Domain, _, #state{id={_, p3}}=State) ->
 
 
 % Registrar is the registrar proxy for "nksip" domain
-route(_ReqId, Scheme, User, Domain, _From, #state{id={_, registrar}}=State) ->
+route(_ReqId, Scheme, User, Domain, _From, #state{id={path, registrar}}=State) ->
     case Domain of
         <<"nksip">> when User == <<>> ->
             {reply, process, State};

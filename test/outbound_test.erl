@@ -102,7 +102,7 @@ basic() ->
     CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
     % RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
-    {ok, 200, []} = nksip_uac:options(C2, "sip:127.0.0.1:5090", 
+    {ok, 200, []} = nksip_uac:options(C2, "sip:127.0.0.1:5103", 
                                         [make_contact, CB, get_request]),
     receive 
         {Ref, #sipmsg{contacts=[#uri{opts=Opts1}]}} ->
@@ -111,7 +111,7 @@ basic() ->
         error(basic)
     end,
   
-    {ok, 200, []} = nksip_uac:options(C2, "sip:127.0.0.1:5090", 
+    {ok, 200, []} = nksip_uac:options(C2, "sip:127.0.0.1:5103", 
                                         [make_contact, CB, get_request, 
                                          {supported, "path"}]),
     receive 
@@ -169,7 +169,9 @@ flow() ->
         ext_opts = [{<<"+sip.instance">>, QInstanceC1}, {<<"expires">>,<<"3600">>}]
     }=Contact1] = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
 
-    true = list_to_binary(http_uri:decode(QRoute1)) == nksip_unparse:uri(Path1),
+    true = 
+        list_to_binary(http_uri:decode(binary_to_list(QRoute1))) == 
+        nksip_unparse:uri(Path1),
 
     % Now, if a send a request to this Contact, it goes to the registrar first, 
     % and the same transport is reused
@@ -216,12 +218,11 @@ register() ->
     nksip_registrar:clear(R1),
 
     % Several reg-ids are not allowed in a single registration
-    % {ok, 400, [{_, <<"Several 'reg-id' Options">>}]} = 
-    %     nksip_uac:register(C1, "sip:127.0.0.1:5090", 
-    %         [{contact, "<sip:a@a.com;ob>;+sip.instance=i;reg-id=1, 
-    %                     <sip:b@a.com;ob>;+sip.instance=i;reg-id=2"},
-    %         {fields, [reason_phrase]}]),
-
+    {ok, 400, [{_, <<"Several 'reg-id' Options">>}]} = 
+        nksip_uac:register(C1, "sip:127.0.0.1:5090", 
+            [{contact, "<sip:a@a.com;ob>;+sip.instance=i;reg-id=1, 
+                        <sip:b@a.com;ob>;+sip.instance=i;reg-id=2"},
+            {fields, [reason_phrase]}]),
 
     % Registration with +sip.instance y reg-id=1
     {ok, 200, [{_, [Contact1]}, {_, [<<"outbound">>]}]} = 
@@ -354,44 +355,44 @@ proxy() ->
     % It arrives at the registrar, that sees the first proxy has outbound
     % support
     
-    % {ok, 200, [{parsed_require, [<<"outbound">>]}]} = 
-    %     nksip_uac:register(C1, "sip:nksip", 
-    %         [make_contact, {reg_id, 1}, {route, "<sip:127.0.0.1;lr>"}, 
-    %         {fields, [parsed_require]}]),
+    {ok, 200, [{parsed_require, [<<"outbound">>]}]} = 
+        nksip_uac:register(C1, "sip:nksip", 
+            [make_contact, {reg_id, 1}, {route, "<sip:127.0.0.1;lr>"}, 
+            {fields, [parsed_require]}]),
 
-    % Contact1 = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
-    % [#uri{headers=[{<<"Route">>, QRoute1}]}] = Contact1,
-    % [Path1, Path2] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute1))),
+    Contact1 = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
+    [#uri{headers=[{<<"Route">>, QRoute1}]}] = Contact1,
+    [Path1, Path2] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute1))),
 
-    % #uri{user = <<"NkQ", _/binary>>, port = 5080} = Path1,
-    % #uri{user = <<"NkF", Flow1/binary>>, port = 5061,
-    %      opts = [{<<"transport">>,<<"tls">>},<<"lr">>,<<"ob">>]} = Path2,
+    #uri{user = <<"NkQ", _/binary>>, port = 5080} = Path1,
+    #uri{user = <<"NkF", Flow1/binary>>, port = 5061,
+         opts = [{<<"transport">>,<<"tls">>},<<"lr">>,<<"ob">>]} = Path2,
 
-    % Pid1 = binary_to_term(base64:decode(Flow1)),
-    % {ok,
-    %     #transport{
-    %         proto = udp,
-    %         local_port = 5060,
-    %         remote_ip = {127,0,0,1},
-    %         remote_port = 5101}} = 
-    %     nksip_transport_conn:get_transport(Pid1),
+    Pid1 = binary_to_term(base64:decode(Flow1)),
+    {ok,
+        #transport{
+            proto = udp,
+            local_port = 5060,
+            remote_ip = {127,0,0,1},
+            remote_port = 5101}} = 
+        nksip_transport_conn:get_transport(Pid1),
 
-    % % Now, if we send a request to this contact, it will go to 
-    % % P3, to P1, and P1 will use the indicated flow to go to UA1
-    % {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
-    %     nksip_uac:options(C2, Contact1, [{fields, [<<"Nk-Id">>]}]),
+    % Now, if we send a request to this contact, it will go to 
+    % P3, to P1, and P1 will use the indicated flow to go to UA1
+    {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
+        nksip_uac:options(C2, Contact1, [{fields, [<<"Nk-Id">>]}]),
 
-    % % If we stop the flow, P1 will return Flow Failed
-    % nksip_transport_conn:stop(Pid1, normal),
-    % timer:sleep(50),
-    % {ok, 430, []} = nksip_uac:options(C2, Contact1, []),
+    % If we stop the flow, P1 will return Flow Failed
+    nksip_transport_conn:stop(Pid1, normal),
+    timer:sleep(50),
+    {ok, 430, []} = nksip_uac:options(C2, Contact1, []),
 
 
-    % % If we send the REGISTER to P2 directly, the first path (P3) has no
-    % % outbound support, so it fails
-    % {ok, 439, []} = 
-    %     nksip_uac:register(C1, "sip:nksip", 
-    %         [make_contact, {reg_id, 1}, {route, "<sip:127.0.0.1:5070;lr>"}]),
+    % If we send the REGISTER to P2 directly, the first path (P3) has no
+    % outbound support, so it fails
+    {ok, 439, []} = 
+        nksip_uac:register(C1, "sip:nksip", 
+            [make_contact, {reg_id, 1}, {route, "<sip:127.0.0.1:5070;lr>"}]),
 
 
     % It we send to P3, it adds its Path, now with outbound support because of
@@ -425,25 +426,25 @@ proxy() ->
     ] = nksip_dialog:field(C2, DialogId, parsed_route_set),
 
     nksip_uac:bye(C2, DialogId, []),
+    ok.
+
+
+outbound() ->
+    ok = sipapp_endpoint:start({outbound, ua3}, [
+        % {route, "<sip:127.0.0.1:5090;lr>"},
+        {from, "sip:ua3@nksip"},
+        {local_host, "127.0.0.1"},
+        {transport, {udp, {0,0,0,0}, 5106}},
+        {transport, {tls, {0,0,0,0}, 5107}},
+        {register, "<sip:127.0.0.1:5090;transport=tcp>"},
+        {register_expires, 20}
+    ]),
+
+
+
+
 
 
     ok.
 
 
-
-    % ok.
-
-
-    % If I send to P2, error, lo mismo a P3
-
-
-
-
-% To test 
-% - all register cases
-% - all proxy flow cases
-% - outbound retries
-% 
-% 
-% 
-% 
