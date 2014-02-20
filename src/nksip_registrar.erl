@@ -336,8 +336,8 @@ process(Req, ObProc) ->
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
-    Default = case nksip_sipmsg:field(Req, expires) of
-        Default0 when is_integer(Default0) -> Default0;
+    Default = case nksip_sipmsg:field(Req, parsed_expires) of
+        D0 when is_integer(D0) -> D0;
         _ -> nksip_config:get(registrar_default_time)
     end,
     Long = nksip_lib:l_timestamp(),
