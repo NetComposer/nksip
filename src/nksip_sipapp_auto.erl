@@ -148,8 +148,9 @@ get_pings(AppId) ->
     cseq :: nksip:cseq(),
     next :: nksip_lib:timestamp(),
     ok :: boolean(),
-    monitor :: reference(),
-    pid :: pid(),
+    req_pid :: pid(),
+    conn_monitor :: reference(),
+    conn_pid :: pid(),
     fails :: non_neg_integer()
 }).
 
@@ -221,7 +222,7 @@ handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From,
 handle_call({'$nksip_stop_register', RegId}, From, State) ->
     #state{app_id=AppId, regs=Regs} = State,
     case lists:keytake(RegId, #sipreg.id, Regs) of
-        {value, #sipreg{monitor=Monitor}=Reg, Regs1} -> 
+        {value, #sipreg{conn_monitor=Monitor}=Reg, Regs1} -> 
             gen_server:reply(From, ok),
             case is_reference(Monitor) of
                 true -> erlang:demonitor(Monitor);
@@ -235,6 +236,7 @@ handle_call({'$nksip_stop_register', RegId}, From, State) ->
     end;
 
 handle_call('$nksip_get_registers', From, #state{regs=Regs}=State) ->
+    % Info = Regs,
     Now = nksip_lib:timestamp(),
     Info = [
         {RegId, Ok, Next-Now}
@@ -325,7 +327,7 @@ handle_cast(_, _) ->
 
 %% @private
 handle_info({'DOWN', Mon, process, _Pid, _}, #state{app_id=AppId, regs=Regs}=State) ->
-    case lists:keyfind(Mon, #sipreg.monitor, Regs) of
+    case lists:keyfind(Mon, #sipreg.conn_monitor, Regs) of
         #sipreg{id=RegId, cseq=CSeq} ->
             ?info(AppId, "register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
@@ -350,6 +352,8 @@ handle_info(_, _) ->
 
 %% @private
 terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->  
+    lager:warning("TERMINATE"),
+
     lists:foreach(fun(Reg) -> launch_unregister(AppId, Reg) end, Regs).
 
 
@@ -361,6 +365,9 @@ terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->
 
 %% @private
 timer(#state{app_id=AppId, pings=Pings, regs=Regs}=State) ->
+    lager:warning("TIMER"),
+
+
     Now = nksip_lib:timestamp(),
     Pings1 = lists:map(
         fun(#sipreg{next=Next}=Ping) ->
@@ -388,6 +395,10 @@ timer(#state{app_id=AppId, pings=Pings, regs=Regs}=State) ->
     #sipreg{}.
 
 launch_register(AppId, Reg)->
+
+    lager:warning("LAUNCH REGISTER"),
+
+
     #sipreg{
         id = RegId, 
         ruri = RUri,
@@ -398,7 +409,7 @@ launch_register(AppId, Reg)->
     } = Reg,
     Opts1 = [
         make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, Interval}, 
-        {fields, [cseq_num, remote, parsed_require, <<"Retry-After">>]} 
+        {fields, [cseq_num, remote, parsed_require, <<"Retry-After">>, <<"Flow-Timer">>]} 
         | Opts
     ],   
     Self = self(),
@@ -409,8 +420,8 @@ launch_register(AppId, Reg)->
         end,
         gen_server:cast(Self, {'$nksip_register_answer', RegId, Code, Meta})
     end,
-    spawn_link(Fun),
-    Reg#sipreg{next=undefined}.
+    Pid = spawn_link(Fun),
+    Reg#sipreg{next=undefined, req_pid=Pid}.
     
 
 %% @private
@@ -418,12 +429,15 @@ launch_register(AppId, Reg)->
     ok.
 
 launch_unregister(AppId, Reg)->
+
+    lager:warning("LAUNCH UNREGISTER"),
+
     #sipreg{
         ruri = RUri,
         opts = Opts, 
         cseq = CSeq,
         call_id = CallId,
-        pid = Pid
+        conn_pid = Pid
     } = Reg,
     Opts1 = [
         make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, 0}
@@ -441,7 +455,7 @@ launch_unregister(AppId, Reg)->
     #sipreg{}.
 
 update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 ->
-    #sipreg{id=RegId, monitor=Monitor, interval=Interval, from=From} = Reg,
+    #sipreg{id=RegId, conn_monitor=Monitor, interval=Interval, from=From} = Reg,
     case From of
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, true})
@@ -452,38 +466,40 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
     end,
     {Proto, Ip, Port} = nksip_lib:get_value(remote, Meta),
     Require = nksip_lib:get_value(parsed_require, Meta),
-    {Monitor1, Pid1} = case lists:member(<<"outbound">>, Require) of
+    % 'fails' is not updated until the connection confirmation arrives
+    % (or process down)
+    Reg1 = Reg#sipreg{
+        ok = true,
+        cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
+        from = undefined,
+        next = nksip_lib:timestamp() + Interval
+    },
+    case lists:member(<<"outbound">>, Require) of
         true ->
             case nksip_transport:get_connected(AppId, Proto, Ip, Port) of
                 [{_, Pid}|_] -> 
-                    Secs = case Proto of
-                        udp -> ?DEFAULT_UDP_KEEPALIVE;
+                    Secs = case nksip_lib:get_integer(<<"Flow-Timer">>, Meta) of
+                        FT when FT > 5 -> FT;
+                        _ when Proto==udp -> ?DEFAULT_UDP_KEEPALIVE;
                         _ -> ?DEFAULT_TCP_KEEPALIVE
                     end,
                     Ref = {'$nksip_register_notify', RegId},
                     case nksip_transport_conn:start_refresh(Pid, Secs, Ref) of
-                        ok -> {erlang:monitor(process, Pid), Pid};
-                        _ -> {undefined, undefined}
+                        ok -> 
+                            Mon = erlang:monitor(process, Pid),
+                            Reg1#sipreg{conn_monitor=Mon, conn_pid=Pid};
+                        _ -> 
+                            Reg1
                     end;
                 [] -> 
-                    {undefined, undefined}
+                    Reg1
             end;
-        _ ->
-            {undefined, undefined}
-    end,
-    % 'fails' is not updated until the connection confirmation arrives
-    % (or process down)
-    Reg#sipreg{
-        ok = true,
-        cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
-        from = undefined,
-        monitor = Monitor1,
-        pid = Pid1,
-        next = nksip_lib:timestamp() + Interval
-    };
+        false ->
+            Reg1
+    end;
 
 update_register(Reg, Code, Meta, #state{app_id=AppId, base_time=BaseTime}) ->
-    #sipreg{monitor=Monitor, fails=Fails, from=From} = Reg,
+    #sipreg{conn_monitor=Monitor, fails=Fails, from=From} = Reg,
     case From of
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, false})
@@ -503,13 +519,15 @@ update_register(Reg, Code, Meta, #state{app_id=AppId, base_time=BaseTime}) ->
         _ -> 
             0
     end,
-    ?debug(AppId, "registration failed (Basetime: ~p, fails: ~p, upper: ~p, time: ~p",
-           [BaseTime, Fails+1, Upper, Elap]),
+    ?notice(AppId, "Outbound registration failed "
+                   "Basetime: ~p, fails: ~p, upper: ~p, time: ~p",
+            [BaseTime, Fails+1, Upper, Elap]),
     Reg#sipreg{
         ok = false,
         cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
         from = undefined,
-        monitor = undefined,
+        conn_monitor = undefined,
+        conn_pid = undefined,
         next = nksip_lib:timestamp() + Elap + Add,
         fails = Fails+1
     }.
@@ -547,8 +565,8 @@ launch_ping(AppId, Ping)->
         end,
         gen_server:cast(Self, {'$nksip_ping_answer', PingId, Code, Meta})
     end,
-    spawn_link(Fun),
-    Ping#sipreg{next=undefined}.
+    Pid = spawn_link(Fun),
+    Ping#sipreg{next=undefined, req_pid=Pid}.
 
 
    
