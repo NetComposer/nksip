@@ -459,15 +459,15 @@ start(AppId, Module, Args, Opts) ->
                     {min_session_expires, MinSE};
                 _ ->
                     throw({invalid, min_session_expires})
-            end,
-            case 
-                get_outbound_proxies(
-                    proplists:get_all_values(outbound_proxy, Opts), 1, []) 
-            of
-                error -> throw({invalid, outbound_proxy});
-                [] -> [];
-                OBPs -> {oubound_proxies, OBPs}
             end
+            % case 
+            %     get_outbound_proxies(
+            %         proplists:get_all_values(outbound_proxy, Opts), 1, []) 
+            % of
+            %     error -> throw({invalid, outbound_proxy});
+            %     [] -> [];
+            %     OBPs -> {oubound_proxies, OBPs}
+            % end
         ],
         nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts))
     catch
@@ -578,18 +578,18 @@ get_port(AppId, Proto, Class) ->
 %% ===================================================================
 
 
-%% @private
-get_outbound_proxies([#uri{}=Uri|Rest], Pos, Acc) ->
-    get_outbound_proxies(Rest, Pos+1, Acc++[{Pos, Uri}]);
+% %% @private
+% get_outbound_proxies([#uri{}=Uri|Rest], Pos, Acc) ->
+%     get_outbound_proxies(Rest, Pos+1, Acc++[{Pos, Uri}]);
 
-get_outbound_proxies([Uri|Rest], Pos, Acc) ->
-    case nksip_parse:uris(Uri) of
-        error -> error;
-        Uris -> get_outbound_proxies(Uris++Rest, Pos, Acc)
-    end;
+% get_outbound_proxies([Uri|Rest], Pos, Acc) ->
+%     case nksip_parse:uris(Uri) of
+%         error -> error;
+%         Uris -> get_outbound_proxies(Uris++Rest, Pos, Acc)
+%     end;
 
-get_outbound_proxies([], _Pos, Acc) ->
-    Acc.
+% get_outbound_proxies([], _Pos, Acc) ->
+%     Acc.
 
 
 

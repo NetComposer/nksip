@@ -280,7 +280,7 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 
 send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     Resolv = nksip_dns:resolve(Uri),
-    ?notice(AppId, "Transport send to uri ~p (~p)", [Resolv, Rest]),
+    ?notice(AppId, "Transport send to ~p (~p)", [Resolv, Rest]),
     send(AppId, Resolv++Rest, MakeMsg, Opts);
 
 send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->

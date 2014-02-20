@@ -49,7 +49,7 @@ start_link(AppId, Module, Args, Opts) ->
         {server,
             {nksip_sipapp_srv, start_link, [AppId, Module, Args, Opts]},
             permanent,
-            5000,
+            30000,
             worker,
             [nksip_sipapp_srv]
         }

@@ -375,8 +375,10 @@ handle_info({timeout, _, '$nksip_timer'}, #state{reg_state=RegState}=State) ->
 
 handle_info(Info, State) ->
     case nksip_sipapp_auto:handle_info(Info, State#state.reg_state) of
-        error -> mod_handle_info(Info, State);
-        RegState1 -> {noreply, State#state{reg_state=RegState1}}
+        error -> 
+            mod_handle_info(Info, State);
+        RegState1 -> 
+            {noreply, State#state{reg_state=RegState1}}
     end.
 
 
@@ -485,7 +487,10 @@ mod_handle_info(Info, State = #state{module=Module, id=AppId}) ->
         true ->
             mod_handle_cast(handle_info, [Info], State);
         false ->
-            ?warning(AppId, "received unexpected message ~p", [Info]),
+            case Info of
+                {'EXIT', _, normal} -> ok;
+                _ -> ?warning(AppId, "received unexpected message ~p", [Info])
+            end,
             {noreply, State}
     end.
 

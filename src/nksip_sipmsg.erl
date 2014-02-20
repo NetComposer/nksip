@@ -50,9 +50,17 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         app_id -> S#sipmsg.app_id;
         dialog_id -> S#sipmsg.dialog_id;
         subscription_id -> nksip_subscription:id(S);
-        proto -> T#transport.proto;
-        local -> {T#transport.proto, T#transport.local_ip, T#transport.local_port};
-        remote -> {T#transport.proto, T#transport.remote_ip, T#transport.remote_port};
+        proto -> case T of #transport{proto=P} -> P; _ -> undefined end;
+        local -> 
+            case T of 
+                #transport{proto=P, local_ip=Ip, local_port=Port} -> {P, Ip, Port};
+                _ -> undefined
+            end;
+        remote -> 
+            case T of 
+                #transport{proto=P, remote_ip=Ip, remote_port=Port} -> {P, Ip, Port};
+                _ -> undefined
+            end;
         method -> case Class of {req, Method} -> Method; _ -> undefined end;
         ruri -> nksip_unparse:uri(RUri);
         ruri_scheme -> (S#sipmsg.ruri)#uri.scheme;
