@@ -33,8 +33,8 @@
 
 -include("nksip.hrl").
 
--define(DEFAULT_OB_TIME_ALL_FAIL, 3).
--define(DEFAULT_OB_TIME_OK, 9).
+-define(DEFAULT_OB_TIME_ALL_FAIL, 30).
+-define(DEFAULT_OB_TIME_OK, 90).
 -define(DEFAULT_OB_TIME_MAX, 1800).
 
 
@@ -321,6 +321,17 @@ handle_cast({'$nksip_ping_answer', PingId, Code, Meta},
             State
     end;
 
+handle_cast('$nksip_force_regs', #state{regs=Regs}=State) ->
+    Regs1 = lists:map(
+        fun(#sipreg{next=Next}=SipReg) ->
+            case is_integer(Next) of
+                true -> SipReg#sipreg{next=0};
+                false -> SipReg
+            end
+        end,
+        Regs),
+    State#state{regs=Regs1};
+
 handle_cast(_, _) ->
     error.
 
@@ -352,9 +363,14 @@ handle_info(_, _) ->
 
 %% @private
 terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->  
-    lager:warning("TERMINATE"),
-
-    lists:foreach(fun(Reg) -> launch_unregister(AppId, Reg) end, Regs).
+    lists:foreach(
+        fun(#sipreg{ok=Ok}=Reg) -> 
+            case Ok of
+                true -> launch_unregister(AppId, Reg);
+                _ -> ok
+            end
+        end,
+        Regs).
 
 
 
@@ -365,9 +381,6 @@ terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->
 
 %% @private
 timer(#state{app_id=AppId, pings=Pings, regs=Regs}=State) ->
-    lager:warning("TIMER"),
-
-
     Now = nksip_lib:timestamp(),
     Pings1 = lists:map(
         fun(#sipreg{next=Next}=Ping) ->
@@ -377,15 +390,22 @@ timer(#state{app_id=AppId, pings=Pings, regs=Regs}=State) ->
             end
         end,
         Pings),
-    Regs1 = lists:map(
-        fun(#sipreg{next=Next}=Reg) ->
-            case is_integer(Next) andalso Now>=Next of 
-                true -> launch_register(AppId, Reg);
-                false -> Reg
-            end
-        end,
-        Regs),
+    Regs1 = timer_register(AppId, Now, Regs, []),
     State#state{pings=Pings1, regs=Regs1}.
+
+
+%% @private Only one register in each cycle
+timer_register(AppId, Now, [#sipreg{next=Next}=Reg|Rest], Acc) ->
+    case Now>=Next of
+        true -> 
+            Reg1 = launch_register(AppId, Reg),
+            timer_register(AppId, -1, Rest, [Reg1|Acc]);
+        false ->
+            timer_register(AppId, Now, Rest, [Reg|Acc])
+    end;
+
+timer_register(_, _, [], Acc) ->
+    Acc.
 
 
 %%%%%% Register
@@ -395,10 +415,6 @@ timer(#state{app_id=AppId, pings=Pings, regs=Regs}=State) ->
     #sipreg{}.
 
 launch_register(AppId, Reg)->
-
-    lager:warning("LAUNCH REGISTER"),
-
-
     #sipreg{
         id = RegId, 
         ruri = RUri,
@@ -429,9 +445,6 @@ launch_register(AppId, Reg)->
     ok.
 
 launch_unregister(AppId, Reg)->
-
-    lager:warning("LAUNCH UNREGISTER"),
-
     #sipreg{
         ruri = RUri,
         opts = Opts, 
@@ -479,7 +492,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
             case nksip_transport:get_connected(AppId, Proto, Ip, Port) of
                 [{_, Pid}|_] -> 
                     Secs = case nksip_lib:get_integer(<<"Flow-Timer">>, Meta) of
-                        FT when FT > 5 -> FT;
+                        FT when is_integer(FT), FT > 5 -> FT;
                         _ when Proto==udp -> ?DEFAULT_UDP_KEEPALIVE;
                         _ -> ?DEFAULT_TCP_KEEPALIVE
                     end,
