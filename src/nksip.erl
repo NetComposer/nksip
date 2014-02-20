@@ -369,8 +369,8 @@ start(AppId, Module, Args, Opts) ->
             end,
             {certfile, nksip_lib:get_list(certfile, Opts, DefCertFile)},
             {keyfile, nksip_lib:get_list(keyfile, Opts, DefKeyFile)},
-            case nksip_lib:get_value(register, Opts) of
-                undefined ->
+            case proplists:get_all_values(register, Opts) of
+                [] ->
                     [];
                 RegSpec ->
                     case nksip_parse:uris(RegSpec) of

@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -export([start_listener/5, connect/5, send/2, async_send/2, stop/2]).
--export([start_refresh/3, stop_refresh/1, set_timeout/2, get_transport/1]).
+-export([start_refresh/3, stop_refresh/1, set_timeout/2, get_transport/1, get_refresh/1]).
 -export([incoming/2]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
             handle_cast/2, handle_info/2]).
@@ -180,6 +180,22 @@ get_transport(Pid) ->
     end.
 
 
+%% @private Gets the transport record (and extends the timeout)
+-spec get_refresh(pid()) ->
+    {true, pos_integer(), pos_integer()} | {false, pos_integer()} | error.
+
+get_refresh(Pid) ->
+    case is_process_alive(Pid) of
+        true ->
+            case catch gen_server:call(Pid, get_refresh) of
+                {ok, Refresh} -> Refresh;
+                _ -> error
+            end;
+        false ->
+            error 
+    end.
+
+
 %% @private 
 -spec parse(pid(), binary()) ->
     ok.
@@ -222,7 +238,7 @@ init([AppId, Transport, Socket, Timeout]) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port}}, Transport), 
     nksip_proc:put(nksip_transports, {AppId, Transport}),
-    ?notice(AppId, "created ~p connection ~p (~p) ~p", 
+    ?debug(AppId, "created ~p connection ~p (~p) ~p", 
             [Proto, {Ip, Port}, self(), Timeout]),
     State = #state{
         app_id = AppId,
@@ -256,7 +272,7 @@ handle_call({start_refresh, Secs, Ref, Pid}, From, State) ->
         undefined -> RefreshNotify;
         _ -> [{Ref, Pid}|RefreshNotify]
     end,
-    State1 = State#state{refresh_time=1000*Secs, refresh_notify = RefreshNotify1},
+    State1 = State#state{refresh_time=1000*Secs, refresh_notify=RefreshNotify1},
     handle_info({timeout, none, refresh}, State1);
 
 handle_call({set_timeout, Secs}, From, State) ->
@@ -265,6 +281,24 @@ handle_call({set_timeout, Secs}, From, State) ->
 
 handle_call(get_transport, From, #state{transport=Transp}=State) ->
     gen_server:reply(From, {ok, Transp}),
+    do_noreply(State);
+
+handle_call(get_refresh, From, State) ->
+    #state{
+        in_refresh = InRefresh, 
+        refresh_timer = RefreshTimer, 
+        refresh_time = RefreshTime,
+        timeout=Timeout
+    } = State,
+    Reply = case InRefresh of
+        true -> 
+            {true, 0, round(RefreshTime/1000)};
+        false when is_reference(RefreshTimer) -> 
+            {true, round(erlang:read_timer(RefreshTimer)/1000), round(RefreshTime/1000)};
+        false -> 
+            {false, round(Timeout/1000)}
+    end,
+    gen_server:reply(From, {ok, Reply}),
     do_noreply(State);
 
 handle_call(Msg, _From, State) ->
@@ -287,11 +321,13 @@ handle_cast({incoming, Packet}, State) ->
 
 handle_cast({stun, {ok, StunIp, StunPort}}, State) ->
     #state{
+        app_id = AppId,
         nat_ip = NatIp, 
         nat_port = NatPort, 
         refresh_time = RefreshTime,
         refresh_notify = RefreshNotify
     } = State,
+    ?debug(AppId, "transport received STUN", []),
     case 
         {NatIp, NatPort} == {undefined, undefined} orelse
         {NatIp, NatPort} == {StunIp, StunPort}
@@ -363,17 +399,20 @@ handle_info({timeout, _, refresh}, #state{proto=udp}=State) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, udp, Class) of
         [{_, Pid}|_] -> 
+            ?debug(AppId, "transport sending STUN", []),
             nksip_transport_udp:send_stun_async(Pid, Ip, Port),
             do_noreply(State#state{refresh_timer=undefined});
         [] ->
             do_stop(no_listening_transport, State)
     end;
 
-handle_info({timeout, _, refresh}, State) ->
-    lager:notice("Sending refresh"),
+handle_info({timeout, _, refresh}, #state{app_id=AppId}=State) ->
+    ?debug(AppId, "transport sending refresh", []),
     case do_send(<<"\r\n\r\n">>, State) of
-        ok -> do_noreply(State#state{in_refresh=true, refresh_timer=undefined});
-        {error, _} -> do_stop(send_error, State)
+        ok -> 
+            do_noreply(State#state{in_refresh=true, refresh_timer=undefined});
+        {error, _} -> 
+            do_stop(send_error, State)
     end;
 
 handle_info({timeout, _, refreshed}, State) ->
@@ -401,7 +440,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 terminate(_Reason, #state{app_id=AppId, socket=Socket, transport=Transp}) ->  
     #transport{proto=Proto, sctp_id=AssocId} = Transp,
-    ?notice(AppId, "~p connection process stopped (~p)", [Proto, self()]),
+    ?debug(AppId, "~p connection process stopped (~p)", [Proto, self()]),
     case Proto of
         udp -> ok;
         tcp -> gen_tcp:close(Socket);
@@ -439,81 +478,113 @@ do_send(Packet, State) ->
 parse(<<>>, State) ->
     do_noreply(State);
 
+parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
+        when Proto==tcp; Proto==tls; Proto==sctp ->
+    ?debug(AppId, "transport responding to refresh", []),
+    case do_send(<<"\r\n">>, State) of
+        ok -> parse(Rest, State);
+        {error, _} -> stop(send_error, State)
+    end;
+
+parse(<<"\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
+        when Proto==tcp; Proto==tls; Proto==sctp ->
+    #state{
+        refresh_notify = RefreshNotify, 
+        refresh_time = RefreshTime,
+        in_refresh = InRefresh
+    } = State,
+    lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
+    RefreshTimer = case InRefresh of
+        true -> 
+            ?debug(AppId, "transport received refresh, next in ~p secs", 
+                    [round(RefreshTime/1000)]),
+            erlang:start_timer(RefreshTime, self(), refresh);
+        false -> 
+            undefined
+    end,
+    State1 = State#state{
+        in_refresh = false, 
+        refresh_timer = RefreshTimer,
+        refresh_notify = [],
+        buffer = Rest
+    },
+    parse(Rest, State1);
+
+parse(Packet, #state{app_id=AppId, proto=Proto, buffer=Buff}=State)
+    when (Proto==tcp orelse Proto==tls) andalso
+         byte_size(Packet) + byte_size(Buff) > ?MAX_BUFFER ->
+    ?warning(AppId, "dropping TCP/TLS closing because of max_buffer", []),
+    do_stop(max_buffer, State);
+
 parse(Packet, State) ->
     #state{
         app_id = AppId,
         proto = Proto,
         transport = Transp,
-        buffer = Buff, 
-        in_refresh = InRefresh, 
-        refresh_time = RefreshTime,
-        refresh_notify = RefreshNotify
+        buffer = Buff
     } = State,
-    case 
-        (Proto==tcp orelse Proto==tls) andalso
-        byte_size(Packet) + byte_size(Buff) > ?MAX_BUFFER 
-    of
-        true ->
-            ?warning(AppId, "dropping TCP/TLS closing because of max_buffer", []),
-            do_stop(max_buffer, State);
-        false ->
-            case do_parse(AppId, Transp, <<Buff/binary, Packet/binary>>) of
-                {ok, Rest} ->
-                    parse(Rest, State);
-                {more, Rest} when Proto==udp; Proto==sctp ->
-                    ?notice(AppId, "ignoring data after ~p msg: ~p", [Proto, Rest]),
-                    do_noreply(State);
-                {more, Rest} ->
-                    do_noreply(State#state{buffer=Rest});
-                {rnrn, Rest} when Proto==tcp; Proto==tls; Proto==sctp ->
-                    case do_send(<<"\r\n">>, State) of
-                        ok -> parse(Rest, State);
-                        {error, _} -> stop(send_error, State)
-                    end;
-                {rnrn, Rest} ->
-                    parse(Rest, State);
-                {rn, Rest} when Proto==tcp; Proto==tls; Proto==sctp ->
-                    lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
-                    RefreshTimer = case InRefresh of
-                        true -> erlang:start_timer(RefreshTime, self(), refresh);
-                        false -> undefined
-                    end,
-                    State1 = State#state{
-                        in_refresh = false, 
-                        refresh_timer = RefreshTimer,
-                        refresh_notify = [],
-                        buffer = Rest
-                    },
-                    parse(Rest, State1);
-                {rn, Rest} ->
-                    parse(Rest, State);
-                error -> 
-                    stop(parse_error, State)
-            end
-    end.
-
-
-%% @private
-do_parse(AppId, Transp, Packet) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-    case nksip_parse:packet(AppId, Transp, Packet) of
-        {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
+    case nksip_parse:packet(AppId, Transp, <<Buff/binary, Packet/binary>>) of
+        {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, Rest} -> 
+            #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
             nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
             case nksip_call_router:incoming_sync(RawMsg) of
-                ok -> {ok, More};
-                {error, _} -> error
+                ok -> 
+                    parse(Rest, State);
+                {error, Error} -> 
+                    ?notice(AppId, "error processing ~p request: ~p", [Proto, Error]),
+                    error
             end;
-        {rnrn, More} ->
-            {rnrn, More};
-        {rn, More} ->
-            {rn, More};
-        {more, More} -> 
-            {ok, More};
-        {error, Error} ->
-            ?notice(AppId, "error processing ~p request: ~p", [Proto, Error]),
-            error
+        {more, Rest} when Proto==udp; Proto==sctp ->
+            ?notice(AppId, "ignoring data after ~p msg: ~p", [Proto, Rest]),
+            do_noreply(State);
+        {more, Rest} ->
+            do_noreply(State#state{buffer=Rest});
+        % {rnrn, Rest} ->
+        %     parse(Rest, State);
+        % {rn, Rest} when Proto==tcp; Proto==tls; Proto==sctp ->
+        %     ?notice(AppId, "transport received refresh", []),
+        %     lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
+        %     RefreshTimer = case InRefresh of
+        %         true -> erlang:start_timer(RefreshTime, self(), refresh);
+        %         false -> undefined
+        %     end,
+        %     State1 = State#state{
+        %         in_refresh = false, 
+        %         refresh_timer = RefreshTimer,
+        %         refresh_notify = [],
+        %         buffer = Rest
+        %     },
+        %     parse(Rest, State1);
+        % {rn, Rest} ->
+        %     parse(Rest, State);
+        error -> 
+            ?notice(AppId, "error parsing ~p request", [Proto]),
+            stop(parse_error, State)
     end.
+
+
+% %% @private
+% do_parse(AppId, Transp, Packet) ->
+%     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+%     case nksip_parse:packet(AppId, Transp, Packet) of
+%         {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
+%             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
+%             nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
+%             case nksip_call_router:incoming_sync(RawMsg) of
+%                 ok -> {ok, More};
+%                 {error, _} -> error
+%             end;
+%         {rnrn, More} ->
+%             {rnrn, More};
+%         {rn, More} ->
+%             {rn, More};
+%         {more, More} -> 
+%             {ok, More};
+%         {error, Error} ->
+%             ?notice(AppId, "error processing ~p request: ~p", [Proto, Error]),
+%             error
+%     end.
                     
 
 
@@ -576,7 +647,7 @@ do_noreply(#state{timeout=Timeout}=State) ->
 do_stop(Reason, #state{app_id=AppId, proto=Proto}=State) ->
     case Reason of
         normal -> ok;
-        _ -> ?notice(AppId, "~p connection stop: ~p", [Proto, Reason])
+        _ -> ?debug(AppId, "~p connection stop: ~p", [Proto, Reason])
     end,
     {stop, normal, State}.
 
