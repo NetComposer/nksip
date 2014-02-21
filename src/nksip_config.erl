@@ -178,7 +178,10 @@ default_config() ->
         {registrar_min_time, 60},           % (secs) 1 min
         {registrar_max_time, 86400},        % (secs) 24 hour
         {dns_cache_ttl, 3600},              % (secs) 1 hour
-        {local_data_path, "log"}            % 
+        {local_data_path, "log"},           % To store UUID
+        {outbound_time_all_fail, 30},       % (secs)
+        {outbound_time_any_ok, 90},         % (secs)
+        {outbound_max_time, 1800}           % (secs)
     ].
 
 

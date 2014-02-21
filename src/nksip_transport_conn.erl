@@ -141,7 +141,7 @@ start_refresh(Pid, Secs, Ref) ->
     Rand = crypto:rand_uniform(80, 101),
     Time = (Rand*Secs) div 100,
     case catch gen_server:call(Pid, {start_refresh, Time, Ref, self()}) of
-        {ok, Pid} -> {ok, Pid};
+        ok -> ok;
         _ -> error
     end.
 

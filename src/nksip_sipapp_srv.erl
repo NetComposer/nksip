@@ -355,9 +355,6 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 handle_info({'DOWN', _Mon, process, Pid, _}=Info, #state{procs=Procs}=State) ->
-
-    lager:notice("DOWN ~p, ~p", [_Mon, Pid]),
-
     case dict:is_key(Pid, Procs) of
         true -> 
             {noreply, State#state{procs=dict:erase(Pid, Procs)}};

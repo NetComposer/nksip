@@ -33,11 +33,6 @@
 
 -include("nksip.hrl").
 
--define(DEFAULT_OB_TIME_ALL_FAIL, 30).
--define(DEFAULT_OB_TIME_OK, 90).
--define(DEFAULT_OB_TIME_MAX, 1800).
-
-
 
 %% ===================================================================
 %% Public
@@ -159,7 +154,7 @@ get_pings(AppId) ->
     app_id :: nksip:app_id(),
     module :: atom(),
     outbound :: boolean(),
-    base_time :: pos_integer(),     % For outbound support
+    ob_base_time :: pos_integer(),     % For outbound support
     pos :: integer(),
     pings :: [#sipreg{}],
     regs :: [#sipreg{}]
@@ -189,7 +184,7 @@ init(AppId, Module, _Args, Opts) ->
         app_id = AppId, 
         module = Module, 
         outbound = lists:member(<<"outbound">>, Supported),
-        base_time = ?DEFAULT_OB_TIME_OK,
+        ob_base_time = nksip_config:get_cached(outbound_time_any_ok, Opts),
         pos = 1,
         pings = [], 
         regs = []
@@ -501,7 +496,8 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
                         ok -> 
                             Mon = erlang:monitor(process, Pid),
                             Reg1#sipreg{conn_monitor=Mon, conn_pid=Pid};
-                        _ -> 
+                        error -> 
+                            ?notice(AppId, "could not start outbound keep-alive", []),
                             Reg1
                     end;
                 [] -> 
@@ -511,8 +507,9 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
             Reg1
     end;
 
-update_register(Reg, Code, Meta, #state{app_id=AppId, base_time=BaseTime}) ->
+update_register(Reg, Code, Meta, State) ->
     #sipreg{conn_monitor=Monitor, fails=Fails, from=From} = Reg,
+    #state{app_id=AppId, ob_base_time=BaseTime} = State,
     case From of
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, false})
@@ -521,7 +518,8 @@ update_register(Reg, Code, Meta, #state{app_id=AppId, base_time=BaseTime}) ->
         true -> erlang:demonitor(Monitor);
         false -> ok
     end,
-    Upper = min(?DEFAULT_OB_TIME_MAX, BaseTime*math:pow(2, Fails+1)),
+    MaxTime = nksip_config:get(outbound_max_time),
+    Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
     Elap = round(crypto:rand_uniform(50, 101) * Upper / 100),
     Add = case Code==503 andalso nksip_lib:get_value(<<"Retry-After">>, Meta) of
         [Retry1] ->
@@ -546,12 +544,15 @@ update_register(Reg, Code, Meta, #state{app_id=AppId, base_time=BaseTime}) ->
     }.
 
 %% @private
-update_basetime(#state{regs=Regs}=State) ->
-    Base = case [true || #sipreg{fails=0} <- Regs] of
-        [] -> ?DEFAULT_OB_TIME_ALL_FAIL;
-        _ -> ?DEFAULT_OB_TIME_OK
+update_basetime(#state{app_id=AppId, regs=Regs}=State) ->
+    Key = case [true || #sipreg{fails=0} <- Regs] of
+        [] -> 
+            ?notice(AppId, "All outbound flows have failed", []),
+            outbound_time_all_fail;
+        _ -> 
+            outbound_time_any_ok
     end,
-    State#state{base_time=Base}.
+    State#state{ob_base_time=nksip_config:get(Key)}.
 
 
 
