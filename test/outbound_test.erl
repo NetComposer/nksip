@@ -27,21 +27,24 @@
 
 -compile([export_all]).
 
-% path_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun basic/0,
-%             fun flow/0,
-%             fun register/0
-%             fun proxy/0
-%         ]
-%     }.
+path_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            fun basic/0,
+            fun flow/0,
+            fun register/0,
+            fun proxy/0,
+            {timeout, 60, fun outbound/0}
+        ]
+    }.
 
 start() ->
     tests_util:start_nksip(),
 
+    nksip_config:put(outbound_time_all_fail, 1),
+    nksip_config:put(outbound_time_any_ok, 2),
 
     ok = path_server:start({outbound, registrar}, [
         registrar,
@@ -87,6 +90,9 @@ start() ->
 
 
 stop() ->
+    nksip_config:put(outbound_time_all_fail, 30),
+    nksip_config:put(outbound_time_any_ok, 90),
+
     ok = sipapp_server:stop({outbound, p1}),
     ok = sipapp_server:stop({outbound, p2}),
     ok = sipapp_server:stop({outbound, p3}),
@@ -446,6 +452,9 @@ outbound() ->
     ]),
     timer:sleep(100),
 
+    [{<<"auto-1">>, true, _},{<<"auto-2">>, true, _}] = 
+        lists:sort(nksip_sipapp_auto:get_registers(C3)),
+
     % UA3 should have to connections to Registrar
     [
         {
@@ -473,26 +482,64 @@ outbound() ->
         }
     ] = lists:sort(nksip_transport:get_all_connected(R1)),
 
-    {true, _, Refresh1} = nksip_transport_conn:get_refresh(Pid1),
-    {true, _, Refresh2} = nksip_transport_conn:get_refresh(Pid2),
+
+
+    {true, KA1, Refresh1} = nksip_transport_conn:get_refresh(Pid1),
+    check_time(KA1, ?DEFAULT_TCP_KEEPALIVE),
+    {true, KA2, Refresh2} = nksip_transport_conn:get_refresh(Pid2),
+    check_time(KA2, ?DEFAULT_UDP_KEEPALIVE),
     true = Refresh1 > 1 andalso Refresh2 > 1,
 
     {false, _} = nksip_transport_conn:get_refresh(Pid3),
     {false, _} = nksip_transport_conn:get_refresh(Pid4),
 
+    lager:error("Next error about process failed is expected"),
+    exit(Pid1, kill),
+    timer:sleep(50),
+    [{<<"auto-1">>, false, _},{<<"auto-2">>, true, _}] = 
+        lists:sort(nksip_sipapp_auto:get_registers(C3)),
+    ?debugMsg("waiting register... (1/3)"),
+    wait_register(50),
 
-    % ok = nksip:stop(C3),
-    % timer:sleep(100),
-    % [] = nksip_transport:get_all_connected(C3),
-    % [{#transport{proto=udp}] = nksip_transport:get_all_connected(R1),
+    nksip_transport_conn:stop(Pid2, normal),
+    timer:sleep(50),
+    [{<<"auto-1">>, true, _},{<<"auto-2">>, false, _}] = 
+        lists:sort(nksip_sipapp_auto:get_registers(C3)),
+    ?debugMsg("waiting register... (2/3)"),
+    wait_register(50),
 
-    % Pending:
-    % - check after failings the times
+    [{_, Pid5}, {_, Pid6}] = nksip_transport:get_all_connected(C3),
+    nksip_transport_conn:stop(Pid5, normal),
+    nksip_transport_conn:stop(Pid6, normal),
+    timer:sleep(50),
+    [{<<"auto-1">>, false, _},{<<"auto-2">>, false, _}] = 
+        lists:sort(nksip_sipapp_auto:get_registers(C3)),
+    ?debugMsg("waiting register... (3/3)"),
+    wait_register(100),
 
+    ok = nksip:stop(C3),
+    timer:sleep(100),
+    [] = nksip_transport:get_all_connected(C3),
+    [{#transport{proto=udp}, _}] = nksip_transport:get_all_connected(R1),
 
-
-
-
+    nksip_config:put(outbound_time_all_fail, 30),
+    nksip_config:put(outbound_time_any_ok, 90),
     ok.
+
+
+
+
+check_time(Time, Limit) ->
+    true = Time >= 0.8*Limit andalso Time =< Limit.
+
+wait_register(0) -> 
+    error(register);
+wait_register(N) ->
+    case lists:sort(nksip_sipapp_auto:get_registers({outbound, ua3})) of
+        [{<<"auto-1">>, true, _},{<<"auto-2">>, true, _}] -> ok;
+        _ -> timer:sleep(1000), wait_register(N-1)
+    end.
+        
+
 
 
