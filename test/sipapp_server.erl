@@ -233,7 +233,8 @@ route(_ReqId, Scheme, User, Domain, _From, #state{id={auth, server1}}=State) ->
         _ ->
             case nksip_registrar:find({auth, server1}, Scheme, User, Domain) of
                 [] -> {reply, temporarily_unavailable, State};
-                UriList -> {reply, {proxy, UriList, Opts}, State}
+                UriList ->
+                 {reply, {proxy, UriList, Opts}, State}
             end
     end;
 

@@ -280,7 +280,7 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 
 send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     Resolv = nksip_dns:resolve(Uri),
-    ?notice(AppId, "Transport send to ~p (~p)", [Resolv, Rest]),
+    ?debug(AppId, "Transport send to ~p (~p)", [Resolv, Rest]),
     send(AppId, Resolv++Rest, MakeMsg, Opts);
 
 send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
@@ -288,7 +288,7 @@ send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
 
 send(AppId, [{current, {Proto, Ip, Port}=D}|Rest], MakeMsg, Opts) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
-    ?notice(AppId, "Transport send to current ~p (~p)", [D, Rest]),
+    ?debug(AppId, "Transport send to current ~p (~p)", [D, Rest]),
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transp, Pid}|_] -> 
             SipMsg = MakeMsg(Transp),
@@ -301,7 +301,7 @@ send(AppId, [{current, {Proto, Ip, Port}=D}|Rest], MakeMsg, Opts)
     end;
 
 send(AppId, [{flow, {Pid, Transp}=D}|Rest], MakeMsg, Opts) ->
-    ?notice(AppId, "Transport send to flow ~p (~p)", [D, Rest]),
+    ?debug(AppId, "Transport send to flow ~p (~p)", [D, Rest]),
     SipMsg = MakeMsg(Transp),
     case nksip_transport_conn:send(Pid, SipMsg) of
         ok -> {ok, SipMsg};
@@ -333,7 +333,7 @@ send(AppId, [{Proto, Ip, Port}=D|Rest], MakeMsg, Opts)
     when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transp, Pid}|_] -> 
-            ?notice(AppId, "Transport send to connected ~p (~p)", [D, Rest]),
+            ?debug(AppId, "Transport send to connected ~p (~p)", [D, Rest]),
             SipMsg = MakeMsg(Transp),
             case nksip_transport_conn:send(Pid, SipMsg) of
                 ok -> 
@@ -344,7 +344,7 @@ send(AppId, [{Proto, Ip, Port}=D|Rest], MakeMsg, Opts)
                     send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
-            ?notice(AppId, "Transport send to new ~p (~p)", [D, Rest]),
+            ?debug(AppId, "Transport send to new ~p (~p)", [D, Rest]),
             case start_connection(AppId, Proto, Ip, Port, Opts) of
                 {ok, Pid, Transp} ->
                     SipMsg = MakeMsg(Transp),

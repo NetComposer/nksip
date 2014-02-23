@@ -138,7 +138,7 @@ launch([Uri|Rest], Id, Call) ->
             undefined -> 
                 Routes1;
             RawRoute1 ->
-                RawRoute2 = http_uri:decode(RawRoute1),
+                RawRoute2 = http_uri:decode(binary_to_list(RawRoute1)),
                 case nksip_parse:uris(RawRoute2) of
                     error ->
                         ?call_notice("Invalid route ~s in fork", [RawRoute2], Call),

@@ -50,6 +50,10 @@ route(UAS, UriList, ProxyOpts, Call) ->
             [[]] -> throw({reply, temporarily_unavailable});
             UriSet0 -> UriSet0
         end,
+                    lager:warning("URISET: ~p", [UriList]),
+
+
+
         check_forwards(UAS),
         #trans{request=Req, method=Method} = UAS,
         {Req1, Call1} = case nksip_call_timer:uas_check_422(Req, Call) of
@@ -265,7 +269,15 @@ check_path(Req, ProxyOpts, Call) ->
     end.
 
 
-%% @private Remove top routes if reached
+% %% @private Remove top routes if reached
+% add_local_routes(#uri{headers=[]}=, Req) ->
+%     Req;
+% add_local_routes(#uri{headers=Headers}, Req) ->
+%     case lists:
+
+
+
+
 remove_local_routes(#sipmsg{app_id=AppId, routes=Routes}=Request) ->
     case Routes of
         [] ->
