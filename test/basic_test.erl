@@ -101,6 +101,7 @@ running() ->
 transport() ->
     C1 = {basic, client1},
     C2 = {basic, client2},
+    
     Body = base64:encode(crypto:rand_bytes(100)),
     Opts1 = [
         {headers, [{<<"Nksip">>, <<"test1">>}, {<<"Nksip-Op">>, <<"reply-request">>}]}, 
@@ -162,6 +163,7 @@ transport() ->
     [
         [#uri{user=(<<"client1">>), domain=(<<"mihost">>), port=5070}],
         [
+            #uri{domain=(<<"127.0.0.1">>), port=0, opts=[<<"lr">>]},
             #uri{domain=(<<"aaa">>), port=0, opts=[<<"lr">>]},
             #uri{domain=(<<"bbb">>), port=123, opts=[<<"lr">>]}
         ]
