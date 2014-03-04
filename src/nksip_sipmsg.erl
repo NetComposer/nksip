@@ -174,10 +174,10 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"Route">> -> field(SipMsg, routes);
         <<"Contact">> -> field(SipMsg, contacts);
         <<"Content-Type">> -> [field(SipMsg, content_type)];
-        <<"Require">> -> case field(SipMsg, require) of <<>> -> []; R -> R end;
-        <<"Supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> S end;
-        <<"Expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> E end;
-        <<"Event">> -> case field(SipMsg, event) of <<>> -> []; E -> E end;
+        <<"Require">> -> case field(SipMsg, require) of <<>> -> []; R -> [R] end;
+        <<"Supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> [S] end;
+        <<"Expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> [E] end;
+        <<"Event">> -> case field(SipMsg, event) of <<>> -> []; E -> [E] end;
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 
