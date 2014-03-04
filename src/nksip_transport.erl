@@ -389,17 +389,10 @@ send(_, [], _MakeMsg, _Opts) ->
 %     end;
 
 raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=_AssocId} = Transp,
     case get_connected(AppId, Proto, Ip, Port) of
-        [{_, Pid}|_] ->
-            case Proto of
-                udp -> nksip_transport_udp:send(Pid, Reply);
-                tcp -> nksip_transport_tcp:send(Pid, Reply);
-                tls -> nksip_transport_tcp:send(Pid, Reply);
-                sctp -> nksip_transport_sctp:send(Pid, AssocId, Reply)
-            end;
-        [] -> 
-            error
+        [{_, Pid}|_] -> nksip_transport_conn:send(Pid, Reply);
+        [] -> error
     end.
 
 
