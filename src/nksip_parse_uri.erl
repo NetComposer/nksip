@@ -571,11 +571,11 @@ uri1_test() ->
     [#uri{user = <<"u">>, pass = <<"p">>, domain = <<"a">>, port=20, 
          ext_opts = [<<"b">>, {<<"c">>, <<"2">>}]}] = uris("sip:u:p@a:20;b;c=2 "),
     [#uri{ext_headers = [{<<"d">>, <<"2">>}, <<"f">>]}] = uris("sip:a?d=2&f"),
-    [#uri{headers = [{<<"d">>, <<"2">>}, <<"f">>]}] = uris("<sip:a?d=2&f>"),
+    [#uri{headers = [{<<"dd">>, <<"2">>}, <<"ff">>]}] = uris("<sip:a?dd=2&ff>"),
 
-    [#uri{opts = [<<"b">>,{<<"c">>, <<"2">>}], headers = [{<<"d">>,<<"2">>},<<"f">>],
+    [#uri{opts = [<<"b">>,{<<"c">>, <<"2">>}], headers = [{<<"dd">>,<<"2">>},<<"ff">>],
          ext_opts = [{<<"g">>, <<"3">>}], ext_headers = [<<"h">>,<<"i">>]}] = 
-         uris("<sip:a;b;c=2?d=2&f>;g=3?h&i"),
+         uris("<sip:a;b;c=2?dd=2&ff>;g=3?h&i"),
 
     [#uri{domain = <<"*">>}] = uris("*"),
     [#uri{domain = <<"*">>}] = uris("  *  "),
