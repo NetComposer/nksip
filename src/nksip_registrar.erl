@@ -203,7 +203,7 @@ request(Req) ->
         {ok, Regs} = callback_get(AppId, {Scheme, ToUser, ToDomain}),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
         ObReq = case 
-            ObProc andalso [true || #reg_contact{index={ob, _, _}} <- Regs] 
+            ObProc==true andalso [true || #reg_contact{index={ob, _, _}} <- Regs] 
         of
             [_|_] -> [{require, <<"outbound">>}];
             _ -> []
@@ -395,12 +395,12 @@ update(Req, Times, ObProc) ->
         #reg_contact{expire=Exp} = RegContact <- Regs, 
         Exp > Now
     ],
-    case update_regcontacts(RegContacts, Contacts1) of
+    case update_regcontacts(RegContacts, Now, Contacts1) of
         [] -> 
             case callback(AppId, {del, AOR}) of
                 ok -> ok;
                 not_found -> ok;
-                _ -> throw({internal, "Error calling registrar 'del' callback"})
+                _ -> throw({internal_error, "Error calling registrar 'del' callback"})
             end;
         Contacts2 -> 
             GlobalExpire = lists:max([Exp-Now||#reg_contact{expire=Exp} <- Contacts2]),
@@ -484,27 +484,27 @@ gen_regcontacts([], _Base, _Times, _ObProc, Acc) ->
 
 
 %% @private
--spec update_regcontacts([reg_info()], [reg_info()]) ->
+-spec update_regcontacts([reg_info()], nksip_lib:timestamp(), [reg_info()]) ->
     [reg_info()].
 
-update_regcontacts([RegContact|Rest], Acc) ->
+update_regcontacts([RegContact|Rest], Now, Acc) ->
     % A new registration will overwite an old Contact if it has the same index
     #reg_contact{index=Index, expire=Expire, cseq=CSeq, call_id=CallId} = RegContact,
     Acc1 = case lists:keytake(Index, #reg_contact.index, Acc) of
-        false when Expire==0 ->
+        false when Expire==Now ->
             Acc;
         false ->
             [RegContact|Acc];
         {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq -> 
             throw({invalid_request, "Rejected Old CSeq"});
-        {value, _, Acc0} when Expire==0 ->
+        {value, _, Acc0} when Expire==Now ->
             Acc0;
         {value, _, Acc0} ->
             [RegContact|Acc0]
     end,
-    update_regcontacts(Rest, Acc1);
+    update_regcontacts(Rest, Now, Acc1);
         
-update_regcontacts([], Acc) ->
+update_regcontacts([], _Now, Acc) ->
     lists:reverse(lists:keysort(#reg_contact.updated, Acc)).
 
 
