@@ -329,7 +329,7 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
             ?call_info("strict routing to ~p", [Next], Call),
             do_route({proxy, Next, [stateless|Opts]}, UAS, Call);
         _ ->
-            reply({internal, <<"Invalid Srict Routing">>}, UAS, Call)
+            reply({internal_error, <<"Invalid Srict Routing">>}, UAS, Call)
     end.
 
 
@@ -372,7 +372,7 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                         true -> 
                             {Resp, SendOpts};
                         false -> 
-                            Reply1 = {internal, <<"Invalid SipApp reply">>},
+                            Reply1 = {internal_error, <<"Invalid SipApp reply">>},
                             nksip_reply:reply(Req, Reply1, AppOpts)
                     end,
                     reply({Resp1, SendOpts1}, UAS1, Call1)

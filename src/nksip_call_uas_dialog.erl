@@ -48,7 +48,7 @@ request(Req, Call) ->
             ?call_debug("Dialog ~s UAS request ~p", [DialogId, Method], Call),
             case RemoteSeq>0 andalso CSeq<RemoteSeq of
                 true ->
-                    {error, {internal, <<"Old CSeq in Dialog">>}};
+                    {error, {internal_error, <<"Old CSeq in Dialog">>}};
                 false -> 
                     Dialog1 = Dialog#dialog{remote_seq=CSeq},
                     do_request(Method, Req, Dialog1, Call)

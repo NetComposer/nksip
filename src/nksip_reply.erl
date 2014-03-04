@@ -99,7 +99,7 @@
 %%   <tr><td>`flow_failed'</td><td>430</td><td></td></tr>
 %%   <tr><td>`first_hop_lacks_outbound'</td><td>439</td><td></td></tr>
 %%   <tr><td>`temporarily_unavailable'</td><td>480</td><td></td></tr>
-%%   <tr><td>`no_transaction'</td><td>481</td><td></td></tr>
+%%   <tr><td>`no_transaction|unknown_dialog'</td><td>481</td><td></td></tr>
 %%   <tr><td>`loop_detected'</td><td>482</td><td></td></tr>
 %%   <tr><td>`too_many_hops'</td><td>483</td><td></td></tr>
 %%   <tr><td>`ambiguous'</td><td>485</td><td></td></tr>
@@ -109,8 +109,8 @@
 %%       <td>Generates a new `Warning' header using `Reason'</td></tr>
 %%   <tr><td>`bad_event'</td><td>489</td><td></td></tr>
 %%   <tr><td>`request_pending'</td><td>491</td><td></td></tr>
-%%   <tr><td>`internal'</td><td>500</td><td></td></tr>
-%%   <tr><td>`{internal, Text}'</td><td>500</td>
+%%   <tr><td>`internal_error'</td><td>500</td><td></td></tr>
+%%   <tr><td>`{internal_error, Text}'</td><td>500</td>
 %%       <td>Text will be used in SIP first line</td></tr>
 %%   <tr><td>`busy_eveywhere'</td><td>600</td><td></td></tr>
 %%   <tr><td>`decline'</td><td>603</td><td></td></tr>
@@ -206,7 +206,7 @@
     flow_failed |
     first_hop_lacks_outbound |
     temporarily_unavailable |
-    no_transaction |
+    unknown_dialog | no_transaction |
     loop_detected | 
     too_many_hops |
     ambiguous |
@@ -215,7 +215,7 @@
     {not_acceptable, Reason::binary()} |
     bad_event |
     request_pending |
-    internal | {internal, Text::binary()} |
+    internal_error | {internal_error, Text::binary()} |
     service_unavailable |
     busy_eveywhere |
     decline |
@@ -247,7 +247,7 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, AppOpts) ->
         error -> 
             ?warning(AppId, CallId, "Invalid sipreply: ~p, ~p", 
                             [SipReply, erlang:get_stacktrace()]),
-            ReqReply = reqreply({internal, <<"Invalid SipApp Response">>})
+            ReqReply = reqreply({internal_error, <<"Invalid SipApp Response">>})
     end,
     reply(Req, ReqReply, AppOpts).
 
@@ -376,6 +376,8 @@ reqreply(first_hop_lacks_outbound) ->
     #reqreply{code=439};
 reqreply(temporarily_unavailable) ->
     #reqreply{code=480};
+reqreply(unknown_dialog) ->
+    #reqreply{code=481};
 reqreply(no_transaction) ->
     #reqreply{code=481};
 reqreply(loop_detected) ->
@@ -394,9 +396,9 @@ reqreply(bad_event) ->
     #reqreply{code=489};
 reqreply(request_pending) ->
     #reqreply{code=491};
-reqreply(internal) ->
+reqreply(internal_error) ->
     #reqreply{code=500};
-reqreply({internal, Text}) ->
+reqreply({internal_error, Text}) ->
     helper_debug(#reqreply{code=500}, Text);
 reqreply(service_unavailable) ->
     #reqreply{code=503};

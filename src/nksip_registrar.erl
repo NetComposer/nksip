@@ -407,7 +407,7 @@ update(Req, Times, ObProc) ->
             % Set a minimum expiration check of 5 secs
             case callback(AppId, {put, AOR, Contacts2, max(GlobalExpire, 5)}) of
                 ok -> ok;
-                _ -> throw({internal, "Error calling registrar 'put' callback"})
+                _ -> throw({internal_error, "Error calling registrar 'put' callback"})
             end
     end,
     ok.
@@ -544,7 +544,7 @@ del_all(Req) ->
     case callback(AppId, {del, AOR}) of
         ok -> ok;
         not_found -> not_found;
-        _ -> throw({internal, "Error calling registrar 'del' callback"})
+        _ -> throw({internal_error, "Error calling registrar 'del' callback"})
     end.
 
 
@@ -559,12 +559,12 @@ callback_get(AppId, AOR) ->
                             ok;
                         _ -> 
                             Msg = "Invalid return in registrar 'get' callback",
-                            throw({internal, Msg})
+                            throw({internal_error, Msg})
                     end
                 end, List),
             {ok, List};
         _ -> 
-            throw({internal, "Error calling registrar 'get' callback"})
+            throw({internal_error, "Error calling registrar 'get' callback"})
     end.
 
 
