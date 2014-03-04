@@ -127,58 +127,34 @@ launch([], Id, Call) ->
     end;
 
 launch([Uri|Rest], Id, Call) -> 
-    #call{next=Next, opts=#call_opts{app_opts=AppOpts}} = Call,
+    #call{next=Next, opts=#call_opts{app_opts=_AppOpts}} = Call,
     Fork = lists:keyfind(Id, #fork.id, Call#call.forks),
     #fork{request=Req, method=Method, opts=Opts,
-          uacs=UACs, pending=Pending, responses=Resps} = Fork,
-    #sipmsg{call_id=CallId, routes=Routes1} = Req,
-    % Uri can have a "Route" header
-    try
-        Routes2 = case nksip_lib:get_value(<<"Route">>, Uri#uri.headers) of
-            undefined -> 
-                Routes1;
-            RawRoute1 ->
-                RawRoute2 = http_uri:decode(binary_to_list(RawRoute1)),
-                case nksip_parse:uris(RawRoute2) of
-                    error ->
-                        ?call_notice("Invalid route ~s in fork", [RawRoute2], Call),
-                        throw(internal_error);
-                    RawRoute3 ->   
-                        RawRoute3++Routes1
-                end
-        end,
-        Req1 = Req#sipmsg{
-            ruri = Uri, 
-            id = nksip_sipmsg:make_id(req, CallId),
-            routes = Routes2
-        },
-        case nksip_request:is_local_route(Req1) of
-            false ->
-                ?call_debug("Fork ~p ~p launching to ~s", 
-                             [Id, Method, nksip_unparse:uri(Uri)], Call),
-                Fork1 = case Method of
-                    'ACK' -> Fork#fork{uacs=[Next|UACs]};
-                    _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
-                end,
-                Call1 = update(Fork1, Call),
-                ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
-                UACOpts = nksip_lib:extract(Opts, 
-                            [record_route, make_path, flow, make_flow,
-                             no_dialog, update_dialog]),
-                %% CAUTION: This call can update the fork's state, can even delete it!
-                Call2 = nksip_call_uac_req:request(Req1, UACOpts, {fork, Id}, Call1),
-                launch(Rest, Id, Call2#call{next=Next+1});
-            true ->
-                ?call_notice("Fork tried to stateful proxy a request to itself: ~s", 
-                             [nksip_unparse:uri(Uri)], Call),
-                throw(loop_detected)
-        end
-    catch
-        throw:Reply ->
-            {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
-            ForkT = Fork#fork{responses=[Resp|Resps]},
-            launch(Rest, Id, update(ForkT, Call))
-    end.
+          uacs=UACs, pending=Pending, responses=_Resps} = Fork,
+    #sipmsg{call_id=CallId, routes=_Routes1} = Req,
+    Req1 = Req#sipmsg{
+        ruri = Uri, 
+        id = nksip_sipmsg:make_id(req, CallId)
+    },
+    ?call_debug("Fork ~p ~p launching to ~s", 
+                 [Id, Method, nksip_unparse:uri(Uri)], Call),
+    Fork1 = case Method of
+        'ACK' -> Fork#fork{uacs=[Next|UACs]};
+        _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
+    end,
+    Call1 = update(Fork1, Call),
+    ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
+    UACOpts = nksip_lib:extract(Opts, 
+                [record_route, make_path, no_dialog, update_dialog]),
+    %% CAUTION: This call can update the fork's state, can even delete it!
+    Call2 = nksip_call_uac_req:request(Req1, UACOpts, {fork, Id}, Call1),
+    launch(Rest, Id, Call2#call{next=Next+1}).
+    % catch
+    %     throw:Reply ->
+    %         {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
+    %         ForkT = Fork#fork{responses=[Resp|Resps]},
+    %         launch(Rest, Id, update(ForkT, Call))
+    % end.
 
 
 %% @private Called when a launched UAC has a response

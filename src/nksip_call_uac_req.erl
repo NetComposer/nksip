@@ -148,11 +148,11 @@ send(#trans{method='ACK'}=UAC, Call) ->
     #trans{id=Id, request=Req, opts=Opts} = UAC,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     case nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts) of
-       {ok, SentReq} ->
+        {ok, SentReq} ->
             sent_request(SentReq, UAC, Call);
-        error ->
-            ?call_debug("UAC ~p error sending 'ACK' request", [Id], Call),
-            Call1 = nksip_call_uac_reply:reply({error, network_error}, UAC, Call),
+        {error, Error} ->
+            ?call_debug("UAC ~p error sending 'ACK' request: ~p", [Id, Error], Call),
+            Call1 = nksip_call_uac_reply:reply({error, Error}, UAC, Call),
             UAC1 = UAC#trans{status=finished},
             update(UAC1, Call1)
     end;
@@ -190,10 +190,10 @@ send(UAC, Call) ->
             case Send of
                 {ok, SentReq} -> 
                     sent_request(SentReq, UAC, Call);
-                error ->
-                    ?call_debug("UAC ~p error sending ~p request", [Id, Method], Call),
-                    Call1 = nksip_call_uac_reply:reply({error, network_error}, 
-                                                       UAC, Call),
+                {error, Error} ->
+                    ?call_debug("UAC ~p error sending ~p request: ~p", 
+                            [Id, Method, Error], Call),
+                    Call1 = nksip_call_uac_reply:reply({error, Error}, UAC, Call),
                     update(UAC#trans{status=finished}, Call1)
             end;
         {error, Error} ->

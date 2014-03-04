@@ -61,17 +61,16 @@ route(UAS, UriList, ProxyOpts, Call) ->
             {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
             {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
         end,
-        Req2 = remove_local_routes(Req1),
-        Req3 = preprocess(Req2, ProxyOpts),
-        % Note: pass original request with original routes
-        ProxyOpts1 = check_path(Req1, ProxyOpts, Call),
+        Req2 = preprocess(Req1, ProxyOpts),
+        % % Note: pass original request with original routes
+        % ProxyOpts1 = check_path(Req1, ProxyOpts, Call),
         Stateless = lists:member(stateless, ProxyOpts),
         case Method of
             'ACK' when Stateless ->
                 [[First|_]|_] = UriSet,
-                route_stateless(Req3, First, ProxyOpts1, Call1);
+                route_stateless(Req2, First, ProxyOpts, Call1);
             'ACK' ->
-                {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1};
+                {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts};
             _ ->
                 case nksip_sipmsg:header(Req, <<"Proxy-Require">>, tokens) of
                     [] -> 

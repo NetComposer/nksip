@@ -100,11 +100,12 @@ reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
     nksip_call_fork:response(ForkId, Id, Resp, Call);
 
 reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
-    Reply = case Error of
-        network_error -> service_unavailable;
-        unknown_dialog -> no_transaction;
-        request_pending -> request_pending;
-        _ -> {internal, <<"Proxy UAC Error ", (nksip_lib:to_binary(Error))/binary>>}
+    Reply = case nksip_reply:reqreply(Error) of
+        error -> 
+            ?call_notice("Invalid proxy internal response: ~p", [Error], Call),
+            {internal_error, "Invalid Internal Proxy UAC Response"};
+        _ ->
+            Error
     end,
     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),

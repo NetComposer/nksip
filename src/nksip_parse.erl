@@ -30,7 +30,8 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, aors/1, uris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, transport/1, session_expires/1]).
+-export([tokens/1, integers/1, dates/1, extract_uri_routes/1]).
+-export([transport/1, session_expires/1]).
 -export([packet/3, raw_sipmsg/1, raw_header/1]).
 
 -export_type([msg_class/0]).
@@ -163,6 +164,33 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
         _ -> nksip_transport:default_port(Proto)
     end,
     {Proto, Host, Port1}.
+
+
+%% @doc Extracts the headers from a uri
+-spec extract_uri_routes(#uri{}) ->
+    {[#uri{}], #uri{}} | error.
+
+extract_uri_routes(#uri{headers=[]}=Uri) ->
+    {[], Uri};
+
+extract_uri_routes(#uri{headers=Headers}=Uri) ->
+    {Headers1, Routes} = extract_uri_routes(Headers, [], []),
+    {Routes, Uri#uri{headers=lists:reverse(Headers1)}}.
+
+
+extract_uri_routes([], Hds, Routes) ->
+    {Hds, Routes};
+
+extract_uri_routes([{Name, Value}|Rest], Hds, Routes) ->
+    case raw_header(Name) of
+        <<"Route">> -> 
+            case uris(http_uri:decode(nksip_lib:to_list(Value))) of
+                error -> error;
+                Routes1 -> extract_uri_routes(Rest, Hds, Routes++Routes1)
+            end;
+        _ ->
+            extract_uri_routes(Rest, [{Name, Value}|Hds], Routes)
+    end.
 
 
 %% @doc Parses a Session-Expires header in a request or response
