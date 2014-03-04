@@ -271,7 +271,7 @@
     invalid_uri | invalid_from | invalid_to | invalid_route |
     invalid_contact | invalid_cseq | invalid_content_type | invalid_require |
     invalid_accept | invalid_event |
-    unknown_dialog | bad_event | request_pending | network_error | 
+    unknown_dialog | bad_event | request_pending | service_unavailable | 
     nksip_call_router:sync_error().
 
 -type cancel_error() :: 
@@ -930,7 +930,7 @@ request(AppId, Dest, Opts) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),
-         Error :: unknown_core | invalid_uri | no_host | network_error.
+         Error :: unknown_core | invalid_uri | no_host | service_unavailable.
 
 stun(AppId, UriSpec, _Opts) ->
     case nksip_transport:get_listening(AppId, udp, ipv4) of
@@ -946,7 +946,7 @@ stun(AppId, UriSpec, _Opts) ->
                                 {ok, SIp, SPort} ->
                                     {ok, {LIp, LPort}, {SIp, SPort}};
                                 error ->
-                                    {error, network_error}
+                                    {error, service_unavailable}
                             end;
                         _ ->
                             {error, no_host}

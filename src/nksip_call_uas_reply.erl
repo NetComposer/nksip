@@ -32,7 +32,7 @@
     nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}.
 
 -type reply_error() :: 
-    invalid_call | pending_prack | stateless_not_allowed | network_error.
+    invalid_call | pending_prack | stateless_not_allowed | service_unavailable.
 
 -type reply_return() :: 
     {{ok, nksip:response()} | {error, reply_error()}, nksip_call:call()}.
@@ -169,7 +169,7 @@ send({Resp, SendOpts}, UAS, Call) ->
         {ok, Resp2} -> 
             UserReply = {ok, Resp2};
         error -> 
-            UserReply = {error, network_error},
+            UserReply = {error, service_unavailable},
             {Resp2, _} = nksip_reply:reply(Req, service_unavailable, AppOpts)
     end,
     #sipmsg{class={resp, Code1, _}} = Resp2,
