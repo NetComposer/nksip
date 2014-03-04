@@ -262,7 +262,7 @@ expire_timer(expire, Trans, Call) ->
     #trans{id=Id, class=Class, request=Req, opts=Opts} = Trans,
     #call{app_id=AppId, call_id=CallId} = Call,
     cancel_timer(Trans#trans.expire_timer),
-    Timer = case nksip_sipmsg:field(Req, expires) of
+    Timer = case nksip_sipmsg:field(Req, parsed_expires) of
         Expires when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
                 true -> 
