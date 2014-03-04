@@ -82,14 +82,14 @@ uac() ->
     Hds = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}]},
 
     nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
-    {error, network_error} =
+    {error, service_unavailable} =
         nksip_uac:options(C2, "<sip:127.0.0.1:50600;transport=tcp>", []),
     
     % Async, error
     {async, _ReqId1} = nksip_uac:options(C2, "<sip:127.0.0.1:50600;transport=tcp>", 
                                         [async, CB, get_request]),
     receive 
-        {Ref, {error, network_error}} -> ok
+        {Ref, {error, service_unavailable}} -> ok
         after 500 -> error(uac) 
     end,
 

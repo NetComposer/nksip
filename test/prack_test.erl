@@ -78,17 +78,16 @@ basic() ->
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun(Reply) -> Self ! {Ref, Reply} end},
-    Supported = [{<<"100rel">>, []}],
 
     % No make_100rel in call to invite, neither in app config
     Hds1 = {headers, [{"Nk-Op", "prov-busy"}]},
     Fields1 = {fields, [parsed_supported, parsed_require]},
     {ok, 486, Values1} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds1, Fields1]),    [
-        {parsed_supported, Supported},
+        {parsed_supported,  [<<"100rel">>]},
         {parsed_require, []}
     ] = Values1,
     receive {Ref, {req, Req1}} -> 
-        [Supported,[]] = 
+        [ [<<"100rel">>],[]] = 
             nksip_sipmsg:fields(Req1, [parsed_supported, parsed_require])
     after 1000 -> 
         error(basic) 
@@ -97,7 +96,7 @@ basic() ->
         {Ref, {ok, 180, Values1a}} -> 
             [
                 {dialog_id, _},
-                {parsed_supported, Supported},
+                {parsed_supported,  [<<"100rel">>]},
                 {parsed_require,[]}
             ] = Values1a
     after 1000 -> 
@@ -107,7 +106,7 @@ basic() ->
         {Ref, {ok, 183, Values1b}} -> 
             [
                 {dialog_id, _},
-                {parsed_supported,Supported},
+                {parsed_supported, [<<"100rel">>]},
                 {parsed_require,[]}
             ] = Values1b
     after 1000 -> 
@@ -123,13 +122,13 @@ basic() ->
     Fields2 = {fields, [parsed_supported, parsed_require, cseq_num, rseq_num]},
     {ok, 486, Values2} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds2, Fields2, require_100rel]),
     [
-        {parsed_supported, Supported},
+        {parsed_supported, [<<"100rel">>]},
         {parsed_require, []},
         {cseq_num, CSeq2},
         {rseq_num, undefined}
     ] = Values2,
     receive {Ref, {req, Req2}} -> 
-        [Supported, [{<<"100rel">>,[]}]] = 
+        [[<<"100rel">>], [<<"100rel">>]] = 
             nksip_sipmsg:fields(Req2, [parsed_supported, parsed_require])
     after 1000 -> 
         error(basic) 
@@ -138,7 +137,7 @@ basic() ->
         {Ref, {ok, 180, Values2a}} -> 
             [
                 {dialog_id, _},
-                {parsed_supported, Supported},
+                {parsed_supported, [<<"100rel">>]},
                 {parsed_require, [<<"100rel">>]},
                 {cseq_num, CSeq2},
                 {rseq_num, RSeq2a_0}
@@ -151,7 +150,7 @@ basic() ->
         {Ref, {ok, 183, Values2b}} -> 
             [
                 {dialog_id, _},
-                {parsed_supported, Supported},
+                {parsed_supported, [<<"100rel">>]},
                 {parsed_require, [<<"100rel">>]},
                 {cseq_num, CSeq2},
                 {rseq_num, RSeq2b_0}

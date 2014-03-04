@@ -104,8 +104,7 @@ basic() ->
     Ref = make_ref(),
 
     Fun1 = fun({req, #sipmsg{contacts=[Contact]}}) ->
-        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=[]} =
-            Contact,
+        #uri{user=(<<"client1">>), domain=MainIp, port=5070} = Contact,
         Self ! {Ref, ok_1}
     end,
     Opts1 = [{callback, Fun1}, get_request, get_response, make_contact],
@@ -132,10 +131,8 @@ basic() ->
 
 
     Fun2 = fun({req, #sipmsg{contacts=[Contact]}}) ->
-        #uri{
-            user=(<<"client1">>), domain=MainIp, port=5070, 
-            opts=[{<<"transport">>, <<"tcp">>}]
-        } = Contact,
+        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=COpts2} = Contact,
+        true = lists:member({<<"transport">>, <<"tcp">>}, COpts2),
         Self ! {Ref, ok_2}
     end,
     Opts2 = [{callback, Fun2}, get_request, get_response, make_contact],
@@ -205,8 +202,9 @@ proxy() ->
     {ok, 200, []} = nksip_uac:register(C1, S1Uri, [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, S1Uri, [unregister_all]),
     
-    {ok, 200, []} = nksip_uac:register(C1, S1Uri, [make_contact]),
-    {ok, 200, []} = nksip_uac:register(C2, S1Uri, [make_contact]),
+    % Avoid outbound support
+    {ok, 200, []} = nksip_uac:register(C1, S1Uri, [make_contact, {supported, ""}]),
+    {ok, 200, []} = nksip_uac:register(C2, S1Uri, [make_contact, {supported, ""}]),
 
     %% C1 will send an INVITE to C2
     %% First, it is sent to Server1, which changes the uri to the registered one
@@ -218,8 +216,10 @@ proxy() ->
 
     %% The ACK is sent to Server2, and it sends it to Client2
     {req, ACK} = nksip_uac:ack(C1, DialogId1, [get_request]),
-    [#uri{domain=(<<"[::1]">>), port=5061, opts=[<<"lr">>, {<<"transport">>, <<"tcp">>}]}]   = 
+    [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
         nksip_sipmsg:field(ACK, parsed_routes),
+    true = lists:member(<<"lr">>, AckOpts),
+    true = lists:member({<<"transport">>, <<"tcp">>}, AckOpts),
 
     DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
     {ok, 200, []} = nksip_uac:options(C2, DialogId2, []),
@@ -238,8 +238,9 @@ bridge_4_6() ->
     {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [unregister_all]),
     
-    {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [make_contact]),
-    {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [make_contact]),
+    % Avoid outbound support
+    {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [make_contact, {supported, ""}]),
+    {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [make_contact, {supported, ""}]),
 
     %% C1 will send an INVITE to C3
     %% First, it is sent to Server1 (IPv6), which changes the uri to the registered one
@@ -257,8 +258,11 @@ bridge_4_6() ->
 
     %% The ACK is sent to Server2, and it sends it to Client2
     {req, ACK1} = nksip_uac:ack(C1, DialogId1, [get_request]),
-    [#uri{domain=(<<"[::1]">>), port=5061, opts=[<<"lr">>, {<<"transport">>, <<"tcp">>}]}]   = 
+    [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
         nksip_sipmsg:field(ACK1, parsed_routes),
+    true = lists:member(<<"lr">>, AckOpts),
+    true = lists:member({<<"transport">>, <<"tcp">>}, AckOpts),
+
     #uri{domain=(<<"127.0.0.1">>)} = nksip_sipmsg:field(ACK1, parsed_ruri),
 
     DialogId3 = nksip_dialog:field(C1, DialogId1, remote_id),

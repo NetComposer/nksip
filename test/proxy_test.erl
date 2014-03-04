@@ -74,21 +74,26 @@ start(Test) ->
         registrar,
         {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}]),
+        {transport, {tls, {0,0,0,0}, 5061}},
+        {supported, "100rel,timer,path"}        % No outbound
+    ]),
 
     ok = sipapp_server:start({Test, server2}, [
         {from, "sip:server2@nksip"},
         registrar,
         {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5080}},
-        {transport, {tls, {0,0,0,0}, 5081}}]),
+        {transport, {tls, {0,0,0,0}, 5081}},
+        {supported, "100rel,timer,path"}        % No outbound
+    ]),
 
     ok = sipapp_endpoint:start({Test, client1}, [
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}]),
+        {transport, {tls, {0,0,0,0}, 5071}}
+    ]),
 
     ok = sipapp_endpoint:start({Test, client2}, [
         {from, "sip:client2@nksip"},
@@ -174,44 +179,48 @@ opts(Test) ->
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
     
-    % Server1 proxies the request to client2@nksip using ServerOpts1 options:
-    % two "Nk" headers are added
-    ServerOpts1 = [{headers, [{"Nk", "server"}, {"Nk", Test}]}],
-    Body1 = base64:encode(term_to_binary(ServerOpts1)),
-    Opts1 = [{headers, [{"Nk", "opts2"}]}, {body, Body1}, {fields, [<<"Nk">>]}],
-    {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts1),
-    Res1Rep = list_to_binary(["server,",atom_to_list(Test),",opts2"]),
-    [{<<"Nk">>, [Res1Rep]}] = Values1,
+    % % Server1 proxies the request to client2@nksip using ServerOpts1 options:
+    % % two "Nk" headers are added
+    % ServerOpts1 = [{headers, [{"Nk", "server"}, {"Nk", Test}]}],
+    % Body1 = base64:encode(term_to_binary(ServerOpts1)),
+    % Opts1 = [{headers, [{"Nk", "opts2"}]}, {body, Body1}, {fields, [<<"Nk">>]}],
+    % {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts1),
+    % Res1Rep = list_to_binary(["server,",atom_to_list(Test),",opts2"]),
+    % [{<<"Nk">>, [Res1Rep]}] = Values1,
 
-    % Remove headers at server
-    ServerOpts2 = [{headers, [{"Nk", "server"}]}, remove_headers],
-    Body2 = base64:encode(term_to_binary(ServerOpts2)),
-    Opts2 = [{headers, [{"Nk", "opts2"}]}, {body, Body2}, {fields, [<<"Nk">>]}],
-    {ok, 200, Values2} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts2),
-    [{<<"Nk">>, [<<"server">>]}] = Values2,
-    % Add a route at server
-    ServerOpts3 = [{headers, [{"Nk", "server2"}]}, 
-                    {route, "<sip:127.0.0.1:5070;lr>, <sip:1.2.3.4;lr>"}],
-    Body3 = base64:encode(term_to_binary(ServerOpts3)),
-    Opts3 = [{headers, [{"Nk", "opts2"}]}, {body, Body3},
-             {fields, [<<"Nk">>, <<"Nk-R">>]}],
-    {ok, 200, Values3} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts3),
-    [
-        {<<"Nk">>, [<<"server2,opts2">>]}, 
-        {<<"Nk-R">>, [<<"<sip:1.2.3.4;lr>">>]}
-    ] = Values3,
+    % % Remove headers at server
+    % ServerOpts2 = [{headers, [{"Nk", "server"}]}, remove_headers],
+    % Body2 = base64:encode(term_to_binary(ServerOpts2)),
+    % Opts2 = [{headers, [{"Nk", "opts2"}]}, {body, Body2}, {fields, [<<"Nk">>]}],
+    % {ok, 200, Values2} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts2),
+    % [{<<"Nk">>, [<<"server">>]}] = Values2,
+    
+    % % Add a route at server
+    % ServerOpts3 = [{headers, [{"Nk", "server2"}]}, 
+    %                 {route, "<sip:127.0.0.1:5070;lr>, <sip:1.2.3.4;lr>"}],
+    % Body3 = base64:encode(term_to_binary(ServerOpts3)),
+    % Opts3 = [{headers, [{"Nk", "opts2"}]}, {body, Body3},
+    %          {fields, [<<"Nk">>, <<"Nk-R">>]}],
+    % {ok, 200, Values3} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts3),
+    % [
+    %     {<<"Nk">>, [<<"server2,opts2">>]}, 
+    %     {<<"Nk-R">>, [<<"<sip:127.0.0.1:5070;lr>,<sip:1.2.3.4;lr>">>]}
+    % ] = Values3,
 
     % Add a route from client
     ServerOpts4 = [],
     Body4 = base64:encode(term_to_binary(ServerOpts4)),
     [Uri2] = nksip_registrar:find({Test, server1}, sip, <<"client2">>, <<"nksip">>),
-    Opts4 = [{route, ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
+    Opts4 = [{route, 
+                ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr], ext_opts=[]}, <<"sip:aaa">>]},
              {body, Body4},
              {fields, [<<"Nk">>, <<"Nk-R">>]}],
     {ok, 200, Values4} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts4),
+    NkR4 = nksip_lib:bjoin([nksip_unparse:uri(Uri2#uri{opts=[lr], ext_opts=[]}),
+                            <<"<sip:aaa>">>]),
     [
         {<<"Nk">>, []}, 
-        {<<"Nk-R">>, [<<"<sip:aaa>">>]}
+        {<<"Nk-R">>, [NkR4]}
     ] = Values4,
 
     % Remove route from client at server
@@ -435,8 +444,10 @@ servers(Test) ->
         {<<"Record-Route">>, [RR1, RR2]},
         {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
     ] = Values6,
-    [#uri{port=5081, opts=[<<"lr">>, {<<"transport">>, <<"tls">>}]}] = nksip_parse:uris(RR1),
-    [#uri{port=5061, opts=[<<"lr">>, {<<"transport">>, <<"tls">>}]}] = nksip_parse:uris(RR2),
+    [#uri{port=5081, opts=[{<<"transport">>, <<"tls">>}, <<"lr">>]}] = 
+        nksip_parse:uris(RR1),
+    [#uri{port=5061, opts=[{<<"transport">>, <<"tls">>}, <<"lr">>]}] =
+        nksip_parse:uris(RR2),
 
     % Sends an options in the dialog before the ACK
     {ok, 200, Values7} = nksip_uac:options(C1, DialogIdB1, [Fs4]),
@@ -448,8 +459,8 @@ servers(Test) ->
     {req, AckReq} = nksip_uac:ack(C1, DialogIdB1, [get_request]),
     {tls, _, 5061} = nksip_sipmsg:field(AckReq, remote),
     [
-        <<"<sip:NkS@localhost:5061;lr;transport=tls>">>,
-        <<"<sip:NkS@localhost:5081;lr;transport=tls>">>
+        <<"<sip:NkS@localhost:5061;transport=tls;lr>">>,
+        <<"<sip:NkS@localhost:5081;transport=tls;lr>">>
     ] = nksip_sipmsg:header(AckReq, <<"Route">>),
     ok = tests_util:wait(Ref, [{client2, ack}]),
  

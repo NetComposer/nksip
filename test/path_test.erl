@@ -95,14 +95,14 @@ basic() ->
     % We didn't send the Supported header, so first proxy 
     % (P1, configured to include Path) sends a 421 (Extension Required)
     {ok, 421, [{<<"Require">>, [<<"path">>]}]} = 
-        nksip_uac:register(C1, "sip:nksip", [{fields, [<<"Require">>]}]),
+        nksip_uac:register(C1, "sip:nksip", [{fields, [<<"Require">>]}, {supported, ""}]),
 
     % If the request arrives at registrar, having a valid Path header and
     % no Supported: path, it returns a 420 (Bad Extension)
     {ok, 420, [{<<"Unsupported">>, [<<"path">>]}]} = 
         nksip_uac:register(C1, "<sip:nksip?Path=sip:mypath>", 
                         [{route, "<sip:127.0.0.1:5090;lr>"}, 
-                         {fields, [<<"Unsupported">>]}]),
+                         {fields, [<<"Unsupported">>]}, {supported, ""}]),
 
 
     {ok, 200, [{<<"Path">>, [P1, P2]}]} = 
@@ -115,7 +115,7 @@ basic() ->
             #uri{scheme = sip,domain = <<"localhost">>,port = 5080,
                     opts = [<<"lr">>]} = P1Uri,
             #uri{scheme = sip,domain = <<"localhost">>,port = 5061,
-                    opts = [<<"lr">>,{<<"transport">>,<<"tls">>}]} = P2Uri
+                    opts = [{<<"transport">>,<<"tls">>}, <<"lr">>]} = P2Uri
         ]
     }] = nksip_registrar:get_info({path, registrar}, sip, <<"ua1">>, <<"nksip">>),
 

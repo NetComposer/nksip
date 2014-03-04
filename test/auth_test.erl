@@ -27,17 +27,17 @@
 
 -compile([export_all]).
 
-% auth_test_() ->
-%   {setup, spawn, 
-%       fun() -> start() end,
-%       fun(_) -> stop() end,
-%       [
-%           fun digest/0, 
-%           fun invite/0, 
-%           fun dialog/0, 
-%           fun proxy/0
-%       ]
-%   }.
+auth_test_() ->
+  {setup, spawn, 
+      fun() -> start() end,
+      fun(_) -> stop() end,
+      [
+          fun digest/0, 
+          fun invite/0, 
+          fun dialog/0, 
+          fun proxy/0
+      ]
+  }.
 
 
 start() ->
@@ -202,8 +202,12 @@ proxy() ->
     % % C2's SipApp has a password, but it is invalid
     % {ok, 403, []} = nksip_uac:options(C2, S1, []),
 
-    % {ok, 200, []} = nksip_uac:register(C1, S1, [{pass, "1234"}, make_contact]),
-    {ok, 200, []} = nksip_uac:register(C2, S1, [{pass, "4321"}, make_contact]),
+    % We don't want the registrar to store outbound info, so that no 
+    % Route header will be added to lookups (we are doing to do special routing)
+    {ok, 200, []} = nksip_uac:register(C1, S1, 
+                                       [{pass, "1234"}, make_contact, {supported, ""}]),
+    {ok, 200, []} = nksip_uac:register(C2, S1, 
+                                       [{pass, "4321"}, make_contact, {supported, ""}]),
 
     % % Authorized because of previous registration
     % {ok, 200, []} = nksip_uac:options(C1, S1, []),

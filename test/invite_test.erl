@@ -128,7 +128,8 @@ dialog() ->
         {created, Created}, 
         {updated, Updated}, 
         {invite_answered, Answered}, 
-        {local_target, <<"<sip:client1@localhost:5060>">>}, 
+        {parsed_local_target, 
+            #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {remote_target, <<"<sip:ok@127.0.0.1:5070>">>},
         {route_set, []},
         {early, false},
@@ -168,9 +169,11 @@ dialog() ->
         {call_id, CallId}
     ] = nksip_dialog:fields(C1, DialogIdA, [
                                 invite_status, created, updated, invite_answered, 
-                                local_target, remote_target, route_set, early, secure, 
-                                local_seq, remote_seq, invite_local_sdp, invite_remote_sdp, 
-                                call_id]),
+                                parsed_local_target, remote_target, route_set, early,
+                                secure, local_seq, remote_seq, invite_local_sdp, 
+                                invite_remote_sdp, call_id]),
+    
+
     Now = nksip_lib:timestamp(),
     true = (Now - Created) < 2,
     true = (Now - Updated) < 2,
@@ -186,7 +189,8 @@ dialog() ->
         {updated, Updated2},
         {invite_answered, Answered2},
         {local_target, <<"<sip:ok@127.0.0.1:5070>">>},
-        {remote_target, <<"<sip:client1@localhost:5060>">>},
+        {parsed_remote_target, 
+                    #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {route_set, []},
         {early, false},
         {secure, false},
@@ -197,9 +201,9 @@ dialog() ->
         {call_id, CallId}
     ] = nksip_dialog:fields(C2, DialogIdB, [
                                 invite_status, created, updated, invite_answered, 
-                                local_target, remote_target, route_set, early, secure, 
-                                local_seq, remote_seq, invite_local_sdp, invite_remote_sdp, 
-                                call_id]),
+                                local_target, parsed_remote_target, route_set, early,
+                                secure, local_seq, remote_seq, invite_local_sdp, 
+                                invite_remote_sdp, call_id]),
     true = (Now - Created2) < 2,
     true = (Now - Updated2) < 2,
     true = (Now - Answered2) < 2,
@@ -309,8 +313,8 @@ rr_contact() ->
         case R of
             {req, Req} ->
                 RR = nksip_sipmsg:header(Req, <<"Route">>),
-                [<<"<sip:client1@localhost:5060>">>] = 
-                    nksip_sipmsg:header(Req, <<"Contact">>),
+                [#uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}] = 
+                    nksip_sipmsg:header(Req, <<"Contact">>, uris),
                 Self ! {Ref, req_ok};
             {ok, Code, [{dialog_id, _}]} ->
                 if 
@@ -331,8 +335,8 @@ rr_contact() ->
     receive {Ref, 200} -> 
         {req, ACKReq2} = nksip_uac:ack(C1, DialogIdA, [get_request]),
         RR = nksip_sipmsg:header(ACKReq2, <<"Route">>),
-        [<<"<sip:client1@localhost:5060>">>] = 
-            nksip_sipmsg:header(ACKReq2, <<"Contact">>),
+        [#uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}] = 
+            nksip_sipmsg:header(ACKReq2, <<"Contact">>, uris),
         ok = tests_util:wait(Ref, [req_ok,
                                    {client2, ack}, 
                                    {client2, sdp_update},
@@ -350,18 +354,22 @@ rr_contact() ->
             #sdp{vsn=LVsn2, connect={_, _, <<"client1">>}, medias=[LMed2]}=LocalSDP2},
         {invite_remote_sdp, 
             #sdp{vsn=RVsn2, connect={_, _, <<"client2">>}} = RemoteSDP2},
-        {local_target, <<"<sip:client1@localhost:5060>">>},
+        {parsed_local_target, 
+            #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {remote_target, <<"<sip:ok@127.0.0.1:5070>">>}
     ] = nksip_dialog:fields(C1, DialogIdA, 
-                    [invite_local_sdp, invite_remote_sdp, local_target, remote_target]),
+                    [invite_local_sdp, invite_remote_sdp, parsed_local_target,
+                     remote_target]),
 
     [
         {invite_local_sdp, RemoteSDP2},
         {invite_remote_sdp, LocalSDP2},
-        {remote_target, <<"<sip:client1@localhost:5060>">>},
+        {parsed_remote_target, 
+            #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {local_target, <<"<sip:ok@127.0.0.1:5070>">>}
     ] = nksip_dialog:fields(C2, DialogIdB, 
-                    [invite_local_sdp, invite_remote_sdp, remote_target, local_target]),
+                    [invite_local_sdp, invite_remote_sdp, parsed_remote_target,
+                     local_target]),
     true = lists:member({<<"sendonly">>, []}, LMed2#sdp_m.attributes),
 
     {RemoteSDP2, LocalSDP2} = sipapp_endpoint:get_sessions(C2, DialogIdB),
@@ -394,16 +402,19 @@ rr_contact() ->
     [
         {invite_local_sdp, #sdp{vsn=LVsn3}},
         {invite_remote_sdp, #sdp{vsn=RVsn3}},
-        {local_target, <<"<sip:client1@localhost:5060>">>},
+        {parsed_local_target, 
+            #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {remote_target, <<"<sip:ok@127.0.0.1:5070>">>}
     ] = nksip_dialog:fields(C1, DialogIdA, 
-                            [invite_local_sdp, invite_remote_sdp, local_target, remote_target]),
+                            [invite_local_sdp, invite_remote_sdp, parsed_local_target, remote_target]),
     
     [
-        {remote_target, <<"<sip:client1@localhost:5060>">>},
+        {parsed_remote_target,  
+            #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {local_target, <<"<sip:ok@127.0.0.1:5070>">>},
         {invite_local_sdp, #sdp{vsn=RVsn3}}
-    ] = nksip_dialog:fields(C2, DialogIdB, [remote_target, local_target, invite_local_sdp]),
+    ] = nksip_dialog:fields(C2, DialogIdB, 
+                            [parsed_remote_target, local_target, invite_local_sdp]),
    
 
     {LocalSDP3, RemoteSDP3} = sipapp_endpoint:get_sessions(C1, DialogIdA),

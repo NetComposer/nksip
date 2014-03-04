@@ -75,7 +75,7 @@ get_user_pass(_User, _Realm, State) ->
 
 % Authorization is only used for "auth" suite
 authorize(_ReqId, Auth, _From, #state{id={auth, Id}}=State) ->
-    % ?P("AUTH AT ~p: ~p", [Id, Auth]),
+    % lager:warning("AUTH AT ~p: ~p", [Id, Auth]),
     Reply = case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true ->
             true;
@@ -232,9 +232,10 @@ route(_ReqId, Scheme, User, Domain, _From, #state{id={auth, server1}}=State) ->
             {reply, proxy, State};
         _ ->
             case nksip_registrar:find({auth, server1}, Scheme, User, Domain) of
-                [] -> {reply, temporarily_unavailable, State};
+                [] -> 
+                    {reply, temporarily_unavailable, State};
                 UriList ->
-                 {reply, {proxy, UriList, Opts}, State}
+                    {reply, {proxy, UriList, Opts}, State}
             end
     end;
 

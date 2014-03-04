@@ -45,12 +45,16 @@ start() ->
         {from, "sip:server1@nksip"},
         registrar,
         {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}]),
+        {transport, {tls, {0,0,0,0}, 5061}},
+        {supported, "100rel,timer,path"}        % No outbound
+    ]),
 
     ok = sipapp_endpoint:start({basic, client1}, [
         {from, "sip:client1@nksip"},
         {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}]),
+        {transport, {tls, {0,0,0,0}, 5071}},
+        {supported, "100rel,timer,path"}        % No outbound
+    ]),
 
     ok = sipapp_endpoint:start({basic, client2}, [
         {from, "sip:client2@nksip"}]),
@@ -240,8 +244,7 @@ register2() ->
                                 [{contact, <<"<sip:ddd:444;transport=tcp>;q=2.1">>}]),
     [
         [
-            #uri{user = <<"client2">>, domain = <<"aaa">>, opts = [],
-            ext_opts = [{<<"expires">>,<<"3600">>}]}
+            #uri{user = <<"client2">>, domain = <<"aaa">>, ext_opts = ExtOpts1}
         ],
         [
             #uri{user= <<>>, domain = <<"ddd">>,port = 444,
@@ -255,5 +258,7 @@ register2() ->
                 opts = [], ext_opts = [{<<"q">>,<<"3">>},{<<"expires">>,<<"3600">>}]}
         ]
     ] = nksip_registrar:qfind(Server1, sip, <<"client2">>, <<"nksip">>),
+    true = lists:member({<<"expires">>,<<"3600">>}, ExtOpts1),
+
     {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
     ok.
