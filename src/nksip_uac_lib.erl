@@ -296,7 +296,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             end,
             case 
                 (Method=='INVITE' orelse Method=='UPDATE') andalso 
-                lists:keymember(<<"timer">>, 1, CurrentSupported)
+                lists:member(<<"timer">>, CurrentSupported)
             of
                 true ->
                     MinSE = nksip_config:get_cached(min_session_expires, FullOpts),
