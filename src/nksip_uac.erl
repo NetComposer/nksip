@@ -744,19 +744,20 @@ notify(AppId, Dest, Opts) ->
         {terminated, Reason} 
             when Reason==deactivated; Reason==rejected; Reason==timeout; 
                  Reason==noresource; Reason==invariant ->
-            {terminated, Reason};
+            {terminated, Reason, undefined};
         {terminated, Reason}
             when Reason==probation; Reason==giveup ->
-            Retry = case nksip_lib:get_value(retry_after, Opts) of
+            case nksip_lib:get_value(retry_after, Opts) of
                 undefined ->
-                    undefined;
-                Retry0 ->
-                    case nksip_lib:to_integer(Retry0) of
-                        Retry1 when is_integer(Retry1), Retry1>=0 -> Retry1;
-                        _ -> undefined
+                    {terminated, Reason, undefined};
+                Retry ->
+                    case nksip_lib:to_integer(Retry) of
+                        Retry1 when is_integer(Retry1), Retry1>=0 -> 
+                            {terminated, Reason, Retry1};
+                        _ -> 
+                            {terminated, Reason, undefined}
                     end
-            end,
-            {terminated, {Reason, Retry}};
+            end;
         _ ->
             invalid
     end,

@@ -448,10 +448,10 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
                 false ->
                     {terminated, [{reason, timeout}]}
             end;
-        {terminated, {Reason, Retry}} ->
-            {terminated, [{reason, Reason}, {retry_after, Retry}]};
-        {terminated, Reason} ->
-            {terminated, [{reason, Reason}]}
+        {terminated, Reason, undefined} ->
+            {terminated, [{reason, Reason}]};
+        {terminated, Reason, Retry} ->
+            {terminated, [{reason, Reason}, {retry_after, Retry}]}
     end,
     [{event, Event}, {parsed_subscription_state, PSS} | Opts].
 
