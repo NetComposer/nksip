@@ -112,27 +112,27 @@ error_reason({q850, Code}) ->
     error_reason({q850, Code, q850_prase(Code)});
 
 error_reason({sip, Code, Text}) ->
-    error_reason({<<"SIP">>, Code, Text});
+    do_error_reason({<<"SIP">>, Code, Text});
 
 error_reason({q850, Code, Text}) ->
-    error_reason({<<"Q.850">>, Code, Text});
-
-error_reason({Name, Code, Text}) ->
-    Token = {nksip_lib:to_binary(Name), [
-        {<<"cause">>, nksip_lib:to_binary(Code)},
-        {<<"text">>, <<$", (nksip_lib:to_binary(Text))/binary, $">>}
-    ]},
-    nksip_unparse:token(Token);
+    do_error_reason({<<"Q.850">>, Code, Text});
 
 error_reason(_) ->
     error.
 
 
+%% @private
+do_error_reason({Name, Code, Text}) ->
+    Token = {nksip_lib:to_binary(Name), [
+        {<<"cause">>, nksip_lib:to_binary(Code)},
+        {<<"text">>, <<$", (nksip_lib:to_binary(Text))/binary, $">>}
+    ]},
+    nksip_unparse:token(Token).
 
 
 %% @doc Adds a "+sip_instance" media feature tag to a Contact
 -spec add_sip_instance(nksip:app_id(), nksip:uri()) ->
-    nksip:uri().
+    {ok, nksip:uri()} | {error, sipapp_not_found}.
 
 add_sip_instance(AppId, #uri{ext_opts=ExtOpts}=Uri) ->
     case nksip_sipapp_srv:get_uuid(AppId) of

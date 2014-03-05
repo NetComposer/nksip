@@ -29,6 +29,8 @@
 -export([header/2, new/1, update/2]).
 
 -type value() :: binary()|string()|atom()|integer()|nksip:user_uri()|nksip:token().
+% -type value() :: term().
+%% TODO
 
 
 %% ===================================================================

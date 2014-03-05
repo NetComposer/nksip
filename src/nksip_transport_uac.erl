@@ -34,11 +34,8 @@
 %% ===================================================================
 
 %% @doc Sends a new request.
--type send_opt() :: {local_host, auto|binary()} | record_route | make_contact |
-                    stateless_via.  
-
--spec send_request(nksip:request(), binary(), [send_opt()]) -> 
-    {ok, nksip:request()} | {error, nksip_reply:reply()}.
+-spec send_request(nksip:request(), binary(), nksip_lib:proplist()) -> 
+    {ok, nksip:request()} | {error, nksip:sipreply()}.
 
 send_request(Req, GlobalId, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}, ruri=RUri, routes=Routes} = Req,
@@ -167,7 +164,7 @@ outbound_opts(Req, Opts) ->
 %% @private 
 -spec remove_local_routes(nksip:request(), nksip_lib:proplist(), [#uri{}], 
                           undefined | {pid(), nksip:transport()}) ->
-    {nksip_lib:proplist(), [#uri{}], undefined | {pid(), nksip:transport()}}.
+    {[#uri{}], nksip_lib:proplist(), undefined | {pid(), nksip:transport()}}.
 
 remove_local_routes(_Req, Opts, [], Flow) ->
     {[], Opts, Flow};

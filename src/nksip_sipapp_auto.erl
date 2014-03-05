@@ -459,7 +459,7 @@ launch_unregister(AppId, Reg)->
 
    
 %% @private
--spec update_register(#sipreg{}, nksip:code(), nksip_lib:proplist(), #state{}) ->
+-spec update_register(#sipreg{}, nksip:response_code(), nksip_lib:proplist(), #state{}) ->
     #sipreg{}.
 
 update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 ->
@@ -585,7 +585,7 @@ launch_ping(AppId, Ping)->
 
    
 %% @private
--spec update_ping(#sipreg{}, nksip:code(), nksip_lib:proplist(), #state{}) ->
+-spec update_ping(#sipreg{}, nksip:response_code(), nksip_lib:proplist(), #state{}) ->
     #sipreg{}.
 
 update_ping(Ping, Code, Meta, _State) ->

@@ -910,7 +910,7 @@ registrar_store(AppId, Op, State) ->
 
 -type publish_store_op() ::
     {get, nksip:aor(), binary()} | 
-    {put, nksip:aor(), binary(), nksip_publis:reg_publish(), integer()} |
+    {put, nksip:aor(), binary(), nksip_publish:reg_publish(), integer()} |
     {del, nksip:aor(), binary()} |
     del_all.
 

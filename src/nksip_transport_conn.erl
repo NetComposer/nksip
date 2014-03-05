@@ -197,7 +197,7 @@ get_refresh(Pid) ->
 
 
 %% @private 
--spec parse(pid(), binary()) ->
+-spec incoming(pid(), binary()) ->
     ok.
 
 incoming(Pid, Packet) when is_binary(Packet) ->
@@ -558,8 +558,8 @@ parse(Packet, State) ->
         %     parse(Rest, State1);
         % {rn, Rest} ->
         %     parse(Rest, State);
-        error -> 
-            ?notice(AppId, "error parsing ~p request", [Proto]),
+        {error, Error} -> 
+            ?notice(AppId, "error parsing ~p request: ~p", [Proto, Error]),
             stop(parse_error, State)
     end.
 

@@ -60,7 +60,7 @@
 
 -include("nksip.hrl").
 
--export_type([app_id/0, request/0, response/0, sipreply/0]).
+-export_type([app_id/0, request/0, response/0, transport/0, sipreply/0]).
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
@@ -83,6 +83,9 @@
 
 %% User's response to a request
 -type sipreply() :: nksip_reply:sipreply().
+
+%% Transport
+-type transport() :: #transport{}.
 
 %% Parsed SIP Uri
 -type uri() :: #uri{}.
@@ -141,7 +144,9 @@
 -type token() :: {Name::binary(), [Key::binary() | {Key::binary(), Value::binary()}]}.
 
 %% Reason
--type error_reason() :: {sip|q850, pos_integer(), string()|binary()}.
+-type error_reason() :: 
+    {sip|q850, pos_integer()} |
+    {sip|q850, pos_integer(), string()|binary()}.
 
 
 %% ===================================================================

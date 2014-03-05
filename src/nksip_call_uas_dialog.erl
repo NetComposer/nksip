@@ -36,7 +36,7 @@
 
 %% @private
 -spec request(nksip:request(), nksip_call:call()) ->
-    {ok, nksip_call:call()} | {error, nksip:user_reply()}.
+    {ok, nksip_call:call()} | {error, nksip:sipreply()}.
 
 request(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     ack(Req, Call);
@@ -65,7 +65,7 @@ request(Req, Call) ->
 
 %% @private
 -spec do_request(nksip:method(), nksip:request(), nksip:dialog(), nksip_call:call()) ->
-    {ok, nksip_call:call()} | {error, nksip:user_reply()}.
+    {ok, nksip_call:call()} | {error, nksip:sipreply()}.
 
 do_request('INVITE', Req, #dialog{invite=undefined}=Dialog, Call) ->
     Invite = #invite{status=confirmed},

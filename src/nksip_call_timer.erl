@@ -65,7 +65,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
 
 %% @private
 -spec uac_update_timer(nksip:method(), nksip:dialog(), nksip_call:call()) ->
-    [nksip:header()].
+    nksip_lib:proplist().
 
 uac_update_timer(Method, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
@@ -157,7 +157,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
 %% @private
 -spec uas_check_422(nksip:request(), nksip_call:call()) ->
     continue | {update, nksip:request(), nksip_call:call()} | 
-               {reply, nksip:user_reply(), nksip_call:call()}.
+               {reply, nksip:sipreply(), nksip_call:call()}.
 
 uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
     case Method=='INVITE' orelse Method=='UPDATE' of
@@ -295,7 +295,8 @@ proxy_response(Req, Resp) ->
                 {ok, SE, _} ->
                     case nksip_sipmsg:supported(Req, <<"timer">>) of
                         true ->
-                            SE_Token = {SE, [{<<"refresher">>, <<"uac">>}]},
+                            SE_Token = {nksip_lib:to_binary(SE), 
+                                            [{<<"refresher">>, <<"uac">>}]},
                             Headers1 = nksip_headers:update(Resp, 
                                 [{single, <<"Session-Expires">>, SE_Token}]),
                             #sipmsg{require=Require} = Resp,

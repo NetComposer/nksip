@@ -71,13 +71,13 @@
     |
     {ob, Instance::binary(), RegId::binary()}.
 
--type reg_info() :: 
-    {
-        Index::index(), 
-        Uri::nksip:uri(), 
-        Expire::nksip_lib:timestamp(), 
-        Q::float()
-    }.
+% -type reg_info() :: 
+%     {
+%         Index::index(), 
+%         Uri::nksip:uri(), 
+%         Expire::nksip_lib:timestamp(), 
+%         Q::float()
+%     }.
 
 
 %% ===================================================================
@@ -414,10 +414,10 @@ update(Req, Times, ObProc) ->
 
 
 %% @private Extracts from each contact a index, uri, expire time and q
--spec gen_regcontacts([#uri{}], #reg_contact{}, 
+-spec gen_regcontacts([#uri{}], reg_contact(), 
                       {integer(), integer(), integer(), integer(), integer()}, 
-                      true|false|unsupported, [reg_info()]) ->
-    [reg_info()].
+                      true|false|unsupported, [reg_contact()]) ->
+    [reg_contact()].
 
 gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=Opts} = Contact,
@@ -484,8 +484,8 @@ gen_regcontacts([], _Base, _Times, _ObProc, Acc) ->
 
 
 %% @private
--spec update_regcontacts([reg_info()], nksip_lib:timestamp(), [reg_info()]) ->
-    [reg_info()].
+-spec update_regcontacts([reg_contact()], nksip_lib:timestamp(), [reg_contact()]) ->
+    [reg_contact()].
 
 update_regcontacts([RegContact|Rest], Now, Acc) ->
     % A new registration will overwite an old Contact if it has the same index

@@ -453,7 +453,7 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
 
 
 %% @private Gets a value from dialog's meta, or call's meta if no dialog found
--spec get_meta(term(), nksip:dialog_id(), nksip_call:call()) ->
+-spec get_meta(term(), nksip_dialog:id(), nksip_call:call()) ->
     term() | undefined.
 
 get_meta(Key, DialogId, Call) ->
@@ -464,7 +464,7 @@ get_meta(Key, DialogId, Call) ->
 
 
 %% @private Stores a value in dialog's meta, or call's meta if no dialog found
--spec update_meta(term(), term(), nksip:dialog_id(), nksip_call:call()) ->
+-spec update_meta(term(), term(), nksip_dialog:id(), nksip_call:call()) ->
     nksip_call:call().
 
 update_meta(Key, Value, DialogId, Call) ->

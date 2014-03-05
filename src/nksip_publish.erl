@@ -60,7 +60,7 @@ find(AppId, AOR, Tag) ->
 
 %% @doc Processes a PUBLISH request according to RFC3903
 -spec request(nksip:app_id(), nksip:aor(), binary(), integer(), nksip:body()) ->
-    nksip:user_reply().
+    nksip:sipreply().
 
 request(AppId, AOR, Tag, Expires, Body) ->
     Expires1 = case is_integer(Expires) andalso Expires>0 of

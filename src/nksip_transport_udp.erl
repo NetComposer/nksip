@@ -68,7 +68,7 @@ get_port(Pid) ->
 
 %% @private Starts a new listening server
 -spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
-    {ok, term()}.
+    term().
 
 get_listener(AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts) ->
     {

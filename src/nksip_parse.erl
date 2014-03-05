@@ -174,8 +174,10 @@ extract_uri_routes(#uri{headers=[]}=Uri) ->
     {[], Uri};
 
 extract_uri_routes(#uri{headers=Headers}=Uri) ->
-    {Headers1, Routes} = extract_uri_routes(Headers, [], []),
-    {Routes, Uri#uri{headers=lists:reverse(Headers1)}}.
+    case extract_uri_routes(Headers, [], []) of
+        {Headers1, Routes} -> {Routes, Uri#uri{headers=lists:reverse(Headers1)}};
+        error -> error
+    end.
 
 
 extract_uri_routes([], Hds, Routes) ->
