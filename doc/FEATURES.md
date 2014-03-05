@@ -9,11 +9,12 @@ NkSIP main features:
  * Stateless proxy servers, even using TCP/TLS.
  * Full IPv6 support. NkSIP can connect IPv4-only with IPv6-only hosts.
  * Full support for NAPTR and SRV location, including priority and weights.
+ * Outbound and GRUU support.
  * Automatic registrations and timed pings.
  * Dialog and SDP media start and stop detection.
  * SDP processing utilities.
  * Powerful event support.
- * Simple STUN server (for future SIP Outbound support).
+ * Simple STUN server 
  * Full RFC4475 and RFC5518 Torture Tests passing.
  * Robust and highly scalable, using all available processor cores.
 
@@ -45,6 +46,7 @@ RFC|Description|Notes
 [RFC5118](http://tools.ietf.org/html/rfc5118)|IPv6 Torture Tests|Included in unit tests
 [RFC5389](http://tools.ietf.org/html/rfc5389)|STUN|Basic STUN client and server (no IPv6)
 [RFC5626](http://tools.ietf.org/html/rfc5626)|Outbound|
+[RFC5627](http://tools.ietf.org/html/rfc5626)|GRUU|
 [RFC6026](http://tools.ietf.org/html/rfc6026)|2xx responses|
 [RFC6157](http://tools.ietf.org/html/rfc6157)|IPv6 Transition|
 [RFC6665](http://tools.ietf.org/html/rfc6665)|Event Notification|Obsoletes 3265. GRUU support pending

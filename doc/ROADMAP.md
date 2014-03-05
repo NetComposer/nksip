@@ -43,7 +43,7 @@ Some common SIP featured are still missing and can be addressed in following ver
 * [RFC4538](http://tools.ietf.org/html/rfc4538): Dialog authorization
 * ~~[RFC5027](http://tools.ietf.org/html/rfc5057): Multiple dialog~~
 * ~~[RFC5626](http://tools.ietf.org/html/rfc5626): Outbound~~
-* [RFC5627](http://tools.ietf.org/html/rfc5626): GRUU
+* ~~[RFC5627](http://tools.ietf.org/html/rfc5626): GRUU~~
 
 
 
