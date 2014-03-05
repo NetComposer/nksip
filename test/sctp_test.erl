@@ -111,8 +111,8 @@ basic() ->
                                    sctp_id=Id}, Pid} 
                         <- nksip_transport:get_all(C1), LP=:=LocalPort, Id=:=SctpId],
 
-    % C2 should not have started a new transport
-    [RemPid] = [Pid || {#transport{proto=sctp, remote_port=0}, Pid} 
+    % C2 should not have started a new transport also to C1:5070
+    [RemPid] = [Pid || {#transport{proto=sctp, remote_port=5070}, Pid} 
                        <- nksip_transport:get_all(C2)],
 
     % C1 should have started a new connection. C2 too.
