@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([uri/1, uri2proplist/1, via/1, token/1, packet/1, raw_packet/3]).
+-export([uri/1, ruri/1, uri2proplist/1, via/1, token/1, packet/1, raw_packet/3]).
 -export([add_sip_instance/2]).
 -export([error_reason/1]).
 
@@ -43,6 +43,14 @@ uri(UriList) when is_list(UriList)->
 
 uri(#uri{}=Uri) ->
     list_to_binary(raw_uri(Uri)).
+
+
+%% @doc Serializes an `uri()' as a R-URI (without < and >)
+-spec ruri(nksip:uri()) ->
+    binary().
+
+ruri(#uri{}=Uri) ->
+    list_to_binary(raw_ruri(Uri)).
 
 
 %% @doc Serializes an `uri()' into a `proplist()'.

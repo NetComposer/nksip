@@ -1,0 +1,74 @@
+%% -------------------------------------------------------------------
+%%
+%% gruu_test: Gruu (RFC5627) Test Suite
+%%
+%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% -------------------------------------------------------------------
+
+-module(gruu_test).
+
+-include_lib("eunit/include/eunit.hrl").
+-include("../include/nksip.hrl").
+
+-compile([export_all]).
+
+% register_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             fun register1/0, 
+%             fun register2/0
+%         ]
+%     }.
+
+
+start() ->
+    tests_util:start_nksip(),
+
+    ok = sipapp_server:start({basic, server1}, [
+        {from, "sip:server1@nksip"},
+        registrar,
+        {transport, {udp, {0,0,0,0}, 5060}},
+        {transport, {tls, {0,0,0,0}, 5061}}
+    ]),
+
+    ok = sipapp_endpoint:start({basic, client1}, [
+        {from, "sip:client1@nksip"},
+        {transport, {udp, {0,0,0,0}, 5070}},
+        {transport, {tls, {0,0,0,0}, 5071}}
+    ]),
+
+    ok = sipapp_endpoint:start({basic, client2}, [
+        {from, "sip:client2@nksip"}]),
+
+    % nksip_config:put(registrar_min_time, 60),
+
+    tests_util:log(debug),
+    ?debugFmt("Starting ~p", [?MODULE]).
+
+stop() ->
+    ok = sipapp_server:stop({basic, server1}),
+    ok = sipapp_endpoint:stop({basic, client1}),
+    ok = sipapp_endpoint:stop({basic, client2}).
+
+
+register() ->
+    C1 = {basic, client1},
+    nksip_uac:register(C1, "sip:127.0.0.1;transport=tcp", [make_contact]).
+

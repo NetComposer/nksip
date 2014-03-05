@@ -53,6 +53,8 @@
 
 -define(TIMEOUT, 15000).
 
+-define(AES_IV, <<"12345678abcdefgh">>).
+
 
 %% ===================================================================
 %% Types and records
@@ -71,13 +73,11 @@
     |
     {ob, Instance::binary(), RegId::binary()}.
 
-% -type reg_info() :: 
-%     {
-%         Index::index(), 
-%         Uri::nksip:uri(), 
-%         Expire::nksip_lib:timestamp(), 
-%         Q::float()
-%     }.
+-type times() :: {integer(), integer(), integer(), integer(), integer()}.
+
+-type ob_proc() :: true | false | unsupported.
+
+-type gruu_proc() :: {true, #uri{}, #uri{}} | false.
 
 
 %% ===================================================================
@@ -85,11 +85,46 @@
 %% ===================================================================
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nksip:app_id(), AOR::nksip:aor()) ->
+-spec find(nksip:app_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
 find(AppId, {Scheme, User, Domain}) ->
-    find(AppId, Scheme, User, Domain).
+    find(AppId, Scheme, User, Domain);
+
+find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
+    case lists:member(<<"gr">>, Opts) of
+        true -> 
+            % It is probably a tmp GRUU
+            <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
+            case catch base64:encode(crypto:block_decrypt(aes_cfb128, Key, ?AES_IV, User)) of
+                Tmp when is_binary(Tmp) ->
+                    case catch binary_to_term(Tmp) of
+                        {Scheme1, User1, Domain1, InstanceId1} ->
+                            [
+                                make_contact(Reg) 
+                                || #reg_contact{instance_id=InstanceId2}=Reg 
+                                <- get_info(AppId, Scheme1, User1, Domain1),
+                                InstanceId2==InstanceId1
+                            ];
+                        _ ->
+                            find(AppId, Scheme, User, Domain)
+                    end;
+                _ ->
+                    find(AppId, Scheme, User, Domain)
+            end;
+        false ->
+            case nksip_lib:get_value(<<"gr">>, Opts) of
+                undefined -> 
+                    find(AppId, Scheme, User, Domain);
+                Gr ->
+                    [
+                        make_contact(Reg) 
+                        || #reg_contact{instance_id=Gr2}=Reg 
+                        <- get_info(AppId, Scheme, User, Domain), Gr2==Gr
+                    ]
+            end
+    end.
+
 
 
 %% @doc Gets all current registered contacts for an AOR.
@@ -195,10 +230,12 @@ is_registered(#sipmsg{
 -spec request(nksip:request()) ->
     nksip:sipreply().
 
-request(Req) ->
+request(#sipmsg{app_id=AppId}=Req) ->
     try
-        {ObProc, Req1} = check_outbound(Req),
-        process(Req1, ObProc),
+        {ok, _, AppOpts, _} = nksip_sipapp_srv:get_opts(AppId),
+        {ObProc, Req1} = check_outbound(Req, AppOpts),
+        GruuProc = check_gruu(Req, AppOpts),
+        process(Req1, ObProc, GruuProc),
         #sipmsg{app_id=AppId, to=#uri{scheme=Scheme, user=ToUser, domain=ToDomain}} = Req,
         {ok, Regs} = callback_get(AppId, {Scheme, ToUser, ToDomain}),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
@@ -276,12 +313,11 @@ is_registered([
 
 
 %% @private
--spec check_outbound(nksip:request()) ->
-    {true|false|undefined, nksip:request()}.
+-spec check_outbound(nksip:request(), nksip_lib:proplist()) ->
+    {ob_proc(), nksip:request()}.
 
-check_outbound(Req) ->
+check_outbound(Req, AppOpts) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
-    {ok, _, AppOpts, _} = nksip_sipapp_srv:get_opts(AppId),
     AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
     case 
         lists:member(<<"outbound">>, AppSupp) andalso
@@ -327,10 +363,33 @@ check_outbound(Req) ->
 
 
 %% @private
--spec process(nksip:request(), true|false|unsupported) ->
+-spec check_gruu(nksip:request(), nksip_lib:proplist()) ->
+    gruu_proc().
+
+check_gruu(Req, AppOpts) ->
+    AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+    case 
+        lists:member(<<"gruu">>, AppSupp) andalso
+        nksip_sipmsg:supported(Req, <<"gruu">>)
+    of
+        true ->
+            #sipmsg{to=To, transport=Transp} = Req,
+            #uri{scheme=Scheme, user=User, domain=Domain} = To,
+            PubUri = #uri{scheme=Scheme, user=User, domain=Domain},
+            #transport{proto=Proto, listen_ip=ListenIp, listen_port=ListenPort} = Transp,
+            Host = nksip_transport:get_listenhost(ListenIp, AppOpts),
+            TmpUri = nksip_transport:make_route(sip, Proto, Host, ListenPort, <<>>, []),
+            {true, PubUri, TmpUri};
+        false ->
+            false
+    end.
+
+
+%% @private
+-spec process(nksip:request(), ob_proc(), gruu_proc()) ->
     ok.
 
-process(Req, ObProc) ->
+process(Req, ObProc, GruuProc) ->
     #sipmsg{to=#uri{scheme=Scheme}, contacts=Contacts} = Req,
     if
         Scheme==sip; Scheme==sips -> ok;
@@ -351,16 +410,15 @@ process(Req, ObProc) ->
     case Contacts of
         [] -> ok;
         [#uri{domain=(<<"*">>)}] when Default==0 -> del_all(Req);
-        _ -> update(Req, Times, ObProc)
+        _ -> update(Req, Times, ObProc, GruuProc)
     end.
 
 
 %% @private
--spec update(nksip:request(), {integer(), integer(), integer(), integer(), integer()}, 
-             true|false|unsupported) ->
+-spec update(nksip:request(), times(), ob_proc(), gruu_proc()) ->
     ok.
 
-update(Req, Times, ObProc) ->
+update(Req, Times, ObProc, GruuProc) ->
     #sipmsg{
         app_id = AppId, 
         to = #uri{scheme=Scheme, user=ToUser, domain=ToDomain},
@@ -381,7 +439,7 @@ update(Req, Times, ObProc) ->
         transport = Transp,
         path = Path
     },
-    RegContacts = gen_regcontacts(Contacts, Base, Times, ObProc, []),
+    RegContacts = gen_regcontacts(Contacts, Base, Times, ObProc, GruuProc, []),
     case 
         [true || #reg_contact{index={ob, _, _}, expire=Exp} <- RegContacts, Exp>0] 
     of
@@ -414,12 +472,11 @@ update(Req, Times, ObProc) ->
 
 
 %% @private Extracts from each contact a index, uri, expire time and q
--spec gen_regcontacts([#uri{}], reg_contact(), 
-                      {integer(), integer(), integer(), integer(), integer()}, 
-                      true|false|unsupported, [reg_contact()]) ->
+-spec gen_regcontacts([#uri{}], reg_contact(), times(), ob_proc(), gruu_proc(), 
+                      [reg_contact()]) ->
     [reg_contact()].
 
-gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
+gen_regcontacts([Contact|Rest], Base, Times, ObProc, GruuProc, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=Opts} = Contact,
     {Min, Max, Default, Now, _LongNow} = Times,
     case Domain of
@@ -459,27 +516,48 @@ gen_regcontacts([Contact|Rest], Base, Times, ObProc, Acc) ->
     Opts1 = nksip_lib:store_value(<<"expires">>, ExpireBin, Opts),
     {Proto, Domain, Port} = nksip_parse:transport(Contact),
     Instance = nksip_lib:get_value(<<"+sip.instance">>, Opts),
+    InstanceId = case Instance of
+        undefined -> <<>>;
+        _ -> nksip_lib:hash(Instance)
+    end,
     RegId = case nksip_lib:get_value(<<"reg-id">>, Opts) of
-        undefined -> undefined;
-        _ when ObProc==unsupported -> undefined;
+        undefined -> <<>>;
+        _ when ObProc==unsupported -> <<>>;
         _ when ObProc==false -> throw(first_hop_lacks_outbound);
-        _ when Instance==undefined -> undefined;
+        _ when Instance==undefined -> <<>>;
         RegId0 -> RegId0
     end,
     % TODO: If Instance and no reg_id -> creation of gruu
     Index = case RegId of
-        undefined -> {Scheme, Proto, User, Domain, Port};
+        <<>> -> {Scheme, Proto, User, Domain, Port};
         _ -> {ob, Instance, RegId}
+    end,
+    ExtOpts = case 
+        Instance /= <<>> andalso RegId == <<>> andalso 
+        Expires>0 andalso GruuProc 
+    of
+        {true, PubUri, TmpUri} ->
+            Pub = nksip_unparse:ruri(PubUri#uri{opts=[{<<"gr">>, InstanceId}]}),
+            GOpts1 = nksip_lib:store_value(<<"pub-gruu">>, <<$", Pub/binary, $">>, Opts1),
+            TmpBin = term_to_binary({Scheme, User, Domain, InstanceId}),
+            <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
+            TmpGr = base64:encode(crypto:block_encrypt(aes_cfb128, Key, ?AES_IV, TmpBin)),
+            Tmp = nksip_unparse:ruri(TmpUri#uri{user=TmpGr, ext_opts=[<<"gr">>]}),
+            nksip_lib:store_value(<<"temp-gruu">>, <<$", Tmp/binary, $">>, GOpts1);
+        false ->
+            Opts1
     end,
     RegContact = Base#reg_contact{
         index = Index,
-        contact = Contact#uri{ext_opts=Opts1},
+        contact = Contact#uri{ext_opts=ExtOpts},
         expire = Now + Expires, 
-        q = Q
+        q = Q,
+        instance_id = InstanceId,
+        reg_id = RegId
     },
-    gen_regcontacts(Rest, Base, Times, ObProc, [RegContact|Acc]);
+    gen_regcontacts(Rest, Base, Times, ObProc, GruuProc, [RegContact|Acc]);
 
-gen_regcontacts([], _Base, _Times, _ObProc, Acc) ->
+gen_regcontacts([], _AppOpts, _Base, _Times, _ObProc, Acc) ->
     Acc.
 
 
