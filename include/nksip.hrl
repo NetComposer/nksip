@@ -319,6 +319,8 @@
     path :: [nksip:uri()],
     instance_id :: binary(),
     reg_id :: binary(),
+    min_tmp_pos :: integer(),
+    next_tmp_pos :: integer(),
     meta = [] :: nksip_lib:proplist()  % No current use
 }).
 

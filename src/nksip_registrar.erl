@@ -95,32 +95,28 @@ find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
     case lists:member(<<"gr">>, Opts) of
         true -> 
             % It is probably a tmp GRUU
-            <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
-            case catch base64:encode(crypto:block_decrypt(aes_cfb128, Key, ?AES_IV, User)) of
+            case catch decrypt(User) of
                 Tmp when is_binary(Tmp) ->
-                    case catch binary_to_term(Tmp) of
-                        {Scheme1, User1, Domain1, InstanceId1} ->
-                            [
-                                make_contact(Reg) 
-                                || #reg_contact{instance_id=InstanceId2}=Reg 
-                                <- get_info(AppId, Scheme1, User1, Domain1),
-                                InstanceId2==InstanceId1
-                            ];
-                        _ ->
-                            find(AppId, Scheme, User, Domain)
-                    end;
+                    {{Scheme1, User1, Domain1}, InstId, Pos} = binary_to_term(Tmp),
+                    [
+                        make_contact(Reg) 
+                        || #reg_contact{instance_id=InstId1, min_tmp_pos=Min}=Reg 
+                        <- get_info(AppId, Scheme1, User1, Domain1), 
+                        InstId1==InstId, Pos>=Min
+                    ];
                 _ ->
+                    ?notice(AppId, "Private GRUU not recognized: ~p", [User]),
                     find(AppId, Scheme, User, Domain)
             end;
         false ->
             case nksip_lib:get_value(<<"gr">>, Opts) of
                 undefined -> 
                     find(AppId, Scheme, User, Domain);
-                Gr ->
+                InstId ->
                     [
                         make_contact(Reg) 
-                        || #reg_contact{instance_id=Gr2}=Reg 
-                        <- get_info(AppId, Scheme, User, Domain), Gr2==Gr
+                        || #reg_contact{instance_id=InstId1}=Reg 
+                        <- get_info(AppId, Scheme, User, Domain), InstId1==InstId
                     ]
             end
     end.
@@ -419,51 +415,38 @@ process(Req, ObProc, GruuProc) ->
     ok.
 
 update(Req, Times, ObProc, GruuProc) ->
-    #sipmsg{
-        app_id = AppId, 
-        to = #uri{scheme=Scheme, user=ToUser, domain=ToDomain},
-        contacts = Contacts,
-        call_id = CallId, 
-        cseq = CSeq,
-        transport = Transp
-    } = Req,
+    #sipmsg{app_id=AppId, to=To, contacts=Contacts} = Req,
     Path = case nksip_sipmsg:header(Req, <<"Path">>, uris) of
         error -> throw({invalid_request, "Invalid Path"});
         Path0 -> Path0
     end,
-    {_, _, _, Now, LongNow} = Times,
-    Base = #reg_contact{
-        call_id = CallId, 
-        cseq = CSeq,
-        updated = LongNow,
-        transport = Transp,
-        path = Path
-    },
-    RegContacts = gen_regcontacts(Contacts, Base, Times, ObProc, GruuProc, []),
+    {_, _, _, Now, _LongNow} = Times,
+    AOR = aor(To),
+    {ok, Regs} = callback_get(AppId, AOR),
+    RegContacts0 = [
+        RegContact ||
+        #reg_contact{expire=Exp} = RegContact <- Regs, 
+        Exp > Now
+    ],
+    RegContacts = update_regcontacts(Contacts, Req, Times, Path, ObProc, GruuProc, 
+                                     RegContacts0),
     case 
         [true || #reg_contact{index={ob, _, _}, expire=Exp} <- RegContacts, Exp>0] 
     of
         [_, _|_] -> throw({invalid_request, "Several 'reg-id' Options"});
         _ -> ok
     end,
-    AOR = {Scheme, ToUser, ToDomain},
-    {ok, Regs} = callback_get(AppId, AOR),
-    Contacts1 = [
-        RegContact ||
-        #reg_contact{expire=Exp} = RegContact <- Regs, 
-        Exp > Now
-    ],
-    case update_regcontacts(RegContacts, Now, Contacts1) of
+    case RegContacts of
         [] -> 
             case callback(AppId, {del, AOR}) of
                 ok -> ok;
                 not_found -> ok;
                 _ -> throw({internal_error, "Error calling registrar 'del' callback"})
             end;
-        Contacts2 -> 
-            GlobalExpire = lists:max([Exp-Now||#reg_contact{expire=Exp} <- Contacts2]),
+        _ -> 
+            GlobalExpire = lists:max([Exp-Now||#reg_contact{expire=Exp} <- RegContacts]),
             % Set a minimum expiration check of 5 secs
-            case callback(AppId, {put, AOR, Contacts2, max(GlobalExpire, 5)}) of
+            case callback(AppId, {put, AOR, RegContacts, max(GlobalExpire, 5)}) of
                 ok -> ok;
                 _ -> throw({internal_error, "Error calling registrar 'put' callback"})
             end
@@ -472,13 +455,15 @@ update(Req, Times, ObProc, GruuProc) ->
 
 
 %% @private Extracts from each contact a index, uri, expire time and q
--spec gen_regcontacts([#uri{}], reg_contact(), times(), ob_proc(), gruu_proc(), 
+-spec update_regcontacts([#uri{}], nksip:request(), times(), 
+                         [nksip:uri()], ob_proc(), gruu_proc(), 
                       [reg_contact()]) ->
     [reg_contact()].
 
-gen_regcontacts([Contact|Rest], Base, Times, ObProc, GruuProc, Acc) ->
+update_regcontacts([Contact|Rest], Req, Times, Path, ObProc, GruuProc, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=Opts} = Contact,
-    {Min, Max, Default, Now, _LongNow} = Times,
+    #sipmsg{to=To, call_id=CallId, cseq=CSeq, transport=Transp} = Req,
+    {Min, Max, Default, Now, LongNow} = Times,
     case Domain of
         <<"*">> -> throw(invalid_request);
         _ -> ok
@@ -514,76 +499,117 @@ gen_regcontacts([Contact|Rest], Base, Times, ObProc, GruuProc, Acc) ->
     end,
     ExpireBin = list_to_binary(integer_to_list(Expires)),
     Opts1 = nksip_lib:store_value(<<"expires">>, ExpireBin, Opts),
-    {Proto, Domain, Port} = nksip_parse:transport(Contact),
-    Instance = nksip_lib:get_value(<<"+sip.instance">>, Opts),
-    InstanceId = case Instance of
+    InstId = case nksip_lib:get_value(<<"+sip.instance">>, Opts) of
         undefined -> <<>>;
-        _ -> nksip_lib:hash(Instance)
+        Inst0 -> nksip_lib:hash(Inst0)
     end,
     RegId = case nksip_lib:get_value(<<"reg-id">>, Opts) of
         undefined -> <<>>;
-        _ when ObProc==unsupported -> <<>>;
-        _ when ObProc==false -> throw(first_hop_lacks_outbound);
-        _ when Instance==undefined -> <<>>;
+        _ when ObProc == unsupported -> <<>>;
+        _ when ObProc == false -> throw(first_hop_lacks_outbound);
+        _ when InstId == <<>> -> <<>>;
         RegId0 -> RegId0
     end,
-    % TODO: If Instance and no reg_id -> creation of gruu
     Index = case RegId of
-        <<>> -> {Scheme, Proto, User, Domain, Port};
-        _ -> {ob, Instance, RegId}
+        <<>> -> 
+            {Proto, Domain, Port} = nksip_parse:transport(Contact),
+            {Scheme, Proto, User, Domain, Port};
+        _ -> 
+            {ob, InstId, RegId}
     end,
-    ExtOpts = case 
-        Instance /= <<>> andalso RegId == <<>> andalso 
-        Expires>0 andalso GruuProc 
-    of
-        {true, PubUri, TmpUri} ->
-            Pub = nksip_unparse:ruri(PubUri#uri{opts=[{<<"gr">>, InstanceId}]}),
-            GOpts1 = nksip_lib:store_value(<<"pub-gruu">>, <<$", Pub/binary, $">>, Opts1),
-            TmpBin = term_to_binary({Scheme, User, Domain, InstanceId}),
-            <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
-            TmpGr = base64:encode(crypto:block_encrypt(aes_cfb128, Key, ?AES_IV, TmpBin)),
-            Tmp = nksip_unparse:ruri(TmpUri#uri{user=TmpGr, ext_opts=[<<"gr">>]}),
-            nksip_lib:store_value(<<"temp-gruu">>, <<$", Tmp/binary, $">>, GOpts1);
+
+    % Find if this contact was already registered under the AOR
+    {Base, Acc1} = case lists:keytake(Index, #reg_contact.index, Acc) of
+        false when Expires==0 ->
+            {undefined, Acc};
         false ->
-            Opts1
-    end,
-    RegContact = Base#reg_contact{
-        index = Index,
-        contact = Contact#uri{ext_opts=ExtOpts},
-        expire = Now + Expires, 
-        q = Q,
-        instance_id = InstanceId,
-        reg_id = RegId
-    },
-    gen_regcontacts(Rest, Base, Times, ObProc, GruuProc, [RegContact|Acc]);
-
-gen_regcontacts([], _AppOpts, _Base, _Times, _ObProc, Acc) ->
-    Acc.
-
-
-%% @private
--spec update_regcontacts([reg_contact()], nksip_lib:timestamp(), [reg_contact()]) ->
-    [reg_contact()].
-
-update_regcontacts([RegContact|Rest], Now, Acc) ->
-    % A new registration will overwite an old Contact if it has the same index
-    #reg_contact{index=Index, expire=Expire, cseq=CSeq, call_id=CallId} = RegContact,
-    Acc1 = case lists:keytake(Index, #reg_contact.index, Acc) of
-        false when Expire==Now ->
-            Acc;
-        false ->
-            [RegContact|Acc];
+            Base0 = #reg_contact{
+                call_id = CallId, 
+                cseq = CSeq,
+                transport = Transp,
+                path = Path,
+                min_tmp_pos = 0,
+                next_tmp_pos = 0,
+                meta = []
+            },
+            {Base0, Acc};
         {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq -> 
             throw({invalid_request, "Rejected Old CSeq"});
-        {value, _, Acc0} when Expire==Now ->
-            Acc0;
-        {value, _, Acc0} ->
-            [RegContact|Acc0]
+        {value, _, Acc0} when Expires==0 ->
+            {undefined, Acc0};
+        {value, #reg_contact{call_id=CallId}=Base0, Acc0} ->
+            {Base0, Acc0};
+        {value, #reg_contact{next_tmp_pos=Next0}=Base0, Acc0} ->
+            % We have changed the Call-ID for this AOR and index, invalidate all
+            % temporary GRUUs
+            {Base0#reg_contact{min_tmp_pos=Next0}, Acc0}
     end,
-    update_regcontacts(Rest, Now, Acc1);
-        
-update_regcontacts([], _Now, Acc) ->
+    Acc2 = case Base of
+        undefined ->
+            Acc1;
+        #reg_contact{next_tmp_pos=Next} ->
+            ExtOpts = case 
+                InstId /= <<>> andalso RegId == <<>> andalso 
+                Expires>0 andalso GruuProc 
+            of
+                {true, PubUri, TmpUri} ->
+                    PubUri1 = PubUri#uri{opts=[{<<"gr">>, InstId}]},
+                    Pub = list_to_binary([$", nksip_unparse:ruri(PubUri1), $"]),
+                    GOpts1 = nksip_lib:store_value(<<"pub-gruu">>, Pub, Opts1),
+                    TmpBin = term_to_binary({aor(To), InstId, Next}),
+                    TmpGr = encrypt(TmpBin),
+                    TmpUri1 = TmpUri#uri{user=TmpGr, opts=[<<"gr">>]},
+                    Tmp = list_to_binary([$", nksip_unparse:ruri(TmpUri1), $"]),
+                    nksip_lib:store_value(<<"temp-gruu">>, Tmp, GOpts1);
+                false ->
+                    Opts1
+            end,
+            RegContact = Base#reg_contact{
+                index = Index,
+                contact = Contact#uri{ext_opts=ExtOpts},
+                updated = LongNow,
+                expire = Now + Expires, 
+                q = Q,
+                instance_id = InstId,
+                reg_id = RegId,
+                next_tmp_pos = Next+1
+            },
+            [RegContact|Acc1]
+    end,
+    update_regcontacts(Rest, Req, Times, Path, ObProc, GruuProc, Acc2);
+
+update_regcontacts([], _Req, _Times, _Path, _ObProc, _GruuProc, Acc) ->
     lists:reverse(lists:keysort(#reg_contact.updated, Acc)).
+
+
+% %% @private
+% -spec update_regcontacts([reg_contact()], nksip_lib:timestamp(), [reg_contact()]) ->
+%     [reg_contact()].
+
+% update_regcontacts([RegContact|Rest], Now, Acc) ->
+%     % A new registration will overwite an old Contact if it has the same index
+%     #reg_contact{index=Index, expire=Expire, cseq=CSeq, call_id=CallId} = RegContact,
+%     Acc1 = case lists:keytake(Index, #reg_contact.index, Acc) of
+%         false when Expire==Now ->
+%             Acc;
+%         false ->
+%             [RegContact|Acc];
+%         {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq -> 
+%             throw({invalid_request, "Rejected Old CSeq"});
+%         {value, _, Acc0} when Expire==Now ->
+%             Acc0;
+%         {value, _, Acc0} ->
+%             [RegContact|Acc0]
+%     end,
+%     update_regcontacts(Rest, Now, Acc1);
+        
+% update_regcontacts([], _Now, Acc) ->
+%     lists:reverse(lists:keysort(#reg_contact.updated, Acc)).
+
+
+%% @priavte
+aor(#uri{scheme=Scheme, user=User, domain=Domain}) ->
+    {Scheme, User, Domain}.
 
 
 %% @private Generates a contact value including Path
@@ -602,13 +628,8 @@ make_contact(#reg_contact{contact=Contact, path=Path}) ->
     ok | not_found.
 
 del_all(Req) ->
-    #sipmsg{
-        app_id = AppId,
-        to = #uri{scheme=Scheme, user=ToUser, domain=ToDomain},
-        call_id = CallId, 
-        cseq = CSeq
-    } = Req,
-    AOR = {Scheme, ToUser, ToDomain},
+    #sipmsg{app_id=AppId, to=To, call_id=CallId, cseq=CSeq} = Req,
+    AOR = aor(To),
     {ok, RegContacts} = callback_get(AppId, AOR),
     lists:foreach(
         fun(#reg_contact{call_id=CCallId, cseq=CCSeq}) ->
@@ -670,6 +691,19 @@ callback(AppId, Op) ->
         {error, not_found} ->
             error
     end.
+
+
+%% @private
+encrypt(Bin) ->
+    <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
+    base64:encode(crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin)).
+
+
+%% @private
+decrypt(Bin) ->
+    <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
+    crypto:aes_cfb_128_decrypt(Key, ?AES_IV, base64:decode(Bin)).
+
 
 
 %% ===================================================================
