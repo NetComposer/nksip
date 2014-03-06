@@ -29,6 +29,7 @@
 -behaviour(gen_server).
 
 -export([get_module/1, get_uuid/1, get_opts/1, reply/2]).
+-export([get_gruu_pub/1, get_gruu_temp/1]).
 -export([sipapp_call/6, sipapp_call_wait/6, sipapp_cast/5]).
 -export([register/2, get_registered/2, put_opts/2, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
@@ -94,6 +95,22 @@ get_opts(AppId) ->
         undefined -> {error, not_found};
         Pid -> gen_server:call(Pid, '$nksip_get_opts', ?SRV_TIMEOUT)
     end.
+
+
+%% @doc Gets the last detected public GRUU
+-spec get_gruu_pub(nksip:app_id()) ->
+    undefined | nksip:uri().
+
+get_gruu_pub(AppId) ->
+    nksip_config:get({nksip_gruu_pub, AppId}).
+
+
+%% @doc Gets the last detected temporary GRUU
+-spec get_gruu_temp(nksip:app_id()) ->
+    undefined | nksip:uri().
+
+get_gruu_temp(AppId) ->
+    nksip_config:get({nksip_gruu_temp, AppId}).
 
 
 %% @private

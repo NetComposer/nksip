@@ -209,7 +209,7 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
         _ -> 
             UAC3#trans{status=finished}
     end,
-    received_auth(Req, Resp, UAC5, update(UAC5, Call));
+    received_gruu(Req, Resp, UAC5, update(UAC5, Call));
 
 
 response_status(invite_accepted, _Resp, #trans{code=Code}, Call) 
@@ -278,7 +278,7 @@ response_status(proceeding, Resp, UAC, Call) ->
             UAC1 = UAC#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
-    received_auth(Req, Resp, UAC2, update(UAC2, Call));
+    received_gruu(Req, Resp, UAC2, update(UAC2, Call));
 
 response_status(completed, Resp, UAC, Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq_method=Method, to_tag=ToTag} = Resp,
@@ -339,6 +339,57 @@ do_received_hangup(Resp, UAC, Call) ->
 
 
 %% @private 
+-spec received_gruu(nksip:request(), nksip:response(), 
+                       nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+received_gruu(Req, Resp, UAC, Call) ->
+    #trans{method = Method, code=Code} = UAC,
+    #sipmsg{contacts=Contacts} = Resp,
+    #call{app_id=AppId} = Call,
+    case Method=='REGISTER' andalso Code>=200 andalso Code<300 of
+        true -> find_gruus(AppId, Contacts);
+        false -> ok
+    end,
+    received_auth(Req, Resp, UAC, Call).
+
+
+%% @private
+find_gruus(AppId, [#uri{ext_opts=Opts}|Rest]) ->
+    HasPubGruu = case nksip_lib:get_value(<<"pub-gruu">>, Opts) of
+        undefined -> 
+            false;
+        PubGruu ->
+            case nksip_parse:ruris(nksip_lib:unquote(PubGruu)) of
+                [PubUri] -> 
+                    nksip_config:put({nksip_gruu_pub, AppId}, PubUri),
+                    true;
+                _ -> 
+                    false
+            end
+    end,
+    HasTmpGruu = case nksip_lib:get_value(<<"temp-gruu">>, Opts) of
+        undefined -> 
+            false;
+        TempGruu ->
+            case nksip_parse:ruris(nksip_lib:unquote(TempGruu)) of
+                [TempUri] -> 
+                    nksip_config:put({nksip_gruu_temp, AppId}, TempUri),
+                    true;
+                _ -> 
+                    false
+            end
+    end,
+    case HasPubGruu andalso HasTmpGruu of
+        true -> ok;
+        false -> find_gruus(AppId, Rest)
+    end;
+
+find_gruus(_, []) ->
+    ok.
+
+
+%% @private 
 -spec received_auth(nksip:request(), nksip:response(), 
                        nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
@@ -387,21 +438,6 @@ received_422(Req, Resp, UAC, Call) ->
         false ->
             received_reply(Resp, UAC, Call)
     end.
-
-
-% %% @private
-% received_outbound(Req, Resp, UAC, Call) ->
-%     #sipmsg{class = {req, Method}, app_id=AppId, transport=Transp} = Req,
-%     #sipmsg{class = {resp, Code, _}} = Resp,
-%     case 
-%         Method=='REGISTER' andalso Code>=200 andalso Code<300 andalso
-%         nksip_sipmsg:supported(Req, <<"outbound">>) andalso
-%         nksip_sipmsg:require(Resp, <<"outbound">>)
-%     of
-%         true -> nksip_transport:start_refresh(AppId, Transp);
-%         false -> ok
-%     end,
-%     received_reply(Resp, UAC, Call).
 
 
 %% @private 
