@@ -27,7 +27,7 @@
 
 -compile([export_all]).
 
-path_test_() ->
+outbound_test_() ->
     {setup, spawn, 
         fun() -> start() end,
         fun(_) -> stop() end,
@@ -148,8 +148,10 @@ flow() ->
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
         opts = [{<<"transport">>, <<"tcp">>}, <<"ob">>],
-        ext_opts = [{<<"+sip.instance">>, QInstanceC1}, {<<"expires">>, <<"3600">>}]
+        ext_opts = EOpts1
     } = PContact,
+    QInstanceC1 = nksip_lib:get_value(<<"+sip.instance">>, EOpts1),
+
     {ok, InstanceC1} = nksip_sipapp_srv:get_uuid(C1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
@@ -172,8 +174,9 @@ flow() ->
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
         opts = [{<<"transport">>, <<"tcp">>}, <<"ob">>],
         headers = [{<<"Route">>, QRoute1}],
-        ext_opts = [{<<"+sip.instance">>, QInstanceC1}, {<<"expires">>,<<"3600">>}]
+        ext_opts = EOpts2
     }=Contact1] = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
+    true = lists:member({<<"+sip.instance">>, QInstanceC1}, EOpts2),
 
     true = 
         list_to_binary(http_uri:decode(binary_to_list(QRoute1))) == 
@@ -247,8 +250,9 @@ register() ->
     {ok, InstanceC1} = nksip_sipapp_srv:get_uuid(C1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
+    QInstanceC1_id = nksip_lib:hash(QInstanceC1),
     [#reg_contact{
-        index = {ob, QInstanceC1, <<"1">>},
+        index = {ob, QInstanceC1_id, <<"1">>},
         contact = Contact1,
         path = [#uri{
             user = <<"NkF", _Flow1/binary>>,
@@ -274,11 +278,11 @@ register() ->
 
     [
         #reg_contact{
-            index = {ob, QInstanceC1, <<"2">>},
+            index = {ob, QInstanceC1_id, <<"2">>},
             contact = Contact2
         },
         #reg_contact{
-            index = {ob, QInstanceC1, <<"1">>},
+            index = {ob, QInstanceC1_id, <<"1">>},
             contact = Contact1
         }
     ] = nksip_registrar:get_info(R1, sip, <<"ua1">>, <<"nksip">>),
@@ -302,17 +306,18 @@ register() ->
     true = <<$", InstanceC2/binary, $">> == QInstanceC2,
     true = InstanceC1 /= InstanceC2,
 
+    QInstanceC2_id = nksip_lib:hash(QInstanceC2),
     [
         #reg_contact{
-            index = {ob, QInstanceC2, <<"1">>},
+            index = {ob, QInstanceC2_id, <<"1">>},
             contact = Contact3
         },
         #reg_contact{
-            index = {ob, QInstanceC1, <<"2">>},
+            index = {ob, QInstanceC1_id, <<"2">>},
             contact = Contact2
         },
         #reg_contact{
-            index = {ob, QInstanceC1, <<"1">>},
+            index = {ob, QInstanceC1_id, <<"1">>},
             contact = Contact1
         }
     ] = nksip_registrar:get_info(R1, sip, <<"ua1">>, <<"nksip">>),
@@ -325,17 +330,17 @@ register() ->
                             [make_contact, {reg_id, 2}, {fields, [parsed_contacts]}]),
     [
         #reg_contact{
-            index = {ob, QInstanceC1, <<"2">>},
+            index = {ob, QInstanceC1_id, <<"2">>},
             contact = Contact2,
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         },
         #reg_contact{
-            index = {ob, QInstanceC2, <<"1">>},
+            index = {ob, QInstanceC2_id, <<"1">>},
             contact = Contact3,
             path = [#uri{user = <<"NkF", Flow2/binary>>}]
         },
         #reg_contact{
-            index = {ob, QInstanceC1, <<"1">>},
+            index = {ob, QInstanceC1_id, <<"1">>},
             contact = Contact1,
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
