@@ -54,7 +54,8 @@ uris(_) ->
 
 %% @private
 uris(String, Acc) ->
-    case disp(strip(String), [], false, #uri{}, String) of
+    String1 = strip(String),
+    case disp(String1, [], false, #uri{}, String1) of
         {#uri{}=Uri, []} when Acc==[]-> [Uri];
         {#uri{}=Uri, []} -> lists:reverse([Uri|Acc]);
         {#uri{}=Uri, Rest} -> uris(Rest, [Uri|Acc]);
@@ -656,6 +657,7 @@ uri5_test() ->
         uris("<sip:a?routE=a>?route=b"),
     [#uri{headers=[], ext_headers=[{<<"routE">>, <<"a">>}]}] = 
         uris("sip:a?routE=a").
+
 
 -endif.
 
