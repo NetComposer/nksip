@@ -362,6 +362,7 @@ application_13() ->
 
 
 %% Changed to TCP
+%% Changed user to user1 in Contact, we cannot use the same AOR (of To)
 application_14() ->
     nksip_registrar:delete({torture, server1}, sip, <<"user">>, <<"example.com">>),
     Msg = 
@@ -372,7 +373,7 @@ application_14() ->
         "Call-ID: regescrt.k345asrl3fdbv@192.0.2.1\r\n"
         "CSeq: 14398234 REGISTER\r\n"
         "Via: SIP/2.0/TCP host5.example.com;branch=z9hG4bKkdjuw\r\n"
-        "M: <sip:user@example.com?Route=%3Csip:sip.example.com%3E>\r\n"
+        "M: <sip:user1@example.com?Route=%3Csip:sip.example.com%3E>\r\n"
         "L:0\r\n"
         "\r\n">>,
     Reply = send(tcp, Msg),
@@ -380,7 +381,7 @@ application_14() ->
         class = {resp, 200, _},
         contacts = [
             #uri{
-                scheme = sip, user = <<"user">>,
+                scheme = sip, user = <<"user1">>,
                 domain = <<"example.com">>, port = 0, opts = [],
                 headers = [{<<"Route">>,<<"%3Csip:sip.example.com%3E">>}],
                 ext_opts = [{<<"expires">>,<<"3600">>}],

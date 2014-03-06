@@ -98,7 +98,7 @@ authorize(_ReqId, _Auth, _From, State) ->
 % Any other case simply route
 route(ReqId, Scheme, User, Domain, _From, 
         #state{id={Test, Id}=AppId, domains=Domains}=State)
-        when Test=:=basic; Test=:=uas ->
+        when Test=:=basic; Test=:=uas; Test=:=gruu ->
     Opts = [
         record_route,
         {headers, [{'Nksip-Server', Id}]}
