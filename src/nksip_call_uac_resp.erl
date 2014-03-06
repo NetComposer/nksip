@@ -119,8 +119,10 @@ response(Resp, UAC, Call) ->
         false -> Resp1
     end,
     Call3 = case NoDialog of
-        true -> Call2;
-        false -> nksip_call_uac_dialog:response(Req, Resp2, IsProxy, Call2)
+        false when is_record(Req, sipmsg) -> 
+            nksip_call_uac_dialog:response(Req, Resp2, IsProxy, Call2);
+        _ -> 
+            Call2
     end,
     Call4 = case 
         Code>=300 andalso (Method=='SUBSCRIBE' orelse Method=='REFER')
