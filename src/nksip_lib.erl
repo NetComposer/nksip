@@ -30,7 +30,7 @@
 -export([get_value/2, get_value/3, get_binary/2, get_binary/3, get_list/2, get_list/3]).
 -export([get_integer/2, get_integer/3, store_value/2, store_value/3]).
 -export([to_binary/1, to_list/1, to_integer/1, to_ip/1, to_host/1, to_host/2]).
--export([to_lower/1, to_upper/1, is_string/1]).
+-export([to_lower/1, to_upper/1, strip/1, unquote/1, is_string/1]).
 -export([bjoin/1, bjoin/2, tokens/1, hex/1, extract/2, delete/2, bin_last/2]).
 -export([cancel_timer/1, msg/2]).
 
@@ -498,6 +498,37 @@ to_upper(List) when is_list(List) ->
     list_to_binary(string:to_upper(List));
 to_upper(Other) -> 
     to_upper(to_list(Other)).
+
+
+%% @doc URI Strips trailing white space
+-spec strip(list()|binary()) ->
+    list().
+
+strip(Bin) when is_binary(Bin) -> strip(binary_to_list(Bin));
+strip([32|Rest]) -> strip(Rest);
+strip([13|Rest]) -> strip(Rest);
+strip([10|Rest]) -> strip(Rest);
+strip([9|Rest]) -> strip(Rest);
+strip(Rest) -> Rest.
+
+
+%% @doc Removes doble quotes
+-spec unquote(list()|binary()) ->
+    list().
+
+unquote(Bin) when is_binary(Bin) -> 
+    unquote(binary_to_list(Bin));
+
+unquote(List) -> 
+    case strip(List) of
+        [$"|Rest] -> 
+            case strip(lists:reverse(Rest)) of
+                [$"|Rest1] -> strip(lists:reverse(Rest1));
+                _ -> []
+            end;
+        Other -> 
+            Other
+    end.
 
 
 %% @doc Generates a printable string from a big number using base 62.
