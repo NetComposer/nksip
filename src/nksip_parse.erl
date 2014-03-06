@@ -29,7 +29,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([method/1, scheme/1, aors/1, uris/1, vias/1]).
+-export([method/1, scheme/1, aors/1, uris/1, ruris/1, vias/1]).
 -export([tokens/1, integers/1, dates/1, extract_uri_routes/1]).
 -export([transport/1, session_expires/1]).
 -export([packet/3, raw_sipmsg/1, raw_header/1]).
@@ -83,7 +83,7 @@ aors(Term) ->
 
 
 %% @doc Parses all URIs found in `Term'.
--spec uris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
+-spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
     [nksip:uri()] | error.
                 
 uris([]) -> [];
@@ -91,6 +91,17 @@ uris([First|_]=String) when is_integer(First) -> uris([String]);    % It's a str
 uris(List) when is_list(List) -> parse_uris(List, []);
 uris(Term) -> uris([Term]).
 
+
+%% @doc Parses all URIs found in `Term'.
+-spec uris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
+    [nksip:uri()] | error.
+                
+ruris(RUris) -> 
+    case uris(RUris) of
+        error -> error;
+        Uris -> parse_ruris(Uris, [])
+    end.
+          
 
 %% @doc Extracts all `via()' found in `Term'
 -spec vias(Term :: binary() | string() | [binary() | string()]) -> 
@@ -769,6 +780,21 @@ parse_uris([Next|Rest], Acc) ->
         error -> error;
         UriList -> parse_uris(Rest, Acc++UriList)
     end.
+
+
+%% @private
+-spec parse_ruris([#uri{}], [#uri{}]) ->
+    [#uri{}] | error.
+
+parse_ruris([], Acc) ->
+    lists:reverse(Acc);
+
+parse_ruris([#uri{opts=[], headers=[], ext_opts=Opts}=Uri|Rest], Acc) ->
+    parse_uris(Rest, [Uri#uri{opts=Opts, ext_opts=[], ext_headers=[]}|Acc]);
+
+parse_ruris(_, _) ->
+    error.
+
 
 
 %% @private
