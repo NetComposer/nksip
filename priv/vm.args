@@ -1,6 +1,8 @@
 -pa deps/goldrush/ebin 
 -pa deps/lager/ebin 
 -pa deps/ranch/ebin 
+-pa deps/cowboy/ebin 
+-pa deps/gun/ebin 
 -pa ../nksip/ebin
 -pa samples/nksip_loadtest/ebin
 

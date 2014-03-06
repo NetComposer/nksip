@@ -60,6 +60,8 @@ start_listener(AppId, Proto, Ip, Port, Opts) ->
         tcp -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
         tls -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
         sctp -> nksip_transport_sctp:get_listener(AppId, Transp, Opts);
+        ws -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
+        wss -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
         _ -> {error, invalid_transport}
     end,
     nksip_transport_sup:add_transport(AppId, Spec).

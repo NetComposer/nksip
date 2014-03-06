@@ -321,35 +321,43 @@
 start(AppId, Module, Args, Opts) ->
     try
         Transports = [
-            case Transport of
-                {Scheme, Ip, Port} 
-                    when (Scheme==udp orelse Scheme==tcp orelse 
-                          Scheme==tls orelse Scheme==sctp) ->
-                    Ip1 = case Ip of
-                        any -> 
-                            {0,0,0,0};
-                        any6 ->
-                            {0,0,0,0,0,0,0,0};
-                        _ when is_tuple(Ip) ->
-                            case catch inet_parse:ntoa(Ip) of
-                                {error, _} -> throw(invalid_transport);
-                                {'EXIT', _} -> throw(invalid_transport);
-                                _ -> Ip
-                            end;
-                        _ ->
-                            case nksip_lib:to_ip(Ip) of
-                                {ok, PIp} -> PIp;
-                                error -> throw(invalid_transport)
-                            end
-                    end,
-                    Port1 = case Port of
-                        all -> 0;
-                        _ when is_integer(Port), Port >= 0 -> Port;
-                        _ -> throw(invalid_transport)
-                    end,
-                    {Scheme, Ip1, Port1};
-                _ ->
-                    throw(invalid_transport)
+            begin
+                case Transport of
+                    {Scheme, Ip, Port} -> TOpts = [];
+                    {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
+                    _ -> Scheme=Ip=Port=TOpts=throw(invalid_transport)
+                end,
+                case 
+                    (Scheme==udp orelse Scheme==tcp orelse 
+                     Scheme==tls orelse Scheme==sctp orelse
+                     Scheme==ws  orelse Scheme==wss)
+                of
+                    true -> ok;
+                    false -> throw(invalid_transport)
+                end,
+                Ip1 = case Ip of
+                    any -> 
+                        {0,0,0,0};
+                    any6 ->
+                        {0,0,0,0,0,0,0,0};
+                    _ when is_tuple(Ip) ->
+                        case catch inet_parse:ntoa(Ip) of
+                            {error, _} -> throw(invalid_transport);
+                            {'EXIT', _} -> throw(invalid_transport);
+                            _ -> Ip
+                        end;
+                    _ ->
+                        case nksip_lib:to_ip(Ip) of
+                            {ok, PIp} -> PIp;
+                            error -> throw(invalid_transport)
+                        end
+                end,
+                Port1 = case Port of
+                    all -> 0;
+                    _ when is_integer(Port), Port >= 0 -> Port;
+                    _ -> throw(invalid_transport)
+                end,
+                {Scheme, Ip1, Port1, TOpts}
             end
             || Transport <- proplists:get_all_values(transport, Opts)
         ],
@@ -363,7 +371,7 @@ start(AppId, Module, Args, Opts) ->
             end,
             nksip_lib:extract(Opts, pass),
             case Transports of
-                [] -> {transports, [{udp, {0,0,0,0}, 0}, {tls, {0,0,0,0}, 0}]};
+                [] -> {transports, [{udp, {0,0,0,0}, 0, []}, {tls, {0,0,0,0}, 0, []}]};
                 _ -> {transports, Transports}
             end,
             case nksip_lib:get_value(listeners, Opts) of
@@ -465,14 +473,6 @@ start(AppId, Module, Args, Opts) ->
                 _ ->
                     throw({invalid, min_session_expires})
             end
-            % case 
-            %     get_outbound_proxies(
-            %         proplists:get_all_values(outbound_proxy, Opts), 1, []) 
-            % of
-            %     error -> throw({invalid, outbound_proxy});
-            %     [] -> [];
-            %     OBPs -> {oubound_proxies, OBPs}
-            % end
         ],
         nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts))
     catch

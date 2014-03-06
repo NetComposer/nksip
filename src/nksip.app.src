@@ -11,7 +11,8 @@
         sasl,
         ssl,
         lager,
-        ranch
+        ranch,
+        gun
     ]},
     {env, [
         {timer_t1, 500},                    % (msecs) 0.5 secs
