@@ -410,12 +410,15 @@ process(Req, ObProc, GruuProc) ->
     end.
 
 
+
 %% @private
 -spec update(nksip:request(), times(), ob_proc(), gruu_proc()) ->
     ok.
 
 update(Req, Times, ObProc, GruuProc) ->
     #sipmsg{app_id=AppId, to=To, contacts=Contacts} = Req,
+    {_, _, Default, Now, _LongNow} = Times,
+    check_several_reg_id(Contacts, Default, false),
     Path = case nksip_sipmsg:header(Req, <<"Path">>, uris) of
         error -> throw({invalid_request, "Invalid Path"});
         Path0 -> Path0
@@ -430,12 +433,6 @@ update(Req, Times, ObProc, GruuProc) ->
     ],
     RegContacts = update_regcontacts(Contacts, Req, Times, Path, ObProc, GruuProc, 
                                      RegContacts0),
-    case 
-        [true || #reg_contact{index={ob, _, _}, expire=Exp} <- RegContacts, Exp>0] 
-    of
-        [_, _|_] -> throw({invalid_request, "Several 'reg-id' Options"});
-        _ -> ok
-    end,
     case RegContacts of
         [] -> 
             case callback(AppId, {del, AOR}) of
@@ -523,16 +520,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, ObProc, GruuProc, Acc) ->
         false when Expires==0 ->
             {undefined, Acc};
         false ->
-            Base0 = #reg_contact{
-                call_id = CallId, 
-                cseq = CSeq,
-                transport = Transp,
-                path = Path,
-                min_tmp_pos = 0,
-                next_tmp_pos = 0,
-                meta = []
-            },
-            {Base0, Acc};
+            {#reg_contact{min_tmp_pos=0, next_tmp_pos=0, meta=[]}, Acc};
         {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq -> 
             throw({invalid_request, "Rejected Old CSeq"});
         {value, _, Acc0} when Expires==0 ->
@@ -570,6 +558,10 @@ update_regcontacts([Contact|Rest], Req, Times, Path, ObProc, GruuProc, Acc) ->
                 updated = LongNow,
                 expire = Now + Expires, 
                 q = Q,
+                call_id = CallId,
+                cseq = CSeq,
+                transport = Transp,
+                path = Path,
                 instance_id = InstId,
                 reg_id = RegId,
                 next_tmp_pos = Next+1
@@ -582,29 +574,33 @@ update_regcontacts([], _Req, _Times, _Path, _ObProc, _GruuProc, Acc) ->
     lists:reverse(lists:keysort(#reg_contact.updated, Acc)).
 
 
-% %% @private
-% -spec update_regcontacts([reg_contact()], nksip_lib:timestamp(), [reg_contact()]) ->
-%     [reg_contact()].
+%% @private
+check_several_reg_id([], _Expires, _Found) ->
+    ok;
 
-% update_regcontacts([RegContact|Rest], Now, Acc) ->
-%     % A new registration will overwite an old Contact if it has the same index
-%     #reg_contact{index=Index, expire=Expire, cseq=CSeq, call_id=CallId} = RegContact,
-%     Acc1 = case lists:keytake(Index, #reg_contact.index, Acc) of
-%         false when Expire==Now ->
-%             Acc;
-%         false ->
-%             [RegContact|Acc];
-%         {value, #reg_contact{call_id=CallId, cseq=OldCSeq}, _} when OldCSeq >= CSeq -> 
-%             throw({invalid_request, "Rejected Old CSeq"});
-%         {value, _, Acc0} when Expire==Now ->
-%             Acc0;
-%         {value, _, Acc0} ->
-%             [RegContact|Acc0]
-%     end,
-%     update_regcontacts(Rest, Now, Acc1);
-        
-% update_regcontacts([], _Now, Acc) ->
-%     lists:reverse(lists:keysort(#reg_contact.updated, Acc)).
+check_several_reg_id([#uri{ext_opts=Opts}|Rest], Default, Found) ->
+    case nksip_lib:get_value(<<"reg-id">>, Opts) of
+        undefined -> 
+            check_several_reg_id(Rest, Default, Found);
+        _ ->
+            Expires = case nksip_lib:get_list(<<"expires">>, Opts) of
+                [] ->
+                    Default;
+                Expires0 ->
+                    case catch list_to_integer(Expires0) of
+                        Expires1 when is_integer(Expires1) -> Expires1;
+                        _ -> Default
+                    end
+            end,
+            case Expires of
+                0 -> 
+                    check_several_reg_id(Rest, Default, Found);
+                _ when Found ->
+                    throw({invalid_request, "Several 'reg-id' Options"});
+                _ ->
+                    check_several_reg_id(Rest, Default, true)
+            end
+    end.
 
 
 %% @priavte
