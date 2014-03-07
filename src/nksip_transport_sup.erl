@@ -26,9 +26,17 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(supervisor).
 
--export([add_transport/2, start_link/2, init/1]).
+-export([get_pid/1, add_transport/2, start_link/2, init/1]).
 
 -include("nksip.hrl").
+
+
+%% @private Gets the SipApp's transport supervisor's pid()
+-spec get_pid(nksip:app_id()) ->
+    pid() | undefined.
+
+get_pid(AppId) ->
+    nksip_proc:whereis_name({nksip_transport_sup, AppId}).
 
 
 %% @private Starts a new transport control process under this supervisor
@@ -36,8 +44,7 @@
     {ok, pid()} | {error, term()}.
 
 add_transport(AppId, Spec) ->
-    SupPid = nksip_proc:whereis_name({nksip_transport_sup, AppId}),
-    case supervisor:start_child(SupPid, Spec) of
+    case supervisor:start_child(get_pid(AppId), Spec) of
         {ok, Pid} -> {ok, Pid};
         {error, {Error, _}} -> {error, Error};
         {error, Error} -> {error, Error}

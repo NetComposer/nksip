@@ -45,7 +45,8 @@
                     inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
     {ok, pid()} | {error, term()}.
 
-start_listener(AppId, Proto, Ip, Port, Opts) ->
+start_listener(AppId, Proto, Ip, Port, Opts) 
+               when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
     Transp = #transport{
         proto = Proto,
         local_ip = Ip, 
@@ -59,12 +60,22 @@ start_listener(AppId, Proto, Ip, Port, Opts) ->
         udp -> nksip_transport_udp:get_listener(AppId, Transp, Opts);
         tcp -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
         tls -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
-        sctp -> nksip_transport_sctp:get_listener(AppId, Transp, Opts);
-        ws -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
-        wss -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
-        _ -> {error, invalid_transport}
+        sctp -> nksip_transport_sctp:get_listener(AppId, Transp, Opts)
     end,
-    nksip_transport_sup:add_transport(AppId, Spec).
+    nksip_transport_sup:add_transport(AppId, Spec);
+
+start_listener(AppId, Proto, Ip, Port, Opts) 
+               when Proto==ws; Proto==wss ->
+    Transp = #transport{
+        proto = Proto,
+        local_ip = Ip, 
+        local_port = Port,
+        listen_ip = Ip,
+        listen_port = Port,
+        remote_ip = {0,0,0,0},
+        remote_port = 0
+    },
+    nksip_transport_ws:get_listener(AppId, Transp, Opts).
 
     
 %% @doc Starts a new connection to a remote server
