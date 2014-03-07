@@ -70,7 +70,7 @@
 
 -include("nksip.hrl").
 
--export([get/1, get/2, put/2, del/1, cseq/0]).
+-export([get/1, get/2, put/2, del/1, cseq/0, increment/2]).
 -export([get_cached/2, get_cached/3]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
@@ -153,6 +153,14 @@ del(Key) ->
 
 cseq() ->
     ets:update_counter(?MODULE, current_cseq, 1).
+
+
+%% @doc Atomically increments or decrements a counter
+-spec increment(term(), integer()) ->
+    integer().
+
+increment(Key, Count) ->
+    ets:update_counter(?MODULE, Key, Count).
 
 
 %% @private Default config values
