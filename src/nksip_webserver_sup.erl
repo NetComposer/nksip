@@ -24,7 +24,7 @@
 
 -behaviour(supervisor).
 
--export([start_child/1, terminate_child/1, terminate_all/0]).
+-export([start_child/1, terminate_child/1, get_all/0, terminate_all/0]).
 -export([init/1, start_link/0]).
 
 -include("nksip.hrl").
@@ -48,9 +48,12 @@ terminate_child(Ref) ->
 
 %% @private
 terminate_all() ->
-	lists:foreach(
-		fun({Ref, _, _, _}) -> terminate_child(Ref) end, 
-		supervisor:which_children(?MODULE)).
+	lists:foreach(fun(Ref) -> terminate_child({ranch_listener_sup, Ref}) end, get_all()).
+
+
+%% @private
+get_all() ->
+    [Ref || {{_, Ref}, _, _, _} <- supervisor:which_children(?MODULE)].
 
 
 %% @private

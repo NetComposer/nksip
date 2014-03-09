@@ -26,6 +26,8 @@
 -behaviour(cowboy_websocket_handler).
 
 -export([get_listener/3]).
+-export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
+         handle_info/2]).
 -export([init/3, websocket_init/3, websocket_handle/3, websocket_info/3, 
          websocket_terminate/3]).
 -include("nksip.hrl").
@@ -50,19 +52,97 @@ get_listener(AppId, Transp, Opts) ->
             ok
     end,
     Transp1 = Transp#transport{dispatch=Dispatch},
-    % Next function will insert transport's metadata in registry
-    case nksip_webserver:start_server(AppId, Transp1, Opts1) of
+    #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp1,
+    {
+        {ws, {Proto, Ip, Port}},
+        {?MODULE, start_link, [AppId, Transp1, Opts1]},
+        permanent,
+        5000,
+        worker,
+        [?MODULE]
+    }.
+
+
+
+
+
+%% ===================================================================
+%% gen_server
+%% ===================================================================
+
+-record(state, {
+    webserver :: reference()
+}).
+
+
+%% @private
+start_link(AppId, Transp, Opts) ->
+    gen_server:start_link(?MODULE, [AppId, Transp, Opts], []).
+    
+
+%% @private 
+-spec init(term()) ->
+    gen_server_init(#state{}).
+
+init([AppId, Transp, Opts]) ->
+    #transport{proto=Proto, listen_ip=Ip, listen_port=Port, dispatch=Disp} = Transp,
+    case nksip_webserver:start_server(AppId, Proto, Ip, Port, Disp, Opts) of
         {ok, WebPid} ->
-            Pid = nksip_transport_sup:get_pid(AppId),   
-            Port = nksip_webserver:get_port(Transp1),
-            Transp2 = Transp1#transport{listen_port=Port},                         
-            nksip_proc:put(nksip_transports, {AppId, Transp2}, Pid),
-            nksip_proc:put({nksip_listen, AppId}, Transp2, Pid),
-            {ok, WebPid};
+            Port1 = nksip_webserver:get_port(Proto, Ip, Port),
+            Transp1 = Transp#transport{listen_port=Port1},   
+            nksip_proc:put(nksip_transports, {AppId, Transp1}),
+            nksip_proc:put({nksip_listen, AppId}, Transp1),
+            Ref = erlang:monitor(process, WebPid),
+            {ok, #state{webserver=Ref}};
         {error, Error} ->
             {error, Error}
     end.
 
+
+%% @private
+-spec handle_call(term(), from(), #state{}) ->
+    gen_server_call(#state{}).
+
+handle_call(Msg, _From, State) -> 
+    lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
+    {noreply, State}.
+
+%% @private
+-spec handle_cast(term(), #state{}) ->
+    gen_server_cast(#state{}).
+
+handle_cast(Msg, State) -> 
+    lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
+    {noreply, State}.
+
+
+%% @private
+-spec handle_info(term(), #state{}) ->
+    gen_server_info(#state{}).
+
+handle_info({'DOWN', MRef, process, _Pid, _Reason}, #state{webserver=MRef}=State) ->
+    {noreply, State}.
+    
+
+%% @private
+-spec code_change(term(), #state{}, term()) ->
+    gen_server_code_change(#state{}).
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+
+%% @private
+-spec terminate(term(), #state{}) ->
+    gen_server_terminate().
+
+terminate(_Reason, _State) ->  
+    ok.
+
+
+%% ===================================================================
+%% Private
+%% ===================================================================
 
 
 

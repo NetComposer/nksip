@@ -26,7 +26,7 @@
 
 -include("nksip.hrl").
 
--export([start_server/3, stop_server/2, get_port/1, stop_all/0]).
+-export([start_server/6, stop_server/4, get_port/3, stop_all/0]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
 -export([ranch_start_link/6, do_stop_server/1]).
@@ -38,29 +38,28 @@
 
 
 %% @doc Starts a new webserver, or returns a already started one
--spec start_server(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+-spec start_server(nksip:app_id(), tcp|tls|ws|www, inet:ip_address(), inet:port_number(), 
+                   term(), nksip_lib:proplist()) ->
     {ok, pid()} | {error, term()}.
 
-start_server(AppId, Transp, Opts) ->
-    #transport{proto=Proto, listen_ip=Ip, listen_port=Port, dispatch=Disp} = Transp,
+start_server(AppId, Proto, Ip, Port, Disp, Opts) ->
     gen_server:call(?MODULE, {start, AppId, {Proto, Ip, Port}, Disp, Opts}).
 
 
 %% @doc Stops a started webserver
--spec stop_server(nksip:app_id(), nksip:transport()) ->
+-spec stop_server(nksip:app_id(), tcp|tls|ws|www, 
+                  inet:ip_address(), inet:port_number()) ->
     ok | {error, in_use} | {error, not_found}.
 
-stop_server(AppId, Transp) ->
-    #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
+stop_server(AppId, Proto, Ip, Port) ->
     gen_server:call(?MODULE, {stop, AppId, {Proto, Ip, Port}}).
 
 
 %% @doc Get the real port of a webserver
--spec get_port(nksip:transport()) ->
+-spec get_port(tcp|tls|ws|www, inet:ip_address(), inet:port_number()) ->
     inet:port_number() | undefined.
 
-get_port(Transp) ->
-    #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
+get_port(Proto, Ip, Port) ->
     case catch ranch:get_port({Proto, Ip, Port}) of
         Port1 when is_integer(Port1) -> Port1;
         _ -> undefined
