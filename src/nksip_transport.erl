@@ -25,7 +25,7 @@
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
--export([start_transport/5, start_connection/5, default_port/1]).
+-export([start_transport/5, default_port/1]).
 -export([get_listenhost/2, make_route/6]).
 -export([send/4, raw_send/2]).
 -export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
@@ -281,7 +281,7 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     Resolv = nksip_dns:resolve(Uri),
     ?debug(AppId, "Transport send to ~p (~p)", [Resolv, Rest]),
-    send(AppId, Resolv++Rest, MakeMsg, Opts);
+    send(AppId, Resolv++Rest, MakeMsg, [{transport_uri, Uri}|Opts]);
 
 send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
     send(AppId, [{udp, Ip, Port}|Rest], MakeMsg, Opts);
@@ -312,25 +312,8 @@ send(AppId, [{Proto, Ip, 0}|Rest], MakeMsg, Opts)
     when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
     send(AppId, [{Proto, Ip, default_port(Proto)}|Rest], MakeMsg, Opts);
 
-% send(AppId, [{udp, Ip, Port}|Rest]=All, MakeMsg, Opts) -> 
-%     ?debug(AppId, "Transport send to ~p (udp)", [All]),
-%     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-%     case get_listening(AppId, udp, Class) of
-%         [{Transp1, Pid}|_] -> 
-%             Transp2 = Transp1#transport{remote_ip=Ip, remote_port=Port},
-%             SipMsg = MakeMsg(Transp2),
-%             case nksip_transport_udp:send(Pid, SipMsg) of
-%                 ok -> 
-%                     {ok, SipMsg};
-%                 error -> 
-%                     send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts)
-%             end;
-%         [] ->
-%             send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts)
-%     end;
-
 send(AppId, [{Proto, Ip, Port}=D|Rest], MakeMsg, Opts) 
-    when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
+    when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp; Proto==ws; Proto==wss ->
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transp, Pid}|_] -> 
             ?debug(AppId, "Transport send to connected ~p (~p)", [D, Rest]),
@@ -379,14 +362,6 @@ send(_, [], _MakeMsg, _Opts) ->
 %% @private
 -spec raw_send(#raw_sipmsg{}, binary()) ->
     ok | error.
-
-% raw_send(#raw_sipmsg{app_id=AppId, transport=#transport{proto=udp}=Transp}, Reply) ->
-%     #transport{remote_ip=Ip, remote_port=Port} = Transp,
-%     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-%     case get_listening(AppId, udp, Class) of
-%         [{_, Pid}|_] -> nksip_transport_udp:send(Pid, Ip, Port, Reply);
-%         [] -> ok
-%     end;
 
 raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=_AssocId} = Transp,
