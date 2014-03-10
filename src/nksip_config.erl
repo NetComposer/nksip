@@ -178,6 +178,7 @@ default_config() ->
         {udp_timeout, 180},                 % (secs) 3 min
         {tcp_timeout, 180},                 % (secs) 3 min
         {sctp_timeout, 180},                % (secs) 3 min
+        {ws_timeout, 180},                  % (secs) 3 min
         {nonce_timeout, 30},                % (secs) 30 secs
         {sipapp_timeout, 32},               % (secs) 32 secs  
         {max_calls, 100000},                % Each Call-ID counts as a call

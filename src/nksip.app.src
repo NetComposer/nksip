@@ -12,6 +12,8 @@
         ssl,
         lager,
         ranch,
+        cowlib,
+        cowboy,
         gun
     ]},
     {env, [

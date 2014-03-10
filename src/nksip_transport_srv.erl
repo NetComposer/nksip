@@ -44,7 +44,7 @@ connect(AppId, udp, Ip, Port, Opts) ->
     nksip_transport_conn:connect(AppId, udp, Ip, Port, Opts);
 
 connect(AppId, Proto, Ip, Port, Opts)
-                    when Proto==tcp; Proto==tls; Proto==sctp ->
+                    when Proto==tcp; Proto==tls; Proto==sctp; Proto==ws; Proto==wss ->
     ConnId = {AppId, Proto, Ip, Port},
     gen_server:call(?MODULE, {new, ConnId, Opts}, infinity).
 

@@ -31,6 +31,8 @@
          handle_info/2]).
 -export([ranch_start_link/6, do_stop_server/1]).
 
+-compile([export_all]).
+
 
 %% ===================================================================
 %% Public
@@ -215,26 +217,20 @@ terminate(_Reason, _State) ->
 %% @private
 do_start_server(Ref, Dispatch, Opts) ->
     {Proto, Ip, Port} = Ref,
-    Module = case Proto of
-        tcp -> ranch_tcp;
-        tls -> ranch_ssl;
-        ws -> ranch_tcp;
-        wss -> ranch_ssl
-    end,
     Env = {env, [{dispatch, cowboy_router:compile(Dispatch)}]},
-    Spec = ranch:child_spec(
-        Ref,
-        nksip_lib:get_value(listeners, Opts, 1), 
-        Module,
-        listen_opts(Proto, Ip, Port, Opts), 
-        cowboy_protocol,
-        [Env]),
-    % Little hack to use our start_link instead of ranch's one
+    Listeners = nksip_lib:get_value(listeners, Opts, 1), 
+    ListenOpts = listen_opts(Proto, Ip, Port, Opts), 
+    TransMod = if
+        Proto==tcp; Proto==ws -> ranch_tcp;
+        Proto==tls; Proto==wss -> ranch_ssl
+    end,
+    Spec = ranch:child_spec(Ref, Listeners,
+                            TransMod, ListenOpts, cowboy_protocol, [Env]),
+    % Hack to plug after process creation and use our registry
     {ranch_listener_sup, start_link, StartOpts} = element(2, Spec),
     Spec1 = setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}),
     nksip_webserver_sup:start_child(Spec1).
-
-
+ 
 do_stop_server(Ref) ->
     SupRef = {ranch_listener_sup, Ref},
     nksip_webserver_sup:terminate_child(SupRef).
