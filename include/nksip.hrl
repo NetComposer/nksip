@@ -195,6 +195,7 @@
     pass = <<>> :: binary(), 
     domain = <<"invalid.invalid">> :: binary(), 
     port = 0 :: inet:port_number(),             % 0 means "no port in message"
+    path = <<>> :: binary(),
     opts = [] :: nksip_lib:proplist(),
     headers = [] :: [binary()|nksip:header()],
     ext_opts = [] :: nksip_lib:proplist(),

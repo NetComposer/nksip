@@ -111,8 +111,10 @@ scheme([$:|Rest], Acc, Block, Uri) ->
             Rest1 = strip(Rest),
             case user(Rest1, [], Block, Uri1) of
                 {error, Error, Line} -> 
+                    ?P("E: ~p", [Rest1]),
                     case domain(Rest1, [], false, Block, Uri1) of
-                        {error, _, _} -> {error, Error, Line};
+                        {error, E, L} -> {error, E, L};
+                        % {error, _, _} -> {error, Error, Line};
                         {Uri2, Rest2} -> {Uri2, Rest2}
                     end;
                 {Uri2, Rest2} -> 
@@ -204,13 +206,16 @@ domain([], Acc, Ip6, Block, Uri) ->
             {Uri1, []}
     end;
 
-domain([Ch|_]=Rest, Acc, Ip6, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$, ->
+domain([Ch|_]=Rest, Acc, Ip6, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$,; Ch==$/ ->
     case Acc==[] orelse Ip6 of
         true ->
             {error, domain, ?LINE};
         false ->
             Uri1 = Uri#uri{domain=list_to_binary(lists:reverse(Acc))},
-            opts(Rest, Block, Uri1)
+            case Ch of
+                $/ -> path(Rest, Block, Uri1, []);
+                _ -> opts(Rest, Block, Uri1)
+            end
     end;
 
 domain([$[|Rest], Acc, Ip6, Block, Uri) ->
@@ -269,7 +274,7 @@ port([], Acc, Block, Uri) ->
 port([$@|_], _Acc, _Block, _Uri) ->
     {error, port, ?LINE};
 
-port([Ch|_]=Rest, Acc, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$, ->
+port([Ch|_]=Rest, Acc, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$,; Ch==$/ ->
     case Acc of
         [] -> 
             {error, port, ?LINE};
@@ -277,7 +282,10 @@ port([Ch|_]=Rest, Acc, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$, ->
             case catch list_to_integer(lists:reverse(Acc)) of
                 Port when is_integer(Port), Port >= 0, Port =< 65535 ->
                     Uri1 = Uri#uri{port = Port},
-                    opts(Rest, Block, Uri1);
+                    case Ch of
+                        $/ -> path(Rest, Block, Uri1, []);
+                        _ -> opts(Rest, Block, Uri1)
+                    end;
                 _ ->
                   {error, port, ?LINE}
             end
@@ -525,6 +533,25 @@ headers_value([Ch|Rest], Key, Acc, Quoted, Block, Uri) ->
     headers_value(Rest, Key, [Ch|Acc], Quoted, Block, Uri).
 
 
+
+%% @private URI Opts
+path([], Block, Uri, Acc) ->
+    case Block of
+        false -> 
+            Path = list_to_binary(lists:reverse(Acc)),
+            {Uri#uri{path=Path}, []};
+        true -> 
+            {error, path, ?LINE}
+    end;
+
+path([Ch|_]=Rest, Block, Uri, Acc) when Ch==$;; Ch==$?; Ch==$>; Ch==$, ->
+    Path = list_to_binary(lists:reverse(Acc)),
+    opts(Rest, Block, Uri#uri{path=Path});
+
+path([Ch|Rest], Block, Uri, Acc) ->
+    path(Rest, Block, Uri, [Ch|Acc]).
+
+
 %% @private URI Strip white space
 strip([32|Rest]) -> strip(Rest);
 strip([13|Rest]) -> strip(Rest);
@@ -658,6 +685,29 @@ uri5_test() ->
     [#uri{headers=[], ext_headers=[{<<"routE">>, <<"a">>}]}] = 
         uris("sip:a?routE=a").
 
+uri6_test() ->    [#uri{domain = <<"a">>, port = 0, path = <<"/ws/1">>}] = uris("sip:a/ws/1"),
+    [#uri{domain = <<"a">>, port = 0, path = <<"/ws">>}] = uris("<sip:a/ws>"),
+    error = uris(" \x09  sip  \r\n :  a /ws/1  "),
+    [#uri{domain = <<"a">>, port = 20, path= <<"/ws">>}] = uris("sip:a : 20/ws"),
+    [#uri{domain = <<"a">>, port = 20, path= <<"/ws">>}] = uris("<sip:a:20/ws>"),
+    [#uri{user = <<"u">>, domain = <<"a">>, port = 0, path= <<"/ws">>}] = uris("sip:u@a/ws"),
+    [#uri{user = <<"u">>, domain = <<"a">>, port = 0, path= <<"/ws ">>}] = uris("<sip:u@a/ws >"),
+    [#uri{user = <<"u">>, domain = <<"a">>, port = 20, path= <<"/ws">>}] = uris("<sip:u@a:20/ws>"),
+    [#uri{user = <<"u">>, pass = <<"p">>, domain = <<"a">>, port = 20, path= <<"/ws">>}] = uris("<sip:u:p@a:20/ws>"),
+    [#uri{domain = <<"a">>, port = 0, path = <<"/ws">>, ext_opts = [<<"b">>]}] = uris("sip: a/ws;b"),
+    [#uri{user = <<"u">>, pass = <<"p">>, domain = <<"a">>, port=20, path = <<"/ws">>,
+         opts = [<<"b">>, {<<"c">>, <<"2">>}]}] = uris("<sip:u:p@a:20/ws;b;c=2>"),
+    [#uri{user = <<"u">>, pass = <<"p">>, domain = <<"a">>, port=20, path = <<"/ws">>,
+         ext_opts = [<<"b">>, {<<"c">>, <<"2">>}]}] = uris("sip:u:p@a:20/ws;b;c=2 "),
+    [#uri{path = <<"/ws">>, ext_headers = [{<<"d">>, <<"2">>}, <<"f">>]}] = uris("sip:a/ws?d=2&f"),
+    [#uri{path = <<"/ws">> , opts = [<<"b">>,{<<"c">>, <<"2">>}], headers = [{<<"dd">>,<<"2">>},<<"ff">>],
+         ext_opts = [{<<"g">>, <<"3">>}], ext_headers = [<<"h">>,<<"i">>]}] = 
+         uris("<sip:a/ws;b;c=2?dd=2&ff>;g=3?h&i"),
+    [#uri{path = <<"/ws">>}, #uri{path = <<"/ws2">>}] = uris("sip:a/ws,sip:b/ws2"),
+    [#uri{path = <<"/ws">>}, #uri{path = <<"/ws2">>}] = uris("<sip:a/ws>  ,  sip:b/ws2"),
+    [#uri{domain = <<"[1:2::3]">>, port=0, path = <<"/ws">>}] = uris("sip:[1:2::3]/ws"),
+    [#uri{domain = <<"[1:2::3]">>, port=20, path = <<"/ws">>}] = uris("sip:[1:2::3]:20/ws"),
+    ok.
 
 -endif.
 
