@@ -98,6 +98,7 @@ start() ->
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         registrar,
         {listeners, 10},
+        {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5060}},
         {transport, {tls, {0,0,0,0}, 5061}},
         {transport, {ws, {0,0,0,0}, 8080}},
@@ -106,7 +107,7 @@ start() ->
 
     ok = sipapp_endpoint:start({ws, ua1}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-        {supported, []},
+        {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}
     ]),
@@ -114,6 +115,7 @@ start() ->
     ok = sipapp_endpoint:start({ws, ua2}, [
         {supported, []},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
+        {local_host, "localhost"},
         {transport, {ws, {0,0,0,0}, 0}},
         {transport, {wss, {0,0,0,0}, 8091}}
     ]),
@@ -131,7 +133,93 @@ stop() ->
 
 
 basic() ->
-    {ok, 200, []} = nksip_uac:options({ws, ua2}, "<sip:localhost:8080/;transport=ws>", []).
+    S1 = {ws, server1},
+    C2 = {ws, ua2},
+
+    [] = nksip_transport:get_all_connected(S1),
+    [] = nksip_transport:get_all_connected(C2),
+
+    {ok, 200, Values1} = nksip_uac:options(C2, 
+                         "<sip:localhost:8080/;transport=ws>", 
+                         [{fields, [parsed_vias, local, remote]}]),
+
+    [
+        {_, [#via{proto=ws, domain = <<"localhost">>, port=Port1}]},
+        {_, {ws, {127,0,0,1}, Port2}},
+        {_, {ws, {127,0,0,1}, 8080}}
+    ] = Values1,
+
+    [
+        {#transport{
+            proto = ws,
+            local_ip = {127,0,0,1},
+            local_port = Port2,
+            remote_ip = {127,0,0,1},
+            remote_port = 8080,
+            listen_ip = {0,0,0,0},
+            listen_port = Port1
+        }, Pid1}
+    ] = nksip_transport:get_all_connected(C2),
+
+    [
+        {#transport{
+            proto = ws,
+            local_ip = {0,0,0,0},
+            local_port = 8080,
+            remote_ip = {127,0,0,1},
+            remote_port = Port2,
+            listen_ip = {0,0,0,0},
+            listen_port = 8080
+        }, Pid2}
+    ] = nksip_transport:get_all_connected(S1),
+
+    % If we send another request, it is going to use the same transport
+    {ok, 200, []} = nksip_uac:options({ws, ua2}, "<sip:localhost:8080/;transport=ws>", []),
+    [{_, Pid1}] = nksip_transport:get_all_connected(C2),
+    [{_, Pid2}] = nksip_transport:get_all_connected(S1),
+
+    % Now with SSL, but the path is incorrect
+    {error, service_unavailable} =  nksip_uac:options(C2, 
+                                            "<sips:localhost:8081/;transport=ws>", []),
+
+    {ok, 200, Values2} = nksip_uac:options(C2, 
+                         "<sips:localhost:8081/wss;transport=ws>", 
+                         [{fields, [parsed_vias, local, remote]}]),
+
+    [
+        {_, [#via{proto=wss, domain = <<"localhost">>, port=8091}]},
+        {_, {wss, {127,0,0,1}, Port3}},
+        {_, {wss, {127,0,0,1}, 8081}}
+    ] = Values2,
+
+    [
+        {_, Pid1},
+        {#transport{
+            proto = wss,
+            local_ip = {127,0,0,1},
+            local_port = Port3,
+            remote_ip = {127,0,0,1},
+            remote_port = 8081,
+            listen_ip = {0,0,0,0},
+            listen_port = 8091
+        }, Pid3}
+    ] = lists:sort(nksip_transport:get_all_connected(C2)),
+
+    [
+        {_, Pid2},
+        {#transport{
+            proto = wss,
+            local_ip = {0,0,0,0},
+            local_port = 8081,
+            remote_ip = {127,0,0,1},
+            remote_port = Port3,
+            listen_ip = {0,0,0,0},
+            listen_port = 8081
+        }, Pid4}
+    ] = lists:sort(nksip_transport:get_all_connected(S1)),
+
+    [nksip_connection:stop(Pid, normal) || Pid <- [Pid1,Pid2,Pid3,Pid4]],
+    ok.
 
 
 
