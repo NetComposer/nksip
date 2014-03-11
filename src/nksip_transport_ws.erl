@@ -41,6 +41,7 @@
 
 -include("nksip.hrl").
 -include_lib("wsock/include/wsock.hrl").
+% -include("../deps/wsock/include/wsock.hrl").
 
 -compile([export_all]).
 
