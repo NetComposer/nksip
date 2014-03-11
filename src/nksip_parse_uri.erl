@@ -111,10 +111,8 @@ scheme([$:|Rest], Acc, Block, Uri) ->
             Rest1 = strip(Rest),
             case user(Rest1, [], Block, Uri1) of
                 {error, Error, Line} -> 
-                    ?P("E: ~p", [Rest1]),
                     case domain(Rest1, [], false, Block, Uri1) of
-                        {error, E, L} -> {error, E, L};
-                        % {error, _, _} -> {error, Error, Line};
+                        {error, _, _} -> {error, Error, Line};
                         {Uri2, Rest2} -> {Uri2, Rest2}
                     end;
                 {Uri2, Rest2} -> 
