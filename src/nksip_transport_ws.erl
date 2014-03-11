@@ -23,10 +23,10 @@
 %% For listening, we try to start a new webserver (ranch using cowboy_protocol), 
 %% that can be shared with other instances. We use this module as callback.
 %% We a new connection arrives, init/3 will be called, and we start a new
-%% nksip_transport_conn process in websocket_init/3.
+%% nksip_connection process in websocket_init/3.
 %%
 %% For outbound connections, we start a normal tcp/ssl connection and let it be
-%% managed by a fresh nksip_transport_conn process
+%% managed by a fresh nksip_connection process
 
 -module(nksip_transport_ws).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -136,7 +136,7 @@ connect(AppId, Transp, Opts) ->
         Timeout = 1000*nksip_config:get_cached(ws_timeout, Opts),
         Spec = {
             {AppId, Proto, Ip, Port, make_ref()},
-            {nksip_transport_conn, start_link, 
+            {nksip_connection, start_link, 
                 [AppId, Transp1, Socket, Timeout]},
             temporary,
             5000,
@@ -257,17 +257,17 @@ websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
     Timeout = nksip_lib:get_value(timeout, Opts),
     {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req),
     Transp1 = Transp#transport{remote_ip=RemoteIp, remote_port=RemotePort},
-    {ok, Pid} = nksip_transport_conn:start_link(AppId, Transp1, self(), Timeout),
+    {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
     {ok, Req, #ws_state{conn_pid=Pid}}.
 
 
 %% @private
 websocket_handle({text, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
-    nksip_transport_conn:incoming(Pid, Msg),
+    nksip_connection:incoming(Pid, Msg),
     {ok, Req, State};
 
 websocket_handle({binary, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
-    nksip_transport_conn:incoming(Pid, Msg),
+    nksip_connection:incoming(Pid, Msg),
     {ok, Req, State};
 
 websocket_handle(_Data, Req, State) ->
@@ -286,7 +286,7 @@ websocket_info(Info, Req, #ws_state{conn_pid=Pid}=State) ->
 %% @private
 websocket_terminate(Reason, _Req, #ws_state{conn_pid=Pid}) ->
     lager:warning("WS TERMINATE"),
-    nksip_transport_conn:stop(Pid, Reason),
+    nksip_connection:stop(Pid, Reason),
     ok.
 
 

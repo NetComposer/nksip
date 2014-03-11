@@ -263,7 +263,7 @@ preprocess(Req, ProxyOpts) ->
 %                 true ->
 %                     case catch binary_to_term(base64:decode(Flow)) of
 %                         Pid when is_pid(Pid) ->
-%                             case nksip_transport_conn:get_transport(Pid) of
+%                             case nksip_connection:get_transport(Pid) of
 %                                 {ok, Transp} -> 
 %                                     P2 = [{send_to_flow, {Pid, Transp}}|ProxyOpts],
 %                                     case 

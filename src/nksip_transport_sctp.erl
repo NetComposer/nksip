@@ -179,7 +179,7 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
         #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
             case nksip_transport:get_connected(AppId, sctp, Ip, Port) of
                 [{#transport{sctp_id=AssocId}, Pid}|_] ->
-                    nksip_transport_conn:stop(Pid, normal);
+                    nksip_connection:stop(Pid, normal);
                 _ ->
                     ok
             end,
@@ -193,7 +193,7 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
         Data when is_binary(Data) ->
             [#sctp_sndrcvinfo{assoc_id=AssocId}] = Anc,
             {Pid, _Transp1} = do_connect(Ip, Port, AssocId, State),
-            nksip_transport_conn:incoming(Pid, Data),
+            nksip_connection:incoming(Pid, Data),
             State;
         Other ->
             ?warning(AppId, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other]),
@@ -239,7 +239,7 @@ do_connect(Ip, Port, AssocId, State) ->
         [] -> 
             #state{socket=Socket, transport=Transp, timeout=Timeout} = State,
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
-            {ok, Pid} = nksip_transport_conn:start_link(AppId, Transp1, Socket, Timeout),
+            {ok, Pid} = nksip_connection:start_link(AppId, Transp1, Socket, Timeout),
             {Pid, Transp1}
     end.
         

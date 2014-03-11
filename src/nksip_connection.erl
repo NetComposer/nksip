@@ -19,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @doc Generic tranport connection process
--module(nksip_transport_conn).
+-module(nksip_connection).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 

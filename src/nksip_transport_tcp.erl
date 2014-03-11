@@ -85,7 +85,7 @@ connect(AppId, Transp, Opts) ->
             Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
             Spec = {
                 {AppId, Proto, Ip, Port, make_ref()},
-                {nksip_transport_conn, start_link, 
+                {nksip_connection, start_link, 
                     [AppId, Transp1, Socket, Timeout]},
                 temporary,
                 5000,
@@ -194,6 +194,6 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
     ?debug(AppId, "new connection from ~p:~p (~p)", [RemoteIp, RemotePort, Proto]),
     Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
-    nksip_transport_conn:start_link(AppId, Transp1, Socket, Timeout).
+    nksip_connection:start_link(AppId, Transp1, Socket, Timeout).
 
 

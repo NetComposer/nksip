@@ -161,7 +161,7 @@ handle_call({connect, Ip, Port}, _From, State) ->
     {Pid, Transp1} = do_connect(Ip, Port, State),
     {reply, {ok, Pid, Transp1}, State};
 
-% It should not be used normally, use the nksip_transport_conn version
+% It should not be used normally, use the nksip_connection version
 handle_call({send, Ip, Port, Packet}, _From, #state{socket=Socket}=State) ->
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State};
 
@@ -212,7 +212,7 @@ handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, S
         {request, binding, TransId, _} ->
             {Pid, _Transp} = do_connect(Ip, Port, State),
             Response = nksip_stun:binding_response(TransId, Ip, Port),
-            nksip_transport_conn:async_send(Pid, Response),
+            nksip_connection:async_send(Pid, Response),
             ?debug(AppId, "sent STUN bind response to ~p:~p", [Ip, Port]),
             {noreply, State};
         {response, binding, TransId, Attrs} ->
@@ -377,7 +377,7 @@ open_port(AppId, Ip, Port, Iter) ->
 %% @private 
 read_packets(Ip, Port, Packet, #state{socket=Socket}=State, N) ->
     {Pid, _} = do_connect(Ip, Port, State),
-    nksip_transport_conn:incoming(Pid, Packet),
+    nksip_connection:incoming(Pid, Packet),
     case N>0 andalso gen_udp:recv(Socket, 0, 0) of
         {ok, {Ip1, Port1, Packet1}} -> 
             read_packets(Ip1, Port1, Packet1, State, N-1);
@@ -394,7 +394,7 @@ do_connect(Ip, Port, State) ->
             {Pid, Transp1};
         [] ->
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
-            {ok, Pid} = nksip_transport_conn:start_link(AppId, Transp1, Socket, Timeout),
+            {ok, Pid} = nksip_connection:start_link(AppId, Transp1, Socket, Timeout),
             {Pid, Transp1}
     end.
 

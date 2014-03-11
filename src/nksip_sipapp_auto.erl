@@ -453,7 +453,7 @@ launch_unregister(AppId, Reg)->
     ],
     nksip_uac:register(AppId, RUri, Opts1),
     case is_pid(Pid) of
-        true -> nksip_transport_conn:stop_refresh(Pid);
+        true -> nksip_connection:stop_refresh(Pid);
         false -> ok
     end.
 
@@ -492,7 +492,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
                         _ -> ?DEFAULT_TCP_KEEPALIVE
                     end,
                     Ref = {'$nksip_register_notify', RegId},
-                    case nksip_transport_conn:start_refresh(Pid, Secs, Ref) of
+                    case nksip_connection:start_refresh(Pid, Secs, Ref) of
                         ok -> 
                             Mon = erlang:monitor(process, Pid),
                             Reg1#sipreg{conn_monitor=Mon, conn_pid=Pid};

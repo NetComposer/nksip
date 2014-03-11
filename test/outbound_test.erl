@@ -168,7 +168,7 @@ flow() ->
     }] = nksip_registrar:get_info(R1, sip, <<"ua1">>, <<"nksip">>),
             
     Pid1 = binary_to_term(base64:decode(Flow1)),
-    {ok, Transp1} = nksip_transport_conn:get_transport(Pid1),
+    {ok, Transp1} = nksip_connection:get_transport(Pid1),
 
     [#uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -214,7 +214,7 @@ flow() ->
 
 
     % Now we stop the first flow from R1 to C1. R1 should return 430 "Flow Failed"
-    nksip_transport_conn:stop(Pid1, normal),
+    nksip_connection:stop(Pid1, normal),
     timer:sleep(50),
     {ok, 430, []} = nksip_uac:options(C1, Contact1, []),
     ok.
@@ -346,10 +346,10 @@ register() ->
         }
     ] = nksip_registrar:get_info(R1, sip, <<"ua1">>, <<"nksip">>),
     Pid1 = binary_to_term(base64:decode(Flow1)),
-    {ok, #transport{remote_port=5101}} = nksip_transport_conn:get_transport(Pid1),
+    {ok, #transport{remote_port=5101}} = nksip_connection:get_transport(Pid1),
 
     Pid2 = binary_to_term(base64:decode(Flow2)),
-    {ok, #transport{remote_port=5103}} = nksip_transport_conn:get_transport(Pid2),
+    {ok, #transport{remote_port=5103}} = nksip_connection:get_transport(Pid2),
 
     ok.
 
@@ -386,7 +386,7 @@ proxy() ->
             local_port = 5060,
             remote_ip = {127,0,0,1},
             remote_port = 5101}} = 
-        nksip_transport_conn:get_transport(Pid1),
+        nksip_connection:get_transport(Pid1),
 
     % Now, if we send a request to this contact, it will go to 
     % P3, to P1, and P1 will use the indicated flow to go to UA1
@@ -394,7 +394,7 @@ proxy() ->
         nksip_uac:options(C2, Contact1, [{fields, [<<"Nk-Id">>]}]),
 
     % If we stop the flow, P1 will return Flow Failed
-    nksip_transport_conn:stop(Pid1, normal),
+    nksip_connection:stop(Pid1, normal),
     timer:sleep(50),
     {ok, 430, []} = nksip_uac:options(C2, Contact1, []),
 
@@ -489,14 +489,14 @@ outbound() ->
 
 
 
-    {true, KA1, Refresh1} = nksip_transport_conn:get_refresh(Pid1),
+    {true, KA1, Refresh1} = nksip_connection:get_refresh(Pid1),
     check_time(KA1, ?DEFAULT_TCP_KEEPALIVE),
-    {true, KA2, Refresh2} = nksip_transport_conn:get_refresh(Pid2),
+    {true, KA2, Refresh2} = nksip_connection:get_refresh(Pid2),
     check_time(KA2, ?DEFAULT_UDP_KEEPALIVE),
     true = Refresh1 > 1 andalso Refresh2 > 1,
 
-    {false, _} = nksip_transport_conn:get_refresh(Pid3),
-    {false, _} = nksip_transport_conn:get_refresh(Pid4),
+    {false, _} = nksip_connection:get_refresh(Pid3),
+    {false, _} = nksip_connection:get_refresh(Pid4),
 
     lager:error("Next error about process failed is expected"),
     exit(Pid1, kill),
@@ -506,7 +506,7 @@ outbound() ->
     ?debugMsg("waiting register... (1/3)"),
     wait_register(50),
 
-    nksip_transport_conn:stop(Pid2, normal),
+    nksip_connection:stop(Pid2, normal),
     timer:sleep(50),
     [{<<"auto-1">>, true, _},{<<"auto-2">>, false, _}] = 
         lists:sort(nksip_sipapp_auto:get_registers(C3)),
@@ -514,8 +514,8 @@ outbound() ->
     wait_register(50),
 
     [{_, Pid5}, {_, Pid6}] = nksip_transport:get_all_connected(C3),
-    nksip_transport_conn:stop(Pid5, normal),
-    nksip_transport_conn:stop(Pid6, normal),
+    nksip_connection:stop(Pid5, normal),
+    nksip_connection:stop(Pid6, normal),
     timer:sleep(50),
     [{<<"auto-1">>, false, _},{<<"auto-2">>, false, _}] = 
         lists:sort(nksip_sipapp_auto:get_registers(C3)),

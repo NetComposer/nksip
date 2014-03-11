@@ -178,7 +178,7 @@ remove_local_routes(Req, Opts, [Route|RestRoutes], Flow) ->
                     when Flow==undefined ->
                     case catch binary_to_term(base64:decode(Token)) of
                         Pid when is_pid(Pid) ->
-                            case nksip_transport_conn:get_transport(Pid) of
+                            case nksip_connection:get_transport(Pid) of
                                 {ok, Transp} -> 
                                     Opts1 = case 
                                         lists:member(<<"ob">>, RouteOpts) andalso

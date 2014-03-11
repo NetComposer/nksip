@@ -41,7 +41,7 @@
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 connect(AppId, udp, Ip, Port, Opts) ->
-    nksip_transport_conn:connect(AppId, udp, Ip, Port, Opts);
+    nksip_connection:connect(AppId, udp, Ip, Port, Opts);
 
 connect(AppId, Proto, Ip, Port, Opts)
                     when Proto==tcp; Proto==tls; Proto==sctp; Proto==ws; Proto==wss ->
@@ -140,7 +140,7 @@ terminate(_Reason, _State) ->
 
 
 connect({AppId, Proto, Ip, Port}=Key, Opts, Pid) ->
-    Result = nksip_transport_conn:connect(AppId, Proto, Ip, Port, Opts),
+    Result = nksip_connection:connect(AppId, Proto, Ip, Port, Opts),
     gen_server:cast(Pid, {conn, Key, Result}).
 
 
