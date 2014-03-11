@@ -66,7 +66,11 @@ get_listener(AppId, Transp, Opts) ->
 connect(AppId, Transp, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     SocketOpts = outbound_opts(Proto, Opts),
-    case socket_connect(Proto, Ip, Port, SocketOpts) of
+    {InetMod, TranspMod} = case Proto of
+        ws -> {inet, gen_tcp};
+        wss -> {ssl, ssl}
+    end,
+    case TranspMod:connect(Ip, Port, SocketOpts) of
         {ok, Socket} -> 
             {ok, {LocalIp, LocalPort}} = case Proto of
                 tcp -> inet:sockname(Socket);
@@ -89,8 +93,8 @@ connect(AppId, Transp, Opts) ->
                 [?MODULE]
             },
             {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
-            controlling_process(Proto, Socket, Pid),
-            setopts(Proto, Socket, [{active, once}]),
+            TranspMod:controlling_process(Socket, Pid),
+            InetMod:setopts(Socket, [{active, once}]),
             ?debug(AppId, "~p connected to ~p", [Proto, {Ip, Port}]),
             {ok, Pid, Transp1};
         {error, Error} ->
@@ -191,20 +195,5 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
     ?debug(AppId, "new connection from ~p:~p (~p)", [RemoteIp, RemotePort, Proto]),
     Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
     nksip_transport_conn:start_link(AppId, Transp1, Socket, Timeout).
-
-
-%% @private
-socket_connect(tcp, Ip, Port, Opts) -> gen_tcp:connect(Ip, Port, Opts);
-socket_connect(tls, Ip, Port, Opts) -> ssl:connect(Ip, Port, Opts).
-
-
-%% @private
-setopts(tcp, Socket, Opts) -> inet:setopts(Socket, Opts);
-setopts(tls, Socket, Opts) -> ssl:setopts(Socket, Opts).
-
-
-%% @private
-controlling_process(tcp, Socket, Pid) -> gen_tcp:controlling_process(Socket, Pid);
-controlling_process(tls, Socket, Pid) -> ssl:controlling_process(Socket, Pid).
 
 
