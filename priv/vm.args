@@ -3,7 +3,7 @@
 -pa deps/ranch/ebin 
 -pa deps/cowlib/ebin 
 -pa deps/cowboy/ebin 
--pa deps/gun/ebin 
+-pa deps/wsock/ebin 
 -pa ../nksip/ebin
 -pa samples/nksip_loadtest/ebin
 

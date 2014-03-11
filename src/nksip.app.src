@@ -13,8 +13,7 @@
         lager,
         ranch,
         cowlib,
-        cowboy,
-        gun
+        cowboy
     ]},
     {env, [
         {timer_t1, 500},                    % (msecs) 0.5 secs
