@@ -91,40 +91,19 @@ connect(AppId, Transp, Opts) ->
             {ok, Socket0} -> Socket0;
             {error, Error1} -> throw(Error1) 
         end,
-        case nksip_lib:get_value(transport_uri, Opts) of
-            #uri{domain=Domain, path=Path} ->
-                Resource = binary_to_list(Path),
-                Host = binary_to_list(Domain);
-            undefined ->
-                Host = binary_to_list(nksip_lib:to_host(Ip)),
-                Resource = "/"
-        end,
-        {ok, HandshakeRequest} = wsock_handshake:open(Resource, Host, Port),
-        Data1 = wsock_http:encode(HandshakeRequest#handshake.message),
-        lager:notice("HAND: ~p", [Data1]),
+        {Data1, HandshakeReq} = handshake_req(Ip, Port, Opts),
         case TranspMod:send(Socket, Data1) of
             ok -> ok;
             {error, Error2} -> throw(Error2)
         end,
         case TranspMod:recv(Socket, 0, 5000) of
             {ok, Data2} ->
-                lager:notice("DATA2: ~p", [Data2]),
-                case wsock_http:decode(Data2, response) of
-                    {ok, HandshakeResponse} ->
-                        case 
-                            wsock_handshake:handle_response(HandshakeResponse, 
-                                                             HandshakeRequest)
-                        of
-                            {ok, H} -> lager:notice("RESP: ~p", [H]);
-                            {error, Error5} -> throw(Error5)
-                        end;
-                    {error, Error4} ->
-                        throw(Error4);
-                    Other4 ->
-                        throw(Other4)
+                case handshake_resp(Data2, HandshakeReq) of
+                    ok -> ok;
+                    {error, Error3} -> throw(Error3)
                 end;
-            {error, Error3} ->
-                throw(Error3)
+            {error, Error4} ->
+                throw(Error4)
         end,
         {ok, {LocalIp, LocalPort}} = InetMod:sockname(Socket),
         Transp1 = Transp#transport{
@@ -254,11 +233,22 @@ init({Transp, http}, _Req, _Opts) when Transp==tcp; Transp==ssl ->
 
 %% @private
 websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
-    Timeout = nksip_lib:get_value(timeout, Opts),
-    {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req),
-    Transp1 = Transp#transport{remote_ip=RemoteIp, remote_port=RemotePort},
-    {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
-    {ok, Req, #ws_state{conn_pid=Pid}}.
+    WsProtos = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req) of
+        {ok, ProtList, Req2} when is_list(ProtList) -> ProtList;
+        {ok, _, Req2} -> []
+    end,
+    case lists:member(<<"sip">>, WsProtos) of
+        true ->
+            Req3 = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, 
+                                              <<"sip">>, Req2),
+            Timeout = nksip_lib:get_value(timeout, Opts),
+            {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req3),
+            Transp1 = Transp#transport{remote_ip=RemoteIp, remote_port=RemotePort},
+            {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
+            {ok, Req3, #ws_state{conn_pid=Pid}};
+        false -> 
+            {shutdown, Req2}
+    end.
 
 
 %% @private
@@ -354,4 +344,50 @@ outbound_opts(wss, Opts) ->
         case Key of "" -> []; _ -> {keyfile, Key} end
     ]).
 
+%% @private
+-spec handshake_req(inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+    {binary(), #handshake{}}.
+
+handshake_req(Ip, Port, Opts) ->
+    case nksip_lib:get_value(transport_uri, Opts) of
+        #uri{domain=Domain, path=Path} ->
+            Resource = binary_to_list(Path),
+            Host = binary_to_list(Domain);
+        undefined ->
+            Host = binary_to_list(nksip_lib:to_host(Ip)),
+            Resource = "/"
+    end,
+    {ok, #handshake{message=Msg1}=HS1} = wsock_handshake:open(Resource, Host, Port),
+    #http_message{headers=Headers1} = Msg1,
+    Headers2 = [{"Sec-Websocket-Protocol", "sip"}|Headers1],
+    Msg2 = Msg1#http_message{headers=Headers2},
+    HS2 = HS1#handshake{message=Msg2},
+    {wsock_http:encode(Msg2), HS2}.
+
+
+%% @private
+-spec handshake_resp(binary(), #handshake{}) ->
+    ok | {error, term()}.
+
+handshake_resp(Data, Req) ->
+    case wsock_http:decode(Data, response) of
+        {ok, Resp} ->
+            case wsock_handshake:handle_response(Resp, Req) of
+                {ok, #handshake{message=#http_message{headers=Headers}}} -> 
+                    case nksip_lib:get_value("Sec-Websocket-Protocol", Headers) of
+                        "sip" -> 
+                            ok;
+                        Other ->
+                            lager:warning("Websocket server did not send protocol: ~p", 
+                                         [Other]),
+                            ok
+                    end;
+                {error, Error1} -> 
+                    {error, Error1}
+            end;
+        {error, Error2} ->
+            {error, Error2};
+        Other3 ->
+            {error, Other3}
+    end.
 
