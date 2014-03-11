@@ -77,9 +77,16 @@ stop_all() ->
 %% gen_server
 %% ===================================================================
 
+-type server_info() :: 
+    {Ref::term(), Apps::[nksip:app_id()], Server::pid(), Mon::reference()}.
+
+-type app_info() ::
+    {{App::nksip:app_id(), Ref::term()}, Mon::reference()}.
+
+
 -record(state, {
-    servers :: [],
-    apps :: []
+    servers = [] :: [server_info()],
+    apps = [] :: [app_info()]
 }).
 
 
@@ -107,25 +114,25 @@ handle_call({start, AppId, Ref, Disp, Opts}, _From, State) ->
             case lists:keytake(Ref, 1, Servers) of
                 false ->
                     case do_start_server(Ref, Disp, Opts) of
-                        {ok, Pid} ->
-                            Servers1 = [{Ref, [AppId], Pid}|Servers],
-                            Mon = erlang:monitor(process, AppPid),
-                            Apps1 = [{{AppId, Ref}, Mon}|Apps],
-                            State1 = State#state{servers=Servers1, apps=Apps1},
-                            {reply, {ok, Pid}, State1};
+                        {ok, WebPid} ->
+                            AppMon = erlang:monitor(process, AppPid),
+                            Apps1 = [{{AppId, Ref}, AppMon}|Apps],
+                            State1 = State#state{apps=Apps1},
+                            % We will receive a {webserver_started, _, _} msg
+                            {reply, {ok, WebPid}, State1};
                         {error, Error} ->
                             {reply, {error, Error}, State}
                     end;
-                {value, {_, WApps, Pid}, Rest} ->
-                    case lists:member(AppId, WApps) of
+                {value, {_, WebApps, WebPid, WebMon}, Rest} ->
+                    case lists:member(AppId, WebApps) of
                         true -> 
                             {reply, {error, already_started}, State};
                         false ->
-                            Servers1 = [{Ref, [AppId|WApps], Pid}|Rest],
-                            Mon = erlang:monitor(process, AppPid),
-                            Apps1 = [{{AppId, Ref}, Mon}|Apps],
+                            Servers1 = [{Ref, [AppId|WebApps], WebPid, WebMon}|Rest],
+                            AppMon = erlang:monitor(process, AppPid),
+                            Apps1 = [{{AppId, Ref}, AppMon}|Apps],
                             State1 = State#state{servers=Servers1, apps=Apps1},
-                            {reply, {ok, Pid}, State1}
+                            {reply, {ok, WebPid}, State1}
                     end
             end;
         undefined ->
@@ -137,20 +144,21 @@ handle_call({stop, AppId, Ref}, _From, State) ->
     case lists:keytake(Ref, 1, Servers) of
         false ->
             {reply, {error, not_found}, State};
-        {value, {_, WApps, WPid}, Rest} ->
+        {value, {_, WebApps, WebPid, WebMon}, Rest} ->
             Apps1 = case lists:keytake({AppId, Ref}, 1, Apps) of
                 false -> Apps;
-                {value, {_, Mon}, RestApps} -> erlang:demonitor(Mon), RestApps
+                {value, {_, AppMon}, RestApps} -> erlang:demonitor(AppMon), RestApps
             end,
             State1 = State#state{apps=Apps1},
-            case lists:member(AppId, WApps) of
+            case lists:member(AppId, WebApps) of
                 true ->
-                    case WApps -- [AppId] of
+                    case WebApps -- [AppId] of
                         [] ->
+                            erlang:demonitor(WebMon),
                             Reply = do_stop_server(Ref),
                             {reply, Reply, State1#state{servers=Rest}};
-                        WApps1 ->
-                            Servers1 = [{Ref, WApps1, WPid}|Rest],
+                        WebApps1 ->
+                            Servers1 = [{Ref, WebApps1, WebPid, WebMon}|Rest],
                             {reply, ok, State1#state{servers=Servers1}}
                     end;
                 false ->
@@ -169,6 +177,13 @@ handle_call(Msg, _From, State) ->
 -spec handle_cast(term(), #state{}) ->
     gen_server_cast(#state{}).
 
+handle_cast({webserver_started, Ref, WebPid}, State) ->
+    #state{apps=Apps, servers=Servers} = State,
+    WebApps = [AppId || {{AppId, WebRef}, _} <- Apps, WebRef==Ref],
+    WebMon = erlang:monitor(process, WebPid),
+    Servers1 = [{Ref, WebApps, WebPid, WebMon}|Servers],
+    {noreply, State#state{servers=Servers1}};
+
 handle_cast(stop_all, State) ->
     nksip_webserver_sup:terminate_all(),
     {noreply, State#state{servers=[]}};
@@ -183,13 +198,19 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 handle_info({'DOWN', MRef, process, _Pid, _Reason}, State) ->
-    #state{apps=Apps} = State,
+    #state{apps=Apps, servers=Servers} = State,
     case lists:keyfind(MRef, 2, Apps) of
         {{AppId, Ref}, _} -> 
             {reply, _, State1} = handle_call({stop, AppId, Ref}, none, State),
             {noreply, State1};
         false ->
-            {noreply, State}
+            case lists:keytake(MRef, 4, Servers) of
+                false ->
+                    {noreply, State};
+                {value, {Ref, _WebApps, _WebPid, MRef}, Rest} ->
+                    lager:warning("Web server ~p has failed!", [Ref]),
+                    {noreply, State#state{servers=Rest}}
+            end
     end.
 
 
@@ -287,6 +308,7 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol, [Env]) ->
             {Proto, Ip, _} = Ref,
             Port = ranch:get_port(Ref),
             nksip_proc:put({nksip_webserver, {Proto, Ip, Port}}, [], Pid),
+            gen_server:cast(?MODULE, {webserver_started, Ref, Pid}),
             {ok, Pid};
         Other ->
             Other
