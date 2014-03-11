@@ -56,6 +56,7 @@ init(Id) ->
     % Sets the domains for each combination of test/server
     Domains = case Id of
         {fork, _} -> [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>];
+        {ws, _} -> [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>];
         {_, server1} -> [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>];
         {_, server2} -> [<<"nksip2">>, <<"127.0.0.1">>, <<"[::1]">>];
         _ -> []
@@ -98,7 +99,7 @@ authorize(_ReqId, _Auth, _From, State) ->
 % Any other case simply route
 route(ReqId, Scheme, User, Domain, _From, 
         #state{id={Test, Id}=AppId, domains=Domains}=State)
-        when Test=:=basic; Test=:=uas; Test=:=gruu ->
+        when Test=:=basic; Test=:=uas; Test=:=gruu; Test=:=ws ->
     Opts = [
         record_route,
         {headers, [{'Nksip-Server', Id}]}

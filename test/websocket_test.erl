@@ -28,54 +28,54 @@
 -compile([export_all]).
 
 
-start_test() ->
-    ok = nksip:start(ws_a, nksip_sipapp, [], [
-        {transport, {ws, {0,0,0,0}, 8090, []}},
-        {transport, {wss, {0,0,0,0}, 8091, []}},
-        {transport, {ws, {0,0,0,0}, 0, [{dispatch, "/ws"}]}}
-    ]),
-    ok = nksip:start(ws_b, nksip_sipapp, [], [
-        {transport, {ws, {0,0,0,0}, 8090, []}},
-        {transport, {wss, {0,0,0,0}, 8092, [{dispatch, [{'_', ["/ws"]}]}]}}
-    ]),
+% start_test() ->
+%     ok = nksip:start(ws_a, nksip_sipapp, [], [
+%         {transport, {ws, {0,0,0,0}, 8090, []}},
+%         {transport, {wss, {0,0,0,0}, 8091, []}},
+%         {transport, {ws, {0,0,0,0}, 0, [{dispatch, "/ws"}]}}
+%     ]),
+%     ok = nksip:start(ws_b, nksip_sipapp, [], [
+%         {transport, {ws, {0,0,0,0}, 8090, []}},
+%         {transport, {wss, {0,0,0,0}, 8092, [{dispatch, [{'_', ["/ws"]}]}]}}
+%     ]),
    
-    [
-        {#transport{proto=ws, local_port=0, listen_port=_LP, 
-                    dispatch=[{'_', [], [{"/ws", [], _, _}]}]}, _},
-        {#transport{proto=ws, local_port=8090, listen_port=8090, 
-                    dispatch=[{'_', [], [{"/", [], _, _}]}]}, _},
-        {#transport{proto=wss, local_port=8091, listen_port=8091, 
-                    dispatch=[{'_', [], [{"/", [], _, _}]}]}, _}
-    ] = 
-        lists:sort(nksip_transport:get_all(ws_a)),
+%     [
+%         {#transport{proto=ws, local_port=0, listen_port=_LP, 
+%                     dispatch=[{'_', [], [{"/ws", [], _, _}]}]}, _},
+%         {#transport{proto=ws, local_port=8090, listen_port=8090, 
+%                     dispatch=[{'_', [], [{"/", [], _, _}]}]}, _},
+%         {#transport{proto=wss, local_port=8091, listen_port=8091, 
+%                     dispatch=[{'_', [], [{"/", [], _, _}]}]}, _}
+%     ] = 
+%         lists:sort(nksip_transport:get_all(ws_a)),
 
-    [
-        {#transport{proto=ws, local_port=8090, listen_port=8090, 
-                    dispatch=[{'_', [], [{"/", [], _, _}]}]}, _},
-        {#transport{proto=wss, local_port=8092, listen_port=8092, 
-                    dispatch=[{'_', [], [{"/ws", [], _, _}]}]}, _}
-    ] = 
-        lists:sort(nksip_transport:get_all(ws_b)),
+%     [
+%         {#transport{proto=ws, local_port=8090, listen_port=8090, 
+%                     dispatch=[{'_', [], [{"/", [], _, _}]}]}, _},
+%         {#transport{proto=wss, local_port=8092, listen_port=8092, 
+%                     dispatch=[{'_', [], [{"/ws", [], _, _}]}]}, _}
+%     ] = 
+%         lists:sort(nksip_transport:get_all(ws_b)),
 
-    [
-        {ws,{0,0,0,0},0},
-        {ws,{0,0,0,0},8090},
-        {wss,{0,0,0,0},8091},
-        {wss,{0,0,0,0},8092}
-    ] = 
-        lists:sort(nksip_webserver_sup:get_all()),
+%     [
+%         {ws,{0,0,0,0},0},
+%         {ws,{0,0,0,0},8090},
+%         {wss,{0,0,0,0},8091},
+%         {wss,{0,0,0,0},8092}
+%     ] = 
+%         lists:sort(nksip_webserver_sup:get_all()),
 
-    nksip:stop(ws_a),
-    timer:sleep(100),
-    [] = nksip_transport:get_all(ws_a),
-    [{ws,{0,0,0,0},8090},{wss,{0,0,0,0},8092}] = 
-        lists:sort(nksip_webserver_sup:get_all()),
+%     nksip:stop(ws_a),
+%     timer:sleep(100),
+%     [] = nksip_transport:get_all(ws_a),
+%     [{ws,{0,0,0,0},8090},{wss,{0,0,0,0},8092}] = 
+%         lists:sort(nksip_webserver_sup:get_all()),
 
-    nksip:stop(ws_b),
-    timer:sleep(100),
-    [] = nksip_transport:get_all(ws_b),
-    [] = lists:sort(nksip_webserver_sup:get_all()),
-    ok.
+%     nksip:stop(ws_b),
+%     timer:sleep(100),
+%     [] = nksip_transport:get_all(ws_b),
+%     [] = lists:sort(nksip_webserver_sup:get_all()),
+%     ok.
 
 
 % basic_test_() ->
@@ -131,7 +131,7 @@ stop() ->
 
 
 basic() ->
-    nksip_uac:options({ws, ua2}, "<sip:127.0.0.1:8080;transport=ws>", []).
+    {ok, 200, []} = nksip_uac:options({ws, ua2}, "<sip:localhost:8080/;transport=ws>", []).
 
 
 
