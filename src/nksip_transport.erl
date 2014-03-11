@@ -286,8 +286,7 @@ send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
 send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
     send(AppId, [{udp, Ip, Port}|Rest], MakeMsg, Opts);
 
-send(AppId, [{current, {Proto, Ip, Port}=D}|Rest], MakeMsg, Opts) 
-        when Proto==tcp; Proto==tls; Proto==sctp ->
+send(AppId, [{current, {Proto, Ip, Port}=D}|Rest], MakeMsg, Opts) ->
     ?debug(AppId, "Transport send to current ~p (~p)", [D, Rest]),
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transp, Pid}|_] -> 
@@ -308,12 +307,10 @@ send(AppId, [{flow, {Pid, Transp}=D}|Rest], MakeMsg, Opts) ->
         {error, _} -> send(AppId, Rest, MakeMsg, Opts)
     end;
 
-send(AppId, [{Proto, Ip, 0}|Rest], MakeMsg, Opts)
-    when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
+send(AppId, [{Proto, Ip, 0}|Rest], MakeMsg, Opts) ->
     send(AppId, [{Proto, Ip, default_port(Proto)}|Rest], MakeMsg, Opts);
 
-send(AppId, [{Proto, Ip, Port}=D|Rest], MakeMsg, Opts) 
-    when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp; Proto==ws; Proto==wss ->
+send(AppId, [{Proto, Ip, Port}=D|Rest], MakeMsg, Opts) ->
     case get_connected(AppId, Proto, Ip, Port) of
         [{Transp, Pid}|_] -> 
             ?debug(AppId, "Transport send to connected ~p (~p)", [D, Rest]),

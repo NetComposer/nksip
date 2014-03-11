@@ -96,8 +96,10 @@ connect(AppId, Transp, Opts) ->
             ok -> ok;
             {error, Error2} -> throw(Error2)
         end,
+        ?debug(AppId, "Sent ws hanshake: ~s", [print_headers(list_to_binary(Data1))]),
         case TranspMod:recv(Socket, 0, 5000) of
             {ok, Data2} ->
+                ?debug(AppId, "Received ws reply: ~s", [print_headers(Data2)]),
                 case handshake_resp(Data2, HandshakeReq) of
                     ok -> ok;
                     {error, Error3} -> throw(Error3)
@@ -275,7 +277,6 @@ websocket_info(Info, Req, #ws_state{conn_pid=Pid}=State) ->
 
 %% @private
 websocket_terminate(Reason, _Req, #ws_state{conn_pid=Pid}) ->
-    lager:warning("WS TERMINATE"),
     nksip_connection:stop(Pid, Reason),
     ok.
 
@@ -390,4 +391,16 @@ handshake_resp(Data, Req) ->
         Other3 ->
             {error, Other3}
     end.
+
+
+
+%% private 
+print_headers(Binary) ->
+    Lines = [
+        [<<"        ">>, Line, <<"\n">>]
+        || Line <- binary:split(Binary, <<"\r\n">>, [global])
+    ],
+    list_to_binary(io_lib:format("\r\n\r\n~s\r\n", [list_to_binary(Lines)])).
+
+
 
