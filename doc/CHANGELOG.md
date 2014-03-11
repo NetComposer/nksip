@@ -12,6 +12,7 @@ Changelog
 * RFC4028 Session Timers
 * Outbound (RFC5626) and GRUU (RFC5627) support.
 * Path support, as client, proxy and registrar.
+* SIP-over-Websockets support, as a server and as a client!
 * Reason header support in request and responses. 
 * Service-Route header support.
 * Support for headers in URIs.

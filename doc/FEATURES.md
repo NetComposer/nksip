@@ -50,6 +50,7 @@ RFC|Description|Notes
 [RFC6026](http://tools.ietf.org/html/rfc6026)|2xx responses|
 [RFC6157](http://tools.ietf.org/html/rfc6157)|IPv6 Transition|
 [RFC6665](http://tools.ietf.org/html/rfc6665)|Event Notification|Obsoletes 3265. GRUU support pending
+[RFC7118](http://tools.ietf.org/html/rfc7118)|SIP over Websockets|Client and server support
 
 
 

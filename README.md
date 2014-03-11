@@ -42,6 +42,7 @@ Planned featured for 0.4.0 (not yet released) include:
 * RFC4028 Session Timers
 * Path support, as client, proxy and registrar.
 * Outbound (RFC5626) and GRUU (RFC5627) support.
+* SIP-over-Websockets support, as a server and and as a client!
 * Reason header support in request and responses. 
 * Service-Route header support.
 * Support for headers in URIs.
