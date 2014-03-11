@@ -30,6 +30,7 @@
             handle_cast/2, handle_info/2]).
 
 -include("nksip.hrl").
+-include_lib("wsock/include/wsock.hrl").
 
 -define(MAX_BUFFER, 65535).
 
@@ -67,8 +68,8 @@ start_listener(AppId, Proto, Ip, Port, Opts) ->
 
     
 %% @doc Starts a new connection to a remote server
--spec connect(nksip:app_id(), nksip:protocol(),
-                    inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+-spec connect(nksip:app_id(), nksip:protocol(), inet:ip_address(), inet:port_number(), 
+              nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
          
 connect(AppId, Proto, Ip, Port, Opts) ->
@@ -80,7 +81,9 @@ connect(AppId, Proto, Ip, Port, Opts) ->
                 udp -> nksip_transport_udp:connect(Pid, Transp1, Opts);
                 tcp -> nksip_transport_tcp:connect(AppId, Transp1, Opts);
                 tls -> nksip_transport_tcp:connect(AppId, Transp1, Opts);
-                sctp -> nksip_transport_sctp:connect(Pid, Transp1, Opts)
+                sctp -> nksip_transport_sctp:connect(Pid, Transp1, Opts);
+                ws -> nksip_transport_ws:connect(AppId, Transp1, Opts);
+                wss -> nksip_transport_ws:connect(AppId, Transp1, Opts)
             end;
         [] ->
             {error, no_listening_transport}
@@ -196,7 +199,6 @@ get_refresh(Pid) ->
             error 
     end.
 
-
 %% @private 
 -spec incoming(pid(), binary()) ->
     ok.
@@ -227,7 +229,8 @@ start_link(AppId, Transport, Socket, Timeout) ->
     refresh_timer :: reference(),
     refresh_time :: pos_integer(),
     refresh_notify = [] :: [from()],
-    buffer = <<>> :: binary()
+    buffer = <<>> :: binary(),
+    ws_frag = #message{}            % Store previous ws fragmented message
 }).
 
 
@@ -248,8 +251,10 @@ init([AppId, Transport, Socket, Timeout]) ->
         socket = Socket, 
         timeout = Timeout,
         in_refresh = false,
-        buffer = <<>>
+        buffer = <<>>,
+        ws_frag = undefined
     },
+    lager:notice("Timeout: ~p", [Timeout]),
     {ok, State, Timeout}.
 
 
@@ -439,7 +444,8 @@ code_change(_OldVsn, State, _Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(_Reason, #state{app_id=AppId, socket=Socket, transport=Transp}) ->  
+terminate(_Reason, State) ->  
+    #state{app_id=AppId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, sctp_id=AssocId} = Transp,
     ?debug(AppId, "~p connection process stopped (~p)", [Proto, self()]),
     case Proto of
@@ -447,6 +453,8 @@ terminate(_Reason, #state{app_id=AppId, socket=Socket, transport=Transp}) ->
         tcp -> gen_tcp:close(Socket);
         tls -> ssl:close(Socket);
         sctp -> gen_sctp:eof(Socket, #sctp_assoc_change{assoc_id=AssocId});
+        ws -> gen_tcp:close(Socket);
+        wss -> ssl:close(Socket);
         _ -> ok
     end.
 
@@ -456,6 +464,9 @@ terminate(_Reason, #state{app_id=AppId, socket=Socket, transport=Transp}) ->
 %% ===================================================================
 
 %% @private
+-spec do_send(binary(), #state{}) ->
+    ok | {error, term()}.
+
 do_send(Packet, State) ->
     #state{app_id=AppId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
@@ -464,7 +475,9 @@ do_send(Packet, State) ->
             udp -> gen_udp:send(Socket, Ip, Port, Packet);
             tcp -> gen_tcp:send(Socket, Packet);
             tls -> ssl:send(Socket, Packet);
-            sctp -> gen_sctp:send(Socket, AssocId, 0, Packet)
+            sctp -> gen_sctp:send(Socket, AssocId, 0, Packet);
+            ws ->  gen_tcp:send(Socket, wsock_message:encode(Packet, [mask, text]));
+            wss ->  ssl:send(Socket, wsock_message:encode(Packet, [mask, text]))
         end
     of
         ok -> 
@@ -476,18 +489,56 @@ do_send(Packet, State) ->
 
 
 %% @private
-parse(<<>>, State) ->
-    do_noreply(State);
+-spec parse(binary(), #state{}) ->
+    gen_server_info(#state{}).
 
-parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
+parse(Binary, #state{proto=Proto}=State) 
+        when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
+    case do_parse(Binary, State) of
+        {ok, State1} -> do_noreply(State1);
+        {error, Error} -> stop(Error, State)
+    end;
+
+parse(Packet, #state{proto=Proto, app_id=AppId,ws_frag=FragMsg}=State)
+        when Proto==ws; Proto==wss ->
+    {Result, State1} = case FragMsg of
+        undefined -> 
+            {
+                wsock_message:decode(Packet, []), 
+                State
+            };
+        _ -> 
+            {
+                wsock_message:decode(Packet, FragMsg, []), 
+                State#state{ws_frag=undefined}
+            }
+    end,
+    case Result of
+        Msgs when is_list(Msgs) ->
+            do_parse_ws_messages(Msgs, State1);
+        {error, Error} ->
+            ?notice(AppId, "Websocket parsing error: ~p", [Error]),
+            stop(ws_error, State1)
+    end.
+
+
+
+%% @private
+-spec do_parse(binary(), #state{}) ->
+    {ok, #state{}} | {error, term()}.
+
+do_parse(<<>>, State) ->
+    {ok, State};
+
+do_parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
     ?debug(AppId, "transport responding to refresh", []),
     case do_send(<<"\r\n">>, State) of
-        ok -> parse(Rest, State);
-        {error, _} -> stop(send_error, State)
+        ok -> do_parse(Rest, State);
+        {error, _} -> {error, send_error}
     end;
 
-parse(<<"\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
+do_parse(<<"\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
     #state{
         refresh_notify = RefreshNotify, 
@@ -509,15 +560,15 @@ parse(<<"\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State)
         refresh_notify = [],
         buffer = Rest
     },
-    parse(Rest, State1);
+    do_parse(Rest, State1);
 
-parse(Packet, #state{app_id=AppId, proto=Proto, buffer=Buff}=State)
+do_parse(Packet, #state{app_id=AppId, proto=Proto, buffer=Buff})
     when (Proto==tcp orelse Proto==tls) andalso
          byte_size(Packet) + byte_size(Buff) > ?MAX_BUFFER ->
     ?warning(AppId, "dropping TCP/TLS closing because of max_buffer", []),
-    do_stop(max_buffer, State);
+    {error, max_buffer};
 
-parse(Packet, State) ->
+do_parse(Packet, State) ->
     #state{
         app_id = AppId,
         proto = Proto,
@@ -531,109 +582,49 @@ parse(Packet, State) ->
             nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
             case nksip_call_router:incoming_sync(RawMsg) of
                 ok -> 
-                    parse(Rest, State);
+                    do_parse(Rest, State);
                 {error, Error} -> 
                     ?notice(AppId, "error processing ~p request: ~p", [Proto, Error]),
-                    error
+                    {error, Error}
             end;
         {more, Rest} when Proto==udp; Proto==sctp ->
             ?notice(AppId, "ignoring data after ~p msg: ~p", [Proto, Rest]),
-            do_noreply(State);
+            {ok, State};
         {more, Rest} ->
-            do_noreply(State#state{buffer=Rest});
-        % {rnrn, Rest} ->
-        %     parse(Rest, State);
-        % {rn, Rest} when Proto==tcp; Proto==tls; Proto==sctp ->
-        %     ?notice(AppId, "transport received refresh", []),
-        %     lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
-        %     RefreshTimer = case InRefresh of
-        %         true -> erlang:start_timer(RefreshTime, self(), refresh);
-        %         false -> undefined
-        %     end,
-        %     State1 = State#state{
-        %         in_refresh = false, 
-        %         refresh_timer = RefreshTimer,
-        %         refresh_notify = [],
-        %         buffer = Rest
-        %     },
-        %     parse(Rest, State1);
-        % {rn, Rest} ->
-        %     parse(Rest, State);
+            {ok, State#state{buffer=Rest}};
         {error, Error} -> 
             ?notice(AppId, "error parsing ~p request: ~p", [Proto, Error]),
-            stop(parse_error, State)
+            {error, parse_error}
     end.
 
 
-% %% @private
-% do_parse(AppId, Transp, Packet) ->
-%     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-%     case nksip_parse:packet(AppId, Transp, Packet) of
-%         {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
-%             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
-%             nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
-%             case nksip_call_router:incoming_sync(RawMsg) of
-%                 ok -> {ok, More};
-%                 {error, _} -> error
-%             end;
-%         {rnrn, More} ->
-%             {rnrn, More};
-%         {rn, More} ->
-%             {rn, More};
-%         {more, More} -> 
-%             {ok, More};
-%         {error, Error} ->
-%             ?notice(AppId, "error processing ~p request: ~p", [Proto, Error]),
-%             error
-%     end.
-                    
+%% @private
+-spec do_parse_ws_messages([#message{}], #state{}) ->
+    {ok, #state{}} | {error, term()}.
 
-
-
-% do_parse(Packet, #state{app_id=AppId, transport=Transport}=State) ->
-%     #transport{proto=Proto, remote_ip=Ip, remote_port=Port}=Transport,
-%     case nksip_parse:packet(AppId, Transport, Packet) of
-%         {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, More} -> 
-%             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transport, Packet),
-%             nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
-%             case nksip_call_router:incoming_sync(RawMsg) of
-%                 ok ->
-%                     case More of
-%                         <<>> -> 
-%                             {ok, <<>>};
-%                         _ when Proto==udp; Proto==sctp ->
-%                             ?notice(AppId, "ignoring data after ~p msg: ~p", 
-%                                    [Proto, More]),
-%                             {ok, <<>>};
-%                         _ ->
-%                             do_parse(More, State)
-%                     end;
-%                 {error, _} ->
-%                     error
-%             end;
-%         {rnrn, More} when Proto==tcp; Proto==tls; Proto==sctp -> 
-%             case do_send(<<"\r\n">>, State) of
-%                 ok -> do_parse(More, State);
-%                 {error, _} -> error
-%             end;
-%         {rnrn, More} ->
-%             do_parse(More, State);
-%         {rn, More} when Proto==tcp; Proto==tls; Proto==sctp ->
-%             {rn, More};
-%         {rn, More} when Proto==udp; Proto==sctp ->
-%             ?notice(AppId, "ignoring data after ~p msg: ~p", [Proto, More]),
-%             {ok, <<>>};
+do_parse_ws_messages([], State) ->
+    {ok, State};
         
+do_parse_ws_messages([#message{type=fragmented}=Msg|Rest], State) ->
+    do_parse_ws_messages(Rest, State#state{ws_frag=Msg});
 
-%         {more, More} when Proto==udp; Proto==sctp ->
-%             ?notice(AppId, "ignoring data after ~p msg: ~p", [Proto, More]),
-%             {ok, <<>>};
-%         {more, More} -> 
-%             {ok, More};
-%         {error, Error} ->
-%             ?notice(AppId, "error processing ~p request: ~p", [Proto, Error]),
-%             error
-%     end.
+do_parse_ws_messages([#message{type=Type, payload=Data}|Rest], State) 
+        when Type==text; Type==binary ->
+    case do_parse(Data, State) of
+        {ok, State1} -> do_parse_ws_messages(Rest, State1);
+        {error, Error} -> stop(Error, State)
+    end;
+
+do_parse_ws_messages([#message{type=close}|_], _State) ->
+    {error, ws_close};
+
+do_parse_ws_messages([#message{type=ping}|Rest], State) ->
+    lager:notice("WS PING"),
+    do_parse_ws_messages(Rest, State);
+
+do_parse_ws_messages([#message{type=pong}|Rest], State) ->
+    lager:notice("WS PONG"),
+    do_parse_ws_messages(Rest, State).
 
 
 %% @private

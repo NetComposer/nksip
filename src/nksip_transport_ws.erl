@@ -26,13 +26,15 @@
 -behaviour(cowboy_websocket_handler).
 
 -export([get_listener/3]).
--export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
+-export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
 -export([init/3, websocket_init/3, websocket_handle/3, websocket_info/3, 
          websocket_terminate/3]).
+
 -include("nksip.hrl").
+-include_lib("wsock/include/wsock.hrl").
 
-
+-compile([export_all]).
 
 %% ===================================================================
 %% Private
@@ -46,22 +48,100 @@
 get_listener(AppId, Transp, Opts) ->
     case lists:keytake(dispatch, 1, Opts) of
         false -> 
-            Dispatch = [{'_', [{"/", ?MODULE, []}]}],
+            Dispatch = "/",
             Opts1 = Opts;
         {value, {_, Dispatch}, Opts1} -> 
             ok
     end,
     Transp1 = Transp#transport{dispatch=Dispatch},
+    Dispatch1 = dispatch(Dispatch, [AppId, Transp1, Opts]),
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp1,
     {
         {ws, {Proto, Ip, Port}},
-        {?MODULE, start_link, [AppId, Transp1, Opts1]},
+        {?MODULE, start_link, [AppId, Transp1, Dispatch1, Opts1]},
         permanent,
         5000,
         worker,
         [?MODULE]
     }.
 
+
+%% @private Starts a new connection to a remote server
+-spec connect(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+    {ok, term()} | {error, term()}.
+         
+connect(AppId, Transp, Opts) ->
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+    {InetMod, TranspMod} = case Proto of
+        ws -> {inet, gen_tcp};
+        wss -> {ssl, ssl}
+    end,
+    SocketOpts = outbound_opts(Proto, Opts),
+    try
+        Socket = case TranspMod:connect(Ip, Port, SocketOpts) of
+            {ok, Socket0} -> Socket0;
+            {error, Error1} -> throw(Error1) 
+        end,
+        case nksip_lib:get_value(transport_uri, Opts) of
+            #uri{domain=Domain, path=Path} ->
+                Resource = binary_to_list(Path),
+                Host = binary_to_list(Domain);
+            undefined ->
+                Host = binary_to_list(nksip_lib:to_host(Ip)),
+                Resource = "/"
+        end,
+        {ok, HandshakeRequest} = wsock_handshake:open(Resource, Host, Port),
+        Data1 = wsock_http:encode(HandshakeRequest#handshake.message),
+        lager:notice("HAND: ~p", [Data1]),
+        case TranspMod:send(Socket, Data1) of
+            ok -> ok;
+            {error, Error2} -> throw(Error2)
+        end,
+        case TranspMod:recv(Socket, 0, 5000) of
+            {ok, Data2} ->
+                lager:notice("DATA2: ~p", [Data2]),
+                case wsock_http:decode(Data2, response) of
+                    {ok, HandshakeResponse} ->
+                        case 
+                            wsock_handshake:handle_response(HandshakeResponse, 
+                                                             HandshakeRequest)
+                        of
+                            {ok, H} -> lager:notice("RESP: ~p", [H]);
+                            {error, Error5} -> throw(Error5)
+                        end;
+                    {error, Error4} ->
+                        throw(Error4);
+                    Other4 ->
+                        throw(Other4)
+                end;
+            {error, Error3} ->
+                throw(Error3)
+        end,
+        {ok, {LocalIp, LocalPort}} = InetMod:sockname(Socket),
+        Transp1 = Transp#transport{
+            local_ip = LocalIp,
+            local_port = LocalPort,
+            remote_ip = Ip,
+            remote_port = Port
+        },
+        Timeout = 1000*nksip_config:get_cached(ws_timeout, Opts),
+        Spec = {
+            {AppId, Proto, Ip, Port, make_ref()},
+            {nksip_transport_conn, start_link, 
+                [AppId, Transp1, Socket, Timeout]},
+            temporary,
+            5000,
+            worker,
+            [?MODULE]
+        },
+        {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
+        TranspMod:controlling_process(Socket, Pid),
+        InetMod:setopts(Socket, [{active, once}]),
+        ?debug(AppId, "~p connected to ~p", [Proto, {Ip, Port}]),
+        {ok, Pid, Transp1}
+    catch
+        throw:TError -> {error, TError}
+    end.
 
 
 
@@ -71,29 +151,39 @@ get_listener(AppId, Transp, Opts) ->
 %% ===================================================================
 
 -record(state, {
-    webserver :: reference()
+    app_id :: nksip:app_id(),
+    transport :: nksip:transport(),
+    webserver :: reference(),
+    timeout :: pos_integer()
 }).
 
 
 %% @private
-start_link(AppId, Transp, Opts) ->
-    gen_server:start_link(?MODULE, [AppId, Transp, Opts], []).
+start_link(AppId, Transp, Dispatch, Opts) ->
+    gen_server:start_link(?MODULE, [AppId, Transp, Dispatch, Opts], []).
     
 
 %% @private 
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([AppId, Transp, Opts]) ->
-    #transport{proto=Proto, listen_ip=Ip, listen_port=Port, dispatch=Disp} = Transp,
-    case nksip_webserver:start_server(AppId, Proto, Ip, Port, Disp, Opts) of
+init([AppId, Transp, Dispatch, Opts]) ->
+    #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
+    case 
+        nksip_webserver:start_server(AppId, Proto, Ip, Port, Dispatch, Opts) 
+    of
         {ok, WebPid} ->
             Port1 = nksip_webserver:get_port(Proto, Ip, Port),
             Transp1 = Transp#transport{listen_port=Port1},   
             nksip_proc:put(nksip_transports, {AppId, Transp1}),
             nksip_proc:put({nksip_listen, AppId}, Transp1),
-            Ref = erlang:monitor(process, WebPid),
-            {ok, #state{webserver=Ref}};
+            State = #state{
+                app_id = AppId, 
+                transport = Transp,
+                webserver = erlang:monitor(process, WebPid),
+                timeout = 1000*nksip_config:get_cached(ws_timeout, Opts)
+            },
+            {ok, State};
         {error, Error} ->
             {error, Error}
     end.
@@ -140,9 +230,6 @@ terminate(_Reason, _State) ->
     ok.
 
 
-%% ===================================================================
-%% Private
-%% ===================================================================
 
 
 
@@ -152,20 +239,23 @@ terminate(_Reason, _State) ->
 %% Cowboy's callbacks
 %% ===================================================================
 
+
 init({tcp, http}, _Req, _Opts) ->
+    lager:warning("WS UPGRADE"),
     {upgrade, protocol, cowboy_websocket}.
 
 websocket_init(_TransportName, Req, _Opts) ->
-    erlang:start_timer(1000, self(), <<"Hello!">>),
+    % erlang:start_timer(1000, self(), <<"Hello!">>),
     {ok, Req, undefined_state}.
 
-websocket_handle({text, Msg}, Req, State) ->
-    {reply, {text, << "That's what she said! ", Msg/binary >>}, Req, State};
+websocket_handle({text, _Msg}, Req, State) ->
+    Large = base64:encode(term_to_binary(lists:seq(1, 10000))),
+    {reply, {text, Large}, Req, State};
 websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
 
 websocket_info({timeout, _Ref, Msg}, Req, State) ->
-    erlang:start_timer(1000, self(), <<"How' you doin'?">>),
+    % erlang:start_timer(10000, self(), <<"How' you doin'?">>),
     {reply, {text, Msg}, Req, State};
 websocket_info(_Info, Req, State) ->
     {ok, Req, State}.
@@ -173,5 +263,69 @@ websocket_info(_Info, Req, State) ->
 websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
+
+
+%% ===================================================================
+%% Util
+%% ===================================================================
+
+
+%% @private
+dispatch([H|_]=String, Args) when is_integer(H) ->
+    dispatch([String], Args);
+
+dispatch(List, Args) ->
+    lists:map(
+        fun(Spec) ->
+            case Spec of
+                {Host, Constraints, PathsList} 
+                    when is_list(Constraints), is_list(PathsList) -> 
+                    ok;
+                {Host, PathsList} when is_list(PathsList) -> 
+                    Constraints = [];
+                SinglePath when is_list(SinglePath), is_integer(hd(SinglePath)) ->
+                    Host = '_', Constraints = [], PathsList = [SinglePath];
+                PathsList when is_list(PathsList) ->
+                    Host = '_', Constraints = []
+            end,
+            Paths = lists:map(
+                fun(PatchSpec) ->
+                    case PatchSpec of
+                        {Path, PathConstraints} 
+                            when is_list(Path), is_list(PathConstraints) ->
+                            {Path, PathConstraints, ?MODULE, Args};
+                        Path when is_list(Path) ->
+                            {Path, [], ?MODULE, Args}
+                    end
+                end,
+                PathsList),
+            {Host, Constraints, Paths}
+        end,
+        List).
+
+
+%% @private Gets socket options for outbound connections
+-spec outbound_opts(nksip:protocol(), nksip_lib:proplist()) ->
+    nksip_lib:proplist().
+
+outbound_opts(ws, _Opts) ->
+    [binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
+
+outbound_opts(wss, Opts) ->
+    case code:priv_dir(nksip) of
+        PrivDir when is_list(PrivDir) ->
+            DefCert = filename:join(PrivDir, "certificate.pem"),
+            DefKey = filename:join(PrivDir, "key.pem");
+        _ ->
+            DefCert = "",
+            DefKey = ""
+    end,
+    Cert = nksip_lib:get_value(certfile, Opts, DefCert),
+    Key = nksip_lib:get_value(keyfile, Opts, DefKey),
+    lists:flatten([
+        outbound_opts(ws, Opts),
+        case Cert of "" -> []; _ -> {certfile, Cert} end,
+        case Key of "" -> []; _ -> {keyfile, Key} end
+    ]).
 
 

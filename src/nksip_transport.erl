@@ -25,7 +25,7 @@
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
--export([start_transport/5, default_port/1]).
+-export([start_transport/5, start_connection/5, default_port/1]).
 -export([get_listenhost/2, make_route/6]).
 -export([send/4, raw_send/2]).
 -export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
