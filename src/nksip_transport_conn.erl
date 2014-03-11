@@ -214,8 +214,8 @@ incoming(Pid, Packet) when is_binary(Packet) ->
 
 
 %% @private
-start_link(AppId, Transport, Socket, Timeout) -> 
-    gen_server:start_link(?MODULE, [AppId, Transport, Socket, Timeout], []).
+start_link(AppId, Transport, SocketOrPid, Timeout) -> 
+    gen_server:start_link(?MODULE, [AppId, Transport, SocketOrPid, Timeout], []).
 
 -record(state, {
     app_id :: nksip:app_id(),
@@ -230,7 +230,8 @@ start_link(AppId, Transport, Socket, Timeout) ->
     refresh_time :: pos_integer(),
     refresh_notify = [] :: [from()],
     buffer = <<>> :: binary(),
-    ws_frag = #message{}            % Store previous ws fragmented message
+    ws_frag = #message{},            % Store previous ws fragmented message
+    ws_pid :: pid()                  % Cowboy protocol's pid
 }).
 
 
@@ -238,12 +239,21 @@ start_link(AppId, Transport, Socket, Timeout) ->
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([AppId, Transport, Socket, Timeout]) ->
+init([AppId, Transport, SocketOrPid, Timeout]) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
     nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port}}, Transport), 
     nksip_proc:put(nksip_transports, {AppId, Transport}),
     ?debug(AppId, "created ~p connection ~p (~p) ~p", 
             [Proto, {Ip, Port}, self(), Timeout]),
+    case is_pid(SocketOrPid) of
+        true ->
+            Socket = undefined,
+            Pid = SocketOrPid,
+            link(Pid);
+        false ->
+            Socket = SocketOrPid,
+            Pid = undefined
+    end,
     State = #state{
         app_id = AppId,
         proto = Proto,
@@ -252,9 +262,9 @@ init([AppId, Transport, Socket, Timeout]) ->
         timeout = Timeout,
         in_refresh = false,
         buffer = <<>>,
-        ws_frag = undefined
+        ws_frag = undefined,
+        ws_pid = Pid
     },
-    lager:notice("Timeout: ~p", [Timeout]),
     {ok, State, Timeout}.
 
 
@@ -376,13 +386,19 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 %% @private
-handle_info({tcp, Socket, Packet}, #state{socket=Socket}=State) ->
+handle_info({tcp, Socket, Packet}, #state{proto=Proto, socket=Socket}=State) ->
     inet:setopts(Socket, [{active, once}]),
-    parse(Packet, State);
+    case Proto of
+        tcp -> parse(Packet, State);
+        ws -> parse_ws(Packet, State)
+    end;
 
-handle_info({ssl, Socket, Packet}, #state{socket=Socket}=State) ->
+handle_info({ssl, Socket, Packet}, #state{proto=Proto, socket=Socket}=State) ->
     ssl:setopts(Socket, [{active, once}]),
-    parse(Packet, State);
+    case Proto of
+        ssl -> parse(Packet, State);
+        wss -> parse_ws(Packet, State)
+    end;
 
 handle_info({tcp_closed, Socket}, #state{socket=Socket}=State) ->
     do_stop(normal, State);
@@ -444,7 +460,12 @@ code_change(_OldVsn, State, _Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(_Reason, State) ->  
+terminate(_Reason, #state{ws_pid=Pid}=State) when is_pid(Pid) ->
+    #state{app_id=AppId, proto=Proto} = State,
+    ?debug(AppId, "~p connection process stopped (~p)", [Proto, self()]),
+    Pid ! stop;
+
+terminate(_Reason, State) ->
     #state{app_id=AppId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, sctp_id=AssocId} = Transp,
     ?debug(AppId, "~p connection process stopped (~p)", [Proto, self()]),
@@ -459,6 +480,7 @@ terminate(_Reason, State) ->
     end.
 
 
+
 %% ===================================================================
 %% Internal
 %% ===================================================================
@@ -466,6 +488,10 @@ terminate(_Reason, State) ->
 %% @private
 -spec do_send(binary(), #state{}) ->
     ok | {error, term()}.
+
+do_send(Packet, #state{ws_pid=Pid}) when is_pid(Pid) ->
+    Pid ! {send, [{text, Packet}]},
+    ok;
 
 do_send(Packet, State) ->
     #state{app_id=AppId, socket=Socket, transport=Transp} = State,
@@ -487,40 +513,16 @@ do_send(Packet, State) ->
             {error, Error}
     end.
 
-
+    
 %% @private
 -spec parse(binary(), #state{}) ->
     gen_server_info(#state{}).
 
-parse(Binary, #state{proto=Proto}=State) 
-        when Proto==udp; Proto==tcp; Proto==tls; Proto==sctp ->
+parse(Binary, State) ->
     case do_parse(Binary, State) of
         {ok, State1} -> do_noreply(State1);
         {error, Error} -> stop(Error, State)
-    end;
-
-parse(Packet, #state{proto=Proto, app_id=AppId,ws_frag=FragMsg}=State)
-        when Proto==ws; Proto==wss ->
-    {Result, State1} = case FragMsg of
-        undefined -> 
-            {
-                wsock_message:decode(Packet, []), 
-                State
-            };
-        _ -> 
-            {
-                wsock_message:decode(Packet, FragMsg, []), 
-                State#state{ws_frag=undefined}
-            }
-    end,
-    case Result of
-        Msgs when is_list(Msgs) ->
-            do_parse_ws_messages(Msgs, State1);
-        {error, Error} ->
-            ?notice(AppId, "Websocket parsing error: ~p", [Error]),
-            stop(ws_error, State1)
     end.
-
 
 
 %% @private
@@ -599,6 +601,38 @@ do_parse(Packet, State) ->
 
 
 %% @private
+-spec parse_ws(binary(), #state{}) ->
+    gen_server_info(#state{}).
+
+parse_ws(Packet, #state{app_id=AppId, ws_frag=FragMsg}=State) ->
+    {Result, State1} = case FragMsg of
+        undefined -> 
+            {
+                wsock_message:decode(Packet, []), 
+                State
+            };
+        _ -> 
+            {
+                wsock_message:decode(Packet, FragMsg, []), 
+                State#state{ws_frag=undefined}
+            }
+    end,
+    case Result of
+        Msgs when is_list(Msgs) ->
+            case do_parse_ws_messages(Msgs, State1) of
+                {ok, State2} -> 
+                    do_noreply(State2);
+                {error, Error} -> 
+                    ?warning(AppId, "Websocket parsing error: ~p", [Error]),
+                    stop(Error, State)
+            end;
+        {error, Error} ->
+            ?notice(AppId, "Websocket parsing error: ~p", [Error]),
+            stop(ws_error, State1)
+    end.
+
+
+%% @private
 -spec do_parse_ws_messages([#message{}], #state{}) ->
     {ok, #state{}} | {error, term()}.
 
@@ -610,20 +644,20 @@ do_parse_ws_messages([#message{type=fragmented}=Msg|Rest], State) ->
 
 do_parse_ws_messages([#message{type=Type, payload=Data}|Rest], State) 
         when Type==text; Type==binary ->
-    case do_parse(Data, State) of
+    case do_parse(nksip_lib:to_binary(Data), State) of
         {ok, State1} -> do_parse_ws_messages(Rest, State1);
-        {error, Error} -> stop(Error, State)
+        {error, Error} -> {error, Error}
     end;
 
 do_parse_ws_messages([#message{type=close}|_], _State) ->
     {error, ws_close};
 
 do_parse_ws_messages([#message{type=ping}|Rest], State) ->
-    lager:notice("WS PING"),
+    lager:warning("WS PING"),
     do_parse_ws_messages(Rest, State);
 
 do_parse_ws_messages([#message{type=pong}|Rest], State) ->
-    lager:notice("WS PONG"),
+    lager:warning("WS PONG"),
     do_parse_ws_messages(Rest, State).
 
 

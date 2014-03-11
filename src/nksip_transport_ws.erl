@@ -19,6 +19,14 @@
 %% -------------------------------------------------------------------
 
 %% @private Websocket (WS/WSS) Transport.
+%%
+%% For listening, we try to start a new webserver (ranch using cowboy_protocol), 
+%% that can be shared with other instances. We use this module as callback.
+%% We a new connection arrives, init/3 will be called, and we start a new
+%% nksip_transport_conn process in websocket_init/3.
+%%
+%% For outbound connections, we start a normal tcp/ssl connection and let it be
+%% managed by a fresh nksip_transport_conn process
 
 -module(nksip_transport_ws).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -54,7 +62,8 @@ get_listener(AppId, Transp, Opts) ->
             ok
     end,
     Transp1 = Transp#transport{dispatch=Dispatch},
-    Dispatch1 = dispatch(Dispatch, [AppId, Transp1, Opts]),
+    Timeout = 1000*nksip_config:get_cached(ws_timeout, Opts),
+    Dispatch1 = dispatch(Dispatch, [AppId, Transp1, [{timeout, Timeout}]]),
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp1,
     {
         {ws, {Proto, Ip, Port}},
@@ -230,37 +239,54 @@ terminate(_Reason, _State) ->
     ok.
 
 
-
-
-
-
-
 %% ===================================================================
 %% Cowboy's callbacks
 %% ===================================================================
 
+-record(ws_state, {
+    conn_pid :: pid()
+}).
 
-init({tcp, http}, _Req, _Opts) ->
-    lager:warning("WS UPGRADE"),
+
+%% @private
+init({Transp, http}, _Req, _Opts) when Transp==tcp; Transp==ssl ->
     {upgrade, protocol, cowboy_websocket}.
 
-websocket_init(_TransportName, Req, _Opts) ->
-    % erlang:start_timer(1000, self(), <<"Hello!">>),
-    {ok, Req, undefined_state}.
+%% @private
+websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
+    Timeout = nksip_lib:get_value(timeout, Opts),
+    {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req),
+    Transp1 = Transp#transport{remote_ip=RemoteIp, remote_port=RemotePort},
+    {ok, Pid} = nksip_transport_conn:start_link(AppId, Transp1, self(), Timeout),
+    {ok, Req, #ws_state{conn_pid=Pid}}.
 
-websocket_handle({text, _Msg}, Req, State) ->
-    Large = base64:encode(term_to_binary(lists:seq(1, 10000))),
-    {reply, {text, Large}, Req, State};
+
+%% @private
+websocket_handle({text, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
+    nksip_transport_conn:incoming(Pid, Msg),
+    {ok, Req, State};
+
+websocket_handle({binary, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
+    nksip_transport_conn:incoming(Pid, Msg),
+    {ok, Req, State};
+
 websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
 
-websocket_info({timeout, _Ref, Msg}, Req, State) ->
-    % erlang:start_timer(10000, self(), <<"How' you doin'?">>),
-    {reply, {text, Msg}, Req, State};
-websocket_info(_Info, Req, State) ->
+
+%% @private
+websocket_info({send, Frames}, Req, State) ->
+    {reply, Frames, Req, State};
+
+websocket_info(Info, Req, #ws_state{conn_pid=Pid}=State) ->
+    Pid ! Info,
     {ok, Req, State}.
 
-websocket_terminate(_Reason, _Req, _State) ->
+
+%% @private
+websocket_terminate(Reason, _Req, #ws_state{conn_pid=Pid}) ->
+    lager:warning("WS TERMINATE"),
+    nksip_transport_conn:stop(Pid, Reason),
     ok.
 
 
