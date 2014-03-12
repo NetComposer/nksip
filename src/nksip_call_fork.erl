@@ -280,13 +280,15 @@ waiting(Code, Resp, Pos, Fork, Call) when Code >= 600 ->
 
 send_reply(Resp, Fork, Call) ->
     #sipmsg{class={resp, Code, _}} = Resp,
-    #fork{id=TransId, method=Method} = Fork,
+    #fork{id=TransId, method=Method, request=Req} = Fork,
     #call{trans=Trans} = Call,
     case lists:keyfind(TransId, #trans.id, Trans) of
         #trans{class=uas}=UAS ->
             ?call_debug("Fork ~p ~p send reply to UAS: ~p", 
                         [TransId, Method, Code], Call),
-            {_, Call1} = nksip_call_uas_reply:reply({Resp, []}, UAS, Call),
+            % Put the original transport back in the response
+            Resp1 = Resp#sipmsg{transport=Req#sipmsg.transport},
+            {_, Call1} = nksip_call_uas_reply:reply({Resp1, []}, UAS, Call),
             Call1;
         _ ->
             ?call_debug("Unknown UAS ~p received fork reply",

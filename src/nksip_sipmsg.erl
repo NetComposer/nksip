@@ -53,13 +53,17 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         proto -> case T of #transport{proto=P} -> P; _ -> undefined end;
         local -> 
             case T of 
-                #transport{proto=P, local_ip=Ip, local_port=Port} -> {P, Ip, Port};
-                _ -> undefined
+                #transport{proto=P, local_ip=Ip, local_port=Port, resource=Res} -> 
+                    {P, Ip, Port, Res};
+                _ -> 
+                    undefined
             end;
         remote -> 
             case T of 
-                #transport{proto=P, remote_ip=Ip, remote_port=Port} -> {P, Ip, Port};
-                _ -> undefined
+                #transport{proto=P, remote_ip=Ip, remote_port=Port, resource=Res} -> 
+                    {P, Ip, Port, Res};
+                _ -> 
+                    undefined
             end;
         method -> case Class of {req, Method} -> Method; _ -> undefined end;
         ruri -> nksip_unparse:uri(RUri);

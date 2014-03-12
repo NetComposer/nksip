@@ -44,23 +44,25 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
         app_id = AppId, 
         vias = [Via|_],
         start = Start,
-        cseq_method = Method
+        cseq_method = Method,
+        transport = Transp
     } = Resp,
-    #via{proto=Proto, domain=Domain, port=Port, opts=ViaOpts} = Via,
-    {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(<<"received">>, ViaOpts)),
-    RPort = nksip_lib:get_integer(<<"rport">>, ViaOpts),
-    TranspSpec = case Proto of
+    #via{proto=ViaProto, domain=ViaDomain, port=ViaPort, opts=ViaOpts} = Via,
+    #transport{proto=RProto, remote_ip=RIp, remote_port=RPort, resource=Res} = Transp,
+    % {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(<<"received">>, ViaOpts)),
+    ViaRPort = lists:keymember(<<"rport">>, 1, ViaOpts),
+    TranspSpec = case RProto of
         'udp' ->
             case nksip_lib:get_binary(<<"maddr">>, ViaOpts) of
-                <<>> when RPort==0 -> [{udp, RIp, Port}];
-                <<>> -> [{udp, RIp, RPort}];
-                MAddr -> [#uri{domain=MAddr, port=Port}]   
+                <<>> when ViaRPort -> [{udp, RIp, RPort, <<>>}];
+                <<>> -> [{udp, RIp, ViaPort, <<>>}];
+                MAddr -> [#uri{domain=MAddr, port=ViaPort}]   
             end;
         _ ->
-            UriOpt = {<<"transport">>, nksip_lib:to_binary(Proto)},
+            UriOpt = {<<"transport">>, nksip_lib:to_binary(ViaProto)},
             [
-                {current, {Proto, RIp, RPort}}, 
-                #uri{domain=Domain, port=Port, opts=[UriOpt]}
+                {current, {RProto, RIp, RPort, Res}}, 
+                #uri{domain=ViaDomain, port=ViaPort, opts=[UriOpt]}
             ]
     end,
     RouteBranch = nksip_lib:get_binary(<<"branch">>, ViaOpts),
@@ -79,9 +81,10 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
 
 resend_response(#sipmsg{class={resp, Code, _}, app_id=AppId, cseq_method=Method, 
                         transport=#transport{}=Transport}=Resp, _GlobalId, Opts) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeResp = fun(_) -> Resp end,
-    Return = nksip_transport:send(AppId, [{current, {Proto, Ip, Port}}], MakeResp, Opts),
+    TranspSpec = [{current, {Proto, Ip, Port, Res}}],
+    Return = nksip_transport:send(AppId, TranspSpec, MakeResp, Opts),
     nksip_trace:insert(Resp, {sent_response, Method, Code}),
     Return;
 

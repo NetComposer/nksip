@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([start_listener/5, connect/5, send/2, async_send/2, stop/2]).
+-export([start_listener/5, connect/6, send/2, async_send/2, stop/2]).
 -export([start_refresh/3, stop_refresh/1, set_timeout/2, get_transport/1, get_refresh/1]).
 -export([incoming/2]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
@@ -69,14 +69,14 @@ start_listener(AppId, Proto, Ip, Port, Opts) ->
     
 %% @doc Starts a new connection to a remote server
 -spec connect(nksip:app_id(), nksip:protocol(), inet:ip_address(), inet:port_number(), 
-              nksip_lib:proplist()) ->
+              binary(), nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
          
-connect(AppId, Proto, Ip, Port, Opts) ->
+connect(AppId, Proto, Ip, Port, Res, Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, Proto, Class) of
         [{Transp, Pid}|_] -> 
-            Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port},
+            Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, resource=Res},
             case Proto of
                 udp -> nksip_transport_udp:connect(Pid, Transp1, Opts);
                 tcp -> nksip_transport_tcp:connect(AppId, Transp1, Opts);
@@ -240,8 +240,8 @@ start_link(AppId, Transport, SocketOrPid, Timeout) ->
     gen_server_init(#state{}).
 
 init([AppId, Transport, SocketOrPid, Timeout]) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
-    nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port}}, Transport), 
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
+    nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port, Res}}, Transport), 
     nksip_proc:put(nksip_transports, {AppId, Transport}),
     ?debug(AppId, "created ~p connection ~p (~p) ~p", 
             [Proto, {Ip, Port}, self(), Timeout]),
@@ -396,7 +396,7 @@ handle_info({tcp, Socket, Packet}, #state{proto=Proto, socket=Socket}=State) ->
 handle_info({ssl, Socket, Packet}, #state{proto=Proto, socket=Socket}=State) ->
     ssl:setopts(Socket, [{active, once}]),
     case Proto of
-        ssl -> parse(Packet, State);
+        tls -> parse(Packet, State);
         wss -> parse_ws(Packet, State)
     end;
 

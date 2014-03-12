@@ -472,7 +472,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
         true -> erlang:demonitor(Monitor);
         false -> ok
     end,
-    {Proto, Ip, Port} = nksip_lib:get_value(remote, Meta),
+    {Proto, Ip, Port, Res} = nksip_lib:get_value(remote, Meta),
     Require = nksip_lib:get_value(parsed_require, Meta),
     % 'fails' is not updated until the connection confirmation arrives
     % (or process down)
@@ -484,7 +484,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
     },
     case lists:member(<<"outbound">>, Require) of
         true ->
-            case nksip_transport:get_connected(AppId, Proto, Ip, Port) of
+            case nksip_transport:get_connected(AppId, Proto, Ip, Port, Res) of
                 [{_, Pid}|_] -> 
                     Secs = case nksip_lib:get_integer(<<"Flow-Timer">>, Meta) of
                         FT when is_integer(FT), FT > 5 -> FT;

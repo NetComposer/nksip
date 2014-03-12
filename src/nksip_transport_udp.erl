@@ -389,7 +389,7 @@ read_packets(Ip, Port, Packet, #state{socket=Socket}=State, N) ->
 %% @private
 do_connect(Ip, Port, State) ->
     #state{app_id=AppId, transport=Transp, socket=Socket, timeout=Timeout}= State,
-    case nksip_transport:get_connected(AppId, udp, Ip, Port) of
+    case nksip_transport:get_connected(AppId, udp, Ip, Port, <<>>) of
         [{Transp1, Pid}|_] -> 
             {Pid, Transp1};
         [] ->

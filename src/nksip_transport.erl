@@ -23,9 +23,9 @@
 -module(nksip_transport).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_all/0, get_all/1, get_listening/3, get_connected/4]).
+-export([get_all/0, get_all/1, get_listening/3, get_connected/5]).
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
--export([start_transport/5, start_connection/5, default_port/1]).
+-export([start_transport/5, start_connection/6, default_port/1]).
 -export([get_listenhost/2, make_route/6]).
 -export([send/4, raw_send/2]).
 -export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
@@ -43,7 +43,8 @@
 
 -type transport() :: #transport{}.
 
--type proto_ip_port() :: {nksip:protocol(), inet:ip_address(), inet:port_number()}.
+-type connection() :: 
+    {nksip:protocol(), inet:ip_address(), inet:port_number(), binary()}.
 
 
 %% ===================================================================
@@ -90,21 +91,21 @@ get_listening(AppId, Proto, Class) ->
 
 %% @private Finds a listening transport of Proto
 -spec get_connected(nksip:app_id(), nksip:protocol(), 
-                    inet:ip_address(), inet:port_number()) ->
+                    inet:ip_address(), inet:port_number(), binary()) ->
     [{nksip_transport:transport(), pid()}].
 
-get_connected(AppId, Proto, Ip, Port) ->
-    nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port}}).
+get_connected(AppId, Proto, Ip, Port, Res) ->
+    nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port, Res}}).
 
- 
+
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
 -spec is_local(nksip:app_id(), Input::nksip:uri()|nksip:via()) -> 
     boolean().
 
 is_local(AppId, #uri{}=Uri) ->
     Listen = [
-        {Proto, Ip, Port} ||
-        {#transport{proto=Proto, listen_ip=Ip, listen_port=Port}, _Pid} 
+        {Proto, Ip, Port, Res} ||
+        {#transport{proto=Proto, listen_ip=Ip, listen_port=Port, resource=Res}, _Pid} 
         <- nksip_proc:values({nksip_listen, AppId})
     ],
     is_local(Listen, nksip_dns:resolve(Uri), local_ips());
@@ -117,23 +118,23 @@ is_local(AppId, #via{}=Via) ->
 
 
 %% @private
-is_local(Listen, [{Proto, Ip, Port}|Rest], LocalIps) -> 
+is_local(Listen, [{Proto, Ip, Port, Res}|Rest], LocalIps) -> 
     case lists:member(Ip, LocalIps) of
         true ->
-            case lists:member({Proto, Ip, Port}, Listen) of
+            case lists:member({Proto, Ip, Port, Res}, Listen) of
                 true ->
                     true;
                 false ->
                     case 
                         is_tuple(Ip) andalso size(Ip)==4 andalso
-                        lists:member({Proto, {0,0,0,0}, Port}, Listen) 
+                        lists:member({Proto, {0,0,0,0}, Port, Res}, Listen) 
                     of
                         true -> 
                             true;
                         false -> 
                             case 
                                 is_tuple(Ip) andalso size(Ip)==8 andalso
-                                lists:member({Proto, {0,0,0,0,0,0,0,0}, Port}, Listen) 
+                                lists:member({Proto, {0,0,0,0,0,0,0,0}, Port, Res}, Listen) 
                             of
                                 true -> true;
                                 false -> is_local(Listen, Rest, LocalIps)
@@ -204,17 +205,18 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
 
 %% @private Starts a new outbound connection.
 -spec start_connection(nksip:app_id(), nksip:protocol(),
-                       inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+                       inet:ip_address(), inet:port_number(), binary(), 
+                       nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
-start_connection(AppId, udp, Ip, Port, Opts) ->
-    nksip_connection:connect(AppId, udp, Ip, Port, Opts);
+start_connection(AppId, udp, Ip, Port, Res, Opts) ->
+    nksip_connection:connect(AppId, udp, Ip, Port, Res, Opts);
 
-start_connection(AppId, Proto, Ip, Port, Opts) ->
+start_connection(AppId, Proto, Ip, Port, Res, Opts) ->
     Max = nksip_config:get(max_connections),
     case nksip_counters:value(nksip_transport_tcp) of
         Current when Current > Max -> error;
-        _ -> nksip_transport_srv:connect(AppId, Proto, Ip, Port, Opts)
+        _ -> nksip_transport_srv:connect(AppId, Proto, Ip, Port, Res, Opts)
     end.
                 
 
@@ -275,7 +277,7 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 %% @private
 -spec send(nksip:app_id(), [TSpec], function(), nksip_lib:proplist()) ->
     {ok, nksip:request()|nksip:response()} | error
-    when TSpec :: #uri{} | proto_ip_port() | {current, proto_ip_port()} | 
+    when TSpec :: #uri{} | connection() | {current, connection()} | 
                   {flow, {pid(), nksip:transport()}}.
 
 send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
@@ -283,12 +285,12 @@ send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     ?debug(AppId, "Transport send to ~p (~p)", [Resolv, Rest]),
     send(AppId, Resolv++Rest, MakeMsg, [{transport_uri, Uri}|Opts]);
 
-send(AppId, [{current, {udp, Ip, Port}}|Rest], MakeMsg, Opts) ->
-    send(AppId, [{udp, Ip, Port}|Rest], MakeMsg, Opts);
+send(AppId, [{current, {udp, Ip, Port, Res}}|Rest], MakeMsg, Opts) ->
+    send(AppId, [{udp, Ip, Port, Res}|Rest], MakeMsg, Opts);
 
-send(AppId, [{current, {Proto, Ip, Port}=D}|Rest], MakeMsg, Opts) ->
+send(AppId, [{current, {Proto, Ip, Port, Res}=D}|Rest], MakeMsg, Opts) ->
     ?debug(AppId, "Transport send to current ~p (~p)", [D, Rest]),
-    case get_connected(AppId, Proto, Ip, Port) of
+    case get_connected(AppId, Proto, Ip, Port, Res) of
         [{Transp, Pid}|_] -> 
             SipMsg = MakeMsg(Transp),
             case nksip_connection:send(Pid, SipMsg) of
@@ -307,11 +309,11 @@ send(AppId, [{flow, {Pid, Transp}=D}|Rest], MakeMsg, Opts) ->
         {error, _} -> send(AppId, Rest, MakeMsg, Opts)
     end;
 
-send(AppId, [{Proto, Ip, 0}|Rest], MakeMsg, Opts) ->
-    send(AppId, [{Proto, Ip, default_port(Proto)}|Rest], MakeMsg, Opts);
+send(AppId, [{Proto, Ip, 0, Res}|Rest], MakeMsg, Opts) ->
+    send(AppId, [{Proto, Ip, default_port(Proto), Res}|Rest], MakeMsg, Opts);
 
-send(AppId, [{Proto, Ip, Port}=D|Rest], MakeMsg, Opts) ->
-    case get_connected(AppId, Proto, Ip, Port) of
+send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
+    case get_connected(AppId, Proto, Ip, Port, Res) of
         [{Transp, Pid}|_] -> 
             ?debug(AppId, "Transport send to connected ~p (~p)", [D, Rest]),
             SipMsg = MakeMsg(Transp),
@@ -325,7 +327,7 @@ send(AppId, [{Proto, Ip, Port}=D|Rest], MakeMsg, Opts) ->
             end;
         [] ->
             ?debug(AppId, "Transport send to new ~p (~p)", [D, Rest]),
-            case start_connection(AppId, Proto, Ip, Port, Opts) of
+            case start_connection(AppId, Proto, Ip, Port, Res, Opts) of
                 {ok, Pid, Transp} ->
                     SipMsg = MakeMsg(Transp),
                     case nksip_connection:send(Pid, SipMsg) of
@@ -362,7 +364,7 @@ send(_, [], _MakeMsg, _Opts) ->
 
 raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=_AssocId} = Transp,
-    case get_connected(AppId, Proto, Ip, Port) of
+    case get_connected(AppId, Proto, Ip, Port, <<>>) of
         [{_, Pid}|_] -> nksip_connection:send(Pid, Reply);
         [] -> error
     end.
@@ -389,7 +391,7 @@ get_all_connected() ->
     nksip_proc:fold_names(
         fun(Name, Values, Acc) ->
             case Name of
-                {nksip_connection, {AppId, _Proto, _Ip, _Port}} -> 
+                {nksip_connection, {AppId, _Proto, _Ip, _Port, _Res}} -> 
                     [{AppId, Transp, Pid} || {val, Transp, Pid} <- Values] ++ Acc;
                 _ ->
                     Acc

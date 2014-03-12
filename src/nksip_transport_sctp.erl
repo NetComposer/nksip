@@ -177,7 +177,7 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
                     State
             end;
         #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
-            case nksip_transport:get_connected(AppId, sctp, Ip, Port) of
+            case nksip_transport:get_connected(AppId, sctp, Ip, Port, <<>>) of
                 [{#transport{sctp_id=AssocId}, Pid}|_] ->
                     nksip_connection:stop(Pid, normal);
                 _ ->
@@ -233,7 +233,7 @@ terminate(_Reason, #state{app_id=AppId, socket=Socket}) ->
 %% @private
 do_connect(Ip, Port, AssocId, State) ->
     #state{app_id=AppId} = State,
-    case nksip_transport:get_connected(AppId, sctp, Ip, Port) of
+    case nksip_transport:get_connected(AppId, sctp, Ip, Port, <<>>) of
         [{Transp, Pid}|_] -> 
             {Pid, Transp};
         [] -> 

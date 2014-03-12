@@ -25,7 +25,7 @@
 
 -include("nksip.hrl").
 
--export([connect/5]).
+-export([connect/6]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
 
@@ -37,15 +37,16 @@
 
 %% @doc Starts a new outbound connection.
 -spec connect(nksip:app_id(), nksip:protocol(),
-                       inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+                       inet:ip_address(), inet:port_number(), binary(),
+                       nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
-connect(AppId, udp, Ip, Port, Opts) ->
+connect(AppId, udp, Ip, Port, _Res, Opts) ->
     nksip_connection:connect(AppId, udp, Ip, Port, Opts);
 
-connect(AppId, Proto, Ip, Port, Opts)
+connect(AppId, Proto, Ip, Port, Res, Opts)
                     when Proto==tcp; Proto==tls; Proto==sctp; Proto==ws; Proto==wss ->
-    ConnId = {AppId, Proto, Ip, Port},
+    ConnId = {AppId, Proto, Ip, Port, Res},
     gen_server:call(?MODULE, {new, ConnId, Opts}, infinity).
 
 
@@ -139,8 +140,8 @@ terminate(_Reason, _State) ->
 %% ===================================================================
 
 
-connect({AppId, Proto, Ip, Port}=Key, Opts, Pid) ->
-    Result = nksip_connection:connect(AppId, Proto, Ip, Port, Opts),
+connect({AppId, Proto, Ip, Port, Res}=Key, Opts, Pid) ->
+    Result = nksip_connection:connect(AppId, Proto, Ip, Port, Res, Opts),
     gen_server:cast(Pid, {conn, Key, Result}).
 
 

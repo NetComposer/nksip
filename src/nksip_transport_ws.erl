@@ -62,13 +62,12 @@ get_listener(AppId, Transp, Opts) ->
         {value, {_, Dispatch}, Opts1} -> 
             ok
     end,
-    Transp1 = Transp#transport{dispatch=Dispatch},
     Timeout = 1000*nksip_config:get_cached(ws_timeout, Opts),
-    Dispatch1 = dispatch(Dispatch, [AppId, Transp1, [{timeout, Timeout}]]),
-    #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp1,
+    Dispatch1 = dispatch(Dispatch, [AppId, Transp, [{timeout, Timeout}]]),
+    #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     {
         {ws, {Proto, Ip, Port}},
-        {?MODULE, start_link, [AppId, Transp1, Dispatch1, Opts1]},
+        {?MODULE, start_link, [AppId, Transp, Dispatch1, Opts1]},
         permanent,
         5000,
         worker,
@@ -81,18 +80,19 @@ get_listener(AppId, Transp, Opts) ->
     {ok, term()} | {error, term()}.
          
 connect(AppId, Transp, Opts) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transp,
     {InetMod, TranspMod} = case Proto of
         ws -> {inet, gen_tcp};
         wss -> {ssl, ssl}
     end,
+    Res1 = case Res of <<>> -> <<"/">>; _ -> Res end,
     SocketOpts = outbound_opts(Proto, Opts),
     try
         Socket = case TranspMod:connect(Ip, Port, SocketOpts) of
             {ok, Socket0} -> Socket0;
             {error, Error1} -> throw(Error1) 
         end,
-        {Data1, HandshakeReq} = handshake_req(Ip, Port, Opts),
+        {Data1, HandshakeReq} = handshake_req(Ip, Port, Res1, Opts),
         case TranspMod:send(Socket, Data1) of
             ok -> ok;
             {error, Error2} -> throw(Error2)
@@ -113,7 +113,8 @@ connect(AppId, Transp, Opts) ->
             local_ip = LocalIp,
             local_port = LocalPort,
             remote_ip = Ip,
-            remote_port = Port
+            remote_port = Port,
+            resource = Res1
         },
         Timeout = 1000*nksip_config:get_cached(ws_timeout, Opts),
         Spec = {
@@ -246,7 +247,12 @@ websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
                                               <<"sip">>, Req2),
             Timeout = nksip_lib:get_value(timeout, Opts),
             {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req3),
-            Transp1 = Transp#transport{remote_ip=RemoteIp, remote_port=RemotePort},
+            {Path, _} = cowboy_req:path(Req3),
+            Transp1 = Transp#transport{
+                remote_ip = RemoteIp, 
+                remote_port = RemotePort,
+                resource = Path
+            },
             {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
             {ok, Req3, #ws_state{conn_pid=Pid}};
         false -> 
@@ -347,19 +353,17 @@ outbound_opts(wss, Opts) ->
     ]).
 
 %% @private
--spec handshake_req(inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+-spec handshake_req(inet:ip_address(), inet:port_number(), binary(), 
+                    nksip_lib:proplist()) ->
     {binary(), #handshake{}}.
 
-handshake_req(Ip, Port, Opts) ->
-    case nksip_lib:get_value(transport_uri, Opts) of
-        #uri{domain=Domain, path=Path} ->
-            Resource = binary_to_list(Path),
-            Host = binary_to_list(Domain);
-        undefined ->
-            Host = binary_to_list(nksip_lib:to_host(Ip)),
-            Resource = "/"
+handshake_req(Ip, Port, Res, Opts) ->
+    Host = case nksip_lib:get_value(transport_uri, Opts) of
+        #uri{domain=Domain} -> binary_to_list(Domain);
+        undefined -> binary_to_list(nksip_lib:to_host(Ip))
     end,
-    {ok, #handshake{message=Msg1}=HS1} = wsock_handshake:open(Resource, Host, Port),
+    Res1 = nksip_lib:to_list(Res),
+    {ok, #handshake{message=Msg1}=HS1} = wsock_handshake:open(Res1, Host, Port),
     #http_message{headers=Headers1} = Msg1,
     Headers2 = [{"Sec-Websocket-Protocol", "sip"}|Headers1],
     Msg2 = Msg1#http_message{headers=Headers2},

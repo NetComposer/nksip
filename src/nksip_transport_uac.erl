@@ -96,9 +96,9 @@ send_request(Req, GlobalId, Opts) ->
     {ok, nksip:request()} | error.
 
 resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transport,
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeReq = fun(_) -> Req end,
-    nksip_transport:send(AppId, [{Proto, Ip, Port}], MakeReq, Opts).
+    nksip_transport:send(AppId, [{Proto, Ip, Port, Res}], MakeReq, Opts).
         
 
 
@@ -135,11 +135,12 @@ outbound_opts(Req, Opts) ->
                                         #transport{
                                             proto = Proto, 
                                             remote_ip = Ip, 
-                                            remote_port = Port
+                                            remote_port = Port,
+                                            resource = Res
                                         } ->
                                             case 
                                                 nksip_transport:get_connected(
-                                                            AppId, Proto, Ip, Port)
+                                                            AppId, Proto, Ip, Port, Res)
                                             of
                                                 [{_, Pid}|_] -> [{store_flow, Pid}|Opts];
                                                 _ -> Opts

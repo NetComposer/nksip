@@ -67,15 +67,12 @@ connect(AppId, Transp, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     SocketOpts = outbound_opts(Proto, Opts),
     {InetMod, TranspMod} = case Proto of
-        ws -> {inet, gen_tcp};
-        wss -> {ssl, ssl}
+        tcp -> {inet, gen_tcp};
+        tls -> {ssl, ssl}
     end,
     case TranspMod:connect(Ip, Port, SocketOpts) of
         {ok, Socket} -> 
-            {ok, {LocalIp, LocalPort}} = case Proto of
-                tcp -> inet:sockname(Socket);
-                tls -> ssl:sockname(Socket)
-            end,
+            {ok, {LocalIp, LocalPort}} = InetMod:sockname(Socket),
             Transp1 = Transp#transport{
                 local_ip = LocalIp,
                 local_port = LocalPort,
