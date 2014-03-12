@@ -110,9 +110,9 @@ scheme([$:|Rest], Acc, Block, Uri) ->
             Uri1 = Uri#uri{scheme=nksip_parse:scheme(lists:reverse(Acc))},
             Rest1 = strip(Rest),
             case user(Rest1, [], Block, Uri1) of
-                {error, Error, Line} -> 
+                {error, _Error, _Line} -> 
                     case domain(Rest1, [], false, Block, Uri1) of
-                        {error, _, _} -> {error, Error, Line};
+                        {error, Error1, Line1} -> {error, Error1, Line1};
                         {Uri2, Rest2} -> {Uri2, Rest2}
                     end;
                 {Uri2, Rest2} -> 
@@ -203,6 +203,9 @@ domain([], Acc, Ip6, Block, Uri) ->
             Uri1 = Uri#uri{domain=list_to_binary(lists:reverse(Acc))},
             {Uri1, []}
     end;
+
+domain([$/|Rest], [], Ip6, Block, Uri) ->
+    domain(Rest, [], Ip6, Block, Uri);
 
 domain([Ch|_]=Rest, Acc, Ip6, Block, Uri) when Ch==$;; Ch==$?; Ch==$>; Ch==$,; Ch==$/ ->
     case Acc==[] orelse Ip6 of
