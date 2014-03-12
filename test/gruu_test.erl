@@ -99,7 +99,7 @@ register() ->
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts1))),
     {ok, Inst1} = nksip_sipapp_srv:get_uuid(C1),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub1,
-    #uri{domain = <<"localhost">>, port=5060} = Tmp1,
+    #uri{domain = <<"nksip">>, port=0} = Tmp1,
 
     Pub1 = nksip_sipapp_srv:get_gruu_pub(C1),
     Tmp1 = nksip_sipapp_srv:get_gruu_temp(C1),
@@ -121,7 +121,7 @@ register() ->
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
     {ok, Inst2} = nksip_sipapp_srv:get_uuid(C2),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub2,
-    #uri{domain = <<"localhost">>, port=5060} = Tmp2,
+    #uri{domain = <<"nksip">>, port=0} = Tmp2,
 
     Pub2 = nksip_sipapp_srv:get_gruu_pub(C2),
     Tmp2 = nksip_sipapp_srv:get_gruu_temp(C2),
