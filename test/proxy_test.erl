@@ -378,10 +378,10 @@ servers(Test) ->
     Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sips:127.0.0.1:5081", 
-                                                                [unregister_all|Opts2]),
+                                        [unregister_all|Opts2]),
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sips:127.0.0.1:5081", 
-                                                                [make_contact|Opts2]),
+                                        [{supported, []}, make_contact|Opts2]),
     
     % As the RURI is sips, it will be sent using sips, even if our Route is sip
     % server1 detects nksip2 is a domain for server2, and routes to there

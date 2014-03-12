@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(websocket_test).
+-module(a_websocket_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -28,64 +28,82 @@
 -compile([export_all]).
 
 
-% start_test() ->
-%     ok = nksip:start(ws_a, nksip_sipapp, [], [
-%         {transport, {ws, {0,0,0,0}, 8090, []}},
-%         {transport, {wss, {0,0,0,0}, 8091, []}},
-%         {transport, {ws, {0,0,0,0}, 0, [{dispatch, "/ws"}]}}
-%     ]),
-%     ok = nksip:start(ws_b, nksip_sipapp, [], [
-%         {transport, {ws, {0,0,0,0}, 8090, []}},
-%         {transport, {wss, {0,0,0,0}, 8092, [{dispatch, [{'_', ["/ws"]}]}]}}
-%     ]),
-%     timer:sleep(100),
-   
-%     [
-%         {#transport{proto=ws, local_port=0, listen_port=_LP}, _},
-%         {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
-%         {#transport{proto=wss, local_port=8091, listen_port=8091}, _}
-%     ] = 
-%         lists:sort(nksip_transport:get_all(ws_a)),
-
-%     [
-%         {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
-%         {#transport{proto=wss, local_port=8092, listen_port=8092}, _}
-%     ] = 
-%         lists:sort(nksip_transport:get_all(ws_b)),
-
-%     [
-%         {ws,{0,0,0,0},0},
-%         {ws,{0,0,0,0},8090},
-%         {wss,{0,0,0,0},8091},
-%         {wss,{0,0,0,0},8092}
-%     ] = 
-%         lists:sort(nksip_webserver_sup:get_all()),
-
-%     nksip:stop(ws_a),
-%     timer:sleep(100),
-%     [] = nksip_transport:get_all(ws_a),
-%     [{ws,{0,0,0,0},8090},{wss,{0,0,0,0},8092}] = 
-%         lists:sort(nksip_webserver_sup:get_all()),
-
-%     nksip:stop(ws_b),
-%     timer:sleep(100),
-%     [] = nksip_transport:get_all(ws_b),
-%     [] = lists:sort(nksip_webserver_sup:get_all()),
-%     ok.
+ws1_test_() ->
+    {setup, spawn, 
+        fun() -> start1() end,
+        fun(_) -> stop1() end,
+        [
+            fun webserver/0
+        ]
+    }.
 
 
-% ws_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun basic/0, 
-%             fun sharing/0
-%         ]
-%     }.
+start1() ->
+    ok = nksip:start(ws_a, nksip_sipapp, [], [
+        {transport, {ws, {0,0,0,0}, 8090, []}},
+        {transport, {wss, {0,0,0,0}, 8091, []}},
+        {transport, {ws, {0,0,0,0}, 0, [{dispatch, "/ws"}]}}
+    ]),
+
+    ok = nksip:start(ws_b, nksip_sipapp, [], [
+        {transport, {ws, {0,0,0,0}, 8090, []}},
+        {transport, {wss, {0,0,0,0}, 8092, [{dispatch, [{'_', ["/ws"]}]}]}}
+    ]),
+
+    tests_util:log(),
+    ?debugFmt("Starting ~p", [?MODULE]).
+
+webserver() ->
+    [
+        {#transport{proto=ws, local_port=0, listen_port=_LP}, _},
+        {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
+        {#transport{proto=wss, local_port=8091, listen_port=8091}, _}
+    ] = 
+        lists:sort(nksip_transport:get_all(ws_a)),
+
+    [
+        {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
+        {#transport{proto=wss, local_port=8092, listen_port=8092}, _}
+    ] = 
+        lists:sort(nksip_transport:get_all(ws_b)),
+
+    [
+        {ws,{0,0,0,0},0},
+        {ws,{0,0,0,0},8090},
+        {wss,{0,0,0,0},8091},
+        {wss,{0,0,0,0},8092}
+    ] = 
+        lists:sort(nksip_webserver_sup:get_all()),
+
+    nksip:stop(ws_a),
+    timer:sleep(100),
+    [] = nksip_transport:get_all(ws_a),
+    [{ws,{0,0,0,0},8090},{wss,{0,0,0,0},8092}] = 
+        lists:sort(nksip_webserver_sup:get_all()),
+
+    nksip:stop(ws_b),
+    timer:sleep(100),
+    [] = nksip_transport:get_all(ws_b),
+    [] = lists:sort(nksip_webserver_sup:get_all()),
+    ok.
+
+stop1() ->
+    ok.
 
 
-start() ->
+ws2_test_() ->
+    {setup, spawn, 
+        fun() -> start2() end,
+        fun(_) -> stop2() end,
+        [
+            fun basic/0, 
+            fun sharing/0,
+            fun proxy/0
+        ]
+    }.
+
+
+start2() ->
     tests_util:start_nksip(),
 
     ok = sipapp_server:start({ws, server1}, [
@@ -119,16 +137,14 @@ start() ->
         {transport, {ws, {0,0,0,0}, 8080, [{dispatch, "/client3"}]}}
     ]),
 
-    tests_util:log(),
-    ?debugFmt("Starting ~p", [?MODULE]).
+    tests_util:log().
 
 
-stop() ->
-    ok = nksip:stop_all(),
-    error = sipapp_server:stop({ws, server1}),
-    error = sipapp_endpoint:stop({ws, ua1}),
-    error = sipapp_endpoint:stop({ws, ua2}),
-    error = sipapp_endpoint:stop({ws, ua3}),
+stop2() ->
+    ok = sipapp_server:stop({ws, server1}),
+    ok = sipapp_endpoint:stop({ws, ua1}),
+    ok = sipapp_endpoint:stop({ws, ua2}),
+    ok = sipapp_endpoint:stop({ws, ua3}),
     ok.
 
 
@@ -246,9 +262,57 @@ sharing() ->
 
 proxy() ->
 
-    nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8080;transport=ws>", [make_contact]).
+    {ok, 200, []} = 
+        nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8081/wss;transport=wss>", 
+                           [unregister_all]),
+    {ok, 200, []} = 
+        nksip_uac:register({ws,ua3}, "<sip:127.0.0.1:8080;transport=ws>", 
+                           [unregister_all]),
+
+    
+    % UA2 registers with the registrar, using WSS
+    {ok, 200, []} = 
+        nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8081/wss;transport=wss>", 
+                           [make_contact]),
+
+    % Using or public GRUU, UA1 (without websocket support) is able to reach us
+    C2Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua2}),
+    {ok, 200, [{_, [<<"ua2">>]}]} = 
+        nksip_uac:options({ws,ua1}, C2Pub, 
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
+
+    % The same with our private GRUU
+    C2Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua2}),
+    {ok, 200, [{_, [<<"ua2">>]}]} = 
+        nksip_uac:options({ws,ua1}, C2Priv, 
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
 
 
+    % UA3 registers. Its contact is not routable
+    {ok, 200, [{_, [C3Contact]}]} = 
+        nksip_uac:register({ws,ua3}, "<sip:127.0.0.1:8080;transport=ws>", 
+                           [make_contact, {fields, [parsed_contacts]}]),
+    #uri{domain = <<"invalid.invalid">>} = C3Contact,
+    
+    C3Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua3}),
+    {ok, 200, [{_, [<<"ua3">>]}]} = 
+        nksip_uac:options({ws,ua1}, C3Pub, 
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
+
+    C3Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua3}),
+    {ok, 200, [{_, [<<"ua3">>]}]} = 
+        nksip_uac:options({ws,ua1}, C3Priv, 
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
 
 
+    % Let's stop the transports
+    [nksip_connection:stop(Pid, normal) || 
+        {_, Pid} <- nksip_transport:get_all_connected({ws,server1})],
+    timer:sleep(100),
 
+    {ok, 430, []} = nksip_uac:options({ws,ua1}, C2Pub, 
+                          [{route, "<sip:127.0.0.1;lr>"}]),
+
+    {ok, 430, []} = nksip_uac:options({ws,ua1}, C3Pub, 
+                          [{route, "<sip:127.0.0.1;lr>"}]),
+    ok.

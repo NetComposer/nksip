@@ -99,7 +99,7 @@ authorize(_ReqId, _Auth, _From, State) ->
 % Any other case simply route
 route(ReqId, Scheme, User, Domain, _From, 
         #state{id={Test, Id}=AppId, domains=Domains}=State)
-        when Test=:=basic; Test=:=uas; Test=:=gruu; Test=:=ws ->
+        when Test=:=basic; Test=:=uas; Test=:=gruu ->
     Opts = [
         record_route,
         {headers, [{'Nksip-Server', Id}]}
@@ -286,7 +286,26 @@ route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={timer, p1}}=State) ->
 
 route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={timer, p2}}=State) ->
     Opts = [record_route],
-    {reply, {proxy, ruri, Opts}, State}.
+    {reply, {proxy, ruri, Opts}, State};
+
+route(ReqId, _Scheme, User, Domain, _From, 
+        #state{id={ws, Id}=AppId, domains=Domains}=State) ->
+    Opts = [
+        record_route,
+        {headers, [{'Nksip-Server', Id}]}
+    ],
+    case lists:member(Domain, Domains) of
+        true when User =:= <<>> ->
+            {reply, {process, Opts}, State};
+        true when Domain =:= <<"nksip">> ->
+            RUri = nksip_request:field(AppId, ReqId, parsed_ruri),
+            case nksip_registrar:find(AppId, RUri) of
+                [] -> {reply, temporarily_unavailable, State};
+                UriList -> {reply, {proxy, UriList, Opts}, State}
+            end;
+        _ ->
+            {reply, {proxy, ruri, Opts}, State}
+    end.
 
 
 

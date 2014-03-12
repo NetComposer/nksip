@@ -129,8 +129,9 @@ register() ->
 
     % Now we have two contacts stored for this AOR
     [PC2a, PC1a] = nksip_registrar:find(S1, sip, <<"client1">>, <<"nksip">>),
-    PC2 = PC2a#uri{headers=[]},
-    PC1 = PC1a#uri{headers=[]},
+
+    true = PC2#uri{ext_opts=[]} == PC2a#uri{headers=[]},
+    true = PC1#uri{ext_opts=[]} == PC1a#uri{headers=[]},
 
     % But we use the Public or Private GRUUs, only one of each
     [PC1a] = nksip_registrar:find(S1, Pub1),

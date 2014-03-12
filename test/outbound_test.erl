@@ -174,9 +174,8 @@ flow() ->
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
         opts = [{<<"transport">>, <<"tcp">>}, <<"ob">>],
         headers = [{<<"Route">>, QRoute1}],
-        ext_opts = EOpts2
+        ext_opts = []
     }=Contact1] = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
-    true = lists:member({<<"+sip.instance">>, QInstanceC1}, EOpts2),
 
     true = 
         list_to_binary(http_uri:decode(binary_to_list(QRoute1))) == 
