@@ -31,6 +31,8 @@
          handle_info/2]).
 -export([ranch_start_link/6, do_stop_server/1]).
 
+-type server_ref() :: {nksip:protocol(), inet:ip_address(), inet:port_number()}.
+
 
 %% ===================================================================
 %% Public
@@ -48,8 +50,13 @@ start_server(AppId, Proto, Ip, Port, Disp, Opts)
             is_list(Disp) andalso is_list(Opts) ->
     case nksip_transport_sup:get_pid(AppId) of
         AppPid when is_pid(AppPid) ->
-            Ref = {Proto, Ip, Port},
-            gen_server:call(?MODULE, {start, AppId, AppPid, Ref, Disp, Opts});
+            case catch cowboy_router:compile(Disp) of
+                {'EXIT', _} -> 
+                    {error, invalid_dispatch};
+                _ ->
+                    Ref = {Proto, Ip, Port},
+                    gen_server:call(?MODULE, {start, AppId, AppPid, Ref, Disp, Opts})
+            end;
         _ ->
             {error, sipapp_not_found}
     end.
@@ -85,7 +92,7 @@ stop_all() ->
 %% ===================================================================
 
 -record(server_info, {
-    ref :: term(),
+    ref :: server_ref(),
     apps = [] :: [nksip:app_id()],
     dispatch = [] :: list(),
     pid :: pid(), 
@@ -94,7 +101,7 @@ stop_all() ->
 
 
 -record(app_info, {
-    index :: {App::nksip:app_id(), Ref::term()}, 
+    index :: {nksip:app_id(), server_ref()}, 
     dispatch = [] :: list(),
     mon :: reference()
 }).
@@ -125,16 +132,16 @@ init([]) ->
 
 handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
     #state{servers=Servers, apps=Apps} = State,
-    App = #app_info{
-        index = {AppId, Ref},
-        dispatch = Disp,
-        mon = erlang:monitor(process, AppPid)
-    },
     case lists:keytake(Ref, #server_info.ref, Servers) of
         false ->
             case do_start_server(Ref, Disp, Opts) of
                 {ok, WebPid} ->
                     % We will receive a {webserver_started, _, _} msg
+                    App = #app_info{
+                        index = {AppId, Ref},
+                        dispatch = Disp,
+                        mon = erlang:monitor(process, AppPid)
+                    },
                     State1 = State#state{apps=[App|Apps]},
                     {reply, {ok, WebPid}, State1};
                 {error, Error} ->
@@ -143,20 +150,27 @@ handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
         {value, #server_info{apps=WebApps, pid=WebPid}=Server, Servers1} ->
             Apps1 = case lists:keytake({AppId, Ref}, #app_info.index, Apps) of
                 false -> 
-                    Apps;
-                {value, #app_info{mon=AppMon}, RestApps} ->
-                    erlang:demonitor(AppMon),
-                    RestApps
+                    App = #app_info{
+                        index = {AppId, Ref},
+                        dispatch = Disp,
+                        mon = erlang:monitor(process, AppPid)
+                    },
+                    [App|Apps];
+                {value, #app_info{}=App, RestApps} ->
+                    [App#app_info{dispatch=Disp}|RestApps]
             end,
-            Apps2 = [App|Apps1],
-            do_update_server(Ref, Apps2),
-            WebApps1 = nksip_lib:store_value(AppId, WebApps),
-            Server1 = Server#server_info{apps=WebApps1},
-            State1 = State#state{
-                servers = [Server1|Servers1], 
-                apps = Apps2
-            },
-            {reply, {ok, WebPid}, State1}
+            case do_update_server(Ref, Apps1) of
+                ok ->
+                    WebApps1 = nksip_lib:store_value(AppId, WebApps),
+                    Server1 = Server#server_info{apps=WebApps1},
+                    State1 = State#state{
+                        servers = [Server1|Servers1], 
+                        apps = Apps1
+                    },
+                    {reply, {ok, WebPid}, State1};
+                {error, Error} ->
+                    {reply, {error, Error}, State}
+            end
     end;
 
 handle_call({stop, AppId, Ref}, _From, State) ->
@@ -264,6 +278,9 @@ terminate(_Reason, _State) ->
 
 
 %% @private
+-spec do_start_server(server_ref(), list(), nksip_lib:proplist()) ->
+    {ok, pid()} | {error, term()}.
+
 do_start_server(Ref, Dispatch, Opts) ->
     {Proto, Ip, Port} = Ref,
     Env = {env, [{dispatch, cowboy_router:compile(Dispatch)}]},
@@ -281,19 +298,50 @@ do_start_server(Ref, Dispatch, Opts) ->
     nksip_webserver_sup:start_child(Spec1).
  
 %% @private
+-spec do_stop_server(server_ref()) ->
+    ok | {error, term()}.
+
 do_stop_server(Ref) ->
     SupRef = {ranch_listener_sup, Ref},
     nksip_webserver_sup:terminate_child(SupRef).
 
 
 %% @private
+-spec do_update_server(server_ref(), [#app_info{}]) ->
+    ok | {error, invalid_dispatch}.
+
 do_update_server(Ref, Apps) ->
-    Dispatch = lists:flatten([
+    Rules = lists:flatten([
         Disp0 ||
         #app_info{index={_, AppRef}, dispatch=Disp0} <- Apps,
         AppRef == Ref
     ]),
-    cowboy:set_env(Ref, dispatch, cowboy_router:compile(Dispatch)).
+    case get_dispatch(Rules, []) of
+        {ok, Compiled} -> cowboy:set_env(Ref, dispatch, Compiled);
+        error -> {error, invalid_dispatch}
+    end.
+
+
+%% @private
+get_dispatch([], Acc) ->
+    case catch cowboy_router:compile(Acc) of
+        {'EXIT', _} -> error;
+        Compiled -> lager:warning("Updated ~p", [Compiled]), {ok, Compiled}
+    end;
+
+get_dispatch([{Host, Paths}|Rest], Acc) ->
+    get_dispatch([{Host, [], Paths}|Rest], Acc);
+
+get_dispatch([{Host, Consts, Paths}|Rest], Acc) ->
+    case lists:keytake(Host, 1, Acc) of
+        false ->
+            get_dispatch(Rest, [{Host, Consts, Paths}|Acc]);
+        {value, {_, Consts, PrevPaths}, RestAcc} ->
+            get_dispatch(Rest, [{Host, Consts, PrevPaths++Paths}|RestAcc]);
+        _ ->
+            % We don't allow sharing a server and host with different constraints
+            error
+    end.
 
 
 %% @private Gets socket options for listening connections
