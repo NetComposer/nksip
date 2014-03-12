@@ -31,6 +31,9 @@
 
 -define(CHECK_INTERVAL, 60).    % secs
 
+-type connection() :: 
+    {nksip:protocol(), inet:ip_address(), inet:port_number(), binary()}.
+
 
 %% ===================================================================
 %% Public
@@ -38,9 +41,9 @@
 
 %% @doc Finds the ips, transports and ports to try for `Uri', following RFC3263
 -spec resolve(nksip:user_uri()) -> 
-    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
+    [connection()].
 
-resolve(#uri{}=Uri) ->
+resolve(#uri{path=Path}=Uri) ->
     case resolve_uri(Uri) of
         {ok, TranspInfo} ->
             TranspInfo;
@@ -57,11 +60,18 @@ resolve(#uri{}=Uri) ->
             end,
             case resolve_srvs(Scheme, Naptr, []) of
                 [] when Scheme==sips -> 
-                    [{tls, Addr, 5061} || Addr <- get_ips(Domain)];
+                    [{tls, Addr, 5061, <<>>} || Addr <- get_ips(Domain)];
                 [] -> 
-                    [{udp, Addr, 5060} || Addr <- get_ips(Domain)];
+                    [{udp, Addr, 5060, <<>>} || Addr <- get_ips(Domain)];
                 Srvs ->
-                    Srvs
+                    [
+                        case Proto==ws orelse Proto==wss of
+                            true  -> {Proto, Addr, Port, Path};
+                            false -> {Proto, Addr, Port, <<>>}
+                        end
+                        ||
+                        {Proto, Addr, Port} <- Srvs
+                    ]
             end
     end;
 
@@ -97,7 +107,7 @@ resolve_srvs(_, [], Acc) ->
     {ok, [{nksip:protocol(), inet:ip_address(), inet:port_number()}]} | 
     {naptr, sip|sips, string()}.
 
-resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
+resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port, path=Path}) ->
     Target = nksip_lib:get_list(<<"maddr">>, Opts, Host),
     case nksip_lib:to_ip(Target) of 
         {ok, TargetIp} -> IsNumeric = true;
@@ -122,7 +132,7 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port}) ->
             true -> [TargetIp];
             false -> get_ips(Target)
         end,
-        {ok, [{FProto, Addr, Port1} || Addr <- Addrs]} 
+        {ok, [{FProto, Addr, Port1, Path} || Addr <- Addrs]} 
     end,
     case {Scheme, Proto} of
         {sip, udp} -> Resolve(udp);
@@ -503,32 +513,32 @@ weigth_test() ->
 
 uri_test() ->
     Test = [
-        {"<sip:1.2.3.4;transport=udp>",  {ok, [{udp, {1,2,3,4}, 5060}]}},
-        {"<sip:1.2.3.4;transport=tcp>",  {ok, [{tcp, {1,2,3,4}, 5060}]}},
-        {"<sip:1.2.3.4;transport=tls>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
-        {"<sip:1.2.3.4;transport=sctp>", {ok, [{sctp, {1,2,3,4}, 5060}]}},
-        {"<sip:1.2.3.4;transport=ws>",   {ok, [{ws, {1,2,3,4}, 80}]}},
-        {"<sip:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 443}]}},
+        {"<sip:1.2.3.4;transport=udp>",  {ok, [{udp, {1,2,3,4}, 5060, <<>>}]}},
+        {"<sip:1.2.3.4;transport=tcp>",  {ok, [{tcp, {1,2,3,4}, 5060, <<>>}]}},
+        {"<sip:1.2.3.4;transport=tls>",  {ok, [{tls, {1,2,3,4}, 5061, <<>>}]}},
+        {"<sip:1.2.3.4;transport=sctp>", {ok, [{sctp, {1,2,3,4}, 5060, <<>>}]}},
+        {"<sip:1.2.3.4;transport=ws>",   {ok, [{ws, {1,2,3,4}, 80, <<>>}]}},
+        {"<sip:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 443, <<>>}]}},
         {"<sip:1.2.3.4;transport=other>",  {ok, []}},
 
         {"<sips:1.2.3.4;transport=udp>",  {ok, []}},
-        {"<sips:1.2.3.4;transport=tcp>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
-        {"<sips:1.2.3.4;transport=tls>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
+        {"<sips:1.2.3.4;transport=tcp>",  {ok, [{tls, {1,2,3,4}, 5061, <<>>}]}},
+        {"<sips:1.2.3.4;transport=tls>",  {ok, [{tls, {1,2,3,4}, 5061, <<>>}]}},
         {"<sips:1.2.3.4;transport=sctp>", {ok, []}},
-        {"<sips:1.2.3.4;transport=ws>",   {ok, [{wss, {1,2,3,4}, 443}]}},
-        {"<sips:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 443}]}},
+        {"<sips:1.2.3.4;transport=ws>",   {ok, [{wss, {1,2,3,4}, 443, <<>>}]}},
+        {"<sips:1.2.3.4;transport=wss>",  {ok, [{wss, {1,2,3,4}, 443, <<>>}]}},
         {"<sip:1.2.3.4;transport=other>",  {ok, []}},
 
-        {"<sip:1.2.3.4:4321;transport=tcp>",  {ok, [{tcp, {1,2,3,4}, 4321}]}},
-        {"<sips:127.0.0.1:4321;transport=tls>",  {ok, [{tls, {127,0,0,1}, 4321}]}},
+        {"<sip:1.2.3.4:4321;transport=tcp>",  {ok, [{tcp, {1,2,3,4}, 4321, <<>>}]}},
+        {"<sips:127.0.0.1:4321;transport=tls>",  {ok, [{tls, {127,0,0,1}, 4321, <<>>}]}},
 
-        {"<sip:1.2.3.4>",  {ok, [{udp, {1,2,3,4}, 5060}]}},
-        {"<sip:1.2.3.4:4321>",  {ok, [{udp, {1,2,3,4}, 4321}]}},
-        {"<sips:1.2.3.4>",  {ok, [{tls, {1,2,3,4}, 5061}]}},
-        {"<sips:1.2.3.4:4321>",  {ok, [{tls, {1,2,3,4}, 4321}]}},
+        {"<sip:1.2.3.4>",  {ok, [{udp, {1,2,3,4}, 5060, <<>>}]}},
+        {"<sip:1.2.3.4:4321>",  {ok, [{udp, {1,2,3,4}, 4321, <<>>}]}},
+        {"<sips:1.2.3.4>",  {ok, [{tls, {1,2,3,4}, 5061, <<>>}]}},
+        {"<sips:1.2.3.4:4321>",  {ok, [{tls, {1,2,3,4}, 4321, <<>>}]}},
 
-        {"<sip:127.0.0.1:1234>",  {ok, [{udp, {127,0,0,1}, 1234}]}},
-        {"<sips:127.0.0.1:1234>",  {ok, [{tls, {127,0,0,1}, 1234}]}},
+        {"<sip:127.0.0.1:1234>",  {ok, [{udp, {127,0,0,1}, 1234, <<>>}]}},
+        {"<sips:127.0.0.1:1234>",  {ok, [{tls, {127,0,0,1}, 1234, <<>>}]}},
 
         {"<sip:anyhost>",  {naptr, sip, "anyhost"}},
         {"<sips:anyhost>",  {naptr, sips, "anyhost"}}
@@ -580,33 +590,42 @@ resolv_test() ->
     ets:insert(?MODULE, {{ips, "test500.local"}, [{1,1,500,1}], Now}),
 
      %% Travis test machine returns two hosts...
-    [{udp, {127,0,0,1}, 5060}|_] = resolve("sip:localhost"),
-    [{tls, {127,0,0,1}, 5061}|_] = resolve("sips:localhost"),
+    [{udp, {127,0,0,1}, 5060, <<>>}|_] = resolve("sip:localhost"),
+    [{tls, {127,0,0,1}, 5061, <<>>}|_] = resolve("sips:localhost"),
 
     [A, B, C, D, E, F, G] = resolve("sip:test.local"),
 
-    true = (A=={tls, {1,1,100,1}, 100} orelse A=={tls, {1,1,100,2}, 100}),
-    true = (B=={tls, {1,1,100,1}, 100} orelse B=={tls, {1,1,100,2}, 100}),
+    true = (A=={tls, {1,1,100,1}, 100, <<>>} orelse A=={tls, {1,1,100,2}, 100, <<>>}),
+    true = (B=={tls, {1,1,100,1}, 100, <<>>} orelse B=={tls, {1,1,100,2}, 100, <<>>}),
     true = A/=B,
 
-    C = {tcp, {1,1,200,1}, 200},
-    true = (D=={tcp, {1,1,201,1}, 201} orelse D=={tcp, {1,1,202,1}, 202}),
-    true = (E=={tcp, {1,1,201,1}, 201} orelse E=={tcp, {1,1,202,1}, 202}),
+    C = {tcp, {1,1,200,1}, 200, <<>>},
+    true = (D=={tcp, {1,1,201,1}, 201, <<>>} orelse D=={tcp, {1,1,202,1}, 202, <<>>}),
+    true = (E=={tcp, {1,1,201,1}, 201, <<>>} orelse E=={tcp, {1,1,202,1}, 202, <<>>}),
     true = D/=E,
 
-    F = {tcp, {1,1,300,1}, 300},
-    G = {udp, {1,1,500,1}, 500},
+    F = {tcp, {1,1,300,1}, 300, <<>>},
+    G = {udp, {1,1,500,1}, 500, <<>>},
 
     [H, I] = resolve("sips:test.local"),
 
-    true = (H=={tls, {1,1,100,1}, 100} orelse H=={tls, {1,1,100,2}, 100}),
-    true = (I=={tls, {1,1,100,1}, 100} orelse I=={tls, {1,1,100,2}, 100}),
+    true = (H=={tls, {1,1,100,1}, 100, <<>>} orelse H=={tls, {1,1,100,2}, 100, <<>>}),
+    true = (I=={tls, {1,1,100,1}, 100, <<>>} orelse I=={tls, {1,1,100,2}, 100, <<>>}),
     true = H/=I,
 
     case EtsStarted of
         true -> ets:delete(?MODULE);
         false -> ok
     end,
+    ok.
+
+path_test() ->
+    [{udp, {127,0,0,1}, 5060, <<>>}] = 
+        nksip_dns:resolve("sip://localhost/base"),
+    [{ws, {127,0,0,1}, 80, <<"/base">>}] = 
+        nksip_dns:resolve("<sip://localhost/base;transport=ws>"),
+    [{wss, {127,0,0,1}, 1234, <<"/base">>}] = 
+        nksip_dns:resolve("<sips://localhost:1234/base;transport=ws>"),
     ok.
 
 -endif.
