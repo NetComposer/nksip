@@ -38,22 +38,18 @@
 %         {transport, {ws, {0,0,0,0}, 8090, []}},
 %         {transport, {wss, {0,0,0,0}, 8092, [{dispatch, [{'_', ["/ws"]}]}]}}
 %     ]),
+%     timer:sleep(100),
    
 %     [
-%         {#transport{proto=ws, local_port=0, listen_port=_LP, 
-%                     dispatch=[{'_', [], [{"/ws", [], _, _}]}]}, _},
-%         {#transport{proto=ws, local_port=8090, listen_port=8090, 
-%                     dispatch=[{'_', [], [{"/", [], _, _}]}]}, _},
-%         {#transport{proto=wss, local_port=8091, listen_port=8091, 
-%                     dispatch=[{'_', [], [{"/", [], _, _}]}]}, _}
+%         {#transport{proto=ws, local_port=0, listen_port=_LP}, _},
+%         {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
+%         {#transport{proto=wss, local_port=8091, listen_port=8091}, _}
 %     ] = 
 %         lists:sort(nksip_transport:get_all(ws_a)),
 
 %     [
-%         {#transport{proto=ws, local_port=8090, listen_port=8090, 
-%                     dispatch=[{'_', [], [{"/", [], _, _}]}]}, _},
-%         {#transport{proto=wss, local_port=8092, listen_port=8092, 
-%                     dispatch=[{'_', [], [{"/ws", [], _, _}]}]}, _}
+%         {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
+%         {#transport{proto=wss, local_port=8092, listen_port=8092}, _}
 %     ] = 
 %         lists:sort(nksip_transport:get_all(ws_b)),
 
@@ -78,15 +74,13 @@
 %     ok.
 
 
-% basic_test_() ->
+% ws_test_() ->
 %     {setup, spawn, 
 %         fun() -> start() end,
 %         fun(_) -> stop() end,
 %         [
-%             {timeout, 60, fun running/0}, 
-%             {timeout, 60, fun transport/0}, 
-%             {timeout, 60, fun cast_info/0}, 
-%             {timeout, 60, fun stun/0}
+%             fun basic/0, 
+%             fun sharing/0
 %         ]
 %     }.
 
@@ -95,29 +89,34 @@ start() ->
     tests_util:start_nksip(),
 
     ok = sipapp_server:start({ws, server1}, [
-        {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
+        {from, "\"NkSIP Server\" <sip:server1@nksip>"},
         registrar,
         {listeners, 10},
         {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5060}},
         {transport, {tls, {0,0,0,0}, 5061}},
-        {transport, {ws, {0,0,0,0}, 8080}},
+        {transport, {ws, {0,0,0,0}, 8080, []}},
         {transport, {wss, {0,0,0,0}, 8081, [{dispatch, "/wss"}]}}
     ]),
 
     ok = sipapp_endpoint:start({ws, ua1}, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {local_host, "localhost"},
         {transport, {udp, {0,0,0,0}, 5070}},
         {transport, {tls, {0,0,0,0}, 5071}}
     ]),
 
     ok = sipapp_endpoint:start({ws, ua2}, [
-        {supported, []},
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
+        {from, "<sip:client2@nksip>"},
         {local_host, "localhost"},
         {transport, {ws, {0,0,0,0}, 0}},
         {transport, {wss, {0,0,0,0}, 8091}}
+    ]),
+
+    ok = sipapp_endpoint:start({ws, ua3}, [
+        {from, "<sip:client3@nksip>"},
+        {local_host, "invalid.invalid"},
+        {transport, {ws, {0,0,0,0}, 8080, [{dispatch, "/client3"}]}}
     ]),
 
     tests_util:log(),
@@ -129,6 +128,7 @@ stop() ->
     error = sipapp_server:stop({ws, server1}),
     error = sipapp_endpoint:stop({ws, ua1}),
     error = sipapp_endpoint:stop({ws, ua2}),
+    error = sipapp_endpoint:stop({ws, ua3}),
     ok.
 
 
@@ -145,8 +145,8 @@ basic() ->
 
     [
         {_, [#via{proto=ws, domain = <<"localhost">>, port=Port1}]},
-        {_, {ws, {127,0,0,1}, Port2}},
-        {_, {ws, {127,0,0,1}, 8080}}
+        {_, {ws, {127,0,0,1}, Port2, <<"/">>}},
+        {_, {ws, {127,0,0,1}, 8080, <<"/">>}}
     ] = Values1,
 
     [
@@ -188,8 +188,8 @@ basic() ->
 
     [
         {_, [#via{proto=wss, domain = <<"localhost">>, port=8091}]},
-        {_, {wss, {127,0,0,1}, Port3}},
-        {_, {wss, {127,0,0,1}, 8081}}
+        {_, {wss, {127,0,0,1}, Port3, <<"/wss">>}},
+        {_, {wss, {127,0,0,1}, 8081, <<"/wss">>}}
     ] = Values2,
 
     [
@@ -220,6 +220,34 @@ basic() ->
 
     [nksip_connection:stop(Pid, normal) || Pid <- [Pid1,Pid2,Pid3,Pid4]],
     ok.
+
+
+sharing() ->
+    % Server1 must answer
+    {ok, 200, [{_, [S1C]}]} = nksip_uac:options({ws, ua2}, "<sip:localhost:8080/;transport=ws>", 
+                                      [{fields, [parsed_contacts]}]),
+    #uri{domain = <<"localhost">>, port=8080} = S1C,
+
+    {error, service_unavailable} = nksip_uac:options({ws, ua2}, 
+                                    "<sip:localhost:8080/other;transport=ws>", []),
+
+    % Client3 must answer
+    {ok, 200, [{_, [C3C]}]} = nksip_uac:options({ws, ua2}, 
+                                            "<sip:localhost:8080/client3;transport=ws>", 
+                                            [{fields, [parsed_contacts]}]),
+    #uri{domain = <<"invalid.invalid">>, port=8080} = C3C,
+    
+    % Client2 must unswer
+    {ok, 200, [{_, [C2C]}]} = nksip_uac:options({ws, server1},
+                                            "<sips:localhost:8091/;transport=ws>", 
+                                            [{fields, [parsed_contacts]}]),
+    #uri{domain = <<"localhost">>, port=8091} = C2C,
+    ok.
+
+proxy() ->
+
+    nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8080;transport=ws>", [make_contact]).
+
 
 
 

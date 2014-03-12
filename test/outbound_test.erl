@@ -184,10 +184,10 @@ flow() ->
 
     % Now, if a send a request to this Contact, it goes to the registrar first, 
     % and the same transport is reused
-    {ok, 200, [{local, Local}, {remote, {tcp, {127,0,0,1}, 5090}}]} = 
+    {ok, 200, [{local, Local}, {remote, {tcp, {127,0,0,1}, 5090, <<>>}}]} = 
         nksip_uac:options(C1, Contact1, [{fields, [local, remote]}]),
 
-    {tcp, {127,0,0,1}, LocalPort} = Local,
+    {tcp, {127,0,0,1}, LocalPort, <<>>} = Local,
     [{#transport{local_port=LocalPort, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(C1),
     [{#transport{local_port=5090, remote_port=LocalPort}, _}] = 

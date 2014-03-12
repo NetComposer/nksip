@@ -382,6 +382,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         100 -> [LastVia];
         _ -> Vias
     end,
+    % Transport is copied to the response
     Resp = Req#sipmsg{
         id = nksip_sipmsg:make_id(resp, CallId),
         class = {resp, Code, ReasonPhrase},
@@ -399,8 +400,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         expires = Expires,
         event = Event,
         body = Body,
-        to_tag = ToTag1,
-        transport = undefined
+        to_tag = ToTag1
+        % transport = undefined
     },
     SendOpts = lists:flatten([
         case lists:member(make_contact, Opts) of

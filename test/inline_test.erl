@@ -79,7 +79,7 @@ basic() ->
     Ref = make_ref(),
     Pid = self(),
     nksip_config:put(inline_test, {Ref, Pid}),
-    % nksip_registrar:clear(S1),
+    nksip_registrar:clear(S1),
     
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),

@@ -130,7 +130,7 @@ options(ReqId, _Meta, _From, #state{id={_, Id}=AppId}=State) ->
         _ -> 
             ok
     end,
-    {reply, {ok, lists:flatten(Hds)}, State};
+    {reply, {ok, lists:flatten(Hds), <<>>, [make_contact]}, State};
 
 options(_ReqId, _Meta, _From, State) ->
     {reply, ok, State}.

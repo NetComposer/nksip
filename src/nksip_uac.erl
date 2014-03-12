@@ -942,7 +942,7 @@ stun(AppId, UriSpec, _Opts) ->
                 [Uri] ->
                     Transp = nksip_dns:resolve(Uri),
                     case nksip_lib:extract(Transp, udp) of
-                        [{udp, Ip, Port}|_] -> 
+                        [{udp, Ip, Port, _}|_] -> 
                             case nksip_transport_udp:send_stun_sync(Pid, Ip, Port) of
                                 {ok, SIp, SPort} ->
                                     {ok, {LIp, LPort}, {SIp, SPort}};

@@ -125,14 +125,14 @@ transport() ->
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
     [
         {_, [#uri{scheme=sip, port=5060, opts=[{<<"transport">>, <<"tcp">>}]}]},
-        {_, {tcp, {127,0,0,1}, 5060}}
+        {_, {tcp, {127,0,0,1}, 5060, <<>>}}
     ] = Values2,
 
     % Remote has generated a SIPS Contact   
     {ok, 200, Values3} = nksip_uac:options(C1, "sips:127.0.0.1", [Fields2]),
     [
         {_, [#uri{scheme=sips, port=5061}]},
-        {_, {tls, {127,0,0,1}, 5061}}
+        {_, {tls, {127,0,0,1}, 5061, <<>>}}
     ] = Values3,
 
     % Send a big body, switching to TCP

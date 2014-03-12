@@ -267,13 +267,13 @@ transport(Test) ->
                         async, CB, get_request, {fields, [remote]}]),
     LPort = receive 
         {Ref, {req, Req3}} -> 
-            {tcp, {127,0,0,1}, LP} = nksip_sipmsg:field(Req3, local),
+            {tcp, {127,0,0,1}, LP, <<>>} = nksip_sipmsg:field(Req3, local),
             LP
         after 1000 ->
             error(transport)
     end,
     receive
-        {Ref, {ok, 200, [{remote, {tcp, {127,0,0,1}, 5060}}]}} -> ok
+        {Ref, {ok, 200, [{remote, {tcp, {127,0,0,1}, 5060, <<>>}}]}} -> ok
         after 1000 -> error(transport)
     end,
 
@@ -281,7 +281,7 @@ transport(Test) ->
     {ok, 200, Values4} = nksip_uac:options(C1, "sip:client2@nksip", 
         [{fields, [remote, <<"Nk-Id">>]}]),
     [
-        {remote, {udp, {127,0,0,1}, 5060}},
+        {remote, {udp, {127,0,0,1}, 5060, <<>>}},
         {<<"Nk-Id">>, [<<"client2,server1">>]}
     ] = Values4,
 
@@ -292,15 +292,15 @@ transport(Test) ->
     receive 
         {Ref, {req, ReqId5}} -> 
             % Should reuse transport
-            {tcp, {127,0,0,1}, LPort} = nksip_sipmsg:field(ReqId5, local)
+            {tcp, {127,0,0,1}, LPort, <<>>} = nksip_sipmsg:field(ReqId5, local)
         after 1000 ->
             error(transport)
     end,
     receive
         {Ref, {ok, 200, Values5}} -> 
             [
-                {local, {tcp, {127,0,0,1}, LPort}},
-                {remote, {tcp, {127,0,0,1}, 5060}},
+                {local, {tcp, {127,0,0,1}, LPort, <<>>}},
+                {remote, {tcp, {127,0,0,1}, 5060, <<>>}},
                 {<<"Nk-Id">>, [<<"client1,server1">>]}
             ] = Values5
         after 1000 ->
@@ -389,14 +389,14 @@ servers(Test) ->
     Fs1 = {fields, [remote, <<"Nk-Id">>]},
     {ok, 200, Values1} = nksip_uac:options(C1, "sips:client2@nksip2", [Fs1]),
     [
-        {remote, {tls, {127,0,0,1}, 5061}},
+        {remote, {tls, {127,0,0,1}, 5061, <<>>}},
         {_, [<<"client2,server2,server1">>]}
     ] = Values1,
 
     % Sent to server2 using sips because of Opts2
     {ok, 200, Values2} = nksip_uac:options(C2, "sip:client1@nksip", [Fs1|Opts2]),
     [
-        {remote, {tls, {127,0,0,1}, 5081}},
+        {remote, {tls, {127,0,0,1}, 5081, <<>>}},
         {_, [<<"client1,server1,server2">>]}
     ] = Values2,
 
@@ -421,14 +421,14 @@ servers(Test) ->
     Fs4 = {fields, [remote, <<"Nk-Id">>]},
     {ok, 200, Values4} = nksip_uac:options(C1, DialogIdA1, [Fs4]),
     [
-        {remote, {tls, {127,0,0,1}, _}},
+        {remote, {tls, {127,0,0,1}, _, <<>>}},
         {<<"Nk-Id">>, [<<"client2">>]}
     ] = Values4,
 
     DialogIdA2 = nksip_dialog:field(C1, DialogIdA1, remote_id),
     {ok, 200, Values5} = nksip_uac:options(C2, DialogIdA2, [Fs4]),
     [
-        {remote, {tls, {127,0,0,1}, 5071}},
+        {remote, {tls, {127,0,0,1}, 5071, <<>>}},
         {<<"Nk-Id">>, [<<"client1">>]}
     ] = Values5,
 
@@ -452,12 +452,12 @@ servers(Test) ->
     % Sends an options in the dialog before the ACK
     {ok, 200, Values7} = nksip_uac:options(C1, DialogIdB1, [Fs4]),
     [
-        {remote, {tls, _, 5061}},
+        {remote, {tls, _, 5061, <<>>}},
         {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
     ] = Values7,
 
     {req, AckReq} = nksip_uac:ack(C1, DialogIdB1, [get_request]),
-    {tls, _, 5061} = nksip_sipmsg:field(AckReq, remote),
+    {tls, _, 5061, <<>>} = nksip_sipmsg:field(AckReq, remote),
     [
         <<"<sip:NkS@localhost:5061;transport=tls;lr>">>,
         <<"<sip:NkS@localhost:5081;transport=tls;lr>">>
@@ -470,8 +470,6 @@ servers(Test) ->
     [{<<"Nk-Id">>, [<<"client1,server1,server2">>]}] = Values8,
     {ok, 200, []} = nksip_uac:bye(C2, DialogIdB2, [{headers, [{"Nk-Rr", true}]}]),
     ok.
-
-
 
 
 dialog() ->
