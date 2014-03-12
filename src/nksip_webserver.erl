@@ -326,7 +326,7 @@ do_update_server(Ref, Apps) ->
 get_dispatch([], Acc) ->
     case catch cowboy_router:compile(Acc) of
         {'EXIT', _} -> error;
-        Compiled -> lager:warning("Updated ~p", [Compiled]), {ok, Compiled}
+        Compiled -> {ok, Compiled}
     end;
 
 get_dispatch([{Host, Paths}|Rest], Acc) ->
