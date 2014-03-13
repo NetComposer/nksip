@@ -75,8 +75,6 @@
 
 -type times() :: {integer(), integer(), integer(), integer(), integer()}.
 
--type ob_proc() :: true | false | unsupported.
-
 
 %% ===================================================================
 %% Public
@@ -227,14 +225,17 @@ is_registered(#sipmsg{
 request(#sipmsg{app_id=AppId, to=To}=Req) ->
     try
         {ok, _, AppOpts, _} = nksip_sipapp_srv:get_opts(AppId),
-        {ObProc, Req1} = check_outbound(Req, AppOpts),
-        GruuProc = check_gruu(Req, AppOpts),
-        Opts = [{registrar_ob_proc, ObProc}, {registrar_gruu_proc, GruuProc}|AppOpts],
-        process(Req1, Opts),
+        case nksip_outbound:registrar(Req, AppOpts) of
+            {ok, Req1, Opts1} -> ok;
+            {error, OutError} -> Req1 = Opts1 = throw(OutError)
+        end,
+        Opts2 = check_gruu(Req, Opts1),
+        process(Req1, Opts2),
         {ok, Regs} = callback_get(AppId, aor(To)),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
         ObReq = case 
-            ObProc==true andalso [true || #reg_contact{index={ob, _, _}} <- Regs] 
+            lists:member({registrar_outbound, true}, Opts2) andalso
+            [true || #reg_contact{index={ob, _, _}} <- Regs] 
         of
             [_|_] -> [{require, <<"outbound">>}];
             _ -> []
@@ -307,63 +308,17 @@ is_registered([
 
 
 %% @private
--spec check_outbound(nksip:request(), nksip_lib:proplist()) ->
-    {ob_proc(), nksip:request()}.
-
-check_outbound(Req, AppOpts) ->
-    #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
-    AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
-    case 
-        lists:member(<<"outbound">>, AppSupp) andalso
-        nksip_sipmsg:supported(Req, <<"outbound">>)
-    of
-        true when length(Vias) > 1 ->       % We are not the first host
-            case nksip_sipmsg:header(Req, <<"Path">>, uris) of
-                error ->
-                    throw({invalid_request, <<"Invalid Path">>});
-                Paths ->
-                    case lists:reverse(Paths) of
-                        [#uri{opts=PathOpts}|_] -> 
-                            {lists:member(<<"ob">>, PathOpts), Req};
-                        _ -> 
-                            {false, Req}
-                    end
-            end;
-        true ->
-            #transport{
-                proto = Proto, 
-                listen_ip = ListenIp, 
-                listen_port = ListenPort,
-                remote_ip = RemoteIp,
-                remote_port = RemotePort,
-                resource = Res
-            } = Transp,
-            case nksip_transport:get_connected(AppId, Proto, RemoteIp, RemotePort, Res) of
-                [{_, Pid}|_] ->
-                    Flow = base64:encode(term_to_binary(Pid)),
-                    Host = nksip_transport:get_listenhost(ListenIp, AppOpts),
-                    Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
-                                                      <<"NkF", Flow/binary>>, 
-                                                      [<<"lr">>]),
-                    Headers1 = nksip_headers:update(Req, 
-                                                [{before_single, <<"Path">>, Path}]),
-                    Req1 = Req#sipmsg{headers=Headers1},
-                    {true, Req1};
-                [] ->
-                    {false, Req}
-            end;
-        false ->
-            {unsupported, Req}
-    end.
-
-
-%% @private
 -spec check_gruu(nksip:request(), nksip_lib:proplist()) ->
-    boolean().
+    nksip_lib:proplist().
 
 check_gruu(Req, AppOpts) ->
     AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
-    lists:member(<<"gruu">>, AppSupp) andalso nksip_sipmsg:supported(Req, <<"gruu">>).
+    case 
+        lists:member(<<"gruu">>, AppSupp) andalso nksip_sipmsg:supported(Req, <<"gruu">>)
+    of
+        true -> [{registrar_gruu, true}|AppOpts];
+        false -> AppOpts
+    end.
 
 
 %% @private
@@ -480,10 +435,10 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         undefined -> <<>>;
         Inst0 -> nksip_lib:hash(Inst0)
     end,
-    ObProc = nksip_lib:get_value(registrar_ob_proc, Opts),
+    ObProc = nksip_lib:get_value(registrar_outbound, Opts),
     RegId = case nksip_lib:get_value(<<"reg-id">>, ExtOpts) of
         undefined -> <<>>;
-        _ when ObProc == unsupported -> <<>>;
+        _ when ObProc == undefined -> <<>>;
         _ when ObProc == false -> throw(first_hop_lacks_outbound);
         _ when InstId == <<>> -> <<>>;
         RegId0 -> RegId0
@@ -519,7 +474,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         #reg_contact{next_tmp_pos=Next} ->
             ExtOpts2 = case 
                 InstId /= <<>> andalso RegId == <<>> andalso 
-                Expires>0 andalso lists:keymember(registrar_gruu_proc, 1, Opts)
+                Expires>0 andalso lists:member({registrar_gruu, true}, Opts)
             of
                 true ->
                     case Scheme of
@@ -731,21 +686,20 @@ decrypt(Bin) ->
 %% ===================================================================
 
 
-%% @private Get all current registrations. Use it with care.
+% @private Get all current registrations. Use it with care.
+
+% -spec internal_get_all() ->
+    % [{nksip:aor(), [{App::nksip:app_id(), URI::nksip:uri(),
+    %                  Remaining::integer(), Q::float()}]}].
+
 -spec internal_get_all() ->
-    [{nksip:aor(), [{App::nksip:app_id(), URI::nksip:uri(),
-                     Remaining::integer(), Q::float()}]}].
+    [{nksip:app_id(), nksip:aor(), [#reg_contact{}]}].
+
+
 
 internal_get_all() ->
-    Now = nksip_lib:timestamp(),
     [
-        {
-            AOR, 
-            [
-                {AppId, C, Exp-Now, Q} || #reg_contact{contact=C, expire=Exp, q=Q} 
-                <- nksip_store:get({nksip_registrar, AppId, AOR}, [])
-            ]
-        }
+        {AppId, AOR, nksip_store:get({nksip_registrar, AppId, AOR}, [])}
         || {AppId, AOR} <- internal_all()
     ].
 

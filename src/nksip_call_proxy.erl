@@ -58,16 +58,20 @@ route(UAS, UriList, ProxyOpts, Call) ->
             {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
             {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
         end,
-        Req2 = preprocess(Req1, ProxyOpts),
-        % % Note: pass original request with original routes
-        % ProxyOpts1 = check_path(Req1, ProxyOpts, Call),
-        Stateless = lists:member(stateless, ProxyOpts),
+        ProxyOpts1 = case nksip_outbound:proxy_route(Req1, ProxyOpts) of
+            {ok, OutProxyOpts} -> OutProxyOpts;
+            {error, OutError} -> throw({reply, OutError})
+        end,
+        #call{app_id=AppId} = Call,
+        Req2 = remove_local_routes(AppId, Req1),
+        Req3 = preprocess(Req2, ProxyOpts1),
+        Stateless = lists:member(stateless, ProxyOpts1),
         case Method of
             'ACK' when Stateless ->
                 [[First|_]|_] = UriSet,
-                route_stateless(Req2, First, ProxyOpts, Call1);
+                route_stateless(Req3, First, ProxyOpts1, Call1);
             'ACK' ->
-                {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts};
+                {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1};
             _ ->
                 case nksip_sipmsg:header(Req, <<"Proxy-Require">>, tokens) of
                     [] -> 
@@ -79,9 +83,9 @@ route(UAS, UriList, ProxyOpts, Call) ->
                 case Stateless of
                     true -> 
                         [[First|_]|_] = UriSet,
-                        route_stateless(Req2, First, ProxyOpts, Call1);
+                        route_stateless(Req3, First, ProxyOpts1, Call1);
                     false ->
-                        {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts}
+                        {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1}
                 end
         end
     catch
@@ -177,16 +181,30 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
     end.
 
 
-
 %% @private
 -spec preprocess(nksip:request(), [opt()]) ->
     nksip:request().
 
 preprocess(Req, ProxyOpts) ->
-    #sipmsg{app_id=AppId, forwards=Forwards, routes=Routes, headers=Headers} = Req,
-    Routes1 = case lists:member(remove_routes, ProxyOpts) of
+    #sipmsg{ruri=RUri, forwards=Forwards, routes=Routes, headers=Headers} = Req,
+    case nksip_parse:extract_uri_routes(RUri) of
+        {UriRoutes, RUri1} -> 
+            Routes1 = Routes ++ UriRoutes; 
+        error -> 
+            RUri1 = Routes1 = throw({internal_error, "Bad Uri"})
+    end,
+    Routes2 = case lists:member(remove_routes, ProxyOpts) of
         true -> [];
-        false -> Routes
+        false -> Routes1
+    end,
+    Routes3 = case proplists:get_all_values(route, ProxyOpts) of
+        [] -> 
+            Routes2;
+        ProxyRoutes1 -> 
+            case nksip_parse:uris(ProxyRoutes1) of
+                error -> throw({internal_error, "Invalid proxy option"});
+                ProxyRoutes2 -> ProxyRoutes2 ++ Routes2
+            end
     end,
     Headers1 = case lists:member(remove_headers, ProxyOpts) of
         true -> [];
@@ -196,28 +214,24 @@ preprocess(Req, ProxyOpts) ->
         [] -> Headers1;
         ProxyHeaders -> ProxyHeaders++Headers1
     end,
-    Routes2 = case proplists:get_all_values(route, ProxyOpts) of
-        [] -> 
-            Routes1;
-        ProxyRoutes1 -> 
-            case nksip_parse:uris(ProxyRoutes1) of
-                error -> 
-                    throw({internal_error, "Invalid proxy option"});
-                ProxyRoutes2 ->
-                    % If we add routes, remove local routes now before inserting
-                    % (Existing flow token in first route would be lost)
-                    ProxyRoutes2 ++ remove_local_routes(AppId, Routes1)
-            end
-    end,
-    Req#sipmsg{forwards=Forwards-1, headers=Headers2, routes=Routes2}.
+    Req#sipmsg{ruri=RUri1, forwards=Forwards-1, headers=Headers2, routes=Routes3}.
 
 
-remove_local_routes(_AppId, []) ->
+%% @private
+remove_local_routes(AppId, #sipmsg{routes=Routes}=Req) ->
+    case do_remove_local_routes(AppId, Routes) of
+        Routes -> Req;
+        Routes1 -> Req#sipmsg{routes=Routes1}
+    end.
+
+
+%% @private
+do_remove_local_routes(_AppId, []) ->
     [];
 
-remove_local_routes(AppId, [Route|RestRoutes]) ->
+do_remove_local_routes(AppId, [Route|RestRoutes]) ->
     case nksip_transport:is_local(AppId, Route) of
-        true -> remove_local_routes(AppId, RestRoutes);
+        true -> do_remove_local_routes(AppId, RestRoutes);
         false -> [Route|RestRoutes]
     end.
 

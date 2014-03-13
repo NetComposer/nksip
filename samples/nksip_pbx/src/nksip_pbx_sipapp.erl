@@ -43,6 +43,9 @@
 -define(DOMAINS, [<<"nksip">>, <<"127.0.0.1">>]).
 -define(TIME_CHECK, 10000).
 
+-include("../../../include/nksip.hrl").
+
+
 %% @doc Starts a new SipApp, listening on port 5060 for udp and tcp and 5061 for tls,
 %% and acting as a registrar.
 start() ->
@@ -259,8 +262,8 @@ test_speed([Uri|Rest], Acc) ->
 %% @doc Gets all registered contacts
 find_all() ->
     All = [
-        [Uri || {_AppId, Uri, _Time, _Q} <- List] 
-        || {_, List} <- nksip_registrar:internal_get_all()
+        [Uri || #reg_contact{contact=Uri} <- List] 
+        || {_, _, List} <- nksip_registrar:internal_get_all()
     ],
     lists:flatten(All).
 
@@ -271,8 +274,8 @@ find_all_except_me(ReqId) ->
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [
-        [Uri || {_AppId, Uri, _Time, _Q} <- List] 
-        || {R_AOR, List} <- nksip_registrar:internal_get_all(), R_AOR /= AOR
+        [Uri || #reg_contact{contact=Uri} <- List] 
+        || {_, R_AOR, List} <- nksip_registrar:internal_get_all(), R_AOR /= AOR
     ],
     lists:flatten(All).
 

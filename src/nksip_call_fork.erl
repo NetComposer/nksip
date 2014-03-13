@@ -145,7 +145,7 @@ launch([Uri|Rest], Id, Call) ->
     Call1 = update(Fork1, Call),
     ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
     UACOpts = nksip_lib:extract(Opts, 
-                [record_route, make_path, no_dialog, update_dialog]),
+                [record_route, make_path, record_flow, route_flow, no_dialog, update_dialog]),
     %% CAUTION: This call can update the fork's state, can even delete it!
     Call2 = nksip_call_uac_req:request(Req1, UACOpts, {fork, Id}, Call1),
     launch(Rest, Id, Call2#call{next=Next+1}).

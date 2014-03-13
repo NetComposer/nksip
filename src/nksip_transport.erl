@@ -23,7 +23,7 @@
 -module(nksip_transport).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_all/0, get_all/1, get_listening/3, get_connected/5]).
+-export([get_all/0, get_all/1, get_listening/3, get_connected/2, get_connected/5]).
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
 -export([start_transport/5, start_connection/6, default_port/1]).
 -export([get_listenhost/2, make_route/6]).
@@ -87,6 +87,19 @@ get_listening(AppId, Proto, Class) ->
         end
     end,
     lists:filter(Fun, nksip_proc:values({nksip_listen, AppId})).
+
+
+%% @private Finds a listening transport of Proto
+-spec get_connected(nksip:app_id(), nksip:transport()|undefined) ->
+    [{nksip_transport:transport(), pid()}].
+
+get_connected(AppId, Transp) ->
+    case Transp of
+        #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} ->
+            get_connected(AppId, Proto, Ip, Port, Res);
+        _ ->
+            []
+    end.
 
 
 %% @private Finds a listening transport of Proto
@@ -363,7 +376,7 @@ send(_, [], _MakeMsg, _Opts) ->
     ok | error.
 
 raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=_AssocId} = Transp,
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     case get_connected(AppId, Proto, Ip, Port, <<>>) of
         [{_, Pid}|_] -> nksip_connection:send(Pid, Reply);
         [] -> error

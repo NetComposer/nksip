@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2, require/2]).
--export([make_id/2]).
+-export([is_dialog_forming/1, make_id/2]).
 
 -include("nksip.hrl").
 
@@ -254,6 +254,18 @@ supported(#sipmsg{supported=Supported}, Token) ->
 
 require(#sipmsg{require=Require}, Token) ->
     lists:member(Token, Require).
+
+
+%% @doc
+-spec is_dialog_forming(nksip:request()) ->
+    boolean().
+
+is_dialog_forming(#sipmsg{class={req, Method}, to_tag=ToTag}) ->
+    Method == 'NOTIFY' orelse
+    (ToTag == <<>> andalso (Method == 'INVITE' orelse Method == 'SUBSCRIBE'));
+
+is_dialog_forming(_)  ->
+    false.
 
 
 %% @private

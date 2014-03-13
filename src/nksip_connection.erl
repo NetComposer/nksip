@@ -25,7 +25,7 @@
 
 -export([start_listener/5, connect/6, send/2, async_send/2, stop/2]).
 -export([start_refresh/3, stop_refresh/1, set_timeout/2, get_transport/1, get_refresh/1]).
--export([incoming/2]).
+-export([incoming/2, stop_all/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
             handle_cast/2, handle_info/2]).
 
@@ -137,7 +137,7 @@ stop(Pid, Reason) ->
 
 %% @doc Start a time-alive series, with result notify
 %% If `Ref' is not `undefined', a message will be sent to self() using `Ref'
-%% after the fist successful ping response
+%% (self() ! Ref) after the fist successful ping response
 -spec start_refresh(pid(), pos_integer(), term()) ->
     ok | error.
 
@@ -205,6 +205,12 @@ get_refresh(Pid) ->
 
 incoming(Pid, Packet) when is_binary(Packet) ->
     gen_server:cast(Pid, {incoming, Packet}).
+
+
+
+%% @private
+stop_all() ->
+    [stop(Pid, normal) || {_, _, Pid} <- nksip_transport:get_all_connected()].
 
 
 
