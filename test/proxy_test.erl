@@ -459,9 +459,11 @@ servers(Test) ->
     {req, AckReq} = nksip_uac:ack(C1, DialogIdB1, [get_request]),
     {tls, _, 5061, <<>>} = nksip_sipmsg:field(AckReq, remote),
     [
-        <<"<sip:NkS@localhost:5061;transport=tls;lr>">>,
-        <<"<sip:NkS@localhost:5081;transport=tls;lr>">>
-    ] = nksip_sipmsg:header(AckReq, <<"Route">>),
+        #uri{scheme=sip, domain = <<"localhost">>, port=5061,
+             opts=[{<<"transport">>,<<"tls">>},<<"lr">>]},
+        #uri{scheme=sip, domain = <<"localhost">>, port=5081,
+             opts=[{<<"transport">>,<<"tls">>},<<"lr">>]}
+    ] = nksip_sipmsg:header(AckReq, <<"Route">>, uris),
     ok = tests_util:wait(Ref, [{client2, ack}]),
  
     DialogIdB2 = nksip_dialog:field(C1, DialogIdB1, remote_id),

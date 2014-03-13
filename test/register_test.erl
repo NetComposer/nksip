@@ -94,7 +94,7 @@ register1() ->
     RespFun = fun(Reply) -> Self ! {Ref, Reply} end,
     {async, _} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                 [async, {callback, RespFun}, make_contact, get_request,
-                                 {fields, [<<"Contact">>]}]),
+                                 {fields, [<<"Contact">>]}, {supported, ""}]),
     [CallId, CSeq] = receive 
         {Ref, {req, Req2}} -> nksip_sipmsg:fields(Req2, [call_id, cseq_num])
         after 2000 -> error(register1)
@@ -105,14 +105,23 @@ register1() ->
     end,
 
     Name = <<"client1">>,
-    [#uri{user=Name, domain=Domain, port=Port, ext_opts=[{<<"expires">>, DefB}]}] = 
+    [#uri{
+        user = Name, 
+        domain = Domain, 
+        port = Port, 
+        ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, DefB}]
+    }] = 
         nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
+    {ok, UUID} = nksip_sipapp_srv:get_uuid(Client1),
+    C1_UUID = <<$", UUID/binary, $">>,
     MakeContact = fun(Exp) ->
         list_to_binary([
             "<sip:", Name, "@", Domain, ":", nksip_lib:to_binary(Port),
-            ">;expires=", Exp])
-    end,
+            ">;+sip.instance=", C1_UUID, ";expires=", Exp])
+        end,
+
     Contact2 = MakeContact(DefB),
+
 
     {ok, 400, Values3} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq, CSeq}, make_contact,
@@ -133,7 +142,8 @@ register1() ->
     {ok, 200, Values5} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts4),
     [{_, [Contact5]}] = Values5,
     Contact5 = MakeContact(MaxB),
-    [#uri{user=Name, domain=Domain, port=Port, ext_opts=[{<<"expires">>, MaxB}]}] = 
+    [#uri{user=Name, domain=Domain, port=Port, 
+         ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, MaxB}]}] = 
         nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
 
     Opts5 = [{expires, Min}, make_contact, {fields, [<<"Contact">>]}],
@@ -141,20 +151,22 @@ register1() ->
     {ok, 200, Values6} = nksip_uac:register(Client1, "sip:127.0.0.1", Opts5),
     [{_, [Contact6]}] = Values6,
     Contact6 = MakeContact(ExpB),
-    [#uri{user=Name, domain=Domain, port=Port, ext_opts=[{<<"expires">>, ExpB}]}] = 
+    [#uri{user=Name, domain=Domain, port=Port, 
+          ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, ExpB}]}] = 
         nksip_registrar:find(Server1, sip, <<"client1">>, <<"nksip">>),
 
-    Now = nksip_lib:timestamp(),
-    Reg1 = {{sip,<<"client1">>,<<"nksip">>}, Server1,
-        [#reg_contact{
+    Expire = nksip_lib:timestamp()+Min,
+    [#reg_contact{
             contact = #uri{
                 user = <<"client1">>, domain=Domain, port=Port, 
-                ext_opts=[{<<"expires">>, ExpB}]}, 
-            expire = Min-Now, 
-            q = 1.0}
-        ]
-    },
-    true = lists:member(Reg1, nksip_registrar:internal_get_all()),
+                ext_opts=[{<<"+sip.instance">>, C1_UUID}, {<<"expires">>, ExpB}]}, 
+            expire = Expire,
+            q = 1.0
+    }] = nksip_registrar:get_info(Server1, sip, <<"client1">>, <<"nksip">>),
+
+
+
+    % true = lists:member(Reg1, nksip_registrar:internal_get_all()),
 
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
@@ -218,13 +230,17 @@ register2() ->
     {ok, 200, Values4} = nksip_uac:register(Client1, "sip:127.0.0.1", 
                                             [{fields, [parsed_contacts]}]),
     [{parsed_contacts, Contacts4}] = Values4, 
+    {ok, UUID1} = nksip_sipapp_srv:get_uuid(Client1),
+    QUUID1 = <<$", UUID1/binary, $">>,
     [
-        #uri{scheme=sip, port=5070, opts=[], ext_opts=[{<<"expires">>, <<"300">>}]},
+        #uri{scheme=sip, port=5070, opts=[], 
+             ext_opts=[{<<"+sip.instance">>, QUUID1}, {<<"expires">>, <<"300">>}]},
         #uri{scheme=sip, port=5070, opts=[{<<"transport">>, <<"tcp">>}], 
-             ext_opts=[{<<"expires">>, <<"300">>}]},
+             ext_opts=[{<<"+sip.instance">>, QUUID1}, {<<"expires">>, <<"300">>}]},
         #uri{scheme=sip, port=5071, opts=[{<<"transport">>, <<"tls">>}], 
-             ext_opts=[{<<"expires">>, <<"300">>}]},
-        #uri{scheme=sips, port=5071, opts=[], ext_opts=[{<<"expires">>, <<"300">>}]},
+             ext_opts=[{<<"+sip.instance">>, QUUID1}, {<<"expires">>, <<"300">>}]},
+        #uri{scheme=sips, port=5071, opts=[], 
+            ext_opts=[{<<"+sip.instance">>, QUUID1}, {<<"expires">>, <<"300">>}]},
         #uri{scheme=tel, domain=(<<"123456">>), opts=[], 
              ext_opts=[{<<"expires">>, <<"300">>}]}
     ]  = lists:sort(Contacts4),

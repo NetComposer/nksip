@@ -40,47 +40,57 @@
 send_request(Req, GlobalId, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}, ruri=RUri, routes=Routes} = Req,
     ?debug(AppId, "UAC send opts: ~p", [Opts]),
-    case Routes of
-        [] -> 
-            DestUri = RUri1 = RUri,
-            Routes1 = [];
-        [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
-            case lists:member(<<"lr">>, RouteOpts) of
-                true ->     
-                    DestUri = TopRoute#uri{
-                        scheme = case RUri#uri.scheme of
-                            sips -> sips;
-                            _ -> TopRoute#uri.scheme
-                        end
-                    },
-                    RUri1 = RUri,
-                    Routes1 = [TopRoute|RestRoutes];
-                false ->
-                    DestUri = RUri1 = TopRoute#uri{
-                        scheme = case RUri#uri.scheme of
-                            sips -> sips;
-                            _ -> TopRoute#uri.scheme
-                        end
-                    },
-                    CRUri = RUri#uri{headers=[], ext_opts=[], ext_headers=[]},
-                    Routes1 = RestRoutes ++ [CRUri]
-            end
-    end,
-    Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
-    MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts),  
-    nksip_trace:insert(Req, {uac_out_request, Method}),
-    Dests = case nksip_lib:get_value(route_flow, Opts) of
-        {Transp, Pid} -> 
-            [{flow, {Pid, Transp}}, DestUri];
-        undefined -> 
-            [DestUri]
-    end,
-    case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
-        {ok, SentReq} -> 
-            {ok, SentReq};
-        error ->
-            nksip_trace:insert(Req, uac_out_request_error),
-            {error, service_unavailable}
+    try
+        case nksip_parse:extract_uri_routes(RUri) of
+            {UriRoutes, RUri1} -> 
+                Routes1 = Routes ++ UriRoutes; 
+            error -> 
+                RUri1 = Routes1 = throw({internal_error, "Bad Uri"})
+        end,
+        case Routes1 of
+            [] -> 
+                DestUri = RUri2 = RUri1,
+                Routes2 = [];
+            [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
+                case lists:member(<<"lr">>, RouteOpts) of
+                    true ->     
+                        DestUri = TopRoute#uri{
+                            scheme = case RUri1#uri.scheme of
+                                sips -> sips;
+                                _ -> TopRoute#uri.scheme
+                            end
+                        },
+                        RUri2 = RUri1,
+                        Routes2 = [TopRoute|RestRoutes];
+                    false ->
+                        DestUri = RUri2 = TopRoute#uri{
+                            scheme = case RUri1#uri.scheme of
+                                sips -> sips;
+                                _ -> TopRoute#uri.scheme
+                            end
+                        },
+                        CRUri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
+                        Routes2 = RestRoutes ++ [CRUri]
+                end
+        end,
+        Req1 = Req#sipmsg{ruri=RUri2, routes=Routes2},
+        MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts),  
+        nksip_trace:insert(Req, {uac_out_request, Method}),
+        Dests = case nksip_lib:get_value(route_flow, Opts) of
+            {Transp, Pid} -> 
+                [{flow, {Pid, Transp}}, DestUri];
+            undefined -> 
+                [DestUri]
+        end,
+        case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
+            {ok, SentReq} -> 
+                {ok, SentReq};
+            error ->
+                nksip_trace:insert(Req, uac_out_request_error),
+                {error, service_unavailable}
+        end
+    catch
+        throw:Throw -> {error, Throw}
     end.
 
 
@@ -98,106 +108,6 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
 %% ===================================================================
 %% Internal
 %% ===================================================================
-
-% %% @private
-% -spec outbound_opts(nksip:request(), nksip_lib:proplist()) ->
-%     nksip_lib:proplist().
-
-% outbound_opts(Req, Opts) ->
-%     #sipmsg{
-%         app_id = AppId,
-%         class = {req, Method}, 
-%         vias = Vias, 
-%         transport = Transp, 
-%         contacts = Contacts
-%     } = Req,
-%     case Method=='REGISTER' andalso lists:member(make_path, Opts) of     
-%         true ->
-%             case nksip_sipmsg:supported(Req, <<"path">>) of
-%                 true ->
-%                     Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
-%                     case Contacts of
-%                         [#uri{ext_opts=ContactOpts}] ->
-%                             case 
-%                                 lists:member(<<"outbound">>, Supported) andalso
-%                                 lists:keymember(<<"reg-id">>, 1, ContactOpts) andalso
-%                                 length(Vias)==1
-%                             of
-%                                 true ->
-%                                     case Transp of
-%                                         #transport{
-%                                             proto = Proto, 
-%                                             remote_ip = Ip, 
-%                                             remote_port = Port,
-%                                             resource = Res
-%                                         } ->
-%                                             case 
-%                                                 nksip_transport:get_connected(
-%                                                             AppId, Proto, Ip, Port, Res)
-%                                             of
-%                                                 [{_, Pid}|_] -> [{store_flow, Pid}|Opts];
-%                                                 _ -> Opts
-%                                             end;
-%                                         _ ->
-%                                             Opts
-%                                     end;
-%                                 false ->
-%                                     Opts
-%                             end;
-%                         _ ->
-%                             Opts
-%                     end;
-%                 false -> 
-%                     throw({extension_required, <<"path">>})
-%             end;
-%         false ->
-%             Opts
-%     end.
-
-
-% %% @private 
-% -spec remove_local_routes(nksip:request(), nksip_lib:proplist(), [#uri{}], 
-%                           undefined | {pid(), nksip:transport()}) ->
-%     {[#uri{}], nksip_lib:proplist(), undefined | {pid(), nksip:transport()}}.
-
-% remove_local_routes(_Req, Opts, [], Flow) ->
-%     {[], Opts, Flow};
-
-% remove_local_routes(Req, Opts, [Route|RestRoutes], Flow) ->
-%     #sipmsg{app_id=AppId, class={req, Method}, to_tag=ToTag} = Req,
-%     case nksip_transport:is_local(AppId, Route) of
-%         true -> 
-%             case Route of
-%                 #uri{user = <<"NkF", Token/binary>>, opts=RouteOpts} 
-%                     when Flow==undefined ->
-%                     case catch binary_to_term(base64:decode(Token)) of
-%                         Pid when is_pid(Pid) ->
-%                             case nksip_connection:get_transport(Pid) of
-%                                 {ok, Transp} -> 
-%                                     Opts1 = case 
-%                                         lists:member(<<"ob">>, RouteOpts) andalso
-%                                         (Method=='INVITE' orelse Method=='SUBSCRIBE' 
-%                                             orelse Method=='NOTIFY') 
-%                                         andalso ToTag == <<>>
-%                                     of
-%                                         true -> [record_route, {store_flow, Pid}|Opts];
-%                                         false -> Opts
-%                                     end,
-%                                     remove_local_routes(Req, Opts1, 
-%                                                         RestRoutes, {Pid, Transp});
-%                                 _ ->
-%                                     throw(flow_failed)
-%                             end;
-%                         _ ->
-%                             ?notice(AppId, "Received invalid flow token", []),
-%                             throw(forbidden)
-%                     end;
-%                 _ ->
-%                     remove_local_routes(Req, Opts, RestRoutes, Flow)
-%             end;
-%         false -> 
-%             {[Route|RestRoutes], Opts, Flow}
-%     end.
 
 
 %% @private
@@ -276,11 +186,8 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             true ->
                 Contact0 = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                      ListenPort, From#uri.user, []),
-                {ok, UUID} = nksip_sipapp_srv:get_uuid(AppId),
-                ExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}],
-                Contact1 = Contact0#uri{ext_opts=ExtOpts1},
-                Contact2 = nksip_outbound:make_contact(Req, Contact1, Opts),
-                [Contact2|Contacts];
+                Contact1 = nksip_outbound:make_contact(Req, Contact0, Opts),
+                [Contact1|Contacts];
             false ->
                 Contacts
         end,

@@ -64,6 +64,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
         end,
         #call{app_id=AppId} = Call,
         Req2 = remove_local_routes(AppId, Req1),
+        ?warning(AppId, "ROUTESA: ~p\nB: ~p", [Req1#sipmsg.routes, Req2#sipmsg.routes]),
         Req3 = preprocess(Req2, ProxyOpts1),
         Stateless = lists:member(stateless, ProxyOpts1),
         case Method of
@@ -186,24 +187,18 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
     nksip:request().
 
 preprocess(Req, ProxyOpts) ->
-    #sipmsg{ruri=RUri, forwards=Forwards, routes=Routes, headers=Headers} = Req,
-    case nksip_parse:extract_uri_routes(RUri) of
-        {UriRoutes, RUri1} -> 
-            Routes1 = Routes ++ UriRoutes; 
-        error -> 
-            RUri1 = Routes1 = throw({internal_error, "Bad Uri"})
-    end,
-    Routes2 = case lists:member(remove_routes, ProxyOpts) of
+    #sipmsg{forwards=Forwards, routes=Routes, headers=Headers} = Req,
+    Routes1 = case lists:member(remove_routes, ProxyOpts) of
         true -> [];
-        false -> Routes1
+        false -> Routes
     end,
-    Routes3 = case proplists:get_all_values(route, ProxyOpts) of
+    Routes2 = case proplists:get_all_values(route, ProxyOpts) of
         [] -> 
-            Routes2;
+            Routes1;
         ProxyRoutes1 -> 
             case nksip_parse:uris(ProxyRoutes1) of
                 error -> throw({internal_error, "Invalid proxy option"});
-                ProxyRoutes2 -> ProxyRoutes2 ++ Routes2
+                ProxyRoutes2 -> ProxyRoutes2 ++ Routes1
             end
     end,
     Headers1 = case lists:member(remove_headers, ProxyOpts) of
@@ -214,7 +209,8 @@ preprocess(Req, ProxyOpts) ->
         [] -> Headers1;
         ProxyHeaders -> ProxyHeaders++Headers1
     end,
-    Req#sipmsg{ruri=RUri1, forwards=Forwards-1, headers=Headers2, routes=Routes3}.
+    lager:warning("PROXY ROUTES: ~p, ~p", [Req#sipmsg.app_id, Routes2]),
+    Req#sipmsg{forwards=Forwards-1, headers=Headers2, routes=Routes2}.
 
 
 %% @private

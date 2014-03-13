@@ -35,17 +35,19 @@
 -spec make_contact(nksip:request(), nksip:uri(), nksip_lib:proplist()) ->
     nksip:uri().
 
-make_contact(#sipmsg{class={req, 'REGISTER'}}=Req, Contact, Opts) ->
+make_contact(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Contact, Opts) ->
+    #uri{ext_opts=CExtOpts} = Contact,
+    {ok, UUID} = nksip_sipapp_srv:get_uuid(AppId),
+    CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
     case 
         nksip_sipmsg:supported(Req, <<"outbound">>) andalso 
         nksip_lib:get_integer(reg_id, Opts)
     of
         RegId when is_integer(RegId), RegId>0 -> 
-            #uri{ext_opts=CExtOpts} = Contact,
-            CExtOpts1 = [{<<"reg-id">>, nksip_lib:to_binary(RegId)}|CExtOpts],
-            Contact#uri{ext_opts=CExtOpts1};
+            CExtOpts2 = [{<<"reg-id">>, nksip_lib:to_binary(RegId)}|CExtOpts1],
+            Contact#uri{ext_opts=CExtOpts2};
         _ ->
-            Contact
+            Contact#uri{ext_opts=CExtOpts1}
     end;
 
 % 'ob' parameter means we want to use the same flow for in-dialog requests

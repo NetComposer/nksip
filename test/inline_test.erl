@@ -28,16 +28,16 @@
 -compile([export_all]).
 
 
-inline_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun basic/0},
-            {timeout, 60, fun cancel/0}, 
-            {timeout, 60, fun auth/0}
-        ]
-    }.
+% inline_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun basic/0},
+%             {timeout, 60, fun cancel/0}, 
+%             {timeout, 60, fun auth/0}
+%         ]
+%     }.
 
 
 start() ->

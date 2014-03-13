@@ -212,8 +212,13 @@ proxy() ->
     %% Server2 routes to C2 (stateful, record_route)
     Route = {route, "<sip:[::1];lr>"},
     {ok, 200, [{dialog_id, DialogId1}, {<<"Nk-Id">>, [<<"client2,server2,server1">>]}]} = 
-        nksip_uac:invite(C1, "sip:client2@nksip", [Route, Hds, {fields, [<<"Nk-Id">>]}]),
-
+        nksip_uac:invite(C1, "sip:client2@nksip", [Route, Hds, {fields, [<<"Nk-Id">>]}, 
+                                                  {supported, ""}]),
+    % Without outbound, the Record-Route has the NkQ format, and it is converted
+    % to NkS when back, with transport tcp
+    % With outbound, is has the NkF format, and it is not converted back (the flow
+    % token has already info about the tcp)
+    
     %% The ACK is sent to Server2, and it sends it to Client2
     {req, ACK} = nksip_uac:ack(C1, DialogId1, [get_request]),
     [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
@@ -248,7 +253,8 @@ bridge_4_6() ->
     %% Server2 routes to C3 (stateful, record_route, IPv4)
     Route1 = {route, "<sip:[::1];lr>"},
     Fields1 = {fields, [<<"Nk-Id">>, parsed_contacts]},
-    {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client3@nksip", [Route1, Hds, Fields1]),
+    {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client3@nksip", 
+                                [Route1, Hds, Fields1, {supported, ""}]),
     %% C3 has generated a IPv4 Contact
     [
         {dialog_id, DialogId1}, 
