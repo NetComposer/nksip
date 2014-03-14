@@ -81,24 +81,15 @@ send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
 
 make(AppId, Method, Uri, Opts, AppOpts) ->
     try
-        case opts_from_uri(Uri) of
-            error -> 
-                Method1 = Uri1 = Opts1 = throw(invalid_uri);
-            {UriMethod, Uri1, UriOpts} ->
-                Method1 = case UriMethod of
-                    Method when Method/=undefined -> Method;
-                    _ when Method==undefined, UriMethod/=undefined -> UriMethod;
-                    undefined when Method/=undefined -> Method;
-                    undefined -> 'INVITE';
-                    _ -> throw(invalid_uri)
-                end,
-                Opts1 = Opts++UriOpts
-        end,
-        FullOpts = Opts1++AppOpts,
-        case nksip_parse:uris(Uri1) of
+        case nksip_parse:uris(Uri) of
             [RUri] -> ok;
             _ -> RUri = throw(invalid_uri)
         end,
+        case nksip_parse:uri_method(RUri, Method) of
+            {Method1, RUri1} -> ok;
+            error -> throw(invalid_uri)
+        end,
+        FullOpts = Opts1++AppOpts,
         case nksip_parse:uris(nksip_lib:get_value(from, FullOpts)) of
             [From] -> ok;
             _ -> From = throw(invalid_from) 
@@ -427,56 +418,91 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
     end.
 
 
+make_opts([{Name, Value}|Rest], Req) ->
+    case Name of
+        from -> 
+            Req#sipmsg{from=parse_headers(<<"From">>, [Value])};
+        to -> 
+            Req#sipmsg{to=parse_headers(<<"To">>, [Value1])};
+        <<"Max-Forwards">> -> 
+            Req#sipmsg{forwards=parse_headers(<<"Max-Forwards">>, [Value1])};
+        <<"Call-ID">> -> 
+            Req#sipmsg{call_id=parse_headers(<<"Call-ID">>, [Value1])};
+        <<"Route">> -> 
+            Req#sipmsg{routes=Routes++parse_headers(<<"Route">>, [Value1])};
+        <<"Contact">> -> 
+            Req#sipmsg{contacts=Contacts++parse_headers(<<"Contact">>, [Value1])};
+        <<"Content-Type">> -> 
+            Req#sipmsg{content_type=parse_headers(<<"Content-Type">>, [Value1])};
+        <<"Require">> -> 
+            Req#sipmsg{require=parse_headers(<<"Require">>, [Value1])};
+        <<"Supported">> -> 
+            Req#sipmsg{supported=parse_headers(<<"Supported">>, [Value1])};
+        <<"Expires">> -> 
+            Req#sipmsg{expires=parse_headers(<<"Expires">>, [Value1])};
+        <<"Event">> -> 
+            Req#sipmsg{event=parse_headers(<<"Event">>, [Value1])};
+        <<"CSeq">> -> 
+            {CSeqInt, CSeqMethod} = parse_headers(<<"CSeq">>, [Value1]),
+            Req#sipmsg{cseq=CSeqInt, cseq_method=CSeqMethod};
+        <<"Via">> -> 
+            Req;
+        <<"Content-Length">> -> 
+            Req;
 
-%% @private
--spec opts_from_uri(nksip:user_uri()) ->
-    {undefined|nksip:method(), nksip:uri(), nksip_lib:proplist()} | error.
-
-opts_from_uri(Uri) ->
-    case nksip_parse:uris(Uri) of
-        [#uri{opts=UriOpts, headers=Headers}=Uri1] ->
-            {Method, Uri2} = case lists:keytake(<<"method">>, 1, UriOpts) of
-                {value, {_, RawMethod}, Rest} ->
-                    {nksip_parse:method(RawMethod), Uri1#uri{opts=Rest}};
-                false ->
-                    {undefined, Uri1}
-            end,
-            Opts = make_from_uri(Headers, []),
-            case is_atom(Method) of
-                true -> {Method, Uri2#uri{headers=[]}, Opts};
-                _ -> error
-            end;
-        _ ->
-            error
-    end.
 
 
-%% @private
-make_from_uri([], Opts) ->
-    lists:reverse(Opts);
 
-make_from_uri([{Name, Value}|Rest], Opts) ->
-    Value1 = list_to_binary(http_uri:decode(nksip_lib:to_list(Value))), 
-    Opts1 = case nksip_parse:raw_header(nksip_lib:to_list(Name)) of
-        <<"From">> -> [{from, Value1}|Opts];
-        <<"To">> -> [{to, Value1}|Opts];
-        <<"Route">> -> [{route, Value1}|Opts];
-        <<"Contact">> -> [{contact, Value1}|Opts];
-        <<"Call-ID">> -> [{call_id, Value1}|Opts];
-        <<"User-Agent">> -> [{user_agent, Value1}|Opts];
-        <<"Content-Type">> -> [{content_type, Value1}|Opts];
-        <<"Require">> -> [{require, Value1}|Opts];
-        <<"Supported">> -> [{supported, Value1}, make_supported|Opts];
-        <<"Expires">> -> [{expires, Value1}|Opts];
-        <<"Event">> -> [{event, Value1}|Opts];
-        <<"Max-Forwards">> -> [{max_forwards, Value1}|Opts];
-        <<"CSeq">> -> Opts;
-        <<"Via">> -> Opts;
-        <<"Content-Length">> -> Opts;
-        <<"body">> -> [{body, Value1}|Opts];    
-        _ -> [{post_headers, [{Name, Value1}]}|Opts]
-    end,
-    make_from_uri(Rest, Opts1).
+
+% %% @private
+% -spec opts_from_uri(nksip:user_uri()) ->
+%     {undefined|nksip:method(), nksip:uri(), nksip_lib:proplist()} | error.
+
+% opts_from_uri(Uri) ->
+%     case nksip_parse:uris(Uri) of
+%         [#uri{opts=UriOpts, headers=Headers}=Uri1] ->
+%             {Method, Uri2} = case lists:keytake(<<"method">>, 1, UriOpts) of
+%                 {value, {_, RawMethod}, Rest} ->
+%                     {nksip_parse:method(RawMethod), Uri1#uri{opts=Rest}};
+%                 false ->
+%                     {undefined, Uri1}
+%             end,
+%             Opts = make_from_uri(Headers, []),
+%             case is_atom(Method) of
+%                 true -> {Method, Uri2#uri{headers=[]}, Opts};
+%                 _ -> error
+%             end;
+%         _ ->
+%             error
+%     end.
+
+
+% %% @private
+% make_from_uri([], Opts) ->
+%     lists:reverse(Opts);
+
+% make_from_uri([{Name, Value}|Rest], Opts) ->
+%     Value1 = list_to_binary(http_uri:decode(nksip_lib:to_list(Value))), 
+%     Opts1 = case nksip_parse:raw_header(nksip_lib:to_list(Name)) of
+%         <<"From">> -> [{from, Value1}|Opts];
+%         <<"To">> -> [{to, Value1}|Opts];
+%         <<"Route">> -> [{route, Value1}|Opts];
+%         <<"Contact">> -> [{contact, Value1}|Opts];
+%         <<"Call-ID">> -> [{call_id, Value1}|Opts];
+%         <<"User-Agent">> -> [{user_agent, Value1}|Opts];
+%         <<"Content-Type">> -> [{content_type, Value1}|Opts];
+%         <<"Require">> -> [{require, Value1}|Opts];
+%         <<"Supported">> -> [{supported, Value1}, make_supported|Opts];
+%         <<"Expires">> -> [{expires, Value1}|Opts];
+%         <<"Event">> -> [{event, Value1}|Opts];
+%         <<"Max-Forwards">> -> [{max_forwards, Value1}|Opts];
+%         <<"CSeq">> -> Opts;
+%         <<"Via">> -> Opts;
+%         <<"Content-Length">> -> Opts;
+%         <<"body">> -> [{body, Value1}|Opts];    
+%         _ -> [{post_headers, [{Name, Value1}]}|Opts]
+%     end,
+%     make_from_uri(Rest, Opts1).
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.

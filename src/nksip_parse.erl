@@ -30,7 +30,7 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, aors/1, uris/1, ruris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, header/1, extract_uri_routes/1]).
+-export([tokens/1, integers/1, dates/1, header/1, uri_method/2, uri_request/2, extract_uri_routes/1]).
 -export([transport/1, session_expires/1]).
 -export([packet/3, raw_sipmsg/1, raw_header/1]).
 
@@ -88,6 +88,8 @@ aors(Term) ->
 -spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
     [nksip:uri()] | error.
                 
+uris(#uri{}=Uri) -> [Uri];
+uris([#uri{}=Uri]) -> [Uri];
 uris([]) -> [];
 uris([First|_]=String) when is_integer(First) -> uris([String]);    % It's a string
 uris(List) when is_list(List) -> parse_uris(List, []);
@@ -160,7 +162,7 @@ header({Name, Value}) when is_binary(Value) ->
 
 header({Name, Value}) ->
     try 
-        parse_headers({Name, Value})
+        parse_headers(Name, Value, undefined)
     catch
         throw:_ -> error
     end.
@@ -453,187 +455,56 @@ get_raw_headers(Packet, Acc) ->
     end.
 
 
+
 %% @private
--spec raw_header(atom()|list()|binary()) ->
-    binary().
+parse_all_headers(Name, Headers) ->
+    parse_all_headers(Name, Headers, throw).
 
-raw_header('Www-Authenticate') ->
-    <<"WWW-Authenticate">>;
+%% @private
+parse_all_headers(Name, Headers, Default) ->
+    parse_headers(Name, proplists:get_all_values(Name, Headers), Default).
 
-raw_header(Name) when is_atom(Name) ->
-    atom_to_binary(Name, latin1);
 
-raw_header(Name) when is_binary(Name) ->
-    raw_header(binary_to_list(Name));
+%% @private
+parse_headers(Name, Values) ->
+    parse_headers(Name, Values, throw).
 
-raw_header(Name) ->
-    case string:to_upper(Name) of
-        "A" -> <<"Accept-Contact">>;
-        "B" -> <<"Referred-By">>;
-        "C" -> <<"Content-Type">>;
-        "D" -> <<"Request-Disposition">>;
-        "E" -> <<"Content-Encoding">>;
-        "F" -> <<"From">>;
-        "I" -> <<"Call-ID">>;
-        "J" -> <<"Reject-Contact">>;
-        "K" -> <<"Supported">>;
-        "L" -> <<"Content-Length">>;
-        "M" -> <<"Contact">>;
-        "N" -> <<"Identity-Info">>;
-        "O" -> <<"Event">>;
-        "R" -> <<"Refer-To">>;
-        "T" -> <<"To">>;
-        "U" -> <<"Allow-Events">>;
-        "V" -> <<"Via">>;
-        "X" -> <<"Session-Expires">>;
-        "Y" -> <<"Identity">>;
 
-        "X-"++_ -> list_to_binary(Name);
-
-        "ACCEPT" -> <<"Accept">>;
-        "ALLOW" -> <<"Allow">>;
-        "ALLOW-EVENTS" -> <<"Allow-Events">>;
-        "AUTHORIZATION" -> <<"Authorization">>;
-        "CALL-ID" -> <<"Call-ID">>;
-        "CONTACT" -> <<"Contact">>;
-        "CONTENT-LENGTH" -> <<"Content-Length">>;
-        "CONTENT-TYPE" -> <<"Content-Type">>;
-        "CSEQ" -> <<"CSeq">>;
-        "EVENT" -> <<"Event">>;
-        "EXPIRES" -> <<"Expires">>;
-        "FROM" -> <<"From">>;
-        "PATH" -> <<"Path">>;
-        "PROXY-AUTHENTICATE" -> <<"Proxy-Authenticate">>;
-        "PROXY-AUTHORIZATION" -> <<"Proxy-Authorization">>;
-        "RACK" -> <<"RAck">>;
-        "RECORD-ROUTE" -> <<"Record-Route">>;
-        "REQUIRE" -> <<"Require">>;
-        "ROUTE" -> <<"Route">>;
-        "RSEQ" -> <<"RSeq">>;
-        "SESSION-EXPIRES" -> <<"Session-Expires">>;
-        "SUBSCRIPTION-STATE" -> <<"Subscription-State">>;
-        "SUPPORTED" -> <<"Supported">>;
-        "TO" -> <<"To">>;
-        "USER-AGENT" -> <<"User-Agent">>;
-        "VIA" -> <<"Via">>;
-        "WWW-AUTHENTICATE" -> <<"WWW-Authenticate">>;
-
-        "ACCEPT-CONTACT" -> <<"Accept-Contact">>;
-        "ACCEPT-ENCODING" -> <<"Accept-Encoding">>;
-        "ACCEPT-LANGUAGE" -> <<"Accept-Language">>;
-        "ACCEPT-RESOURCE-PRIORITY" -> <<"Accept-Resource-Priority">>;
-        "ALERT-INFO" -> <<"Alert-Info">>;
-        "ANSWER-MODE" -> <<"Answer-Mode">>;
-        "AUTHENTICATION-INFO" -> <<"Authentication-Info">>;
-        "CALL-INFO" ->  <<"Call-Info">>;
-        "CONTENT-DISPOSITION" -> <<"Content-Disposition">>;
-        "CONTENT-ENCODING" -> <<"Content-Encoding">>;
-        "DATE" -> <<"Date">>;
-        "ENCRYPTION" -> <<"Encryption">>;
-        "ERROR-INFO" -> <<"Error-Info">>;
-        "FEATURE-CAPS" -> <<"Feature-Caps">>;
-        "FLOW-TIMER" -> <<"Flow-Timer">>;
-        "GEOLOCATION" -> <<"Geolocation">>;
-        "GEOLOCATION-ERROR" -> <<"Geolocation-Error">>;
-        "GEOLOCATION-ROUTING" -> <<"Geolocation-Routing">>;
-        "HIDE" -> <<"Hide">>;
-        "HISTORY-INFO" -> <<"History-Info">>;
-        "IDENTITY" -> <<"Identity">>;
-        "IDENTITY-INFO" -> <<"Identity-Info">>;
-        "INFO-PACKAGE" -> <<"Info-Package">>;
-        "IN-REPLY-TO" -> <<"In-Reply-To">>;
-        "JOIN" -> <<"Join">>;
-        "MAX-BREADTH" -> <<"Max-Breadth">>;
-        "MAX-FORWARDS" -> <<"Max-Forwards">>;
-        "MIME-VERSION" -> <<"MIME-Version">>;
-        "MIN-EXPIRES" -> <<"Min-Expires">>;
-        "MIN-SE" -> <<"Min-SE">>;
-        "ORGANIZATION" -> <<"Organization">>;
-        "PERMISSION-MISSING" -> <<"Permission-Missing">>;
-        "POLICY-CONTACT" -> <<"Policy-Contact">>;
-        "POLICY-ID" -> <<"Policy-ID">>;
-        "PRIORITY" -> <<"Priority">>;
-        "PROXY-REQUIRE" -> <<"Proxy-Require">>;
-        "REASON" -> <<"Reason">>;
-        "REASON-PHRASE" -> <<"Reason-Phrase">>;
-        "RECV-INFO" -> <<"Recv-Info">>;
-        "REFER-SUB" -> <<"Refer-Sub">>;
-        "REFER-TO" -> <<"Refer-To">>;
-        "REFERRED-BY" -> <<"Referred-By">>;
-        "REJECT-CONTACT" -> <<"Reject-Contact">>;
-        "REPLACES" -> <<"Replaces">>;
-        "REPLY-TO" -> <<"Reply-To">>;
-        "REQUEST-DISPOSITION" -> <<"Request-Disposition">>;
-        "RESOURCE-PRIORITY" -> <<"Resource-Priority">>;
-        "RESPONSE-KEY" -> <<"Response-Key">>;
-        "RETRY-AFTER" -> <<"Retry-After">>;
-        "SECURITY-CLIENT" -> <<"Security-Client">>;
-        "SECURITY-SERVER" -> <<"Security-Server">>;
-        "SECURITY-VERIFY" -> <<"Security-Verify">>;
-        "SERVER" -> <<"Server">>;
-        "SERVICE-ROUTE" -> <<"Service-Route">>;
-        "SIP-ETAG" -> <<"SIP-ETag">>;
-        "SIP-IF-MATCH" -> <<"SIP-If-Match">>;
-        "SUBJECT" -> <<"Subject">>;
-        "S" -> <<"Subject">>;
-        "TIMESTAMP" -> <<"Timestamp">>;
-        "TRIGGER-CONSENT" -> <<"Trigger-Consent">>;
-        "UNSUPPORTED" -> <<"Unsupported">>;
-        "WARNING" -> <<"Warning">>;
-
-        "P-ACCESS-NETWORK-INFO" -> <<"P-Access-Network-Info">>;
-        "P-ANSWER-STATE" -> <<"P-Answer-State">>;
-        "P-ASSERTED-IDENTITY" -> <<"P-Asserted-Identity">>;
-        "P-ASSERTED-SERVICE" -> <<"P-Asserted-Service">>;
-        "P-ASSOCIATED-URI" -> <<"P-Associated-URI">>;
-        "P-CALLED-PARTY-ID" -> <<"P-Called-Party-ID">>;
-        "P-CHARGING-FUNCTION-ADDRESSES" -> <<"P-Charging-Function-Addresses">>;
-        "P-CHARGING-VECTOR" -> <<"P-Charging-Vector">>;
-        "P-DCS-TRACE-PARTY-ID" -> <<"P-DCS-Trace-Party-ID">>;
-        "P-DCS-OSPS" -> <<"P-DCS-OSPS">>;
-        "P-DCS-BILLING-INFO" -> <<"P-DCS-Billing-Info">>;
-        "P-DCS-LAES" -> <<"P-DCS-LAES">>;
-        "P-DCS-REDIRECT" -> <<"P-DCS-Redirect">>;
-        "P-EARLY-MEDIA" -> <<"P-Early-Media">>;
-        "P-MEDIA-AUTHORIZATION" -> <<"P-Media-Authorization">>;
-        "P-PREFERRED-IDENTITY" -> <<"P-Preferred-Identity">>;
-        "P-PREFERRED-SERVICE" -> <<"P-Preferred-Service">>;
-        "P-PROFILE-KEY" -> <<"P-Profile-Key">>;
-        "P-REFUSED-URI-LIST" -> <<"P-Refused-URI-List">>;
-        "P-SERVED-USER" -> <<"P-Served-User">>;
-        "P-USER-DATABASE" -> <<"P-User-Database">>;
-        "P-VISITED-NETWORK-ID" -> <<"P-Visited-Network-ID">>;
-
-        _ -> list_to_binary(Name)
+%% @private
+parse_headers(Name, Values, Default) ->
+    try
+        case do_parse_headers(Name, Values) of
+            undefined when Default==throw -> {error, <<"Invalid ", Name/binary>>};
+            undefined -> Default;
+            Result -> Result
+        end
+    catch
+        throw:invalid -> {error, <<"Invalid", Name/binary>>}
     end.
 
 
 %% @private
-parse_all_headers(Name, Data) ->
-    parse_headers({Name, proplists:get_all_values(Name, Data)}).
-
-%% @private
 %% single uri
-parse_headers({Name, Data}) when Name == <<"From">>; Name == <<"To">> ->
+do_parse_headers(Name, Data) when Name == <<"From">>; Name == <<"To">> ->
     case uris(Data) of
         [#uri{} = Uri] -> Uri;
         _ -> throw(<<"Invalid ", Name/binary>>)
     end;
 
 %% binary, size > 0 
-parse_headers({<<"Call-ID">>, Data}) ->
+do_parse_headers(<<"Call-ID">>, Data) ->
     case Data of
         [CallId] when is_binary(CallId), byte_size(CallId)>0 -> CallId;
         _ -> throw(<<"Invalid Call-ID">>)
     end;
 
-parse_headers({<<"Via">>, Data}) ->
+do_parse_headers(<<"Via">>, Data) ->
     case vias(Data) of
         [_|_] = Vias -> Vias;
         _ -> throw(<<"Invalid Via">>)
     end;
     
-parse_headers({<<"CSeq">>, Data}) ->
+do_parse_headers(<<"CSeq">>, Data) ->
     case Data of
         [CSeqHeader] ->
             case nksip_lib:tokens(CSeqHeader) of
@@ -654,10 +525,10 @@ parse_headers({<<"CSeq">>, Data}) ->
         false -> throw(<<"Invalid CSeq">>)
     end;
 
-parse_headers({<<"Max-Forwards">>, Data}) ->
+do_parse_headers(<<"Max-Forwards">>, Data) ->
     case Data of
-        [] -> 
-            70;
+        [] ->
+            undefined;
         [Forwards0] ->
             case catch list_to_integer(nksip_lib:to_list(Forwards0)) of
                 F when is_integer(F), F>=0, F<300 -> F;
@@ -668,7 +539,7 @@ parse_headers({<<"Max-Forwards">>, Data}) ->
     end;
 
 %% uris
-parse_headers({Name, Data}) when Name == <<"Route">>; Name == <<"Contact">>;
+do_parse_headers(Name, Data) when Name == <<"Route">>; Name == <<"Contact">>;
                                 Name == <<"Path">>; Name == <<"Record-Route">> ->
     case uris(Data) of
         error -> throw(<<"Invalid ", Name/binary>>);
@@ -676,7 +547,7 @@ parse_headers({Name, Data}) when Name == <<"Route">>; Name == <<"Contact">>;
     end;
 
 %% integer >= 0
-parse_headers({Name, Data}) when Name == <<"Content-Length">>; Name == <<"Expires">> ->
+do_parse_headers(Name, Data) when Name == <<"Content-Length">>; Name == <<"Expires">> ->
     case Data of
         [] -> 
             undefined;
@@ -690,7 +561,7 @@ parse_headers({Name, Data}) when Name == <<"Content-Length">>; Name == <<"Expire
     end;
 
 %% single token
-parse_headers({<<"Content-Type">>, Data}) ->
+do_parse_headers(<<"Content-Type">>, Data) ->
     case tokens(Data) of
         [] -> undefined;
         [ContentType] -> ContentType;
@@ -698,21 +569,22 @@ parse_headers({<<"Content-Type">>, Data}) ->
     end;
 
 %% multiple tokens without args
-parse_headers({Name, Data}) when Name == <<"Require">>; Name == <<"Supported">> ->
+do_parse_headers(Name, Data) when Name == <<"Require">>; Name == <<"Supported">> ->
     case tokens(Data) of
+        [] -> undefined;
         error -> throw(<<"Invalid ", Name/binary>>);
         Tokens0 -> [Token || {Token, _} <- Tokens0]
     end;
 
 %% multiple tokens
-parse_headers({Name, Data}) when Name == <<"Event">> ->
+do_parse_headers(Name, Data) when Name == <<"Event">> ->
     case tokens(Data) of
         [] -> undefined;
         [Token] -> Token;
         _ -> throw(<<"Invalid ", Name/binary>>)
     end;
 
-parse_headers({_Name, Data}) ->
+do_parse_headers(_Name, Data) ->
     Data.
 
 
@@ -726,23 +598,21 @@ get_sipmsg(Class, Headers, Body, Proto) ->
             {req, ReqMethod, _} -> ok;
             _ -> ReqMethod = undefined
         end,
-        Event = parse_all_headers(<<"Event">>, Headers),
+        Event = parse_all_headers(<<"Event">>, Headers, undefined),
         case
             (ReqMethod=='SUBSCRIBE' orelse ReqMethod=='NOTIFY' orelse
-            ReqMethod=='PUBLISH') andalso
-            Event == undefined
+            ReqMethod=='PUBLISH') andalso Event == undefined
         of
             true -> throw(<<"Invalid Event">>);
             false -> ok
         end,
-        ContentLength = parse_all_headers(<<"Content-Length">>, Headers),
+        ContentLength = parse_all_headers(<<"Content-Length">>, Headers, 0),
         case ContentLength of
-            undefined when Proto/=tcp, Proto/=tls -> ok;
-            % 0 when Proto/=tcp, Proto/=tls -> ok;
+            0 when Proto/=tcp, Proto/=tls -> ok;
             _ when ContentLength == byte_size(Body) -> ok;
             _ -> throw(<<"Invalid Content-Length">>)
         end,
-        ContentType = parse_all_headers(<<"Content-Type">>, Headers),
+        ContentType = parse_all_headers(<<"Content-Type">>, Headers, undefined),
         ParsedBody = case ContentType of
             {<<"application/sdp">>, _} ->
                 case nksip_sdp:parse(Body) of
@@ -781,19 +651,19 @@ get_sipmsg(Class, Headers, Body, Proto) ->
         To = parse_all_headers(<<"To">>, Headers),
         {CSeqInt, CSeqMethod} = parse_all_headers(<<"CSeq">>, Headers),
         #sipmsg{
-            from = parse_all_headers(<<"From">>, Headers),
-            to = parse_all_headers(<<"To">>, Headers),
+            from = From,
+            to = To,
             call_id = parse_all_headers(<<"Call-ID">>, Headers), 
             vias = parse_all_headers(<<"Via">>, Headers),
             cseq = CSeqInt,
             cseq_method = CSeqMethod,
-            forwards = parse_all_headers(<<"Max-Forwards">>, Headers),
-            routes = parse_all_headers(<<"Route">>, Headers),
-            contacts = parse_all_headers(<<"Contact">>, Headers),
-            expires = parse_all_headers(<<"Expires">>, Headers),
+            forwards = parse_all_headers(<<"Max-Forwards">>, Headers, 70),
+            routes = parse_all_headers(<<"Route">>, Headers, []),
+            contacts = parse_all_headers(<<"Contact">>, Headers, []),
+            expires = parse_all_headers(<<"Expires">>, Headers, undefined),
             content_type = ContentType,
-            require = parse_all_headers(<<"Require">>, Headers),
-            supported = parse_all_headers(<<"Supported">>, Headers),
+            require = parse_all_headers(<<"Require">>, Headers, []),
+            supported = parse_all_headers(<<"Supported">>, Headers, []),
             event = Event,
             headers = RestHeaders,
             body = ParsedBody,
@@ -919,5 +789,277 @@ parse_dates([Next|Rest], Acc) ->
     end.
 
 
+%% @doc Modifies a request based on uri options
+-spec uri_method(nksip:user_uri(), nksip:method()) ->
+    {nksip:method(), nksip:uri()} | error.
+
+uri_method(RawUri, Default) ->
+    case nksip_parse:uris(RawUri) of
+        [#uri{opts=UriOpts}=Uri] ->
+            case lists:keytake(<<"method">>, 1, UriOpts) of
+                false ->
+                    {Default, Uri};
+                {value, {_, RawMethod}, Rest} ->
+                    case nksip_parse:method(RawMethod) of
+                        Method when is_atom(Method) -> {Method, Uri#uri{opts=Rest}};
+                        _ -> error
+                    end;
+                _ ->
+                    error
+            end;
+        _ ->
+            error
+    end.
+
+
+
+%% @doc Modifies a request based on uri options
+-spec uri_request(nksip:user_uri(), nksip:request()) ->
+    {nksip:request(), nksip:uri()} | {error, binary()}.
+
+uri_request(RawUri, Req) ->
+    try
+        case nksip_parse:uris(RawUri) of
+            [#uri{headers=[]}=Uri] ->
+                {Req, Uri};
+            [#uri{headers=Headers}=Uri] ->
+                {uri_request_header(Headers, Req), Uri#uri{headers=[]}};
+            _ ->
+                throw(<<"Invalid URI">>)
+        end
+    catch
+        throw:Throw -> {error, Throw}
+    end.
+
+
+%% @private
+uri_request_header([], Req) ->
+    Req;
+
+uri_request_header([{<<"body">>, Value}|Rest], Req) ->
+    uri_request_header(Rest, Req#sipmsg{body=Value});
+
+uri_request_header([{Name, Value}|Rest], Req) ->
+    #sipmsg{routes=Routes, contacts=Contacts, headers=Headers} = Req,
+    Value1 = list_to_binary(http_uri:decode(nksip_lib:to_list(Value))), 
+    Req1 = case nksip_parse:raw_header(nksip_lib:to_list(Name)) of
+        <<"From">> -> 
+            Req#sipmsg{from=parse_headers(<<"From">>, [Value1])};
+        <<"To">> -> 
+            Req#sipmsg{to=parse_headers(<<"To">>, [Value1])};
+        <<"Max-Forwards">> -> 
+            Req#sipmsg{forwards=parse_headers(<<"Max-Forwards">>, [Value1])};
+        <<"Call-ID">> -> 
+            Req#sipmsg{call_id=parse_headers(<<"Call-ID">>, [Value1])};
+        <<"Route">> -> 
+            Req#sipmsg{routes=Routes++parse_headers(<<"Route">>, [Value1])};
+        <<"Contact">> -> 
+            Req#sipmsg{contacts=Contacts++parse_headers(<<"Contact">>, [Value1])};
+        <<"Content-Type">> -> 
+            Req#sipmsg{content_type=parse_headers(<<"Content-Type">>, [Value1])};
+        <<"Require">> -> 
+            Req#sipmsg{require=parse_headers(<<"Require">>, [Value1])};
+        <<"Supported">> -> 
+            Req#sipmsg{supported=parse_headers(<<"Supported">>, [Value1])};
+        <<"Expires">> -> 
+            Req#sipmsg{expires=parse_headers(<<"Expires">>, [Value1])};
+        <<"Event">> -> 
+            Req#sipmsg{event=parse_headers(<<"Event">>, [Value1])};
+        <<"CSeq">> -> 
+            {CSeqInt, CSeqMethod} = parse_headers(<<"CSeq">>, [Value1]),
+            Req#sipmsg{cseq=CSeqInt, cseq_method=CSeqMethod};
+        <<"Via">> -> 
+            Req;
+        <<"Content-Length">> -> 
+            Req;
+        _ -> 
+            Req#sipmsg{headers=[{Name, Value1}|Headers]}
+    end,
+    uri_request_header(Rest, Req1);
+
+uri_request_header(_, _) ->
+    throw(<<"Invalid URI">>).
+
+atom_to_header(from) -> <<"From">>;
+atom_to_header(to) -> <<"To">>;
+atom_to_header(max_forwards) -> <<"Max-Forwards">>;
+atom_to_header(call_id) -> <<"Call-ID">>;
+atom_to_header(route) -> <<"Route">>;
+atom_to_header(contact) -> <<"Contact">>;
+atom_to_header(content_type) -> <<"Content-Type">>;
+atom_to_header(require) -> <<"Require">>;
+atom_to_header(supported) -> <<"Supported">>;
+
+            Req#sipmsg{supported=parse_headers(<<"Supported">>, [Value1])};
+        <<"Expires">> -> 
+            Req#sipmsg{expires=parse_headers(<<"Expires">>, [Value1])};
+        <<"Event">> -> 
+            Req#sipmsg{event=parse_headers(<<"Event">>, [Value1])};
+        <<"CSeq">> -> 
+            {CSeqInt, CSeqMethod} = parse_headers(<<"CSeq">>, [Value1]),
+            Req#sipmsg{cseq=CSeqInt, cseq_method=CSeqMethod};
+        <<"Via">> -> 
+            Req;
+        <<"Content-Length">> -> 
+            Req;
+        _ -> 
+            Req#sipmsg{headers=[{Name, Value1}|Headers]}
+    end,
+    uri_request_header(Rest, Req1);
+
+
+%% @private
+-spec raw_header(atom()|list()|binary()) ->
+    binary().
+
+raw_header('Www-Authenticate') ->
+    <<"WWW-Authenticate">>;
+
+raw_header(Name) when is_atom(Name) ->
+    atom_to_list(Name);
+
+raw_header(Name) when is_binary(Name) ->
+    raw_header(binary_to_list(Name));
+
+raw_header(Name) ->
+    case string:to_lower(Name) of
+        "a" -> <<"Accept-Contact">>;
+        "b" -> <<"Referred-By">>;
+        "c" -> <<"Content-Type">>;
+        "d" -> <<"Request-Disposition">>;
+        "e" -> <<"Content-Encoding">>;
+        "f" -> <<"From">>;
+        "i" -> <<"Call-ID">>;
+        "j" -> <<"Reject-Contact">>;
+        "k" -> <<"Supported">>;
+        "l" -> <<"Content-Length">>;
+        "m" -> <<"Contact">>;
+        "n" -> <<"Identity-Info">>;
+        "o" -> <<"Event">>;
+        "r" -> <<"Refer-To">>;
+        "s" -> <<"Subject">>;
+        "t" -> <<"To">>;
+        "u" -> <<"Allow-Events">>;
+        "v" -> <<"Via">>;
+        "x" -> <<"Session-Expires">>;
+        "y" -> <<"Identity">>;
+
+        "x-"++_ -> list_to_binary(Name);
+
+        "accept" -> <<"Accept">>;
+        "allow" -> <<"Allow">>;
+        "allow-events" -> <<"Allow-Events">>;
+        "authorization" -> <<"Authorization">>;
+        "call-id" -> <<"Call-ID">>;
+        "contact" -> <<"Contact">>;
+        "content-length" -> <<"Content-Length">>;
+        "content-type" -> <<"Content-Type">>;
+        "cseq" -> <<"CSeq">>;
+        "event" -> <<"Event">>;
+        "expires" -> <<"Expires">>;
+        "from" -> <<"From">>;
+        "path" -> <<"Path">>;
+        "proxy-authenticate" -> <<"Proxy-Authenticate">>;
+        "proxy-authorization" -> <<"Proxy-Authorization">>;
+        "rack" -> <<"RAck">>;
+        "record-route" -> <<"Record-Route">>;
+        "require" -> <<"Require">>;
+        "route" -> <<"Route">>;
+        "rseq" -> <<"RSeq">>;
+        "session-expires" -> <<"Session-Expires">>;
+        "subscription-state" -> <<"Subscription-State">>;
+        "supported" -> <<"Supported">>;
+        "to" -> <<"To">>;
+        "user-agent" -> <<"User-Agent">>;
+        "via" -> <<"Via">>;
+        "www-authenticate" -> <<"WWW-Authenticate">>;
+
+        "accept-contact" -> <<"Accept-Contact">>;
+        "accept-encoding" -> <<"Accept-Encoding">>;
+        "accept-language" -> <<"Accept-Language">>;
+        "accept-resource-priority" -> <<"Accept-Resource-Priority">>;
+        "alert-info" -> <<"Alert-Info">>;
+        "answer-mode" -> <<"Answer-Mode">>;
+        "authentication-info" -> <<"Authentication-Info">>;
+        "call-info" ->  <<"Call-Info">>;
+        "content-disposition" -> <<"Content-Disposition">>;
+        "content-encoding" -> <<"Content-Encoding">>;
+        "date" -> <<"Date">>;
+        "encryption" -> <<"Encryption">>;
+        "error-info" -> <<"Error-Info">>;
+        "feature-caps" -> <<"Feature-Caps">>;
+        "flow-timer" -> <<"Flow-Timer">>;
+        "geolocation" -> <<"Geolocation">>;
+        "geolocation-error" -> <<"Geolocation-Error">>;
+        "geolocation-routing" -> <<"Geolocation-Routing">>;
+        "hide" -> <<"Hide">>;
+        "history-info" -> <<"History-Info">>;
+        "identity" -> <<"Identity">>;
+        "identity-info" -> <<"Identity-Info">>;
+        "info-package" -> <<"Info-Package">>;
+        "in-reply-to" -> <<"In-Reply-To">>;
+        "join" -> <<"Join">>;
+        "max-breadth" -> <<"Max-Breadth">>;
+        "max-forwards" -> <<"Max-Forwards">>;
+        "mime-version" -> <<"MIME-Version">>;
+        "min-expires" -> <<"Min-Expires">>;
+        "min-se" -> <<"Min-SE">>;
+        "organization" -> <<"Organization">>;
+        "permission-missing" -> <<"Permission-Missing">>;
+        "policy-contact" -> <<"Policy-Contact">>;
+        "policy-id" -> <<"Policy-ID">>;
+        "priority" -> <<"Priority">>;
+        "proxy-require" -> <<"Proxy-Require">>;
+        "reason" -> <<"Reason">>;
+        "reason-phrase" -> <<"Reason-Phrase">>;
+        "recv-info" -> <<"Recv-Info">>;
+        "refer-sub" -> <<"Refer-Sub">>;
+        "refer-to" -> <<"Refer-To">>;
+        "referred-by" -> <<"Referred-By">>;
+        "reject-contact" -> <<"Reject-Contact">>;
+        "replaces" -> <<"Replaces">>;
+        "reply-TO" -> <<"Reply-To">>;
+        "request-disposition" -> <<"Request-Disposition">>;
+        "resource-priority" -> <<"Resource-Priority">>;
+        "response-key" -> <<"Response-Key">>;
+        "retry-after" -> <<"Retry-After">>;
+        "security-client" -> <<"Security-Client">>;
+        "security-server" -> <<"Security-Server">>;
+        "security-verify" -> <<"Security-Verify">>;
+        "server" -> <<"Server">>;
+        "service-route" -> <<"Service-Route">>;
+        "sip-etag" -> <<"SIP-ETag">>;
+        "sip-if-match" -> <<"SIP-If-Match">>;
+        "subject" -> <<"Subject">>;
+        "timestamp" -> <<"Timestamp">>;
+        "trigger-consent" -> <<"Trigger-Consent">>;
+        "unsupported" -> <<"Unsupported">>;
+        "warning" -> <<"Warning">>;
+
+        "p-access-network-info" -> <<"P-Access-Network-Info">>;
+        "p-answer-state" -> <<"P-Answer-State">>;
+        "p-asserted-identity" -> <<"P-Asserted-Identity">>;
+        "p-asserted-service" -> <<"P-Asserted-Service">>;
+        "p-associated-uri" -> <<"P-Associated-URI">>;
+        "p-called-party-id" -> <<"P-Called-Party-ID">>;
+        "p-charging-function-addresses" -> <<"P-Charging-Function-Addresses">>;
+        "p-charging-vector" -> <<"P-Charging-Vector">>;
+        "p-dcs-trace-party-id" -> <<"P-DCS-Trace-Party-ID">>;
+        "p-dcs-osps" -> <<"P-DCS-OSPS">>;
+        "p-dcs-billing-info" -> <<"P-DCS-Billing-Info">>;
+        "p-dcs-laes" -> <<"P-DCS-LAES">>;
+        "p-dcs-redirect" -> <<"P-DCS-Redirect">>;
+        "p-early-media" -> <<"P-Early-Media">>;
+        "p-media-authorization" -> <<"P-Media-Authorization">>;
+        "p-preferred-identity" -> <<"P-Preferred-Identity">>;
+        "p-preferred-service" -> <<"P-Preferred-Service">>;
+        "p-profile-key" -> <<"P-Profile-Key">>;
+        "p-refused-uri-list" -> <<"P-Refused-URI-List">>;
+        "p-served-user" -> <<"P-Served-User">>;
+        "p-user-database" -> <<"P-User-Database">>;
+        "p-visited-network-id" -> <<"P-Visited-Network-ID">>;
+
+        _ -> list_to_binary(Name)
+    end.
 
 
