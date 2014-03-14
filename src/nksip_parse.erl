@@ -30,7 +30,7 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, aors/1, uris/1, ruris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, extract_uri_routes/1]).
+-export([tokens/1, integers/1, dates/1, header/1, extract_uri_routes/1]).
 -export([transport/1, session_expires/1]).
 -export([packet/3, raw_sipmsg/1, raw_header/1]).
 
@@ -38,6 +38,8 @@
 
 -type msg_class() :: {req, nksip:method(), binary()} | 
                      {resp, nksip:response_code(), binary()}.
+
+-compile([export_all]).
 
 
 %% ===================================================================
@@ -143,6 +145,27 @@ dates(List) when is_list(List) -> parse_dates(List, []);
 dates(Term) -> dates([Term]).
 
 
+%% @doc
+-spec header({binary()|string(), binary()|string()|[binary()|string()]}) ->
+    term() | error.
+
+header({Name, Value}) when is_list(Name) ->
+    header({list_to_binary(Name), Value});
+
+header({Name, [Ch|_]=Value}) when is_integer(Ch) ->
+    header({Name, [list_to_binary(Value)]});
+
+header({Name, Value}) when is_binary(Value) ->
+    header({Name, [Value]});
+
+header({Name, Value}) ->
+    try 
+        parse_headers({Name, Value})
+    catch
+        throw:_ -> error
+    end.
+
+
 %% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
 -spec transport(nksip:uri()|nksip:via()) -> 
     {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
@@ -234,12 +257,12 @@ session_expires(SipMsg) ->
 %% Internal
 %% ===================================================================
 
-%% @private
--spec all_values(binary(), [nksip:header()]) -> 
-    [binary()].
+% %% @private
+% -spec all_values(binary(), [nksip:header()]) -> 
+%     [binary()].
 
-all_values(Name, Headers) when is_list(Headers) ->
-    proplists:get_all_values(Name, Headers).
+% all_values(Name, Headers) when is_list(Headers) ->
+%     proplists:get_all_values(Name, Headers).
 
 
 %% @private First-stage SIP message parser
@@ -410,167 +433,6 @@ raw_sipmsg(Raw) ->
     end.
 
     
-
-%% @private
--spec get_sipmsg(msg_class(), [nksip:header()], binary(), nksip:protocol()) -> 
-    #sipmsg{}.
-
-get_sipmsg(Class, Headers, Body, Proto) ->
-    case uris(all_values(<<"From">>, Headers)) of
-        [#uri{} = From] -> ok;
-        _ -> From = throw({400, <<"Invalid From">>})
-    end,
-    case uris(all_values(<<"To">>, Headers)) of
-        [#uri{} = To] -> ok;
-        _ -> To = throw({400, <<"Invalid To">>})
-    end,
-    case all_values(<<"Call-ID">>, Headers) of
-        [CallId] when is_binary(CallId), byte_size(CallId)>0 -> CallId;
-        _ -> CallId = throw({400, <<"Invalid Call-ID">>})
-    end,
-    case vias(all_values(<<"Via">>, Headers)) of
-        [_|_] = Vias -> ok;
-        _ -> Vias = throw({400, <<"Invalid Via">>})
-    end,
-    case all_values(<<"CSeq">>, Headers) of
-        [CSeqHeader] ->
-            case nksip_lib:tokens(CSeqHeader) of
-                [CSeqInt0, CSeqMethod0] ->                
-                    CSeqMethod = method(CSeqMethod0),
-                    case (catch list_to_integer(CSeqInt0)) of
-                        CSeqInt when is_integer(CSeqInt) -> ok;
-                        true -> CSeqInt = throw({400, <<"Invalid CSeq">>})
-                    end;
-                _ -> 
-                    CSeqInt=CSeqMethod=throw({400, <<"Invalid CSeq">>})
-            end;
-        _ ->
-            CSeqInt=CSeqMethod=throw({400, <<"Invalid CSeq">>})
-    end,
-    case CSeqInt>=0 andalso CSeqInt<4294967296 of      % (2^32-1)
-        true -> ok;
-        false -> throw({400, <<"Invalid CSeq">>})
-    end,
-    case integers(all_values(<<"Max-Forwards">>, Headers)) of
-        [] -> Forwards = 70;
-        [Forwards] when is_integer(Forwards), Forwards>=0, Forwards<300 -> ok;
-        _ -> Forwards = throw({400, <<"Invalid Max-Forwards">>})
-    end,
-    case uris(all_values(<<"Route">>, Headers)) of
-        error -> Routes = throw({400, <<"Invalid Route">>});
-        Routes -> ok
-    end,
-    case uris(all_values(<<"Contact">>, Headers)) of
-        error -> Contacts = throw({400, <<"Invalid Contact">>});
-        Contacts -> ok
-    end,
-    case integers(all_values(<<"Expires">>, Headers)) of
-        [] -> Expires = undefined;
-        [Expires] when is_integer(Expires), Expires>=0 -> ok;
-        _ -> Expires = throw({400, <<"Invalid Expires">>})
-    end,
-    Require = case tokens(all_values(<<"Require">>, Headers)) of
-        error -> throw({400, <<"Invalid Require">>});
-        Require0 -> [T||{T,_}<-Require0]
-    end,
-    Supported = case tokens(all_values(<<"Supported">>, Headers)) of
-        error -> throw({400, <<"Invalid Supported">>});
-        Supported0 -> [T||{T,_}<-Supported0]
-    end,
-    case Class of
-        {req, ReqMethod, _} -> ok;
-        _ -> ReqMethod = undefined
-    end,
-    Event = case tokens(all_values(<<"Event">>, Headers)) of
-        [] -> undefined;
-        [EventToken] -> EventToken;
-        _ -> throw({400, <<"Invalid Event">>})
-    end,
-    case 
-        ReqMethod=='SUBSCRIBE' orelse ReqMethod=='NOTIFY' orelse
-        ReqMethod=='PUBLISH'
-    of
-        true when Event==undefined -> throw({400, <<"Invalid Event">>});
-        _ -> ok
-    end,
-    case tokens(all_values(<<"Content-Type">>, Headers)) of
-        [] -> ContentType = undefined;
-        [ContentType] -> ok;
-        _ -> ContentType = throw({400, <<"Invalid Content-Type">>})
-    end,
-    case all_values(<<"Content-Length">>, Headers) of
-        [] when Proto/=tcp, Proto/=tls -> 
-            ok;
-        [CL] ->
-            case catch list_to_integer(binary_to_list(CL)) of
-                0 when Proto/=tcp, Proto/=tls -> 
-                    ok;
-                BS ->
-                    case byte_size(Body) of
-                        BS -> ok;
-                        _ -> throw({400, <<"Invalid Content-Length">>})
-                    end
-            end;
-        _ -> 
-            throw({400, <<"Invalid Content-Length">>})
-    end,
-    Body1 = case ContentType of
-        {<<"application/sdp">>, _} ->
-            case nksip_sdp:parse(Body) of
-                error -> Body;
-                SDP -> SDP
-            end;
-        {<<"application/nksip.ebf.base64">>, _} ->
-            case catch binary_to_term(base64:decode(Body)) of
-                {'EXIT', _} -> Body;
-                ErlBody -> ErlBody
-            end;
-        _ ->
-            Body
-    end,
-    Headers1 = lists:filter(
-        fun({Name, _}) ->
-            case Name of
-                <<"From">> -> false;
-                <<"To">> -> false;
-                <<"Call-ID">> -> false;
-                <<"Via">> -> false;
-                <<"CSeq">> -> false;
-                <<"Max-Forwards">> -> false;
-                <<"Route">> -> false;
-                <<"Contact">> -> false;
-                <<"Expires">> -> false;
-                <<"Require">> -> false;
-                <<"Supported">> -> false;
-                <<"Event">> -> false;
-                <<"Content-Type">> -> false;
-                <<"Content-Length">> -> false;
-                _ -> true
-            end
-        end, Headers),
-    #sipmsg{
-        from = From,
-        to = To,
-        call_id = CallId, 
-        vias = Vias,
-        cseq = CSeqInt,
-        cseq_method = CSeqMethod,
-        forwards = Forwards,
-        routes = Routes,
-        contacts = Contacts,
-        expires = Expires,
-        content_type = ContentType,
-        require = Require,
-        supported = Supported,
-        event = Event,
-        headers = Headers1,
-        body = Body1,
-        from_tag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
-        to_tag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
-        to_tag_candidate = <<>>
-    }.
-
-
 %% @private
 -spec get_raw_headers(binary(), list()) -> 
     {[nksip:header()], Rest::binary()}.
@@ -743,6 +605,204 @@ raw_header(Name) ->
         "P-VISITED-NETWORK-ID" -> <<"P-Visited-Network-ID">>;
 
         _ -> list_to_binary(Name)
+    end.
+
+
+%% @private
+parse_all_headers(Name, Data) ->
+    parse_headers({Name, proplists:get_all_values(Name, Data)}).
+
+%% @private
+%% single uri
+parse_headers({Name, Data}) when Name == <<"From">>; Name == <<"To">> ->
+    case uris(Data) of
+        [#uri{} = Uri] -> Uri;
+        _ -> throw(<<"Invalid ", Name/binary>>)
+    end;
+
+%% binary, size > 0 
+parse_headers({<<"Call-ID">>, Data}) ->
+    case Data of
+        [CallId] when is_binary(CallId), byte_size(CallId)>0 -> CallId;
+        _ -> throw(<<"Invalid Call-ID">>)
+    end;
+
+parse_headers({<<"Via">>, Data}) ->
+    case vias(Data) of
+        [_|_] = Vias -> Vias;
+        _ -> throw(<<"Invalid Via">>)
+    end;
+    
+parse_headers({<<"CSeq">>, Data}) ->
+    case Data of
+        [CSeqHeader] ->
+            case nksip_lib:tokens(CSeqHeader) of
+                [CSeqInt0, CSeqMethod0] ->                
+                    CSeqMethod = method(CSeqMethod0),
+                    case catch list_to_integer(CSeqInt0) of
+                        CSeqInt when is_integer(CSeqInt) -> ok;
+                        true -> CSeqInt = throw(<<"Invalid CSeq">>)
+                    end;
+                _ -> 
+                    CSeqInt=CSeqMethod=throw(<<"Invalid CSeq">>)
+            end;
+        _ ->
+            CSeqInt=CSeqMethod=throw(<<"Invalid CSeq">>)
+    end,
+    case CSeqInt>=0 andalso CSeqInt<4294967296 of      % (2^32-1)
+        true -> {CSeqInt, CSeqMethod};
+        false -> throw(<<"Invalid CSeq">>)
+    end;
+
+parse_headers({<<"Max-Forwards">>, Data}) ->
+    case Data of
+        [] -> 
+            70;
+        [Forwards0] ->
+            case catch list_to_integer(nksip_lib:to_list(Forwards0)) of
+                F when is_integer(F), F>=0, F<300 -> F;
+                _ -> throw(<<"Invalid Max-Forwards">>)
+            end;
+        _ -> 
+            throw(<<"Invalid Max-Forwards">>)
+    end;
+
+%% uris
+parse_headers({Name, Data}) when Name == <<"Route">>; Name == <<"Contact">>;
+                                Name == <<"Path">>; Name == <<"Record-Route">> ->
+    case uris(Data) of
+        error -> throw(<<"Invalid ", Name/binary>>);
+        Uris -> Uris
+    end;
+
+%% integer >= 0
+parse_headers({Name, Data}) when Name == <<"Content-Length">>; Name == <<"Expires">> ->
+    case Data of
+        [] -> 
+            undefined;
+        [Bin] ->
+            case catch list_to_integer(binary_to_list(Bin)) of
+                {'EXIT', _} -> throw(<<"Invalid ", Name/binary>>);
+                Int -> Int
+            end;
+        _ -> 
+            throw(<<"Invalid ", Name/binary>>)
+    end;
+
+%% single token
+parse_headers({<<"Content-Type">>, Data}) ->
+    case tokens(Data) of
+        [] -> undefined;
+        [ContentType] -> ContentType;
+        _ -> throw(<<"Invalid Content-Type">>)
+    end;
+
+%% multiple tokens without args
+parse_headers({Name, Data}) when Name == <<"Require">>; Name == <<"Supported">> ->
+    case tokens(Data) of
+        error -> throw(<<"Invalid ", Name/binary>>);
+        Tokens0 -> [Token || {Token, _} <- Tokens0]
+    end;
+
+%% multiple tokens
+parse_headers({Name, Data}) when Name == <<"Event">> ->
+    case tokens(Data) of
+        [] -> undefined;
+        [Token] -> Token;
+        _ -> throw(<<"Invalid ", Name/binary>>)
+    end;
+
+parse_headers({_Name, Data}) ->
+    Data.
+
+
+%% @private
+-spec get_sipmsg(msg_class(), [nksip:header()], binary(), nksip:protocol()) -> 
+    #sipmsg{}.
+
+get_sipmsg(Class, Headers, Body, Proto) ->
+    try
+        case Class of
+            {req, ReqMethod, _} -> ok;
+            _ -> ReqMethod = undefined
+        end,
+        Event = parse_all_headers(<<"Event">>, Headers),
+        case
+            (ReqMethod=='SUBSCRIBE' orelse ReqMethod=='NOTIFY' orelse
+            ReqMethod=='PUBLISH') andalso
+            Event == undefined
+        of
+            true -> throw(<<"Invalid Event">>);
+            false -> ok
+        end,
+        ContentLength = parse_all_headers(<<"Content-Length">>, Headers),
+        case ContentLength of
+            undefined when Proto/=tcp, Proto/=tls -> ok;
+            % 0 when Proto/=tcp, Proto/=tls -> ok;
+            _ when ContentLength == byte_size(Body) -> ok;
+            _ -> throw(<<"Invalid Content-Length">>)
+        end,
+        ContentType = parse_all_headers(<<"Content-Type">>, Headers),
+        ParsedBody = case ContentType of
+            {<<"application/sdp">>, _} ->
+                case nksip_sdp:parse(Body) of
+                    error -> Body;
+                    SDP -> SDP
+                end;
+            {<<"application/nksip.ebf.base64">>, _} ->
+                case catch binary_to_term(base64:decode(Body)) of
+                    {'EXIT', _} -> Body;
+                    ErlBody -> ErlBody
+                end;
+            _ ->
+                Body
+        end,
+        RestHeaders = lists:filter(
+            fun({Name, _}) ->
+                case Name of
+                    <<"From">> -> false;
+                    <<"To">> -> false;
+                    <<"Call-ID">> -> false;
+                    <<"Via">> -> false;
+                    <<"CSeq">> -> false;
+                    <<"Max-Forwards">> -> false;
+                    <<"Route">> -> false;
+                    <<"Contact">> -> false;
+                    <<"Expires">> -> false;
+                    <<"Require">> -> false;
+                    <<"Supported">> -> false;
+                    <<"Event">> -> false;
+                    <<"Content-Type">> -> false;
+                    <<"Content-Length">> -> false;
+                    _ -> true
+                end
+            end, Headers),
+        From = parse_all_headers(<<"From">>, Headers),
+        To = parse_all_headers(<<"To">>, Headers),
+        {CSeqInt, CSeqMethod} = parse_all_headers(<<"CSeq">>, Headers),
+        #sipmsg{
+            from = parse_all_headers(<<"From">>, Headers),
+            to = parse_all_headers(<<"To">>, Headers),
+            call_id = parse_all_headers(<<"Call-ID">>, Headers), 
+            vias = parse_all_headers(<<"Via">>, Headers),
+            cseq = CSeqInt,
+            cseq_method = CSeqMethod,
+            forwards = parse_all_headers(<<"Max-Forwards">>, Headers),
+            routes = parse_all_headers(<<"Route">>, Headers),
+            contacts = parse_all_headers(<<"Contact">>, Headers),
+            expires = parse_all_headers(<<"Expires">>, Headers),
+            content_type = ContentType,
+            require = parse_all_headers(<<"Require">>, Headers),
+            supported = parse_all_headers(<<"Supported">>, Headers),
+            event = Event,
+            headers = RestHeaders,
+            body = ParsedBody,
+            from_tag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
+            to_tag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
+            to_tag_candidate = <<>>
+        }
+    catch
+        throw:Throw -> throw({400, Throw})
     end.
 
 

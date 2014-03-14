@@ -230,7 +230,7 @@ application_8() ->
         "To: sip:other@example.net\r\n"
         "From: sip:caller@example.net;tag=2923420123\r\n"
         "Content-Type: application/sdp\r\n"
-        "l: 154\r\n"
+        "l: 152\r\n"
         "Contact: <sip:caller@host36.example.net>\r\n"
         "Max-Forwards: 5\r\n"
         "\r\n"
