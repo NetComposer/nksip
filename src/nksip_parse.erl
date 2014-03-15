@@ -30,9 +30,9 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, aors/1, uris/1, ruris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, header/1, uri_method/2, uri_request/2, extract_uri_routes/1]).
+-export([tokens/1, integers/1, dates/1, header/1, uri_method/2]).
 -export([transport/1, session_expires/1]).
--export([packet/3, raw_sipmsg/1, raw_header/1]).
+-export([packet/3, raw_sipmsg/1]).
 
 -export_type([msg_class/0]).
 
@@ -162,7 +162,7 @@ header({Name, Value}) when is_binary(Value) ->
 
 header({Name, Value}) ->
     try 
-        parse_headers(Name, Value, undefined)
+        nksip_parse_headers:parse_headers(Name, Value, undefined)
     catch
         throw:_ -> error
     end.
@@ -220,7 +220,7 @@ extract_uri_routes([], Hds, Routes) ->
     {Hds, Routes};
 
 extract_uri_routes([{Name, Value}|Rest], Hds, Routes) ->
-    case raw_header(Name) of
+    case nksip_parse_header:header_name(Name) of
         <<"Route">> -> 
             case uris(http_uri:decode(nksip_lib:to_list(Value))) of
                 error -> error;
@@ -397,7 +397,8 @@ raw_sipmsg(Raw) ->
                 %% Request-Uris behave as having < ... >
                 case uris(<<$<, RequestUri/binary, $>>>) of
                     [RUri] ->
-                        Request = get_sipmsg(Class, Headers, Body, Proto),
+                        Request = nksip_parse_headers:get_sipmsg(Class, Headers, 
+                                                                 Body, Proto),
                         case Request#sipmsg.cseq_method of
                             Method -> 
                                 Request#sipmsg{
@@ -415,7 +416,7 @@ raw_sipmsg(Raw) ->
                         throw({400, <<"Invalid Request-URI">>})
                 end;
             {resp, Code, CodeText} when Code>=100, Code=<699 ->
-                Response = get_sipmsg(Class, Headers, Body, Proto),
+                Response = nksip_parse_headers:get_sipmsg(Class, Headers, Body, Proto),
                 Response#sipmsg{
                     id = Id,
                     class = {resp, Code, CodeText},
@@ -442,7 +443,7 @@ raw_sipmsg(Raw) ->
 get_raw_headers(Packet, Acc) ->
     case erlang:decode_packet(httph, Packet, []) of
         {ok, {http_header, _Int, Name0, _Res, Value0}, Rest} ->
-            Header = raw_header(Name0),
+            Header = nksip_parse_header:header_name(Name0),
             get_raw_headers(Rest, [{Header, list_to_binary(Value0)}|Acc]);
         {ok, http_eoh, Rest} ->
             {lists:reverse(Acc), Rest};
@@ -455,225 +456,6 @@ get_raw_headers(Packet, Acc) ->
     end.
 
 
-
-%% @private
-parse_all_headers(Name, Headers) ->
-    parse_all_headers(Name, Headers, throw).
-
-%% @private
-parse_all_headers(Name, Headers, Default) ->
-    parse_headers(Name, proplists:get_all_values(Name, Headers), Default).
-
-
-%% @private
-parse_headers(Name, Values) ->
-    parse_headers(Name, Values, throw).
-
-
-%% @private
-parse_headers(Name, Values, Default) ->
-    try
-        case do_parse_headers(Name, Values) of
-            undefined when Default==throw -> {error, <<"Invalid ", Name/binary>>};
-            undefined -> Default;
-            Result -> Result
-        end
-    catch
-        throw:invalid -> {error, <<"Invalid", Name/binary>>}
-    end.
-
-
-%% @private
-%% single uri
-do_parse_headers(Name, Data) when Name == <<"From">>; Name == <<"To">> ->
-    case uris(Data) of
-        [#uri{} = Uri] -> Uri;
-        _ -> throw(<<"Invalid ", Name/binary>>)
-    end;
-
-%% binary, size > 0 
-do_parse_headers(<<"Call-ID">>, Data) ->
-    case Data of
-        [CallId] when is_binary(CallId), byte_size(CallId)>0 -> CallId;
-        _ -> throw(<<"Invalid Call-ID">>)
-    end;
-
-do_parse_headers(<<"Via">>, Data) ->
-    case vias(Data) of
-        [_|_] = Vias -> Vias;
-        _ -> throw(<<"Invalid Via">>)
-    end;
-    
-do_parse_headers(<<"CSeq">>, Data) ->
-    case Data of
-        [CSeqHeader] ->
-            case nksip_lib:tokens(CSeqHeader) of
-                [CSeqInt0, CSeqMethod0] ->                
-                    CSeqMethod = method(CSeqMethod0),
-                    case catch list_to_integer(CSeqInt0) of
-                        CSeqInt when is_integer(CSeqInt) -> ok;
-                        true -> CSeqInt = throw(<<"Invalid CSeq">>)
-                    end;
-                _ -> 
-                    CSeqInt=CSeqMethod=throw(<<"Invalid CSeq">>)
-            end;
-        _ ->
-            CSeqInt=CSeqMethod=throw(<<"Invalid CSeq">>)
-    end,
-    case CSeqInt>=0 andalso CSeqInt<4294967296 of      % (2^32-1)
-        true -> {CSeqInt, CSeqMethod};
-        false -> throw(<<"Invalid CSeq">>)
-    end;
-
-do_parse_headers(<<"Max-Forwards">>, Data) ->
-    case Data of
-        [] ->
-            undefined;
-        [Forwards0] ->
-            case catch list_to_integer(nksip_lib:to_list(Forwards0)) of
-                F when is_integer(F), F>=0, F<300 -> F;
-                _ -> throw(<<"Invalid Max-Forwards">>)
-            end;
-        _ -> 
-            throw(<<"Invalid Max-Forwards">>)
-    end;
-
-%% uris
-do_parse_headers(Name, Data) when Name == <<"Route">>; Name == <<"Contact">>;
-                                Name == <<"Path">>; Name == <<"Record-Route">> ->
-    case uris(Data) of
-        error -> throw(<<"Invalid ", Name/binary>>);
-        Uris -> Uris
-    end;
-
-%% integer >= 0
-do_parse_headers(Name, Data) when Name == <<"Content-Length">>; Name == <<"Expires">> ->
-    case Data of
-        [] -> 
-            undefined;
-        [Bin] ->
-            case catch list_to_integer(binary_to_list(Bin)) of
-                {'EXIT', _} -> throw(<<"Invalid ", Name/binary>>);
-                Int -> Int
-            end;
-        _ -> 
-            throw(<<"Invalid ", Name/binary>>)
-    end;
-
-%% single token
-do_parse_headers(<<"Content-Type">>, Data) ->
-    case tokens(Data) of
-        [] -> undefined;
-        [ContentType] -> ContentType;
-        _ -> throw(<<"Invalid Content-Type">>)
-    end;
-
-%% multiple tokens without args
-do_parse_headers(Name, Data) when Name == <<"Require">>; Name == <<"Supported">> ->
-    case tokens(Data) of
-        [] -> undefined;
-        error -> throw(<<"Invalid ", Name/binary>>);
-        Tokens0 -> [Token || {Token, _} <- Tokens0]
-    end;
-
-%% multiple tokens
-do_parse_headers(Name, Data) when Name == <<"Event">> ->
-    case tokens(Data) of
-        [] -> undefined;
-        [Token] -> Token;
-        _ -> throw(<<"Invalid ", Name/binary>>)
-    end;
-
-do_parse_headers(_Name, Data) ->
-    Data.
-
-
-%% @private
--spec get_sipmsg(msg_class(), [nksip:header()], binary(), nksip:protocol()) -> 
-    #sipmsg{}.
-
-get_sipmsg(Class, Headers, Body, Proto) ->
-    try
-        case Class of
-            {req, ReqMethod, _} -> ok;
-            _ -> ReqMethod = undefined
-        end,
-        Event = parse_all_headers(<<"Event">>, Headers, undefined),
-        case
-            (ReqMethod=='SUBSCRIBE' orelse ReqMethod=='NOTIFY' orelse
-            ReqMethod=='PUBLISH') andalso Event == undefined
-        of
-            true -> throw(<<"Invalid Event">>);
-            false -> ok
-        end,
-        ContentLength = parse_all_headers(<<"Content-Length">>, Headers, 0),
-        case ContentLength of
-            0 when Proto/=tcp, Proto/=tls -> ok;
-            _ when ContentLength == byte_size(Body) -> ok;
-            _ -> throw(<<"Invalid Content-Length">>)
-        end,
-        ContentType = parse_all_headers(<<"Content-Type">>, Headers, undefined),
-        ParsedBody = case ContentType of
-            {<<"application/sdp">>, _} ->
-                case nksip_sdp:parse(Body) of
-                    error -> Body;
-                    SDP -> SDP
-                end;
-            {<<"application/nksip.ebf.base64">>, _} ->
-                case catch binary_to_term(base64:decode(Body)) of
-                    {'EXIT', _} -> Body;
-                    ErlBody -> ErlBody
-                end;
-            _ ->
-                Body
-        end,
-        RestHeaders = lists:filter(
-            fun({Name, _}) ->
-                case Name of
-                    <<"From">> -> false;
-                    <<"To">> -> false;
-                    <<"Call-ID">> -> false;
-                    <<"Via">> -> false;
-                    <<"CSeq">> -> false;
-                    <<"Max-Forwards">> -> false;
-                    <<"Route">> -> false;
-                    <<"Contact">> -> false;
-                    <<"Expires">> -> false;
-                    <<"Require">> -> false;
-                    <<"Supported">> -> false;
-                    <<"Event">> -> false;
-                    <<"Content-Type">> -> false;
-                    <<"Content-Length">> -> false;
-                    _ -> true
-                end
-            end, Headers),
-        From = parse_all_headers(<<"From">>, Headers),
-        To = parse_all_headers(<<"To">>, Headers),
-        {CSeqInt, CSeqMethod} = parse_all_headers(<<"CSeq">>, Headers),
-        #sipmsg{
-            from = From,
-            to = To,
-            call_id = parse_all_headers(<<"Call-ID">>, Headers), 
-            vias = parse_all_headers(<<"Via">>, Headers),
-            cseq = CSeqInt,
-            cseq_method = CSeqMethod,
-            forwards = parse_all_headers(<<"Max-Forwards">>, Headers, 70),
-            routes = parse_all_headers(<<"Route">>, Headers, []),
-            contacts = parse_all_headers(<<"Contact">>, Headers, []),
-            expires = parse_all_headers(<<"Expires">>, Headers, undefined),
-            content_type = ContentType,
-            require = parse_all_headers(<<"Require">>, Headers, []),
-            supported = parse_all_headers(<<"Supported">>, Headers, []),
-            event = Event,
-            headers = RestHeaders,
-            body = ParsedBody,
-            from_tag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
-            to_tag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
-            to_tag_candidate = <<>>
-        }
-    catch
-        throw:Throw -> throw({400, Throw})
-    end.
 
 
 %% @private
@@ -810,256 +592,4 @@ uri_method(RawUri, Default) ->
         _ ->
             error
     end.
-
-
-
-%% @doc Modifies a request based on uri options
--spec uri_request(nksip:user_uri(), nksip:request()) ->
-    {nksip:request(), nksip:uri()} | {error, binary()}.
-
-uri_request(RawUri, Req) ->
-    try
-        case nksip_parse:uris(RawUri) of
-            [#uri{headers=[]}=Uri] ->
-                {Req, Uri};
-            [#uri{headers=Headers}=Uri] ->
-                {uri_request_header(Headers, Req), Uri#uri{headers=[]}};
-            _ ->
-                throw(<<"Invalid URI">>)
-        end
-    catch
-        throw:Throw -> {error, Throw}
-    end.
-
-
-%% @private
-uri_request_header([], Req) ->
-    Req;
-
-uri_request_header([{<<"body">>, Value}|Rest], Req) ->
-    uri_request_header(Rest, Req#sipmsg{body=Value});
-
-uri_request_header([{Name, Value}|Rest], Req) ->
-    #sipmsg{routes=Routes, contacts=Contacts, headers=Headers} = Req,
-    Value1 = list_to_binary(http_uri:decode(nksip_lib:to_list(Value))), 
-    Req1 = case nksip_parse:raw_header(nksip_lib:to_list(Name)) of
-        <<"From">> -> 
-            Req#sipmsg{from=parse_headers(<<"From">>, [Value1])};
-        <<"To">> -> 
-            Req#sipmsg{to=parse_headers(<<"To">>, [Value1])};
-        <<"Max-Forwards">> -> 
-            Req#sipmsg{forwards=parse_headers(<<"Max-Forwards">>, [Value1])};
-        <<"Call-ID">> -> 
-            Req#sipmsg{call_id=parse_headers(<<"Call-ID">>, [Value1])};
-        <<"Route">> -> 
-            Req#sipmsg{routes=Routes++parse_headers(<<"Route">>, [Value1])};
-        <<"Contact">> -> 
-            Req#sipmsg{contacts=Contacts++parse_headers(<<"Contact">>, [Value1])};
-        <<"Content-Type">> -> 
-            Req#sipmsg{content_type=parse_headers(<<"Content-Type">>, [Value1])};
-        <<"Require">> -> 
-            Req#sipmsg{require=parse_headers(<<"Require">>, [Value1])};
-        <<"Supported">> -> 
-            Req#sipmsg{supported=parse_headers(<<"Supported">>, [Value1])};
-        <<"Expires">> -> 
-            Req#sipmsg{expires=parse_headers(<<"Expires">>, [Value1])};
-        <<"Event">> -> 
-            Req#sipmsg{event=parse_headers(<<"Event">>, [Value1])};
-        <<"CSeq">> -> 
-            {CSeqInt, CSeqMethod} = parse_headers(<<"CSeq">>, [Value1]),
-            Req#sipmsg{cseq=CSeqInt, cseq_method=CSeqMethod};
-        <<"Via">> -> 
-            Req;
-        <<"Content-Length">> -> 
-            Req;
-        _ -> 
-            Req#sipmsg{headers=[{Name, Value1}|Headers]}
-    end,
-    uri_request_header(Rest, Req1);
-
-uri_request_header(_, _) ->
-    throw(<<"Invalid URI">>).
-
-atom_to_header(from) -> <<"From">>;
-atom_to_header(to) -> <<"To">>;
-atom_to_header(max_forwards) -> <<"Max-Forwards">>;
-atom_to_header(call_id) -> <<"Call-ID">>;
-atom_to_header(route) -> <<"Route">>;
-atom_to_header(contact) -> <<"Contact">>;
-atom_to_header(content_type) -> <<"Content-Type">>;
-atom_to_header(require) -> <<"Require">>;
-atom_to_header(supported) -> <<"Supported">>;
-
-            Req#sipmsg{supported=parse_headers(<<"Supported">>, [Value1])};
-        <<"Expires">> -> 
-            Req#sipmsg{expires=parse_headers(<<"Expires">>, [Value1])};
-        <<"Event">> -> 
-            Req#sipmsg{event=parse_headers(<<"Event">>, [Value1])};
-        <<"CSeq">> -> 
-            {CSeqInt, CSeqMethod} = parse_headers(<<"CSeq">>, [Value1]),
-            Req#sipmsg{cseq=CSeqInt, cseq_method=CSeqMethod};
-        <<"Via">> -> 
-            Req;
-        <<"Content-Length">> -> 
-            Req;
-        _ -> 
-            Req#sipmsg{headers=[{Name, Value1}|Headers]}
-    end,
-    uri_request_header(Rest, Req1);
-
-
-%% @private
--spec raw_header(atom()|list()|binary()) ->
-    binary().
-
-raw_header('Www-Authenticate') ->
-    <<"WWW-Authenticate">>;
-
-raw_header(Name) when is_atom(Name) ->
-    atom_to_list(Name);
-
-raw_header(Name) when is_binary(Name) ->
-    raw_header(binary_to_list(Name));
-
-raw_header(Name) ->
-    case string:to_lower(Name) of
-        "a" -> <<"Accept-Contact">>;
-        "b" -> <<"Referred-By">>;
-        "c" -> <<"Content-Type">>;
-        "d" -> <<"Request-Disposition">>;
-        "e" -> <<"Content-Encoding">>;
-        "f" -> <<"From">>;
-        "i" -> <<"Call-ID">>;
-        "j" -> <<"Reject-Contact">>;
-        "k" -> <<"Supported">>;
-        "l" -> <<"Content-Length">>;
-        "m" -> <<"Contact">>;
-        "n" -> <<"Identity-Info">>;
-        "o" -> <<"Event">>;
-        "r" -> <<"Refer-To">>;
-        "s" -> <<"Subject">>;
-        "t" -> <<"To">>;
-        "u" -> <<"Allow-Events">>;
-        "v" -> <<"Via">>;
-        "x" -> <<"Session-Expires">>;
-        "y" -> <<"Identity">>;
-
-        "x-"++_ -> list_to_binary(Name);
-
-        "accept" -> <<"Accept">>;
-        "allow" -> <<"Allow">>;
-        "allow-events" -> <<"Allow-Events">>;
-        "authorization" -> <<"Authorization">>;
-        "call-id" -> <<"Call-ID">>;
-        "contact" -> <<"Contact">>;
-        "content-length" -> <<"Content-Length">>;
-        "content-type" -> <<"Content-Type">>;
-        "cseq" -> <<"CSeq">>;
-        "event" -> <<"Event">>;
-        "expires" -> <<"Expires">>;
-        "from" -> <<"From">>;
-        "path" -> <<"Path">>;
-        "proxy-authenticate" -> <<"Proxy-Authenticate">>;
-        "proxy-authorization" -> <<"Proxy-Authorization">>;
-        "rack" -> <<"RAck">>;
-        "record-route" -> <<"Record-Route">>;
-        "require" -> <<"Require">>;
-        "route" -> <<"Route">>;
-        "rseq" -> <<"RSeq">>;
-        "session-expires" -> <<"Session-Expires">>;
-        "subscription-state" -> <<"Subscription-State">>;
-        "supported" -> <<"Supported">>;
-        "to" -> <<"To">>;
-        "user-agent" -> <<"User-Agent">>;
-        "via" -> <<"Via">>;
-        "www-authenticate" -> <<"WWW-Authenticate">>;
-
-        "accept-contact" -> <<"Accept-Contact">>;
-        "accept-encoding" -> <<"Accept-Encoding">>;
-        "accept-language" -> <<"Accept-Language">>;
-        "accept-resource-priority" -> <<"Accept-Resource-Priority">>;
-        "alert-info" -> <<"Alert-Info">>;
-        "answer-mode" -> <<"Answer-Mode">>;
-        "authentication-info" -> <<"Authentication-Info">>;
-        "call-info" ->  <<"Call-Info">>;
-        "content-disposition" -> <<"Content-Disposition">>;
-        "content-encoding" -> <<"Content-Encoding">>;
-        "date" -> <<"Date">>;
-        "encryption" -> <<"Encryption">>;
-        "error-info" -> <<"Error-Info">>;
-        "feature-caps" -> <<"Feature-Caps">>;
-        "flow-timer" -> <<"Flow-Timer">>;
-        "geolocation" -> <<"Geolocation">>;
-        "geolocation-error" -> <<"Geolocation-Error">>;
-        "geolocation-routing" -> <<"Geolocation-Routing">>;
-        "hide" -> <<"Hide">>;
-        "history-info" -> <<"History-Info">>;
-        "identity" -> <<"Identity">>;
-        "identity-info" -> <<"Identity-Info">>;
-        "info-package" -> <<"Info-Package">>;
-        "in-reply-to" -> <<"In-Reply-To">>;
-        "join" -> <<"Join">>;
-        "max-breadth" -> <<"Max-Breadth">>;
-        "max-forwards" -> <<"Max-Forwards">>;
-        "mime-version" -> <<"MIME-Version">>;
-        "min-expires" -> <<"Min-Expires">>;
-        "min-se" -> <<"Min-SE">>;
-        "organization" -> <<"Organization">>;
-        "permission-missing" -> <<"Permission-Missing">>;
-        "policy-contact" -> <<"Policy-Contact">>;
-        "policy-id" -> <<"Policy-ID">>;
-        "priority" -> <<"Priority">>;
-        "proxy-require" -> <<"Proxy-Require">>;
-        "reason" -> <<"Reason">>;
-        "reason-phrase" -> <<"Reason-Phrase">>;
-        "recv-info" -> <<"Recv-Info">>;
-        "refer-sub" -> <<"Refer-Sub">>;
-        "refer-to" -> <<"Refer-To">>;
-        "referred-by" -> <<"Referred-By">>;
-        "reject-contact" -> <<"Reject-Contact">>;
-        "replaces" -> <<"Replaces">>;
-        "reply-TO" -> <<"Reply-To">>;
-        "request-disposition" -> <<"Request-Disposition">>;
-        "resource-priority" -> <<"Resource-Priority">>;
-        "response-key" -> <<"Response-Key">>;
-        "retry-after" -> <<"Retry-After">>;
-        "security-client" -> <<"Security-Client">>;
-        "security-server" -> <<"Security-Server">>;
-        "security-verify" -> <<"Security-Verify">>;
-        "server" -> <<"Server">>;
-        "service-route" -> <<"Service-Route">>;
-        "sip-etag" -> <<"SIP-ETag">>;
-        "sip-if-match" -> <<"SIP-If-Match">>;
-        "subject" -> <<"Subject">>;
-        "timestamp" -> <<"Timestamp">>;
-        "trigger-consent" -> <<"Trigger-Consent">>;
-        "unsupported" -> <<"Unsupported">>;
-        "warning" -> <<"Warning">>;
-
-        "p-access-network-info" -> <<"P-Access-Network-Info">>;
-        "p-answer-state" -> <<"P-Answer-State">>;
-        "p-asserted-identity" -> <<"P-Asserted-Identity">>;
-        "p-asserted-service" -> <<"P-Asserted-Service">>;
-        "p-associated-uri" -> <<"P-Associated-URI">>;
-        "p-called-party-id" -> <<"P-Called-Party-ID">>;
-        "p-charging-function-addresses" -> <<"P-Charging-Function-Addresses">>;
-        "p-charging-vector" -> <<"P-Charging-Vector">>;
-        "p-dcs-trace-party-id" -> <<"P-DCS-Trace-Party-ID">>;
-        "p-dcs-osps" -> <<"P-DCS-OSPS">>;
-        "p-dcs-billing-info" -> <<"P-DCS-Billing-Info">>;
-        "p-dcs-laes" -> <<"P-DCS-LAES">>;
-        "p-dcs-redirect" -> <<"P-DCS-Redirect">>;
-        "p-early-media" -> <<"P-Early-Media">>;
-        "p-media-authorization" -> <<"P-Media-Authorization">>;
-        "p-preferred-identity" -> <<"P-Preferred-Identity">>;
-        "p-preferred-service" -> <<"P-Preferred-Service">>;
-        "p-profile-key" -> <<"P-Profile-Key">>;
-        "p-refused-uri-list" -> <<"P-Refused-URI-List">>;
-        "p-served-user" -> <<"P-Served-User">>;
-        "p-user-database" -> <<"P-User-Database">>;
-        "p-visited-network-id" -> <<"P-Visited-Network-ID">>;
-
-        _ -> list_to_binary(Name)
-    end.
-
 

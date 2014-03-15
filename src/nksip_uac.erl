@@ -233,7 +233,6 @@
 
 -type invite_opt() ::
     {expires, pos_integer()} |
-    require_100rel |
     {prack, function()}.
 
 -type subscribe_opt() ::
@@ -421,13 +420,6 @@ register(AppId, Dest, Opts) ->
 %%          <td>`integer()'</td>
 %%          <td></td>
 %%          <td>If included it will generate a `Expires' header.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`require_100rel'</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present, a <i>Require: 100rel</i> header will be generated, 
-%%          and the other party must then send reliable provisional responses.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`prack'</td>

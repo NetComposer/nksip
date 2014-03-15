@@ -52,8 +52,8 @@ route(UAS, UriList, ProxyOpts, Call) ->
         end,
         % lager:warning("URISET: ~p", [UriList]),
         #trans{request=Req, method=Method} = UAS,
-        check_request(Req, ProxyOpts),
-        {Req1, Call1} = case nksip_call_timer:uas_check_422(Req, Call) of
+        Req1 = check_request(Req, ProxyOpts),
+        {Req2, Call1} = case nksip_call_timer:uas_check_422(Req, Call) of
             continue -> {Req, Call};
             {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
             {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
@@ -63,9 +63,9 @@ route(UAS, UriList, ProxyOpts, Call) ->
             {error, OutError} -> throw({reply, OutError})
         end,
         #call{app_id=AppId} = Call,
-        Req2 = remove_local_routes(AppId, Req1),
-        ?warning(AppId, "ROUTESA: ~p\nB: ~p", [Req1#sipmsg.routes, Req2#sipmsg.routes]),
-        Req3 = preprocess(Req2, ProxyOpts1),
+        Req3 = remove_local_routes(AppId, Req2),
+        % ?warning(AppId, "ROUTESA: ~p\nB: ~p", [Req1#sipmsg.routes, Req3#sipmsg.routes]),
+        % Req4 = preprocess(Req3, ProxyOpts1),
         Stateless = lists:member(stateless, ProxyOpts1),
         case Method of
             'ACK' when Stateless ->
@@ -157,7 +157,7 @@ response_stateless(_, Call) ->
 
 %% @private
 -spec check_request(nksip:request(), nksip_lib:proplist()) ->
-    ok.
+    nksip:request().
 
 check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
     if
@@ -179,38 +179,39 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
             end;
         false ->
             ok
-    end.
+    end,
+    Req#sipmsg{forwards=Forwards-1}.
 
 
-%% @private
--spec preprocess(nksip:request(), [opt()]) ->
-    nksip:request().
+% %% @private
+% -spec preprocess(nksip:request(), [opt()]) ->
+%     nksip:request().
 
-preprocess(Req, ProxyOpts) ->
-    #sipmsg{forwards=Forwards, routes=Routes, headers=Headers} = Req,
-    Routes1 = case lists:member(remove_routes, ProxyOpts) of
-        true -> [];
-        false -> Routes
-    end,
-    Routes2 = case proplists:get_all_values(route, ProxyOpts) of
-        [] -> 
-            Routes1;
-        ProxyRoutes1 -> 
-            case nksip_parse:uris(ProxyRoutes1) of
-                error -> throw({internal_error, "Invalid proxy option"});
-                ProxyRoutes2 -> ProxyRoutes2 ++ Routes1
-            end
-    end,
-    Headers1 = case lists:member(remove_headers, ProxyOpts) of
-        true -> [];
-        false -> Headers
-    end,
-    Headers2 = case proplists:get_all_values(headers, ProxyOpts) of
-        [] -> Headers1;
-        ProxyHeaders -> ProxyHeaders++Headers1
-    end,
-    lager:warning("PROXY ROUTES: ~p, ~p", [Req#sipmsg.app_id, Routes2]),
-    Req#sipmsg{forwards=Forwards-1, headers=Headers2, routes=Routes2}.
+% preprocess(Req, ProxyOpts) ->
+%     #sipmsg{forwards=Forwards, routes=Routes, headers=Headers} = Req,
+%     Routes1 = case lists:member(remove_routes, ProxyOpts) of
+%         true -> [];
+%         false -> Routes
+%     end,
+%     Routes2 = case proplists:get_all_values(route, ProxyOpts) of
+%         [] -> 
+%             Routes1;
+%         ProxyRoutes1 -> 
+%             case nksip_parse:uris(ProxyRoutes1) of
+%                 error -> throw({internal_error, "Invalid proxy option"});
+%                 ProxyRoutes2 -> ProxyRoutes2 ++ Routes1
+%             end
+%     end,
+%     Headers1 = case lists:member(remove_headers, ProxyOpts) of
+%         true -> [];
+%         false -> Headers
+%     end,
+%     Headers2 = case proplists:get_all_values(headers, ProxyOpts) of
+%         [] -> Headers1;
+%         ProxyHeaders -> ProxyHeaders++Headers1
+%     end,
+%     lager:warning("PROXY ROUTES: ~p, ~p", [Req#sipmsg.app_id, Routes2]),
+%     Req#sipmsg{forwards=Forwards-1, headers=Headers2, routes=Routes2}.
 
 
 %% @private

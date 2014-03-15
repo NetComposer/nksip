@@ -38,19 +38,17 @@
     {ok, nksip:request()} | {error, nksip:sipreply()}.
 
 send_request(Req, GlobalId, Opts) ->
-    #sipmsg{app_id=AppId, class={req, Method}, ruri=RUri, routes=Routes} = Req,
+    #sipmsg{app_id=AppId, class={req, Method}, ruri=RUri} = Req,
+    AppOpts = nksip_sipapp_srv:get_opts(AppId),
     ?debug(AppId, "UAC send opts: ~p", [Opts]),
     try
-        case nksip_parse:extract_uri_routes(RUri) of
-            {UriRoutes, RUri1} -> 
-                Routes1 = Routes ++ UriRoutes; 
-            error -> 
-                RUri1 = Routes1 = throw({internal_error, "Bad Uri"})
-        end,
-        case Routes1 of
+        {RUri1, Req1} = nksip_parse_headers:uri_request(RUri),
+        {Req2, Opts1} = nksip_uac_lib:parse_opts(Opts, Req1, [], AppOpts),
+        #sipmsg{routes=Routes}=Req2,
+        case Routes of
             [] -> 
                 DestUri = RUri2 = RUri1,
-                Routes2 = [];
+                Routes1 = [];
             [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
                 case lists:member(<<"lr">>, RouteOpts) of
                     true ->     
@@ -61,7 +59,7 @@ send_request(Req, GlobalId, Opts) ->
                             end
                         },
                         RUri2 = RUri1,
-                        Routes2 = [TopRoute|RestRoutes];
+                        Routes1 = [TopRoute|RestRoutes];
                     false ->
                         DestUri = RUri2 = TopRoute#uri{
                             scheme = case RUri1#uri.scheme of
@@ -70,19 +68,19 @@ send_request(Req, GlobalId, Opts) ->
                             end
                         },
                         CRUri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
-                        Routes2 = RestRoutes ++ [CRUri]
+                        Routes1 = RestRoutes ++ [CRUri]
                 end
         end,
-        Req1 = Req#sipmsg{ruri=RUri2, routes=Routes2},
-        MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts),  
+        Req1 = Req#sipmsg{ruri=RUri2, routes=Routes1},
+        MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts1),  
         nksip_trace:insert(Req, {uac_out_request, Method}),
-        Dests = case nksip_lib:get_value(route_flow, Opts) of
+        Dests = case nksip_lib:get_value(route_flow, Opts1) of
             {Transp, Pid} -> 
                 [{flow, {Pid, Transp}}, DestUri];
             undefined -> 
                 [DestUri]
         end,
-        case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
+        case nksip_transport:send(AppId, Dests, MakeReqFun, Opts1) of
             {ok, SentReq} -> 
                 {ok, SentReq};
             error ->
