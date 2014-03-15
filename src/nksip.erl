@@ -149,6 +149,9 @@
     {sip|q850, pos_integer(), string()|binary()}.
 
 
+-compile([export_all]).
+
+
 %% ===================================================================
 %% Public functions
 %% ===================================================================
@@ -281,13 +284,6 @@
 %%          for INVITE requests.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`require_100rel'</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present, all <i>INVITE</i> requests will have 'require_100rel' option 
-%%          activated.</td>
-%%      </tr>
-%%      <tr>
 %%          <td>`supported'</td>
 %%          <td>`string()|binary()'</td>
 %%          <td>`"100rel"'</td>
@@ -313,168 +309,22 @@
 %% <br/>
 -spec start(app_id(), atom(), term(), nksip_lib:proplist()) -> 
 	ok | {error, Error} 
-    when Error :: invalid_from | invalid_transport | invalid_register | invalid_route |
-                  invalid_supported | invalid_accept | invalid_event | invalid_reason |
+    when Error :: {invalid, term()} |
                   no_matching_tcp | could_not_start_udp | could_not_start_tcp |
                   could_not_start_tls | could_not_start_sctp.
 
 start(AppId, Module, Args, Opts) ->
     try
-        Transports = [
-            begin
-                case Transport of
-                    {Scheme, Ip, Port} -> TOpts = [];
-                    {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
-                    _ -> Scheme=Ip=Port=TOpts=throw(invalid_transport)
-                end,
-                case 
-                    (Scheme==udp orelse Scheme==tcp orelse 
-                     Scheme==tls orelse Scheme==sctp orelse
-                     Scheme==ws  orelse Scheme==wss)
-                of
-                    true -> ok;
-                    false -> throw(invalid_transport)
-                end,
-                Ip1 = case Ip of
-                    any -> 
-                        {0,0,0,0};
-                    any6 ->
-                        {0,0,0,0,0,0,0,0};
-                    _ when is_tuple(Ip) ->
-                        case catch inet_parse:ntoa(Ip) of
-                            {error, _} -> throw(invalid_transport);
-                            {'EXIT', _} -> throw(invalid_transport);
-                            _ -> Ip
-                        end;
-                    _ ->
-                        case nksip_lib:to_ip(Ip) of
-                            {ok, PIp} -> PIp;
-                            error -> throw(invalid_transport)
-                        end
-                end,
-                Port1 = case Port of
-                    all -> 0;
-                    _ when is_integer(Port), Port >= 0 -> Port;
-                    _ -> throw(invalid_transport)
-                end,
-                {Scheme, Ip1, Port1, TOpts}
-            end
-            || Transport <- proplists:get_all_values(transport, Opts)
-        ],
-        DefFrom = "\"NkSIP App\" <sip:user@nksip>",
-        DefCertFile = filename:join(code:priv_dir(nksip), "cert.pem"),
-        DefKeyFile = filename:join(code:priv_dir(nksip), "key.pem"),
-        CoreOpts = [
-            case nksip_parse:uris(nksip_lib:get_value(from, Opts, DefFrom)) of
-                [From] -> {from, From};
-                _ -> throw(invalid_from) 
-            end,
-            nksip_lib:extract(Opts, pass),
-            case Transports of
-                [] -> {transports, [{udp, {0,0,0,0}, 0, []}, {tls, {0,0,0,0}, 0, []}]};
-                _ -> {transports, Transports}
-            end,
-            case nksip_lib:get_value(listeners, Opts) of
-                Listeners when is_integer(Listeners), Listeners > 0 -> 
-                    {listeners, Listeners};
-                _ -> 
-                    []
-            end,
-            {certfile, nksip_lib:get_list(certfile, Opts, DefCertFile)},
-            {keyfile, nksip_lib:get_list(keyfile, Opts, DefKeyFile)},
-            case proplists:get_all_values(register, Opts) of
-                [] ->
-                    [];
-                RegSpec ->
-                    case nksip_parse:uris(RegSpec) of
-                        error -> 
-                            throw(invalid_register);
-                        RegUris -> 
-                            case nksip_lib:get_value(register_expires, Opts, 300) of
-                                RegExpires when is_integer(RegExpires) ->
-                                    [
-                                        {register, RegUris}, 
-                                        {register_expires, RegExpires}
-                                    ];
-                                _ ->
-                                    {register, RegUris}
-                            end                            
-                    end
-            end,
-            case nksip_lib:get_value(route, Opts, false) of
-                false -> 
-                    [];
-                RouteSpec -> 
-                    case nksip_parse:uris(RouteSpec) of
-                        error -> throw(invalid_route);
-                        RouteUris -> {route, RouteUris}
-                    end
-            end,
-            case nksip_lib:get_value(local_host, Opts, auto) of
-                auto -> [];
-                Host -> {local_host, nksip_lib:to_host(Host)}
-            end,
-            case nksip_lib:get_value(local_host6, Opts, auto) of
-                auto -> 
-                    [];
-                Host6 -> 
-                    case nksip_lib:to_ip(Host6) of
-                        {ok, HostIp6} -> 
-                            % Ensure it is enclosed in `[]'
-                            {local_host6, nksip_lib:to_host(HostIp6, true)};
-                        error -> 
-                            {local_host6, nksip_lib:to_binary(Host6)}
-                    end
-            end,
-            case lists:member(registrar, Opts) of
-                true -> registrar;
-                _ -> []
-            end,
-            case lists:member(no_100, Opts) of
-                true -> no_100;
-                _ -> []
-            end,
-            case lists:member(require_100rel, Opts) of
-                true -> require_100rel;
-                _ -> []
-            end,
-            case nksip_lib:get_value(supported, Opts) of
-                undefined -> 
-                    [];
-                SupList ->
-                    case nksip_parse:tokens(SupList) of
-                        error -> throw(invalid_supported);
-                        Supported -> {supported, [T || {T, _}<-Supported]}
-                    end
-            end,
-            case nksip_lib:get_value(accept, Opts) of
-                undefined -> 
-                    [];
-                AcceptList ->
-                    case nksip_parse:tokens(AcceptList) of
-                        error -> throw(invalid_accept);
-                        Accept -> {accept, Accept}
-                    end
-            end,
-            case proplists:get_all_values(event, Opts) of
-                [] -> 
-                    [];
-                PkgList ->
-                    case nksip_parse:tokens(PkgList) of
-                        error -> throw(invalid_event);
-                        Events -> {event, [T||{T, _}<-Events]}
-                    end
-            end,
-            case nksip_lib:get_value(min_session_expires, Opts) of
-                undefined ->
-                    [];
-                MinSE when is_integer(MinSE), MinSE > 0 ->
-                    {min_session_expires, MinSE};
-                _ ->
-                    throw({invalid, min_session_expires})
-            end
-        ],
-        nksip_sup:start_core(AppId, Module, Args, lists:flatten(CoreOpts))
+        Transports = case 
+            parse_transports(proplists:get_all_values(transport, Opts), [])
+        of
+            [] -> {transports, [{udp, {0,0,0,0}, 0, []}, {tls, {0,0,0,0}, 0, []}]};
+            Transports0 -> Transports0
+        end,
+        Opts1 = parse_opts(Opts, []),
+        % DefCertFile = filename:join(code:priv_dir(nksip), "cert.pem"),
+        % DefKeyFile = filename:join(code:priv_dir(nksip), "key.pem"),
+        nksip_sup:start_core(AppId, Module, Args, [{transports, Transports}|Opts1])
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -597,10 +447,119 @@ get_port(AppId, Proto, Class) ->
 %     Acc.
 
 
+parse_transports([], Acc) ->
+    Acc;
+
+parse_transports([Transport|Rest], Acc) ->
+    case Transport of
+        {Scheme, Ip, Port} -> TOpts = [];
+        {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
+        _ -> Scheme=Ip=Port=TOpts=throw(invalid_transport)
+    end,
+    case 
+        (Scheme==udp orelse Scheme==tcp orelse 
+         Scheme==tls orelse Scheme==sctp orelse
+         Scheme==ws  orelse Scheme==wss)
+    of
+        true -> ok;
+        false -> throw(invalid_transport)
+    end,
+    Ip1 = case Ip of
+        any -> 
+            {0,0,0,0};
+        all ->
+            {0,0,0,0};
+        any6 ->
+            {0,0,0,0,0,0,0,0};
+        all6 ->
+            {0,0,0,0,0,0,0,0};
+        _ when is_tuple(Ip) ->
+            case catch inet_parse:ntoa(Ip) of
+                {error, _} -> throw(invalid_transport);
+                {'EXIT', _} -> throw(invalid_transport);
+                _ -> Ip
+            end;
+        _ ->
+            case nksip_lib:to_ip(Ip) of
+                {ok, PIp} -> PIp;
+                error -> throw(invalid_transport)
+            end
+    end,
+    Port1 = case Port of
+        all -> 0;
+        any -> 0;
+        _ when is_integer(Port), Port >= 0 -> Port;
+        _ -> throw(invalid_transport)
+    end,
+    parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
 
 
+parse_opts([], Opts) ->
+    Opts;
 
-
-
-
-
+parse_opts([Term|Rest], Opts) ->
+    Opts1 = case Term of
+        {transport, _} ->
+            Opts;
+        {from, From} ->
+            case nksip_parse:uris(From) of
+                [Uri] -> [{from, Uri}|Opts];
+                _ -> throw({invalid, from}) 
+            end;
+        {route, Route} ->
+            case nksip_parse:uris(Route) of
+                error -> throw({invalid, route});
+                Uris -> [{route, Uris}|Opts]
+            end;
+        {pass, Pass} ->
+            [{pass, Pass}|Opts];
+        {certfile, File} ->
+            [{certfile, nksip_lib:to_list(File)}|Opts];
+        {keyfile, File} ->
+            [{keyfile, nksip_lib:to_list(File)}|Opts];
+        {register, Register} ->
+            case nksip_parse:uris(Register) of
+                error -> throw(invalid_register);
+                Uris -> [{register, Uris}|Opts]
+            end;
+        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
+            [{register_expires, Expires}|Opts];
+        {local_host, auto} ->
+            Opts;
+        {local_host, Host} ->
+            [{local_host, nksip_lib:to_host(Host)}|Opts];
+        {local_host6, auto} ->
+            Opts;
+        {local_host6, Host} ->
+            case nksip_lib:to_ip(Host) of
+                {ok, HostIp6} -> 
+                    % Ensure it is enclosed in `[]'
+                    [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts];
+                error -> 
+                    [{local_host6, nksip_lib:to_binary(Host)}|Opts]
+            end;
+        registrar ->
+            [registrar|Opts];
+        {supported, Supported} ->
+            case nksip_parse:tokens(Supported) of
+                error -> throw({invalid, supported});
+                Tokens -> [{supported, [T||{T, _}<-Tokens]}|Opts]
+            end;
+        {accept, Accept} ->
+            case nksip_parse:tokens(Accept) of
+                error -> throw({invalid, supported});
+                Tokens -> [{accept, [A||{A, _}<-Tokens]}|Opts]
+            end;
+        {event, Event} ->
+            case nksip_parse:tokens(Event) of
+                error -> throw({invalid, event});
+                Tokens -> [{event, [T||{T, _}<-Tokens]}|Opts]
+            end;
+        {min_session_expires, MinSE} when is_integer(MinSE), MinSE > 0 ->
+            [{min_session_expires, MinSE}|Opts];
+        {Name, _Value} ->
+            throw({invalid, Name});
+        Name ->
+            throw({invalid, Name})
+    end,
+    parse_opts(Rest, Opts1).

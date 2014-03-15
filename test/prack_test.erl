@@ -120,7 +120,7 @@ basic() ->
         {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}]},
 
     Fields2 = {fields, [parsed_supported, parsed_require, cseq_num, rseq_num]},
-    {ok, 486, Values2} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds2, Fields2, require_100rel]),
+    {ok, 486, Values2} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds2, Fields2, {require, "100rel"}]),
     [
         {parsed_supported, [<<"100rel">>]},
         {parsed_require, []},
