@@ -88,7 +88,7 @@ pre_request(Req, Call) ->
 request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, IsProxy, Call) ->
     ?call_debug("Dialog ~s UAC request ~p", [DialogId, Method], Call), 
     #dialog{local_seq=LocalSeq} = Dialog = find(DialogId, Call),
-    #sipmsg{cseq=CSeq} = Req,
+    #sipmsg{cseq={CSeq, _}} = Req,
     Dialog1 = case CSeq > LocalSeq of
         true -> Dialog#dialog{local_seq=CSeq};
         false -> Dialog
@@ -393,11 +393,11 @@ ack(#sipmsg{class={req, 'ACK'}, to_tag = <<>>}, Call) ->
     ?call_notice("Dialog UAC invalid ACK", [], Call),
     Call;
 
-ack(#sipmsg{class={req, 'ACK'}, cseq=CSeq, dialog_id=DialogId}=AckReq, Call) ->
+ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call) ->
     case find(DialogId, Call) of
         #dialog{invite=#invite{}=Invite}=Dialog1 ->
             #invite{status=Status, request=InvReq} = Invite,
-            #sipmsg{cseq=InvCSeq} = InvReq,
+            #sipmsg{cseq={InvCSeq, _}} = InvReq,
             case Status of
                 accepted_uac when CSeq==InvCSeq ->
                     ?call_debug("Dialog ~s (~p) UAC request 'ACK'", 
@@ -540,7 +540,7 @@ generate(Method, Opts, Dialog, Call) ->
     } = Dialog,
     case nksip_lib:get_integer(cseq, Opts) of
         0 when Method == 'ACK' -> 
-            #invite{request=#sipmsg{cseq=RCSeq}} = Invite,
+            #invite{request=#sipmsg{cseq={RCSeq, _}}} = Invite,
             LCSeq = CurrentCSeq;
         0 when CurrentCSeq > 0 -> 
             RCSeq = LCSeq = CurrentCSeq+1;

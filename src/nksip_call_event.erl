@@ -285,7 +285,7 @@ update({subscribe, Req, Resp}, Subs, Dialog, Call) ->
     end,
     ?call_debug("Event ~s expires updated to ~p", [Id, Expires2], Call),
     #call{opts=#call_opts{timer_t1=T1}} = Call,
-    TimerN1 = case NotifyCSeq > Req#sipmsg.cseq of
+    TimerN1 = case NotifyCSeq > element(1, Req#sipmsg.cseq) of
         true -> undefined;
         false -> start_timer(64*T1, {timeout, Id}, Dialog)
     end,
@@ -306,7 +306,7 @@ update({subscribe, Req, Resp}, Subs, Dialog, Call) ->
     store(Subs1, Dialog, Call);
 
 update({notify, Req}, Subs, Dialog, Call) ->
-    Subs1 = Subs#subscription{last_notify_cseq=Req#sipmsg.cseq},
+    Subs1 = Subs#subscription{last_notify_cseq=element(1, Req#sipmsg.cseq)},
     Status = nksip_subscription:notify_status(Req),
     update(Status, Subs1, Dialog, Call);
 
@@ -457,7 +457,7 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
 
 
 %% @private
-add_refer_event(#sipmsg{class={req, 'REFER'}, cseq=CSeq}=Req, Call) ->
+add_refer_event(#sipmsg{class={req, 'REFER'}, cseq={CSeq, _}}=Req, Call) ->
     #call{opts=#call_opts{timer_c=TimerC}} = Call,
     Req#sipmsg{
         event = {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]},

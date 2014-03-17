@@ -200,7 +200,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                         {AppId, OBranch};
                     _ ->
                         #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId, 
-                                    cseq=CSeq} = Req,
+                                    cseq={CSeq, _}} = Req,
                         % Any of these will change in every transaction
                         {AppId, Via0, ToTag, FromTag, CallId, CSeq, RUri}
                 end,

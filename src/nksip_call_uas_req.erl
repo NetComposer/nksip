@@ -197,11 +197,6 @@ process_request(Req, TransId, Call) ->
 -spec loop_id(nksip:request()) ->
     integer().
     
-loop_id(Req) ->
-    #sipmsg{
-        from_tag = FromTag, 
-        cseq = CSeq, 
-        cseq_method = CSeqMethod
-    } = Req,
-    erlang:phash2({FromTag, CSeq, CSeqMethod}).
+loop_id(#sipmsg{from_tag=FromTag, cseq={CSeq, Method}}) ->
+    erlang:phash2({FromTag, CSeq, Method}).
 

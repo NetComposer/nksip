@@ -127,7 +127,7 @@ fun_call(Msg, Opts) ->
 
 %% @private
 fun_response(Resp, Opts) ->
-    #sipmsg{class={resp, Code, _}, cseq_method=Method, dialog_id=DialogId}=Resp,
+    #sipmsg{class={resp, Code, _}, cseq={_, Method}, dialog_id=DialogId}=Resp,
     case lists:member(get_response, Opts) of
         true ->
             {resp, Resp};

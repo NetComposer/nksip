@@ -49,7 +49,7 @@ create(Class, Req, Resp, Call) ->
         dialog_id = DialogId,
         from = From, 
         to = To,
-        cseq = CSeq,
+        cseq = {CSeq, _},
         transport = #transport{proto=Proto},
         from_tag = FromTag
     } = Resp,

@@ -289,7 +289,7 @@ notify_status(#sipmsg{}=SipMsg) ->
 -spec id(nksip:request()|nksip:response()) ->
     id().
 
-id(#sipmsg{cseq_method='REFER', cseq=CSeq, dialog_id=DialogId}) ->
+id(#sipmsg{cseq={CSeq, 'REFER'}, dialog_id=DialogId}) ->
     Event = {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]},
     subscription_id(Event, DialogId);
 

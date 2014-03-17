@@ -229,7 +229,7 @@ transaction_id(Req) ->
             from_tag = FromTag, 
             to_tag = ToTag, 
             vias = [Via|_], 
-            cseq = CSeq
+            cseq = {CSeq, _}
         } = Req,
     {_Transp, ViaIp, ViaPort} = nksip_parse:transport(Via),
     case nksip_lib:get_value(<<"branch">>, Via#via.opts) of

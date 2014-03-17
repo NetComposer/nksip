@@ -123,7 +123,7 @@ check_prack(_, #trans{stateless=true}) ->
     {error, stateless_not_allowed};
 
 check_prack(Resp, UAS) ->
-    #sipmsg{dialog_id=DialogId, cseq=CSeq, cseq_method=Method} = Resp,
+    #sipmsg{dialog_id=DialogId, cseq={CSeq, Method}} = Resp,
     #trans{rseq=LastRSeq, pracks=WaitPRAcks} = UAS,
     case WaitPRAcks of
         [] ->

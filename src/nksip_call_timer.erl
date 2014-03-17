@@ -205,7 +205,7 @@ uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
     nksip:response().
 
 uas_update_timer(
-        Req, #sipmsg{class={resp, Code, _}, cseq_method=Method}=Resp, Call)
+        Req, #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp, Call)
         when Code>=200 andalso Code<300 andalso 
              (Method=='INVITE' orelse Method=='UPDATE') ->
     case nksip_sipmsg:supported(Resp, <<"timer">>) of

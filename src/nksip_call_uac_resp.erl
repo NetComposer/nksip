@@ -45,7 +45,7 @@
     nksip_call:call().
 
 response(Resp, #call{trans=Trans}=Call) ->
-    #sipmsg{class={resp, Code, _Reason}, cseq_method=Method} = Resp,
+    #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}} = Resp,
     TransId = nksip_call_uac:transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of
         #trans{class=uac, from=From, ruri=RUri}=UAC -> 
@@ -281,7 +281,7 @@ response_status(proceeding, Resp, UAC, Call) ->
     received_gruu(Req, Resp, UAC2, update(UAC2, Call));
 
 response_status(completed, Resp, UAC, Call) ->
-    #sipmsg{class={resp, Code, _Reason}, cseq_method=Method, to_tag=ToTag} = Resp,
+    #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}, to_tag=ToTag} = Resp,
     #trans{id=Id, to_tags=ToTags} = UAC,
     case ToTags of
         [ToTag|_] ->
@@ -482,7 +482,7 @@ send_2xx_ack(DialogId, Call) ->
     boolean().
 
 is_prack_retrans(Resp, UAC) ->
-    #sipmsg{dialog_id=DialogId, cseq=CSeq, cseq_method=Method} = Resp,
+    #sipmsg{dialog_id=DialogId, cseq={CSeq, Method}} = Resp,
     #trans{pracks=PRAcks} = UAC,
     case nksip_sipmsg:header(Resp, <<"RSeq">>, integers) of
         [RSeq] when is_integer(RSeq) ->
@@ -529,7 +529,7 @@ check_prack(Resp, UAC, Call) ->
     nksip_call:call().
 
 send_prack(Resp, Id, DialogId, Call) ->
-    #sipmsg{cseq=CSeq} = Resp,
+    #sipmsg{cseq={CSeq, _}} = Resp,
     #call{trans=Trans} = Call,
     try
         case nksip_sipmsg:header(Resp, <<"RSeq">>, integers) of

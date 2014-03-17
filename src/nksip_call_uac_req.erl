@@ -129,10 +129,10 @@ resend(Req, UAC, Call) ->
         iter = Iter,
         from = From
     } = UAC,
-    #sipmsg{vias=[_|Vias]} = Req,
+    #sipmsg{vias=[_|Vias], cseq={_, CSeqMethod}} = Req,
     ?call_info("UAC ~p ~p (~p) resending updated request", [Id, Method, Status], Call),
     {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
-    Req1 = Req#sipmsg{vias=Vias, cseq=CSeq},
+    Req1 = Req#sipmsg{vias=Vias, cseq={CSeq, CSeqMethod}},
     % Contact would be already generated
     Opts1 = Opts -- [make_contact],
     {NewUAC, Call2} = new_uac(Req1, Opts1, From, Call1),

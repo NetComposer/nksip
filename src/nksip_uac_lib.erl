@@ -101,8 +101,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             from = From#uri{ext_opts=[{<<"tag">>, FromTag}]},
             to = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
             call_id = CallId,
-            cseq = nksip_config:cseq(),
-            cseq_method = Method1,
+            cseq = {nksip_config:cseq(), Method1},
             forwards = 70,
             routes = nksip_lib:get_value(route, AppOpts, []),
             from_tag = FromTag,
@@ -122,7 +121,13 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
     nksip:request().
 
 make_cancel(Req, Reason) ->
-    #sipmsg{class={req, _}, call_id=CallId, vias=[Via|_], headers=Hds} = Req,
+    #sipmsg{
+        class = {req, _}, 
+        cseq = {CSeq, _}, 
+        call_id = CallId, 
+        vias = [Via|_], 
+        headers = Hds
+    } = Req,
     Headers1 = nksip_lib:extract(Hds, <<"Route">>),
     Headers2 = case Reason of
         undefined ->
@@ -136,7 +141,7 @@ make_cancel(Req, Reason) ->
     Req#sipmsg{
         class = {req, 'CANCEL'},
         id = nksip_sipmsg:make_id(req, CallId),
-        cseq_method = 'CANCEL',
+        cseq = {CSeq, 'CANCEL'},
         forwards = 70,
         vias = [Via],
         headers = Headers2,
@@ -162,12 +167,12 @@ make_ack(Req, #sipmsg{to=To, to_tag=ToTag}) ->
 -spec make_ack(nksip:request()) ->
     nksip:request().
 
-make_ack(#sipmsg{vias=[Via|_], call_id=CallId}=Req) ->
+make_ack(#sipmsg{vias=[Via|_], call_id=CallId, cseq={CSeq, _}}=Req) ->
     Req#sipmsg{
         class = {req, 'ACK'},
         id = nksip_sipmsg:make_id(req, CallId),
         vias = [Via],
-        cseq_method = 'ACK',
+        cseq = {CSeq, 'ACK'},
         forwards = 70,
         routes = [],
         contacts = [],
@@ -232,10 +237,14 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
             end,
             {Req#sipmsg{body=Body, content_type=ContentType}, Opts};
         {min_cseq, MinCSeq} ->
+            #sipmsg{cseq={OldCSeq, Method}} =Req,
             case is_integer(MinCSeq) of
-                true when MinCSeq > Req#sipmsg.cseq -> {Req#sipmsg{cseq=MinCSeq}, Opts};
-                true -> {Req, Opts};
-                false -> throw({invalid, min_cseq})
+                true when MinCSeq > OldCSeq -> 
+                    {Req#sipmsg{cseq={MinCSeq, Method}}, Opts};
+                true -> 
+                    {Req, Opts};
+                false -> 
+                    throw({invalid, min_cseq})
             end;
         {pre_headers, Headers} when is_list(Headers) ->
             {Req#sipmsg{headers=Headers++Req#sipmsg.headers}, Opts};
@@ -345,7 +354,8 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
         {call_id, CallId} when is_binary(CallId), byte_size(CallId)>=1 ->
             {Req#sipmsg{call_id=CallId}, Opts};
         {cseq, CSeq} when is_integer(CSeq), CSeq>0 ->
-            {Req#sipmsg{cseq=CSeq}, Opts};
+            #sipmsg{cseq={_, Method}} = Req,
+            {Req#sipmsg{cseq={CSeq, Method}}, Opts};
         {cseq, _} ->
             throw({invalid, cseq});
         {content_type, CT} ->

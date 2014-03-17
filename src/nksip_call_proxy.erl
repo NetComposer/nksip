@@ -123,7 +123,7 @@ response_stateless(#sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
     Call;
 
 response_stateless(#sipmsg{vias=[_, Via|RestVias], transport=Transp}=Resp, Call) ->
-    #sipmsg{cseq_method=Method, class={resp, Code, _}} = Resp,
+    #sipmsg{cseq={_, Method}, class={resp, Code, _}} = Resp,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     #via{proto=ViaProto, port=ViaPort, opts=ViaOpts} = Via,
     {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(<<"received">>, ViaOpts)),

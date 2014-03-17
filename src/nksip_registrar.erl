@@ -397,7 +397,7 @@ update(Req, Times, Opts) ->
 
 update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=ExtOpts} = Contact,
-    #sipmsg{to=To, call_id=CallId, cseq=CSeq, transport=Transp} = Req,
+    #sipmsg{to=To, call_id=CallId, cseq={CSeq, _}, transport=Transp} = Req,
     update_checks(Contact, Req),
     {Min, Max, Default, Now, LongNow} = Times,
     UriExp = case nksip_lib:get_list(<<"expires">>, ExtOpts) of
@@ -603,7 +603,7 @@ make_contact(#reg_contact{contact=Contact, path=Path}) ->
     ok | not_found.
 
 del_all(Req) ->
-    #sipmsg{app_id=AppId, to=To, call_id=CallId, cseq=CSeq} = Req,
+    #sipmsg{app_id=AppId, to=To, call_id=CallId, cseq={CSeq, _}} = Req,
     AOR = aor(To),
     {ok, RegContacts} = callback_get(AppId, AOR),
     lists:foreach(

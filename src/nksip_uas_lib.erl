@@ -390,7 +390,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         vias = RespVias,
         to = To1,
         forwards = 70,
-        cseq_method = Method,
+        cseq = setelement(2, Req#sipmsg.cseq, Method),
         routes = [],
         contacts = RespContacts,
         headers = RespHeaders,

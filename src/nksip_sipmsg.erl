@@ -86,10 +86,13 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         to_user -> (S#sipmsg.to)#uri.user;
         to_domain -> (S#sipmsg.to)#uri.domain;
         parsed_to -> S#sipmsg.to;
-        cseq -> nksip_lib:bjoin([S#sipmsg.cseq, S#sipmsg.cseq_method], <<" ">>);
-        parsed_cseq -> {S#sipmsg.cseq, S#sipmsg.cseq_method};
-        cseq_num -> S#sipmsg.cseq;
-        cseq_method -> S#sipmsg.cseq_method;
+        cseq -> 
+            #sipmsg{cseq={CSeqNum, Method}} = Req,
+            <<(nksip_lib:to_binary(CSeqNum))/binary, 32, 
+              (nksip_lib:to_binary(Method))/binary>>;
+        parsed_cseq -> S#sipmsg.cseq;
+        cseq_num -> element(1, S#sipmsg.cseq);
+        cseq_method -> element(2, S#sipmsg.cseq);
         forwards -> S#sipmsg.forwards;
         routes -> [nksip_lib:to_binary(Route) || Route <- S#sipmsg.routes];
         parsed_routes -> S#sipmsg.routes;

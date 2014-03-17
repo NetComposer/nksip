@@ -42,7 +42,7 @@ request(#sipmsg{class={req, 'ACK'}}=Req, Call) ->
     ack(Req, Call);
 
 request(Req, Call) ->
-    #sipmsg{class={req, Method}, cseq=CSeq, dialog_id=DialogId} = Req,
+    #sipmsg{class={req, Method}, cseq={CSeq, _}, dialog_id=DialogId} = Req,
     case find(DialogId, Call) of
         #dialog{remote_seq=RemoteSeq}=Dialog ->
             ?call_debug("Dialog ~s UAS request ~p", [DialogId, Method], Call),
@@ -389,11 +389,11 @@ do_response(_, _, _, _, Dialog, Call) ->
     {ok, nksip_call:call()} | {error, no_transaction}.
 
 ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
-    #sipmsg{cseq=CSeq, dialog_id=DialogId} = AckReq,
+    #sipmsg{cseq={CSeq, _}, dialog_id=DialogId} = AckReq,
     case find(DialogId, Call) of
         #dialog{invite=#invite{}=Invite}=Dialog ->
             #invite{status=Status, request=InvReq} = Invite,
-            #sipmsg{cseq=InvSeq} = InvReq,
+            #sipmsg{cseq={InvSeq, _}} = InvReq,
             ?call_debug("Dialog ~s (~p) UAS request 'ACK'", [DialogId, Status], Call),
             case Status of
                 accepted_uas when CSeq==InvSeq->
