@@ -160,7 +160,7 @@ header(_Name, Value) ->
 
 name(Name) when is_atom(Name) ->
     List = [case Ch of $_ -> $-; _ -> Ch end || Ch <- atom_to_list(Name)],
-    raw_name(List);
+    name(List);
 
 name(Name) when is_binary(Name) ->
     raw_name(string:to_lower(binary_to_list(Name)));
@@ -330,7 +330,7 @@ uris(Data) ->
 vias(Data) ->
     case nksip_parse:vias(Data) of
         [_|_] = Vias -> Vias;
-        _ -> throw(<<"Invalid Via">>)
+        _ -> throw(invalid)
     end.
 
 single_token(Data) ->

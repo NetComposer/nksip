@@ -108,7 +108,7 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             transport = #transport{},
             start = nksip_lib:l_timestamp()
         },
-        Req2 = nksip_parse_headers:uri_request(RUri, Req1),
+        Req2 = nksip_parse_header:uri_request(RUri, Req1),
         {Req3, Opts1} = parse_opts(Opts, Req2, [], AppOpts),
         {ok, Req3, Opts1}
     catch
@@ -425,7 +425,7 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
 
         % Default header (inserted before existing ones)
         {Name, Value} ->
-            case nksip_parse_header:header_name(Name) of
+            case nksip_parse_header:name(Name) of
                 unknown -> throw({invalid, Name});
                 Name -> Req#sipmsg{headers=[{Name, Value}|Req#sipmsg.headers]}
             end;

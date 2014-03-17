@@ -509,8 +509,13 @@ headers_value([Ch|_]=Rest, Key, Acc, false, Block, Uri) when Ch==$&; Ch==$>; Ch=
             {error, headers_value, ?LINE};
         _ ->
             Key1 = case Block of
-                true -> nksip_parse:raw_header(Key);
-                false -> list_to_binary(Key)
+                true -> 
+                    case nksip_parse_header:name(Key) of
+                        unknown -> list_to_binary(Key);
+                        Name -> Name
+                    end;
+                false -> 
+                    list_to_binary(Key)
             end,
             Opt = {Key1, list_to_binary(lists:reverse(Acc))},
             Uri1 = case Block of

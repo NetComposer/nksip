@@ -42,7 +42,7 @@ send_request(Req, GlobalId, Opts) ->
     AppOpts = nksip_sipapp_srv:get_opts(AppId),
     ?debug(AppId, "UAC send opts: ~p", [Opts]),
     try
-        {RUri1, Req1} = nksip_parse_headers:uri_request(RUri),
+        {RUri1, Req1} = nksip_parse_header:uri_request(RUri),
         {Req2, Opts1} = nksip_uac_lib:parse_opts(Opts, Req1, [], AppOpts),
         #sipmsg{routes=Routes}=Req2,
         case Routes of
