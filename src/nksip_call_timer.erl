@@ -34,6 +34,7 @@
 %% Private
 %% ===================================================================
 
+
 %% @private
 -spec get_timer(nksip:request(), nksip:response(), uac|uas, nksip_call:call()) ->
     {refresher | refreshed | none, integer()}.
@@ -42,11 +43,11 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
     #call{app_id=_AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
     Default = nksip_config:get_cached(session_expires, AppOpts),
-    {SE, Refresh} = case nksip_parse:session_expires(Resp) of
+    {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
             {SE0, Refresh0};
         undefined ->            
-            case nksip_parse:session_expires(Req) of
+            case parse(Req) of
                 {ok, SE0, Refresh0} -> {SE0, Refresh0};
                 _ -> {Default, undefined}
             end;
@@ -129,7 +130,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
                             nksip_call_dialog:update_meta(nksip_min_se, NewMinSE, 
                                                           DialogId, Call)
                     end,
-                    case nksip_parse:session_expires(Req) of
+                    case parse(Req) of
                         {ok, SE0, Class0} ->
                             SE1 = max(SE0, NewMinSE),
                             SEHd = case Class0 of
@@ -162,7 +163,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
 uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
     case Method=='INVITE' orelse Method=='UPDATE' of
         true ->
-            case nksip_parse:session_expires(Req) of
+            case parse(Req) of
                 undefined ->
                     continue;
                 invalid ->
@@ -218,7 +219,7 @@ uas_update_timer(
                 _ -> 90
             end,
             {ReqSE, ReqRefresh} = case 
-                ReqSupport andalso nksip_parse:session_expires(Req) 
+                ReqSupport andalso parse(Req) 
             of
                 {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
                 _ -> {0, undefined}
@@ -260,7 +261,7 @@ proxy_request(#sipmsg{class={req, Method}}=Req, Call)
         [ReqMinSE0] -> ReqMinSE0;
         _ -> 90
     end,
-    ReqSE = case nksip_parse:session_expires(Req) of
+    ReqSE = case parse(Req) of
         {ok, ReqSE0, _} -> ReqSE0;
         _ -> 0
     end,
@@ -287,11 +288,11 @@ proxy_request(Req, _Call) ->
     nksip:response().
 
 proxy_response(Req, Resp) ->
-    case nksip_parse:session_expires(Resp) of
+    case parse(Resp) of
         {ok, _, _} ->
             Resp;
         undefined ->
-            case nksip_parse:session_expires(Req) of
+            case parse(Req) of
                 {ok, SE, _} ->
                     case nksip_sipmsg:supported(Req, <<"timer">>) of
                         true ->
@@ -309,6 +310,17 @@ proxy_response(Req, Resp) ->
                     Resp
             end
     end.
+
+
+%% @private
+parse(Resp) ->
+    case catch nksip_parse:header({<<"Session-Expires">>, Resp}) of
+        {error, undefied} -> undefined;
+        {SE, Refresh} -> {SE, Refresh};
+        _ -> invalid
+    end.
+
+
 
 
 
