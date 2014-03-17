@@ -436,7 +436,7 @@ invalid_17() ->
         "Via: SIP/2.0/UDP host.example.com;branch=z9hG4bKkdjuw\r\n"
         "l: 0\r\n"
         "\r\n">>,
-    <<"SIP/2.0 400 Method Mismatch\r\n", _/binary>> = send(tcp, Msg),
+    <<"SIP/2.0 400 Invalid CSeq\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
@@ -459,7 +459,7 @@ invalid_18() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    <<"SIP/2.0 400 Method Mismatch\r\n", _/binary>> = send(tcp, Msg),
+    <<"SIP/2.0 400 Invalid CSeq\r\n", _/binary>> = send(tcp, Msg),
     ok.
 
 
