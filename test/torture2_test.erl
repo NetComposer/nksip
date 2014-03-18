@@ -177,7 +177,7 @@ invalid_5() ->
         "Warning: 1812 overture \"In Progress\"\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    {error, <<"Invalid CSeq">>} = parse(Msg),
+    {error, {invalid, <<"CSeq">>}} = parse(Msg),
     ok.
 
 
@@ -254,7 +254,7 @@ invalid_8() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {error, message_unrecognized} = parse(Msg),
+    {error, invalid_message} = parse(Msg),
     ok.
 
 
@@ -279,7 +279,7 @@ invalid_9() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {error, message_unrecognized} = parse(Msg),
+    {error, invalid_message} = parse(Msg),
     ok.
 
 
@@ -295,7 +295,7 @@ invalid_10() ->
         "Max-Forwards: 70\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    {error, message_unrecognized} = parse(Msg),
+    {error, invalid_message} = parse(Msg),
     ok.
 
 
@@ -347,7 +347,7 @@ invalid_12() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    #sipmsg{headers=[{<<"Date">>, Date}]} = parse(Msg),
+    #sipmsg{headers=[{<<"date">>, Date}]} = parse(Msg),
     error = nksip_parse:dates(Date),
     ok.
 
@@ -367,7 +367,7 @@ invalid_13() ->
         "l: 0\r\n"
         "\r\n">>,
     #sipmsg{contacts = [Contact]} = parse(Msg),
-    #uri{ext_headers = [{<<"Route">>, <<"%3Csip:sip.example.com%3E">>}]} = Contact,
+    #uri{ext_headers = [{<<"route">>, <<"%3Csip:sip.example.com%3E">>}]} = Contact,
     ok.
 
 
@@ -421,7 +421,7 @@ invalid_16() ->
         "CSeq:    1 OPTIONS\r\n"
         "l: 0\r\n"
         "\r\n">>,
-    {error, message_unrecognized} = parse(Msg),
+    {error, invalid_message} = parse(Msg),
     ok.
 
 
@@ -474,16 +474,15 @@ invalid_19() ->
         "Content-Length: 0\r\n"
         "Contact: <sip:user@host105.example.com>\r\n"
         "\r\n">>,
-    {error, <<"Invalid Code">>} = parse(Msg),
+    {error, {invalid, <<"Code">>}} = parse(Msg),
     ok.
 
 
 
 parse(Msg) ->
     case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
-        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
-        {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail};
-        {more, More} -> {more, More};
+        {ok, SipMsg, <<>>} -> SipMsg;
+        {ok, SipMsg, Tail} -> {tail, SipMsg, Tail};
         {error, Error} -> {error, Error}
     end.
 

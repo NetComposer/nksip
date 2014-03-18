@@ -69,71 +69,68 @@ valid_1_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    case parse(Msg) of
-        #sipmsg{
-            ruri = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
-                        port = 0, opts = [<<"unknownparam">>]},
-            to = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
-                      port = 0, ext_opts = [{<<"tag">>,<<"1918181833n">>}],
-                      ext_headers = []},
-            from = #uri{disp = <<"\"J Rosenberg \\\\\\\"\"       ">>,
-                        user = <<"jdrosen">>, domain = <<"example.com">>,
-                        port = 0, ext_opts = [{<<"tag">>,<<"98asjd8">>}]},
-            forwards = 68,
-            call_id = <<"wsinv.ndaksdj@192.0.2.1">>,
-            cseq = {9, 'INVITE'},
-            vias = [
-                #via{proto = udp, domain = <<"192.0.2.2">>, port = 0,
-                     opts = [{<<"branch">>, <<"390skdjuw">>}]},
-                #via{proto = tcp, domain = <<"spindle.example.com">>, port = 0,
-                     opts = [{<<"branch">>,<<"z9hG4bK9ikj8">>}]},
-                #via{proto = udp, domain = <<"192.168.255.111">>, port = 0,
-                     opts = [{<<"branch">>,<<"z9hG4bK30239">>}]}
-            ],
-            content_type = {<<"application/sdp">>,[]},
-            routes = [#uri{scheme = sip,user = <<>>,
-                           domain = <<"services.example.com">>,port = 0,
-                           opts = [<<"lr">>,
-                                   {<<"unknownwith">>,<<"value">>},
-                                   <<"unknown-no-value">>]}],
-            contacts = [#uri{disp = <<"\"Quoted string \\\"\\\"\" ">>,
-                             scheme = sip,user = <<"jdrosen">>,pass = <<>>,
-                             domain = <<"example.com">>,port = 0,opts = [],headers = [],
-                             ext_opts = [{<<"newparam">>,<<"newvalue">>},
-                                         <<"secondparam">>, {<<"q">>,<<"0.33">>}]}],
-            headers = [
-                {<<"Subject">>, <<>>},
-                {<<"Newfangledheader">>, 
-                    <<"newfangled value\r\n continued newfangled value">>},
-                {<<"Unknownheaderwithunusualvalue">>,<<";;,,;;,;">>}
-            ],
-            from_tag = <<"98asjd8">>,
-            to_tag = <<"1918181833n">>,
-            body = #sdp{
-                sdp_vsn = <<"0">>, user = <<"mhandley">>,
-                id = 29739,vsn = 7272939,
-                address = {<<"IN">>,<<"IP4">>,<<"192.0.2.3">>},
-                session = <<"-">>,
-                connect = {<<"IN">>,<<"IP4">>,<<"192.0.2.4">>},
-                bandwidth = [],
-                time = [{0,0,[]}],      
-                attributes = [],
-                medias = [
-                    #sdp_m{
-                        media = <<"audio">>, port = 49217, nports = 1, 
-                        proto = <<"RTP/AVP">>, fmt = [<<"0">>,<<"12">>]
-                    },
-                    #sdp_m{
-                        media = <<"video">>,port = 3227,nports = 1,   
-                        proto = <<"RTP/AVP">>, fmt = [<<"31">>],
-                        attributes = [{<<"rtpmap">>,[<<"31">>,<<"LPC">>]}]}
-                ]
-            }
-        } ->
-            ok;
-        Other ->
-            ?debugFmt("Error ~p\n~p\n", [?LINE, lager:pr(Other, ?MODULE)])
-    end.
+    #sipmsg{
+        ruri = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
+                    port = 0, opts = [<<"unknownparam">>]},
+        to = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
+                  port = 0, ext_opts = [{<<"tag">>,<<"1918181833n">>}],
+                  ext_headers = []},
+        from = #uri{disp = <<"\"J Rosenberg \\\\\\\"\"       ">>,
+                    user = <<"jdrosen">>, domain = <<"example.com">>,
+                    port = 0, ext_opts = [{<<"tag">>,<<"98asjd8">>}]},
+        forwards = 68,
+        call_id = <<"wsinv.ndaksdj@192.0.2.1">>,
+        cseq = {9, 'INVITE'},
+        vias = [
+            #via{proto = udp, domain = <<"192.0.2.2">>, port = 0,
+                 opts = [{<<"branch">>, <<"390skdjuw">>}]},
+            #via{proto = tcp, domain = <<"spindle.example.com">>, port = 0,
+                 opts = [{<<"branch">>,<<"z9hG4bK9ikj8">>}]},
+            #via{proto = udp, domain = <<"192.168.255.111">>, port = 0,
+                 opts = [{<<"branch">>,<<"z9hG4bK30239">>}]}
+        ],
+        content_type = {<<"application/sdp">>,[]},
+        routes = [#uri{scheme = sip,user = <<>>,
+                       domain = <<"services.example.com">>,port = 0,
+                       opts = [<<"lr">>,
+                               {<<"unknownwith">>,<<"value">>},
+                               <<"unknown-no-value">>]}],
+        contacts = [#uri{disp = <<"\"Quoted string \\\"\\\"\" ">>,
+                         scheme = sip,user = <<"jdrosen">>,pass = <<>>,
+                         domain = <<"example.com">>,port = 0,opts = [],headers = [],
+                         ext_opts = [{<<"newparam">>,<<"newvalue">>},
+                                     <<"secondparam">>, {<<"q">>,<<"0.33">>}]}],
+        headers = [
+            {<<"subject">>, <<>>},
+            {<<"newfangledheader">>, 
+                 <<"newfangled value continued newfangled value">>},
+            {<<"unknownheaderwithunusualvalue">>,<<";;,,;;,;">>}
+        ],
+        from_tag = <<"98asjd8">>,
+        to_tag = <<"1918181833n">>,
+        body = #sdp{
+            sdp_vsn = <<"0">>, user = <<"mhandley">>,
+            id = 29739,vsn = 7272939,
+            address = {<<"IN">>,<<"IP4">>,<<"192.0.2.3">>},
+            session = <<"-">>,
+            connect = {<<"IN">>,<<"IP4">>,<<"192.0.2.4">>},
+            bandwidth = [],
+            time = [{0,0,[]}],      
+            attributes = [],
+            medias = [
+                #sdp_m{
+                    media = <<"audio">>, port = 49217, nports = 1, 
+                    proto = <<"RTP/AVP">>, fmt = [<<"0">>,<<"12">>]
+                },
+                #sdp_m{
+                    media = <<"video">>,port = 3227,nports = 1,   
+                    proto = <<"RTP/AVP">>, fmt = [<<"31">>],
+                    attributes = [{<<"rtpmap">>,[<<"31">>,<<"LPC">>]}]}
+            ]
+        }
+    } = 
+        parse(Msg),
+    ok.
 
 
 valid_2_test() ->
@@ -153,46 +150,42 @@ valid_2_test() ->
     L1 = list_to_binary("\xD1\x80\xD0\xB0\xD0\xB1\xD0\xBE\xD1\x82\xD0\xB0\xD1\x8E\xD1\x89\xD0\xB8\xD0\xB9"),
     L2 = list_to_binary("\"BEL:\\\x07 NUL:\\\x00 DEL:\\\x7F\" "),
     L3 = list_to_binary("\xEF\xBB\xBF\xE5\xA4\xA7\xE5\x81\x9C\xE9\x9B\xBB"),    
-    case parse(Msg) of
-        #sipmsg{
-            class = {req,<<"!interesting-Method0123456789_*+`.%indeed'~">>},
-            ruri = #uri{
-                    scheme = sip, 
-                    user = <<"1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*">>,
-                    pass = <<"&it+has=1,weird!*pas$wo~d_too.(doesn't-it)">>,
-                    domain = <<"example.com">>,port = 0
-            },
-            vias = [
-                #via{
-                    proto = tcp, domain = <<"host1.example.com">>,
-                    port = 0, opts = [{<<"branch">>,<<"z9hG4bK-.!%66*_+`'~">>}]}
-            ],
-            to = #uri{
-                disp = L2,
+    #sipmsg{
+        class = {req,<<"!interesting-Method0123456789_*+`.%indeed'~">>},
+        ruri = #uri{
                 scheme = sip, 
                 user = <<"1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*">>,
-                pass = <<>>,
-                domain = <<"example.com">>, port = 0,opts = []
-            },
-            from = #uri{
-                disp = <<"token1~` token2'+_ token3*%!.- ">>,
-                scheme = sip, user = <<"mundane">>,
-                domain = <<"example.com">>, port = 0,opts = [],headers = [],
-                ext_opts = [
-                    {<<"fromParam''~+*_!.-%">>, L1},
-                    {<<"tag">>,<<"_token~1'+`*%!-.">>}
-                ]
-            },
-            call_id = <<"intmeth.word%ZK-!.*_+'@word`~)(><:\\/\"][?}{">>,
-            cseq = {139122385, <<"!interesting-Method0123456789_*+`.%indeed'~">>},
-            forwards = 255,
-            headers = [{<<"Extensionheader-!.%*+_`'~">>, L3}], 
-            from_tag = <<"_token~1'+`*%!-.">>, to_tag = <<>>
-        } ->
-            ok;
-        Other ->
-            ?debugFmt("Error ~p\n~p\n", [?LINE, lager:pr(Other, ?MODULE)])
-    end.
+                pass = <<"&it+has=1,weird!*pas$wo~d_too.(doesn't-it)">>,
+                domain = <<"example.com">>,port = 0
+        },
+        vias = [
+            #via{
+                proto = tcp, domain = <<"host1.example.com">>,
+                port = 0, opts = [{<<"branch">>,<<"z9hG4bK-.!%66*_+`'~">>}]}
+        ],
+        to = #uri{
+            disp = L2,
+            scheme = sip, 
+            user = <<"1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*">>,
+            pass = <<>>,
+            domain = <<"example.com">>, port = 0,opts = []
+        },
+        from = #uri{
+            disp = <<"token1~` token2'+_ token3*%!.- ">>,
+            scheme = sip, user = <<"mundane">>,
+            domain = <<"example.com">>, port = 0,opts = [],headers = [],
+            ext_opts = [
+                {<<"fromParam''~+*_!.-%">>, L1},
+                {<<"tag">>,<<"_token~1'+`*%!-.">>}
+            ]
+        },
+        call_id = <<"intmeth.word%ZK-!.*_+'@word`~)(><:\\/\"][?}{">>,
+        cseq = {139122385, <<"!interesting-Method0123456789_*+`.%indeed'~">>},
+        forwards = 255,
+        headers = [{<<"extensionheader-!.%*+_`'~">>, L3}], 
+        from_tag = <<"_token~1'+`*%!-.">>, to_tag = <<>>
+    } = parse(Msg),
+    ok.
 
 
 valid_3_test() ->
@@ -299,7 +292,7 @@ valid_5_test() ->
             #uri{user = <<"alias1">>, domain = <<"host1.example.com">>},
             #uri{user = <<"alias3">>, domain = <<"host3.example.com">>}
         ],
-        headers = [{<<"C%6fntact">>, <<"<sip:alias2@host2.example.com>">>}]
+        headers = [{<<"c%6fntact">>, <<"<sip:alias2@host2.example.com>">>}]
     } = parse(Msg),
     ok.
 
@@ -452,13 +445,13 @@ valid_7_test() ->
                 domain = <<"host5.example.net">>
             }
         ],
-        headers = [{<<"Unknown-LongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLong-Name">>, HeaderValue}]
+        headers = [{<<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-name">>, HeaderValue}]
     } = parse(Msg),
-    % [
-    %     {<<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-value">>,
-    %         [{<<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-parameter-name">>,
-    %             <<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-parameter-value">>}]}
-    % ] = nksip_parse:tokens(HeaderValue),
+    [
+        {<<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-value">>,
+            [{<<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-parameter-name">>,
+                <<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-parameter-value">>}]}
+    ] = nksip_parse:tokens(HeaderValue),
     ok.
 
 
@@ -492,7 +485,7 @@ valid_8_test() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m =video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    {tail, #sipmsg{}, <<"INVITE ", _/binary>>} = parse(Msg),
+    {tail, #sipmsg{body = <<>>}, <<"INVITE ", _/binary>>} = parse(Msg),
     ok.
 
 
@@ -524,7 +517,7 @@ valid_9_test() ->
             pass = <<>>,domain = <<"example.org">>,port = 0,
             ext_opts = [{<<"tag">>,<<"33242">>}]
         },
-        headers = [{<<"Accept">>, Accept}]
+        headers = [{<<"accept">>, Accept}]
     } = parse(Msg),
     [ 
         {<<"application/sdp">>,[]},
@@ -644,10 +637,10 @@ valid_11_test() ->
             }
         ],
         headers = [
-            {<<"Identity">>, <<"r5mwreLuyDRYBi/0TiPwEsY3rEVsk/G2WxhgTV1PF7hHuLIK0YWVKZhKv9Mj8UeXqkMVbnVq37CD+813gvYjcBUaZngQmXc9WNZSDNGCzA+fWl9MEUHWIZo1CeJebdY/XlgKeTa0Olvq0rt70Q5jiSfbqMJmQFteeivUhkMWYUA=">>},
-            {<<"Content-Transfer-Encoding">>,<<"binary">>},
-            {<<"Date">>, Date},
-            {<<"User-Agent">>,<<"SIPimp.org/0.2.5 (curses)">>}
+            {<<"identity">>, <<"r5mwreLuyDRYBi/0TiPwEsY3rEVsk/G2WxhgTV1PF7hHuLIK0YWVKZhKv9Mj8UeXqkMVbnVq37CD+813gvYjcBUaZngQmXc9WNZSDNGCzA+fWl9MEUHWIZo1CeJebdY/XlgKeTa0Olvq0rt70Q5jiSfbqMJmQFteeivUhkMWYUA=">>},
+            {<<"content-transfer-encoding">>,<<"binary">>},
+            {<<"date">>, Date},
+            {<<"user-agent">>,<<"SIPimp.org/0.2.5 (curses)">>}
         ],
         content_type = 
             {<<"multipart/mixed">>,
@@ -703,11 +696,10 @@ valid_13_test() ->
 
 
 %% Internal
-
 parse(Msg) ->
     case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
-        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
-        {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail}
+        {ok, SipMsg, <<>>} -> SipMsg;
+        {ok, SipMsg, Tail} -> {tail, SipMsg, Tail}
     end.
 
 
