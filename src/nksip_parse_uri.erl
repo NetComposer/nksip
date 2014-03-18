@@ -382,9 +382,6 @@ opts_key([Ch|_]=Rest, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
             {error, opts_key, ?LINE}
     end;
 
-opts_key([Ch|Rest], Acc, Block, Uri) when Ch>=$A, Ch=<$Z->
-    opts_key(Rest, [Ch+32|Acc], Block, Uri);
-
 opts_key([Ch|Rest], Acc, Block, Uri) ->
     opts_key(Rest, [Ch|Acc], Block, Uri).
 
@@ -482,7 +479,7 @@ headers_key([Ch|_]=Rest, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
             {error, headers_key, ?LINE}
     end;
 
-headers_key([Ch|Rest], Acc, Block, Uri) when Ch>=$A, Ch=<'Z' ->
+headers_key([Ch|Rest], Acc, Block, Uri) when Ch>=$A, Ch=<$Z ->
     headers_key(Rest, [Ch+32|Acc], Block, Uri);
 
 headers_key([Ch|Rest], Acc, Block, Uri) ->
