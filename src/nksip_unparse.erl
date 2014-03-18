@@ -182,20 +182,20 @@ packet(#sipmsg{class={req, Method}, ruri=RUri}=Request)  ->
     binary().
 
 response(Headers, Code, Reason) ->
-    list_to_binary([
+   list_to_binary([
         "SIP/2.0 ", nksip_lib:to_list(Code), 32,
             case Reason of
                 <<>> -> response_phrase(Code);
                 _ -> Reason
             end,
             "\r\n",
-        "Via: ", nksip_lib:get_binary("via", Headers), "\r\n",
-        "From: ", nksip_lib:get_binary("from", Headers), "\r\n",
-        "To: ", nksip_lib:get_binary("to", Headers), "\r\n",
-        "Call-ID: ", nksip_lib:get_binary("call-id", Headers), "\r\n",
-        "CSeq: ", nksip_lib:get_binary("cseq", Headers), "\r\n",
-        "Max-Forwards: ", nksip_lib:get_binary("max-forwards", Headers), "\r\n",
-        "Content-Length: 0", nksip_lib:get_binary("contentlLength", Headers), "\r\n",
+        "Via: ", nksip_lib:get_binary(<<"via">>, Headers), "\r\n",
+        "From: ", nksip_lib:get_binary(<<"from">>, Headers), "\r\n",
+        "To: ", nksip_lib:get_binary(<<"to">>, Headers), "\r\n",
+        "Call-ID: ", nksip_lib:get_binary(<<"call-id">>, Headers), "\r\n",
+        "CSeq: ", nksip_lib:get_binary(<<"cseq">>, Headers), "\r\n",
+        "Max-Forwards: ", nksip_lib:get_binary(<<"max-forwards">>, Headers), "\r\n",
+        "Content-Length: 0\r\n",
         "\r\n"
     ]).
 

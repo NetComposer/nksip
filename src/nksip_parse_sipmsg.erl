@@ -28,7 +28,7 @@
 
 -include("nksip.hrl").
 
--export([parse/2]).
+-export([parse/1]).
 
 
 %% ===================================================================
@@ -36,18 +36,18 @@
 %% ===================================================================
 
 %% @doc Parses a SIP packet
--spec parse(nksip:protocol(), binary()) ->
+-spec parse(binary()) ->
     {ok, Class, [{binary(), term()}], binary(), binary()} | partial | error 
     when Class :: {req, nksip:metod(), binary()} | {resp, nksip:code(), binary()}.
 
-parse(Proto, Bin) ->
+parse(Bin) ->
     try
         Class = case first(Bin) of
             {req, Method, Uri, Rest1} -> {req, Method, Uri};
             {resp, Code, Reason, Rest1} -> {resp, Code, Reason}
         end,
-        {Headers, Body, Rest2} = headers(Proto, Rest1, []),
-        {ok, Class, Headers, Body, Rest2}
+        {Headers, Rest2} = headers(Rest1, []),
+        {ok, Class, Headers, Rest2}
     catch
         throw:{line, _} -> error;
         throw:partial -> partial
@@ -60,14 +60,9 @@ parse(Proto, Bin) ->
 
 %% @private
 first(<<"SIP/2.0 ", Rest/binary>>) -> 
-    {Code0, Rest1} = until_sp(Rest, []),
+    {Code, Rest1} = until_sp(Rest, []),
     {Reason, Rest2} = until_rn(Rest1, []),
-    case catch list_to_integer(Code0) of
-        Code when Code>=100, Code<700 -> 
-            {resp, Code, list_to_binary(Reason), Rest2};
-        _ ->
-            throw({line, ?LINE})
-    end;
+    {resp, Code, list_to_binary(Reason), Rest2};
 
 first(Bin) -> 
     {Method, Rest1} = until_sp(Bin, []),
@@ -81,34 +76,19 @@ first(Bin) ->
 
 
 %% @private
-headers(_Proto, <<>>, _Acc) ->
+headers(<<>>, _Acc) ->
     throw({line, ?LINE});
 
-headers(Proto, <<"\r\n", Rest/binary>>, Acc) when Proto==tcp; Proto==tls ->
-    CL = case nksip_lib:get_integer(<<"content-length">>, Acc) of
-        error -> throw({line, ?LINE});
-        CL0 -> CL0
-    end,
-    case byte_size(Rest) of
-        CL -> 
-            {lists:reverse(Acc), Rest, <<>>};
-        BS when BS < CL -> 
-            throw(partial);
-        _ ->
-            {Body, Rest1} = split_binary(Rest, CL),
-            {lists:reverse(Acc), Body, Rest1}
-    end;
+headers(<<"\r\n", Body/binary>>, Acc) ->
+    {lists:reverse(Acc), Body};
 
-headers(_Proto, <<"\r\n", Body/binary>>, Acc) ->
-    {lists:reverse(Acc), Body, <<>>};
-
-headers(Proto, Bin, Acc) ->
+headers(Bin, Acc) ->
     {Name, Value, Rest} = name(Bin, []),
     Name1 = case Name of
         [Single] -> long_name(Single);
         _ -> list_to_binary(Name)
     end,
-    headers(Proto, Rest, [{Name1, list_to_binary(Value)}|Acc]).
+    headers(Rest, [{Name1, list_to_binary(Value)}|Acc]).
 
 
 %% @private
@@ -142,7 +122,6 @@ until_sp(<<Ch, Rest/binary>>, Acc) -> until_sp(Rest, [Ch|Acc]).
 
 
 %% @private
-until_rn(<<$\r, $\n, _/binary>>, []) -> throw({line, ?LINE});
 until_rn(<<$\r, $\n, Rest/binary>>, Acc) -> {lists:reverse(Acc), Rest};
 until_rn(<<>>, _Acc) -> throw({line, ?LINE});
 until_rn(<<Ch, Rest/binary>>, Acc) -> until_rn(Rest, [Ch|Acc]).

@@ -72,12 +72,14 @@ parse(Name, Value, Req) when is_binary(Name) ->
         throw:{empty, EmptyName} -> throw({empty, EmptyName})
     end;
 
-parse(Name, Value, Req) when is_list(Name); is_atom(Name) ->
-    Name1 = case name(Name) of 
-        unknown -> nksip_lib:to_binary(Name);
-        CanName -> CanName
-    end,
+parse(Name, Value, Req) when is_atom(Name) ->
+    Name1 = [case Ch of $_ -> $-; _ -> Ch end || Ch <- atom_to_list(Name)],
+    parse(Name1, Value, Req);
+
+parse(Name, Value, Req) when is_list(Name) ->
+    Name1 = list_to_binary(string:to_lower(Name)),
     parse(Name1, Value, Req).
+
 
 
 %% @private
