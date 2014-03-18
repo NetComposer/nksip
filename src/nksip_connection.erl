@@ -527,7 +527,7 @@ do_send(Packet, State) ->
 parse(Binary, State) ->
     case do_parse(Binary, State) of
         {ok, State1} -> do_noreply(State1);
-        {error, Error} -> stop(Error, State)
+        {error, Error} -> do_stop(Error, State)
     end.
 
 
@@ -635,11 +635,11 @@ parse_ws(Packet, #state{app_id=AppId, ws_frag=FragMsg}=State) ->
                     do_noreply(State2);
                 {error, Error} -> 
                     ?warning(AppId, "Websocket parsing error: ~p", [Error]),
-                    stop(Error, State)
+                    do_stop(Error, State)
             end;
         {error, Error} ->
             ?notice(AppId, "Websocket parsing error: ~p", [Error]),
-            stop(ws_error, State1)
+            do_stop(ws_error, State1)
     end.
 
 
