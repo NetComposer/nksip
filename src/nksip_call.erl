@@ -53,7 +53,7 @@
 
 -type fork() :: #fork{}.
 
--type work() :: {incoming, #raw_sipmsg{}} | 
+-type work() :: {incoming, #sipmsg{}} | 
                 {app_reply, atom(), nksip_call_uas:id(), term()} |
                 {send_reply, nksip_request:id(), nksip:sipreply()} |
                 {make, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
@@ -209,31 +209,14 @@ clear_all() ->
 -spec work(work(), from()|none, call()) ->
     call().
 
-work({incoming, RawMsg}, none, #call{app_id=AppId, call_id=CallId}=Call) ->
-    #raw_sipmsg{
-        app_id = AppId, 
-        call_id = CallId, 
-        transport = #transport{proto=Proto}
-    } = RawMsg,
+work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
+    nksip_call_uas_req:request(Req, Call);
+
+work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
     #call{opts=#call_opts{global_id=GlobalId}} = Call,
-    case nksip_parse:raw_sipmsg(RawMsg) of
-        #sipmsg{class={req, _}}=Req ->
-            nksip_call_uas_req:request(Req, Call);
-        #sipmsg{class={resp, _, _}}=Resp ->
-            case nksip_uac_lib:is_stateless(Resp, GlobalId) of
-                true -> nksip_call_proxy:response_stateless(Resp, Call);
-                false -> nksip_call_uac_resp:response(Resp, Call)
-            end;
-        {reply_error, Code, Reason} ->
-            ?notice(AppId, CallId, "error in received ~p SIP request, sending ~s", 
-                    [Proto, Reason]),
-            Reply = nksip_unparse:raw_packet(RawMsg, Code, Reason),
-            nksip_transport:raw_send(RawMsg, Reply),
-            Call;
-        {error, Reason} ->
-            ?notice(AppId, CallId, "error in received ~p SIP response: ~s", 
-                    [Proto, Reason]),
-            Call
+    case nksip_uac_lib:is_stateless(Resp, GlobalId) of
+        true -> nksip_call_proxy:response_stateless(Resp, Call);
+        false -> nksip_call_uac_resp:response(Resp, Call)
     end;
 
 work({app_reply, Fun, Id, Reply}, none, Call) ->
@@ -248,7 +231,7 @@ work({send_reply, ReqId, Reply}, From, Call) ->
             end;
         _ -> 
             Result = {error, invalid_call},
-            Call1 = Call
+            Call1 = Callç
     end,
     gen_server:reply(From, Result),
     Call1;

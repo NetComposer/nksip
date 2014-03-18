@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([uri/1, ruri/1, uri2proplist/1, via/1, token/1, packet/1, raw_packet/3]).
+-export([uri/1, ruri/1, uri2proplist/1, via/1, token/1, packet/1, response/3]).
 -export([add_sip_instance/2]).
 -export([error_reason/1]).
 
@@ -177,12 +177,11 @@ packet(#sipmsg{class={req, Method}, ruri=RUri}=Request)  ->
     ]).
 
 
-%% @private Generates a binary packet for a request or response
--spec raw_packet(#raw_sipmsg{}, nksip:response_code(), binary()) -> 
+%% @doc Generates an error response
+-spec response([{binary(), term()}], nksip:response_code(), binary()) -> 
     binary().
 
-raw_packet(#raw_sipmsg{headers=Hds}, Code, Reason) ->
-    Hds1 = [{string:to_lower(nksip_lib:to_list(N)), V} || {N, V} <- Hds],
+response(Headers, Code, Reason) ->
     list_to_binary([
         "SIP/2.0 ", nksip_lib:to_list(Code), 32,
             case Reason of
@@ -190,15 +189,41 @@ raw_packet(#raw_sipmsg{headers=Hds}, Code, Reason) ->
                 _ -> Reason
             end,
             "\r\n",
-        "Via: ", nksip_lib:get_binary("via", Hds1), "\r\n",
-        "From: ", nksip_lib:get_binary("from", Hds1), "\r\n",
-        "To: ", nksip_lib:get_binary("to", Hds1), "\r\n",
-        "Call-ID: ", nksip_lib:get_binary("call-id", Hds1), "\r\n",
-        "CSeq: ", nksip_lib:get_binary("cseq", Hds1), "\r\n",
-        "Max-Forwards: ", nksip_lib:get_binary("max-forwards", Hds1), "\r\n",
-        "Content-Length: 0", nksip_lib:get_binary("contentlLength", Hds1), "\r\n",
+        "Via: ", nksip_lib:get_binary("via", Headers), "\r\n",
+        "From: ", nksip_lib:get_binary("from", Headers), "\r\n",
+        "To: ", nksip_lib:get_binary("to", Headers), "\r\n",
+        "Call-ID: ", nksip_lib:get_binary("call-id", Headers), "\r\n",
+        "CSeq: ", nksip_lib:get_binary("cseq", Headers), "\r\n",
+        "Max-Forwards: ", nksip_lib:get_binary("max-forwards", Headers), "\r\n",
+        "Content-Length: 0", nksip_lib:get_binary("contentlLength", Headers), "\r\n",
         "\r\n"
     ]).
+
+
+
+
+% %% @private Generates a binary packet for a request or response
+% -spec raw_packet(#raw_sipmsg{}, nksip:response_code(), binary()) -> 
+%     binary().
+
+% raw_packet(#raw_sipmsg{headers=Hds}, Code, Reason) ->
+%     Hds1 = [{string:to_lower(nksip_lib:to_list(N)), V} || {N, V} <- Hds],
+%     list_to_binary([
+%         "SIP/2.0 ", nksip_lib:to_list(Code), 32,
+%             case Reason of
+%                 <<>> -> response_phrase(Code);
+%                 _ -> Reason
+%             end,
+%             "\r\n",
+%         "Via: ", nksip_lib:get_binary("via", Hds1), "\r\n",
+%         "From: ", nksip_lib:get_binary("from", Hds1), "\r\n",
+%         "To: ", nksip_lib:get_binary("to", Hds1), "\r\n",
+%         "Call-ID: ", nksip_lib:get_binary("call-id", Hds1), "\r\n",
+%         "CSeq: ", nksip_lib:get_binary("cseq", Hds1), "\r\n",
+%         "Max-Forwards: ", nksip_lib:get_binary("max-forwards", Hds1), "\r\n",
+%         "Content-Length: 0", nksip_lib:get_binary("contentlLength", Hds1), "\r\n",
+%         "\r\n"
+%     ]).
 
 
 
@@ -366,8 +391,10 @@ serialize(#sipmsg{
         Headers
     ],
     [
-        [[nksip_lib:to_binary(Name), $:, 32, nksip_lib:to_binary(Value), 13, 10] 
-            || {Name, Value} <- lists:flatten(Headers1), Value/=empty],
+        [
+            [capitalize(Name), $:, 32, nksip_lib:to_binary(Value), 13, 10] 
+            || {Name, Value} <- lists:flatten(Headers1), Value/=empty
+        ],
         "\r\n", Body1
     ].
 
@@ -557,3 +584,28 @@ q850_prase(Code) ->
         609 -> <<"GATEWAY_DOWN">>;
         _ -> <<"UNDEFINED">>
     end.
+
+
+% @private 
+capitalize(Name) ->
+    capitalize(nksip_lib:to_binary(Name), true, <<>>).
+
+
+% @private 
+capitalize(<<>>, _, Acc) ->
+    Acc;
+
+capitalize(<<$-, Rest/bits >>, _, Acc) ->
+    capitalize(Rest, true, <<Acc/binary, $->>);
+
+capitalize(<<Ch, Rest/bits>>, true, Acc) when Ch>=$a, Ch=<$z ->
+    capitalize(Rest, false, <<Acc/binary, (Ch-32)>>);
+
+capitalize(<<Ch, Rest/bits>>, true, Acc) ->
+    capitalize(Rest, false, <<Acc/binary, Ch>>);
+
+capitalize(<<Ch, Rest/bits>>, false, Acc) ->
+    capitalize(Rest, false, <<Acc/binary, Ch>>).
+
+
+

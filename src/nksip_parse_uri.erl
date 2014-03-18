@@ -382,6 +382,9 @@ opts_key([Ch|_]=Rest, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
             {error, opts_key, ?LINE}
     end;
 
+opts_key([Ch|Rest], Acc, Block, Uri) when Ch>=$A, Ch=<$Z->
+    opts_key(Rest, [Ch+32|Acc], Block, Uri);
+
 opts_key([Ch|Rest], Acc, Block, Uri) ->
     opts_key(Rest, [Ch|Acc], Block, Uri).
 
@@ -479,6 +482,9 @@ headers_key([Ch|_]=Rest, Acc, Block, Uri) when Ch==32; Ch==9; Ch==13 ->
             {error, headers_key, ?LINE}
     end;
 
+headers_key([Ch|Rest], Acc, Block, Uri) when Ch>=$A, Ch=<'Z' ->
+    headers_key(Rest, [Ch+32|Acc], Block, Uri);
+
 headers_key([Ch|Rest], Acc, Block, Uri) ->
     headers_key(Rest, [Ch|Acc], Block, Uri).
 
@@ -508,11 +514,7 @@ headers_value([Ch|_]=Rest, Key, Acc, false, Block, Uri) when Ch==$&; Ch==$>; Ch=
         [] ->
             {error, headers_value, ?LINE};
         _ ->
-            Key1 = case Block of
-                true -> nksip_parse:raw_header(Key);
-                false -> list_to_binary(Key)
-            end,
-            Opt = {Key1, list_to_binary(lists:reverse(Acc))},
+            Opt = {list_to_binary(Key), list_to_binary(lists:reverse(Acc))},
             Uri1 = case Block of
                 true -> Uri#uri{headers = Uri#uri.headers++[Opt]};
                 false -> Uri#uri{ext_headers = Uri#uri.ext_headers++[Opt]}

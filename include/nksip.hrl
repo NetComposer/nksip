@@ -138,16 +138,16 @@
 }).
 
 
--record(raw_sipmsg, {
-    id :: nksip_request:id() | nksip_response:id(),
-    class :: nksip_parse:msg_class(),
-    app_id :: nksip:app_id(),
-    call_id :: nksip:call_id(),
-    start :: nksip_lib:l_timestamp(),
-    headers :: [{binary(), binary()}],
-    body :: nksip:body(),
-    transport :: nksip_transport:transport()
-}).
+% -record(raw_sipmsg, {
+%     id :: nksip_request:id() | nksip_response:id(),
+%     class :: nksip_parse:msg_class(),
+%     app_id :: nksip:app_id(),
+%     call_id :: nksip:call_id(),
+%     start :: nksip_lib:l_timestamp(),
+%     headers :: [{binary(), binary()}],
+%     body :: nksip:body(),
+%     transport :: nksip_transport:transport()
+% }).
 
 
 -record(sipmsg, {

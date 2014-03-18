@@ -87,7 +87,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         to_domain -> (S#sipmsg.to)#uri.domain;
         parsed_to -> S#sipmsg.to;
         cseq -> 
-            #sipmsg{cseq={CSeqNum, Method}} = Req,
+            #sipmsg{cseq={CSeqNum, Method}} = S,
             <<(nksip_lib:to_binary(CSeqNum))/binary, 32, 
               (nksip_lib:to_binary(Method))/binary>>;
         parsed_cseq -> S#sipmsg.cseq;

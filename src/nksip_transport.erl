@@ -27,7 +27,7 @@
 -export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
 -export([start_transport/5, start_connection/6, default_port/1]).
 -export([get_listenhost/2, make_route/6]).
--export([send/4, raw_send/2]).
+-export([send/4]).
 -export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
 
 -export_type([transport/0]).
@@ -372,15 +372,15 @@ send(_, [], _MakeMsg, _Opts) ->
 %% ===================================================================
 
 %% @private
--spec raw_send(#raw_sipmsg{}, binary()) ->
-    ok | error.
+% -spec raw_send(#sipmsg{}, binary()) ->
+%     ok | error.
 
-raw_send(#raw_sipmsg{app_id=AppId, transport=Transp}, Reply) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-    case get_connected(AppId, Proto, Ip, Port, <<>>) of
-        [{_, Pid}|_] -> nksip_connection:send(Pid, Reply);
-        [] -> error
-    end.
+% raw_send(#sipmsg{app_id=AppId, transport=Transp}, Reply) ->
+%     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+%     case get_connected(AppId, Proto, Ip, Port, <<>>) of
+%         [{_, Pid}|_] -> nksip_connection:send(Pid, Reply);
+%         [] -> error
+%     end.
 
 
 %% @private

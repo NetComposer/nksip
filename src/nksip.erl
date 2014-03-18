@@ -550,6 +550,8 @@ parse_opts([Term|Rest], Opts) ->
                 error -> throw({invalid, supported});
                 Tokens -> [{accept, [A||{A, _}<-Tokens]}|Opts]
             end;
+        no_100 ->
+            [no100|Opts];
         {event, Event} ->
             case nksip_parse:tokens(Event) of
                 error -> throw({invalid, event});
