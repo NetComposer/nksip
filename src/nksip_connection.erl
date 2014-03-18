@@ -583,23 +583,28 @@ do_parse(Packet, State) ->
         transport = Transp,
         buffer = Buff
     } = State,
-    case nksip_parse:packet(AppId, Transp, <<Buff/binary, Packet/binary>>) of
-        {ok, #raw_sipmsg{call_id=CallId, class=_Class}=RawMsg, Rest} -> 
+    Data = <<Buff/binary, Packet/binary>>,
+    case nksip_parse:packet(AppId, Transp, Data) of
+        {ok, #sipmsg{call_id=CallId, class=_Class}=SipMsg, Rest} -> 
             #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
             nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
             nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
-            case nksip_call_router:incoming_sync(RawMsg) of
+            case nksip_call_router:incoming_sync(SipMsg) of
                 ok -> 
                     do_parse(Rest, State);
                 {error, Error} -> 
                     ?notice(AppId, "error processing ~p request: ~p", [Proto, Error]),
                     {error, Error}
             end;
-        {more, Rest} when Proto==udp; Proto==sctp ->
-            ?notice(AppId, "ignoring data after ~p msg: ~p", [Proto, Rest]),
+        partial when Proto==tcp; Proto==tls ->
+            {ok, State#state{buffer=Data}};
+        partial ->
+            ?notice(AppId, "ignoring partial msg ~p: ~p", [Proto, Data]),
             {ok, State};
-        {more, Rest} ->
-            {ok, State#state{buffer=Rest}};
+        {reply_error, Error, Reply} ->
+            ?notice(AppId, "error parsing ~p request: ~p", [Proto, Error]),
+            do_send(Reply, State),
+            {error, Error};
         {error, Error} -> 
             ?notice(AppId, "error parsing ~p request: ~p", [Proto, Error]),
             {error, parse_error}
@@ -659,11 +664,9 @@ do_parse_ws_messages([#message{type=close}|_], _State) ->
     {error, ws_close};
 
 do_parse_ws_messages([#message{type=ping}|Rest], State) ->
-    lager:warning("WS PING"),
     do_parse_ws_messages(Rest, State);
 
 do_parse_ws_messages([#message{type=pong}|Rest], State) ->
-    lager:warning("WS PONG"),
     do_parse_ws_messages(Rest, State).
 
 

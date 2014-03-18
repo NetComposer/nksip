@@ -60,13 +60,13 @@
 %% ===================================================================
 
 %% @doc Called when a new request or response has been received.
-incoming_async(#raw_sipmsg{call_id=CallId}=RawMsg) ->
-    gen_server:cast(name(CallId), {incoming, RawMsg}).
+incoming_async(#sipmsg{call_id=CallId}=SipMsg) ->
+    gen_server:cast(name(CallId), {incoming, SipMsg}).
 
 
 %% @doc Called when a new request or response has been received.
-incoming_sync(#raw_sipmsg{app_id=AppId, call_id=CallId}=RawMsg) ->
-    case catch gen_server:call(name(CallId), {incoming, RawMsg}, ?SYNC_TIMEOUT) of
+incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
+    case catch gen_server:call(name(CallId), {incoming, SipMsg}, ?SYNC_TIMEOUT) of
         {'EXIT', Error} -> 
             ?warning(AppId, CallId, "Error calling incoming_sync: ~p", [Error]),
             {error, timeout};
@@ -253,13 +253,12 @@ handle_call({send_work_sync, AppId, CallId, Work, Caller}, From, SD) ->
             {reply, {error, Error}, SD}
     end;
 
-handle_call({incoming, RawMsg}, _From, SD) ->
-    #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
-    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, none, SD) of
+handle_call({incoming, SipMsg}, _From, SD) ->
+    #sipmsg{app_id=AppId, call_id=CallId} = SipMsg,
+    case send_work_sync(AppId, CallId, {incoming, SipMsg}, none, none, SD) of
         {ok, SD1} -> 
             {reply, ok, SD1};
         {error, Error} ->
-            #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
             ?error(AppId, CallId, "Error processing incoming message: ~p", [Error]),
             {reply, {error, Error}, SD}
     end;
@@ -279,13 +278,12 @@ handle_call(Msg, _From, SD) ->
 -spec handle_cast(term(), #state{}) ->
     gen_server_cast(#state{}).
 
-handle_cast({incoming, RawMsg}, SD) ->
-    #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
-    case send_work_sync(AppId, CallId, {incoming, RawMsg}, none, none, SD) of
+handle_cast({incoming, SipMsg}, SD) ->
+    #sipmsg{app_id=AppId, call_id=CallId} = SipMsg,
+    case send_work_sync(AppId, CallId, {incoming, SipMsg}, none, none, SD) of
         {ok, SD1} -> 
             {noreply, SD1};
         {error, Error} ->
-            #raw_sipmsg{app_id=AppId, call_id=CallId} = RawMsg,
             ?error(AppId, CallId, "Error processing incoming message: ~p", [Error]),
             {noreply, SD}
     end;

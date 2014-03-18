@@ -29,7 +29,8 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([parse/2, parse/3, name/1]).
+-export([parse/2, parse/3]).
+-export([header/2]).
 
 
 %% ===================================================================
@@ -80,58 +81,58 @@ parse(Name, Value, Req) when is_list(Name); is_atom(Name) ->
 
 
 %% @private
-header(<<"From">>, Value) -> 
+header(<<"from">>, Value) -> 
     {single_uri(Value), #sipmsg.from};
 
-header(<<"To">>, Value) -> 
+header(<<"to">>, Value) -> 
     {single_uri(Value), #sipmsg.to};
 
-header(<<"Via">>, Value) -> 
+header(<<"via">>, Value) -> 
     {vias(Value), #sipmsg.vias};
 
-header(<<"CSeq">>, Value) -> 
+header(<<"cseq">>, Value) -> 
     {cseq(Value), #sipmsg.cseq};
 
-header(<<"Max-Forwards">>, Value) -> 
+header(<<"max-forwards">>, Value) -> 
     {integer(Value, 300), #sipmsg.forwards};
 
-header(<<"Call-ID">>, Value) -> 
+header(<<"call-id">>, Value) -> 
     case nksip_lib:to_binary(Value) of
         <<>> -> throw(invalid);
         CallId -> {CallId, #sipmsg.call_id}
     end;
 
-header(<<"Route">>, Value) ->
+header(<<"route">>, Value) ->
     {uris(Value), {append, #sipmsg.routes}};
 
-header(<<"Contact">>, Value) ->
+header(<<"contact">>, Value) ->
     {uris(Value), {append, #sipmsg.contacts}};
 
-header(<<"Record-Route">>, Value) ->
+header(<<"record-route">>, Value) ->
     {uris(Value), headers};
 
-header(<<"Path">>, Value) ->
+header(<<"path">>, Value) ->
     {uris(Value), headers};
 
-header(<<"Content-Length">>, Value) ->
+header(<<"content-length">>, Value) ->
     {integer(Value), none};
 
-header(<<"Expires">>, Value) ->
+header(<<"expires">>, Value) ->
     {integer(Value), #sipmsg.expires};
 
-header(<<"Content-Type">>, Value) ->
+header(<<"content-type">>, Value) ->
     {single_token(Value), #sipmsg.content_type};
     
-header(<<"Require">>, Value) ->
+header(<<"require">>, Value) ->
     {names(Value), #sipmsg.require};
 
-header(<<"Supported">>, Value) ->
+header(<<"supported">>, Value) ->
     {names(Value), #sipmsg.supported};
 
-header(<<"Event">>, Value) ->
+header(<<"event">>, Value) ->
     {tokens(Value), #sipmsg.event};
 
-header(<<"Session-Expires">>, Value) ->
+header(<<"session-expires">>, Value) ->
     case single_token(Value) of
         undefined ->
             undefined;
@@ -154,162 +155,6 @@ header(_Name, Value) ->
     {nksip_lib:to_binary(Value), headers}.
 
 
-%% @private
--spec name(atom()|list()|binary()) ->
-    binary() | unknown.
-
-name(Name) when is_atom(Name) ->
-    List = [case Ch of $_ -> $-; _ -> Ch end || Ch <- atom_to_list(Name)],
-    name(List);
-
-name(Name) when is_binary(Name) ->
-    raw_name(string:to_lower(binary_to_list(Name)));
-
-name(Name) when is_list(Name) ->
-    raw_name(string:to_lower(Name)).
-
-
-%% @private
-raw_name(Name) ->
-    case Name of
-        "a" -> <<"Accept-Contact">>;
-        "b" -> <<"Referred-By">>;
-        "c" -> <<"Content-Type">>;
-        "d" -> <<"Request-Disposition">>;
-        "e" -> <<"Content-Encoding">>;
-        "f" -> <<"From">>;
-        "i" -> <<"Call-ID">>;
-        "j" -> <<"Reject-Contact">>;
-        "k" -> <<"Supported">>;
-        "l" -> <<"Content-Length">>;
-        "m" -> <<"Contact">>;
-        "n" -> <<"Identity-Info">>;
-        "o" -> <<"Event">>;
-        "r" -> <<"Refer-To">>;
-        "s" -> <<"Subject">>;
-        "t" -> <<"To">>;
-        "u" -> <<"Allow-Events">>;
-        "v" -> <<"Via">>;
-        "x" -> <<"Session-Expires">>;
-        "y" -> <<"Identity">>;
-
-        "x-"++_ -> unknown;
-
-        "accept" -> <<"Accept">>;
-        "allow" -> <<"Allow">>;
-        "allow-events" -> <<"Allow-Events">>;
-        "authorization" -> <<"Authorization">>;
-        "call-id" -> <<"Call-ID">>;
-        "contact" -> <<"Contact">>;
-        "content-length" -> <<"Content-Length">>;
-        "content-type" -> <<"Content-Type">>;
-        "cseq" -> <<"CSeq">>;
-        "event" -> <<"Event">>;
-        "expires" -> <<"Expires">>;
-        "from" -> <<"From">>;
-        "max-forwards" -> <<"Max-Forwards">>;
-        "path" -> <<"Path">>;
-        "proxy-authenticate" -> <<"Proxy-Authenticate">>;
-        "proxy-authorization" -> <<"Proxy-Authorization">>;
-        "rack" -> <<"RAck">>;
-        "record-route" -> <<"Record-Route">>;
-        "require" -> <<"Require">>;
-        "route" -> <<"Route">>;
-        "rseq" -> <<"RSeq">>;
-        "session-expires" -> <<"Session-Expires">>;
-        "subscription-state" -> <<"Subscription-State">>;
-        "supported" -> <<"Supported">>;
-        "to" -> <<"To">>;
-        "user-agent" -> <<"User-Agent">>;
-        "via" -> <<"Via">>;
-        "www-authenticate" -> <<"WWW-Authenticate">>;
-
-        "accept-contact" -> <<"Accept-Contact">>;
-        "accept-encoding" -> <<"Accept-Encoding">>;
-        "accept-language" -> <<"Accept-Language">>;
-        "accept-resource-priority" -> <<"Accept-Resource-Priority">>;
-        "alert-info" -> <<"Alert-Info">>;
-        "answer-mode" -> <<"Answer-Mode">>;
-        "authentication-info" -> <<"Authentication-Info">>;
-        "call-info" ->  <<"Call-Info">>;
-        "content-disposition" -> <<"Content-Disposition">>;
-        "content-encoding" -> <<"Content-Encoding">>;
-        "date" -> <<"Date">>;
-        "encryption" -> <<"Encryption">>;
-        "error-info" -> <<"Error-Info">>;
-        "feature-caps" -> <<"Feature-Caps">>;
-        "flow-timer" -> <<"Flow-Timer">>;
-        "geolocation" -> <<"Geolocation">>;
-        "geolocation-error" -> <<"Geolocation-Error">>;
-        "geolocation-routing" -> <<"Geolocation-Routing">>;
-        "hide" -> <<"Hide">>;
-        "history-info" -> <<"History-Info">>;
-        "identity" -> <<"Identity">>;
-        "identity-info" -> <<"Identity-Info">>;
-        "info-package" -> <<"Info-Package">>;
-        "in-reply-to" -> <<"In-Reply-To">>;
-        "join" -> <<"Join">>;
-        "max-breadth" -> <<"Max-Breadth">>;
-        "mime-version" -> <<"MIME-Version">>;
-        "min-expires" -> <<"Min-Expires">>;
-        "min-se" -> <<"Min-SE">>;
-        "organization" -> <<"Organization">>;
-        "permission-missing" -> <<"Permission-Missing">>;
-        "policy-contact" -> <<"Policy-Contact">>;
-        "policy-id" -> <<"Policy-ID">>;
-        "priority" -> <<"Priority">>;
-        "proxy-require" -> <<"Proxy-Require">>;
-        "reason" -> <<"Reason">>;
-        "reason-phrase" -> <<"Reason-Phrase">>;
-        "recv-info" -> <<"Recv-Info">>;
-        "refer-sub" -> <<"Refer-Sub">>;
-        "refer-to" -> <<"Refer-To">>;
-        "referred-by" -> <<"Referred-By">>;
-        "reject-contact" -> <<"Reject-Contact">>;
-        "replaces" -> <<"Replaces">>;
-        "reply-to" -> <<"Reply-To">>;
-        "request-disposition" -> <<"Request-Disposition">>;
-        "resource-priority" -> <<"Resource-Priority">>;
-        "response-key" -> <<"Response-Key">>;
-        "retry-after" -> <<"Retry-After">>;
-        "security-client" -> <<"Security-Client">>;
-        "security-server" -> <<"Security-Server">>;
-        "security-verify" -> <<"Security-Verify">>;
-        "server" -> <<"Server">>;
-        "service-route" -> <<"Service-Route">>;
-        "sip-etag" -> <<"SIP-ETag">>;
-        "sip-if-match" -> <<"SIP-If-Match">>;
-        "subject" -> <<"Subject">>;
-        "timestamp" -> <<"Timestamp">>;
-        "trigger-consent" -> <<"Trigger-Consent">>;
-        "unsupported" -> <<"Unsupported">>;
-        "warning" -> <<"Warning">>;
-
-        "p-access-network-info" -> <<"P-Access-Network-Info">>;
-        "p-answer-state" -> <<"P-Answer-State">>;
-        "p-asserted-identity" -> <<"P-Asserted-Identity">>;
-        "p-asserted-service" -> <<"P-Asserted-Service">>;
-        "p-associated-uri" -> <<"P-Associated-URI">>;
-        "p-called-party-id" -> <<"P-Called-Party-ID">>;
-        "p-charging-function-addresses" -> <<"P-Charging-Function-Addresses">>;
-        "p-charging-vector" -> <<"P-Charging-Vector">>;
-        "p-dcs-trace-party-id" -> <<"P-DCS-Trace-Party-ID">>;
-        "p-dcs-osps" -> <<"P-DCS-OSPS">>;
-        "p-dcs-billing-info" -> <<"P-DCS-Billing-Info">>;
-        "p-dcs-laes" -> <<"P-DCS-LAES">>;
-        "p-dcs-redirect" -> <<"P-DCS-Redirect">>;
-        "p-early-media" -> <<"P-Early-Media">>;
-        "p-media-authorization" -> <<"P-Media-Authorization">>;
-        "p-preferred-identity" -> <<"P-Preferred-Identity">>;
-        "p-preferred-service" -> <<"P-Preferred-Service">>;
-        "p-profile-key" -> <<"P-Profile-Key">>;
-        "p-refused-uri-list" -> <<"P-Refused-URI-List">>;
-        "p-served-user" -> <<"P-Served-User">>;
-        "p-user-database" -> <<"P-User-Database">>;
-        "p-visited-network-id" -> <<"P-Visited-Network-ID">>;
-
-        _ -> unknown
-    end.
 
 
 %% Parsers
@@ -355,7 +200,7 @@ cseq(Data) ->
     case nksip_lib:tokens(Data) of
         [CSeq, Method] ->                
             case nksip_lib:to_integer(CSeq) of
-                Int when is_integer(Int), Int>=0 andalso Int<4294967296 ->
+                Int when is_integer(Int), Int>=0, Int<4294967296 ->
                     {Int, nksip_parse:method(Method)};
                 _ ->
                     throw(invalid)
@@ -376,4 +221,162 @@ integer(Data, Max) ->
 
 
 
+
+
+% %% @private
+% -spec name(atom()|list()|binary()) ->
+%     binary() | unknown.
+
+% name(Name) when is_atom(Name) ->
+%     List = [case Ch of $_ -> $-; _ -> Ch end || Ch <- atom_to_list(Name)],
+%     name(List);
+
+% name(Name) when is_binary(Name) ->
+%     raw_name(string:to_lower(binary_to_list(Name)));
+
+% name(Name) when is_list(Name) ->
+%     raw_name(string:to_lower(Name)).
+
+
+% %% @private
+% raw_name(Name) ->
+%     case Name of
+%         "a" -> <<"Accept-Contact">>;
+%         "b" -> <<"Referred-By">>;
+%         "c" -> <<"Content-Type">>;
+%         "d" -> <<"Request-Disposition">>;
+%         "e" -> <<"Content-Encoding">>;
+%         "f" -> <<"From">>;
+%         "i" -> <<"Call-ID">>;
+%         "j" -> <<"Reject-Contact">>;
+%         "k" -> <<"Supported">>;
+%         "l" -> <<"Content-Length">>;
+%         "m" -> <<"Contact">>;
+%         "n" -> <<"Identity-Info">>;
+%         "o" -> <<"Event">>;
+%         "r" -> <<"Refer-To">>;
+%         "s" -> <<"Subject">>;
+%         "t" -> <<"To">>;
+%         "u" -> <<"Allow-Events">>;
+%         "v" -> <<"Via">>;
+%         "x" -> <<"Session-Expires">>;
+%         "y" -> <<"Identity">>;
+
+%         "x-"++_ -> unknown;
+
+%         "accept" -> <<"Accept">>;
+%         "allow" -> <<"Allow">>;
+%         "allow-events" -> <<"Allow-Events">>;
+%         "authorization" -> <<"Authorization">>;
+%         "call-id" -> <<"Call-ID">>;
+%         "contact" -> <<"Contact">>;
+%         "content-length" -> <<"Content-Length">>;
+%         "content-type" -> <<"Content-Type">>;
+%         "cseq" -> <<"CSeq">>;
+%         "event" -> <<"Event">>;
+%         "expires" -> <<"Expires">>;
+%         "from" -> <<"From">>;
+%         "max-forwards" -> <<"Max-Forwards">>;
+%         "path" -> <<"Path">>;
+%         "proxy-authenticate" -> <<"Proxy-Authenticate">>;
+%         "proxy-authorization" -> <<"Proxy-Authorization">>;
+%         "rack" -> <<"RAck">>;
+%         "record-route" -> <<"Record-Route">>;
+%         "require" -> <<"Require">>;
+%         "route" -> <<"Route">>;
+%         "rseq" -> <<"RSeq">>;
+%         "session-expires" -> <<"Session-Expires">>;
+%         "subscription-state" -> <<"Subscription-State">>;
+%         "supported" -> <<"Supported">>;
+%         "to" -> <<"To">>;
+%         "user-agent" -> <<"User-Agent">>;
+%         "via" -> <<"Via">>;
+%         "www-authenticate" -> <<"WWW-Authenticate">>;
+
+%         "accept-contact" -> <<"Accept-Contact">>;
+%         "accept-encoding" -> <<"Accept-Encoding">>;
+%         "accept-language" -> <<"Accept-Language">>;
+%         "accept-resource-priority" -> <<"Accept-Resource-Priority">>;
+%         "alert-info" -> <<"Alert-Info">>;
+%         "answer-mode" -> <<"Answer-Mode">>;
+%         "authentication-info" -> <<"Authentication-Info">>;
+%         "call-info" ->  <<"Call-Info">>;
+%         "content-disposition" -> <<"Content-Disposition">>;
+%         "content-encoding" -> <<"Content-Encoding">>;
+%         "date" -> <<"Date">>;
+%         "encryption" -> <<"Encryption">>;
+%         "error-info" -> <<"Error-Info">>;
+%         "feature-caps" -> <<"Feature-Caps">>;
+%         "flow-timer" -> <<"Flow-Timer">>;
+%         "geolocation" -> <<"Geolocation">>;
+%         "geolocation-error" -> <<"Geolocation-Error">>;
+%         "geolocation-routing" -> <<"Geolocation-Routing">>;
+%         "hide" -> <<"Hide">>;
+%         "history-info" -> <<"History-Info">>;
+%         "identity" -> <<"Identity">>;
+%         "identity-info" -> <<"Identity-Info">>;
+%         "info-package" -> <<"Info-Package">>;
+%         "in-reply-to" -> <<"In-Reply-To">>;
+%         "join" -> <<"Join">>;
+%         "max-breadth" -> <<"Max-Breadth">>;
+%         "mime-version" -> <<"MIME-Version">>;
+%         "min-expires" -> <<"Min-Expires">>;
+%         "min-se" -> <<"Min-SE">>;
+%         "organization" -> <<"Organization">>;
+%         "permission-missing" -> <<"Permission-Missing">>;
+%         "policy-contact" -> <<"Policy-Contact">>;
+%         "policy-id" -> <<"Policy-ID">>;
+%         "priority" -> <<"Priority">>;
+%         "proxy-require" -> <<"Proxy-Require">>;
+%         "reason" -> <<"Reason">>;
+%         "reason-phrase" -> <<"Reason-Phrase">>;
+%         "recv-info" -> <<"Recv-Info">>;
+%         "refer-sub" -> <<"Refer-Sub">>;
+%         "refer-to" -> <<"Refer-To">>;
+%         "referred-by" -> <<"Referred-By">>;
+%         "reject-contact" -> <<"Reject-Contact">>;
+%         "replaces" -> <<"Replaces">>;
+%         "reply-to" -> <<"Reply-To">>;
+%         "request-disposition" -> <<"Request-Disposition">>;
+%         "resource-priority" -> <<"Resource-Priority">>;
+%         "response-key" -> <<"Response-Key">>;
+%         "retry-after" -> <<"Retry-After">>;
+%         "security-client" -> <<"Security-Client">>;
+%         "security-server" -> <<"Security-Server">>;
+%         "security-verify" -> <<"Security-Verify">>;
+%         "server" -> <<"Server">>;
+%         "service-route" -> <<"Service-Route">>;
+%         "sip-etag" -> <<"SIP-ETag">>;
+%         "sip-if-match" -> <<"SIP-If-Match">>;
+%         "subject" -> <<"Subject">>;
+%         "timestamp" -> <<"Timestamp">>;
+%         "trigger-consent" -> <<"Trigger-Consent">>;
+%         "unsupported" -> <<"Unsupported">>;
+%         "warning" -> <<"Warning">>;
+
+%         "p-access-network-info" -> <<"P-Access-Network-Info">>;
+%         "p-answer-state" -> <<"P-Answer-State">>;
+%         "p-asserted-identity" -> <<"P-Asserted-Identity">>;
+%         "p-asserted-service" -> <<"P-Asserted-Service">>;
+%         "p-associated-uri" -> <<"P-Associated-URI">>;
+%         "p-called-party-id" -> <<"P-Called-Party-ID">>;
+%         "p-charging-function-addresses" -> <<"P-Charging-Function-Addresses">>;
+%         "p-charging-vector" -> <<"P-Charging-Vector">>;
+%         "p-dcs-trace-party-id" -> <<"P-DCS-Trace-Party-ID">>;
+%         "p-dcs-osps" -> <<"P-DCS-OSPS">>;
+%         "p-dcs-billing-info" -> <<"P-DCS-Billing-Info">>;
+%         "p-dcs-laes" -> <<"P-DCS-LAES">>;
+%         "p-dcs-redirect" -> <<"P-DCS-Redirect">>;
+%         "p-early-media" -> <<"P-Early-Media">>;
+%         "p-media-authorization" -> <<"P-Media-Authorization">>;
+%         "p-preferred-identity" -> <<"P-Preferred-Identity">>;
+%         "p-preferred-service" -> <<"P-Preferred-Service">>;
+%         "p-profile-key" -> <<"P-Profile-Key">>;
+%         "p-refused-uri-list" -> <<"P-Refused-URI-List">>;
+%         "p-served-user" -> <<"P-Served-User">>;
+%         "p-user-database" -> <<"P-User-Database">>;
+%         "p-visited-network-id" -> <<"P-Visited-Network-ID">>;
+
+%         _ -> unknown
+%     end.
 
