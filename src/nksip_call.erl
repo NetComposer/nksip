@@ -231,7 +231,7 @@ work({send_reply, ReqId, Reply}, From, Call) ->
             end;
         _ -> 
             Result = {error, invalid_call},
-            Call1 = Callç
+            Call1 = Call
     end,
     gen_server:reply(From, Result),
     Call1;
