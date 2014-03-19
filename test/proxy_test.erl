@@ -136,10 +136,10 @@ invalid(Test) ->
 
     % client@nksip is registered by C2, but it will fail because of Proxy-Require
     Opts3 = [
-        {headers, [{"Proxy-Require", "a, b;c=1,d"}]},
-        {fields, [call_id, <<"Unsupported">>]}
+        {headers, [{"proxy-require", "a, b;c=1,d"}]},
+        {fields, [call_id, <<"unsupported">>]}
     ],
-    {ok, 420, [{call_id, CallId3}, {<<"Unsupported">>, [<<"a,b,d">>]}]} = 
+    {ok, 420, [{call_id, CallId3}, {<<"unsupported">>, [<<"a,b,d">>]}]} = 
         nksip_uac:options(C1, "sip:client2@nksip", Opts3),
     
     % The 420 response is always stateless
@@ -179,33 +179,33 @@ opts(Test) ->
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
     
-    % % Server1 proxies the request to client2@nksip using ServerOpts1 options:
-    % % two "Nk" headers are added
-    % ServerOpts1 = [{headers, [{"Nk", "server"}, {"Nk", Test}]}],
-    % Body1 = base64:encode(term_to_binary(ServerOpts1)),
-    % Opts1 = [{headers, [{"Nk", "opts2"}]}, {body, Body1}, {fields, [<<"Nk">>]}],
-    % {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts1),
-    % Res1Rep = list_to_binary(["server,",atom_to_list(Test),",opts2"]),
-    % [{<<"Nk">>, [Res1Rep]}] = Values1,
+    % Server1 proxies the request to client2@nksip using ServerOpts1 options:
+    % two "x-nk" headers are added
+    ServerOpts1 = [{headers, [{"x-nk", "server"}, {"x-nk", Test}]}],
+    Body1 = base64:encode(term_to_binary(ServerOpts1)),
+    Opts1 = [{headers, [{"x-nk", "opts2"}]}, {body, Body1}, {fields, [<<"x-nk">>]}],
+    {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts1),
+    Res1Rep = list_to_binary(["server,",atom_to_list(Test),",opts2"]),
+    [{<<"x-nk">>, [Res1Rep]}] = Values1,
 
-    % % Remove headers at server
-    % ServerOpts2 = [{headers, [{"Nk", "server"}]}, remove_headers],
-    % Body2 = base64:encode(term_to_binary(ServerOpts2)),
-    % Opts2 = [{headers, [{"Nk", "opts2"}]}, {body, Body2}, {fields, [<<"Nk">>]}],
-    % {ok, 200, Values2} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts2),
-    % [{<<"Nk">>, [<<"server">>]}] = Values2,
+    % Remove headers at server
+    ServerOpts2 = [{headers, [{"x-nk", "server"}]}, remove_headers],
+    Body2 = base64:encode(term_to_binary(ServerOpts2)),
+    Opts2 = [{headers, [{"x-nk", "opts2"}]}, {body, Body2}, {fields, [<<"x-nk">>]}],
+    {ok, 200, Values2} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts2),
+    [{<<"x-nk">>, [<<"server">>]}] = Values2,
     
-    % % Add a route at server
-    % ServerOpts3 = [{headers, [{"Nk", "server2"}]}, 
-    %                 {route, "<sip:127.0.0.1:5070;lr>, <sip:1.2.3.4;lr>"}],
-    % Body3 = base64:encode(term_to_binary(ServerOpts3)),
-    % Opts3 = [{headers, [{"Nk", "opts2"}]}, {body, Body3},
-    %          {fields, [<<"Nk">>, <<"Nk-R">>]}],
-    % {ok, 200, Values3} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts3),
-    % [
-    %     {<<"Nk">>, [<<"server2,opts2">>]}, 
-    %     {<<"Nk-R">>, [<<"<sip:127.0.0.1:5070;lr>,<sip:1.2.3.4;lr>">>]}
-    % ] = Values3,
+    % Add a route at server
+    ServerOpts3 = [{headers, [{"x-nk", "server2"}]}, 
+                    {route, "<sip:127.0.0.1:5070;lr>, <sip:1.2.3.4;lr>"}],
+    Body3 = base64:encode(term_to_binary(ServerOpts3)),
+    Opts3 = [{headers, [{"x-nk", "opts2"}]}, {body, Body3},
+             {fields, [<<"x-nk">>, <<"x-nk-r">>]}],
+    {ok, 200, Values3} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts3),
+    [
+        {<<"x-nk">>, [<<"server2,opts2">>]}, 
+        {<<"x-nk-r">>, [<<"<sip:127.0.0.1:5070;lr>,<sip:1.2.3.4;lr>">>]}
+    ] = Values3,
 
     % Add a route from client
     ServerOpts4 = [],
@@ -214,13 +214,13 @@ opts(Test) ->
     Opts4 = [{route, 
                 ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr], ext_opts=[]}, <<"sip:aaa">>]},
              {body, Body4},
-             {fields, [<<"Nk">>, <<"Nk-R">>]}],
+             {fields, [<<"x-nk">>, <<"x-nk-r">>]}],
     {ok, 200, Values4} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts4),
     NkR4 = nksip_lib:bjoin([nksip_unparse:uri(Uri2#uri{opts=[lr], ext_opts=[]}),
                             <<"<sip:aaa>">>]),
     [
-        {<<"Nk">>, []}, 
-        {<<"Nk-R">>, [NkR4]}
+        {<<"x-nk">>, []}, 
+        {<<"x-nk-r">>, [NkR4]}
     ] = Values4,
 
     % Remove route from client at server
@@ -228,11 +228,11 @@ opts(Test) ->
     Body5 = base64:encode(term_to_binary(ServerOpts5)),
     Opts5 = [{route, ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
              {body, Body5}, 
-             {fields, [<<"Nk">>, <<"Nk-R">>]}],
+             {fields, [<<"x-nk">>, <<"x-nk-r">>]}],
     {ok, 200, Values5} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts5),
     [
-        {<<"Nk">>, []}, 
-        {<<"Nk-R">>, []}
+        {<<"x-nk">>, []}, 
+        {<<"x-nk-r">>, []}
     ] = Values5,
 
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
@@ -248,10 +248,10 @@ transport(Test) ->
 
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
-    {ok, 200, [{<<"Nk-Id">>, [<<"client2,server1">>]}]} = 
-        nksip_uac:options(C1, "sip:client2@nksip", [{fields, [<<"Nk-Id">>]}]),
-    {ok, 200, [{<<"Nk-Id">>, [<<"client1,server1">>]}]} = 
-        nksip_uac:options(C2, "sip:client1@nksip", [{fields, [<<"Nk-Id">>]}]),
+    {ok, 200, [{<<"x-nk-id">>, [<<"client2,server1">>]}]} = 
+        nksip_uac:options(C1, "sip:client2@nksip", [{fields, [<<"x-nk-id">>]}]),
+    {ok, 200, [{<<"x-nk-id">>, [<<"client1,server1">>]}]} = 
+        nksip_uac:options(C2, "sip:client1@nksip", [{fields, [<<"x-nk-id">>]}]),
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
 
@@ -279,16 +279,16 @@ transport(Test) ->
 
     % This request is sent using UDP, proxied using TCP
     {ok, 200, Values4} = nksip_uac:options(C1, "sip:client2@nksip", 
-        [{fields, [remote, <<"Nk-Id">>]}]),
+        [{fields, [remote, <<"x-nk-id">>]}]),
     [
         {remote, {udp, {127,0,0,1}, 5060, <<>>}},
-        {<<"Nk-Id">>, [<<"client2,server1">>]}
+        {<<"x-nk-id">>, [<<"client2,server1">>]}
     ] = Values4,
 
     nksip_uac:options(C2, "sip:client1@nksip", 
                                 [{route, "<sip:127.0.0.1;transport=tcp;lr>"},
                                  async, CB, get_request,
-                                 {fields, [local, remote, <<"Nk-Id">>]}]),
+                                 {fields, [local, remote, <<"x-nk-id">>]}]),
     receive 
         {Ref, {req, ReqId5}} -> 
             % Should reuse transport
@@ -301,7 +301,7 @@ transport(Test) ->
             [
                 {local, {tcp, {127,0,0,1}, LPort, <<>>}},
                 {remote, {tcp, {127,0,0,1}, 5060, <<>>}},
-                {<<"Nk-Id">>, [<<"client1,server1">>]}
+                {<<"x-nk-id">>, [<<"client1,server1">>]}
             ] = Values5
         after 1000 ->
             error(transport)
@@ -322,47 +322,47 @@ invite(Test) ->
     
     Ref = make_ref(),
     Self = self(),
-    RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
     RespFun = fun({ok, Code, _}) -> Self ! {Ref, Code} end,
 
     % Provisional 180 and Busy
     {ok, 486, []} = nksip_uac:invite(C1, "sip:client2@nksip", 
-                                     [{headers, [{"Nk-Op", busy}, {"Nk-Prov", true}]},
+                                     [{headers, [{"x-nk-op", busy}, {"x-nk-prov", true}]},
                                       {callback, RespFun}]),
     ok = tests_util:wait(Ref, [180]),
 
     % Provisional 180 and 200
     {ok, 200, [{dialog_id, DialogId1}]} = 
         nksip_uac:invite(C1, "sip:client2@nksip", 
-                                [{headers, [{"Nk-Op", ok}, {"Nk-Prov", true},
-                                            {"Nk-Sleep", 100}, RepHd]},
+                                [{headers, [{"x-nk-op", ok}, {"x-nk-prov", true},
+                                            {"x-nk-sleep", 100}, RepHd]},
                                  {callback, RespFun}]),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [180, {client2, ack}]),
 
     % Several in-dialog requests
-    {ok, 200, [{<<"Nk-Id">>, [<<"client2">>]}]} = 
-        nksip_uac:options(C1, DialogId1, [{fields, [<<"Nk-Id">>]}]),
+    {ok, 200, [{<<"x-nk-id">>, [<<"client2">>]}]} = 
+        nksip_uac:options(C1, DialogId1, [{fields, [<<"x-nk-id">>]}]),
     DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
-    {ok, 200, [{<<"Nk-Id">>, [<<"client1">>]}]} = 
-        nksip_uac:options(C2, DialogId2, [{fields, [<<"Nk-Id">>]}]),
-    {ok, 200, [{dialog_id, DialogId1}, {<<"Nk-Id">>, [<<"client2">>]}]} = 
-        nksip_uac:invite(C1, DialogId1, [{headers, [{"Nk-Op", ok}]},
-                                         {fields, [<<"Nk-Id">>]}]),
+    {ok, 200, [{<<"x-nk-id">>, [<<"client1">>]}]} = 
+        nksip_uac:options(C2, DialogId2, [{fields, [<<"x-nk-id">>]}]),
+    {ok, 200, [{dialog_id, DialogId1}, {<<"x-nk-id">>, [<<"client2">>]}]} = 
+        nksip_uac:invite(C1, DialogId1, [{headers, [{"x-nk-op", ok}]},
+                                         {fields, [<<"x-nk-id">>]}]),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    {ok, 200, [{dialog_id, DialogId2}, {<<"Nk-Id">>, [<<"client1">>]}]} = 
-        nksip_uac:invite(C2, DialogId2, [{headers, [{"Nk-Op", ok}, RepHd]},     
-                                         {fields, [<<"Nk-Id">>]}]),
+    {ok, 200, [{dialog_id, DialogId2}, {<<"x-nk-id">>, [<<"client1">>]}]} = 
+        nksip_uac:invite(C2, DialogId2, [{headers, [{"x-nk-op", ok}, RepHd]},     
+                                         {fields, [<<"x-nk-id">>]}]),
     ok = nksip_uac:ack(C2, DialogId2, []),
     ok = tests_util:wait(Ref, [{client1, ack}]),
     {ok, 200, []} = nksip_uac:bye(C1, DialogId1, []),
 
     % Cancelled request
     {async, ReqId7} = nksip_uac:invite(C1, "sip:client2@nksip", 
-                                        [{headers, [{"Nk-Op", ok}, 
-                                                    {"Nk-Sleep", 5000}, RepHd]},
+                                        [{headers, [{"x-nk-op", ok}, 
+                                                    {"x-nk-sleep", 5000}, RepHd]},
                                          async, {callback, RespFun}]),
     ok = nksip_uac:cancel(C1, ReqId7),
     ok = tests_util:wait(Ref, [487, {client2, bye}]),
@@ -373,7 +373,7 @@ servers(Test) ->
     C2 = {Test, client2},
     Ref = make_ref(),
     Self = self(),
-    RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
@@ -386,7 +386,7 @@ servers(Test) ->
     % As the RURI is sips, it will be sent using sips, even if our Route is sip
     % server1 detects nksip2 is a domain for server2, and routes to there
     % client2 answers
-    Fs1 = {fields, [remote, <<"Nk-Id">>]},
+    Fs1 = {fields, [remote, <<"x-nk-id">>]},
     {ok, 200, Values1} = nksip_uac:options(C1, "sips:client2@nksip2", [Fs1]),
     [
         {remote, {tls, {127,0,0,1}, 5061, <<>>}},
@@ -402,13 +402,13 @@ servers(Test) ->
 
 
     % Test a dialog through 2 proxies without Record-Route
-    Fs3 = {fields, [<<"Contact">>, <<"Nk-Id">>]},
+    Fs3 = {fields, [<<"contact">>, <<"x-nk-id">>]},
     {ok, 200, Values3} = nksip_uac:invite(C1, "sips:client2@nksip2", 
-                                            [Fs3, {headers, [{"Nk-Op", ok}, RepHd]}]),
+                                            [Fs3, {headers, [{"x-nk-op", ok}, RepHd]}]),
     [
         {dialog_id, DialogIdA1},
-        {<<"Contact">>, [C2Contact]},
-        {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
+        {<<"contact">>, [C2Contact]},
+        {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values3,
     [#uri{port=C2Port}] = nksip_parse:uris(C2Contact),
 
@@ -418,31 +418,31 @@ servers(Test) ->
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     % OPTIONS is also sent directly
-    Fs4 = {fields, [remote, <<"Nk-Id">>]},
+    Fs4 = {fields, [remote, <<"x-nk-id">>]},
     {ok, 200, Values4} = nksip_uac:options(C1, DialogIdA1, [Fs4]),
     [
         {remote, {tls, {127,0,0,1}, _, <<>>}},
-        {<<"Nk-Id">>, [<<"client2">>]}
+        {<<"x-nk-id">>, [<<"client2">>]}
     ] = Values4,
 
     DialogIdA2 = nksip_dialog:field(C1, DialogIdA1, remote_id),
     {ok, 200, Values5} = nksip_uac:options(C2, DialogIdA2, [Fs4]),
     [
         {remote, {tls, {127,0,0,1}, 5071, <<>>}},
-        {<<"Nk-Id">>, [<<"client1">>]}
+        {<<"x-nk-id">>, [<<"client1">>]}
     ] = Values5,
 
     {ok, 200, []} = nksip_uac:bye(C1, DialogIdA1, []),
     ok = tests_util:wait(Ref, [{client2, bye}]),
 
     % Test a dialog through 2 proxies with Record-Route
-    Hds6 = {headers, [{"Nk-Op", ok}, {"Nk-Rr", true}, RepHd]},
-    Fs6 = {fields, [<<"Record-Route">>, <<"Nk-Id">>]},
+    Hds6 = {headers, [{"x-nk-op", ok}, {"x-nk-rr", true}, RepHd]},
+    Fs6 = {fields, [<<"record-route">>, <<"x-nk-id">>]},
     {ok, 200, Values6} = nksip_uac:invite(C1, "sips:client2@nksip2", [Hds6, Fs6]),
     [
         {dialog_id, DialogIdB1},
-        {<<"Record-Route">>, [RR1, RR2]},
-        {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
+        {<<"record-route">>, [RR1, RR2]},
+        {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values6,
     [#uri{port=5081, opts=[{<<"transport">>, <<"tls">>}, <<"lr">>]}] = 
         nksip_parse:uris(RR1),
@@ -453,7 +453,7 @@ servers(Test) ->
     {ok, 200, Values7} = nksip_uac:options(C1, DialogIdB1, [Fs4]),
     [
         {remote, {tls, _, 5061, <<>>}},
-        {<<"Nk-Id">>, [<<"client2,server2,server1">>]}
+        {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values7,
 
     {req, AckReq} = nksip_uac:ack(C1, DialogIdB1, [get_request]),
@@ -463,14 +463,14 @@ servers(Test) ->
              opts=[{<<"transport">>,<<"tls">>},<<"lr">>]},
         #uri{scheme=sip, domain = <<"localhost">>, port=5081,
              opts=[{<<"transport">>,<<"tls">>},<<"lr">>]}
-    ] = nksip_sipmsg:header(AckReq, <<"Route">>, uris),
+    ] = nksip_sipmsg:header(AckReq, <<"route">>, uris),
     ok = tests_util:wait(Ref, [{client2, ack}]),
  
     DialogIdB2 = nksip_dialog:field(C1, DialogIdB1, remote_id),
-    Fs8 = {fields, [<<"Nk-Id">>]},
+    Fs8 = {fields, [<<"x-nk-id">>]},
     {ok, 200, Values8} = nksip_uac:options(C2, DialogIdB2, [Fs8]),
-    [{<<"Nk-Id">>, [<<"client1,server1,server2">>]}] = Values8,
-    {ok, 200, []} = nksip_uac:bye(C2, DialogIdB2, [{headers, [{"Nk-Rr", true}]}]),
+    [{<<"x-nk-id">>, [<<"client1,server1,server2">>]}] = Values8,
+    {ok, 200, []} = nksip_uac:bye(C2, DialogIdB2, [{headers, [{"x-nk-rr", true}]}]),
     ok.
 
 
@@ -480,7 +480,7 @@ dialog() ->
     S1 = {stateful, server1},
     Ref = make_ref(),
     Self = self(),
-    RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
     
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
@@ -489,7 +489,7 @@ dialog() ->
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
     {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client2@nksip",
-                                [{headers, [{"Nk-Op", answer}, {"Nk-Rr", true}, RepHd]}, 
+                                [{headers, [{"x-nk-op", answer}, {"x-nk-rr", true}, RepHd]}, 
                                  {body, SDP}]),
     [{dialog_id, DialogId1}] = Values1,
     ok = nksip_uac:ack(C1, DialogId1, []),
@@ -555,7 +555,7 @@ dialog() ->
              parsed_local_target, parsed_remote_target, invite_local_sdp, 
              invite_remote_sdp, parsed_route_set]),
 
-    {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{headers, [{"Nk-Rr", true}]}]),
+    {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{headers, [{"x-nk-rr", true}]}]),
     error = nksip_dialog:field(C1, DialogId1, status),
     error = nksip_dialog:field(C2, DialogId2, status),
     error = nksip_dialog:field(S1, DialogId1, status),

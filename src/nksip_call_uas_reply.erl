@@ -131,7 +131,7 @@ check_prack(Resp, UAS) ->
                 0 -> crypto:rand_uniform(1, 2147483647);
                 _ -> LastRSeq+1
             end,
-            Headers1 = nksip_headers:update(Resp, [{single, <<"RSeq">>, RSeq}]),
+            Headers1 = nksip_headers:update(Resp, [{single, <<"rseq">>, RSeq}]),
             Resp1 = Resp#sipmsg{headers=Headers1},
             PRAcks = [{RSeq, CSeq, Method, DialogId}],
             UAS1 = UAS#trans{rseq=RSeq, pracks=PRAcks},

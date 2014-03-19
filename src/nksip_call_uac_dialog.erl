@@ -570,7 +570,7 @@ generate(Method, Opts, Dialog, Call) ->
                 #invite{request=#sipmsg{headers=Headers}} = Invite,
                 case 
                     nksip_lib:extract(Headers,
-                                      [<<"Authorization">>, <<"Proxy-Authorization">>])
+                                      [<<"authorization">>, <<"proxy-authorization">>])
                 of
                     [] -> [];
                     AuthHds -> [{pre_headers, AuthHds}]

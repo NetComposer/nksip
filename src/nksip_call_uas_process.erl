@@ -179,7 +179,7 @@ method('REGISTER', Req, UAS, Call) ->
         {value, registrar, Registrar}, 
         {value, req, Req}
     ],
-    case nksip_sipmsg:header(Req, <<"Path">>, uris) of
+    case nksip_sipmsg:header(Req, <<"path">>, uris) of
         error ->
             reply(invalid_request, UAS, Call);
         [] ->
@@ -198,7 +198,7 @@ method('PRACK', Req, UAS, Call) ->
     #sipmsg{dialog_id=DialogId} = Req,
     #call{trans=Trans} = Call,
     try
-        {RSeq, CSeq, Method} = case nksip_sipmsg:header(Req, <<"RAck">>) of
+        {RSeq, CSeq, Method} = case nksip_sipmsg:header(Req, <<"rack">>) of
             [RACK] ->
                 case nksip_lib:tokens(RACK) of
                     [RSeqB, CSeqB, MethodB] ->
@@ -248,7 +248,7 @@ method('MESSAGE', Req, UAS, Call) ->
     #sipmsg{expires=Expires, start=Start} = Req,
     Expired = case is_integer(Expires) of
         true ->
-            case nksip_sipmsg:header(Req, <<"Date">>, dates) of
+            case nksip_sipmsg:header(Req, <<"date">>, dates) of
                 [Date] ->
                     Final = nksip_lib:gmt_to_timestamp(Date) + Expires,
                     case nksip_lib:timestamp() of
@@ -269,7 +269,7 @@ method('MESSAGE', Req, UAS, Call) ->
     process_call(message, Fields, UAS, Call);
 
 method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
-    case proplists:get_all_values(<<"Refer-To">>, Headers) of
+    case proplists:get_all_values(<<"refer-to">>, Headers) of
         [ReferTo] ->
             Fields = [app_id, aor, dialog_id, subscription_id, 
                       {value, refer_to, ReferTo}],
@@ -279,7 +279,7 @@ method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
     end;
 
 method('PUBLISH', Req, UAS, Call) ->
-    case nksip_sipmsg:header(Req, <<"SIP-If-Match">>) of
+    case nksip_sipmsg:header(Req, <<"sip-if-match">>) of
         [Tag] -> ok;
         _ -> Tag = <<>>
     end,

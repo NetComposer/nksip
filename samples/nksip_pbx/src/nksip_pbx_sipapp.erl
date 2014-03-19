@@ -155,7 +155,7 @@ route(ReqId, _Scheme, <<"200">>, _, _From, State) ->
 
 route(ReqId, _Scheme, <<"201">>, _, _From, State) ->
     All = random_list(find_all_except_me(ReqId)),
-    Opts = [{headers, [{<<"Nksip-Server">>, <<"201">>}]}],
+    Opts = [{headers, [{<<"nksip-server">>, <<"201">>}]}],
     Reply =  {proxy, take_in_pairs(All), Opts},
     {reply, Reply, State};
 
@@ -270,7 +270,7 @@ find_all() ->
 
 %% @doc Gets all registered contacts, excluding the one in `Request'
 find_all_except_me(ReqId) ->
-    [From] = nksip_request:header(pbx, ReqId, <<"From">>),
+    [From] = nksip_request:header(pbx, ReqId, <<"from">>),
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [

@@ -101,8 +101,8 @@ basic() ->
     end},
     Body = {body, SDP0},
     Hds1 = {headers, [
-        {"Nk-Op", "basic"},
-        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
+        {"x-nk-op", "basic"},
+        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}
     ]},
     {ok, 200, Values1} = nksip_uac:invite(C1, SipC2, [CB, Hds1, Body]),
     [{dialog_id, DialogId}] = Values1,
@@ -161,7 +161,7 @@ pending() ->
         end
     end},    Body = {body, SDP0},
     Hds1 = {headers, [
-        {"Nk-Op", "pending1"}
+        {"x-nk-op", "pending1"}
     ]},
     {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, SipC2, [Hds1, Body, CB]),
     ok = nksip_uac:ack(C1, DialogId, []),

@@ -112,7 +112,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
         Iter < ?MAX_422_TRIES
     of 
         true ->
-            case nksip_sipmsg:header(Resp, <<"Min-SE">>, integers) of
+            case nksip_sipmsg:header(Resp, <<"min-se">>, integers) of
                 [RespMinSE] ->
                     #call{opts=#call_opts{app_opts=AppOpts}} = Call,
                     ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
@@ -139,8 +139,8 @@ uac_received_422(Req, Resp, UAC, Call) ->
                                 undefined -> SE1
                             end,
                             Headers1 = nksip_headers:update(Req, [
-                                {single, <<"Session-Expires">>, SEHd},
-                                {single, <<"Min-SE">>, NewMinSE}
+                                {single, <<"session-expires">>, SEHd},
+                                {single, <<"min-se">>, NewMinSE}
                             ]),
                             Req1 = Req#sipmsg{headers=Headers1},
                             {resend, Req1, Call1};
@@ -182,12 +182,12 @@ uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
                             end,
                             case nksip_sipmsg:supported(Req, <<"timer">>) of
                                 true ->
-                                    {reply, {422, [{<<"Min-SE">>, MinSE}]}, Call1};
+                                    {reply, {422, [{<<"min-se">>, MinSE}]}, Call1};
                                 false ->
                                     % No point in returning 422
                                     % Update in case we are a proxy
                                     Headers1 = nksip_headers:update(Req, 
-                                                    [{single, <<"Min-SE">>, MinSE}]),
+                                                    [{single, <<"min-se">>, MinSE}]),
                                     {update, Req#sipmsg{headers=Headers1}, Call1}
                             end;
                         _ ->
@@ -214,7 +214,7 @@ uas_update_timer(
             #sipmsg{require=Require} = Resp,
             #call{opts=#call_opts{app_opts=AppOpts}} = Call,
             ReqSupport = nksip_sipmsg:supported(Req, <<"timer">>), 
-            ReqMinSE = case nksip_sipmsg:header(Req, <<"Min-SE">>, integers) of
+            ReqMinSE = case nksip_sipmsg:header(Req, <<"min-se">>, integers) of
                 [ReqMinSE0] -> ReqMinSE0;
                 _ -> 90
             end,
@@ -236,7 +236,7 @@ uas_update_timer(
             end,
             SE_Token = {SE, [{<<"refresher">>, Refresh}]},
             Headers1 = nksip_headers:update(Resp, 
-                            [{default_single, <<"Session-Expires">>, SE_Token}]),
+                            [{default_single, <<"session-expires">>, SE_Token}]),
             % Add 'timer' to response's Require only if supported by uac
             Require1 = case ReqSupport of
                 true -> nksip_lib:store_value(<<"timer">>, Require);
@@ -257,7 +257,7 @@ uas_update_timer(_Req, Resp, _Call) ->
 
 proxy_request(#sipmsg{class={req, Method}}=Req, Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
-    ReqMinSE = case nksip_sipmsg:header(Req, <<"Min-SE">>, integers) of
+    ReqMinSE = case nksip_sipmsg:header(Req, <<"min-se">>, integers) of
         [ReqMinSE0] -> ReqMinSE0;
         _ -> 90
     end,
@@ -275,7 +275,7 @@ proxy_request(#sipmsg{class={req, Method}}=Req, Call)
         ReqSE -> 
             Req;
         _ -> 
-            Headers1 = nksip_headers:update(Req, [{single, <<"Session-Expires">>, SE}]),
+            Headers1 = nksip_headers:update(Req, [{single, <<"session-expires">>, SE}]),
             Req#sipmsg{headers=Headers1}
     end;
 
@@ -299,7 +299,7 @@ proxy_response(Req, Resp) ->
                             SE_Token = {nksip_lib:to_binary(SE), 
                                             [{<<"refresher">>, <<"uac">>}]},
                             Headers1 = nksip_headers:update(Resp, 
-                                [{single, <<"Session-Expires">>, SE_Token}]),
+                                [{single, <<"session-expires">>, SE_Token}]),
                             #sipmsg{require=Require} = Resp,
                             Require1 = nksip_lib:store_value(<<"timer">>, Require),
                             Resp#sipmsg{require=Require1, headers=Headers1};
@@ -314,7 +314,7 @@ proxy_response(Req, Resp) ->
 
 %% @private
 parse(Resp) ->
-    case catch nksip_parse:header({<<"Session-Expires">>, Resp}) of
+    case catch nksip_parse:header({<<"session-expires">>, Resp}) of
         {error, undefied} -> undefined;
         {SE, Refresh} -> {SE, Refresh};
         _ -> invalid

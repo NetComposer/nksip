@@ -48,7 +48,7 @@ get_user_pass(<<"client2">>, <<"nksip">>) -> <<"4321">>;
 get_user_pass(_, _) -> false.
 
 authorize(Req, Auth, From) ->
-    Reply = case nksip_sipmsg:header(Req, <<"Nksip-Auth">>) of
+    Reply = case nksip_sipmsg:header(Req, <<"x-nksip-auth">>) of
         [<<"true">>] ->
             case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
                 true ->
@@ -73,7 +73,7 @@ route(Req, Scheme, User, Domain, _From) ->
     send_reply(Req, route),
     Opts = [
         record_route,
-        {headers, [{"Nk-Id", Id}]}
+        {headers, [{"x-nk-id", Id}]}
     ],
     case lists:member(Domain, [<<"127.0.0.1">>, <<"nksip">>]) of
         true when User =:= <<>> ->

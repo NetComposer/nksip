@@ -328,7 +328,7 @@ reqreply({method_not_allowed, Methods}) ->
     Methods1 = nksip_lib:to_binary(Methods), 
     #reqreply{
         code = 405, 
-        headers = nksip_headers:new([{single, <<"Allow">>, Methods1}])
+        headers = nksip_headers:new([{single, <<"allow">>, Methods1}])
     };
 reqreply(proxy_authenticate) ->
     #reqreply{code=407, opts=[make_allow, {make_proxy_auth, from}]};
@@ -342,7 +342,7 @@ reqreply({unsupported_media_type, Types}) ->
     Types1 = nksip_lib:to_binary(Types), 
     #reqreply{
         code=415, 
-        headers = nksip_headers:new([{single, <<"Accept">>, Types1}])
+        headers = nksip_headers:new([{single, <<"accept">>, Types1}])
     };
 reqreply(conditional_request_failed) ->
     #reqreply{code=412};
@@ -352,7 +352,7 @@ reqreply({unsupported_media_encoding, Types}) ->
     Types1 = nksip_lib:to_binary(Types),    
     #reqreply{
         code = 415, 
-        headers = nksip_headers:new([{single, <<"Accept-Encoding">>, Types1}])
+        headers = nksip_headers:new([{single, <<"accept-encoding">>, Types1}])
     };
 reqreply(unsupported_uri_scheme) -> 
     #reqreply{code=416};
@@ -360,7 +360,7 @@ reqreply({bad_extension, Exts}) ->
     Exts1 = nksip_lib:to_binary(Exts),  
     #reqreply{
         code = 420, 
-        headers = nksip_headers:new([{single, <<"Unsupported">>, Exts1}])
+        headers = nksip_headers:new([{single, <<"unsupported">>, Exts1}])
     };
 reqreply({extension_required, Exts}) -> 
     #reqreply{code=421, opts=[{require, Exts}]};
@@ -368,7 +368,7 @@ reqreply({interval_too_brief, Min}) ->
     Min1 = nksip_lib:to_binary(Min),    
     #reqreply{
         code = 423, 
-        headers = nksip_headers:new([{single, <<"Min-Expires">>, Min1}])
+        headers = nksip_headers:new([{single, <<"min-expires">>, Min1}])
     };
 reqreply(flow_failed) ->
     #reqreply{code=430};
@@ -391,7 +391,7 @@ reqreply(busy) ->
 reqreply(request_terminated) ->
     #reqreply{code=487};
 reqreply({not_acceptable, Reason}) ->
-    #reqreply{code=488, headers=[{<<"Warning">>, nksip_lib:to_binary(Reason)}]};
+    #reqreply{code=488, headers=[{<<"warning">>, nksip_lib:to_binary(Reason)}]};
 reqreply(bad_event) ->
     #reqreply{code=489};
 reqreply(request_pending) ->

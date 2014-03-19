@@ -128,14 +128,14 @@ make_cancel(Req, Reason) ->
         vias = [Via|_], 
         headers = Hds
     } = Req,
-    Headers1 = nksip_lib:extract(Hds, <<"Route">>),
+    Headers1 = nksip_lib:extract(Hds, <<"route">>),
     Headers2 = case Reason of
         undefined ->
             Headers1;
         Reason ->
             case nksip_unparse:error_reason(Reason) of
                 error -> Headers1;
-                BinReason -> [{<<"Reason">>, BinReason}|Headers1]
+                BinReason -> [{<<"reason">>, BinReason}|Headers1]
             end
     end,
     Req#sipmsg{
@@ -295,7 +295,7 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
 
         %% Automatic header generation (replace existing headers)
         user_agent ->
-            {write_header(Req, <<"User-Agent">>, <<"NkSIP ", ?VERSION>>), Opts};
+            {write_header(Req, <<"user-agent">>, <<"NkSIP ", ?VERSION>>), Opts};
         supported ->
             {Req#sipmsg{supported=?SUPPORTED}, Opts};
         allow ->
@@ -303,7 +303,7 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
                 true -> <<(?ALLOW)/binary, ", REGISTER">>;
                 false -> ?ALLOW
             end,
-            {write_header(Req, <<"Allow">>, Allow), Opts};
+            {write_header(Req, <<"allow">>, Allow), Opts};
         accept ->
             Accept = case Req of
                 #sipmsg{class={req, Method}} 
@@ -312,17 +312,17 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
                 _ -> 
                     ?ACCEPT
             end,
-            {write_header(Req, <<"Accept">>, Accept), Opts};
+            {write_header(Req, <<"accept">>, Accept), Opts};
         date ->
             Date = nksip_lib:to_binary(httpd_util:rfc1123_date()),
-            {write_header(Req, <<"Date">>, Date), Opts};
+            {write_header(Req, <<"date">>, Date), Opts};
         allow_event ->
             case nksip_lib:get_value(event, AppOpts) of
                 undefined -> 
                     {Req, Opts};
                 Events -> 
                     AllowEvent = nksip_lib:bjoin(Events),
-                    {write_header(Req, <<"Allow-Event">>, AllowEvent), Opts}
+                    {write_header(Req, <<"allow-event">>, AllowEvent), Opts}
             end;
 
         % Standard headers (replace existing headers)
@@ -383,7 +383,7 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
         {reason, Reason} when is_tuple(Reason) ->
             case nksip_unparse:error_reason(Reason) of
                 error -> throw({invalid, reason});
-                Bin -> {write_header(Req, <<"Reason">>, Bin), Opts}
+                Bin -> {write_header(Req, <<"reason">>, Bin), Opts}
             end;
         {event, Event} ->
             case nksip_parse:tokens(Event) of
@@ -393,7 +393,7 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
         {subscription_state, ST} when is_tuple(ST) ->
             case catch nksip_unparse:token(ST) of
                 Bin when is_binary(Bin) ->
-                    {write_header(Req, <<"Subscription-State">>, Bin), Opts};
+                    {write_header(Req, <<"subscription-state">>, Bin), Opts};
                 _ ->
                     throw({invalid, subscription_state})
             end;
@@ -406,14 +406,14 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
                         (Class==uac orelse Class==uas) andalso
                         is_integer(Int) andalso Int >= MinSE ->
                     Token = {Int, [{<<"refresher">>, Class}]},
-                    {write_header(Req, <<"Session-Expires">>, Token), Opts};
+                    {write_header(Req, <<"session-expires">>, Token), Opts};
                 Int when is_integer(Int) andalso Int >= MinSE ->
-                    {write_header(Req, <<"Session-Expires">>, Int), Opts};
+                    {write_header(Req, <<"session-expires">>, Int), Opts};
                 _ ->
                     throw({invalid, session_expires})
             end;
         {min_se, MinSE} when is_integer(MinSE), MinSE > 0 ->
-            {write_header(Req, <<"Min-SE">>, MinSE), Opts};
+            {write_header(Req, <<"min-se">>, MinSE), Opts};
 
         % Routes (added before existing ones)
         {route, Route} ->

@@ -165,8 +165,8 @@ invite() ->
     RUri = "sip:[::1]:5071",
     Ref = make_ref(),
     Hds = {headers, [
-        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
-        {"Nk-Op", "ok"}
+        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
+        {"x-nk-op", "ok"}
     ]},
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, RUri, [Hds]),
     ok = nksip_uac:ack(C1, DialogId1, []),
@@ -195,8 +195,8 @@ proxy() ->
     S1Uri = "sip:[::1]",
     Ref = make_ref(),
     Hds = {headers, [
-        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
-        {"Nk-Op", "ok"}
+        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
+        {"x-nk-op", "ok"}
     ]},
 
     {ok, 200, []} = nksip_uac:register(C1, S1Uri, [unregister_all]),
@@ -211,8 +211,8 @@ proxy() ->
     %% and routes the request (stateless, no record_route) to Server2
     %% Server2 routes to C2 (stateful, record_route)
     Route = {route, "<sip:[::1];lr>"},
-    {ok, 200, [{dialog_id, DialogId1}, {<<"Nk-Id">>, [<<"client2,server2,server1">>]}]} = 
-        nksip_uac:invite(C1, "sip:client2@nksip", [Route, Hds, {fields, [<<"Nk-Id">>]}, 
+    {ok, 200, [{dialog_id, DialogId1}, {<<"x-nk-id">>, [<<"client2,server2,server1">>]}]} = 
+        nksip_uac:invite(C1, "sip:client2@nksip", [Route, Hds, {fields, [<<"x-nk-id">>]}, 
                                                   {supported, ""}]),
     % Without outbound, the Record-Route has the NkQ format, and it is converted
     % to NkS when back, with transport tcp
@@ -238,7 +238,7 @@ bridge_4_6() ->
     %% Server1 and Server2 listens on both
     C1 = {ipv6, client1},
     C3 = {ipv6, client3},
-    Hds = {headers, [{"Nk-Op", "ok"}]},
+    Hds = {headers, [{"x-nk-op", "ok"}]},
 
     {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [unregister_all]),
@@ -252,13 +252,13 @@ bridge_4_6() ->
     %% and routes the request (stateless, no record_route, IPv6) to Server2
     %% Server2 routes to C3 (stateful, record_route, IPv4)
     Route1 = {route, "<sip:[::1];lr>"},
-    Fields1 = {fields, [<<"Nk-Id">>, parsed_contacts]},
+    Fields1 = {fields, [<<"x-nk-id">>, parsed_contacts]},
     {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client3@nksip", 
                                 [Route1, Hds, Fields1, {supported, ""}]),
     %% C3 has generated a IPv4 Contact
     [
         {dialog_id, DialogId1}, 
-        {<<"Nk-Id">>, [<<"client3,server2,server1">>]},
+        {<<"x-nk-id">>, [<<"client3,server2,server1">>]},
         {parsed_contacts, [#uri{domain = <<"127.0.0.1">>}]}
     ] = Values1,
 

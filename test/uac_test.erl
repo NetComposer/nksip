@@ -79,7 +79,7 @@ uac() ->
     Ref = make_ref(),
     Fun = fun(Reply) -> Self ! {Ref, Reply} end,
     CB = {callback, Fun},
-    Hds = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}]},
+    Hds = {headers, [{"x-nk-op", busy}, {"x-nk-prov", "true"}]},
 
     nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
     {error, service_unavailable} =
@@ -174,14 +174,14 @@ info() ->
     C1 = {uac, client1},
     C2 = {uac, client2},
     SipC1 = "sip:127.0.0.1:5070",
-    Hds1 = {headers, [{<<"Nk-Op">>, <<"ok">>}]},
+    Hds1 = {headers, [{<<"x-nk-op">>, <<"ok">>}]},
     {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(C2, SipC1, [Hds1]),
     ok = nksip_uac:ack(C2, DialogId2, []),
-    Fs = {fields, [<<"Nk-Method">>, <<"Nk-Dialog">>]},
+    Fs = {fields, [<<"x-nk-method">>, <<"x-nk-dialog">>]},
     DialogId1 = nksip_dialog:field(C2, DialogId2, remote_id),
 
     {ok, 200, Values1} = nksip_uac:info(C2, DialogId2, [Fs]),
-    [{<<"Nk-Method">>, [<<"info">>]}, {<<"Nk-Dialog">>, [DialogId1]}] = Values1,
+    [{<<"x-nk-method">>, [<<"info">>]}, {<<"x-nk-dialog">>, [DialogId1]}] = Values1,
 
     % Now we forcefully stop dialog at C1. At C2 is still valid, and can send the INFO
     ok = nksip_dialog:stop(C1, DialogId1),
@@ -208,12 +208,12 @@ timeout() ->
         nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{fields, [reason_phrase]}]),
 
     % REGISTER sends a provisional response, but the timeout is the same
-    Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},
+    Hds1 = {headers, [{<<"x-nk-sleep">>, 2000}]},
     {ok, 408, [{reason_phrase, <<"Timer F Timeout">>}]} = 
         nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason_phrase]}]),
 
     % INVITE sends 
-    Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Prov", "true"}, {"Nk-Sleep", 20000}]},
+    Hds2 = {headers, [{"x-nk-op", busy}, {"x-nk-prov", "true"}, {"x-nk-sleep", 20000}]},
     {ok, 408, [{reason_phrase, Reason}]} = 
         nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason_phrase]}]),
     
@@ -230,7 +230,7 @@ message() ->
     Ref = make_ref(),
     Self = self(),
     Hds = {headers, [
-        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
+        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}
     ]},
     {ok, 200, []} = nksip_uac:message({uac,client2}, "sip:user@127.0.0.1:5070", [
                                       Hds, {expires, 10}, {content_type, "text/plain"},

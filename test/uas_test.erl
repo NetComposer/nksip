@@ -76,7 +76,7 @@ uas() ->
     
     % Test loop detection
     Opts1 = [
-        {headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]},
+        {headers, [{<<"x-nk-op">>, <<"reply-stateful">>}]},
         {fields, [call_id, from, cseq_num]}
     ],
     {ok, 200, Values1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
@@ -88,7 +88,7 @@ uas() ->
 
     % Stateless proxies do not detect loops
     Opts3 = [
-        {headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]},
+        {headers, [{<<"x-nk-op">>, <<"reply-stateless">>}]},
         {fields, [call_id, from, cseq_num]}
     ],
     {ok, 200, Values3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
@@ -98,21 +98,21 @@ uas() ->
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
 
     % Test bad extension endpoint and proxy
-    Opts5 = [{headers, [{"Require", "a,b;c,d"}]}, {fields, [all_headers]}],
+    Opts5 = [{headers, [{"require", "a,b;c,d"}]}, {fields, [all_headers]}],
     {ok, 420, [{all_headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
     % 'a' is supported because of app config
-    [<<"b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds5),
+    [<<"b,d">>] = proplists:get_all_values(<<"unsupported">>, Hds5),
     
     Opts6 = [
-        {headers, [{"Proxy-Require", "a,b;c,d"}]}, 
+        {headers, [{"proxy-require", "a,b;c,d"}]}, 
         {route, "<sip:127.0.0.1;lr>"},
         {fields, [all_headers]}
     ],
     {ok, 420, [{all_headers, Hds6}]} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
-    [<<"a,b,d">>] = proplists:get_all_values(<<"Unsupported">>, Hds6),
+    [<<"a,b,d">>] = proplists:get_all_values(<<"unsupported">>, Hds6),
 
     % Force invalid response
-    Opts7 = [{headers, [{"Nksip-Op", "reply-invalid"}]}, {fields, [reason_phrase]}],
+    Opts7 = [{headers, [{"x-nk-op", "reply-invalid"}]}, {fields, [reason_phrase]}],
     nksip_trace:warning("Next warning about a invalid sipreply is expected"),
     {ok, 500,  [{reason_phrase, <<"Invalid SipApp Response">>}]} = 
         nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
@@ -189,11 +189,11 @@ timeout() ->
     Opts2 = [{timer_t1, 10}, {timer_c, 0.5}|Opts] -- [{sipapp_timeout, 0.02}],
     ok = nksip_sipapp_srv:put_opts(C1, Opts2),
 
-    Hds1 = {headers, [{<<"Nk-Sleep">>, 2000}]},
+    Hds1 = {headers, [{<<"x-nk-sleep">>, 2000}]},
     {ok, 408, [{reason_phrase, <<"No-INVITE Timeout">>}]} = 
         nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason_phrase]}]),
 
-    Hds2 = {headers, [{"Nk-Op", busy}, {"Nk-Sleep", 2000}]},
+    Hds2 = {headers, [{"x-nk-op", busy}, {"x-nk-sleep", 2000}]},
     {ok, 408, [{reason_phrase, <<"Timer C Timeout">>}]} = 
         nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason_phrase]}]),
     ok.

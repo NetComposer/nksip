@@ -47,15 +47,15 @@ launch() ->
         ]),
 
     {ok,200,[]} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
-    {ok,407,[{reason_phrase,<<"Proxy Authentication Required">>}]} =
+    {ok,407,[{reason_phrase, <<"Proxy Authentication Required">>}]} =
         nksip_uac:options(client1, "sip:127.0.0.1", [{fields, [reason_phrase]}]),
 
     {ok,200,[]} = nksip_uac:options(client1, "sip:127.0.0.1", [{pass, "1234"}]),
     {ok,200,[]} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}]),
 
-    {ok,200,[{<<"Contact">>, [<<"<sip:client1@127.0.0.1:5070>;expires=3600">>]}]} = 
+    {ok,200,[{<<"contact">>, [<<"<sip:client1@127.0.0.1:5070>;expires=3600">>]}]} = 
         nksip_uac:register(client1, "sip:127.0.0.1", 
-                           [{pass, "1234"}, make_contact, {fields, [<<"Contact">>]}]),
+                           [{pass, "1234"}, make_contact, {fields, [<<"contact">>]}]),
 
     {ok,200,[]} = nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, make_contact]),
 
@@ -66,10 +66,10 @@ launch() ->
     {ok,200,[]} = nksip_uac:options(client2, "sips:127.0.0.1", []),
 
     {ok,407,[]} = nksip_uac:options(client1, "sips:client2@nksip", [{route, "<sip:127.0.0.1;lr>"}]),
-    {ok,200,[{<<"Nksip-Id">>, [<<"client2">>]}]} = 
+    {ok,200,[{<<"nksip-id">>, [<<"client2">>]}]} = 
         nksip_uac:options(client1, "sips:client2@nksip", 
                           [{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"},
-                           {fields, [<<"Nksip-Id">>]}]),
+                           {fields, [<<"nksip-id">>]}]),
 
     {ok,488,[{dialog_id, _}]} = 
         nksip_uac:invite(client2, "sip:client1@nksip", [{route, "<sips:127.0.0.1;lr>"}]),

@@ -51,7 +51,7 @@ init(Id) ->
 % It domain is 'nksip', it sends the request to P2, inserting Path and Nk-Id headers
 % If not, simply proxies the request adding a Nk-Id header
 route(_, _, _, Domain, _, #state{id={_, p1}}=State) ->
-    Base = [{headers, [{"Nk-Id", "p1"}]}],
+    Base = [{headers, [{"x-nk-id", "p1"}]}],
     case Domain of 
         <<"nksip">> -> 
             Opts = [{route, "<sip:127.0.0.1:5071;lr;transport=tls>"}, 
@@ -65,7 +65,7 @@ route(_, _, _, Domain, _, #state{id={_, p1}}=State) ->
 % For 'nksip' domain, sends the request to P3, inserting Nk-Id header
 % For other, simply proxies and adds header
 route(_, _, _, Domain, _, #state{id={_, p2}}=State) ->
-    Base = [{headers, [{"Nk-Id", "p2"}]}],
+    Base = [{headers, [{"x-nk-id", "p2"}]}],
     case Domain of 
         <<"nksip">> -> 
             Opts = [{route, "<sip:127.0.0.1:5080;lr;transport=tcp>"}|Base],
@@ -79,7 +79,7 @@ route(_, _, _, Domain, _, #state{id={_, p2}}=State) ->
 % For 'nksip', it sends everything to the registrar, inserting Path header
 % For other proxies the request
 route(_, _, _, Domain, _, #state{id={_, p3}}=State) ->
-    Base = [{headers, [{"Nk-Id", "p3"}]}],
+    Base = [{headers, [{"x-nk-id", "p3"}]}],
     case Domain of 
         <<"nksip">> -> 
             Opts = [{route, "<sip:127.0.0.1:5090;lr>"}, make_path, record_route|Base],
@@ -93,7 +93,7 @@ route(_, _, _, Domain, _, #state{id={_, p3}}=State) ->
 % For 'nksip', it sends everything to the registrar, inserting Path header
 % For other proxies the request
 route(_, _, _, _, _, #state{id={_, p4}}=State) ->
-    Base = [{headers, [{"Nk-Id", "p4"}]}, make_path, record_route],
+    Base = [{headers, [{"x-nk-id", "p4"}]}, make_path, record_route],
     {reply, {proxy, ruri, Base}, State};
 
 

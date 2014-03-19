@@ -102,7 +102,7 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         parsed_require -> S#sipmsg.require;
         supported -> nksip_lib:bjoin(S#sipmsg.supported);
         parsed_supported -> S#sipmsg.supported;
-        allow -> header(S, <<"Allow">>);
+        allow -> header(S, <<"allow">>);
         body -> S#sipmsg.body;
         expires -> nksip_lib:to_binary(S#sipmsg.expires);
         parsed_expires -> S#sipmsg.expires;
@@ -113,11 +113,11 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
         reason_phrase -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
         realms -> nksip_auth:realms(S);
         rseq_num -> 
-            case header(S, <<"RSeq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
+            case header(S, <<"rseq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
         content_type -> nksip_unparse:token(S#sipmsg.content_type);
         parsed_content_type -> S#sipmsg.content_type;
         parsed_rack ->
-            case header(S, <<"RAck">>) of 
+            case header(S, <<"rack">>) of 
                 [RAck] ->
                     case nksip_lib:tokens(RAck) of
                         [RSeq, CSeq, Method] ->
@@ -172,19 +172,19 @@ named_fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
 
 header(#sipmsg{headers=Headers}=SipMsg, Name) ->
     case nksip_lib:to_binary(Name) of
-        <<"Call-ID">> -> [field(SipMsg, call_id)];
-        <<"Via">> -> field(SipMsg, vias);
-        <<"From">> -> [field(SipMsg, from)];
-        <<"To">> -> [field(SipMsg, to)];
-        <<"CSeq">> -> [field(SipMsg, cseq)];
-        <<"Forwards">> -> [nksip_lib:to_binary(field(SipMsg, forwards))];
-        <<"Route">> -> field(SipMsg, routes);
-        <<"Contact">> -> field(SipMsg, contacts);
-        <<"Content-Type">> -> [field(SipMsg, content_type)];
-        <<"Require">> -> case field(SipMsg, require) of <<>> -> []; R -> [R] end;
-        <<"Supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> [S] end;
-        <<"Expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> [E] end;
-        <<"Event">> -> case field(SipMsg, event) of <<>> -> []; E -> [E] end;
+        <<"call-id">> -> [field(SipMsg, call_id)];
+        <<"via">> -> field(SipMsg, vias);
+        <<"from">> -> [field(SipMsg, from)];
+        <<"to">> -> [field(SipMsg, to)];
+        <<"cseq">> -> [field(SipMsg, cseq)];
+        <<"forwards">> -> [nksip_lib:to_binary(field(SipMsg, forwards))];
+        <<"route">> -> field(SipMsg, routes);
+        <<"contact">> -> field(SipMsg, contacts);
+        <<"content-type">> -> [field(SipMsg, content_type)];
+        <<"require">> -> case field(SipMsg, require) of <<>> -> []; R -> [R] end;
+        <<"supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> [S] end;
+        <<"expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> [E] end;
+        <<"event">> -> case field(SipMsg, event) of <<>> -> []; E -> [E] end;
         Name1 -> proplists:get_all_values(Name1, Headers)
     end.
 
@@ -206,39 +206,39 @@ header(#sipmsg{}=SipMsg, Name, Type) ->
 %% @private
 all_headers(SipMsg) ->
     lists:flatten([
-        {<<"Call-ID">>, [field(SipMsg, call_id)]},
-        {<<"Via">>, field(SipMsg, vias)},
-        {<<"From">>, [field(SipMsg, from)]},
-        {<<"To">>, [field(SipMsg, to)]},
-        {<<"CSeq">>, [field(SipMsg, cseq)]},
-        {<<"Forwards">>, [nksip_lib:to_binary(field(SipMsg, forwards))]},
+        {<<"call-id">>, [field(SipMsg, call_id)]},
+        {<<"via">>, field(SipMsg, vias)},
+        {<<"from">>, [field(SipMsg, from)]},
+        {<<"to">>, [field(SipMsg, to)]},
+        {<<"cseq">>, [field(SipMsg, cseq)]},
+        {<<"forwards">>, [nksip_lib:to_binary(field(SipMsg, forwards))]},
         case field(SipMsg, routes) of
             [] -> [];
-            Routes -> {<<"Route">>, Routes}
+            Routes -> {<<"route">>, Routes}
         end,
         case field(SipMsg, contacts) of
             [] -> [];
-            Contacts -> {<<"Contact">>, Contacts}
+            Contacts -> {<<"contact">>, Contacts}
         end,
         case field(SipMsg, content_type) of
             <<>> -> [];
-            ContentType -> {<<"Content-Type">>, ContentType}
+            ContentType -> {<<"content-type">>, ContentType}
         end,
         case field(SipMsg, require) of
             <<>> -> [];
-            Require -> {<<"Require">>, Require}
+            Require -> {<<"require">>, Require}
         end,
         case field(SipMsg, supported) of
             <<>> -> [];
-            Supported -> {<<"Supported">>, Supported}
+            Supported -> {<<"supported">>, Supported}
         end,
         case field(SipMsg, expires) of
             <<>> -> [];
-            Expires -> {<<"Expires">>, Expires}
+            Expires -> {<<"expires">>, Expires}
         end,
         case field(SipMsg, event) of
             <<>> -> [];
-            Event -> {<<"Event">>, Event}
+            Event -> {<<"event">>, Event}
         end,
         SipMsg#sipmsg.headers
     ]).

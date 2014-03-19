@@ -279,13 +279,13 @@ proxy() ->
     C2Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua2}),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options({ws,ua1}, C2Pub, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
 
     % The same with our private GRUU
     C2Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua2}),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options({ws,ua1}, C2Priv, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
 
 
     % UA3 registers. Its contact is not routable
@@ -297,12 +297,12 @@ proxy() ->
     C3Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua3}),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options({ws,ua1}, C3Pub, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
 
     C3Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua3}),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options({ws,ua1}, C3Priv, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"Nk-Id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
 
 
     % Let's stop the transports

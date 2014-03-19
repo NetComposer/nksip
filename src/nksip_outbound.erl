@@ -224,14 +224,14 @@ registrar(Req, Opts) ->
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>, <<"ob">>]),
                     Headers1 = nksip_headers:update(Req, 
-                                                [{before_single, <<"Path">>, Path}]),
+                                                [{before_single, <<"path">>, Path}]),
                     Req1 = Req#sipmsg{headers=Headers1},
                     {ok, Req1, [{registrar_outbound, true}|Opts]};
                 [] ->
                     {ok, Req, [{registrar_outbound, false}|Opts]}
             end;
         true ->
-            case nksip_sipmsg:header(Req, <<"Path">>, uris) of
+            case nksip_sipmsg:header(Req, <<"path">>, uris) of
                 error ->
                     {error, {invalid_request, <<"Invalid Path">>}};
                 [] ->

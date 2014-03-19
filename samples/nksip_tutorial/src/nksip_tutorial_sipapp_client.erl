@@ -63,7 +63,7 @@ invite(ReqId, Meta, From, #state{id=AppId}=State) ->
 %% @doc Called when an OPTIONS is received.
 %% Reply 200 Ok with a custom header and some options.
 options(_ReqId, _Meta, _From, #state{id=Id}=State) ->
-    Headers = [{"NkSip-Id", Id}],
+    Headers = [{"x-nk-id", Id}],
     Opts = [make_contact, make_allow, make_accept, make_supported],
     {reply, {ok, Headers, <<>>, Opts}, State}.
 

@@ -104,7 +104,7 @@ transport() ->
     
     Body = base64:encode(crypto:rand_bytes(100)),
     Opts1 = [
-        {headers, [{<<"Nksip">>, <<"test1">>}, {<<"Nksip-Op">>, <<"reply-request">>}]}, 
+        {headers, [{<<"x-nksip">>, <<"test1">>}, {<<"x-nk-op">>, <<"reply-request">>}]}, 
         {contact, "sip:aaa:123, sips:bbb:321"},
         {user_agent, "My SIP"},
         {body, Body},
@@ -114,9 +114,9 @@ transport() ->
 
     % Req1 is the request as received at the remote party
     Req1 = binary_to_term(base64:decode(RespBody)),
-    [<<"My SIP">>] = nksip_sipmsg:header(Req1, <<"User-Agent">>),
+    [<<"My SIP">>] = nksip_sipmsg:header(Req1, <<"user-agent">>),
     [<<"<sip:aaa:123>">>,<<"<sips:bbb:321>">>] = 
-        nksip_sipmsg:header(Req1, <<"Contact">>),
+        nksip_sipmsg:header(Req1, <<"contact">>),
     Body = nksip_sipmsg:field(Req1, body),
 
     Fields2 = {fields, [parsed_contacts, remote]},
@@ -139,7 +139,7 @@ transport() ->
     BigBody = base64:encode(crypto:rand_bytes(1000)),
     BigBodyHash = erlang:phash2(BigBody),
     Opts4 = [
-        {headers, [{<<"Nksip-Op">>, <<"reply-request">>}]},
+        {headers, [{<<"x-nk-op">>, <<"reply-request">>}]},
         {content_type, <<"nksip/binary">>},
         {body, BigBody},
         {fields, [body]}
@@ -151,7 +151,7 @@ transport() ->
 
     % Check local_host is used to generare local Contact, Route headers are received
     Opts5 = [
-        {headers, [{<<"Nksip-Op">>, <<"reply-request">>}]},
+        {headers, [{<<"x-nk-op">>, <<"reply-request">>}]},
         make_contact,
         {local_host, "mihost"},
         {route, [<<"<sip:127.0.0.1;lr>">>, "<sip:aaa;lr>, <sips:bbb:123;lr>"]},
@@ -170,9 +170,9 @@ transport() ->
     ] = nksip_sipmsg:fields(Req5, [parsed_contacts, parsed_routes]),
 
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
-                                [{headers, [{<<"Nksip-Op">>, <<"reply-stateless">>}]}]),
+                                [{headers, [{<<"x-nk-op">>, <<"reply-stateless">>}]}]),
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
-                                [{headers, [{<<"Nksip-Op">>, <<"reply-stateful">>}]}]),
+                                [{headers, [{<<"x-nk-op">>, <<"reply-stateful">>}]}]),
 
     % Cover ip resolution
     case nksip_uac:options(C1, "<sip:sip2sip.info>", []) of

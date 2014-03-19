@@ -214,13 +214,13 @@ basic() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
 
     % We have to complete the three iterations
     Body1 = {body, [{clientC3, 300}]},
-    Fs = {fields, [<<"Nk-Id">>]},
+    Fs = {fields, [<<"x-nk-id">>]},
     {ok, 300, Values1} = nksip_uac:invite({fork, client1}, QUri, [Body1, RepHd, Fs]),
-    [{<<"Nk-Id">>, [<<"clientC3,serverR,server1">>]}] =Values1,
+    [{<<"x-nk-id">>, [<<"clientC3,serverR,server1">>]}] =Values1,
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 580},
                                 {clientA2, 580}, {clientB2, 580},
                                 {clientC3, 300}]),
@@ -228,13 +228,13 @@ basic() ->
     % The first 6xx response aborts everything at first iteration
     Body2 = {body, [{clientA1, 600}]},
     {ok, 600, Values2} = nksip_uac:invite({fork, client2}, QUri, [Body2, RepHd, Fs]),
-    [{<<"Nk-Id">>, [<<"clientA1,serverR,server2">>]}] =Values2,
+    [{<<"x-nk-id">>, [<<"clientA1,serverR,server2">>]}] =Values2,
     ok = tests_util:wait(Ref, [{clientA1, 600}, {clientB1, 580}, {clientC1, 580}]),
 
     % Aborted in second iteration
     Body3 = {body, [{clientA1, 505}, {clientB2, 600}]},
     {ok, 600, Values3} = nksip_uac:invite({fork, client3}, QUri, [Body3, RepHd, Fs]),
-    [{<<"Nk-Id">>, [<<"clientB2,serverR,server3">>]}] =Values3,
+    [{<<"x-nk-id">>, [<<"clientB2,serverR,server3">>]}] =Values3,
     ok = tests_util:wait(Ref, [{clientA1, 505}, {clientB1, 580}, {clientC1, 580},
                                {clientA2, 580}, {clientB2, 600}]),
     ok.
@@ -248,7 +248,7 @@ invite1() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
     Fun1 = {callback, fun({ok, Code, Vs}) -> Self ! {Ref, {code, Code, Vs}} end},
 
     % Test to CANCEL a forked request
@@ -310,7 +310,7 @@ invite2() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
     CB = {callback, fun({ok, Code, _RId}) -> Self ! {Ref, {code, Code}} end},
     Body2 = {body, [{clientB1, {503, 500}}, {clientC1, {415, 500}},
              {clientC3, {200, 1000}}]},
@@ -354,13 +354,13 @@ invite2() ->
     ok = nksip_dialog:stop(SR, Dlg_C2_1),
 
     % In-dialog OPTIONS
-    Fs = {fields, [<<"Nk-Id">>]},
+    Fs = {fields, [<<"x-nk-id">>]},
     {ok, 200, Values3} = nksip_uac:options(C2, Dlg_C2_1, [Fs]),
-    [{<<"Nk-Id">>, [<<"clientC3,server2">>]}] = Values3,
+    [{<<"x-nk-id">>, [<<"clientC3,server2">>]}] = Values3,
 
     % Remote party in-dialog OPTIONS
     {ok, 200, Values4} = nksip_uac:options(CC3, Dlg_CC3_1, [Fs]),
-    [{<<"Nk-Id">>, [<<"client2,server2">>]}] = Values4,
+    [{<<"x-nk-id">>, [<<"client2,server2">>]}] = Values4,
     
     % Dialog state at clientC1, clientC3 and server2
     [
@@ -404,7 +404,7 @@ redirect() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = [{"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}],
+    RepHd = [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}],
     not_found = nksip:get_port(other, udp, ipv4),
     PortD1 = nksip:get_port({fork, clientD1}, udp, ipv4),
     PortD2 = nksip:get_port({fork, clientD2}, tcp, ipv4),
@@ -412,9 +412,9 @@ redirect() ->
                 #uri{domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
     Body1 = {body, [{clientC1, {redirect, Contacts}}, {clientD2, 570}]},
-    Fs = {fields, [<<"Contact">>]},
+    Fs = {fields, [<<"contact">>]},
     {ok, 300, Values1} = nksip_uac:invite(CA1, QUri, [Body1, {headers, [RepHd]}, Fs]),
-    [{<<"Contact">>, [C1, C2]}] = Values1,
+    [{<<"contact">>, [C1, C2]}] = Values1,
     {match, [LPortD1]} = re:run(C1, <<"^<sip:127.0.0.1:(\\d+)>">>, 
                                 [{capture, all_but_first, list}]),
     LPortD1 = integer_to_list(PortD1),
@@ -440,7 +440,7 @@ multiple_200() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
     
     % client1 requests are sent to server1, stateless and record-routing
     % client1, server1 and serverR will receive three 200 responses

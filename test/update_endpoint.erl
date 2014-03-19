@@ -54,11 +54,11 @@ init([Id]) ->
 invite(ReqId, Meta, From, #state{id=Id, dialogs=Dialogs}=State) ->
     AppId = {update, Id},
     DialogId = nksip_lib:get_value(dialog_id, Meta),
-    Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
+    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
@@ -91,7 +91,7 @@ ack(ReqId, Meta, _From, #state{id=Id, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
-            case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+            case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
                 [RepBin] -> 
                     {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
                     Pid ! {Ref, {Id, ack}};

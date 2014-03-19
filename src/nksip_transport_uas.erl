@@ -141,10 +141,10 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     Route
             end
         end,
-        RRs = nksip_sipmsg:header(Resp, <<"Record-Route">>, uris),
+        RRs = nksip_sipmsg:header(Resp, <<"record-route">>, uris),
         Routes = lists:map(UpdateRoutes, RRs),
         Headers1 = nksip_headers:update(Headers, [
-                                        {multi, <<"Record-Route">>, Routes}]),
+                                        {multi, <<"record-route">>, Routes}]),
         Body1 = case Body of
             #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
             _ -> Body

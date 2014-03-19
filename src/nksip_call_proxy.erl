@@ -74,7 +74,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
             'ACK' ->
                 {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1};
             _ ->
-                case nksip_sipmsg:header(Req, <<"Proxy-Require">>, tokens) of
+                case nksip_sipmsg:header(Req, <<"proxy-require">>, tokens) of
                     [] -> 
                         ok;
                     PR ->

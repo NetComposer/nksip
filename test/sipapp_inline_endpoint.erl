@@ -45,7 +45,7 @@ init([]) ->
 
 invite(Req, _Meta, From) ->
     send_reply(Req, invite),
-    case nksip_sipmsg:header(Req, <<"Nk-Op">>) of
+    case nksip_sipmsg:header(Req, <<"x-nk-op">>) of
         [<<"wait">>] ->
             spawn(
                 fun() ->
@@ -82,9 +82,9 @@ options(Req, _Meta, From) ->
     send_reply(Req, options),
     spawn(
         fun() ->
-            [Server] = nksip_sipmsg:header(Req, <<"Nk-Id">>),
+            [Server] = nksip_sipmsg:header(Req, <<"x-nk-id">>),
             {inline, Id} = nksip_sipmsg:field(Req, app_id),
-            Reply = {ok, [{<<"Nk-Id">>, nksip_lib:bjoin([Server, Id])}]},
+            Reply = {ok, [{<<"x-nk-id">>, nksip_lib:bjoin([Server, Id])}]},
             nksip:reply(From, Reply)
         end),
     async.

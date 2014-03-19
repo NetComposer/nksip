@@ -112,18 +112,18 @@ route(_ReqId, _Scheme, _User, _Domain, _From, SD) ->
     {reply, process, SD}.
 
 
-% For OPTIONS requests, we copy in the response "Nk" headers and "Nk-Id" headers
-% adding our own id, and "Nk-R" header with the received routes 
+% For OPTIONS requests, we copy in the response "X-Nk" headers and "X-Nk-Id" headers
+% adding our own id, and "X-Nk-R" header with the received routes 
 options(ReqId, _Meta, _From, #state{id={_, Id}=AppId}=State) ->
-    Values = nksip_request:header(AppId, ReqId, <<"Nk">>),
-    Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
-    Routes = nksip_request:header(AppId, ReqId, <<"Route">>),
+    Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),
+    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Routes = nksip_request:header(AppId, ReqId, <<"route">>),
     Hds = [
-        case Values of [] -> []; _ -> {<<"Nk">>, nksip_lib:bjoin(Values)} end,
-        case Routes of [] -> []; _ -> {<<"Nk-R">>, nksip_lib:bjoin(Routes)} end,
-        {<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}
+        case Values of [] -> []; _ -> {<<"x-nk">>, nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> []; _ -> {<<"x-nk-r">>, nksip_lib:bjoin(Routes)} end,
+        {<<"x-nk-id">>, nksip_lib:bjoin([Id|Ids])}
     ],
-    case nksip_request:header(AppId, ReqId, <<"Nk-Sleep">>) of
+    case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> 
             nksip_request:reply(AppId, ReqId, 101), 
             timer:sleep(nksip_lib:to_integer(Sleep0));
@@ -140,7 +140,7 @@ options(_ReqId, _Meta, _From, State) ->
 % INVITE for auth tests
 invite(ReqId, Meta, _From, #state{id={auth, _}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
-    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
@@ -154,9 +154,9 @@ invite(ReqId, Meta, _From, #state{id={auth, _}=AppId, dialogs=Dialogs}=State) ->
 % Gets operation from body
 invite(ReqId, Meta, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
-    Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
-    Hds = [{<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}],
-    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Hds = [{<<"x-nk-id">>, nksip_lib:bjoin([Id|Ids])}],
+    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State1 = State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
@@ -199,7 +199,7 @@ invite(_ReqId, _Meta, _From, #state{id={event, _}}=State) ->
 % INVITE for timer test
 invite(ReqId, Meta, _From, #state{id={timer, _}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
-    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    State1 = case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
@@ -227,27 +227,27 @@ invite(ReqId, _Meta, From, #state{id={refer, _}=AppId}=State) ->
 % Copies all received Nk-Id headers adding our own Id
 invite(ReqId, Meta, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
-    Values = nksip_request:header(AppId, ReqId, <<"Nk">>),
-    Routes = nksip_request:header(AppId, ReqId, <<"Route">>),
-    Ids = nksip_request:header(AppId, ReqId, <<"Nk-Id">>),
+    Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),
+    Routes = nksip_request:header(AppId, ReqId, <<"route">>),
+    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
     Hds = [
-        case Values of [] -> []; _ -> {<<"Nk">>, nksip_lib:bjoin(Values)} end,
-        case Routes of [] -> []; _ -> {<<"Nk-R">>, nksip_lib:bjoin(Routes)} end,
-        {<<"Nk-Id">>, nksip_lib:bjoin([Id|Ids])}
+        case Values of [] -> []; _ -> {<<"x-nk">>, nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> []; _ -> {<<"x-nk-r">>, nksip_lib:bjoin(Routes)} end,
+        {<<"x-nk-id">>, nksip_lib:bjoin([Id|Ids])}
     ],
-    Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
+    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(AppId, ReqId, <<"Nk-Sleep">>) of
+    Sleep = case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
-    Prov = case nksip_request:header(AppId, ReqId, <<"Nk-Prov">>) of
+    Prov = case nksip_request:header(AppId, ReqId, <<"x-nk-prov">>) of
         [<<"true">>] -> true;
         _ -> false
     end,
-    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    State1 = case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
@@ -293,7 +293,7 @@ ack(ReqId, Meta, _From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
-            case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+            case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
                 [RepBin] -> 
                     {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
                     Pid ! {Ref, {Id, ack}};
@@ -317,7 +317,7 @@ bye(_ReqId, Meta, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
 
 info(ReqId, _Meta, _From, #state{id=AppId}=State) ->
     DialogId = nksip_request:dialog_id(AppId, ReqId),
-    {reply, {ok, [{"Nk-Method", "info"}, {"Nk-Dialog", DialogId}]}, State}.
+    {reply, {ok, [{"x-nk-method", "info"}, {"x-nk-dialog", DialogId}]}, State}.
 
 
 update(_ReqId, _Meta, _From, #state{id={timer, _}}=State) ->
@@ -326,11 +326,11 @@ update(_ReqId, _Meta, _From, #state{id={timer, _}}=State) ->
 
 subscribe(ReqId, Meta, From, #state{id=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
-    Op = case nksip_request:header(AppId, ReqId, <<"Nk-Op">>) of
+    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"ok">>
     end,
-    State1 = case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    State1 = case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             State#state{dialogs=[{DialogId, Ref, Pid}|Dialogs]};
@@ -370,7 +370,7 @@ notify(_ReqId, Meta, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
 
 message(ReqId, _Meta, _From, #state{id=AppId}=State) ->
     % We could also use info in Meta
-    case nksip_request:header(AppId, ReqId, <<"Nk-Reply">>) of
+    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             [
@@ -380,7 +380,7 @@ message(ReqId, _Meta, _From, #state{id=AppId}=State) ->
                 {_, Body}
 
             ] = nksip_request:fields(AppId, ReqId, 
-                    [parsed_expires, <<"Date">>, content_type, body]),
+                    [parsed_expires, <<"date">>, content_type, body]),
             Pid ! {Ref, {ok, Expires, Date, ContentType, Body}},
             {reply, ok, State};
         _ ->

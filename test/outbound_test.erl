@@ -112,7 +112,7 @@ basic() ->
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
-    % RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    % RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     {ok, 603, []} = nksip_uac:invite(C2, "sip:127.0.0.1:5103", 
                                         [make_contact, CB, get_request]),
@@ -148,9 +148,9 @@ flow() ->
     % but, as both parties support otbound, and the connection is direct,
     % registrar adds a path with the flow
 
-    {ok, 200, [{<<"Require">>, []}, {parsed_contacts, [PContact]}, {local, Local}]} = 
+    {ok, 200, [{<<"require">>, []}, {parsed_contacts, [PContact]}, {local, Local}]} = 
         nksip_uac:register(C1, "<sip:127.0.0.1:5090;transport=tcp>", 
-            [make_contact, {fields, [<<"Require">>, parsed_contacts, local]}]),
+            [make_contact, {fields, [<<"require">>, parsed_contacts, local]}]),
 
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -180,7 +180,7 @@ flow() ->
     [#uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
         opts = [{<<"transport">>, <<"tcp">>}],
-        headers = [{<<"Route">>, QRoute1}],
+        headers = [{<<"route">>, QRoute1}],
         ext_opts = []
     }=Contact1] = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
 
@@ -205,7 +205,7 @@ flow() ->
   
     QRoute2 = http_uri:encode(binary_to_list(nksip_unparse:uri(Path1#uri{user = <<>>}))),
     {ok, 200, []} = 
-        nksip_uac:options(C1, Contact1#uri{headers=[{<<"Route">>, QRoute2}]}, []), 
+        nksip_uac:options(C1, Contact1#uri{headers=[{<<"route">>, QRoute2}]}, []), 
 
     [
         {#transport{local_port=5101, remote_port=RemotePort}, _},
@@ -378,7 +378,7 @@ proxy() ->
             {fields, [parsed_require]}]),
 
     Contact1 = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
-    [#uri{headers=[{<<"Route">>, QRoute1}]}] = Contact1,
+    [#uri{headers=[{<<"route">>, QRoute1}]}] = Contact1,
     [Path1, Path2] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute1))),
 
     #uri{user = <<"NkQ", _/binary>>, port = 5080} = Path1,
@@ -397,7 +397,7 @@ proxy() ->
     % Now, if we send a request to this contact, it will go to 
     % P3, to P1, and P1 will use the indicated flow to go to UA1
     {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
-        nksip_uac:options(C2, Contact1, [{fields, [<<"Nk-Id">>]}]),
+        nksip_uac:options(C2, Contact1, [{fields, [<<"x-nk-id">>]}]),
 
     % If we stop the flow, P1 will return Flow Failed
     nksip_connection:stop(Pid1, normal),
@@ -421,7 +421,7 @@ proxy() ->
             {fields, [parsed_require]}]),
 
     Contact2 = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
-    [#uri{headers=[{<<"Route">>, QRoute2}]}] = Contact2,
+    [#uri{headers=[{<<"route">>, QRoute2}]}] = Contact2,
     [Path3] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute2))),
 
     #uri{
@@ -432,7 +432,7 @@ proxy() ->
 
     {ok, 200, [{dialog_id, DialogId}]} = 
         nksip_uac:invite(C2, Contact2, 
-                    [auto_2xx_ack, {headers, [{"Nk-Op", "ok"}]}]),
+                    [auto_2xx_ack, {headers, [{"x-nk-op", "ok"}]}]),
 
     [
         #uri{

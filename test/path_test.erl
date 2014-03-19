@@ -94,20 +94,20 @@ basic() ->
     
     % We didn't send the Supported header, so first proxy 
     % (P1, configured to include Path) sends a 421 (Extension Required)
-    {ok, 421, [{<<"Require">>, [<<"path">>]}]} = 
-        nksip_uac:register(C1, "sip:nksip", [{fields, [<<"Require">>]}, {supported, ""}]),
+    {ok, 421, [{<<"require">>, [<<"path">>]}]} = 
+        nksip_uac:register(C1, "sip:nksip", [{fields, [<<"require">>]}, {supported, ""}]),
 
     % If the request arrives at registrar, having a valid Path header and
     % no Supported: path, it returns a 420 (Bad Extension)
-    {ok, 420, [{<<"Unsupported">>, [<<"path">>]}]} = 
+    {ok, 420, [{<<"unsupported">>, [<<"path">>]}]} = 
         nksip_uac:register(C1, "<sip:nksip?Path=sip:mypath>", 
                         [{route, "<sip:127.0.0.1:5090;lr>"}, 
-                         {fields, [<<"Unsupported">>]}, {supported, ""}]),
+                         {fields, [<<"unsupported">>]}, {supported, ""}]),
 
 
-    {ok, 200, [{<<"Path">>, [P1, P2]}]} = 
+    {ok, 200, [{<<"path">>, [P1, P2]}]} = 
         nksip_uac:register(C1, "sip:nksip", 
-                        [make_supported, make_contact, {fields, [<<"Path">>]}]),
+                        [make_supported, make_contact, {fields, [<<"path">>]}]),
 
     [#reg_contact{
         contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},
@@ -126,7 +126,7 @@ basic() ->
     % Now, if send a request to UA1, the registrar inserts the stored path
     % as routes, and requests pases throw P3, P1 and to UA1
     {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
-        nksip_uac:options(C2, "sip:ua1@nksip", [{fields, [<<"Nk-Id">>]}]),
+        nksip_uac:options(C2, "sip:ua1@nksip", [{fields, [<<"x-nk-id">>]}]),
     ok.
 
 

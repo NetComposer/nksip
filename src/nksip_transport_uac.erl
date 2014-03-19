@@ -220,8 +220,8 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             opts = [<<"rport">>, {<<"branch">>, Branch}]
         },
         Headers1 = nksip_headers:update(Headers, [
-                                    {before_multi, <<"Record-Route">>, RecordRoute},
-                                    {before_multi, <<"Path">>, Path}]),
+                                    {before_multi, <<"record-route">>, RecordRoute},
+                                    {before_multi, <<"path">>, Path}]),
         Body1 = case Body of 
             #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
             _ -> Body

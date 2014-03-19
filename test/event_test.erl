@@ -85,12 +85,12 @@ basic() ->
 
     receive {Ref, {req, Req1}} -> 
         [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
-            nksip_sipmsg:fields(Req1, [<<"Event">>, <<"Allow-Event">>])
+            nksip_sipmsg:fields(Req1, [<<"event">>, <<"allow-event">>])
     after 1000 -> 
         error(event) 
     end,
 
-    RepHd = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
     {ok, 200, [{subscription_id, Subs1A}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 1},
                                         {headers, [RepHd]}]),
@@ -183,8 +183,8 @@ refresh() ->
     Ref = make_ref(),
     Self = self(),
     Hds = [
-        {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
-        {"Nk-Op", "expires-2"}
+        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
+        {"x-nk-op", "expires-2"}
     ],
     {ok, 200, [{subscription_id, Subs1A}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
@@ -239,7 +239,7 @@ dialog() ->
                                         {contact, "sip:a@127.0.0.1"}, 
                                         {fields, [dialog_id]}]),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
-    RS1 = {"Record-Route", "<sip:b1@127.0.0.1:5070;lr>,<sip:b@b>,<sip:a2@127.0.0.1;lr>"},
+    RS1 = {"record-route", "<sip:b1@127.0.0.1:5070;lr>,<sip:b@b>,<sip:a2@127.0.0.1;lr>"},
 
     % Now the remote party (the server) sends a NOTIFY, and updates the Route Set
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{headers, [RS1]}]),
@@ -251,7 +251,7 @@ dialog() ->
 
     % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
     % The remote target is successfully updated
-    RS2 = {"Record-Route", "<sip:b@b>"},
+    RS2 = {"record-route", "<sip:b@b>"},
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{headers, [RS2]}, {contact, "sip:b@127.0.0.1:5070"}]),
     [
         {local_target, <<"<sip:a@127.0.0.1>">>},
@@ -323,12 +323,12 @@ out_or_order() ->
     SipC2 = "sip:127.0.0.1:5070",
     Self = self(),
     Ref = make_ref(),
-    Reply = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    Reply = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     CB = {callback, fun(R) -> Self ! {Ref, R} end},
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {headers, [Reply, {"Nk-Op", "wait"}]}, 
+                                        {headers, [Reply, {"x-nk-op", "wait"}]}, 
                                         {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
@@ -358,7 +358,7 @@ out_or_order() ->
     % Another subscription
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {headers, [Reply, {"Nk-Op", "wait"}]}, 
+                                        {headers, [Reply, {"x-nk-op", "wait"}]}, 
                                         {expires, 2}]),
     RecvReq2 = receive {Ref, {wait, Req2}} -> Req2
     after 1000 -> error(fork)
@@ -379,12 +379,12 @@ fork() ->
     SipC2 = "sip:127.0.0.1:5070",
     Self = self(),
     Ref = make_ref(),
-    Reply = {"Nk-Reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    Reply = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
     CB = {callback, fun(R) -> Self ! {Ref, R} end},
 
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {headers, [Reply, {"Nk-Op", "wait"}]}, 
+                                        {headers, [Reply, {"x-nk-op", "wait"}]}, 
                                         {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
@@ -436,7 +436,7 @@ make_notify(#sipmsg{to_tag_candidate=ToTag}=Req) ->
         routes = [],
         contacts = nksip_parse:uris("sip:127.0.0.1:5070"),
         expires = 0,
-        headers = [{<<"Subscription-State">>, <<"active;expires=5">>}],
+        headers = [{<<"subscription-state">>, <<"active;expires=5">>}],
         from_tag = ToTag,
         to_tag = Req#sipmsg.from_tag,
         transport = undefined

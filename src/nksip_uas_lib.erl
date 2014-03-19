@@ -167,8 +167,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     HeaderOps = [
         case Code of
             100 ->
-                case nksip_sipmsg:header(Req, <<"Timestamp">>, integers) of
-                    [Time] -> {single, <<"Timestamp">>, Time};
+                case nksip_sipmsg:header(Req, <<"timestamp">>, integers) of
+                    [Time] -> {single, <<"timestamp">>, Time};
                     _ -> none
                 end;
             _ ->
@@ -178,20 +178,20 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             undefined -> 
                 none;
             from -> 
-                {multi, <<"WWW-Authenticate">>, 
+                {multi, <<"www-authenticate">>, 
                     nksip_auth:make_response(FromDomain, Req)};
             Realm -> 
-                {multi, <<"WWW-Authenticate">>, 
+                {multi, <<"www-authenticate">>, 
                     nksip_auth:make_response(Realm, Req)}
         end,
         case nksip_lib:get_value(make_proxy_auth, Opts) of
             undefined -> 
                 none;
             from -> 
-                {multi, <<"Proxy-Authenticate">>,
+                {multi, <<"proxy-authenticate">>,
                     nksip_auth:make_response(FromDomain, Req)};
             Realm -> 
-                {multi, <<"Proxy-Authenticate">>,
+                {multi, <<"proxy-authenticate">>,
                     nksip_auth:make_response(Realm, Req)}
         end,
         case MakeAllow of
@@ -200,19 +200,19 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                     true -> <<(?ALLOW)/binary, ",REGISTER">>;
                     false -> ?ALLOW
                 end,
-                {default_single, <<"Allow">>, Allow};
+                {default_single, <<"allow">>, Allow};
             false -> 
                 none
         end,
         case lists:member(make_accept, Opts) of
             true -> 
                 Accept = nksip_lib:get_value(accept, AppOpts, ?ACCEPT),
-                {default_single, <<"Accept">>, nksip_unparse:token(Accept)};
+                {default_single, <<"accept">>, nksip_unparse:token(Accept)};
             false -> 
                 none
         end,
         case lists:member(make_date, Opts) of
-            true -> {default_single, <<"Date">>, nksip_lib:to_binary(
+            true -> {default_single, <<"date">>, nksip_lib:to_binary(
                                                 httpd_util:rfc1123_date())};
             false -> none
         end,
@@ -220,16 +220,16 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         if
             Code>100 andalso Code<300 andalso
             (Method=='INVITE' orelse Method=='NOTIFY') ->
-                {multi, <<"Record-Route">>, 
-                        proplists:get_all_values(<<"Record-Route">>, ReqHeaders)};
+                {multi, <<"record-route">>, 
+                        proplists:get_all_values(<<"record-route">>, ReqHeaders)};
             true ->
                 none
         end,
         % Copy Path from Request
         case Code>=200 andalso Code<300 andalso Method=='REGISTER' of
             true ->
-                {multi, <<"Path">>, 
-                        proplists:get_all_values(<<"Path">>, ReqHeaders)};
+                {multi, <<"path">>, 
+                        proplists:get_all_values(<<"path">>, ReqHeaders)};
             false ->
                  none
         end,
@@ -239,7 +239,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             Reason1 ->
                 case nksip_unparse:error_reason(Reason1) of
                     error -> throw(invalid_reason);
-                    Reason2 -> {default_single, <<"Reason">>, Reason2}
+                    Reason2 -> {default_single, <<"reason">>, Reason2}
                 end
         end,
         case 
@@ -251,7 +251,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             ServiceRoute1 ->
                 case nksip_parse:uris(ServiceRoute1) of
                     error -> throw(invalid_service_route);
-                    ServiceRoute2 -> {default_single, <<"Service-Route">>, ServiceRoute2}
+                    ServiceRoute2 -> {default_single, <<"service-route">>, ServiceRoute2}
                 end
         end
     ],

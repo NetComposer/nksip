@@ -420,7 +420,7 @@ launch_register(AppId, Reg)->
     } = Reg,
     Opts1 = [
         make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, Interval}, 
-        {fields, [cseq_num, remote, parsed_require, <<"Retry-After">>, <<"Flow-Timer">>]} 
+        {fields, [cseq_num, remote, parsed_require, <<"retry-after">>, <<"flow-timer">>]} 
         | Opts
     ],   
     Self = self(),
@@ -486,7 +486,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
         true ->
             case nksip_transport:get_connected(AppId, Proto, Ip, Port, Res) of
                 [{_, Pid}|_] -> 
-                    Secs = case nksip_lib:get_integer(<<"Flow-Timer">>, Meta) of
+                    Secs = case nksip_lib:get_integer(<<"flow-timer">>, Meta) of
                         FT when is_integer(FT), FT > 5 -> FT;
                         _ when Proto==udp -> ?DEFAULT_UDP_KEEPALIVE;
                         _ -> ?DEFAULT_TCP_KEEPALIVE
@@ -521,7 +521,7 @@ update_register(Reg, Code, Meta, State) ->
     MaxTime = nksip_config:get(outbound_max_time),
     Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
     Elap = round(crypto:rand_uniform(50, 101) * Upper / 100),
-    Add = case Code==503 andalso nksip_lib:get_value(<<"Retry-After">>, Meta) of
+    Add = case Code==503 andalso nksip_lib:get_value(<<"retry-after">>, Meta) of
         [Retry1] ->
             case nksip_lib:to_integer(Retry1) of
                 Retry2 when Retry2 > 0 -> Retry2;
@@ -595,7 +595,7 @@ update_ping(Ping, Code, Meta, _State) ->
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, Ok})
     end,
-    Add = case Code==503 andalso nksip_lib:get_value(<<"Retry-After">>, Meta) of
+    Add = case Code==503 andalso nksip_lib:get_value(<<"retry-after">>, Meta) of
         [Retry1] ->
             case nksip_lib:to_integer(Retry1) of
                 Retry2 when Retry2 > 0 -> Retry2;

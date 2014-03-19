@@ -28,10 +28,10 @@
 
 -include("nksip.hrl").
 
--define(RESP_WWW, (<<"WWW-Authenticate">>)).
--define(RESP_PROXY, (<<"Proxy-Authenticate">>)).
--define(REQ_WWW,  (<<"Authorization">>)).
--define(REQ_PROXY,  (<<"Proxy-Authorization">>)).
+-define(RESP_WWW, (<<"www-authenticate">>)).
+-define(RESP_PROXY, (<<"proxy-authenticate">>)).
+-define(REQ_WWW,  (<<"authorization">>)).
+-define(REQ_PROXY,  (<<"proxy-authorization">>)).
 
 
 %% ===================================================================

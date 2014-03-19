@@ -312,7 +312,7 @@ best_response(#fork{request=Req, responses=Resps}, Call) ->
     ]),
     case Sorted of
         [{3999, Best}|_] ->
-            Names = [<<"WWW-Authenticate">>, <<"Proxy-Authenticate">>],
+            Names = [<<"www-authenticate">>, <<"proxy-authenticate">>],
             Headers1 = [
                 nksip_lib:delete(Best#sipmsg.headers, Names) |
                 [

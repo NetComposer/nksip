@@ -232,7 +232,7 @@ get_all(AppId, CallId) ->
     {terminated, nksip_subscription:terminated_reason()}.
 
 notify_status(#sipmsg{}=SipMsg) ->
-    case nksip_sipmsg:header(SipMsg, <<"Subscription-State">>, tokens) of
+    case nksip_sipmsg:header(SipMsg, <<"subscription-state">>, tokens) of
         [{Status, Opts}] ->
             case nksip_lib:get_list(<<"expires">>, Opts) of
                 "" -> 

@@ -106,11 +106,11 @@ route(ReqId, Scheme, User, Domain, _From,
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
-            case nksip_request:header(AppId, ReqId, <<"Nksip-Op">>) of
+            case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
                 [<<"reply-request">>] ->
                     Request = nksip_request:get_request(AppId, ReqId),
                     Body = base64:encode(term_to_binary(Request)),
-                    Hds = [{<<"Content-Type">>, <<"nksip/request">>}],
+                    Hds = [{<<"content-type">>, <<"nksip/request">>}],
                     {reply, {200, Hds, Body, [make_contact]}, State};
                 [<<"reply-stateless">>] ->
                     {reply, {response, ok, [stateless]}, State};
@@ -142,8 +142,8 @@ route(ReqId, Scheme, User, Domain, _From,
     when Test=:=stateless; Test=:=stateful ->
     Opts = lists:flatten([
         case Test of stateless -> stateless; _ -> [] end,
-        {headers, [{<<"Nk-Id">>, Id}]},
-        case nksip_request:header(AppId, ReqId, <<"Nk-Rr">>) of
+        {headers, [{<<"x-nk-id">>, Id}]},
+        case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
         end
@@ -179,12 +179,12 @@ route(ReqId, Scheme, User, Domain, _From,
 route(ReqId, Scheme, User, Domain, _From, 
         #state{id={fork, serverR}=AppId, domains=Domains}=State) ->
     Opts = lists:flatten([
-        {headers, [{<<"Nk-Id">>, serverR}]},
-        case nksip_request:header(AppId, ReqId, <<"Nk-Rr">>) of
+        {headers, [{<<"x-nk-id">>, serverR}]},
+        case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
         end,
-        case nksip_request:header(AppId, ReqId, <<"Nk-Redirect">>) of
+        case nksip_request:header(AppId, ReqId, <<"x-nk-redirect">>) of
             [<<"true">>] -> follow_redirects;
             _ -> []
         end
@@ -211,7 +211,7 @@ route(_, _, _, Domain, _From, #state{id={fork, Id}, domains=Domains}=State) ->
     Opts = lists:flatten([
         case Id of server1 -> stateless; _ -> [] end,
         record_route,
-        {headers, [{<<"Nk-Id">>, Id}]}
+        {headers, [{<<"x-nk-id">>, Id}]}
     ]),
     case lists:member(Domain, Domains) of
         true when Domain =:= <<"nksip">> ->
