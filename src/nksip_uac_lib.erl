@@ -108,11 +108,14 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             transport = #transport{},
             start = nksip_lib:l_timestamp()
         },
-        Req2 = nksip_parse_header:uri_request(RUri, Req1),
+        Req2 = case RUri of
+            #uri{headers=[]} -> Req1;
+            #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
+        end,
         {Req3, Opts1} = parse_opts(Opts, Req2, [], AppOpts),
         {ok, Req3, Opts1}
     catch
-        throw:{invalid, Invalid} -> {invalid, Invalid}
+        throw:Throw -> {error, Throw}
     end.
 
 
@@ -226,84 +229,76 @@ parse_opts([], Req, Opts, _AppOpts) ->
 % Option route adds new routes before existing routes.
 % Any other header is inserted before existing ones.
 parse_opts([Term|Rest], Req, Opts, AppOpts) ->
-    {Req1, Opts1} = case Term of
+    Op = case Term of
         
+        % Header manipulation
+        {add, Name, Value} ->
+            {add, Name, Value};
+        {replace, Name, Value} ->
+            {replace, Name, Value};
+        {insert, Name, Value} ->
+            {insert, Name, Value};
+
         % Special parameters
+        to_as_from ->
+            #sipmsg{from=From} = Req,
+            {replace, <<"To">>, From#uri{ext_opts=[]}};
         {body, Body} ->
             ContentType = case Req#sipmsg.content_type of
                 undefined when is_record(Body, sdp) -> <<"application/sdp">>;
                 undefined when not is_binary(Body) -> <<"application/nksip.ebf.base64">>;
                 CT0 -> CT0
             end,
-            {Req#sipmsg{body=Body, content_type=ContentType}, Opts};
+            {update_req, Req#sipmsg{body=Body, content_type=ContentType}};
         {min_cseq, MinCSeq} ->
             #sipmsg{cseq={OldCSeq, Method}} =Req,
             case is_integer(MinCSeq) of
                 true when MinCSeq > OldCSeq -> 
-                    {Req#sipmsg{cseq={MinCSeq, Method}}, Opts};
+                    {update_req, Req#sipmsg{cseq={MinCSeq, Method}}};
                 true -> 
-                    {Req, Opts};
+                    {update_req, Req};
                 false -> 
                     throw({invalid, min_cseq})
             end;
-        {pre_headers, Headers} when is_list(Headers) ->
-            {Req#sipmsg{headers=Headers++Req#sipmsg.headers}, Opts};
-        {post_headers, Headers} when is_list(Headers) ->
-            {Req#sipmsg{headers=Req#sipmsg.headers++Headers}, Opts};
 
         %% Pass-through options
-        contact ->
-            {Req, [contact|Opts]};
-        record_route ->
-            {Req, [record_route|Opts]};
-        path ->
-            {Req, [path|Opts]};
-        get_request ->
-            {Req, [get_request|Opts]};
-        get_response ->
-            {Req, [get_response|Opts]};
-        auto_2xx_ack ->
-            {Req, [auto_2xx_ack|Opts]};
-        async ->
-            {Req, [async|Opts]};
+        Opt when Opt==contact; Opt==record_route; Opt==path; Opt==get_request;
+                 Opt==get_response; Opt==auto_2xx_ack; Opt==async ->
+            {update_opts, [Opt|Opts]};
         {pass, Pass} ->
-            {Req, [{pass, Pass}|Opts]};
+            {update_opts, [{pass, Pass}|Opts]};
         {fields, List} when is_list(List) ->
-            {Req, [{fields, List}|Opts]};
-        {local_host, auto} ->
-            {Req, Opts};
+            {update_opts, [{fields, List}|Opts]};
         {local_host, Host} ->
-            {Req, [{local_host, nksip_lib:to_host(Host)}|Opts]};
-        {local_host6, auto} ->
-            {Req, Opts};
+            {update_opts, [{local_host, nksip_lib:to_host(Host)}|Opts]};
         {local_host6, Host} ->
             case nksip_lib:to_ip(Host) of
                 {ok, HostIp6} -> 
                     % Ensure it is enclosed in `[]'
-                    {Req, [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts]};
+                    {update_opts, [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts]};
                 error -> 
-                    {Req, [{local_host6, nksip_lib:to_binary(Host)}|Opts]}
+                    {update_opts, [{local_host6, nksip_lib:to_binary(Host)}|Opts]}
             end;
         {callback, Fun} when is_function(Fun, 1) ->
-            {Req, [{callback, Fun}|Opts]};
+            {update_opts, [{callback, Fun}|Opts]};
         {prack_callback, Fun} when is_function(Fun, 2) ->
-            {Req, [{prack_callback, Fun}|Opts]};
+            {update_opts, [{prack_callback, Fun}|Opts]};
         {reg_id, RegId} when is_integer(RegId), RegId>0 ->
-            {Req, [{reg_id, RegId}|Opts]};
+            {update_opts, [{reg_id, RegId}|Opts]};
         {refer_subscription_id, Refer} when is_binary(Refer) ->
-            {Req, [{refer_subscription_id, Refer}|Opts]};
+            {update_opts, [{refer_subscription_id, Refer}|Opts]};
 
         %% Automatic header generation (replace existing headers)
         user_agent ->
-            {write_header(Req, <<"user-agent">>, <<"NkSIP ", ?VERSION>>), Opts};
+            {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            {Req#sipmsg{supported=?SUPPORTED}, Opts};
-        allow ->
+            {replace, <<"supported">>, ?SUPPORTED};
+        allow ->        
             Allow = case lists:member(registrar, AppOpts) of
                 true -> <<(?ALLOW)/binary, ", REGISTER">>;
                 false -> ?ALLOW
             end,
-            {write_header(Req, <<"allow">>, Allow), Opts};
+            {replace, <<"allow">>, Allow};
         accept ->
             Accept = case Req of
                 #sipmsg{class={req, Method}} 
@@ -312,88 +307,30 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
                 _ -> 
                     ?ACCEPT
             end,
-            {write_header(Req, <<"accept">>, Accept), Opts};
+            {replace, <<"accept">>, Accept};
         date ->
             Date = nksip_lib:to_binary(httpd_util:rfc1123_date()),
-            {write_header(Req, <<"date">>, Date), Opts};
+            {replace, <<"date">>, Date};
         allow_event ->
             case nksip_lib:get_value(event, AppOpts) of
                 undefined -> 
-                    {Req, Opts};
+                    {update_req, Req};
                 Events -> 
                     AllowEvent = nksip_lib:bjoin(Events),
-                    {write_header(Req, <<"allow-event">>, AllowEvent), Opts}
+                    {replace, <<"allow-event">>, AllowEvent}
             end;
 
-        % Standard headers (replace existing headers)
-        {from, From} ->
-            case nksip_parse:uris(From) of
-                [#uri{ext_opts=ExtOpts}=FromUri] -> 
-                    FromTag1 = case nksip_lib:get_value(<<"tag">>, ExtOpts) of
-                        undefined -> Req#sipmsg.to_tag;
-                        NewToTag -> NewToTag
-                    end,
-                    ExtOpts1 = nksip_lib:store_value(<<"tag">>, FromTag1, ExtOpts),
-                    FromUri1 = FromUri#uri{ext_opts=ExtOpts1},
-                    {Req#sipmsg{from=FromUri1, from_tag=FromTag1}, Opts};
-                _ -> 
-                    throw({invalid, from}) 
-            end;
-        {to, as_from} ->
-            {Req#sipmsg{to=(Req#sipmsg.from)#uri{ext_opts=[]}}, Opts};
-        {to, To} ->
-            case nksip_parse:uris(To) of
-                [#uri{ext_opts=ExtOpts}=ToUri] -> 
-                    ToTag = nksip_lib:get_value(<<"tag">>, ExtOpts, <<>>),
-                    {Req#sipmsg{to=ToUri, to_tag=ToTag}, Opts};
-                _ -> 
-                    throw({invalid, to}) 
-            end;
-        {max_forwards, Fwds} when is_integer(Fwds), Fwds>=0 -> 
-            {Req#sipmsg{forwards=Fwds}, Opts};
-        {call_id, CallId} when is_binary(CallId), byte_size(CallId)>=1 ->
-            {Req#sipmsg{call_id=CallId}, Opts};
-        {cseq, CSeq} when is_integer(CSeq), CSeq>0 ->
-            #sipmsg{cseq={_, Method}} = Req,
-            {Req#sipmsg{cseq={CSeq, Method}}, Opts};
-        {cseq, _} ->
-            throw({invalid, cseq});
-        {content_type, CT} ->
-            case nksip_parse:tokens(CT) of
-               [CT1] -> {Req#sipmsg{content_type=CT1}, Opts};
-               error -> throw({invalid, content_type})
-            end;
-        {require, Require} ->
-            case nksip_parse:tokens(Require) of
-                error -> throw({invalid, require});
-                Tokens -> {Req#sipmsg{require=[T||{T, _}<-Tokens]}, Opts}
-            end;
-        {supported, Supported} ->
-            case nksip_parse:tokens(Supported) of
-                error -> throw({invalid, supported});
-                Tokens -> {Req#sipmsg{supported=[T||{T, _}<-Tokens]}, Opts}
-            end;
-        {expires, Expires} when is_integer(Expires), Expires>=0 ->
-            {Req#sipmsg{expires=Expires}, Opts};
-        {contact, Contact} ->
-            case nksip_parse:uris(Contact) of
-                error -> throw({invalid, contact});
-                Uris -> {Req#sipmsg{contacts=Uris}, Opts}
-            end;
-        {reason, Reason} when is_tuple(Reason) ->
-            case nksip_unparse:error_reason(Reason) of
-                error -> throw({invalid, reason});
-                Bin -> {write_header(Req, <<"reason">>, Bin), Opts}
-            end;
-        {event, Event} ->
-            case nksip_parse:tokens(Event) of
-                [Token] -> {Req#sipmsg{event=Token}, Opts};
-                _ -> throw({invalid, event})
-            end;
+        {Header, Value} when Header==from; Header==to; Header==content_type; 
+                             Header==require, Header==supported; Header==expires;
+                             Header==contact; Header==reason; Header==event;
+                             Header==min_se ->
+            {replace, Header, Value};
+
+        %% TODO: CHECK
         {subscription_state, ST} when is_tuple(ST) ->
             case catch nksip_unparse:token(ST) of
                 Bin when is_binary(Bin) ->
-                    {write_header(Req, <<"subscription-state">>, Bin), Opts};
+                    {replace, <<"subscription-state">>, Bin};
                 _ ->
                     throw({invalid, subscription_state})
             end;
@@ -406,39 +343,41 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
                         (Class==uac orelse Class==uas) andalso
                         is_integer(Int) andalso Int >= MinSE ->
                     Token = {Int, [{<<"refresher">>, Class}]},
-                    {write_header(Req, <<"session-expires">>, Token), Opts};
+                    {replace, <<"session-expires">>, Token};
                 Int when is_integer(Int) andalso Int >= MinSE ->
-                    {write_header(Req, <<"session-expires">>, Int), Opts};
+                    {replace, <<"session-expires">>, Int};
                 _ ->
                     throw({invalid, session_expires})
             end;
-        {min_se, MinSE} when is_integer(MinSE), MinSE > 0 ->
-            {write_header(Req, <<"min-se">>, MinSE), Opts};
 
         % Routes (added before existing ones)
-        {route, Route} ->
-            % Routes are inserted before any other
-            case nksip_parse:uris(Route) of
-                error -> throw({invalid, route});
-                Uris -> {Req#sipmsg{routes=Uris++Req#sipmsg.routes}, Opts}
-            end;
+        {route, Routes} ->
+            {insert, <<"route">>, Routes};
 
-        % Default header (inserted before existing ones)
-        {Name, Value} ->
-            case nksip_parse_header:name(Name) of
-                unknown -> throw({invalid, Name});
-                Name -> Req#sipmsg{headers=[{Name, Value}|Req#sipmsg.headers]}
-            end;
+        {Name, _} ->
+            throw({invalid_option, Name});
         _ ->
             throw({invalid_option, Term})
     end,
-    parse_opts(Rest, Req1, Opts1, AppOpts).
+    case Op of
+        {add, Name1, Value1} ->
+            Name2 = nksip_parse_header:name(Name1), 
+            Req1 = nksip_parse_header:parse(Name2, Value1, Req, post),
+            parse_opts(Rest, Req1, Opts, AppOpts);
+        {replace, Name1, Value1} ->
+            Name2 = nksip_parse_header:name(Name1), 
+            Req1 = nksip_parse_header:parse(Name2, Value1, Req, replace),
+            parse_opts(Rest, Req1, Opts, AppOpts);
+        {insert, Name1, Value1} ->
+            Name2 = nksip_parse_header:name(Name1), 
+            Req1 = nksip_parse_header:parse(Name2, Value1, Req, pre),
+            parse_opts(Rest, Req1, Opts, AppOpts);
+        {update_req, Req1} -> 
+            parse_opts(Rest, Req1, Opts, AppOpts);
+        {update_opts, Opts1} -> 
+            parse_opts(Rest, Req, Opts1, AppOpts)
+    end.
 
-
-%% @private
-write_header(#sipmsg{headers=Headers}=Req, Name, Value) ->
-    Headers1 = nksip_lib:delete(Headers, Name),
-    Req#sipmsg{headers=[{Name, Value}|Headers1]}.
 
 
 
@@ -446,42 +385,4 @@ write_header(#sipmsg{headers=Headers}=Req, Name, Value) ->
 %% ===================================================================
 %% EUnit tests
 %% ===================================================================
-
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-uri_test() ->
-    {'REGISTER', #uri{opts=[<<"lr">>]}, []} = 
-        opts_from_uri("<sip:host;method=REGISTER;lr>"),
-
-    {undefined, #uri{}, 
-        [
-            {from, <<"sip:u1@from">>},
-            {to, <<"sip:to">>},
-            {contact, <<"sip:a">>},
-            {post_headers, [{<<"user1">>, <<"data1">>}]},
-            {call_id, <<"abc">>},
-            {user_agent, <<"user">>},
-            {content_type, <<"application/sdp">>},
-            {require, <<"a;b;c">>},
-            make_supported,
-            {supported, <<"d;e">>},
-            {expires, <<"5">>},
-            {max_forwards, <<"69">>},
-            {body, <<"my body">>},
-            {post_headers, [{<<"user2">>, <<"data2">>}]}
-
-        ]
-    } = opts_from_uri("<sip:host?FROM=sip:u1%40from&to=sip:to&contact=sip:a"
-                      "&user1=data1&call-ID=abc&user-agent=user"
-                      "&content-type = application/sdp"
-                      "&require=a;b;c&supported=d;e & expires=5"
-                      "&cseq=ignored&via=ignored&max-forwards=69"
-                      "&content-length=ignored&body=my%20body"
-                      "&user2=data2>").
--endif.
-
-
-
-
 

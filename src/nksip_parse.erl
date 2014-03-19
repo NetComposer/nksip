@@ -30,7 +30,8 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, aors/1, uris/1, ruris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, header/1, uri_method/2]).
+-export([tokens/1, integers/1, dates/1, header/1]).
+-export([uri_method/2]).
 -export([transport/1]).
 -export([packet/3]).
 
@@ -39,7 +40,6 @@
 -type msg_class() :: {req, nksip:method(), binary()} | 
                      {resp, nksip:response_code(), binary()}.
 
--compile([export_all]).
 
 
 %% ===================================================================
@@ -410,86 +410,6 @@ parse_sipmsg(SipMsg, Headers) ->
     }.
 
           
-
-% %% @doc Modifies a request based on uri options
-% -spec uri_request(nksip:user_uri(), nksip:request()) ->
-%     {nksip:request(), nksip:uri()} | {error, binary()}.
-
-% uri_request(RawUri, Req) ->
-%     try
-%         case nksip_parse:uris(RawUri) of
-%             [#uri{headers=[]}=Uri] ->
-%                 {Req, Uri};
-%             [#uri{headers=Headers}=Uri] ->
-%                 {uri_request_header(Headers, Req), Uri#uri{headers=[]}};
-%             _ ->
-%                 throw(<<"Invalid URI">>)
-%         end
-%     catch
-%         throw:Throw -> {error, Throw}
-%     end.
-
-
-% %% @private
-% uri_request_header([], Req) ->
-%     Req;
-
-% uri_request_header([{<<"body">>, Value}|Rest], Req) ->
-%     uri_request_header(Rest, Req#sipmsg{body=Value});
-
-% % From, To, Max-Forwards, Call-ID, CSeq, Content-Type, Require, Supported,
-% % Expires, Event and Contact replace existing headers.
-% % Via and Content-Length are ignored.
-% % Route and any other headers are inserted before existing headers.
-% uri_request_header([{Name, Value}|Rest], Req) ->
-%     #sipmsg{routes=Routes, contacts=Contacts, headers=Headers} = Req,
-%     Value1 = list_to_binary(http_uri:decode(nksip_lib:to_list(Value))), 
-%     Req1 = case nksip_parse_header:header_name(Name) of
-%         <<"From">> -> 
-%             Req#sipmsg{from=parse_headers(<<"From">>, [Value1])};
-%         <<"To">> -> 
-%             Req#sipmsg{to=parse_headers(<<"To">>, [Value1])};
-%         <<"Max-Forwards">> -> 
-%             Req#sipmsg{forwards=parse_headers(<<"Max-Forwards">>, [Value1])};
-%         <<"Call-ID">> -> 
-%             Req#sipmsg{call_id=parse_headers(<<"Call-ID">>, [Value1])};
-%         <<"CSeq">> -> 
-%             {CSeqInt, CSeqMethod} = parse_headers(<<"CSeq">>, [Value1]),
-%             Req#sipmsg{cseq=CSeqInt, cseq_method=CSeqMethod};
-%         <<"Via">> -> 
-%             Req;
-%         <<"Content-Type">> -> 
-%             Req#sipmsg{content_type=parse_headers(<<"Content-Type">>, [Value1])};
-%         <<"Require">> -> 
-%             Req#sipmsg{require=parse_headers(<<"Require">>, [Value1])};
-%         <<"Supported">> -> 
-%             Req#sipmsg{supported=parse_headers(<<"Supported">>, [Value1])};
-%         <<"Expires">> -> 
-%             Req#sipmsg{expires=parse_headers(<<"Expires">>, [Value1])};
-%         <<"Event">> -> 
-%             Req#sipmsg{event=parse_headers(<<"Event">>, [Value1])};
-%         <<"Content-Length">> -> 
-%             Req;
-%         <<"Route">> -> 
-%             % Routes in URL are inserted before existing
-%             Req#sipmsg{routes=parse_headers(<<"Route">>, [Value1])++Routes};
-%         <<"Contact">> -> 
-%             % Contacts in URL replaces previous contacts
-%             Req#sipmsg{contacts=Contacts++parse_headers(<<"Contact">>, [Value1])};
-%         unknown ->
-%             Req#sipmsg{headers=[{Name, Value1}|Headers]};
-%         Name1 -> 
-%             Req#sipmsg{headers=[{Name1, Value1}|Headers]}
-%     end,
-%     uri_request_header(Rest, Req1);
-
-% uri_request_header(_, _) ->
-%     throw(<<"Invalid URI">>).
-
-
-
-
-
 %% @private
 -spec scheme(term()) ->
     nksip:scheme().
@@ -624,4 +544,102 @@ uri_method(RawUri, Default) ->
         _ ->
             error
     end.
+
+
+
+
+%% ===================================================================
+%% EUnit tests
+%% ===================================================================
+
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+uri_test() ->
+    Uri = 
+        "<sip:host?FROM=sip:u1%40from&to=sip:to&contact=sip:a"
+        "&user1=data1&call-ID=abc&user-Agent=user"
+        "&content-type = application/sdp"
+        "&Require=a;b;c&supported=d;e & expires=5"
+        "&cseq=100%20INVITE&max-forwards=69"
+        "&route=sip%3Ar1%2Csip%3Ar2"
+        "&body=my%20body&user1=data2"
+        "&Route=sip%3Ar3>",
+
+    Base = #sipmsg{
+        from = #uri{domain = <<"f">>, ext_opts=[{<<"tag">>, <<"f">>}]},
+        to = #uri{domain = <<"t">>, ext_opts=[{<<"tag">>, <<"t">>}]},
+        headers = [{<<"previous">>, <<"term">>}],
+        routes = [#uri{domain = <<"previous">>}],
+        from_tag = <<"f">>,
+        to_tag = <<"t">>
+    },
+
+    {Req1, #uri{headers=[]}} = uri_request(Uri, Base, post),
+    #sipmsg{
+        vias = [],
+        from = #uri{disp = <<>>, scheme = sip, user = <<"u1">>, domain = <<"from">>, 
+                    ext_opts = [{<<"tag">>, <<"f">>}]},
+        to = #uri{domain = <<"to">>, ext_opts = [{<<"tag">>, <<"t">>}]},
+        call_id = <<"abc">>,
+        cseq = {100,'INVITE'},
+        forwards = 69,
+        routes = [
+            #uri{domain = <<"previous">>},
+            #uri{domain = <<"r1">>},
+            #uri{domain = <<"r2">>},
+            #uri{domain = <<"r3">>}
+        ],
+        contacts = [
+            #uri{domain = <<"a">>}
+        ],
+        content_type = {<<"application/sdp">>,[]},
+        require = [<<"a">>],
+        supported = [<<"d">>],
+        expires = 5,
+        headers = [
+            {<<"previous">>, <<"term">>},
+            {<<"user1">>, <<"data1">>},
+            {<<"user-agent">>, <<"user">>},
+            {<<"user1">>, <<"data2">>}
+        ],
+        body = <<"my body">>,
+        from_tag = <<"f">>,
+        to_tag = <<"t">>
+    } = Req1,
+
+    {Req2, _} = uri_request(Uri, Base, pre),
+    #sipmsg{
+        routes = [
+            #uri{domain = <<"r3">>},
+            #uri{domain = <<"r1">>},
+            #uri{domain = <<"r2">>},
+            #uri{domain = <<"previous">>}
+        ],
+        headers = [
+            {<<"user1">>, <<"data2">>},
+            {<<"user-agent">>, <<"user">>},
+            {<<"user1">>, <<"data1">>},
+            {<<"previous">>, <<"term">>}
+        ]
+    } = Req2,
+
+    {Req3, _} = uri_request(Uri, Base, replace),
+    #sipmsg{
+        routes = [#uri{domain = <<"r3">>}],
+        headers = [
+            {<<"user1">>, <<"data2">>},
+            {<<"user-agent">>, <<"user">>},
+            {<<"previous">>, <<"term">>}
+        ]
+    } = Req3,
+    ok.
+       
+-endif.
+
+
+
+
+
 

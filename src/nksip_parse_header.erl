@@ -29,9 +29,10 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([parse/2, parse/3]).
--export([header/2]).
+-export([parse/2, parse/4]).
+-export([headers/3, header/2, name/1]).
 
+-define(TWO32, 4294967296).
 
 %% ===================================================================
 %% Private
@@ -42,43 +43,83 @@
 %% If Name is binary(), it will is supposed it is canonical; if not sure, 
 %% call `name(Name)`. If it is a string() or atom(), it is  converted to canonical form.
 %% Throws {invalid, Name} in case of invalid header.
--spec parse(binary()|string()|atom(), term()) ->
+-spec parse(binary(), term()) ->
     {binary(), term()}.
 
-parse(Name, Value) ->
-    parse(Name, Value, undefined).
-    
+parse(Name, Value) when is_binary(Name) ->
+    try
+        {Result, _} = header(Name, Value),
+        {Name, Result}
+    catch
+        throw:invalid -> throw({invalid, Name})
+    end.
+
 
 %% @doc Parses a header value. 
 %% Similar to `parse/2', but updates the #sipmsg{}.
--spec parse(binary(), term(), #sipmsg{}|undefined) ->
+-spec parse(binary(), term(), #sipmsg{}, pre|replace|post) ->
     {binary(), term()} | #sipmsg{}.
 
-parse(Name, Value, Req) when is_binary(Name) ->
+parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
     try
-        {Result, Update} = header(Name, Value),
-        case Update of
-            Pos when is_integer(Pos), is_record(Req, sipmsg) -> 
-                setelement(Pos, Req, Result);
-            {append, Pos} when is_record(Req, sipmsg) -> 
-                setelement(Pos, Req, element(Pos, Req)++Result);
-            headers when is_record(Req, sipmsg) ->
-                Req#sipmsg{headers=Req#sipmsg.headers++[{Name, Result}]};
-            _ ->
-                {Name, Result}
+        case header(Name, Value) of
+            {Result, Pos} when is_integer(Pos) -> 
+                Result1 = case Name of
+                    <<"from">> when Req#sipmsg.from_tag /= <<>> ->
+                        #sipmsg{from_tag=FromTag} = Req,
+                        #uri{ext_opts=ExtOpts} = Result,
+                        ExtOpts1 = nksip_lib:store_value(<<"tag">>, FromTag, ExtOpts),
+                        Result#uri{ext_opts=ExtOpts1};
+                    <<"to">> when Req#sipmsg.to_tag /= <<>> ->
+                        #sipmsg{to_tag=ToTag} = Req,
+                        #uri{ext_opts=ExtOpts} = Result,
+                        ExtOpts1 = nksip_lib:store_value(<<"tag">>, ToTag, ExtOpts),
+                        Result#uri{ext_opts=ExtOpts1};
+                    _ ->
+                        Result
+                end,
+                setelement(Pos, Req, Result1);
+            {Result, {add, Pos}} ->
+                Old = element(Pos, Req),
+                Value1 = case Policy of
+                    pre when is_list(Old), is_list(Result) -> Result++Old;
+                    post when is_list(Old), is_list(Result) -> Old++Result;
+                    replace -> Result;
+                    _ -> throw(invalid)
+                end,
+                setelement(Pos, Req, Value1);
+            {Result, add} ->
+                Old = Req#sipmsg.headers,
+                Headers = case Policy of
+                    pre -> [{Name, Result}|Old]; 
+                    post -> Old++[{Name, Result}];
+                    replace -> [{Name, Result}|nksip_lib:delete(Old, Name)]
+                end,
+                Req#sipmsg{headers=Headers}
         end
     catch
-        throw:invalid -> throw({invalid, Name});
-        throw:{empty, EmptyName} -> throw({empty, EmptyName})
-    end;
+        throw:invalid -> throw({invalid, Name})
+    end.
 
-parse(Name, Value, Req) when is_atom(Name) ->
-    Name1 = [case Ch of $_ -> $-; _ -> Ch end || Ch <- atom_to_list(Name)],
-    parse(Name1, Value, Req);
 
-parse(Name, Value, Req) when is_list(Name) ->
-    Name1 = list_to_binary(string:to_lower(Name)),
-    parse(Name1, Value, Req).
+%% @private
+-spec headers([{binary(), term()}], nksip:request(), pre|post|replace) ->
+    nksip:request().
+
+headers([], Req, _Policy) ->
+    Req;
+
+headers([{<<"body">>, Value}|Rest], Req, Policy) ->
+    Body1 = list_to_binary(http_uri:decode(nksip_lib:to_list(Value))), 
+    headers(Rest, Req#sipmsg{body=Body1}, Policy);
+
+headers([{Name, Value}|Rest], Req, Policy) ->
+    Value1 = http_uri:decode(nksip_lib:to_list(Value)), 
+    Req1 = parse(Name, Value1, Req, Policy),
+    headers(Rest, Req1, Policy);
+
+headers(_, _, _) ->
+    throw({invalid, ruri}).
 
 
 
@@ -96,7 +137,7 @@ header(<<"cseq">>, Value) ->
     {cseq(Value), #sipmsg.cseq};
 
 header(<<"max-forwards">>, Value) -> 
-    {integer(Value, 300), #sipmsg.forwards};
+    {integer(Value, 0, 300), #sipmsg.forwards};
 
 header(<<"call-id">>, Value) -> 
     case nksip_lib:to_binary(Value) of
@@ -105,22 +146,22 @@ header(<<"call-id">>, Value) ->
     end;
 
 header(<<"route">>, Value) ->
-    {uris(Value), {append, #sipmsg.routes}};
+    {uris(Value), {add, #sipmsg.routes}};
 
 header(<<"contact">>, Value) ->
-    {uris(Value), {append, #sipmsg.contacts}};
+    {uris(Value), #sipmsg.contacts};
 
 header(<<"record-route">>, Value) ->
-    {uris(Value), headers};
+    {uris(Value), add};
 
 header(<<"path">>, Value) ->
-    {uris(Value), headers};
+    {uris(Value), add};
 
 header(<<"content-length">>, Value) ->
-    {integer(Value), none};
+    {integer(Value, 0, ?TWO32), none};
 
 header(<<"expires">>, Value) ->
-    {integer(Value), #sipmsg.expires};
+    {integer(Value, 0, ?TWO32), #sipmsg.expires};
 
 header(<<"content-type">>, Value) ->
     {single_token(Value), #sipmsg.content_type};
@@ -142,9 +183,9 @@ header(<<"session-expires">>, Value) ->
             case nksip_lib:to_integer(SE) of
                 SE1 when is_integer(SE1), SE1>0 -> 
                     case nksip_lib:get_binary(<<"refresher">>, Opts) of
-                        <<"uac">> -> {{SE1, uac}, headers};
-                        <<"uas">> -> {{SE1, uas}, headers};
-                        _ -> {{SE1, undefined}, headers}
+                        <<"uac">> -> {{SE1, uac}, add};
+                        <<"uas">> -> {{SE1, uas}, add};
+                        _ -> {{SE1, undefined}, add}
                     end;
                 _ ->
                     throw(invalid)
@@ -153,8 +194,22 @@ header(<<"session-expires">>, Value) ->
             throw(invalid)
     end;
 
+header(<<"reason">>, Value) ->
+    case is_binary(Value) of
+        true -> 
+            Value;
+        false ->
+            case nksip_unparse:error_reason(Value) of
+                error -> throw(invalid);
+                Bin -> {Bin, add}
+            end
+    end;
+
+header(<<"min-se">>, Value) ->
+    {integer(Value, 1, ?TWO32), add};
+
 header(_Name, Value) ->
-    {nksip_lib:to_binary(Value), headers}.
+    {nksip_lib:to_binary(Value), add}.
 
 
 
@@ -211,12 +266,9 @@ cseq(Data) ->
             throw(invalid)
     end.
 
-integer(Data) ->
-    integer(Data, 4294967296).
-
-integer(Data, Max) ->
+integer(Data, Min, Max) ->
     case nksip_lib:to_integer(Data) of
-        Int when is_integer(Int), Int>=0, Int=<Max -> Int;
+        Int when is_integer(Int), Int>=Min, Int=<Max -> Int;
         _ -> throw(invalid)
     end.
 
@@ -225,19 +277,29 @@ integer(Data, Max) ->
 
 
 
-% %% @private
-% -spec name(atom()|list()|binary()) ->
-%     binary() | unknown.
+%% @private
+-spec name(atom()|list()|binary()) ->
+    binary().
 
-% name(Name) when is_atom(Name) ->
-%     List = [case Ch of $_ -> $-; _ -> Ch end || Ch <- atom_to_list(Name)],
-%     name(List);
+name(Name) when is_binary(Name) ->
+    << 
+        << (case Ch>=$A andalso Ch=<$Z of true -> Ch+32; false -> Ch end) >> 
+        || << Ch >> <= Name 
+    >>;
 
-% name(Name) when is_binary(Name) ->
-%     raw_name(string:to_lower(binary_to_list(Name)));
+name(Name) when is_atom(Name) ->
+    List = [
+        case Ch of 
+            $_ -> $-; 
+            _ when Ch>=$A, Ch=<$Z -> Ch+32;
+            _ -> Ch 
+        end 
+        || Ch <- atom_to_list(Name)
+    ],
+    list_to_binary(List);
 
-% name(Name) when is_list(Name) ->
-%     raw_name(string:to_lower(Name)).
+name(Name) when is_list(Name) ->
+    name(list_to_binary(Name)).
 
 
 % %% @private
