@@ -82,7 +82,7 @@ uas() ->
     ],
     {ok, 200, Values1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
     [{call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}] = Values1,
-    ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq, CSeq1}, 
+    ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}, 
                       {meta, [reason_phrase]} | Opts1],
     {ok, 482, [{reason_phrase, <<"Loop Detected">>}]} = 
         nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
@@ -94,7 +94,7 @@ uas() ->
     ],
     {ok, 200, Values3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
     [{_, CallId3}, {_, From3}, {_, CSeq3}] = Values3,
-    ForceLoopOpts4 = [{call_id, CallId3}, {from, From3}, {cseq, CSeq3},
+    ForceLoopOpts4 = [{call_id, CallId3}, {from, From3}, {cseq_num, CSeq3},
                      {meta, []} | Opts3],
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
 

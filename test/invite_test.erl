@@ -220,7 +220,7 @@ dialog() ->
     CSeq = nksip_dialog:field(C2, DialogIdB, remote_seq) - 1,
 
     % Sends now from the remote party to us, forcing initial CSeq
-    {ok, 200, []} = nksip_uac:options(C2, DialogIdB, [{cseq, 9999}]),
+    {ok, 200, []} = nksip_uac:options(C2, DialogIdB, [{cseq_num, 9999}]),
     CSeq = nksip_dialog:field(C1, DialogIdA, local_seq) -1,
     9999 = nksip_dialog:field(C1, DialogIdA, remote_seq),
     9999 = nksip_dialog:field(C2, DialogIdB, local_seq),
@@ -228,7 +228,7 @@ dialog() ->
 
     % Force invalid CSeq
     {ok, 500, [{reason_phrase, <<"Old CSeq in Dialog">>}]} = 
-        nksip_uac:options(C2, DialogIdB, [{cseq, 9998}, {meta, [reason_phrase]}]),
+        nksip_uac:options(C2, DialogIdB, [{cseq_num, 9998}, {meta, [reason_phrase]}]),
 
     [DialogIdA] = nksip_dialog:get_all(C1, CallId),
     [DialogIdB] = nksip_dialog:get_all(C2, CallId),

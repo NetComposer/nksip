@@ -159,7 +159,7 @@ temp_gruu() ->
     % and different temporary GRUU, both are valid
     {ok, 200, [{_, [#uri{ext_opts=EOpts2}]}]} =
         nksip_uac:register(C1, "sip:127.0.0.1", 
-                               [contact, {call_id, CallId}, {cseq, CSeq+1}, 
+                               [contact, {call_id, CallId}, {cseq_num, CSeq+1}, 
                                 {meta, [parsed_contacts]}]),
     [Tmp2] = nksip_parse:ruris(nksip_lib:unquote(
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
