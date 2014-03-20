@@ -24,7 +24,8 @@
 
 -include("nksip.hrl").
 
--export([uri/1, ruri/1, uri2proplist/1, via/1, token/1, packet/1, response/3]).
+-export([uri/1, ruri/1, uri2proplist/1, via/1, token/1]).
+-export([packet/1, response/3]).
 -export([add_sip_instance/2]).
 -export([error_reason/1]).
 
@@ -200,34 +201,6 @@ response(Headers, Code, Reason) ->
     ]).
 
 
-
-
-% %% @private Generates a binary packet for a request or response
-% -spec raw_packet(#raw_sipmsg{}, nksip:response_code(), binary()) -> 
-%     binary().
-
-% raw_packet(#raw_sipmsg{headers=Hds}, Code, Reason) ->
-%     Hds1 = [{string:to_lower(nksip_lib:to_list(N)), V} || {N, V} <- Hds],
-%     list_to_binary([
-%         "SIP/2.0 ", nksip_lib:to_list(Code), 32,
-%             case Reason of
-%                 <<>> -> response_phrase(Code);
-%                 _ -> Reason
-%             end,
-%             "\r\n",
-%         "Via: ", nksip_lib:get_binary("via", Hds1), "\r\n",
-%         "From: ", nksip_lib:get_binary("from", Hds1), "\r\n",
-%         "To: ", nksip_lib:get_binary("to", Hds1), "\r\n",
-%         "Call-ID: ", nksip_lib:get_binary("call-id", Hds1), "\r\n",
-%         "CSeq: ", nksip_lib:get_binary("cseq", Hds1), "\r\n",
-%         "Max-Forwards: ", nksip_lib:get_binary("max-forwards", Hds1), "\r\n",
-%         "Content-Length: 0", nksip_lib:get_binary("contentlLength", Hds1), "\r\n",
-%         "\r\n"
-%     ]).
-
-
-
-
 %% @private Serializes an `nksip:uri()', using `<' and `>' as delimiters
 -spec raw_uri(nksip:uri()) -> 
     iolist().
@@ -348,55 +321,70 @@ serialize(#sipmsg{
             body = Body
         }) ->
     Body1 = case Body of
-        _ when is_binary(Body) -> Body;
+        _ when is_binary(Body); is_list(Body) -> Body;
         #sdp{} -> nksip_sdp:unparse(Body);
         _ -> base64:encode(term_to_binary(Body))
     end,
     Headers1 = [
-        [{<<"Via">>, raw_via(Via)} || Via <- Vias],
-        {<<"From">>, raw_uri(From)},
-        {<<"To">>, raw_uri(To)},
+        [{<<"Via">>, Via} || Via <- Vias],
+        {<<"From">>, From},
+        {<<"To">>, To},
         {<<"Call-ID">>, CallId},
-        {<<"CSeq">>, [nksip_lib:to_binary(CSeq), <<" ">>, nksip_lib:to_binary(Method)]},
-        {<<"Max-Forwards">>, nksip_lib:to_binary(Forwards)},
-        {<<"Content-Length">>, nksip_lib:to_binary(byte_size(Body1))},
-        case Routes of 
-            [] -> []; 
-            _ -> [{<<"Route">>, raw_uri(Route)} || Route <- Routes]
-        end,
-        case Contacts of
-            [] -> [];
-            _ -> [{<<"Contact">>, raw_uri(Contact)} || Contact <- Contacts]
-        end,
-        case ContentType of
-            undefined -> [];
-            _ -> {<<"Content-Type">>, raw_tokens(ContentType)}
-        end,
-        case Require of
-            [] -> [];
-            _ -> {<<"Require">>, nksip_lib:bjoin(Require)}
-        end,
-        case Supported of
-            [] -> [];
-            _ -> {<<"Supported">>, nksip_lib:bjoin(Supported)}
-        end,
-        case Expires of
-            undefined -> [];
-            _ -> {<<"Expires">>, nksip_lib:to_binary(Expires)}
-        end,
-        case Event of
-            undefined -> [];
-            _ -> {<<"Event">>, raw_tokens(Event)}
-        end,
+        {<<"CSeq">>, 
+            <<(nksip_lib:to_binary(CSeq))/binary, " ", 
+              (nksip_lib:to_binary(Method))/binary>>},
+        {<<"Max-Forwards">>, Forwards},
+        {<<"Content-Length">>, byte_size(Body1)},
+        [{<<"Route">>, Route} || Route <- Routes],
+        [{<<"Contact">>, Contact} || Contact <- Contacts],
+        {<<"Content-Type">>, ContentType},
+        {<<"Require">>, Require},
+        {<<"Supported">>, Supported},
+        {<<"Expires">>, Expires},
+        {<<"Event">>, Event}
+        |
         Headers
     ],
     [
         [
-            [capitalize(Name), $:, 32, nksip_lib:to_binary(Value), 13, 10] 
-            || {Name, Value} <- lists:flatten(Headers1), Value/=empty
+            [capitalize(Name), $:, 32, unparse_header(Value), 13, 10] 
+            || {Name, Value} <- lists:flatten(Headers1), 
+            Value /= [], Value /= <<>>, Value /= undefined
         ],
         "\r\n", Body1
     ].
+
+
+%% @private
+unparse_header(Value) when is_binary(Value) ->
+    Value;
+
+unparse_header(#uri{}=Uri) ->
+    raw_uri(Uri);
+
+unparse_header(#via{}=Via) ->
+    raw_via(Via);
+
+unparse_header({Name, Opts}) when is_list(Opts) ->
+    raw_tokens({Name, Opts});
+
+unparse_header([H|_]=String) when is_integer(H) ->
+    list_to_binary(String);
+
+unparse_header([H|_]=Names) when is_binary(H) ->
+    nksip_lib:bjoin(Names);
+
+unparse_header([H|_]=Names) when is_list(H) ->
+    nksip_lib:bjoin([nksip_lib:to_binary(N) || N<-Names]);
+
+unparse_header([#uri{}|_]=Uris) ->
+    nksip_lib:bjoin([uri(Uri) || Uri <- Uris]);
+
+unparse_header([{_, Opts}|_]=Tokens) when is_list(Opts) ->
+    raw_tokens(Tokens);
+
+unparse_header(Value) when is_integer(Value); is_atom(Value) ->
+    nksip_lib:to_binary(Value).
 
 
 %% @private
