@@ -53,17 +53,13 @@ add_transport(AppId, Spec) ->
 
 %% @private
 -spec start_link(nksip:app_id(), nksip_lib:proplist()) -> 
-    {ok, pid()} | {error, Error}
-    when Error ::  could_not_start_udp | could_not_start_tcp |
-                   could_not_start_tls | no_matching_tcp |
-                   could_not_start_sctp.
-
+    {ok, pid()} | {error, term()}.
 
 start_link(AppId, Opts) ->
     Reg = {nksip_transport_sup, AppId},
     Spec = {{one_for_one, 10, 60}, []},
     {ok, SupPid} = supervisor:start_link(?MODULE, [Reg, Spec]),
-    Transports = nksip_lib:get_value(transports, Opts, []), 
+    Transports = nksip_lib:get_value(transports, Opts, [{udp, {0,0,0,0}, 0, []}]), 
     case start_transports(AppId, Transports, Opts) of
         ok -> {ok, SupPid};
         {error, Error} -> {error, Error}
@@ -80,19 +76,12 @@ init([Reg, ChildSpecs]) ->
 %% For every UDP transport it will start a TCP transport on the same port
 -spec start_transports(nksip:app_id(), [term()], nksip_lib:proplist()) ->
     ok | {error, Error}
-    when Error ::  {could_not_start_udp, term()} | {could_not_start_tcp, term()} |
-                   {could_not_start_tls, term()} | {could_not_start_sctp, term()} |
-                   {could_not_start_ws, term()} | {could_not_start_wss, term()}.
+    when Error ::  {could_not_start, {udp|tcp|tls|sctp|ws|wss, term()}}.
 
 start_transports(AppId, [{Proto, Ip, Port, TOpts}|Rest], Opts) ->
     case nksip_transport:start_transport(AppId, Proto, Ip, Port, TOpts++Opts) of
         {ok, _} -> start_transports(AppId, Rest, Opts);
-        {error, Error} when Proto==udp -> {error, {could_not_start_udp, Error}};
-        {error, Error} when Proto==tcp -> {error, {could_not_start_tcp, Error}};
-        {error, Error} when Proto==tls -> {error, {could_not_start_tls, Error}};
-        {error, Error} when Proto==sctp -> {error, {could_not_start_sctp, Error}};
-        {error, Error} when Proto==ws -> {error, {could_not_start_ws, Error}};
-        {error, Error} when Proto==wss -> {error, {could_not_start_wss, Error}}
+        {error, Error} -> {error, {could_not_start, {Proto, Error}}}
     end;
 
 start_transports(_AppId, [], __Opts) ->

@@ -32,7 +32,8 @@
 -include("nksip.hrl").
 -include_lib("wsock/include/wsock.hrl").
 
--define(MAX_BUFFER, 65535).
+-define(MAX_MSG, 65535).
+-define(MAX_UDP, 1500).
 
 
 
@@ -98,7 +99,7 @@ send(Pid, #sipmsg{}=SipMsg) ->
     #sipmsg{app_id=AppId, class=Class, call_id=CallId, transport=Transp} = SipMsg,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     Packet = nksip_unparse:packet(SipMsg),
-    case send(Pid, Packet) of
+    case do_send(Pid, Proto, Packet) of
         ok ->
             case Class of
                 {req, Method} ->
@@ -110,12 +111,19 @@ send(Pid, #sipmsg{}=SipMsg) ->
                     nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
                     ok
             end;
+        udp_too_large ->
+            {error, udp_too_large};
         {error, Error} ->
             ?notice(AppId, CallId, "could not send ~p message: ~p", [Proto, Error]),
             {error, Error}
-    end;
+    end.
 
-send(Pid, Packet) when is_binary(Packet) ->
+
+%% @private
+do_send(_Pid, udp, Packet) when byte_size(Packet) > ?MAX_UDP ->
+    udp_too_large;
+
+do_send(Pid, _Proto, Packet) ->
     case catch gen_server:call(Pid, {send, Packet}) of
         ok -> ok;
         {'EXIT', Error} -> {error, Error}
@@ -236,6 +244,7 @@ start_link(AppId, Transport, SocketOrPid, Timeout) ->
     refresh_time :: pos_integer(),
     refresh_notify = [] :: [from()],
     buffer = <<>> :: binary(),
+    rnrn_pattern :: binary:cp(),
     ws_frag = #message{},            % Store previous ws fragmented message
     ws_pid :: pid()                  % Cowboy protocol's pid
 }).
@@ -268,6 +277,7 @@ init([AppId, Transport, SocketOrPid, Timeout]) ->
         timeout = Timeout,
         in_refresh = false,
         buffer = <<>>,
+        rnrn_pattern = binary:compile_pattern(<<"\r\n\r\n">>),
         ws_frag = undefined,
         ws_pid = Pid
     },
@@ -524,8 +534,9 @@ do_send(Packet, State) ->
 -spec parse(binary(), #state{}) ->
     gen_server_info(#state{}).
 
-parse(Binary, State) ->
-    case do_parse(Binary, State) of
+parse(Binary, #state{buffer=Buffer}=State) ->
+    Data = <<Buffer/binary, Binary/binary>>,
+    case do_parse(Data, State) of
         {ok, State1} -> do_noreply(State1);
         {error, Error} -> do_stop(Error, State)
     end.
@@ -536,7 +547,7 @@ parse(Binary, State) ->
     {ok, #state{}} | {error, term()}.
 
 do_parse(<<>>, State) ->
-    {ok, State};
+    {ok, State#state{buffer = <<>>}};
 
 do_parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
@@ -570,25 +581,39 @@ do_parse(<<"\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State)
     },
     do_parse(Rest, State1);
 
-do_parse(Packet, #state{app_id=AppId, proto=Proto, buffer=Buff})
-    when (Proto==tcp orelse Proto==tls) andalso
-         byte_size(Packet) + byte_size(Buff) > ?MAX_BUFFER ->
+do_parse(Data, #state{app_id=AppId, proto=Proto})
+    when (Proto==tcp orelse Proto==tls) andalso byte_size(Data) > ?MAX_MSG ->
     ?warning(AppId, "dropping TCP/TLS closing because of max_buffer", []),
-    {error, max_buffer};
+    {error, msg_too_large};
 
-do_parse(Packet, State) ->
+do_parse(Data, State) ->
     #state{
         app_id = AppId,
         proto = Proto,
         transport = Transp,
-        buffer = Buff
+        rnrn_pattern = RNRN
     } = State,
-    Data = <<Buff/binary, Packet/binary>>,
+    case binary:match(Data, RNRN) of
+        nomatch when Proto==tcp; Proto==tls ->
+            {ok, State#state{buffer=Data}};
+        nomatch ->
+            ?notice(AppId, "invalid partial msg ~p: ~p", [Proto, Data]),
+            {error, parse_error};
+        _ ->
+            do_parse(AppId, Transp, Data, State)
+    end.
+
+
+%% @private
+-spec do_parse(nksip:app_id(), nksip:transport(), binary(), #state{}) ->
+    {ok, #state{}} | {error, term()}.
+
+do_parse(AppId, Transp, Data, State) ->
+    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     case nksip_parse:packet(AppId, Transp, Data) of
         {ok, #sipmsg{call_id=CallId, class=_Class}=SipMsg, Rest} -> 
-            #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
-            nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
+            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Data),
+            nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Data}),
             case nksip_call_router:incoming_sync(SipMsg) of
                 ok -> 
                     do_parse(Rest, State);

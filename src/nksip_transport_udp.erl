@@ -30,8 +30,6 @@
 
 -include("nksip.hrl").
 
--define(MAX_UDP, 1500).
-
 
 %% ===================================================================
 %% Public
@@ -132,7 +130,7 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
             process_flag(priority, high),
             {ok, Port1} = inet:port(Socket),
             Self = self(),
-            spawn(fun() -> start_tcp(AppId, Ip, Port1, Self) end),
+            spawn(fun() -> start_tcp(AppId, Ip, Port1, Opts, Self) end),
             Transp1 = Transp#transport{local_port=Port1, listen_port=Port1},
             nksip_proc:put(nksip_transports, {AppId, Transp1}),
             nksip_proc:put({nksip_listen, AppId}, Transp1),
@@ -350,8 +348,8 @@ do_stun_timeout(Stun, #state{app_id=AppId}=State) ->
 
 
 %% @private
-start_tcp(AppId, Ip, Port, Pid) ->
-    case nksip_transport:start_transport(AppId, tcp, Ip, Port, []) of
+start_tcp(AppId, Ip, Port, Opts, Pid) ->
+    case nksip_transport:start_transport(AppId, tcp, Ip, Port, Opts) of
         {ok, TcpPid} -> gen_server:cast(Pid, {matching_tcp, {ok, TcpPid}});
         {error, Error} -> gen_server:cast(Pid, {matching_tcp, {error, Error}})
     end.

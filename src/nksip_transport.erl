@@ -334,7 +334,7 @@ send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
                 ok -> 
                     {ok, SipMsg};
                 {error, _} when Proto==udp ->
-                    send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts);
+                    send(AppId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
                 {error, _} -> 
                     send(AppId, Rest, MakeMsg, Opts)
             end;
@@ -347,7 +347,7 @@ send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
                         ok -> 
                             {ok, SipMsg};
                         {error, _} when Proto==udp ->
-                            send(AppId, [{tcp, Ip, Port}|Rest], MakeMsg, Opts);
+                            send(AppId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
                         {error, _} -> 
                             send(AppId, Rest, MakeMsg, Opts)
                     end;
@@ -370,17 +370,6 @@ send(_, [], _MakeMsg, _Opts) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
-
-%% @private
-% -spec raw_send(#sipmsg{}, binary()) ->
-%     ok | error.
-
-% raw_send(#sipmsg{app_id=AppId, transport=Transp}, Reply) ->
-%     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-%     case get_connected(AppId, Proto, Ip, Port, <<>>) of
-%         [{_, Pid}|_] -> nksip_connection:send(Pid, Reply);
-%         [] -> error
-%     end.
 
 
 %% @private

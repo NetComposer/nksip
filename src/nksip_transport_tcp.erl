@@ -131,7 +131,7 @@ listen_opts(tcp, Ip, Port, _Opts) ->
 listen_opts(tls, Ip, Port, Opts) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
-            DefCert = filename:join(PrivDir, "certificate.pem"),
+            DefCert = filename:join(PrivDir, "cert.pem"),
             DefKey = filename:join(PrivDir, "key.pem");
         _ ->
             DefCert = "",
