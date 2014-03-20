@@ -73,7 +73,7 @@ route(Req, Scheme, User, Domain, _From) ->
     send_reply(Req, route),
     Opts = [
         record_route,
-        {headers, [{"x-nk-id", Id}]}
+        {add, "x-nk-id", Id}
     ],
     case lists:member(Domain, [<<"127.0.0.1">>, <<"nksip">>]) of
         true when User =:= <<>> ->

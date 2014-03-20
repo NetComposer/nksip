@@ -63,28 +63,31 @@ start() ->
         {from, "sip:server1@nksip"},
         registrar,
         {local_host6, "::1"},
-        {transport, {udp, any, 5060}},
-        {transport, {udp, "::1", 5060}}]),
+        {transports, [{udp, any, 5060}, {udp, "::1", 5060}]}
+    ]),
 
     ok = sipapp_server:start({ipv6, server2}, [
         {from, "sip:server2@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, any, 5061}},
         {local_host6, "::1"},
-        {transport, {udp, "::1", 5061}}]),
+        {transports, [{udp, any, 5061}, {udp, "::1", 5061}]}
+    ]),
 
     ok = sipapp_endpoint:start({ipv6, client1}, [
         {from, "sip:client1@nksip"},
-        {transport, {udp, "::1", 5070}}]),
+        {transports, [{udp, "::1", 5070}]}
+    ]),
     
     ok = sipapp_endpoint:start({ipv6, client2}, [
         {from, "sip:client2@nksip"},
-        {transport, {udp, "::1", 5071}}]),
+        {transports, [{udp, "::1", 5071}]}
+    ]),
 
     ok = sipapp_endpoint:start({ipv6, client3}, [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, any, 5072}}]),
+        {transports, [{udp, any, 5072}]}
+    ]),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -107,7 +110,7 @@ basic() ->
         #uri{user=(<<"client1">>), domain=MainIp, port=5070} = Contact,
         Self ! {Ref, ok_1}
     end,
-    Opts1 = [{callback, Fun1}, get_request, get_response, make_contact],
+    Opts1 = [{callback, Fun1}, get_request, get_response, contact],
     RUri1 = "<sip:[::1]:5071>",
     {resp, Resp1} = nksip_uac:options({ipv6, client1}, RUri1, Opts1),
     #sipmsg{
@@ -135,7 +138,7 @@ basic() ->
         true = lists:member({<<"transport">>, <<"tcp">>}, COpts2),
         Self ! {Ref, ok_2}
     end,
-    Opts2 = [{callback, Fun2}, get_request, get_response, make_contact],
+    Opts2 = [{callback, Fun2}, get_request, get_response, contact],
     RUri2 = "<sip:[::1]:5071;transport=tcp>",
     {resp, Resp2} = nksip_uac:options({ipv6, client1}, RUri2, Opts2),
     #sipmsg{
@@ -164,23 +167,23 @@ invite() ->
     C2 = {ipv6, client2},
     RUri = "sip:[::1]:5071",
     Ref = make_ref(),
-    Hds = {headers, [
-        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
-        {"x-nk-op", "ok"}
-    ]},
-    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, RUri, [Hds]),
+    Hds = [
+        {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+        {add, "x-nk-op", "ok"}
+    ],
+    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, RUri, Hds),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     {ok, 200, []} = nksip_uac:options(C1, DialogId1, []),
 
-    {ok, 200, _} = nksip_uac:invite(C1, DialogId1, [Hds]),
+    {ok, 200, _} = nksip_uac:invite(C1, DialogId1, Hds),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
     DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
     {ok, 200, []} = nksip_uac:options(C2, DialogId2, []),
-    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(C2, DialogId2, [Hds]),
+    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(C2, DialogId2, Hds),
     ok = nksip_uac:ack(C2, DialogId2, []),
     ok = tests_util:wait(Ref, [{client1, ack}]),
     {ok, 200, []} = nksip_uac:bye(C2, DialogId2, []),
@@ -194,17 +197,17 @@ proxy() ->
     C2 = {ipv6, client2},
     S1Uri = "sip:[::1]",
     Ref = make_ref(),
-    Hds = {headers, [
-        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
-        {"x-nk-op", "ok"}
-    ]},
+    Hds = [
+        {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+        {add, "x-nk-op", "ok"}
+    ],
 
     {ok, 200, []} = nksip_uac:register(C1, S1Uri, [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, S1Uri, [unregister_all]),
     
     % Avoid outbound support
-    {ok, 200, []} = nksip_uac:register(C1, S1Uri, [make_contact, {supported, ""}]),
-    {ok, 200, []} = nksip_uac:register(C2, S1Uri, [make_contact, {supported, ""}]),
+    {ok, 200, []} = nksip_uac:register(C1, S1Uri, [contact, {supported, ""}]),
+    {ok, 200, []} = nksip_uac:register(C2, S1Uri, [contact, {supported, ""}]),
 
     %% C1 will send an INVITE to C2
     %% First, it is sent to Server1, which changes the uri to the registered one
@@ -212,8 +215,8 @@ proxy() ->
     %% Server2 routes to C2 (stateful, record_route)
     Route = {route, "<sip:[::1];lr>"},
     {ok, 200, [{dialog_id, DialogId1}, {<<"x-nk-id">>, [<<"client2,server2,server1">>]}]} = 
-        nksip_uac:invite(C1, "sip:client2@nksip", [Route, Hds, {fields, [<<"x-nk-id">>]}, 
-                                                  {supported, ""}]),
+        nksip_uac:invite(C1, "sip:client2@nksip", [Route, {meta, [<<"x-nk-id">>]}, 
+                                                  {supported, ""}|Hds]),
     % Without outbound, the Record-Route has the NkQ format, and it is converted
     % to NkS when back, with transport tcp
     % With outbound, is has the NkF format, and it is not converted back (the flow
@@ -238,23 +241,23 @@ bridge_4_6() ->
     %% Server1 and Server2 listens on both
     C1 = {ipv6, client1},
     C3 = {ipv6, client3},
-    Hds = {headers, [{"x-nk-op", "ok"}]},
+    Hd = {add, "x-nk-op", "ok"},
 
     {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [unregister_all]),
     
     % Avoid outbound support
-    {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [make_contact, {supported, ""}]),
-    {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [make_contact, {supported, ""}]),
+    {ok, 200, []} = nksip_uac:register(C1, "sip:[::1]", [contact, {supported, ""}]),
+    {ok, 200, []} = nksip_uac:register(C3, "sip:127.0.0.1", [contact, {supported, ""}]),
 
     %% C1 will send an INVITE to C3
     %% First, it is sent to Server1 (IPv6), which changes the uri to the registered one
     %% and routes the request (stateless, no record_route, IPv6) to Server2
     %% Server2 routes to C3 (stateful, record_route, IPv4)
     Route1 = {route, "<sip:[::1];lr>"},
-    Fields1 = {fields, [<<"x-nk-id">>, parsed_contacts]},
+    Fields1 = {meta, [<<"x-nk-id">>, parsed_contacts]},
     {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client3@nksip", 
-                                [Route1, Hds, Fields1, {supported, ""}]),
+                                [Route1, Hd, Fields1, {supported, ""}]),
     %% C3 has generated a IPv4 Contact
     [
         {dialog_id, DialogId1}, 

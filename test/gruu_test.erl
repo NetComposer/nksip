@@ -45,22 +45,19 @@ start() ->
         {from, "sip:server1@nksip"},
         registrar,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
     ok = sipapp_endpoint:start({gruu, ua1}, [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
     ok = sipapp_endpoint:start({gruu, ua2}, [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5080}},
-        {transport, {tls, {0,0,0,0}, 5081}}
+        {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
 
     nksip_registrar:internal_clear(),
@@ -84,7 +81,7 @@ register() ->
 
     {ok, 200, [{_, [PC1]}]} =
         nksip_uac:register(C1, "sip:127.0.0.1", 
-                               [make_contact, {fields, [parsed_contacts]}]),
+                               [contact, {meta, [parsed_contacts]}]),
     #uri{
         user = <<"client1">>, 
         domain = <<"127.0.0.1">>,
@@ -106,7 +103,7 @@ register() ->
 
     {ok, 200, [{_, [PC2, PC1]}]} =
         nksip_uac:register(C2, "sip:127.0.0.1", 
-                               [make_contact, {fields, [parsed_contacts]}]),
+                               [contact, {meta, [parsed_contacts]}]),
     #uri{
         user = <<"client1">>, 
         domain = <<"127.0.0.1">>,
@@ -153,8 +150,8 @@ temp_gruu() ->
     
     {ok, 200, [{_, CallId}, {_, CSeq}, {_, [#uri{ext_opts=EOpts1}]}]} =
         nksip_uac:register(C1, "sip:127.0.0.1", 
-                               [make_contact, 
-                                {fields, [call_id, cseq_num, parsed_contacts]}]),
+                               [contact, 
+                                {meta, [call_id, cseq_num, parsed_contacts]}]),
     [Tmp1] = nksip_parse:ruris(nksip_lib:unquote(
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts1))),
 
@@ -162,8 +159,8 @@ temp_gruu() ->
     % and different temporary GRUU, both are valid
     {ok, 200, [{_, [#uri{ext_opts=EOpts2}]}]} =
         nksip_uac:register(C1, "sip:127.0.0.1", 
-                               [make_contact, {call_id, CallId}, {cseq, CSeq+1}, 
-                                {fields, [parsed_contacts]}]),
+                               [contact, {call_id, CallId}, {cseq, CSeq+1}, 
+                                {meta, [parsed_contacts]}]),
     [Tmp2] = nksip_parse:ruris(nksip_lib:unquote(
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
 
@@ -174,7 +171,7 @@ temp_gruu() ->
     % Now we change the Call-ID, both are invalidated and only the new one is valid
     {ok, 200, [{_, [#uri{ext_opts=EOpts3}]}]} =
         nksip_uac:register(C1, "sip:127.0.0.1", 
-                               [make_contact, {fields, [parsed_contacts]}]),
+                               [contact, {meta, [parsed_contacts]}]),
     [Tmp3] = nksip_parse:ruris(nksip_lib:unquote(
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts3))),
 

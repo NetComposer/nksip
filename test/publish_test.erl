@@ -44,16 +44,14 @@ start() ->
         {from, "sip:client1@nksip"},
         {fullname, "NkSIP Basic SUITE Test Client1"},
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
     
     ok = sipapp_endpoint:start({publish, client2}, [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}},
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         {event, "nkpublish"}
     ]),
 

@@ -49,16 +49,21 @@ start() ->
     ok = sipapp_server:start({basic, server1}, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         registrar,
-        {listeners, 10},
         {supported, []},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}]),
+        {transports, [
+            {udp, all, 5060, [{listeners, 10}]},
+            {tls, all, 5061}
+        ]}
+    ]),
 
     ok = sipapp_endpoint:start({basic, client1}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {supported, []},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}]),
+        {transports, [
+            {udp, all, 5070},
+            {tls, all, 5071}
+        ]}
+    ]),
 
     ok = sipapp_endpoint:start({basic, client2}, [
         {supported, []},
@@ -83,16 +88,15 @@ running() ->
     [{basic, client1}, {basic, client2}, {basic, server1}] = 
         lists:sort(nksip:get_all()),
 
-    {error, error1} = 
-        sipapp_endpoint:start(error1, [{transport, {udp, {0,0,0,0}, 5090}}]),
+    {error, error1} = sipapp_endpoint:start(error1, [{transports, [{udp, all, 5090}]}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
     {error, invalid_transport} = 
-                    sipapp_endpoint:start(name, [{transport, {other, {0,0,0,0}, 0}}]),
+                    sipapp_endpoint:start(name, [{transports, [{other, all, any}]}]),
     {error, invalid_transport} = 
-                    sipapp_endpoint:start(name, [{transport, {udp, {1,2,3}, 0}}]),
+                    sipapp_endpoint:start(name, [{transports, [{udp, {1,2,3}, any}]}]),
     {error, invalid_register} = sipapp_endpoint:start(name, [{register, "sip::a"}]),
 
     ok.
@@ -104,11 +108,12 @@ transport() ->
     
     Body = base64:encode(crypto:rand_bytes(100)),
     Opts1 = [
-        {headers, [{<<"x-nksip">>, <<"test1">>}, {<<"x-nk-op">>, <<"reply-request">>}]}, 
+        {add, "x-nksip", "test1"}, 
+        {add, "x-nk-op", "reply-request"}, 
         {contact, "sip:aaa:123, sips:bbb:321"},
-        {user_agent, "My SIP"},
+        {add, user_agent, "My SIP"},
         {body, Body},
-        {fields, [body]}
+        {meta, [body]}
     ],
     {ok, 200, [{body, RespBody}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
 
@@ -119,10 +124,10 @@ transport() ->
         nksip_sipmsg:header(Req1, <<"contact">>),
     Body = nksip_sipmsg:field(Req1, body),
 
-    Fields2 = {fields, [parsed_contacts, remote]},
+    % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
+    Fields2 = {meta, [parsed_contacts, remote]},
     {ok, 200, Values2} = nksip_uac:options(C1, "<sip:127.0.0.1;transport=tcp>", [Fields2]),
 
-    % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
     [
         {_, [#uri{scheme=sip, port=5060, opts=[{<<"transport">>, <<"tcp">>}]}]},
         {_, {tcp, {127,0,0,1}, 5060, <<>>}}
@@ -136,26 +141,26 @@ transport() ->
     ] = Values3,
 
     % Send a big body, switching to TCP
-    BigBody = base64:encode(crypto:rand_bytes(1000)),
+    BigBody = list_to_binary([[integer_to_list(L), 32] || L <- lists:seq(1, 5000)]),
     BigBodyHash = erlang:phash2(BigBody),
     Opts4 = [
-        {headers, [{<<"x-nk-op">>, <<"reply-request">>}]},
-        {content_type, <<"nksip/binary">>},
+        {add, "x-nk-op", "reply-request"},
+        {content_type, "nksip/binary"},
         {body, BigBody},
-        {fields, [body]}
+        {meta, [body, remote]}
     ],
     {ok, 200, Values4} = nksip_uac:options(C2, "sip:127.0.0.1", Opts4),
-    [{body, RespBody4}] = Values4,
+    [{body, RespBody4}, {remote, {tcp, _, _, _}}] = Values4,
     Req4 = binary_to_term(base64:decode(RespBody4)),
     BigBodyHash = erlang:phash2(nksip_sipmsg:field(Req4, body)),
 
     % Check local_host is used to generare local Contact, Route headers are received
     Opts5 = [
-        {headers, [{<<"x-nk-op">>, <<"reply-request">>}]},
-        make_contact,
+        {add, "x-nk-op", "reply-request"},
+        contact,
         {local_host, "mihost"},
         {route, [<<"<sip:127.0.0.1;lr>">>, "<sip:aaa;lr>, <sips:bbb:123;lr>"]},
-        {fields, [body]}
+        {meta, [body]}
     ],
     {ok, 200, Values5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
     [{body, RespBody5}] = Values5,
@@ -170,9 +175,9 @@ transport() ->
     ] = nksip_sipmsg:fields(Req5, [parsed_contacts, parsed_routes]),
 
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
-                                [{headers, [{<<"x-nk-op">>, <<"reply-stateless">>}]}]),
+                                [{add, "x-nk-op", "reply-stateless"}]),
     {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
-                                [{headers, [{<<"x-nk-op">>, <<"reply-stateful">>}]}]),
+                                [{add, "x-nk-op", "reply-stateful"}]),
 
     % Cover ip resolution
     case nksip_uac:options(C1, "<sip:sip2sip.info>", []) of

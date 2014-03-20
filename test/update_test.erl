@@ -44,16 +44,14 @@ start() ->
     ok = nksip:start({update, client1}, update_endpoint, [client1], [
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}},
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         no_100
     ]),
     
     ok = nksip:start({update, client2}, update_endpoint, [client2], [
         {from, "sip:client2@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}},
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         no_100
     ]),
 
@@ -100,11 +98,11 @@ basic() ->
         end
     end},
     Body = {body, SDP0},
-    Hds1 = {headers, [
-        {"x-nk-op", "basic"},
-        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}
-    ]},
-    {ok, 200, Values1} = nksip_uac:invite(C1, SipC2, [CB, Hds1, Body]),
+    Hds1 = [
+        {add, "x-nk-op", "basic"},
+        {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
+    ],
+    {ok, 200, Values1} = nksip_uac:invite(C1, SipC2, [CB, Body | Hds1]),
     [{dialog_id, DialogId}] = Values1,
     ok = nksip_uac:ack(C1, DialogId, []),
     ok = tests_util:wait(Ref, [
@@ -160,10 +158,8 @@ pending() ->
                 end)
         end
     end},    Body = {body, SDP0},
-    Hds1 = {headers, [
-        {"x-nk-op", "pending1"}
-    ]},
-    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, SipC2, [Hds1, Body, CB]),
+    Hd1 = {add, "x-nk-op", "pending1"},
+    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, SipC2, [Hd1, Body, CB]),
     ok = nksip_uac:ack(C1, DialogId, []),
 
     ok = tests_util:wait(Ref, [fun_ok_1]),

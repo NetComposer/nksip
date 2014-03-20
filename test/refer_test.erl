@@ -42,20 +42,18 @@ start() ->
     tests_util:start_nksip(),
 
     ok = sipapp_endpoint:start({refer, client1}, [
-        {transport, {udp, {0,0,0,0}, 5060}}
+        {transports, [{udp, all, 5060}]}
     ]),
     
     ok = sipapp_endpoint:start({refer, client2}, [
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
     ok = sipapp_endpoint:start({refer, client3}, [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5080}},
-        {transport, {tls, {0,0,0,0}, 5081}}
+        {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
 
     tests_util:log(),

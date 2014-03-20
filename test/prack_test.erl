@@ -46,8 +46,7 @@ start() ->
         {from, "sip:client1@nksip"},
         {fullname, "NkSIP Basic SUITE Test Client1"},
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}},
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {supported, "100rel"},
         no_100
     ]),
@@ -55,8 +54,7 @@ start() ->
     ok = nksip:start({prack, client2}, prack_endpoint, [client2], [
         {from, "sip:client2@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}},
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         no_100,
         {supported, "100rel"},
         make_100rel
@@ -80,9 +78,9 @@ basic() ->
     CB = {callback, fun(Reply) -> Self ! {Ref, Reply} end},
 
     % No make_100rel in call to invite, neither in app config
-    Hds1 = {headers, [{"x-nk-op", "prov-busy"}]},
-    Fields1 = {fields, [parsed_supported, parsed_require]},
-    {ok, 486, Values1} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds1, Fields1]),    [
+    Hd1 = {add, "x-nk-op", "prov-busy"},
+    Fields1 = {meta, [parsed_supported, parsed_require]},
+    {ok, 486, Values1} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hd1, Fields1]),    [
         {parsed_supported,  [<<"100rel">>]},
         {parsed_require, []}
     ] = Values1,
@@ -115,12 +113,12 @@ basic() ->
 
 
     % Ask for 100rel in UAS
-    Hds2 = {headers, [
-        {"x-nk-op", "rel-prov-busy"},
-        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
-
-    Fields2 = {fields, [parsed_supported, parsed_require, cseq_num, rseq_num]},
-    {ok, 486, Values2} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hds2, Fields2, {require, "100rel"}]),
+    Hds2 = [
+        {add, "x-nk-op", "rel-prov-busy"},
+        {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
+    ],
+    Fields2 = {meta, [parsed_supported, parsed_require, cseq_num, rseq_num]},
+    {ok, 486, Values2} = nksip_uac:invite(C1, SipC2, [CB, get_request, Fields2, {require, "100rel"}|Hds2]),
     [
         {parsed_supported, [<<"100rel">>]},
         {parsed_require, []},
@@ -178,11 +176,12 @@ pending() ->
     SipC2 = "sip:127.0.0.1:5070",
     Ref = make_ref(),
     Self = self(),
-    Hds = {headers, [
-        {"x-nk-op", "pending"},
-        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    Hds = [
+        {add, "x-nk-op", "pending"},
+        {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
+    ],
 
-    {ok, 486, _} = nksip_uac:invite(C1, SipC2, [Hds]),
+    {ok, 486, _} = nksip_uac:invite(C1, SipC2, Hds),
     receive
         {Ref, pending_prack_ok} -> ok
     after 1000 ->
@@ -196,7 +195,7 @@ media() ->
     Ref = make_ref(),
     Self = self(),
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     % A session with media offer in INVITE, answer in reliable provisional 
     % and final responses.
@@ -204,9 +203,9 @@ media() ->
     % session are received.
     % We don't receive callbacks from client1, since it has not stored the reply in 
     % its state
-    Hds1 = [{"x-nk-op", "rel-prov-answer"}, RepHd],
+    Hds1 = [{add, "x-nk-op", "rel-prov-answer"}, RepHd],
     {ok, 200, [{dialog_id, DialogId1}]} = 
-        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{headers, Hds1}, {body, SDP}]),
+        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{body, SDP}|Hds1]),
     ok = nksip_uac:ack(C1, DialogId1, []),
     receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
     receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
@@ -228,14 +227,14 @@ media() ->
 
     % A session with media offer in INVITE, answer in reliable provisional 
     % and new offer in PRACK (answer in respone to PRACk)
-    Hds2 = [{"x-nk-op", "rel-prov-answer2"}, RepHd],
+    Hds2 = [{add, "x-nk-op", "rel-prov-answer2"}, RepHd],
     CB = {prack, 
             fun(<<>>, #sipmsg{}) -> 
                 Self ! {Ref, prack_sdp_ok},
                 nksip_sdp:increment(SDP)
             end},
     {ok, 200, [{dialog_id, DialogId2}]} = 
-        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{headers, Hds2}, {body, SDP}, CB]),
+        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{body, SDP}, CB|Hds2]),
     ok = nksip_uac:ack(C1, DialogId2, []),
     receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
     ok = tests_util:wait(Ref, [prack_sdp_ok,
@@ -256,7 +255,7 @@ media() ->
 
     % A session with no media offer in INVITE, offer in reliable provisional 
     % and answer in PRACK
-    Hds3 = [{"x-nk-op", "rel-prov-answer3"}, RepHd],
+    Hds3 = [{add, "x-nk-op", "rel-prov-answer3"}, RepHd],
     CB3 = {prack, 
             fun(FunSDP, #sipmsg{}) -> 
                 FunLocalSDP = FunSDP#sdp{
@@ -267,7 +266,7 @@ media() ->
                 FunLocalSDP
             end},
     {ok, 200, [{dialog_id, DialogId3}]} = 
-        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{headers, Hds3}, CB3]),
+        nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [CB3|Hds3]),
     ok = nksip_uac:ack(C1, DialogId3, []),
     receive {Ref, {client2, prack, _}} -> ok after 1000 -> error(media) end,
     LocalSDP3 = receive {Ref, {prack_sdp_ok, L3}} -> L3 after 1000 -> error(media) end,

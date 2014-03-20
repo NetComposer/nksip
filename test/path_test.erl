@@ -42,37 +42,37 @@ start() ->
 
     ok = path_server:start({path, p1}, [
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}]),
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+    ]),
 
     ok = path_server:start({path, p2}, [
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}]),
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+    ]),
 
     ok = path_server:start({path, p3}, [
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5080}},
-        {transport, {tls, {0,0,0,0}, 5081}}]),
+        {transports, [{udp, all, 5080}, {tls, all, 5081}]}
+    ]),
 
     ok = path_server:start({path, registrar}, [
         registrar,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5090}},
-        {transport, {tls, {0,0,0,0}, 5091}}]),
+        {transports, [{udp, all, 5090}, {tls, all, 5091}]}
+    ]),
 
     ok = sipapp_endpoint:start({path, ua1}, [
         {from, "sip:ua1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 0}},
-        {transport, {tls, {0,0,0,0}, 0}}]),
+        {transports, [{udp, all, 0}, {tls, all, 0}]}
+    ]),
 
     ok = sipapp_endpoint:start({path, ua2}, [
         {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 0}},
-        {transport, {tls, {0,0,0,0}, 0}}]),
+        {transports, [{udp, all, any}, {tls, all, any}]}
+    ]),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -95,19 +95,19 @@ basic() ->
     % We didn't send the Supported header, so first proxy 
     % (P1, configured to include Path) sends a 421 (Extension Required)
     {ok, 421, [{<<"require">>, [<<"path">>]}]} = 
-        nksip_uac:register(C1, "sip:nksip", [{fields, [<<"require">>]}, {supported, ""}]),
+        nksip_uac:register(C1, "sip:nksip", [{meta,[<<"require">>]}, {supported, ""}]),
 
     % If the request arrives at registrar, having a valid Path header and
     % no Supported: path, it returns a 420 (Bad Extension)
     {ok, 420, [{<<"unsupported">>, [<<"path">>]}]} = 
         nksip_uac:register(C1, "<sip:nksip?Path=sip:mypath>", 
                         [{route, "<sip:127.0.0.1:5090;lr>"}, 
-                         {fields, [<<"unsupported">>]}, {supported, ""}]),
+                         {meta, [<<"unsupported">>]}, {supported, ""}]),
 
 
     {ok, 200, [{<<"path">>, [P1, P2]}]} = 
         nksip_uac:register(C1, "sip:nksip", 
-                        [make_supported, make_contact, {fields, [<<"path">>]}]),
+                        [make_supported, contact, {meta, [<<"path">>]}]),
 
     [#reg_contact{
         contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},
@@ -126,7 +126,7 @@ basic() ->
     % Now, if send a request to UA1, the registrar inserts the stored path
     % as routes, and requests pases throw P3, P1 and to UA1
     {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
-        nksip_uac:options(C2, "sip:ua1@nksip", [{fields, [<<"x-nk-id">>]}]),
+        nksip_uac:options(C2, "sip:ua1@nksip", [{meta,[<<"x-nk-id">>]}]),
     ok.
 
 

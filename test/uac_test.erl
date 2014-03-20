@@ -28,25 +28,26 @@
 -compile([export_all]).
 
 
-uac_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun uac/0},
-            {timeout, 60, fun info/0},
-            {timeout, 60, fun message/0},
-            {timeout, 60, fun timeout/0}
-        ]
-    }.
+% uac_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun uac/0},
+%             {timeout, 60, fun info/0},
+%             {timeout, 60, fun message/0},
+%             {timeout, 60, fun timeout/0}
+%         ]
+%     }.
 
 
 start() ->
     tests_util:start_nksip(),
     ok = sipapp_endpoint:start({uac, client1}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}]),
+        {transports, [ {udp, all, 5070},{tls, all, 5071}]}
+    ]),
+            
     ok = sipapp_endpoint:start({uac, client2}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
     tests_util:log(),
@@ -63,11 +64,11 @@ uac() ->
     SipC1 = "sip:127.0.0.1:5070",
 
     {error, invalid_uri} = nksip_uac:options(C2, "sip::a", []),
-    {error, invalid_from} = nksip_uac:options(C2, SipC1, [{from, "<>"}]),
-    {error, invalid_to} = nksip_uac:options(C2, SipC1, [{to, "<>"}]),
-    {error, invalid_route} = nksip_uac:options(C2, SipC1, [{route, "<>"}]),
-    {error, invalid_contact} = nksip_uac:options(C2, SipC1, [{contact, "<>"}]),
-    {error, invalid_cseq} = nksip_uac:options(C2, SipC1, [{cseq, -1}]),
+    {error, {invalid, <<"from">>}} = nksip_uac:options(C2, SipC1, [{from, "<>"}]),
+    {error, {invalid, <<"to">>}} = nksip_uac:options(C2, SipC1, [{to, "<>"}]),
+    {error, {invalid, <<"route">>}} = nksip_uac:options(C2, SipC1, [{route, "<>"}]),
+    {error, {invalid, <<"contact">>}} = nksip_uac:options(C2, SipC1, [{contact, "<>"}]),
+    {error, {invalid, <<"cseq">>}} = nksip_uac:options(C2, SipC1, [{cseq, -1}]),
     nksip_trace:error("Next error about 'unknown_siapp' is expected"),
     {error, unknown_sipapp} = nksip_uac:options(none, SipC1, []),
     nksip_trace:error("Next error about 'too_many_calls' is expected"),
@@ -79,7 +80,7 @@ uac() ->
     Ref = make_ref(),
     Fun = fun(Reply) -> Self ! {Ref, Reply} end,
     CB = {callback, Fun},
-    Hds = {headers, [{"x-nk-op", busy}, {"x-nk-prov", "true"}]},
+    Hds = [{add, "x-nk-op", busy}, {add, "x-nk-prov", "true"}],
 
     nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
     {error, service_unavailable} =
@@ -94,7 +95,7 @@ uac() ->
     end,
 
     % Sync
-    {ok, 200, Values2} = nksip_uac:options(C2, SipC1, [{fields, [app_id, id, call_id]}]),
+    {ok, 200, Values2} = nksip_uac:options(C2, SipC1, [{meta, [app_id, id, call_id]}]),
     [{app_id, C2}, {id, RespId2}, {call_id, CallId2}] = Values2,
     CallId2 = nksip_response:call_id(RespId2),
     error = nksip_dialog:field(C2, RespId2, status),
@@ -105,7 +106,7 @@ uac() ->
 
     % Sync, callback for request
     {ok, 200, [{id, RespId3}]} = 
-        nksip_uac:options(C2, SipC1, [CB, get_request, {fields, [id]}]),
+        nksip_uac:options(C2, SipC1, [CB, get_request, {meta, [id]}]),
     CallId3 = nksip_response:call_id(RespId3),
     receive 
         {Ref, {req, #sipmsg{class={req, _}, call_id=CallId3}}} -> ok
@@ -114,7 +115,7 @@ uac() ->
 
     % Sync, callback for request and provisional response
     {ok, 486, [{call_id, CallId4}, {id, RespId4}]} = 
-        nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, {fields, [call_id, id]}]),
+        nksip_uac:invite(C2, SipC1, [CB, get_request, {meta, [call_id, id]}|Hds]),
     CallId4 = nksip_response:call_id(RespId4),
     DlgId4 = nksip_dialog:id(C2, RespId4),
     receive 
@@ -133,7 +134,7 @@ uac() ->
 
     % Sync, callback for request and provisional response, get_request, get_response
     {resp, #sipmsg{class={resp, 486, _}, call_id=CallId5}=Resp5} = 
-        nksip_uac:invite(C2, SipC1, [Hds, CB, get_request, get_response]),
+        nksip_uac:invite(C2, SipC1, [CB, get_request, get_response|Hds]),
     DialogId5 = nksip_dialog:class_id(uac, Resp5),
     receive 
         {Ref, {req, #sipmsg{class={req, _}, call_id=CallId5}}} -> ok
@@ -147,8 +148,7 @@ uac() ->
     end,
 
     % Async
-    {async, ReqId6} = nksip_uac:invite(C2, SipC1, 
-                                        [async, CB, get_request, Hds]),
+    {async, ReqId6} = nksip_uac:invite(C2, SipC1, [async, CB, get_request | Hds]),
     CallId6 = nksip_request:call_id(ReqId6),
     CallId6 = nksip_request:field(C2, ReqId6, call_id),
     receive 
@@ -174,10 +174,10 @@ info() ->
     C1 = {uac, client1},
     C2 = {uac, client2},
     SipC1 = "sip:127.0.0.1:5070",
-    Hds1 = {headers, [{<<"x-nk-op">>, <<"ok">>}]},
-    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(C2, SipC1, [Hds1]),
+    Hd1 = {add, <<"x-nk-op">>, <<"ok">>},
+    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(C2, SipC1, [Hd1]),
     ok = nksip_uac:ack(C2, DialogId2, []),
-    Fs = {fields, [<<"x-nk-method">>, <<"x-nk-dialog">>]},
+    Fs = {meta, [<<"x-nk-method">>, <<"x-nk-dialog">>]},
     DialogId1 = nksip_dialog:field(C2, DialogId2, remote_id),
 
     {ok, 200, Values1} = nksip_uac:info(C2, DialogId2, [Fs]),
@@ -202,20 +202,20 @@ timeout() ->
     nksip_trace:notice("Next notices about several timeouts are expected"),
 
     {ok, 408, [{reason_phrase, <<"Timer F Timeout">>}]} = 
-        nksip_uac:options(C2, "sip:127.0.0.1:9999", [{fields, [reason_phrase]}]),
+        nksip_uac:options(C2, "sip:127.0.0.1:9999", [{meta,[reason_phrase]}]),
 
     {ok, 408, [{reason_phrase, <<"Timer B Timeout">>}]} = 
-        nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{fields, [reason_phrase]}]),
+        nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{meta,[reason_phrase]}]),
 
     % REGISTER sends a provisional response, but the timeout is the same
     Hds1 = {headers, [{<<"x-nk-sleep">>, 2000}]},
     {ok, 408, [{reason_phrase, <<"Timer F Timeout">>}]} = 
-        nksip_uac:options(C2, SipC1, [Hds1, {fields, [reason_phrase]}]),
+        nksip_uac:options(C2, SipC1, [Hds1, {meta, [reason_phrase]}]),
 
     % INVITE sends 
     Hds2 = {headers, [{"x-nk-op", busy}, {"x-nk-prov", "true"}, {"x-nk-sleep", 20000}]},
     {ok, 408, [{reason_phrase, Reason}]} = 
-        nksip_uac:invite(C2, SipC1, [Hds2, {fields, [reason_phrase]}]),
+        nksip_uac:invite(C2, SipC1, [Hds2, {meta, [reason_phrase]}]),
     
     % TODO: Should fire timer C, sometimes it fires timer B 
     case Reason of
@@ -229,20 +229,19 @@ timeout() ->
 message() ->
     Ref = make_ref(),
     Self = self(),
-    Hds = {headers, [
-        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}
-    ]},
+    Hd = {add, <<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
     {ok, 200, []} = nksip_uac:message({uac,client2}, "sip:user@127.0.0.1:5070", [
-                                      Hds, {expires, 10}, {content_type, "text/plain"},
+                                      Hd, {expires, 10}, {content_type, "text/plain"},
                                       {body, <<"Message">>}]),
 
     receive 
         {Ref, {ok, 10, RawDate, <<"text/plain">>, <<"Message">>}} ->
             Date = httpd_util:convert_request_date(binary_to_list(RawDate)),
             true = nksip_lib:timestamp() - nksip_lib:gmt_to_timestamp(Date) < 2
-   
-    after 1000 -> error(message)
-    end.
+        after 1000 -> error(message)
+    end,
+    ok.
+
 
 
 

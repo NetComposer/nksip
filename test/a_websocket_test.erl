@@ -40,14 +40,18 @@ ws1_test_() ->
 
 start1() ->
     ok = nksip:start(ws_a, nksip_sipapp, [], [
-        {transport, {ws, {0,0,0,0}, 8090, []}},
-        {transport, {wss, {0,0,0,0}, 8091, []}},
-        {transport, {ws, {0,0,0,0}, 0, [{dispatch, "/ws"}]}}
+        {transports, [
+            {ws, all, 8090, []},
+            {wss, all, 8091, []},
+            {ws, all, any, [{dispatch, "/ws"}]}
+        ]}
     ]),
 
     ok = nksip:start(ws_b, nksip_sipapp, [], [
-        {transport, {ws, {0,0,0,0}, 8090, []}},
-        {transport, {wss, {0,0,0,0}, 8092, [{dispatch, [{'_', ["/ws"]}]}]}}
+        {transports, [
+            {ws, all, 8090, []},
+            {wss, all, 8092, [{dispatch, [{'_', ["/ws"]}]}]}
+        ]}
     ]),
 
     tests_util:log(),
@@ -111,30 +115,30 @@ start2() ->
         registrar,
         {listeners, 10},
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}},
-        {transport, {ws, {0,0,0,0}, 8080, []}},
-        {transport, {wss, {0,0,0,0}, 8081, [{dispatch, "/wss"}]}}
+        {transports, [
+            {udp, all, 5060},
+            {tls, all, 5061},
+            {ws, all, 8080, []},
+            {wss, all, 8081, [{dispatch, "/wss"}]}
+        ]}
     ]),
 
     ok = sipapp_endpoint:start({ws, ua1}, [
         {from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
     ok = sipapp_endpoint:start({ws, ua2}, [
         {from, "<sip:client2@nksip>"},
         {local_host, "localhost"},
-        {transport, {ws, {0,0,0,0}, 0}},
-        {transport, {wss, {0,0,0,0}, 8091}}
+        {transports, [{ws, all, any}, {wss, all, 8091}]}
     ]),
 
     ok = sipapp_endpoint:start({ws, ua3}, [
         {from, "<sip:client3@nksip>"},
         {local_host, "invalid.invalid"},
-        {transport, {ws, {0,0,0,0}, 8080, [{dispatch, "/client3"}]}}
+        {transports, [{ws, all, 8080, [{dispatch, "/client3"}]}]}
     ]),
 
     tests_util:log().
@@ -157,7 +161,7 @@ basic() ->
 
     {ok, 200, Values1} = nksip_uac:options(C2, 
                          "<sip:localhost:8080/;transport=ws>", 
-                         [{fields, [parsed_vias, local, remote]}]),
+                         [{meta, [parsed_vias, local, remote]}]),
 
     [
         {_, [#via{proto=ws, domain = <<"localhost">>, port=Port1}]},
@@ -200,7 +204,7 @@ basic() ->
 
     {ok, 200, Values2} = nksip_uac:options(C2, 
                          "<sips:localhost:8081/wss;transport=ws>", 
-                         [{fields, [parsed_vias, local, remote]}]),
+                         [{meta, [parsed_vias, local, remote]}]),
 
     [
         {_, [#via{proto=wss, domain = <<"localhost">>, port=8091}]},
@@ -241,7 +245,7 @@ basic() ->
 sharing() ->
     % Server1 must answer
     {ok, 200, [{_, [S1C]}]} = nksip_uac:options({ws, ua2}, "<sip:localhost:8080/;transport=ws>", 
-                                      [{fields, [parsed_contacts]}]),
+                                      [{meta, [parsed_contacts]}]),
     #uri{domain = <<"localhost">>, port=8080} = S1C,
 
     {error, service_unavailable} = nksip_uac:options({ws, ua2}, 
@@ -250,13 +254,13 @@ sharing() ->
     % Client3 must answer
     {ok, 200, [{_, [C3C]}]} = nksip_uac:options({ws, ua2}, 
                                             "<sip:localhost:8080/client3;transport=ws>", 
-                                            [{fields, [parsed_contacts]}]),
+                                            [{meta, [parsed_contacts]}]),
     #uri{domain = <<"invalid.invalid">>, port=8080} = C3C,
     
     % Client2 must unswer
     {ok, 200, [{_, [C2C]}]} = nksip_uac:options({ws, server1},
                                             "<sips:localhost:8091/;transport=ws>", 
-                                            [{fields, [parsed_contacts]}]),
+                                            [{meta, [parsed_contacts]}]),
     #uri{domain = <<"localhost">>, port=8091} = C2C,
     ok.
 
@@ -273,36 +277,36 @@ proxy() ->
     % UA2 registers with the registrar, using WSS
     {ok, 200, []} = 
         nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8081/wss;transport=wss>", 
-                           [make_contact]),
+                           [contact]),
 
     % Using or public GRUU, UA1 (without websocket support) is able to reach us
     C2Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua2}),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options({ws,ua1}, C2Pub, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
     % The same with our private GRUU
     C2Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua2}),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options({ws,ua1}, C2Priv, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
 
     % UA3 registers. Its contact is not routable
     {ok, 200, [{_, [C3Contact]}]} = 
         nksip_uac:register({ws,ua3}, "<sip:127.0.0.1:8080;transport=ws>", 
-                           [make_contact, {fields, [parsed_contacts]}]),
+                           [contact, {meta, [parsed_contacts]}]),
     #uri{domain = <<"invalid.invalid">>} = C3Contact,
     
     C3Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua3}),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options({ws,ua1}, C3Pub, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
     C3Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua3}),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options({ws,ua1}, C3Priv, 
-                          [{route, "<sip:127.0.0.1;lr>"}, {fields, [<<"x-nk-id">>]}]),
+                          [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
 
     % Let's stop the transports

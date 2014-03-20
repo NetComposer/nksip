@@ -60,7 +60,7 @@ start() ->
     tests_util:start_nksip(),
 
     ok = sipapp_server:start({torture, server1}, [
-        {transport, {udp, {0,0,0,0}, 5060}},
+        {transports, [{udp, all, 5060}]},
         no_100
     ]),
     timer:sleep(100),
@@ -159,7 +159,7 @@ invalid_4() ->
         "Expires: 1<repeat count=100>0</repeat>\r\n"
         "Contact: <sip:user@host129.example.com>\r\n"
         "  ;expires=280297596632815\r\n"
-        "Content-Length: 0""\r\n"
+        "Content-Length: 0\r\n"
         "\r\n">>,
     <<"SIP/2.0 400 Invalid CSeq\r\n", _/binary>> = send(tcp, Msg),
     ok.

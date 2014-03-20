@@ -51,36 +51,42 @@ start() ->
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5071}}]),
+        {transports, [{udp, all, 5071}]}
+    ]),
 
     % Server1 is stateless
     ok = sipapp_server:start({fork, server1}, [
         {from, "sip:server1@nksip"},
         no_100,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5061}}]),
+        {transports, [{udp, all, 5061}]}
+    ]),
 
     ok = sipapp_endpoint:start({fork, client2}, [
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
 
     ok = sipapp_server:start({fork, server2}, [
         {from, "sip:serverB@nksip"},
         no_100,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5062}}]),
+        {transports, [{udp, all, 5062}]}
+    ]),
 
     ok = sipapp_endpoint:start({fork, client3}, [
         {from, "sip:client3@nksip"},
         {route, "<sip:127.0.0.1:5063;lr>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
 
     ok = sipapp_server:start({fork, server3}, [
         {from, "sip:server3@nksip"},
         no_100,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5063}}]),
+        {transports, [{udp, all, 5063}]}
+    ]),
 
 
     % Registrar server
@@ -90,7 +96,8 @@ start() ->
         registrar,
         no_100,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}}]),
+        {transports, [{udp, all, 5060}]}
+    ]),
 
 
     % Clients to receive connections
@@ -99,37 +106,43 @@ start() ->
         {from, "sip:clientA1@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5061;lr>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
 
     ok = sipapp_endpoint:start({fork, clientB1}, [
         {from, "sip:clientB1@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
 
     ok = sipapp_endpoint:start({fork, clientC1}, [
         {from, "sip:clientC1@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5063;lr>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
 
     ok = sipapp_endpoint:start({fork, clientA2}, [
         {from, "sip:clientA2@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5061;lr>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
 
     ok = sipapp_endpoint:start({fork, clientB2}, [
         {from, "sip:clientB2@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
     
     ok = sipapp_endpoint:start({fork, clientC3}, [
         {from, "sip:clientC3@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5063;lr>"},
-        {local_host, "127.0.0.1"}]),
+        {local_host, "127.0.0.1"}
+    ]),
 
     ok = sipapp_endpoint:start({fork, clientD1}, []),
     ok = sipapp_endpoint:start({fork, clientD2}, []),
@@ -162,7 +175,7 @@ regs() ->
     
     nksip_registrar:internal_clear(),
     Reg = "sip:nksip",
-    Opts = [make_contact, {fields, [parsed_contacts]}],
+    Opts = [contact, {meta, [parsed_contacts]}],
     {ok, 200, Values1} = nksip_uac:register({fork, clientA1}, Reg, Opts),
     [{parsed_contacts, [#uri{user= <<"clientA1">>}=CA1]}] = Values1,
     {ok, 200, []} = nksip_uac:register({fork, clientA1}, Reg, 
@@ -214,11 +227,11 @@ basic() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     % We have to complete the three iterations
     Body1 = {body, [{clientC3, 300}]},
-    Fs = {fields, [<<"x-nk-id">>]},
+    Fs = {meta, [<<"x-nk-id">>]},
     {ok, 300, Values1} = nksip_uac:invite({fork, client1}, QUri, [Body1, RepHd, Fs]),
     [{<<"x-nk-id">>, [<<"clientC3,serverR,server1">>]}] =Values1,
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 580},
@@ -248,7 +261,7 @@ invite1() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     Fun1 = {callback, fun({ok, Code, Vs}) -> Self ! {Ref, {code, Code, Vs}} end},
 
     % Test to CANCEL a forked request
@@ -310,7 +323,7 @@ invite2() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     CB = {callback, fun({ok, Code, _RId}) -> Self ! {Ref, {code, Code}} end},
     Body2 = {body, [{clientB1, {503, 500}}, {clientC1, {415, 500}},
              {clientC3, {200, 1000}}]},
@@ -354,7 +367,7 @@ invite2() ->
     ok = nksip_dialog:stop(SR, Dlg_C2_1),
 
     % In-dialog OPTIONS
-    Fs = {fields, [<<"x-nk-id">>]},
+    Fs = {meta, [<<"x-nk-id">>]},
     {ok, 200, Values3} = nksip_uac:options(C2, Dlg_C2_1, [Fs]),
     [{<<"x-nk-id">>, [<<"clientC3,server2">>]}] = Values3,
 
@@ -404,7 +417,7 @@ redirect() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}],
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     not_found = nksip:get_port(other, udp, ipv4),
     PortD1 = nksip:get_port({fork, clientD1}, udp, ipv4),
     PortD2 = nksip:get_port({fork, clientD2}, tcp, ipv4),
@@ -412,8 +425,8 @@ redirect() ->
                 #uri{domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
     Body1 = {body, [{clientC1, {redirect, Contacts}}, {clientD2, 570}]},
-    Fs = {fields, [<<"contact">>]},
-    {ok, 300, Values1} = nksip_uac:invite(CA1, QUri, [Body1, {headers, [RepHd]}, Fs]),
+    Fs = {meta, [<<"contact">>]},
+    {ok, 300, Values1} = nksip_uac:invite(CA1, QUri, [Body1, RepHd, Fs]),
     [{<<"contact">>, [C1, C2]}] = Values1,
     {match, [LPortD1]} = re:run(C1, <<"^<sip:127.0.0.1:(\\d+)>">>, 
                                 [{capture, all_but_first, list}]),
@@ -426,7 +439,7 @@ redirect() ->
                                {clientA2, 580}, {clientB2, 580}, {clientC3, 580}]),
     
     {ok, 570, _} = nksip_uac:invite(CA1, QUri, 
-                                     [Body1, {headers, [{"Nk-Redirect", true}, RepHd]}]), 
+                                     [Body1, {add, "nk-redirect", true}, RepHd]), 
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 300},
                                {clientA2, 580}, {clientB2, 580}, {clientC3, 580},
                                {clientD1, 580}, {clientD2, 570}]),
@@ -440,14 +453,14 @@ multiple_200() ->
     QUri = "sip:qtest@nksip",
     Ref = make_ref(),
     Self = self(),
-    RepHd = {headers, [{<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))}]},
+    RepHd = {"x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     
     % client1 requests are sent to server1, stateless and record-routing
     % client1, server1 and serverR will receive three 200 responses
     % client1 ACKs and BYEs second and third. They will not go to serverR, so
     % dialogs stay in accepted_uac state there.
     Body1 = {body, [{clientA1, 200}, {clientB1, 200}, {clientC1, 200}]},
-    {ok, 200, [{dialog_id, Dlg_C1_1}]} = nksip_uac:invite(C1, QUri, [Body1, RepHd]),
+    {ok, 200, [{dialog_id, Dlg_C1_1}]} = nksip_uac:invite(C1, QUri, [Body1, {add, RepHd}]),
     CallId1 = nksip_dialog:call_id(Dlg_C1_1),
     ok = nksip_uac:ack(C1, Dlg_C1_1, []),
 
@@ -483,7 +496,7 @@ multiple_200() ->
 
 
     % client3 requests are sent to server3, which is stateful and record-routing
-    {ok, 200, [{dialog_id, Dlg_C3_2}]} = nksip_uac:invite(C3, QUri, [Body1, RepHd]),
+    {ok, 200, [{dialog_id, Dlg_C3_2}]} = nksip_uac:invite(C3, QUri, [Body1, {add, RepHd}]),
     CallId2 = nksip_dialog:call_id(Dlg_C3_2),
     ok = nksip_uac:ack(C3, Dlg_C3_2, []),
 
@@ -520,7 +533,7 @@ multiple_200() ->
     % ServerR receives the 200 from clientB1 and CANCELs A1 y C1
     % Client1 make the dialog with B1, but can receive a 180 form A1 and/or C1
     Body3 = {body, [{clientA1, {200, 500}}, {clientB1, 200}, {clientC1, {200, 500}}]},
-    {ok, 200, [{dialog_id, Dlg_C1_3}]} = nksip_uac:invite(C1, QUri, [Body3, RepHd]),
+    {ok, 200, [{dialog_id, Dlg_C1_3}]} = nksip_uac:invite(C1, QUri, [Body3, {add, RepHd}]),
     CallId3 = nksip_dialog:call_id(Dlg_C1_3),
     ok = nksip_uac:ack(C1, Dlg_C1_3, []),
     ok = tests_util:wait(Ref, 

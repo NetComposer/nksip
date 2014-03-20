@@ -48,24 +48,24 @@ init(Id) ->
 
 
 % P1 is the outbound proxy.
-% It domain is 'nksip', it sends the request to P2, inserting Path and Nk-Id headers
-% If not, simply proxies the request adding a Nk-Id header
+% It domain is 'nksip', it sends the request to P2, inserting Path and x-nk-id headers
+% If not, simply proxies the request adding a x-nk-id header
 route(_, _, _, Domain, _, #state{id={_, p1}}=State) ->
-    Base = [{headers, [{"x-nk-id", "p1"}]}],
+    Base = [{add, "x-nk-id", "p1"}],
     case Domain of 
         <<"nksip">> -> 
             Opts = [{route, "<sip:127.0.0.1:5071;lr;transport=tls>"}, 
-                     make_path, record_route|Base],
+                     path, record_route|Base],
             {reply, {proxy, ruri, Opts}, State};
         _ -> 
             {reply, {proxy, ruri, Base}, State}
     end;
 
 % P2 is an intermediate proxy.
-% For 'nksip' domain, sends the request to P3, inserting Nk-Id header
+% For 'nksip' domain, sends the request to P3, inserting x-nk-id header
 % For other, simply proxies and adds header
 route(_, _, _, Domain, _, #state{id={_, p2}}=State) ->
-    Base = [{headers, [{"x-nk-id", "p2"}]}],
+    Base = [{add, "x-nk-id", "p2"}],
     case Domain of 
         <<"nksip">> -> 
             Opts = [{route, "<sip:127.0.0.1:5080;lr;transport=tcp>"}|Base],
@@ -79,10 +79,10 @@ route(_, _, _, Domain, _, #state{id={_, p2}}=State) ->
 % For 'nksip', it sends everything to the registrar, inserting Path header
 % For other proxies the request
 route(_, _, _, Domain, _, #state{id={_, p3}}=State) ->
-    Base = [{headers, [{"x-nk-id", "p3"}]}],
+    Base = [{add, "x-nk-id", "p3"}],
     case Domain of 
         <<"nksip">> -> 
-            Opts = [{route, "<sip:127.0.0.1:5090;lr>"}, make_path, record_route|Base],
+            Opts = [{route, "<sip:127.0.0.1:5090;lr>"}, path, record_route|Base],
             {reply, {proxy, ruri, Opts}, State};
         _ -> 
             {reply, {proxy, ruri, Base}, State}
@@ -93,7 +93,7 @@ route(_, _, _, Domain, _, #state{id={_, p3}}=State) ->
 % For 'nksip', it sends everything to the registrar, inserting Path header
 % For other proxies the request
 route(_, _, _, _, _, #state{id={_, p4}}=State) ->
-    Base = [{headers, [{"x-nk-id", "p4"}]}, make_path, record_route],
+    Base = [{add, "x-nk-id", "p4"}, path, record_route],
     {reply, {proxy, ruri, Base}, State};
 
 

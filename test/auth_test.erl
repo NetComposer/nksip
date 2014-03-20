@@ -46,29 +46,34 @@ start() ->
         {from, "sip:server1@nksip"},
         registrar,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}}]),
+        {transports, [{udp, all, 5060}]}
+    ]),
 
     ok = sipapp_server:start({auth, server2}, [
         {from, "sip:server2@nksip"},
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5061}}]),
+        {transports, [{udp, all, 5061}]}
+    ]),
 
     ok = sipapp_endpoint:start({auth, client1}, [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5070}}]),
+        {transports, [{udp, all, 5070}]}
+    ]),
     
     ok = sipapp_endpoint:start({auth, client2}, [
         {from, "sip:client2@nksip"},
         {pass, "jj"},
         {pass, {"4321", "client1"}},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5071}}]),
+        {transports, [{udp, all, 5071}]}
+    ]),
 
     ok = sipapp_endpoint:start({auth, client3}, [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5072}}]),
+        {transports, [{udp, all, 5072}]}
+    ]),
     
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -120,9 +125,9 @@ invite() ->
 
     % client3 does not support dialog's authentication, only digest is used
     {ok, 401, [{cseq_num, CSeq}]} = 
-        nksip_uac:invite(C1, SipC3, [{fields, [cseq_num]}]),
+        nksip_uac:invite(C1, SipC3, [{meta, [cseq_num]}]),
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, SipC3, 
-                                             [{pass, "abcd"}, {headers, [RepHd]}]),
+                                             [{pass, "abcd"}, {add, RepHd}]),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client3, ack}]),
     {ok, 401, []} = nksip_uac:options(C1, DialogId1, []),
@@ -138,12 +143,12 @@ invite() ->
     % client1 does support dialog's authentication
     DialogId3 = nksip_dialog:field(C1, DialogId1, remote_id),
     {ok, 200, [{cseq_num, CSeq2}]} = 
-        nksip_uac:options(C3, DialogId3, [{fields, [cseq_num]}]),
+        nksip_uac:options(C3, DialogId3, [{meta, [cseq_num]}]),
     {ok, 200, [{dialog_id, DialogId3}]} = 
-        nksip_uac:invite(C3, DialogId3, [{headers, [RepHd]}]),
-    ok = nksip_uac:ack(C3, DialogId3, [{headers, [RepHd]}]),
+        nksip_uac:invite(C3, DialogId3, [{add, RepHd}]),
+    ok = nksip_uac:ack(C3, DialogId3, [{add, RepHd}]),
     ok = tests_util:wait(Ref, [{client1, ack}]),
-    {ok, 200, [{_, CSeq3}]} = nksip_uac:bye(C3, DialogId3, [{fields, [cseq_num]}]),
+    {ok, 200, [{_, CSeq3}]} = nksip_uac:bye(C3, DialogId3, [{meta, [cseq_num]}]),
     ok = tests_util:wait(Ref, [{client1, bye}]),
     CSeq3 = CSeq2 + 2,
     ok.
@@ -156,7 +161,7 @@ dialog() ->
     Ref = make_ref(),
     RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, SipC2, 
-                                            [{pass, "1234"}, {headers, [RepHd]}]),
+                                            [{pass, "1234"}, {add, RepHd}]),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
@@ -192,39 +197,39 @@ proxy() ->
     Ref = make_ref(),
     RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
 
-    % {ok, 407, []} = nksip_uac:register(C1, S1, []),
-    % {ok, 200, []} = nksip_uac:register(C1, S1, [{pass, "1234"}, unregister_all]),
+    {ok, 407, []} = nksip_uac:register(C1, S1, []),
+    {ok, 200, []} = nksip_uac:register(C1, S1, [{pass, "1234"}, unregister_all]),
     
-    % {ok, 200, []} = nksip_uac:register(C2, S1, [{pass, "4321"}, unregister_all]),
+    {ok, 200, []} = nksip_uac:register(C2, S1, [{pass, "4321"}, unregister_all]),
     
-    % % Users are not registered and no digest
-    % {ok, 407, []} = nksip_uac:options(C1, S1, []),
-    % % C2's SipApp has a password, but it is invalid
-    % {ok, 403, []} = nksip_uac:options(C2, S1, []),
+    % Users are not registered and no digest
+    {ok, 407, []} = nksip_uac:options(C1, S1, []),
+    % C2's SipApp has a password, but it is invalid
+    {ok, 403, []} = nksip_uac:options(C2, S1, []),
 
     % We don't want the registrar to store outbound info, so that no 
     % Route header will be added to lookups (we are doing to do special routing)
     {ok, 200, []} = nksip_uac:register(C1, S1, 
-                                       [{pass, "1234"}, make_contact, {supported, ""}]),
+                                       [{pass, "1234"}, contact, {supported, ""}]),
     {ok, 200, []} = nksip_uac:register(C2, S1, 
-                                       [{pass, "4321"}, make_contact, {supported, ""}]),
+                                       [{pass, "4321"}, contact, {supported, ""}]),
 
     % % Authorized because of previous registration
-    % {ok, 200, []} = nksip_uac:options(C1, S1, []),
-    % {ok, 200, []} = nksip_uac:options(C2, S1, []),
+    {ok, 200, []} = nksip_uac:options(C1, S1, []),
+    {ok, 200, []} = nksip_uac:options(C2, S1, []),
     
     % The request is authorized at server1 (registered) but not server server2
     % (server1 will proxy to server2)
     Route = {route, "<sip:127.0.0.1;lr>"},
     {ok, 407, [{realms, [<<"server2">>]}]} = 
-        nksip_uac:invite(C1, "sip:client2@nksip", [Route, {fields, [realms]}]),
+        nksip_uac:invite(C1, "sip:client2@nksip", [Route, {meta, [realms]}]),
 
     % Now the request reaches client2, and it is not authorized there. 
     % C2 replies with 401, but we generate a new request with the SipApp's invalid
     % password
     {ok, 403, _} = nksip_uac:invite(C1, "sip:client2@nksip", 
                                       [Route, {pass, {"1234", "server2"}}, 
-                                       {headers, [RepHd]}]),
+                                       {add, RepHd}]),
 
     % Server1 accepts because of previous registration
     % Server2 replies with 407, and we generate a new request
@@ -234,7 +239,7 @@ proxy() ->
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, "sip:client2@nksip", 
                                             [Route, {pass, {"1234", "server2"}},
                                             {pass, {"1234", "client2"}},
-                                            {headers, [RepHd]}]),
+                                            {add, RepHd}]),
     % Server2 inserts a Record-Route, so every in-dialog request is sent to Server2
     % ACK uses the same authentication headers from last invite
     ok = nksip_uac:ack(C1, DialogId1, []),

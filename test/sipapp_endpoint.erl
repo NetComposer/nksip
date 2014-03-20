@@ -112,7 +112,7 @@ route(_ReqId, _Scheme, _User, _Domain, _From, SD) ->
     {reply, process, SD}.
 
 
-% For OPTIONS requests, we copy in the response "X-Nk" headers and "X-Nk-Id" headers
+% For OPTIONS requests, we copy in the response "X-Nk" headers and "X-x-nk-id" headers
 % adding our own id, and "X-Nk-R" header with the received routes 
 options(ReqId, _Meta, _From, #state{id={_, Id}=AppId}=State) ->
     Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),
@@ -150,7 +150,7 @@ invite(ReqId, Meta, _From, #state{id={auth, _}=AppId, dialogs=Dialogs}=State) ->
     {reply, ok, State1};
 
 % INVITE for fork tests
-% Adds Nk-Id header
+% Adds x-nk-id header
 % Gets operation from body
 invite(ReqId, Meta, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
@@ -224,7 +224,7 @@ invite(ReqId, _Meta, From, #state{id={refer, _}=AppId}=State) ->
 % INVITE for basic, uac, uas, invite and proxy test
 % Gets the operation from Nk-Op header, time to sleep from Nk-Sleep,
 % if to send provisional response from Nk-Prov
-% Copies all received Nk-Id headers adding our own Id
+% Copies all received x-nk-id headers adding our own Id
 invite(ReqId, Meta, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
     Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),

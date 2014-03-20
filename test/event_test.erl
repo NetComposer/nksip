@@ -48,8 +48,7 @@ start() ->
         {from, "sip:client1@nksip"},
         {fullname, "NkSIP Basic SUITE Test Client1"},
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}},
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {event, "myevent1,myevent2"},
         {event, "myevent3"}
     ]),
@@ -58,8 +57,7 @@ start() ->
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}},
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         {event, "myevent4"}
     ]),
 
@@ -93,7 +91,7 @@ basic() ->
     RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
     {ok, 200, [{subscription_id, Subs1A}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 1},
-                                        {headers, [RepHd]}]),
+                                        {add, RepHd}]),
 
     Dialog1A = nksip_subscription:dialog_id(Subs1A),
     Dialog1B = nksip_dialog:field(C1, Dialog1A, remote_id),
@@ -135,9 +133,8 @@ basic() ->
 
 
     {ok, 200, [{subscription_id, Subs2A}]} = 
-        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 2
-            },
-                                        {headers, [RepHd]}]),
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 2},
+                                        {add, RepHd}]),
  
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
     ok = tests_util:wait(Ref, [{subs, Subs2B, init}]),
@@ -182,13 +179,11 @@ refresh() ->
     SipC2 = "sip:127.0.0.1:5070",
     Ref = make_ref(),
     Self = self(),
-    Hds = [
-        {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
-        {"x-nk-op", "expires-2"}
-    ],
+    Hd1 = {"x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    Hd2 = {"x-nk-op", "expires-2"},
     {ok, 200, [{subscription_id, Subs1A}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
-                                        {headers, [Hds]}]),
+                                        {add, Hd1}, {add, Hd2}]),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, []),
 
@@ -214,7 +209,7 @@ refresh() ->
     % A new subscription
     {ok, 200, [{subscription_id, Subs2A}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
-                                        {headers, [Hds]}]),
+                                        {add, Hd1}, {add, Hd2}]),
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
     {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
     ok = tests_util:wait(Ref, [{subs, Subs2B, init}, {subs, Subs2B, active}
@@ -237,12 +232,12 @@ dialog() ->
     {ok, 200, [{subscription_id, Subs1A}, {dialog_id, DialogA}]} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4;id=1"}, {expires, 2}, 
                                         {contact, "sip:a@127.0.0.1"}, 
-                                        {fields, [dialog_id]}]),
+                                        {meta, [dialog_id]}]),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
     RS1 = {"record-route", "<sip:b1@127.0.0.1:5070;lr>,<sip:b@b>,<sip:a2@127.0.0.1;lr>"},
 
     % Now the remote party (the server) sends a NOTIFY, and updates the Route Set
-    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{headers, [RS1]}]),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{add, RS1}]),
     [
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:127.0.0.1:5070>">>},
@@ -252,7 +247,7 @@ dialog() ->
     % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
     % The remote target is successfully updated
     RS2 = {"record-route", "<sip:b@b>"},
-    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{headers, [RS2]}, {contact, "sip:b@127.0.0.1:5070"}]),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{add, RS2}, {contact, "sip:b@127.0.0.1:5070"}]),
     [
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
@@ -328,7 +323,7 @@ out_or_order() ->
     CB = {callback, fun(R) -> Self ! {Ref, R} end},
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {headers, [Reply, {"x-nk-op", "wait"}]}, 
+                                        {add, Reply}, {add, "x-nk-op", "wait"}, 
                                         {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
@@ -358,7 +353,7 @@ out_or_order() ->
     % Another subscription
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {headers, [Reply, {"x-nk-op", "wait"}]}, 
+                                        {add, Reply}, {add, "x-nk-op", "wait"}, 
                                         {expires, 2}]),
     RecvReq2 = receive {Ref, {wait, Req2}} -> Req2
     after 1000 -> error(fork)
@@ -384,7 +379,7 @@ fork() ->
 
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {headers, [Reply, {"x-nk-op", "wait"}]}, 
+                                        {add, Reply}, {add, "x-nk-op", "wait"}, 
                                         {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200

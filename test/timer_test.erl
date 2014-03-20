@@ -44,14 +44,14 @@ start() ->
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         no_100,
-        {transport, {udp, {0,0,0,0}, 5071}},
+        {transports, [{udp, all, 5071}]},
         {min_session_expires, 1}
     ]),
 
     ok = sipapp_endpoint:start({timer, ua2}, [
         {local_host, "127.0.0.1"},
         no_100,
-        {transport, {udp, {0,0,0,0}, 5072}},
+        {transports, [{udp, all, 5072}]},
         {min_session_expires, 2}
     ]),
     
@@ -59,21 +59,21 @@ start() ->
         {local_host, "127.0.0.1"},
         no_100,
         {supported, ""},
-        {transport, {udp, {0,0,0,0}, 5073}}
+        {transports, [{udp, all, 5073}]}
     ]),
 
 
     ok = sipapp_server:start({timer, p1}, [
         {local_host, "localhost"},
         no_100,
-        {transport, {udp, {0,0,0,0}, 5060}},
+        {transports, [{udp, all, 5060}]},
         {min_session_expires, 2}
     ]),
 
     ok = sipapp_server:start({timer, p2}, [
         {local_host, "localhost"},
         no_100,
-        {transport, {udp, {0,0,0,0}, 5070}},
+        {transports, [{udp, all, 5070}]},
         {min_session_expires, 3}
     ]),
 
@@ -96,7 +96,7 @@ basic() ->
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
-    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     % C2 has a min_session_expires of 2
     {error, invalid_session_expires} = 
@@ -110,8 +110,8 @@ basic() ->
     SDP1 = nksip_sdp:new(),
     {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
-            [{session_expires, 1}, {fields, [<<"session-expires">>]}, 
-             CB, auto_2xx_ack, get_request, {body, SDP1}, {headers, [RepHd]}]),
+            [{session_expires, 1}, {meta, [<<"session-expires">>]}, 
+             CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd]),
    
     % Start events also at C1
     sipapp_endpoint:start_events(C1, Ref, Self, Dialog1A),
@@ -182,7 +182,7 @@ basic() ->
     % The default Min-SE is 90 secs, so the refresh interval is updated to that
 
     {ok, 200, [{<<"session-expires">>, [<<"90;refresher=uac">>]}]} = 
-        nksip_uac:update(C2, Dialog1B, [{fields, [<<"session-expires">>]}]),
+        nksip_uac:update(C2, Dialog1B, [{meta,[<<"session-expires">>]}]),
 
     90 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
     undefined = nksip_dialog:field(C1, Dialog1A, invite_refresh),
@@ -195,7 +195,7 @@ basic() ->
     % 422 and a new request will be sent
 
     {ok, 200, [{<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
-        nksip_uac:update(C1, Dialog1A, [{session_expires, 1}, {fields, [<<"session-expires">>]}]),
+        nksip_uac:update(C1, Dialog1A, [{session_expires, 1}, {meta, [<<"session-expires">>]}]),
 
     2 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
     undefined = nksip_dialog:field(C1, Dialog1A, invite_refresh),
@@ -208,7 +208,7 @@ basic() ->
     % It detects the remote party (C2) is currently refreshing a proposes refresher=uas
 
     {ok, 200, [{<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
-        nksip_uac:update(C1, Dialog1A, [get_request, CB, {fields, [<<"session-expires">>]}]),
+        nksip_uac:update(C1, Dialog1A, [get_request, CB, {meta, [<<"session-expires">>]}]),
 
     receive 
         {Ref, #sipmsg{headers=Headers3}} ->
@@ -267,13 +267,13 @@ proxy() ->
     Ref = make_ref(),
     Self = self(),
     CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
-    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     SDP1 = nksip_sdp:new(),
     {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"3;refresher=uas">>]}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
-            [{session_expires, 1}, {fields, [<<"session-expires">>]}, 
-             CB, auto_2xx_ack, get_request, {body, SDP1}, {headers, [RepHd]},
+            [{session_expires, 1}, {meta, [<<"session-expires">>]}, 
+             CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd,
              {route, "<sip:127.0.0.1:5060;lr>"}
             ]),
    
@@ -336,7 +336,7 @@ proxy() ->
     % time of 1800, and it is > MinSE, it chages the value
     {ok, 200, [{dialog_id, Dialog2}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
-            [{session_expires, 1801}, {fields, [<<"session-expires">>]}, 
+            [{session_expires, 1801}, {meta, [<<"session-expires">>]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
             ]),
     {ok, 200, []} = nksip_uac:bye(C1, Dialog2, []),
@@ -349,7 +349,7 @@ proxy() ->
                {parsed_require, []}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
             [{session_expires, 0}, {supported, "100rel,path"}, 
-             {fields, [<<"session-expires">>, parsed_require]}, 
+             {meta, [<<"session-expires">>, parsed_require]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
             ]),
 
@@ -369,7 +369,7 @@ proxy() ->
     {ok, 200, [{dialog_id, Dialog4A}, {<<"session-expires">>,[<<"1800;refresher=uac">>]}, 
                {parsed_require, [<<"timer">>]}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5073", 
-            [{fields, [<<"session-expires">>, parsed_require]}, 
+            [{meta,[<<"session-expires">>, parsed_require]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
             ]),
 
@@ -390,7 +390,7 @@ proxy() ->
                {parsed_require, []}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5073", 
             [{session_expires, 0}, {supported, "100rel,path"}, 
-             {fields, [<<"session-expires">>, parsed_require]}, 
+             {meta, [<<"session-expires">>, parsed_require]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
             ]),
 

@@ -47,15 +47,15 @@ start() ->
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
         registrar,
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}]),
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+    ]),
 
     ok = sipapp_inline_endpoint:start({inline, client1}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {local_host, "127.0.0.1"},
         {route, "<sip:127.0.0.1;lr>"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}]),
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+    ]),
 
     ok = sipapp_inline_endpoint:start({inline, client2}, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
@@ -81,11 +81,11 @@ basic() ->
     nksip_config:put(inline_test, {Ref, Pid}),
     nksip_registrar:clear(S1),
     
-    {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [make_contact]),
-    {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [make_contact]),
+    {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [contact]),
+    {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
     ok = tests_util:wait(Ref, [{S1, route}, {S1, route}]),
 
-    Fs1 = {fields, [<<"x-nk-id">>]},
+    Fs1 = {meta, [<<"x-nk-id">>]},
     {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2@nksip", [Fs1]),
     [{<<"x-nk-id">>, [<<"server1,client2">>]}] = Values1,
     ok = tests_util:wait(Ref, [{S1, route}, {C2, options}]),
@@ -126,7 +126,7 @@ cancel() ->
     Ref = make_ref(),
     Pid = self(),
     nksip_config:put(inline_test, {Ref, Pid}),
-    Hds = {headers, [{<<"x-nk-op">>, <<"wait">>}]},
+    Hds = {add, "x-nk-op", "wait"},
     CB = {callback, fun(Term) -> Pid ! {Ref, Term} end},
     {async, ReqId} = nksip_uac:invite(C1, "sip:client2@nksip", [async, Hds, CB]),
     ok = nksip_uac:cancel(C1, ReqId),
@@ -148,12 +148,12 @@ auth() ->
     S1 = "sip:127.0.0.1",
     nksip_registrar:clear({inline, server1}),
 
-    Hd = {headers, [{<<"x-nk-auth">>, <<"true">>}]},
+    Hd = {add, "x-nk-auth", true},
     {ok, 407, []} = nksip_uac:options(C1, S1, [Hd]),
     {ok, 200, []} = nksip_uac:options(C1, S1, [Hd, {pass, "1234"}]),
 
     {ok, 407, []} = nksip_uac:register(C1, S1, [Hd]),
-    {ok, 200, []} = nksip_uac:register(C1, S1, [Hd, {pass, "1234"}, make_contact]),
+    {ok, 200, []} = nksip_uac:register(C1, S1, [Hd, {pass, "1234"}, contact]),
 
     {ok, 200, []} = nksip_uac:options(C1, S1, [Hd]),
     ok.

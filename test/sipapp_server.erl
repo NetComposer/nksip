@@ -93,7 +93,7 @@ authorize(_ReqId, _Auth, _From, State) ->
     {reply, ok, State}.
 
 
-% Route for "basic" test suite. Allways add Record-Route and Nksip-Server headers
+% Route for "basic" test suite. Allways add Record-Route and x-nk-server headers
 % If no user, use Nksip-Op to select an operation
 % If user and domain is nksip, proxy to registered contacts
 % Any other case simply route
@@ -102,7 +102,7 @@ route(ReqId, Scheme, User, Domain, _From,
         when Test=:=basic; Test=:=uas; Test=:=gruu ->
     Opts = [
         record_route,
-        {headers, [{'Nksip-Server', Id}]}
+        {add, "x-nk-server", Id}
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
@@ -142,7 +142,7 @@ route(ReqId, Scheme, User, Domain, _From,
     when Test=:=stateless; Test=:=stateful ->
     Opts = lists:flatten([
         case Test of stateless -> stateless; _ -> [] end,
-        {headers, [{<<"x-nk-id">>, Id}]},
+        {add, "x-nk-id", Id},
         case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
@@ -174,12 +174,12 @@ route(ReqId, Scheme, User, Domain, _From,
     end;
 
 % Route for serverR in fork test
-% Adds Nk-Id header, and Record-Route if Nk-Rr is true
-% If Nk-Redirect will follow redirects
+% Adds x-nk-id header, and Record-Route if Nk-Rr is true
+% If nk-redirect will follow redirects
 route(ReqId, Scheme, User, Domain, _From, 
         #state{id={fork, serverR}=AppId, domains=Domains}=State) ->
     Opts = lists:flatten([
-        {headers, [{<<"x-nk-id">>, serverR}]},
+        {add, "x-nk-id", serverR},
         case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
@@ -204,14 +204,14 @@ route(ReqId, Scheme, User, Domain, _From,
     end;
 
 % Route for the rest of servers in fork test
-% Adds Nk-Id header. serverA is stateless, rest are stateful
+% Adds x-nk-id header. serverA is stateless, rest are stateful
 % Always Record-Route
 % If domain is "nksip" routes to serverR
 route(_, _, _, Domain, _From, #state{id={fork, Id}, domains=Domains}=State) ->
     Opts = lists:flatten([
         case Id of server1 -> stateless; _ -> [] end,
         record_route,
-        {headers, [{<<"x-nk-id">>, Id}]}
+        {add, "x-nk-id", Id}
     ]),
     case lists:member(Domain, Domains) of
         true when Domain =:= <<"nksip">> ->
@@ -247,7 +247,7 @@ route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={auth, server2}}=State) 
 route(_ReqId, Scheme, User, Domain, _From, 
         #state{id={ipv6, server1}=AppId, domains=Domains}=State) ->
     Opts = [
-        {headers, [{'Nk-Id', server1}]},
+        {add, "x-nk-id", server1},
         stateless,
         {route, "<sip:[::1]:5061;lr;transport=tcp>"}
     ],
@@ -268,7 +268,7 @@ route(_ReqId, Scheme, User, Domain, _From,
 route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={ipv6, server2}}=State) ->
     Opts = [
         record_route,
-        {headers, [{'Nk-Id', server2}]}
+        {add, "x-nk-id", server2}
     ],
     {reply, {proxy, ruri, Opts}, State};
 
@@ -292,7 +292,7 @@ route(ReqId, _Scheme, User, Domain, _From,
         #state{id={ws, Id}=AppId, domains=Domains}=State) ->
     Opts = [
         record_route,
-        {headers, [{'Nksip-Server', Id}]}
+        {add, "x-nk-server", Id}
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->

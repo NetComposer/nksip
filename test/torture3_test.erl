@@ -58,7 +58,7 @@ start() ->
     tests_util:start_nksip(),
 
     ok = sipapp_server:start({torture, server1}, [
-        {transport, {udp, {0,0,0,0}, 5060}},
+        {transports, [{udp, all, 5060}]},
         registrar,
         no_100
     ]),
@@ -105,7 +105,7 @@ application_1() ->
         "m=audio 49217 RTP/AVP 0 12\r\n"
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
-    <<"SIP/2.0 400 Invalid From\r\n", _/binary>> = send(udp, Msg),
+    <<"SIP/2.0 400 Invalid Call-ID\r\n", _/binary>> = send(udp, Msg),
     ok.
 
 
@@ -383,7 +383,7 @@ application_14() ->
             #uri{
                 scheme = sip, user = <<"user1">>,
                 domain = <<"example.com">>, port = 0, opts = [],
-                headers = [{<<"Route">>,<<"%3Csip:sip.example.com%3E">>}],
+                headers = [{<<"route">>,<<"%3Csip:sip.example.com%3E">>}],
                 ext_opts = [{<<"expires">>,<<"3600">>}],
                 ext_headers = []
             }
@@ -415,7 +415,7 @@ application_15() ->
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
     #sipmsg{
-        headers = [{<<"Accept">>, <<"text/nobodyKnowsThis">>}]
+        headers = [{<<"accept">>, <<"text/nobodyKnowsThis">>}]
     } = parse(Msg),
     ok.
  
@@ -425,9 +425,9 @@ application_15() ->
 
 parse(Msg) ->
     case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
-        {ok, Raw, <<>>} -> nksip_parse:raw_sipmsg(Raw);
-        {ok, Raw, Tail} -> {tail, nksip_parse:raw_sipmsg(Raw), Tail};
-        {more, More} -> {more, More};
+        {ok, SipMsg, <<>>} -> SipMsg;
+        {ok, SipMsg, Tail} -> {tail, SipMsg, Tail};
+        partial -> partial;
         {error, Error} -> {error, Error}
     end.
 

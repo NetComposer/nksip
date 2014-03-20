@@ -49,46 +49,41 @@ start() ->
     ok = path_server:start({outbound, registrar}, [
         registrar,
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5090}},
-        {transport, {tls, {0,0,0,0}, 5091}}
-        % {transport, {sctp, {0,0,0,0}, 5090}}
+        {transports, [{udp, all, 5090}, {tls, all, 5091}]}
     ]),
 
     ok = sipapp_endpoint:start({outbound, ua1}, [
         {from, "sip:ua1@nksip"},
         % {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5101}},
-        {transport, {tls, {0,0,0,0}, 5102}}
-        % {transport, {sctp, {0,0,0,0}, 0}}
+        {transports, [{udp, all, 5101}, {tls, all, 5102}]}
     ]),
 
     ok = sipapp_endpoint:start({outbound, ua2}, [
         % {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5103}},
-        {transport, {tls, {0,0,0,0}, 5104}}
+        {transports, [{udp, all, 5103}, {tls, all, 5104}]}
     ]),
 
     ok = path_server:start({outbound, p1}, [
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5060}},
-        {transport, {tls, {0,0,0,0}, 5061}}]),
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+    ]),
 
     ok = path_server:start({outbound, p2}, [
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {tls, {0,0,0,0}, 5071}}]),
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+    ]),
 
     ok = path_server:start({outbound, p3}, [
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5080}},
-        {transport, {tls, {0,0,0,0}, 5081}}]),
+        {transports, [{udp, all, 5080}, {tls, all, 5081}]}
+    ]),
 
     ok = path_server:start({outbound, p4}, [
         {local_host, "localhost"},
-        {transport, {udp, {0,0,0,0}, 5200}},
-        {transport, {tls, {0,0,0,0}, 5201}}]),
+        {transports, [{udp, all, 5200}, {tls, all, 5201}]}
+    ]),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -115,7 +110,7 @@ basic() ->
     % RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     {ok, 603, []} = nksip_uac:invite(C2, "sip:127.0.0.1:5103", 
-                                        [make_contact, CB, get_request]),
+                                        [contact, CB, get_request]),
     % Ob option is only added to dialog-generating requests
     receive 
         {Ref, #sipmsg{contacts=[#uri{opts=Opts1}]}} ->
@@ -125,7 +120,7 @@ basic() ->
     end,
   
     {ok, 200, []} = nksip_uac:options(C2, "sip:127.0.0.1:5103", 
-                                        [make_contact, CB, get_request, 
+                                        [contact, CB, get_request, 
                                          {supported, "path"}]),
     receive 
         {Ref, #sipmsg{contacts=[#uri{opts=Opts2}]}} ->
@@ -150,7 +145,7 @@ flow() ->
 
     {ok, 200, [{<<"require">>, []}, {parsed_contacts, [PContact]}, {local, Local}]} = 
         nksip_uac:register(C1, "<sip:127.0.0.1:5090;transport=tcp>", 
-            [make_contact, {fields, [<<"require">>, parsed_contacts, local]}]),
+            [contact, {meta, [<<"require">>, parsed_contacts, local]}]),
 
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -191,7 +186,7 @@ flow() ->
     % Now, if a send a request to this Contact, it goes to the registrar first, 
     % and the same transport is reused
     {ok, 200, [{local, Local}, {remote, {tcp, {127,0,0,1}, 5090, <<>>}}]} = 
-        nksip_uac:options(C1, Contact1, [{fields, [local, remote]}]),
+        nksip_uac:options(C1, Contact1, [{meta,[local, remote]}]),
 
     {tcp, {127,0,0,1}, LocalPort, <<>>} = Local,
     [{#transport{local_port=LocalPort, remote_port=5090}, _}] = 
@@ -237,13 +232,13 @@ register() ->
         nksip_uac:register(C1, "sip:127.0.0.1:5090", 
             [{contact, "<sip:a@a.com;ob>;+sip.instance=i;reg-id=1, 
                         <sip:b@a.com;ob>;+sip.instance=i;reg-id=2"},
-            {fields, [reason_phrase]}]),
+            {meta, [reason_phrase]}]),
 
     % Registration with +sip.instance y reg-id=1
     {ok, 200, [{_, [Contact1]}, {_, [<<"outbound">>]}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1:5090", 
-                            [make_contact, {reg_id, 1}, 
-                             {fields, [parsed_contacts, parsed_require]}]),
+                            [contact, {reg_id, 1}, 
+                             {meta, [parsed_contacts, parsed_require]}]),
 
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, opts = [],
@@ -271,7 +266,7 @@ register() ->
     % Register a new registration from the same instance, reg-id=2
     {ok, 200, [{_, [Contact2, Contact1]}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1:5090", 
-                            [make_contact, {reg_id, 2}, {fields, [parsed_contacts]}]),
+                            [contact, {reg_id, 2}, {meta, [parsed_contacts]}]),
 
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, opts = [],
@@ -297,8 +292,8 @@ register() ->
     % Send a third registration from a different instance
     {ok, 200, [{_, [Contact3, Contact2, Contact1]}]} = 
         nksip_uac:register(C2, "sip:127.0.0.1:5090", 
-                            [{from, "sip:ua1@nksip"}, make_contact, {reg_id, 1}, 
-                             {fields, [parsed_contacts]}]),
+                            [{from, "sip:ua1@nksip"}, contact, {reg_id, 1}, 
+                             {meta, [parsed_contacts]}]),
     
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5103, opts = [],
@@ -333,7 +328,7 @@ register() ->
     % Register a new registration from the same instance, reg-id=2
     {ok, 200, [{_, [Contact2, Contact3, Contact1]}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1:5090", 
-                            [make_contact, {reg_id, 2}, {fields, [parsed_contacts]}]),
+                            [contact, {reg_id, 2}, {meta, [parsed_contacts]}]),
     [
         #reg_contact{
             index = {ob, QInstanceC1_id, <<"2">>},
@@ -374,8 +369,8 @@ proxy() ->
     
     {ok, 200, [{parsed_require, [<<"outbound">>]}]} = 
         nksip_uac:register(C1, "sip:nksip", 
-            [make_contact, {reg_id, 1}, {route, "<sip:127.0.0.1;lr>"}, 
-            {fields, [parsed_require]}]),
+            [contact, {reg_id, 1}, {route, "<sip:127.0.0.1;lr>"}, 
+            {meta, [parsed_require]}]),
 
     Contact1 = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
     [#uri{headers=[{<<"route">>, QRoute1}]}] = Contact1,
@@ -397,7 +392,7 @@ proxy() ->
     % Now, if we send a request to this contact, it will go to 
     % P3, to P1, and P1 will use the indicated flow to go to UA1
     {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
-        nksip_uac:options(C2, Contact1, [{fields, [<<"x-nk-id">>]}]),
+        nksip_uac:options(C2, Contact1, [{meta,[<<"x-nk-id">>]}]),
 
     % If we stop the flow, P1 will return Flow Failed
     nksip_connection:stop(Pid1, normal),
@@ -409,7 +404,7 @@ proxy() ->
     % outbound support, so it fails
     {ok, 439, []} = 
         nksip_uac:register(C1, "sip:nksip", 
-            [make_contact, {reg_id, 1}, {route, "<sip:127.0.0.1:5070;lr>"}]),
+            [contact, {reg_id, 1}, {route, "<sip:127.0.0.1:5070;lr>"}]),
 
 
     % It we send to P3, it adds its Path, now with outbound support because of
@@ -417,8 +412,8 @@ proxy() ->
 
     {ok, 200, [{parsed_require, [<<"outbound">>]}]} = 
         nksip_uac:register(C1, "sip:nksip", 
-            [make_contact, {reg_id, 1}, {route, "<sip:127.0.0.1:5080;lr>"}, 
-            {fields, [parsed_require]}]),
+            [contact, {reg_id, 1}, {route, "<sip:127.0.0.1:5080;lr>"}, 
+            {meta, [parsed_require]}]),
 
     Contact2 = nksip_registrar:find(R1, sip, <<"ua1">>, <<"nksip">>),
     [#uri{headers=[{<<"route">>, QRoute2}]}] = Contact2,
@@ -432,7 +427,7 @@ proxy() ->
 
     {ok, 200, [{dialog_id, DialogId}]} = 
         nksip_uac:invite(C2, Contact2, 
-                    [auto_2xx_ack, {headers, [{"x-nk-op", "ok"}]}]),
+                    [auto_2xx_ack, {add, "x-nk-op", "ok"}]),
 
     [
         #uri{
@@ -456,8 +451,7 @@ outbound() ->
         % {route, "<sip:127.0.0.1:5090;lr>"},
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5106}},
-        {transport, {tls, {0,0,0,0}, 5107}},
+        {transports, [{udp, all, 5106}, {tls, all, 5107}]},
         {register, "<sip:127.0.0.1:5090;transport=tcp>"},
         {register, "<sip:127.0.0.1:5090;transport=udp>"}
     ]),

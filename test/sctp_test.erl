@@ -52,8 +52,7 @@ start() ->
     ok = sipapp_endpoint:start({sctp, client1}, [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5070}},
-        {transport, {sctp, {0,0,0,0}, 5070}}
+        {transports, [{udp, all, 5070}, {sctp, all, 5070}]}
     ]),
 
     ok = sipapp_endpoint:start({sctp, client2}, [
@@ -61,8 +60,7 @@ start() ->
         {pass, "jj"},
         {pass, {"4321", "client1"}},
         {local_host, "127.0.0.1"},
-        {transport, {udp, {0,0,0,0}, 5071}},
-        {transport, {sctp, {0,0,0,0}, 5071}}
+        {transports, [{udp, all, 5071}, {sctp, all, 5071}]}
     ]),
 
     tests_util:log(),
