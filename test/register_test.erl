@@ -27,15 +27,15 @@
 
 -compile([export_all]).
 
-% register_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun register1/0, 
-%             fun register2/0
-%         ]
-%     }.
+register_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            fun register1/0, 
+            fun register2/0
+        ]
+    }.
 
 
 start() ->
@@ -224,11 +224,12 @@ register2() ->
     {ok, UUID1} = nksip_sipapp_srv:get_uuid(Client1),
     QUUID1 = <<$", UUID1/binary, $">>,
 
-    ManualContact = <<"<sips:client1@127.0.0.1:5071>;+sip.instance=", QUUID1/binary>>,
+    % Now we register a different AOR (with sips)
+    % ManualContact = <<"<sips:client1@127.0.0.1:5071>;+sip.instance=", QUUID1/binary>>,
+    ManualContact = <<"<sips:client1@127.0.0.1:5071>">>,
     {ok, 200, Values3} = nksip_uac:register(Client1, "sips:127.0.0.1", 
-                        [{contact, ManualContact},
-                         {meta, [<<"contact">>]}
-                            | Opts2--[contact]]),
+                        [{contact, ManualContact}, {from, "sips:client1@nksip"},
+                         {meta, [<<"contact">>]}, {expires, 300}]),
     [{<<"contact">>, Contact3}] = Values3,
     Contact3Uris = nksip_parse:uris(Contact3),
 
@@ -248,43 +249,44 @@ register2() ->
              ext_opts=[{<<"expires">>, <<"300">>}]}
     ]  = lists:sort(Contacts4),
 
-    % [#uri{scheme=sips, port=5071, opts=[], ext_opts=[{<<"expires">>, <<"300">>}]}] = 
-    %     Contact3Uris,
+    [#uri{scheme=sips, port=5071, opts=[], ext_opts=[{<<"expires">>, <<"300">>}]}] = 
+        Contact3Uris,
     [#uri{scheme=sips, user = <<"client1">>, domain=_Domain, port = 5071}] =
         nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
-    % Contact = <<"<sips:client1@127.0.0.1:5071>;expires=0">>,
-    % {ok, 200, []} = nksip_uac:register(Client1, "sips:127.0.0.1", 
-    %                                     [{contact, Contact}|Opts2--[contact]]),
-    % [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
+    Contact = <<"<sips:client1@127.0.0.1:5071>;expires=0">>,
+    {ok, 200, []} = nksip_uac:register(Client1, "sips:127.0.0.1", 
+                                        [{contact, Contact}, {from, "sips:client1@nksip"},
+                                         {expires, 300}]),
+    [] = nksip_registrar:find(Server1, sips, <<"client1">>, <<"nksip">>),
 
-    % {ok, 200, []} = nksip_uac:register(Client2, 
-    %                                     "sip:127.0.0.1", [unregister_all]),
-    % [] = nksip_registrar:find(Server1, sip, <<"client2">>, <<"nksip">>),
+    {ok, 200, []} = nksip_uac:register(Client2, 
+                                        "sip:127.0.0.1", [unregister_all]),
+    [] = nksip_registrar:find(Server1, sip, <<"client2">>, <<"nksip">>),
 
-    % {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", 
-    %                             [{local_host, "aaa"}, contact]),
-    % {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", 
-    %                             [{contact, "<sip:bbb>;q=2.1;expires=180, <sips:ccc>;q=3"}]),
-    % {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", 
-    %                             [{contact, <<"<sip:ddd:444;transport=tcp>;q=2.1">>}]),
-    % [
-    %     [
-    %         #uri{user = <<"client2">>, domain = <<"aaa">>, ext_opts = ExtOpts1}
-    %     ],
-    %     [
-    %         #uri{user= <<>>, domain = <<"ddd">>,port = 444,
-    %             opts = [{<<"transport">>,<<"tcp">>}],
-    %            ext_opts = [{<<"q">>,<<"2.1">>},{<<"expires">>,<<"3600">>}]},
-    %          #uri{user = <<>>, domain = <<"bbb">>, port = 0,
-    %             opts = [], ext_opts = [{<<"q">>,<<"2.1">>},{<<"expires">>,<<"180">>}]}
-    %     ],
-    %     [
-    %         #uri{user = <<>>, domain = <<"ccc">>, port = 0, 
-    %             opts = [], ext_opts = [{<<"q">>,<<"3">>},{<<"expires">>,<<"3600">>}]}
-    %     ]
-    % ] = nksip_registrar:qfind(Server1, sip, <<"client2">>, <<"nksip">>),
-    % true = lists:member({<<"expires">>,<<"3600">>}, ExtOpts1),
+    {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+                                [{local_host, "aaa"}, contact]),
+    {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+                                [{contact, "<sip:bbb>;q=2.1;expires=180, <sips:ccc>;q=3"}]),
+    {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", 
+                                [{contact, <<"<sip:ddd:444;transport=tcp>;q=2.1">>}]),
+    [
+        [
+            #uri{user = <<"client2">>, domain = <<"aaa">>, ext_opts = ExtOpts1}
+        ],
+        [
+            #uri{user= <<>>, domain = <<"ddd">>,port = 444,
+                opts = [{<<"transport">>,<<"tcp">>}],
+               ext_opts = [{<<"q">>,<<"2.1">>},{<<"expires">>,<<"3600">>}]},
+             #uri{user = <<>>, domain = <<"bbb">>, port = 0,
+                opts = [], ext_opts = [{<<"q">>,<<"2.1">>},{<<"expires">>,<<"180">>}]}
+        ],
+        [
+            #uri{user = <<>>, domain = <<"ccc">>, port = 0, 
+                opts = [], ext_opts = [{<<"q">>,<<"3">>},{<<"expires">>,<<"3600">>}]}
+        ]
+    ] = nksip_registrar:qfind(Server1, sip, <<"client2">>, <<"nksip">>),
+    true = lists:member({<<"expires">>,<<"3600">>}, ExtOpts1),
 
-    % {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
+    {ok, 200, []} = nksip_uac:register(Client2, "sip:127.0.0.1", [unregister_all]),
     ok.
