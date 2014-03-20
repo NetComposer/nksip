@@ -64,7 +64,7 @@ invite(ReqId, Meta, From, #state{id=AppId}=State) ->
 %% Reply 200 Ok with a custom header and some options.
 options(_ReqId, _Meta, _From, #state{id=Id}=State) ->
     Headers = [{"x-nk-id", Id}],
-    Opts = [make_contact, make_allow, make_accept, make_supported],
+    Opts = [contact, allow, accept, supported],
     {reply, {ok, Headers, <<>>, Opts}, State}.
 
 

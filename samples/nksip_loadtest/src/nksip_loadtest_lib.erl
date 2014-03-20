@@ -280,7 +280,7 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
                 end;
             register ->
                 From = <<"sip:", (nksip_lib:to_binary(Pos))/binary, "@localhost">>,
-                Opts1 = [make_contact, {from, From}, {to, as_from}|Opts],
+                Opts1 = [contact, {from, From}, to_as_from|Opts],
                 case nksip_uac:register({client, Pos}, RUri, Opts1) of
                     {ok, 200, []} -> ok;
                     Other -> throw({invalid_register_response, Other})

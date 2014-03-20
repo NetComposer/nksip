@@ -155,7 +155,7 @@ route(ReqId, _Scheme, <<"200">>, _, _From, State) ->
 
 route(ReqId, _Scheme, <<"201">>, _, _From, State) ->
     All = random_list(find_all_except_me(ReqId)),
-    Opts = [{headers, [{<<"nksip-server">>, <<"201">>}]}],
+    Opts = [{add, "nksip-server", <<"201">>}],
     Reply =  {proxy, take_in_pairs(All), Opts},
     {reply, Reply, State};
 
