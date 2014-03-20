@@ -419,8 +419,8 @@ launch_register(AppId, Reg)->
         call_id = CallId
     } = Reg,
     Opts1 = [
-        make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, Interval}, 
-        {fields, [cseq_num, remote, parsed_require, <<"retry-after">>, <<"flow-timer">>]} 
+        contact, {call_id, CallId}, {cseq_num, CSeq}, {expires, Interval}, 
+        {meta, [cseq_num, remote, parsed_require, <<"retry-after">>, <<"flow-timer">>]} 
         | Opts
     ],   
     Self = self(),
@@ -448,7 +448,7 @@ launch_unregister(AppId, Reg)->
         conn_pid = Pid
     } = Reg,
     Opts1 = [
-        make_contact, {call_id, CallId}, {cseq, CSeq}, {expires, 0}
+        contact, {call_id, CallId}, {cseq_num, CSeq}, {expires, 0}
         | Opts
     ],
     nksip_uac:register(AppId, RUri, Opts1),
@@ -570,7 +570,7 @@ launch_ping(AppId, Ping)->
         cseq = CSeq,
         call_id = CallId
     } = Ping,
-    Opts1 = [{call_id, CallId}, {cseq, CSeq}, {fields, [cseq_num]} | Opts],
+    Opts1 = [{call_id, CallId}, {cseq_num, CSeq}, {meta, [cseq_num]} | Opts],
     Self = self(),
     Fun = fun() ->
         case nksip_uac:options(AppId, RUri, Opts1) of

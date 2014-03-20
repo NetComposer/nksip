@@ -140,11 +140,11 @@
 %% <br/>
 %% Some previous replies allow including options. The recognized options are:
 %% <ul>
-%%  <li>`make_allow': if present generates an <i>Allow</i> header.</li>
-%%  <li>`make_supported': if present generates a <i>Supported</i> header.</li>
-%%  <li>`make_accept': if present generates an <i>Accept</i> header.</li>
-%%  <li>`make_date': if present generates a <i>Date</i> header.</li>
-%%  <li>`make_contact': if present generates a <i>Contact</i> header.</li>
+%%  <li>`allow': if present generates an <i>Allow</i> header.</li>
+%%  <li>`supported': if present generates a <i>Supported</i> header.</li>
+%%  <li>`accept': if present generates an <i>Accept</i> header.</li>
+%%  <li>`date': if present generates a <i>Date</i> header.</li>
+%%  <li>`contact': if present generates a <i>Contact</i> header.</li>
 %%  <li>`{local_host, Host::binary()}': uses this Host instead of the default one for 
 %%      <i>Contact</i>, <i>Record-Route</i>, etc.</li>
 %%  <li>`{contact, [nksip:user_uri()]}': adds one or more `Contact' headers.</li>
@@ -313,9 +313,9 @@ reqreply(invalid_request) ->
 reqreply({invalid_request, Text}) ->
     helper_debug(#reqreply{code=400}, Text);
 reqreply(authenticate) ->
-    #reqreply{code=401, opts=[make_allow, {make_www_auth, from}]};
+    #reqreply{code=401, opts=[allow, {make_www_auth, from}]};
 reqreply({authenticate, Realm}) ->
-    #reqreply{code=401, opts=[make_allow, {make_www_auth, Realm}]};
+    #reqreply{code=401, opts=[allow, {make_www_auth, Realm}]};
 reqreply(forbidden) ->
     #reqreply{code=403};
 reqreply({forbidden, Text}) -> 
@@ -331,9 +331,9 @@ reqreply({method_not_allowed, Methods}) ->
         headers = nksip_headers:new([{single, <<"allow">>, Methods1}])
     };
 reqreply(proxy_authenticate) ->
-    #reqreply{code=407, opts=[make_allow, {make_proxy_auth, from}]};
+    #reqreply{code=407, opts=[allow, {make_proxy_auth, from}]};
 reqreply({proxy_authenticate, Realm}) ->
-    #reqreply{code=407, opts=[make_allow, {make_proxy_auth, Realm}]};
+    #reqreply{code=407, opts=[allow, {make_proxy_auth, Realm}]};
 reqreply(timeout) ->
     #reqreply{code=408};
 reqreply({timeout, Text}) ->
@@ -459,7 +459,7 @@ warning(Warn) ->
     #reqreply{}.
 
 helper_debug(#reqreply{opts=Opts}=SipReply, Text) ->
-    SipReply#reqreply{opts=[{reason_phrase, Text}, make_date|Opts]}.
+    SipReply#reqreply{opts=[{reason_phrase, Text}, date|Opts]}.
 
 
 %% @private

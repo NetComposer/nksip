@@ -588,11 +588,11 @@ generate(Method, Opts, Dialog, Call) ->
             {from, From},
             {to, To},
             {call_id, CallId},
-            {cseq, RCSeq},
+            {cseq_num, RCSeq},
             {route, RouteSet},
-            case lists:member(make_contact, Opts) of
+            case lists:member(contact, Opts) of
                 true ->
-                    make_contact;
+                    contact;
                 false ->
                     case Contacts of
                         [] -> {contact, [LocalTarget]};

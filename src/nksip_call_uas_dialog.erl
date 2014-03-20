@@ -440,7 +440,7 @@ update_response(Req, {Resp, Opts}, Call) ->
             case find(DialogId, Call) of
                 #dialog{local_target=LTarget} ->
                     Resp0 = Resp#sipmsg{dialog_id=DialogId, contacts=[LTarget]},
-                    {Resp0, Opts -- [make_contact]};
+                    {Resp0, Opts -- [contact]};
                 not_found ->
                     {Resp#sipmsg{dialog_id=DialogId}, Opts}
             end;

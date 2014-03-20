@@ -163,7 +163,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             _ ->
                 []
         end,
-        Path = case lists:member(make_path, Opts) of
+        Path = case lists:member(path, Opts) of
             true when Method=='REGISTER' ->
                 case RouteUser of
                     <<"NkQ", _/binary>> ->
@@ -180,7 +180,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             _ ->
                 []
         end,
-        Contacts1 = case lists:member(make_contact, Opts) of
+        Contacts1 = case lists:member(contact, Opts) of
             true ->
                 Contact0 = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                      ListenPort, From#uri.user, []),

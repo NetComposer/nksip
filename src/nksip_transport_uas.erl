@@ -33,7 +33,7 @@
 %% ===================================================================
 
 
--type send_opt() :: {local_host, auto|binary()} | make_contact | secure.
+-type send_opt() :: {local_host, auto|binary()} | contact | secure.
 
 %% @doc Sends a new `Response'.
 -spec send_response(nksip:response(), binary(), [send_opt()]) ->
@@ -124,7 +124,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
             true -> sips;
             _ -> sip
         end,
-        Contacts1 = case lists:member(make_contact, Opts) of
+        Contacts1 = case lists:member(contact, Opts) of
             true ->
                 Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                      ListenPort, To#uri.user, []),

@@ -241,7 +241,7 @@ request(#sipmsg{app_id=AppId, to=To}=Req) ->
             _ -> []
         end,
         {ok, [], <<>>, 
-            [{contact, Contacts1}, make_date, make_allow, make_supported | ObReq]}
+            [{contact, Contacts1}, date, allow, supported | ObReq]}
     catch
         throw:Throw -> Throw
     end.

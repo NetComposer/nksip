@@ -148,7 +148,7 @@ fun_response(Resp, Opts) ->
                 _ -> 
                     []
             end,
-            Values = case nksip_lib:get_value(fields, Opts, []) of
+            Values = case nksip_lib:get_value(meta, Opts, []) of
                 [] ->
                     Fields0;
                 Fields when is_list(Fields) ->

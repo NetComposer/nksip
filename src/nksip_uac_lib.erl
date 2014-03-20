@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send_any/4, send_dialog/4]).
--export([make/5, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
+-export([make/5, make/3, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
 
@@ -73,13 +73,9 @@ send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
 %% See {@link nksip_uac} for the decription of most options.
 -spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), 
            nksip_lib:proplist(), nksip_lib:proplist()) ->    
-    {ok, nksip:request(), nksip_lib:proplist()} | {error, Error} when
-    Error :: invalid_uri | invalid_from | invalid_to | invalid_route |
-             invalid_contact | invalid_cseq | invalid_content_type |
-             invalid_require | invalid_accept | invalid_event | invalid_reason |
-             invalid_supported.
-
-make(AppId, Method, Uri, Opts, AppOpts) ->
+    {ok, nksip:request(), nksip_lib:proplist()} | {error, term()}.
+    
+make(AppId, Method, Uri, Opts, Config) ->
     try
         case nksip_parse:uris(Uri) of
             [RUri] -> ok;
@@ -90,7 +86,6 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             error -> Method1 = RUri1 = throw(invalid_uri)
         end,
         DefFrom = #uri{user = <<"user">>, domain = <<"nksip">>},
-        From = nksip_lib:get_value(from, AppOpts, DefFrom),
         FromTag = nksip_lib:uid(),
         CallId = nksip_lib:luid(),
         Req1 = #sipmsg{
@@ -98,25 +93,55 @@ make(AppId, Method, Uri, Opts, AppOpts) ->
             class = {req, Method1},
             app_id = AppId,
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
-            from = From#uri{ext_opts=[{<<"tag">>, FromTag}]},
+            from = DefFrom,
             to = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
             call_id = CallId,
             cseq = {nksip_config:cseq(), Method1},
             forwards = 70,
-            routes = nksip_lib:get_value(route, AppOpts, []),
             from_tag = FromTag,
             transport = #transport{},
             start = nksip_lib:l_timestamp()
         },
-        Req2 = case RUri of
-            #uri{headers=[]} -> Req1;
-            #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
+        ConfigOpts = [
+            O || O <- Config, 
+            case O of
+                no_100 -> 
+                    true;
+                {H, _} when H==from; H==route; H==pass; 
+                            H==local_host; H==local_host6 -> 
+                    true;
+                _ -> 
+                    false
+            end
+        ],
+        {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, [], Config),
+        Req3 = case RUri of
+            #uri{headers=[]} -> Req2;
+            #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req2, post)
         end,
-        {Req3, Opts1} = parse_opts(Opts, Req2, [], AppOpts),
-        {ok, Req3, Opts1}
+        {Req4, ReqOpts2} = parse_opts(Opts, Req3, ReqOpts1, Config),
+        {ok, Req4, ReqOpts2}
     catch
         throw:Throw -> {error, Throw}
     end.
+
+
+%% @private 
+-spec make(nksip:request(), nksip_lib:proplist(), nksip_lib:proplist()) ->    
+    {ok, nksip:request(), nksip_lib:proplist()} | {error, term()}.
+    
+make(Req, Opts, Config) ->
+    try
+        Req1 = case Req#sipmsg.ruri of
+            #uri{headers=[]} -> Req;
+            #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req, post)
+        end,
+        {Req2, ReqOpts} = parse_opts(Opts, Req1, [], Config),
+        {ok, Req2, ReqOpts}
+    catch
+        throw:Throw -> {error, Throw}
+    end.
+
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
@@ -219,7 +244,7 @@ is_stateless(Resp, GlobalId) ->
     {nksip_lib:proplist(), nksip:request()}.
 
 
-parse_opts([], Req, Opts, _AppOpts) ->
+parse_opts([], Req, Opts, _Config) ->
     {Req, Opts};
 
 % Options user_agent, supported, allow, accept, date, allow_event,
@@ -228,16 +253,46 @@ parse_opts([], Req, Opts, _AppOpts) ->
 % existing headers.
 % Option route adds new routes before existing routes.
 % Any other header is inserted before existing ones.
-parse_opts([Term|Rest], Req, Opts, AppOpts) ->
+parse_opts([Term|Rest], Req, Opts, Config) ->
     Op = case Term of
         
         % Header manipulation
-        {add, Name, Value} ->
-            {add, Name, Value};
-        {replace, Name, Value} ->
-            {replace, Name, Value};
-        {insert, Name, Value} ->
-            {insert, Name, Value};
+        {add, Name, Value} -> {add, Name, Value};
+        {add, {Name, Value}} -> {add, Name, Value};
+        {replace, Name, Value} -> {replace, Name, Value};
+        {replace, {Name, Value}} -> {replace, Name, Value};
+        {insert, Name, Value} -> {insert, Name, Value};
+        {insert, {Name, Value}} -> {insert, Name, Value};
+
+        {Header, Value} when Header==from; Header==to; Header==call_id;
+                             Header==content_type; Header==require; Header==supported; 
+                             Header==expires; Header==contact; Header==route; 
+                             Header==reason; Header==event; Header==min_se ->
+            {replace, Header, Value};
+
+        %% TODO: CHECK
+        {subscription_state, ST} when is_tuple(ST) ->
+            case catch nksip_unparse:token(ST) of
+                Bin when is_binary(Bin) ->
+                    {replace, <<"subscription-state">>, Bin};
+                _ ->
+                    throw({invalid, subscription_state})
+            end;
+        {session_expires, SE} ->
+            MinSE = nksip_config:get_cached(min_se, Config),
+            case SE of
+                0 ->
+                    {Req, Opts};
+                {Int, Class} when 
+                        (Class==uac orelse Class==uas) andalso
+                        is_integer(Int) andalso Int >= MinSE ->
+                    Token = {Int, [{<<"refresher">>, Class}]},
+                    {replace, <<"session-expires">>, Token};
+                Int when is_integer(Int) andalso Int >= MinSE ->
+                    {replace, <<"session-expires">>, Int};
+                _ ->
+                    throw({invalid, session_expires})
+            end;
 
         % Special parameters
         to_as_from ->
@@ -246,10 +301,13 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
         {body, Body} ->
             ContentType = case Req#sipmsg.content_type of
                 undefined when is_record(Body, sdp) -> <<"application/sdp">>;
-                undefined when not is_binary(Body) -> <<"application/nksip.ebf.base64">>;
+                undefined when is_tuple(Body) -> <<"application/nksip.ebf.base64">>;
                 CT0 -> CT0
             end,
             {update_req, Req#sipmsg{body=Body, content_type=ContentType}};
+        {cseq_num, CSeq} when is_integer(CSeq), CSeq>0, CSeq<4294967296 ->
+            #sipmsg{cseq={_, Method}} = Req,
+            {update_req, Req#sipmsg{cseq={CSeq, Method}}};
         {min_cseq, MinCSeq} ->
             #sipmsg{cseq={OldCSeq, Method}} =Req,
             case is_integer(MinCSeq) of
@@ -263,12 +321,13 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
 
         %% Pass-through options
         Opt when Opt==contact; Opt==record_route; Opt==path; Opt==get_request;
-                 Opt==get_response; Opt==auto_2xx_ack; Opt==async ->
+                 Opt==get_response; Opt==auto_2xx_ack; Opt==async; Opt==no_100;
+                 Opt==stateless; Opt==follow_redirects ->
             {update_opts, [Opt|Opts]};
         {pass, Pass} ->
             {update_opts, [{pass, Pass}|Opts]};
-        {fields, List} when is_list(List) ->
-            {update_opts, [{fields, List}|Opts]};
+        {meta, List} when is_list(List) ->
+            {update_opts, [{meta,List}|Opts]};
         {local_host, Host} ->
             {update_opts, [{local_host, nksip_lib:to_host(Host)}|Opts]};
         {local_host6, Host} ->
@@ -292,67 +351,33 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            {replace, <<"supported">>, ?SUPPORTED};
+            Supported = nksip_lib:get_value(supported, Config, ?SUPPORTED),
+            {replace, <<"supported">>, Supported};
         allow ->        
-            Allow = case lists:member(registrar, AppOpts) of
-                true -> <<(?ALLOW)/binary, ", REGISTER">>;
+            DefAllow = case lists:member(registrar, Config) of
+                true -> <<(?ALLOW)/binary, ",REGISTER">>;
                 false -> ?ALLOW
             end,
+            Allow = nksip_lib:get_value(allow, Config, DefAllow),
             {replace, <<"allow">>, Allow};
         accept ->
-            Accept = case Req of
+            DefAccept = case Req of
                 #sipmsg{class={req, Method}} 
                     when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 _ -> 
                     ?ACCEPT
             end,
+            Accept = nksip_lib:get_value(accept, Config, DefAccept),
             {replace, <<"accept">>, Accept};
         date ->
             Date = nksip_lib:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            case nksip_lib:get_value(event, AppOpts) of
-                undefined -> 
-                    {update_req, Req};
-                Events -> 
-                    AllowEvent = nksip_lib:bjoin(Events),
-                    {replace, <<"allow-event">>, AllowEvent}
+            case nksip_lib:get_value(events, Config) of
+                undefined -> {update_req, Req};
+                Events -> {replace, <<"allow-event">>, Events}
             end;
-
-        {Header, Value} when Header==from; Header==to; Header==content_type; 
-                             Header==require, Header==supported; Header==expires;
-                             Header==contact; Header==reason; Header==event;
-                             Header==min_se ->
-            {replace, Header, Value};
-
-        %% TODO: CHECK
-        {subscription_state, ST} when is_tuple(ST) ->
-            case catch nksip_unparse:token(ST) of
-                Bin when is_binary(Bin) ->
-                    {replace, <<"subscription-state">>, Bin};
-                _ ->
-                    throw({invalid, subscription_state})
-            end;
-        {session_expires, SE} ->
-            MinSE = nksip_config:get_cached(min_session_expires, AppOpts),
-            case SE of
-                0 ->
-                    {Req, Opts};
-                {Int, Class} when 
-                        (Class==uac orelse Class==uas) andalso
-                        is_integer(Int) andalso Int >= MinSE ->
-                    Token = {Int, [{<<"refresher">>, Class}]},
-                    {replace, <<"session-expires">>, Token};
-                Int when is_integer(Int) andalso Int >= MinSE ->
-                    {replace, <<"session-expires">>, Int};
-                _ ->
-                    throw({invalid, session_expires})
-            end;
-
-        % Routes (added before existing ones)
-        {route, Routes} ->
-            {insert, <<"route">>, Routes};
 
         {Name, _} ->
             throw({invalid_option, Name});
@@ -363,19 +388,19 @@ parse_opts([Term|Rest], Req, Opts, AppOpts) ->
         {add, Name1, Value1} ->
             Name2 = nksip_parse_header:name(Name1), 
             Req1 = nksip_parse_header:parse(Name2, Value1, Req, post),
-            parse_opts(Rest, Req1, Opts, AppOpts);
+            parse_opts(Rest, Req1, Opts, Config);
         {replace, Name1, Value1} ->
             Name2 = nksip_parse_header:name(Name1), 
             Req1 = nksip_parse_header:parse(Name2, Value1, Req, replace),
-            parse_opts(Rest, Req1, Opts, AppOpts);
+            parse_opts(Rest, Req1, Opts, Config);
         {insert, Name1, Value1} ->
             Name2 = nksip_parse_header:name(Name1), 
             Req1 = nksip_parse_header:parse(Name2, Value1, Req, pre),
-            parse_opts(Rest, Req1, Opts, AppOpts);
+            parse_opts(Rest, Req1, Opts, Config);
         {update_req, Req1} -> 
-            parse_opts(Rest, Req1, Opts, AppOpts);
+            parse_opts(Rest, Req1, Opts, Config);
         {update_opts, Opts1} -> 
-            parse_opts(Rest, Req, Opts1, AppOpts)
+            parse_opts(Rest, Req, Opts1, Config)
     end.
 
 

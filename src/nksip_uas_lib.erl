@@ -90,10 +90,10 @@ preprocess(Req, GlobalId) ->
 %%  <li>`contact': Add Contact headers</li>
 %%  <li>`make_www_auth': Generates a WWW-Authenticate header</li>
 %%  <li>`make_proxy_auth': Generates a Proxy-Authenticate header</li>
-%%  <li>`make_allow': Generates an Allow header</li>
-%%  <li>`make_supported': Generates a Supported header</li>
-%%  <li>`make_accept': Generates an Accept header</li>
-%%  <li>`make_date': Generates a Date header</li>
+%%  <li>`allow': Generates an Allow header</li>
+%%  <li>`supported': Generates a Supported header</li>
+%%  <li>`accept': Generates an Accept header</li>
+%%  <li>`date': Generates a Date header</li>
 %%  <li>`make_100rel': If present a Require: 100rel header will be included</li>
 %%  <li>`{expires, non_neg_integer()}: If present generates a Event header</li>
 %%  <li>`reason_phrase': Custom reason phrase</li>
@@ -113,7 +113,7 @@ preprocess(Req, GlobalId) ->
 %%
 %% It will also return the following send options:
 %% <ul>
-%%  <li>`make_contact' when the request is INVITE and no `contact' option is present
+%%  <li>`contact' when the request is INVITE and no `contact' option is present
 %%      or it is present in options</li>
 %%  <li>`secure' if request-uri, first route, or Contact (if no route), are `sips'</li>
 %%  <li>`make_rseq' must generate a RSeq header</li>
@@ -161,8 +161,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                   Method=='SUBSCRIBE'; Method=='REFER' ->
             MakeAllow = MakeSupported = true;
         _ ->
-            MakeAllow = lists:member(make_allow, Opts),
-            MakeSupported = lists:member(make_supported, Opts)
+            MakeAllow = lists:member(allow, Opts),
+            MakeSupported = lists:member(supported, Opts)
     end,
     HeaderOps = [
         case Code of
@@ -204,14 +204,14 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             false -> 
                 none
         end,
-        case lists:member(make_accept, Opts) of
+        case lists:member(accept, Opts) of
             true -> 
                 Accept = nksip_lib:get_value(accept, AppOpts, ?ACCEPT),
                 {default_single, <<"accept">>, nksip_unparse:token(Accept)};
             false -> 
                 none
         end,
-        case lists:member(make_date, Opts) of
+        case lists:member(date, Opts) of
             true -> {default_single, <<"date">>, nksip_lib:to_binary(
                                                 httpd_util:rfc1123_date())};
             false -> none
@@ -404,14 +404,14 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         % transport = undefined
     },
     SendOpts = lists:flatten([
-        case lists:member(make_contact, Opts) of
+        case lists:member(contact, Opts) of
             true -> 
-                make_contact;
+                contact;
             false when 
                 RespContacts==[] andalso
                 (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse 
                  Method=='REFER') ->
-                make_contact;
+                contact;
             _ -> 
                 []
         end,

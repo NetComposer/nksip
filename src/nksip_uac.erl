@@ -90,7 +90,7 @@
 %%          the request.</td>
 %%      </tr>
 %%      <tr>
-%%          <td>`make_contact'</td>
+%%          <td>`contact'</td>
 %%          <td></td>
 %%          <td></td>
 %%          <td>If present, a <i>Contact</i> header will be automatically generated.</td>
@@ -112,7 +112,7 @@
 %%          <td>`string()|binary()'</td>
 %%          <td>`"*/*"'</td>
 %%          <td>If defined, this value will be used instead of default when 
-%%          option `make_accept' is used.</td>
+%%          option `accept' is used.</td>
 %%      </tr>
 %%      <tr>
 %%          <td>`headers'</td>
@@ -157,7 +157,7 @@
 %%      </tr>
 %%      <tr>
 %%          <td>`to'</td>
-%%          <td>{@link nksip:user_uri()}`|as_from'</td>
+%%          <td>{@link nksip:user_uri()}</td>
 %%          <td>`Uri'</td>
 %%          <td><i>To</i> to use in the request.</td>
 %%      </tr>
@@ -223,9 +223,9 @@
     {call_id, binary()} | {cseq, nksip:cseq()} | {route, nksip:user_uri()}.
 
 -type dialog_opt() ::  
-    {fields, [nksip_response:field()]} | async | {callback, function()} | 
+    {meta, [nksip_response:field()]} | async | {callback, function()} | 
     get_response | get_request | 
-    {contact, nksip:user_uri()} | make_contact | {content_type, binary()} | 
+    {contact, nksip:user_uri()} | contact | {content_type, binary()} | 
     {headers, [nksip:header()]} | {body, nksip:body()} | {local_host, auto|binary()}.
 
 -type register_opt() ::
@@ -301,7 +301,7 @@
     result() | {error, error()}.
 
 options(AppId, Dest, Opts) ->
-    Opts1 = [make_supported, make_allow, make_allow_event | Opts],
+    Opts1 = [supported, allow, allow_event | Opts],
     send_any(AppId, 'OPTIONS', Dest, Opts1).
 
 
@@ -347,7 +347,7 @@ options(AppId, Dest, Opts) ->
 %%      </tr>
 %% </table>
 %% 
-%% You will usually want to include a `make_contact' option to generate a valid
+%% You will usually want to include a `contact' option to generate a valid
 %% <i>Contact</i> header.
 %%
 %% Keep in mind that, once you send a REGISTER requests, following refreshers
@@ -361,24 +361,17 @@ options(AppId, Dest, Opts) ->
     result() | {error, error()}.
 
 register(AppId, Dest, Opts) ->
-    case lists:member(unregister_all, Opts) of
+    Opts1 = case lists:member(unregister_all, Opts) of
         true ->
-            Contact = {contact, <<"*">>},
-            Expires = 0;
+            [{contact, <<"*">>}, {expires, 0}| Opts -- [unregister_all]];
         false ->
-            Contact = [], 
             case lists:member(unregister, Opts) of
-                true -> Expires = 0;
-                false -> Expires = same
+                true -> [contact, {expires, 0}| Opts -- [unregister]];
+                false -> Opts
             end
     end,
-    Opts1 = case Expires of
-        same -> Opts;
-        _ -> [{expires, Expires}|Opts]
-    end,
-    Opts2 = lists:flatten(Opts1++[Contact, {to, as_from}]),
-    Opts3 = [make_supported, make_allow, make_allow_event | Opts2],
-    send_any(AppId, 'REGISTER', Dest, Opts3).
+    Opts2 = [to_as_from, supported, allow, allow_event | Opts1],
+    send_any(AppId, 'REGISTER', Dest, Opts2).
 
 
 %% @doc Sends an INVITE request.
@@ -443,7 +436,7 @@ register(AppId, Dest, Opts) ->
 %%      </tr>
 %% </table>
 %%
-%% A `make_contact' option will be automatically added if no contact is defined.
+%% A `contact' option will be automatically added if no contact is defined.
 %%
 %% If `Expires' header is used, NkSIP will CANCEL the request if no final response 
 %% has been received in this period in seconds. The default value for `contact' parameter 
@@ -469,7 +462,7 @@ register(AppId, Dest, Opts) ->
     result() | {error, error()}.
 
 invite(AppId, Dest, Opts) ->
-    Opts1 = [make_supported, make_allow, make_allow_event | Opts],
+    Opts1 = [supported, allow, allow_event | Opts],
     send_any(AppId, 'INVITE', Dest, Opts1).
 
 
@@ -560,7 +553,7 @@ cancel(AppId, ReqId) ->
     result() | {error, error()}.
 
 update(AppId, DialogSpec, Opts) ->
-    Opts1 = [make_supported, make_accept, make_allow | Opts],
+    Opts1 = [supported, accept, allow | Opts],
     send_dialog(AppId, 'UPDATE', DialogSpec, Opts1).
 
 
@@ -669,7 +662,7 @@ refresh(AppId, DialogSpec, Opts) ->
 
 subscribe(AppId, Dest, Opts) ->
     % event and expires options are detected later
-    Opts1 = [make_supported, make_allow, make_allow_event | Opts],
+    Opts1 = [supported, allow, allow_event | Opts],
     send_any(AppId, 'SUBSCRIBE', Dest, Opts1).
 
 
@@ -786,7 +779,7 @@ notify(AppId, Dest, Opts) ->
 
 message(AppId, Dest, Opts) ->
     Opts1 = case lists:keymember(expires, 1, Opts) of
-        true -> [make_date|Opts];
+        true -> [date|Opts];
         _ -> Opts
     end,
     send_any(AppId, 'MESSAGE', Dest, Opts1).
@@ -893,7 +886,7 @@ publish(AppId, Dest, Opts) ->
         <<>> -> Opts;
         ETag -> [{pre_headers, [{<<"sip-if-match">>, ETag}]}|Opts]
     end,
-    Opts2 = [make_supported, make_allow, make_allow_event | Opts1],
+    Opts2 = [supported, allow, allow_event | Opts1],
     send_any(AppId, 'PUBLISH', Dest, Opts2).
 
 

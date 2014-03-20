@@ -315,7 +315,7 @@ authorize(_ReqId, _AuthList, _From, State) ->
 %%  <li>`record_route': NkSIP will insert a <i>Record-Route</i> header before sending 
 %%      the request, so that following request inside the dialog will be routed 
 %%      to this proxy.</li>
-%%  <li>`make_path': For REGISTER requests, if the request includes "path" as part of
+%%  <li>`path': For REGISTER requests, if the request includes "path" as part of
 %%      the supported tokens, it will insert a <i>Path</i> header (see RFC3327).
 %%      If path it is not supported, it will reply a 421 ("Extension Required")
 %%      response</li>
@@ -519,8 +519,7 @@ info(_ReqId, _Meta, _From, State) ->
     call_reply(nksip:sipreply()).
 
 options(_ReqId, _Meta, _From, State) ->
-    Reply = {ok, [], <<>>, [make_contact, make_allow, make_allow_event, 
-                            make_accept, make_supported]},
+    Reply = {ok, [], <<>>, [contact, allow, allow_event, accept, supported]},
     {reply, Reply, State}.
 
 

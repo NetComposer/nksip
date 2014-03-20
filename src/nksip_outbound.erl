@@ -79,7 +79,7 @@ proxy_route(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
     } = Req,
     Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
     Opts1 = case 
-        lists:member(make_path, Opts) andalso
+        lists:member(path, Opts) andalso
         nksip_sipmsg:supported(Req, <<"path">>) andalso 
         lists:member(<<"outbound">>, Supported) andalso
         Contacts
