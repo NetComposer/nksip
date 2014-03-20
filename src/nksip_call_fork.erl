@@ -127,10 +127,10 @@ launch([], Id, Call) ->
     end;
 
 launch([Uri|Rest], Id, Call) -> 
-    #call{next=Next, opts=#call_opts{app_opts=_AppOpts}} = Call,
+    #call{next=Next, opts=#call_opts{app_opts=AppOpts}} = Call,
     Fork = lists:keyfind(Id, #fork.id, Call#call.forks),
     #fork{request=Req, method=Method, opts=Opts,
-          uacs=UACs, pending=Pending, responses=_Resps} = Fork,
+          uacs=UACs, pending=Pending, responses=Resps} = Fork,
     #sipmsg{call_id=CallId, routes=_Routes1} = Req,
     Req1 = Req#sipmsg{
         ruri = Uri, 
@@ -143,17 +143,20 @@ launch([Uri|Rest], Id, Call) ->
         _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
     end,
     Call1 = update(Fork1, Call),
-    ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
-    %% CAUTION: This call can update the fork's state, can even delete it!
-    Call2 = nksip_call_uac_req:request(Req1, Opts, {fork, Id}, Call1),
-    launch(Rest, Id, Call2#call{next=Next+1}).
-    % catch
-    %     throw:Reply ->
-    %         {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
-    %         ForkT = Fork#fork{responses=[Resp|Resps]},
-    %         launch(Rest, Id, update(ForkT, Call))
-    % end.
-
+    case nksip_uac:make(Req1, Opts, AppOpts) of
+        {ok, Req2, Opts1} ->
+            ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
+            %% CAUTION: This call can update the fork's state, can even delete it!
+            Call2 = nksip_call_uac_req:request(Req2, Opts1, {fork, Id}, Call1),
+            launch(Rest, Id, Call2#call{next=Next+1});
+        {error, Error} ->
+            ?call_warning("Error processing fork options: ~p, ~p: ~p",
+                          [Uri, Opts, Error], Call),
+            Reply = {internal_error, "Fork Options"},
+            {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
+            ForkT = Fork#fork{responses=[Resp|Resps]},
+            launch(Rest, Id, update(ForkT, Call))
+    end.
 
 %% @private Called when a launched UAC has a response
 -spec response(id(), integer(), nksip:response(),call()) ->

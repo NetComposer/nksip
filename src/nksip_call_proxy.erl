@@ -103,16 +103,23 @@ route_stateless(Req, Uri, ProxyOpts, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,    
     Req1 = Req#sipmsg{ruri=Uri},
-    SendOpts = [stateless_via | ProxyOpts++AppOpts],
-    case nksip_transport_uac:send_request(Req1, GlobalId, SendOpts) of
-        {ok, _} ->  
-            ?call_debug("Stateless proxy routing ~p to ~s", 
-                        [Method, nksip_unparse:uri(Uri)], Call);
-        {error, Error} -> 
-            ?call_notice("Stateless proxy could not route ~p to ~s: ~p",
-                         [Method, nksip_unparse:uri(Uri), Error], Call)
-        end,
-    stateless_proxy.
+    case nksip_uac:make(Req1, ProxyOpts, AppOpts) of
+        {ok, Req2, ProxyOpts1} ->
+            SendOpts = [stateless_via | ProxyOpts1],
+            case nksip_transport_uac:send_request(Req2, GlobalId, SendOpts) of
+                {ok, _} ->  
+                    ?call_debug("Stateless proxy routing ~p to ~s", 
+                                [Method, nksip_unparse:uri(Uri)], Call);
+                {error, Error} -> 
+                    ?call_notice("Stateless proxy could not route ~p to ~s: ~p",
+                                 [Method, nksip_unparse:uri(Uri), Error], Call)
+            end,
+           stateless_proxy;
+        {error, Error} ->
+            ?call_warning("Error procesing proxy opts: ~p, ~p: ~p", 
+                          [Uri, ProxyOpts, Error], Call),
+            throw({reply, {internal_error, "Proxy Options"}})
+    end.
     
 
 %% @doc Called from {@link nksip_call} when a stateless request is received.
@@ -164,14 +171,14 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
         is_integer(Forwards), Forwards > 0 ->   
             ok;
         Forwards==0, Method=='OPTIONS' ->
-            throw({reply, {ok, [], <<>>, [make_supported, make_accept, make_allow, 
-                                        {reason_phrase, <<"Max Forwards">>}]}});
+            throw({reply, {ok, [], <<>>, [supported, accept, allow, 
+                                          {reason_phrase, <<"Max Forwards">>}]}});
         Forwards==0 ->
             throw({reply, too_many_hops});
         true -> 
             throw({reply, invalid_request})
     end,
-    case lists:member(make_path, Opts) of     
+    case lists:member(path, Opts) of     
         true ->
             case nksip_sipmsg:supported(Req, <<"path">>) of
                 true -> ok;
