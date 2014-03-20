@@ -640,13 +640,16 @@ bjoin2([], Acc, _J) ->
 
 %% @doc Splits a `string()' or `binary()' into a list of tokens
 -spec tokens(string() | binary()) ->
-    [string()].
+    [string()] | error.
 
 tokens(Bin) when is_binary(Bin) ->
     tokens(binary_to_list(Bin));
 
-tokens(List) ->
-    tokens(List, [], []).
+tokens(List) when is_list(List) ->
+    tokens(List, [], []);
+
+tokens(_) ->
+    error.
 
 
 tokens([], [], Tokens) ->

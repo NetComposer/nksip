@@ -200,12 +200,14 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 
 packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
     Start = nksip_lib:l_timestamp(),
-    case nksip_parse_sipmsg:parse(Packet) of
-        {ok, Class, Headers, Rest} ->
+    case nksip_parse_sipmsg:parse(Proto, Packet) of
+        {ok, Class, Headers, Body, Rest} ->
             try 
-                CallId = nksip_lib:get_value(<<"call-id">>, Headers),
+                CallId = case nksip_lib:get_value(<<"call-id">>, Headers) of
+                    CallId0 when byte_size(CallId0) > 0 -> CallId0;
+                    _ -> throw({invalid, <<"Call-ID">>})
+                end,
                 Id = nksip_sipmsg:make_id(element(1, Class), CallId),
-                {Body, Rest1} = packet_body(Proto, Headers, Rest),
                 case Class of
                     {req, Method, RUri} ->
                          case uris(RUri) of
@@ -217,11 +219,12 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
                             class = {req, Method},
                             app_id = AppId,
                             ruri = RUri1,
+                            call_id = CallId,
                             body = Body,
                             transport = Transp,
                             start = Start
                         },
-                        {ok, parse_sipmsg(Req0, Headers), Rest1};
+                        {ok, parse_sipmsg(Req0, Headers), Rest};
                     {resp, Code, Reason} ->
                         case catch list_to_integer(Code) of
                             Code1 when is_integer(Code1), Code1>=100, Code1<700 -> ok;
@@ -231,44 +234,36 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
                             id = Id,
                             class = {resp, Code1, Reason},
                             app_id = AppId,
+                            call_id = CallId,
                             body = Body,
                             transport = Transp,
                             start = Start
                         },
-                        {ok, parse_sipmsg(Resp0, Headers), Rest1}
+                        {ok, parse_sipmsg(Resp0, Headers), Rest}
                 end
             catch
-                throw:{invalid, InvHeader} when element(1, Class)==req ->
-                    Msg = <<"Invalid ", InvHeader/binary>>,
-                    Resp = nksip_unparse:response(Headers, 400, Msg),
-                    {reply_error, {invalid, InvHeader}, Resp};
                 throw:{invalid, InvHeader} ->
-                    {error, {invalid, InvHeader}}
+                    case Class of
+                        {req, _, _} ->
+                            Msg = <<"Invalid ", InvHeader/binary>>,
+                            Resp = nksip_unparse:response(Headers, 400, Msg),
+                            {reply_error, {invalid, InvHeader}, Resp};
+                        _ ->
+                            {error, {invalid, InvHeader}}
+                    end
             end;
         partial ->
             partial;
         error ->
-            {error, invalid_message}
+            {error, invalid_message};
+        {reply, {req, _, _}, Headers, InvHeader} ->
+            Msg = <<"Invalid ", InvHeader/binary>>,
+            Resp = nksip_unparse:response(Headers, 400, Msg),
+            {reply_error, {invalid, InvHeader}, Resp};
+        {reply, _, _, InvHeader} ->
+            {error, {invalid, InvHeader}}
     end.
   
-
-packet_body(Proto, Headers, Rest) ->
-    case nksip_lib:get_integer(<<"content-length">>, Headers, empty) of
-        error -> 
-            throw({invalid, <<"Content-Length1">>});
-        empty when Proto==tcp; Proto==tls -> 
-            throw({invalid, <<"Content-Length2">>});
-        empty -> 
-            {Rest, <<>>};
-        CL when CL<0 ->
-            throw({invalid, <<"Content-Length3">>});
-        CL -> 
-            case byte_size(Rest) of
-                CL -> {Rest, <<>>};
-                BS when BS < CL -> throw(partial);
-                _ -> split_binary(Rest, CL)
-            end
-    end.
 
 %% @private
 -spec parse_sipmsg(#sipmsg{}, [nksip:header()]) -> 
@@ -282,10 +277,6 @@ parse_sipmsg(SipMsg, Headers) ->
     To = case uris(proplists:get_all_values(<<"to">>, Headers)) of
         [To0] -> To0;
         _ -> throw({invalid, <<"To">>})
-    end,
-    CallId = case proplists:get_all_values(<<"call-id">>, Headers) of
-        [CallId0] when byte_size(CallId0)>0 -> CallId0;
-        _ -> throw({invalid, <<"Call-ID">>})
     end,
     Vias = case vias(proplists:get_all_values(<<"via">>, Headers)) of
         [] -> throw({invalid, <<"via">>});
@@ -391,7 +382,6 @@ parse_sipmsg(SipMsg, Headers) ->
     SipMsg#sipmsg{
         from = From,
         to = To,
-        call_id = CallId, 
         vias = Vias,
         cseq = CSeq,
         forwards = Forwards,

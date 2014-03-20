@@ -28,35 +28,61 @@
 
 -include("nksip.hrl").
 
--export([parse/1]).
-
+-export([parse/2]).
 
 %% ===================================================================
 %% Public
 %% ===================================================================
 
-%% @doc Parses a SIP packet
--spec parse(binary()) ->
-    {ok, Class, [{binary(), term()}], binary(), binary()} | partial | error 
+%% @doc Parses a SIP packet. Message MUST have a \r\n\r\n.
+-spec parse(nksip:protocol(), binary()) ->
+    {ok, Class, [nksip:header()], binary(), binary()} | partial | error |
+    {reply, Class, [nksip:header()], binary()}
     when Class :: {req, nksip:metod(), binary()} | {resp, nksip:code(), binary()}.
 
-parse(Bin) ->
+parse(Proto, Bin) ->
     try
         Class = case first(Bin) of
             {req, Method, Uri, Rest1} -> {req, Method, Uri};
             {resp, Code, Reason, Rest1} -> {resp, Code, Reason}
         end,
         {Headers, Rest2} = headers(Rest1, []),
-        {ok, Class, Headers, Rest2}
+        case proplists:get_all_values(<<"content-length">>, Headers) of
+            [] when Proto==tcp; Proto==tls -> 
+                {reply, Class, Headers, <<"Content-Length">>};
+            [] -> 
+                {ok, Class, Headers, Rest2, <<>>};
+            [CL0] ->
+                case nksip_lib:to_integer(CL0) of
+                    error -> 
+                        {reply, Class, Headers, <<"Content-Length">>};
+                    CL when CL<0 ->
+                        {reply, Class, Headers, <<"Content-Length">>};
+                    CL -> 
+                        case byte_size(Rest2) of
+                            CL -> 
+                                {ok, Class, Headers, Rest2, <<>>};
+                            BS when CL>BS andalso (Proto==tcp orelse Proto==tls) ->
+                                partial;
+                            BS when CL>BS ->
+                                {reply, Class, Headers, <<"Content-Length">>};
+                            _ ->
+                                {Body, Rest3} = split_binary(Rest2, CL),
+                                {ok, Class, Headers, Body, Rest3}
+                        end
+                end;
+            _ ->
+                {reply, Class, Headers, <<"Content-Length">>}
+        end
     catch
-        throw:{line, _} -> error;
-        throw:partial -> partial
+        throw:{line, _} -> error
     end.
 
 
 %% ===================================================================
 %% Internal
 %% ===================================================================
+
 
 %% @private
 first(<<"SIP/2.0 ", Rest/binary>>) -> 

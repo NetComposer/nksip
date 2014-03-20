@@ -209,7 +209,7 @@ header(<<"min-se">>, Value) ->
     {integer(Value, 1, ?TWO32), add};
 
 header(_Name, Value) ->
-    {nksip_lib:to_binary(Value), add}.
+    {Value, add}.
 
 
 

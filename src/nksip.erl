@@ -302,29 +302,18 @@
 %%          <td>`string()|binary()'</td>
 %%          <td>`"*/*"'</td>
 %%          <td>If defined, this value will be used instead of default when 
-%%          option `make_accept' is used</td>
+%%          option `accept' is used</td>
 %%      </tr>
 %%  </table>
 %%
 %% <br/>
 -spec start(app_id(), atom(), term(), nksip_lib:proplist()) -> 
-	ok | {error, Error} 
-    when Error :: {invalid, term()} |
-                  no_matching_tcp | could_not_start_udp | could_not_start_tcp |
-                  could_not_start_tls | could_not_start_sctp.
+	ok | {error, term()}.
 
 start(AppId, Module, Args, Opts) ->
     try
-        Transports = case 
-            parse_transports(proplists:get_all_values(transport, Opts), [])
-        of
-            [] -> {transports, [{udp, {0,0,0,0}, 0, []}, {tls, {0,0,0,0}, 0, []}]};
-            Transports0 -> Transports0
-        end,
         Opts1 = parse_opts(Opts, []),
-        % DefCertFile = filename:join(code:priv_dir(nksip), "cert.pem"),
-        % DefKeyFile = filename:join(code:priv_dir(nksip), "key.pem"),
-        nksip_sup:start_core(AppId, Module, Args, [{transports, Transports}|Opts1])
+        nksip_sup:start_core(AppId, Module, Args, Opts1)
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -433,22 +422,8 @@ get_port(AppId, Proto, Class) ->
 %% ===================================================================
 
 
-% %% @private
-% get_outbound_proxies([#uri{}=Uri|Rest], Pos, Acc) ->
-%     get_outbound_proxies(Rest, Pos+1, Acc++[{Pos, Uri}]);
-
-% get_outbound_proxies([Uri|Rest], Pos, Acc) ->
-%     case nksip_parse:uris(Uri) of
-%         error -> error;
-%         Uris -> get_outbound_proxies(Uris++Rest, Pos, Acc)
-%     end;
-
-% get_outbound_proxies([], _Pos, Acc) ->
-%     Acc.
-
-
 parse_transports([], Acc) ->
-    Acc;
+    lists:reverse(Acc);
 
 parse_transports([Transport|Rest], Acc) ->
     case Transport of
@@ -465,12 +440,8 @@ parse_transports([Transport|Rest], Acc) ->
         false -> throw(invalid_transport)
     end,
     Ip1 = case Ip of
-        any -> 
-            {0,0,0,0};
         all ->
             {0,0,0,0};
-        any6 ->
-            {0,0,0,0,0,0,0,0};
         all6 ->
             {0,0,0,0,0,0,0,0};
         _ when is_tuple(Ip) ->
@@ -486,7 +457,6 @@ parse_transports([Transport|Rest], Acc) ->
             end
     end,
     Port1 = case Port of
-        all -> 0;
         any -> 0;
         _ when is_integer(Port), Port >= 0 -> Port;
         _ -> throw(invalid_transport)
@@ -499,8 +469,47 @@ parse_opts([], Opts) ->
 
 parse_opts([Term|Rest], Opts) ->
     Opts1 = case Term of
-        {transport, _} ->
-            Opts;
+
+        % Startup options
+        {transports, Transports} ->
+            [{transports, parse_transports(Transports, [])}|Opts];
+        {certfile, File} ->
+            [{certfile, nksip_lib:to_list(File)}|Opts];
+        {keyfile, File} ->
+            [{keyfile, nksip_lib:to_list(File)}|Opts];
+        {register, Register} ->
+            case nksip_parse:uris(Register) of
+                error -> throw(invalid_register);
+                Uris -> [{register, Uris}|Opts]
+            end;
+        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
+            [{register_expires, Expires}|Opts];
+        registrar ->
+            [registrar|Opts];
+        {supported, Supported} ->
+            case nksip_parse:tokens(Supported) of
+                error -> throw({invalid, supported});
+                Tokens -> [{supported, [T||{T, _}<-Tokens]}|Opts]
+            end;
+        {allow, Allow} ->
+            case nksip_parse:tokens(Allow) of
+                error -> throw({invalid, allow});
+                Tokens -> [{allow, [A||{A, _}<-Tokens]}|Opts]
+            end;
+        {accept, Accept} ->
+            case nksip_parse:tokens(Accept) of
+                error -> throw({invalid, accept});
+                Tokens -> [{accept, [A||{A, _}<-Tokens]}|Opts]
+            end;
+        {events, Event} ->
+            case nksip_parse:tokens(Event) of
+                error -> throw({invalid, events});
+                Tokens -> [{events, [T||{T, _}<-Tokens]}|Opts]
+            end;
+        {min_se, MinSE} when is_integer(MinSE), MinSE > 0 ->
+            [{min_se, MinSE}|Opts];
+
+        % Default headers and options
         {from, From} ->
             case nksip_parse:uris(From) of
                 [Uri] -> [{from, Uri}|Opts];
@@ -513,23 +522,8 @@ parse_opts([Term|Rest], Opts) ->
             end;
         {pass, Pass} ->
             [{pass, Pass}|Opts];
-        {certfile, File} ->
-            [{certfile, nksip_lib:to_list(File)}|Opts];
-        {keyfile, File} ->
-            [{keyfile, nksip_lib:to_list(File)}|Opts];
-        {register, Register} ->
-            case nksip_parse:uris(Register) of
-                error -> throw(invalid_register);
-                Uris -> [{register, Uris}|Opts]
-            end;
-        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
-            [{register_expires, Expires}|Opts];
-        {local_host, auto} ->
-            Opts;
         {local_host, Host} ->
             [{local_host, nksip_lib:to_host(Host)}|Opts];
-        {local_host6, auto} ->
-            Opts;
         {local_host6, Host} ->
             case nksip_lib:to_ip(Host) of
                 {ok, HostIp6} -> 
@@ -538,27 +532,10 @@ parse_opts([Term|Rest], Opts) ->
                 error -> 
                     [{local_host6, nksip_lib:to_binary(Host)}|Opts]
             end;
-        registrar ->
-            [registrar|Opts];
-        {supported, Supported} ->
-            case nksip_parse:tokens(Supported) of
-                error -> throw({invalid, supported});
-                Tokens -> [{supported, [T||{T, _}<-Tokens]}|Opts]
-            end;
-        {accept, Accept} ->
-            case nksip_parse:tokens(Accept) of
-                error -> throw({invalid, supported});
-                Tokens -> [{accept, [A||{A, _}<-Tokens]}|Opts]
-            end;
         no_100 ->
             [no100|Opts];
-        {event, Event} ->
-            case nksip_parse:tokens(Event) of
-                error -> throw({invalid, event});
-                Tokens -> [{event, [T||{T, _}<-Tokens]}|Opts]
-            end;
-        {min_session_expires, MinSE} when is_integer(MinSE), MinSE > 0 ->
-            [{min_session_expires, MinSE}|Opts];
+
+        % Unknown options
         {Name, _Value} ->
             throw({invalid, Name});
         Name ->
