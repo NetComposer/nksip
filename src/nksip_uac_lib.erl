@@ -267,7 +267,8 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         {Header, Value} when Header==from; Header==to; Header==call_id;
                              Header==content_type; Header==require; Header==supported; 
                              Header==expires; Header==contact; Header==route; 
-                             Header==reason; Header==event; Header==min_se ->
+                             Header==reason; Header==event; 
+                             Header==min_se ->
             {replace, Header, Value};
 
         %% TODO: CHECK
@@ -278,26 +279,15 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
                 _ ->
                     throw({invalid, subscription_state})
             end;
-        {session_expires, SE} ->
-            MinSE = nksip_config:get_cached(min_se, Config),
-            case SE of
-                0 ->
-                    {Req, Opts};
-                {Int, Class} when 
-                        (Class==uac orelse Class==uas) andalso
-                        is_integer(Int) andalso Int >= MinSE ->
-                    Token = {Int, [{<<"refresher">>, Class}]},
-                    {replace, <<"session-expires">>, Token};
-                Int when is_integer(Int) andalso Int >= MinSE ->
-                    {replace, <<"session-expires">>, Int};
-                _ ->
-                    throw({invalid, session_expires})
-            end;
-
         % Special parameters
         to_as_from ->
-            #sipmsg{from=From} = Req,
-            {replace, <<"To">>, From#uri{ext_opts=[]}};
+            case [true || {from, _} <- Rest] of
+                [] -> 
+                    #sipmsg{from=From} = Req,
+                    {replace, <<"To">>, From#uri{ext_opts=[]}};
+                _ ->
+                    put_at_end
+            end;
         {body, Body} ->
             ContentType = case Req#sipmsg.content_type of
                 undefined when is_record(Body, sdp) -> <<"application/sdp">>;
@@ -309,15 +299,29 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
             #sipmsg{cseq={_, Method}} = Req,
             {update_req, Req#sipmsg{cseq={CSeq, Method}}};
         {min_cseq, MinCSeq} ->
-            #sipmsg{cseq={OldCSeq, Method}} =Req,
-            case is_integer(MinCSeq) of
-                true when MinCSeq > OldCSeq -> 
-                    {update_req, Req#sipmsg{cseq={MinCSeq, Method}}};
-                true -> 
-                    {update_req, Req};
-                false -> 
-                    throw({invalid, min_cseq})
+            case [true || {cseq_num, _} <- Rest] of
+                [] -> 
+                    #sipmsg{cseq={OldCSeq, Method}} =Req,
+                    case is_integer(MinCSeq) of
+                        true when MinCSeq > OldCSeq -> 
+                            {update_req, Req#sipmsg{cseq={MinCSeq, Method}}};
+                        true -> 
+                            {update_req, Req};
+                        false -> 
+                            throw({invalid, min_cseq})
+                    end;
+                _ ->
+                    put_at_end
             end;
+        {session_expires, SE} ->
+            Req1 = nksip_parse_header:parse(<<"session-expires">>, SE, Req, replace),
+            {Time, _} = nksip_lib:get_value(<<"session-expires">>, Req1#sipmsg.headers),
+            case nksip_config:get_cached(min_se, Config) of
+                MinSE when Time<MinSE -> throw({invalid, <<"session-expires">>});
+                _ -> ok
+            end,
+            {update_req, Req1};
+
 
         %% Pass-through options
         Opt when Opt==contact; Opt==record_route; Opt==path; Opt==get_request;
@@ -387,20 +391,22 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
     case Op of
         {add, Name1, Value1} ->
             Name2 = nksip_parse_header:name(Name1), 
-            Req1 = nksip_parse_header:parse(Name2, Value1, Req, post),
-            parse_opts(Rest, Req1, Opts, Config);
+            ReqP = nksip_parse_header:parse(Name2, Value1, Req, post),
+            parse_opts(Rest, ReqP, Opts, Config);
         {replace, Name1, Value1} ->
             Name2 = nksip_parse_header:name(Name1), 
-            Req1 = nksip_parse_header:parse(Name2, Value1, Req, replace),
-            parse_opts(Rest, Req1, Opts, Config);
+            ReqP = nksip_parse_header:parse(Name2, Value1, Req, replace),
+            parse_opts(Rest, ReqP, Opts, Config);
         {insert, Name1, Value1} ->
             Name2 = nksip_parse_header:name(Name1), 
-            Req1 = nksip_parse_header:parse(Name2, Value1, Req, pre),
-            parse_opts(Rest, Req1, Opts, Config);
-        {update_req, Req1} -> 
-            parse_opts(Rest, Req1, Opts, Config);
+            ReqP = nksip_parse_header:parse(Name2, Value1, Req, pre),
+            parse_opts(Rest, ReqP, Opts, Config);
+        {update_req, ReqP} -> 
+            parse_opts(Rest, ReqP, Opts, Config);
         {update_opts, Opts1} -> 
-            parse_opts(Rest, Req, Opts1, Config)
+            parse_opts(Rest, Req, Opts1, Config);
+         put_at_end ->
+            parse_opts(Rest++[Term], Req, Opts, Config)
     end.
 
 

@@ -313,12 +313,22 @@ proxy_response(Req, Resp) ->
 
 
 %% @private
-parse(Resp) ->
-    case catch nksip_parse:header({<<"session-expires">>, Resp}) of
-        {error, undefied} -> undefined;
-        {SE, Refresh} -> {SE, Refresh};
-        _ -> invalid
+-spec parse(binary()|string()) ->
+    {ok, integer(), uac|uas|undefined} | undefined | error.
+
+parse(SipMsg) ->
+    case nksip_sipmsg:header(SipMsg, <<"session-expires">>) of
+        [] ->
+            undefined;
+        [Value] ->
+            case catch nksip_parse_header:parse(<<"session-expires">>, Value) of
+                {_Name, {SE, Opts}} -> {ok, SE, nksip_lib:get_value(refresher, Opts)};
+                _ -> invalid
+            end;
+        _ ->
+            invalid
     end.
+
 
 
 

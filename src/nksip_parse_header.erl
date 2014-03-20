@@ -34,6 +34,7 @@
 
 -define(TWO32, 4294967296).
 
+
 %% ===================================================================
 %% Private
 %% ===================================================================
@@ -176,19 +177,14 @@ header(<<"event">>, Value) ->
     {tokens(Value), #sipmsg.event};
 
 header(<<"session-expires">>, Value) ->
-    case single_token(Value) of
-        undefined ->
-            undefined;
-        [{SE, Opts}] ->
-            case nksip_lib:to_integer(SE) of
-                SE1 when is_integer(SE1), SE1>0 -> 
-                    case nksip_lib:get_binary(<<"refresher">>, Opts) of
-                        <<"uac">> -> {{SE1, uac}, add};
-                        <<"uas">> -> {{SE1, uas}, add};
-                        _ -> {{SE1, undefined}, add}
-                    end;
-                _ ->
-                    throw(invalid)
+    {SE, Opts} = single_token(Value),
+    case nksip_lib:to_integer(SE) of
+        SE1 when is_integer(SE1), SE1>0 -> 
+            ?P("SE1: ~p, ~p", [SE1, Opts]),
+            case nksip_lib:get_binary(<<"refresher">>, Opts) of
+                <<"uac">> -> {{SE1, [{refresher, uac}]}, add};
+                <<"uas">> -> {{SE1, [{refresher, uas}]}, add};
+                _ -> {{SE1, []}, add}
             end;
         _ ->
             throw(invalid)
@@ -237,7 +233,7 @@ vias(Data) ->
 
 single_token(Data) ->
     case nksip_parse:tokens(Data) of
-        [ContentType] -> ContentType;
+        [Token] -> Token;
         _ -> throw(invalid)
     end.
 
