@@ -372,11 +372,11 @@ update(_Status, Subs, Dialog, Call) ->
     nksip_call:call().
 
 create_event(Req, Call) ->
-    #sipmsg{event={EvType, EvOpts}, from_tag=Tag} = add_refer_event(Req, Call),
+    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = add_refer_event(Req, Call),
     EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
-    ?call_debug("Event ~s_~s_~s UAC created", [EvType, EvId, Tag], Call),
+    ?call_debug("Event ~s_~s_~s UAC created", [EvType, EvId, FromTag], Call),
     #call{opts=#call_opts{timer_t1=T1}, events=Events} = Call,
-    Id = {EvType, EvId, Tag},
+    Id = {EvType, EvId, FromTag},
     Timer = erlang:start_timer(64*T1, self(), {remove_event, Id}),
     Event = #provisional_event{id=Id, timer_n=Timer},
     Call#call{events=[Event|Events]}.
@@ -390,9 +390,9 @@ create_event(Req, Call) ->
     nksip_call:call().
 
 remove_event(#sipmsg{}=Req, Call) ->
-    #sipmsg{event={EvType, EvOpts}, from_tag=Tag} = add_refer_event(Req, Call),
+    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = add_refer_event(Req, Call),
     EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
-    remove_event({EvType, EvId, Tag}, Call);
+    remove_event({EvType, EvId, FromTag}, Call);
 
 remove_event({EvType, EvId, Tag}=Id, #call{events=Events}=Call) ->
     case lists:keytake(Id, #provisional_event.id, Events) of
@@ -535,11 +535,11 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 -spec is_event(nksip:request(), nksip_call:call()) ->
     boolean().
 
-is_event(#sipmsg{event=Event, to_tag=Tag}, #call{events=Events}) ->
+is_event(#sipmsg{event=Event, to={_, ToTag}}, #call{events=Events}) ->
     case Event of
         {Name, Opts} when is_list(Opts) ->
             Id = nksip_lib:get_value(<<"id">>, Opts, <<>>),
-            do_is_event({Name, Id, Tag}, Events);
+            do_is_event({Name, Id, ToTag}, Events);
         _ ->
             false
     end.

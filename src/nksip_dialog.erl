@@ -290,11 +290,11 @@ fields(AppId, DialogSpec, Fields) when is_list(Fields) ->
 -spec class_id(uac|uas, nksip:request()|nksip:response()) ->
     id().
 
-class_id(Class, #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId})
+class_id(Class, #sipmsg{from={_, FromTag}, to={_, ToTag}, call_id=CallId})
     when FromTag /= <<>>, ToTag /= <<>> ->
     dialog_id(Class, CallId, FromTag, ToTag);
 
-class_id(Class, #sipmsg{from_tag=FromTag, to_tag=(<<>>), class={req, Method}}=SipMsg)
+class_id(Class, #sipmsg{from={_, FromTag}, to={_, <<>>}, class={req, Method}}=SipMsg)
     when FromTag /= <<>> andalso
          (Method=='INVITE' orelse Method=='REFER' orelse
           Method=='SUBSCRIBE' orelse Method=='NOTIFY') ->

@@ -389,7 +389,7 @@ do_response(_, _Code, _Req, _Resp, Dialog, Call) ->
 -spec ack(nksip:request(), nksip_call:call()) ->
     nksip_call:call().
 
-ack(#sipmsg{class={req, 'ACK'}, to1={_, <<>>}}, Call) ->
+ack(#sipmsg{class={req, 'ACK'}, to={_, <<>>}}, Call) ->
     ?call_notice("Dialog UAC invalid ACK1", [], Call),
     Call;
 

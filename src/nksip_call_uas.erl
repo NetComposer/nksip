@@ -227,7 +227,7 @@ transaction_id(Req) ->
             class = {req, Method},
             ruri = RUri, 
             from = {_, FromTag}, 
-            to1 = {_, ToTag}, 
+            to = {_, ToTag}, 
             vias = [Via|_], 
             cseq = {CSeq, _}
         } = Req,

@@ -381,7 +381,7 @@ parse_sipmsg(SipMsg, Headers) ->
     end,
     SipMsg#sipmsg{
         from = {From, FromTag},
-        to1 = {To, ToTag},
+        to = {To, ToTag},
         vias = Vias,
         cseq = CSeq,
         forwards = Forwards,

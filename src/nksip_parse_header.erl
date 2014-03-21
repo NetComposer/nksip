@@ -71,9 +71,9 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
                         #sipmsg{from={_, FromTag}} = Req,
                         ExtOpts1 = nksip_lib:store_value(<<"tag">>, FromTag, ExtOpts),
                         {From#uri{ext_opts=ExtOpts1}, FromTag};
-                    <<"to">> when element(2, Req#sipmsg.to1) /= <<>> ->
+                    <<"to">> when element(2, Req#sipmsg.to) /= <<>> ->
                         {#uri{ext_opts=ExtOpts}=To, _} = Result,
-                        #sipmsg{to1={_, ToTag}} = Req,
+                        #sipmsg{to={_, ToTag}} = Req,
                         ExtOpts1 = nksip_lib:store_value(<<"tag">>, ToTag, ExtOpts),
                         {To#uri{ext_opts=ExtOpts1}, ToTag};
                     _ ->
@@ -133,7 +133,7 @@ header(<<"from">>, Value) ->
 header(<<"to">>, Value) -> 
     To = single_uri(Value),
     ToTag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts),
-    {{To, ToTag}, #sipmsg.to1};
+    {{To, ToTag}, #sipmsg.to};
 
 header(<<"via">>, Value) -> 
     {vias(Value), #sipmsg.vias};

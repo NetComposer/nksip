@@ -79,11 +79,11 @@ check_supported(Method, Req, UAS, Call) ->
                            nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-check_missing_dialog('ACK', #sipmsg{to1={_, <<>>}}, UAS, Call) ->
+check_missing_dialog('ACK', #sipmsg{to={_, <<>>}}, UAS, Call) ->
     ?call_notice("received out-of-dialog ACK", [], Call),
     update(UAS#trans{status=finished}, Call);
     
-check_missing_dialog(Method, #sipmsg{to1={_, <<>>}}, UAS, Call)
+check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
         when Method=='BYE'; Method=='INFO'; Method=='PRACK'; Method=='UPDATE';
              Method=='NOTIFY' ->
     reply(no_transaction, UAS, Call);
@@ -116,7 +116,7 @@ check_422(Method, Req, UAS, Call) ->
 
 dialog(Method, Req, UAS, Call) ->
     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
-    #sipmsg{to1={_, ToTag}} = Req,
+    #sipmsg{to={_, ToTag}} = Req,
     #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
     case Stateless of
         true ->
@@ -144,7 +144,7 @@ dialog(Method, Req, UAS, Call) ->
              nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-method('INVITE', #sipmsg{to1={_, ToTag}}, UAS, Call) ->
+method('INVITE', #sipmsg{to={_, ToTag}}, UAS, Call) ->
     Fields = [app_id, aor, dialog_id, content_type, body],
     UAS1 = nksip_call_lib:expire_timer(expire, UAS, Call),
     Fun = case ToTag of
@@ -230,7 +230,7 @@ method('UPDATE', _Req, UAS, Call) ->
     Fields = [app_id, dialog_id, content_type, body],
     process_call(update, Fields, UAS, Call);
     
-method('SUBSCRIBE', #sipmsg{to1={_, ToTag}}, UAS, Call) ->
+method('SUBSCRIBE', #sipmsg{to={_, ToTag}}, UAS, Call) ->
     Fields = [app_id, aor, dialog_id, event, subscription_id, parsed_expires],
     Fun = case ToTag of
         <<>> -> subscribe;

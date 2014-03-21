@@ -45,7 +45,7 @@
     term().
 
 field(S, Field) ->
-    #sipmsg{class=Class, ruri=RUri, from={From, _}, to1={To, _}, transport=T} = S,
+    #sipmsg{class=Class, ruri=RUri, from={From, _}, to={To, _}, transport=T} = S,
     case Field of
         id -> S#sipmsg.id;
         app_id -> S#sipmsg.app_id;
@@ -264,7 +264,7 @@ require(#sipmsg{require=Require}, Token) ->
 -spec is_dialog_forming(nksip:request()) ->
     boolean().
 
-is_dialog_forming(#sipmsg{class={req, Method}, to1={_, ToTag}}) ->
+is_dialog_forming(#sipmsg{class={req, Method}, to={_, ToTag}}) ->
     Method == 'NOTIFY' orelse
     (ToTag == <<>> andalso (Method == 'INVITE' orelse Method == 'SUBSCRIBE'));
 

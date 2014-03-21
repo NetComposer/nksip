@@ -95,7 +95,7 @@ make(AppId, Method, Uri, Opts, Config) ->
             app_id = AppId,
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
             from = {DefFrom, FromTag},
-            to1 = {DefTo, <<>>},
+            to = {DefTo, <<>>},
             call_id = CallId,
             cseq = {nksip_config:cseq(), Method1},
             forwards = 70,
@@ -187,8 +187,8 @@ make_cancel(Req, Reason) ->
 -spec make_ack(nksip:request(), nksip:response()) ->
     nksip:request().
 
-make_ack(Req, #sipmsg{to1=To}) ->
-    make_ack(Req#sipmsg{to1=To}).
+make_ack(Req, #sipmsg{to=To}) ->
+    make_ack(Req#sipmsg{to=To}).
 
 
 %% @private

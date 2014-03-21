@@ -48,7 +48,7 @@ create(Class, Req, Resp, Call) ->
         call_id = CallId, 
         dialog_id = DialogId,
         from = {From, FromTag},
-        to1 = {To, _},
+        to = {To, _},
         cseq = {CSeq, _},
         transport = #transport{proto=Proto}
     } = Resp,

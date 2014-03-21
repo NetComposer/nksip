@@ -154,7 +154,7 @@ process_request(Req, TransId, Call) ->
         id = MsgId, 
         ruri = RUri, 
         transport = Transp, 
-        to1 = {_, ToTag}
+        to = {_, ToTag}
     } = Req,
     #call{trans=Trans, next=Id, msgs=Msgs} = Call,
     ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId], Call),

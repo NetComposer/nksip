@@ -181,7 +181,7 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
 
 authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
-    #sipmsg{dialog_id=DialogId, to1={_, ToTag}} = Req,
+    #sipmsg{dialog_id=DialogId, to={_, ToTag}} = Req,
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply], Call),
     case Reply of
         _ when Reply==ok; Reply==true ->
