@@ -266,6 +266,9 @@ parse_opts([], Req, Opts, _Config) ->
 parse_opts([Term|Rest], Req, Opts, Config) ->
     Op = case Term of
         
+        ignore ->
+            {update_req, Req};
+
         % Header manipulation
         {add, Name, Value} -> {add, Name, Value};
         {add, {Name, Value}} -> {add, Name, Value};
@@ -337,7 +340,8 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         %% Pass-through options
         Opt when Opt==contact; Opt==record_route; Opt==path; Opt==get_request;
                  Opt==get_response; Opt==auto_2xx_ack; Opt==async; Opt==no_100;
-                 Opt==stateless; Opt==follow_redirects ->
+                 Opt==stateless; Opt==no_dialog; Opt==no_auto_expire;
+                 Opt==follow_redirects ->
             {update_opts, [Opt|Opts]};
         {pass, Pass} ->
             {update_opts, [{pass, Pass}|Opts]};
