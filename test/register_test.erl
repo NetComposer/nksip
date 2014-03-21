@@ -171,7 +171,7 @@ register1() ->
     % From is sip:client1@nksip,
     Request1 = #sipmsg{
                 app_id = Server1, 
-                from = #uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>},
+                from = {#uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>}, <<>>},
                 transport = #transport{
                                 proto = udp, 
                                 remote_ip = {127,0,0,1}, 

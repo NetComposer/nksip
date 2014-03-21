@@ -72,12 +72,12 @@ valid_1_test() ->
     #sipmsg{
         ruri = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
                     port = 0, opts = [<<"unknownparam">>]},
-        to = #uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
+        to = {#uri{user = <<"vivekg">>, domain = <<"chair-dnrc.example.com">>,
                   port = 0, ext_opts = [{<<"tag">>,<<"1918181833n">>}],
-                  ext_headers = []},
-        from = #uri{disp = <<"\"J Rosenberg \\\\\\\"\"       ">>,
+                  ext_headers = []}, <<"1918181833n">>},
+        from = {#uri{disp = <<"\"J Rosenberg \\\\\\\"\"       ">>,
                     user = <<"jdrosen">>, domain = <<"example.com">>,
-                    port = 0, ext_opts = [{<<"tag">>,<<"98asjd8">>}]},
+                    port = 0, ext_opts = [{<<"tag">>,<<"98asjd8">>}]}, <<"98asjd8">>},
         forwards = 68,
         call_id = <<"wsinv.ndaksdj@192.0.2.1">>,
         cseq = {9, 'INVITE'},
@@ -106,8 +106,6 @@ valid_1_test() ->
                  <<"newfangled value continued newfangled value">>},
             {<<"unknownheaderwithunusualvalue">>,<<";;,,;;,;">>}
         ],
-        from_tag = <<"98asjd8">>,
-        to_tag = <<"1918181833n">>,
         body = #sdp{
             sdp_vsn = <<"0">>, user = <<"mhandley">>,
             id = 29739,vsn = 7272939,
@@ -163,27 +161,24 @@ valid_2_test() ->
                 proto = tcp, domain = <<"host1.example.com">>,
                 port = 0, opts = [{<<"branch">>,<<"z9hG4bK-.!%66*_+`'~">>}]}
         ],
-        to = #uri{
+        to = {#uri{
             disp = L2,
             scheme = sip, 
             user = <<"1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*">>,
             pass = <<>>,
-            domain = <<"example.com">>, port = 0,opts = []
-        },
-        from = #uri{
+            domain = <<"example.com">>, port = 0,opts = []}, <<>>},
+        from = {#uri{
             disp = <<"token1~` token2'+_ token3*%!.- ">>,
             scheme = sip, user = <<"mundane">>,
             domain = <<"example.com">>, port = 0,opts = [],headers = [],
             ext_opts = [
                 {<<"fromParam''~+*_!.-%">>, L1},
                 {<<"tag">>,<<"_token~1'+`*%!-.">>}
-            ]
-        },
+            ]}, <<"_token~1'+`*%!-.">>},
         call_id = <<"intmeth.word%ZK-!.*_+'@word`~)(><:\\/\"][?}{">>,
         cseq = {139122385, <<"!interesting-Method0123456789_*+`.%indeed'~">>},
         forwards = 255,
-        headers = [{<<"extensionheader-!.%*+_`'~">>, L3}], 
-        from_tag = <<"_token~1'+`*%!-.">>, to_tag = <<>>
+        headers = [{<<"extensionheader-!.%*+_`'~">>, L3}]
     } = parse(Msg),
     ok.
 
@@ -215,12 +210,12 @@ valid_3_test() ->
             user = <<"sips%3Auser%40example.com">>, pass = <<>>,
             domain = <<"example.net">>, port = 0
         },
-        to = #uri{
-            user = <<"%75se%72">>, domain = <<"example.com">>,port = 0
+        to = {#uri{
+            user = <<"%75se%72">>, domain = <<"example.com">>,port = 0}, <<>>
         },
-        from = #uri{
+        from = {#uri{
             user = <<"I%20have%20spaces">>, domain = <<"example.net">>,port = 0,
-            ext_opts = [{<<"tag">>,<<"938">>}]
+            ext_opts = [{<<"tag">>,<<"938">>}]}, <<"938">>
         },
         contacts = [
             #uri{
@@ -248,12 +243,12 @@ valid_4_test() ->
         "L:0\r\n"
         "\r\n">>,
 #sipmsg{
-        to = #uri{
-            user = <<"null-%00-null">>, domain = <<"example.com">>
+        to = {#uri{
+            user = <<"null-%00-null">>, domain = <<"example.com">>}, <<>>
         },
-        from = #uri{
+        from = {#uri{
             user = <<"null-%00-null">>, domain = <<"example.com">>,
-            port = 0, ext_opts = [{<<"tag">>,<<"839923423">>}]
+            port = 0, ext_opts = [{<<"tag">>,<<"839923423">>}]}, <<"839923423">>
         },
         contacts = [
             #uri{user = <<"%00">>, domain = <<"host5.example.com">>},
@@ -280,13 +275,14 @@ valid_5_test() ->
     #sipmsg{
         class = {req,<<"RE%47IST%45R">>},
         ruri = #uri{domain = <<"registrar.example.com">>},
-        to = #uri{
+        to = {#uri{
             disp = <<"\"%Z%45\" ">>, user = <<"resource">>,pass = <<>>,
-            domain = <<"example.com">>,port = 0
+            domain = <<"example.com">>,port = 0}, <<>>
         },
-        from = #uri{
+        from = {#uri{
             disp = <<"\"%Z%45\" ">>, user = <<"resource">>,pass = <<>>,
-            domain = <<"example.com">>,port = 0, ext_opts = [{<<"tag">>,<<"f232jadfj23">>}]
+            domain = <<"example.com">>,port = 0, ext_opts = [{<<"tag">>,<<"f232jadfj23">>}]},
+            <<"f232jadfj23">>
         },
         contacts = [
             #uri{user = <<"alias1">>, domain = <<"host1.example.com">>},
@@ -309,11 +305,11 @@ valid_6_test() ->
         "l: 0\r\n"
         "\r\n">>,
     #sipmsg{
-        from = #uri{disp = <<"caller">>, scheme = sip,
+        from = {#uri{disp = <<"caller">>, scheme = sip,
                     user = <<"caller">>, pass = <<>>, domain = <<"example.com">>,
                     port = 0,opts = [],headers = [],
                     ext_opts = [{<<"tag">>,<<"323">>}],
-                    ext_headers = []
+                    ext_headers = []}, <<"323">>
                 }
     } = parse(Msg),
     ok.
@@ -375,7 +371,7 @@ valid_7_test() ->
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
     #sipmsg{
-        to = #uri{
+        to = {#uri{
             disp = <<"\"I have a user name of extreme extreme extreme extreme extreme extreme extreme extreme extreme extreme proportion\" ">>,
             scheme = sip, user = <<"user">>,pass = <<>>, domain = <<"example.com">>,port = 6000,
             opts = [
@@ -384,9 +380,9 @@ valid_7_test() ->
                 {<<"longparamnamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamename">>,
                     <<"shortvalue">>},
                 <<"verylonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglongParameterNameWithNoValue">>
-            ]
+            ]}, <<>>
         },
-        from = #uri{
+        from = {#uri{
             user = <<"amazinglylongcallernameamazinglylongcallernameamazinglylongcallernameamazinglylongcallernameamazinglylongcallername">>,
             pass = <<>>,domain = <<"example.net">>,port = 0,opts = [],
             ext_opts = [
@@ -394,7 +390,7 @@ valid_7_test() ->
                 {<<"unknownheaderparamnamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamenamename">>,
                     <<"unknowheaderparamvaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevaluevalue">>},
                 <<"unknownValuelessparamnameparamnameparamnameparamnameparamnameparamnameparamnameparamnameparamnameparamname">>
-            ]
+            ]}, <<>>
         },
         call_id = <<"longreq.onereallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallylongcallid">>,
         cseq = {3882340, 'INVITE'},
@@ -508,14 +504,14 @@ valid_9_test() ->
             user = <<"user;par=u%40example.net">>, pass = <<>>,
             domain = <<"example.com">>
         },
-        to = #uri{
+        to = {#uri{
             disp = <<>>,scheme = sip,user = <<"j_user">>,
-            pass = <<>>,domain = <<"example.com">>,port = 0
+            pass = <<>>,domain = <<"example.com">>,port = 0}, <<>>
         },
-        from = #uri{
+        from = {#uri{
             disp = <<>>,scheme = sip,user = <<"caller">>,
             pass = <<>>,domain = <<"example.org">>,port = 0,
-            ext_opts = [{<<"tag">>,<<"33242">>}]
+            ext_opts = [{<<"tag">>,<<"33242">>}]}, <<"33242">>
         },
         headers = [{<<"accept">>, Accept}]
     } = parse(Msg),

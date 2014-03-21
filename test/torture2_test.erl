@@ -384,10 +384,10 @@ invalid_14() ->
         "l: 0\r\n"
         "\r\n">>,
     #sipmsg{
-        to = #uri{
+        to = {#uri{
             disp = <<"\"Watson, Thomas\" ">>, scheme = sip,
             user = <<"t.watson">>, pass = <<>>,
-            domain = <<"example.org">>, port = 0
+            domain = <<"example.org">>, port = 0}, <<>>
         }
     } = parse(Msg),
     ok.

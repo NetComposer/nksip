@@ -359,10 +359,8 @@ out_or_order() ->
     after 1000 -> error(fork)
     end,
     % If we use another FromTag, it is not accepted
-    RecvReq3 = RecvReq2#sipmsg{
-        from = (RecvReq2#sipmsg.from)#uri{ext_opts=[{<<"tag">>, <<"a">>}]},
-        from_tag = <<"a">>
-    },
+    #sipmsg{from={From, _}} = RecvReq2,
+    RecvReq3 = RecvReq2#sipmsg{from={From#uri{ext_opts=[{<<"tag">>, <<"a">>}]}, <<"a">>}},
     Notify3 = make_notify(RecvReq3),
     {ok, 481, []} = nksip_call:send(Notify3, [no_dialog]),
     ok.
@@ -419,21 +417,20 @@ fork() ->
     ok.
 
 
-make_notify(#sipmsg{to_tag_candidate=ToTag}=Req) ->
+make_notify(Req) ->
+    #sipmsg{from={From, FromTag}, to={To, _}, cseq={CSeq, _}, to_tag_candidate=ToTag} = Req,
     Req#sipmsg{
         id = nksip_sipmsg:make_id(req, Req#sipmsg.call_id),
         class = {req, 'NOTIFY'},
         ruri = hd(nksip_parse:uris("sip:127.0.0.1")),
         vias = [],
-        from = (Req#sipmsg.to)#uri{ext_opts=[{<<"tag">>, ToTag}]},
-        to = Req#sipmsg.from,
-        cseq = {Req#sipmsg.cseq+1, 'NOTIFY'},
+        from = {To#uri{ext_opts=[{<<"tag">>, ToTag}]}, ToTag},
+        to = {From, FromTag},
+        cseq = {CSeq+1, 'NOTIFY'},
         routes = [],
         contacts = nksip_parse:uris("sip:127.0.0.1:5070"),
         expires = 0,
         headers = [{<<"subscription-state">>, <<"active;expires=5">>}],
-        from_tag = ToTag,
-        to_tag = Req#sipmsg.from_tag,
         transport = undefined
     }.
 
