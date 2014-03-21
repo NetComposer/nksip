@@ -118,7 +118,7 @@ basic() ->
 
     CallId1 = nksip_dialog:call_id(Dialog1A),
     CSeq1 = receive 
-        {Ref, #sipmsg{cseq=CSeq1_0, headers=Headers1, call_id=CallId1}} ->
+        {Ref, #sipmsg{cseq={CSeq1_0, _}, headers=Headers1, call_id=CallId1}} ->
             <<"1">> = proplists:get_value(<<"session-expires">>, Headers1),
             undefined = proplists:get_value(<<"min-sE">>, Headers1),
             CSeq1_0
@@ -127,7 +127,7 @@ basic() ->
     end,
 
     receive 
-        {Ref, #sipmsg{cseq=CSeq2, headers=Headers2, call_id=CallId1}} ->
+        {Ref, #sipmsg{cseq={CSeq2, _}, headers=Headers2, call_id=CallId1}} ->
             <<"2">> = proplists:get_value(<<"session-expires">>, Headers2),
             <<"2">> = proplists:get_value(<<"min-se">>, Headers2),
             CSeq2 = CSeq1+1
