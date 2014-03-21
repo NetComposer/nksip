@@ -66,18 +66,9 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
         case header(Name, Value) of
             {Result, Pos} when is_integer(Pos) -> 
                 Result1 = case Name of
-                    <<"from">> when element(2, Req#sipmsg.from) /= <<>> ->
-                        {#uri{ext_opts=ExtOpts}=From, _} = Result,
-                        #sipmsg{from={_, FromTag}} = Req,
-                        ExtOpts1 = nksip_lib:store_value(<<"tag">>, FromTag, ExtOpts),
-                        {From#uri{ext_opts=ExtOpts1}, FromTag};
-                    <<"to">> when element(2, Req#sipmsg.to) /= <<>> ->
-                        {#uri{ext_opts=ExtOpts}=To, _} = Result,
-                        #sipmsg{to={_, ToTag}} = Req,
-                        ExtOpts1 = nksip_lib:store_value(<<"tag">>, ToTag, ExtOpts),
-                        {To#uri{ext_opts=ExtOpts1}, ToTag};
-                    _ ->
-                        Result
+                    <<"from">> -> update_tag(Result, Req#sipmsg.from);
+                    <<"to">> -> update_tag(Result, Req#sipmsg.to);
+                    _ -> Result
                 end,
                 setelement(Pos, Req, Result1);
             {Result, {add, Pos}} ->
@@ -127,12 +118,12 @@ headers(_, _, _) ->
 %% @private
 header(<<"from">>, Value) -> 
     From = single_uri(Value),
-    FromTag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts),
+    FromTag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
     {{From, FromTag}, #sipmsg.from};
 
 header(<<"to">>, Value) -> 
     To = single_uri(Value),
-    ToTag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts),
+    ToTag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
     {{To, ToTag}, #sipmsg.to};
 
 header(<<"via">>, Value) -> 
@@ -273,8 +264,16 @@ integer(Data, Min, Max) ->
     end.
 
 
+%% @private
+update_tag({Value, <<>>}, {_, <<>>}) -> 
+    {Value, <<>>};
 
+update_tag({#uri{ext_opts=ExtOpts}=Value, <<>>}, {_, Tag}) ->
+    ExtOpts1 = nksip_lib:store_value(<<"tag">>, Tag, ExtOpts),
+    {Value#uri{ext_opts=ExtOpts1}, Tag};
 
+update_tag({Value, Tag}, _) ->
+    {Value, Tag}.
 
 
 %% @private

@@ -121,7 +121,16 @@ make(AppId, Method, Uri, Opts, Config) ->
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req2, post)
         end,
         {Req4, ReqOpts2} = parse_opts(Opts, Req3, ReqOpts1, Config),
-        {ok, Req4, ReqOpts2}
+        ReqOpts3 = case 
+            (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
+             Method=='NOTIFY' orelse Method=='REFER' orelse Method=='UPDATE')
+            andalso Req4#sipmsg.contacts==[]
+            andalso not lists:member(contact, ReqOpts2)
+        of  
+            true -> [contact|ReqOpts2];
+            false -> ReqOpts2
+        end,
+        {ok, Req4, ReqOpts3}
     catch
         throw:Throw -> {error, Throw}
     end.

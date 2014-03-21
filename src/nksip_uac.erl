@@ -462,7 +462,7 @@ register(AppId, Dest, Opts) ->
     result() | {error, error()}.
 
 invite(AppId, Dest, Opts) ->
-    Opts1 = [contact, supported, allow, allow_event | Opts],
+    Opts1 = [supported, allow, allow_event | Opts],
     send_any(AppId, 'INVITE', Dest, Opts1).
 
 

@@ -527,8 +527,6 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
 
 generate(Method, Opts, Dialog, Call) ->
     #dialog{
-        id = DialogId,
-        app_id = AppId,
         call_id = CallId,
         local_uri = From,
         remote_uri = To,
@@ -538,7 +536,7 @@ generate(Method, Opts, Dialog, Call) ->
         route_set = RouteSet,
         invite = Invite
     } = Dialog,
-    case nksip_lib:get_integer(cseq, Opts) of
+    case nksip_lib:get_integer(cseq_num, Opts) of
         0 when Method == 'ACK' -> 
             #invite{request=#sipmsg{cseq={RCSeq, _}}} = Invite,
             LCSeq = CurrentCSeq;
@@ -551,30 +549,13 @@ generate(Method, Opts, Dialog, Call) ->
         RCSeq -> 
             LCSeq = RCSeq
     end,
-    Contacts = case nksip_lib:get_value(contact, Opts) of
-        undefined ->
-            [];
-        ContactSpec ->
-            case nksip_parse:uris(ContactSpec) of
-                [Contact0] -> 
-                    [Contact0];
-                _ -> 
-                    ?notice(AppId, CallId, "Dialog ~s UAC request has invalid "
-                                            "contact: ~p", [DialogId, ContactSpec]),
-                    []
-            end
-    end,
     Opts1 = 
         case Method of
             'ACK' ->
                 #invite{request=#sipmsg{headers=Headers}} = Invite,
-                case 
-                    nksip_lib:extract(Headers,
-                                      [<<"authorization">>, <<"proxy-authorization">>])
-                of
-                    [] -> [];
-                    AuthHds -> [{pre_headers, AuthHds}]
-                end;
+                Auths = nksip_lib:extract(Headers,
+                                    [<<"authorization">>, <<"proxy-authorization">>]),
+                [{add, Auth} || Auth <-Auths];
             _ ->
                 []
         end
@@ -592,11 +573,11 @@ generate(Method, Opts, Dialog, Call) ->
             {route, RouteSet},
             case lists:member(contact, Opts) of
                 true ->
-                    contact;
+                    ignore;
                 false ->
-                    case Contacts of
-                        [] -> {contact, [LocalTarget]};
-                        _ -> {contact, Contacts}
+                    case nksip_lib:get_value(contact, Opts, []) of
+                        [] -> {contact, LocalTarget};
+                        _ -> ignore
                     end
             end
             | Opts
