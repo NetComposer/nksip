@@ -577,7 +577,7 @@ send_prack(Resp, Id, DialogId, Call) ->
             32,
             nksip_lib:to_list(Method)
         ]),
-        Opts2 = [{post_headers, [{<<"RAck">>, RAck}]}, {body, Body}],
+        Opts2 = [{add, "rack", RAck}, {body, Body}],
         case nksip_call:make_dialog(DialogId, 'PRACK', Opts2, Call) of
             {ok, Req, ReqOpts, Call1} -> 
                 PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],

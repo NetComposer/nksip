@@ -826,7 +826,7 @@ refer(AppId, Dest, Opts) ->
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
-            Opts1 = [{pre_headers, [{<<"refer-to">>, ReferTo}]}|Opts],
+            Opts1 = [{insert, "refer-to", ReferTo}|Opts],
             send_any(AppId, 'REFER', Dest, Opts1)
     end.
 
@@ -884,7 +884,7 @@ publish(AppId, Dest, Opts) ->
     % event and expires options are detected later
     Opts1 = case nksip_lib:get_binary(sip_etag, Opts) of
         <<>> -> Opts;
-        ETag -> [{pre_headers, [{<<"sip-if-match">>, ETag}]}|Opts]
+        ETag -> [{insert, "sip-if-match", ETag}|Opts]
     end,
     Opts2 = [supported, allow, allow_event | Opts1],
     send_any(AppId, 'PUBLISH', Dest, Opts2).

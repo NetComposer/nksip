@@ -533,7 +533,7 @@ parse_opts([Term|Rest], Opts) ->
                     [{local_host6, nksip_lib:to_binary(Host)}|Opts]
             end;
         no_100 ->
-            [no100|Opts];
+            [no_100|Opts];
 
         % Unknown options
         {Name, _Value} ->

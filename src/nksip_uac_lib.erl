@@ -85,8 +85,9 @@ make(AppId, Method, Uri, Opts, Config) ->
             {Method1, RUri1} -> ok;
             error -> Method1 = RUri1 = throw(invalid_uri)
         end,
-        DefFrom = #uri{user = <<"user">>, domain = <<"nksip">>},
         FromTag = nksip_lib:uid(),
+        DefFrom = #uri{user = <<"user">>, domain = <<"nksip">>, 
+                  opts = [{<<"tag">>, FromTag}]},
         DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
         CallId = nksip_lib:luid(),
         Req1 = #sipmsg{
