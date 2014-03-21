@@ -51,7 +51,8 @@ send_100(UAS, #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}}=Call)
     case Method=='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
         true ->
             {Resp, SendOpts} = nksip_reply:reply(Req, 100, AppOpts),
-            case nksip_transport_uas:send_response(Resp, GlobalId, SendOpts++AppOpts) of
+            TranspOpts = SendOpts++AppOpts,
+            case nksip_transport_uas:send_response(Resp, GlobalId, TranspOpts) of
                 {ok, _} -> 
                     check_cancel(UAS, Call);
                 error ->

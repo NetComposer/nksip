@@ -196,7 +196,6 @@ register2() ->
 
     Opts1 = [contact, {expires, 300}],
     FromS = {from, <<"sips:client1@nksip">>},
-    Opts2 = [FromS|Opts1],
     Client1 = {basic, client1},
     Client2 = {basic, client2}, 
     Server1 = {basic, server1},
