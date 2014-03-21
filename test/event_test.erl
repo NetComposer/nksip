@@ -420,7 +420,7 @@ fork() ->
 make_notify(Req) ->
     #sipmsg{from={From, FromTag}, to={To, _}, cseq={CSeq, _}, to_tag_candidate=ToTag} = Req,
     Req#sipmsg{
-        id = nksip_sipmsg:make_id(req, Req#sipmsg.call_id),
+        id = nksip_lib:uid(),
         class = {req, 'NOTIFY'},
         ruri = hd(nksip_parse:uris("sip:127.0.0.1")),
         vias = [],
