@@ -177,12 +177,11 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
             _ ->
                 []
         end,
-        Contacts1 = case lists:member(contact, Opts) of
+        Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
             true ->
                 Contact0 = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                      ListenPort, From#uri.user, []),
-                Contact1 = nksip_outbound:make_contact(Req, Contact0, Opts),
-                [Contact1|Contacts];
+                [nksip_outbound:make_contact(Req, Contact0, Opts)];
             false ->
                 Contacts
         end,

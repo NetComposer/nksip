@@ -123,11 +123,10 @@ make_response_fun(RouteHash, Resp, Opts) ->
             true -> sips;
             _ -> sip
         end,
-        Contacts1 = case lists:member(contact, Opts) of
+        Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
             true ->
-                Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
-                                                     ListenPort, To#uri.user, []),
-                [Contact|Contacts];
+                [nksip_transport:make_route(Scheme, Proto, ListenHost, 
+                                            ListenPort, To#uri.user, [])];
             false ->
                 Contacts
         end,
