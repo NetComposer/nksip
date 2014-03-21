@@ -207,40 +207,32 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
                     CallId0 when byte_size(CallId0) > 0 -> CallId0;
                     _ -> throw({invalid, <<"Call-ID">>})
                 end,
-                Id = nksip_sipmsg:make_id(element(1, Class), CallId),
-                case Class of
+                MsgClass = case Class of
                     {req, Method, RUri} ->
-                         case uris(RUri) of
+                        case uris(RUri) of
                             [RUri1] -> [RUri1];
                             _ -> RUri1 = throw({invalid, <<"Request-URI">>})
                         end,
-                        Req0 = #sipmsg{
-                            id = Id,
-                            class = {req, Method},
-                            app_id = AppId,
-                            ruri = RUri1,
-                            call_id = CallId,
-                            body = Body,
-                            transport = Transp,
-                            start = Start
-                        },
-                        {ok, parse_sipmsg(Req0, Headers), Rest};
+                        {req, Method};
                     {resp, Code, Reason} ->
                         case catch list_to_integer(Code) of
                             Code1 when is_integer(Code1), Code1>=100, Code1<700 -> ok;
                             _ -> Code1 = throw({invalid, <<"Code">>})
                         end,
-                        Resp0 = #sipmsg{
-                            id = Id,
-                            class = {resp, Code1, Reason},
-                            app_id = AppId,
-                            call_id = CallId,
-                            body = Body,
-                            transport = Transp,
-                            start = Start
-                        },
-                        {ok, parse_sipmsg(Resp0, Headers), Rest}
-                end
+                        RUri1 = undefined,
+                        {resp, Code1, Reason}
+                end,
+                Req0 = #sipmsg{
+                    id = nksip_lib:uid(),
+                    class = MsgClass,
+                    app_id = AppId,
+                    ruri = RUri1,
+                    call_id = CallId,
+                    body = Body,
+                    transport = Transp,
+                    start = Start
+                },
+                {ok, parse_sipmsg(Req0, Headers), Rest}
             catch
                 throw:{invalid, InvHeader} ->
                     case Class of

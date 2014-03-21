@@ -304,7 +304,7 @@ response_status(completed, Resp, UAC, Call) ->
     nksip_call:call().
 
 do_received_hangup(Resp, UAC, Call) ->
-    #sipmsg{id=_RespId, to={_, ToTag}, dialog_id=DialogId} = Resp,
+    #sipmsg{to={_, ToTag}, dialog_id=DialogId} = Resp,
     #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
     #call{app_id=AppId} = Call,
     UAC1 = case lists:member(ToTag, ToTags) of

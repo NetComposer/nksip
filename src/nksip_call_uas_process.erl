@@ -307,7 +307,7 @@ method(_Method, _Req, UAS, Call) ->
     nksip_call:call().
 
 process_call(Fun, Fields, UAS, Call) ->
-    #trans{request=#sipmsg{id=ReqId}=Req, method=Method} = UAS,
+    #trans{request=Req, method=Method} = UAS,
     #call{opts=#call_opts{app_opts=Opts}} = Call,
     Meta = nksip_sipmsg:named_fields(Req, Fields),
     case nksip_call_uas:app_call(Fun, [Meta], UAS, Call) of
@@ -319,8 +319,9 @@ process_call(Fun, Fields, UAS, Call) ->
             Call;
         % Not exported and no in-line
         not_exported ->
+            MsgId = nksip_sipmsg:get_id(Req),
             Meta1 = [{app_opts, Opts}|Meta],
-            {reply, Reply, []} = apply(nksip_sipapp, Fun, [ReqId, Meta1, none, []]),
+            {reply, Reply, []} = apply(nksip_sipapp, Fun, [MsgId, Meta1, none, []]),
             reply(Reply, UAS, Call);
         #call{} = Call1 -> 
             Call1

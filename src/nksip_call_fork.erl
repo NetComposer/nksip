@@ -131,11 +131,7 @@ launch([Uri|Rest], Id, Call) ->
     Fork = lists:keyfind(Id, #fork.id, Call#call.forks),
     #fork{request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
-    #sipmsg{call_id=CallId, routes=_Routes1} = Req,
-    Req1 = Req#sipmsg{
-        ruri = Uri, 
-        id = nksip_sipmsg:make_id(req, CallId)
-    },
+    Req1 = Req#sipmsg{ruri=Uri, id=nksip_lib:uid()},
     ?call_debug("Fork ~p ~p launching to ~s", 
                  [Id, Method, nksip_unparse:uri(Uri)], Call),
     Fork1 = case Method of

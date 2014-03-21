@@ -143,7 +143,6 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         class = {req, Method},
         ruri = RUri,
         dialog_id = DialogId,
-        call_id = CallId,
         vias = [LastVia|_] = Vias,
         from = {#uri{domain=FromDomain}, _},
         to = {To, ToTag}, 
@@ -383,7 +382,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
     end,
     % Transport is copied to the response
     Resp = Req#sipmsg{
-        id = nksip_sipmsg:make_id(resp, CallId),
+        id = nksip_lib:uid(),
         class = {resp, Code, ReasonPhrase},
         dialog_id = DialogId,
         vias = RespVias,

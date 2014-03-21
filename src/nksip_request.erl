@@ -373,8 +373,8 @@ reply(AppId, <<"R_", _/binary>>=ReqId, SipReply) ->
 
 
 %% @doc See {@link reply/3}.
-reply(#sipmsg{class={req, _}, app_id=AppId, id=ReqId}, SipReply) ->
-    reply(AppId, ReqId, SipReply).
+reply(#sipmsg{class={req, _}, app_id=AppId}=Req, SipReply) ->
+    reply(AppId, nksip_sipmsg:get_id(Req), SipReply).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.

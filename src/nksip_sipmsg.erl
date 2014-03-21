@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2, require/2]).
--export([is_dialog_forming/1, make_id/2]).
+-export([is_dialog_forming/1, get_id/1]).
 
 -include("nksip.hrl").
 
@@ -47,7 +47,7 @@
 field(S, Field) ->
     #sipmsg{class=Class, ruri=RUri, from={From, _}, to={To, _}, transport=T} = S,
     case Field of
-        id -> S#sipmsg.id;
+        id -> get_id(S);
         app_id -> S#sipmsg.app_id;
         dialog_id -> S#sipmsg.dialog_id;
         subscription_id -> nksip_subscription:id(S);
@@ -273,19 +273,18 @@ is_dialog_forming(_)  ->
 
 
 %% @private
--spec make_id(req|resp, nksip:call_id()) ->
+-spec get_id(nksip:request()|nksip:response()) ->
     nksip_request:id() | nksip_response:id().
 
-make_id(Class, CallId) ->
+get_id(#sipmsg{class=Class, id=Id, call_id=CallId}) ->
     <<
         case Class of
-            req -> $R;
-            resp -> $S
+            {req, _} -> $R;
+            {resp, _, _} -> $S
         end,
         $_,
-        (nksip_lib:uid())/binary,
+        Id,
         $_,
         CallId/binary
     >>.
-
 

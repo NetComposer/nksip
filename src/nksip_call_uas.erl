@@ -187,7 +187,7 @@ app_call(Fun, Args, UAS, Call) ->
                 [Id, Method, Status, Fun, Args], Call),
     From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
     Args1 = [Req | Args],
-    Args2 = [Req#sipmsg.id | Args],
+    Args2 = [nksip_sipmsg:get_id(Req) | Args],
     case 
         nksip_sipapp_srv:sipapp_call(AppId, Module, Fun, Args1, Args2, From)
     of
@@ -213,7 +213,7 @@ app_cast(Fun, Args, UAS, Call) ->
     ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p", 
                 [Id, Method, Status, Fun], Call),
     Args1 = [Req | Args],
-    Args2 = [Req#sipmsg.id | Args],
+    Args2 = [nksip_sipmsg:get_id(Req) | Args],
     nksip_sipapp_srv:sipapp_cast(AppId, Module, Fun, Args1, Args2),
     Call.
 

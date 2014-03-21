@@ -48,7 +48,6 @@
 
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
-    #call{opts=#call_opts{app_opts=_AppOpts, global_id=_GlobalId}} = Call,
     Req1 = case From of 
         {fork, _} -> nksip_call_timer:proxy_request(Req, Call);
         _ -> Req
@@ -58,7 +57,7 @@ request(Req, Opts, From, Call) ->
         {srv, SrvFrom} when Method=='ACK' -> 
             gen_server:reply(SrvFrom, async);
         {srv, SrvFrom} ->
-            gen_server:reply(SrvFrom, {async, MsgId});
+            gen_server:reply(SrvFrom, {async, nksip_sipmsg:get_id(Req)});
         _ ->
             ok
     end,

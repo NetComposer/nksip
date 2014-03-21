@@ -89,15 +89,14 @@ make(AppId, Method, Uri, Opts, Config) ->
         DefFrom = #uri{user = <<"user">>, domain = <<"nksip">>, 
                   opts = [{<<"tag">>, FromTag}]},
         DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
-        CallId = nksip_lib:luid(),
         Req1 = #sipmsg{
-            id = nksip_sipmsg:make_id(req, CallId),
+            id = nksip_lib:uid(),
             class = {req, Method1},
             app_id = AppId,
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
             from = {DefFrom, FromTag},
             to = {DefTo, <<>>},
-            call_id = CallId,
+            call_id = nksip_lib:luid(),
             cseq = {nksip_config:cseq(), Method1},
             forwards = 70,
             transport = #transport{},
@@ -162,7 +161,6 @@ make_cancel(Req, Reason) ->
     #sipmsg{
         class = {req, _}, 
         cseq = {CSeq, _}, 
-        call_id = CallId, 
         vias = [Via|_], 
         headers = Hds
     } = Req,
@@ -178,7 +176,7 @@ make_cancel(Req, Reason) ->
     end,
     Req#sipmsg{
         class = {req, 'CANCEL'},
-        id = nksip_sipmsg:make_id(req, CallId),
+        id = nksip_lib:uid(),
         cseq = {CSeq, 'CANCEL'},
         forwards = 70,
         vias = [Via],
@@ -205,10 +203,10 @@ make_ack(Req, #sipmsg{to=To}) ->
 -spec make_ack(nksip:request()) ->
     nksip:request().
 
-make_ack(#sipmsg{vias=[Via|_], call_id=CallId, cseq={CSeq, _}}=Req) ->
+make_ack(#sipmsg{vias=[Via|_], cseq={CSeq, _}}=Req) ->
     Req#sipmsg{
         class = {req, 'ACK'},
-        id = nksip_sipmsg:make_id(req, CallId),
+        id = nksip_lib:uid(),
         vias = [Via],
         cseq = {CSeq, 'ACK'},
         forwards = 70,

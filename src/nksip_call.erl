@@ -582,11 +582,20 @@ get_trans(MsgId, #call{msgs=Msgs, trans=AllTrans}) ->
 -spec get_sipmsg(nksip_request:id()|nksip_response:id(), call()) ->
     {ok, nksip:request()|nksip:response()} | not_found.
 
-get_sipmsg(MsgId, Call) ->
+get_sipmsg(<<Type, _/binary>>=MsgId, Call) ->
     case get_trans(MsgId, Call) of
-        {ok, #trans{request=#sipmsg{id=MsgId}=Msg}} -> {ok, Msg};
-        {ok, #trans{response=#sipmsg{id=MsgId}=Msg}} -> {ok, Msg};
-        _ -> not_found
+        {ok, #trans{request=Req}} when Type==$R ->
+            case nksip_sipmsg:get_id(Req) of
+                MsgId -> {ok, Req};
+                _ -> not_found
+            end; 
+        {ok, #trans{response=Resp}} when Type==$S ->
+            case nksip_sipmsg:get_id(Resp) of
+                MsgId -> {ok, Resp};
+                _ -> not_found
+            end;
+        _ ->
+            not_found
     end.
 
 
