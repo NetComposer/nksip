@@ -305,8 +305,8 @@ raw_tokens([{Head, Opts}], Acc) ->
 
 serialize(#sipmsg{
             vias = Vias, 
-            from = From, 
-            to = To, 
+            from = {From, _},
+            to1 = {To, _},
             call_id = CallId, 
             cseq = {CSeq, Method},
             forwards = Forwards, 

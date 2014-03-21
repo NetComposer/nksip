@@ -51,7 +51,7 @@ preprocess(Req, GlobalId) ->
         class = {req, Method},
         app_id = AppId, 
         call_id = CallId, 
-        to_tag = ToTag,
+        to1 = {_, ToTag},
         transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
         vias = [Via|ViaR]
     } = Req,
@@ -145,9 +145,8 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         dialog_id = DialogId,
         call_id = CallId,
         vias = [LastVia|_] = Vias,
-        from = #uri{domain=FromDomain}, 
-        to = To, 
-        to_tag = ToTag, 
+        from = {#uri{domain=FromDomain}, _},
+        to1 = {To, ToTag}, 
         contacts = ReqContacts,
         routes = ReqRoutes,
         headers = ReqHeaders, 
@@ -388,7 +387,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         class = {resp, Code, ReasonPhrase},
         dialog_id = DialogId,
         vias = RespVias,
-        to = To1,
+        to1 = {To1, ToTag1},
         forwards = 70,
         cseq = setelement(2, Req#sipmsg.cseq, Method),
         routes = [],
@@ -399,15 +398,13 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
         require = RespRequire2,
         expires = Expires,
         event = Event,
-        body = Body,
-        to_tag = ToTag1
-        % transport = undefined
+        body = Body
     },
     SendOpts = lists:flatten([
         case lists:member(contact, Opts) of
-            true -> 
+            true when Code>100 -> 
                 contact;
-            false when 
+            false when Code>100 andalso 
                 RespContacts==[] andalso
                 (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse 
                  Method=='REFER') ->

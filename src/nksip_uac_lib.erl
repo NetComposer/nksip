@@ -87,18 +87,18 @@ make(AppId, Method, Uri, Opts, Config) ->
         end,
         DefFrom = #uri{user = <<"user">>, domain = <<"nksip">>},
         FromTag = nksip_lib:uid(),
+        DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
         CallId = nksip_lib:luid(),
         Req1 = #sipmsg{
             id = nksip_sipmsg:make_id(req, CallId),
             class = {req, Method1},
             app_id = AppId,
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
-            from = DefFrom,
-            to = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
+            from = {DefFrom, FromTag},
+            to1 = {DefTo, <<>>},
             call_id = CallId,
             cseq = {nksip_config:cseq(), Method1},
             forwards = 70,
-            from_tag = FromTag,
             transport = #transport{},
             start = nksip_lib:l_timestamp()
         },
@@ -187,8 +187,8 @@ make_cancel(Req, Reason) ->
 -spec make_ack(nksip:request(), nksip:response()) ->
     nksip:request().
 
-make_ack(Req, #sipmsg{to=To, to_tag=ToTag}) ->
-    make_ack(Req#sipmsg{to=To, to_tag=ToTag}).
+make_ack(Req, #sipmsg{to1=To}) ->
+    make_ack(Req#sipmsg{to1=To}).
 
 
 %% @private
@@ -279,11 +279,12 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
                 _ ->
                     throw({invalid, subscription_state})
             end;
+        
         % Special parameters
         to_as_from ->
             case [true || {from, _} <- Rest] of
                 [] -> 
-                    #sipmsg{from=From} = Req,
+                    #sipmsg{from={From, _}} = Req,
                     {replace, <<"To">>, From#uri{ext_opts=[]}};
                 _ ->
                     put_at_end

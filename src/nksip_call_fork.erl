@@ -166,7 +166,7 @@ response(_, _, #sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
     Call;
 
 response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
-    #sipmsg{class={resp, Code, _}, to_tag=ToTag} = Resp,
+    #sipmsg{class={resp, Code, _}, to1={_, ToTag}} = Resp,
     case lists:keyfind(Id, #fork.id, Forks) of
         #fork{pending=Pending, uacs=UACs, method=Method}=Fork ->
             ?call_debug("Fork ~p ~p received ~p (~p, ~s)", 

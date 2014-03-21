@@ -47,11 +47,10 @@ create(Class, Req, Resp, Call) ->
         app_id = AppId,
         call_id = CallId, 
         dialog_id = DialogId,
-        from = From, 
-        to = To,
+        from = {From, FromTag},
+        to1 = {To, _},
         cseq = {CSeq, _},
-        transport = #transport{proto=Proto},
-        from_tag = FromTag
+        transport = #transport{proto=Proto}
     } = Resp,
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     ?call_debug("Dialog ~s ~s created", [DialogId, UA], Call),

@@ -281,8 +281,8 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
 
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
     #dialog{caller_tag=CallerTag} = Dialog,
-    Reason = case Req#sipmsg.from_tag of
-        CallerTag -> caller_bye;
+    Reason = case Req#sipmsg.from of
+        {_, CallerTag} -> caller_bye;
         _ -> callee_bye
     end,
     update({invite, {stop, Reason}}, Dialog, Call);

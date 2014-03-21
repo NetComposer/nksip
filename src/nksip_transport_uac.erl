@@ -115,7 +115,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         app_id = AppId, 
         ruri = RUri, 
         call_id = CallId,
-        from = From,
+        from = {From, _},
         vias = Vias,
         routes = Routes, 
         contacts = Contacts, 
@@ -196,7 +196,7 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                     <<"z9hG4bK", OBranch/binary>> ->
                         {AppId, OBranch};
                     _ ->
-                        #sipmsg{from_tag=FromTag, to_tag=ToTag, call_id=CallId, 
+                        #sipmsg{from={_, FromTag}, to1={_, ToTag}, call_id=CallId, 
                                     cseq={CSeq, _}} = Req,
                         % Any of these will change in every transaction
                         {AppId, Via0, ToTag, FromTag, CallId, CSeq, RUri}

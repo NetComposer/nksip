@@ -44,7 +44,8 @@
             nksip_request:field() | nksip_response:field()) -> 
     term().
 
-field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
+field(S, Field) ->
+    #sipmsg{class=Class, ruri=RUri, from={From, _}, to1={To, _}, transport=T} = S,
     case Field of
         id -> S#sipmsg.id;
         app_id -> S#sipmsg.app_id;
@@ -67,25 +68,25 @@ field(#sipmsg{class=Class, ruri=RUri, transport=T}=S, Field) ->
             end;
         method -> case Class of {req, Method} -> Method; _ -> undefined end;
         ruri -> nksip_unparse:uri(RUri);
-        ruri_scheme -> (S#sipmsg.ruri)#uri.scheme;
-        ruri_user -> (S#sipmsg.ruri)#uri.user;
-        ruri_domain -> (S#sipmsg.ruri)#uri.domain;
+        ruri_scheme -> RUri#uri.scheme;
+        ruri_user -> RUri#uri.user;
+        ruri_domain -> RUri#uri.domain;
         parsed_ruri -> S#sipmsg.ruri;
-        scheme -> (S#sipmsg.ruri)#uri.scheme;
+        scheme -> RUri#uri.scheme;
         aor -> {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain};
         call_id -> S#sipmsg.call_id;
         vias -> [nksip_lib:to_binary(Via) || Via <- S#sipmsg.vias];
         parsed_vias -> S#sipmsg.vias;
-        from -> nksip_unparse:uri(S#sipmsg.from);
-        from_scheme -> (S#sipmsg.from)#uri.scheme;
-        from_user -> (S#sipmsg.from)#uri.user;
-        from_domain -> (S#sipmsg.from)#uri.domain;
-        parsed_from -> S#sipmsg.from;
-        to -> nksip_unparse:uri(S#sipmsg.to);
-        to_scheme -> (S#sipmsg.to)#uri.scheme;
-        to_user -> (S#sipmsg.to)#uri.user;
-        to_domain -> (S#sipmsg.to)#uri.domain;
-        parsed_to -> S#sipmsg.to;
+        from -> nksip_unparse:uri(From);
+        from_scheme -> From#uri.scheme;
+        from_user -> From#uri.user;
+        from_domain -> From#uri.domain;
+        parsed_from -> From;
+        to -> nksip_unparse:uri(To);
+        to_scheme -> To#uri.scheme;
+        to_user -> To#uri.user;
+        to_domain -> To#uri.domain;
+        parsed_to -> To;
         cseq -> 
             #sipmsg{cseq={CSeqNum, Method}} = S,
             <<(nksip_lib:to_binary(CSeqNum))/binary, 32, 
@@ -263,7 +264,7 @@ require(#sipmsg{require=Require}, Token) ->
 -spec is_dialog_forming(nksip:request()) ->
     boolean().
 
-is_dialog_forming(#sipmsg{class={req, Method}, to_tag=ToTag}) ->
+is_dialog_forming(#sipmsg{class={req, Method}, to1={_, ToTag}}) ->
     Method == 'NOTIFY' orelse
     (ToTag == <<>> andalso (Method == 'INVITE' orelse Method == 'SUBSCRIBE'));
 

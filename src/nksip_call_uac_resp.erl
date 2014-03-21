@@ -163,7 +163,7 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
 % and forked responses
 response_status(invite_proceeding, Resp, #trans{code=Code, opts=Opts}=UAC, Call) 
                    when Code < 300 ->
-    #sipmsg{to_tag=ToTag, dialog_id=DialogId} = Resp,
+    #sipmsg{to1={_, ToTag}, dialog_id=DialogId} = Resp,
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
     UAC1 = UAC#trans{
         cancel = undefined,
@@ -191,10 +191,10 @@ response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call)
 
 % Final [3456]xx response received, real response
 response_status(invite_proceeding, Resp, UAC, Call) ->
-    #sipmsg{to=To, to_tag=ToTag} = Resp,
+    #sipmsg{to1={To, ToTag}} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
     UAC1 = UAC#trans{
-        request = Req#sipmsg{to=To, to_tag=ToTag}, 
+        request = Req#sipmsg{to1={To, ToTag}}, 
         response = undefined, 
         to_tags = [ToTag], 
         cancel = undefined
@@ -217,7 +217,7 @@ response_status(invite_accepted, _Resp, #trans{code=Code}, Call)
     Call;
 
 response_status(invite_accepted, Resp, UAC, Call) ->
-    #sipmsg{to_tag=ToTag} = Resp,
+    #sipmsg{to1={_, ToTag}} = Resp,
     #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
     case ToTags of
         [ToTag|_] ->
@@ -229,7 +229,7 @@ response_status(invite_accepted, Resp, UAC, Call) ->
     end;
 
 response_status(invite_completed, Resp, UAC, Call) ->
-    #sipmsg{class={resp, RespCode, _Reason}, to_tag=ToTag} = Resp,
+    #sipmsg{class={resp, RespCode, _Reason}, to1={_, ToTag}} = Resp,
     #trans{id=Id, code=Code, to_tags=ToTags} = UAC,
     case ToTags of 
         [ToTag|_] ->
@@ -263,7 +263,7 @@ response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
 
 % Final response received, real response
 response_status(proceeding, Resp, UAC, Call) ->
-    #sipmsg{to_tag=ToTag} = Resp,
+    #sipmsg{to1={_, ToTag}} = Resp,
     #trans{proto=Proto, request=Req} = UAC,
     UAC2 = case Proto of
         udp -> 
@@ -281,7 +281,7 @@ response_status(proceeding, Resp, UAC, Call) ->
     received_gruu(Req, Resp, UAC2, update(UAC2, Call));
 
 response_status(completed, Resp, UAC, Call) ->
-    #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}, to_tag=ToTag} = Resp,
+    #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}, to1={_, ToTag}} = Resp,
     #trans{id=Id, to_tags=ToTags} = UAC,
     case ToTags of
         [ToTag|_] ->
@@ -304,7 +304,7 @@ response_status(completed, Resp, UAC, Call) ->
     nksip_call:call().
 
 do_received_hangup(Resp, UAC, Call) ->
-    #sipmsg{id=_RespId, to_tag=ToTag, dialog_id=DialogId} = Resp,
+    #sipmsg{id=_RespId, to1={_, ToTag}, dialog_id=DialogId} = Resp,
     #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
     #call{app_id=AppId} = Call,
     UAC1 = case lists:member(ToTag, ToTags) of

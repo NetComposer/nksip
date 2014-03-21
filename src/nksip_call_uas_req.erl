@@ -154,7 +154,7 @@ process_request(Req, TransId, Call) ->
         id = MsgId, 
         ruri = RUri, 
         transport = Transp, 
-        to_tag = ToTag
+        to1 = {_, ToTag}
     } = Req,
     #call{trans=Trans, next=Id, msgs=Msgs} = Call,
     ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId], Call),
@@ -197,6 +197,6 @@ process_request(Req, TransId, Call) ->
 -spec loop_id(nksip:request()) ->
     integer().
     
-loop_id(#sipmsg{from_tag=FromTag, cseq={CSeq, Method}}) ->
+loop_id(#sipmsg{from={_, FromTag}, cseq={CSeq, Method}}) ->
     erlang:phash2({FromTag, CSeq, Method}).
 

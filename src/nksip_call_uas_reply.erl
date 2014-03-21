@@ -223,8 +223,8 @@ stateful_reply(invite_proceeding, Code, _, UAS, Call) when Code < 300 ->
         true -> 
             % In old-style transactions, save Id to be used in
             % detecting ACKs
-            #sipmsg{to_tag=ToTag} = Resp,
-            ACKTrans = nksip_call_uas:transaction_id(Req#sipmsg{to_tag=ToTag}),
+            #sipmsg{to1=To} = Resp,
+            ACKTrans = nksip_call_uas:transaction_id(Req#sipmsg{to1=To}),
             UAS#trans{ack_trans_id=ACKTrans};
         _ ->
             UAS

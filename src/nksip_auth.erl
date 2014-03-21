@@ -137,7 +137,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     #sipmsg{
         class = {req, Method},
         ruri = RUri, 
-        from = #uri{user=User}, 
+        from = {#uri{user=User}, _},
         headers = ReqHeaders
     } = Req,
     try

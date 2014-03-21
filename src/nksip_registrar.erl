@@ -191,7 +191,7 @@ is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
 
 is_registered(#sipmsg{
                 app_id = AppId, 
-                from = #uri{scheme=Scheme, user=User, domain=Domain},
+                from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
                 transport=Transport
             }) ->
     case catch callback_get(AppId, {Scheme, User, Domain}) of
@@ -222,7 +222,7 @@ is_registered(#sipmsg{
 -spec request(nksip:request()) ->
     nksip:sipreply().
 
-request(#sipmsg{app_id=AppId, to=To}=Req) ->
+request(#sipmsg{app_id=AppId, to1={To, _}}=Req) ->
     try
         {ok, _, AppOpts, _} = nksip_sipapp_srv:get_opts(AppId),
         case nksip_outbound:registrar(Req, AppOpts) of
@@ -326,7 +326,7 @@ check_gruu(Req, AppOpts) ->
     ok.
 
 process(Req, Opts) ->
-    #sipmsg{to=#uri{scheme=Scheme}, contacts=Contacts} = Req,
+    #sipmsg{to1={#uri{scheme=Scheme}, _}, contacts=Contacts} = Req,
     if
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
@@ -356,7 +356,7 @@ process(Req, Opts) ->
     ok.
 
 update(Req, Times, Opts) ->
-    #sipmsg{app_id=AppId, to=To, contacts=Contacts} = Req,
+    #sipmsg{app_id=AppId, to1={To, _}, contacts=Contacts} = Req,
     {_, _, Default, Now, _LongNow} = Times,
     check_several_reg_id(Contacts, Default, false),
     Path = case nksip_sipmsg:header(Req, <<"path">>, uris) of
@@ -397,7 +397,7 @@ update(Req, Times, Opts) ->
 
 update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=ExtOpts} = Contact,
-    #sipmsg{to=To, call_id=CallId, cseq={CSeq, _}, transport=Transp} = Req,
+    #sipmsg{to1={To, _}, call_id=CallId, cseq={CSeq, _}, transport=Transp} = Req,
     update_checks(Contact, Req),
     {Min, Max, Default, Now, LongNow} = Times,
     UriExp = case nksip_lib:get_list(<<"expires">>, ExtOpts) of
@@ -523,7 +523,7 @@ update_regcontacts([], _Req, _Times, _Path, _Opts, Acc) ->
 %% @private
 update_checks(Contact, Req) ->
     #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts} = Contact,
-    #sipmsg{to=To} = Req,
+    #sipmsg{to1={To, _}} = Req,
     case Domain of
         <<"*">> -> throw(invalid_request);
         _ -> ok
@@ -603,7 +603,7 @@ make_contact(#reg_contact{contact=Contact, path=Path}) ->
     ok | not_found.
 
 del_all(Req) ->
-    #sipmsg{app_id=AppId, to=To, call_id=CallId, cseq={CSeq, _}} = Req,
+    #sipmsg{app_id=AppId, to1={To, _}, call_id=CallId, cseq={CSeq, _}} = Req,
     AOR = aor(To),
     {ok, RegContacts} = callback_get(AppId, AOR),
     lists:foreach(

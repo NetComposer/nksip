@@ -159,7 +159,7 @@ send(#trans{method='ACK'}=UAC, Call) ->
 
 send(UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
-    #sipmsg{to_tag=ToTag} = Req,
+    #sipmsg{to1={_, ToTag}} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     NoDialog = lists:member(no_dialog, Opts),
     % For proxies sending SUBSCRIBE or NOTIFY, NoDialog will be true
@@ -225,7 +225,7 @@ sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
 sent_request(Req, UAC, Call) ->
     #sipmsg{
         class = {req, Method}, 
-        to_tag = ToTag, 
+        to1 = {_, ToTag}, 
         transport = #transport{proto=Proto}
     } = Req,
     #trans{id=Id, opts=Opts, from=From} = UAC,
@@ -267,7 +267,7 @@ sent_update(#sipmsg{class={req, Method}}=Req, #trans{proto=Proto}=UAC, Call) ->
         udp -> nksip_call_lib:retrans_timer(timer_e, UAC2, Call);
         _ -> UAC2
     end,
-    #sipmsg{to_tag=ToTag} = Req,
+    #sipmsg{to1={_, ToTag}} = Req,
     Call1 = case 
         (Method=='SUBSCRIBE' orelse Method=='REFER') andalso ToTag == <<>> 
     of

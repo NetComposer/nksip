@@ -226,8 +226,8 @@ transaction_id(Req) ->
         #sipmsg{
             class = {req, Method},
             ruri = RUri, 
-            from_tag = FromTag, 
-            to_tag = ToTag, 
+            from = {_, FromTag}, 
+            to1 = {_, ToTag}, 
             vias = [Via|_], 
             cseq = {CSeq, _}
         } = Req,

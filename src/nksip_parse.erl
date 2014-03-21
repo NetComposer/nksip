@@ -274,10 +274,12 @@ parse_sipmsg(SipMsg, Headers) ->
         [From0] -> From0;
         _ -> throw({invalid, <<"From">>})
     end,
+    FromTag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
     To = case uris(proplists:get_all_values(<<"to">>, Headers)) of
         [To0] -> To0;
         _ -> throw({invalid, <<"To">>})
     end,
+    ToTag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
     Vias = case vias(proplists:get_all_values(<<"via">>, Headers)) of
         [] -> throw({invalid, <<"via">>});
         error -> throw({invalid, <<"Via">>});
@@ -362,8 +364,6 @@ parse_sipmsg(SipMsg, Headers) ->
                 _ -> true
             end
         end, Headers),
-    FromTag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
-    ToTag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
     #sipmsg{body=Body} = SipMsg,
     ParsedBody = case ContentType of
         {<<"application/sdp">>, _} ->
@@ -380,8 +380,8 @@ parse_sipmsg(SipMsg, Headers) ->
             Body
     end,
     SipMsg#sipmsg{
-        from = From,
-        to = To,
+        from = {From, FromTag},
+        to1 = {To, ToTag},
         vias = Vias,
         cseq = CSeq,
         forwards = Forwards,
@@ -394,8 +394,6 @@ parse_sipmsg(SipMsg, Headers) ->
         event = Event,
         headers = RestHeaders,
         body = ParsedBody,
-        from_tag = FromTag,
-        to_tag = ToTag ,
         to_tag_candidate = <<>>
     }.
 

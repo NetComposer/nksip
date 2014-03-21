@@ -107,8 +107,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
         app_id = AppId,
         call_id = CallId,
-        % vias = [#via{opts=ViaOpts}|ViaR],
-        to = To, 
+        to1 = {To, _},
         headers = Headers,
         contacts = Contacts, 
         body = Body

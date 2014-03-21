@@ -305,8 +305,8 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
 
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
     #dialog{caller_tag=CallerTag} = Dialog,
-    Reason = case Req#sipmsg.from_tag of
-        CallerTag -> caller_bye;
+    Reason = case Req#sipmsg.from of
+        {_, CallerTag} -> caller_bye;
         _ -> callee_bye
     end,
     update({invite, {stop, Reason}}, Dialog, Call);
@@ -389,8 +389,8 @@ do_response(_, _Code, _Req, _Resp, Dialog, Call) ->
 -spec ack(nksip:request(), nksip_call:call()) ->
     nksip_call:call().
 
-ack(#sipmsg{class={req, 'ACK'}, to_tag = <<>>}, Call) ->
-    ?call_notice("Dialog UAC invalid ACK", [], Call),
+ack(#sipmsg{class={req, 'ACK'}, to1={_, <<>>}}, Call) ->
+    ?call_notice("Dialog UAC invalid ACK1", [], Call),
     Call;
 
 ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call) ->

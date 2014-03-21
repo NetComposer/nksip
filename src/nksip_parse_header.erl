@@ -66,16 +66,16 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
         case header(Name, Value) of
             {Result, Pos} when is_integer(Pos) -> 
                 Result1 = case Name of
-                    <<"from">> when Req#sipmsg.from_tag /= <<>> ->
-                        #sipmsg{from_tag=FromTag} = Req,
-                        #uri{ext_opts=ExtOpts} = Result,
+                    <<"from">> when element(2, Req#sipmsg.from) /= <<>> ->
+                        {#uri{ext_opts=ExtOpts}=From, _} = Result,
+                        #sipmsg{from={_, FromTag}} = Req,
                         ExtOpts1 = nksip_lib:store_value(<<"tag">>, FromTag, ExtOpts),
-                        Result#uri{ext_opts=ExtOpts1};
-                    <<"to">> when Req#sipmsg.to_tag /= <<>> ->
-                        #sipmsg{to_tag=ToTag} = Req,
-                        #uri{ext_opts=ExtOpts} = Result,
+                        {From#uri{ext_opts=ExtOpts1}, FromTag};
+                    <<"to">> when element(2, Req#sipmsg.to1) /= <<>> ->
+                        {#uri{ext_opts=ExtOpts}=To, _} = Result,
+                        #sipmsg{to1={_, ToTag}} = Req,
                         ExtOpts1 = nksip_lib:store_value(<<"tag">>, ToTag, ExtOpts),
-                        Result#uri{ext_opts=ExtOpts1};
+                        {To#uri{ext_opts=ExtOpts1}, ToTag};
                     _ ->
                         Result
                 end,
@@ -126,10 +126,14 @@ headers(_, _, _) ->
 
 %% @private
 header(<<"from">>, Value) -> 
-    {single_uri(Value), #sipmsg.from};
+    From = single_uri(Value),
+    FromTag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts),
+    {{From, FromTag}, #sipmsg.from};
 
 header(<<"to">>, Value) -> 
-    {single_uri(Value), #sipmsg.to};
+    To = single_uri(Value),
+    ToTag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts),
+    {{To, ToTag}, #sipmsg.to1};
 
 header(<<"via">>, Value) -> 
     {vias(Value), #sipmsg.vias};
