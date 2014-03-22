@@ -111,8 +111,12 @@ send_dialog(AppId, DialogId, Method, Opts) ->
     ok | {error, nksip_uac:cancel_error()}.
 
 cancel(AppId, ReqId) ->
-    CallId = nksip_request:call_id(ReqId),
-    send_work_sync(AppId, CallId, {cancel, ReqId}).
+    case nksip_sipmsg:id_parts(ReqId) of
+        {req, MsgId, CallId} ->
+           send_work_sync(AppId, CallId, {cancel, MsgId});
+        _ ->
+            {error, invalid_request}
+    end.
 
 
 %% @doc Gets the Dialog Id of a request or response id
@@ -142,8 +146,12 @@ app_reply(Fun, TransId, Pid, Reply) ->
     when Error :: invalid_call | nksip_call_router:sync_error().
 
 send_reply(AppId, ReqId, Reply) ->
-    CallId = nksip_request:call_id(ReqId),
-    send_work_sync(AppId, CallId, {send_reply, ReqId, Reply}).
+    case nksip_sipmsg:id_parts(ReqId) of
+        {req, MsgId, CallId} ->
+            send_work_sync(AppId, CallId, {send_reply, MsgId, Reply});
+        _ ->
+            {error, invalid_request}
+    end.
 
 
 %% @doc Gets authorized list of transport, ip and ports for a dialog.
@@ -268,8 +276,8 @@ work({send_dialog, DialogId, Method, Opts}, From, Call) ->
             Call
     end;
 
-work({cancel, ReqId}, From, Call) ->
-    case get_trans(ReqId, Call) of
+work({cancel, MsgId}, From, Call) ->
+    case get_trans(MsgId, Call) of
         {ok, #trans{class=uac}=UAC} -> 
             gen_server:reply(From, ok),
             nksip_call_uac:cancel(UAC, undefined, Call);
@@ -582,20 +590,11 @@ get_trans(MsgId, #call{msgs=Msgs, trans=AllTrans}) ->
 -spec get_sipmsg(nksip_request:id()|nksip_response:id(), call()) ->
     {ok, nksip:request()|nksip:response()} | not_found.
 
-get_sipmsg(<<Type, _/binary>>=MsgId, Call) ->
+get_sipmsg(MsgId, Call) ->
     case get_trans(MsgId, Call) of
-        {ok, #trans{request=Req}} when Type==$R ->
-            case nksip_sipmsg:get_id(Req) of
-                MsgId -> {ok, Req};
-                _ -> not_found
-            end; 
-        {ok, #trans{response=Resp}} when Type==$S ->
-            case nksip_sipmsg:get_id(Resp) of
-                MsgId -> {ok, Resp};
-                _ -> not_found
-            end;
-        _ ->
-            not_found
+        {ok, #trans{request=#sipmsg{id=MsgId}=Req}} -> {ok, Req};
+        {ok, #trans{response=#sipmsg{id=MsgId}=Resp}} -> {ok, Resp};
+        O  -> lager:notice("NOT FOUND: ~p", [O]), not_found
     end.
 
 

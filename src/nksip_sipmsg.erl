@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2, require/2]).
--export([is_dialog_forming/1, get_id/1]).
+-export([is_dialog_forming/1, get_id/1, id_parts/1]).
 
 -include("nksip.hrl").
 
@@ -283,8 +283,30 @@ get_id(#sipmsg{class=Class, id=Id, call_id=CallId}) ->
             {resp, _, _} -> $S
         end,
         $_,
-        Id,
+        Id/binary,
         $_,
         CallId/binary
     >>.
+
+
+id_parts(<<"R_", Rest/binary>>) -> 
+    id_parts_id(Rest, req, <<>>);
+id_parts(<<"S_", Rest/binary>>) -> 
+    id_parts_id(Rest, resp, <<>>);
+id_parts(_) -> error.
+
+id_parts_id(<<$_, Rest/binary>>, Class, Acc) -> 
+    id_parts_callid(Rest, Class, Acc, <<>>);
+id_parts_id(<<Ch, Rest/binary>>, Class, Acc) -> 
+    id_parts_id(Rest, Class, <<Acc/binary, Ch>>);
+id_parts_id(<<>>, _, _) -> 
+    error.
+
+id_parts_callid(<<Ch, Rest/binary>>, Class, Id, Acc) -> 
+    id_parts_callid(Rest, Class, Id, <<Acc/binary, Ch>>);
+id_parts_callid(<<>>, Class, Id, Acc) -> 
+    {Class, Id, Acc}.
+
+
+
 
