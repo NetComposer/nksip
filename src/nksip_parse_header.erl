@@ -76,7 +76,8 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
                 Value1 = case Policy of
                     pre when is_list(Old), is_list(Result) -> Result++Old;
                     post when is_list(Old), is_list(Result) -> Old++Result;
-                    replace -> Result;
+                    replace when Value == <<>>; Value== [] -> [];
+                    replace -> Result;  
                     _ -> throw(invalid)
                 end,
                 setelement(Pos, Req, Value1);
@@ -85,6 +86,7 @@ parse(Name, Value, #sipmsg{}=Req, Policy) when is_binary(Name)->
                 Headers = case Policy of
                     pre -> [{Name, Result}|Old]; 
                     post -> Old++[{Name, Result}];
+                    replace when Value == <<>>; Value==[] -> nksip_lib:delete(Old, Name);
                     replace -> [{Name, Result}|nksip_lib:delete(Old, Name)]
                 end,
                 Req#sipmsg{headers=Headers}
