@@ -341,8 +341,8 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
                  Opt==stateless; Opt==no_dialog; Opt==no_auto_expire;
                  Opt==follow_redirects ->
             {update_opts, [Opt|Opts]};
-        {pass, Pass} ->
-            {update_opts, [{pass, Pass}|Opts]};
+        {Opt, Value} when Opt==pass; Opt==record_flow ->
+            {update_opts, [{Opt, Value}|Opts]};
         {meta, List} when is_list(List) ->
             {update_opts, [{meta,List}|Opts]};
         {local_host, Host} ->

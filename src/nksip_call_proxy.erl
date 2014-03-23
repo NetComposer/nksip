@@ -103,7 +103,7 @@ route_stateless(Req, Uri, ProxyOpts, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,    
     Req1 = Req#sipmsg{ruri=Uri},
-    case nksip_uac:make(Req1, ProxyOpts, AppOpts) of
+    case nksip_uac_lib:make(Req1, ProxyOpts, AppOpts) of
         {ok, Req2, ProxyOpts1} ->
             SendOpts = [stateless_via | ProxyOpts1],
             case nksip_transport_uac:send_request(Req2, GlobalId, SendOpts) of
