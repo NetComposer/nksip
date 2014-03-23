@@ -102,7 +102,7 @@ route(ReqId, Scheme, User, Domain, _From,
         when Test=:=basic; Test=:=uas; Test=:=gruu ->
     Opts = [
         record_route,
-        {add, "x-nk-server", Id}
+        {insert, "x-nk-server", Id}
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
@@ -142,7 +142,7 @@ route(ReqId, Scheme, User, Domain, _From,
     when Test=:=stateless; Test=:=stateful ->
     Opts = lists:flatten([
         case Test of stateless -> stateless; _ -> [] end,
-        {add, "x-nk-id", Id},
+        {insert, "x-nk-id", Id},
         case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
@@ -179,7 +179,7 @@ route(ReqId, Scheme, User, Domain, _From,
 route(ReqId, Scheme, User, Domain, _From, 
         #state{id={fork, serverR}=AppId, domains=Domains}=State) ->
     Opts = lists:flatten([
-        {add, "x-nk-id", serverR},
+        {insert, "x-nk-id", serverR},
         case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
             [<<"true">>] -> record_route;
             _ -> []
@@ -211,7 +211,7 @@ route(_, _, _, Domain, _From, #state{id={fork, Id}, domains=Domains}=State) ->
     Opts = lists:flatten([
         case Id of server1 -> stateless; _ -> [] end,
         record_route,
-        {add, "x-nk-id", Id}
+        {insert, "x-nk-id", Id}
     ]),
     case lists:member(Domain, Domains) of
         true when Domain =:= <<"nksip">> ->
@@ -247,7 +247,7 @@ route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={auth, server2}}=State) 
 route(_ReqId, Scheme, User, Domain, _From, 
         #state{id={ipv6, server1}=AppId, domains=Domains}=State) ->
     Opts = [
-        {add, "x-nk-id", server1},
+        {insert, "x-nk-id", server1},
         stateless,
         {route, "<sip:[::1]:5061;lr;transport=tcp>"}
     ],
@@ -268,7 +268,7 @@ route(_ReqId, Scheme, User, Domain, _From,
 route(_ReqId, _Scheme, _User, _Domain, _From, #state{id={ipv6, server2}}=State) ->
     Opts = [
         record_route,
-        {add, "x-nk-id", server2}
+        {insert, "x-nk-id", server2}
     ],
     {reply, {proxy, ruri, Opts}, State};
 
@@ -292,7 +292,7 @@ route(ReqId, _Scheme, User, Domain, _From,
         #state{id={ws, Id}=AppId, domains=Domains}=State) ->
     Opts = [
         record_route,
-        {add, "x-nk-server", Id}
+        {insert, "x-nk-server", Id}
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->

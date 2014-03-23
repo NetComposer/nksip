@@ -49,7 +49,6 @@ start() ->
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         {supported, "a;a_param, 100rel"},
         registrar,
-        {listeners, 10},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
@@ -76,47 +75,45 @@ uas() ->
     C1 = {uas, client1},
     
     % Test loop detection
-    Opts1 = [
-        {add, <<"x-nk-op">>, <<"reply-stateful">>},
-        {meta, [call_id, from, cseq_num]}
-    ],
-    {ok, 200, Values1} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
+    {ok, 200, Values1} = nksip_uac:options(C1, "sip:127.0.0.1", [
+                                {add, <<"x-nk-op">>, <<"reply-stateful">>},
+                                {meta, [call_id, from, cseq_num]}]),
     [{call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}] = Values1,
-    ForceLoopOpts1 = [{call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}, 
-                      {meta, [reason_phrase]} | Opts1],
+
     {ok, 482, [{reason_phrase, <<"Loop Detected">>}]} = 
-        nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts1),
+        nksip_uac:options(C1, "sip:127.0.0.1", [
+                            {add, <<"x-nk-op">>, <<"reply-stateful">>},
+                            {call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}, 
+                            {meta, [reason_phrase]}]),
 
     % Stateless proxies do not detect loops
-    Opts3 = [
-        {add, "x-nk-op", "reply-stateless"},
-        {meta, [call_id, from, cseq_num]}
-    ],
-    {ok, 200, Values3} = nksip_uac:options(C1, "sip:127.0.0.1", Opts3),
+    {ok, 200, Values3} = nksip_uac:options(C1, "sip:127.0.0.1", [
+                            {add, "x-nk-op", "reply-stateless"},
+                            {meta, [call_id, from, cseq_num]}]),
+
     [{_, CallId3}, {_, From3}, {_, CSeq3}] = Values3,
-    ForceLoopOpts4 = [{call_id, CallId3}, {from, From3}, {cseq_num, CSeq3},
-                     {meta, []} | Opts3],
-    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", ForceLoopOpts4),
+    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", [
+                        {add, "x-nk-op", "reply-stateless"},
+                        {call_id, CallId3}, {from, From3}, {cseq_num, CSeq3}]),
 
     % Test bad extension endpoint and proxy
-    Opts5 = [{add, "require", "a,b;c,d"}, {meta, [all_headers]}],
-    {ok, 420, [{all_headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
+    {ok, 420, [{all_headers, Hds5}]} = nksip_uac:options(C1, "sip:127.0.0.1", [
+                                           {add, "require", "a,b;c,d"}, 
+                                           {meta, [all_headers]}]),
     % 'a' is supported because of app config
     [<<"b,d">>] = proplists:get_all_values(<<"unsupported">>, Hds5),
     
-    Opts6 = [
-        {add, "proxy-require", "a,b;c,d"}, 
-        {route, "<sip:127.0.0.1;lr>"},
-        {meta, [all_headers]}
-    ],
-    {ok, 420, [{all_headers, Hds6}]} = nksip_uac:options(C1, "sip:a@external.com", Opts6),
+    {ok, 420, [{all_headers, Hds6}]} = nksip_uac:options(C1, "sip:a@external.com", [
+                                            {add, "proxy-require", "a,b;c,d"}, 
+                                            {route, "<sip:127.0.0.1;lr>"},
+                                            {meta, [all_headers]}]),
     [<<"a,b,d">>] = proplists:get_all_values(<<"unsupported">>, Hds6),
 
     % Force invalid response
-    Opts7 = [{add, "x-nk-op", "reply-invalid"}, {meta, [reason_phrase]}],
     nksip_trace:warning("Next warning about a invalid sipreply is expected"),
     {ok, 500,  [{reason_phrase, <<"Invalid SipApp Response">>}]} = 
-        nksip_uac:options(C1, "sip:127.0.0.1", Opts7),
+        nksip_uac:options(C1, "sip:127.0.0.1", [
+            {add, "x-nk-op", "reply-invalid"}, {meta, [reason_phrase]}]),
     ok.
 
 

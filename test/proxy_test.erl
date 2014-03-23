@@ -27,43 +27,43 @@
 
 -compile([export_all]).
 
-stateless_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateless),
-            ?debugMsg("Starting proxy stateless")
-        end,
-        fun(_) -> 
-            stop(stateless) 
-        end,
-        [
-            fun() -> invalid(stateless) end,
-            fun() -> opts(stateless) end,
-            fun() -> transport(stateless) end, 
-            fun() -> invite(stateless) end,
-            fun() -> servers(stateless) end
-        ]
-    }.
+% stateless_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateless),
+%             ?debugMsg("Starting proxy stateless")
+%         end,
+%         fun(_) -> 
+%             stop(stateless) 
+%         end,
+%         [
+%             fun() -> invalid(stateless) end,
+%             fun() -> opts(stateless) end,
+%             fun() -> transport(stateless) end, 
+%             fun() -> invite(stateless) end,
+%             fun() -> servers(stateless) end
+%         ]
+%     }.
 
 
-stateful_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateful),
-            ?debugMsg("Starting proxy stateful")
-        end,
-        fun(_) -> 
-            stop(stateful) 
-        end,
-        [
-            fun() -> invalid(stateful) end,
-            fun() -> opts(stateful) end,
-            fun() -> transport(stateful) end, 
-            fun() -> invite(stateful) end,
-            fun() -> servers(stateful) end,
-            fun() -> dialog() end
-        ]
-    }.
+% stateful_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateful),
+%             ?debugMsg("Starting proxy stateful")
+%         end,
+%         fun(_) -> 
+%             stop(stateful) 
+%         end,
+%         [
+%             fun() -> invalid(stateful) end,
+%             fun() -> opts(stateful) end,
+%             fun() -> transport(stateful) end, 
+%             fun() -> invite(stateful) end,
+%             fun() -> servers(stateful) end,
+%             fun() -> dialog() end
+%         ]
+%     }.
 
 
 start(Test) ->
@@ -178,25 +178,25 @@ opts(Test) ->
     
     % Server1 proxies the request to client2@nksip using ServerOpts1 options:
     % two "x-nk" headers are added
-    ServerOpts1 = [{add, "x-nk", "server"}, {add, "x-nk", Test}],
+    ServerOpts1 = [{insert, "x-nk", "server"}, {insert, "x-nk", Test}],
     Body1 = base64:encode(term_to_binary(ServerOpts1)),
-    Opts1 = [{add, "x-nk", "opts2"}, {body, Body1}, {meta, [<<"x-nk">>]}],
+    Opts1 = [{insert, "x-nk", "opts2"}, {body, Body1}, {meta, [<<"x-nk">>]}],
     {ok, 200, Values1} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts1),
-    Res1Rep = list_to_binary(["server,",atom_to_list(Test),",opts2"]),
+    Res1Rep = list_to_binary([atom_to_list(Test), ",server,opts2"]),
     [{<<"x-nk">>, [Res1Rep]}] = Values1,
 
     % Remove headers at server
-    ServerOpts2 = [{add, "x-nk", "server"}, remove_headers],
+    ServerOpts2 = [{replace, "x-nk", "server"}],
     Body2 = base64:encode(term_to_binary(ServerOpts2)),
-    Opts2 = [{add, "x-nk", "opts2"}, {body, Body2}, {meta, [<<"x-nk">>]}],
+    Opts2 = [{insert, "x-nk", "opts2"}, {body, Body2}, {meta, [<<"x-nk">>]}],
     {ok, 200, Values2} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts2),
     [{<<"x-nk">>, [<<"server">>]}] = Values2,
     
     % Add a route at server
-    ServerOpts3 = [{add, "x-nk", "server2"}, 
+    ServerOpts3 = [{insert, "x-nk", "server2"}, 
                     {route, "<sip:127.0.0.1:5070;lr>, <sip:1.2.3.4;lr>"}],
     Body3 = base64:encode(term_to_binary(ServerOpts3)),
-    Opts3 = [{add, "x-nk", "opts2"}, {body, Body3},
+    Opts3 = [{insert, "x-nk", "opts2"}, {body, Body3},
              {meta, [<<"x-nk">>, <<"x-nk-r">>]}],
     {ok, 200, Values3} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts3),
     [
@@ -221,7 +221,7 @@ opts(Test) ->
     ] = Values4,
 
     % Remove route from client at server
-    ServerOpts5 = [remove_routes],
+    ServerOpts5 = [{route, ""}],    % equivalent to {replace, "route", ""}
     Body5 = base64:encode(term_to_binary(ServerOpts5)),
     Opts5 = [{route, ["<sip:127.0.0.1;lr>", Uri2#uri{opts=[lr]}, <<"sip:aaa">>]},
              {body, Body5}, 
@@ -331,7 +331,7 @@ invite(Test) ->
     % Provisional 180 and 200
     {ok, 200, [{dialog_id, DialogId1}]} = 
         nksip_uac:invite(C1, "sip:client2@nksip", 
-                                [{add, "x-nk-op", ok}, {"x-nk-prov", true},
+                                [{add, "x-nk-op", ok}, {add, "x-nk-prov", true},
                                  {add, "x-nk-sleep", 100}, RepHd,
                                  {callback, RespFun}]),
     ok = nksip_uac:ack(C1, DialogId1, []),
@@ -369,7 +369,7 @@ servers(Test) ->
     C2 = {Test, client2},
     Ref = make_ref(),
     Self = self(),
-    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
