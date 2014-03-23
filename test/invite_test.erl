@@ -27,18 +27,18 @@
 
 -compile([export_all]).
 
-% invite_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         {inparallel, [
-%             {timeout, 60, fun cancel/0},
-%             {timeout, 60, fun dialog/0},
-%             {timeout, 60, fun rr_contact/0},
-%             {timeout, 60, fun multiple_uac/0},
-%             {timeout, 60, fun multiple_uas/0}
-%         ]}
-%     }.
+invite_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        {inparallel, [
+            {timeout, 60, fun cancel/0},
+            {timeout, 60, fun dialog/0},
+            {timeout, 60, fun rr_contact/0},
+            {timeout, 60, fun multiple_uac/0},
+            {timeout, 60, fun multiple_uas/0}
+        ]}
+    }.
 
 
 start() ->
@@ -76,10 +76,10 @@ cancel() ->
     RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     Fun = fun({ok, Code, _}) -> Self ! {Ref, Code} end,
 
-    % % Receive generated busy
-    % Hds1 = [{add, "x-nk-sleep", 300}, {add, "x-nk-op", busy}, RepHd],
-    % {ok, 486, _} = nksip_uac:invite(C1, "sip:any@127.0.0.1:5070", 
-    %                                 [{callback, Fun} | Hds1]),
+    % Receive generated busy
+    Hds1 = [{add, "x-nk-sleep", 300}, {add, "x-nk-op", busy}, RepHd],
+    {ok, 486, _} = nksip_uac:invite(C1, "sip:any@127.0.0.1:5070", 
+                                    [{callback, Fun} | Hds1]),
 
     Hds2 = [{add, "x-nk-sleep", 3000}, {add, "x-nk-op", ok}, {add, "x-nk-prov", "true"}, RepHd],
     Remote = "sip:any@127.0.0.1:5070",
@@ -88,9 +88,6 @@ cancel() ->
     {async, Req3Id} = nksip_uac:invite(C1, "sip:any@127.0.0.1:5070", 
                                         [{callback, Fun}, async | Hds2]),
     timer:sleep(100),
-
-    lager:notice("REQ: ~p", [Req3Id]),
-
     ok = nksip_uac:cancel(C1, Req3Id),
     
     % Test invite expire, UAC must send CANCEL
