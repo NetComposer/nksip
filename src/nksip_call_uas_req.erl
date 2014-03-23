@@ -97,6 +97,9 @@ process_trans_ack(UAS, Call) ->
             end,
             ?call_debug("UAS ~p received in-transaction ACK", [Id], Call),
             update(UAS4, Call);
+        invite_confirmed ->
+            ?call_debug("UAS ~p received non 2xx ACK in ~p", [Id, Status], Call),
+            Call;
         _ ->
             ?call_notice("UAS ~p received non 2xx ACK in ~p", [Id, Status], Call),
             Call
