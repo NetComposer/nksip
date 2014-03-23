@@ -26,7 +26,7 @@
 -export([field/3, fields/3, header/3]).
 -export([body/2, method/2, dialog_id/2, call_id/1, get_request/2]).
 -export([is_local_route/1, is_local_route/2, reply/3, reply/2]).
--export_type([id/0, field/0]).
+-export_type([field/0]).
 
 -include("nksip.hrl").
 
@@ -35,8 +35,6 @@
 %% ===================================================================
 %% Types
 %% ===================================================================
-
--type id() :: binary().
 
 -type field() ::  app_id | method | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
@@ -286,7 +284,7 @@
 %%              of this header, or `[]' if it is not present</td>
 %%      </tr>
 %% </table>
--spec field(nksip:app_id(), id(), field()) ->
+-spec field(nksip:app_id(), nksip:id(), field()) ->
     term() | error.
 
 field(AppId, ReqId, Field) -> 
@@ -296,7 +294,7 @@ field(AppId, ReqId, Field) ->
     end.
 
 %% @doc Gets some fields from a request.
--spec fields(nksip:app_id(), id(), [field()]) ->
+-spec fields(nksip:app_id(), nksip:id(), [field()]) ->
     [{atom(), term()}] | error.
 
 fields(AppId, <<"R_", _/binary>>=ReqId, Fields) -> 
@@ -308,7 +306,7 @@ fields(AppId, <<"R_", _/binary>>=ReqId, Fields) ->
 
 
 %% @doc Gets values for a header in a request.
--spec header(nksip:app_id(), id(), binary()) ->
+-spec header(nksip:app_id(), nksip:id(), binary()) ->
     [binary()] | error.
 
 header(AppId, <<"R_", _/binary>>=ReqId, Name) -> 
@@ -320,7 +318,7 @@ header(AppId, <<"R_", _/binary>>=ReqId, Name) ->
 
 
 %% @doc Gets the <i>method</i> of a request.
--spec method(nksip:app_id(), id()) ->
+-spec method(nksip:app_id(), nksip:id()) ->
     nksip:method() | error.
 
 method(AppId, ReqId) -> 
@@ -328,7 +326,7 @@ method(AppId, ReqId) ->
 
 
 %% @doc Gets the <i>body</i> of a request.
--spec body(nksip:app_id(), id()) ->
+-spec body(nksip:app_id(), nksip:id()) ->
     nksip:body() | error.
 
 body(AppId, ReqId) -> 
@@ -336,7 +334,7 @@ body(AppId, ReqId) ->
 
 
 %% @doc Gets the <i>dialog_id</i> of a request.
--spec dialog_id(nksip:app_id(), id()) ->
+-spec dialog_id(nksip:app_id(), nksip:id()) ->
     nksip_dialog:id() | error.
 
 dialog_id(AppId, ReqId) -> 
@@ -344,7 +342,7 @@ dialog_id(AppId, ReqId) ->
 
 
 %% @private
--spec get_request(nksip:app_id(), id()) ->
+-spec get_request(nksip:app_id(), nksip:id()) ->
     nksip:request() | error.
 
 get_request(AppId, <<"R_", _/binary>>=ReqId) ->
@@ -356,15 +354,16 @@ get_request(AppId, <<"R_", _/binary>>=ReqId) ->
 
 
 %% @doc Gets the calls's id of a request id
--spec call_id(id()) ->
+-spec call_id(nksip:id()) ->
     nksip:call_id().
 
-call_id(<<"R_", Bin/binary>>) ->
-    nksip_lib:bin_last($_, Bin).
-
+call_id(MsgId) ->
+    {req, _, CallId} = nksip_sipmsg:id_parts(MsgId),
+    CallId.
    
+
 %% @doc Sends a reply to a request.
--spec reply(nksip:app_id(), id(), nksip:sipreply()) -> 
+-spec reply(nksip:app_id(), nksip:id(), nksip:sipreply()) -> 
     ok | {error, Error}
     when Error :: invalid_call | unknown_call | unknown_sipapp.
 
@@ -380,7 +379,7 @@ reply(#sipmsg{class={req, _}, app_id=AppId}=Req, SipReply) ->
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
 %% It will return `true' if the first <i>Route</i> header points to a local address
 %% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
--spec is_local_route(nksip:app_id(), id()) -> 
+-spec is_local_route(nksip:app_id(), nksip:id()) -> 
     boolean().
 
 is_local_route(AppId, <<"R_", _/binary>>=ReqId) ->

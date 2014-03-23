@@ -112,7 +112,7 @@
 %% Launching new processes in Erlang is a very cheap operation, 
 %% so in case of doubt follow this recommendation.
 %%
-%% Many of the callback functions receive a `RequesId' ({@link nksip_request:id()}) 
+%% Many of the callback functions receive a `RequestId' ({@link nksip:id()}) 
 %% and a `Meta' (a list of properties) parameters.
 %% Depending on the function, `Meta' will contain the most useful parameters you
 %% will need to process the request (like de content-type and body). 
@@ -277,7 +277,7 @@ get_user_pass(_User, _Realm, State) ->
 %% previous registration and/or dialog authentication. 
 %% If you don't define this function all requests will be authenticated.
 %%
--spec authorize(ReqId::nksip_request:id(), AuthList, From::from(), State::term()) ->
+-spec authorize(ReqId::nksip:id(), AuthList, From::from(), State::term()) ->
     call_reply(ok | authenticate | proxy_authenticate | forbidden)
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
 
@@ -370,7 +370,7 @@ authorize(_ReqId, _AuthList, _From, State) ->
     {response, nksip:sipreply()} | 
     {response, nksip:sipreply(), nksip_lib:proplist()}.
 
--spec route(ReqId::nksip_request:id(), Scheme::nksip:scheme(), 
+-spec route(ReqId::nksip:id(), Scheme::nksip:scheme(), 
             User::binary(), Domain::binary(), From::from(), State::term()) ->
     call_reply(route_reply()).
 
@@ -403,7 +403,7 @@ route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
 %% The remote party should then send an ACK request immediately.
 %% If none is received, NkSIP will automatically stop the dialog.
 %%
--spec invite(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec invite(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 invite(_ReqId, _Meta, _From, State) ->
@@ -419,7 +419,7 @@ invite(_ReqId, _Meta, _From, State) ->
 %% its response, {@link dialog_update/3} and/or {@link session_update/3} would be
 %% called.
 %%
--spec reinvite(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec reinvite(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 reinvite(_ReqId, _Meta, __From, State) ->
@@ -440,7 +440,7 @@ reinvite(_ReqId, _Meta, __From, State) ->
 %% `Meta' will include a parameter `{req_id, InviteId}' showing the request id of the
 %% INVITE being cancelled.
 %%
--spec cancel(ReqId::nksip_request:id(), Meta::meta(), State::term()) ->
+-spec cancel(ReqId::nksip:id(), Meta::meta(), State::term()) ->
     call_noreply().
 
 cancel(_ReqId, _Meta, State) ->
@@ -459,7 +459,7 @@ cancel(_ReqId, _Meta, State) ->
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec ack(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec ack(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(ok).
 
 ack(_ReqId, _Meta, _From, State) ->
@@ -477,7 +477,7 @@ ack(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor, dialog_id
 %% (see {@link nksip_request} for details).
 %%
--spec bye(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec bye(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 bye(_ReqId, _Meta, _From, State) ->
@@ -494,7 +494,7 @@ bye(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor, content-type, body
 %% (see {@link nksip_request} for details).
 %%
--spec info(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec info(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
   call_reply(nksip:sipreply()).
 
 info(_ReqId, _Meta, _From, State) ->
@@ -515,7 +515,7 @@ info(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor
 %% (see {@link nksip_request} for details).
 %%
--spec options(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec options(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 options(_ReqId, _Meta, _From, State) ->
@@ -544,7 +544,7 @@ options(_ReqId, _Meta, _From, State) ->
 %% and need a specific REGISTER processing 
 %% (for example to add some headers to the response).
 %%
--spec register(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 register(_ReqId, Meta, _From, State) ->
@@ -570,7 +570,7 @@ register(_ReqId, Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: dialog_id, content_type
 %% and body (see {@link nksip_request} for details).
 %%
--spec prack(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec prack(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(ok).
 
 prack(_ReqId, _Meta, _From, State) ->
@@ -591,7 +591,7 @@ prack(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: dialog_id, content_type
 %% and body (see {@link nksip_request} for details).
 %%
--spec update(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec update(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 update(_ReqId, _Meta, _From, State) ->
@@ -612,7 +612,7 @@ update(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor, dialog_id, event,
 %% subscription_id and parsed_expires (see {@link nksip_request} for details).
 %%
--spec subscribe(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec subscribe(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 subscribe(_ReqId, _Meta, _From, State) ->
@@ -624,7 +624,7 @@ subscribe(_ReqId, _Meta, _From, State) ->
 %%
 %% You don't usually have to implement this function.
 %%
--spec resubscribe(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec resubscribe(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 resubscribe(_ReqId, _Meta, _From, State) ->
@@ -641,7 +641,7 @@ resubscribe(_ReqId, _Meta, _From, State) ->
 %%
 %% You should always return `ok'.
 %%
--spec notify(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec notify(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 notify(_ReqId, _Meta, _From, State) ->
@@ -659,7 +659,7 @@ notify(_ReqId, _Meta, _From, State) ->
 %% content_type and body.
 %% Field `expired' will have `true' if the MESSAGE has already expired.
 %%
--spec message(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec message(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 message(_ReqId, _Meta, _From, State) ->
@@ -695,7 +695,7 @@ message(_ReqId, _Meta, _From, State) ->
 %%     {reply, ok, State}.
 %%
 
--spec refer(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec refer(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 refer(_ReqId, _Meta, _From, State) ->
@@ -712,7 +712,7 @@ refer(_ReqId, _Meta, _From, State) ->
 %% to process it according to RFC3903
 
 %%
--spec publish(ReqId::nksip_request:id(), Meta::meta(), From::from(), State::term()) ->
+-spec publish(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 publish(_ReqId, _Meta, _From, State) ->

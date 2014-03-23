@@ -48,7 +48,7 @@
     ack_timeout | no_events.
 
 %% All the ways to specify a dialog
--type spec() :: id() | nksip_request:id() | nksip_response:id().
+-type spec() :: id() | nksip:id().
 
 -type field() :: 
     dialog_id | app_id | call_id | created | updated | local_seq | remote_seq | 
@@ -308,9 +308,8 @@ class_id(_, #sipmsg{}) ->
     <<>>.
 
 
-%% @doc Calculates a <i>dialog's id</i> from a {@link nksip_request:id()}, 
-%% {@link nksip_response:id()}.
--spec id(nksip:app_id(), id()|nksip_request:id()|nksip_response:id()) ->
+%% @doc Calculates a <i>dialog's id</i> from a {@link nksip:id()}.
+-spec id(nksip:app_id(), id()|nksip:id()) ->
     id().
 
 

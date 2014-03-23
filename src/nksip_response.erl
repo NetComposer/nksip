@@ -26,15 +26,13 @@
 
 -export([field/3, fields/3, header/3]).
 -export([body/2, code/2, dialog_id/2, call_id/1, get_response/2, wait_491/0]).
--export_type([id/0, field/0]).
+-export_type([field/0]).
 
 
 
 %% ===================================================================
 %% Types
 %% ===================================================================
-
--type id() :: binary().
 
 -type field() ::  app_id | code | reason_phrase | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
@@ -64,12 +62,13 @@
 %%          <td>Response Code</td>
 %%      </tr>
 %%      <tr>
+
 %%          <td>`reason_phrase'</td>
 %%          <td>`binary()'</td>
 %%          <td>Reason Phrase</td>
 %%      </tr>
 %% </table>
--spec field(nksip:app_id(), id(), field()) ->
+-spec field(nksip:app_id(), nksip:id(), field()) ->
     term() | error.
 
 field(AppId, RespId, Field) -> 
@@ -80,7 +79,7 @@ field(AppId, RespId, Field) ->
 
 
 %% @doc Get some fields from a response.
--spec fields(nksip:app_id(), id(), [field()]) ->
+-spec fields(nksip:app_id(), nksip:id(), [field()]) ->
     [{atom(), term()}] | error.
 
 fields(AppId, <<"S_", _/binary>>=RespId, Fields) -> 
@@ -92,7 +91,7 @@ fields(AppId, <<"S_", _/binary>>=RespId, Fields) ->
 
 
 %% @doc Get header values from a response.
--spec header(nksip:app_id(), id(), binary()) ->
+-spec header(nksip:app_id(), nksip:id(), binary()) ->
     [binary()] | error.
 
 header(AppId, <<"S_", _/binary>>=RespId, Name) -> 
@@ -104,7 +103,7 @@ header(AppId, <<"S_", _/binary>>=RespId, Name) ->
 
 
 %% @doc Gets the <i>response code</i> of a response.
--spec code(nksip:app_id(), id()) ->
+-spec code(nksip:app_id(), nksip:id()) ->
     nksip:response_code() | error.
 
 code(AppId, RespId) -> 
@@ -112,7 +111,7 @@ code(AppId, RespId) ->
 
 
 %% @doc Gets the <i>body</i> of a response.
--spec body(nksip:app_id(), id()) ->
+-spec body(nksip:app_id(), nksip:id()) ->
     nksip:body() | error.
 
 body(AppId, RespId) -> 
@@ -120,7 +119,7 @@ body(AppId, RespId) ->
 
 
 %% @doc Gets the <i>dialog_id</i> of a request.
--spec dialog_id(nksip:app_id(), id()) ->
+-spec dialog_id(nksip:app_id(), nksip:id()) ->
     nksip_dialog:id() | error.
 
 dialog_id(AppId, ReqId) -> 
@@ -128,15 +127,16 @@ dialog_id(AppId, ReqId) ->
 
 
 %% @doc Gets the calls's id of a response id
--spec call_id(id()) ->
+-spec call_id(nksip:id()) ->
     nksip:call_id().
 
-call_id(<<"S_", Bin/binary>>) ->
-    nksip_lib:bin_last($_, Bin).
+call_id(MsgId) ->
+    {resp, _, CallId} = nksip_sipmsg:id_parts(MsgId),
+    CallId.
 
 
 %% @private
--spec get_response(nksip:app_id(), id()) ->
+-spec get_response(nksip:app_id(), nksip:id()) ->
     nksip:response() | error.
 
 get_response(AppId, <<"S_", _/binary>>=RespId) ->

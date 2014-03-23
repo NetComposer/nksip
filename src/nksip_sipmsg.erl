@@ -26,10 +26,12 @@
 
 -export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2, require/2]).
 -export([is_dialog_forming/1, get_id/1, id_parts/1]).
-
+-export_type([id/0]).
 -include("nksip.hrl").
 
+-type id() :: binary().
 -type field() :: nksip_request:field() | nksip_response:field().
+
 
 
 %% ===================================================================
@@ -274,7 +276,7 @@ is_dialog_forming(_)  ->
 
 %% @private
 -spec get_id(nksip:request()|nksip:response()) ->
-    nksip_request:id() | nksip_response:id().
+    nksip:id().
 
 get_id(#sipmsg{class=Class, id=Id, call_id=CallId}) ->
     <<

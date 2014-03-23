@@ -50,7 +50,7 @@ realms(#sipmsg{headers=Headers}) ->
 
 %% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
 %% <i>Proxy-Authenticate</i> headers from a response.
--spec realms(nksip:app_id(), nksip_response:id()) ->
+-spec realms(nksip:app_id(), nksip:id()) ->
     [Realm::binary()].
 
 realms(AppId, RespId) ->

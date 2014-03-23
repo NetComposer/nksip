@@ -60,7 +60,7 @@
 
 -include("nksip.hrl").
 
--export_type([app_id/0, request/0, response/0, transport/0, sipreply/0]).
+-export_type([app_id/0, id/0, request/0, response/0, transport/0, sipreply/0]).
 -export_type([uri/0, user_uri/0]).
 -export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
@@ -74,6 +74,9 @@
 
 %% Unique Id of each started SipApp
 -type app_id() :: term().
+
+%% External request, response, dialog or event id
+-type id() :: binary().
 
 %% Parsed SIP Request
 -type request() :: #sipmsg{}.

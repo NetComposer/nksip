@@ -109,30 +109,28 @@ get_all_dialogs(AppId, CallId) ->
 
 
 %% @doc Applies a fun to a SipMsg and returns the result.
--spec apply_sipmsg(nksip:app_id(), nksip_request:id()|nksip_response:id(), 
-                   function()) ->
+-spec apply_sipmsg(nksip:app_id(), nksip:id(), function()) ->
     term() | {error, Error}
-    when Error :: unknown_sipmsg | sync_error().
+    when Error :: unknown_sipmsg | invalid_id | sync_error().
 
 apply_sipmsg(AppId, MsgId, Fun) ->
     case nksip_sipmsg:id_parts(MsgId) of
-        {_, Id, CallId} ->
-            send_work_sync(AppId, CallId, {apply_sipmsg, Id, Fun});
+        {Class, SipMsgId, CallId} when Class==req; Class==resp->
+            send_work_sync(AppId, CallId, {apply_sipmsg, SipMsgId, Fun});
         error ->
             {error, invalid_id}
     end.
 
 
 %% @doc Applies a fun to a transaction and returns the result.
--spec apply_transaction(nksip:app_id(), nksip_request:id()|nksip_response:id(), 
-                        function()) ->
+-spec apply_transaction(nksip:app_id(), nksip:id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_transaction | sync_error().
 
 apply_transaction(AppId, MsgId, Fun) ->
     case nksip_sipmsg:id_parts(MsgId) of
-        {_, Id, CallId} ->
-            send_work_sync(AppId, CallId, {apply_transaction, Id, Fun});
+        {Class, SipMsgId, CallId}  when Class==req; Class==resp-> 
+            send_work_sync(AppId, CallId, {apply_transaction, SipMsgId, Fun});
         error ->
             {error, invalid_id}
     end.
@@ -407,14 +405,6 @@ name(CallId) ->
 
 pos2name(Pos) ->
     list_to_atom("nksip_call_router_"++integer_to_list(Pos)).
-
-
-% %% @private
-% call_id(MsgId) ->
-%     case MsgId of
-%         <<"R_", _/binary>> -> nksip_request:call_id(MsgId);
-%         <<"S_", _/binary>> -> nksip_response:call_id(MsgId)
-%     end.
 
 
 %% @private

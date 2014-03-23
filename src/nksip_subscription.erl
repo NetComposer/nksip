@@ -41,7 +41,7 @@
 
 %% All the ways to specify an event
 -type spec() :: 
-    id() | nksip_request:id() | nksip_response:id().
+    id() | nksip:id().
 
 -type field() :: 
     subscription_id | event | parsed_event | class | answered | expires.
@@ -158,7 +158,7 @@ fields(AppId, SubscriptionSpec, Fields) when is_list(Fields) ->
 
 
 %% @doc Get the subscripion's id from a request or response.
--spec id(nksip:app_id(), id()|nksip_request:id()|nksip_response:id()) ->
+-spec id(nksip:app_id(), id()|nksip:id()) ->
     id().
 
 id(_, <<"U_", _/binary>>=SubscriptionId) ->

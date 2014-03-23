@@ -151,7 +151,7 @@
 
 
 -record(sipmsg, {
-    id :: binary(),
+    id :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:response_code(), binary()},
     app_id :: nksip:app_id(),
     dialog_id :: nksip_dialog:id(),

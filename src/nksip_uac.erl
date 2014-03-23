@@ -212,7 +212,7 @@
 %% ===================================================================
 
 -type dialog_spec() :: 
-    nksip_dialog:id() | nksip_request:id() | nksip_response:id().
+    nksip_dialog:id() | nksip:id().
 
 -type subscription_spec() :: 
     nksip_subscription:id().
@@ -260,7 +260,7 @@
     {sip_etag, binary()}.
 
 -type result() ::  
-    {async, nksip_request:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
+    {async, nksip:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
     {resp, nksip:response()}.
     
 -type ack_result() ::
@@ -274,7 +274,7 @@
     nksip_call_router:sync_error().
 
 -type cancel_error() :: 
-    unknown_request | nksip_call_router:sync_error().
+    unknown_request | invalid_request | nksip_call_router:sync_error().
 
 
 
@@ -533,7 +533,7 @@ info(AppId, DialogSpec, Opts) ->
 %% This call is always asychronous. It returns a soon as the request is
 %% received and the cancelling INVITE is found.
 %%
--spec cancel(nksip:app_id(), nksip_request:id()) ->
+-spec cancel(nksip:app_id(), nksip:id()) ->
     ok | {error, cancel_error()}.
 
 cancel(AppId, ReqId) ->
