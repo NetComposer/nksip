@@ -60,18 +60,33 @@ check_supported(Method, Req, UAS, Call) ->
             case Event of
                 {Type, _} ->
                     case lists:member(Type, [<<"refer">>|SupEvents]) of
-                        true -> check_missing_dialog(Method, Req, UAS, Call);
+                        true -> check_notify(Method, Req, UAS, Call);
                         false -> reply(bad_event, UAS, Call)
                     end;
                 _ ->
                     reply(bad_event, UAS, Call)
             end;
         [] ->
-            check_missing_dialog(Method, Req, UAS, Call);
+            check_notify(Method, Req, UAS, Call);
         BadRequires -> 
             RequiresTxt = nksip_lib:bjoin(BadRequires),
             reply({bad_extension,  RequiresTxt}, UAS, Call)
     end.
+
+
+%% @private
+-spec check_notify(nksip:method(), nksip:request(), 
+                      nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+check_notify('NOTIFY', Req, UAS, Call) ->
+    case nksip_subscription:subscription_state(Req) of
+        invalid -> reply({invalid_request, "Invalid Subscription-State"}, UAS, Call);
+        _ -> check_missing_dialog('NOTIFY', Req, UAS, Call)
+    end;
+check_notify(Method, Req, UAS, Call) ->
+    check_missing_dialog(Method, Req, UAS, Call).
+
 
 
 %% @private
@@ -239,7 +254,7 @@ method('SUBSCRIBE', #sipmsg{to={_, ToTag}}, UAS, Call) ->
     process_call(Fun, Fields, UAS, Call);
 
 method('NOTIFY', Req, UAS, Call) ->
-    Status = nksip_subscription:notify_status(Req),
+    Status = nksip_subscription:subscription_state(Req),
     Fields = [app_id, aor, dialog_id, event, subscription_id, 
               {value, notify_status, Status}, content_type, body],
     process_call(notify, Fields, UAS, Call);

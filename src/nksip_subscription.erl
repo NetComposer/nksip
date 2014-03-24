@@ -25,8 +25,8 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/3, field/2, fields/3, id/1, id/2, dialog_id/1, subscription_id/2]).
--export([get_subscription/2, get_all/0, get_all/2, notify_status/1, remote_id/2]).
--export_type([id/0, status/0, terminated_reason/0]).
+-export([get_subscription/2, get_all/0, get_all/2, subscription_state/1, remote_id/2]).
+-export_type([id/0, status/0, subscription_state/0, terminated_reason/0]).
 
 -include("nksip.hrl").
 
@@ -46,10 +46,14 @@
 -type field() :: 
     subscription_id | event | parsed_event | class | answered | expires.
 
+-type subscription_state() ::
+    {active, undefined|non_neg_integer()} | {pending, undefined|non_neg_integer()}
+    | terminated_reason().
+
 -type terminated_reason() :: 
-    {deactivated, undefined|non_neg_integer()} | probation | rejected | timeout |
-    {giveup, undefined|non_neg_integer()} | noresource | invariant | forced | 
-    undefined | {code, nksip:response_code()} | binary().
+    deactivated | {probation, undefined|non_neg_integer()} | rejected |
+    timeout | {giveup, undefined|non_neg_integer()} | noresource | invariant | 
+    forced | {code, nksip:response_code()}.
 
 %% All dialog event states
 -type status() :: 
@@ -226,14 +230,6 @@ get_all(AppId, CallId) ->
         || {_, DlgId} <- nksip_call_router:get_all_dialogs(AppId, CallId)
     ]).
 
-%% @private
--spec notify_status(nksip:request()) ->
-    {active|pending, non_neg_integer()} | 
-    {terminated, nksip_subscription:terminated_reason()}.
-
-notify_status(#sipmsg{}=SipMsg) ->
-    parse(SipMsg).
-
 
 %% ===================================================================
 %% Private
@@ -286,7 +282,11 @@ remote_id(AppId, SubsId) ->
     <<Base/binary, $_, RemoteDlg/binary>>.
 
 
-parse(SipMsg) ->
+%% @private
+-spec subscription_state(nksip:request()) ->
+    subscription_state() | invalid.
+
+subscription_state(SipMsg) ->
     try
         case nksip_sipmsg:header(SipMsg, <<"subscription-state">>, tokens) of
             [{Name, Opts}] -> ok;
@@ -310,18 +310,17 @@ parse(SipMsg) ->
                 end,
                 case nksip_lib:get_value(<<"reason">>, Opts) of
                     undefined -> 
-                        {terminated, undefined};
+                        {terminated, undefined, undefined};
                     Reason0 ->
                         case catch binary_to_existing_atom(Reason0, latin1) of
-                            {'EXIT', _} -> {terminated, undefined};
-                            probation -> {terminated, {probation, Retry}};
-                            giveup -> {giveup, Retry};
-                            Reason -> Reason
-                        end,
-                        {terminated, Reason1}
+                            {'EXIT', _} -> {terminated, undefined, undefined};
+                            probation -> {terminated, probation, Retry};
+                            giveup -> {terminated, giveup, Retry};
+                            Reason -> {terminated, Reason, undefined}
+                        end
                 end;
             _ ->
-                {terminated, undefined}
+                throw(invalid)
         end
     catch
         throw:invalid -> invalid

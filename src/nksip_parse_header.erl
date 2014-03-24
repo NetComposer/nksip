@@ -171,7 +171,7 @@ header(<<"supported">>, Value) ->
     {names(Value), #sipmsg.supported};
 
 header(<<"event">>, Value) ->
-    {tokens(Value), #sipmsg.event};
+    {single_token(Value), #sipmsg.event};
 
 header(<<"reason">>, Value) ->
     case is_binary(Value) of

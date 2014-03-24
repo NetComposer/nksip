@@ -435,8 +435,7 @@ ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call
 make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
         #dialog{invite=Invite}=Dialog ->
-            ?call_debug("Dialog ~s make ~p request", 
-                        [DialogId, Method], Call),
+            ?call_debug("Dialog ~s make ~p request", [DialogId, Method], Call),
             case Invite of
                 #invite{status=Status} when
                     Method=='ACK' andalso Status/=accepted_uac ->

@@ -349,9 +349,16 @@ parse_sipmsg(SipMsg, Headers) ->
         Supported0 -> [N || {N, _} <- Supported0]
     end,
     Event = case tokens(proplists:get_all_values(<<"event">>, Headers)) of
-        [] -> undefined;
-        [Event0] -> Event0;
-        _ -> throw({invalid, <<"Event">>})
+        [] ->
+            case SipMsg#sipmsg.class of
+                {req, 'SUBSCRIBE'} -> throw({invalid, <<"Event">>});
+                {req, 'NOTIFY'} -> throw({invalid, <<"Event">>});
+                _ -> undefined
+            end;
+        [Event0] -> 
+            Event0;
+        _ -> 
+            throw({invalid, <<"Event">>})
     end,
     RestHeaders = lists:filter(
         fun({Name, _}) ->

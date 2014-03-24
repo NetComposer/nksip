@@ -723,9 +723,9 @@ subscribe(AppId, Dest, Opts) ->
 notify(AppId, Dest, Opts) ->
     State = case nksip_lib:get_value(state, Opts, active) of
         active ->
-            active;
+            {active, undefined};
         pending -> 
-            pending;
+            {pending, undefined};
         {terminated, Reason} 
             when Reason==deactivated; Reason==rejected; Reason==timeout; 
                  Reason==noresource; Reason==invariant ->
