@@ -296,8 +296,7 @@ proxy_response(Req, Resp) ->
                 {ok, SE, _} ->
                     case nksip_sipmsg:supported(Req, <<"timer">>) of
                         true ->
-                            SE_Token = {nksip_lib:to_binary(SE), 
-                                            [{<<"refresher">>, <<"uac">>}]},
+                            SE_Token = {SE, [{<<"refresher">>, <<"uac">>}]},
                             Headers1 = nksip_headers:update(Resp, 
                                 [{single, <<"session-expires">>, SE_Token}]),
                             #sipmsg{require=Require} = Resp,
@@ -313,17 +312,24 @@ proxy_response(Req, Resp) ->
 
 
 %% @private
--spec parse(binary()|string()) ->
-    {ok, integer(), uac|uas|undefined} | undefined | error.
+-spec parse(nksip:request() | nksip:response()) ->
+    {ok, SE, Refresher} | undefined | invalid
+    when SE :: pos_integer(), Refresher :: uac | uas | undefined.
 
 parse(SipMsg) ->
-    case nksip_sipmsg:header(SipMsg, <<"session-expires">>) of
+    case nksip_sipmsg:header(SipMsg, <<"session-expires">>, tokens) of
         [] ->
             undefined;
-        [Value] ->
-            case catch nksip_parse_header:parse(<<"session-expires">>, Value) of
-                {_Name, {SE, Opts}} -> {ok, SE, nksip_lib:get_value(refresher, Opts)};
-                _ -> invalid
+        [{SE, Opts}] ->
+            case nksip_lib:to_integer(SE) of
+                SE1 when is_integer(SE1), SE1>0 -> 
+                    case nksip_lib:get_binary(<<"refresher">>, Opts) of
+                        <<"uac">> -> {ok, SE1, uac};
+                        <<"uas">> -> {ok, SE1, uas};
+                        _ -> {ok, SE1, undefined}
+                    end;
+                _ ->
+                    invalid
             end;
         _ ->
             invalid

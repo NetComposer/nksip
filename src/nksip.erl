@@ -509,8 +509,8 @@ parse_opts([Term|Rest], Opts) ->
                 error -> throw({invalid, events});
                 Tokens -> [{events, [T||{T, _}<-Tokens]}|Opts]
             end;
-        {min_se, MinSE} when is_integer(MinSE), MinSE > 0 ->
-            [{min_se, MinSE}|Opts];
+        % {min_se, MinSE} when is_integer(MinSE), MinSE > 0 ->
+        %     [{min_se, MinSE}|Opts];
 
         % Default headers and options
         {from, From} ->

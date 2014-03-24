@@ -173,20 +173,6 @@ header(<<"supported">>, Value) ->
 header(<<"event">>, Value) ->
     {tokens(Value), #sipmsg.event};
 
-header(<<"session-expires">>, Value) ->
-    {SE, Opts} = single_token(Value),
-    case nksip_lib:to_integer(SE) of
-        SE1 when is_integer(SE1), SE1>0 -> 
-            ?P("SE1: ~p, ~p", [SE1, Opts]),
-            case nksip_lib:get_binary(<<"refresher">>, Opts) of
-                <<"uac">> -> {{SE1, [{refresher, uac}]}, add};
-                <<"uas">> -> {{SE1, [{refresher, uas}]}, add};
-                _ -> {{SE1, []}, add}
-            end;
-        _ ->
-            throw(invalid)
-    end;
-
 header(<<"reason">>, Value) ->
     case is_binary(Value) of
         true -> 
@@ -197,9 +183,6 @@ header(<<"reason">>, Value) ->
                 Bin -> {Bin, add}
             end
     end;
-
-header(<<"min-se">>, Value) ->
-    {integer(Value, 1, ?TWO32), add};
 
 header(_Name, Value) ->
     {Value, add}.
