@@ -555,7 +555,7 @@ send_prack(Resp, Id, DialogId, Call) ->
             #dialog{invite=#invite{sdp_offer={remote, invite, RemoteSDP}}} -> ok;
             _ -> RemoteSDP = <<>>
         end,
-        Body = case nksip_lib:get_value(prack, UACOpts) of
+        Body = case nksip_lib:get_value(prack_callback, UACOpts) of
             Fun when is_function(Fun, 2) -> 
                 case catch Fun(RemoteSDP, Resp) of
                     Bin when is_binary(Bin) ->
