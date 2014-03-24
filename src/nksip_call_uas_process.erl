@@ -56,7 +56,7 @@ check_supported(Method, Req, UAS, Call) ->
     Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
-            SupEvents = nksip_lib:get_value(event, AppOpts, []),
+            SupEvents = nksip_lib:get_value(events, AppOpts, []),
             case Event of
                 {Type, _} ->
                     case lists:member(Type, [<<"refer">>|SupEvents]) of

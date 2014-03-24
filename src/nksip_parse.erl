@@ -188,6 +188,22 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     end,
     {Proto, Host, Port1}.
 
+% subscription_state(ST) ->
+    
+
+
+%     % Event options
+%         {subscription_state, ST} when is_tuple(ST) ->
+%             case catch nksip_unparse:token(ST) of
+%                 Bin when is_binary(Bin) ->
+%                     {replace, <<"subscription-state">>, Bin};
+%                 _ ->
+%                     throw({invalid, subscription_state})
+%             end;
+
+
+
+
 
 %% ===================================================================
 %% Internal
@@ -196,7 +212,8 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
 -spec packet(nksip:app_id(), nksip_transport:transport(), binary()) ->
-    {ok, #sipmsg{}, binary()} | partial | {error, term()}.
+    {ok, #sipmsg{}, binary()} | partial | {error, term()} |
+    {reply_error, term(), binary()}.
 
 packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
     Start = nksip_lib:l_timestamp(),

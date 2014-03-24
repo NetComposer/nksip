@@ -232,52 +232,7 @@ get_all(AppId, CallId) ->
     {terminated, nksip_subscription:terminated_reason()}.
 
 notify_status(#sipmsg{}=SipMsg) ->
-    case nksip_sipmsg:header(SipMsg, <<"subscription-state">>, tokens) of
-        [{Status, Opts}] ->
-            case nksip_lib:get_list(<<"expires">>, Opts) of
-                "" -> 
-                    Expires = undefined;
-                Expires0 ->
-                    case catch list_to_integer(Expires0) of
-                        Expires when is_integer(Expires) -> Expires;
-                        _ -> Expires = undefined
-                    end
-            end,
-            case Status of
-                <<"active">> -> 
-                    {active, Expires};
-                <<"pending">> -> 
-                    {pending, Expires};
-                <<"terminated">> ->
-                    Retry = case nksip_lib:get_value(<<"retry_after">>, Opts) of
-                        undefined ->
-                            undefined;
-                        Retry0 ->
-                            case nksip_lib:to_integer(Retry0) of
-                                Retry1 when is_integer(Retry1), Retry1>=0 -> Retry1;
-                                _ -> undefined
-                            end
-                    end, 
-                    case nksip_lib:get_value(<<"reason">>, Opts) of
-                        undefined -> 
-                            {terminated, undefined};
-                        Reason0 ->
-                            Reason1 = case catch 
-                                binary_to_existing_atom(Reason0, latin1) 
-                            of
-                                {'EXIT', _} -> undefined;
-                                probation -> {probation, Retry};
-                                giveup -> {giveup, Retry};
-                                Reason -> Reason
-                            end,
-                            {terminated, Reason1}
-                    end;
-                _ ->
-                    {terminated, undefined}
-            end;
-        _ ->
-            {terminated, undefined}
-    end.
+    parse(SipMsg).
 
 
 %% ===================================================================
@@ -329,5 +284,47 @@ remote_id(AppId, SubsId) ->
     <<"D_", RemoteDlg/binary>> = nksip_dialog:field(AppId, dialog_id(SubsId), remote_id),
     Base = nksip_lib:bjoin(lists:reverse(Rest), <<"_">>),
     <<Base/binary, $_, RemoteDlg/binary>>.
+
+
+parse(SipMsg) ->
+    try
+        case nksip_sipmsg:header(SipMsg, <<"subscription-state">>, tokens) of
+            [{Name, Opts}] -> ok;
+            _ -> Name = Opts = throw(invalid)
+        end,
+        case nksip_lib:get_integer(<<"expires">>, Opts, undefined) of
+            undefined -> Expires = undefined;
+            Expires when is_integer(Expires), Expires>=0 -> ok;
+            _ -> Expires = throw(invalid)
+        end,
+        case Name of
+            <<"active">> -> 
+                 {active, Expires};
+            <<"pending">> -> 
+                {pending, Expires};
+            <<"terminated">> ->
+                case nksip_lib:get_integer(<<"retry_after">>, Opts, undefined) of
+                    undefined -> Retry = undefined;
+                    Retry when is_integer(Retry), Retry>=0 -> ok;
+                    _ -> Retry = throw(invalid)
+                end,
+                case nksip_lib:get_value(<<"reason">>, Opts) of
+                    undefined -> 
+                        {terminated, undefined};
+                    Reason0 ->
+                        case catch binary_to_existing_atom(Reason0, latin1) of
+                            {'EXIT', _} -> {terminated, undefined};
+                            probation -> {terminated, {probation, Retry}};
+                            giveup -> {giveup, Retry};
+                            Reason -> Reason
+                        end,
+                        {terminated, Reason1}
+                end;
+            _ ->
+                {terminated, undefined}
+        end
+    catch
+        throw:invalid -> invalid
+    end.
 
 
