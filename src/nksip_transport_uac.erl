@@ -150,11 +150,12 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
                 RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
                 <<"NkQ", RouteHash/binary>>;
             FlowPid -> 
-                FlowToken = base64:encode(term_to_binary(FlowPid)),
+                FlowToken = nksip_outbound:encode_flow(FlowPid),
                 <<"NkF", FlowToken/binary>>
         end,
         RecordRoute = case lists:member(record_route, Opts) of
-            true when Method/='REGISTER' -> 
+            true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
+                      Method=='REFER' -> 
                 nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
                                            RouteUser, [<<"lr">>]);
             _ ->

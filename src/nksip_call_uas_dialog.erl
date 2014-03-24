@@ -275,7 +275,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
         #invite{status=Status} -> ok;
         _ -> Status = undefined
     end,
-    ?call_notice("Dialog UAS ~s ignoring unexpected INVITE response ~p in ~p", 
+    ?call_info("Dialog UAS ~s ignoring unexpected INVITE response ~p in ~p", 
                  [DialogId, Code, Status], Call),
     update(none, Dialog, Call);
 

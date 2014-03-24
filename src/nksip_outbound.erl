@@ -22,7 +22,7 @@
 -module(nksip_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make_contact/3, proxy_route/2, registrar/2]).
+-export([make_contact/3, proxy_route/2, registrar/2, encode_flow/1]).
 
 -include("nksip.hrl").
 
@@ -150,26 +150,23 @@ do_proxy_routes(Req, Opts, [Route|RestRoutes]) ->
     #sipmsg{app_id=AppId, transport=Transp} = Req,
     case nksip_transport:is_local(AppId, Route) andalso Route of
         #uri{user = <<"NkF", Token/binary>>, opts=RouteOpts} ->
-            case catch binary_to_term(base64:decode(Token)) of
-                Pid when is_pid(Pid) ->
-                    case catch nksip_connection:get_transport(Pid) of
-                        {ok, FlowTransp} -> 
-                            Opts1 = case flow_type(Transp, FlowTransp) of
-                                outcoming -> 
-                                    % Came from the same flow
-                                    [{record_flow, Pid}|Opts];
-                                incoming ->
-                                    [{route_flow, {FlowTransp, Pid}} |
-                                        case lists:member(<<"ob">>, RouteOpts) of
-                                            true -> [{record_flow, Pid}|Opts];
-                                            false -> Opts
-                                        end]
-                            end,
-                            {ok, Opts1};
-                        _ ->
-                            {error, flow_failed}
-                    end;
-                _ ->
+            case decode_flow(Token) of
+                {ok, Pid, FlowTransp} ->
+                    Opts1 = case flow_type(Transp, FlowTransp) of
+                        outcoming -> 
+                            % Came from the same flow
+                            [{record_flow, Pid}|Opts];
+                        incoming ->
+                            [{route_flow, {FlowTransp, Pid}} |
+                                case lists:member(<<"ob">>, RouteOpts) of
+                                    true -> [{record_flow, Pid}|Opts];
+                                    false -> Opts
+                                end]
+                    end,
+                    {ok, Opts1};
+                {error, flow_failed} ->
+                    {error, flow_failed};
+                {error, invalid} ->
                     ?notice(AppId, "Received invalid flow token", []),
                     {error, forbidden}
             end;
@@ -218,7 +215,7 @@ registrar(Req, Opts) ->
             } = Transp,
             case nksip_transport:get_connected(AppId, Transp) of
                 [{_, Pid}|_] ->
-                    Flow = base64:encode(term_to_binary(Pid)),
+                    Flow = encode_flow(Pid),
                     Host = nksip_transport:get_listenhost(ListenIp, Opts),
                     Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
@@ -227,7 +224,7 @@ registrar(Req, Opts) ->
                                                 [{before_single, <<"path">>, Path}]),
                     Req1 = Req#sipmsg{headers=Headers1},
                     {ok, Req1, [{registrar_outbound, true}|Opts]};
-                [] ->
+                error ->
                     {ok, Req, [{registrar_outbound, false}|Opts]}
             end;
         true ->
@@ -245,3 +242,18 @@ registrar(Req, Opts) ->
             {ok, Req, Opts}
     end.
 
+
+decode_flow(Token) ->
+    case catch binary_to_term(base64:decode(Token)) of
+        Pid when is_pid(Pid) ->
+            case catch nksip_connection:get_transport(Pid) of
+                {ok, FlowTransp} ->  {ok, Pid, FlowTransp};
+                _ -> {error, flow_failed}
+            end;
+        _ ->
+            {error, invalid}
+    end.
+
+
+encode_flow(Pid) when is_pid(Pid) ->
+    base64:encode(term_to_binary(Pid)).
