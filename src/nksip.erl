@@ -454,9 +454,9 @@ parse_transports([Transport|Rest], Acc) ->
                 _ -> Ip
             end;
         _ ->
-            case nksip_lib:to_ip(Ip) of
+            case catch nksip_lib:to_ip(Ip) of
                 {ok, PIp} -> PIp;
-                error -> throw(invalid_transport)
+                _ -> throw(invalid_transport)
             end
     end,
     Port1 = case Port of

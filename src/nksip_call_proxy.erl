@@ -53,26 +53,32 @@ route(UAS, UriList, ProxyOpts, Call) ->
         % lager:warning("URISET: ~p", [UriList]),
         #trans{request=Req, method=Method} = UAS,
         Req1 = check_request(Req, ProxyOpts),
-        {Req2, Call1} = case nksip_call_timer:uas_check_422(Req, Call) of
-            continue -> {Req, Call};
+        {Req2, Call1} = case nksip_call_timer:uas_check_422(Req1, Call) of
+            continue -> {Req1, Call};
             {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
             {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
         end,
-        ProxyOpts1 = case nksip_outbound:proxy_route(Req1, ProxyOpts) of
-            {ok, OutProxyOpts} -> OutProxyOpts;
-            {error, OutError} -> throw({reply, OutError})
-        end,
-        #call{app_id=AppId} = Call,
-        Req3 = remove_local_routes(AppId, Req2),
-        % ?warning(AppId, "ROUTESA: ~p\nB: ~p", [Req1#sipmsg.routes, Req3#sipmsg.routes]),
-        % Req4 = preprocess(Req3, ProxyOpts1),
-        Stateless = lists:member(stateless, ProxyOpts1),
+
+        % Here we find if we had a route with a flow we must follow, or we
+        % must add it.
+        % Later on, after selecting the next RUri, it can have also a route,
+        % maybe with a flow, so we must test again in nksip_call_fork
+        % We cannot skip the process here because we can 
+
+        % ProxyOpts1 = case nksip_outbound:proxy_route(Req1, ProxyOpts) of
+        %     {ok, OutProxyOpts} -> OutProxyOpts;
+        %     {error, OutError} -> throw({reply, OutError})
+        % end,
+        % #call{app_id=AppId} = Call,
+        % Req3 = remove_local_routes(AppId, Req2),
+
+        Stateless = lists:member(stateless, ProxyOpts),
         case Method of
             'ACK' when Stateless ->
                 [[First|_]|_] = UriSet,
-                route_stateless(Req3, First, ProxyOpts1, Call1);
+                route_stateless(Req2, First, ProxyOpts, Call1);
             'ACK' ->
-                {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1};
+                {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts};
             _ ->
                 case nksip_sipmsg:header(Req, <<"proxy-require">>, tokens) of
                     [] -> 
@@ -84,9 +90,9 @@ route(UAS, UriList, ProxyOpts, Call) ->
                 case Stateless of
                     true -> 
                         [[First|_]|_] = UriSet,
-                        route_stateless(Req3, First, ProxyOpts1, Call1);
+                        route_stateless(Req2, First, ProxyOpts, Call1);
                     false ->
-                        {fork, UAS#trans{request=Req3}, UriSet, ProxyOpts1}
+                        {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts}
                 end
         end
     catch
@@ -103,7 +109,7 @@ route_stateless(Req, Uri, ProxyOpts, Call) ->
     #sipmsg{class={req, Method}} = Req,
     #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,    
     Req1 = Req#sipmsg{ruri=Uri},
-    case nksip_uac_lib:make(Req1, ProxyOpts, AppOpts) of
+    case nksip_uac_lib:proxy_make(Req1, ProxyOpts, AppOpts) of
         {ok, Req2, ProxyOpts1} ->
             SendOpts = [stateless_via | ProxyOpts1],
             case nksip_transport_uac:send_request(Req2, GlobalId, SendOpts) of
@@ -115,6 +121,8 @@ route_stateless(Req, Uri, ProxyOpts, Call) ->
                                  [Method, nksip_unparse:uri(Uri), Error], Call)
             end,
            stateless_proxy;
+        {error, {reply, Reply}} ->
+            throw({reply, Reply});
         {error, Error} ->
             ?call_warning("Error procesing proxy opts: ~p, ~p: ~p", 
                           [Uri, ProxyOpts, Error], Call),
@@ -191,53 +199,22 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
 
 
 % %% @private
-% -spec preprocess(nksip:request(), [opt()]) ->
-%     nksip:request().
-
-% preprocess(Req, ProxyOpts) ->
-%     #sipmsg{forwards=Forwards, routes=Routes, headers=Headers} = Req,
-%     Routes1 = case lists:member(remove_routes, ProxyOpts) of
-%         true -> [];
-%         false -> Routes
-%     end,
-%     Routes2 = case proplists:get_all_values(route, ProxyOpts) of
-%         [] -> 
-%             Routes1;
-%         ProxyRoutes1 -> 
-%             case nksip_parse:uris(ProxyRoutes1) of
-%                 error -> throw({internal_error, "Invalid proxy option"});
-%                 ProxyRoutes2 -> ProxyRoutes2 ++ Routes1
-%             end
-%     end,
-%     Headers1 = case lists:member(remove_headers, ProxyOpts) of
-%         true -> [];
-%         false -> Headers
-%     end,
-%     Headers2 = case proplists:get_all_values(headers, ProxyOpts) of
-%         [] -> Headers1;
-%         ProxyHeaders -> ProxyHeaders++Headers1
-%     end,
-%     lager:warning("PROXY ROUTES: ~p, ~p", [Req#sipmsg.app_id, Routes2]),
-%     Req#sipmsg{forwards=Forwards-1, headers=Headers2, routes=Routes2}.
+% remove_local_routes(AppId, #sipmsg{routes=Routes}=Req) ->
+%     case do_remove_local_routes(AppId, Routes) of
+%         Routes -> Req;
+%         Routes1 -> Req#sipmsg{routes=Routes1}
+%     end.
 
 
-%% @private
-remove_local_routes(AppId, #sipmsg{routes=Routes}=Req) ->
-    case do_remove_local_routes(AppId, Routes) of
-        Routes -> Req;
-        Routes1 -> Req#sipmsg{routes=Routes1}
-    end.
+% %% @private
+% do_remove_local_routes(_AppId, []) ->
+%     [];
 
-
-%% @private
-do_remove_local_routes(_AppId, []) ->
-    [];
-
-do_remove_local_routes(AppId, [Route|RestRoutes]) ->
-    case nksip_transport:is_local(AppId, Route) of
-        true -> do_remove_local_routes(AppId, RestRoutes);
-        false -> [Route|RestRoutes]
-    end.
+% do_remove_local_routes(AppId, [Route|RestRoutes]) ->
+%     case nksip_transport:is_local(AppId, Route) of
+%         true -> do_remove_local_routes(AppId, RestRoutes);
+%         false -> [Route|RestRoutes]
+%     end.
 
 
 %% @doc Process a UriSet generating a standard `[[nksip:uri()]]'.

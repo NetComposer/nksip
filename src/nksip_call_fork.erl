@@ -139,20 +139,25 @@ launch([Uri|Rest], Id, Call) ->
         _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
     end,
     Call1 = update(Fork1, Call),
-    case nksip_uac:make(Req1, Opts, AppOpts) of
+    Call2 = case nksip_uac_lib:proxy_make(Req1, Opts, AppOpts) of
         {ok, Req2, Opts1} ->
             ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
-            %% CAUTION: This call can update the fork's state, can even delete it!
-            Call2 = nksip_call_uac_req:request(Req2, Opts1, {fork, Id}, Call1),
-            launch(Rest, Id, Call2#call{next=Next+1});
+            ReqCall = nksip_call_uac_req:request(Req2, Opts1, {fork, Id}, Call1),
+            ReqCall#call{next=Next+1};
+        {error, {reply, Reply}} ->
+            {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
+            ForkT = Fork#fork{responses=[Resp|Resps]},
+            update(ForkT, Call1);
         {error, Error} ->
             ?call_warning("Error processing fork options: ~p, ~p: ~p",
                           [Uri, Opts, Error], Call),
             Reply = {internal_error, "Fork Options"},
             {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
             ForkT = Fork#fork{responses=[Resp|Resps]},
-            launch(Rest, Id, update(ForkT, Call))
-    end.
+            update(ForkT, Call1)
+    end,
+    %% CAUTION: This call to launch/3 can update the fork's state, can even delete it!
+    launch(Rest, Id, Call2).
 
 %% @private Called when a launched UAC has a response
 -spec response(id(), integer(), nksip:response(),call()) ->
