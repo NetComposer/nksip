@@ -27,18 +27,18 @@
 
 -compile([export_all]).
 
-event_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        {inparallel, [
-            {timeout, 60, fun basic/0},
-            {timeout, 60, fun refresh/0},
-            {timeout, 60, fun dialog/0},
-            {timeout, 60, fun out_or_order/0},
-            {timeout, 60, fun fork/0}
-        ]}
-    }.
+% event_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         {inparallel, [
+%             {timeout, 60, fun basic/0},
+%             {timeout, 60, fun refresh/0},
+%             {timeout, 60, fun dialog/0},
+%             {timeout, 60, fun out_or_order/0},
+%             {timeout, 60, fun fork/0}
+%         ]}
+%     }.
 
 
 start() ->

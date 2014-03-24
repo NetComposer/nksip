@@ -27,7 +27,7 @@
 
 -compile([export_all]).
 
-event_test_() ->
+publish_test_() ->
     {setup, spawn, 
         fun() -> start() end,
         fun(_) -> stop() end,
@@ -42,7 +42,6 @@ start() ->
 
     ok = sipapp_endpoint:start({publish, client1}, [
         {from, "sip:client1@nksip"},
-        {fullname, "NkSIP Basic SUITE Test Client1"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
@@ -52,7 +51,7 @@ start() ->
         no_100,
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
-        {event, "nkpublish"}
+        {events, "nkpublish"}
     ]),
 
     tests_util:log(),

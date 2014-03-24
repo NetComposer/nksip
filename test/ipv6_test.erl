@@ -63,14 +63,14 @@ start() ->
         {from, "sip:server1@nksip"},
         registrar,
         {local_host6, "::1"},
-        {transports, [{udp, any, 5060}, {udp, "::1", 5060}]}
+        {transports, [{udp, all, 5060}, {udp, "::1", 5060}]}
     ]),
 
     ok = sipapp_server:start({ipv6, server2}, [
         {from, "sip:server2@nksip"},
         {local_host, "127.0.0.1"},
         {local_host6, "::1"},
-        {transports, [{udp, any, 5061}, {udp, "::1", 5061}]}
+        {transports, [{udp, all, 5061}, {udp, "::1", 5061}]}
     ]),
 
     ok = sipapp_endpoint:start({ipv6, client1}, [
@@ -86,7 +86,7 @@ start() ->
     ok = sipapp_endpoint:start({ipv6, client3}, [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, any, 5072}]}
+        {transports, [{udp, all, 5072}]}
     ]),
 
     tests_util:log(),
@@ -313,7 +313,8 @@ torture_2() ->
         "CSeq: 98176 REGISTER\r\n"
         "Content-Length: 0\r\n"
         "\r\n">>,
-    {reply_error, 400, <<"Invalid Request-URI">>} = parse(Msg2),
+    {reply_error, {invalid, <<"Request-URI">>}, 
+                  <<"SIP/2.0 400 Invalid Request-URI", _/binary>>} = parse(Msg2),
     ok.
 
 torture_3() ->
@@ -513,6 +514,7 @@ torture_10() ->
 
 parse(Msg) ->
     case nksip_parse:packet(test, #transport{}, Msg) of
-        {ok, Raw, <<>>}  -> nksip_parse:raw_sipmsg(Raw);
+        {ok, SipMsg, <<>>}  -> SipMsg;
+        {reply_error, Error, Bin} -> {reply_error, Error, Bin};
         {error, Error} -> {error, Error}
     end.

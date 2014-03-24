@@ -121,13 +121,13 @@ invite() ->
     C3 = {auth, client3},
     SipC3 = "sip:127.0.0.1:5072",
     Ref = make_ref(),
-    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
 
     % client3 does not support dialog's authentication, only digest is used
     {ok, 401, [{cseq_num, CSeq}]} = 
         nksip_uac:invite(C1, SipC3, [{meta, [cseq_num]}]),
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, SipC3, 
-                                             [{pass, "abcd"}, {add, RepHd}]),
+                                             [{pass, "abcd"}, RepHd]),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client3, ack}]),
     {ok, 401, []} = nksip_uac:options(C1, DialogId1, []),
@@ -145,8 +145,8 @@ invite() ->
     {ok, 200, [{cseq_num, CSeq2}]} = 
         nksip_uac:options(C3, DialogId3, [{meta, [cseq_num]}]),
     {ok, 200, [{dialog_id, DialogId3}]} = 
-        nksip_uac:invite(C3, DialogId3, [{add, RepHd}]),
-    ok = nksip_uac:ack(C3, DialogId3, [{add, RepHd}]),
+        nksip_uac:invite(C3, DialogId3, [RepHd]),
+    ok = nksip_uac:ack(C3, DialogId3, [RepHd]),
     ok = tests_util:wait(Ref, [{client1, ack}]),
     {ok, 200, [{_, CSeq3}]} = nksip_uac:bye(C3, DialogId3, [{meta, [cseq_num]}]),
     ok = tests_util:wait(Ref, [{client1, bye}]),
@@ -159,9 +159,9 @@ dialog() ->
     C2 = {auth, client2},
     SipC2 = "sip:127.0.0.1:5071",
     Ref = make_ref(),
-    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, SipC2, 
-                                            [{pass, "1234"}, {add, RepHd}]),
+                                            [{pass, "1234"}, RepHd]),
     ok = nksip_uac:ack(C1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
@@ -195,7 +195,7 @@ proxy() ->
     C2 = {auth, client2},
     S1 = "sip:127.0.0.1",
     Ref = make_ref(),
-    RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, self()}))},
+    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
 
     {ok, 407, []} = nksip_uac:register(C1, S1, []),
     {ok, 200, []} = nksip_uac:register(C1, S1, [{pass, "1234"}, unregister_all]),
@@ -229,7 +229,7 @@ proxy() ->
     % password
     {ok, 403, _} = nksip_uac:invite(C1, "sip:client2@nksip", 
                                       [Route, {pass, {"1234", "server2"}}, 
-                                       {add, RepHd}]),
+                                       RepHd]),
 
     % Server1 accepts because of previous registration
     % Server2 replies with 407, and we generate a new request
@@ -239,7 +239,8 @@ proxy() ->
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(C1, "sip:client2@nksip", 
                                             [Route, {pass, {"1234", "server2"}},
                                             {pass, {"1234", "client2"}},
-                                            {add, RepHd}]),
+                                            {supported, ""},    % No outbound
+                                            RepHd]),
     % Server2 inserts a Record-Route, so every in-dialog request is sent to Server2
     % ACK uses the same authentication headers from last invite
     ok = nksip_uac:ack(C1, DialogId1, []),

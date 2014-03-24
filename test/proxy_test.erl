@@ -27,43 +27,43 @@
 
 -compile([export_all]).
 
-% stateless_test_() ->
-%     {setup, spawn, 
-%         fun() -> 
-%             start(stateless),
-%             ?debugMsg("Starting proxy stateless")
-%         end,
-%         fun(_) -> 
-%             stop(stateless) 
-%         end,
-%         [
-%             fun() -> invalid(stateless) end,
-%             fun() -> opts(stateless) end,
-%             fun() -> transport(stateless) end, 
-%             fun() -> invite(stateless) end,
-%             fun() -> servers(stateless) end
-%         ]
-%     }.
+stateless_test_() ->
+    {setup, spawn, 
+        fun() -> 
+            start(stateless),
+            ?debugMsg("Starting proxy stateless")
+        end,
+        fun(_) -> 
+            stop(stateless) 
+        end,
+        [
+            fun() -> invalid(stateless) end,
+            fun() -> opts(stateless) end,
+            fun() -> transport(stateless) end, 
+            fun() -> invite(stateless) end,
+            fun() -> servers(stateless) end
+        ]
+    }.
 
 
-% stateful_test_() ->
-%     {setup, spawn, 
-%         fun() -> 
-%             start(stateful),
-%             ?debugMsg("Starting proxy stateful")
-%         end,
-%         fun(_) -> 
-%             stop(stateful) 
-%         end,
-%         [
-%             fun() -> invalid(stateful) end,
-%             fun() -> opts(stateful) end,
-%             fun() -> transport(stateful) end, 
-%             fun() -> invite(stateful) end,
-%             fun() -> servers(stateful) end,
-%             fun() -> dialog() end
-%         ]
-%     }.
+stateful_test_() ->
+    {setup, spawn, 
+        fun() -> 
+            start(stateful),
+            ?debugMsg("Starting proxy stateful")
+        end,
+        fun(_) -> 
+            stop(stateful) 
+        end,
+        [
+            fun() -> invalid(stateful) end,
+            fun() -> opts(stateful) end,
+            fun() -> transport(stateful) end, 
+            fun() -> invite(stateful) end,
+            fun() -> servers(stateful) end,
+            fun() -> dialog() end
+        ]
+    }.
 
 
 start(Test) ->
@@ -343,6 +343,7 @@ invite(Test) ->
     DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
     {ok, 200, [{<<"x-nk-id">>, [<<"client1">>]}]} = 
         nksip_uac:options(C2, DialogId2, [{meta,[<<"x-nk-id">>]}]),
+    
     {ok, 200, [{dialog_id, DialogId1}, {<<"x-nk-id">>, [<<"client2">>]}]} = 
         nksip_uac:invite(C1, DialogId1, [{add, "x-nk-op", ok},
                                          {meta, [<<"x-nk-id">>]}]),

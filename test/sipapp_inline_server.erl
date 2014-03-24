@@ -48,7 +48,7 @@ get_user_pass(<<"client2">>, <<"nksip">>) -> <<"4321">>;
 get_user_pass(_, _) -> false.
 
 authorize(Req, Auth, From) ->
-    Reply = case nksip_sipmsg:header(Req, <<"x-nksip-auth">>) of
+    Reply = case nksip_sipmsg:header(Req, <<"x-nk-auth">>) of
         [<<"true">>] ->
             case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
                 true ->

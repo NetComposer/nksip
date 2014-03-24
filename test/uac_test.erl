@@ -28,17 +28,17 @@
 -compile([export_all]).
 
 
-% uac_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun uac/0},
-%             {timeout, 60, fun info/0},
-%             {timeout, 60, fun message/0},
-%             {timeout, 60, fun timeout/0}
-%         ]
-%     }.
+uac_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun uac/0},
+            {timeout, 60, fun info/0},
+            {timeout, 60, fun message/0},
+            {timeout, 60, fun timeout/0}
+        ]
+    }.
 
 
 start() ->
@@ -68,7 +68,7 @@ uac() ->
     {error, {invalid, <<"to">>}} = nksip_uac:options(C2, SipC1, [{to, "<>"}]),
     {error, {invalid, <<"route">>}} = nksip_uac:options(C2, SipC1, [{route, "<>"}]),
     {error, {invalid, <<"contact">>}} = nksip_uac:options(C2, SipC1, [{contact, "<>"}]),
-    {error, {invalid, <<"cseq">>}} = nksip_uac:options(C2, SipC1, [{cseq_num, -1}]),
+    {error, {invalid_option, cseq_num}} = nksip_uac:options(C2, SipC1, [{cseq_num, -1}]),
     nksip_trace:error("Next error about 'unknown_siapp' is expected"),
     {error, unknown_sipapp} = nksip_uac:options(none, SipC1, []),
     nksip_trace:error("Next error about 'too_many_calls' is expected"),
@@ -208,14 +208,14 @@ timeout() ->
         nksip_uac:invite(C2, "sip:127.0.0.1:9999", [{meta,[reason_phrase]}]),
 
     % REGISTER sends a provisional response, but the timeout is the same
-    Hds1 = {headers, [{<<"x-nk-sleep">>, 2000}]},
+    Hd1 = {add, <<"x-nk-sleep">>, 2000},
     {ok, 408, [{reason_phrase, <<"Timer F Timeout">>}]} = 
-        nksip_uac:options(C2, SipC1, [Hds1, {meta, [reason_phrase]}]),
+        nksip_uac:options(C2, SipC1, [Hd1, {meta, [reason_phrase]}]),
 
     % INVITE sends 
-    Hds2 = {headers, [{"x-nk-op", busy}, {"x-nk-prov", "true"}, {"x-nk-sleep", 20000}]},
+    Hds2 = [{add, "x-nk-op", busy}, {add, "x-nk-prov", "true"}, {add, "x-nk-sleep", 20000}],
     {ok, 408, [{reason_phrase, Reason}]} = 
-        nksip_uac:invite(C2, SipC1, [Hds2, {meta, [reason_phrase]}]),
+        nksip_uac:invite(C2, SipC1, [{meta, [reason_phrase]}|Hds2]),
     
     % TODO: Should fire timer C, sometimes it fires timer B 
     case Reason of

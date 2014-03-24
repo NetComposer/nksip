@@ -27,15 +27,15 @@
 
 -compile([export_all]).
 
-refer_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        {inparallel, [
-            {timeout, 60, fun basic/0},
-            {timeout, 60, fun in_dialog/0}
-        ]}
-    }.
+% refer_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         {inparallel, [
+%             {timeout, 60, fun basic/0},
+%             {timeout, 60, fun in_dialog/0}
+%         ]}
+%     }.
 
 
 start() ->

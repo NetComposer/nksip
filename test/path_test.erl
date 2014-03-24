@@ -106,8 +106,7 @@ basic() ->
 
 
     {ok, 200, [{<<"path">>, [P1, P2]}]} = 
-        nksip_uac:register(C1, "sip:nksip", 
-                        [make_supported, contact, {meta, [<<"path">>]}]),
+        nksip_uac:register(C1, "sip:nksip", [supported, contact, {meta, [<<"path">>]}]),
 
     [#reg_contact{
         contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},

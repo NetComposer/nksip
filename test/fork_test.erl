@@ -233,7 +233,7 @@ basic() ->
     Body1 = {body, [{clientC3, 300}]},
     Fs = {meta, [<<"x-nk-id">>]},
     {ok, 300, Values1} = nksip_uac:invite({fork, client1}, QUri, [Body1, RepHd, Fs]),
-    [{<<"x-nk-id">>, [<<"clientC3,serverR,server1">>]}] =Values1,
+    [{<<"x-nk-id">>, [<<"clientC3,serverR,server1">>]}] = Values1,
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 580},
                                 {clientA2, 580}, {clientB2, 580},
                                 {clientC3, 300}]),
@@ -325,13 +325,14 @@ invite2() ->
     Self = self(),
     RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     CB = {callback, fun({ok, Code, _RId}) -> Self ! {Ref, {code, Code}} end},
-    Body2 = {body, [{clientB1, {503, 500}}, {clientC1, {415, 500}},
-             {clientC3, {200, 1000}}]},
-
+   
     % C1, B1 and C3 sends 180
     % clientC3 answers, the other two dialogs are deleted by the UAC sending ACK and BYE
 
-    {ok, 200, [{dialog_id, Dlg_C2_1}]} = nksip_uac:invite(C2, QUri, [CB, Body2, RepHd]),
+    Body2 = {body, [{clientB1, {503, 500}}, {clientC1, {415, 500}},
+                    {clientC3, {200, 1000}}]},
+    {ok, 200, [{dialog_id, Dlg_C2_1}]} = nksip_uac:invite(C2, QUri, 
+                                            [CB, Body2, RepHd, {supported, ""}]),
     ok = nksip_uac:ack(C2, Dlg_C2_1, []),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 503}, {clientC1, 415},
                                {clientA2, 580}, {clientB2, 580}, {clientC3, 200},
@@ -342,6 +343,7 @@ invite2() ->
     confirmed = nksip_dialog:field(S2, Dlg_C2_1, invite_status),
     Dlg_CC3_1 = nksip_dialog:field(C2, Dlg_C2_1, remote_id),
     confirmed = nksip_dialog:field(CC3, Dlg_CC3_1, invite_status),
+
     % ServerR receives the three 180 responses and creates three dialogs.
     % It then receives the 503 and 415 final responses for two of them, and deletes
     % two dialogs, but, as these responses are not sent back, server2 and client2 
@@ -353,7 +355,7 @@ invite2() ->
     All = nksip_dialog:get_all(),
     CallId = nksip_dialog:call_id(Dlg_C2_1),
     [Dlg_C2_2, Dlg_C2_3] = [D || {{fork, client2}, D} <- All, 
-                         nksip_dialog:call_id(D)=:=CallId, D/=Dlg_C2_1],
+                            nksip_dialog:call_id(D)=:=CallId, D/=Dlg_C2_1],
     proceeding_uac = nksip_dialog:field(C2, Dlg_C2_2, invite_status),
     proceeding_uac = nksip_dialog:field(C2, Dlg_C2_3, invite_status),
     proceeding_uac = nksip_dialog:field(S2, Dlg_C2_2, invite_status),
@@ -418,6 +420,7 @@ redirect() ->
     Ref = make_ref(),
     Self = self(),
     RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    
     not_found = nksip:get_port(other, udp, ipv4),
     PortD1 = nksip:get_port({fork, clientD1}, udp, ipv4),
     PortD2 = nksip:get_port({fork, clientD2}, tcp, ipv4),
@@ -439,7 +442,7 @@ redirect() ->
                                {clientA2, 580}, {clientB2, 580}, {clientC3, 580}]),
     
     {ok, 570, _} = nksip_uac:invite(CA1, QUri, 
-                                     [Body1, {add, "nk-redirect", true}, RepHd]), 
+                                     [Body1, {add, "x-nk-redirect", true}, RepHd]), 
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 580}, {clientC1, 300},
                                {clientA2, 580}, {clientB2, 580}, {clientC3, 580},
                                {clientD1, 580}, {clientD2, 570}]),

@@ -44,7 +44,6 @@ start() ->
 
     ok = nksip:start({prack, client1}, prack_endpoint, [client1], [
         {from, "sip:client1@nksip"},
-        {fullname, "NkSIP Basic SUITE Test Client1"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {supported, "100rel"},
@@ -56,8 +55,7 @@ start() ->
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         no_100,
-        {supported, "100rel"},
-        make_100rel
+        {supported, "100rel"}
     ]),
 
     tests_util:log(),
@@ -226,9 +224,9 @@ media() ->
                                {client2, {dialog_stop, caller_bye}}]), 
 
     % A session with media offer in INVITE, answer in reliable provisional 
-    % and new offer in PRACK (answer in respone to PRACk)
+    % and new offer in PRACK (answer in respone to PRACK)
     Hds2 = [{add, "x-nk-op", "rel-prov-answer2"}, RepHd],
-    CB = {prack, 
+    CB = {prack_callback, 
             fun(<<>>, #sipmsg{}) -> 
                 Self ! {Ref, prack_sdp_ok},
                 nksip_sdp:increment(SDP)
@@ -256,7 +254,7 @@ media() ->
     % A session with no media offer in INVITE, offer in reliable provisional 
     % and answer in PRACK
     Hds3 = [{add, "x-nk-op", "rel-prov-answer3"}, RepHd],
-    CB3 = {prack, 
+    CB3 = {prack_callback, 
             fun(FunSDP, #sipmsg{}) -> 
                 FunLocalSDP = FunSDP#sdp{
                     address={<<"IN">>, <<"IP4">>, <<"client1">>},            
