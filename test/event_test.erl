@@ -27,18 +27,18 @@
 
 -compile([export_all]).
 
-% event_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         {inparallel, [
-%             {timeout, 60, fun basic/0},
-%             {timeout, 60, fun refresh/0},
-%             {timeout, 60, fun dialog/0},
-%             {timeout, 60, fun out_or_order/0},
-%             {timeout, 60, fun fork/0}
-%         ]}
-%     }.
+event_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        {inparallel, [
+            {timeout, 60, fun basic/0},
+            {timeout, 60, fun refresh/0},
+            {timeout, 60, fun dialog/0},
+            {timeout, 60, fun out_or_order/0},
+            {timeout, 60, fun fork/0}
+        ]}
+    }.
 
 
 start() ->
@@ -80,9 +80,8 @@ basic() ->
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent1;id=a"}, CB, get_request]),
 
     receive {Ref, {req, Req1}} -> 
-        ok
-        % [[<<"myevent1;id=a">>],[[<<"myevent1,myevent2,myevent3">>]]] = 
-        %     nksip_sipmsg:fields(Req1, [<<"event">>, <<"allow-event">>])
+        [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
+            nksip_sipmsg:fields(Req1, [<<"event">>, <<"allow-event">>])
     after 1000 -> 
         error(event) 
     end,
@@ -100,7 +99,7 @@ basic() ->
         {event, <<"myevent4;id=4;o=2">>},
         {class, uac},
         {answered, undefined},
-        {expires, 1}    % It will be something link round(0.99)
+        {expires, 1}    % It shuould be something like round(0.99)
     ] = nksip_subscription:fields(C1, Subs1A, [status, event, class, answered, expires]),
 
     [
@@ -161,12 +160,12 @@ basic() ->
         {subs, Subs2B, middle_timer}  
     ]),
 
-    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, [{state, {terminated, giveup}}, {retry_after, 5}]),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs2B, [{state, {terminated, giveup, 5}}]),
 
 ok = tests_util:wait(Ref, [
         {client1, notify, <<>>},
-        {subs, Subs2B, {terminated, {giveup, 5}}}, 
-        {subs, Subs2A, {terminated, {giveup, 5}}}
+        {subs, Subs2B, {terminated, giveup, 5}}, 
+        {subs, Subs2A, {terminated, giveup, 5}}
     ]),
 
     ok.
@@ -178,11 +177,10 @@ refresh() ->
     SipC2 = "sip:127.0.0.1:5070",
     Ref = make_ref(),
     Self = self(),
-    Hd1 = {"x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
-    Hd2 = {"x-nk-op", "expires-2"},
+    Hd1 = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    Hd2 = {add, "x-nk-op", "expires-2"},
     {ok, 200, [{subscription_id, Subs1A}]} = 
-        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
-                                        {add, Hd1}, {add, Hd2}]),
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5}, Hd1, Hd2]),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, []),
 
@@ -203,12 +201,11 @@ refresh() ->
     
     % But we finish de dialog
     {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{state, {terminated, giveup}}]),
-    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, {giveup, undefined}}}]),
+    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, giveup}}]),
     
     % A new subscription
     {ok, 200, [{subscription_id, Subs2A}]} = 
-        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5},
-                                        {add, Hd1}, {add, Hd2}]),
+        nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, {expires, 5}, Hd1, Hd2]),
     Subs2B = nksip_subscription:remote_id(C1, Subs2A),
     {ok, 200, []} = nksip_uac:notify(C2, Subs2B, []),
     ok = tests_util:wait(Ref, [{subs, Subs2B, init}, {subs, Subs2B, active}
@@ -233,10 +230,10 @@ dialog() ->
                                         {contact, "sip:a@127.0.0.1"}, 
                                         {meta, [dialog_id]}]),
     Subs1B = nksip_subscription:remote_id(C1, Subs1A),
-    RS1 = {"record-route", "<sip:b1@127.0.0.1:5070;lr>,<sip:b@b>,<sip:a2@127.0.0.1;lr>"},
+    RS1 = {add, "record-route", "<sip:b1@127.0.0.1:5070;lr>,<sip:b@b>,<sip:a2@127.0.0.1;lr>"},
 
     % Now the remote party (the server) sends a NOTIFY, and updates the Route Set
-    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{add, RS1}]),
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [RS1]),
     [
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:127.0.0.1:5070>">>},
@@ -245,8 +242,8 @@ dialog() ->
 
     % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
     % The remote target is successfully updated
-    RS2 = {"record-route", "<sip:b@b>"},
-    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [{add, RS2}, {contact, "sip:b@127.0.0.1:5070"}]),
+    RS2 = {add, "record-route", "<sip:b@b>"},
+    {ok, 200, []} = nksip_uac:notify(C2, Subs1B, [RS2, {contact, "sip:b@127.0.0.1:5070"}]),
     [
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
@@ -317,12 +314,12 @@ out_or_order() ->
     SipC2 = "sip:127.0.0.1:5070",
     Self = self(),
     Ref = make_ref(),
-    Reply = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
+    ReplyHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     CB = {callback, fun(R) -> Self ! {Ref, R} end},
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {add, Reply}, {add, "x-nk-op", "wait"}, 
+                                        ReplyHd, {add, "x-nk-op", "wait"}, 
                                         {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
@@ -352,7 +349,7 @@ out_or_order() ->
     % Another subscription
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {add, Reply}, {add, "x-nk-op", "wait"}, 
+                                        ReplyHd, {add, "x-nk-op", "wait"}, 
                                         {expires, 2}]),
     RecvReq2 = receive {Ref, {wait, Req2}} -> Req2
     after 1000 -> error(fork)
@@ -371,12 +368,12 @@ fork() ->
     SipC2 = "sip:127.0.0.1:5070",
     Self = self(),
     Ref = make_ref(),
-    Reply = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
+    ReplyHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
     CB = {callback, fun(R) -> Self ! {Ref, R} end},
 
     {async, _} = 
         nksip_uac:subscribe(C1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        {add, Reply}, {add, "x-nk-op", "wait"}, 
+                                        ReplyHd, {add, "x-nk-op", "wait"}, 
                                         {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
