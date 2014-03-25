@@ -22,7 +22,7 @@
 -module(nksip_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make_contact/3, proxy_route/2, registrar/2, encode_flow/1]).
+-export([make_contact/3, proxy_route/2, registrar/2, encode_flow/1, decode_flow/1]).
 
 -include("nksip.hrl").
 

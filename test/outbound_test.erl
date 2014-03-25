@@ -54,13 +54,11 @@ start() ->
 
     ok = sipapp_endpoint:start({outbound, ua1}, [
         {from, "sip:ua1@nksip"},
-        % {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5101}, {tls, all, 5102}]}
     ]),
 
     ok = sipapp_endpoint:start({outbound, ua2}, [
-        % {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5103}, {tls, all, 5104}]}
     ]),
@@ -133,17 +131,18 @@ basic() ->
 
 flow() ->
     C1 = {outbound, ua1},
+    C2 = {outbound, ua2},
     R1 = {outbound, registrar},
 
     nksip_registrar:clear(R1),
     nksip_transport:stop_all_connected(),
     timer:sleep(50),
     
-    % REGISTER with no reg-id, it is not processed using outbound (no Require)
+    % REGISTER with no reg-id, it is not processed using outbound (no Require in response)
     % but, as both parties support otbound, and the connection is direct,
     % registrar adds a path with the flow
 
-    {ok, 200, [{<<"require">>, []}, {parsed_contacts, [PContact]}, {local, Local}]} = 
+    {ok, 200, [{<<"require">>, []}, {parsed_contacts, [PContact]}, {local, Local1}]} = 
         nksip_uac:register(C1, "<sip:127.0.0.1:5090;transport=tcp>", 
             [contact, {meta, [<<"require">>, parsed_contacts, local]}]),
 
@@ -169,8 +168,7 @@ flow() ->
         }=Path1]
     }] = nksip_registrar:get_info(R1, sip, <<"ua1">>, <<"nksip">>),
             
-    Pid1 = binary_to_term(base64:decode(Flow1)),
-    {ok, Transp1} = nksip_connection:get_transport(Pid1),
+    {ok, Pid1, Transp1} = nksip_outbound:decode_flow(Flow1),
 
     [#uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -185,14 +183,23 @@ flow() ->
 
     % Now, if a send a request to this Contact, it goes to the registrar first, 
     % and the same transport is reused
-    {ok, 200, [{local, Local}, {remote, {tcp, {127,0,0,1}, 5090, <<>>}}]} = 
-        nksip_uac:options(C1, Contact1, [{meta,[local, remote]}]),
+    {ok, 200, [{local, Local2}, {remote, {tcp, {127,0,0,1}, 5090, <<>>}}]} = 
+        nksip_uac:options(C2, Contact1, [{meta,[local, remote]}]),
 
-    {tcp, {127,0,0,1}, LocalPort, <<>>} = Local,
-    [{#transport{local_port=LocalPort, remote_port=5090}, _}] = 
+    {tcp, {127,0,0,1}, LocalPort1, <<>>} = Local1,
+    {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
+    [{#transport{local_port=LocalPort1, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(C1),
-    [{#transport{local_port=5090, remote_port=LocalPort}, _}] = 
+    [{#transport{local_port=LocalPort2, remote_port=5090}, _}] = 
+        nksip_transport:get_all_connected(C2),
+    [
+        {#transport{local_port=5090, remote_port=LocalPortA}, _},
+        {#transport{local_port=5090, remote_port=LocalPortB}, _}
+    ] = 
         nksip_transport:get_all_connected(R1),
+    true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortA, LocalPortB]),
+
+
 
     % If we send the OPTIONS again, but removing the flow token, it goes
     % to R1, but it has to start a new connection to C1 (is has no opened 
@@ -200,18 +207,20 @@ flow() ->
   
     QRoute2 = http_uri:encode(binary_to_list(nksip_unparse:uri(Path1#uri{user = <<>>}))),
     {ok, 200, []} = 
-        nksip_uac:options(C1, Contact1#uri{headers=[{<<"route">>, QRoute2}]}, []), 
+        nksip_uac:options(C2, Contact1#uri{headers=[{<<"route">>, QRoute2}]}, []), 
 
     [
         {#transport{local_port=5101, remote_port=RemotePort}, _},
-        {#transport{local_port=LocalPort, remote_port=5090}, _}
+        {#transport{local_port=LocalPort1, remote_port=5090}, _}
     ] = 
         lists:sort(nksip_transport:get_all_connected(C1)),
     [
-        {#transport{local_port=5090, remote_port=LocalPort}, _},
+        {#transport{local_port=5090, remote_port=LocalPortC}, _},
+        {#transport{local_port=5090, remote_port=LocalPortD}, _},
         {#transport{local_port=RemotePort, remote_port=5101}, _}
     ] = 
         lists:sort(nksip_transport:get_all_connected(R1)),
+    true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortC, LocalPortD]),
 
 
     % Now we stop the first flow from R1 to C1. R1 should return 430 "Flow Failed"
@@ -346,12 +355,8 @@ register() ->
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
     ] = nksip_registrar:get_info(R1, sip, <<"ua1">>, <<"nksip">>),
-    Pid1 = binary_to_term(base64:decode(Flow1)),
-    {ok, #transport{remote_port=5101}} = nksip_connection:get_transport(Pid1),
-
-    Pid2 = binary_to_term(base64:decode(Flow2)),
-    {ok, #transport{remote_port=5103}} = nksip_connection:get_transport(Pid2),
-
+    {ok, _, #transport{remote_port=5101}} = nksip_outbound:decode_flow(Flow1),
+    {ok, _, #transport{remote_port=5103}} = nksip_outbound:decode_flow(Flow2),
     ok.
 
 
@@ -380,15 +385,13 @@ proxy() ->
     #uri{user = <<"NkF", Flow1/binary>>, port = 5061,
          opts = [{<<"transport">>,<<"tls">>},<<"lr">>,<<"ob">>]} = Path2,
 
-    Pid1 = binary_to_term(base64:decode(Flow1)),
-    {ok,
-        #transport{
-            proto = udp,
-            local_port = 5060,
-            remote_ip = {127,0,0,1},
-            remote_port = 5101}} = 
-        nksip_connection:get_transport(Pid1),
-
+    {ok, Pid1, #transport{
+                    proto = udp,
+                    local_port = 5060,
+                    remote_ip = {127,0,0,1},
+                    remote_port = 5101}
+    } = nksip_outbound:decode_flow(Flow1),
+     
     % Now, if we send a request to this contact, it will go to 
     % P3, to P1, and P1 will use the indicated flow to go to UA1
     {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
@@ -452,8 +455,8 @@ outbound() ->
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5106}, {tls, all, 5107}]},
-        {register, "<sip:127.0.0.1:5090;transport=tcp>"},
-        {register, "<sip:127.0.0.1:5090;transport=udp>"}
+        {register, "<sip:127.0.0.1:5090;transport=tcp>, 
+                    <sip:127.0.0.1:5090;transport=udp>"}
     ]),
     timer:sleep(100),
 
