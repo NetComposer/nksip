@@ -27,18 +27,18 @@
 
 -compile([export_all]).
 
-% outbound_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun basic/0,
-%             fun flow/0,
-%             fun register/0,
-%             fun proxy/0,
-%             {timeout, 60, fun outbound/0}
-%         ]
-%     }.
+outbound_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            fun basic/0,
+            fun flow/0,
+            fun register/0,
+            fun proxy/0,
+            {timeout, 60, fun outbound/0}
+        ]
+    }.
 
 start() ->
     tests_util:start_nksip(),
@@ -369,6 +369,7 @@ proxy() ->
     % Send a register to P1. As it is the first proxy, it adds a flow
     % header to its path. 
     % It then sends the request to P2, and this to P3, that adds another path
+    % (but without ob, as it is not the first)
     % It arrives at the registrar, that sees the first proxy has outbound
     % support
     
@@ -381,24 +382,38 @@ proxy() ->
     [#uri{headers=[{<<"route">>, QRoute1}]}] = Contact1,
     [Path1, Path2] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute1))),
 
-    #uri{user = <<"NkQ", _/binary>>, port = 5080} = Path1,
-    #uri{user = <<"NkF", Flow1/binary>>, port = 5061,
+    #uri{user = <<"NkF", Flow1/binary>>, port = 5080, 
+        opts = [<<"lr">>]} = Path1,
+    #uri{user = <<"NkF", Flow2/binary>>, port = 5061,
          opts = [{<<"transport">>,<<"tls">>},<<"lr">>,<<"ob">>]} = Path2,
 
-    {ok, Pid1, #transport{
+    {ok, _Pid1, #transport{
+                    proto = tcp,
+                    local_port = 5080,
+                    remote_ip = {127,0,0,1},
+                    remote_port = _Remote1}
+    } = nksip_outbound:decode_flow(Flow1),
+
+    {ok, Pid2, #transport{
                     proto = udp,
                     local_port = 5060,
                     remote_ip = {127,0,0,1},
                     remote_port = 5101}
-    } = nksip_outbound:decode_flow(Flow1),
+    } = nksip_outbound:decode_flow(Flow2),
      
-    % Now, if we send a request to this contact, it will go to 
-    % P3, to P1, and P1 will use the indicated flow to go to UA1
-    {ok, 200, [{_, [<<"ua1,p1,p3">>]}]} = 
+
+    % Now, if we send a request to this contact, it has two routes
+    % First one to P3 (with a flow to P2)
+    % Second one to P1 (with a flow to UA1)
+    % Request is sent to P3, that follows the flow to P2
+    % P2 sees a route to P1, so it sens it there
+    % P1 follows the flow to UA1
+
+    {ok, 200, [{_, [<<"ua1,p1,p2,p3">>]}]} = 
         nksip_uac:options(C2, Contact1, [{meta,[<<"x-nk-id">>]}]),
 
     % If we stop the flow, P1 will return Flow Failed
-    nksip_connection:stop(Pid1, normal),
+    nksip_connection:stop(Pid2, normal),
     timer:sleep(50),
     {ok, 430, []} = nksip_uac:options(C2, Contact1, []),
 
@@ -411,7 +426,7 @@ proxy() ->
 
 
     % It we send to P3, it adds its Path, now with outbound support because of
-    % (being first hop). 
+    % being first hop. 
 
     {ok, 200, [{parsed_require, [<<"outbound">>]}]} = 
         nksip_uac:register(C1, "sip:nksip", 
@@ -422,19 +437,19 @@ proxy() ->
     [#uri{headers=[{<<"route">>, QRoute2}]}] = Contact2,
     [Path3] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute2))),
 
+    
     #uri{
-        user = <<"NkF", Flow2/binary>>, 
+        user = <<"NkF", Flow3/binary>>, 
         port = 5080, 
         opts = [<<"lr">>,<<"ob">>]
     } = Path3,
 
     {ok, 200, [{dialog_id, DialogId}]} = 
-        nksip_uac:invite(C2, Contact2, 
-                    [auto_2xx_ack, {add, "x-nk-op", "ok"}]),
+        nksip_uac:invite(C2, Contact2, [auto_2xx_ack, {add, "x-nk-op", "ok"}]),
 
     [
         #uri{
-            user = <<"NkF", Flow2/binary>>,
+            user = <<"NkF", Flow3/binary>>,
             port = 5080,
             opts = [<<"lr">>]
         }

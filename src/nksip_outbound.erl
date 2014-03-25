@@ -22,7 +22,7 @@
 -module(nksip_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make_contact/3, proxy_route/2, registrar/2, encode_flow/1, decode_flow/1]).
+-export([make_contact/3, proxy_opts/2, registrar/2, encode_flow/1, decode_flow/1]).
 
 -include("nksip.hrl").
 
@@ -65,12 +65,12 @@ make_contact(Req, Contact, _Opts) ->
 
 
 %% @private
-%% Adds record_flow and route_flow options
--spec proxy_route(nksip:request(), nksip_lib:proplist()) ->
+%% Can add options record_flow and route_flow
+-spec proxy_opts(nksip:request(), nksip_lib:proplist()) ->
     {ok, nksip_lib:proplist()} | {error, Error}
     when Error :: flow_failed | forbidden.
 
-proxy_route(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
+proxy_opts(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
     #sipmsg{
         app_id = AppId,
         vias = Vias, 
@@ -104,7 +104,7 @@ proxy_route(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
     end,
     {ok, Opts1};
 
-proxy_route(Req, Opts) ->
+proxy_opts(Req, Opts) ->
     #sipmsg{app_id=AppId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
     Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
     case 
@@ -112,7 +112,7 @@ proxy_route(Req, Opts) ->
         lists:member(<<"outbound">>, Supported)
     of
         true ->
-            case do_proxy_routes(Req, Opts, Routes) of
+            case do_proxy_opts(Req, Opts, Routes) of
                 {ok, Opts1} ->
                     case 
                         not lists:keymember(record_flow, 1, Opts1) andalso
@@ -143,10 +143,10 @@ proxy_route(Req, Opts) ->
 
 
 %% @private
-do_proxy_routes(_Req, Opts, []) ->
+do_proxy_opts(_Req, Opts, []) ->
     {ok, Opts};
 
-do_proxy_routes(Req, Opts, [Route|RestRoutes]) ->
+do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
     #sipmsg{app_id=AppId, transport=Transp} = Req,
     case nksip_transport:is_local(AppId, Route) andalso Route of
         #uri{user = <<"NkF", Token/binary>>, opts=RouteOpts} ->
@@ -179,7 +179,7 @@ do_proxy_routes(Req, Opts, [Route|RestRoutes]) ->
                     end,
                     {ok, Opts1};
                 false ->
-                    do_proxy_routes(Req, Opts, RestRoutes)
+                    do_proxy_opts(Req, Opts, RestRoutes)
             end;
         false -> 
             {ok, Opts}
@@ -244,7 +244,8 @@ registrar(Req, Opts) ->
 
 
 decode_flow(Token) ->
-    case catch binary_to_term(base64:decode(Token)) of
+    PidList = lists:flatten(["<0.", binary_to_list(Token), ">"]),
+    case catch list_to_pid(PidList) of
         Pid when is_pid(Pid) ->
             case catch nksip_connection:get_transport(Pid) of
                 {ok, FlowTransp} ->  {ok, Pid, FlowTransp};
@@ -256,4 +257,13 @@ decode_flow(Token) ->
 
 
 encode_flow(Pid) when is_pid(Pid) ->
-    base64:encode(term_to_binary(Pid)).
+    encode_flow(pid_to_list(Pid), []).
+
+encode_flow([$<, $0, $.|Rest], Acc) -> encode_flow(Rest, Acc);
+encode_flow([$>|_], Acc) -> list_to_binary(lists:reverse(Acc));
+encode_flow([Ch|Rest], Acc) -> encode_flow(Rest, [Ch|Acc]).
+
+
+
+
+

@@ -58,20 +58,6 @@ route(UAS, UriList, ProxyOpts, Call) ->
             {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
             {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
         end,
-
-        % Here we find if we had a route with a flow we must follow, or we
-        % must add it.
-        % Later on, after selecting the next RUri, it can have also a route,
-        % maybe with a flow, so we must test again in nksip_call_fork
-        % We cannot skip the process here because we can 
-
-        % ProxyOpts1 = case nksip_outbound:proxy_route(Req1, ProxyOpts) of
-        %     {ok, OutProxyOpts} -> OutProxyOpts;
-        %     {error, OutError} -> throw({reply, OutError})
-        % end,
-        % #call{app_id=AppId} = Call,
-        % Req3 = remove_local_routes(AppId, Req2),
-
         Stateless = lists:member(stateless, ProxyOpts),
         case Method of
             'ACK' when Stateless ->

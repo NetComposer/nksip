@@ -85,7 +85,7 @@ route(_, _, _, Domain, _, #state{id={_, p3}}=State) ->
             Opts = [{route, "<sip:127.0.0.1:5090;lr>"}, path, record_route|Base],
             {reply, {proxy, ruri, Opts}, State};
         _ -> 
-            {reply, {proxy, ruri, Base}, State}
+            {reply, {proxy, ruri, [record_route|Base]}, State}
     end;
 
 

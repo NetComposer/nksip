@@ -136,11 +136,11 @@ proxy_make(Req, Opts, Config) ->
         end,
         ConfigOpts = get_config_opts(Config, true),
         {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, [], Config),
-        ReqOpts2 = case nksip_outbound:proxy_route(Req1, ReqOpts1) of
+        {Req3, ReqOpts2} = parse_opts(Opts, Req2, ReqOpts1, Config),
+        ReqOpts3 = case nksip_outbound:proxy_opts(Req3, ReqOpts2) of
             {ok, ProxyOpts} -> ProxyOpts;
             {error, OutError} -> throw({reply, OutError})
         end,
-        {Req3, ReqOpts3} = parse_opts(Opts, Req2, ReqOpts2, Config),
         Req4 = remove_local_routes(Req3),
         {ok, Req4, ReqOpts3}
     catch
