@@ -188,7 +188,9 @@ header(#sipmsg{headers=Headers}=SipMsg, Name) ->
         <<"supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> [S] end;
         <<"expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> [E] end;
         <<"event">> -> case field(SipMsg, event) of <<>> -> []; E -> [E] end;
-        Name1 -> proplists:get_all_values(Name1, Headers)
+        Name1 -> 
+            [nksip_unparse:header(Value) || 
+                Value <- proplists:get_all_values(Name1, Headers)]
     end.
 
 
@@ -268,7 +270,8 @@ require(#sipmsg{require=Require}, Token) ->
 
 is_dialog_forming(#sipmsg{class={req, Method}, to={_, ToTag}}) ->
     Method == 'NOTIFY' orelse
-    (ToTag == <<>> andalso (Method == 'INVITE' orelse Method == 'SUBSCRIBE'));
+    (ToTag == <<>> andalso 
+        (Method == 'INVITE' orelse Method == 'SUBSCRIBE' orelse Method=='REFER'));
 
 is_dialog_forming(_)  ->
     false.

@@ -61,8 +61,8 @@
 -include("nksip.hrl").
 
 -export_type([app_id/0, id/0, request/0, response/0, transport/0, sipreply/0]).
--export_type([uri/0, user_uri/0]).
--export_type([header/0, scheme/0, protocol/0, method/0, response_code/0, via/0]).
+-export_type([uri/0, user_uri/0, header/0, header_value/0]).
+-export_type([scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
 -export_type([dialog/0, invite/0, subscription/0, token/0, error_reason/0]).
 
@@ -71,6 +71,11 @@
 %% ===================================================================
 %% Types
 %% ===================================================================
+
+% Util types
+-type name() :: binary() | string() | atom().
+-type value() :: binary() | string() | atom() | integer().
+
 
 %% Unique Id of each started SipApp
 -type app_id() :: term().
@@ -96,8 +101,17 @@
 %% User specified uri
 -type user_uri() :: string() | binary() | uri().
 
+%% Parsed SIP Via
+-type via() :: #via{}.
+
+%% Token
+-type token() :: {name(), [{name(), value()}]}.
+
+%% SIP Generic Header Value
+-type header_value() :: value() | uri() | via() | [value() | uri() | via()].
+
 %% SIP Generic Header
--type header() :: {binary(), binary() | atom() | integer()}.
+-type header() :: {name(), header_value()}.
 
 %% Recognized transport schemes
 -type protocol() :: udp | tcp | tls | sctp | ws | wss | binary().
@@ -113,8 +127,6 @@
 %% SIP Response's Code
 -type response_code() :: 100..699.
 
-%% Parsed SIP Via
--type via() :: #via{}.
 
 %% SIP Message's Call-ID
 -type call_id() :: binary().
@@ -142,9 +154,6 @@
 
 %% Dialog
 -type invite() :: #invite{}.
-
-%% Token
--type token() :: {Name::binary(), [Key::binary() | {Key::binary(), Value::binary()}]}.
 
 %% Reason
 -type error_reason() :: 

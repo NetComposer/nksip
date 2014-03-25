@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([uri/1, ruri/1, uri2proplist/1, via/1, token/1]).
+-export([uri/1, ruri/1, uri2proplist/1, via/1, token/1, header/1]).
 -export([packet/1, response/3]).
 -export([add_sip_instance/2]).
 -export([error_reason/1]).
@@ -108,6 +108,18 @@ token({Token, Opts}) ->
 
 token(Tokens) when is_list(Tokens) ->
     list_to_binary(raw_tokens(Tokens)).
+
+
+%% @doc
+-spec header(nksip:header_value()) ->
+    binary().
+
+header(Value) ->
+    case unparse_header(Value) of
+        Binary when is_binary(Binary) -> Binary;
+        IoList -> list_to_binary(IoList) 
+    end.
+
 
 
 %% @doc Serializes a 'reason' header
@@ -370,22 +382,27 @@ unparse_header({Name, Opts}) when is_list(Opts) ->
     raw_tokens({Name, Opts});
 
 unparse_header([H|_]=String) when is_integer(H) ->
-    list_to_binary(String);
+    String;
 
-unparse_header([H|_]=Names) when is_binary(H) ->
-    nksip_lib:bjoin(Names);
-
-unparse_header([H|_]=Names) when is_list(H) ->
-    nksip_lib:bjoin([nksip_lib:to_binary(N) || N<-Names]);
-
-unparse_header([#uri{}|_]=Uris) ->
-    nksip_lib:bjoin([uri(Uri) || Uri <- Uris]);
-
-unparse_header([{_, Opts}|_]=Tokens) when is_list(Opts) ->
-    raw_tokens(Tokens);
+unparse_header(List) when is_list(List) ->
+    join([unparse_header(Term) || Term <- List], []);
 
 unparse_header(Value) when is_integer(Value); is_atom(Value) ->
     nksip_lib:to_binary(Value).
+
+
+
+%% @private
+join([], Acc) ->
+    Acc;
+
+join([A, B | Rest], Acc) ->
+    join([B|Rest], [$,, A | Acc]);
+
+join([A], Acc) ->
+    lists:reverse([A|Acc]).
+
+
 
 
 %% @private
