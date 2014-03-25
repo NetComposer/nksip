@@ -815,7 +815,7 @@ refer(AppId, Dest, Opts) ->
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
-            Opts1 = [{insert, "refer-to", ReferTo}|Opts],
+            Opts1 = [{insert, "refer-to", ReferTo} | nksip_lib:delete(Opts, refer_to)],
             send_any(AppId, 'REFER', Dest, Opts1)
     end.
 
