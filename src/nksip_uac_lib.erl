@@ -87,7 +87,7 @@ make(AppId, Method, Uri, Opts, Config) ->
         end,
         FromTag = nksip_lib:uid(),
         DefFrom = #uri{user = <<"user">>, domain = <<"nksip">>, 
-                  opts = [{<<"tag">>, FromTag}]},
+                  ext_opts = [{<<"tag">>, FromTag}]},
         DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
         Req1 = #sipmsg{
             id = nksip_lib:uid(),
