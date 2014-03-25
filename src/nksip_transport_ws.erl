@@ -203,8 +203,12 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 handle_info({'DOWN', MRef, process, _Pid, _Reason}, #state{webserver=MRef}=State) ->
-    {noreply, State}.
+    {noreply, State};
     
+handle_info(Msg, State) -> 
+    lager:error("Module ~p received unexpected info ~p", [?MODULE, Msg]),
+    {noreply, State}.
+
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
@@ -338,7 +342,7 @@ outbound_opts(ws, _Opts) ->
 outbound_opts(wss, Opts) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
-            DefCert = filename:join(PrivDir, "certificate.pem"),
+            DefCert = filename:join(PrivDir, "cert.pem"),
             DefKey = filename:join(PrivDir, "key.pem");
         _ ->
             DefCert = "",

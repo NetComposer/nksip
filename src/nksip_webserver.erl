@@ -40,7 +40,7 @@
 
 
 %% @doc Starts a new webserver, or returns a already started one
--spec start_server(nksip:app_id(), tcp|tls|ws|www, inet:ip_address(), inet:port_number(), 
+-spec start_server(nksip:app_id(), tcp|tls|ws|wss, inet:ip_address(), inet:port_number(), 
                    term(), nksip_lib:proplist()) ->
     {ok, pid()} | {error, term()}.
 
@@ -63,7 +63,7 @@ start_server(AppId, Proto, Ip, Port, Disp, Opts)
 
 
 %% @doc Stops a started webserver
--spec stop_server(nksip:app_id(), tcp|tls|ws|www, 
+-spec stop_server(nksip:app_id(), tcp|tls|ws|wss, 
                   inet:ip_address(), inet:port_number()) ->
     ok | {error, in_use} | {error, not_found}.
 
@@ -72,7 +72,7 @@ stop_server(AppId, Proto, Ip, Port) ->
 
 
 %% @doc Get the real port of a webserver
--spec get_port(tcp|tls|ws|www, inet:ip_address(), inet:port_number()) ->
+-spec get_port(tcp|tls|ws|wws, inet:ip_address(), inet:port_number()) ->
     inet:port_number() | undefined.
 
 get_port(Proto, Ip, Port) ->
@@ -362,7 +362,7 @@ listen_opts(ws, Ip, Port, _Opts) ->
 listen_opts(wss, Ip, Port, Opts) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
-            DefCert = filename:join(PrivDir, "certificate.pem"),
+            DefCert = filename:join(PrivDir, "cert.pem"),
             DefKey = filename:join(PrivDir, "key.pem");
         _ ->
             DefCert = "",

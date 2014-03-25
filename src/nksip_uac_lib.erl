@@ -315,7 +315,7 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
                     #sipmsg{from={From, _}} = Req,
                     {replace, <<"To">>, From#uri{ext_opts=[]}};
                 _ ->
-                    put_at_end
+                    move_to_last
             end;
         {body, Body} ->
             ContentType = case Req#sipmsg.content_type of
@@ -342,7 +342,7 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
                             throw({invalid, min_cseq})
                     end;
                 _ ->
-                    put_at_end
+                    move_to_last
             end;
 
         %% Pass-through options
@@ -408,6 +408,8 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         % Timer options
         {min_se, SE} when is_binary(SE); is_integer(SE) ->
             {replace, <<"min-se">>, SE};
+        {session_expires, SE} when is_integer(SE) ->
+            {retry, {session_expires, {SE, undefined}}};
         {session_expires, {SE, Refresh}} when is_integer(SE) ->
             case nksip_config:get_cached(min_session_expires, Config) of
                 MinSE when SE<MinSE -> 
@@ -469,7 +471,9 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
             parse_opts(Rest, ReqP, Opts, Config);
         {update_opts, Opts1} -> 
             parse_opts(Rest, Req, Opts1, Config);
-         put_at_end ->
+        {retry, Term1} ->
+            parse_opts([Term1|Rest], Req, Opts, Config);
+        move_to_last ->
             parse_opts(Rest++[Term], Req, Opts, Config)
     end.
 

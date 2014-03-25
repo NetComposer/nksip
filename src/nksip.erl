@@ -518,8 +518,10 @@ parse_opts([Term|Rest], Opts) ->
                 error -> throw({invalid, events});
                 Tokens -> [{events, [T||{T, _}<-Tokens]}|Opts]
             end;
-        % {min_se, MinSE} when is_integer(MinSE), MinSE > 0 ->
-        %     [{min_se, MinSE}|Opts];
+        
+        % TODO: Integrate in config
+        {min_session_expires, MinSE} when is_integer(MinSE), MinSE > 0 ->
+            [{min_session_expires, MinSE}|Opts];
 
         % Default headers and options
         {from, From} ->

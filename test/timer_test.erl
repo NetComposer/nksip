@@ -99,7 +99,7 @@ basic() ->
     RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     % C2 has a min_session_expires of 2
-    {error, invalid_session_expires} = 
+    {error, {invalid_option, session_expires}} = 
         nksip_uac:invite(C2, "sip:any", [{session_expires, 1}]),
 
     % C1 sends a INVITE to C2, with session_expires=1

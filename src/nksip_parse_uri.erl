@@ -680,9 +680,9 @@ uri4_test() ->
         uris("sip:u1:p1@a?a1,<sip:u2:p2@b;b1>").
 
 uri5_test() ->
-    [#uri{headers=[{<<"Route">>, <<"a">>}], ext_headers=[{<<"route">>, <<"b">>}]}] = 
+    [#uri{headers=[{<<"route">>, <<"a">>}], ext_headers=[{<<"route">>, <<"b">>}]}] = 
         uris("<sip:a?routE=a>?route=b"),
-    [#uri{headers=[], ext_headers=[{<<"routE">>, <<"a">>}]}] = 
+    [#uri{headers=[], ext_headers=[{<<"route">>, <<"a">>}]}] = 
         uris("sip:a?routE=a").
 
 uri6_test() ->    [#uri{domain = <<"a">>, port = 0, path = <<"/ws/1">>}] = uris("sip:a/ws/1"),

@@ -1,3 +1,4 @@
+
 %% -------------------------------------------------------------------
 %%
 %% websocket_test: Websocket Test Suite
@@ -20,7 +21,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(a_websocket_test).
+-module(websocket_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -39,6 +40,8 @@ ws1_test_() ->
 
 
 start1() ->
+    tests_util:start_nksip(),
+
     ok = nksip:start(ws_a, nksip_sipapp, [], [
         {transports, [
             {ws, all, 8090, []},
@@ -113,12 +116,11 @@ start2() ->
     ok = sipapp_server:start({ws, server1}, [
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
         registrar,
-        {listeners, 10},
         {local_host, "localhost"},
         {transports, [
             {udp, all, 5060},
             {tls, all, 5061},
-            {ws, all, 8080, []},
+            {ws, all, 8080, [{listeners, 10}]},
             {wss, all, 8081, [{dispatch, "/wss"}]}
         ]}
     ]),
@@ -264,8 +266,8 @@ sharing() ->
     #uri{domain = <<"localhost">>, port=8091} = C2C,
     ok.
 
-proxy() ->
 
+proxy() ->
     {ok, 200, []} = 
         nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8081/wss;transport=wss>", 
                            [unregister_all]),

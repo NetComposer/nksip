@@ -111,7 +111,7 @@ route(ReqId, Scheme, User, Domain, _From,
                     Request = nksip_request:get_request(AppId, ReqId),
                     Body = base64:encode(term_to_binary(Request)),
                     Hds = [{<<"content-type">>, <<"nksip/request">>}],
-                    {reply, {200, Hds, Body, [make_contact]}, State};
+                    {reply, {200, Hds, Body, [contact]}, State};
                 [<<"reply-stateless">>] ->
                     {reply, {response, ok, [stateless]}, State};
                 [<<"reply-stateful">>] ->
