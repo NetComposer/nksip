@@ -423,11 +423,15 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         % Event options
         {subscription_state, ST} when Method=='NOTIFY'->
             Value = case ST of
-                active -> 
+                {active, undefined} -> 
                     <<"active">>;
-                pending -> 
+                {active, Expires} when is_integer(Expires), Expires>0 ->
+                    {<<"active">>, [{<<"expires">>, nksip_lib:to_binary(Expires)}]};
+                {pending, undefined} -> 
                     <<"pending">>;
-                {terminated, Reason} when is_atom(Reason) ->
+                {pending, Expires} when is_integer(Expires), Expires>0 ->
+                    {<<"pending">>, [{<<"expires">>, nksip_lib:to_binary(Expires)}]};
+                {terminated, Reason, undefined} when is_atom(Reason) ->
                     {<<"terminated">>, [{<<"reason">>, nksip_lib:to_binary(Reason)}]};
                 {terminated, Reason, Retry} when is_atom(Reason), is_integer(Retry) ->
                     {<<"terminated">>, [

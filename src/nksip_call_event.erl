@@ -375,8 +375,6 @@ update(Status, Subs, Dialog, Call) ->
     nksip_call:call().
 
 create_event(Req, Call) ->
-    lager:notice("CREATE: ~p", [lager:pr(Req, ?MODULE)]),
-
     #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = maybe_add_refer_event(Req, Call),
     EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
     ?call_debug("Event ~s_~s_~s UAC created", [EvType, EvId, FromTag], Call),
@@ -425,40 +423,36 @@ stop(#subscription{id=Id}, Dialog, Call) ->
     {ok, nksip_lib:proplist()} | {error, unknown_subscription}.
 
 request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
-    case nksip_lib:get_value(subscription_id, Opts) of
-        undefined ->
+    case lists:keytake(subscription_id, 1, Opts) of
+        false ->
             {ok, Opts};
-        SubsId ->
+        {value, {_, SubsId}, Opts1} ->
             case find(SubsId, Dialog) of
                 #subscription{} = Subs ->
-                    {ok, request_uac_opts(Method, Opts, Subs)};
+                    {ok, request_uac_opts(Method, Opts1, Subs)};
                 not_found ->
                     {error, unknown_subscription}
             end
     end;
 
 request_uac_opts('SUBSCRIBE', Opts, #subscription{event=Event, expires=Expires}) ->
-    case lists:keymember(expires, 1, Opts) of
-        true -> [{event, Event} | Opts];
-        false -> [{event, Event}, {expires, Expires} | Opts]
-    end;
+    [{event, Event}, {expires, Expires} | Opts];
 
 request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer}) ->
-    PSS = case nksip_lib:get_value(subscription_state, Opts) of
-        State when State==active; State==pending ->
+    {value, {_, SS}, Opts1} = lists:keytake(subscription_state, 1, Opts),
+    SS1 = case SS of
+        {State, _Expire} when State==active; State==pending ->
             case is_reference(Timer) of
                 true -> 
                     Expires = round(erlang:read_timer(Timer)/1000),
-                    {State, [{expires, Expires}]};
+                    {State, Expires};
                 false ->
-                    {terminated, [{reason, timeout}]}
+                    {terminated, timeout, undefined}
             end;
-        {terminated, Reason, undefined} ->
-            {terminated, [{reason, Reason}]};
         {terminated, Reason, Retry} ->
-            {terminated, [{reason, Reason}, {retry_after, Retry}]}
+            {terminated, Reason, Retry}
     end,
-    [{event, Event}, {parsed_subscription_state, PSS} | Opts].
+    [{event, Event}, {subscription_state, SS1} | Opts1].
 
 
 %% @private
@@ -483,7 +477,7 @@ timer({Type, Id}, Dialog, Call) ->
             cast(middle_timer, Subs, Dialog, Call),
             Call;
         #subscription{} = Subs when Type==timeout -> 
-            Dialog1 = update({terminated, timeout}, Subs, Dialog, Call),
+            Dialog1 = update({terminated, timeout, undefined}, Subs, Dialog, Call),
             nksip_call_dialog:update(none, Dialog1, Call);
         not_found -> 
             ?call_notice("Subscription ~s timer fired for unknown event", [Id], Call),
@@ -569,7 +563,7 @@ store(Subs, Dialog, Call) ->
     end,
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     case Status of
-        {terminated, _Reason} ->
+        {terminated, _Reason, _Timeout} ->
             ?call_debug("~s removing event ~s", [UA, Id], Call),
             Subscriptions1 = case IsFirst of
                 true -> Rest;
@@ -592,7 +586,11 @@ store(Subs, Dialog, Call) ->
     ok.
 
 cast(Arg, #subscription{id=SubsId}, Dialog, Call) ->
-    nksip_call_dialog:cast(dialog_update, {subscription_status, SubsId, Arg}, 
+    Arg1 = case Arg of
+        {terminated, Reason, undefined} -> {terminated, Reason};
+        _ -> Arg
+    end,
+    nksip_call_dialog:cast(dialog_update, {subscription_status, SubsId, Arg1}, 
                            Dialog, Call).
 
 

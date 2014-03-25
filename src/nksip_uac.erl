@@ -244,9 +244,8 @@
 
 -type notify_opt() ::
     {event, binary()} |
-    {state, active | pending | {terminated, notify_reason()}} | 
-    {expires, non_neg_integer()} |
-    {retry_after, non_neg_integer()}.
+    {state, active | pending | {terminated, notify_reason()} | 
+     {terminated, notify_reason(), pos_integer()}}.
 
 -type message_opt() ::
     {expires, non_neg_integer()}.
@@ -681,15 +680,10 @@ subscribe(AppId, Dest, Opts) ->
 %%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 %%      <tr>
 %%          <td>`state'</td>
-%%          <td>`active|pending|{terminated,Reason} (see bellow)'</td>
+%%          <td>`active|pending|{terminated,Reason}|{terminated,Reason,Retry} 
+%%               (see bellow)'</td>
 %%          <td>`active'</td>
 %%          <td>Generates the mandatory <i>Subscription-State</i> header</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`retry_after'</td>
-%%          <td>`non_neg_integer()'</td>
-%%          <td>`undefined'</td>
-%%          <td>If included, it will be added to the indicated state (see bellow).</td>
 %%      </tr>
 %% </table>
 %%
@@ -703,12 +697,12 @@ subscribe(AppId, Dest, Opts) ->
 %%       <ul>
 %%          <li>`deactivated': the remote party should retry again inmediatly.</li>
 %%          <li>`probation': the remote party should retry again. You can use
-%%              `retry_after' to inform of the minimum time for a new try.</li>
+%%              `Retry' to inform of the minimum time for a new try.</li>
 %%          <li>`rejected': the remote party should no retry again.</li>
 %%          <li>`timeout': the subscription has timed out, the remote party can 
 %%              send a new one inmediatly.</li>
 %%          <li>`giveup': we have not been able to authorize the request. The remote
-%%              party can try again. You can use `retry_after'.</li>
+%%              party can try again. You can use `Retry'.</li>
 %%          <li>`noresource': the subscription has ended because of the resource 
 %%              does not exists any more. Do not retry.</li>
 %%          <li>`invariant': the subscription has ended because of the resource 
@@ -721,34 +715,29 @@ subscribe(AppId, Dest, Opts) ->
     result() | {error, error()} |  {error, invalid_state}.
 
 notify(AppId, Dest, Opts) ->
-    State = case nksip_lib:get_value(state, Opts, active) of
+    SS = case nksip_lib:get_value(state, Opts, active) of
         active ->
             {active, undefined};
         pending -> 
             {pending, undefined};
         {terminated, Reason} 
-            when Reason==deactivated; Reason==rejected; Reason==timeout; 
-                 Reason==noresource; Reason==invariant ->
+            when Reason==deactivated; Reason==probation; Reason==rejected; 
+                 Reason==timeout; Reason==giveup; Reason==noresource; 
+                 Reason==invariant ->
             {terminated, Reason, undefined};
-        {terminated, Reason}
-            when Reason==probation; Reason==giveup ->
-            case nksip_lib:get_value(retry_after, Opts) of
-                undefined ->
-                    {terminated, Reason, undefined};
-                Retry ->
-                    case nksip_lib:to_integer(Retry) of
-                        Retry1 when is_integer(Retry1), Retry1>=0 -> 
-                            {terminated, Reason, Retry1};
-                        _ -> 
-                            {terminated, Reason, undefined}
-                    end
-            end;
+        {terminated, probation, Retry} when is_integer(Retry), Retry>0 ->
+            {terminated, probation, Retry};
+        {terminated, giveup, Retry} when is_integer(Retry), Retry>0 ->
+            {terminated, giveup, Retry};
         _ ->
             invalid
     end,
-    case State of
-        invalid -> {error, invalid_state};
-        _ -> send_dialog(AppId, 'NOTIFY', Dest, [{subscription_state, State}|Opts])
+    case SS of
+        invalid -> 
+            {error, invalid_state};
+        _ -> 
+            Opts1 = nksip_lib:delete(Opts, state),
+            send_dialog(AppId, 'NOTIFY', Dest, [{subscription_state, SS}|Opts1])
     end.
 
 

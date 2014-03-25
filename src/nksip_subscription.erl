@@ -48,7 +48,7 @@
 
 -type subscription_state() ::
     {active, undefined|non_neg_integer()} | {pending, undefined|non_neg_integer()}
-    | terminated_reason().
+    | {terminated, terminated_reason(), undefined|non_neg_integer()}.
 
 -type terminated_reason() :: 
     deactivated | {probation, undefined|non_neg_integer()} | rejected |
@@ -292,19 +292,24 @@ subscription_state(SipMsg) ->
             [{Name, Opts}] -> ok;
             _ -> Name = Opts = throw(invalid)
         end,
-        case nksip_lib:get_integer(<<"expires">>, Opts, undefined) of
-            undefined -> Expires = undefined;
-            Expires when is_integer(Expires), Expires>=0 -> ok;
-            _ -> Expires = throw(invalid)
-        end,
         case Name of
             <<"active">> -> 
+                case nksip_lib:get_integer(<<"expires">>, Opts, -1) of
+                    -1 -> Expires = undefined;
+                    Expires when is_integer(Expires), Expires>=0 -> ok;
+                    _ -> Expires = throw(invalid)
+                end,
                  {active, Expires};
             <<"pending">> -> 
+                case nksip_lib:get_integer(<<"expires">>, Opts, -1) of
+                    -1 -> Expires = undefined;
+                    Expires when is_integer(Expires), Expires>=0 -> ok;
+                    _ -> Expires = throw(invalid)
+                end,
                 {pending, Expires};
             <<"terminated">> ->
-                case nksip_lib:get_integer(<<"retry_after">>, Opts, undefined) of
-                    undefined -> Retry = undefined;
+                case nksip_lib:get_integer(<<"retry-after">>, Opts, -1) of
+                    -1 -> Retry = undefined;
                     Retry when is_integer(Retry), Retry>=0 -> ok;
                     _ -> Retry = throw(invalid)
                 end,
