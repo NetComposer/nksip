@@ -30,7 +30,7 @@
 -include("nksip_call.hrl").
 
 -export([method/1, scheme/1, aors/1, uris/1, ruris/1, vias/1]).
--export([tokens/1, integers/1, dates/1, header/1]).
+-export([tokens/1, integers/1, dates/1]).
 -export([uri_method/2]).
 -export([transport/1]).
 -export([packet/3]).
@@ -147,14 +147,6 @@ dates(List) when is_list(List) -> parse_dates(List, []);
 dates(Term) -> dates([Term]).
 
 
-%% @doc
--spec header({binary()|string(), binary()|string()|[binary()|string()]}) ->
-    term() | error.
-
-header({Name, Value}) ->
-    nksip_parse_header:header({Name, Value}).
-
-
 %% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
 -spec transport(nksip:uri()|nksip:via()) -> 
     {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
@@ -208,6 +200,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 %% ===================================================================
 %% Internal
 %% ===================================================================
+
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7

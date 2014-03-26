@@ -28,19 +28,13 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--type opt() ::  stateless | record_route | follow_redirects |
-                {headers, [nksip:header()]} | 
-                {route, nksip:user_uri() | [nksip:user_uri()]} |
-                remove_routes | remove_headers.
-
-
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
 %% @doc Tries to route a request to set of uris, serially and/or in parallel.
--spec route(nksip_call:trans(), nksip:uri_set(), [opt()], nksip_call:call()) -> 
+-spec route(nksip_call:trans(), nksip:uri_set(), nksip_lib:proplist(), nksip_call:call()) -> 
     {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
     {reply, nksip:sipreply(), nksip_call:call()}.
 
@@ -88,7 +82,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
 
 
 %% @private
--spec route_stateless(nksip:request(), nksip:uri(), [opt()], nksip_call:call()) -> 
+-spec route_stateless(nksip:request(), nksip:uri(), nksip_lib:proplist(), nksip_call:call()) -> 
     stateless_proxy.
 
 route_stateless(Req, Uri, ProxyOpts, Call) ->

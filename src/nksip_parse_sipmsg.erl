@@ -34,11 +34,12 @@
 %% Public
 %% ===================================================================
 
+
 %% @doc Parses a SIP packet. Message MUST have a \r\n\r\n.
 -spec parse(nksip:protocol(), binary()) ->
     {ok, Class, [nksip:header()], binary(), binary()} | partial | error |
     {reply, Class, [nksip:header()], binary()}
-    when Class :: {req, nksip:metod(), binary()} | {resp, nksip:code(), binary()}.
+    when Class :: {req, nksip:method(), binary()} | {resp, string(), binary()}.
 
 parse(Proto, Bin) ->
     try
@@ -85,6 +86,10 @@ parse(Proto, Bin) ->
 
 
 %% @private
+-spec first(binary()) ->
+    {req, nksip:method(), binary(), binary()} |
+    {resp, string(), binary(), binary()}.
+
 first(<<"SIP/2.0 ", Rest/binary>>) -> 
     {Code, Rest1} = until_sp(Rest, []),
     {Reason, Rest2} = until_rn(Rest1, []),

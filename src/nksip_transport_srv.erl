@@ -41,8 +41,8 @@
                        nksip_lib:proplist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
-connect(AppId, udp, Ip, Port, _Res, Opts) ->
-    nksip_connection:connect(AppId, udp, Ip, Port, Opts);
+connect(AppId, udp, Ip, Port, Res, Opts) ->
+    nksip_connection:connect(AppId, udp, Ip, Port, Res, Opts);
 
 connect(AppId, Proto, Ip, Port, Res, Opts)
                     when Proto==tcp; Proto==tls; Proto==sctp; Proto==ws; Proto==wss ->

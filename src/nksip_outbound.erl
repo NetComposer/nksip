@@ -198,7 +198,7 @@ flow_type(_, _) ->
 %% @private
 %% Add registrar_otbound
 -spec registrar(nksip:request(), nksip_lib:proplist()) ->
-    {nksip:request(), nksip_lib:proplist()}.
+    {ok, nksip:request(), nksip_lib:proplist()} | {error, term()}.
 
 registrar(Req, Opts) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
@@ -224,7 +224,7 @@ registrar(Req, Opts) ->
                                                 [{before_single, <<"path">>, Path}]),
                     Req1 = Req#sipmsg{headers=Headers1},
                     {ok, Req1, [{registrar_outbound, true}|Opts]};
-                error ->
+                [] ->
                     {ok, Req, [{registrar_outbound, false}|Opts]}
             end;
         true ->

@@ -123,7 +123,7 @@
 
 
 -type call_msg() :: {
-    nksip_request:id()|nksip_response:id(), 
+    nksip_sipmsg:id(), 
     nksip_call_uac:id()|nksip_call_uas:id(), 
     nksip_dialog:id()
 }.

@@ -28,10 +28,6 @@
 
 -export([header/2, new/1, update/2]).
 
--type value() :: binary()|string()|atom()|integer()|nksip:user_uri()|nksip:token().
-% -type value() :: term().
-%% TODO
-
 
 %% ===================================================================
 %% Public
@@ -39,7 +35,7 @@
 
 %% @doc Generates a single header. If `Value' is a list, all values will be joined
 %% using comma as separator.
--spec header(Name::binary(), Value::value()|[value()]) -> 
+-spec header(Name::binary(), Value::nksip:header_value()|[nksip:header_value()]) -> 
     nksip:header().
 
 header(Name, #uri{}=Uri) ->
@@ -72,7 +68,7 @@ header(Name, Raw) ->
 -spec new([{Operation, Name, Value} | none]) -> [nksip:header()] 
     when Operation :: single|multi|after_single|before_single|after_multi|
                       before_multi|default_single|default_multi,
-         Name :: binary(), Value :: value() | [value()].
+         Name :: binary(), Value :: nksip:header_value() | [nksip:header_value()].
 
 new(Operations) ->
     update([], Operations).
@@ -108,7 +104,7 @@ new(Operations) ->
     when Input :: nksip:request() | nksip:response() | [nksip:header()],
          Operation :: single|multi|after_single|before_single|after_multi|
                       before_multi|default_single|default_multi,
-         Name :: binary(), Value :: value() | [value()].
+         Name :: binary(), Value :: nksip:header_value() | [nksip:header_value()].
 
 update(#sipmsg{headers=Headers}, Operations) ->
     update(Headers, Operations);

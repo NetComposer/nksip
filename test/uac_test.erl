@@ -68,7 +68,7 @@ uac() ->
     {error, {invalid, <<"to">>}} = nksip_uac:options(C2, SipC1, [{to, "<>"}]),
     {error, {invalid, <<"route">>}} = nksip_uac:options(C2, SipC1, [{route, "<>"}]),
     {error, {invalid, <<"contact">>}} = nksip_uac:options(C2, SipC1, [{contact, "<>"}]),
-    {error, {invalid_option, cseq_num}} = nksip_uac:options(C2, SipC1, [{cseq_num, -1}]),
+    {error, {invalid, cseq_num}} = nksip_uac:options(C2, SipC1, [{cseq_num, -1}]),
     nksip_trace:error("Next error about 'unknown_siapp' is expected"),
     {error, unknown_sipapp} = nksip_uac:options(none, SipC1, []),
     nksip_trace:error("Next error about 'too_many_calls' is expected"),

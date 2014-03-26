@@ -107,7 +107,8 @@ uac_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call)
                 when Code>=300 ->
     case Subs#subscription.answered of
         undefined ->
-            update({terminated, {code, Code}, undefined}, Subs, Dialog, Call);
+            update({active, 10}, Subs, Dialog, Call);
+            % update({terminated, {code, Code}, undefined}, Subs, Dialog, Call);
         _ when Code==405; Code==408; Code==481; Code==501 ->
             update({terminated, {code, Code}, undefined}, Subs, Dialog, Call);
         _ ->
@@ -363,11 +364,12 @@ update({terminated, Reason, Retry}, Subs, Dialog, Call) ->
     cancel_timer(Middle),
     ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason], Call),
     cast({terminated, Reason, Retry}, Subs, Dialog, Call),
-    store(Subs#subscription{status={terminated, Reason, Retry}}, Dialog, Call);
+    store(Subs#subscription{status={terminated, Reason}}, Dialog, Call);
 
 update(Status, Subs, Dialog, Call) ->
     ?call_warning("Unknown event status: ~p", [Status], Call),
-    update({terminated, {code, 500}, undefined}, Subs, Dialog, Call).
+    store(Subs, Dialog, Call).
+    % update({terminated, {code, 500}, undefined}, Subs, Dialog, Call).
 
 
 %% @private. Create a provisional event and start timer N.
@@ -563,7 +565,7 @@ store(Subs, Dialog, Call) ->
     end,
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     case Status of
-        {terminated, _Reason, _Timeout} ->
+        {terminated, _Reason} ->
             ?call_debug("~s removing event ~s", [UA, Id], Call),
             Subscriptions1 = case IsFirst of
                 true -> Rest;

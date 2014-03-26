@@ -510,3 +510,319 @@ ruri_has_maddr(#sipmsg{
 %     end.
 
 
+% To include in the reply:
+% allow, supported for Code>100 and INVITE, UPDATE, SUBSCRIBE or REFER
+% timestamp for Code>100
+
+
+
+
+
+
+
+% %% @private
+% -spec make(nksip:request(), nksip:response_code(),
+%            nksip_lib:proplist(), nksip_lib:proplist()) -> 
+%     {ok, nksip:response(), nksip_lib:proplist()} | {error, term()}.
+
+% parse_opts(Req, Code, Opts, Config) ->
+%   #sipmsg{
+%         class = {req, Method},
+%         ruri = RUri,
+%         vias = [LastVia|_] = Vias,
+%         cseq = {CseqNum, _},
+%         to = {#uri{ext_opts=ExtOpts}=To, ToTag},
+%         to_tag_candidate = NewToTag
+%     } = Req, 
+%     % Transport is copied to the response
+%     RespVias = case Code of
+%         100 -> [LastVia];
+%         _ -> Vias
+%     end,
+%     {To1, ToTag1} = case ToTag of
+%         <<>> -> To#uri{ext_opts=[{<<"tag">>, NewToTag}|ExtOpts]}, NewToTag};
+%         _ -> {To, ToTag}
+%     end,
+%     Resp1 = Req#sipmsg{
+%         id = nksip_lib:uid(),
+%         class = {resp, Code, ReasonPhrase},
+%         vias = RespVias,
+%         to = {To1, ToTag1},
+%         forwards = 70,
+%         cseq = {CSeqNum, Method},
+%         routes = [],
+%         contacts = [],
+%         headers = [],
+%         content_type = undefined,
+%         supported = [],
+%         require = [],
+%         expires = undefined,
+%         event = undefined,
+%         headers = [],
+%         body = <<>>
+%     },
+%     try parse_opts(Opts, Resp, [], Req, Code, Config) of
+%         {Resp2, RespOpts} -> {ok, Resp2, RespOpts}
+%     catch
+%         throw:Throw -> {error, Throw}
+%     end.
+
+
+
+
+
+
+
+% %% @private
+% -spec make(nksip_lib:proplist(), nksip:respponse(), nksip_lib:proplist(),
+%            nksip:request(), nksip:response_code(), nksip_lib:proplist()) -> 
+%     {nksip:response(), nksip_lib:proplist()}.
+
+% parse_opts([], Resp, Opts, _Req, _Code, _Config) ->
+%     {Resp, Opts};
+
+
+% parse_opts([Term|Rest], Resp, Opts, Req, Code, Config) ->
+%     case Term of
+    
+%         timestamp ->
+%             case nksip_sipmsg:header(Req, <<"timestamp">>, integers) of
+%                 [Time] -> {replace, <<"timestamp">>, Time};
+%                 _Config -> ignore
+%             end;
+
+%         www_auth
+
+
+%                     _ -> none
+%                 end;
+%             _ ->
+%                 none
+%         end,
+%         case nksip_lib:get_value(make_www_auth, Opts) of
+%             undefined -> 
+%                 none;
+%             from -> 
+%                 {multi, <<"www-authenticate">>, 
+%                     nksip_auth:make_response(FromDomain, Req)};
+%             Realm -> 
+%                 {multi, <<"www-authenticate">>, 
+%                     nksip_auth:make_response(Realm, Req)}
+%         end,
+%         case nksip_lib:get_value(make_proxy_auth, Opts) of
+%             undefined -> 
+%                 none;
+%             from -> 
+%                 {multi, <<"proxy-authenticate">>,
+%                     nksip_auth:make_response(FromDomain, Req)};
+%             Realm -> 
+%                 {multi, <<"proxy-authenticate">>,
+%                     nksip_auth:make_response(Realm, Req)}
+%         end,
+%         case MakeAllow of
+%             true -> 
+%                 Allow = case lists:member(registrar, AppOpts) of
+%                     true -> <<(?ALLOW)/binary, ",REGISTER">>;
+%                     false -> ?ALLOW
+%                 end,
+%                 {default_single, <<"allow">>, Allow};
+%             false -> 
+%                 none
+%         end,
+%         case lists:member(accept, Opts) of
+%             true -> 
+%                 Accept = nksip_lib:get_value(accept, AppOpts, ?ACCEPT),
+%                 {default_single, <<"accept">>, nksip_unparse:token(Accept)};
+%             false -> 
+%                 none
+%         end,
+%         case lists:member(date, Opts) of
+%             true -> {default_single, <<"date">>, nksip_lib:to_binary(
+%                                                 httpd_util:rfc1123_date())};
+%             false -> none
+%         end,
+%         % Copy Record-Route from Request
+%         if
+%             Code>100 andalso Code<300 andalso
+%             (Method=='INVITE' orelse Method=='NOTIFY') ->
+%                 {multi, <<"record-route">>, 
+%                         proplists:get_all_values(<<"record-route">>, ReqHeaders)};
+%             true ->
+%                 none
+%         end,
+%         % Copy Path from Request
+%         case Code>=200 andalso Code<300 andalso Method=='REGISTER' of
+%             true ->
+%                 {multi, <<"path">>, 
+%                         proplists:get_all_values(<<"path">>, ReqHeaders)};
+%             false ->
+%                  none
+%         end,
+%         case nksip_lib:get_value(reason, Opts) of
+%             undefined ->
+%                 [];
+%             Reason1 ->
+%                 case nksip_unparse:error_reason(Reason1) of
+%                     error -> throw(invalid_reason);
+%                     Reason2 -> {default_single, <<"reason">>, Reason2}
+%                 end
+%         end,
+%         case 
+%             Code>=200 andalso Code<300 andalso Method=='REGISTER' andalso
+%             nksip_lib:get_value(service_route, Opts, false) 
+%         of
+%             false ->
+%                 [];
+%             ServiceRoute1 ->
+%                 case nksip_parse:uris(ServiceRoute1) of
+%                     error -> throw(invalid_service_route);
+%                     ServiceRoute2 -> {default_single, <<"service-route">>, ServiceRoute2}
+%                 end
+%         end
+%     ],
+%     RespHeaders = nksip_headers:update(Headers, HeaderOps),
+%     % Get To1 and ToTag1 
+%     % If to_tag is present in Opts, it takes priority. Used by proxy server
+%     % when it generates a 408 response after a remote party has already sent a 
+%     % response
+%     case nksip_lib:get_binary(to_tag, Opts) of
+%         _ when Code < 101 ->
+%             ToTag1 = <<>>,
+%             ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
+%             To1 = To#uri{ext_opts=ToOpts1};
+%         <<>> ->
+%             % To tag is not forced
+%             case ToTag of
+%                 <<>> ->
+%                     % The request has no previous To tag
+%                     case ToTagCandidate of
+%                         <<>> ->
+%                             ToTag1 = nksip_lib:hash(make_ref()),
+%                             To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|To#uri.ext_opts]};
+%                         ToTag1 ->
+%                             % We have prepared a To tag in preprocess/2
+%                             To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|To#uri.ext_opts]}
+%                     end;
+%                 _ ->
+%                     % The request already has a To tag
+%                     To1 = To,
+%                     ToTag1 = ToTag
+%             end;
+%         ToTag1 ->
+%             ToOpts1 = lists:keydelete(<<"tag">>, 1, To#uri.ext_opts),
+%             To1 = To#uri{ext_opts=[{<<"tag">>, ToTag1}|ToOpts1]}
+%     end,
+%     RespContentType = case nksip_lib:get_binary(content_type, Opts) of
+%         <<>> when is_record(Body, sdp) -> 
+%             {<<"application/sdp">>, []};
+%         <<>> when not is_binary(Body) -> 
+%             {<<"application/nksip.ebf.base64">>, []};
+%         <<>> -> 
+%             undefined;
+%         ContentTypeSpec -> 
+%             case nksip_parse:tokens(ContentTypeSpec) of
+%                 [ContentTypeToken] -> ContentTypeToken;
+%                 error -> throw(invalid_content_type)
+%             end
+%     end,
+%     RespSupported = case MakeSupported of
+%         true -> nksip_lib:get_value(supported, AppOpts, ?SUPPORTED);
+%         false -> []
+%     end,
+%     RespRequire1 = case nksip_lib:get_value(require, Opts) of
+%         undefined -> 
+%             [];
+%         RR1 ->
+%             case nksip_parse:tokens(RR1) of
+%                 error -> throw(invalid_require);
+%                 RR2 -> [T || {T, _}<-RR2]
+%             end
+%     end,
+%     Reliable = case Method=='INVITE' andalso Code>100 andalso Code<200 of
+%         true ->
+%             case lists:member(<<"100rel">>, ReqRequire) of
+%                 true ->
+%                     true;
+%                 false ->
+%                     case lists:member(<<"100rel">>, ReqSupported) of
+%                         true -> lists:member(make_100rel, Opts);
+%                         false -> false
+%                     end
+%             end;
+%         false ->
+%             false
+%     end,
+%     RespRequire2 = case Reliable of
+%         true -> [<<"100rel">>|RespRequire1];
+%         false -> RespRequire1
+%     end,
+%     Secure = case RUri#uri.scheme of
+%         sips ->
+%             true;
+%         _ ->
+%             case ReqRoutes of
+%                 [#uri{scheme=sips}|_] -> 
+%                     true;
+%                 [] ->
+%                     case ReqContacts of
+%                         [#uri{scheme=sips}|_] -> true;
+%                         _ -> false
+%                     end;
+%                 _ ->
+%                     false
+%             end
+%     end,
+%     ReasonPhrase = nksip_lib:get_binary(reason_phrase, Opts),
+%     RespContacts = case nksip_lib:get_value(contact, Opts) of
+%         undefined ->
+%             [];
+%         RespContacts0 ->
+%             case nksip_parse:uris(RespContacts0) of
+%                 error -> throw(invalid_contact);
+%                 RespContacts1 -> RespContacts1
+%             end
+%     end,
+%     Expires = case nksip_lib:get_value(expires, Opts) of
+%         OptExpires when is_integer(OptExpires), OptExpires>=0 -> 
+%             case Method of 
+%                 'SUBSCRIBE' when is_integer(ReqExpires), Code>=200, Code<300 -> 
+%                     min(ReqExpires, OptExpires);
+%                _ ->
+%                     OptExpires
+%             end;
+%         _ when Method=='SUBSCRIBE', is_integer(ReqExpires), Code>=200, Code<300 -> 
+%             ReqExpires;
+%         _ when Method=='SUBSCRIBE' ->
+%             ?DEFAULT_EVENT_EXPIRES;
+%         _ ->
+%             undefined
+%     end,
+%     Event = case 
+%         Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse Method=='PUBLISH'
+%     of
+%         true -> Req#sipmsg.event;
+%         _ -> undefined
+%     end,
+   
+%     SendOpts = lists:flatten([
+%         case lists:member(contact, Opts) of
+%             true when Code>100 -> 
+%                 contact;
+%             false when Code>100 andalso 
+%                 RespContacts==[] andalso
+%                 (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse 
+%                  Method=='REFER') ->
+%                 contact;
+%             _ -> 
+%                 []
+%         end,
+%         case Secure of
+%             true -> secure;
+%             _ -> []
+%         end,
+%         case Reliable of
+%             true -> make_rseq;
+%             false -> []
+%         end
+%     ]),
+%     {ok, Resp, SendOpts}.

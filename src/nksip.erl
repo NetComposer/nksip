@@ -138,7 +138,7 @@
 -type tag() :: binary().
 
 %% SIP Message body
--type body() :: binary() | nksip_sdp:sdp().
+-type body() :: binary() | string() | nksip_sdp:sdp() | term().
 
 %% Uri Set used to order proxies
 -type uri_set() :: nksip:user_uri() | [nksip:user_uri() | [nksip:user_uri()]].

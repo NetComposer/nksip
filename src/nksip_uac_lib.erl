@@ -281,7 +281,7 @@ is_stateless(Resp, GlobalId) ->
 %% @private
 -spec parse_opts(nksip_lib:proplist(), nksip:request(), 
             nksip_lib:proplist(), nksip_lib:proplist()) ->
-    {nksip_lib:proplist(), nksip:request()}.
+    {nksip:request(), nksip_lib:proplist()}.
 
 
 parse_opts([], Req, Opts, _Config) ->

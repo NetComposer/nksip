@@ -322,7 +322,7 @@ check_gruu(Req, AppOpts) ->
 
 
 %% @private
--spec process(nksip:request(), nksip_lib:prolist()) ->
+-spec process(nksip:request(), nksip_lib:proplist()) ->
     ok.
 
 process(Req, Opts) ->

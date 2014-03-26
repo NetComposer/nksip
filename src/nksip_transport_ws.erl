@@ -97,7 +97,7 @@ connect(AppId, Transp, Opts) ->
             ok -> ok;
             {error, Error2} -> throw(Error2)
         end,
-        ?debug(AppId, "Sent ws hanshake: ~s", [print_headers(list_to_binary(Data1))]),
+        ?debug(AppId, "Sent ws hanshake: ~s", [print_headers(Data1)]),
         case TranspMod:recv(Socket, 0, 5000) of
             {ok, Data2} ->
                 ?debug(AppId, "Received ws reply: ~s", [print_headers(Data2)]),

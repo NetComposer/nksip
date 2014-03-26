@@ -334,7 +334,7 @@ serialize(#sipmsg{
         }) ->
     Body1 = case Body of
         _ when is_binary(Body) -> Body;
-        [F|_] when is_integer(F) -> list_to_binary(F); 
+        [F|_]=Body when is_integer(F) -> Body; 
         #sdp{} -> nksip_sdp:unparse(Body);
         _ -> base64:encode(term_to_binary(Body))
     end,
