@@ -42,7 +42,10 @@ tokens(Bin) when is_binary(Bin) ->
     tokens(binary_to_list(Bin));
 
 tokens(String) when is_list(String) ->
-    tokens(strip(String), []).
+    tokens(strip(String), []);
+
+tokens(_) ->
+    error.
 
 
 %% ===================================================================
