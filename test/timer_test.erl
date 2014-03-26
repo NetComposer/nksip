@@ -99,7 +99,7 @@ basic() ->
     RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     % C2 has a min_session_expires of 2
-    {error, {invalid_option, session_expires}} = 
+    {error, {invalid, session_expires}} = 
         nksip_uac:invite(C2, "sip:any", [{session_expires, 1}]),
 
     % C1 sends a INVITE to C2, with session_expires=1
@@ -119,7 +119,7 @@ basic() ->
     CallId1 = nksip_dialog:call_id(Dialog1A),
     CSeq1 = receive 
         {Ref, #sipmsg{cseq={CSeq1_0, _}, headers=Headers1, call_id=CallId1}} ->
-            <<"1">> = proplists:get_value(<<"session-expires">>, Headers1),
+            1 = proplists:get_value(<<"session-expires">>, Headers1),
             undefined = proplists:get_value(<<"min-sE">>, Headers1),
             CSeq1_0
     after 1000 ->
@@ -212,8 +212,8 @@ basic() ->
 
     receive 
         {Ref, #sipmsg{headers=Headers3}} ->
-            <<"2;refresher=uas">> = proplists:get_value(<<"session-expires">>, Headers3),
-            <<"2">> = proplists:get_value(<<"min-se">>, Headers3)
+            {2, [{<<"refresher">>, uas}]} = proplists:get_value(<<"session-expires">>, Headers3),
+            2 = proplists:get_value(<<"min-se">>, Headers3)
     after 1000 ->
         error(basic)
     end,
@@ -236,7 +236,7 @@ basic() ->
     
     % Now C1 send no Session-Expires, but C2 insists, using default time
     % (and changing roles again)
-    {ok, 200, []} = nksip_uac:update(C1, Dialog1A, [{session_expires, 0}]),
+    {ok, 200, []} = nksip_uac:update(C1, Dialog1A, [{replace, session_expires, <<>>}]),
     1800 = nksip_dialog:field(C1, Dialog1A, invite_session_expires),
     undefined = nksip_dialog:field(C1, Dialog1A, invite_refresh),
     1800 = nksip_dialog:field(C2, Dialog1B, invite_session_expires),
@@ -283,7 +283,7 @@ proxy() ->
     CallId1 = nksip_dialog:call_id(Dialog1A),
     receive 
         {Ref, #sipmsg{headers=Headers1, call_id=CallId1}} ->
-            <<"1">> = proplists:get_value(<<"session-expires">>, Headers1),
+            1 = proplists:get_value(<<"session-expires">>, Headers1),
             undefined = proplists:get_value(<<"min-se">>, Headers1)
     after 1000 ->
         error(basic)
@@ -348,7 +348,7 @@ proxy() ->
     {ok, 200, [{dialog_id, Dialog3A}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}, 
                {parsed_require, []}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5072", 
-            [{session_expires, 0}, {supported, "100rel,path"}, 
+            [{replace, session_expires, <<>>}, {supported, "100rel,path"}, 
              {meta, [<<"session-expires">>, parsed_require]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
             ]),
@@ -389,7 +389,7 @@ proxy() ->
     {ok, 200, [{dialog_id, Dialog5A}, {<<"session-expires">>,[]}, 
                {parsed_require, []}]} = 
         nksip_uac:invite(C1, "sip:127.0.0.1:5073", 
-            [{session_expires, 0}, {supported, "100rel,path"}, 
+            [{replace, session_expires, <<>>}, {supported, "100rel,path"}, 
              {meta, [<<"session-expires">>, parsed_require]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
             ]),

@@ -310,28 +310,33 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
 
         % Special parameters
         to_as_from ->
-            case [true || {from, _} <- Rest] of
-                [] -> 
+            case lists:keymember(from, 1, Rest) of
+                false ->
                     #sipmsg{from={From, _}} = Req,
                     {replace, <<"To">>, From#uri{ext_opts=[]}};
                 _ ->
                     move_to_last
             end;
         {body, Body} ->
-            ContentType = case Req#sipmsg.content_type of
-                undefined when is_binary(Body) -> undefined;
-                undefined when is_list(Body), is_integer(hd(Body)) -> undefined;
-                undefined when is_record(Body, sdp) -> <<"application/sdp">>;
-                undefined -> <<"application/nksip.ebf.base64">>;
-                CT0 -> CT0
-            end,
-            {update_req, Req#sipmsg{body=Body, content_type=ContentType}};
+            case lists:keymember(content_type, 1, Rest) of
+                false ->
+                    ContentType = case Req#sipmsg.content_type of
+                        undefined when is_binary(Body) -> undefined;
+                        undefined when is_list(Body), is_integer(hd(Body)) -> undefined;
+                        undefined when is_record(Body, sdp) -> <<"application/sdp">>;
+                        undefined -> <<"application/nksip.ebf.base64">>;
+                        CT0 -> CT0
+                    end,
+                    {update_req, Req#sipmsg{body=Body, content_type=ContentType}};
+                true ->
+                    move_to_last
+            end;
         {cseq_num, CSeq} when is_integer(CSeq), CSeq>0, CSeq<4294967296 ->
             #sipmsg{cseq={_, CSeqMethod}} = Req,
             {update_req, Req#sipmsg{cseq={CSeq, CSeqMethod}}};
         {min_cseq, MinCSeq} ->
-            case [true || {cseq_num, _} <- Rest] of
-                [] -> 
+            case lists:keymember(cseq_num, 1, Rest) of
+                false -> 
                     #sipmsg{cseq={OldCSeq, CSeqMethod}} =Req,
                     case is_integer(MinCSeq) of
                         true when MinCSeq > OldCSeq -> 
@@ -341,7 +346,7 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
                         false -> 
                             throw({invalid, min_cseq})
                     end;
-                _ ->
+                true ->
                     move_to_last
             end;
 
@@ -448,11 +453,10 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         {sip_etag, ETag} ->
             {replace, <<"sip-etag">>, nksip_lib:to_binary(ETag)};
 
-
         {Name, _} ->
-            throw({invalid_option, Name});
+            throw({invalid, Name});
         _ ->
-            throw({invalid_option, Term})
+            throw({invalid, Term})
     end,
     case Op of
         {add, Name1, Value1} ->
