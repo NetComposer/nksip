@@ -292,7 +292,7 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
     Op = case Term of
         
         ignore ->
-            {update_req, Req};
+            ignore;
 
         % Header manipulation
         {add, Name, Value} -> {add, Name, Value};
@@ -302,11 +302,11 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         {insert, Name, Value} -> {insert, Name, Value};
         {insert, {Name, Value}} -> {insert, Name, Value};
 
-        {Header, Value} when Header==from; Header==to; Header==call_id;
-                             Header==content_type; Header==require; Header==supported; 
-                             Header==expires; Header==contact; Header==route; 
-                             Header==reason; Header==event ->
-            {replace, Header, Value};
+        {Name, Value} when Name==from; Name==to; Name==call_id;
+                           Name==content_type; Name==require; Name==supported; 
+                           Name==expires; Name==contact; Name==route; 
+                           Name==reason; Name==event ->
+            {replace, Name, Value};
 
         % Special parameters
         to_as_from ->
@@ -327,22 +327,22 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
                         undefined -> <<"application/nksip.ebf.base64">>;
                         CT0 -> CT0
                     end,
-                    {update_req, Req#sipmsg{body=Body, content_type=ContentType}};
+                    {update, Req#sipmsg{body=Body, content_type=ContentType}, Opts};
                 true ->
                     move_to_last
             end;
         {cseq_num, CSeq} when is_integer(CSeq), CSeq>0, CSeq<4294967296 ->
             #sipmsg{cseq={_, CSeqMethod}} = Req,
-            {update_req, Req#sipmsg{cseq={CSeq, CSeqMethod}}};
+            {update, Req#sipmsg{cseq={CSeq, CSeqMethod}}, Opts};
         {min_cseq, MinCSeq} ->
             case lists:keymember(cseq_num, 1, Rest) of
                 false -> 
                     #sipmsg{cseq={OldCSeq, CSeqMethod}} =Req,
                     case is_integer(MinCSeq) of
                         true when MinCSeq > OldCSeq -> 
-                            {update_req, Req#sipmsg{cseq={MinCSeq, CSeqMethod}}};
+                            {update, Req#sipmsg{cseq={MinCSeq, CSeqMethod}}, Opts};
                         true -> 
-                            {update_req, Req};
+                            ignore;
                         false -> 
                             throw({invalid, min_cseq})
                     end;
@@ -351,33 +351,33 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
             end;
 
         %% Pass-through options
-        Opt when Opt==contact; Opt==record_route; Opt==path; Opt==get_request;
-                 Opt==get_response; Opt==auto_2xx_ack; Opt==async; Opt==no_100;
-                 Opt==stateless; Opt==no_dialog; Opt==no_auto_expire;
-                 Opt==follow_redirects ->
-            {update_opts, [Opt|Opts]};
-        {Opt, Value} when Opt==pass; Opt==record_flow; Opt==route_flow ->
-            {update_opts, [{Opt, Value}|Opts]};
+        _ when Term==contact; Term==record_route; Term==path; Term==get_request;
+               Term==get_response; Term==auto_2xx_ack; Term==async; Term==no_100;
+               Term==stateless; Term==no_dialog; Term==no_auto_expire;
+               Term==follow_redirects ->
+            {update, Req, [Term|Opts]};
+        {Name, Value} when Name==pass; Name==record_flow; Name==route_flow ->
+            {update, Req, [{Name, Value}|Opts]};
         {meta, List} when is_list(List) ->
-            {update_opts, [{meta,List}|Opts]};
+            {update, Req, [{meta,List}|Opts]};
         {local_host, Host} ->
-            {update_opts, [{local_host, nksip_lib:to_host(Host)}|Opts]};
+            {update, Req, [{local_host, nksip_lib:to_host(Host)}|Opts]};
         {local_host6, Host} ->
             case nksip_lib:to_ip(Host) of
                 {ok, HostIp6} -> 
                     % Ensure it is enclosed in `[]'
-                    {update_opts, [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts]};
+                    {update, Req, [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts]};
                 error -> 
-                    {update_opts, [{local_host6, nksip_lib:to_binary(Host)}|Opts]}
+                    {update, Req, [{local_host6, nksip_lib:to_binary(Host)}|Opts]}
             end;
         {callback, Fun} when is_function(Fun, 1) ->
-            {update_opts, [{callback, Fun}|Opts]};
+            {update, Req, [{callback, Fun}|Opts]};
         {prack_callback, Fun} when is_function(Fun, 2) ->
-            {update_opts, [{prack_callback, Fun}|Opts]};
+            {update, Req, [{prack_callback, Fun}|Opts]};
         {reg_id, RegId} when is_integer(RegId), RegId>0 ->
-            {update_opts, [{reg_id, RegId}|Opts]};
+            {update, Req, [{reg_id, RegId}|Opts]};
         {refer_subscription_id, Refer} when is_binary(Refer) ->
-            {update_opts, [{refer_subscription_id, Refer}|Opts]};
+            {update, Req, [{refer_subscription_id, Refer}|Opts]};
 
         %% Automatic header generation (replace existing headers)
         user_agent ->
@@ -386,27 +386,32 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
             Supported = nksip_lib:get_value(supported, Config, ?SUPPORTED),
             {replace, <<"supported">>, Supported};
         allow ->        
-            DefAllow = case lists:member(registrar, Config) of
-                true -> <<(?ALLOW)/binary, ",REGISTER">>;
-                false -> ?ALLOW
+            Allow = case nksip_lib:get_value(allow, Config) of
+                undefined ->
+                    case lists:member(registrar, Config) of
+                        true -> <<(?ALLOW)/binary, ",REGISTER">>;
+                        false -> ?ALLOW
+                    end;
+                Allow0 ->
+                    Allow0
             end,
-            Allow = nksip_lib:get_value(allow, Config, DefAllow),
             {replace, <<"allow">>, Allow};
         accept ->
-            DefAccept = if
-                Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
+            Accept = case nksip_lib:get_value(accept, Config) of
+                undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
-                true -> 
-                    ?ACCEPT
-            end,
-            Accept = nksip_lib:get_value(accept, Config, DefAccept),
+                undefined ->
+                    ?ACCEPT;
+                Accept0 ->
+                    Accept0
+            end, 
             {replace, <<"accept">>, Accept};
         date ->
             Date = nksip_lib:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
             case nksip_lib:get_value(events, Config) of
-                undefined -> {update_req, Req};
+                undefined -> ignore;
                 Events -> {replace, <<"allow-event">>, Events}
             end;
 
@@ -459,26 +464,26 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
             throw({invalid, Term})
     end,
     case Op of
-        {add, Name1, Value1} ->
-            Name2 = nksip_parse_header:name(Name1), 
-            ReqP = nksip_parse_header:parse(Name2, Value1, Req, post),
-            parse_opts(Rest, ReqP, Opts, Config);
-        {replace, Name1, Value1} ->
-            Name2 = nksip_parse_header:name(Name1), 
-            ReqP = nksip_parse_header:parse(Name2, Value1, Req, replace),
-            parse_opts(Rest, ReqP, Opts, Config);
-        {insert, Name1, Value1} ->
-            Name2 = nksip_parse_header:name(Name1), 
-            ReqP = nksip_parse_header:parse(Name2, Value1, Req, pre),
-            parse_opts(Rest, ReqP, Opts, Config);
-        {update_req, ReqP} -> 
-            parse_opts(Rest, ReqP, Opts, Config);
-        {update_opts, Opts1} -> 
-            parse_opts(Rest, Req, Opts1, Config);
-        {retry, Term1} ->
-            parse_opts([Term1|Rest], Req, Opts, Config);
+        {add, AddName, AddValue} ->
+            PName = nksip_parse_header:name(AddName), 
+            PReq = nksip_parse_header:parse(PName, AddValue, Req, post),
+            parse_opts(Rest, PReq, Opts, Config);
+        {replace, RepName, RepValue} ->
+            PName = nksip_parse_header:name(RepName), 
+            PReq = nksip_parse_header:parse(PName, RepValue, Req, replace),
+            parse_opts(Rest, PReq, Opts, Config);
+        {insert, InsName, InsValue} ->
+            PName = nksip_parse_header:name(InsName), 
+            PReq = nksip_parse_header:parse(PName, InsValue, Req, pre),
+            parse_opts(Rest, PReq, Opts, Config);
+        {update, UpdReq, UpdOpts} -> 
+            parse_opts(Rest, UpdReq, UpdOpts, Config);
+        {retry, RetTerm} ->
+            parse_opts([RetTerm|Rest], Req, Opts, Config);
         move_to_last ->
-            parse_opts(Rest++[Term], Req, Opts, Config)
+            parse_opts(Rest++[Term], Req, Opts, Config);
+        ignore ->
+            parse_opts(Rest, Req, Opts, Config)
     end.
 
 

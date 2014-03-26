@@ -149,10 +149,10 @@
 %%      <i>Contact</i>, <i>Record-Route</i>, etc.</li>
 %%  <li>`{contact, [nksip:user_uri()]}': adds one or more `Contact' headers.</li>
 %%  <li>`{reason_phrase, Text::binary()}': changes the default response line to `Text'.</li>
-%%  <li>`{make_www_auth, Realm::from|binary()}': a <i>WWW-Authenticate</i>
+%%  <li>`{www_authenticate, Realm::from|binary()}': a <i>WWW-Authenticate</i>
 %%       header will be generated for this `Realm' (see 
 %%       {@link nksip_auth:make_response/2}).</li>
-%%  <li>`{make_proxy_auth, Realm::from|binary()}': a <i>Proxy-Authenticate</i> will be 
+%%  <li>`{proxy_authenticate, Realm::from|binary()}': a <i>Proxy-Authenticate</i> will be 
 %%       generated for this `Realm'.</li>
 %%  <li>`{expires, non_neg_integer()': generates a <i>Event</i> header.</li>
 %%  <li><code>{reason, {@link nksip:error_reason()}}</code>: 
@@ -264,17 +264,17 @@ reqreply(ringing) ->
 reqreply({ringing, Body}) ->
     #reqreply{code=180, body=Body};
 reqreply(rel_ringing) ->
-    #reqreply{code=180, opts=[make_100rel]};
+    #reqreply{code=180, opts=[do100rel]};
 reqreply({rel_ringing, Body}) ->
-    #reqreply{code=180, body=Body, opts=[make_100rel]};
+    #reqreply{code=180, body=Body, opts=[do100rel]};
 reqreply(session_progress) ->
     #reqreply{code=183};
 reqreply({session_progress, Body}) ->
     #reqreply{code=183, body=Body};
 reqreply(rel_session_progress) ->
-    #reqreply{code=183, opts=[make_100rel]};
+    #reqreply{code=183, opts=[do100rel]};
 reqreply({rel_session_progress, Body}) ->
-    #reqreply{code=183, body=Body, opts=[make_100rel]};
+    #reqreply{code=183, body=Body, opts=[do100rel]};
 reqreply(ok) ->
     #reqreply{code=200};
 reqreply({ok, Headers}) ->
@@ -313,9 +313,9 @@ reqreply(invalid_request) ->
 reqreply({invalid_request, Text}) ->
     helper_debug(#reqreply{code=400}, Text);
 reqreply(authenticate) ->
-    #reqreply{code=401, opts=[allow, {make_www_auth, from}]};
+    #reqreply{code=401, opts=[allow, {www_authenticate, from}]};
 reqreply({authenticate, Realm}) ->
-    #reqreply{code=401, opts=[allow, {make_www_auth, Realm}]};
+    #reqreply{code=401, opts=[allow, {www_authenticate, Realm}]};
 reqreply(forbidden) ->
     #reqreply{code=403};
 reqreply({forbidden, Text}) -> 
@@ -331,9 +331,9 @@ reqreply({method_not_allowed, Methods}) ->
         headers = nksip_headers:new([{single, <<"allow">>, Methods1}])
     };
 reqreply(proxy_authenticate) ->
-    #reqreply{code=407, opts=[allow, {make_proxy_auth, from}]};
+    #reqreply{code=407, opts=[allow, {proxy_authenticate, from}]};
 reqreply({proxy_authenticate, Realm}) ->
-    #reqreply{code=407, opts=[allow, {make_proxy_auth, Realm}]};
+    #reqreply{code=407, opts=[allow, {proxy_authenticate, Realm}]};
 reqreply(timeout) ->
     #reqreply{code=408};
 reqreply({timeout, Text}) ->
