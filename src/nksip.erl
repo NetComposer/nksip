@@ -519,10 +519,6 @@ parse_opts([Term|Rest], Opts) ->
                 Tokens -> [{events, [T||{T, _}<-Tokens]}|Opts]
             end;
         
-        % TODO: Integrate in config
-        {min_session_expires, MinSE} when is_integer(MinSE), MinSE > 0 ->
-            [{min_session_expires, MinSE}|Opts];
-
         % Default headers and options
         {from, From} ->
             case nksip_parse:uris(From) of
@@ -550,8 +546,11 @@ parse_opts([Term|Rest], Opts) ->
             [no_100|Opts];
 
         % Unknown options
-        {Name, _Value} ->
-            throw({invalid, Name});
+        {Name, Value} ->
+            case nksip_config:parse_config(Name, Value) of
+                {ok, Value1} -> [{Name, Value1}|Opts];
+                {error, _Error} -> throw({invalid, Name})
+            end;
         Name ->
             throw({invalid, Name})
     end,

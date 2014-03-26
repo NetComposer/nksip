@@ -71,7 +71,7 @@
 -include("nksip.hrl").
 
 -export([get/1, get/2, put/2, del/1, cseq/0, increment/2]).
--export([get_cached/2, get_cached/3]).
+-export([get_cached/2, get_cached/3, parse_config/1, parse_config/2]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
 
@@ -79,6 +79,7 @@
 
 -define(MINUS_CSEQ, 46111468).  % Lower values to debug
 
+-compile([export_all]).
 
 %% ===================================================================
 %% Public
@@ -184,7 +185,7 @@ default_config() ->
         {max_calls, 100000},                % Each Call-ID counts as a call
         {max_connections, 1024},            % Per transport and SipApp
         {registrar_default_time, 3600},     % (secs) 1 hour
-        {registrar_min_time, 60},           % (secs) 1 min
+        {registrar_min_time, 60},           % (secs) 1 miluen
         {registrar_max_time, 86400},        % (secs) 24 hour
         {dns_cache_ttl, 3600},              % (secs) 1 hour
         {local_data_path, "log"},           % To store UUID
@@ -192,6 +193,26 @@ default_config() ->
         {outbound_time_any_ok, 90},         % (secs)
         {outbound_max_time, 1800}           % (secs)
     ].
+
+
+%% @doc Parses a list of options
+-spec parse_config(nksip_lib:proplist()) ->
+    {ok, nksip_lib:proplist()} | {error, term()}.
+
+parse_config(Opts) ->
+    parse_config_opts(Opts, []).
+
+
+%% @doc Parses a single config option
+-spec parse_config(atom(), term()) ->
+    {ok, term()} | {error, term()}.
+
+parse_config(Name, Value) ->
+    case parse_config_opts([{Name, Value}], []) of
+        {ok, [{_, Value1}]} -> {ok, Value1};
+        {error, Error} -> {error, Error}
+    end.
+
 
 
 %% ===================================================================
@@ -214,16 +235,24 @@ start_link() ->
 init([]) ->
     ets:new(?MODULE, [named_table, public, {read_concurrency, true}]),
     ?MODULE:put(current_cseq, nksip_lib:cseq()-?MINUS_CSEQ),
-    % Store config values in config table to speed access
-    lists:foreach(
+    Config = lists:map(
         fun({Key, Default}) ->
             case application:get_env(nksip, Key) of
-                {ok, Value} -> Value;
-                _ -> Value = Default
-            end,
-            nksip_config:put(Key, Value)
+                {ok, Value} -> {Key, Value};
+                _ -> {Key, Default}
+            end
         end,
         default_config()),
+    case parse_config(Config) of
+        {ok, Config1} ->
+            % Store config values in config table to speed access
+            lists:foreach(
+                fun({Key, Value}) -> nksip_config:put(Key, Value) end,
+                Config1);
+        {error, Error} ->
+            lager:error("Config error: ~p", [Error]),
+            error(config_error)
+    end,
     put(global_id, nksip_lib:luid()),
     put(local_ips, nksip_lib:get_local_ips()),
     put(main_ip, nksip_lib:find_main_ip()),
@@ -274,3 +303,82 @@ terminate(_Reason, _State) ->
 
 
 
+%% ===================================================================
+%% Private
+%% ===================================================================
+
+
+%% @private
+parse_config_opts([], Opts) ->
+    {ok, Opts};
+
+parse_config_opts([Term|Rest], Opts) ->
+    try 
+        Op = case Term of
+            {timer_t1, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<2500 ->
+                update;
+            {timer_t2, MSecs} when is_integer(MSecs), MSecs>=1000, MSecs=<16000 ->
+                update;
+            {timer_t4, MSecs} when is_integer(MSecs), MSecs>=1000, MSecs=<25000 ->
+                update;
+            {timer_c, Secs}  when is_integer(Secs), Secs>=5 ->
+                update;
+            {session_expires, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {min_session_expires, Secs} when is_integer(Secs), Secs>=1 ->
+                update;
+            {udp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {tcp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {sctp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {ws_timeout, Secs} when is_integer(Secs), Secs>=5 -> 
+                update;
+            {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {sipapp_timeout, Secs} when is_integer(Secs), Secs>=5, Secs=<180 ->
+                update;
+            {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
+                update;
+            {max_connections, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
+                update;
+            {registrar_default_time, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {registrar_min_time, Secs} when is_integer(Secs), Secs>=1 ->
+                update;
+            {registrar_max_time, Secs} when is_integer(Secs), Secs>=60 ->
+                update;
+            {dns_cache_ttl, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {local_data_path, Dir} when is_list(Dir) ->
+                Path = filename:join(Dir, "write_test"),
+                case file:write_file(Path, <<"test">>) of
+                   ok ->
+                        case file:delete(Path) of
+                            ok -> update;
+                            _ -> throw(invalid)
+                        end;
+                    _ ->
+                        throw(invalid)
+                end;
+            {outbound_time_all_fail, Secs} when is_integer(Secs), Secs>=1 ->
+                update;
+            {outbound_time_any_ok, Secs} when is_integer(Secs), Secs>=1 ->
+                update;
+            {outbound_max_time, Secs} when is_integer(Secs), Secs>=1 ->
+                update;
+            _ ->
+                throw(invalid)
+        end,
+        case Op of
+            update -> 
+                Opts1 = nksip_lib:store_value(Term, Opts),
+                parse_config_opts(Rest, Opts1)
+        end
+    catch
+        throw:invalid when is_tuple(Term) -> 
+            {error, {invalid, element(1, Term)}};
+        throw:invalid ->
+            {error, {invalid, Term}}
+    end.
