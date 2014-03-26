@@ -628,7 +628,7 @@ make(Req, Code, Opts, Config) ->
 
 
 %% @private
--spec parse_opts(nksip_lib:proplist(), nksip:respponse(), nksip_lib:proplist(),
+-spec parse_opts(nksip_lib:proplist(), nksip:response(), nksip_lib:proplist(),
                  nksip:request(), nksip:response_code(), nksip_lib:proplist()) -> 
     {nksip:response(), nksip_lib:proplist()}.
 
@@ -770,6 +770,8 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code, Config) ->
                 error -> throw({invalid, service_route});
                 Uris -> {replace, <<"service-route">>, Uris}
             end;
+        {service_route, _} ->
+            ignore;
 
         {Name, _} ->
             throw({invalid, Name});

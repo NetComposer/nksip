@@ -234,7 +234,7 @@ uas_update_timer(
                 uas -> <<"uas">>;
                 undefined -> <<"uas">>
             end,
-            SE_Token = {SE, [{<<"refresher">>, Refresh}]},
+            SE_Token = {nksip_lib:to_binary(SE), [{<<"refresher">>, Refresh}]},
             Headers1 = nksip_headers:update(Resp, 
                             [{default_single, <<"session-expires">>, SE_Token}]),
             % Add 'timer' to response's Require only if supported by uac
@@ -296,7 +296,7 @@ proxy_response(Req, Resp) ->
                 {ok, SE, _} ->
                     case nksip_sipmsg:supported(Req, <<"timer">>) of
                         true ->
-                            SE_Token = {SE, [{<<"refresher">>, <<"uac">>}]},
+                            SE_Token = {nksip_lib:to_binary(SE), [{<<"refresher">>, <<"uac">>}]},
                             Headers1 = nksip_headers:update(Resp, 
                                 [{single, <<"session-expires">>, SE_Token}]),
                             #sipmsg{require=Require} = Resp,
