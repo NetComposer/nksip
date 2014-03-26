@@ -101,7 +101,7 @@ reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 dialog({Resp, SendOpts}, #trans{request=Req}=UAS, Call) ->
     {Resp1, SendOpts1} = 
         nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
-    case lists:member(make_rseq, SendOpts1) of
+    case lists:member(rseq, SendOpts1) of
         true ->
             case check_prack(Resp1, UAS) of
                 {ok, Resp2, UAS1} ->
@@ -196,7 +196,7 @@ send({Resp, SendOpts}, UAS, Call) ->
             UAS3 = nksip_call_lib:timeout_timer(cancel, UAS2, Call),
             {UserReply, update(UAS3, Call3)};
         _ ->
-            Rel = lists:member(make_rseq, SendOpts),
+            Rel = lists:member(rseq, SendOpts),
             ?call_debug("UAS ~p ~p stateful reply ~p", [Id, Method, Code1], Call3),
             UAS2 = stateful_reply(Status, Code1, Rel, UAS1, Call3),
             {UserReply, update(UAS2, Call3)}

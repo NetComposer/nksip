@@ -116,7 +116,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`contact' when the request is INVITE and no `contact' option is present
 %%      or it is present in options</li>
 %%  <li>`secure' if request-uri, first route, or Contact (if no route), are `sips'</li>
-%%  <li>`make_rseq' must generate a RSeq header</li>
+%%  <li>`rseq' must generate a RSeq header</li>
 %% </ul>
 %%
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
@@ -416,7 +416,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
             _ -> []
         end,
         case Reliable of
-            true -> make_rseq;
+            true -> rseq;
             false -> []
         end
     ]),
