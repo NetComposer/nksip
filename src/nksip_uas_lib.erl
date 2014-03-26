@@ -94,7 +94,7 @@ preprocess(Req, GlobalId) ->
 %%  <li>`supported': Generates a Supported header</li>
 %%  <li>`accept': Generates an Accept header</li>
 %%  <li>`date': Generates a Date header</li>
-%%  <li>`make_100rel': If present a Require: 100rel header will be included</li>
+%%  <li>`do100rel': If present a Require: 100rel header will be included</li>
 %%  <li>`{expires, non_neg_integer()}: If present generates a Event header</li>
 %%  <li>`reason_phrase': Custom reason phrase</li>
 %%  <li>`to_tag': If present, it will override the To tag in the request</li>
@@ -139,6 +139,7 @@ response(Req, Code, Headers, Body, Opts, AppOpts) ->
     {ok, nksip:response(), nksip_lib:proplist()}.
 
 response2(Req, Code, Headers, Body, Opts, AppOpts) ->
+
     #sipmsg{
         class = {req, Method},
         ruri = RUri,
@@ -318,7 +319,7 @@ response2(Req, Code, Headers, Body, Opts, AppOpts) ->
                     true;
                 false ->
                     case lists:member(<<"100rel">>, ReqSupported) of
-                        true -> lists:member(make_100rel, Opts);
+                        true -> lists:member(do100rel, Opts);
                         false -> false
                     end
             end;

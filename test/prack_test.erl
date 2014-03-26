@@ -75,7 +75,7 @@ basic() ->
     Self = self(),
     CB = {callback, fun(Reply) -> Self ! {Ref, Reply} end},
 
-    % No make_100rel in call to invite, neither in app config
+    % No do100rel in call to invite, neither in app config
     Hd1 = {add, "x-nk-op", "prov-busy"},
     Fields1 = {meta, [parsed_supported, parsed_require]},
     {ok, 486, Values1} = nksip_uac:invite(C1, SipC2, [CB, get_request, Hd1, Fields1]),    [
