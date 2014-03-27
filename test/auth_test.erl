@@ -118,8 +118,7 @@ digest() ->
 
 invite() ->
     SipC3 = "sip:127.0.0.1:5072",
-    Ref = make_ref(),
-    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+    {Ref, RepHd} = tests_util:get_ref(),
 
     % client3 does not support dialog's authentication, only digest is used
     {ok, 401, [{cseq_num, CSeq}]} = 
@@ -154,8 +153,8 @@ invite() ->
 
 dialog() ->
     SipC2 = "sip:127.0.0.1:5071",
-    Ref = make_ref(),
-    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+    {Ref, RepHd} = tests_util:get_ref(),
+
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, SipC2, 
                                             [{pass, "1234"}, RepHd]),
     ok = nksip_uac:ack(client1, DialogId1, []),
@@ -188,8 +187,7 @@ dialog() ->
 
 proxy() ->
     S1 = "sip:127.0.0.1",
-    Ref = make_ref(),
-    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+    {Ref, RepHd} = tests_util:get_ref(),
 
     {ok, 407, []} = nksip_uac:register(client1, S1, []),
     {ok, 200, []} = nksip_uac:register(client1, S1, [{pass, "1234"}, unregister_all]),
@@ -344,15 +342,7 @@ route(_, _, _, _, _, State) ->
 
 
 invite(ReqId, Meta, _From, AppId=State) ->
-    DialogId = nksip_lib:get_value(dialog_id, Meta),
-    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
-        [RepBin] -> 
-            {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
-            {ok, Dialogs} = nksip:get(AppId, dialogs, []),
-            ok = nksip:put(AppId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
-        _ ->
-            ok
-    end,
+    tests_util:save_ref(AppId, ReqId, Meta),
     {reply, ok, State}.
 
 
@@ -360,33 +350,17 @@ reinvite(ReqId, Meta, From, State) ->
     invite(ReqId, Meta, From, State).
 
 
-ack(ReqId, Meta, _From, AppId=State) ->
-    DialogId = nksip_lib:get_value(dialog_id, Meta),
-    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
-    case lists:keyfind(DialogId, 1, Dialogs) of
-        false -> 
-            case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
-                [RepBin] -> 
-                    {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
-                    Pid ! {Ref, {AppId, ack}};
-                _ ->
-                    ok
-            end;
-        {DialogId, Ref, Pid} -> 
-            Pid ! {Ref, {AppId, ack}}
-    end,
+ack(_ReqId, Meta, _From, AppId=State) ->
+    tests_util:send_ref(AppId, Meta, ack),
     {reply, ok, State}.
 
 
 bye(_ReqId, Meta, _From, AppId=State) ->
-    DialogId = nksip_lib:get_value(dialog_id, Meta),
-    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
-    case lists:keyfind(DialogId, 1, Dialogs) of
-        false -> ok;
-        {DialogId, Ref, Pid} -> Pid ! {Ref, {AppId, bye}}
-    end,
+    tests_util:send_ref(AppId, Meta, bye),
     {reply, ok, State}.
 
+dialog_update(_DialogId, _Update, State) ->
+    {noreply, State}.
 
 
 

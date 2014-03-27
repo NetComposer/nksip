@@ -23,6 +23,7 @@
 -module(tests_util).
 
 -export([start_nksip/0, empty/0, wait/2, log/0, log/1]).
+-export([get_ref/0, save_ref/3, update_ref/3, send_ref/3, dialog_update/3]).
 
 -define(LOG_LEVEL, warning).    % Chage to info or notice to debug
 -define(WAIT_TIMEOUT, 10000).
@@ -63,6 +64,62 @@ log() ->
 
 log(Level) -> 
     lager:set_loglevel(lager_console_backend, Level).
+
+
+get_ref() ->
+    Ref = make_ref(),
+    Hd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, self()}))},
+    {Ref, Hd}.
+
+
+save_ref(AppId, ReqId, Meta) ->
+    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
+        [RepBin] -> 
+            {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+            {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+            DialogId = nksip_lib:get_value(dialog_id, Meta),
+            ok = nksip:put(AppId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
+        _ ->
+            ok
+    end.
+
+
+update_ref(AppId, Ref, DialogId) ->
+    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+    ok = nksip:put(AppId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
+
+
+send_ref(AppId, Meta, Msg) ->
+    DialogId = nksip_lib:get_value(dialog_id, Meta),
+    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        {DialogId, Ref, Pid}=_D -> 
+            % lager:warning("FOUND ~p, ~p", [AppId, D]),
+            Pid ! {Ref, {AppId, Msg}};
+        false ->
+            % lager:warning("NOT FOUND: ~p", [AppId]),
+            ok
+    end.
+
+dialog_update(DialogId, Update, AppId=State) ->
+    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        {DialogId, Ref, Pid} ->
+            case Update of
+                start -> ok;
+                target_update -> Pid ! {Ref, {AppId, target_update}};
+                {invite_status, confirmed} -> Pid ! {Ref, {AppId, dialog_confirmed}};
+                {invite_status, {stop, Reason}} -> Pid ! {Ref, {AppId, {dialog_stop, Reason}}};
+                {invite_status, _} -> ok;
+                {invite_refresh, SDP} -> Pid ! {Ref, {AppId, {refresh, SDP}}};
+                invite_timeout -> Pid ! {Ref, {AppId, timeout}};
+                {subscription_status, SubsId, Status} -> Pid ! {Ref, {subs, SubsId, Status}};
+                stop -> ok
+            end;
+        false -> 
+            none
+    end,
+    {noreply, State}.
 
 
 

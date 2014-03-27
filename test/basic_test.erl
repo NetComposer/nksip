@@ -262,6 +262,9 @@ route(_, _, _, _, _, State) ->
     {reply, process, State}.
 
 
+dialog_update(_DialogId, _Update, State) ->
+    {noreply, State}.
+
 
 handle_call(get_domains, _From, AppId=State) ->
     {ok, Domains} = nksip:get(AppId, domains),
