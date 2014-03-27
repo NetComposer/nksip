@@ -237,7 +237,7 @@ route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==server1 ->
                 [<<"reply-request">>] ->
                     Request = nksip_request:get_request(AppId, ReqId),
                     Body = base64:encode(term_to_binary(Request)),
-                    {reply, {200, [{body, Body}, contact]}, State};
+                    {reply, {ok, [{body, Body}, contact]}, State};
                 [<<"reply-stateless">>] ->
                     {reply, {response, ok, [stateless]}, State};
                 [<<"reply-stateful">>] ->

@@ -173,11 +173,17 @@ invite(ReqId, Meta, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
                             Code = 300,
                             nksip:reply(From, {redirect, Contacts});
                         Code when is_integer(Code) -> 
-                            nksip:reply(From, {Code, Hds});
+                            case Code of
+                                200 -> nksip:reply(From, {ok, Hds});
+                                _ -> nksip:reply(From, {Code, Hds})
+                            end;
                         {Code, Wait} when is_integer(Code), is_integer(Wait) ->
                             nksip_request:reply(AppId, ReqId, ringing),
                             timer:sleep(Wait),
-                            nksip:reply(From, {Code, Hds});
+                            case Code of
+                                200 -> nksip:reply(From, {ok, Hds});
+                                _ -> nksip:reply(From, {Code, Hds})
+                            end;
                         _ -> 
                             Code = 580,
                             nksip:reply(From, {580, Hds})
