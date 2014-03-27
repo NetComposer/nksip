@@ -376,12 +376,12 @@ init([AppId, Module, Args, Opts]) ->
     nksip_call_router:clear_app_cache(AppId),
     AppMod = binary_to_atom(nksip_lib:hash36(AppId), latin1),
     ets:new(AppMod, [named_table, public]),
-    case read_uuid(AppId) of
+    case read_uuid(AppMod) of
         {ok, UUID} ->
             ok;
         {error, Path} ->
             UUID = nksip_lib:uuid_4122(),
-            save_uuid(AppId, Path, UUID)
+            save_uuid(Path, AppId, UUID)
     end,
     nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
     State1 = #state{
@@ -620,10 +620,9 @@ mod_handle_info(Info, State = #state{module=Module, id=AppId}) ->
 
 
 %% @private
-read_uuid(AppId) ->
+read_uuid(AppMod) ->
     BasePath = nksip_config:get(local_data_path),
-    File = "uuid_"++integer_to_list(erlang:phash2(AppId)),
-    Path = filename:join(BasePath, File),
+    Path = filename:join(BasePath, "uuid_"++atom_to_list(AppMod)),
     case file:read_file(Path) of
         {ok, Binary} ->
             case binary:split(Binary, <<$,>>) of
@@ -635,7 +634,7 @@ read_uuid(AppId) ->
     end.
 
 %% @private
-save_uuid(AppId, Path, UUID) ->
+save_uuid(Path, AppId, UUID) ->
     Content = [UUID, $,, nksip_lib:to_binary(AppId)],
     case file:write_file(Path, Content) of
         ok ->
