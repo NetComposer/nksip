@@ -55,12 +55,12 @@ invite(Req, _Meta, From) ->
                 end),
             async;
         _ ->
-            {ok, [], nksip_sipmsg:field(Req, body)}
+            {answer, nksip_sipmsg:field(Req, body)}
     end.
 
 reinvite(Req, _Meta, _From) ->
     send_reply(Req, reinvite),
-    {ok, [], nksip_sipmsg:field(Req, body)}.
+    {answer, nksip_sipmsg:field(Req, body)}.
 
 cancel(Req, _Meta) ->
     send_reply(Req, cancel),
@@ -84,7 +84,7 @@ options(Req, _Meta, From) ->
         fun() ->
             [Server] = nksip_sipmsg:header(Req, <<"x-nk-id">>),
             {inline, Id} = nksip_sipmsg:field(Req, app_id),
-            Reply = {ok, [{<<"x-nk-id">>, nksip_lib:bjoin([Server, Id])}]},
+            Reply = {ok, [{add, "x-nk-id", nksip_lib:bjoin([Server, Id])}]},
             nksip:reply(From, Reply)
         end),
     async.

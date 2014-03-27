@@ -114,7 +114,7 @@ update(_ReqId, Meta, _From, #state{id=Id, dialogs=Dialogs}=State) ->
         #sdp{} = SDP -> nksip_sdp:increment(SDP);
         _ -> <<>>
     end,        
-    {reply, {ok, [], Body}, State}.
+    {reply, {answer, Body}, State}.
 
 
 dialog_update(DialogId, Update, State) ->

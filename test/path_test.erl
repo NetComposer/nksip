@@ -105,8 +105,9 @@ basic() ->
                          {meta, [<<"unsupported">>]}, {supported, ""}]),
 
 
-    {ok, 200, [{<<"path">>, [P1, P2]}]} = 
+    {ok, 200, [{<<"path">>, Path}]} = 
         nksip_uac:register(C1, "sip:nksip", [supported, contact, {meta, [<<"path">>]}]),
+    [P1, P2] = nksip_parse:uris(Path),
 
     [#reg_contact{
         contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},
@@ -118,9 +119,9 @@ basic() ->
         ]
     }] = nksip_registrar:get_info({path, registrar}, sip, <<"ua1">>, <<"nksip">>),
 
-    P1 = nksip_unparse:uri(P1Uri),
-    P2 = nksip_unparse:uri(P2Uri),
 
+    P1 = P1Uri,
+    P2 = P2Uri,
 
     % Now, if send a request to UA1, the registrar inserts the stored path
     % as routes, and requests pases throw P3, P1 and to UA1

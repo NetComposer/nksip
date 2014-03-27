@@ -46,7 +46,7 @@ start() ->
     nksip_config:put(nksip_store_timer, 200),
     nksip_config:put(nksip_sipapp_timer, 10000),
 
-    ok = sipapp_server:start({basic, server1}, [
+    ok = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         registrar,
         {supported, []},
@@ -56,7 +56,7 @@ start() ->
         ]}
     ]),
 
-    ok = sipapp_endpoint:start({basic, client1}, [
+    ok = nksip:start(client1, ?MODULE, client1, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {supported, []},
         {transports, [
@@ -65,7 +65,7 @@ start() ->
         ]}
     ]),
 
-    ok = sipapp_endpoint:start({basic, client2}, [
+    ok = nksip:start(client2, ?MODULE, client2, [
         {supported, []},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
@@ -75,37 +75,33 @@ start() ->
 
 stop() ->
     ok = nksip:stop_all(),
-    error = sipapp_server:stop({basic, server1}),
-    error = sipapp_endpoint:stop({basic, client1}),
-    error = sipapp_endpoint:stop({basic, client2}),
+    error = nksip:stop(server1),
+    error = nksip:stop(client1),
+    error = nksip:stop(client2),
     ok.
 
 
 running() ->
-    {error, already_started} = sipapp_server:start({basic, server1}, []),
-    {error, already_started} = sipapp_endpoint:start({basic, client1}, []),
-    {error, already_started} = sipapp_endpoint:start({basic, client2}, []),
-    [{basic, client1}, {basic, client2}, {basic, server1}] = 
-        lists:sort(nksip:get_all()),
+    {error, already_started} = nksip:start(server1, ?MODULE, server1, []),
+    {error, already_started} = nksip:start(client1, ?MODULE, client1, []),
+    {error, already_started} = nksip:start(client2, ?MODULE, client2, []),
+    [client1, client2, server1] = lists:sort(nksip:get_all()),
 
-    {error, error1} = sipapp_endpoint:start(error1, [{transports, [{udp, all, 5090}]}]),
+    {error, error1} = nksip:start(error1, ?MODULE, error1, [{transports, [{udp, all, 5090}]}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
     {error, invalid_transport} = 
-                    sipapp_endpoint:start(name, [{transports, [{other, all, any}]}]),
+                    nksip:start(name, ?MODULE, none, [{transports, [{other, all, any}]}]),
     {error, invalid_transport} = 
-                    sipapp_endpoint:start(name, [{transports, [{udp, {1,2,3}, any}]}]),
-    {error, invalid_register} = sipapp_endpoint:start(name, [{register, "sip::a"}]),
+                    nksip:start(name, ?MODULE, none, [{transports, [{udp, {1,2,3}, any}]}]),
+    {error, invalid_register} = nksip:start(name, ?MODULE, none, [{register, "sip::a"}]),
 
     ok.
     
 
 transport() ->
-    C1 = {basic, client1},
-    C2 = {basic, client2},
-    
     Body = base64:encode(crypto:rand_bytes(100)),
     Opts1 = [
         {add, "x-nksip", "test1"}, 
@@ -115,7 +111,7 @@ transport() ->
         {body, Body},
         {meta, [body]}
     ],
-    {ok, 200, [{body, RespBody}]} = nksip_uac:options(C1, "sip:127.0.0.1", Opts1),
+    {ok, 200, [{body, RespBody}]} = nksip_uac:options(client1, "sip:127.0.0.1", Opts1),
 
     % Req1 is the request as received at the remote party
     Req1 = binary_to_term(base64:decode(RespBody)),
@@ -126,7 +122,7 @@ transport() ->
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
     Fields2 = {meta, [parsed_contacts, remote]},
-    {ok, 200, Values2} = nksip_uac:options(C1, "<sip:127.0.0.1;transport=tcp>", [Fields2]),
+    {ok, 200, Values2} = nksip_uac:options(client1, "<sip:127.0.0.1;transport=tcp>", [Fields2]),
 
     [
         {_, [#uri{scheme=sip, port=5060, opts=[{<<"transport">>, <<"tcp">>}]}]},
@@ -134,7 +130,7 @@ transport() ->
     ] = Values2,
 
     % Remote has generated a SIPS Contact   
-    {ok, 200, Values3} = nksip_uac:options(C1, "sips:127.0.0.1", [Fields2]),
+    {ok, 200, Values3} = nksip_uac:options(client1, "sips:127.0.0.1", [Fields2]),
     [
         {_, [#uri{scheme=sips, port=5061}]},
         {_, {tls, {127,0,0,1}, 5061, <<>>}}
@@ -149,7 +145,7 @@ transport() ->
         {body, BigBody},
         {meta, [body, remote]}
     ],
-    {ok, 200, Values4} = nksip_uac:options(C2, "sip:127.0.0.1", Opts4),
+    {ok, 200, Values4} = nksip_uac:options(client2, "sip:127.0.0.1", Opts4),
     [{body, RespBody4}, {remote, {tcp, _, _, _}}] = Values4,
     Req4 = binary_to_term(base64:decode(RespBody4)),
     BigBodyHash = erlang:phash2(nksip_sipmsg:field(Req4, body)),
@@ -162,7 +158,7 @@ transport() ->
         {route, [<<"<sip:127.0.0.1;lr>">>, "<sip:aaa;lr>, <sips:bbb:123;lr>"]},
         {meta, [body]}
     ],
-    {ok, 200, Values5} = nksip_uac:options(C1, "sip:127.0.0.1", Opts5),
+    {ok, 200, Values5} = nksip_uac:options(client1, "sip:127.0.0.1", Opts5),
     [{body, RespBody5}] = Values5,
     Req5 = binary_to_term(base64:decode(RespBody5)),
     [
@@ -174,13 +170,13 @@ transport() ->
         ]
     ] = nksip_sipmsg:fields(Req5, [parsed_contacts, parsed_routes]),
 
-    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
                                 [{add, "x-nk-op", "reply-stateless"}]),
-    {ok, 200, []} = nksip_uac:options(C1, "sip:127.0.0.1", 
+    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
                                 [{add, "x-nk-op", "reply-stateful"}]),
 
     % Cover ip resolution
-    case nksip_uac:options(C1, "<sip:sip2sip.info>", []) of
+    case nksip_uac:options(client1, "<sip:sip2sip.info>", []) of
         {ok, 200, []} -> ok;
         {ok, Code, []} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Code]);
         {error, Error} -> ?debugFmt("Could not contact sip:sip2sip.info: ~p", [Error])
@@ -189,30 +185,106 @@ transport() ->
 
 
 cast_info() ->
-    % Direct calls to SipApp's core process
-    Server1 = {basic, server1},
-    Pid = nksip:get_pid(Server1),
+    % Direct calls to SipApp's core processsipappº
+    Pid = nksip:get_pid(server1),
     true = is_pid(Pid),
     not_found = nksip:get_pid(other),
 
-    {ok, Server1, Domains} = sipapp_server:get_domains(Server1),
-    {ok, Server1} = sipapp_server:set_domains(Server1, [<<"test">>]),
-    {ok, Server1, [<<"test">>]} = sipapp_server:get_domains(Server1),
-    {ok, Server1} = sipapp_server:set_domains(Server1, Domains),
-    {ok, Server1, Domains} = sipapp_server:get_domains(Server1),
+    {ok, server1, Domains} = nksip:call(server1, get_domains),
+    {ok, server1} = nksip:call(server1, {set_domains, [<<"test">>]}),
+    {ok, server1, [<<"test">>]} = nksip:call(server1, get_domains),
+    {ok, server1} = nksip:call(server1, {set_domains, Domains}),
+    {ok, server1, Domains} = nksip:call(server1, get_domains),
     Ref = make_ref(),
     Self = self(),
-    nksip:cast(Server1, {cast_test, Ref, Self}),
+    nksip:cast(server1, {cast_test, Ref, Self}),
     Pid ! {info_test, Ref, Self},
-    ok = tests_util:wait(Ref, [{cast_test, Server1}, {info_test, Server1}]).
+    ok = tests_util:wait(Ref, [{cast_test, server1}, {info_test, server1}]).
 
 
 stun() ->
     {ok, {{0,0,0,0}, 5070}, {{127,0,0,1}, 5070}} = 
-        nksip_uac:stun({basic, client1}, "sip:127.0.0.1", []),
+        nksip_uac:stun(client1, "sip:127.0.0.1", []),
     {ok, {{0,0,0,0}, 5060}, {{127,0,0,1}, 5060}} = 
-        nksip_uac:stun({basic, server1}, "sip:127.0.0.1:5070", []),
+        nksip_uac:stun(server1, "sip:127.0.0.1:5070", []),
     ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+init(error1) ->
+    {stop, error1};
+
+init(Id) ->
+    ok = nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    {ok, Id}.
+
+% Route for "basic" test suite. Allways add Record-Route and x-nk-server headers
+% If no user, use Nksip-Op to select an operation
+% If user and domain is nksip, proxy to registered contacts
+% Any other case simply route
+route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==server1 ->
+    {ok, Domains} = nksip:get(AppId, domains),
+    Opts = [
+        record_route,
+        {insert, "x-nk-server", AppId}
+    ],
+    case lists:member(Domain, Domains) of
+        true when User =:= <<>> ->
+            case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+                [<<"reply-request">>] ->
+                    Request = nksip_request:get_request(AppId, ReqId),
+                    Body = base64:encode(term_to_binary(Request)),
+                    {reply, {200, [{body, Body}, contact]}, State};
+                [<<"reply-stateless">>] ->
+                    {reply, {response, ok, [stateless]}, State};
+                [<<"reply-stateful">>] ->
+                    {reply, {response, ok}, State};
+                [<<"reply-invalid">>] ->
+                    {reply, {response, 'INVALID'}, State};
+                [<<"force-error">>] ->
+                    error(test_error);
+                _ ->
+                    {reply, {process, Opts}, State}
+            end;
+        true when Domain =:= <<"nksip">> ->
+            case nksip_registrar:find(AppId, Scheme, User, Domain) of
+                [] -> {reply, temporarily_unavailable, State};
+                UriList -> {reply, {proxy, UriList, Opts}, State}
+            end;
+        _ ->
+            {reply, {proxy, ruri, Opts}, State}
+    end;
+
+route(_, _, _, _, _, State) ->
+    {reply, process, State}.
+
+
+
+handle_call(get_domains, _From, AppId=State) ->
+    {ok, Domains} = nksip:get(AppId, domains),
+    {reply, {ok, AppId, Domains}, State};
+
+handle_call({set_domains, Domains}, _From, AppId=State) ->
+    ok = nksip:put(AppId, domains, Domains),
+    {reply, {ok, AppId}, State}.
+
+handle_cast({cast_test, Ref, Pid}, AppId=State) ->
+    Pid ! {Ref, {cast_test, AppId}},
+    {noreply, State}.
+
+handle_info({info_test, Ref, Pid}, AppId=State) ->
+    Pid ! {Ref, {info_test, AppId}},
+    {noreply, State}.
+
+
+
+
+
+
+
 
 
 

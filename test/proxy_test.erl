@@ -486,7 +486,7 @@ dialog() ->
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
     {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client2@nksip",
-                                [{add, "x-nk-op", answer}, {add, "x-nk-rr", true}, 
+                                [{add, "x-nk-op", "answer"}, {add, "x-nk-rr", true}, 
                                   RepHd, {body, SDP}]),
     [{dialog_id, DialogId1}] = Values1,
     ok = nksip_uac:ack(C1, DialogId1, []),

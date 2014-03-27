@@ -107,7 +107,7 @@ invite(ReqId, Meta, From, #state{id=Id, dialogs=Dialogs}=State) ->
                     ok = nksip_request:reply(AppId, ReqId, {rel_session_progress, SDP1}),
                     timer:sleep(100),
                     SDP2 = nksip_sdp:increment(SDP1),
-                    nksip:reply(From, {ok, [], SDP2});
+                    nksip:reply(From, {answer, SDP2});
                 <<"rel-prov-answer2">> ->
                     SDP = case nksip_lib:get_value(body, Meta) of
                         #sdp{} = RemoteSDP ->
@@ -168,7 +168,7 @@ prack(ReqId, Meta, _From, #state{id=Id, dialogs=Dialogs}=State) ->
         _ -> 
             <<>>
     end,        
-    {reply, {ok, [], Body}, State}.
+    {reply, {answer, Body}, State}.
 
 
 dialog_update(DialogId, Update, State) ->

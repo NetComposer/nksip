@@ -24,8 +24,7 @@
 -behaviour(nksip_sipapp).
 
 -export([start/2, stop/1, get_domains/1, set_domains/2]).
--export([init/1, get_user_pass/3, authorize/4, route/6, 
-        handle_call/3, handle_cast/2, handle_info/2]).
+-export([init/1, get_user_pass/3, authorize/4, route/6]).
 
 -include("../include/nksip.hrl").
 
@@ -110,8 +109,7 @@ route(ReqId, Scheme, User, Domain, _From,
                 [<<"reply-request">>] ->
                     Request = nksip_request:get_request(AppId, ReqId),
                     Body = base64:encode(term_to_binary(Request)),
-                    Hds = [{<<"content-type">>, <<"nksip/request">>}],
-                    {reply, {200, Hds, Body, [contact]}, State};
+                    {reply, {200, [{body, Body}, contact]}, State};
                 [<<"reply-stateless">>] ->
                     {reply, {response, ok, [stateless]}, State};
                 [<<"reply-stateful">>] ->
@@ -309,22 +307,22 @@ route(ReqId, _Scheme, User, Domain, _From,
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%  NkSipCore gen_server CallBacks %%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%  NkSipCore gen_server CallBacks %%%%%%%%%%%%%%%%%%%%%
 
 
-handle_call({set_domains, Domains}, _From, #state{id=Id}=State) ->
-    {reply, {ok, Id}, State#state{domains=Domains}};
+% handle_call({set_domains, Domains}, _From, #state{id=Id}=State) ->
+%     {reply, {ok, Id}, State#state{domains=Domains}};
 
-handle_call(get_domains, _From, #state{id=Id, domains=Domains}=State) ->
-    {reply, {ok, Id, Domains}, State}.
+% handle_call(get_domains, _From, #state{id=Id, domains=Domains}=State) ->
+%     {reply, {ok, Id, Domains}, State}.
 
-handle_cast({cast_test, Ref, Pid}, #state{id=Id}=State) ->
-    Pid ! {Ref, {cast_test, Id}},
-    {noreply, State}.
+% handle_cast({cast_test, Ref, Pid}, #state{id=Id}=State) ->
+%     Pid ! {Ref, {cast_test, Id}},
+%     {noreply, State}.
 
-handle_info({info_test, Ref, Pid}, #state{id=Id}=State) ->
-    Pid ! {Ref, {info_test, Id}},
-    {noreply, State}.
+% handle_info({info_test, Ref, Pid}, #state{id=Id}=State) ->
+%     Pid ! {Ref, {info_test, Id}},
+%     {noreply, State}.
 
 
 

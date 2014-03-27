@@ -119,9 +119,9 @@ options(ReqId, _Meta, _From, #state{id={_, Id}=AppId}=State) ->
     Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
     Routes = nksip_request:header(AppId, ReqId, <<"route">>),
     Hds = [
-        case Values of [] -> []; _ -> {<<"x-nk">>, nksip_lib:bjoin(Values)} end,
-        case Routes of [] -> []; _ -> {<<"x-nk-r">>, nksip_lib:bjoin(Routes)} end,
-        {<<"x-nk-id">>, nksip_lib:bjoin([Id|Ids])}
+        case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
+        {add, "x-nk-id", nksip_lib:bjoin([Id|Ids])}
     ],
     case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> 
@@ -130,7 +130,7 @@ options(ReqId, _Meta, _From, #state{id={_, Id}=AppId}=State) ->
         _ -> 
             ok
     end,
-    {reply, {ok, lists:flatten(Hds), <<>>, [contact]}, State};
+    {reply, {ok, [contact|Hds]}, State};
 
 options(_ReqId, _Meta, _From, State) ->
     {reply, ok, State}.
@@ -155,7 +155,7 @@ invite(ReqId, Meta, _From, #state{id={auth, _}=AppId, dialogs=Dialogs}=State) ->
 invite(ReqId, Meta, From, #state{id={fork, Id}=AppId, dialogs=Dialogs}=State) ->
     DialogId = nksip_lib:get_value(dialog_id, Meta),
     Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
-    Hds = [{<<"x-nk-id">>, nksip_lib:bjoin([Id|Ids])}],
+    Hds = [{add, "x-nk-id", nksip_lib:bjoin([Id|Ids])}],
     case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
@@ -208,7 +208,7 @@ invite(ReqId, Meta, _From, #state{id={timer, _}=AppId, dialogs=Dialogs}=State) -
     end,
     Body = nksip_lib:get_value(body, Meta),
     Body1 = nksip_sdp:increment(Body),
-    {reply, {ok, [], Body1}, State1};
+    {reply, {answer, Body1}, State1};
 
 
 invite(ReqId, _Meta, From, #state{id={refer, _}=AppId}=State) ->
@@ -231,9 +231,9 @@ invite(ReqId, Meta, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
     Routes = nksip_request:header(AppId, ReqId, <<"route">>),
     Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
     Hds = [
-        case Values of [] -> []; _ -> {<<"x-nk">>, nksip_lib:bjoin(Values)} end,
-        case Routes of [] -> []; _ -> {<<"x-nk-r">>, nksip_lib:bjoin(Routes)} end,
-        {<<"x-nk-id">>, nksip_lib:bjoin([Id|Ids])}
+        case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
+        {add, "x-nk-id", nksip_lib:bjoin([Id|Ids])}
     ],
     Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
@@ -270,13 +270,13 @@ invite(ReqId, Meta, From, #state{id={_, Id}=AppId, dialogs=Dialogs}=State) ->
                 <<"answer">> ->
                     SDP = nksip_sdp:new("client2", 
                                             [{"test", 4321, [{rtpmap, 0, "codec1"}]}]),
-                    nksip:reply(From, {ok, Hds, SDP});
+                    nksip:reply(From, {ok, [{body, SDP}|Hds]});
                 <<"busy">> ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
                     SDP1 = nksip_dialog:field(AppId, DialogId, invite_local_sdp),
                     SDP2 = nksip_sdp:increment(SDP1),
-                    nksip:reply(From, {ok, Hds, SDP2});
+                    nksip:reply(From, {ok, [{body, SDP2}|Hds]});
                 _ ->
                     nksip:reply(From, decline)
             end
@@ -317,7 +317,7 @@ bye(_ReqId, Meta, _From, #state{id={_, Id}, dialogs=Dialogs}=State) ->
 
 info(ReqId, _Meta, _From, #state{id=AppId}=State) ->
     DialogId = nksip_request:dialog_id(AppId, ReqId),
-    {reply, {ok, [{"x-nk-method", "info"}, {"x-nk-dialog", DialogId}]}, State}.
+    {reply, {ok, [{add, "x-nk-method", "info"}, {add, "x-nk-dialog", DialogId}]}, State}.
 
 
 update(_ReqId, _Meta, _From, #state{id={timer, _}}=State) ->
@@ -342,7 +342,7 @@ subscribe(ReqId, Meta, From, #state{id=AppId, dialogs=Dialogs}=State) ->
         <<"ok">> ->
             {reply, ok, State1};
         <<"expires-2">> ->
-            {reply, {ok, [], <<>>, [{expires, 2}]}, State1};
+            {reply, {ok, [{expires, 2}]}, State1};
         <<"wait">> ->
             Req = nksip_request:get_request(AppId, ReqId),
             Pid ! {Ref, {wait, Req}},

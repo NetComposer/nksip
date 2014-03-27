@@ -113,7 +113,7 @@ dialog() ->
     Self = self(),
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
     RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
-    Hds = [{add, "x-nk-op", answer}, RepHd],
+    Hds = [{add, "x-nk-op", "answer"}, RepHd],
 
     {ok, 200, [{dialog_id, DialogIdA}]} = 
         nksip_uac:invite(C1, "sip:ok@127.0.0.1:5070", [{body, SDP}|Hds]),
@@ -448,7 +448,7 @@ multiple_uac() ->
     Ref = make_ref(),
     Self = self(),
     RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
-    OpAnswer = {add, "x-nk-op", answer},
+    OpAnswer = {add, "x-nk-op", "answer"},
     % Stablish a dialog between C1 and C2, but do not send the ACK 
     % yet, it will stay in accepted_uac state
     {ok, 200, [{dialog_id, DialogIdA}]} = 
