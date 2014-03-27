@@ -28,9 +28,10 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([get_module/1, get_uuid/1, get_opts/1, reply/2]).
+-export([get/3, put/4, del/3]).
+-export([get_module/1, get_uuid/1, get_opts/1, get_pid/1, reply/2]).
 -export([get_gruu_pub/1, get_gruu_temp/1]).
--export([sipapp_call/6, sipapp_call_wait/6, sipapp_cast/5]).
+-export([sipapp_call/6, sipapp_call_wait/6, sipapp_cast/5, get_app_mod/1]).
 -export([register/2, get_registered/2, put_opts/2, pending_msgs/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -47,6 +48,86 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+%% @doc Gets a value from SipApp's store
+-spec get(nksip:app_id(), term(), sync|async) ->
+    {ok, term()} | not_found | error.
+
+get(AppId, Key, async) ->
+    case get_app_mod(AppId) of
+        error ->
+            error;
+        AppMod ->
+            case catch ets:lookup(AppMod, Key) of
+                [{_, Value}] -> {ok, Value};
+                [] -> not_found;
+                _ -> error
+            end
+    end;
+
+get(AppId, Key, sync) ->
+    case get_pid(AppId) of
+        not_found -> errror;
+        Pid -> gen_server:call(Pid, {'$nksip_get', Key})
+    end.
+
+
+
+%% @doc Inserts a value in SipApp's store
+-spec put(nksip:app_id(), term(), term(), sync|async) ->
+    ok | error.
+
+put(AppId, Key, Value, async) ->
+    case get_app_mod(AppId) of
+        error -> 
+            error;
+        AppMod -> 
+            case catch ets:insert(AppMod, {Key, Value}) of
+                true -> ok;
+                _ -> error
+            end
+    end;
+
+put(AppId, Key, Value, sync) ->
+    case get_pid(AppId) of
+        not_found -> errror;
+        Pid -> gen_server:call(Pid, {'$nksip_put', Key, Value})
+    end.
+
+
+%% @doc Deletes a value from SipApp's store
+-spec del(nksip:app_id(), term(), sync|async) ->
+    ok | error.
+
+del(AppId, Key, async) ->
+    case get_app_mod(AppId) of
+        error -> 
+            error;
+        AppMod -> 
+            case catch ets:delete(AppMod, Key) of
+                true -> ok;
+                _ -> error
+            end
+    end;
+
+del(AppId, Key, sync) ->
+    case get_pid(AppId) of
+        not_found -> errror;
+        Pid -> gen_server:call(Pid, {'$nksip_del', Key})
+    end.
+
+
+%% @doc Gets the SipApp's process `pid()'.
+-spec get_pid(nksip:app_id()) -> 
+    pid() | not_found.
+
+get_pid(Id) ->
+    case nksip_proc:whereis_name({nksip_sipapp, Id}) of
+        undefined -> not_found;
+        Pid -> Pid
+    end.
+
 
 %% @private Registers a started process with the core
 -spec register(nksip:app_id(), term()) ->
@@ -250,6 +331,17 @@ pending_msgs() ->
         nksip_proc:values(nksip_sipapps)).
 
 
+%% @private
+get_app_mod(AppId) ->
+    Bin = nksip_lib:hash36(AppId),
+    case catch binary_to_existing_atom(Bin, latin1) of
+        {'EXIT', _} -> error;
+        Atom -> Atom
+    end.
+
+
+
+
 
 
 %% ===================================================================
@@ -260,6 +352,7 @@ pending_msgs() ->
 -record(state, {
     id :: nksip:app_id(),
     module :: atom(),
+    appmod :: atom(),
     opts :: nksip_lib:optslist(),
     procs :: dict(),
     reg_state :: term(),
@@ -281,6 +374,8 @@ init([AppId, Module, Args, Opts]) ->
     erlang:start_timer(timeout(), self(), '$nksip_timer'),
     RegState = nksip_sipapp_auto:init(AppId, Module, Args, Opts),
     nksip_call_router:clear_app_cache(AppId),
+    AppMod = binary_to_atom(nksip_lib:hash36(AppId), latin1),
+    ets:new(AppMod, [named_table, public]),
     case read_uuid(AppId) of
         {ok, UUID} ->
             ok;
@@ -292,6 +387,7 @@ init([AppId, Module, Args, Opts]) ->
     State1 = #state{
         id = AppId, 
         module = Module, 
+        appmod = AppMod,
         opts = Opts, 
         procs = dict:new(),
         reg_state = RegState
@@ -338,7 +434,21 @@ handle_call({'$nksip_call_nofrom', Fun, Args}, _From, State) ->
 
 handle_call({'$nksip_call', Fun, Args}, From, State) ->
     mod_handle_call(Fun, Args, From, State);
-    
+
+handle_call({'$nksip_get', Key}, _From, #state{appmod=AppMod}=State) ->
+    case ets:lookup(AppMod, Key) of
+        [{_, Value}] -> {reply, {ok, Value}, State};
+        [] -> {reply, not_found, State}
+    end;
+
+handle_call({'$nksip_put', Key, Value}, _From, #state{appmod=AppMod}=State) ->
+    true = ets:insert(AppMod, {Key, Value}),
+    {reply, ok, State};
+
+handle_call({'$nksip_del', Key}, _From, #state{appmod=AppMod}=State) ->
+    true = ets:delete(AppMod, Key),
+    {reply, ok, State};
+
 handle_call(Msg, From, State) ->
     case nksip_sipapp_auto:handle_call(Msg, From, State#state.reg_state) of
         error -> mod_handle_call(handle_call, [Msg], From, State);

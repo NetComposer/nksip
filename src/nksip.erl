@@ -56,6 +56,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start/4, stop/1, stop_all/0, get_all/0]).
+-export([get/3, get/4, put/4, del/3]).
 -export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3]).
 
 -include("nksip.hrl").
@@ -159,9 +160,6 @@
 -type error_reason() :: 
     {sip|q850, pos_integer()} |
     {sip|q850, pos_integer(), string()|binary()}.
-
-
--compile([export_all]).
 
 
 %% ===================================================================
@@ -370,6 +368,42 @@ reply(From, Reply) ->
     nksip_sipapp_srv:reply(From, Reply).
 
 
+%% @doc Gets a value from SipApp's store
+-spec get(nksip:app_id(), term(), sync|async) ->
+    {ok, term()} | not_found | error.
+
+get(AppId, Key, Sync) ->
+    nksip_sipapp_srv:get(AppId, Key, Sync).
+
+
+%% @doc Gets a value from SipApp's store, using a default if not found
+-spec get(nksip:app_id(), term(), term(), sync|async) ->
+    {ok, term()} | error.
+
+get(AppId, Key, Default, Sync) ->
+    case get(AppId, Key, Sync) of
+        not_found -> {ok, Default};
+        {ok, Value} -> {ok, Value};
+        error -> error
+    end.
+
+
+%% @doc Inserts a value in SipApp's store
+-spec put(nksip:app_id(), term(), term(), sync|async) ->
+    ok | error.
+
+put(AppId, Key, Value, Sync) ->
+    nksip_sipapp_srv:put(AppId, Key, Value, Sync).
+
+
+%% @doc Deletes a value from SipApp's store
+-spec del(nksip:app_id(), term(), sync|async) ->
+    ok | error.
+
+del(AppId, Key, Sync) ->
+    nksip_sipapp_srv:del(AppId, Key, Sync).
+
+
 %% @doc Sends a synchronous message to the SipApp's process, 
 %% similar to `gen_server:call/2'.
 %% The SipApp's callback module must implement `handle_call/3'.
@@ -411,10 +445,7 @@ cast(AppId, Msg) ->
     pid() | not_found.
 
 get_pid(Id) ->
-    case nksip_proc:whereis_name({nksip_sipapp, Id}) of
-        undefined -> not_found;
-        Pid -> Pid
-    end.
+    nksip_sipapp_srv:get_pid(Id).
 
 
 %% @doc Gets SipApp's first listening port on this transport protocol.

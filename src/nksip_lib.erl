@@ -22,7 +22,7 @@
 -module(nksip_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([cseq/0, luid/0, lhash/1, uid/0, uuid_4122/0, hash/1]).
+-export([cseq/0, luid/0, lhash/1, uid/0, uuid_4122/0, hash/1, hash36/1]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([timestamp/0, l_timestamp/0, l_timestamp_to_float/1]).
 -export([timestamp_to_local/1, timestamp_to_gmt/1]).
@@ -109,12 +109,21 @@ lhash(Base) ->
 uid() ->
     hash({make_ref(), os:timestamp()}).
 
-%% @doc Generates a new random tag based on a value.
+%% @doc Generates a new tag based on a value.
 -spec hash(term()) -> 
     binary().
 
 hash(Base) ->
     encode_integer(erlang:phash2([Base], 4294967296)).
+
+
+%% @doc Generates a new tag based on a value (only numbers and uppercase)
+-spec hash36(term()) -> 
+    binary().
+
+hash36(Base) ->
+    encode_integer_36(erlang:phash2([Base], 4294967296)).
+
 
 
 %% @doc Get all local network ips.
@@ -537,6 +546,17 @@ unquote(List) ->
 
 encode_integer(Int) ->
     list_to_binary(integer_to_list(Int, 62, [])).
+
+
+
+%% @doc Generates a printable string from a big number using base 36
+%% (only numbers and uppercase)
+-spec encode_integer_36(integer()) ->
+    binary().
+
+encode_integer_36(Int) ->
+    list_to_binary(integer_to_list(Int, 36, [])).
+
 
 
 %% @private
