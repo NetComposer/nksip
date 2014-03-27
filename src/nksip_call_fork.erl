@@ -151,7 +151,7 @@ launch([Uri|Rest], Id, Call) ->
         {error, Error} ->
             ?call_warning("Error processing fork options: ~p, ~p: ~p",
                           [Uri, Opts, Error], Call),
-            Reply = {internal_error, "Fork Options"},
+            Reply = {internal_error, <<"Invalid Fork Options">>},
             {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
             ForkT = Fork#fork{responses=[Resp|Resps]},
             update(ForkT, Call1)

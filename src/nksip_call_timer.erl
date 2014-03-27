@@ -182,7 +182,7 @@ uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
                             end,
                             case nksip_sipmsg:supported(Req, <<"timer">>) of
                                 true ->
-                                    {reply, {422, [{<<"min-se">>, MinSE}]}, Call1};
+                                    {reply, {session_too_small, MinSE}, Call1};
                                 false ->
                                     % No point in returning 422
                                     % Update in case we are a proxy

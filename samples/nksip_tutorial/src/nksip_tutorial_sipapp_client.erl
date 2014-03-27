@@ -51,7 +51,7 @@ invite(ReqId, Meta, From, #state{id=AppId}=State) ->
             Fun = fun() ->
                 nksip_request:reply(AppId, ReqId, ringing),
                 timer:sleep(2000),
-                nksip:reply(From, {ok, [], SDP})
+                nksip:reply(From, {answer, SDP})
             end,
             spawn(Fun),
             {noreply, State};

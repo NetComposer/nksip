@@ -55,5 +55,5 @@ route(_Request, _Scheme, _User, _Domain, _From) ->
 
 %% @doc Answer the call with the same SDP body
 invite(Req, _Meta, _From) ->
-    {ok, [], nksip_sipmsg:field(Req, body)}.
+    {answer, nksip_sipmsg:field(Req, body)}.
 

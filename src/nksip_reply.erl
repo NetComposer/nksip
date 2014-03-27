@@ -148,7 +148,7 @@
 %%  <li>`{local_host, Host::binary()}': uses this Host instead of the default one for 
 %%      <i>Contact</i>, <i>Record-Route</i>, etc.</li>
 %%  <li>`{contact, [nksip:user_uri()]}': adds one or more `Contact' headers.</li>
-%%  <li>`{reason_phrase, Text::binary()}': changes the default response line to `Text'.</li>
+%%  <li>`{reason_phrase, text()}': changes the default response line to `Text'.</li>
 %%  <li>`{www_authenticate, Realm::from|binary()}': a <i>WWW-Authenticate</i>
 %%       header will be generated for this `Realm' (see 
 %%       {@link nksip_auth:make_response/2}).</li>
@@ -166,9 +166,10 @@
 
 -include("nksip.hrl").
 
--export([reply/3, reqreply/1, warning/1]).
+-export([reply/3, parse/1, warning/1]).
 
 -export_type([sipreply/0]).
+
 
 
 %% ===================================================================
@@ -176,33 +177,32 @@
 %% ===================================================================
 
 -type sipreply() ::
-    ringing | {ringing, nksip:body()} | 
-    rel_ringing | {rel_ringing, nksip:body()} | 
-    session_progress | {session_progress, nksip:body()} |
-    rel_session_progress | {rel_session_progress, nksip:body()} |
-    ok | {ok, [nksip:header()]} | {ok, [nksip:header()], nksip:body()} | 
-    {ok, [nksip:header()], nksip:body(), nksip_lib:optslist()} | 
-    answer | {answer, [nksip:header()]} | {answer, [nksip:header()], nksip:body()} | 
-    {answer, [nksip:header()], nksip:body(), nksip_lib:optslist()} | 
+    nksip:response_code() | 
+    {nksip:response_code(), nksip_lib:optslist()} |
+    ringing | rel_ringing | {rel_ringing, Body::nksip:body()} | 
+    session_progress | rel_session_progress | {rel_session_progress, Body::nksip:body()} |
+    ok | {ok, Opts::nksip_lib:optslist()} | 
+    {answer, Body::nksip:body()} |
     accepted | 
-    {redirect, [nksip:user_uri()]} | 
-    {redirect_permanent, nksip:user_uri()} | 
-    {redirect_temporary, nksip:user_uri()} |
-    invalid_request | {invalid_request, Text::binary()} | 
+    {redirect, Contact::nksip:user_uri()} | 
+    {redirect_permanent, Contacts::nksip:user_uri()} | 
+    {redirect_temporary, Contacts::nksip:user_uri()} |
+    invalid_request | {invalid_request, Phrase::binary()|string()} | 
     authenticate | {authenticate, Realm::binary()} |
-    forbidden | {forbidden, Text::binary()} |
-    not_found | {not_found, Text::binary()} |
-    {method_not_allowed, Methods::binary()} |
+    forbidden | {forbidden, Phrase::binary()|string()} |
+    not_found | {not_found, Phrase::binary()|string()} |
+    {method_not_allowed, Allow::binary()|string()} |
     proxy_authenticate | {proxy_authenticate, Realm::binary()} |
-    timeout | {timeout, Text::binary()} | 
+    timeout | {timeout, Phrase::binary()|string()} | 
     conditional_request_failed |
-    too_large |
-    {unsupported_media_type, Types::binary()} | 
-    {unsupported_media_encoding, Types::binary()} |
+    request_too_large |
+    {unsupported_media_type, Accept::binary()|string()} | 
+    {unsupported_media_encoding, AcceptEncoding::binary()|string()} |
     unsupported_uri_scheme | 
-    {bad_extension, Exts::binary()} |
-    {extension_required, Exts::binary} |
-    {interval_too_brief, Min::binary()} |
+    {bad_extension, Unsupported::binary()|string()} |
+    {extension_required, Require::binary()|string()} |
+    {session_too_small, MinSE::integer()} |
+    {interval_too_brief, Min::integer()} |
     flow_failed |
     first_hop_lacks_outbound |
     temporarily_unavailable |
@@ -212,18 +212,13 @@
     ambiguous |
     busy |
     request_terminated |
-    {not_acceptable, Reason::binary()} |
+    {not_acceptable, Warning::binary()|string()} |
     bad_event |
     request_pending |
-    internal_error | {internal_error, Text::binary()} |
+    internal_error | {internal_error, Phrase::binary()|string()} |
     service_unavailable |
     busy_eveywhere |
-    decline |
-    nksip:response_code() | 
-    {nksip:response_code(), binary()} | 
-    {nksip:response_code(), [nksip:header()]} | 
-    {nksip:response_code(), [nksip:header()], nksip:body()} | 
-    {nksip:response_code(), [nksip:header()], nksip:body(), nksip_lib:optslist()}.
+    decline.
 
 
 %% ===================================================================
@@ -233,194 +228,224 @@
 %% @doc Generates a new SIP response and send options using helper replies.
 %% Currently recognized replies are described in this module.
 %% See {@link nksip_uas_lib:response/5}.
--spec reply(nksip:request(), nksip:sipreply()|#reqreply{}, nksip_lib:optslist()) -> 
+-spec reply(nksip:request(), {nksip:response_code(), nksip_lib:optslist()}, 
+            nksip:response_code()) ->
     {nksip:response(), nksip_lib:optslist()}.
 
-reply(Req, #reqreply{}=ReqReply, AppOpts) ->
-    #reqreply{code=Code, headers=Headers, body=Body, opts=Opts} = ReqReply,
-    response(Req, Code, Headers, Body, Opts, AppOpts);
-
-reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, AppOpts) -> 
-    case nksip_reply:reqreply(SipReply) of
-        #reqreply{} = ReqReply -> 
-            ok;
+reply(Req, {Code, Opts}, Config) 
+        when is_integer(Code), Code>=100, Code=<699, is_list(Opts)->
+    case nksip_uas_lib:make(Req, Code, Opts, Config) of
+        {ok, Resp, RespOpts} ->
+            {Resp, RespOpts};
+        {error, Error} ->
+            lager:error("Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
+            nksip_uas_lib:make(Req, 500, [], Config)
+    end;
+    
+reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, Config) -> 
+    case parse(SipReply) of
+        {Code, Opts0} ->
+            Opts = post(Req, Code, Opts0);
         error -> 
-            ?warning(AppId, CallId, "Invalid sipreply: ~p, ~p", 
-                            [SipReply, erlang:get_stacktrace()]),
-            ReqReply = reqreply({internal_error, <<"Invalid SipApp Response">>})
+            ?warning(AppId, CallId, "Invalid sipreply ~p", [SipReply]),
+            {Code, Opts} = {500, [{reason_phrase, <<"Invalid SipApp Response">>}]}
     end,
-    reply(Req, ReqReply, AppOpts).
+    reply(Req, {Code, Opts}, Config).
 
 
-%% @private Generates an `#reqreply{}' from an `user_sipreply()' like 
-%% `ringing', `invalid_Req', etc. (see {@link //nksip})
--spec reqreply(sipreply()|#reqreply{}) ->
-    #reqreply{} | error.
 
-reqreply(#reqreply{}=Reply) ->
-    Reply;
-reqreply(ringing) ->
-    #reqreply{code=180};
-reqreply({ringing, Body}) ->
-    #reqreply{code=180, body=Body};
-reqreply(rel_ringing) ->
-    #reqreply{code=180, opts=[do100rel]};
-reqreply({rel_ringing, Body}) ->
-    #reqreply{code=180, body=Body, opts=[do100rel]};
-reqreply(session_progress) ->
-    #reqreply{code=183};
-reqreply({session_progress, Body}) ->
-    #reqreply{code=183, body=Body};
-reqreply(rel_session_progress) ->
-    #reqreply{code=183, opts=[do100rel]};
-reqreply({rel_session_progress, Body}) ->
-    #reqreply{code=183, body=Body, opts=[do100rel]};
-reqreply(ok) ->
-    #reqreply{code=200};
-reqreply({ok, Headers}) ->
-    #reqreply{code=200, headers=Headers};
-reqreply({ok, Headers, Body}) ->
-    #reqreply{code=200, headers=Headers, body=Body};
-reqreply({ok, Headers, Body, Opts}) ->
-    #reqreply{code=200, headers=Headers, body=Body, opts=Opts};
-reqreply(answer) ->
-    #reqreply{code=200};
-reqreply({answer, Headers}) ->
-    #reqreply{code=200, headers=Headers};
-reqreply({answer, Headers, Body}) ->
-    #reqreply{code=200, headers=Headers, body=Body};
-reqreply({answer, Headers, Body, Opts}) ->
-    #reqreply{code=200, headers=Headers, body=Body, opts=Opts};
-reqreply(accepted) ->
-    #reqreply{code=202};
-reqreply({redirect, RawContacts}) ->
-    case nksip_parse:uris(RawContacts) of
-        error -> error;
-        Contacts -> #reqreply{code=300, opts=[{contact, Contacts}]}
-    end;
-reqreply({redirect_permanent, RawContact}) ->
-    case nksip_parse:uris(RawContact) of
-        [Contact] -> #reqreply{code=301, opts=[{contact, [Contact]}]};
-        _ -> error
-    end;
-reqreply({redirect_temporary, RawContact}) ->
-    case nksip_parse:uris(RawContact) of
-        [Contact] -> #reqreply{code=302, opts=[{contact, [Contact]}]};
-        _ -> error
-    end;
-reqreply(invalid_request) ->
-    #reqreply{code=400};
-reqreply({invalid_request, Text}) ->
-    helper_debug(#reqreply{code=400}, Text);
-reqreply(authenticate) ->
-    #reqreply{code=401, opts=[allow, {www_authenticate, from}]};
-reqreply({authenticate, Realm}) ->
-    #reqreply{code=401, opts=[allow, {www_authenticate, Realm}]};
-reqreply(forbidden) ->
-    #reqreply{code=403};
-reqreply({forbidden, Text}) -> 
-    helper_debug(#reqreply{code=403}, Text);
-reqreply(not_found) -> 
-    #reqreply{code=404};
-reqreply({not_found, Text}) -> 
-    helper_debug(#reqreply{code=404}, Text);
-reqreply({method_not_allowed, Methods}) -> 
-    Methods1 = nksip_lib:to_binary(Methods), 
-    #reqreply{
-        code = 405, 
-        headers = nksip_headers:new([{single, <<"allow">>, Methods1}])
-    };
-reqreply(proxy_authenticate) ->
-    #reqreply{code=407, opts=[allow, {proxy_authenticate, from}]};
-reqreply({proxy_authenticate, Realm}) ->
-    #reqreply{code=407, opts=[allow, {proxy_authenticate, Realm}]};
-reqreply(timeout) ->
-    #reqreply{code=408};
-reqreply({timeout, Text}) ->
-    helper_debug(#reqreply{code=408}, Text);
-reqreply({unsupported_media_type, Types}) ->
-    Types1 = nksip_lib:to_binary(Types), 
-    #reqreply{
-        code=415, 
-        headers = nksip_headers:new([{single, <<"accept">>, Types1}])
-    };
-reqreply(conditional_request_failed) ->
-    #reqreply{code=412};
-reqreply(too_large) ->
-    #reqreply{code=413};
-reqreply({unsupported_media_encoding, Types}) ->
-    Types1 = nksip_lib:to_binary(Types),    
-    #reqreply{
-        code = 415, 
-        headers = nksip_headers:new([{single, <<"accept-encoding">>, Types1}])
-    };
-reqreply(unsupported_uri_scheme) -> 
-    #reqreply{code=416};
-reqreply({bad_extension, Exts}) -> 
-    Exts1 = nksip_lib:to_binary(Exts),  
-    #reqreply{
-        code = 420, 
-        headers = nksip_headers:new([{single, <<"unsupported">>, Exts1}])
-    };
-reqreply({extension_required, Exts}) -> 
-    #reqreply{code=421, opts=[{require, Exts}]};
-reqreply({interval_too_brief, Min}) ->
-    Min1 = nksip_lib:to_binary(Min),    
-    #reqreply{
-        code = 423, 
-        headers = nksip_headers:new([{single, <<"min-expires">>, Min1}])
-    };
-reqreply(flow_failed) ->
-    #reqreply{code=430};
-reqreply(first_hop_lacks_outbound) ->
-    #reqreply{code=439};
-reqreply(temporarily_unavailable) ->
-    #reqreply{code=480};
-reqreply(unknown_dialog) ->
-    #reqreply{code=481};
-reqreply(no_transaction) ->
-    #reqreply{code=481};
-reqreply(loop_detected) ->
-    #reqreply{code=482};
-reqreply(too_many_hops) -> 
-    #reqreply{code=483};
-reqreply(ambiguous) ->
-    #reqreply{code=485};
-reqreply(busy) ->
-    #reqreply{code=486};
-reqreply(request_terminated) ->
-    #reqreply{code=487};
-reqreply({not_acceptable, Reason}) ->
-    #reqreply{code=488, headers=[{<<"warning">>, nksip_lib:to_binary(Reason)}]};
-reqreply(bad_event) ->
-    #reqreply{code=489};
-reqreply(request_pending) ->
-    #reqreply{code=491};
-reqreply(internal_error) ->
-    #reqreply{code=500};
-reqreply({internal_error, Text}) ->
-    helper_debug(#reqreply{code=500}, Text);
-reqreply(service_unavailable) ->
-    #reqreply{code=503};
-reqreply({service_unavailable, Text}) ->
-    helper_debug(#reqreply{code=503}, Text);
-reqreply(busy_eveywhere) ->
-    #reqreply{code=600};
-reqreply(decline) ->
-    #reqreply{code=603};
-reqreply(Code) when is_integer(Code) ->
-    #reqreply{code=Code};
-reqreply({Code, Text}) when is_integer(Code), is_binary(Text) ->
-    #reqreply{code=Code, opts=[{reason_phrase, Text}]};
-reqreply({Code, Headers}) when is_integer(Code), is_list(Headers) ->
-    #reqreply{code=Code, headers=Headers};
-reqreply({Code, Headers, Body}) when is_integer(Code), is_list(Headers) ->
-    #reqreply{code=Code, headers=Headers, body=Body};
-reqreply({Code, Headers, Body, Opts}) when is_integer(Code), is_list(Headers), 
-    is_list(Opts) ->
-    #reqreply{code=Code, headers=Headers, body=Body, opts=Opts};
-reqreply(_Other) ->
-    error.
+
+%% ===================================================================
+%% Private
+%% ===================================================================
+
+%% @private
+-spec post(nksip:request(), nksip:response_code(), nksip_lib:optslist()) ->
+    nksip_lib:optslist().
+
+post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
+    Opts1 = case Code>100 of
+        true -> [timestamp|Opts];
+        false -> Opts
+    end,
+    Opts2 = case 
+        Code>100 andalso 
+        (Method=='INVITE' orelse Method=='UPDATE' orelse Method=='SUBSCRIBE'
+         orelse Method=='REFER')
+    of
+        true -> [allow, supported | Opts1];
+        false -> Opts1
+    end,
+    Opts3 = case
+        Code>100 andalso Code<300 andalso (Method=='INVITE' orelse Method=='NOTIFY')
+    of
+        true ->
+            RR = nksip_sipmsg:header(Req, <<"record-route">>),
+            [{replace, <<"record-route">>, RR}|Opts2];
+        false ->
+            Opts2
+    end,
+    Opts4 = case 
+        Code>100 andalso Code<300 andalso 
+        (Method=='INVITE' orelse Method=='UPDATE' orelse Method=='SUBSCRIBE'
+         orelse Method=='REFER') andalso
+        not lists:member(contact, Opts) andalso
+        not lists:keymember(contact, 1, Opts)
+    of
+        true -> [contact|Opts3];
+        false -> Opts3
+    end,
+    Opts5 = case Code>=200 andalso Code<300 andalso Method=='REGISTER' of
+        true -> 
+            Path = nksip_sipmsg:header(Req, <<"path">>),
+            [{replace, <<"path">>, Path}|Opts4];
+        false ->
+            Opts4
+    end,
+    Opts6 = case Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse Method=='PUBLISH' of
+        true -> [{event, Req#sipmsg.event}|Opts5];
+        false -> Opts5
+    end,
+    Opts7 = case Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' of
+        true ->
+            Expires = nksip_lib:get_value(expires, Opts6, ?DEFAULT_EVENT_EXPIRES),
+            Expires1 = min(Req#sipmsg.expires, Expires),
+            [{expires, Expires1} | nksip_lib:delete(Opts6, expires)];
+        false ->
+            Opts6
+    end,
+    Opts7.
+
+
+-spec parse(sipreply()) ->
+    {nksip:response_code(), nksip_lib:optslist()} | error.
+
+parse(Term) ->
+    case Term of
+        Code when is_integer(Code), Code>=100, Code=<699 ->
+            {Code, []};
+        {Code, Opts} when is_integer(Code), Code>=100, Code=<699, is_list(Opts) ->
+            {Code, Opts};
+        ringing -> 
+            {180, []};
+        rel_ringing -> 
+            {180, [do100rel]};
+        {rel_ringing, Body} -> 
+            {180, [{body, Body}, do100rel]};
+        session_progress -> 
+            {183, []};
+        rel_session_progress -> 
+            {183, [do100rel]};
+        {rel_session_progress, Body} -> 
+            {183, [{body, Body}, do100rel]};
+        ok -> 
+            {200, []};
+        {ok, Opts} when is_list(Opts) -> 
+            {200, Opts};
+        {answer, Body} -> 
+            {200, [{body, Body}]};
+        accepted ->
+            {202, []};
+        {redirect, Contacts} ->
+            case nksip_parse:uris(Contacts) of
+                error -> error;
+                PContacts -> {300, [{contact, PContacts}]}
+            end;
+        {redirect_permanent, Contact} ->
+            case nksip_parse:uris(Contact) of
+                [PContact] -> {301, [{contact, PContact}]};
+                _ -> error
+            end;
+        {redirect_temporary, Contact} ->
+            case nksip_parse:uris(Contact) of
+                [PContact] -> {302, [{contact, PContact}]};
+                _ -> error
+            end;
+        invalid_request ->
+            {400, [date]};
+        {invalid_request, Phrase} when is_binary(Phrase); is_list(Phrase) ->
+            {400, [{reason_phrase, Phrase}, date]};
+        authenticate ->
+            {401, [www_authenticate]};
+        {authenticate, Realm} when is_binary(Realm) ->
+            {401, [{www_authenticate, Realm}]};
+        forbidden ->
+            {403, []};
+        {forbidden, Phrase} when is_binary(Phrase); is_list(Phrase) ->
+            {403, [{reason_phrase, Phrase}]};
+        not_found-> 
+            {404, []};
+        {not_found, Phrase} when is_binary(Phrase); is_list(Phrase) ->
+            {404, [{reason_phrase, Phrase}]};
+        {method_not_allowed, Allow} when is_binary(Allow); is_list(Allow) ->
+            {405, [{replace, <<"allow">>, Allow}]};
+        proxy_authenticate ->
+            {407, [proxy_authenticate, from]};
+        {proxy_authenticate, Realm} ->
+            {407, [{proxy_authenticate, Realm}]};
+        timeout ->
+            {408, []};
+        {timeout, Phrase} when is_binary(Phrase); is_list(Phrase) ->
+            {408, [{reason_phrase, Phrase}]};
+        conditional_request_failed ->
+            {412, []};
+        request_too_large ->
+            {413, []};
+        {unsupported_media_type, Accept} when is_binary(Accept); is_list(Accept) ->
+            {415, [{accept, Accept}]};
+        {unsupported_media_encoding, Encod} when is_binary(Encod); is_list(Encod) ->
+            {415, [{replace, <<"accept-encoding">>, Encod}]};
+        unsupported_uri_scheme-> 
+            {416, []};
+        {bad_extension, Unsupp} when is_binary(Unsupp); is_list(Unsupp) ->
+            {420, [{replace, <<"unsupported">>, Unsupp}]};
+        {extension_required, Require} when is_binary(Require); is_list(Require) ->
+            {421, [{require, Require}]};
+        {session_too_small, MinSE} when is_integer(MinSE), MinSE>0 ->
+            {422, [{add, <<"min-se">>, MinSE}]};
+        {interval_too_brief, Min} when is_integer(Min), Min>0 ->
+            {423, [{replace, <<"min-expires">>, Min}]};
+        flow_failed ->
+            {430, []};
+        first_hop_lacks_outbound ->
+            {439, []};
+        temporarily_unavailable ->
+            {480, []};
+        unknown_dialog ->
+            {481, []};
+        no_transaction ->
+            {481, []};
+        loop_detected ->
+            {482, []};
+        too_many_hops-> 
+            {483, []};
+        ambiguous ->
+            {485, []};
+        busy ->
+            {486, []};
+        request_terminated ->
+            {487, []};
+        {not_acceptable, Warning} when is_binary(Warning); is_list(Warning) ->
+            {488, [{replace, <<"warning">>, Warning}]};
+        bad_event ->
+            {489, []};
+        request_pending ->
+            {491, []};
+        internal_error ->
+            {500, []};
+        {internal_error, Phrase} when is_binary(Phrase); is_list(Phrase) ->
+            {500, [{reason_phrase, Phrase}, date]};
+        service_unavailable ->
+            {503, []};
+        {service_unavailable, Phrase} when is_binary(Phrase); is_list(Phrase) ->
+            {503, [{reason_phrase, Phrase}, date]};
+        busy_eveywhere ->
+            {600, []};
+        decline ->
+            {603, []};
+        _ ->
+            error
+    end.
 
 
 %% @doc Generates a Warning
@@ -448,34 +473,3 @@ warning(Warn) ->
 
 
 
-
-%% ===================================================================
-%% Private
-%% ===================================================================
-
-
-%% @private
--spec helper_debug(#reqreply{}, binary()) ->
-    #reqreply{}.
-
-helper_debug(#reqreply{opts=Opts}=SipReply, Text) ->
-    SipReply#reqreply{opts=[{reason_phrase, Text}, date|Opts]}.
-
-
-%% @private
--spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
-                nksip:body(), nksip_lib:optslist(), nksip_lib:optslist()) -> 
-    {nksip:response(), nksip_lib:optslist()}.
-
-response(Req, Code, Headers, Body, Opts, AppOpts) ->
-    case nksip_uas_lib:response(Req, Code, Headers, Body, Opts, AppOpts) of
-        {ok, Resp, RespOpts} ->
-            {Resp, RespOpts};
-        {error, Error} ->
-            lager:error("Error procesing response {~p,~p,~p,~p}: ~p",
-                        [Code, Headers, Body, Opts, Error]),
-            case nksip_uas_lib:response(Req, 500, [], <<>>, [], AppOpts) of
-                {ok, Resp, RespOpts} -> {Resp, RespOpts};
-                {error, Error} -> error(Error)
-            end
-    end.

@@ -117,7 +117,7 @@ make_reg(Body) ->
 
 %% @private
 reply(Tag, Expires) ->
-    {ok, [{<<"sip-etag">>, Tag}], <<>>, [{expires, Expires}]}.
+    {ok, [{sip_etag, Tag}, {expires, Expires}]}.
 
 
 %% @private 

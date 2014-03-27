@@ -42,7 +42,6 @@
 %% Private
 %% ===================================================================
 
-
 %% @doc Sends a transaction reply
 -spec reply(incoming(), nksip_call:trans(), nksip_call:call()) ->
     reply_return().

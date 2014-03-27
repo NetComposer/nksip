@@ -56,7 +56,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start/4, stop/1, stop_all/0, get_all/0]).
--export([get/3, get/4, put/4, del/3]).
+-export([get/2, get/3, put/3, del/2]).
 -export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3]).
 
 -include("nksip.hrl").
@@ -369,19 +369,19 @@ reply(From, Reply) ->
 
 
 %% @doc Gets a value from SipApp's store
--spec get(nksip:app_id(), term(), sync|async) ->
+-spec get(nksip:app_id(), term()) ->
     {ok, term()} | not_found | error.
 
-get(AppId, Key, Sync) ->
-    nksip_sipapp_srv:get(AppId, Key, Sync).
+get(AppId, Key) ->
+    nksip_sipapp_srv:get(AppId, Key, async).
 
 
 %% @doc Gets a value from SipApp's store, using a default if not found
--spec get(nksip:app_id(), term(), term(), sync|async) ->
+-spec get(nksip:app_id(), term(), term()) ->
     {ok, term()} | error.
 
-get(AppId, Key, Default, Sync) ->
-    case get(AppId, Key, Sync) of
+get(AppId, Key, Default) ->
+    case get(AppId, Key) of
         not_found -> {ok, Default};
         {ok, Value} -> {ok, Value};
         error -> error
@@ -389,19 +389,19 @@ get(AppId, Key, Default, Sync) ->
 
 
 %% @doc Inserts a value in SipApp's store
--spec put(nksip:app_id(), term(), term(), sync|async) ->
+-spec put(nksip:app_id(), term(), term()) ->
     ok | error.
 
-put(AppId, Key, Value, Sync) ->
-    nksip_sipapp_srv:put(AppId, Key, Value, Sync).
+put(AppId, Key, Value) ->
+    nksip_sipapp_srv:put(AppId, Key, Value, async).
 
 
 %% @doc Deletes a value from SipApp's store
--spec del(nksip:app_id(), term(), sync|async) ->
+-spec del(nksip:app_id(), term()) ->
     ok | error.
 
-del(AppId, Key, Sync) ->
-    nksip_sipapp_srv:del(AppId, Key, Sync).
+del(AppId, Key) ->
+    nksip_sipapp_srv:del(AppId, Key, async).
 
 
 %% @doc Sends a synchronous message to the SipApp's process, 

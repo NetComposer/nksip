@@ -478,11 +478,9 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
 
 %% @private
 retry() ->
-    {
-        500, 
-        [{<<"retry-after">>, crypto:rand_uniform(0, 11)}], 
-        <<>>, 
-        [{reason_phrase, <<"Processing Previous INVITE">>}]
-    }.
+    {500, [
+        {add, "retry-after", crypto:rand_uniform(0, 11)},
+        {reason_phrase, <<"Processing Previous INVITE">>}
+    ]}.
 
 

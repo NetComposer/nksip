@@ -159,8 +159,8 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
         is_integer(Forwards), Forwards > 0 ->   
             ok;
         Forwards==0, Method=='OPTIONS' ->
-            throw({reply, {ok, [], <<>>, [supported, accept, allow, 
-                                          {reason_phrase, <<"Max Forwards">>}]}});
+            throw({reply, {ok, [supported, accept, allow, 
+                                {reason_phrase, <<"Max Forwards">>}]}});
         Forwards==0 ->
             throw({reply, too_many_hops});
         true -> 

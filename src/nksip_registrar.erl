@@ -240,8 +240,7 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
             [_|_] -> [{require, <<"outbound">>}];
             _ -> []
         end,
-        {ok, [], <<>>, 
-            [{contact, Contacts1}, date, allow, supported | ObReq]}
+        {ok, [{contact, Contacts1}, date, allow, supported | ObReq]}
     catch
         throw:Throw -> Throw
     end.
