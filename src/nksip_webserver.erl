@@ -41,7 +41,7 @@
 
 %% @doc Starts a new webserver, or returns a already started one
 -spec start_server(nksip:app_id(), tcp|tls|ws|wss, inet:ip_address(), inet:port_number(), 
-                   term(), nksip_lib:proplist()) ->
+                   term(), nksip_lib:optslist()) ->
     {ok, pid()} | {error, term()}.
 
 start_server(AppId, Proto, Ip, Port, Disp, Opts) 
@@ -278,7 +278,7 @@ terminate(_Reason, _State) ->
 
 
 %% @private
--spec do_start_server(server_ref(), list(), nksip_lib:proplist()) ->
+-spec do_start_server(server_ref(), list(), nksip_lib:optslist()) ->
     {ok, pid()} | {error, term()}.
 
 do_start_server(Ref, Dispatch, Opts) ->
@@ -346,8 +346,8 @@ get_dispatch([{Host, Consts, Paths}|Rest], Acc) ->
 
 %% @private Gets socket options for listening connections
 -spec listen_opts(nksip:protocol(), inet:ip_address(), inet:port_number(), 
-                    nksip_lib:proplist()) ->
-    nksip_lib:proplist().
+                    nksip_lib:optslist()) ->
+    nksip_lib:optslist().
 
 listen_opts(ws, Ip, Port, _Opts) ->
     lists:flatten([

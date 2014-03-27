@@ -319,7 +319,7 @@
 %%  </table>
 %%
 %% <br/>
--spec start(app_id(), atom(), term(), nksip_lib:proplist()) -> 
+-spec start(app_id(), atom(), term(), nksip_lib:optslist()) -> 
 	ok | {error, term()}.
 
 start(AppId, Module, Args, Opts) ->

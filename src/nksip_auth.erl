@@ -129,7 +129,7 @@ get_authentication(Req, PassFun) ->
 %% CSeq must be updated after calling this function.
 %%
 %% Recognized options are `pass', `user', `cnonce' and `nc'.
--spec make_request(Req::nksip:request(), Resp::nksip:response(), nksip_lib:proplist()) ->
+-spec make_request(Req::nksip:request(), Resp::nksip:response(), nksip_lib:optslist()) ->
     {ok, nksip:request()} | {error, Error}
     when Error :: invalid_auth_header | unknown_nonce | no_pass.
 
@@ -266,7 +266,7 @@ check_digest([_|Rest], Req, Fun, Acc) ->
 
 
 %% @private Generates a Authorization or Proxy-Authorization header
--spec make_auth_request(nksip_lib:proplist(), nksip_lib:proplist()) ->
+-spec make_auth_request(nksip_lib:optslist(), nksip_lib:optslist()) ->
     {ok, binary()} | error.
 
 make_auth_request(AuthHeaderData, UserOpts) ->
@@ -316,7 +316,7 @@ make_auth_request(AuthHeaderData, UserOpts) ->
 
 
 %% @private
--spec check_auth_header(nksip_lib:proplist(), binary(), binary(), binary(), 
+-spec check_auth_header(nksip_lib:optslist(), binary(), binary(), binary(), 
                             binary(), nksip:request()) -> 
     true | false | not_found.
 
@@ -435,7 +435,7 @@ put_nonce(AppId, CallId, Nonce, Term, Timeout) ->
 
 %% @private
 -spec parse_header(string() | binary()) ->
-    nksip_lib:proplist() | {error, term()}.
+    nksip_lib:optslist() | {error, term()}.
 
 parse_header(Bin) when is_binary(Bin) ->
     parse_header(binary_to_list(Bin));

@@ -420,9 +420,9 @@ stop(#subscription{id=Id}, Dialog, Call) ->
 
 
 %% @private
--spec request_uac_opts(nksip:method(), nksip_lib:proplist(), 
+-spec request_uac_opts(nksip:method(), nksip_lib:optslist(), 
                        nksip:dialog() | nksip:subscription()) ->
-    {ok, nksip_lib:proplist()} | {error, unknown_subscription}.
+    {ok, nksip_lib:optslist()} | {error, unknown_subscription}.
 
 request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
     case lists:keytake(subscription_id, 1, Opts) of

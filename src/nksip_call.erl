@@ -56,12 +56,12 @@
 -type work() :: {incoming, #sipmsg{}} | 
                 {app_reply, atom(), nksip_call_uas:id(), term()} |
                 {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
-                {make, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
-                {send, nksip:request(), nksip_lib:proplist()} |
-                {send, nksip:method(), nksip:user_uri(), nksip_lib:proplist()} |
-                {send_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
+                {make, nksip:method(), nksip:user_uri(), nksip_lib:optslist()} |
+                {send, nksip:request(), nksip_lib:optslist()} |
+                {send, nksip:method(), nksip:user_uri(), nksip_lib:optslist()} |
+                {send_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:optslist()} |
                 {cancel, nksip_sipmsg:id()} |
-                {make_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:proplist()} |
+                {make_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:optslist()} |
                 {apply_dialog, nksip_dialog:id(), function()} |
                 {dialog_id, nksip_sipmsg:id()} |
                 get_all_dialogs | 
@@ -77,7 +77,7 @@
 %% ===================================================================
 
 %% @doc Sends a new request.
--spec send(nksip:request(), nksip_lib:proplist()) ->
+-spec send(nksip:request(), nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
@@ -85,7 +85,7 @@ send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
 
 
 %% @doc Generates and sends a new request.
--spec send(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:proplist()) ->
+-spec send(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:optslist()) ->
     nksip_uac:result() | {error, nksip_uac:error()}.
 
 send(AppId, Method, Uri, Opts) ->
@@ -98,7 +98,7 @@ send(AppId, Method, Uri, Opts) ->
 
 %% @doc Generates and sends a new in-dialog request.
 -spec send_dialog(nksip:app_id(), nksip_dialog:id(), nksip:method(), 
-                  nksip_lib:proplist()) ->
+                  nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send_dialog(AppId, DialogId, Method, Opts) ->
@@ -473,7 +473,7 @@ timeout(check_call, _Ref, Call) ->
 %% ===================================================================
 
 %% @private Sends a new in-dialog request from inside the call process
--spec sync_send_dialog(nksip_dialog:id(), nksip:method(), nksip_lib:proplist(), call()) ->
+-spec sync_send_dialog(nksip_dialog:id(), nksip:method(), nksip_lib:optslist(), call()) ->
     {ok, call()} | {error, term()}.
 
 sync_send_dialog(DialogId, Method, Opts, Call) ->
@@ -486,8 +486,8 @@ sync_send_dialog(DialogId, Method, Opts, Call) ->
 
 
 %% @private Generates a new in-dialog request from inside the call process
--spec make_dialog(nksip_dialog:id(), nksip:method(), nksip_lib:proplist(), call()) ->
-    {ok, nksip:request(), nksip_lib:proplist(), call()} | {error, term()}.
+-spec make_dialog(nksip_dialog:id(), nksip:method(), nksip_lib:optslist(), call()) ->
+    {ok, nksip:request(), nksip_lib:optslist(), call()} | {error, term()}.
 
 make_dialog(DialogId, Method, Opts, Call) ->
     #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,

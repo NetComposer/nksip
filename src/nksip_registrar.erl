@@ -308,8 +308,8 @@ is_registered([
 
 
 %% @private
--spec check_gruu(nksip:request(), nksip_lib:proplist()) ->
-    nksip_lib:proplist().
+-spec check_gruu(nksip:request(), nksip_lib:optslist()) ->
+    nksip_lib:optslist().
 
 check_gruu(Req, AppOpts) ->
     AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
@@ -322,7 +322,7 @@ check_gruu(Req, AppOpts) ->
 
 
 %% @private
--spec process(nksip:request(), nksip_lib:proplist()) ->
+-spec process(nksip:request(), nksip_lib:optslist()) ->
     ok.
 
 process(Req, Opts) ->
@@ -352,7 +352,7 @@ process(Req, Opts) ->
 
 
 %% @private
--spec update(nksip:request(), times(), nksip_lib:proplist()) ->
+-spec update(nksip:request(), times(), nksip_lib:optslist()) ->
     ok.
 
 update(Req, Times, Opts) ->
@@ -392,7 +392,7 @@ update(Req, Times, Opts) ->
 
 %% @private Extracts from each contact a index, uri, expire time and q
 -spec update_regcontacts([#uri{}], nksip:request(), times(), 
-                         [nksip:uri()], nksip_lib:proplist(), [reg_contact()]) ->
+                         [nksip:uri()], nksip_lib:optslist(), [reg_contact()]) ->
     [reg_contact()].
 
 update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->

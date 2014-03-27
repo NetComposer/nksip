@@ -120,8 +120,8 @@ preprocess(Req, GlobalId) ->
 %% </ul>
 %%
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
-                nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
-    {ok, nksip:response(), nksip_lib:proplist()} | {error, Error}
+                nksip:body(), nksip_lib:optslist(), nksip_lib:optslist()) -> 
+    {ok, nksip:response(), nksip_lib:optslist()} | {error, Error}
     when Error :: invalid_contact | invalid_content_type | invalid_require | 
                   invalid_reason | invalid_service_route.
 
@@ -135,8 +135,8 @@ response(Req, Code, Headers, Body, Opts, AppOpts) ->
 
 %% @private
 -spec response2(nksip:request(), nksip:response_code(), [nksip:header()], 
-                nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
-    {ok, nksip:response(), nksip_lib:proplist()}.
+                nksip:body(), nksip_lib:optslist(), nksip_lib:optslist()) -> 
+    {ok, nksip:response(), nksip_lib:optslist()}.
 
 response2(Req, Code, Headers, Body, Opts, AppOpts) ->
 
@@ -498,38 +498,23 @@ ruri_has_maddr(#sipmsg{
     end.
 
 
-% %% @private Remove top routes if reached
-% remove_local_route(#sipmsg{app_id=AppId, routes=Routes}=Request) ->
-%     case Routes of
-%         [] ->
-%             Request;
-%         [Route|RestRoutes] ->
-%             case nksip_transport:is_local(AppId, Route) of
-%                 true -> remove_local_route(Request#sipmsg{routes=RestRoutes});
-%                 false -> Request
-%             end 
-%     end.
+% -compile([export_all]).
 
-
-
-
--compile([export_all]).
-
-r() ->
-    #sipmsg{
-        class = {req, 'REGISTER'},
-        ruri = #uri{},
-        vias = [#via{}, #via{}],
-        cseq = {1, 'REGISTER'},
-        from = {#uri{domain = <<"from">>}, <<>>},
-        to = {#uri{domain = <<"to">>, ext_opts=[{<<"tag">>, <<"t1">>}]}, <<"t1">>},
-        routes = [],
-        contacts = [],
-        require = [<<"100rel">>],
-        supported = [<<"100rel">>],
-        headers = [{<<"timestamp">>, <<"2">>}],
-        to_tag_candidate = <<"a">>
-    }.
+% r() ->
+%     #sipmsg{
+%         class = {req, 'REGISTER'},
+%         ruri = #uri{},
+%         vias = [#via{}, #via{}],
+%         cseq = {1, 'REGISTER'},
+%         from = {#uri{domain = <<"from">>}, <<>>},
+%         to = {#uri{domain = <<"to">>, ext_opts=[{<<"tag">>, <<"t1">>}]}, <<"t1">>},
+%         routes = [],
+%         contacts = [],
+%         require = [<<"100rel">>],
+%         supported = [<<"100rel">>],
+%         headers = [{<<"timestamp">>, <<"2">>}],
+%         to_tag_candidate = <<"a">>
+%     }.
 
 
 
@@ -546,8 +531,8 @@ r() ->
 
 %% @private
 -spec make(nksip:request(), nksip:response_code(),
-           nksip_lib:proplist(), nksip_lib:proplist()) -> 
-    {ok, nksip:response(), nksip_lib:proplist()} | {error, term()}.
+           nksip_lib:optslist(), nksip_lib:optslist()) -> 
+    {ok, nksip:response(), nksip_lib:optslist()} | {error, term()}.
 
 make(Req, Code, Opts, Config) ->
   #sipmsg{
@@ -629,9 +614,9 @@ make(Req, Code, Opts, Config) ->
 
 
 %% @private
--spec parse_opts(nksip_lib:proplist(), nksip:response(), nksip_lib:proplist(),
-                 nksip:request(), nksip:response_code(), nksip_lib:proplist()) -> 
-    {nksip:response(), nksip_lib:proplist()}.
+-spec parse_opts(nksip_lib:optslist(), nksip:response(), nksip_lib:optslist(),
+                 nksip:request(), nksip:response_code(), nksip_lib:optslist()) -> 
+    {nksip:response(), nksip_lib:optslist()}.
 
 parse_opts([], Resp, Opts, _Req, _Code, _Config) ->
     {Resp, Opts};

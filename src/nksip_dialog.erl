@@ -427,7 +427,7 @@ remote_id(#dialog{id=BaseId, call_id=CallId, local_uri=LUri, remote_uri=RUri}) -
 %% @private Dumps all dialog information
 %% Do not use it with many active dialogs!!
 -spec get_all_data() ->
-    [{nksip_dialog:id(), nksip_lib:proplist()}].
+    [{nksip_dialog:id(), nksip_lib:optslist()}].
 
 get_all_data() ->
     Now = nksip_lib:timestamp(),

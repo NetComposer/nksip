@@ -52,7 +52,7 @@ add_transport(AppId, Spec) ->
 
 
 %% @private
--spec start_link(nksip:app_id(), nksip_lib:proplist()) -> 
+-spec start_link(nksip:app_id(), nksip_lib:optslist()) -> 
     {ok, pid()} | {error, term()}.
 
 start_link(AppId, Opts) ->
@@ -74,7 +74,7 @@ init([Reg, ChildSpecs]) ->
 
 %% @private Tries to start all the configured transports for a SipApp.
 %% For every UDP transport it will start a TCP transport on the same port
--spec start_transports(nksip:app_id(), [term()], nksip_lib:proplist()) ->
+-spec start_transports(nksip:app_id(), [term()], nksip_lib:optslist()) ->
     ok | {error, Error}
     when Error ::  {could_not_start, {udp|tcp|tls|sctp|ws|wss, term()}}.
 

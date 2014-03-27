@@ -44,7 +44,7 @@
 
 %% @doc Starts a new listening server
 -spec start_listener(nksip:app_id(), nksip:protocol(), 
-                    inet:ip_address(), inet:port_number(), nksip_lib:proplist()) ->
+                    inet:ip_address(), inet:port_number(), nksip_lib:optslist()) ->
     {ok, pid()} | {error, term()}.
 
 start_listener(AppId, Proto, Ip, Port, Opts) ->
@@ -70,7 +70,7 @@ start_listener(AppId, Proto, Ip, Port, Opts) ->
     
 %% @doc Starts a new connection to a remote server
 -spec connect(nksip:app_id(), nksip:protocol(), inet:ip_address(), inet:port_number(), 
-              binary(), nksip_lib:proplist()) ->
+              binary(), nksip_lib:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
          
 connect(AppId, Proto, Ip, Port, Res, Opts) ->

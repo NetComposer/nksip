@@ -427,10 +427,10 @@ ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call
     
 
  %% @private
--spec make(integer(), nksip:method(), nksip_lib:proplist(), nksip_call:call()) ->
+-spec make(integer(), nksip:method(), nksip_lib:optslist(), nksip_call:call()) ->
     {ok, {AppId, RUri, Opts}, nksip_call:call()} | {error, Error}
     when Error :: invalid_dialog | unknown_dialog | unknown_subscription,
-         AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip_lib:proplist().
+         AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip_lib:optslist().
 
 make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
@@ -520,9 +520,9 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
 
 
 %% @private
--spec generate(nksip:method(), nksip_lib:proplist(), nksip:dialog(), nksip_call:call()) ->
+-spec generate(nksip:method(), nksip_lib:optslist(), nksip:dialog(), nksip_call:call()) ->
     {{RUri, Opts}, nksip:dialog()} 
-    when RUri::nksip:uri(), Opts::nksip_lib:proplist().
+    when RUri::nksip:uri(), Opts::nksip_lib:optslist().
 
 generate(Method, Opts, Dialog, Call) ->
     #dialog{

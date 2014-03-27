@@ -129,7 +129,7 @@
 %%   <tr><td>`Code'</td><td>{@link nksip:response_code()}</td></tr>
 %%   <tr><td>`Header'</td><td>{@link nksip:header()}</td></tr>
 %%   <tr><td>`Body'</td><td>{@link nksip:body()}</td></tr>
-%%   <tr><td>`Options'</td><td>{@link nksip_lib:proplist()}</td></tr>
+%%   <tr><td>`Options'</td><td>{@link nksip_lib:optslist()}</td></tr>
 %%   <tr><td>`Text'</td><td>`binary()'</td></tr>
 %%   <tr><td>`Realm'</td><td>`binary()'</td></tr>
 %%   <tr><td>`Methods'</td><td>`binary()'</td></tr>
@@ -177,13 +177,13 @@
 
 -type sipreply() ::
     ringing | {ringing, nksip:body()} | 
-    session_progress | {session_progress, nksip:body()} |
     rel_ringing | {rel_ringing, nksip:body()} | 
+    session_progress | {session_progress, nksip:body()} |
     rel_session_progress | {rel_session_progress, nksip:body()} |
     ok | {ok, [nksip:header()]} | {ok, [nksip:header()], nksip:body()} | 
-    {ok, [nksip:header()], nksip:body(), nksip_lib:proplist()} | 
+    {ok, [nksip:header()], nksip:body(), nksip_lib:optslist()} | 
     answer | {answer, [nksip:header()]} | {answer, [nksip:header()], nksip:body()} | 
-    {answer, [nksip:header()], nksip:body(), nksip_lib:proplist()} | 
+    {answer, [nksip:header()], nksip:body(), nksip_lib:optslist()} | 
     accepted | 
     {redirect, [nksip:user_uri()]} | 
     {redirect_permanent, nksip:user_uri()} | 
@@ -223,7 +223,7 @@
     {nksip:response_code(), binary()} | 
     {nksip:response_code(), [nksip:header()]} | 
     {nksip:response_code(), [nksip:header()], nksip:body()} | 
-    {nksip:response_code(), [nksip:header()], nksip:body(), nksip_lib:proplist()}.
+    {nksip:response_code(), [nksip:header()], nksip:body(), nksip_lib:optslist()}.
 
 
 %% ===================================================================
@@ -233,8 +233,8 @@
 %% @doc Generates a new SIP response and send options using helper replies.
 %% Currently recognized replies are described in this module.
 %% See {@link nksip_uas_lib:response/5}.
--spec reply(nksip:request(), nksip:sipreply()|#reqreply{}, nksip_lib:proplist()) -> 
-    {nksip:response(), nksip_lib:proplist()}.
+-spec reply(nksip:request(), nksip:sipreply()|#reqreply{}, nksip_lib:optslist()) -> 
+    {nksip:response(), nksip_lib:optslist()}.
 
 reply(Req, #reqreply{}=ReqReply, AppOpts) ->
     #reqreply{code=Code, headers=Headers, body=Body, opts=Opts} = ReqReply,
@@ -464,8 +464,8 @@ helper_debug(#reqreply{opts=Opts}=SipReply, Text) ->
 
 %% @private
 -spec response(nksip:request(), nksip:response_code(), [nksip:header()], 
-                nksip:body(), nksip_lib:proplist(), nksip_lib:proplist()) -> 
-    {nksip:response(), nksip_lib:proplist()}.
+                nksip:body(), nksip_lib:optslist(), nksip_lib:optslist()) -> 
+    {nksip:response(), nksip_lib:optslist()}.
 
 response(Req, Code, Headers, Body, Opts, AppOpts) ->
     case nksip_uas_lib:response(Req, Code, Headers, Body, Opts, AppOpts) of

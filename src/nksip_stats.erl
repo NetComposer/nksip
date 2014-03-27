@@ -42,7 +42,7 @@
 
 %% @doc Gets some statistics about current number of calls, dialogs, queues, etc.
 -spec info() ->
-    nksip_lib:proplist().
+    nksip_lib:optslist().
 
 info() ->
     [

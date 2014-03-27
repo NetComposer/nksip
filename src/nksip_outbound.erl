@@ -32,7 +32,7 @@
 %% ===================================================================
 
 %% @private
--spec make_contact(nksip:request(), nksip:uri(), nksip_lib:proplist()) ->
+-spec make_contact(nksip:request(), nksip:uri(), nksip_lib:optslist()) ->
     nksip:uri().
 
 make_contact(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Contact, Opts) ->
@@ -66,8 +66,8 @@ make_contact(Req, Contact, _Opts) ->
 
 %% @private
 %% Can add options record_flow and route_flow
--spec proxy_opts(nksip:request(), nksip_lib:proplist()) ->
-    {ok, nksip_lib:proplist()} | {error, Error}
+-spec proxy_opts(nksip:request(), nksip_lib:optslist()) ->
+    {ok, nksip_lib:optslist()} | {error, Error}
     when Error :: flow_failed | forbidden.
 
 proxy_opts(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
@@ -197,8 +197,8 @@ flow_type(_, _) ->
 
 %% @private
 %% Add registrar_otbound
--spec registrar(nksip:request(), nksip_lib:proplist()) ->
-    {ok, nksip:request(), nksip_lib:proplist()} | {error, term()}.
+-spec registrar(nksip:request(), nksip_lib:optslist()) ->
+    {ok, nksip:request(), nksip_lib:optslist()} | {error, term()}.
 
 registrar(Req, Opts) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,

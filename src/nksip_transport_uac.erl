@@ -34,7 +34,7 @@
 %% ===================================================================
 
 %% @doc Sends a new request.
--spec send_request(nksip:request(), binary(), nksip_lib:proplist()) -> 
+-spec send_request(nksip:request(), binary(), nksip_lib:optslist()) -> 
     {ok, nksip:request()} | {error, nksip:sipreply()}.
 
 send_request(Req, GlobalId, Opts) ->
@@ -90,7 +90,7 @@ send_request(Req, GlobalId, Opts) ->
 
 
 %% @doc Resend an already sent request to the same ip, port and transport.
--spec resend_request(nksip:request(), nksip_lib:proplist()) -> 
+-spec resend_request(nksip:request(), nksip_lib:optslist()) -> 
     {ok, nksip:request()} | error.
 
 resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
@@ -106,7 +106,7 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
 
 
 %% @private
--spec make_request_fun(nksip:request(), nksip:uri(), binary(), nksip_lib:proplist()) ->
+-spec make_request_fun(nksip:request(), nksip:uri(), binary(), nksip_lib:optslist()) ->
     function().
 
 make_request_fun(Req, Dest, GlobalId, Opts) ->

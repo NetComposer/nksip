@@ -34,7 +34,7 @@
 %% ===================================================================
 
 %% @doc Tries to route a request to set of uris, serially and/or in parallel.
--spec route(nksip_call:trans(), nksip:uri_set(), nksip_lib:proplist(), nksip_call:call()) -> 
+-spec route(nksip_call:trans(), nksip:uri_set(), nksip_lib:optslist(), nksip_call:call()) -> 
     {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
     {reply, nksip:sipreply(), nksip_call:call()}.
 
@@ -82,7 +82,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
 
 
 %% @private
--spec route_stateless(nksip:request(), nksip:uri(), nksip_lib:proplist(), nksip_call:call()) -> 
+-spec route_stateless(nksip:request(), nksip:uri(), nksip_lib:optslist(), nksip_call:call()) -> 
     stateless_proxy.
 
 route_stateless(Req, Uri, ProxyOpts, Call) ->
@@ -151,7 +151,7 @@ response_stateless(_, Call) ->
 
 
 %% @private
--spec check_request(nksip:request(), nksip_lib:proplist()) ->
+-spec check_request(nksip:request(), nksip_lib:optslist()) ->
     nksip:request().
 
 check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->

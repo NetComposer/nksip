@@ -29,7 +29,7 @@
 -include("nksip_call.hrl").
 
 -type incoming() :: 
-    nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}.
+    nksip:sipreply() | {nksip:response(), nksip_lib:optslist()}.
 
 -type reply_error() :: 
     invalid_call | pending_prack | stateless_not_allowed | service_unavailable.

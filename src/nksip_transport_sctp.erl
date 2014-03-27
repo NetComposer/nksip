@@ -38,7 +38,7 @@
 %% ===================================================================
 
 %% @private Starts a new listening server
--spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+-spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:optslist()) ->
     term().
 
 get_listener(AppId, Transp, Opts) ->
@@ -54,7 +54,7 @@ get_listener(AppId, Transp, Opts) ->
     
 
 %% @private Starts a new connection to a remote server
--spec connect(pid(), nksip:transport(), nksip_lib:proplist()) ->
+-spec connect(pid(), nksip:transport(), nksip_lib:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 connect(Pid, Transp, _Opts) ->

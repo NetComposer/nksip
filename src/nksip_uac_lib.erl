@@ -34,7 +34,7 @@
 
 -spec send_any(nksip:app_id(), nksip:method(), 
                nksip:user_uri() | nksip_dialog:spec() | nksip_subscription:id(),
-               nksip_lib:proplist()) ->
+               nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 % R: requests
@@ -54,7 +54,7 @@ send_any(AppId, Method, UriOrDialog, Opts) ->
 %% @private
 -spec send_dialog(nksip:app_id(), nksip:method(), 
                   nksip_dialog:spec() | nksip_subscription:id(),
-                  nksip_lib:proplist()) ->
+                  nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
@@ -72,8 +72,8 @@ send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
 -spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), 
-           nksip_lib:proplist(), nksip_lib:proplist()) ->    
-    {ok, nksip:request(), nksip_lib:proplist()} | {error, term()}.
+           nksip_lib:optslist(), nksip_lib:optslist()) ->    
+    {ok, nksip:request(), nksip_lib:optslist()} | {error, term()}.
     
 make(AppId, Method, Uri, Opts, Config) ->
     try
@@ -125,8 +125,8 @@ make(AppId, Method, Uri, Opts, Config) ->
 
 
 %% @private 
--spec proxy_make(nksip:request(), nksip_lib:proplist(), nksip_lib:proplist()) ->    
-    {ok, nksip:request(), nksip_lib:proplist()} | {error, term()}.
+-spec proxy_make(nksip:request(), nksip_lib:optslist(), nksip_lib:optslist()) ->    
+    {ok, nksip:request(), nksip_lib:optslist()} | {error, term()}.
     
 proxy_make(Req, Opts, Config) ->
     try
@@ -279,9 +279,9 @@ is_stateless(Resp, GlobalId) ->
 
 
 %% @private
--spec parse_opts(nksip_lib:proplist(), nksip:request(), 
-            nksip_lib:proplist(), nksip_lib:proplist()) ->
-    {nksip:request(), nksip_lib:proplist()}.
+-spec parse_opts(nksip_lib:optslist(), nksip:request(), 
+            nksip_lib:optslist(), nksip_lib:optslist()) ->
+    {nksip:request(), nksip_lib:optslist()}.
 
 
 parse_opts([], Req, Opts, _Config) ->

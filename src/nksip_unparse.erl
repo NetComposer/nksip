@@ -54,14 +54,14 @@ ruri(#uri{}=Uri) ->
     list_to_binary(raw_ruri(Uri)).
 
 
-%% @doc Serializes an `uri()' into a `proplist()'.
+%% @doc Serializes an `uri()' into a `optslist()'.
 %% The first options in the list will be `scheme', `user' and `domain'.
 %% The rest will be present only if they are present in the Uri
 -spec uri2proplist(nksip:uri()) -> [Opts] when
     Opts :: {scheme, nksip:scheme()} | {user, binary()} | {domain, binary()} | 
             {disp, binary()} | {pass, binary()} | {port, inet:port_number()} |
-            {opts, nksip_lib:proplist()} | {headers, [binary()|nksip:header()]} |
-            {ext_opts, nksip_lib:proplist()} | {ext_headers, [binary()|nksip:header()]}.
+            {opts, nksip_lib:optslist()} | {headers, [binary()|nksip:header()]} |
+            {ext_opts, nksip_lib:optslist()} | {ext_headers, [binary()|nksip:header()]}.
 
 uri2proplist(#uri{
                 disp = Disp, 

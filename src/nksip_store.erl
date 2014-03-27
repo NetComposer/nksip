@@ -92,7 +92,7 @@ update(Key, Fun) ->
 %% If no record is found, old value would be `[]'. 
 %% If the new generated value is `[]' record will be deleted.
 %% See {@link put/3} for options.
--spec update(term(), function(), nksip_lib:proplist()) -> 
+-spec update(term(), function(), nksip_lib:optslist()) -> 
     {ok, FunResult::term()} | {error, Error::term()}.
 update(Key, Fun, Opts) when is_function(Fun, 1), is_list(Opts) ->
     gen_server:call(?MODULE, {update, Key, Fun, Opts}).

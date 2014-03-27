@@ -40,7 +40,7 @@
 %% ===================================================================
 
 %% @doc Starts a new Forking Proxy.
--spec start(nksip_call:trans(), nksip:uri_set(), nksip_lib:proplist(),call()) ->
+-spec start(nksip_call:trans(), nksip:uri_set(), nksip_lib:optslist(),call()) ->
    call().
 
 start(Trans, UriSet, ForkOpts, #call{forks=Forks}=Call) ->

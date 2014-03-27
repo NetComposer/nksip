@@ -200,7 +200,7 @@ local_ips() ->
 
 %% @doc Start a new listening transport.
 -spec start_transport(nksip:app_id(), nksip:protocol(), inet:ip_address(), 
-                      inet:port_number(), nksip_lib:proplist()) ->
+                      inet:port_number(), nksip_lib:optslist()) ->
     {ok, pid()} | {error, term()}.
 
 start_transport(AppId, Proto, Ip, Port, Opts) ->
@@ -219,7 +219,7 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
 %% @private Starts a new outbound connection.
 -spec start_connection(nksip:app_id(), nksip:protocol(),
                        inet:ip_address(), inet:port_number(), binary(), 
-                       nksip_lib:proplist()) ->
+                       nksip_lib:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 start_connection(AppId, udp, Ip, Port, Res, Opts) ->
@@ -234,7 +234,7 @@ start_connection(AppId, Proto, Ip, Port, Res, Opts) ->
                 
 
 %% @private Makes a route from a Scheme and Transport
--spec get_listenhost(inet:ip_address(), nksip_lib:proplist()) ->
+-spec get_listenhost(inet:ip_address(), nksip_lib:optslist()) ->
     binary().
 
 get_listenhost(Ip, Opts) ->
@@ -262,7 +262,7 @@ get_listenhost(Ip, Opts) ->
     
 %% @private Makes a route record
 -spec make_route(nksip:scheme(), nksip:protocol(), binary(), inet:port_number(),
-                 binary(), nksip_lib:proplist()) ->
+                 binary(), nksip_lib:optslist()) ->
     #uri{}.
 
 make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
@@ -288,7 +288,7 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 %% ===================================================================
 
 %% @private
--spec send(nksip:app_id(), [TSpec], function(), nksip_lib:proplist()) ->
+-spec send(nksip:app_id(), [TSpec], function(), nksip_lib:optslist()) ->
     {ok, nksip:request()|nksip:response()} | error
     when TSpec :: #uri{} | connection() | {current, connection()} | 
                   {flow, {pid(), nksip:transport()}}.

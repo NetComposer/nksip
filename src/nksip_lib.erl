@@ -34,7 +34,7 @@
 -export([bjoin/1, bjoin/2, tokens/1, hex/1, extract/2, delete/2, bin_last/2]).
 -export([cancel_timer/1, msg/2]).
 
--export_type([proplist/0, timestamp/0, l_timestamp/0]).
+-export_type([optslist/0, timestamp/0, l_timestamp/0]).
 
 -include("nksip.hrl").
 
@@ -44,7 +44,7 @@
 %% ===================================================================
 
 %% Standard Proplist
--type proplist() :: [atom() | binary() | {atom()|binary(), term()}].
+-type optslist() :: [atom() | binary() | {atom()|binary(), term()}].
 
 %% System timestamp
 -type timestamp() :: non_neg_integer().
@@ -384,8 +384,8 @@ store_value(Tem, List) ->
 
     
 %% @doc Stores a value in a proplist
--spec store_value(term(), term(), nksip_lib:proplist()) ->
-    nksip_lib:proplist().
+-spec store_value(term(), term(), nksip_lib:optslist()) ->
+    nksip_lib:optslist().
  
 store_value(Key, Val, List) ->
     lists:keystore(Key, 1, List, {Key, Val}).

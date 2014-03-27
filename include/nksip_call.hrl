@@ -56,7 +56,7 @@
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nksip_lib:timestamp(),
     from :: none | {srv, from()} | {fork, nksip_call_fork:id()},
-    opts :: nksip_lib:proplist(),
+    opts :: nksip_lib:optslist(),
     trans_id :: integer(),
     request :: nksip:request(),
     method :: nksip:method(),
@@ -77,7 +77,7 @@
     loop_id :: integer(),
     ack_trans_id :: integer(),
     iter = 1 :: integer(),
-    meta1 = [] :: nksip_lib:proplist()
+    meta1 = [] :: nksip_lib:optslist()
 }).
 
 
@@ -87,13 +87,13 @@
     start :: nksip_lib:timestamp(),
     request :: nksip:request(),
     method :: nksip:method(),
-    opts :: nksip_lib:proplist(),
+    opts :: nksip_lib:optslist(),
     uriset :: nksip:uri_set(),          
     uacs :: [integer()],
     pending :: [integer()],
     responses :: [nksip:response()], 
     final :: false | '2xx' | '6xx',
-    meta = [] :: nksip_lib:proplist()   % No current use
+    meta = [] :: nksip_lib:optslist()   % No current use
 }).
 
 
@@ -105,7 +105,7 @@
 -record(call_opts, {
     global_id :: binary(),
     app_module :: atom(),
-    app_opts :: nksip_lib:proplist(),
+    app_opts :: nksip_lib:optslist(),
     timer_t1 :: integer(),
     timer_t2 :: integer(),
     timer_t4 :: integer(),
@@ -145,7 +145,7 @@
     auths = [] :: [call_auth()],
     msgs = [] :: [call_msg()],
     events = [] :: [#provisional_event{}],
-    meta = [] :: nksip_lib:proplist()
+    meta = [] :: nksip_lib:optslist()
 }).
 
 

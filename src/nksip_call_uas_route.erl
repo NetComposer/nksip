@@ -261,10 +261,10 @@ route_reply(_Reply, UAS, Call) ->
 
 
 %% @private
--spec do_route({response, nksip:sipreply(), nksip_lib:proplist()} |
-               {process, nksip_lib:proplist()} |
-               {proxy, nksip:uri_set(), nksip_lib:proplist()} |
-               {strict_proxy, nksip_lib:proplist()}, 
+-spec do_route({response, nksip:sipreply(), nksip_lib:optslist()} |
+               {process, nksip_lib:optslist()} |
+               {proxy, nksip:uri_set(), nksip_lib:optslist()} |
+               {strict_proxy, nksip_lib:optslist()}, 
                nksip_call:trans(), nksip_call:call()) -> 
     nksip_call:call().
 
@@ -393,7 +393,7 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
 
 
 %% @private Sends a transaction reply
--spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}, 
+-spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:optslist()}, 
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 

@@ -88,7 +88,7 @@ get_uuid(AppId) ->
 
 %% @doc Gets SipApp's module, options and pid
 -spec get_opts(nksip:app_id()) -> 
-    {ok, atom(), nksip_lib:proplist(), pid()} | {error, not_found}.
+    {ok, atom(), nksip_lib:optslist(), pid()} | {error, not_found}.
 
 get_opts(AppId) ->
     case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
@@ -114,7 +114,7 @@ get_gruu_temp(AppId) ->
 
 
 %% @private
--spec put_opts(nksip:app_id(), nksip_lib:proplist()) -> 
+-spec put_opts(nksip:app_id(), nksip_lib:optslist()) -> 
     ok | {error, not_found}.
 
 put_opts(AppId, Opts) ->
@@ -260,7 +260,7 @@ pending_msgs() ->
 -record(state, {
     id :: nksip:app_id(),
     module :: atom(),
-    opts :: nksip_lib:proplist(),
+    opts :: nksip_lib:optslist(),
     procs :: dict(),
     reg_state :: term(),
     mod_state :: term()

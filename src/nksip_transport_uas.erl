@@ -76,7 +76,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
 
 
 %% @doc Resends a previously sent response to the same ip, port and protocol.
--spec resend_response(Resp::nksip:response(), binary(), nksip_lib:proplist()) ->
+-spec resend_response(Resp::nksip:response(), binary(), nksip_lib:optslist()) ->
     {ok, nksip:response()} | error.
 
 resend_response(#sipmsg{class={resp, Code, _}, app_id=AppId, cseq={_, Method}, 
@@ -100,7 +100,7 @@ resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, GlobalId, Opts) ->
 
 %% @private
 %% Recognizes options local_host, make_contact
--spec make_response_fun(binary(), nksip:response(), nksip_lib:proplist()) ->
+-spec make_response_fun(binary(), nksip:response(), nksip_lib:optslist()) ->
     function().
 
 make_response_fun(RouteHash, Resp, Opts) ->

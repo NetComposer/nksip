@@ -43,7 +43,7 @@
 
 
 %% @doc Starts a new UAC transaction.
--spec request(nksip:request(), nksip_lib:proplist(), uac_from(), nksip_call:call()) ->
+-spec request(nksip:request(), nksip_lib:optslist(), uac_from(), nksip_call:call()) ->
     nksip_call:call().
 
 request(Req, Opts, From, Call) ->
@@ -73,7 +73,7 @@ request(Req, Opts, From, Call) ->
 
 
 %% @private
--spec new_uac(nksip:request(), nksip_lib:proplist(), uac_from(), nksip_call:call()) ->
+-spec new_uac(nksip:request(), nksip_lib:optslist(), uac_from(), nksip_call:call()) ->
     {nksip_call:trans(), nksip_call:call()}.
 
 new_uac(Req, Opts, From, Call) ->

@@ -172,7 +172,7 @@
     {stop, Reason::term(), State::term()}.
 
 -type meta() ::
-    nksip_lib:proplist().
+    nksip_lib:optslist().
 
 
 
@@ -365,10 +365,10 @@ authorize(_ReqId, _AuthList, _From, State) ->
 %%
 -type route_reply() ::
     proxy | {proxy, ruri | nksip:uri_set()} | 
-    {proxy, ruri | nksip:uri_set(), nksip_lib:proplist()} | 
-    process | {process, nksip_lib:proplist()} |
+    {proxy, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
+    process | {process, nksip_lib:optslist()} |
     {response, nksip:sipreply()} | 
-    {response, nksip:sipreply(), nksip_lib:proplist()}.
+    {response, nksip:sipreply(), nksip_lib:optslist()}.
 
 -spec route(ReqId::nksip:id(), Scheme::nksip:scheme(), 
             User::binary(), Domain::binary(), From::from(), State::term()) ->

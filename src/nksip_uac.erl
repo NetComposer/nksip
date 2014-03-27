@@ -259,7 +259,7 @@
     {sip_etag, binary()}.
 
 -type result() ::  
-    {async, nksip:id()} | {ok, nksip:response_code(), nksip_lib:proplist()} | 
+    {async, nksip:id()} | {ok, nksip:response_code(), nksip_lib:optslist()} | 
     {resp, nksip:response()}.
     
 -type ack_result() ::
@@ -901,7 +901,7 @@ request(AppId, Dest, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(nksip:app_id(), nksip:user_uri(), nksip_lib:proplist()) ->
+-spec stun(nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),

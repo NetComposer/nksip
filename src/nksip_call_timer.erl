@@ -66,7 +66,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
 
 %% @private
 -spec uac_update_timer(nksip:method(), nksip:dialog(), nksip_call:call()) ->
-    nksip_lib:proplist().
+    nksip_lib:optslist().
 
 uac_update_timer(Method, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,

@@ -51,7 +51,7 @@
 %% NkSIP will keep the 'flow' opened sending keep-alive packets. If the flow
 %% goes down, NkSIP will try to re-send the registration at specific intervals.
 -spec start_register(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
-                        nksip_lib:proplist()) -> 
+                        nksip_lib:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
 
 start_register(AppId, RegId, Uri, Time, Opts) 
@@ -94,7 +94,7 @@ get_registers(AppId) ->
 %% Use {@link get_pings/1} to know about ping status, or the callback function
 %% {@link nksip_sipapp:register_update/3}.
 -spec start_ping(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
-                    nksip_lib:proplist()) -> 
+                    nksip_lib:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
 
 start_ping(AppId, PingId, Uri, Time, Opts) 
@@ -136,7 +136,7 @@ get_pings(AppId) ->
     id :: term(),
     pos :: integer(),
     ruri :: nksip:uri(),
-    opts :: nksip_lib:proplist(),
+    opts :: nksip_lib:optslist(),
     call_id :: nksip:call_id(),
     interval :: non_neg_integer(),
     from :: any(),
@@ -459,7 +459,7 @@ launch_unregister(AppId, Reg)->
 
    
 %% @private
--spec update_register(#sipreg{}, nksip:response_code(), nksip_lib:proplist(), #state{}) ->
+-spec update_register(#sipreg{}, nksip:response_code(), nksip_lib:optslist(), #state{}) ->
     #sipreg{}.
 
 update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 ->
@@ -585,7 +585,7 @@ launch_ping(AppId, Ping)->
 
    
 %% @private
--spec update_ping(#sipreg{}, nksip:response_code(), nksip_lib:proplist(), #state{}) ->
+-spec update_ping(#sipreg{}, nksip:response_code(), nksip_lib:optslist(), #state{}) ->
     #sipreg{}.
 
 update_ping(Ping, Code, Meta, _State) ->

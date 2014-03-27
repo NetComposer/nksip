@@ -344,7 +344,7 @@ process_call(Fun, Fields, UAS, Call) ->
 
 
 %% @private Sends a transaction reply
--spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:proplist()}, 
+-spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:optslist()}, 
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 

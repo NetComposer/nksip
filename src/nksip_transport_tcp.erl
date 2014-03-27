@@ -37,7 +37,7 @@
 %% ===================================================================
 
 %% @private Starts a new listening server
--spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+-spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:optslist()) ->
     term().
 
 get_listener(AppId, Transp, Opts) ->
@@ -60,7 +60,7 @@ get_listener(AppId, Transp, Opts) ->
 
     
 %% @private Starts a new connection to a remote server
--spec connect(nksip:app_id(), nksip:transport(), nksip_lib:proplist()) ->
+-spec connect(nksip:app_id(), nksip:transport(), nksip_lib:optslist()) ->
     {ok, term()} | {error, term()}.
          
 connect(AppId, Transp, Opts) ->
@@ -105,8 +105,8 @@ connect(AppId, Transp, Opts) ->
 
 
 %% @private Gets socket options for outbound connections
--spec outbound_opts(nksip:protocol(), nksip_lib:proplist()) ->
-    nksip_lib:proplist().
+-spec outbound_opts(nksip:protocol(), nksip_lib:optslist()) ->
+    nksip_lib:optslist().
 
 outbound_opts(Proto, Opts) when Proto==tcp; Proto==tls ->
     Opts1 = listen_opts(Proto, {0,0,0,0}, 0, Opts),
@@ -115,8 +115,8 @@ outbound_opts(Proto, Opts) when Proto==tcp; Proto==tls ->
 
 %% @private Gets socket options for listening connections
 -spec listen_opts(nksip:protocol(), inet:ip_address(), inet:port_number(), 
-                    nksip_lib:proplist()) ->
-    nksip_lib:proplist().
+                    nksip_lib:optslist()) ->
+    nksip_lib:optslist().
 
 listen_opts(tcp, Ip, Port, _Opts) ->
     lists:flatten([
