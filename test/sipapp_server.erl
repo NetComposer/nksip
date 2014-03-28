@@ -24,7 +24,7 @@
 -behaviour(nksip_sipapp).
 
 -export([start/2, stop/1, get_domains/1, set_domains/2]).
--export([init/1, get_user_pass/3, authorize/4, route/6]).
+-export([init/1, get_user_pass/4, authorize/4, route/6]).
 
 -include("../include/nksip.hrl").
 
@@ -65,11 +65,11 @@ init(Id) ->
 
 % Password for user "client1", any realm, is "1234"
 % For user "client2", any realm, is "4321"
-get_user_pass(<<"client1">>, _, State) -> 
+get_user_pass(_, <<"client1">>, _, State) -> 
     {reply, "1234", State};
-get_user_pass(<<"client2">>, _, State) -> 
+get_user_pass(_, <<"client2">>, _, State) -> 
     {reply, "4321", State};
-get_user_pass(_User, _Realm, State) -> 
+get_user_pass(_, _User, _Realm, State) -> 
     {reply, false, State}.
 
 

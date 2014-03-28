@@ -24,7 +24,7 @@
 -behaviour(nksip_sipapp).
 
 -export([start/2, stop/1, add_callback/2, start_events/4, get_sessions/2]).
--export([init/1, get_user_pass/3, authorize/4, route/6]).
+-export([init/1, get_user_pass/4, authorize/4, route/6]).
 -export([options/4, invite/4, reinvite/4, ack/4, bye/4, info/4, subscribe/4, 
          resubscribe/4, notify/4, message/4, refer/4, publish/4, update/4]).
 -export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
@@ -69,14 +69,14 @@ init(Id) ->
 
 % Password for any user in realm "client1" is "4321",
 % for any user in realm "client2" is "1234", and for "client3" is "abcd"
-get_user_pass(User, <<"client1">>, State) -> 
+get_user_pass(_, User, <<"client1">>, State) -> 
     % A hash can be used instead of the plain password
     {reply, nksip_auth:make_ha1(User, "4321", "client1"), State};
-get_user_pass(_, <<"client2">>, State) ->
+get_user_pass(_, _, <<"client2">>, State) ->
     {reply, "1234", State};
-get_user_pass(_, <<"client3">>, State) ->
+get_user_pass(_, _, <<"client3">>, State) ->
     {reply, "abcd", State};
-get_user_pass(_User, _Realm, State) -> 
+get_user_pass(_, _User, _Realm, State) -> 
     {reply, false, State}.
 
 

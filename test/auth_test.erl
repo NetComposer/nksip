@@ -255,7 +255,7 @@ init(Id) ->
     {ok, Id}.
 
 
-get_user_pass(User, Realm, AppId=State) ->
+get_user_pass(_ReqId, User, Realm, AppId=State) ->
     Reply = if
         AppId==server1; AppId==server2 ->
             % Password for user "client1", any realm, is "1234"
