@@ -23,7 +23,7 @@
 -module(tests_util).
 
 -export([start_nksip/0, empty/0, wait/2, log/0, log/1]).
--export([get_ref/0, save_ref/3, update_ref/3, send_ref/3, dialog_update/3]).
+-export([get_ref/0, save_ref/3, update_ref/3, send_ref/3, dialog_update/3, session_update/3]).
 
 -define(LOG_LEVEL, warning).    % Chage to info or notice to debug
 -define(WAIT_TIMEOUT, 10000).
@@ -101,7 +101,7 @@ send_ref(AppId, Meta, Msg) ->
             ok
     end.
 
-dialog_update(DialogId, Update, AppId=State) ->
+dialog_update(DialogId, Update, AppId) ->
     {ok, Dialogs} = nksip:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid} ->
@@ -118,8 +118,28 @@ dialog_update(DialogId, Update, AppId=State) ->
             end;
         false -> 
             none
-    end,
-    {noreply, State}.
+    end.
 
 
-
+session_update(DialogId, Update, AppId) ->
+    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+    case lists:keyfind(DialogId, 1, Dialogs) of
+        false -> 
+            ok;
+        {DialogId, Ref, Pid} ->
+            case Update of
+                {start, Local, Remote} ->
+                    Pid ! {Ref, {AppId, sdp_start}},
+                    {ok, Sessions} = nksip:get(AppId, sessions, []),
+                    nksip:put(AppId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    ok;
+                {update, Local, Remote} ->
+                    Pid ! {Ref, {AppId, sdp_update}},
+                    {ok, Sessions} = nksip:get(AppId, sessions, []),
+                    nksip:put(AppId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    ok;
+                stop ->
+                    Pid ! {Ref, {AppId, sdp_stop}},
+                    ok
+            end
+    end.
