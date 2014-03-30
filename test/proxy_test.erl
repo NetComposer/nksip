@@ -69,7 +69,7 @@ stateful_test_() ->
 start(Test) ->
     tests_util:start_nksip(),
 
-    ok = sipapp_server:start({Test, server1}, [
+    ok = nksip:start({Test, server1}, ?MODULE, {Test, server1}, [
         {from, "sip:server1@nksip"},
         registrar,
         {local_host, "localhost"},
@@ -77,7 +77,7 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    ok = sipapp_server:start({Test, server2}, [
+    ok = nksip:start({Test, server2}, ?MODULE, {Test, server2}, [
         {from, "sip:server2@nksip"},
         registrar,
         {local_host, "localhost"},
@@ -85,14 +85,14 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    ok = sipapp_endpoint:start({Test, client1}, [
+    ok = nksip:start({Test, client1}, ?MODULE, {Test, client1}, [
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    ok = sipapp_endpoint:start({Test, client2}, [
+    ok = nksip:start({Test, client2}, ?MODULE, {Test, client2}, [
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
@@ -104,10 +104,10 @@ start(Test) ->
 
 
 stop(Test) ->
-    ok = sipapp_server:stop({Test, server1}),
-    ok = sipapp_server:stop({Test, server2}),
-    ok = sipapp_endpoint:stop({Test, client1}),
-    ok = sipapp_endpoint:stop({Test, client2}).
+    ok = nksip:stop({Test, server1}),
+    ok = nksip:stop({Test, server2}),
+    ok = nksip:stop({Test, client1}),
+    ok = nksip:stop({Test, client2}).
 
 
 invalid(Test) ->
@@ -317,9 +317,8 @@ invite(Test) ->
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),    
     
-    Ref = make_ref(),
     Self = self(),
-    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    {Ref, RepHd} = tests_util:get_ref(),
     RespFun = fun({ok, Code, _}) -> Self ! {Ref, Code} end,
 
     % Provisional 180 and Busy
@@ -335,7 +334,7 @@ invite(Test) ->
                                  {add, "x-nk-sleep", 100}, RepHd,
                                  {callback, RespFun}]),
     ok = nksip_uac:ack(C1, DialogId1, []),
-    ok = tests_util:wait(Ref, [180, {client2, ack}]),
+    ok = tests_util:wait(Ref, [180, {{Test, client2}, ack}]),
 
     % Several in-dialog requests
     {ok, 200, [{<<"x-nk-id">>, [<<"client2">>]}]} = 
@@ -348,13 +347,13 @@ invite(Test) ->
         nksip_uac:invite(C1, DialogId1, [{add, "x-nk-op", ok},
                                          {meta, [<<"x-nk-id">>]}]),
     ok = nksip_uac:ack(C1, DialogId1, []),
-    ok = tests_util:wait(Ref, [{client2, ack}]),
+    ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
 
     {ok, 200, [{dialog_id, DialogId2}, {<<"x-nk-id">>, [<<"client1">>]}]} = 
         nksip_uac:invite(C2, DialogId2, [{add, "x-nk-op", ok}, RepHd,     
                                          {meta, [<<"x-nk-id">>]}]),
     ok = nksip_uac:ack(C2, DialogId2, []),
-    ok = tests_util:wait(Ref, [{client1, ack}]),
+    ok = tests_util:wait(Ref, [{{Test, client1}, ack}]),
     {ok, 200, []} = nksip_uac:bye(C1, DialogId1, []),
 
     % Cancelled request
@@ -362,15 +361,13 @@ invite(Test) ->
                                         [{add, "x-nk-op", ok}, {add, "x-nk-sleep", 5000}, RepHd,
                                          async, {callback, RespFun}]),
     ok = nksip_uac:cancel(C1, ReqId7),
-    ok = tests_util:wait(Ref, [487, {client2, bye}]),
+    ok = tests_util:wait(Ref, [487, {{Test, client2}, bye}]),
     ok.
 
 servers(Test) ->
     C1 = {Test, client1},
     C2 = {Test, client2},
-    Ref = make_ref(),
-    Self = self(),
-    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    {Ref, RepHd} = tests_util:get_ref(),
 
     Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
@@ -412,7 +409,7 @@ servers(Test) ->
     % ACK is sent directly
     {req, #sipmsg{ruri=#uri{scheme=sips, port=C2Port}}} = 
         nksip_uac:ack(C1, DialogIdA1, [get_request, RepHd]),
-    ok = tests_util:wait(Ref, [{client2, ack}]),
+    ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
 
     % OPTIONS is also sent directly
     Fs4 = {meta, [remote, <<"x-nk-id">>]},
@@ -430,7 +427,7 @@ servers(Test) ->
     ] = Values5,
 
     {ok, 200, []} = nksip_uac:bye(C1, DialogIdA1, []),
-    ok = tests_util:wait(Ref, [{client2, bye}]),
+    ok = tests_util:wait(Ref, [{{Test, client2}, bye}]),
 
     % Test a dialog through 2 proxies with Record-Route
     Hds6 = [{add, "x-nk-op", ok}, {add, "x-nk-rr", true}, RepHd],
@@ -461,7 +458,7 @@ servers(Test) ->
         #uri{scheme=sip, domain = <<"localhost">>, port=5081,
              opts=[{<<"transport">>,<<"tls">>},<<"lr">>]}
     ] = nksip_sipmsg:header(AckReq, <<"route">>, uris),
-    ok = tests_util:wait(Ref, [{client2, ack}]),
+    ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
  
     DialogIdB2 = nksip_dialog:field(C1, DialogIdB1, remote_id),
     Fs8 = {meta, [<<"x-nk-id">>]},
@@ -475,9 +472,7 @@ dialog() ->
     C1 = {stateful, client1},
     C2 = {stateful, client2},
     S1 = {stateful, server1},
-    Ref = make_ref(),
-    Self = self(),
-    RepHd = {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))},
+    {Ref, RepHd} = tests_util:get_ref(),
     
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
@@ -490,7 +485,7 @@ dialog() ->
                                   RepHd, {body, SDP}]),
     [{dialog_id, DialogId1}] = Values1,
     ok = nksip_uac:ack(C1, DialogId1, []),
-    ok = tests_util:wait(Ref, [{client2, ack}]),
+    ok = tests_util:wait(Ref, [{{stateful, client2}, ack}]),
 
     DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
     {ok, 200, []} = nksip_uac:options(C2, DialogId2, []),
@@ -557,4 +552,139 @@ dialog() ->
     error = nksip_dialog:field(C2, DialogId2, status),
     error = nksip_dialog:field(S1, DialogId1, status),
     ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+init(Id) ->
+    Domains = case Id of
+        {_, server1} -> [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>];
+        {_, server2} -> [<<"nksip2">>, <<"127.0.0.1">>, <<"[::1]">>];
+        _ -> []
+    end,
+    ok = nksip:put(Id, domains, Domains),
+    {ok, Id}.
+
+
+route(ReqId, Scheme, User, Domain, _From, {Test, Id}=AppId=State) 
+        when Id==server1; Id==server2 ->
+    Opts = [
+        case Test of stateless -> stateless; _ -> ignore end,
+        {insert, "x-nk-id", Id},
+        case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
+            [<<"true">>] -> record_route;
+            _ -> ignore
+        end
+    ],
+    {ok, Domains} = nksip:get(AppId, domains),
+    case lists:member(Domain, Domains) of
+        true when User =:= <<>> ->
+            {reply, {process, Opts}, State};
+        true when User =:= <<"client2_op">>, Domain =:= <<"nksip">> ->
+            UriList = nksip_registrar:find(AppId, sip, <<"client2">>, Domain),
+            Body = nksip_request:body(AppId, ReqId),
+            ServerOpts = binary_to_term(base64:decode(Body)),
+            {reply, {proxy, UriList, ServerOpts++Opts}, State};
+        true when Domain =:= <<"nksip">>; Domain =:= <<"nksip2">> ->
+            case nksip_registrar:find(AppId, Scheme, User, Domain) of
+                [] -> 
+                    % ?P("FIND ~p: []", [{AppId, Scheme, User, Domain}]),
+                    {reply, temporarily_unavailable, State};
+                UriList -> {reply, {proxy, UriList, Opts}, State}
+            end;
+        true ->
+            {reply, {proxy, ruri, Opts}, State};
+        false when Domain =:= <<"nksip">> ->
+            {reply, {proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]}, State};
+        false when Domain =:= <<"nksip2">> ->
+            {reply, {proxy, ruri, [{route, "<sips:127.0.0.1:5081;lr>"}|Opts]}, State};
+        false ->
+            {reply, {proxy, ruri, Opts}, State}
+    end;
+
+route(_, _, _, _, _, State) ->
+    {reply, process, State}.
+
+
+
+invite(ReqId, Meta, From, {_Test, Id}=AppId=State) ->
+    tests_util:save_ref(AppId, ReqId, Meta),
+    Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),
+    Routes = nksip_request:header(AppId, ReqId, <<"route">>),
+    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Hds = [
+        case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
+        {add, "x-nk-id", nksip_lib:bjoin([Id|Ids])}
+    ],
+    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+        [Op0] -> Op0;
+        _ -> <<"decline">>
+    end,
+    Sleep = case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
+        [Sleep0] -> nksip_lib:to_integer(Sleep0);
+        _ -> 0
+    end,
+    Prov = case nksip_request:header(AppId, ReqId, <<"x-nk-prov">>) of
+        [<<"true">>] -> true;
+        _ -> false
+    end,
+    proc_lib:spawn(
+        fun() ->
+            if 
+                Prov -> nksip_request:reply(AppId, ReqId, ringing); 
+                true -> ok 
+            end,
+            case Sleep of
+                0 -> ok;
+                _ -> timer:sleep(Sleep)
+            end,
+            case Op of
+                <<"ok">> ->
+                    nksip:reply(From, {ok, Hds});
+                <<"answer">> ->
+                    SDP = nksip_sdp:new("client2", 
+                                            [{"test", 4321, [{rtpmap, 0, "codec1"}]}]),
+                    nksip:reply(From, {ok, [{body, SDP}|Hds]});
+                <<"busy">> ->
+                    nksip:reply(From, busy);
+                <<"increment">> ->
+                    DialogId = nksip_lib:get_value(dialog_id, Meta),
+                    SDP1 = nksip_dialog:field(AppId, DialogId, invite_local_sdp),
+                    SDP2 = nksip_sdp:increment(SDP1),
+                    nksip:reply(From, {ok, [{body, SDP2}|Hds]});
+                _ ->
+                    nksip:reply(From, decline)
+            end
+        end),
+    {noreply, State}.
+
+
+
+reinvite(ReqId, Meta, From, State) ->
+    invite(ReqId, Meta, From, State).
+
+
+ack(_ReqId, Meta, _From, AppId=State) ->
+    tests_util:send_ref(AppId, Meta, ack),
+    {reply, ok, State}.
+
+
+bye(_ReqId, Meta, _From, AppId=State) ->
+    tests_util:send_ref(AppId, Meta, bye),
+    {reply, ok, State}.
+
+
+options(ReqId, _Meta, _From, {_Test, Id}=AppId=State) ->
+    Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),
+    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Routes = nksip_request:header(AppId, ReqId, <<"route">>),
+    Hds = [
+        case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
+        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
+        {add, "x-nk-id", nksip_lib:bjoin([Id|Ids])}
+    ],
+    {reply, {ok, [contact|Hds]}, State}.
 

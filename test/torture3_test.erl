@@ -57,7 +57,7 @@ torture3_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    ok = sipapp_server:start({torture, server1}, [
+    ok = nksip:start(server1, ?MODULE, server1, [
         {transports, [{udp, all, 5060}]},
         registrar,
         no_100
@@ -67,7 +67,7 @@ start() ->
     ?debugFmt("Starting ~p", [?MODULE]).
 
 stop() ->
-    ok = sipapp_server:stop({torture, server1}).
+    ok = nksip:stop(server1).
 
 
 
@@ -307,7 +307,7 @@ application_11() ->
 
 %% Changed to TCP
 application_12() ->
-    nksip_registrar:delete({torture, server1}, sip, <<"watson">>, <<"example.com">>),
+    nksip_registrar:delete(server1, sip, <<"watson">>, <<"example.com">>),
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
         "Via: SIP/2.0/TCP saturn.example.com:5060;branch=z9hG4bKkdjuw\r\n"
@@ -335,7 +335,7 @@ application_12() ->
 
 %% Changed to TCP
 application_13() ->
-    nksip_registrar:delete({torture, server1}, sip, <<"watson">>, <<"example.com">>),
+    nksip_registrar:delete(server1, sip, <<"watson">>, <<"example.com">>),
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
         "Via: SIP/2.0/TCP saturn.example.com:5060;branch=z9hG4bKkdjuw\r\n"
@@ -364,7 +364,7 @@ application_13() ->
 %% Changed to TCP
 %% Changed user to user1 in Contact, we cannot use the same AOR (of To)
 application_14() ->
-    nksip_registrar:delete({torture, server1}, sip, <<"user">>, <<"example.com">>),
+    nksip_registrar:delete(server1, sip, <<"user">>, <<"example.com">>),
     Msg = 
         <<"REGISTER sip:example.com SIP/2.0\r\n"
         "To: sip:user@example.com\r\n"
@@ -445,6 +445,21 @@ send(tcp, Msg) ->
     {ok, Bin} = gen_tcp:recv(S, 0, 5000),
     gen_tcp:close(S),
     Bin.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks %%%%%%%%%%%%%%%%%%%%%
+
+
+init(Id) ->
+    {ok, Id}.
+
+route(_ReqId, Scheme, _User, _Domain, _From, server1=State)
+      when Scheme=/=sip, Scheme=/=sips ->
+    {reply, unsupported_uri_scheme, State};
+
+route(_, _, _, _, _, State) ->
+    {reply, process, State}.
+
 
 
 

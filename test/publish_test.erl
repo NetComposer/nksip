@@ -40,13 +40,13 @@ publish_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    ok = sipapp_endpoint:start({publish, client1}, [
+    ok = nksip:start(client1, ?MODULE, client1, [
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
     
-    ok = sipapp_endpoint:start({publish, client2}, [
+    ok = nksip:start(client2, ?MODULE, client2, [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
@@ -59,42 +59,57 @@ start() ->
 
 
 stop() ->
-    ok = sipapp_endpoint:stop({publish, client1}),
-    ok = sipapp_endpoint:stop({publish, client2}).
+    ok = nksip:stop(client1),
+    ok = nksip:stop(client2).
 
 
 basic() ->
-    C1 = {publish, client1},
-    C2 = {publish, client2},
     SipC2 = "sip:user1@127.0.0.1:5070",
 
     {ok, 200, [{sip_etag, ETag1}, {expires, 5}]} = 
-        nksip_uac:publish(C1, SipC2, 
+        nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {expires, 5}, {body, <<"data1">>}]),
 
     AOR = {sip, <<"user1">>, <<"127.0.0.1">>},
-    {ok, #reg_publish{data = <<"data1">>}} = nksip_publish:find(C2, AOR, ETag1),
+    {ok, #reg_publish{data = <<"data1">>}} = nksip_publish:find(client2, AOR, ETag1),
 
     % This ETag1 is not at the server
-    {ok, 412, []} = nksip_uac:publish(C1, SipC2, 
+    {ok, 412, []} = nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {sip_etag, <<"other">>}]),
 
     {ok, 200, [{sip_etag, ETag1}, {expires, 0}]} = 
-        nksip_uac:publish(C1, SipC2, 
+        nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {expires, 0}, {sip_etag, ETag1}]),
 
-    {error, not_found} = nksip_publish:find(C2, AOR, ETag1),
+    {error, not_found} = nksip_publish:find(client2, AOR, ETag1),
 
     {ok, 200, [{sip_etag, ETag2}, {expires, 60}]} = 
-        nksip_uac:publish(C1, SipC2, 
+        nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {expires, 60}, {body, <<"data2">>}]),
 
-    {ok, #reg_publish{data = <<"data2">>}} = nksip_publish:find(C2, AOR, ETag2),
+    {ok, #reg_publish{data = <<"data2">>}} = nksip_publish:find(client2, AOR, ETag2),
 
     {ok, 200, [{sip_etag, ETag2}, {expires, 1}]} = 
-        nksip_uac:publish(C1, SipC2, 
+        nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {expires, 1}, {sip_etag, ETag2}, {body, <<"data3">>}]),
 
-    {ok, #reg_publish{data = <<"data3">>}} = nksip_publish:find(C2, AOR, ETag2),
+    {ok, #reg_publish{data = <<"data3">>}} = nksip_publish:find(client2, AOR, ETag2),
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+init(Id) ->
+    {ok, Id}.
+
+
+publish(_ReqId, Meta, _From, AppId=State) ->
+    AOR = nksip_lib:get_value(aor, Meta),
+    ETag = nksip_lib:get_value(etag, Meta),
+    Expires = nksip_lib:get_value(parsed_expires, Meta),
+    Body = nksip_lib:get_value(body, Meta),
+    Reply = nksip_publish:request(AppId, AOR, ETag, Expires, Body),
+    {reply, Reply, State}.
+
 

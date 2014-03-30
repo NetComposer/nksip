@@ -49,13 +49,13 @@ sctp_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    ok = sipapp_endpoint:start({sctp, client1}, [
+    ok = nksip:start(client1, ?MODULE, client1, [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {sctp, all, 5070}]}
     ]),
 
-    ok = sipapp_endpoint:start({sctp, client2}, [
+    ok = nksip:start(client2, ?MODULE, client2, [
         {from, "sip:client2@nksip"},
         {pass, "jj"},
         {pass, {"4321", "client1"}},
@@ -68,20 +68,18 @@ start() ->
 
 
 stop() ->
-    ok = sipapp_endpoint:stop({sctp, client1}),
-    ok = sipapp_endpoint:stop({sctp, client2}).
+    ok = nksip:stop(client1),
+    ok = nksip:stop(client2).
 
 
 basic() ->
-    C1 = {sctp, client1},
-    C2 = {sctp, client2},
     SipC2 = "<sip:127.0.0.1:5071;transport=sctp>",
     Self = self(),
     Ref = make_ref(),
 
     Fun = fun(Term) -> Self ! {Ref, Term} end,
     Opts = [async, {callback, Fun}, get_request, get_response],
-    {async, _} = nksip_uac:options(C1, SipC2, Opts),
+    {async, _} = nksip_uac:options(client1, SipC2, Opts),
     
     {LocalPort, SctpId} = receive
         {Ref, {req, #sipmsg{vias=[#via{proto=sctp}], transport=ReqTransp}}} ->
@@ -104,16 +102,25 @@ basic() ->
         error(sctp)
     end,
 
-    % C1 should have started a new transport to C2:5071
+    % client1 should have started a new transport to client2:5071
     [LocPid] = [Pid || {#transport{proto=sctp, local_port=LP, remote_port=5071,
                                    sctp_id=Id}, Pid} 
-                        <- nksip_transport:get_all(C1), LP=:=LocalPort, Id=:=SctpId],
+                        <- nksip_transport:get_all(client1), LP=:=LocalPort, Id=:=SctpId],
 
-    % C2 should not have started a new transport also to C1:5070
+    % client2 should not have started a new transport also to client1:5070
     [RemPid] = [Pid || {#transport{proto=sctp, remote_port=5070}, Pid} 
-                       <- nksip_transport:get_all(C2)],
+                       <- nksip_transport:get_all(client2)],
 
-    % C1 should have started a new connection. C2 too.
-    [{_, LocPid}] = nksip_transport:get_connected(C1, sctp, {127,0,0,1}, 5071, <<>>),
-    [{_, RemPid}] = nksip_transport:get_connected(C2, sctp, {127,0,0,1}, LocalPort, <<>>),
+    % client1 should have started a new connection. client2 too.
+    [{_, LocPid}] = nksip_transport:get_connected(client1, sctp, {127,0,0,1}, 5071, <<>>),
+    [{_, RemPid}] = nksip_transport:get_connected(client2, sctp, {127,0,0,1}, LocalPort, <<>>),
     ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+init(Id) ->
+    {ok, Id}.
+

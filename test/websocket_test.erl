@@ -113,7 +113,7 @@ ws2_test_() ->
 start2() ->
     tests_util:start_nksip(),
 
-    ok = sipapp_server:start({ws, server1}, [
+    ok = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
         registrar,
         {local_host, "localhost"},
@@ -125,19 +125,19 @@ start2() ->
         ]}
     ]),
 
-    ok = sipapp_endpoint:start({ws, ua1}, [
+    ok = nksip:start(ua1, ?MODULE, ua1, [
         {from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    ok = sipapp_endpoint:start({ws, ua2}, [
+    ok = nksip:start(ua2, ?MODULE, ua2, [
         {from, "<sip:client2@nksip>"},
         {local_host, "localhost"},
         {transports, [{ws, all, any}, {wss, all, 8091}]}
     ]),
 
-    ok = sipapp_endpoint:start({ws, ua3}, [
+    ok = nksip:start(ua3, ?MODULE, ua3, [
         {from, "<sip:client3@nksip>"},
         {local_host, "invalid.invalid"},
         {transports, [{ws, all, 8080, [{dispatch, "/client3"}]}]}
@@ -147,21 +147,18 @@ start2() ->
 
 
 stop2() ->
-    ok = sipapp_server:stop({ws, server1}),
-    ok = sipapp_endpoint:stop({ws, ua1}),
-    ok = sipapp_endpoint:stop({ws, ua2}),
-    ok = sipapp_endpoint:stop({ws, ua3}),
+    ok = nksip:stop(server1),
+    ok = nksip:stop(ua1),
+    ok = nksip:stop(ua2),
+    ok = nksip:stop(ua3),
     ok.
 
 
 basic() ->
-    S1 = {ws, server1},
-    C2 = {ws, ua2},
+    [] = nksip_transport:get_all_connected(server1),
+    [] = nksip_transport:get_all_connected(ua2),
 
-    [] = nksip_transport:get_all_connected(S1),
-    [] = nksip_transport:get_all_connected(C2),
-
-    {ok, 200, Values1} = nksip_uac:options(C2, 
+    {ok, 200, Values1} = nksip_uac:options(ua2, 
                          "<sip:localhost:8080/;transport=ws>", 
                          [{meta, [parsed_vias, local, remote]}]),
 
@@ -181,7 +178,7 @@ basic() ->
             listen_ip = {0,0,0,0},
             listen_port = Port1
         }, Pid1}
-    ] = nksip_transport:get_all_connected(C2),
+    ] = nksip_transport:get_all_connected(ua2),
 
     [
         {#transport{
@@ -193,18 +190,18 @@ basic() ->
             listen_ip = {0,0,0,0},
             listen_port = 8080
         }, Pid2}
-    ] = nksip_transport:get_all_connected(S1),
+    ] = nksip_transport:get_all_connected(server1),
 
     % If we send another request, it is going to use the same transport
-    {ok, 200, []} = nksip_uac:options({ws, ua2}, "<sip:localhost:8080/;transport=ws>", []),
-    [{_, Pid1}] = nksip_transport:get_all_connected(C2),
-    [{_, Pid2}] = nksip_transport:get_all_connected(S1),
+    {ok, 200, []} = nksip_uac:options(ua2, "<sip:localhost:8080/;transport=ws>", []),
+    [{_, Pid1}] = nksip_transport:get_all_connected(ua2),
+    [{_, Pid2}] = nksip_transport:get_all_connected(server1),
 
     % Now with SSL, but the path is incorrect
-    {error, service_unavailable} =  nksip_uac:options(C2, 
+    {error, service_unavailable} =  nksip_uac:options(ua2, 
                                             "<sips:localhost:8081/;transport=ws>", []),
 
-    {ok, 200, Values2} = nksip_uac:options(C2, 
+    {ok, 200, Values2} = nksip_uac:options(ua2, 
                          "<sips:localhost:8081/wss;transport=ws>", 
                          [{meta, [parsed_vias, local, remote]}]),
 
@@ -225,7 +222,7 @@ basic() ->
             listen_ip = {0,0,0,0},
             listen_port = 8091
         }, Pid3}
-    ] = lists:sort(nksip_transport:get_all_connected(C2)),
+    ] = lists:sort(nksip_transport:get_all_connected(ua2)),
 
     [
         {_, Pid2},
@@ -238,7 +235,7 @@ basic() ->
             listen_ip = {0,0,0,0},
             listen_port = 8081
         }, Pid4}
-    ] = lists:sort(nksip_transport:get_all_connected(S1)),
+    ] = lists:sort(nksip_transport:get_all_connected(server1)),
 
     [nksip_connection:stop(Pid, normal) || Pid <- [Pid1,Pid2,Pid3,Pid4]],
     ok.
@@ -246,21 +243,21 @@ basic() ->
 
 sharing() ->
     % Server1 must answer
-    {ok, 200, [{_, [S1C]}]} = nksip_uac:options({ws, ua2}, "<sip:localhost:8080/;transport=ws>", 
+    {ok, 200, [{_, [S1C]}]} = nksip_uac:options(ua2, "<sip:localhost:8080/;transport=ws>", 
                                       [{meta, [parsed_contacts]}]),
     #uri{domain = <<"localhost">>, port=8080} = S1C,
 
-    {error, service_unavailable} = nksip_uac:options({ws, ua2}, 
+    {error, service_unavailable} = nksip_uac:options(ua2, 
                                     "<sip:localhost:8080/other;transport=ws>", []),
 
     % Client3 must answer
-    {ok, 200, [{_, [C3C]}]} = nksip_uac:options({ws, ua2}, 
+    {ok, 200, [{_, [C3C]}]} = nksip_uac:options(ua2, 
                                             "<sip:localhost:8080/client3;transport=ws>", 
                                             [{meta, [parsed_contacts]}]),
     #uri{domain = <<"invalid.invalid">>, port=8080} = C3C,
     
     % Client2 must unswer
-    {ok, 200, [{_, [C2C]}]} = nksip_uac:options({ws, server1},
+    {ok, 200, [{_, [C2C]}]} = nksip_uac:options(server1,
                                             "<sips:localhost:8091/;transport=ws>", 
                                             [{meta, [parsed_contacts]}]),
     #uri{domain = <<"localhost">>, port=8091} = C2C,
@@ -269,56 +266,95 @@ sharing() ->
 
 proxy() ->
     {ok, 200, []} = 
-        nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8081/wss;transport=wss>", 
+        nksip_uac:register(ua2, "<sip:127.0.0.1:8081/wss;transport=wss>", 
                            [unregister_all]),
     {ok, 200, []} = 
-        nksip_uac:register({ws,ua3}, "<sip:127.0.0.1:8080;transport=ws>", 
+        nksip_uac:register(ua3, "<sip:127.0.0.1:8080;transport=ws>", 
                            [unregister_all]),
 
     
     % UA2 registers with the registrar, using WSS
     {ok, 200, []} = 
-        nksip_uac:register({ws,ua2}, "<sip:127.0.0.1:8081/wss;transport=wss>", 
+        nksip_uac:register(ua2, "<sip:127.0.0.1:8081/wss;transport=wss>", 
                            [contact]),
 
     % Using or public GRUU, UA1 (without websocket support) is able to reach us
-    C2Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua2}),
+    C2Pub = nksip_sipapp_srv:get_gruu_pub(ua2),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
-        nksip_uac:options({ws,ua1}, C2Pub, 
+        nksip_uac:options(ua1, C2Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
     % The same with our private GRUU
-    C2Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua2}),
+    C2Priv = nksip_sipapp_srv:get_gruu_temp(ua2),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
-        nksip_uac:options({ws,ua1}, C2Priv, 
+        nksip_uac:options(ua1, C2Priv, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
 
     % UA3 registers. Its contact is not routable
     {ok, 200, [{_, [C3Contact]}]} = 
-        nksip_uac:register({ws,ua3}, "<sip:127.0.0.1:8080;transport=ws>", 
+        nksip_uac:register(ua3, "<sip:127.0.0.1:8080;transport=ws>", 
                            [contact, {meta, [parsed_contacts]}]),
     #uri{domain = <<"invalid.invalid">>} = C3Contact,
     
-    C3Pub = nksip_sipapp_srv:get_gruu_pub({ws,ua3}),
+    C3Pub = nksip_sipapp_srv:get_gruu_pub(ua3),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
-        nksip_uac:options({ws,ua1}, C3Pub, 
+        nksip_uac:options(ua1, C3Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
-    C3Priv = nksip_sipapp_srv:get_gruu_temp({ws,ua3}),
+    C3Priv = nksip_sipapp_srv:get_gruu_temp(ua3),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
-        nksip_uac:options({ws,ua1}, C3Priv, 
+        nksip_uac:options(ua1, C3Priv, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
 
     % Let's stop the transports
     [nksip_connection:stop(Pid, normal) || 
-        {_, Pid} <- nksip_transport:get_all_connected({ws,server1})],
+        {_, Pid} <- nksip_transport:get_all_connected(server1)],
     timer:sleep(100),
 
-    {ok, 430, []} = nksip_uac:options({ws,ua1}, C2Pub, 
+    {ok, 430, []} = nksip_uac:options(ua1, C2Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}]),
 
-    {ok, 430, []} = nksip_uac:options({ws,ua1}, C3Pub, 
+    {ok, 430, []} = nksip_uac:options(ua1, C3Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}]),
     ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+init(Id) ->
+    nksip:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
+    {ok, Id}.
+
+
+route(ReqId, _Scheme, User, Domain, _From, server1=State) ->
+    Opts = [
+        record_route,
+        {insert, "x-nk-server", "server1"}
+    ],
+    {ok, Domains} = nksip:get(server1, domains),
+    case lists:member(Domain, Domains) of
+        true when User =:= <<>> ->
+            {reply, {process, Opts}, State};
+        true when Domain =:= <<"nksip">> ->
+            RUri = nksip_request:field(server1, ReqId, parsed_ruri),
+            case nksip_registrar:find(server1, RUri) of
+                [] -> {reply, temporarily_unavailable, State};
+                UriList -> {reply, {proxy, UriList, Opts}, State}
+            end;
+        _ ->
+            {reply, {proxy, ruri, Opts}, State}
+    end;
+
+route(_, _, _, _, _, State) ->
+    {reply, process, State}.
+
+
+options(ReqId, _Meta, _From, AppId=State) ->
+    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
+    {reply, {ok, [contact|Hds]}, State}.
+
