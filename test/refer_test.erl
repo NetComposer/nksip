@@ -76,7 +76,8 @@ basic() ->
 
     Dialog1A = nksip_subscription:dialog_id(Subs1A),
     % Prepare sipapp_endpoint to send us the received NOTIFYs
-    ok = nksip:put(client1, dialogs, [{Dialog1A, Ref, Self}]),
+    {ok, Dialogs} = nksip:get(client1, dialogs, []),
+    ok = nksip:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
 
     % client2 has sent the INVITE to client3, and it has replied 180
     ok = tests_util:wait(Ref, [{client1, {notify, <<"SIP/2.0 180 Ringing">>}}]),
@@ -137,7 +138,8 @@ in_dialog() ->
     {ok, 200, [{subscription_id, _}]} = 
         nksip_uac:refer(client1, Dialog1A, [{refer_to, "sips:127.0.0.1:5081"}]),
 
-    ok = nksip:put(client1, dialogs, [{Dialog1A, Ref, Self}]),
+    {ok, Dialogs} = nksip:get(client1, dialogs, []),
+    ok = nksip:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
 
 
     % client2 has sent the INVITE to client3, and it has replied 180
