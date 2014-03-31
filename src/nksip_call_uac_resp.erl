@@ -87,7 +87,7 @@ response(Resp, UAC, Call) ->
         request = Req, 
         from = From
     } = UAC,
-    #call{msgs=Msgs, opts=#call_opts{app_opts=AppOpts}} = Call,
+    #call{msgs=Msgs} = Call,
     Now = nksip_lib:timestamp(),
     case Now-Start < ?MAX_TRANS_TIME of
         true -> 
@@ -96,7 +96,7 @@ response(Resp, UAC, Call) ->
         false -> 
             Code1 = 408,
             Reply = {timeout, <<"Transaction Timeout">>},
-            {Resp1, _} = nksip_reply:reply(Req, Reply, AppOpts)
+            {Resp1, _} = nksip_reply:reply(Req, Reply)
     end,
     Call1 = case Code1>=200 andalso Code1<300 of
         true -> nksip_call_lib:update_auth(DialogId, Resp1, Call);
@@ -403,12 +403,11 @@ received_auth(Req, Resp, UAC, Call) ->
         iter = Iter,
         from = From
     } = UAC,
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
     case 
         (Code==401 orelse Code==407) andalso Iter < ?MAX_AUTH_TRIES
         andalso Method/='CANCEL' andalso (not IsProxy) andalso
-        nksip_auth:make_request(Req, Resp, Opts++AppOpts) 
+        nksip_auth:make_request(Req, Resp, Opts) 
     of
         false ->
             received_422(Req, Resp, UAC, Call);
@@ -452,10 +451,9 @@ received_reply(Resp, UAC, Call) ->
 -spec send_ack(nksip_call:trans(), nksip_call:call()) ->
     ok.
 
-send_ack(#trans{request=Req, id=Id}, Call) ->
-    #call{opts=#call_opts{app_opts=Opts}} = Call,
+send_ack(#trans{request=Req, id=Id}, _Call) ->
     Ack = nksip_uac_lib:make_ack(Req),
-    case nksip_transport_uac:resend_request(Ack, Opts) of
+    case nksip_transport_uac:resend_request(Ack, []) of
         {ok, _} -> 
             ok;
         error -> 

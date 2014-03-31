@@ -41,8 +41,9 @@
 
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
-    #call{app_id=_AppId, opts=#call_opts{app_opts=AppOpts}} = Call,
-    Default = nksip_config:get_cached(session_expires, AppOpts),
+    #call{app_id=AppId} = Call,
+    Config = AppId:config(),
+    Default = nksip_lib:get_value(session_expires, Config),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
             {SE0, Refresh0};
@@ -100,7 +101,7 @@ uac_update_timer(Method, Dialog, Call) ->
     {resend, nksip:request(), nksip_call:call()} | false.
 
 uac_received_422(Req, Resp, UAC, Call) ->
-    #sipmsg{dialog_id=DialogId} = Resp,
+    #sipmsg{app_id=AppId, dialog_id=DialogId} = Resp,
     #trans{
         method = Method, 
         code = Code, 
@@ -114,8 +115,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
         true ->
             case nksip_sipmsg:header(Resp, <<"min-se">>, integers) of
                 [RespMinSE] ->
-                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-                    ConfigMinSE = nksip_config:get_cached(min_session_expires, AppOpts),
+                    ConfigMinSE = AppId:config_min_session_expires(),
                     CurrentMinSE = case 
                         nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
                     of
@@ -160,7 +160,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
     continue | {update, nksip:request(), nksip_call:call()} | 
                {reply, nksip:sipreply(), nksip_call:call()}.
 
-uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
+uas_check_422(#sipmsg{app_id=AppId, class={req, Method}}=Req, Call) ->
     case Method=='INVITE' orelse Method=='UPDATE' of
         true ->
             case parse(Req) of
@@ -169,8 +169,7 @@ uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
                 invalid ->
                     {reply, invalid_request, Call};
                 {ok, SE, _} ->
-                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-                    case nksip_config:get_cached(min_session_expires, AppOpts) of
+                    case AppId:config_min_session_expires() of
                         MinSE when SE < MinSE ->
                             #sipmsg{dialog_id=DialogId} = Req,
                             Call1 = case 
@@ -206,13 +205,12 @@ uas_check_422(#sipmsg{class={req, Method}}=Req, Call) ->
     nksip:response().
 
 uas_update_timer(
-        Req, #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp, Call)
+        Req, #sipmsg{app_id=AppId, class={resp, Code, _}, cseq={_, Method}}=Resp, _Call)
         when Code>=200 andalso Code<300 andalso 
              (Method=='INVITE' orelse Method=='UPDATE') ->
     case nksip_sipmsg:supported(Resp, <<"timer">>) of
         true ->
             #sipmsg{require=Require} = Resp,
-            #call{opts=#call_opts{app_opts=AppOpts}} = Call,
             ReqSupport = nksip_sipmsg:supported(Req, <<"timer">>), 
             ReqMinSE = case nksip_sipmsg:header(Req, <<"min-se">>, integers) of
                 [ReqMinSE0] -> ReqMinSE0;
@@ -224,7 +222,8 @@ uas_update_timer(
                 {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
                 _ -> {0, undefined}
             end,
-            Default = nksip_config:get_cached(session_expires, AppOpts),
+            Config = AppId:config(),
+            Default = nksip_lib:get_value(session_expires, Config),
             SE = case ReqSE of
                 0 -> max(ReqMinSE, Default);
                 _ -> max(ReqMinSE, min(ReqSE, Default))
@@ -255,7 +254,7 @@ uas_update_timer(_Req, Resp, _Call) ->
 -spec proxy_request(nksip:request(), nksip_call:call()) ->
     nksip:request().
 
-proxy_request(#sipmsg{class={req, Method}}=Req, Call)
+proxy_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
     ReqMinSE = case nksip_sipmsg:header(Req, <<"min-se">>, integers) of
         [ReqMinSE0] -> ReqMinSE0;
@@ -265,8 +264,8 @@ proxy_request(#sipmsg{class={req, Method}}=Req, Call)
         {ok, ReqSE0, _} -> ReqSE0;
         _ -> 0
     end,
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    Default = nksip_config:get_cached(session_expires, AppOpts),
+            Config = AppId:config(),
+            Default = nksip_lib:get_value(session_expires, Config),
     SE = case ReqSE of
         0 -> max(ReqMinSE, Default);
         _ -> max(ReqMinSE, min(ReqSE, Default))

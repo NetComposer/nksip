@@ -35,7 +35,7 @@
 -spec request(nksip:request(), nksip_call:call()) ->
     nksip_call:call().
 
-request(Req, #call{opts=#call_opts{global_id=GlobalId}}=Call) -> 
+request(Req, Call) -> 
     case is_trans_ack(Req, Call) of
         {true, UAS} -> 
             process_trans_ack(UAS, Call);
@@ -44,7 +44,7 @@ request(Req, #call{opts=#call_opts{global_id=GlobalId}}=Call) ->
                 {true, UAS} ->
                     process_retrans(UAS, Call);
                 {false, ReqTransId} ->
-                    case nksip_uas_lib:preprocess(Req, GlobalId) of
+                    case nksip_uas_lib:preprocess(Req) of
                         own_ack -> Call;
                         Req1 -> process_request(Req1, ReqTransId, Call)
                     end
@@ -131,8 +131,7 @@ process_retrans(UAS, Call) ->
     of
         true when is_record(Resp, sipmsg) ->
             #sipmsg{class={resp, Code, _Reason}} = Resp,
-            #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-            case nksip_transport_uas:resend_response(Resp, GlobalId, AppOpts) of
+            case nksip_transport_uas:resend_response(Resp, []) of
                 {ok, _} ->
                     ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
                                [Id, Method, Status, Code], Call);

@@ -102,17 +102,6 @@
     timer_n :: reference()
 }).
 
--record(call_opts, {
-    global_id :: binary(),
-    app_module :: atom(),
-    app_opts :: nksip_lib:optslist(),
-    timer_t1 :: integer(),
-    timer_t2 :: integer(),
-    timer_t4 :: integer(),
-    timer_c :: integer(),
-    timer_sipapp :: integer()
-}).
-
 
 -type call_auth() :: {
     nksip_dialog:id(), 
@@ -136,7 +125,6 @@
 -record(call, {
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
-    opts :: #call_opts{},
     hibernate :: atom(),
     next :: integer(),
     trans = [] :: [#trans{}],

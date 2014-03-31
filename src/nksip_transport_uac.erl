@@ -23,7 +23,7 @@
 -module(nksip_transport_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_request/3, resend_request/2]).
+-export([send_request/2, resend_request/2]).
 
 -include("nksip.hrl").
 
@@ -34,12 +34,11 @@
 %% ===================================================================
 
 %% @doc Sends a new request.
--spec send_request(nksip:request(), binary(), nksip_lib:optslist()) -> 
+-spec send_request(nksip:request(), nksip_lib:optslist()) -> 
     {ok, nksip:request()} | {error, nksip:sipreply()}.
 
-send_request(Req, GlobalId, Opts) ->
+send_request(Req, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}, ruri=RUri, routes=Routes} = Req,
-    % AppOpts = nksip_sipapp_srv:get_opts(AppId),
     ?debug(AppId, "UAC send opts: ~p", [Opts]),
     try
         case Routes of
@@ -69,7 +68,7 @@ send_request(Req, GlobalId, Opts) ->
                 end
         end,
         Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
-        MakeReqFun = make_request_fun(Req1, DestUri, GlobalId, Opts),  
+        MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
         nksip_trace:insert(Req, {uac_out_request, Method}),
         Dests = case nksip_lib:get_value(route_flow, Opts) of
             {Transp, Pid} -> 
@@ -106,10 +105,10 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
 
 
 %% @private
--spec make_request_fun(nksip:request(), nksip:uri(), binary(), nksip_lib:optslist()) ->
+-spec make_request_fun(nksip:request(), nksip:uri(), nksip_lib:optslist()) ->
     function().
 
-make_request_fun(Req, Dest, GlobalId, Opts) ->
+make_request_fun(Req, Dest, Opts) ->
     #sipmsg{
         class = {req, Method},
         app_id = AppId, 
@@ -123,13 +122,14 @@ make_request_fun(Req, Dest, GlobalId, Opts) ->
         body = Body
     } = Req,
     #uri{scheme=Scheme} = Dest,     % RUri or first route
+    GlobalId = AppId:config_global_id(),
     fun(Transp) ->
         #transport{
             proto = Proto, 
             listen_ip = ListenIp, 
             listen_port = ListenPort
         } = Transp,
-        ListenHost = nksip_transport:get_listenhost(ListenIp, Opts),
+        ListenHost = nksip_transport:get_listenhost(AppId, ListenIp),
         ?debug(AppId, CallId, "UAC listenhost is ~s", [ListenHost]),
         RouteBranch = case Vias of
             [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);

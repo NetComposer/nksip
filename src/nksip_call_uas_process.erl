@@ -51,12 +51,11 @@ check_supported(Method, Req, UAS, Call) when Method=='ACK'; Method=='CANCEL' ->
     check_missing_dialog(Method, Req, UAS, Call);
 
 check_supported(Method, Req, UAS, Call) ->
-    #sipmsg{require=Require, event=Event} = Req,
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    Supported = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+    #sipmsg{app_id=AppId, require=Require, event=Event} = Req,
+    Supported = AppId:config_supported(),
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
-            SupEvents = nksip_lib:get_value(events, AppOpts, []),
+            SupEvents = AppId:config_events(),
             case Event of
                 {Type, _} ->
                     case lists:member(Type, [<<"refer">>|SupEvents]) of
@@ -186,9 +185,8 @@ method('OPTIONS', _Req, UAS, Call) ->
     process_call(options, Fields, UAS, Call); 
 
 method('REGISTER', Req, UAS, Call) ->
-    #sipmsg{supported=Supported} = Req,
-    #call{opts=#call_opts{app_opts=Opts}} = Call,
-    Registrar = lists:member(registrar, Opts),
+    #sipmsg{app_id=AppId, supported=Supported} = Req,
+    Registrar = AppId:config_registrar(),
     Fields = [
         app_id, 
         {value, registrar, Registrar}, 
@@ -301,11 +299,13 @@ method('PUBLISH', Req, UAS, Call) ->
     Fields = [app_id, aor, event, {value, etag, Tag}, parsed_expires, body],
     process_call(publish, Fields, UAS, Call);
 
-method(_Method, _Req, UAS, Call) ->
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    Allowed = case lists:member(registrar, AppOpts) of
-        true -> <<(?ALLOW)/binary, ", REGISTER">>;
-        false -> ?ALLOW
+method(_Method, #sipmsg{app_id=AppId}, UAS, Call) ->
+    Allowed = case AppId:config_allowed() of
+        undefined ->
+            case AppId:config_registrar() of            
+                true -> <<(?ALLOW)/binary, ", REGISTER">>;
+                false -> ?ALLOW
+            end
     end,
     reply({method_not_allowed, Allowed}, UAS, Call).
 
@@ -323,7 +323,6 @@ method(_Method, _Req, UAS, Call) ->
 
 process_call(Fun, Fields, UAS, Call) ->
     #trans{request=Req, method=Method} = UAS,
-    #call{opts=#call_opts{app_opts=Opts}} = Call,
     Meta = nksip_sipmsg:named_fields(Req, Fields),
     case nksip_call_uas:app_call(Fun, [Meta], UAS, Call) of
         {reply, _} when Method=='ACK' ->
@@ -335,8 +334,8 @@ process_call(Fun, Fields, UAS, Call) ->
         % Not exported and no in-line
         not_exported ->
             MsgId = nksip_sipmsg:get_id(Req),
-            Meta1 = [{app_opts, Opts}|Meta],
-            {reply, Reply, []} = apply(nksip_sipapp, Fun, [MsgId, Meta1, none, []]),
+            % Meta1 = [{app_opts, Opts}|Meta],
+            {reply, Reply, []} = apply(nksip_sipapp, Fun, [MsgId, Meta, none, []]),
             reply(Reply, UAS, Call);
         #call{} = Call1 -> 
             Call1

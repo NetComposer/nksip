@@ -202,9 +202,8 @@ flow_type(_, _) ->
 
 registrar(Req, Opts) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
-    AppSupp = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
     case 
-        lists:member(<<"outbound">>, AppSupp) andalso
+        lists:member(<<"outbound">>, AppId:config_supported()) andalso
         nksip_sipmsg:supported(Req, <<"outbound">>)
     of
         true when length(Vias)==1 ->     % We are the first host
@@ -216,7 +215,7 @@ registrar(Req, Opts) ->
             case nksip_transport:get_connected(AppId, Transp) of
                 [{_, Pid}|_] ->
                     Flow = encode_flow(Pid),
-                    Host = nksip_transport:get_listenhost(ListenIp, Opts),
+                    Host = nksip_transport:get_listenhost(AppId, ListenIp),
                     Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>, <<"ob">>]),

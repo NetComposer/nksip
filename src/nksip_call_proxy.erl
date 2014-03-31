@@ -87,12 +87,11 @@ route(UAS, UriList, ProxyOpts, Call) ->
 
 route_stateless(Req, Uri, ProxyOpts, Call) ->
     #sipmsg{class={req, Method}} = Req,
-    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,    
     Req1 = Req#sipmsg{ruri=Uri},
-    case nksip_uac_lib:proxy_make(Req1, ProxyOpts, AppOpts) of
+    case nksip_uac_lib:proxy_make(Req1, ProxyOpts) of
         {ok, Req2, ProxyOpts1} ->
             SendOpts = [stateless_via | ProxyOpts1],
-            case nksip_transport_uac:send_request(Req2, GlobalId, SendOpts) of
+            case nksip_transport_uac:send_request(Req2, SendOpts) of
                 {ok, _} ->  
                     ?call_debug("Stateless proxy routing ~p to ~s", 
                                 [Method, nksip_unparse:uri(Uri)], Call);
@@ -119,7 +118,6 @@ response_stateless(#sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
 
 response_stateless(#sipmsg{vias=[_, Via|RestVias], transport=Transp}=Resp, Call) ->
     #sipmsg{cseq={_, Method}, class={resp, Code, _}} = Resp,
-    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     #via{proto=ViaProto, port=ViaPort, opts=ViaOpts} = Via,
     {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(<<"received">>, ViaOpts)),
     RPort = case nksip_lib:get_integer(<<"rport">>, ViaOpts) of
@@ -128,7 +126,7 @@ response_stateless(#sipmsg{vias=[_, Via|RestVias], transport=Transp}=Resp, Call)
     end,
     Transp1 = Transp#transport{proto=ViaProto, remote_ip=RIp, remote_port=RPort},
     Resp1 = Resp#sipmsg{vias=[Via|RestVias], transport=Transp1},
-    case nksip_transport_uas:send_response(Resp1, GlobalId, AppOpts) of
+    case nksip_transport_uas:send_response(Resp1, []) of
         {ok, _} -> 
             ?call_debug("Stateless proxy sent ~p ~p response", 
                         [Method, Code], Call);

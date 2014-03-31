@@ -166,7 +166,7 @@
 
 -include("nksip.hrl").
 
--export([reply/3, parse/1, warning/1]).
+-export([reply/2, parse/1, warning/1]).
 
 -export_type([sipreply/0]).
 
@@ -228,21 +228,20 @@
 %% @doc Generates a new SIP response and send options using helper replies.
 %% Currently recognized replies are described in this module.
 %% See {@link nksip_uas_lib:response/5}.
--spec reply(nksip:request(), {nksip:response_code(), nksip_lib:optslist()}, 
-            nksip:response_code()) ->
+-spec reply(nksip:request(), {nksip:response_code(), nksip_lib:optslist()}) ->
     {nksip:response(), nksip_lib:optslist()}.
 
-reply(Req, {Code, Opts}, Config) 
+reply(Req, {Code, Opts}) 
         when is_integer(Code), Code>=100, Code=<699, is_list(Opts)->
-    case nksip_uas_lib:make(Req, Code, Opts, Config) of
+    case nksip_uas_lib:make(Req, Code, Opts) of
         {ok, Resp, RespOpts} ->
             {Resp, RespOpts};
         {error, Error} ->
             lager:error("Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
-            nksip_uas_lib:make(Req, 500, [], Config)
+            nksip_uas_lib:make(Req, 500, [])
     end;
     
-reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, Config) -> 
+reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) -> 
     case parse(SipReply) of
         {Code, Opts0} ->
             Opts = post(Req, Code, Opts0);
@@ -250,7 +249,7 @@ reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply, Config) ->
             ?warning(AppId, CallId, "Invalid sipreply ~p", [SipReply]),
             {Code, Opts} = {500, [{reason_phrase, <<"Invalid SipApp Response">>}]}
     end,
-    reply(Req, {Code, Opts}, Config).
+    reply(Req, {Code, Opts}).
 
 
 

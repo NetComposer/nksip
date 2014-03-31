@@ -107,8 +107,7 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
         {ErrCode, ErrOpts} ->
             {ErrCode, ErrOpts}
     end,
-    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-    {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
+    {Resp, _} = nksip_reply:reply(Req, Reply),
     % nksip_call_fork:response() is going to discard first Via
     Resp1 = Resp#sipmsg{vias=[#via{}|Resp#sipmsg.vias]},
     nksip_call_fork:response(ForkId, Id, Resp1, Call);

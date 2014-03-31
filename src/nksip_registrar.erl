@@ -91,7 +91,7 @@ find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
     case lists:member(<<"gr">>, Opts) of
         true -> 
             % It is probably a tmp GRUU
-            case catch decrypt(User) of
+            case catch decrypt(User, AppId:config_global_id()) of
                 Tmp when is_binary(Tmp) ->
                     {{Scheme1, User1, Domain1}, InstId, Pos} = binary_to_term(Tmp),
                     [
@@ -224,8 +224,7 @@ is_registered(#sipmsg{
 
 request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
     try
-        {ok, _, AppOpts, _} = nksip_sipapp_srv:get_opts(AppId),
-        case nksip_outbound:registrar(Req, AppOpts) of
+        case nksip_outbound:registrar(Req, []) of
             {ok, Req1, Opts1} -> ok;
             {error, OutError} -> Req1 = Opts1 = throw(OutError)
         end,
@@ -325,19 +324,20 @@ check_gruu(Req, AppOpts) ->
     ok.
 
 process(Req, Opts) ->
-    #sipmsg{to={#uri{scheme=Scheme}, _}, contacts=Contacts} = Req,
+    #sipmsg{app_id=AppId, to={#uri{scheme=Scheme}, _}, contacts=Contacts} = Req,
     if
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
+    {MinTime, MaxTime, DefTime} = AppId:config_registrar_timers(),
     Default = case nksip_sipmsg:field(Req, parsed_expires) of
         D0 when is_integer(D0) -> D0;
-        _ -> nksip_config:get(registrar_default_time)
+        _ -> DefTime
     end,
     Long = nksip_lib:l_timestamp(),
     Times = {
-        nksip_config:get(registrar_min_time), 
-        nksip_config:get(registrar_max_time),
+        MinTime, 
+        MaxTime,
         Default,
         Long div 1000000,
         Long
@@ -490,7 +490,8 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
                     Pub = list_to_binary([$", nksip_unparse:ruri(PubUri), $"]),
                     GOpts1 = nksip_lib:store_value(<<"pub-gruu">>, Pub, ExtOpts1),
                     TmpBin = term_to_binary({aor(To), InstId, Next}),
-                    TmpGr = encrypt(TmpBin),
+                    #sipmsg{app_id=AppId} = Req,
+                    TmpGr = encrypt(TmpBin, AppId:config_global_id()),
                     TmpUri = PubUri#uri{user=TmpGr, opts=[<<"gr">>]},
                     Tmp = list_to_binary([$", nksip_unparse:ruri(TmpUri), $"]),
                     nksip_lib:store_value(<<"temp-gruu">>, Tmp, GOpts1);
@@ -522,7 +523,7 @@ update_regcontacts([], _Req, _Times, _Path, _Opts, Acc) ->
 %% @private
 update_checks(Contact, Req) ->
     #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts} = Contact,
-    #sipmsg{to={To, _}} = Req,
+    #sipmsg{app_id=AppId, to={To, _}} = Req,
     case Domain of
         <<"*">> -> throw(invalid_request);
         _ -> ok
@@ -533,7 +534,7 @@ update_checks(Contact, Req) ->
     end,
     case lists:member(<<"gr">>, Opts) of
         true ->
-            case catch decrypt(User) of
+            case catch decrypt(User, AppId:config_global_id()) of
                 LoopTmp when is_binary(LoopTmp) ->
                     {{LScheme, LUser, LDomain}, _, _} = binary_to_term(LoopTmp),
                     case aor(To) of
@@ -646,36 +647,29 @@ callback_get(AppId, AOR) ->
     term() | error.
 
 callback(AppId, Op) -> 
-    case nksip_sipapp_srv:get_module(AppId) of
-        {ok, Module, _Pid} ->
-            case 
-                nksip_sipapp_srv:sipapp_call_wait(AppId, Module, 
-                                                  registrar_store, [Op], [Op], 
-                                                  ?TIMEOUT)
-            of
-                not_exported -> 
-                    {reply, Reply, none} = 
-                        nksip_sipapp:registrar_store(AppId, Op, none),
-                    Reply;
-                {reply, Reply} -> 
-                    Reply;
-                _ -> 
-                    error
-            end;
-        {error, not_found} ->
+    case 
+        nksip_sipapp_srv:sipapp_call_wait(AppId, registrar_store, [Op], [Op], ?TIMEOUT)
+    of
+        not_exported -> 
+            {reply, Reply, none} = 
+                nksip_sipapp:registrar_store(AppId, Op, none),
+            Reply;
+        {reply, Reply} -> 
+            Reply;
+        _ -> 
             error
     end.
 
 
 %% @private
-encrypt(Bin) ->
-    <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
+encrypt(Bin, GlobalId) ->
+    <<Key:16/binary, _/binary>> = GlobalId,
     base64:encode(crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin)).
 
 
 %% @private
-decrypt(Bin) ->
-    <<Key:16/binary, _/binary>> = nksip_config:get(global_id),
+decrypt(Bin, GlobalId) ->
+    <<Key:16/binary, _/binary>> = GlobalId,
     crypto:aes_cfb_128_decrypt(Key, ?AES_IV, base64:decode(Bin)).
 
 

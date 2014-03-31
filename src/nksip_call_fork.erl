@@ -96,7 +96,7 @@ next(#fork{pending=[]}=Fork, Call) ->
                 [] when Method=='ACK' ->
                     delete(Fork, Call);
                 [] ->
-                    #sipmsg{class={resp, Code, _}} = Resp = best_response(Fork, Call),
+                    #sipmsg{class={resp, Code, _}} = Resp = best_response(Fork),
                     ?call_debug("Fork ~p ~p selected ~p response", 
                                 [Id, Method, Code], Call),
                     Call1 = send_reply(Resp, Fork, Call),
@@ -127,7 +127,7 @@ launch([], Id, Call) ->
     end;
 
 launch([Uri|Rest], Id, Call) -> 
-    #call{next=Next, opts=#call_opts{app_opts=AppOpts}} = Call,
+    #call{next=Next} = Call,
     Fork = lists:keyfind(Id, #fork.id, Call#call.forks),
     #fork{request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
@@ -139,20 +139,20 @@ launch([Uri|Rest], Id, Call) ->
         _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
     end,
     Call1 = update(Fork1, Call),
-    Call2 = case nksip_uac_lib:proxy_make(Req1, Opts, AppOpts) of
+    Call2 = case nksip_uac_lib:proxy_make(Req1, Opts) of
         {ok, Req2, Opts1} ->
             ?call_debug("Fork ~p starting UAC ~p", [Id, Next], Call1),
             ReqCall = nksip_call_uac_req:request(Req2, Opts1, {fork, Id}, Call1),
             ReqCall#call{next=Next+1};
         {error, {reply, Reply}} ->
-            {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
+            {Resp, _} = nksip_reply:reply(Req, Reply),
             ForkT = Fork#fork{responses=[Resp|Resps]},
             update(ForkT, Call1);
         {error, Error} ->
             ?call_warning("Error processing fork options: ~p, ~p: ~p",
                           [Uri, Opts, Error], Call),
             Reply = {internal_error, <<"Invalid Fork Options">>},
-            {Resp, _} = nksip_reply:reply(Req, Reply, AppOpts),
+            {Resp, _} = nksip_reply:reply(Req, Reply),
             ForkT = Fork#fork{responses=[Resp|Resps]},
             update(ForkT, Call1)
     end,
@@ -300,10 +300,10 @@ send_reply(Resp, Fork, Call) ->
 
 
 %% @private
--spec best_response(fork(), call()) ->
+-spec best_response(fork()) ->
     nksip:response().
 
-best_response(#fork{request=Req, responses=Resps}, Call) ->
+best_response(#fork{request=Req, responses=Resps}) ->
     Sorted = lists:sort([
         if
             Code == 401; Code == 407 -> {3999, Resp};
@@ -329,8 +329,7 @@ best_response(#fork{request=Req, responses=Resps}, Call) ->
         [{_, Best}|_] ->
             Best;
         _ ->
-            #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-            {Best, _} = nksip_reply:reply(Req, temporarily_unavailable, AppOpts),
+            {Best, _} = nksip_reply:reply(Req, temporarily_unavailable),
             Best
     end.
 

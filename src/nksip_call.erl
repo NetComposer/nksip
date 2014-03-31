@@ -221,8 +221,8 @@ clear_all() ->
 work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
     nksip_call_uas_req:request(Req, Call);
 
-work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
-    #call{opts=#call_opts{global_id=GlobalId}} = Call,
+work({incoming, #sipmsg{app_id=AppId, class={resp, _, _}}=Resp}, none, Call) ->
+    GlobalId = AppId:config_global_id(),
     case nksip_uac_lib:is_stateless(Resp, GlobalId) of
         true -> nksip_call_proxy:response_stateless(Resp, Call);
         false -> nksip_call_uac_resp:response(Resp, Call)
@@ -246,10 +246,9 @@ work({send_reply, ReqId, Reply}, From, Call) ->
     Call1;
 
 work({make, Method, Uri, Opts}, From, Call) ->
-    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
-    #call_opts{app_opts=AppOpts} = CallOpts,
+    #call{app_id=AppId, call_id=CallId} = Call,
     Opts1 = [{call_id, CallId} | Opts],
-    Reply = nksip_uac_lib:make(AppId, Method, Uri, Opts1, AppOpts),
+    Reply = nksip_uac_lib:make(AppId, Method, Uri, Opts1),
     gen_server:reply(From, Reply),
     Call;
 
@@ -257,10 +256,9 @@ work({send, Req, Opts}, From, Call) ->
     nksip_call_uac_req:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
-    #call_opts{app_opts=AppOpts} = CallOpts,
+    #call{app_id=AppId, call_id=CallId} = Call,
     Opts1 = [{call_id, CallId} | Opts],
-    case nksip_uac_lib:make(AppId, Method, Uri, Opts1, AppOpts) of
+    case nksip_uac_lib:make(AppId, Method, Uri, Opts1) of
         {ok, Req, ReqOpts} -> 
             work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
@@ -490,12 +488,11 @@ sync_send_dialog(DialogId, Method, Opts, Call) ->
     {ok, nksip:request(), nksip_lib:optslist(), call()} | {error, term()}.
 
 make_dialog(DialogId, Method, Opts, Call) ->
-    #call{app_id=AppId, call_id=CallId, opts=CallOpts} = Call,
-    #call_opts{app_opts=AppOpts} = CallOpts,
+    #call{app_id=AppId, call_id=CallId} = Call,
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
         {ok, {RUri, Opts1}, Call1} -> 
             Opts2 = [{call_id, CallId} | Opts1],
-            case nksip_uac_lib:make(AppId, Method, RUri, Opts2, AppOpts) of
+            case nksip_uac_lib:make(AppId, Method, RUri, Opts2) of
                 {ok, Req, ReqOpts} ->
                     {ok, Req, ReqOpts, Call1};
                 {error, Error} ->

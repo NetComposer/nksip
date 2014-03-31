@@ -190,28 +190,32 @@ timeout_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.timeout_timer),
     Trans#trans{timeout_timer=undefined};
 
-timeout_timer(Tag, Trans, #call{opts=#call_opts{timer_t1=T1}}) 
+timeout_timer(Tag, Trans, #call{app_id=AppId}) 
             when Tag==timer_b; Tag==timer_f; Tag==timer_m;
                  Tag==timer_h; Tag==timer_j; Tag==timer_l;
                  Tag==noinvite; Tag==prack_timeout ->
     cancel_timer(Trans#trans.timeout_timer),
+    {T1, _, _, _, _} = AppId:config_timers(),
     Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
 
 timeout_timer(timer_d, Trans, _) ->
     cancel_timer(Trans#trans.timeout_timer),
     Trans#trans{timeout_timer=start_timer(32000, timer_d, Trans)};
 
-timeout_timer(Tag, Trans, #call{opts=#call_opts{timer_t4=T4}}) 
+timeout_timer(Tag, Trans, #call{app_id=AppId}) 
                 when Tag==timer_k; Tag==timer_i ->
     cancel_timer(Trans#trans.timeout_timer),
+    {_, _, T4, _, _} = AppId:config_timers(),
     Trans#trans{timeout_timer=start_timer(T4, Tag, Trans)};
 
-timeout_timer(timer_c, Trans, #call{opts=#call_opts{timer_c=TC}}) ->
+timeout_timer(timer_c, Trans, #call{app_id=AppId}) ->
     cancel_timer(Trans#trans.timeout_timer),
+    {_, _, _, TC, _} = AppId:config_timers(),
     Trans#trans{timeout_timer=start_timer(TC, timer_c, Trans)};
 
-timeout_timer(sipapp_call, Trans, #call{opts=#call_opts{timer_sipapp=Time}}) ->
+timeout_timer(sipapp_call, Trans, #call{app_id=AppId}) ->
     cancel_timer(Trans#trans.timeout_timer),
+    {_, _, _, _, Time} = AppId:config_timers(),
     Trans#trans{timeout_timer=start_timer(Time, sipapp_call, Trans)}.
 
 
@@ -223,23 +227,25 @@ retrans_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.retrans_timer),
     Trans#trans{retrans_timer=undefined};
 
-retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
+retrans_timer(Tag, #trans{next_retrans=Next}=Trans, #call{app_id=AppId}) 
               when Tag==timer_a; Tag==prack_retrans ->
-    #call{opts=#call_opts{timer_t1=T1}} = Call,
     cancel_timer(Trans#trans.retrans_timer),
     Time = case is_integer(Next) of
-        true -> Next;
-        false -> T1
+        true -> 
+            Next;
+        false -> 
+            {T1, _, _, _, _} = AppId:config_timers(),
+            T1
     end,
     Trans#trans{
         retrans_timer = start_timer(Time, Tag, Trans),
         next_retrans = 2*Time
     };
 
-retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
+retrans_timer(Tag, #trans{next_retrans=Next}=Trans, #call{app_id=AppId}) 
                 when Tag==timer_e; Tag==timer_g ->
-    #call{opts=#call_opts{timer_t1=T1, timer_t2=T2}} = Call, 
     cancel_timer(Trans#trans.retrans_timer),
+    {T1, T2, _, _, _} = AppId:config_timers(),
     Time = case is_integer(Next) of
         true -> Next;
         false -> T1
@@ -289,8 +295,9 @@ callback_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.callback_timer),
     Trans#trans{callback_timer=undefined};
 
-callback_timer(Fun, Trans, #call{opts=#call_opts{timer_sipapp=Time}}) ->
+callback_timer(Fun, Trans, #call{app_id=AppId}) ->
     cancel_timer(Trans#trans.callback_timer),
+    {_, _, _, _, Time} = AppId:config_timers(),
     Trans#trans{callback_timer=start_timer(Time, {callback, Fun}, Trans)}.
 
 

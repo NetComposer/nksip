@@ -55,7 +55,7 @@
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start/4, stop/1, stop_all/0, get_all/0]).
+-export([start/4, stop/1, stop_all/0, get_all/0, update/3]).
 -export([get/2, get/3, put/3, del/2]).
 -export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3]).
 
@@ -317,15 +317,18 @@
 %%  </table>
 %%
 %% <br/>
--spec start(app_id(), atom(), term(), nksip_lib:optslist()) -> 
-	ok | {error, term()}.
+-spec start(term(), atom(), term(), nksip_lib:optslist()) -> 
+	{ok, app_id()} | {error, term()}.
 
-start(AppId, Module, Args, Opts) ->
-    try
-        Opts1 = parse_opts(Opts, []),
-        nksip_sup:start_core(AppId, Module, Args, Opts1)
-    catch
-        throw:Throw -> {error, Throw}
+start(AppName, Module, Args, Opts) ->
+    case nksip_sipapp_config:parse_config(AppName, Module, Opts) of
+        {ok, AppId} ->
+            case nksip_sup:start_core(AppName, AppId, Args) of
+                ok -> {ok, AppId};
+                {error, Error} -> {error, Error}
+            end;
+        {error, Error} ->
+            {error, Error}
     end.
 
 
@@ -349,6 +352,22 @@ stop(AppId) ->
 
 stop_all() ->
     lists:foreach(fun(AppId) -> stop(AppId) end, get_all()).
+
+
+%% @doc Updates the callback module or options of a running SipApp
+%% It is not allowed to change transports
+-spec update(nksip:app_id(), atom(), nksip_lib:proplist()) ->
+    {ok, app_id()} | {error, term()}.
+
+update(AppId, Module, Opts) ->
+    Opts1 = nksip_lib:delete(Opts, transport),
+    case catch nksip_sipapp_srv:name(AppId) of
+        {'EXIT', _} -> 
+            {error, unknown_sipapp};
+        AppName ->
+            nksip_sipapp_config:parse_config(AppName, Module, Opts1)
+    end.
+
     
 
 %% @doc Gets the `AppIds' of all started SipApps.
@@ -444,8 +463,8 @@ cast(AppId, Msg) ->
 -spec get_pid(app_id()) -> 
     pid() | not_found.
 
-get_pid(Id) ->
-    nksip_sipapp_srv:get_pid(Id).
+get_pid(AppId) ->
+    nksip_sipapp_srv:get_pid(AppId).
 
 
 %% @doc Gets SipApp's first listening port on this transport protocol.
@@ -465,124 +484,3 @@ get_port(AppId, Proto, Class) ->
 %% ===================================================================
 
 
-parse_transports([], Acc) ->
-    lists:reverse(Acc);
-
-parse_transports([Transport|Rest], Acc) ->
-    case Transport of
-        {Scheme, Ip, Port} -> TOpts = [];
-        {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
-        _ -> Scheme=Ip=Port=TOpts=throw(invalid_transport)
-    end,
-    case 
-        (Scheme==udp orelse Scheme==tcp orelse 
-         Scheme==tls orelse Scheme==sctp orelse
-         Scheme==ws  orelse Scheme==wss)
-    of
-        true -> ok;
-        false -> throw(invalid_transport)
-    end,
-    Ip1 = case Ip of
-        all ->
-            {0,0,0,0};
-        all6 ->
-            {0,0,0,0,0,0,0,0};
-        _ when is_tuple(Ip) ->
-            case catch inet_parse:ntoa(Ip) of
-                {error, _} -> throw(invalid_transport);
-                {'EXIT', _} -> throw(invalid_transport);
-                _ -> Ip
-            end;
-        _ ->
-            case catch nksip_lib:to_ip(Ip) of
-                {ok, PIp} -> PIp;
-                _ -> throw(invalid_transport)
-            end
-    end,
-    Port1 = case Port of
-        any -> 0;
-        _ when is_integer(Port), Port >= 0 -> Port;
-        _ -> throw(invalid_transport)
-    end,
-    parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
-
-
-parse_opts([], Opts) ->
-    Opts;
-
-parse_opts([Term|Rest], Opts) ->
-    Opts1 = case Term of
-
-        % Startup options
-        {transports, Transports} ->
-            [{transports, parse_transports(Transports, [])}|Opts];
-        {certfile, File} ->
-            [{certfile, nksip_lib:to_list(File)}|Opts];
-        {keyfile, File} ->
-            [{keyfile, nksip_lib:to_list(File)}|Opts];
-        {register, Register} ->
-            case nksip_parse:uris(Register) of
-                error -> throw(invalid_register);
-                Uris -> [{register, Uris}|Opts]
-            end;
-        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
-            [{register_expires, Expires}|Opts];
-        registrar ->
-            [registrar|Opts];
-        {supported, Supported} ->
-            case nksip_parse:tokens(Supported) of
-                error -> throw({invalid, supported});
-                Tokens -> [{supported, [T||{T, _}<-Tokens]}|Opts]
-            end;
-        {allow, Allow} ->
-            case nksip_parse:tokens(Allow) of
-                error -> throw({invalid, allow});
-                Tokens -> [{allow, [A||{A, _}<-Tokens]}|Opts]
-            end;
-        {accept, Accept} ->
-            case nksip_parse:tokens(Accept) of
-                error -> throw({invalid, accept});
-                Tokens -> [{accept, [A||{A, _}<-Tokens]}|Opts]
-            end;
-        {events, Event} ->
-            case nksip_parse:tokens(Event) of
-                error -> throw({invalid, events});
-                Tokens -> [{events, [T||{T, _}<-Tokens]}|Opts]
-            end;
-        
-        % Default headers and options
-        {from, From} ->
-            case nksip_parse:uris(From) of
-                [Uri] -> [{from, Uri}|Opts];
-                _ -> throw({invalid, from}) 
-            end;
-        {route, Route} ->
-            case nksip_parse:uris(Route) of
-                error -> throw({invalid, route});
-                Uris -> [{route, Uris}|Opts]
-            end;
-        {pass, Pass} ->
-            [{pass, Pass}|Opts];
-        {local_host, Host} ->
-            [{local_host, nksip_lib:to_host(Host)}|Opts];
-        {local_host6, Host} ->
-            case nksip_lib:to_ip(Host) of
-                {ok, HostIp6} -> 
-                    % Ensure it is enclosed in `[]'
-                    [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts];
-                error -> 
-                    [{local_host6, nksip_lib:to_binary(Host)}|Opts]
-            end;
-        no_100 ->
-            [no_100|Opts];
-
-        % Unknown options
-        {Name, Value} ->
-            case nksip_config:parse_config(Name, Value) of
-                {ok, Value1} -> [{Name, Value1}|Opts];
-                {error, _Error} -> throw({invalid, Name})
-            end;
-        Name ->
-            throw({invalid, Name})
-    end,
-    parse_opts(Rest, Opts1).

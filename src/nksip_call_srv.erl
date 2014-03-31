@@ -25,7 +25,7 @@
 
 -behaviour(gen_server).
 
--export([start/3, stop/1, sync_work/5, async_work/2]).
+-export([start/2, stop/1, sync_work/5, async_work/2]).
 -export([init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, 
          code_change/3]).
 -export([get_data/1]).
@@ -40,11 +40,11 @@
 %% ===================================================================
 
 %% @doc Starts a new call process.
--spec start(nksip:app_id(), nksip:call_id(), #call_opts{}) ->
+-spec start(nksip:app_id(), nksip:call_id()) ->
     {ok, pid()}.
 
-start(AppId, CallId, CallOpts) ->
-    gen_server:start(?MODULE, [AppId, CallId, CallOpts], []).
+start(AppId, CallId) ->
+    gen_server:start(?MODULE, [AppId, CallId], []).
 
 
 %% @doc Stops a call (deleting  all associated transactions, dialogs and forks!).
@@ -86,13 +86,12 @@ get_data(Pid) ->
 -spec init(term()) ->
     gen_server_init(call()).
 
-init([AppId, CallId, CallOpts]) ->
+init([AppId, CallId]) ->
     nksip_counters:async([nksip_calls]),
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
         app_id = AppId, 
         call_id = CallId, 
-        opts = CallOpts,
         next = Id+1,
         hibernate = false,
         trans = [],

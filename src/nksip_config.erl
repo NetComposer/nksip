@@ -70,7 +70,7 @@
 
 -include("nksip.hrl").
 
--export([get/1, get/2, put/2, del/1, cseq/0, increment/2]).
+-export([get/1, get/2, put/2, del/1, cseq/0, increment/2, get_config/0]).
 -export([get_cached/2, get_cached/3, parse_config/1, parse_config/2]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
@@ -79,7 +79,6 @@
 
 -define(MINUS_CSEQ, 46111468).  % Lower values to debug
 
--compile([export_all]).
 
 %% ===================================================================
 %% Public
@@ -164,6 +163,14 @@ increment(Key, Count) ->
     ets:update_counter(?MODULE, Key, Count).
 
 
+%% @doc
+-spec get_config() ->
+    nksip_lib:proplist().
+
+get_config() ->
+    gen_server:call(?MODULE, get_config).
+
+
 %% @private Default config values
 -spec default_config() ->
     nksip_lib:optslist().
@@ -220,6 +227,7 @@ parse_config(Name, Value) ->
 %% ===================================================================
 
 -record(state, {
+    config :: nksip_lib:proplist()
 }).
 
 
@@ -245,24 +253,31 @@ init([]) ->
         default_config()),
     case parse_config(Config) of
         {ok, Config1} ->
+            Config2 = [
+                {global_id, nksip_lib:luid()},
+                {local_ips, nksip_lib:get_local_ips()},
+                {main_ip, nksip_lib:find_main_ip()},
+                {main_ip6, nksip_lib:find_main_ip(auto, ipv6)}
+                | Config1
+            ],
+            compile_module(Config2),
             % Store config values in config table to speed access
             lists:foreach(
                 fun({Key, Value}) -> nksip_config:put(Key, Value) end,
-                Config1);
+                Config2),
+            {ok, #state{config=Config2}};
         {error, Error} ->
             lager:error("Config error: ~p", [Error]),
-            error(config_error)
-    end,
-    put(global_id, nksip_lib:luid()),
-    put(local_ips, nksip_lib:get_local_ips()),
-    put(main_ip, nksip_lib:find_main_ip()),
-    put(main_ip6, nksip_lib:find_main_ip(auto, ipv6)),
-    {ok, #state{}}.
+            {error, config_error}
+    end.
 
 
 %% @private
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
+
+handle_call(get_config, _From, #state{config=Config}=State) ->
+    {reply, {ok, Config}, State};
 
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
@@ -382,3 +397,24 @@ parse_config_opts([Term|Rest], Opts) ->
         throw:invalid ->
             {error, {invalid, Term}}
     end.
+
+
+%% @private
+compile_module(Configs) ->
+    compile_module(Configs, []).
+
+
+%% @private
+compile_module([], Acc) ->
+    ok = nksip_code:compile(nksip_config_cache, Acc);
+
+compile_module([{Key, Value}|Rest], Acc) ->
+    Acc1 = nksip_code:getter(Key, Value, Acc),
+    compile_module(Rest, Acc1).
+
+
+
+
+
+
+

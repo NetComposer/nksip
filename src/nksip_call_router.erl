@@ -29,7 +29,7 @@
 -export([apply_sipmsg/3]).
 -export([apply_transaction/3, get_all_transactions/0, get_all_transactions/2]).
 -export([get_all_calls/0, get_all_data/0, get_all_info/0, clear_all_calls/0]).
--export([pending_msgs/0, pending_work/0, clear_app_cache/1]).
+-export([pending_msgs/0, pending_work/0]).
 -export([send_work_sync/3, send_work_async/3]).
 -export([pos2name/1, start_link/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
@@ -194,12 +194,6 @@ get_all_data() ->
 
 
 %% @private
-clear_app_cache(AppId) ->
-    router_fold(
-        fun(Name, _) -> ok=gen_server:call(Name, {clear_app_cache, AppId}) end).
-
-
-%% @private
 pending_work() ->
     router_fold(fun(Name, Acc) -> Acc+gen_server:call(Name, pending) end, 0).
 
@@ -223,7 +217,6 @@ pending_msgs() ->
 -record(state, {
     pos :: integer(),
     name :: atom(),
-    opts :: dict(),
     pending :: dict(),
     max_calls :: integer()
 }).
@@ -242,7 +235,6 @@ init([Pos, Name]) ->
     SD = #state{
         pos = Pos, 
         name = Name, 
-        opts = dict:new(), 
         pending = dict:new(),
         max_calls = nksip_config:get(max_calls)
     },
@@ -271,9 +263,6 @@ handle_call({incoming, SipMsg}, _From, SD) ->
             ?error(AppId, CallId, "Error processing incoming message: ~p", [Error]),
             {reply, {error, Error}, SD}
     end;
-
-handle_call({clear_app_cache, AppId}, _From, #state{opts=Opts}=SD) ->
-    {reply, ok, SD#state{opts=dict:erase(AppId, Opts)}};
 
 handle_call(pending, _From, #state{pending=Pending}=SD) ->
     {reply, dict:size(Pending), SD};
@@ -439,17 +428,12 @@ do_call_start(AppId, CallId, SD) ->
     #state{pos=Pos, name=Name, max_calls=MaxCalls} = SD,
     case nksip_counters:value(nksip_calls) < MaxCalls of
         true ->
-            case get_call_opts(AppId, SD) of
-                {ok, CallOpts, SD1} ->
-                    ?debug(AppId, CallId, "Router ~p launching call", [Pos]),
-                    {ok, Pid} = nksip_call_srv:start(AppId, CallId, CallOpts),
-                    erlang:monitor(process, Pid),
-                    Id = {call, AppId, CallId},
-                    true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
-                    {ok, SD1};
-                {error, not_found} ->
-                    {error, unknown_sipapp}
-            end;
+            ?debug(AppId, CallId, "Router ~p launching call", [Pos]),
+            {ok, Pid} = nksip_call_srv:start(AppId, CallId),
+            erlang:monitor(process, Pid),
+            Id = {call, AppId, CallId},
+            true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
+            {ok, SD};
         false ->
             {error, too_many_calls}
     end.
@@ -475,41 +459,6 @@ send_work_async(Name, AppId, CallId, Work) ->
             ?info(AppId, CallId, "Trying to send work ~p to deleted call", 
                   [work_id(Work)])
    end.
-
-
-%% @private
--spec get_call_opts(nksip:app_id(), #state{}) ->
-    {ok, #call_opts{}, #state{}} | {error, not_found}.
-
-get_call_opts(AppId, #state{opts=OptsDict}=SD) ->
-    case dict:find(AppId, OptsDict) of
-        {ok, CallOpts} ->
-            {ok, CallOpts, SD};
-        error ->
-            case nksip_sipapp_srv:get_opts(AppId) of
-                {ok, Module, AppOpts, _Pid} ->
-                    GlobalId = nksip_config:get(global_id),
-                    T1 = nksip_config:get_cached(timer_t1, AppOpts),
-                    T2 = nksip_config:get_cached(timer_t2, AppOpts),
-                    T4 = nksip_config:get_cached(timer_t4, AppOpts),
-                    TC = nksip_config:get_cached(timer_c, AppOpts),
-                    TApp = nksip_config:get_cached(sipapp_timeout, AppOpts),
-                    CallOpts = #call_opts{
-                        global_id  = GlobalId,
-                        app_opts = AppOpts,
-                        app_module = Module,
-                        timer_t1 = T1,
-                        timer_t2 = T2,
-                        timer_t4 = T4,
-                        timer_c = round(1000*TC),
-                        timer_sipapp = round(1000*TApp)
-                    },
-                    OptsDict1 = dict:store(AppId, CallOpts, OptsDict),
-                    {ok, CallOpts, SD#state{opts=OptsDict1}};
-                {error, not_found} ->
-                    {error, not_found}
-            end
-    end.
 
 
 %% @private

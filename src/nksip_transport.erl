@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/2, get_connected/5]).
--export([is_local/2, is_local_ip/1, main_ip/0, main_ip6/0]).
+-export([is_local/2, is_local_ip/1]).
 -export([start_transport/5, start_connection/6, default_port/1]).
 -export([get_listenhost/2, make_route/6]).
 -export([send/4]).
@@ -174,22 +174,6 @@ is_local_ip(Ip) ->
     lists:member(Ip, local_ips()).
 
 
-%% @doc Gets a cached version of node's main IPv4 address.
--spec main_ip() -> 
-    inet:ip4_address().
-
-main_ip() ->
-    nksip_config:get(main_ip). 
-
-
-%% @doc Gets a cached version of node's main IPv6 address.
--spec main_ip6() -> 
-    inet:ip6_address().
-
-main_ip6() ->
-    nksip_config:get(main_ip6). 
-
-
 %% @doc Gets a cached version of all detected local node IPs.
 -spec local_ips() -> 
     [inet:ip_address()].
@@ -234,24 +218,24 @@ start_connection(AppId, Proto, Ip, Port, Res, Opts) ->
                 
 
 %% @private Makes a route from a Scheme and Transport
--spec get_listenhost(inet:ip_address(), nksip_lib:optslist()) ->
+-spec get_listenhost(nksip:app_id(), inet:ip_address()) ->
     binary().
 
-get_listenhost(Ip, Opts) ->
+get_listenhost(AppId, Ip) ->
     case size(Ip) of
         4 ->
-            case nksip_lib:get_value(local_host, Opts, auto) of
+            case AppId:config_local_host() of
                 auto when Ip == {0,0,0,0} -> 
-                    nksip_lib:to_host(nksip_transport:main_ip());
+                    nksip_lib:to_host(AppId:config_main_ip());
                 auto -> 
                     nksip_lib:to_host(Ip);
                 Host -> 
                     Host
             end;
         8 ->
-            case nksip_lib:get_value(local_host6, Opts, auto) of
+            case AppId:config_local_host6() of
                 auto when Ip == {0,0,0,0,0,0,0,0} -> 
-                    nksip_lib:to_host(nksip_transport:main_ip6(), true);
+                    nksip_lib:to_host(AppId:config_main_ip6(), true);
                 auto -> 
                     nksip_lib:to_host(Ip, true);
                 Host -> 

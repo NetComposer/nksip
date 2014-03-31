@@ -172,7 +172,9 @@ auto() ->
 timeout() ->
     SipC1 = "<sip:127.0.0.1:5070;transport=tcp>",
 
-    {ok, _Module, Opts, _Pid} = nksip_sipapp_srv:get_opts(client1),
+    AppId = nksip_sipapp_srv:app_id(client1),
+    Opts = AppId:config(),    
+
     Opts1 = [{sipapp_timeout, 0.02}|Opts],
     ok = nksip_sipapp_srv:put_opts(client1, Opts1),
 

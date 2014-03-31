@@ -192,7 +192,7 @@ info() ->
 
 timeout() ->
     SipC1 = "sip:127.0.0.1:5070",
-    {ok, _Module, Opts, _Pid} = nksip_sipapp_srv:get_opts(client2),
+    Opts = apply(nksip_sipapp_srv:get_appid(client2), config),
     Opts1 = [{timer_t1, 10}, {timer_c, 1}|Opts],
     ok = nksip_sipapp_srv:put_opts(client2, Opts1),
 

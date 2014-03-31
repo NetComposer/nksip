@@ -23,7 +23,7 @@
 -module(nksip_transport_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_response/3, resend_response/3]).
+-export([send_response/2, resend_response/2]).
     
 -include("nksip.hrl").
 
@@ -33,13 +33,11 @@
 %% ===================================================================
 
 
--type send_opt() :: {local_host, auto|binary()} | contact | secure.
-
 %% @doc Sends a new `Response'.
--spec send_response(nksip:response(), binary(), [send_opt()]) ->
+-spec send_response(nksip:response(), nksip_lib:proplist()) ->
     {ok, nksip:response()} | error.
 
-send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
+send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
         app_id = AppId, 
         vias = [Via|_],
@@ -66,6 +64,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
             ]
     end,
     RouteBranch = nksip_lib:get_binary(<<"branch">>, ViaOpts),
+    GlobalId = AppId:config_global_id(),
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
     nksip_trace:insert(Resp, {send_response, Method, Code}),
@@ -76,11 +75,11 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, GlobalId, Opts) ->
 
 
 %% @doc Resends a previously sent response to the same ip, port and protocol.
--spec resend_response(Resp::nksip:response(), binary(), nksip_lib:optslist()) ->
+-spec resend_response(Resp::nksip:response(), nksip_lib:optslist()) ->
     {ok, nksip:response()} | error.
 
 resend_response(#sipmsg{class={resp, Code, _}, app_id=AppId, cseq={_, Method}, 
-                        transport=#transport{}=Transport}=Resp, _GlobalId, Opts) ->
+                        transport=#transport{}=Transport}=Resp, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeResp = fun(_) -> Resp end,
     TranspSpec = [{current, {Proto, Ip, Port, Res}}],
@@ -88,9 +87,9 @@ resend_response(#sipmsg{class={resp, Code, _}, app_id=AppId, cseq={_, Method},
     nksip_trace:insert(Resp, {sent_response, Method, Code}),
     Return;
 
-resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, GlobalId, Opts) ->
+resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, Opts) ->
     ?info(AppId, CallId, "Called resend_response/2 without transport\n", []),
-    send_response(Resp, GlobalId, Opts).
+    send_response(Resp, Opts).
 
 
 
@@ -117,7 +116,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     listen_ip = ListenIp, 
                     listen_port = ListenPort
                 } = Transport) ->
-        ListenHost = nksip_transport:get_listenhost(ListenIp, Opts),
+        ListenHost = nksip_transport:get_listenhost(AppId, ListenIp),
         ?debug(AppId, CallId, "UAS listenhost is ~s", [ListenHost]),
         Scheme = case Proto==tls andalso lists:member(secure, Opts) of
             true -> sips;

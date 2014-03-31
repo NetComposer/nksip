@@ -58,8 +58,7 @@ timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
 % INVITE 3456xx retrans
 timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId}} = Call,
-    UAS2 = case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
+    UAS2 = case nksip_transport_uas:resend_response(Resp, []) of
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p response", 
                        [Id, Code], Call),
@@ -110,8 +109,7 @@ timer(expire, #trans{id=Id, method=Method, status=Status}=UAS, Call) ->
 % Reliable response retrans
 timer(prack_retrans, #trans{id=Id, response=Resp}=UAS, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId}} = Call,
-    UAS2 = case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
+    UAS2 = case nksip_transport_uas:resend_response(Resp, []) of
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p reliable response", 
                        [Id, Code], Call),
@@ -182,14 +180,14 @@ terminate_request(_, Call) ->
 
 app_call(Fun, Args, UAS, Call) ->
     #trans{id=Id, method=Method, status=Status, request=Req} = UAS,
-    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
+    #call{app_id=AppId} = Call,
     ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
                 [Id, Method, Status, Fun, Args], Call),
     From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
     Args1 = [Req | Args],
     Args2 = [nksip_sipmsg:get_id(Req) | Args],
     case 
-        nksip_sipapp_srv:sipapp_call(AppId, Module, Fun, Args1, Args2, From)
+        nksip_sipapp_srv:sipapp_call(AppId, Fun, Args1, Args2, From)
     of
         {reply, Reply} ->
             {reply, Reply};
@@ -209,12 +207,12 @@ app_call(Fun, Args, UAS, Call) ->
 
 app_cast(Fun, Args, UAS, Call) ->
     #trans{id=Id, method=Method, status=Status, request=Req} = UAS,
-    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
+    #call{app_id=AppId} = Call,
     ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p", 
                 [Id, Method, Status, Fun], Call),
     Args1 = [Req | Args],
     Args2 = [nksip_sipmsg:get_id(Req) | Args],
-    nksip_sipapp_srv:sipapp_cast(AppId, Module, Fun, Args1, Args2),
+    nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args1, Args2),
     Call.
 
 

@@ -67,7 +67,7 @@ uac_request(_Req, Dialog, _Call) ->
 uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
              when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    Req1 = maybe_add_refer_event(Req, Call),
+    Req1 = maybe_add_refer_event(Req),
     case find(Req1, Dialog) of
         #subscription{class=Class, id=Id} = Subs
             when (Class==uac andalso Method=='SUBSCRIBE') orelse
@@ -142,7 +142,7 @@ uac_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
 
 uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
             when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
-    Req1 = maybe_add_refer_event(Req, Call),
+    Req1 = maybe_add_refer_event(Req),
     case find(Req1, Dialog) of
         #subscription{class=Class, id=Id} when
             (Method=='SUBSCRIBE' andalso Class==uas) orelse
@@ -177,7 +177,7 @@ uas_request(_Req, Dialog, _Call) ->
 uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
              when Method=='SUBSCRIBE'; Method=='NOTIFY'; Method=='REFER' ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    Req1 = maybe_add_refer_event(Req, Call),
+    Req1 = maybe_add_refer_event(Req),
     case find(Req1, Dialog) of
         #subscription{class=Class, id=Id} = Subs when
             (Method=='SUBSCRIBE' andalso Class==uas) orelse
@@ -271,6 +271,7 @@ update({subscribe, Req, Resp}, Subs, Dialog, Call) ->
         timer_middle = TimerMiddle,
         last_notify_cseq = NotifyCSeq
     } = Subs,
+    #dialog{app_id=AppId} = Dialog,
     cancel_timer(TimerN),
     cancel_timer(TimerExpire),
     cancel_timer(TimerMiddle),
@@ -281,7 +282,7 @@ update({subscribe, Req, Resp}, Subs, Dialog, Call) ->
         false -> ?DEFAULT_EVENT_EXPIRES
     end,
     ?call_debug("Event ~s expires updated to ~p", [Id, Expires2], Call),
-    #call{opts=#call_opts{timer_t1=T1}} = Call,
+    {T1, _, _, _, _} = AppId:config_timers(),
     TimerN1 = case NotifyCSeq > element(1, Req#sipmsg.cseq) of
         true -> undefined;
         false -> start_timer(64*T1, {timeout, Id}, Dialog)
@@ -376,12 +377,13 @@ update(Status, Subs, Dialog, Call) ->
 -spec create_event(nksip:request(),  nksip_call:call()) ->
     nksip_call:call().
 
-create_event(Req, Call) ->
-    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = maybe_add_refer_event(Req, Call),
+create_event(Req, #call{app_id=AppId}=Call) ->
+    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = maybe_add_refer_event(Req),
     EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
     ?call_debug("Event ~s_~s_~s UAC created", [EvType, EvId, FromTag], Call),
-    #call{opts=#call_opts{timer_t1=T1}, events=Events} = Call,
+    #call{events=Events} = Call,
     Id = {EvType, EvId, FromTag},
+    {T1, _, _, _, _} = AppId:config_timers(),
     Timer = erlang:start_timer(64*T1, self(), {remove_event, Id}),
     Event = #provisional_event{id=Id, timer_n=Timer},
     Call#call{events=[Event|Events]}.
@@ -395,7 +397,7 @@ create_event(Req, Call) ->
     nksip_call:call().
 
 remove_event(#sipmsg{}=Req, Call) ->
-    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = maybe_add_refer_event(Req, Call),
+    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = maybe_add_refer_event(Req),
     EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
     remove_event({EvType, EvId, FromTag}, Call);
 
@@ -458,14 +460,15 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
 
 
 %% @private
-maybe_add_refer_event(#sipmsg{class={req, 'REFER'}, cseq={CSeq, _}}=Req, Call) ->
-    #call{opts=#call_opts{timer_c=TimerC}} = Call,
+maybe_add_refer_event(#sipmsg{class={req, 'REFER'}}=Req) ->
+    #sipmsg{app_id=AppId, cseq={CSeq, _}} = Req,
+    {_, _, _, TimerC, _} = AppId:config_timers(),
     Req#sipmsg{
         event = {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]},
         expires = round(TimerC/1000)
     };
 
-maybe_add_refer_event(Req, _) ->
+maybe_add_refer_event(Req) ->
     Req.
 
 
@@ -499,7 +502,7 @@ timer({Type, Id}, Dialog, Call) ->
 create(Class, Req, Dialog, Call) ->
     #sipmsg{event=Event, app_id=AppId} = Req,
     Id = nksip_subscription:subscription_id(Event, Dialog#dialog.id),
-    #call{opts=#call_opts{timer_t1=T1}} = Call,
+    {T1, _, _, _, _} = AppId:config_timers(),
     Subs = #subscription{
         id = Id,
         app_id = AppId,

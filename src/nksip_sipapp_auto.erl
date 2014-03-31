@@ -27,7 +27,7 @@
 
 -export([start_ping/5, stop_ping/2, get_pings/1]).
 -export([start_register/5, stop_register/2, get_registers/1]).
--export([init/4, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
+-export([init/2, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([timer/1]).
 
 
@@ -152,7 +152,6 @@ get_pings(AppId) ->
 
 -record(state, {
     app_id :: nksip:app_id(),
-    module :: atom(),
     outbound :: boolean(),
     ob_base_time :: pos_integer(),     % For outbound support
     pos :: integer(),
@@ -162,9 +161,10 @@ get_pings(AppId) ->
 
 
 %% @private 
-init(AppId, Module, _Args, Opts) ->
-    RegTime = nksip_lib:get_integer(register_expires, Opts, 300),
-    case nksip_lib:get_value(register, Opts) of
+init(AppId, _Args) ->
+    Config = AppId:config(),
+    RegTime = nksip_lib:get_integer(register_expires, Config, 300),
+    case nksip_lib:get_value(register, Config) of
         undefined ->
             ok;
         RegUris ->
@@ -174,17 +174,16 @@ init(AppId, Module, _Args, Opts) ->
                     Name = <<"auto-", (nksip_lib:to_binary(Pos))/binary>>,
                     spawn_link(
                         fun() -> 
-                            start_register(AppId, Name, Uri, RegTime, Opts) 
+                            start_register(AppId, Name, Uri, RegTime, Config) 
                         end)
                 end,
                 Regs)
     end,
-    Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
+    Supported = nksip_lib:get_value(supported, Config, ?SUPPORTED),
     #state{
         app_id = AppId, 
-        module = Module, 
         outbound = lists:member(<<"outbound">>, Supported),
-        ob_base_time = nksip_config:get_cached(outbound_time_any_ok, Opts),
+        ob_base_time = nksip_lib:get_value(outbound_time_any_ok, Config),
         pos = 1,
         pings = [], 
         regs = []
@@ -281,7 +280,7 @@ handle_call(_, _From, _State) ->
 
 %% @private
 handle_cast({'$nksip_register_answer', RegId, Code, Meta}, 
-            #state{app_id=AppId, module=Module, regs=Regs}=State) -> 
+            #state{app_id=AppId, regs=Regs}=State) -> 
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OldOK}=Reg, Regs1} ->
             #sipreg{ok=OK} = Reg1 = update_register(Reg, Code, Meta, State),
@@ -290,8 +289,7 @@ handle_cast({'$nksip_register_answer', RegId, Code, Meta},
                     ok;
                 _ -> 
                     Args = [RegId, OK],
-                    nksip_sipapp_srv:sipapp_cast(AppId, Module, 
-                                                 register_update, Args, Args)
+                    nksip_sipapp_srv:sipapp_cast(AppId, register_update, Args, Args)
             end,
             update_basetime(State#state{regs=[Reg1|Regs1]});
         false ->
@@ -299,7 +297,7 @@ handle_cast({'$nksip_register_answer', RegId, Code, Meta},
     end;
 
 handle_cast({'$nksip_ping_answer', PingId, Code, Meta}, 
-            #state{app_id=AppId, module=Module, pings=Pings}=State) -> 
+            #state{app_id=AppId, pings=Pings}=State) -> 
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OldOK}=Ping, Pings1} ->
             #sipreg{ok=OK} = Ping1 = update_ping(Ping, Code, Meta, State),
@@ -308,8 +306,7 @@ handle_cast({'$nksip_ping_answer', PingId, Code, Meta},
                     ok;
                 _ -> 
                     Args = [PingId, OK],
-                    nksip_sipapp_srv:sipapp_cast(AppId, Module, 
-                                                 ping_update, Args, Args)
+                    nksip_sipapp_srv:sipapp_cast(AppId, ping_update, Args, Args)
             end,
             State#state{pings=[Ping1|Pings1]};
         false ->
@@ -518,7 +515,8 @@ update_register(Reg, Code, Meta, State) ->
         true -> erlang:demonitor(Monitor);
         false -> ok
     end,
-    MaxTime = nksip_config:get(outbound_max_time),
+    Config = AppId:config(),
+    MaxTime = nksip_lib:get_value(outbound_max_time, Config),
     Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
     Elap = round(crypto:rand_uniform(50, 101) * Upper / 100),
     Add = case Code==503 andalso nksip_lib:get_value(<<"retry-after">>, Meta) of
@@ -552,7 +550,8 @@ update_basetime(#state{app_id=AppId, regs=Regs}=State) ->
         _ -> 
             outbound_time_any_ok
     end,
-    State#state{ob_base_time=nksip_config:get(Key)}.
+    Config = AppId:config(),
+    State#state{ob_base_time=nksip_lib:get_value(Key, Config)}.
 
 
 

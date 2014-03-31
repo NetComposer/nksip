@@ -402,7 +402,8 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
     Dialog#dialog{invite=Invite1};
 
 
-timer_update(_Req, _Resp, _Class, Dialog, Call) ->
+timer_update(Req, _Resp, _Class, Dialog, _Call) ->
+    #sipmsg{app_id=AppId} = Req,
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{
         status = Status,
@@ -411,7 +412,7 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
         timeout_timer = TimeoutTimer, 
         refresh_timer = RefreshTimer
     } = Invite,
-    #call{opts=#call_opts{timer_t1=T1}} = Call,
+    {T1, _, _, _, _} = AppId:config_timers(),
     cancel_timer(RetransTimer),
     {RetransTimer1, NextRetrans1} = case Status of
         accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
@@ -486,15 +487,15 @@ update_meta(Key, Value, DialogId, Call) ->
             nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
-    #call{opts=#call_opts{app_opts=Opts, global_id=GlobalId, timer_t2=T2}} = Call,
+timer(invite_retrans, #dialog{id=DialogId, app_id=AppId, invite=Invite}=Dialog, Call) ->
     case Invite of
         #invite{status=Status, response=Resp, next_retrans=Next} ->
             case Status of
                 accepted_uas ->
-                    case nksip_transport_uas:resend_response(Resp, GlobalId, Opts) of
+                    case nksip_transport_uas:resend_response(Resp, []) of
                         {ok, _} ->
                             ?call_info("Dialog ~s resent response", [DialogId], Call),
+                            {_, T2, _, _, _} = AppId:config_timers(),
                             Invite1 = Invite#invite{
                                 retrans_timer = start_timer(Next, invite_retrans, DialogId),
                                 next_retrans = min(2*Next, T2)
@@ -614,11 +615,11 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
 
 cast(Fun, Arg, Dialog, Call) ->
     #dialog{id=DialogId} = Dialog,
-    #call{app_id=AppId, opts=#call_opts{app_module=Module}} = Call,
+    #call{app_id=AppId} = Call,
     Args1 = [Dialog, Arg],
     Args2 = [DialogId, Arg],
     ?call_debug("called dialog ~s ~p: ~p", [DialogId, Fun, Arg], Call),
-    nksip_sipapp_srv:sipapp_cast(AppId, Module, Fun, Args1, Args2),
+    nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args1, Args2),
     ok.
 
 

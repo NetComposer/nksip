@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send_any/4, send_dialog/4]).
--export([make/5, proxy_make/3, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
+-export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
 
@@ -71,11 +71,10 @@ send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
 
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
--spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), 
-           nksip_lib:optslist(), nksip_lib:optslist()) ->    
+-spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:optslist()) ->    
     {ok, nksip:request(), nksip_lib:optslist()} | {error, term()}.
     
-make(AppId, Method, Uri, Opts, Config) ->
+make(AppId, Method, Uri, Opts) ->
     try
         case nksip_parse:uris(Uri) of
             [RUri] -> ok;
@@ -102,13 +101,13 @@ make(AppId, Method, Uri, Opts, Config) ->
             transport = #transport{},
             start = nksip_lib:l_timestamp()
         },
-        ConfigOpts = get_config_opts(Config, false),
-        {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, [], Config),
+        ConfigOpts = AppId:config_uac(),
+        {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, []),
         Req3 = case RUri of
             #uri{headers=[]} -> Req2;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req2, post)
         end,
-        {Req4, ReqOpts2} = parse_opts(Opts, Req3, ReqOpts1, Config),
+        {Req4, ReqOpts2} = parse_opts(Opts, Req3, ReqOpts1),
         ReqOpts3 = case 
             (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
              Method=='NOTIFY' orelse Method=='REFER' orelse Method=='UPDATE')
@@ -125,18 +124,18 @@ make(AppId, Method, Uri, Opts, Config) ->
 
 
 %% @private 
--spec proxy_make(nksip:request(), nksip_lib:optslist(), nksip_lib:optslist()) ->    
+-spec proxy_make(nksip:request(), nksip_lib:optslist()) ->    
     {ok, nksip:request(), nksip_lib:optslist()} | {error, term()}.
     
-proxy_make(Req, Opts, Config) ->
+proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
     try
-        Req1 = case Req#sipmsg.ruri of
+        Req1 = case RUri of
             #uri{headers=[]} -> Req;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req, post)
         end,
-        ConfigOpts = get_config_opts(Config, true),
-        {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, [], Config),
-        {Req3, ReqOpts2} = parse_opts(Opts, Req2, ReqOpts1, Config),
+        ConfigOpts = AppId:config_uac_proxy(),
+        {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, []),
+        {Req3, ReqOpts2} = parse_opts(Opts, Req2, ReqOpts1),
         ReqOpts3 = case nksip_outbound:proxy_opts(Req3, ReqOpts2) of
             {ok, ProxyOpts} -> ProxyOpts;
             {error, OutError} -> throw({reply, OutError})
@@ -146,22 +145,6 @@ proxy_make(Req, Opts, Config) ->
     catch
         throw:Throw -> {error, Throw}
     end.
-
-
-%% @private
-get_config_opts(Config, Proxy) ->
-    [
-        O || O <- Config, 
-        case O of
-            no_100 -> true;
-            {local_host, _} -> true;
-            {local_host6, _} -> true;
-            {pass, _} -> true;
-            {from, _} when not Proxy -> true;
-            {route, _} when not Proxy -> true;
-            _ -> false
-        end
-    ].
 
 
 %% @private
@@ -276,19 +259,16 @@ is_stateless(Resp, GlobalId) ->
     end.
 
 
-
-
 %% @private
--spec parse_opts(nksip_lib:optslist(), nksip:request(), 
-            nksip_lib:optslist(), nksip_lib:optslist()) ->
+-spec parse_opts(nksip_lib:optslist(), nksip:request(), nksip_lib:optslist()) ->
     {nksip:request(), nksip_lib:optslist()}.
 
 
-parse_opts([], Req, Opts, _Config) ->
+parse_opts([], Req, Opts) ->
     {Req, Opts};
 
-parse_opts([Term|Rest], Req, Opts, Config) ->
-    #sipmsg{class={req, Method}} = Req,
+parse_opts([Term|Rest], Req, Opts) ->
+    #sipmsg{app_id=AppId, class={req, Method}} = Req,
     Op = case Term of
         
         ignore ->
@@ -383,12 +363,11 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            Supported = nksip_lib:get_value(supported, Config, ?SUPPORTED),
-            {replace, <<"supported">>, Supported};
+            {replace, <<"supported">>, AppId:config_supported()};
         allow ->        
-            Allow = case nksip_lib:get_value(allow, Config) of
+            Allow = case AppId:config_allow() of
                 undefined ->
-                    case lists:member(registrar, Config) of
+                    case AppId:config_registrar() of
                         true -> <<(?ALLOW)/binary, ",REGISTER">>;
                         false -> ?ALLOW
                     end;
@@ -397,7 +376,7 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
             end,
             {replace, <<"allow">>, Allow};
         accept ->
-            Accept = case nksip_lib:get_value(accept, Config) of
+            Accept = case AppId:config_accept() of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 undefined ->
@@ -410,8 +389,8 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
             Date = nksip_lib:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            case nksip_lib:get_value(events, Config) of
-                undefined -> ignore;
+            case AppId:config_events() of
+                [] -> ignore;
                 Events -> {replace, <<"allow-event">>, Events}
             end;
 
@@ -421,7 +400,7 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         {session_expires, SE} when is_integer(SE) ->
             {retry, {session_expires, {SE, undefined}}};
         {session_expires, {SE, Refresh}} when is_integer(SE) ->
-            case nksip_config:get_cached(min_session_expires, Config) of
+            case AppId:config_min_session_expires() of
                 MinSE when SE<MinSE -> 
                     throw({invalid, session_expires});
                 _ when Refresh==undefined -> 
@@ -467,23 +446,23 @@ parse_opts([Term|Rest], Req, Opts, Config) ->
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
             PReq = nksip_parse_header:parse(PName, AddValue, Req, post),
-            parse_opts(Rest, PReq, Opts, Config);
+            parse_opts(Rest, PReq, Opts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
             PReq = nksip_parse_header:parse(PName, RepValue, Req, replace),
-            parse_opts(Rest, PReq, Opts, Config);
+            parse_opts(Rest, PReq, Opts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
             PReq = nksip_parse_header:parse(PName, InsValue, Req, pre),
-            parse_opts(Rest, PReq, Opts, Config);
+            parse_opts(Rest, PReq, Opts);
         {update, UpdReq, UpdOpts} -> 
-            parse_opts(Rest, UpdReq, UpdOpts, Config);
+            parse_opts(Rest, UpdReq, UpdOpts);
         {retry, RetTerm} ->
-            parse_opts([RetTerm|Rest], Req, Opts, Config);
+            parse_opts([RetTerm|Rest], Req, Opts);
         move_to_last ->
-            parse_opts(Rest++[Term], Req, Opts, Config);
+            parse_opts(Rest++[Term], Req, Opts);
         ignore ->
-            parse_opts(Rest, Req, Opts, Config)
+            parse_opts(Rest, Req, Opts)
     end.
 
 

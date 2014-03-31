@@ -46,13 +46,12 @@ launch(UAS, Call) ->
 -spec send_100(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-send_100(UAS, #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}}=Call) ->
+send_100(UAS, #call{app_id=AppId}=Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
-    case Method=='INVITE' andalso (not lists:member(no_100, AppOpts)) of 
+    case Method=='INVITE' andalso (not AppId:config_no_100()) of 
         true ->
-            {Resp, SendOpts} = nksip_reply:reply(Req, 100, AppOpts),
-            TranspOpts = SendOpts++AppOpts,
-            case nksip_transport_uas:send_response(Resp, GlobalId, TranspOpts) of
+            {Resp, SendOpts} = nksip_reply:reply(Req, 100),
+            case nksip_transport_uas:send_response(Resp, SendOpts) of
                 {ok, _} -> 
                     check_cancel(UAS, Call);
                 error ->
@@ -123,11 +122,10 @@ is_cancel(_, _) ->
 -spec authorize_launch(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-authorize_launch(UAS, Call) ->
-    #call{opts=#call_opts{app_module=Module}} = Call,
+authorize_launch(UAS, #call{app_id=AppId}=Call) ->
     case 
-        erlang:function_exported(Module, authorize, 3) orelse
-        erlang:function_exported(Module, authorize, 4)
+        erlang:function_exported(AppId, authorize, 3) orelse
+        erlang:function_exported(AppId, authorize, 4)
     of
         true ->
             Auth = authorize_data(UAS, Call),
@@ -145,7 +143,7 @@ authorize_launch(UAS, Call) ->
     list().
 
 authorize_data(#trans{id=Id,request=Req}, Call) ->
-    #call{app_id=AppId, opts=#call_opts{app_module=Module, app_opts=Opts}} = Call,
+    #call{app_id=AppId} = Call,
     IsDialog = case nksip_call_lib:check_auth(Req, Call) of
         true -> dialog;
         false -> []
@@ -158,15 +156,14 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
         Args1 = [Req, User, Realm],
         Args2 = [nksip_sipmsg:get_id(Req), User, Realm],
         case 
-            nksip_sipapp_srv:sipapp_call_wait(AppId, Module, 
-                                              get_user_pass, Args1, Args2, 30000) 
+            nksip_sipapp_srv:sipapp_call_wait(AppId, get_user_pass, Args1, Args2, 30000) 
         of
             {reply, Reply} -> 
                 ok;
             error -> 
                 Reply = false;
             not_exported ->
-                {reply, Reply, _} = nksip_sipapp:get_user_pass(User, Realm, Opts)
+                {reply, Reply, _} = nksip_sipapp:get_user_pass(User, Realm, none)
         end,
         ?call_debug("UAS ~p calling get_user_pass(~p, ~p): ~p", 
                     [Id, User, Realm, Reply], Call),
@@ -367,15 +364,14 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                        Fun==prack; Fun==update; Fun==message;
                        Fun==subscribe; Fun==resubscribe;
                        Fun==notify; Fun==refer; Fun==publish ->
-                    #call{opts=#call_opts{app_opts=AppOpts}} = Call,
-                    {Resp, SendOpts} = nksip_reply:reply(Req, Reply, AppOpts),
+                    {Resp, SendOpts} = nksip_reply:reply(Req, Reply),
                     #sipmsg{class={resp, Code, _Reason}} = Resp,
                     {Resp1, SendOpts1} = case Code >= 200 of
                         true -> 
                             {Resp, SendOpts};
                         false -> 
                             Reply1 = {internal_error, <<"Invalid SipApp reply">>},
-                            nksip_reply:reply(Req, Reply1, AppOpts)
+                            nksip_reply:reply(Req, Reply1)
                     end,
                     reply({Resp1, SendOpts1}, UAS1, Call1)
             end;

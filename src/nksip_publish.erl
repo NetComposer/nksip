@@ -125,23 +125,16 @@ reply(Tag, Expires) ->
     term() | error.
 
 callback(AppId, Op) -> 
-    case nksip_sipapp_srv:get_module(AppId) of
-        {ok, Module, _Pid} ->
-            case 
-                nksip_sipapp_srv:sipapp_call_wait(AppId, Module, 
-                                                  publish_store, [Op], [Op], 
-                                                  ?TIMEOUT)
-            of
-                not_exported -> 
-                    {reply, Reply, none} = 
-                        nksip_sipapp:publish_store(AppId, Op, none),
-                    Reply;
-                {reply, Reply} -> 
-                    Reply;
-                _ -> 
-                    error
-            end;
-        {error, not_found} ->
+    case 
+        nksip_sipapp_srv:sipapp_call_wait(AppId, publish_store, [Op], [Op], ?TIMEOUT)
+    of
+        not_exported -> 
+            {reply, Reply, none} = 
+                nksip_sipapp:publish_store(AppId, Op, none),
+            Reply;
+        {reply, Reply} -> 
+            Reply;
+        _ -> 
             error
     end.
 

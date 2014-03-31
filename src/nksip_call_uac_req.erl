@@ -145,8 +145,7 @@ resend(Req, UAC, Call) ->
 
 send(#trans{method='ACK'}=UAC, Call) ->
     #trans{id=Id, request=Req, opts=Opts} = UAC,
-    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
-    case nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts) of
+    case nksip_transport_uac:send_request(Req, Opts) of
         {ok, SentReq} ->
             sent_request(SentReq, UAC, Call);
         {error, Error} ->
@@ -159,7 +158,6 @@ send(#trans{method='ACK'}=UAC, Call) ->
 send(UAC, Call) ->
     #trans{method=Method, id=Id, request=Req, opts=Opts} = UAC,
     #sipmsg{to={_, ToTag}} = Req,
-    #call{opts=#call_opts{app_opts=AppOpts, global_id=GlobalId}} = Call,
     NoDialog = lists:member(no_dialog, Opts),
     % For proxies sending SUBSCRIBE or NOTIFY, NoDialog will be true
     TestDialog = case NoDialog of
@@ -183,8 +181,8 @@ send(UAC, Call) ->
     case TestDialog of
         ok ->
             Send = case Method of 
-                'CANCEL' -> nksip_transport_uac:resend_request(Req, Opts++AppOpts);
-                _ -> nksip_transport_uac:send_request(Req, GlobalId, Opts++AppOpts)
+                'CANCEL' -> nksip_transport_uac:resend_request(Req, Opts);
+                _ -> nksip_transport_uac:send_request(Req, Opts)
             end,
             case Send of
                 {ok, SentReq} -> 
