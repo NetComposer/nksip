@@ -28,17 +28,17 @@
 -compile([export_all]).
 
 
-basic_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun running/0}, 
-            {timeout, 60, fun transport/0}, 
-            {timeout, 60, fun cast_info/0}, 
-            {timeout, 60, fun stun/0}
-        ]
-    }.
+% basic_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun running/0}, 
+%             {timeout, 60, fun transport/0}, 
+%             {timeout, 60, fun cast_info/0}, 
+%             {timeout, 60, fun stun/0}
+%         ]
+%     }.
 
 
 start() ->
@@ -46,7 +46,7 @@ start() ->
     nksip_config:put(nksip_store_timer, 200),
     nksip_config:put(nksip_sipapp_timer, 10000),
 
-    ok = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         registrar,
         {supported, []},
@@ -56,7 +56,7 @@ start() ->
         ]}
     ]),
 
-    ok = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {supported, []},
         {transports, [
@@ -65,11 +65,11 @@ start() ->
         ]}
     ]),
 
-    ok = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {supported, []},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
-    tests_util:log(),
+    tests_util:log(debug),
     ?debugFmt("Starting ~p", [?MODULE]).
 
 
@@ -85,7 +85,7 @@ running() ->
     {error, already_started} = nksip:start(server1, ?MODULE, server1, []),
     {error, already_started} = nksip:start(client1, ?MODULE, client1, []),
     {error, already_started} = nksip:start(client2, ?MODULE, client2, []),
-    [client1, client2, server1] = lists:sort(nksip:get_all()),
+    [{client1, _}, {client2, _}, {server1, _}] = lists:sort(nksip:get_all()),
 
     {error, error1} = nksip:start(error1, ?MODULE, error1, [{transports, [{udp, all, 5090}]}]),
     timer:sleep(100),
@@ -217,9 +217,9 @@ stun() ->
 init(error1) ->
     {stop, error1};
 
-init(Id) ->
-    ok = nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
-    {ok, Id}.
+init(AppName) ->
+    ok = nksip:put(AppName, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    {ok, AppName}.
 
 % Route for "basic" test suite. Allways add Record-Route and x-nk-server headers
 % If no user, use Nksip-Op to select an operation

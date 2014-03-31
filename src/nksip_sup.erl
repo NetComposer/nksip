@@ -24,15 +24,15 @@
 
 -behaviour(supervisor).
 
--export([start_core/4, stop_core/1]).
+-export([start_core/3, stop_core/1]).
 -export([init/1, start_link/0, start_cores_sup/0]).
 
 -include("nksip.hrl").
 
 %% @private Starts a new SipApp's core
-start_core(AppId, Module, Args, Opts) ->
+start_core(AppName, AppId, Args) ->
     Spec = {AppId,
-                {nksip_sipapp_sup, start_link, [AppId, Module, Args, Opts]},
+                {nksip_sipapp_sup, start_link, [AppName, AppId, Args]},
                 permanent,
                 infinity,
                 supervisor,

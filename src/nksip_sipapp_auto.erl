@@ -162,7 +162,7 @@ get_pings(AppId) ->
 
 %% @private 
 init(AppId, _Args) ->
-    Config = AppId:config(),
+    Config = nksip_sipapp_srv:config(AppId),
     RegTime = nksip_lib:get_integer(register_expires, Config, 300),
     case nksip_lib:get_value(register, Config) of
         undefined ->
@@ -515,7 +515,7 @@ update_register(Reg, Code, Meta, State) ->
         true -> erlang:demonitor(Monitor);
         false -> ok
     end,
-    Config = AppId:config(),
+    Config = nksip_sipapp_srv:config(AppId),
     MaxTime = nksip_lib:get_value(outbound_max_time, Config),
     Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
     Elap = round(crypto:rand_uniform(50, 101) * Upper / 100),
@@ -550,7 +550,7 @@ update_basetime(#state{app_id=AppId, regs=Regs}=State) ->
         _ -> 
             outbound_time_any_ok
     end,
-    Config = AppId:config(),
+    Config = nksip_sipapp_srv:config(AppId),
     State#state{ob_base_time=nksip_lib:get_value(Key, Config)}.
 
 

@@ -42,7 +42,7 @@
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
     #call{app_id=AppId} = Call,
-    Config = AppId:config(),
+    Config = nksip_sipapp_srv:config(AppId),
     Default = nksip_lib:get_value(session_expires, Config),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
@@ -222,7 +222,7 @@ uas_update_timer(
                 {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
                 _ -> {0, undefined}
             end,
-            Config = AppId:config(),
+            Config = nksip_sipapp_srv:config(AppId),
             Default = nksip_lib:get_value(session_expires, Config),
             SE = case ReqSE of
                 0 -> max(ReqMinSE, Default);
@@ -264,7 +264,7 @@ proxy_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
         {ok, ReqSE0, _} -> ReqSE0;
         _ -> 0
     end,
-            Config = AppId:config(),
+            Config = nksip_sipapp_srv:config(AppId),
             Default = nksip_lib:get_value(session_expires, Config),
     SE = case ReqSE of
         0 -> max(ReqMinSE, Default);

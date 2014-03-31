@@ -336,11 +336,16 @@ start(AppName, Module, Args, Opts) ->
 -spec stop(app_id()) -> 
     ok | error.
 
-stop(AppId) ->
-    case nksip_sup:stop_core(AppId) of
-        ok ->
-            nksip_registrar:clear(AppId),
-            ok;
+stop(App) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            case nksip_sup:stop_core(AppId) of
+                ok ->
+                    nksip_registrar:clear(AppId),
+                    ok;
+                error ->
+                    error
+            end;
         error ->
             error
     end.
@@ -351,7 +356,7 @@ stop(AppId) ->
     ok.
 
 stop_all() ->
-    lists:foreach(fun(AppId) -> stop(AppId) end, get_all()).
+    lists:foreach(fun({_, AppId}) -> stop(AppId) end, get_all()).
 
 
 %% @doc Updates the callback module or options of a running SipApp
@@ -359,13 +364,15 @@ stop_all() ->
 -spec update(nksip:app_id(), atom(), nksip_lib:proplist()) ->
     {ok, app_id()} | {error, term()}.
 
-update(AppId, Module, Opts) ->
-    Opts1 = nksip_lib:delete(Opts, transport),
-    case catch nksip_sipapp_srv:name(AppId) of
-        {'EXIT', _} -> 
-            {error, unknown_sipapp};
-        AppName ->
-            nksip_sipapp_config:parse_config(AppName, Module, Opts1)
+update(App, Module, Opts) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            Opts1 = nksip_lib:delete(Opts, transport),
+            AppName = nksip_sipapp_srv:name(AppId),
+            nksip_sipapp_config:parse_config(AppName, Module, Opts1),
+            {ok, AppId};
+        error ->
+            {error, sipapp_not_found}
     end.
 
     
@@ -375,7 +382,8 @@ update(AppId, Module, Opts) ->
     [AppId::app_id()].
 
 get_all() ->
-    [AppId || {AppId, _Pid} <- nksip_proc:values(nksip_sipapps)].
+    [{AppId:config_name(), AppId} 
+      || {AppId, _Pid} <- nksip_proc:values(nksip_sipapps)].
 
 
 %% @doc Sends a response from a synchronous callback function.
@@ -391,8 +399,11 @@ reply(From, Reply) ->
 -spec get(nksip:app_id(), term()) ->
     {ok, term()} | not_found | error.
 
-get(AppId, Key) ->
-    nksip_sipapp_srv:get(AppId, Key, async).
+get(App, Key) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> nksip_sipapp_srv:get(AppId, Key, async);
+        error -> error
+    end.
 
 
 %% @doc Gets a value from SipApp's store, using a default if not found
@@ -411,16 +422,22 @@ get(AppId, Key, Default) ->
 -spec put(nksip:app_id(), term(), term()) ->
     ok | error.
 
-put(AppId, Key, Value) ->
-    nksip_sipapp_srv:put(AppId, Key, Value, async).
+put(App, Key, Value) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> nksip_sipapp_srv:put(AppId, Key, Value, async);
+        error -> error
+    end.
 
 
 %% @doc Deletes a value from SipApp's store
 -spec del(nksip:app_id(), term()) ->
     ok | error.
 
-del(AppId, Key) ->
-    nksip_sipapp_srv:del(AppId, Key, async).
+del(App, Key) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> nksip_sipapp_srv:del(AppId, Key, async);
+        error -> error
+    end.
 
 
 %% @doc Sends a synchronous message to the SipApp's process, 
@@ -429,8 +446,8 @@ del(AppId, Key) ->
 -spec call(app_id(), term()) ->
     any().
 
-call(AppId, Msg) ->
-    call(AppId, Msg, 5000).
+call(App, Msg) ->
+    call(App, Msg, 5000).
 
 
 %% @doc Sends a synchronous message to the SipApp's process with a timeout, 
@@ -439,8 +456,8 @@ call(AppId, Msg) ->
 -spec call(app_id(), term(), infinity|pos_integer()) ->
     any().
 
-call(AppId, Msg, Timeout) ->
-    case get_pid(AppId) of
+call(App, Msg, Timeout) ->
+    case get_pid(App) of
         not_found -> error(core_not_found);
         Pid -> gen_server:call(Pid, Msg, Timeout)
     end.
@@ -452,8 +469,8 @@ call(AppId, Msg, Timeout) ->
 -spec cast(app_id(), term()) ->
     ok.
 
-cast(AppId, Msg) ->
-    case get_pid(AppId) of
+cast(App, Msg) ->
+    case get_pid(App) of
         not_found -> error(core_not_found);
         Pid -> gen_server:cast(Pid, Msg)
     end.
@@ -463,18 +480,26 @@ cast(AppId, Msg) ->
 -spec get_pid(app_id()) -> 
     pid() | not_found.
 
-get_pid(AppId) ->
-    nksip_sipapp_srv:get_pid(AppId).
+get_pid(App) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> nksip_sipapp_srv:get_pid(AppId);
+        _ -> not_found
+    end.
 
 
 %% @doc Gets SipApp's first listening port on this transport protocol.
 -spec get_port(app_id(), protocol(), ipv4|ipv6) -> 
     inet:port_number() | not_found.
 
-get_port(AppId, Proto, Class) ->
-    case nksip_transport:get_listening(AppId, Proto, Class) of
-        [{#transport{listen_port=Port}, _Pid}|_] -> Port;
-        _ -> not_found
+get_port(App, Proto, Class) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> 
+            case nksip_transport:get_listening(AppId, Proto, Class) of
+                [{#transport{listen_port=Port}, _Pid}|_] -> Port;
+                _ -> not_found
+            end;
+        error ->
+            not_found
     end.
 
 

@@ -41,7 +41,7 @@ parse_config(AppName, Module, Opts) ->
         Opts2 = [{name, AppName}|Opts1],
         Syntax1 = cache_syntax(Opts2, []),
         Syntax2 = callback_syntax(Module, Syntax1),
-        AppId = nksip_siapp_srv:get_appid(AppName),
+        AppId = nksip_sipapp_srv:get_appid(AppName),
         ok = nksip_code_util:compile(AppId, Syntax2),
         {ok, AppId} 
     catch
@@ -208,21 +208,24 @@ cache_syntax(Opts, Syntax) ->
         {config_local_host, nksip_lib:get_value(local_host, Opts, auto)},
         {config_local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
         {config_min_session_expires, nksip_lib:get_value(min_session_expires, Opts)},
-        {config_uac, [
-            {no_100, lists:member(no_100, Opts)},
-            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
-            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
-            {pass, nksip_lib:get_value(pass, Opts, [])},
-            {from, nksip_lib:get_value(from, Opts)},
-            {route, nksip_lib:get_value(route, Opts, [])}]},
-        {config_uac_proxy, [
-            {no_100, lists:member(no_100, Opts)},
-            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
-            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
-            {pass, nksip_lib:get_value(pass, Opts, [])}]},
-        {config_uas, [
-            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
-            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)}]}
+        {config_uac, lists:flatten([
+            tuple(local_host, Opts),
+            tuple(local_host6, Opts),
+            single(no_100, Opts),
+            tuple(pass, Opts),
+            tuple(from, Opts),
+            tuple(route, Opts)
+        ])},
+        {config_uac_proxy, lists:flatten([
+            single(no_100, Opts),
+            tuple(local_host, Opts),
+            tuple(local_host6, Opts),
+            tuple(pass, Opts)
+        ])},
+        {config_uas, lists:flatten([
+            tuple(local_host, Opts),
+            tuple(local_host6, Opts)
+        ])}
     ],
     lists:foldl(
         fun({Key, Value}, Acc) -> nksip_code_util:getter(Key, Value, Acc) end,
@@ -246,6 +249,22 @@ callback_syntax(Callback, Syntax) ->
         _ ->
             throw(invalid_callback)
     end.
+
+
+single(Name, Opts) ->
+    case lists:member(Name, Opts) of
+        true -> Name;
+        false -> []
+    end.
+
+tuple(Name, Opts) ->
+    case nksip_lib:get_value(Name, Opts) of
+        undefined -> [];
+        Value -> {Name, Value}
+    end.
+
+
+
 
 
 

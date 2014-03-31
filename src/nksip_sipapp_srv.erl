@@ -29,9 +29,9 @@
 -behaviour(gen_server).
 
 -export([get/3, put/4, del/3]).
--export([get_appid/1, get_name/1, get_uuid/1, get_pid/1, reply/2]).
+-export([get_appid/1, get_name/1, config/1, get_uuid/1, get_pid/1, reply/2]).
 -export([get_gruu_pub/1, get_gruu_temp/1]).
--export([sipapp_call/5, sipapp_call_wait/5, sipapp_cast/4]).
+-export([sipapp_call/5, sipapp_call_wait/5, sipapp_cast/4, find_app/1]).
 -export([register/2, get_registered/2, put_opts/2, pending_msgs/0]).
 -export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -108,7 +108,12 @@ del(AppId, Key, sync) ->
     nksip:app_id().
 
 get_appid(AppName) ->
-    binary_to_atom(nksip_lib:hash36(AppName), latin1).
+    list_to_atom(
+        string:to_lower(
+            case binary_to_list(nksip_lib:hash36(AppName)) of
+                [F|Rest] when F>=$0, F=<$9 -> [$Z, F|Rest];
+                Other -> Other
+            end)).
 
 
 %% @doc Finds the name corresponding to any AppId
@@ -117,6 +122,14 @@ get_appid(AppName) ->
 
 get_name(AppId) ->
     AppId:config_name().
+
+
+%% @doc Gets the sipapp's configuration
+-spec config(nksip:app_id()) ->
+    nksip_lib:proplist().
+
+config(AppId) ->
+    AppId:config().
 
 
 %% @doc Gets the SipApp's process `pid()'.
@@ -289,6 +302,28 @@ sipapp_cast(AppId, Fun, Args1, Args2) ->
 
 
 %% @private
+-spec find_app(term()) ->
+    {ok, nksip:app_id()} | {error, sipapp_not_found}.
+
+find_app(App) when is_atom(App) ->
+    case erlang:function_exported(App, init, 1) of
+        true ->
+            {ok, App};
+        false ->
+            case nksip_proc:values({nksip_sipapp_name, App}) of
+                [] -> {error, sipapp_not_found};
+                [{AppId, _}] -> {ok, AppId}
+            end
+    end;
+
+find_app(App) ->
+    case nksip_proc:values({nksip_sipapp_name, App}) of
+        [] -> {error, sipapp_not_found};
+        [{AppId, _}] -> {ok, AppId}
+    end.
+
+
+%% @private
 -spec reply(nksip_from(), term()) -> 
     term().
 
@@ -341,6 +376,7 @@ init([AppName, AppId, Args]) ->
     process_flag(trap_exit, true),
     nksip_proc:put(nksip_sipapps, AppId),   
     nksip_proc:put({nksip_sipapp, AppId}, AppName), 
+    nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
     RegState = nksip_sipapp_auto:init(AppId, Args),
     ets:new(AppId, [named_table, public]),
     case read_uuid(AppId) of

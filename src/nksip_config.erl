@@ -260,8 +260,6 @@ init([]) ->
                 {main_ip6, nksip_lib:find_main_ip(auto, ipv6)}
                 | Config1
             ],
-            compile_module(Config2),
-            % Store config values in config table to speed access
             lists:foreach(
                 fun({Key, Value}) -> nksip_config:put(Key, Value) end,
                 Config2),
@@ -397,24 +395,5 @@ parse_config_opts([Term|Rest], Opts) ->
         throw:invalid ->
             {error, {invalid, Term}}
     end.
-
-
-%% @private
-compile_module(Configs) ->
-    compile_module(Configs, []).
-
-
-%% @private
-compile_module([], Acc) ->
-    ok = nksip_code:compile(nksip_config_cache, Acc);
-
-compile_module([{Key, Value}|Rest], Acc) ->
-    Acc1 = nksip_code:getter(Key, Value, Acc),
-    compile_module(Rest, Acc1).
-
-
-
-
-
 
 

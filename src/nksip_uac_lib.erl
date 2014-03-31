@@ -32,7 +32,7 @@
 %% ===================================================================
 
 
--spec send_any(nksip:app_id(), nksip:method(), 
+-spec send_any(nksip:app_id()|term(), nksip:method(), 
                nksip:user_uri() | nksip_dialog:spec() | nksip_subscription:id(),
                nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
@@ -42,30 +42,41 @@
 % D: dialogs
 % U: subscriptions
 
-send_any(AppId, Method, UriOrDialog, Opts) ->
-    case UriOrDialog of
-        <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
-            send_dialog(AppId, Method, UriOrDialog, Opts);
-        UserUri ->
-            nksip_call:send(AppId, Method, UserUri, Opts)
+send_any(App, Method, UriOrDialog, Opts) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> 
+            case UriOrDialog of
+                <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
+                    send_dialog(AppId, Method, UriOrDialog, Opts);
+                UserUri ->
+                    nksip_call:send(AppId, Method, UserUri, Opts)
+            end;
+        error ->
+            {error, sipapp_not_found}
     end.
 
 
 %% @private
--spec send_dialog(nksip:app_id(), nksip:method(), 
+-spec send_dialog(nksip:app_id()|term(), nksip:method(), 
                   nksip_dialog:spec() | nksip_subscription:id(),
                   nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
-send_dialog(AppId, Method, <<Class, $_, _/binary>>=Id, Opts)
+send_dialog(App, Method, <<Class, $_, _/binary>>=Id, Opts)
             when Class==$R; Class==$S; Class==$D; Class==$U ->
-    case nksip_dialog:id(AppId, Id) of
-        <<>> -> 
-            {error, unknown_dialog};
-        DialogId when Class==$U ->
-            nksip_call:send_dialog(AppId, DialogId, Method, [{subscription_id, Id}|Opts]);
-        DialogId ->
-            nksip_call:send_dialog(AppId, DialogId, Method, Opts)
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            case nksip_dialog:id(AppId, Id) of
+                <<>> -> 
+                    {error, unknown_dialog};
+                DialogId when Class==$U ->
+                    nksip_call:send_dialog(AppId, DialogId, Method, 
+                                           [{subscription_id, Id}|Opts]);
+                DialogId ->
+                    nksip_call:send_dialog(AppId, DialogId, Method, Opts)
+            end;
+        error ->
+            {error, sipapp_not_found}
     end.
 
 

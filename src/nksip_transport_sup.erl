@@ -26,7 +26,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(supervisor).
 
--export([get_pid/1, add_transport/2, start_link/2, init/1]).
+-export([get_pid/1, add_transport/2, start_link/1, init/1]).
 
 -include("nksip.hrl").
 
@@ -52,15 +52,16 @@ add_transport(AppId, Spec) ->
 
 
 %% @private
--spec start_link(nksip:app_id(), nksip_lib:optslist()) -> 
+-spec start_link(nksip:app_id()) -> 
     {ok, pid()} | {error, term()}.
 
-start_link(AppId, Opts) ->
+start_link(AppId) ->
     Reg = {nksip_transport_sup, AppId},
     Spec = {{one_for_one, 10, 60}, []},
     {ok, SupPid} = supervisor:start_link(?MODULE, [Reg, Spec]),
-    Transports = nksip_lib:get_value(transports, Opts, [{udp, {0,0,0,0}, 0, []}]), 
-    case start_transports(AppId, Transports, Opts) of
+    Config = nksip_sipapp_srv:config(AppId),
+    Transports = nksip_lib:get_value(transports, Config, [{udp, {0,0,0,0}, 0, []}]), 
+    case start_transports(AppId, Transports, Config) of
         ok -> {ok, SupPid};
         {error, Error} -> {error, Error}
     end.
@@ -84,7 +85,7 @@ start_transports(AppId, [{Proto, Ip, Port, TOpts}|Rest], Opts) ->
         {error, Error} -> {error, {could_not_start, {Proto, Error}}}
     end;
 
-start_transports(_AppId, [], __Opts) ->
+start_transports(_AppId, [], _Opts) ->
     ok.
 
 
