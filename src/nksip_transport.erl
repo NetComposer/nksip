@@ -26,7 +26,7 @@
 -export([get_all/0, get_all/1, get_listening/3, get_connected/2, get_connected/5]).
 -export([is_local/2, is_local_ip/1]).
 -export([start_transport/5, start_connection/6, default_port/1]).
--export([get_listenhost/2, make_route/6]).
+-export([get_listenhost/3, make_route/6]).
 -export([send/4]).
 -export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
 
@@ -211,26 +211,35 @@ start_connection(AppId, Proto, Ip, Port, Res, Opts) ->
                 
 
 %% @private Makes a route from a Scheme and Transport
--spec get_listenhost(nksip:app_id(), inet:ip_address()) ->
+-spec get_listenhost(nksip:app_id(), inet:ip_address(), nksip_lib:proplist()) ->
     binary().
 
-get_listenhost(AppId, Ip) ->
+get_listenhost(AppId, Ip, Opts) ->
     case size(Ip) of
         4 ->
-            case AppId:config_local_host() of
+            Host = case nksip_lib:get_value(local_host, Opts) of
+                undefined -> AppId:config_local_host();
+                Host0 -> Host0
+            end,
+            case Host of
                 auto when Ip == {0,0,0,0} -> 
-                    nksip_lib:to_host(nksip_config_cache:main_ip()); auto ->
+                    nksip_lib:to_host(nksip_config_cache:main_ip()); 
+                auto ->
                     nksip_lib:to_host(Ip);
-                Host -> 
+                _ -> 
                     Host
             end;
         8 ->
-            case AppId:config_local_host6() of
+            Host = case nksip_lib:get_value(local_host6, Opts) of
+                undefined -> AppId:config_local_host6();
+                Host0 -> Host0
+            end,
+            case Host of
                 auto when Ip == {0,0,0,0,0,0,0,0} -> 
                     nksip_lib:to_host(nksip_config_cache:main_ip6(), true);
                 auto -> 
                     nksip_lib:to_host(Ip, true);
-                Host -> 
+                _ -> 
                     Host
             end
     end.

@@ -55,7 +55,7 @@
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start/4, stop/1, stop_all/0, get_all/0, update/3]).
+-export([start/4, stop/1, stop_all/0, get_all/0, update/2]).
 -export([get/2, get/3, put/3, del/2]).
 -export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3]).
 
@@ -321,7 +321,9 @@
 	{ok, app_id()} | {error, term()}.
 
 start(AppName, Module, Args, Opts) ->
-    case nksip_sipapp_config:parse_config(AppName, Module, Opts) of
+    Config = nksip_config_cache:app_config(),
+    Opts1 = Config ++ [{name, AppName}, {module, Module}|Opts],
+    case nksip_sipapp_config:parse_config(Opts1) of
         {ok, AppId} ->
             case nksip_sup:start_core(AppName, AppId, Args) of
                 ok -> {ok, AppId};
@@ -361,18 +363,21 @@ stop_all() ->
 
 %% @doc Updates the callback module or options of a running SipApp
 %% It is not allowed to change transports
--spec update(nksip:app_id(), atom(), nksip_lib:proplist()) ->
+-spec update(nksip:app_id(), nksip_lib:proplist()) ->
     {ok, app_id()} | {error, term()}.
 
-update(App, Module, Opts) ->
+update(App, Opts) ->
     case nksip_sipapp_srv:find_app(App) of
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
-            AppName = nksip_sipapp_srv:name(AppId),
-            Config = AppId:config() ++ Opts1,
-            nksip_sipapp_config:parse_config(AppName, Module, Config),
-            cast(AppId, '$nksip_update_config'),
-            {ok, AppId};
+            Opts2 = AppId:config() ++ Opts1,
+            case nksip_sipapp_config:parse_config(Opts2) of
+                {ok, AppId} ->
+                    cast(AppId, '$nksip_update_config'),
+                    {ok, AppId};
+                {error, Error} ->
+                    {error, Error}
+            end;
         error ->
             {error, sipapp_not_found}
     end.
@@ -403,7 +408,7 @@ reply(From, Reply) ->
 
 get(App, Key) ->
     case nksip_sipapp_srv:find_app(App) of
-        {ok, AppId} -> nksip_sipapp_srv:get(AppId, Key, async);
+        {ok, AppId} -> nksip_sipapp_srv:get(AppId, Key);
         error -> error
     end.
 
@@ -426,7 +431,7 @@ get(AppId, Key, Default) ->
 
 put(App, Key, Value) ->
     case nksip_sipapp_srv:find_app(App) of
-        {ok, AppId} -> nksip_sipapp_srv:put(AppId, Key, Value, async);
+        {ok, AppId} -> nksip_sipapp_srv:put(AppId, Key, Value);
         error -> error
     end.
 
@@ -437,7 +442,7 @@ put(App, Key, Value) ->
 
 del(App, Key) ->
     case nksip_sipapp_srv:find_app(App) of
-        {ok, AppId} -> nksip_sipapp_srv:del(AppId, Key, async);
+        {ok, AppId} -> nksip_sipapp_srv:del(AppId, Key);
         error -> error
     end.
 

@@ -74,18 +74,19 @@ start_listener(AppId, Proto, Ip, Port, Opts) ->
               binary(), nksip_lib:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
          
-connect(AppId, Proto, Ip, Port, Res, Opts) ->
+connect(AppId, Proto, Ip, Port, Res, _Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, Proto, Class) of
         [{Transp, Pid}|_] -> 
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, resource=Res},
+            Config = AppId:config(),
             case Proto of
-                udp -> nksip_transport_udp:connect(Pid, Transp1, Opts);
-                tcp -> nksip_transport_tcp:connect(AppId, Transp1, Opts);
-                tls -> nksip_transport_tcp:connect(AppId, Transp1, Opts);
-                sctp -> nksip_transport_sctp:connect(Pid, Transp1, Opts);
-                ws -> nksip_transport_ws:connect(AppId, Transp1, Opts);
-                wss -> nksip_transport_ws:connect(AppId, Transp1, Opts)
+                udp -> nksip_transport_udp:connect(Pid, Transp1, Config);
+                tcp -> nksip_transport_tcp:connect(AppId, Transp1, Config);
+                tls -> nksip_transport_tcp:connect(AppId, Transp1, Config);
+                sctp -> nksip_transport_sctp:connect(Pid, Transp1, Config);
+                ws -> nksip_transport_ws:connect(AppId, Transp1, Config);
+                wss -> nksip_transport_ws:connect(AppId, Transp1, Config)
             end;
         [] ->
             {error, no_listening_transport}

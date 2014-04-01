@@ -70,7 +70,7 @@
 
 -include("nksip.hrl").
 
--export([get/1, get/2, put/2, del/1, cseq/0, increment/2, get_config/0]).
+-export([get/1, get/2, put/2, del/1, cseq/0, increment/2]).
 -export([get_cached/2, get_cached/3, parse_config/1, parse_config/2]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
@@ -164,14 +164,6 @@ increment(Key, Count) ->
     ets:update_counter(?MODULE, Key, Count).
 
 
-%% @doc
--spec get_config() ->
-    nksip_lib:proplist().
-
-get_config() ->
-    gen_server:call(?MODULE, get_config).
-
-
 %% @private Default config values
 -spec default_config() ->
     nksip_lib:optslist().
@@ -195,11 +187,11 @@ default_config() ->
         {registrar_default_time, 3600},     % (secs) 1 hour
         {registrar_min_time, 60},           % (secs) 1 miluen
         {registrar_max_time, 86400},        % (secs) 24 hour
-        {dns_cache_ttl, 3600},              % (secs) 1 hour
-        {local_data_path, "log"},           % To store UUID
         {outbound_time_all_fail, 30},       % (secs)
         {outbound_time_any_ok, 90},         % (secs)
-        {outbound_max_time, 1800}           % (secs)
+        {outbound_max_time, 1800},          % (secs)
+        {dns_cache_ttl, 3600},              % (secs) 1 hour
+        {local_data_path, "log"}            % To store UUID
     ].
 
 
@@ -228,7 +220,6 @@ parse_config(Name, Value) ->
 %% ===================================================================
 
 -record(state, {
-    config :: nksip_lib:proplist()
 }).
 
 
@@ -244,7 +235,7 @@ start_link() ->
 init([]) ->
     ets:new(?MODULE, [named_table, public, {read_concurrency, true}]),
     ?MODULE:put(current_cseq, nksip_lib:cseq()-?MINUS_CSEQ),
-    Config = lists:map(
+    AppConfig = lists:map(
         fun({Key, Default}) ->
             case application:get_env(nksip, Key) of
                 {ok, Value} -> {Key, Value};
@@ -252,20 +243,21 @@ init([]) ->
             end
         end,
         default_config()),
-    case parse_config(Config) of
-        {ok, Config1} ->
-            Config2 = [
+    case parse_config(AppConfig) of
+        {ok, AppConfig1} ->
+            AppConfig2 = nksip_lib:delete(AppConfig1, [local_data_path, dns_cache_ttl]),
+            GlobalConfig = [
                 {global_id, nksip_lib:luid()},
                 {local_ips, nksip_lib:get_local_ips()},
                 {main_ip, nksip_lib:find_main_ip()},
-                {main_ip6, nksip_lib:find_main_ip(auto, ipv6)}
-                | Config1
+                {main_ip6, nksip_lib:find_main_ip(auto, ipv6)},
+                {app_config, AppConfig2}
             ],
             lists:foreach(
                 fun({Key, Value}) -> nksip_config:put(Key, Value) end,
-                Config2),
-            make_cache(Config2),
-            {ok, #state{config=Config2}};
+                AppConfig1++GlobalConfig),
+            make_cache(GlobalConfig),
+            {ok, #state{}};
         {error, Error} ->
             lager:error("Config error: ~p", [Error]),
             {error, config_error}
@@ -275,9 +267,6 @@ init([]) ->
 %% @private
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
-
-handle_call(get_config, _From, #state{config=Config}=State) ->
-    {reply, {ok, Config}, State};
 
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
@@ -325,8 +314,8 @@ terminate(_Reason, _State) ->
 
 %% @private Save cache for speed log access
 put_log_cache(AppId, CallId) ->
-    erlang:put(nksip_logl_level, AppId:config_log_level()),
-    erlang:put(nksip_call_name, AppId:name()),
+    erlang:put(nksip_log_level, AppId:config_log_level()),
+    erlang:put(nksip_app_name, AppId:name()),
     erlang:put(nksip_call_id, CallId).
 
 
@@ -408,15 +397,9 @@ parse_config_opts([Term|Rest], Opts) ->
 
 %% @private
 make_cache(Config) ->
-    Cache = [
-        {global_id, nksip_lib:get_value(global_id, Config)},
-        {local_ips, nksip_lib:get_value(local_ips, Config)},
-        {main_ip, nksip_lib:get_value(main_ip, Config)},
-        {main_ip6, nksip_lib:get_value(main_ip6, Config)}
-    ],
     Syntax = lists:foldl(
         fun({Key, Value}, Acc) -> nksip_code_util:getter(Key, Value, Acc) end,
         [],
-        Cache),
+        Config),
     ok = nksip_code_util:compile(nksip_config_cache, Syntax).
 

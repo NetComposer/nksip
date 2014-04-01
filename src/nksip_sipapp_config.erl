@@ -23,7 +23,7 @@
 -module(nksip_sipapp_config).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([parse_config/3]).
+-export([parse_config/1]).
 
 -include("nksip.hrl").
 
@@ -34,13 +34,13 @@
 
 
 %% @private
-parse_config(AppName, Module, Opts) ->
+parse_config(Opts) ->
     try
-        {ok, Config} = nksip_config:get_config(),
-        Opts1 = parse_opts(Opts, Config),
-        Opts2 = [{name, AppName}|Opts1],
-        Syntax1 = cache_syntax(Opts2, []),
+        Opts1 = parse_opts(Opts, []),
+        Module = nksip_lib:get_value(module, Opts1, nksip_sipapp),
+        Syntax1 = cache_syntax(Opts1, []),
         Syntax2 = callback_syntax(Module, Syntax1),
+        AppName = nksip_lib:get_value(name, Opts1, nksip),
         AppId = nksip_sipapp_srv:get_appid(AppName),
         ok = nksip_code_util:compile(AppId, Syntax2),
         {ok, AppId} 
@@ -98,6 +98,12 @@ parse_opts([], Opts) ->
 
 parse_opts([Term|Rest], Opts) ->
     Opts1 = case Term of
+
+        % Internal options
+        {name, Name} ->
+            [{name, Name}|Opts];
+        {module, Module} when is_atom(Module) ->
+            [{module, Module}|Opts];
 
         % Startup options
         {transports, Transports} ->
@@ -208,8 +214,18 @@ cache_syntax(Opts, Syntax) ->
         {config_from, nksip_lib:get_value(from, Opts)},
         {config_registrar, lists:member(registrar, Opts)},
         {config_no_100, lists:member(no_100, Opts)},
-        {config_supported, nksip_lib:get_value(supported, Opts, ?SUPPORTED)},
-        {config_allow, nksip_lib:get_value(allow, Opts)},
+        {config_supported, 
+            nksip_lib:get_value(supported, Opts, nksip_lib:bjoin(?SUPPORTED))},
+        {config_allow, 
+            case nksip_lib:get_value(allow, Opts) of
+                undefined ->
+                    case lists:member(registrar, Opts) of
+                        true -> <<(?ALLOW)/binary, ",REGISTER">>;
+                        false -> ?ALLOW
+                    end;
+                Allow ->
+                    Allow
+            end},
         {config_accept, nksip_lib:get_value(accept, Opts)},
         {config_events, nksip_lib:get_value(events, Opts, [])},
         {config_route, nksip_lib:get_value(route, Opts, [])},
@@ -217,22 +233,22 @@ cache_syntax(Opts, Syntax) ->
         {config_local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
         {config_min_session_expires, nksip_lib:get_value(min_session_expires, Opts)},
         {config_uac, lists:flatten([
-            tuple(local_host, Opts),
-            tuple(local_host6, Opts),
+            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
+            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
             single(no_100, Opts),
             tuple(pass, Opts),
             tuple(from, Opts),
             tuple(route, Opts)
         ])},
         {config_uac_proxy, lists:flatten([
+            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
+            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
             single(no_100, Opts),
-            tuple(local_host, Opts),
-            tuple(local_host6, Opts),
             tuple(pass, Opts)
         ])},
         {config_uas, lists:flatten([
-            tuple(local_host, Opts),
-            tuple(local_host6, Opts)
+            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
+            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)}
         ])}
     ],
     lists:foldl(
@@ -266,11 +282,14 @@ single(Name, Opts) ->
     end.
 
 tuple(Name, Opts) ->
+    tuple(Name, Opts, []).
+
+
+tuple(Name, Opts, Default) ->
     case nksip_lib:get_value(Name, Opts) of
-        undefined -> [];
+        undefined -> Default;
         Value -> {Name, Value}
     end.
-
 
 
 

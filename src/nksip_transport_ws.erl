@@ -63,7 +63,7 @@ get_listener(AppId, Transp, Opts) ->
         {value, {_, Dispatch}, Opts1} -> 
             ok
     end,
-    Timeout = 1000*nksip_config:get_cached(ws_timeout, Opts),
+    Timeout = 1000*nksip_lib:get_value(ws_timeout, Opts),
     Dispatch1 = dispatch(Dispatch, [AppId, Transp, [{timeout, Timeout}]]),
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     {
@@ -117,7 +117,7 @@ connect(AppId, Transp, Opts) ->
             remote_port = Port,
             resource = Res1
         },
-        Timeout = 1000*nksip_config:get_cached(ws_timeout, Opts),
+        Timeout = 1000*nksip_lib:get_value(ws_timeout, Opts),
         Spec = {
             {AppId, Proto, Ip, Port, make_ref()},
             {nksip_connection, start_link, 
@@ -174,7 +174,7 @@ init([AppId, Transp, Dispatch, Opts]) ->
                 app_id = AppId, 
                 transport = Transp,
                 webserver = erlang:monitor(process, WebPid),
-                timeout = 1000*nksip_config:get_cached(ws_timeout, Opts)
+                timeout = 1000*nksip_lib:get_value(ws_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->

@@ -216,7 +216,7 @@ registrar(Req, Opts) ->
             case nksip_transport:get_connected(AppId, Transp) of
                 [{_, Pid}|_] ->
                     Flow = encode_flow(Pid),
-                    Host = nksip_transport:get_listenhost(AppId, ListenIp),
+                    Host = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
                     Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>, <<"ob">>]),

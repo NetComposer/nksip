@@ -129,7 +129,7 @@ make_request_fun(Req, Dest, Opts) ->
             listen_ip = ListenIp, 
             listen_port = ListenPort
         } = Transp,
-        ListenHost = nksip_transport:get_listenhost(AppId, ListenIp),
+        ListenHost = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
         ?call_debug("UAC listenhost is ~s", [ListenHost]),
         RouteBranch = case Vias of
             [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);

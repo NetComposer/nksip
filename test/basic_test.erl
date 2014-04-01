@@ -66,7 +66,7 @@ start() ->
     ]),
 
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
-        {supported, []},
+        % {supported, []},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
     tests_util:log(debug),

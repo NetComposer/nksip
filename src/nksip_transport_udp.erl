@@ -141,8 +141,8 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
                 socket = Socket,
                 tcp_pid = undefined,
                 stuns = [],
-                timer_t1 = nksip_config:get_cached(timer_t1, Opts),
-                timeout = 1000*nksip_config:get_cached(udp_timeout, Opts)
+                timer_t1 = nksip_lib:get_value(timer_t1, Opts),
+                timeout = 1000*nksip_lib:get_value(udp_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->

@@ -300,14 +300,7 @@ method('PUBLISH', Req, UAS, Call) ->
     process_call(publish, Fields, UAS, Call);
 
 method(_Method, #sipmsg{app_id=AppId}, UAS, Call) ->
-    Allowed = case AppId:config_allowed() of
-        undefined ->
-            case AppId:config_registrar() of            
-                true -> <<(?ALLOW)/binary, ", REGISTER">>;
-                false -> ?ALLOW
-            end
-    end,
-    reply({method_not_allowed, Allowed}, UAS, Call).
+    reply({method_not_allowed, AppId:config_allow()}, UAS, Call).
 
 
 

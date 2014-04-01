@@ -316,8 +316,12 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
         %% Pass-through options
         _ when Term==contact; Term==no_dialog; Term==secure; Term==rseq ->
             {update, Resp, [Term|Opts]};
+        {local_host, auto} ->
+            {update, Resp, [{local_host, auto}|Opts]};
         {local_host, Host} ->
             {update, Resp, [{local_host, nksip_lib:to_host(Host)}|Opts]};
+        {local_host6, auto} ->
+            {update, Resp, [{local_host6, auto}|Opts]};
         {local_host6, Host} ->
             case nksip_lib:to_ip(Host) of
                 {ok, HostIp6} -> 
@@ -334,16 +338,7 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
             Supported = AppId:config_supported(),
             {replace, <<"supported">>, Supported};
         allow ->        
-            Allow = case AppId:config_allow() of
-                undefined ->
-                    case AppId:config_registrar() of
-                        true -> <<(?ALLOW)/binary, ",REGISTER">>;
-                        false -> ?ALLOW
-                    end;
-                Allow0 ->
-                    Allow0
-            end,
-            {replace, <<"allow">>, Allow};
+            {replace, <<"allow">>, AppId:config_allow()};
         accept ->
             #sipmsg{class={req, Method}} = Req,
             Accept = case AppId:config_accept() of

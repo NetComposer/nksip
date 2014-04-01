@@ -80,7 +80,7 @@ connect(AppId, Transp, Opts) ->
                 remote_ip = Ip,
                 remote_port = Port
             },
-            Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
+            Timeout = 1000*nksip_lib:get_value(tcp_timeout, Opts),
             Spec = {
                 {AppId, Proto, Ip, Port, make_ref()},
                 {nksip_connection, start_link, 
@@ -189,7 +189,7 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
         listen_port = LocalPort
     },
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
-    Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
+    Timeout = 1000*nksip_lib:get_value(tcp_timeout, Opts),
     nksip_connection:start_link(AppId, Transp1, Socket, Timeout).
 
 

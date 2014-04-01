@@ -351,8 +351,12 @@ parse_opts([Term|Rest], Req, Opts) ->
             {update, Req, [{Name, Value}|Opts]};
         {meta, List} when is_list(List) ->
             {update, Req, [{meta,List}|Opts]};
+        {local_host, auto} ->
+            {update, Req, [{local_host, auto}|Opts]};
         {local_host, Host} ->
             {update, Req, [{local_host, nksip_lib:to_host(Host)}|Opts]};
+        {local_host6, auto} ->
+            {update, Req, [{local_host6, auto}|Opts]};
         {local_host6, Host} ->
             case nksip_lib:to_ip(Host) of
                 {ok, HostIp6} -> 
@@ -376,16 +380,7 @@ parse_opts([Term|Rest], Req, Opts) ->
         supported ->
             {replace, <<"supported">>, AppId:config_supported()};
         allow ->        
-            Allow = case AppId:config_allow() of
-                undefined ->
-                    case AppId:config_registrar() of
-                        true -> <<(?ALLOW)/binary, ",REGISTER">>;
-                        false -> ?ALLOW
-                    end;
-                Allow0 ->
-                    Allow0
-            end,
-            {replace, <<"allow">>, Allow};
+            {replace, <<"allow">>,  AppId:config_allow()};
         accept ->
             Accept = case AppId:config_accept() of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->

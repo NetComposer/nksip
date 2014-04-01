@@ -91,7 +91,7 @@ start_link(AppId, Transp, Opts) ->
 
 init([AppId, Transp, Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
-    Autoclose = nksip_config:get_cached(sctp_timeout, Opts),
+    Autoclose = nksip_lib:get_value(sctp_timeout, Opts),
     Opts1 = [
         binary, {reuseaddr, true}, {ip, Ip}, {active, once},
         {sctp_initmsg, 
