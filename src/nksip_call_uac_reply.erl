@@ -102,7 +102,7 @@ reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
 reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Reply = case nksip_reply:parse(Error) of
         error -> 
-            ?call_notice("Invalid proxy internal response: ~p", [Error], Call),
+            ?call_notice("Invalid proxy internal response: ~p", [Error]),
             {internal_error, <<"Invalid Internal Proxy UAC Response">>};
         {ErrCode, ErrOpts} ->
             {ErrCode, ErrOpts}

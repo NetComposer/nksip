@@ -28,6 +28,7 @@
 -export([ranch_start_link/6, start_link/4]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -define(MAX_BUFFER, 64*1024*1024).
 
@@ -92,7 +93,7 @@ connect(AppId, Transp, Opts) ->
             {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
             TranspMod:controlling_process(Socket, Pid),
             InetMod:setopts(Socket, [{active, once}]),
-            ?debug(AppId, "~p connected to ~p", [Proto, {Ip, Port}]),
+            ?call_debug("~p connected to ~p", [Proto, {Ip, Port}]),
             {ok, Pid, Transp1};
         {error, Error} ->
             {error, Error}
@@ -177,7 +178,6 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol,
     {ok, pid()}.
 
 start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
-    #transport{proto=Proto} = Transp,
     {ok, {LocalIp, LocalPort}} = Module:sockname(Socket),
     {ok, {RemoteIp, RemotePort}} = Module:peername(Socket),
     Transp1 = Transp#transport{
@@ -189,7 +189,6 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp, Opts]) ->
         listen_port = LocalPort
     },
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
-    ?debug(AppId, "new connection from ~p:~p (~p)", [RemoteIp, RemotePort, Proto]),
     Timeout = 1000*nksip_config:get_cached(tcp_timeout, Opts),
     nksip_connection:start_link(AppId, Transp1, Socket, Timeout).
 

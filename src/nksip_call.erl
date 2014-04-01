@@ -221,8 +221,8 @@ clear_all() ->
 work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
     nksip_call_uas_req:request(Req, Call);
 
-work({incoming, #sipmsg{app_id=AppId, class={resp, _, _}}=Resp}, none, Call) ->
-    GlobalId = AppId:config_global_id(),
+work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
+    GlobalId = nksip_config_cache:global_id(),
     case nksip_uac_lib:is_stateless(Resp, GlobalId) of
         true -> nksip_call_proxy:response_stateless(Resp, Call);
         false -> nksip_call_uac_resp:response(Resp, Call)
@@ -428,7 +428,7 @@ timeout({uac, Tag, Id}, _Ref, #call{trans=Trans}=Call) ->
         #trans{class=uac}=UAC ->
             nksip_call_uac:timer(Tag, UAC, Call);
         false ->
-            ?call_warning("Call ignoring uac timer (~p, ~p)", [Tag, Id], Call),
+            ?call_warning("Call ignoring uac timer (~p, ~p)", [Tag, Id]),
             Call
     end;
 
@@ -438,7 +438,7 @@ timeout({uas, Tag, Id}, _Ref, #call{trans=Trans}=Call) ->
         #trans{class=uas}=UAS ->
             nksip_call_uas:timer(Tag, UAS, Call);
         false ->
-            ?call_warning("Call ignoring uas timer (~p, ~p)", [Tag, Id], Call),
+            ?call_warning("Call ignoring uas timer (~p, ~p)", [Tag, Id]),
             Call
     end;
 
@@ -447,7 +447,7 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
         #dialog{} = Dialog -> 
             nksip_call_dialog:timer(Tag, Dialog, Call);
         false ->
-            ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id], Call),
+            ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id]),
             Call
     end;
 
@@ -507,14 +507,14 @@ make_dialog(DialogId, Method, Opts, Call) ->
 -spec check_call_trans(nksip_lib:timestamp(), integer(), call()) ->
     [trans()].
 
-check_call_trans(Now, MaxTime, #call{trans=Trans}=Call) ->
+check_call_trans(Now, MaxTime, #call{trans=Trans}) ->
     lists:filter(
         fun(#trans{id=Id, start=Start}) ->
             case Now - Start < MaxTime/1000 of
                 true ->
                     true;
                 false ->
-                    ?call_error("Call removing expired transaction ~p", [Id], Call),
+                    ?call_error("Call removing expired transaction ~p", [Id]),
                     false
             end
         end,
@@ -525,14 +525,14 @@ check_call_trans(Now, MaxTime, #call{trans=Trans}=Call) ->
 -spec check_call_forks(nksip_lib:timestamp(), integer(), call()) ->
     [fork()].
 
-check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
+check_call_forks(Now, MaxTime, #call{forks=Forks}) ->
     lists:filter(
         fun(#fork{id=Id, start=Start}) ->
             case Now - Start < MaxTime/1000 of
                 true ->
                     true;
                 false ->
-                    ?call_error("Call removing expired fork ~p", [Id], Call),
+                    ?call_error("Call removing expired fork ~p", [Id]),
                     false
             end
         end,
@@ -543,14 +543,14 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}=Call) ->
 -spec check_call_dialogs(nksip_lib:timestamp(), integer(), call()) ->
     [nksip:dialog()].
 
-check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}=Call) ->
+check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}) ->
     lists:filter(
         fun(#dialog{id=Id, updated=Updated}) ->
             case Now - Updated < MaxTime/1000 of
                 true ->
                     true;
                 false ->
-                    ?call_warning("Call removing expired dialog ~p", [Id], Call),
+                    ?call_warning("Call removing expired dialog ~p", [Id]),
                     false
             end
         end,
@@ -592,7 +592,7 @@ get_sipmsg(SipMsgId, Call) ->
     case get_trans(SipMsgId, Call) of
         {ok, #trans{request=#sipmsg{id=SipMsgId}=Req}} -> {ok, Req};
         {ok, #trans{response=#sipmsg{id=SipMsgId}=Resp}} -> {ok, Resp};
-        O  -> lager:notice("NOT FOUND: ~p", [O]), not_found
+        _ -> not_found
     end.
 
 

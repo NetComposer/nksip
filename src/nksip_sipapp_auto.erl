@@ -30,8 +30,8 @@
 -export([init/2, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([timer/1]).
 
-
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
@@ -329,10 +329,10 @@ handle_cast(_, _) ->
 
 
 %% @private
-handle_info({'DOWN', Mon, process, _Pid, _}, #state{app_id=AppId, regs=Regs}=State) ->
+handle_info({'DOWN', Mon, process, _Pid, _}, #state{regs=Regs}=State) ->
     case lists:keyfind(Mon, #sipreg.conn_monitor, Regs) of
         #sipreg{id=RegId, cseq=CSeq} ->
-            ?info(AppId, "register outbound flow ~p has failed", [RegId]),
+            ?call_info("register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
             gen_server:cast(self(), {'$nksip_register_answer', RegId, 503, Meta});
         false ->
@@ -494,7 +494,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
                             Mon = erlang:monitor(process, Pid),
                             Reg1#sipreg{conn_monitor=Mon, conn_pid=Pid};
                         error -> 
-                            ?notice(AppId, "could not start outbound keep-alive", []),
+                            ?call_notice("could not start outbound keep-alive", []),
                             Reg1
                     end;
                 [] -> 
@@ -528,9 +528,9 @@ update_register(Reg, Code, Meta, State) ->
         _ -> 
             0
     end,
-    ?notice(AppId, "Outbound registration failed "
-                   "Basetime: ~p, fails: ~p, upper: ~p, time: ~p",
-            [BaseTime, Fails+1, Upper, Elap]),
+    ?call_notice("Outbound registration failed "
+                 "Basetime: ~p, fails: ~p, upper: ~p, time: ~p",
+                 [BaseTime, Fails+1, Upper, Elap]),
     Reg#sipreg{
         ok = false,
         cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
@@ -545,7 +545,7 @@ update_register(Reg, Code, Meta, State) ->
 update_basetime(#state{app_id=AppId, regs=Regs}=State) ->
     Key = case [true || #sipreg{fails=0} <- Regs] of
         [] -> 
-            ?notice(AppId, "All outbound flows have failed", []),
+            ?call_notice("All outbound flows have failed", []),
             outbound_time_all_fail;
         _ -> 
             outbound_time_any_ok

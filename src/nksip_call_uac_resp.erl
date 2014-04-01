@@ -1,6 +1,3 @@
-
-
-
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
@@ -55,14 +52,13 @@ response(Resp, #call{trans=Trans}=Call) ->
             case is_prack_retrans(Resp1, UAC) of
                 true ->
                     ?call_info("UAC received retransmission of reliable provisional "
-                               "response", [], Call),
+                               "response", []),
                     Call;
                 false ->
                     response(Resp1, UAC, Call)
             end;
         _ -> 
-            ?call_info("UAC received ~p ~p response for unknown request", 
-                       [Method, Code], Call),
+            ?call_info("UAC received ~p ~p response for unknown request", [Method, Code]),
             Call
     end.
 
@@ -111,7 +107,7 @@ response(Resp, UAC, Call) ->
         _ -> 
             ?call_debug("UAC ~p ~p (~p) ~sreceived ~p", 
                         [Id, Method, Status, 
-                         if NoDialog -> "(no dialog) "; true -> "" end, Code1], Call1)
+                         if NoDialog -> "(no dialog) "; true -> "" end, Code1])
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
     Resp2 = case IsProxy of
@@ -221,8 +217,7 @@ response_status(invite_accepted, Resp, UAC, Call) ->
     #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
     case ToTags of
         [ToTag|_] ->
-            ?call_debug("UAC ~p (~p) received ~p retransmission",
-                        [Id, Status, Code], Call),
+            ?call_debug("UAC ~p (~p) received ~p retransmission", [Id, Status, Code]),
             Call;
         _ ->
             do_received_hangup(Resp, UAC, Call)
@@ -238,7 +233,7 @@ response_status(invite_completed, Resp, UAC, Call) ->
                     send_ack(UAC, Call);
                 _ ->
                     ?call_info("UAC ~p (invite_completed) ignoring new ~p response "
-                               "(previous was ~p)", [Id, RespCode, Code], Call)
+                               "(previous was ~p)", [Id, RespCode, Code])
             end,
             Call;
         _ ->  
@@ -286,11 +281,11 @@ response_status(completed, Resp, UAC, Call) ->
     case ToTags of
         [ToTag|_] ->
             ?call_info("UAC ~p ~p (completed) received ~p retransmission", 
-                       [Id, Method, Code], Call),
+                       [Id, Method, Code]),
             Call;
         _ ->
             ?call_info("UAC ~p ~p (completed) received new ~p response", 
-                       [Id, Method, Code], Call),
+                       [Id, Method, Code]),
             UAC1 = case lists:member(ToTag, ToTags) of
                 true -> UAC;
                 false -> UAC#trans{to_tags=ToTags++[ToTag]}
@@ -314,7 +309,7 @@ do_received_hangup(Resp, UAC, Call) ->
     case Code < 300 of
         true ->
             ?call_info("UAC ~p (~p) sending ACK and BYE to secondary response " 
-                       "(dialog ~s)", [Id, Status, DialogId], Call),
+                       "(dialog ~s)", [Id, Status, DialogId]),
             spawn(
                 fun() ->
                     case nksip_uac:ack(AppId, DialogId, []) of
@@ -324,16 +319,16 @@ do_received_hangup(Resp, UAC, Call) ->
                                     ok;
                                 ByeErr ->
                                     ?call_notice("UAC ~p could not send BYE: ~p", 
-                                               [Id, ByeErr], Call)
+                                                 [Id, ByeErr])
                             end;
                         AckErr ->
                             ?call_notice("UAC ~p could not send ACK: ~p", 
-                                       [Id, AckErr], Call)
+                                         [Id, AckErr])
                     end
                 end);
         false ->       
             ?call_info("UAC ~p (~p) received new ~p response",
-                        [Id, Status, Code], Call)
+                        [Id, Status, Code])
     end,
     update(UAC1, Call).
 
@@ -414,8 +409,7 @@ received_auth(Req, Resp, UAC, Call) ->
         {ok, Req1} ->
             nksip_call_uac_req:resend(Req1, UAC, Call);
         {error, Error} ->
-            ?call_debug("UAC ~p could not generate new auth request: ~p", 
-                        [Id, Error], Call),    
+            ?call_debug("UAC ~p could not generate new auth request: ~p", [Id, Error]),    
             received_422(Req, Resp, UAC, Call)
     end.
 
@@ -457,8 +451,7 @@ send_ack(#trans{request=Req, id=Id}, _Call) ->
         {ok, _} -> 
             ok;
         error -> 
-            #sipmsg{app_id=AppId, call_id=CallId} = Ack,
-            ?notice(AppId, CallId, "UAC ~p could not send non-2xx ACK", [Id])
+            ?call_notice("UAC ~p could not send non-2xx ACK", [Id])
     end.
 
 
@@ -471,7 +464,7 @@ send_2xx_ack(DialogId, Call) ->
         {ok, Call1} ->
             Call1;
         {error, Error} ->
-            ?call_warning("Could not generate 2xx ACK: ~p", [Error], Call),
+            ?call_warning("Could not generate 2xx ACK: ~p", [Error]),
             Call
     end.
 
@@ -561,8 +554,7 @@ send_prack(Resp, Id, DialogId, Call) ->
                     #sdp{} = LocalSDP -> 
                         LocalSDP;
                     Other ->
-                        ?call_warning("error calling prack_sdp/2: ~p", 
-                                      [Other], Call),
+                        ?call_warning("error calling prack_sdp/2: ~p", [Other]),
                         <<>>
                 end;
             _ ->
@@ -587,7 +579,7 @@ send_prack(Resp, Id, DialogId, Call) ->
         end
     catch
         throw:TError ->
-            ?call_warning("could not send PRACK: ~p", [TError], Call),
+            ?call_warning("could not send PRACK: ~p", [TError]),
             Call
     end.
 

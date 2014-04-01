@@ -74,6 +74,7 @@
 -export([get_cached/2, get_cached/3, parse_config/1, parse_config/2]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
+-export([put_log_cache/2]).
 
 -compile({no_auto_import,[put/2]}).
 
@@ -263,6 +264,7 @@ init([]) ->
             lists:foreach(
                 fun({Key, Value}) -> nksip_config:put(Key, Value) end,
                 Config2),
+            make_cache(Config2),
             {ok, #state{config=Config2}};
         {error, Error} ->
             lager:error("Config error: ~p", [Error]),
@@ -319,6 +321,13 @@ terminate(_Reason, _State) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+%% @private Save cache for speed log access
+put_log_cache(AppId, CallId) ->
+    erlang:put(nksip_logl_level, AppId:config_log_level()),
+    erlang:put(nksip_call_name, AppId:name()),
+    erlang:put(nksip_call_id, CallId).
 
 
 %% @private
@@ -396,4 +405,18 @@ parse_config_opts([Term|Rest], Opts) ->
             {error, {invalid, Term}}
     end.
 
+
+%% @private
+make_cache(Config) ->
+    Cache = [
+        {global_id, nksip_lib:get_value(global_id, Config)},
+        {local_ips, nksip_lib:get_value(local_ips, Config)},
+        {main_ip, nksip_lib:get_value(main_ip, Config)},
+        {main_ip6, nksip_lib:get_value(main_ip6, Config)}
+    ],
+    Syntax = lists:foldl(
+        fun({Key, Value}, Acc) -> nksip_code_util:getter(Key, Value, Acc) end,
+        [],
+        Cache),
+    ok = nksip_code_util:compile(nksip_config_cache, Syntax).
 

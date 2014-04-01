@@ -165,6 +165,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -export([reply/2, parse/1, warning/1]).
 
@@ -237,16 +238,16 @@ reply(Req, {Code, Opts})
         {ok, Resp, RespOpts} ->
             {Resp, RespOpts};
         {error, Error} ->
-            lager:error("Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
+            ?call_error("Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
             nksip_uas_lib:make(Req, 500, [])
     end;
     
-reply(#sipmsg{app_id=AppId, call_id=CallId}=Req, SipReply) -> 
+reply(Req, SipReply) -> 
     case parse(SipReply) of
         {Code, Opts0} ->
             Opts = post(Req, Code, Opts0);
         error -> 
-            ?warning(AppId, CallId, "Invalid sipreply ~p", [SipReply]),
+            ?call_warning("Invalid sipreply ~p", [SipReply]),
             {Code, Opts} = {500, [{reason_phrase, <<"Invalid SipApp Response">>}]}
     end,
     reply(Req, {Code, Opts}).

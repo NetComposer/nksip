@@ -51,8 +51,7 @@ ipv6_test_() ->
 
 
 main_ip6() ->
-    AppId = nksip_sipapp_srv:app_id(server1),
-    nksip_lib:to_host(AppId:config_main_ip6(), true).
+    nksip_config_cache:main_ip6().
 
 start() ->
     tests_util:start_nksip(),

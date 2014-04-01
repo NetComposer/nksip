@@ -95,13 +95,13 @@ process_trans_ack(UAS, Call) ->
                     UAS3 = UAS2#trans{status=finished},
                     nksip_call_lib:timeout_timer(cancel, UAS3, Call)
             end,
-            ?call_debug("UAS ~p received in-transaction ACK", [Id], Call),
+            ?call_debug("UAS ~p received in-transaction ACK", [Id]),
             update(UAS4, Call);
         invite_confirmed ->
-            ?call_debug("UAS ~p received non 2xx ACK in ~p", [Id, Status], Call),
+            ?call_debug("UAS ~p received non 2xx ACK in ~p", [Id, Status]),
             Call;
         _ ->
-            ?call_notice("UAS ~p received non 2xx ACK in ~p", [Id, Status], Call),
+            ?call_notice("UAS ~p received non 2xx ACK in ~p", [Id, Status]),
             Call
     end.
 
@@ -134,14 +134,14 @@ process_retrans(UAS, Call) ->
             case nksip_transport_uas:resend_response(Resp, []) of
                 {ok, _} ->
                     ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
-                               [Id, Method, Status, Code], Call);
+                               [Id, Method, Status, Code]);
                 error ->
                     ?call_notice("UAS ~p ~p (~p) could not send ~p retransmission", 
-                                  [Id, Method, Status, Code], Call)
+                                  [Id, Method, Status, Code])
             end;
         _ ->
             ?call_info("UAS ~p ~p received retransmission in ~p", 
-                       [Id, Method, Status], Call)
+                       [Id, Method, Status])
     end,
     Call.
 
@@ -159,7 +159,7 @@ process_request(Req, TransId, Call) ->
         to = {_, ToTag}
     } = Req,
     #call{trans=Trans, next=Id, msgs=Msgs} = Call,
-    ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId], Call),
+    ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId]),
     LoopId = loop_id(Req),
     DialogId = nksip_dialog:class_id(uas, Req),
     UAS = #trans{

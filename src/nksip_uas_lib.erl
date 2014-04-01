@@ -22,7 +22,9 @@
 -module(nksip_uas_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -export([preprocess/1, make/3]).
+
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
@@ -49,8 +51,6 @@
 preprocess(Req) ->
     #sipmsg{
         class = {req, Method},
-        app_id = AppId, 
-        call_id = CallId, 
         to = {_, ToTag},
         transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
         vias = [Via|ViaR]
@@ -66,14 +66,14 @@ preprocess(Req) ->
     end,
     Via1 = Via#via{opts=ViaOpts2},
     Branch = nksip_lib:get_binary(<<"branch">>, ViaOpts2),
-    GlobalId = AppId:config_global_id(),
+    GlobalId = nksip_config_cache:global_id(),
     ToTag1 = case ToTag of
         <<>> -> nksip_lib:hash({GlobalId, Branch});
         _ -> ToTag
     end,
     case Method=='ACK' andalso nksip_lib:hash({GlobalId, Branch})==ToTag of
         true -> 
-            ?debug(AppId, CallId, "Received ACK for own-generated response", []),
+            ?call_debug("Received ACK for own-generated response", []),
             own_ack;
         false ->
             Req1 = Req#sipmsg{
@@ -187,8 +187,7 @@ make(Req, Code, Opts) ->
 % - the response generated a dialog
 % - a new in-dialog request has arrived from a strict router, that copied our Record-Route
 %   in the ruri
-strict_router(#sipmsg{app_id=AppId, ruri=RUri, call_id=CallId, 
-                      routes=Routes}=Request) ->
+strict_router(#sipmsg{app_id=AppId, ruri=RUri, routes=Routes}=Request) ->
     case 
         nksip_lib:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
         andalso nksip_transport:is_local(AppId, RUri) of
@@ -197,8 +196,7 @@ strict_router(#sipmsg{app_id=AppId, ruri=RUri, call_id=CallId,
             [] ->
                 Request;
             [RUri1|RestRoutes] ->
-                ?notice(AppId, CallId, 
-                        "recovering RURI from strict router request", []),
+                ?call_notice("recovering RURI from strict router request", []),
                 Request#sipmsg{ruri=RUri1, routes=lists:reverse(RestRoutes)}
         end;
     false ->

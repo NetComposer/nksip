@@ -45,7 +45,7 @@ request(Req, Call) ->
     #sipmsg{class={req, Method}, cseq={CSeq, _}, dialog_id=DialogId} = Req,
     case find(DialogId, Call) of
         #dialog{remote_seq=RemoteSeq}=Dialog ->
-            ?call_debug("Dialog ~s UAS request ~p", [DialogId, Method], Call),
+            ?call_debug("Dialog ~s UAS request ~p", [DialogId, Method]),
             case RemoteSeq>0 andalso CSeq<RemoteSeq of
                 true ->
                     {error, {internal_error, <<"Old CSeq in Dialog">>}};
@@ -107,7 +107,7 @@ do_request('BYE', _Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
     #invite{status=Status} = Invite,
     case Status of
         confirmed -> ok;
-        _ -> ?call_debug("Dialog ~s (~p) received BYE", [DialogId, Status], Call)
+        _ -> ?call_debug("Dialog ~s (~p) received BYE", [DialogId, Status])
     end,
     {ok, update({invite, bye}, Dialog, Call)};
 
@@ -171,12 +171,10 @@ response(Req, Resp, Call) ->
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
     case find(DialogId, Call) of
         #dialog{}=Dialog ->
-            ?call_debug("Dialog ~s UAS ~p response ~p", 
-                         [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code]),
             do_response(Method, Code, Req, Resp, Dialog, Call);
         not_found when Code>100 andalso Code<300 andalso Method=='INVITE' ->
-            ?call_debug("Dialog ~s UAS ~p response ~p", 
-                        [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code]),
             Offer = case Body of 
                 #sdp{}=SDP -> {remote, invite, SDP};
                 _ -> undefined
@@ -196,8 +194,7 @@ response(Req, Resp, Call) ->
         not_found when Code>=200 andalso Code<300 andalso 
                        (Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse
                         Method=='REFER') ->
-            ?call_debug("Dialog ~s UAS ~p response ~p", 
-                        [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAS ~p response ~p", [DialogId, Method, Code]),
             Dialog1 = nksip_call_dialog:create(uas, Req, Resp, Call),
             do_response(Method, Code, Req, Resp, Dialog1, Call);
         not_found ->
@@ -276,7 +273,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
         _ -> Status = undefined
     end,
     ?call_info("Dialog UAS ~s ignoring unexpected INVITE response ~p in ~p", 
-                 [DialogId, Code, Status], Call),
+                 [DialogId, Code, Status]),
     update(none, Dialog, Call);
 
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
@@ -394,7 +391,7 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
         #dialog{invite=#invite{}=Invite}=Dialog ->
             #invite{status=Status, request=InvReq} = Invite,
             #sipmsg{cseq={InvSeq, _}} = InvReq,
-            ?call_debug("Dialog ~s (~p) UAS request 'ACK'", [DialogId, Status], Call),
+            ?call_debug("Dialog ~s (~p) UAS request 'ACK'", [DialogId, Status]),
             case Status of
                 accepted_uas when CSeq==InvSeq->
                     {HasSDP, SDP, Offer, Answer} = get_sdp(AckReq, Invite), 
@@ -452,7 +449,7 @@ update_response(Req, {Resp, Opts}, Call) ->
             nksip_call_timer:uas_update_timer(Req, Resp1, Call);
         _ ->
             % In a multiple 2xx scenario, request is already deleted at UAS
-            ?call_notice("Skipping timer check because of no request", [], Call),
+            ?call_notice("Skipping timer check because of no request", []),
             Resp1 
     end,
     {Resp2, Opts1}.

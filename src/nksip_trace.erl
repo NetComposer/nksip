@@ -35,7 +35,6 @@
 
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
--export([info/1, notice/1, warning/1, error/1]).
 -export([store_msgs/1, insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
          handle_cast/2, handle_info/2]).
@@ -151,21 +150,6 @@ print(Header, #sipmsg{}=SipMsg) ->
         || Line <- binary:split(Binary, <<"\r\n">>, [global])
     ],
     io:format("\n        ---- ~s\n~s\n", [Header, list_to_binary(Lines)]).
-
-
-%% Helper functions
-
-%% @private
-info(Text) -> lager:info(Text).
-
-%% @private
-notice(Text) -> lager:notice(Text).
-
-%% @private
-warning(Text) -> lager:warning(Text).
-
-%% @private
-error(Text) -> lager:error(Text).
 
 
 %% @private

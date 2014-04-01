@@ -53,7 +53,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
                 _ -> {Default, undefined}
             end;
         invalid ->
-            ?call_warning("Invalid Session-Expires in response", [], Call),
+            ?call_warning("Invalid Session-Expires in response", []),
             {Default, undefined}
     end,
     Type = case Class==Refresh of
@@ -61,7 +61,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
         false when Refresh/=undefined -> refreshed;
         false -> none
     end,
-    ?call_info("Session Timer updated (~p, ~p)", [{Class, Refresh, Type}, SE], Call),
+    ?call_info("Session Timer updated (~p, ~p)", [{Class, Refresh, Type}, SE]),
     {Type, SE}.
 
 

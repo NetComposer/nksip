@@ -94,7 +94,7 @@ check_notify(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 check_missing_dialog('ACK', #sipmsg{to={_, <<>>}}, UAS, Call) ->
-    ?call_notice("received out-of-dialog ACK", [], Call),
+    ?call_notice("received out-of-dialog ACK", []),
     update(UAS#trans{status=finished}, Call);
     
 check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
@@ -143,7 +143,7 @@ dialog(Method, Req, UAS, Call) ->
                     method(Method, Req, UAS, Call1);
                 {error, Error} when Method=='ACK' -> 
                     ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
-                                [Id, Error], Call),
+                                 [Id, Error]),
                     UAS1 = UAS#trans{status=finished},
                     update(UAS1, Call);
                 {error, Error} ->

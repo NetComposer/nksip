@@ -40,6 +40,7 @@
          websocket_terminate/3]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 -include_lib("wsock/include/wsock.hrl").
 % -include("../deps/wsock/include/wsock.hrl").
 
@@ -97,10 +98,10 @@ connect(AppId, Transp, Opts) ->
             ok -> ok;
             {error, Error2} -> throw(Error2)
         end,
-        ?debug(AppId, "Sent ws hanshake: ~s", [print_headers(Data1)]),
+        ?call_debug("Sent ws hanshake: ~s", [print_headers(Data1)]),
         case TranspMod:recv(Socket, 0, 5000) of
             {ok, Data2} ->
-                ?debug(AppId, "Received ws reply: ~s", [print_headers(Data2)]),
+                ?call_debug("received ws reply: ~s", [print_headers(Data2)]),
                 case handshake_resp(Data2, HandshakeReq) of
                     ok -> ok;
                     {error, Error3} -> throw(Error3)
@@ -129,7 +130,7 @@ connect(AppId, Transp, Opts) ->
         {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
         TranspMod:controlling_process(Socket, Pid),
         InetMod:setopts(Socket, [{active, once}]),
-        ?debug(AppId, "~p connected to ~p", [Proto, {Ip, Port}]),
+        ?call_debug("~p connected to ~p", [Proto, {Ip, Port}]),
         {ok, Pid, Transp1}
     catch
         throw:TError -> {error, TError}
@@ -388,7 +389,7 @@ handshake_resp(Data, Req) ->
                         "sip" -> 
                             ok;
                         Other ->
-                            lager:warning("Websocket server did not send protocol: ~p", 
+                            ?call_warning("Websocket server did not send protocol: ~p", 
                                          [Other]),
                             ok
                     end;

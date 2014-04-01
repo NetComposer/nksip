@@ -25,6 +25,7 @@
 -export([make_contact/3, proxy_opts/2, registrar/2, encode_flow/1, decode_flow/1]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
@@ -167,7 +168,7 @@ do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
                 {error, flow_failed} ->
                     {error, flow_failed};
                 {error, invalid} ->
-                    ?notice(AppId, "Received invalid flow token", []),
+                    ?call_notice("Received invalid flow token", []),
                     {error, forbidden}
             end;
         #uri{opts=RouteOpts} ->

@@ -26,6 +26,7 @@
 -export([send_response/2, resend_response/2]).
     
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
@@ -64,7 +65,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
             ]
     end,
     RouteBranch = nksip_lib:get_binary(<<"branch">>, ViaOpts),
-    GlobalId = AppId:config_global_id(),
+    GlobalId = nksip_config_cache:global_id(),
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
     nksip_trace:insert(Resp, {send_response, Method, Code}),
@@ -87,8 +88,8 @@ resend_response(#sipmsg{class={resp, Code, _}, app_id=AppId, cseq={_, Method},
     nksip_trace:insert(Resp, {sent_response, Method, Code}),
     Return;
 
-resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, Opts) ->
-    ?info(AppId, CallId, "Called resend_response/2 without transport\n", []),
+resend_response(Resp, Opts) ->
+    ?call_info("Called resend_response/2 without transport", []),
     send_response(Resp, Opts).
 
 
@@ -105,7 +106,6 @@ resend_response(#sipmsg{app_id=AppId, call_id=CallId}=Resp, Opts) ->
 make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
         app_id = AppId,
-        call_id = CallId,
         to = {To, _},
         headers = Headers,
         contacts = Contacts, 
@@ -117,7 +117,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     listen_port = ListenPort
                 } = Transport) ->
         ListenHost = nksip_transport:get_listenhost(AppId, ListenIp),
-        ?debug(AppId, CallId, "UAS listenhost is ~s", [ListenHost]),
+        ?call_debug("UAS listenhost is ~s", [ListenHost]),
         Scheme = case Proto==tls andalso lists:member(secure, Opts) of
             true -> sips;
             _ -> sip

@@ -99,10 +99,12 @@ init([AppId, CallId]) ->
         dialogs = [],
         auths = [],
         msgs = [],
-        events = []
+        events = [],
+        timers = AppId:config_timers()
     },
+    nksip_config:put_log_cache(AppId, CallId),
     erlang:start_timer(2000*?MAX_TRANS_TIME, self(), check_call),
-    ?call_debug("Call process ~p started (~p)", [Id, self()], Call),
+    ?call_debug("Call process ~p started (~p)", [Id, self()]),
     {ok, Call}.
 
 
@@ -165,8 +167,8 @@ code_change(_OldVsn, Call, _Extra) ->
 -spec terminate(term(), call()) ->
     gen_server_terminate().
 
-terminate(_Reason, #call{}=Call) ->
-    ?call_debug("Call process stopped", [], Call).
+terminate(_Reason, #call{}) ->
+    ?call_debug("Call process stopped", []).
 
 
 
@@ -189,7 +191,7 @@ next(#call{hibernate=Hibernate}=Call) ->
         false ->
             {noreply, Call};
         _ ->
-            ?call_debug("Call hibernating: ~p", [Hibernate], Call),
+            ?call_debug("Call hibernating: ~p", [Hibernate]),
             {noreply, Call#call{hibernate=false}, hibernate}
     end.
 

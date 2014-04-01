@@ -86,7 +86,7 @@ pre_request(Req, Call) ->
     nksip_call:call().
 
 request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, IsProxy, Call) ->
-    ?call_debug("Dialog ~s UAC request ~p", [DialogId, Method], Call), 
+    ?call_debug("Dialog ~s UAC request ~p", [DialogId, Method]), 
     #dialog{local_seq=LocalSeq} = Dialog = find(DialogId, Call),
     #sipmsg{cseq={CSeq, _}} = Req,
     Dialog1 = case CSeq > LocalSeq of
@@ -175,10 +175,10 @@ response(Req, Resp, IsProxy, Call) ->
     #sipmsg{class={resp, Code, _Reason}, dialog_id=DialogId} = Resp,
     case find(DialogId, Call) of
         #dialog{} = Dialog ->
-            ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code]),
             do_response(Method, Code, Req, Resp, Dialog, Call);
         not_found when Code>100, Code<300, Method=='INVITE' ->
-            ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code]),
             Dialog1 = nksip_call_dialog:create(uac, Req, Resp, Call),
             Offer = case Body of 
                 #sdp{}=SDP -> {local, invite, SDP};
@@ -197,7 +197,7 @@ response(Req, Resp, IsProxy, Call) ->
             do_response(Method, Code, Req, Resp, Dialog2, Call);
         not_found when Code>=200 andalso Code<300 andalso
                        (Method=='SUBSCRIBE' orelse Method=='REFER') ->
-            ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code], Call),
+            ?call_debug("Dialog ~s UAC response ~p ~p", [DialogId, Method, Code]),
             Dialog1 = nksip_call_dialog:create(uac, Req, Resp, Call),
             do_response(Method, Code, Req, Resp, Dialog1, Call);
         not_found ->
@@ -273,23 +273,22 @@ do_response('INVITE', Code, _Req, Resp,
 do_response('INVITE', Code, _Req, _Resp, 
             #dialog{invite=#invite{status=accepted_uac}=Invite}=Dialog, Call) 
             when Code<300 ->
-    #dialog{app_id=AppId, call_id=CallId, id=DialogId, invite=Invite} = Dialog,
+    #dialog{id=DialogId, invite=Invite} = Dialog,
     case Invite#invite.ack of
         #sipmsg{}=ACK ->
             case nksip_transport_uac:resend_request(ACK, []) of
                 {ok, _} ->
-                    ?info(AppId, CallId, 
-                          "Dialog ~s (accepted_uac) retransmitting 'ACK'", [DialogId]),
+                    ?call_info("Dialog ~s (accepted_uac) retransmitting 'ACK'", 
+                               [DialogId]),
                     update(none, Dialog, Call);
                 error ->
-                    ?notice(AppId, CallId,
-                            "Dialog ~s (accepted_uac) could not retransmit 'ACK'", 
-                            [DialogId]),
+                    ?call_notice("Dialog ~s (accepted_uac) could not retransmit 'ACK'", 
+                                 [DialogId]),
                     update({invite, {stop, 503}}, Dialog, Call)
             end;
         _ ->
             ?call_info("Dialog ~s (accepted_uac) received 'INVITE' ~p but no ACK yet", 
-                       [DialogId, Code], Call),
+                       [DialogId, Code]),
             update(none, Dialog, Call)
     end;
 
@@ -299,7 +298,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
         _ -> Status = undefined
     end,
     ?call_notice("Dialog UAC ~s ignoring unexpected INVITE response ~p in ~p", 
-                 [DialogId, Code, Status], Call),
+                 [DialogId, Code, Status]),
     update(none, Dialog, Call);
 
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
@@ -389,7 +388,7 @@ do_response(_, _Code, _Req, _Resp, Dialog, Call) ->
     nksip_call:call().
 
 ack(#sipmsg{class={req, 'ACK'}, to={_, <<>>}}, Call) ->
-    ?call_notice("Dialog UAC invalid ACK1", [], Call),
+    ?call_notice("Dialog UAC invalid ACK1", []),
     Call;
 
 ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call) ->
@@ -400,7 +399,7 @@ ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call
             case Status of
                 accepted_uac when CSeq==InvCSeq ->
                     ?call_debug("Dialog ~s (~p) UAC request 'ACK'", 
-                                [DialogId, Status], Call),
+                                [DialogId, Status]),
                     {HasSDP, SDP, Offer, Answer} = get_sdp(AckReq, Invite), 
                     {Offer1, Answer1} = case Offer of
                         {remote, invite, _} when HasSDP -> {Offer, {local, ack, SDP}};
@@ -415,12 +414,11 @@ ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call
                     Dialog2 = Dialog1#dialog{invite=Invite1},
                     update({invite, confirmed}, Dialog2, Call);
                 _ ->
-                    ?call_notice("Dialog ~s (~p) ignoring ACK", 
-                                 [DialogId, Status], Call),
+                    ?call_notice("Dialog ~s (~p) ignoring ACK", [DialogId, Status]),
                     update(none, Dialog1, Call)
             end;
         not_found ->
-            ?call_notice("Dialog ~s not found for UAC ACK", [DialogId], Call),
+            ?call_notice("Dialog ~s not found for UAC ACK", [DialogId]),
             Call
     end.
     
@@ -434,7 +432,7 @@ ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call
 make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
         #dialog{invite=Invite}=Dialog ->
-            ?call_debug("Dialog ~s make ~p request", [DialogId, Method], Call),
+            ?call_debug("Dialog ~s make ~p request", [DialogId, Method]),
             case Invite of
                 #invite{status=Status} when
                     Method=='ACK' andalso Status/=accepted_uac ->

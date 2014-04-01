@@ -37,6 +37,7 @@
          handle_info/2]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -define(CALLBACK_TIMEOUT, 30000).
 -define(TIMER, 5000).
@@ -121,7 +122,7 @@ get_appid(AppName) ->
     term().
 
 get_name(AppId) ->
-    AppId:config_name().
+    AppId:name().
 
 
 %% @doc Gets the sipapp's configuration
@@ -208,7 +209,7 @@ sipapp_call(AppId, Fun, Args1, Args2, From) ->
         true ->
             case catch apply(AppId, Fun, Args1++[From]) of
                 {'EXIT', Error} -> 
-                    ?error(AppId, "Error calling inline ~p: ~p", [Fun, Error]),
+                    ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
                     error;
                 async ->
                     async;
@@ -220,7 +221,7 @@ sipapp_call(AppId, Fun, Args1, Args2, From) ->
                 true -> 
                     case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
                         undefined -> 
-                            ?error(AppId, "SipApp is not available calling ~p", [Fun]),
+                            ?call_error("SipApp is not available calling ~p", [Fun]),
                             error;
                         Pid -> 
                             gen_server:cast(Pid, {'$nksip_call', Fun, Args2, From}),
@@ -242,7 +243,7 @@ sipapp_call_wait(AppId, Fun, Args1, Args2, Timeout) ->
         true ->
             case catch apply(AppId, Fun, Args1) of
                 {'EXIT', Error} -> 
-                    ?error(AppId, "Error calling inline ~p: ~p", [Fun, Error]),
+                    ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
                     error;
                 Reply ->
                     {reply, Reply}
@@ -252,7 +253,7 @@ sipapp_call_wait(AppId, Fun, Args1, Args2, Timeout) ->
                 true -> 
                     case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
                         undefined -> 
-                            ?error(AppId, "SipApp is not available calling ~p", [Fun]),
+                            ?call_error("SipApp is not available calling ~p", [Fun]),
                             error;
                         Pid -> 
                             Msg = {'$nksip_call_nofrom', Fun, Args2},
@@ -260,8 +261,8 @@ sipapp_call_wait(AppId, Fun, Args1, Args2, Timeout) ->
                                 gen_server:call(Pid, Msg, Timeout)
                             of
                                 {'EXIT', Error} -> 
-                                    ?error(AppId, "Error calling callback ~p: ~p", 
-                                           [Fun, Error]),
+                                    ?call_error("Error calling callback ~p: ~p", 
+                                               [Fun, Error]),
                                     error;
                                 Ok -> 
                                     Ok
@@ -283,7 +284,7 @@ sipapp_cast(AppId, Fun, Args1, Args2) ->
         true ->
             case catch apply(AppId, Fun, Args1) of
                 {'EXIT', Error} -> 
-                    ?error(AppId, "Error calling inline ~p: ~p", [Fun, Error]),
+                    ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
                     error;
                 _ ->
                     ok
@@ -386,6 +387,7 @@ init([AppName, AppId, Args]) ->
             UUID = nksip_lib:uuid_4122(),
             save_uuid(Path, AppName, UUID)
     end,
+    nksip_config:put_log_cache(AppId, undefined),
     nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
     {_, _, _, _, Time} = AppId:config_timers(),
     erlang:start_timer(Time, self(), '$nksip_timer'),
@@ -457,6 +459,10 @@ handle_call(Msg, From, State) ->
 handle_cast({'$nksip_register', Type, Pid}, #state{procs=Procs}=State) -> 
     erlang:monitor(process, Pid),
     {noreply, State#state{procs=dict:store(Pid, Type, Procs)}};
+
+handle_cast('$nksip_update_config', #state{app_id=AppId}=State) -> 
+    nksip_config:put_log_cache(AppId, undefined),
+    {noreply, State};
 
 handle_cast({'$nksip_call', Fun, Args, From}, State) -> 
     mod_handle_call(Fun, Args, From, State);
@@ -536,12 +542,7 @@ terminate(Reason, #state{app_id=AppId, reg_state=RegState,
 %% Internal
 %% ===================================================================
 
-% %% @private
-% -spec timeout() -> integer().
-% timeout(AppId) ->
-%     {_, _, _, _, Time} = AppId:config_timers(),
-%     Time.
-        
+      
 
 %% @private
 -spec mod_handle_call(atom(), [term()], from(), #state{}) -> 
@@ -610,7 +611,7 @@ mod_handle_info(Info, State = #state{app_id=AppId}) ->
         false ->
             case Info of
                 {'EXIT', _, normal} -> ok;
-                _ -> ?warning(AppId, "received unexpected message ~p", [Info])
+                _ -> ?call_warning("received unexpected message ~p", [Info])
             end,
             {noreply, State}
     end.

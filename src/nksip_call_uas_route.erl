@@ -55,8 +55,7 @@ send_100(UAS, #call{app_id=AppId}=Call) ->
                 {ok, _} -> 
                     check_cancel(UAS, Call);
                 error ->
-                    ?call_notice("UAS ~p ~p could not send '100' response", 
-                                 [Id, Method], Call),
+                    ?call_notice("UAS ~p ~p could not send '100' response", [Id, Method]),
                     reply(service_unavailable, UAS, Call)
             end;
         false -> 
@@ -71,8 +70,7 @@ send_100(UAS, #call{app_id=AppId}=Call) ->
 check_cancel(#trans{id=Id}=UAS, Call) ->
     case is_cancel(UAS, Call) of
         {true, #trans{id=InvId, status=Status}=InvUAS} ->
-            ?call_debug("UAS ~p matched 'CANCEL' as ~p (~p)", 
-                        [Id, InvId, Status], Call),
+            ?call_debug("UAS ~p matched 'CANCEL' as ~p (~p)", [Id, InvId, Status]),
             if
                 Status==authorize; Status==route; Status==invite_proceeding ->
                     Call1 = reply(ok, UAS, Call), 
@@ -91,7 +89,7 @@ check_cancel(#trans{id=Id}=UAS, Call) ->
 -spec is_cancel(nksip_call:trans(), nksip_call:call()) ->
     {true, nksip_call:trans()} | false.
 
-is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -> 
+is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}) -> 
     TransReq = CancelReq#sipmsg{class={req, 'INVITE'}},
     ReqTransId = nksip_call_uas:transaction_id(TransReq),
     case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
@@ -106,11 +104,11 @@ is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}=Call) -
                 true ->
                     ?call_notice("UAS ~p rejecting CANCEL because it came from ~p:~p, "
                                  "INVITE came from ~p:~p", 
-                                 [Id, CancelIp, CancelPort, InvIp, InvPort], Call),
+                                 [Id, CancelIp, CancelPort, InvIp, InvPort]),
                     false
             end;
         _ ->
-            ?call_debug("received unknown CANCEL", [], Call),
+            ?call_debug("received unknown CANCEL", []),
             false
     end;
 
@@ -166,7 +164,7 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
                 {reply, Reply, _} = nksip_sipapp:get_user_pass(User, Realm, none)
         end,
         ?call_debug("UAS ~p calling get_user_pass(~p, ~p): ~p", 
-                    [Id, User, Realm, Reply], Call),
+                    [Id, User, Realm, Reply]),
         Reply
     end,
     IsDigest = nksip_auth:get_authentication(Req, PassFun),
@@ -180,7 +178,7 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
 authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
     #sipmsg{dialog_id=DialogId, to={_, ToTag}} = Req,
-    ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply], Call),
+    ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply]),
     case Reply of
         _ when Reply==ok; Reply==true ->
             Call1 = case ToTag of
@@ -231,7 +229,7 @@ route_launch(#trans{ruri=RUri}=UAS, Call) ->
 
 route_reply(Reply, #trans{status=route}=UAS, Call) ->
     #trans{id=Id, method=Method, ruri=RUri} = UAS,
-    ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply], Call),
+    ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply]),
     Route = case Reply of
         {response, Resp} -> {response, Resp, []};
         {response, Resp, Opts} -> {response, Resp, Opts};
@@ -325,7 +323,7 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
 do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
     case Req#sipmsg.routes of
        [Next|_] ->
-            ?call_info("strict routing to ~p", [Next], Call),
+            ?call_info("strict routing to ~p", [Next]),
             do_route({proxy, Next, [stateless|Opts]}, UAS, Call);
         _ ->
             reply({internal_error, <<"Invalid Srict Routing">>}, UAS, Call)
@@ -376,8 +374,7 @@ app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
                     reply({Resp1, SendOpts1}, UAS1, Call1)
             end;
         _ ->
-            ?call_debug("Unknown UAS ~p received SipApp ~p reply",
-                        [Id, Fun], Call),
+            ?call_debug("Unknown UAS ~p received SipApp ~p reply", [Id, Fun]),
             Call
     end.
 

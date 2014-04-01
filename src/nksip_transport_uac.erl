@@ -26,6 +26,7 @@
 -export([send_request/2, resend_request/2]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 
@@ -39,7 +40,7 @@
 
 send_request(Req, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}, ruri=RUri, routes=Routes} = Req,
-    ?debug(AppId, "UAC send opts: ~p", [Opts]),
+    ?call_debug("UAC send opts: ~p", [Opts]),
     try
         case Routes of
             [] -> 
@@ -122,7 +123,6 @@ make_request_fun(Req, Dest, Opts) ->
         body = Body
     } = Req,
     #uri{scheme=Scheme} = Dest,     % RUri or first route
-    GlobalId = AppId:config_global_id(),
     fun(Transp) ->
         #transport{
             proto = Proto, 
@@ -130,7 +130,7 @@ make_request_fun(Req, Dest, Opts) ->
             listen_port = ListenPort
         } = Transp,
         ListenHost = nksip_transport:get_listenhost(AppId, ListenIp),
-        ?debug(AppId, CallId, "UAC listenhost is ~s", [ListenHost]),
+        ?call_debug("UAC listenhost is ~s", [ListenHost]),
         RouteBranch = case Vias of
             [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
             _ -> <<>>
@@ -145,6 +145,7 @@ make_request_fun(Req, Dest, Opts) ->
             {FlowPid, ob} -> FlowOb = true;
             undefined -> FlowPid = FlowOb = false
         end,
+        GlobalId = nksip_config_cache:global_id(),
         RouteUser = case FlowPid of
             false -> 
                 RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),

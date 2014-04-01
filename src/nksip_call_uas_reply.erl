@@ -47,8 +47,7 @@
     reply_return().
 
 reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
-    ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", 
-                 [Id, Status, Reply], Call),
+    ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", [Id, Status, Reply]),
     UAS1 = UAS#trans{status=finished},
     {{error, invalid_call}, update(UAS1, Call)};
 
@@ -80,7 +79,7 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
 reply({#sipmsg{class={resp, Code, _Reason}}, _}, #trans{code=LastCode}=UAS, Call) ->
     #trans{status=Status, id=Id, method=Method} = UAS,
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (last code was ~p)", 
-               [Id, Method, Code, Status, LastCode], Call),
+               [Id, Method, Code, Status, LastCode]),
     {{error, invalid_call}, Call};
 
 reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
@@ -88,7 +87,7 @@ reply(SipReply, #trans{request=#sipmsg{}=Req}=UAS, Call) ->
 
 reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
-               [Id, Method, SipReply, Status], Call),
+               [Id, Method, SipReply, Status]),
     {{error, invalid_call}, Call}.
 
 
@@ -186,13 +185,13 @@ send({Resp, SendOpts}, UAS, Call) ->
     Call3 = Call2#call{msgs=[Msg|Msgs]},
     case Stateless of
         true when Method/='INVITE' ->
-            ?call_debug("UAS ~p ~p stateless reply ~p", [Id, Method, Code1], Call3),
+            ?call_debug("UAS ~p ~p stateless reply ~p", [Id, Method, Code1]),
             UAS2 = UAS1#trans{status=finished},
             UAS3 = nksip_call_lib:timeout_timer(cancel, UAS2, Call),
             {UserReply, update(UAS3, Call3)};
         _ ->
             Rel = lists:member(rseq, SendOpts),
-            ?call_debug("UAS ~p ~p stateful reply ~p", [Id, Method, Code1], Call3),
+            ?call_debug("UAS ~p ~p stateful reply ~p", [Id, Method, Code1]),
             UAS2 = stateful_reply(Status, Code1, Rel, UAS1, Call3),
             {UserReply, update(UAS2, Call3)}
     end.

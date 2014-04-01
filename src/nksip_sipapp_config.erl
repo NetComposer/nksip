@@ -162,6 +162,17 @@ parse_opts([Term|Rest], Opts) ->
         no_100 ->
             [no_100|Opts];
 
+        {log_level, debug} -> [{log_level, 8}|Opts];
+        {log_level, info} -> [{log_level, 7}|Opts];
+        {log_level, notice} -> [{log_level, 6}|Opts];
+        {log_level, warning} -> [{log_level, 5}|Opts];
+        {log_level, error} -> [{log_level, 4}|Opts];
+        {log_level, critical} -> [{log_level, 3}|Opts];
+        {log_level, alert} -> [{log_level, 2}|Opts];
+        {log_level, emergency} -> [{log_level, 1}|Opts];
+        {log_level, none} -> [{log_level, 0}|Opts];
+        {log_level, Level} when Level>=0, Level=<8 -> [{log_level, Level}|Opts];
+
         % Unknown options
         {Name, Value} ->
             case nksip_config:parse_config(Name, Value) of
@@ -179,12 +190,9 @@ parse_opts([Term|Rest], Opts) ->
 %% @private
 cache_syntax(Opts, Syntax) ->
     Cache = [
+        {name, nksip_lib:get_value(name, Opts)},
         {config, Opts},
-        {config_name, nksip_lib:get_value(name, Opts)},
-        {config_global_id, nksip_lib:get_value(global_id, Opts)},
-        {config_main_ip, nksip_lib:get_value(main_ip, Opts)},
-        {config_main_ip6, nksip_lib:get_value(main_ip6, Opts)},
-        {config_local_ips, nksip_lib:get_value(local_ips, Opts)},
+        {config_log_level, nksip_lib:get_value(log_level, Opts, 6)},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
         {config_timers, {

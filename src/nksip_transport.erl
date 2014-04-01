@@ -33,6 +33,7 @@
 -export_type([transport/0]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -compile({no_auto_import,[get/1]}).
 
@@ -121,7 +122,7 @@ is_local(AppId, #uri{}=Uri) ->
         {#transport{proto=Proto, listen_ip=Ip, listen_port=Port, resource=Res}, _Pid} 
         <- nksip_proc:values({nksip_listen, AppId})
     ],
-    is_local(Listen, nksip_dns:resolve(Uri), local_ips());
+    is_local(Listen, nksip_dns:resolve(Uri), nksip_config_cache:local_ips());
 
 is_local(AppId, #via{}=Via) ->
     {Proto, Host, Port} = nksip_parse:transport(Via),
@@ -171,15 +172,7 @@ is_local_ip({0,0,0,0}) ->
 is_local_ip({0,0,0,0,0,0,0,0}) ->
     true;
 is_local_ip(Ip) ->
-    lists:member(Ip, local_ips()).
-
-
-%% @doc Gets a cached version of all detected local node IPs.
--spec local_ips() -> 
-    [inet:ip_address()].
-
-local_ips() ->
-    nksip_config:get(local_ips).
+    lists:member(Ip, nksip_config_cache:local_ips()).
 
 
 %% @doc Start a new listening transport.
@@ -226,8 +219,7 @@ get_listenhost(AppId, Ip) ->
         4 ->
             case AppId:config_local_host() of
                 auto when Ip == {0,0,0,0} -> 
-                    nksip_lib:to_host(AppId:config_main_ip());
-                auto -> 
+                    nksip_lib:to_host(nksip_config_cache:main_ip()); auto ->
                     nksip_lib:to_host(Ip);
                 Host -> 
                     Host
@@ -235,7 +227,7 @@ get_listenhost(AppId, Ip) ->
         8 ->
             case AppId:config_local_host6() of
                 auto when Ip == {0,0,0,0,0,0,0,0} -> 
-                    nksip_lib:to_host(AppId:config_main_ip6(), true);
+                    nksip_lib:to_host(nksip_config_cache:main_ip6(), true);
                 auto -> 
                     nksip_lib:to_host(Ip, true);
                 Host -> 
@@ -279,14 +271,14 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 
 send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     Resolv = nksip_dns:resolve(Uri),
-    ?debug(AppId, "Transport send to ~p (~p)", [Resolv, Rest]),
+    ?call_debug("Transport send to ~p (~p)", [Resolv, Rest]),
     send(AppId, Resolv++Rest, MakeMsg, [{transport_uri, Uri}|Opts]);
 
 send(AppId, [{current, {udp, Ip, Port, Res}}|Rest], MakeMsg, Opts) ->
     send(AppId, [{udp, Ip, Port, Res}|Rest], MakeMsg, Opts);
 
 send(AppId, [{current, {Proto, Ip, Port, Res}=D}|Rest], MakeMsg, Opts) ->
-    ?debug(AppId, "Transport send to current ~p (~p)", [D, Rest]),
+    ?call_debug("Transport send to current ~p (~p)", [D, Rest]),
     case get_connected(AppId, Proto, Ip, Port, Res) of
         [{Transp, Pid}|_] -> 
             SipMsg = MakeMsg(Transp),
@@ -299,7 +291,7 @@ send(AppId, [{current, {Proto, Ip, Port, Res}=D}|Rest], MakeMsg, Opts) ->
     end;
 
 send(AppId, [{flow, {Pid, Transp}=D}|Rest], MakeMsg, Opts) ->
-    ?debug(AppId, "Transport send to flow ~p (~p)", [D, Rest]),
+    ?call_debug("Transport send to flow ~p (~p)", [D, Rest]),
     SipMsg = MakeMsg(Transp),
     case nksip_connection:send(Pid, SipMsg) of
         ok -> {ok, SipMsg};
@@ -312,7 +304,7 @@ send(AppId, [{Proto, Ip, 0, Res}|Rest], MakeMsg, Opts) ->
 send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
     case get_connected(AppId, Proto, Ip, Port, Res) of
         [{Transp, Pid}|_] -> 
-            ?debug(AppId, "Transport send to connected ~p (~p)", [D, Rest]),
+            ?call_debug("Transport send to connected ~p (~p)", [D, Rest]),
             SipMsg = MakeMsg(Transp),
             case nksip_connection:send(Pid, SipMsg) of
                 ok -> 
@@ -323,7 +315,7 @@ send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
                     send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
-            ?debug(AppId, "Transport send to new ~p (~p)", [D, Rest]),
+            ?call_debug("Transport send to new ~p (~p)", [D, Rest]),
             case start_connection(AppId, Proto, Ip, Port, Res, Opts) of
                 {ok, Pid, Transp} ->
                     SipMsg = MakeMsg(Transp),
@@ -336,14 +328,14 @@ send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
                             send(AppId, Rest, MakeMsg, Opts)
                     end;
                 {error, Error} ->
-                    ?notice(AppId, "error connecting to ~p:~p (~p): ~p",
-                            [Ip, Port, Proto, Error]),
+                    ?call_notice("error connecting to ~p:~p (~p): ~p",
+                                [Ip, Port, Proto, Error]),
                     send(AppId, Rest, MakeMsg, Opts)
             end
     end;
 
 send(AppId, [Other|Rest], MakeMsg, Opts) ->
-    ?warning(AppId, "invalid send specification: ~p", [Other]),
+    ?call_warning("invalid send specification: ~p", [Other]),
     send(AppId, Rest, MakeMsg, Opts);
 
 send(_, [], _MakeMsg, _Opts) ->

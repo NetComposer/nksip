@@ -27,6 +27,8 @@
 -export([make_request/3, make_response/2]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
+
 
 -define(RESP_WWW, (<<"www-authenticate">>)).
 -define(RESP_PROXY, (<<"proxy-authenticate">>)).
@@ -334,8 +336,8 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
         nksip_lib:get_value(algorithm, AuthHeader, 'MD5') /= 'MD5'
     of
         true ->
-            ?notice(AppId, "received invalid parameters in Authorization Header: ~p", 
-                    [AuthHeader]),
+            ?call_notice("received invalid parameters in Authorization Header: ~p", 
+                        [AuthHeader]),
             not_found;
         false ->
             % Should we check the uri in the authdata matches the ruri of the request?
@@ -346,7 +348,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
                 Found==not_found ->
                     Opaque = nksip_lib:get_value(opaque, AuthHeader),
                     case nksip_lib:hash(AppId) of
-                        Opaque -> ?notice(AppId, "received invalid nonce", []);
+                        Opaque -> ?call_notice("received invalid nonce", []);
                         _ -> ok
                     end,
                     not_found;
@@ -370,7 +372,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
                     %       [QOP, Method1, Uri, HA1, Nonce, CNonce, Nc]),
                     Resp == ValidResp;
                 true ->
-                    ?warning(AppId, "received nonce from different Ip or Port", []),
+                    ?call_warning("received nonce from different Ip or Port", []),
                     false
             end
     end.

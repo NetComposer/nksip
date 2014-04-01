@@ -369,7 +369,9 @@ update(App, Module, Opts) ->
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
             AppName = nksip_sipapp_srv:name(AppId),
-            nksip_sipapp_config:parse_config(AppName, Module, Opts1),
+            Config = AppId:config() ++ Opts1,
+            nksip_sipapp_config:parse_config(AppName, Module, Config),
+            cast(AppId, '$nksip_update_config'),
             {ok, AppId};
         error ->
             {error, sipapp_not_found}
@@ -382,7 +384,7 @@ update(App, Module, Opts) ->
     [AppId::app_id()].
 
 get_all() ->
-    [{AppId:config_name(), AppId} 
+    [{AppId:name(), AppId} 
       || {AppId, _Pid} <- nksip_proc:values(nksip_sipapps)].
 
 

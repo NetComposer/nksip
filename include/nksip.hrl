@@ -48,52 +48,64 @@
 -define(MAX_DIALOG_TIME, 30*60).
 
 
--define(debug(AppId, Txt, Opts), 
-        % ok).
-        __AppName = (AppId):config_name(),
-        lager:debug([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
--define(debug(AppId, CallId, Txt, Opts), 
-        % ok).
-        __AppName = (AppId):config_name(),
-        nksip_trace:insert(__AppName, CallId, {debug, Txt, Opts}),
-        lager:debug([{app_id, __AppName}, {call_id, CallId}],
-                     "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+% -define(debug(AppId, Txt, Opts), 
+%         % ok).
+%         __AppName = (AppId):config_name(),
+%         lager:debug([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
+% -define(debug(AppId, CallId, Txt, Opts), 
+%         % ok).
+%         __AppName = (AppId):config_name(),
+%         nksip_trace:insert(__AppName, CallId, {debug, Txt, Opts}),
+%         lager:debug([{app_id, __AppName}, {call_id, CallId}],
+%                      "~p (~s) "++Txt, [__AppName, CallId|Opts])).
 
--define(info(AppId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        lager:info([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
--define(info(AppId, CallId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        nksip_trace:insert(__AppName, CallId, {info, Txt, Opts}),
-        lager:info([{app_id, __AppName}, {call_id, CallId}],
-         "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+% -define(info(AppId, Txt, Opts), 
+%         __AppName = (AppId):config_name(),
+%         lager:info([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
+% -define(info(AppId, CallId, Txt, Opts), 
+%         __AppName = (AppId):config_name(),
+%         nksip_trace:insert(__AppName, CallId, {info, Txt, Opts}),
+%         lager:info([{app_id, __AppName}, {call_id, CallId}],
+%          "~p (~s) "++Txt, [__AppName, CallId|Opts])).
 
--define(notice(AppId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        lager:notice([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
--define(notice(AppId, CallId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        nksip_trace:insert(__AppName, CallId, {notice, Txt, Opts}),
-        lager:notice([{app_id, __AppName}, {call_id, CallId}],
-         "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+% -define(notice(AppId, Txt, Opts), 
+%         __AppName = (AppId):config_name(),
+%         lager:notice([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
+% -define(notice(AppId, CallId, Txt, Opts), 
+%         __AppName = (AppId):config_name(),
+%         nksip_trace:insert(__AppName, CallId, {notice, Txt, Opts}),
+%         lager:notice([{app_id, __AppName}, {call_id, CallId}],
+%          "~p (~s) "++Txt, [__AppName, CallId|Opts])).
 
--define(warning(AppId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        lager:warning([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
--define(warning(AppId, CallId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        nksip_trace:insert(__AppName, CallId, {warning, Txt, Opts}),
-        lager:warning([{app_id, __AppName}, {call_id, CallId}],
-            "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+% -define(
+%     warning(AppId, Txt, Opts), 
+%     case get(nksip_log_level) of
+%         undefined ->
+%             put(nksip_log_level, (AppId)::config_log_level()),
 
--define(error(AppId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        lager:error([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
--define(error(AppId, CallId, Txt, Opts), 
-        __AppName = (AppId):config_name(),
-        nksip_trace:insert(__AppName, CallId, {error, Txt, Opts}),
-        lager:error([{app_id, __AppName}, {call_id, CallId}],
-         "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+
+%         __LogLevel when __LogLevel >= 5 ->
+
+
+
+
+
+%         __AppName = (AppId):config_name(),
+%         lager:warning([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
+% -define(warning(AppId, CallId, Txt, Opts), 
+%         __AppName = (AppId):config_name(),
+%         nksip_trace:insert(__AppName, CallId, {warning, Txt, Opts}),
+%         lager:warning([{app_id, __AppName}, {call_id, CallId}],
+%             "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+
+% -define(error(AppId, Txt, Opts), 
+%         __AppName = (AppId):config_name(),
+%         lager:error([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
+% -define(error(AppId, CallId, Txt, Opts), 
+%         __AppName = (AppId):config_name(),
+%         nksip_trace:insert(__AppName, CallId, {error, Txt, Opts}),
+%         lager:error([{app_id, __AppName}, {call_id, CallId}],
+%          "~p (~s) "++Txt, [__AppName, CallId|Opts])).
 
 
 -include_lib("kernel/include/inet_sctp.hrl").

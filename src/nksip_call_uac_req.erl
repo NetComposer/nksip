@@ -64,10 +64,10 @@ request(Req, Opts, From, Call) ->
     case From of
         {fork, ForkId} ->
             ?call_debug("UAC ~p sending request ~p ~p (~s, fork: ~p)", 
-                        [Id, Method, Opts, MsgId, ForkId], Call);
+                        [Id, Method, Opts, MsgId, ForkId]);
         _ ->
             ?call_debug("UAC ~p sending request ~p ~p (~s)", 
-                        [Id, Method, Opts, MsgId], Call)
+                        [Id, Method, Opts, MsgId])
     end,
     send(UAC, Call1).
 
@@ -129,7 +129,7 @@ resend(Req, UAC, Call) ->
         from = From
     } = UAC,
     #sipmsg{vias=[_|Vias], cseq={_, CSeqMethod}} = Req,
-    ?call_info("UAC ~p ~p (~p) resending updated request", [Id, Method, Status], Call),
+    ?call_info("UAC ~p ~p (~p) resending updated request", [Id, Method, Status]),
     {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
     Req1 = Req#sipmsg{vias=Vias, cseq={CSeq, CSeqMethod}},
     % Contact would be already generated
@@ -149,7 +149,7 @@ send(#trans{method='ACK'}=UAC, Call) ->
         {ok, SentReq} ->
             sent_request(SentReq, UAC, Call);
         {error, Error} ->
-            ?call_debug("UAC ~p error sending 'ACK' request: ~p", [Id, Error], Call),
+            ?call_debug("UAC ~p error sending 'ACK' request: ~p", [Id, Error]),
             Call1 = nksip_call_uac_reply:reply({error, Error}, UAC, Call),
             UAC1 = UAC#trans{status=finished},
             update(UAC1, Call1)
@@ -171,8 +171,7 @@ send(UAC, Call) ->
                 ok ->
                     ok;
                 {error, DlgError} when OnlyUpdate ->
-                    ?call_debug("UAC ~p error updating dialog: ~p", 
-                                [Id, DlgError], Call),
+                    ?call_debug("UAC ~p error updating dialog: ~p", [Id, DlgError]),
                     ok;
                 {error, DlgError} ->
                     {error, DlgError}
@@ -189,12 +188,12 @@ send(UAC, Call) ->
                     sent_request(SentReq, UAC, Call);
                 {error, Error} ->
                     ?call_debug("UAC ~p error sending ~p request: ~p", 
-                            [Id, Method, Error], Call),
+                            [Id, Method, Error]),
                     Call1 = nksip_call_uac_reply:reply({error, Error}, UAC, Call),
                     update(UAC#trans{status=finished}, Call1)
             end;
         {error, Error} ->
-            ?call_info("UAC ~p dialog error: ~p", [Id, Error], Call),
+            ?call_info("UAC ~p dialog error: ~p", [Id, Error]),
             Call1 = nksip_call_uac_reply:reply({error, Error}, UAC, Call),
             update(UAC#trans{status=finished}, Call1)
     end.
@@ -206,7 +205,7 @@ send(UAC, Call) ->
 
 sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
     #trans{id=Id, opts=Opts} = UAC,
-    ?call_debug("UAC ~p sent 'ACK' request", [Id], Call),
+    ?call_debug("UAC ~p sent 'ACK' request", [Id]),
     Call1 = nksip_call_uac_reply:reply({req, Req}, UAC, Call),
     Call2 = case lists:member(no_dialog, Opts) of
         true -> Call1;
@@ -226,7 +225,7 @@ sent_request(Req, UAC, Call) ->
         transport = #transport{proto=Proto}
     } = Req,
     #trans{id=Id, opts=Opts, from=From} = UAC,
-    ?call_debug("UAC ~p sent ~p request", [Id, Method], Call),
+    ?call_debug("UAC ~p sent ~p request", [Id, Method]),
     UAC1 = UAC#trans{
         request = Req, 
         proto = Proto,

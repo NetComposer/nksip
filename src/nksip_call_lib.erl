@@ -60,7 +60,7 @@
     call().
 
 update_sipmsg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
-    ?call_debug("Updating sipmsg ~p", [MsgId], Call),
+    ?call_debug("Updating sipmsg ~p", [MsgId]),
     Msgs1 = lists:keyreplace(MsgId, #sipmsg.id, Msgs, Msg),
     Call#call{msgs=Msgs1}.
 
@@ -93,19 +93,18 @@ update(New, Call) ->
             case AppTimer of
                 undefined ->
                     ?call_debug("~s ~p ~p (~p) removed", 
-                                [CS, Id, Method, OldStatus], Call),
+                                [CS, Id, Method, OldStatus]),
                     Call#call{trans=Rest};
                 {Fun, _} ->
                     ?call_debug("~s ~p ~p (~p) is not removed because it is "
                                "waiting for ~p reply", 
-                               [CS, Id, Method, NewStatus, Fun], Call),
+                               [CS, Id, Method, NewStatus, Fun]),
                     Call#call{trans=[New|Rest]}
             end;
         _ when NewStatus==OldStatus -> 
             Call#call{trans=[New|Rest]};
         _ -> 
-            ?call_debug("~s ~p ~p ~p -> ~p", 
-                        [CS, Id, Method, OldStatus, NewStatus], Call),
+            ?call_debug("~s ~p ~p ~p -> ~p", [CS, Id, Method, OldStatus, NewStatus]),
             Call#call{trans=[New|Rest]}
     end,
     hibernate(New, Call1).
@@ -142,7 +141,7 @@ update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
                     Call;
                 false -> 
                     ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
-                                [DialogId, Proto, Ip, Port], Call),
+                                [DialogId, Proto, Ip, Port]),
                     Call#call{auths=[{DialogId, Proto, Ip, Port}|Auths]}
             end;
         _ ->
@@ -163,13 +162,13 @@ check_auth(#sipmsg{dialog_id=DialogId, transport=#transport{}=Transp}, Call) ->
     case lists:member({DialogId, Proto, Ip, Port}, Auths) of
         true ->
             ?call_debug("Origin ~p:~p:~p is in dialog ~s authorized list", 
-                        [Proto, Ip, Port, DialogId], Call),
+                        [Proto, Ip, Port, DialogId]),
             true;
         false ->
             AuthList = [{O, I, P} || {D, O, I, P}<-Auths, D==DialogId],
             ?call_debug("Origin ~p:~p:~p is NOT in dialog ~s "
                         "authorized list (~p)", 
-                        [Proto, Ip, Port, DialogId, AuthList], Call),
+                        [Proto, Ip, Port, DialogId, AuthList]),
             false
     end;
 
@@ -190,32 +189,32 @@ timeout_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.timeout_timer),
     Trans#trans{timeout_timer=undefined};
 
-timeout_timer(Tag, Trans, #call{app_id=AppId}) 
+timeout_timer(Tag, Trans, Call) 
             when Tag==timer_b; Tag==timer_f; Tag==timer_m;
                  Tag==timer_h; Tag==timer_j; Tag==timer_l;
                  Tag==noinvite; Tag==prack_timeout ->
     cancel_timer(Trans#trans.timeout_timer),
-    {T1, _, _, _, _} = AppId:config_timers(),
+    #call{timers={T1, _, _, _, _}} = Call,
     Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
 
 timeout_timer(timer_d, Trans, _) ->
     cancel_timer(Trans#trans.timeout_timer),
     Trans#trans{timeout_timer=start_timer(32000, timer_d, Trans)};
 
-timeout_timer(Tag, Trans, #call{app_id=AppId}) 
+timeout_timer(Tag, Trans, Call) 
                 when Tag==timer_k; Tag==timer_i ->
     cancel_timer(Trans#trans.timeout_timer),
-    {_, _, T4, _, _} = AppId:config_timers(),
+    #call{timers={_, _, T4, _, _}} = Call,
     Trans#trans{timeout_timer=start_timer(T4, Tag, Trans)};
 
-timeout_timer(timer_c, Trans, #call{app_id=AppId}) ->
+timeout_timer(timer_c, Trans, Call) ->
     cancel_timer(Trans#trans.timeout_timer),
-    {_, _, _, TC, _} = AppId:config_timers(),
+    #call{timers={_, _, _, TC, _}} = Call,
     Trans#trans{timeout_timer=start_timer(TC, timer_c, Trans)};
 
-timeout_timer(sipapp_call, Trans, #call{app_id=AppId}) ->
+timeout_timer(sipapp_call, Trans, Call) ->
     cancel_timer(Trans#trans.timeout_timer),
-    {_, _, _, _, Time} = AppId:config_timers(),
+    #call{timers={_, _, _, _, Time}} = Call,
     Trans#trans{timeout_timer=start_timer(Time, sipapp_call, Trans)}.
 
 
@@ -227,14 +226,14 @@ retrans_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.retrans_timer),
     Trans#trans{retrans_timer=undefined};
 
-retrans_timer(Tag, #trans{next_retrans=Next}=Trans, #call{app_id=AppId}) 
+retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call) 
               when Tag==timer_a; Tag==prack_retrans ->
     cancel_timer(Trans#trans.retrans_timer),
     Time = case is_integer(Next) of
         true -> 
             Next;
         false -> 
-            {T1, _, _, _, _} = AppId:config_timers(),
+            #call{timers={T1, _, _, _, _}} = Call,
             T1
     end,
     Trans#trans{
@@ -242,10 +241,10 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, #call{app_id=AppId})
         next_retrans = 2*Time
     };
 
-retrans_timer(Tag, #trans{next_retrans=Next}=Trans, #call{app_id=AppId}) 
+retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call) 
                 when Tag==timer_e; Tag==timer_g ->
     cancel_timer(Trans#trans.retrans_timer),
-    {T1, T2, _, _, _} = AppId:config_timers(),
+    #call{timers={T1, T2, _, _, _}} = Call,
     Time = case is_integer(Next) of
         true -> Next;
         false -> T1
@@ -264,15 +263,14 @@ expire_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.expire_timer),
     Trans#trans{expire_timer=undefined};
 
-expire_timer(expire, Trans, Call) ->
+expire_timer(expire, Trans, _Call) ->
     #trans{id=Id, class=Class, request=Req, opts=Opts} = Trans,
-    #call{app_id=AppId, call_id=CallId} = Call,
     cancel_timer(Trans#trans.expire_timer),
     Timer = case nksip_sipmsg:field(Req, parsed_expires) of
         Expires when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
                 true -> 
-                    ?debug(AppId, CallId, "UAC ~p skipping INVITE expire", [Id]),
+                    ?call_debug("UAC ~p skipping INVITE expire", [Id]),
                     undefined;
                 _ -> 
                     Time = case Class of 
@@ -295,9 +293,9 @@ callback_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.callback_timer),
     Trans#trans{callback_timer=undefined};
 
-callback_timer(Fun, Trans, #call{app_id=AppId}) ->
+callback_timer(Fun, Trans, Call) ->
     cancel_timer(Trans#trans.callback_timer),
-    {_, _, _, _, Time} = AppId:config_timers(),
+    #call{timers={_, _, _, _, Time}} = Call,
     Trans#trans{callback_timer=start_timer(Time, {callback, Fun}, Trans)}.
 
 

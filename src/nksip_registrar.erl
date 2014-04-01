@@ -91,7 +91,7 @@ find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
     case lists:member(<<"gr">>, Opts) of
         true -> 
             % It is probably a tmp GRUU
-            case catch decrypt(User, AppId:config_global_id()) of
+            case catch decrypt(User) of
                 Tmp when is_binary(Tmp) ->
                     {{Scheme1, User1, Domain1}, InstId, Pos} = binary_to_term(Tmp),
                     [
@@ -101,7 +101,8 @@ find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
                         InstId1==InstId, Pos>=Min
                     ];
                 _ ->
-                    ?notice(AppId, "Private GRUU not recognized: ~p", [User]),
+                    lager:notice("~p private GRUU not recognized: ~p", 
+                                [AppId:name(), User]),
                     find(AppId, Scheme, User, Domain)
             end;
         false ->
@@ -490,8 +491,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
                     Pub = list_to_binary([$", nksip_unparse:ruri(PubUri), $"]),
                     GOpts1 = nksip_lib:store_value(<<"pub-gruu">>, Pub, ExtOpts1),
                     TmpBin = term_to_binary({aor(To), InstId, Next}),
-                    #sipmsg{app_id=AppId} = Req,
-                    TmpGr = encrypt(TmpBin, AppId:config_global_id()),
+                    TmpGr = encrypt(TmpBin),
                     TmpUri = PubUri#uri{user=TmpGr, opts=[<<"gr">>]},
                     Tmp = list_to_binary([$", nksip_unparse:ruri(TmpUri), $"]),
                     nksip_lib:store_value(<<"temp-gruu">>, Tmp, GOpts1);
@@ -523,7 +523,7 @@ update_regcontacts([], _Req, _Times, _Path, _Opts, Acc) ->
 %% @private
 update_checks(Contact, Req) ->
     #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts} = Contact,
-    #sipmsg{app_id=AppId, to={To, _}} = Req,
+    #sipmsg{to={To, _}} = Req,
     case Domain of
         <<"*">> -> throw(invalid_request);
         _ -> ok
@@ -534,7 +534,7 @@ update_checks(Contact, Req) ->
     end,
     case lists:member(<<"gr">>, Opts) of
         true ->
-            case catch decrypt(User, AppId:config_global_id()) of
+            case catch decrypt(User) of
                 LoopTmp when is_binary(LoopTmp) ->
                     {{LScheme, LUser, LDomain}, _, _} = binary_to_term(LoopTmp),
                     case aor(To) of
@@ -662,14 +662,14 @@ callback(AppId, Op) ->
 
 
 %% @private
-encrypt(Bin, GlobalId) ->
-    <<Key:16/binary, _/binary>> = GlobalId,
+encrypt(Bin) ->
+    <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
     base64:encode(crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin)).
 
 
 %% @private
-decrypt(Bin, GlobalId) ->
-    <<Key:16/binary, _/binary>> = GlobalId,
+decrypt(Bin) ->
+    <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
     crypto:aes_cfb_128_decrypt(Key, ?AES_IV, base64:decode(Bin)).
 
 

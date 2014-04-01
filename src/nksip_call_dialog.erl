@@ -53,7 +53,7 @@ create(Class, Req, Resp, Call) ->
         transport = #transport{proto=Proto}
     } = Resp,
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
-    ?call_debug("Dialog ~s ~s created", [DialogId, UA], Call),
+    ?call_debug("Dialog ~s ~s created", [DialogId, UA]),
     nksip_counters:async([nksip_dialogs]),
     Now = nksip_lib:timestamp(),
     Dialog = #dialog{
@@ -155,7 +155,7 @@ update({invite, Status}, Dialog, Call) ->
             cast(dialog_update, {invite_status, Status}, Dialog, Call),
             Dialog#dialog{invite=Invite#invite{status=Status}}
     end,
-    ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status], Call),
+    ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status]),
     Dialog2 = if
         Status==proceeding_uac; Status==proceeding_uas; 
         Status==accepted_uac; Status==accepted_uas ->
@@ -219,12 +219,11 @@ target_update(Class, Req, Resp, Dialog, Call) ->
                 false -> RT
             end;
         [] ->
-            ?call_notice("Dialog ~s: no Contact in remote target",
-                         [DialogId], Call),
+            ?call_notice("Dialog ~s: no Contact in remote target", [DialogId]),
             RemoteTarget;
         RTOther -> 
             ?call_notice("Dialog ~s: invalid Contact in remote rarget: ~p",
-                         [DialogId, RTOther], Call),
+                         [DialogId, RTOther]),
             RemoteTarget
     end,
     LocalTarget1 = case LocalTargets of
@@ -402,8 +401,7 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
     Dialog#dialog{invite=Invite1};
 
 
-timer_update(Req, _Resp, _Class, Dialog, _Call) ->
-    #sipmsg{app_id=AppId} = Req,
+timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{
         status = Status,
@@ -412,7 +410,7 @@ timer_update(Req, _Resp, _Class, Dialog, _Call) ->
         timeout_timer = TimeoutTimer, 
         refresh_timer = RefreshTimer
     } = Invite,
-    {T1, _, _, _, _} = AppId:config_timers(),
+    #call{timers={T1, _, _, _, _}} = Call,
     cancel_timer(RetransTimer),
     {RetransTimer1, NextRetrans1} = case Status of
         accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
@@ -472,12 +470,12 @@ update_meta(Key, Value, DialogId, Call) ->
         #dialog{meta=DialogMeta1} = Dialog1 ->
             DialogMeta2 = nksip_lib:store_value(Key, Value, DialogMeta1),
             Dialog2 = Dialog1#dialog{meta=DialogMeta2},
-            ?call_debug("Meta {~p,~p} updated in dialog", [Key, Value], Call),
+            ?call_debug("Meta {~p,~p} updated in dialog", [Key, Value]),
             store(Dialog2, Call);
         not_found ->
             #call{meta=CallMeta1} = Call,
             CallMeta2 = nksip_lib:store_value(Key, Value, CallMeta1),
-            ?call_debug("Meta {~p,~p} updated in call", [Key, Value], Call),
+            ?call_debug("Meta {~p,~p} updated in call", [Key, Value]),
             Call#call{meta=CallMeta2}
     end.
 
@@ -487,15 +485,15 @@ update_meta(Key, Value, DialogId, Call) ->
             nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-timer(invite_retrans, #dialog{id=DialogId, app_id=AppId, invite=Invite}=Dialog, Call) ->
+timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of
         #invite{status=Status, response=Resp, next_retrans=Next} ->
             case Status of
                 accepted_uas ->
                     case nksip_transport_uas:resend_response(Resp, []) of
                         {ok, _} ->
-                            ?call_info("Dialog ~s resent response", [DialogId], Call),
-                            {_, T2, _, _, _} = AppId:config_timers(),
+                            ?call_info("Dialog ~s resent response", [DialogId]),
+                            #call{timers={_, T2, _, _, _}} = Call,
                             Invite1 = Invite#invite{
                                 retrans_timer = start_timer(Next, invite_retrans, DialogId),
                                 next_retrans = min(2*Next, T2)
@@ -503,17 +501,17 @@ timer(invite_retrans, #dialog{id=DialogId, app_id=AppId, invite=Invite}=Dialog, 
                             update(none, Dialog#dialog{invite=Invite1}, Call);
                         error ->
                             ?call_notice("Dialog ~s could not resend response", 
-                                         [DialogId], Call),
+                                         [DialogId]),
                             update({invite, {stop, ack_timeout}}, Dialog, Call)
                     end;
                 _ ->
                     ?call_notice("Dialog ~s retrans timer fired in ~p", 
-                                [DialogId, Status], Call),
+                                [DialogId, Status]),
                     Call
             end;
         _ ->
             ?call_notice("Dialog ~s retrans timer fired with no INVITE", 
-                         [DialogId], Call),
+                         [DialogId]),
             Call
     end;
 
@@ -525,13 +523,12 @@ timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
 timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of
         #invite{class=Class, status=Status} ->
-            ?call_notice("Dialog ~s (~p) timeout timer fired", 
-                         [DialogId, Status], Call),
+            ?call_notice("Dialog ~s (~p) timeout timer fired", [DialogId, Status]),
             case Class of
                 proxy ->
                     update({invite, {stop, timeout}}, Dialog, Call);
                 _ ->
-                    ?call_notice("Dialog ~s sending BYE on timeout", [DialogId], Call),
+                    ?call_notice("Dialog ~s sending BYE on timeout", [DialogId]),
                     case 
                         nksip_call:sync_send_dialog(DialogId, 'BYE', 
                             [async, {reason, {sip, 408, "Dialog Timeout"}}], Call) 
@@ -540,14 +537,12 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                             cast(dialog_update, invite_timeout, Dialog, Call),
                             Call1;
                         {error, Error} ->
-                            ?call_warning("Could not send timeout BYE: ~p", 
-                                          [Error], Call),
+                            ?call_warning("Could not send timeout BYE: ~p", [Error]),
                             update({invite, {stop, timeout}}, Dialog, Call)
                     end
             end;
         _ ->
-            ?call_notice("Dialog ~s unknown INVITE timeout timer", 
-                         [DialogId], Call),
+            ?call_notice("Dialog ~s unknown INVITE timeout timer", [DialogId]),
             Call
     end;
 
@@ -618,7 +613,7 @@ cast(Fun, Arg, Dialog, Call) ->
     #call{app_id=AppId} = Call,
     Args1 = [Dialog, Arg],
     Args2 = [DialogId, Arg],
-    ?call_debug("called dialog ~s ~p: ~p", [DialogId, Fun, Arg], Call),
+    ?call_debug("called dialog ~s ~p: ~p", [DialogId, Fun, Arg]),
     nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args1, Args2),
     ok.
 
