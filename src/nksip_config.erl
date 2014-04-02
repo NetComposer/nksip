@@ -251,7 +251,8 @@ init([]) ->
                 {local_ips, nksip_lib:get_local_ips()},
                 {main_ip, nksip_lib:find_main_ip()},
                 {main_ip6, nksip_lib:find_main_ip(auto, ipv6)},
-                {app_config, AppConfig2}
+                {app_config, AppConfig2},
+                {max_connections, nksip_lib:get_value(max_connections, AppConfig1)}
             ],
             lists:foreach(
                 fun({Key, Value}) -> nksip_config:put(Key, Value) end,
@@ -316,8 +317,8 @@ terminate(_Reason, _State) ->
 put_log_cache(AppId, CallId) ->
     erlang:put(nksip_log_level, AppId:config_log_level()),
     erlang:put(nksip_app_name, AppId:name()),
-    erlang:put(nksip_call_id, CallId).
-
+    erlang:put(nksip_call_id, CallId),
+    erlang:put(nksip_trace, AppId:config_trace()).
 
 %% @private
 parse_config_opts([], Opts) ->

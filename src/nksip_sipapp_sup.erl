@@ -29,13 +29,13 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(supervisor).
 
--export([start_link/3, init/1]).
+-export([start_link/2, init/1]).
 
 -include("nksip.hrl").
 
 
 %% @private
-start_link(AppName, AppId, Args) ->
+start_link(AppId, Args) ->
     {ok, SupPid} = supervisor:start_link(?MODULE, 
                             [{nksip_sipapp_sup, AppId}, {{one_for_one, 10, 60}, []}]),
     Childs = [
@@ -47,7 +47,7 @@ start_link(AppName, AppId, Args) ->
             [nksip_transport_sup]
         },
         {server,
-            {nksip_sipapp_srv, start_link, [AppName, AppId, Args]},
+            {nksip_sipapp_srv, start_link, [AppId, Args]},
             permanent,
             30000,
             worker,

@@ -24,8 +24,9 @@
 
 -include("nksip.hrl").
 
--export([field/3, fields/3, header/3]).
--export([body/2, code/2, dialog_id/2, call_id/1, get_response/2, wait_491/0]).
+% -export([field/3, fields/3, header/3]).
+% -export([body/2, code/2, dialog_id/2, call_id/1, get_response/2, wait_491/0]).
+-export([call_id/1, wait_491/0]).
 -export_type([field/0]).
 
 
@@ -68,62 +69,62 @@
 %%          <td>Reason Phrase</td>
 %%      </tr>
 %% </table>
--spec field(nksip:app_id(), nksip:id(), field()) ->
-    term() | error.
+% -spec field(nksip:app_id(), nksip:id(), field()) ->
+%     term() | error.
 
-field(AppId, RespId, Field) -> 
-    case fields(AppId, RespId, [Field]) of
-        [{_, Value}] -> Value;
-        error -> error
-    end.
-
-
-%% @doc Get some fields from a response.
--spec fields(nksip:app_id(), nksip:id(), [field()]) ->
-    [{atom(), term()}] | error.
-
-fields(AppId, <<"S_", _/binary>>=RespId, Fields) -> 
-    Fun = fun(Resp) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Resp, Fields))} end,
-    case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
+% field(AppId, RespId, Field) -> 
+%     case fields(AppId, RespId, [Field]) of
+%         [{_, Value}] -> Value;
+%         error -> error
+%     end.
 
 
-%% @doc Get header values from a response.
--spec header(nksip:app_id(), nksip:id(), binary()) ->
-    [binary()] | error.
+% %% @doc Get some fields from a response.
+% -spec fields(nksip:app_id(), nksip:id(), [field()]) ->
+%     [{atom(), term()}] | error.
 
-header(AppId, <<"S_", _/binary>>=RespId, Name) -> 
-    Fun = fun(Resp) -> {ok, nksip_sipmsg:header(Resp, Name)} end,
-    case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
-
-
-%% @doc Gets the <i>response code</i> of a response.
--spec code(nksip:app_id(), nksip:id()) ->
-    nksip:response_code() | error.
-
-code(AppId, RespId) -> 
-    field(AppId, RespId, code).
+% fields(AppId, <<"S_", _/binary>>=RespId, Fields) -> 
+%     Fun = fun(Resp) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Resp, Fields))} end,
+%     case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
+%         {ok, Values} -> Values;
+%         _ -> error
+%     end.
 
 
-%% @doc Gets the <i>body</i> of a response.
--spec body(nksip:app_id(), nksip:id()) ->
-    nksip:body() | error.
+% %% @doc Get header values from a response.
+% -spec header(nksip:app_id(), nksip:id(), binary()) ->
+%     [binary()] | error.
 
-body(AppId, RespId) -> 
-    field(AppId, RespId, body).
+% header(AppId, <<"S_", _/binary>>=RespId, Name) -> 
+%     Fun = fun(Resp) -> {ok, nksip_sipmsg:header(Resp, Name)} end,
+%     case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
+%         {ok, Values} -> Values;
+%         _ -> error
+%     end.
 
 
-%% @doc Gets the <i>dialog_id</i> of a request.
--spec dialog_id(nksip:app_id(), nksip:id()) ->
-    nksip_dialog:id() | error.
+% %% @doc Gets the <i>response code</i> of a response.
+% -spec code(nksip:app_id(), nksip:id()) ->
+%     nksip:response_code() | error.
 
-dialog_id(AppId, ReqId) -> 
-    field(AppId, ReqId, dialog_id).
+% code(AppId, RespId) -> 
+%     field(AppId, RespId, code).
+
+
+% %% @doc Gets the <i>body</i> of a response.
+% -spec body(nksip:app_id(), nksip:id()) ->
+%     nksip:body() | error.
+
+% body(AppId, RespId) -> 
+%     field(AppId, RespId, body).
+
+
+% %% @doc Gets the <i>dialog_id</i> of a request.
+% -spec dialog_id(nksip:app_id(), nksip:id()) ->
+%     nksip_dialog:id() | error.
+
+% dialog_id(AppId, ReqId) -> 
+%     field(AppId, ReqId, dialog_id).
 
 
 %% @doc Gets the calls's id of a response id
@@ -135,16 +136,16 @@ call_id(MsgId) ->
     CallId.
 
 
-%% @private
--spec get_response(nksip:app_id(), nksip:id()) ->
-    nksip:response() | error.
+% %% @private
+% -spec get_response(nksip:app_id(), nksip:id()) ->
+%     nksip:response() | error.
 
-get_response(AppId, <<"S_", _/binary>>=RespId) ->
-    Fun = fun(Resp) -> {ok, Resp} end,
-    case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
-        {ok, Resp} -> Resp;
-        _ -> error
-    end.
+% get_response(AppId, <<"S_", _/binary>>=RespId) ->
+%     Fun = fun(Resp) -> {ok, Resp} end,
+%     case nksip_call_router:apply_sipmsg(AppId, RespId, Fun) of
+%         {ok, Resp} -> Resp;
+%         _ -> error
+%     end.
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after

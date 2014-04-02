@@ -329,10 +329,10 @@ handle_cast(_, _) ->
 
 
 %% @private
-handle_info({'DOWN', Mon, process, _Pid, _}, #state{regs=Regs}=State) ->
+handle_info({'DOWN', Mon, process, _Pid, _}, #state{app_id=AppId, regs=Regs}=State) ->
     case lists:keyfind(Mon, #sipreg.conn_monitor, Regs) of
-        #sipreg{id=RegId, cseq=CSeq} ->
-            ?call_info("register outbound flow ~p has failed", [RegId]),
+        #sipreg{id=RegId, cseq=CSeq, call_id=CallId} ->
+            ?info(AppId, CallId, "register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
             gen_server:cast(self(), {'$nksip_register_answer', RegId, 503, Meta});
         false ->
@@ -460,7 +460,8 @@ launch_unregister(AppId, Reg)->
     #sipreg{}.
 
 update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 ->
-    #sipreg{id=RegId, conn_monitor=Monitor, interval=Interval, from=From} = Reg,
+    #sipreg{id=RegId, conn_monitor=Monitor, interval=Interval, 
+            from=From, call_id=CallId} = Reg,
     case From of
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, true})
@@ -494,7 +495,8 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
                             Mon = erlang:monitor(process, Pid),
                             Reg1#sipreg{conn_monitor=Mon, conn_pid=Pid};
                         error -> 
-                            ?call_notice("could not start outbound keep-alive", []),
+                            ?notice(AppId, CallId, 
+                                    "could not start outbound keep-alive", []),
                             Reg1
                     end;
                 [] -> 
@@ -505,7 +507,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
     end;
 
 update_register(Reg, Code, Meta, State) ->
-    #sipreg{conn_monitor=Monitor, fails=Fails, from=From} = Reg,
+    #sipreg{conn_monitor=Monitor, fails=Fails, from=From, call_id=CallId} = Reg,
     #state{app_id=AppId, ob_base_time=BaseTime} = State,
     case From of
         undefined -> ok;
@@ -528,7 +530,7 @@ update_register(Reg, Code, Meta, State) ->
         _ -> 
             0
     end,
-    ?call_notice("Outbound registration failed "
+    ?notice(AppId, CallId, "Outbound registration failed "
                  "Basetime: ~p, fails: ~p, upper: ~p, time: ~p",
                  [BaseTime, Fails+1, Upper, Elap]),
     Reg#sipreg{
@@ -545,7 +547,7 @@ update_register(Reg, Code, Meta, State) ->
 update_basetime(#state{app_id=AppId, regs=Regs}=State) ->
     Key = case [true || #sipreg{fails=0} <- Regs] of
         [] -> 
-            ?call_notice("All outbound flows have failed", []),
+            ?notice(AppId, <<>>, "all outbound flows have failed", []),
             outbound_time_all_fail;
         _ -> 
             outbound_time_any_ok

@@ -57,7 +57,7 @@ torture3_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    ok = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {transports, [{udp, all, 5060}]},
         registrar,
         no_100

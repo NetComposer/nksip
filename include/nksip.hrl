@@ -48,64 +48,43 @@
 -define(MAX_DIALOG_TIME, 30*60).
 
 
-% -define(debug(AppId, Txt, Opts), 
-%         % ok).
-%         __AppName = (AppId):config_name(),
-%         lager:debug([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
-% -define(debug(AppId, CallId, Txt, Opts), 
-%         % ok).
-%         __AppName = (AppId):config_name(),
-%         nksip_trace:insert(__AppName, CallId, {debug, Txt, Opts}),
-%         lager:debug([{app_id, __AppName}, {call_id, CallId}],
-%                      "~p (~s) "++Txt, [__AppName, CallId|Opts])).
-
-% -define(info(AppId, Txt, Opts), 
-%         __AppName = (AppId):config_name(),
-%         lager:info([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
-% -define(info(AppId, CallId, Txt, Opts), 
-%         __AppName = (AppId):config_name(),
-%         nksip_trace:insert(__AppName, CallId, {info, Txt, Opts}),
-%         lager:info([{app_id, __AppName}, {call_id, CallId}],
-%          "~p (~s) "++Txt, [__AppName, CallId|Opts])).
-
-% -define(notice(AppId, Txt, Opts), 
-%         __AppName = (AppId):config_name(),
-%         lager:notice([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
-% -define(notice(AppId, CallId, Txt, Opts), 
-%         __AppName = (AppId):config_name(),
-%         nksip_trace:insert(__AppName, CallId, {notice, Txt, Opts}),
-%         lager:notice([{app_id, __AppName}, {call_id, CallId}],
-%          "~p (~s) "++Txt, [__AppName, CallId|Opts])).
-
-% -define(
-%     warning(AppId, Txt, Opts), 
-%     case get(nksip_log_level) of
-%         undefined ->
-%             put(nksip_log_level, (AppId)::config_log_level()),
 
 
-%         __LogLevel when __LogLevel >= 5 ->
+-define(DO_LOG(Level, App, CallId, Text, Opts),
+    lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])).
 
 
 
+-define(debug(AppId, CallId, Text, List), 
+    case AppId:config_log_level() >= 8 of
+        true -> ?DO_LOG(debug, AppId:name(), CallId, Text, List);
+        false -> ok
+    end).
 
+-define(info(AppId, CallId, Text, List), 
+    case AppId:config_log_level() >= 7 of
+        true -> ?DO_LOG(info, AppId:name(), CallId, Text, List);
+        false -> ok
+    end).
 
-%         __AppName = (AppId):config_name(),
-%         lager:warning([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
-% -define(warning(AppId, CallId, Txt, Opts), 
-%         __AppName = (AppId):config_name(),
-%         nksip_trace:insert(__AppName, CallId, {warning, Txt, Opts}),
-%         lager:warning([{app_id, __AppName}, {call_id, CallId}],
-%             "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+-define(notice(AppId, CallId, Text, List), 
+    case AppId:config_log_level() >= 6 of
+        true -> ?DO_LOG(notice, AppId:name(), CallId, Text, List);
+        false -> ok
+    end).
 
-% -define(error(AppId, Txt, Opts), 
-%         __AppName = (AppId):config_name(),
-%         lager:error([{app_id, __AppName}], "~p "++Txt, [__AppName|Opts])).
-% -define(error(AppId, CallId, Txt, Opts), 
-%         __AppName = (AppId):config_name(),
-%         nksip_trace:insert(__AppName, CallId, {error, Txt, Opts}),
-%         lager:error([{app_id, __AppName}, {call_id, CallId}],
-%          "~p (~s) "++Txt, [__AppName, CallId|Opts])).
+-define(warning(AppId, CallId, Text, List), 
+    case AppId:config_log_level() >= 5 of
+        true -> ?DO_LOG(warning, AppId:name(), CallId, Text, List);
+        false -> ok
+    end).
+
+-define(error(AppId, CallId, Text, List), 
+    case AppId:config_log_level() >= 4 of
+        true -> ?DO_LOG(error, AppId:name(), CallId, Text, List);
+        false -> ok
+    end).
+
 
 
 -include_lib("kernel/include/inet_sctp.hrl").

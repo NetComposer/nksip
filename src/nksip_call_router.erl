@@ -41,7 +41,7 @@
 -include("nksip_call.hrl").
 
 % -define(SYNC_TIMEOUT, 45000).
--define(SYNC_TIMEOUT, 5000).
+-define(SYNC_TIMEOUT, 10000).
 
 
 %% TODO: If there are several pending messages and the process stops,
@@ -67,10 +67,10 @@ incoming_async(#sipmsg{call_id=CallId}=SipMsg) ->
 
 
 %% @doc Called when a new request or response has been received.
-incoming_sync(#sipmsg{call_id=CallId}=SipMsg) ->
+incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
     case catch gen_server:call(name(CallId), {incoming, SipMsg}, ?SYNC_TIMEOUT) of
         {'EXIT', Error} -> 
-            ?call_warning("Error calling incoming_sync: ~p", [Error]),
+            ?warning(AppId, CallId, "error calling incoming_sync: ~p", [Error]),
             {error, timeout};
         Result -> 
             Result
@@ -262,8 +262,7 @@ handle_call({send_work_sync, AppId, CallId, Work, Caller}, From, SD) ->
         {ok, SD1} -> 
             {noreply, SD1};
         {error, Error} ->
-            lager:error("~p (~s) error sending work ~p: ~p", 
-                        [AppId:name(), CallId, Work, Error]),
+            ?error(AppId, CallId, "error sending work ~p: ~p", [Work, Error]),
             {reply, {error, Error}, SD}
     end;
 
@@ -273,8 +272,7 @@ handle_call({incoming, SipMsg}, _From, SD) ->
         {ok, SD1} -> 
             {reply, ok, SD1};
         {error, Error} ->
-            lager:error("~p (~s) error processing incoming message: ~p", 
-                       [AppId:name(), CallId, Error]),
+            ?error(AppId, CallId, "error processing incoming message: ~p", [Error]),
             {reply, {error, Error}, SD}
     end;
 
@@ -296,8 +294,7 @@ handle_cast({incoming, SipMsg}, SD) ->
         {ok, SD1} -> 
             {noreply, SD1};
         {error, Error} ->
-            lager:error("~p (~s) error processing incoming message: ~p", 
-                       [AppId:name(), CallId, Error]),
+            ?error(AppId, CallId, "error processing incoming message: ~p", [Error]),
             {noreply, SD}
     end;
 
@@ -316,10 +313,11 @@ handle_info({sync_work_ok, Ref}, #state{pending=Pending}=SD) ->
     {noreply, SD#state{pending=Pending1}};
 
 handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
-    #state{pos=_Pos, name=Name, pending=Pending} = SD,
+    #state{pos=Pos, name=Name, pending=Pending} = SD,
     case ets:lookup(Name, Pid) of
         [{Pid, Id}] ->
-            % lager:debug("router ~p unregistering call", [Pos]),
+            {_, AppId0, CallId0} = Id,
+            ?debug(AppId0, CallId0, "router ~p unregistering call", [Pos]),
             ets:delete(Name, Pid), 
             ets:delete(Name, Id);
         [] ->
@@ -336,8 +334,8 @@ handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
             SD1 = SD#state{pending=Pending1},
             case send_work_sync(AppId, CallId, Work, none, From, SD1) of
                 {ok, SD2} -> 
-                    lager:debug("~p (~s) Resending work ~p from ~p", 
-                               [AppId:name(), CallId, work_id(Work), From]),
+                    ?debug(AppId, CallId, "resending work ~p from ~p", 
+                           [work_id(Work), From]),
                     {noreply, SD2};
                 {error, Error} ->
                     case From of
@@ -385,8 +383,8 @@ send_work_sync(AppId, CallId, Work) ->
     WorkSpec = {send_work_sync, AppId, CallId, Work, self()},
     case catch gen_server:call(name(CallId), WorkSpec, ?SYNC_TIMEOUT) of
         {'EXIT', Error} ->
-            lager:warning("~p (~s) Error calling send_work_sync (~p): ~p",
-                         [AppId:name(), CallId, work_id(Work), Error]),
+            ?warning(AppId, CallId, "error calling send_work_sync (~p): ~p",
+                     [work_id(Work), Error]),
             {error, timeout};
         Other ->
             Other
@@ -469,8 +467,8 @@ send_work_async(Name, AppId, CallId, Work) ->
         {ok, Pid} -> 
             nksip_call_srv:async_work(Pid, Work);
         not_found -> 
-            lager:info("~p (~s) Trying to send work ~p to deleted call", 
-                       [AppId:name(), CallId, work_id(Work)])
+            ?info(AppId, CallId, "trying to send work ~p to deleted call", 
+                  [work_id(Work)])
    end.
 
 

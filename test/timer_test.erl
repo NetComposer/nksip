@@ -40,21 +40,21 @@ timer_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    ok = nksip:start(p1, ?MODULE, p1, [
+    {ok, _} = nksip:start(p1, ?MODULE, p1, [
         {local_host, "localhost"},
         no_100,
         {transports, [{udp, all, 5060}]},
         {min_session_expires, 2}
     ]),
 
-    ok = nksip:start(p2, ?MODULE, p2, [
+    {ok, _} = nksip:start(p2, ?MODULE, p2, [
         {local_host, "localhost"},
         no_100,
         {transports, [{udp, all, 5070}]},
         {min_session_expires, 3}
     ]),
 
-    ok = nksip:start(ua1, ?MODULE, ua1, [
+    {ok, _} = nksip:start(ua1, ?MODULE, ua1, [
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         no_100,
@@ -62,14 +62,14 @@ start() ->
         {min_session_expires, 1}
     ]),
 
-    ok = nksip:start(ua2, ?MODULE, ua2, [
+    {ok, _} = nksip:start(ua2, ?MODULE, ua2, [
         {local_host, "127.0.0.1"},
         no_100,
         {transports, [{udp, all, 5072}]},
         {min_session_expires, 2}
     ]),
     
-    ok = nksip:start(ua3, ?MODULE, ua3, [
+    {ok, _} = nksip:start(ua3, ?MODULE, ua3, [
         {local_host, "127.0.0.1"},
         no_100,
         {supported, ""},

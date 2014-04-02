@@ -40,35 +40,35 @@ path_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    ok = nksip:start(p1, ?MODULE, p1, [
+    {ok, _} = nksip:start(p1, ?MODULE, p1, [
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
-    ok = nksip:start(p2, ?MODULE, p2, [
+    {ok, _} = nksip:start(p2, ?MODULE, p2, [
         {local_host, "localhost"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    ok = nksip:start(p3, ?MODULE, p3, [
+    {ok, _} = nksip:start(p3, ?MODULE, p3, [
         {local_host, "localhost"},
         {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
 
-    ok = nksip:start(registrar, ?MODULE, registrar, [
+    {ok, _} = nksip:start(registrar, ?MODULE, registrar, [
         registrar,
         {local_host, "localhost"},
         {transports, [{udp, all, 5090}, {tls, all, 5091}]}
     ]),
 
-    ok = nksip:start(ua1, ?MODULE, ua1, [
+    {ok, _} = nksip:start(ua1, ?MODULE, ua1, [
         {from, "sip:ua1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 0}, {tls, all, 0}]}
     ]),
 
-    ok = nksip:start(ua2, ?MODULE, ua2, [
+    {ok, _} = nksip:start(ua2, ?MODULE, ua2, [
         {route, "<sip:127.0.0.1:5090;lr>"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, any}, {tls, all, any}]}

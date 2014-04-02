@@ -296,12 +296,13 @@
 %% NkSIP has an automatic remote <i>pinging</i> feature that can be activated 
 %% on any SipApp (see {@link nksip_sipapp_auto:start_ping/5}).
 %%
--spec options(nksip:app_id(), nksip:user_uri()|dialog_spec(), [opt()|dialog_opt()]) ->
+-spec options(term()|nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+             [opt()|dialog_opt()]) ->
     result() | {error, error()}.
 
-options(AppId, Dest, Opts) ->
+options(App, Dest, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send_any(AppId, 'OPTIONS', Dest, Opts1).
+    send_any(App, 'OPTIONS', Dest, Opts1).
 
 
 %% @doc Sends a REGISTER request.
@@ -355,11 +356,11 @@ options(AppId, Dest, Opts) ->
 %%
 %% NkSIP offers also an automatic SipApp registration facility 
 %% (see {@link nksip:start/4}).
--spec register(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+-spec register(term()|nksip:app_id(), nksip:user_uri()|dialog_spec(), 
                [opt()|dialog_opt()|register_opt()]) ->
     result() | {error, error()}.
 
-register(AppId, Dest, Opts) ->
+register(App, Dest, Opts) ->
     Opts1 = case lists:member(unregister_all, Opts) of
         true ->
             [{contact, <<"*">>}, {expires, 0}| Opts -- [unregister_all]];
@@ -370,7 +371,7 @@ register(AppId, Dest, Opts) ->
             end
     end,
     Opts2 = [to_as_from, supported, allow, allow_event | Opts1],
-    send_any(AppId, 'REGISTER', Dest, Opts2).
+    send_any(App, 'REGISTER', Dest, Opts2).
 
 
 %% @doc Sends an INVITE request.
@@ -456,13 +457,13 @@ register(AppId, Dest, Opts) ->
 %% The first returned value is allways {dialog_id, DialogId}, even if the
 %% `fields' option is not used.
 
--spec invite(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+-spec invite(term()|nksip:app_id(), nksip:user_uri()|dialog_spec(), 
              [opt()|dialog_opt()|invite_opt()]) ->
     result() | {error, error()}.
 
-invite(AppId, Dest, Opts) ->
+invite(App, Dest, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send_any(AppId, 'INVITE', Dest, Opts1).
+    send_any(App, 'INVITE', Dest, Opts1).
 
 
 
@@ -483,11 +484,11 @@ invite(AppId, Dest, Opts) ->
 %% `{error, Error}' if an error is detected. For async requests, it will return 
 %% `async'. If a callback is defined, it will be called as `ok' or `{error, Error}'.    
 %%
--spec ack(nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
+-spec ack(term()|nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
     ack_result() | {error, error()}.
 
-ack(AppId, DialogSpec, Opts) ->
-    send_dialog(AppId, 'ACK', DialogSpec, Opts).
+ack(App, DialogSpec, Opts) ->
+    send_dialog(App, 'ACK', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>BYE</i> for a current dialog, terminating the session.
@@ -498,11 +499,11 @@ ack(AppId, DialogSpec, Opts) ->
 %%
 %% Valid options are defined in {@link dialog_opt()}.
 %%
--spec bye(nksip:app_id(), dialog_spec(), [dialog_opt()]) -> 
+-spec bye(term()|nksip:app_id(), dialog_spec(), [dialog_opt()]) -> 
     result() | {error, error()}.
 
-bye(AppId, DialogSpec, Opts) ->
-    send_dialog(AppId, 'BYE', DialogSpec, Opts).
+bye(App, DialogSpec, Opts) ->
+    send_dialog(App, 'BYE', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>INFO</i> for a current dialog.
@@ -513,11 +514,11 @@ bye(AppId, DialogSpec, Opts) ->
 %%
 %% Valid options are defined in {@link dialog_opt()}.
 %%
--spec info(nksip:app_id(), dialog_spec(), [dialog_opt()]) -> 
+-spec info(term()|nksip:app_id(), dialog_spec(), [dialog_opt()]) -> 
     result() | {error, error()}.
 
-info(AppId, DialogSpec, Opts) ->
-    send_dialog(AppId, 'INFO', DialogSpec, Opts).
+info(App, DialogSpec, Opts) ->
+    send_dialog(App, 'INFO', DialogSpec, Opts).
 
 
 %% @doc Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.
@@ -532,11 +533,14 @@ info(AppId, DialogSpec, Opts) ->
 %% This call is always asychronous. It returns a soon as the request is
 %% received and the cancelling INVITE is found.
 %%
--spec cancel(nksip:app_id(), nksip:id()) ->
+-spec cancel(term()|nksip:app_id(), nksip:id()) ->
     ok | {error, cancel_error()}.
 
-cancel(AppId, ReqId) ->
-    nksip_call:cancel(AppId, ReqId).
+cancel(App, ReqId) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> nksip_call:cancel(AppId, ReqId);
+        _ -> {error, sipapp_not_found}
+    end.
 
 
 %% @doc Sends a UPDATE on a currently ongoing dialog.
@@ -548,12 +552,12 @@ cancel(AppId, ReqId) ->
 %%
 %% Valid options are defined in {@link dialog_opt()}.
 %%
--spec update(nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
+-spec update(term()|nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
     result() | {error, error()}.
 
-update(AppId, DialogSpec, Opts) ->
+update(App, DialogSpec, Opts) ->
     Opts1 = [supported, accept, allow | Opts],
-    send_dialog(AppId, 'UPDATE', DialogSpec, Opts1).
+    send_dialog(App, 'UPDATE', DialogSpec, Opts1).
 
 
 %% @doc Sends a update on a currently ongoing dialog using INVITE.
@@ -569,13 +573,13 @@ update(AppId, DialogSpec, Opts) ->
 %%  <li>`hold': activate the medias on SDP (sending `a=sendonly')</li>
 %% </ul>
 %%
--spec refresh(nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
+-spec refresh(term()|nksip:app_id(), dialog_spec(), [dialog_opt()]) ->
     result() | {error, error()}.
 
-refresh(AppId, DialogSpec, Opts) ->
+refresh(App, DialogSpec, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
         undefined ->
-            case nksip_dialog:field(AppId, DialogSpec, invite_local_sdp) of
+            case nksip_dialog:field(App, DialogSpec, invite_local_sdp) of
                 #sdp{} = SDP -> SDP;
                 _ -> <<>>
             end;
@@ -602,7 +606,7 @@ refresh(AppId, DialogSpec, Opts) ->
         _ -> Body1
     end,
     Opts2 = nksip_lib:delete(Opts, [body, active, inactive, hold]),
-    invite(AppId, DialogSpec, [{body, Body2}|Opts2]).
+    invite(App, DialogSpec, [{body, Body2}|Opts2]).
 
 
 %% @doc Sends an SUBSCRIBE request.
@@ -655,14 +659,14 @@ refresh(AppId, DialogSpec, Opts) ->
 %% When half the time before expire has been completed, NkSIP will call callback
 %% {@link nksip_sipapp:dialog_update/3} as 
 %% `{subscription_state, SubscriptionId, middle_timer}'.
--spec subscribe(nksip:app_id(), nksip:user_uri()|dialog_spec()|subscription_spec(),
+-spec subscribe(term()|nksip:app_id(), nksip:user_uri()|dialog_spec()|subscription_spec(),
              [opt()|dialog_opt()|subscribe_opt()]) ->
     result() | {error, error()}.
 
-subscribe(AppId, Dest, Opts) ->
+subscribe(App, Dest, Opts) ->
     % event and expires options are detected later
     Opts1 = [supported, allow, allow_event | Opts],
-    send_any(AppId, 'SUBSCRIBE', Dest, Opts1).
+    send_any(App, 'SUBSCRIBE', Dest, Opts1).
 
 
 %% @doc Sends an <i>NOTIFY</i> for a current server subscription.
@@ -711,10 +715,10 @@ subscribe(AppId, Dest, Opts) ->
 %% </ul> 
 %%
 
--spec notify(nksip:app_id(), subscription_spec(), [dialog_opt()|notify_opt()]) -> 
+-spec notify(term()|nksip:app_id(), subscription_spec(), [dialog_opt()|notify_opt()]) -> 
     result() | {error, error()} |  {error, invalid_state}.
 
-notify(AppId, Dest, Opts) ->
+notify(App, Dest, Opts) ->
     SS = case nksip_lib:get_value(state, Opts, active) of
         active ->
             {active, undefined};
@@ -737,7 +741,7 @@ notify(AppId, Dest, Opts) ->
             {error, invalid_state};
         _ -> 
             Opts1 = nksip_lib:delete(Opts, state),
-            send_dialog(AppId, 'NOTIFY', Dest, [{subscription_state, SS}|Opts1])
+            send_dialog(App, 'NOTIFY', Dest, [{subscription_state, SS}|Opts1])
     end.
 
 
@@ -762,16 +766,16 @@ notify(AppId, Dest, Opts) ->
 %% </table>
 %%
 
--spec message(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+-spec message(term()|nksip:app_id(), nksip:user_uri()|dialog_spec(), 
              [opt()|dialog_opt()|message_opt()]) ->
     result() | {error, error()}.
 
-message(AppId, Dest, Opts) ->
+message(App, Dest, Opts) ->
     Opts1 = case lists:keymember(expires, 1, Opts) of
         true -> [date|Opts];
         _ -> Opts
     end,
-    send_any(AppId, 'MESSAGE', Dest, Opts1).
+    send_any(App, 'MESSAGE', Dest, Opts1).
 
 
 %% @doc Sends an <i>REFER</i> for a remote party
@@ -807,16 +811,16 @@ message(AppId, Dest, Opts) ->
 %% </table>
 %%
 
--spec refer(nksip:app_id(), nksip:user_uri(), [opt()|refer_opt()]) -> 
+-spec refer(term()|nksip:app_id(), nksip:user_uri(), [opt()|refer_opt()]) -> 
     result() | {error, error()} |  {error, invalid_refer_to}.
 
-refer(AppId, Dest, Opts) ->
+refer(App, Dest, Opts) ->
     case nksip_lib:get_binary(refer_to, Opts) of
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
             Opts1 = [{insert, "refer-to", ReferTo} | nksip_lib:delete(Opts, refer_to)],
-            send_any(AppId, 'REFER', Dest, Opts1)
+            send_any(App, 'REFER', Dest, Opts1)
     end.
 
 
@@ -865,18 +869,18 @@ refer(AppId, Dest, Opts) ->
 %%      </tr>
 %% </table>
 %%
--spec publish(nksip:app_id(), nksip:user_uri()|dialog_spec(), 
+-spec publish(term()|nksip:app_id(), nksip:user_uri()|dialog_spec(), 
              [opt()|dialog_opt()|publish_opt()]) ->
     result() | {error, error()}.
 
-publish(AppId, Dest, Opts) ->
+publish(App, Dest, Opts) ->
     % event and expires options are detected later
     Opts1 = case nksip_lib:get_binary(sip_etag, Opts) of
         <<>> -> Opts;
         ETag -> [{insert, "sip-if-match", ETag}|Opts]
     end,
     Opts2 = [supported, allow, allow_event | Opts1],
-    send_any(AppId, 'PUBLISH', Dest, Opts2).
+    send_any(App, 'PUBLISH', Dest, Opts2).
 
 
 %% @doc Sends a request constructed from a SIP-Uri
@@ -885,11 +889,11 @@ publish(AppId, Dest, Opts) ->
 %% Common options in {@link opt()} are supported.
 %%
 
--spec request(nksip:app_id(), nksip:user_uri(), [opt()]) -> 
+-spec request(term()|nksip:app_id(), nksip:user_uri(), [opt()]) -> 
     result() | {error, error()}.
 
-request(AppId, Dest, Opts) ->
-    send_any(AppId, undefined, Dest, Opts).
+request(App, Dest, Opts) ->
+    send_any(App, undefined, Dest, Opts).
 
 
 
@@ -901,33 +905,38 @@ request(AppId, Dest, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec stun(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),
          Error :: unknown_core | invalid_uri | no_host | service_unavailable.
 
-stun(AppId, UriSpec, _Opts) ->
-    case nksip_transport:get_listening(AppId, udp, ipv4) of
-        [] -> 
-            {error, unknown_core};
-        [{#transport{listen_ip=LIp, listen_port=LPort}, Pid}|_] ->
-            case nksip_parse:uris(UriSpec) of
-                [Uri] ->
-                    Transp = nksip_dns:resolve(Uri),
-                    case nksip_lib:extract(Transp, udp) of
-                        [{udp, Ip, Port, _}|_] -> 
-                            case nksip_transport_udp:send_stun_sync(Pid, Ip, Port) of
-                                {ok, SIp, SPort} ->
-                                    {ok, {LIp, LPort}, {SIp, SPort}};
-                                error ->
-                                    {error, service_unavailable}
+stun(App, UriSpec, _Opts) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            case nksip_transport:get_listening(AppId, udp, ipv4) of
+                [] -> 
+                    {error, no_udp_transport};
+                [{#transport{listen_ip=LIp, listen_port=LPort}, Pid}|_] ->
+                    case nksip_parse:uris(UriSpec) of
+                        [Uri] ->
+                            Transp = nksip_dns:resolve(Uri),
+                            case nksip_lib:extract(Transp, udp) of
+                                [{udp, Ip, Port, _}|_] -> 
+                                    case nksip_transport_udp:send_stun_sync(Pid, Ip, Port) of
+                                        {ok, SIp, SPort} ->
+                                            {ok, {LIp, LPort}, {SIp, SPort}};
+                                        error ->
+                                            {error, service_unavailable}
+                                    end;
+                                _ ->
+                                    {error, no_host}
                             end;
                         _ ->
-                            {error, no_host}
-                    end;
-                _ ->
-                    {error, invalid_uri}
-            end
+                            {error, invalid_uri}
+                    end
+            end;
+        not_found ->
+            {error, unkown_sipapp}
     end.
 

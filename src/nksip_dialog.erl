@@ -197,11 +197,11 @@
 %%          <td>Lists all active subscriptions</td>
 %%      </tr>
 %% </table>
--spec field(nksip:app_id(), spec(), field()) -> 
+-spec field(term()|nksip:app_id(), spec(), field()) -> 
     term() | error.
 
-field(AppId, DialogSpec, Field) -> 
-    case fields(AppId, DialogSpec, [Field]) of
+field(App, DialogSpec, Field) -> 
+    case fields(App, DialogSpec, [Field]) of
         [{_, Value}] -> Value;
         error -> error
     end.
@@ -264,21 +264,26 @@ field(D, Field) ->
 
 
 %% @doc Gets a number of fields from the `Request' as described in {@link field/2}.
--spec fields(nksip:app_id(), spec(), [field()]) -> 
+-spec fields(term()|nksip:app_id(), spec(), [field()]) -> 
     [{atom(), term()}] | error.
     
-fields(AppId, DialogSpec, Fields) when is_list(Fields) ->
+fields(App, DialogSpec, Fields) when is_list(Fields) ->
     Fun = fun(Dialog) -> 
         {ok, [{Field, field(Dialog, Field)} || Field <- Fields]}
     end,
-    case id(AppId, DialogSpec) of
-        <<>> ->
-            error;
-        DialogId ->
-            case nksip_call_router:apply_dialog(AppId, DialogId, Fun) of
-                {ok, Values} -> Values;
-                _ -> error
-            end
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            case id(AppId, DialogSpec) of
+                <<>> ->
+                    error;
+                DialogId ->
+                    case nksip_call_router:apply_dialog(AppId, DialogId, Fun) of
+                        {ok, Values} -> Values;
+                        _ -> error
+                    end
+            end;
+        _ ->
+            error
     end.
 
 
@@ -336,19 +341,24 @@ call_id(<<"D_", Rest/binary>>) ->
 
 
 %% @doc Gets a full dialog record.
--spec get_dialog(nksip:app_id(), spec()) ->
+-spec get_dialog(term()|nksip:app_id(), spec()) ->
     nksip:dialog() | error.
 
-get_dialog(AppId, DialogSpec) ->
-    Fun = fun(Dialog) -> {ok, Dialog} end,
-    case id(AppId, DialogSpec) of
-        <<>> ->
-            error;
-        DialogId ->
-            case nksip_call_router:apply_dialog(AppId, DialogId, Fun) of
-                {ok, Dialog} -> Dialog;
-                _ -> error
-            end
+get_dialog(App, DialogSpec) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            Fun = fun(Dialog) -> {ok, Dialog} end,
+            case id(AppId, DialogSpec) of
+                <<>> ->
+                    error;
+                DialogId ->
+                    case nksip_call_router:apply_dialog(AppId, DialogId, Fun) of
+                        {ok, Dialog} -> Dialog;
+                        _ -> error
+                    end
+            end;
+        _ ->
+            error
     end.
 
 
@@ -364,8 +374,13 @@ get_all() ->
 -spec get_all(nksip:app_id(), nksip:call_id()) ->
     [id()].
 
-get_all(AppId, CallId) ->
-    [DlgId || {_, DlgId} <- nksip_call_router:get_all_dialogs(AppId, CallId)].
+get_all(App, CallId) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            [DlgId || {_, DlgId} <- nksip_call_router:get_all_dialogs(AppId, CallId)];
+        _ ->
+            []
+    end.
 
 
 %% @doc Sends an in-dialog BYE to all existing dialogs.

@@ -35,11 +35,12 @@
 
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
--export([store_msgs/1, insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
+-export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
 -export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
          handle_cast/2, handle_info/2]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 
@@ -157,24 +158,34 @@ print(Header, #sipmsg{}=SipMsg) ->
              nksip_transport:transport(), binary()) ->
     ok.
 
-sipmsg(AppId, CallId, Header, Transport, Binary) ->
-    #transport{local_ip=Ip1, remote_ip=Ip2} = Transport,
-    lager:debug([{app_id, AppId}, {call_id, CallId}], 
-                "~s", [print_packet(AppId, Header, Transport, Binary)]),
-    case nksip_config:get({nksip_trace, AppId}) of
-        undefined -> 
-            ok;
-        {[], IoDevice} ->
-            Msg = print_packet(AppId, Header, Transport, Binary),
-            write(Msg, IoDevice);
-        {IpList, IoDevice} ->
-            case lists:member(Ip1, IpList) orelse lists:member(Ip2, IpList) of
-                true -> 
-                    Msg = print_packet(AppId, Header, Transport, Binary),
+sipmsg(AppId, _CallId, Header, Transport, Binary) ->
+    case erlang:get(nksip_trace) of
+        {true, _} ->
+            #transport{local_ip=Ip1, remote_ip=Ip2} = Transport,
+            AppName = erlang:get(nksip_app_name),
+            Msg = print_packet(AppName, Header, Transport, Binary),
+            % lager:debug([{app, AppName}, {call_id, CallId}], "~s", 
+            %         [print_packet(AppName, Header, Transport, Binary)]),
+            write(Msg, console),
+
+
+            case nksip_config:get({nksip_trace, AppId}) of
+                undefined -> 
+                    ok;
+                {[], IoDevice} ->
+                    Msg = print_packet(AppName, Header, Transport, Binary),
                     write(Msg, IoDevice);
-                false -> 
-                    ok
-            end
+                {IpList, IoDevice} ->
+                    case lists:member(Ip1, IpList) orelse lists:member(Ip2, IpList) of
+                        true -> 
+                            Msg = print_packet(AppName, Header, Transport, Binary),
+                            write(Msg, IoDevice);
+                        false -> 
+                            ok
+                    end
+            end;
+        _ ->
+            ok
     end.
 
 
@@ -248,19 +259,14 @@ terminate(_Reason, _State) ->
 
 
 %% @private
-store_msgs(Bool) when Bool==true; Bool==false ->
-    nksip_config:put(nksip_store_msgs, Bool).
-
-
-%% @private
 insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
     insert(AppId, CallId, Info).
 
 
 %% @private
 insert(AppId, CallId, Info) ->
-    case nksip_config:get(nksip_store_msgs) of
-        true ->
+    case erlang:get(nksip_trace) of
+        {_, true} ->
             Time = nksip_lib:l_timestamp(),
             Info1 = case Info of
                 {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
@@ -269,7 +275,8 @@ insert(AppId, CallId, Info) ->
                 _ ->
                     Info
             end,
-            ets:insert(nksip_trace_msgs, {CallId, Time, AppId, Info1});
+            AppName = AppId:name(),
+            ets:insert(nksip_trace_msgs, {CallId, Time, AppName, Info1});
         _ ->
             ok
     end.

@@ -116,7 +116,7 @@ send(Pid, #sipmsg{}=SipMsg) ->
         udp_too_large ->
             {error, udp_too_large};
         {error, Error} ->
-            ?call_notice("could not send ~p message: ~p", [Proto, Error]),
+            ?notice(AppId, CallId, "could not send ~p message: ~p", [Proto, Error]),
             {error, Error}
     end.
 
@@ -260,6 +260,7 @@ init([AppId, Transport, SocketOrPid, Timeout]) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port, Res}}, Transport), 
     nksip_proc:put(nksip_transports, {AppId, Transport}),
+    nksip_counters:async([nksip_connections]),
     case is_pid(SocketOrPid) of
         true ->
             Socket = undefined,
@@ -269,8 +270,7 @@ init([AppId, Transport, SocketOrPid, Timeout]) ->
             Socket = SocketOrPid,
             Pid = undefined
     end,
-    nksip_config:put_log_cache(AppId, undefined),
-    ?call_debug("created ~p connection ~p (~p) ~p", 
+    ?debug(AppId, <<>>, "created ~p connection ~p (~p) ~p", 
                 [Proto, {Ip, Port}, self(), Timeout]),
     State = #state{
         app_id = AppId,
@@ -356,12 +356,13 @@ handle_cast({incoming, Packet}, State) ->
 
 handle_cast({stun, {ok, StunIp, StunPort}}, State) ->
     #state{
+        app_id = AppId,
         nat_ip = NatIp, 
         nat_port = NatPort, 
         refresh_time = RefreshTime,
         refresh_notify = RefreshNotify
     } = State,
-    ?call_debug("transport received STUN", []),
+    ?debug(AppId, <<>>, "transport received STUN", []),
     case 
         {NatIp, NatPort} == {undefined, undefined} orelse
         {NatIp, NatPort} == {StunIp, StunPort}
@@ -439,15 +440,15 @@ handle_info({timeout, _, refresh}, #state{proto=udp}=State) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(AppId, udp, Class) of
         [{_, Pid}|_] -> 
-            ?call_debug("transport sending STUN", []),
+            ?debug(AppId, <<>>, "transport sending STUN", []),
             nksip_transport_udp:send_stun_async(Pid, Ip, Port),
             do_noreply(State#state{refresh_timer=undefined});
         [] ->
             do_stop(no_listening_transport, State)
     end;
 
-handle_info({timeout, _, refresh}, State) ->
-    ?call_debug("transport sending refresh", []),
+handle_info({timeout, _, refresh}, #state{app_id=AppId}=State) ->
+    ?debug(AppId, <<>>, "transport sending refresh", []),
     case do_send(<<"\r\n\r\n">>, State) of
         ok -> 
             do_noreply(State#state{in_refresh=true, refresh_timer=undefined});
@@ -478,14 +479,14 @@ code_change(_OldVsn, State, _Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(_Reason, #state{ws_pid=Pid, proto=Proto}) when is_pid(Pid) ->
-    ?call_debug("~p connection process stopped (~p)", [Proto, self()]),
+terminate(_Reason, #state{app_id=AppId, ws_pid=Pid, proto=Proto}) when is_pid(Pid) ->
+    ?debug(AppId, <<>>, "~p connection process stopped (~p)", [Proto, self()]),
     Pid ! stop;
 
 terminate(_Reason, State) ->
-    #state{socket=Socket, transport=Transp} = State,
+    #state{app_id=AppId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, sctp_id=AssocId} = Transp,
-    ?call_debug("~p connection process stopped (~p)", [Proto, self()]),
+    ?debug(AppId, <<>>, "~p connection process stopped (~p)", [Proto, self()]),
     case Proto of
         udp -> ok;
         tcp -> gen_tcp:close(Socket);
@@ -511,7 +512,7 @@ do_send(Packet, #state{ws_pid=Pid}) when is_pid(Pid) ->
     ok;
 
 do_send(Packet, State) ->
-    #state{socket=Socket, transport=Transp} = State,
+    #state{app_id=AppId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
     case
         case Proto of
@@ -526,7 +527,7 @@ do_send(Packet, State) ->
         ok -> 
             ok;
         {error, Error} ->
-            ?call_notice("could not send ~p message: ~p", [Proto, Error]),
+            ?notice(AppId, <<>>, "could not send ~p message: ~p", [Proto, Error]),
             {error, Error}
     end.
 
@@ -550,9 +551,9 @@ parse(Binary, #state{buffer=Buffer}=State) ->
 do_parse(<<>>, State) ->
     {ok, State#state{buffer = <<>>}};
 
-do_parse(<<"\r\n\r\n", Rest/binary>>, #state{proto=Proto}=State) 
+do_parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
-    ?call_debug("transport responding to refresh", []),
+    ?debug(AppId, <<>>, "transport responding to refresh", []),
     case do_send(<<"\r\n">>, State) of
         ok -> do_parse(Rest, State);
         {error, _} -> {error, send_error}
@@ -561,6 +562,7 @@ do_parse(<<"\r\n\r\n", Rest/binary>>, #state{proto=Proto}=State)
 do_parse(<<"\r\n", Rest/binary>>, #state{proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
     #state{
+        app_id = AppId,
         refresh_notify = RefreshNotify, 
         refresh_time = RefreshTime,
         in_refresh = InRefresh
@@ -568,7 +570,7 @@ do_parse(<<"\r\n", Rest/binary>>, #state{proto=Proto}=State)
     lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
     RefreshTimer = case InRefresh of
         true -> 
-            ?call_debug("transport received refresh, next in ~p secs", 
+            ?debug(AppId, <<>>, "transport received refresh, next in ~p secs", 
                         [round(RefreshTime/1000)]),
             erlang:start_timer(RefreshTime, self(), refresh);
         false -> 
@@ -582,9 +584,9 @@ do_parse(<<"\r\n", Rest/binary>>, #state{proto=Proto}=State)
     },
     do_parse(Rest, State1);
 
-do_parse(Data, #state{proto=Proto})
-    when (Proto==tcp orelse Proto==tls) andalso byte_size(Data) > ?MAX_MSG ->
-    ?call_warning("dropping TCP/TLS closing because of max_buffer", []),
+do_parse(Data, #state{app_id=AppId, proto=Proto})
+        when (Proto==tcp orelse Proto==tls) andalso byte_size(Data) > ?MAX_MSG ->
+    ?warning(AppId, <<>>, "dropping TCP/TLS closing because of max_buffer", []),
     {error, msg_too_large};
 
 do_parse(Data, State) ->
@@ -598,7 +600,7 @@ do_parse(Data, State) ->
         nomatch when Proto==tcp; Proto==tls ->
             {ok, State#state{buffer=Data}};
         nomatch ->
-            ?call_notice("invalid partial msg ~p: ~p", [Proto, Data]),
+            ?notice(AppId, <<>>, "invalid partial msg ~p: ~p", [Proto, Data]),
             {error, parse_error};
         _ ->
             do_parse(AppId, Transp, Data, State)
@@ -619,20 +621,21 @@ do_parse(AppId, Transp, Data, State) ->
                 ok -> 
                     do_parse(Rest, State);
                 {error, Error} -> 
-                    ?call_notice("error processing ~p request: ~p", [Proto, Error]),
+                    ?notice(AppId, <<>>, 
+                            "error processing ~p request: ~p", [Proto, Error]),
                     {error, Error}
             end;
         partial when Proto==tcp; Proto==tls ->
             {ok, State#state{buffer=Data}};
         partial ->
-            ?call_notice("ignoring partial msg ~p: ~p", [Proto, Data]),
+            ?notice(AppId, <<>>, "ignoring partial msg ~p: ~p", [Proto, Data]),
             {ok, State};
         {reply_error, Error, Reply} ->
-            ?call_notice("error parsing ~p request: ~p", [Proto, Error]),
+            ?notice(AppId, <<>>, "error parsing ~p request: ~p", [Proto, Error]),
             do_send(Reply, State),
             {error, Error};
         {error, Error} -> 
-            ?call_notice("error parsing ~p request: ~p", [Proto, Error]),
+            ?notice(AppId, <<>>, "error parsing ~p request: ~p", [Proto, Error]),
             {error, parse_error}
     end.
 
@@ -641,7 +644,7 @@ do_parse(AppId, Transp, Data, State) ->
 -spec parse_ws(binary(), #state{}) ->
     gen_server_info(#state{}).
 
-parse_ws(Packet, #state{ws_frag=FragMsg}=State) ->
+parse_ws(Packet, #state{app_id=AppId, ws_frag=FragMsg}=State) ->
     {Result, State1} = case FragMsg of
         undefined -> 
             {
@@ -660,11 +663,11 @@ parse_ws(Packet, #state{ws_frag=FragMsg}=State) ->
                 {ok, State2} -> 
                     do_noreply(State2);
                 {error, Error} -> 
-                    ?call_warning("websocket parsing error: ~p", [Error]),
+                    ?warning(AppId, <<>>, "websocket parsing error: ~p", [Error]),
                     do_stop(Error, State)
             end;
         {error, Error} ->
-            ?call_notice("websocket parsing error: ~p", [Error]),
+            ?notice(AppId, <<>>, "websocket parsing error: ~p", [Error]),
             do_stop(ws_error, State1)
     end.
 
@@ -705,10 +708,10 @@ do_noreply(#state{timeout=Timeout}=State) ->
 
 
 %% @private
-do_stop(Reason, #state{proto=Proto}=State) ->
+do_stop(Reason, #state{app_id=AppId, proto=Proto}=State) ->
     case Reason of
         normal -> ok;
-        _ -> ?call_debug("~p connection stop: ~p", [Proto, Reason])
+        _ -> ?debug(AppId, <<>>, "~p connection stop: ~p", [Proto, Reason])
     end,
     {stop, normal, State}.
 

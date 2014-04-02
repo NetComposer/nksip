@@ -116,8 +116,8 @@ init([AppId, Transp, Opts]) ->
             },
             {ok, State};
         {error, Error} ->
-            lager:error("~p could not start SCTP transport on ~p:~p (~p)", 
-                        [AppId:name(), Ip, Port, Error]),
+            ?error(AppId, <<>>, "could not start SCTP transport on ~p:~p (~p)", 
+                   [Ip, Port, Error]),
             {stop, Error}
     end.
 
@@ -197,8 +197,7 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
             nksip_connection:incoming(Pid, Data),
             State;
         Other ->
-            lager:notice("~p SCTP unknown data from ~p, ~p: ~p", 
-                        [AppId:name(), Ip, Port, Other]),
+            ?notice(AppId, <<>>, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other]),
             State
     end,
     ok = inet:setopts(Socket, [{active, once}]),
@@ -222,7 +221,7 @@ code_change(_OldVsn, State, _Extra) ->
     gen_server_terminate().
 
 terminate(_Reason, #state{app_id=AppId, socket=Socket}) ->  
-    lager:debug("~p SCTP server process stopped", [AppId:name()]),
+    ?debug(AppId, <<>>, "SCTP server process stopped", []),
     gen_sctp:close(Socket).
 
 

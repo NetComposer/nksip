@@ -25,12 +25,12 @@
 -export([start_nksip/0, empty/0, wait/2, log/0, log/1]).
 -export([get_ref/0, save_ref/3, update_ref/3, send_ref/3, dialog_update/3, session_update/3]).
 
--define(LOG_LEVEL, warning).    % Chage to info or notice to debug
+-define(LOG_LEVEL, info).    % Chage to info or notice to debug
 -define(WAIT_TIMEOUT, 10000).
 
 start_nksip() ->
     nksip_app:start(),
-    log().
+    log(info).
 
 empty() ->
     empty([]).

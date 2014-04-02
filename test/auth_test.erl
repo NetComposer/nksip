@@ -42,26 +42,26 @@ auth_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    ok = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "sip:server1@nksip"},
         registrar,
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}]}
     ]),
 
-    ok = nksip:start(server2, ?MODULE, server2, [
+    {ok, _} = nksip:start(server2, ?MODULE, server2, [
         {from, "sip:server2@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5061}]}
     ]),
 
-    ok = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}]}
     ]),
     
-    ok = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {from, "sip:client2@nksip"},
         {pass, "jj"},
         {pass, {"4321", "client1"}},
@@ -69,7 +69,7 @@ start() ->
         {transports, [{udp, all, 5071}]}
     ]),
 
-    ok = nksip:start(client3, ?MODULE, client3, [
+    {ok, _} = nksip:start(client3, ?MODULE, client3, [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5072}]}
@@ -160,20 +160,20 @@ dialog() ->
     ok = nksip_uac:ack(client1, DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    [{udp, {127,0,0,1}, 5071}] = nksip_call:get_authorized_list(client1, DialogId1),
+    [{udp, {127,0,0,1}, 5071}] = nksip_uac_lib:get_authorized_list(client1, DialogId1),
     DialogId2 = nksip_dialog:field(client1, DialogId1, remote_id),
-    [{udp, {127,0,0,1}, 5070}] = nksip_call:get_authorized_list(client2, DialogId2),
+    [{udp, {127,0,0,1}, 5070}] = nksip_uac_lib:get_authorized_list(client2, DialogId2),
 
     {ok, 200, []} = nksip_uac:options(client1, DialogId1, []),
     {ok, 200, []} = nksip_uac:options(client2, DialogId2, []),
 
-    ok = nksip_call:clear_authorized_list(client2, DialogId2),
+    ok = nksip_uac_lib:clear_authorized_list(client2, DialogId2),
     {ok, 401, []} = nksip_uac:options(client1, DialogId1, []),
     {ok, 200, []} = nksip_uac:options(client1, DialogId1, [{pass, "1234"}]),
     {ok, 200, []} = nksip_uac:options(client1, DialogId1, []),
 
-    ok = nksip_call:clear_authorized_list(client1, DialogId1),
-    [] = nksip_call:get_authorized_list(client1, DialogId1),
+    ok = nksip_uac_lib:clear_authorized_list(client1, DialogId1),
+    [] = nksip_uac_lib:get_authorized_list(client1, DialogId1),
 
     % Force an invalid password, because the SipApp config has a valid one
     {ok, 403, []} = nksip_uac:options(client2, DialogId2, [{pass, {"invalid", "client1"}}]),

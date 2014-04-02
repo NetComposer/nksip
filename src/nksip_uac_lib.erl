@@ -23,6 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send_any/4, send_dialog/4]).
+-export([get_authorized_list/2, clear_authorized_list/2]).
 -export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
@@ -32,7 +33,7 @@
 %% ===================================================================
 
 
--spec send_any(nksip:app_id()|term(), nksip:method(), 
+-spec send_any(term()|nksip:app_id(), nksip:method(), 
                nksip:user_uri() | nksip_dialog:spec() | nksip_subscription:id(),
                nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
@@ -78,6 +79,30 @@ send_dialog(App, Method, <<Class, $_, _/binary>>=Id, Opts)
         error ->
             {error, sipapp_not_found}
     end.
+
+
+%% @doc Gets authorized list of transport, ip and ports for a dialog.
+-spec get_authorized_list(term()|nksip:app_id(), nksip_dialog:id()) ->
+    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
+
+get_authorized_list(App, DialogId) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} -> nksip_call:get_authorized_list(AppId, DialogId);
+        _ -> []
+    end.
+
+
+%% @doc Clears authorized list of transport, ip and ports for a dialog.
+-spec clear_authorized_list(term()|nksip:app_id(), nksip_dialog:id()) ->
+    ok | error.
+
+clear_authorized_list(App, DialogId) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->nksip_call:clear_authorized_list(AppId, DialogId);
+        _ -> error
+    end.
+
+
 
 
 %% @doc Generates a new request.

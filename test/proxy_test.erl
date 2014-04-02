@@ -69,7 +69,7 @@ stateful_test_() ->
 start(Test) ->
     tests_util:start_nksip(),
 
-    ok = nksip:start({Test, server1}, ?MODULE, {Test, server1}, [
+    {ok, _} = nksip:start({Test, server1}, ?MODULE, {Test, server1}, [
         {from, "sip:server1@nksip"},
         registrar,
         {local_host, "localhost"},
@@ -77,7 +77,7 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    ok = nksip:start({Test, server2}, ?MODULE, {Test, server2}, [
+    {ok, _} = nksip:start({Test, server2}, ?MODULE, {Test, server2}, [
         {from, "sip:server2@nksip"},
         registrar,
         {local_host, "localhost"},
@@ -85,14 +85,14 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    ok = nksip:start({Test, client1}, ?MODULE, {Test, client1}, [
+    {ok, _} = nksip:start({Test, client1}, ?MODULE, {Test, client1}, [
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    ok = nksip:start({Test, client2}, ?MODULE, {Test, client2}, [
+    {ok, _} = nksip:start({Test, client2}, ?MODULE, {Test, client2}, [
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
@@ -145,13 +145,14 @@ invalid(Test) ->
     % Force Forwards=0 using REGISTER
     CallId4 = nksip_lib:luid(),
     Work4 = {make, 'REGISTER', "sip:any", []},
-    {ok, Req4, Opts4} = nksip_call_router:send_work_sync(C1, CallId4, Work4),
+    {ok, C1Id} = nksip_siapp_srv:find_app(C1),
+    {ok, Req4, Opts4} = nksip_call_router:send_work_sync(C1Id, CallId4, Work4),
     {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 
     % Force Forwards=0 using OPTIONS. Server will reply
     CallId5 = nksip_lib:luid(),
     Work5 = {make, 'OPTIONS', "sip:any", []},
-    {ok, Req5, Opts5} = nksip_call_router:send_work_sync(C1, CallId5, Work5),
+    {ok, Req5, Opts5} = nksip_call_router:send_work_sync(C1Id, CallId5, Work5),
     {ok, 200, [{reason_phrase, <<"Max Forwards">>}]} = 
         nksip_call:send(Req5#sipmsg{forwards=0}, [{meta,[reason_phrase]}|Opts5]),
 

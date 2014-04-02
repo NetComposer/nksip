@@ -111,8 +111,7 @@ session_update(Dialog, State) ->
 send_reply(Elem, Msg) ->
     AppId = case Elem of
         #sipmsg{} -> nksip_sipmsg:field(Elem, app_id);
-        #dialog{} -> nksip_dialog:field(Elem, app_id);
-        _ -> lager:error("ELEM: ~p", [Msg]), error(a)
+        #dialog{} -> nksip_dialog:field(Elem, app_id)
     end,
     case nksip_config:get(inline_test) of
         {Ref, Pid} -> Pid ! {Ref, {AppId, Msg}};

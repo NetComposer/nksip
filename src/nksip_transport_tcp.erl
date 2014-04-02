@@ -93,7 +93,7 @@ connect(AppId, Transp, Opts) ->
             {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
             TranspMod:controlling_process(Socket, Pid),
             InetMod:setopts(Socket, [{active, once}]),
-            ?call_debug("~p connected to ~p", [Proto, {Ip, Port}]),
+            ?debug(AppId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
             {ok, Pid, Transp1};
         {error, Error} ->
             {error, Error}

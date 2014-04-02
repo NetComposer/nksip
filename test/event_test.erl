@@ -44,14 +44,14 @@ event_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    ok = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {events, "myevent1,myevent2,myevent3"}
     ]),
     
-    ok = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},

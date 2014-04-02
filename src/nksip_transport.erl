@@ -25,7 +25,7 @@
 
 -export([get_all/0, get_all/1, get_listening/3, get_connected/2, get_connected/5]).
 -export([is_local/2, is_local_ip/1]).
--export([start_transport/5, start_connection/6, default_port/1]).
+-export([start_transport/5, connect/6, default_port/1]).
 -export([get_listenhost/3, make_route/6]).
 -export([send/4]).
 -export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
@@ -194,19 +194,40 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
 
 
 %% @private Starts a new outbound connection.
--spec start_connection(nksip:app_id(), nksip:protocol(),
+-spec connect(nksip:app_id(), nksip:protocol(),
                        inet:ip_address(), inet:port_number(), binary(), 
                        nksip_lib:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
-start_connection(AppId, udp, Ip, Port, Res, Opts) ->
+connect(AppId, Proto, Ip, Port, Res, Opts) ->
+    Max = nksip_config_cache:max_connections(),
+    case nksip_counters:value(nksip_connections) of
+        Current when Current > Max -> {error, max_connections};
+        _ ->  try_connect(AppId, Proto, Ip, Port, Res, Opts, 300) % 30 secs,
+    end.
+
+try_connect(_, _, _, _, _, _, 0) ->
+    {error, connection_busy};
+
+try_connect(AppId, udp, Ip, Port, Res, Opts, _Try) ->
     nksip_connection:connect(AppId, udp, Ip, Port, Res, Opts);
 
-start_connection(AppId, Proto, Ip, Port, Res, Opts) ->
-    Max = nksip_config:get(max_connections),
-    case nksip_counters:value(nksip_transport_tcp) of
-        Current when Current > Max -> error;
-        _ -> nksip_transport_srv:connect(AppId, Proto, Ip, Port, Res, Opts)
+try_connect(AppId, Proto, Ip, Port, Res, Opts, Try) ->
+    ConnId = {AppId, Proto, Ip, Port, Res},
+    case nksip_sipapp_srv:put_new(AppId, {nksip_connect_block, ConnId}, true) of
+        true ->
+            try 
+                nksip_connection:connect(AppId, Proto, Ip, Port, Res, Opts)
+            catch
+                error:Value -> 
+                    ?call_warning("Exception ~p launching connection", Value),
+                    {error, Value}
+            after
+                nksip_sipapp_srv:del(AppId, {nksip_connect_block, ConnId})
+            end;
+        false ->
+            timer:sleep(100),
+            try_connect(AppId, Proto, Ip, Port, Res, Opts, Try-1)
     end.
                 
 
@@ -292,8 +313,10 @@ send(AppId, [{current, {Proto, Ip, Port, Res}=D}|Rest], MakeMsg, Opts) ->
         [{Transp, Pid}|_] -> 
             SipMsg = MakeMsg(Transp),
             case nksip_connection:send(Pid, SipMsg) of
-                ok -> {ok, SipMsg};
-                {error, _} -> send(AppId, Rest, MakeMsg, Opts)
+                ok -> 
+                    {ok, SipMsg};
+                {error, _Error} -> 
+                    send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
             send(AppId, Rest, MakeMsg, Opts)
@@ -318,22 +341,23 @@ send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
             case nksip_connection:send(Pid, SipMsg) of
                 ok -> 
                     {ok, SipMsg};
-                {error, _} when Proto==udp ->
+                {error, udp_too_large} ->
                     send(AppId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
                 {error, _} -> 
                     send(AppId, Rest, MakeMsg, Opts)
             end;
         [] ->
             ?call_debug("Transport send to new ~p (~p)", [D, Rest]),
-            case start_connection(AppId, Proto, Ip, Port, Res, Opts) of
+            case connect(AppId, Proto, Ip, Port, Res, Opts) of
                 {ok, Pid, Transp} ->
                     SipMsg = MakeMsg(Transp),
                     case nksip_connection:send(Pid, SipMsg) of
                         ok -> 
                             {ok, SipMsg};
-                        {error, _} when Proto==udp ->
+                        {error, udp_too_large} ->
                             send(AppId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
-                        {error, _} -> 
+                        {error, Error} -> 
+                            ?call_warning("Error sending to new transport: ~p", [Error]),
                             send(AppId, Rest, MakeMsg, Opts)
                     end;
                 {error, Error} ->

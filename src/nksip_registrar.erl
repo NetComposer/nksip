@@ -81,103 +81,117 @@
 %% ===================================================================
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nksip:app_id(), nksip:aor() | nksip:uri()) ->
+-spec find(term()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
-find(AppId, {Scheme, User, Domain}) ->
-    find(AppId, Scheme, User, Domain);
+find(App, {Scheme, User, Domain}) ->
+    find(App, Scheme, User, Domain);
 
-find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
-    case lists:member(<<"gr">>, Opts) of
-        true -> 
-            % It is probably a tmp GRUU
-            case catch decrypt(User) of
-                Tmp when is_binary(Tmp) ->
-                    {{Scheme1, User1, Domain1}, InstId, Pos} = binary_to_term(Tmp),
-                    [
-                        make_contact(Reg) 
-                        || #reg_contact{instance_id=InstId1, min_tmp_pos=Min}=Reg 
-                        <- get_info(AppId, Scheme1, User1, Domain1), 
-                        InstId1==InstId, Pos>=Min
-                    ];
-                _ ->
-                    lager:notice("~p private GRUU not recognized: ~p", 
-                                [AppId:name(), User]),
-                    find(AppId, Scheme, User, Domain)
+find(App, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
+    case nksip_siapp_srv:find_app(App) of
+        {ok, AppId} ->
+            case lists:member(<<"gr">>, Opts) of
+                true -> 
+                    % It is probably a tmp GRUU
+                    case catch decrypt(User) of
+                        Tmp when is_binary(Tmp) ->
+                            {{Scheme1, User1, Domain1}, InstId, Pos} = binary_to_term(Tmp),
+                            [
+                                make_contact(Reg) 
+                                || #reg_contact{instance_id=InstId1, min_tmp_pos=Min}=Reg 
+                                <- get_info(AppId, Scheme1, User1, Domain1), 
+                                InstId1==InstId, Pos>=Min
+                            ];
+                        _ ->
+                            ?notice(AppId, <<>>, "private GRUU not recognized: ~p", [User]),
+                            find(AppId, Scheme, User, Domain)
+                    end;
+                false ->
+                    case nksip_lib:get_value(<<"gr">>, Opts) of
+                        undefined -> 
+                            find(AppId, Scheme, User, Domain);
+                        InstId ->
+                            [
+                                make_contact(Reg) 
+                                || #reg_contact{instance_id=InstId1}=Reg 
+                                <- get_info(AppId, Scheme, User, Domain), InstId1==InstId
+                            ]
+                    end
             end;
-        false ->
-            case nksip_lib:get_value(<<"gr">>, Opts) of
-                undefined -> 
-                    find(AppId, Scheme, User, Domain);
-                InstId ->
-                    [
-                        make_contact(Reg) 
-                        || #reg_contact{instance_id=InstId1}=Reg 
-                        <- get_info(AppId, Scheme, User, Domain), InstId1==InstId
-                    ]
-            end
+        _ ->
+            []
     end.
 
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec find(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
-find(AppId, Scheme, User, Domain) ->
-    [make_contact(Reg) || Reg <- get_info(AppId, Scheme, User, Domain)].
+find(App, Scheme, User, Domain) ->
+    [make_contact(Reg) || Reg <- get_info(App, Scheme, User, Domain)].
 
 
 %% @private Gets all current stored info for an AOR.
--spec get_info(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec get_info(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [#reg_contact{}].
 
-get_info(AppId, Scheme, User, Domain) ->
-    AOR = {Scheme, nksip_lib:to_binary(User), nksip_lib:to_binary(Domain)},
-    case catch callback_get(AppId, AOR) of
-        {ok, RegContacts} -> RegContacts;
-        _ -> []
+get_info(App, Scheme, User, Domain) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            AOR = {Scheme, nksip_lib:to_binary(User), nksip_lib:to_binary(Domain)},
+            case catch callback_get(AppId, AOR) of
+                {ok, RegContacts} -> RegContacts;
+                _ -> []
+            end;
+        _ ->
+            []
     end.
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nksip:app_id(), AOR::nksip:aor()) ->
+-spec qfind(term()|nksip:app_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
-qfind(AppId, {Scheme, User, Domain}) ->
-    qfind(AppId, Scheme, User, Domain).
+qfind(App, {Scheme, User, Domain}) ->
+    qfind(App, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
-qfind(AppId, Scheme, User, Domain) ->
+qfind(App, Scheme, User, Domain) ->
     All = [
         {1/Q, Updated, make_contact(Reg)} || 
         #reg_contact{q=Q, updated=Updated} = Reg 
-        <- get_info(AppId, Scheme, User, Domain)
+        <- get_info(App, Scheme, User, Domain)
     ],
     do_qfind(lists:sort(All), []).
 
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
--spec delete(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec delete(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
-delete(AppId, Scheme, User, Domain) ->
-    AOR = {
-        nksip_parse:scheme(Scheme), 
-        nksip_lib:to_binary(User), 
-        nksip_lib:to_binary(Domain)
-    },
-    case callback(AppId, {del, AOR}) of
-        ok -> ok;
-        not_found -> not_found;
-        _ -> callback_error
+delete(App, Scheme, User, Domain) ->
+    case nksip_sipapp_srv:find_app(App) of
+        {ok, AppId} ->
+            AOR = {
+                nksip_parse:scheme(Scheme), 
+                nksip_lib:to_binary(User), 
+                nksip_lib:to_binary(Domain)
+            },
+            case callback(AppId, {del, AOR}) of
+                ok -> ok;
+                not_found -> not_found;
+                _ -> callback_error
+            end;
+        _ ->
+            not_found
     end.
 
 
@@ -247,7 +261,7 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
  
 
 %% @doc Clear all stored records by a SipApp's core.
--spec clear(nksip:app_id()) -> 
+-spec clear(term()|nksip:app_id()) -> 
     ok | callback_error.
 
 clear(AppId) -> 

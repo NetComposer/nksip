@@ -321,21 +321,26 @@
 	{ok, app_id()} | {error, term()}.
 
 start(AppName, Module, Args, Opts) ->
-    Config = nksip_config_cache:app_config(),
-    Opts1 = Config ++ [{name, AppName}, {module, Module}|Opts],
-    case nksip_sipapp_config:parse_config(Opts1) of
-        {ok, AppId} ->
-            case nksip_sup:start_core(AppName, AppId, Args) of
-                ok -> {ok, AppId};
-                {error, Error} -> {error, Error}
+    case get_pid(AppName) of
+        not_found ->
+            Config = nksip_config_cache:app_config(),
+            Opts1 = Config ++ [{name, AppName}, {module, Module}|Opts],
+            case nksip_sipapp_config:parse_config(Opts1) of
+                {ok, AppId} ->
+                    case nksip_sup:start_core(AppId, Args) of
+                        ok -> {ok, AppId};
+                        {error, Error} -> {error, Error}
+                    end;
+                {error, Error} ->
+                    {error, Error}
             end;
-        {error, Error} ->
-            {error, Error}
+        _ ->
+            {error, already_started}
     end.
 
 
 %% @doc Stops a started SipApp, stopping any registered transports.
--spec stop(app_id()) -> 
+-spec stop(term()|app_id()) -> 
     ok | error.
 
 stop(App) ->
@@ -348,7 +353,7 @@ stop(App) ->
                 error ->
                     error
             end;
-        error ->
+        _ ->
             error
     end.
 
@@ -363,7 +368,7 @@ stop_all() ->
 
 %% @doc Updates the callback module or options of a running SipApp
 %% It is not allowed to change transports
--spec update(nksip:app_id(), nksip_lib:proplist()) ->
+-spec update(term()|app_id(), nksip_lib:proplist()) ->
     {ok, app_id()} | {error, term()}.
 
 update(App, Opts) ->
@@ -371,13 +376,7 @@ update(App, Opts) ->
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
             Opts2 = AppId:config() ++ Opts1,
-            case nksip_sipapp_config:parse_config(Opts2) of
-                {ok, AppId} ->
-                    cast(AppId, '$nksip_update_config'),
-                    {ok, AppId};
-                {error, Error} ->
-                    {error, Error}
-            end;
+            nksip_sipapp_config:parse_config(Opts2);
         error ->
             {error, sipapp_not_found}
     end.
@@ -386,7 +385,7 @@ update(App, Opts) ->
 
 %% @doc Gets the `AppIds' of all started SipApps.
 -spec get_all() ->
-    [AppId::app_id()].
+    [{AppName::term(), AppId::app_id()}].
 
 get_all() ->
     [{AppId:name(), AppId} 
@@ -403,7 +402,7 @@ reply(From, Reply) ->
 
 
 %% @doc Gets a value from SipApp's store
--spec get(nksip:app_id(), term()) ->
+-spec get(term()|nksip:app_id(), term()) ->
     {ok, term()} | not_found | error.
 
 get(App, Key) ->
@@ -414,7 +413,7 @@ get(App, Key) ->
 
 
 %% @doc Gets a value from SipApp's store, using a default if not found
--spec get(nksip:app_id(), term(), term()) ->
+-spec get(term()|nksip:app_id(), term(), term()) ->
     {ok, term()} | error.
 
 get(AppId, Key, Default) ->
@@ -426,7 +425,7 @@ get(AppId, Key, Default) ->
 
 
 %% @doc Inserts a value in SipApp's store
--spec put(nksip:app_id(), term(), term()) ->
+-spec put(term()|nksip:app_id(), term(), term()) ->
     ok | error.
 
 put(App, Key, Value) ->
@@ -437,7 +436,7 @@ put(App, Key, Value) ->
 
 
 %% @doc Deletes a value from SipApp's store
--spec del(nksip:app_id(), term()) ->
+-spec del(term()|nksip:app_id(), term()) ->
     ok | error.
 
 del(App, Key) ->
@@ -450,7 +449,7 @@ del(App, Key) ->
 %% @doc Sends a synchronous message to the SipApp's process, 
 %% similar to `gen_server:call/2'.
 %% The SipApp's callback module must implement `handle_call/3'.
--spec call(app_id(), term()) ->
+-spec call(term()|app_id(), term()) ->
     any().
 
 call(App, Msg) ->
@@ -460,7 +459,7 @@ call(App, Msg) ->
 %% @doc Sends a synchronous message to the SipApp's process with a timeout, 
 %% similar to `gen_server:call/3'.
 %% The SipApp's callback module must implement `handle_call/3'.
--spec call(app_id(), term(), infinity|pos_integer()) ->
+-spec call(term()|app_id(), term(), infinity|pos_integer()) ->
     any().
 
 call(App, Msg, Timeout) ->
@@ -473,7 +472,7 @@ call(App, Msg, Timeout) ->
 %% @doc Sends an asynchronous message to the SipApp's process, 
 %% similar to `gen_server:cast/2'.
 %% The SipApp's callback module must implement `handle_cast/2'.
--spec cast(app_id(), term()) ->
+-spec cast(term()|app_id(), term()) ->
     ok.
 
 cast(App, Msg) ->
@@ -484,7 +483,7 @@ cast(App, Msg) ->
 
 
 %% @doc Gets the SipApp's process `pid()'.
--spec get_pid(app_id()) -> 
+-spec get_pid(term()|app_id()) -> 
     pid() | not_found.
 
 get_pid(App) ->
@@ -495,7 +494,7 @@ get_pid(App) ->
 
 
 %% @doc Gets SipApp's first listening port on this transport protocol.
--spec get_port(app_id(), protocol(), ipv4|ipv6) -> 
+-spec get_port(term()|app_id(), protocol(), ipv4|ipv6) -> 
     inet:port_number() | not_found.
 
 get_port(App, Proto, Class) ->

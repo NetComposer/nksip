@@ -27,6 +27,8 @@
 
 -include("nksip.hrl").
 
+-define(DEFAULT_LOG_LEVEL, 7).  % 8:debug, 7:info, 6:notice, 5:warning, 4:error
+
 
 %% ===================================================================
 %% Private
@@ -179,6 +181,11 @@ parse_opts([Term|Rest], Opts) ->
         {log_level, none} -> [{log_level, 0}|Opts];
         {log_level, Level} when Level>=0, Level=<8 -> [{log_level, Level}|Opts];
 
+        {trace, Trace} when is_boolean(Trace) ->
+            [{trace, Trace}|Opts];
+        {store_trace, Trace} when is_boolean(Trace) ->
+            [{store_trace, Trace}|Opts];
+
         % Unknown options
         {Name, Value} ->
             case nksip_config:parse_config(Name, Value) of
@@ -198,7 +205,10 @@ cache_syntax(Opts, Syntax) ->
     Cache = [
         {name, nksip_lib:get_value(name, Opts)},
         {config, Opts},
-        {config_log_level, nksip_lib:get_value(log_level, Opts, 6)},
+        {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
+        {config_trace, 
+            {nksip_lib:get_value(trace, Opts, false), 
+             nksip_lib:get_value(store_trace, Opts, false)}},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
         {config_timers, {
@@ -215,7 +225,7 @@ cache_syntax(Opts, Syntax) ->
         {config_registrar, lists:member(registrar, Opts)},
         {config_no_100, lists:member(no_100, Opts)},
         {config_supported, 
-            nksip_lib:get_value(supported, Opts, nksip_lib:bjoin(?SUPPORTED))},
+            nksip_lib:get_value(supported, Opts, ?SUPPORTED)},
         {config_allow, 
             case nksip_lib:get_value(allow, Opts) of
                 undefined ->
@@ -233,22 +243,22 @@ cache_syntax(Opts, Syntax) ->
         {config_local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
         {config_min_session_expires, nksip_lib:get_value(min_session_expires, Opts)},
         {config_uac, lists:flatten([
-            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
-            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
+            tuple(local_host, Opts),
+            tuple(local_host6, Opts),
             single(no_100, Opts),
             tuple(pass, Opts),
             tuple(from, Opts),
             tuple(route, Opts)
         ])},
         {config_uac_proxy, lists:flatten([
-            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
-            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
+            tuple(local_host, Opts),
+            tuple(local_host6, Opts),
             single(no_100, Opts),
             tuple(pass, Opts)
         ])},
         {config_uas, lists:flatten([
-            {local_host, nksip_lib:get_value(local_host, Opts, auto)},
-            {local_host6, nksip_lib:get_value(local_host6, Opts, auto)}
+            tuple(local_host, Opts),
+            tuple(local_host6, Opts)
         ])}
     ],
     lists:foldl(

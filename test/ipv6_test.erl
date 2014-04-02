@@ -59,31 +59,31 @@ start() ->
     %% NOTE: using 'any6' as ip for hosts fails in Linux
     %% (it works in OSX)
 
-    ok = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "sip:server1@nksip"},
         registrar,
         {local_host6, "::1"},
         {transports, [{udp, all, 5060}, {udp, "::1", 5060}]}
     ]),
 
-    ok = nksip:start(server2, ?MODULE, server2, [
+    {ok, _} = nksip:start(server2, ?MODULE, server2, [
         {from, "sip:server2@nksip"},
         {local_host, "127.0.0.1"},
         {local_host6, "::1"},
         {transports, [{udp, all, 5061}, {udp, "::1", 5061}]}
     ]),
 
-    ok = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {from, "sip:client1@nksip"},
         {transports, [{udp, "::1", 5070}]}
     ]),
     
-    ok = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {from, "sip:client2@nksip"},
         {transports, [{udp, "::1", 5071}]}
     ]),
 
-    ok = nksip:start(client3, ?MODULE, client3, [
+    {ok, _} = nksip:start(client3, ?MODULE, client3, [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5072}]}

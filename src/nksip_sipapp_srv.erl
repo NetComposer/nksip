@@ -28,12 +28,12 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([get/2, put/3, del/2]).
+-export([get/2, put/3, put_new/3, del/2]).
 -export([get_appid/1, get_name/1, config/1, get_uuid/1, get_pid/1, reply/2]).
 -export([get_gruu_pub/1, get_gruu_temp/1]).
 -export([sipapp_call/5, sipapp_call_wait/5, sipapp_cast/4, find_app/1]).
 -export([register/2, get_registered/2, pending_msgs/0]).
--export([start_link/3, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
+-export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
 
 -include("nksip.hrl").
@@ -81,6 +81,18 @@ put(AppId, Key, Value) ->
 del(AppId, Key) ->
     case catch ets:delete(AppId, Key) of
         true -> ok;
+        _ -> error
+    end.
+
+
+%% @doc Inserts a value in SipApp's store
+-spec put_new(nksip:app_id(), term(), term()) ->
+    true | false | error.
+
+put_new(AppId, Key, Value) ->
+    case catch ets:insert_new(AppId, {Key, Value}) of
+        true -> true;
+        false -> false;
         _ -> error
     end.
 
@@ -323,7 +335,6 @@ pending_msgs() ->
 
 
 -record(state, {
-    name :: term(),
     app_id :: nksip:app_id(),
     procs :: dict(),
     reg_state :: term(),
@@ -332,15 +343,16 @@ pending_msgs() ->
 
 
 %% @private
-start_link(AppName, AppId, Args) -> 
+start_link(AppId, Args) -> 
     Name = {nksip_sipapp, AppId},
-    nksip_proc:start_link(server, Name, ?MODULE, [AppName, AppId, Args]).
+    nksip_proc:start_link(server, Name, ?MODULE, [AppId, Args]).
         
 
 %% @private
-init([AppName, AppId, Args]) ->
+init([AppId, Args]) ->
     process_flag(trap_exit, true),
     nksip_proc:put(nksip_sipapps, AppId),   
+    AppName = AppId:name(),
     nksip_proc:put({nksip_sipapp, AppId}, AppName), 
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
     RegState = nksip_sipapp_auto:init(AppId, Args),
@@ -352,12 +364,11 @@ init([AppName, AppId, Args]) ->
             UUID = nksip_lib:uuid_4122(),
             save_uuid(Path, AppName, UUID)
     end,
-    nksip_config:put_log_cache(AppId, undefined),
     nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
     {_, _, _, _, Time} = AppId:config_timers(),
     erlang:start_timer(Time, self(), '$nksip_timer'),
     State1 = #state{
-        name = AppName,
+        % name = AppName,
         app_id = AppId, 
         procs = dict:new(),
         reg_state = RegState
@@ -406,10 +417,6 @@ handle_call(Msg, From, State) ->
 handle_cast({'$nksip_register', Type, Pid}, #state{procs=Procs}=State) -> 
     erlang:monitor(process, Pid),
     {noreply, State#state{procs=dict:store(Pid, Type, Procs)}};
-
-handle_cast('$nksip_update_config', #state{app_id=AppId}=State) -> 
-    nksip_config:put_log_cache(AppId, undefined),
-    {noreply, State};
 
 handle_cast({'$nksip_call', Fun, Args, From}, State) -> 
     mod_handle_call(Fun, Args, From, State);
@@ -558,7 +565,7 @@ mod_handle_info(Info, State = #state{app_id=AppId}) ->
         false ->
             case Info of
                 {'EXIT', _, normal} -> ok;
-                _ -> ?call_warning("received unexpected message ~p", [Info])
+                _ -> ?warning(AppId, <<>>, "received unexpected message ~p", [Info])
             end,
             {noreply, State}
     end.

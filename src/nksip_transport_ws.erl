@@ -98,11 +98,11 @@ connect(AppId, Transp, Opts) ->
             ok -> ok;
             {error, Error2} -> throw(Error2)
         end,
-        ?call_debug("Sent ws hanshake: ~s", [print_headers(Data1)]),
+        ?debug(AppId, <<>>, "Sent ws hanshake: ~s", [print_headers(Data1)]),
         case TranspMod:recv(Socket, 0, 5000) of
             {ok, Data2} ->
-                ?call_debug("received ws reply: ~s", [print_headers(Data2)]),
-                case handshake_resp(Data2, HandshakeReq) of
+                ?debug(AppId, <<>>, "received ws reply: ~s", [print_headers(Data2)]),
+                case handshake_resp(AppId, Data2, HandshakeReq) of
                     ok -> ok;
                     {error, Error3} -> throw(Error3)
                 end;
@@ -130,7 +130,7 @@ connect(AppId, Transp, Opts) ->
         {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
         TranspMod:controlling_process(Socket, Pid),
         InetMod:setopts(Socket, [{active, once}]),
-        ?call_debug("~p connected to ~p", [Proto, {Ip, Port}]),
+        ?debug(AppId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
         {ok, Pid, Transp1}
     catch
         throw:TError -> {error, TError}
@@ -377,10 +377,10 @@ handshake_req(Ip, Port, Res, Opts) ->
 
 
 %% @private
--spec handshake_resp(binary(), #handshake{}) ->
+-spec handshake_resp(nksip:app_id(), binary(), #handshake{}) ->
     ok | {error, term()}.
 
-handshake_resp(Data, Req) ->
+handshake_resp(AppId, Data, Req) ->
     case wsock_http:decode(Data, response) of
         {ok, Resp} ->
             case wsock_handshake:handle_response(Resp, Req) of
@@ -389,8 +389,9 @@ handshake_resp(Data, Req) ->
                         "sip" -> 
                             ok;
                         Other ->
-                            ?call_warning("Websocket server did not send protocol: ~p", 
-                                         [Other]),
+                            ?warning(AppId, <<>>, 
+                                     "websocket server did not send protocol: ~p", 
+                                     [Other]),
                             ok
                     end;
                 {error, Error1} -> 

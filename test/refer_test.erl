@@ -41,15 +41,15 @@ refer_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    ok = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {transports, [{udp, all, 5060}]}
     ]),
     
-    ok = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    ok = nksip:start(client3, ?MODULE, client3, [
+    {ok, _} = nksip:start(client3, ?MODULE, client3, [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},

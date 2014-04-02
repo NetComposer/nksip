@@ -146,8 +146,8 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
             },
             {ok, State};
         {error, Error} ->
-            lager:error("~p could not start UDP transport on ~p:~p (~p)", 
-                        [AppId:name(), Ip, Port, Error]),
+            ?error(AppId, <<>>, "could not start UDP transport on ~p:~p (~p)", 
+                   [Ip, Port, Error]),
             {stop, Error}
     end.
 
@@ -164,8 +164,8 @@ handle_call({connect, Ip, Port}, _From, State) ->
 handle_call({send, Ip, Port, Packet}, _From, #state{socket=Socket}=State) ->
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State};
 
-handle_call({send_stun, Ip, Port}, From, State) ->
-    {noreply, do_send_stun(Ip, Port, {call, From}, State)};
+handle_call({send_stun, Ip, Port}, From, #state{app_id=AppId}=State) ->
+    {noreply, do_send_stun(AppId, Ip, Port, {call, From}, State)};
 
 handle_call(get_port, _From, #state{transport=#transport{listen_port=Port}}=State) ->
     {reply, {ok, Port}, State};
@@ -185,8 +185,8 @@ handle_cast({matching_tcp, {ok, Pid}}, State) ->
 handle_cast({matching_tcp, {error, Error}}, State) ->
     {stop, {matching_tcp, {error, Error}}, State};
 
-handle_cast({send_stun, Ip, Port, Pid}, State) ->
-    {noreply, do_send_stun(Ip, Port, {cast, Pid}, State)};
+handle_cast({send_stun, Ip, Port, Pid}, #state{app_id=AppId}=State) ->
+    {noreply, do_send_stun(AppId, Ip, Port, {cast, Pid}, State)};
 
 handle_cast(Msg, State) -> 
     lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
@@ -209,13 +209,12 @@ handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, S
             {Pid, _Transp} = do_connect(Ip, Port, State),
             Response = nksip_stun:binding_response(TransId, Ip, Port),
             nksip_connection:async_send(Pid, Response),
-            % lager:debug("~p sent STUN bind response to ~p:~p", [AppId:name(), Ip, Port]),
+            ?debug(AppId, <<>>, "sent STUN bind response to ~p:~p", [Ip, Port]),
             {noreply, State};
         {response, binding, TransId, Attrs} ->
             {noreply, do_stun_response(TransId, Attrs, State)};
         error ->
-            lager:notice("~p received unrecognized UDP packet: ~s", 
-                        [AppId:name(), Packet]),
+            ?notice(AppId, <<>>, "received unrecognized UDP packet: ~s", [Packet]),
             {noreply, State}
     end;
 
@@ -253,12 +252,12 @@ terminate(_Reason, _State) ->
 %% ========= STUN processing ================================================
 
 %% @private
-do_send_stun(Ip, Port, From, State) ->
+do_send_stun(AppId, Ip, Port, From, State) ->
     #state{timer_t1=T1, stuns=Stuns, socket=Socket} = State,
     {Id, Packet} = nksip_stun:binding_request(),
     case gen_udp:send(Socket, Ip, Port, Packet) of
         ok -> 
-            ?call_debug("sent STUN request to ~p", [{Ip, Port}]),
+            ?debug(AppId, <<>>, "sent STUN request to ~p", [{Ip, Port}]),
             Stun = #stun{
                 id = Id,
                 dest = {Ip, Port},
@@ -269,7 +268,7 @@ do_send_stun(Ip, Port, From, State) ->
             },
             State#state{stuns=[Stun|Stuns]};
         {error, Error} ->
-            ?call_notice("could not send UDP STUN request to ~p:~p: ~p", 
+            ?notice(AppId, <<>>, "could not send UDP STUN request to ~p:~p: ~p", 
                          [Ip, Port, Error]),
             case From of
                 {call, CallFrom} -> gen_server:reply(CallFrom, error);
@@ -282,19 +281,19 @@ do_send_stun(Ip, Port, From, State) ->
 %% @private
 do_stun_retrans(Stun, State) ->
     #stun{dest={Ip, Port}, packet=Packet, next_retrans=Next} = Stun,
-    #state{stuns=Stuns, timer_t1=T1, socket=Socket} = State,
+    #state{app_id=AppId, stuns=Stuns, timer_t1=T1, socket=Socket} = State,
     case Next =< (16*T1) of
         true ->
             case gen_udp:send(Socket, Ip, Port, Packet) of
                 ok -> 
-                    ?call_info("sent STUN refresh", []),
+                    ?info(AppId, <<>>, "sent STUN refresh", []),
                     Stun1 = Stun#stun{
                         retrans_timer = erlang:start_timer(Next, self(), stun_retrans),
                         next_retrans = 2*Next
                     },
                     State#state{stuns=[Stun1|Stuns]};
                 {error, Error} ->
-                    ?call_notice("could not send UDP STUN request to ~p:~p: ~p", 
+                    ?notice(AppId, <<>>, "could not send UDP STUN request to ~p:~p: ~p", 
                                  [Ip, Port, Error]),
                     do_stun_timeout(Stun, State)
             end;
@@ -305,7 +304,7 @@ do_stun_retrans(Stun, State) ->
 
 %% @private
 do_stun_response(TransId, Attrs, State) ->
-    #state{stuns=Stuns} = State,
+    #state{app_id=AppId, stuns=Stuns} = State,
     case lists:keytake(TransId, #stun.id, Stuns) of
         {value, #stun{retrans_timer=Retrans, from=From}, Stuns1} ->
             nksip_lib:cancel_timer(Retrans),
@@ -325,7 +324,7 @@ do_stun_response(TransId, Attrs, State) ->
             end,
             State#state{stuns=Stuns1};
         false ->
-            ?call_notice("received unexpected STUN response", []),
+            ?notice(AppId, <<>>, "received unexpected STUN response", []),
             State
     end.
 
@@ -333,7 +332,8 @@ do_stun_response(TransId, Attrs, State) ->
 %% @private
 do_stun_timeout(Stun, State) ->
     #stun{dest={Ip, Port}, from=From} = Stun,
-    ?call_notice("STUN request to ~p timeout", [{Ip, Port}]),
+    #state{app_id=AppId} = State,
+    ?notice(AppId, <<>>, "STUN request to ~p timeout", [{Ip, Port}]),
     case From of
         {call, CallFrom} -> gen_server:reply(CallFrom, error);
         {cast, CastPid} -> gen_server:cast(CastPid, {stun, error})
@@ -363,7 +363,7 @@ open_port(AppId, Ip, Port, Iter) ->
         {ok, Socket} ->
             {ok, Socket};
         {error, eaddrinuse} when Iter > 0 ->
-            lager:warning("UDP port ~p is in use, waiting (~p)", [Port, Iter]),
+            ?warning(AppId, <<>>, "UDP port ~p is in use, waiting (~p)", [Port, Iter]),
             timer:sleep(1000),
             open_port(AppId, Ip, Port, Iter-1);
         {error, Error} ->

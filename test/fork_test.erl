@@ -47,7 +47,7 @@ start() ->
     
     % Clients to initiate connections
 
-    ok = do_start(client1, [
+    {ok, _} = do_start(client1, [
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"},
@@ -55,33 +55,33 @@ start() ->
     ]),
 
     % Server1 is stateless
-    ok = do_start(server1, [
+    {ok, _} = do_start(server1, [
         {from, "sip:server1@nksip"},
         no_100,
         {local_host, "localhost"},
         {transports, [{udp, all, 5061}]}
     ]),
 
-    ok = do_start(client2, [
+    {ok, _} = do_start(client2, [
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
         {local_host, "127.0.0.1"}
     ]),
 
-    ok = do_start(server2, [
+    {ok, _} = do_start(server2, [
         {from, "sip:serverB@nksip"},
         no_100,
         {local_host, "localhost"},
         {transports, [{udp, all, 5062}]}
     ]),
 
-    ok = do_start(client3, [
+    {ok, _} = do_start(client3, [
         {from, "sip:client3@nksip"},
         {route, "<sip:127.0.0.1:5063;lr>"},
         {local_host, "127.0.0.1"}
     ]),
 
-    ok = do_start(server3, [
+    {ok, _} = do_start(server3, [
         {from, "sip:server3@nksip"},
         no_100,
         {local_host, "localhost"},
@@ -91,7 +91,7 @@ start() ->
 
     % Registrar server
 
-    ok = do_start(serverR, [
+    {ok, _} = do_start(serverR, [
         {from, "sip:serverR@nksip"},
         registrar,
         no_100,
@@ -102,50 +102,50 @@ start() ->
 
     % Clients to receive connections
 
-    ok = do_start(clientA1, [
+    {ok, _} = do_start(clientA1, [
         {from, "sip:clientA1@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"}
     ]),
 
-    ok = do_start(clientB1, [
+    {ok, _} = do_start(clientB1, [
         {from, "sip:clientB1@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
         {local_host, "127.0.0.1"}
     ]),
 
-    ok = do_start(clientC1, [
+    {ok, _} = do_start(clientC1, [
         {from, "sip:clientC1@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5063;lr>"},
         {local_host, "127.0.0.1"}
     ]),
 
-    ok = do_start(clientA2, [
+    {ok, _} = do_start(clientA2, [
         {from, "sip:clientA2@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"}
     ]),
 
-    ok = do_start(clientB2, [
+    {ok, _} = do_start(clientB2, [
         {from, "sip:clientB2@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
         {local_host, "127.0.0.1"}
     ]),
     
-    ok = do_start(clientC3, [
+    {ok, _} = do_start(clientC3, [
         {from, "sip:clientC3@nksip"},
         no_100,
         {route, "<sip:127.0.0.1:5063;lr>"},
         {local_host, "127.0.0.1"}
     ]),
 
-    ok = do_start(clientD1, []),
-    ok = do_start(clientD2, []),
+    {ok, _} = do_start(clientD1, []),
+    {ok, _} = do_start(clientD2, []),
     ?debugFmt("Starting ~p", [?MODULE]).
 
 

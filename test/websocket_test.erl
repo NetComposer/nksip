@@ -42,7 +42,7 @@ ws1_test_() ->
 start1() ->
     tests_util:start_nksip(),
 
-    ok = nksip:start(ws_a, nksip_sipapp, [], [
+    {ok, _} = nksip:start(ws_a, nksip_sipapp, [], [
         {transports, [
             {ws, all, 8090, []},
             {wss, all, 8091, []},
@@ -50,7 +50,7 @@ start1() ->
         ]}
     ]),
 
-    ok = nksip:start(ws_b, nksip_sipapp, [], [
+    {ok, _} = nksip:start(ws_b, nksip_sipapp, [], [
         {transports, [
             {ws, all, 8090, []},
             {wss, all, 8092, [{dispatch, [{'_', ["/ws"]}]}]}
@@ -113,7 +113,7 @@ ws2_test_() ->
 start2() ->
     tests_util:start_nksip(),
 
-    ok = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
         registrar,
         {local_host, "localhost"},
@@ -125,19 +125,19 @@ start2() ->
         ]}
     ]),
 
-    ok = nksip:start(ua1, ?MODULE, ua1, [
+    {ok, _} = nksip:start(ua1, ?MODULE, ua1, [
         {from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    ok = nksip:start(ua2, ?MODULE, ua2, [
+    {ok, _} = nksip:start(ua2, ?MODULE, ua2, [
         {from, "<sip:client2@nksip>"},
         {local_host, "localhost"},
         {transports, [{ws, all, any}, {wss, all, 8091}]}
     ]),
 
-    ok = nksip:start(ua3, ?MODULE, ua3, [
+    {ok, _} = nksip:start(ua3, ?MODULE, ua3, [
         {from, "<sip:client3@nksip>"},
         {local_host, "invalid.invalid"},
         {transports, [{ws, all, 8080, [{dispatch, "/client3"}]}]}

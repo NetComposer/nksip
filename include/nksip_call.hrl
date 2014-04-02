@@ -24,57 +24,42 @@
 -ifndef(NKSIP_CALL_HRL_).
 -define(NKSIP_CALL_HRL_, 1).
 
--define(
-    DO_LOG(Level, App, CallId, Text, Opts),
-    case Level of
-        debug -> nksip_trace:insert(App, CallId, {debug, Text, Opts});
-        _ -> ok
-    end,
-    case is_binary(CallId) of
-        true ->
-            lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts]);
-        false ->
-            lager:Level([{app, App}], "~p "++Text, [App|Opts])
-    end).
+
+-define(DO_CALL_LOG(Level, Text, List), 
+    ?DO_LOG(Level, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List)).
 
 
--define(
-    call_debug(Text, List),
+-define(call_debug(Text, List),
     case erlang:get(nksip_log_level)>=8 of
-        true -> ?DO_LOG(debug, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List);
+        true -> ?DO_CALL_LOG(debug, Text, List);
         false -> ok
     end).
 
--define(
-    call_info(Text, List),
+-define(call_info(Text, List),
     case erlang:get(nksip_log_level)>=7 of
-        true -> ?DO_LOG(info, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List);
+        true -> ?DO_CALL_LOG(info, Text, List);
         false -> ok
     end).
 
--define(
-    call_notice(Text, List),
+-define(call_notice(Text, List),
     case erlang:get(nksip_log_level)>=6 of
-        true -> ?DO_LOG(notice, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List);
+        true -> ?DO_CALL_LOG(notice, Text, List);
         false -> ok
     end).
 
--define(
-    call_warning(Text, List),
+-define(call_warning(Text, List),
     case erlang:get(nksip_log_level)>=5 of
-        true -> ?DO_LOG(warning, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List);
-        false -> ok
+        true -> ?DO_CALL_LOG(warning, Text, List);
+        false -> 
+            ok
     end).
 
--define(
-    call_error(Text, List),
+-define(call_error(Text, List),
     case erlang:get(nksip_log_level)>=4 of
-        true -> ?DO_LOG(error, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List);
+        true -> ?DO_CALL_LOG(error, Text, List);
         false -> ok
     end).
 
-
--define(MSG_KEEP_TIME, 5).          % Time to keep removed sip msgs in memory
 
 
 -type prack() :: {

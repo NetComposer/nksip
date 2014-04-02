@@ -28,23 +28,22 @@
 -compile([export_all]).
 
 
-% basic_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun running/0}, 
-%             {timeout, 60, fun transport/0}, 
-%             {timeout, 60, fun cast_info/0}, 
-%             {timeout, 60, fun stun/0}
-%         ]
-%     }.
+basic_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun running/0}, 
+            {timeout, 60, fun transport/0}, 
+            {timeout, 60, fun cast_info/0}, 
+            {timeout, 60, fun stun/0}
+        ]
+    }.
 
 
 start() ->
     tests_util:start_nksip(),
     nksip_config:put(nksip_store_timer, 200),
-    nksip_config:put(nksip_sipapp_timer, 10000),
 
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
@@ -66,10 +65,10 @@ start() ->
     ]),
 
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
-        % {supported, []},
+        {supported, []},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
-    tests_util:log(debug),
+    tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
 
