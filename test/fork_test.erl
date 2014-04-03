@@ -146,6 +146,8 @@ start() ->
 
     {ok, _} = do_start(clientD1, []),
     {ok, _} = do_start(clientD2, []),
+
+    tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
 
