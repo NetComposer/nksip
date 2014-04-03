@@ -220,6 +220,7 @@ field(D, Field) ->
         id -> D#dialog.id;
         remote_id -> remote_id(D);
         app_id -> D#dialog.app_id;
+        app_name -> apply(D#dialog.app_id, name, []);
         call_id -> D#dialog.call_id;
         created -> D#dialog.created;
         updated -> D#dialog.updated;
@@ -271,7 +272,7 @@ fields(App, DialogSpec, Fields) when is_list(Fields) ->
     Fun = fun(Dialog) -> 
         {ok, [{Field, field(Dialog, Field)} || Field <- Fields]}
     end,
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             case id(AppId, DialogSpec) of
                 <<>> ->
@@ -314,7 +315,7 @@ class_id(_, #sipmsg{}) ->
 
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip:id()}.
--spec id(nksip:app_id(), id()|nksip:id()) ->
+-spec id(term()|nksip:app_id(), id()|nksip:id()) ->
     id().
 
 
@@ -324,10 +325,15 @@ id(_, <<"D_", _/binary>>=DialogId) ->
 id(_, <<"U_", _/binary>>=SubscriptionId) ->
     nksip_subscription:dialog_id(SubscriptionId);
 
-id(AppId, <<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
-    case nksip_call:dialog_id(AppId, MsgId) of
-        {ok, DialogId} -> DialogId;
-        {error, _} -> <<>>
+id(App, <<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
+    case nksip:find_app(App) of
+        {ok, AppId} ->
+            case nksip_call:dialog_id(AppId, MsgId) of
+                {ok, DialogId} -> DialogId;
+                {error, _} -> <<>>
+            end;
+        _ ->
+            <<>>
     end.
 
     
@@ -345,7 +351,7 @@ call_id(<<"D_", Rest/binary>>) ->
     nksip:dialog() | error.
 
 get_dialog(App, DialogSpec) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             Fun = fun(Dialog) -> {ok, Dialog} end,
             case id(AppId, DialogSpec) of
@@ -375,7 +381,7 @@ get_all() ->
     [id()].
 
 get_all(App, CallId) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             [DlgId || {_, DlgId} <- nksip_call_router:get_all_dialogs(AppId, CallId)];
         _ ->
@@ -393,11 +399,14 @@ bye_all() ->
 
 
 %% @doc Stops an existing dialog (remove it from memory).
--spec stop(nksip:app_id(), spec()) ->
+-spec stop(term()|nksip:app_id(), spec()) ->
     ok.
 
-stop(AppId, DialogSpec) ->
-    nksip_call:stop_dialog(AppId, DialogSpec).
+stop(App, DialogSpec) ->
+    case nksip:find_app(App) of
+        {ok, AppId} -> nksip_call:stop_dialog(AppId, DialogSpec);
+        _ -> ok
+    end.
 
 
 %% @doc Stops (deletes) all current dialogs.

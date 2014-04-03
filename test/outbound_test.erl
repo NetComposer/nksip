@@ -44,9 +44,6 @@ outbound_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    nksip_config:put(outbound_time_all_fail, 1),
-    nksip_config:put(outbound_time_any_ok, 2),
-
     {ok, _} = nksip:start(registrar, ?MODULE, registrar, [
         registrar,
         {local_host, "localhost"},
@@ -89,9 +86,6 @@ start() ->
 
 
 stop() ->
-    nksip_config:put(outbound_time_all_fail, 30),
-    nksip_config:put(outbound_time_any_ok, 90),
-
     ok = nksip:stop(p1),
     ok = nksip:stop(p2),
     ok = nksip:stop(p3),
@@ -149,7 +143,7 @@ flow() ->
     } = PContact,
     QInstanceC1 = nksip_lib:get_value(<<"+sip.instance">>, EOpts1),
 
-    {ok, InstanceC1} = nksip_sipapp_srv:get_uuid(ua1),
+    {ok, InstanceC1} = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
     [#reg_contact{
@@ -184,15 +178,19 @@ flow() ->
 
     {tcp, {127,0,0,1}, LocalPort1, <<>>} = Local1,
     {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
+    {ok, UA1_Id} = nksip:find_app(ua1),
+    {ok, UA2_Id} = nksip:find_app(ua2),
     [{#transport{local_port=LocalPort1, remote_port=5090}, _}] = 
-        nksip_transport:get_all_connected(ua1),
+        nksip_transport:get_all_connected(UA1_Id),
     [{#transport{local_port=LocalPort2, remote_port=5090}, _}] = 
-        nksip_transport:get_all_connected(ua2),
+        nksip_transport:get_all_connected(UA2_Id),
+
+    {ok, Registrar_Id} = nksip:find_app(registrar),
     [
         {#transport{local_port=5090, remote_port=LocalPortA}, _},
         {#transport{local_port=5090, remote_port=LocalPortB}, _}
     ] = 
-        nksip_transport:get_all_connected(registrar),
+        nksip_transport:get_all_connected(Registrar_Id),
     true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortA, LocalPortB]),
 
 
@@ -209,13 +207,13 @@ flow() ->
         {#transport{local_port=5101, remote_port=RemotePort}, _},
         {#transport{local_port=LocalPort1, remote_port=5090}, _}
     ] = 
-        lists:sort(nksip_transport:get_all_connected(ua1)),
+        lists:sort(nksip_transport:get_all_connected(UA1_Id)),
     [
         {#transport{local_port=5090, remote_port=LocalPortC}, _},
         {#transport{local_port=5090, remote_port=LocalPortD}, _},
         {#transport{local_port=RemotePort, remote_port=5101}, _}
     ] = 
-        lists:sort(nksip_transport:get_all_connected(registrar)),
+        lists:sort(nksip_transport:get_all_connected(Registrar_Id)),
     true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortC, LocalPortD]),
 
 
@@ -250,7 +248,7 @@ register() ->
             {<<"+sip.instance">>, QInstanceC1},
             {<<"expires">>,<<"3600">>}]
     } = Contact1,
-    {ok, InstanceC1} = nksip_sipapp_srv:get_uuid(ua1),
+    {ok, InstanceC1} = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
     QInstanceC1_id = nksip_lib:hash(QInstanceC1),
@@ -305,7 +303,7 @@ register() ->
             {<<"+sip.instance">>, QInstanceC2},
             {<<"expires">>,<<"3600">>}]
     } = Contact3,
-    {ok, InstanceC2} = nksip_sipapp_srv:get_uuid(ua2),
+    {ok, InstanceC2} = nksip:get_uuid(ua2),
     true = <<$", InstanceC2/binary, $">> == QInstanceC2,
     true = InstanceC1 /= InstanceC2,
 
@@ -452,13 +450,15 @@ proxy() ->
 outbound() ->
     nksip_registrar:clear(registrar),
     nksip_transport:stop_all_connected(),
-    {ok, _} = nksip:start(ua3, ?MODULE, ua3, [
-        % {route, "<sip:127.0.0.1:5090;lr>"},
+    {ok, UA3_Id} = nksip:start(ua3, ?MODULE, ua3, [
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5106}, {tls, all, 5107}]},
         {register, "<sip:127.0.0.1:5090;transport=tcp>, 
-                    <sip:127.0.0.1:5090;transport=udp>"}
+                    <sip:127.0.0.1:5090;transport=udp>"},
+        {outbound_time_all_fail, 1},
+        {outbound_time_any_ok, 2},
+        {sipapp_timer, 1}
     ]),
     timer:sleep(100),
 
@@ -477,8 +477,9 @@ outbound() ->
                        remote_port = 5090, listen_port = 5106},
             Pid2
         }
-    ] = lists:sort(nksip_transport:get_all_connected(ua3)),
+    ] = lists:sort(nksip_transport:get_all_connected(UA3_Id)),
 
+    {ok, RegistrarId} = nksip:find_app(registrar),
     [
         {
             #transport{proto = tcp, local_port = 5090,
@@ -490,7 +491,7 @@ outbound() ->
              remote_port = 5106, listen_port = 5090},
             Pid4
         }
-    ] = lists:sort(nksip_transport:get_all_connected(registrar)),
+    ] = lists:sort(nksip_transport:get_all_connected(RegistrarId)),
 
 
 
@@ -507,33 +508,30 @@ outbound() ->
     exit(Pid1, kill),
     timer:sleep(50),
     [{<<"auto-1">>, false, _},{<<"auto-2">>, true, _}] = 
-        lists:sort(nksip_sipapp_auto:get_registers(ua3)),
+        lists:sort(nksip_sipapp_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (1/3)"),
     wait_register(50),
 
     nksip_connection:stop(Pid2, normal),
     timer:sleep(50),
     [{<<"auto-1">>, true, _},{<<"auto-2">>, false, _}] = 
-        lists:sort(nksip_sipapp_auto:get_registers(ua3)),
+        lists:sort(nksip_sipapp_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (2/3)"),
     wait_register(50),
 
-    [{_, Pid5}, {_, Pid6}] = nksip_transport:get_all_connected(ua3),
+    [{_, Pid5}, {_, Pid6}] = nksip_transport:get_all_connected(UA3_Id),
     nksip_connection:stop(Pid5, normal),
     nksip_connection:stop(Pid6, normal),
     timer:sleep(50),
     [{<<"auto-1">>, false, _},{<<"auto-2">>, false, _}] = 
-        lists:sort(nksip_sipapp_auto:get_registers(ua3)),
+        lists:sort(nksip_sipapp_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (3/3)"),
     wait_register(100),
 
     ok = nksip:stop(ua3),
     timer:sleep(100),
-    [] = nksip_transport:get_all_connected(ua3),
-    [{#transport{proto=udp}, _}] = nksip_transport:get_all_connected(registrar),
-
-    nksip_config:put(outbound_time_all_fail, 30),
-    nksip_config:put(outbound_time_any_ok, 90),
+    [] = nksip_transport:get_all_connected(UA3_Id),
+    [{#transport{proto=udp}, _}] = nksip_transport:get_all_connected(RegistrarId),
     ok.
 
 

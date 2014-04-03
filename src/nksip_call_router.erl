@@ -54,7 +54,7 @@
 %% ===================================================================
 
 
--type sync_error() :: unknown_sipapp | too_many_calls | timeout | loop_detected.
+-type sync_error() :: sipapp_not_found | too_many_calls | timeout | loop_detected.
 
 
 %% ===================================================================
@@ -83,12 +83,12 @@ incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
     when Error :: unknown_dialog | sync_error().
 
 apply_dialog(App, DialogId, Fun) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             CallId = nksip_dialog:call_id(DialogId),
             send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun});
-        {error, Error} ->
-            {error, Error}
+        not_found ->
+            {error, sipapp_not_found}
     end.
 
 
@@ -121,7 +121,7 @@ get_all_dialogs(AppId, CallId) ->
     when Error :: unknown_sipmsg | invalid_id | sync_error().
 
 apply_sipmsg(App, MsgId, Fun) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             case nksip_sipmsg:id_parts(MsgId) of
                 {Class, SipMsgId, CallId} when Class==req; Class==resp->
@@ -129,8 +129,8 @@ apply_sipmsg(App, MsgId, Fun) ->
                 error ->
                     {error, invalid_id}
             end;
-        {error, Error} ->
-            {error, Error}
+        error ->
+            {error, sipapp_not_found}
     end.
 
 
@@ -434,7 +434,7 @@ send_work_sync(AppId, CallId, Work, Caller, From, SD) ->
 
 %% @private
 -spec do_call_start(nksip:app_id(), nksip:call_id(), #state{}) ->
-    {ok, #state{}} | {error, unknown_sipapp | too_many_calls}.
+    {ok, #state{}} | {error, sipapp_not_found | too_many_calls}.
 
 do_call_start(AppId, CallId, SD) ->
     #state{name=Name, max_calls=MaxCalls} = SD,

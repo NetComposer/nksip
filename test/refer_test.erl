@@ -75,7 +75,7 @@ basic() ->
         nksip_uac:refer(client1, SipC2, [{refer_to, "sips:127.0.0.1:5081"}]),
 
     Dialog1A = nksip_subscription:dialog_id(Subs1A),
-    % Prepare sipapp_endpoint to send us the received NOTIFYs
+    % Prepare to send us the received NOTIFYs
     {ok, Dialogs} = nksip:get(client1, dialogs, []),
     ok = nksip:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
 

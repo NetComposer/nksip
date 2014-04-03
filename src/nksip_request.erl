@@ -299,7 +299,7 @@ field(App, ReqId, Field) ->
 
 fields(App, <<"R_", _/binary>>=ReqId, Fields) -> 
     Fun = fun(Req) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Req, Fields))} end,
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
                 {ok, Values} -> Values;
@@ -315,7 +315,7 @@ fields(App, <<"R_", _/binary>>=ReqId, Fields) ->
     [binary()] | error.
 
 header(App, <<"R_", _/binary>>=ReqId, Name) -> 
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             Fun = fun(Req) -> {ok, nksip_sipmsg:header(Req, Name)} end,
             case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
@@ -356,7 +356,7 @@ dialog_id(App, ReqId) ->
     nksip:request() | error.
 
 get_request(App, <<"R_", _/binary>>=ReqId) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             Fun = fun(Req) -> {ok, Req} end,
             case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
@@ -380,12 +380,12 @@ call_id(MsgId) ->
 %% @doc Sends a reply to a request.
 -spec reply(term()|nksip:app_id(), nksip:id(), nksip:sipreply()) -> 
     ok | {error, Error}
-    when Error :: invalid_call | unknown_call | unknown_sipapp.
+    when Error :: invalid_call | unknown_call | sipapp_not_found.
 
 reply(App, <<"R_", _/binary>>=ReqId, SipReply) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} -> nksip_call:send_reply(AppId, ReqId, SipReply);
-        _ -> {error, unknown_sipapp}
+        _ -> {error, sipapp_not_found}
     end.
 
 
@@ -401,7 +401,7 @@ reply(#sipmsg{class={req, _}, app_id=AppId}=Req, SipReply) ->
     boolean().
 
 is_local_route(App, <<"R_", _/binary>>=ReqId) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             case fields(AppId, ReqId, [parsed_ruri, parsed_routes]) of
                 [{_, RUri}, {_, []}] -> nksip_transport:is_local(AppId, RUri);

@@ -120,13 +120,16 @@ invalid(Test) ->
     {ok, 200, [{call_id, CallId1}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1", [contact, {meta, [call_id]}]),
     % The UAC has generated a transaction
-    [{uac, _}] = nksip_call_router:get_all_transactions(C1, CallId1),
+    {ok, C1Id} = nksip:find_app(C1),
+    [{uac, _}] = nksip_call_router:get_all_transactions(C1Id, CallId1),
     case Test of
         stateless -> 
-            [] = nksip_call_router:get_all_transactions(S1, CallId1);
+            {ok, S1Id} = nksip:find_app(S1),
+            [] = nksip_call_router:get_all_transactions(S1Id, CallId1);
         stateful -> 
+            {ok, S1Id} = nksip:find_app(S1),
             [{uas, _}] = 
-                nksip_call_router:get_all_transactions(S1, CallId1)
+                nksip_call_router:get_all_transactions(S1Id, CallId1)
     end,
 
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
@@ -140,12 +143,12 @@ invalid(Test) ->
         nksip_uac:options(C1, "sip:client2@nksip", Opts3),
     
     % The 420 response is always stateless
-    [] = nksip_call_router:get_all_transactions(S1, CallId3),
+    [] = nksip_call_router:get_all_transactions(S1Id, CallId3),
 
     % Force Forwards=0 using REGISTER
     CallId4 = nksip_lib:luid(),
     Work4 = {make, 'REGISTER', "sip:any", []},
-    {ok, C1Id} = nksip_siapp_srv:find_app(C1),
+    {ok, C1Id} = nksip:find_app(C1),
     {ok, Req4, Opts4} = nksip_call_router:send_work_sync(C1Id, CallId4, Work4),
     {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 
@@ -492,7 +495,7 @@ dialog() ->
     {ok, 200, []} = nksip_uac:options(C2, DialogId2, []),
 
     [
-        {app_id, C1}, 
+        {app_name, C1}, 
         {invite_status, confirmed}, 
         {local_seq, LSeq}, 
         {remote_seq, RSeq}, 
@@ -505,7 +508,7 @@ dialog() ->
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
         nksip_dialog:fields(C1, DialogId1, 
-                [app_id, invite_status, local_seq, remote_seq, parsed_local_uri, 
+                [app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
                  invite_local_sdp, invite_remote_sdp, parsed_route_set]),
 
@@ -515,7 +518,7 @@ dialog() ->
     #uri{user = <<"client2">>, domain = <<"127.0.0.1">>, port=_Port} = RTarget, 
 
     [
-        {app_id, C2},
+        {app_name, C2},
         {invite_status, confirmed},
         {local_seq, RSeq},
         {remote_seq, LSeq},
@@ -528,12 +531,12 @@ dialog() ->
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
         nksip_dialog:fields(C2, DialogId2,
-                [app_id, invite_status, local_seq, remote_seq, parsed_local_uri, 
+                [app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
                  invite_local_sdp, invite_remote_sdp, parsed_route_set]),
     
     [
-        {app_id, S1},
+        {app_name, S1},
         {invite_status, confirmed},
         {parsed_local_uri, LUri},
         {parsed_remote_uri, RUri},
@@ -544,7 +547,7 @@ dialog() ->
         {parsed_route_set, []}          % The first route is deleted (it is itself)
     ] =
         nksip_dialog:fields(S1, DialogId1, 
-            [app_id, invite_status, parsed_local_uri, parsed_remote_uri,
+            [app_name, invite_status, parsed_local_uri, parsed_remote_uri,
              parsed_local_target, parsed_remote_target, invite_local_sdp, 
              invite_remote_sdp, parsed_route_set]),
 

@@ -88,7 +88,7 @@ find(App, {Scheme, User, Domain}) ->
     find(App, Scheme, User, Domain);
 
 find(App, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
-    case nksip_siapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             case lists:member(<<"gr">>, Opts) of
                 true -> 
@@ -137,7 +137,7 @@ find(App, Scheme, User, Domain) ->
     [#reg_contact{}].
 
 get_info(App, Scheme, User, Domain) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             AOR = {Scheme, nksip_lib:to_binary(User), nksip_lib:to_binary(Domain)},
             case catch callback_get(AppId, AOR) of
@@ -178,7 +178,7 @@ qfind(App, Scheme, User, Domain) ->
     ok | not_found | callback_error.
 
 delete(App, Scheme, User, Domain) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             AOR = {
                 nksip_parse:scheme(Scheme), 
@@ -262,12 +262,17 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
 
 %% @doc Clear all stored records by a SipApp's core.
 -spec clear(term()|nksip:app_id()) -> 
-    ok | callback_error.
+    ok | callback_error | sipapp_not_found.
 
-clear(AppId) -> 
-    case callback(AppId, del_all) of
-        ok -> ok;
-        _ -> callback_error
+clear(App) -> 
+    case nksip:find_app(App) of
+        {ok, AppId} ->
+            case callback(AppId, del_all) of
+                ok -> ok;
+                _ -> callback_error
+            end;
+        _ ->
+            sipapp_not_found
     end.
 
 

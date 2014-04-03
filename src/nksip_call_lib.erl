@@ -304,7 +304,7 @@ callback_timer(Fun, Trans, Call) ->
     {timer(), reference()}.
 
 start_timer(Time, Tag, #trans{class=Class, id=Id}) ->
-    {Tag, erlang:start_timer(Time, self(), {Class, Tag, Id})}.
+    {Tag, erlang:start_timer(round(Time), self(), {Class, Tag, Id})}.
 
 
 %% @private

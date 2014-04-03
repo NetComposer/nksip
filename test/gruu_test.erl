@@ -90,12 +90,12 @@ register() ->
                             nksip_lib:get_value(<<"pub-gruu">>, EOpts1))),
     [Tmp1] = nksip_parse:ruris(nksip_lib:unquote(
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts1))),
-    {ok, Inst1} = nksip_sipapp_srv:get_uuid(ua1),
+    {ok, Inst1} = nksip:get_uuid(ua1),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub1,
     #uri{domain = <<"nksip">>, port=0} = Tmp1,
 
-    Pub1 = nksip_sipapp_srv:get_gruu_pub(ua1),
-    Tmp1 = nksip_sipapp_srv:get_gruu_temp(ua1),
+    Pub1 = nksip:get_gruu_pub(ua1),
+    Tmp1 = nksip:get_gruu_temp(ua1),
 
     {ok, 200, [{_, [PC2, PC1]}]} =
         nksip_uac:register(ua2, "sip:127.0.0.1", 
@@ -112,12 +112,13 @@ register() ->
                             nksip_lib:get_value(<<"pub-gruu">>, EOpts2))),
     [Tmp2] = nksip_parse:ruris(nksip_lib:unquote(
                             nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
-    {ok, Inst2} = nksip_sipapp_srv:get_uuid(ua2),
+
+    {ok, Inst2} = nksip:get_uuid(ua2),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub2,
     #uri{domain = <<"nksip">>, port=0} = Tmp2,
 
-    Pub2 = nksip_sipapp_srv:get_gruu_pub(ua2),
-    Tmp2 = nksip_sipapp_srv:get_gruu_temp(ua2),
+    Pub2 = nksip:get_gruu_pub(ua2),
+    Tmp2 = nksip:get_gruu_temp(ua2),
 
 
     % Now we have two contacts stored for this AOR

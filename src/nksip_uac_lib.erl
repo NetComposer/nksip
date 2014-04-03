@@ -44,7 +44,7 @@
 % U: subscriptions
 
 send_any(App, Method, UriOrDialog, Opts) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} -> 
             case UriOrDialog of
                 <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
@@ -52,7 +52,7 @@ send_any(App, Method, UriOrDialog, Opts) ->
                 UserUri ->
                     nksip_call:send(AppId, Method, UserUri, Opts)
             end;
-        error ->
+        not_found ->
             {error, sipapp_not_found}
     end.
 
@@ -65,7 +65,7 @@ send_any(App, Method, UriOrDialog, Opts) ->
 
 send_dialog(App, Method, <<Class, $_, _/binary>>=Id, Opts)
             when Class==$R; Class==$S; Class==$D; Class==$U ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             case nksip_dialog:id(AppId, Id) of
                 <<>> -> 
@@ -76,7 +76,7 @@ send_dialog(App, Method, <<Class, $_, _/binary>>=Id, Opts)
                 DialogId ->
                     nksip_call:send_dialog(AppId, DialogId, Method, Opts)
             end;
-        error ->
+        not_found ->
             {error, sipapp_not_found}
     end.
 
@@ -86,7 +86,7 @@ send_dialog(App, Method, <<Class, $_, _/binary>>=Id, Opts)
     [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
 
 get_authorized_list(App, DialogId) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} -> nksip_call:get_authorized_list(AppId, DialogId);
         _ -> []
     end.
@@ -97,7 +97,7 @@ get_authorized_list(App, DialogId) ->
     ok | error.
 
 clear_authorized_list(App, DialogId) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->nksip_call:clear_authorized_list(AppId, DialogId);
         _ -> error
     end.

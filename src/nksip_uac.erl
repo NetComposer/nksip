@@ -537,7 +537,7 @@ info(App, DialogSpec, Opts) ->
     ok | {error, cancel_error()}.
 
 cancel(App, ReqId) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} -> nksip_call:cancel(AppId, ReqId);
         _ -> {error, sipapp_not_found}
     end.
@@ -912,7 +912,7 @@ request(App, Dest, Opts) ->
          Error :: unknown_core | invalid_uri | no_host | service_unavailable.
 
 stun(App, UriSpec, _Opts) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case nksip:find_app(App) of
         {ok, AppId} ->
             case nksip_transport:get_listening(AppId, udp, ipv4) of
                 [] -> 

@@ -354,8 +354,9 @@ invite2() ->
     % accepted_uac = nksip_dialog:field(SR, Dlg1, invite_status),
 
     All = nksip_dialog:get_all(),
+    {ok, C2Id} = nksip:find_app(client2),
     CallId = nksip_dialog:call_id(Dlg_C2_1),
-    [Dlg_C2_2, Dlg_C2_3] = [D || {client2, D} <- All, 
+    [Dlg_C2_2, Dlg_C2_3] = [D || {A, D} <- All, A==C2Id,
                             nksip_dialog:call_id(D)=:=CallId, D/=Dlg_C2_1],
     proceeding_uac = nksip_dialog:field(C2, Dlg_C2_2, invite_status),
     proceeding_uac = nksip_dialog:field(C2, Dlg_C2_3, invite_status),

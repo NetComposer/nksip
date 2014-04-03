@@ -57,7 +57,8 @@
 
 -export([start/4, stop/1, stop_all/0, get_all/0, update/2]).
 -export([get/2, get/3, put/3, del/2]).
--export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3]).
+-export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3, find_app/1]).
+-export([get_uuid/1, get_gruu_pub/1, get_gruu_temp/1]).
 
 -include("nksip.hrl").
 
@@ -344,7 +345,7 @@ start(AppName, Module, Args, Opts) ->
     ok | error.
 
 stop(App) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case find_app(App) of
         {ok, AppId} ->
             case nksip_sup:stop_core(AppId) of
                 ok ->
@@ -372,12 +373,12 @@ stop_all() ->
     {ok, app_id()} | {error, term()}.
 
 update(App, Opts) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case find_app(App) of
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
             Opts2 = AppId:config() ++ Opts1,
             nksip_sipapp_config:parse_config(Opts2);
-        error ->
+        not_found ->
             {error, sipapp_not_found}
     end.
 
@@ -406,9 +407,9 @@ reply(From, Reply) ->
     {ok, term()} | not_found | error.
 
 get(App, Key) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case find_app(App) of
         {ok, AppId} -> nksip_sipapp_srv:get(AppId, Key);
-        error -> error
+        not_found -> error
     end.
 
 
@@ -429,9 +430,9 @@ get(AppId, Key, Default) ->
     ok | error.
 
 put(App, Key, Value) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case find_app(App) of
         {ok, AppId} -> nksip_sipapp_srv:put(AppId, Key, Value);
-        error -> error
+        not_found -> error
     end.
 
 
@@ -440,9 +441,9 @@ put(App, Key, Value) ->
     ok | error.
 
 del(App, Key) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case find_app(App) of
         {ok, AppId} -> nksip_sipapp_srv:del(AppId, Key);
-        error -> error
+        not_found -> error
     end.
 
 
@@ -487,7 +488,7 @@ cast(App, Msg) ->
     pid() | not_found.
 
 get_pid(App) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case find_app(App) of
         {ok, AppId} -> nksip_sipapp_srv:get_pid(AppId);
         _ -> not_found
     end.
@@ -498,15 +499,80 @@ get_pid(App) ->
     inet:port_number() | not_found.
 
 get_port(App, Proto, Class) ->
-    case nksip_sipapp_srv:find_app(App) of
+    case find_app(App) of
         {ok, AppId} -> 
             case nksip_transport:get_listening(AppId, Proto, Class) of
                 [{#transport{listen_port=Port}, _Pid}|_] -> Port;
                 _ -> not_found
             end;
-        error ->
+        not_found ->
             not_found
     end.
+
+
+%% @private
+-spec find_app(term()) ->
+    {ok, app_id()} | not_found.
+
+find_app(App) when is_atom(App) ->
+    case erlang:function_exported(App, init, 1) of
+        true ->
+            {ok, App};
+        false ->
+            case nksip_proc:values({nksip_sipapp_name, App}) of
+                [] -> not_found;
+                [{AppId, _}] -> {ok, AppId}
+            end
+    end;
+
+find_app(App) ->
+    case nksip_proc:values({nksip_sipapp_name, App}) of
+        [] -> not_found;
+        [{AppId, _}] -> {ok, AppId}
+    end.
+
+
+
+%% @doc Gets SipApp's module and pid
+-spec get_uuid(term()|nksip:app_id()) -> 
+    {ok, binary()} | {error, not_found}.
+
+get_uuid(App) ->
+    case find_app(App) of
+        {ok, AppId} ->
+            case nksip_proc:values({nksip_sipapp_uuid, AppId}) of
+                [{UUID, _Pid}] -> {ok, <<"<urn:uuid:", UUID/binary, ">">>};
+                [] -> {error, not_found}
+            end;
+        not_found -> 
+            {error, not_found}
+    end.
+
+
+%% @doc Gets the last detected public GRUU
+-spec get_gruu_pub(term()|nksip:app_id()) ->
+    undefined | nksip:uri() | error.
+
+get_gruu_pub(App) ->
+    case find_app(App) of
+        {ok, AppId} -> nksip_config:get({nksip_gruu_pub, AppId});
+        _ -> error
+    end.
+
+
+%% @doc Gets the last detected temporary GRUU
+-spec get_gruu_temp(term()|nksip:app_id()) ->
+    undefined | nksip:uri() | error.
+
+get_gruu_temp(App) ->
+    case find_app(App) of
+        {ok, AppId} -> nksip_config:get({nksip_gruu_temp, AppId});
+        _ -> error
+    end.
+
+
+
+
 
 
 

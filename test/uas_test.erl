@@ -1,3 +1,4 @@
+
 %% -------------------------------------------------------------------
 %%
 %% uas_test: Basic Test Suite
@@ -42,19 +43,19 @@ uas_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    nksip_config:put(nksip_store_timer, 200),
-    nksip_config:put(nksip_sipapp_timer, 10000),
 
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         {supported, "a;a_param, 100rel"},
         registrar,
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {sipapp_timer, 1}
     ]),
 
     {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
+        {sipapp_timer, 1}
     ]),
             
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
@@ -107,7 +108,7 @@ uas() ->
     [<<"a,b,d">>] = proplists:get_all_values(<<"unsupported">>, Hds6),
 
     % Force invalid response
-    nksip_trace:warning("Next warning about a invalid sipreply is expected"),
+    lager:warning("Next warning about a invalid sipreply is expected"),
     {ok, 500,  [{reason_phrase, <<"Invalid SipApp Response">>}]} = 
         nksip_uac:options(client1, "sip:127.0.0.1", [
             {add, "x-nk-op", "reply-invalid"}, {meta, [reason_phrase]}]),
@@ -117,11 +118,13 @@ uas() ->
 auto() ->
     % Start a new server to test ping and register options
     nksip:stop(server2),
-    {ok, _} = nksip:start(server2, ?MODULE, server2, 
-                                [registrar, {transports, [{udp, all, 5080}]}]),
+    {ok, _} = nksip:start(server2, ?MODULE, server2, [
+        registrar, 
+        {transports, [{udp, all, 5080}]},
+        {registrar_min_time, 1},
+        {sipapp_timer, 1}
+    ]),
     timer:sleep(200),
-    Old = nksip_config:get(registrar_min_time),
-    nksip_config:put(registrar_min_time, 1),
     {error, invalid_uri} = nksip_sipapp_auto:start_ping(n, ping1, "sip::a", 1, []),
     Ref = make_ref(),
     
@@ -139,7 +142,7 @@ auto() ->
 
     ok = tests_util:wait(Ref, [{ping, ping1, true}, {reg, reg1, true}]),
 
-    nksip_trace:info("Next infos about connection error to port 9999 are expected"),
+    lager:info("Next infos about connection error to port 9999 are expected"),
     {ok, false} = nksip_sipapp_auto:start_ping(client1, ping2, 
                                             "<sip:127.0.0.1:9999;transport=tcp>", 1, []),
     {ok, false} = nksip_sipapp_auto:start_register(client1, reg2, 
@@ -158,7 +161,7 @@ auto() ->
     [{reg1, true, _}] = nksip_sipapp_auto:get_registers(client1),
 
     ok = nksip:stop(server2),
-    nksip_trace:info("Next info about connection error to port 5080 is expected"),
+    lager:info("Next info about connection error to port 5080 is expected"),
     {ok, false} = nksip_sipapp_auto:start_ping(client1, ping3, 
                                             "<sip:127.0.0.1:5080;transport=tcp>", 1, []),
     ok = nksip_sipapp_auto:stop_ping(client1, ping1),
@@ -166,24 +169,18 @@ auto() ->
     ok = nksip_sipapp_auto:stop_register(client1, reg1),
     [] = nksip_sipapp_auto:get_pings(client1),
     [] = nksip_sipapp_auto:get_registers(client1),
-    nksip_config:put(registrar_min_time, Old),
     ok.
 
 timeout() ->
     SipC1 = "<sip:127.0.0.1:5070;transport=tcp>",
 
-    AppId = nksip_sipapp_srv:app_id(client1),
-    Opts = nksip_sipapp_srv:config(AppId),    
-
-    Opts1 = [{sipapp_timeout, 0.02}|Opts],
-    ok = nksip_sipapp_srv:put_opts(client1, Opts1),
+    {ok, _} = nksip:update(client1, [{sipapp_timeout, 0.02}]),
 
     % Client1 callback module has a 50msecs delay in route()
     {ok, 500, [{reason_phrase, <<"No SipApp Response">>}]} = 
         nksip_uac:options(client2, SipC1, [{meta,[reason_phrase]}]),
 
-    Opts2 = [{timer_t1, 10}, {timer_c, 0.5}|Opts] -- [{sipapp_timeout, 0.02}],
-    ok = nksip_sipapp_srv:put_opts(client1, Opts2),
+    {ok, _} = nksip:update(client1, [{timer_t1, 10}, {timer_c, 1}, {sipapp_timeout, 10}]),
 
     Hd1 = {add, "x-nk-sleep", 2000},
     {ok, 408, [{reason_phrase, <<"No-INVITE Timeout">>}]} = 

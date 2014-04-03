@@ -38,7 +38,7 @@
 
 make_contact(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Contact, Opts) ->
     #uri{ext_opts=CExtOpts} = Contact,
-    {ok, UUID} = nksip_sipapp_srv:get_uuid(AppId),
+    {ok, UUID} = nksip:get_uuid(AppId),
     CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
     case 
         nksip_sipmsg:supported(Req, <<"outbound">>) andalso 

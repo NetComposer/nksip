@@ -29,9 +29,8 @@
 -behaviour(gen_server).
 
 -export([get/2, put/3, put_new/3, del/2]).
--export([get_appid/1, get_name/1, config/1, get_uuid/1, get_pid/1, reply/2]).
--export([get_gruu_pub/1, get_gruu_temp/1]).
--export([sipapp_call/5, sipapp_call_wait/5, sipapp_cast/4, find_app/1]).
+-export([get_appid/1, get_name/1, config/1, get_pid/1, reply/2]).
+-export([sipapp_call/5, sipapp_call_wait/5, sipapp_cast/4]).
 -export([register/2, get_registered/2, pending_msgs/0]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -40,7 +39,6 @@
 -include("nksip_call.hrl").
 
 -define(CALLBACK_TIMEOUT, 30000).
--define(TIMER, 5000).
 
 -type nksip_from() :: from() | {'fun', atom(), atom(), list()} | 
                       {pid, pid(), reference()}.
@@ -153,33 +151,6 @@ get_registered(AppId, Type) ->
     nksip:call(AppId, {'$nksip_get_registered', Type}).
 
 
-%% @doc Gets SipApp's module and pid
--spec get_uuid(nksip:app_id()) -> 
-    {ok, binary()} | {error, not_found}.
-
-get_uuid(AppId) ->
-    case nksip_proc:values({nksip_sipapp_uuid, AppId}) of
-        [{UUID, _Pid}] -> {ok, <<"<urn:uuid:", UUID/binary, ">">>};
-        [] -> {error, not_found}
-    end.
-
-
-%% @doc Gets the last detected public GRUU
--spec get_gruu_pub(nksip:app_id()) ->
-    undefined | nksip:uri().
-
-get_gruu_pub(AppId) ->
-    nksip_config:get({nksip_gruu_pub, AppId}).
-
-
-%% @doc Gets the last detected temporary GRUU
--spec get_gruu_temp(nksip:app_id()) ->
-    undefined | nksip:uri().
-
-get_gruu_temp(AppId) ->
-    nksip_config:get({nksip_gruu_temp, AppId}).
-
-
 %% @private Calls a function in the siapp's callback module.
 %% Args1 are used in case of inline callback. 
 %% Args2 in case of normal (with state) callback.
@@ -285,28 +256,6 @@ sipapp_cast(AppId, Fun, Args1, Args2) ->
 
 
 %% @private
--spec find_app(term()) ->
-    {ok, nksip:app_id()} | {error, sipapp_not_found}.
-
-find_app(App) when is_atom(App) ->
-    case erlang:function_exported(App, init, 1) of
-        true ->
-            {ok, App};
-        false ->
-            case nksip_proc:values({nksip_sipapp_name, App}) of
-                [] -> {error, sipapp_not_found};
-                [{AppId, _}] -> {ok, AppId}
-            end
-    end;
-
-find_app(App) ->
-    case nksip_proc:values({nksip_sipapp_name, App}) of
-        [] -> {error, sipapp_not_found};
-        [{AppId, _}] -> {ok, AppId}
-    end.
-
-
-%% @private
 -spec reply(nksip_from(), term()) -> 
     term().
 
@@ -352,7 +301,8 @@ start_link(AppId, Args) ->
 init([AppId, Args]) ->
     process_flag(trap_exit, true),
     nksip_proc:put(nksip_sipapps, AppId),   
-    AppName = AppId:name(),
+    Config = AppId:config(),
+    AppName = nksip_lib:get_value(name, Config),
     nksip_proc:put({nksip_sipapp, AppId}, AppName), 
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
     RegState = nksip_sipapp_auto:init(AppId, Args),
@@ -365,10 +315,9 @@ init([AppId, Args]) ->
             save_uuid(Path, AppName, UUID)
     end,
     nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
-    {_, _, _, _, Time} = AppId:config_timers(),
-    erlang:start_timer(Time, self(), '$nksip_timer'),
+    Timer = 1000 * nksip_lib:get_value(sipapp_timer, Config),
+    erlang:start_timer(Timer, self(), '$nksip_timer'),
     State1 = #state{
-        % name = AppName,
         app_id = AppId, 
         procs = dict:new(),
         reg_state = RegState
@@ -449,8 +398,9 @@ handle_info({'DOWN', _Mon, process, Pid, _}=Info, #state{procs=Procs}=State) ->
 handle_info({timeout, _, '$nksip_timer'}, State) ->
     #state{app_id=AppId, reg_state = RegState} = State,
     RegState1 = nksip_sipapp_auto:timer(RegState),
-    {_, _, _, _, Time} = AppId:config_timers(),
-    erlang:start_timer(Time, self(), '$nksip_timer'),
+    Config = AppId:config(),
+    Timer = 1000 * nksip_lib:get_value(sipapp_timer, Config),
+    erlang:start_timer(Timer, self(), '$nksip_timer'),
     {noreply, State#state{reg_state=RegState1}};
 
 handle_info(Info, State) ->

@@ -69,9 +69,9 @@ uac() ->
     {error, {invalid, <<"route">>}} = nksip_uac:options(client2, SipC1, [{route, "<>"}]),
     {error, {invalid, <<"contact">>}} = nksip_uac:options(client2, SipC1, [{contact, "<>"}]),
     {error, {invalid, cseq_num}} = nksip_uac:options(client2, SipC1, [{cseq_num, -1}]),
-    nksip_trace:error("Next error about 'unknown_siapp' is expected"),
-    {error, unknown_sipapp} = nksip_uac:options(none, SipC1, []),
-    nksip_trace:error("Next error about 'too_many_calls' is expected"),
+    lager:error("Next error about 'unknown_siapp' is expected"),
+    {error, sipapp_not_found} = nksip_uac:options(none, SipC1, []),
+    lager:error("Next error about 'too_many_calls' is expected"),
     nksip_counters:incr(nksip_calls, 1000000000),
     {error, too_many_calls} = nksip_uac:options(client2, SipC1, []),
     nksip_counters:incr(nksip_calls, -1000000000),
@@ -82,7 +82,7 @@ uac() ->
     CB = {callback, Fun},
     Hds = [{add, "x-nk-op", busy}, {add, "x-nk-prov", "true"}],
 
-    nksip_trace:info("Next two infos about connection error to port 50600 are expected"),
+    lager:info("Next two infos about connection error to port 50600 are expected"),
     {error, service_unavailable} =
         nksip_uac:options(client2, "<sip:127.0.0.1:50600;transport=tcp>", []),
     
@@ -95,8 +95,8 @@ uac() ->
     end,
 
     % Sync
-    {ok, 200, Values2} = nksip_uac:options(client2, SipC1, [{meta, [app_id, id, call_id]}]),
-    [{app_id, client2}, {id, RespId2}, {call_id, CallId2}] = Values2,
+    {ok, 200, Values2} = nksip_uac:options(client2, SipC1, [{meta, [app_name, id, call_id]}]),
+    [{app_name, client2}, {id, RespId2}, {call_id, CallId2}] = Values2,
     CallId2 = nksip_response:call_id(RespId2),
     error = nksip_dialog:field(client2, RespId2, status),
     {error, unknown_dialog} = nksip_uac:options(client2, RespId2, []),
@@ -192,11 +192,9 @@ info() ->
 
 timeout() ->
     SipC1 = "sip:127.0.0.1:5070",
-    Opts = apply(nksip_sipapp_srv:get_appid(client2), config),
-    Opts1 = [{timer_t1, 10}, {timer_c, 1}|Opts],
-    ok = nksip_sipapp_srv:put_opts(client2, Opts1),
+    {ok, _} = nksip:update(client2, [{timer_t1, 10}, {timer_c, 1}]),
 
-    nksip_trace:notice("Next notices about several timeouts are expected"),
+    lager:notice("Next notices about several timeouts are expected"),
 
     {ok, 408, [{reason_phrase, <<"Timer F Timeout">>}]} = 
         nksip_uac:options(client2, "sip:127.0.0.1:9999", [{meta,[reason_phrase]}]),

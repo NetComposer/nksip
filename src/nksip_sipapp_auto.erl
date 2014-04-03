@@ -50,16 +50,16 @@
 %% and the remote party replies indicating it has outbound support also,
 %% NkSIP will keep the 'flow' opened sending keep-alive packets. If the flow
 %% goes down, NkSIP will try to re-send the registration at specific intervals.
--spec start_register(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
+-spec start_register(term()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
                         nksip_lib:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
 
-start_register(AppId, RegId, Uri, Time, Opts) 
+start_register(App, RegId, Uri, Time, Opts) 
                 when is_integer(Time), Time > 0, is_list(Opts) ->
     case nksip_parse:uris(Uri) of
         [ValidUri] -> 
             Msg = {'$nksip_start_register', RegId, ValidUri, Time, Opts},
-            case catch nksip:call(AppId, Msg) of
+            case catch nksip:call(App, Msg) of
                 {ok, Reply} -> {ok, Reply};
                 {'EXIT', _} -> {error, sipapp_not_found}
             end;
@@ -71,20 +71,20 @@ start_register(AppId, RegId, Uri, Time, Opts)
 %% @doc Stops a previously started registration series.
 %% For outbound-supported requests, it will also stop the keep-alive messages
 %% on the flow.
--spec stop_register(nksip:app_id(), term()) -> 
+-spec stop_register(term()|nksip:app_id(), term()) -> 
     ok | not_found.
 
-stop_register(AppId, RegId) ->
-    nksip:call(AppId, {'$nksip_stop_register', RegId}).
+stop_register(App, RegId) ->
+    nksip:call(App, {'$nksip_stop_register', RegId}).
     
 
 %% @doc Get current registration status, including if last registration was successful 
 %% and time remaining to next one.
--spec get_registers(nksip:app_id()) -> 
+-spec get_registers(term()|nksip:app_id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_registers(AppId) ->
-    nksip:call(AppId, '$nksip_get_registers').
+get_registers(App) ->
+    nksip:call(App, '$nksip_get_registers').
 
 
 
@@ -93,16 +93,16 @@ get_registers(AppId) ->
 %% `PingId' indentifies this request to stop it later.
 %% Use {@link get_pings/1} to know about ping status, or the callback function
 %% {@link nksip_sipapp:register_update/3}.
--spec start_ping(nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
+-spec start_ping(term()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
                     nksip_lib:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
 
-start_ping(AppId, PingId, Uri, Time, Opts) 
+start_ping(App, PingId, Uri, Time, Opts) 
             when is_integer(Time), Time > 0, is_list(Opts) ->
     case nksip_parse:uris(Uri) of
         [ValidUri] -> 
             Msg = {'$nksip_start_ping', PingId, ValidUri, Time, Opts},
-            case catch nksip:call(AppId, Msg) of
+            case catch nksip:call(App, Msg) of
                 {ok, Reply} -> {ok, Reply};
                 {'EXIT', _} -> {error, sipapp_not_found}
             end;
@@ -112,20 +112,20 @@ start_ping(AppId, PingId, Uri, Time, Opts)
 
 
 %% @doc Stops a previously started ping request.
--spec stop_ping(nksip:app_id(), term()) -> 
+-spec stop_ping(term()|nksip:app_id(), term()) -> 
     ok | not_found.
 
-stop_ping(AppId, PingId) ->
-    nksip:call(AppId, {'$nksip_stop_ping', PingId}).
+stop_ping(App, PingId) ->
+    nksip:call(App, {'$nksip_stop_ping', PingId}).
     
 
 %% @doc Get current ping status, including if last ping was successful and time 
 %% remaining to next one.
--spec get_pings(nksip:app_id()) -> 
+-spec get_pings(term()|nksip:app_id()) -> 
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_pings(AppId) ->
-    nksip:call(AppId, '$nksip_get_pings').
+get_pings(App) ->
+    nksip:call(App, '$nksip_get_pings').
 
 
 %% ===================================================================
@@ -192,17 +192,18 @@ init(AppId, _Args) ->
 
 %% @private
 handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From, 
-            #state{outbound=Outbound, pos=Pos, regs=Regs}=State) ->
+            #state{app_id=AppId, outbound=Outbound, pos=Pos, regs=Regs}=State) ->
     Opts1 = case lists:keymember(reg_id, 1, Opts) of
         false when Outbound -> [{reg_id, Pos}];
         _ -> Opts
     end,
+    CallId = nksip_lib:luid(),
     Reg = #sipreg{
         id = RegId,
         pos = Pos,
         ruri = Uri,
         opts = Opts1,
-        call_id = nksip_lib:luid(),
+        call_id = CallId,
         interval = Time,
         from = From,
         cseq = nksip_config:cseq(),
@@ -211,6 +212,7 @@ handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From,
         fails = 0
     },
     Regs1 = lists:keystore(RegId, #sipreg.id, Regs, Reg),
+    ?debug(AppId, CallId, "Started auto registration: ~p", [Reg]),
     timer(State#state{pos=Pos+1, regs=Regs1});
 
 handle_call({'$nksip_stop_register', RegId}, From, State) ->
@@ -240,18 +242,20 @@ handle_call('$nksip_get_registers', From, #state{regs=Regs}=State) ->
     State;
 
 handle_call({'$nksip_start_ping', PingId, Uri, Time, Opts}, From, 
-            #state{pings=Pings}=State) ->
+            #state{app_id=AppId, pings=Pings}=State) ->
+    CallId = nksip_lib:luid(),
     Ping = #sipreg{
         id = PingId,
         ruri = Uri,
         opts = Opts,
-        call_id = nksip_lib:luid(),
+        call_id = CallId,
         interval = Time,
         from = From,
         cseq = nksip_config:cseq(),
         next = 0,
         ok = undefined
     },
+    ?debug(AppId, CallId, "Started auto ping: ~p", [Ping]),
     Pinsg1 = lists:keystore(PingId, #sipreg.id, Pings, Ping),
     timer(State#state{pings=Pinsg1});
 

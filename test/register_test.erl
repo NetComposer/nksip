@@ -45,7 +45,8 @@ start() ->
         {from, "sip:server1@nksip"},
         registrar,
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
-        {supported, "100rel,timer,path"}        % No outbound
+        {supported, "100rel,timer,path"},        % No outbound
+        {registrar_min_time, 60}
     ]),
 
     {ok, _} = nksip:start(client1, ?MODULE, client1, [
@@ -57,8 +58,6 @@ start() ->
 
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {from, "sip:client2@nksip"}]),
-
-    nksip_config:put(registrar_min_time, 60),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -108,7 +107,7 @@ register1() ->
         ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, DefB}]
     }] = 
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
-    {ok, UUID} = nksip_sipapp_srv:get_uuid(client1),
+    {ok, UUID} = nksip:get_uuid(client1),
     C1_UUID = <<$", UUID/binary, $">>,
     MakeContact = fun(Exp) ->
         list_to_binary([
@@ -167,7 +166,7 @@ register1() ->
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
     Request1 = #sipmsg{
-                app_id = server1, 
+                app_id = element(2, nksip:find_app(server1)), 
                 from = {#uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>}, <<>>},
                 transport = #transport{
                                 proto = udp, 
@@ -214,7 +213,7 @@ register2() ->
     {ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", 
                     [{contact, "tel:123456"}, {expires, 300}]),
 
-    {ok, UUID1} = nksip_sipapp_srv:get_uuid(client1),
+    {ok, UUID1} = nksip:get_uuid(client1),
     QUUID1 = <<$", UUID1/binary, $">>,
 
     % Now we register a different AOR (with sips)

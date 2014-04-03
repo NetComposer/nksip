@@ -174,6 +174,7 @@ default_config() ->
         {timer_t2, 4000},                   % (msecs) 4 secs
         {timer_t4, 5000},                   % (msecs) 5 secs
         {timer_c,  180},                    % (secs) 3min
+        {sipapp_timer, 5},                  % Time to refresh SipApp (registrations...)
         {session_expires, 1800},            % (secs) 30 min
         {min_session_expires, 90},          % (secs) 90 secs (min 90, recomended 1800)
         {udp_timeout, 180},                 % (secs) 3 min
@@ -327,13 +328,13 @@ parse_config_opts([], Opts) ->
 parse_config_opts([Term|Rest], Opts) ->
     try 
         Op = case Term of
-            {timer_t1, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<2500 ->
+            {timer_t1, MSecs} when is_integer(MSecs), MSecs>=10, MSecs=<2500 ->
                 update;
-            {timer_t2, MSecs} when is_integer(MSecs), MSecs>=1000, MSecs=<16000 ->
+            {timer_t2, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<16000 ->
                 update;
-            {timer_t4, MSecs} when is_integer(MSecs), MSecs>=1000, MSecs=<25000 ->
+            {timer_t4, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<25000 ->
                 update;
-            {timer_c, Secs}  when is_integer(Secs), Secs>=5 ->
+            {timer_c, Secs}  when is_integer(Secs), Secs>=1 ->
                 update;
             {session_expires, Secs} when is_integer(Secs), Secs>=5 ->
                 update;
@@ -348,6 +349,8 @@ parse_config_opts([Term|Rest], Opts) ->
             {ws_timeout, Secs} when is_integer(Secs), Secs>=5 -> 
                 update;
             {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+                update;
+            {sipapp_timeout, MSecs} when is_float(MSecs), MSecs>=0.01 ->
                 update;
             {sipapp_timeout, Secs} when is_integer(Secs), Secs>=5, Secs=<180 ->
                 update;
@@ -379,6 +382,8 @@ parse_config_opts([Term|Rest], Opts) ->
             {outbound_time_any_ok, Secs} when is_integer(Secs), Secs>=1 ->
                 update;
             {outbound_max_time, Secs} when is_integer(Secs), Secs>=1 ->
+                update;
+            {sipapp_timer, Secs} when is_integer(Secs), Secs>=1 ->
                 update;
             _ ->
                 throw(invalid)
