@@ -22,8 +22,8 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_any/4, send_dialog/4]).
--export([get_authorized_list/2, clear_authorized_list/2]).
+-export([send/4, send_dialog/3]).
+-export([get_authorized_list/1, clear_authorized_list/1]).
 -export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
 -include("nksip.hrl").
  
@@ -33,77 +33,51 @@
 %% ===================================================================
 
 
--spec send_any(term()|nksip:app_id(), nksip:method(), 
-               nksip:user_uri() | nksip_dialog:spec() | nksip_subscription:id(),
-               nksip_lib:optslist()) ->
-    nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
+-spec send(term()|nksip:app_id(), nksip:method(), 
+           nksip:user_uri(), nksip_lib:optslist()) ->
+    nksip_uac:result() | {error, nksip_uac:error()}.
+
+send(App, Method, Uri, Opts) ->
+    case nksip:find_app(App) of
+        {ok, AppId} -> nksip_call:send(AppId, Method, Uri, Opts);
+        not_found -> {error, sipapp_not_found}
+    end.
+
 
 % R: requests
 % S: responses
 % D: dialogs
 % U: subscriptions
 
-send_any(App, Method, UriOrDialog, Opts) ->
-    case nksip:find_app(App) of
-        {ok, AppId} -> 
-            case UriOrDialog of
-                <<Class, $_, _/binary>> when Class==$R; Class==$S; Class==$D; Class==$U ->
-                    send_dialog(AppId, Method, UriOrDialog, Opts);
-                UserUri ->
-                    nksip_call:send(AppId, Method, UserUri, Opts)
-            end;
-        not_found ->
-            {error, sipapp_not_found}
-    end.
 
 
 %% @private
--spec send_dialog(nksip:app_id()|term(), nksip:method(), 
-                  nksip_dialog:spec() | nksip_subscription:id(),
-                  nksip_lib:optslist()) ->
+-spec send_dialog(nksip:id(), nksip:method(), nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
-send_dialog(App, Method, <<Class, $_, _/binary>>=Id, Opts)
-            when Class==$R; Class==$S; Class==$D; Class==$U ->
-    case nksip:find_app(App) of
-        {ok, AppId} ->
-            case nksip_dialog:id(AppId, Id) of
-                <<>> -> 
-                    {error, unknown_dialog};
-                DialogId when Class==$U ->
-                    nksip_call:send_dialog(AppId, DialogId, Method, 
-                                           [{subscription_id, Id}|Opts]);
-                DialogId ->
-                    nksip_call:send_dialog(AppId, DialogId, Method, Opts)
-            end;
-        not_found ->
-            {error, sipapp_not_found}
-    end.
+send_dialog(Method, <<$U, $_, _/binary>>=Id, Opts) ->
+    nksip_call:send_dialog(Id, Method, [{subscription_id, Id}|Opts]);
+
+send_dialog(Method, <<Class, $_, _/binary>>=Id, Opts)
+            when Class==$R; Class==$S; Class==$D ->
+    nksip_call:send_dialog(Id, Method, Opts).
 
 
 %% @doc Gets authorized list of transport, ip and ports for a dialog.
--spec get_authorized_list(term()|nksip:app_id(), nksip_dialog:id()) ->
+-spec get_authorized_list(nksip:id()) ->
     [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
 
-get_authorized_list(App, DialogId) ->
-    case nksip:find_app(App) of
-        {ok, AppId} -> nksip_call:get_authorized_list(AppId, DialogId);
-        _ -> []
-    end.
+get_authorized_list(Id) ->
+    nksip_call:get_authorized_list(Id).
 
 
 %% @doc Clears authorized list of transport, ip and ports for a dialog.
--spec clear_authorized_list(term()|nksip:app_id(), nksip_dialog:id()) ->
+-spec clear_authorized_list(nksip_dialog:id()) ->
     ok | error.
 
-clear_authorized_list(App, DialogId) ->
-    case nksip:find_app(App) of
-        {ok, AppId} ->nksip_call:clear_authorized_list(AppId, DialogId);
-        _ -> error
-    end.
-
-
-
+clear_authorized_list(Id) ->
+        nksip_call:clear_authorized_list(Id).
+    
 
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
@@ -125,7 +99,7 @@ make(AppId, Method, Uri, Opts) ->
                   ext_opts = [{<<"tag">>, FromTag}]},
         DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
         Req1 = #sipmsg{
-            id = nksip_lib:uid(),
+            id1 = nksip_lib:uid(),
             class = {req, Method1},
             app_id = AppId,
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
@@ -227,7 +201,7 @@ make_cancel(Req, Reason) ->
     end,
     Req#sipmsg{
         class = {req, 'CANCEL'},
-        id = nksip_lib:uid(),
+        id1 = nksip_lib:uid(),
         cseq = {CSeq, 'CANCEL'},
         forwards = 70,
         vias = [Via],
@@ -257,7 +231,7 @@ make_ack(Req, #sipmsg{to=To}) ->
 make_ack(#sipmsg{vias=[Via|_], cseq={CSeq, _}}=Req) ->
     Req#sipmsg{
         class = {req, 'ACK'},
-        id = nksip_lib:uid(),
+        id1 = nksip_lib:uid(),
         vias = [Via],
         cseq = {CSeq, 'ACK'},
         forwards = 70,

@@ -23,9 +23,9 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/3, fields/3, header/3]).
--export([body/2, method/2, dialog_id/2, call_id/1, get_request/2]).
--export([is_local_route/1, is_local_route/2, reply/3, reply/2]).
+-export([field/2, fields/2, header/2]).
+-export([body/1, method/1, dialog_id/1, get_request/1]).
+-export([is_local_route/1, reply/2]).
 -export_type([field/0]).
 
 -include("nksip.hrl").
@@ -284,138 +284,110 @@
 %%              of this header, or `[]' if it is not present</td>
 %%      </tr>
 %% </table>
--spec field(term()|nksip:app_id(), nksip:id(), field()) ->
+-spec field(nksip:id(), field()) ->
     term() | error.
 
-field(App, ReqId, Field) -> 
-    case fields(App, ReqId, [Field]) of
+field(ReqId, Field) -> 
+    case fields(ReqId, [Field]) of
         [{Field, Value}] -> Value;
         error -> error
     end.
 
+
 %% @doc Gets some fields from a request.
--spec fields(term()|nksip:app_id(), nksip:id(), [field()]) ->
+-spec fields(nksip:id(), [field()]) ->
     [{atom(), term()}] | error.
 
-fields(App, <<"R_", _/binary>>=ReqId, Fields) -> 
+fields(<<"R_", _/binary>>=ReqId, Fields) -> 
     Fun = fun(Req) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Req, Fields))} end,
-    case nksip:find_app(App) of
-        {ok, AppId} ->
-            case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
-                {ok, Values} -> Values;
-                _ -> error
-            end;
-        _ ->
-            error
+    case nksip_call_router:apply_sipmsg(ReqId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
     end.
 
 
 %% @doc Gets values for a header in a request.
--spec header(term()|nksip:app_id(), nksip:id(), binary()) ->
+-spec header(nksip:id(), binary()) ->
     [binary()] | error.
 
-header(App, <<"R_", _/binary>>=ReqId, Name) -> 
-    case nksip:find_app(App) of
-        {ok, AppId} ->
-            Fun = fun(Req) -> {ok, nksip_sipmsg:header(Req, Name)} end,
-            case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
-                {ok, Values} -> Values;
-                _ -> error
-            end;
-        _ ->
-            error
+header(<<"R_", _/binary>>=ReqId, Name) -> 
+    Fun = fun(Req) -> {ok, nksip_sipmsg:header(Req, Name)} end,
+    case nksip_call_router:apply_sipmsg(ReqId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
     end.
 
 
 %% @doc Gets the <i>method</i> of a request.
--spec method(term()|nksip:app_id(), nksip:id()) ->
+-spec method(nksip:id()) ->
     nksip:method() | error.
 
-method(App, ReqId) -> 
-    field(App, ReqId, method).
+method(ReqId) -> 
+    field(ReqId, method).
 
 
 %% @doc Gets the <i>body</i> of a request.
--spec body(term()|nksip:app_id(), nksip:id()) ->
+-spec body(nksip:id()) ->
     nksip:body() | error.
 
-body(App, ReqId) -> 
-    field(App, ReqId, body).
+body(ReqId) -> 
+    field(ReqId, body).
 
 
 %% @doc Gets the <i>dialog_id</i> of a request.
--spec dialog_id(term()|nksip:app_id(), nksip:id()) ->
+-spec dialog_id(nksip:id()) ->
     nksip_dialog:id() | error.
 
-dialog_id(App, ReqId) -> 
-    field(App, ReqId, dialog_id).
+dialog_id(ReqId) -> 
+    field(ReqId, dialog_id).
 
 
 %% @private
--spec get_request(term()|nksip:app_id(), nksip:id()) ->
+-spec get_request(nksip:id()) ->
     nksip:request() | error.
 
-get_request(App, <<"R_", _/binary>>=ReqId) ->
-    case nksip:find_app(App) of
-        {ok, AppId} ->
-            Fun = fun(Req) -> {ok, Req} end,
-            case nksip_call_router:apply_sipmsg(AppId, ReqId, Fun) of
-                {ok, SipMsg} -> SipMsg;
-                _ -> error
-            end;
-        _ ->
-            error
+get_request(<<"R_", _/binary>>=ReqId) ->
+    Fun = fun(Req) -> {ok, Req} end,
+    case nksip_call_router:apply_sipmsg(ReqId, Fun) of
+        {ok, SipMsg} -> SipMsg;
+        _ -> error
     end.
 
 
-%% @doc Gets the calls's id of a request id
--spec call_id(nksip:id()) ->
-    nksip:call_id().
+% %% @doc Gets the calls's id of a request id
+% -spec call_id(nksip:id()) ->
+%     nksip:call_id().
 
-call_id(MsgId) ->
-    {req, _, CallId} = nksip_sipmsg:id_parts(MsgId),
-    CallId.
+% call_id(MsgId) ->
+%     {req, _, CallId} = nksip_sipmsg:id_parts(MsgId),
+%     CallId.
    
 
 %% @doc Sends a reply to a request.
--spec reply(term()|nksip:app_id(), nksip:id(), nksip:sipreply()) -> 
+-spec reply(nksip:id()|nksip:request(), nksip:sipreply()) -> 
     ok | {error, Error}
     when Error :: invalid_call | unknown_call | sipapp_not_found.
 
-reply(App, <<"R_", _/binary>>=ReqId, SipReply) ->
-    case nksip:find_app(App) of
-        {ok, AppId} -> nksip_call:send_reply(AppId, ReqId, SipReply);
-        _ -> {error, sipapp_not_found}
-    end.
+reply(<<"R_", _/binary>>=ReqId, SipReply) ->
+    nksip_call:send_reply(ReqId, SipReply);
 
-
-%% @doc See {@link reply/3}.
-reply(#sipmsg{class={req, _}, app_id=AppId}=Req, SipReply) ->
-    reply(AppId, nksip_sipmsg:get_id(Req), SipReply).
+reply(#sipmsg{class={req, _}}=Req, SipReply) ->
+    reply(nksip_sipmsg:get_id(Req), SipReply).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
 %% It will return `true' if the first <i>Route</i> header points to a local address
 %% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
--spec is_local_route(term()|nksip:app_id(), nksip:id()) -> 
+-spec is_local_route(nksip:id()|nksip:request()) -> 
     boolean().
 
-is_local_route(App, <<"R_", _/binary>>=ReqId) ->
-    case nksip:find_app(App) of
-        {ok, AppId} ->
-            case fields(AppId, ReqId, [parsed_ruri, parsed_routes]) of
-                [{_, RUri}, {_, []}] -> nksip_transport:is_local(AppId, RUri);
-                [{_, _RUri}, {_, [Route|_]}] -> nksip_transport:is_local(AppId, Route);
-                error -> false
-            end;
-        _ ->
-            false
-    end.
-
-
-%% @doc See {@link is_local_route/2}.
--spec is_local_route(nksip:request()) -> 
-    boolean().
+is_local_route(<<"R_", _/binary>>=ReqId) ->
+    [$R, AppId, _] = nksip_sipmsg:id_parts(ReqId),
+    case fields(ReqId, [parsed_ruri, parsed_routes]) of
+        [{_, RUri}, {_, []}] -> nksip_transport:is_local(AppId, RUri);
+        [{_, _RUri}, {_, [Route|_]}] -> nksip_transport:is_local(AppId, Route);
+        error -> false
+    end;
 
 is_local_route(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri, routes=Routes}) ->
     case Routes of

@@ -139,20 +139,8 @@
 }).
 
 
-% -record(raw_sipmsg, {
-%     id :: nksip_request:id() | nksip_response:id(),
-%     class :: nksip_parse:msg_class(),
-%     app_id :: nksip:app_id(),
-%     call_id :: nksip:call_id(),
-%     start :: nksip_lib:l_timestamp(),
-%     headers :: [{binary(), binary()}],
-%     body :: nksip:body(),
-%     transport :: nksip_transport:transport()
-% }).
-
-
 -record(sipmsg, {
-    id :: nksip_sipmsg:id(),
+    id1 :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:response_code(), binary()},
     app_id :: nksip:app_id(),
     dialog_id :: nksip_dialog:id(),

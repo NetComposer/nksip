@@ -132,7 +132,7 @@ cancel() ->
     Hds = {add, "x-nk-op", "wait"},
     CB = {callback, fun(Term) -> Pid ! {Ref, Term} end},
     {async, ReqId} = nksip_uac:invite(client1, "sip:client2@nksip", [async, Hds, CB]),
-    ok = nksip_uac:cancel(client1, ReqId),
+    ok = nksip_uac:cancel(ReqId),
     receive {Ref, {ok, 180, _}} -> ok after 500 -> error(inline) end,
     receive {Ref, {ok, 487, _}} -> ok after 500 -> error(inline) end,
 

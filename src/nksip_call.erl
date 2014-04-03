@@ -27,9 +27,9 @@
 -module(nksip_call).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send/2, send/4, send_dialog/4, cancel/2, send_reply/3]).
--export([dialog_id/2]).
--export([get_authorized_list/2, clear_authorized_list/2, stop_dialog/2]).
+-export([send/2, send/4, send_dialog/3, cancel/1, send_reply/2]).
+-export([dialog_id/1]).
+-export([get_authorized_list/1, clear_authorized_list/1, stop_dialog/1]).
 -export([get_all/0, get_info/0, clear_all/0]).
 -export([app_reply/4, work/3, timeout/3]).
 -export([sync_send_dialog/4, make_dialog/4]).
@@ -97,39 +97,32 @@ send(AppId, Method, Uri, Opts) ->
 
 
 %% @doc Generates and sends a new in-dialog request.
--spec send_dialog(nksip:app_id(), nksip_dialog:id(), nksip:method(), 
-                  nksip_lib:optslist()) ->
+-spec send_dialog(nksip:id(), nksip:method(), nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
-send_dialog(AppId, DialogId, Method, Opts) ->
-    CallId = nksip_dialog:call_id(DialogId),
+send_dialog(Id, Method, Opts) ->
+    [_, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
     send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts}).
 
 
 %% @doc Cancels an ongoing INVITE request.
--spec cancel(nksip:app_id(), nksip:id()) ->
+-spec cancel(nksip:id()) ->
     ok | {error, nksip_uac:cancel_error()}.
 
-cancel(AppId, MsgId) ->
-    case nksip_sipmsg:id_parts(MsgId) of
-        {req, ReqId, CallId} ->
-           send_work_sync(AppId, CallId, {cancel, ReqId});
-        _ ->
-            {error, invalid_request}
-    end.
+cancel(Id) ->
+    [$R, AppId, CallId, ReqId] = nksip_sipmsg:id_parts(Id),
+    send_work_sync(AppId, CallId, {cancel, ReqId}).
 
 
 %% @doc Gets the Dialog Id of a request or response id
--spec dialog_id(nksip:app_id(), nksip:id()) ->
-    {ok, nksip_dialog:id()} | {error, Error}
+-spec dialog_id(nksip:id()) ->
+    {ok, nksip:id()} | {error, Error}
     when Error :: unknown_dialog | invalid_request | nksip_call_router:sync_error().
 
-dialog_id(AppId, MsgId) ->
-    case nksip_sipmsg:id_parts(MsgId) of
-        {Class, SipMsgId, CallId} when Class==req; Class==resp ->
-            send_work_sync(AppId, CallId, {dialog_id, SipMsgId});
-        _ ->
-            {error, invalid_request}
+dialog_id(MsgId) ->
+    case nksip_sipmsg:id_parts2(MsgId) of
+        [Class, AppId, CallId,  SipMsgId] when Class==$R; Class==$S ->
+            send_work_sync(AppId, CallId, {dialog_id, SipMsgId})
     end.
 
 
@@ -142,25 +135,21 @@ app_reply(Fun, TransId, Pid, Reply) ->
 
 
 %% @doc Sends a synchronous request reply.
--spec send_reply(nksip:app_id(), nksip:id(), nksip:sipreply()) ->
+-spec send_reply(nksip:id(), nksip:sipreply()) ->
     {ok, nksip:response()} | {error, Error}
     when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
 
-send_reply(AppId, MsgId, Reply) ->
-    case nksip_sipmsg:id_parts(MsgId) of
-        {req, ReqId, CallId} ->
-            send_work_sync(AppId, CallId, {send_reply, ReqId, Reply});
-        _ ->
-            {error, invalid_request}
-    end.
-
+send_reply(Id, Reply) ->
+    [$R, AppId, CallId, ReqId] = nksip_sipmsg:id_parts(Id),
+    send_work_sync(AppId, CallId, {send_reply, ReqId, Reply}).
+    
 
 %% @doc Gets authorized list of transport, ip and ports for a dialog.
--spec get_authorized_list(nksip:app_id(), nksip_dialog:id()) ->
+-spec get_authorized_list(nksip:id()) ->
     [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
 
-get_authorized_list(AppId, DialogId) ->
-    CallId = nksip_dialog:call_id(DialogId),
+get_authorized_list(Id) ->
+    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
     case send_work_sync(AppId, CallId, {get_authorized_list, DialogId}) of
         {ok, List} -> List;
         _ -> []
@@ -168,11 +157,11 @@ get_authorized_list(AppId, DialogId) ->
 
 
 %% @doc Clears authorized list of transport, ip and ports for a dialog.
--spec clear_authorized_list(nksip:app_id(), nksip_dialog:id()) ->
+-spec clear_authorized_list(nksip:id()) ->
     ok | error.
 
-clear_authorized_list(AppId, DialogId) ->
-    CallId = nksip_dialog:call_id(DialogId),
+clear_authorized_list(Id) ->
+    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
     case send_work_sync(AppId, CallId, {clear_authorized_list, DialogId}) of
         ok -> ok;
         _ -> error
@@ -180,11 +169,11 @@ clear_authorized_list(AppId, DialogId) ->
 
 
 %% @doc Stops (deletes) a dialog.
--spec stop_dialog(nksip:app_id(), nksip_dialog:spec()) ->
+-spec stop_dialog(nksip:id()) ->
     ok | {error, unknown_dialog}.
  
-stop_dialog(AppId, DialogId) ->
-    CallId = nksip_dialog:call_id(DialogId),
+stop_dialog(Id) ->
+    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
     send_work_sync(AppId, CallId, {stop_dialog, DialogId}).
 
 
@@ -590,8 +579,8 @@ get_trans(SipMsgId, #call{msgs=Msgs, trans=AllTrans}) ->
 
 get_sipmsg(SipMsgId, Call) ->
     case get_trans(SipMsgId, Call) of
-        {ok, #trans{request=#sipmsg{id=SipMsgId}=Req}} -> {ok, Req};
-        {ok, #trans{response=#sipmsg{id=SipMsgId}=Resp}} -> {ok, Resp};
+        {ok, #trans{request=#sipmsg{id1=SipMsgId}=Req}} -> {ok, Req};
+        {ok, #trans{response=#sipmsg{id1=SipMsgId}=Resp}} -> {ok, Resp};
         _ -> not_found
     end.
 

@@ -25,9 +25,9 @@
 -behaviour(gen_server).
 
 -export([incoming_async/1, incoming_sync/1]).
--export([apply_dialog/3, get_all_dialogs/0, get_all_dialogs/2]).
--export([apply_sipmsg/3]).
--export([apply_transaction/3, get_all_transactions/0, get_all_transactions/2]).
+-export([apply_dialog/2, get_all_dialogs/0, get_all_dialogs/2]).
+-export([apply_sipmsg/2]).
+-export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
 -export([get_all_calls/0, get_all_data/0, get_all_info/0, clear_all_calls/0]).
 -export([pending_msgs/0, pending_work/0]).
 -export([send_work_sync/3, send_work_async/3]).
@@ -78,23 +78,17 @@ incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
 
 
 %% @doc Applies a fun to a dialog and returns the result.
--spec apply_dialog(nksip:app_id(), nksip_dialog:id(), function()) ->
+-spec apply_dialog(nksip:id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_dialog | sync_error().
 
-apply_dialog(App, DialogId, Fun) ->
-    case nksip:find_app(App) of
-        {ok, AppId} ->
-            CallId = nksip_dialog:call_id(DialogId),
-            send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun});
-        not_found ->
-            {error, sipapp_not_found}
-    end.
-
+apply_dialog(Id, Fun) ->
+    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
+    send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun}).
 
 %% @doc Get all dialog ids for all calls.
 -spec get_all_dialogs() ->
-    [{nksip:app_id(), nksip_dialog:id()}].
+    [nksip_dialog:id()].
 
 get_all_dialogs() ->
     lists:flatten([
@@ -116,35 +110,26 @@ get_all_dialogs(AppId, CallId) ->
 
 
 %% @doc Applies a fun to a SipMsg and returns the result.
--spec apply_sipmsg(nksip:app_id(), nksip:id(), function()) ->
+-spec apply_sipmsg(nksip:id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_sipmsg | invalid_id | sync_error().
 
-apply_sipmsg(App, MsgId, Fun) ->
-    case nksip:find_app(App) of
-        {ok, AppId} ->
-            case nksip_sipmsg:id_parts(MsgId) of
-                {Class, SipMsgId, CallId} when Class==req; Class==resp->
-                    send_work_sync(AppId, CallId, {apply_sipmsg, SipMsgId, Fun});
-                error ->
-                    {error, invalid_id}
-            end;
-        error ->
-            {error, sipapp_not_found}
+apply_sipmsg(Id, Fun) ->
+    case nksip_sipmsg:id_parts(Id) of
+        [Class, AppId, CallId, SipMsgId] when Class==$R; Class==$S->
+            send_work_sync(AppId, CallId, {apply_sipmsg, SipMsgId, Fun})
     end.
 
 
 %% @doc Applies a fun to a transaction and returns the result.
--spec apply_transaction(nksip:app_id(), nksip:id(), function()) ->
+-spec apply_transaction(nksip:id(), function()) ->
     term() | {error, Error}
     when Error :: unknown_transaction | sync_error().
 
-apply_transaction(AppId, MsgId, Fun) ->
-    case nksip_sipmsg:id_parts(MsgId) of
-        {Class, SipMsgId, CallId}  when Class==req; Class==resp-> 
-            send_work_sync(AppId, CallId, {apply_transaction, SipMsgId, Fun});
-        error ->
-            {error, invalid_id}
+apply_transaction(Id, Fun) ->
+    case nksip_sipmsg:id_parts(Id) of
+        [Class, AppId, CallId, SipMsgId] when Class==$R; Class==$S->
+            send_work_sync(AppId, CallId, {apply_transaction, SipMsgId, Fun})
     end.
             
 

@@ -46,7 +46,7 @@
             nksip_request:field() | nksip_response:field()) -> 
     term().
 
-field(S, Field) ->
+field(#sipmsg{}=S, Field) ->
     #sipmsg{class=Class, ruri=RUri, from={From, _}, to={To, _}, transport=T} = S,
     case Field of
         id -> get_id(S);
@@ -282,36 +282,40 @@ is_dialog_forming(_)  ->
 -spec get_id(nksip:request()|nksip:response()) ->
     nksip:id().
 
-get_id(#sipmsg{class=Class, id=Id, call_id=CallId}) ->
+get_id(#sipmsg{app_id=AppId, class=Class, id1=MsgId, call_id=CallId}) ->
     <<
         case Class of
             {req, _} -> $R;
             {resp, _, _} -> $S
         end,
         $_,
-        Id/binary,
+        (atom_to_binary(AppId, latin1))/binary,
         $_,
-        CallId/binary
+        CallId/binary,
+        $_,
+        MsgId/binary
     >>.
 
 
-id_parts(<<"R_", Rest/binary>>) -> 
-    id_parts_id(Rest, req, <<>>);
-id_parts(<<"S_", Rest/binary>>) -> 
-    id_parts_id(Rest, resp, <<>>);
-id_parts(_) -> error.
+%% @private
+-spec id_parts(binary()) -> 
+    [binary()].
 
-id_parts_id(<<$_, Rest/binary>>, Class, Acc) -> 
-    id_parts_callid(Rest, Class, Acc, <<>>);
-id_parts_id(<<Ch, Rest/binary>>, Class, Acc) -> 
-    id_parts_id(Rest, Class, <<Acc/binary, Ch>>);
-id_parts_id(<<>>, _, _) -> 
-    error.
+id_parts(<<Ch, $_, Rest/binary>>) ->
+    [BinAppId|Rest] = id_parts(binary_to_list(Rest), [], []),
+    AppId = binary_to_existing_atom(BinAppId, latin1),
+    [Ch, AppId | Rest].
 
-id_parts_callid(<<Ch, Rest/binary>>, Class, Id, Acc) -> 
-    id_parts_callid(Rest, Class, Id, <<Acc/binary, Ch>>);
-id_parts_callid(<<>>, Class, Id, Acc) -> 
-    {Class, Id, Acc}.
+id_parts([$_|Rest], Acc1, Acc2) ->
+    id_parts(Rest, [], [list_to_binary(lists:reverse(Acc1))|Acc2]);
+
+id_parts([Ch|Rest], Acc1, Acc2) ->
+    id_parts(Rest, [Ch|Acc1], Acc2);
+
+id_parts([], Acc1, Acc2) ->
+    lists:reverse([list_to_binary(lists:reverse(Acc1))|Acc2]).
+
+
 
 
 

@@ -303,7 +303,7 @@ invite1() ->
     end,
 
     timer:sleep(500),
-    ok = nksip_uac:cancel(C1, ReqId1),
+    ok = nksip_uac:cancel(ReqId1),
     receive
         {Ref, {code, 487, _}} -> ok
         after 5000 -> error(invite)
