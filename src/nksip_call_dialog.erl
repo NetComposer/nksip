@@ -612,7 +612,7 @@ cast(Fun, Arg, Dialog, Call) ->
     #dialog{id=DialogId} = Dialog,
     #call{app_id=AppId} = Call,
     Args1 = [Dialog, Arg],
-    Args2 = [DialogId, Arg],
+    Args2 = [nksip_dialog:get_id(Dialog), Arg],
     ?call_debug("called dialog ~s ~p: ~p", [DialogId, Fun, Arg]),
     nksip_sipapp_srv:sipapp_cast(AppId, Fun, Args1, Args2),
     ok.

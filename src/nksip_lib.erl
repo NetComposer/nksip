@@ -90,7 +90,7 @@ uuid_4122() ->
       (hex(C))/binary, $-, Hw/binary>>.
 
 
-%% @doc Generates a new printable SHA hash binary over `Base' (using 160 bits).
+%% @doc Generates a new printable SHA hash binary over `Base' (using 160 bits, 27 chars).
 -spec lhash(term()) -> 
     binary().
 
@@ -98,32 +98,37 @@ lhash(Base) ->
     <<I:160/integer>> = crypto:hash(sha, term_to_binary(Base)),
     case encode_integer(I) of
         Hash when byte_size(Hash) == 27 -> Hash;
-        Hash -> <<(binary:copy(<<"Z">>, 27-byte_size(Hash)))/binary, Hash/binary>>
+        Hash -> <<(binary:copy(<<"a">>, 27-byte_size(Hash)))/binary, Hash/binary>>
     end.
 
 
-%% @doc Generates a new random tag.
+%% @doc Generates a new random tag of 6 chars
 -spec uid() -> 
     binary().
 
 uid() ->
     hash({make_ref(), os:timestamp()}).
 
-%% @doc Generates a new tag based on a value.
+%% @doc Generates a new tag of 6 chars based on a value.
 -spec hash(term()) -> 
     binary().
 
 hash(Base) ->
-    encode_integer(erlang:phash2([Base], 4294967296)).
+    case encode_integer(erlang:phash2([Base], 4294967296)) of
+        Hash when byte_size(Hash)==6 -> Hash;
+        Hash -> <<(binary:copy(<<"a">>, 6-byte_size(Hash)))/binary, Hash/binary>>
+    end.
 
 
-%% @doc Generates a new tag based on a value (only numbers and uppercase)
+%% @doc Generates a new tag based on a value (only numbers and uppercase) of 7 chars
 -spec hash36(term()) -> 
     binary().
 
 hash36(Base) ->
-    encode_integer_36(erlang:phash2([Base], 4294967296)).
-
+    case encode_integer_36(erlang:phash2([Base], 4294967296)) of
+        Hash when byte_size(Hash)==7 -> Hash;
+        Hash -> <<(binary:copy(<<"A">>, 7-byte_size(Hash)))/binary, Hash/binary>>
+    end.
 
 
 %% @doc Get all local network ips.

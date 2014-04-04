@@ -77,7 +77,7 @@ uac_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
             uac_do_response(Method, Code, Req1, Resp, Subs, Dialog, Call);
         not_found when Code>=200 andalso Code<300 andalso
                        (Method=='SUBSCRIBE' orelse Method=='REFER') ->
-            Subs = #subscription{id=Id} = Subs = create(uac, Req1, Dialog, Call),
+            Subs = #subscription{id=Id} = create(uac, Req1, Dialog, Call),
             ?call_debug("Subscription ~s UAC response ~p ~p", [Id, Method, Code]),
             uac_do_response(Method, Code, Req1, Resp, Subs, Dialog, Call);
         _ ->
@@ -151,7 +151,7 @@ uas_request(#sipmsg{class={req, Method}}=Req, Dialog, Call)
             ?call_debug("Subscription ~s UAS request ~p", [Id, Method]), 
             {ok, Dialog};
         not_found when Method=='SUBSCRIBE' andalso
-                       element(1, Req1#sipmsg.event) == <<"refer">> ->
+                element(1, Req1#sipmsg.event) == <<"refer">> ->
             {error, forbidden};
         not_found when Method=='SUBSCRIBE'; Method=='REFER' ->
             {ok, Dialog};
@@ -191,7 +191,7 @@ uas_response(#sipmsg{class={req, Method}}=Req, Resp, Dialog, Call)
                 'REFER' -> uas; 
                 'NOTIFY' -> uac 
             end,
-            #subscription{id=Id} = Subs = create(Class, Req1, Dialog, Call),
+            Subs = #subscription{id=Id} = create(Class, Req1, Dialog, Call),
             ?call_debug("Subscription ~s UAS response ~p, ~p", 
                           [Id, Method, Code]), 
             uas_do_response(Method, Code, Req1, Resp, Subs, Dialog, Call);
@@ -376,14 +376,13 @@ update(Status, Subs, Dialog, Call) ->
     nksip_call:call().
 
 create_event(Req, Call) ->
-    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = maybe_add_refer_event(Req, Call),
-    EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
-    ?call_debug("Event ~s_~s_~s UAC created", [EvType, EvId, FromTag]),
-    #call{events=Events} = Call,
-    Id = {EvType, EvId, FromTag},
+    #sipmsg{event=Event, from={_, FromTag}} = maybe_add_refer_event(Req, Call),
+    Id = nksip_subscription:make_id(Event),
+    ?call_debug("Event ~s (~s) UAC created", [Id, FromTag]),
     #call{timers={T1, _, _, _, _}} = Call,
     Timer = erlang:start_timer(64*T1, self(), {remove_event, Id}),
-    Event = #provisional_event{id=Id, timer_n=Timer},
+    Event = #provisional_event{id={Id, FromTag}, timer_n=Timer},
+    #call{events=Events} = Call,
     Call#call{events=[Event|Events]}.
 
 
@@ -395,15 +394,15 @@ create_event(Req, Call) ->
     nksip_call:call().
 
 remove_event(#sipmsg{}=Req, Call) ->
-    #sipmsg{event={EvType, EvOpts}, from={_, FromTag}} = maybe_add_refer_event(Req, Call),
-    EvId = nksip_lib:get_binary(<<"id">>, EvOpts),
-    remove_event({EvType, EvId, FromTag}, Call);
+    #sipmsg{event=Event, from={_, FromTag}} = maybe_add_refer_event(Req, Call),
+    Id = nksip_subscription:make_id(Event),
+    remove_event({Id, FromTag}, Call);
 
-remove_event({EvType, EvId, Tag}=Id, #call{events=Events}=Call) ->
-    case lists:keytake(Id, #provisional_event.id, Events) of
+remove_event({Id, FromTag}, #call{events=Events}=Call) ->
+    case lists:keytake({Id, FromTag}, #provisional_event.id, Events) of
         {value, #provisional_event{timer_n=Timer}, Rest} ->
             cancel_timer(Timer),
-            ?call_debug("Provisional event ~s_~s_~s destroyed", [EvType, EvId, Tag]),
+            ?call_debug("Provisional event ~s (~s) destroyed", [Id, FromTag]),
             Call#call{events=Rest};
         false ->
             Call
@@ -427,7 +426,8 @@ request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
     case lists:keytake(subscription_id, 1, Opts) of
         false ->
             {ok, Opts};
-        {value, {_, SubsId}, Opts1} ->
+        {value, {_, Id}, Opts1} ->
+            {_AppId, SubsId, _DialogId, _CallId} = nksip_subscription:parse_id(Id),
             case find(SubsId, Dialog) of
                 #subscription{} = Subs ->
                     {ok, request_uac_opts(Method, Opts1, Subs)};
@@ -497,12 +497,12 @@ timer({Type, Id}, Dialog, Call) ->
     nksip:subscription().
 
 create(Class, Req, Dialog, Call) ->
-    #sipmsg{event=Event, app_id=AppId} = Req,
-    Id = nksip_subscription:subscription_id(Event, Dialog#dialog.id),
+    #sipmsg{event=Event} = Req,
+    Id = nksip_subscription:make_id(Event),
     #call{timers={T1, _, _, _, _}} = Call,
     Subs = #subscription{
         id = Id,
-        app_id = AppId,
+        % app_id = AppId,
         event = Event,
         status = init,
         class = Class,
@@ -514,19 +514,14 @@ create(Class, Req, Dialog, Call) ->
 
 
 %% @private Finds a event.
--spec find(nksip:request()|nksip:response()|nksip_subscription:id(), nksip:dialog()) ->
+-spec find(nksip:request()|nksip:response(), nksip:dialog()) ->
     nksip:subscription() | not_found.
 
-find(#sipmsg{event=Event}, #dialog{id=DialogId, subscriptions=Subs}) ->
-    Id = nksip_subscription:subscription_id(Event, DialogId),
-    do_find(Id, Subs);
-find(<<"U_", _/binary>>=Id, #dialog{subscriptions=Subs}) ->
-    do_find(Id, Subs);
-find(_, _) ->
-    not_found.
+find(#sipmsg{event=Event}, #dialog{subscriptions=Subs}) ->
+    do_find(nksip_subscription:make_id(Event), Subs).
 
 %% @private 
-do_find(_Id, []) -> not_found;
+do_find(_, []) -> not_found;
 do_find(Id, [#subscription{id=Id}=Subs|_]) -> Subs;
 do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
@@ -538,15 +533,15 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
 is_event(#sipmsg{event=Event, to={_, ToTag}}, #call{events=Events}) ->
     case Event of
-        {Name, Opts} when is_list(Opts) ->
-            Id = nksip_lib:get_value(<<"id">>, Opts, <<>>),
-            do_is_event({Name, Id, ToTag}, Events);
+        {_, Opts} when is_list(Opts) ->
+            Id = nksip_subscription:make_id(Event),
+            do_is_event({Id, ToTag}, Events);
         _ ->
             false
     end.
 
 %% @private.
-do_is_event(_Id, []) -> false;
+do_is_event(_, []) -> false;
 do_is_event(Id, [#provisional_event{id=Id}|_]) -> true;
 do_is_event(Id, [_|Rest]) -> do_is_event(Id, Rest).
 

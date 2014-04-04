@@ -89,7 +89,7 @@ basic() ->
                                         RepHd]),
 
     Dialog1A = nksip_subscription:dialog_id(Subs1A),
-    Dialog1B = nksip_dialog:field(client1, Dialog1A, remote_id),
+    Dialog1B = nksip_dialog:field(Dialog1A, remote_id),
     Subs1B = nksip_subscription:remote_id(client1, Subs1A),
     [
         {status, init},
@@ -110,11 +110,11 @@ basic() ->
     [
         {invite_status, undefined},
         {subscriptions, [Subs1A]}
-    ] = nksip_dialog:fields(client1, Dialog1A, [invite_status, subscriptions]),
+    ] = nksip_dialog:fields(Dialog1A, [invite_status, subscriptions]),
     [
         {invite_status, undefined},
         {subscriptions, [Subs1B]}
-    ] = nksip_dialog:fields(client2, Dialog1B, [invite_status, subscriptions]),
+    ] = nksip_dialog:fields(Dialog1B, [invite_status, subscriptions]),
 
     ok = tests_util:wait(Ref, [
             {subs, Subs1B, init}, 
@@ -229,7 +229,7 @@ dialog() ->
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:fields(client1, DialogA, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:fields(DialogA, [local_target, remote_target, route_set]),
 
     % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
     % The remote target is successfully updated
@@ -239,7 +239,7 @@ dialog() ->
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:fields(client1, DialogA, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:fields(DialogA, [local_target, remote_target, route_set]),
 
     % We send another subscription request using the same dialog, but different Event Id
     % We update our local target
@@ -248,7 +248,7 @@ dialog() ->
                                              {contact, "sip:a3@127.0.0.1"}]),
     Subs2B = nksip_subscription:remote_id(client1, Subs2A),
     DialogA = nksip_subscription:dialog_id(Subs2A),
-    DialogB = nksip_dialog:field(client1, DialogA, remote_id),
+    DialogB = nksip_dialog:field(DialogA, remote_id),
 
     % Remote party updates remote target again
     {ok, 200, []} = nksip_uac:notify(client2, Subs2B, [{contact, "sip:b2@127.0.0.1:5070"}]),
@@ -256,18 +256,18 @@ dialog() ->
         {local_target, <<"<sip:a3@127.0.0.1>">>},
         {remote_target, <<"<sip:b2@127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:fields(client1, DialogA, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:fields(DialogA, [local_target, remote_target, route_set]),
     [
         {local_target, <<"<sip:b2@127.0.0.1:5070>">>},
         {remote_target, <<"<sip:a3@127.0.0.1>">>},
         {route_set, [<<"<sip:a2@127.0.0.1;lr>">>, <<"<sip:b@b>">>, <<"<sip:b1@127.0.0.1:5070;lr>">>]}
-    ] = nksip_dialog:fields(client2, DialogB, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:fields(DialogB, [local_target, remote_target, route_set]),
 
     % Now we have a dialog with 2 subscriptions
-    [Subs1A, Subs2A] = nksip_dialog:field(client1, DialogA, subscriptions),
+    [Subs1A, Subs2A] = nksip_dialog:field(DialogA, subscriptions),
 
-    {ok, 200, [{dialog_id, DialogB}]} = nksip_uac:invite(client2, DialogB, []),
-    ok = nksip_uac:ack(client2, DialogB, []),
+    {ok, 200, [{dialog_id, DialogB}]} = nksip_uac:invite(DialogB, []),
+    ok = nksip_uac:ack(DialogB, []),
 
     % Now we have a dialog with 2 subscriptions and 
 
@@ -280,22 +280,22 @@ dialog() ->
     {ok, 200, []} = nksip_uac:notify(client1, Subs3A, []),
 
     % Now we have a dialog with 3 subscriptions and a INVITE
-    [Subs1A, Subs2A, Subs3A] = nksip_dialog:field(client1, DialogA, subscriptions),
-    [Subs1B, Subs2B, Subs3B] = nksip_dialog:field(client2, DialogB, subscriptions),
-    confirmed = nksip_dialog:field(client1, DialogA, invite_status),
-    confirmed = nksip_dialog:field(client2, DialogB, invite_status),
+    [Subs1A, Subs2A, Subs3A] = nksip_dialog:field(DialogA, subscriptions),
+    [Subs1B, Subs2B, Subs3B] = nksip_dialog:field(DialogB, subscriptions),
+    confirmed = nksip_dialog:field(DialogA, invite_status),
+    confirmed = nksip_dialog:field(DialogB, invite_status),
 
     timer:sleep(2000),
 
     % Now the subscriptions has timeout, we have only the INVITE
-    [] = nksip_dialog:field(client1, DialogA, subscriptions),
-    [] = nksip_dialog:field(client2, DialogB, subscriptions),
-    confirmed = nksip_dialog:field(client1, DialogA, invite_status),
-    confirmed = nksip_dialog:field(client2, DialogB, invite_status),
+    [] = nksip_dialog:field(DialogA, subscriptions),
+    [] = nksip_dialog:field(DialogB, subscriptions),
+    confirmed = nksip_dialog:field(DialogA, invite_status),
+    confirmed = nksip_dialog:field(DialogB, invite_status),
 
-    {ok, 200, []} = nksip_uac:bye(client2, DialogB, []),
-    error = nksip_dialog:field(client1, DialogA, invite_status),
-    error = nksip_dialog:field(client2, DialogB, invite_status),
+    {ok, 200, []} = nksip_uac:bye(DialogB, []),
+    error = nksip_dialog:field(DialogA, invite_status),
+    error = nksip_dialog:field(DialogB, invite_status),
     ok.
 
 
@@ -390,10 +390,10 @@ fork() ->
 
     % We have created four dialogs, each one with one subscription
     [D1, D2, D3, D4] = nksip_dialog:get_all(client1, CallId),
-    [_] = nksip_dialog:field(client1, D1, subscriptions),
-    [_] = nksip_dialog:field(client1, D2, subscriptions),
-    [_] = nksip_dialog:field(client1, D3, subscriptions),
-    [_] = nksip_dialog:field(client1, D4, subscriptions),
+    [_] = nksip_dialog:field(D1, subscriptions),
+    [_] = nksip_dialog:field(D2, subscriptions),
+    [_] = nksip_dialog:field(D3, subscriptions),
+    [_] = nksip_dialog:field(D4, subscriptions),
 
     {ok, 200, []} = nksip_uac:notify(client2, SubsB, [{state, {terminated, giveup}}]),
     ok.
@@ -445,7 +445,7 @@ bye(_ReqId, Meta, _From, AppId=State) ->
 
 subscribe(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"ok">>
     end,
@@ -455,7 +455,7 @@ subscribe(ReqId, Meta, From, AppId=State) ->
         <<"expires-2">> ->
             {reply, {ok, [{expires, 2}]}, State};
         <<"wait">> ->
-            Req = nksip_request:get_request(AppId, ReqId),
+            Req = nksip_request:get_request(ReqId),
             tests_util:send_ref(AppId, Meta, {wait, Req}),
             spawn(
                 fun() ->

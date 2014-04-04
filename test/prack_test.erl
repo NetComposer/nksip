@@ -195,7 +195,7 @@ media() ->
     Hds1 = [{add, "x-nk-op", "rel-prov-answer"}, RepHd],
     {ok, 200, [{dialog_id, DialogId1}]} = 
         nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", [{body, SDP}|Hds1]),
-    ok = nksip_uac:ack(client1, DialogId1, []),
+    ok = nksip_uac:ack(DialogId1, []),
     receive {Ref, {client2, {prack, _}}} -> ok after 1000 -> error(media) end,
     receive {Ref, {client2, {prack, _}}} -> ok after 1000 -> error(media) end,
     ok = tests_util:wait(Ref, [{client2, ack}, 
@@ -208,9 +208,9 @@ media() ->
         vsn = SDP#sdp.vsn+2
     },
     % Hack to find remote dialog
-    DialogId1B = nksip_dialog:field(client1, DialogId1, remote_id),
+    DialogId1B = nksip_dialog:remote_id(DialogId1, client2),
     {RemoteSDP1, SDP} = get_sessions(client2, DialogId1B),
-    {ok, 200, _} = nksip_uac:bye(client1, DialogId1, []),
+    {ok, 200, _} = nksip_uac:bye(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, sdp_stop},
                                {client2, {dialog_stop, caller_bye}}]), 
 
@@ -224,7 +224,7 @@ media() ->
             end},
     {ok, 200, [{dialog_id, DialogId2}]} = 
         nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", [{body, SDP}, CB|Hds2]),
-    ok = nksip_uac:ack(client1, DialogId2, []),
+    ok = nksip_uac:ack(DialogId2, []),
     receive {Ref, {client2, {prack, _}}} -> ok after 1000 -> error(media) end,
     ok = tests_util:wait(Ref, [prack_sdp_ok,
                                {client2, ack}, 
@@ -236,9 +236,9 @@ media() ->
         address = {<<"IN">>, <<"IP4">>, <<"client2">>},
         vsn = SDP#sdp.vsn+1
     },
-    DialogId2B = nksip_dialog:field(client1, DialogId2, remote_id),
+    DialogId2B = nksip_dialog:remote_id(DialogId2, client2),
     {RemoteSDP2, LocalSDP2} = get_sessions(client2, DialogId2B),
-    {ok, 200, _} = nksip_uac:bye(client1, DialogId2, []),
+    {ok, 200, _} = nksip_uac:bye(DialogId2, []),
     ok = tests_util:wait(Ref, [{client2, sdp_stop},
                                {client2, {dialog_stop, caller_bye}}]), 
 
@@ -256,7 +256,7 @@ media() ->
             end},
     {ok, 200, [{dialog_id, DialogId3}]} = 
         nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", [CB3|Hds3]),
-    ok = nksip_uac:ack(client1, DialogId3, []),
+    ok = nksip_uac:ack(DialogId3, []),
     receive {Ref, {client2, {prack, _}}} -> ok after 1000 -> error(media) end,
     LocalSDP3 = receive {Ref, {prack_sdp_ok, L3}} -> L3 after 1000 -> error(media) end,
     ok = tests_util:wait(Ref, [
@@ -268,9 +268,9 @@ media() ->
         address = {<<"IN">>, <<"IP4">>, <<"client2">>},
         connect = {<<"IN">>, <<"IP4">>, <<"client2">>}
     },
-    DialogId3B = nksip_dialog:field(client1, DialogId3, remote_id),
+    DialogId3B = nksip_dialog:remote_id(DialogId3, client2),
     {RemoteSDP3, LocalSDP3} = get_sessions(client2, DialogId3B),
-    {ok, 200, _} = nksip_uac:bye(client1, DialogId3, []),
+    {ok, 200, _} = nksip_uac:bye(DialogId3, []),
     ok = tests_util:wait(Ref, [{client2, sdp_stop},
                                {client2, {dialog_stop, caller_bye}}]), 
     ok.
@@ -285,7 +285,7 @@ init(Id) ->
 
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
@@ -293,26 +293,26 @@ invite(ReqId, Meta, From, AppId=State) ->
         fun() ->
             case Op of
                 <<"prov-busy">> ->
-                    ok = nksip_request:reply(AppId, ReqId, ringing),
+                    ok = nksip_request:reply(ReqId, ringing),
                     timer:sleep(100),
-                    ok = nksip_request:reply(AppId, ReqId, session_progress),
+                    ok = nksip_request:reply(ReqId, session_progress),
                     timer:sleep(100),
                     nksip:reply(From, busy);
                 <<"rel-prov-busy">> ->
-                    ok = nksip_request:reply(AppId, ReqId, rel_ringing),
+                    ok = nksip_request:reply(ReqId, rel_ringing),
                     timer:sleep(100),
-                    ok = nksip_request:reply(AppId, ReqId, rel_session_progress),
+                    ok = nksip_request:reply(ReqId, rel_session_progress),
                     timer:sleep(100),
                     nksip:reply(From, busy);
                 <<"pending">> ->
                     spawn(
                         fun() -> 
-                            ok = nksip_request:reply(AppId, ReqId, rel_ringing)
+                            ok = nksip_request:reply(ReqId, rel_ringing)
                         end),
                     spawn(
                         fun() -> 
                             {error, pending_prack} = 
-                                nksip_request:reply(AppId, ReqId, rel_session_progress),
+                                nksip_request:reply(ReqId, rel_session_progress),
                             tests_util:send_ref(AppId, Meta, pending_prack_ok)
                         end),
                     timer:sleep(100),
@@ -324,10 +324,10 @@ invite(ReqId, Meta, From, AppId=State) ->
                         _ -> 
                             <<>>
                     end,
-                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
+                    ok = nksip_request:reply(ReqId, {rel_ringing, SDP}),
                     timer:sleep(100),
                     SDP1 = nksip_sdp:increment(SDP),
-                    ok = nksip_request:reply(AppId, ReqId, {rel_session_progress, SDP1}),
+                    ok = nksip_request:reply(ReqId, {rel_session_progress, SDP1}),
                     timer:sleep(100),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {answer, SDP2});
@@ -338,12 +338,12 @@ invite(ReqId, Meta, From, AppId=State) ->
                         _ -> 
                             <<>>
                     end,
-                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
+                    ok = nksip_request:reply(ReqId, {rel_ringing, SDP}),
                     timer:sleep(100),
                     nksip:reply(From, ok);
                 <<"rel-prov-answer3">> ->
                     SDP = nksip_sdp:new(nksip_lib:to_binary(AppId), [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-                    ok = nksip_request:reply(AppId, ReqId, {rel_ringing, SDP}),
+                    ok = nksip_request:reply(ReqId, {rel_ringing, SDP}),
                     timer:sleep(100),
                     nksip:reply(From, ok);
                 _ ->
@@ -363,7 +363,7 @@ ack(_ReqId, Meta, _From, AppId=State) ->
 
 
 prack(ReqId, Meta, _From, AppId=State) ->
-    RAck = nksip_request:field(AppId, ReqId, parsed_rack),
+    RAck = nksip_request:field(ReqId, parsed_rack),
     tests_util:send_ref(AppId, Meta, {prack, RAck}),
     Body = case nksip_lib:get_value(body, Meta) of
         #sdp{} = RemoteSDP ->

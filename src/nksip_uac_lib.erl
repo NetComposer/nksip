@@ -99,7 +99,7 @@ make(AppId, Method, Uri, Opts) ->
                   ext_opts = [{<<"tag">>, FromTag}]},
         DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
         Req1 = #sipmsg{
-            id1 = nksip_lib:uid(),
+            id = nksip_lib:uid(),
             class = {req, Method1},
             app_id = AppId,
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
@@ -201,7 +201,7 @@ make_cancel(Req, Reason) ->
     end,
     Req#sipmsg{
         class = {req, 'CANCEL'},
-        id1 = nksip_lib:uid(),
+        id = nksip_lib:uid(),
         cseq = {CSeq, 'CANCEL'},
         forwards = 70,
         vias = [Via],
@@ -231,7 +231,7 @@ make_ack(Req, #sipmsg{to=To}) ->
 make_ack(#sipmsg{vias=[Via|_], cseq={CSeq, _}}=Req) ->
     Req#sipmsg{
         class = {req, 'ACK'},
-        id1 = nksip_lib:uid(),
+        id = nksip_lib:uid(),
         vias = [Via],
         cseq = {CSeq, 'ACK'},
         forwards = 70,

@@ -161,7 +161,7 @@ process_request(Req, TransId, Call) ->
     #call{trans=Trans, next=Id, msgs=Msgs} = Call,
     ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId]),
     LoopId = loop_id(Req),
-    DialogId = nksip_dialog:class_id(uas, Req),
+    DialogId = nksip_dialog:make_id(uas, Req),
     UAS = #trans{
         id = Id,
         class = uas,

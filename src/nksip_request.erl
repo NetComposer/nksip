@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, header/2]).
--export([body/1, method/1, dialog_id/1, get_request/1]).
+-export([body/1, method/1, dialog_id/1, call_id/1, get_request/1]).
 -export([is_local_route/1, reply/2]).
 -export_type([field/0]).
 
@@ -287,8 +287,8 @@
 -spec field(nksip:id(), field()) ->
     term() | error.
 
-field(ReqId, Field) -> 
-    case fields(ReqId, [Field]) of
+field(Id, Field) -> 
+    case fields(Id, [Field]) of
         [{Field, Value}] -> Value;
         error -> error
     end.
@@ -298,9 +298,9 @@ field(ReqId, Field) ->
 -spec fields(nksip:id(), [field()]) ->
     [{atom(), term()}] | error.
 
-fields(<<"R_", _/binary>>=ReqId, Fields) -> 
+fields(<<"R_", _/binary>>=Id, Fields) -> 
     Fun = fun(Req) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Req, Fields))} end,
-    case nksip_call_router:apply_sipmsg(ReqId, Fun) of
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
         {ok, Values} -> Values;
         _ -> error
     end.
@@ -310,9 +310,9 @@ fields(<<"R_", _/binary>>=ReqId, Fields) ->
 -spec header(nksip:id(), binary()) ->
     [binary()] | error.
 
-header(<<"R_", _/binary>>=ReqId, Name) -> 
+header(<<"R_", _/binary>>=Id, Name) -> 
     Fun = fun(Req) -> {ok, nksip_sipmsg:header(Req, Name)} end,
-    case nksip_call_router:apply_sipmsg(ReqId, Fun) of
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
         {ok, Values} -> Values;
         _ -> error
     end.
@@ -322,45 +322,45 @@ header(<<"R_", _/binary>>=ReqId, Name) ->
 -spec method(nksip:id()) ->
     nksip:method() | error.
 
-method(ReqId) -> 
-    field(ReqId, method).
+method(Id) -> 
+    field(Id, method).
 
 
 %% @doc Gets the <i>body</i> of a request.
 -spec body(nksip:id()) ->
     nksip:body() | error.
 
-body(ReqId) -> 
-    field(ReqId, body).
+body(Id) -> 
+    field(Id, body).
 
 
 %% @doc Gets the <i>dialog_id</i> of a request.
 -spec dialog_id(nksip:id()) ->
     nksip_dialog:id() | error.
 
-dialog_id(ReqId) -> 
-    field(ReqId, dialog_id).
+dialog_id(Id) -> 
+    field(Id, dialog_id).
 
 
 %% @private
 -spec get_request(nksip:id()) ->
     nksip:request() | error.
 
-get_request(<<"R_", _/binary>>=ReqId) ->
+get_request(<<"R_", _/binary>>=Id) ->
     Fun = fun(Req) -> {ok, Req} end,
-    case nksip_call_router:apply_sipmsg(ReqId, Fun) of
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
         {ok, SipMsg} -> SipMsg;
         _ -> error
     end.
 
 
-% %% @doc Gets the calls's id of a request id
-% -spec call_id(nksip:id()) ->
-%     nksip:call_id().
+%% @doc Gets the calls's id of a request id
+-spec call_id(nksip:id()) ->
+    nksip:call_id().
 
-% call_id(MsgId) ->
-%     {req, _, CallId} = nksip_sipmsg:id_parts(MsgId),
-%     CallId.
+call_id(Id) ->
+    {req, _AppId, _MsgId, CallId} = nksip_sipmsg:parse_id(Id),
+    CallId.
    
 
 %% @doc Sends a reply to a request.
@@ -368,8 +368,8 @@ get_request(<<"R_", _/binary>>=ReqId) ->
     ok | {error, Error}
     when Error :: invalid_call | unknown_call | sipapp_not_found.
 
-reply(<<"R_", _/binary>>=ReqId, SipReply) ->
-    nksip_call:send_reply(ReqId, SipReply);
+reply(<<"R_", _/binary>>=Id, SipReply) ->
+    nksip_call:send_reply(Id, SipReply);
 
 reply(#sipmsg{class={req, _}}=Req, SipReply) ->
     reply(nksip_sipmsg:get_id(Req), SipReply).
@@ -381,9 +381,9 @@ reply(#sipmsg{class={req, _}}=Req, SipReply) ->
 -spec is_local_route(nksip:id()|nksip:request()) -> 
     boolean().
 
-is_local_route(<<"R_", _/binary>>=ReqId) ->
-    [$R, AppId, _] = nksip_sipmsg:id_parts(ReqId),
-    case fields(ReqId, [parsed_ruri, parsed_routes]) of
+is_local_route(<<"R_", _/binary>>=Id) ->
+    [$R, AppId, _] = nksip_sipmsg:id_parts(Id),
+    case fields(Id, [parsed_ruri, parsed_routes]) of
         [{_, RUri}, {_, []}] -> nksip_transport:is_local(AppId, RUri);
         [{_, _RUri}, {_, [Route|_]}] -> nksip_transport:is_local(AppId, Route);
         error -> false

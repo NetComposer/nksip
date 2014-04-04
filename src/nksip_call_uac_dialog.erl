@@ -471,12 +471,12 @@ new_local_seq(#sipmsg{dialog_id=DialogId}, Call) ->
     end.
 
 
-%% @private
+%% @private Helps generating the transaction id
 -spec uac_id(nksip:request()|nksip:response(), boolean(), nksip_call:call()) ->
     nksip_dialog:id().
 
 uac_id(SipMsg, IsProxy, #call{dialogs=Dialogs}) ->
-    case nksip_dialog:class_id(uac, SipMsg) of
+    case nksip_dialog:make_id(uac, SipMsg) of
         <<>> ->
             <<>>;
         DlgIdA when not IsProxy ->
@@ -489,7 +489,7 @@ uac_id(SipMsg, IsProxy, #call{dialogs=Dialogs}) ->
                 true ->
                     DlgIdA;
                 false ->
-                    DlgIdB = nksip_dialog:class_id(uas, SipMsg),
+                    DlgIdB = nksip_dialog:make_id(uas, SipMsg),
                     case lists:keymember(DlgIdB, #dialog.id, Dialogs) of
                         true -> DlgIdB;
                         false -> DlgIdA

@@ -73,7 +73,7 @@ get_ref() ->
 
 
 save_ref(AppId, ReqId, Meta) ->
-    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
+    case nksip_request:header(ReqId, <<"x-nk-reply">>) of
         [RepBin] -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             {ok, Dialogs} = nksip:get(AppId, dialogs, []),

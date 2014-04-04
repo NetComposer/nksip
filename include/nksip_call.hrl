@@ -118,7 +118,7 @@
 
 
 -record(provisional_event, {
-    id :: {Type::binary(), Id::binary(), Tag::binary()},
+    id :: {Id::nksip_subscription:id(), Tag::binary()},
     timer_n :: reference()
 }).
 

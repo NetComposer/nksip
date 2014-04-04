@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2, require/2]).
--export([is_dialog_forming/1, get_id/1, id_parts/1]).
+-export([is_dialog_forming/1, get_id/1, parse_id/1]).
 -export_type([id/0]).
 -include("nksip.hrl").
 
@@ -52,8 +52,7 @@ field(#sipmsg{}=S, Field) ->
         id -> get_id(S);
         app_name -> apply(S#sipmsg.app_id, name, []);
         app_id -> S#sipmsg.app_id;
-        dialog_id -> S#sipmsg.dialog_id;
-        subscription_id -> nksip_subscription:id(S);
+        dialog_id -> nksip_dialog:get_id(S);
         proto -> case T of #transport{proto=P} -> P; _ -> undefined end;
         local -> 
             case T of 
@@ -282,39 +281,32 @@ is_dialog_forming(_)  ->
 -spec get_id(nksip:request()|nksip:response()) ->
     nksip:id().
 
-get_id(#sipmsg{app_id=AppId, class=Class, id1=MsgId, call_id=CallId}) ->
+get_id(#sipmsg{app_id=AppId, class=Class, id=MsgId, call_id=CallId}) ->
     <<
         case Class of
             {req, _} -> $R;
             {resp, _, _} -> $S
         end,
         $_,
+        MsgId/binary,
+        $_,
         (atom_to_binary(AppId, latin1))/binary,
         $_,
-        CallId/binary,
-        $_,
-        MsgId/binary
+        CallId/binary
     >>.
 
 
 %% @private
--spec id_parts(binary()) -> 
-    [binary()].
+-spec parse_id(binary()) -> 
+    {req|resp, nksip:app_id(), binary(), nksip:call_id()}.
 
-id_parts(<<Ch, $_, Rest/binary>>) ->
-    [BinAppId|Rest] = id_parts(binary_to_list(Rest), [], []),
-    AppId = binary_to_existing_atom(BinAppId, latin1),
-    [Ch, AppId | Rest].
-
-id_parts([$_|Rest], Acc1, Acc2) ->
-    id_parts(Rest, [], [list_to_binary(lists:reverse(Acc1))|Acc2]);
-
-id_parts([Ch|Rest], Acc1, Acc2) ->
-    id_parts(Rest, [Ch|Acc1], Acc2);
-
-id_parts([], Acc1, Acc2) ->
-    lists:reverse([list_to_binary(lists:reverse(Acc1))|Acc2]).
-
+parse_id(Bin) ->
+    <<Ch, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>> = Bin,
+    Class = case Ch of
+        $R -> req;
+        $S -> resp
+    end,
+    {Class, binary_to_existing_atom(App, latin1), Id, CallId}.
 
 
 

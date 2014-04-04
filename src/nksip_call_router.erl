@@ -83,7 +83,7 @@ incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
     when Error :: unknown_dialog | sync_error().
 
 apply_dialog(Id, Fun) ->
-    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
+    {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
     send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun}).
 
 %% @doc Get all dialog ids for all calls.
@@ -115,9 +115,9 @@ get_all_dialogs(AppId, CallId) ->
     when Error :: unknown_sipmsg | invalid_id | sync_error().
 
 apply_sipmsg(Id, Fun) ->
-    case nksip_sipmsg:id_parts(Id) of
-        [Class, AppId, CallId, SipMsgId] when Class==$R; Class==$S->
-            send_work_sync(AppId, CallId, {apply_sipmsg, SipMsgId, Fun})
+    case nksip_sipmsg:parse_id(Id) of
+        {Class, AppId, MsgId, CallId} when Class==req; Class==resp->
+            send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun})
     end.
 
 
@@ -127,9 +127,9 @@ apply_sipmsg(Id, Fun) ->
     when Error :: unknown_transaction | sync_error().
 
 apply_transaction(Id, Fun) ->
-    case nksip_sipmsg:id_parts(Id) of
-        [Class, AppId, CallId, SipMsgId] when Class==$R; Class==$S->
-            send_work_sync(AppId, CallId, {apply_transaction, SipMsgId, Fun})
+    case nksip_sipmsg:parse_id(Id) of
+        {Class, AppId, MsgId, CallId} when Class==req; Class==resp->
+            send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun})
     end.
             
 

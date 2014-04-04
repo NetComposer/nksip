@@ -337,28 +337,28 @@ invite(Test) ->
                                 [{add, "x-nk-op", ok}, {add, "x-nk-prov", true},
                                  {add, "x-nk-sleep", 100}, RepHd,
                                  {callback, RespFun}]),
-    ok = nksip_uac:ack(C1, DialogId1, []),
+    ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [180, {{Test, client2}, ack}]),
 
     % Several in-dialog requests
     {ok, 200, [{<<"x-nk-id">>, [<<"client2">>]}]} = 
-        nksip_uac:options(C1, DialogId1, [{meta,[<<"x-nk-id">>]}]),
-    DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
+        nksip_uac:options(DialogId1, [{meta,[<<"x-nk-id">>]}]),
+    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
     {ok, 200, [{<<"x-nk-id">>, [<<"client1">>]}]} = 
-        nksip_uac:options(C2, DialogId2, [{meta,[<<"x-nk-id">>]}]),
+        nksip_uac:options(DialogId2, [{meta,[<<"x-nk-id">>]}]),
     
     {ok, 200, [{dialog_id, DialogId1}, {<<"x-nk-id">>, [<<"client2">>]}]} = 
-        nksip_uac:invite(C1, DialogId1, [{add, "x-nk-op", ok},
+        nksip_uac:invite(DialogId1, [{add, "x-nk-op", ok},
                                          {meta, [<<"x-nk-id">>]}]),
-    ok = nksip_uac:ack(C1, DialogId1, []),
+    ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
 
     {ok, 200, [{dialog_id, DialogId2}, {<<"x-nk-id">>, [<<"client1">>]}]} = 
-        nksip_uac:invite(C2, DialogId2, [{add, "x-nk-op", ok}, RepHd,     
+        nksip_uac:invite(DialogId2, [{add, "x-nk-op", ok}, RepHd,     
                                          {meta, [<<"x-nk-id">>]}]),
-    ok = nksip_uac:ack(C2, DialogId2, []),
+    ok = nksip_uac:ack(DialogId2, []),
     ok = tests_util:wait(Ref, [{{Test, client1}, ack}]),
-    {ok, 200, []} = nksip_uac:bye(C1, DialogId1, []),
+    {ok, 200, []} = nksip_uac:bye(DialogId1, []),
 
     % Cancelled request
     {async, ReqId7} = nksip_uac:invite(C1, "sip:client2@nksip", 
@@ -412,25 +412,25 @@ servers(Test) ->
 
     % ACK is sent directly
     {req, #sipmsg{ruri=#uri{scheme=sips, port=C2Port}}} = 
-        nksip_uac:ack(C1, DialogIdA1, [get_request, RepHd]),
+        nksip_uac:ack(DialogIdA1, [get_request, RepHd]),
     ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
 
     % OPTIONS is also sent directly
     Fs4 = {meta, [remote, <<"x-nk-id">>]},
-    {ok, 200, Values4} = nksip_uac:options(C1, DialogIdA1, [Fs4]),
+    {ok, 200, Values4} = nksip_uac:options(DialogIdA1, [Fs4]),
     [
         {remote, {tls, {127,0,0,1}, _, <<>>}},
         {<<"x-nk-id">>, [<<"client2">>]}
     ] = Values4,
 
-    DialogIdA2 = nksip_dialog:field(C1, DialogIdA1, remote_id),
-    {ok, 200, Values5} = nksip_uac:options(C2, DialogIdA2, [Fs4]),
+    DialogIdA2 = nksip_dialog:remote_id(DialogIdA1, client2),
+    {ok, 200, Values5} = nksip_uac:options(DialogIdA2, [Fs4]),
     [
         {remote, {tls, {127,0,0,1}, 5071, <<>>}},
         {<<"x-nk-id">>, [<<"client1">>]}
     ] = Values5,
 
-    {ok, 200, []} = nksip_uac:bye(C1, DialogIdA1, []),
+    {ok, 200, []} = nksip_uac:bye(DialogIdA1, []),
     ok = tests_util:wait(Ref, [{{Test, client2}, bye}]),
 
     % Test a dialog through 2 proxies with Record-Route
@@ -448,13 +448,13 @@ servers(Test) ->
         nksip_parse:uris(RR2),
 
     % Sends an options in the dialog before the ACK
-    {ok, 200, Values7} = nksip_uac:options(C1, DialogIdB1, [Fs4]),
+    {ok, 200, Values7} = nksip_uac:options(DialogIdB1, [Fs4]),
     [
         {remote, {tls, _, 5061, <<>>}},
         {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values7,
 
-    {req, AckReq} = nksip_uac:ack(C1, DialogIdB1, [get_request]),
+    {req, AckReq} = nksip_uac:ack(DialogIdB1, [get_request]),
     {tls, _, 5061, <<>>} = nksip_sipmsg:field(AckReq, remote),
     [
         #uri{scheme=sip, domain = <<"localhost">>, port=5061,
@@ -464,11 +464,11 @@ servers(Test) ->
     ] = nksip_sipmsg:header(AckReq, <<"route">>, uris),
     ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
  
-    DialogIdB2 = nksip_dialog:field(C1, DialogIdB1, remote_id),
+    DialogIdB2 = nksip_dialog:remote_id(DialogIdB1, client2),
     Fs8 = {meta, [<<"x-nk-id">>]},
-    {ok, 200, Values8} = nksip_uac:options(C2, DialogIdB2, [Fs8]),
+    {ok, 200, Values8} = nksip_uac:options(DialogIdB2, [Fs8]),
     [{<<"x-nk-id">>, [<<"client1,server1,server2">>]}] = Values8,
-    {ok, 200, []} = nksip_uac:bye(C2, DialogIdB2, [{add, "x-nk-rr", true}]),
+    {ok, 200, []} = nksip_uac:bye(DialogIdB2, [{add, "x-nk-rr", true}]),
     ok.
 
 
@@ -488,11 +488,11 @@ dialog() ->
                                 [{add, "x-nk-op", "answer"}, {add, "x-nk-rr", true}, 
                                   RepHd, {body, SDP}]),
     [{dialog_id, DialogId1}] = Values1,
-    ok = nksip_uac:ack(C1, DialogId1, []),
+    ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{{stateful, client2}, ack}]),
 
-    DialogId2 = nksip_dialog:field(C1, DialogId1, remote_id),
-    {ok, 200, []} = nksip_uac:options(C2, DialogId2, []),
+    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    {ok, 200, []} = nksip_uac:options(DialogId2, []),
 
     [
         {app_name, C1}, 
@@ -507,7 +507,7 @@ dialog() ->
         {invite_remote_sdp, RSDP}, 
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
-        nksip_dialog:fields(C1, DialogId1, 
+        nksip_dialog:fields(DialogId1, 
                 [app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
                  invite_local_sdp, invite_remote_sdp, parsed_route_set]),
@@ -530,7 +530,7 @@ dialog() ->
         {invite_remote_sdp, LSDP},
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
-        nksip_dialog:fields(C2, DialogId2,
+        nksip_dialog:fields(DialogId2,
                 [app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
                  invite_local_sdp, invite_remote_sdp, parsed_route_set]),
@@ -546,15 +546,15 @@ dialog() ->
         {invite_remote_sdp, RSDP},
         {parsed_route_set, []}          % The first route is deleted (it is itself)
     ] =
-        nksip_dialog:fields(S1, DialogId1, 
+        nksip_dialog:fields(DialogId1, 
             [app_name, invite_status, parsed_local_uri, parsed_remote_uri,
              parsed_local_target, parsed_remote_target, invite_local_sdp, 
              invite_remote_sdp, parsed_route_set]),
 
-    {ok, 200, []} = nksip_uac:bye(C2, DialogId2, [{add, "x-nk-rr", true}]),
-    error = nksip_dialog:field(C1, DialogId1, status),
-    error = nksip_dialog:field(C2, DialogId2, status),
-    error = nksip_dialog:field(S1, DialogId1, status),
+    {ok, 200, []} = nksip_uac:bye(DialogId2, [{add, "x-nk-rr", true}]),
+    error = nksip_dialog:fields(DialogId1, status),
+    error = nksip_dialog:fields(DialogId2, status),
+    error = nksip_dialog:field(DialogId1, status),
     ok.
 
 
@@ -577,7 +577,7 @@ route(ReqId, Scheme, User, Domain, _From, {Test, Id}=AppId=State)
     Opts = [
         case Test of stateless -> stateless; _ -> ignore end,
         {insert, "x-nk-id", Id},
-        case nksip_request:header(AppId, ReqId, <<"x-nk-rr">>) of
+        case nksip_request:header(ReqId, <<"x-nk-rr">>) of
             [<<"true">>] -> record_route;
             _ -> ignore
         end
@@ -588,7 +588,7 @@ route(ReqId, Scheme, User, Domain, _From, {Test, Id}=AppId=State)
             {reply, {process, Opts}, State};
         true when User =:= <<"client2_op">>, Domain =:= <<"nksip">> ->
             UriList = nksip_registrar:find(AppId, sip, <<"client2">>, Domain),
-            Body = nksip_request:body(AppId, ReqId),
+            Body = nksip_request:body(ReqId),
             ServerOpts = binary_to_term(base64:decode(Body)),
             {reply, {proxy, UriList, ServerOpts++Opts}, State};
         true when Domain =:= <<"nksip">>; Domain =:= <<"nksip2">> ->
@@ -615,30 +615,30 @@ route(_, _, _, _, _, State) ->
 
 invite(ReqId, Meta, From, {_Test, Id}=AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),
-    Routes = nksip_request:header(AppId, ReqId, <<"route">>),
-    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Values = nksip_request:header(ReqId, <<"x-nk">>),
+    Routes = nksip_request:header(ReqId, <<"route">>),
+    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
         {add, "x-nk-id", nksip_lib:bjoin([Id|Ids])}
     ],
-    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
+    Sleep = case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
-    Prov = case nksip_request:header(AppId, ReqId, <<"x-nk-prov">>) of
+    Prov = case nksip_request:header(ReqId, <<"x-nk-prov">>) of
         [<<"true">>] -> true;
         _ -> false
     end,
     proc_lib:spawn(
         fun() ->
             if 
-                Prov -> nksip_request:reply(AppId, ReqId, ringing); 
+                Prov -> nksip_request:reply(ReqId, ringing); 
                 true -> ok 
             end,
             case Sleep of
@@ -656,7 +656,7 @@ invite(ReqId, Meta, From, {_Test, Id}=AppId=State) ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
                     DialogId = nksip_lib:get_value(dialog_id, Meta),
-                    SDP1 = nksip_dialog:field(AppId, DialogId, invite_local_sdp),
+                    SDP1 = nksip_dialog:field(DialogId, invite_local_sdp),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, [{body, SDP2}|Hds]});
                 _ ->
@@ -682,9 +682,9 @@ bye(_ReqId, Meta, _From, AppId=State) ->
 
 
 options(ReqId, _Meta, _From, {_Test, Id}=AppId=State) ->
-    Values = nksip_request:header(AppId, ReqId, <<"x-nk">>),
-    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
-    Routes = nksip_request:header(AppId, ReqId, <<"route">>),
+    Values = nksip_request:header(ReqId, <<"x-nk">>),
+    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
+    Routes = nksip_request:header(ReqId, <<"route">>),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,

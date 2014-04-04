@@ -233,9 +233,9 @@ route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==server1 ->
     ],
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
-            case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+            case nksip_request:header(ReqId, <<"x-nk-op">>) of
                 [<<"reply-request">>] ->
-                    Request = nksip_request:get_request(AppId, ReqId),
+                    Request = nksip_request:get_request(ReqId),
                     Body = base64:encode(term_to_binary(Request)),
                     {reply, {ok, [{body, Body}, contact]}, State};
                 [<<"reply-stateless">>] ->

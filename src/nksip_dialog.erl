@@ -25,10 +25,10 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, class_id/2, id/1]).
+-export([field/2, fields/2, make_id/2, get_id/1, parse_id/1]).
 -export([stop/1, bye_all/0, stop_all/0]).
 -export([get_dialog/1, get_all/0, get_all/2, get_all_data/0]).
--export([remote_id/1]).
+-export([remote_id/2]).
 -export_type([id/0, invite_status/0, field/0, stop_reason/0]).
 
 -include("nksip.hrl").
@@ -200,8 +200,8 @@
 -spec field(nksip:id()|nksip:dialog(), field()) -> 
     term() | error.
 
-field(<<$D, _/binary>>=DialogSpec, Field) -> 
-    case fields(DialogSpec, [Field]) of
+field(<<$D, _/binary>>=Id, Field) -> 
+    case fields(Id, [Field]) of
         [{_, Value}] -> Value;
         error -> error
     end;
@@ -212,8 +212,8 @@ field(D, Field) ->
         undefined -> I = #invite{}
     end,
     case Field of
-        id -> D#dialog.id;
-        remote_id -> remote_id(D);
+        id -> get_id(D);
+        internal_id -> D#dialog.id;
         app_id -> D#dialog.app_id;
         app_name -> apply(D#dialog.app_id, name, []);
         call_id -> D#dialog.call_id;
@@ -253,7 +253,9 @@ field(D, Field) ->
                  undefined
             end;
 
-        subscriptions -> [Id || #subscription{id=Id} <- D#dialog.subscriptions];
+        subscriptions -> 
+            [nksip_subscription:get_id(Id, D) 
+             || #subscription{id=Id} <- D#dialog.subscriptions];
 
         _ -> invalid_field 
     end.
@@ -263,11 +265,11 @@ field(D, Field) ->
 -spec fields(nksip:id(), [field()]) -> 
     [{atom(), term()}] | error.
     
-fields(DialogSpec, Fields) when is_list(Fields) ->
+fields(Id, Fields) when is_list(Fields) ->
     Fun = fun(Dialog) -> 
         {ok, [{Field, field(Dialog, Field)} || Field <- Fields]}
     end,
-    case id(DialogSpec) of
+    case get_id(Id) of
         <<>> ->
             error;
         DialogId ->
@@ -278,66 +280,53 @@ fields(DialogSpec, Fields) when is_list(Fields) ->
     end.
 
 
-%% @doc Calculates a <i>dialog's id</i> from a {@link nksip:request()} or
-%% {@link nksip:response()} and a endpoint class.
-%% Dialog ids are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
-%% and <i>To</i> Tag. Dialog ids with same From and To are different
-%% for different endpoint classes.
--spec class_id(uac|uas, nksip:request()|nksip:response()) ->
-    nksip:id().
-
-class_id(Class, #sipmsg{from={_, FromTag}, to={_, ToTag}}=SipMsg)
-        when FromTag /= <<>>, ToTag /= <<>> ->
-    #sipmsg{app_id=AppId, call_id=CallId} = SipMsg,
-    dialog_id(Class, AppId, CallId, FromTag, ToTag);
-
-class_id(Class, #sipmsg{from={_, FromTag}, to={_, <<>>}, class={req, Method}}=SipMsg)
-    when FromTag /= <<>> andalso
-         (Method=='INVITE' orelse Method=='REFER' orelse
-          Method=='SUBSCRIBE' orelse Method=='NOTIFY') ->
-    #sipmsg{app_id=AppId, call_id=CallId, to_tag_candidate=ToTag} = SipMsg,
-    case ToTag of
-        <<>> -> <<>>;
-        _ -> dialog_id(Class, AppId, CallId, FromTag, ToTag)
-    end;
-
-class_id(_, #sipmsg{}) ->
-    <<>>.
-
-
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip:id()}.
--spec id(nksip:id()|nksip:id()) ->
+-spec get_id(nksip:id()|nksip:dialog()) ->
     nksip:id().
 
-
-id(<<"D_", _/binary>>=DialogId) ->
+get_id(<<"D_", _/binary>>=DialogId) ->
     DialogId;
 
-id(<<"U_", _/binary>>=SubscriptionId) ->
+get_id(<<"U_", _/binary>>=SubscriptionId) ->
     nksip_subscription:dialog_id(SubscriptionId);
 
-id(<<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
+get_id(<<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
     case nksip_call:dialog_id(MsgId) of
         {ok, DialogId} -> DialogId;
         {error, _} -> <<>>
+    end;
+
+get_id(#dialog{id=Id, app_id=AppId, call_id=CallId}) ->
+    App = atom_to_binary(AppId, latin1),
+    <<$D, $_, Id/binary, $_, App/binary, $_, CallId/binary>>;
+
+get_id(#sipmsg{dialog_id=DialogId, app_id=AppId, call_id=CallId}) ->
+    App = atom_to_binary(AppId, latin1),
+    <<$D, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>.
+
+
+%% @private
+-spec parse_id(nksip:id()) -> 
+    {nksip:app_id(), binary(), nksip:call_id()} | error.
+
+parse_id(<<$D, $_, _/binary>>=Bin) ->
+    <<$D, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>> = Bin,
+    {binary_to_existing_atom(App, latin1), Id, CallId};
+
+parse_id(Other) ->
+    case get_id(Other) of
+        <<>> -> error;
+        DialogId -> parse_id(DialogId)
     end.
-    
-
-% %% @doc Gets the calls's id of a dialog
-% -spec call_id(nksip:id()) ->
-%     nksip:call_id().
-
-% call_id(<<"D_", Rest/binary>>) ->
-%     nksip_lib:bin_last($_, Rest).
 
 
 %% @doc Gets a full dialog record.
 -spec get_dialog(nksip:id()) ->
     nksip:dialog() | error.
 
-get_dialog(DialogSpec) ->
+get_dialog(Id) ->
     Fun = fun(Dialog) -> {ok, Dialog} end,
-    case id(DialogSpec) of
+    case get_id(Id) of
         <<>> ->
             error;
         DialogId ->
@@ -382,8 +371,8 @@ bye_all() ->
 -spec stop(nksip:id()) ->
     ok.
 
-stop(DialogSpec) ->
-    nksip_call:stop_dialog(DialogSpec).
+stop(Id) ->
+    nksip_call:stop_dialog(Id).
 
 
 %% @doc Stops (deletes) all current dialogs.
@@ -394,6 +383,32 @@ stop_all() ->
     lists:foreach(fun(DialogId) -> stop(DialogId) end, get_all()).
 
 
+%% @doc Calculates a <i>dialog's id</i> from a {@link nksip:request()} or
+%% {@link nksip:response()} and a endpoint class.
+%% Dialog ids are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
+%% and <i>To</i> Tag. Dialog ids with same From and To are different
+%% for different endpoint classes.
+-spec make_id(uac|uas, nksip:request()|nksip:response()) ->
+    id().
+
+make_id(Class, #sipmsg{from={_, FromTag}, to={_, ToTag}})
+        when FromTag /= <<>>, ToTag /= <<>> ->
+    make_id(Class, FromTag, ToTag);
+
+make_id(Class, #sipmsg{from={_, FromTag}, to={_, <<>>}, class={req, Method}}=SipMsg)
+    when FromTag /= <<>> andalso
+         (Method=='INVITE' orelse Method=='REFER' orelse
+          Method=='SUBSCRIBE' orelse Method=='NOTIFY') ->
+    #sipmsg{to_tag_candidate=ToTag} = SipMsg,
+    case ToTag of
+        <<>> -> <<>>;
+        _ -> make_id(Class, FromTag, ToTag)
+    end;
+
+make_id(_, #sipmsg{}) ->
+    <<>>.
+
+
 
 %% ===================================================================
 %% Private
@@ -401,37 +416,29 @@ stop_all() ->
 
 
 %% @private
--spec dialog_id(uac|uas, nksip:app_id(), nksip:call_id(), nksip:tag(), nksip:tag()) ->
-    nksip:id().
+-spec make_id(uac|uas, nksip:tag(), nksip:tag()) ->
+    id().
 
-dialog_id(Class, AppId, CallId, FromTag, ToTag) ->
-    Id = case Class of
+make_id(Class, FromTag, ToTag) ->
+    case Class of
         uac -> nksip_lib:hash({ToTag, FromTag});
         uas -> nksip_lib:hash({FromTag, ToTag})
-    end,
-    App = atom_to_binary(AppId, latin1),
-    <<$D, $_, App/binary, $_, CallId/binary, $_, Id/binary>>.
-
+    end.
 
 %% @private Hack to find the UAS dialog from the UAC and the opposite way
-remote_id(<<$D, _/binary>>=DialogId) ->
-    field(DialogId, remote_id);
-
-%% @private
-remote_id(#dialog{}=Dialog) ->
-    #dialog{
-        app_id = AppId, 
-        id = BaseId, 
-        call_id = CallId, 
-        local_uri = LUri, 
-        remote_uri = RUri
-    } = Dialog,
+remote_id(<<$D, _/binary>>=DialogId, App) ->
+    {ok, AppId} = nksip:find_app(App),
+    [{internal_id, BaseId}, {parsed_local_uri, LUri}, 
+      {parsed_remote_uri, RUri}, {call_id, CallId}] =  
+        fields(DialogId, [internal_id, parsed_local_uri, parsed_remote_uri, call_id]),
     FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
     ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),
-    case dialog_id(uac, AppId, CallId, FromTag, ToTag) of
-        BaseId -> dialog_id(uas, AppId, CallId, FromTag,ToTag);
+    Id = case make_id(uac, FromTag, ToTag) of
+        BaseId -> make_id(uas, FromTag,ToTag);
         RemoteId -> RemoteId
-    end.
+    end,
+    BinApp = atom_to_binary(AppId, latin1),
+    <<$D, $_, Id/binary, $_, BinApp/binary, $_, CallId/binary>>.
 
 
 %% @private Dumps all dialog information

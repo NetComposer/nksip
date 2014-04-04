@@ -101,7 +101,7 @@ send(AppId, Method, Uri, Opts) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send_dialog(Id, Method, Opts) ->
-    [_, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
+    {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
     send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts}).
 
 
@@ -110,7 +110,7 @@ send_dialog(Id, Method, Opts) ->
     ok | {error, nksip_uac:cancel_error()}.
 
 cancel(Id) ->
-    [$R, AppId, CallId, ReqId] = nksip_sipmsg:id_parts(Id),
+    {req, AppId, ReqId, CallId} = nksip_sipmsg:parse_id(Id),
     send_work_sync(AppId, CallId, {cancel, ReqId}).
 
 
@@ -119,10 +119,10 @@ cancel(Id) ->
     {ok, nksip:id()} | {error, Error}
     when Error :: unknown_dialog | invalid_request | nksip_call_router:sync_error().
 
-dialog_id(MsgId) ->
-    case nksip_sipmsg:id_parts2(MsgId) of
-        [Class, AppId, CallId,  SipMsgId] when Class==$R; Class==$S ->
-            send_work_sync(AppId, CallId, {dialog_id, SipMsgId})
+dialog_id(Id) ->
+    case nksip_sipmsg:parse_id(Id) of
+        {Class, AppId, MsgId, CallId} when Class==$R; Class==$S ->
+            send_work_sync(AppId, CallId, {dialog_id, MsgId})
     end.
 
 
@@ -140,7 +140,7 @@ app_reply(Fun, TransId, Pid, Reply) ->
     when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
 
 send_reply(Id, Reply) ->
-    [$R, AppId, CallId, ReqId] = nksip_sipmsg:id_parts(Id),
+    {req, AppId, ReqId, CallId} = nksip_sipmsg:parse_id(Id),
     send_work_sync(AppId, CallId, {send_reply, ReqId, Reply}).
     
 
@@ -149,7 +149,7 @@ send_reply(Id, Reply) ->
     [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
 
 get_authorized_list(Id) ->
-    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
+    {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
     case send_work_sync(AppId, CallId, {get_authorized_list, DialogId}) of
         {ok, List} -> List;
         _ -> []
@@ -161,7 +161,7 @@ get_authorized_list(Id) ->
     ok | error.
 
 clear_authorized_list(Id) ->
-    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
+    {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
     case send_work_sync(AppId, CallId, {clear_authorized_list, DialogId}) of
         ok -> ok;
         _ -> error
@@ -173,7 +173,7 @@ clear_authorized_list(Id) ->
     ok | {error, unknown_dialog}.
  
 stop_dialog(Id) ->
-    [$D, AppId, CallId, DialogId] = nksip_sipmsg:id_parts(Id),
+    {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
     send_work_sync(AppId, CallId, {stop_dialog, DialogId}).
 
 
@@ -290,8 +290,8 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
             Call
     end;
     
-work(get_all_dialogs, From, #call{app_id=AppId, dialogs=Dialogs}=Call) ->
-    Ids = [{AppId, DialogId} || #dialog{id=DialogId} <- Dialogs],
+work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
+    Ids = [nksip_dialog:get_id(Dialog) || Dialog <- Dialogs],
     gen_server:reply(From, {ok, Ids}),
     Call;
 
@@ -579,8 +579,8 @@ get_trans(SipMsgId, #call{msgs=Msgs, trans=AllTrans}) ->
 
 get_sipmsg(SipMsgId, Call) ->
     case get_trans(SipMsgId, Call) of
-        {ok, #trans{request=#sipmsg{id1=SipMsgId}=Req}} -> {ok, Req};
-        {ok, #trans{response=#sipmsg{id1=SipMsgId}=Resp}} -> {ok, Resp};
+        {ok, #trans{request=#sipmsg{id=SipMsgId}=Req}} -> {ok, Req};
+        {ok, #trans{response=#sipmsg{id=SipMsgId}=Resp}} -> {ok, Resp};
         _ -> not_found
     end.
 

@@ -93,7 +93,7 @@ basic() ->
     ok = tests_util:wait(Ref, [{server1, route}]),
 
     {ok, 200, [{dialog_id, Dlg2}]} = nksip_uac:invite(client2, "sip:client1@nksip", []),
-    ok = nksip_uac:ack(client2, Dlg2, []),
+    ok = nksip_uac:ack(Dlg2, []),
     ok = tests_util:wait(Ref, [
             {server1, route}, {server1, dialog_start}, {server1, route}, 
             {client1, invite}, {client1, ack}, {client1, dialog_start},
@@ -103,16 +103,16 @@ basic() ->
     ok = tests_util:wait(Ref, [{server1, route}, {client1, info}]),
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-    Dlg1 = nksip_dialog:field(client2, Dlg2, remote_id),
-    {ok, 200, _} = nksip_uac:invite(client1, Dlg1, [{body, SDP}]),
-    ok = nksip_uac:ack(client1, Dlg1, []),
+    Dlg1 = nksip_dialog:remote_id(Dlg2, client1),
+    {ok, 200, _} = nksip_uac:invite(Dlg1, [{body, SDP}]),
+    ok = nksip_uac:ack(Dlg1, []),
 
     ok = tests_util:wait(Ref, [
             {server1, route}, {server1, route}, {server1, session_start},
             {client1, session_start},
             {client2, reinvite}, {client2, ack}, {client2, session_start}]),
 
-    {ok, 200, []} = nksip_uac:bye(client1, Dlg1, []),
+    {ok, 200, []} = nksip_uac:bye(Dlg1, []),
     ok = tests_util:wait(Ref, [
             {server1, route}, {server1, session_stop}, {server1, dialog_stop},
             {client1, session_stop}, {client1, dialog_stop}, 

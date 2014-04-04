@@ -431,7 +431,7 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
 
 update_response(Req, {Resp, Opts}, Call) ->
     #sipmsg{contacts=Contacts} = Resp,
-    DialogId = nksip_dialog:class_id(uas, Resp),
+    DialogId = nksip_dialog:make_id(uas, Resp),
     {Resp1, Opts1} = case Contacts of
         [] ->
             case find(DialogId, Call) of

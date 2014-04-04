@@ -441,9 +441,9 @@ proxy() ->
             port = 5080,
             opts = [<<"lr">>]
         }
-    ] = nksip_dialog:field(ua2, DialogId, parsed_route_set),
+    ] = nksip_dialog:field(DialogId, parsed_route_set),
 
-    nksip_uac:bye(ua2, DialogId, []),
+    nksip_uac:bye(DialogId, []),
     ok.
 
 
@@ -627,14 +627,14 @@ route(_, _, _, _, _, State) ->
 
 
 invite(ReqId, _Meta, _From, AppId=State) ->
-    case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+    case nksip_request:header(ReqId, <<"x-nk-op">>) of
         [<<"ok">>] -> {reply, ok, State};
         _ -> {reply, 603, State}
     end.
 
 
 options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
     {reply, {ok, [contact|Hds]}, State}.
 

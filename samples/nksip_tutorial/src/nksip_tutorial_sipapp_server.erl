@@ -107,7 +107,7 @@ route(ReqId, _Scheme, <<>>, Domain, _From, #state{id=AppId}=State) ->
         <<"nksip">> ->
             process;
         _ ->
-            case nksip_request:is_local_route(AppId, ReqId) of
+            case nksip_request:is_local_route(ReqId) of
                 true -> process;
                 false -> proxy
             end

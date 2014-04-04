@@ -208,9 +208,9 @@ route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==server1 ->
     {ok, Domains} = nksip:get(server1, domains),
     case lists:member(Domain, Domains) of
         true when User =:= <<>> ->
-            case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+            case nksip_request:header(ReqId, <<"x-nk-op">>) of
                 [<<"reply-request">>] ->
-                    Request = nksip_request:get_request(AppId, ReqId),
+                    Request = nksip_request:get_request(ReqId),
                     Body = base64:encode(term_to_binary(Request)),
                     {reply, {ok, [{body, Body}, contact]}, State};
                 [<<"reply-stateless">>] ->
@@ -244,11 +244,11 @@ route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
 
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
+    Sleep = case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
@@ -280,9 +280,9 @@ invite(ReqId, Meta, From, AppId=State) ->
 
 
 options(ReqId, _Meta, _From, AppId=State) ->
-    case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
+    case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> 
-            nksip_request:reply(AppId, ReqId, 101), 
+            nksip_request:reply(ReqId, 101), 
             timer:sleep(nksip_lib:to_integer(Sleep0));
         _ -> 
             ok

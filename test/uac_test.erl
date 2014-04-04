@@ -98,7 +98,7 @@ uac() ->
     {ok, 200, Values2} = nksip_uac:options(client2, SipC1, [{meta, [app_name, id, call_id]}]),
     [{app_name, client2}, {id, RespId2}, {call_id, CallId2}] = Values2,
     CallId2 = nksip_response:call_id(RespId2),
-    error = nksip_dialog:field(client2, RespId2, status),
+    error = nksip_dialog:field(RespId2, status),
     {error, unknown_dialog} = nksip_uac:options(client2, RespId2, []),
 
     % Sync, get_response
@@ -117,7 +117,7 @@ uac() ->
     {ok, 486, [{call_id, CallId4}, {id, RespId4}]} = 
         nksip_uac:invite(client2, SipC1, [CB, get_request, {meta, [call_id, id]}|Hds]),
     CallId4 = nksip_response:call_id(RespId4),
-    DlgId4 = nksip_dialog:id(client2, RespId4),
+    DlgId4 = nksip_dialog:get_id(RespId4),
     receive 
         {Ref, {req, Req4}} -> 
             CallId4 = nksip_sipmsg:field(Req4, call_id)
@@ -135,14 +135,14 @@ uac() ->
     % Sync, callback for request and provisional response, get_request, get_response
     {resp, #sipmsg{class={resp, 486, _}, call_id=CallId5}=Resp5} = 
         nksip_uac:invite(client2, SipC1, [CB, get_request, get_response|Hds]),
-    DialogId5 = nksip_dialog:class_id(uac, Resp5),
+    DialogId5 = nksip_dialog:get_id(uac, Resp5),
     receive 
         {Ref, {req, #sipmsg{class={req, _}, call_id=CallId5}}} -> ok
         after 500 -> error(uac) 
     end,
     receive 
         {Ref, {resp, #sipmsg{class={resp, 180, _}, call_id=CallId5}=Resp5_180}} ->
-            DialogId5 = nksip_dialog:class_id(uac, Resp5_180)
+            DialogId5 = nksip_dialog:get_id(uac, Resp5_180)
         after 500 -> 
             error(uac) 
     end,
@@ -150,7 +150,7 @@ uac() ->
     % Async
     {async, ReqId6} = nksip_uac:invite(client2, SipC1, [async, CB, get_request | Hds]),
     CallId6 = nksip_request:call_id(ReqId6),
-    CallId6 = nksip_request:field(client2, ReqId6, call_id),
+    CallId6 = nksip_request:field(ReqId6, call_id),
     receive 
         {Ref, {req, Req6}} -> 
             ReqId6 = nksip_sipmsg:field(Req6, id),
@@ -174,9 +174,9 @@ info() ->
     SipC1 = "sip:127.0.0.1:5070",
     Hd1 = {add, <<"x-nk-op">>, <<"ok">>},
     {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(client2, SipC1, [Hd1]),
-    ok = nksip_uac:ack(client2, DialogId2, []),
+    ok = nksip_uac:ack(DialogId2, []),
     Fs = {meta, [<<"x-nk-method">>, <<"x-nk-dialog">>]},
-    DialogId1 = nksip_dialog:field(client2, DialogId2, remote_id),
+    DialogId1 = nksip_dialog:remote_id(DialogId2, client1),
 
     {ok, 200, Values1} = nksip_uac:info(client2, DialogId2, [Fs]),
     [{<<"x-nk-method">>, [<<"info">>]}, {<<"x-nk-dialog">>, [DialogId1]}] = Values1,
@@ -186,7 +186,7 @@ info() ->
     {ok, 481, []} = nksip_uac:info(client2, DialogId2, []), 
 
     % The dialog at client2, at receiving a 481 (even for INFO) is destroyed before the BYE
-    {error, unknown_dialog} = nksip_uac:bye(client2, DialogId2, []),
+    {error, unknown_dialog} = nksip_uac:bye(DialogId2, []),
     ok.
 
 
@@ -246,22 +246,22 @@ init(Id) ->
 
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(AppId, ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
+    Sleep = case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
-    Prov = case nksip_request:header(AppId, ReqId, <<"x-nk-prov">>) of
+    Prov = case nksip_request:header(ReqId, <<"x-nk-prov">>) of
         [<<"true">>] -> true;
         _ -> false
     end,
     proc_lib:spawn(
         fun() ->
             if 
-                Prov -> nksip_request:reply(AppId, ReqId, ringing); 
+                Prov -> nksip_request:reply(ReqId, ringing); 
                 true -> ok 
             end,
             case Sleep of
@@ -279,7 +279,7 @@ invite(ReqId, Meta, From, AppId=State) ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
                     DialogId = nksip_lib:get_value(dialog_id, Meta),
-                    SDP1 = nksip_dialog:field(AppId, DialogId, invite_local_sdp),
+                    SDP1 = nksip_dialog:field(DialogId, invite_local_sdp),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, [{body, SDP2}]});
                 _ ->
@@ -290,9 +290,9 @@ invite(ReqId, Meta, From, AppId=State) ->
 
 
 options(ReqId, _Meta, _From, AppId=State) ->
-    case nksip_request:header(AppId, ReqId, <<"x-nk-sleep">>) of
+    case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> 
-            nksip_request:reply(AppId, ReqId, 101), 
+            nksip_request:reply(ReqId, 101), 
             timer:sleep(nksip_lib:to_integer(Sleep0));
         _ -> 
             ok
@@ -301,12 +301,12 @@ options(ReqId, _Meta, _From, AppId=State) ->
 
 
 info(ReqId, _Meta, _From, AppId=State) ->
-    DialogId = nksip_request:dialog_id(AppId, ReqId),
+    DialogId = nksip_request:dialog_id(ReqId),
     {reply, {ok, [{add, "x-nk-method", "info"}, {add, "x-nk-dialog", DialogId}]}, State}.
 
 
 message(ReqId, _Meta, _From, AppId=State) ->
-    case nksip_request:header(AppId, ReqId, <<"x-nk-reply">>) of
+    case nksip_request:header(ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             [
@@ -315,7 +315,7 @@ message(ReqId, _Meta, _From, AppId=State) ->
                 {_, ContentType},
                 {_, Body}
 
-            ] = nksip_request:fields(AppId, ReqId, 
+            ] = nksip_request:fields(ReqId, 
                     [parsed_expires, <<"date">>, content_type, body]),
             Pid ! {Ref, {ok, Expires, Date, ContentType, Body}},
             {reply, ok, State};

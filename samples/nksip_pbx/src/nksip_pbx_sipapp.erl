@@ -111,7 +111,7 @@ get_user_pass(_User, _Realm, State) ->
 %%          a challenge to the user.</li>
 %% </ul>
 authorize(ReqId, Auth, _From, State) ->
-    Method = nksip_request:method(pbx, ReqId),
+    Method = nksip_request:method(ReqId),
     lager:notice("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
@@ -172,7 +172,7 @@ route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
         true ->
             process;
         false ->
-            case nksip_request:is_local_route(pbx, ReqId) of
+            case nksip_request:is_local_route(ReqId) of
                 true -> process;
                 false -> proxy
             end
@@ -270,7 +270,7 @@ find_all() ->
 
 %% @doc Gets all registered contacts, excluding the one in `Request'
 find_all_except_me(ReqId) ->
-    [From] = nksip_request:header(pbx, ReqId, <<"from">>),
+    [From] = nksip_request:header(ReqId, <<"from">>),
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [

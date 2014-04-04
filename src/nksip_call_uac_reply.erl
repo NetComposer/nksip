@@ -126,18 +126,18 @@ fun_call(Msg, Opts) ->
 
 %% @private
 fun_response(Resp, Opts) ->
-    #sipmsg{class={resp, Code, _}, cseq={_, Method}, dialog_id=DialogId}=Resp,
+    #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp,
     case lists:member(get_response, Opts) of
         true ->
             {resp, Resp};
         false ->
             Fields0 = case Method of
                 'INVITE' when Code>100, Code<300 -> 
-                    [{dialog_id, DialogId}];
+                    [{dialog_id, nksip_dialog:get_id(Resp)}];
                 'SUBSCRIBE' when Code>=200, Code<300 -> 
-                    [{subscription_id, nksip_subscription:id(Resp)}];
+                    [{subscription_id, nksip_subscription:get_id(Resp)}];
                 'REFER' when Code>=200, Code<300 -> 
-                    [{subscription_id, nksip_subscription:id(Resp)}];
+                    [{subscription_id, nksip_subscription:get_id(Resp)}];
                 'PUBLISH' when Code>=200, Code<300 ->
                     Expires = nksip_sipmsg:field(Resp, parsed_expires),
                     case nksip_sipmsg:header(Resp, <<"sip-etag">>) of

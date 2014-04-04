@@ -83,7 +83,7 @@ basic() ->
     ok = tests_util:wait(Ref, [{client1, {notify, <<"SIP/2.0 180 Ringing">>}}]),
     timer:sleep(100),
 
-    [Subs1A] = nksip_dialog:field(client1, Dialog1A, subscriptions),
+    [Subs1A] = nksip_dialog:field(Dialog1A, subscriptions),
     [
         {status, active},
         {parsed_event, {<<"refer">>, _}},
@@ -92,7 +92,7 @@ basic() ->
 
     CallId = nksip_dialog:call_id(Dialog1A),
     [Dialog1B] = nksip_dialog:get_all(client2, CallId),
-    [Subs1B] = nksip_dialog:field(client2, Dialog1B, subscriptions),
+    [Subs1B] = nksip_dialog:field(Dialog1B, subscriptions),
     [
         {status, active},
         {parsed_event, {<<"refer">>, _}},
@@ -110,19 +110,19 @@ basic() ->
     InvCallId = <<CallId/binary, "_inv">>,
     [Dialog2A] = nksip_dialog:get_all(client2, InvCallId),
     
-    proceeding_uac = nksip_dialog:field(client2, Dialog2A, invite_status),
-    Dialog2B = nksip_dialog:remote_id(client2, Dialog2A),
+    proceeding_uac = nksip_dialog:field(Dialog2A, invite_status),
+    Dialog2B = nksip_dialog:remote_id(Dialog2A, client1),
     proceeding_uas = nksip_dialog:field(client3, Dialog2B, invite_status),
 
     % Final response received. Subscription is stopped.
     ok = tests_util:wait(Ref, [{client1, {notify, <<"SIP/2.0 200 OK">>}}]),
     timer:sleep(100),
-    error = nksip_dialog:field(client1, Dialog1A, subscriptions),
-    error = nksip_dialog:field(client2, Dialog1B, subscriptions),
+    error = nksip_dialog:field(Dialog1A, subscriptions),
+    error = nksip_dialog:field(Dialog1B, subscriptions),
 
     % Finish the started INVITE
-    {ok, 200, []} = nksip_uac:bye(client2, Dialog2A, []),
-    error = nksip_dialog:field(client2, Dialog2A, invite_status),
+    {ok, 200, []} = nksip_uac:bye(Dialog2A, []),
+    error = nksip_dialog:field(Dialog2A, invite_status),
     error = nksip_dialog:field(client3, Dialog2B, invite_status),
     ok.
 
@@ -157,16 +157,16 @@ in_dialog() ->
     % Final response received. Subscription is stopped.
     ok = tests_util:wait(Ref, [{client1, {notify, <<"SIP/2.0 200 OK">>}}]),
     timer:sleep(100),
-    [] = nksip_dialog:field(client1, Dialog1A, subscriptions),
-    [] = nksip_dialog:field(client2, Dialog1B, subscriptions),
+    [] = nksip_dialog:field(Dialog1A, subscriptions),
+    [] = nksip_dialog:field(Dialog1B, subscriptions),
 
     % Finish the started INVITE
-    {ok, 200, []} = nksip_uac:bye(client2, Dialog2A, []),
-    error = nksip_dialog:field(client2, Dialog2A, invite_status),
+    {ok, 200, []} = nksip_uac:bye(Dialog2A, []),
+    error = nksip_dialog:field(Dialog2A, invite_status),
 
     % Finish the original INVITE
-    {ok, 200, []} = nksip_uac:bye(client1, Dialog1A, []),
-    error = nksip_dialog:field(client1, Dialog1A, invite_status),
+    {ok, 200, []} = nksip_uac:bye(Dialog1A, []),
+    error = nksip_dialog:field(Dialog1A, invite_status),
     ok.
 
 
@@ -197,7 +197,7 @@ notify(_ReqId, Meta, _From, AppId=State) ->
 invite(ReqId, _Meta, From, AppId=State) ->
     spawn(
         fun() ->
-            nksip_request:reply(AppId, ReqId, 180),
+            nksip_request:reply(ReqId, 180),
             timer:sleep(1000),
             nksip:reply(From, ok)
         end),

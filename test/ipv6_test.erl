@@ -167,21 +167,21 @@ invite() ->
     {Ref, RepHd} = tests_util:get_ref(),
     Hds = [ {add, "x-nk-op", "ok"}, RepHd],
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, RUri, Hds),
-    ok = nksip_uac:ack(client1, DialogId1, []),
+    ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    {ok, 200, []} = nksip_uac:options(client1, DialogId1, []),
+    {ok, 200, []} = nksip_uac:options(DialogId1, []),
 
-    {ok, 200, _} = nksip_uac:invite(client1, DialogId1, Hds),
-    ok = nksip_uac:ack(client1, DialogId1, []),
+    {ok, 200, _} = nksip_uac:invite(DialogId1, Hds),
+    ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    DialogId2 = nksip_dialog:field(client1, DialogId1, remote_id),
-    {ok, 200, []} = nksip_uac:options(client2, DialogId2, []),
-    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(client2, DialogId2, Hds),
-    ok = nksip_uac:ack(client2, DialogId2, []),
+    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    {ok, 200, []} = nksip_uac:options(DialogId2, []),
+    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(DialogId2, Hds),
+    ok = nksip_uac:ack(DialogId2, []),
     ok = tests_util:wait(Ref, [{client1, ack}]),
-    {ok, 200, []} = nksip_uac:bye(client2, DialogId2, []),
+    {ok, 200, []} = nksip_uac:bye(DialogId2, []),
     ok = tests_util:wait(Ref, [{client1, bye}]),
     ok.
 
@@ -213,15 +213,15 @@ proxy() ->
     % token has already info about the tcp)
     
     %% The ACK is sent to Server2, and it sends it to Client2
-    {req, ACK} = nksip_uac:ack(client1, DialogId1, [get_request]),
+    {req, ACK} = nksip_uac:ack(DialogId1, [get_request]),
     [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
         nksip_sipmsg:field(ACK, parsed_routes),
     true = lists:member(<<"lr">>, AckOpts),
     true = lists:member({<<"transport">>, <<"tcp">>}, AckOpts),
 
-    DialogId2 = nksip_dialog:field(client1, DialogId1, remote_id),
-    {ok, 200, []} = nksip_uac:options(client2, DialogId2, []),
-    {ok, 200, []} = nksip_uac:bye(client1, DialogId1, []),
+    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    {ok, 200, []} = nksip_uac:options(DialogId2, []),
+    {ok, 200, []} = nksip_uac:bye(DialogId1, []),
     ok.
 
 
@@ -254,7 +254,7 @@ bridge_4_6() ->
     ] = Values1,
 
     %% The ACK is sent to Server2, and it sends it to Client2
-    {req, ACK1} = nksip_uac:ack(client1, DialogId1, [get_request]),
+    {req, ACK1} = nksip_uac:ack(DialogId1, [get_request]),
     [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
         nksip_sipmsg:field(ACK1, parsed_routes),
     true = lists:member(<<"lr">>, AckOpts),
@@ -262,9 +262,9 @@ bridge_4_6() ->
 
     #uri{domain=(<<"127.0.0.1">>)} = nksip_sipmsg:field(ACK1, parsed_ruri),
 
-    DialogId3 = nksip_dialog:field(client1, DialogId1, remote_id),
-    {ok, 200, []} = nksip_uac:options(client3, DialogId3, []),
-    {ok, 200, []} = nksip_uac:bye(client1, DialogId1, []),
+    DialogId3 = nksip_dialog:remote_id(DialogId1, client3),
+    {ok, 200, []} = nksip_uac:options(DialogId3, []),
+    {ok, 200, []} = nksip_uac:bye(DialogId1, []),
     ok.
 
 
@@ -549,7 +549,7 @@ route(_, _, _, _, _, State) ->
 
 invite(ReqId, Meta, _From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Ids = nksip_request:header(AppId, ReqId, <<"x-nk-id">>),
+    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
     {reply, {ok, Hds}, State}.
 
