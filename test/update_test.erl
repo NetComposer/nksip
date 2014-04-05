@@ -87,12 +87,12 @@ basic() ->
                     SDP1 = SDP0#sdp{vsn=Vsn0+1}, 
                     {SDP1,SDP0} = get_sessions(C2, FunD2),
                     SDP2 = SDP0#sdp{vsn=Vsn0+2},
-                    {ok, 200, []} = nksip_uac:update(C1, FunD1, 
+                    {ok, 200, []} = nksip_uac:update(FunD1, 
                         [{body, SDP2}, {contact, "sip:a@127.0.0.1"}]),
                     SDP4 = SDP0#sdp{vsn=Vsn0+4},
                     % Updated Remote Target
                     {ok, 200, []} = 
-                        nksip_uac:update(C2, FunD2,
+                        nksip_uac:update(FunD2,
                             [{body, SDP4}, {contact, "sip:b@127.0.0.1:5070"}])
                 end)
         end
@@ -153,7 +153,7 @@ pending() ->
                 % We have an offer, but no answer
                 spawn(fun() ->
                     SDP1 = SDP0#sdp{vsn=Vsn0+1}, 
-                    {error, request_pending} = nksip_uac:update(C1, FunD1, [{body, SDP1}]),
+                    {error, request_pending} = nksip_uac:update(FunD1, [{body, SDP1}]),
                     Self ! {Ref, fun_ok_1}
                 end)
         end

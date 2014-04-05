@@ -338,12 +338,12 @@ invite(Test) ->
                                  {add, "x-nk-sleep", 100}, RepHd,
                                  {callback, RespFun}]),
     ok = nksip_uac:ack(DialogId1, []),
-    ok = tests_util:wait(Ref, [180, {{Test, client2}, ack}]),
+    ok = tests_util:wait(Ref, [180, {C2, ack}]),
 
     % Several in-dialog requests
     {ok, 200, [{<<"x-nk-id">>, [<<"client2">>]}]} = 
         nksip_uac:options(DialogId1, [{meta,[<<"x-nk-id">>]}]),
-    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    DialogId2 = nksip_dialog:remote_id(DialogId1, {Test, client2}),
     {ok, 200, [{<<"x-nk-id">>, [<<"client1">>]}]} = 
         nksip_uac:options(DialogId2, [{meta,[<<"x-nk-id">>]}]),
     
@@ -357,7 +357,7 @@ invite(Test) ->
         nksip_uac:invite(DialogId2, [{add, "x-nk-op", ok}, RepHd,     
                                          {meta, [<<"x-nk-id">>]}]),
     ok = nksip_uac:ack(DialogId2, []),
-    ok = tests_util:wait(Ref, [{{Test, client1}, ack}]),
+    ok = tests_util:wait(Ref, [{C1, ack}]),
     {ok, 200, []} = nksip_uac:bye(DialogId1, []),
 
     % Cancelled request
@@ -413,7 +413,7 @@ servers(Test) ->
     % ACK is sent directly
     {req, #sipmsg{ruri=#uri{scheme=sips, port=C2Port}}} = 
         nksip_uac:ack(DialogIdA1, [get_request, RepHd]),
-    ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
+    ok = tests_util:wait(Ref, [{C2, ack}]),
 
     % OPTIONS is also sent directly
     Fs4 = {meta, [remote, <<"x-nk-id">>]},
@@ -423,7 +423,7 @@ servers(Test) ->
         {<<"x-nk-id">>, [<<"client2">>]}
     ] = Values4,
 
-    DialogIdA2 = nksip_dialog:remote_id(DialogIdA1, client2),
+    DialogIdA2 = nksip_dialog:remote_id(DialogIdA1, C2),
     {ok, 200, Values5} = nksip_uac:options(DialogIdA2, [Fs4]),
     [
         {remote, {tls, {127,0,0,1}, 5071, <<>>}},
@@ -431,7 +431,7 @@ servers(Test) ->
     ] = Values5,
 
     {ok, 200, []} = nksip_uac:bye(DialogIdA1, []),
-    ok = tests_util:wait(Ref, [{{Test, client2}, bye}]),
+    ok = tests_util:wait(Ref, [{C2, bye}]),
 
     % Test a dialog through 2 proxies with Record-Route
     Hds6 = [{add, "x-nk-op", ok}, {add, "x-nk-rr", true}, RepHd],
@@ -462,9 +462,9 @@ servers(Test) ->
         #uri{scheme=sip, domain = <<"localhost">>, port=5081,
              opts=[{<<"transport">>,<<"tls">>},<<"lr">>]}
     ] = nksip_sipmsg:header(AckReq, <<"route">>, uris),
-    ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
+    ok = tests_util:wait(Ref, [{C2, ack}]),
  
-    DialogIdB2 = nksip_dialog:remote_id(DialogIdB1, client2),
+    DialogIdB2 = nksip_dialog:remote_id(DialogIdB1, C2),
     Fs8 = {meta, [<<"x-nk-id">>]},
     {ok, 200, Values8} = nksip_uac:options(DialogIdB2, [Fs8]),
     [{<<"x-nk-id">>, [<<"client1,server1,server2">>]}] = Values8,
@@ -491,7 +491,7 @@ dialog() ->
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{{stateful, client2}, ack}]),
 
-    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    DialogId2 = nksip_dialog:remote_id(DialogId1, {stateful, client2}),
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
 
     [
@@ -535,6 +535,8 @@ dialog() ->
                  parsed_remote_uri, parsed_local_target, parsed_remote_target, 
                  invite_local_sdp, invite_remote_sdp, parsed_route_set]),
     
+    % DialogId1 is refered to client1. DialogID1S will refer to server1
+    DialogId1S = nksip_dialog:change_app(DialogId1, S1),
     [
         {app_name, S1},
         {invite_status, confirmed},
@@ -546,15 +548,15 @@ dialog() ->
         {invite_remote_sdp, RSDP},
         {parsed_route_set, []}          % The first route is deleted (it is itself)
     ] =
-        nksip_dialog:fields(DialogId1, 
+        nksip_dialog:fields(DialogId1S, 
             [app_name, invite_status, parsed_local_uri, parsed_remote_uri,
              parsed_local_target, parsed_remote_target, invite_local_sdp, 
              invite_remote_sdp, parsed_route_set]),
 
     {ok, 200, []} = nksip_uac:bye(DialogId2, [{add, "x-nk-rr", true}]),
-    error = nksip_dialog:fields(DialogId1, status),
-    error = nksip_dialog:fields(DialogId2, status),
     error = nksip_dialog:field(DialogId1, status),
+    error = nksip_dialog:field(DialogId2, status),
+    error = nksip_dialog:field(DialogId1S, status),
     ok.
 
 
@@ -681,7 +683,7 @@ bye(_ReqId, Meta, _From, AppId=State) ->
     {reply, ok, State}.
 
 
-options(ReqId, _Meta, _From, {_Test, Id}=AppId=State) ->
+options(ReqId, _Meta, _From, {_Test, Id}=State) ->
     Values = nksip_request:header(ReqId, <<"x-nk">>),
     Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
     Routes = nksip_request:header(ReqId, <<"route">>),

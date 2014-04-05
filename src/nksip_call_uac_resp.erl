@@ -301,7 +301,6 @@ response_status(completed, Resp, UAC, Call) ->
 do_received_hangup(Resp, UAC, Call) ->
     #sipmsg{to={_, ToTag}, dialog_id=DialogId} = Resp,
     #trans{id=Id, code=Code, status=Status, to_tags=ToTags} = UAC,
-    #call{app_id=AppId} = Call,
     UAC1 = case lists:member(ToTag, ToTags) of
         true -> UAC;
         false -> UAC#trans{to_tags=ToTags++[ToTag]}
@@ -312,9 +311,9 @@ do_received_hangup(Resp, UAC, Call) ->
                        "(dialog ~s)", [Id, Status, DialogId]),
             spawn(
                 fun() ->
-                    case nksip_uac:ack(AppId, DialogId, []) of
+                    case nksip_uac:ack(nksip_sipmsg:get_id(Resp), []) of
                         ok ->
-                            case nksip_uac:bye(AppId, DialogId, []) of
+                            case nksip_uac:bye(nksip_sipmsg:get_id(Resp), []) of
                                 {ok, 200, []} ->
                                     ok;
                                 ByeErr ->

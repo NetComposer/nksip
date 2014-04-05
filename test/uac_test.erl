@@ -60,7 +60,6 @@ stop() ->
 
 
 uac() ->
-    client2 = client2,
     SipC1 = "sip:127.0.0.1:5070",
 
     {error, invalid_uri} = nksip_uac:options(client2, "sip::a", []),
@@ -99,7 +98,7 @@ uac() ->
     [{app_name, client2}, {id, RespId2}, {call_id, CallId2}] = Values2,
     CallId2 = nksip_response:call_id(RespId2),
     error = nksip_dialog:field(RespId2, status),
-    {error, unknown_dialog} = nksip_uac:options(client2, RespId2, []),
+    {error, unknown_dialog} = nksip_uac:options(RespId2, []),
 
     % Sync, get_response
     {resp, #sipmsg{class={resp, _, _}}} = nksip_uac:options(client2, SipC1, [get_response]),
@@ -116,8 +115,12 @@ uac() ->
     % Sync, callback for request and provisional response
     {ok, 486, [{call_id, CallId4}, {id, RespId4}]} = 
         nksip_uac:invite(client2, SipC1, [CB, get_request, {meta, [call_id, id]}|Hds]),
+
+    lager:notice("RESPID4: ~p", [RespId4]),
+
+
     CallId4 = nksip_response:call_id(RespId4),
-    DlgId4 = nksip_dialog:get_id(RespId4),
+    % DlgId4 = nksip_dialog:get_id(RespId4),
     receive 
         {Ref, {req, Req4}} -> 
             CallId4 = nksip_sipmsg:field(Req4, call_id)
@@ -127,22 +130,21 @@ uac() ->
     receive 
         {Ref, {ok, 180, Values4}} ->
             [{dialog_id, DlgId4}, {call_id, CallId4}, {id, RespId4_180}] = Values4,
-            CallId4 = nksip_response:call_id(RespId4_180)
+            CallId4 = nksip_response:call_id(RespId4_180),
+            CallId4 = nksip_dialog:call_id(DlgId4)
         after 500 -> 
             error(uac) 
     end,
 
     % Sync, callback for request and provisional response, get_request, get_response
-    {resp, #sipmsg{class={resp, 486, _}, call_id=CallId5}=Resp5} = 
+    {resp, #sipmsg{class={resp, 486, _}, call_id=CallId5}} = 
         nksip_uac:invite(client2, SipC1, [CB, get_request, get_response|Hds]),
-    DialogId5 = nksip_dialog:get_id(uac, Resp5),
     receive 
         {Ref, {req, #sipmsg{class={req, _}, call_id=CallId5}}} -> ok
         after 500 -> error(uac) 
     end,
     receive 
-        {Ref, {resp, #sipmsg{class={resp, 180, _}, call_id=CallId5}=Resp5_180}} ->
-            DialogId5 = nksip_dialog:get_id(uac, Resp5_180)
+        {Ref, {resp, #sipmsg{class={resp, 180, _}, call_id=CallId5}}} -> ok
         after 500 -> 
             error(uac) 
     end,
@@ -178,12 +180,12 @@ info() ->
     Fs = {meta, [<<"x-nk-method">>, <<"x-nk-dialog">>]},
     DialogId1 = nksip_dialog:remote_id(DialogId2, client1),
 
-    {ok, 200, Values1} = nksip_uac:info(client2, DialogId2, [Fs]),
+    {ok, 200, Values1} = nksip_uac:info(DialogId2, [Fs]),
     [{<<"x-nk-method">>, [<<"info">>]}, {<<"x-nk-dialog">>, [DialogId1]}] = Values1,
 
     % Now we forcefully stop dialog at client1. At client2 is still valid, and can send the INFO
-    ok = nksip_dialog:stop(client1, DialogId1),
-    {ok, 481, []} = nksip_uac:info(client2, DialogId2, []), 
+    ok = nksip_dialog:stop(DialogId1),
+    {ok, 481, []} = nksip_uac:info(DialogId2, []), 
 
     % The dialog at client2, at receiving a 481 (even for INFO) is destroyed before the BYE
     {error, unknown_dialog} = nksip_uac:bye(DialogId2, []),
@@ -289,7 +291,7 @@ invite(ReqId, Meta, From, AppId=State) ->
     {noreply, State}.
 
 
-options(ReqId, _Meta, _From, AppId=State) ->
+options(ReqId, _Meta, _From, State) ->
     case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> 
             nksip_request:reply(ReqId, 101), 
@@ -300,12 +302,12 @@ options(ReqId, _Meta, _From, AppId=State) ->
     {reply, {ok, [contact]}, State}.
 
 
-info(ReqId, _Meta, _From, AppId=State) ->
+info(ReqId, _Meta, _From, State) ->
     DialogId = nksip_request:dialog_id(ReqId),
     {reply, {ok, [{add, "x-nk-method", "info"}, {add, "x-nk-dialog", DialogId}]}, State}.
 
 
-message(ReqId, _Meta, _From, AppId=State) ->
+message(ReqId, _Meta, _From, State) ->
     case nksip_request:header(ReqId, <<"x-nk-reply">>) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),

@@ -27,17 +27,17 @@
 
 -compile([export_all]).
 
-% auth_test_() ->
-%   {setup, spawn, 
-%       fun() -> start() end,
-%       fun(_) -> stop() end,
-%       [
-%           fun digest/0, 
-%           fun invite/0, 
-%           fun dialog/0, 
-%           fun proxy/0
-%       ]
-%   }.
+auth_test_() ->
+  {setup, spawn, 
+      fun() -> start() end,
+      fun(_) -> stop() end,
+      [
+          fun digest/0, 
+          fun invite/0, 
+          fun dialog/0, 
+          fun proxy/0
+      ]
+  }.
 
 
 start() ->

@@ -99,7 +99,7 @@ basic() ->
             {client1, invite}, {client1, ack}, {client1, dialog_start},
             {client2, dialog_start}]),
 
-    {ok, 200, []} = nksip_uac:info(client2, Dlg2, []),
+    {ok, 200, []} = nksip_uac:info(Dlg2, []),
     ok = tests_util:wait(Ref, [{server1, route}, {client1, info}]),
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
@@ -129,6 +129,10 @@ cancel() ->
     nksip:put(server1, inline_test, {Ref, Pid}),
     nksip:put(client1, inline_test, {Ref, Pid}),
     nksip:put(client2, inline_test, {Ref, Pid}),
+
+    {ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1", [contact]),
+    ok = tests_util:wait(Ref, [{server1, route}]),
+
     Hds = {add, "x-nk-op", "wait"},
     CB = {callback, fun(Term) -> Pid ! {Ref, Term} end},
     {async, ReqId} = nksip_uac:invite(client1, "sip:client2@nksip", [async, Hds, CB]),
@@ -221,7 +225,11 @@ route(Req, Scheme, User, Domain, _From) ->
                     process;
                 true when Domain =:= <<"nksip">> ->
                     case nksip_registrar:find(server1, Scheme, User, Domain) of
-                        [] -> temporarily_unavailable;
+                        [] -> 
+                            lager:notice("E: ~p, ~p, ~p", [Scheme, User, Domain]),
+
+
+                            temporarily_unavailable;
                         UriList -> {proxy, UriList, Opts}
                     end;
                 true ->

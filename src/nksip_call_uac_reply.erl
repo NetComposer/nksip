@@ -56,7 +56,7 @@ reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
     Call;
 
 reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
-    #sipmsg{app_id=AppId, class={resp, Code, Reason}} = Resp,
+    #sipmsg{class={resp, Code, Reason}} = Resp,
     Async = lists:member(async, Opts),
     case nksip_lib:get_value(refer_subscription_id, Opts) of
         undefined -> 
@@ -76,7 +76,7 @@ reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
                         false -> active
                     end}
             ],
-            nksip_uac:notify(AppId, SubsId, NotifyOpts)
+            nksip_uac:notify(SubsId, NotifyOpts)
     end,
     if
         Code < 101 -> ok;

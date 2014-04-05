@@ -159,10 +159,10 @@ print(Header, #sipmsg{}=SipMsg) ->
     ok.
 
 sipmsg(AppId, _CallId, Header, Transport, Binary) ->
-    case erlang:get(nksip_trace) of
+    case AppId:config_trace() of
         {true, _} ->
             #transport{local_ip=Ip1, remote_ip=Ip2} = Transport,
-            AppName = erlang:get(nksip_app_name),
+            AppName = AppId:name(),
             Msg = print_packet(AppName, Header, Transport, Binary),
             % lager:debug([{app, AppName}, {call_id, CallId}], "~s", 
             %         [print_packet(AppName, Header, Transport, Binary)]),
@@ -265,7 +265,7 @@ insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
 
 %% @private
 insert(AppId, CallId, Info) ->
-    case erlang:get(nksip_trace) of
+    case AppId:config_trace() of
         {_, true} ->
             Time = nksip_lib:l_timestamp(),
             Info1 = case Info of

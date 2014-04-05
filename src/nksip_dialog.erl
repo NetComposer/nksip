@@ -25,10 +25,10 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, make_id/2, get_id/1, parse_id/1]).
+-export([field/2, fields/2, call_id/1, app_id/1]).
 -export([stop/1, bye_all/0, stop_all/0]).
 -export([get_dialog/1, get_all/0, get_all/2, get_all_data/0]).
--export([remote_id/2]).
+-export([make_id/2, get_id/1, parse_id/1, remote_id/2, change_app/2]).
 -export_type([id/0, invite_status/0, field/0, stop_reason/0]).
 
 -include("nksip.hrl").
@@ -200,7 +200,7 @@
 -spec field(nksip:id()|nksip:dialog(), field()) -> 
     term() | error.
 
-field(<<$D, _/binary>>=Id, Field) -> 
+field(Id, Field) when is_binary(Id) -> 
     case fields(Id, [Field]) of
         [{_, Value}] -> Value;
         error -> error
@@ -279,6 +279,30 @@ fields(Id, Fields) when is_list(Fields) ->
             end
     end.
 
+%% @doc Gets thel Call-ID of a dialog
+-spec call_id(nksip:id()|#dialog{}) ->
+    nksip:call_id().
+
+call_id(#dialog{call_id=CallId}) ->
+    CallId;
+
+call_id(Id) ->
+    {_AppId, _DialogId, CallId} = parse_id(Id),
+    CallId. 
+
+
+%% @doc Gets thel App of a dialog
+-spec app_id(nksip:id()|#dialog{}) ->
+    nksip:app_id().
+
+app_id(#dialog{app_id=AppId}) ->
+    AppId;
+
+app_id(Id) ->
+    {AppId, _DialogId, _CallId} = parse_id(Id),
+    AppId. 
+
+
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip:id()}.
 -spec get_id(nksip:id()|nksip:dialog()) ->
@@ -291,7 +315,7 @@ get_id(<<"U_", _/binary>>=SubscriptionId) ->
     nksip_subscription:dialog_id(SubscriptionId);
 
 get_id(<<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
-    case nksip_call:dialog_id(MsgId) of
+    case nksip_call:find_dialog(MsgId) of
         {ok, DialogId} -> DialogId;
         {error, _} -> <<>>
     end;
@@ -351,10 +375,8 @@ get_all() ->
 
 get_all(App, CallId) ->
     case nksip:find_app(App) of
-        {ok, AppId} ->
-            [DlgId || {_, DlgId} <- nksip_call_router:get_all_dialogs(AppId, CallId)];
-        _ ->
-            []
+        {ok, AppId} -> nksip_call_router:get_all_dialogs(AppId, CallId);
+        _ ->[]
     end.
 
 
@@ -439,6 +461,15 @@ remote_id(<<$D, _/binary>>=DialogId, App) ->
     end,
     BinApp = atom_to_binary(AppId, latin1),
     <<$D, $_, Id/binary, $_, BinApp/binary, $_, CallId/binary>>.
+
+
+%% @private Hack to find de dialog at another app in the same machine
+change_app(Id, App) ->
+    {_, DialogId, CallId} = parse_id(Id),
+    {ok, AppId1} = nksip:find_app(App),
+    App1 = atom_to_binary(AppId1, latin1),
+    <<$D, $_, DialogId/binary, $_, App1/binary, $_, CallId/binary>>.
+
 
 
 %% @private Dumps all dialog information

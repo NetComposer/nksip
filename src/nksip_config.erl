@@ -318,8 +318,7 @@ terminate(_Reason, _State) ->
 put_log_cache(AppId, CallId) ->
     erlang:put(nksip_log_level, AppId:config_log_level()),
     erlang:put(nksip_app_name, AppId:name()),
-    erlang:put(nksip_call_id, CallId),
-    erlang:put(nksip_trace, AppId:config_trace()).
+    erlang:put(nksip_call_id, CallId).
 
 %% @private
 parse_config_opts([], Opts) ->

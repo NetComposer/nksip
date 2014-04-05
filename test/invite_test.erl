@@ -209,8 +209,7 @@ dialog() ->
 
 
     % Sends an in-dialog OPTIONS. Local CSeq should be incremented
-    {ok, 200, [{cseq_num, CSeq1}]} = 
-        nksip_uac:options(DialogIdA, [{meta, [cseq_num]}]),
+    {ok, 200, [{cseq_num, CSeq1}]} = nksip_uac:options(DialogIdA, [{meta, [cseq_num]}]),
     CSeq = CSeq1 - 1,
     0 = nksip_dialog:field(DialogIdA, remote_seq),
     0 = nksip_dialog:field(DialogIdB, local_seq),
@@ -370,7 +369,7 @@ rr_contact() ->
     % reINVITE from the other party
     Hds3 = [{add, "x-nk-op", increment}, RepHd],
     {ok, 200, [{dialog_id, DialogIdB}]} = 
-        nksip_uac:refresh(client2, DialogIdB, Hds3),
+        nksip_uac:refresh(DialogIdB, Hds3),
     ok = nksip_uac:ack(DialogIdB, []),
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
@@ -477,7 +476,7 @@ multiple_uas() ->
     DialogId1B = nksip_dialog:remote_id(DialogId1A, client2),
     confirmed = nksip_dialog:field(DialogId1B, invite_status),
 
-    MakeFun = fun(AppId) ->
+    MakeFun = fun() ->
         fun(Reply) ->
             case Reply of
                 {req, _} -> Self ! 
@@ -495,7 +494,7 @@ multiple_uas() ->
 
     % Send a new reinvite, it will spend 300msecs before answering
     {async, _} = nksip_uac:invite(DialogId1A,  
-                                    [async, {callback, MakeFun(client1)}, get_request,
+                                    [async, {callback, MakeFun()}, get_request,
                                     {add, "x-nk-sleep", 300}|Hds]),
     ok = tests_util:wait(Ref, [request]),   % Wait to be sent
 
@@ -529,7 +528,7 @@ multiple_uas() ->
     % The remote party (client2) will send a reinvite to the local (client1),
     % but the response will be delayed 300msecs
     Hds2 = [{add, "x-nk", 1}, {add, "x-nk-prov", "true"}, {add, "x-nk-sleep", 300}|Hds],
-    {async, _} = nksip_uac:invite(DialogId2B, [async, {callback, MakeFun(client2)}, 
+    {async, _} = nksip_uac:invite(DialogId2B, [async, {callback, MakeFun()}, 
                                                   get_request | Hds2]),
     ok = tests_util:wait(Ref, [request, provisional]),   
     % Before answering, the local party sends a new reinvite. The remote party

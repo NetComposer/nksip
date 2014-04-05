@@ -28,7 +28,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send/2, send/4, send_dialog/3, cancel/1, send_reply/2]).
--export([dialog_id/1]).
+-export([find_dialog/1]).
 -export([get_authorized_list/1, clear_authorized_list/1, stop_dialog/1]).
 -export([get_all/0, get_info/0, clear_all/0]).
 -export([app_reply/4, work/3, timeout/3]).
@@ -63,7 +63,7 @@
                 {cancel, nksip_sipmsg:id()} |
                 {make_dialog, nksip_dialog:id(), nksip:method(), nksip_lib:optslist()} |
                 {apply_dialog, nksip_dialog:id(), function()} |
-                {dialog_id, nksip_sipmsg:id()} |
+                {find_dialog, nksip_sipmsg:id()} |
                 get_all_dialogs | 
                 {stop_dialog, nksip_dialog:id()} |
                 {apply_sipmsg, nksip_sipmsg:id(), function()} |
@@ -101,8 +101,13 @@ send(AppId, Method, Uri, Opts) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send_dialog(Id, Method, Opts) ->
-    {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
-    send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts}).
+    case nksip_dialog:get_id(Id) of
+        <<>> -> 
+            {error, unknown_dialog};
+        Id2 ->
+            {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id2),
+            send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts})
+    end.
 
 
 %% @doc Cancels an ongoing INVITE request.
@@ -115,14 +120,14 @@ cancel(Id) ->
 
 
 %% @doc Gets the Dialog Id of a request or response id
--spec dialog_id(nksip:id()) ->
+-spec find_dialog(nksip:id()) ->
     {ok, nksip:id()} | {error, Error}
     when Error :: unknown_dialog | invalid_request | nksip_call_router:sync_error().
 
-dialog_id(Id) ->
+find_dialog(Id) ->
     case nksip_sipmsg:parse_id(Id) of
-        {Class, AppId, MsgId, CallId} when Class==$R; Class==$S ->
-            send_work_sync(AppId, CallId, {dialog_id, MsgId})
+        {Class, AppId, MsgId, CallId} when Class==req; Class==resp ->
+            send_work_sync(AppId, CallId, {find_dialog, MsgId})
     end.
 
 
@@ -305,10 +310,15 @@ work({stop_dialog, DialogId}, From, Call) ->
             Call
     end;
 
-work({dialog_id, MsgId}, From, Call) ->
+work({find_dialog, MsgId}, From, Call) ->
     Reply = case find_dialog(MsgId, Call) of
-        {ok, DialogId} -> {ok, DialogId};
-        not_found -> {ok, <<>>}
+        {ok, DialogId} -> 
+            case get_dialog(DialogId, Call) of
+                {ok, Dialog} -> {ok, nksip_dialog:get_id(Dialog)};
+                not_found -> {ok, <<>>}
+            end;
+        not_found -> 
+            {ok, <<>>}
     end,
     gen_server:reply(From, Reply),
     Call;

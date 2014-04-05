@@ -179,7 +179,7 @@ basic() ->
     % The default Min-SE is 90 secs, so the refresh interval is updated to that
 
     {ok, 200, [{<<"session-expires">>, [<<"90;refresher=uac">>]}]} = 
-        nksip_uac:update(ua2, Dialog1B, [{meta,[<<"session-expires">>]}]),
+        nksip_uac:update(Dialog1B, [{meta,[<<"session-expires">>]}]),
 
     90 = nksip_dialog:field(Dialog1A, invite_session_expires),
     undefined = nksip_dialog:field(Dialog1A, invite_refresh),
@@ -192,7 +192,7 @@ basic() ->
     % 422 and a new request will be sent
 
     {ok, 200, [{<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
-        nksip_uac:update(ua1, Dialog1A, [{session_expires, 1}, {meta, [<<"session-expires">>]}]),
+        nksip_uac:update(Dialog1A, [{session_expires, 1}, {meta, [<<"session-expires">>]}]),
 
     2 = nksip_dialog:field(Dialog1A, invite_session_expires),
     undefined = nksip_dialog:field(Dialog1A, invite_refresh),
@@ -205,7 +205,7 @@ basic() ->
     % It detects the remote party (ua2) is currently refreshing a proposes refresher=uas
 
     {ok, 200, [{<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
-        nksip_uac:update(ua1, Dialog1A, [get_request, CB, {meta, [<<"session-expires">>]}]),
+        nksip_uac:update(Dialog1A, [get_request, CB, {meta, [<<"session-expires">>]}]),
 
     receive 
         {Ref, #sipmsg{headers=Headers3}} ->
@@ -223,7 +223,7 @@ basic() ->
     % Now ua1 refreshes, but change roles, becoming refresher. 
     % Using session_expires option overrides automatic behaviour, no Min-SE is sent
 
-    {ok, 200, []} = nksip_uac:update(ua1, Dialog1A, [{session_expires, {2,uac}}]),
+    {ok, 200, []} = nksip_uac:update(Dialog1A, [{session_expires, {2,uac}}]),
 
     90 = nksip_dialog:field(Dialog1A, invite_session_expires),
     true = is_integer(nksip_dialog:field(Dialog1A, invite_refresh)),
@@ -233,7 +233,7 @@ basic() ->
     
     % Now ua1 send no Session-Expires, but ua2 insists, using default time
     % (and changing roles again)
-    {ok, 200, []} = nksip_uac:update(ua1, Dialog1A, [{replace, session_expires, <<>>}]),
+    {ok, 200, []} = nksip_uac:update(Dialog1A, [{replace, session_expires, <<>>}]),
     1800 = nksip_dialog:field(Dialog1A, invite_session_expires),
     undefined = nksip_dialog:field(Dialog1A, invite_refresh),
     1800 = nksip_dialog:field(Dialog1B, invite_session_expires),
@@ -242,7 +242,7 @@ basic() ->
 
     % Lower time to wait for timeout
 
-    {ok, 200, []} = nksip_uac:update(ua1, Dialog1A, [{session_expires, {2,uac}}, {min_se, 2}]),
+    {ok, 200, []} = nksip_uac:update(Dialog1A, [{session_expires, {2,uac}}, {min_se, 2}]),
     SDP3 = nksip_sdp:increment(SDP2),
     ok = tests_util:wait(Ref, [
         {ua1, {refresh, SDP3}},
@@ -314,7 +314,7 @@ proxy() ->
     3 = nksip_dialog:field(Dialog1A, invite_session_expires),
     undefined = nksip_dialog:field(Dialog1A, invite_refresh),
 
-    {ok, 200, []} = nksip_uac:update(ua1, Dialog1A, [{session_expires, 1000}]),
+    {ok, 200, []} = nksip_uac:update(Dialog1A, [{session_expires, 1000}]),
     1000 = nksip_dialog:field(Dialog1A, invite_session_expires),
     1000 = nksip_dialog:field(Dialog1B, invite_session_expires),
     1000 = nksip_dialog:field(Dialog1A, invite_session_expires),
@@ -365,7 +365,7 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog4B = nksip_dialog:remote_id(Dialog4A, ua2),
+    Dialog4B = nksip_dialog:remote_id(Dialog4A, ua3),
     1800 = nksip_dialog:field(Dialog4A, invite_session_expires),
     true = is_integer(nksip_dialog:field(Dialog4A, invite_refresh)),
     undefined = nksip_dialog:field(Dialog4B, invite_session_expires),
@@ -386,7 +386,7 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog5B = nksip_dialog:remote_id(Dialog5A, ua2),
+    Dialog5B = nksip_dialog:remote_id(Dialog5A, ua3),
     undefined = nksip_dialog:field(Dialog5A, invite_session_expires),
     undefined = nksip_dialog:field(Dialog5A, invite_refresh),
     undefined = nksip_dialog:field(Dialog5B, invite_session_expires),

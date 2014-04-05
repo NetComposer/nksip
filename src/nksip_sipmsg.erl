@@ -50,6 +50,7 @@ field(#sipmsg{}=S, Field) ->
     #sipmsg{class=Class, ruri=RUri, from={From, _}, to={To, _}, transport=T} = S,
     case Field of
         id -> get_id(S);
+        internal_id -> S#sipmsg.id;
         app_name -> apply(S#sipmsg.app_id, name, []);
         app_id -> S#sipmsg.app_id;
         dialog_id -> nksip_dialog:get_id(S);

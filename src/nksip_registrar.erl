@@ -718,12 +718,12 @@ internal_get_all() ->
 
 %% @private
 internal_print_all() ->
-    Print = fun({{Scheme, User, Domain}, Regs}) ->
-        ?P("\n--- ~p:~s@~s ---", [Scheme, User, Domain]),
+    Now = nksip_lib:timestamp(),
+    Print = fun({AppId, {Scheme, User, Domain}, Regs}) ->
+        ?P("\n --- ~p --- ~p:~s@~s ---", [AppId:name(), Scheme, User, Domain]),
         lists:foreach(
-            fun({AppId, Contact, Remaining, Q}) ->
-                ?P("    ~p: ~s, ~p, ~p", 
-                   [AppId, nksip_unparse:uri(Contact), Remaining, Q])
+            fun(#reg_contact{contact=Contact, expire=Expire, q=Q}) ->
+                ?P("    ~s, ~p, ~p", [nksip_unparse:uri(Contact), Expire-Now, Q])
             end, Regs)
     end,
     lists:foreach(Print, internal_get_all()),
