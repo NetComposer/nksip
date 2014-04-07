@@ -202,8 +202,7 @@ get_id(#subscription{id=SubsId}, #dialog{app_id=AppId, id=DialogId, call_id=Call
 
 %% @private
 -spec parse_id(nksip:id()) ->
-    {AppId::nksip:app_id(), Type::binary(), Id::binary(), 
-     DialogId::binary(), CallId::binary()}.
+    {nksip:app_id(), id(), nksip_dialog:id(), nksip:call_id()}.
 
 parse_id(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, App:7/binary, 
          $_, CallId/binary>>) ->
@@ -261,12 +260,12 @@ make_id(#sipmsg{event={Event, Opts}}) ->
 
 %% @doc Gets all started subscription ids.
 -spec get_all() ->
-    [{nksip:id()}].
+    [nksip:id()].
 
 get_all() ->
-    lists:flatten([ 
-        [{AppId, nksip_dialog:field(DlgId, subscriptions)}]
-        || {AppId, DlgId} <- nksip_call_router:get_all_dialogs()
+    lists:flatten([
+        nksip_dialog:field(Id, subscriptions) 
+        || Id <- nksip_call_router:get_all_dialogs()
     ]).
 
 
@@ -276,8 +275,8 @@ get_all() ->
 
 get_all(AppId, CallId) ->
     lists:flatten([
-        nksip_dialog:field(DlgId, subscriptions)
-        || {_, DlgId} <- nksip_call_router:get_all_dialogs(AppId, CallId)
+        nksip_dialog:field(Id, subscriptions)
+        || Id <- nksip_call_router:get_all_dialogs(AppId, CallId)
     ]).
 
 

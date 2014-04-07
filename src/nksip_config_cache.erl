@@ -22,13 +22,7 @@
 %%
 %%
 %% This module is hot compiled in run-time, after NkSIP application has started
-%% It maintains a number of functions to cache some parts of the configuration,
-%% currently:
-%%
-%% - global_id
-%% - local_ips
-%% - main_ip
-%% - main_ip6
+%% It maintains a number of functions to cache some parts of the configuration
 
 -module(nksip_config_cache).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -38,15 +32,17 @@
 
 %% This functions will never be called
 
-global_id() -> <<>>.
+global_id() -> nksip_config:get(global_id).
 
-local_ips() -> [].
+local_ips() -> nksip_config:get(local_ips).
 
-max_connections() -> 0.
+max_connections() -> nksip_config:get(max_connections).
 
-main_ip() -> {127,0,0,1}.
+main_ip() -> nksip_config:get(main_ip).
 
-main_ip6() -> {0,0,0,0,0,0,0,1}.
+main_ip6() -> nksip_config:get(main_ip6).
+
+app_config() -> nksip_config:get(app_config).
 
 
 

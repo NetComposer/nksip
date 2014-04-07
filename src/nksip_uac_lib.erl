@@ -33,8 +33,7 @@
 %% ===================================================================
 
 
--spec send(term()|nksip:app_id(), nksip:method(), 
-           nksip:user_uri(), nksip_lib:optslist()) ->
+-spec send(term()|nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:optslist()) ->
     nksip_uac:result() | {error, nksip_uac:error()}.
 
 send(App, Method, Uri, Opts) ->
@@ -52,7 +51,7 @@ send(App, Method, Uri, Opts) ->
 
 
 %% @private
--spec send_dialog(nksip:id(), nksip:method(), nksip_lib:optslist()) ->
+-spec send_dialog(nksip:method(), nksip:id(), nksip_lib:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send_dialog(Method, <<$U, $_, _/binary>>=Id, Opts) ->

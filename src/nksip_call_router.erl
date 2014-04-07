@@ -88,7 +88,7 @@ apply_dialog(Id, Fun) ->
 
 %% @doc Get all dialog ids for all calls.
 -spec get_all_dialogs() ->
-    [nksip_dialog:id()].
+    [nksip:id()].
 
 get_all_dialogs() ->
     lists:flatten([
@@ -100,7 +100,7 @@ get_all_dialogs() ->
 
 %% @doc Get all dialog ids for this SipApp, having CallId.
 -spec get_all_dialogs(nksip:app_id(), nksip:call_id()) ->
-    [{nksip:app_id(), nksip_dialog:id()}].
+    [nksip:id()].
 
 get_all_dialogs(AppId, CallId) ->
     case send_work_sync(AppId, CallId, get_all_dialogs) of
