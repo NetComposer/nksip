@@ -137,6 +137,7 @@ field(#sipmsg{}=S, Field) ->
                 
                     undefined
             end;
+        subscription_id -> nksip_subscription:get_id(S);
         _ when is_binary(Field) -> header(S, Field);
         {value, _Name, Value} -> Value;
         _ -> invalid_field 

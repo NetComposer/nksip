@@ -28,7 +28,7 @@
 -include("nksip.hrl").
 
 -define(DEFAULT_LOG_LEVEL, 8).  % 8:debug, 7:info, 6:notice, 5:warning, 4:error
--define(DEFAULT_TRACE, true).
+-define(DEFAULT_TRACE, false).
 
 %% ===================================================================
 %% Private

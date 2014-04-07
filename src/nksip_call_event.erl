@@ -42,9 +42,15 @@
 
 uac_pre_request(#sipmsg{class={req, 'NOTIFY'}}=Req, Dialog, _Call) ->
     case nksip_subscription:find(Req, Dialog) of
-        not_found ->  {error, no_transaction};
+        not_found ->  
+
+            lager:warning("PRE REQ: ~p, ~p", [nksip_subscription:make_id(Req), Dialog#dialog.subscriptions]),
+
+            {error, no_transaction};
         #subscription{class=uas} -> ok;
-        _ -> {error, no_transaction}
+        _ -> 
+
+            {error, no_transaction}
     end;
 
 uac_pre_request(_Req, _Dialog, _Call) ->
@@ -272,11 +278,12 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     #call{timers={T1, _, _, TC, _}} = Call,
     ReqExpires = case Req#sipmsg.expires of
         RE0 when is_integer(RE0), RE0>=0 -> RE0;
-        _ when Method=='REFER' -> TC;
+        _ when Method=='REFER' -> round(TC/1000);
         _ -> ?DEFAULT_EVENT_EXPIRES
     end,
     RespExpires = case Resp#sipmsg.expires of
         SE0 when is_integer(SE0), SE0>=0 -> SE0;
+        _ when Method=='REFER' -> round(TC/1000);
         _ -> ?DEFAULT_EVENT_EXPIRES
     end,
     Expires = min(ReqExpires, RespExpires),

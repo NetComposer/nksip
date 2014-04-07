@@ -244,12 +244,19 @@ get_subscription(Id) ->
 -spec make_id(nksip:request()) ->
     id().
 
-make_id(#sipmsg{class={req, 'REFER'}, cseq=CSeq}) ->
-    nksip_lib:hash({<<"refer">>, CSeq});
+make_id(#sipmsg{class={req, 'REFER'}, cseq={CSeqNum, 'REFER'}}) ->
+    nksip_lib:hash({<<"refer">>, nksip_lib:to_binary(CSeqNum)});
+
+make_id(#sipmsg{class={resp, _, _}, cseq={CSeqNum, 'REFER'}}) ->
+    nksip_lib:hash({<<"refer">>, nksip_lib:to_binary(CSeqNum)});
 
 make_id(#sipmsg{event={Event, Opts}}) ->
     Id = nksip_lib:get_value(<<"id">>, Opts),
     nksip_lib:hash({Event, Id}).
+
+
+
+    % nksip_lib:hash({Event, Id}).
 
 
 %% @doc Gets all started subscription ids.

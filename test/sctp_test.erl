@@ -103,17 +103,19 @@ basic() ->
     end,
 
     % client1 should have started a new transport to client2:5071
+    {ok, C1} = nksip:find_app(client1),
     [LocPid] = [Pid || {#transport{proto=sctp, local_port=LP, remote_port=5071,
                                    sctp_id=Id}, Pid} 
-                        <- nksip_transport:get_all(client1), LP=:=LocalPort, Id=:=SctpId],
+                        <- nksip_transport:get_all(C1), LP=:=LocalPort, Id=:=SctpId],
 
     % client2 should not have started a new transport also to client1:5070
+    {ok, C2} = nksip:find_app(client2),
     [RemPid] = [Pid || {#transport{proto=sctp, remote_port=5070}, Pid} 
-                       <- nksip_transport:get_all(client2)],
+                       <- nksip_transport:get_all(C2)],
 
     % client1 should have started a new connection. client2 too.
-    [{_, LocPid}] = nksip_transport:get_connected(client1, sctp, {127,0,0,1}, 5071, <<>>),
-    [{_, RemPid}] = nksip_transport:get_connected(client2, sctp, {127,0,0,1}, LocalPort, <<>>),
+    [{_, LocPid}] = nksip_transport:get_connected(C1, sctp, {127,0,0,1}, 5071, <<>>),
+    [{_, RemPid}] = nksip_transport:get_connected(C2, sctp, {127,0,0,1}, LocalPort, <<>>),
     ok.
 
 

@@ -201,7 +201,7 @@
 
 -export([options/3, options/2, register/3, invite/3, invite/2, ack/2, bye/2, cancel/1]).
 -export([info/2, update/2, subscribe/2, subscribe/3, notify/2]).
--export([message/3, message/2, refer/3, publish/3, publish/2]).
+-export([message/3, message/2, refer/3, refer/2, publish/3, publish/2]).
 -export([request/3, request/2, refresh/2, stun/3]).
 -export_type([result/0, ack_result/0, error/0, cancel_error/0]).
 
@@ -847,6 +847,19 @@ refer(App, Uri, Opts) ->
         ReferTo ->
             Opts1 = [{insert, "refer-to", ReferTo} | nksip_lib:delete(Opts, refer_to)],
             send(App, 'REFER', Uri, Opts1)
+    end.
+
+
+-spec refer(nksip:id(), [opt()|refer_opt()]) -> 
+    result() | {error, error()} |  {error, invalid_refer_to}.
+
+refer(Id, Opts) ->
+    case nksip_lib:get_binary(refer_to, Opts) of
+        <<>> ->
+            {error, invalid_refer_to};
+        ReferTo ->
+            Opts1 = [{insert, "refer-to", ReferTo} | nksip_lib:delete(Opts, refer_to)],
+            send_dialog('REFER', Id, Opts1)
     end.
 
 

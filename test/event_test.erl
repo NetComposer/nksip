@@ -27,18 +27,18 @@
 
 -compile([export_all]).
 
-% event_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         {inparallel, [
-%             {timeout, 60, fun basic/0},
-%             {timeout, 60, fun refresh/0},
-%             {timeout, 60, fun dialog/0},
-%             {timeout, 60, fun out_or_order/0},
-%             {timeout, 60, fun fork/0}
-%         ]}
-%     }.
+event_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        {inparallel, [
+            {timeout, 60, fun basic/0},
+            {timeout, 60, fun refresh/0},
+            {timeout, 60, fun dialog/0},
+            {timeout, 60, fun out_or_order/0},
+            {timeout, 60, fun fork/0}
+        ]}
+    }.
 
 
 start() ->
@@ -356,12 +356,13 @@ fork() ->
 
     {async, _} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        ReplyHd, {add, "x-nk-op", "wait"}, 
-                                        {expires, 2}]),
+                            ReplyHd, {add, "x-nk-op", "wait"}, {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
-    RecvReq1 = receive {Ref, {_, {wait, Req1}}} -> Req1
-    after 1000 -> error(fork)
+    RecvReq1 = receive 
+        {Ref, {_, {wait, Req1}}} -> Req1
+        after 1000 -> 
+            error(fork)
     end,
     #sipmsg{call_id=CallId} = RecvReq1,
 
@@ -380,7 +381,7 @@ fork() ->
     receive {Ref, {req, _}} -> ok after 1000 -> error(fork) end,
 
     SubsB = nksip_subscription:remote_id(SubsA, client2),
-    {ok, 200, []} = nksip_uac:notify(client2, SubsB, []),
+    {ok, 200, []} = nksip_uac:notify(SubsB, []),
 
     Notify4 = make_notify(RecvReq1#sipmsg{to_tag_candidate = <<"c">>}),
     {ok, 200, []} = nksip_call:send(Notify4, [no_dialog]),
@@ -392,7 +393,7 @@ fork() ->
     [_] = nksip_dialog:field(D3, subscriptions),
     [_] = nksip_dialog:field(D4, subscriptions),
 
-    {ok, 200, []} = nksip_uac:notify(client2, SubsB, [{state, {terminated, giveup}}]),
+    {ok, 200, []} = nksip_uac:notify(SubsB, [{state, {terminated, giveup}}]),
     ok.
 
 

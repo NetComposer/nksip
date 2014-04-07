@@ -234,6 +234,7 @@
 
 reply(Req, {Code, Opts}) 
         when is_integer(Code), Code>=100, Code=<699, is_list(Opts)->
+    ?call_debug("user reply to ~p: {~p, ~p}", [element(2, Req#sipmsg.class), Code, Opts]),
     case nksip_uas_lib:make(Req, Code, Opts) of
         {ok, Resp, RespOpts} ->
             {Resp, RespOpts};
@@ -271,7 +272,7 @@ post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
     Opts2 = case 
         Code>100 andalso 
         (Method=='INVITE' orelse Method=='UPDATE' orelse Method=='SUBSCRIBE'
-         orelse Method=='REFER')
+            orelse Method=='REFER')
     of
         true -> [allow, supported | Opts1];
         false -> Opts1
@@ -288,7 +289,7 @@ post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
     Opts4 = case 
         Code>100 andalso Code<300 andalso 
         (Method=='INVITE' orelse Method=='UPDATE' orelse Method=='SUBSCRIBE'
-         orelse Method=='REFER') andalso
+            orelse Method=='REFER') andalso
         not lists:member(contact, Opts) andalso
         not lists:keymember(contact, 1, Opts)
     of
