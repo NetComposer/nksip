@@ -369,7 +369,7 @@ stop_all() ->
 
 %% @doc Updates the callback module or options of a running SipApp
 %% It is not allowed to change transports
--spec update(term()|app_id(), nksip_lib:proplist()) ->
+-spec update(term()|app_id(), nksip_lib:optslist()) ->
     {ok, app_id()} | {error, term()}.
 
 update(App, Opts) ->

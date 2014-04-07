@@ -35,7 +35,7 @@
 
 
 %% @doc Sends a new `Response'.
--spec send_response(nksip:response(), nksip_lib:proplist()) ->
+-spec send_response(nksip:response(), nksip_lib:optslist()) ->
     {ok, nksip:response()} | error.
 
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->

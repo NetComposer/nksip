@@ -32,3 +32,23 @@
 
 -module(nksip_config_cache).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
+
+-compile([export_all]).
+
+
+%% This functions will never be called
+
+global_id() -> <<>>.
+
+local_ips() -> [].
+
+max_connections() -> 0.
+
+main_ip() -> {127,0,0,1}.
+
+main_ip6() -> {0,0,0,0,0,0,0,1}.
+
+
+
+
+

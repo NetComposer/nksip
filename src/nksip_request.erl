@@ -382,7 +382,7 @@ reply(#sipmsg{class={req, _}}=Req, SipReply) ->
     boolean().
 
 is_local_route(<<"R_", _/binary>>=Id) ->
-    [$R, AppId, _] = nksip_sipmsg:id_parts(Id),
+    {req, AppId, _MsgId, _CallId} = nksip_sipmsg:parse_id(Id),
     case fields(Id, [parsed_ruri, parsed_routes]) of
         [{_, RUri}, {_, []}] -> nksip_transport:is_local(AppId, RUri);
         [{_, _RUri}, {_, [Route|_]}] -> nksip_transport:is_local(AppId, Route);

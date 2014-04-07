@@ -304,7 +304,7 @@ app_id(Id) ->
 
 
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip:id()}.
--spec get_id(nksip:id()|nksip:dialog()) ->
+-spec get_id(nksip:id()|nksip:dialog()|nksip:request()|nksip:response()) ->
     nksip:id().
 
 get_id(<<"D_", _/binary>>=DialogId) ->

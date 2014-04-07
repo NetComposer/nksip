@@ -118,7 +118,7 @@ get_name(AppId) ->
 
 %% @doc Gets the sipapp's configuration
 -spec config(nksip:app_id()) ->
-    nksip_lib:proplist().
+    nksip_lib:optslist().
 
 config(AppId) ->
     AppId:config().

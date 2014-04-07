@@ -232,7 +232,7 @@ try_connect(AppId, Proto, Ip, Port, Res, Opts, Try) ->
                 
 
 %% @private Makes a route from a Scheme and Transport
--spec get_listenhost(nksip:app_id(), inet:ip_address(), nksip_lib:proplist()) ->
+-spec get_listenhost(nksip:app_id(), inet:ip_address(), nksip_lib:optslist()) ->
     binary().
 
 get_listenhost(AppId, Ip, Opts) ->

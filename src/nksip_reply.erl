@@ -229,7 +229,7 @@
 %% @doc Generates a new SIP response and send options using helper replies.
 %% Currently recognized replies are described in this module.
 %% See {@link nksip_uas_lib:response/5}.
--spec reply(nksip:request(), {nksip:response_code(), nksip_lib:optslist()}) ->
+-spec reply(nksip:request(), sipreply() | {nksip:response_code(), nksip_lib:optslist()}) ->
     {nksip:response(), nksip_lib:optslist()}.
 
 reply(Req, {Code, Opts}) 
