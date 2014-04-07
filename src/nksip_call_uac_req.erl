@@ -267,7 +267,7 @@ sent_update(#sipmsg{class={req, Method}}=Req, #trans{proto=Proto}=UAC, Call) ->
     Call1 = case 
         (Method=='SUBSCRIBE' orelse Method=='REFER') andalso ToTag == <<>> 
     of
-        true -> nksip_call_event:create_event(Req, Call);
+        true -> nksip_call_event:create_prov_event(Req, Call);
         false -> Call
     end,
     update(UAC3, Call1).

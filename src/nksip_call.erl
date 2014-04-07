@@ -450,8 +450,8 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
             Call
     end;
 
-timeout({remove_event, Id}, _Ref, Call) ->
-    nksip_call_event:remove_event(Id, Call);
+timeout({remove_prov_event, Id}, _Ref, Call) ->
+    nksip_call_event:remove_prov_event(Id, Call);
 
 timeout(check_call, _Ref, Call) ->
     TransTime = 1000*?MAX_TRANS_TIME,

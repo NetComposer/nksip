@@ -123,7 +123,7 @@ response(Resp, UAC, Call) ->
     Call4 = case 
         Code>=300 andalso (Method=='SUBSCRIBE' orelse Method=='REFER')
     of
-        true -> nksip_call_event:remove_event(Req, Call3);
+        true -> nksip_call_event:remove_prov_event(Req, Call3);
         false -> Call3
     end,
     Msg = {MsgId, Id, DialogId},

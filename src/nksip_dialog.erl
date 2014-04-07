@@ -254,8 +254,7 @@ field(D, Field) ->
             end;
 
         subscriptions -> 
-            [nksip_subscription:get_id(Id, D) 
-             || #subscription{id=Id} <- D#dialog.subscriptions];
+            [nksip_subscription:get_id(S, D) || S <- D#dialog.subscriptions];
 
         _ -> invalid_field 
     end.

@@ -54,7 +54,7 @@ request(Req, Call) ->
                     do_request(Method, Req, Dialog1, Call)
             end;
         not_found when Method=='NOTIFY' ->
-            case nksip_call_event:is_event(Req, Call) of
+            case nksip_call_event:is_prov_event(Req, Call) of
                 true -> {ok, Call};
                 false -> {error, no_transaction}
             end;

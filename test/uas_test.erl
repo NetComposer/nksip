@@ -279,7 +279,7 @@ invite(ReqId, Meta, From, AppId=State) ->
     {noreply, State}.
 
 
-options(ReqId, _Meta, _From, AppId=State) ->
+options(ReqId, _Meta, _From, State) ->
     case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
         [Sleep0] -> 
             nksip_request:reply(ReqId, 101), 

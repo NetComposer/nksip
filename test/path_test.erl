@@ -205,7 +205,7 @@ route(_, _, _, _, _, State) ->
     {reply, process, State}.
 
 
-invite(ReqId, _Meta, _From, AppId=State) ->
+invite(ReqId, _Meta, _From, State) ->
     case nksip_request:header(ReqId, <<"x-nk-op">>) of
         [<<"ok">>] -> {reply, ok, State};
         _ -> {reply, 603, State}
