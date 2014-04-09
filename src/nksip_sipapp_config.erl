@@ -94,6 +94,62 @@ parse_transports([Transport|Rest], Acc) ->
     parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
 
 
+%% @private 
+%% For each plugin, calls Plugin:version() to get the version, and
+%% Plugin:deps() to get the dependency list ([atom(), RE::binary()]).
+%% Then builds a list of plugins where every plugin is inserted after all of
+%% its dependencies.
+
+parse_plugins([Name|Rest], PlugList) when is_atom(Name) ->
+    case lists:keymember(Name, 1, PlugList) of
+        true ->
+            parse_plugins(Rest, PlugList);
+        false ->
+            case catch Name:version() of
+                Ver when is_list(Ver); is_binary(Ver) ->
+                    case catch Name:deps() of
+                        Deps when is_list(Deps) ->
+                            case parse_plugins_insert(PlugList, Name, Ver, Deps, []) of
+                                {ok, PlugList1} -> 
+                                    parse_plugins(Rest, PlugList1);
+                                {insert, BasePlugin} -> 
+                                    parse_plugins([BasePlugin, Name|Rest], PlugList)
+                            end;
+                        _ ->
+                            throw({invalid_plugin, Name})
+                    end;
+                _ ->
+                    throw({invalid_plugin, Name})
+            end
+    end;
+
+parse_plugins([], PlugList) ->
+    [Name || {Name, _} <- PlugList].
+
+
+%% @private
+parse_plugins_insert([{CurName, CurVer}=Curr|Rest], Name, Ver, Deps, Acc) ->
+    case lists:keytake(CurName, 1, Deps) of
+        false ->
+            parse_plugins_insert(Rest, Name, Ver,  Deps, Acc++[Curr]);
+        {value, {_, DepVer}, RestDeps} when is_list(DepVer); is_binary(DepVer) ->
+            case re:run(CurVer, DepVer) of
+                {match, _} ->
+                    parse_plugins_insert(Rest, Name, Ver, RestDeps, Acc++[Curr]);
+                nomatch ->
+                    throw({incompatible_plugin, {CurName, CurVer, DepVer}})
+            end;
+        _ ->
+            throw({invalid_plugin, Name})
+    end;
+
+parse_plugins_insert([], Name, Ver, [], Acc) ->
+    {ok, Acc++[{Name, Ver}]};
+
+parse_plugins_insert([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
+    {insert, DepName}.
+
+
 %% @private
 parse_opts([], Opts) ->
     Opts;
@@ -186,6 +242,9 @@ parse_opts([Term|Rest], Opts) ->
         {store_trace, Trace} when is_boolean(Trace) ->
             [{store_trace, Trace}|Opts];
 
+        {plugins, List} when is_list(List) ->
+            [{plugins, parse_plugins(List, [])}];
+
         % Unknown options
         {Name, Value} ->
             case nksip_config:parse_config(Name, Value) of
@@ -265,6 +324,42 @@ cache_syntax(Opts, Syntax) ->
         fun({Key, Value}, Acc) -> nksip_code_util:getter(Key, Value, Acc) end,
         Syntax,
         Cache).
+
+
+-compile([export_all]).
+
+
+cb([Name|Rest], Syntax) ->
+    Mod = list_to_atom(atom_to_list(Name)++"_callbacks"),
+    case nksip_code_util:get_funs(Mod) of
+        error ->
+            cb(Rest, Syntax);
+        List ->
+            ?P("FUNS: ~p", [List]),
+
+            Syntax1 = cb2(List, Mod, Syntax),
+            cb(Rest, Syntax1)
+    end;
+
+cb([], Syntax) ->
+    Syntax.
+
+cb2([{Fun, Arity}|Rest], Mod, Syntax) ->
+    Syntax1 = nksip_code_util:callback(Fun, Arity, Mod, Syntax),
+    cb2(Rest, Mod, Syntax1);
+
+cb2([], _, Syntax) ->
+    Syntax.
+
+
+
+
+
+
+
+
+
+
 
 
 %% @private

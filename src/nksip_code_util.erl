@@ -26,7 +26,7 @@
 
 -include("nksip.hrl").
 
--export([expresion/2, getter/3, callback/4, compile/2]).
+-export([expresion/2, getter/3, callback/4, compile/2, get_funs/1]).
 
 
 %% ===================================================================
@@ -104,6 +104,27 @@ compile(Mod, Tree) ->
             end;
         Error ->
             {error, Error}
+    end.
+
+
+%% @doc Gets the list of exported functions of a module
+-spec get_funs(atom()) ->
+    [{atom(), pos_integer()}] | error.
+
+get_funs(Mod) ->
+    case catch Mod:module_info() of
+        List when is_list(List) ->
+            lists:foldl(
+                fun({Fun, Arity}, Acc) ->
+                    case Fun of
+                        module_info -> Acc;
+                        _ -> [{Fun, Arity}|Acc]
+                    end
+                end,
+                [],
+                nksip_lib:get_value(exports, List));
+        _ ->
+            error
     end.
 
 
