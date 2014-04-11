@@ -4,7 +4,7 @@ Changelog
 0.4.0 (not yet released)
 ------------------------
  
-* Allow an endpoint to start a dialog with itself.
+* **Powerful plugin mechanism**.
 * Reliable provisional responses.
 * UPDATE and MESSAGE methods.
 * Full event support (SUBSCRIBE/NOTIFY).
@@ -19,6 +19,7 @@ Changelog
 * UAS callback functions receive contextual metadata.
 * New options to customize supported extensions and to generate Require and Accept headers.
 * Use of any external store for registrar instead of in-memory built-in.
+* Allow an endpoint to start a dialog with itself.
 * Bug corrections.
 
 
