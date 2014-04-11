@@ -30,6 +30,7 @@
 -define(DEFAULT_LOG_LEVEL, 8).  % 8:debug, 7:info, 6:notice, 5:warning, 4:error
 -define(DEFAULT_TRACE, false).
 
+
 %% ===================================================================
 %% Private
 %% ===================================================================
@@ -39,15 +40,148 @@
 parse_config(Opts) ->
     try
         Opts1 = parse_opts(Opts, []),
-        Module = nksip_lib:get_value(module, Opts1, nksip_sipapp),
-        Syntax1 = cache_syntax(Opts1, []),
-        Syntax2 = callback_syntax(Module, Syntax1),
+        Cache = cache_syntax(Opts1),
+        Plugins = nksip_lib:get_value(plugins, Opts1, []),
+        Callbacks = callbacks_syntax(Plugins),
         AppName = nksip_lib:get_value(name, Opts1, nksip),
         AppId = nksip_sipapp_srv:get_appid(AppName),
-        ok = nksip_code_util:compile(AppId, Syntax2),
+        Module = nksip_lib:get_value(module, Opts1, nksip_sipapp),
+        SipApp = sipapp_syntax(Module),
+        Syntax = Cache ++ SipApp ++ Callbacks,
+        ok = nksip_code_util:compile(AppId, Syntax),
         {ok, AppId} 
     catch
         throw:Throw -> {error, Throw}
+    end.
+
+
+%% @private Parse the list of app start options
+parse_opts([], Opts) ->
+    Opts;
+
+parse_opts([Term|Rest], Opts) ->
+    Opts1 = case Term of
+
+        % Internal options
+        {name, Name} ->
+            [{name, Name}|Opts];
+        {module, Module} when is_atom(Module) ->
+            [{module, Module}|Opts];
+
+        % Startup options
+        {transports, Transports} ->
+            [{transports, parse_transports(Transports, [])}|Opts];
+        {certfile, File} ->
+            [{certfile, nksip_lib:to_list(File)}|Opts];
+        {keyfile, File} ->
+            [{keyfile, nksip_lib:to_list(File)}|Opts];
+        {supported, Supported} ->
+            case nksip_parse:tokens(Supported) of
+                error -> throw({invalid, supported});
+                Tokens -> [{supported, [T||{T, _}<-Tokens]}|Opts]
+            end;
+        {allow, Allow} ->
+            case nksip_parse:tokens(Allow) of
+                error -> throw({invalid, allow});
+                Tokens -> [{allow, [A||{A, _}<-Tokens]}|Opts]
+            end;
+        {accept, Accept} ->
+            case nksip_parse:tokens(Accept) of
+                error -> throw({invalid, accept});
+                Tokens -> [{accept, [A||{A, _}<-Tokens]}|Opts]
+            end;
+        {events, Event} ->
+            case nksip_parse:tokens(Event) of
+                error -> throw({invalid, events});
+                Tokens -> [{events, [T||{T, _}<-Tokens]}|Opts]
+            end;
+        
+        % Default headers and options
+        {from, From} ->
+            case nksip_parse:uris(From) of
+                [Uri] -> [{from, Uri}|Opts];
+                _ -> throw({invalid, from}) 
+            end;
+        {route, Route} ->
+            case nksip_parse:uris(Route) of
+                error -> throw({invalid, route});
+                Uris -> [{route, Uris}|Opts]
+            end;
+        {pass, Pass} ->
+            [{pass, Pass}|Opts];
+        {local_host, Host} ->
+            [{local_host, nksip_lib:to_host(Host)}|Opts];
+        {local_host6, Host} ->
+            case nksip_lib:to_ip(Host) of
+                {ok, HostIp6} -> 
+                    % Ensure it is enclosed in `[]'
+                    [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts];
+                error -> 
+                    [{local_host6, nksip_lib:to_binary(Host)}|Opts]
+            end;
+        no_100 ->
+            [{no_100, true}|Opts];
+
+        {plugins, List} when is_list(List) ->
+            [{plugins, parse_plugins(List, [])}];
+
+        {log_level, debug} -> [{log_level, 8}|Opts];
+        {log_level, info} -> [{log_level, 7}|Opts];
+        {log_level, notice} -> [{log_level, 6}|Opts];
+        {log_level, warning} -> [{log_level, 5}|Opts];
+        {log_level, error} -> [{log_level, 4}|Opts];
+        {log_level, critical} -> [{log_level, 3}|Opts];
+        {log_level, alert} -> [{log_level, 2}|Opts];
+        {log_level, emergency} -> [{log_level, 1}|Opts];
+        {log_level, none} -> [{log_level, 0}|Opts];
+        {log_level, Level} when Level>=0, Level=<8 -> [{log_level, Level}|Opts];
+
+        {register, Register} ->
+            case nksip_parse:uris(Register) of
+                error -> throw(invalid_register);
+                Uris -> [{register, Uris}|Opts]
+            end;
+        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
+            [{register_expires, Expires}|Opts];
+        registrar ->
+            [{registrar, true}|Opts];
+        {trace, Trace} when is_boolean(Trace) ->
+            [{trace, Trace}|Opts];
+        {store_trace, Trace} when is_boolean(Trace) ->
+            [{store_trace, Trace}|Opts];
+
+        % Unknown options
+        {Name, Value} ->
+            case nksip_config:parse_config(Name, Value) of
+                {ok, Value1} -> 
+                    nksip_lib:store_value(Name, Value1, Opts);
+                {error, _} ->
+                    ?P("INVALID: ~p, ~p", [Name, Value]),
+                    PlugList = lists:reverse(nksip_lib:get_value(plugins, Opts, [])),
+                    case parse_external_opt({Name, Value}, PlugList) of
+                        {ok, Value1} -> nksip_lib:store_value(Name, Value1, Opts);
+                        _ -> throw({invalid, Name})
+                    end
+            end;
+        Name ->
+            PlugList = lists:reverse(nksip_lib:get_value(plugins, Opts, [])),
+            case parse_external_opt(Name, PlugList) of
+                {ok, Value1} -> nksip_lib:store_value(Name, Value1, Opts);
+                _ -> throw({invalid, Name})
+            end
+
+    end,
+    parse_opts(Rest, Opts1).
+
+
+%% @doc
+parse_external_opt(_Opt, []) ->
+    error;
+
+parse_external_opt(Opt, [Plugin|Rest]) ->
+    case catch Plugin:parse_config(Opt) of
+        {ok, Value} -> {ok, Value};
+        _ -> parse_external_opt(Opt, Rest)
     end.
 
 
@@ -94,12 +228,11 @@ parse_transports([Transport|Rest], Acc) ->
     parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
 
 
-%% @private 
+%% @private Parte the plugins list for the application
 %% For each plugin, calls Plugin:version() to get the version, and
-%% Plugin:deps() to get the dependency list ([atom(), RE::binary()]).
-%% Then builds a list of plugins where every plugin is inserted after all of
-%% its dependencies.
-
+%% Plugin:deps() to get the dependency list ([Name::atom(), RE::binary()]).
+%% it then builds a list of sorted list of plugin names, where every plugin 
+%% is inserted after all of its dependencies.
 parse_plugins([Name|Rest], PlugList) when is_atom(Name) ->
     case lists:keymember(Name, 1, PlugList) of
         true ->
@@ -150,117 +283,8 @@ parse_plugins_insert([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
     {insert, DepName}.
 
 
-%% @private
-parse_opts([], Opts) ->
-    Opts;
-
-parse_opts([Term|Rest], Opts) ->
-    Opts1 = case Term of
-
-        % Internal options
-        {name, Name} ->
-            [{name, Name}|Opts];
-        {module, Module} when is_atom(Module) ->
-            [{module, Module}|Opts];
-
-        % Startup options
-        {transports, Transports} ->
-            [{transports, parse_transports(Transports, [])}|Opts];
-        {certfile, File} ->
-            [{certfile, nksip_lib:to_list(File)}|Opts];
-        {keyfile, File} ->
-            [{keyfile, nksip_lib:to_list(File)}|Opts];
-        {register, Register} ->
-            case nksip_parse:uris(Register) of
-                error -> throw(invalid_register);
-                Uris -> [{register, Uris}|Opts]
-            end;
-        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
-            [{register_expires, Expires}|Opts];
-        registrar ->
-            [registrar|Opts];
-        {supported, Supported} ->
-            case nksip_parse:tokens(Supported) of
-                error -> throw({invalid, supported});
-                Tokens -> [{supported, [T||{T, _}<-Tokens]}|Opts]
-            end;
-        {allow, Allow} ->
-            case nksip_parse:tokens(Allow) of
-                error -> throw({invalid, allow});
-                Tokens -> [{allow, [A||{A, _}<-Tokens]}|Opts]
-            end;
-        {accept, Accept} ->
-            case nksip_parse:tokens(Accept) of
-                error -> throw({invalid, accept});
-                Tokens -> [{accept, [A||{A, _}<-Tokens]}|Opts]
-            end;
-        {events, Event} ->
-            case nksip_parse:tokens(Event) of
-                error -> throw({invalid, events});
-                Tokens -> [{events, [T||{T, _}<-Tokens]}|Opts]
-            end;
-        
-        % Default headers and options
-        {from, From} ->
-            case nksip_parse:uris(From) of
-                [Uri] -> [{from, Uri}|Opts];
-                _ -> throw({invalid, from}) 
-            end;
-        {route, Route} ->
-            case nksip_parse:uris(Route) of
-                error -> throw({invalid, route});
-                Uris -> [{route, Uris}|Opts]
-            end;
-        {pass, Pass} ->
-            [{pass, Pass}|Opts];
-        {local_host, Host} ->
-            [{local_host, nksip_lib:to_host(Host)}|Opts];
-        {local_host6, Host} ->
-            case nksip_lib:to_ip(Host) of
-                {ok, HostIp6} -> 
-                    % Ensure it is enclosed in `[]'
-                    [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts];
-                error -> 
-                    [{local_host6, nksip_lib:to_binary(Host)}|Opts]
-            end;
-        no_100 ->
-            [no_100|Opts];
-
-        {log_level, debug} -> [{log_level, 8}|Opts];
-        {log_level, info} -> [{log_level, 7}|Opts];
-        {log_level, notice} -> [{log_level, 6}|Opts];
-        {log_level, warning} -> [{log_level, 5}|Opts];
-        {log_level, error} -> [{log_level, 4}|Opts];
-        {log_level, critical} -> [{log_level, 3}|Opts];
-        {log_level, alert} -> [{log_level, 2}|Opts];
-        {log_level, emergency} -> [{log_level, 1}|Opts];
-        {log_level, none} -> [{log_level, 0}|Opts];
-        {log_level, Level} when Level>=0, Level=<8 -> [{log_level, Level}|Opts];
-
-        {trace, Trace} when is_boolean(Trace) ->
-            [{trace, Trace}|Opts];
-        {store_trace, Trace} when is_boolean(Trace) ->
-            [{store_trace, Trace}|Opts];
-
-        {plugins, List} when is_list(List) ->
-            [{plugins, parse_plugins(List, [])}];
-
-        % Unknown options
-        {Name, Value} ->
-            case nksip_config:parse_config(Name, Value) of
-                {ok, Value1} -> 
-                    nksip_lib:store_value(Name, Value1, Opts);
-                {error, _Error} -> 
-                    throw({invalid, Name})
-            end;
-        Name ->
-            throw({invalid, Name})
-    end,
-    parse_opts(Rest, Opts1).
-
-
-%% @private
-cache_syntax(Opts, Syntax) ->
+%% @private Generates a ready-to-compile config getter functions
+cache_syntax(Opts) ->
     Cache = [
         {name, nksip_lib:get_value(name, Opts)},
         {config, Opts},
@@ -281,14 +305,14 @@ cache_syntax(Opts, Syntax) ->
             nksip_lib:get_value(registrar_max_time, Opts),
             nksip_lib:get_value(registrar_default_time, Opts)}},
         {config_from, nksip_lib:get_value(from, Opts)},
-        {config_registrar, lists:member(registrar, Opts)},
-        {config_no_100, lists:member(no_100, Opts)},
+        {config_registrar, lists:member({registrar, true}, Opts)},
+        {config_no_100, lists:member({no_100, true}, Opts)},
         {config_supported, 
             nksip_lib:get_value(supported, Opts, ?SUPPORTED)},
         {config_allow, 
             case nksip_lib:get_value(allow, Opts) of
                 undefined ->
-                    case lists:member(registrar, Opts) of
+                    case lists:member({registrar, true}, Opts) of
                         true -> <<(?ALLOW)/binary, ",REGISTER">>;
                         false -> ?ALLOW
                     end;
@@ -304,7 +328,7 @@ cache_syntax(Opts, Syntax) ->
         {config_uac, lists:flatten([
             tuple(local_host, Opts),
             tuple(local_host6, Opts),
-            single(no_100, Opts),
+            tuple(no_100, Opts),
             tuple(pass, Opts),
             tuple(from, Opts),
             tuple(route, Opts)
@@ -312,7 +336,7 @@ cache_syntax(Opts, Syntax) ->
         {config_uac_proxy, lists:flatten([
             tuple(local_host, Opts),
             tuple(local_host6, Opts),
-            single(no_100, Opts),
+            tuple(no_100, Opts),
             tuple(pass, Opts)
         ])},
         {config_uas, lists:flatten([
@@ -322,96 +346,83 @@ cache_syntax(Opts, Syntax) ->
     ],
     lists:foldl(
         fun({Key, Value}, Acc) -> [nksip_code_util:getter(Key, Value)|Acc] end,
-        Syntax,
+        [],
         Cache).
 
 
--compile([export_all]).
-
-
-f(List) ->
-    Syntax = funs_syntax(List, []),
-    ?P("S: ~p", [Syntax]),
-    [?P("S: ~s\n\n", [erl_prettypr:format(S)]) || S<-Syntax],
-   
-    nksip_code_util:compile(t1, Syntax).
-
-
-
-%% @private Generates the syntax of the generated callback module
-funs_syntax(Plugins, Syntax) ->
-    funs_syntax_iter(Plugins, dict:new()) ++ Syntax.
+%% @private
+tuple(Name, Opts) ->
+    tuple(Name, Opts, []).
 
 
 %% @private
-funs_syntax_iter([Name|Rest], Dict) ->
+tuple(Name, Opts, Default) ->
+    case nksip_lib:get_value(Name, Opts) of
+        undefined -> Default;
+        Value -> {Name, Value}
+    end.
+
+
+%% @private Generates the ready-to-compile syntax of the generated callback module
+%% taking all plugins' callback functions
+callbacks_syntax(Plugins) ->
+    callbacks_syntax(Plugins, dict:new()).
+
+
+%% @private
+callbacks_syntax([Name|Rest], Dict) ->
     Mod = list_to_atom(atom_to_list(Name)++"_callbacks"),
     case nksip_code_util:get_funs(Mod) of
         error ->
-            funs_syntax_iter(Rest, Dict);
+            callbacks_syntax(Rest, Dict);
         List ->
-            Dict1 = funs_syntax_iter(List, Mod, Dict),
-            funs_syntax_iter(Rest, Dict1)
+            Dict1 = callbacks_syntax(List, Mod, Dict),
+            callbacks_syntax(Rest, Dict1)
     end;
 
-funs_syntax_iter([], Dict) ->
+callbacks_syntax([], Dict) ->
     dict:fold(
-        fun({Fun, Arity}, Value, Syntax) ->
-            [nksip_code_util:fun_expr(Fun, Arity, [Value])|Syntax]
+        fun({Fun, Arity}, {Value, Pos}, Syntax) ->
+            [nksip_code_util:fun_expr(Fun, Arity, Pos, [Value])|Syntax]
         end,
         [],
         Dict).
 
 
 %% @private
-funs_syntax_iter([{Fun, Arity}|Rest], Mod, Dict) ->
-    Value = case dict:find({Fun, Arity}, Dict) of
+callbacks_syntax([{Fun, Arity}|Rest], Mod, Dict) ->
+    case dict:find({Fun, Arity}, Dict) of
         error ->
-            nksip_code_util:call_expr(Mod, Fun, Arity);
-        {ok, Syntax} ->
-            nksip_code_util:case_expr(Mod, Fun, Arity, [Syntax])
+            Pos = 1,
+            Value = nksip_code_util:call_expr(Mod, Fun, Arity, Pos);
+        {ok, {Syntax, Pos0}} ->
+            Pos = Pos0+1,
+            Value = nksip_code_util:case_expr(Mod, Fun, Arity, Pos, [Syntax])
     end,
-    % ?P("~p Value: ~p", [{Fun, Arity}, Value]),
-    funs_syntax_iter(Rest, Mod, dict:store({Fun, Arity}, Value, Dict));
+    Dict1 = dict:store({Fun, Arity}, {Value, Pos}, Dict),
+    callbacks_syntax(Rest, Mod, Dict1);
 
-funs_syntax_iter([], _, Dict) ->
+callbacks_syntax([], _, Dict) ->
     Dict.
 
 
-
-%% @private
-callback_syntax(Callback, Syntax) ->
-    case catch Callback:module_info() of
-        List when is_list(List) ->
+%% @private Generates a ready-to-compile mirror of functions in sipapp module
+sipapp_syntax(Mod) ->
+    case nksip_code_util:get_funs(Mod) of
+        error ->
+            throw(invalid_sipapp_module);
+        List ->
             lists:foldl(
                 fun({Fun, Arity}, Acc) ->
-                    case Fun==module_info of
-                        true -> Acc;
-                        false -> [nksip_code_util:callback(Fun, Arity, Callback)|Acc]
-                    end
+                    [nksip_code_util:callback_expr(Mod, Fun, Arity)|Acc]
                 end,
-                Syntax,
-                nksip_lib:get_value(exports, List));
-        _ ->
-            throw(invalid_callback)
+                [],
+                List)
     end.
 
 
-single(Name, Opts) ->
-    case lists:member(Name, Opts) of
-        true -> Name;
-        false -> []
-    end.
-
-tuple(Name, Opts) ->
-    tuple(Name, Opts, []).
 
 
-tuple(Name, Opts, Default) ->
-    case nksip_lib:get_value(Name, Opts) of
-        undefined -> Default;
-        Value -> {Name, Value}
-    end.
 
 
 

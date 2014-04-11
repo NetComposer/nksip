@@ -33,3 +33,7 @@ callback1() ->
 callback2(A) ->
 	io:format("NKSIP: CALLBACK2(~p)\n", [A]),
     A.
+
+callback3(A, B, C) ->
+	io:format("NKSIP: CALLBACK3(~p, ~p, ~p)\n", [A, B, C]),
+	{A,B,C}.
