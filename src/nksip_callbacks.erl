@@ -27,7 +27,9 @@
 -compile([export_all]).
 
 callback1() ->
-    ok.
+	io:format("NKSIP: CALLBACK1\n"),
+    ok1.
 
 callback2(A) ->
+	io:format("NKSIP: CALLBACK2(~p)\n", [A]),
     A.

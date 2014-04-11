@@ -26,7 +26,9 @@
 
 -include("nksip.hrl").
 
--export([expresion/2, getter/3, callback/4, compile/2, get_funs/1]).
+-export([expresion/2, getter/2, callback/3, compile/2, get_funs/1]).
+
+-compile([export_all]).
 
 
 %% ===================================================================
@@ -46,36 +48,83 @@ expresion(Expr, Tree) ->
 
 
 %% @doc Generates a getter function
--spec getter(atom(), term(), erl_syntax:syntaxTree()) ->
+-spec getter(atom(), term()) ->
     erl_syntax:syntaxTree().
 
-getter(Fun, Value, Tree) ->
-    [erl_syntax:function(
+getter(Fun, Value) ->
+    erl_syntax:function(
        erl_syntax:atom(Fun),
-       [erl_syntax:clause([], none, [erl_syntax:abstract(Value)])])
-    | Tree].
+       [erl_syntax:clause([], none, [erl_syntax:abstract(Value)])]).
 
 
 %% @doc Generates a callback to another function
--spec callback(atom(), pos_integer(), atom(), erl_syntax:syntaxTree()) ->
+-spec callback(atom(), pos_integer(), atom()) ->
     erl_syntax:syntaxTree().
 
-callback(Fun, Arity, Module, Tree) ->
-    [
-        erl_syntax:function(
-            erl_syntax:atom(Fun),
+callback(Fun, Arity, Mod) ->
+    fun_expr(Mod, Fun, Arity, [call_expr(Mod, Fun, Arity)]).
+
+ce() ->
+    S = case_callback(fun1, 1, mod1, [erl_syntax:atom(go_next)]),
+    ?P("S: ~p", [S]),
+    compile(t1, [S]).
+
+
+case_expr(Mod, Fun, Arity, Next) ->
+    erl_syntax:case_expr(
+        call_expr(Mod, Fun, Arity),
+        [
+            erl_syntax:clause(
+                [erl_syntax:atom(continue)],
+                none,
+                Next),
+            erl_syntax:clause(
+                [erl_syntax:tuple([
+                    erl_syntax:atom(continue), 
+                    erl_syntax:list(var_list(Mod, Arity))])],
+                none,
+                Next),
+            erl_syntax:clause(
+                [erl_syntax:variable("Other")],
+                none,
+                [erl_syntax:variable("Other")])
+        ]).
+
+
+
+% fun1(A) ->
+%   case mod1:fun1(A) of 
+%       continue -> go_next;
+%       Other -> Other
+%   end
+%
+% 
+% 
+
+
+case_callback(Fun, Arity, Mod, Next) ->
+    fun_expr(Fun, Arity, [
+        erl_syntax:case_expr(
+            call_expr(Mod, Fun, Arity),
             [
                 erl_syntax:clause(
-                    [erl_syntax:variable([V]) || V <- lists:seq(65, 64+Arity)],
-                    none, 
-                    [
-                        erl_syntax:application(
-                            erl_syntax:atom(Module),
-                            erl_syntax:atom(Fun),
-                            [erl_syntax:variable([V]) || V <- lists:seq(65, 64+Arity)])
-                    ])
+                    [erl_syntax:atom(continue)],
+                    none,
+                    Next),
+                erl_syntax:clause(
+                    [erl_syntax:tuple([
+                        erl_syntax:atom(continue), 
+                        erl_syntax:list(var_list(Mod, Arity))])],
+                    none,
+                    Next),
+                erl_syntax:clause(
+                    [erl_syntax:variable("Other")],
+                    none,
+                    [erl_syntax:variable("Other")])
             ])
-    | Tree].
+    ]).
+
+
 
 
 %% @doc Compiles a syntaxTree into a module
@@ -132,6 +181,7 @@ get_funs(Mod) ->
 %% Internal
 %% ===================================================================
 
+
 %% @private
 -spec parse_string(string()) ->
     {ok, erl_parse:abstract_form()} | {error, term()}.
@@ -146,5 +196,28 @@ parse_string(String) ->
         _ ->
             {error, parse_error}
     end.
+
+
+%% @private Generates a function expression
+fun_expr(Mod, Fun, Arity, Value) ->
+    erl_syntax:function(
+        erl_syntax:atom(Fun),
+        [erl_syntax:clause(var_list(Mod, Arity), none, Value)]).
+
+
+%% @private Generates a call expression
+call_expr(Mod, Fun, Arity) ->
+    erl_syntax:application(
+        erl_syntax:atom(Mod),
+        erl_syntax:atom(Fun),
+        var_list(Arity)).
+
+
+%% @private Generates a var list (A,B..)
+var_list(Mod, Arity) ->
+    ModS = atom_to_list(Mod),
+    [erl_syntax:variable([V, $_|ModS]) || V <- lists:seq(65, 64+Arity)].
+
+
 
 

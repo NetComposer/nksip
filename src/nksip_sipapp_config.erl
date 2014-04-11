@@ -321,7 +321,7 @@ cache_syntax(Opts, Syntax) ->
         ])}
     ],
     lists:foldl(
-        fun({Key, Value}, Acc) -> nksip_code_util:getter(Key, Value, Acc) end,
+        fun({Key, Value}, Acc) -> [nksip_code_util:getter(Key, Value)|Acc] end,
         Syntax,
         Cache).
 
@@ -329,36 +329,53 @@ cache_syntax(Opts, Syntax) ->
 -compile([export_all]).
 
 
-cb([Name|Rest], Syntax) ->
+f(List) ->
+    Syntax = funs_syntax(List, []),
+    ?P("S: ~p", [Syntax]),
+    [?P("S: ~s\n\n", [erl_prettypr:format(S)]) || S<-Syntax],
+   
+    nksip_code_util:compile(t1, Syntax).
+
+
+
+%% @private Generates the syntax of the generated callback module
+funs_syntax(Plugins, Syntax) ->
+    funs_syntax_iter(Plugins, dict:new()) ++ Syntax.
+
+
+%% @private
+funs_syntax_iter([Name|Rest], Dict) ->
     Mod = list_to_atom(atom_to_list(Name)++"_callbacks"),
     case nksip_code_util:get_funs(Mod) of
         error ->
-            cb(Rest, Syntax);
+            funs_syntax_iter(Rest, Dict);
         List ->
-            ?P("FUNS: ~p", [List]),
-
-            Syntax1 = cb2(List, Mod, Syntax),
-            cb(Rest, Syntax1)
+            Dict1 = funs_syntax_iter(List, Mod, Dict),
+            funs_syntax_iter(Rest, Dict1)
     end;
 
-cb([], Syntax) ->
-    Syntax.
-
-cb2([{Fun, Arity}|Rest], Mod, Syntax) ->
-    Syntax1 = nksip_code_util:callback(Fun, Arity, Mod, Syntax),
-    cb2(Rest, Mod, Syntax1);
-
-cb2([], _, Syntax) ->
-    Syntax.
+funs_syntax_iter([], Dict) ->
+    dict:fold(
+        fun({Fun, Arity}, Value, Syntax) ->
+            [nksip_code_util:fun_expr(Fun, Arity, [Value])|Syntax]
+        end,
+        [],
+        Dict).
 
 
+%% @private
+funs_syntax_iter([{Fun, Arity}|Rest], Mod, Dict) ->
+    Value = case dict:find({Fun, Arity}, Dict) of
+        error ->
+            nksip_code_util:call_expr(Mod, Fun, Arity);
+        {ok, Syntax} ->
+            nksip_code_util:case_expr(Mod, Fun, Arity, [Syntax])
+    end,
+    % ?P("~p Value: ~p", [{Fun, Arity}, Value]),
+    funs_syntax_iter(Rest, Mod, dict:store({Fun, Arity}, Value, Dict));
 
-
-
-
-
-
-
+funs_syntax_iter([], _, Dict) ->
+    Dict.
 
 
 
@@ -370,7 +387,7 @@ callback_syntax(Callback, Syntax) ->
                 fun({Fun, Arity}, Acc) ->
                     case Fun==module_info of
                         true -> Acc;
-                        false -> nksip_code_util:callback(Fun, Arity, Callback, Acc)
+                        false -> [nksip_code_util:callback(Fun, Arity, Callback)|Acc]
                     end
                 end,
                 Syntax,

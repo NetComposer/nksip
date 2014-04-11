@@ -403,7 +403,7 @@ parse_config_opts([Term|Rest], Opts) ->
 %% @private
 make_cache(Config) ->
     Syntax = lists:foldl(
-        fun({Key, Value}, Acc) -> nksip_code_util:getter(Key, Value, Acc) end,
+        fun({Key, Value}, Acc) -> [nksip_code_util:getter(Key, Value)|Acc] end,
         [],
         Config),
     ok = nksip_code_util:compile(nksip_config_cache, Syntax).
