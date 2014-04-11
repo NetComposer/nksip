@@ -23,7 +23,7 @@
 -module(nksip_auth).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_authentication/2, realms/1, realms/2, make_ha1/3]).
+-export([get_authentication/2, realms/1, make_ha1/3]).
 -export([make_request/3, make_response/2]).
 
 -include("nksip.hrl").
@@ -43,19 +43,13 @@
 
 %% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
 %% <i>Proxy-Authenticate</i> headers from a response.
--spec realms(Response::nksip:response()) ->
+-spec realms(nksip:response()|nksip:id()) ->
     [Realm::binary()].
 
 realms(#sipmsg{headers=Headers}) ->
-    get_realms(Headers, []).
+    get_realms(Headers, []);
 
-
-%% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
-%% <i>Proxy-Authenticate</i> headers from a response.
--spec realms(nksip:app_id(), nksip:id()) ->
-    [Realm::binary()].
-
-realms(AppId, RespId) ->
+realms(RespId) ->
     Hd1 = case nksip_response:header(RespId, ?RESP_WWW) of
         WWW when is_list(WWW) -> [{?RESP_WWW, Data} || Data <- WWW];
         _ -> []
