@@ -1,14 +1,14 @@
 # NkSIP features
 
 NkSIP main features are:
-* Full support for all curently defined SIP methods: PRACK, INFO, UPDATE, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as UAC, UAS and Proxy.
-* Supports any possible SIP application: UAC, UAS, stateful proxies with serial and parallel forking, stateless proxies, B2BUAs, SIP application servers, registrars, SBCs, load generators, etc. 
+* Full support for all curently defined SIP methods: INVITE, ACK, REGISTER, OPTIONS, INFO, UPDATE, PRACK, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as UAC, UAS and Proxy.
+* Can be used to develop any possible SIP application: endpoints, stateful proxies with serial and parallel forking, stateless proxies, B2BUAs, application servers, registrars, SBCs, load generators, etc. 
 * UDP, TCP, TLS, SCTP, WS and WSS transports, capable of handling thousands of simultaneous sessions.
 * Full SIP Event support.
-* A written from scratch, fully typed Erlang code easy to understand and extend using the plugin mechanism, with few external dependencies.
+* A written from scratch, fully typed 100% Erlang code with few external dependencies.
 * Robust and highly scalable, using all available processor cores automatically.
-* More than 150 unit tests cover nearly all of the functionality.
-* Sophisticated plugins mechanism, that adds zero overhead to the core
+* More than 150 tests covering nearly all of the functionality.
+* Sophisticated plugin mechanism, that adds zero overhead to the core.
 * Hot, on-the-fly core and application configuration and code upgrades.
 * IPv6 support and IPv4 <-> IPv6 bridge.
 * Full support for NAPTR and SRV location, including priority and weights.
