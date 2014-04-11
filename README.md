@@ -1,5 +1,8 @@
 [![Build Status](https://travis-ci.org/kalta/nksip.png?branch=master)](https://travis-ci.org/kalta/nksip)
 
+**IMPORTANT**: NkSIP is under very heavy development. Documentation is not currently updated. In the following weeks, version v0.4 will be released, and documentation will be updated with it.
+
+
 Introduction
 ============
 
@@ -11,7 +14,7 @@ NkSIP takes care of much of the SIP complexity, while allowing full access to re
 
 NkSIP allows you to run any number of **SipApps**. To start a SipApp, you define a _name_, a set of _transports_ to start listening on and a **callback module**. Currently the only way to develop NkSIP applications is using [Erlang]("http://www.erlang.org") (a new, language-independent way of developing SipApps is in the works). You can now start sending SIP requests, and when your application starts receiving requests, specific functions in the callback module will be called. Each defined callback function has a _sane_ default functionality, so you only have to implement the functions you need to customize. You don't have to deal with transports, retransmissions, authentications or dialog management. All of those aspects are managed by NkSIP in a standard way. In case you need to, you can implement the related callback functions, or even process the request by yourself using the powerful NkSIP Erlang functions.
 
-NkSIP has a clean, written from scratch, [OTP compliant](http://www.erlang.org/doc/design_principles/users_guide.html) and [fully typed](http://www.erlang.org/doc/reference_manual/typespec.html) pure Erlang code. New RFCs and features can be implemented securely and quickly. The codebase includes currently more than 50 unit tests. If you want to customize the way NkSIP behaves beyond what the callback mechanism offers, it should be easy to understand the code and use it as a powerful base for your specific application server.
+NkSIP has a clean, written from scratch, [OTP compliant](http://www.erlang.org/doc/design_principles/users_guide.html) and [fully typed](http://www.erlang.org/doc/reference_manual/typespec.html) pure Erlang code. New RFCs and features can be implemented securely and quickly. The codebase includes currently more than 150 unit tests. If you want to customize the way NkSIP behaves beyond what the callback mechanism offers, it should be easy to understand the code and use it as a powerful base for your specific application server.
 
 NkSIP is currently **alpha quality**. It is **not yet production-ready**, but it is already very robust, thanks to its OTP design. Also thanks to its Erlang roots it can perform many actions while running: starting and stopping SipApps, hot code upgrades, configuration changes and even updating your application behavior and  function callbacks on the fly.
 
@@ -34,7 +37,7 @@ Last released version is [v0.3.0](https://github.com/kalta/nksip/releases/tag/v0
 
 Planned featured for 0.4.0 (not yet released) include:
 
-* Allow an endpoint to start a dialog with itself.
+* **Powerful plugins mechanism**
 * Reliable provisional responses.
 * UPDATE and MESSAGE methods.
 * Full event support (SUBSCRIBE/NOTIFY).
@@ -49,6 +52,7 @@ Planned featured for 0.4.0 (not yet released) include:
 * UAS callback functions receive contextual metadata.
 * New options to customize supported extensions and to generate Require and Accept headers.
 * Use of any external store for registrar instead of in-memory built-in.
+* Allow an endpoint to start a dialog with itself.
 * Bug corrections.
 
 
