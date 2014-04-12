@@ -1,6 +1,6 @@
 # NkSIP features
 
-NkSIP main features are:
+## NkSIP main features are:
 * Full support for all curently defined SIP methods: INVITE, ACK, REGISTER, OPTIONS, INFO, UPDATE, PRACK, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as UAC, UAS and Proxy.
 * Can be used to develop any possible SIP application: endpoints, stateful proxies with serial and parallel forking, stateless proxies, B2BUAs, application servers, registrars, SBCs, load generators, etc. 
 * UDP, TCP, TLS, SCTP, WS and WSS transports, capable of handling thousands of simultaneous sessions.
@@ -14,7 +14,7 @@ NkSIP main features are:
 * Full support for NAPTR and SRV location, including priority and weights.
 * Dialog and SDP media start and stop detection.
 
-Included standard plugins:
+## Included standard plugins:
 * SIP Digest Authentication.
 * SIP Registrar.
 * SIP Event State Compositor.
@@ -22,6 +22,7 @@ Included standard plugins:
 * Automatic registrations and timed pings.
 * Outbound and GRUU support.
 
+## Implemented RFCs
 In the current version the following RFCs are fully implemented (see notes):
 
 RFC|Description|Notes
