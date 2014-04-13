@@ -1,10 +1,8 @@
 # NkSIP Concepts
 
-## Basic aspects
-
 NkSIP hides most SIP complexity from the developer, so even with some basic SIP knowledge it is possible to build complex, robust and scalable SIP applications. But _it is necessary_ to know some basic SIP concepts to use NkSIP. We don't try to explain SIP here (it would be difficult even to scratch the surface of the first of the RFCs), but we will try to explain the way NkSIP uses some basic SIP concepts in order to better understand how to use it.
 
-### SipApps
+## SipApps
 
 A **SipApp** represents a SIP entity started by NkSIP. When starting a SipApp, you configure some basic aspects and the new SIP element is started in the network. From this moment, it can send requests and receive them from other SIP elements. NkSIP allows you to start any number of SipApps simultaneously, as long as they don't listen on the same ip and port or _url resource_.
 
@@ -14,7 +12,7 @@ Each SipApp starts listening on one or more sets of ip, port and transport. For 
 
 When starting a SipApp, you must supply a **callback Erlang module** for it. There is a number of callback functions this module can implement. Each of them has an default behaviour, so all of them are optional.
 
-### Requests and responses
+## Requests and responses
 
 SIP is all about sending specific SIP messages (_requests_), and receiving one or more messages in response for them (_responses_). Any SIP element must behave, at the same time, as a client (_uac_ in SIP terminology) sending requests and receiving responses, and as a  server (_uas_), receiving requests and sending responses.
 
@@ -25,7 +23,7 @@ In NkSIP you can start sending requests using the functions in `nksip_uac`module
 Your application will also start receiving requests sent from other SIP endpoints or proxies, and NkSIP will then call the corresponding function in your `callback module`. Depending on the value your function returns, a specific SIP response will be generated and sent. For example, if someone sends you an INVITE, NkSIP will call `invite(Request, From)` in your callback module (if this function is not defined, the default implementation in `nksip_sipapp` module would be used). You could answer `{reply, busy}` to send a standard _busy_ (code 486) response, and NkSIP will generate all required SIP headers and send back the response.
 
 
-=== Transactions ===
+## Transactions
 
 SIP offers two possibilities for sending requests and receiving responses: _inside a transaction_ or _without transaction_. 
 
@@ -38,7 +36,7 @@ If transactions are no used, retransmissions and forked responses will not be de
 Except for INVITE, SIP transactions should be very short-lived. They should complete quickly (bellow half a second) or retransmissions will start to be sent. Final responses for INVITE transactions can last for seconds or even minutes (as the user must usually reply to the invite manually), but even in this case provisional responses should be sent quickly.
 
 
-=== Dialogs ===
+## Dialogs
 
 A _SIP dialog_ represents a long-term relationship between two endpoints, usually lasting for the duration of a call or subscription.
 
@@ -54,7 +52,7 @@ When a dialog is created, destroyed or updated the corresponding function in you
 
 
 
-### Sessions
+## Sessions
 
 INVITE SIP requests usually carry a body describing a session proposal, using [SDP](http://tools.ietf.org/html/rfc4566) protocol. The remote party can reply with its own SDP, and a new _session_ is then established (audio, video or any other class), associated to the corresponding dialog. During the dialog lifetime, any of the parties can send a new INVITE (it would be what is commonly known as a _reINVITE_) with a new SDP to modify the current session (for example, to put the call _on hold_).
 
@@ -67,14 +65,14 @@ If you are developing a SIP proxy, you won't usually want to do any media proces
 You can use the functions in `nksip_sdp` to access, create or modify SDP bodies.
 
 
-### Subscriptions
+## Subscriptions
 
 Youn can start a new subscription requirement to a server sending a `nksip_uac:subscribe/3` request. You should select an _event package_ supported at the server. It the remote party accepts the request, it will start sending NOTIFYs requests any time it wants to, and NkSIP will call your callback `nksip_sipapp:notify/3` for each one. The body of the NOTIFY will have the meaning defined in this specific event package. You should send a new SUBSCRIBE before the subscriptions expires. 
 
 If you are defining a server, you indicate in the SipApp's config the event packages you support, and NkSIP will call your callback `nksip_sipapp:subscribe/3` when a new valid SUBSCRIBE arrives. If you accept it, you should call inmeditaly `nksip_uac:notify/2` to send a NOTIFY, and after that, any time you want to. You can also terminate the subscription at any moment.
 
 
-### Contacts
+## Contacts
 
 There are several situations in any SIP enabled application where we must send to the other party a SIP URI showing the protocol, ip and port where we are currently listening to receive new requests. A _Contact_ header is used for this. For example when sending a REGISTER we must indicate to the registrar where it must send any request directed to us. When starting a dialog with INVITE we must inform the other party where to receive in-dialog requests.
 
