@@ -1,8 +1,6 @@
-Changelog
-========
+# Changelog
 
-0.4.0 (not yet released)
-------------------------
+## 0.4.0 (not yet released)
  
 * **Powerful plugin mechanism**.
 * Reliable provisional responses.
@@ -24,8 +22,7 @@ Changelog
 
 
 
-[0.3.0](https://github.com/kalta/nksip/releases/tag/v0.3.0)
-------------------------
+## [0.3.0](https://github.com/kalta/nksip/releases/tag/v0.3.0)
  
 * Full NAPTR/SRV caching resolver.
 * Outbound connection controller.
@@ -36,8 +33,7 @@ Changelog
 * Bug corrections.
 
 
-[0.2.0](https://github.com/kalta/nksip/releases/tag/v0.2.0)
------
+## [0.2.0](https://github.com/kalta/nksip/releases/tag/v0.2.0)
 
 * SIP message processing engine rewrite
 * Heavy API changes
@@ -45,8 +41,7 @@ Changelog
 * Bug corrections
 
 
-[0.1.0](https://github.com/kalta/nksip/releases/tag/v0.1.0)
------
+## [0.1.0](https://github.com/kalta/nksip/releases/tag/v0.1.0)
 
 * Initial release
 
