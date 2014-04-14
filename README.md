@@ -3,77 +3,48 @@
 **IMPORTANT**: NkSIP is under very heavy development. Documentation is not currently updated. In the following weeks, version v0.4 will be released, and documentation will be updated with it.
 
 
-Introduction
-============
+## Introduction
 
-NkSIP is an Erlang SIP framework or _application server_, which greatly facilitates the development of robust and scalable server-side SIP applications like proxy, registrar, redirect or outbound servers and [B2BUAs](http://en.wikipedia.org/wiki/Back-to-back_user_agent).
+NkSIP is an Erlang SIP framework or _application server_, which greatly facilitates the development of robust and scalable server-side SIP applications like proxy, registrar, redirect or outbound servers, [B2BUAs](http://en.wikipedia.org/wiki/Back-to-back_user_agent), load generators, etc. NkSIP takes care of much of the SIP complexity, while allowing full access to requests and responses. 
 
-SIP is the standard protocol related to IP voice, video and remote sessions, supported by thousands of devices, softphones and network operators. It is the basic building block for most current voice or video enabled networks and it is the core protocol of the IP Multimedia Subsytem ([IMS](https://en.wikipedia.org/wiki/IP_Multimedia_Subsystem)). SIP is powerful and flexible, but also very complex to work with. SIP basic concepts are easy to understand, but developing robust, scalable, highly available applications is usually quite hard and time consuming, because of the many details you have to take into account.
+NkSIP can start any number of SIP Applications or _SipApps_, each one listening on a different set of transports, ips and ports. Each SipApp must provide a `callback module`, with functions that will be called when specific requests are received, dialogs are started, etc.
 
-NkSIP takes care of much of the SIP complexity, while allowing full access to requests and responses. 
-
-NkSIP allows you to run any number of **SipApps**. To start a SipApp, you define a _name_, a set of _transports_ to start listening on and a **callback module**. Currently the only way to develop NkSIP applications is using [Erlang]("http://www.erlang.org") (a new, language-independent way of developing SipApps is in the works). You can now start sending SIP requests, and when your application starts receiving requests, specific functions in the callback module will be called. Each defined callback function has a _sane_ default functionality, so you only have to implement the functions you need to customize. You don't have to deal with transports, retransmissions, authentications or dialog management. All of those aspects are managed by NkSIP in a standard way. In case you need to, you can implement the related callback functions, or even process the request by yourself using the powerful NkSIP Erlang functions.
-
-NkSIP has a clean, written from scratch, [OTP compliant](http://www.erlang.org/doc/design_principles/users_guide.html) and [fully typed](http://www.erlang.org/doc/reference_manual/typespec.html) pure Erlang code. New RFCs and features can be implemented securely and quickly. The codebase includes currently more than 150 unit tests. If you want to customize the way NkSIP behaves beyond what the callback mechanism offers, it should be easy to understand the code and use it as a powerful base for your specific application server.
+NkSIP also includes a powerful **plugin mechanism**, that can modify its behaviour without touching the core, and with virtually zero overhead.
 
 NkSIP is currently **alpha quality**. It is **not yet production-ready**, but it is already very robust, thanks to its OTP design. Also thanks to its Erlang roots it can perform many actions while running: starting and stopping SipApps, hot code upgrades, configuration changes and even updating your application behavior and  function callbacks on the fly.
 
 NkSIP scales automatically using all of the available cores on the machine. Using common hardware (4-core i7 MacMini), it is easy to get more than 3.000 call cycles (INVITE-ACK-BYE) or 10.000 stateless registrations per second. On the roadmap there is a **fully distributed version**, based on [Riak Core](https://github.com/basho/riak_core), that will allow you to add and remove nodes while running, scale as much as needed and offer a very high availability, all of it without changing your application.
 
-NkSIP is a pure SIP framework, so it _does not support any real RTP media processing_ it can't record a call, host an audio conference or transcode. These type of tasks should be done with a SIP media server, like [Freeswitch](http://www.freeswitch.org) or [Asterisk](http://www.asterisk.org). However NkSIP can act as a standard endpoint (or a B2BUA, actually), which is very useful in many scenarios: registering with an external server, answering and redirecting a call or recovering in real time from a failed media server.
 
+## NkSIP main features are:
+* Full support for all curently defined SIP methods: INVITE, ACK, REGISTER, OPTIONS, INFO, UPDATE, PRACK, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as UAC, UAS and Proxy.
+* Can be used to develop any possible SIP application: endpoints, stateful proxies with serial and parallel forking, stateless proxies, B2BUAs, application servers, registrars, SBCs, load generators, etc. 
+* UDP, TCP, TLS, SCTP, WS and WSS transports, capable of handling thousands of simultaneous sessions.
+* Full SIP Event support.
+* A written from scratch, fully typed 100% Erlang code with few external dependencies.
+* Robust and highly scalable, using all available processor cores automatically.
+* More than 150 tests covering nearly all of the functionality.
+* Sophisticated plugin mechanism, that adds zero overhead to the core.
+* Hot, on-the-fly core and application configuration and code upgrades.
+* IPv6 support and IPv4 <-> IPv6 bridge.
+* Full support for NAPTR and SRV location, including priority and weights.
+* Dialog and SDP media start and stop detection.
 
-New Features
-============
-
-Last released version is [v0.3.0](https://github.com/kalta/nksip/releases/tag/v0.3.0). New features include:
-
-* INFO method.
-* New caching locating server with NAPTR and SRVS support.
-* Outbound connection controlling process.
-* SCTP transport.
-* IPv6 support.
-* New SIP parsers fully RFC4475 _Torture Tests_ compliant.
-
-Planned featured for 0.4.0 (not yet released) include:
-
-* **Powerful plugins mechanism**
+## Included standard plugins:
+* SIP Digest Authentication.
+* SIP Registrar.
+* SIP Event State Compositor.
 * Reliable provisional responses.
-* UPDATE and MESSAGE methods.
-* Full event support (SUBSCRIBE/NOTIFY).
-* Full PUBLISH support, using in-memory or external database.
-* RFC4028 Session Timers
-* Path support, as client, proxy and registrar.
-* Outbound (RFC5626) and GRUU (RFC5627) support.
-* SIP-over-Websockets support, as a server and and as a client!
-* Reason header support in request and responses. 
-* Service-Route header support.
-* Support for headers in URIs.
-* UAS callback functions receive contextual metadata.
-* New options to customize supported extensions and to generate Require and Accept headers.
-* Use of any external store for registrar instead of in-memory built-in.
-* Allow an endpoint to start a dialog with itself.
-* Bug corrections.
+* Automatic registrations and timed pings.
+* Outbound and GRUU support.
 
 
-Documentation
-=============
+# Documentation
 
-* [Wiki](https://github.com/kalta/nksip/wiki)
-* API documentation is available [here](http://kalta.github.io/nksip).
-* [Change log](doc/CHANGELOG.md).
-* [Current features](doc/FEATURES.md).
-* [Roadmap](doc/ROADMAP.md).
-
-There are currently **three sample applications** included with NkSIP:
- * [Simple PBX](http://kalta.github.io/nksip/docs/v0.2.0/nksip_pbx/index.html): Registrar server and forking proxy with endpoints monitoring.
- * [LoadTest](http://kalta.github.io/nksip/docs/v0.2.0/nksip_loadtest/index.html): Heavy-load NkSIP testing. 
- * [Tutorial](doc/TUTORIAL.md): Code base for the included tutorial.
+[Main Documetation](doc/README.md)
 
 
-
-Quick Start
-===========
+# Quick Start
 
 NkSIP has been tested on OSX and Linux, using Erlang R15B y R16B
 
@@ -105,9 +76,7 @@ You could also perform a heavy-load test using the included application [nksip_l
 1> nksip_loadtest:full().
 ```
 
-
-Contributing
-============
+# Contributing
 
 Please contribute with code, bug fixes, documentation fixes, testing with SIP devices or any other form. Use 
 GitHub Issues and Pull Requests, forking this repository.
