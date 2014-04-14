@@ -18,40 +18,8 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc <i>SipApps</i> management module.
-%%
-%% This module allows to manage <i>NkSIP application instances</i> or <b>SipApps</b>. 
-%% NkSIP can start any number of SipApps, each one listening on one or several sets of 
-%% ip, port and transport (UDP, TCP, TLS or SCTP currently).
-%%
-%% To register a SipApp, you must first create a <i>callback module</i> using 
-%% behaviour {@link nksip_sipapp} (you can also use the <i>default callback module</i>
-%% included with NkSIP, defined in the same  `nksip_sipapp' module).
-%% This behaviour is very similar to OTP standard `gen_server' behaviour, but 
-%% the only mandatory callback function is {@link nksip_sipapp:init/1}. 
-%% The callback module can also implement a number of 
-%% optional callbacks functions, have a look at {@link nksip_sipapp} to find 
-%% the currently available callbacks and default implementation for each of 
-%% these functions.
-%%
-%% Once defined the callback module, call {@link start/4} to start the SipApp. 
-%% NkSIP will call `init/1' inmediatly, setting up the inital application's state.
-%%
-%% From this moment on, you can start sending requests using the functions in 
-%% {@link nksip_uac}. When a incoming request is received in our SipApp 
-%% (sent from another SIP endpoint or proxy), NkSIP starts a process to manage it. 
-%% This process starts calling specific functions in the SipApp's callback module
-%% as explained in {@link nksip_sipapp}.
-%%
-%% Should the SipApp process stop due to an error, it will be automatically restarted 
-%% by its supervisor, but the Erlang application's state would be lost like a standard
-%% `gen_server'.
-%%
-%% Please notice that it is not necessary to tell NkSIP which kind of SIP element 
-%% your SipApp is implementing. For every request, depending on the return of 
-%% the call to your {@link nksip_sipapp:route/6} callback function 
-%% NkSIP will act as an endpoint, B2BUA or proxy, request by request. 
-%%
+%% @doc SipApps management module.
+
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
