@@ -52,3 +52,8 @@
 * How to write a plugin
 * Plugin callback reference
 
+#### [Roadmap](roadmap.md) 
+#### [Changelog](changelog.md) 
+#### [Authors](authors.md) 
+
+
