@@ -2,23 +2,24 @@
 
 ## v0.4
 
-* **Powerful plugin mechanism**.
-* Reliable provisional responses.
-* UPDATE and MESSAGE methods.
-* Full event support (SUBSCRIBE/NOTIFY).
-* Full PUBLISH support, using in-memory or external database.
-* RFC4028 Session Timers
-* Outbound (RFC5626) and GRUU (RFC5627) support.
-* Path support, as client, proxy and registrar.
-* SIP-over-Websockets support, as a server and as a client!
-* Reason header support in request and responses. 
-* Service-Route header support.
-* Support for headers in URIs.
-* UAS callback functions receive contextual metadata.
-* New options to customize supported extensions and to generate Require and Accept headers.
-* Use of any external store for registrar instead of in-memory built-in.
-* Allow an endpoint to start a dialog with itself.
-* Bug corrections.
+* Documentation improvement.
+* ~~**Powerful plugin mechanism**~~.
+* ~~Reliable provisional responses~~.
+* ~~UPDATE and MESSAGE methods~~.
+* ~~Full event support (SUBSCRIBE/NOTIFY)~~.
+* ~~Full PUBLISH support, using in-memory or external database~~.
+* ~~RFC4028 Session Timers~~
+* ~~Outbound (RFC5626) and GRUU (RFC5627) support~~.
+* ~~Path support, as client, proxy and registrar~~.
+* ~~SIP-over-Websockets support, as a server and as a client!~~
+* ~~Reason header support in request and responses.~~ 
+* ~~Service-Route header support~~.
+* ~~Support for headers in URIs~~.
+* ~~UAS callback functions receive contextual metadata~~.
+* ~~New options to customize supported extensions and to generate Require and Accept headers~~.
+* ~~Use of any external store for registrar instead of in-memory built-in~~.
+* ~~Allow an endpoint to start a dialog with itself~~.
+* ~~Bug corrections~~.
 
 
 ## v0.5
@@ -44,7 +45,6 @@
 * Flood control.
 * Congestion control.
 * Extract examples into new repository.
-
 * [RFC3891](http://tools.ietf.org/html/rfc3891): Replaces
 * [RFC3892](http://tools.ietf.org/html/rfc3892): Referred-By
 * [RFC3911](http://tools.ietf.org/html/rfc3903): Join
