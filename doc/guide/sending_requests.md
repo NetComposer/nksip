@@ -207,3 +207,8 @@ Sends a _STUN_ binding request.
 
 Use this function to send a STUN binding request to a remote STUN or STUN-enabled SIP server, in order to get our remote ip and port. If the remote server is a standard STUN server, use port 3478 (i.e. `sip:stunserver.org:3478`). If it is a STUN server embedded into a SIP UDP, use a standard SIP uri.
 
+
+## Use of URI headers
+
+In case of using a SIP URI as destination, is is possible to include custom headers: `<sip:host;method=REGISTER?contact=*&expires=10>`
+
