@@ -1,7 +1,7 @@
 # Configuration
 
-There are two types of configuration options:
-* Global configuration options. They are defined as standard Erlang environment variables for `nksip` application, and all of them has a default value. SipApps can override most of them.
+NkSIP has two types of configuration options:
+* Global configuration options. They are defined as standard Erlang environment variables for `nksip` application, and all of them has a default value. Any started SipApp can override most of them.
 * SiApp configuration options. They are defined when starting the SipApp calling `nksip:start/4`
 
 ## Global configuration options
@@ -12,7 +12,7 @@ timer_t1|500|Standar SIP T1 timer (msecs)
 timer_t2|4000|Standar SIP T2 timer (msecs)
 timer_t4|5000|Standar SIP T4 timer (msecs)
 timer_c|180|Standar SIP C timer (secs)
-siapp_timer|5|Interval to process timer in SipApp process (secs)
+siapp_timer|5|Interval to process timers internally in SipApp process (secs)
 session_expires|1800|(secs)
 min_session_expires|90|(secs)
 udp_timeout|180|Time to remove UDP association if no message has been received (secs)
@@ -29,11 +29,12 @@ registrar_max_time|86400|Registrar maximum allowed time (secs)
 outbound_time_all_fail|30|Time to retry outbound if all connections have failed (secs)
 outbound_time_any_ok|90|Time to retry outbound if not all connections have failed (secs)
 outbound_max_time|1800|Maximum outbound reconnect time (secs)
-dns_cache_ttl|3600|DNS cache TTL (See `nksip_dns`) (secs) (SipApp cannot override)
+dns_cache_ttl|3600|DNS cache TTL (See `nksip_dns`) (secs) (SipApps cannot override)
 local_data_path|"log"|Path to store UUID files (SipApps cannot override)
 
 
 ## SipApp configuration options
+See [nksip.erl](../../src/nksip.erl) for types information
 
 Key|Type|Default|Description
 ---|---|---|---
