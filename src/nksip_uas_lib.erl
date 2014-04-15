@@ -273,7 +273,7 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
         timestamp ->
             case nksip_sipmsg:header(Req, <<"timestamp">>, integers) of
                 [Time] -> {replace, <<"timestamp">>, Time};
-                _Config -> ignore
+                _ -> ignore
             end;
         do100rel ->
             case lists:member(<<"100rel">>, Req#sipmsg.supported) of
