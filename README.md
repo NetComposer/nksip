@@ -7,7 +7,7 @@
 
 NkSIP is an Erlang SIP framework or _application server_, which greatly facilitates the development of robust and scalable server-side SIP applications like proxy, registrar, redirect or outbound servers, [B2BUAs](http://en.wikipedia.org/wiki/Back-to-back_user_agent), [SBCs](https://en.wikipedia.org/wiki/Session_border_controller) or load generators. NkSIP takes care of much of the SIP complexity, while allowing full access to requests and responses. 
 
-A single NkSIP can start any number of SIP Applications or **SipApps**, each one listening on a specific set of transports (_udp_, _tcp_, _tls_, _sctp_, _ws_ and _wss_), ip addresses and ports. Each SipApp must provide a `callback module` where it can implement a number of _callback functions_. All of them are optional, having _sane defaults_ in case they are not implemented.
+A single NkSIP instance can start any number of SIP Applications or **SipApps**, each one listening on a specific set of transports (_udp_, _tcp_, _tls_, _sctp_, _ws_ and _wss_), ip addresses and ports. Each SipApp must provide a _callback module_ where it can implement a number of _callback functions_. All of them are optional, having _sane defaults_ in case they are not implemented.
 
 NkSIP also includes a powerful **plugin mechanism**, that can be used to modify its behaviour without having to fully understand or modify the core engine, and with virtually zero overhead, even if the SipApp uses a large number of plugins.
 
