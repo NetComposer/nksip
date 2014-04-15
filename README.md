@@ -46,6 +46,8 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 * [Standard Plugins](doc#standard-plugins)
 * [Example Applications](doc#example-applications)
 * [Advanced](doc#advanced)
+* [Roadmap](doc/roadmap.md)
+* [Changelog](doc/changelog.md)
 
 
 # Quick Start
