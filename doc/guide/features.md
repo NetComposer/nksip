@@ -1,4 +1,4 @@
-# NkSIP features
+# Features
 
 ## NkSIP main features are:
 * Full support for all curently defined SIP methods: INVITE, ACK, REGISTER, OPTIONS, INFO, UPDATE, PRACK, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as UAC, UAS and Proxy.
