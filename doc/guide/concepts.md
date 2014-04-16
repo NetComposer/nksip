@@ -72,6 +72,15 @@ You can send a new subscription requirement to a server sending a [subscribe req
 If you are defining a server, you indicate in the [SipApp's config](../reference/configuration.md) the event packages you support, and NkSIP [will call your callback `subscribe/4`](../reference/callback_functions.md#subscribe4) when a new valid SUBSCRIBE arrives. If you accept it, you [should call inmeditaly `nksip_uac:notify/2`](sending_requests.md#notify) to send a NOTIFY, and after that, any time you want to. You can also terminate the subscription at any moment.
 
 
+## Uris
+
+There many places in NkSIP where you must _SIP Uris_. For example, to send a request to a remote host, you use a SIP uri: `nksip_uac:options(my_app, "<sip:sip2sip.info>", [])`. In this example, you could also have used `sip:sip2sip.info`, but, according to RFC3261, you should use the enclosing `<` and `>` if your are using uri parameters or headers: `<sip:host;transport=tcp?user-agent=my_user_agent>`. If you don't enclose them, the _transport_ uri parameter and _user-agent_ header will not be part of the request uri, but _external_ parameters and headers (some common external parameters are used in SIP, like `<sip:user@host>;tag=abc`. 
+
+You can use the SIP uri to include headers to be included in the request or proxy request, but they must be escaped, using for example `http_uri:encode/1`. You can use the uri parameter `method` to specify the method and `body` for the body (also escaped).
+
+When specifing _Route_ uris, you should nearly ever use the `lr` uri parameter.
+
+
 ## Contacts
 
 There are several situations in any SIP enabled application where we must send to the other party a SIP URI showing the transport protocol, ip address and port where we are currently listening to receive new requests. A _Contact_ header is used for this. For example, when sending a REGISTER we must indicate to the registrar where it must send any request directed to us. When starting a dialog with INVITE we must inform the other party where to receive in-dialog requests.
@@ -82,6 +91,19 @@ If the listening address of the selected transport is _all_ (meaning "listen on 
 
 In some circumstances, it makes sense to override NkSIP automatic calculation of contacts and provide a specific one, for example if we want to offer a host name instead of an ip (typically a host resolving to several different ips in different hosts), or to force the use of a specific IP of the host or a specific transport.
 
+
 ## Plugins
+
+There are two ways to include behaviours in NkSIP: SipApps and plugins. 
+
+SipApps are the easier way. They are fully described in the documentation, and should be used for nearly all user SIP applications. In the future, it will be even possible to write SipApps in other languages than Erlang.
+
+Plugins are designed as a way to add common functionality to NkSIP, useful for many SipApps. They must be written in Erlang, work very closely to the core and can make NkSIP fail when processing a call if they have a bug. When starting any application, you tell NkSIP all the plugins you want to use for your application. Each one can have a different set of active plugins.
+
+Plugins are typically used for event packages, implementing specific RFCs, adding new APIs to manage any external thing (like database access, etc.)
+
+
+
+
 
 
