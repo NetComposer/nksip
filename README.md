@@ -16,7 +16,7 @@ NkSIP is **not yet production-ready**, but it is already very robust, thanks to 
 NkSIP scales automatically using all of the available cores on the machine. Using common hardware (4-core i7 MacMini), it is easy to get more than 3.000 call cycles (INVITE-ACK-BYE) or 10.000 stateless registrations per second. On the roadmap there is a **fully distributed version**, based on [Riak Core](https://github.com/basho/riak_core), that will allow you to add and remove nodes while running, scale as much as needed and offer a very high availability, all of it without changing your application.
 
 
-## Main features:
+## Features:
 * Full support for all curently defined SIP methods: INVITE, ACK, REGISTER, OPTIONS, INFO, UPDATE, PRACK, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE, as UAC, UAS and Proxy.
 * Can be used to develop any possible SIP application: endpoints, stateful proxies with serial and parallel forking, stateless proxies, B2BUAs, application servers, registrars, SBCs, load generators, etc. 
 * UDP, TCP, TLS, SCTP, WS and WSS transports, capable of handling thousands of simultaneous sessions.
@@ -30,7 +30,7 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 * Full support for NAPTR and SRV location, including priority and weights.
 * Dialog and SDP media start and stop detection.
 
-## Included standard plugins:
+## Standard plugins:
 * SIP Digest Authentication.
 * SIP Registrar.
 * SIP Event State Compositor.
