@@ -24,7 +24,7 @@
 
 -behaviour(gen_server).
 
--export([incoming_async/1, incoming_sync/1]).
+-export([incoming_sync/1]).
 -export([apply_dialog/2, get_all_dialogs/0, get_all_dialogs/2]).
 -export([apply_sipmsg/2]).
 -export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
@@ -61,9 +61,9 @@
 %% Public
 %% ===================================================================
 
-%% @doc Called when a new request or response has been received.
-incoming_async(#sipmsg{call_id=CallId}=SipMsg) ->
-    gen_server:cast(name(CallId), {incoming, SipMsg}).
+% %% @doc Called when a new request or response has been received.
+% incoming_async(#sipmsg{call_id=CallId}=SipMsg) ->
+%     gen_server:cast(name(CallId), {incoming, SipMsg}).
 
 
 %% @doc Called when a new request or response has been received.
