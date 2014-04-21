@@ -22,3 +22,41 @@ Function|Description
 [cast/2](#call2)|Sends an asynchronous message to the SipApp's process, similar to `gen_server:cast/2'.
 [get_pid/1](#pid1)|Gets the `pid()` of a currently started SipApp
 
+
+## start/4
+```erlang
+-spec start(Name::term(), Callback::atom(), Args::term(), Opts::nksip_lib:optslist()) -> 
+	{ok, app_id()} | {error, term()}.
+```
+
+Starts a new SipApp. See [starting a SipApp](../guide/start_a_sipapp.md)
+
+
+## stop/1
+```erlang
+-spec stop(Name::term()|app_id()) -> 
+    ok | error.
+```
+
+Stops a currently started SipApp
+
+## stop_all/0
+
+
+## update/2
+## get_all/0
+## get/2
+## get/3
+## put/3
+## del/2
+## get_port/3
+## find_app/1
+## get_uuid/1
+## get_gruu_pub/1
+## get_gruu_temp/1
+## reply/2
+## call/2
+## call/3
+## cast/2
+## get_pid/1
+
