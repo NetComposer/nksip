@@ -123,7 +123,7 @@ parse_opts([Term|Rest], Opts) ->
             [{no_100, true}|Opts];
 
         {plugins, List} when is_list(List) ->
-            [{plugins, parse_plugins(List, [])}];
+            [{plugins, parse_plugins(List, [])}|Opts];
 
         {log_level, debug} -> [{log_level, 8}|Opts];
         {log_level, info} -> [{log_level, 7}|Opts];
@@ -156,7 +156,6 @@ parse_opts([Term|Rest], Opts) ->
                 {ok, Value1} -> 
                     nksip_lib:store_value(Name, Value1, Opts);
                 {error, _} ->
-                    ?P("INVALID: ~p, ~p", [Name, Value]),
                     PlugList = lists:reverse(nksip_lib:get_value(plugins, Opts, [])),
                     case parse_external_opt({Name, Value}, PlugList) of
                         {ok, Value1} -> nksip_lib:store_value(Name, Value1, Opts);
