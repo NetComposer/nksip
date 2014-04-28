@@ -1,6 +1,6 @@
 # Welcome to NkSIP Documentation
 
-### User Guide
+### 1. User Guide
 
 * [Introduction](guide/introduction.md)
 * [Features](guide/features.md)
@@ -13,7 +13,7 @@
 * Routing
 * Proxy
 
-### Reference Guide
+### 2. Reference Guide
 
 * [Configuration](reference/configuration.md)
 * [Log](reference/log.md)
@@ -21,17 +21,9 @@
 * [Application callback functions](reference/callback_functions.md)
 * [API](reference/api.md)
 * [Replying options](reference/reply_options.md)
-* Header manipulation
-* Events
-* Refer
-* Publish
-* Message
 * Resolver
-* Session Timers
-* IPv6
-* Websockets
 
-### Standard plugins
+### 3. Standard plugins
 
 * Digest authentication
 * Reliable provisional responses
@@ -43,18 +35,20 @@
 * Path
 * Tracer
 
-### Example Applications
+### 4. Example Applications
 
 * [PBX](samples/pbx.md)
 * [LoadTest](samples/loadtest.md)
 
-### Advanced
+### [5. Cookbook](cookbook) 
+
+
+### 6. Advanced
 
 * How to write a plugin
 * Plugin callback reference
 
-#### [Roadmap](roadmap.md) 
-#### [Changelog](changelog.md) 
-#### [Authors](authors.md) 
+### [7. Roadmap](roadmap.md) 
+### [8. Changelog](changelog.md) 
 
 
