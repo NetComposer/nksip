@@ -11,7 +11,7 @@ NkSIP hides most SIP complexity from the developer, so even with some basic SIP 
 * [Subscriptions](#subscriptions)
 * [URIs](#uris)
 * [Contacts](#contacts)
-* [Plugins](#Plugins)
+* [Plugins](#plugins)
 
 
 ## SipApps
