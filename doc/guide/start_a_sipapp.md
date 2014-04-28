@@ -1,6 +1,6 @@
 # Starting a SipApp
 
-A SiApp is a SIP entity NkSIP starts for you, that starts listening on one or several sets of transport (UDP, TCP, TLS, SCTP, WS and WSS currently), ip address and port. After starting it, you can [send any SIP request](sending_requests.md), and, when any other SIP entity [sends you a request](receiving_requests.md) NkSIP will notify you so that you can process it and [send an answer](sending_responses.md).
+A SipApp is a SIP entity NkSIP starts for you, that starts listening on one or several sets of transport (UDP, TCP, TLS, SCTP, WS and WSS currently), ip address and port. After starting it, you can [send any SIP request](sending_requests.md), and, when any other SIP entity [sends you a request](receiving_requests.md) NkSIP will notify you so that you can process it and [send an answer](sending_responses.md).
 
 You must first create a _callback Erlang module_ (for very simple applications, you can use the default callback module included with NkSIP, [_nksip_sipapp_](../../src/nksip_sipapp.erl)). The callback module can implement any callback function from the list of NkSIP SipApp's [callback functions](../reference/callback_functions.md). You can take a look to the [`nksip_sipapp`](../../src/nksip_sipapp.erl) module to find the default implementation of each of them.
 
