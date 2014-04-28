@@ -2,6 +2,18 @@
 
 NkSIP hides most SIP complexity from the developer, so even with some basic SIP knowledge it is possible to build complex, robust and scalable SIP applications. But _it is necessary_ to know some basic SIP concepts to use NkSIP. We won't try to describe SIP here (it would be difficult even to scratch the surface of the first of the RFCs), but we will try to explain the way NkSIP uses some basic SIP concepts in order to better understand how to use it.
 
+
+* [SipApps](#sipapps)
+* [Requests and Responses](#requests-and-responses)
+* [Transactions](#transactions)
+* [Dialogs](#dialogs)
+* [Sessions](#sessions)
+* [Subscriptions](#subscriptions)
+* [URIs](#uris)
+* [Contacts](#contacts)
+* [Plugins](#Plugins)
+
+
 ## SipApps
 
 A **SipApp** represents a SIP entity started by NkSIP. When [starting a SipApp](start_a_sipapp.md), you [configure](../reference/configuration.md) some basic aspects and the new SIP element is started in the network. From this moment, it can [send requests](sending_requests.md) and [receive them](receiving_requests.md) from other SIP elements. NkSIP allows you to start any number of SipApps simultaneously, as long as they don't listen on the same ip and port or _url resource_.
