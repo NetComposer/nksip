@@ -30,7 +30,7 @@
 
 -export([get/2, put/3, put_new/3, del/2]).
 -export([get_appid/1, get_name/1, config/1, get_pid/1, reply/2]).
--export([sipapp_call/5, sipapp_call_wait/5, sipapp_cast/4]).
+% -export([sipapp_call/5, sipapp_call_wait/5, sipapp_cast/4]).
 -export([register/2, get_registered/2, pending_msgs/0]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -151,108 +151,108 @@ get_registered(AppId, Type) ->
     nksip:call(AppId, {'$nksip_get_registered', Type}).
 
 
-%% @private Calls a function in the siapp's callback module.
-%% Args1 are used in case of inline callback. 
-%% Args2 in case of normal (with state) callback.
--spec sipapp_call(nksip:app_id(), atom(), list(), list(), nksip_from()) ->
-    {reply, term()} | async | not_exported | error.
+% %% @private Calls a function in the siapp's callback module.
+% %% Args1 are used in case of inline callback. 
+% %% Args2 in case of normal (with state) callback.
+% -spec sipapp_call(nksip:app_id(), atom(), list(), list(), nksip_from()) ->
+%     {reply, term()} | async | not_exported | error.
 
-sipapp_call(AppId, Fun, Args1, Args2, From) ->
-    case erlang:function_exported(AppId, Fun, length(Args1)+1) of
-        true ->
-            case catch apply(AppId, Fun, Args1++[From]) of
-                {'EXIT', Error} -> 
-                    ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
-                    error;
-                async ->
-                    async;
-                Reply ->
-                    {reply, Reply}
-            end;     
-        false ->
-            case erlang:function_exported(AppId, Fun, length(Args2)+2) of
-                true -> 
-                    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
-                        undefined -> 
-                            ?call_error("SipApp is not available calling ~p", [Fun]),
-                            error;
-                        Pid -> 
-                            gen_server:cast(Pid, {'$nksip_call', Fun, Args2, From}),
-                            async
-                    end;
-                false ->
-                    not_exported
-            end
-    end.
-
-
-%% @private Calls a function in the siapp's callback module synchronously,
-%% waiting for an answer. The called callback shouldn't have a 'From' parameter.
--spec sipapp_call_wait(nksip:app_id(), atom(), list(), list(), integer()) ->
-    {reply, term()} | not_exported | error.
-
-sipapp_call_wait(AppId, Fun, Args1, Args2, Timeout) ->
-    case erlang:function_exported(AppId, Fun, length(Args1)) of
-        true ->
-            case catch apply(AppId, Fun, Args1) of
-                {'EXIT', Error} -> 
-                    ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
-                    error;
-                Reply ->
-                    {reply, Reply}
-            end;     
-        false ->
-            case erlang:function_exported(AppId, Fun, length(Args2)+1) of
-                true -> 
-                    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
-                        undefined -> 
-                            ?call_error("SipApp is not available calling ~p", [Fun]),
-                            error;
-                        Pid -> 
-                            Msg = {'$nksip_call_nofrom', Fun, Args2},
-                            Reply = case catch 
-                                gen_server:call(Pid, Msg, Timeout)
-                            of
-                                {'EXIT', Error} -> 
-                                    ?call_error("Error calling callback ~p: ~p", 
-                                               [Fun, Error]),
-                                    error;
-                                Ok -> 
-                                    Ok
-                            end,
-                            {reply, Reply}
-                    end;
-                false ->
-                    not_exported
-            end
-    end.
+% sipapp_call(AppId, Fun, Args1, Args2, From) ->
+%     case erlang:function_exported(AppId, Fun, length(Args1)+1) of
+%         true ->
+%             case catch apply(AppId, Fun, Args1++[From]) of
+%                 {'EXIT', Error} -> 
+%                     ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
+%                     error;
+%                 async ->
+%                     async;
+%                 Reply ->
+%                     {reply, Reply}
+%             end;     
+%         false ->
+%             case erlang:function_exported(AppId, Fun, length(Args2)+2) of
+%                 true -> 
+%                     case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+%                         undefined -> 
+%                             ?call_error("SipApp is not available calling ~p", [Fun]),
+%                             error;
+%                         Pid -> 
+%                             gen_server:cast(Pid, {'$nksip_call', Fun, Args2, From}),
+%                             async
+%                     end;
+%                 false ->
+%                     not_exported
+%             end
+%     end.
 
 
-%% @private Calls a function in the SipApp's callback module asynchronously
--spec sipapp_cast(nksip:app_id(), atom(), list(), list()) -> 
-    ok | not_exported | error.
+% %% @private Calls a function in the siapp's callback module synchronously,
+% %% waiting for an answer. The called callback shouldn't have a 'From' parameter.
+% -spec sipapp_call_wait(nksip:app_id(), atom(), list(), list(), integer()) ->
+%     {reply, term()} | not_exported | error.
 
-sipapp_cast(AppId, Fun, Args1, Args2) ->
-    case erlang:function_exported(AppId, Fun, length(Args1)) of
-        true ->
-            case catch apply(AppId, Fun, Args1) of
-                {'EXIT', Error} -> 
-                    ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
-                    error;
-                _ ->
-                    ok
-            end;     
-        false ->
-            case erlang:function_exported(AppId, Fun, length(Args2)+1) of
-                true -> 
-                    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
-                        undefined -> sipapp_not_found;
-                        Pid -> gen_server:cast(Pid, {'$nksip_cast', Fun, Args2})
-                    end;
-                false -> 
-                    not_exported
-            end
-    end.
+% sipapp_call_wait(AppId, Fun, Args1, Args2, Timeout) ->
+%     case erlang:function_exported(AppId, Fun, length(Args1)) of
+%         true ->
+%             case catch apply(AppId, Fun, Args1) of
+%                 {'EXIT', Error} -> 
+%                     ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
+%                     error;
+%                 Reply ->
+%                     {reply, Reply}
+%             end;     
+%         false ->
+%             case erlang:function_exported(AppId, Fun, length(Args2)+1) of
+%                 true -> 
+%                     case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+%                         undefined -> 
+%                             ?call_error("SipApp is not available calling ~p", [Fun]),
+%                             error;
+%                         Pid -> 
+%                             Msg = {'$nksip_call_nofrom', Fun, Args2},
+%                             Reply = case catch 
+%                                 gen_server:call(Pid, Msg, Timeout)
+%                             of
+%                                 {'EXIT', Error} -> 
+%                                     ?call_error("Error calling callback ~p: ~p", 
+%                                                [Fun, Error]),
+%                                     error;
+%                                 Ok -> 
+%                                     Ok
+%                             end,
+%                             {reply, Reply}
+%                     end;
+%                 false ->
+%                     not_exported
+%             end
+%     end.
+
+
+% %% @private Calls a function in the SipApp's callback module asynchronously
+% -spec sipapp_cast(nksip:app_id(), atom(), list(), list()) -> 
+%     ok | not_exported | error.
+
+% sipapp_cast(AppId, Fun, Args1, Args2) ->
+%     case erlang:function_exported(AppId, Fun, length(Args1)) of
+%         true ->
+%             case catch apply(AppId, Fun, Args1) of
+%                 {'EXIT', Error} -> 
+%                     ?call_error("Error calling inline ~p: ~p", [Fun, Error]),
+%                     error;
+%                 _ ->
+%                     ok
+%             end;     
+%         false ->
+%             case erlang:function_exported(AppId, Fun, length(Args2)+1) of
+%                 true -> 
+%                     case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+%                         undefined -> sipapp_not_found;
+%                         Pid -> gen_server:cast(Pid, {'$nksip_cast', Fun, Args2})
+%                     end;
+%                 false -> 
+%                     not_exported
+%             end
+%     end.
 
 
 %% @private

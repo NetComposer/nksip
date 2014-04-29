@@ -132,134 +132,112 @@ dialog(Method, Req, UAS, Call) ->
     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
     #sipmsg{to={_, ToTag}} = Req,
     #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
-    case Stateless of
-        true ->
-            method(Method, Req, UAS, Call);
-        false when ToTag == <<>> ->
-            method(Method, Req, UAS, Call);
-        false ->           
-            case nksip_call_uas_dialog:request(Req, Call) of
-                {ok, Call1} -> 
-                    method(Method, Req, UAS, Call1);
-                {error, Error} when Method=='ACK' -> 
-                    ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
-                                 [Id, Error]),
-                    UAS1 = UAS#trans{status=finished},
-                    update(UAS1, Call);
-                {error, Error} ->
-                    UAS1 = UAS#trans{opts=[no_dialog|Opts]},
-                    reply(Error, UAS1, Call)
-            end
+    try
+        case Stateless orelse ToTag == <<>> of
+            true ->
+                {UAS1, Call1} = method(Method, Req, UAS, Call),
+                case nksip_callbacks:app_method(UAS1, Call1) of
+                    {reply, Reply} -> reply(Reply, UAS1, Call1);
+                    noreply -> Call1
+                end;
+            false ->           
+                case nksip_call_uas_dialog:request(Req, Call) of
+                    {ok, Call1} -> 
+                        {UAS2, Call2} = method(Method, Req, UAS, Call1),
+                        case nksip_callbacks:app_method(UAS2, Call2) of
+                            {reply, Reply} -> reply(Reply, UAS2, Call2);
+                            noreply -> Call1
+                        end;
+                    {error, Error} when Method=='ACK' -> 
+                        ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
+                                     [Id, Error]),
+                        UAS1 = UAS#trans{status=finished},
+                        update(UAS1, Call);
+                    {error, Error} ->
+                        UAS1 = UAS#trans{opts=[no_dialog|Opts]},
+                        reply(Error, UAS1, Call)
+                end
+        end
+    catch
+        throw:{reply, TReply} -> reply(TReply, UAS, Call)
     end.
 
 
 %% @private
 -spec method(nksip:method(), nksip:request(), 
              nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
+    {nksip_call:trans(), nksip_call:call()}.
 
-method('INVITE', #sipmsg{to={_, ToTag}}, UAS, Call) ->
-    Fields = [app_id, aor, dialog_id, content_type, body],
+method('INVITE', _Req, UAS, Call) ->
     UAS1 = nksip_call_lib:expire_timer(expire, UAS, Call),
-    Fun = case ToTag of
-        <<>> -> invite;
-        _ -> reinvite
-    end,
-    process_call(Fun, Fields, UAS1, update(UAS1, Call));
+    {UAS1, update(UAS1, Call)};
     
 method('ACK', _Req, UAS, Call) ->
-    Fields = [app_id, dialog_id, content_type, body],
     UAS1 = UAS#trans{status=finished},
-    process_call(ack, Fields, UAS1, update(UAS1, Call));
+    {UAS1, update(UAS1, Call)};
 
 method('BYE', _Req, UAS, Call) ->
-    Fields = [app_id, aor, dialog_id],
-    process_call(bye, Fields, UAS, Call);
+    {UAS, Call};
 
 method('INFO', _Req, UAS, Call) ->
-    Fields = [app_id, aor, content_type, body],
-    process_call(info, Fields, UAS, Call);
+    {UAS, Call};
     
 method('OPTIONS', _Req, UAS, Call) ->
-    Fields = [app_id, aor, allow, supported, content_type, body],
-    process_call(options, Fields, UAS, Call); 
+    {UAS, Call};
 
 method('REGISTER', Req, UAS, Call) ->
-    #sipmsg{app_id=AppId, supported=Supported} = Req,
-    Registrar = AppId:config_registrar(),
-    Fields = [
-        app_id, 
-        {value, registrar, Registrar}, 
-        {value, req, Req}
-    ],
+    #sipmsg{supported=Supported} = Req,
     case nksip_sipmsg:header(Req, <<"path">>, uris) of
         error ->
-            reply(invalid_request, UAS, Call);
+            throw({reply, invalid_request});
         [] ->
-            process_call(register, Fields, UAS, Call); 
-        Path ->
+            {UAS, Call};
+        _Path ->
             case lists:member(<<"path">>, Supported) of
-                true ->
-                    Fields1 = Fields++[{path, Path}],
-                    process_call(register, Fields1, UAS, Call); 
-                false ->
-                    reply({bad_extension, <<"path">>}, UAS, Call)
+                true -> {UAS, Call};
+                false -> throw({reply, {bad_extension, <<"path">>}})
             end
     end;
 
 method('PRACK', Req, UAS, Call) ->
     #sipmsg{dialog_id=DialogId} = Req,
     #call{trans=Trans} = Call,
-    try
-        {RSeq, CSeq, Method} = case nksip_sipmsg:header(Req, <<"rack">>) of
-            [RACK] ->
-                case nksip_lib:tokens(RACK) of
-                    [RSeqB, CSeqB, MethodB] ->
-                        {
-                            nksip_lib:to_integer(RSeqB),
-                            nksip_lib:to_integer(CSeqB),
-                            nksip_parse:method(MethodB)
-                        };
-                    _ ->
-                        throw({invalid_request, <<"Invalid RAck">>})
-                end;
-            _ ->
-                throw({invalid_request, <<"Invalid RAck">>})
-        end,
-        case lists:keyfind([{RSeq, CSeq, Method, DialogId}], #trans.pracks, Trans) of
-            #trans{status=invite_proceeding} = OrigUAS -> ok;
-            _ -> OrigUAS = throw(no_transaction)
-        end,
-        OrigUAS1 = OrigUAS#trans{pracks=[]},
-        OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
-        OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
-        Fields = [app_id, dialog_id, content_type, body],
-        process_call(prack, Fields, UAS, update(OrigUAS3, Call))
-    catch
-        throw:Reply -> reply(Reply, UAS, Call)
-    end;             
+    {RSeq, CSeq, Method} = case nksip_sipmsg:header(Req, <<"rack">>) of
+        [RACK] ->
+            case nksip_lib:tokens(RACK) of
+                [RSeqB, CSeqB, MethodB] ->
+                    {
+                        nksip_lib:to_integer(RSeqB),
+                        nksip_lib:to_integer(CSeqB),
+                        nksip_parse:method(MethodB)
+                    };
+                _ ->
+                    throw({reply, {invalid_request, <<"Invalid RAck">>}})
+            end;
+        _ ->
+            throw({reply, {invalid_request, <<"Invalid RAck">>}})
+    end,
+    case lists:keyfind([{RSeq, CSeq, Method, DialogId}], #trans.pracks, Trans) of
+        #trans{status=invite_proceeding} = OrigUAS -> ok;
+        _ -> OrigUAS = throw({reply, no_transaction})
+    end,
+    OrigUAS1 = OrigUAS#trans{pracks=[]},
+    OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
+    OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
+    {UAS, update(OrigUAS3, Call)};
 
 method('UPDATE', _Req, UAS, Call) ->
-    Fields = [app_id, dialog_id, content_type, body],
-    process_call(update, Fields, UAS, Call);
+    {UAS, Call};
     
-method('SUBSCRIBE', #sipmsg{to={_, ToTag}}, UAS, Call) ->
-    Fields = [app_id, aor, dialog_id, event, subscription_id, parsed_expires],
-    Fun = case ToTag of
-        <<>> -> subscribe;
-        _ -> resubscribe
-    end,
-    process_call(Fun, Fields, UAS, Call);
+method('SUBSCRIBE', _Req, UAS, Call) ->
+    {UAS, Call};
 
-method('NOTIFY', Req, UAS, Call) ->
-    Status = nksip_subscription:subscription_state(Req),
-    Fields = [app_id, aor, dialog_id, event, subscription_id, 
-              {value, notify_status, Status}, content_type, body],
-    process_call(notify, Fields, UAS, Call);
+method('NOTIFY', _Req, UAS, Call) ->
+    {UAS, Call};
 
 method('MESSAGE', Req, UAS, Call) ->
     #sipmsg{expires=Expires, start=Start} = Req,
-    Expired = case is_integer(Expires) of
+    _Expired = case is_integer(Expires) of
         true ->
             case nksip_sipmsg:header(Req, <<"date">>, dates) of
                 [Date] ->
@@ -278,29 +256,23 @@ method('MESSAGE', Req, UAS, Call) ->
         _ ->
             false
     end,
-    Fields = [app_id, aor, {value, expired, Expired}, content_type, body],
-    process_call(message, Fields, UAS, Call);
+    {UAS, Call};
 
 method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
     case proplists:get_all_values(<<"refer-to">>, Headers) of
-        [ReferTo] ->
-            Fields = [app_id, aor, dialog_id, subscription_id, 
-                      {value, refer_to, ReferTo}],
-            process_call(refer, Fields, UAS, Call);
-        _ ->
-            reply(invalid_request, UAS, Call)    
+        [_ReferTo] -> {UAS, Call};
+        _ -> throw({reply, invalid_request})
     end;
 
 method('PUBLISH', Req, UAS, Call) ->
-    case nksip_sipmsg:header(Req, <<"sip-if-match">>) of
-        [Tag] -> ok;
-        _ -> Tag = <<>>
+    _ETag = case nksip_sipmsg:header(Req, <<"sip-if-match">>) of
+        [Tag] -> Tag;
+        _ -> <<>>
     end,
-    Fields = [app_id, aor, event, {value, etag, Tag}, parsed_expires, body],
-    process_call(publish, Fields, UAS, Call);
+    {UAS, Call};
 
-method(_Method, #sipmsg{app_id=AppId}, UAS, Call) ->
-    reply({method_not_allowed, AppId:config_allow()}, UAS, Call).
+method(_Method, #sipmsg{app_id=AppId}, _UAS, _Call) ->
+    throw({reply, {method_not_allowed, AppId:config_allow()}}).
 
 
 
@@ -311,28 +283,28 @@ method(_Method, #sipmsg{app_id=AppId}, UAS, Call) ->
 
 
 %% @private
--spec process_call(atom(), list(), nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
+% -spec process_call(atom(), list(), nksip_call:trans(), nksip_call:call()) ->
+%     nksip_call:call().
 
-process_call(Fun, Fields, UAS, Call) ->
-    #trans{request=Req, method=Method} = UAS,
-    Meta = nksip_sipmsg:named_fields(Req, Fields),
-    case nksip_call_uas:app_call(Fun, [Meta], UAS, Call) of
-        {reply, _} when Method=='ACK' ->
-            update(UAS, Call);
-        {reply, Reply} ->
-            reply(Reply, UAS, Call);
-        not_exported when Method=='ACK' ->
-            Call;
-        % Not exported and no in-line
-        not_exported ->
-            MsgId = nksip_sipmsg:get_id(Req),
-            % Meta1 = [{app_opts, Opts}|Meta],
-            {reply, Reply, []} = apply(nksip_sipapp, Fun, [MsgId, Meta, none, []]),
-            reply(Reply, UAS, Call);
-        #call{} = Call1 -> 
-            Call1
-    end.
+% process_call(Fun, Fields, UAS, Call) ->
+%     #trans{request=Req, method=Method} = UAS,
+%     Meta = nksip_sipmsg:named_fields(Req, Fields),
+%     case nksip_call_uas:app_call(Fun, [Meta], UAS, Call) of
+%         {reply, _} when Method=='ACK' ->
+%             update(UAS, Call);
+%         {reply, Reply} ->
+%             reply(Reply, UAS, Call);
+%         not_exported when Method=='ACK' ->
+%             Call;
+%         % Not exported and no in-line
+%         not_exported ->
+%             MsgId = nksip_sipmsg:get_id(Req),
+%             % Meta1 = [{app_opts, Opts}|Meta],
+%             {reply, Reply, []} = apply(nksip_sipapp, Fun, [MsgId, Meta, none, []]),
+%             reply(Reply, UAS, Call);
+%         #call{} = Call1 -> 
+%             Call1
+%     end.
 
 
 %% @private Sends a transaction reply

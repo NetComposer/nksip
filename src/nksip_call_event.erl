@@ -571,13 +571,14 @@ store(Subs, Dialog, _Call) ->
 -spec cast(term(), nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-cast(Arg, Subs, Dialog, Call) ->
-    Arg1 = case Arg of
+cast(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
+    Status1 = case Status of
         {terminated, Reason, undefined} -> {terminated, Reason};
-        _ -> Arg
+        _ -> Status
     end,
     Id = nksip_subscription:get_id(Subs, Dialog),
-    nksip_call_dialog:cast(dialog_update, {subscription_status, Id, Arg1}, Dialog, Call).
+    Args = [{subscription_status, Id, Status1}, {user_dlg, Dialog, Call}],
+    nksip_callbacks:app_call(dialog_update, Args, AppId).
 
 
 %% @private

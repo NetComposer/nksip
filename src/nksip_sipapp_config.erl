@@ -46,7 +46,11 @@ parse_config(Opts) ->
         AppName = nksip_lib:get_value(name, Opts1, nksip),
         AppId = nksip_sipapp_srv:get_appid(AppName),
         Module = nksip_lib:get_value(module, Opts1, nksip_sipapp),
-        SipApp = sipapp_syntax(Module),
+        PluginMods = [
+            list_to_atom(atom_to_list(Plugin) ++ "_sipapp")
+            || Plugin <- Plugins
+        ],
+        SipApp = sipapp_syntax(PluginMods++[Module]),
         Syntax = Cache ++ SipApp ++ Callbacks,
         ok = nksip_code_util:compile(AppId, Syntax),
         {ok, AppId} 
@@ -406,20 +410,29 @@ callbacks_syntax([], _, Dict) ->
 
 
 %% @private Generates a ready-to-compile mirror of functions in sipapp module
-sipapp_syntax(Mod) ->
+sipapp_syntax(ModList) ->
+    sipapp_syntax(ModList, []).
+
+
+%% @private
+sipapp_syntax([Mod|Rest], Acc) ->
     case nksip_code_util:get_funs(Mod) of
-        error ->
+        error when Rest==[] ->
             throw(invalid_sipapp_module);
+        error ->
+            sipapp_syntax(Rest, Acc);
         List ->
-            lists:foldl(
-                fun({Fun, Arity}, Acc) ->
-                    [nksip_code_util:callback_expr(Mod, Fun, Arity)|Acc]
+            Acc1 = lists:foldl(
+                fun({Fun, Arity}, FAcc) ->
+                    [nksip_code_util:callback_expr(Mod, Fun, Arity)|FAcc]
                 end,
-                [],
-                List)
-    end.
+                Acc,
+                List),
+            sipapp_syntax(Rest, Acc1)
+    end;
 
-
+sipapp_syntax([], Acc) ->
+    Acc.
 
 
 

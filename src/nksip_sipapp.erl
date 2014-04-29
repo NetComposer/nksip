@@ -443,7 +443,7 @@ reinvite(_ReqId, _Meta, __From, State) ->
 -spec cancel(ReqId::nksip:id(), Meta::meta(), State::term()) ->
     call_noreply().
 
-cancel(_ReqId, _Meta, State) ->
+cancel(_CancelledRequest, _Request) ->
     {noreply, State}.
 
 

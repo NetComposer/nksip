@@ -67,14 +67,15 @@ send_100(UAS, #call{app_id=AppId}=Call) ->
 -spec check_cancel(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-check_cancel(#trans{id=Id}=UAS, Call) ->
+check_cancel(#trans{id=Id}=UAS, #call{app_id=AppId}=Call) ->
     case is_cancel(UAS, Call) of
         {true, #trans{id=InvId, status=Status}=InvUAS} ->
             ?call_debug("UAS ~p matched 'CANCEL' as ~p (~p)", [Id, InvId, Status]),
             if
                 Status==authorize; Status==route; Status==invite_proceeding ->
                     Call1 = reply(ok, UAS, Call), 
-                    nksip_call_uas:app_cast(cancel, [{req_id, InvId}], UAS, Call),
+                    Args = [{user_req, InvUAS, Call}, {user_req, UAS, Call}],
+                    nksip_callbacks:app_call(cancel, Args, AppId),
                     nksip_call_uas:terminate_request(InvUAS, Call1);
                 true ->
                     reply(no_transaction, UAS, Call)
@@ -121,26 +122,22 @@ is_cancel(_, _) ->
     nksip_call:call().
 
 authorize_launch(UAS, #call{app_id=AppId}=Call) ->
-    case 
-        erlang:function_exported(AppId, authorize, 3) orelse
-        erlang:function_exported(AppId, authorize, 4)
-    of
+    case erlang:function_exported(AppId, authorize, 3) of
         true ->
-            Auth = authorize_data(UAS, Call),
-            case nksip_call_uas:app_call(authorize, [Auth], UAS, Call) of
-                {reply, Reply} -> authorize_reply(Reply, UAS, Call);
-                #call{} = Call1 -> Call1
+            Args = [authorize_data(UAS, Call), {user_req, UAS, Call}],
+            case nksip_callbacks:app_call(authorize, Args, AppId) of
+                {ok, Reply} -> authorize_reply(Reply, UAS, Call);
+                error -> reply({internal_error, "SipApp Error"}, UAS, Call)
             end;
         false ->
             authorize_reply(ok, UAS, Call)
     end.
 
-
 %% @private
 -spec authorize_data(nksip_call:trans(), nksip_call:call()) ->
     list().
 
-authorize_data(#trans{id=Id,request=Req}, Call) ->
+authorize_data(#trans{id=Id,request=Req}=UAS, Call) ->
     #call{app_id=AppId} = Call,
     IsDialog = case nksip_call_lib:check_auth(Req, Call) of
         true -> dialog;
@@ -151,17 +148,10 @@ authorize_data(#trans{id=Id,request=Req}, Call) ->
         false -> []
     end,
     PassFun = fun(User, Realm) ->
-        Args1 = [Req, User, Realm],
-        Args2 = [nksip_sipmsg:get_id(Req), User, Realm],
-        case 
-            nksip_sipapp_srv:sipapp_call_wait(AppId, get_user_pass, Args1, Args2, 30000) 
-        of
-            {reply, Reply} -> 
-                ok;
-            error -> 
-                Reply = false;
-            not_exported ->
-                {reply, Reply, _} = nksip_sipapp:get_user_pass(User, Realm, none)
+        Args = [User, Realm, {user_req, UAS, Call}],
+        case nksip_callbacks:app_call(get_user_pass, Args, AppId) of
+            {ok, Reply} -> ok;
+            error -> Reply = false
         end,
         ?call_debug("UAS ~p calling get_user_pass(~p, ~p): ~p", 
                     [Id, User, Realm, Reply]),
@@ -210,16 +200,14 @@ authorize_reply(_Reply, UAS, Call) ->
 -spec route_launch(nksip_call:trans(), nksip_call:call()) -> 
     nksip_call:call().
 
-route_launch(#trans{ruri=RUri}=UAS, Call) ->
+route_launch(#trans{ruri=RUri}=UAS, #call{app_id=AppId}=Call) ->
     UAS1 = UAS#trans{status=route},
     Call1 = update(UAS1, Call),
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
-    case 
-        nksip_call_uas:app_call(route, [Scheme, User, Domain], UAS1, Call1) 
-    of
-        {reply, Reply} -> route_reply(Reply, UAS1, Call1);
-        not_exported -> route_reply(process, UAS1, Call1);
-        #call{} = Call2 -> Call2
+    Args = [Scheme, User, Domain, {user_req, UAS1, Call1}],
+    case nksip_callbacks:app_call(route, Args, AppId) of
+        {ok, Reply} -> route_reply(Reply, UAS1, Call1);
+        error -> reply({internal_error, "SipApp Error"}, UAS, Call)
     end.
     
 

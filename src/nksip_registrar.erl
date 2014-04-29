@@ -666,17 +666,9 @@ callback_get(AppId, AOR) ->
     term() | error.
 
 callback(AppId, Op) -> 
-    case 
-        nksip_sipapp_srv:sipapp_call_wait(AppId, registrar_store, [Op], [Op], ?TIMEOUT)
-    of
-        not_exported -> 
-            {reply, Reply, none} = 
-                nksip_sipapp:registrar_store(AppId, Op, none),
-            Reply;
-        {reply, Reply} -> 
-            Reply;
-        _ -> 
-            error
+    case nksip_callbacks:app_call(registrar_store, [Op], AppId) of
+        {ok, Reply} -> Reply;
+        _ -> error
     end.
 
 
