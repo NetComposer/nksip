@@ -23,18 +23,26 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, header/2]).
+
+-export([app_id/1, app_name/1, header/2]).
+
+
+-export([field/2, fields/2]).
 -export([body/1, method/1, dialog_id/1, call_id/1, get_request/1]).
 -export([is_local_route/1, reply/2]).
--export_type([field/0]).
+-export_type([req/0, field/0]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 
 %% ===================================================================
 %% Types
 %% ===================================================================
+
+
+-type req() :: {user_req, nksip_call:trans(), nksip_call:call()}.
 
 -type field() ::  app_id | method | call_id | vias | parsed_vias | 
                   ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
@@ -54,6 +62,46 @@
 %% ===================================================================
 %% Public
 %% ===================================================================
+
+app_id({user_req, _, #call{app_id=AppId}}) ->
+    AppId.
+
+app_name(Req) ->
+    AppId = app_id(Req),
+    AppId:name().
+
+
+
+
+
+
+
+%% @doc Gets values for a header in a request.
+-spec header(nksip:id(), binary()) ->
+    [binary()] | error.
+
+header({user_req, #trans{request=Req}, _Call}, Name) ->
+    nksip_sipmsg:header(Req, Name).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 %% @doc Gets specific information from the `Request'. 
 %% The available fields are:
@@ -300,18 +348,6 @@ field(Id, Field) ->
 
 fields(<<"R_", _/binary>>=Id, Fields) -> 
     Fun = fun(Req) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Req, Fields))} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
-
-
-%% @doc Gets values for a header in a request.
--spec header(nksip:id(), binary()) ->
-    [binary()] | error.
-
-header(<<"R_", _/binary>>=Id, Name) -> 
-    Fun = fun(Req) -> {ok, nksip_sipmsg:header(Req, Name)} end,
     case nksip_call_router:apply_sipmsg(Id, Fun) of
         {ok, Values} -> Values;
         _ -> error

@@ -25,45 +25,46 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
+-include("../include/nksip_call.hrl").
 
 -compile([export_all]).
 
 
-basic_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun running/0}, 
-            {timeout, 60, fun transport/0}, 
-            {timeout, 60, fun cast_info/0}, 
-            {timeout, 60, fun stun/0}
-        ]
-    }.
+% basic_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun running/0}, 
+%             {timeout, 60, fun transport/0}, 
+%             {timeout, 60, fun cast_info/0}, 
+%             {timeout, 60, fun stun/0}
+%         ]
+%     }.
 
 
 start() ->
     tests_util:start_nksip(),
     nksip_config:put(nksip_store_timer, 200),
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
-        {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
-        registrar,
-        {supported, []},
-        {transports, [
-            {udp, all, 5060, [{listeners, 10}]},
-            {tls, all, 5061}
-        ]}
-    ]),
+    % {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    %     {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
+    %     registrar,
+    %     {supported, []},
+    %     {transports, [
+    %         {udp, all, 5060, [{listeners, 10}]},
+    %         {tls, all, 5061}
+    %     ]}
+    % ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-        {supported, []},
-        {transports, [
-            {udp, all, 5070},
-            {tls, all, 5071}
-        ]}
-    ]),
+    % {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    %     {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+    %     {supported, []},
+    %     {transports, [
+    %         {udp, all, 5070},
+    %         {tls, all, 5071}
+    %     ]}
+    % ]),
 
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {supported, []},
@@ -225,45 +226,47 @@ init(AppName) ->
 % If no user, use Nksip-Op to select an operation
 % If user and domain is nksip, proxy to registered contacts
 % Any other case simply route
-route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==server1 ->
-    {ok, Domains} = nksip:get(AppId, domains),
-    Opts = [
-        record_route,
-        {insert, "x-nk-server", AppId}
-    ],
-    case lists:member(Domain, Domains) of
-        true when User =:= <<>> ->
-            case nksip_request:header(ReqId, <<"x-nk-op">>) of
-                [<<"reply-request">>] ->
-                    Request = nksip_request:get_request(ReqId),
-                    Body = base64:encode(term_to_binary(Request)),
-                    {reply, {ok, [{body, Body}, contact]}, State};
-                [<<"reply-stateless">>] ->
-                    {reply, {response, ok, [stateless]}, State};
-                [<<"reply-stateful">>] ->
-                    {reply, {response, ok}, State};
-                [<<"reply-invalid">>] ->
-                    {reply, {response, 'INVALID'}, State};
-                [<<"force-error">>] ->
-                    error(test_error);
+route(Scheme, User, Domain, Req) ->
+    case nksip_request:app_name(Req) of
+        server1 ->
+            {ok, Domains} = nksip:get(server1, domains),
+            Opts = [
+                record_route,
+                {insert, "x-nk-server", server1}
+            ],
+            case lists:member(Domain, Domains) of
+                true when User =:= <<>> ->
+                    case nksip_request:header(Req, <<"x-nk-op">>) of
+                        [<<"reply-request">>] ->
+                            {user_req, #trans{request=SipMsg}, _Call} = Req,
+                            Body = base64:encode(term_to_binary(SipMsg)),
+                            {reply, {ok, [{body, Body}, contact]}};
+                        [<<"reply-stateless">>] ->
+                            {reply, {response, ok, [stateless]}};
+                        [<<"reply-stateful">>] ->
+                            {reply, {response, ok}};
+                        [<<"reply-invalid">>] ->
+                            {reply, {response, 'INVALID'}};
+                        [<<"force-error">>] ->
+                            error(test_error);
+                        _ ->
+                            {reply, {process, Opts}}
+                    end;
+                true when Domain =:= <<"nksip">> ->
+                    case nksip_registrar:find(server1, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {reply, {proxy, UriList, Opts}}
+                    end;
                 _ ->
-                    {reply, {process, Opts}, State}
-            end;
-        true when Domain =:= <<"nksip">> ->
-            case nksip_registrar:find(AppId, Scheme, User, Domain) of
-                [] -> {reply, temporarily_unavailable, State};
-                UriList -> {reply, {proxy, UriList, Opts}, State}
+                    {reply, {proxy, ruri, Opts}}
             end;
         _ ->
-            {reply, {proxy, ruri, Opts}, State}
-    end;
-
-route(_, _, _, _, _, State) ->
-    {reply, process, State}.
+            process
+    end.
 
 
-dialog_update(_DialogId, _Update, State) ->
-    {noreply, State}.
+dialog_update(_Update, _Dialog) ->
+    ok.
 
 
 handle_call(get_domains, _From, AppId=State) ->

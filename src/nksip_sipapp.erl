@@ -138,13 +138,13 @@
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, get_user_pass/3, authorize/4, route/6]).
--export([invite/4, reinvite/4, cancel/3, ack/4, bye/4, options/4, register/4]).
--export([info/4, prack/4, update/4, subscribe/4, resubscribe/4, notify/4, message/4]).
--export([refer/4, publish/4]).
--export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
+-export([init/1, get_user_pass/3, authorize/2, route/4]).
+-export([invite/1, reinvite/1, cancel/2, ack/1, bye/1, options/1, register/1]).
+-export([info/1, prack/1, update/1, subscribe/1, resubscribe/1, notify/1, message/1]).
+-export([refer/1, publish/1]).
+-export([ping_update/3, register_update/3, dialog_update/2, session_update/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
--export([registrar_store/3, publish_store/3]).
+-export([registrar_store/2, publish_store/2]).
 -include("nksip.hrl").
 
 
@@ -171,8 +171,8 @@
     {noreply, State::term(), Timeout::timeout()} |
     {stop, Reason::term(), State::term()}.
 
--type meta() ::
-    nksip_lib:optslist().
+% -type meta() ::
+%     nksip_lib:optslist().
 
 
 
@@ -277,12 +277,12 @@ get_user_pass(_User, _Realm, State) ->
 %% previous registration and/or dialog authentication. 
 %% If you don't define this function all requests will be authenticated.
 %%
--spec authorize(ReqId::nksip:id(), AuthList, From::from(), State::term()) ->
-    call_reply(ok | authenticate | proxy_authenticate | forbidden)
+-spec authorize(AuthList, Req::nksip_request:req()) ->
+    ok | authenticate | proxy_authenticate | forbidden
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
 
-authorize(_ReqId, _AuthList, _From, State) ->
-    {reply, ok, State}.
+authorize(_AuthList, _Req) ->
+    {reply, ok}.
 
 
 %% @doc This function is called by NkSIP for every new request, to check if it must be 
@@ -370,12 +370,12 @@ authorize(_ReqId, _AuthList, _From, State) ->
     {response, nksip:sipreply()} | 
     {response, nksip:sipreply(), nksip_lib:optslist()}.
 
--spec route(ReqId::nksip:id(), Scheme::nksip:scheme(), 
-            User::binary(), Domain::binary(), From::from(), State::term()) ->
-    call_reply(route_reply()).
+-spec route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
+            Req::nksip_request:req()) ->
+    route_reply().
 
-route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
-    {reply, process, State}.
+route(_Scheme, _User, _Domain, _Req) ->
+    process.
 
 
 %% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
@@ -403,11 +403,11 @@ route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
 %% The remote party should then send an ACK request immediately.
 %% If none is received, NkSIP will automatically stop the dialog.
 %%
--spec invite(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec invite(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-invite(_ReqId, _Meta, _From, State) ->
-    {reply, decline, State}.
+invite(_Req) ->
+    decline.
 
 
 %% @doc This function is called when a new in-dialog INVITE request is received.
@@ -419,11 +419,11 @@ invite(_ReqId, _Meta, _From, State) ->
 %% its response, {@link dialog_update/3} and/or {@link session_update/3} would be
 %% called.
 %%
--spec reinvite(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec reinvite(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-reinvite(_ReqId, _Meta, __From, State) ->
-    {reply, decline, State}.
+reinvite(_Req) ->
+    decline.
 
 
 %% @doc Called when a pending INVITE request is cancelled.
@@ -440,11 +440,11 @@ reinvite(_ReqId, _Meta, __From, State) ->
 %% `Meta' will include a parameter `{req_id, InviteId}' showing the request id of the
 %% INVITE being cancelled.
 %%
--spec cancel(ReqId::nksip:id(), Meta::meta(), State::term()) ->
-    call_noreply().
+-spec cancel(InviteReq::nksip_request:req(), Req::nksip_request:req()) ->
+    ok.
 
-cancel(_CancelledRequest, _Request) ->
-    {noreply, State}.
+cancel(_CancelledReq, _Req) ->
+    ok.
 
 
 %% @doc Called when a valid ACK request is received.
@@ -459,11 +459,11 @@ cancel(_CancelledRequest, _Request) ->
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec ack(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(ok).
+-spec ack(Req::nksip_request:req()) ->
+    ok.
 
-ack(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
+ack(_Req) ->
+    ok.
 
 
 %% @doc Called when a valid BYE request is received.
@@ -477,11 +477,11 @@ ack(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor, dialog_id
 %% (see {@link nksip_request} for details).
 %%
--spec bye(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec bye(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-bye(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
+bye(_Req) ->
+    ok.
 
 
 %% @doc Called when a valid INFO request is received.
@@ -494,11 +494,11 @@ bye(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor, content-type, body
 %% (see {@link nksip_request} for details).
 %%
--spec info(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-  call_reply(nksip:sipreply()).
+-spec info(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-info(_ReqId, _Meta, _From, State) ->
-  {reply, ok, State}.
+info(_Req) ->
+    ok.
 
 
 %% @doc Called when a OPTIONS request is received.
@@ -515,13 +515,12 @@ info(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor
 %% (see {@link nksip_request} for details).
 %%
--spec options(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec options(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-options(_ReqId, _Meta, _From, State) ->
-    Reply = {ok, [contact, allow, allow_event, accept, supported]},
-    {reply, Reply, State}.
-
+options(_Req) ->
+    {ok, [contact, allow, allow_event, accept, supported]}.
+    
 
 %% @doc This function is called by NkSIP to process a new incoming REGISTER request. 
 %%
@@ -544,19 +543,17 @@ options(_ReqId, _Meta, _From, State) ->
 %% and need a specific REGISTER processing 
 %% (for example to add some headers to the response).
 %%
--spec register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec register(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-register(_ReqId, Meta, _From, State) ->
-    %% NOTE: In this default implementation, Meta contains the SipApp options.
-    Reply = case nksip_lib:get_value(registrar, Meta) of
+register(Req) ->
+    AppId = nksip_request:app_id(Req),
+    case AppId:config_registrar() of
         true -> 
-            Req = nksip_lib:get_value(req, Meta),
             nksip_registrar:request(Req);
         false -> 
-            {method_not_allowed, ?ALLOW}
-    end,
-    {reply, Reply, State}.
+            {method_not_allowed, AppId:config_allow()}
+    end.
 
 
 %% @doc Called when a valid PRACK request is received.
@@ -570,11 +567,11 @@ register(_ReqId, Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: dialog_id, content_type
 %% and body (see {@link nksip_request} for details).
 %%
--spec prack(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(ok).
+-spec prack(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-prack(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
+prack(_Req) ->
+    ok.
 
 
 %% @doc Called when a valid UPDATE request is received.
@@ -591,11 +588,11 @@ prack(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: dialog_id, content_type
 %% and body (see {@link nksip_request} for details).
 %%
--spec update(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec update(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-update(_ReqId, _Meta, _From, State) ->
-    {reply, decline, State}.
+update(_Req) ->
+    decline.
 
 
 %% @doc This function is called by NkSIP to process a new incoming SUBSCRIBE
@@ -612,11 +609,11 @@ update(_ReqId, _Meta, _From, State) ->
 %% `Meta' will include at least the following parameters: aor, dialog_id, event,
 %% subscription_id and parsed_expires (see {@link nksip_request} for details).
 %%
--spec subscribe(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec subscribe(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-subscribe(_ReqId, _Meta, _From, State) ->
-    {reply, decline, State}.
+subscribe(_Req) ->
+    decline.
 
 
 %% @doc This function is called by NkSIP to process a new in-subscription SUBSCRIBE
@@ -624,11 +621,11 @@ subscribe(_ReqId, _Meta, _From, State) ->
 %%
 %% You don't usually have to implement this function.
 %%
--spec resubscribe(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec resubscribe(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-resubscribe(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
+resubscribe(_Req) ->
+    decline.
 
 
 %% @doc This function is called by NkSIP to process a new incoming NOTIFY
@@ -641,11 +638,11 @@ resubscribe(_ReqId, _Meta, _From, State) ->
 %%
 %% You should always return `ok'.
 %%
--spec notify(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec notify(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-notify(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
+notify(_Req) ->
+    ok.
 
 
 %% @doc This function is called by NkSIP to process a new incoming MESSAGE
@@ -659,11 +656,11 @@ notify(_ReqId, _Meta, _From, State) ->
 %% content_type and body.
 %% Field `expired' will have `true' if the MESSAGE has already expired.
 %%
--spec message(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec message(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-message(_ReqId, _Meta, _From, State) ->
-    {reply, decline, State}.
+message(_Req) ->
+    decline.
 
 
 %% @doc This function is called by NkSIP to process a new incoming REFER.
@@ -694,12 +691,11 @@ message(_ReqId, _Meta, _From, State) ->
 %%     spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
 %%     {reply, ok, State}.
 %%
+-spec refer(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
--spec refer(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
-
-refer(_ReqId, _Meta, _From, State) ->
-    {reply, decline, State}.
+refer(_Req) ->
+    decline.
 
 
 %% @doc This function is called by NkSIP to process a new incoming PUBLISH request. 
@@ -710,13 +706,12 @@ refer(_ReqId, _Meta, _From, State) ->
 %%
 %% If the event package is ok, you can use the funcion {@link nksip_publish:request}
 %% to process it according to RFC3903
-
 %%
--spec publish(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
+-spec publish(Req::nksip_request:req()) ->
+    nksip:sipreply().
 
-publish(_ReqId, _Meta, _From, State) ->
-    {reply, forbidden, State}.
+publish(_Req) ->
+    forbidden.
 
 
 %% @doc Called when a dialog has changed its state.
@@ -748,15 +743,15 @@ publish(_ReqId, _Meta, _From, State) ->
 %% {subscription_status, {@link nksip_subscription:status()}}.
 %%
 %%
--spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
-    call_noreply()
+-spec dialog_update(DialogStatus, Dialog::nksip:user_dlg()) ->
+    ok
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |
                          {subscription_status, nksip_subscription:status()} |
                          {stop, nksip_dialog:stop_reason()}.
     
-dialog_update(_DialogId, _Status, State) ->
-    {noreply, State}.
+dialog_update(_Status, _Dialog) ->
+    ok.
 
 
 %% @doc Called when a dialog has updated its SDP session parameters.
@@ -767,31 +762,31 @@ dialog_update(_DialogId, _Status, State) ->
 %%
 %% This function will be also called after each new successful SDP negotiation.
 %%
--spec session_update(DialogId::nksip_dialog:id(), SessionStatus, State::term()) ->
-    call_noreply()
+-spec session_update(SessionStatus, Dialog::nksip:user_dlg()) ->
+    ok
     when SessionStatus :: {start, Local, Remote} | {update, Local, Remote} | stop,
                           Local::nksip_sdp:sdp(), Remote::nksip_sdp:sdp().
 
-session_update(_DialogId, _Status, State) ->
-    {noreply, State}.
+session_update(_Status, _Dialog) ->
+    ok.
 
 
 %% @doc Called when the status of an automatic ping configuration changes.
 %% See {@link nksip_sipapp_auto:start_ping/5}.
--spec ping_update(PingId::term(), OK::boolean(), State::term()) ->
-    call_noreply().
+-spec ping_update(PingId::term(), OK::boolean(), AppId::nksip:app_id()) ->
+    ok.
 
-ping_update(_PingId, _OK, State) ->
-    {noreply, State}.
+ping_update(_PingId, _OK, _AppId) ->
+    ok.
 
 
 %% @doc Called when the status of an automatic registration configuration changes.
 %% See {@link nksip_sipapp_auto:start_register/5}.
--spec register_update(RegId::term(), OK::boolean(), State::term()) ->
-    call_noreply().
+-spec register_update(RegId::term(), OK::boolean(), AppId::nksip:app_id()) ->
+    ok.
 
-register_update(_RegId, _OK, State) ->
-    {noreply, State}.
+register_update(_RegId, _OK, _AppId) ->
+    ok.
 
 
 %% @doc Called when a direct call to the SipApp process is made using 
@@ -855,11 +850,11 @@ handle_info(_Msg, State) ->
     {del, nksip:aor()} |
     del_all.
 
--spec registrar_store(nksip:app_id(), registrar_store_op(), term()) ->
-    {reply, term(), term()}.
+-spec registrar_store(registrar_store_op(), nksip:app_id()) ->
+    term().
 
-registrar_store(AppId, Op, State) ->
-    Reply = case Op of
+registrar_store(Op, AppId) ->
+    case Op of
         {get, AOR} ->
             nksip_store:get({nksip_registrar, AppId, AOR}, []);
         {put, AOR, Contacts, TTL} -> 
@@ -876,8 +871,7 @@ registrar_store(AppId, Op, State) ->
                 end
             end,
             nksip_store:fold(FoldFun, none)
-    end,
-    {reply, Reply, State}.
+    end.
 
 
 %% @doc Called when a operation database must be done on the publiser database.
@@ -913,11 +907,11 @@ registrar_store(AppId, Op, State) ->
     {del, nksip:aor(), binary()} |
     del_all.
 
--spec publish_store(nksip:app_id(), publish_store_op(), term()) ->
-    {reply, term(), term()}.
+-spec publish_store(publish_store_op(), nksip:app_id()) ->
+    term().
 
-publish_store(AppId, Op, State) ->
-    Reply = case Op of
+publish_store(Op, AppId) ->
+    case Op of
         {get, AOR, Tag} ->
             nksip_store:get({nksip_publish, AppId, AOR, Tag}, not_found);
         {put, AOR, Tag, Record, TTL} -> 
@@ -934,8 +928,7 @@ publish_store(AppId, Op, State) ->
                 end
             end,
             nksip_store:fold(FoldFun, none)
-    end,
-    {reply, Reply, State}.
+    end.
 
 
 

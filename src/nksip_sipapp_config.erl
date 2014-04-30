@@ -50,7 +50,11 @@ parse_config(Opts) ->
             list_to_atom(atom_to_list(Plugin) ++ "_sipapp")
             || Plugin <- Plugins
         ],
-        SipApp = sipapp_syntax(PluginMods++[Module]),
+        AppCallbacks = get_all_app_callbacks([Module|PluginMods++[nksip_sipapp]]),
+        SipApp = [
+            nksip_code_util:callback_expr(Mod, Fun, Arity)
+            || {{Fun, Arity}, Mod} <- AppCallbacks
+        ],
         Syntax = Cache ++ SipApp ++ Callbacks,
         ok = nksip_code_util:compile(AppId, Syntax),
         {ok, AppId} 
@@ -409,30 +413,63 @@ callbacks_syntax([], _, Dict) ->
     Dict.
 
 
-%% @private Generates a ready-to-compile mirror of functions in sipapp module
-sipapp_syntax(ModList) ->
-    sipapp_syntax(ModList, []).
+%% @private Extracts all defined app callbacks
+-spec get_all_app_callbacks([atom()]) ->
+    [{{Fun::atom(), Arity::integer()}, Mod::atom()}].
+
+get_all_app_callbacks(ModList) ->
+    get_all_app_callbacks(ModList, []).
 
 
 %% @private
-sipapp_syntax([Mod|Rest], Acc) ->
-    case nksip_code_util:get_funs(Mod) of
-        error when Rest==[] ->
-            throw(invalid_sipapp_module);
+get_all_app_callbacks([Mod|Rest], Acc) ->
+    Acc1 = case nksip_code_util:get_funs(Mod) of
         error ->
-            sipapp_syntax(Rest, Acc);
+            Acc;
         List ->
-            Acc1 = lists:foldl(
+            lists:foldl(
                 fun({Fun, Arity}, FAcc) ->
-                    [nksip_code_util:callback_expr(Mod, Fun, Arity)|FAcc]
+                    case lists:keymember({Fun, Arity}, 1, Acc) of
+                        true -> FAcc;
+                        false -> [{{Fun, Arity}, Mod}|FAcc]
+                    end
                 end,
                 Acc,
-                List),
-            sipapp_syntax(Rest, Acc1)
-    end;
+                List)
+    end,
+    get_all_app_callbacks(Rest, Acc1);
 
-sipapp_syntax([], Acc) ->
+get_all_app_callbacks([], Acc) ->
     Acc.
+
+
+% %% @private Generates a ready-to-compile mirror of functions in sipapp module
+% -spec sipapp_syntax([{{Fun::atom(), Arity::integer()}, Mod::atom()}]) ->
+%     erl_syntax:syntax_tree().
+
+% sipapp_syntax(ModSpec) ->
+%     sipapp_syntax(ModSpec, []).
+
+
+% %% @private
+% sipapp_syntax([{{Fun, Arity}, Mod}|Rest], Acc) ->
+%     case nksip_code_util:get_funs(Mod) of
+%         error when Rest==[] ->
+%             throw(invalid_sipapp_module);
+%         error ->
+%             sipapp_syntax(Rest, Acc);
+%         List ->
+%             Acc1 = lists:foldl(
+%                 fun({Fun, Arity}, FAcc) ->
+%                     [nksip_code_util:callback_expr(Mod, Fun, Arity)|FAcc]
+%                 end,
+%                 Acc,
+%                 List),
+%             sipapp_syntax(Rest, Acc1)
+%     end;
+
+% sipapp_syntax([], Acc) ->
+%     Acc.
 
 
 
