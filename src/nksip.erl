@@ -483,7 +483,7 @@ get_port(App, Proto, Class) ->
     {ok, app_id()} | not_found.
 
 find_app(App) when is_atom(App) ->
-    case erlang:function_exported(App, init, 1) of
+    case erlang:function_exported(App, config_local_host, 0) of
         true ->
             {ok, App};
         false ->
