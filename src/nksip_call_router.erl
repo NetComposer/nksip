@@ -386,14 +386,6 @@ name(CallId) ->
 
 
 %% @private
--spec pos2name(integer()) -> 
-    atom().
-
-pos2name(Pos) ->
-    list_to_atom("nksip_call_router_"++integer_to_list(Pos)).
-
-
-%% @private
 -spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work(), 
                      pid() | none, from(), #state{}) ->
     {ok, #state{}} | {error, sync_error()}.
@@ -495,3 +487,45 @@ call_fold(Name) ->
         end,
         [],
         Name).
+
+
+
+%% @private
+-spec pos2name(integer()) -> 
+    atom().
+
+% Urgly but speedy
+pos2name(0) -> nksip_call_router_0;
+pos2name(1) -> nksip_call_router_1;
+pos2name(2) -> nksip_call_router_2;
+pos2name(3) -> nksip_call_router_3;
+pos2name(4) -> nksip_call_router_4;
+pos2name(5) -> nksip_call_router_5;
+pos2name(6) -> nksip_call_router_6;
+pos2name(7) -> nksip_call_router_7;
+pos2name(8) -> nksip_call_router_8;
+pos2name(9) -> nksip_call_router_9;
+pos2name(10) -> nksip_call_router_10;
+pos2name(11) -> nksip_call_router_11;
+pos2name(12) -> nksip_call_router_12;
+pos2name(13) -> nksip_call_router_13;
+pos2name(14) -> nksip_call_router_14;
+pos2name(15) -> nksip_call_router_15;
+pos2name(16) -> nksip_call_router_16;
+pos2name(17) -> nksip_call_router_17;
+pos2name(18) -> nksip_call_router_18;
+pos2name(19) -> nksip_call_router_19;
+pos2name(20) -> nksip_call_router_20;
+pos2name(21) -> nksip_call_router_21;
+pos2name(22) -> nksip_call_router_22;
+pos2name(23) -> nksip_call_router_23;
+pos2name(24) -> nksip_call_router_24;
+pos2name(25) -> nksip_call_router_25;
+pos2name(26) -> nksip_call_router_26;
+pos2name(27) -> nksip_call_router_27;
+pos2name(28) -> nksip_call_router_28;
+pos2name(29) -> nksip_call_router_29;
+pos2name(30) -> nksip_call_router_30;
+pos2name(31) -> nksip_call_router_31;
+pos2name(P) -> list_to_atom("nksip_call_router_"++integer_to_list(P)).
+
