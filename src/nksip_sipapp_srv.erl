@@ -129,7 +129,11 @@ config(AppId) ->
     pid() | not_found.
 
 get_pid(AppId) ->
-    case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+    % case nksip_proc:whereis_name({nksip_sipapp, AppId}) of
+    %     undefined -> not_found;
+    %     Pid -> Pid
+    % end.
+    case whereis(AppId) of
         undefined -> not_found;
         Pid -> Pid
     end.
@@ -293,9 +297,10 @@ pending_msgs() ->
 
 %% @private
 start_link(AppId, Args) -> 
-    Name = {nksip_sipapp, AppId},
-    nksip_proc:start_link(server, Name, ?MODULE, [AppId, Args]).
-        
+    % Name = {nksip_sipapp, AppId},
+    % nksip_proc:start_link(server, Name, ?MODULE, [AppId, Args]).
+    gen_server:start_link({local, AppId}, ?MODULE, [AppId, Args], []).
+
 
 %% @private
 init([AppId, Args]) ->
@@ -303,7 +308,7 @@ init([AppId, Args]) ->
     nksip_proc:put(nksip_sipapps, AppId),   
     Config = AppId:config(),
     AppName = nksip_lib:get_value(name, Config),
-    nksip_proc:put({nksip_sipapp, AppId}, AppName), 
+    % nksip_proc:put({nksip_sipapp, AppId}, AppName), 
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
     RegState = nksip_sipapp_auto:init(AppId, Args),
     ets:new(AppId, [named_table, public]),
