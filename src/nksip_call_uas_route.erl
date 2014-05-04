@@ -219,8 +219,8 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
     #trans{id=Id, method=Method, ruri=RUri} = UAS,
     ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply]),
     Route = case Reply of
-        {response, Resp} -> {response, Resp, []};
-        {response, Resp, Opts} -> {response, Resp, Opts};
+        {reply, Resp} -> {reply, Resp};
+        {reply_stateless, Resp} -> {reply_stateless, Resp};
         process -> {process, []};
         {process, Opts} -> {process, Opts};
         proxy -> {proxy, RUri, []};
@@ -229,7 +229,9 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
         {proxy, Uris, Opts} -> {proxy, Uris, Opts};
         strict_proxy -> {strict_proxy, []};
         {strict_proxy, Opts} -> {strict_proxy, Opts};
-        Resp -> {response, Resp, [stateless]}
+        Invalid -> 
+            ?call_warning("Invalid reply from route(): ~p", [Invalid]),
+            {reply_stateless, {internal_error, "Invalid SipApp Reply"}}
     end,
     Status = case Method of
         'INVITE' -> invite_proceeding;
@@ -245,19 +247,19 @@ route_reply(_Reply, UAS, Call) ->
 
 
 %% @private
--spec do_route({response, nksip:sipreply(), nksip_lib:optslist()} |
+-spec do_route({reply, nksip:sipreply()} | {reply_stateless, nksip:sipreply()} |
                {process, nksip_lib:optslist()} |
                {proxy, nksip:uri_set(), nksip_lib:optslist()} |
                {strict_proxy, nksip_lib:optslist()}, 
                nksip_call:trans(), nksip_call:call()) -> 
     nksip_call:call().
 
-do_route({response, Reply, Opts}, #trans{method=Method}=UAS, Call) ->
-    Stateless = case Method of
-        'INVITE' -> false;
-        _ -> lists:member(stateless, Opts)
-    end,
-    UAS1 = UAS#trans{stateless=Stateless},
+do_route({reply, Reply}, UAS, Call) ->
+    UAS1 = UAS#trans{stateless=false},
+    reply(Reply, UAS1, update(UAS1, Call));
+
+do_route({reply_stateless, Reply}, UAS, Call) ->
+    UAS1 = UAS#trans{stateless=true},
     reply(Reply, UAS1, update(UAS1, Call));
 
 %% CANCEL should have been processed already

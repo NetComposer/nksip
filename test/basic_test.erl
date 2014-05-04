@@ -47,24 +47,24 @@ start() ->
     tests_util:start_nksip(),
     nksip_config:put(nksip_store_timer, 200),
 
-    % {ok, _} = nksip:start(server1, ?MODULE, server1, [
-    %     {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
-    %     registrar,
-    %     {supported, []},
-    %     {transports, [
-    %         {udp, all, 5060, [{listeners, 10}]},
-    %         {tls, all, 5061}
-    %     ]}
-    % ]),
+    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+        {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
+        registrar,
+        {supported, []},
+        {transports, [
+            {udp, all, 5060, [{listeners, 10}]},
+            {tls, all, 5061}
+        ]}
+    ]),
 
-    % {ok, _} = nksip:start(client1, ?MODULE, client1, [
-    %     {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-    %     {supported, []},
-    %     {transports, [
-    %         {udp, all, 5070},
-    %         {tls, all, 5071}
-    %     ]}
-    % ]),
+    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {supported, []},
+        {transports, [
+            {udp, all, 5070},
+            {tls, all, 5071}
+        ]}
+    ]),
 
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
         {supported, []},
@@ -88,6 +88,7 @@ running() ->
     {error, already_started} = nksip:start(client2, ?MODULE, client2, []),
     [{client1, _}, {client2, _}, {server1, _}] = lists:sort(nksip:get_all()),
 
+    lager:error("Next error about error1 is expected"),
     {error, error1} = nksip:start(error1, ?MODULE, error1, [{transports, [{udp, all, 5090}]}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
@@ -242,23 +243,23 @@ route(Scheme, User, Domain, Req) ->
                             Body = base64:encode(term_to_binary(SipMsg)),
                             {reply, {ok, [{body, Body}, contact]}};
                         [<<"reply-stateless">>] ->
-                            {reply, {response, ok, [stateless]}};
+                            {reply_stateless, ok};
                         [<<"reply-stateful">>] ->
-                            {reply, {response, ok}};
+                            {reply, ok};
                         [<<"reply-invalid">>] ->
-                            {reply, {response, 'INVALID'}};
+                            {reply, 'INVALID'};
                         [<<"force-error">>] ->
                             error(test_error);
                         _ ->
-                            {reply, {process, Opts}}
+                            {process, Opts}
                     end;
                 true when Domain =:= <<"nksip">> ->
                     case nksip_registrar:find(server1, Scheme, User, Domain) of
                         [] -> {reply, temporarily_unavailable};
-                        UriList -> {reply, {proxy, UriList, Opts}}
+                        UriList -> {proxy, UriList, Opts}
                     end;
                 _ ->
-                    {reply, {proxy, ruri, Opts}}
+                    {proxy, ruri, Opts}
             end;
         _ ->
             process
