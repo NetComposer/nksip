@@ -24,131 +24,109 @@
 
 -include("nksip.hrl").
 
--export([field/2, fields/2, header/2]).
--export([body/1, code/1, dialog_id/1, call_id/1, get_response/1, wait_491/0]).
--export_type([field/0]).
+-export([app_id/1, app_name/1, code/1, body/1, call_id/1, dialog_id/1]).
+-export([meta/2, metas/2, header/2, headers/2]).
+-export([wait_491/0]).
+-export_type([resp/0]).
 
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
 %% Types
 %% ===================================================================
 
--type field() ::  app_id | code | reason_phrase | call_id | vias | parsed_vias | 
-                  ruri | ruri_scheme | ruri_user | ruri_domain | parsed_ruri | aor |
-                  from | from_scheme | from_user | from_domain | parsed_from | 
-                  to | to_scheme | to_user | to_domain | parsed_to | 
-                  cseq | parsed_cseq | cseq_num | cseq_method | forwards |
-                  routes | parsed_routes | contacts | parsed_contacts | 
-                  content_type | parsed_content_type | 
-                  expires | parsed_expires | event | parsed_event |
-                  all_headers | body | dialog_id | local | remote |
-                  binary().
+-type resp() :: {user_resp, nksip_call:trans(), nksip_call:call()}.
 
 
 %% ===================================================================
 %% Public
 %% ===================================================================
 
-%% @doc Gets specific information from the `Response'. 
-%% The available fields are the same as {@link nksip_request:field/2}, 
-%% and also:
-%%  
-%% <table border="1">
-%%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-%%      <tr>
-%%          <td>`code'</td>
-%%          <td>{@link nksip:response_code()}</td>
-%%          <td>Response Code</td>
-%%      </tr>
-%%      <tr>
 
-%%          <td>`reason_phrase'</td>
-%%          <td>`binary()'</td>
-%%          <td>Reason Phrase</td>
-%%      </tr>
-%% </table>
--spec field(nksip:id(), field()) ->
-    term() | error.
+%% @doc Gets internal app's id
+-spec app_id(resp()) -> 
+    nksip:app_id().
 
-field(Id, Field) -> 
-    case fields(Id, [Field]) of
-        [{_, Value}] -> Value;
-        error -> error
-    end.
+app_id({user_resp, _, #call{app_id=AppId}}) -> 
+    AppId.
 
 
-%% @doc Get some fields from a response.
--spec fields(nksip:id(), [field()]) ->
-    [{atom(), term()}] | error.
+%% @doc Gets app's name
+-spec app_name(resp()) -> 
+    term().
 
-fields(<<"S_", _/binary>>=Id, Fields) -> 
-    Fun = fun(Resp) -> {ok, lists:zip(Fields, nksip_sipmsg:fields(Resp, Fields))} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
+app_name(UserResp) -> 
+    (app_id(UserResp)):name().
 
 
-%% @doc Get header values from a response.
--spec header(nksip:id(), binary()) ->
-    [binary()] | error.
+%% @doc Gets the response code of a response.
+-spec code(resp()) ->
+    nksip:response_code().
 
-header(<<"S_", _/binary>>=Id, Name) -> 
-    Fun = fun(Resp) -> {ok, nksip_sipmsg:header(Resp, Name)} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
+code(UserResp) -> 
+    meta(code, UserResp).
 
 
-%% @doc Gets the <i>response code</i> of a response.
--spec code(nksip:id()) ->
-    nksip:response_code() | error.
+%% @doc Gets the body of the response
+-spec body(resp()) ->
+    nksip:body().
 
-code(Id) -> 
-    field(Id, code).
-
-
-%% @doc Gets the <i>body</i> of a response.
--spec body(nksip:id()) ->
-    nksip:body() | error.
-
-body(Id) -> 
-    field(Id, body).
-
-
-%% @doc Gets the <i>dialog_id</i> of a request.
--spec dialog_id(nksip:id()) ->
-    nksip_dialog:id() | error.
-
-dialog_id(Id) -> 
-    field(Id, dialog_id).
+body(UserResp) -> 
+    meta(body, UserResp).
 
 
 %% @doc Gets the calls's id of a response id
--spec call_id(nksip:id()) ->
+-spec call_id(resp()) ->
     nksip:call_id().
 
-call_id(Id) ->
-    {resp, _AppId, _MsgId, CallId} = nksip_sipmsg:parse_id(Id),
+call_id({user_resp, _, #call{call_id=CallId}}) ->
     CallId.
 
 
-%% @private
--spec get_response(nksip:id()) ->
-    nksip:response() | error.
+%% @doc Gets the dialog's id of the response
+-spec dialog_id(resp()) ->
+    nksip_dialog:id().
 
-get_response(<<"S_", _/binary>>=Id) ->
-    Fun = fun(Resp) -> {ok, Resp} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Resp} -> Resp;
-        _ -> error
-    end.
+dialog_id(UserResp) -> 
+    meta(dialog_id, UserResp).
+
+
+%% @doc Get a specific metadata (see {@link field()}) from the response
+-spec meta(nksip_sipmsg:field(), resp()) ->
+    term().
+
+meta(Field, {user_resp, #trans{response=Resp}, _Call}) -> 
+    nksip_sipmsg:meta(Resp, Field).
+
+
+%% @doc Get a specific set of metadatas (see {@link field()}) from the response
+-spec metas([nksip_sipmsg:field()], resp()) ->
+    [{nksip_sipmsg:field(), term()}].
+
+metas(Fields, {user_resp, #trans{response=Resp}, _Call}) when is_list(Fields) ->
+    [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields].
+
+
+%% @doc Gets values for a header in a response.
+-spec header(string()|binary(), resp()) -> 
+    [binary()].
+
+header(Name, {user_resp, #trans{response=Resp}, _Call}) -> 
+    nksip_sipmsg:header(Name, Resp).
+
+
+%% @doc Gets values for a set of headers in a response.
+-spec headers([string()|binary()], resp()) -> 
+    [{string()|binary(), binary()}].
+
+headers(Names, {user_resp, #trans{response=Resp}, _Call}) when is_list(Names) ->
+    [{Name, nksip_sipmsg:header(Name, Resp)} || Name <- Names].
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after
-%% receiving a 491 response and before trying the request again.
+%% receiving a 491 response and before trying the response again.
 -spec wait_491() -> 
     ok.
 wait_491() ->

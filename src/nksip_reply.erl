@@ -139,7 +139,7 @@ post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
         Code>100 andalso Code<300 andalso (Method=='INVITE' orelse Method=='NOTIFY')
     of
         true ->
-            RR = nksip_sipmsg:header(Req, <<"record-route">>),
+            RR = nksip_sipmsg:header(<<"record-route">>, Req),
             [{replace, <<"record-route">>, RR}|Opts2];
         false ->
             Opts2
@@ -156,7 +156,7 @@ post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
     end,
     Opts5 = case Code>=200 andalso Code<300 andalso Method=='REGISTER' of
         true -> 
-            Path = nksip_sipmsg:header(Req, <<"path">>),
+            Path = nksip_sipmsg:header(<<"path">>, Req),
             [{replace, <<"path">>, Path}|Opts4];
         false ->
             Opts4

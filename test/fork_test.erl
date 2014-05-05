@@ -589,11 +589,11 @@ init(Id) ->
 route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==serverR ->
     Opts = lists:flatten([
         {insert, "x-nk-id", serverR},
-        case nksip_request:header(ReqId, <<"x-nk-rr">>) of
+        case nksip_request:header(<<"x-nk-rr">>, ReqId) of
             [<<"true">>] -> record_route;
             _ -> []
         end,
-        case nksip_request:header(ReqId, <<"x-nk-redirect">>) of
+        case nksip_request:header(<<"x-nk-redirect">>, ReqId) of
             [<<"true">>] -> follow_redirects;
             _ -> []
         end
@@ -641,7 +641,7 @@ route(_, _, _, _, _, State) ->
 % Gets operation from body
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
+    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
     case nksip_lib:get_value(body, Meta) of
         Ops when is_list(Ops) ->
@@ -657,7 +657,7 @@ invite(ReqId, Meta, From, AppId=State) ->
                                 _ -> nksip:reply(From, {Code, Hds})
                             end;
                         {Code, Wait} when is_integer(Code), is_integer(Wait) ->
-                            nksip_request:reply(ReqId, ringing),
+                            nksip_request:reply(ringing, ReqId),
                             timer:sleep(Wait),
                             case Code of
                                 200 -> nksip:reply(From, {ok, Hds});
@@ -681,7 +681,7 @@ ack(_ReqId, Meta, _From, AppId=State) ->
 
 
 options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
+    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
     {reply, {ok, [contact|Hds]}, State}.
 

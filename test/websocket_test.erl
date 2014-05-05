@@ -345,7 +345,7 @@ route(ReqId, _Scheme, User, Domain, _From, server1=State) ->
         true when User =:= <<>> ->
             {reply, {process, Opts}, State};
         true when Domain =:= <<"nksip">> ->
-            RUri = nksip_request:field(ReqId, parsed_ruri),
+            RUri = nksip_request:field(ruri, ReqId),
             case nksip_registrar:find(server1, RUri) of
                 [] -> {reply, temporarily_unavailable, State};
                 UriList -> {reply, {proxy, UriList, Opts}, State}
@@ -359,7 +359,7 @@ route(_, _, _, _, _, State) ->
 
 
 options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
+    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
     {reply, {ok, [contact|Hds]}, State}.
 

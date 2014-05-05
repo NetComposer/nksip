@@ -268,7 +268,7 @@ transport(Test) ->
                         async, CB, get_request, {meta, [remote]}]),
     LPort = receive 
         {Ref, {req, Req3}} -> 
-            {tcp, {127,0,0,1}, LP, <<>>} = nksip_sipmsg:field(Req3, local),
+            {tcp, {127,0,0,1}, LP, <<>>} = nksip_sipmsg:meta(local, Req3),
             LP
         after 1000 ->
             error(transport)
@@ -293,7 +293,7 @@ transport(Test) ->
     receive 
         {Ref, {req, ReqId5}} -> 
             % Should reuse transport
-            {tcp, {127,0,0,1}, LPort, <<>>} = nksip_sipmsg:field(ReqId5, local)
+            {tcp, {127,0,0,1}, LPort, <<>>} = nksip_sipmsg:meta(local, ReqId5)
         after 1000 ->
             error(transport)
     end,
@@ -455,13 +455,13 @@ servers(Test) ->
     ] = Values7,
 
     {req, AckReq} = nksip_uac:ack(DialogIdB1, [get_request]),
-    {tls, _, 5061, <<>>} = nksip_sipmsg:field(AckReq, remote),
+    {tls, _, 5061, <<>>} = nksip_sipmsg:meta(remote, AckReq),
     [
         #uri{scheme=sip, domain = <<"localhost">>, port=5061,
              opts=[{<<"transport">>,<<"tls">>},<<"lr">>]},
         #uri{scheme=sip, domain = <<"localhost">>, port=5081,
              opts=[{<<"transport">>,<<"tls">>},<<"lr">>]}
-    ] = nksip_sipmsg:header(AckReq, <<"route">>, uris),
+    ] = nksip_sipmsg:header(<<"route">>, AckReq, uris),
     ok = tests_util:wait(Ref, [{C2, ack}]),
  
     DialogIdB2 = nksip_dialog:remote_id(DialogIdB1, C2),
@@ -579,7 +579,7 @@ route(ReqId, Scheme, User, Domain, _From, {Test, Id}=AppId=State)
     Opts = [
         case Test of stateless -> stateless; _ -> ignore end,
         {insert, "x-nk-id", Id},
-        case nksip_request:header(ReqId, <<"x-nk-rr">>) of
+        case nksip_request:header(<<"x-nk-rr">>, ReqId) of
             [<<"true">>] -> record_route;
             _ -> ignore
         end
@@ -617,30 +617,30 @@ route(_, _, _, _, _, State) ->
 
 invite(ReqId, Meta, From, {_Test, Id}=AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Values = nksip_request:header(ReqId, <<"x-nk">>),
-    Routes = nksip_request:header(ReqId, <<"route">>),
-    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
+    Values = nksip_request:header(<<"x-nk">>, ReqId),
+    Routes = nksip_request:header(<<"route">>, ReqId),
+    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
         {add, "x-nk-id", nksip_lib:bjoin([Id|Ids])}
     ],
-    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
+    Sleep = case nksip_request:header(<<"x-nk-sleep">>, ReqId) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
-    Prov = case nksip_request:header(ReqId, <<"x-nk-prov">>) of
+    Prov = case nksip_request:header(<<"x-nk-prov">>, ReqId) of
         [<<"true">>] -> true;
         _ -> false
     end,
     proc_lib:spawn(
         fun() ->
             if 
-                Prov -> nksip_request:reply(ReqId, ringing); 
+                Prov -> nksip_request:reply(ringing, ReqId); 
                 true -> ok 
             end,
             case Sleep of
@@ -684,9 +684,9 @@ bye(_ReqId, Meta, _From, AppId=State) ->
 
 
 options(ReqId, _Meta, _From, {_Test, Id}=State) ->
-    Values = nksip_request:header(ReqId, <<"x-nk">>),
-    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
-    Routes = nksip_request:header(ReqId, <<"route">>),
+    Values = nksip_request:header(<<"x-nk">>, ReqId),
+    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
+    Routes = nksip_request:header(<<"route">>, ReqId),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,

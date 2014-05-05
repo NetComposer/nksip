@@ -332,7 +332,7 @@ is_registered([
 check_gruu(Req, AppOpts) ->
     AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
     case 
-        lists:member(<<"gruu">>, AppSupp) andalso nksip_sipmsg:supported(Req, <<"gruu">>)
+        lists:member(<<"gruu">>, AppSupp) andalso nksip_sipmsg:supported(<<"gruu">>, Req)
     of
         true -> [{registrar_gruu, true}|AppOpts];
         false -> AppOpts
@@ -350,7 +350,7 @@ process(Req, Opts) ->
         true -> throw(unsupported_uri_scheme)
     end,
     {MinTime, MaxTime, DefTime} = AppId:config_registrar_timers(),
-    Default = case nksip_sipmsg:field(Req, parsed_expires) of
+    Default = case nksip_sipmsg:meta(expires, Req) of
         D0 when is_integer(D0) -> D0;
         _ -> DefTime
     end,
@@ -378,7 +378,7 @@ update(Req, Times, Opts) ->
     #sipmsg{app_id=AppId, to={To, _}, contacts=Contacts} = Req,
     {_, _, Default, Now, _LongNow} = Times,
     check_several_reg_id(Contacts, Default, false),
-    Path = case nksip_sipmsg:header(Req, <<"path">>, uris) of
+    Path = case nksip_sipmsg:header(<<"path">>, Req, uris) of
         error -> throw({invalid_request, "Invalid Path"});
         Path0 -> Path0
     end,

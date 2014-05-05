@@ -91,7 +91,7 @@ register1() ->
                                 [async, {callback, RespFun}, contact, get_request,
                                  {meta, [<<"contact">>]}, {supported, ""}]),
     [CallId, CSeq] = receive 
-        {Ref, {req, Req2}} -> nksip_sipmsg:fields(Req2, [call_id, cseq_num])
+        {Ref, {req, Req2}} -> nksip_sipmsg:metas([call_id, cseq_num], Req2)
         after 2000 -> error(register1)
     end,
     Contact2 = receive 

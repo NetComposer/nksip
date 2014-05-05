@@ -82,8 +82,7 @@ basic() ->
         {parsed_require, []}
     ] = Values1,
     receive {Ref, {req, Req1}} -> 
-        [ [<<"100rel">>],[]] = 
-            nksip_sipmsg:fields(Req1, [parsed_supported, parsed_require])
+        [[<<"100rel">>],[]] = nksip_sipmsg:metas([supported, require], Req1)
     after 1000 -> 
         error(basic) 
     end,
@@ -124,7 +123,7 @@ basic() ->
     ] = Values2,
     receive {Ref, {req, Req2}} -> 
         [[<<"100rel">>], [<<"100rel">>]] = 
-            nksip_sipmsg:fields(Req2, [parsed_supported, parsed_require])
+            nksip_sipmsg:metas([supported, require], Req2)
     after 1000 -> 
         error(basic) 
     end,
@@ -285,7 +284,7 @@ init(Id) ->
 
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
@@ -293,26 +292,26 @@ invite(ReqId, Meta, From, AppId=State) ->
         fun() ->
             case Op of
                 <<"prov-busy">> ->
-                    ok = nksip_request:reply(ReqId, ringing),
+                    ok = nksip_request:reply(ringing, ReqId),
                     timer:sleep(100),
-                    ok = nksip_request:reply(ReqId, session_progress),
+                    ok = nksip_request:reply(session_progress, ReqId),
                     timer:sleep(100),
                     nksip:reply(From, busy);
                 <<"rel-prov-busy">> ->
-                    ok = nksip_request:reply(ReqId, rel_ringing),
+                    ok = nksip_request:reply(rel_ringing, ReqId),
                     timer:sleep(100),
-                    ok = nksip_request:reply(ReqId, rel_session_progress),
+                    ok = nksip_request:reply(rel_session_progress, ReqId),
                     timer:sleep(100),
                     nksip:reply(From, busy);
                 <<"pending">> ->
                     spawn(
                         fun() -> 
-                            ok = nksip_request:reply(ReqId, rel_ringing)
+                            ok = nksip_request:reply(rel_ringing, ReqId)
                         end),
                     spawn(
                         fun() -> 
                             {error, pending_prack} = 
-                                nksip_request:reply(ReqId, rel_session_progress),
+                                nksip_request:reply(rel_session_progress, ReqId),
                             tests_util:send_ref(AppId, Meta, pending_prack_ok)
                         end),
                     timer:sleep(100),
@@ -324,10 +323,10 @@ invite(ReqId, Meta, From, AppId=State) ->
                         _ -> 
                             <<>>
                     end,
-                    ok = nksip_request:reply(ReqId, {rel_ringing, SDP}),
+                    ok = nksip_request:reply({rel_ringing, SDP}, ReqId),
                     timer:sleep(100),
                     SDP1 = nksip_sdp:increment(SDP),
-                    ok = nksip_request:reply(ReqId, {rel_session_progress, SDP1}),
+                    ok = nksip_request:reply({rel_session_progress, SDP1}, ReqId),
                     timer:sleep(100),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {answer, SDP2});
@@ -338,12 +337,12 @@ invite(ReqId, Meta, From, AppId=State) ->
                         _ -> 
                             <<>>
                     end,
-                    ok = nksip_request:reply(ReqId, {rel_ringing, SDP}),
+                    ok = nksip_request:reply({rel_ringing, SDP}, ReqId),
                     timer:sleep(100),
                     nksip:reply(From, ok);
                 <<"rel-prov-answer3">> ->
                     SDP = nksip_sdp:new(nksip_lib:to_binary(AppId), [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-                    ok = nksip_request:reply(ReqId, {rel_ringing, SDP}),
+                    ok = nksip_request:reply({rel_ringing, SDP}, ReqId),
                     timer:sleep(100),
                     nksip:reply(From, ok);
                 _ ->

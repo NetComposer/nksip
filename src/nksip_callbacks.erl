@@ -45,14 +45,13 @@ app_call(Fun, Args, AppId) ->
 %% @private
 app_method(#trans{method='ACK'}=UAS, #call{app_id=AppId}=Call) ->
 	case catch AppId:ack({user_req, UAS, Call}) of
-		noreply -> ok;
+		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
 	Call;
 
-app_method(#trans{method=Method}=UAS, #call{app_id=AppId}=Call) ->
-	UserReq = {user_req, UAS, Call},
-	ToTag = nksip_request:to_tag(UserReq),
+app_method(#trans{method=Method, request=Req}=UAS, #call{app_id=AppId}=Call) ->
+	#sipmsg{to={_, ToTag}} = Req,
 	Fun = case Method of
 		'INVITE' when ToTag == <<>> -> invite;
 		'INVITE' -> reinvite;
@@ -67,13 +66,13 @@ app_method(#trans{method=Method}=UAS, #call{app_id=AppId}=Call) ->
 		'REFER' -> refer;
 		'PUBLISH' -> publish
 	end,
-	case catch AppId:Fun(UserReq) of
+	case catch AppId:Fun({user_req, UAS, Call}) of
 		{reply, Reply} -> 
 			{reply, Reply};
 		noreply -> 
 			noreply;
 		Error -> 
-			?call_error("Error calling callback ack/1: ~p", [Error]),
+			?call_error("Error calling callback ~p/1: ~p", [Fun, Error]),
 			{reply, {internal_error, "SipApp Error"}}
 	end.
 

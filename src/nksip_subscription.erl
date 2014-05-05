@@ -330,7 +330,7 @@ remote_id(Id, App) ->
 
 subscription_state(#sipmsg{}=SipMsg) ->
     try
-        case nksip_sipmsg:header(SipMsg, <<"subscription-state">>, tokens) of
+        case nksip_sipmsg:header(<<"subscription-state">>, SipMsg, tokens) of
             [{Name, Opts}] -> ok;
             _ -> Name = Opts = throw(invalid)
         end,

@@ -187,7 +187,7 @@ method('OPTIONS', _Req, UAS, Call) ->
 
 method('REGISTER', Req, UAS, Call) ->
     #sipmsg{supported=Supported} = Req,
-    case nksip_sipmsg:header(Req, <<"path">>, uris) of
+    case nksip_sipmsg:header(<<"path">>, Req, uris) of
         error ->
             throw({reply, invalid_request});
         [] ->
@@ -202,7 +202,7 @@ method('REGISTER', Req, UAS, Call) ->
 method('PRACK', Req, UAS, Call) ->
     #sipmsg{dialog_id=DialogId} = Req,
     #call{trans=Trans} = Call,
-    {RSeq, CSeq, Method} = case nksip_sipmsg:header(Req, <<"rack">>) of
+    {RSeq, CSeq, Method} = case nksip_sipmsg:header(<<"rack">>, Req) of
         [RACK] ->
             case nksip_lib:tokens(RACK) of
                 [RSeqB, CSeqB, MethodB] ->
@@ -239,7 +239,7 @@ method('MESSAGE', Req, UAS, Call) ->
     #sipmsg{expires=Expires, start=Start} = Req,
     _Expired = case is_integer(Expires) of
         true ->
-            case nksip_sipmsg:header(Req, <<"date">>, dates) of
+            case nksip_sipmsg:header(<<"date">>, Req, dates) of
                 [Date] ->
                     Final = nksip_lib:gmt_to_timestamp(Date) + Expires,
                     case nksip_lib:timestamp() of
@@ -265,7 +265,7 @@ method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
     end;
 
 method('PUBLISH', Req, UAS, Call) ->
-    _ETag = case nksip_sipmsg:header(Req, <<"sip-if-match">>) of
+    _ETag = case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
         [Tag] -> Tag;
         _ -> <<>>
     end,

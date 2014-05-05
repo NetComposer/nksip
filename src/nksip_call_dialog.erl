@@ -279,7 +279,7 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
     #dialog{app_id=AppId} = Dialog,
     RouteSet = if
         Class==uac; Class==proxy ->
-            RR = nksip_sipmsg:header(Resp, <<"record-route">>, uris),
+            RR = nksip_sipmsg:header(<<"record-route">>, Resp, uris),
             case lists:reverse(RR) of
                 [] ->
                     [];
@@ -293,7 +293,7 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                     end
             end;
         Class==uas ->
-            RR = nksip_sipmsg:header(Req, <<"record-route">>, uris),
+            RR = nksip_sipmsg:header(<<"record-route">>, Req, uris),
             case RR of
                 [] ->
                     [];

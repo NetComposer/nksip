@@ -271,7 +271,7 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
 
         % Special parameters
         timestamp ->
-            case nksip_sipmsg:header(Req, <<"timestamp">>, integers) of
+            case nksip_sipmsg:header(<<"timestamp">>, Req, integers) of
                 [Time] -> {replace, <<"timestamp">>, Time};
                 _ -> ignore
             end;

@@ -60,7 +60,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
             'ACK' ->
                 {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts};
             _ ->
-                case nksip_sipmsg:header(Req, <<"proxy-require">>, tokens) of
+                case nksip_sipmsg:header(<<"proxy-require">>, Req, tokens) of
                     [] -> 
                         ok;
                     PR ->
@@ -165,7 +165,7 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
     end,
     case lists:member(path, Opts) of     
         true ->
-            case nksip_sipmsg:supported(Req, <<"path">>) of
+            case nksip_sipmsg:supported(<<"path">>, Req) of
                 true -> ok;
                 false -> throw({reply, {extension_required, <<"path">>}})
             end;

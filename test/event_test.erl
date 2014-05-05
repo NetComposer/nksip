@@ -79,7 +79,7 @@ basic() ->
 
     receive {Ref, {req, Req1}} -> 
         [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
-            nksip_sipmsg:fields(Req1, [<<"event">>, <<"allow-event">>])
+            nksip_sipmsg:headers([<<"event">>, <<"allow-event">>], Req1)
     after 1000 -> 
         error(event) 
     end,
@@ -443,7 +443,7 @@ bye(_ReqId, Meta, _From, AppId=State) ->
 
 subscribe(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
         [Op0] -> Op0;
         _ -> <<"ok">>
     end,

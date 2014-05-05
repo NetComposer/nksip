@@ -90,10 +90,8 @@ init([]) ->
 %% @doc SipApp Callback: Called to check user's password.
 %% If the incoming user's realm is one of our domains, the password for any 
 %% user is "1234". For other realms, no password is valid.
-get_user_pass(_User, <<"nksip">>, State) -> 
-    {reply, <<"1234">>, State};
-get_user_pass(_User, _Realm, State) -> 
-    {reply, false, State}.
+get_user_pass(_User, <<"nksip">>, _Req) -> <<"1234">>;
+get_user_pass(_User, _Realm, _Req) -> false.
 
 
 %% @doc SipApp Callback: Called to check if a request should be authorized.
@@ -270,7 +268,7 @@ find_all() ->
 
 %% @doc Gets all registered contacts, excluding the one in `Request'
 find_all_except_me(ReqId) ->
-    [From] = nksip_request:header(ReqId, <<"from">>),
+    [From] = nksip_request:header(<<"from">>, ReqId),
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [

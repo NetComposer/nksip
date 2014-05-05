@@ -265,8 +265,8 @@ rr_contact() ->
     RR = lists:reverse(RRH),
     FunAck = fun({req, ACKReq1}) -> 
         % Test body in ACK, and Route and Contact generated in ACK
-        RR = nksip_sipmsg:header(ACKReq1, <<"route">>),
-        [<<"<sip:abc>">>] = nksip_sipmsg:header(ACKReq1, <<"contact">>),
+        RR = nksip_sipmsg:header(<<"route">>, ACKReq1),
+        [<<"<sip:abc>">>] = nksip_sipmsg:header(<<"contact">>, ACKReq1),
         Self ! {Ref, fun_ack_ok}
     end,
     async = nksip_uac:ack(DialogIdA, 
@@ -304,9 +304,9 @@ rr_contact() ->
     Fun = fun(R) ->
         case R of
             {req, Req} ->
-                RR = nksip_sipmsg:header(Req, <<"route">>),
+                RR = nksip_sipmsg:header(<<"route">>, Req),
                 [#uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}] = 
-                    nksip_sipmsg:header(Req, <<"contact">>, uris),
+                    nksip_sipmsg:header(<<"contact">>, Req, uris),
                 Self ! {Ref, req_ok};
             {ok, Code, [{dialog_id, _}]} ->
                 if 
@@ -325,9 +325,9 @@ rr_contact() ->
     % Test Route Set cannot change now, it is already answered
     receive {Ref, 200} -> 
         {req, ACKReq2} = nksip_uac:ack(DialogIdA, [get_request]),
-        RR = nksip_sipmsg:header(ACKReq2, <<"route">>),
+        RR = nksip_sipmsg:header(<<"route">>, ACKReq2),
         [#uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}] = 
-            nksip_sipmsg:header(ACKReq2, <<"contact">>, uris),
+            nksip_sipmsg:header(<<"contact">>, ACKReq2, uris),
         ok = tests_util:wait(Ref, [req_ok,
                                    {client2, ack}, 
                                    {client2, sdp_update},
@@ -414,10 +414,10 @@ rr_contact() ->
     ByeFun = fun(Reply) ->
         case Reply of
             {req, ByeReq} ->
-                RevRR = nksip_sipmsg:header(ByeReq, <<"route">>),
+                RevRR = nksip_sipmsg:header(<<"route">>, ByeReq),
                 RR = lists:reverse(RevRR),
                 [<<"<sip:ok@127.0.0.1:5070>">>] = 
-                    nksip_sipmsg:header(ByeReq, <<"contact">>),
+                    nksip_sipmsg:header(<<"contact">>, ByeReq),
                 Self ! {Ref, bye_ok1};
             {ok, 200, []} ->
                 Self ! {Ref, bye_ok2}
@@ -558,24 +558,24 @@ init(Id) ->
 
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Values = nksip_request:header(ReqId, <<"x-nk">>),
+    Values = nksip_request:header(<<"x-nk">>, ReqId),
     Hds = case Values of [] -> []; _ -> [{add, "x-nk", nksip_lib:bjoin(Values)}] end,
-    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
+    Sleep = case nksip_request:header(<<"x-nk-sleep">>, ReqId) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
-    Prov = case nksip_request:header(ReqId, <<"x-nk-prov">>) of
+    Prov = case nksip_request:header(<<"x-nk-prov">>, ReqId) of
         [<<"true">>] -> true;
         _ -> false
     end,
     proc_lib:spawn(
         fun() ->
             if 
-                Prov -> nksip_request:reply(ReqId, ringing); 
+                Prov -> nksip_request:reply(ringing, ReqId); 
                 true -> ok 
             end,
             case Sleep of
@@ -613,7 +613,7 @@ ack(_ReqId, Meta, _From, AppId=State) ->
 
 
 options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
+    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
     {reply, {ok, [contact|Hds]}, State}.
 

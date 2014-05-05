@@ -113,7 +113,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
         Iter < ?MAX_422_TRIES
     of 
         true ->
-            case nksip_sipmsg:header(Resp, <<"min-se">>, integers) of
+            case nksip_sipmsg:header(<<"min-se">>, Resp, integers) of
                 [RespMinSE] ->
                     ConfigMinSE = AppId:config_min_session_expires(),
                     CurrentMinSE = case 
@@ -179,7 +179,7 @@ uas_check_422(#sipmsg{app_id=AppId, class={req, Method}}=Req, Call) ->
                                 _ -> nksip_call_dialog:update_meta(nksip_min_se, MinSE, 
                                                                    DialogId, Call)
                             end,
-                            case nksip_sipmsg:supported(Req, <<"timer">>) of
+                            case nksip_sipmsg:supported(<<"timer">>, Req) of
                                 true ->
                                     {reply, {session_too_small, MinSE}, Call1};
                                 false ->
@@ -208,11 +208,11 @@ uas_update_timer(
         Req, #sipmsg{app_id=AppId, class={resp, Code, _}, cseq={_, Method}}=Resp, _Call)
         when Code>=200 andalso Code<300 andalso 
              (Method=='INVITE' orelse Method=='UPDATE') ->
-    case nksip_sipmsg:supported(Resp, <<"timer">>) of
+    case nksip_sipmsg:supported(<<"timer">>, Resp) of
         true ->
             #sipmsg{require=Require} = Resp,
-            ReqSupport = nksip_sipmsg:supported(Req, <<"timer">>), 
-            ReqMinSE = case nksip_sipmsg:header(Req, <<"min-se">>, integers) of
+            ReqSupport = nksip_sipmsg:supported(<<"timer">>, Req), 
+            ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
                 [ReqMinSE0] -> ReqMinSE0;
                 _ -> 90
             end,
@@ -256,7 +256,7 @@ uas_update_timer(_Req, Resp, _Call) ->
 
 proxy_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
-    ReqMinSE = case nksip_sipmsg:header(Req, <<"min-se">>, integers) of
+    ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
         [ReqMinSE0] -> ReqMinSE0;
         _ -> 90
     end,
@@ -293,7 +293,7 @@ proxy_response(Req, Resp) ->
         undefined ->
             case parse(Req) of
                 {ok, SE, _} ->
-                    case nksip_sipmsg:supported(Req, <<"timer">>) of
+                    case nksip_sipmsg:supported(<<"timer">>, Req) of
                         true ->
                             SE_Token = {nksip_lib:to_binary(SE), [{<<"refresher">>, <<"uac">>}]},
                             Headers1 = nksip_headers:update(Resp, 
@@ -316,7 +316,7 @@ proxy_response(Req, Resp) ->
     when SE :: pos_integer(), Refresher :: uac | uas | undefined.
 
 parse(SipMsg) ->
-    case nksip_sipmsg:header(SipMsg, <<"session-expires">>, tokens) of
+    case nksip_sipmsg:header(<<"session-expires">>, SipMsg, tokens) of
         [] ->
             undefined;
         [{SE, Opts}] ->

@@ -123,7 +123,7 @@ uac() ->
     % DlgId4 = nksip_dialog:get_id(RespId4),
     receive 
         {Ref, {req, Req4}} -> 
-            CallId4 = nksip_sipmsg:field(Req4, call_id)
+            CallId4 = nksip_sipmsg:meta(call_id, Req4)
         after 500 -> 
             error(uac) 
     end,
@@ -152,11 +152,11 @@ uac() ->
     % Async
     {async, ReqId6} = nksip_uac:invite(client2, SipC1, [async, CB, get_request | Hds]),
     CallId6 = nksip_request:call_id(ReqId6),
-    CallId6 = nksip_request:field(ReqId6, call_id),
+    CallId6 = nksip_request:meta(call_id, ReqId6),
     receive 
         {Ref, {req, Req6}} -> 
-            ReqId6 = nksip_sipmsg:field(Req6, id),
-            CallId6 = nksip_sipmsg:field(Req6, call_id)
+            ReqId6 = nksip_sipmsg:meta(id, Req6),
+            CallId6 = nksip_sipmsg:meta(call_id, Req6)
         after 500 -> 
             error(uac) 
     end,
@@ -248,22 +248,22 @@ init(Id) ->
 
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
+    Sleep = case nksip_request:header(<<"x-nk-sleep">>, ReqId) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
-    Prov = case nksip_request:header(ReqId, <<"x-nk-prov">>) of
+    Prov = case nksip_request:header(<<"x-nk-prov">>, ReqId) of
         [<<"true">>] -> true;
         _ -> false
     end,
     proc_lib:spawn(
         fun() ->
             if 
-                Prov -> nksip_request:reply(ReqId, ringing); 
+                Prov -> nksip_request:reply(ringing, ReqId); 
                 true -> ok 
             end,
             case Sleep of
@@ -292,9 +292,9 @@ invite(ReqId, Meta, From, AppId=State) ->
 
 
 options(ReqId, _Meta, _From, State) ->
-    case nksip_request:header(ReqId, <<"x-nk-sleep">>) of
+    case nksip_request:header(<<"x-nk-sleep">>, ReqId) of
         [Sleep0] -> 
-            nksip_request:reply(ReqId, 101), 
+            nksip_request:reply(101, ReqId), 
             timer:sleep(nksip_lib:to_integer(Sleep0));
         _ -> 
             ok
@@ -308,7 +308,7 @@ info(ReqId, _Meta, _From, State) ->
 
 
 message(ReqId, _Meta, _From, State) ->
-    case nksip_request:header(ReqId, <<"x-nk-reply">>) of
+    case nksip_request:header(<<"x-nk-reply">>, ReqId) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             [
@@ -317,8 +317,7 @@ message(ReqId, _Meta, _From, State) ->
                 {_, ContentType},
                 {_, Body}
 
-            ] = nksip_request:fields(ReqId, 
-                    [parsed_expires, <<"date">>, content_type, body]),
+            ] = nksip_request:metas([expires, <<"date">>, content_type, body], ReqId),
             Pid ! {Ref, {ok, Expires, Date, ContentType, Body}},
             {reply, ok, State};
         _ ->

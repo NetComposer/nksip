@@ -176,7 +176,7 @@ init(Id) ->
 
 invite(ReqId, Meta, From, AppId=State) ->
     tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(ReqId, <<"x-nk-op">>) of
+    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
@@ -186,11 +186,11 @@ invite(ReqId, Meta, From, AppId=State) ->
                 <<"basic">> ->
                     Body = nksip_lib:get_value(body, Meta),
                     SDP1 = nksip_sdp:increment(Body),
-                    ok = nksip_request:reply(ReqId, {rel_ringing, SDP1}),
+                    ok = nksip_request:reply({rel_ringing, SDP1}, ReqId),
                     timer:sleep(500),
                     nksip:reply(From, ok);
                 <<"pending1">> ->
-                    ok = nksip_request:reply(ReqId, ringing), 
+                    ok = nksip_request:reply(ringing, ReqId), 
                     timer:sleep(100),
                     nksip:reply(From, ok);
                 _ ->

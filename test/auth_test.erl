@@ -134,7 +134,7 @@ invite() ->
 
     {ok, 200, _} = nksip_uac:invite(DialogId1, [{pass, "abcd"}]),
     {req, ACK3} = nksip_uac:ack(DialogId1, [get_request]),
-    CSeq = nksip_sipmsg:field(ACK3, cseq_num) - 8,
+    CSeq = nksip_sipmsg:meta(cseq_num, ACK3) - 8,
     ok = tests_util:wait(Ref, [{client3, ack}]),
 
     % client1 does support dialog's authentication
@@ -259,9 +259,10 @@ init(Id) ->
     {ok, Id}.
 
 
-get_user_pass(_ReqId, User, Realm, AppId=State) ->
-    Reply = if
-        AppId==server1; AppId==server2 ->
+get_user_pass(User, Realm, Req) ->
+    App = nksip_request:app_name(Req),
+    if
+        App==server1; App==server2 ->
             % Password for user "client1", any realm, is "1234"
             % For user "client2", any realm, is "4321"
             case User of
@@ -283,8 +284,7 @@ get_user_pass(_ReqId, User, Realm, AppId=State) ->
                 _ ->
                     false
             end
-    end,
-    {reply, Reply, State}.
+    end.
 
 
 % Authorization is only used for "auth" suite

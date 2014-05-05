@@ -156,7 +156,7 @@
     content_type :: nksip:token() | undefined,
     require = [] :: [binary()],
     supported = [] :: [binary()],
-    expires :: non_neg_integer(),
+    expires :: non_neg_integer() | undefined,
     event :: nksip:token() | undefined,
     headers = [] :: [nksip:header()],
     body = <<>> :: nksip:body(),

@@ -627,14 +627,14 @@ route(_, _, _, _, _, State) ->
 
 
 invite(ReqId, _Meta, _From, State) ->
-    case nksip_request:header(ReqId, <<"x-nk-op">>) of
+    case nksip_request:header(<<"x-nk-op">>, ReqId) of
         [<<"ok">>] -> {reply, ok, State};
         _ -> {reply, 603, State}
     end.
 
 
 options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(ReqId, <<"x-nk-id">>),
+    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
     {reply, {ok, [contact|Hds]}, State}.
 

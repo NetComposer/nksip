@@ -138,7 +138,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     Route
             end
         end,
-        RRs = nksip_sipmsg:header(Resp, <<"record-route">>, uris),
+        RRs = nksip_sipmsg:header(<<"record-route">>, Resp, uris),
         Routes = lists:map(UpdateRoutes, RRs),
         Headers1 = nksip_headers:update(Headers, [
                                         {multi, <<"record-route">>, Routes}]),

@@ -173,8 +173,8 @@ init([]) ->
     {ok, []}.
 
 
-get_user_pass(Req, User, Realm) ->
-    case nksip_sipmsg:field(Req, app_name) of
+get_user_pass(User, Realm, Req) ->
+    case nksip_request:app_name(Req) of
         server1 ->
             case {User, Realm} of
                 {<<"client1">>, <<"nksip">>} -> <<"1234">>;
@@ -187,9 +187,9 @@ get_user_pass(Req, User, Realm) ->
 
 
 authorize(Req, Auth, From) ->
-    case nksip_sipmsg:field(Req, app_name) of
+    case nksip_sipmsg:meta(app_name, Req) of
         server1 ->
-            Reply = case nksip_sipmsg:header(Req, <<"x-nk-auth">>) of
+            Reply = case nksip_sipmsg:header(<<"x-nk-auth">>, Req) of
                 [<<"true">>] ->
                     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
                         true ->
@@ -213,7 +213,7 @@ authorize(Req, Auth, From) ->
 
 
 route(Req, Scheme, User, Domain, _From) ->
-    case nksip_sipmsg:field(Req, app_name) of
+    case nksip_sipmsg:meta(app_name, Req) of
         server1 ->
             send_reply(Req, route),
             Opts = [
@@ -245,22 +245,22 @@ route(Req, Scheme, User, Domain, _From) ->
 
 invite(Req, _Meta, From) ->
     send_reply(Req, invite),
-    case nksip_sipmsg:header(Req, <<"x-nk-op">>) of
+    case nksip_sipmsg:header(<<"x-nk-op">>, Req) of
         [<<"wait">>] ->
             spawn(
                 fun() ->
-                    nksip_request:reply(Req, ringing),
+                    nksip_request:reply(ringing, Req),
                     timer:sleep(1000),
                     nksip:reply(From, ok)
                 end),
             async;
         _ ->
-            {answer, nksip_sipmsg:field(Req, body)}
+            {answer, nksip_sipmsg:meta(body, Req)}
     end.
 
 reinvite(Req, _Meta, _From) ->
     send_reply(Req, reinvite),
-    {answer, nksip_sipmsg:field(Req, body)}.
+    {answer, nksip_sipmsg:meta(body, Req)}.
 
 cancel(Req, _Meta) ->
     send_reply(Req, cancel),
@@ -282,8 +282,8 @@ options(Req, _Meta, From) ->
     send_reply(Req, options),
     spawn(
         fun() ->
-            Ids = nksip_sipmsg:header(Req, <<"x-nk-id">>),
-            AppId = nksip_sipmsg:field(Req, app_name),
+            Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
+            AppId = nksip_sipmsg:meta(app_name, Req),
             Reply = {ok, [{add, "x-nk-id", [nksip_lib:to_binary(AppId)|Ids]}]},
             nksip:reply(From, Reply)
         end),
@@ -310,7 +310,7 @@ session_update(Dialog, State) ->
 
 send_reply(Elem, Msg) ->
     App = case Elem of
-        #sipmsg{} -> nksip_sipmsg:field(Elem, app_name);
+        #sipmsg{} -> nksip_sipmsg:meta(app_name, Elem);
         #dialog{} -> nksip_dialog:field(Elem, app_name)
     end,
     case nksip:get(App, inline_test) of

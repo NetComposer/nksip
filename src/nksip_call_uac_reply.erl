@@ -139,8 +139,8 @@ fun_response(Resp, Opts) ->
                 'REFER' when Code>=200, Code<300 -> 
                     [{subscription_id, nksip_subscription:get_id(Resp)}];
                 'PUBLISH' when Code>=200, Code<300 ->
-                    Expires = nksip_sipmsg:field(Resp, parsed_expires),
-                    case nksip_sipmsg:header(Resp, <<"sip-etag">>) of
+                    Expires = nksip_sipmsg:meta(expires, Resp),
+                    case nksip_sipmsg:header(<<"sip-etag">>, Resp) of
                         [SipETag] -> [{sip_etag, SipETag}, {expires, Expires}];
                         _ -> []
                     end;
@@ -151,7 +151,7 @@ fun_response(Resp, Opts) ->
                 [] ->
                     Fields0;
                 Fields when is_list(Fields) ->
-                    Fields0 ++ lists:zip(Fields, nksip_sipmsg:fields(Resp, Fields));
+                    Fields0 ++ lists:zip(Fields, nksip_sipmsg:metas(Fields, Resp));
                 _ ->
                     Fields0
             end,

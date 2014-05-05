@@ -20,6 +20,8 @@
 
 %% @doc SipApp callback behaviour and callbacks default implementation.
 %%
+%% WARNING Documentation is fully obsolete
+%%
 %% All of the available functions you can implement in your callback module are described 
 %% here, along with the default implementation of each one.
 %%
@@ -237,14 +239,11 @@ terminate(_Reason, _State) ->
 %% If you don't define this function, NkSIP will reply with password `<<>>' 
 %% if user is `anonymous', and `false' for any other user.  
 %%
--spec get_user_pass(User::binary(), Realm::binary(), State::term()) ->
-    {reply, Reply, NewState}
-    when Reply :: true | false | binary(), NewState :: term().
+-spec get_user_pass(User::binary(), Realm::binary(), Req::nksip_request:req()) ->
+    true | false | binary().
 
-get_user_pass(<<"anonymous">>, _, State) ->
-    {reply, <<>>, State};
-get_user_pass(_User, _Realm, State) ->
-    {reply, false, State}.
+get_user_pass(<<"anonymous">>, _, _Req) -> <<>>;
+get_user_pass(_User, _Realm, _Req) -> false.
 
 
 
@@ -282,7 +281,7 @@ get_user_pass(_User, _Realm, State) ->
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
 
 authorize(_AuthList, _Req) ->
-    {reply, ok}.
+    ok.
 
 
 %% @doc This function is called by NkSIP for every new request, to check if it must be 
@@ -404,10 +403,10 @@ route(_Scheme, _User, _Domain, _Req) ->
 %% If none is received, NkSIP will automatically stop the dialog.
 %%
 -spec invite(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 invite(_Req) ->
-    decline.
+    {reply, decline}.
 
 
 %% @doc This function is called when a new in-dialog INVITE request is received.
@@ -420,10 +419,10 @@ invite(_Req) ->
 %% called.
 %%
 -spec reinvite(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 reinvite(_Req) ->
-    decline.
+    {reply, decline}.
 
 
 %% @doc Called when a pending INVITE request is cancelled.
@@ -478,10 +477,10 @@ ack(_Req) ->
 %% (see {@link nksip_request} for details).
 %%
 -spec bye(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 bye(_Req) ->
-    ok.
+    {reply, ok}.
 
 
 %% @doc Called when a valid INFO request is received.
@@ -495,10 +494,10 @@ bye(_Req) ->
 %% (see {@link nksip_request} for details).
 %%
 -spec info(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 info(_Req) ->
-    ok.
+    {reply, ok}.
 
 
 %% @doc Called when a OPTIONS request is received.
@@ -516,10 +515,10 @@ info(_Req) ->
 %% (see {@link nksip_request} for details).
 %%
 -spec options(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 options(_Req) ->
-    {ok, [contact, allow, allow_event, accept, supported]}.
+    {reply, {ok, [contact, allow, allow_event, accept, supported]}}.
     
 
 %% @doc This function is called by NkSIP to process a new incoming REGISTER request. 
@@ -544,15 +543,15 @@ options(_Req) ->
 %% (for example to add some headers to the response).
 %%
 -spec register(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 register(Req) ->
     AppId = nksip_request:app_id(Req),
     case AppId:config_registrar() of
         true -> 
-            nksip_registrar:request(Req);
+            {reply, nksip_registrar:request(Req)};
         false -> 
-            {method_not_allowed, AppId:config_allow()}
+            {reply, {method_not_allowed, AppId:config_allow()}}
     end.
 
 
@@ -568,7 +567,7 @@ register(Req) ->
 %% and body (see {@link nksip_request} for details).
 %%
 -spec prack(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    ok.
 
 prack(_Req) ->
     ok.
@@ -589,10 +588,10 @@ prack(_Req) ->
 %% and body (see {@link nksip_request} for details).
 %%
 -spec update(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 update(_Req) ->
-    decline.
+    {reply, decline}.
 
 
 %% @doc This function is called by NkSIP to process a new incoming SUBSCRIBE
@@ -610,10 +609,10 @@ update(_Req) ->
 %% subscription_id and parsed_expires (see {@link nksip_request} for details).
 %%
 -spec subscribe(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 subscribe(_Req) ->
-    decline.
+    {reply, decline}.
 
 
 %% @doc This function is called by NkSIP to process a new in-subscription SUBSCRIBE
@@ -622,10 +621,10 @@ subscribe(_Req) ->
 %% You don't usually have to implement this function.
 %%
 -spec resubscribe(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 resubscribe(_Req) ->
-    decline.
+    {reply, decline}.
 
 
 %% @doc This function is called by NkSIP to process a new incoming NOTIFY
@@ -639,10 +638,10 @@ resubscribe(_Req) ->
 %% You should always return `ok'.
 %%
 -spec notify(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 notify(_Req) ->
-    ok.
+    {reply, ok}.
 
 
 %% @doc This function is called by NkSIP to process a new incoming MESSAGE
@@ -657,10 +656,10 @@ notify(_Req) ->
 %% Field `expired' will have `true' if the MESSAGE has already expired.
 %%
 -spec message(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 message(_Req) ->
-    decline.
+    {reply, decline}.
 
 
 %% @doc This function is called by NkSIP to process a new incoming REFER.
@@ -692,10 +691,10 @@ message(_Req) ->
 %%     {reply, ok, State}.
 %%
 -spec refer(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 refer(_Req) ->
-    decline.
+    {reply, decline}.
 
 
 %% @doc This function is called by NkSIP to process a new incoming PUBLISH request. 
@@ -708,10 +707,10 @@ refer(_Req) ->
 %% to process it according to RFC3903
 %%
 -spec publish(Req::nksip_request:req()) ->
-    nksip:sipreply().
+    {reply, nksip:sipreply()} | noreply.
 
 publish(_Req) ->
-    forbidden.
+    {reply, forbidden}.
 
 
 %% @doc Called when a dialog has changed its state.

@@ -474,7 +474,7 @@ send_2xx_ack(DialogId, Call) ->
 is_prack_retrans(Resp, UAC) ->
     #sipmsg{dialog_id=DialogId, cseq={CSeq, Method}} = Resp,
     #trans{pracks=PRAcks} = UAC,
-    case nksip_sipmsg:header(Resp, <<"rseq">>, integers) of
+    case nksip_sipmsg:header(<<"rseq">>, Resp, integers) of
         [RSeq] when is_integer(RSeq) ->
             lists:member({RSeq, CSeq, Method, DialogId}, PRAcks);
         _ ->
@@ -522,7 +522,7 @@ send_prack(Resp, Id, DialogId, Call) ->
     #sipmsg{cseq={CSeq, _}} = Resp,
     #call{trans=Trans} = Call,
     try
-        case nksip_sipmsg:header(Resp, <<"rseq">>, integers) of
+        case nksip_sipmsg:header(<<"rseq">>, Resp, integers) of
             [RSeq] when RSeq > 0 -> ok;
             _ -> RSeq = throw(invalid_rseq)
         end,

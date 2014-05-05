@@ -24,13 +24,22 @@
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, named_fields/2, header/2, header/3, supported/2, require/2]).
--export([is_dialog_forming/1, get_id/1, parse_id/1]).
+-export([meta/2, header/2, all_headers/1]).
+-export([supported/2, require/2, is_dialog_forming/1, get_id/1, parse_id/1]).
 -export_type([id/0]).
 -include("nksip.hrl").
 
 -type id() :: binary().
--type field() :: nksip_request:field() | nksip_response:field().
+
+-type field() ::  
+    id | internal_id | app_id | app_name | dialog_id | subscription_id |
+    proto | local | remote | method | ruri | scheme | user | domain | aor |
+    code | reason_phrase | content_type | body | call_id | vias | 
+    from | from_tag | from_scheme | from_user | from_domain | 
+    to | to_tag | to_scheme | to_user | to_domain | 
+    cseq_num | cseq_method | forwards | routes | contacts | require | supported | 
+    expires | event | realms | rseq_num | rack | 
+    {header, string()|binary()} | all_headers | string()|binary().
 
 
 
@@ -39,88 +48,79 @@
 %% ===================================================================
 
 
-%% @doc Extracts a specific field from a sipmsg.
+
+
+%% @doc Extracts a specific metadata from a request or response
 %% Valid fields are defined in {@link nksip_request:field()} and 
 %% {@link nksip_response:field()}.
--spec field(nksip:request() | nksip:response(), 
-            nksip_request:field() | nksip_response:field()) -> 
+-spec meta(field()|string()|binary(), nksip:request()|nksip:response()) ->
     term().
 
-field(#sipmsg{}=S, Field) ->
-    #sipmsg{class=Class, ruri=RUri, from={From, _}, to={To, _}, transport=T} = S,
-    case Field of
+meta(Name, SipMsg) when is_list(Name); is_binary(Name) ->
+    header(Name, SipMsg);
+
+meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
+    case Name of
         id -> get_id(S);
         internal_id -> S#sipmsg.id;
-        app_name -> apply(S#sipmsg.app_id, name, []);
         app_id -> S#sipmsg.app_id;
+        app_name -> apply(S#sipmsg.app_id, name, []);
         dialog_id -> nksip_dialog:get_id(S);
-        proto -> case T of #transport{proto=P} -> P; _ -> undefined end;
+        subscription_id -> nksip_subscription:get_id(S);
+        proto -> 
+            case S#sipmsg.transport of
+                #transport{proto=P} -> P; 
+                _ -> undefined 
+            end;
         local -> 
-            case T of 
+            case S#sipmsg.transport of 
                 #transport{proto=P, local_ip=Ip, local_port=Port, resource=Res} -> 
                     {P, Ip, Port, Res};
                 _ -> 
                     undefined
             end;
         remote -> 
-            case T of 
+            case S#sipmsg.transport of 
                 #transport{proto=P, remote_ip=Ip, remote_port=Port, resource=Res} -> 
                     {P, Ip, Port, Res};
                 _ -> 
                     undefined
             end;
         method -> case Class of {req, Method} -> Method; _ -> undefined end;
-        ruri -> nksip_unparse:uri(RUri);
-        ruri_scheme -> RUri#uri.scheme;
-        ruri_user -> RUri#uri.user;
-        ruri_domain -> RUri#uri.domain;
-        parsed_ruri -> S#sipmsg.ruri;
+        ruri -> S#sipmsg.ruri;
         scheme -> RUri#uri.scheme;
+        user -> RUri#uri.user;
+        domain -> RUri#uri.domain;
         aor -> {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain};
+        code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
+        reason_phrase -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
+        content_type -> S#sipmsg.content_type;
+        body -> S#sipmsg.body;
         call_id -> S#sipmsg.call_id;
-        vias -> [nksip_lib:to_binary(Via) || Via <- S#sipmsg.vias];
-        parsed_vias -> S#sipmsg.vias;
-        from -> nksip_unparse:uri(From);
-        from_scheme -> From#uri.scheme;
-        from_user -> From#uri.user;
-        from_domain -> From#uri.domain;
-        parsed_from -> From;
-        to -> nksip_unparse:uri(To);
-        to_scheme -> To#uri.scheme;
-        to_user -> To#uri.user;
-        to_domain -> To#uri.domain;
-        parsed_to -> To;
-        cseq -> 
-            #sipmsg{cseq={CSeqNum, Method}} = S,
-            <<(nksip_lib:to_binary(CSeqNum))/binary, 32, 
-              (nksip_lib:to_binary(Method))/binary>>;
-        parsed_cseq -> S#sipmsg.cseq;
+        vias -> S#sipmsg.vias;
+        from -> element(1, From);
+        from_tag -> element(2, From);
+        from_scheme -> (element(1, From))#uri.scheme;
+        from_user -> (element(1, From))#uri.user;
+        from_domain -> (element(1, From))#uri.domain;
+        to -> element(1, To);
+        to_tag -> element(2, To);
+        to_scheme -> (element(1, To))#uri.scheme;
+        to_user -> (element(1, To))#uri.user;
+        to_domain -> (element(1, To))#uri.domain;
         cseq_num -> element(1, S#sipmsg.cseq);
         cseq_method -> element(2, S#sipmsg.cseq);
         forwards -> S#sipmsg.forwards;
-        routes -> [nksip_lib:to_binary(Route) || Route <- S#sipmsg.routes];
-        parsed_routes -> S#sipmsg.routes;
-        contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
-        parsed_contacts -> S#sipmsg.contacts;
-        require -> nksip_lib:bjoin(S#sipmsg.require);
-        parsed_require -> S#sipmsg.require;
-        supported -> nksip_lib:bjoin(S#sipmsg.supported);
-        parsed_supported -> S#sipmsg.supported;
-        allow -> header(S, <<"allow">>);
-        body -> S#sipmsg.body;
-        expires -> nksip_lib:to_binary(S#sipmsg.expires);
-        parsed_expires -> S#sipmsg.expires;
-        event -> nksip_unparse:token(S#sipmsg.event);
-        parsed_event -> S#sipmsg.event;
-        all_headers -> all_headers(S);
-        code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
-        reason_phrase -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
+        routes -> S#sipmsg.routes;
+        contacts -> S#sipmsg.contacts;
+        require -> S#sipmsg.require;
+        supported -> S#sipmsg.supported;
+        expires -> S#sipmsg.expires;
+        event -> S#sipmsg.event;
         realms -> nksip_auth:realms(S);
         rseq_num -> 
             case header(S, <<"rseq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
-        content_type -> nksip_unparse:token(S#sipmsg.content_type);
-        parsed_content_type -> S#sipmsg.content_type;
-        parsed_rack ->
+        rack ->
             case header(S, <<"rack">>) of 
                 [RAck] ->
                     case nksip_lib:tokens(RAck) of
@@ -137,71 +137,78 @@ field(#sipmsg{}=S, Field) ->
                 
                     undefined
             end;
-        subscription_id -> nksip_subscription:get_id(S);
-        _ when is_binary(Field) -> header(S, Field);
-        {value, _Name, Value} -> Value;
+
+all_headers -> all_headers(S);
+        {header, Name} -> header(Name, S);
         _ -> invalid_field 
     end.
 
 
-
-%% @doc Extracts a group of fields from a #sipmsg.
--spec fields(nksip:request()|nksip:response(), [field()]) ->
-    [term()].
-
-fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
-    [field(SipMsg, Field) || Field <- Fields].
-
-
-%% @doc Extracts a group of fields from a #sipmsg.
--spec named_fields(nksip:request()|nksip:response(), [field()]) ->
-    [term()].
-
-named_fields(#sipmsg{}=SipMsg, Fields) when is_list(Fields) ->
-    [
-        {
-            case Field of 
-                {value, Name, _} -> Name;
-                _ -> Field
-            end,
-            field(SipMsg, Field)
-        } 
-        || Field <- Fields
-    ].
-
-
-%% @doc Extracts a header from a #sipmsg.
--spec header(nksip:request() | nksip:response(),
-                 binary() | string()) -> 
+%% @doc Extracts a header from a request or response
+-spec header(string()|binary(), nksip:request()|nksip:response()) ->
     [binary()].
 
-header(#sipmsg{headers=Headers}=SipMsg, Name) ->
-    case nksip_lib:to_binary(Name) of
-        <<"call-id">> -> [field(SipMsg, call_id)];
-        <<"via">> -> field(SipMsg, vias);
-        <<"from">> -> [field(SipMsg, from)];
-        <<"to">> -> [field(SipMsg, to)];
-        <<"cseq">> -> [field(SipMsg, cseq)];
-        <<"forwards">> -> [nksip_lib:to_binary(field(SipMsg, forwards))];
-        <<"route">> -> field(SipMsg, routes);
-        <<"contact">> -> field(SipMsg, contacts);
-        <<"content-type">> -> [field(SipMsg, content_type)];
-        <<"require">> -> case field(SipMsg, require) of <<>> -> []; R -> [R] end;
-        <<"supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> [S] end;
-        <<"expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> [E] end;
-        <<"event">> -> case field(SipMsg, event) of <<>> -> []; E -> [E] end;
-        Name1 -> 
+header(Name, SipMsg) when is_list(Name) ->
+    header(list_to_binary(Name), SipMsg);
+
+header(Name, S) ->
+    case Name of
+        <<"call-id">> -> 
+            S#sipmsg.call_id;
+        <<"via">> -> 
+            [nksip_lib:to_binary(Via) || Via <- S#sipmsg.vias];
+        <<"from">> -> 
+            [nksip_unparse:uri(element(1, S#sipmsg.from))];
+        <<"to">> -> 
+            [nksip_unparse:uri(element(1, S#sipmsg.to))];
+        <<"cseq">> ->
+            #sipmsg{cseq={CSeqNum, Method}} = S,
+            [<<(nksip_lib:to_binary(CSeqNum))/binary, 32, 
+              (nksip_lib:to_binary(Method))/binary>>];
+        <<"forwards">> -> 
+            [nksip_lib:to_binary(S#sipmsg.forwards)];
+        <<"route">> -> 
+            [nksip_lib:to_binary(Route) || Route <- S#sipmsg.routes];
+        <<"contact">> -> 
+            [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
+        <<"content-type">> -> 
+            case S#sipmsg.content_type of
+                undefined -> [];
+                ContentType -> [nksip_unparse:token(ContentType)]
+            end;
+        <<"require">> -> 
+            case S#sipmsg.require of
+                [] -> [];
+                Require -> [nksip_lib:bjoin(Require)]
+            end;
+        <<"supported">> -> 
+            case S#sipmsg.supported of
+                [] -> [];
+                Supported -> [nksip_lib:bjoin(Supported)]
+            end;
+        <<"expires">> -> 
+            case S#sipmsg.expires of
+                undefined -> [];
+                Expires -> [nksip_lib:to_binary(Expires)]
+            end;
+        <<"event">> -> 
+            case S#sipmsg.event of
+                undefined -> [];
+                Event -> [nksip_unparse:token(Event)]
+            end;
+        _ -> 
             [nksip_unparse:header(Value) || 
-                Value <- proplists:get_all_values(Name1, Headers)]
+                Value <- proplists:get_all_values(Name, S#sipmsg.headers)]
     end.
 
 
-%% @doc Extracts a header from a #sipmsg and formats it.
--spec header(nksip:request() | nksip:response(), binary(), uris|tokens|integers|dates) ->
+%% @doc Extracts a header from a request or response and formats it.
+-spec header(string()|binary(), nksip:request()|nksip:response(), 
+             uris|tokens|integers|dates) ->
     [term()] | error.
 
-header(#sipmsg{}=SipMsg, Name, Type) ->
-    Raw = header(SipMsg, Name),
+header(Name, #sipmsg{}=SipMsg, Type) ->
+    Raw = header(Name, SipMsg),
     case Type of
         uris -> nksip_parse:uris(Raw);
         tokens -> nksip_parse:tokens(Raw);
@@ -213,56 +220,57 @@ header(#sipmsg{}=SipMsg, Name, Type) ->
 %% @private
 all_headers(SipMsg) ->
     lists:flatten([
-        {<<"call-id">>, [field(SipMsg, call_id)]},
-        {<<"via">>, field(SipMsg, vias)},
-        {<<"from">>, [field(SipMsg, from)]},
-        {<<"to">>, [field(SipMsg, to)]},
-        {<<"cseq">>, [field(SipMsg, cseq)]},
-        {<<"forwards">>, [nksip_lib:to_binary(field(SipMsg, forwards))]},
-        case field(SipMsg, routes) of
+        {<<"call-id">>, header(<<"call-id">>, SipMsg)},
+        {<<"via">>, header(<<"via">>, SipMsg)},
+        {<<"from">>, header(<<"from">>, SipMsg)},
+        {<<"to">>, header(<<"to">>, SipMsg)},
+        {<<"cseq">>, header(<<"cseq">>, SipMsg)},
+        {<<"forwards">>, header(<<"forwards">>, SipMsg)},
+        case SipMsg#sipmsg.routes of
             [] -> [];
-            Routes -> {<<"route">>, Routes}
+            _ -> {<<"route">>, header(<<"route">>, SipMsg)}
         end,
-        case field(SipMsg, contacts) of
+        case SipMsg#sipmsg.contacts of
             [] -> [];
-            Contacts -> {<<"contact">>, Contacts}
+            _ -> {<<"contact">>, header(<<"contact">>, SipMsg)}
         end,
-        case field(SipMsg, content_type) of
-            <<>> -> [];
-            ContentType -> {<<"content-type">>, ContentType}
+        case SipMsg#sipmsg.content_type of
+            undefined -> [];
+            _ -> {<<"content-type">>, header(<<"content-type">>, SipMsg)}
         end,
-        case field(SipMsg, require) of
-            <<>> -> [];
-            Require -> {<<"require">>, Require}
+        case SipMsg#sipmsg.require of
+            [] -> [];
+            _ -> {<<"require">>, header(<<"require">>, SipMsg)}
         end,
-        case field(SipMsg, supported) of
+        case SipMsg#sipmsg.supported of
             <<>> -> [];
-            Supported -> {<<"supported">>, Supported}
+            _ -> {<<"supported">>, header(<<"supported">>, SipMsg)}
         end,
-        case field(SipMsg, expires) of
-            <<>> -> [];
-            Expires -> {<<"expires">>, Expires}
+        case SipMsg#sipmsg.expires of
+            undefined -> [];
+            _ -> {<<"expires">>, header(<<"expires">>, SipMsg)}
         end,
-        case field(SipMsg, event) of
-            <<>> -> [];
-            Event -> {<<"event">>, Event}
+        case SipMsg#sipmsg.event of
+            undefined -> [];
+            _ -> {<<"event">>, header(<<"event">>, SipMsg)}
         end,
         SipMsg#sipmsg.headers
     ]).
 
+
 %% @doc Checks if a token is in Supported header
--spec supported(nksip:request()|nksip:response(), binary()) ->
+-spec supported(binary(), nksip:request()|nksip:response()) ->
     boolean().
 
-supported(#sipmsg{supported=Supported}, Token) ->
+supported(Token, #sipmsg{supported=Supported}) ->
     lists:member(Token, Supported).
 
 
 %% @doc Checks if a token is in Require header
--spec require(nksip:request()|nksip:response(), binary()) ->
+-spec require(binary(), nksip:request()|nksip:response()) ->
     boolean().
 
-require(#sipmsg{require=Require}, Token) ->
+require(Token, #sipmsg{require=Require}) ->
     lists:member(Token, Require).
 
 
@@ -310,6 +318,143 @@ parse_id(Bin) ->
     end,
     {Class, binary_to_existing_atom(App, latin1), Id, CallId}.
 
+
+
+
+
+
+
+
+% %% @doc Extracts a specific field from a sipmsg.
+% %% Valid fields are defined in {@link nksip_request:field()} and 
+% %% {@link nksip_response:field()}.
+% -spec field(nksip:request() | nksip:response(), 
+%             nksip_request:field() | nksip_response:field()) -> 
+%     term().
+
+% field(#sipmsg{}=S, Field) ->
+%     #sipmsg{class=Class, ruri=RUri, from={From, _}, to={To, _}, transport=T} = S,
+%     case Field of
+%         id -> get_id(S);
+%         internal_id -> S#sipmsg.id;
+%         app_name -> apply(S#sipmsg.app_id, name, []);
+%         app_id -> S#sipmsg.app_id;
+%         dialog_id -> nksip_dialog:get_id(S);
+%         proto -> case T of #transport{proto=P} -> P; _ -> undefined end;
+%         local -> 
+%             case T of 
+%                 #transport{proto=P, local_ip=Ip, local_port=Port, resource=Res} -> 
+%                     {P, Ip, Port, Res};
+%                 _ -> 
+%                     undefined
+%             end;
+%         remote -> 
+%             case T of 
+%                 #transport{proto=P, remote_ip=Ip, remote_port=Port, resource=Res} -> 
+%                     {P, Ip, Port, Res};
+%                 _ -> 
+%                     undefined
+%             end;
+%         method -> case Class of {req, Method} -> Method; _ -> undefined end;
+%         ruri -> nksip_unparse:uri(RUri);
+%         ruri_scheme -> RUri#uri.scheme;
+%         ruri_user -> RUri#uri.user;
+%         ruri_domain -> RUri#uri.domain;
+%         parsed_ruri -> S#sipmsg.ruri;
+%         scheme -> RUri#uri.scheme;
+%         aor -> {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain};
+%         call_id -> S#sipmsg.call_id;
+%         vias -> [nksip_lib:to_binary(Via) || Via <- S#sipmsg.vias];
+%         parsed_vias -> S#sipmsg.vias;
+%         from -> nksip_unparse:uri(From);
+%         from_scheme -> From#uri.scheme;
+%         from_user -> From#uri.user;
+%         from_domain -> From#uri.domain;
+%         parsed_from -> From;
+%         to -> nksip_unparse:uri(To);
+%         to_scheme -> To#uri.scheme;
+%         to_user -> To#uri.user;
+%         to_domain -> To#uri.domain;
+%         parsed_to -> To;
+%         cseq -> 
+%             #sipmsg{cseq={CSeqNum, Method}} = S,
+%             <<(nksip_lib:to_binary(CSeqNum))/binary, 32, 
+%               (nksip_lib:to_binary(Method))/binary>>;
+%         parsed_cseq -> S#sipmsg.cseq;
+%         cseq_num -> element(1, S#sipmsg.cseq);
+%         cseq_method -> element(2, S#sipmsg.cseq);
+%         forwards -> S#sipmsg.forwards;
+%         routes -> [nksip_lib:to_binary(Route) || Route <- S#sipmsg.routes];
+%         parsed_routes -> S#sipmsg.routes;
+%         contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
+%         parsed_contacts -> S#sipmsg.contacts;
+%         require -> nksip_lib:bjoin(S#sipmsg.require);
+%         parsed_require -> S#sipmsg.require;
+%         supported -> nksip_lib:bjoin(S#sipmsg.supported);
+%         parsed_supported -> S#sipmsg.supported;
+%         allow -> header(S, <<"allow">>);
+%         body -> S#sipmsg.body;
+%         expires -> nksip_lib:to_binary(S#sipmsg.expires);
+%         parsed_expires -> S#sipmsg.expires;
+%         event -> nksip_unparse:token(S#sipmsg.event);
+%         parsed_event -> S#sipmsg.event;
+%         all_headers -> all_headers(S);
+%         code -> case Class of {resp, Code, _Reason} -> Code; _ -> 0 end;
+%         reason_phrase -> case Class of {resp, _Code, Reason} -> Reason; _ -> <<>> end;
+%         realms -> nksip_auth:realms(S);
+%         rseq_num -> 
+%             case header(S, <<"rseq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
+%         content_type -> nksip_unparse:token(S#sipmsg.content_type);
+%         parsed_content_type -> S#sipmsg.content_type;
+%         parsed_rack ->
+%             case header(S, <<"rack">>) of 
+%                 [RAck] ->
+%                     case nksip_lib:tokens(RAck) of
+%                         [RSeq, CSeq, Method] ->
+%                             {
+%                                 nksip_lib:to_integer(RSeq),
+%                                 nksip_lib:to_integer(CSeq),
+%                                 nksip_parse:method(Method)
+%                             };
+%                         _ ->
+%                             undefined
+%                     end;
+%                 _ ->
+                
+%                     undefined
+%             end;
+%         subscription_id -> nksip_subscription:get_id(S);
+%         _ when is_binary(Field) -> header(S, Field);
+%         {value, _Name, Value} -> Value;
+%         _ -> invalid_field 
+%     end.
+
+
+
+% %% @doc Extracts a header from a #sipmsg.
+% -spec header(nksip:request() | nksip:response(),
+%                  binary() | string()) -> 
+%     [binary()].
+
+% header(#sipmsg{headers=Headers}=SipMsg, Name) ->
+%     case nksip_lib:to_binary(Name) of
+%         <<"call-id">> -> [field(SipMsg, call_id)];
+%         <<"via">> -> field(SipMsg, vias);
+%         <<"from">> -> [field(SipMsg, from)];
+%         <<"to">> -> [field(SipMsg, to)];
+%         <<"cseq">> -> [field(SipMsg, cseq)];
+%         <<"forwards">> -> [nksip_lib:to_binary(field(SipMsg, forwards))];
+%         <<"route">> -> field(SipMsg, routes);
+%         <<"contact">> -> field(SipMsg, contacts);
+%         <<"content-type">> -> [field(SipMsg, content_type)];
+%         <<"require">> -> case field(SipMsg, require) of <<>> -> []; R -> [R] end;
+%         <<"supported">> -> case field(SipMsg, supported) of <<>> -> []; S -> [S] end;
+%         <<"expires">> -> case field(SipMsg, expires) of <<>> -> []; E -> [E] end;
+%         <<"event">> -> case field(SipMsg, event) of <<>> -> []; E -> [E] end;
+%         Name1 -> 
+%             [nksip_unparse:header(Value) || 
+%                 Value <- proplists:get_all_values(Name1, Headers)]
+%     end.
 
 
 

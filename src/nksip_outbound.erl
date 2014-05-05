@@ -41,7 +41,7 @@ make_contact(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Contact, Opts) 
     {ok, UUID} = nksip:get_uuid(AppId),
     CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
     case 
-        nksip_sipmsg:supported(Req, <<"outbound">>) andalso 
+        nksip_sipmsg:supported(<<"outbound">>, Req) andalso 
         nksip_lib:get_integer(reg_id, Opts)
     of
         RegId when is_integer(RegId), RegId>0 -> 
@@ -54,7 +54,7 @@ make_contact(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Contact, Opts) 
 % 'ob' parameter means we want to use the same flow for in-dialog requests
 make_contact(Req, Contact, _Opts) ->
     case 
-        nksip_sipmsg:supported(Req, <<"outbound">>) 
+        nksip_sipmsg:supported(<<"outbound">>, Req) 
         andalso nksip_sipmsg:is_dialog_forming(Req)
     of
         true ->
@@ -81,7 +81,7 @@ proxy_opts(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
     Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
     Opts1 = case 
         lists:member(path, Opts) andalso
-        nksip_sipmsg:supported(Req, <<"path">>) andalso 
+        nksip_sipmsg:supported(<<"path">>, Req) andalso 
         lists:member(<<"outbound">>, Supported) andalso
         Contacts
     of
@@ -109,7 +109,7 @@ proxy_opts(Req, Opts) ->
     #sipmsg{app_id=AppId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
     Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
     case 
-        nksip_sipmsg:supported(Req, <<"outbound">>) andalso 
+        nksip_sipmsg:supported(<<"outbound">>, Req) andalso 
         lists:member(<<"outbound">>, Supported)
     of
         true ->
@@ -205,7 +205,7 @@ registrar(Req, Opts) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
     case 
         lists:member(<<"outbound">>, AppId:config_supported()) andalso
-        nksip_sipmsg:supported(Req, <<"outbound">>)
+        nksip_sipmsg:supported(<<"outbound">>, Req)
     of
         true when length(Vias)==1 ->     % We are the first host
             #transport{
@@ -228,7 +228,7 @@ registrar(Req, Opts) ->
                     {ok, Req, [{registrar_outbound, false}|Opts]}
             end;
         true ->
-            case nksip_sipmsg:header(Req, <<"path">>, uris) of
+            case nksip_sipmsg:header(<<"path">>, Req, uris) of
                 error ->
                     {error, {invalid_request, <<"Invalid Path">>}};
                 [] ->

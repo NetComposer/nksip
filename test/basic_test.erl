@@ -30,17 +30,17 @@
 -compile([export_all]).
 
 
-% basic_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun running/0}, 
-%             {timeout, 60, fun transport/0}, 
-%             {timeout, 60, fun cast_info/0}, 
-%             {timeout, 60, fun stun/0}
-%         ]
-%     }.
+basic_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun running/0}, 
+            {timeout, 60, fun transport/0}, 
+            {timeout, 60, fun cast_info/0}, 
+            {timeout, 60, fun stun/0}
+        ]
+    }.
 
 
 start() ->
@@ -117,10 +117,9 @@ transport() ->
 
     % Req1 is the request as received at the remote party
     Req1 = binary_to_term(base64:decode(RespBody)),
-    [<<"My SIP">>] = nksip_sipmsg:header(Req1, <<"user-agent">>),
-    [<<"<sip:aaa:123>">>,<<"<sips:bbb:321>">>] = 
-        nksip_sipmsg:header(Req1, <<"contact">>),
-    Body = nksip_sipmsg:field(Req1, body),
+    [<<"My SIP">>] = nksip_sipmsg:header(<<"user-agent">>, Req1),
+    [<<"<sip:aaa:123>">>,<<"<sips:bbb:321>">>] = nksip_sipmsg:header(<<"contact">>, Req1),
+    Body = nksip_sipmsg:meta(body, Req1),
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
     Fields2 = {meta, [parsed_contacts, remote]},
@@ -150,7 +149,7 @@ transport() ->
     {ok, 200, Values4} = nksip_uac:options(client2, "sip:127.0.0.1", Opts4),
     [{body, RespBody4}, {remote, {tcp, _, _, _}}] = Values4,
     Req4 = binary_to_term(base64:decode(RespBody4)),
-    BigBodyHash = erlang:phash2(nksip_sipmsg:field(Req4, body)),
+    BigBodyHash = erlang:phash2(nksip_sipmsg:meta(body, Req4)),
 
     % Check local_host is used to generare local Contact, Route headers are received
     Opts5 = [
@@ -170,7 +169,7 @@ transport() ->
             #uri{domain=(<<"aaa">>), port=0, opts=[<<"lr">>]},
             #uri{domain=(<<"bbb">>), port=123, opts=[<<"lr">>]}
         ]
-    ] = nksip_sipmsg:fields(Req5, [parsed_contacts, parsed_routes]),
+    ] = nksip_sipmsg:meta([contacts, routes], Req5),
 
     {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
                                 [{add, "x-nk-op", "reply-stateless"}]),
@@ -187,19 +186,21 @@ transport() ->
 
 
 cast_info() ->
-    % Direct calls to SipApp's core processsipappº
+    % Direct calls to SipApp's core processing app
+    {ok, S1} = nksip:find_app(server1),
     Pid = nksip:get_pid(server1),
     true = is_pid(Pid),
+    Pid = whereis(S1),
     not_found = nksip:get_pid(other),
 
-    {ok, server1, Domains} = nksip:call(server1, get_domains),
-    {ok, server1} = nksip:call(server1, {set_domains, [<<"test">>]}),
-    {ok, server1, [<<"test">>]} = nksip:call(server1, get_domains),
-    {ok, server1} = nksip:call(server1, {set_domains, Domains}),
-    {ok, server1, Domains} = nksip:call(server1, get_domains),
+    {ok, server1, Domains} = gen_server:call(S1, get_domains),
+    {ok, server1} = gen_server:call(S1, {set_domains, [<<"test">>]}),
+    {ok, server1, [<<"test">>]} = gen_server:call(S1, get_domains),
+    {ok, server1} = gen_server:call(S1, {set_domains, Domains}),
+    {ok, server1, Domains} = gen_server:call(S1, get_domains),
     Ref = make_ref(),
     Self = self(),
-    nksip:cast(server1, {cast_test, Ref, Self}),
+    gen_server:cast(S1, {cast_test, Ref, Self}),
     Pid ! {info_test, Ref, Self},
     ok = tests_util:wait(Ref, [{cast_test, server1}, {info_test, server1}]).
 
@@ -237,7 +238,7 @@ route(Scheme, User, Domain, Req) ->
             ],
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
-                    case nksip_request:header(Req, <<"x-nk-op">>) of
+                    case nksip_request:header(<<"x-nk-op">>, Req) of
                         [<<"reply-request">>] ->
                             {user_req, #trans{request=SipMsg}, _Call} = Req,
                             Body = base64:encode(term_to_binary(SipMsg)),

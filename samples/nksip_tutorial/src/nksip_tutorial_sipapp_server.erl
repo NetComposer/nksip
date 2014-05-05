@@ -53,10 +53,8 @@ init([Id]) ->
 %% If the incoming user's realm is "nksip", the password for any user is "1234". 
 %% For other realms, no password is valid.
 %%
-get_user_pass(_User, <<"nksip">>, State) -> 
-    {reply, <<"1234">>, State};
-get_user_pass(_User, _Realm, State) -> 
-    {reply, false, State}.
+get_user_pass(_User, <<"nksip">>, _Req) -> <<"1234">>;
+get_user_pass(_User, _Realm, _Req) -> false.
 
 
 %% @doc Called to check if a request should be authorized.

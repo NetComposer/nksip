@@ -194,7 +194,7 @@ notify(_ReqId, Meta, _From, AppId=State) ->
 invite(ReqId, _Meta, From, State) ->
     spawn(
         fun() ->
-            nksip_request:reply(ReqId, 180),
+            nksip_request:reply(180, ReqId),
             timer:sleep(1000),
             nksip:reply(From, ok)
         end),
