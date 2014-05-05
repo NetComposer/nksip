@@ -142,12 +142,12 @@ response_status(invite_calling, Resp, UAC, Call) ->
     UAC2 = nksip_call_lib:retrans_timer(cancel, UAC1, Call),
     response_status(invite_proceeding, Resp, UAC2, Call);
 
-response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) 
+response_status(invite_proceeding, _Resp, #trans{code=Code}=UAC, Call) 
                    when Code < 200 ->
     #trans{cancel=Cancel} = UAC,
     % Add another 3 minutes
     UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
-    Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC1, Call),
+    Call1 = nksip_call_uac_reply:reply(resp, UAC1, Call),
     case Cancel of
         to_cancel -> nksip_call_uac:cancel(UAC1, undefined, update(UAC1, Call1));
         _ -> update(UAC1, Call1)
@@ -160,7 +160,7 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call)
 response_status(invite_proceeding, Resp, #trans{code=Code, opts=Opts}=UAC, Call) 
                    when Code < 300 ->
     #sipmsg{to={_, ToTag}, dialog_id=DialogId} = Resp,
-    Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
+    Call1 = nksip_call_uac_reply:reply(resp, UAC, Call),
     UAC1 = UAC#trans{
         cancel = undefined,
         status = invite_accepted, 
@@ -177,8 +177,8 @@ response_status(invite_proceeding, Resp, #trans{code=Code, opts=Opts}=UAC, Call)
 
 
 % Final [3456]xx response received, own error response
-response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
-    Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
+response_status(invite_proceeding, #sipmsg{transport=undefined}, UAC, Call) ->
+    Call1 = nksip_call_uac_reply:reply(resp, UAC, Call),
     UAC1 = UAC#trans{status=finished, cancel=undefined},
     UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
     UAC3 = nksip_call_lib:expire_timer(cancel, UAC2, Call),
@@ -245,13 +245,13 @@ response_status(trying, Resp, UAC, Call) ->
     UAC2 = nksip_call_lib:retrans_timer(cancel, UAC1, Call),
     response_status(proceeding, Resp, UAC2, Call);
 
-response_status(proceeding, #sipmsg{class={resp, Code, _Reason}}=Resp, UAC, Call) 
+response_status(proceeding, #sipmsg{class={resp, Code, _Reason}}, UAC, Call) 
                    when Code < 200 ->
-    nksip_call_uac_reply:reply({resp, Resp}, UAC, Call);
+    nksip_call_uac_reply:reply(resp, UAC, Call);
 
 % Final response received, own error response
-response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
-    Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
+response_status(proceeding, #sipmsg{transport=undefined}, UAC, Call) ->
+    Call1 = nksip_call_uac_reply:reply(resp, UAC, Call),
     UAC1 = UAC#trans{status=finished},
     UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
     update(UAC2, Call1);
@@ -436,8 +436,8 @@ received_422(Req, Resp, UAC, Call) ->
 -spec received_reply(nksip:response(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-received_reply(Resp, UAC, Call) ->
-    nksip_call_uac_reply:reply({resp, Resp}, UAC, Call) .
+received_reply(_Resp, UAC, Call) ->
+    nksip_call_uac_reply:reply(resp, UAC, Call) .
 
 
 %% @private

@@ -206,17 +206,16 @@ send(UAC, Call) ->
 sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
     #trans{id=Id, opts=Opts} = UAC,
     ?call_debug("UAC ~p sent 'ACK' request", [Id]),
-    Call1 = nksip_call_uac_reply:reply({req, Req}, UAC, Call),
-    Call2 = case lists:member(no_dialog, Opts) of
-        true -> Call1;
-        false -> nksip_call_uac_dialog:ack(Req, Call1)
-    end,
     UAC1 = UAC#trans{
         status = finished, 
         request = Req,
         trans_id = nksip_call_uac:transaction_id(Req)
     },
-    update(UAC1, Call2);
+    Call1 = nksip_call_uac_reply:reply(req, UAC1, update(UAC1, Call)),
+    case lists:member(no_dialog, Opts) of
+        true -> Call1;
+        false -> nksip_call_uac_dialog:ack(Req, Call1)
+    end;
 
 sent_request(Req, UAC, Call) ->
     #sipmsg{
@@ -238,7 +237,7 @@ sent_request(Req, UAC, Call) ->
         false when ToTag == <<>> -> Call1;
         false -> nksip_call_uac_dialog:request(Req, IsProxy, Call1)
     end,
-    Call3 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call2),
+    Call3 = nksip_call_uac_reply:reply(req, UAC1, Call2),
     sent_update(Req, UAC1, Call3).
 
 
