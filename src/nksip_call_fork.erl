@@ -169,7 +169,7 @@ response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
     case lists:keyfind(Id, #fork.id, Forks) of
         #fork{pending=Pending, uacs=UACs, method=Method}=Fork ->
             ?call_debug("Fork ~p ~p received ~p (~p, ~s)", 
-                        [Id, Method, Code, Pos, ToTag]),
+                        Id, Method, Code, Pos, ToTag]),
             Resp1 = Resp#sipmsg{vias=Vias},
             case lists:member(Pos, Pending) of
                 true ->

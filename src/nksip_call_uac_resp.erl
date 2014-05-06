@@ -142,8 +142,7 @@ response_status(invite_calling, Resp, UAC, Call) ->
     UAC2 = nksip_call_lib:retrans_timer(cancel, UAC1, Call),
     response_status(invite_proceeding, Resp, UAC2, Call);
 
-response_status(invite_proceeding, _Resp, #trans{code=Code}=UAC, Call) 
-                   when Code < 200 ->
+response_status(invite_proceeding, _Resp, #trans{code=Code}=UAC, Call) when Code < 200 ->
     #trans{cancel=Cancel} = UAC,
     % Add another 3 minutes
     UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
@@ -436,8 +435,13 @@ received_422(Req, Resp, UAC, Call) ->
 -spec received_reply(nksip:response(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-received_reply(_Resp, UAC, Call) ->
-    nksip_call_uac_reply:reply(resp, UAC, Call) .
+received_reply(Resp, UAC, Call) ->
+    % Response could be already deleted from UAC, but we need it for reply
+    UAC1 = case UAC#trans.response of
+        #sipmsg{} -> UAC;
+        _ -> UAC#trans{response=Resp}
+    end,
+    nksip_call_uac_reply:reply(resp, UAC1, Call) .
 
 
 %% @private

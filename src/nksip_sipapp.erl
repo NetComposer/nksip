@@ -277,7 +277,8 @@ get_user_pass(_User, _Realm, _Req) -> false.
 %% If you don't define this function all requests will be authenticated.
 %%
 -spec authorize(AuthList, Req::nksip_request:req()) ->
-    ok | authenticate | proxy_authenticate | forbidden
+    ok | forbidden | authenticate | {authenticate, Realm::binary()} |
+    proxy_authenticate | {proxy_authenticate, Realm::binary()}
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
 
 authorize(_AuthList, _Req) ->
@@ -366,8 +367,8 @@ authorize(_AuthList, _Req) ->
     proxy | {proxy, ruri | nksip:uri_set()} | 
     {proxy, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
     process | {process, nksip_lib:optslist()} |
-    {response, nksip:sipreply()} | 
-    {response, nksip:sipreply(), nksip_lib:optslist()}.
+    {reply, nksip:sipreply()} | 
+    {reply, nksip:sipreply(), nksip_lib:optslist()}.
 
 -spec route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
             Req::nksip_request:req()) ->

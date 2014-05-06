@@ -132,6 +132,7 @@ get_authentication(Req, PassFun) ->
 make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     #sipmsg{
         class = {req, Method},
+        app_id = AppId,
         ruri = RUri, 
         from = {#uri{user=User}, _},
         headers = ReqHeaders
@@ -159,11 +160,12 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
             true -> throw(unknown_nonce);
             false -> ok
         end,
-        case get_passes(Opts, []) of
+        Opts1 = nksip_lib:extract(Opts++AppId:config(), [pass, passes]),
+        case get_passes(Opts1, []) of
             [] -> 
-                Opts1 = throw(no_pass);
+                ReqOpts = throw(no_pass);
             Passes ->
-                Opts1 = [
+                ReqOpts = [
                     {method, Method}, 
                     {ruri, RUri}, 
                     {user, nksip_lib:get_binary(user, Opts, User)}, 
@@ -171,7 +173,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
                     | Opts
                 ]
         end,
-        case make_auth_request(AuthHeaderData, Opts1) of
+        case make_auth_request(AuthHeaderData, ReqOpts) of
             error -> 
                 throw(invalid_auth_header);
             {ok, ReqData} ->

@@ -44,6 +44,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -export([find/2, find/4, qfind/2, qfind/4, get_info/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
@@ -234,8 +235,11 @@ is_registered(#sipmsg{
 %% If the request is successful, a 200-code `nksip:sipreply()' is returned,
 %% including one or more <i>Contact</i> headers (for all of the current registered
 %% contacts), <i>Date</i> and <i>Allow</i> headers.
--spec request(nksip:request()) ->
+-spec request(nksip:request()|nksip_request:req()) ->
     nksip:sipreply().
+
+request({user_req, #trans{request=Req}, _Call}) ->
+    request(Req);
 
 request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
     try

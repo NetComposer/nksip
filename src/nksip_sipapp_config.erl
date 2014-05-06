@@ -116,7 +116,21 @@ parse_opts([Term|Rest], Opts) ->
                 Uris -> [{route, Uris}|Opts]
             end;
         {pass, Pass} ->
-            [{pass, Pass}|Opts];
+            Pass1 = case Pass of
+                _ when is_list(Pass) -> 
+                    list_to_binary(Pass);
+                _ when is_binary(Pass) -> 
+                    Pass;
+                {Pass0, Realm0} when 
+                    (is_list(Pass0) orelse is_binary(Pass0)) andalso
+                    (is_list(Realm0) orelse is_binary(Realm0)) ->
+                    {nksip_lib:to_binary(Pass0), nksip_lib:to_binary(Realm0)};
+                _ ->
+                    throw({invalid_pass})
+            end,
+            OldPass = nksip_lib:get_value(passes, Opts, []),
+            NewPass = OldPass++[Pass1],
+            nksip_lib:store_value(passes, NewPass, Opts);
         {local_host, Host} ->
             [{local_host, nksip_lib:to_host(Host)}|Opts];
         {local_host6, Host} ->

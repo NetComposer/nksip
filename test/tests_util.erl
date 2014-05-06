@@ -23,7 +23,7 @@
 -module(tests_util).
 
 -export([start_nksip/0, empty/0, wait/2, log/0, log/1]).
--export([get_ref/0, save_ref/3, update_ref/3, send_ref/3, dialog_update/3, session_update/3]).
+-export([get_ref/0, save_ref/1, update_ref/3, send_ref/2, dialog_update/3, session_update/3]).
 
 -define(LOG_LEVEL, warning).    % debug, info, notice, warning, error
 -define(WAIT_TIMEOUT, 10000).
@@ -72,12 +72,13 @@ get_ref() ->
     {Ref, Hd}.
 
 
-save_ref(AppId, ReqId, Meta) ->
-    case nksip_request:header(<<"x-nk-reply">>, ReqId) of
+save_ref(Req) ->
+    case nksip_request:header(<<"x-nk-reply">>, Req) of
         [RepBin] -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
+            AppId = nksip_request:app_id(Req),
             {ok, Dialogs} = nksip:get(AppId, dialogs, []),
-            DialogId = nksip_lib:get_value(dialog_id, Meta),
+            DialogId = nksip_request:dialog_id(Req),
             ok = nksip:put(AppId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
         _ ->
             ok
@@ -89,13 +90,14 @@ update_ref(AppId, Ref, DialogId) ->
     ok = nksip:put(AppId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
 
 
-send_ref(AppId, Meta, Msg) ->
-    DialogId = nksip_lib:get_value(dialog_id, Meta),
+send_ref(Msg, Req) ->
+    DialogId = nksip_request:dialog_id(Req),
+    AppId = nksip_request:app_id(Req),
     {ok, Dialogs} = nksip:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
             % lager:warning("FOUND ~p, ~p", [AppId, D]),
-            Pid ! {Ref, {AppId, Msg}};
+            Pid ! {Ref, {AppId:name(), Msg}};
         false ->
             % lager:warning("NOT FOUND: ~p", [AppId]),
             ok

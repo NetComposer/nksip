@@ -24,7 +24,7 @@
 -module(nksip_sipmsg).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([meta/2, header/2, all_headers/1]).
+-export([meta/2, header/2, header/3, all_headers/1]).
 -export([supported/2, require/2, is_dialog_forming/1, get_id/1, parse_id/1]).
 -export_type([id/0]).
 -include("nksip.hrl").

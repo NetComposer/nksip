@@ -122,7 +122,7 @@ is_cancel(_, _) ->
     nksip_call:call().
 
 authorize_launch(UAS, #call{app_id=AppId}=Call) ->
-    case erlang:function_exported(AppId, authorize, 3) of
+    case erlang:function_exported(AppId, authorize, 2) of
         true ->
             Args = [authorize_data(UAS, Call), {user_req, UAS, Call}],
             case nksip_callbacks:app_call(authorize, Args, AppId) of
@@ -170,13 +170,13 @@ authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
     #sipmsg{dialog_id=DialogId, to={_, ToTag}} = Req,
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply]),
     case Reply of
-        _ when Reply==ok; Reply==true ->
+        ok ->
             Call1 = case ToTag of
                 <<>> -> Call;
                 _ -> nksip_call_lib:update_auth(DialogId, Req, Call)
             end,
             route_launch(UAS, Call1);
-        false -> 
+        forbidden -> 
             reply(forbidden, UAS, Call);
         authenticate -> 
             reply(authenticate, UAS, Call);
@@ -187,7 +187,8 @@ authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
         {proxy_authenticate, Realm} -> 
             reply({proxy_authenticate, Realm}, UAS, Call);
         Other -> 
-            reply(Other, UAS, Call)
+            ?call_warning("Invalid response calling authenticate/2: ~p", [Other]),
+            reply({internal_error, "SipApp Response"}, UAS, Call)
     end;
 
 % Request has been already answered (i.e. cancelled)

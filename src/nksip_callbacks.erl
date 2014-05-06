@@ -38,6 +38,8 @@ app_call(Fun, Args, AppId) ->
 	        ?call_error("Error calling callback ~p: ~p", [Fun, Error]),
 	        error;
 	    Reply ->
+	    	?call_warning("Called ~p/~p (~p): ~p", [Fun, length(Args), Args, Reply]),
+	    	% ?call_warning("Called ~p/~p: ~p", [Fun, length(Args), Reply]),
 	        {ok, Reply}
 	end.
 
@@ -48,7 +50,7 @@ app_method(#trans{method='ACK'}=UAS, #call{app_id=AppId}=Call) ->
 		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
-	Call;
+	noreply;
 
 app_method(#trans{method=Method, request=Req}=UAS, #call{app_id=AppId}=Call) ->
 	#sipmsg{to={_, ToTag}} = Req,

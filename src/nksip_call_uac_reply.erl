@@ -40,20 +40,23 @@ reply(req, #trans{from={srv, From}, method='ACK', opts=Opts}=UAC, Call) ->
     Async = lists:member(async, Opts),
     Get = lists:member(get_request, Opts),
     CB = nksip_lib:get_value(callback, Opts),
-    if
-        Async, Get, is_function(CB, 1) -> CB({user_req, UAC, Call});
-        Async, is_function(CB, 1) -> CB(ok);
-        Async -> ok;
-        true -> gen_server:reply(From, ok)
+    case Get andalso is_function(CB, 1) of
+        true -> call(CB, {req, {user_req, UAC, Call}});
+        false -> ok
+    end,
+    case Async of
+        true when is_function(CB, 1), not Get -> call(CB, ok);
+        true -> ok;
+        false -> gen_server:reply(From, ok)
     end,
     Call;
 
 reply(req, #trans{from={srv, _From}, opts=Opts}=UAC, Call) ->
     Get = lists:member(get_request, Opts),
     CB = nksip_lib:get_value(callback, Opts),
-    if
-        Get, is_function(CB, 1) -> CB({user_req, UAC, Call});
-        true ->  ok
+    case Get andalso is_function(CB, 1) of
+        true -> call(CB, {req, {user_req, UAC, Call}});
+        false -> ok
     end,
     Call;
 
@@ -80,15 +83,17 @@ reply(resp, #trans{from={srv, From}, response=Resp, opts=Opts}=UAC, Call) ->
             nksip_uac:notify(SubsId, NotifyOpts)
     end,
     Async = lists:member(async, Opts),
-    Get = lists:member(get_response, Opts),
+    % Get = lists:member(get_response, Opts),
     CB = nksip_lib:get_value(callback, Opts),
     if
         Code<101 -> ok;
-        Code<200, Get, is_function(CB, 1) -> CB({user_resp, UAC, Call});
-        Code<200, is_function(CB, 1) -> CB(response(UAC, Call));
+        Code<200, is_function(CB, 1) -> call(CB, {ok, Code, {user_resp, UAC, Call}});
+        % Code<200, Get, is_function(CB, 1) -> call(CB, {resp, {user_resp, UAC, Call}});
+        % Code<200, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
         Code<200 -> ok;
-        Async, Get, is_function(CB, 1) -> CB({user_resp, UAC, Call});
-        Async, is_function(CB, 1) -> CB(response(UAC, Call));
+        Async, is_function(CB, 1) -> call(CB, {ok, Code, {user_resp, UAC, Call}});
+        % Async, Get, is_function(CB, 1) -> call(CB, {resp, {user_resp, UAC, Call}});
+        % Async, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
         Async -> ok;
         true -> gen_server:reply(From, response(UAC, Call))
     end,
@@ -98,7 +103,7 @@ reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
     Async = lists:member(async, Opts),
     CB = nksip_lib:get_value(callback, Opts),
     if
-        Async, is_function(CB, 1) -> CB({error, Error});
+        Async, is_function(CB, 1) -> call(CB, {error, Error});
         Async -> ok;
         true -> gen_server:reply(From, {error, Error})
     end,
@@ -123,8 +128,16 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Resp1 = Resp#sipmsg{vias=[#via{}|Resp#sipmsg.vias]},
     nksip_call_fork:response(ForkId, Id, Resp1, Call);
 
-reply(_, _, Call) ->
+reply(_, #trans{from=none}, Call) ->
     Call.
+
+
+%% @private
+call(CB, Arg) ->
+    case catch CB(Arg) of
+        {'EXIT', Error} -> ?call_warning("Error calling callback function: ~p", [Error]);
+        _ -> ok
+    end.
 
 
 %% @private
@@ -150,7 +163,7 @@ response(#trans{response=Resp, opts=Opts}, _Call) ->
         [] ->
             Fields0;
         Fields when is_list(Fields) ->
-            Fields0 ++ lists:zip(Fields, nksip_sipmsg:metas(Fields, Resp));
+            Fields0 ++ [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
         _ ->
             Fields0
     end,

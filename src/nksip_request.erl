@@ -99,7 +99,7 @@ dialog_id(UserReq) ->
     term().
 
 meta(Field, {user_req, #trans{request=Req}, _Call}) -> 
-    nksip_sipmsg:meta(Req, Field).
+    nksip_sipmsg:meta(Field, Req).
 
 
 %% @doc Get a specific set of metadatas (see {@link field()}) from the request

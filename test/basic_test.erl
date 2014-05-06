@@ -122,7 +122,7 @@ transport() ->
     Body = nksip_sipmsg:meta(body, Req1),
 
     % Remote has generated a valid Contact (OPTIONS generates a Contact by default)
-    Fields2 = {meta, [parsed_contacts, remote]},
+    Fields2 = {meta, [contacts, remote]},
     {ok, 200, Values2} = nksip_uac:options(client1, "<sip:127.0.0.1;transport=tcp>", [Fields2]),
 
     [
@@ -162,14 +162,14 @@ transport() ->
     {ok, 200, Values5} = nksip_uac:options(client1, "sip:127.0.0.1", Opts5),
     [{body, RespBody5}] = Values5,
     Req5 = binary_to_term(base64:decode(RespBody5)),
+    [#uri{user=(<<"client1">>), domain=(<<"mihost">>), port=5070}] = 
+        nksip_sipmsg:meta(contacts, Req5),
     [
-        [#uri{user=(<<"client1">>), domain=(<<"mihost">>), port=5070}],
-        [
-            #uri{domain=(<<"127.0.0.1">>), port=0, opts=[<<"lr">>]},
-            #uri{domain=(<<"aaa">>), port=0, opts=[<<"lr">>]},
-            #uri{domain=(<<"bbb">>), port=123, opts=[<<"lr">>]}
-        ]
-    ] = nksip_sipmsg:meta([contacts, routes], Req5),
+        #uri{domain=(<<"127.0.0.1">>), port=0, opts=[<<"lr">>]},
+        #uri{domain=(<<"aaa">>), port=0, opts=[<<"lr">>]},
+        #uri{domain=(<<"bbb">>), port=123, opts=[<<"lr">>]}
+    ] = 
+       nksip_sipmsg:meta(routes, Req5),
 
     {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", 
                                 [{add, "x-nk-op", "reply-stateless"}]),
