@@ -38,8 +38,8 @@ app_call(Fun, Args, AppId) ->
 	        ?call_error("Error calling callback ~p: ~p", [Fun, Error]),
 	        error;
 	    Reply ->
-	    	?call_warning("Called ~p/~p (~p): ~p", [Fun, length(Args), Args, Reply]),
-	    	% ?call_warning("Called ~p/~p: ~p", [Fun, length(Args), Reply]),
+	    	% ?call_warning("Called ~p/~p (~p): ~p", [Fun, length(Args), Args, Reply]),
+	    	?call_debug("Called ~p/~p: ~p", [Fun, length(Args), Reply]),
 	        {ok, Reply}
 	end.
 

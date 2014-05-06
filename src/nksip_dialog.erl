@@ -29,7 +29,7 @@
 -export([stop/1, bye_all/0, stop_all/0]).
 -export([get_dialog/1, get_all/0, get_all/2, get_all_data/0]).
 -export([make_id/2, get_id/1, parse_id/1, remote_id/2, change_app/2]).
--export_type([id/0, invite_status/0, field/0, stop_reason/0]).
+-export_type([id/0, dlg/0, invite_status/0, field/0, stop_reason/0]).
 
 -include("nksip.hrl").
 
@@ -41,6 +41,11 @@
 %% SIP Dialog unique ID
 -type id() :: binary().
 
+
+%% User Dialog
+-type dlg() :: {user_dlg, nksip:dialog(), nksip_call:call()}.
+
+
 %% SIP Dialog stop reason
 -type stop_reason() :: 
     nksip:response_code() | caller_bye | callee_bye | forced |
@@ -51,12 +56,13 @@
 % -type spec() :: id() | nksip:id().
 
 -type field() :: 
-    dialog_id | app_id | call_id | created | updated | local_seq | remote_seq | 
-    local_uri | parsed_local_uri | remote_uri | parsed_remote_uri | 
-    local_target | parsed_local_target | remote_target | parsed_remote_target | 
-    route_set | parsed_route_set | from_tag | to_tag |
+    id | app_id | app_name | created | updated | local_seq | remote_seq | 
+    local_uri | raw_local_uri | remote_uri | raw_remote_uri | 
+    local_target | raw_local_target | remote_target | raw_remote_target | 
+    early | secure | route_set | raw_route_set | 
     invite_status | invite_answered | invite_local_sdp | invite_remote_sdp |
-    invite_timeout | subscriptions.
+    invite_timeout | invite_session_expires | invite_refresh |
+    subscriptions | call_id | from_tag | to_tag.
 
 
 %% All dialog INVITE states
@@ -71,146 +77,20 @@
 %% ===================================================================
 
 
-%% @doc Gets specific information from the dialog indicated by `DialogSpec'. 
-%% The available fields are:
-%%  
-%% <table border="1">
-%%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-%%      <tr>
-%%          <td>`app_id'</td>
-%%          <td>{@link nksip:app_id()}</td>
-%%          <td>SipApp that created the dialog</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`call_id'</td>
-%%          <td>{@link nksip:call_id()}</td>
-%%          <td>Call-ID</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`created'</td>
-%%          <td>{@link nksip_lib:timestamp()}</td>
-%%          <td>Creation timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`updated'</td>
-%%          <td>{@link nksip_lib:timestamp()}</td>
-%%          <td>Last update timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_seq'</td>
-%%          <td>{@link nksip:cseq()}</td>
-%%          <td>Local CSeq number</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`remote_seq'</td>
-%%          <td>{@link nksip:cseq()}</td>
-%%          <td>Remote CSeq number</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_uri'</td>
-%%          <td>`binary()'</td>
-%%          <td>Local URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_local_uri'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Local URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`remote_uri'</td>
-%%          <td>`binary()'</td>
-%%          <td>Remote URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_remote_uri'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Remote URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_target'</td>
-%%          <td>`binary()'</td>
-%%          <td>Local Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_local_target'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Local Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`remote_target'</td>
-%%          <td>`binary()'</td>
-%%          <td>Remote Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_remote_target'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Remote Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`early'</td>
-%%          <td>`boolean()'</td>
-%%          <td>Early dialog (no final response yet)</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`secure'</td>
-%%          <td>`boolean()'</td>
-%%          <td>Secure (sips) dialog</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`route_set'</td>
-%%          <td>`[binary()]'</td>
-%%          <td>Route Set</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_route_set'</td>
-%%          <td>`['{@link nksip:uri()}`]'</td>
-%%          <td>Route Set</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_answered'</td>
-%%          <td>{@link nksip_lib:timestamp()}`|undefined'</td>
-%%          <td>Answer (first 2xx response) timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_status'</td>
-%%          <td>{@link status()}</td>
-%%          <td>Current dialog's INVITE status</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_local_sdp'</td>
-%%          <td>{@link nksip:sdp()}`|undefined'</td>
-%%          <td>Current local SDP</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_remote_sdp'</td>
-%%          <td>{@link nksip:sdp()}`|undefined'</td>
-%%          <td>Current remote SDP</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_timeout'</td>
-%%          <td>`integer()'</td>
-%%          <td>Seconds to expire current state</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`subscriptions'</td>
-%%          <td><code>[{@link nksip_subscription:id()}]</code></td>
-%%          <td>Lists all active subscriptions</td>
-%%      </tr>
-%% </table>
--spec field(nksip:id()|nksip:dialog(), field()) -> 
+-spec meta(field(), nksip:id()|dlg()|nksip:dialog()) -> 
     term() | error.
 
-field(Id, Field) when is_binary(Id) -> 
-    case fields(Id, [Field]) of
+meta(Field, Id) when is_binary(Id) -> 
+    case metas([Field], Id) of
         [{_, Value}] -> Value;
         error -> error
     end;
 
-field(D, Field) ->
-    case D#dialog.invite of
-        #invite{} = I -> ok;
-        undefined -> I = #invite{}
-    end,
+meta(Field, {user_dlg, Dialog, _Call}) ->
+    meta(Field, Dialog);
+
+meta(Field, #dialog{invite=I0}=D) ->
+    I = case I0 of undefined -> #invite{}; _ -> I end,
     case Field of
         id -> get_id(D);
         internal_id -> D#dialog.id;
@@ -221,28 +101,31 @@ field(D, Field) ->
         updated -> D#dialog.updated;
         local_seq -> D#dialog.local_seq; 
         remote_seq  -> D#dialog.remote_seq; 
-        local_uri -> nksip_unparse:uri(D#dialog.local_uri);
-        parsed_local_uri -> D#dialog.local_uri;
-        remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
-        parsed_remote_uri -> D#dialog.remote_uri;
-        local_target -> nksip_unparse:uri(D#dialog.local_target);
-        parsed_local_target -> D#dialog.local_target;
-        remote_target -> nksip_unparse:uri(D#dialog.remote_target);
-        parsed_remote_target -> D#dialog.remote_target;
-        route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
-        parsed_route_set -> D#dialog.route_set;
+        local_uri -> D#dialog.local_uri;
+        raw_local_uri -> nksip_unparse:uri(D#dialog.local_uri);
+        remote_uri -> D#dialog.remote_uri;
+        raw_remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
+        local_target -> D#dialog.local_target;
+        raw_local_target -> nksip_unparse:uri(D#dialog.local_target);
+        remote_target -> D#dialog.remote_target;
+        raw_remote_target -> nksip_unparse:uri(D#dialog.remote_target);
         early -> D#dialog.early;
         secure -> D#dialog.secure;
-        from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
-        to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
-        
-        invite_answered -> I#invite.answered;
-        invite_status -> I#invite.status;
-        invite_local_sdp -> I#invite.local_sdp;
-        invite_remote_sdp -> I#invite.remote_sdp;
-        invite_timeout -> read_timer(I#invite.timeout_timer);
-        invite_session_expires -> I#invite.session_expires;
-        invite_refresh ->
+        route_set -> D#dialog.route_set;
+        raw_route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
+        invite_status when is_record(I, invite) -> I#invite.status;
+        invite_status -> undefined;
+        invite_answered when is_record(I, invite) -> I#invite.answered;
+        invite_answered -> undefined;
+        invite_local_sdp when is_record(I, invite) -> I#invite.local_sdp;
+        invite_local_sdp -> undefined;
+        invite_remote_sdp when is_record(I, invite) -> I#invite.remote_sdp;
+        invite_remote_sdp -> undefined;
+        invite_timeout when is_record(I, invite) -> read_timer(I#invite.timeout_timer);
+        invite_timeout -> undefined;
+        invite_session_expires when is_record(I, invite) -> I#invite.session_expires;
+        invite_session_expires -> undefined;
+        invite_refresh when is_record(I, invite) -> 
             case is_reference(I#invite.refresh_timer) of
                 true -> 
                     case erlang:read_timer(I#invite.refresh_timer) of
@@ -252,10 +135,12 @@ field(D, Field) ->
                 false ->
                  undefined
             end;
-
+        invite_refresh -> undefined;
         subscriptions -> 
             [nksip_subscription:get_id(S, D) || S <- D#dialog.subscriptions];
-
+        call_id -> D#dialog.call_id;
+        from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
+        to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
         _ -> invalid_field 
     end.
 

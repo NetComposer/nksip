@@ -103,7 +103,7 @@ send_ref(Msg, Req) ->
             ok
     end.
 
-dialog_update(DialogId, Update, AppId) ->
+dialog_update(Update, Dialog) ->
     {ok, Dialogs} = nksip:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid} ->

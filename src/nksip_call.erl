@@ -244,7 +244,7 @@ work({make, Method, Uri, Opts}, From, Call) ->
     Opts1 = [{call_id, CallId} | Opts],
     Reply = nksip_uac_lib:make(AppId, Method, Uri, Opts1),
     gen_server:reply(From, Reply),
-    Call;º
+    Call;
 
 work({send, Req, Opts}, From, Call) ->
     nksip_call_uac_req:request(Req, Opts, {srv, From}, Call);
