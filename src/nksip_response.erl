@@ -24,20 +24,12 @@
 
 -include("nksip.hrl").
 
--export([app_id/1, app_name/1, code/1, body/1, call_id/1, dialog_id/1]).
+-export([app_id/1, app_name/1, code/1, body/1, call_id/1]).
 -export([meta/2, metas/2, header/2, headers/2]).
 -export([wait_491/0]).
--export_type([resp/0]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
-
-
-%% ===================================================================
-%% Types
-%% ===================================================================
-
--type resp() :: {user_resp, nksip_call:trans(), nksip_call:call()}.
 
 
 %% ===================================================================
@@ -46,83 +38,98 @@
 
 
 %% @doc Gets internal app's id
--spec app_id(resp()) -> 
+-spec app_id(nksip:response()|nksip:id()) -> 
     nksip:app_id().
 
-app_id({user_resp, _, #call{app_id=AppId}}) -> 
+app_id(#sipmsg{app_id=AppId}) ->
+    AppId;
+app_id(Id) when is_binary(Id) ->
+    {req, AppId, _Id, _CallId} = nksip_sipmsg:parse_id(Id),
     AppId.
 
 
 %% @doc Gets app's name
--spec app_name(resp()) -> 
+-spec app_name(nksip:response()|nksip:id()) -> 
     term().
 
-app_name(UserResp) -> 
-    (app_id(UserResp)):name().
+app_name(Resp) -> 
+    (app_id(Resp)):name().
 
 
-%% @doc Gets the response code of a response.
--spec code(resp()) ->
-    nksip:response_code().
+-spec code(nksip:response()|nksip:id()) ->
+    nksip:response_code()|error.
 
-code(UserResp) -> 
-    meta(code, UserResp).
-
+code(#sipmsg{class={resp, Code, _Phrase}}) -> 
+    Code;
+code(Id) when is_binary(Id) ->
+    meta(code, Id).
 
 %% @doc Gets the body of the response
--spec body(resp()) ->
-    nksip:body().
+-spec body(nksip:response()|nksip:id()) ->
+    nksip:body() | error.
 
-body(UserResp) -> 
-    meta(body, UserResp).
+body(#sipmsg{body=Body}) -> 
+    Body;
+body(Id) when is_binary(Id) ->
+    meta(body, Id).
 
 
 %% @doc Gets the calls's id of a response id
--spec call_id(resp()) ->
+-spec call_id(nksip:response()|nksip:id()) ->
     nksip:call_id().
 
-call_id({user_resp, _, #call{call_id=CallId}}) ->
+call_id(#sipmsg{call_id=CallId}) ->
+    CallId;
+call_id(Id) when is_binary(Id) ->
+    {req, _AppId, _Id, CallId} = nksip_sipmsg:parse_id(Id),
     CallId.
 
 
-%% @doc Gets the dialog's id of the response
--spec dialog_id(resp()) ->
-    nksip_dialog:id().
-
-dialog_id(UserResp) -> 
-    meta(dialog_id, UserResp).
-
-
 %% @doc Get a specific metadata (see {@link field()}) from the response
--spec meta(nksip_sipmsg:field(), resp()) ->
-    term().
+-spec meta(nksip_sipmsg:field(), nksip:response()|nksip:id()) ->
+    term() | error.
 
-meta(Field, {user_resp, #trans{response=Resp}, _Call}) -> 
-    nksip_sipmsg:meta(Resp, Field).
+meta(Field, #sipmsg{}=Resp) -> 
+    nksip_sipmsg:meta(Field, Resp);
+meta(Field, Id) when is_binary(Id) ->
+    case metas([Field], Id) of
+        [Value] -> Value;
+        _ -> error
+    end.
 
 
 %% @doc Get a specific set of metadatas (see {@link field()}) from the response
--spec metas([nksip_sipmsg:field()], resp()) ->
-    [{nksip_sipmsg:field(), term()}].
+-spec metas([nksip_sipmsg:field()], nksip:response()|nksip:id()) ->
+    [{nksip_sipmsg:field(), term()}] | error.
 
-metas(Fields, {user_resp, #trans{response=Resp}, _Call}) when is_list(Fields) ->
-    [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields].
+metas(Fields, #sipmsg{}=Resp) when is_list(Fields) ->
+    [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
+metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
+    Fun = fun(Resp) -> {ok, metas(Fields, Resp)} end,
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
 %% @doc Gets values for a header in a response.
--spec header(string()|binary(), resp()) -> 
-    [binary()].
+-spec header(string()|binary(), nksip:response()|nksip:id()) -> 
+    [binary()] | error.
 
-header(Name, {user_resp, #trans{response=Resp}, _Call}) -> 
-    nksip_sipmsg:header(Name, Resp).
+header(Name, #sipmsg{}=Resp) -> 
+    nksip_sipmsg:header(Name, Resp);
+header(Name, Id) when is_binary(Id) ->
+    meta(nksip_lib:to_binary(Name), Id).
 
 
 %% @doc Gets values for a set of headers in a response.
--spec headers([string()|binary()], resp()) -> 
-    [{string()|binary(), binary()}].
+-spec headers([string()|binary()], nksip:response()|nksip:id()) -> 
+    [{binary(), binary()}] | error.
 
-headers(Names, {user_resp, #trans{response=Resp}, _Call}) when is_list(Names) ->
-    [{Name, nksip_sipmsg:header(Name, Resp)} || Name <- Names].
+headers(Names, #sipmsg{}=Resp) when is_list(Names) ->
+    [{nksip_lib:to_binary(Name), nksip_sipmsg:header(Name, Resp)} || Name <- Names];
+headers(Names, Id) when is_list(Names), is_binary(Id) ->
+    metas([nksip_lib:to_binary(Name) || Name<-Names], Id).
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after

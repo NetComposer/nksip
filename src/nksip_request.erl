@@ -24,124 +24,141 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 
--export([app_id/1, app_name/1, method/1, body/1, call_id/1, dialog_id/1]).
+-export([get_id/1, app_id/1, app_name/1, method/1, body/1, call_id/1]).
 -export([meta/2, metas/2, header/2, headers/2]).
 -export([is_local_route/1, reply/2]).
--export_type([req/0]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
-
-
-
-%% ===================================================================
-%% Types
-%% ===================================================================
-
-
--type req() :: {user_req, nksip_call:trans(), nksip_call:call()}.
 
 
 %% ===================================================================
 %% Public
 %% ===================================================================
 
+%% @doc Gets request's id
+-spec get_id(nksip:request()|nksip:id()) ->
+    nksip:id().
+
+get_id(#sipmsg{}=Req) ->
+    nksip_sipmsg:get_id(Req);
+get_id(Id) when is_binary(Id) ->
+    Id.
+
+
 %% @doc Gets internal app's id
--spec app_id(req()) -> 
+-spec app_id(nksip:request()|nksip:id()) -> 
     nksip:app_id().
 
-app_id({user_req, _, #call{app_id=AppId}}) -> 
+app_id(#sipmsg{app_id=AppId}) ->
+    AppId;
+app_id(Id) when is_binary(Id) ->
+    {req, AppId, _Id, _CallId} = nksip_sipmsg:parse_id(Id),
     AppId.
 
 
 %% @doc Gets app's name
--spec app_name(req()) -> 
+-spec app_name(nksip:request()|nksip:id()) -> 
     term().
 
-app_name(UserReq) -> 
-    (app_id(UserReq)):name().
+app_name(Req) -> 
+    (app_id(Req)):name().
 
 
 %% @doc Gets the method of the request
--spec method(req()) ->
-    nksip:method().
+-spec method(nksip:request()|nksip:id()) ->
+    nksip:method() | error.
 
-method(UserReq) -> 
-    meta(method, UserReq).
+method(#sipmsg{class={req, Method}}) ->
+    Method;
+method(Id) when is_binary(Id) ->
+    meta(method, Id).
 
 
 %% @doc Gets the body of the request
--spec body(req()) ->
-    nksip:body().
+-spec body(nksip:request()|nksip:id()) ->
+    nksip:body() | error.
 
-body(UserReq) -> 
-    meta(body, UserReq).
+body(#sipmsg{body=Body}) -> 
+    Body;
+body(Id) when is_binary(Id) ->
+    meta(body, Id).
 
 
 %% @doc Gets the calls's id of a request id
--spec call_id(req()) ->
+-spec call_id(nksip:request()|nksip:id()) ->
     nksip:call_id().
 
-call_id({user_req, _, #call{call_id=CallId}}) ->
+call_id(#sipmsg{call_id=CallId}) ->
+    CallId;
+call_id(Id) when is_binary(Id) ->
+    {req, _AppId, _Id, CallId} = nksip_sipmsg:parse_id(Id),
     CallId.
 
 
-%% @doc Gets the dialog's id of the request
--spec dialog_id(req()) ->
-    nksip_dialog:id().
-
-dialog_id(UserReq) -> 
-    meta(dialog_id, UserReq).
-
-
 %% @doc Get a specific metadata (see {@link field()}) from the request
--spec meta(nksip_sipmsg:field(), req()) ->
-    term().
+-spec meta(nksip_sipmsg:field(), nksip:request()|nksip:id()) ->
+    term() | error.
 
-meta(Field, {user_req, #trans{request=Req}, _Call}) -> 
-    nksip_sipmsg:meta(Field, Req).
+meta(Field, #sipmsg{}=Req) -> 
+    nksip_sipmsg:meta(Field, Req);
+meta(Field, Id) when is_binary(Id) ->
+    case metas([Field], Id) of
+        [Value] -> Value;
+        _ -> error
+    end.
 
 
 %% @doc Get a specific set of metadatas (see {@link field()}) from the request
--spec metas([nksip_sipmsg:field()], req()) ->
-    [{nksip_sipmsg:field(), term()}].
+-spec metas([nksip_sipmsg:field()], nksip:request()|nksip:id()) ->
+    [{nksip_sipmsg:field(), term()}] | error.
 
-metas(Fields, {user_req, #trans{request=Req}, _Call}) when is_list(Fields) ->
-    [{Field, nksip_sipmsg:meta(Field, Req)} || Field <- Fields].
+metas(Fields, #sipmsg{}=Req) when is_list(Fields) ->
+    [{Field, nksip_sipmsg:meta(Field, Req)} || Field <- Fields];
+metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
+    Fun = fun(Req) -> {ok, metas(Fields, Req)} end,
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 
 
 %% @doc Gets values for a header in a request.
--spec header(string()|binary(), req()) -> 
-    [binary()].
+-spec header(string()|binary(), nksip:request()|nksip:id()) -> 
+    [binary()] | error.
 
-header(Name, {user_req, #trans{request=Req}, _Call}) -> 
-    nksip_sipmsg:header(Name, Req).
+header(Name, #sipmsg{}=Req) -> 
+    nksip_sipmsg:header(Name, Req);
+header(Name, Id) when is_binary(Id) ->
+    meta(nksip_lib:to_binary(Name), Id).
 
 
 %% @doc Gets values for a set of headers in a request.
--spec headers([string()|binary()], req()) -> 
-    [{string()|binary(), binary()}].
+-spec headers([string()|binary()], nksip:request()|nksip:id()) -> 
+    [{binary(), binary()}] | error.
 
-headers(Names, {user_req, #trans{request=Req}, _Call}) when is_list(Names) ->
-    [{Name, nksip_sipmsg:header(Name, Req)} || Name <- Names].
+headers(Names, #sipmsg{}=Req) when is_list(Names) ->
+    [{nksip_lib:to_binary(Name), nksip_sipmsg:header(Name, Req)} || Name <- Names];
+headers(Names, Id) when is_list(Names), is_binary(Id) ->
+    metas([nksip_lib:to_binary(Name) || Name<-Names], Id).
 
 
 %% @doc Sends a reply to a request.
--spec reply(nksip:sipreply(), nksip:id()|nksip:request()) -> 
+-spec reply(nksip:sipreply(), nksip:request()|nksip:id()) -> 
     ok | {error, Error}
     when Error :: invalid_call | unknown_call | sipapp_not_found.
 
-reply(SipReply, <<"R_", _/binary>>=Id) ->
-    nksip_call:send_reply(Id, SipReply);
-
 reply(#sipmsg{class={req, _}}=Req, SipReply) ->
-    reply(nksip_sipmsg:get_id(Req), SipReply).
+    reply(nksip_sipmsg:get_id(Req), SipReply);
+
+reply(SipReply, <<"R_", _/binary>>=Id) ->
+    nksip_call:send_reply(Id, SipReply).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.
 %% It will return `true' if the first <i>Route</i> header points to a local address
 %% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
--spec is_local_route(nksip:id()|nksip:request()) -> 
+-spec is_local_route(nksip:request()) -> 
     boolean().
 
 is_local_route(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri, routes=Routes}) ->

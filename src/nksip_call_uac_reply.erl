@@ -36,12 +36,12 @@
 -spec reply(req | resp | {error, term()}, nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-reply(req, #trans{from={srv, From}, method='ACK', opts=Opts}=UAC, Call) ->
+reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
     Async = lists:member(async, Opts),
     Get = lists:member(get_request, Opts),
     CB = nksip_lib:get_value(callback, Opts),
     case Get andalso is_function(CB, 1) of
-        true -> call(CB, {req, {user_req, UAC, Call}});
+        true -> call(CB, {req, Req});
         false -> ok
     end,
     case Async of
@@ -51,16 +51,16 @@ reply(req, #trans{from={srv, From}, method='ACK', opts=Opts}=UAC, Call) ->
     end,
     Call;
 
-reply(req, #trans{from={srv, _From}, opts=Opts}=UAC, Call) ->
+reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
     Get = lists:member(get_request, Opts),
     CB = nksip_lib:get_value(callback, Opts),
     case Get andalso is_function(CB, 1) of
-        true -> call(CB, {req, {user_req, UAC, Call}});
+        true -> call(CB, {req, Req});
         false -> ok
     end,
     Call;
 
-reply(resp, #trans{from={srv, From}, response=Resp, opts=Opts}=UAC, Call) ->
+reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     #sipmsg{class={resp, Code, Reason}} = Resp,
     case nksip_lib:get_value(refer_subscription_id, Opts) of
         undefined -> 
@@ -87,15 +87,15 @@ reply(resp, #trans{from={srv, From}, response=Resp, opts=Opts}=UAC, Call) ->
     CB = nksip_lib:get_value(callback, Opts),
     if
         Code<101 -> ok;
-        Code<200, is_function(CB, 1) -> call(CB, {ok, Code, {user_resp, UAC, Call}});
-        % Code<200, Get, is_function(CB, 1) -> call(CB, {resp, {user_resp, UAC, Call}});
+        Code<200, is_function(CB, 1) -> call(CB, {ok, Code, Resp});
+        % Code<200, Get, is_function(CB, 1) -> call(CB, {resp, Resp});
         % Code<200, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
         Code<200 -> ok;
-        Async, is_function(CB, 1) -> call(CB, {ok, Code, {user_resp, UAC, Call}});
-        % Async, Get, is_function(CB, 1) -> call(CB, {resp, {user_resp, UAC, Call}});
+        Async, is_function(CB, 1) -> call(CB, {ok, Code, Resp});
+        % Async, Get, is_function(CB, 1) -> call(CB, {resp, Resp});
         % Async, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
         Async -> ok;
-        true -> gen_server:reply(From, response(UAC, Call))
+        true -> gen_server:reply(From, response(Resp, Opts))
     end,
     Call;
 
@@ -109,10 +109,10 @@ reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
     end,
     Call;
 
-reply(req, #trans{from={fork, _}}, Call) ->
+reply({req, _}, #trans{from={fork, _}}, Call) ->
     Call;
 
-reply(resp, #trans{id=Id, from={fork, ForkId}, response=Resp}, Call) ->
+reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
     nksip_call_fork:response(ForkId, Id, Resp, Call);
 
 reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
@@ -141,7 +141,7 @@ call(CB, Arg) ->
 
 
 %% @private
-response(#trans{response=Resp, opts=Opts}, _Call) ->
+response(Resp, Opts) ->
     #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp,
     Fields0 = case Method of
         'INVITE' when Code>100, Code<300 -> 

@@ -25,10 +25,9 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, call_id/1, app_id/1]).
--export([stop/1, bye_all/0, stop_all/0]).
--export([get_dialog/1, get_all/0, get_all/2, get_all_data/0]).
--export([make_id/2, get_id/1, parse_id/1, remote_id/2, change_app/2]).
+-export([app_id/1, app_name/1, get_id/1, call_id/1, meta/2, metas/2]).
+-export([get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
+-export([get_dialog/1, get_all_data/0, make_id/2, parse_id/1, remote_id/2, change_app/2]).
 -export_type([id/0, invite_status/0, field/0, stop_reason/0]).
 
 -include("nksip.hrl").
@@ -41,6 +40,7 @@
 %% SIP Dialog unique ID
 -type id() :: binary().
 
+
 %% SIP Dialog stop reason
 -type stop_reason() :: 
     nksip:response_code() | caller_bye | callee_bye | forced |
@@ -51,12 +51,13 @@
 % -type spec() :: id() | nksip:id().
 
 -type field() :: 
-    dialog_id | app_id | call_id | created | updated | local_seq | remote_seq | 
-    local_uri | parsed_local_uri | remote_uri | parsed_remote_uri | 
-    local_target | parsed_local_target | remote_target | parsed_remote_target | 
-    route_set | parsed_route_set | from_tag | to_tag |
+    id | app_id | app_name | created | updated | local_seq | remote_seq | 
+    local_uri | raw_local_uri | remote_uri | raw_remote_uri | 
+    local_target | raw_local_target | remote_target | raw_remote_target | 
+    early | secure | route_set | raw_route_set | 
     invite_status | invite_answered | invite_local_sdp | invite_remote_sdp |
-    invite_timeout | subscriptions.
+    invite_timeout | invite_session_expires | invite_refresh |
+    subscriptions | call_id | from_tag | to_tag.
 
 
 %% All dialog INVITE states
@@ -71,178 +72,98 @@
 %% ===================================================================
 
 
-%% @doc Gets specific information from the dialog indicated by `DialogSpec'. 
-%% The available fields are:
-%%  
-%% <table border="1">
-%%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-%%      <tr>
-%%          <td>`app_id'</td>
-%%          <td>{@link nksip:app_id()}</td>
-%%          <td>SipApp that created the dialog</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`call_id'</td>
-%%          <td>{@link nksip:call_id()}</td>
-%%          <td>Call-ID</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`created'</td>
-%%          <td>{@link nksip_lib:timestamp()}</td>
-%%          <td>Creation timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`updated'</td>
-%%          <td>{@link nksip_lib:timestamp()}</td>
-%%          <td>Last update timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_seq'</td>
-%%          <td>{@link nksip:cseq()}</td>
-%%          <td>Local CSeq number</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`remote_seq'</td>
-%%          <td>{@link nksip:cseq()}</td>
-%%          <td>Remote CSeq number</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_uri'</td>
-%%          <td>`binary()'</td>
-%%          <td>Local URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_local_uri'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Local URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`remote_uri'</td>
-%%          <td>`binary()'</td>
-%%          <td>Remote URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_remote_uri'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Remote URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_target'</td>
-%%          <td>`binary()'</td>
-%%          <td>Local Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_local_target'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Local Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`remote_target'</td>
-%%          <td>`binary()'</td>
-%%          <td>Remote Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_remote_target'</td>
-%%          <td>{@link nksip:uri()}</td>
-%%          <td>Remote Target URI</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`early'</td>
-%%          <td>`boolean()'</td>
-%%          <td>Early dialog (no final response yet)</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`secure'</td>
-%%          <td>`boolean()'</td>
-%%          <td>Secure (sips) dialog</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`route_set'</td>
-%%          <td>`[binary()]'</td>
-%%          <td>Route Set</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_route_set'</td>
-%%          <td>`['{@link nksip:uri()}`]'</td>
-%%          <td>Route Set</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_answered'</td>
-%%          <td>{@link nksip_lib:timestamp()}`|undefined'</td>
-%%          <td>Answer (first 2xx response) timestamp</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_status'</td>
-%%          <td>{@link status()}</td>
-%%          <td>Current dialog's INVITE status</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_local_sdp'</td>
-%%          <td>{@link nksip:sdp()}`|undefined'</td>
-%%          <td>Current local SDP</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_remote_sdp'</td>
-%%          <td>{@link nksip:sdp()}`|undefined'</td>
-%%          <td>Current remote SDP</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`invite_timeout'</td>
-%%          <td>`integer()'</td>
-%%          <td>Seconds to expire current state</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`subscriptions'</td>
-%%          <td><code>[{@link nksip_subscription:id()}]</code></td>
-%%          <td>Lists all active subscriptions</td>
-%%      </tr>
-%% </table>
--spec field(nksip:id()|nksip:dialog(), field()) -> 
+
+%% @doc Calculates a dialog's id.
+-spec get_id(nksip:dialog()|nksip:request()|nksip:response()|nksip:id()) ->
+    nksip:id().
+
+get_id(#dialog{id=Id, app_id=AppId, call_id=CallId}) ->
+    App = atom_to_binary(AppId, latin1),
+    <<$D, $_, Id/binary, $_, App/binary, $_, CallId/binary>>;
+get_id(#sipmsg{dialog_id=DialogId, app_id=AppId, call_id=CallId}) ->
+    App = atom_to_binary(AppId, latin1),
+    <<$D, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
+get_id(<<"D_", _/binary>>=DialogId) ->
+    DialogId;
+get_id(<<"U_", _/binary>>=Id) ->
+    {AppId, _, DialogId, CallId} = nksip_subscription:parse_id(Id),
+    App = atom_to_binary(AppId, latin1), 
+    <<$D, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
+get_id(<<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
+    case nksip_call:find_dialog(MsgId) of
+        {ok, DialogId} -> DialogId;
+        {error, _} -> <<>>
+    end.
+
+
+%% @doc Gets thel App of a dialog
+-spec app_id(nksip:dialog()|nksip:id()) ->
+    nksip:app_id().
+
+app_id(#dialog{app_id=AppId}) ->
+    AppId;
+app_id(Id) ->
+    {AppId, _DialogId, _CallId} = parse_id(Id),
+    AppId. 
+
+
+%% @doc Gets app's name
+-spec app_name(nksip:request()|nksip:id()) -> 
+    term().
+
+app_name(Req) -> 
+    (app_id(Req)):name().
+
+
+%% @doc Gets thel Call-ID of a dialog
+-spec call_id(nksip:dialog()|nksip:id()) ->
+    nksip:call_id().
+
+call_id(#dialog{call_id=CallId}) ->
+    CallId;
+call_id(Id) ->
+    {_AppId, _DialogId, CallId} = parse_id(Id),
+    CallId. 
+
+
+-spec meta(field(), nksip:dialog()|nksip:id()) -> 
     term() | error.
 
-field(Id, Field) when is_binary(Id) -> 
-    case fields(Id, [Field]) of
-        [{_, Value}] -> Value;
-        error -> error
-    end;
-
-field(D, Field) ->
-    case D#dialog.invite of
-        #invite{} = I -> ok;
-        undefined -> I = #invite{}
-    end,
+meta(Field, #dialog{invite=I}=D) ->
     case Field of
         id -> get_id(D);
         internal_id -> D#dialog.id;
         app_id -> D#dialog.app_id;
         app_name -> apply(D#dialog.app_id, name, []);
-        call_id -> D#dialog.call_id;
         created -> D#dialog.created;
         updated -> D#dialog.updated;
         local_seq -> D#dialog.local_seq; 
         remote_seq  -> D#dialog.remote_seq; 
-        local_uri -> nksip_unparse:uri(D#dialog.local_uri);
-        parsed_local_uri -> D#dialog.local_uri;
-        remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
-        parsed_remote_uri -> D#dialog.remote_uri;
-        local_target -> nksip_unparse:uri(D#dialog.local_target);
-        parsed_local_target -> D#dialog.local_target;
-        remote_target -> nksip_unparse:uri(D#dialog.remote_target);
-        parsed_remote_target -> D#dialog.remote_target;
-        route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
-        parsed_route_set -> D#dialog.route_set;
+        local_uri -> D#dialog.local_uri;
+        raw_local_uri -> nksip_unparse:uri(D#dialog.local_uri);
+        remote_uri -> D#dialog.remote_uri;
+        raw_remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
+        local_target -> D#dialog.local_target;
+        raw_local_target -> nksip_unparse:uri(D#dialog.local_target);
+        remote_target -> D#dialog.remote_target;
+        raw_remote_target -> nksip_unparse:uri(D#dialog.remote_target);
         early -> D#dialog.early;
         secure -> D#dialog.secure;
-        from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
-        to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
-        
-        invite_answered -> I#invite.answered;
-        invite_status -> I#invite.status;
-        invite_local_sdp -> I#invite.local_sdp;
-        invite_remote_sdp -> I#invite.remote_sdp;
-        invite_timeout -> read_timer(I#invite.timeout_timer);
-        invite_session_expires -> I#invite.session_expires;
-        invite_refresh ->
+        route_set -> D#dialog.route_set;
+        raw_route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
+        invite_status when is_record(I, invite) -> I#invite.status;
+        invite_status -> undefined;
+        invite_answered when is_record(I, invite) -> I#invite.answered;
+        invite_answered -> undefined;
+        invite_local_sdp when is_record(I, invite) -> I#invite.local_sdp;
+        invite_local_sdp -> undefined;
+        invite_remote_sdp when is_record(I, invite) -> I#invite.remote_sdp;
+        invite_remote_sdp -> undefined;
+        invite_timeout when is_record(I, invite) -> read_timer(I#invite.timeout_timer);
+        invite_timeout -> undefined;
+        invite_session_expires when is_record(I, invite) -> I#invite.session_expires;
+        invite_session_expires -> undefined;
+        invite_refresh when is_record(I, invite) -> 
             case is_reference(I#invite.refresh_timer) of
                 true -> 
                     case erlang:read_timer(I#invite.refresh_timer) of
@@ -252,109 +173,36 @@ field(D, Field) ->
                 false ->
                  undefined
             end;
-
+        invite_refresh -> undefined;
         subscriptions -> 
             [nksip_subscription:get_id(S, D) || S <- D#dialog.subscriptions];
-
+        call_id -> D#dialog.call_id;
+        from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
+        to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
         _ -> invalid_field 
+    end;
+
+meta(Field, Id) when is_binary(Id) -> 
+    case metas([Field], Id) of
+        [{_, Value}] -> Value;
+        error -> error
     end.
 
 
-%% @doc Gets a number of fields from the `Request' as described in {@link field/2}.
--spec fields(nksip:id(), [field()]) -> 
-    [{atom(), term()}] | error.
+%% @doc Gets a number of metas from the dialog
+-spec metas([field()], nksip:dialog()|nksip:id()) -> 
+    [{field(), term()}] | error.
     
-fields(Id, Fields) when is_list(Fields) ->
-    Fun = fun(Dialog) -> 
-        {ok, [{Field, field(Dialog, Field)} || Field <- Fields]}
-    end,
+metas(Fields, #dialog{}=Dialog) ->
+    [{Field, meta(Field, Dialog)} || Field <- Fields];
+metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
+    Fun = fun(Dialog) -> {ok, metas(Fields, Dialog)} end,
     case get_id(Id) of
         <<>> ->
             error;
         DialogId ->
             case nksip_call_router:apply_dialog(DialogId, Fun) of
                 {ok, Values} -> Values;
-                _ -> error
-            end
-    end.
-
-%% @doc Gets thel Call-ID of a dialog
--spec call_id(nksip:id()|#dialog{}) ->
-    nksip:call_id().
-
-call_id(#dialog{call_id=CallId}) ->
-    CallId;
-
-call_id(Id) ->
-    {_AppId, _DialogId, CallId} = parse_id(Id),
-    CallId. 
-
-
-%% @doc Gets thel App of a dialog
--spec app_id(nksip:id()|#dialog{}) ->
-    nksip:app_id().
-
-app_id(#dialog{app_id=AppId}) ->
-    AppId;
-
-app_id(Id) ->
-    {AppId, _DialogId, _CallId} = parse_id(Id),
-    AppId. 
-
-
-
-%% @doc Calculates a <i>dialog's id</i> from a {@link nksip:id()}.
--spec get_id(nksip:id()|nksip:dialog()|nksip:request()|nksip:response()) ->
-    nksip:id().
-
-get_id(<<"D_", _/binary>>=DialogId) ->
-    DialogId;
-
-get_id(<<"U_", _/binary>>=SubscriptionId) ->
-    nksip_subscription:dialog_id(SubscriptionId);
-
-get_id(<<Class, $_, _/binary>>=MsgId) when Class==$R; Class==$S ->
-    case nksip_call:find_dialog(MsgId) of
-        {ok, DialogId} -> DialogId;
-        {error, _} -> <<>>
-    end;
-
-get_id(#dialog{id=Id, app_id=AppId, call_id=CallId}) ->
-    App = atom_to_binary(AppId, latin1),
-    <<$D, $_, Id/binary, $_, App/binary, $_, CallId/binary>>;
-
-get_id(#sipmsg{dialog_id=DialogId, app_id=AppId, call_id=CallId}) ->
-    App = atom_to_binary(AppId, latin1),
-    <<$D, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>.
-
-
-%% @private
--spec parse_id(nksip:id()) -> 
-    {nksip:app_id(), binary(), nksip:call_id()} | error.
-
-parse_id(<<$D, $_, _/binary>>=Bin) ->
-    <<$D, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>> = Bin,
-    {binary_to_existing_atom(App, latin1), Id, CallId};
-
-parse_id(Other) ->
-    case get_id(Other) of
-        <<>> -> error;
-        DialogId -> parse_id(DialogId)
-    end.
-
-
-%% @doc Gets a full dialog record.
--spec get_dialog(nksip:id()) ->
-    nksip:dialog() | error.
-
-get_dialog(Id) ->
-    Fun = fun(Dialog) -> {ok, Dialog} end,
-    case get_id(Id) of
-        <<>> ->
-            error;
-        DialogId ->
-            case nksip_call_router:apply_dialog(DialogId, Fun) of
-                {ok, Dialog} -> Dialog;
                 _ -> error
             end
     end.
@@ -404,6 +252,24 @@ stop_all() ->
     lists:foreach(fun(DialogId) -> stop(DialogId) end, get_all()).
 
 
+%% ===================================================================
+%% Private
+%% ===================================================================
+
+%% @private
+-spec parse_id(nksip:id()) -> 
+    {nksip:app_id(), binary(), nksip:call_id()} | error.
+
+parse_id(<<$D, $_, _/binary>>=Bin) ->
+    <<$D, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>> = Bin,
+    {binary_to_existing_atom(App, latin1), Id, CallId};
+parse_id(Other) ->
+    case get_id(Other) of
+        <<>> -> error;
+        DialogId -> parse_id(DialogId)
+    end.
+
+
 %% @doc Calculates a <i>dialog's id</i> from a {@link nksip:request()} or
 %% {@link nksip:response()} and a endpoint class.
 %% Dialog ids are calculated as a hash over <i>Call-ID</i>, <i>From</i> tag 
@@ -430,12 +296,6 @@ make_id(_, #sipmsg{}) ->
     <<>>.
 
 
-
-%% ===================================================================
-%% Private
-%% ===================================================================
-
-
 %% @private
 -spec make_id(uac|uas, nksip:tag(), nksip:tag()) ->
     id().
@@ -451,7 +311,7 @@ remote_id(<<$D, _/binary>>=DialogId, App) ->
     {ok, AppId} = nksip:find_app(App),
     [{internal_id, BaseId}, {parsed_local_uri, LUri}, 
       {parsed_remote_uri, RUri}, {call_id, CallId}] =  
-        fields(DialogId, [internal_id, parsed_local_uri, parsed_remote_uri, call_id]),
+        metas([internal_id, parsed_local_uri, parsed_remote_uri, call_id], DialogId),
     FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
     ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),
     Id = case make_id(uac, FromTag, ToTag) of
@@ -469,6 +329,23 @@ change_app(Id, App) ->
     App1 = atom_to_binary(AppId1, latin1),
     <<$D, $_, DialogId/binary, $_, App1/binary, $_, CallId/binary>>.
 
+
+
+%% @private Gets a full dialog record.
+-spec get_dialog(nksip:id()) ->
+    nksip:dialog() | error.
+
+get_dialog(Id) ->
+    Fun = fun(Dialog) -> {ok, Dialog} end,
+    case get_id(Id) of
+        <<>> ->
+            error;
+        DialogId ->
+            case nksip_call_router:apply_dialog(DialogId, Fun) of
+                {ok, Dialog} -> Dialog;
+                _ -> error
+            end
+    end.
 
 
 %% @private Dumps all dialog information

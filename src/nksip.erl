@@ -120,7 +120,7 @@
 -type dialog() :: #dialog{}.
 
 %% Dialog
--type subscription() :: #subscription{}.
+-type subscription() :: {user_subs, #subscription{}, #dialog{}}.
 
 %% Dialog
 -type invite() :: #invite{}.

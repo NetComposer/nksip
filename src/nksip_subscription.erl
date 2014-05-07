@@ -24,9 +24,9 @@
 -module(nksip_subscription).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([field/2, fields/2, get_id/1, get_id/2, parse_id/1, dialog_id/1]).
--export([get_subscription/1, get_all/0, get_all/2, subscription_state/1, remote_id/2]).
--export([make_id/1, find/2]).
+-export([get_id/1, app_id/1, app_name/1, call_id/1, meta/2, metas/2]).
+-export([get_all/0, get_all/2]).
+-export([parse_id/1, get_subscription/1, make_id/1, find/2, subscription_state/1, remote_id/2]).
 -export_type([id/0, status/0, subscription_state/0, terminated_reason/0]).
 
 -include("nksip.hrl").
@@ -41,7 +41,8 @@
     binary().
 
 -type field() :: 
-    subscription_id | event | parsed_event | class | answered | expires.
+    id | internal_id | status | event | class | answered | expires |
+    nksip_dialog:field().
 
 -type subscription_state() ::
     {active, undefined|non_neg_integer()} | {pending, undefined|non_neg_integer()}
@@ -63,67 +64,73 @@
 %% ===================================================================
 
 
-%% @doc Gets specific information from the subscription indicated by `SubscriptionSpec'. 
-%% The available fields are:
-%%  
-%% <table border="1">
-%%      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-%%      <tr>
-%%          <td>`app_id'</td>
-%%          <td>{link nksip:app_id()}</td>
-%%          <td>SipApp that created the subscription</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`status'</td>
-%%          <td>{@link status()}</td>
-%%          <td>Status</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`event'</td>
-%%          <td>`binary()'</td>
-%%          <td>Full <i>Event</i> header</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`parsed_event'</td>
-%%          <td>{@link nksip:token()}</td>
-%%          <td>Parsed <i>Event</i> header</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`class'</td>
-%%          <td>`uac|uas'</td>
-%%          <td>Class of the event, as a UAC or a UAS</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`answered'</td>
-%%          <td><code>{@link nksip_lib:timestamp()}|undefined</code></td>
-%%          <td>Time first NOTIFY was received</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`expires'</td>
-%%          <td>integer()</td>
-%%          <td>Seconds reamaining to subscription expiration</td>
-%%      </tr>
-%% </table>
+%% @doc Get the subscripion a request, response or id
+-spec get_id(nksip:subscription()|nksip:request()|nksip:response()|nksip:id()) ->
+    nksip:id().
 
--spec field(nksip:id()|nksip:subscription(), field()) -> 
+get_id({user_subs, #subscription{id=SubsId}, #dialog{app_id=AppId, id=DialogId, call_id=CallId}}) ->
+    App = atom_to_binary(AppId, latin1), 
+    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
+get_id(#sipmsg{app_id=AppId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
+    SubsId = make_id(SipMsg),
+    App = atom_to_binary(AppId, latin1), 
+    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
+get_id(<<"U_", _/binary>>=Id) ->
+    Id;
+get_id(<<Class, $_, _/binary>>=Id) when Class==$R; Class==$S ->
+    Fun = fun(#sipmsg{}=SipMsg) -> {ok, get_id(SipMsg)} end,
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
+        {ok, Id1} -> Id1;
+        {error, _} -> <<>>
+    end.
+
+
+%% @doc Gets thel App of a dialog
+-spec app_id(nksip:subscription()|nksip:id()) ->
+    nksip:app_id().
+
+app_id({user_subs, _, #dialog{app_id=AppId}}) ->
+    AppId;
+app_id(Id) ->
+    {AppId, _SubsId, _DialogId, _CallId} = parse_id(Id),
+    AppId. 
+
+
+%% @doc Gets app's name
+-spec app_name(nksip:subscription()|nksip:id()) -> 
+    term().
+
+app_name(Req) -> 
+    (app_id(Req)):name().
+
+
+%% @doc Gets thel Call-ID of the subscription
+-spec call_id(nksip:subscription()|nksip:id()) ->
+    nksip:call_id().
+
+call_id({user_subs, _, #dialog{call_id=CallId}}) ->
+    CallId;
+call_id(Id) ->
+    {_AppId, _SubsId, _DialogId, CallId} = parse_id(Id),
+    CallId. 
+
+
+%% @doc
+-spec meta(field()|nksip_dialog:field(), nksip:subscription()|nksip:id()) -> 
     term() | error.
 
-field(<<"U_", _/binary>>=Id, Field) -> 
-    case fields(Id, [Field]) of
-        [{_, Value}] -> Value;
-        error -> error
-    end;
-
-field(#subscription{}=U, Field) ->
+meta(Field, {user_subs, U, D}) ->
     case Field of
+        id ->
+            get_id({user_subs, U, D});
         internal_id -> 
             U#subscription.id;
         status -> 
             U#subscription.status;
         event -> 
-            nksip_unparse:token(U#subscription.event);
-        parsed_event -> 
             U#subscription.event;
+        raw_event -> 
+            nksip_unparse:token(U#subscription.event);
         class -> 
             U#subscription.class;
         answered -> 
@@ -132,55 +139,64 @@ field(#subscription{}=U, Field) ->
             round(erlang:read_timer(U#subscription.timer_expire)/1000);
         expires ->
             undefined;
-       _ -> 
-            invalid_field 
+       _ ->
+            nksip_dialog:meta(Field, D)
+    end;
+
+meta(Field, <<"U_", _/binary>>=Id) -> 
+    case metas([Field], Id) of
+        [{_, Value}] -> Value;
+        error -> error
     end.
 
 
 %% @doc Gets a number of fields from the Subscription as described in {@link field/3}.
--spec fields(nksip:id(), [field()]) -> 
-    [{atom(), term()}] | error.
+-spec metas([field()], nksip:subscription()|nksip:id()) -> 
+    [{field(), term()}] | error.
     
-fields(Id, Fields) when is_list(Fields) ->
+metas(Fields, {user_subs, _, _}=Subs) ->
+    [{Field, meta(Field, Subs)} || Field <- Fields];
+metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
     {_AppId, SubsId, _DialogId, _CallId} = parse_id(Id),
     Fun = fun(Dialog) -> 
         case find(SubsId, Dialog) of
-            #subscription{} = Subs ->
-                {ok, [{Field, field(Subs, Field)} || Field <- Fields]};
-            not_found ->
-                error
+            #subscription{} = U -> {ok, metas(Fields, {user_subs, U, Dialog})};
+            not_found -> error
         end
     end,
-    case nksip_call_router:apply_dialog(dialog_id(Id), Fun) of
+    DialogId = nksip_dialog:get_id(Id),
+    case nksip_call_router:apply_dialog(DialogId, Fun) of
         {ok, Values} -> Values;
         _ -> error
     end.
 
 
-%% @doc Get the subscripion's id from a request or response.
--spec get_id(nksip:id()|nksip:request()|nksip:response()) ->
-    nksip:id().
+%% @doc Gets all started subscription ids.
+-spec get_all() ->
+    [nksip:id()].
 
-get_id(<<"U_", _/binary>>=Id) ->
-    Id;
-
-get_id(<<Class, $_, _/binary>>=Id) when Class==$R; Class==$S ->
-    Fun = fun(#sipmsg{}=SipMsg) -> {ok, get_id(SipMsg)} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Id1} -> Id1;
-        {error, _} -> <<>>
-    end;
-
-get_id(#sipmsg{app_id=AppId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
-    SubsId = make_id(SipMsg),
-    App = atom_to_binary(AppId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>.
+get_all() ->
+    lists:flatten([
+        nksip_dialog:meta(subscriptions, Id) 
+        || Id <- nksip_call_router:get_all_dialogs()
+    ]).
 
 
-%% @private
-get_id(#subscription{id=SubsId}, #dialog{app_id=AppId, id=DialogId, call_id=CallId}) ->
-    App = atom_to_binary(AppId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>.
+%% @doc Finds all existing subscriptions having a `Call-ID'.
+-spec get_all(nksip:app_id(), nksip:call_id()) ->
+    [nksip:id()].
+
+get_all(AppId, CallId) ->
+    lists:flatten([
+        nksip_dialog:meta(subscriptions, Id)
+        || Id <- nksip_call_router:get_all_dialogs(AppId, CallId)
+    ]).
+
+
+%% ===================================================================
+%% Private
+%% ===================================================================
+
 
 % %% @private
 % -spec get_id(nksip:token()|undefined, nksip_dialog:id()) ->
@@ -210,30 +226,20 @@ parse_id(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, App:7/binary,
     {AppId, SubsId, DialogId, CallId}. 
 
 
-%% @private
--spec dialog_id(nksip:id()) ->
-    nksip_dialog:id().
-
-dialog_id(Id) ->
-    {AppId, _, DialogId, CallId} = parse_id(Id),
-    App = atom_to_binary(AppId, latin1), 
-    <<$D, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>.
-
-
 %% @doc Gets a full subscription record.
 -spec get_subscription(nksip:id()) ->
     nksip:dialog() | error.
 
 get_subscription(Id) ->
     {_AppId, SubsId, _DialogId, _CallId} = parse_id(Id),
-    DId = dialog_id(Id),
+    DialogId = nksip_dialog:get_id(Id),
     Fun = fun(#dialog{}=Dialog) ->
         case find(SubsId, Dialog) of
             #subscription{} = Event -> {ok, Event};
             _ -> error
         end
     end,
-    case nksip_call_router:apply_dialog(DId, Fun) of
+    case nksip_call_router:apply_dialog(DialogId, Fun) of
         {ok, Event} -> Event;
         _ -> error
     end.
@@ -253,36 +259,6 @@ make_id(#sipmsg{event={Event, Opts}}) ->
     Id = nksip_lib:get_value(<<"id">>, Opts),
     nksip_lib:hash({Event, Id}).
 
-
-
-    % nksip_lib:hash({Event, Id}).
-
-
-%% @doc Gets all started subscription ids.
--spec get_all() ->
-    [nksip:id()].
-
-get_all() ->
-    lists:flatten([
-        nksip_dialog:field(Id, subscriptions) 
-        || Id <- nksip_call_router:get_all_dialogs()
-    ]).
-
-
-%% @doc Finds all existing subscriptions having a `Call-ID'.
--spec get_all(nksip:app_id(), nksip:call_id()) ->
-    [nksip:id()].
-
-get_all(AppId, CallId) ->
-    lists:flatten([
-        nksip_dialog:field(Id, subscriptions)
-        || Id <- nksip_call_router:get_all_dialogs(AppId, CallId)
-    ]).
-
-
-%% ===================================================================
-%% Private
-%% ===================================================================
 
 
 % %% @private
@@ -318,7 +294,7 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 %% @private Hack to find the UAS subscription from the UAC and the opposite way
 remote_id(Id, App) ->
     {_AppId0, SubsId, _DialogId, CallId} = parse_id(Id),
-    RemoteId = nksip_dialog:remote_id(dialog_id(Id), App),
+    RemoteId = nksip_dialog:remote_id(nksip_dialog:get_id(Id), App),
     {AppId1, RemDialogId, CallId} = nksip_dialog:parse_id(RemoteId),
     App1 = atom_to_binary(AppId1, latin1),
     <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, App1/binary, $_, CallId/binary>>.

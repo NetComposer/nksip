@@ -38,21 +38,21 @@ app_call(Fun, Args, AppId) ->
 	        ?call_error("Error calling callback ~p: ~p", [Fun, Error]),
 	        error;
 	    Reply ->
-	    	?call_warning("Called ~p/~p (~p): ~p", [Fun, length(Args), Args, Reply]),
-	    	% ?call_warning("Called ~p/~p: ~p", [Fun, length(Args), Reply]),
+	    	% ?call_warning("Called ~p/~p (~p): ~p", [Fun, length(Args), Args, Reply]),
+	    	?call_debug("Called ~p/~p: ~p", [Fun, length(Args), Reply]),
 	        {ok, Reply}
 	end.
 
 
 %% @private
-app_method(#trans{method='ACK'}=UAS, #call{app_id=AppId}=Call) ->
-	case catch AppId:ack({user_req, UAS, Call}) of
+app_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}) ->
+	case catch AppId:ack(Req) of
 		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
 	noreply;
 
-app_method(#trans{method=Method, request=Req}=UAS, #call{app_id=AppId}=Call) ->
+app_method(#trans{method=Method, request=Req}, #call{app_id=AppId}) ->
 	#sipmsg{to={_, ToTag}} = Req,
 	Fun = case Method of
 		'INVITE' when ToTag == <<>> -> invite;
@@ -68,7 +68,7 @@ app_method(#trans{method=Method, request=Req}=UAS, #call{app_id=AppId}=Call) ->
 		'REFER' -> refer;
 		'PUBLISH' -> publish
 	end,
-	case catch AppId:Fun({user_req, UAS, Call}) of
+	case catch AppId:Fun(Req) of
 		{reply, Reply} -> 
 			{reply, Reply};
 		noreply -> 

@@ -235,11 +235,8 @@ is_registered(#sipmsg{
 %% If the request is successful, a 200-code `nksip:sipreply()' is returned,
 %% including one or more <i>Contact</i> headers (for all of the current registered
 %% contacts), <i>Date</i> and <i>Allow</i> headers.
--spec request(nksip:request()|nksip_request:req()) ->
+-spec request(nksip:request()) ->
     nksip:sipreply().
-
-request({user_req, #trans{request=Req}, _Call}) ->
-    request(Req);
 
 request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
     try

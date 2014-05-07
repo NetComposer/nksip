@@ -413,7 +413,7 @@ update(Id, Opts) ->
 refresh(Id, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
         undefined ->
-            case nksip_dialog:field(Id, invite_local_sdp) of
+            case nksip_dialog:meta(invite_local_sdp, Id) of
                 #sdp{} = SDP -> SDP;
                 _ -> <<>>
             end;

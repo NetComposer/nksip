@@ -747,7 +747,7 @@ publish(_Req) ->
     ok
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |
-                         {subscription_status, nksip_subscription:status()} |
+                         {subscription_status, nksip_subscription:status(), nksip:subscription()} |
                          {stop, nksip_dialog:stop_reason()}.
     
 dialog_update(_Status, _Dialog) ->
