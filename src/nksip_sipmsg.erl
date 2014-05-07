@@ -137,8 +137,7 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
                 
                     undefined
             end;
-
-all_headers -> all_headers(S);
+        all_headers -> all_headers(S);
         {header, Name} -> header(Name, S);
         _ -> invalid_field 
     end.
