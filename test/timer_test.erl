@@ -184,7 +184,7 @@ basic() ->
     90 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     90 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
 
 
     % Before waiting for expiration, ua1 sends a refresh to ua2.
@@ -197,7 +197,7 @@ basic() ->
     2 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     2 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
 
     % Now both ua1 and ua2 has received a 422 response or a refresh request with MinSE,
     % so it will be used in new requests
@@ -218,7 +218,7 @@ basic() ->
     2 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     2 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
 
     % Now ua1 refreshes, but change roles, becoming refresher. 
     % Using session_expires option overrides automatic behaviour, no Min-SE is sent
@@ -226,7 +226,7 @@ basic() ->
     {ok, 200, []} = nksip_uac:update(Dialog1A, [{session_expires, {2,uac}}]),
 
     90 = nksip_dialog:meta(invite_session_expires, Dialog1A),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog1A),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1A),
     90 = nksip_dialog:meta(invite_session_expires, Dialog1B),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1B),
 
@@ -237,7 +237,7 @@ basic() ->
     1800 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
 
 
     % Lower time to wait for timeout
@@ -307,7 +307,7 @@ proxy() ->
     3 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     3 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
 
     3 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
@@ -349,7 +349,7 @@ proxy() ->
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog3A),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3B),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog3B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog3B),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3A),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3A),
     {ok, 200, []} = nksip_uac:bye(Dialog3A, []),
@@ -367,7 +367,7 @@ proxy() ->
     timer:sleep(100),
     Dialog4B = nksip_dialog:remote_id(Dialog4A, ua3),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog4A),
-    true = is_integer(nksip_dialog:meta(invite_refresh), Dialog4A),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog4A),
     undefined = nksip_dialog:meta(invite_session_expires, Dialog4B),
     undefined  = nksip_dialog:meta(invite_refresh, Dialog4B),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog4A),
