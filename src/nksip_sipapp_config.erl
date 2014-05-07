@@ -141,7 +141,7 @@ parse_opts([Term|Rest], Opts) ->
                 error -> 
                     [{local_host6, nksip_lib:to_binary(Host)}|Opts]
             end;
-        no_100 ->
+        {no_100, true} ->
             [{no_100, true}|Opts];
 
         {plugins, List} when is_list(List) ->
@@ -165,7 +165,7 @@ parse_opts([Term|Rest], Opts) ->
             end;
         {register_expires, Expires} when is_integer(Expires), Expires>0 ->
             [{register_expires, Expires}|Opts];
-        registrar ->
+        {registrar, true} ->
             [{registrar, true}|Opts];
         {trace, Trace} when is_boolean(Trace) ->
             [{trace, Trace}|Opts];
@@ -173,6 +173,8 @@ parse_opts([Term|Rest], Opts) ->
             [{store_trace, Trace}|Opts];
 
         % Unknown options
+        Name when is_atom(Name) ->
+            parse_opts([{Name, true}|Rest], Opts);
         {Name, Value} ->
             case nksip_config:parse_config(Name, Value) of
                 {ok, Value1} -> 
@@ -184,13 +186,8 @@ parse_opts([Term|Rest], Opts) ->
                         _ -> throw({invalid, Name})
                     end
             end;
-        Name ->
-            PlugList = lists:reverse(nksip_lib:get_value(plugins, Opts, [])),
-            case parse_external_opt(Name, PlugList) of
-                {ok, Value1} -> nksip_lib:store_value(Name, Value1, Opts);
-                _ -> throw({invalid, Name})
-            end
-
+        Other ->
+            throw({invalid, Other})
     end,
     parse_opts(Rest, Opts1).
 
