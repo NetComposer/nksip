@@ -27,18 +27,18 @@
 
 -compile([export_all]).
 
-event_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        {inparallel, [
-            {timeout, 60, fun basic/0},
-            {timeout, 60, fun refresh/0},
-            {timeout, 60, fun dialog/0},
-            {timeout, 60, fun out_or_order/0},
-            {timeout, 60, fun fork/0}
-        ]}
-    }.
+% event_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         {inparallel, [
+%             {timeout, 60, fun basic/0},
+%             {timeout, 60, fun refresh/0},
+%             {timeout, 60, fun dialog/0},
+%             {timeout, 60, fun out_or_order/0},
+%             {timeout, 60, fun fork/0}
+%         ]}
+%     }.
 
 
 start() ->
@@ -422,59 +422,61 @@ init(Id) ->
     {ok, Id}.
 
 
-invite(ReqId, Meta, _From, AppId=State) ->
-    tests_util:save_ref(AppId, ReqId, Meta),
-    {reply, ok, State}.
+invite(Req) ->
+    tests_util:save_ref(Req),
+    {reply, ok}.
 
 
-reinvite(ReqId, Meta, From, State) ->
-    invite(ReqId, Meta, From, State).
+reinvite(Req) ->
+    invite(Req).
 
 
-ack(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, ack),
-    {reply, ok, State}.
+ack(Req) ->
+    tests_util:send_ref(ack, Req),
+    ok.
 
 
-bye(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, bye),
-    {reply, ok, State}.
+bye(Req) ->
+    tests_util:send_ref(bye, Req),
+    {reply, ok}.
 
 
-subscribe(ReqId, Meta, From, AppId=State) ->
-    tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
+subscribe(Req) ->
+    tests_util:save_ref(Req),
+    Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
         _ -> <<"ok">>
     end,
     case Op of
         <<"ok">> ->
-            {reply, ok, State};
+            {reply, ok};
         <<"expires-2">> ->
-            {reply, {ok, [{expires, 2}]}, State};
+            {reply, {ok, [{expires, 2}]}};
         <<"wait">> ->
-            Req = nksip_request:get_request(ReqId),
-            tests_util:send_ref(AppId, Meta, {wait, Req}),
+            % Req = nksip_request:get_request(ReqId),
+            tests_util:send_ref({wait, Req}, Req),
+            ReqId = nksip_request:id(Req),
             spawn(
                 fun() ->
                     timer:sleep(1000),
-                    nksip:reply(From, ok)
+                    nksip:reply(ok, ReqId)
                 end),
-            {noreply, State}
-
+            noreply
     end.
 
-resubscribe(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
 
-notify(_ReqId, Meta, _From, AppId=State) ->
-    Body = nksip_lib:get_value(body, Meta),
-    tests_util:send_ref(AppId, Meta, {notify, Body}),
-    {reply, ok, State}.
+resubscribe(_Req) ->
+    {reply, ok}.
 
 
-dialog_update(DialogId, Update, AppId=State) ->
-    tests_util:dialog_update(DialogId, Update, AppId),
-    {noreply, State}.
+notify(Req) ->
+    Body = nksip_request:body(Req),
+    tests_util:send_ref({notify, Body}, Req),
+    {reply, ok}.
+
+
+dialog_update(Update, Dialog) ->
+    tests_util:dialog_update(Update, Dialog),
+    ok.
 
 
