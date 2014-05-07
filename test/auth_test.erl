@@ -257,7 +257,7 @@ proxy() ->
 init(Id) ->
     {ok, Id}.
 
-get_user_pass(User, Realm, Req) ->
+get_user_pass(User, Realm, Req, _Call) ->
     App = nksip_request:app_name(Req),
     if
         App==server1; App==server2 ->
@@ -286,7 +286,7 @@ get_user_pass(User, Realm, Req) ->
 
 
 % Authorization is only used for "auth" suite
-authorize(Auth, Req) ->
+authorize(Auth, Req, _Call) ->
     App = nksip_request:app_name(Req),
     IsDialog = lists:member(dialog, Auth),
     IsRegister = lists:member(register, Auth),
@@ -321,7 +321,7 @@ authorize(Auth, Req) ->
 
 % Route for server1 in auth tests
 % Finds the user and proxies to server2
-route(Scheme, User, Domain, Req) ->
+route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             Opts = [{route, "<sip:127.0.0.1:5061;lr>"}],
@@ -345,27 +345,25 @@ route(Scheme, User, Domain, Req) ->
     end.
 
 
-invite(Req) ->
+invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {reply, ok}.
 
 
-reinvite(Req) ->
-    invite(Req).
+reinvite(Req, Call) ->
+    invite(Req, Call).
 
 
-ack(Req) ->
+ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-bye(Req) ->
+bye(Req, _Call) ->
     tests_util:send_ref(bye, Req),
     {reply, ok}.
 
 
-dialog_update(_Update, _Dialog) ->
-    ok.
 
 
 

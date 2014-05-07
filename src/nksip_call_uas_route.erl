@@ -74,7 +74,7 @@ check_cancel(#trans{id=Id}=UAS, #call{app_id=AppId}=Call) ->
             if
                 Status==authorize; Status==route; Status==invite_proceeding ->
                     Call1 = reply(ok, UAS, Call), 
-                    Args = [InvId, UAS#trans.request],
+                    Args = [InvId, UAS#trans.request, Call],
                     nksip_callbacks:app_call(cancel, Args, AppId),
                     nksip_call_uas:terminate_request(InvUAS, Call1);
                 true ->
@@ -124,7 +124,7 @@ is_cancel(_, _) ->
 authorize_launch(UAS, #call{app_id=AppId}=Call) ->
     case erlang:function_exported(AppId, authorize, 2) of
         true ->
-            Args = [authorize_data(UAS, Call), UAS#trans.request],
+            Args = [authorize_data(UAS, Call), UAS#trans.request, Call],
             case nksip_callbacks:app_call(authorize, Args, AppId) of
                 {ok, Reply} -> authorize_reply(Reply, UAS, Call);
                 error -> reply({internal_error, "SipApp Error"}, UAS, Call)
@@ -148,7 +148,7 @@ authorize_data(#trans{id=Id,request=Req}=UAS, Call) ->
         false -> []
     end,
     PassFun = fun(User, Realm) ->
-        Args = [User, Realm, UAS#trans.request],
+        Args = [User, Realm, UAS#trans.request, Call],
         case nksip_callbacks:app_call(get_user_pass, Args, AppId) of
             {ok, Reply} -> ok;
             error -> Reply = false
@@ -205,7 +205,7 @@ route_launch(#trans{ruri=RUri}=UAS, #call{app_id=AppId}=Call) ->
     UAS1 = UAS#trans{status=route},
     Call1 = update(UAS1, Call),
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
-    Args = [Scheme, User, Domain, UAS#trans.request],
+    Args = [Scheme, User, Domain, UAS#trans.request, Call],
     case nksip_callbacks:app_call(route, Args, AppId) of
         {ok, Reply} -> route_reply(Reply, UAS1, Call1);
         error -> reply({internal_error, "SipApp Error"}, UAS, Call)

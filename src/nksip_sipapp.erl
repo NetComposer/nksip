@@ -140,11 +140,11 @@
 -module(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, get_user_pass/3, authorize/2, route/4]).
--export([invite/1, reinvite/1, cancel/2, ack/1, bye/1, options/1, register/1]).
--export([info/1, prack/1, update/1, subscribe/1, resubscribe/1, notify/1, message/1]).
--export([refer/1, publish/1]).
--export([ping_update/3, register_update/3, dialog_update/2, session_update/2]).
+-export([init/1, get_user_pass/4, authorize/3, route/5]).
+-export([invite/2, reinvite/2, cancel/3, ack/2, bye/2, options/2, register/2]).
+-export([info/2, prack/2, update/2, subscribe/2, resubscribe/2, notify/2, message/2]).
+-export([refer/2, publish/2]).
+-export([ping_update/3, register_update/3, dialog_update/3, session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 -export([registrar_store/2, publish_store/2]).
 -include("nksip.hrl").
@@ -204,8 +204,8 @@
 -spec init(Args::term()) ->
     init_return().
 
-init([]) ->
-    {ok, {}}.
+init(Arg) ->
+    {ok, Arg}.
 
 
 %% @doc Called when the SipApp is stopped.
@@ -239,11 +239,12 @@ terminate(_Reason, _State) ->
 %% If you don't define this function, NkSIP will reply with password `<<>>' 
 %% if user is `anonymous', and `false' for any other user.  
 %%
--spec get_user_pass(User::binary(), Realm::binary(), Req::nksip_request:req()) ->
+-spec get_user_pass(User::binary(), Realm::binary(), Req::nksip:request(), 
+                    Call::nksip:call()) ->
     true | false | binary().
 
-get_user_pass(<<"anonymous">>, _, _Req) -> <<>>;
-get_user_pass(_User, _Realm, _Req) -> false.
+get_user_pass(<<"anonymous">>, _, _Req, _Call) -> <<>>;
+get_user_pass(_User, _Realm, _Req, _Call) -> false.
 
 
 
@@ -276,12 +277,12 @@ get_user_pass(_User, _Realm, _Req) -> false.
 %% previous registration and/or dialog authentication. 
 %% If you don't define this function all requests will be authenticated.
 %%
--spec authorize(AuthList, Req::nksip_request:req()) ->
+-spec authorize(AuthList, Req::nksip:request(), Call::nksip:call()) ->
     ok | forbidden | authenticate | {authenticate, Realm::binary()} |
     proxy_authenticate | {proxy_authenticate, Realm::binary()}
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
 
-authorize(_AuthList, _Req) ->
+authorize(_AuthList, _Req, _Call) ->
     ok.
 
 
@@ -371,10 +372,10 @@ authorize(_AuthList, _Req) ->
     {reply, nksip:sipreply(), nksip_lib:optslist()}.
 
 -spec route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
-            Req::nksip_request:req()) ->
+            Req::nksip:request(), Call::nksip:call()) ->
     route_reply().
 
-route(_Scheme, _User, _Domain, _Req) ->
+route(_Scheme, _User, _Domain, _Req, _Call) ->
     process.
 
 
@@ -403,10 +404,10 @@ route(_Scheme, _User, _Domain, _Req) ->
 %% The remote party should then send an ACK request immediately.
 %% If none is received, NkSIP will automatically stop the dialog.
 %%
--spec invite(Req::nksip_request:req()) ->
+-spec invite(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-invite(_Req) ->
+invite(_Req, _Call) ->
     {reply, decline}.
 
 
@@ -419,10 +420,10 @@ invite(_Req) ->
 %% its response, {@link dialog_update/3} and/or {@link session_update/3} would be
 %% called.
 %%
--spec reinvite(Req::nksip_request:req()) ->
+-spec reinvite(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-reinvite(_Req) ->
+reinvite(_Req, _Call) ->
     {reply, decline}.
 
 
@@ -440,10 +441,10 @@ reinvite(_Req) ->
 %% `Meta' will include a parameter `{req_id, InviteId}' showing the request id of the
 %% INVITE being cancelled.
 %%
--spec cancel(InviteReq::nksip_request:req(), Req::nksip_request:req()) ->
+-spec cancel(InviteReq::nksip:request(), Req::nksip:request(), Call::nksip:call()) ->
     ok.
 
-cancel(_CancelledReq, _Req) ->
+cancel(_CancelledReq, _Req, _Call) ->
     ok.
 
 
@@ -459,10 +460,10 @@ cancel(_CancelledReq, _Req) ->
 %% to receive the SDP body from the other party in case it was not present in the INVITE
 %% (you can also get it from the {@link session_update/3} callback).
 %%
--spec ack(Req::nksip_request:req()) ->
+-spec ack(Req::nksip:request(), Call::nksip:call()) ->
     ok.
 
-ack(_Req) ->
+ack(_Req, _Call) ->
     ok.
 
 
@@ -477,10 +478,10 @@ ack(_Req) ->
 %% `Meta' will include at least the following parameters: aor, dialog_id
 %% (see {@link nksip_request} for details).
 %%
--spec bye(Req::nksip_request:req()) ->
+-spec bye(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-bye(_Req) ->
+bye(_Req, _Call) ->
     {reply, ok}.
 
 
@@ -494,10 +495,10 @@ bye(_Req) ->
 %% `Meta' will include at least the following parameters: aor, content-type, body
 %% (see {@link nksip_request} for details).
 %%
--spec info(Req::nksip_request:req()) ->
+-spec info(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-info(_Req) ->
+info(_Req, _Call) ->
     {reply, ok}.
 
 
@@ -515,10 +516,10 @@ info(_Req) ->
 %% `Meta' will include at least the following parameters: aor
 %% (see {@link nksip_request} for details).
 %%
--spec options(Req::nksip_request:req()) ->
+-spec options(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-options(_Req) ->
+options(_Req, _Call) ->
     {reply, {ok, [contact, allow, allow_event, accept, supported]}}.
     
 
@@ -543,10 +544,10 @@ options(_Req) ->
 %% and need a specific REGISTER processing 
 %% (for example to add some headers to the response).
 %%
--spec register(Req::nksip_request:req()) ->
+-spec register(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-register(Req) ->
+register(Req, _Call) ->
     AppId = nksip_request:app_id(Req),
     case AppId:config_registrar() of
         true -> 
@@ -567,10 +568,10 @@ register(Req) ->
 %% `Meta' will include at least the following parameters: dialog_id, content_type
 %% and body (see {@link nksip_request} for details).
 %%
--spec prack(Req::nksip_request:req()) ->
+-spec prack(Req::nksip:request(), Call::nksip:call()) ->
     ok.
 
-prack(_Req) ->
+prack(_Req, _Call) ->
     ok.
 
 
@@ -588,10 +589,10 @@ prack(_Req) ->
 %% `Meta' will include at least the following parameters: dialog_id, content_type
 %% and body (see {@link nksip_request} for details).
 %%
--spec update(Req::nksip_request:req()) ->
+-spec update(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-update(_Req) ->
+update(_Req, _Call) ->
     {reply, decline}.
 
 
@@ -609,10 +610,10 @@ update(_Req) ->
 %% `Meta' will include at least the following parameters: aor, dialog_id, event,
 %% subscription_id and parsed_expires (see {@link nksip_request} for details).
 %%
--spec subscribe(Req::nksip_request:req()) ->
+-spec subscribe(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-subscribe(_Req) ->
+subscribe(_Req, _Call) ->
     {reply, decline}.
 
 
@@ -621,10 +622,10 @@ subscribe(_Req) ->
 %%
 %% You don't usually have to implement this function.
 %%
--spec resubscribe(Req::nksip_request:req()) ->
+-spec resubscribe(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-resubscribe(_Req) ->
+resubscribe(_Req, _Call) ->
     {reply, decline}.
 
 
@@ -638,10 +639,10 @@ resubscribe(_Req) ->
 %%
 %% You should always return `ok'.
 %%
--spec notify(Req::nksip_request:req()) ->
+-spec notify(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-notify(_Req) ->
+notify(_Req, _Call) ->
     {reply, ok}.
 
 
@@ -656,10 +657,10 @@ notify(_Req) ->
 %% content_type and body.
 %% Field `expired' will have `true' if the MESSAGE has already expired.
 %%
--spec message(Req::nksip_request:req()) ->
+-spec message(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-message(_Req) ->
+message(_Req, _Call) ->
     {reply, decline}.
 
 
@@ -691,10 +692,10 @@ message(_Req) ->
 %%     spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
 %%     {reply, ok, State}.
 %%
--spec refer(Req::nksip_request:req()) ->
+-spec refer(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-refer(_Req) ->
+refer(_Req, _Call) ->
     {reply, decline}.
 
 
@@ -707,10 +708,10 @@ refer(_Req) ->
 %% If the event package is ok, you can use the funcion {@link nksip_publish:request}
 %% to process it according to RFC3903
 %%
--spec publish(Req::nksip_request:req()) ->
+-spec publish(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-publish(_Req) ->
+publish(_Req, _Call) ->
     {reply, forbidden}.
 
 
@@ -743,14 +744,14 @@ publish(_Req) ->
 %% {subscription_status, {@link nksip_subscription:status()}}.
 %%
 %%
--spec dialog_update(DialogStatus, Dialog::nksip:user_dlg()) ->
+-spec dialog_update(DialogStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
     ok
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |
                          {subscription_status, nksip_subscription:status(), nksip:subscription()} |
                          {stop, nksip_dialog:stop_reason()}.
     
-dialog_update(_Status, _Dialog) ->
+dialog_update(_Status, _Dialog, _Call) ->
     ok.
 
 
@@ -762,12 +763,12 @@ dialog_update(_Status, _Dialog) ->
 %%
 %% This function will be also called after each new successful SDP negotiation.
 %%
--spec session_update(SessionStatus, Dialog::nksip:user_dlg()) ->
+-spec session_update(SessionStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
     ok
     when SessionStatus :: {start, Local, Remote} | {update, Local, Remote} | stop,
                           Local::nksip_sdp:sdp(), Remote::nksip_sdp:sdp().
 
-session_update(_Status, _Dialog) ->
+session_update(_Status, _Dialog, _Call) ->
     ok.
 
 

@@ -608,9 +608,8 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
 -spec cast(atom(), term(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-cast(Fun, Arg, #dialog{id=DialogId} = Dialog, #call{app_id=AppId}=Call) ->
-    ?call_debug("called dialog ~s ~p: ~p", [DialogId, Fun, Arg]),
-    nksip_callbacks:app_call(Fun, [Arg, {user_dlg, Dialog, Call}], AppId),
+cast(Fun, Arg, Dialog, #call{app_id=AppId}=Call) ->
+    nksip_callbacks:app_call(Fun, [Arg, Dialog, Call], AppId),
     ok.
 
 

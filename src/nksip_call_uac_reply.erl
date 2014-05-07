@@ -87,11 +87,11 @@ reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     CB = nksip_lib:get_value(callback, Opts),
     if
         Code<101 -> ok;
-        Code<200, is_function(CB, 1) -> call(CB, {ok, Code, Resp});
+        Code<200, is_function(CB, 1) -> call(CB, {resp, Code, Resp, Call});
         % Code<200, Get, is_function(CB, 1) -> call(CB, {resp, Resp});
         % Code<200, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
         Code<200 -> ok;
-        Async, is_function(CB, 1) -> call(CB, {ok, Code, Resp});
+        Async, is_function(CB, 1) -> call(CB, {resp, Code, Resp, Call});
         % Async, Get, is_function(CB, 1) -> call(CB, {resp, Resp});
         % Async, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
         Async -> ok;

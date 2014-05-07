@@ -576,8 +576,8 @@ cast(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
         {terminated, Reason, undefined} -> {terminated, Reason};
         _ -> Status
     end,
-    Id = nksip_subscription:get_id(Subs, Dialog),
-    Args = [{subscription_status, Id, Status1}, {user_dlg, Dialog, Call}],
+    % Id = nksip_subscription:get_id(Subs, Dialog),
+    Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
     nksip_callbacks:app_call(dialog_update, Args, AppId).
 
 

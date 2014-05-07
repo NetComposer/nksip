@@ -224,11 +224,8 @@ init(AppName) ->
     ok = nksip:put(AppName, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, AppName}.
 
-% Route for "basic" test suite. Allways add Record-Route and x-nk-server headers
-% If no user, use Nksip-Op to select an operation
-% If user and domain is nksip, proxy to registered contacts
-% Any other case simply route
-route(Scheme, User, Domain, Req) ->
+
+route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             {ok, Domains} = nksip:get(server1, domains),
@@ -264,10 +261,6 @@ route(Scheme, User, Domain, Req) ->
         _ ->
             process
     end.
-
-
-dialog_update(_Update, _Dialog) ->
-    ok.
 
 
 handle_call(get_domains, _From, AppId=State) ->

@@ -35,7 +35,7 @@
 app_call(Fun, Args, AppId) ->
 	case catch apply(AppId, Fun, Args) of
 	    {'EXIT', Error} -> 
-	        ?call_error("Error calling callback ~p: ~p", [Fun, Error]),
+	        ?call_error("Error calling callback ~p/~p: ~p", [Fun, length(Args), Error]),
 	        error;
 	    Reply ->
 	    	% ?call_warning("Called ~p/~p (~p): ~p", [Fun, length(Args), Args, Reply]),
@@ -45,14 +45,14 @@ app_call(Fun, Args, AppId) ->
 
 
 %% @private
-app_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}) ->
-	case catch AppId:ack(Req) of
+app_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
+	case catch AppId:ack(Req, Call) of
 		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
 	noreply;
 
-app_method(#trans{method=Method, request=Req}, #call{app_id=AppId}) ->
+app_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 	#sipmsg{to={_, ToTag}} = Req,
 	Fun = case Method of
 		'INVITE' when ToTag == <<>> -> invite;
@@ -68,13 +68,13 @@ app_method(#trans{method=Method, request=Req}, #call{app_id=AppId}) ->
 		'REFER' -> refer;
 		'PUBLISH' -> publish
 	end,
-	case catch AppId:Fun(Req) of
+	case catch AppId:Fun(Req, Call) of
 		{reply, Reply} -> 
 			{reply, Reply};
 		noreply -> 
 			noreply;
 		Error -> 
-			?call_error("Error calling callback ~p/1: ~p", [Fun, Error]),
+			?call_error("Error calling callback ~p/2: ~p", [Fun, Error]),
 			{reply, {internal_error, "SipApp Error"}}
 	end.
 

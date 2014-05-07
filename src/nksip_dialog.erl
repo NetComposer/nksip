@@ -26,11 +26,12 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([app_id/1, app_name/1, get_id/1, call_id/1, meta/2, metas/2]).
--export([get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
+-export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
 -export([get_dialog/1, get_all_data/0, make_id/2, parse_id/1, remote_id/2, change_app/2]).
 -export_type([id/0, invite_status/0, field/0, stop_reason/0]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
@@ -208,6 +209,17 @@ metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
     end.
 
 
+%% @doc Gets the dialog object corresponding to a request
+-spec get_dialog(nksip:request()|nksip:response(), nksip:call()) ->
+    nksip:dialog()|error.
+
+get_dialog(#sipmsg{dialog_id=DialogId}, #call{}=Call) ->
+    case nksip_call_dialog:find(DialogId, Call) of
+        not_found -> error;
+        Dialog -> {ok, Dialog}
+    end.
+
+
 %% @doc Gets all started dialog ids.
 -spec get_all() ->
     [nksip:id()].
@@ -309,9 +321,8 @@ make_id(Class, FromTag, ToTag) ->
 %% @private Hack to find the UAS dialog from the UAC and the opposite way
 remote_id(<<$D, _/binary>>=DialogId, App) ->
     {ok, AppId} = nksip:find_app(App),
-    [{internal_id, BaseId}, {parsed_local_uri, LUri}, 
-      {parsed_remote_uri, RUri}, {call_id, CallId}] =  
-        metas([internal_id, parsed_local_uri, parsed_remote_uri, call_id], DialogId),
+    [{internal_id, BaseId}, {local_uri, LUri}, {remote_uri, RUri}, {call_id, CallId}] =  
+        metas([internal_id, local_uri, remote_uri, call_id], DialogId),
     FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
     ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),
     Id = case make_id(uac, FromTag, ToTag) of

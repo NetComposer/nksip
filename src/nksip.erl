@@ -30,7 +30,7 @@
 
 -include("nksip.hrl").
 
--export_type([app_id/0, id/0, request/0, response/0, transport/0, sipreply/0]).
+-export_type([app_id/0, id/0, request/0, response/0, call/0, transport/0, sipreply/0]).
 -export_type([uri/0, user_uri/0, header/0, header_value/0]).
 -export_type([scheme/0, protocol/0, method/0, response_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
@@ -58,6 +58,9 @@
 
 %% Parsed SIP Response
 -type response() :: #sipmsg{}.
+
+%% Full call 
+-type call() :: nksip_call:call().
 
 %% User's response to a request
 -type sipreply() :: nksip_reply:sipreply().
