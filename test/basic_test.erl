@@ -240,8 +240,7 @@ route(Scheme, User, Domain, Req) ->
                 true when User =:= <<>> ->
                     case nksip_request:header(<<"x-nk-op">>, Req) of
                         [<<"reply-request">>] ->
-                            {user_req, #trans{request=SipMsg}, _Call} = Req,
-                            Body = base64:encode(term_to_binary(SipMsg)),
+                            Body = base64:encode(term_to_binary(Req)),
                             {reply, {ok, [{body, Body}, contact]}};
                         [<<"reply-stateless">>] ->
                             {reply_stateless, ok};

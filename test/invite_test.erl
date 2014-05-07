@@ -211,16 +211,16 @@ dialog() ->
     % Sends an in-dialog OPTIONS. Local CSeq should be incremented
     {ok, 200, [{cseq_num, CSeq1}]} = nksip_uac:options(DialogIdA, [{meta, [cseq_num]}]),
     CSeq = CSeq1 - 1,
-    0 = nksip_dialog:field(DialogIdA, remote_seq),
-    0 = nksip_dialog:field(DialogIdB, local_seq),
-    CSeq = nksip_dialog:field(DialogIdB, remote_seq) - 1,
+    0 = nksip_dialog:meta(remote_seq, DialogIdA),
+    0 = nksip_dialog:meta(local_seq, DialogIdB),
+    CSeq = nksip_dialog:meta(remote_seq, DialogIdB) - 1,
 
     % Sends now from the remote party to us, forcing initial CSeq
     {ok, 200, []} = nksip_uac:options(DialogIdB, [{cseq_num, 9999}]),
-    CSeq = nksip_dialog:field(DialogIdA, local_seq) -1,
-    9999 = nksip_dialog:field(DialogIdA, remote_seq),
-    9999 = nksip_dialog:field(DialogIdB, local_seq),
-    CSeq = nksip_dialog:field(DialogIdB, remote_seq) -1,
+    CSeq = nksip_dialog:meta(local_seq, DialogIdA) -1,
+    9999 = nksip_dialog:meta(remote_seq, DialogIdA),
+    9999 = nksip_dialog:meta(local_seq, DialogIdB),
+    CSeq = nksip_dialog:meta(remote_seq, DialogIdB) -1,
 
     % Force invalid CSeq
     {ok, 500, [{reason_phrase, <<"Old CSeq in Dialog">>}]} = 
@@ -381,12 +381,12 @@ rr_contact() ->
     [
         {invite_local_sdp, #sdp{vsn=LVsn3, connect={_, _, <<"client1">>}} = LocalSDP3},
         {invite_remote_sdp, #sdp{vsn=RVsn3, connect={_, _, <<"client2">>}} = RemoteSDP3}
-    ] = nksip_dialog:fields(DialogIdA, [invite_local_sdp, invite_remote_sdp]),
+    ] = nksip_dialog:metas([invite_local_sdp, invite_remote_sdp], DialogIdA),
     
     [
         {invite_local_sdp, RemoteSDP3},
         {invite_remote_sdp, LocalSDP3}
-    ] = nksip_dialog:fields(DialogIdB, [invite_local_sdp, invite_remote_sdp]),
+    ] = nksip_dialog:metas([invite_local_sdp, invite_remote_sdp], DialogIdB),
 
     %% Test Contact is not modified
     {ok, 200, []} = nksip_uac:options(DialogIdA, [{contact, <<"sip:aaa">>}]),
@@ -444,7 +444,7 @@ multiple_uac() ->
         nksip_uac:invite(client1, "<sip:ok@127.0.0.1:5070;transport=tcp>", 
                          [RepHd, OpAnswer]),
     [{local_seq, _CSeq}, {invite_status, accepted_uac}] = 
-        nksip_dialog:fields(DialogIdA, [local_seq, invite_status]),
+        nksip_dialog:metas([local_seq, invite_status], DialogIdA),
     
     {error, request_pending} = nksip_uac:invite(DialogIdA, []), 
     ok = nksip_uac:ack(DialogIdA, []),
@@ -472,9 +472,9 @@ multiple_uas() ->
     ok = nksip_uac:ack(DialogId1A, [RepHd]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
-    confirmed = nksip_dialog:field(DialogId1A, invite_status),
+    confirmed = nksip_dialog:meta(invite_status, DialogId1A),
     DialogId1B = nksip_dialog:remote_id(DialogId1A, client2),
-    confirmed = nksip_dialog:field(DialogId1B, invite_status),
+    confirmed = nksip_dialog:meta(invite_status, DialogId1B),
 
     MakeFun = fun() ->
         fun(Reply) ->
@@ -508,8 +508,8 @@ multiple_uas() ->
     % % Previous invite will reply 200, and Fun will send ACK
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]), 
     
-    confirmed = nksip_dialog:field(DialogId1A, invite_status),
-    confirmed = nksip_dialog:field(DialogId1B, invite_status),
+    confirmed = nksip_dialog:meta(invite_status, DialogId1A),
+    confirmed = nksip_dialog:meta(invite_status, DialogId1B),
     {ok, 200, []} = nksip_uac:bye(DialogId1A, []),
     ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}, {client2, bye}]),
 
@@ -520,10 +520,10 @@ multiple_uas() ->
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
     [{invite_status, confirmed}, {local_seq, LSeq}, {remote_seq, RSeq}] = 
-        nksip_dialog:fields(DialogId2A, [invite_status, local_seq, remote_seq]),
+        nksip_dialog:metas([invite_status, local_seq, remote_seq], DialogId2A),
     DialogId2B = nksip_dialog:remote_id(DialogId2A, client2),
     [{invite_status, confirmed}, {local_seq, RSeq}, {remote_seq, LSeq}] = 
-        nksip_dialog:fields(DialogId2B, [invite_status, local_seq, remote_seq]),
+        nksip_dialog:metas([invite_status, local_seq, remote_seq], DialogId2B),
 
     % The remote party (client2) will send a reinvite to the local (client1),
     % but the response will be delayed 300msecs
@@ -593,7 +593,7 @@ invite(ReqId, Meta, From, AppId=State) ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
                     DialogId = nksip_lib:get_value(dialog_id, Meta),
-                    SDP1 = nksip_dialog:field(DialogId, invite_local_sdp),
+                    SDP1 = nksip_dialog:meta(invite_local_sdp, DialogId),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, [{body, SDP2}|Hds]});
                 _ ->

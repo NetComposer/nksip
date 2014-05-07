@@ -311,7 +311,7 @@ session_update(Dialog, State) ->
 send_reply(Elem, Msg) ->
     App = case Elem of
         #sipmsg{} -> nksip_sipmsg:meta(app_name, Elem);
-        #dialog{} -> nksip_dialog:field(Elem, app_name)
+        #dialog{} -> nksip_dialog:meta(app_name, Elem)
     end,
     case nksip:get(App, inline_test) of
         {ok, {Ref, Pid}} -> Pid ! {Ref, {App, Msg}};

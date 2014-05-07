@@ -79,7 +79,7 @@ launch() ->
                         [{route, "<sips:127.0.0.1;lr>"}, {body, nksip_sdp:new()}]),
     ok = nksip_uac:ack(DlgId, []),
 
-    confirmed = nksip_dialog:field(client2, DlgId, status),
+    confirmed = nksip_dialog:meta(DlgId, status, client2),
     [_, _, _] = nksip_dialog:get_all_data(),
 
     {ok,200,[]} = nksip_uac:bye(DlgId, []),

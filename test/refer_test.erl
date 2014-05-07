@@ -74,7 +74,7 @@ basic() ->
     {ok, 200, [{subscription_id, Subs1A}]} = 
         nksip_uac:refer(client1, SipC2, [{refer_to, "sips:127.0.0.1:5081"}]),
 
-    Dialog1A = nksip_subscription:dialog_id(Subs1A),
+    Dialog1A = nksip_dialog:get_id(Subs1A),
     % Prepare to send us the received NOTIFYs
     {ok, Dialogs} = nksip:get(client1, dialogs, []),
     ok = nksip:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
@@ -83,26 +83,26 @@ basic() ->
     ok = tests_util:wait(Ref, [{client1, {notify, <<"SIP/2.0 180 Ringing">>}}]),
     timer:sleep(100),
 
-    [Subs1A] = nksip_dialog:field(Dialog1A, subscriptions),
+    [Subs1A] = nksip_dialog:meta(subscriptions, Dialog1A),
     [
         {status, active},
-        {parsed_event, {<<"refer">>, _}},
+        {event, {<<"refer">>, _}},
         {expires, 180}
-    ] = nksip_subscription:fields(Subs1A, [status, parsed_event, expires]),
+    ] = nksip_subscription:metas([status, event, expires], Subs1A),
 
     CallId = nksip_dialog:call_id(Dialog1A),
     [Dialog1B] = nksip_dialog:get_all(client2, CallId),
-    [Subs1B] = nksip_dialog:field(Dialog1B, subscriptions),
+    [Subs1B] = nksip_dialog:meta(subscriptions, Dialog1B),
     [
         {status, active},
-        {parsed_event, {<<"refer">>, _}},
+        {event, {<<"refer">>, _}},
         {expires, 180}
-    ] = nksip_subscription:fields(Subs1B, [status, parsed_event, expires]),
+    ] = nksip_subscription:metas([status, event, expires], Subs1B),
 
     % Let's do a refresh
     {ok, 200, _} = nksip_uac:subscribe(Subs1A, [{expires, 10}]),
-    10 = nksip_subscription:field(Subs1A, expires),
-    10 = nksip_subscription:field(Subs1B, expires),
+    10 = nksip_subscription:meta(expires, Subs1A),
+    10 = nksip_subscription:meta(expires, Subs1B),
     
     % Lets find the INVITE dialogs at client2 and client3
     % Call-ID of the INVITE is the same as the original plus "_inv" 
@@ -110,20 +110,20 @@ basic() ->
     InvCallId = <<CallId/binary, "_inv">>,
     [Dialog2A] = nksip_dialog:get_all(client2, InvCallId),
     
-    proceeding_uac = nksip_dialog:field(Dialog2A, invite_status),
+    proceeding_uac = nksip_dialog:meta(invite_status, Dialog2A),
     Dialog2B = nksip_dialog:remote_id(Dialog2A, client3),
-    proceeding_uas = nksip_dialog:field(Dialog2B, invite_status),
+    proceeding_uas = nksip_dialog:meta(invite_status, Dialog2B),
 
     % Final response received. Subscription is stopped.
     ok = tests_util:wait(Ref, [{client1, {notify, <<"SIP/2.0 200 OK">>}}]),
     timer:sleep(100),
-    error = nksip_dialog:field(Dialog1A, subscriptions),
-    error = nksip_dialog:field(Dialog1B, subscriptions),
+    error = nksip_dialog:meta(subscriptions, Dialog1A),
+    error = nksip_dialog:meta(subscriptions, Dialog1B),
 
     % Finish the started INVITE
     {ok, 200, []} = nksip_uac:bye(Dialog2A, []),
-    error = nksip_dialog:field(Dialog2A, invite_status),
-    error = nksip_dialog:field(Dialog2B, invite_status),
+    error = nksip_dialog:meta(invite_status, Dialog2A),
+    error = nksip_dialog:meta(invite_status, Dialog2B),
     ok.
 
 % A REFER inside a INVITE dialog
@@ -154,16 +154,16 @@ in_dialog() ->
     % Final response received. Subscription is stopped.
     ok = tests_util:wait(Ref, [{client1, {notify, <<"SIP/2.0 200 OK">>}}]),
     timer:sleep(100),
-    [] = nksip_dialog:field(Dialog1A, subscriptions),
-    [] = nksip_dialog:field(Dialog1B, subscriptions),
+    [] = nksip_dialog:meta(subscriptions, Dialog1A),
+    [] = nksip_dialog:meta(subscriptions, Dialog1B),
 
     % Finish the started INVITE
     {ok, 200, []} = nksip_uac:bye(Dialog2A, []),
-    error = nksip_dialog:field(Dialog2A, invite_status),
+    error = nksip_dialog:meta(invite_status, Dialog2A),
 
     % Finish the original INVITE
     {ok, 200, []} = nksip_uac:bye(Dialog1A, []),
-    error = nksip_dialog:field(Dialog1A, invite_status),
+    error = nksip_dialog:meta(invite_status, Dialog1A),
     ok.
 
 

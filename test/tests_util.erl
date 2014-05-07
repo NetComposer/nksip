@@ -23,7 +23,7 @@
 -module(tests_util).
 
 -export([start_nksip/0, empty/0, wait/2, log/0, log/1]).
--export([get_ref/0, save_ref/1, update_ref/3, send_ref/2, dialog_update/3, session_update/3]).
+-export([get_ref/0, save_ref/1, update_ref/3, send_ref/2, dialog_update/2, session_update/2]).
 
 -define(LOG_LEVEL, warning).    % debug, info, notice, warning, error
 -define(WAIT_TIMEOUT, 10000).
@@ -78,7 +78,7 @@ save_ref(Req) ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             AppId = nksip_request:app_id(Req),
             {ok, Dialogs} = nksip:get(AppId, dialogs, []),
-            DialogId = nksip_request:dialog_id(Req),
+            DialogId = nksip_dialog:get_id(Req),
             ok = nksip:put(AppId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
         _ ->
             ok
@@ -91,7 +91,7 @@ update_ref(AppId, Ref, DialogId) ->
 
 
 send_ref(Msg, Req) ->
-    DialogId = nksip_request:dialog_id(Req),
+    DialogId = nksip_dialog:get_id(Req),
     AppId = nksip_request:app_id(Req),
     {ok, Dialogs} = nksip:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
@@ -104,17 +104,19 @@ send_ref(Msg, Req) ->
     end.
 
 dialog_update(Update, Dialog) ->
-    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+    App = nksip_dialog:app_name(Dialog),
+    {ok, Dialogs} = nksip:get(App, dialogs, []),
+    DialogId = nksip_dialog:get_id(Dialog),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid} ->
             case Update of
                 start -> ok;
-                target_update -> Pid ! {Ref, {AppId, target_update}};
-                {invite_status, confirmed} -> Pid ! {Ref, {AppId, dialog_confirmed}};
-                {invite_status, {stop, Reason}} -> Pid ! {Ref, {AppId, {dialog_stop, Reason}}};
+                target_update -> Pid ! {Ref, {App, target_update}};
+                {invite_status, confirmed} -> Pid ! {Ref, {App, dialog_confirmed}};
+                {invite_status, {stop, Reason}} -> Pid ! {Ref, {App, {dialog_stop, Reason}}};
                 {invite_status, _} -> ok;
-                {invite_refresh, SDP} -> Pid ! {Ref, {AppId, {refresh, SDP}}};
-                invite_timeout -> Pid ! {Ref, {AppId, timeout}};
+                {invite_refresh, SDP} -> Pid ! {Ref, {App, {refresh, SDP}}};
+                invite_timeout -> Pid ! {Ref, {App, timeout}};
                 {subscription_status, SubsId, Status} -> Pid ! {Ref, {subs, SubsId, Status}};
                 stop -> ok
             end;
@@ -123,25 +125,27 @@ dialog_update(Update, Dialog) ->
     end.
 
 
-session_update(DialogId, Update, AppId) ->
-    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+session_update(Update, Dialog) ->
+    App = nksip_dialog:app_name(Dialog),
+    {ok, Dialogs} = nksip:get(App, dialogs, []),
+    DialogId = nksip_dialog:get_id(Dialog),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             ok;
         {DialogId, Ref, Pid} ->
             case Update of
                 {start, Local, Remote} ->
-                    Pid ! {Ref, {AppId, sdp_start}},
-                    {ok, Sessions} = nksip:get(AppId, sessions, []),
-                    nksip:put(AppId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Pid ! {Ref, {App, sdp_start}},
+                    {ok, Sessions} = nksip:get(App, sessions, []),
+                    nksip:put(App, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 {update, Local, Remote} ->
-                    Pid ! {Ref, {AppId, sdp_update}},
-                    {ok, Sessions} = nksip:get(AppId, sessions, []),
-                    nksip:put(AppId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Pid ! {Ref, {App, sdp_update}},
+                    {ok, Sessions} = nksip:get(App, sessions, []),
+                    nksip:put(App, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 stop ->
-                    Pid ! {Ref, {AppId, sdp_stop}},
+                    Pid ! {Ref, {App, sdp_stop}},
                     ok
             end
     end.

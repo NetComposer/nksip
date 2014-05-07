@@ -87,7 +87,7 @@ basic() ->
     {ok, 200, [{subscription_id, Subs1A}]} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 1}, RepHd]),
 
-    Dialog1A = nksip_subscription:dialog_id(Subs1A),
+    Dialog1A = nksip_dialog:get_id(Subs1A),
     Dialog1B = nksip_dialog:remote_id(Dialog1A, client2),
     Subs1B = nksip_subscription:remote_id(Subs1A, client2),
     [
@@ -96,24 +96,24 @@ basic() ->
         {class, uac},
         {answered, undefined},
         {expires, 1}    % It shuould be something like round(0.99)
-    ] = nksip_subscription:fields(Subs1A, [status, event, class, answered, expires]),
+    ] = nksip_subscription:metas([status, event, class, answered, expires], Subs1A),
 
     [
         {status, init},
-        {parsed_event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
+        {event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
         {class, uas},
         {answered, undefined},
         {expires, 1} 
-    ] = nksip_subscription:fields(Subs1B, [status, parsed_event, class, answered, expires]),
+    ] = nksip_subscription:metas([status, event, class, answered, expires], Subs1B),
 
     [
         {invite_status, undefined},
         {subscriptions, [Subs1A]}
-    ] = nksip_dialog:fields(Dialog1A, [invite_status, subscriptions]),
+    ] = nksip_dialog:metas([invite_status, subscriptions], Dialog1A),
     [
         {invite_status, undefined},
         {subscriptions, [Subs1B]}
-    ] = nksip_dialog:fields(Dialog1B, [invite_status, subscriptions]),
+    ] = nksip_dialog:metas([invite_status, subscriptions], Dialog1B),
 
     ok = tests_util:wait(Ref, [
             {subs, Subs1B, init}, 
@@ -122,8 +122,8 @@ basic() ->
     ]),
     timer:sleep(100),
 
-    error = nksip_subscription:field(Subs1A, status),
-    error = nksip_subscription:field(Subs1B, status),
+    error = nksip_subscription:meta(status, Subs1A),
+    error = nksip_subscription:meta(status, Subs1B),
 
 
     {ok, 200, [{subscription_id, Subs2A}]} = 
@@ -132,7 +132,7 @@ basic() ->
     Subs2B = nksip_subscription:remote_id(Subs2A, client2),
     ok = tests_util:wait(Ref, [{subs, Subs2B, init}]),
 
-    Dialog2A = nksip_subscription:dialog_id(Subs2A),
+    Dialog2A = nksip_dialog:get_id(Subs2A),
     tests_util:update_ref(client1, Ref, Dialog2A),
 
     {ok, 200, []} = nksip_uac:notify(Subs2B, [{state, pending}, {body, <<"notify1">>}]),
@@ -177,8 +177,8 @@ refresh() ->
     {ok, 200, []} = nksip_uac:notify(Subs1B, []),
 
     % 2xx response to subscribe has changed timeout to 2 secs
-    2 = nksip_subscription:field(Subs1A, expires),
-    2 = nksip_subscription:field(Subs1B, expires),
+    2 = nksip_subscription:meta(expires, Subs1A),
+    2 = nksip_subscription:meta(expires, Subs1B),
     ok = tests_util:wait(Ref, [
         {subs, Subs1B, init},
         {subs, Subs1B, active},
@@ -187,8 +187,8 @@ refresh() ->
 
     % We send a refresh, changing timeout to 20 secs
     {ok, 200, [{subscription_id, Subs1A}]} = nksip_uac:subscribe(Subs1A, [{expires, 20}]),
-    20 = nksip_subscription:field(Subs1A, expires),
-    20 = nksip_subscription:field(Subs1B, expires),
+    20 = nksip_subscription:meta(expires, Subs1A),
+    20 = nksip_subscription:meta(expires, Subs1B),
     
     % But we finish de dialog
     {ok, 200, []} = nksip_uac:notify(Subs1B, [{state, {terminated, giveup}}]),
@@ -224,7 +224,7 @@ dialog() ->
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:fields(DialogA, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogA),
 
     % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
     % The remote target is however updated
@@ -234,7 +234,7 @@ dialog() ->
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:fields(DialogA, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogA),
 
     % We send another subscription request using the same dialog, but different Event Id
     % We update our local target
@@ -242,7 +242,7 @@ dialog() ->
         nksip_uac:subscribe(DialogA, [{event, "myevent4;id=2"}, {expires, 2}, 
                                       {contact, "sip:a3@127.0.0.1"}]),
     Subs2B = nksip_subscription:remote_id(Subs2A, client2),
-    DialogA = nksip_subscription:dialog_id(Subs2A),
+    DialogA = nksip_dialog:get_id(Subs2A),
     DialogB = nksip_dialog:remote_id(DialogA, client2),
 
     % Remote party updates remote target again
@@ -251,7 +251,7 @@ dialog() ->
         {local_target, <<"<sip:a3@127.0.0.1>">>},
         {remote_target, <<"<sip:b2@127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:fields(DialogA, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogA),
 
     lager:notice("DB: ~p", [DialogB]),
 
@@ -259,10 +259,10 @@ dialog() ->
         {local_target, <<"<sip:b2@127.0.0.1:5070>">>},
         {remote_target, <<"<sip:a3@127.0.0.1>">>},
         {route_set, [<<"<sip:a2@127.0.0.1;lr>">>, <<"<sip:b@b>">>, <<"<sip:b1@127.0.0.1:5070;lr>">>]}
-    ] = nksip_dialog:fields(DialogB, [local_target, remote_target, route_set]),
+    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogB),
 
     % Now we have a dialog with 2 subscriptions
-    [Subs1A, Subs2A] = nksip_dialog:field(DialogA, subscriptions),
+    [Subs1A, Subs2A] = nksip_dialog:meta(subscriptions, DialogA),
 
     {ok, 200, [{dialog_id, DialogB}]} = nksip_uac:invite(DialogB, []),
     ok = nksip_uac:ack(DialogB, []),
@@ -277,22 +277,22 @@ dialog() ->
     {ok, 200, []} = nksip_uac:notify(Subs3A, []),
 
     % Now we have a dialog with 3 subscriptions and a INVITE
-    [Subs1A, Subs2A, Subs3A] = nksip_dialog:field(DialogA, subscriptions),
-    [Subs1B, Subs2B, Subs3B] = nksip_dialog:field(DialogB, subscriptions),
-    confirmed = nksip_dialog:field(DialogA, invite_status),
-    confirmed = nksip_dialog:field(DialogB, invite_status),
+    [Subs1A, Subs2A, Subs3A] = nksip_dialog:meta(subscriptions, DialogA),
+    [Subs1B, Subs2B, Subs3B] = nksip_dialog:meta(subscriptions, DialogB),
+    confirmed = nksip_dialog:meta(invite_status, DialogA),
+    confirmed = nksip_dialog:meta(invite_status, DialogB),
 
     timer:sleep(2000),
 
     % Now the subscriptions has timeout, we have only the INVITE
-    [] = nksip_dialog:field(DialogA, subscriptions),
-    [] = nksip_dialog:field(DialogB, subscriptions),
-    confirmed = nksip_dialog:field(DialogA, invite_status),
-    confirmed = nksip_dialog:field(DialogB, invite_status),
+    [] = nksip_dialog:meta(subscriptions, DialogA),
+    [] = nksip_dialog:meta(subscriptions, DialogB),
+    confirmed = nksip_dialog:meta(invite_status, DialogA),
+    confirmed = nksip_dialog:meta(invite_status, DialogB),
 
     {ok, 200, []} = nksip_uac:bye(DialogB, []),
-    error = nksip_dialog:field(DialogA, invite_status),
-    error = nksip_dialog:field(DialogB, invite_status),
+    error = nksip_dialog:meta(invite_status, DialogA),
+    error = nksip_dialog:meta(invite_status, DialogB),
     ok.
 
 
@@ -388,10 +388,10 @@ fork() ->
 
     % We have created four dialogs, each one with one subscription
     [D1, D2, D3, D4] = nksip_dialog:get_all(client1, CallId),
-    [_] = nksip_dialog:field(D1, subscriptions),
-    [_] = nksip_dialog:field(D2, subscriptions),
-    [_] = nksip_dialog:field(D3, subscriptions),
-    [_] = nksip_dialog:field(D4, subscriptions),
+    [_] = nksip_dialog:meta(subscriptions, D1),
+    [_] = nksip_dialog:meta(subscriptions, D2),
+    [_] = nksip_dialog:meta(subscriptions, D3),
+    [_] = nksip_dialog:meta(subscriptions, D4),
 
     {ok, 200, []} = nksip_uac:notify(SubsB, [{state, {terminated, giveup}}]),
     ok.

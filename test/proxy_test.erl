@@ -554,9 +554,9 @@ dialog() ->
              invite_remote_sdp, parsed_route_set]),
 
     {ok, 200, []} = nksip_uac:bye(DialogId2, [{add, "x-nk-rr", true}]),
-    error = nksip_dialog:field(DialogId1, status),
-    error = nksip_dialog:field(DialogId2, status),
-    error = nksip_dialog:field(DialogId1S, status),
+    error = nksip_dialog:meta(status, DialogId1),
+    error = nksip_dialog:meta(status, DialogId2),
+    error = nksip_dialog:meta(status, DialogId1S),
     ok.
 
 
@@ -658,7 +658,7 @@ invite(ReqId, Meta, From, {_Test, Id}=AppId=State) ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
                     DialogId = nksip_lib:get_value(dialog_id, Meta),
-                    SDP1 = nksip_dialog:field(DialogId, invite_local_sdp),
+                    SDP1 = nksip_dialog:meta(invite_local_sdp, DialogId),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, [{body, SDP2}|Hds]});
                 _ ->

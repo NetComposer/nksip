@@ -97,7 +97,7 @@ uac() ->
     {ok, 200, Values2} = nksip_uac:options(client2, SipC1, [{meta, [app_name, id, call_id]}]),
     [{app_name, client2}, {id, RespId2}, {call_id, CallId2}] = Values2,
     CallId2 = nksip_response:call_id(RespId2),
-    error = nksip_dialog:field(RespId2, status),
+    error = nksip_dialog:meta(status, RespId2),
     {error, unknown_dialog} = nksip_uac:options(RespId2, []),
 
     % Sync, get_response
@@ -281,7 +281,7 @@ invite(ReqId, Meta, From, AppId=State) ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
                     DialogId = nksip_lib:get_value(dialog_id, Meta),
-                    SDP1 = nksip_dialog:field(DialogId, invite_local_sdp),
+                    SDP1 = nksip_dialog:meta(invite_local_sdp, DialogId),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, [{body, SDP2}]});
                 _ ->
@@ -303,7 +303,7 @@ options(ReqId, _Meta, _From, State) ->
 
 
 info(ReqId, _Meta, _From, State) ->
-    DialogId = nksip_request:dialog_id(ReqId),
+    DialogId = nksip_dialog:get_id(ReqId),
     {reply, {ok, [{add, "x-nk-method", "info"}, {add, "x-nk-dialog", DialogId}]}, State}.
 
 

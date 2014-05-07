@@ -269,7 +269,7 @@ invite(ReqId, Meta, From, AppId=State) ->
                     nksip:reply(From, busy);
                 <<"increment">> ->
                     DialogId = nksip_lib:get_value(dialog_id, Meta),
-                    SDP1 = nksip_dialog:field(AppId, DialogId, invite_local_sdp),
+                    SDP1 = nksip_dialog:meta(DialogId, invite_local_sdp, AppId),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip:reply(From, {ok, [{body, SDP2}]});
                 _ ->

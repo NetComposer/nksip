@@ -441,7 +441,7 @@ proxy() ->
             port = 5080,
             opts = [<<"lr">>]
         }
-    ] = nksip_dialog:field(DialogId, parsed_route_set),
+    ] = nksip_dialog:meta(parsed_route_set, DialogId),
 
     nksip_uac:bye(DialogId, []),
     ok.
