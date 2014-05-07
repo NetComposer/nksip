@@ -49,11 +49,12 @@ all_headers|`[{binary(),[binary()]}]`|Gets all headers and values
 
 Besides this values, you can use any string() or binary() to the get that header's value
 
+
 ## Dialog Metadata
 
 Name|Type|Description
 ---|---|---
-id|`nksip:id()`|Dialog' Id
+id|`nksip:id()`|Dialog's Id
 app_id|`nksip:app_id()`|Internal SipApp this dialog belongs to
 app_name|`term()`|User SipApp this dialog belongs to
 created|`nksip_lib:timestamp()`|Creation date
@@ -83,3 +84,18 @@ subscriptions|`nksip:id()`|Lists all active subscriptions
 call_id|`nksip:call_id()`|Call-ID of the dialog
 from_tag|`binary()`|From tag
 to_tag|`binary()`|To tag
+
+
+## Subscriptions Metadata
+
+Name|Type|Description
+---|---|---
+id|`nksip:id()`|Subscription's Id
+app_id|`nksip:app_id()`|Internal SipApp this dialog belongs to
+app_name|`term()`|User SipApp this dialog belongs to
+status|`nksip_subscription:status()`|Subscription's current status
+event|`nksip:token()`|Event header
+raw_event|`binary()`|Unparsed Event header
+class`uac`&#124;`uas`|Class of the event, as a UAC or a UAS
+answered|`nksip_lib:timestamp()`&#124;`undefined`|Time first NOTIFY was received
+expires|`integer()`|Seconds reamaining to subscription expiration
