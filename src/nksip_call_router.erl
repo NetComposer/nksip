@@ -54,7 +54,7 @@
 %% ===================================================================
 
 
--type sync_error() :: sipapp_not_found | too_many_calls | timeout | loop_detected.
+-type sync_error() :: sipapp_not_found | too_many_calls | timeout | looped_process.
 
 
 %% ===================================================================
@@ -394,7 +394,7 @@ send_work_sync(AppId, CallId, Work, Caller, From, SD) ->
     #state{name=Name, pending=Pending} = SD,
     case find(Name, AppId, CallId) of
         {ok, Caller} ->
-            {error, loop_detected};
+            {error, looped_process};
         {ok, Pid} -> 
             Ref = erlang:monitor(process, Pid),
             Self = self(),

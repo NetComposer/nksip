@@ -131,13 +131,11 @@ header(Name, Id) when is_binary(Id) ->
     meta(nksip_lib:to_binary(Name), Id).
 
 
-%% @doc Sends a reply to a request.
--spec reply(nksip:sipreply(), nksip:request()|nksip:id()) -> 
+%% @doc Sends a reply to a request. Must get the request's id before, and
+%% be called outside of the callback function.
+-spec reply(nksip:sipreply(), nksip:id()) -> 
     ok | {error, Error}
-    when Error :: invalid_call | unknown_call | sipapp_not_found.
-
-reply(#sipmsg{class={req, _}}=Req, SipReply) ->
-    reply(nksip_sipmsg:get_id(Req), SipReply);
+    when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
 
 reply(SipReply, <<"R_", _/binary>>=Id) ->
     nksip_call:send_reply(Id, SipReply).
