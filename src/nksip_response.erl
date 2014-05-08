@@ -25,7 +25,7 @@
 -include("nksip.hrl").
 
 -export([app_id/1, app_name/1, code/1, body/1, call_id/1]).
--export([meta/2, metas/2, header/2, headers/2]).
+-export([meta/2, header/2]).
 -export([wait_491/0]).
 
 -include("nksip.hrl").
@@ -87,49 +87,37 @@ call_id(Id) when is_binary(Id) ->
 
 %% @doc Get a specific metadata (see {@link field()}) from the response
 -spec meta(nksip_sipmsg:field(), nksip:response()|nksip:id()) ->
-    term() | error.
+    term() | [{nksip_sipmsg:field(), term()}] | error.
 
+meta(Fields, #sipmsg{}=Resp) when is_list(Fields) ->
+    [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
+meta(Fields, Id) when is_list(Fields), is_binary(Id) ->
+    Fun = fun(Resp) -> {ok, meta(Fields, Resp)} end,
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end;
 meta(Field, #sipmsg{}=Resp) -> 
     nksip_sipmsg:meta(Field, Resp);
 meta(Field, Id) when is_binary(Id) ->
-    case metas([Field], Id) of
+    case meta([Field], Id) of
         [Value] -> Value;
         _ -> error
     end.
 
 
-%% @doc Get a specific set of metadatas (see {@link field()}) from the response
--spec metas([nksip_sipmsg:field()], nksip:response()|nksip:id()) ->
-    [{nksip_sipmsg:field(), term()}] | error.
-
-metas(Fields, #sipmsg{}=Resp) when is_list(Fields) ->
-    [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
-metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
-    Fun = fun(Resp) -> {ok, metas(Fields, Resp)} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
-
-
 %% @doc Gets values for a header in a response.
--spec header(string()|binary(), nksip:response()|nksip:id()) -> 
-    [binary()] | error.
+-spec header(string()|binary()|[string()|binary()], nksip:response()|nksip:id()) -> 
+    [binary()] | [{binary(), binary()}] | error.
 
+header(Names, #sipmsg{}=Resp) when is_list(Names) ->
+    [{nksip_lib:to_binary(Name), nksip_sipmsg:header(Name, Resp)} || Name <- Names];
+header(Names, Id) when is_list(Names), is_binary(Id) ->
+    meta([nksip_lib:to_binary(Name) || Name<-Names], Id);
 header(Name, #sipmsg{}=Resp) -> 
     nksip_sipmsg:header(Name, Resp);
 header(Name, Id) when is_binary(Id) ->
     meta(nksip_lib:to_binary(Name), Id).
-
-
-%% @doc Gets values for a set of headers in a response.
--spec headers([string()|binary()], nksip:response()|nksip:id()) -> 
-    [{binary(), binary()}] | error.
-
-headers(Names, #sipmsg{}=Resp) when is_list(Names) ->
-    [{nksip_lib:to_binary(Name), nksip_sipmsg:header(Name, Resp)} || Name <- Names];
-headers(Names, Id) when is_list(Names), is_binary(Id) ->
-    metas([nksip_lib:to_binary(Name) || Name<-Names], Id).
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after

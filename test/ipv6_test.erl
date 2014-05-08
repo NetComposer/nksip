@@ -26,6 +26,7 @@
 -include("../include/nksip.hrl").
 
 -compile([export_all]).
+-define(RECV(T), receive T -> ok after 1000 -> error(recv) end).
 
 ipv6_test_() ->
   {setup, spawn, 
@@ -106,59 +107,66 @@ basic() ->
     Self = self(),
     Ref = make_ref(),
 
-    Fun1 = fun({req, #sipmsg{contacts=[Contact]}}) ->
-        #uri{user=(<<"client1">>), domain=MainIp, port=5070} = Contact,
-        Self ! {Ref, ok_1}
+    Fun1 = fun
+        ({req, #sipmsg{contacts=[Contact]}, _Call}) ->
+            #uri{user=(<<"client1">>), domain=MainIp, port=5070} = Contact,
+            Self ! {Ref, ok_1};
+        ({resp, 200, Resp1, _Call}) ->
+            #sipmsg{
+                ruri = #uri{domain=(<<"[::1]">>)}, 
+                vias = [#via{domain=F_MainIp, opts=ViaOpts1}],
+                transport = Transp1
+            } = Resp1,
+            <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts1),
+            RPort1 = nksip_lib:get_integer(<<"rport">>, ViaOpts1),
+            %% For UDP transport, local ip is set to [:::] (?)
+            #transport{
+                proto = udp,
+                local_ip =  {0,0,0,0,0,0,0,1},
+                local_port = RPort1,
+                remote_ip = {0,0,0,0,0,0,0,1},
+                remote_port = 5071,
+                listen_ip = {0,0,0,0,0,0,0,1},
+                listen_port = 5070
+            } = Transp1,
+            Self ! {Ref, {ok_2, F_MainIp}}
     end,
-    Opts1 = [{callback, Fun1}, get_request, get_response, contact],
     RUri1 = "<sip:[::1]:5071>",
-    {resp, Resp1} = nksip_uac:options(client1, RUri1, Opts1),
-    #sipmsg{
-        ruri = #uri{domain=(<<"[::1]">>)}, 
-        vias = [#via{domain=MainIp, opts=ViaOpts1}],
-        transport = Transp1
-    } = Resp1,
-    <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts1),
-    RPort1 = nksip_lib:get_integer(<<"rport">>, ViaOpts1),
-    %% For UDP transport, local ip is set to [:::] (?)
-    #transport{
-        proto = udp,
-        local_ip =  {0,0,0,0,0,0,0,1},
-        local_port = RPort1,
-        remote_ip = {0,0,0,0,0,0,0,1},
-        remote_port = 5071,
-        listen_ip = {0,0,0,0,0,0,0,1},
-        listen_port = 5070
-    } = Transp1,
-    ok = tests_util:wait(Ref, [ok_1]),
-
-
-    Fun2 = fun({req, #sipmsg{contacts=[Contact]}}) ->
-        #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=COpts2} = Contact,
-        true = lists:member({<<"transport">>, <<"tcp">>}, COpts2),
-        Self ! {Ref, ok_2}
+    Opts1 = [async, {callback, Fun1}, get_request, contact],
+    {async, _} = nksip_uac:options(client1, RUri1, Opts1),
+    ?RECV({Ref, ok_1}),
+    ?RECV({Ref, {ok_2, MainIp}}),
+    
+    Fun2 = fun
+        ({req, #sipmsg{contacts=[Contact]}, _Call}) ->
+            #uri{user=(<<"client1">>), domain=MainIp, port=5070, opts=COpts2} = Contact,
+            true = lists:member({<<"transport">>, <<"tcp">>}, COpts2),
+            Self ! {Ref, ok_3};
+        ({resp, 200, Resp2, _Call}) ->
+            #sipmsg{
+                ruri = #uri{domain=(<<"[::1]">>)}, 
+                vias = [#via{domain=MainIp, opts=ViaOpts2}],
+                transport = Transp2
+            } = Resp2,
+            <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts2),
+            RPort2 = nksip_lib:get_integer(<<"rport">>, ViaOpts2),
+            %% For TCP transport, local ip is set to [::1]
+            #transport{
+                proto = tcp,
+                local_ip =  {0,0,0,0,0,0,0,1},
+                local_port = RPort2,
+                remote_ip = {0,0,0,0,0,0,0,1},
+                remote_port = 5071,
+                listen_ip = {0,0,0,0,0,0,0,1},
+                listen_port = 5070
+            } = Transp2,
+            Self ! {Ref, ok_4}
     end,
-    Opts2 = [{callback, Fun2}, get_request, get_response, contact],
     RUri2 = "<sip:[::1]:5071;transport=tcp>",
-    {resp, Resp2} = nksip_uac:options(client1, RUri2, Opts2),
-    #sipmsg{
-        ruri = #uri{domain=(<<"[::1]">>)}, 
-        vias = [#via{domain=MainIp, opts=ViaOpts2}],
-        transport = Transp2
-    } = Resp2,
-    <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts2),
-    RPort2 = nksip_lib:get_integer(<<"rport">>, ViaOpts2),
-    %% For TCP transport, local ip is set to [::1]
-    #transport{
-        proto = tcp,
-        local_ip =  {0,0,0,0,0,0,0,1},
-        local_port = RPort2,
-        remote_ip = {0,0,0,0,0,0,0,1},
-        remote_port = 5071,
-        listen_ip = {0,0,0,0,0,0,0,1},
-        listen_port = 5070
-    } = Transp2,
-    ok = tests_util:wait(Ref, [ok_2]),
+    Opts2 = [async, {callback, Fun2}, get_request, contact],
+    {async, _} = nksip_uac:options(client1, RUri2, Opts2),
+    ?RECV({Ref, ok_3}),
+    ?RECV({Ref, ok_4}),
     ok.
 
 
@@ -189,7 +197,8 @@ invite() ->
 
 proxy() ->
     S1Uri = "sip:[::1]",
-    {_Ref, RepHd} = tests_util:get_ref(),
+    {Ref, RepHd} = tests_util:get_ref(),
+    Self = self(),
     Hds = [{add, "x-nk-op", "ok"}, RepHd],
 
     {ok, 200, []} = nksip_uac:register(client1, S1Uri, [unregister_all]),
@@ -209,15 +218,19 @@ proxy() ->
                                                   {supported, ""}|Hds]),
     % Without outbound, the Record-Route has the NkQ format, and it is converted
     % to NkS when back, with transport tcp
-    % With outbound, is has the NkF format, and it is not converted back (the flow
+    % With outbound, is has the N kF format, and it is not converted back (the flow
     % token has already info about the tcp)
     
     %% The ACK is sent to Server2, and it sends it to Client2
-    {req, ACK} = nksip_uac:ack(DialogId1, [get_request]),
-    [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
-        nksip_sipmsg:meta(routes, ACK),
-    true = lists:member(<<"lr">>, AckOpts),
-    true = lists:member({<<"transport">>, <<"tcp">>}, AckOpts),
+    AckFun = fun({req, AckReq, _Call}) ->
+        [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
+            nksip_sipmsg:meta(routes, AckReq),
+        true = lists:member(<<"lr">>, AckOpts),
+        true = lists:member({<<"transport">>, <<"tcp">>}, AckOpts),
+        Self ! {Ref, ok_1}
+    end,
+    async = nksip_uac:ack(DialogId1, [async, {callback, AckFun}]),
+    ?RECV({Ref, ok_1}),
 
     DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
@@ -229,6 +242,8 @@ bridge_4_6() ->
     %% Client1 is IPv6
     %% Client3 is IPv4
     %% Server1 and Server2 listens on both
+    Ref = make_ref(),
+    Self = self(),
     Hd = {add, "x-nk-op", "ok"},
 
     {ok, 200, []} = nksip_uac:register(client1, "sip:[::1]", [unregister_all]),
@@ -243,25 +258,28 @@ bridge_4_6() ->
     %% and routes the request (stateless, no record_route, IPv6) to Server2
     %% Server2 routes to client3 (stateful, record_route, IPv4)
     Route1 = {route, "<sip:[::1];lr>"},
-    Fields1 = {meta, [<<"x-nk-id">>, parsed_contacts]},
+    Fields1 = {meta, [<<"x-nk-id">>, contacts]},
     {ok, 200, Values1} = nksip_uac:invite(client1, "sip:client3@nksip", 
                                 [Route1, Hd, Fields1, {supported, ""}]),
     %% client3 has generated a IPv4 Contact
     [
         {dialog_id, DialogId1}, 
         {<<"x-nk-id">>, [<<"client3,server2,server1">>]},
-        {parsed_contacts, [#uri{domain = <<"127.0.0.1">>}]}
+        {contacts, [#uri{domain = <<"127.0.0.1">>}]}
     ] = Values1,
 
     %% The ACK is sent to Server2, and it sends it to Client2
-    {req, ACK1} = nksip_uac:ack(DialogId1, [get_request]),
-    [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
-        nksip_sipmsg:meta(routes, ACK1),
-    true = lists:member(<<"lr">>, AckOpts),
-    true = lists:member({<<"transport">>, <<"tcp">>}, AckOpts),
-
-    #uri{domain=(<<"127.0.0.1">>)} = nksip_sipmsg:meta(ruri, ACK1),
-
+    FunAck = fun({req, ReqAck1, _Call}) ->
+        [#uri{domain=(<<"[::1]">>), port=5061, opts=AckOpts}] = 
+            nksip_sipmsg:meta(routes, ReqAck1),
+        true = lists:member(<<"lr">>, AckOpts),
+        true = lists:member({<<"transport">>, <<"tcp">>}, AckOpts),
+        #uri{domain=(<<"127.0.0.1">>)} = nksip_sipmsg:meta(ruri, ReqAck1),
+        Self ! {Ref, ok_1}
+    end,
+    async  = nksip_uac:ack(DialogId1, [async, {callback, FunAck}]),
+    ?RECV({Ref, ok_1}),
+   
     DialogId3 = nksip_dialog:remote_id(DialogId1, client3),
     {ok, 200, []} = nksip_uac:options(DialogId3, []),
     {ok, 200, []} = nksip_uac:bye(DialogId1, []),
@@ -515,57 +533,57 @@ init(Id) ->
     {ok, Id}.
 
 
-route(_ReqId, Scheme, User, Domain, _From, server1=State) ->
-    Opts = [
-        {insert, "x-nk-id", "server1"},
-        stateless,
-        {route, "<sip:[::1]:5061;lr;transport=tcp>"}
-    ],
-    {ok, Domains} = nksip:get(server1, domains),
-    case lists:member(Domain, Domains) of
-        true when User =:= <<>> ->
-            {reply, {process, Opts}, State};
-        true when Domain =:= <<"nksip">> ->
-            case nksip_registrar:find(server1, Scheme, User, Domain) of
-                [] -> 
-                    {reply, temporarily_unavailable, State};
-                UriList -> 
-                    {reply, {proxy, UriList, Opts}, State}
+route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        server1 ->
+            Opts = [
+                {insert, "x-nk-id", "server1"},
+                stateless,
+                {route, "<sip:[::1]:5061;lr;transport=tcp>"}
+            ],
+            {ok, Domains} = nksip:get(server1, domains),
+            case lists:member(Domain, Domains) of
+                true when User =:= <<>> ->
+                    {process, Opts};
+                true when Domain =:= <<"nksip">> ->
+                    case nksip_registrar:find(server1, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {proxy, UriList, Opts}
+                    end;
+                _ ->
+                    {proxy, ruri, Opts}
             end;
+        server2 ->
+            Opts = [
+                record_route,
+                {insert, "x-nk-id", "server2"}
+            ],
+            {proxy, ruri, Opts};
         _ ->
-            {reply, {proxy, ruri, Opts}, State}
-    end;
-
-route(_ReqId, _Scheme, _User, _Domain, _From, server2=State) ->
-    Opts = [
-        record_route,
-        {insert, "x-nk-id", "server2"}
-    ],
-    {reply, {proxy, ruri, Opts}, State};
-
-route(_, _, _, _, _, State) ->
-    {reply, process, State}.
+            process
+    end.
 
 
-invite(ReqId, Meta, _From, AppId=State) ->
-    tests_util:save_ref(AppId, ReqId, Meta),
-    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
-    {reply, {ok, Hds}, State}.
+invite(Req, _Call) ->
+    tests_util:save_ref(Req),
+    Ids = nksip_request:header(<<"x-nk-id">>, Req),
+    AppName = nksip_request:app_name(Req),
+    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppName|Ids])}],
+    {reply, {ok, Hds}}.
 
 
-reinvite(ReqId, Meta, From, State) ->
-    invite(ReqId, Meta, From, State).
+reinvite(Req, Call) ->
+    invite(Req, Call).
 
 
-ack(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, ack),
-    {reply, ok, State}.
+ack(Req, _Call) ->
+    tests_util:send_ref(ack, Req),
+    ok.
 
 
-bye(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, bye),
-    {reply, ok, State}.
+bye(Req, _Call) ->
+    tests_util:send_ref(bye, Req),
+    {reply, ok}.
 
 
 

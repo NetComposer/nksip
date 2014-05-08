@@ -317,7 +317,7 @@ message(ReqId, _Meta, _From, State) ->
                 {_, ContentType},
                 {_, Body}
 
-            ] = nksip_request:metas([expires, <<"date">>, content_type, body], ReqId),
+            ] = nksip_request:meta([expires, <<"date">>, content_type, body], ReqId),
             Pid ! {Ref, {ok, Expires, Date, ContentType, Body}},
             {reply, ok, State};
         _ ->

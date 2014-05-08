@@ -109,11 +109,11 @@ basic() ->
     [
         {invite_status, undefined},
         {subscriptions, [Subs1A]}
-    ] = nksip_dialog:metas([invite_status, subscriptions], Dialog1A),
+    ] = nksip_dialog:meta([invite_status, subscriptions], Dialog1A),
     [
         {invite_status, undefined},
         {subscriptions, [Subs1B]}
-    ] = nksip_dialog:metas([invite_status, subscriptions], Dialog1B),
+    ] = nksip_dialog:meta([invite_status, subscriptions], Dialog1B),
 
     ok = tests_util:wait(Ref, [
             {subs, Subs1B, init}, 
@@ -224,7 +224,7 @@ dialog() ->
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogA),
+    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogA),
 
     % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
     % The remote target is however updated
@@ -234,7 +234,7 @@ dialog() ->
         {local_target, <<"<sip:a@127.0.0.1>">>},
         {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogA),
+    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogA),
 
     % We send another subscription request using the same dialog, but different Event Id
     % We update our local target
@@ -251,7 +251,7 @@ dialog() ->
         {local_target, <<"<sip:a3@127.0.0.1>">>},
         {remote_target, <<"<sip:b2@127.0.0.1:5070>">>},
         {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogA),
+    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogA),
 
     lager:notice("DB: ~p", [DialogB]),
 
@@ -259,7 +259,7 @@ dialog() ->
         {local_target, <<"<sip:b2@127.0.0.1:5070>">>},
         {remote_target, <<"<sip:a3@127.0.0.1>">>},
         {route_set, [<<"<sip:a2@127.0.0.1;lr>">>, <<"<sip:b@b>">>, <<"<sip:b1@127.0.0.1:5070;lr>">>]}
-    ] = nksip_dialog:metas([local_target, remote_target, route_set], DialogB),
+    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogB),
 
     % Now we have a dialog with 2 subscriptions
     [Subs1A, Subs2A] = nksip_dialog:meta(subscriptions, DialogA),

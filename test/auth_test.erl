@@ -107,7 +107,7 @@ digest() ->
 
     Self = self(),
     Ref = make_ref(),
-    Fun = fun({ok, 200, _}) -> Self ! {Ref, digest_ok} end,
+    Fun = fun({resp, 200, _, _}) -> Self ! {Ref, digest_ok} end,
     {async, _} = nksip_uac:options(client1, SipC2, [async, {callback, Fun}, {pass, HA1}]),
     ok = tests_util:wait(Ref, [digest_ok]),
     ok.
@@ -133,7 +133,7 @@ invite() ->
 
     {ok, 200, _} = nksip_uac:invite(DialogId1, [{pass, "abcd"}]),
     
-    FunAck = fun({req, ACK3}) ->
+    FunAck = fun({req, ACK3, _Call}) ->
         AckCSeq = nksip_request:meta(cseq_num, ACK3),
         Self ! {Ref, {ack_cseq, AckCSeq-8}}
     end,

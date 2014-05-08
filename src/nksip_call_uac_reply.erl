@@ -37,25 +37,25 @@
     nksip_call:call().
 
 reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
-    Async = lists:member(async, Opts),
-    Get = lists:member(get_request, Opts),
     CB = nksip_lib:get_value(callback, Opts),
-    case Get andalso is_function(CB, 1) of
-        true -> call(CB, {req, Req});
+    Async = lists:member(async, Opts),
+    case 
+        is_function(CB, 1) andalso 
+        (Async orelse lists:member(get_request, Opts))
+    of
+        true -> call(CB, {req, Req, Call});
         false -> ok
     end,
     case Async of
-        true when is_function(CB, 1), not Get -> call(CB, ok);
         true -> ok;
         false -> gen_server:reply(From, ok)
     end,
     Call;
 
 reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
-    Get = lists:member(get_request, Opts),
     CB = nksip_lib:get_value(callback, Opts),
-    case Get andalso is_function(CB, 1) of
-        true -> call(CB, {req, Req});
+    case is_function(CB, 1) andalso lists:member(get_request, Opts) of
+        true -> call(CB, {req, Req, Call});
         false -> ok
     end,
     Call;
@@ -82,30 +82,31 @@ reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
             ],
             nksip_uac:notify(SubsId, NotifyOpts)
     end,
-    Async = lists:member(async, Opts),
-    % Get = lists:member(get_response, Opts),
     CB = nksip_lib:get_value(callback, Opts),
-    if
-        Code<101 -> ok;
-        Code<200, is_function(CB, 1) -> call(CB, {resp, Code, Resp, Call});
-        % Code<200, Get, is_function(CB, 1) -> call(CB, {resp, Resp});
-        % Code<200, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
-        Code<200 -> ok;
-        Async, is_function(CB, 1) -> call(CB, {resp, Code, Resp, Call});
-        % Async, Get, is_function(CB, 1) -> call(CB, {resp, Resp});
-        % Async, is_function(CB, 1) -> CB({resp, response(UAC, Call)});
-        Async -> ok;
-        true -> gen_server:reply(From, response(Resp, Opts))
+    Async = lists:member(async, Opts),
+    case 
+        is_function(CB, 1) andalso Code>100 andalso 
+        (Code<300 orelse Async)
+    of
+        true -> call(CB, {resp, Code, Resp, Call});
+        false -> ok
+    end,
+    case Async of
+        false when Code>=200 -> gen_server:reply(From, response(Resp, Opts));
+        _ -> ok
     end,
     Call;
 
 reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
-    Async = lists:member(async, Opts),
     CB = nksip_lib:get_value(callback, Opts),
-    if
-        Async, is_function(CB, 1) -> call(CB, {error, Error});
-        Async -> ok;
-        true -> gen_server:reply(From, {error, Error})
+    Async = lists:member(async, Opts),
+    case is_function(CB, 1) andalso Async of
+        true -> call(CB, {error, Error});
+        false -> ok
+    end,
+    case Async of
+        true -> ok;
+        false -> gen_server:reply(From, {error, Error})
     end,
     Call;
 

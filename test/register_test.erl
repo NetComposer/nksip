@@ -226,8 +226,8 @@ register2() ->
     Contact3Uris = nksip_parse:uris(Contact3),
 
     {ok, 200, Values4} = nksip_uac:register(client1, "sip:127.0.0.1", 
-                                            [{meta,[parsed_contacts]}]),
-    [{parsed_contacts, Contacts4}] = Values4, 
+                                            [{meta,[contacts]}]),
+    [{contacts, Contacts4}] = Values4, 
     [
         #uri{scheme=sip, port=5070, opts=[], 
              ext_opts=[{<<"+sip.instance">>, QUUID1}, {<<"expires">>, <<"300">>}]},

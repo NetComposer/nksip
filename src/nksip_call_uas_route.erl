@@ -74,7 +74,7 @@ check_cancel(#trans{id=Id}=UAS, #call{app_id=AppId}=Call) ->
             if
                 Status==authorize; Status==route; Status==invite_proceeding ->
                     Call1 = reply(ok, UAS, Call), 
-                    Args = [InvId, UAS#trans.request, Call],
+                    Args = [InvUAS#trans.request, UAS#trans.request, Call],
                     nksip_callbacks:app_call(cancel, Args, AppId),
                     nksip_call_uas:terminate_request(InvUAS, Call1);
                 true ->
@@ -122,7 +122,7 @@ is_cancel(_, _) ->
     nksip_call:call().
 
 authorize_launch(UAS, #call{app_id=AppId}=Call) ->
-    case erlang:function_exported(AppId, authorize, 2) of
+    case erlang:function_exported(AppId, authorize, 3) of
         true ->
             Args = [authorize_data(UAS, Call), UAS#trans.request, Call],
             case nksip_callbacks:app_call(authorize, Args, AppId) of

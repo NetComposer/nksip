@@ -107,7 +107,7 @@ init(Id) ->
 publish(_ReqId, Meta, _From, AppId=State) ->
     AOR = nksip_lib:get_value(aor, Meta),
     ETag = nksip_lib:get_value(etag, Meta),
-    Expires = nksip_lib:get_value(parsed_expires, Meta),
+    Expires = nksip_lib:get_value(expires, Meta),
     Body = nksip_lib:get_value(body, Meta),
     Reply = nksip_publish:request(AppId, AOR, ETag, Expires, Body),
     {reply, Reply, State}.

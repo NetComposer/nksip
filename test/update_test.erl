@@ -124,16 +124,16 @@ basic() ->
         {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
         {invite_local_sdp, SDP5},
         {invite_remote_sdp, SDP4} 
-    ] = nksip_dialog:fields(DialogId, 
-                    [local_target, remote_target, invite_local_sdp, invite_remote_sdp]),
+    ] = nksip_dialog:meta([local_target, remote_target, 
+                            invite_local_sdp, invite_remote_sdp], DialogId),
     [
         {local_target, <<"<sip:b@127.0.0.1:5070>">>},
         {remote_target, <<"<sip:a@127.0.0.1>">>},        
         {invite_local_sdp, SDP4},
         {invite_remote_sdp, SDP5} 
     ] = 
-        nksip_dialog:fields(DialogId2, 
-            [local_target, remote_target, invite_local_sdp, invite_remote_sdp]),
+        nksip_dialog:meta([local_target, remote_target, 
+                            invite_local_sdp, invite_remote_sdp], DialogId2),
 
     {ok, 200, []} = nksip_uac:bye(DialogId, []),
     ok.

@@ -134,11 +134,11 @@ cancel() ->
     ok = tests_util:wait(Ref, [{server1, route}]),
 
     Hds = {add, "x-nk-op", "wait"},
-    CB = {callback, fun(Term) -> Pid ! {Ref, Term} end},
+    CB = {callback, fun({resp, Code, _Req, _Call}) -> Pid ! {Ref, {ok, Code}} end},
     {async, ReqId} = nksip_uac:invite(client1, "sip:client2@nksip", [async, Hds, CB]),
     ok = nksip_uac:cancel(ReqId),
-    receive {Ref, {ok, 180, _}} -> ok after 500 -> error(inline) end,
-    receive {Ref, {ok, 487, _}} -> ok after 500 -> error(inline) end,
+    receive {Ref, {ok, 180}} -> ok after 500 -> error(inline) end,
+    receive {Ref, {ok, 487}} -> ok after 500 -> error(inline) end,
 
     ok = tests_util:wait(Ref, [
             {server1, route},  {server1, dialog_start}, {server1, cancel},
@@ -173,7 +173,7 @@ init([]) ->
     {ok, []}.
 
 
-get_user_pass(User, Realm, Req) ->
+get_user_pass(User, Realm, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             case {User, Realm} of
@@ -186,34 +186,31 @@ get_user_pass(User, Realm, Req) ->
     end.
 
 
-authorize(Req, Auth, From) ->
-    case nksip_sipmsg:meta(app_name, Req) of
+authorize(Auth, Req, _Call) ->
+    case nksip_request:app_name(Req) of
         server1 ->
-            Reply = case nksip_sipmsg:header(<<"x-nk-auth">>, Req) of
+            case nksip_sipmsg:header(<<"x-nk-auth">>, Req) of
                 [<<"true">>] ->
                     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
                         true ->
-                            true;
+                            ok;
                         false ->
                             case nksip_lib:get_value({digest, <<"nksip">>}, Auth) of
-                                true -> true;
-                                false -> false;
+                                true -> ok;
+                                false -> forbidden;
                                 undefined -> {proxy_authenticate, <<"nksip">>}
                             end
                     end;
                 _ ->
                     ok
-            end,
-            % Test asynchronus response in inline
-            spawn(fun() -> nksip:reply(From, Reply) end),
-            async;
+            end;
         _ ->
             ok
     end.
 
 
-route(Req, Scheme, User, Domain, _From) ->
-    case nksip_sipmsg:meta(app_name, Req) of
+route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
         server1 ->
             send_reply(Req, route),
             Opts = [
@@ -227,10 +224,9 @@ route(Req, Scheme, User, Domain, _From) ->
                     case nksip_registrar:find(server1, Scheme, User, Domain) of
                         [] -> 
                             lager:notice("E: ~p, ~p, ~p", [Scheme, User, Domain]),
-
-
-                            temporarily_unavailable;
-                        UriList -> {proxy, UriList, Opts}
+                            {reply, temporarily_unavailable};
+                        UriList ->
+                         {proxy, UriList, Opts}
                     end;
                 true ->
                     % It is for 127.0.0.1 domain, route
@@ -243,60 +239,60 @@ route(Req, Scheme, User, Domain, _From) ->
     end.
 
 
-invite(Req, _Meta, From) ->
+invite(Req, _Call) ->
     send_reply(Req, invite),
     case nksip_sipmsg:header(<<"x-nk-op">>, Req) of
         [<<"wait">>] ->
+            ReqId = nksip_request:get_id(Req),
             spawn(
                 fun() ->
-                    nksip_request:reply(ringing, Req),
+                    nksip_request:reply(ringing, ReqId),
                     timer:sleep(1000),
-                    nksip:reply(From, ok)
+                    nksip_request:reply(ok, ReqId)
                 end),
-            async;
+            noreply;
         _ ->
-            {answer, nksip_sipmsg:meta(body, Req)}
+            {reply, {answer, nksip_sipmsg:meta(body, Req)}}
     end.
 
-reinvite(Req, _Meta, _From) ->
+reinvite(Req, _Call) ->
     send_reply(Req, reinvite),
-    {answer, nksip_sipmsg:meta(body, Req)}.
+    {reply, {answer, nksip_sipmsg:meta(body, Req)}}.
 
-cancel(Req, _Meta) ->
+cancel(InvReq, Req, _Call) ->
+    'INVITE' = nksip_request:method(InvReq),
     send_reply(Req, cancel),
     ok.
 
-bye(Req, _Meta, _From) ->
+bye(Req, _Call) ->
     send_reply(Req, bye),
-    ok.
+    {reply, ok}.
 
-info(Req, _Meta, _From) ->
+info(Req, _Call) ->
     send_reply(Req, info),
-    ok.
+    {reply, ok}.
 
-ack(Req, _Meta, _From) ->
+ack(Req, _Call) ->
     send_reply(Req, ack),
     ok.
 
-options(Req, _Meta, From) ->
+options(Req, _Call) ->
     send_reply(Req, options),
-    spawn(
-        fun() ->
-            Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
-            AppId = nksip_sipmsg:meta(app_name, Req),
-            Reply = {ok, [{add, "x-nk-id", [nksip_lib:to_binary(AppId)|Ids]}]},
-            nksip:reply(From, Reply)
-        end),
-    async.
+    App = nksip_sipmsg:meta(app_name, Req),
+    Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
+    ReqId = nksip_request:get_id(Req),
+    Reply = {ok, [{add, "x-nk-id", [nksip_lib:to_binary(App)|Ids]}]},
+    spawn(fun() -> nksip_request:reply(Reply, ReqId) end),
+    noreply.
 
-dialog_update(Dialog, State) ->
+dialog_update(State, Dialog, _Call) ->
     case State of
         start -> send_reply(Dialog, dialog_start);
         stop -> send_reply(Dialog, dialog_stop);
         _ -> ok
     end.
 
-session_update(Dialog, State) ->
+session_update(State, Dialog, _Call) ->
     case State of
         {start, _, _} -> send_reply(Dialog, session_start);
         stop -> send_reply(Dialog, session_stop);

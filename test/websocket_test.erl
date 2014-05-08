@@ -165,7 +165,7 @@ basic() ->
 
     {ok, 200, Values1} = nksip_uac:options(ua2, 
                          "<sip:localhost:8080/;transport=ws>", 
-                         [{meta, [parsed_vias, local, remote]}]),
+                         [{meta, [vias, local, remote]}]),
 
     [
         {_, [#via{proto=ws, domain = <<"localhost">>, port=Port1}]},
@@ -208,7 +208,7 @@ basic() ->
 
     {ok, 200, Values2} = nksip_uac:options(ua2, 
                          "<sips:localhost:8081/wss;transport=ws>", 
-                         [{meta, [parsed_vias, local, remote]}]),
+                         [{meta, [vias, local, remote]}]),
 
     [
         {_, [#via{proto=wss, domain = <<"localhost">>, port=8091}]},
@@ -249,7 +249,7 @@ basic() ->
 sharing() ->
     % Server1 must answer
     {ok, 200, [{_, [S1C]}]} = nksip_uac:options(ua2, "<sip:localhost:8080/;transport=ws>", 
-                                      [{meta, [parsed_contacts]}]),
+                                      [{meta, [contacts]}]),
     #uri{domain = <<"localhost">>, port=8080} = S1C,
 
     {error, service_unavailable} = nksip_uac:options(ua2, 
@@ -258,13 +258,13 @@ sharing() ->
     % Client3 must answer
     {ok, 200, [{_, [C3C]}]} = nksip_uac:options(ua2, 
                                             "<sip:localhost:8080/client3;transport=ws>", 
-                                            [{meta, [parsed_contacts]}]),
+                                            [{meta, [contacts]}]),
     #uri{domain = <<"invalid.invalid">>, port=8080} = C3C,
     
     % Client2 must unswer
     {ok, 200, [{_, [C2C]}]} = nksip_uac:options(server1,
                                             "<sips:localhost:8091/;transport=ws>", 
-                                            [{meta, [parsed_contacts]}]),
+                                            [{meta, [contacts]}]),
     #uri{domain = <<"localhost">>, port=8091} = C2C,
     ok.
 
@@ -299,7 +299,7 @@ proxy() ->
     % UA3 registers. Its contact is not routable
     {ok, 200, [{_, [C3Contact]}]} = 
         nksip_uac:register(ua3, "<sip:127.0.0.1:8080;transport=ws>", 
-                           [contact, {meta, [parsed_contacts]}]),
+                           [contact, {meta, [contacts]}]),
     #uri{domain = <<"invalid.invalid">>} = C3Contact,
     
     C3Pub = nksip:get_gruu_pub(ua3),

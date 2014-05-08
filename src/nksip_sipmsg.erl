@@ -119,9 +119,9 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
         event -> S#sipmsg.event;
         realms -> nksip_auth:realms(S);
         rseq_num -> 
-            case header(S, <<"rseq">>, integers) of [RSeq] -> RSeq; _ -> undefined end;
+            case header(<<"rseq">>, S, integers) of [RSeq] -> RSeq; _ -> undefined end;
         rack ->
-            case header(S, <<"rack">>) of 
+            case header(<<"rack">>, S) of 
                 [RAck] ->
                     case nksip_lib:tokens(RAck) of
                         [RSeq, CSeq, Method] ->
@@ -386,11 +386,11 @@ parse_id(Bin) ->
 %         routes -> [nksip_lib:to_binary(Route) || Route <- S#sipmsg.routes];
 %         parsed_routes -> S#sipmsg.routes;
 %         contacts -> [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
-%         parsed_contacts -> S#sipmsg.contacts;
+%         contacts -> S#sipmsg.contacts;
 %         require -> nksip_lib:bjoin(S#sipmsg.require);
-%         parsed_require -> S#sipmsg.require;
+%         require -> S#sipmsg.require;
 %         supported -> nksip_lib:bjoin(S#sipmsg.supported);
-%         parsed_supported -> S#sipmsg.supported;
+%         supported -> S#sipmsg.supported;
 %         allow -> header(S, <<"allow">>);
 %         body -> S#sipmsg.body;
 %         expires -> nksip_lib:to_binary(S#sipmsg.expires);

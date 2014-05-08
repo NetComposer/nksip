@@ -98,7 +98,7 @@ stop() ->
 basic() ->
     Ref = make_ref(),
     Self = self(),
-    CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
+    CB = {callback, fun ({req, R, _Call}) -> Self ! {Ref, R}; (_) -> ok end},
     % RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     {ok, 603, []} = nksip_uac:invite(ua2, "sip:127.0.0.1:5103", 
@@ -132,9 +132,9 @@ flow() ->
     % but, as both parties support otbound, and the connection is direct,
     % registrar adds a path with the flow
 
-    {ok, 200, [{<<"require">>, []}, {parsed_contacts, [PContact]}, {local, Local1}]} = 
+    {ok, 200, [{<<"require">>, []}, {contacts, [PContact]}, {local, Local1}]} = 
         nksip_uac:register(ua1, "<sip:127.0.0.1:5090;transport=tcp>", 
-            [contact, {meta, [<<"require">>, parsed_contacts, local]}]),
+            [contact, {meta, [<<"require">>, contacts, local]}]),
 
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -237,8 +237,7 @@ register() ->
     % Registration with +sip.instance y reg-id=1
     {ok, 200, [{_, [Contact1]}, {_, [<<"outbound">>]}]} = 
         nksip_uac:register(ua1, "sip:127.0.0.1:5090", 
-                            [contact, {reg_id, 1}, 
-                             {meta, [parsed_contacts, parsed_require]}]),
+                            [contact, {reg_id, 1}, {meta, [contacts, require]}]),
 
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, opts = [],
@@ -266,7 +265,7 @@ register() ->
     % Register a new registration from the same instance, reg-id=2
     {ok, 200, [{_, [Contact2, Contact1]}]} = 
         nksip_uac:register(ua1, "sip:127.0.0.1:5090", 
-                            [contact, {reg_id, 2}, {meta, [parsed_contacts]}]),
+                            [contact, {reg_id, 2}, {meta, [contacts]}]),
 
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, opts = [],
@@ -293,7 +292,7 @@ register() ->
     {ok, 200, [{_, [Contact3, Contact2, Contact1]}]} = 
         nksip_uac:register(ua2, "sip:127.0.0.1:5090", 
                             [{from, "sip:ua1@nksip"}, contact, {reg_id, 1}, 
-                             {meta, [parsed_contacts]}]),
+                             {meta, [contacts]}]),
     
     #uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5103, opts = [],
@@ -328,7 +327,7 @@ register() ->
     % Register a new registration from the same instance, reg-id=2
     {ok, 200, [{_, [Contact2, Contact3, Contact1]}]} = 
         nksip_uac:register(ua1, "sip:127.0.0.1:5090", 
-                            [contact, {reg_id, 2}, {meta, [parsed_contacts]}]),
+                            [contact, {reg_id, 2}, {meta, [contacts]}]),
     [
         #reg_contact{
             index = {ob, QInstanceC1_id, <<"2">>},
@@ -361,10 +360,10 @@ proxy() ->
     % It arrives at the registrar, that sees the first proxy has outbound
     % support
     
-    {ok, 200, [{parsed_require, [<<"outbound">>]}]} = 
+    {ok, 200, [{require, [<<"outbound">>]}]} = 
         nksip_uac:register(ua1, "sip:nksip", 
             [contact, {reg_id, 1}, {route, "<sip:127.0.0.1;lr>"}, 
-            {meta, [parsed_require]}]),
+            {meta, [require]}]),
 
     Contact1 = nksip_registrar:find(registrar, sip, <<"ua1">>, <<"nksip">>),
     [#uri{headers=[{<<"route">>, QRoute1}]}] = Contact1,
@@ -416,10 +415,10 @@ proxy() ->
     % It we send to P3, it adds its Path, now with outbound support because of
     % being first hop. 
 
-    {ok, 200, [{parsed_require, [<<"outbound">>]}]} = 
+    {ok, 200, [{require, [<<"outbound">>]}]} = 
         nksip_uac:register(ua1, "sip:nksip", 
             [contact, {reg_id, 1}, {route, "<sip:127.0.0.1:5080;lr>"}, 
-            {meta, [parsed_require]}]),
+            {meta, [require]}]),
 
     Contact2 = nksip_registrar:find(registrar, sip, <<"ua1">>, <<"nksip">>),
     [#uri{headers=[{<<"route">>, QRoute2}]}] = Contact2,
@@ -441,7 +440,7 @@ proxy() ->
             port = 5080,
             opts = [<<"lr">>]
         }
-    ] = nksip_dialog:meta(parsed_route_set, DialogId),
+    ] = nksip_dialog:meta(route_set, DialogId),
 
     nksip_uac:bye(DialogId, []),
     ok.
@@ -556,87 +555,84 @@ wait_register(N) ->
 init(Id) ->
     {ok, Id}.
 
-% P1 is the outbound proxy.
-% It domain is 'nksip', it sends the request to P2, inserting Path and x-nk-id headers
-% If not, simply proxies the request adding a x-nk-id header
-route(_, _, _, Domain, _, p1=State) ->
-    Base = [{insert, "x-nk-id", "p1"}],
-    case Domain of 
-        <<"nksip">> -> 
-            Opts = [{route, "<sip:127.0.0.1:5071;lr;transport=tls>"}, 
-                     path, record_route|Base],
-            {reply, {proxy, ruri, Opts}, State};
-        _ -> 
-            {reply, {proxy, ruri, Base}, State}
-    end;
-
-% P2 is an intermediate proxy.
-% For 'nksip' domain, sends the request to P3, inserting x-nk-id header
-% For other, simply proxies and adds header
-route(_, _, _, Domain, _,  p2=State) ->
-    Base = [{insert, "x-nk-id", "p2"}],
-    case Domain of 
-        <<"nksip">> -> 
-            Opts = [{route, "<sip:127.0.0.1:5080;lr;transport=tcp>"}|Base],
-            {reply, {proxy, ruri, Opts}, State};
-        _ -> 
-            {reply, {proxy, ruri, Base}, State}
-    end;
-
-
-% P3 is the SBC. 
-% For 'nksip', it sends everything to the registrar, inserting Path header
-% For other proxies the request
-route(_, _, _, Domain, _, p3=State) ->
-    Base = [{insert, "x-nk-id", "p3"}],
-    case Domain of 
-        <<"nksip">> -> 
-            Opts = [{route, "<sip:127.0.0.1:5090;lr>"}, path, record_route|Base],
-            {reply, {proxy, ruri, Opts}, State};
-        _ -> 
-            {reply, {proxy, ruri, [record_route|Base]}, State}
-    end;
-
-
-% P4 is a dumb router, only adds a header
-% For 'nksip', it sends everything to the registrar, inserting Path header
-% For other proxies the request
-route(_, _, _, _, _, p4=State) ->
-    Base = [{insert, "x-nk-id", "p4"}, path, record_route],
-    {reply, {proxy, ruri, Base}, State};
-
-
-% Registrar is the registrar proxy for "nksip" domain
-route(_ReqId, Scheme, User, Domain, _From, registrar=State) ->
-    case Domain of
-        <<"nksip">> when User == <<>> ->
-            {reply, process, State};
-        <<"127.0.0.1">> when User == <<>> ->
-            {reply, process, State};
-        <<"nksip">> ->
-            case nksip_registrar:find(registrar, Scheme, User, Domain) of
-                [] -> {reply, temporarily_unavailable, State};
-                UriList -> {reply, {proxy, UriList}, State}
+route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        % P1 is the outbound proxy.
+        % It domain is 'nksip', it sends the request to P2, 
+        % inserting Path and x-nk-id headers
+        % If not, simply proxies the request adding a x-nk-id header
+        p1 ->
+            Base = [{insert, "x-nk-id", "p1"}],
+            case Domain of 
+                <<"nksip">> -> 
+                    Opts = [{route, "<sip:127.0.0.1:5071;lr;transport=tls>"}, 
+                             path, record_route|Base],
+                    {proxy, ruri, Opts};
+                _ -> 
+                    {proxy, ruri, Base}
+            end;
+        p2 ->
+            % P2 is an intermediate proxy.
+            % For 'nksip' domain, sends the request to P3, inserting x-nk-id header
+            % For other, simply proxies and adds header
+            Base = [{insert, "x-nk-id", "p2"}],
+            case Domain of 
+                <<"nksip">> -> 
+                    Opts = [{route, "<sip:127.0.0.1:5080;lr;transport=tcp>"}|Base],
+                    {proxy, ruri, Opts};
+                _ -> 
+                    {proxy, ruri, Base}
+            end;
+        p3 ->
+            % P3 is the SBC. 
+            % For 'nksip', it sends everything to the registrar, inserting Path header
+            % For other proxies the request
+            Base = [{insert, "x-nk-id", "p3"}],
+            case Domain of 
+                <<"nksip">> -> 
+                    Opts = [{route, "<sip:127.0.0.1:5090;lr>"}, path, record_route|Base],
+                    {proxy, ruri, Opts};
+                _ -> 
+                    {proxy, ruri, [record_route|Base]}
+            end;
+        p4 ->
+            % P4 is a dumb router, only adds a header
+            % For 'nksip', it sends everything to the registrar, inserting Path header
+            % For other proxies the request
+            Base = [{insert, "x-nk-id", "p4"}, path, record_route],
+            {proxy, ruri, Base};
+        registrar ->
+            % Registrar is the registrar proxy for "nksip" domain
+            case Domain of
+                <<"nksip">> when User == <<>> ->
+                    process;
+                <<"127.0.0.1">> when User == <<>> ->
+                    process;
+                <<"nksip">> ->
+                    case nksip_registrar:find(registrar, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {proxy, UriList}
+                    end;
+                _ ->
+                    {proxy, ruri, []}
             end;
         _ ->
-            {reply, {proxy, ruri, []}, State}
-    end;
-
-route(_, _, _, _, _, State) ->
-    {reply, process, State}.
-
-
-invite(ReqId, _Meta, _From, State) ->
-    case nksip_request:header(<<"x-nk-op">>, ReqId) of
-        [<<"ok">>] -> {reply, ok, State};
-        _ -> {reply, 603, State}
+            process
     end.
 
 
-options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
-    {reply, {ok, [contact|Hds]}, State}.
+invite(Req, _Call) ->
+    case nksip_request:header(<<"x-nk-op">>, Req) of
+        [<<"ok">>] -> {reply, ok};
+        _ -> {reply, 603}
+    end.
+
+
+options(Req, _Call) ->
+    Ids = nksip_request:header(<<"x-nk-id">>, Req),
+    App = nksip_request:app_name(Req),
+    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    {reply, {ok, [contact|Hds]}}.
 
 
 

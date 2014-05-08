@@ -182,34 +182,34 @@ regs() ->
     
     nksip_registrar:internal_clear(),
     Reg = "sip:nksip",
-    Opts = [contact, {meta, [parsed_contacts]}],
+    Opts = [contact, {meta, [contacts]}],
     {ok, 200, Values1} = nksip_uac:register(clientA1, Reg, Opts),
-    [{parsed_contacts, [#uri{user= <<"clientA1">>}=CA1]}] = Values1,
+    [{contacts, [#uri{user= <<"clientA1">>}=CA1]}] = Values1,
     {ok, 200, []} = nksip_uac:register(clientA1, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values3} = nksip_uac:register(clientB1, Reg, Opts),
-    [{parsed_contacts, [#uri{user= <<"clientB1">>}=CB1]}] = Values3,
+    [{contacts, [#uri{user= <<"clientB1">>}=CB1]}] = Values3,
     {ok, 200, []} = nksip_uac:register(clientB1, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values5} = nksip_uac:register(clientC1, Reg, Opts),
-    [{parsed_contacts, [#uri{user= <<"clientC1">>}=CC1]}] = Values5,
+    [{contacts, [#uri{user= <<"clientC1">>}=CC1]}] = Values5,
     {ok, 200, []} = nksip_uac:register(clientC1, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
     
     {ok, 200, Values7} = nksip_uac:register(clientA2, Reg, Opts),
-    [{parsed_contacts, [#uri{user= <<"clientA2">>}=CA2]}] = Values7,
+    [{contacts, [#uri{user= <<"clientA2">>}=CA2]}] = Values7,
     {ok, 200, []} = nksip_uac:register(clientA2, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values9} = nksip_uac:register(clientB2, Reg, Opts),
-    [{parsed_contacts, [#uri{user= <<"clientB2">>}=CB2]}] = Values9,
+    [{contacts, [#uri{user= <<"clientB2">>}=CB2]}] = Values9,
     {ok, 200, []} = nksip_uac:register(clientB2, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values11} = nksip_uac:register(clientC3, Reg, Opts),
-    [{parsed_contacts, [#uri{user= <<"clientC3">>}=CC3]}] = Values11, 
+    [{contacts, [#uri{user= <<"clientC3">>}=CC3]}] = Values11, 
     {ok, 200, []} = nksip_uac:register(clientC3, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),    
 
@@ -262,7 +262,7 @@ invite1() ->
     QUri = "sip:qtest@nksip",
     {Ref, RepHd} = tests_util:get_ref(),
     Self = self(),
-    Fun1 = {callback, fun({ok, Code, Vs}) -> Self ! {Ref, {code, Code, Vs}} end},
+    Fun1 = {callback, fun({ok, Code, Req, _Call}) -> Self ! {Ref, {code, Code, Req}} end},
 
     % Test to CANCEL a forked request
     % Two 180 are received with different to_tag, so two different dialogs are
@@ -321,7 +321,7 @@ invite2() ->
     QUri = "sip:qtest@nksip",
     {Ref, RepHd} = tests_util:get_ref(),
     Self = self(),
-    CB = {callback, fun({ok, Code, _RId}) -> Self ! {Ref, {code, Code}} end},
+    CB = {callback, fun({ok, Code, _RId, _Call}) -> Self ! {Ref, {code, Code}} end},
    
     % client1, B1 and client3 sends 180
     % clientC3 answers, the other two dialogs are deleted by the UAC sending ACK and BYE
@@ -389,8 +389,8 @@ invite2() ->
         {remote_uri, RUri}, 
         {local_target, LTarget}, 
         {remote_target, RTarget}
-    ] = nksip_dialog:fields(Dlg_C2_1, [invite_status, local_uri, remote_uri, 
-                                          local_target, remote_target]),
+    ] = nksip_dialog:meta([invite_status, local_uri, remote_uri, 
+                             local_target, remote_target], Dlg_C2_1),
     
     [
         {invite_status, confirmed}, 
@@ -398,8 +398,8 @@ invite2() ->
         {remote_uri, LUri}, 
         {local_target, RTarget}, 
         {remote_target, LTarget}
-    ] = nksip_dialog:fields(Dlg_CC3_1,[invite_status, local_uri, remote_uri, 
-                                          local_target, remote_target]),
+    ] = nksip_dialog:meta([invite_status, local_uri, remote_uri, 
+                             local_target, remote_target], Dlg_CC3_1),
 
     [
         {invite_status, confirmed}, 
@@ -407,8 +407,8 @@ invite2() ->
         {remote_uri, RUri}, 
         {local_target, LTarget}, 
         {remote_target, RTarget}
-    ] = nksip_dialog:fields(Dlg_C2_1, [invite_status, local_uri, remote_uri, 
-                                          local_target, remote_target]),
+    ] = nksip_dialog:meta([invite_status, local_uri, remote_uri, 
+                             local_target, remote_target], Dlg_C2_1),
                            
     {ok, 200, []} = nksip_uac:bye(Dlg_C2_1, []),
     ok = tests_util:wait(Ref, [{clientC3, bye}]),

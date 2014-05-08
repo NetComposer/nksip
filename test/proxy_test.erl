@@ -507,10 +507,11 @@ dialog() ->
         {invite_remote_sdp, RSDP}, 
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
-        nksip_dialog:fields(DialogId1, 
-                [app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
-                 parsed_remote_uri, parsed_local_target, parsed_remote_target, 
-                 invite_local_sdp, invite_remote_sdp, parsed_route_set]),
+        nksip_dialog:meta([
+            app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
+            parsed_remote_uri, parsed_local_target, parsed_remote_target, 
+            invite_local_sdp, invite_remote_sdp, parsed_route_set],
+            DialogId1),
 
     #uri{user = <<"client1">>, domain = <<"nksip">>} = LUri, 
     #uri{user = <<"client2">>, domain = <<"nksip">>} = RUri, 
@@ -530,10 +531,11 @@ dialog() ->
         {invite_remote_sdp, LSDP},
         {parsed_route_set, [#uri{domain = <<"localhost">>}]}
     ] = 
-        nksip_dialog:fields(DialogId2,
-                [app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
-                 parsed_remote_uri, parsed_local_target, parsed_remote_target, 
-                 invite_local_sdp, invite_remote_sdp, parsed_route_set]),
+        nksip_dialog:meta([
+            app_name, invite_status, local_seq, remote_seq, parsed_local_uri, 
+            parsed_remote_uri, parsed_local_target, parsed_remote_target, 
+            invite_local_sdp, invite_remote_sdp, parsed_route_set],
+            DialogId2),
     
     % DialogId1 is refered to client1. DialogID1S will refer to server1
     DialogId1S = nksip_dialog:change_app(DialogId1, S1),
@@ -548,10 +550,11 @@ dialog() ->
         {invite_remote_sdp, RSDP},
         {parsed_route_set, []}          % The first route is deleted (it is itself)
     ] =
-        nksip_dialog:fields(DialogId1S, 
-            [app_name, invite_status, parsed_local_uri, parsed_remote_uri,
-             parsed_local_target, parsed_remote_target, invite_local_sdp, 
-             invite_remote_sdp, parsed_route_set]),
+        nksip_dialog:meta([
+            app_name, invite_status, parsed_local_uri, parsed_remote_uri,
+            parsed_local_target, parsed_remote_target, invite_local_sdp, 
+            invite_remote_sdp, parsed_route_set],
+            DialogId1S),
 
     {ok, 200, []} = nksip_uac:bye(DialogId2, [{add, "x-nk-rr", true}]),
     error = nksip_dialog:meta(status, DialogId1),

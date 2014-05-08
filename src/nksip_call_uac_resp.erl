@@ -518,7 +518,7 @@ check_prack(Resp, UAC, Call) ->
     nksip_call:call().
 
 send_prack(Resp, Id, DialogId, Call) ->
-    #sipmsg{cseq={CSeq, _}} = Resp,
+    #sipmsg{class={resp, Code, _Phrase}, cseq={CSeq, _}} = Resp,
     #call{trans=Trans} = Call,
     try
         case nksip_sipmsg:header(<<"rseq">>, Resp, integers) of
@@ -546,7 +546,7 @@ send_prack(Resp, Id, DialogId, Call) ->
         end,
         Body = case nksip_lib:get_value(prack_callback, UACOpts) of
             Fun when is_function(Fun, 2) -> 
-                case catch Fun(RemoteSDP, Resp) of
+                case catch Fun(RemoteSDP, {resp, Code, Resp, Call}) of
                     Bin when is_binary(Bin) ->
                         Bin;
                     #sdp{} = LocalSDP -> 

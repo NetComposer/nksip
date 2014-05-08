@@ -415,7 +415,7 @@ launch_register(AppId, Reg)->
     } = Reg,
     Opts1 = [
         contact, {call_id, CallId}, {cseq_num, CSeq}, {expires, Interval}, 
-        {meta, [cseq_num, remote, parsed_require, <<"retry-after">>, <<"flow-timer">>]} 
+        {meta, [cseq_num, remote, require, <<"retry-after">>, <<"flow-timer">>]} 
         | Opts
     ],   
     Self = self(),
@@ -469,7 +469,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
         false -> ok
     end,
     {Proto, Ip, Port, Res} = nksip_lib:get_value(remote, Meta),
-    Require = nksip_lib:get_value(parsed_require, Meta),
+    Require = nksip_lib:get_value(require, Meta),
     % 'fails' is not updated until the connection confirmation arrives
     % (or process down)
     Reg1 = Reg#sipreg{

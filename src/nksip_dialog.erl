@@ -25,7 +25,7 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([app_id/1, app_name/1, get_id/1, call_id/1, meta/2, metas/2]).
+-export([app_id/1, app_name/1, get_id/1, call_id/1, meta/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
 -export([get_dialog/1, get_all_data/0, make_id/2, parse_id/1, remote_id/2, change_app/2]).
 -export_type([id/0, invite_status/0, field/0, stop_reason/0]).
@@ -127,10 +127,25 @@ call_id(Id) ->
     CallId. 
 
 
--spec meta(field(), nksip:dialog()|nksip:id()) -> 
-    term() | error.
+-spec meta(field()|[field()], nksip:dialog()|nksip:id()) -> 
+    term() | [{field(), term()}] | error.
 
-meta(Field, #dialog{invite=I}=D) ->
+meta(Fields, #dialog{}=Dialog) when is_list(Fields) ->
+    [{Field, meta(Field, Dialog)} || Field <- Fields];
+
+meta(Fields, Id) when is_list(Fields), is_binary(Id) ->
+    Fun = fun(Dialog) -> {ok, meta(Fields, Dialog)} end,
+    case get_id(Id) of
+        <<>> ->
+            error;
+        DialogId ->
+            case nksip_call_router:apply_dialog(DialogId, Fun) of
+                {ok, Values} -> Values;
+                _ -> error
+            end
+    end;
+
+meta(Field, #dialog{invite=I}=D) when is_atom(Field) ->
     case Field of
         id -> get_id(D);
         internal_id -> D#dialog.id;
@@ -183,29 +198,10 @@ meta(Field, #dialog{invite=I}=D) ->
         _ -> invalid_field 
     end;
 
-meta(Field, Id) when is_binary(Id) -> 
-    case metas([Field], Id) of
+meta(Field, Id) when is_atom(Field), is_binary(Id) -> 
+    case meta([Field], Id) of
         [{_, Value}] -> Value;
         error -> error
-    end.
-
-
-%% @doc Gets a number of metas from the dialog
--spec metas([field()], nksip:dialog()|nksip:id()) -> 
-    [{field(), term()}] | error.
-    
-metas(Fields, #dialog{}=Dialog) ->
-    [{Field, meta(Field, Dialog)} || Field <- Fields];
-metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
-    Fun = fun(Dialog) -> {ok, metas(Fields, Dialog)} end,
-    case get_id(Id) of
-        <<>> ->
-            error;
-        DialogId ->
-            case nksip_call_router:apply_dialog(DialogId, Fun) of
-                {ok, Values} -> Values;
-                _ -> error
-            end
     end.
 
 
@@ -322,7 +318,7 @@ make_id(Class, FromTag, ToTag) ->
 remote_id(<<$D, _/binary>>=DialogId, App) ->
     {ok, AppId} = nksip:find_app(App),
     [{internal_id, BaseId}, {local_uri, LUri}, {remote_uri, RUri}, {call_id, CallId}] =  
-        metas([internal_id, local_uri, remote_uri, call_id], DialogId),
+        meta([internal_id, local_uri, remote_uri, call_id], DialogId),
     FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
     ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),
     Id = case make_id(uac, FromTag, ToTag) of
