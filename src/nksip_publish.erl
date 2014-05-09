@@ -30,7 +30,7 @@
 
 -include("nksip.hrl").
 
--export([request/5, find/3]).
+-export([request/1, find/3]).
 -export_type([reg_publish/0]).
 
 -define(TIMEOUT, 15000).
@@ -49,36 +49,41 @@
 %% ===================================================================
 
 %% @doc Finds a stored published information
--spec find(nksip:app_id(), nksip:aor(), binary()) ->
+-spec find(nksip:app_id()|term(), nksip:aor(), binary()) ->
     {ok, reg_publish()} | {error, term()}.
 
-find(AppId, AOR, Tag) ->
+find(App, AOR, Tag) ->
+    {ok, AppId} = nksip:find_app(App),
     case callback(AppId, {get, AOR, Tag}) of
         #reg_publish{} = Reg -> {ok, Reg};
         Other -> {error, Other}
     end.
 
 %% @doc Processes a PUBLISH request according to RFC3903
--spec request(nksip:app_id(), nksip:aor(), binary(), integer(), nksip:body()) ->
+-spec request(nksip:request()) ->
     nksip:sipreply().
 
-request(AppId, AOR, Tag, Expires, Body) ->
+request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
+    #sipmsg{app_id=AppId, ruri=RUri, expires=Expires, body=Body} = Req,
     Expires1 = case is_integer(Expires) andalso Expires>0 of
         true -> Expires;
         _ -> ?DEFAULT_PUBLISH_EXPIRES
     end,
-    case Tag of
-        <<>> when Body == <<>> ->
+    AOR = {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain},
+    case nksip_sipmsg:header(<<"sip-etag">>, Req) of
+        [] when Body == <<>> ->
             invalid_request;
-        <<>> ->
+        [] ->
             store(AppId, AOR, Expires1, make_reg(Body));
-        _ ->
+        [Tag] ->
             case find(AppId, AOR, Tag) of
                 {ok, _Reg} when Expires==0 -> remove(AppId, AOR, Tag);
                 {ok, Reg} when Body == <<>> -> update(AppId, AOR, Tag, Expires1, Reg);
                 {ok, _} -> update(AppId, AOR, Tag, Expires1, make_reg(Body));
                 _ -> conditional_request_failed
-            end
+            end;
+        _ ->
+            invalid_request
     end.
 
 

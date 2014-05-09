@@ -81,7 +81,7 @@ body(Id) when is_binary(Id) ->
 call_id(#sipmsg{call_id=CallId}) ->
     CallId;
 call_id(Id) when is_binary(Id) ->
-    {req, _AppId, _Id, CallId} = nksip_sipmsg:parse_id(Id),
+    {resp, _AppId, _Id, CallId} = nksip_sipmsg:parse_id(Id),
     CallId.
 
 
@@ -89,9 +89,9 @@ call_id(Id) when is_binary(Id) ->
 -spec meta(nksip_sipmsg:field(), nksip:response()|nksip:id()) ->
     term() | [{nksip_sipmsg:field(), term()}] | error.
 
-meta(Fields, #sipmsg{}=Resp) when is_list(Fields) ->
+meta(Fields, #sipmsg{}=Resp) when is_list(Fields), not is_integer(hd(Fields)) ->
     [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
-meta(Fields, Id) when is_list(Fields), is_binary(Id) ->
+meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id) ->
     Fun = fun(Resp) -> {ok, meta(Fields, Resp)} end,
     case nksip_call_router:apply_sipmsg(Id, Fun) of
         {ok, Values} -> Values;
@@ -101,7 +101,7 @@ meta(Field, #sipmsg{}=Resp) ->
     nksip_sipmsg:meta(Field, Resp);
 meta(Field, Id) when is_binary(Id) ->
     case meta([Field], Id) of
-        [Value] -> Value;
+        [{_, Value}] -> Value;
         _ -> error
     end.
 
@@ -110,9 +110,9 @@ meta(Field, Id) when is_binary(Id) ->
 -spec header(string()|binary()|[string()|binary()], nksip:response()|nksip:id()) -> 
     [binary()] | [{binary(), binary()}] | error.
 
-header(Names, #sipmsg{}=Resp) when is_list(Names) ->
+header(Names, #sipmsg{}=Resp) when is_list(Names), not is_integer(hd(Names)) ->
     [{nksip_lib:to_binary(Name), nksip_sipmsg:header(Name, Resp)} || Name <- Names];
-header(Names, Id) when is_list(Names), is_binary(Id) ->
+header(Names, Id) when is_list(Names), not is_integer(hd(Names)), is_binary(Id) ->
     meta([nksip_lib:to_binary(Name) || Name<-Names], Id);
 header(Name, #sipmsg{}=Resp) -> 
     nksip_sipmsg:header(Name, Resp);

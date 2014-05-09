@@ -57,11 +57,13 @@ app_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 	Fun = case Method of
 		'INVITE' when ToTag == <<>> -> invite;
 		'INVITE' -> reinvite;
+		'UPDATE' -> update;
 		'BYE' -> bye;
-		'INFO' -> info;
 		'OPTIONS' -> options;
 		'REGISTER' -> register;
 		'PRACK' -> prack;
+		'INFO' -> info;
+		'MESSAGE' -> message;
 		'SUBSCRIBE' when ToTag == <<>> -> subscribe;
 		'SUBSCRIBE' -> resubscribe;
 		'NOTIFY' -> notify;

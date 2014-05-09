@@ -86,7 +86,7 @@ reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     Async = lists:member(async, Opts),
     case 
         is_function(CB, 1) andalso Code>100 andalso 
-        (Code<300 orelse Async)
+        (Code<200 orelse Async)
     of
         true -> call(CB, {resp, Code, Resp, Call});
         false -> ok
@@ -136,8 +136,10 @@ reply(_, #trans{from=none}, Call) ->
 %% @private
 call(CB, Arg) ->
     case catch CB(Arg) of
-        {'EXIT', Error} -> ?call_warning("Error calling callback function: ~p", [Error]);
-        _ -> ok
+        {'EXIT', Error} -> 
+            ?call_warning("Error calling UAC callback function: ~p", [Error]);
+        _ -> 
+            ok
     end.
 
 

@@ -569,10 +569,10 @@ register(Req, _Call) ->
 %% and body (see {@link nksip_request} for details).
 %%
 -spec prack(Req::nksip:request(), Call::nksip:call()) ->
-    ok.
+    {reply, nksip:sipreply()} | noreply.
 
 prack(_Req, _Call) ->
-    ok.
+    {reply, ok}.
 
 
 %% @doc Called when a valid UPDATE request is received.

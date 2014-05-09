@@ -153,7 +153,7 @@
     auths = [] :: [call_auth()],
     msgs = [] :: [call_msg()],
     events = [] :: [#provisional_event{}],
-    timers :: {T1::integer(), T2::integer(), T4::integer(), TC::integer(), App::integer()},
+    timers :: {T1::integer(), T2::integer(), T4::integer(), TC::integer()},
     meta = [] :: nksip_lib:optslist()
 }).
 

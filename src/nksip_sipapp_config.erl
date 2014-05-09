@@ -316,8 +316,8 @@ cache_syntax(Opts) ->
             nksip_lib:get_value(timer_t1, Opts),
             nksip_lib:get_value(timer_t2, Opts),
             nksip_lib:get_value(timer_t4, Opts),
-            1000*nksip_lib:get_value(timer_c, Opts),
-            1000*nksip_lib:get_value(sipapp_timeout, Opts)}},
+            1000*nksip_lib:get_value(timer_c, Opts)}},
+            % 1000*nksip_lib:get_value(sipapp_timeout, Opts)}},
         {config_registrar_timers, {
             nksip_lib:get_value(registrar_min_time, Opts),
             nksip_lib:get_value(registrar_max_time, Opts),

@@ -410,7 +410,7 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
         timeout_timer = TimeoutTimer, 
         refresh_timer = RefreshTimer
     } = Invite,
-    #call{timers={T1, _, _, _, _}} = Call,
+    #call{timers={T1, _, _, _}} = Call,
     cancel_timer(RetransTimer),
     {RetransTimer1, NextRetrans1} = case Status of
         accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
@@ -493,7 +493,7 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                     case nksip_transport_uas:resend_response(Resp, []) of
                         {ok, _} ->
                             ?call_info("Dialog ~s resent response", [DialogId]),
-                            #call{timers={_, T2, _, _, _}} = Call,
+                            #call{timers={_, T2, _, _}} = Call,
                             Invite1 = Invite#invite{
                                 retrans_timer = start_timer(Next, invite_retrans, DialogId),
                                 next_retrans = min(2*Next, T2)

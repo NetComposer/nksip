@@ -130,10 +130,10 @@ call_id(Id) ->
 -spec meta(field()|[field()], nksip:dialog()|nksip:id()) -> 
     term() | [{field(), term()}] | error.
 
-meta(Fields, #dialog{}=Dialog) when is_list(Fields) ->
+meta(Fields, #dialog{}=Dialog) when is_list(Fields), not is_integer(hd(Fields)) ->
     [{Field, meta(Field, Dialog)} || Field <- Fields];
 
-meta(Fields, Id) when is_list(Fields), is_binary(Id) ->
+meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id) ->
     Fun = fun(Dialog) -> {ok, meta(Fields, Dialog)} end,
     case get_id(Id) of
         <<>> ->
@@ -191,7 +191,7 @@ meta(Field, #dialog{invite=I}=D) when is_atom(Field) ->
             end;
         invite_refresh -> undefined;
         subscriptions -> 
-            [nksip_subscription:get_id(S, D) || S <- D#dialog.subscriptions];
+            [nksip_subscription:get_id({user_subs, S, D}) || S <- D#dialog.subscriptions];
         call_id -> D#dialog.call_id;
         from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
         to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);

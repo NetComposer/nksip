@@ -24,7 +24,7 @@
 -module(nksip_subscription).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_id/1, app_id/1, app_name/1, call_id/1, meta/2, metas/2]).
+-export([get_id/1, app_id/1, app_name/1, call_id/1, meta/2]).
 -export([get_all/0, get_all/2]).
 -export([parse_id/1, get_subscription/1, make_id/1, find/2, subscription_state/1, remote_id/2]).
 -export_type([id/0, status/0, subscription_state/0, terminated_reason/0]).
@@ -116,8 +116,25 @@ call_id(Id) ->
 
 
 %% @doc
--spec meta(field()|nksip_dialog:field(), nksip:subscription()|nksip:id()) -> 
-    term() | error.
+-spec meta(field()|[field()], nksip:subscription()|nksip:id()) -> 
+    term() | [{field(), term()}] | error.
+
+meta(Fields, {user_subs, _, _}=Subs) when is_list(Fields), not is_integer(hd(Fields)) ->
+    [{Field, meta(Field, Subs)} || Field <- Fields];
+
+meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id) ->
+    {_AppId, SubsId, _DialogId, _CallId} = parse_id(Id),
+    Fun = fun(Dialog) -> 
+        case find(SubsId, Dialog) of
+            #subscription{} = U -> {ok, meta(Fields, {user_subs, U, Dialog})};
+            not_found -> error
+        end
+    end,
+    DialogId = nksip_dialog:get_id(Id),
+    case nksip_call_router:apply_dialog(DialogId, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end;
 
 meta(Field, {user_subs, U, D}) ->
     case Field of
@@ -144,30 +161,9 @@ meta(Field, {user_subs, U, D}) ->
     end;
 
 meta(Field, <<"U_", _/binary>>=Id) -> 
-    case metas([Field], Id) of
+    case meta([Field], Id) of
         [{_, Value}] -> Value;
         error -> error
-    end.
-
-
-%% @doc Gets a number of fields from the Subscription as described in {@link field/3}.
--spec metas([field()], nksip:subscription()|nksip:id()) -> 
-    [{field(), term()}] | error.
-    
-metas(Fields, {user_subs, _, _}=Subs) ->
-    [{Field, meta(Field, Subs)} || Field <- Fields];
-metas(Fields, Id) when is_list(Fields), is_binary(Id) ->
-    {_AppId, SubsId, _DialogId, _CallId} = parse_id(Id),
-    Fun = fun(Dialog) -> 
-        case find(SubsId, Dialog) of
-            #subscription{} = U -> {ok, metas(Fields, {user_subs, U, Dialog})};
-            not_found -> error
-        end
-    end,
-    DialogId = nksip_dialog:get_id(Id),
-    case nksip_call_router:apply_dialog(DialogId, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
     end.
 
 

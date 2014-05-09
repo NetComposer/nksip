@@ -275,7 +275,7 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     cancel_timer(TimerN),
     cancel_timer(TimerExpire),
     cancel_timer(TimerMiddle),
-    #call{timers={T1, _, _, TC, _}} = Call,
+    #call{timers={T1, _, _, TC}} = Call,
     ReqExpires = case Req#sipmsg.expires of
         RE0 when is_integer(RE0), RE0>=0 -> RE0;
         _ when Method=='REFER' -> round(TC/1000);
@@ -383,7 +383,7 @@ update({terminated, Reason, Retry}, Subs, Dialog, Call) ->
 create_prov_event(#sipmsg{from={_, FromTag}}=Req, Call) ->
     Id = nksip_subscription:make_id(Req),
     ?call_debug("Provisional event ~s (~s) UAC created", [Id, FromTag]),
-    #call{timers={T1, _, _, _, _}} = Call,
+    #call{timers={T1, _, _, _}} = Call,
     Timer = erlang:start_timer(64*T1, self(), {remove_prov_event, {Id, FromTag}}),
     ProvEvent = #provisional_event{id={Id, FromTag}, timer_n=Timer},
     Call#call{events=[ProvEvent|Call#call.events]}.
@@ -504,7 +504,7 @@ create(Class, #sipmsg{class={req, Method}}=Req, Dialog, Call) ->
             Req#sipmsg.event
     end,        
     Id = nksip_subscription:make_id(Req),
-    #call{timers={T1, _, _, _, _}} = Call,
+    #call{timers={T1, _, _, _}} = Call,
     Subs = #subscription{
         id = Id,
         event = Event,

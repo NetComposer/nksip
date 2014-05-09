@@ -24,7 +24,7 @@
 
 -export([update_sipmsg/2, update/2]).
 -export([update_auth/3, check_auth/2]).
--export([timeout_timer/3, retrans_timer/3, expire_timer/3, callback_timer/3]).
+-export([timeout_timer/3, retrans_timer/3, expire_timer/3]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
 
 
@@ -194,7 +194,7 @@ timeout_timer(Tag, Trans, Call)
                  Tag==timer_h; Tag==timer_j; Tag==timer_l;
                  Tag==noinvite; Tag==prack_timeout ->
     cancel_timer(Trans#trans.timeout_timer),
-    #call{timers={T1, _, _, _, _}} = Call,
+    #call{timers={T1, _, _, _}} = Call,
     Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
 
 timeout_timer(timer_d, Trans, _) ->
@@ -204,18 +204,18 @@ timeout_timer(timer_d, Trans, _) ->
 timeout_timer(Tag, Trans, Call) 
                 when Tag==timer_k; Tag==timer_i ->
     cancel_timer(Trans#trans.timeout_timer),
-    #call{timers={_, _, T4, _, _}} = Call,
+    #call{timers={_, _, T4, _}} = Call,
     Trans#trans{timeout_timer=start_timer(T4, Tag, Trans)};
 
 timeout_timer(timer_c, Trans, Call) ->
     cancel_timer(Trans#trans.timeout_timer),
-    #call{timers={_, _, _, TC, _}} = Call,
-    Trans#trans{timeout_timer=start_timer(TC, timer_c, Trans)};
+    #call{timers={_, _, _, TC}} = Call,
+    Trans#trans{timeout_timer=start_timer(TC, timer_c, Trans)}.
 
-timeout_timer(sipapp_call, Trans, Call) ->
-    cancel_timer(Trans#trans.timeout_timer),
-    #call{timers={_, _, _, _, Time}} = Call,
-    Trans#trans{timeout_timer=start_timer(Time, sipapp_call, Trans)}.
+% timeout_timer(sipapp_call, Trans, Call) ->
+%     cancel_timer(Trans#trans.timeout_timer),
+%     #call{timers={_, _, _, _, Time}} = Call,
+%     Trans#trans{timeout_timer=start_timer(Time, sipapp_call, Trans)}.
 
 
 %% @private
@@ -233,7 +233,7 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
         true -> 
             Next;
         false -> 
-            #call{timers={T1, _, _, _, _}} = Call,
+            #call{timers={T1, _, _, _}} = Call,
             T1
     end,
     Trans#trans{
@@ -244,7 +244,7 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
 retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call) 
                 when Tag==timer_e; Tag==timer_g ->
     cancel_timer(Trans#trans.retrans_timer),
-    #call{timers={T1, T2, _, _, _}} = Call,
+    #call{timers={T1, T2, _, _}} = Call,
     Time = case is_integer(Next) of
         true -> Next;
         false -> T1
@@ -285,18 +285,18 @@ expire_timer(expire, Trans, _Call) ->
     Trans#trans{expire_timer=Timer}.
 
 
-%% @private
--spec callback_timer(atom(), trans(), call()) ->
-    trans(). 
+% %% @private
+% -spec callback_timer(atom(), trans(), call()) ->
+%     trans(). 
 
-callback_timer(cancel, Trans, _Call) ->
-    cancel_timer(Trans#trans.callback_timer),
-    Trans#trans{callback_timer=undefined};
+% callback_timer(cancel, Trans, _Call) ->
+%     cancel_timer(Trans#trans.callback_timer),
+%     Trans#trans{callback_timer=undefined};
 
-callback_timer(Fun, Trans, Call) ->
-    cancel_timer(Trans#trans.callback_timer),
-    #call{timers={_, _, _, _, Time}} = Call,
-    Trans#trans{callback_timer=start_timer(Time, {callback, Fun}, Trans)}.
+% callback_timer(Fun, Trans, Call) ->
+%     cancel_timer(Trans#trans.callback_timer),
+%     #call{timers={_, _, _, _, Time}} = Call,
+%     Trans#trans{callback_timer=start_timer(Time, {callback, Fun}, Trans)}.
 
 
 %% @private
