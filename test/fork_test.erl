@@ -262,7 +262,8 @@ invite1() ->
     QUri = "sip:qtest@nksip",
     {Ref, RepHd} = tests_util:get_ref(),
     Self = self(),
-    Fun1 = {callback, fun({ok, Code, Req, _Call}) -> Self ! {Ref, {code, Code, Req}} end},
+    Fun1 = {callback, 
+            fun({resp, Code, Resp, _Call}) -> Self ! {Ref, {resp, Code, Resp}} end},
 
     % Test to CANCEL a forked request
     % Two 180 are received with different to_tag, so two different dialogs are
@@ -274,11 +275,11 @@ invite1() ->
     Body1 = {body, [{clientB1, {488, 3000}}, {clientC1, {486, 3000}}]},
     {async, ReqId1} = nksip_uac:invite(client1, QUri, [async, Fun1, Body1, RepHd]),
     Dlg_C1_1 = receive
-        {Ref, {code, 180, [{dialog_id, Dlg_1_1_tmp}]}} -> Dlg_1_1_tmp
+        {Ref, {resp, 180, Resp1_1}} -> nksip_dialog:get_id(Resp1_1)
         after 5000 -> error(invite)
     end,
     Dlg_C1_2 = receive
-        {Ref, {code, 180, [{dialog_id, Dlg_2_1_tmp}]}} -> Dlg_2_1_tmp
+        {Ref, {resp, 180, Resp2_1}} -> nksip_dialog:get_id(Resp2_1)
         after 5000 -> error(invite)
     end,
     proceeding_uac = nksip_dialog:meta(invite_status, Dlg_C1_1),
@@ -303,7 +304,7 @@ invite1() ->
     timer:sleep(500),
     ok = nksip_uac:cancel(ReqId1),
     receive
-        {Ref, {code, 487, _}} -> ok
+        {Ref, {resp, 487, _}} -> ok
         after 5000 -> error(invite)
     end,
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 488}, {clientC1, 486}]),
@@ -321,7 +322,7 @@ invite2() ->
     QUri = "sip:qtest@nksip",
     {Ref, RepHd} = tests_util:get_ref(),
     Self = self(),
-    CB = {callback, fun({ok, Code, _RId, _Call}) -> Self ! {Ref, {code, Code}} end},
+    CB = {callback, fun({resp, Code, _RId, _Call}) -> Self ! {Ref, {code, Code}} end},
    
     % client1, B1 and client3 sends 180
     % clientC3 answers, the other two dialogs are deleted by the UAC sending ACK and BYE
@@ -493,7 +494,7 @@ multiple_200() ->
         lists:sort([
             nksip_dialog:meta(invite_status, Dlg_CA1_1),
             nksip_dialog:meta(invite_status, Dlg_CB1_1),
-            nksip_dialog:meta(invite_status)], Dlg_CC1_1),
+            nksip_dialog:meta(invite_status, Dlg_CC1_1)]),
     {ok, 200, []} = nksip_uac:bye(Dlg_C1_1, []),
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
     [] = 
@@ -528,7 +529,7 @@ multiple_200() ->
     [confirmed, error, error] =  lists:sort([
             nksip_dialog:meta(invite_status, Dlg_A1_2),
             nksip_dialog:meta(invite_status, Dlg_B1_2),
-            nksip_dialog:meta(invite_status)], Dlg_C1_2),
+            nksip_dialog:meta(invite_status, Dlg_C1_2)]),
     {ok, 200, []} = nksip_uac:bye(Dlg_C3_2, []),
     receive {Ref, {_, bye}} -> ok after 5000 -> error(multiple_200) end,
 
@@ -583,111 +584,115 @@ init(Id) ->
     {ok, Id}.
 
 
-% Route for serverR in fork test
-% Adds x-nk-id header, and Record-Route if Nk-Rr is true
-% If nk-redirect will follow redirects
-route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==serverR ->
-    Opts = lists:flatten([
-        {insert, "x-nk-id", serverR},
-        case nksip_request:header(<<"x-nk-rr">>, ReqId) of
-            [<<"true">>] -> record_route;
-            _ -> []
-        end,
-        case nksip_request:header(<<"x-nk-redirect">>, ReqId) of
-            [<<"true">>] -> follow_redirects;
-            _ -> []
-        end
-    ]),
-    {ok, Domains} = nksip:get(AppId, domains),
-    case lists:member(Domain, Domains) of
-        true when User =:= <<>> ->
-            {reply, {process, Opts}, State};
-        true when Domain =:= <<"nksip">> ->
-            case nksip_registrar:qfind(AppId, Scheme, User, Domain) of
-                [] -> {reply, temporarily_unavailable, State};
-                UriList -> {reply, {proxy, UriList, Opts}, State}
+route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        serverR ->
+            % Route for serverR in fork test
+            % Adds x-nk-id header, and Record-Route if Nk-Rr is true
+            % If nk-redirect will follow redirects
+            Opts = lists:flatten([
+                {insert, "x-nk-id", serverR},
+                case nksip_request:header(<<"x-nk-rr">>, Req) of
+                    [<<"true">>] -> record_route;
+                    _ -> []
+                end,
+                case nksip_request:header(<<"x-nk-redirect">>, Req) of
+                    [<<"true">>] -> follow_redirects;
+                    _ -> []
+                end
+            ]),
+            {ok, Domains} = nksip:get(serverR, domains),
+            case lists:member(Domain, Domains) of
+                true when User =:= <<>> ->
+                    {process, Opts};
+                true when Domain =:= <<"nksip">> ->
+                    case nksip_registrar:qfind(serverR, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {proxy, UriList, Opts}
+                    end;
+                true ->
+                    {proxy, ruri, Opts};
+                false ->
+                    {reply, forbidden}
             end;
-        true ->
-            {reply, {proxy, ruri, Opts}, State};
-        false ->
-            {reply, forbidden, State}
-    end;
-
-% Route for the rest of servers in fork test
-% Adds x-nk-id header. serverA is stateless, rest are stateful
-% Always Record-Route
-% If domain is "nksip" routes to serverR
-route(_, _, _, Domain, _From, AppId=State) when AppId==server1; AppId==server2; AppId==server3 ->
-    Opts = lists:flatten([
-        case AppId of server1 -> stateless; _ -> [] end,
-        record_route,
-        {insert, "x-nk-id", AppId}
-    ]),
-    {ok, Domains} = nksip:get(AppId, domains),
-    case lists:member(Domain, Domains) of
-        true when Domain =:= <<"nksip">> ->
-            {reply, {proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]}, State};
-        true ->
-            {reply, {proxy, ruri, Opts}, State};
-        false ->
-            {reply, forbidden, State}
-    end;
-
-route(_, _, _, _, _, State) ->
-    {reply, process, State}.
+        App when App==server1; App==server2; App==server3 ->
+            % Route for the rest of servers in fork test
+            % Adds x-nk-id header. serverA is stateless, rest are stateful
+            % Always Record-Route
+            % If domain is "nksip" routes to serverR
+            Opts = lists:flatten([
+                case App of server1 -> stateless; _ -> [] end,
+                record_route,
+                {insert, "x-nk-id", App}
+            ]),
+            {ok, Domains} = nksip:get(App, domains),
+            case lists:member(Domain, Domains) of
+                true when Domain =:= <<"nksip">> ->
+                    {proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};
+                true ->
+                    {proxy, ruri, Opts};
+                false ->
+                    {reply, forbidden}
+            end;
+        _ ->
+            process
+    end.
 
 
 % Adds x-nk-id header
 % Gets operation from body
-invite(ReqId, Meta, From, AppId=State) ->
-    tests_util:save_ref(AppId, ReqId, Meta),
-    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
-    case nksip_lib:get_value(body, Meta) of
+invite(Req, _Call) ->
+    tests_util:save_ref(Req),
+    Ids = nksip_request:header(<<"x-nk-id">>, Req),
+    App = nksip_request:app_name(Req),
+    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    case nksip_request:body(Req) of
         Ops when is_list(Ops) ->
+            ReqId = nksip_request:get_id(Req),
             proc_lib:spawn(
                 fun() ->
-                    case nksip_lib:get_value(AppId, Ops) of
+                    case nksip_lib:get_value(App, Ops) of
                         {redirect, Contacts} ->
                             Code = 300,
-                            nksip:reply(From, {redirect, Contacts});
+                            nksip_request:reply({redirect, Contacts}, ReqId);
                         Code when is_integer(Code) -> 
                             case Code of
-                                200 -> nksip:reply(From, {ok, Hds});
-                                _ -> nksip:reply(From, {Code, Hds})
+                                200 -> nksip_request:reply({ok, Hds}, ReqId);
+                                _ -> nksip_request:reply({Code, Hds}, ReqId)
                             end;
                         {Code, Wait} when is_integer(Code), is_integer(Wait) ->
                             nksip_request:reply(ringing, ReqId),
                             timer:sleep(Wait),
                             case Code of
-                                200 -> nksip:reply(From, {ok, Hds});
-                                _ -> nksip:reply(From, {Code, Hds})
+                                200 -> nksip_request:reply({ok, Hds}, ReqId);
+                                _ -> nksip_request:reply({Code, Hds}, ReqId)
                             end;
                         _ -> 
                             Code = 580,
-                            nksip:reply(From, {580, Hds})
+                            nksip_request:reply({580, Hds}, ReqId)
                     end,
-                    tests_util:send_ref(AppId, Meta, Code)
+                    tests_util:send_ref(Code, Req)
                 end),
-            {noreply, State};
+            noreply;
         _ ->
-            {reply, {500, Hds}, State}
+            {reply, {500, Hds}}
     end.
 
 
-ack(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, ack),
-    {reply, ok, State}.
+ack(Req, _Call) ->
+    tests_util:send_ref(ack, Req),
+    ok.
 
 
-options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
-    {reply, {ok, [contact|Hds]}, State}.
+options(Req, _Call) ->
+    Ids = nksip_request:header(<<"x-nk-id">>, Req),
+    App = nksip_request:app_name(Req),
+    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    {reply, {ok, [contact|Hds]}}.
 
 
-bye(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, bye),
-    {reply, ok, State}.
+bye(Req, _Call) ->
+    tests_util:send_ref(bye, Req),
+    {reply, ok}.
 
 

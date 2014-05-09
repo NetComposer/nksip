@@ -171,14 +171,15 @@ auto() ->
     [] = nksip_sipapp_auto:get_registers(client1),
     ok.
 
+
 timeout() ->
     SipC1 = "<sip:127.0.0.1:5070;transport=tcp>",
 
-    {ok, _} = nksip:update(client1, [{sipapp_timeout, 0.02}]),
+    % {ok, _} = nksip:update(client1, [{sipapp_timeout, 0.02}]),
 
-    % Client1 callback module has a 50msecs delay in route()
-    {ok, 500, [{reason_phrase, <<"No SipApp Response">>}]} = 
-        nksip_uac:options(client2, SipC1, [{meta,[reason_phrase]}]),
+    % % Client1 callback module has a 50msecs delay in route()
+    % {ok, 500, [{reason_phrase, <<"No SipApp Response">>}]} = 
+    %     nksip_uac:options(client2, SipC1, [{meta,[reason_phrase]}]),
 
     {ok, _} = nksip:update(client1, [{timer_t1, 10}, {timer_c, 1}, {sipapp_timeout, 10}]),
 
@@ -200,58 +201,57 @@ init(Id) ->
     nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, Id}.
 
-route(ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==server1 ->
-    Opts = [
-        record_route,
-        {insert, "x-nk-server", AppId}
-    ],
-    {ok, Domains} = nksip:get(server1, domains),
-    case lists:member(Domain, Domains) of
-        true when User =:= <<>> ->
-            case nksip_request:header(<<"x-nk-op">>, ReqId) of
-                [<<"reply-request">>] ->
-                    Request = nksip_request:get_request(ReqId),
-                    Body = base64:encode(term_to_binary(Request)),
-                    {reply, {ok, [{body, Body}, contact]}, State};
-                [<<"reply-stateless">>] ->
-                    {reply, {response, ok, [stateless]}, State};
-                [<<"reply-stateful">>] ->
-                    {reply, {response, ok}, State};
-                [<<"reply-invalid">>] ->
-                    {reply, {response, 'INVALID'}, State};
-                [<<"force-error">>] ->
-                    error(test_error);
+route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        server1 ->
+            Opts = [
+                record_route,
+                {insert, "x-nk-server", server1}
+            ],
+            {ok, Domains} = nksip:get(server1, domains),
+            case lists:member(Domain, Domains) of
+                true when User =:= <<>> ->
+                    case nksip_request:header(<<"x-nk-op">>, Req) of
+                        [<<"reply-request">>] ->
+                            Body = base64:encode(term_to_binary(Req)),
+                            {reply, {ok, [{body, Body}, contact]}};
+                        [<<"reply-stateless">>] ->
+                            {reply_stateless, ok};
+                        [<<"reply-stateful">>] ->
+                            {reply, ok};
+                        [<<"reply-invalid">>] ->
+                            {reply, 'INVALID'};
+                        [<<"force-error">>] ->
+                            error(test_error);
+                        _ ->
+                            {process, Opts}
+                    end;
+                true when Domain =:= <<"nksip">> ->
+                    case nksip_registrar:find(server1, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {reply, {proxy, UriList, Opts}}
+                    end;
                 _ ->
-                    {reply, {process, Opts}, State}
-            end;
-        true when Domain =:= <<"nksip">> ->
-            case nksip_registrar:find(AppId, Scheme, User, Domain) of
-                [] -> {reply, temporarily_unavailable, State};
-                UriList -> {reply, {proxy, UriList, Opts}, State}
+                    {proxy, ruri, Opts}
             end;
         _ ->
-            {reply, {proxy, ruri, Opts}, State}
-    end;
-
-route(_ReqId, _Scheme, _User, _Domain, _From, client1=State) ->
-    timer:sleep(50),
-    {reply, process, State};
-
-route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
-    timer:sleep(50),
-    {reply, process, State}.
+            timer:sleep(500),
+            process
+    end.
 
 
-invite(ReqId, Meta, From, AppId=State) ->
-    tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
+invite(Req, _Call) ->
+    tests_util:save_ref(Req),
+    Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
-    Sleep = case nksip_request:header(<<"x-nk-sleep">>, ReqId) of
+    Sleep = case nksip_request:header(<<"x-nk-sleep">>, Req) of
         [Sleep0] -> nksip_lib:to_integer(Sleep0);
         _ -> 0
     end,
+    ReqId = nksip_request:get_id(Req),
+    DialogId = nksip_dialog:get_id(Req),
     proc_lib:spawn(
         fun() ->
             case Sleep of
@@ -260,34 +260,38 @@ invite(ReqId, Meta, From, AppId=State) ->
             end,
             case Op of
                 <<"ok">> ->
-                    nksip:reply(From, {ok, []});
+                    nksip_request:reply({ok, []}, ReqId);
                 <<"answer">> ->
                     SDP = nksip_sdp:new("client2", 
                                             [{"test", 4321, [{rtpmap, 0, "codec1"}]}]),
-                    nksip:reply(From, {ok, [{body, SDP}]});
+                    nksip_request:reply({ok, [{body, SDP}]}, ReqId);
                 <<"busy">> ->
-                    nksip:reply(From, busy);
+                    nksip_request:reply(busy, ReqId);
                 <<"increment">> ->
-                    DialogId = nksip_lib:get_value(dialog_id, Meta),
-                    SDP1 = nksip_dialog:meta(DialogId, invite_local_sdp, AppId),
+                    SDP1 = nksip_dialog:meta(invite_local_sdp, DialogId),
                     SDP2 = nksip_sdp:increment(SDP1),
-                    nksip:reply(From, {ok, [{body, SDP2}]});
+                    nksip_request:reply({ok, [{body, SDP2}]}, ReqId);
                 _ ->
-                    nksip:reply(From, decline)
+                    nksip_request:reply(decline, ReqId)
             end
         end),
-    {noreply, State}.
+    noreply.
 
 
-options(ReqId, _Meta, _From, State) ->
-    case nksip_request:header(<<"x-nk-sleep">>, ReqId) of
+options(Req, _Call) ->
+    case nksip_request:header(<<"x-nk-sleep">>, Req) of
         [Sleep0] -> 
-            nksip_request:reply(101, ReqId), 
-            timer:sleep(nksip_lib:to_integer(Sleep0));
-        _ -> 
-            ok
-    end,
-    {reply, {ok, [contact]}, State}.
+            ReqId = nksip_request:get_id(Req),
+            spawn(
+                fun() ->
+                    nksip_request:reply(101, ReqId), 
+                    timer:sleep(nksip_lib:to_integer(Sleep0)),
+                    nksip_request:reply({ok, [contact]}, ReqId)
+                end),
+            noreply;
+        _ ->
+            {reply, {ok, [contact]}}
+    end.
 
 
 ping_update(PingId, OK, AppId=State) ->

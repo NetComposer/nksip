@@ -509,11 +509,12 @@ send(tcp, Msg) ->
 init(Id) ->
     {ok, Id}.
 
-route(_ReqId, Scheme, _User, _Domain, _From, server1=State)
-      when Scheme=/=sip, Scheme=/=sips ->
-    {reply, unsupported_uri_scheme, State};
-
-route(_, _, _, _, _, State) ->
-    {reply, process, State}.
+route(Scheme, _User, _Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        server1 when Scheme=/=sip, Scheme=/=sips ->
+            {reply, unsupported_uri_scheme};
+        _ ->
+            process
+    end.
 
 

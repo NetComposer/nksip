@@ -335,31 +335,34 @@ init(Id) ->
     {ok, Id}.
 
 
-route(ReqId, _Scheme, User, Domain, _From, server1=State) ->
-    Opts = [
-        record_route,
-        {insert, "x-nk-server", "server1"}
-    ],
-    {ok, Domains} = nksip:get(server1, domains),
-    case lists:member(Domain, Domains) of
-        true when User =:= <<>> ->
-            {reply, {process, Opts}, State};
-        true when Domain =:= <<"nksip">> ->
-            RUri = nksip_request:field(ruri, ReqId),
-            case nksip_registrar:find(server1, RUri) of
-                [] -> {reply, temporarily_unavailable, State};
-                UriList -> {reply, {proxy, UriList, Opts}, State}
+route(_Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        server1 ->
+            Opts = [
+                record_route,
+                {insert, "x-nk-server", "server1"}
+            ],
+            {ok, Domains} = nksip:get(server1, domains),
+            case lists:member(Domain, Domains) of
+                true when User =:= <<>> ->
+                    {process, Opts};
+                true when Domain =:= <<"nksip">> ->
+                    RUri = nksip_request:meta(ruri, Req),
+                    case nksip_registrar:find(server1, RUri) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {proxy, UriList, Opts}
+                    end;
+                _ ->
+                    {proxy, ruri, Opts}
             end;
         _ ->
-            {reply, {proxy, ruri, Opts}, State}
-    end;
-
-route(_, _, _, _, _, State) ->
-    {reply, process, State}.
+            process
+    end.
 
 
-options(ReqId, _Meta, _From, AppId=State) ->
-    Ids = nksip_request:header(<<"x-nk-id">>, ReqId),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppId|Ids])}],
-    {reply, {ok, [contact|Hds]}, State}.
+options(Req, _Call) ->
+    Ids = nksip_request:header(<<"x-nk-id">>, Req),
+    App = nksip_request:app_name(Req),
+    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    {reply, {ok, [contact|Hds]}}.
 

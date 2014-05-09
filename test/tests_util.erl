@@ -117,7 +117,8 @@ dialog_update(Update, Dialog) ->
                 {invite_status, _} -> ok;
                 {invite_refresh, SDP} -> Pid ! {Ref, {App, {refresh, SDP}}};
                 invite_timeout -> Pid ! {Ref, {App, timeout}};
-                {subscription_status, SubsId, Status} -> Pid ! {Ref, {subs, SubsId, Status}};
+                {subscription_status, Status, Subs} -> 
+                    Pid ! {Ref, {subs, Status, nksip_subscription:get_id(Subs)}};
                 stop -> ok
             end;
         false -> 

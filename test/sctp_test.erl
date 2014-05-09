@@ -26,6 +26,7 @@
 -include("../include/nksip.hrl").
 
 -compile([export_all]).
+-define(RECV(T), receive T -> T after 1000 -> error(recv) end).
 
 sctp_test_() ->
     case gen_sctp:open() of
@@ -77,30 +78,23 @@ basic() ->
     Self = self(),
     Ref = make_ref(),
 
-    Fun = fun(Term) -> Self ! {Ref, Term} end,
-    Opts = [async, {callback, Fun}, get_request, get_response],
-    {async, _} = nksip_uac:options(client1, SipC2, Opts),
-    
-    {LocalPort, SctpId} = receive
-        {Ref, {req, #sipmsg{vias=[#via{proto=sctp}], transport=ReqTransp}}} ->
+    Fun = fun
+        ({req, #sipmsg{vias=[#via{proto=sctp}], transport=ReqTransp}, _Call}) ->
             #transport{
                 proto = sctp,
-                local_port = LocalPort0,
+                local_port = FLocalPort,
                 remote_ip = {127,0,0,1},
                 remote_port = 5071,
                 listen_port = 5070,
-                sctp_id = SctpId0
+                sctp_id = FSctpId
             } = ReqTransp,
-            {LocalPort0, SctpId0}
-    after 2000 ->
-        error(sctp)
+            Self ! {Ref, {cb1, FLocalPort, FSctpId}};
+        ({resp, 200, #sipmsg{vias=[#via{proto=sctp}]}, _Call}) ->
+            Self ! {Ref, cb2}
     end,
-
-    receive
-        {Ref, {resp, #sipmsg{vias=[#via{proto=sctp}]}}} -> ok
-    after 2000 ->
-        error(sctp)
-    end,
+    {async, _} = nksip_uac:options(client1, SipC2, [async, {callback, Fun}, get_request]),
+    {_, {_, LocalPort, SctpId}} = ?RECV({Ref, {cb1, LocalPort0, FSctpId0}}),
+    _ = ?RECV({Ref, cb2}),
 
     % client1 should have started a new transport to client2:5071
     {ok, C1} = nksip:find_app(client1),

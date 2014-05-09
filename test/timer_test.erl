@@ -93,7 +93,7 @@ stop() ->
 basic() ->
     Self = self(),
     {Ref, RepHd} = tests_util:get_ref(),
-    CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
+    CB = {callback, fun ({req, R, _Call}) -> Self ! {Ref, R}; (_) -> ok end},
 
     % ua2 has a min_session_expires of 2
     {error, {invalid, session_expires}} = 
@@ -117,7 +117,7 @@ basic() ->
     CSeq1 = receive 
         {Ref, #sipmsg{cseq={CSeq1_0, _}, headers=Headers1, call_id=CallId1}} ->
             1 = proplists:get_value(<<"session-expires">>, Headers1),
-            undefined = proplists:get_value(<<"min-sE">>, Headers1),
+            undefined = proplists:get_value(<<"min-se">>, Headers1),
             CSeq1_0
     after 1000 ->
         error(basic)
@@ -184,7 +184,7 @@ basic() ->
     90 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     90 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog1B)),
 
 
     % Before waiting for expiration, ua1 sends a refresh to ua2.
@@ -197,7 +197,7 @@ basic() ->
     2 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     2 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog1B)),
 
     % Now both ua1 and ua2 has received a 422 response or a refresh request with MinSE,
     % so it will be used in new requests
@@ -218,7 +218,7 @@ basic() ->
     2 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     2 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog1B)),
 
     % Now ua1 refreshes, but change roles, becoming refresher. 
     % Using session_expires option overrides automatic behaviour, no Min-SE is sent
@@ -226,7 +226,7 @@ basic() ->
     {ok, 200, []} = nksip_uac:update(Dialog1A, [{session_expires, {2,uac}}]),
 
     90 = nksip_dialog:meta(invite_session_expires, Dialog1A),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1A),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog1A)),
     90 = nksip_dialog:meta(invite_session_expires, Dialog1B),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1B),
 
@@ -237,7 +237,7 @@ basic() ->
     1800 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog1B)),
 
 
     % Lower time to wait for timeout
@@ -258,7 +258,7 @@ basic() ->
 proxy() ->
     Self = self(),
     {Ref, RepHd} = tests_util:get_ref(),
-    CB = {callback, fun ({req, R}) -> Self ! {Ref, R}; (_) -> ok end},
+    CB = {callback, fun ({req, R, _Call}) -> Self ! {Ref, R}; (_) -> ok end},
 
     SDP1 = nksip_sdp:new(),
     {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"3;refresher=uas">>]}]} = 
@@ -307,7 +307,7 @@ proxy() ->
     3 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
     3 = nksip_dialog:meta(invite_session_expires, Dialog1B),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog1B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog1B)),
 
     3 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
@@ -349,7 +349,7 @@ proxy() ->
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog3A),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3B),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog3B),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog3B)),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3A),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog3A),
     {ok, 200, []} = nksip_uac:bye(Dialog3A, []),
@@ -367,7 +367,7 @@ proxy() ->
     timer:sleep(100),
     Dialog4B = nksip_dialog:remote_id(Dialog4A, ua3),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog4A),
-    true = erlang:is_integer(nksip_dialog:meta(invite_refresh), Dialog4A),
+    true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog4A)),
     undefined = nksip_dialog:meta(invite_session_expires, Dialog4B),
     undefined  = nksip_dialog:meta(invite_refresh, Dialog4B),
     1800 = nksip_dialog:meta(invite_session_expires, Dialog4A),
@@ -404,45 +404,45 @@ init(Id) ->
     {ok, Id}.
 
 
-route(_ReqId, _Scheme, _User, _Domain, _From, p1=State) ->
-    Opts = [record_route, {route, "<sip:127.0.0.1:5070;lr>"}],
-    {reply, {proxy, ruri, Opts}, State};
+route(_Scheme, _User, _Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        p1 -> 
+            {proxy, ruri, [record_route, {route, "<sip:127.0.0.1:5070;lr>"}]};
+        p2 ->
+            {proxy, ruri, [record_route]};
+        _ ->
+            process
+    end.
 
-route(_ReqId, _Scheme, _User, _Domain, _From, p2=State) ->
-    Opts = [record_route],
-    {reply, {proxy, ruri, Opts}, State};
 
-route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
-    {reply, process, State}.
-
-
-invite(ReqId, Meta, _From, AppId=State) ->
-    tests_util:save_ref(AppId, ReqId, Meta),
-    Body = nksip_lib:get_value(body, Meta),
+invite(Req, _Call) ->
+    tests_util:save_ref(Req),
+    Body = nksip_request:body(Req),
     Body1 = nksip_sdp:increment(Body),
-    {reply, {answer, Body1}, State}.
-
-reinvite(ReqId, Meta, From, State) ->
-    invite(ReqId, Meta, From, State).
+    {reply, {answer, Body1}}.
 
 
-ack(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, ack),
-    {reply, ok, State}.
+reinvite(Req, Call) ->
+    invite(Req, Call).
 
 
-update(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
+ack(Req, _Call) ->
+    tests_util:send_ref(ack, Req),
+    ok.
 
 
-bye(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, bye),
-    {reply, ok, State}.
+update(_Req, _Call) ->
+    {reply, ok}.
 
 
-dialog_update(DialogId, Update, AppId=State) ->
-    tests_util:dialog_update(DialogId, Update, AppId),
-    {noreply, State}.
+bye(Req, _Call) ->
+    tests_util:send_ref(bye, Req),
+    {reply, ok}.
+
+
+dialog_update(Status, Dialog, _Call) ->
+    tests_util:dialog_update(Status, Dialog),
+    ok.
 
 
 

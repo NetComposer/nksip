@@ -27,18 +27,18 @@
 
 -compile([export_all]).
 
-% event_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         {inparallel, [
-%             {timeout, 60, fun basic/0},
-%             {timeout, 60, fun refresh/0},
-%             {timeout, 60, fun dialog/0},
-%             {timeout, 60, fun out_or_order/0},
-%             {timeout, 60, fun fork/0}
-%         ]}
-%     }.
+event_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        {inparallel, [
+            {timeout, 60, fun basic/0},
+            {timeout, 60, fun refresh/0},
+            {timeout, 60, fun dialog/0},
+            {timeout, 60, fun out_or_order/0},
+            {timeout, 60, fun fork/0}
+        ]}
+    }.
 
 
 start() ->
@@ -72,31 +72,38 @@ basic() ->
     SipC2 = "sip:127.0.0.1:5070",
     {Ref, RepHd} = tests_util:get_ref(),
     Self = self(),
-    CB = {callback, fun(R) -> Self ! {Ref, R} end},
+    CB = {callback, 
+        fun(R) -> 
+            case R of
+                {req, Req, _Call} -> Self ! {Ref, {req, Req}};
+                {resp, Code, Resp, _Call} -> Self ! {Ref, {resp, Code, Resp}}
+            end
+        end},
 
     {ok, 489, []} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent1;id=a"}, CB, get_request]),
 
     receive {Ref, {req, Req1}} -> 
-        [[<<"myevent1;id=a">>],[<<"myevent1,myevent2,myevent3">>]] = 
-            nksip_sipmsg:headers([<<"event">>, <<"allow-event">>], Req1)
+        [{_, [<<"myevent1;id=a">>]}, {_, [<<"myevent1,myevent2,myevent3">>]}] = 
+            nksip_request:header([<<"event">>, <<"allow-event">>], Req1)
     after 1000 -> 
         error(event) 
     end,
 
-    {ok, 200, [{subscription_id, Subs1A}]} = 
-        nksip_uac:subscribe(client1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 1}, RepHd]),
+    {ok, 200, [{subscription_id, Subs1A}, {"event", [<<"myevent4;id=4;o=2">>]}]} = 
+        nksip_uac:subscribe(client1, SipC2, 
+            [{event, "myevent4;id=4;o=2"}, {expires, 1}, RepHd, {meta, ["event"]}]),
 
     Dialog1A = nksip_dialog:get_id(Subs1A),
     Dialog1B = nksip_dialog:remote_id(Dialog1A, client2),
     Subs1B = nksip_subscription:remote_id(Subs1A, client2),
     [
         {status, init},
-        {event, <<"myevent4;id=4;o=2">>},
+        {event, {<<"myevent4">>, [{<<"id">>, <<"4">>}, {<<"o">>, <<"2">>}]}},
         {class, uac},
         {answered, undefined},
         {expires, 1}    % It shuould be something like round(0.99)
-    ] = nksip_subscription:metas([status, event, class, answered, expires], Subs1A),
+    ] = nksip_subscription:meta([status, event, class, answered, expires], Subs1A),
 
     [
         {status, init},
@@ -104,7 +111,7 @@ basic() ->
         {class, uas},
         {answered, undefined},
         {expires, 1} 
-    ] = nksip_subscription:metas([status, event, class, answered, expires], Subs1B),
+    ] = nksip_subscription:meta([status, event, class, answered, expires], Subs1B),
 
     [
         {invite_status, undefined},
@@ -116,9 +123,9 @@ basic() ->
     ] = nksip_dialog:meta([invite_status, subscriptions], Dialog1B),
 
     ok = tests_util:wait(Ref, [
-            {subs, Subs1B, init}, 
-            {subs, Subs1B, middle_timer},
-            {subs, Subs1B, {terminated, timeout}}
+            {subs, init, Subs1B}, 
+            {subs, middle_timer, Subs1B},
+            {subs, {terminated, timeout}, Subs1B}
     ]),
     timer:sleep(100),
 
@@ -130,7 +137,7 @@ basic() ->
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 2}, RepHd]),
  
     Subs2B = nksip_subscription:remote_id(Subs2A, client2),
-    ok = tests_util:wait(Ref, [{subs, Subs2B, init}]),
+    ok = tests_util:wait(Ref, [{subs, init, Subs2B}]),
 
     Dialog2A = nksip_dialog:get_id(Subs2A),
     tests_util:update_ref(client1, Ref, Dialog2A),
@@ -138,29 +145,29 @@ basic() ->
     {ok, 200, []} = nksip_uac:notify(Subs2B, [{state, pending}, {body, <<"notify1">>}]),
 
     ok = tests_util:wait(Ref, [
-        {subs, Subs2B, pending}, 
-        {subs, Subs2A, pending},
+        {subs, pending, Subs2B}, 
+        {subs, pending, Subs2A},
         {client1, {notify, <<"notify1">>}},
-        {subs, Subs2A, middle_timer},
-        {subs, Subs2B, middle_timer}]),
+        {subs, middle_timer, Subs2A},
+        {subs, middle_timer, Subs2B}]),
 
 
     {ok, 200, []} = nksip_uac:notify(Subs2B, [{body, <<"notify2">>}]),
 
     ok = tests_util:wait(Ref, [
-        {subs, Subs2B, active}, 
-        {subs, Subs2A, active},
+        {subs, active, Subs2B}, 
+        {subs, active, Subs2A},
         {client1, {notify, <<"notify2">>}},
-        {subs, Subs2A, middle_timer},         % client1 has re-scheduled timers 
-        {subs, Subs2B, middle_timer}  
+        {subs, middle_timer, Subs2A},         % client1 has re-scheduled timers 
+        {subs, middle_timer, Subs2B}  
     ]),
 
     {ok, 200, []} = nksip_uac:notify(Subs2B, [{state, {terminated, giveup, 5}}]),
 
     ok = tests_util:wait(Ref, [
         {client1, {notify, <<>>}},
-        {subs, Subs2B, {terminated, giveup, 5}}, 
-        {subs, Subs2A, {terminated, giveup, 5}}
+        {subs, {terminated, giveup, 5}, Subs2B}, 
+        {subs, {terminated, giveup, 5}, Subs2A}
     ]),
 
     ok.
@@ -180,9 +187,9 @@ refresh() ->
     2 = nksip_subscription:meta(expires, Subs1A),
     2 = nksip_subscription:meta(expires, Subs1B),
     ok = tests_util:wait(Ref, [
-        {subs, Subs1B, init},
-        {subs, Subs1B, active},
-        {subs, Subs1B, middle_timer}
+        {subs, init, Subs1B},
+        {subs, active, Subs1B},
+        {subs, middle_timer, Subs1B}
     ]),
 
     % We send a refresh, changing timeout to 20 secs
@@ -192,20 +199,20 @@ refresh() ->
     
     % But we finish de dialog
     {ok, 200, []} = nksip_uac:notify(Subs1B, [{state, {terminated, giveup}}]),
-    ok = tests_util:wait(Ref, [{subs, Subs1B, {terminated, giveup}}]),
+    ok = tests_util:wait(Ref, [{subs, {terminated, giveup}, Subs1B}]),
     
     % A new subscription
     {ok, 200, [{subscription_id, Subs2A}]} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, {expires, 5}, Hd1, Hd2]),
     Subs2B = nksip_subscription:remote_id(Subs2A, client2),
     {ok, 200, []} = nksip_uac:notify(Subs2B, []),
-    ok = tests_util:wait(Ref, [{subs, Subs2B, init}, {subs, Subs2B, active}]),
+    ok = tests_util:wait(Ref, [{subs, init, Subs2B}, {subs, active, Subs2B}]),
 
     % And a refresh with expire=0, actually it is not removed until notify
     {ok, 200, [{subscription_id, Subs2A}]} = nksip_uac:subscribe(Subs2A, [{expires, 0}]),
     % Notify will use status:terminated;reason=timeout automatically
     {ok, 200, []} = nksip_uac:notify(Subs2B, []),
-    ok = tests_util:wait(Ref, [{subs, Subs2B, {terminated, timeout}}]),
+    ok = tests_util:wait(Ref, [{subs, {terminated, timeout}, Subs2B}]),
     ok.
 
 
@@ -221,20 +228,20 @@ dialog() ->
     % Now the remote party (the server) sends a NOTIFY, and updates the Route Set
     {ok, 200, []} = nksip_uac:notify(Subs1B, [RS1]),
     [
-        {local_target, <<"<sip:a@127.0.0.1>">>},
-        {remote_target, <<"<sip:127.0.0.1:5070>">>},
-        {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogA),
+        {raw_local_target, <<"<sip:a@127.0.0.1>">>},
+        {raw_remote_target, <<"<sip:127.0.0.1:5070>">>},
+        {raw_route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
+    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, raw_route_set], DialogA),
 
     % It sends another NOTIFY, tries to update again the Route Set but it is not accepted.
     % The remote target is however updated
     RS2 = {add, "record-route", "<sip:b@b>"},
     {ok, 200, []} = nksip_uac:notify(Subs1B, [RS2, {contact, "sip:b@127.0.0.1:5070"}]),
     [
-        {local_target, <<"<sip:a@127.0.0.1>">>},
-        {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
-        {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogA),
+        {_, <<"<sip:a@127.0.0.1>">>},
+        {_, <<"<sip:b@127.0.0.1:5070>">>},
+        {_, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
+    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, raw_route_set], DialogA),
 
     % We send another subscription request using the same dialog, but different Event Id
     % We update our local target
@@ -248,18 +255,18 @@ dialog() ->
     % Remote party updates remote target again
     {ok, 200, []} = nksip_uac:notify(Subs2B, [{contact, "sip:b2@127.0.0.1:5070"}]),
     [
-        {local_target, <<"<sip:a3@127.0.0.1>">>},
-        {remote_target, <<"<sip:b2@127.0.0.1:5070>">>},
-        {route_set, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
-    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogA),
+        {_, <<"<sip:a3@127.0.0.1>">>},
+        {_, <<"<sip:b2@127.0.0.1:5070>">>},
+        {_, [<<"<sip:b1@127.0.0.1:5070;lr>">>,<<"<sip:b@b>">>,<<"<sip:a2@127.0.0.1;lr>">>]}
+    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, raw_route_set], DialogA),
 
     lager:notice("DB: ~p", [DialogB]),
 
     [
-        {local_target, <<"<sip:b2@127.0.0.1:5070>">>},
-        {remote_target, <<"<sip:a3@127.0.0.1>">>},
-        {route_set, [<<"<sip:a2@127.0.0.1;lr>">>, <<"<sip:b@b>">>, <<"<sip:b1@127.0.0.1:5070;lr>">>]}
-    ] = nksip_dialog:meta([local_target, remote_target, route_set], DialogB),
+        {_, <<"<sip:b2@127.0.0.1:5070>">>},
+        {_, <<"<sip:a3@127.0.0.1>">>},
+        {_, [<<"<sip:a2@127.0.0.1;lr>">>, <<"<sip:b@b>">>, <<"<sip:b1@127.0.0.1:5070;lr>">>]}
+    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, raw_route_set], DialogB),
 
     % Now we have a dialog with 2 subscriptions
     [Subs1A, Subs2A] = nksip_dialog:meta(subscriptions, DialogA),
@@ -301,12 +308,16 @@ out_or_order() ->
     SipC2 = "sip:127.0.0.1:5070",
     {Ref, ReplyHd} = tests_util:get_ref(),
     Self = self(),
+    CB = {callback, 
+        fun({resp, 200, Resp, _Call}) -> 
+            SubsId = nksip_subscription:get_id(Resp),
+            Self ! {Ref, {ok_subs, SubsId}}
+        end},
 
-    CB = {callback, fun(R) -> Self ! {Ref, R} end},
     {async, _} = 
-        nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        ReplyHd, {add, "x-nk-op", "wait"}, 
-                                        {expires, 2}]),
+        nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, CB, async, 
+                                             ReplyHd, {add, "x-nk-op", "wait"}, 
+                                            {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
     RecvReq1 = receive {Ref, {_, {wait, Req1}}} -> Req1
@@ -318,25 +329,27 @@ out_or_order() ->
     Notify1 = make_notify(RecvReq1),
     {ok, 200, []} = nksip_call:send(Notify1, [no_dialog]),
 
-    Subs1A = receive {Ref, {ok, 200, [{subscription_id, S1}]}} -> S1
+    % receive {Ref, {req, _}} -> ok after 1000 -> error(fork) end,
+
+
+    Subs1A = receive {Ref, {ok_subs, S1}} -> S1
     after 5000 -> error(fork)
     end,
     Subs1B = nksip_subscription:remote_id(Subs1A, client2),
 
-    receive {Ref, {req, _}} -> ok after 1000 -> error(fork) end,
 
     % 'active' is not received, the remote party does not see the NOTIFY
     ok = tests_util:wait(Ref, [
-        {subs, Subs1B, init},
-        {subs, Subs1B, middle_timer},
-        {subs, Subs1B, {terminated, timeout}}
+        {subs, init, Subs1B},
+        {subs, middle_timer, Subs1B},
+        {subs, {terminated, timeout}, Subs1B}
     ]),
 
     % Another subscription
     {async, _} = 
-        nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, CB, async, get_request,
-                                        ReplyHd, {add, "x-nk-op", "wait"}, 
-                                        {expires, 2}]),
+        nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, CB, async, 
+                                              ReplyHd, {add, "x-nk-op", "wait"}, 
+                                              {expires, 2}]),
     RecvReq2 = receive {Ref, {_, {wait, Req2}}} -> Req2
     after 1000 -> error(fork)
     end,
@@ -352,10 +365,14 @@ fork() ->
     SipC2 = "sip:127.0.0.1:5070",
     {Ref, ReplyHd}= tests_util:get_ref(),
     Self = self(),
-    CB = {callback, fun(R) -> Self ! {Ref, R} end},
+    CB = {callback, 
+        fun({resp, 200, Resp, _Call}) -> 
+            SubsId = nksip_subscription:get_id(Resp),
+            Self ! {Ref, {ok_subs, SubsId}}
+        end},
 
     {async, _} = 
-        nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, CB, async, get_request,
+        nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, CB, async, 
                             ReplyHd, {add, "x-nk-op", "wait"}, {expires, 2}]),
 
     % Right after sending the SUBSCRIBE, and before replying with 200
@@ -374,11 +391,9 @@ fork() ->
     Notify2 = make_notify(RecvReq1#sipmsg{to_tag_candidate = <<"b">>}),
     {ok, 200, []} = nksip_call:send(Notify2, [no_dialog]),
 
-    SubsA = receive {Ref, {ok, 200, [{subscription_id, S1}]}} -> S1
+    SubsA = receive {Ref, {ok_subs, S1}} -> S1
     after 5000 -> error(fork)
     end,
-
-    receive {Ref, {req, _}} -> ok after 1000 -> error(fork) end,
 
     SubsB = nksip_subscription:remote_id(SubsA, client2),
     {ok, 200, []} = nksip_uac:notify(SubsB, []),
@@ -395,6 +410,72 @@ fork() ->
 
     {ok, 200, []} = nksip_uac:notify(SubsB, [{state, {terminated, giveup}}]),
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+init(Id) ->
+    {ok, Id}.
+
+
+invite(Req, _Call) ->
+    tests_util:save_ref(Req),
+    {reply, ok}.
+
+
+reinvite(Req, Call) ->
+    invite(Req, Call).
+
+
+ack(Req, _Call) ->
+    tests_util:send_ref(ack, Req),
+    ok.
+
+
+bye(Req, _Call) ->
+    tests_util:send_ref(bye, Req),
+    {reply, ok}.
+
+
+subscribe(Req, _Call) ->
+    tests_util:save_ref(Req),
+    Op = case nksip_request:header(<<"x-nk-op">>, Req) of
+        [Op0] -> Op0;
+        _ -> <<"ok">>
+    end,
+    case Op of
+        <<"ok">> ->
+            {reply, ok};
+        <<"expires-2">> ->
+            {reply, {ok, [{expires, 2}]}};
+        <<"wait">> ->
+            tests_util:send_ref({wait, Req}, Req),
+            ReqId = nksip_request:get_id(Req),
+            spawn(
+                fun() ->
+                    timer:sleep(1000),
+                    nksip_request:reply(ok, ReqId)
+                end),
+            noreply
+    end.
+
+
+resubscribe(_Req, _Call) ->
+    {reply, ok}.
+
+
+notify(Req, _Call) ->
+    Body = nksip_request:body(Req),
+    tests_util:send_ref({notify, Body}, Req),
+    {reply, ok}.
+
+dialog_update(Update, Dialog, _Call) ->
+    tests_util:dialog_update(Update, Dialog),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  Util %%%%%%%%%%%%%%%%%%%%%
 
 
 make_notify(Req) ->
@@ -414,69 +495,5 @@ make_notify(Req) ->
         transport = undefined
     }.
 
-
-%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
-
-
-init(Id) ->
-    {ok, Id}.
-
-
-invite(Req) ->
-    tests_util:save_ref(Req),
-    {reply, ok}.
-
-
-reinvite(Req) ->
-    invite(Req).
-
-
-ack(Req) ->
-    tests_util:send_ref(ack, Req),
-    ok.
-
-
-bye(Req) ->
-    tests_util:send_ref(bye, Req),
-    {reply, ok}.
-
-
-subscribe(Req) ->
-    tests_util:save_ref(Req),
-    Op = case nksip_request:header(<<"x-nk-op">>, Req) of
-        [Op0] -> Op0;
-        _ -> <<"ok">>
-    end,
-    case Op of
-        <<"ok">> ->
-            {reply, ok};
-        <<"expires-2">> ->
-            {reply, {ok, [{expires, 2}]}};
-        <<"wait">> ->
-            % Req = nksip_request:get_request(ReqId),
-            tests_util:send_ref({wait, Req}, Req),
-            ReqId = nksip_request:id(Req),
-            spawn(
-                fun() ->
-                    timer:sleep(1000),
-                    nksip:reply(ok, ReqId)
-                end),
-            noreply
-    end.
-
-
-resubscribe(_Req) ->
-    {reply, ok}.
-
-
-notify(Req) ->
-    Body = nksip_request:body(Req),
-    tests_util:send_ref({notify, Body}, Req),
-    {reply, ok}.
-
-
-dialog_update(Update, Dialog) ->
-    tests_util:dialog_update(Update, Dialog),
-    ok.
 
 

@@ -26,6 +26,7 @@
 -include("../include/nksip.hrl").
 
 -compile([export_all]).
+-define(RECV(T), receive T -> T after 1000 -> error(recv) end).
 
 register_test_() ->
     {setup, spawn, 
@@ -80,24 +81,26 @@ register1() ->
     {ok, 405, []} = nksip_uac:register(client2, "sip:127.0.0.1:5070", []),
 
     {ok, 200, Values1} = nksip_uac:register(client1, "sip:127.0.0.1", 
-                        [unregister_all, {meta, [<<"contact">>]}]),
+                            [unregister_all, {meta, [<<"contact">>]}]),
     [{<<"contact">>, []}] = Values1,
     [] = nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
     
     Ref = make_ref(),
     Self = self(),
-    RespFun = fun(Reply) -> Self ! {Ref, Reply} end,
+
+    CB = fun
+        ({req, Req1, _Call}) ->
+            FCallId1 = nksip_sipmsg:meta(call_id, Req1),
+            FCSeq1 = nksip_request:meta(cseq_num, Req1),
+            Self ! {Ref, {cb1_1, FCallId1, FCSeq1}};
+        ({resp, 200, Resp1, _Call}) ->
+            [FContact1] = nksip_response:header(<<"contact">>, Resp1),
+            Self ! {Ref, {cb1_2, FContact1}}
+    end,
     {async, _} = nksip_uac:register(client1, "sip:127.0.0.1", 
-                                [async, {callback, RespFun}, contact, get_request,
-                                 {meta, [<<"contact">>]}, {supported, ""}]),
-    [CallId, CSeq] = receive 
-        {Ref, {req, Req2}} -> nksip_sipmsg:metas([call_id, cseq_num], Req2)
-        after 2000 -> error(register1)
-    end,
-    Contact2 = receive 
-        {Ref, {ok, 200, [{<<"contact">>, [C2]}]}} -> C2
-        after 2000 -> error(register1) 
-    end,
+                                    [async, {callback, CB}, contact, get_request]),
+    {_, {_, CallId, CSeq}} = ?RECV({Ref, {cb1_1, CallId_0, CSeq_0}}),
+    {_, {_, Contact}} = ?RECV({Ref, {cb1_2, Contact_0}}),
 
     Name = <<"client1">>,
     [#uri{
@@ -115,8 +118,7 @@ register1() ->
             ">;+sip.instance=", C1_UUID, ";expires=", Exp])
         end,
 
-    Contact2 = MakeContact(DefB),
-
+    Contact = MakeContact(DefB),
 
     {ok, 400, Values3} = nksip_uac:register(client1, "sip:127.0.0.1", 
                                     [{call_id, CallId}, {cseq_num, CSeq}, contact,
@@ -292,24 +294,25 @@ init(Id) ->
     nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, Id}.
 
-route(_ReqId, Scheme, User, Domain, _From, AppId=State) when AppId==server1 ->
-    Opts = [
-        record_route,
-        {insert, "x-nk-server", AppId}
-    ],
-    {ok, Domains} = nksip:get(server1, domains),
-    case lists:member(Domain, Domains) of
-        true when User =:= <<>> ->
-            {reply, {process, Opts}, State};
-        true when Domain =:= <<"nksip">> ->
-            case nksip_registrar:find(server1, Scheme, User, Domain) of
-                [] -> {reply, temporarily_unavailable, State};
-                UriList -> {reply, {proxy, UriList, Opts}, State}
+route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        server1 ->
+            Opts = [
+                record_route,
+                {insert, "x-nk-server", server1}
+            ],
+            {ok, Domains} = nksip:get(server1, domains),
+            case lists:member(Domain, Domains) of
+                true when User =:= <<>> ->
+                    {process, Opts};
+                true when Domain =:= <<"nksip">> ->
+                    case nksip_registrar:find(server1, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {proxy, UriList, Opts}
+                    end;
+                _ ->
+                    {proxy, ruri, Opts}
             end;
         _ ->
-            {reply, {proxy, ruri, Opts}, State}
-    end;
-
-route(_, _, _, _, _, State) ->
-    {reply, process, State}.
-
+            process
+    end.

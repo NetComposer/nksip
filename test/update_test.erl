@@ -80,8 +80,9 @@ basic() ->
     
     CB = {callback, fun(Reply) ->
         case Reply of
-            {ok, 180, [{dialog_id, FunD1}]} ->
+            {resp, 180, Resp1, _Call} ->
                 % Both sessions have been stablished
+                FunD1 = nksip_dialog:get_id(Resp1),
                 spawn(fun() ->
                     FunD2 = nksip_dialog:remote_id(FunD1, client2),
                     SDP1 = SDP0#sdp{vsn=Vsn0+1}, 
@@ -120,19 +121,19 @@ basic() ->
     {SDP4,SDP5} = get_sessions(C2, DialogId2),
 
     [
-        {local_target, <<"<sip:a@127.0.0.1>">>},
-        {remote_target, <<"<sip:b@127.0.0.1:5070>">>},
+        {raw_local_target, <<"<sip:a@127.0.0.1>">>},
+        {raw_remote_target, <<"<sip:b@127.0.0.1:5070>">>},
         {invite_local_sdp, SDP5},
         {invite_remote_sdp, SDP4} 
-    ] = nksip_dialog:meta([local_target, remote_target, 
+    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, 
                             invite_local_sdp, invite_remote_sdp], DialogId),
     [
-        {local_target, <<"<sip:b@127.0.0.1:5070>">>},
-        {remote_target, <<"<sip:a@127.0.0.1>">>},        
+        {raw_local_target, <<"<sip:b@127.0.0.1:5070>">>},
+        {raw_remote_target, <<"<sip:a@127.0.0.1>">>},        
         {invite_local_sdp, SDP4},
         {invite_remote_sdp, SDP5} 
     ] = 
-        nksip_dialog:meta([local_target, remote_target, 
+        nksip_dialog:meta([raw_local_target, raw_remote_target, 
                             invite_local_sdp, invite_remote_sdp], DialogId2),
 
     {ok, 200, []} = nksip_uac:bye(DialogId, []),
@@ -149,7 +150,8 @@ pending() ->
 
     CB = {callback, fun(Reply) ->
         case Reply of
-            {ok, 180, [{dialog_id, FunD1}]} ->
+            {resp, 180, Resp1, _Call} ->
+                FunD1 = nksip_dialog:get_id(Resp1),
                 % We have an offer, but no answer
                 spawn(fun() ->
                     SDP1 = SDP0#sdp{vsn=Vsn0+1}, 
@@ -163,7 +165,8 @@ pending() ->
     ok = nksip_uac:ack(DialogId, []),
 
     ok = tests_util:wait(Ref, [fun_ok_1]),
-    {ok, 200, []} = nksip_uac:bye(DialogId, []).
+    {ok, 200, []} = nksip_uac:bye(DialogId, []),
+    ok.
 
 
 
@@ -174,54 +177,55 @@ init(Id) ->
     {ok, Id}.
 
 
-invite(ReqId, Meta, From, AppId=State) ->
-    tests_util:save_ref(AppId, ReqId, Meta),
-    Op = case nksip_request:header(<<"x-nk-op">>, ReqId) of
+invite(Req, _Call) ->
+    tests_util:save_ref(Req),
+    Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
         _ -> <<"decline">>
     end,
+    Body = nksip_request:body(Req),
+    ReqId = nksip_request:get_id(Req),
     proc_lib:spawn(
         fun() ->
             case Op of
                 <<"basic">> ->
-                    Body = nksip_lib:get_value(body, Meta),
                     SDP1 = nksip_sdp:increment(Body),
                     ok = nksip_request:reply({rel_ringing, SDP1}, ReqId),
                     timer:sleep(500),
-                    nksip:reply(From, ok);
+                    nksip_request:reply(ok, ReqId);
                 <<"pending1">> ->
                     ok = nksip_request:reply(ringing, ReqId), 
                     timer:sleep(100),
-                    nksip:reply(From, ok);
+                    nksip_request:reply(ok, ReqId);
                 _ ->
-                    nksip:reply(From, decline)
+                    nksip_request:reply(decline, ReqId)
             end
         end),
-    {noreply, State}.
+    noreply.
 
 
-ack(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, ack),
-    {reply, ok, State}.
+ack(Req, _Call) ->
+    tests_util:send_ref(ack, Req),
+    ok.
 
 
-update(_ReqId, Meta, _From, AppId=State) ->
-    tests_util:send_ref(AppId, Meta, update),
-    Body = case nksip_lib:get_value(body, Meta) of
+update(Req, _Call) ->
+    tests_util:send_ref(update, Req),
+    Body = case nksip_request:body(Req) of
         #sdp{} = SDP -> nksip_sdp:increment(SDP);
         _ -> <<>>
     end,        
-    {reply, {answer, Body}, State}.
+    {reply, {answer, Body}}.
 
 
-dialog_update(DialogId, Update, AppId=State) ->
-    tests_util:dialog_update(DialogId, Update, AppId),
-    {noreply, State}.
+dialog_update(Update, Dialog, _Call) ->
+    tests_util:dialog_update(Update, Dialog),
+    ok.
 
 
-session_update(DialogId, Update, AppId=State) ->
-    tests_util:session_update(DialogId, Update, AppId),
-    {noreply, State}.
+session_update(Update, Dialog, _Call) ->
+    tests_util:session_update(Update, Dialog),
+    ok.
 
 
 
