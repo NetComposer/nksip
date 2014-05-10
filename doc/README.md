@@ -43,8 +43,10 @@
 ### [5. Cookbook](cookbook) 
 
 
-### 6. Advanced
+### 6. Advanced Concepts
 
+* Overall picture
+* Scalability concepts
 * How to write a plugin
 * Plugin callback reference
 
