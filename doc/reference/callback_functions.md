@@ -1,9 +1,21 @@
 # SipApps callback functions
 
-Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. The default implementation of each one can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl)
+Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. The default implementation of each one can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
 
-Depending on the phase of the request processing, different functions will be called. Some of these calls expect an answer from the SipApp to continue the processing, and some others are called to inform the SipApp about a specific event and don`t expect any answer. 
+Depending on the phase of the request processing, different functions will be called. 
 
+Under the hood, each started SipApp starts a new standard `gen_server` process. It state is defined in the call to `init/1`, and can be modified using standard functions like `gen_server:call/3`, `gen_server:cast/2`, etc. The registered name of this process is the same as the internal application name (see [Starting a SipApp](../guide/start_nksip.md)).
+
+Most callback functions are not called inside this process, but inside the _current call's process_. Each incoming process having a new Call-ID header starts a new _call process_, that takes care of all requests and responses having that Call-ID, and callback functions are called inside this process. You can call to the _gen_server_ process from them if you want to use it's state, for example to control the access to a resource like an ETS table.
+
+There are however six callback functions that are called _inside_ the gen_server process: `init/1`, `handle_call/3`, `handle_cast/2`, `handle_info/2`, `code_change/3` and `terminate/2`. All of them are similar to a standar gen_server callback module.
+
+All the others are called inside the `call process`. Some of these functions allow you to send a response back, while others expect an answer to decide the next processinf or are called to inform the SipApp about a specific event and don't expect any answer. In all of the cases, you shouldn't spend a long time inside them, because that specific called would be blocked for new requests or retransmissions.
+
+
+
+
+<<!--
 Except for `init/1`, all defined functions belong to one of two groups: _expected answer_ functions and _no expected answer_ functions.
 
 The supported return values for _expected answer functions_ are:
@@ -26,17 +38,18 @@ The supported return values for _no expected answer functions_ are:
 ```
 
 Some of the callback functions allow the SipApp to send a response back to the calling party. See the available responses in [sending responses](sending_responses.md).
+-->
+
 
 A typical call order would be the following:
 * When starting the SipApp, `init/1` is called to initialize the application state.
-* When a request is received having an _Authorization_ or _Proxy-Authorization_ header, `get_user_pass/3` is called to check the user`s password.
-* NkSIP calls `authorize/4` to check is the request should be authorized.
-* If authorized, it calls `route/6` to decide what to do with the request: reply, route or process locally.
-* If the request is going to be processed locally, `invite/3`, `options/3`, `register/3` or `bye/3` are called, and the user must send a reply. If the request is a valid _CANCEL_, belonging to an active _INVITE_ transaction, the INVITE is cancelled and `cancel/2` is called.
-* After sending a successful response to an _INVITE_ request, the other party will send an _ACK_ and `ack/3` will be called.
-* If the request creates or modifies a dialog and/or a SDP session, `dialog_update/3` and/or `session_update/3` are called.
-* If the remote party sends an in-dialog invite (a _reINVITE_), NkSIP will call `reinvite/3`.
-* If the user has set up an automatic ping or registration, `ping_update/3` or `register_update/3` are called on each status change.
+* When a request is received having an _Authorization_ or _Proxy-Authorization_ header, `sip_get_user_pass/4` is called to check the user`s password.
+* NkSIP calls `sip_authorize/3` to check is the request should be authorized.
+* If authorized, it calls `sip_route/5` to decide what to do with the request: proxy it, reply to it or process it locally.
+* If the request is going to be processed locally, `sip_invite/2`, `sip_options/2`, `sip_register/2` etc. are called, depending on the incoming method, and the user must send a reply. If the request is a valid _CANCEL_, belonging to an active _INVITE_ transaction, the INVITE is cancelled and `sip_cancel/3` is called. After sending a successful response to an _INVITE_ request, the other party will send an _ACK_ and `sip_ack/2` will be called.
+* If the request creates or modifies a dialog and/or a SDP session, `sip_dialog_update/3` and/or `sip_session_update/3` are called.
+* If the remote party sends an in-dialog invite (a _reINVITE_), NkSIP will call `sip_reinvite/2` if it is defined, or `sip_invite/2` again if not.
+* If the user has set up an automatic ping or registration, `sip_ping_update/3` or `sip_register_update/3` are called on each status change.
 * When the SipApp is stopped, `terminate/2` is called.
 
 It is **very important** to notice that, as in using normal `gen_server`, there is a single SipApp core process, so you must not spend a long time in any of the callback functions. If you do so, new requests arriving at your SipApp will be blocked and the other party will start to send retransmissions. As no transaction has been created yet, NkSIP will see them as new requests that will be also blocked, and so on.
