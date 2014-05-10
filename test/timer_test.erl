@@ -404,7 +404,7 @@ init(Id) ->
     {ok, Id}.
 
 
-route(_Scheme, _User, _Domain, Req, _Call) ->
+sip_route(_Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         p1 -> 
             {proxy, ruri, [record_route, {route, "<sip:127.0.0.1:5070;lr>"}]};
@@ -415,32 +415,32 @@ route(_Scheme, _User, _Domain, Req, _Call) ->
     end.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Body = nksip_request:body(Req),
     Body1 = nksip_sdp:increment(Body),
     {reply, {answer, Body1}}.
 
 
-reinvite(Req, Call) ->
-    invite(Req, Call).
+% reinvite(Req, Call) ->
+%     invite(Req, Call).
 
 
-ack(Req, _Call) ->
+sip_ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-update(_Req, _Call) ->
+sip_update(_Req, _Call) ->
     {reply, ok}.
 
 
-bye(Req, _Call) ->
+sip_bye(Req, _Call) ->
     tests_util:send_ref(bye, Req),
     {reply, ok}.
 
 
-dialog_update(Status, Dialog, _Call) ->
+sip_dialog_update(Status, Dialog, _Call) ->
     tests_util:dialog_update(Status, Dialog),
     ok.
 

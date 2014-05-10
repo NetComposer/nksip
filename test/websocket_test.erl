@@ -335,7 +335,7 @@ init(Id) ->
     {ok, Id}.
 
 
-route(_Scheme, User, Domain, Req, _Call) ->
+sip_route(_Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             Opts = [record_route, {insert, "x-nk-server", "server1"}],
@@ -357,7 +357,7 @@ route(_Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-options(Req, _Call) ->
+sip_options(Req, _Call) ->
     Ids = nksip_request:header(<<"x-nk-id">>, Req),
     App = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],

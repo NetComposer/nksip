@@ -327,13 +327,15 @@ init([AppId, Args]) ->
         procs = dict:new(),
         reg_state = RegState
     },
-    case AppId:init(Args) of
+    case erlang:function_exported(AppId, init, 1) andalso AppId:init(Args) of
         {ok, ModState} -> 
             {ok, State1#state{mod_state=ModState}};
         {ok, ModState, Timeout} -> 
             {ok, State1#state{mod_state=ModState}, Timeout};
         {stop, Reason} -> 
-            {stop, Reason}
+            {stop, Reason};
+        false ->
+            {ok, State1#state{mod_state=undefined}}
     end.
 
 

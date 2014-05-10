@@ -289,8 +289,11 @@ handle_cast({'$nksip_register_answer', RegId, Code, Meta},
         {value, #sipreg{ok=OldOK}=Reg, Regs1} ->
             #sipreg{ok=OK} = Reg1 = update_register(Reg, Code, Meta, State),
             case OK of
-                OldOK -> ok;
-                _ -> nksip_callbacks:app_call(register_update, [RegId, OK, AppId], AppId)
+                OldOK -> 
+                    ok;
+                _ -> 
+                    nksip_callbacks:app_call(sip_register_update, 
+                                             [RegId, OK, AppId], AppId)
             end,
             update_basetime(State#state{regs=[Reg1|Regs1]});
         false ->
@@ -303,8 +306,11 @@ handle_cast({'$nksip_ping_answer', PingId, Code, Meta},
         {value, #sipreg{ok=OldOK}=Ping, Pings1} ->
             #sipreg{ok=OK} = Ping1 = update_ping(Ping, Code, Meta, State),
             case OK of
-                OldOK -> ok;
-                _ -> nksip_callbacks:app_call(ping_update, [PingId, OK, AppId], AppId)
+                OldOK -> 
+                    ok;
+                _ -> 
+                    nksip_callbacks:app_call(sip_ping_update, 
+                                             [PingId, OK, AppId], AppId)
             end,
             State#state{pings=[Ping1|Pings1]};
         false ->

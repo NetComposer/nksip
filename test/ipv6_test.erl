@@ -533,7 +533,7 @@ init(Id) ->
     {ok, Id}.
 
 
-route(Scheme, User, Domain, Req, _Call) ->
+sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             Opts = [
@@ -563,7 +563,7 @@ route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Ids = nksip_request:header(<<"x-nk-id">>, Req),
     AppName = nksip_request:app_name(Req),
@@ -571,16 +571,16 @@ invite(Req, _Call) ->
     {reply, {ok, Hds}}.
 
 
-reinvite(Req, Call) ->
-    invite(Req, Call).
+% reinvite(Req, Call) ->
+%     invite(Req, Call).
 
 
-ack(Req, _Call) ->
+sip_ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-bye(Req, _Call) ->
+sip_bye(Req, _Call) ->
     tests_util:send_ref(bye, Req),
     {reply, ok}.
 

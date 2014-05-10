@@ -239,7 +239,7 @@ init(Id) ->
     {ok, Id}.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
@@ -285,7 +285,7 @@ invite(Req, _Call) ->
     noreply.
 
 
-options(Req, _Call) ->
+sip_options(Req, _Call) ->
     case nksip_request:header(<<"x-nk-sleep">>, Req) of
         [Sleep0] -> 
             ReqId = nksip_request:get_id(Req),
@@ -301,12 +301,12 @@ options(Req, _Call) ->
     end.
 
 
-info(Req, _Call) ->
+sip_info(Req, _Call) ->
     DialogId = nksip_dialog:get_id(Req),
     {reply, {ok, [{add, "x-nk-method", "info"}, {add, "x-nk-dialog", DialogId}]}}.
 
 
-message(Req, _Call) ->
+sip_message(Req, _Call) ->
     case nksip_request:header(<<"x-nk-reply">>, Req) of
         [RepBin] ->
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),

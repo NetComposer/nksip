@@ -130,7 +130,7 @@ reply(Tag, Expires) ->
     term() | error.
 
 callback(AppId, Op) -> 
-    case nksip_callbacks:app_call(publish_store, [Op, AppId], AppId) of
+    case nksip_callbacks:app_call(sip_publish_store, [Op, AppId], AppId) of
         {ok, Reply} -> Reply;
         _ -> error
     end.

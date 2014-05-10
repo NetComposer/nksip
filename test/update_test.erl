@@ -177,7 +177,7 @@ init(Id) ->
     {ok, Id}.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
@@ -204,12 +204,12 @@ invite(Req, _Call) ->
     noreply.
 
 
-ack(Req, _Call) ->
+sip_ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-update(Req, _Call) ->
+sip_update(Req, _Call) ->
     tests_util:send_ref(update, Req),
     Body = case nksip_request:body(Req) of
         #sdp{} = SDP -> nksip_sdp:increment(SDP);
@@ -218,12 +218,12 @@ update(Req, _Call) ->
     {reply, {answer, Body}}.
 
 
-dialog_update(Update, Dialog, _Call) ->
+sip_dialog_update(Update, Dialog, _Call) ->
     tests_util:dialog_update(Update, Dialog),
     ok.
 
 
-session_update(Update, Dialog, _Call) ->
+sip_session_update(Update, Dialog, _Call) ->
     tests_util:session_update(Update, Dialog),
     ok.
 

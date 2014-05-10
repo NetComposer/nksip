@@ -423,26 +423,26 @@ init(Id) ->
     {ok, Id}.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {reply, ok}.
 
 
-reinvite(Req, Call) ->
-    invite(Req, Call).
+% sip_reinvite(Req, Call) ->
+%     invite(Req, Call).
 
 
-ack(Req, _Call) ->
+sip_ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-bye(Req, _Call) ->
+sip_bye(Req, _Call) ->
     tests_util:send_ref(bye, Req),
     {reply, ok}.
 
 
-subscribe(Req, _Call) ->
+sip_subscribe(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
@@ -465,16 +465,16 @@ subscribe(Req, _Call) ->
     end.
 
 
-resubscribe(_Req, _Call) ->
+sip_resubscribe(_Req, _Call) ->
     {reply, ok}.
 
 
-notify(Req, _Call) ->
+sip_notify(Req, _Call) ->
     Body = nksip_request:body(Req),
     tests_util:send_ref({notify, Body}, Req),
     {reply, ok}.
 
-dialog_update(Update, Dialog, _Call) ->
+sip_dialog_update(Update, Dialog, _Call) ->
     tests_util:dialog_update(Update, Dialog),
     ok.
 

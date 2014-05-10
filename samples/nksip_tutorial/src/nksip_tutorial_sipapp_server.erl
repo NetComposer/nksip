@@ -30,7 +30,7 @@
 -behaviour(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, get_user_pass/3, authorize/4, route/6, handle_call/3]).
+-export([init/1, sip_get_user_pass/3, sip_authorize/4, sip_route/6, handle_call/3]).
 
 
 
@@ -53,8 +53,8 @@ init([Id]) ->
 %% If the incoming user's realm is "nksip", the password for any user is "1234". 
 %% For other realms, no password is valid.
 %%
-get_user_pass(_User, <<"nksip">>, _Req) -> <<"1234">>;
-get_user_pass(_User, _Realm, _Req) -> false.
+sip_get_user_pass(_User, <<"nksip">>, _Req) -> <<"1234">>;
+sip_get_user_pass(_User, _Realm, _Req) -> false.
 
 
 %% @doc Called to check if a request should be authorized.
@@ -74,7 +74,7 @@ get_user_pass(_User, _Realm, _Req) -> false.
 %% 4) If no digest header is present, reply with a 407 response sending 
 %%    a challenge to the user.
 %%
-authorize(_ReqId, Auth, _From, State) ->
+sip_authorize(_ReqId, Auth, _From, State) ->
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
             {reply, true, State};
@@ -100,7 +100,7 @@ authorize(_ReqId, Auth, _From, State) ->
 %% - If it has user part, and domain is "nksip", find if it is registered and proxy.
 %%   For other domain, proxy the request.
 %%
-route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
+sip_route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
     Reply = case Domain of
         <<"nksip">> ->
             process;
@@ -112,7 +112,7 @@ route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
     end,
     {reply, Reply, State};
 
-route(_ReqId, Scheme, User, Domain, _From, #state{id=Id}=State) ->
+sip_route(_ReqId, Scheme, User, Domain, _From, #state{id=Id}=State) ->
     Reply = case Domain of
         <<"nksip">> ->
             UriList = nksip_registrar:find(Id, Scheme, User, <<"nksip">>),

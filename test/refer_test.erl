@@ -176,7 +176,7 @@ init(Id) ->
     {ok, Id}.
 
 
-refer(Req, _Call) ->
+sip_refer(Req, _Call) ->
     case nksip_request:header("refer-to", Req) of
         [ReferTo] ->
             AppId = nksip_request:app_id(Req),
@@ -194,21 +194,21 @@ refer(Req, _Call) ->
     end.
 
 
-subscribe(_Req, _Call) ->
+sip_subscribe(_Req, _Call) ->
     {reply, ok}.
 
 
-resubscribe(_Req, _Call) ->
-    {reply, ok}.
+% resubscribe(_Req, _Call) ->
+%     {reply, ok}.
 
 
-notify(Req, _Call) ->
+sip_notify(Req, _Call) ->
     Body = nksip_request:body(Req),
     tests_util:send_ref({notify, Body}, Req),
     {reply, ok}.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     ReqId = nksip_request:get_id(Req),
     spawn(
         fun() ->

@@ -551,7 +551,7 @@ multiple_uas() ->
 init(Id) ->
     {ok, Id}.
 
-invite(Req, Call) ->
+sip_invite(Req, Call) ->
     tests_util:save_ref(Req),
     Values = nksip_request:header(<<"x-nk">>, Req),
     Hds = case Values of [] -> []; _ -> [{add, "x-nk", nksip_lib:bjoin(Values)}] end,
@@ -601,33 +601,33 @@ invite(Req, Call) ->
     noreply.
 
 
-reinvite(Req, Call) ->
-    invite(Req, Call).
+% sip_reinvite(Req, Call) ->
+%     invite(Req, Call).
 
 
-ack(Req, _Call) ->
+sip_ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-options(Req, _Call) ->
+sip_options(Req, _Call) ->
     Ids = nksip_request:header(<<"x-nk-id">>, Req),
     App = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
 
-bye(Req, _Call) ->
+sip_bye(Req, _Call) ->
     tests_util:send_ref(bye, Req),
     {reply, ok}.
 
 
-dialog_update(Update, Dialog, _Call) ->
+sip_dialog_update(Update, Dialog, _Call) ->
     tests_util:dialog_update(Update, Dialog),
     ok.
 
 
-session_update(Update, Dialog, _Call) ->
+sip_session_update(Update, Dialog, _Call) ->
     tests_util:session_update(Update, Dialog),
     ok.
 

@@ -173,7 +173,7 @@ init([]) ->
     {ok, []}.
 
 
-get_user_pass(User, Realm, Req, _Call) ->
+sip_get_user_pass(User, Realm, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             case {User, Realm} of
@@ -186,7 +186,7 @@ get_user_pass(User, Realm, Req, _Call) ->
     end.
 
 
-authorize(Auth, Req, _Call) ->
+sip_authorize(Auth, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             case nksip_sipmsg:header(<<"x-nk-auth">>, Req) of
@@ -209,7 +209,7 @@ authorize(Auth, Req, _Call) ->
     end.
 
 
-route(Scheme, User, Domain, Req, _Call) ->
+sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             send_reply(Req, route),
@@ -239,7 +239,7 @@ route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     send_reply(Req, invite),
     case nksip_sipmsg:header(<<"x-nk-op">>, Req) of
         [<<"wait">>] ->
@@ -257,28 +257,34 @@ invite(Req, _Call) ->
             {reply, {answer, nksip_sipmsg:meta(body, Req)}}
     end.
 
-reinvite(Req, _Call) ->
+
+sip_reinvite(Req, _Call) ->
     send_reply(Req, reinvite),
     {reply, {answer, nksip_sipmsg:meta(body, Req)}}.
 
-cancel(InvReq, Req, _Call) ->
+
+sip_cancel(InvReq, Req, _Call) ->
     'INVITE' = nksip_request:method(InvReq),
     send_reply(Req, cancel),
     ok.
 
-bye(Req, _Call) ->
+
+sip_bye(Req, _Call) ->
     send_reply(Req, bye),
     {reply, ok}.
 
-info(Req, _Call) ->
+
+sip_info(Req, _Call) ->
     send_reply(Req, info),
     {reply, ok}.
 
-ack(Req, _Call) ->
+
+sip_ack(Req, _Call) ->
     send_reply(Req, ack),
     ok.
 
-options(Req, _Call) ->
+
+sip_options(Req, _Call) ->
     send_reply(Req, options),
     App = nksip_sipmsg:meta(app_name, Req),
     Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
@@ -287,14 +293,16 @@ options(Req, _Call) ->
     spawn(fun() -> nksip_request:reply(Reply, ReqId) end),
     noreply.
 
-dialog_update(State, Dialog, _Call) ->
+
+sip_dialog_update(State, Dialog, _Call) ->
     case State of
         start -> send_reply(Dialog, dialog_start);
         stop -> send_reply(Dialog, dialog_stop);
         _ -> ok
     end.
 
-session_update(State, Dialog, _Call) ->
+
+sip_session_update(State, Dialog, _Call) ->
     case State of
         {start, _, _} -> send_reply(Dialog, session_start);
         stop -> send_reply(Dialog, session_stop);

@@ -46,7 +46,7 @@ app_call(Fun, Args, AppId) ->
 
 %% @private
 app_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
-	case catch AppId:ack(Req, Call) of
+	case catch AppId:sip_ack(Req, Call) of
 		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
@@ -55,20 +55,20 @@ app_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
 app_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 	#sipmsg{to={_, ToTag}} = Req,
 	Fun = case Method of
-		'INVITE' when ToTag == <<>> -> invite;
-		'INVITE' -> reinvite;
-		'UPDATE' -> update;
-		'BYE' -> bye;
-		'OPTIONS' -> options;
-		'REGISTER' -> register;
-		'PRACK' -> prack;
-		'INFO' -> info;
-		'MESSAGE' -> message;
-		'SUBSCRIBE' when ToTag == <<>> -> subscribe;
-		'SUBSCRIBE' -> resubscribe;
-		'NOTIFY' -> notify;
-		'REFER' -> refer;
-		'PUBLISH' -> publish
+		'INVITE' when ToTag == <<>> -> sip_invite;
+		'INVITE' -> sip_reinvite;
+		'UPDATE' -> sip_update;
+		'BYE' -> sip_bye;
+		'OPTIONS' -> sip_options;
+		'REGISTER' -> sip_register;
+		'PRACK' -> sip_prack;
+		'INFO' -> sip_info;
+		'MESSAGE' -> sip_message;
+		'SUBSCRIBE' when ToTag == <<>> -> sip_subscribe;
+		'SUBSCRIBE' -> sip_resubscribe;
+		'NOTIFY' -> sip_notify;
+		'REFER' -> sip_refer;
+		'PUBLISH' -> sip_publish
 	end,
 	case catch AppId:Fun(Req, Call) of
 		{reply, Reply} -> 

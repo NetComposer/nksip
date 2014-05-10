@@ -104,7 +104,7 @@ init(Id) ->
     {ok, Id}.
 
 
-publish(Req, _Call) ->
+sip_publish(Req, _Call) ->
     {reply, nksip_publish:request(Req)}.
 
 

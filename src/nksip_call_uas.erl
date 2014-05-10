@@ -169,45 +169,6 @@ terminate_request(_, Call) ->
     Call.
     
 
-% %% @private
-% -spec app_call(atom(), list(), nksip_call:trans(), nksip_call:call()) ->
-%     {reply, term()} | nksip_call:call() | not_exported.
-
-% app_call(Fun, Args, UAS, Call) ->
-%     #trans{id=Id, method=Method, status=Status, request=Req} = UAS,
-%     #call{app_id=AppId} = Call,
-%     ?call_debug("UAS ~p ~p (~p) calling SipApp's ~p ~p", 
-%                 [Id, Method, Status, Fun, Args]),
-%     From = {'fun', nksip_call, app_reply, [Fun, Id, self()]},
-%     Args1 = [Req | Args],
-%     Args2 = [nksip_sipmsg:get_id(Req) | Args],
-%     case 
-%         nksip_sipapp_srv:sipapp_call(AppId, Fun, Args1, Args2, From)
-%     of
-%         {reply, Reply} ->
-%             {reply, Reply};
-%         async -> 
-%             UAS1 = nksip_call_lib:callback_timer(Fun, UAS, Call),
-%             update(UAS1, Call);
-%         not_exported ->
-%             not_exported;
-%         error ->
-%             reply({internal_error, <<"Error calling callback">>}, UAS, Call)
-%     end.
-
-
-% %% @private
-% -spec app_cast(atom(), list(), nksip_call:trans(), nksip_call:call()) ->
-%     nksip_call:call().
-
-% app_cast(Fun, Args, UAS, Call) ->
-%     #trans{id=Id, method=Method, status=Status} = UAS,
-%     #call{app_id=AppId} = Call,
-%     ?call_debug("UAS ~p ~p (~p) casting SipApp's ~p", [Id, Method, Status, Fun]),
-%     nksip_callbacks:app_cast(Fun, Args ++ [{user_req, UAS, Call}], AppId),
-%     Call.
-
-
 %% @private
 -spec transaction_id(nksip:request()) ->
     integer().

@@ -276,7 +276,8 @@ media() ->
 init(Id) ->
     {ok, Id}.
 
-invite(Req, _Call) ->
+
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
@@ -349,16 +350,16 @@ invite(Req, _Call) ->
     noreply.
 
 
-reinvite(Req, Call) ->
-    invite(Req, Call).
+% reinvite(Req, Call) ->
+%     invite(Req, Call).
 
 
-ack(Req, _Call) ->
+sip_ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-prack(Req, _Call) ->
+sip_prack(Req, _Call) ->
     RAck = nksip_request:meta(rack, Req),
     tests_util:send_ref({prack, RAck}, Req),
     Body = case nksip_request:body(Req) of
@@ -371,12 +372,12 @@ prack(Req, _Call) ->
     {reply, {answer, Body}}.
 
 
-dialog_update(Update, Dialog, _Call) ->
+sip_dialog_update(Update, Dialog, _Call) ->
     tests_util:dialog_update(Update, Dialog),
     ok.
 
 
-session_update(Update, Dialog, _Call) ->
+sip_session_update(Update, Dialog, _Call) ->
     tests_util:session_update(Update, Dialog),
     ok.
 

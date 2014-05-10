@@ -26,7 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([create/4, update/3, stop/3, find/2, store/2, get_meta/3, update_meta/4]).
--export([timer/3, cast/4]).
+-export([timer/3]).
 -export_type([sdp_offer/0]).
 
 -type sdp_offer() ::
@@ -72,7 +72,7 @@ create(Class, Req, Resp, Call) ->
         invite = undefined,
         subscriptions = []
     },
-    cast(dialog_update, start, Dialog, Call),
+    dialog_update(start, Dialog, Call),
     case Class of 
         uac ->
             Dialog#dialog{
@@ -129,9 +129,9 @@ update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     cancel_timer(RefreshTimer),
-    cast(dialog_update, {invite_status, {stop, reason(Reason)}}, Dialog, Call),
+    dialog_update({invite_status, {stop, reason(Reason)}}, Dialog, Call),
     case Media of
-        true -> cast(session_update, stop, Dialog, Call);
+        true -> session_update(stop, Dialog, Call);
         _ -> ok
     end,
     store(Dialog#dialog{invite=undefined}, Call);
@@ -152,7 +152,7 @@ update({invite, Status}, Dialog, Call) ->
         OldStatus -> 
             Dialog;
         _ -> 
-            cast(dialog_update, {invite_status, Status}, Dialog, Call),
+            dialog_update({invite_status, Status}, Dialog, Call),
             Dialog#dialog{invite=Invite#invite{status=Status}}
     end,
     ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status]),
@@ -167,7 +167,7 @@ update({invite, Status}, Dialog, Call) ->
         Status==bye ->
             case Media of
                 true -> 
-                    cast(session_update, stop, Dialog1, Call),
+                    session_update(stop, Dialog1, Call),
                     #dialog{invite=I1} = Dialog1,
                     Dialog1#dialog{invite=I1#invite{media_started=false}};
                 _ ->
@@ -235,7 +235,7 @@ target_update(Class, Req, Resp, Dialog, Call) ->
     case RemoteTarget of
         #uri{domain = <<"invalid.invalid">>} -> ok;
         RemoteTarget1 -> ok;
-        _ -> cast(dialog_update, target_update, Dialog, Call)
+        _ -> dialog_update(target_update, Dialog, Call)
     end,
     Invite1 = case Invite of
         #invite{answered=InvAnswered, class=InvClass, request=InvReq} ->
@@ -336,12 +336,12 @@ session_update(
                 nksip_sdp:is_new(LocalSDP1, LocalSDP) 
             of
                 true -> 
-                    cast(session_update, {update, LocalSDP1, RemoteSDP1}, Dialog, Call);
+                    session_update({update, LocalSDP1, RemoteSDP1}, Dialog, Call);
                 false ->
                     ok
             end;
         _ ->
-            cast(session_update, {start, LocalSDP1, RemoteSDP1}, Dialog, Call)
+            session_update({start, LocalSDP1, RemoteSDP1}, Dialog, Call)
     end,
     Invite1 = Invite#invite{
         local_sdp = LocalSDP1, 
@@ -517,7 +517,7 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
 
 timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{local_sdp=SDP} = Invite,
-    cast(dialog_update, {invite_refresh, SDP}, Dialog, Call),
+    dialog_update({invite_refresh, SDP}, Dialog, Call),
     Call;
 
 timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
@@ -534,7 +534,7 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                             [async, {reason, {sip, 408, "Dialog Timeout"}}], Call) 
                     of
                         {ok, Call1} ->
-                            cast(dialog_update, invite_timeout, Dialog, Call),
+                            dialog_update(invite_timeout, Dialog, Call),
                             Call1;
                         {error, Error} ->
                             ?call_warning("Could not send timeout BYE: ~p", [Error]),
@@ -585,7 +585,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
     end,
     case Invite==undefined andalso Subs==[] of
         true ->
-            cast(dialog_update, stop, Dialog, Call),
+            dialog_update(stop, Dialog, Call),
             Dialogs1 = case IsFirst of
                 true -> Rest;
                 false -> lists:keydelete(Id, #dialog.id, Dialogs)
@@ -605,12 +605,22 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
 
 
 %% @private
--spec cast(atom(), term(), nksip:dialog(), nksip_call:call()) ->
+-spec dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-cast(Fun, Arg, Dialog, #call{app_id=AppId}=Call) ->
-    nksip_callbacks:app_call(Fun, [Arg, Dialog, Call], AppId),
+dialog_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
+    nksip_callbacks:app_call(sip_dialog_update, [Arg, Dialog, Call], AppId),
     ok.
+
+
+%% @private
+-spec session_update(term(), nksip:dialog(), nksip_call:call()) ->
+    ok.
+
+session_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
+    nksip_callbacks:app_call(sip_session_update, [Arg, Dialog, Call], AppId),
+    ok.
+
 
 
 %% @private

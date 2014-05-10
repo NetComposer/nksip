@@ -294,7 +294,8 @@ init(Id) ->
     nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, Id}.
 
-route(Scheme, User, Domain, Req, _Call) ->
+
+sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             Opts = [record_route, {insert, "x-nk-server", server1}],

@@ -336,7 +336,7 @@ update({Status, Expires}, Subs, Dialog, Call)
             ok;
         false -> 
             ?call_debug("Subscription ~s ~p -> ~p", [Id, OldStatus, Status]),
-            cast(Status, Subs, Dialog, Call)
+            dialog_update(Status, Subs, Dialog, Call)
     end,
     cancel_timer(TimerN),
     cancel_timer(TimerExpire),
@@ -367,7 +367,7 @@ update({terminated, Reason, Retry}, Subs, Dialog, Call) ->
     cancel_timer(Expire),
     cancel_timer(Middle),
     ?call_debug("Subscription ~s ~p -> {terminated, ~p}", [Id, OldStatus, Reason]),
-    cast({terminated, Reason, Retry}, Subs, Dialog, Call),
+    dialog_update({terminated, Reason, Retry}, Subs, Dialog, Call),
     store(Subs#subscription{status={terminated, Reason}}, Dialog, Call).
 
 % update(Status, Subs, Dialog, Call) ->
@@ -475,7 +475,7 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
 timer({Type, Id}, Dialog, Call) ->
     case nksip_subscription:find(Id, Dialog) of
         #subscription{} = Subs when Type==middle -> 
-            cast(middle_timer, Subs, Dialog, Call),
+            dialog_update(middle_timer, Subs, Dialog, Call),
             Call;
         #subscription{} = Subs when Type==timeout -> 
             Dialog1 = update({terminated, timeout, undefined}, Subs, Dialog, Call),
@@ -513,7 +513,7 @@ create(Class, #sipmsg{class={req, Method}}=Req, Dialog, Call) ->
         answered = undefined,
         timer_n = start_timer(64*T1, {timeout, Id}, Dialog)
     },
-    cast(init, Subs, Dialog, Call),
+    dialog_update(init, Subs, Dialog, Call),
     Subs.
 
 
@@ -568,17 +568,17 @@ store(Subs, Dialog, _Call) ->
 
 
 %% @private
--spec cast(term(), nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
+-spec dialog_update(term(), nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-cast(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
+dialog_update(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
     Status1 = case Status of
         {terminated, Reason, undefined} -> {terminated, Reason};
         _ -> Status
     end,
     % Id = nksip_subscription:get_id(Subs, Dialog),
     Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
-    nksip_callbacks:app_call(dialog_update, Args, AppId).
+    nksip_callbacks:app_call(sip_dialog_update, Args, AppId).
 
 
 %% @private

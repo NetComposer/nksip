@@ -584,7 +584,7 @@ init(Id) ->
     {ok, Id}.
 
 
-route(Scheme, User, Domain, Req, _Call) ->
+sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         serverR ->
             % Route for serverR in fork test
@@ -641,7 +641,7 @@ route(Scheme, User, Domain, Req, _Call) ->
 
 % Adds x-nk-id header
 % Gets operation from body
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Ids = nksip_request:header(<<"x-nk-id">>, Req),
     App = nksip_request:app_name(Req),
@@ -679,19 +679,19 @@ invite(Req, _Call) ->
     end.
 
 
-ack(Req, _Call) ->
+sip_ack(Req, _Call) ->
     tests_util:send_ref(ack, Req),
     ok.
 
 
-options(Req, _Call) ->
+sip_options(Req, _Call) ->
     Ids = nksip_request:header(<<"x-nk-id">>, Req),
     App = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
 
-bye(Req, _Call) ->
+sip_bye(Req, _Call) ->
     tests_util:send_ref(bye, Req),
     {reply, ok}.
 

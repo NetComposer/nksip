@@ -225,7 +225,7 @@ init(AppName) ->
     {ok, AppName}.
 
 
-route(Scheme, User, Domain, Req, _Call) ->
+sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             {ok, Domains} = nksip:get(server1, domains),

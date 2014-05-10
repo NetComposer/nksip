@@ -36,8 +36,8 @@
 -behaviour(nksip_sipapp).
 
 -export([start/0, stop/0, check_speed/1, get_speed/0]).
--export([init/1, get_user_pass/3, authorize/4, route/6]). 
--export([dialog_update/3, session_update/3]).
+-export([init/1, sip_get_user_pass/3, sip_authorize/4, sip_route/6]). 
+-export([sip_dialog_update/3, sip_session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 
 -define(DOMAINS, [<<"nksip">>, <<"127.0.0.1">>]).
@@ -90,8 +90,8 @@ init([]) ->
 %% @doc SipApp Callback: Called to check user's password.
 %% If the incoming user's realm is one of our domains, the password for any 
 %% user is "1234". For other realms, no password is valid.
-get_user_pass(_User, <<"nksip">>, _Req) -> <<"1234">>;
-get_user_pass(_User, _Realm, _Req) -> false.
+sip_get_user_pass(_User, <<"nksip">>, _Req) -> <<"1234">>;
+sip_get_user_pass(_User, _Realm, _Req) -> false.
 
 
 %% @doc SipApp Callback: Called to check if a request should be authorized.
@@ -108,7 +108,7 @@ get_user_pass(_User, _Realm, _Req) -> false.
 %%      <li>If no digest header is present, reply with a 407 response sending 
 %%          a challenge to the user.</li>
 %% </ul>
-authorize(ReqId, Auth, _From, State) ->
+sip_authorize(ReqId, Auth, _From, State) ->
     Method = nksip_request:method(ReqId),
     lager:notice("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
@@ -147,25 +147,25 @@ authorize(ReqId, Auth, _From, State) ->
 %%          when starting the SipApp.</li>
 %% </ul>
 
-route(ReqId, _Scheme, <<"200">>, _, _From, State) ->
+sip_route(ReqId, _Scheme, <<"200">>, _, _From, State) ->
     Reply = {proxy, find_all_except_me(ReqId), [record_route]},
     {reply, Reply, State};
 
-route(ReqId, _Scheme, <<"201">>, _, _From, State) ->
+sip_route(ReqId, _Scheme, <<"201">>, _, _From, State) ->
     All = random_list(find_all_except_me(ReqId)),
     Opts = [{add, "nksip-server", <<"201">>}],
     Reply =  {proxy, take_in_pairs(All), Opts},
     {reply, Reply, State};
 
-route(_ReqId, _Scheme, <<"202">>, _, _From, #state{speed=Speed}=State) ->
+sip_route(_ReqId, _Scheme, <<"202">>, _, _From, #state{speed=Speed}=State) ->
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {reply, {proxy, UriList}, State};
 
-route(_ReqId, _Scheme, <<"203">>, _, _From, #state{speed=Speed}=State) ->
+sip_route(_ReqId, _Scheme, <<"203">>, _, _From, #state{speed=Speed}=State) ->
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {reply, {proxy, lists:reverse(UriList)}, State};
 
-route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
+sip_route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
     Reply = case lists:member(Domain, ?DOMAINS) of
         true ->
             process;
@@ -177,7 +177,7 @@ route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
     end,
     {reply, Reply, State};
 
-route(_ReqId, Scheme, User, Domain, _From, State) ->
+sip_route(_ReqId, Scheme, User, Domain, _From, State) ->
     Reply = case lists:member(Domain, ?DOMAINS) of
         true ->
             UriList = nksip_registrar:find(pbx, Scheme, User, Domain),
@@ -188,17 +188,18 @@ route(_ReqId, Scheme, User, Domain, _From, State) ->
     {reply, Reply, State}.
 
 
-dialog_update(DialogId, Update, State) ->
+sip_dialog_update(DialogId, Update, State) ->
     lager:notice("PBX Dialog ~s Update: ~p", [DialogId, Update]),
     {noreply, State}.
 
-session_update(DialogId, {start, LocalSDP, RemoteSDP}, State) ->
+
+sip_session_update(DialogId, {start, LocalSDP, RemoteSDP}, State) ->
     lager:notice("PBX Session ~s Update: start", [DialogId]),
     lager:notice("Local SDP: ~p", [nksip_sdp:unparse(LocalSDP)]),
     lager:notice("Remote SDP: ~p", [nksip_sdp:unparse(RemoteSDP)]),
     {noreply, State};
 
-session_update(DialogId, Update, State) ->
+sip_session_update(DialogId, Update, State) ->
     lager:notice("PBX Session ~s Update: ~p", [DialogId, Update]),
     {noreply, State}.
 

@@ -555,7 +555,7 @@ wait_register(N) ->
 init(Id) ->
     {ok, Id}.
 
-route(Scheme, User, Domain, Req, _Call) ->
+sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         % P1 is the outbound proxy.
         % It domain is 'nksip', it sends the request to P2, 
@@ -621,14 +621,14 @@ route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     case nksip_request:header(<<"x-nk-op">>, Req) of
         [<<"ok">>] -> {reply, ok};
         _ -> {reply, 603}
     end.
 
 
-options(Req, _Call) ->
+sip_options(Req, _Call) ->
     Ids = nksip_request:header(<<"x-nk-id">>, Req),
     App = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],

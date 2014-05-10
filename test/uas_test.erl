@@ -201,7 +201,8 @@ init(Id) ->
     nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, Id}.
 
-route(Scheme, User, Domain, Req, _Call) ->
+
+sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
@@ -237,7 +238,7 @@ route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-invite(Req, _Call) ->
+sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         [Op0] -> Op0;
@@ -275,7 +276,7 @@ invite(Req, _Call) ->
     noreply.
 
 
-options(Req, _Call) ->
+sip_options(Req, _Call) ->
     case nksip_request:header(<<"x-nk-sleep">>, Req) of
         [Sleep0] -> 
             ReqId = nksip_request:get_id(Req),
@@ -291,13 +292,13 @@ options(Req, _Call) ->
     end.
 
 
-ping_update(PingId, OK, AppId=State) ->
+sip_ping_update(PingId, OK, AppId=State) ->
     {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
     Pid ! {Ref, {ping, PingId, OK}},
     {noreply, State}.
 
 
-register_update(RegId, OK, AppId=State) ->
+sip_register_update(RegId, OK, AppId=State) ->
     {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
     Pid ! {Ref, {reg, RegId, OK}},
     {noreply, State}.
