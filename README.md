@@ -1,4 +1,8 @@
+<!---
+Removed travis support until I find out why it fails.
+NkSIP's master branch allways passes 100% of the tests
 [![Build Status](https://travis-ci.org/kalta/nksip.png?branch=master)](https://travis-ci.org/kalta/nksip)
+-->
 
 **IMPORTANT**: NkSIP is under very heavy development. Documentation is not currently updated. In the following weeks, version v0.4 will be released, and documentation will be updated with it.
 
