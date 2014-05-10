@@ -3,7 +3,10 @@
 ## v0.4
 
 * Documentation improvement.
+* Heavy testing
+* Extraction of non-core functionality into plugins
 * ~~**Powerful plugin mechanism**~~.
+* ~~New UAS API~~
 * ~~Reliable provisional responses~~.
 * ~~UPDATE and MESSAGE methods~~.
 * ~~Full event support (SUBSCRIBE/NOTIFY)~~.
