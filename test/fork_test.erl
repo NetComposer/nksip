@@ -604,7 +604,7 @@ route(Scheme, User, Domain, Req, _Call) ->
             {ok, Domains} = nksip:get(serverR, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
-                    {process, Opts};
+                    process;
                 true when Domain =:= <<"nksip">> ->
                     case nksip_registrar:qfind(serverR, Scheme, User, Domain) of
                         [] -> {reply, temporarily_unavailable};
@@ -620,15 +620,15 @@ route(Scheme, User, Domain, Req, _Call) ->
             % Adds x-nk-id header. serverA is stateless, rest are stateful
             % Always Record-Route
             % If domain is "nksip" routes to serverR
-            Opts = lists:flatten([
-                case App of server1 -> stateless; _ -> [] end,
-                record_route,
-                {insert, "x-nk-id", App}
-            ]),
+            Opts = [record_route, {insert, "x-nk-id", App}],
             {ok, Domains} = nksip:get(App, domains),
             case lists:member(Domain, Domains) of
-                true when Domain =:= <<"nksip">> ->
+                true when Domain==<<"nksip">>, App==server1 ->
+                    {proxy_stateless, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};
+                true when Domain==<<"nksip">> ->
                     {proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};
+                true when App==server1->
+                    {proxy_stateless, ruri, Opts};
                 true ->
                     {proxy, ruri, Opts};
                 false ->

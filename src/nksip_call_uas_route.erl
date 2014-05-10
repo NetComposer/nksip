@@ -222,16 +222,20 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
     Route = case Reply of
         {reply, Resp} -> {reply, Resp};
         {reply_stateless, Resp} -> {reply_stateless, Resp};
-        process -> {process, []};
-        {process, Opts} -> {process, Opts};
+        process -> process;
+        process_stateless -> process_stateless;
         proxy -> {proxy, RUri, []};
         {proxy, Uris} -> {proxy, Uris, []}; 
         {proxy, ruri, Opts} -> {proxy, RUri, Opts};
         {proxy, Uris, Opts} -> {proxy, Uris, Opts};
+        proxy_stateless -> {proxy, RUri, [stateless]};
+        {proxy_stateless, Uris} -> {proxy, Uris, [stateless]}; 
+        {proxy_stateless, ruri, Opts} -> {proxy, RUri, [stateless|Opts]};
+        {proxy_stateless, Uris, Opts} -> {proxy, Uris, [stateless|Opts]};
         strict_proxy -> {strict_proxy, []};
         {strict_proxy, Opts} -> {strict_proxy, Opts};
         Invalid -> 
-            ?call_warning("Invalid reply from route(): ~p", [Invalid]),
+            ?call_warning("Invalid reply from route/5 callback: ~p", [Invalid]),
             {reply_stateless, {internal_error, "Invalid SipApp Reply"}}
     end,
     Status = case Method of
@@ -249,7 +253,7 @@ route_reply(_Reply, UAS, Call) ->
 
 %% @private
 -spec do_route({reply, nksip:sipreply()} | {reply_stateless, nksip:sipreply()} |
-               {process, nksip_lib:optslist()} |
+               process | process_stateless |
                {proxy, nksip:uri_set(), nksip_lib:optslist()} |
                {strict_proxy, nksip_lib:optslist()}, 
                nksip_call:trans(), nksip_call:call()) -> 
@@ -264,30 +268,31 @@ do_route({reply_stateless, Reply}, UAS, Call) ->
     reply(Reply, UAS1, update(UAS1, Call));
 
 %% CANCEL should have been processed already
-do_route({process, _Opts}, #trans{method='CANCEL'}=UAS, Call) ->
+do_route(process, #trans{method='CANCEL'}=UAS, Call) ->
     reply(no_transaction, UAS, Call);
 
-do_route({process, Opts}, #trans{request=Req, method=Method}=UAS, Call) ->
-    Stateless = case Method of
-        'INVITE' -> false;
-        _ -> lists:member(stateless, Opts)
-    end,
-    UAS1 = UAS#trans{stateless=Stateless},
-    UAS2 = case nksip_lib:get_value(headers, Opts) of
-        Headers1 when is_list(Headers1) -> 
-            #sipmsg{headers=Headers} = Req,
-            Req1 = Req#sipmsg{headers=Headers1++Headers},
-            UAS1#trans{request=Req1};
-        _ -> 
-            UAS1
-    end,
-    nksip_call_uas_process:process(UAS2, update(UAS2, Call));
+do_route(process, UAS, Call) ->
+    UAS1 = UAS#trans{stateless=false},
+    nksip_call_uas_process:process(UAS1, update(UAS1, Call));
+
+%% CANCEL should have been processed already
+do_route(process_stateless, #trans{method='CANCEL'}=UAS, Call) ->
+    reply(no_transaction, UAS, Call);
+
+do_route(process_stateless, #trans{method='INVITE'}=UAS, Call) ->
+    ?call_warning("Invalid response 'process_stateless' for INVITE request "
+                  " in route/5 callback", []),
+    reply({internal_error, "Invalid SipApp Response"}, UAS, Call);
+
+do_route(process_stateless, UAS, Call) ->
+    UAS1 = UAS#trans{stateless=true},
+    nksip_call_uas_process:process(UAS1, update(UAS1, Call));
 
 % We want to proxy the request
 do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
     #trans{id=Id, opts=Opts, method=Method} = UAS,
     case nksip_call_proxy:route(UAS, UriList, ProxyOpts, Call) of
-        stateless_proxy ->
+        noreply ->
             UAS1 = UAS#trans{status=finished},
             update(UAS1, Call);
         {fork, _, _, _} when Method=='CANCEL' ->

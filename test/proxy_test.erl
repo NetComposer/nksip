@@ -583,37 +583,42 @@ route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         {Test, App}=AppName when App==server1; App==server2 ->
             Opts = [
-                case Test of stateless -> stateless; _ -> ignore end,
                 {insert, "x-nk-id", App},
                 case nksip_request:header(<<"x-nk-rr">>, Req) of
                     [<<"true">>] -> record_route;
                     _ -> ignore
                 end
             ],
+            Proxy = case Test of 
+                stateful -> proxy;
+                stateless -> proxy_stateless
+            end,
             {ok, Domains} = nksip:get(AppName, domains),
             case lists:member(Domain, Domains) of
-                true when User =:= <<>> ->
-                    {process, Opts};
+                true when User == <<>>, Test==stateless ->
+                    process_stateless;
+                true when User == <<>>, Test==stateful ->
+                    process;
                 true when User =:= <<"client2_op">>, Domain =:= <<"nksip">> ->
                     UriList = nksip_registrar:find(AppName, sip, <<"client2">>, Domain),
                     Body = nksip_request:body(Req),
                     ServerOpts = binary_to_term(base64:decode(Body)),
-                    {proxy, UriList, ServerOpts++Opts};
+                    {Proxy, UriList, ServerOpts++Opts};
                 true when Domain =:= <<"nksip">>; Domain =:= <<"nksip2">> ->
                     case nksip_registrar:find(AppName, Scheme, User, Domain) of
                         [] -> 
                             % ?P("FIND ~p: []", [{AppName, Scheme, User, Domain}]),
                             {reply, temporarily_unavailable};
-                        UriList -> {proxy, UriList, Opts}
+                        UriList -> {Proxy, UriList, Opts}
                     end;
                 true ->
-                    {proxy, ruri, Opts};
+                    {Proxy, ruri, Opts};
                 false when Domain =:= <<"nksip">> ->
-                    {proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};
+                    {Proxy, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};
                 false when Domain =:= <<"nksip2">> ->
-                    {proxy, ruri, [{route, "<sips:127.0.0.1:5081;lr>"}|Opts]};
+                    {Proxy, ruri, [{route, "<sips:127.0.0.1:5081;lr>"}|Opts]};
                 false ->
-                    {proxy, ruri, Opts}
+                    {Proxy, ruri, Opts}
             end;
         _ ->
             process

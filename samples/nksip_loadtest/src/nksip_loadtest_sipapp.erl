@@ -39,7 +39,7 @@ init([_AppId]) ->
 
 %% @doc Request routing callback
 route(_, <<"stateless">>, _, _, _) ->
-    {process, [stateless]};
+    process_stateless;
 
 route(_, <<"stateful">>, _, _, _) ->
     process;

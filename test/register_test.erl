@@ -297,14 +297,11 @@ init(Id) ->
 route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 ->
-            Opts = [
-                record_route,
-                {insert, "x-nk-server", server1}
-            ],
+            Opts = [record_route, {insert, "x-nk-server", server1}],
             {ok, Domains} = nksip:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
-                    {process, Opts};
+                    process;
                 true when Domain =:= <<"nksip">> ->
                     case nksip_registrar:find(server1, Scheme, User, Domain) of
                         [] -> {reply, temporarily_unavailable};

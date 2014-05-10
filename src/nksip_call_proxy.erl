@@ -35,7 +35,7 @@
 
 %% @doc Tries to route a request to set of uris, serially and/or in parallel.
 -spec route(nksip_call:trans(), nksip:uri_set(), nksip_lib:optslist(), nksip_call:call()) -> 
-    {fork, nksip_call:trans(), nksip:uri_set()} | stateless_proxy | 
+    {fork, nksip_call:trans(), nksip:uri_set()} | noreply | 
     {reply, nksip:sipreply(), nksip_call:call()}.
 
 route(UAS, UriList, ProxyOpts, Call) ->
@@ -83,7 +83,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
 
 %% @private
 -spec route_stateless(nksip:request(), nksip:uri(), nksip_lib:optslist(), nksip_call:call()) -> 
-    stateless_proxy.
+    noreply.
 
 route_stateless(Req, Uri, ProxyOpts, _Call) ->
     #sipmsg{class={req, Method}} = Req,
@@ -99,7 +99,7 @@ route_stateless(Req, Uri, ProxyOpts, _Call) ->
                     ?call_notice("Stateless proxy could not route ~p to ~s: ~p",
                                  [Method, nksip_unparse:uri(Uri), Error])
             end,
-           stateless_proxy;
+           noreply;
         {error, {reply, Reply}} ->
             throw({reply, Reply});
         {error, Error} ->
@@ -173,25 +173,6 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
             ok
     end,
     Req#sipmsg{forwards=Forwards-1}.
-
-
-% %% @private
-% remove_local_routes(AppId, #sipmsg{routes=Routes}=Req) ->
-%     case do_remove_local_routes(AppId, Routes) of
-%         Routes -> Req;
-%         Routes1 -> Req#sipmsg{routes=Routes1}
-%     end.
-
-
-% %% @private
-% do_remove_local_routes(_AppId, []) ->
-%     [];
-
-% do_remove_local_routes(AppId, [Route|RestRoutes]) ->
-%     case nksip_transport:is_local(AppId, Route) of
-%         true -> do_remove_local_routes(AppId, RestRoutes);
-%         false -> [Route|RestRoutes]
-%     end.
 
 
 %% @doc Process a UriSet generating a standard `[[nksip:uri()]]'.

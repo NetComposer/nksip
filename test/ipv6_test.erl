@@ -538,20 +538,19 @@ route(Scheme, User, Domain, Req, _Call) ->
         server1 ->
             Opts = [
                 {insert, "x-nk-id", "server1"},
-                stateless,
                 {route, "<sip:[::1]:5061;lr;transport=tcp>"}
             ],
             {ok, Domains} = nksip:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
-                    {process, Opts};
+                    process;
                 true when Domain =:= <<"nksip">> ->
                     case nksip_registrar:find(server1, Scheme, User, Domain) of
                         [] -> {reply, temporarily_unavailable};
-                        UriList -> {proxy, UriList, Opts}
+                        UriList -> {proxy_stateless, UriList, Opts}
                     end;
                 _ ->
-                    {proxy, ruri, Opts}
+                    {proxy_stateless, ruri, Opts}
             end;
         server2 ->
             Opts = [

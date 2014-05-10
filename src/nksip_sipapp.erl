@@ -338,7 +338,7 @@ authorize(_AuthList, _Req, _Call) ->
 %% You can also add headers to the request if the URI contains a `<<"Route">>' header
 %%
 %% If we want to <b>act as an endpoint or B2BUA</b> and answer to the request 
-%% from this SipApp, we must return `process' or `{process, ProcessOpts}'. 
+%% from this SipApp, we must return `process' or `process'. 
 %% NkSIP will then make additional checks to the request (like inspecting 
 %% `Require' header), start a new transaction and call the function corresponding 
 %% to the method in the request (like `invite/3', `options/3', etc.)
@@ -367,6 +367,8 @@ authorize(_AuthList, _Req, _Call) ->
 -type route_reply() ::
     proxy | {proxy, ruri | nksip:uri_set()} | 
     {proxy, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
+    proxy_stateless | {proxy_stateless, ruri | nksip:uri_set()} | 
+    {proxy_stateless, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
     process | {process, nksip_lib:optslist()} |
     {reply, nksip:sipreply()} | 
     {reply, nksip:sipreply(), nksip_lib:optslist()}.

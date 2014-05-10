@@ -248,7 +248,7 @@ route(Scheme, User, Domain, Req, _Call) ->
                         [<<"force-error">>] ->
                             error(test_error);
                         _ ->
-                            {process, Opts}
+                            process
                     end;
                 true when Domain =:= <<"nksip">> ->
                     case nksip_registrar:find(server1, Scheme, User, Domain) of
