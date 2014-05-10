@@ -343,7 +343,7 @@ parse_opts([Term|Rest], Req, Opts) ->
         {no_100, true} ->
             {update, Req, [no_100|Opts]};
         _ when Term==contact; Term==record_route; Term==path; Term==get_request;
-               Term==get_response; Term==auto_2xx_ack; Term==async; Term==no_100;
+               Term==auto_2xx_ack; Term==async; Term==no_100;
                Term==stateless; Term==no_dialog; Term==no_auto_expire;
                Term==follow_redirects ->
             {update, Req, [Term|Opts]};
