@@ -105,24 +105,29 @@ send_ref(Msg, Req) ->
 
 dialog_update(Update, Dialog) ->
     App = nksip_dialog:app_name(Dialog),
-    {ok, Dialogs} = nksip:get(App, dialogs, []),
-    DialogId = nksip_dialog:get_id(Dialog),
-    case lists:keyfind(DialogId, 1, Dialogs) of
-        {DialogId, Ref, Pid} ->
-            case Update of
-                start -> ok;
-                target_update -> Pid ! {Ref, {App, target_update}};
-                {invite_status, confirmed} -> Pid ! {Ref, {App, dialog_confirmed}};
-                {invite_status, {stop, Reason}} -> Pid ! {Ref, {App, {dialog_stop, Reason}}};
-                {invite_status, _} -> ok;
-                {invite_refresh, SDP} -> Pid ! {Ref, {App, {refresh, SDP}}};
-                invite_timeout -> Pid ! {Ref, {App, timeout}};
-                {subscription_status, Status, Subs} -> 
-                    Pid ! {Ref, {subs, Status, nksip_subscription:get_id(Subs)}};
-                stop -> ok
+    case nksip:get(App, dialogs, []) of
+        {ok, Dialogs} ->
+            DialogId = nksip_dialog:get_id(Dialog),
+            case lists:keyfind(DialogId, 1, Dialogs) of
+                {DialogId, Ref, Pid} ->
+                    case Update of
+                        start -> ok;
+                        target_update -> Pid ! {Ref, {App, target_update}};
+                        {invite_status, confirmed} -> Pid ! {Ref, {App, dialog_confirmed}};
+                        {invite_status, {stop, Reason}} -> Pid ! {Ref, {App, {dialog_stop, Reason}}};
+                        {invite_status, _} -> ok;
+                        {invite_refresh, SDP} -> Pid ! {Ref, {App, {refresh, SDP}}};
+                        invite_timeout -> Pid ! {Ref, {App, timeout}};
+                        {subscription_status, Status, Subs} -> 
+                            Pid ! {Ref, {subs, Status, nksip_subscription:get_id(Subs)}};
+                        stop -> ok
+                    end;
+                false -> 
+                    none
             end;
-        false -> 
-            none
+        _ ->
+            %% Application has already stopped
+            ok
     end.
 
 

@@ -309,9 +309,13 @@ out_or_order() ->
     {Ref, ReplyHd} = tests_util:get_ref(),
     Self = self(),
     CB = {callback, 
-        fun({resp, 200, Resp, _Call}) -> 
-            SubsId = nksip_subscription:get_id(Resp),
-            Self ! {Ref, {ok_subs, SubsId}}
+        fun
+            ({resp, 200, Resp, _Call}) -> 
+                SubsId = nksip_subscription:get_id(Resp),
+                Self ! {Ref, {ok_subs, SubsId}};
+            (_) ->
+                % A 503 Resend Error could be received
+                ok
         end},
 
     {async, _} = 
