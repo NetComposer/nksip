@@ -42,7 +42,7 @@ prack_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [], [
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
@@ -50,7 +50,7 @@ start() ->
         no_100
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [], [
         {from, "sip:client2@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
@@ -270,11 +270,7 @@ media() ->
 
 
 
-    %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
-
-
-init(Id) ->
-    {ok, Id}.
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
 sip_invite(Req, _Call) ->
@@ -348,10 +344,6 @@ sip_invite(Req, _Call) ->
             end
         end),
     noreply.
-
-
-% reinvite(Req, Call) ->
-%     invite(Req, Call).
 
 
 sip_ack(Req, _Call) ->

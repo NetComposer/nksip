@@ -44,14 +44,14 @@ event_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [], [
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {events, "myevent1,myevent2,myevent3"}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [], [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
@@ -419,17 +419,9 @@ fork() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(Id) ->
-    {ok, Id}.
-
-
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {reply, ok}.
-
-
-% sip_reinvite(Req, Call) ->
-%     invite(Req, Call).
 
 
 sip_ack(Req, _Call) ->

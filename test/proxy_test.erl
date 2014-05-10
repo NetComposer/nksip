@@ -576,7 +576,7 @@ init(Id) ->
         _ -> []
     end,
     ok = nksip:put(Id, domains, Domains),
-    {ok, Id}.
+    {ok, []}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
@@ -678,10 +678,6 @@ sip_invite(Req, _Call) ->
             end
         end),
     noreply.
-
-
-% reinvite(Req, Call) ->
-%     invite(Req, Call).
 
 
 sip_ack(Req, _Call) ->

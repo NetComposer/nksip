@@ -40,21 +40,21 @@ timer_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(p1, ?MODULE, p1, [
+    {ok, _} = nksip:start(p1, ?MODULE, [], [
         {local_host, "localhost"},
         no_100,
         {transports, [{udp, all, 5060}]},
         {min_session_expires, 2}
     ]),
 
-    {ok, _} = nksip:start(p2, ?MODULE, p2, [
+    {ok, _} = nksip:start(p2, ?MODULE, [], [
         {local_host, "localhost"},
         no_100,
         {transports, [{udp, all, 5070}]},
         {min_session_expires, 3}
     ]),
 
-    {ok, _} = nksip:start(ua1, ?MODULE, ua1, [
+    {ok, _} = nksip:start(ua1, ?MODULE, [], [
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         no_100,
@@ -62,14 +62,14 @@ start() ->
         {min_session_expires, 1}
     ]),
 
-    {ok, _} = nksip:start(ua2, ?MODULE, ua2, [
+    {ok, _} = nksip:start(ua2, ?MODULE, [], [
         {local_host, "127.0.0.1"},
         no_100,
         {transports, [{udp, all, 5072}]},
         {min_session_expires, 2}
     ]),
     
-    {ok, _} = nksip:start(ua3, ?MODULE, ua3, [
+    {ok, _} = nksip:start(ua3, ?MODULE, [], [
         {local_host, "127.0.0.1"},
         no_100,
         {supported, ""},
@@ -400,10 +400,6 @@ proxy() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(Id) ->
-    {ok, Id}.
-
-
 sip_route(_Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         p1 -> 
@@ -420,10 +416,6 @@ sip_invite(Req, _Call) ->
     Body = nksip_request:body(Req),
     Body1 = nksip_sdp:increment(Body),
     {reply, {answer, Body1}}.
-
-
-% reinvite(Req, Call) ->
-%     invite(Req, Call).
 
 
 sip_ack(Req, _Call) ->

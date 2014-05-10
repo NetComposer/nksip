@@ -41,15 +41,15 @@ refer_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [], [
         {transports, [{udp, all, 5060}]}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [], [
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    {ok, _} = nksip:start(client3, ?MODULE, client3, [
+    {ok, _} = nksip:start(client3, ?MODULE, [], [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
@@ -171,11 +171,6 @@ in_dialog() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
-
-init(Id) ->
-    {ok, Id}.
-
-
 sip_refer(Req, _Call) ->
     case nksip_request:header("refer-to", Req) of
         [ReferTo] ->
@@ -196,10 +191,6 @@ sip_refer(Req, _Call) ->
 
 sip_subscribe(_Req, _Call) ->
     {reply, ok}.
-
-
-% resubscribe(_Req, _Call) ->
-%     {reply, ok}.
 
 
 sip_notify(Req, _Call) ->

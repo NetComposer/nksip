@@ -292,7 +292,7 @@ register2() ->
 
 init(Id) ->
     nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
-    {ok, Id}.
+    {ok, []}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->

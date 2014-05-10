@@ -332,7 +332,7 @@ proxy() ->
 
 init(Id) ->
     nksip:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
-    {ok, Id}.
+    {ok, []}.
 
 
 sip_route(_Scheme, User, Domain, Req, _Call) ->

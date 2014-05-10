@@ -42,26 +42,26 @@ auth_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, [], [
         {from, "sip:server1@nksip"},
         registrar,
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}]}
     ]),
 
-    {ok, _} = nksip:start(server2, ?MODULE, server2, [
+    {ok, _} = nksip:start(server2, ?MODULE, [], [
         {from, "sip:server2@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5061}]}
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [], [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}]}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [], [
         {from, "sip:client2@nksip"},
         {pass, "jj"},
         {pass, {"4321", "client1"}},
@@ -69,7 +69,7 @@ start() ->
         {transports, [{udp, all, 5071}]}
     ]),
 
-    {ok, _} = nksip:start(client3, ?MODULE, client3, [
+    {ok, _} = nksip:start(client3, ?MODULE, [], [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5072}]}
@@ -345,10 +345,6 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {reply, ok}.
-
-
-sip_reinvite(Req, Call) ->
-    sip_invite(Req, Call).
 
 
 sip_ack(Req, _Call) ->

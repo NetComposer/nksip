@@ -44,39 +44,39 @@ outbound_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(registrar, ?MODULE, registrar, [
+    {ok, _} = nksip:start(registrar, ?MODULE, [], [
         registrar,
         {local_host, "localhost"},
         {transports, [{udp, all, 5090}, {tls, all, 5091}]}
     ]),
 
-    {ok, _} = nksip:start(ua1, ?MODULE, ua1, [
+    {ok, _} = nksip:start(ua1, ?MODULE, [], [
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5101}, {tls, all, 5102}]}
     ]),
 
-    {ok, _} = nksip:start(ua2, ?MODULE, ua2, [
+    {ok, _} = nksip:start(ua2, ?MODULE, [], [
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5103}, {tls, all, 5104}]}
     ]),
 
-    {ok, _} = nksip:start(p1, ?MODULE, p1, [
+    {ok, _} = nksip:start(p1, ?MODULE, [], [
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
-    {ok, _} = nksip:start(p2, ?MODULE, p2, [
+    {ok, _} = nksip:start(p2, ?MODULE, [], [
         {local_host, "localhost"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    {ok, _} = nksip:start(p3, ?MODULE, p3, [
+    {ok, _} = nksip:start(p3, ?MODULE, [], [
         {local_host, "localhost"},
         {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
 
-    {ok, _} = nksip:start(p4, ?MODULE, p4, [
+    {ok, _} = nksip:start(p4, ?MODULE, [], [
         {local_host, "localhost"},
         {transports, [{udp, all, 5200}, {tls, all, 5201}]}
     ]),
@@ -551,9 +551,6 @@ wait_register(N) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
-
-init(Id) ->
-    {ok, Id}.
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of

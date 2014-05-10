@@ -44,14 +44,14 @@ invite_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [], [
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {supported, []},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [], [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
@@ -548,9 +548,6 @@ multiple_uas() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(Id) ->
-    {ok, Id}.
-
 sip_invite(Req, Call) ->
     tests_util:save_ref(Req),
     Values = nksip_request:header(<<"x-nk">>, Req),
@@ -599,10 +596,6 @@ sip_invite(Req, Call) ->
             end
         end),
     noreply.
-
-
-% sip_reinvite(Req, Call) ->
-%     invite(Req, Call).
 
 
 sip_ack(Req, _Call) ->

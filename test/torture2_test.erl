@@ -59,7 +59,7 @@ torture2_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, [], [
         {transports, [{udp, all, 5060}]},
         no_100
     ]),
@@ -505,9 +505,6 @@ send(tcp, Msg) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks %%%%%%%%%%%%%%%%%%%%%
 
-
-init(Id) ->
-    {ok, Id}.
 
 route(Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of

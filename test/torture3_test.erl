@@ -57,7 +57,7 @@ torture3_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, [], [
         {transports, [{udp, all, 5060}]},
         registrar,
         no_100
@@ -450,10 +450,7 @@ send(tcp, Msg) ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks %%%%%%%%%%%%%%%%%%%%%
 
 
-init(Id) ->
-    {ok, Id}.
-
-route(Scheme, _User, _Domain, Req, _Call) ->
+sip_route(Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         server1 when Scheme=/=sip, Scheme=/=sips ->
             {reply, unsupported_uri_scheme};
