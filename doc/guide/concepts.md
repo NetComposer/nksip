@@ -24,6 +24,9 @@ Each SipApp starts listening on one or more sets of transport, ip address and po
 
 When starting a SipApp, you must supply a **callback Erlang module** for it. There is a number of [callback functions this module can implement](../reference/callback_functions.md). Each of them has an default behaviour, so all of them are optional.
 
+Under the hood, the SipApp is a standard _gen_server_ erlang process, and you can use it with standard functions like `gen_server:call/3`, etc.
+
+
 ## Requests and responses
 
 SIP is all about sending specific SIP messages (_requests_), and receiving one or more messages in response for them (_responses_). Any SIP element must behave, at the same time, as a client (_uac_ in SIP terminology) sending requests and receiving responses, and as a  server (_uas_), receiving requests and sending responses.
@@ -32,7 +35,7 @@ There are a number of SIP request types (INVITE, OPTIONS, etc.), and each corres
 
 In NkSIP you can start [sending requests](sending_requests.md) using the functions in [`nksip_uac`](../../src/nksip_uac.erl) module, such as `options/3`, `invite/3` etc., and the response will be received as part of the function's return value. For example, if you send and OPTIONS request, the called party will probably reply with a _200 OK_ response containing, among other things, the codecs it supports.
 
-Your application will also start [receiving requests](receiving_requests.md) sent from other SIP endpoints or proxies, and NkSIP will then call the [corresponding function](../reference/callback_functions.md) in your _callback module_. Depending on the [value your function returns](../reference/reply_options.md), a specific SIP response will be generated and sent. For example, if someone sends you an INVITE, NkSIP will call `invite(Request, From)` in your callback module (if this function is not defined, the default implementation in [`nksip_sipapp`](../../src/nksip_sipapp.erl) module would be used). You could answer `{reply, busy}` to send a standard _486 Busy_ response, and NkSIP will generate all required SIP headers and send back the response.
+Your application will also start [receiving requests](receiving_requests.md) sent from other SIP endpoints or proxies, and NkSIP will then call the [corresponding function](../reference/callback_functions.md) in your _callback module_. Depending on the [value your function returns](../reference/reply_options.md), a specific SIP response will be generated and sent. For example, if someone sends you an INVITE, NkSIP will call `sip_invite(Request, Call)` in your callback module (if this function is not defined, the default implementation in [`nksip_sipapp`](../../src/nksip_sipapp.erl) module would be used). You could answer `{reply, busy}` to send a standard _486 Busy_ response, and NkSIP will generate all required SIP headers and send back the response.
 
 
 ## Transactions
@@ -41,7 +44,7 @@ SIP offers two possibilities for sending requests and receiving responses: _insi
 
 A _SIP transaction_ is a piece of state created by a SIP endpoint acting as a client when the request is sent, and it is destroyed soon after a final response is received, or it is created by a SIP endpoint acting as a server when a request is received, and it is destroyed after a final response is sent. Among other things, transactions take care of message retransmissions automatically.
 
-Most SIP requests are usually sent and received inside transactions, but in some cases it makes sense to send or receive requests without a corresponding transaction. As no additional state is stored, the application scales better. NkSIP request generating functions such as `nksip_uac:invite/3` or `nksip_uac:options/3` always use transactions. But you have the option to process incoming requests statelessly, mainly for failed authentication responses (or to test the maximum speed NkSIP is able to process messages). They are also used if you decide to behave as a _stateless proxy_ for any incoming request.
+Most SIP requests are usually sent and received inside transactions, but in some cases it makes sense to send or receive requests without a corresponding transaction. As no additional state is stored, the application scales better. NkSIP request generating functions such as `nksip_uac:invite/3` or `nksip_uac:options/3` always use transactions. But you have the option to process incoming requests statelessly (using responses `process_stateless`, `reply_stateless` or `proxy_stateless` in your `sip_route/5` callback function), mainly for failed authentication responses (or to test the maximum speed NkSIP is able to process messages). They are also used if you decide to behave as a _stateless proxy_ for any incoming request.
 
 If transactions are no used, retransmissions and forked responses will not be detected, and they will look like brand new requests to the application. NkSIP won't send retransmissions either.
 
@@ -52,7 +55,7 @@ Except for INVITE, SIP transactions should be very short-lived. They should comp
 
 A _SIP dialog_ represents a long-term relationship between two endpoints, usually lasting for the duration of a _call_ or _subscription_.
 
-A dialog can host several _usages_ simultaneously: zero or one _INVITE usage_, and any number of _SUBSCRIBE usages_ simultaneously. The first usage creates the dialog, and it is destroyed after the last usage is removed.
+A dialog can host several _usages_ simultaneously: zero or one _INVITE usage_, and any number of _SUBSCRIBE usages_, simultaneously. The first usage creates the dialog, and it is destroyed after the last usage is removed.
 
 A successful response to a INVITE request creates a _INVITE usage_, that is maintained until a BYE request is received. Any starting call will usually create a new dialog (it can actually create several dialogs, but NkSIP will automatically send BYE to all but the first one). When the call is _hung up_, a BYE is usually sent and NkSIP destroys the usage.
 
@@ -60,15 +63,15 @@ New requests can be sent _inside_ the newly created dialog. If no new request is
 
 A successfull SUBSCRIBE followed by a NOTIFY request creates a _SUBSCRIBE usage_, and it is maintained until a NOTIFY with status _terminated_ is received or the subscription expires. You should refresh the usage sending new SUBSCRIBE requests. 
 
-When a dialog is created, destroyed or updated [the corresponding function in your callback module is called](../reference/callback_functions.md#dialog_update3). You can use these calls to know about the dialog current state, for example for billing purposes. Stateless proxies don't generate or process dialogs.
+When a dialog is created, destroyed or updated [the corresponding function in your callback module is called](../reference/callback_functions.md#sip_dialog_update3). You can use these calls to know about the dialog current state, for example for billing purposes. Stateless proxies don't generate or process dialogs.
 
 
 
 ## Sessions
 
-INVITE SIP requests usually carry a body describing a session proposal, using [SDP](http://tools.ietf.org/html/rfc4566) protocol. The remote party can reply with its own SDP, and a new _session_ is then established (audio, video or any other class), associated to the corresponding dialog. During the dialog lifetime, any of the parties can send a new INVITE (it would be what is commonly known as a _reINVITE_) with a new SDP to modify the current session (for example, to put the call _on hold_).
+INVITE SIP requests usually carry a body describing a session proposal, using [SDP](http://tools.ietf.org/html/rfc4566) protocol. The remote party can reply with its own SDP, and a new _session_ is then established (audio, video or any other class), associated to the corresponding dialog. During the dialog lifetime, any of the parties can send a new INVITE (it would be what is commonly known as a _reINVITE_) or UPDATE with a new SDP to modify the current session (for example, to put the call _on hold_).
 
-When, inside a dialog, NkSIP detects that a session has been established, modified or terminated, [it calls the corresponding function in the _callback module_](../reference/callback_functions.md#session_update3). You can use this callback to discover the codecs being used, if a call has been put on hold, or the RTP and RTCP ips and ports been used.
+When, inside a dialog, NkSIP detects that a session has been established, modified or terminated, [it calls the corresponding function in the _callback module_](../reference/callback_functions.md#sip_session_update3). You can use this callback to discover the codecs being used, if a call has been put on hold, or the RTP and RTCP ips and ports been used.
 
 NkSIP is a pure SIP framework and, as such, has no RTP processing capability by itself. This means it cannot decode any _codec_, put the audio on the speaker, save the call audio on disk or host an audio conference. This functions are usually done by a SIP media server.
 
@@ -79,9 +82,9 @@ You can use the functions in [`nksip_sdp`](../../src/nksip_sdp.erl) to access, c
 
 ## Subscriptions
 
-You can send a new subscription requirement to a server sending a [subscribe request](sending_requests.md#subscribe). You should select an [event package](../reference/events.md) supported at the server. It the remote party accepts the request, it will start sending NOTIFYs requests any time it wants to, and NkSIP [will call your callback `notify/4`](../reference/callback_functions.md#notify4) for each one. The body of the NOTIFY will have the meaning defined in this specific event package. You should send a new SUBSCRIBE before the subscriptions expires. 
+You can send a new subscription requirement to a server sending a [subscribe request](sending_requests.md#subscribe). You should select an event package supported at the server. It the remote party accepts the request, it will start sending NOTIFYs requests any time it wants to, and NkSIP [will call your callback `sip_notify/2`](../reference/callback_functions.md#sip_notify2) for each one. The body of the NOTIFY will have the meaning defined in this specific event package. You should send a new SUBSCRIBE before the subscriptions expires. 
 
-If you are defining a server, you indicate in the [SipApp's config](../reference/configuration.md) the event packages you support, and NkSIP [will call your callback `subscribe/4`](../reference/callback_functions.md#subscribe4) when a new valid SUBSCRIBE arrives. If you accept it, you [should call inmeditaly `nksip_uac:notify/2`](sending_requests.md#notify) to send a NOTIFY, and after that, any time you want to. You can also terminate the subscription at any moment.
+If you are defining a server, you indicate in the [SipApp's config](../reference/configuration.md) the event packages you support, and NkSIP [will call your callback `sip_subscribe/2`](../reference/callback_functions.md#sip_subscribe2) when a new valid SUBSCRIBE arrives. If you accept it, you [should call inmeditaly `nksip_uac:notify/2`](sending_requests.md#notify) to send a NOTIFY, and after that, any time you want to. You can also terminate the subscription at any moment.
 
 
 ## Uris
@@ -106,13 +109,13 @@ In some circumstances, it makes sense to override NkSIP automatic calculation of
 
 ## Plugins
 
-There are two ways to include behaviours in NkSIP: SipApps and plugins. 
+There are two different ways to include behaviours in NkSIP: SipApps and Plugins. 
 
 SipApps are the easier way. They are fully described in the documentation, and should be used for nearly all user SIP applications. In the future, it will be even possible to write SipApps in other languages than Erlang.
 
-Plugins are designed as a way to add common functionality to NkSIP, useful for many SipApps. They must be written in Erlang, work very closely to the core and can make NkSIP fail when processing a call if they have a bug. When starting any application, you tell NkSIP all the plugins you want to use for your application. Each one can have a different set of active plugins.
+Plugins are designed as a way to add functionality to NkSIP, useful for many SipApps. They must be written in Erlang, work very closely to the core and can make NkSIP fail when processing a call if they have a bug. When starting any application, you tell NkSIP all the plugins you want to use for your it. Each one can have a different set of active plugins.
 
-Plugins are typically used for event packages, implementing specific RFCs, adding new APIs to manage any external thing (like database access, etc.)
+Plugins are typically used for event packages, implementing specific RFCs, adding new APIs to manage any external thing (like database access) or any other common, low-level functionality.
 
 
 
