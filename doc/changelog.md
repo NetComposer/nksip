@@ -2,6 +2,8 @@
 
 ## 0.4.0 (not yet released)
  
+* Extraction of non-core functionality intro plugins
+* New UAS API
 * **Powerful plugin mechanism**.
 * Reliable provisional responses.
 * UPDATE and MESSAGE methods.
