@@ -1,6 +1,6 @@
-# Configuration
+# NkSIP and SipApps Configuration
 
-NkSIP has two types of configuration options:
+NkSIP has groups types of configuration options:
 * Global configuration options. They are defined as standard Erlang environment variables for `nksip` application, and all of them has a default value. Any started SipApp can override most of them.
 * SiApp configuration options. They are defined when starting the SipApp calling `nksip:start/4`
 
