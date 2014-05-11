@@ -1,10 +1,17 @@
 # Starting a SipApp
 
+* [Starting a SipApp](#starting-a-sipapp)
+* [Implementation](#sipapp-implementation)
+* [Saving State](#saving-state-information)
+* [Reconfiguration](#reconfigure-the-sipapp)
+
+
+## Starting a SipApp
 A SipApp is a SIP entity NkSIP starts for you, that starts listening on one or several sets of transport (UDP, TCP, TLS, SCTP, WS or WSS currently), ip address and port. After starting it, you can [send any SIP request](sending_requests.md), and, when any other SIP entity [sends you a request](receiving_requests.md) NkSIP will notify you so that you can process it and [send an answer](sending_responses.md).
 
 You must first create a _callback Erlang module_ (for very simple applications, you can use the default callback module included with NkSIP, [_nksip_sipapp_](../../src/nksip_sipapp.erl)). The callback module can implement any callback function from the list of NkSIP SipApp's [callback functions](../reference/callback_functions.md). You can take a look to the [`nksip_sipapp`](../../src/nksip_sipapp.erl) module to find the default implementation of each of them.
 
-Once defined the callback module, call `nksip:start/4` to start the SipApp:
+Once defined the callback module, call [`nksip:start/4`](../../src/nksip.erl) to start the SipApp:
 ```erlang
 > nksip:start("my_app", nksip_sipapp, [], [{transports, [{udp, {127,0,0,1}, 5060}]}]).
 {ok,ac0a6o5}
@@ -63,5 +70,4 @@ Keep in mind that if your are receiving heavy traffic, this can be a bottleneck,
 
 
 ## Reconfigure the SipApp
-
 You can change any configured parameter for the SiApp at any time, on the fly, except for new transports specifications. You only need to call `nksip:update/2` to update any configuration parameter.
