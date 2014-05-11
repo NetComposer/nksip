@@ -25,6 +25,7 @@ user_agent|-|Automatically generates a User-Agent header, replacing any previous
 supported|-|Automatically generates a Supported header, replacing any previous value
 allow|-|Automatically generates an Allow header, replacing any previous value
 accept|-|Automatically generates an Accept header, replacing any previous value
+date|-|Automatically generates a Date header, replacing any previous value
 allow_event|-|Automatically generates an Allow-Event header, replacing any previous value
 contact|-|Automatically generates a Contact header, if none is already present|Use it in dialog generaing requests as INVITE
 record_route|-|Automatically generates a Record-Route header, if none is already present|Used in proxies to force new in-dialog requests to pass through this proxy
