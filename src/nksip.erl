@@ -44,7 +44,7 @@
 
 % Util types
 -type name() :: binary() | string() | atom().
--type value() :: binary() | string() | token() | atom() | integer().
+-type value() :: binary() | string() | uri() | token() | atom() | integer().
 
 
 %% Unique Id of each started SipApp
