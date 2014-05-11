@@ -2,112 +2,32 @@
 
 Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. The default implementation of each one can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
 
-Depending on the phase of the request processing, different functions will be called. 
+There are currently two different kinds of callbacks:
+* [gen_server callbacks](#gen_server-callbacks)
+They are called in the context of the SipApp's gen_server process
 
-Under the hood, each started SipApp starts a new standard `gen_server` process. It state is defined in the call to `init/1`, and can be modified using standard functions like `gen_server:call/3`, `gen_server:cast/2`, etc. The registered name of this process is the same as the internal application name (see [Starting a SipApp](../guide/start_nksip.md)).
-
-Most callback functions are not called inside this process, but inside the _current call's process_. Each incoming process having a new Call-ID header starts a new _call process_, that takes care of all requests and responses having that Call-ID, and callback functions are called inside this process. You can call to the _gen_server_ process from them if you want to use it's state, for example to control the access to a resource like an ETS table.
-
-There are however six callback functions that are called _inside_ the gen_server process: `init/1`, `handle_call/3`, `handle_cast/2`, `handle_info/2`, `code_change/3` and `terminate/2`. All of them are similar to a standar gen_server callback module.
-
-All the others are called inside the `call process`. Some of these functions allow you to send a response back, while others expect an answer to decide the next processinf or are called to inform the SipApp about a specific event and don't expect any answer. In all of the cases, you shouldn't spend a long time inside them, because that specific called would be blocked for new requests or retransmissions.
+* [sip callbacks](#sip-callbacks)
+Called in the context of the call's process
 
 
+## Gen_server Callbacks
 
+Under the hood, each started SipApp starts a new standard OTP _gen_server_ process. Its state is created while starting the SipApp, in the call to [init/1](#init1), and can used and modified in the callbacks [handle_call/3](#handle_call3), [handle_cast/2](#handle_cast2) and [terminate/2](#terminate2), called when someone calls `gen_server:call/2,3`, `gen_server:cast/2` or sends a message to the registered application's process (the same as the _internal name_).
 
-<<!--
-Except for `init/1`, all defined functions belong to one of two groups: _expected answer_ functions and _no expected answer_ functions.
-
-The supported return values for _expected answer functions_ are:
-```erlang
-  call_reply() :: 
-      {noreply, State} | {noreply, State, Timeout} | 
-      {reply, Reply, State} | {reply, Reply, State, Timeout} | 
-      {stop, Reason, State} | {stop, Reason, Reply, State}
-      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term()
-```     
-
-The function is expected to return `State` as new SipApp user`s state and a `Reply`, whose meaning is specific to each function and it is described bellow. If a `Timeout` is defined the SipApp process will receive a `timeout` message after the indicated milliseconds period (you must implement `handle_info/2` to receive it. If the function returns `stop` the SipApp will be stopped. If the function does not want to return a reply just know, it must return `{noreply, State}` and call `nksip:reply/2` later on, possibly from a different spawned process.
-
-The supported return values for _no expected answer functions_ are:
-```erlang
-  call_noreply() :: 
-      {noreply, State} | {noreply, State, Timeout} | 
-      {stop, Reason, State} 
-      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term()
-```
-
-Some of the callback functions allow the SipApp to send a response back to the calling party. See the available responses in [sending responses](sending_responses.md).
--->
-
-
-A typical call order would be the following:
-* When starting the SipApp, `init/1` is called to initialize the application state.
-* When a request is received having an _Authorization_ or _Proxy-Authorization_ header, `sip_get_user_pass/4` is called to check the user`s password.
-* NkSIP calls `sip_authorize/3` to check is the request should be authorized.
-* If authorized, it calls `sip_route/5` to decide what to do with the request: proxy it, reply to it or process it locally.
-* If the request is going to be processed locally, `sip_invite/2`, `sip_options/2`, `sip_register/2` etc. are called, depending on the incoming method, and the user must send a reply. If the request is a valid _CANCEL_, belonging to an active _INVITE_ transaction, the INVITE is cancelled and `sip_cancel/3` is called. After sending a successful response to an _INVITE_ request, the other party will send an _ACK_ and `sip_ack/2` will be called.
-* If the request creates or modifies a dialog and/or a SDP session, `sip_dialog_update/3` and/or `sip_session_update/3` are called.
-* If the remote party sends an in-dialog invite (a _reINVITE_), NkSIP will call `sip_reinvite/2` if it is defined, or `sip_invite/2` again if not.
-* If the user has set up an automatic ping or registration, `sip_ping_update/3` or `sip_register_update/3` are called on each status change.
-* When the SipApp is stopped, `terminate/2` is called.
-
-It is **very important** to notice that, as in using normal `gen_server`, there is a single SipApp core process, so you must not spend a long time in any of the callback functions. If you do so, new requests arriving at your SipApp will be blocked and the other party will start to send retransmissions. As no transaction has been created yet, NkSIP will see them as new requests that will be also blocked, and so on.
-
-If the expected processing time of any of your callback functions is high (more than a few milliseconds), you must spawn a new process, return `{noreply, ...}` and do any time-consuming work there. If the called function spawning the process is in the expected answer group, it must call `nksip:reply/2` from the spawned process when a reply is available. Launching new processes in Erlang is a very cheap operation, so in case of doubt follow this recommendation.
-
-Many of the callback functions receive a `RequestId` (`nksip:id()`) and a `Meta` (a list of properties) parameters. Depending on the function, `Meta` will contain the most useful parameters you
-will need to process the request (like de content-type and body). You can use `ReqId` to obtain any oher parameter from the request or dialog, using the helper funcions in `nksip_request` and `nksip_dialog`.
-
-### Inline functions
-
-NkSIP offers another option for defining callback functions. Many of them have an _inline_ form, which, if defined, it will be called instead of the _normal_ form.
-
-Inline functions have the same name of normal functions, but they don`t have the last `State` parameter. They are called in-process, inside the call processing process and not from the SipApp`s process like the normal functions.
-
-Inline functions are much quicker, but they can`t modify the SipApp state. They received a full `nksip:request()` object in `Meta`, so it can use the functions in `nksip_sipmsg` to process it. See `inline_test` for an example of use
-
-
-# Callbacks
+### Callbacks
 
 Callback|Reason
 ---|---
 [init/1](#init1)|Called when the SipApp is launched using `nksip:start/4`
 [terminate/2](#terminate2)|Called when the SipApp is stopped
-[get_user_pass/3](#get_user_pass3)|Called to check a user password for a realm
-[authorize/4](#authorize4)|Called for every incoming request to be authorized or not
-[route/6](#route6)|Called to route the request
-[invite/4](#invite4)|Called to process a new out-of-dialog INVITE request
-[reinvite/4](#reinvite4)|Called to process a new in-dialog INVITE request
-[cancel/3](#cancel3)|Called when a pending INVITE request is cancelled
-[ack/4](#ack4)|Called by NkSIP when a new valid in-dialog ACK request has to be processed locally
-[bye/4](#bye4)|Called to process a BYE request
-[update/4](#update4)|Called to process a UPDATE request
-[info/4](#info4)|Called to process a INFO request
-[options/4](#options4)|Called to process a OPTIONS request
-[register/4](#register4)|Called to process a REGISTER request
-[prack/4](#prack4)|Called to process a PRACK request
-[subscribe/4](#subscribe4)|Called to process a new out-of-dialog SUBSCRIBE request
-[resubscribe/4](#resubscribe4)|Called to process a new in-dialog SUBSCRIBE request
-[notify/4](#notify4)|Called to process a NOTIFY request
-[message/4](#message4)|Called to process a MESSAGE request
-[refer/4](#refer4)|Called to process a REFER request
-[publish/4](#publish4)|Called to process a PUBLISH request
-[dialog_update/3](#dialog_update3)|Called when a dialog's state changes
-[session_update/3](#session_update3)|Called when a SDP session is created or updated
-[ping_update/3](#ping_update3)|Called when an automatic ping state changes
-[register_update/3](#register_update3)|Called when an automatic registration state changes
 [handle_call/3](#handle_call3)|Called when a direct call to the SipApp process is made using `nksip:call/2` or `nksip:call/3`
 [handle_cast/2](#handle_cast2)|Called when a direct cast to the SipApp process is made using `nksip:cast/2`
 [handle_info/2](#handle_info2)|Called when a unknown message is received at the SipApp process
-[registrar_store_op/3](#registrar_store_op3)|Called when a operation database must be done on the registrar database
-[publish_store_op/3](#publish_store_op3)|Called when a operation database must be done on the publisher database
+[code_change/3](#code_change3)|See gen_server's documentation
 
-
-## init/1
+### init/1
 This callback function is called when the SipApp is launched using `nksip:start/4`.
-If `{ok, State}` or `{ok, State, Timeout}` is returned the SipApp is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process 
-(you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the SipApp will not start. 
+If `{ok, State}` or `{ok, State, Timeout}` is returned the SipApp is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the SipApp will not start. 
 
 ```erlang
 -spec init(Args::term()) ->
@@ -117,8 +37,7 @@ init([]) ->
     {ok, {}}.
 ```
 
-
-## terminate/2
+### terminate/2
 Called when the SipApp is stopped.
 
 ```erlang
@@ -129,8 +48,121 @@ terminate(_Reason, _State) ->
     ok.
 ```
 
+### handle_call/3
+Called when a direct call to the SipApp process is made using `gen_server:call/2,3`.
 
-## get_user_pass/3
+```erlang
+-spec handle_call(Msg::term(), From::from(), State::term()) ->
+      {noreply, State} | {noreply, State, Timeout} | 
+      {reply, Reply, State} | {reply, Reply, State, Timeout} | 
+      {stop, Reason, State} | {stop, Reason, Reply, State}
+      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
+
+handle_call(Msg, _From, State) ->
+    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
+```
+
+
+### handle_cast/2
+Called when a direct cast to the SipApp process is made using `gen_server:cast/2`.
+
+```erlang
+-spec handle_cast(Msg::term(), State::term()) ->
+      {noreply, State} | {noreply, State, Timeout} | 
+      {stop, Reason, State} 
+      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
+
+handle_cast(Msg, State) ->
+    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
+```
+
+
+### handle_info/2
+Called when the SipApp process receives an unknown message.
+
+```erlang
+-spec handle_info(Msg::term(), State::term()) ->
+      {noreply, State} | {noreply, State, Timeout} | 
+      {stop, Reason, State} 
+      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
+
+handle_info(_Msg, State) ->
+    {noreply, State}.
+```
+
+### code_change/3
+See gen_server's documentation
+
+```erlang
+-spec code_change(OldVsn::term(), State::term(), Extra::term()) ->
+    {ok, NewState::term()}.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+```
+
+
+
+## SIP Callbacks
+
+Most callback functions are not called inside this process, but inside the _current call's process_. Each incoming process having a new Call-ID header starts a new _call process_, that takes care of all requests and responses having that Call-ID, and these callback functions are called inside this process. 
+
+Some of these functions allow you to send a response back, while others expect an answer to decide the next processing or are called to inform the SipApp about a specific event and don't expect any answer. 
+
+In all of the cases, you shouldn't spend a long time inside them (more than a few miliseconds), because new requests and retransmissions having the same Call-ID would be blocked until the callback function returns. If you need more time, you should spawn a new Erlang process and return.
+
+Many callback functions receive some of the following arguments:
+* Request: represents a full #sipmsg{} structure. 
+* Call: represents the full #call{} process state. 
+* Dialog: represents a specific dialog (#dialog{}) associated to this request.
+* Subscription: represents a specific subscription (#subscription{}) associated to a specific dialog.
+
+In all cases you should use the functions in [the API](api.md) to extract information from these objects. In case you need to spawn a new process, it is recommended that you don't pass any of these objects to the new process, as they are quite heavy. You should extract a _handler_ for each of them and pass it to the new process.
+
+A typical call order would be the following:
+* When a request is received having an _Authorization_ or _Proxy-Authorization_ header, [sip_get_user_pass/4](#sip_get_user_pass/4]) is called to check the user`s password.
+* NkSIP calls [sip_authorize/3](#sip_authorize3) to check if the request should be authorized.
+* If authorized, it calls [sip_route/5](#sip_route5) to decide what to do with the request: proxy it, reply to it or process it locally.
+* If the request is going to be processed locally, sip_invite/2, sip_options/2, sip_register/2 etc., are called, depending on the incoming method, and the user must send a reply. If the request is a valid _CANCEL_, belonging to an active _INVITE_ transaction, the INVITE is cancelled and [sip_cancel/3](#sip_cancel3) is called. After sending a successful response to an _INVITE_ request, the other party will send an _ACK_ and [sip_ack/2](sip_ack2) will be called.
+* If the request creates or modifies a dialog and/or a SDP session, [sip_dialog_update/3](#sip_dialog_update3) and/or [sip_session_update/3](sip_session_update3) are called.
+* If the remote party sends an in-dialog invite (a _reINVITE_), NkSIP will call [sip_reinvite/2](#sip_reinvite2) if it is defined, or [sip_invite/2](#sip_invite_2) again if not.
+* If the user has set up an automatic ping or registration, [sip_ping_update/3](#sip_ping_update3) or [sip_register_update/3](#sip_register_update3) are called on each status change.
+
+
+### Callbacks
+
+Callback|Reason
+---|---
+[sip_get_user_pass/4](#sip_get_user_pass4)|Called to check a user password for a realm
+[sip_authorize/3](#sip_authorize3)|Called for every incoming request to be authorized or not
+[sip_route/5](#sip_route5)|Called to route the request
+[sip_invite/2](#sip_invite2)|Called to process a new out-of-dialog INVITE request
+[sip_reinvite/2](#sip_reinvite2)|Called to process a new in-dialog INVITE request
+[sip_cancel/3](#sip_cancel3)|Called when a pending INVITE request is cancelled
+[sip_ack/2](#sip_ack2)|Called by NkSIP when a new valid in-dialog ACK request has to be processed locally
+[sip_bye/2](#sip_bye2)|Called to process a BYE request
+[sip_update/2](#sip_update2)|Called to process a UPDATE request
+[sip_info/2](#sip_info2)|Called to process a INFO request
+[sip_options/2](#sip_options2)|Called to process a OPTIONS request
+[sip_register/2](#sip_register2)|Called to process a REGISTER request
+[sip_prack/2](#sip_prack2)|Called to process a PRACK request
+[sip_subscribe/2](#sip_subscribe2)|Called to process a new out-of-dialog SUBSCRIBE request
+[sip_resubscribe/2](#sip_resubscribe2)|Called to process a new in-dialog SUBSCRIBE request
+[sip_notify/2](#sip_notify2)|Called to process a NOTIFY request
+[sip_message/2](#sip_message2)|Called to process a MESSAGE request
+[sip_refer/2](#sip_refer2)|Called to process a REFER request
+[sip_publish/2](#sip_publish2)|Called to process a PUBLISH request
+[sip_dialog_update/3](#sip_dialog_update3)|Called when a dialog's state changes
+[sip_session_update/3](#session_update3)|Called when a SDP session is created or updated
+[sip_ping_update/3](#sip_ping_update3)|Called when an automatic ping state changes
+[sip_register_update/3](#sip_register_update3)|Called when an automatic registration state changes
+[sip_registrar_store_op/3](#sip_registrar_store_op3)|Called when a operation database must be done on the registrar database
+[sip_publish_store_op/3](#sip_publish_store_op3)|Called when a operation database must be done on the publisher database
+
+
+### sip_get_user_pass/4
 Called to check a user password for a realm.
 
 When a request is received containing a `Authorization` or `Proxy-Authorization` header, this function is called by NkSIP including the headers `User` and `Realm`, to check if the authorization data in the header corresponds to the user`s password. 
@@ -155,7 +187,7 @@ get_user_pass(_User, _Realm, State) ->
 ```
 
 
-## authorize/4
+### sip_authorize/3
 Called for every incoming request to be authorized or not.
 
 If `ok` is replied the request is authorized and the request processing continues. If `authenticate` is replied, the request will be rejected (statelessly) with a 401 _Unauthorized_. The other party will usually send the request again, this time with an `Authorization` header. If you reply `proxy_authenticate`, it is rejected with a 407 _Proxy Authentication Rejected_ response and the other party will include a `Proxy-Authorization` header.
@@ -179,7 +211,7 @@ authorize(_ReqId, _AuthList, _From, State) ->
     {reply, ok, State}.
 ```
 
-## route/6
+### sip_route/5
 This function is called by NkSIP for every new request, to check if it must be proxied, processed locally or replied immediately. 
 For convenience, the scheme, user and domain parts of the _Request-Uri_ are included.
 
@@ -229,7 +261,7 @@ route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
     {reply, process, State}.
 ```
 
-## invite/4
+### sip_invite/2
 This function is called by NkSIP to process a new INVITE request as an endpoint.
 
 `Meta` will include at least the following parameters: aor, dialog_id, content_type and body (see `nksip_request` for details). If content-type is `application/sdp` the body will be decoded as a `nksip_sdp:sdp()` object you can manage with the functions in `nksip_sdp`.
@@ -251,7 +283,7 @@ invite(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## reinvite/4
+### sip_reinvite/2
 This function is called when a new in-dialog INVITE request is received.
 
 The guidelines and `Meta` in `invite/4` are still valid, but you shouldn`t send provisional responses, sending a final response inmediatly.
@@ -267,7 +299,7 @@ reinvite(_ReqId, _Meta, __From, State) ->
 ```
 
 
-## cancel/3
+### sip_cancel/3
 Called when a pending INVITE request is cancelled.
 
 When a CANCEL request is received by NkSIP, it will check if it belongs to an existing INVITE transaction. If not, a 481 _Call/Transaction does not exist_ will be automatically replied.
@@ -285,7 +317,7 @@ cancel(_ReqId, _Meta, State) ->
 ```
 
 
-## ack/4
+### sip_ack/2
 This function is called by NkSIP when a new valid in-dialog ACK request has to be processed locally.
 
 `Meta` will include at least the following parameters: dialog_id, content_type and body (see `nksip_request` for details).
@@ -302,7 +334,7 @@ ack(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## bye/4
+### sip_bye/2
 Called when a valid BYE request is received.
 
 When a BYE request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP stops the dialog and this callback functions is called. You won't usually need to implement this function, but in case you do, you should reply `ok` to send a 200 response back.
@@ -318,7 +350,7 @@ bye(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## info/4
+### sip_info/2
 Called when a valid INFO request is received.
 
 When an INFO request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP this callback functions is called. If implementing this function, you should reply `ok` to send a 200 response back.
@@ -334,7 +366,7 @@ info(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## options/4
+### sip_options/2
 Called when a OPTIONS request is received.
 
 This function is called by NkSIP to process a new incoming OPTIONS request as an endpoint. If not defined, NkSIP will reply with a 200 _OK_ response, including automatically generated `Allow`, `Accept` and `Supported` headers. 
@@ -353,7 +385,7 @@ options(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## register/4
+### sip_register/2
 This function is called by NkSIP to process a new incoming REGISTER request. 
 
 If it is not defined, but `registrar` option was present in the SipApp's startup config, NkSIP will process the request. It will NOT check if _From_ and _To_ headers contains the same URI, or if the registered domain is valid or not. If you need to check this, implement this function returning `register` if everything is ok. See `nksip_registrar` for other possible response codes defined in the SIP standard registration process.
@@ -381,7 +413,7 @@ register(_ReqId, Meta, _From, State) ->
 ```
 
 
-## prack/4
+### sip_prack/2
 Called when a valid PRACK request is received.
 
 This function is called by NkSIP when a new valid in-dialog PRACK request has to be processed locally, in response to a sent reliable provisional response. You don't usually need to implement this callback. One possible reason to do it is to receive the SDP body from the other party in case it was not present in the INVITE (you can also get it from the `session_update/3` callback).
@@ -397,7 +429,7 @@ prack(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## update/4
+### sip_update/2
 Called when a valid UPDATE request is received.
 
 When a UPDATE request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn`t belong to a current dialog. If it does, this function is called. The request will probably have a SDP body. 
@@ -415,7 +447,7 @@ update(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## subscribe/4
+### sip_subscribe/2
 This function is called by NkSIP to process a new incoming SUBSCRIBE request that has an allowed _Event_ header.
 
 If you reply a 2xx response like `ok` or `accepted`, a dialog and a subscription will start, and you **must inmeditaly send a NOTIFY** using `nksip_uac:notify/3`. You can use the option `{expires, integer()}` to override the expires present in the request, but the new value must be lower, or even 0 to cancel the subscription.
@@ -431,7 +463,7 @@ subscribe(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## resubscribe/4
+### sip_resubscribe/2
 This function is called by NkSIP to process a new in-subscription SUBSCRIBE request, sent in order to refresh the subscription.
 
 You won't usually have to implement this function.
@@ -445,7 +477,7 @@ resubscribe(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## notify/4
+### sip_notify/2
 This function is called by NkSIP to process a new incoming NOTIFY request belonging to a current active subscription.
 
 `Meta` will include at least the following parameters: aor, dialog_id, event, subscription_id, notify_status, content_type and body. Field `notify_status` will have the status of the NOTIFY: `active`, `pending` or `{terminated, Reason::nksip_subscription:terminated_reason()}`.
@@ -461,7 +493,7 @@ notify(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## message/4
+### sip_message/2
 This function is called by NkSIP to process a new incoming MESSAGE request.
 
 If you reply a 2xx response like `ok`  or `accepted`, you are telling to the remote party that the message has been received. Use a 6xx response (like `decline`) to tell it has been refused.
@@ -477,7 +509,7 @@ message(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## refer/4
+### sip_refer/2
 This function is called by NkSIP to process a new incoming REFER.
 
 `Meta` will include at least the following parameters: aor, dialog_id, event, subscription_id and refer_to. Field `refer_to` contains the mandatory _Refer-To_ header.
@@ -507,7 +539,7 @@ refer(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## publish/4
+### sip_publish/2
 This function is called by NkSIP to process a new incoming PUBLISH request. 
 
 `Meta` will include at least the following parameters: app_id, aor, event, etag, parsed_expires. Parameter `etag` will include the incoming _SIP-If-Match_ header if present.
@@ -523,7 +555,7 @@ publish(_ReqId, _Meta, _From, State) ->
 ```
 
 
-## dialog_update/3
+### sip_dialog_update/3
 Called when a dialog has changed its state.
 
 A new dialog will be created when you send an INVITE request (using `nksip_uac:invite/3`) and a provisional (1xx) or successful (2xx) response is received, or after an INVITE is received and the call to `invite/3` callback replies with a successful response. If the response is provisional, the dialog will be marked as temporary or _early_, waiting for the final response to be confirmed or deleted.
@@ -552,7 +584,7 @@ dialog_update(_DialogId, _Status, State) ->
 ```
 
 
-## session_update/3
+### sip_session_update/3
 Called when a dialog has updated its SDP session parameters.
 
 When NkSIP detects that, inside an existing dialog, both parties have agreed on a specific SDP defined session, it will call this function. You can use the functions in [nksip_sdp.erl](../../src/nksip_sdp.erl) to process the SDP data. This function will be also called after each new successful SDP negotiation.
@@ -568,7 +600,7 @@ session_update(_DialogId, _Status, State) ->
 ```
 
 
-## ping_update/3
+### sip_ping_update/3
 Called when the status of an automatic ping configuration changes.
 See [nksip_sipapp_auto:start_ping/5](../../src/nksip_sipapp_auto.erl).
 
@@ -581,7 +613,7 @@ ping_update(_PingId, _OK, State) ->
 ```
 
 
-## register_update/3
+### sip_register_update/3
 Called when the status of an automatic registration configuration changes.
 See [nksip_sipapp_auto:start_register/5](../../src/nksip_sipapp_auto.erl).
 
@@ -595,44 +627,7 @@ register_update(_RegId, _OK, State) ->
 ```
 
 
-## handle_call/3
-Called when a direct call to the SipApp process is made using `nksip:call/2` or `nksip:call/3`.
-
-```erlang
--spec handle_call(Msg::term(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
-
-handle_call(Msg, _From, State) ->
-    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
-    {noreply, State}.
-```
-
-
-## handle_cast/2
-Called when a direct cast to the SipApp process is made using `nksip:cast/2`.
-
-```erlang
--spec handle_cast(Msg::term(), State::term()) ->
-    call_noreply().
-
-handle_cast(Msg, State) ->
-    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
-    {noreply, State}.
-```
-
-
-## handle_info/2
-Called when the SipApp process receives an unknown message.
-
-```erlang
--spec handle_info(Msg::term(), State::term()) ->
-    call_noreply().
-
-handle_info(_Msg, State) ->
-    {noreply, State}.
-```
-
-## registrar_store_op/3
+### sip_registrar_store_op/3
 Called when a operation database must be done on the registrar database.
 
 The possible values for Op and their allowed reply are:
@@ -679,7 +674,7 @@ registrar_store(AppId, Op, State) ->
 ```
 
 
-## publish_store_op/3
+### sip_publish_store_op/3
 Called when a operation database must be done on the publiser database.
 
 The possible values for Op and their allowed reply are:
@@ -725,7 +720,6 @@ publish_store(AppId, Op, State) ->
     end,
     {reply, Reply, State}.
 ```
-
 
 
 
