@@ -8,15 +8,14 @@ You can use a number of options when [sending requests](../guide/sending_request
 
 
 ## Common Options
-All header names should be lowercase.
 
 Option|Types|Description|Commment
 ---|---|---|---|
 {body, Body}|Body::`nksip:body()`|Sets the request body|
-get_request|-|If present, and the callback function is present, if will be called when the request has been sent as `{req, Request, Call}`|You can use the functions in [the API](api.md) to extract relevant information from the request
-meta|`[nksip_sipmsg:field()]`|Use it to select [which specific fields](metadata.md) from the response shall be returned. 
 async|||If present, the call will return inmediatly as `{async, ReqId}`, or `{error, Error}` if an error is produced before sending the request. `ReqId` can be used with the functions in [the API](api.md) to get information about the request (the request may not be sent yet, so the information about transport may not be present)
 callback|`fun/1`|If defined, it will be called for every received provisional response as `{reply, Code, Resp, Call}`. For `async` requests, it is called also for the final response and, if an error is produced before sending the request, as `{error, Error}`
+get_request|-|If present, and the callback function is present, if will be called when the request has been sent as `{req, Request, Call}`|You can use the functions in [the API](api.md) to extract relevant information from the request
+meta|`[nksip_sipmsg:field()]`|Use it to select [which specific fields](metadata.md) from the response shall be returned. 
 {local_host, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route.
 {local_host6, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route using IPv6
 user_agent|-|Automatically generates a User-Agent header, replacing any previous value
@@ -30,7 +29,7 @@ allow_event|-|Automatically generates an Allow-Event header, replacing any previ
 {subscription_state, ST}|ST::`{active, Expires}`&#124;`{pending, Expires}`&#124;`{terminated, Reason}`&#124;`{terminated, Reason, Retry}`, Expires::`undefined&#124;integer()`, Reason::`undefined`&#124;`atom()`|Generates a Subscription-State header
 {sip_etag, ETag}|ETag::`string()`&#124;`binary()`|Includes a Sip-ETag header in the request
 ignore|-|Ignore this option|
-{add, Name, Value}|Name::`nksip:name()`, Value::`nksip:value()`|Adds a new header, after any previous one with the same name|
+{add, Name, Value}|Name::`nksip:name()`, Value::`nksip:value()`|Adds a new header, after any previous one with the same name|All header names should be lowercase
 {add, {Name, Value}}|(same as before)|Same as before|
 {replace, Name, Value}|(same as before)|Adds a new header, replacing any previous one|
 {replace, {Name, Value}}|(same as before)|Same as before|
