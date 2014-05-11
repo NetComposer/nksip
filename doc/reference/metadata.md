@@ -1,4 +1,15 @@
+# Metadata Fields
+NkSIP allows the retrieval of specific information from requests, reponses, dialogs and subscriptions.
+The available options are defined here.
+
+# [Requests and Responses](#requests-and-responses-metadata)
+# [Dialogs](#fialog-metadata)
+# [Subscriptions](#subscriptions-metadata)
+
+
+
 # Request and Responses Metadata
+Accesible when calling `nksip_request:meta/2`, `nksip_response:meta/2` and when using the option `meta` in the [requests sending functions](../guide/sending_requests.md).
 
 Name|Type|Description
 ---|---|---
@@ -50,7 +61,8 @@ all_headers|`[{binary(),[binary()]}]`|Gets all headers and values
 Besides this values, you can use any string() or binary() to the get that header's value
 
 
-## Dialog Metadata
+## Dialogs Metadata
+Available when calling `nksip_dialog:meta/2`.
 
 Name|Type|Description
 ---|---|---
@@ -87,6 +99,8 @@ to_tag|`binary()`|To tag
 
 
 ## Subscriptions Metadata
+Available when calling `nksip_subscription:meta/2`.
+The same options for dialogs are available for subscriptions, and also.
 
 Name|Type|Description
 ---|---|---
