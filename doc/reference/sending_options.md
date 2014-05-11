@@ -27,7 +27,6 @@ allow_event|-|Automatically generates an Allow-Event header, replacing any previ
 contact|-|Automatically generates a Contact header, if none is already present|Use it in dialog generaing requests as INVITE
 record_route|-|Automatically generates a Record-Route header, if none is already present|Used in proxies to force new in-dialog requests to pass through this proxy
 path|-|Automatically generates a Path header, if none is already present|Used in proxies to force new registrations to go through this proxy
-
 {add, Name, Value}|Name::`nksip:name()`, Value::`nksip:value()`|Adds a new header, after any previous one with the same name|All header names should be lowercase
 {add, {Name, Value}}|(same as before)|Same as before|
 {replace, Name, Value}|(same as before)|Adds a new header, replacing any previous one|
