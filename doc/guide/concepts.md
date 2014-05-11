@@ -24,7 +24,9 @@ Each SipApp starts listening on one or more sets of transport, ip address and po
 
 When starting a SipApp, you must supply a **callback Erlang module** for it. There is a number of [callback functions this module can implement](../reference/callback_functions.md). Each of them has an default behaviour, so all of them are optional.
 
-Under the hood, the SipApp is a standard _gen_server_ erlang process, and you can use it with standard functions like `gen_server:call/3`, etc.
+You start a SipApp calling [`nksip:start/4`](../../src/nksip.erl). Any erlang term can be used as a name, but NkSIP will generate an atom as _internal name_ for the SipApp. In most API calls you can use any of them. 
+
+Under the hood, the SipApp is a standard _gen_server_ erlang process, and you can use it with standard functions like `gen_server:call/3`, etc. The internal name is also the registered name for this process.
 
 
 ## Requests and responses
