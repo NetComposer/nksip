@@ -16,7 +16,7 @@
 ### 2. Reference Guide
 
 * [Configuration](reference/configuration.md)
-* [Log](reference/log.md)
+* [Logging System](reference/log.md)
 * [Sending options](reference/sending_options.md)
 * [Application callback functions](reference/callback_functions.md)
 * [API](reference/api.md)
