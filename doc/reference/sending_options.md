@@ -11,7 +11,7 @@ You can use a number of options when [sending requests](../guide/sending_request
 All header names should be lowercase.
 
 Option|Types|Description|Commment
----|---|---|
+---|---|---|---|
 ignore|-|Ignore this option|
 {add, Name, Value}|Name::`nksip:name()`, Value::`nksip:value()`|Adds a new header, after any previous one with the same name|
 {add, {Name, Value}}|(same as before)|Same as before|
