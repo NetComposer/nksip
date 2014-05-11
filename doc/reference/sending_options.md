@@ -17,7 +17,9 @@ callback|`fun/1`|If defined, it will be called for every received provisional re
 get_request|-|If present, and the callback function is also present, if will be called when the request has been sent as `{req, Request, Call}`|You can use the functions in [the API](api.md) to extract relevant information from the request
 meta|`[nksip_sipmsg:field()]`|Use it to select which specific fields from the final response shall be returned|Available fields are describe in [Metadata Options](metadata.md)
 auto_2xx_ack|-|Generates and sends an ACK automatically after a successful INVITE response|
-{pass, Pass}|Pass::`binary()`&#124;`{Realm, binary()}`&#124;`[binary()`&#124;`{Realm, binary()}`, Realm::`binary()`|Passwords to use when a 401 or 407 response is received to generate an automatic new request|Firt {local_host, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route.
+{pass, Pass}|Pass::`binary()`&#124;`{Realm, binary()}`&#124;`[binary()`&#124;`{Realm, binary()}`, Realm::`binary()`|Passwords to use when a 401 or 407 response is received to generate an automatic new request|First entries with matching Realm are used, then entries witout realm
+follow_redirects|-|If present, and a 3xx response is received, a new request will automatically be generated to the new redirected URI|
+{local_host, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route
 {local_host6, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route using IPv6
 user_agent|-|Automatically generates a User-Agent header, replacing any previous value
 supported|-|Automatically generates a Supported header, replacing any previous value
@@ -54,7 +56,6 @@ to_as_from|-|Replaces To header with current From value|Useful for REGISTER requ
 {sip_etag, ETag}|ETag::`string()`&#124;`binary()`|Replaces Sip-ETag header
 no_dialog|-|Do not process dialogs for this request|
 no_auto_expire|-|Do not generate automatic CANCEL for expired INVITE requests|
-matching Realms are used, then passwords without realm
-prack_callback|`fun/2`|If present, it will be called ?|
+prack_callback|`fun/2`|When a reliable provisional response has been received in response of a INVITE request, NkSIP will send a PRACK automatically. If this funcion is present, it will be called as Fun(RemoteSDP, `{resp, Code, Resp, Call}`) and you can modify the SDP to be sent|
 ignore|-|Ignore this option|
 
