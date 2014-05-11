@@ -311,7 +311,7 @@ init([AppId, Args]) ->
     % nksip_proc:put({nksip_sipapp, AppId}, AppName), 
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
     RegState = nksip_sipapp_auto:init(AppId, Args),
-    ets:new(AppId, [named_table, public]),
+    % ets:new(AppId, [named_table, public]),
     case read_uuid(AppId) of
         {ok, UUID} ->
             ok;

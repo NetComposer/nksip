@@ -36,8 +36,7 @@
 
 %% @private
 start_link(AppId, Args) ->
-    {ok, SupPid} = supervisor:start_link(?MODULE, 
-                            [{nksip_sipapp_sup, AppId}, {{one_for_one, 10, 60}, []}]),
+    {ok, SupPid} = supervisor:start_link(?MODULE, [AppId, {{one_for_one, 10, 60}, []}]),
     Childs = [
         {nksip_transport_sup,
             {nksip_transport_sup, start_link, [AppId]},
@@ -71,8 +70,9 @@ start_childs(SupPid, [ChildSpec|Rest]) ->
     end.
 
 %% @private
-init([Reg, ChildsSpec]) ->
-    yes = nksip_proc:register_name(Reg, self()),
+init([AppId, ChildsSpec]) ->
+    ets:new(AppId, [named_table, public]),
+    yes = nksip_proc:register_name({nksip_sipapp_sup, AppId}, self()),
     {ok, ChildsSpec}.
 
 
