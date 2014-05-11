@@ -12,6 +12,23 @@ All header names should be lowercase.
 
 Option|Types|Description|Commment
 ---|---|---|---|
+{body, Body}|Body::`nksip:body()`|Sets the request body|
+get_request|-|If present, and the callback function is present, if will be called when the request has been sent as `{req, Request, Call}`|You can use the functions in [the API](api.md) to extract relevant information from the request
+meta|`[nksip_sipmsg:field()]`|Use it to select [which specific fields](metadata.md) from the response shall be returned. 
+async|||If present, the call will return inmediatly as `{async, ReqId}`, or `{error, Error}` if an error is produced before sending the request. `ReqId` can be used with the functions in [the API](api.md) to get information about the request (the request may not be sent yet, so the information about transport may not be present)
+callback|`fun/1`|If defined, it will be called for every received provisional response as `{reply, Code, Resp, Call}`. For `async` requests, it is called also for the final response and, if an error is produced before sending the request, as `{error, Error}`
+{local_host, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route.
+{local_host6, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route using IPv6
+user_agent|-|Automatically generates a User-Agent header, replacing any previous value
+supported|-|Automatically generates a Supported header, replacing any previous value
+allow|-|Automatically generates an Allow header, replacing any previous value
+accept|-|Automatically generates an Accept header, replacing any previous value
+accept|-|Automatically generates an Date header, replacing any previous value
+allow_event|-|Automatically generates an Allow-Event header, replacing any previous value
+{min_se, SE}|SE::`integer()`|Includes a Min-SE header in the request|Used for Session Timers
+{session_expires, SE}|SE::`integer()`&#124;`{integer(), uac}`&#124;`{integer(), uas}`|Includes a Session-Expires header in the request|Used for Session Timers
+{subscription_state, ST}|ST::`{active, Expires}`&#124;`{pending, Expires}`&#124;`{terminated, Reason}`&#124;`{terminated, Reason, Retry}`, Expires::`undefined&#124;integer()`, Reason::`undefined`&#124;`atom()`|Generates a Subscription-State header
+{sip_etag, ETag}|ETag::`string()`&#124;`binary()`|Includes a Sip-ETag header in the request
 ignore|-|Ignore this option|
 {add, Name, Value}|Name::`nksip:name()`, Value::`nksip:value()`|Adds a new header, after any previous one with the same name|
 {add, {Name, Value}}|(same as before)|Same as before|
@@ -31,34 +48,17 @@ ignore|-|Ignore this option|
 {reason, Reason}|Reason::`string()`&#124;`binary()`|Same as {replace, "reason", Reason}|
 {event, Reason}|Event::`string()`&#124;`binary()`&#124;`nksip:token()`|Same as {replace, "event", Event}|
 to_as_from|-|Replace To header with current From value|Useful for REGISTER requests
-{body, Body}|Body::`nksip:body()`|Sets the request body|
 {cseq_num, CSeq}|CSeq::`integer()`|Sets the numeric part of the CSeq header|Do not use in in-dialog requests
 contact|-|Automatically generates a Contact header, if none is already present|Use it in dialog generaing requests as INVITE
 record_route|-|Automatically generates a Record-Route header, if none is already present|Used in proxies to force new in-dialog requests to pass through this proxy
 path|-|Automatically generates a Path header, if none is already present|Used in proxies to force new registrations to go through this proxy
-get_request|-|If present, and the callback function is present, if will be called when the request has been sent as `{req, Request, Call}`|You can use the functions in [the API](api.md) to extract relevant information from the request
 no_dialog|-|Do not process dialogs for this request|
 no_auto_expire|-|Do not generate automatic CANCEL for expired INVITE requests|
 auto_2xx_ack|-|Generates and sends an ACK automatically after a successful INVITE response|
 {pass, Pass}|Pass::`binary()`&#124;`{Realm, binary()}`&#124;`[binary()`&#124;`{Realm, binary()}`, Realm::`binary()`|Passwords to use when a 401 or 407 response is received to generate an automatic new request|Firt matching Realms are used, then passwords without realm
-meta|`[nksip_sipmsg:field()]`|Use it to select [which specific fields](metadata.md) from the response shall be returned. 
-async|||If present, the call will return inmediatly as `{async, ReqId}`, or `{error, Error}` if an error is produced before sending the request. `ReqId` can be used with the functions in [the API](api.md) to get information about the request (the request may not be sent yet, so the information about transport may not be present)
-callback|`fun/1`|If defined, it will be called for every received provisional response as `{reply, Code, Resp, Call}`. For `async` requests, it is called also for the final response and, if an error is produced before sending the request, as `{error, Error}`
-{local_host, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route.
-{local_host6, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route using IPv6
 prack_callback|`fun/2`|If present, it will be called ?|
 {reg_id, RegId}|RegId::`integer()`|`reg-id` field to use in REGISTER requests|For Outbound support
 {refer_subscription_id, Refer}|Refer::`nksip:id()`|If present, ...
-user_agent|-|Automatically generates a User-Agent header, replacing any previous value
-supported|-|Automatically generates a Supported header, replacing any previous value
-allow|-|Automatically generates an Allow header, replacing any previous value
-accept|-|Automatically generates an Accept header, replacing any previous value
-accept|-|Automatically generates an Date header, replacing any previous value
-allow_event|-|Automatically generates an Allow-Event header, replacing any previous value
-{min_se, SE}|SE::`integer()`|Includes a Min-SE header in the request|Used for Session Timers
-{session_expires, SE}|SE::`integer()`&#124;`{integer(), uac}`&#124;`{integer(), uas}`|Includes a Session-Expires header in the request|Used for Session Timers
-{subscription_state, ST}|ST::`{active, Expires}`&#124;`{pending, Expires}`&#124;`{terminated, Reason}`&#124;`{terminated, Reason, Retry}`, Expires::`undefined&#124;integer()`, Reason::`undefined`&#124;`atom()`|Generates a Subscription-State header
-{sip_etag, ETag}|ETag::`string()`&#124;`binary()`|Includes a Sip-ETag header in the request
 
 
 no_100|-|Do not generate 100 responses
