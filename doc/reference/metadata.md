@@ -100,7 +100,7 @@ to_tag|`binary()`|To tag
 
 ## Subscriptions Metadata
 Available when calling `nksip_subscription:meta/2`.
-The same options for dialogs are available for subscriptions, and also.
+All dialog options are available for subscriptions, and also:
 
 Name|Type|Description
 ---|---|---
