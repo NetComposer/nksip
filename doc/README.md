@@ -11,8 +11,6 @@
 * [Sending Requests](guide/sending_requests.md)
 * [Receiving Requests](guide/receiving_requests.md)
 * [Sending Responses](guide/sending_responses.md)
-* Routing
-* Proxy
 
 ### 2. Reference Guide
 
@@ -23,7 +21,6 @@
 * [Replying Options](reference/reply_options.md)
 * [API](reference/api.md)
 * [Logging Options](reference/log.md)
-* Resolver
 
 ### 3. Standard plugins
 
@@ -37,16 +34,17 @@
 * Path
 * Tracer
 
-### 4. Example Applications
+### [4. Cookbook](cookbook) 
+
+### 5. Example Applications
 
 * [PBX](samples/pbx.md)
 * [LoadTest](samples/loadtest.md)
 
-### [5. Cookbook](cookbook) 
-
 
 ### 6. Advanced
 
+* Resolver
 * How to write a plugin
 * Plugin callback reference
 
