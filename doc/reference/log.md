@@ -1,8 +1,9 @@
-# Logging
+# Logging Options
 
 NkSIP uses [Lager](https://github.com/basho/lager) for logging, supporting multiple log levels, log rotation, etc. The following `Lager` levels are used:
 
 Level|Typical use
+---|---
 `debug`|Maximum level of information. Do not use it in production
 `info`|Detailed information. Not recommended in production
 `notice`|Important information. Recommended in production
