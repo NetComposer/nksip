@@ -5,11 +5,11 @@ Once started a SipApp with a name, a _callback module_ and a group of options, i
 All of the callback functions are optional, so you only have to implement the functions you need. For example, if you need to perform authentication, you should implement [sip_authorize/3](../reference/callback_functions.md#authorize3). If you don't implement it, no authorization would be done.
 
 There are currently three different kinds of callbacks:
-* [gen_server callbacks](#gen_server-callbacks)
+* [_gen_server_ callbacks](#gen_server-callbacks)
 * [sip callbacks](#sip-callbacks)
-* [other callbacks](other-callbacks): 
+* [other callbacks](other-callbacks)
 
-## Gen_server Callbacks
+## _gen_server_ Callbacks
 
 Under the hood, each started SipApp starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the SipApp.
 
