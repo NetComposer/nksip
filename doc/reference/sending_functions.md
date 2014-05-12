@@ -1,6 +1,6 @@
 # Request Sending Functions
 
-See a general description [in the guide](../guide/sending_requests.md) and and the full list of options in [Sending Options](../reference/sending_options.md).
+See a general description [Sending Requests](../guide/sending_requests.md) and and the full list of options in [Sending Options](../reference/sending_options.md).
 
 
 Function|Comment
@@ -16,7 +16,7 @@ Function|Comment
 [update/2](#update)|Sends an in-dialog UPDATE request
 [info/2](#info)|Sends an in-dialog INFO request
 [subscribe/3](#subscribe)|Sends an out-of-dialog SUBSCRIBE request
-[subscribe/2](#subscribe)|Sends an in-dialog SUBSCRIBE request
+[subscribe/2](#subscribe)|Sends an in-dialog or in-subscription SUBSCRIBE request
 [notify/2](#notify)|Sends an in-dialog NOTIFY request
 [message/3](#message)|Sends an out-of-dialog MESSAGE request
 [message/2](#message)|Sends an in-dialog MESSAGE request
@@ -24,8 +24,8 @@ Function|Comment
 [refer/2](#refer)|Sends an in-dialog REFER request
 [publish/3](#publish)|Sends an out-of-dialog PUBLISH request
 [publish/2](#publish)|Sends an in-dialog PUBLISH request
-[request/3](#request)|Sends an out-of-dialog generic request
-[request/2](#request)|Sends an in-dialog generic request
+[request/3](#generic-request)|Sends an out-of-dialog generic request
+[request/2](#generic-request)|Sends an in-dialog generic request
 [stun/3](#stun)|Sends a STUN request
 
 
@@ -83,7 +83,8 @@ The first meta returned value is allways `{dialog_id, DialogId}`, even if the `m
 
 
 ### Ack
-```ack(DialogId, Opts)
+```
+ack(DialogId, Opts)
 ```
 
 After sending an INVITE and receiving a successfully (2xx) response, you must call this function immediately to send the mandatory ACK (unless option `auto_2xx_ack` is used). NkSIP won`t send it for you automatically in case of a successful response, because you may want to include a SDP body if you didn`t do it in the INVITE request.
@@ -92,7 +93,8 @@ For sync requests, it will return `ok` if the request could be sent or `{error, 
 
 
 ### Bye
-```bye(DialogId, Opts)
+```
+bye(DialogId, Opts)
 ```
 
 Sends an _BYE_ for a current dialog, terminating the session.
@@ -100,7 +102,9 @@ Sends an _BYE_ for a current dialog, terminating the session.
 
 ### Cancel
 
-`cancel(RequestId, Opts)`
+```
+cancel(RequestId, Opts)
+```
 
 Sends an _CANCEL_ for a currently ongoing _INVITE_ request.
 
@@ -111,7 +115,9 @@ This call is always asychronous. It returns a soon as the request is received an
 
 ### Update
 
-`update(DialogId, Opts)`
+```
+update(DialogId, Opts)
+```
 
 Sends an  UPDATE on a currently ongoing dialog, allowing to change the media session before the dialog has been confirmed. A session timer will be started.
 Options `supported`, `accept` and `allow` are automatically added.
