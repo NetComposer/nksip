@@ -401,11 +401,17 @@ parse_opts([Term|Rest], Req, Opts) ->
                 Events -> {replace, <<"allow-event">>, Events}
             end;
 
+        % Register options
+        unregister_all ->
+            {retry, [{contact, <<"*">>}, {expires, 0}|Rest]};
+        unregister ->
+            {retry, [contact, {expires, 0}|Rest]};
+
         % Timer options
         {min_se, SE} when is_binary(SE); is_integer(SE) ->
             {replace, <<"min-se">>, SE};
         {session_expires, SE} when is_integer(SE) ->
-            {retry, {session_expires, {SE, undefined}}};
+            {retry, [{session_expires, {SE, undefined}}|Rest]};
         {session_expires, {SE, Refresh}} when is_integer(SE) ->
             case AppId:config_min_session_expires() of
                 MinSE when SE<MinSE -> 
@@ -421,28 +427,40 @@ parse_opts([Term|Rest], Req, Opts) ->
         % Event options
         {subscription_state, ST} when Method=='NOTIFY'->
             Value = case ST of
-                {active, undefined} -> 
+                active ->
                     <<"active">>;
                 {active, Expires} when is_integer(Expires), Expires>0 ->
                     {<<"active">>, [{<<"expires">>, nksip_lib:to_binary(Expires)}]};
-                {pending, undefined} -> 
+                pending ->
                     <<"pending">>;
                 {pending, Expires} when is_integer(Expires), Expires>0 ->
                     {<<"pending">>, [{<<"expires">>, nksip_lib:to_binary(Expires)}]};
-                {terminated, Reason, undefined} when is_atom(Reason) ->
+                {terminated, Reason} when 
+                        Reason==deactivated; Reason==probation; Reason==rejected; 
+                        Reason==timeout; Reason==giveup; Reason==noresource; 
+                        Reason==invariant ->
                     {<<"terminated">>, [{<<"reason">>, nksip_lib:to_binary(Reason)}]};
-                {terminated, Reason, Retry} when is_atom(Reason), is_integer(Retry) ->
+                {terminated, Reason, undefined} when 
+                        Reason==deactivated; Reason==probation; Reason==rejected; 
+                        Reason==timeout; Reason==giveup; Reason==noresource; 
+                        Reason==invariant ->
+                    {<<"terminated">>, [{<<"reason">>, nksip_lib:to_binary(Reason)}]};
+                {terminated, Reason, Retry} when 
+                        (Reason==probation orelse Reason==giveup) andalso
+                        is_integer(Retry) andalso Retry>0 ->
                     {<<"terminated">>, [
                         {<<"reason">>, nksip_lib:to_binary(Reason)},
-                        {<<"retry-after">>, Retry}]};
+                        {<<"retry-after">>, Retry}]};                
                 _ ->
-                    throw({invalid, subscription_state})
+                    throw({invalid, {subscription_state, ST}})
             end,
             {replace, <<"subscription-state">>, Value};
+        {refer_to, Url} ->
+            {replace, "refer-to", Url};
 
         % Publish options
-        {sip_etag, ETag} ->
-            {replace, <<"sip-etag">>, nksip_lib:to_binary(ETag)};
+        {sip_if_match, ETag} ->
+            {replace, <<"sip-if-match">>, nksip_lib:to_binary(ETag)};
 
         {Name, _} ->
             throw({invalid, Name});
@@ -464,8 +482,8 @@ parse_opts([Term|Rest], Req, Opts) ->
             parse_opts(Rest, PReq, Opts);
         {update, UpdReq, UpdOpts} -> 
             parse_opts(Rest, UpdReq, UpdOpts);
-        {retry, RetTerm} ->
-            parse_opts([RetTerm|Rest], Req, Opts);
+        {retry, Terms} ->
+            parse_opts(Terms, Req, Opts);
         move_to_last ->
             parse_opts(Rest++[Term], Req, Opts);
         ignore ->

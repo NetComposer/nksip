@@ -70,7 +70,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
         _ -> ?DEFAULT_PUBLISH_EXPIRES
     end,
     AOR = {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain},
-    case nksip_sipmsg:header(<<"sip-etag">>, Req) of
+    case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
         [] when Body == <<>> ->
             invalid_request;
         [] ->

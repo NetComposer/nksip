@@ -74,7 +74,7 @@ reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
                 async, 
                 {content_type, <<"message/sipfrag;version=2.0">>}, 
                 {body, Sipfrag},
-                {state, 
+                {subscription_state, 
                     case Code>=200 of 
                         true -> {terminated, noresource}; 
                         false -> active

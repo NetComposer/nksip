@@ -75,11 +75,11 @@ basic() ->
 
     % This ETag1 is not at the server
     {ok, 412, []} = nksip_uac:publish(client1, SipC2, 
-            [{event, "nkpublish"}, {sip_etag, <<"other">>}]),
+            [{event, "nkpublish"}, {sip_if_match, <<"other">>}]),
 
     {ok, 200, [{sip_etag, ETag1}, {expires, 0}]} = 
         nksip_uac:publish(client1, SipC2, 
-            [{event, "nkpublish"}, {expires, 0}, {sip_etag, ETag1}]),
+            [{event, "nkpublish"}, {expires, 0}, {sip_if_match, ETag1}]),
 
     {error, not_found} = nksip_publish:find(client2, AOR, ETag1),
 
@@ -91,7 +91,7 @@ basic() ->
 
     {ok, 200, [{sip_etag, ETag2}, {expires, 1}]} = 
         nksip_uac:publish(client1, SipC2, 
-            [{event, "nkpublish"}, {expires, 1}, {sip_etag, ETag2}, {body, <<"data3">>}]),
+            [{event, "nkpublish"}, {expires, 1}, {sip_if_match, ETag2}, {body, <<"data3">>}]),
 
     {ok, #reg_publish{data = <<"data3">>}} = nksip_publish:find(client2, AOR, ETag2),
     ok.

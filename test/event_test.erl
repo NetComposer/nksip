@@ -142,7 +142,8 @@ basic() ->
     Dialog2A = nksip_dialog:get_id(Subs2A),
     tests_util:update_ref(client1, Ref, Dialog2A),
 
-    {ok, 200, []} = nksip_uac:notify(Subs2B, [{state, pending}, {body, <<"notify1">>}]),
+    {ok, 200, []} = nksip_uac:notify(Subs2B, 
+                            [{subscription_state, pending}, {body, <<"notify1">>}]),
 
     ok = tests_util:wait(Ref, [
         {subs, pending, Subs2B}, 
@@ -162,7 +163,8 @@ basic() ->
         {subs, middle_timer, Subs2B}  
     ]),
 
-    {ok, 200, []} = nksip_uac:notify(Subs2B, [{state, {terminated, giveup, 5}}]),
+    {ok, 200, []} = nksip_uac:notify(Subs2B, 
+                            [{subscription_state, {terminated, giveup, 5}}]),
 
     ok = tests_util:wait(Ref, [
         {client1, {notify, <<>>}},
@@ -198,7 +200,7 @@ refresh() ->
     20 = nksip_subscription:meta(expires, Subs1B),
     
     % But we finish de dialog
-    {ok, 200, []} = nksip_uac:notify(Subs1B, [{state, {terminated, giveup}}]),
+    {ok, 200, []} = nksip_uac:notify(Subs1B, [{subscription_state, {terminated, giveup}}]),
     ok = tests_util:wait(Ref, [{subs, {terminated, giveup}, Subs1B}]),
     
     % A new subscription
@@ -412,7 +414,7 @@ fork() ->
     [_] = nksip_dialog:meta(subscriptions, D3),
     [_] = nksip_dialog:meta(subscriptions, D4),
 
-    {ok, 200, []} = nksip_uac:notify(SubsB, [{state, {terminated, giveup}}]),
+    {ok, 200, []} = nksip_uac:notify(SubsB, [{subscription_state, {terminated, giveup}}]),
     ok.
 
 

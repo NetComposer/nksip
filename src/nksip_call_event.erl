@@ -441,6 +441,14 @@ request_uac_opts('SUBSCRIBE', Opts, #subscription{event=Event, expires=Expires})
 request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer}) ->
     {value, {_, SS}, Opts1} = lists:keytake(subscription_state, 1, Opts),
     SS1 = case SS of
+        State when State==active; State==pending ->
+            case is_reference(Timer) of
+                true -> 
+                    Expires = round(erlang:read_timer(Timer)/1000),
+                    {State, Expires};
+                false ->
+                    {terminated, timeout, undefined}
+            end;
         {State, _Expire} when State==active; State==pending ->
             case is_reference(Timer) of
                 true -> 
@@ -449,8 +457,8 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
                 false ->
                     {terminated, timeout, undefined}
             end;
-        {terminated, Reason, Retry} ->
-            {terminated, Reason, Retry}
+        _ ->
+            SS
     end,
     [{event, Event}, {subscription_state, SS1} | Opts1].
 
