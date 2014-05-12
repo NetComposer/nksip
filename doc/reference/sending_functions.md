@@ -203,7 +203,7 @@ Sends an PUBLISH request.
 
 This functions sends a new publishing to the other party, you **must** include the mandatory `{event, Event}` remote supported event package and include a body. Options `supported`, `allow` and `allow_event` are automatically added.
 
-If the remote party returns a 2xx response, it means that the publishing has been accepted, and the body has been stored. A _SIP-ETag_ header will be returned (a `sip_etag` parameter will always be returned in meta). You can use this parameter to update the stored information (sending a new body), or deleting it (using `{expires, 0}`).
+If the remote party returns a 2xx response, it means that the publishing has been accepted, and the body has been stored. A _SIP-ETag_ header will be returned (a `sip_etag` parameter will always be returned in meta). You can use this ETag (using `{sip_if_match, ETag}` option) to update the stored information (sending a new body), or deleting it (using `{expires, 0}`).
 
 
 ### Generic request
