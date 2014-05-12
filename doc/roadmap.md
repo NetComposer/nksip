@@ -5,6 +5,7 @@
 * Documentation improvement.
 * Heavy testing
 * Extraction of non-core functionality into plugins
+* Test in R17
 * ~~**Powerful plugin mechanism**~~.
 * ~~New UAS API~~
 * ~~Reliable provisional responses~~.
