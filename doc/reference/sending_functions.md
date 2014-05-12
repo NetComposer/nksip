@@ -206,7 +206,7 @@ This functions sends a new publishing to the other party, you **must** include t
 If the remote party returns a 2xx response, it means that the publishing has been accepted, and the body has been stored. A _SIP-ETag_ header will be returned (a `sip_etag` parameter will always be returned in meta). You can use this ETag (using `{sip_if_match, ETag}` option) to update the stored information (sending a new body), or deleting it (using `{expires, 0}`).
 
 
-### Generic request
+### Generic Request
 ```
 request(App, Uri, Opts)
 request(DialogId, Opts)
@@ -215,7 +215,7 @@ request(DialogId, Opts)
 Allows you to send any SIP request, without the automatic processing of the previous functions. 
 
 
-### Stun
+### stun
 ```
 stun(App, Uri, Opts)
 ```
