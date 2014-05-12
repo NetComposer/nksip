@@ -52,6 +52,8 @@ to_as_from||Replaces To header with current From value|Useful for REGISTER reque
 unregister_all||For REGISTER requests, sets Contact to "*" and Expires to 0|Only for REGISTER
 unregister||For REGISTER requests, sets `contact` and Expires to 0|Only for REGISTER
 {reg_id, RegId}|RegId::`integer()`|`reg-id` field to use in REGISTER requests|Only for REGISTER and Outbound support
+{subscription_state, ST}|see [notify/2](../guide/sending_requests.md#notify)|Only to be used in NOTIFY requests
+{refer_to, Url}|Url::`string()`&#124;`binary()`&#124;`nksip:uri()`|Replaces Refer-To header|Only to be used in REFER requests
 {refer_subscription_id, Refer}|Refer::`nksip:id()`|If present a NOTIFY request will be automatically generated and send for each response.
 {min_se, SE}|SE::`integer()`|Replaces Min-SE header|Used for Session Timers. Minimum Session Expires we allow.
 {session_expires, SE}|SE::`integer()`&#124;`{integer(), uac`&#124;`uas}`|Replaces Session-Expires header|Used for Session Timers. Session Expires we propose
@@ -61,4 +63,3 @@ no_dialog||Do not process dialogs for this request|
 no_auto_expire||Do not generate automatic CANCEL for expired INVITE requests|
 prack_callback|`fun/2`|When a reliable provisional response has been received in response of a INVITE request, NkSIP will send a PRACK automatically. If this funcion is present, it will be called as Fun(RemoteSDP, `{resp, Code, Resp, Call}`) and you can modify the SDP to be sent|
 ignore||Ignore this option|
-
