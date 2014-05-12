@@ -29,7 +29,7 @@ Function|Comment
 [stun/3](#stun)|Sends a STUN request
 
 
-### Options
+### options
 ```
 options(App, Uri, Opts)
 options(DialogId, Opts)
@@ -38,29 +38,31 @@ options(DialogId, Opts)
 OPTIONS requests are usually sent to get the current set of SIP features and codecs the remote party supports, and to detect if it is _up_, it has failed or it is not responding requests for any reason. It can also be used to measure the remote party response time.
 
 Options `supported`, `allow` and `allow_event` are automatically added.
+
 NkSIP has an automatic remote _pinging_ feature that can be activated on any SipApp (see plugins).
 
 
-### Register
+### register
 ```
 register(App, Uri, Opts)
 ```
 
-
-This function is used to send a new REGISTER request to any registrar server, to register a new _Contact_, delete a current registration or get the list of current registered contacts from the registrar. To register a contact you should use optons `{contact, Contact}` or `contact`, and typically `expires`. If you include no contact, the current list of registered contacts should be returned by the server.
+This function is used to send a new REGISTER request to any registrar server, to register a new _Contact_, delete a current registration or get the list of current registered contacts from the registrar. To register a contact you should use optons `{contact, Contact}` or `contact`, and typically `expires`. If you include no contact, the current list of registered contacts should be returned by the server (use `contact` as `meta` option to get it)
 
 Options `to_as_from`, `supported`, `allow` and `allow_events` are automatically added. 
 You can use also use the options `unregister` to unregister included or default contact and `unregister_all` to unregister all contacts. Option `reg_id` is also available for outbound support.
-Keep in mind that, once you send a REGISTER requests, following refreshes should have the same _Call-ID_ and incremented _CSeq_ headers.|
+Keep in mind that, once you send a REGISTER requests, following refreshes should have the same _Call-ID_ and incremented _CSeq_ headers.
+
+NkSIP has an automatic registration feature that can be activated on any SipApp (see plugins).
 
 
-### Invite
+### invite
 ```
 invite(App, Uri, Opts)
 invite(DialogId, Opts)
 ```
 
-This functions sends a new session invitation to another endpoint or proxy. Options `contact`, `supported`, `allow` and `allow_event` are automatically added.
+These functions sends a new session invitation to another endpoint or proxy. Options `contact`, `supported`, `allow` and `allow_event` are automatically added.
 
 When the first provisional response from the remote party is received (as 180 _Ringing_) a new dialog will be started, and the corresponding callback [sip_dialog_update/3](../reference/callback_functions.md#sdp_dialog_update3) in the callback module will be called. If this response has also a valid SDP body, a new session will be associated with the dialog and the corresponding callback [sip_session_update/3](../reference/callback_functions.md#sip_session_update3)  will also be called.
 
