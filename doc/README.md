@@ -17,10 +17,11 @@
 ### 2. Reference Guide
 
 * [Configuration](reference/configuration.md)
-* [Sending options](reference/sending_options.md)
-* [Callback functions](reference/callback_functions.md)
+* [Sending Functions](reference/sending_functions.md)
+* [Sending Options](reference/sending_options.md)
+* [Callback Functions](reference/callback_functions.md)
+* [Replying Options](reference/reply_options.md)
 * [API](reference/api.md)
-* [Replying options](reference/reply_options.md)
 * [Logging Options](reference/log.md)
 * Resolver
 
