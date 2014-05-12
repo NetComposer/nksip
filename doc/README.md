@@ -18,7 +18,7 @@
 
 * [Configuration](reference/configuration.md)
 * [Sending options](reference/sending_options.md)
-* [Application callback functions](reference/callback_functions.md)
+* [Callback functions](reference/callback_functions.md)
 * [API](reference/api.md)
 * [Replying options](reference/reply_options.md)
 * [Logging Options](reference/log.md)
