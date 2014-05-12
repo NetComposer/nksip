@@ -9,7 +9,8 @@
 * [Starting NkSIP](guide/start_nksip.md)
 * [Writing a SipApp](guide/start_a_sipapp.md)
 * [Sending Requests](guide/sending_requests.md)
-* [Receiving Requests](guide/receiving_requests.md) and [sending responses](guide/sending_responses.md)
+* [Receiving Requests](guide/receiving_requests.md)
+* [Sending Responses](guide/sending_responses.md)
 * Routing
 * Proxy
 
@@ -43,14 +44,11 @@
 ### [5. Cookbook](cookbook) 
 
 
-### 6. Advanced Concepts
+### 6. Advanced
 
-* Overall picture
-* Scalability concepts
 * How to write a plugin
 * Plugin callback reference
 
 ### [7. Roadmap](roadmap.md) 
 ### [8. Changelog](changelog.md) 
-
 
