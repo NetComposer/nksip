@@ -9,7 +9,7 @@ There are currently three different kinds of callbacks:
 * [sip callbacks](#sip-callbacks)
 * [other callbacks](other-callbacks)
 
-## _gen_server_ Callbacks
+## _gen_server_ callbacks
 
 Under the hood, each started SipApp starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the SipApp.
 
@@ -21,7 +21,7 @@ The list of available gen_server callbacks functions is available [here](../refe
 
 
 
-## SIP Callbacks
+## SIP callbacks
 
 When a new request is received, NkSIP will extract the _Call-ID_ header, to see if a process to manage that specific call has already been started, sending the request to it to be processed. If it is not yet started, a new one is launched, associated to this specific Call-ID. This process will then start start calling specific functions in the callback module defined when the SipApp was started. 
 
@@ -50,7 +50,7 @@ Many of the functions in this group allow you to send a response to the incoming
 The list of available SIP callbacks functions is available [here](../reference/callback_functions.md#sip-callbacks).
 
 
-## Other Callbacks
+## Other callbacks
 
 There are other callbacks that are not related to the gen_server process nor the call process.
 The list of the rest of callbacks functions is available [here](../reference/callback_functions.md#other-callbacks).
