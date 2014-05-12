@@ -17,11 +17,11 @@
 ### 2. Reference Guide
 
 * [Configuration](reference/configuration.md)
-* [Log](reference/log.md)
 * [Sending options](reference/sending_options.md)
 * [Application callback functions](reference/callback_functions.md)
 * [API](reference/api.md)
 * [Replying options](reference/reply_options.md)
+* [Logging Options](reference/log.md)
 * Resolver
 
 ### 3. Standard plugins
