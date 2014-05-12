@@ -1,6 +1,6 @@
 # Sending Requests
 
-To send a new request, you should use one of the functions in [nksip_uac](../../src/nksip_uac.erl) module. NkSIP supports all defined SIP methods: OPTIONS, REGISTER, INVITE, ACK, BYE, CANCEL, INFO, PRACK, UPDATE, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE.
+To send a new request, you should use [one of the functions](../reference/sending_functions.md) in [nksip_uac](../../src/nksip_uac.erl) module. NkSIP supports all defined SIP methods: OPTIONS, REGISTER, INVITE, ACK, BYE, CANCEL, INFO, PRACK, UPDATE, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE.
 
 Depending on the specific method, the request should be sent out of any existing dialog and/or in-dialog. Out-of-dialog sending request functions will need a SipApp name (_user name_ or _internal name_), a _sip uri_ to send the request to and an optional [list of options](../reference/sending_options.md). In-dialog sending request functions will usually need the _dialog's id_ or _subscription's id_ of the dialog or subscription. You can get them from the returned _meta_ values of dialog-generating functions (like INVITE or SUBSCRIBE) or from [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3) callback function. 
 
