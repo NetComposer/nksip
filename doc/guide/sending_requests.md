@@ -2,20 +2,20 @@
 
 To send a new request, you should use one of the functions in [nksip_uac](../../src/nksip_uac.erl) module. NkSIP supports all defined SIP methods: OPTIONS, REGISTER, INVITE, ACK, BYE, CANCEL, INFO, PRACK, UPDATE, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE.
 
-Depending on the specific method, the request should be sent out of any existing dialog and/or in-dialog. Out-of-dialog sending request functions will need SipApp name (user or internal), _sip uri_ to send the request to and an optional [list of options](../reference/uac_options.md). In-dialog sending request functions will usually need the _dialog's id_ or _subscription`s id_ of the dialog or subscription. You can get these from the returned _meta_ values of dialog-generating functions (like INVITE or SUBSCRIBE) or from [sip_dialog_update/3](../..callback_functions#sip_dialog_update3) callback function. 
+Depending on the specific method, the request should be sent out of any existing dialog and/or in-dialog. Out-of-dialog sending request functions will need a SipApp name (_user name_ or _internal name_), a _sip uri_ to send the request to and an optional [list of options](../reference/sending_options.md). In-dialog sending request functions will usually need the _dialog's id_ or _subscription's id_ of the dialog or subscription. You can get them from the returned _meta_ values of dialog-generating functions (like INVITE or SUBSCRIBE) or from [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3) callback function. 
 
-`Meta` can include some metadata about the response. Use the option `meta` to select which metadatas you want to receive (see [metadata description](../reference/metadata.md). Some methods (like INVITE and SUBSCRIBE) will allways include some metadata (see bellow). You can use the functions in [nksip_dialog](../../src/nksip_dialog.erl) to get additional information (see [the API](../../reference/api.md)).
+`Meta` can include some metadata about the response. Use the option `meta` to select which metadatas you want to receive (see [metadata fields](../reference/metadata.md). Some methods (like INVITE and SUBSCRIBE) will allways include some metadata (see bellow). You can use the functions in [nksip_dialog](../../src/nksip_dialog.erl) to get additional information (see [the API](../reference/api.md)).
 
-You can define a callback function using option `callback`, and it will be called for every received provisional response as `{reply, Code, Response, Call}`. Use the functions in [the API](../../reference/api.md) to extract relevant information from each specific response.
+You can define a callback function using option `callback`, and it will be called for every received provisional response as `{reply, Code, Response, Call}`. Use the functions in [the API](../reference/api.md) to extract relevant information from each specific response. It's important to notice this callback function will be called in the same process as the (see explanation in [callback functions](../reference/callback_functions.md)) so you shouldn't spend a lot of time inside it. You shouldn't also copy the `Response` or `Call` to other processes, as that operation is expensive.
 
-By default, most functions will block until a final response is received or a an error is produced before sending the request, returning `{ok, Code, Meta}` or `{error, Error}`. You can also call most of these functions _asynchronously_ using `async` option, and the call will return immediately, usually with `{async, RequestId}`, before even trying to send the request, instead of blocking. You should use the callback function to receive provisional responses, final response and errors. `RequestId` is a handle to the current request and can be used to get additional information from it (see, the [API](../../reference/api.md), before it's destroyed) or to CANCEL the request.
+By default, most functions will block until a final response is received or a an error is produced before sending the request, returning `{ok, Code, Meta}` or `{error, Error}`. You can also call most of these functions _asynchronously_ using `async` option, and the call will return immediately, usually with `{async, RequestId}`, before even trying to send the request, instead of blocking. You should use the callback function to receive provisional responses, final response and errors. `RequestId` is a handle to the current request and can be used to get additional information from it (see, the [API](../reference/api.md), before it's destroyed) or to CANCEL the request.
 
 Most functions in this list add specific behaviour for each specific mehtod. For example, `invite/3,2` will allways include a Contact header. You can use the generic `request/3,2` function to avoid any specific addition. 
 
 In case of using a SIP URI as destination, is is possible to include custom headers, for example `<sip:host;method=REGISTER?contact=*&expires=10>`, but it must be escaped (using for example `http_uri:encode/1`). You should use `request/3,2` if you specify the method in the _uri_.
 
 
-See the full list of options in [Sending Options](../../reference/sending_options.md).
+See the full list of options in [Sending Options](../reference/sending_options.md).
 
 Function|Comment
 ---|---
@@ -40,7 +40,6 @@ Function|Comment
 [publish/2](#publish)|Sends an in-dialog PUBLISH request
 [request/3](#request)|Sends an out-of-dialog generic request
 [request/2](#request)|Sends an in-dialog generic request
-[refresh/2](#refresh)|Sends an in-dialog special INVITE refresh
 [stun/3](#stun)|Sends a STUN request
 
 
@@ -168,10 +167,10 @@ Sends an _NOTIFY_ for a current server subscription.
 
 When your SipApp accepts a incoming SUBSCRIBE request, replying a 2xx response, you should send a NOTIFY inmediatly. You have to use the subscription`s id from the call to callback `subscribe/3`. NkSIP will include the mandatory _Event_ and _Subscription-State_ headers for you, but you must include a `{subscription_state, ST}` options with the following allowed values:
 
-`active`|the subscription is active. NkSIP will add a `expires` parameter indicating the remaining time
-`pending`|the subscription has not yet been authorized. A `expires` parameter will be added
-`{terminated, Reason}`|the subscription has been terminated. You must use a reason: `deactivated` (the remote party should retry again inmediatly), `probation` (the remote party should retry again), `rejected` (the remote party should no retry again), `timeout` (the subscription has timed out, the remote party can send a new one inmediatly), `giveup` (we have not been able to authorize the request, the remote party can try again), `noresource` (the subscription has ended because of the resource does not exists any more, do not retry) and `invariant` (the subscription has ended because of the resource is not going to change soon, do not retry).
-`{terminated, Reason, Retry}`|Only with reasons `probation` and `giveup` you can send a retry-after parameter
+* `active`: the subscription is active. NkSIP will add a `expires` parameter indicating the remaining time
+* `pending`: the subscription has not yet been authorized. A `expires` parameter will be added
+* `{terminated, Reason}`: the subscription has been terminated. You must use a reason: `deactivated` (the remote party should retry again inmediatly), `probation` (the remote party should retry again), `rejected` (the remote party should no retry again), `timeout` (the subscription has timed out, the remote party can send a new one inmediatly), `giveup` (we have not been able to authorize the request, the remote party can try again), `noresource` (the subscription has ended because of the resource does not exists any more, do not retry) and `invariant` (the subscription has ended because of the resource is not going to change soon, do not retry).
+* `{terminated, Reason, Retry}`: Only with reasons `probation` and `giveup` you can send a retry-after parameter
 
 
 ### Message
