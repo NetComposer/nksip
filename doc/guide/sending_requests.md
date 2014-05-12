@@ -1,42 +1,74 @@
 # Sending Requests
 
-NkSIP supports all defined SIP methods: OPTIONS, REGISTER, INVITE, ACK, BYE, CANCEL, INFO, PRACK, UPDATE, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE.
+To send a new request, you should use one of the functions in [nksip_uac](../../src/nksip_uac.erl) module. NkSIP supports all defined SIP methods: OPTIONS, REGISTER, INVITE, ACK, BYE, CANCEL, INFO, PRACK, UPDATE, SUBSCRIBE, NOTIFY, REFER, PUBLISH and MESSAGE.
 
-To send a new request, you should use one of the functions in `nksip_uac` module. Depending on the specific method, the request should be sent out of any existing dialog and/or in-dialog. Out-of-dialog sending request functions will use need the SipApp they should use, the _sip uri_ to send the request to and a optional list of options (see the full list of options in the [reference page](../reference/uac_options.md)). In-dialog sending request functions will usually need the _dialog's id_ or _subscription`s id_ of the dialog or subscriptions. You can get these from the returned values (see bellow) or from specific callback functions.
+Depending on the specific method, the request should be sent out of any existing dialog and/or in-dialog. Out-of-dialog sending request functions will need SipApp name (user or internal), _sip uri_ to send the request to and an optional [list of options](../reference/uac_options.md). In-dialog sending request functions will usually need the _dialog's id_ or _subscription`s id_ of the dialog or subscription. You can get these from the returned _meta_ values of dialog-generating functions (like INVITE or SUBSCRIBE) or from [sip_dialog_update/3](../..callback_functions#sip_dialog_update3) callback function. 
 
-By default, most functions will block until a final response is received or a an error is produced before sending the request, returning `{ok, Code, Meta}` or `{error, Error}`.
+`Meta` can include some metadata about the response. Use the option `meta` to select which metadatas you want to receive (see [metadata description](../reference/metadata.md). Some methods (like INVITE and SUBSCRIBE) will allways include some metadata (see bellow). You can use the functions in [nksip_dialog](../../src/nksip_dialog.erl) to get additional information (see [the API](../../reference/api.md)).
 
-`Meta` can include some metadata about the response. Use the option `meta` to select which metadatas you want to receive. Some methods (like INVITE and SUBSCRIBE) will allways include some metadata (see bellow). You can use the functions in `nksip_dialog` to get additional information.
+You can define a callback function using option `callback`, and it will be called for every received provisional response as `{reply, Code, Response, Call}`. Use the functions in [the API](../../reference/api.md) to extract relevant information from each specific response.
 
-You can define a callback function using option `callback`, and it will be called for every received provisional response as `{ok, Code, Meta}`.
+By default, most functions will block until a final response is received or a an error is produced before sending the request, returning `{ok, Code, Meta}` or `{error, Error}`. You can also call most of these functions _asynchronously_ using `async` option, and the call will return immediately, usually with `{async, RequestId}`, before even trying to send the request, instead of blocking. You should use the callback function to receive provisional responses, final response and errors. `RequestId` is a handle to the current request and can be used to get additional information from it (see, the [API](../../reference/api.md), before it's destroyed) or to CANCEL the request.
 
-You can also call most of these functions _asynchronously_ using `async` option, and the call will return immediately, before even trying to send the request, instead of blocking. You should use the callback function to receive provisional responses, final response and errors.
+Most functions in this list add specific behaviour for each specific mehtod. For example, `invite/3,2` will allways include a Contact header. You can use the generic `request/3,2` function to avoid any specific addition. 
+
+In case of using a SIP URI as destination, is is possible to include custom headers, for example `<sip:host;method=REGISTER?contact=*&expires=10>`, but it must be escaped (using for example `http_uri:encode/1`). You should use `request/3,2` if you specify the method in the _uri_.
 
 
-## Request sending functions
+See the full list of options in [Sending Options](../../reference/sending_options.md).
 
-### OPTIONS
+Function|Comment
+---|---
+[options/3](#options)|Sends an out-of-dialog OPTIONS request
+[options/2](#options)|Sends an in-dialog OPTIONS request
+[register/3](#register)|Sends an out-of-dialog REGISTER request
+[invite/3](#invite)|Sends an out-of-dialog INVITE request
+[invite/2](#invite)|Sends an in-dialog INVITE request
+[ack/2](#ack)|Sends an in-dialog ACK request for a successful INVITE response
+[bye/2](#bye)|Sends an in-dialog BYE request
+[cancel/2](#cancel)|Sends a CANCEL for a previous sent INVITE
+[update/2](#update)|Sends an in-dialog UPDATE request
+[info/2](#info)|Sends an in-dialog INFO request
+[subscribe/3](#subscribe)|Sends an out-of-dialog SUBSCRIBE request
+[subscribe/2](#subscribe)|Sends an in-dialog SUBSCRIBE request
+[notify/2](#notify)|Sends an in-dialog NOTIFY request
+[message/3](#message)|Sends an out-of-dialog MESSAGE request
+[message/2](#message)|Sends an in-dialog MESSAGE request
+[refer/3](#refer)|Sends an out-of-dialog REFER request
+[refer/2](#refer)|Sends an in-dialog REFER request
+[publish/3](#publish)|Sends an out-of-dialog PUBLISH request
+[publish/2](#publish)|Sends an in-dialog PUBLISH request
+[request/3](#request)|Sends an out-of-dialog generic request
+[request/2](#request)|Sends an in-dialog generic request
+[refresh/2](#refresh)|Sends an in-dialog special INVITE refresh
+[stun/3](#stun)|Sends a STUN request
 
+
+### options/3,2
 `options(App, Uri, Opts)`
 `options(DialogId, Opts)`
 
 OPTIONS requests are usually sent to get the current set of SIP features and codecs the remote party supports, and to detect if it is _up_, it has failed or it is not responding requests for any reason. It can also be used to measure the remote party response time.
 
-### REGISTER
-
-`register(App, Uri, Opts`
-
-This function is used to send a new REGISTER request to any registrar server, to register a new _Contact_, delete a current registration or get the list of current registered contacts from the registrar. 
-
-Typical options are `contact`, `expires`, `unregister`, `unregister_all` and `reg_id`. Keep in mind that, once you send a REGISTER requests, following refreshes should have the same _Call-ID_ and incremented _CSeq_ headers.|
+Options `supported`, `allow` and `allow_event` are automatically added.
+NkSIP has an automatic remote _pinging_ feature that can be activated on any SipApp (see plugins).
 
 
-### INVITE
+### Register
+`register(App, Uri, Opts)`
 
+This function is used to send a new REGISTER request to any registrar server, to register a new _Contact_, delete a current registration or get the list of current registered contacts from the registrar. To register a contact you should use optons `{contact, Contact}` or `contact`, and typically `expires`. If you include no contact, the current list of registered contacts should be returned by the server.
+
+Options `to_as_from`, `supported`, `allow` and `allow_events` are automatically added. 
+You can use also use the options `unregister` to unregister included or default contact and `unregister_all` to unregister all contacts. Option `reg_id` is also available for outbound support.
+Keep in mind that, once you send a REGISTER requests, following refreshes should have the same _Call-ID_ and incremented _CSeq_ headers.|
+
+
+### Invite
 `invite(App, Uri, Opts)`
 `invite(DialogId, Opts)`
 
-INVITE|This functions sends a new session invitation to another endpoint or proxy. 
+This functions sends a new session invitation to another endpoint or proxy. 
 When the first provisional response from the remote party is received (as 180 _Ringing_) a new dialog will be started, and the corresponding callback `dialog_update/3` in the callback module will be called. If this response has also a valid SDP body, a new session will be associated with the dialog and the corresponding callback `session_update/3` will also be called.
 
 When the first 2xx response is received, the dialog is confirmed. **You must then call `ack/2` immediately**, offering an SDP body if you haven't done it in the INVITE request. The dialog is destroyed when a BYE is sent or received, or a 408 _Timeout_ or 481 _Call Does Not Exist_ response is received. If a secondary 2xx response is received (usually because a proxy server has forked the request) NkSIP will automatically acknowledge it and send BYE. 
@@ -58,7 +90,7 @@ If a 491 response is received, it usually means that the remote party is startin
 The first meta returned value is allways `{dialog_id, DialogId}`, even if the `meta` option is not used.
 
 
-### ACK
+### Ack
 
 `ack(DialogId, Opts)`
 
@@ -68,21 +100,21 @@ because you may want to include a SDP body if you didn`t do it in the INVITE req
 For sync requests, it will return `ok` if the request could be sent or `{error, Error}` if an error is detected. For async requests, it will return `async`. If a callback is defined, it will be called as `ok` or `{error, Error}`.    
 
 
-### BYE
+### Bye
 
 `bye(DialogId, Opts)`
 
 Sends an _BYE_ for a current dialog, terminating the session.
 
 
-### INFO
+### Info
 
 `info(DialogId, Opts)`
 
 Sends an INFO request. Doesn`t change the state of the current session.
 
 
-### CANCEL
+### Cancel
 
 `cancel(RequestId, Opts)`
 
@@ -93,7 +125,7 @@ You can use this function to send a CANCEL requests to abort a currently _callin
 This call is always asychronous. It returns a soon as the request is received and the cancelling INVITE is found.
 
 
-### UPDATE
+### Update
 
 `update(DialogId, Opts)`
 
@@ -103,7 +135,7 @@ This function sends a in-dialog UPDATE, allowing to change the media session bef
 A session timer will be started.
 
 
-### SUBSCRIBE
+### Subscribe
 
 `subscribe(App, Uri, Opts)`
 `subscribe(Id, Opts)`
@@ -121,7 +153,7 @@ Common options are `event`, `expires`.
 After a 2xx response, you should send a new re-SUBSCRIBE request to refresh the subscription before the indicated _Expires_, calling this function again but using the subscription specification. When half the time before expire has been completed, NkSIP will call callback `dialog_update/3` as `{subscription_state, SubscriptionId, middle_timer}`.
 
 
-### NOTIFY
+### Notify
 
 `notify(SubscriptionId, Opts)`
 
@@ -139,7 +171,7 @@ Valid states are
 `pending`|the subscription has not yet been authorized. A `expires` parameter will be added
 `terminated`|the subscription has been terminated. You must use a reason: `deactivated` (the remote party should retry again inmediatly), `probation` (the remote party should retry again. You can use `Retry` to inform of the minimum time for a new try), `rejected` (the remote party should no retry again), `timeout` (the subscription has timed out, the remote party can send a new one inmediatly), `giveup` (we have not been able to authorize the request, the remote party can try again, you can use `Retry`), `noresource` (the subscription has ended because of the resource does not exists any more, do not retry) and `invariant` (the subscription has ended because of the resource is not going to change soon, do not retry).
 
-### MESSAGE
+### Message
 
 `message(App, Uri, Opts)`
 `message(DialogId, Opts`
@@ -147,7 +179,7 @@ Valid states are
 Sends an MESSAGE request.
 
 
-### REFER
+### Refer
 
 `refer(App, Uri, Opts)`
 `refer(DialogId, Opts`
@@ -161,7 +193,7 @@ In case of 2xx response, the first returned value is allways `{subscription_id, 
 %
 
 
-### PUBLISH 
+### Publish 
 
 `publish(App, Uri, Opts)`
 `publish(DialogId, Opts)`
