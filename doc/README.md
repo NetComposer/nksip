@@ -6,7 +6,7 @@
 * [Concepts](guide/concepts.md)
 * [Tutorial](guide/tutorial.md)
 * [Starting NkSIP](guide/start_nksip.md)
-* [Writing a SipApp](guide/start_a_sipapp.md)
+* [Starting a SipApp](guide/start_a_sipapp.md)
 * [Sending Requests](guide/sending_requests.md)
 * [Receiving Requests](guide/receiving_requests.md)
 * [Sending Responses](guide/sending_responses.md)
