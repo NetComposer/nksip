@@ -424,9 +424,9 @@ redirect() ->
     QUri = "sip:qtest@nksip",
     {Ref, RepHd} = tests_util:get_ref(),
     
-    not_found = nksip:get_port(other, udp, ipv4),
-    PortD1 = nksip:get_port(clientD1, udp, ipv4),
-    PortD2 = nksip:get_port(clientD2, tcp, ipv4),
+    not_found = get_port(other, udp, ipv4),
+    PortD1 = get_port(clientD1, udp, ipv4),
+    PortD2 = get_port(clientD2, tcp, ipv4),
     Contacts = ["sip:127.0.0.1:"++integer_to_list(PortD1),
                 #uri{domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
@@ -695,4 +695,18 @@ sip_bye(Req, _Call) ->
     tests_util:send_ref(bye, Req),
     {reply, ok}.
 
+
+
+%%%%%
+
+get_port(App, Proto, Class) ->
+    case nksip:find_app(App) of
+        {ok, AppId} -> 
+            case nksip_transport:get_listening(AppId, Proto, Class) of
+                [{#transport{listen_port=Port}, _Pid}|_] -> Port;
+                _ -> error
+            end;
+        error ->
+            error
+    end.
 

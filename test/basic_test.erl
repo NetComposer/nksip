@@ -191,7 +191,7 @@ cast_info() ->
     Pid = nksip:get_pid(server1),
     true = is_pid(Pid),
     Pid = whereis(S1),
-    not_found = nksip:get_pid(other),
+    error = nksip:get_pid(other),
 
     {ok, server1, Domains} = gen_server:call(S1, get_domains),
     {ok, server1} = gen_server:call(S1, {set_domains, [<<"test">>]}),

@@ -25,7 +25,7 @@
 
 -export([start/4, stop/1, stop_all/0, get_all/0, update/2]).
 -export([get/2, get/3, put/3, del/2]).
--export([call/2, call/3, cast/2, reply/2, get_pid/1, get_port/3, find_app/1]).
+-export([get_pid/1, find_app/1]).
 -export([get_uuid/1, get_gruu_pub/1, get_gruu_temp/1]).
 
 -include("nksip.hrl").
@@ -144,7 +144,7 @@
 
 start(AppName, Module, Args, Opts) ->
     case get_pid(AppName) of
-        not_found ->
+        error ->
             Config = nksip_config_cache:app_config(),
             Opts1 = Config ++ [{name, AppName}, {module, Module}|Opts],
             case nksip_sipapp_config:parse_config(Opts1) of

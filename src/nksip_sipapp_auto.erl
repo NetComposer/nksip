@@ -59,9 +59,14 @@ start_register(App, RegId, Uri, Time, Opts)
     case nksip_parse:uris(Uri) of
         [ValidUri] -> 
             Msg = {'$nksip_start_register', RegId, ValidUri, Time, Opts},
-            case catch nksip:call(App, Msg) of
-                {ok, Reply} -> {ok, Reply};
-                {'EXIT', _} -> {error, sipapp_not_found}
+            case nksip:find_app(App) of
+                {ok, AppId} ->
+                    case catch nksip:call(AppId, Msg) of
+                        {ok, Reply} -> {ok, Reply};
+                        {'EXIT', _} -> {error, sipapp_not_found}
+                    end;
+                _ ->
+                    {error, sipapp_not_found}
             end;
         _ -> 
             {error, invalid_uri}
@@ -102,9 +107,14 @@ start_ping(App, PingId, Uri, Time, Opts)
     case nksip_parse:uris(Uri) of
         [ValidUri] -> 
             Msg = {'$nksip_start_ping', PingId, ValidUri, Time, Opts},
-            case catch nksip:call(App, Msg) of
-                {ok, Reply} -> {ok, Reply};
-                {'EXIT', _} -> {error, sipapp_not_found}
+            case nksip:find_app(App) of
+                {ok, AppId} ->
+                    case catch nksip:call(AppId, Msg) of
+                        {ok, Reply} -> {ok, Reply};
+                        {'EXIT', _} -> {error, sipapp_not_found}
+                    end;
+                _ ->
+                    {error, sipapp_not_found}
             end;
         _ -> 
             {error, invalid_uri}
