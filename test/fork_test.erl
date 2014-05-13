@@ -704,9 +704,9 @@ get_port(App, Proto, Class) ->
         {ok, AppId} -> 
             case nksip_transport:get_listening(AppId, Proto, Class) of
                 [{#transport{listen_port=Port}, _Pid}|_] -> Port;
-                _ -> error
+                _ -> not_found
             end;
-        error ->
-            error
+        not_found ->
+            not_found
     end.
 
