@@ -7,6 +7,9 @@ The available options are defined here.
 * [Subscriptions](#subscriptions-metadata)
 
 
+Installed plugins can install aditional metadata fields.
+
+
 
 ## Request and Responses Metadata
 Accesible when calling `nksip_request:meta/2`, `nksip_response:meta/2` and when using the option `meta` in the [requests sending functions](../guide/sending_requests.md).
