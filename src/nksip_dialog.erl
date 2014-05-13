@@ -109,11 +109,11 @@ app_id(Id) ->
 
 
 %% @doc Gets app's name
--spec app_name(nksip:request()|nksip:id()) -> 
+-spec app_name(nksip:dialog()|nksip:id()) -> 
     term().
 
-app_name(Req) -> 
-    (app_id(Req)):name().
+app_name(Dialog) -> 
+    (app_id(Dialog)):name().
 
 
 %% @doc Gets thel Call-ID of a dialog
@@ -127,6 +127,7 @@ call_id(Id) ->
     CallId. 
 
 
+%% @doc Get specific metadata from the dialog
 -spec meta(field()|[field()], nksip:dialog()|nksip:id()) -> 
     term() | [{field(), term()}] | error.
 
@@ -205,15 +206,18 @@ meta(Field, Id) when is_atom(Field), is_binary(Id) ->
     end.
 
 
-%% @doc Gets the dialog object corresponding to a request
--spec get_dialog(nksip:request()|nksip:response(), nksip:call()) ->
+%% @doc Gets the dialog object corresponding to a request or subscription and a call
+-spec get_dialog(nksip:request()|nksip:response()|nksip:subscription(), nksip:call()) ->
     nksip:dialog()|error.
 
 get_dialog(#sipmsg{dialog_id=DialogId}, #call{}=Call) ->
     case nksip_call_dialog:find(DialogId, Call) of
         not_found -> error;
         Dialog -> {ok, Dialog}
-    end.
+    end;
+
+get_dialog({uses_subs, _Subs, Dialog}, _) ->
+    Dialog.
 
 
 %% @doc Gets all started dialog ids.
@@ -225,7 +229,7 @@ get_all() ->
 
 
 %% @doc Finds all existing dialogs having a `Call-ID'.
--spec get_all(nksip:app_id(), nksip:call_id()) ->
+-spec get_all(term()|nksip:app_id(), nksip:call_id()) ->
     [nksip:id()].
 
 get_all(App, CallId) ->
