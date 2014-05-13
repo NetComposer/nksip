@@ -56,7 +56,7 @@
 	* IPv6
 	* Websockets
 
-## [6.. Sample Applications](samples/README.md)
+## [6. Sample Applications](samples/README.md)
 * [PBX](samples/pbx.md)
 * [LoadTest](samples/loadtest.md)
 
