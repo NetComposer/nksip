@@ -52,8 +52,8 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 [5. Cookbook](doc/README.md#5-cookbook)<br/>
 [6. Sample Applications](doc/README.md#6-sample-applications)<br/>
 [7. Advanced Concepts](doc/README.md#7-advanced-concepts)<br/>
-[8. Roadmap](doc/8-roadmap.md)<br/>
-[9. Changelog](doc/9-changelog.md)<br/>
+[8. Roadmap](doc/roadmap.md)<br/>
+[9. Changelog](doc/changelog.md)<br/>
 
 
 
