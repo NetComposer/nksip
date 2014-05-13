@@ -7,17 +7,20 @@ See [Starting a SipApp](../guide/start_a_sipapp.md) for a general overview.
 
 Function|Description
 ---|---
-[start/4](#start4)|Starts a new SipApp
-[stop/1](#stop1)|Stops a started SipApp
-[stop_all/0](#stop_all/0)|Stops all started SipApps
-[update/2](#update/2)|Updates the configuration of a started SipApp
-[get_all/0](#get_all0)|Gets all currenty started SipApps
-[get/2](#get2)|Gets a value for a SipApp variable
-[get/3](#get3)|Gets a value for a SipApp variable, with a default
-[put/3](#put3)|Saves a vaule for a SipApp variable
-[del/2](#del2)|Deletes a SipApp variable
-[get_pid/1](#get_pid1)|Gets the pid of a SipApp's gen_server process
-[find_app/1](#find_app1)|Finds the _internal name_ for a currently started SipApp
+[start/4](#nksipstart4)|Starts a new SipApp
+[stop/1](#nksipstop1)|Stops a started SipApp
+[stop_all/0](#nksipstop_all/0)|Stops all started SipApps
+[update/2](#nksipupdate/2)|Updates the configuration of a started SipApp
+[get_all/0](#nksipget_all0)|Gets all currenty started SipApps
+[get/2](#nksipget2)|Gets a value for a SipApp variable
+[get/3](#nksipget3)|Gets a value for a SipApp variable, with a default
+[put/3](#nksipput3)|Saves a vaule for a SipApp variable
+[del/2](#nksipdel2)|Deletes a SipApp variable
+[get_pid/1](#nksipget_pid1)|Gets the pid of a SipApp's gen_server process
+[find_app/1](#nksipfind_app1)|Finds the _internal name_ for a currently started SipApp
+[call/2](#nksipcall2)|Synchronous call to the SipApp's gen_server process
+[call/3](#nksipcall3)|Synchronous call to the SipApp's gen_server process with timeout
+[cast/2](#nksipcall3)|Asynchronous call to the SipApp's gen_server process
 [get_uuid/1](#get_uuid/1)|Get the current _UUID_ for a stared SipApp
 [get_gruu_pub/1](#get_gruu_pub1)|The the current public _GRUU_ of a SipApp, if one has been received.
 [get_gruu_temp/1](#get_gruu_temp1)|The the current temporary _GRUU_ of a SipApp, if one has been received.
@@ -116,6 +119,29 @@ Gets the SipApp's _gen_server process_ `pid()`.
     {ok, app_id()} | not_found.
 ```
 Finds the _internal name_ of an existing SipApp.
+
+
+### nksip:call/2
+```erlang
+-spec call(term()|app_id(), term()) ->
+    term().
+```
+Synchronous call to the SipApp's gen_server process. It is a simple `gen_server:call/2` but allowing SipApp names.
+
+
+### nksip:call/3
+```erlang
+-spec call(term()|app_id(), term(), pos_integer()|infinity) ->
+    term().
+```
+Synchronous call to the SipApp's gen_server process. It is a simple `gen_server:call/3` but allowing SipApp names.
+
+
+```erlang
+-spec cast(term()|app_id(), term()) ->
+    term().
+```
+Asynchronous call to the SipApp's gen_server process. It is a simple `gen_server:cast/2` but allowing SipApp names.
 
 
 ### nksip:get_uuid/1
