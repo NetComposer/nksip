@@ -172,8 +172,8 @@ in_dialog() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 sip_refer(Req, _Call) ->
-    case nksip_request:header("refer-to", Req) of
-        [ReferTo] ->
+    case nksip_request:meta(refer_to, Req) of
+        #uri{}=ReferTo ->
             AppId = nksip_request:app_id(Req),
             SubsId = nksip_subscription:get_id(Req), 
             CallId = nksip_request:call_id(Req),
@@ -182,9 +182,7 @@ sip_refer(Req, _Call) ->
                    {refer_subscription_id, SubsId}],
             spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
             {reply, ok};
-        O ->
-            lager:warning("O: ~p", [O]),
-
+        _ ->
             {reply, invalid_request}
     end.
 
