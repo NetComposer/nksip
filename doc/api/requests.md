@@ -3,12 +3,13 @@
 This document describes the API NkSIP makes available to extract information from Requests.
 
 Most functions in the API allows two ways to refer the the request:
-* From a full request object (`nksip:request()`). Most functions called in the SipApp's _callback module_ receive a full request object, and you can use this functions to get information from it.
-* From a request handle (`nksip:handle()`). You can get a request handle from a request object using [get_handle/1](#nksip_requestget_handle1). You can then use the handle to use most functions in this API. 
+* From a full *request object* (`nksip:request()`). Most functions called in the SipApp's _callback module_ receive a full request object, and you can use this functions to get information from it.
+* From a *request handle* (`nksip:handle()`). You can get a request handle from a request object using [get_handle/1](#nksip_requestget_handle1). You can then use the handle to use most functions in this API. 
     
-    In this case, the API function must call to the corresponding call process to get the actual request, so you cannot use this method _inside_ the call process (like in the callback functions). This method is useful to refer to the request from a _spawn_ process, avoiding the need to copy the full object.
+    In this case, the API function must contact with the corresponding call process to get the actual request, so you cannot use this method _inside_ the same call process (like in the callback functions). This method is useful to refer to the request from a _spawned_ process, avoiding the need to copy the full object. Please notice that the request object may not exists any longer at the moment that the handle is used. Most functions return `error` in this case.
 
-    Please notice that the request object may not exists any longer at the moment that the handle is used. Most functions return `error` in this case.
+
+<br/>
 
 
 Function|Description
