@@ -529,7 +529,7 @@ Op|Response|Comments
 ---|---|---
 {get, AOR, Tag}|RegPublish &#124; not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
 {put, AOR, Tag, RegPublish, TTL}|ok|Store this information this `AOR`, `AppId` and `Tag`. The record must be automatically deleted after `TTL` seconds.
-{del, AOR, Tag}`|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
+{del, AOR, Tag}|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
 del_all|ok|Delete all stored information for this `AppId`.
 
 
@@ -544,7 +544,8 @@ If `{ok, State}` or `{ok, State, Timeout}` is returned the SipApp is started wit
 
 ```erlang
 -spec init(Args::term()) ->
-    init_return().
+    {ok, State::term()} | {ok, State::term(), Timeout::timeout()} |
+    {stop, Reason::term()}.
 
 init([]) ->
     {ok, {}}.
