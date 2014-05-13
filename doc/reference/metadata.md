@@ -53,12 +53,12 @@ routes|`[nksip:uri()]`|Route headers
 contacts|`[nksip:uri()]`|Contact headers
 require|`[binary()]`|Tokens in Require header
 supported|`[binary()]`|Tokens in Supported header
-expires|`integer()`\|`undefined`|Expires header
-event|`nksip:token()`\|`undefined`|Token in Event header
-refer_to|`nksip:uri()`\|`error`|URL in Refer-To header
+expires|`integer()`&#124;`undefined`|Expires header
+event|`nksip:token()`&#124;`undefined`|Token in Event header
+refer_to|`nksip:uri()`&#124;`error`|URL in Refer-To header
 realms|`[binary()]`|Realms in authentication headers
-rseq_num|`integer()`\|`undefined`|RSeq header (numeric part)
-rack|`{integer(),integer(),nksip:method()}`\|`undefined`|RAck header
+rseq_num|`integer()`&#124;`undefined`|RSeq header (numeric part)
+rack|`{integer(),integer(),nksip:method()}`&#124;`undefined`|RAck header
 {header, Name}|`[binary()]`|Gets an unparsed header value
 all_headers|`[{binary(),[binary()]}]`|Gets all headers and values
 
@@ -112,6 +112,6 @@ id|`nksip:id()`|Subscription's Id
 status|`nksip_subscription:status()`|Subscription's current status
 event|`nksip:token()`|Event header
 raw_event|`binary()`|Unparsed Event header
-class|`uac`\|`uas`|Class of the event, as a UAC or a UAS
-answered|`nksip_lib:timestamp()`\|`undefined`|Time first NOTIFY was received
+class|`uac`&#124;`uas`|Class of the event, as a UAC or a UAS
+answered|`nksip_lib:timestamp()`&#124;`undefined`|Time first NOTIFY was received
 expires|`integer()`|Seconds reamaining to subscription expiration

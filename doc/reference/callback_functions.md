@@ -505,7 +505,7 @@ Op|Response|Comments
 ---|---|---
 {get, AOR}|[RegContact]|Retrieve all stored contacts for this `AOR` and `AppId`.
 {put, AOR, [RegContact], TTL}|ok|Store the list of contacts for this `AOR` and `AppId`. The record must be automatically deleted after `TTL` seconds.
-{del, AOR}|ok \| not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
+{del, AOR}|ok &#124; not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
 del_all|ok|Delete all stored information for this `AppId`.
 
 
@@ -527,9 +527,9 @@ The possible values for Op and their allowed reply are:
 
 Op|Response|Comments
 ---|---|---
-{get, AOR, Tag}|RegPublish \| not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
+{get, AOR, Tag}|RegPublish &#124; not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
 {put, AOR, Tag, RegPublish, TTL}|ok|Store this information this `AOR`, `AppId` and `Tag`. The record must be automatically deleted after `TTL` seconds.
-{del, AOR, Tag}|ok \| not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
+{del, AOR, Tag}|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
 del_all|ok|Delete all stored information for this `AppId`.
 
 

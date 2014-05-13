@@ -20,9 +20,9 @@ async||If present, the call will return inmediatly (instead of waiting for the f
 callback|`fun/1`|If defined, it will be called for every received provisional response as `{reply, Code, Resp, Call}`. For `async` requests, it is called also for the final response and, if an error is produced before sending the request, as `{error, Error}`
 get_request||If present, and the callback function is also present, if will be called when the request has been sent as `{req, Request, Call}`|You can use the functions in the [API](../README.md#3-api) to extract relevant information from the request
 meta|`[nksip_sipmsg:field()]`|Use it to select which specific fields from the final response shall be returned|Available fields are describe in [Metadata Fields](metadata.md)
-{pass, Pass}|Pass::`binary()`\|`{Realm, binary()}`\|`[binary()`\|`{Realm, binary()}]`, Realm::`binary()`|Passwords to use when a 401 or 407 response is received to generate an automatic new request|Entries with matching Realm are tried first, then entries witout realm
-{local_host, LocalHost}|LocalHost::`auto`\|`string()`\|`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route
-{local_host6, LocalHost}|LocalHost::`auto`\|`string()`\|`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route using IPv6
+{pass, Pass}|Pass::`binary()`&#124;`{Realm, binary()}`&#124;`[binary()`&#124;`{Realm, binary()}]`, Realm::`binary()`|Passwords to use when a 401 or 407 response is received to generate an automatic new request|Entries with matching Realm are tried first, then entries witout realm
+{local_host, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route
+{local_host6, LocalHost}|LocalHost::`auto`&#124;`string()`&#124;`binary()`|Host or IP to use when auto generating headers like Contact or Record-Route using IPv6
 user_agent||Automatically generates a User-Agent header, replacing any previous value
 supported||Automatically generates a Supported header, replacing any previous value
 allow||Automatically generates an Allow header, replacing any previous value
@@ -52,17 +52,17 @@ Option|Types|Description|Commment
 {replace, {Name, Value}}|(same as before)|Same as before|
 {insert, Name, Value}|(same as before)|Inserts a new header, before any previous one with the same name|
 {insert, {Name, Value}}|(same as before)|Same as before|
-{from, From}|From::`string()`\|`binary()`\|`nksip:uri()`|Replaces From header|Do not use in in-dialog requests
-{to, From}|To::`string()`\|`binary()`\|`nksip:uri()`|Replces To header|Do not use in in-dialog requests
+{from, From}|From::`string()`&#124;`binary()`&#124;`nksip:uri()`|Replaces From header|Do not use in in-dialog requests
+{to, From}|To::`string()`&#124;`binary()`&#124;`nksip:uri()`|Replces To header|Do not use in in-dialog requests
 {call_id, CallId}|CallId::`binary()`|Replaces Call-ID header|Do not use in in-dialog requests
-{content_type, ContentType}|ContentType::`string()`\|`binary()`\|`nksip:token()`|Replaces Content-Type header|
-{require, Require}|Require::`string()`\|`binary()|Replaces Require header|
-{supported, Supported}|Supported::`string()`\|`binary()`|Replaces Supported header
-{expires, Expires}|Expires::`string()`\|`binary()`\|`integer()`|Replaces Expires header|
-{contact, Contact}|Contact::`string()`\|`binary()`\|`nksip:uri()`\|`[nksip:uri()]`|Replaces Contact header|
-{route, Route}|Route::`string()`\|`binary()`\|`nksip:uri()`\|`[nksip:uri()]`|Replaces Route header|
-{reason, Reason}|Reason::`string()`\|`binary()`|Replaces Reason header|
-{event, Reason}|Event::`string()`\|`binary()`\|`nksip:token()`|Replaces Event header|
+{content_type, ContentType}|ContentType::`string()`&#124;`binary()`&#124;`nksip:token()`|Replaces Content-Type header|
+{require, Require}|Require::`string()`&#124;`binary()|Replaces Require header|
+{supported, Supported}|Supported::`string()`&#124;`binary()`|Replaces Supported header
+{expires, Expires}|Expires::`string()`&#124;`binary()`&#124;`integer()`|Replaces Expires header|
+{contact, Contact}|Contact::`string()`&#124;`binary()`&#124;`nksip:uri()`&#124;`[nksip:uri()]`|Replaces Contact header|
+{route, Route}|Route::`string()`&#124;`binary()`&#124;`nksip:uri()`&#124;`[nksip:uri()]`|Replaces Route header|
+{reason, Reason}|Reason::`string()`&#124;`binary()`|Replaces Reason header|
+{event, Reason}|Event::`string()`&#124;`binary()`&#124;`nksip:token()`|Replaces Event header|
 {cseq_num, CSeq}|CSeq::`integer()`|Sets the numeric part of the CSeq header|Do not use in in-dialog requests|Useful for REFER
 
 ## Specific Options
@@ -77,10 +77,10 @@ unregister_all||For REGISTER requests, sets Contact to "*" and Expires to 0|Only
 unregister||For REGISTER requests, sets `contact` and Expires to 0|Only for REGISTER
 {reg_id, RegId}|RegId::`integer()`|`reg-id` field to use in REGISTER requests|Only for REGISTER and Outbound support
 {subscription_state, ST}|see [notify/2](sending_functions.md#notify)|Only to be used in NOTIFY requests
-{refer_to, Url}|Url::`string()`\|`binary()`\|`nksip:uri()`|Replaces Refer-To header|Only to be used in REFER requests
+{refer_to, Url}|Url::`string()`&#124;`binary()`&#124;`nksip:uri()`|Replaces Refer-To header|Only to be used in REFER requests
 {refer_subscription_id, Refer}|Refer::`nksip:id()`|If present a NOTIFY request will be automatically generated and send for each response.
 {min_se, SE}|SE::`integer()`|Replaces Min-SE header|Used for Session Timers. Minimum Session Expires we allow.
-{session_expires, SE}|SE::`integer()`\|`{integer(), uac`\|`uas}`|Replaces Session-Expires header|Used for Session Timers. Session Expires we propose
-{sip_if_match, ETag}|ETag::`string()`\|`binary()`|Replaces SIP-If-Match header|Only to be used in PUBLISH requests
+{session_expires, SE}|SE::`integer()`&#124;`{integer(), uac`&#124;`uas}`|Replaces Session-Expires header|Used for Session Timers. Session Expires we propose
+{sip_if_match, ETag}|ETag::`string()`&#124;`binary()`|Replaces SIP-If-Match header|Only to be used in PUBLISH requests
 
 
