@@ -45,13 +45,13 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 
 # Documentation
 
-1. [User Guide](doc/guide/README.md)
-1. [Reference  Guide](doc/reference/README.md)
-1. [API](doc/api/README.md)
-1. [Standard Plugins](doc/plugins/README.md)
-1. [Cookbook](doc/cookbook/README.md)
-1. [Example Applications](doc/samples/README.md)
-1. [Advanced Concepts](doc/advanced/README.md)
+1. [User Guide](doc/README.md#user-guide)
+1. [Reference  Guide](doc/README.md#reference-guide)
+1. [API](doc/README.md#api)
+1. [Standard Plugins](doc/README.md#standard-plugins)
+1. [Cookbook](doc/README.md#cookbook)
+1. [Sample Applications](doc/README.md#sample-applications)
+1. [Advanced Concepts](doc/README.md#advanced-concepts)
 1. [Roadmap](doc/roadmap.md)
 1. [Changelog](doc/changelog.md)
 
