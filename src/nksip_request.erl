@@ -97,7 +97,7 @@ call_id(Id) when is_binary(Id) ->
 
 
 %% @doc Get a specific metadata (see {@link field()}) from the request
--spec meta(nksip_sipmsg:field(), nksip:request()|nksip:id()) ->
+-spec meta(nksip_sipmsg:field()|[nksip_sipmsg:field()], nksip:request()|nksip:id()) ->
     term() | [{nksip_sipmsg:field(), term()}] | error.
 
 meta(Fields, #sipmsg{}=Req) when is_list(Fields), not is_integer(hd(Fields)) ->
