@@ -25,7 +25,7 @@
 
 -export([start/4, stop/1, stop_all/0, get_all/0, update/2]).
 -export([get/2, get/3, put/3, del/2]).
--export([get_pid/1, find_app/1]).
+-export([get_pid/1, find_app/1, call/3, call/2, cast/2]).
 -export([get_uuid/1, get_gruu_pub/1, get_gruu_temp/1]).
 
 -include("nksip.hrl").
@@ -272,6 +272,36 @@ get_pid(App) ->
             end;
         _ ->
             error
+    end.
+
+
+%% @doc Synchronous call to the SipApp's gen_server process
+-spec call(term()|app_id(), term()) ->
+    term().
+
+call(App, Term) ->
+    call(App, Term, 5000).
+
+
+%% @doc Synchronous call to the SipApp's gen_server process with a timeout
+-spec call(term()|app_id(), term(), pos_integer()|infinity) ->
+    term().
+
+call(App, Term, Time) ->
+    case find_app(App) of
+        {ok, AppId} -> gen_server:call(AppId, Term, Time);
+        not_found -> error(sipapp_not_found)
+    end.
+
+
+%% @doc Asynchronous call to the SipApp's gen_server process
+-spec cast(term()|app_id(), term()) ->
+    term().
+
+cast(App, Term) ->
+    case find_app(App) of
+        {ok, AppId} -> gen_server:cast(AppId, Term);
+        not_found -> error(sipapp_not_found)
     end.
 
 
