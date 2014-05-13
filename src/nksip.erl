@@ -214,15 +214,6 @@ get_all() ->
       || {AppId, _Pid} <- nksip_proc:values(nksip_sipapps)].
 
 
-%% @doc Sends a response from a synchronous callback function.
-%% Eequivalent to `gen_server:reply/2'.
--spec reply({reference(), pid()} | {fsm, reference(), pid()}, term()) -> 
-    term().
-
-reply(From, Reply) ->
-    nksip_sipapp_srv:reply(From, Reply).
-
-
 %% @doc Gets a value from SipApp's store
 -spec get(term()|nksip:app_id(), term()) ->
     {ok, term()} | not_found | error.
@@ -268,45 +259,9 @@ del(App, Key) ->
     end.
 
 
-%% @doc Sends a synchronous message to the SipApp's process, 
-%% similar to `gen_server:call/2'.
-%% The SipApp's callback module must implement `handle_call/3'.
--spec call(term()|app_id(), term()) ->
-    any().
-
-call(App, Msg) ->
-    call(App, Msg, 5000).
-
-
-%% @doc Sends a synchronous message to the SipApp's process with a timeout, 
-%% similar to `gen_server:call/3'.
-%% The SipApp's callback module must implement `handle_call/3'.
--spec call(term()|app_id(), term(), infinity|pos_integer()) ->
-    any().
-
-call(App, Msg, Timeout) ->
-    case get_pid(App) of
-        not_found -> error(core_not_found);
-        Pid -> gen_server:call(Pid, Msg, Timeout)
-    end.
-
-
-%% @doc Sends an asynchronous message to the SipApp's process, 
-%% similar to `gen_server:cast/2'.
-%% The SipApp's callback module must implement `handle_cast/2'.
--spec cast(term()|app_id(), term()) ->
-    ok.
-
-cast(App, Msg) ->
-    case get_pid(App) of
-        not_found -> error(core_not_found);
-        Pid -> gen_server:cast(Pid, Msg)
-    end.
-
-
-%% @doc Gets the SipApp's process `pid()'.
+%% @doc Gets the SipApp's gen_server process pid().
 -spec get_pid(term()|app_id()) -> 
-    pid() | not_found.
+    pid() | error.
 
 get_pid(App) ->
     case find_app(App) of
@@ -343,19 +298,19 @@ find_app(App) ->
 
 
 
-%% @doc Gets SipApp's module and pid
+%% @doc Gets SipApp's UUID
 -spec get_uuid(term()|nksip:app_id()) -> 
-    {ok, binary()} | {error, not_found}.
+    {ok, binary()} | error.
 
 get_uuid(App) ->
     case find_app(App) of
         {ok, AppId} ->
             case nksip_proc:values({nksip_sipapp_uuid, AppId}) of
                 [{UUID, _Pid}] -> {ok, <<"<urn:uuid:", UUID/binary, ">">>};
-                [] -> {error, not_found}
+                [] -> error
             end;
         not_found -> 
-            {error, not_found}
+            error
     end.
 
 
@@ -389,5 +344,22 @@ get_gruu_temp(App) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+% %% @doc Gets SipApp's first listening port on this transport protocol.
+% -spec get_port(term()|app_id(), protocol(), ipv4|ipv6) -> 
+%     inet:port_number() | error.
+
+% get_port(App, Proto, Class) ->
+%     case find_app(App) of
+%         {ok, AppId} -> 
+%             case nksip_transport:get_listening(AppId, Proto, Class) of
+%                 [{#transport{listen_port=Port}, _Pid}|_] -> Port;
+%                 _ -> error
+%             end;
+%         error ->
+%             error
+%     end.
+
 
 
