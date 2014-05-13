@@ -1,4 +1,4 @@
-# SipApps callback functions
+# Callback Functions
 
 Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. 
 
@@ -61,34 +61,35 @@ Callback|Reason
 
 
 ### sip_get_user_pass/4
-Called to check a user password for a realm.
+```erlang
+-spec get_user_pass(User::binary(), Realm::binary(), Request:nksip:request(), Call::nksip:call()) ->
+    true | false | Pass::binary().
+```
 
-When a request is received containing a `Authorization` or `Proxy-Authorization` header, this function is called by NkSIP including the headers `User` and `Realm`, to check if the authorization data in the header corresponds to the user`s password. 
+Called to check the user password for a realm.
 
-You should normally reply with the user's password (if you have it for this user and realm). NkSIP will use the password and the digest information in the header to check if it is valid, offering this information in the call to `authorize/4`. 
+When a request is received containing a _Authorization_ or _Proxy-Authorization_ header, this function is called by NkSIP including the header's `User` and `Realm`, to check if the authorization data in the header corresponds to the user's password. You should reply with the user's password for this realm. NkSIP will use the password and the digest information in the header to check if it is valid, offering this information in the call to [sip_authorize/3](#sip_authorize3).
 
 You can also reply `true` if you want to accept any request from this user without checking any password, or `false` if you don`t have a password for this user or want her blocked.
 
-If you don't want to store _clear-text_ passwords of your users, you can use `nksip_auth:make_ha1/3` to generate a _hash_ of the password for an user and a realm, and store only this hash instead of the real password. Later on you can reply here with the hash instead of the real password.
+If you don't want to store _clear-text_ passwords of your users, you can use `nksip_auth:make_ha1/3` to generate a _hash_ of the password for an user and a realm, and store this hash only, instead of the real password. Later on you can reply here with the hash instead of the real password.
 
 If you don't define this function, NkSIP will reply with password `<<>>` if user is `anonymous`, and `false` for any other user. 
 
-```erlang
--spec get_user_pass(User::binary(), Realm::binary(), State::term()) ->
-    {reply, Reply, NewState}
-    when Reply :: true | false | binary(), NewState :: term().
-
-get_user_pass(<<"anonymous">>, _, State) ->
-    {reply, <<>>, State};
-get_user_pass(_User, _Realm, State) ->
-    {reply, false, State}.
-```
-
 
 ### sip_authorize/3
+```erlang
+-spec authorize(AuthList, Request::nksip:request(), Call::nksip:call()) ->
+    ok | forbidden | authenticate | {authenticate, Realm::binary()} |
+    proxy_authenticate | {proxy_authenticate, Realm::binary()}
+    when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
+```
+
 Called for every incoming request to be authorized or not.
 
-If `ok` is replied the request is authorized and the request processing continues. If `authenticate` is replied, the request will be rejected (statelessly) with a 401 _Unauthorized_. The other party will usually send the request again, this time with an `Authorization` header. If you reply `proxy_authenticate`, it is rejected with a 407 _Proxy Authentication Rejected_ response and the other party will include a `Proxy-Authorization` header.
+* If `ok` is replied the request is authorized and the request processing continues.
+* If `forbidden`, a 403 _Forbidden_ is replied statelessly.
+* If `authenticate` is replied, the request will be rejected (statelessly) with a 401 _Unauthorized_. The other party will usually send the request again, this time with an _Authorization_ header. * If you reply `proxy_authenticate`, it is rejected with a 407 _Proxy Authentication Rejected_ response and the other party will include a _Proxy-Authorization_ header.
 
 You can use the tags included in `AuthList` in order to decide to authenticate or not the request. `AuthList` includes the following tags:
 * `dialog`: the request is in-dialog and coming from the same ip and port than the last request for an existing dialog.
@@ -100,187 +101,192 @@ You will usually want to combine these strategies. Typically you will first chec
 
 If you don't define this function all requests will be authenticated.
 
+Example:
 ```erlang
--spec authorize(ReqId::nksip:id(), AuthList, From::from(), State::term()) ->
-    call_reply(ok | authenticate | proxy_authenticate | forbidden)
-    when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
-
-authorize(_ReqId, _AuthList, _From, State) ->
-    {reply, ok, State}.
+sip_authorize(Auth, Req, _Call) ->
+    IsDialog = lists:member(dialog, Auth),
+    IsRegister = lists:member(register, Auth),
+    case IsDialog orelse IsRegister of
+        true ->
+            ok;
+        false ->
+            case nksip_lib:get_value({digest, <<"my_realm">>}, Auth) of
+                true -> ok;
+                false -> forbidden;
+                undefined -> {proxy_authenticate, BinId}
+            end
+    end.
 ```
 
+
 ### sip_route/5
+```erlang
+-spec sip_route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
+                Request::nksip:request(), Call::nksip:call()) ->
+    proxy | {proxy, ruri | nksip:uri_set()} | 
+    {proxy, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
+    proxy_stateless | {proxy_stateless, ruri | nksip:uri_set()} | 
+    {proxy_stateless, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
+    process | process_stateless |
+    {reply, nksip:sipreply()} | {reply_stateless, nksip:sipreply()}.
+```
+
 This function is called by NkSIP for every new request, to check if it must be proxied, processed locally or replied immediately. 
 For convenience, the scheme, user and domain parts of the _Request-Uri_ are included.
 
-If we want to **act as a proxy** and route the request, and we are not responsible for `Domain` we must return `proxy` or `{proxy, ruri, ProxyOpts}`. We must not return an `UriSet` in this case. NkSIP will then make additional checks to the request (like inspecting the `Proxy-Require` header) and will route it statefully to the same `Request-URI` contained in the request.
+If we want to **act as a proxy** and route the request, and we are not responsible for `Domain`, we must return `proxy` or `{proxy, ruri, ProxyOpts}`. We must not return an `UriSet` in this case. NkSIP will then make additional checks to the request (like inspecting the `Proxy-Require` header) and will route it statefully to the same `Request-URI` contained in the request.
 
 If we are the responsible proxy for `Domain` we can provide a new list of URIs to route the request to. NkSIP will use **_serial_** and/or **_parallel_** _forking_ depending on the format of `UriSet`. If `UriSet` is a simple Erlang array of binaries representing uris, NkSIP will try each one serially. If any of the elements of the arrary is in turn a new array of binaries, it will fork them in parallel. 
-For example, for  `[ <<"sip:aaa">>, [<<"sip:bbb">>, <<"sip:ccc">>], <<"sip:ddd">>]` NkSIP will first forward the request to `aaa`. If it does not receive a successful (2xx) response, it will try `bbb` and `cccc` in parallel. If no 2xx is received again, `ddd` will be tried. See `nksip_registrar` to find out how to get the registered contacts for this `Request-Uri`.
+For example, for  `[ <<"sip:aaa">>, [<<"sip:bbb">>, <<"sip:ccc">>], <<"sip:ddd">>]` NkSIP will first forward the request to `aaa`. If it does not receive a successful (2xx) response, it will try `bbb` and `cccc` in parallel. If no 2xx is received again, `ddd` will be tried. See `nksip_registrar` to find out how to get the registered contacts for this `Request-Uri`. For `ProxyOpts` you can use the same options defined for [sending requests](../sending_options.md). Common options are:
 
-Available options for `ProxyOpts` are:
-* `stateless`: Use it if you want to proxy the request _statelessly_. Only one URL is allowed in `UriSet` in this case.
 * `record_route`: NkSIP will insert a _Record-Route_ header before sending the request, so that following request inside the dialog will be routed to this proxy.
 * `path`: For REGISTER requests, if the request includes "path" as part of the supported tokens, it will insert a _Path_ header (see RFC3327). If path it is not supported, it will reply a 421 _Extension Required_ response.
 * `follow_redirects`: If any 3xx response is received, the received contacts will be inserted in the list of uris to try.
 * `{route, nksip:user_uri()}`: NkSIP will insert theses routes as _Route_ headers in the request, before any other existing `Route` header. The request would then be sent to the first _Route_.
-* `{headers, [nksip:header()]}`: Inserts these headers before any existing header.
-* `remove_routes`: Removes any previous _Route_ header in the request. A proxy should not usually do this. Use it with care.
-* `remove_headers`: Remove previous non-vital headers in the request. You can use modify the headers and include them with using `{headers, Headers}`. A proxy should not usually do this. Use it with care.
+* Header additions
 
 You can also add headers to the request if the URI contains a _Route_ header.
 
-If we want to **act as an endpoint or B2BUA** and answer to the request from this SipApp, we must return `process` or `{process, ProcessOpts}`. NkSIP will then make additional checks to the request (like inspecting `Require` header), start a new transaction and call the function corresponding to the method in the request (like `invite/3`, `options/3`, etc.)
+If you use `proxy_stataless` instead of `proxy`, the request will be proxied statelessly, without storing any state about it in the server. In this case you should use only one _url_.
 
-Available options for `ProcessOpts` are:
-* `stateless`: Use it if you want to process this request _statelessly_. No transaction will be started.
-* `{headers, [nksip:header()]}`: Insert these headers before any existing header, before calling the next callback function.
+If we want to **act as an endpoint or B2BUA** and answer to the request from this SipApp, we must return `process` or `process_stataless`. NkSIP will then make additional checks to the request (like inspecting `Require` header), and will call the function corresponding to the method in the request (like `sip_invite/2`, `sip_options/2`, etc.)
 
-We can also **send a reply immediately**, replying `{response, Response}`, `{response, Response, ResponseOpts}` or simply `Response`. See `nksip_reply` to find the recognized response values. The typical reason to reply a response here is to send <b>redirect</b> or an error like `not_found`, `ambiguous`, `method_not_allowed` or any other. If the form `{response, Response}` or `{response, Response, ResponseOpts}` is used the response is sent statefully, and a new transaction will be started, unless `stateless` is present in `ResponseOpts`.
-
-If simply `Response` is used no transaction will be started. 
-The only recognized option in `ResponseOpts` is `stateless`.
+We can also **send a reply immediately**, replying `{reply, Reply}` `{reply_stateless, Reply}`. See [Reply Options](reply_options.md) for a descriptions of available reply options.
 
 If route/3 is not defined the default reply would be `process`.
 
+Example:
 ```erlang
--type route_reply() ::
-    proxy | {proxy, ruri | nksip:uri_set()} | 
-    {proxy, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
-    process | {process, nksip_lib:optslist()} |
-    {response, nksip:sipreply()} | 
-    {response, nksip:sipreply(), nksip_lib:optslist()}.
-
--spec route(ReqId::nksip:id(), Scheme::nksip:scheme(), 
-            User::binary(), Domain::binary(), From::from(), State::term()) ->
-    call_reply(route_reply()).
-
-route(_ReqId, _Scheme, _User, _Domain, _From, State) ->
-    {reply, process, State}.
+sip_route(Scheme, User, Domain, Req, _Call) ->
+    Opts = [{route, "<sip:127.0.0.1:5061;lr>"}],
+    case User of
+        <<>> -> 
+            process;
+        _ when Domain =:= <<"127.0.0.1">> ->
+            proxy;
+        _ ->
+            App = nksip_request:app_name(Req),
+            case nksip_registrar:find(App, Scheme, User, Domain) of
+                [] -> 
+                    {reply, temporarily_unavailable};
+                UriList -> 
+                    {proxy, UriList, Opts}
+            end
+    end.
 ```
+
 
 ### sip_invite/2
+```erlang
+-spec sip_invite(Request::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+```
+
 This function is called by NkSIP to process a new INVITE request as an endpoint.
 
-`Meta` will include at least the following parameters: aor, dialog_id, content_type and body (see `nksip_request` for details). If content-type is `application/sdp` the body will be decoded as a `nksip_sdp:sdp()` object you can manage with the functions in `nksip_sdp`.
+You would usually extract information from the Request (using the [API](api.md)) like user, body, content-type, etc., and maybe get information from the body with the functions in the `nksip_sdp` module, and should then reply a final response (like `ok`, `{answer, Body}` or `busy`, see options [here](reply_options.md)).
 
-Before replying a final response, you will usually call `nksip_request:reply/3` to send a provisional response like `ringing` (which would send a 180 _Ringing_ reply) or `ringing_rel` to send
-a _reliable provisional response_.
+Alteratively, you can grab a request handle (calling `nksip_request:get_id(Request)`), return a provisional response (like `{reply, ringing}`) and spawn a new process to send a final response later on calling `nksip_request:reply/2` (like `ok`, `{answer, Body}` or `busy`). You should use this technique anycase if you are going to spend more than a few miliseconds processing the callback function, in order to not to block new requests and retransmissions having the same _Call-ID_. You shouldn´t copy the `Request` and `Call` objects to the spawned process, as they are quite heavy. It is recommended to extract all needed information before spawning the request and pass it to the spawned process.
 
-If a quick response (like `busy`) is not going to be sent immediately (which is typical for INVITE requests, as the user would normally need to accept the call) you must return `{noreply, NewState}` and spawn a new process, calling `nksip:reply/2` from the new process, in order to avoid blocking the SipApp process.
+NkSIP will usually send a `100 Trying` response before calling this callback, unless option `no_100` is used.
 
-You must then answer the request. The possible responses are defined in `nksip_reply`.
-If a successful (2xx) response is sent, you should include a new generated SDP body in the response. A new dialog will then start. The remote party should then send an ACK request immediately. If none is received, NkSIP will automatically stop the dialog.
+Inmediatly after you send the first provisional or final response a dialog will be created, and NkSIP will call [sip_dialog_update/3](#sip_update_dialog3) and possibly [sip_session_update/3](#sip_session_update3). The dialog will be destroyed if no ACK in received after sending a successful final response.
 
+Example:
 ```erlang
--spec invite(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
-
-invite(_ReqId, _Meta, _From, State) ->
-    {reply, decline, State}.
+sip_invite(Req, Call) ->
+    ReqId = nksip_request:get_id(Req),
+    HasSDP = case nksip_dialog:get_dialog(Req, Call) of
+        {ok, Dialog} -> {true, nksip_dialog:meta(invite_local_sdp, Dialog)};
+        error -> false
+    end,
+    proc_lib:spawn(
+        fun() ->
+            nksip_request:reply(ringing, ReqId),
+            timer:sleep(5000),
+            case HasSDP of
+                {true, SDP1} ->
+                    SDP2 = nksip_sdp:increment(SDP1),
+                    nksip_request:reply({ok, [{body, SDP2}|Hds]}, ReqId);
+                false ->
+                    nksip:reply(decline, ReqId)
+            end
+        end),
+    noreply.
 ```
+
+If this functions is not implemented, it will reply with a _603 Decline_
 
 
 ### sip_reinvite/2
-This function is called when a new in-dialog INVITE request is received.
-
-The guidelines and `Meta` in `invite/4` are still valid, but you shouldn`t send provisional responses, sending a final response inmediatly.
-
-If the dialog's target or the SDP session parameters are updated by the request or its response, `dialog_update/3` and/or `session_update/3` would be called.
-
 ```erlang
--spec reinvite(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
-
-reinvite(_ReqId, _Meta, __From, State) ->
-    {reply, decline, State}.
+-spec sip_reinvite(Request::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
 ```
+
+This function is called when a new in-dialog INVITE request is received. 
+
+It works the same way as `sip_invite/2`, and, if it is not implement, it will call `sip_invite/2`. You should implement it to have different behaviours for new and in-dialog INVITE requests.
 
 
 ### sip_cancel/3
+```
+-spec sip_cancel(InviteRequest::nksip:request(), Request::nksip:request(), 
+                 Call::nksip:call()) ->
+    ok.
+```
+
 Called when a pending INVITE request is cancelled.
 
-When a CANCEL request is received by NkSIP, it will check if it belongs to an existing INVITE transaction. If not, a 481 _Call/Transaction does not exist_ will be automatically replied.
+When a CANCEL request is received by NkSIP, it will check if it belongs to an existing INVITE transaction. If not, a 481 _Call/Transaction does not exist_ will be automatically replied. If it belongs to an existing INVITE transaction, NkSIP replies 200 _OK_ to the CANCEL request. If the matching INVITE transaction has not yet replied a final response, NkSIP replies it with a 487 (Request Terminated) and this function is called. If a final response has already beeing replied, it has no effect.
 
-If it belongs to an existing INVITE transaction, NkSIP replies 200 _OK_ to the CANCEL request. If the matching INVITE transaction has not yet replied a final response, NkSIP replies it with a 487 (Request Terminated) and this function is called. If a final response has already beeing replied, it has no effect.
-
-`Meta` will include a parameter `{req_id, InviteId}` showing the request id of the INVITE being cancelled.
-
-```erlang
--spec cancel(ReqId::nksip:id(), Meta::meta(), State::term()) ->
-    call_noreply().
-
-cancel(_ReqId, _Meta, State) ->
-    {noreply, State}.
-```
+You can get additional information of the cancelled INVITE using `InviteRequest`
 
 
 ### sip_ack/2
-This function is called by NkSIP when a new valid in-dialog ACK request has to be processed locally.
+```
+-spec sip_ack(Request::nksip:request(), Call::nksip:call()) ->
+    ok.
 
-`Meta` will include at least the following parameters: dialog_id, content_type and body (see `nksip_request` for details).
+This function is called by NkSIP when a new valid in-dialog ACK request has to be processed locally.
 
 You don't usually need to implement this callback. One possible reason to do it is to receive the SDP body from the other party in case it was not present in the INVITE (you can also get it from the `session_update/3` callback).
 
 
-```erlang
--spec ack(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(ok).
-
-ack(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
+### sip_bye/2
+```
+-spec sip_bye(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
 ```
 
-
-### sip_bye/2
 Called when a valid BYE request is received.
 
-When a BYE request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP stops the dialog and this callback functions is called. You won't usually need to implement this function, but in case you do, you should reply `ok` to send a 200 response back.
-
-`Meta` will include at least the following parameters: aor, dialog_id (see `nksip_request` for details).
-
-```erlang
--spec bye(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
-
-bye(_ReqId, _Meta, _From, State) ->
-    {reply, ok, State}.
-```
+When a BYE request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP stops the dialog and this callback functions is called. You won't usually need to implement this function, but in case you do, you should reply `ok` to send a 200 response back. See [sip_invite/2](#sip_invite2) for delayed responses.
 
 
 ### sip_info/2
+```
+-spec sip_info(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+```
+
 Called when a valid INFO request is received.
 
-When an INFO request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP this callback functions is called. If implementing this function, you should reply `ok` to send a 200 response back.
-
-`Meta` will include at least the following parameters: aor, content-type, body (see `nksip_request` for details).
-
-```erlang
--spec info(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-  call_reply(nksip:sipreply()).
-
-info(_ReqId, _Meta, _From, State) ->
-  {reply, ok, State}.
-```
+When an INFO request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP this callback functions is called. If implementing this function, you should reply `ok` to send a 200 response back. See [sip_invite/2](#sip_invite2) for delayed responses.
 
 
 ### sip_options/2
+```
+-spec sip_options(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+```
+
 Called when a OPTIONS request is received.
 
-This function is called by NkSIP to process a new incoming OPTIONS request as an endpoint. If not defined, NkSIP will reply with a 200 _OK_ response, including automatically generated `Allow`, `Accept` and `Supported` headers. 
+This function is called by NkSIP to process a new incoming OPTIONS request as an endpoint. If not defined, NkSIP will reply with a 200 _OK_ response, including options `contact`, `allow`, `allow_event`, `accept` and `supported`. See the list of available options [here](reply_options.md)).
 
-NkSIP will not send any body in its automatic response. This is ok for proxies. If you are implementing an endpoint or B2BUA, you should implement this function and include in your response a SDP body representing your supported list of codecs, and also `Allow`, `Accept` and `Supported` headers.
+NkSIP will not send any body in its automatic response. This is ok for proxies. If you are implementing an endpoint or B2BUA, you should implement this function and include in your response a SDP body representing your supported list of codecs, and also the previous options.
 
-`Meta` will include at least the following parameters: aor (see `nksip_request` for details).
-
-```erlang
--spec options(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
-
-options(_ReqId, _Meta, _From, State) ->
-    Reply = {ok, [contact, allow, allow_event, accept, supported]},
-    {reply, Reply, State}.
-```
 
 
 ### sip_register/2
