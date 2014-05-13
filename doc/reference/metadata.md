@@ -52,6 +52,7 @@ require|`[binary()]`|Tokens in Require header
 supported|`[binary()]`|Tokens in Supported header
 expires|`integer()`&#124;`undefined`|Expires header
 event|`nksip:token()`&#124;`undefined`|Token in Event header
+refer_to|`nksip:uri()`&#124;`error`|URL in Refer-To header
 realms|`[binary()]`|Realms in authentication headers
 rseq_num|`integer()`&#124;`undefined`|RSeq header (numeric part)
 rack|`{integer(),integer(),nksip:method()}`&#124;`undefined`|RAck header
