@@ -7,6 +7,9 @@ You can use a number of options when [sending requests](../guide/sending_request
 * [Header Manipulation Options](#header-manipulation-options)
 * [Specific Options](#specific-options)
 
+Installed plugins can add specific sending options.
+
+
 
 ## Common Options
 
