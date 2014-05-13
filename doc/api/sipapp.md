@@ -2,6 +2,8 @@
 
 This document describes the API that NkSIP makes available to SipApps. These functions are available in the [nksip.erl](../../src/nksip.erl) module.
 
+See [Starting a SipApp](../guide/start_a_sipapp.md) for a general overview.
+
 
 Function|Description
 ---|---
@@ -23,7 +25,7 @@ Function|Description
 
 ## Functions list
 
-### start/4
+### nksip:start/4
 ```erlang
 -spec start(UserName::term(), CallbackModule::atom(), Args::term(), Opts::nksip_lib:optslist()) -> 
 	{ok, app_id()} | {error, term()}.
@@ -36,7 +38,7 @@ See [Starting a SipApp](../guide/start_a_sipapp.md) and [Configurarion](../refer
 NkSIP returns the _internal name_ of the application. In most API calls you can use the _user name_ or the _internal name_.
 
 
-### stop/1
+### nksip:stop/1
 ```erlang
 -spec stop(Name::term()|app_id()) -> 
     ok | error.
@@ -44,7 +46,7 @@ NkSIP returns the _internal name_ of the application. In most API calls you can 
 Stops a currently started SipApp.
 
 
-### stop_all/0
+### nksip:stop_all/0
 ```erlang
 -spec stop_all() -> 
    	ok.
@@ -52,7 +54,7 @@ Stops a currently started SipApp.
 Stops all currently started SipApps.
 
 
-### update/2
+### nksip:update/2
 ```erlang
 -spec update(term()|app_id(), nksip_lib:optslist()) ->
     {ok, app_id()} | {error, term()}.
@@ -60,7 +62,7 @@ Stops all currently started SipApps.
 Updates the callback module or options of a running SipApp. It is not allowed to change transports.
 
 
-### get_all/0
+### nksip:get_all/0
 ```erlang
 -spec get_all() ->
     [{AppName::term(), AppId::app_id()}].
@@ -68,7 +70,7 @@ Updates the callback module or options of a running SipApp. It is not allowed to
 Gets the user and internal ids of all started SipApps.
 
 
-### get/2
+### nksip:get/2
 ```erlang
 -spec get(term()|nksip:app_id(), term()) ->
     {ok, term()} | not_found | error.
@@ -76,7 +78,7 @@ Gets the user and internal ids of all started SipApps.
 Gets a value from SipApp's store.
 
 
-### get/3
+### nksip:get/3
 ```erlang
 -spec get(term()|nksip:app_id(), term(), term()) ->
     {ok, term()} | error.
@@ -84,7 +86,7 @@ Gets a value from SipApp's store.
 Gets a value from SipApp's store, using a default if not found.
 
 
-### put/3
+### nksip:put/3
 ```erlang
 -spec put(term()|nksip:app_id(), term(), term()) ->
     ok | error.
@@ -92,7 +94,7 @@ Gets a value from SipApp's store, using a default if not found.
 Inserts a value in SipApp's store.
 
 
-### del/2
+### nksip:del/2
 ```erlang
 -spec del(term()|nksip:app_id(), term()) ->
     ok | error.
@@ -100,7 +102,7 @@ Inserts a value in SipApp's store.
 Deletes a value from SipApp's store.
 
 
-### get_pid/1
+### nksip:get_pid/1
 ```erlang
 -spec get_pid(term()|app_id()) -> 
     pid() | not_found.
@@ -108,7 +110,7 @@ Deletes a value from SipApp's store.
 Gets the SipApp's _gen_server process_ `pid()`.
 
 
-### find_app/1
+### nksip:find_app/1
 ```erlang
 -spec find_app(term()) ->
     {ok, app_id()} | not_found.
@@ -116,7 +118,7 @@ Gets the SipApp's _gen_server process_ `pid()`.
 Finds the _internal name_ of an existing SipApp.
 
 
-### get_uuid/1
+### nksip:get_uuid/1
 ```erlang
 -spec get_uuid(term()|nksip:app_id()) -> 
     {ok, binary()} | error.
@@ -124,7 +126,7 @@ Finds the _internal name_ of an existing SipApp.
 Gets the SipApp's _UUID_.
 
 
-### get_gruu_pub/1
+### nksip:get_gruu_pub/1
 ```erlang
 -spec get_gruu_pub(term()|nksip:app_id()) ->
     undefined | nksip:uri() | error.
@@ -132,7 +134,7 @@ Gets the SipApp's _UUID_.
 Gets the last detected public _GRUU_.
 
 
-### get_gruu_temp/1
+### nksip:get_gruu_temp/1
 ```erlang
 -spec get_gruu_temp(term()|nksip:app_id()) ->
     undefined | nksip:uri() | error.
