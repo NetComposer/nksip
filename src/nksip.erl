@@ -139,156 +139,6 @@
 %% ===================================================================
 
 %% @doc Starts a new SipApp.
-%% A <b>SipApp</b> is a SIP application started by NkSIP, listening on one or several
-%% sets of transport protocol, IP and port of the host. You must supply an `AppId' 
-%% for the SipApp, a <i>callbacke</i> `Module' with {@link nksip_sipapp} behaviour, 
-%% an `Args' for calling `init/1' and a set of `Options'
-%%
-%% The recognized options are:<br/><br/>
-%% <table border="1">
-%%      <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
-%%      <tr>
-%%          <td>`from'</td>
-%%          <td>{@link user_uri()}</td>
-%%          <td>`"NkSIP App <sip:user@nksip>"'</td>
-%%          <td>Default <i>From</i> to use in the requests.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`pass'</td>
-%%          <td>`Pass | {Pass, Realm} | [Pass | {Pass, Realm}]'<br/>
-%%              `Pass::binary(), Realm::binary()'</td>
-%%          <td></td>
-%%          <td>Passwords to use in case of receiving an <i>authenticate</i> response
-%%          using {@link nksip_uac} functions.<br/>
-%%          The first password matching the response's realm will be used, 
-%%          or the first without any realm if none matches. <br/>
-%%          A hash of the password can be used instead 
-%%          (see {@link nksip_auth:make_ha1/3}).</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`register'</td>
-%%          <td>{@link user_uri()}</td>
-%%          <td></td>
-%%          <td>NkSIP will try to <i>REGISTER</i> the SipApp with this registrar server
-%%          or servers (i.e. "sips:sip2sip.info,sips:other.com"). <br/> 
-%%          If the SipApp supports outbound (RFC5626), a new reg_id will be generated 
-%%          for each one, a flow will be stablished, and,
-%%          if the remote party also supports outbound, keep alive messages will be
-%%          sent over each flow.
-%%          See {@link nksip_sipapp_auto:get_registers/1}
-%%          and {@link nksip_sipapp:register_update/3}.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`register_expires'</td>
-%%          <td>`integer()'</td> 
-%%          <td>`300'</td>
-%%          <td>In case of register, registration interval (secs).</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`transports'</td>
-%%          <td>
-%%              `[{Proto, Ip, Port}]'<br/>
-%%              <code>Proto::{@link protocol()}</code><br/>
-%%              `Ip::inet:ip_address()|string()|binary()|any|any6'<br/>
-%%              `Port::inet:port_number()|all'
-%%          </td>
-%%          <td>`[{udp, any, all}, {tls, any, all}]'</td>
-%%          <td>The SipApp can start any number of transports. 
-%%          If an UDP transport is started, a TCP transport on the same IP and port
-%%          will be started automatically.<br/>
-%%          Use `any' to use <i>all</i> available IPv4 addresses and 
-%%          `any6' for all IPv6 addresses, and `all' to use
-%%          any available port.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`listeners'</td>
-%%          <td>`integer()'</td>
-%%          <td>`1'</td>
-%%          <td>Number of pre-started listeners for TCP and TLS
-%%          (see <a href="http://ninenines.eu/docs/en/ranch/HEAD/guide/introduction">Ranch's</a> documentation).</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`certfile'</td>
-%%          <td>`string()'</td>
-%%          <td>`"(privdir)/cert.pem"'</td>
-%%          <td> Path to the certificate file for TLS.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`keyfile'</td>
-%%          <td>`string()'</td>
-%%          <td>`"(privdir)/key.pem"'</td>
-%%          <td>Path to the key file for TLS.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`route'</td>
-%%          <td>{@link user_uri()}</td>
-%%          <td></td>
-%%          <td> Route (outbound proxy) to use. Generates one or more `Route' headers
-%%              in every request, for example `<sip:1.2.3.4;lr>, <sip:abcd;lr>' 
-%%              (you will usually append the `lr' option to use <i>loose routing</i>).
-%%          </td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_host'</td>
-%%          <td>`auto|string()|binary()'</td>
-%%          <td>`auto'</td>
-%%          <td>Default host or IP to use in headers like `Via', `Contact' and 
-%%          `Record-Route'.<br/>
-%%          If set to `auto' NkSIP will use the IP of the
-%%          transport selected in every case. If that transport is listening on all
-%%          addresses NkSIP will try to find the best IP using the first 
-%%          valid IP among the network interfaces `ethX' and 'enX',
-%%          or localhost if none is found.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`local_host6'</td>
-%%          <td>`auto|string()|binary()'</td>
-%%          <td>`auto'</td>
-%%          <td>Default host or IP to use in headers like `Via', `Contact' and 
-%%          `Record-Route' for IPv6 transports.<br/>
-%%          See `local_host' option.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`registrar'</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present, allows the automatic processing <i>REGISTER</i> requests, 
-%%          even if no `register/3' callback  is defined, using 
-%%          {@link nksip_sipapp:register/3}.<br/>
-%%          The word <i>REGISTER</i> will also be present in all <i>Allow</i> headers.
-%%          </td>
-%%      </tr>
-%%      <tr>
-%%          <td>`no_100'</td>
-%%          <td></td>
-%%          <td></td>
-%%          <td>If present, forbids the generation of automatic `100-type' responses
-%%          for INVITE requests.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`supported'</td>
-%%          <td>`string()|binary()'</td>
-%%          <td>`"100rel"'</td>
-%%          <td>If present, these tokens will be used in Supported headers instead of
-%%          the default supported list, for example
-%%          "my_token1, mytoken2, 100rel".</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`event'</td>
-%%          <td>`string()|binary()'</td>
-%%          <td>`""'</td>
-%%          <td>Lists the Event Packages this SipApp supports.</td>
-%%      </tr>
-%%      <tr>
-%%          <td>`accept'</td>
-%%          <td>`string()|binary()'</td>
-%%          <td>`"*/*"'</td>
-%%          <td>If defined, this value will be used instead of default when 
-%%          option `accept' is used</td>
-%%      </tr>
-%%  </table>
-%%
-%% <br/>
 -spec start(term(), atom(), term(), nksip_lib:optslist()) -> 
 	{ok, app_id()} | {error, term()}.
 
@@ -338,7 +188,7 @@ stop_all() ->
     lists:foreach(fun({_, AppId}) -> stop(AppId) end, get_all()).
 
 
-%% @doc Updates the callback module or options of a running SipApp
+%% @doc Updates the callback module or options of a running SipApp.
 %% It is not allowed to change transports
 -spec update(term()|app_id(), nksip_lib:optslist()) ->
     {ok, app_id()} | {error, term()}.
@@ -355,7 +205,7 @@ update(App, Opts) ->
 
     
 
-%% @doc Gets the `AppIds' of all started SipApps.
+%% @doc Gets the user and internal ids of all started SipApps.
 -spec get_all() ->
     [{AppName::term(), AppId::app_id()}].
 
@@ -460,28 +310,17 @@ cast(App, Msg) ->
 
 get_pid(App) ->
     case find_app(App) of
-        {ok, AppId} -> nksip_sipapp_srv:get_pid(AppId);
-        _ -> not_found
-    end.
-
-
-%% @doc Gets SipApp's first listening port on this transport protocol.
--spec get_port(term()|app_id(), protocol(), ipv4|ipv6) -> 
-    inet:port_number() | not_found.
-
-get_port(App, Proto, Class) ->
-    case find_app(App) of
         {ok, AppId} -> 
-            case nksip_transport:get_listening(AppId, Proto, Class) of
-                [{#transport{listen_port=Port}, _Pid}|_] -> Port;
-                _ -> not_found
+            case whereis(AppId) of
+                undefined -> error;
+                Pid -> Pid
             end;
-        not_found ->
-            not_found
+        _ ->
+            error
     end.
 
 
-%% @private
+%% @doc Gets the internal name of an existing SipApp
 -spec find_app(term()) ->
     {ok, app_id()} | not_found.
 

@@ -156,14 +156,15 @@ options(_ReqId, _From, #state{id=Id}=State) ->
 Now let's try a _INVITE_ from `client2` to `client1` through the proxy. NkSIP will call the callback `invite/3` in `client1`'s callback module:
 
 ```erlang
-invite(ReqId, From, State) ->
+invite(Req, Call) ->
     SDP = nksip_request:body(ReqId),
     case nksip_sdp:is_sdp(SDP) of
         true ->
+            ReqId = nksip_request:get_id(Req),
             Fun = fun() ->
-                nksip_request:reply(ReqId, ringing),
+                nksip_request:reply(ringing, ReqId),
                 timer:sleep(2000),
-                nksip:reply(From, {ok, [], SDP})
+                nksip_request:reply({answer, SDP}, ReqId)
             end,
             spawn(Fun),
             {noreply, State};

@@ -256,7 +256,7 @@ sip_invite(Req, Call) ->
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip_request:reply({ok, [{body, SDP2}|Hds]}, ReqId);
                 false ->
-                    nksip:reply(decline, ReqId)
+                    nksip_request:reply(decline, ReqId)
             end
         end),
     noreply.
