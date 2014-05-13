@@ -2,6 +2,8 @@
 
 See a general description [Sending Requests](../guide/sending_requests.md) and and the full list of options in [Sending Options](../reference/sending_options.md).
 
+All these functions are defined in [nksip_uac.erl](../../src/nksip_uac.erl)
+
 
 Function|Comment
 ---|---
@@ -33,8 +35,8 @@ Function|Comment
 
 ### options
 ```
-options(App, Uri, Opts)
-options(DialogId, Opts)
+nksip_uac:options(App, Uri, Opts)
+nksip_uac:options(DialogId, Opts)
 ```
 
 OPTIONS requests are usually sent to get the current set of SIP features and codecs the remote party supports, and to detect if it is _up_, it has failed or it is not responding requests for any reason. It can also be used to measure the remote party response time.
@@ -46,7 +48,7 @@ NkSIP has an automatic remote _pinging_ feature that can be activated on any Sip
 
 ### register
 ```
-register(App, Uri, Opts)
+nksip_uac:register(App, Uri, Opts)
 ```
 
 This function is used to send a new REGISTER request to any registrar server, to register a new _Contact_, delete a current registration or get the list of current registered contacts from the registrar. To register a contact you should use optons `{contact, Contact}` or `contact`, and typically `expires`. If you include no contact, the current list of registered contacts should be returned by the server (use `contact` as _meta_ option to get it)
@@ -60,8 +62,8 @@ NkSIP has an automatic registration feature that can be activated on any SipApp 
 
 ### invite
 ```
-invite(App, Uri, Opts)
-invite(DialogId, Opts)
+nksip_uac:invite(App, Uri, Opts)
+nksip_uac:invite(DialogId, Opts)
 ```
 
 These functions sends a new session invitation to another endpoint or proxy. Options `contact`, `supported`, `allow` and `allow_event` are automatically added.
@@ -88,7 +90,7 @@ The first _meta_ returned value is allways `{dialog_id, DialogId}`, even if the 
 
 ### ack
 ```
-ack(DialogId, Opts)
+nksip_uac:ack(DialogId, Opts)
 ```
 
 After sending an INVITE and receiving a successfully (2xx) response, you must call this function immediately to send the mandatory ACK (unless option `auto_2xx_ack` is used). NkSIP won't send it for you automatically in case of a successful response, because you may want to include a SDP body if you didn`t do it in the INVITE request.
@@ -98,7 +100,7 @@ For _sync_ requests, it will return `ok` if the request could be sent or `{error
 
 ### bye
 ```
-bye(DialogId, Opts)
+nksip_uac:bye(DialogId, Opts)
 ```
 
 Sends an _BYE_ for a current dialog, terminating the session.
@@ -107,7 +109,7 @@ Sends an _BYE_ for a current dialog, terminating the session.
 ### cancel
 
 ```
-cancel(RequestId, Opts)
+nksip_uac:cancel(RequestId, Opts)
 ```
 
 Sends an _CANCEL_ for a currently ongoing _INVITE_ request.
@@ -120,7 +122,7 @@ This call is always asychronous. It returns a soon as the request is received an
 ### update
 
 ```
-update(DialogId, Opts)
+nksip_uac:update(DialogId, Opts)
 ```
 
 Sends an  UPDATE on a currently ongoing dialog, allowing to change the media session before the dialog has been confirmed. A session timer will be started.
@@ -130,7 +132,7 @@ Options `supported`, `accept` and `allow` are automatically added.
 ### info
 
 ```
-info(DialogId, Opts)
+nksip_uac:info(DialogId, Opts)
 ```
 
 Sends an INFO request. Doesn`t change the state of the current session.
@@ -139,8 +141,8 @@ Sends an INFO request. Doesn`t change the state of the current session.
 
 ### subscribe
 ```
-subscribe(App, Uri, Opts)
-subscribe(Id, Opts)
+nksip_uac:subscribe(App, Uri, Opts)
+nksip_uac:subscribe(Id, Opts)
 ```
 
 Sends an SUBSCRIBE request.
@@ -156,7 +158,7 @@ After a 2xx response, you should send a new reSUBSCRIBE request to refresh the s
 
 ### notify
 ```
-notify(SubscriptionId, Opts)
+nksip_uac:notify(SubscriptionId, Opts)
 ```
 
 Sends an _NOTIFY_ for a current server subscription.
@@ -171,8 +173,8 @@ When your SipApp accepts a incoming SUBSCRIBE request, replying a 2xx response, 
 
 ### message
 ```
-message(App, Uri, Opts)
-message(DialogId, Opts
+nksip_uac:message(App, Uri, Opts)
+nksip_uac:message(DialogId, Opts
 ```
 
 Sends an MESSAGE request.
@@ -180,8 +182,8 @@ Sends an MESSAGE request.
 
 ### refer
 ```
-refer(App, Uri, Opts)
-refer(DialogId, Opts
+nksip_uac:refer(App, Uri, Opts)
+nksip_uac:refer(DialogId, Opts
 ```
 
 Sends an _REFER_ for a remote party. 
@@ -195,8 +197,8 @@ In case of 2xx response, the first returned value is allways `{subscription_id, 
 ### publish 
 
 ```
-publish(App, Uri, Opts)
-publish(DialogId, Opts)
+nksip_uac:publish(App, Uri, Opts)
+nksip_uac:publish(DialogId, Opts)
 ```
 
 Sends an PUBLISH request. 
@@ -208,8 +210,8 @@ If the remote party returns a 2xx response, it means that the publishing has bee
 
 ### Generic Request
 ```
-request(App, Uri, Opts)
-request(DialogId, Opts)
+nksip_uac:request(App, Uri, Opts)
+nksip_uac:request(DialogId, Opts)
 ```
 
 Allows you to send any SIP request, without the automatic processing of the previous functions. 
@@ -217,7 +219,7 @@ Allows you to send any SIP request, without the automatic processing of the prev
 
 ### stun
 ```
-stun(App, Uri, Opts)
+nksip_uac:stun(App, Uri, Opts)
 ```
 
 Sends a new _STUN_ binding request.
