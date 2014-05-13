@@ -1,62 +1,121 @@
-# NkSIP SipApps' API
+# Requests API
+
+This document describes the API NkSIP makes available to extract information from Requests.
+
+Most functions in the API allows two ways to refer the the request:
+* From a full *request object* (`nksip:request()`). Most functions called in the SipApp's _callback module_ receive a full request object, and you can use this functions to get information from it.
+* From a *request handle* (`nksip:handle()`). You can get a request handle from a request object using [get_handle/1](#nksip_requestget_handle1). You can then use the handle to use most functions in this API. 
+    
+    In this case, the API function must contact with the corresponding call process to get the actual request, so you cannot use this method _inside_ the same call process (like in the callback functions). This method is useful to refer to the request from a _spawned_ process, avoiding the need to copy the full object. Please notice that the request object may not exists any longer at the moment that the handle is used. Most functions return `error` in this case.
+
+
+<br/>
+
 
 Function|Description
 ---|---
-[start/4](#start4)|Starts a new SipApp
-[stop/1](#stop1)|Stops a started SipApp
-[stop_all/0](#stop_all/0)|Stops all started SipApps
-[update/2](#update/2)|Updates the configuration of a started SipApp
-[get_all/0](#get_all0)|Gets all currenty started SipApps
-[get/2](#get2)|Gets a value for a SipApp variable
-[get/3](#get3)|Gets a value for a SipApp variable, with a default
-[put/3](#put3)|Saves a vaule for a SipApp variable
-[del/2](#del2)|Deletes a SipApp variable
-[get_port/3](#get_port3)|Gets the listening port for a specific transport
-[find_app/1](#find_app1)|Finds the _internal name_ for a currently started SipApp
-[get_uuid/1](#get_uuid/1)|Get the current _UUID_ for a stared SipApp
-[get_gruu_pub/1](#get_gruu_pub1)|The the current public _GRUU_ of a SipApp, if one has been received.
-[get_gruu_temp/1](#get_gruu_temp1)|The the current temporary _GRUU_ of a SipApp, if one has been received.
-[reply/2](#reply/2)|Sends a response from a synchronous callback function.
-[call/2](#call2)|Sends a synchronous message to the SipApp's process, similar to `gen_server:call/2'.
-[call/3](#call2)|Sends a synchronous message to the SipApp's process, similar to `gen_server:call/3'.
-[cast/2](#call2)|Sends an asynchronous message to the SipApp's process, similar to `gen_server:cast/2'.
-[get_pid/1](#pid1)|Gets the `pid()` of a currently started SipApp
+[get_handle/1](#nksip_requestget_handle1)|Grabs a request's handle
+[app_id/1](#nksip_requestapp_id1)|Gets then SipApp's _internal name_
+[app_name/1](#nksip_requestapp_name1)|Gets the SipApp's _user name_
+[method/1](#nksip_requestmethod1)|Gets the method of the request
+[body/1](#nksip_requestbody1)|Gets the body of the request
+[call_id/1](#nksip_requestcall_id1)|Gets the Call-ID header of the request
+[meta/2](#nksip_requestmeta2)|Gets specific metadata from the request
+[header/2](#nksip_requestheader2)|Gets the values for a header or headers in a request
+[reply/2](#nksip_requestreply2)|Sends a reply to a request using a handle
+[is_local_route/1](#nksip_requestis_local_route1)|Checks if this request would be sent to a local address in case of beeing proxied
 
 
-## start/4
+## Functions List
+
+### nksip_request:get_handle/1
 ```erlang
--spec start(Name::term(), Callback::atom(), Args::term(), Opts::nksip_lib:optslist()) -> 
-	{ok, app_id()} | {error, term()}.
+-spec get_id(nksip:request()|nksip:id()) ->
+    nksip:id().
 ```
+Grabs a request's handle.
 
-Starts a new SipApp. See [starting a SipApp](../guide/start_a_sipapp.md)
 
-
-## stop/1
+### nksip_request:app_id/1
 ```erlang
--spec stop(Name::term()|app_id()) -> 
-    ok | error.
+-spec app_id(nksip:request()|nksip:id()) -> 
+    nksip:app_id().
 ```
-
-Stops a currently started SipApp
-
-## stop_all/0
+Gets then SipApp's _internal name_.
 
 
-## update/2
-## get_all/0
-## get/2
-## get/3
-## put/3
-## del/2
-## get_port/3
-## find_app/1
-## get_uuid/1
-## get_gruu_pub/1
-## get_gruu_temp/1
-## reply/2
-## call/2
-## call/3
-## cast/2
-## get_pid/1
+### nksip_request:app_name/1
+```erlang
+-spec app_name(nksip:request()|nksip:id()) -> 
+    term().
+```
+Gets the SipApp's _user name_
+
+
+### nksip_request:method/1
+```erlang
+-spec method(nksip:request()|nksip:id()) ->
+    nksip:method() | error.
+```
+Gets the method of the request.
+
+
+### nksip_request:body/1
+```erlang
+-spec body(nksip:request()|nksip:id()) ->
+    nksip:body() | error.
+```
+Gets the body of the request.
+
+
+### nksip_request:call_id/1
+```erlang
+-spec call_id(nksip:request()|nksip:id()) ->
+    nksip:call_id().
+```
+Gets the Call-ID header of the request.
+
+
+### nksip_request:meta/2
+```erlang
+-spec meta(Meta::nksip_sipmsg:field()|[nksip_sipmsg:field()], nksip:request()|nksip:id()) ->
+    term() | [{nksip_sipmsg:field(), term()}] | error.
+```
+Gets specific metadata from the request.
+
+See [Metadata Fields](../reference/metadata.md) for a description of available fields.
+If `Meta` is simple term, its value is returned. If it is a list, it will return a list of tuples, where the first element is the field name and the second is the value.
+
+
+### nksip_request:header/2
+```erlang
+-spec header(Name::string()|binary()|[string()|binary()], nksip:request()|nksip:id()) -> 
+    [binary()] | [{binary(), binary()}] | error.
+```
+Gets the values for a header or headers in a request.
+
+If `Name` is a single value, a list is returned with the values of all the headers having that name. If it is a list, a list of tuples is returned, where the first element is the header name and the second is the list of values.
+
+NkSIP uses only lowercase for header names.
+
+
+### nksip_request:reply/2
+```erlang
+-spec reply(nksip:sipreply(), nksip:id()) -> 
+    ok | {error, Error}
+    when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
+```
+Sends a reply to a request using a handle.
+
+See [Receiving Requests](../guide/receiving_requests.md) for a overall description and [Reply Options](../reference/reply_options.md) for a description of available responses.
+
+
+### nksip_request:is_local_route/1
+```erlang
+-spec is_local_route(nksip:request()) -> 
+    boolean().
+```
+Checks if this request would be sent to a local address in case of beeing proxied.
+
+It will return `true` if the first _Route_ header points to a local address or, if there are no Route header, the _Request-Uri_ points to a local address.
 

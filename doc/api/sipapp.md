@@ -1,7 +1,7 @@
 # NkSIP SipApps' API
 
-This document describes the API that NkSIP makes available to SipApps. These functions are available in the [nksip.erl](../../src/nksip.erl) module.
-
+This document describes the API that NkSIP makes available to SipApps.<br/>
+These functions are available in the [nksip.erl](../../src/nksip.erl) module.<br/>
 See [Starting a SipApp](../guide/start_a_sipapp.md) for a general overview.
 
 
