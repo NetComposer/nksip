@@ -1,137 +1,10 @@
 # SipApps callback functions
 
-Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. The default implementation of each one can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
+Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. 
 
-There are currently two different kinds of callbacks:
-* [gen_server callbacks](#gen_server-callbacks)
-They are called in the context of the SipApp's gen_server process
-
-* [sip callbacks](#sip-callbacks)
-Called in the context of the call's process
-
-
-## Gen_server Callbacks
-
-Under the hood, each started SipApp starts a new standard OTP _gen_server_ process. Its state is created while starting the SipApp, in the call to [init/1](#init1), and can used and modified in the callbacks [handle_call/3](#handle_call3), [handle_cast/2](#handle_cast2) and [terminate/2](#terminate2), called when someone calls `gen_server:call/2,3`, `gen_server:cast/2` or sends a message to the registered application's process (the same as the _internal name_).
-
-### Callbacks
-
-Callback|Reason
----|---
-[init/1](#init1)|Called when the SipApp is launched using `nksip:start/4`
-[terminate/2](#terminate2)|Called when the SipApp is stopped
-[handle_call/3](#handle_call3)|Called when a direct call to the SipApp process is made using `nksip:call/2` or `nksip:call/3`
-[handle_cast/2](#handle_cast2)|Called when a direct cast to the SipApp process is made using `nksip:cast/2`
-[handle_info/2](#handle_info2)|Called when a unknown message is received at the SipApp process
-[code_change/3](#code_change3)|See gen_server's documentation
-
-### init/1
-This callback function is called when the SipApp is launched using `nksip:start/4`.
-If `{ok, State}` or `{ok, State, Timeout}` is returned the SipApp is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the SipApp will not start. 
-
-```erlang
--spec init(Args::term()) ->
-    init_return().
-
-init([]) ->
-    {ok, {}}.
-```
-
-### terminate/2
-Called when the SipApp is stopped.
-
-```erlang
--spec terminate(Reason::term(), State::term()) ->
-    ok.
-
-terminate(_Reason, _State) ->
-    ok.
-```
-
-### handle_call/3
-Called when a direct call to the SipApp process is made using `gen_server:call/2,3`.
-
-```erlang
--spec handle_call(Msg::term(), From::from(), State::term()) ->
-      {noreply, State} | {noreply, State, Timeout} | 
-      {reply, Reply, State} | {reply, Reply, State, Timeout} | 
-      {stop, Reason, State} | {stop, Reason, Reply, State}
-      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
-
-handle_call(Msg, _From, State) ->
-    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
-    {noreply, State}.
-```
-
-
-### handle_cast/2
-Called when a direct cast to the SipApp process is made using `gen_server:cast/2`.
-
-```erlang
--spec handle_cast(Msg::term(), State::term()) ->
-      {noreply, State} | {noreply, State, Timeout} | 
-      {stop, Reason, State} 
-      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
-
-handle_cast(Msg, State) ->
-    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
-    {noreply, State}.
-```
-
-
-### handle_info/2
-Called when the SipApp process receives an unknown message.
-
-```erlang
--spec handle_info(Msg::term(), State::term()) ->
-      {noreply, State} | {noreply, State, Timeout} | 
-      {stop, Reason, State} 
-      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
-
-handle_info(_Msg, State) ->
-    {noreply, State}.
-```
-
-### code_change/3
-See gen_server's documentation
-
-```erlang
--spec code_change(OldVsn::term(), State::term(), Extra::term()) ->
-    {ok, NewState::term()}.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-```
-
-
+See [Receiving Requests](../guide/receiving_requests.md) and [Sending Responses](../guide/sending_responses.md) for an introduction. The default implementation of each one can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
 
 ## SIP Callbacks
-
-Most callback functions are not called inside this process, but inside the _current call's process_. Each incoming process having a new Call-ID header starts a new _call process_, that takes care of all requests and responses having that Call-ID, and these callback functions are called inside this process. 
-
-Some of these functions allow you to send a response back, while others expect an answer to decide the next processing or are called to inform the SipApp about a specific event and don't expect any answer. 
-
-In all of the cases, you shouldn't spend a long time inside them (more than a few miliseconds), because new requests and retransmissions having the same Call-ID would be blocked until the callback function returns. If you need more time, you should spawn a new Erlang process and return.
-
-Many callback functions receive some of the following arguments:
-* Request: represents a full #sipmsg{} structure. 
-* Call: represents the full #call{} process state. 
-* Dialog: represents a specific dialog (#dialog{}) associated to this request.
-* Subscription: represents a specific subscription (#subscription{}) associated to a specific dialog.
-
-In all cases you should use the functions in [the API](api.md) to extract information from these objects. In case you need to spawn a new process, it is recommended that you don't pass any of these objects to the new process, as they are quite heavy. You should extract a _handler_ for each of them and pass it to the new process.
-
-A typical call order would be the following:
-* When a request is received having an _Authorization_ or _Proxy-Authorization_ header, [sip_get_user_pass/4](#sip_get_user_pass/4]) is called to check the user`s password.
-* NkSIP calls [sip_authorize/3](#sip_authorize3) to check if the request should be authorized.
-* If authorized, it calls [sip_route/5](#sip_route5) to decide what to do with the request: proxy it, reply to it or process it locally.
-* If the request is going to be processed locally, sip_invite/2, sip_options/2, sip_register/2 etc., are called, depending on the incoming method, and the user must send a reply. If the request is a valid _CANCEL_, belonging to an active _INVITE_ transaction, the INVITE is cancelled and [sip_cancel/3](#sip_cancel3) is called. After sending a successful response to an _INVITE_ request, the other party will send an _ACK_ and [sip_ack/2](sip_ack2) will be called.
-* If the request creates or modifies a dialog and/or a SDP session, [sip_dialog_update/3](#sip_dialog_update3) and/or [sip_session_update/3](sip_session_update3) are called.
-* If the remote party sends an in-dialog invite (a _reINVITE_), NkSIP will call [sip_reinvite/2](#sip_reinvite2) if it is defined, or [sip_invite/2](#sip_invite_2) again if not.
-* If the user has set up an automatic ping or registration, [sip_ping_update/3](#sip_ping_update3) or [sip_register_update/3](#sip_register_update3) are called on each status change.
-
-
-### Callbacks
 
 Callback|Reason
 ---|---
@@ -156,10 +29,35 @@ Callback|Reason
 [sip_publish/2](#sip_publish2)|Called to process a PUBLISH request
 [sip_dialog_update/3](#sip_dialog_update3)|Called when a dialog's state changes
 [sip_session_update/3](#session_update3)|Called when a SDP session is created or updated
-[sip_ping_update/3](#sip_ping_update3)|Called when an automatic ping state changes
-[sip_register_update/3](#sip_register_update3)|Called when an automatic registration state changes
 [sip_registrar_store_op/3](#sip_registrar_store_op3)|Called when a operation database must be done on the registrar database
 [sip_publish_store_op/3](#sip_publish_store_op3)|Called when a operation database must be done on the publisher database
+
+
+## 'gen_server' Callbacks
+
+Callback|Reason
+---|---
+[init/1](#init1)|Called when the SipApp is launched using `nksip:start/4`
+[terminate/2](#terminate2)|Called when the SipApp is stopped
+[handle_call/3](#handle_call3)|Called when a direct call to the SipApp process is made using `nksip:call/2` or `nksip:call/3`
+[handle_cast/2](#handle_cast2)|Called when a direct cast to the SipApp process is made using `nksip:cast/2`
+[handle_info/2](#handle_info2)|Called when a unknown message is received at the SipApp process
+[code_change/3](#code_change3)|See gen_server's documentation
+
+
+## Other Callbacks
+
+Callback|Reason
+---|---
+[sip_ping_update/3](#sip_ping_update3)|Called when an automatic ping state changes
+[sip_register_update/3](#sip_register_update3)|Called when an automatic registration state changes
+
+
+## Callback List
+
+
+
+<!-- SIP Callbacks ---------------------------------------------->
 
 
 ### sip_get_user_pass/4
@@ -600,33 +498,6 @@ session_update(_DialogId, _Status, State) ->
 ```
 
 
-### sip_ping_update/3
-Called when the status of an automatic ping configuration changes.
-See [nksip_sipapp_auto:start_ping/5](../../src/nksip_sipapp_auto.erl).
-
-```erlang
--spec ping_update(PingId::term(), OK::boolean(), State::term()) ->
-    call_noreply().
-
-ping_update(_PingId, _OK, State) ->
-    {noreply, State}.
-```
-
-
-### sip_register_update/3
-Called when the status of an automatic registration configuration changes.
-See [nksip_sipapp_auto:start_register/5](../../src/nksip_sipapp_auto.erl).
-
-
-```erlang
--spec register_update(RegId::term(), OK::boolean(), State::term()) ->
-    call_noreply().
-
-register_update(_RegId, _OK, State) ->
-    {noreply, State}.
-```
-
-
 ### sip_registrar_store_op/3
 Called when a operation database must be done on the registrar database.
 
@@ -723,7 +594,118 @@ publish_store(AppId, Op, State) ->
 
 
 
+<!-- gen_server Callbacks ---------------------------------------------->
 
+
+
+### init/1
+This callback function is called when the SipApp is launched using `nksip:start/4`.
+If `{ok, State}` or `{ok, State, Timeout}` is returned the SipApp is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the SipApp will not start. 
+
+```erlang
+-spec init(Args::term()) ->
+    init_return().
+
+init([]) ->
+    {ok, {}}.
+```
+
+### terminate/2
+Called when the SipApp is stopped.
+
+```erlang
+-spec terminate(Reason::term(), State::term()) ->
+    ok.
+
+terminate(_Reason, _State) ->
+    ok.
+```
+
+### handle_call/3
+Called when a direct call to the SipApp process is made using `gen_server:call/2,3`.
+
+```erlang
+-spec handle_call(Msg::term(), From::from(), State::term()) ->
+      {noreply, State} | {noreply, State, Timeout} | 
+      {reply, Reply, State} | {reply, Reply, State, Timeout} | 
+      {stop, Reason, State} | {stop, Reason, Reply, State}
+      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
+
+handle_call(Msg, _From, State) ->
+    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
+```
+
+
+### handle_cast/2
+Called when a direct cast to the SipApp process is made using `gen_server:cast/2`.
+
+```erlang
+-spec handle_cast(Msg::term(), State::term()) ->
+      {noreply, State} | {noreply, State, Timeout} | 
+      {stop, Reason, State} 
+      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
+
+handle_cast(Msg, State) ->
+    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
+```
+
+
+### handle_info/2
+Called when the SipApp process receives an unknown message.
+
+```erlang
+-spec handle_info(Msg::term(), State::term()) ->
+      {noreply, State} | {noreply, State, Timeout} | 
+      {stop, Reason, State} 
+      when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
+
+handle_info(_Msg, State) ->
+    {noreply, State}.
+```
+
+### code_change/3
+See gen_server's documentation
+
+
+```erlang
+-spec code_change(OldVsn::term(), State::term(), Extra::term()) ->
+    {ok, NewState::term()}.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+```
+
+
+<!-- Other Callbacks ---------------------------------------------->
+
+
+### sip_ping_update/3
+Called when the status of an automatic ping configuration changes.
+See [nksip_sipapp_auto:start_ping/5](../../src/nksip_sipapp_auto.erl).
+
+```erlang
+-spec ping_update(PingId::term(), OK::boolean(), State::term()) ->
+    call_noreply().
+
+ping_update(_PingId, _OK, State) ->
+    {noreply, State}.
+```
+
+
+### sip_register_update/3
+Called when the status of an automatic registration configuration changes.
+See [nksip_sipapp_auto:start_register/5](../../src/nksip_sipapp_auto.erl).
+
+
+```erlang
+-spec register_update(RegId::term(), OK::boolean(), State::term()) ->
+    call_noreply().
+
+register_update(_RegId, _OK, State) ->
+    {noreply, State}.
+```
 
 
 
