@@ -2,8 +2,9 @@
 
 Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. 
 * See [Receiving Requests](../guide/receiving_requests.md) and [Sending Responses](../guide/sending_responses.md) for an introduction. 
-* The full list of reply options is available [here](sending_options.md)
-* The default implementation of each one can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
+* The full list of reply options is available [here](sending_options.md).
+* The default implementation of each callback can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
+* Installed plugins can provide additional callbacks, or modify the default behaviour described in this document.
 
 ## SIP Callbacks
 
@@ -12,22 +13,22 @@ Callback|Reason
 [sip_get_user_pass/4](#sip_get_user_pass4)|Called to check a user password for a realm
 [sip_authorize/3](#sip_authorize3)|Called for every incoming request to be authorized or not
 [sip_route/5](#sip_route5)|Called to route the request
+[sip_options/2](#sip_options2)|Called to process a OPTIONS request
+[sip_register/2](#sip_register2)|Called to process a REGISTER request
 [sip_invite/2](#sip_invite2)|Called to process a new out-of-dialog INVITE request
 [sip_reinvite/2](#sip_reinvite2)|Called to process a new in-dialog INVITE request
 [sip_cancel/3](#sip_cancel3)|Called when a pending INVITE request is cancelled
 [sip_ack/2](#sip_ack2)|Called by NkSIP when a new valid in-dialog ACK request has to be processed locally
 [sip_bye/2](#sip_bye2)|Called to process a BYE request
 [sip_update/2](#sip_update2)|Called to process a UPDATE request
-[sip_info/2](#sip_info2)|Called to process a INFO request
-[sip_options/2](#sip_options2)|Called to process a OPTIONS request
-[sip_register/2](#sip_register2)|Called to process a REGISTER request
 [sip_prack/2](#sip_prack2)|Called to process a PRACK request
 [sip_subscribe/2](#sip_subscribe2)|Called to process a new out-of-dialog SUBSCRIBE request
 [sip_resubscribe/2](#sip_resubscribe2)|Called to process a new in-dialog SUBSCRIBE request
 [sip_notify/2](#sip_notify2)|Called to process a NOTIFY request
-[sip_message/2](#sip_message2)|Called to process a MESSAGE request
 [sip_refer/2](#sip_refer2)|Called to process a REFER request
 [sip_publish/2](#sip_publish2)|Called to process a PUBLISH request
+[sip_info/2](#sip_info2)|Called to process a INFO request
+[sip_message/2](#sip_message2)|Called to process a MESSAGE request
 [sip_dialog_update/3](#sip_dialog_update3)|Called when a dialog's state changes
 [sip_session_update/3](#session_update3)|Called when a SDP session is created or updated
 [sip_registrar_store_op/3](#sip_registrar_store_op3)|Called when a operation database must be done on the registrar database
@@ -177,6 +178,51 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 ```
 
 
+### sip_options/2
+```erlang
+-spec sip_options(Request::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+```
+
+Called when a OPTIONS request is received.
+
+This function is called by NkSIP to process a new incoming OPTIONS request as an endpoint. If not defined, NkSIP will reply with a _200 OK_ response, including options `contact`, `allow`, `allow_event`, `accept` and `supported`. See the list of available options [here](reply_options.md)).
+
+NkSIP will not send any body in its automatic response. This is ok for proxies. If you are implementing an endpoint or B2BUA, you should implement this function and include in your response a SDP body representing your supported list of codecs, and also the previous options.
+
+
+### sip_register/2
+```erlang
+-spec sip_register(Request::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+```
+
+This function is called by NkSIP to process a new incoming REGISTER request. 
+
+If it is not defined, but `registrar` option was present in the SipApp's startup config, NkSIP will process the request. It will NOT check if _From_ and _To_ headers contains the same URI, or if the registered domain is valid or not. If you need to check this, implement this function, and reply the response from calling `nksip_registrar:request/1` if everything is ok. See [nksip_registrar.erl](../../src/nksip_reqistrar.erk) for other possible response codes defined in the SIP standard registration process.
+
+If this function is not defined, and no `registrar` option is found, a _405 Method not allowed_ would be replied. 
+
+You should define this function in case you are implementing a registrar server and need a specific REGISTER processing (for example to add some headers to the response).
+
+```erlang
+-spec register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
+    call_reply(nksip:sipreply()).
+
+register(Req, Call) ->
+    [{from_scheme, FromScheme}, {from_user, FromUser}, {from_domain, FromDomain}] = 
+        nksip_request:meta([from_scheme, from_user, from_domain], Req),
+    [{to_scheme, ToScheme}, {to_user, ToUser}, {to_domain, ToDomain}] = 
+        nksip_request:meta([to_scheme, to_user, to_domain], Req),
+    case {FromScheme, FromUser, FromDomain} of
+        {ToScheme, ToUser, ToDomain} ->
+            {reply, nksip_registrar:request(Request)};
+        _ ->
+            {reply, forbidden}
+    end.
+```
+
+
 ### sip_invite/2
 ```erlang
 -spec sip_invite(Request::nksip:request(), Call::nksip:call()) ->
@@ -216,7 +262,7 @@ sip_invite(Req, Call) ->
     noreply.
 ```
 
-If this functions is not implemented, it will reply with a _603 Decline_
+If this functions is not implemented, it will reply with a _603 Decline_.
 
 
 ### sip_reinvite/2
@@ -263,63 +309,7 @@ You don't usually need to implement this callback. One possible reason to do it 
 
 Called when a valid BYE request is received.
 
-When a BYE request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP stops the dialog and this callback functions is called. You won't usually need to implement this function, but in case you do, you should reply `ok` to send a _200 OK_ response back. See [sip_invite/2](#sip_invite2) for delayed responses.
-
-
-### sip_info/2
-```erlang
--spec sip_info(Req::nksip:request(), Call::nksip:call()) ->
-    {reply, nksip:sipreply()} | noreply.
-```
-
-Called when a valid INFO request is received.
-
-When an INFO request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP this callback functions is called. If implementing this function, you should reply `ok` to send a _200 OK_ response back. See [sip_invite/2](#sip_invite2) for delayed responses.
-
-
-### sip_options/2
-```erlang
--spec sip_options(Request::nksip:request(), Call::nksip:call()) ->
-    {reply, nksip:sipreply()} | noreply.
-```
-
-Called when a OPTIONS request is received.
-
-This function is called by NkSIP to process a new incoming OPTIONS request as an endpoint. If not defined, NkSIP will reply with a _200 OK_ response, including options `contact`, `allow`, `allow_event`, `accept` and `supported`. See the list of available options [here](reply_options.md)).
-
-NkSIP will not send any body in its automatic response. This is ok for proxies. If you are implementing an endpoint or B2BUA, you should implement this function and include in your response a SDP body representing your supported list of codecs, and also the previous options.
-
-
-### sip_register/2
-```erlang
--spec sip_register(Request::nksip:request(), Call::nksip:call()) ->
-    {reply, nksip:sipreply()} | noreply.
-```
-
-This function is called by NkSIP to process a new incoming REGISTER request. 
-
-If it is not defined, but `registrar` option was present in the SipApp's startup config, NkSIP will process the request. It will NOT check if _From_ and _To_ headers contains the same URI, or if the registered domain is valid or not. If you need to check this, implement this function, and reply the response from calling `nksip_registrar:request/1` if everything is ok. See [nksip_registrar.erl](../../src/nksip_reqistrar.erk) for other possible response codes defined in the SIP standard registration process.
-
-If this function is not defined, and no `registrar` option is found, a _405 Method not allowed_ would be replied. 
-
-You should define this function in case you are implementing a registrar server and need a specific REGISTER processing (for example to add some headers to the response).
-
-```erlang
--spec register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
-    call_reply(nksip:sipreply()).
-
-register(Req, Call) ->
-    [{from_scheme, FromScheme}, {from_user, FromUser}, {from_domain, FromDomain}] = 
-        nksip_request:meta([from_scheme, from_user, from_domain], Req),
-    [{to_scheme, ToScheme}, {to_user, ToUser}, {to_domain, ToDomain}] = 
-        nksip_request:meta([to_scheme, to_user, to_domain], Req),
-    case {FromScheme, FromUser, FromDomain} of
-        {ToScheme, ToUser, ToDomain} ->
-            {reply, nksip_registrar:request(Request)};
-        _ ->
-            {reply, forbidden}
-    end.
-```
+When a BYE request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP stops the dialog and this callback functions is called. You won't usually need to implement this function, but in case you do, you should reply `ok` to send a _200 OK_ response back. 
 
 
 ### sip_prack/2
@@ -341,7 +331,7 @@ This function is called by NkSIP when a new valid in-dialog PRACK request has to
 
 Called when a valid UPDATE request is received.
 
-When a UPDATE request is received, NkSIP will automatically response _481 Call/Transaction does not exist_ if it doesn`t belong to a current dialog. If it does, this function is called. The request will probably have a SDP body. If a `{answer, Body}` is replied with an SDP body, the session may change (and the corresponding callback function will be called). If other non 2xx response is replied (like decline) the media is not changed.
+When a UPDATE request is received, NkSIP will automatically response _481 Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, this function is called. The request will probably have a SDP body. If an `{answer, Body}` is replied with an SDP body, the session may change (and the corresponding callback function [sip_session_update/3)(#sip_session_update4) will be called). If other non 2xx response is replied (like decline) the media is not changed.
 
 If not implemented will reply _603 Decline_.
 
@@ -376,7 +366,7 @@ If not implemented will reply _603 Decline_.
 
 This function is called by NkSIP to process a new in-subscription SUBSCRIBE request, sent in order to refresh the subscription.
 
-You won't usually have to implement this function. If not implemented will reply `200 OK` and the subscription will be refreshed.
+You won't usually have to implement this function, if not implemented it will reply _200 OK_ and the subscription will be refreshed.
 
 
 ### sip_notify/2
@@ -387,18 +377,8 @@ You won't usually have to implement this function. If not implemented will reply
 
 This function is called by NkSIP to process a new incoming NOTIFY request belonging to a current active subscription.
 
-You should extract any relevant information and return `ok`. If not implemented, NkSIP will reply _200 OK_
+You should extract any relevant information and return `ok`. If not implemented, NkSIP will reply _200 OK_.
 
-
-### sip_message/2
-```erlang
--spec sip_message(Request::nksip:request(), Call::nksip:call()) ->
-    {reply, nksip:sipreply()} | noreply.
-```
-This function is called by NkSIP to process a new incoming MESSAGE request.
-
-If you reply a 2xx response like `ok` or `accepted`, you are telling to the remote party that the message has been received. Use a 6xx response (like `decline`) to tell it has been refused.
-If not implemented a _603 Decline_ will be returned.
 
 
 ### sip_refer/2
@@ -409,13 +389,9 @@ If not implemented a _603 Decline_ will be returned.
 
 This function is called by NkSIP to process a new incoming REFER.
 
-You should get the "refer-to" header, and, if accepted, start a INVITE to that address, start a new subscription and send responses back. 
-
-If you reply a 2xx response like `ok`  or `accepted`, a dialog and a subscription will start. You should extract the "refer-to" header, start a new INVITE to that url and send any response back to the subscription using [nksip_uac:notify/3](sending_functions#notify), according to RFC3515.
-
 You should send `ok` if the request has been accepte or `decline` if not. If you are going to spend more than a few seconds to reply, you should reply `accepted`, and if the request is not accepted later on, send a NOTIFY with appropiate reason.
 
-The request sending functions accept option `{refer_subscription_id`, SubsHandle} to send automatically send a valid NOTIFY after each provisional or the final response.
+If you reply a 2xx response like `ok`  or `accepted`, a dialog and a subscription will start. You should extract the _Refer-To_ header, start a new INVITE to that url and, according to RFC3515,  send any response back to the subscription using [nksip_uac:notify/3](sending_functions.md#notify). The request sending functions accept option `{refer_subscription_id, SubsHandle}` to automatically send a valid NOTIFY after each provisional or the final response.
 
 This would be a typical implementation:
 ```erlang
@@ -424,8 +400,8 @@ refer(Req, Call) ->
         error ->
             {reply, invalid_request};
         Uri ->
-            AppId = nksip_request:app_id(Req),
             SubsId = nksip_subscription:get_id(Req), 
+            AppId = nksip_request:app_id(Req),
             Opts = [async, auto_2xx_ack, {refer_subscription_id, SubsId}],
             spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
             {reply, ok}
@@ -442,8 +418,30 @@ If not implemented a _603 Decline_ will be returned.
 ```
 
 This function is called by NkSIP to process a new incoming PUBLISH request. 
-If you want to use NkSIP's event state compositor, simply return the call to `nksip_publish:request(Req)`.
+If you want to use NkSIP's _event state compositor_, simply reply the return value from calling `nksip_publish:request(Req)`.
 
+If not implemented a _603 Decline_ will be returned.
+
+
+### sip_info/2
+```erlang
+-spec sip_info(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+```
+
+Called when a valid INFO request is received.
+
+When an INFO request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP this callback functions is called. If implementing this function, you should reply `ok` to send a _200 OK_ response back.
+
+
+### sip_message/2
+```erlang
+-spec sip_message(Request::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+```
+This function is called by NkSIP to process a new incoming MESSAGE request.
+
+If you reply a 2xx response like `ok` or `accepted`, you are telling to the remote party that the message has been received. Use a 6xx response (like `decline`) to tell that it has been refused.
 If not implemented a _603 Decline_ will be returned.
 
 
@@ -457,15 +455,13 @@ If not implemented a _603 Decline_ will be returned.
                          {stop, nksip_dialog:stop_reason()}.Called when a dialog has changed its state.
 ```
 
-A new dialog will be created when you send an dialog-forming request (like INVITE, SUBSCRIBE or REFER) and a provisional (1xx) or successful (2xx) response is received. If the response is provisional, the dialog will be marked as temporary or _early_, waiting for the final response to be confirmed or deleted.
-
-Dialogs will also be created for _subscriptions_, after a valid NOTIFY is sent or received. Any dialog can have multiple usages simultaneously, as much as _one_ _INVITE usage_ and a _unlimited_ number of _SUBSCRIBE usages_.
+A new dialog will be created when you send a new dialog-forming request (like INVITE, SUBSCRIBE or REFER) and a provisional (1xx) or successful (2xx) response is received. If the response is provisional, the dialog will be marked as temporary or _early_, waiting for the final response to be confirmed or deleted. Dialogs will also be created for _subscriptions_, after a valid NOTIFY is sent or received. 
 
 Once the dialog is established, some in-dialog methods (like INVITE, UPDATE, SUBSCRIBE and NOTIFY) can update the `target` of the dialog. 
 
-The _INVITE usage_ is destroyed when a valid in-dialog BYE request is sent or received. A _SUBSCRIPTION usage_ is destroyed when a NOTIFY with _status=terminated_ is received. When no usage is left, the dialog itself is destroyed.
+Any dialog can have multiple usages simultaneously, as much as _one_ _INVITE usage_ and a _unlimited_ number of _SUBSCRIBE usages_. The _INVITE usage_ is destroyed when a valid in-dialog BYE request is sent or received. A _SUBSCRIPTION usage_ is destroyed when a NOTIFY with _status=terminated_ is received. When no usage is left, the dialog itself is destroyed.
 
-NkSIP will call this function every time a dialog is created, its target is updated or it is destroyed. It will be called also when the status of the _usage_ changes, as `{invite_status, nksip_dialog:invite_status()}` for the INVITE usage and `{subscription_status, nksip_subscription:status(), nksip:subscription()}` for SUBSCRIBE usages.
+NkSIP will call this function every time a dialog is created, its target is updated or it is destroyed. It will be called also when the status of the _usage_ changes, as `{invite_status, Status}` for the INVITE usage and `{subscription_status, Status, Subscription}` for SUBSCRIBE usages.
 
 ```erlang
 -spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
@@ -487,37 +483,43 @@ NkSIP will call this function every time a dialog is created, its target is upda
 
 Called when a dialog has updated its SDP session parameters.
 
-When NkSIP detects that, inside an existing dialog, both parties have agreed on a specific SDP defined session, it will call this function. You can use the functions in [nksip_sdp.erl](../../src/nksip_sdp.erl) to process the SDP data. This function will be also called after each new successful SDP negotiation.
+When NkSIP will call this function when detects that, inside an existing dialog, both parties have agreed on a specific SDP defined session. You can use the functions in [SDP API](../api/sdp.md) to process the SDP data. This function will be also called after each new successful SDP negotiation.
 
 
 ### sip_registrar_store_op/3
 ```erlang
--spec sip_registrar_store(StoreOp, nksip:app_id()) ->
-    term()
-    when StoreOp :: {get, nksip:aor()} | 
-                    {put, nksip:aor(), [nksip_registrar:reg_contact()], integer()} |
-                    {del, nksip:aor()} |
-                    del_all.
+-spec sip_registrar_store(StoreOp, AppId) ->
+    [RegContact] | ok | not_found when 
+        StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
+                   {del, AOR} | del_all,
+        AppId :: nksip:app_id(),
+        AOR :: nksip:aor(),
+        RegContact :: nksip_registrar:reg_contact(),
+        TTL :: integer().
+
 ```
 
 Called when a operation database must be done on the registrar database. By default the in-memory database is used, but you can impement it to use your own database.
 
 Op|Response|Comments
 ---|---|---
-{get, AOR::`nksip:aor()`}|[Contact::`nksip_registrar:reg_contact()`]|Retrieve all stored contacts for this AOR
-{put, AOR::`nksip:aor()`, [Contact::`nksip_registrar:reg_contact()`], TTL::`integer()`}|ok|Store the list of contacts for this AOR. The record must be automatically deleted after TTL seconds
-{del, AOR::`nksip:aor()`}|ok &#124; not_found|Delete all stored contacts for this AOR, returning `ok` or `not_found` if the AOR is not found
-del_all|ok|Delete all stored information for this AppId
+{get, AOR}|[RegContact]|Retrieve all stored contacts for this `AOR` and `AppId`.
+{put, AOR, [RegContact], TTL}|ok|Store the list of contacts for this `AOR` and `AppId`. The record must be automatically deleted after `TTL` seconds.
+{del, AOR}|ok &#124; not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
+del_all|ok|Delete all stored information for this `AppId`.
 
 
 ### sip_publish_store_op/3
-```erlanf
--spec sip_publish_store(StoreOp, nksip:app_id()) ->
-    term()
-    when StoreOp :: {get, nksip:aor(), binary()} | 
-                    {put, nksip:aor(), binary(), nksip_publish:reg_publish(), integer()} |
-                    {del, nksip:aor(), binary()} |
-                    del_all.
+```erlang
+-spec sip_publish_store(StoreOp, AppId) ->
+    RegPublish | ok | not_found when
+        StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
+                   {del, AOR, Tag} | del_all,
+        AppId :: nksip:app_id(),
+        AOR :: nksip:aor(),
+        Tag :: binary(),
+        RegPublish :: nksip_publish:reg_publish(),
+        TTL :: integer().
 ```
 Called when a operation database must be done on the publisher database. By default the in-memory database is used, but you can impement it to use your own database.
 
@@ -525,10 +527,10 @@ The possible values for Op and their allowed reply are:
 
 Op|Response|Comments
 ---|---|---
-{get, AOR::`nksip:aor()`, Tag::`binary()`}|[`nksip_publish:reg_publish()`] &#124; not_found|Retrieve store information this AOR and Tag
-{put, AOR::`nksip:aor()`, Tag::`binary()`, [`nksip_publish:reg_publish()`], TTL::`integer()`}|ok|Store this information this AOR and Tag. The record must be automatically deleted after TTL seconds
-{del, AOR::`nksip:aor()`, Tag::`binary()}`|ok &#124; not_found|Delete stored information for this AOR and Tag, returning `ok` or `not_found` if it is not found
-del_all|ok|Delete all stored information for this AppId
+{get, AOR, Tag}|RegPublish &#124; not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
+{put, AOR, Tag, RegPublish, TTL}|ok|Store this information this `AOR`, `AppId` and `Tag`. The record must be automatically deleted after `TTL` seconds.
+{del, AOR, Tag}`|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
+del_all|ok|Delete all stored information for this `AppId`.
 
 
 
