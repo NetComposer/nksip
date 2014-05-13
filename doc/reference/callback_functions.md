@@ -231,7 +231,7 @@ register(Req, Call) ->
 
 This function is called by NkSIP to process a new INVITE request as an endpoint.
 
-You would usually extract information from the Request (using the [API](api.md)) like user, body, content-type, etc., and maybe get information from the body with the functions in the `nksip_sdp` module, and you should then reply a final response (like `ok`, `{answer, Body}` or `busy`, see the [reply options](reply_options.md)).
+You would usually extract information from the Request (using the [API](../README.md#3-api)) like user, body, content-type, etc., and maybe get information from the body with the functions in the `nksip_sdp` module, and you should then reply a final response (like `ok`, `{answer, Body}` or `busy`, see the [reply options](reply_options.md)).
 
 Alternatively, you can grab a _request handle_ (calling `nksip_request:get_handle(Request)`), return a provisional (1xx) response (like `{reply, ringing}`) and _spawn_ a new process to process the request and send a final response later on calling `nksip_request:reply/2`. You should use this technique also if you are going to spend more than a few miliseconds processing the callback function, in order to not to block new requests and retransmissions having the same _Call-ID_. You shouldn't copy the `Request` and `Call` objects to the spawned process, as they are quite heavy. It is recommended to extract all needed information before spawning the request and pass it to the spawned process.
 
@@ -505,7 +505,7 @@ Op|Response|Comments
 ---|---|---
 {get, AOR}|[RegContact]|Retrieve all stored contacts for this `AOR` and `AppId`.
 {put, AOR, [RegContact], TTL}|ok|Store the list of contacts for this `AOR` and `AppId`. The record must be automatically deleted after `TTL` seconds.
-{del, AOR}|ok &#124; not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
+{del, AOR}|ok \| not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
 del_all|ok|Delete all stored information for this `AppId`.
 
 
@@ -527,9 +527,9 @@ The possible values for Op and their allowed reply are:
 
 Op|Response|Comments
 ---|---|---
-{get, AOR, Tag}|RegPublish &#124; not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
+{get, AOR, Tag}|RegPublish \| not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
 {put, AOR, Tag, RegPublish, TTL}|ok|Store this information this `AOR`, `AppId` and `Tag`. The record must be automatically deleted after `TTL` seconds.
-{del, AOR, Tag}|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
+{del, AOR, Tag}|ok \| not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
 del_all|ok|Delete all stored information for this `AppId`.
 
 

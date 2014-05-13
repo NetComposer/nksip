@@ -42,7 +42,7 @@ If another entity sends you a SIP request to one of your listening addresses, Nk
 
 The first time you start a SipApp, NkSIP will generate a new RFC4122 compatible _UUID_ (used for example in SIP registrations), and will save it to disk in a file with the same name of the internal application (see configuration options for the default directory).
 
-Each started SipApp is under the hood a standard OTP _gen&#95;server_ process. If you define the [`init/1`](../reference/callback_functions.md#init1) callback function in your _callback module_, NkSIP will call it while starting the SipApp, using the third argument in the call to `nksip:start/4`. The returning value shall include the initial state value, associated with the gen_server process.
+Each started SipApp is under the hood a standard OTP _gen\_server_ process. If you define the [`init/1`](../reference/callback_functions.md#init1) callback function in your _callback module_, NkSIP will call it while starting the SipApp, using the third argument in the call to `nksip:start/4`. The returning value shall include the initial state value, associated with the gen_server process.
 
 As a standard gen_server process, you can use functions like `gen_server:call/3` or `gen_server:cast/2`. The registered name of the process is the same atom as the internal application name. If you implement callback functions [`handle_call/3`](../reference/callback_functions.md#handle_call3), [`handle_cast/2`](../reference/callback_functions.md#handle_cast2) or [`handle_info/2`](../reference/callback_functions.md#handle_info2), they will called as in a standard gen_server behaviour (when someone calls `gen_server:call/2,3`, `gen_server:cast/2` or the process receives a message).
 
@@ -56,7 +56,7 @@ NkSIP offers SipApps two different methods to store specific runtime application
 * SipApp gen_server state
 
 ### SipApp Variables
-Yon can store, read and delete _any Erlang term_ under _any key_ calling `nksip:put/3`, `nksip:get/2,3` and `nksip:del/2` (see [SipApp API](../reference/sipapp_api.md)). NkSIP uses a standard Erlang _ETS table_ for storage, and it will destroyed when you stop the SipApp.
+Yon can store, read and delete _any Erlang term_ under _any key_ calling `nksip:put/3`, `nksip:get/2,3` and `nksip:del/2` (see the [API](../README.md#3-api)). NkSIP uses a standard Erlang _ETS table_ for storage, and it will destroyed when you stop the SipApp.
 
 You can call these functions from any point, inside or outside a callback function. Keep in mind that, as and ETS table, if you are calling them from simultaenous processes (as it will happen from callback functions belonging to different calls) there is no guarantee that any call will be processed before another. You shouldn't, for example, read a value and store a modified version later on, because another process could have changed it in between. If you want to control access, you can call them from inside the SipApp's gen_server process, using nksip:cal/2,3 or nksip:cast/2, and calling `nksip:put/3`, `nksip:get/2,3` and `nksip:del/2` from inside the `handle_call` or `handle_cast` callback function.
 
