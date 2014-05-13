@@ -1,6 +1,6 @@
 # Welcome to NkSIP Documentation
 
-## [1. User Guide](doc/guide/README.md)
+## [1. User Guide](guide/README.md)
 * [Introduction](guide/introduction.md)
 * [Features](guide/features.md)
 * [Concepts](guide/concepts.md)
@@ -11,7 +11,7 @@
 * [Receiving Requests](guide/receiving_requests.md)
 * [Sending Responses](guide/sending_responses.md)
 
-## [2. Reference  Guide](doc/reference/README.md)
+## [2. Reference  Guide](reference/README.md)
 * [Configuration](reference/configuration.md)
 * [Sending Functions](reference/sending_functions.md)
 * [Sending Options](reference/sending_options.md)
@@ -20,7 +20,7 @@
 * [Logging Options](reference/log.md)
 * [Resolver](reference/resolver.md)
 
-## [3. API](doc/api/README.md)
+## [3. API](api/README.md)
 * [SipApp API](api/sipapp.md)
 * [Requests API](api/requests.md)
 * [Responses API](api/responses.md)
@@ -28,12 +28,12 @@
 * [Subscriptions API](api/subscriptions.md)
 * [SDP](api/sdp.md)
 
-## [4. Standard Plugins](doc/plugins/README.md)
+## [4. Standard Plugins](plugins/README.md)
 * [Registrar](plugins/registrar.md)
 * [Event State Compositor](plugins/event_compositor.md)
 * [Tracer](plugins/tracer.md)
 
-## [5. Cookbook](doc/cookbook/README.md)
+## [5. Cookbook](cookbook/README.md)
 * Generic
 	* Sending a request
 	* Managing authentication
@@ -56,15 +56,15 @@
 	* IPv6
 	* Websockets
 
-## [6.. Sample Applications](doc/samples/README.md)
+## [6.. Sample Applications](samples/README.md)
 * [PBX](samples/pbx.md)
 * [LoadTest](samples/loadtest.md)
 
-## [7. Advanced Concepts](doc/advanced/README.md)
+## [7. Advanced Concepts](advanced/README.md)
 * Resolver
 * How to write a plugin
 * Plugin callback reference
 
-## [8. Roadmap](doc/roadmap.md)
+## [8. Roadmap](roadmap.md)
 
-## [9. Changelog](doc/changelog.md)
+## [9. Changelog](changelog.md)
