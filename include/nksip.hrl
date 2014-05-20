@@ -141,7 +141,7 @@
 
 -record(sipmsg, {
     id :: nksip_sipmsg:id(),
-    class :: {req, nksip:method()} | {resp, nksip:response_code(), binary()},
+    class :: {req, nksip:method()} | {resp, nksip:sip_code(), binary()},
     app_id :: nksip:app_id(),
     dialog_id :: nksip_dialog:id(),
     ruri :: nksip:uri(),
@@ -163,15 +163,15 @@
     to_tag_candidate = <<>> :: nksip:tag(),
     transport :: nksip_transport:transport(),
     start :: nksip_lib:l_timestamp(),
-    meta = [] :: nksip_lib:optslist()   % No current use
+    meta = [] :: nksip:optslist()   % No current use
 }).
 
 
 -record(reqreply, {
-    code = 200 :: nksip:response_code(),
+    code = 200 :: nksip:sip_code(),
     headers = [] :: [nksip:header()],
     body = <<>> :: nksip:body(),
-    opts = [] :: nksip_lib:optslist()
+    opts = [] :: nksip:optslist()
 }).
 
 -record(uri, {
@@ -182,9 +182,9 @@
     domain = <<"invalid.invalid">> :: binary(), 
     port = 0 :: inet:port_number(),             % 0 means "no port in message"
     path = <<>> :: binary(),
-    opts = [] :: nksip_lib:optslist(),
+    opts = [] :: nksip:optslist(),
     headers = [] :: [binary()|nksip:header()],
-    ext_opts = [] :: nksip_lib:optslist(),
+    ext_opts = [] :: nksip:optslist(),
     ext_headers = [] :: [binary()|nksip:header()]
 }).
 
@@ -192,7 +192,7 @@
     proto = udp :: nksip:protocol(),
     domain = <<"invalid.invalid">> :: binary(),
     port = 0 :: inet:port_number(),
-    opts = [] :: nksip_lib:optslist()
+    opts = [] :: nksip:optslist()
 }).
 
 
@@ -220,7 +220,7 @@
     subscriptions = [] :: [nksip:subscription()],
     supported = [] :: [nksip:token()],
     allowed = [] :: [nksip:method()],
-    meta = [] :: nksip_lib:optslist()
+    meta = [] :: nksip:optslist()
 }).
 
 
@@ -241,7 +241,7 @@
     next_retrans :: integer(),
     session_expires :: integer(),
     refresh_timer :: reference(),
-    meta = [] :: nksip_lib:optslist()   % No current use
+    meta = [] :: nksip:optslist()   % No current use
 }).
 
 
@@ -256,7 +256,7 @@
     timer_expire :: reference(),
     timer_middle :: reference(),
     last_notify_cseq :: nksip:cseq(),
-    meta = [] :: nksip_lib:optslist()   % No current use
+    meta = [] :: nksip:optslist()   % No current use
 }).
 
 
@@ -308,13 +308,13 @@
     reg_id :: binary(),
     min_tmp_pos :: integer(),
     next_tmp_pos :: integer(),
-    meta = [] :: nksip_lib:optslist()  % No current use
+    meta = [] :: nksip:optslist()  % No current use
 }).
 
 
 -record(reg_publish, {
     data :: nksip:body(),
-    meta = [] :: nksip_lib:optslist()   % No current use
+    meta = [] :: nksip:optslist()   % No current use
 }).
 
 

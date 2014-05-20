@@ -30,7 +30,7 @@ scheme|`nksip:scheme()`|Scheme of RUri
 user|`binary()`|User of RUri
 domain|`binary()`|Domain of RUri
 aor|`nksip:aor()`|Address-Of-Record of the RUri
-code|`nksip:response_code()`|SIP Code of the response (0 if it as request)
+code|`nksip:sip_code()`|SIP Code of the response (0 if it as request)
 reason_phrase|`binary()`|Reason Phrase of the response
 content_type|`nksip:token()`|Content-Type header
 body|`nksip:body()`|Body

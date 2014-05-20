@@ -50,8 +50,8 @@
 %% and the remote party replies indicating it has outbound support also,
 %% NkSIP will keep the 'flow' opened sending keep-alive packets. If the flow
 %% goes down, NkSIP will try to re-send the registration at specific intervals.
--spec start_register(term()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
-                        nksip_lib:optslist()) -> 
+-spec start_register(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
+                        nksip:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
 
 start_register(App, RegId, Uri, Time, Opts) 
@@ -76,7 +76,7 @@ start_register(App, RegId, Uri, Time, Opts)
 %% @doc Stops a previously started registration series.
 %% For outbound-supported requests, it will also stop the keep-alive messages
 %% on the flow.
--spec stop_register(term()|nksip:app_id(), term()) -> 
+-spec stop_register(nksip:app_name()|nksip:app_id(), term()) -> 
     ok | not_found.
 
 stop_register(App, RegId) ->
@@ -85,7 +85,7 @@ stop_register(App, RegId) ->
 
 %% @doc Get current registration status, including if last registration was successful 
 %% and time remaining to next one.
--spec get_registers(term()|nksip:app_id()) -> 
+-spec get_registers(nksip:app_name()|nksip:app_id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(App) ->
@@ -98,8 +98,8 @@ get_registers(App) ->
 %% `PingId' indentifies this request to stop it later.
 %% Use {@link get_pings/1} to know about ping status, or the callback function
 %% {@link nksip_sipapp:register_update/3}.
--spec start_ping(term()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
-                    nksip_lib:optslist()) -> 
+-spec start_ping(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
+                    nksip:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
 
 start_ping(App, PingId, Uri, Time, Opts) 
@@ -122,7 +122,7 @@ start_ping(App, PingId, Uri, Time, Opts)
 
 
 %% @doc Stops a previously started ping request.
--spec stop_ping(term()|nksip:app_id(), term()) -> 
+-spec stop_ping(nksip:app_name()|nksip:app_id(), term()) -> 
     ok | not_found.
 
 stop_ping(App, PingId) ->
@@ -131,7 +131,7 @@ stop_ping(App, PingId) ->
 
 %% @doc Get current ping status, including if last ping was successful and time 
 %% remaining to next one.
--spec get_pings(term()|nksip:app_id()) -> 
+-spec get_pings(nksip:app_name()|nksip:app_id()) -> 
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_pings(App) ->
@@ -146,7 +146,7 @@ get_pings(App) ->
     id :: term(),
     pos :: integer(),
     ruri :: nksip:uri(),
-    opts :: nksip_lib:optslist(),
+    opts :: nksip:optslist(),
     call_id :: nksip:call_id(),
     interval :: non_neg_integer(),
     from :: any(),
@@ -470,7 +470,7 @@ launch_unregister(AppId, Reg)->
 
    
 %% @private
--spec update_register(#sipreg{}, nksip:response_code(), nksip_lib:optslist(), #state{}) ->
+-spec update_register(#sipreg{}, nksip:sip_code(), nksip:optslist(), #state{}) ->
     #sipreg{}.
 
 update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 ->
@@ -600,7 +600,7 @@ launch_ping(AppId, Ping)->
 
    
 %% @private
--spec update_ping(#sipreg{}, nksip:response_code(), nksip_lib:optslist(), #state{}) ->
+-spec update_ping(#sipreg{}, nksip:sip_code(), nksip:optslist(), #state{}) ->
     #sipreg{}.
 
 update_ping(Ping, Code, Meta, _State) ->

@@ -36,11 +36,11 @@
 %% ===================================================================
 
 -type sipreply() ::
-    nksip:response_code() | 
-    {nksip:response_code(), nksip_lib:optslist()} |
+    nksip:sip_code() | 
+    {nksip:sip_code(), nksip:optslist()} |
     ringing | rel_ringing | {rel_ringing, Body::nksip:body()} | 
     session_progress | rel_session_progress | {rel_session_progress, Body::nksip:body()} |
-    ok | {ok, Opts::nksip_lib:optslist()} | 
+    ok | {ok, Opts::nksip:optslist()} | 
     {answer, Body::nksip:body()} |
     accepted | 
     {redirect, Contact::nksip:user_uri()} | 
@@ -87,8 +87,8 @@
 %% @doc Generates a new SIP response and send options using helper replies.
 %% Currently recognized replies are described in this module.
 %% See {@link nksip_uas_lib:response/5}.
--spec reply(nksip:request(), sipreply() | {nksip:response_code(), nksip_lib:optslist()}) ->
-    {nksip:response(), nksip_lib:optslist()}.
+-spec reply(nksip:request(), sipreply() | {nksip:sip_code(), nksip:optslist()}) ->
+    {nksip:response(), nksip:optslist()}.
 
 reply(Req, {Code, Opts}) 
         when is_integer(Code), Code>=100, Code=<699, is_list(Opts)->
@@ -119,8 +119,8 @@ reply(Req, SipReply) ->
 %% ===================================================================
 
 %% @private
--spec post(nksip:request(), nksip:response_code(), nksip_lib:optslist()) ->
-    nksip_lib:optslist().
+-spec post(nksip:request(), nksip:sip_code(), nksip:optslist()) ->
+    nksip:optslist().
 
 post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
     Opts1 = case Code>100 of
@@ -177,7 +177,7 @@ post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
 
 
 -spec parse(sipreply()) ->
-    {nksip:response_code(), nksip_lib:optslist()} | error.
+    {nksip:sip_code(), nksip:optslist()} | error.
 
 parse(Term) ->
     case Term of

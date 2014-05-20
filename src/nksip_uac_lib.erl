@@ -33,7 +33,7 @@
 %% ===================================================================
 
 
--spec send(term()|nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec send(nksip:app_name()|nksip:app_id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->
     nksip_uac:result() | {error, nksip_uac:error()}.
 
 send(App, Method, Uri, Opts) ->
@@ -51,7 +51,7 @@ send(App, Method, Uri, Opts) ->
 
 
 %% @private
--spec send_dialog(nksip:method(), nksip:id(), nksip_lib:optslist()) ->
+-spec send_dialog(nksip:method(), nksip:id(), nksip:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
 
 send_dialog(Method, <<$U, $_, _/binary>>=Id, Opts) ->
@@ -80,8 +80,8 @@ clear_authorized_list(Id) ->
 
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
--spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip_lib:optslist()) ->    
-    {ok, nksip:request(), nksip_lib:optslist()} | {error, term()}.
+-spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->    
+    {ok, nksip:request(), nksip:optslist()} | {error, term()}.
     
 make(AppId, Method, Uri, Opts) ->
     try
@@ -133,8 +133,8 @@ make(AppId, Method, Uri, Opts) ->
 
 
 %% @private 
--spec proxy_make(nksip:request(), nksip_lib:optslist()) ->    
-    {ok, nksip:request(), nksip_lib:optslist()} | {error, term()}.
+-spec proxy_make(nksip:request(), nksip:optslist()) ->    
+    {ok, nksip:request(), nksip:optslist()} | {error, term()}.
     
 proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
     try
@@ -269,8 +269,8 @@ is_stateless(Resp, GlobalId) ->
 
 
 %% @private
--spec parse_opts(nksip_lib:optslist(), nksip:request(), nksip_lib:optslist()) ->
-    {nksip:request(), nksip_lib:optslist()}.
+-spec parse_opts(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+    {nksip:request(), nksip:optslist()}.
 
 
 parse_opts([], Req, Opts) ->

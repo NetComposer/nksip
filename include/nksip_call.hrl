@@ -76,14 +76,14 @@
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nksip_lib:timestamp(),
     from :: none | {srv, from()} | {fork, nksip_call_fork:id()},
-    opts :: nksip_lib:optslist(),
+    opts :: nksip:optslist(),
     trans_id :: integer(),
     request :: nksip:request(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
     proto :: nksip:protocol(),
     response :: nksip:response(),
-    code :: 0 | nksip:response_code(),
+    code :: 0 | nksip:sip_code(),
     to_tags = [] :: [nksip:tag()],
     stateless :: boolean(),
     rseq = 0 :: 0 | nksip:cseq(),
@@ -97,7 +97,7 @@
     loop_id :: integer(),
     ack_trans_id :: integer(),
     iter = 1 :: integer(),
-    meta1 = [] :: nksip_lib:optslist()
+    meta1 = [] :: nksip:optslist()
 }).
 
 
@@ -107,13 +107,13 @@
     start :: nksip_lib:timestamp(),
     request :: nksip:request(),
     method :: nksip:method(),
-    opts :: nksip_lib:optslist(),
+    opts :: nksip:optslist(),
     uriset :: nksip:uri_set(),          
     uacs :: [integer()],
     pending :: [integer()],
     responses :: [nksip:response()], 
     final :: false | '2xx' | '6xx',
-    meta = [] :: nksip_lib:optslist()   % No current use
+    meta = [] :: nksip:optslist()   % No current use
 }).
 
 
@@ -154,7 +154,7 @@
     msgs = [] :: [call_msg()],
     events = [] :: [#provisional_event{}],
     timers :: {T1::integer(), T2::integer(), T4::integer(), TC::integer()},
-    meta = [] :: nksip_lib:optslist()
+    meta = [] :: nksip:optslist()
 }).
 
 

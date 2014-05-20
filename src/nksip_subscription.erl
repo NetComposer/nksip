@@ -51,7 +51,7 @@
 -type terminated_reason() :: 
     deactivated | {probation, undefined|non_neg_integer()} | rejected |
     timeout | {giveup, undefined|non_neg_integer()} | noresource | invariant | 
-    forced | {code, nksip:response_code()}.
+    forced | {code, nksip:sip_code()}.
 
 %% All dialog event states
 -type status() :: 

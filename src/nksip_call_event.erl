@@ -98,7 +98,7 @@ uac_response(_Req, _Resp, Dialog, _Call) ->
 
 
 %% @private
--spec uac_do_response(nksip:method(), nksip:response_code(), nksip:request(), 
+-spec uac_do_response(nksip:method(), nksip:sip_code(), nksip:request(), 
                       nksip:response(), nksip:subscription(), nksip:dialog(), 
                       nksip_call:call()) ->
     nksip:dialog().
@@ -212,7 +212,7 @@ uas_response(_Req, _Resp, Dialog, _Call) ->
 
 
 %% @private
--spec uas_do_response(nksip:method(), nksip:response_code(), nksip:request(), 
+-spec uas_do_response(nksip:method(), nksip:sip_code(), nksip:request(), 
                       nksip:response(), nksip:subscription(), nksip:dialog(), 
                       nksip_call:call()) ->
     nksip:dialog().
@@ -417,9 +417,9 @@ stop(#subscription{id=Id}, Dialog, Call) ->
 
 
 %% @private
--spec request_uac_opts(nksip:method(), nksip_lib:optslist(), 
+-spec request_uac_opts(nksip:method(), nksip:optslist(), 
                        nksip:dialog() | nksip:subscription()) ->
-    {ok, nksip_lib:optslist()} | {error, unknown_subscription}.
+    {ok, nksip:optslist()} | {error, unknown_subscription}.
 
 request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
     case lists:keytake(subscription_id, 1, Opts) of

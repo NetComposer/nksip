@@ -52,7 +52,7 @@
 
 
 %% @private Starts a new listening server
--spec get_listener(nksip:app_id(), nksip:transport(), nksip_lib:optslist()) ->
+-spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
     term().
 
 get_listener(AppId, Transp, Opts) ->
@@ -77,7 +77,7 @@ get_listener(AppId, Transp, Opts) ->
 
 
 %% @private Starts a new connection to a remote server
--spec connect(nksip:app_id(), nksip:transport(), nksip_lib:optslist()) ->
+-spec connect(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
     {ok, term()} | {error, term()}.
          
 connect(AppId, Transp, Opts) ->
@@ -334,8 +334,8 @@ dispatch(List, Args) ->
 
 
 %% @private Gets socket options for outbound connections
--spec outbound_opts(nksip:protocol(), nksip_lib:optslist()) ->
-    nksip_lib:optslist().
+-spec outbound_opts(nksip:protocol(), nksip:optslist()) ->
+    nksip:optslist().
 
 outbound_opts(ws, _Opts) ->
     [binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
@@ -359,7 +359,7 @@ outbound_opts(wss, Opts) ->
 
 %% @private
 -spec handshake_req(inet:ip_address(), inet:port_number(), binary(), 
-                    nksip_lib:optslist()) ->
+                    nksip:optslist()) ->
     {binary(), #handshake{}}.
 
 handshake_req(Ip, Port, Res, Opts) ->

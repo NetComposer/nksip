@@ -87,8 +87,8 @@ preprocess(Req) ->
 
 
 %% @private
--spec make(nksip:request(), nksip:response_code(), nksip_lib:optslist()) -> 
-    {ok, nksip:response(), nksip_lib:optslist()} | {error, term()}.
+-spec make(nksip:request(), nksip:sip_code(), nksip:optslist()) -> 
+    {ok, nksip:response(), nksip:optslist()} | {error, term()}.
 
 make(Req, Code, Opts) ->
   #sipmsg{
@@ -236,9 +236,9 @@ ruri_has_maddr(#sipmsg{
 
 
 %% @private
--spec parse_opts(nksip_lib:optslist(), nksip:response(), nksip_lib:optslist(),
-                 nksip:request(), nksip:response_code()) -> 
-    {nksip:response(), nksip_lib:optslist()}.
+-spec parse_opts(nksip:optslist(), nksip:response(), nksip:optslist(),
+                 nksip:request(), nksip:sip_code()) -> 
+    {nksip:response(), nksip:optslist()}.
 
 parse_opts([], Resp, Opts, _Req, _Code) ->
     {Resp, Opts};

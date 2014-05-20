@@ -4,8 +4,8 @@ Many of the SipApp's [callback functions](callback_functions.md) allows you to s
 
 Response|Types|Code|Comments
 ---|---|---|---
-Code|Code::`nksip:response_code()`|Code|
-{Code, Opts}|Code::`nksip:response_code()`, Opts::`nksip_lib:optslist()`|Code|See [options](#options)
+Code|Code::`nksip:sip_code()`|Code|
+{Code, Opts}|Code::`nksip:sip_code()`, Opts::`nksip:optslist()`|Code|See [options](#options)
 ringing||180|
 rel_ringing||180|_Reliable responses_ will be used
 {rel_ringing, Body}|Body::`nksip:body()`|180|_Reliable responses_ will be used, send a body
@@ -13,7 +13,7 @@ session_progress||183|
 rel_session_progress||183|_Reliable responses_ will be used
 {rel_session_progress, Body}|Body:`nksip:body()`|183|_Reliable responses_ will be used, send a body
 ok||200|
-{ok, Opts}|Opts:`nksip_lib:optslist()`|200|See [options](#options)
+{ok, Opts}|Opts:`nksip:optslist()`|200|See [options](#options)
 {answer, Body}|Body::`nksip:body()`|200|Send a body
 accepted||202|
 {redirect, [Contact]}|Contact::`string()`&#124;`binary()`&#124;`nksip:uri()`|300|Generates _Contact_ headers
@@ -79,7 +79,7 @@ www_authenticate||Generates an automatic WWW-Authenticate header, using From hea
 proxy_authenticate||Generates an automatic Proxy-Authenticate header, using From header as _realm_
 {proxy_authenticate, Realm}|Realm::`string()`&#124;`binary`|Generates an automatic Proxy-Authenticate header, using _Realm_
 {service_route, Routes}|Routes::`string()`&#124;`binary`&#124;`nksip:uri()`|For REGISTER requests, if code is in the 200-299 range, generates a Service-Route header
-{add, Name, Value}|Name::`nksip:name()`, Value::`nksip:value()`|Adds a new header, after any previous one with the same name|All header names should be lowercase
+{add, Name, Value}|Name::`nksip:header_name()`, Value::`nksip:header_value()`|Adds a new header, after any previous one with the same name|All header names should be lowercase
 {add, {Name, Value}}|(same as before)|Same as before|
 {replace, Name, Value}|(same as before)|Adds a new header, replacing any previous one|
 {replace, {Name, Value}}|(same as before)|Same as before|

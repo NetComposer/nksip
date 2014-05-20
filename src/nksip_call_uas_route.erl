@@ -254,8 +254,8 @@ route_reply(_Reply, UAS, Call) ->
 %% @private
 -spec do_route({reply, nksip:sipreply()} | {reply_stateless, nksip:sipreply()} |
                process | process_stateless |
-               {proxy, nksip:uri_set(), nksip_lib:optslist()} |
-               {strict_proxy, nksip_lib:optslist()}, 
+               {proxy, nksip:uri_set(), nksip:optslist()} |
+               {strict_proxy, nksip:optslist()}, 
                nksip_call:trans(), nksip_call:call()) -> 
     nksip_call:call().
 
@@ -383,7 +383,7 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
 
 
 %% @private Sends a transaction reply
--spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:optslist()}, 
+-spec reply(nksip:sipreply() | {nksip:response(), nksip:optslist()}, 
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 

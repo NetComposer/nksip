@@ -30,9 +30,10 @@
 
 -include("nksip.hrl").
 
--export_type([app_id/0, id/0, request/0, response/0, call/0, transport/0, sipreply/0]).
--export_type([uri/0, user_uri/0, header/0, header_value/0]).
--export_type([scheme/0, protocol/0, method/0, response_code/0, via/0]).
+-export_type([app_name/0, app_id/0, id/0, request/0, response/0, sipreply/0, optslist/0]).
+-export_type([call/0, transport/0, uri/0, user_uri/0]).
+-export_type([header/0, header_name/0, header_value/0]).
+-export_type([scheme/0, protocol/0, method/0, sip_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
 -export_type([dialog/0, invite/0, subscription/0, token/0, error_reason/0]).
 
@@ -42,13 +43,11 @@
 %% Types
 %% ===================================================================
 
-% Util types
--type name() :: binary() | string() | atom().
--type value() :: binary() | string() | uri() | token() | atom() | integer().
+%% User Name of each started SipApp
+-type app_name() :: term().
 
-
-%% Unique Id of each started SipApp
--type app_id() :: term().
+%% Interna Name of each started SipApp
+-type app_id() :: atom().
 
 %% External request, response, dialog or event id
 -type id() :: binary().
@@ -65,6 +64,9 @@
 %% User's response to a request
 -type sipreply() :: nksip_reply:sipreply().
 
+%% Generic options list
+-type optslist() :: nksip:optslist().
+
 %% Transport
 -type transport() :: #transport{}.
 
@@ -80,11 +82,15 @@
 %% Token
 -type token() :: {name(), [{name(), value()}]}.
 
-%% SIP Generic Header Value
--type header_value() :: value() | uri() | via() | [value() | uri() | via()].
+%% Sip Generic Header Name
+-type header_name() :: name().
+
+% Util types
+-type header_value() :: 
+    value() | uri() | token() | via() | [value() | uri() | token() | via()].
 
 %% SIP Generic Header
--type header() :: {name(), header_value()}.
+-type header() :: {header_name(), header_value()}.
 
 %% Recognized transport schemes
 -type protocol() :: udp | tcp | tls | sctp | ws | wss | binary().
@@ -98,7 +104,7 @@
                   'INFO' | 'PRACK' | 'UPDATE' | binary().
 
 %% SIP Response's Code
--type response_code() :: 100..699.
+-type sip_code() :: 100..699.
 
 
 %% SIP Message's Call-ID
@@ -134,17 +140,24 @@
     {sip|q850, pos_integer(), string()|binary()}.
 
 
+%% Generic Name
+-type name() :: binary() | string() | atom().
+
+% Generic Value
+-type value() :: binary() | string() | atom() | integer().
+
+
 %% ===================================================================
 %% Public functions
 %% ===================================================================
 
 %% @doc Starts a new SipApp.
--spec start(term(), atom(), term(), nksip_lib:optslist()) -> 
+-spec start(app_name(), atom(), term(), optslist()) -> 
 	{ok, app_id()} | {error, term()}.
 
 start(AppName, Module, Args, Opts) ->
     case get_pid(AppName) of
-        error ->
+        undefined ->
             Config = nksip_config_cache:app_config(),
             Opts1 = Config ++ [{name, AppName}, {module, Module}|Opts],
             case nksip_sipapp_config:parse_config(Opts1) of
@@ -162,8 +175,8 @@ start(AppName, Module, Args, Opts) ->
 
 
 %% @doc Stops a started SipApp, stopping any registered transports.
--spec stop(term()|app_id()) -> 
-    ok | error.
+-spec stop(app_name()|app_id()) -> 
+    ok | {error, term()}.
 
 stop(App) ->
     case find_app(App) of
@@ -173,10 +186,10 @@ stop(App) ->
                     nksip_registrar:clear(AppId),
                     ok;
                 error ->
-                    error
+                    {error, not_found}
             end;
         _ ->
-            error
+            {error, not_found}
     end.
 
 
@@ -190,7 +203,7 @@ stop_all() ->
 
 %% @doc Updates the callback module or options of a running SipApp.
 %% It is not allowed to change transports
--spec update(term()|app_id(), nksip_lib:optslist()) ->
+-spec update(app_name()|app_id(), optslist()) ->
     {ok, app_id()} | {error, term()}.
 
 update(App, Opts) ->
@@ -200,7 +213,7 @@ update(App, Opts) ->
             Opts2 = AppId:config() ++ Opts1,
             nksip_sipapp_config:parse_config(Opts2);
         not_found ->
-            {error, sipapp_not_found}
+            {error, not_found}
     end.
 
     
@@ -215,68 +228,63 @@ get_all() ->
 
 
 %% @doc Gets a value from SipApp's store
--spec get(term()|nksip:app_id(), term()) ->
-    {ok, term()} | not_found | error.
+-spec get(nksip:app_name()|nksip:app_id(), term()) ->
+    {ok, term()} | undefined | {error, term()}.
 
 get(App, Key) ->
     case find_app(App) of
         {ok, AppId} -> nksip_sipapp_srv:get(AppId, Key);
-        not_found -> error
+        not_found -> {error, not_found}
     end.
 
 
 %% @doc Gets a value from SipApp's store, using a default if not found
--spec get(term()|nksip:app_id(), term(), term()) ->
-    {ok, term()} | error.
+-spec get(nksip:app_name()|nksip:app_id(), term(), term()) ->
+    {ok, term()} | {error, term()}.
 
 get(AppId, Key, Default) ->
     case get(AppId, Key) of
-        not_found -> {ok, Default};
+        undefined -> {ok, Default};
         {ok, Value} -> {ok, Value};
-        error -> error
+        {error, Error} -> {error, Error}
     end.
 
 
 %% @doc Inserts a value in SipApp's store
--spec put(term()|nksip:app_id(), term(), term()) ->
-    ok | error.
+-spec put(nksip:app_name()|nksip:app_id(), term(), term()) ->
+    ok | {error, term()}.
 
 put(App, Key, Value) ->
     case find_app(App) of
         {ok, AppId} -> nksip_sipapp_srv:put(AppId, Key, Value);
-        not_found -> error
+        not_found -> {error, not_found}
     end.
 
 
 %% @doc Deletes a value from SipApp's store
--spec del(term()|nksip:app_id(), term()) ->
-    ok | error.
+-spec del(nksip:app_name()|nksip:app_id(), term()) ->
+    ok | {error, term()}.
 
 del(App, Key) ->
     case find_app(App) of
         {ok, AppId} -> nksip_sipapp_srv:del(AppId, Key);
-        not_found -> error
+        not_found -> {error, not_found}
     end.
 
 
 %% @doc Gets the SipApp's gen_server process pid().
--spec get_pid(term()|app_id()) -> 
-    pid() | error.
+-spec get_pid(app_name()|app_id()) -> 
+    pid() | undefined.
 
 get_pid(App) ->
     case find_app(App) of
-        {ok, AppId} -> 
-            case whereis(AppId) of
-                undefined -> error;
-                Pid -> Pid
-            end;
-        _ ->
-            error
+        {ok, AppId} -> whereis(AppId);
+        _ -> undefined
     end.
 
 
 %% @doc Synchronous call to the SipApp's gen_server process
--spec call(term()|app_id(), term()) ->
+-spec call(app_name()|app_id(), term()) ->
     term().
 
 call(App, Term) ->
@@ -284,7 +292,7 @@ call(App, Term) ->
 
 
 %% @doc Synchronous call to the SipApp's gen_server process with a timeout
--spec call(term()|app_id(), term(), pos_integer()|infinity) ->
+-spec call(app_name()|app_id(), term(), pos_integer()|infinity) ->
     term().
 
 call(App, Term, Time) ->
@@ -295,7 +303,7 @@ call(App, Term, Time) ->
 
 
 %% @doc Asynchronous call to the SipApp's gen_server process
--spec cast(term()|app_id(), term()) ->
+-spec cast(app_name()|app_id(), term()) ->
     term().
 
 cast(App, Term) ->
@@ -329,44 +337,49 @@ find_app(App) ->
 
 
 %% @doc Gets SipApp's UUID
--spec get_uuid(term()|nksip:app_id()) -> 
-    {ok, binary()} | error.
+-spec get_uuid(nksip:app_name()|nksip:app_id()) -> 
+    {ok, binary()} | {error, term()}.
 
 get_uuid(App) ->
     case find_app(App) of
         {ok, AppId} ->
-            case nksip_proc:values({nksip_sipapp_uuid, AppId}) of
-                [{UUID, _Pid}] -> {ok, <<"<urn:uuid:", UUID/binary, ">">>};
-                [] -> error
-            end;
+            [{UUID, _Pid}] = nksip_proc:values({nksip_sipapp_uuid, AppId}),
+            {ok, <<"<urn:uuid:", UUID/binary, ">">>};
         not_found -> 
-            error
+            {error, not_found}
     end.
 
 
 %% @doc Gets the last detected public GRUU
--spec get_gruu_pub(term()|nksip:app_id()) ->
-    undefined | nksip:uri() | error.
+-spec get_gruu_pub(nksip:app_name()|nksip:app_id()) ->
+    {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(App) ->
     case find_app(App) of
-        {ok, AppId} -> nksip_config:get({nksip_gruu_pub, AppId});
-        _ -> error
+        {ok, AppId} -> 
+            case nksip_config:get({nksip_gruu_pub, AppId}) of
+                undefined -> undefined;
+                Value -> {ok, Value}
+            end;
+        _ -> 
+            {error, not_found}
     end.
 
 
 %% @doc Gets the last detected temporary GRUU
--spec get_gruu_temp(term()|nksip:app_id()) ->
-    undefined | nksip:uri() | error.
+-spec get_gruu_temp(nksip:app_name()|nksip:app_id()) ->
+    {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(App) ->
     case find_app(App) of
-        {ok, AppId} -> nksip_config:get({nksip_gruu_temp, AppId});
-        _ -> error
+        {ok, AppId} -> 
+            case nksip_config:get({nksip_gruu_temp, AppId}) of
+                undefined -> undefined;
+                Value -> {ok, Value}
+            end;
+        _ -> 
+            {error, not_found}
     end.
-
-
-
 
 
 
@@ -374,22 +387,4 @@ get_gruu_temp(App) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
-
-
-% %% @doc Gets SipApp's first listening port on this transport protocol.
-% -spec get_port(term()|app_id(), protocol(), ipv4|ipv6) -> 
-%     inet:port_number() | error.
-
-% get_port(App, Proto, Class) ->
-%     case find_app(App) of
-%         {ok, AppId} -> 
-%             case nksip_transport:get_listening(AppId, Proto, Class) of
-%                 [{#transport{listen_port=Port}, _Pid}|_] -> Port;
-%                 _ -> error
-%             end;
-%         error ->
-%             error
-%     end.
-
-
 

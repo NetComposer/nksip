@@ -38,7 +38,7 @@
 -export_type([msg_class/0]).
 
 -type msg_class() :: {req, nksip:method(), binary()} | 
-                     {resp, nksip:response_code(), binary()}.
+                     {resp, nksip:sip_code(), binary()}.
 
 
 

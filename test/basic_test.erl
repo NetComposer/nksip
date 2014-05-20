@@ -76,9 +76,9 @@ start() ->
 
 stop() ->
     ok = nksip:stop_all(),
-    error = nksip:stop(server1),
-    error = nksip:stop(client1),
-    error = nksip:stop(client2),
+    {error, not_found} = nksip:stop(server1),
+    {error, not_found} = nksip:stop(client1),
+    {error, not_found} = nksip:stop(client2),
     ok.
 
 
@@ -191,7 +191,7 @@ cast_info() ->
     Pid = nksip:get_pid(server1),
     true = is_pid(Pid),
     Pid = whereis(S1),
-    error = nksip:get_pid(other),
+    undefined = nksip:get_pid(other),
 
     {ok, server1, Domains} = gen_server:call(S1, get_domains),
     {ok, server1} = gen_server:call(S1, {set_domains, [<<"test">>]}),

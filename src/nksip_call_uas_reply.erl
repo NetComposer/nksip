@@ -29,7 +29,7 @@
 -include("nksip_call.hrl").
 
 -type incoming() :: 
-    nksip:sipreply() | {nksip:response(), nksip_lib:optslist()}.
+    nksip:sipreply() | {nksip:response(), nksip:optslist()}.
 
 -type reply_error() :: 
     invalid_call | pending_prack | stateless_not_allowed | service_unavailable.
@@ -198,7 +198,7 @@ send({Resp, SendOpts}, UAS, Call) ->
 
 
 %% @private
--spec stateful_reply(nksip_call_uas:status(), nksip:response_code(), 
+-spec stateful_reply(nksip_call_uas:status(), nksip:sip_code(), 
                      boolean(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:trans().
 

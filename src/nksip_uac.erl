@@ -83,7 +83,7 @@
 %     {sip_etag, binary()}.
 
 -type result() ::  
-    {async, nksip:id()} | {ok, nksip:response_code(), nksip_lib:optslist()}.
+    {async, nksip:id()} | {ok, nksip:sip_code(), nksip:optslist()}.
     
 -type ack_result() ::
     ok | async.
@@ -105,7 +105,7 @@
 %% ===================================================================
 
 %% @doc Sends an out-of-dialog OPTIONS request.
--spec options(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec options(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
     result() | {error, error()}.
 
 options(App, Uri, Opts) ->
@@ -114,7 +114,7 @@ options(App, Uri, Opts) ->
 
 
 %% @doc Sends an in-dialog OPTIONS request.
--spec options(nksip:id(), nksip_lib:optslist()) ->
+-spec options(nksip:id(), nksip:optslist()) ->
     result() | {error, error()}.
 
 options(Id, Opts) ->
@@ -123,7 +123,7 @@ options(Id, Opts) ->
 
 
 %% @doc Sends a REGISTER request.
--spec register(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec register(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
     result() | {error, error()}.
 
 register(App, Uri, Opts) ->
@@ -132,7 +132,7 @@ register(App, Uri, Opts) ->
 
 
 %% @doc Sends an out-of-dialog INVITE request.
--spec invite(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec invite(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
     result() | {error, error()}.
 
 invite(App, Uri, Opts) ->
@@ -141,7 +141,7 @@ invite(App, Uri, Opts) ->
 
 
 %% @doc Sends an in-dialog INVITE request.
--spec invite(nksip:id(), nksip_lib:optslist()) ->
+-spec invite(nksip:id(), nksip:optslist()) ->
     result() | {error, error()}.
 
 invite(Id, Opts) ->
@@ -151,7 +151,7 @@ invite(Id, Opts) ->
 
 
 %% @doc Sends an ACK after a successful INVITE response.
--spec ack(nksip:id(), nksip_lib:optslist()) ->
+-spec ack(nksip:id(), nksip:optslist()) ->
     ack_result() | {error, error()}.
 
 ack(Id, Opts) ->
@@ -159,7 +159,7 @@ ack(Id, Opts) ->
 
 
 %% @doc Sends an BYE for a current dialog, terminating the session.
--spec bye(nksip:id(), nksip_lib:optslist()) -> 
+-spec bye(nksip:id(), nksip:optslist()) -> 
     result() | {error, error()}.
 
 bye(Id, Opts) ->
@@ -167,7 +167,7 @@ bye(Id, Opts) ->
 
 
 %% @doc Sends an <i>INFO</i> for a current dialog.
--spec info(nksip:id(), nksip_lib:optslist()) -> 
+-spec info(nksip:id(), nksip:optslist()) -> 
     result() | {error, error()}.
 
 info(Id, Opts) ->
@@ -183,7 +183,7 @@ cancel(ReqId) ->
 
 
 %% @doc Sends a UPDATE on a currently ongoing dialog.
--spec update(nksip:id(), nksip_lib:optslist()) ->
+-spec update(nksip:id(), nksip:optslist()) ->
     result() | {error, error()}.
 
 update(Id, Opts) ->
@@ -193,7 +193,7 @@ update(Id, Opts) ->
 
 
 %% @doc Sends an out-of-dialog SUBSCRIBE request.
--spec subscribe(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec subscribe(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
     result() | {error, error()}.
 
 subscribe(App, Uri, Opts) ->
@@ -207,7 +207,7 @@ subscribe(App, Uri, Opts) ->
 
 
 %% @doc Sends an in-dialog or in-subscription SUBSCRIBE request.
--spec subscribe(nksip:id(), nksip_lib:optslist()) ->
+-spec subscribe(nksip:id(), nksip:optslist()) ->
     result() | {error, error()}.
 
 subscribe(Id, Opts) ->
@@ -217,7 +217,7 @@ subscribe(Id, Opts) ->
 
 
 %% @doc Sends an NOTIFY for a current server subscription.
--spec notify(nksip:id(), nksip_lib:optslist()) -> 
+-spec notify(nksip:id(), nksip:optslist()) -> 
     result() | {error, error()} |  {error, invalid_state}.
 
 notify(Id, Opts) ->
@@ -229,7 +229,7 @@ notify(Id, Opts) ->
 
 
 %% @doc Sends an out-of-dialog MESSAGE request.
--spec message(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec message(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
     result() | {error, error()}.
 
 message(App, Uri, Opts) ->
@@ -241,7 +241,7 @@ message(App, Uri, Opts) ->
 
 
 %% @doc Sends an in-dialog MESSAGE request.
--spec message(nksip:id(), nksip_lib:optslist()) ->
+-spec message(nksip:id(), nksip:optslist()) ->
     result() | {error, error()}.
 
 message(Id, Opts) ->
@@ -254,7 +254,7 @@ message(Id, Opts) ->
 
 
 %% @doc Sends an <i>REFER</i> for a remote party
--spec refer(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) -> 
+-spec refer(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) -> 
     result() | {error, error()} |  {error, invalid_refer_to}.
 
 refer(App, Uri, Opts) ->
@@ -267,7 +267,7 @@ refer(App, Uri, Opts) ->
     end.
 
 
--spec refer(nksip:id(), nksip_lib:optslist()) -> 
+-spec refer(nksip:id(), nksip:optslist()) -> 
     result() | {error, error()} |  {error, invalid_refer_to}.
 
 refer(Id, Opts) ->
@@ -289,7 +289,7 @@ refer(Id, Opts) ->
 %     end.
 
 
-% -spec refer(nksip:id(), nksip_lib:optslist()) -> 
+% -spec refer(nksip:id(), nksip:optslist()) -> 
 %     result() | {error, error()} |  {error, invalid_refer_to}.
 
 % refer(Id, Opts) ->
@@ -302,7 +302,7 @@ refer(Id, Opts) ->
 
 
 %% @doc Sends an out-of-dialog PUBLISH request.
--spec publish(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec publish(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
     result() | {error, error()}.
 
 publish(App, Uri, Opts) ->
@@ -311,7 +311,7 @@ publish(App, Uri, Opts) ->
 
 
 %% @doc Sends an in-dialog PUBLISH request.
--spec publish(nksip:id(), nksip_lib:optslist()) ->
+-spec publish(nksip:id(), nksip:optslist()) ->
     result() | {error, error()}.
 
 publish(Id, Opts) ->
@@ -321,7 +321,7 @@ publish(Id, Opts) ->
 
 
 %% @doc Sends an out-of-dialog request constructed from a SIP-Uri
--spec request(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) -> 
+-spec request(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) -> 
     result() | {error, error()}.
 
 request(App, Dest, Opts) ->
@@ -329,7 +329,7 @@ request(App, Dest, Opts) ->
 
 
 %% @doc Sends an in-dialog request constructed from a SIP-Uri
--spec request(nksip:id(), nksip_lib:optslist()) -> 
+-spec request(nksip:id(), nksip:optslist()) -> 
     result() | {error, error()}.
 
 request(Id, Opts) ->
@@ -350,7 +350,7 @@ request(Id, Opts) ->
 %%  <li>`hold': activate the medias on SDP (sending `a=sendonly')</li>
 %% </ul>
 %%
--spec refresh(nksip:id(), nksip_lib:optslist()) ->
+-spec refresh(nksip:id(), nksip:optslist()) ->
     result() | {error, error()}.
 
 refresh(Id, Opts) ->
@@ -395,7 +395,7 @@ refresh(Id, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(term()|nksip:app_id(), nksip:user_uri(), nksip_lib:optslist()) ->
+-spec stun(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),

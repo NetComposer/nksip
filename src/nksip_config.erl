@@ -62,7 +62,7 @@ get(Key, Default) ->
 
 
 %% @doc Equivalent to `get_cached(Key, undefined)'.
--spec get_cached(term(), nksip_lib:optslist()) -> 
+-spec get_cached(term(), nksip:optslist()) -> 
     Value :: term().
 
 get_cached(Key, CachedList) ->
@@ -74,7 +74,7 @@ get_cached(Key, CachedList) ->
 
 %% @doc Tries to get a value from `CacheList' if it is not present,
 %% gets it from config.
--spec get_cached(term(), nksip_lib:optslist(), term()) -> 
+-spec get_cached(term(), nksip:optslist(), term()) -> 
     Value :: term().
 
 get_cached(Key, CachedList, Default) ->
@@ -122,7 +122,7 @@ increment(Key, Count) ->
 
 %% @private Default config values
 -spec default_config() ->
-    nksip_lib:optslist().
+    nksip:optslist().
 
 default_config() ->
     [
@@ -153,8 +153,8 @@ default_config() ->
 
 
 %% @doc Parses a list of options
--spec parse_config(nksip_lib:optslist()) ->
-    {ok, nksip_lib:optslist()} | {error, term()}.
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
 parse_config(Opts) ->
     parse_config_opts(Opts, []).

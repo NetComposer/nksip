@@ -82,7 +82,7 @@
 %% ===================================================================
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(term()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
+-spec find(nksip:app_name()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
 find(App, {Scheme, User, Domain}) ->
@@ -126,7 +126,7 @@ find(App, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
 find(App, Scheme, User, Domain) ->
@@ -134,7 +134,7 @@ find(App, Scheme, User, Domain) ->
 
 
 %% @private Gets all current stored info for an AOR.
--spec get_info(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec get_info(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [#reg_contact{}].
 
 get_info(App, Scheme, User, Domain) ->
@@ -152,7 +152,7 @@ get_info(App, Scheme, User, Domain) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(term()|nksip:app_id(), AOR::nksip:aor()) ->
+-spec qfind(nksip:app_name()|nksip:app_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
 qfind(App, {Scheme, User, Domain}) ->
@@ -161,7 +161,7 @@ qfind(App, {Scheme, User, Domain}) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
 qfind(App, Scheme, User, Domain) ->
@@ -175,7 +175,7 @@ qfind(App, Scheme, User, Domain) ->
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
--spec delete(term()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+-spec delete(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
 delete(App, Scheme, User, Domain) ->
@@ -262,7 +262,7 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
  
 
 %% @doc Clear all stored records by a SipApp's core.
--spec clear(term()|nksip:app_id()) -> 
+-spec clear(nksip:app_name()|nksip:app_id()) -> 
     ok | callback_error | sipapp_not_found.
 
 clear(App) -> 
@@ -327,8 +327,8 @@ is_registered([
 
 
 %% @private
--spec check_gruu(nksip:request(), nksip_lib:optslist()) ->
-    nksip_lib:optslist().
+-spec check_gruu(nksip:request(), nksip:optslist()) ->
+    nksip:optslist().
 
 check_gruu(Req, AppOpts) ->
     AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
@@ -341,7 +341,7 @@ check_gruu(Req, AppOpts) ->
 
 
 %% @private
--spec process(nksip:request(), nksip_lib:optslist()) ->
+-spec process(nksip:request(), nksip:optslist()) ->
     ok.
 
 process(Req, Opts) ->
@@ -372,7 +372,7 @@ process(Req, Opts) ->
 
 
 %% @private
--spec update(nksip:request(), times(), nksip_lib:optslist()) ->
+-spec update(nksip:request(), times(), nksip:optslist()) ->
     ok.
 
 update(Req, Times, Opts) ->
@@ -412,7 +412,7 @@ update(Req, Times, Opts) ->
 
 %% @private Extracts from each contact a index, uri, expire time and q
 -spec update_regcontacts([#uri{}], nksip:request(), times(), 
-                         [nksip:uri()], nksip_lib:optslist(), [reg_contact()]) ->
+                         [nksip:uri()], nksip:optslist(), [reg_contact()]) ->
     [reg_contact()].
 
 update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->

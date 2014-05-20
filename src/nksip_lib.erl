@@ -398,8 +398,8 @@ store_value(Tem, List) ->
 
     
 %% @doc Stores a value in a proplist
--spec store_value(term(), term(), nksip_lib:optslist()) ->
-    nksip_lib:optslist().
+-spec store_value(term(), term(), nksip:optslist()) ->
+    nksip:optslist().
  
 store_value(Key, Val, List) ->
     lists:keystore(Key, 1, List, {Key, Val}).

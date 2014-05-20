@@ -57,7 +57,7 @@ app_name(Resp) ->
 
 
 -spec code(nksip:response()|nksip:id()) ->
-    nksip:response_code()|error.
+    nksip:sip_code()|error.
 
 code(#sipmsg{class={resp, Code, _Phrase}}) -> 
     Code;

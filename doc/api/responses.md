@@ -54,7 +54,7 @@ Gets the SipApp's _user name_
 ### nksip_response:code/1
 ```erlang
 -spec code(nksip:response()|nksip:id()) ->
-    nksip:response_code() | error.
+    nksip:sip_code() | error.
 ```
 Gets the SIP code of the response.
 

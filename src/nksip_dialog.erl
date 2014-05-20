@@ -44,7 +44,7 @@
 
 %% SIP Dialog stop reason
 -type stop_reason() :: 
-    nksip:response_code() | caller_bye | callee_bye | forced |
+    nksip:sip_code() | caller_bye | callee_bye | forced |
     busy | cancelled | service_unavailable | declined | timeout |
     ack_timeout | no_events.
 
@@ -229,7 +229,7 @@ get_all() ->
 
 
 %% @doc Finds all existing dialogs having a `Call-ID'.
--spec get_all(term()|nksip:app_id(), nksip:call_id()) ->
+-spec get_all(nksip:app_name()|nksip:app_id(), nksip:call_id()) ->
     [nksip:id()].
 
 get_all(App, CallId) ->
@@ -362,7 +362,7 @@ get_dialog(Id) ->
 %% @private Dumps all dialog information
 %% Do not use it with many active dialogs!!
 -spec get_all_data() ->
-    [{nksip:id(), nksip_lib:optslist()}].
+    [{nksip:id(), nksip:optslist()}].
 
 get_all_data() ->
     Now = nksip_lib:timestamp(),

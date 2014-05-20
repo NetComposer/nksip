@@ -284,13 +284,13 @@ proxy() ->
                            [contact]),
 
     % Using or public GRUU, UA1 (without websocket support) is able to reach us
-    C2Pub = nksip:get_gruu_pub(ua2),
+    {ok, C2Pub} = nksip:get_gruu_pub(ua2),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options(ua1, C2Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
     % The same with our private GRUU
-    C2Priv = nksip:get_gruu_temp(ua2),
+    {ok, C2Priv} = nksip:get_gruu_temp(ua2),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options(ua1, C2Priv, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
@@ -302,12 +302,12 @@ proxy() ->
                            [contact, {meta, [contacts]}]),
     #uri{domain = <<"invalid.invalid">>} = C3Contact,
     
-    C3Pub = nksip:get_gruu_pub(ua3),
+    {ok, C3Pub} = nksip:get_gruu_pub(ua3),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options(ua1, C3Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
-    C3Priv = nksip:get_gruu_temp(ua3),
+    {ok, C3Priv} = nksip:get_gruu_temp(ua3),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options(ua1, C3Priv, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),

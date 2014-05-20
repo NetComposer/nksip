@@ -40,7 +40,7 @@
 %% ===================================================================
 
 %% @doc Starts a new Forking Proxy.
--spec start(nksip_call:trans(), nksip:uri_set(), nksip_lib:optslist(),call()) ->
+-spec start(nksip_call:trans(), nksip:uri_set(), nksip:optslist(),call()) ->
    call().
 
 start(Trans, UriSet, ForkOpts, #call{forks=Forks}=Call) ->
@@ -196,7 +196,7 @@ response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
 
 
 %% @private
--spec waiting(nksip:response_code(), nksip:response(), integer(), fork(), call()) ->
+-spec waiting(nksip:sip_code(), nksip:response(), integer(), fork(), call()) ->
    call().
 
 % 1xx

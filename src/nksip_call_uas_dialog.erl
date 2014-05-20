@@ -203,7 +203,7 @@ response(Req, Resp, Call) ->
 
 
 %% @private
--spec do_response(nksip:method(), nksip:response_code(), nksip:request(),
+-spec do_response(nksip:method(), nksip:sip_code(), nksip:request(),
                   nksip:response(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
@@ -425,9 +425,9 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
 %% - If it has no Contact, it adds the dialog's one if found
 %% - For 2xx INVITE or UPDATE requests, adds a session timer to the response
 
--spec update_response(nksip:request(), {nksip:response(), nksip_lib:optslist()}, 
+-spec update_response(nksip:request(), {nksip:response(), nksip:optslist()}, 
                       nksip_call:call()) ->
-    {nksip:response(), nksip_lib:optslist()}.
+    {nksip:response(), nksip:optslist()}.
 
 update_response(Req, {Resp, Opts}, Call) ->
     #sipmsg{contacts=Contacts} = Resp,

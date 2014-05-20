@@ -46,7 +46,7 @@ path||Automatically generates a Path header, if none is already present|Used in 
 
 Option|Types|Description|Commment
 ---|---|---|---|
-{add, Name, Value}|Name::`nksip:name()`, Value::`nksip:value()`|Adds a new header, after any previous one with the same name|All header names should be lowercase
+{add, Name, Value}|Name::`nksip:header_name()`, Value::`nksip:header_value()`|Adds a new header, after any previous one with the same name|All header names should be lowercase
 {add, {Name, Value}}|(same as before)|Same as before|
 {replace, Name, Value}|(same as before)|Adds a new header, replacing any previous one|
 {replace, {Name, Value}}|(same as before)|Same as before|

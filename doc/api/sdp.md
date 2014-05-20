@@ -25,7 +25,7 @@ Function|Description
 
 ## start/4
 ```erlang
--spec start(Name::term(), Callback::atom(), Args::term(), Opts::nksip_lib:optslist()) -> 
+-spec start(Name::term(), Callback::atom(), Args::term(), Opts::nksip:optslist()) -> 
 	{ok, app_id()} | {error, term()}.
 ```
 

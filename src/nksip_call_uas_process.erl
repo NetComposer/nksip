@@ -308,7 +308,7 @@ method(_Method, #sipmsg{app_id=AppId}, _UAS, _Call) ->
 
 
 %% @private Sends a transaction reply
--spec reply(nksip:sipreply() | {nksip:response(), nksip_lib:optslist()}, 
+-spec reply(nksip:sipreply() | {nksip:response(), nksip:optslist()}, 
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 

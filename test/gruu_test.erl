@@ -92,8 +92,8 @@ register() ->
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub1,
     #uri{domain = <<"nksip">>, port=0} = Tmp1,
 
-    Pub1 = nksip:get_gruu_pub(ua1),
-    Tmp1 = nksip:get_gruu_temp(ua1),
+    {ok, Pub1} = nksip:get_gruu_pub(ua1),
+    {ok, Tmp1} = nksip:get_gruu_temp(ua1),
 
     {ok, 200, [{_, [PC2, PC1]}]} =
         nksip_uac:register(ua2, "sip:127.0.0.1", [contact, {meta, [contacts]}]),
@@ -114,8 +114,8 @@ register() ->
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub2,
     #uri{domain = <<"nksip">>, port=0} = Tmp2,
 
-    Pub2 = nksip:get_gruu_pub(ua2),
-    Tmp2 = nksip:get_gruu_temp(ua2),
+    {ok, Pub2} = nksip:get_gruu_pub(ua2),
+    {ok, Tmp2} = nksip:get_gruu_temp(ua2),
 
 
     % Now we have two contacts stored for this AOR

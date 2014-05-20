@@ -127,9 +127,9 @@ sip_authorize(Auth, Req, _Call) ->
 -spec sip_route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
                 Request::nksip:request(), Call::nksip:call()) ->
     proxy | {proxy, ruri | nksip:uri_set()} | 
-    {proxy, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
+    {proxy, ruri | nksip:uri_set(), nksip:optslist()} | 
     proxy_stateless | {proxy_stateless, ruri | nksip:uri_set()} | 
-    {proxy_stateless, ruri | nksip:uri_set(), nksip_lib:optslist()} | 
+    {proxy_stateless, ruri | nksip:uri_set(), nksip:optslist()} | 
     process | process_stateless |
     {reply, nksip:sipreply()} | {reply_stateless, nksip:sipreply()}.
 ```
