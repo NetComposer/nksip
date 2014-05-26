@@ -253,6 +253,7 @@ put_log_cache(AppId, CallId) ->
     erlang:put(nksip_app_name, AppId:name()),
     erlang:put(nksip_call_id, CallId).
 
+
 %% @private
 parse_config_opts([], Opts) ->
     {ok, Opts};
