@@ -107,7 +107,6 @@ default_config() ->
         {timer_t2, 4000},                   % (msecs) 4 secs
         {timer_t4, 5000},                   % (msecs) 5 secs
         {timer_c,  180},                    % (secs) 3min
-        {sipapp_timer, 5},                  % Time to refresh SipApp (registrations...)
         {session_expires, 1800},            % (secs) 30 min
         {min_session_expires, 90},          % (secs) 90 secs (min 90, recomended 1800)
         {udp_timeout, 180},                 % (secs) 3 min
@@ -124,6 +123,7 @@ default_config() ->
         {outbound_time_all_fail, 30},       % (secs)
         {outbound_time_any_ok, 90},         % (secs)
         {outbound_max_time, 1800},          % (secs)
+        {sync_call_time, 30},               % (secs) Default time for sync calls
         {dns_cache_ttl, 3600},              % (secs) 1 hour
         {local_data_path, "log"}            % To store UUID
     ].
@@ -186,12 +186,13 @@ init([]) ->
                 {main_ip, nksip_lib:find_main_ip()},
                 {main_ip6, nksip_lib:find_main_ip(auto, ipv6)},
                 {app_config, AppConfig2},
-                {max_connections, nksip_lib:get_value(max_connections, AppConfig1)}
+                {max_connections, nksip_lib:get_value(max_connections, AppConfig1)},
+                {sync_call_time, 1000*nksip_lib:get_value(sync_call_time, AppConfig1)}
             ],
+            make_cache(GlobalConfig),
             lists:foreach(
                 fun({Key, Value}) -> nksip_config:put(Key, Value) end,
                 AppConfig1++GlobalConfig),
-            make_cache(GlobalConfig),
             {ok, #state{}};
         {error, Error} ->
             lager:error("Config error: ~p", [Error]),
@@ -316,7 +317,7 @@ parse_config_opts([Term|Rest], Opts) ->
                 update;
             {outbound_max_time, Secs} when is_integer(Secs), Secs>=1 ->
                 update;
-            {sipapp_timer, Secs} when is_integer(Secs), Secs>=1 ->
+            {sync_call_time, Secs} when is_integer(Secs), Secs>=1 ->
                 update;
             _ ->
                 throw(invalid)

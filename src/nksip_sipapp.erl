@@ -27,7 +27,6 @@
 -export([sip_options/2, sip_register/2, sip_info/2, sip_prack/2, sip_update/2]).
 -export([sip_subscribe/2, sip_resubscribe/2, sip_notify/2, sip_message/2]).
 -export([sip_refer/2, sip_publish/2]).
--export([sip_ping_update/3, sip_register_update/3]).
 -export([sip_dialog_update/3, sip_session_update/3]).
 -export([sip_registrar_store/2, sip_publish_store/2]).
 -export([init/1, terminate/2]).
@@ -363,24 +362,6 @@ handle_info(_Msg, State) ->
 
 
 %%%%%%%%%%%%%% Other Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-%% @doc Called when the status of an automatic ping configuration changes.
--spec sip_ping_update(PingId::term(), OK::boolean(), AppId::nksip:app_id()) ->
-    ok.
-
-sip_ping_update(_PingId, _OK, _AppId) ->
-    ok.
-
-
-%% @doc Called when the status of an automatic registration configuration changes.
--spec sip_register_update(RegId::term(), OK::boolean(), AppId::nksip:app_id()) ->
-    ok.
-
-sip_register_update(_RegId, _OK, _AppId) ->
-    ok.
-
-
 
 
 

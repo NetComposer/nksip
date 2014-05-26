@@ -18,33 +18,35 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc NkSIP Config Cache
-%%
-%%
-%% This module is hot compiled in run-time, after NkSIP application has started.
-%% It maintains a number of functions to cache some parts of the configuration.
-
--module(nksip_config_cache).
+%% @doc SipApp callbacks for plugin nksip_uac_auto
+-module(nksip_uac_auto_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--compile([export_all]).
+-export([nksip_uac_auto_register_update/3, nksip_uac_auto_ping_update/3]).
 
 
-%% This functions will never be called
+%% ===================================================================
+%% Callbacks
+%% ===================================================================
 
-global_id() -> nksip_config:get(global_id).
 
-local_ips() -> nksip_config:get(local_ips).
+%% @doc Called when the status of an automatic registration status changes.
+-spec nksip_uac_auto_register_update(AppId::nksip:app_id(), RegId::term(), OK::boolean()) ->
+    ok.
 
-max_connections() -> nksip_config:get(max_connections).
+nksip_uac_auto_register_update( _AppId, _RegId, _OK) ->
+    ok.
 
-main_ip() -> nksip_config:get(main_ip).
 
-main_ip6() -> nksip_config:get(main_ip6).
+%% @doc Called when the status of an automatic ping status changes.
+-spec nksip_uac_auto_ping_update(AppId::nksip:app_id(), PingId::term(), OK::boolean()) ->
+    ok.
 
-app_config() -> nksip_config:get(app_config).
+nksip_uac_auto_ping_update(_AppId, _PingId, _OK) ->
+    ok.
 
-sync_call_time() -> 1000*nksip_config:get(app_config). 
+
+
 
 
 

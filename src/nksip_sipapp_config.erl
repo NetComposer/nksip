@@ -158,13 +158,6 @@ parse_opts([Term|Rest], Opts) ->
         {log_level, none} -> [{log_level, 0}|Opts];
         {log_level, Level} when Level>=0, Level=<8 -> [{log_level, Level}|Opts];
 
-        {register, Register} ->
-            case nksip_parse:uris(Register) of
-                error -> throw(invalid_register);
-                Uris -> [{register, Uris}|Opts]
-            end;
-        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
-            [{register_expires, Expires}|Opts];
         {registrar, true} ->
             [{registrar, true}|Opts];
         {trace, Trace} when is_boolean(Trace) ->
@@ -181,8 +174,8 @@ parse_opts([Term|Rest], Opts) ->
                     nksip_lib:store_value(Name, Value1, Opts);
                 {error, _} ->
                     PlugList = lists:reverse(nksip_lib:get_value(plugins, Opts, [])),
-                    case parse_external_opt({Name, Value}, PlugList) of
-                        {ok, Value1} -> nksip_lib:store_value(Name, Value1, Opts);
+                    case parse_external_opt({Name, Value}, PlugList, Opts) of
+                        {ok, PluginOpts} -> PluginOpts;
                         _ -> throw({invalid, Name})
                     end
             end;
@@ -193,13 +186,13 @@ parse_opts([Term|Rest], Opts) ->
 
 
 %% @doc
-parse_external_opt(_Opt, []) ->
+parse_external_opt(_Term, [], _Opts) ->
     error;
 
-parse_external_opt(Opt, [Plugin|Rest]) ->
-    case catch Plugin:parse_config(Opt) of
-        {ok, Value} -> {ok, Value};
-        _ -> parse_external_opt(Opt, Rest)
+parse_external_opt(Term, [Plugin|Rest], Opts) ->
+    case catch Plugin:parse_config(Term, Opts) of
+        {ok, Opts1} -> {ok, Opts1};
+        _ -> parse_external_opt(Term, Rest, Opts)
     end.
 
 
@@ -322,6 +315,7 @@ cache_syntax(Opts) ->
             nksip_lib:get_value(registrar_min_time, Opts),
             nksip_lib:get_value(registrar_max_time, Opts),
             nksip_lib:get_value(registrar_default_time, Opts)}},
+        {config_sync_call_time, 1000*nksip_lib:get_value(sync_call_time, Opts)},
         {config_from, nksip_lib:get_value(from, Opts)},
         {config_registrar, lists:member({registrar, true}, Opts)},
         {config_no_100, lists:member({no_100, true}, Opts)},

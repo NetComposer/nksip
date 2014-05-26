@@ -133,8 +133,8 @@ pending_msgs() ->
 
 -record(state, {
     app_id :: nksip:app_id(),
-    reg_state :: term(),
-    mod_state :: term()
+    plugin_state :: list(),
+    sipapp_state :: term()
 }).
 
 
@@ -145,7 +145,6 @@ start_link(AppId, Args) ->
 
 %% @private
 init([AppId, Args]) ->
-    % process_flag(trap_exit, true),
     nksip_proc:put(nksip_sipapps, AppId),   
     Config = AppId:config(),
     AppName = nksip_lib:get_value(name, Config),
@@ -159,18 +158,17 @@ init([AppId, Args]) ->
             save_uuid(Path, AppName, UUID)
     end,
     nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
-    Timer = 1000 * nksip_lib:get_value(sipapp_timer, Config),
-    erlang:start_timer(Timer, self(), '$nksip_timer'),
-    State1 = #state{app_id=AppId, reg_state=RegState},
+    PluginState = nksip_callbacks:sipapp_init(AppId, []),
+    State1 = #state{app_id=AppId, plugin_state=PluginState},
     case erlang:function_exported(AppId, init, 1) andalso AppId:init(Args) of
         {ok, ModState} -> 
-            {ok, State1#state{mod_state=ModState}};
+            {ok, State1#state{sipapp_state=ModState}};
         {ok, ModState, Timeout} -> 
-            {ok, State1#state{mod_state=ModState}, Timeout};
+            {ok, State1#state{sipapp_state=ModState}, Timeout};
         {stop, Reason} -> 
             {stop, Reason};
         false ->
-            {ok, State1#state{mod_state=undefined}}
+            {ok, State1#state{sipapp_state=undefined}}
     end.
 
 
@@ -179,9 +177,12 @@ init([AppId, Args]) ->
     gen_server_call(#state{}).
 
 handle_call(Msg, From, State) ->
-    case nksip_sipapp_auto:handle_call(Msg, From, State#state.reg_state) of
-        error -> mod_handle_call(handle_call, [Msg], From, State);
-        RegState1 -> {noreply, State#state{reg_state=RegState1}}
+    #state{app_id=AppId, plugin_state=PluginState, sipapp_state=SipappState} = State,
+    case nksip_callbacks:sipapp_handle_call(AppId, Msg, From, PluginState) of
+        continue -> 
+            mod_handle_call(handle_call, [Msg], From, SipappState);
+        PluginState1 -> 
+            {noreply, State#state{plugin_state=RegState1}}
     end.
 
 
@@ -221,11 +222,11 @@ handle_info(Info, State) ->
 -spec code_change(term(), #state{}, term()) ->
     gen_server_code_change(#state{}).
 
-code_change(OldVsn, #state{app_id=AppId, mod_state=ModState}=State, Extra) ->
+code_change(OldVsn, #state{app_id=AppId, sipapp_state=ModState}=State, Extra) ->
     case erlang:function_exported(AppId, code_change, 3) of
         true ->
             {ok, ModState1} = AppId:code_change(OldVsn, ModState, Extra),
-            {ok, State#state{mod_state=ModState1}};
+            {ok, State#state{sipapp_state=ModState1}};
         false -> 
             {ok, State}
     end.
@@ -235,7 +236,7 @@ code_change(OldVsn, #state{app_id=AppId, mod_state=ModState}=State, Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(Reason, #state{app_id=AppId, reg_state=RegState, mod_state=ModState}) ->  
+terminate(Reason, #state{app_id=AppId, reg_state=RegState, sipapp_state=ModState}) ->  
     case erlang:function_exported(AppId, terminate, 2) of
         true -> AppId:terminate(Reason, ModState);
         false -> ok
@@ -257,20 +258,20 @@ terminate(Reason, #state{app_id=AppId, reg_state=RegState, mod_state=ModState}) 
     {stop, term(), #state{}}.
     
 
-mod_handle_call(Fun, Args, From, #state{app_id=AppId, mod_state=ModState}=State) ->
+mod_handle_call(Fun, Args, From, #state{app_id=AppId, sipapp_state=ModState}=State) ->
     case apply(AppId, Fun,  Args ++ [From, ModState]) of
         {reply, Reply, ModState1} -> 
             gen_server:reply(From, Reply),
-            {noreply, State#state{mod_state=ModState1}};
+            {noreply, State#state{sipapp_state=ModState1}};
         {reply, Reply, ModState1, Timeout} -> 
             gen_server:reply(From, Reply),
-            {noreply, State#state{mod_state=ModState1}, Timeout};
+            {noreply, State#state{sipapp_state=ModState1}, Timeout};
         {noreply, ModState1} -> 
-            {noreply, State#state{mod_state=ModState1}};
+            {noreply, State#state{sipapp_state=ModState1}};
         {noreply, ModState1, Timeout} -> 
-            {noreply, State#state{mod_state=ModState1}, Timeout};
+            {noreply, State#state{sipapp_state=ModState1}, Timeout};
         {stop, Reason, ModState1} -> 
-            {stop, Reason, State#state{mod_state=ModState1}}
+            {stop, Reason, State#state{sipapp_state=ModState1}}
     end.
 
 
@@ -279,14 +280,14 @@ mod_handle_call(Fun, Args, From, #state{app_id=AppId, mod_state=ModState}=State)
     {noreply, #state{}, non_neg_integer()} |
     {stop, term(), #state{}}.
 
-mod_handle_cast(Fun, Args, #state{app_id=AppId, mod_state=ModState}=State) ->
+mod_handle_cast(Fun, Args, #state{app_id=AppId, sipapp_state=ModState}=State) ->
     case apply(AppId, Fun, Args++[ModState]) of
         {noreply, ModState1} -> 
-            {noreply, State#state{mod_state=ModState1}};
+            {noreply, State#state{sipapp_state=ModState1}};
         {noreply, ModState1, Timeout} -> 
-            {noreply, State#state{mod_state=ModState1}, Timeout};
+            {noreply, State#state{sipapp_state=ModState1}, Timeout};
         {stop, Reason, ModState1} -> 
-            {stop, Reason, State#state{mod_state=ModState1}}
+            {stop, Reason, State#state{sipapp_state=ModState1}}
     end.
 
 

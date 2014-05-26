@@ -288,17 +288,23 @@ get_pid(App) ->
     term().
 
 call(App, Term) ->
-    call(App, Term, 5000).
+    call(App, Term, default).
 
 
 %% @doc Synchronous call to the SipApp's gen_server process with a timeout
--spec call(app_name()|app_id(), term(), pos_integer()|infinity) ->
+-spec call(app_name()|app_id(), term(), pos_integer()|infinity|default) ->
     term().
 
 call(App, Term, Time) ->
     case find_app(App) of
-        {ok, AppId} -> gen_server:call(AppId, Term, Time);
-        not_found -> error(sipapp_not_found)
+        {ok, AppId} -> 
+            Time1 = case Time of 
+                default -> AppId:config_sync_call_time();
+                _ -> Time
+            end,
+            gen_server:call(AppId, Term, Time1);
+        not_found -> 
+            error(sipapp_not_found)
     end.
 
 
