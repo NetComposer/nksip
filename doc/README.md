@@ -62,8 +62,10 @@
 
 ## [7. Advanced Concepts](advanced/README.md)
 * Resolver
-* How to write a plugin
-* Plugin callback reference
+* [Plugin architecture](advanced/plugin_architecture.md)
+* [Runtime configuration](advanced/runtime_configuration.md)
+* [How to write a plugin](advanced/write_a_plugin.md)
+* [Plugin callback reference](advanced/plugin_callbacks.md)
 
 ## [8. Roadmap](roadmap.md)
 
