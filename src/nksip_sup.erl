@@ -24,13 +24,13 @@
 
 -behaviour(supervisor).
 
--export([start_core/2, stop_core/1]).
--export([init/1, start_link/0, start_cores_sup/0]).
+-export([start_sipapp/2, stop_sipapp/1]).
+-export([init/1, start_link/0, start_sipapps_sup/0]).
 
 -include("nksip.hrl").
 
-%% @private Starts a new SipApp's core
-start_core(AppId, Args) ->
+%% @private Starts a new SipApp's process
+start_sipapp(AppId, Args) ->
     Spec = {AppId,
                 {nksip_sipapp_sup, start_link, [AppId, Args]},
                 permanent,
@@ -45,7 +45,7 @@ start_core(AppId, Args) ->
 
 
 %% @private Stops a SipApp's core
-stop_core(AppId) ->
+stop_sipapp(AppId) ->
     case supervisor:terminate_child(nksip_sipapp_sup, AppId) of
         ok -> ok = supervisor:delete_child(nksip_sipapp_sup, AppId);
         {error, _} -> error
@@ -91,12 +91,6 @@ start_link() ->
             5000,
             worker,
             [nksip_stats]},
-        % {nksip_transport_srv,
-        %     {nksip_transport_srv, start_link, []},
-        %     permanent,
-        %     5000,
-        %     worker,
-        %     [nksip_transport_srv]},
         {nksip_dns,
             {nksip_dns, start_link, []},
             permanent,
@@ -116,7 +110,7 @@ start_link() ->
             worker,
             [nksip_webserver]},
         {nksip_sipapp_sup,
-            {?MODULE, start_cores_sup, []},
+            {?MODULE, start_sipapps_sup, []},
             permanent,
             infinity,
             supervisor,
@@ -127,7 +121,7 @@ start_link() ->
   supervisor:start_link({local, ?MODULE}, ?MODULE, {{one_for_one, 10, 60}, ChildsSpec}).
 
 %% @private
-start_cores_sup() ->
+start_sipapps_sup() ->
     supervisor:start_link({local, nksip_sipapp_sup}, 
                             ?MODULE, {{one_for_one, 10, 60}, []}).
 
@@ -145,8 +139,4 @@ get_call_routers(Pos) ->
         5000,
         worker,
         [nksip_call]}.
-
-
-
-
 

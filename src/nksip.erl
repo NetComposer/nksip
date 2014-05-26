@@ -162,7 +162,7 @@ start(AppName, Module, Args, Opts) ->
             Opts1 = Config ++ [{name, AppName}, {module, Module}|Opts],
             case nksip_sipapp_config:parse_config(Opts1) of
                 {ok, AppId} ->
-                    case nksip_sup:start_core(AppId, Args) of
+                    case nksip_sup:start_sipapp(AppId, Args) of
                         ok -> {ok, AppId};
                         {error, Error} -> {error, Error}
                     end;
@@ -181,7 +181,7 @@ start(AppName, Module, Args, Opts) ->
 stop(App) ->
     case find_app(App) of
         {ok, AppId} ->
-            case nksip_sup:stop_core(AppId) of
+            case nksip_sup:stop_sipapp(AppId) of
                 ok ->
                     nksip_registrar:clear(AppId),
                     ok;
