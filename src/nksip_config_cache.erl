@@ -21,8 +21,8 @@
 %% @doc NkSIP Config Cache
 %%
 %%
-%% This module is hot compiled in run-time, after NkSIP application has started
-%% It maintains a number of functions to cache some parts of the configuration
+%% This module is hot compiled in run-time, after NkSIP application has started.
+%% It maintains a number of functions to cache some parts of the configuration.
 
 -module(nksip_config_cache).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').

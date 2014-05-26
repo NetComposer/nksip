@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc <i>SipApps</i> management module.
+%% @doc SipApps configuration
 
 -module(nksip_sipapp_config).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
