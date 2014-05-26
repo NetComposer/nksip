@@ -42,20 +42,20 @@ parse_config(Opts) ->
         Opts1 = parse_opts(Opts, []),
         Cache = cache_syntax(Opts1),
         Plugins = nksip_lib:get_value(plugins, Opts1, []),
-        Callbacks = callbacks_syntax(Plugins),
+        PluginCallbacks = plugin_callbacks_syntax(Plugins),
         AppName = nksip_lib:get_value(name, Opts1, nksip),
         AppId = nksip_sipapp_srv:get_appid(AppName),
         Module = nksip_lib:get_value(module, Opts1, nksip_sipapp),
-        PluginMods = [
+        PluginModules = [
             list_to_atom(atom_to_list(Plugin) ++ "_sipapp")
             || Plugin <- Plugins
         ],
-        AppCallbacks = get_all_app_callbacks([Module|PluginMods++[nksip_sipapp]]),
+        AppCallbacks = get_all_app_callbacks([Module|PluginModules++[nksip_sipapp]]),
         SipApp = [
             nksip_code_util:callback_expr(Mod, Fun, Arity)
             || {{Fun, Arity}, Mod} <- AppCallbacks
         ],
-        Syntax = Cache ++ SipApp ++ Callbacks,
+        Syntax = Cache ++ SipApp ++ PluginCallbacks,
         ok = nksip_code_util:compile(AppId, Syntax),
         {ok, AppId} 
     catch
@@ -383,22 +383,22 @@ tuple(Name, Opts, Default) ->
 
 %% @private Generates the ready-to-compile syntax of the generated callback module
 %% taking all plugins' callback functions
-callbacks_syntax(Plugins) ->
-    callbacks_syntax(Plugins, dict:new()).
+plugin_callbacks_syntax(Plugins) ->
+    plugin_callbacks_syntax(Plugins, dict:new()).
 
 
 %% @private
-callbacks_syntax([Name|Rest], Dict) ->
+plugin_callbacks_syntax([Name|Rest], Dict) ->
     Mod = list_to_atom(atom_to_list(Name)++"_callbacks"),
     case nksip_code_util:get_funs(Mod) of
         error ->
-            callbacks_syntax(Rest, Dict);
+            plugin_callbacks_syntax(Rest, Dict);
         List ->
-            Dict1 = callbacks_syntax(List, Mod, Dict),
-            callbacks_syntax(Rest, Dict1)
+            Dict1 = plugin_callbacks_syntax(List, Mod, Dict),
+            plugin_callbacks_syntax(Rest, Dict1)
     end;
 
-callbacks_syntax([], Dict) ->
+plugin_callbacks_syntax([], Dict) ->
     dict:fold(
         fun({Fun, Arity}, {Value, Pos}, Syntax) ->
             [nksip_code_util:fun_expr(Fun, Arity, Pos, [Value])|Syntax]
@@ -408,7 +408,7 @@ callbacks_syntax([], Dict) ->
 
 
 %% @private
-callbacks_syntax([{Fun, Arity}|Rest], Mod, Dict) ->
+plugin_callbacks_syntax([{Fun, Arity}|Rest], Mod, Dict) ->
     case dict:find({Fun, Arity}, Dict) of
         error ->
             Pos = 1,
@@ -418,9 +418,9 @@ callbacks_syntax([{Fun, Arity}|Rest], Mod, Dict) ->
             Value = nksip_code_util:case_expr(Mod, Fun, Arity, Pos, [Syntax])
     end,
     Dict1 = dict:store({Fun, Arity}, {Value, Pos}, Dict),
-    callbacks_syntax(Rest, Mod, Dict1);
+    plugin_callbacks_syntax(Rest, Mod, Dict1);
 
-callbacks_syntax([], _, Dict) ->
+plugin_callbacks_syntax([], _, Dict) ->
     Dict.
 
 
@@ -452,37 +452,6 @@ get_all_app_callbacks([Mod|Rest], Acc) ->
 
 get_all_app_callbacks([], Acc) ->
     Acc.
-
-
-% %% @private Generates a ready-to-compile mirror of functions in sipapp module
-% -spec sipapp_syntax([{{Fun::atom(), Arity::integer()}, Mod::atom()}]) ->
-%     erl_syntax:syntax_tree().
-
-% sipapp_syntax(ModSpec) ->
-%     sipapp_syntax(ModSpec, []).
-
-
-% %% @private
-% sipapp_syntax([{{Fun, Arity}, Mod}|Rest], Acc) ->
-%     case nksip_code_util:get_funs(Mod) of
-%         error when Rest==[] ->
-%             throw(invalid_sipapp_module);
-%         error ->
-%             sipapp_syntax(Rest, Acc);
-%         List ->
-%             Acc1 = lists:foldl(
-%                 fun({Fun, Arity}, FAcc) ->
-%                     [nksip_code_util:callback_expr(Mod, Fun, Arity)|FAcc]
-%                 end,
-%                 Acc,
-%                 List),
-%             sipapp_syntax(Rest, Acc1)
-%     end;
-
-% sipapp_syntax([], Acc) ->
-%     Acc.
-
-
 
 
 
