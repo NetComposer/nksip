@@ -25,7 +25,8 @@
 -module(nksip_uac_auto_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/2, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
+-export([sipapp_init/2, sipapp_handle_call/4, sipapp_handle_cast/3, 
+         sipapp_handle_info/3, sipapp_terminate/3]).
 -export([timer/1]).
 
 -include("nksip.hrl").
@@ -70,7 +71,7 @@
 
 
 %% @private 
-init(AppId, _Args) ->
+sipapp_init(AppId, PluginsState) ->
     Config = AppId:config(),
     Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config, ?DEFAULT_TIMER),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
@@ -91,19 +92,22 @@ init(AppId, _Args) ->
                 Regs)
     end,
     Supported = nksip_lib:get_value(supported, Config, ?SUPPORTED),
-    #state{
+    State = #state{
         app_id = AppId, 
         outbound = lists:member(<<"outbound">>, Supported),
         ob_base_time = nksip_lib:get_value(outbound_time_any_ok, Config),
         pos = 1,
         pings = [], 
         regs = []
-    }.
+    },
+    {continue, [AppId, set_state(State, PluginsState)]}.
 
 
-%% @private
-handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From, 
-            #state{app_id=AppId, outbound=Outbound, pos=Pos, regs=Regs}=State) ->
+%% @private 
+sipapp_handle_call(AppId, {'$nksip_uac_auto_start_register', RegId, Uri, Time, Opts}, 
+                   From, PluginsState) ->
+    State = get_state(PluginsState),
+    #state{app_id=AppId, outbound=Outbound, pos=Pos, regs=Regs} = State,
     Opts1 = case lists:keymember(reg_id, 1, Opts) of
         false when Outbound -> [{reg_id, Pos}];
         _ -> Opts
@@ -124,10 +128,12 @@ handle_call({'$nksip_start_register', RegId, Uri, Time, Opts}, From,
     },
     Regs1 = lists:keystore(RegId, #sipreg.id, Regs, Reg),
     ?debug(AppId, CallId, "Started auto registration: ~p", [Reg]),
-    timer(State#state{pos=Pos+1, regs=Regs1});
+    State1 = timer(State#state{pos=Pos+1, regs=Regs1}),
+    {ok, set_state(State1, PluginsState)};
 
-handle_call({'$nksip_stop_register', RegId}, From, State) ->
-    #state{app_id=AppId, regs=Regs} = State,
+sipapp_handle_call(AppId, {'$nksip_uac_auto_stop_register', RegId}, 
+                   From, PluginsState) ->
+    #state{app_id=AppId, regs=Regs} = State = get_state(PluginsState),
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{conn_monitor=Monitor}=Reg, Regs1} -> 
             gen_server:reply(From, ok),
@@ -136,24 +142,25 @@ handle_call({'$nksip_stop_register', RegId}, From, State) ->
                 false -> ok
             end, 
             spawn(fun() -> launch_unregister(AppId, Reg) end),
-            State#state{regs=Regs1};
+            {ok, set_state(State#state{regs=Regs1}, PluginsState)};
         false -> 
             gen_server:reply(From, not_found),
-            State
+            {ok, PluginsState}
     end;
 
-handle_call('$nksip_get_registers', From, #state{regs=Regs}=State) ->
-    % Info = Regs,
+sipapp_handle_call(AppId, '$nksip_uac_auto_get_registers', From, PluginsState) ->
+    #state{app_id=AppId, regs=Regs} = get_state(PluginsState),
     Now = nksip_lib:timestamp(),
     Info = [
         {RegId, Ok, Next-Now}
         ||  #sipreg{id=RegId, ok=Ok, next=Next} <- Regs
     ],
     gen_server:reply(From, Info),
-    State;
+    {ok, PluginsState};
 
-handle_call({'$nksip_start_ping', PingId, Uri, Time, Opts}, From, 
-            #state{app_id=AppId, pings=Pings}=State) ->
+sipapp_handle_call(AppId, {'$nksip_uac_auto_start_ping', PingId, Uri, Time, Opts}, 
+                   From,  PluginsState) ->
+    #state{app_id=AppId, pings=Pings} = State = get_state(PluginsState),
     CallId = nksip_lib:luid(),
     Ping = #sipreg{
         id = PingId,
@@ -168,34 +175,38 @@ handle_call({'$nksip_start_ping', PingId, Uri, Time, Opts}, From,
     },
     ?debug(AppId, CallId, "Started auto ping: ~p", [Ping]),
     Pinsg1 = lists:keystore(PingId, #sipreg.id, Pings, Ping),
-    timer(State#state{pings=Pinsg1});
+    State1 = timer(State#state{pings=Pinsg1}),
+    {ok, set_state(State1, PluginsState)};
 
-handle_call({'$nksip_stop_ping', PingId}, From, #state{pings=Pings}=State) ->
+sipapp_handle_call(AppId, {'$nksip_uac_ato_stop_ping', PingId}, From, PluginsState) ->
+    #state{app_id=AppId, pings=Pings} = State = get_state(PluginsState),
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, _, Pings1} -> 
             gen_server:reply(From, ok),
-            State#state{pings=Pings1};
+            {ok, set_state(State#state{pings=Pings1}, PluginsState)};
         false -> 
             gen_server:reply(From, not_found),
-            State
+            {ok, PluginsState}
     end;
 
-handle_call('$nksip_get_pings', From, #state{pings=Pings}=State) ->
+sipapp_handle_call(AppId, '$nksip_uac_auto_get_pings', From, PluginsState) ->
+    #state{app_id=AppId, pings=Pings} = get_state(PluginsState),
     Now = nksip_lib:timestamp(),
     Info = [
         {PingId, Ok, Next-Now}
         ||  #sipreg{id=PingId, ok=Ok, next=Next} <- Pings
     ],
     gen_server:reply(From, Info),
-    State;
+    {ok, PluginsState};
 
-handle_call(_, _From, _State) ->
-    error.
+sipapp_handle_call(_AppId, _Msg, _From, _PluginsState) ->
+    continue.
 
 
 %% @private
-handle_cast({'$nksip_register_answer', RegId, Code, Meta}, 
-            #state{app_id=AppId, regs=Regs}=State) -> 
+sipapp_handle_cast(AppId, {'$nksip_uac_auto_register_answer', RegId, Code, Meta}, 
+                   PluginsState) ->
+    #state{app_id=AppId, regs=Regs} = State = get_state(PluginsState),
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OldOK}=Reg, Regs1} ->
             #sipreg{ok=OK} = Reg1 = update_register(Reg, Code, Meta, State),
@@ -206,13 +217,15 @@ handle_cast({'$nksip_register_answer', RegId, Code, Meta},
                     nksip_callbacks:app_call(sip_register_update, 
                                              [RegId, OK, AppId], AppId)
             end,
-            update_basetime(State#state{regs=[Reg1|Regs1]});
+            State1 = update_basetime(State#state{regs=[Reg1|Regs1]}),
+            {ok, set_state(State1, PluginsState)};
         false ->
-            State
+            {ok, PluginsState}
     end;
 
-handle_cast({'$nksip_ping_answer', PingId, Code, Meta}, 
-            #state{app_id=AppId, pings=Pings}=State) -> 
+sipapp_handle_cast(AppId, {'$nksip_uac_auto_ping_answer', PingId, Code, Meta}, 
+                    PluginsState) ->
+    #state{app_id=AppId, pings=Pings} = State = get_state(PluginsState),
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OldOK}=Ping, Pings1} ->
             #sipreg{ok=OK} = Ping1 = update_ping(Ping, Code, Meta, State),
@@ -223,12 +236,14 @@ handle_cast({'$nksip_ping_answer', PingId, Code, Meta},
                     nksip_callbacks:app_call(sip_ping_update, 
                                              [PingId, OK, AppId], AppId)
             end,
-            State#state{pings=[Ping1|Pings1]};
+            State1 = State#state{pings=[Ping1|Pings1]},
+            {ok, set_state(State1, PluginsState)};
         false ->
-            State
+            {ok, PluginsState}
     end;
 
-handle_cast('$nksip_force_regs', #state{regs=Regs}=State) ->
+sipapp_handle_cast(AppId, '$nksip_uac_auto_force_regs', PluginsState) ->
+    #state{app_id=AppId, regs=Regs} = State = get_state(PluginsState),
     Regs1 = lists:map(
         fun(#sipreg{next=Next}=SipReg) ->
             case is_integer(Next) of
@@ -237,39 +252,50 @@ handle_cast('$nksip_force_regs', #state{regs=Regs}=State) ->
             end
         end,
         Regs),
-    State#state{regs=Regs1};
+    {ok, set_state(State#state{regs=Regs1}, PluginsState)};
 
-handle_cast(_, _) ->
-    error.
+sipapp_handle_cast(_ApId, _Msg, _PluginsState) ->
+    continue.
 
 
 %% @private
-handle_info({'DOWN', Mon, process, _Pid, _}, #state{app_id=AppId, regs=Regs}=State) ->
+sipapp_handle_info(AppId, {timeout, _, '$nksip_uac_auto_timer'}, PluginsState) ->
+    Config = AppId:config(),
+    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
+    erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
+    State = get_state(PluginsState),
+    {ok, set_state(timer(State),  PluginsState)};
+
+sipapp_handle_info(AppId, {'DOWN', Mon, process, _Pid, _}, PluginsState) ->
+    #state{app_id=AppId, regs=Regs} = get_state(PluginsState),
     case lists:keyfind(Mon, #sipreg.conn_monitor, Regs) of
         #sipreg{id=RegId, cseq=CSeq, call_id=CallId} ->
             ?info(AppId, CallId, "register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
-            gen_server:cast(self(), {'$nksip_register_answer', RegId, 503, Meta});
+            Msg = {'$nksip_uac_auto_register_answer', RegId, 503, Meta},
+            gen_server:cast(self(), Msg),
+            {ok, PluginsState};
         false ->
-            ok
-    end,
-    State;
+            continue
+    end;
 
-handle_info({'$nksip_register_notify', RegId}, #state{regs=Regs}=State) ->
+sipapp_handle_info(AppId, {'$nksip_uac_auto_register_notify', RegId}, PluginsState) ->
+    #state{app_id=AppId, regs=Regs} = State = get_state(PluginsState),
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, Reg, Regs1} -> 
             State1 = State#state{regs=[Reg#sipreg{fails=0}|Regs1]},
-            update_basetime(State1);
+            {ok, set_state(update_basetime(State1), PluginsState)};
         false -> 
-            State
+            continue
     end;
 
-handle_info(_, _) ->
-    error.
+sipapp_handle_info(_AppId, _Msg, _PluginsState) ->
+    continue.
 
 
 %% @private
-terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->  
+sipapp_terminate(_AppId, _Reason, PluginsState) ->  
+    #state{app_id=AppId, regs=Regs} = get_state(PluginsState),
     lists:foreach(
         fun(#sipreg{ok=Ok}=Reg) -> 
             case Ok of
@@ -277,7 +303,8 @@ terminate(_Reason, #state{app_id=AppId, regs=Regs}) ->
                 _ -> ok
             end
         end,
-        Regs).
+        Regs),
+    continue.
 
 
 
@@ -528,6 +555,15 @@ update_ping(Ping, Code, Meta, _State) ->
     }.
 
 
+%% @private
+get_state(PluginsState) ->
+    {nksip_uac_auto, State} = lists:keyfind(nksip_uac_auto, 1, PluginsState),
+    State.
+
+
+%% @private
+set_state(State, PluginsState) ->
+    lists:keystore(nksip_uac_auto, 1, PluginsState, {nksip_uac_auto, State}).
 
 
 

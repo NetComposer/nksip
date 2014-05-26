@@ -26,11 +26,17 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 -export([app_call/3, app_method/2]).
+-export([sipapp_init/2, sipapp_handle_call/4, sipapp_handle_cast/3, 
+	     sipapp_handle_info/3, sipapp_terminate/3]).
+
+-type plugins_state() :: [{Plugin::atom(), Value::term()}].
 
 
-%% @private
+
+%% @doc This plugin callback function is used to call application-level 
+%% SipApp callbacks.
 -spec app_call(atom(), list(), nksip:app_id()) ->
-	ok | error.
+	{ok, term()} | error.
 
 app_call(Fun, Args, AppId) ->
 	case catch apply(AppId, Fun, Args) of
@@ -44,7 +50,12 @@ app_call(Fun, Args, AppId) ->
 	end.
 
 
-%% @private
+%% @doc This plugin callback is called when a call to one of the method specific
+%% application-level SipApp callbacks is needed.
+-spec app_method(nksip_call:trans(), nksip_call:call()) ->
+	{reply, nksip:sip_reply()} | noreply.
+
+
 app_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
 	case catch AppId:sip_ack(Req, Call) of
 		ok -> ok;
@@ -81,24 +92,45 @@ app_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 	end.
 
 
+%% @doc Called after starting the SipApp process and before calling application-level
+%% init/1 callback. Can be used to store metadata.
+-spec sipapp_init(nksip:app_id(), plugins_state()) ->
+	{ok, plugins_state()}.
+
+sipapp_init(_AppId, Proplist) ->
+	{ok, Proplist}.
 
 
+%% @doc Called when the SipApp process receives a handle_call/3.
+%% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
+-spec sipapp_handle_call(nksip:app_id(), term(), from(), plugins_state()) ->
+	{ok, plugins_state()} | continue.
+
+sipapp_handle_call(_AppId, _Msg, _From, _PluginState) ->
+	continue.
 
 
+%% @doc Called when the SipApp process receives a handle_cast/3.
+%% Return {ok, NewPluginState} or continue.
+-spec sipapp_handle_cast(nksip:app_id(), term(), plugins_state()) ->
+	{ok, plugins_state()} | continue.
+
+sipapp_handle_cast(_AppId, _Msg, _PluginState) ->
+	continue.
 
 
+%% @doc Called when the SipApp process receives a handle_info/3.
+%% Return {ok, NewPluginState} or continue.
+-spec sipapp_handle_info(nksip:app_id(), term(), plugins_state()) ->
+	{ok, plugins_state()} | continue.
+
+sipapp_handle_info(_AppId, _Msg, _PluginState) ->
+	continue.
 
 
+%% @doc Called when the SipApp process receives a terminate/2.
+-spec sipapp_terminate(nksip:app_id(), term(), plugins_state()) ->
+	continue.
 
-
-% callback1() ->
-% 	io:format("NKSIP: CALLBACK1\n"),
-%     ok1.
-
-% callback2(A) ->
-% 	io:format("NKSIP: CALLBACK2(~p)\n", [A]),
-%     A.
-
-% callback3(A, B, C) ->
-% 	io:format("NKSIP: CALLBACK3(~p, ~p, ~p)\n", [A, B, C]),
-% 	{A,B,C}.
+sipapp_terminate(_AppId, _Reason, _PluginState) ->
+	continue.

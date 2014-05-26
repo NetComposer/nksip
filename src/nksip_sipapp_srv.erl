@@ -149,7 +149,6 @@ init([AppId, Args]) ->
     Config = AppId:config(),
     AppName = nksip_lib:get_value(name, Config),
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
-    RegState = nksip_sipapp_auto:init(AppId, Args),
     case read_uuid(AppId) of
         {ok, UUID} ->
             ok;
@@ -158,7 +157,7 @@ init([AppId, Args]) ->
             save_uuid(Path, AppName, UUID)
     end,
     nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
-    PluginState = nksip_callbacks:sipapp_init(AppId, []),
+    {ok, PluginState} = nksip_callbacks:sipapp_init(AppId, []),
     State1 = #state{app_id=AppId, plugin_state=PluginState},
     case erlang:function_exported(AppId, init, 1) andalso AppId:init(Args) of
         {ok, ModState} -> 
@@ -177,12 +176,12 @@ init([AppId, Args]) ->
     gen_server_call(#state{}).
 
 handle_call(Msg, From, State) ->
-    #state{app_id=AppId, plugin_state=PluginState, sipapp_state=SipappState} = State,
+    #state{app_id=AppId, plugin_state=PluginState} = State,
     case nksip_callbacks:sipapp_handle_call(AppId, Msg, From, PluginState) of
         continue -> 
-            mod_handle_call(handle_call, [Msg], From, SipappState);
-        PluginState1 -> 
-            {noreply, State#state{plugin_state=RegState1}}
+            mod_handle_call(Msg, From, State);
+        {ok, PluginState1} -> 
+            {noreply, State#state{plugin_state=PluginState1}}
     end.
 
 
@@ -191,9 +190,12 @@ handle_call(Msg, From, State) ->
     gen_server_cast(#state{}).
 
 handle_cast(Msg, State) -> 
-    case nksip_sipapp_auto:handle_cast(Msg, State#state.reg_state) of
-        error -> mod_handle_cast(handle_cast, [Msg], State);
-        RegState1 -> {noreply, State#state{reg_state=RegState1}}
+    #state{app_id=AppId, plugin_state=PluginState} = State,
+    case nksip_callbacks:sipapp_handle_cast(AppId, Msg, PluginState) of
+        continue -> 
+            mod_handle_cast(Msg, State);
+        {ok, PluginState1} -> 
+            {noreply, State#state{plugin_state=PluginState1}}
     end.
 
 
@@ -201,20 +203,13 @@ handle_cast(Msg, State) ->
 -spec handle_info(term(), #state{}) ->
     gen_server_info(#state{}).
 
-handle_info({timeout, _, '$nksip_timer'}, State) ->
-    #state{app_id=AppId, reg_state = RegState} = State,
-    RegState1 = nksip_sipapp_auto:timer(RegState),
-    Config = AppId:config(),
-    Timer = 1000 * nksip_lib:get_value(sipapp_timer, Config),
-    erlang:start_timer(Timer, self(), '$nksip_timer'),
-    {noreply, State#state{reg_state=RegState1}};
-
-handle_info(Info, State) ->
-    case nksip_sipapp_auto:handle_info(Info, State#state.reg_state) of
-        error -> 
-            mod_handle_info(Info, State);
-        RegState1 -> 
-            {noreply, State#state{reg_state=RegState1}}
+handle_info(Msg, State) -> 
+    #state{app_id=AppId, plugin_state=PluginState} = State,
+    case nksip_callbacks:sipapp_handle_info(AppId, Msg, PluginState) of
+        continue -> 
+            mod_handle_info(Msg, State);
+        {ok, PluginState1} -> 
+            {noreply, State#state{plugin_state=PluginState1}}
     end.
 
 
@@ -236,13 +231,13 @@ code_change(OldVsn, #state{app_id=AppId, sipapp_state=ModState}=State, Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(Reason, #state{app_id=AppId, reg_state=RegState, sipapp_state=ModState}) ->  
+terminate(Reason, State) ->  
+    #state{app_id=AppId, plugin_state=PluginState, sipapp_state=ModState} = State,
+    nksip_callbacks:sipapp_terminate(AppId, Reason, PluginState),
     case erlang:function_exported(AppId, terminate, 2) of
         true -> AppId:terminate(Reason, ModState);
         false -> ok
-    end,
-    nksip_sipapp_auto:terminate(Reason, RegState),
-    ok.
+    end.
     
 
 
@@ -253,13 +248,13 @@ terminate(Reason, #state{app_id=AppId, reg_state=RegState, sipapp_state=ModState
       
 
 %% @private
--spec mod_handle_call(atom(), [term()], from(), #state{}) -> 
+-spec mod_handle_call(term(), from(), #state{}) -> 
     {noreply, #state{}, non_neg_integer()} |
     {stop, term(), #state{}}.
     
 
-mod_handle_call(Fun, Args, From, #state{app_id=AppId, sipapp_state=ModState}=State) ->
-    case apply(AppId, Fun,  Args ++ [From, ModState]) of
+mod_handle_call(Msg, From, #state{app_id=AppId, sipapp_state=ModState}=State) ->
+    case AppId:handle_call(Msg, From, ModState) of
         {reply, Reply, ModState1} -> 
             gen_server:reply(From, Reply),
             {noreply, State#state{sipapp_state=ModState1}};
@@ -276,12 +271,12 @@ mod_handle_call(Fun, Args, From, #state{app_id=AppId, sipapp_state=ModState}=Sta
 
 
 %% @private
--spec mod_handle_cast(atom(), [term()], #state{}) -> 
+-spec mod_handle_cast(term(), #state{}) -> 
     {noreply, #state{}, non_neg_integer()} |
     {stop, term(), #state{}}.
 
-mod_handle_cast(Fun, Args, #state{app_id=AppId, sipapp_state=ModState}=State) ->
-    case apply(AppId, Fun, Args++[ModState]) of
+mod_handle_cast(Msg, #state{app_id=AppId, sipapp_state=ModState}=State) ->
+    case AppId:handle_cast(Msg, ModState) of
         {noreply, ModState1} -> 
             {noreply, State#state{sipapp_state=ModState1}};
         {noreply, ModState1, Timeout} -> 
@@ -296,10 +291,17 @@ mod_handle_cast(Fun, Args, #state{app_id=AppId, sipapp_state=ModState}=State) ->
     {noreply, #state{}, non_neg_integer()} |
     {error, term(), #state{}}.
 
-mod_handle_info(Info, State = #state{app_id=AppId}) ->
+mod_handle_info(Info, #state{app_id=AppId, sipapp_state=ModState}=State) ->
     case erlang:function_exported(AppId, handle_info, 2) of
         true ->
-            mod_handle_cast(handle_info, [Info], State);
+            case AppId:handle_info(Info, ModState) of
+                {noreply, ModState1} -> 
+                    {noreply, State#state{sipapp_state=ModState1}};
+                {noreply, ModState1, Timeout} -> 
+                    {noreply, State#state{sipapp_state=ModState1}, Timeout};
+                {stop, Reason, ModState1} -> 
+                    {stop, Reason, State#state{sipapp_state=ModState1}}
+            end;
         false ->
             case Info of
                 {'EXIT', _, normal} -> ok;
