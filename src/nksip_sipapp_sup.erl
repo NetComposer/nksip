@@ -20,7 +20,7 @@
 
 %% @private Core Supervisor Module.
 %%
-%% When a new SipApp's core is started, a new supervisor `{nksip_sipapp_sup, AppId}' is
+%% When a new SipApp's process is started, a new supervisor `{nksip_sipapp_sup, AppId}' is
 %% added to the main NkSIP supervisor. 
 %% Under this core supervisor, a new supervisor `transports_sup' is added 
 %% to control the transport processes, and finally the core main process is also added.
@@ -55,6 +55,8 @@ start_link(AppId, Args) ->
     ],
     start_childs(SupPid, Childs).
 
+
+%% @private
 start_childs(SupPid, []) ->
     {ok, SupPid};
 start_childs(SupPid, [ChildSpec|Rest]) ->
@@ -69,9 +71,12 @@ start_childs(SupPid, [ChildSpec|Rest]) ->
             {error, Error}
     end.
 
+
 %% @private
 init([AppId, ChildsSpec]) ->
-    ets:new(AppId, [named_table, public]),
+    % The SipApp ETS table is associated to its supervisor to avoid losing it
+    % in case of process fail 
+    true = ets:new(AppId, [named_table, public]),
     yes = nksip_proc:register_name({nksip_sipapp_sup, AppId}, self()),
     {ok, ChildsSpec}.
 
