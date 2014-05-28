@@ -18,16 +18,12 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Automatic registrations (with Outbound support) and pings support for SipApps.
-%% This module allows a SipApp to program automatic periodic sending of
-%% <i>OPTION</i> or <i>REGISTER</i> requests and related functions.
-
+%% @private nksip_uac_auto plugin callbacksuests and related functions.
 -module(nksip_uac_auto_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([sipapp_init/2, sipapp_handle_call/4, sipapp_handle_cast/3, 
          sipapp_handle_info/3, sipapp_terminate/3]).
--export([timer/1]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
