@@ -586,7 +586,7 @@ dialog_update(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
     end,
     % Id = nksip_subscription:get_id(Subs, Dialog),
     Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
-    nksip_callbacks:app_call(sip_dialog_update, Args, AppId).
+    AppId:nkcb_call(sip_dialog_update, Args, AppId).
 
 
 %% @private

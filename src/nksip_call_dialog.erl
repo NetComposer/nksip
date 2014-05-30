@@ -609,7 +609,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
     ok.
 
 dialog_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
-    nksip_callbacks:app_call(sip_dialog_update, [Arg, Dialog, Call], AppId),
+    AppId:nkcb_call(sip_dialog_update, [Arg, Dialog, Call], AppId),
     ok.
 
 
@@ -618,7 +618,7 @@ dialog_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
     ok.
 
 session_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
-    nksip_callbacks:app_call(sip_session_update, [Arg, Dialog, Call], AppId),
+    AppId:nkcb_call(sip_session_update, [Arg, Dialog, Call], AppId),
     ok.
 
 

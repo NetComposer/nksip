@@ -149,15 +149,11 @@ init([AppId, Args]) ->
     Config = AppId:config(),
     AppName = nksip_lib:get_value(name, Config),
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
-    case read_uuid(AppId) of
-        {ok, UUID} ->
-            ok;
-        {error, Path} ->
-            UUID = nksip_lib:uuid_4122(),
-            save_uuid(Path, AppName, UUID)
-    end,
-    nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID), 
-    {ok, PluginState} = nksip_callbacks:sipapp_init(AppId, []),
+    update_uuid(AppId, AppName),
+    {ok, PluginState} = AppId:nkcb_init(AppId, []),
+
+    lager:warning("PS: ~p", [PluginState]),
+
     State1 = #state{app_id=AppId, plugin_state=PluginState},
     case erlang:function_exported(AppId, init, 1) andalso AppId:init(Args) of
         {ok, ModState} -> 
@@ -177,7 +173,7 @@ init([AppId, Args]) ->
 
 handle_call(Msg, From, State) ->
     #state{app_id=AppId, plugin_state=PluginState} = State,
-    case nksip_callbacks:sipapp_handle_call(AppId, Msg, From, PluginState) of
+    case AppId:nkcb_handle_call(AppId, Msg, From, PluginState) of
         continue -> 
             mod_handle_call(Msg, From, State);
         {ok, PluginState1} -> 
@@ -191,7 +187,7 @@ handle_call(Msg, From, State) ->
 
 handle_cast(Msg, State) -> 
     #state{app_id=AppId, plugin_state=PluginState} = State,
-    case nksip_callbacks:sipapp_handle_cast(AppId, Msg, PluginState) of
+    case AppId:nkcb_handle_cast(AppId, Msg, PluginState) of
         continue -> 
             mod_handle_cast(Msg, State);
         {ok, PluginState1} -> 
@@ -205,7 +201,7 @@ handle_cast(Msg, State) ->
 
 handle_info(Msg, State) -> 
     #state{app_id=AppId, plugin_state=PluginState} = State,
-    case nksip_callbacks:sipapp_handle_info(AppId, Msg, PluginState) of
+    case AppId:handle_info(AppId, Msg, PluginState) of
         continue -> 
             mod_handle_info(Msg, State);
         {ok, PluginState1} -> 
@@ -233,7 +229,7 @@ code_change(OldVsn, #state{app_id=AppId, sipapp_state=ModState}=State, Extra) ->
 
 terminate(Reason, State) ->  
     #state{app_id=AppId, plugin_state=PluginState, sipapp_state=ModState} = State,
-    nksip_callbacks:sipapp_terminate(AppId, Reason, PluginState),
+    AppId:nkcb_terminate(AppId, Reason, PluginState),
     case erlang:function_exported(AppId, terminate, 2) of
         true -> AppId:terminate(Reason, ModState);
         false -> ok
@@ -311,10 +307,24 @@ mod_handle_info(Info, #state{app_id=AppId, sipapp_state=ModState}=State) ->
     end.
 
 
+
+
+%% @private
+update_uuid(AppId, AppName) ->
+    case read_uuid(AppId) of
+        {ok, UUID} ->
+            ok;
+        {error, Path} ->
+            UUID = nksip_lib:uuid_4122(),
+            save_uuid(Path, AppName, UUID)
+    end,
+    nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID).
+
+
 %% @private
 read_uuid(AppId) ->
     BasePath = nksip_config:get(local_data_path),
-    Path = filename:join(BasePath, "uuid_"++atom_to_list(AppId)),
+    Path = filename:join(BasePath, atom_to_list(AppId)++".uuid"),
     case file:read_file(Path) of
         {ok, Binary} ->
             case binary:split(Binary, <<$,>>) of
@@ -324,6 +334,7 @@ read_uuid(AppId) ->
         _ -> 
             {error, Path}
     end.
+
 
 %% @private
 save_uuid(Path, AppId, UUID) ->

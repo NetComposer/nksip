@@ -22,7 +22,7 @@
 -module(nksip_uac_auto_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([nksip_uac_auto_register_update/3, nksip_uac_auto_ping_update/3]).
+-export([sip_uac_auto_register_update/3, sip_uac_auto_ping_update/3]).
 
 
 %% ===================================================================
@@ -31,18 +31,20 @@
 
 
 %% @doc Called when the status of an automatic registration status changes.
--spec nksip_uac_auto_register_update(AppId::nksip:app_id(), RegId::term(), OK::boolean()) ->
+-spec sip_uac_auto_register_update(AppId::nksip:app_id(), 
+	                               RegId::term(), OK::boolean()) ->
     ok.
 
-nksip_uac_auto_register_update( _AppId, _RegId, _OK) ->
+sip_uac_auto_register_update( _AppId, _RegId, _OK) ->
     ok.
 
 
 %% @doc Called when the status of an automatic ping status changes.
--spec nksip_uac_auto_ping_update(AppId::nksip:app_id(), PingId::term(), OK::boolean()) ->
+-spec sip_uac_auto_ping_update(AppId::nksip:app_id(), 
+	                           PingId::term(), OK::boolean()) ->
     ok.
 
-nksip_uac_auto_ping_update(_AppId, _PingId, _OK) ->
+sip_uac_auto_ping_update(_AppId, _PingId, _OK) ->
     ok.
 
 

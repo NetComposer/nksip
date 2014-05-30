@@ -42,7 +42,7 @@ parse_config(Opts) ->
         Opts1 = parse_opts(Opts, []),
         Cache = cache_syntax(Opts1),
         Plugins = nksip_lib:get_value(plugins, Opts1, []),
-        PluginCallbacks = plugin_callbacks_syntax(Plugins),
+        PluginCallbacks = plugin_callbacks_syntax(Plugins++[nksip]),
         AppName = nksip_lib:get_value(name, Opts1, nksip),
         AppId = nksip_sipapp_srv:get_appid(AppName),
         Module = nksip_lib:get_value(module, Opts1, nksip_sipapp),
@@ -389,6 +389,7 @@ plugin_callbacks_syntax([Name|Rest], Dict) ->
             plugin_callbacks_syntax(Rest, Dict);
         List ->
             Dict1 = plugin_callbacks_syntax(List, Mod, Dict),
+            lager:warning("PLUGINS FOR ~p, ~p", [Mod, dict:to_list(Dict1)]),
             plugin_callbacks_syntax(Rest, Dict1)
     end;
 

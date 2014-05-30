@@ -76,7 +76,7 @@ start_childs(SupPid, [ChildSpec|Rest]) ->
 init([AppId, ChildsSpec]) ->
     % The SipApp ETS table is associated to its supervisor to avoid losing it
     % in case of process fail 
-    true = ets:new(AppId, [named_table, public]),
+    ets:new(AppId, [named_table, public]),
     yes = nksip_proc:register_name({nksip_sipapp_sup, AppId}, self()),
     {ok, ChildsSpec}.
 

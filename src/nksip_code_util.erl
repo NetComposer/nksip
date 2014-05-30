@@ -147,6 +147,12 @@ compile(Mod, Tree) ->
         | Tree
     ],
 
+    BasePath = nksip_config:get(local_data_path),
+    Path = filename:join(BasePath, atom_to_list(Mod)++".erl"),
+    Content = list_to_binary(
+        [io_lib:format("~s\n\n", [erl_prettypr:format(S)]) || S <-Tree1]),
+    file:write_file(Path, Content),
+
     % io:format("\nGenerated ~p:\n\n", [Mod]),
     % [io:format("~s\n\n", [erl_prettypr:format(S)]) || S<-Tree],
    

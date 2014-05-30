@@ -132,11 +132,12 @@ dialog(Method, Req, UAS, Call) ->
     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
     #sipmsg{to={_, ToTag}} = Req,
     #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
+    #call{app_id=AppId} = Call,
     try
         case Stateless orelse ToTag == <<>> of
             true ->
                 {UAS1, Call1} = method(Method, Req, UAS, Call),
-                case nksip_callbacks:app_method(UAS1, Call1) of
+                case AppId:nkcb_sip_method(UAS1, Call1) of
                     {reply, Reply} -> reply(Reply, UAS1, Call1);
                     noreply -> Call1
                 end;
@@ -144,7 +145,7 @@ dialog(Method, Req, UAS, Call) ->
                 case nksip_call_uas_dialog:request(Req, Call) of
                     {ok, Call1} -> 
                         {UAS2, Call2} = method(Method, Req, UAS, Call1),
-                        case nksip_callbacks:app_method(UAS2, Call2) of
+                        case AppId:nkcb_sip_method(UAS2, Call2) of
                             {reply, Reply} -> reply(Reply, UAS2, Call2);
                             noreply -> Call1
                         end;
@@ -280,31 +281,6 @@ method(_Method, #sipmsg{app_id=AppId}, _UAS, _Call) ->
 %% ===================================================================
 %% Utils
 %% ===================================================================
-
-
-%% @private
-% -spec process_call(atom(), list(), nksip_call:trans(), nksip_call:call()) ->
-%     nksip_call:call().
-
-% process_call(Fun, Fields, UAS, Call) ->
-%     #trans{request=Req, method=Method} = UAS,
-%     Meta = nksip_sipmsg:named_fields(Req, Fields),
-%     case nksip_call_uas:app_call(Fun, [Meta], UAS, Call) of
-%         {reply, _} when Method=='ACK' ->
-%             update(UAS, Call);
-%         {reply, Reply} ->
-%             reply(Reply, UAS, Call);
-%         not_exported when Method=='ACK' ->
-%             Call;
-%         % Not exported and no in-line
-%         not_exported ->
-%             MsgId = nksip_sipmsg:get_id(Req),
-%             % Meta1 = [{app_opts, Opts}|Meta],
-%             {reply, Reply, []} = apply(nksip_sipapp, Fun, [MsgId, Meta, none, []]),
-%             reply(Reply, UAS, Call);
-%         #call{} = Call1 -> 
-%             Call1
-%     end.
 
 
 %% @private Sends a transaction reply
