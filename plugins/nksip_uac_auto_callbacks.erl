@@ -210,7 +210,7 @@ nkcb_handle_cast(AppId, {'$nksip_uac_auto_register_answer', RegId, Code, Meta},
                 OldOK -> 
                     ok;
                 _ -> 
-                    AppId:nkcb_call(sip_register_update, [RegId, OK, AppId], AppId)
+                    AppId:nkcb_call(sip_uac_auto_register_update, [RegId, OK, AppId], AppId)
             end,
             State1 = update_basetime(State#state{regs=[Reg1|Regs1]}),
             {ok, set_state(State1, PluginsState)};
@@ -228,7 +228,7 @@ nkcb_handle_cast(AppId, {'$nksip_uac_auto_ping_answer', PingId, Code, Meta},
                 OldOK -> 
                     ok;
                 _ -> 
-                    AppId:nkcb_call(sip_ping_update, [PingId, OK, AppId], AppId)
+                    AppId:nkcb_call(sip_uac_auto_ping_update, [PingId, OK, AppId], AppId)
             end,
             State1 = State#state{pings=[Ping1|Pings1]},
             {ok, set_state(State1, PluginsState)};

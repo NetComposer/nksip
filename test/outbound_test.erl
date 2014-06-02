@@ -457,6 +457,7 @@ outbound() ->
                     <sip:127.0.0.1:5090;transport=udp>"},
         {outbound_time_all_fail, 1},
         {outbound_time_any_ok, 2},
+        {plugins, [nksip_uac_auto]},
         {nksip_uac_auto_timer, 1}
     ]),
     timer:sleep(100),
