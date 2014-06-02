@@ -85,6 +85,40 @@ parse_opts([Term|Rest], Plugins, AllOpts, Opts) ->
         {module, Module} when is_atom(Module) ->
             update;
 
+        % System options
+        {timer_t1, MSecs} when is_integer(MSecs), MSecs>=10, MSecs=<2500 ->
+            update;
+        {timer_t2, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<16000 ->
+            update;
+        {timer_t4, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<25000 ->
+            update;
+        {timer_c, Secs}  when is_integer(Secs), Secs>=1 ->
+            update;
+        {session_expires, Secs} when is_integer(Secs), Secs>=5 ->
+            update;
+        {min_session_expires, Secs} when is_integer(Secs), Secs>=1 ->
+            update;
+        {udp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+            update;
+        {tcp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+            update;
+        {sctp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+            update;
+        {ws_timeout, Secs} when is_integer(Secs), Secs>=5 -> 
+            update;
+        {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 ->
+            update;
+        {sipapp_timeout, MSecs} when is_float(MSecs), MSecs>=0.01 ->
+            update;
+        {sipapp_timeout, Secs} when is_integer(Secs), Secs>=5, Secs=<180 ->
+            update;
+        {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
+            update;
+        {max_connections, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
+            update;
+        {sync_call_time, Secs} when is_integer(Secs), Secs>=1 ->
+            update;
+
         % Startup options
         {transports, Transports} ->
             {update, parse_transports(Transports, [])};
@@ -172,12 +206,7 @@ parse_opts([Term|Rest], Plugins, AllOpts, Opts) ->
 
         % Unknown options
         {Name, Value} ->
-            case nksip_config:parse_config(Name, Value) of
-                {ok, Value1} -> 
-                    {update, Value1};
-                {error, _} ->
-                    parse_external_opt(Term, lists:reverse(Plugins), AllOpts)
-            end;
+            parse_external_opt(Term, lists:reverse(Plugins), AllOpts);
         Other ->
             throw({invalid, Other})
     end,
