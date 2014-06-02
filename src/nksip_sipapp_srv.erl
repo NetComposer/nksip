@@ -151,9 +151,6 @@ init([AppId, Args]) ->
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
     update_uuid(AppId, AppName),
     {ok, PluginState} = AppId:nkcb_init(AppId, []),
-
-    lager:warning("PS: ~p", [PluginState]),
-
     State1 = #state{app_id=AppId, plugin_state=PluginState},
     case erlang:function_exported(AppId, init, 1) andalso AppId:init(Args) of
         {ok, ModState} -> 

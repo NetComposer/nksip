@@ -112,21 +112,25 @@ get_pings(App) ->
     nksip:call(App, '$nksip_uac_auto_get_pings').
 
 
+%% ===================================================================
+%% Private
+%% ===================================================================
+
 %% @private
 -spec parse_config(Config::term(), Opts::nksip:optslist()) ->
     {ok, Value::term()} | error.
 
-parse_config({register, Register}, Opts) ->
+parse_config({register, Register}, _Opts) ->
     case nksip_parse:uris(Register) of
         error -> error;
-        Uris -> {ok, [{register, Uris}|Opts]}
+        Uris -> {update, Uris}
     end;
 
-parse_config({register_expires, Expires}, Opts) when is_integer(Expires), Expires>0 ->
-    {ok, [{register_expires, Expires}|Opts]};
+parse_config({register_expires, Expires}, _Opts) when is_integer(Expires), Expires>0 ->
+    {update, Expires};
 
-parse_config({nksip_uac_auto_timer, Timer}, Opts) when is_integer(Timer), Timer>0 ->
-    {ok, [{nksip_uac_auto_timer, Timer}|Opts]};
+parse_config({nksip_uac_auto_timer, Timer}, _Opts) when is_integer(Timer), Timer>0 ->
+    {update, Timer};
 
 parse_config(_, _) ->
     error.

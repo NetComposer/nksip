@@ -96,9 +96,6 @@ nkcb_init(AppId, PluginsState) ->
         pings = [], 
         regs = []
     },
-
-    lager:warning("INIT: ~p", [RegTime]),
-
     {continue, [AppId, set_state(State, PluginsState)]}.
 
 
@@ -258,10 +255,11 @@ nkcb_handle_cast(_ApId, _Msg, _PluginsState) ->
 %% @private
 nkcb_handle_info(AppId, {timeout, _, '$nksip_uac_auto_timer'}, PluginsState) ->
     Config = AppId:config(),
-    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
+    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config, ?DEFAULT_TIMER),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
     State = get_state(PluginsState),
-    {ok, set_state(timer(State),  PluginsState)};
+    State1 = timer(State),
+    {ok, set_state(State1,  PluginsState)};
 
 nkcb_handle_info(AppId, {'DOWN', Mon, process, _Pid, _}, PluginsState) ->
     #state{app_id=AppId, regs=Regs} = get_state(PluginsState),
