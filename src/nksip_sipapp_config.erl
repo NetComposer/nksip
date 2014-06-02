@@ -215,7 +215,7 @@ parse_transports([Transport|Rest], Acc) ->
     case Transport of
         {Scheme, Ip, Port} -> TOpts = [];
         {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
-        _ -> Scheme=Ip=Port=TOpts=throw(invalid_transport)
+        _ -> Scheme=Ip=Port=TOpts=throw({invalid, transport})
     end,
     case 
         (Scheme==udp orelse Scheme==tcp orelse 
@@ -223,7 +223,7 @@ parse_transports([Transport|Rest], Acc) ->
          Scheme==ws  orelse Scheme==wss)
     of
         true -> ok;
-        false -> throw(invalid_transport)
+        false -> throw({invalid, transport})
     end,
     Ip1 = case Ip of
         all ->
@@ -232,20 +232,20 @@ parse_transports([Transport|Rest], Acc) ->
             {0,0,0,0,0,0,0,0};
         _ when is_tuple(Ip) ->
             case catch inet_parse:ntoa(Ip) of
-                {error, _} -> throw(invalid_transport);
-                {'EXIT', _} -> throw(invalid_transport);
+                {error, _} -> throw({invalid, transport});
+                {'EXIT', _} -> throw({invalid, transport});
                 _ -> Ip
             end;
         _ ->
             case catch nksip_lib:to_ip(Ip) of
                 {ok, PIp} -> PIp;
-                _ -> throw(invalid_transport)
+                _ -> throw({invalid, transport})
             end
     end,
     Port1 = case Port of
         any -> 0;
         _ when is_integer(Port), Port >= 0 -> Port;
-        _ -> throw(invalid_transport)
+        _ -> throw({invalid, transport})
     end,
     parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
 

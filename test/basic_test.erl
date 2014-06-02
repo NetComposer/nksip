@@ -94,11 +94,12 @@ running() ->
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
-    {error, invalid_transport} = 
-                    nksip:start(name, ?MODULE, none, [{transports, [{other, all, any}]}]),
-    {error, invalid_transport} = 
-                    nksip:start(name, ?MODULE, none, [{transports, [{udp, {1,2,3}, any}]}]),
-    {error, invalid_register} = nksip:start(name, ?MODULE, none, [{register, "sip::a"}]),
+    {error, {invalid, transport}} = 
+        nksip:start(name, ?MODULE, none, [{transports, [{other, all, any}]}]),
+    {error, {invalid, transport}} = 
+        nksip:start(name, ?MODULE, none, [{transports, [{udp, {1,2,3}, any}]}]),
+    {error, {invalid, register}} = 
+        nksip:start(name, ?MODULE, none, [{register, "sip::a"}]),
 
     ok.
     

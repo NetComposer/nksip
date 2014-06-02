@@ -462,7 +462,7 @@ outbound() ->
     timer:sleep(100),
 
     [{<<"auto-1">>, true, _},{<<"auto-2">>, true, _}] = 
-        lists:sort(nksip_sipapp_auto:get_registers(ua3)),
+        lists:sort(nksip_uac_auto:get_registers(ua3)),
 
     % UA3 should have to connections to Registrar
     [
@@ -507,14 +507,14 @@ outbound() ->
     exit(Pid1, kill),
     timer:sleep(50),
     [{<<"auto-1">>, false, _},{<<"auto-2">>, true, _}] = 
-        lists:sort(nksip_sipapp_auto:get_registers(UA3_Id)),
+        lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (1/3)"),
     wait_register(50),
 
     nksip_connection:stop(Pid2, normal),
     timer:sleep(50),
     [{<<"auto-1">>, true, _},{<<"auto-2">>, false, _}] = 
-        lists:sort(nksip_sipapp_auto:get_registers(UA3_Id)),
+        lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (2/3)"),
     wait_register(50),
 
@@ -523,7 +523,7 @@ outbound() ->
     nksip_connection:stop(Pid6, normal),
     timer:sleep(50),
     [{<<"auto-1">>, false, _},{<<"auto-2">>, false, _}] = 
-        lists:sort(nksip_sipapp_auto:get_registers(UA3_Id)),
+        lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (3/3)"),
     wait_register(100),
 
@@ -542,7 +542,7 @@ check_time(Time, Limit) ->
 wait_register(0) -> 
     error(register);
 wait_register(N) ->
-    case lists:sort(nksip_sipapp_auto:get_registers(ua3)) of
+    case lists:sort(nksip_uac_auto:get_registers(ua3)) of
         [{<<"auto-1">>, true, _},{<<"auto-2">>, true, _}] -> ok;
         _ -> timer:sleep(1000), wait_register(N-1)
     end.

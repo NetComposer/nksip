@@ -174,7 +174,7 @@ nkcb_handle_call(AppId, {'$nksip_uac_auto_start_ping', PingId, Uri, Time, Opts},
     State1 = timer(State#state{pings=Pinsg1}),
     {ok, set_state(State1, PluginsState)};
 
-nkcb_handle_call(AppId, {'$nksip_uac_ato_stop_ping', PingId}, From, PluginsState) ->
+nkcb_handle_call(AppId, {'$nksip_uac_auto_stop_ping', PingId}, From, PluginsState) ->
     #state{app_id=AppId, pings=Pings} = State = get_state(PluginsState),
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, _, Pings1} -> 
@@ -363,7 +363,7 @@ launch_register(AppId, Reg)->
             {ok, Code, Meta} -> ok;
             _ -> Code=500, Meta=[{cseq_num, CSeq}]
         end,
-        gen_server:cast(Self, {'$nksip_register_answer', RegId, Code, Meta})
+        gen_server:cast(Self, {'$nksip_uac_auto_register_answer', RegId, Code, Meta})
     end,
     Pid = spawn_link(Fun),
     Reg#sipreg{next=undefined, req_pid=Pid}.
@@ -426,7 +426,7 @@ update_register(Reg, Code, Meta, #state{app_id=AppId}) when Code>=200, Code<300 
                         _ when Proto==udp -> ?DEFAULT_UDP_KEEPALIVE;
                         _ -> ?DEFAULT_TCP_KEEPALIVE
                     end,
-                    Ref = {'$nksip_register_notify', RegId},
+                    Ref = {'$nksip_uac_auto_register_notify', RegId},
                     case nksip_connection:start_refresh(Pid, Secs, Ref) of
                         ok -> 
                             Mon = erlang:monitor(process, Pid),
@@ -515,7 +515,7 @@ launch_ping(AppId, Ping)->
             {ok, Code, Meta} -> ok;
             _ -> Code=500, Meta=[{cseq_num, CSeq}]
         end,
-        gen_server:cast(Self, {'$nksip_ping_answer', PingId, Code, Meta})
+        gen_server:cast(Self, {'$nksip_uac_auto_ping_answer', PingId, Code, Meta})
     end,
     Pid = spawn_link(Fun),
     Ping#sipreg{next=undefined, req_pid=Pid}.
