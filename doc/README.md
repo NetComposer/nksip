@@ -29,6 +29,7 @@
 * [SDP](api/sdp.md)
 
 ## [4. Standard Plugins](plugins/README.md)
+* [Auto Register](plugins/auto_register.md)
 * [Registrar](plugins/registrar.md)
 * [Event State Compositor](plugins/event_compositor.md)
 * [Tracer](plugins/tracer.md)
