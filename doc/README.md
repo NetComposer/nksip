@@ -29,8 +29,8 @@
 * [SDP](api/sdp.md)
 
 ## [4. Standard Plugins](plugins/README.md)
-* [Auto Register](plugins/auto_register.md)
-* [Registrar](plugins/registrar.md)
+* [Auto Register](plugins/nksip_uac_auto.md)
+* [Registrar](plugins/nksip_registrar.md)
 * [Event State Compositor](plugins/event_compositor.md)
 * [Tracer](plugins/tracer.md)
 
