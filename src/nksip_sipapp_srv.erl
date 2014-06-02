@@ -201,7 +201,7 @@ handle_cast(Msg, State) ->
 
 handle_info(Msg, State) -> 
     #state{app_id=AppId, plugin_state=PluginState} = State,
-    case AppId:handle_info(AppId, Msg, PluginState) of
+    case AppId:nkcb_handle_info(AppId, Msg, PluginState) of
         continue -> 
             mod_handle_info(Msg, State);
         {ok, PluginState1} -> 
