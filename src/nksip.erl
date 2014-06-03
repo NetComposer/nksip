@@ -158,8 +158,7 @@
 start(AppName, Module, Args, Opts) ->
     case get_pid(AppName) of
         undefined ->
-            Config = nksip_config_cache:app_config(),
-            Opts1 = Config ++ [{name, AppName}, {module, Module}|Opts],
+            Opts1 = [{name, AppName}, {module, Module}|Opts],
             case nksip_sipapp_config:parse_config(Opts1) of
                 {ok, AppId} ->
                     case nksip_sup:start_sipapp(AppId, Args) of

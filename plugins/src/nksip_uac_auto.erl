@@ -123,11 +123,11 @@ get_pings(App) ->
 
 default_config() ->
     [
-        {nksip_uac_auto_timer, 5},          % (secs)
-        {nksip_uac_auto_expires, 300},      % (secs)
-        {outbound_time_all_fail, 30},       % (secs)
-        {outbound_time_any_ok, 90},         % (secs)
-        {outbound_max_time, 1800}           % (secs)
+        {nksip_uac_auto_timer, 5},                     % (secs)
+        {nksip_uac_auto_expires, 300},                 % (secs)
+        {nksip_uac_auto_outbound_all_fail, 30},        % (secs)
+        {nksip_uac_auto_outbound_any_ok, 90},          % (secs)
+        {nksip_uac_auto_outbound_max_time, 1800}       % (secs)
     ].
 
 
@@ -146,11 +146,11 @@ parse_config(Term, _Opts) ->
             update;
         {nksip_uac_auto_timer, Timer} when is_integer(Timer), Timer>0 ->
             update;
-        {outbound_time_all_fail, Secs} when is_integer(Secs), Secs>=1 ->
+        {nksip_uac_auto_outbound_all_fail, Secs} when is_integer(Secs), Secs>=1 ->
             update;
-        {outbound_time_any_ok, Secs} when is_integer(Secs), Secs>=1 ->
+        {nksip_uac_auto_outbound_any_ok, Secs} when is_integer(Secs), Secs>=1 ->
             update;
-        {outbound_max_time, Secs} when is_integer(Secs), Secs>=1 ->
+        {nksip_uac_auto_outbound_max_time, Secs} when is_integer(Secs), Secs>=1 ->
             update;
         _ ->
             error

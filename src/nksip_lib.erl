@@ -31,7 +31,7 @@
 -export([get_integer/2, get_integer/3, store_value/2, store_value/3]).
 -export([to_binary/1, to_list/1, to_integer/1, to_ip/1, to_host/1, to_host/2]).
 -export([to_lower/1, to_upper/1, strip/1, unquote/1, is_string/1]).
--export([bjoin/1, bjoin/2, tokens/1, hex/1, extract/2, delete/2, bin_last/2]).
+-export([bjoin/1, bjoin/2, tokens/1, hex/1, extract/2, delete/2, defaults/2, bin_last/2]).
 -export([cancel_timer/1, msg/2]).
 
 -export_type([optslist/0, timestamp/0, l_timestamp/0]).
@@ -626,6 +626,19 @@ delete(PropList, KeyOrKeys) ->
         end
     end,
     lists:filter(Fun, PropList).
+
+%% @doc Inserts defaults in a proplist
+-spec defaults([{term(), term()}], [{term(), term()}]) ->
+    [{term(), term()}].
+
+defaults(List, []) ->
+    List;
+
+defaults(List, [{Key, Val}|Rest]) ->
+    case lists:keymember(Key, 1, List) of
+        true -> defaults(List, Rest);
+        false -> defaults([{Key, Val}|List], Rest)
+    end.
 
 
 %% @doc Checks if `Term' is a `string()' or `[]'.

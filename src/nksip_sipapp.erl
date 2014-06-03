@@ -28,7 +28,7 @@
 -export([sip_subscribe/2, sip_resubscribe/2, sip_notify/2, sip_message/2]).
 -export([sip_refer/2, sip_publish/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
--export([sip_registrar_store/2, sip_publish_store/2]).
+-export([sip_publish_store/2]).
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 -include("nksip.hrl").
@@ -85,12 +85,7 @@ sip_options(_Req, _Call) ->
 
 sip_register(Req, _Call) ->
     AppId = nksip_request:app_id(Req),
-    case AppId:config_registrar() of
-        true -> 
-            {reply, nksip_registrar:request(Req)};
-        false -> 
-            {reply, {method_not_allowed, AppId:config_allow()}}
-    end.
+    {reply, {method_not_allowed, AppId:config_allow()}}.
 
 
 %% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
@@ -226,37 +221,6 @@ sip_dialog_update(_Status, _Dialog, _Call) ->
 
 sip_session_update(_Status, _Dialog, _Call) ->
     ok.
-
-% @doc Called when a operation database must be done on the registrar database.
-%% This default implementation uses the built-in memory database.
--spec sip_registrar_store(StoreOp, AppId) ->
-    [RegContact] | ok | not_found when 
-        StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
-                   {del, AOR} | del_all,
-        AppId :: nksip:app_id(),
-        AOR :: nksip:aor(),
-        RegContact :: nksip_registrar:reg_contact(),
-        TTL :: integer().
-
-sip_registrar_store(Op, AppId) ->
-    case Op of
-        {get, AOR} ->
-            nksip_store:get({nksip_registrar, AppId, AOR}, []);
-        {put, AOR, Contacts, TTL} -> 
-            nksip_store:put({nksip_registrar, AppId, AOR}, Contacts, [{ttl, TTL}]);
-        {del, AOR} ->
-            nksip_store:del({nksip_registrar, AppId, AOR});
-        del_all ->
-            FoldFun = fun(Key, _Value, Acc) ->
-                case Key of
-                    {nksip_registrar, AppId, AOR} -> 
-                        nksip_store:del({nksip_registrar, AppId, AOR});
-                    _ -> 
-                        Acc
-                end
-            end,
-            nksip_store:fold(FoldFun, none)
-    end.
 
 
 %% @doc Called when a operation database must be done on the publiser database.

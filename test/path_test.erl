@@ -24,6 +24,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
+-include("../plugins/include/nksip_registrar.hrl").
 
 -compile([export_all]).
 

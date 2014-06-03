@@ -28,10 +28,6 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--define(DEFAULT_TIMER, 5).
--define(DEFAULT_EXPIRES, 300).
-
-
 
 %% ===================================================================
 %% Plugin Callbacks
@@ -69,9 +65,9 @@
 %% @private 
 nkcb_init(AppId, PluginsState) ->
     Config = AppId:config(),
-    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config, ?DEFAULT_TIMER),
+    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
-    RegTime = nksip_lib:get_integer(register_expires, Config, ?DEFAULT_EXPIRES),
+    RegTime = nksip_lib:get_integer(nksip_uac_auto_expires, Config),
     case nksip_lib:get_value(register, Config) of
         undefined ->
             ok;
@@ -91,7 +87,7 @@ nkcb_init(AppId, PluginsState) ->
     State = #state{
         app_id = AppId, 
         outbound = lists:member(<<"outbound">>, Supported),
-        ob_base_time = nksip_lib:get_value(outbound_time_any_ok, Config),
+        ob_base_time = nksip_lib:get_value(nksip_uac_outbound_any_ok, Config),
         pos = 1,
         pings = [], 
         regs = []
@@ -255,7 +251,7 @@ nkcb_handle_cast(_ApId, _Msg, _PluginsState) ->
 %% @private
 nkcb_handle_info(AppId, {timeout, _, '$nksip_uac_auto_timer'}, PluginsState) ->
     Config = AppId:config(),
-    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config, ?DEFAULT_TIMER),
+    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
     State = get_state(PluginsState),
     State1 = timer(State),
@@ -455,7 +451,7 @@ update_register(Reg, Code, Meta, State) ->
         false -> ok
     end,
     Config = nksip_sipapp_srv:config(AppId),
-    MaxTime = nksip_lib:get_value(outbound_max_time, Config),
+    MaxTime = nksip_lib:get_value(nksip_uac_auto_outbound_max_time, Config),
     Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
     Elap = round(crypto:rand_uniform(50, 101) * Upper / 100),
     Add = case Code==503 andalso nksip_lib:get_value(<<"retry-after">>, Meta) of
@@ -485,9 +481,9 @@ update_basetime(#state{app_id=AppId, regs=Regs}=State) ->
     Key = case [true || #sipreg{fails=0} <- Regs] of
         [] -> 
             ?notice(AppId, <<>>, "all outbound flows have failed", []),
-            outbound_time_all_fail;
+            nksip_uac_auto_outbound_all_fail;
         _ -> 
-            outbound_time_any_ok
+            nksip_uac_auto_outbound_any_ok
     end,
     Config = nksip_sipapp_srv:config(AppId),
     State#state{ob_base_time=nksip_lib:get_value(Key, Config)}.

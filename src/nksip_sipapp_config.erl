@@ -36,22 +36,46 @@
 %% ===================================================================
 
 
+%% @private Default config values
+-spec default_config() ->
+    nksip:optslist().
+
+default_config() ->
+    [
+        {timer_t1, 500},                    % (msecs) 0.5 secs
+        {timer_t2, 4000},                   % (msecs) 4 secs
+        {timer_t4, 5000},                   % (msecs) 5 secs
+        {timer_c,  180},                    % (secs) 3min
+        {session_expires, 1800},            % (secs) 30 min
+        {min_session_expires, 90},          % (secs) 90 secs (min 90, recomended 1800)
+        {udp_timeout, 180},                 % (secs) 3 min
+        {tcp_timeout, 180},                 % (secs) 3 min
+        {sctp_timeout, 180},                % (secs) 3 min
+        {ws_timeout, 180},                  % (secs) 3 min
+        {nonce_timeout, 30},                % (secs) 30 secs
+        {sipapp_timeout, 32},               % (secs) 32 secs  
+        {max_calls, 100000},                % Each Call-ID counts as a call
+        {max_connections, 1024}             % Per transport and SipApp
+    ].
+
+
 %% @private
 parse_config(Opts) ->
     try
         Plugins0 = proplists:get_all_values(plugins, Opts),
         Plugins = parse_plugins(lists:flatten(Plugins0), []),
-        Opts1 = parse_opts(Opts, Plugins, Opts, []),
-        Opts2 = [{plugins, Plugins}|Opts1],
-        Cache = cache_syntax(Opts2),
+        Opts1 = apply_defaults(Opts, Plugins),
+        Opts2 = parse_opts(Opts1, lists:reverse(Plugins), Opts1, []),
+        Opts3 = [{plugins, Plugins}|Opts2],
+        Cache = cache_syntax(Opts3),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
-        AppName = nksip_lib:get_value(name, Opts2, nksip),
+        AppName = nksip_lib:get_value(name, Opts3, nksip),
         AppId = nksip_sipapp_srv:get_appid(AppName),
-        Module = nksip_lib:get_value(module, Opts2, nksip_sipapp),
         PluginModules = [
             list_to_atom(atom_to_list(Plugin) ++ "_sipapp")
             || Plugin <- Plugins
         ],
+        Module = nksip_lib:get_value(module, Opts3, nksip_sipapp),
         AppModules = [Module|PluginModules++[nksip_sipapp]],
         AppCallbacks = get_all_app_callbacks(AppModules),
         SipApp = [
@@ -65,6 +89,25 @@ parse_config(Opts) ->
         throw:Throw -> {error, Throw}
     end.
 
+
+%% @private Computes all default config
+apply_defaults(Opts, Plugins) ->
+    Base = nksip_lib:defaults(nksip_config_run:app_config(), default_config()),
+    Opts1 = nksip_lib:defaults(Opts, Base),
+    apply_defaults_plugins(Opts1, Plugins).
+
+
+%% @private
+apply_defaults_plugins(Opts, []) ->
+    Opts;
+
+apply_defaults_plugins(Opts, [Plugin|Rest]) ->
+    Opts1 = case catch Plugin:default_config() of
+        List when is_list(List) -> nksip_lib:defaults(Opts, List);
+        _ -> Opts
+    end,
+    apply_defaults_plugins(Opts1, Rest).
+        
 
 %% @private Parse the list of app start options
 parse_opts([], _Plugins, _AllOpts, Opts) ->
@@ -115,8 +158,6 @@ parse_opts([Term|Rest], Plugins, AllOpts, Opts) ->
         {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
             update;
         {max_connections, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
-            update;
-        {sync_call_time, Secs} when is_integer(Secs), Secs>=1 ->
             update;
 
         % Startup options
@@ -197,18 +238,20 @@ parse_opts([Term|Rest], Plugins, AllOpts, Opts) ->
         {log_level, none} -> {update, 0};
         {log_level, Level} when Level>=0, Level=<8 -> {update, Level};
 
-        {registrar, true} ->
-            {update, true};
         {trace, Trace} when is_boolean(Trace) ->
             {update, Trace};
         {store_trace, Trace} when is_boolean(Trace) ->
             {update, Trace};
 
-        % Unknown options
-        {Name, Value} ->
-            parse_external_opt(Term, lists:reverse(Plugins), AllOpts);
         Other ->
-            throw({invalid, Other})
+            case parse_external_opt(Term, Plugins, AllOpts) of
+                error ->
+                    lager:notice("Ignoring unknown option ~p starting SipApp", 
+                                 [Other]),
+                    update;
+                ExtUpdate ->
+                    ExtUpdate
+            end
     end,
     {Key, Val} = case Op of
         update -> {element(1, Term), element(2, Term)};
@@ -338,6 +381,7 @@ parse_plugins_insert([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
 cache_syntax(Opts) ->
     Cache = [
         {name, nksip_lib:get_value(name, Opts)},
+        {module, nksip_lib:get_value(module, Opts)},
         {config, Opts},
         {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
         {config_trace, 
@@ -350,27 +394,13 @@ cache_syntax(Opts) ->
             nksip_lib:get_value(timer_t2, Opts),
             nksip_lib:get_value(timer_t4, Opts),
             1000*nksip_lib:get_value(timer_c, Opts)}},
-            % 1000*nksip_lib:get_value(sipapp_timeout, Opts)}},
-        {config_registrar_timers, {
-            nksip_lib:get_value(registrar_min_time, Opts),
-            nksip_lib:get_value(registrar_max_time, Opts),
-            nksip_lib:get_value(registrar_default_time, Opts)}},
         {config_sync_call_time, 1000*nksip_lib:get_value(sync_call_time, Opts)},
         {config_from, nksip_lib:get_value(from, Opts)},
-        {config_registrar, lists:member({registrar, true}, Opts)},
         {config_no_100, lists:member({no_100, true}, Opts)},
         {config_supported, 
             nksip_lib:get_value(supported, Opts, ?SUPPORTED)},
         {config_allow, 
-            case nksip_lib:get_value(allow, Opts) of
-                undefined ->
-                    case lists:member({registrar, true}, Opts) of
-                        true -> <<(?ALLOW)/binary, ",REGISTER">>;
-                        false -> ?ALLOW
-                    end;
-                Allow ->
-                    Allow
-            end},
+            nksip_lib:get_value(allow, Opts, ?ALLOW)},
         {config_accept, nksip_lib:get_value(accept, Opts)},
         {config_events, nksip_lib:get_value(events, Opts, [])},
         {config_route, nksip_lib:get_value(route, Opts, [])},

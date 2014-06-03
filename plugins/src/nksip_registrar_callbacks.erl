@@ -18,38 +18,27 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc NkSIP Config Cache
-%%
-%%
-%% This module is hot compiled in run-time, after NkSIP application has started.
-%% It maintains a number of functions to cache some parts of the configuration.
-
--module(nksip_config_cache).
+%% @doc NkSIP Registrar Plugins Callbacks
+-module(nksip_registrar_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--compile([export_all]).
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+-export([nkcb_sip_method/2]).
 
 
-%% This functions will never be called
+%% @doc This plugin callback is called when a call to one of the method specific
+%% application-level SipApp callbacks is needed.
+-spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
+    {reply, nksip:sip_reply()} | noreply.
 
-global_id() -> nksip_config:get(global_id).
 
-local_ips() -> nksip_config:get(local_ips).
-
-main_ip() -> nksip_config:get(main_ip).
-
-main_ip6() -> nksip_config:get(main_ip6).
-
-sync_call_time() -> nksip_config:get(sync_call_time). 
-
-dns_cache_ttl() -> nksip_config:get(dns_cache_ttl).
-
-local_data_path() -> nksip_config:get(local_data_path).
-
-global_max_connections() -> nksip_config:get(global_max_connections).
-
-global_max_calls() -> nksip_config:get(global_max_calls).
-
-app_config() -> nksip_config:get(app_config).
-
+nkcb_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
+    Module = AppId:module(),
+    case erlang:function_exported(Module, sip_register, 2) of
+        true ->
+            continue;
+        false ->
+            {reply, nksip_registrar:request(Req)}
+    end.
 
