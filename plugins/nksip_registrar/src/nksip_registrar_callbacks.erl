@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc NkSIP Registrar Plugins Callbacks
+%% @doc NkSIP Registrar Plugin Callbacks
 -module(nksip_registrar_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

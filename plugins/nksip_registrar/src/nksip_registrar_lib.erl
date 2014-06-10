@@ -26,8 +26,8 @@
 -include("../../../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([qfind/2, process/2, decrypt/1, make_contact/1, callback/2, callback_get/2]).
--export([is_registered/2, check_gruu/2]).
+-export([find/2, find/4, qfind/4, is_registered/2, request/1]).
+-export([store_get/2, store_del/2, store_del_all/1]).
 
 -define(AES_IV, <<"12345678abcdefgh">>).
 
@@ -37,17 +37,90 @@
 %% ===================================================================
 
 %% @private
--spec qfind([{float(), float(), nksip:uri()}], list()) ->
+-spec find(nksip:app_id(), nksip:uri()) ->
+    [nksip:uri()].
+
+find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
+    case lists:member(<<"gr">>, Opts) of
+        true -> 
+            % It is probably a tmp GRUU
+            case catch decrypt(User) of
+                Tmp when is_binary(Tmp) ->
+                    {{Scheme1, User1, Domain1}, InstId, Pos} = binary_to_term(Tmp),
+                    [
+                        make_contact(Reg) 
+                        || #reg_contact{instance_id=InstId1, min_tmp_pos=Min}=Reg 
+                        <- get_info(AppId, Scheme1, User1, Domain1), 
+                        InstId1==InstId, Pos>=Min
+                    ];
+                _ ->
+                    ?notice(AppId, <<>>, 
+                            "private GRUU not recognized: ~p", [User]),
+                    find(AppId, Scheme, User, Domain)
+            end;
+        false ->
+            case nksip_lib:get_value(<<"gr">>, Opts) of
+                undefined -> 
+                    find(AppId, Scheme, User, Domain);
+                InstId ->
+                    [
+                        make_contact(Reg) 
+                        || #reg_contact{instance_id=InstId1}=Reg 
+                        <- get_info(AppId, Scheme, User, Domain), 
+                        InstId1==InstId
+                    ]
+            end
+    end.
+
+
+%% @doc Gets all current registered contacts for an AOR.
+-spec find(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+    [nksip:uri()].
+
+find(AppId, Scheme, User, Domain) ->
+    [make_contact(Reg) || Reg <- get_info(AppId, Scheme, User, Domain)].
+
+
+
+%% @private
+-spec qfind(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+    nksip:uri_set().
+
+qfind(AppId, Scheme, User, Domain) ->
+    All = [
+        {1/Q, Updated, nksip_registrar_lib:make_contact(Reg)} || 
+        #reg_contact{q=Q, updated=Updated} = Reg 
+        <- get_info(AppId, Scheme, User, Domain)
+    ],
+    qfind_iter(lists:sort(All), []).
+
+
+%% @private
+-spec qfind_iter([{float(), float(), nksip:uri()}], list()) ->
     [[nksip:uri()]].
 
-qfind([{Q, _, Contact}|Rest], [{Q, CList}|Acc]) ->
-    qfind(Rest, [{Q, [Contact|CList]}|Acc]);
+qfind_iter([{Q, _, Contact}|Rest], [{Q, CList}|Acc]) ->
+    qfind_iter(Rest, [{Q, [Contact|CList]}|Acc]);
 
-qfind([{Q, _, Contact}|Rest], Acc) ->
-    qfind(Rest, [{Q, [Contact]}|Acc]);
+qfind_iter([{Q, _, Contact}|Rest], Acc) ->
+    qfind_iter(Rest, [{Q, [Contact]}|Acc]);
 
-qfind([], Acc) ->
+qfind_iter([], Acc) ->
     [CList || {_Q, CList} <- Acc].
+
+
+
+%% @private Gets all current stored info for an AOR.
+-spec get_info(nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+    [#reg_contact{}].
+
+get_info(AppId, Scheme, User, Domain) ->
+    AOR = {Scheme, nksip_lib:to_binary(User), nksip_lib:to_binary(Domain)},
+    case catch store_get(AppId, AOR) of
+        {ok, RegContacts} -> RegContacts;
+        _ -> []
+    end.
+
 
 
 %% @private
@@ -82,17 +155,58 @@ is_registered([
 
 
 %% @private
--spec check_gruu(nksip:request(), nksip:optslist()) ->
-    nksip:optslist().
+-spec request(nksip:request()) ->
+    nksip:sipreply().
 
-check_gruu(Req, AppOpts) ->
-    AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
-    case 
-        lists:member(<<"gruu">>, AppSupp) andalso nksip_sipmsg:supported(<<"gruu">>, Req)
-    of
-        true -> [{registrar_gruu, true}|AppOpts];
-        false -> AppOpts
+request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
+    try
+        case lists:member(nksip_outbound, AppId:config_plugins()) of
+            true ->
+                case nksip_outbound:registrar(Req) of
+                    {true, Req1} -> Opts1 = [{outbound, true}];
+                    {false, Req1} -> Opts1 = [{outbound, false}];
+                    continue -> Req1 = Req, Opts1 = [];
+                    {error, OutError} -> Req1 = Opts1 = throw(OutError)
+                end;
+            false ->
+                Req1 = Req,
+                Opts1 = [] 
+        end,
+        case 
+            lists:member(<<"gruu">>, AppId:config_supported()) andalso 
+            nksip_sipmsg:supported(<<"gruu">>, Req)
+        of
+            true -> Opts2 = [{gruu, true}|Opts1];
+            false -> Opts2 = Opts1
+        end,
+        process(Req1, Opts2),
+        {ok, Regs} = nksip_registrar_lib:callback_get(AppId, aor(To)),
+        Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
+        ObReq = case 
+            lists:member({registrar_outbound, true}, Opts2) andalso
+            [true || #reg_contact{index={ob, _, _}} <- Regs] 
+        of
+            [_|_] -> [{require, <<"outbound">>}];
+            _ -> []
+        end,
+        {ok, [{contact, Contacts1}, date, allow, supported | ObReq]}
+    catch
+        throw:Throw -> Throw
     end.
+
+
+% %% @private
+% -spec check_gruu(nksip:request(), nksip:optslist()) ->
+%     nksip:optslist().
+
+% check_gruu(#sipmsg{app_id=AppId}) ->
+%     AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
+%     case 
+%         lists:member(<<"gruu">>, AppSupp) andalso nksip_sipmsg:supported(<<"gruu">>, Req)
+%     of
+%         true -> [{registrar_gruu, true}|AppOpts];
+%         false -> AppOpts
+%     end.
 
 
 %% @private
@@ -143,7 +257,7 @@ update(Req, Times, Opts) ->
     end,
     {_, _, _, Now, _LongNow} = Times,
     AOR = aor(To),
-    {ok, Regs} = callback_get(AppId, AOR),
+    {ok, Regs} = store_get(AppId, AOR),
     RegContacts0 = [
         RegContact ||
         #reg_contact{expire=Exp} = RegContact <- Regs, 
@@ -381,7 +495,7 @@ make_contact(#reg_contact{contact=Contact, path=Path}) ->
 del_all(Req) ->
     #sipmsg{app_id=AppId, to={To, _}, call_id=CallId, cseq={CSeq, _}} = Req,
     AOR = aor(To),
-    {ok, RegContacts} = callback_get(AppId, AOR),
+    {ok, RegContacts} = store_get(AppId, AOR),
     lists:foreach(
         fun(#reg_contact{call_id=CCallId, cseq=CCSeq}) ->
             if
@@ -399,7 +513,7 @@ del_all(Req) ->
 
 
 %% @private
-callback_get(AppId, AOR) -> 
+store_get(AppId, AOR) -> 
     case callback(AppId, {get, AOR}) of
         List when is_list(List) ->
             lists:foreach(
@@ -416,6 +530,20 @@ callback_get(AppId, AOR) ->
         _ -> 
             throw({internal_error, "Error calling registrar 'get' callback"})
     end.
+
+
+%% @private
+store_del(AppId, AOR) ->
+    case nksip_registrar_lib:callback(AppId, {del, AOR}) of
+        ok -> ok;
+        not_found -> not_found;
+        _ -> callback_error
+    end.
+
+
+%% @private
+store_del_all(AppId) ->
+    nksip_registrar_lib:callback(AppId, del_all).
 
 
 %% @private 

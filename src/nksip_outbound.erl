@@ -22,7 +22,7 @@
 -module(nksip_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make_contact/3, proxy_opts/2, registrar/2, encode_flow/1, decode_flow/1]).
+-export([make_contact/3, proxy_opts/2, registrar/1, encode_flow/1, decode_flow/1]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -198,10 +198,10 @@ flow_type(_, _) ->
 
 %% @private
 %% Add registrar_otbound
--spec registrar(nksip:request(), nksip:optslist()) ->
-    {ok, nksip:request(), nksip:optslist()} | {error, term()}.
+-spec registrar(nksip:request()) ->
+    {boolean(), nksip:request()} | continue.
 
-registrar(Req, Opts) ->
+registrar(Req) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
     case 
         lists:member(<<"outbound">>, AppId:config_supported()) andalso
@@ -216,30 +216,30 @@ registrar(Req, Opts) ->
             case nksip_transport:get_connected(AppId, Transp) of
                 [{_, Pid}|_] ->
                     Flow = encode_flow(Pid),
-                    Host = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
+                    Host = nksip_transport:get_listenhost(AppId, ListenIp, []),
                     Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>, <<"ob">>]),
                     Headers1 = nksip_headers:update(Req, 
                                                 [{before_single, <<"path">>, Path}]),
                     Req1 = Req#sipmsg{headers=Headers1},
-                    {ok, Req1, [{registrar_outbound, true}|Opts]};
+                    {true, Req1};
                 [] ->
-                    {ok, Req, [{registrar_outbound, false}|Opts]}
+                    {false, Req}
             end;
         true ->
             case nksip_sipmsg:header(<<"path">>, Req, uris) of
                 error ->
                     {error, {invalid_request, <<"Invalid Path">>}};
                 [] ->
-                    {ok, Req, [{registrar_outbound, false}|Opts]};
+                    {false, Req};
                 Paths ->
                     [#uri{opts=PathOpts}|_] = lists:reverse(Paths),
                     Ob = lists:member(<<"ob">>, PathOpts),
-                    {ok, Req, [{registrar_outbound, Ob}|Opts]}
+                    {Ob, Req}
             end;
         false ->
-            {ok, Req, Opts}
+            no_outbound
     end.
 
 

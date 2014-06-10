@@ -383,6 +383,7 @@ cache_syntax(Opts) ->
         {name, nksip_lib:get_value(name, Opts)},
         {module, nksip_lib:get_value(module, Opts)},
         {config, Opts},
+        {config_plugins, nksip_lib:get_value(plugins, Opts, [])},
         {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
         {config_trace, 
             {nksip_lib:get_value(trace, Opts, ?DEFAULT_TRACE), 

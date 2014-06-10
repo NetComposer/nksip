@@ -23,10 +23,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("../../../include/nksip.hrl").
--include("../../../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([find/2, find/4, qfind/2, qfind/4, get_info/4, delete/4, clear/1]).
+-export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
 -export([internal_get_all/0, internal_clear/0, internal_print_all/0]).
 -export([version/0, deps/0, default_config/0, parse_config/2]).
@@ -87,41 +86,11 @@ deps() ->
 find(App, {Scheme, User, Domain}) ->
     find(App, Scheme, User, Domain);
 
-find(App, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
+find(App, Uri) ->
     case nksip:find_app(App) of
-        {ok, AppId} ->
-            case lists:member(<<"gr">>, Opts) of
-                true -> 
-                    % It is probably a tmp GRUU
-                    case catch nksip_registrar_lib:decrypt(User) of
-                        Tmp when is_binary(Tmp) ->
-                            {{Scheme1, User1, Domain1}, InstId, Pos} = binary_to_term(Tmp),
-                            [
-                                nksip_registrar_lib:make_contact(Reg) 
-                                || #reg_contact{instance_id=InstId1, min_tmp_pos=Min}=Reg 
-                                <- get_info(AppId, Scheme1, User1, Domain1), 
-                                InstId1==InstId, Pos>=Min
-                            ];
-                        _ ->
-                            ?notice(AppId, <<>>, "private GRUU not recognized: ~p", [User]),
-                            find(AppId, Scheme, User, Domain)
-                    end;
-                false ->
-                    case nksip_lib:get_value(<<"gr">>, Opts) of
-                        undefined -> 
-                            find(AppId, Scheme, User, Domain);
-                        InstId ->
-                            [
-                                nksip_registrar_lib:make_contact(Reg) 
-                                || #reg_contact{instance_id=InstId1}=Reg 
-                                <- get_info(AppId, Scheme, User, Domain), InstId1==InstId
-                            ]
-                    end
-            end;
-        _ ->
-            []
+        {ok, AppId} -> nksip_registrar_lib:find(AppId, Uri);
+        _ -> []
     end.
-
 
 
 %% @doc Gets all current registered contacts for an AOR.
@@ -129,23 +98,9 @@ find(App, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
     [nksip:uri()].
 
 find(App, Scheme, User, Domain) ->
-    [nksip_registrar_lib:make_contact(Reg) || Reg <- get_info(App, Scheme, User, Domain)].
-
-
-%% @private Gets all current stored info for an AOR.
--spec get_info(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
-    [#reg_contact{}].
-
-get_info(App, Scheme, User, Domain) ->
     case nksip:find_app(App) of
-        {ok, AppId} ->
-            AOR = {Scheme, nksip_lib:to_binary(User), nksip_lib:to_binary(Domain)},
-            case catch nksip_registrar_lib:callback_get(AppId, AOR) of
-                {ok, RegContacts} -> RegContacts;
-                _ -> []
-            end;
-        _ ->
-            []
+        {ok, AppId} -> nksip_registrar_lib:find(AppId, Scheme, User, Domain);
+        _ -> []
     end.
 
 
@@ -164,13 +119,11 @@ qfind(App, {Scheme, User, Domain}) ->
     nksip:uri_set().
 
 qfind(App, Scheme, User, Domain) ->
-    All = [
-        {1/Q, Updated, nksip_registrar_lib:make_contact(Reg)} || 
-        #reg_contact{q=Q, updated=Updated} = Reg 
-        <- get_info(App, Scheme, User, Domain)
-    ],
-    nksip_registrar_lib:qfind(lists:sort(All), []).
-
+    case nksip:find_app(App) of
+        {ok, AppId} -> nksip_registrar_lib:qfind(AppId, Scheme, User, Domain);
+        _ ->
+            []
+    end.
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
@@ -185,11 +138,7 @@ delete(App, Scheme, User, Domain) ->
                 nksip_lib:to_binary(User), 
                 nksip_lib:to_binary(Domain)
             },
-            case nksip_registrar_lib:callback(AppId, {del, AOR}) of
-                ok -> ok;
-                not_found -> not_found;
-                _ -> callback_error
-            end;
+            nksip_registrar_lib:store_del(AppId, AOR);
         _ ->
             not_found
     end.
@@ -209,7 +158,7 @@ is_registered(#sipmsg{
                 from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
                 transport=Transport
             }) ->
-    case catch nksip_registrar_lib:callback_get(AppId, {Scheme, User, Domain}) of
+    case catch nksip_registrar_lib:store_get(AppId, {Scheme, User, Domain}) of
         {ok, Regs} -> nksip_registrar_lib:is_registered(Regs, Transport);
         _ -> false
     end.
@@ -237,28 +186,9 @@ is_registered(#sipmsg{
 -spec request(nksip:request()) ->
     nksip:sipreply().
 
-request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
-    try
-        case nksip_outbound:registrar(Req, []) of
-            {ok, Req1, Opts1} -> ok;
-            {error, OutError} -> Req1 = Opts1 = throw(OutError)
-        end,
-        Opts2 = nksip_registrar_lib:check_gruu(Req, Opts1),
-        nksip_registrar_lib:process(Req1, Opts2),
-        {ok, Regs} = nksip_registrar_lib:callback_get(AppId, aor(To)),
-        Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
-        ObReq = case 
-            lists:member({registrar_outbound, true}, Opts2) andalso
-            [true || #reg_contact{index={ob, _, _}} <- Regs] 
-        of
-            [_|_] -> [{require, <<"outbound">>}];
-            _ -> []
-        end,
-        {ok, [{contact, Contacts1}, date, allow, supported | ObReq]}
-    catch
-        throw:Throw -> Throw
-    end.
- 
+request(Req) ->
+    nksip_registrar_lib:request(Req).
+
 
 %% @doc Clear all stored records by a SipApp's core.
 -spec clear(nksip:app_name()|nksip:app_id()) -> 
@@ -267,18 +197,13 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
 clear(App) -> 
     case nksip:find_app(App) of
         {ok, AppId} ->
-            case nksip_registrar_lib:callback(AppId, del_all) of
+            case nksip_registrar_lib:store_del_all(AppId) of
                 ok -> ok;
                 _ -> callback_error
             end;
         _ ->
             sipapp_not_found
     end.
-
-
-%% @private
-aor(#uri{scheme=Scheme, user=User, domain=Domain}) ->
-    {Scheme, User, Domain}.
 
 
 %% ===================================================================
@@ -288,14 +213,8 @@ aor(#uri{scheme=Scheme, user=User, domain=Domain}) ->
 
 % @private Get all current registrations. Use it with care.
 
-% -spec internal_get_all() ->
-    % [{nksip:aor(), [{App::nksip:app_id(), URI::nksip:uri(),
-    %                  Remaining::integer(), Q::float()}]}].
-
 -spec internal_get_all() ->
     [{nksip:app_id(), nksip:aor(), [#reg_contact{}]}].
-
-
 
 internal_get_all() ->
     [
@@ -308,14 +227,14 @@ internal_get_all() ->
 internal_print_all() ->
     Now = nksip_lib:timestamp(),
     Print = fun({AppId, {Scheme, User, Domain}, Regs}) ->
-        ?P("\n --- ~p --- ~p:~s@~s ---", [AppId:name(), Scheme, User, Domain]),
+        io:format("\n --- ~p --- ~p:~s@~s ---\n", [AppId:name(), Scheme, User, Domain]),
         lists:foreach(
             fun(#reg_contact{contact=Contact, expire=Expire, q=Q}) ->
-                ?P("    ~s, ~p, ~p", [nksip_unparse:uri(Contact), Expire-Now, Q])
+                io:format("    ~s, ~p, ~p\n", [nksip_unparse:uri(Contact), Expire-Now, Q])
             end, Regs)
     end,
     lists:foreach(Print, internal_get_all()),
-    ?P("\n").
+    io:format("\n\n").
 
 
 %% @private Clear all stored records for all SipApps, only with buil-in database
