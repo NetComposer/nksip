@@ -25,8 +25,8 @@
 -export([nkcb_init/2, nkcb_handle_call/4, nkcb_handle_cast/3, 
          nkcb_handle_info/3, nkcb_terminate/3]).
 
--include("nksip.hrl").
--include("nksip_call.hrl").
+-include("../../../include/nksip.hrl").
+-include("../../../include/nksip_call.hrl").
 
 
 %% ===================================================================

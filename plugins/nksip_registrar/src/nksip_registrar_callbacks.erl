@@ -22,8 +22,8 @@
 -module(nksip_registrar_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("nksip.hrl").
--include("nksip_call.hrl").
+-include("../../../include/nksip.hrl").
+-include("../../../include/nksip_call.hrl").
 -export([nkcb_sip_method/2]).
 
 

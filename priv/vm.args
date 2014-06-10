@@ -5,6 +5,8 @@
 -pa deps/cowboy/ebin 
 -pa deps/wsock/ebin 
 -pa ../nksip/ebin
+-pa plugins/nksip_registrar/ebin
+-pa plugins/nksip_uac_auto/ebin
 -pa samples/nksip_loadtest/ebin
 
 ## Name of the node

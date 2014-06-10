@@ -22,8 +22,8 @@
 -module(nksip_registrar).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("nksip.hrl").
--include("nksip_call.hrl").
+-include("../../../include/nksip.hrl").
+-include("../../../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
 -export([find/2, find/4, qfind/2, qfind/4, get_info/4, delete/4, clear/1]).
@@ -64,7 +64,7 @@
     string().
 
 version() ->
-    "1.0".
+    "0.1".
 
 
 %% @doc Dependant plugins

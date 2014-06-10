@@ -36,7 +36,7 @@
     string().
 
 version() ->
-    "1.0".
+    "0.1".
 
 
 %% @doc Dependant plugins

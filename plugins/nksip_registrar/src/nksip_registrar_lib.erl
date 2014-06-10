@@ -22,8 +22,8 @@
 -module(nksip_registrar_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--include("nksip.hrl").
--include("nksip_call.hrl").
+-include("../../../include/nksip.hrl").
+-include("../../../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
 -export([qfind/2, process/2, decrypt/1, make_contact/1, callback/2, callback_get/2]).
