@@ -183,7 +183,7 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
         {ok, Regs} = nksip_registrar_lib:callback_get(AppId, aor(To)),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
         ObReq = case 
-            lists:member({registrar_outbound, true}, Opts2) andalso
+            lists:member({outbound, true}, Opts2) andalso
             [true || #reg_contact{index={ob, _, _}} <- Regs] 
         of
             [_|_] -> [{require, <<"outbound">>}];
@@ -193,20 +193,6 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
     catch
         throw:Throw -> Throw
     end.
-
-
-% %% @private
-% -spec check_gruu(nksip:request(), nksip:optslist()) ->
-%     nksip:optslist().
-
-% check_gruu(#sipmsg{app_id=AppId}) ->
-%     AppSupp = nksip_lib:get_value(supported, AppOpts, ?SUPPORTED),
-%     case 
-%         lists:member(<<"gruu">>, AppSupp) andalso nksip_sipmsg:supported(<<"gruu">>, Req)
-%     of
-%         true -> [{registrar_gruu, true}|AppOpts];
-%         false -> AppOpts
-%     end.
 
 
 %% @private
@@ -266,7 +252,7 @@ update(Req, Times, Opts) ->
     RegContacts = update_regcontacts(Contacts, Req, Times, Path, Opts, RegContacts0),
     case RegContacts of
         [] -> 
-            case callback(AppId, {del, AOR}) of
+            case store_del(AppId, AOR) of
                 ok -> ok;
                 not_found -> ok;
                 _ -> throw({internal_error, "Error calling registrar 'del' callback"})
@@ -274,7 +260,7 @@ update(Req, Times, Opts) ->
         _ -> 
             GlobalExpire = lists:max([Exp-Now||#reg_contact{expire=Exp} <- RegContacts]),
             % Set a minimum expiration check of 5 secs
-            case callback(AppId, {put, AOR, RegContacts, max(GlobalExpire, 5)}) of
+            case store_put(AppId, AOR, RegContacts, max(GlobalExpire, 5)) of
                 ok -> ok;
                 _ -> throw({internal_error, "Error calling registrar 'put' callback"})
             end
@@ -327,7 +313,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         undefined -> <<>>;
         Inst0 -> nksip_lib:hash(Inst0)
     end,
-    ObProc = nksip_lib:get_value(registrar_outbound, Opts),
+    ObProc = nksip_lib:get_value(outbound, Opts),
     RegId = case nksip_lib:get_value(<<"reg-id">>, ExtOpts) of
         undefined -> <<>>;
         _ when ObProc == undefined -> <<>>;
@@ -530,6 +516,11 @@ store_get(AppId, AOR) ->
         _ -> 
             throw({internal_error, "Error calling registrar 'get' callback"})
     end.
+
+
+%% @private
+store_put(AppId, AOR, RegContacts, Time) ->
+    callback(AppId, {put, AOR, RegContacts, Time}).
 
 
 %% @private
