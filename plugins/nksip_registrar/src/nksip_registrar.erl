@@ -91,7 +91,7 @@ parse_config(PluginOpts, Config) ->
         true -> Config;
         false -> lists:keystore(allow, 1, Config, {allow, Allow++[<<"REGISTER">>]})
     end,
-    nksip_registrar_lib:parse_config(PluginOpts1, Config1).
+    nksip_registrar_lib:parse_config(PluginOpts1, [], Config1).
 
 
 

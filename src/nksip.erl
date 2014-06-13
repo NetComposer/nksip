@@ -181,10 +181,9 @@ stop(App) ->
     case find_app(App) of
         {ok, AppId} ->
             case nksip_sup:stop_sipapp(AppId) of
-                ok ->
-                    nksip_registrar:clear(AppId),
+                ok -> 
                     ok;
-                error ->
+                error -> 
                     {error, not_found}
             end;
         _ ->

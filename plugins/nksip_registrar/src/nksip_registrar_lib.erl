@@ -70,7 +70,7 @@ parse_config([Term|Rest], Unknown, Config) ->
         update ->
             Key = element(1, Term),
             Val = element(2, Term),
-            Config1 = lists:keystore(Key, 1, Config, {Key, Val}),
+            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
             parse_config(Rest, Unknown, Config1);
         error ->
             {error, Term};
@@ -131,7 +131,7 @@ find(AppId, Scheme, User, Domain) ->
 
 qfind(AppId, Scheme, User, Domain) ->
     All = [
-        {1/Q, Updated, nksip_registrar_lib:make_contact(Reg)} || 
+        {1/Q, Updated, make_contact(Reg)} || 
         #reg_contact{q=Q, updated=Updated} = Reg 
         <- get_info(AppId, Scheme, User, Domain)
     ],
@@ -223,7 +223,7 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
             false -> Opts2 = Opts1
         end,
         process(Req1, Opts2),
-        {ok, Regs} = nksip_registrar_lib:callback_get(AppId, aor(To)),
+        {ok, Regs} = store_get(AppId, aor(To)),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
         ObReq = case 
             lists:member({outbound, true}, Opts2) andalso
@@ -568,7 +568,7 @@ store_put(AppId, AOR, RegContacts, Time) ->
 
 %% @private
 store_del(AppId, AOR) ->
-    case nksip_registrar_lib:callback(AppId, {del, AOR}) of
+    case callback(AppId, {del, AOR}) of
         ok -> ok;
         not_found -> not_found;
         _ -> callback_error
@@ -577,7 +577,7 @@ store_del(AppId, AOR) ->
 
 %% @private
 store_del_all(AppId) ->
-    nksip_registrar_lib:callback(AppId, del_all).
+    callback(AppId, del_all).
 
 
 %% @private 

@@ -24,10 +24,10 @@
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
--export([nkcb_sip_method/2]).
+-export([nkcb_sip_method/2, nkcb_terminate/3]).
 
 
-%% @doc This plugin callback is called when a call to one of the method specific
+%% @private This plugin callback is called when a call to one of the method specific
 %% application-level SipApp callbacks is needed.
 -spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sip_reply()} | noreply.
@@ -42,3 +42,8 @@ nkcb_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
             {reply, nksip_registrar:request(Req)}
     end.
 
+
+%% @private
+nkcb_terminate(AppId, _Reason, _PluginsState) ->  
+	nksip_registrar:clear(AppId),
+	continue.
