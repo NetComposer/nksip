@@ -390,10 +390,10 @@ get_integer(Key, List, Default) ->
 -spec store_value(term(), list()) ->
     list().
  
-store_value(Tem, List) ->
-    case lists:member(Tem, List) of
+store_value(Term, List) ->
+    case lists:member(Term, List) of
         true -> List;
-        false -> [Tem|List]
+        false -> [Term|List]
     end.
 
     

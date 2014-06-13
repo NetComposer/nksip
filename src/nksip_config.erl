@@ -270,8 +270,6 @@ parse_config([Term|Rest], Opts) ->
         update -> 
             Opts1 = nksip_lib:store_value(Term, Opts),
             parse_config(Rest, Opts1);
-        error when is_tuple(Term) -> 
-            {error, {invalid, element(1, Term)}};
         error ->
             {error, {invalid, Term}}
     end.
