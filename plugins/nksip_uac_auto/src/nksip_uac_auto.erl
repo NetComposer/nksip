@@ -61,7 +61,7 @@ parse_config(PluginOpts, Config) ->
         {nksip_uac_auto_outbound_max_time, 1800}       % (secs)
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    nksip_registrar_lib:parse_config(PluginOpts1, Config).
+    nksip_registrar_lib:parse_config(PluginOpts1, [], Config).
 
 
 

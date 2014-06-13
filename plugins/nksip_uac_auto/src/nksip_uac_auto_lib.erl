@@ -78,11 +78,11 @@ parse_config([Term|Rest], Unknown, Config) ->
         update ->
             Key = element(1, Term),
             Val = element(2, Term),
-            Config1 = lists:keystore(Key, 1, Config, {Key, Val}),
+            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
             parse_config(Rest, Unknown, Config1);
         {update, Val} ->
             Key = element(1, Term),
-            Config1 = lists:keystore(Key, 1, Config, {Key, Val}),
+            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
             parse_config(Rest, Unknown, Config1);
         error ->
             {error, Term};
