@@ -26,7 +26,7 @@
 -include("../../../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([find/2, find/4, qfind/4, is_registered/2, request/1]).
+-export([parse_config/3, find/2, find/4, qfind/4, is_registered/2, request/1]).
 -export([store_get/2, store_del/2, store_del_all/1]).
 
 -define(AES_IV, <<"12345678abcdefgh">>).
@@ -35,6 +35,49 @@
 %% ===================================================================
 %% Internal
 %% ===================================================================
+
+
+%% @private
+-spec parse_config(PluginConfig, Unknown, Config) ->
+    {ok, Unknown, Config} | {error, term()}
+    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
+         Config::nksip:optslist().
+
+parse_config([], Unknown, Config) ->
+    {ok, Unknown, Config};
+
+parse_config([Term|Rest], Unknown, Config) ->
+    Op = case Term of
+        {registrar_default_time, Secs} ->
+            case is_integer(Secs) andalso Secs>=5 of
+                true -> update;
+                false -> error
+            end;
+        {registrar_min_time, Secs} ->
+            case is_integer(Secs) andalso Secs>=1 of
+                true -> update;
+                false -> error
+            end;
+        {registrar_max_time, Secs} ->
+            case is_integer(Secs) andalso Secs>=60 of
+                true -> update;
+                false -> error
+            end;
+        _ ->
+            unknown
+    end,
+    case Op of
+        update ->
+            Key = element(1, Term),
+            Val = element(2, Term),
+            Config1 = lists:keystore(Key, 1, Config, {Key, Val}),
+            parse_config(Rest, Unknown, Config1);
+        error ->
+            {error, Term};
+        unknown ->
+            parse_config(Rest, [Term|Unknown], Config)
+    end.
+
 
 %% @private
 -spec find(nksip:app_id(), nksip:uri()) ->
@@ -160,17 +203,17 @@ is_registered([
 
 request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
     try
-        case lists:member(nksip_outbound, AppId:config_plugins()) of
-            true ->
+        % case lists:member(nksip_outbound, AppId:config_plugins()) of
+        %     true ->
                 case nksip_outbound:registrar(Req) of
                     {true, Req1} -> Opts1 = [{outbound, true}];
                     {false, Req1} -> Opts1 = [{outbound, false}];
                     continue -> Req1 = Req, Opts1 = [];
                     {error, OutError} -> Req1 = Opts1 = throw(OutError)
-                end;
-            false ->
-                Req1 = Req,
-                Opts1 = [] 
+            %     end;
+            % false ->
+            %     Req1 = Req,
+            %     Opts1 = [] 
         end,
         case 
             lists:member(<<"gruu">>, AppId:config_supported()) andalso 
@@ -313,11 +356,11 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         undefined -> <<>>;
         Inst0 -> nksip_lib:hash(Inst0)
     end,
-    ObProc = nksip_lib:get_value(outbound, Opts),
+    Outbo = nksip_lib:get_value(outbound, Opts),
     RegId = case nksip_lib:get_value(<<"reg-id">>, ExtOpts) of
         undefined -> <<>>;
-        _ when ObProc == undefined -> <<>>;
-        _ when ObProc == false -> throw(first_hop_lacks_outbound);
+        _ when Outbo == undefined -> <<>>;
+        _ when Outbo == false -> throw(first_hop_lacks_outbound);
         _ when InstId == <<>> -> <<>>;
         RegId0 -> RegId0
     end,

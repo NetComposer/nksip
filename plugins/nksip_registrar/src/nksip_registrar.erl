@@ -28,7 +28,7 @@
 -export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
 -export([internal_get_all/0, internal_clear/0, internal_print_all/0]).
--export([version/0, deps/0, default_config/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/2]).
 
 -export_type([reg_contact/0, index/0, times/0]).
 
@@ -55,7 +55,7 @@
 
 
 %% ===================================================================
-%% Public
+%% Plugin specific
 %% ===================================================================
 
 %% @doc Version
@@ -72,6 +72,26 @@ version() ->
     
 deps() ->
     [].
+
+
+%% @doc Parses this plugin specific configuration
+-spec parse_config(PluginOpts, Config) ->
+    {ok, PluginOpts, Config} | {error, term()} 
+    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+
+parse_config(PluginOpts, Config) ->
+    Defaults = [
+        {registrar_default_time, 3600},     % (secs) 1 hour
+        {registrar_min_time, 60},           % (secs) 1 min
+        {registrar_max_time, 86400}         % (secs) 24 hour
+    ],
+    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
+    Allow = nksip_lib:get_value(allow, Config),
+    Config1 = case lists:member(<<"REGISTER">>, Allow) of
+        true -> Config;
+        false -> lists:keystore(allow, 1, Config, {allow, Allow++[<<"REGISTER">>]})
+    end,
+    nksip_registrar_lib:parse_config(PluginOpts1, Config1).
 
 
 
@@ -266,35 +286,3 @@ internal_fold(Fun, Acc0) when is_function(Fun, 4) ->
     nksip_store:fold(FoldFun, Acc0).
 
 
-
-%% ===================================================================
-%% Private
-%% ===================================================================
-
-%% @private
--spec default_config() ->
-    nksip:optslist().
-
-default_config() ->
-    [
-        {registrar_default_time, 3600},     % (secs) 1 hour
-        {registrar_min_time, 60},           % (secs) 1 miluen
-        {registrar_max_time, 86400}         % (secs) 24 hour
-    ].
-
-
-%% @private
--spec parse_config(Config::term(), Opts::nksip:optslist()) ->
-    {ok, Value::term()} | error.
-
-parse_config(Term, _Opts) ->
-    case Term of
-        {registrar_default_time, Secs} when is_integer(Secs), Secs>=5 ->
-            update;
-        {registrar_min_time, Secs} when is_integer(Secs), Secs>=1 ->
-            update;
-        {registrar_max_time, Secs} when is_integer(Secs), Secs>=60 ->
-            update;
-        _ ->
-            error
-    end.
