@@ -24,11 +24,11 @@
 
 -export([start_ping/5, stop_ping/2, get_pings/1]).
 -export([start_register/5, stop_register/2, get_registers/1]).
--export([version/0, deps/0, default_config/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/2]).
 
 
 %% ===================================================================
-%% Public
+%% Plugin specific
 %% ===================================================================
 
 %% @doc Version
@@ -45,6 +45,29 @@ version() ->
     
 deps() ->
     [].
+
+
+%% @doc Parses this plugin specific configuration
+-spec parse_config(PluginOpts, Config) ->
+    {ok, PluginOpts, Config} | {error, term()} 
+    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+
+parse_config(PluginOpts, Config) ->
+    Defaults = [
+        {nksip_uac_auto_timer, 5},                     % (secs)
+        {nksip_uac_auto_expires, 300},                 % (secs)
+        {nksip_uac_auto_outbound_all_fail, 30},        % (secs)
+        {nksip_uac_auto_outbound_any_ok, 90},          % (secs)
+        {nksip_uac_auto_outbound_max_time, 1800}       % (secs)
+    ],
+    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
+    nksip_registrar_lib:parse_config(PluginOpts1, Config).
+
+
+
+%% ===================================================================
+%% Public
+%% ===================================================================
 
 
 %% @doc Starts a new registration serie.
@@ -111,48 +134,4 @@ stop_ping(App, PingId) ->
 get_pings(App) ->
     nksip:call(App, '$nksip_uac_auto_get_pings').
 
-
-%% ===================================================================
-%% Private
-%% ===================================================================
-
-
-%% @pivate
--spec default_config() ->
-    nksip:optslist().
-
-default_config() ->
-    [
-        {nksip_uac_auto_timer, 5},                     % (secs)
-        {nksip_uac_auto_expires, 300},                 % (secs)
-        {nksip_uac_auto_outbound_all_fail, 30},        % (secs)
-        {nksip_uac_auto_outbound_any_ok, 90},          % (secs)
-        {nksip_uac_auto_outbound_max_time, 1800}       % (secs)
-    ].
-
-
-%% @private
--spec parse_config(Config::term(), Opts::nksip:optslist()) ->
-    {ok, Value::term()} | error.
-
-parse_config(Term, _Opts) ->
-    case Term of
-        {register, Register} ->
-            case nksip_parse:uris(Register) of
-                error -> error;
-                Uris -> {update, Uris}
-            end;
-        {register_expires, Expires} when is_integer(Expires), Expires>0 ->
-            update;
-        {nksip_uac_auto_timer, Timer} when is_integer(Timer), Timer>0 ->
-            update;
-        {nksip_uac_auto_outbound_all_fail, Secs} when is_integer(Secs), Secs>=1 ->
-            update;
-        {nksip_uac_auto_outbound_any_ok, Secs} when is_integer(Secs), Secs>=1 ->
-            update;
-        {nksip_uac_auto_outbound_max_time, Secs} when is_integer(Secs), Secs>=1 ->
-            update;
-        _ ->
-            error
-    end.
 
