@@ -145,6 +145,7 @@ start_link(AppId, Args) ->
 
 %% @private
 init([AppId, Args]) ->
+    process_flag(trap_exit, true),  % Allow receiving terminate/2
     nksip_proc:put(nksip_sipapps, AppId),   
     Config = AppId:config(),
     AppName = nksip_lib:get_value(name, Config),
