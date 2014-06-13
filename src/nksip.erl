@@ -298,7 +298,7 @@ call(App, Term, Time) ->
     case find_app(App) of
         {ok, AppId} -> 
             Time1 = case Time of 
-                default -> AppId:config_sync_call_time();
+                default -> nksip_config_cache:sync_call_time();
                 _ -> Time
             end,
             gen_server:call(AppId, Term, Time1);

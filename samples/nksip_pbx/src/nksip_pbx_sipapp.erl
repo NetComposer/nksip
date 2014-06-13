@@ -44,7 +44,7 @@
 -define(TIME_CHECK, 10000).
 
 -include("../../../include/nksip.hrl").
--include("../../../plugins/include/nksip_registrar.hrl").
+-include("../../../plugins/nksip_registrar/include/nksip_registrar.hrl").
 
 
 %% @doc Starts a new SipApp, listening on port 5060 for udp and tcp and 5061 for tls,

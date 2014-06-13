@@ -71,14 +71,14 @@ make_contact(Req, Contact, _Opts) ->
     {ok, nksip:optslist()} | {error, Error}
     when Error :: flow_failed | forbidden.
 
-proxy_opts(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
+proxy_opts(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Opts) ->
     #sipmsg{
         app_id = AppId,
         vias = Vias, 
         transport = Transp, 
         contacts = Contacts
     } = Req,
-    Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
+    Supported = AppId:config_supported(),
     Opts1 = case 
         lists:member(path, Opts) andalso
         nksip_sipmsg:supported(<<"path">>, Req) andalso 
@@ -107,7 +107,7 @@ proxy_opts(#sipmsg{class={req, 'REGISTER'}}=Req, Opts) ->
 
 proxy_opts(Req, Opts) ->
     #sipmsg{app_id=AppId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
-    Supported = nksip_lib:get_value(supported, Opts, ?SUPPORTED),
+    Supported = AppId:config_supported(),
     case 
         nksip_sipmsg:supported(<<"outbound">>, Req) andalso 
         lists:member(<<"outbound">>, Supported)

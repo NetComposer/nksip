@@ -33,7 +33,7 @@
 
 -compile({no_auto_import,[put/2]}).
 
--define(MINUS_CSEQ, 46111468).  % Lower values to debug
+-define(MINUS_CSEQ, 46111468).  % Generate lower values to debug
 
 
 %% ===================================================================
@@ -132,9 +132,13 @@ init([]) ->
     ?MODULE:put(current_cseq, nksip_lib:cseq()-?MINUS_CSEQ),
     case parse_config(application:get_all_env(nksip), []) of
         {ok, EnvConfig1} ->
+
+            ?P("ENV: ~p", [EnvConfig1]),
+
             EnvConfig2 = nksip_lib:defaults(EnvConfig1, default_config()),
             GlobalOpts = [Key || {Key, _} <- default_config()],
-            AppConfig = nksip_lib:delete(EnvConfig2, GlobalOpts),
+            AppConfig = nksip_lib:delete(EnvConfig2, 
+                                         [included_applications|GlobalOpts]),
             CacheConfig = [
                 {global_id, nksip_lib:luid()},
                 {local_ips, nksip_lib:get_local_ips()},

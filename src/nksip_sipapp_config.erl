@@ -42,6 +42,9 @@
 
 default_config() ->
     [
+        {allow, "INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
+                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE,PUBLISH"},
+        {supported, "100rel,timer,path,outbound,gruu"},
         {timer_t1, 500},                    % (msecs) 0.5 secs
         {timer_t2, 4000},                   % (msecs) 4 secs
         {timer_t4, 5000},                   % (msecs) 5 secs
@@ -62,20 +65,23 @@ default_config() ->
 %% @private
 parse_config(Opts) ->
     try
+        Environment = nksip_config_cache:app_config(),
+        Defaults = nksip_lib:defaults(Environment, default_config()),
+        Opts1 = nksip_lib:defaults(Opts, Defaults),
+        {Opts2, RestOpts} = parse_opts(Opts1, [], []),
         Plugins0 = proplists:get_all_values(plugins, Opts),
-        Plugins = parse_plugins(lists:flatten(Plugins0), []),
-        Opts1 = apply_defaults(Opts, Plugins),
-        Opts2 = parse_opts(Opts1, lists:reverse(Plugins), Opts1, []),
+        Plugins = sort_plugins(lists:flatten(Plugins0), []),
         Opts3 = [{plugins, Plugins}|Opts2],
-        Cache = cache_syntax(Opts3),
+        Opts4 = parse_plugins_opts(RestOpts, Plugins, Opts3),
+        Cache = cache_syntax(Opts4),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
-        AppName = nksip_lib:get_value(name, Opts3, nksip),
+        AppName = nksip_lib:get_value(name, Opts4, nksip),
         AppId = nksip_sipapp_srv:get_appid(AppName),
         PluginModules = [
             list_to_atom(atom_to_list(Plugin) ++ "_sipapp")
             || Plugin <- Plugins
         ],
-        Module = nksip_lib:get_value(module, Opts3, nksip_sipapp),
+        Module = nksip_lib:get_value(module, Opts4, nksip_sipapp),
         AppModules = [Module|PluginModules++[nksip_sipapp]],
         AppCallbacks = get_all_app_callbacks(AppModules),
         SipApp = [
@@ -90,36 +96,95 @@ parse_config(Opts) ->
     end.
 
 
-%% @private Computes all default config
-apply_defaults(Opts, Plugins) ->
-    Base = nksip_lib:defaults(nksip_config_run:app_config(), default_config()),
-    Opts1 = nksip_lib:defaults(Opts, Base),
-    apply_defaults_plugins(Opts1, Plugins).
+%% @private Parte the plugins list for the application
+%% For each plugin, calls Plugin:version() to get the version, and
+%% Plugin:deps() to get the dependency list ([Name::atom(), RE::binary()]).
+%% it then builds a list of sorted list of plugin names, where every plugin 
+%% is inserted after all of its dependencies.
+sort_plugins([Name|Rest], PlugList) when is_atom(Name) ->
+    case lists:keymember(Name, 1, PlugList) of
+        true ->
+            sort_plugins(Rest, PlugList);
+        false ->
+            case catch Name:version() of
+                Ver when is_list(Ver); is_binary(Ver) ->
+                    case catch Name:deps() of
+                        Deps when is_list(Deps) ->
+                            case insert_plugins(PlugList, Name, Ver, Deps, []) of
+                                {ok, PlugList1} -> 
+                                    sort_plugins(Rest, PlugList1);
+                                {insert, BasePlugin} -> 
+                                    sort_plugins([BasePlugin, Name|Rest], PlugList)
+                            end;
+                        _ ->
+                            throw({invalid_plugin, Name})
+                    end;
+                _ ->
+                    throw({invalid_plugin, Name})
+            end
+    end;
+
+sort_plugins([], PlugList) ->
+    [Name || {Name, _} <- PlugList].
 
 
 %% @private
-apply_defaults_plugins(Opts, []) ->
-    Opts;
+insert_plugins([{CurName, CurVer}=Curr|Rest], Name, Ver, Deps, Acc) ->
+    case lists:keytake(CurName, 1, Deps) of
+        false ->
+            insert_plugins(Rest, Name, Ver,  Deps, Acc++[Curr]);
+        {value, {_, DepVer}, RestDeps} when is_list(DepVer); is_binary(DepVer) ->
+            case re:run(CurVer, DepVer) of
+                {match, _} ->
+                    insert_plugins(Rest, Name, Ver, RestDeps, Acc++[Curr]);
+                nomatch ->
+                    throw({incompatible_plugin, {CurName, CurVer, DepVer}})
+            end;
+        _ ->
+            throw({invalid_plugin, Name})
+    end;
 
-apply_defaults_plugins(Opts, [Plugin|Rest]) ->
-    Opts1 = case catch Plugin:default_config() of
-        List when is_list(List) -> nksip_lib:defaults(Opts, List);
-        _ -> Opts
-    end,
-    apply_defaults_plugins(Opts1, Rest).
+insert_plugins([], Name, Ver, [], Acc) ->
+    {ok, Acc++[{Name, Ver}]};
+
+insert_plugins([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
+    {insert, DepName}.
+
+
+
+% %% @private Updates the configuration applying all defaults
+% %% For config elements not defined in Opts, a default is taken from
+% %% the environment's config, default_config() or the default_config() of each plugin
+% apply_defaults(Opts, Plugins) ->
+%     Environment = nksip_config_cache:app_config(),
+%     Base = nksip_lib:defaults(Environment, default_config()),
+%     Opts1 = nksip_lib:defaults(Opts, Base),
+%     apply_defaults_plugins(Opts1, Plugins).
+
+
+% %% @private
+% apply_defaults_plugins(Opts, []) ->
+%     Opts;
+
+% apply_defaults_plugins(Opts, [Plugin|Rest]) ->
+%     Opts1 = case catch Plugin:default_config() of
+%         List when is_list(List) -> nksip_lib:defaults(Opts, List);
+%         _ -> Opts
+%     end,
+%     apply_defaults_plugins(Opts1, Rest).
         
 
 %% @private Parse the list of app start options
-parse_opts([], _Plugins, _AllOpts, Opts) ->
-    Opts;
+parse_opts([], RestOpts, Opts) ->
+    {Opts, RestOpts};
 
-parse_opts([{plugins, _}|Rest], Plugins, AllOpts, Opts) ->
-    parse_opts(Rest, Plugins, AllOpts, Opts);
+parse_opts([{plugins, _}|Rest], RestOpts, Opts) ->
+    parse_opts(Rest, RestOpts, Opts);
 
-parse_opts([Atom|Rest], Plugins, AllOpts, Opts) when is_atom(Atom) ->
-    parse_opts([{Atom, true}|Rest], Plugins, AllOpts, Opts);
+parse_opts([Atom|Rest], RestOpts, Opts) when is_atom(Atom) ->
+    parse_opts([{Atom, true}|Rest], RestOpts, Opts);
 
-parse_opts([Term|Rest], Plugins, AllOpts, Opts) ->
+parse_opts([Term|Rest], RestOpts, Opts) ->
     Op = case Term of
 
         % Internal options
@@ -243,39 +308,39 @@ parse_opts([Term|Rest], Plugins, AllOpts, Opts) ->
         {store_trace, Trace} when is_boolean(Trace) ->
             {update, Trace};
 
-        Other ->
-            case parse_external_opt(Term, Plugins, AllOpts) of
-                error ->
-                    lager:notice("Ignoring unknown option ~p starting SipApp", 
-                                 [Other]),
-                    update;
-                ExtUpdate ->
-                    ExtUpdate
-            end
+        _Other ->
+            unknown
     end,
-    {Key, Val} = case Op of
-        update -> {element(1, Term), element(2, Term)};
-        {update, Val1} -> {element(1, Term), Val1};
-        {update, Key1, Val1} -> {Key1, Val1};
-        error -> throw({invalid, element(1, Term)})
+    {Opts1, RestOpts1} = case Op of
+        unknown ->
+            {Opts, [Term|RestOpts]};
+        _ ->
+            {Key, Val} = case Op of
+                update -> {element(1, Term), element(2, Term)};
+                {update, Val1} -> {element(1, Term), Val1};
+                {update, Key1, Val1} -> {Key1, Val1};
+                error -> throw({invalid, element(1, Term)})
+            end,
+            {lists:keystore(Key, 1, Opts, {Key, Val}), RestOpts}
     end,
-    Opts1 = lists:keystore(Key, 1, Opts, {Key, Val}),
-    parse_opts(Rest, Plugins, AllOpts, Opts1).
+    parse_opts(Rest, RestOpts1, Opts1).
 
 
-%% @doc
--spec parse_external_opt([{term(), term()}], [atom()], nksip:optslist()) ->
-    update | {update, term()} | {update, atom(), term()} | error.
+%% @private
+parse_plugins_opts([], ConfigOpts, []) ->
+    ConfigOpts;
 
-parse_external_opt(_Term, [], _Opts) ->
-    error;
+parse_plugins_opts([], ConfigOpts, PluginOpts) ->
+    lager:notice("Ignoring unrecognized options starting ~p SipApp: \n~p",
+                 [nksip_lib:get_value(name, ConfigOpts), PluginOpts]),
+    ConfigOpts;
 
-parse_external_opt(Term, [Plugin|Rest], Opts) ->
-    case catch Plugin:parse_config(Term, Opts) of
-        update -> update;
-        {update, Value} -> {update, Value};
-        {update, Key, Value} -> {update, Key, Value};
-        _ -> parse_external_opt(Term, Rest, Opts)
+parse_plugins_opts([Plugin|RestPlugins], ConfigOpts, PluginOpts) ->
+    case catch Plugin:parse_config(PluginOpts, ConfigOpts) of
+        {ok, RestPluginOpts, ConfigOpts1} ->
+            parse_plugins_opts(RestPlugins, ConfigOpts1, RestPluginOpts);
+        _ ->
+            parse_plugins_opts(RestPlugins, ConfigOpts, PluginOpts)
     end.
 
 
@@ -322,60 +387,6 @@ parse_transports([Transport|Rest], Acc) ->
     parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
 
 
-%% @private Parte the plugins list for the application
-%% For each plugin, calls Plugin:version() to get the version, and
-%% Plugin:deps() to get the dependency list ([Name::atom(), RE::binary()]).
-%% it then builds a list of sorted list of plugin names, where every plugin 
-%% is inserted after all of its dependencies.
-parse_plugins([Name|Rest], PlugList) when is_atom(Name) ->
-    case lists:keymember(Name, 1, PlugList) of
-        true ->
-            parse_plugins(Rest, PlugList);
-        false ->
-            case catch Name:version() of
-                Ver when is_list(Ver); is_binary(Ver) ->
-                    case catch Name:deps() of
-                        Deps when is_list(Deps) ->
-                            case parse_plugins_insert(PlugList, Name, Ver, Deps, []) of
-                                {ok, PlugList1} -> 
-                                    parse_plugins(Rest, PlugList1);
-                                {insert, BasePlugin} -> 
-                                    parse_plugins([BasePlugin, Name|Rest], PlugList)
-                            end;
-                        _ ->
-                            throw({invalid_plugin, Name})
-                    end;
-                _ ->
-                    throw({invalid_plugin, Name})
-            end
-    end;
-
-parse_plugins([], PlugList) ->
-    [Name || {Name, _} <- PlugList].
-
-
-%% @private
-parse_plugins_insert([{CurName, CurVer}=Curr|Rest], Name, Ver, Deps, Acc) ->
-    case lists:keytake(CurName, 1, Deps) of
-        false ->
-            parse_plugins_insert(Rest, Name, Ver,  Deps, Acc++[Curr]);
-        {value, {_, DepVer}, RestDeps} when is_list(DepVer); is_binary(DepVer) ->
-            case re:run(CurVer, DepVer) of
-                {match, _} ->
-                    parse_plugins_insert(Rest, Name, Ver, RestDeps, Acc++[Curr]);
-                nomatch ->
-                    throw({incompatible_plugin, {CurName, CurVer, DepVer}})
-            end;
-        _ ->
-            throw({invalid_plugin, Name})
-    end;
-
-parse_plugins_insert([], Name, Ver, [], Acc) ->
-    {ok, Acc++[{Name, Ver}]};
-
-parse_plugins_insert([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
-    {insert, DepName}.
-
 
 %% @private Generates a ready-to-compile config getter functions
 cache_syntax(Opts) ->
@@ -395,13 +406,11 @@ cache_syntax(Opts) ->
             nksip_lib:get_value(timer_t2, Opts),
             nksip_lib:get_value(timer_t4, Opts),
             1000*nksip_lib:get_value(timer_c, Opts)}},
-        {config_sync_call_time, 1000*nksip_lib:get_value(sync_call_time, Opts)},
+        % {config_sync_call_time, 1000*nksip_lib:get_value(sync_call_time, Opts)},
         {config_from, nksip_lib:get_value(from, Opts)},
         {config_no_100, lists:member({no_100, true}, Opts)},
-        {config_supported, 
-            nksip_lib:get_value(supported, Opts, ?SUPPORTED)},
-        {config_allow, 
-            nksip_lib:get_value(allow, Opts, ?ALLOW)},
+        {config_supported, nksip_lib:get_value(supported, Opts)},
+        {config_allow, nksip_lib:get_value(allow, Opts)},
         {config_accept, nksip_lib:get_value(accept, Opts)},
         {config_events, nksip_lib:get_value(events, Opts, [])},
         {config_route, nksip_lib:get_value(route, Opts, [])},

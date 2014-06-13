@@ -27,13 +27,8 @@
 %% ===================================================================
 
 -define(VERSION, "0.4.0").
--define(SUPPORTED, [<<"100rel">>, <<"timer">>, <<"path">>, <<"outbound">>, <<"gruu">>]).
--define(ACCEPT, [{<<"*/*">>, []}]).
--define(ALLOW, <<"INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
-                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE,PUBLISH">>).
 
 -define(MSG_ROUTERS, 8).
--define(SRV_TIMEOUT, 45000).
 -define(DEFAULT_TCP_KEEPALIVE, 120).
 -define(DEFAULT_UDP_KEEPALIVE, 25).
 -define(DEFAULT_EVENT_EXPIRES, 60).

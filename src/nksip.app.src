@@ -16,6 +16,5 @@
         cowboy
     ]},
     {env, [
-        {sync_call_time, 0}
     ]}
 ]}.

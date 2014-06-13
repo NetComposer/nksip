@@ -345,7 +345,7 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 undefined ->
-                    ?ACCEPT;
+                    <<"*/*">>;
                 Accept0 ->
                     Accept0
             end, 
