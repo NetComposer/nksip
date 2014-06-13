@@ -68,11 +68,11 @@ parse_config(Opts) ->
         Environment = nksip_config_cache:app_config(),
         Defaults = nksip_lib:defaults(Environment, default_config()),
         Opts1 = nksip_lib:defaults(Opts, Defaults),
-        {Opts2, RestOpts} = parse_opts(Opts1, [], []),
+        {Opts2, PluginOpts} = parse_opts(Opts1, [], []),
         Plugins0 = proplists:get_all_values(plugins, Opts),
         Plugins = sort_plugins(lists:flatten(Plugins0), []),
         Opts3 = [{plugins, Plugins}|Opts2],
-        Opts4 = parse_plugins_opts(RestOpts, Plugins, Opts3),
+        Opts4 = parse_plugins_opts(Plugins, Opts3, PluginOpts),
         Cache = cache_syntax(Opts4),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
         AppName = nksip_lib:get_value(name, Opts4, nksip),
@@ -319,7 +319,7 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
                 update -> {element(1, Term), element(2, Term)};
                 {update, Val1} -> {element(1, Term), Val1};
                 {update, Key1, Val1} -> {Key1, Val1};
-                error -> throw({invalid, element(1, Term)})
+                error -> throw({invalid, Term})
             end,
             {lists:keystore(Key, 1, Opts, {Key, Val}), RestOpts}
     end,
@@ -331,17 +331,25 @@ parse_plugins_opts([], ConfigOpts, []) ->
     ConfigOpts;
 
 parse_plugins_opts([], ConfigOpts, PluginOpts) ->
-    lager:notice("Ignoring unrecognized options starting ~p SipApp: \n~p",
+    lager:notice("Ignoring unrecognized options starting '~p' SipApp: ~p",
                  [nksip_lib:get_value(name, ConfigOpts), PluginOpts]),
     ConfigOpts;
 
 parse_plugins_opts([Plugin|RestPlugins], ConfigOpts, PluginOpts) ->
-    case catch Plugin:parse_config(PluginOpts, ConfigOpts) of
-        {ok, RestPluginOpts, ConfigOpts1} ->
-            parse_plugins_opts(RestPlugins, ConfigOpts1, RestPluginOpts);
-        _ ->
+    ?P("CALLING ~p, ~p, ~p", [Plugin, PluginOpts, ConfigOpts]),
+    case erlang:function_exported(Plugin, parse_config, 2) of
+        true -> 
+            case Plugin:parse_config(PluginOpts, ConfigOpts) of
+                {ok, PluginOpts1, ConfigOpts1} ->
+                    ?P("OK: ~p, ~p", [PluginOpts1, ConfigOpts1]),
+                    parse_plugins_opts(RestPlugins, ConfigOpts1, PluginOpts1);
+                {error, Error} ->
+                    throw({invalid, Error})
+            end;
+        false ->
             parse_plugins_opts(RestPlugins, ConfigOpts, PluginOpts)
     end.
+
 
 
 %% @private
