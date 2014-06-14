@@ -93,7 +93,7 @@ start() ->
 
     {ok, _} = do_start(serverR, [
         {from, "sip:serverR@nksip"},
-        registrar,
+        {plugins, [nksip_registrar]},
         no_100,
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}]}

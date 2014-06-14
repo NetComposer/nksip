@@ -59,7 +59,7 @@ start() ->
 
     {ok, _} = nksip:start(server1, ?MODULE, [], [
         {transports, [{udp, all, 5060}]},
-        registrar,
+        {plugins, [nksip_registrar]},
         no_100
     ]),
 

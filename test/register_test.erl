@@ -45,7 +45,7 @@ start() ->
 
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "sip:server1@nksip"},
-        registrar,
+        {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {supported, "100rel,timer,path"},        % No outbound
         {registrar_min_time, 60}

@@ -117,7 +117,7 @@ start2() ->
 
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
-        registrar,
+        {plugins, [nksip_registrar]},
         {local_host, "localhost"},
         {transports, [
             {udp, all, 5060},

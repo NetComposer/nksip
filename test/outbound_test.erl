@@ -46,7 +46,7 @@ start() ->
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start(registrar, ?MODULE, [], [
-        registrar,
+        {plugins, [nksip_registrar]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5090}, {tls, all, 5091}]}
     ]),

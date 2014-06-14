@@ -72,7 +72,7 @@ start(Test) ->
 
     {ok, _} = nksip:start({Test, server1}, ?MODULE, {Test, server1}, [
         {from, "sip:server1@nksip"},
-        registrar,
+        {plugins, [nksip_registrar]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {supported, "100rel,timer,path"}        % No outbound
@@ -80,7 +80,7 @@ start(Test) ->
 
     {ok, _} = nksip:start({Test, server2}, ?MODULE, {Test, server2}, [
         {from, "sip:server2@nksip"},
-        registrar,
+        {plugins, [nksip_registrar]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5080}, {tls, all, 5081}]},
         {supported, "100rel,timer,path"}        % No outbound

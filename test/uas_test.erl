@@ -47,7 +47,7 @@ start() ->
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         {supported, "a;a_param, 100rel"},
-        registrar,
+        {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {plugins, [nksip_uac_auto]},
         {nksip_uac_auto_timer, 1}
@@ -121,7 +121,7 @@ auto() ->
     % Start a new server to test ping and register options
     nksip:stop(server2),
     {ok, _} = nksip:start(server2, ?MODULE, server2, [
-        registrar, 
+        {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5080}]},
         {registrar_min_time, 1},
         {plugins, [nksip_uac_auto]},
