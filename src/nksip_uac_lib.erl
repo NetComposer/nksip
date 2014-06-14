@@ -348,7 +348,29 @@ parse_opts([Term|Rest], Req, Opts) ->
                Term==follow_redirects ->
             {update, Req, [Term|Opts]};
 
-        {Name, Value} when Name==pass; Name==record_flow; Name==route_flow ->
+        {pass, Pass} ->
+            {Realm1, Pass1} = case Pass of
+                _ when is_list(Pass) -> 
+                    {<<>>, list_to_binary(Pass)};
+                _ when is_binary(Pass) -> 
+                    {<<>>, Pass};
+                {Pass0, Realm0} when 
+                    (is_list(Pass0) orelse is_binary(Pass0)) andalso
+                    (is_list(Realm0) orelse is_binary(Realm0)) ->
+                    {nksip_lib:to_binary(Realm0), nksip_lib:to_binary(Pass0)};
+                _ ->
+                    throw({invalid, Term})
+            end,
+            Passes0 = nksip_lib:get_value(passes, Opts, []),
+            Passes1 = lists:keystore(Realm1, 1, Passes0, {Realm1, Pass1}),
+            Opts1 = lists:keystore(passes, 1, Opts, {passes, Passes1}),
+            {update, Req, Opts1};
+        {passes, Passes} ->
+            Passes0 = nksip_lib:get_value(passes, Opts, []),
+            Opts1 = lists:keystore(passes, 1, Opts, {passes, Passes++Passes0}),
+            {update, Req, Opts1};
+
+        {Name, Value} when Name==record_flow; Name==route_flow ->
             {update, Req, [{Name, Value}|Opts]};
         {meta, List} when is_list(List) ->
             {update, Req, [{meta,List}|Opts]};

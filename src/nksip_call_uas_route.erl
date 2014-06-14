@@ -122,9 +122,12 @@ is_cancel(_, _) ->
     nksip_call:call().
 
 authorize_launch(UAS, #call{app_id=AppId}=Call) ->
-    case erlang:function_exported(AppId, sip_authorize, 3) of
+    % In case app has not implemented sip_authorize, we don't spend time
+    % finding authentication info
+    case erlang:function_exported(AppId:module(), sip_authorize, 3) of
         true ->
-            Args = [authorize_data(UAS, Call), UAS#trans.request, Call],
+            AuthData = AppId:nkcb_authorize_data([], UAS, Call),
+            Args = [AuthData, UAS#trans.request, Call],
             case AppId:nkcb_call(sip_authorize, Args, AppId) of
                 {ok, Reply} -> authorize_reply(Reply, UAS, Call);
                 error -> reply({internal_error, "SipApp Error"}, UAS, Call)
@@ -133,32 +136,32 @@ authorize_launch(UAS, #call{app_id=AppId}=Call) ->
             authorize_reply(ok, UAS, Call)
     end.
 
-%% @private
--spec authorize_data(nksip_call:trans(), nksip_call:call()) ->
-    list().
 
-authorize_data(#trans{id=Id,request=Req}=UAS, Call) ->
-    #call{app_id=AppId} = Call,
-    IsDialog = case nksip_call_lib:check_auth(Req, Call) of
-        true -> dialog;
-        false -> []
-    end,
-    IsRegistered = case nksip_registrar:is_registered(Req) of
-        true -> register;
-        false -> []
-    end,
-    PassFun = fun(User, Realm) ->
-        Args = [User, Realm, UAS#trans.request, Call],
-        case AppId:nkcb_call(sip_get_user_pass, Args, AppId) of
-            {ok, Reply} -> ok;
-            error -> Reply = false
-        end,
-        ?call_debug("UAS ~p calling get_user_pass(~p, ~p): ~p", 
-                    [Id, User, Realm, Reply]),
-        Reply
-    end,
-    IsDigest = nksip_auth:get_authentication(Req, PassFun),
-    lists:flatten([IsDialog, IsRegistered, IsDigest]).
+% %% @private
+% -spec authorize_data(list(), nksip_call:trans(), nksip_call:call()) ->
+%     list().
+
+% authorize_data(List, #trans{id=Id,request=Req}=UAS, Call) ->
+%     #call{app_id=AppId} = Call,
+%     % IsRegistered = case nksip_registrar:is_registered(Req) of
+%     %     true -> register;
+%     %     false -> []
+%     % end,
+%     PassFun = fun(User, Realm) ->
+%         Args = [User, Realm, UAS#trans.request, Call],
+%         case AppId:nkcb_call(sip_get_user_pass, Args, AppId) of
+%             {ok, Reply} -> ok;
+%             error -> Reply = false
+%         end,
+%         ?call_debug("UAS ~p calling get_user_pass(~p, ~p): ~p", 
+%                     [Id, User, Realm, Reply]),
+%         Reply
+%     end,
+%     List1 = nksip_auth:get_authentication(Req, PassFun) ++ List,
+%     case nksip_call_lib:check_auth(Req, Call) of
+%         true -> [dialog|List1];
+%         false -> List1
+%     end.
 
 
 %% @private

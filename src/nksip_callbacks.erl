@@ -25,12 +25,55 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--export([nkcb_call/3, nkcb_sip_method/2]).
 -export([nkcb_init/2, nkcb_handle_call/4, nkcb_handle_cast/3, 
 	     nkcb_handle_info/3, nkcb_terminate/3]).
+-export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3]).
 
 -type plugins_state() :: [{Plugin::atom(), Value::term()}].
 
+
+%% @doc Called after starting the SipApp process and before calling application-level
+%% init/1 callback. Can be used to store metadata.
+-spec nkcb_init(nksip:app_id(), plugins_state()) ->
+	{ok, plugins_state()}.
+
+nkcb_init(_AppId, Proplist) ->
+	{ok, Proplist}.
+
+
+%% @doc Called when the SipApp process receives a handle_call/3.
+%% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
+-spec nkcb_handle_call(nksip:app_id(), term(), from(), plugins_state()) ->
+	{ok, plugins_state()} | continue.
+
+nkcb_handle_call(_AppId, _Msg, _From, _PluginState) ->
+	continue.
+
+
+%% @doc Called when the SipApp process receives a handle_cast/3.
+%% Return {ok, NewPluginState} or continue.
+-spec nkcb_handle_cast(nksip:app_id(), term(), plugins_state()) ->
+	{ok, plugins_state()} | continue.
+
+nkcb_handle_cast(_AppId, _Msg, _PluginState) ->
+	continue.
+
+
+%% @doc Called when the SipApp process receives a handle_info/3.
+%% Return {ok, NewPluginState} or continue.
+-spec nkcb_handle_info(nksip:app_id(), term(), plugins_state()) ->
+	{ok, plugins_state()} | continue.
+
+nkcb_handle_info(_AppId, _Msg, _PluginState) ->
+	continue.
+
+
+%% @doc Called when the SipApp process receives a terminate/2.
+-spec nkcb_terminate(nksip:app_id(), term(), plugins_state()) ->
+	continue.
+
+nkcb_terminate(_AppId, _Reason, _PluginState) ->
+	continue.
 
 
 %% @doc This plugin callback function is used to call application-level 
@@ -92,45 +135,21 @@ nkcb_sip_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 	end.
 
 
-%% @doc Called after starting the SipApp process and before calling application-level
-%% init/1 callback. Can be used to store metadata.
--spec nkcb_init(nksip:app_id(), plugins_state()) ->
-	{ok, plugins_state()}.
+%% @doc This callback is called when the application use has implemented the
+%% sip_authorize/3 callback, and a list with authentication tokens must be
+%% generated
+-spec nkcb_authorize_data(list(), nksip_call:trans(), nksip_call:call()) ->
+	list().
 
-nkcb_init(_AppId, Proplist) ->
-	{ok, Proplist}.
-
-
-%% @doc Called when the SipApp process receives a handle_call/3.
-%% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
--spec nkcb_handle_call(nksip:app_id(), term(), from(), plugins_state()) ->
-	{ok, plugins_state()} | continue.
-
-nkcb_handle_call(_AppId, _Msg, _From, _PluginState) ->
-	continue.
+nkcb_authorize_data(List, #trans{request=Req}, Call) ->
+	Digest = nksip_auth:authorize_data(Req, Call),
+	Dialog = case nksip_call_lib:check_auth(Req, Call) of
+        true -> dialog;
+        false -> []
+    end,
+    lists:flatten([Digest, Dialog, List]).
 
 
-%% @doc Called when the SipApp process receives a handle_cast/3.
-%% Return {ok, NewPluginState} or continue.
--spec nkcb_handle_cast(nksip:app_id(), term(), plugins_state()) ->
-	{ok, plugins_state()} | continue.
-
-nkcb_handle_cast(_AppId, _Msg, _PluginState) ->
-	continue.
 
 
-%% @doc Called when the SipApp process receives a handle_info/3.
-%% Return {ok, NewPluginState} or continue.
--spec nkcb_handle_info(nksip:app_id(), term(), plugins_state()) ->
-	{ok, plugins_state()} | continue.
 
-nkcb_handle_info(_AppId, _Msg, _PluginState) ->
-	continue.
-
-
-%% @doc Called when the SipApp process receives a terminate/2.
--spec nkcb_terminate(nksip:app_id(), term(), plugins_state()) ->
-	continue.
-
-nkcb_terminate(_AppId, _Reason, _PluginState) ->
-	continue.
