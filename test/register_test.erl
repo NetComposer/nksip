@@ -24,7 +24,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
--include("../plugins/include/nksip_registrar.hrl").
+-include("../plugins/nksip_registrar/include/nksip_registrar.hrl").
 
 -compile([export_all]).
 -define(RECV(T), receive T -> T after 1000 -> error(recv) end).
@@ -71,11 +71,11 @@ stop() ->
 
 
 register1() ->
-    Min = nksip_config:get(registrar_min_time),
+    Min = nksip_config:get(nksip_registrar_min_time),
     MinB = nksip_lib:to_binary(Min),
-    Max = nksip_config:get(registrar_max_time),
+    Max = nksip_config:get(nksip_registrar_max_time),
     MaxB = nksip_lib:to_binary(Max),
-    Def = nksip_config:get(registrar_default_time),
+    Def = nksip_config:get(nksip_registrar_default_time),
     DefB = nksip_lib:to_binary(Def),
     
     % Method not allowed
@@ -164,7 +164,7 @@ register1() ->
 
 
 
-    % true = lists:member(Reg1, nksip_registrar:internal_get_all()),
+    % true = lists:member(Reg1, nksip_registrar_util:get_all()),
 
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
@@ -191,7 +191,7 @@ register1() ->
 
 
 register2() ->
-    nksip_registrar:internal_clear(),
+    nksip_registrar_util:clear(),
 
     Opts1 = [contact, {expires, 300}],
     FromS = {from, <<"sips:client1@nksip">>},

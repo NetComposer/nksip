@@ -60,7 +60,7 @@ start() ->
         {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
 
-    nksip_registrar:internal_clear(),
+    nksip_registrar_util:clear(),
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 

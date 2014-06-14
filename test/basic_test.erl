@@ -49,8 +49,7 @@ start() ->
 
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
-        registrar,
-        {supported, []},
+        {plugins, [nksip_registrar]},
         {transports, [
             {udp, all, 5060, [{listeners, 10}]},
             {tls, all, 5061}
@@ -59,7 +58,6 @@ start() ->
 
     {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-        {supported, []},
         {transports, [
             {udp, all, 5070},
             {tls, all, 5071}
@@ -67,7 +65,6 @@ start() ->
     ]),
 
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
-        {supported, []},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
     tests_util:log(),
@@ -94,12 +91,16 @@ running() ->
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
-    {error, {invalid, transport}} = 
+    {error, {invalid, {transport, _}}} = 
         nksip:start(name, ?MODULE, none, [{transports, [{other, all, any}]}]),
-    {error, {invalid, transport}} = 
+    {error, {invalid, {transport, _}}} = 
         nksip:start(name, ?MODULE, none, [{transports, [{udp, {1,2,3}, any}]}]),
-    {error, {invalid, register}} = 
-        nksip:start(name, ?MODULE, none, [{register, "sip::a"}]),
+    {error, {invalid, {nksip_registrar_min_time, -1}}} = 
+        nksip:start(name, ?MODULE, none, 
+                    [{plugins, [nksip_registrar]}, {nksip_registrar_min_time, -1}]),
+
+    {error, {invalid, {plugin, invalid}}} = 
+        nksip:start(name, ?MODULE, none, [{plugins, [nksip_registrar, invalid]}]),
 
     ok.
     
