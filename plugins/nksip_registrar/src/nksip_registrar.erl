@@ -27,31 +27,7 @@
 
 -export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
--export([internal_get_all/0, internal_clear/0, internal_print_all/0]).
 -export([version/0, deps/0, parse_config/2]).
-
--export_type([reg_contact/0, index/0, times/0]).
-
-
-%% ===================================================================
-%% Types and records
-%% ===================================================================
-
--type reg_contact() :: #reg_contact{}.
-
--type index() :: 
-    {
-        Scheme::sip|sips,
-        Proto::nksip:protocol(), 
-        User::binary(),
-        Domain::binary(), 
-        Port::inet:port_number()
-    } 
-    |
-    {ob, Instance::binary(), RegId::binary()}.
-
--type times() :: {integer(), integer(), integer(), integer(), integer()}.
-
 
 
 %% ===================================================================
@@ -81,9 +57,9 @@ deps() ->
 
 parse_config(PluginOpts, Config) ->
     Defaults = [
-        {registrar_default_time, 3600},     % (secs) 1 hour
-        {registrar_min_time, 60},           % (secs) 1 min
-        {registrar_max_time, 86400}         % (secs) 24 hour
+        {nksip_registrar_default_time, 3600},     % (secs) 1 hour
+        {nksip_registrar_min_time, 60},           % (secs) 1 min
+        {nksip_registrar_max_time, 86400}         % (secs) 24 hour
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
     Allow = nksip_lib:get_value(allow, Config),
@@ -224,65 +200,4 @@ clear(App) ->
         _ ->
             sipapp_not_found
     end.
-
-
-%% ===================================================================
-%% Utilities available only using internal store
-%% ===================================================================
-
-
-% @private Get all current registrations. Use it with care.
-
--spec internal_get_all() ->
-    [{nksip:app_id(), nksip:aor(), [#reg_contact{}]}].
-
-internal_get_all() ->
-    [
-        {AppId, AOR, nksip_store:get({nksip_registrar, AppId, AOR}, [])}
-        || {AppId, AOR} <- internal_all()
-    ].
-
-
-%% @private
-internal_print_all() ->
-    Now = nksip_lib:timestamp(),
-    Print = fun({AppId, {Scheme, User, Domain}, Regs}) ->
-        io:format("\n --- ~p --- ~p:~s@~s ---\n", [AppId:name(), Scheme, User, Domain]),
-        lists:foreach(
-            fun(#reg_contact{contact=Contact, expire=Expire, q=Q}) ->
-                io:format("    ~s, ~p, ~p\n", [nksip_unparse:uri(Contact), Expire-Now, Q])
-            end, Regs)
-    end,
-    lists:foreach(Print, internal_get_all()),
-    io:format("\n\n").
-
-
-%% @private Clear all stored records for all SipApps, only with buil-in database
-%% Returns the number of deleted items.
--spec internal_clear() -> 
-    integer().
-
-internal_clear() ->
-    Fun = fun(AppId, AOR, _Val, Acc) ->
-        nksip_store:del({nksip_registrar, AppId, AOR}),
-        Acc+1
-    end,
-    internal_fold(Fun, 0).
-
-
-%% @private
-internal_all() -> 
-    internal_fold(fun(AppId, AOR, _Value, Acc) -> [{AppId, AOR}|Acc] end, []).
-
-
-%% @private
-internal_fold(Fun, Acc0) when is_function(Fun, 4) ->
-    FoldFun = fun(Key, Value, Acc) ->
-        case Key of
-            {nksip_registrar, AppId, AOR} -> Fun(AppId, AOR, Value, Acc);
-            _ -> Acc
-        end
-    end,
-    nksip_store:fold(FoldFun, Acc0).
-
 

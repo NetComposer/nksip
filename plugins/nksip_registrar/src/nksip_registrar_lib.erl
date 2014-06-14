@@ -28,8 +28,28 @@
 
 -export([parse_config/3, find/2, find/4, qfind/4, is_registered/2, request/1]).
 -export([store_get/2, store_del/2, store_del_all/1]).
+-export_type([reg_contact/0, index/0]).
 
 -define(AES_IV, <<"12345678abcdefgh">>).
+
+
+%% ===================================================================
+%% Types and records
+%% ===================================================================
+
+-type reg_contact() :: #reg_contact{}.
+
+-type index() :: 
+    {
+        Scheme::sip|sips,
+        Proto::nksip:protocol(), 
+        User::binary(),
+        Domain::binary(), 
+        Port::inet:port_number()
+    } 
+    |
+    {ob, Instance::binary(), RegId::binary()}.
+
 
 
 %% ===================================================================
@@ -48,17 +68,17 @@ parse_config([], Unknown, Config) ->
 
 parse_config([Term|Rest], Unknown, Config) ->
     Op = case Term of
-        {registrar_default_time, Secs} ->
+        {nksip_registrar_default_time, Secs} ->
             case is_integer(Secs) andalso Secs>=5 of
                 true -> update;
                 false -> error
             end;
-        {registrar_min_time, Secs} ->
+        {nksip_registrar_min_time, Secs} ->
             case is_integer(Secs) andalso Secs>=1 of
                 true -> update;
                 false -> error
             end;
-        {registrar_max_time, Secs} ->
+        {nksip_registrar_max_time, Secs} ->
             case is_integer(Secs) andalso Secs>=60 of
                 true -> update;
                 false -> error
@@ -208,7 +228,7 @@ request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
                 case nksip_outbound:registrar(Req) of
                     {true, Req1} -> Opts1 = [{outbound, true}];
                     {false, Req1} -> Opts1 = [{outbound, false}];
-                    continue -> Req1 = Req, Opts1 = [];
+                    no_outbound -> Req1 = Req, Opts1 = [];
                     {error, OutError} -> Req1 = Opts1 = throw(OutError)
             %     end;
             % false ->
@@ -249,20 +269,18 @@ process(Req, Opts) ->
         true -> throw(unsupported_uri_scheme)
     end,
     Config = AppId:config(),
-    MinTime = nksip_lib:get_value(nksip_registrar_min_time, Config),
-    MaxTime = nksip_lib:get_value(nksip_registrar_max_time, Config),
     DefTime = nksip_lib:get_value(nksip_registrar_default_time, Config),
     Default = case nksip_sipmsg:meta(expires, Req) of
         D0 when is_integer(D0) -> D0;
         _ -> DefTime
     end,
-    Long = nksip_lib:l_timestamp(),
-    Times = {
-        MinTime, 
-        MaxTime,
-        Default,
-        Long div 1000000,
-        Long
+    TimeLong = nksip_lib:l_timestamp(),
+    Times = #nksip_registrar_time{
+        min = nksip_lib:get_value(nksip_registrar_min_time, Config),
+        max = nksip_lib:get_value(nksip_registrar_max_time, Config),
+        default = Default,
+        time = TimeLong div 1000000,
+        time_long = TimeLong
     },
     case Contacts of
         [] -> ok;
@@ -273,18 +291,17 @@ process(Req, Opts) ->
 
 
 %% @private
--spec update(nksip:request(), nksip_registrar:times(), nksip:optslist()) ->
+-spec update(nksip:request(), #nksip_registrar_time{}, nksip:optslist()) ->
     ok.
 
 update(Req, Times, Opts) ->
     #sipmsg{app_id=AppId, to={To, _}, contacts=Contacts} = Req,
-    {_, _, Default, Now, _LongNow} = Times,
+    #nksip_registrar_time{default=Default, time=Now} = Times,
     check_several_reg_id(Contacts, Default, false),
     Path = case nksip_sipmsg:header(<<"path">>, Req, uris) of
         error -> throw({invalid_request, "Invalid Path"});
         Path0 -> Path0
     end,
-    {_, _, _, Now, _LongNow} = Times,
     AOR = aor(To),
     {ok, Regs} = store_get(AppId, AOR),
     RegContacts0 = [
@@ -312,7 +329,7 @@ update(Req, Times, Opts) ->
 
 
 %% @private Extracts from each contact a index, uri, expire time and q
--spec update_regcontacts([#uri{}], nksip:request(), nksip_registrar:times(), 
+-spec update_regcontacts([#uri{}], nksip:request(), #nksip_registrar_time{}, 
                          [nksip:uri()], nksip:optslist(), [#reg_contact{}]) ->
     [#reg_contact{}].
 
@@ -320,7 +337,13 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=ExtOpts} = Contact,
     #sipmsg{to={To, _}, call_id=CallId, cseq={CSeq, _}, transport=Transp} = Req,
     update_checks(Contact, Req),
-    {Min, Max, Default, Now, LongNow} = Times,
+    #nksip_registrar_time{
+        min = Min,
+        max = Max,
+        default = Default,
+        time = Now,
+        time_long = LongNow
+    } = Times,
     UriExp = case nksip_lib:get_list(<<"expires">>, ExtOpts) of
         [] ->
             Default;

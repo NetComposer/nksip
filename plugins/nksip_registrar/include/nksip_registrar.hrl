@@ -20,7 +20,7 @@
 
 
 -record(reg_contact, {
-    index :: nksip_registrar:index(),
+    index :: nksip_registrar_lib:index(),
     contact :: nksip:uri(), 
     updated :: nksip_lib:l_timestamp(),
     expire :: nksip_lib:timestamp(),
@@ -36,6 +36,10 @@
     meta = [] :: nksip:optslist()  % No current use
 }).
 
-
-
-
+-record(nksip_registrar_time, {
+    min :: pos_integer(),
+    max :: pos_integer(),
+    default :: pos_integer(),
+    time :: pos_integer(),
+    time_long :: pos_integer()
+}).

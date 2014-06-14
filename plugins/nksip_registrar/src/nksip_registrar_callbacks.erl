@@ -24,7 +24,7 @@
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
--export([nkcb_sip_method/2, nkcb_terminate/3]).
+-export([nkcb_sip_method/2, nkcb_terminate/3, nkcb_authorize_data/3]).
 
 
 %% @private This plugin callback is called when a call to one of the method specific
@@ -40,10 +40,20 @@ nkcb_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
             continue;
         false ->
             {reply, nksip_registrar:request(Req)}
-    end.
+    end;
+nkcb_sip_method(_Trans, _Call) ->
+    continue.
 
 
 %% @private
 nkcb_terminate(AppId, _Reason, _PluginsState) ->  
 	nksip_registrar:clear(AppId),
 	continue.
+
+
+%% @private
+nkcb_authorize_data(List, #trans{request=Req}=Trans, Call) ->
+    case nksip_registrar:is_registered(Req) of
+        true -> {continue, [[register|List], Trans, Call]};
+        false -> continue
+    end.

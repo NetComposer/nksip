@@ -199,7 +199,7 @@ flow_type(_, _) ->
 %% @private
 %% Add registrar_otbound
 -spec registrar(nksip:request()) ->
-    {boolean(), nksip:request()} | continue.
+    {boolean(), nksip:request()} | no_outbound.
 
 registrar(Req) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
