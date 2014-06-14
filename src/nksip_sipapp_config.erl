@@ -117,10 +117,10 @@ sort_plugins([Name|Rest], PlugList) when is_atom(Name) ->
                                     sort_plugins([BasePlugin, Name|Rest], PlugList)
                             end;
                         _ ->
-                            throw({invalid_plugin, Name})
+                            throw({invalid, {plugin, Name}})
                     end;
                 _ ->
-                    throw({invalid_plugin, Name})
+                    throw({invalid, {plugin, Name}})
             end
     end;
 
@@ -151,32 +151,9 @@ insert_plugins([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
     {insert, DepName}.
 
 
-
-% %% @private Updates the configuration applying all defaults
-% %% For config elements not defined in Opts, a default is taken from
-% %% the environment's config, default_config() or the default_config() of each plugin
-% apply_defaults(Opts, Plugins) ->
-%     Environment = nksip_config_cache:app_config(),
-%     Base = nksip_lib:defaults(Environment, default_config()),
-%     Opts1 = nksip_lib:defaults(Opts, Base),
-%     apply_defaults_plugins(Opts1, Plugins).
-
-
-% %% @private
-% apply_defaults_plugins(Opts, []) ->
-%     Opts;
-
-% apply_defaults_plugins(Opts, [Plugin|Rest]) ->
-%     Opts1 = case catch Plugin:default_config() of
-%         List when is_list(List) -> nksip_lib:defaults(Opts, List);
-%         _ -> Opts
-%     end,
-%     apply_defaults_plugins(Opts1, Rest).
-        
-
 %% @private Parse the list of app start options
 parse_opts([], RestOpts, Opts) ->
-    {Opts, RestOpts};
+    {Opts, lists:reverse(RestOpts)};
 
 parse_opts([{plugins, _}|Rest], RestOpts, Opts) ->
     parse_opts(Rest, RestOpts, Opts);
@@ -339,12 +316,12 @@ parse_plugins_opts([], ConfigOpts, PluginOpts) ->
     ConfigOpts;
 
 parse_plugins_opts([Plugin|RestPlugins], ConfigOpts, PluginOpts) ->
-    ?P("CALLING ~p, ~p, ~p", [Plugin, PluginOpts, ConfigOpts]),
+    % ?P("CALLING ~p, ~p, ~p", [Plugin, PluginOpts, ConfigOpts]),
     case erlang:function_exported(Plugin, parse_config, 2) of
         true -> 
             case Plugin:parse_config(PluginOpts, ConfigOpts) of
                 {ok, PluginOpts1, ConfigOpts1} ->
-                    ?P("OK: ~p, ~p", [PluginOpts1, ConfigOpts1]),
+                    % ?P("OK: ~p, ~p", [PluginOpts1, ConfigOpts1]),
                     parse_plugins_opts(RestPlugins, ConfigOpts1, PluginOpts1);
                 {error, Error} ->
                     throw({invalid, Error})
@@ -363,7 +340,7 @@ parse_transports([Transport|Rest], Acc) ->
     case Transport of
         {Scheme, Ip, Port} -> TOpts = [];
         {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
-        _ -> Scheme=Ip=Port=TOpts=throw({invalid, transport})
+        _ -> Scheme=Ip=Port=TOpts=throw({invalid, {transport, Transport}})
     end,
     case 
         (Scheme==udp orelse Scheme==tcp orelse 
@@ -371,7 +348,7 @@ parse_transports([Transport|Rest], Acc) ->
          Scheme==ws  orelse Scheme==wss)
     of
         true -> ok;
-        false -> throw({invalid, transport})
+        false -> throw({invalid, {transport, Transport}})
     end,
     Ip1 = case Ip of
         all ->
@@ -380,20 +357,20 @@ parse_transports([Transport|Rest], Acc) ->
             {0,0,0,0,0,0,0,0};
         _ when is_tuple(Ip) ->
             case catch inet_parse:ntoa(Ip) of
-                {error, _} -> throw({invalid, transport});
-                {'EXIT', _} -> throw({invalid, transport});
+                {error, _} -> throw({invalid, {transport, Transport}});
+                {'EXIT', _} -> throw({invalid, {transport, Transport}});
                 _ -> Ip
             end;
         _ ->
             case catch nksip_lib:to_ip(Ip) of
                 {ok, PIp} -> PIp;
-                _ -> throw({invalid, transport})
+                _ -> throw({invalid, {transport, Transport}})
             end
     end,
     Port1 = case Port of
         any -> 0;
         _ when is_integer(Port), Port >= 0 -> Port;
-        _ -> throw({invalid, transport})
+        _ -> throw({invalid, {transport, Transport}})
     end,
     parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
 

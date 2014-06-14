@@ -200,7 +200,7 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 connect(AppId, Proto, Ip, Port, Res, Opts) ->
-    Max = nksip_config_cache:max_connections(),
+    Max = nksip_config_cache:global_max_connections(),
     case nksip_counters:value(nksip_connections) of
         Current when Current > Max -> {error, max_connections};
         _ ->  try_connect(AppId, Proto, Ip, Port, Res, Opts, 300) % 30 secs,

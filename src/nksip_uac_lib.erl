@@ -333,7 +333,7 @@ parse_opts([Term|Rest], Req, Opts) ->
                         true -> 
                             ignore;
                         false -> 
-                            throw({invalid, min_cseq})
+                            throw({invalid, Term})
                     end;
                 true ->
                     move_to_last
@@ -437,13 +437,13 @@ parse_opts([Term|Rest], Req, Opts) ->
         {session_expires, {SE, Refresh}} when is_integer(SE) ->
             case AppId:config_min_session_expires() of
                 MinSE when SE<MinSE -> 
-                    throw({invalid, session_expires});
+                    throw({invalid, Term});
                 _ when Refresh==undefined -> 
                     {replace, <<"session-expires">>, SE};
                 _ when Refresh==uac; Refresh==uas -> 
                     {replace, <<"session-expires">>, {SE, [{<<"refresher">>, Refresh}]}};
                 _ ->
-                    throw({invalid, session_expires})
+                    throw({invalid, Term})
             end;
 
         % Event options
@@ -474,7 +474,7 @@ parse_opts([Term|Rest], Req, Opts) ->
                         {<<"reason">>, nksip_lib:to_binary(Reason)},
                         {<<"retry-after">>, Retry}]};                
                 _ ->
-                    throw({invalid, {subscription_state, ST}})
+                    throw({invalid, Term})
             end,
             {replace, <<"subscription-state">>, Value};
         {refer_to, Url} ->
@@ -484,8 +484,6 @@ parse_opts([Term|Rest], Req, Opts) ->
         {sip_if_match, ETag} ->
             {replace, <<"sip-if-match">>, nksip_lib:to_binary(ETag)};
 
-        {Name, _} ->
-            throw({invalid, Name});
         _ ->
             throw({invalid, Term})
     end,
