@@ -147,6 +147,7 @@ flow() ->
     {ok, InstanceC1} = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
+    {ok, Registrar} = nksip:find_app_id(registrar),
     [#reg_contact{
         index = {sip, tcp, <<"ua1">>, <<"127.0.0.1">>, 5101},
         contact = PContact,
@@ -157,7 +158,7 @@ flow() ->
             port = 5090,
             opts = [{<<"transport">>, <<"tcp">>}, <<"lr">>, <<"ob">>]
         }=Path1]
-    }] = nksip_registrar:get_info(registrar, sip, <<"ua1">>, <<"nksip">>),
+    }] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
             
     {ok, Pid1, Transp1} = nksip_outbound:decode_flow(Flow1),
 
@@ -166,7 +167,7 @@ flow() ->
         opts = [{<<"transport">>, <<"tcp">>}],
         headers = [{<<"route">>, QRoute1}],
         ext_opts = []
-    }=Contact1] = nksip_registrar:find(registrar, sip, <<"ua1">>, <<"nksip">>),
+    }=Contact1] = nksip_registrar:find(Registrar, sip, <<"ua1">>, <<"nksip">>),
 
     true = 
         list_to_binary(http_uri:decode(binary_to_list(QRoute1))) == 
@@ -179,14 +180,14 @@ flow() ->
 
     {tcp, {127,0,0,1}, LocalPort1, <<>>} = Local1,
     {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
-    {ok, UA1_Id} = nksip:find_app(ua1),
-    {ok, UA2_Id} = nksip:find_app(ua2),
+    {ok, UA1_Id} = nksip:find_app_id(ua1),
+    {ok, UA2_Id} = nksip:find_app_id(ua2),
     [{#transport{local_port=LocalPort1, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(UA1_Id),
     [{#transport{local_port=LocalPort2, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(UA2_Id),
 
-    {ok, Registrar_Id} = nksip:find_app(registrar),
+    {ok, Registrar_Id} = nksip:find_app_id(Registrar),
     [
         {#transport{local_port=5090, remote_port=LocalPortA}, _},
         {#transport{local_port=5090, remote_port=LocalPortB}, _}
@@ -251,6 +252,7 @@ register() ->
     {ok, InstanceC1} = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
+    {ok, Registrar} = nksip:find_app_id(registrar),
     QInstanceC1_id = nksip_lib:hash(QInstanceC1),
     [#reg_contact{
         index = {ob, QInstanceC1_id, <<"1">>},
@@ -261,7 +263,7 @@ register() ->
             port = 5090,
             opts = [<<"lr">>, <<"ob">>]
         }]
-    }] = nksip_registrar:get_info(registrar, sip, <<"ua1">>, <<"nksip">>),
+    }] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
 
     % Register a new registration from the same instance, reg-id=2
     {ok, 200, [{_, [Contact2, Contact1]}]} = 
@@ -286,7 +288,7 @@ register() ->
             index = {ob, QInstanceC1_id, <<"1">>},
             contact = Contact1
         }
-    ] = nksip_registrar:get_info(registrar, sip, <<"ua1">>, <<"nksip">>),
+    ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
 
 
     % Send a third registration from a different instance
@@ -321,7 +323,7 @@ register() ->
             index = {ob, QInstanceC1_id, <<"1">>},
             contact = Contact1
         }
-    ] = nksip_registrar:get_info(registrar, sip, <<"ua1">>, <<"nksip">>),
+    ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
 
 
     % Lastly, we send a new registration for reg_id=2
@@ -345,7 +347,7 @@ register() ->
             contact = Contact1,
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
-    ] = nksip_registrar:get_info(registrar, sip, <<"ua1">>, <<"nksip">>),
+    ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
     {ok, _, #transport{remote_port=5101}} = nksip_outbound:decode_flow(Flow1),
     {ok, _, #transport{remote_port=5103}} = nksip_outbound:decode_flow(Flow2),
     ok.
@@ -454,11 +456,12 @@ outbound() ->
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5106}, {tls, all, 5107}]},
-        {register, "<sip:127.0.0.1:5090;transport=tcp>, 
-                    <sip:127.0.0.1:5090;transport=udp>"},
-        {outbound_time_all_fail, 1},
-        {outbound_time_any_ok, 2},
         {plugins, [nksip_uac_auto]},
+        {nksip_uac_auto_register, 
+            "<sip:127.0.0.1:5090;transport=tcp>, 
+             <sip:127.0.0.1:5090;transport=udp>"},
+        {nksip_uac_auto_outbound_all_fail, 1},
+        {nksip_uac_auto_outbound_any_ok, 2},
         {nksip_uac_auto_timer, 1}
     ]),
     timer:sleep(100),
@@ -466,7 +469,7 @@ outbound() ->
     [{<<"auto-1">>, true, _},{<<"auto-2">>, true, _}] = 
         lists:sort(nksip_uac_auto:get_registers(ua3)),
 
-    % UA3 should have to connections to Registrar
+    % UA3 should have two connections to Registrar
     [
         {
             #transport{proto = tcp, local_port = Local1,
@@ -480,7 +483,7 @@ outbound() ->
         }
     ] = lists:sort(nksip_transport:get_all_connected(UA3_Id)),
 
-    {ok, RegistrarId} = nksip:find_app(registrar),
+    {ok, RegistrarId} = nksip:find_app_id(registrar),
     [
         {
             #transport{proto = tcp, local_port = 5090,
@@ -511,7 +514,7 @@ outbound() ->
     [{<<"auto-1">>, false, _},{<<"auto-2">>, true, _}] = 
         lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (1/3)"),
-    wait_register(50),
+    wait_register(10),  % 50
 
     nksip_connection:stop(Pid2, normal),
     timer:sleep(50),

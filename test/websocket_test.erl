@@ -61,8 +61,8 @@ start1() ->
     ?debugFmt("Starting ~p", [?MODULE]).
 
 webserver() ->
-    {ok, WsA} = nksip:find_app(ws_a),
-    {ok, WsB} = nksip:find_app(ws_b),
+    {ok, WsA} = nksip:find_app_id(ws_a),
+    {ok, WsB} = nksip:find_app_id(ws_b),
     [
         {#transport{proto=ws, local_port=0, listen_port=_LP}, _},
         {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
@@ -157,8 +157,8 @@ stop2() ->
 
 
 basic() ->
-    {ok, UA2} = nksip:find_app(ua2),
-    {ok, S1} = nksip:find_app(server1),
+    {ok, UA2} = nksip:find_app_id(ua2),
+    {ok, S1} = nksip:find_app_id(server1),
 
     [] = nksip_transport:get_all_connected(S1),
     [] = nksip_transport:get_all_connected(UA2),
@@ -315,7 +315,7 @@ proxy() ->
 
     % Let's stop the transports
     [nksip_connection:stop(Pid, normal) || 
-        {_, Pid} <- nksip_transport:get_all_connected(element(2, nksip:find_app(server1)))],
+        {_, Pid} <- nksip_transport:get_all_connected(element(2, nksip:find_app_id(server1)))],
     timer:sleep(100),
 
     {ok, 430, []} = nksip_uac:options(ua1, C2Pub, 

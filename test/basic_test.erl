@@ -91,15 +91,15 @@ running() ->
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
-    {error, {invalid, {transport, _}}} = 
+    {error, {invalid_transport, _}} = 
         nksip:start(name, ?MODULE, none, [{transports, [{other, all, any}]}]),
-    {error, {invalid, {transport, _}}} = 
+    {error, {invalid_transport, _}} = 
         nksip:start(name, ?MODULE, none, [{transports, [{udp, {1,2,3}, any}]}]),
-    {error, {invalid, {nksip_registrar_min_time, -1}}} = 
+    {error, {invalid_config, nksip_registrar_min_time}} = 
         nksip:start(name, ?MODULE, none, 
                     [{plugins, [nksip_registrar]}, {nksip_registrar_min_time, -1}]),
 
-    {error, {invalid, {plugin, invalid}}} = 
+    {error, {invalid_plugin, invalid}} = 
         nksip:start(name, ?MODULE, none, [{plugins, [nksip_registrar, invalid]}]),
 
     ok.
@@ -189,7 +189,7 @@ transport() ->
 
 cast_info() ->
     % Direct calls to SipApp's core processing app
-    {ok, S1} = nksip:find_app(server1),
+    {ok, S1} = nksip:find_app_id(server1),
     Pid = nksip:get_pid(server1),
     true = is_pid(Pid),
     Pid = whereis(S1),

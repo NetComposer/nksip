@@ -96,7 +96,7 @@ basic() ->
     CB = {callback, fun ({req, R, _Call}) -> Self ! {Ref, R}; (_) -> ok end},
 
     % ua2 has a min_session_expires of 2
-    {error, {invalid, session_expires}} = 
+    {error, {invalid_config, session_expires}} = 
         nksip_uac:invite(ua2, "sip:any", [{session_expires, 1}]),
 
     % ua1 sends a INVITE to ua2, with session_expires=1

@@ -121,14 +121,14 @@ invalid(Test) ->
     {ok, 200, [{call_id, CallId1}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1", [contact, {meta, [call_id]}]),
     % The UAC has generated a transaction
-    {ok, C1Id} = nksip:find_app(C1),
+    {ok, C1Id} = nksip:find_app_id(C1),
     [{uac, _}] = nksip_call_router:get_all_transactions(C1Id, CallId1),
     case Test of
         stateless -> 
-            {ok, S1Id} = nksip:find_app(S1),
+            {ok, S1Id} = nksip:find_app_id(S1),
             [] = nksip_call_router:get_all_transactions(S1Id, CallId1);
         stateful -> 
-            {ok, S1Id} = nksip:find_app(S1),
+            {ok, S1Id} = nksip:find_app_id(S1),
             [{uas, _}] = 
                 nksip_call_router:get_all_transactions(S1Id, CallId1)
     end,
@@ -149,7 +149,7 @@ invalid(Test) ->
     % Force Forwards=0 using REGISTER
     CallId4 = nksip_lib:luid(),
     Work4 = {make, 'REGISTER', "sip:any", []},
-    {ok, C1Id} = nksip:find_app(C1),
+    {ok, C1Id} = nksip:find_app_id(C1),
     {ok, Req4, Opts4} = nksip_call_router:send_work_sync(C1Id, CallId4, Work4),
     {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 

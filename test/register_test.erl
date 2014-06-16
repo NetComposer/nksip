@@ -48,7 +48,7 @@ start() ->
         {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {supported, "100rel,timer,path"},        % No outbound
-        {registrar_min_time, 60}
+        {nksip_registrar_min_time, 60}
     ]),
 
     {ok, _} = nksip:start(client1, ?MODULE, client1, [
@@ -71,12 +71,12 @@ stop() ->
 
 
 register1() ->
-    Min = nksip_config:get(nksip_registrar_min_time),
+    Config = nksip:config(server1),
+    Min = nksip_lib:get_value(nksip_registrar_min_time, Config),
     MinB = nksip_lib:to_binary(Min),
-    Max = nksip_config:get(nksip_registrar_max_time),
+    Max = nksip_lib:get_value(nksip_registrar_max_time, Config),
     MaxB = nksip_lib:to_binary(Max),
-    Def = nksip_config:get(nksip_registrar_default_time),
-    DefB = nksip_lib:to_binary(Def),
+    DefB = nksip_lib:get_binary(nksip_registrar_default_time, Config),
     
     % Method not allowed
     {ok, 405, []} = nksip_uac:register(client2, "sip:127.0.0.1:5070", []),
@@ -89,14 +89,16 @@ register1() ->
     Ref = make_ref(),
     Self = self(),
 
-    CB = fun
-        ({req, Req1, _Call}) ->
-            FCallId1 = nksip_sipmsg:meta(call_id, Req1),
-            FCSeq1 = nksip_request:meta(cseq_num, Req1),
-            Self ! {Ref, {cb1_1, FCallId1, FCSeq1}};
-        ({resp, 200, Resp1, _Call}) ->
-            [FContact1] = nksip_response:header(<<"contact">>, Resp1),
-            Self ! {Ref, {cb1_2, FContact1}}
+    CB = fun(Term) ->
+        case Term of
+            ({req, Req1, _Call}) ->
+                FCallId1 = nksip_sipmsg:meta(call_id, Req1),
+                FCSeq1 = nksip_request:meta(cseq_num, Req1),
+                Self ! {Ref, {cb1_1, FCallId1, FCSeq1}};
+            ({resp, 200, Resp1, _Call}) ->
+                [FContact1] = nksip_response:header(<<"contact">>, Resp1),
+                Self ! {Ref, {cb1_2, FContact1}}
+        end
     end,
     {async, _} = nksip_uac:register(client1, "sip:127.0.0.1", 
                                     [async, {callback, CB}, contact, get_request]),
@@ -107,7 +109,7 @@ register1() ->
     [#uri{
         user = Name, 
         domain = Domain, 
-        port = Port, 
+        port = Port,
         ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, DefB}]
     }] = 
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
@@ -153,6 +155,7 @@ register1() ->
           ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, ExpB}]}] = 
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
 
+    {ok, Registrar} = nksip:find_app_id(server1),
     Expire = nksip_lib:timestamp()+Min,
     [#reg_contact{
             contact = #uri{
@@ -160,7 +163,7 @@ register1() ->
                 ext_opts=[{<<"+sip.instance">>, C1_UUID}, {<<"expires">>, ExpB}]}, 
             expire = Expire,
             q = 1.0
-    }] = nksip_registrar:get_info(server1, sip, <<"client1">>, <<"nksip">>),
+    }] = nksip_registrar_lib:get_info(Registrar, sip, <<"client1">>, <<"nksip">>),
 
 
 
@@ -169,7 +172,7 @@ register1() ->
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
     Request1 = #sipmsg{
-                app_id = element(2, nksip:find_app(server1)), 
+                app_id = element(2, nksip:find_app_id(server1)), 
                 from = {#uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>}, <<>>},
                 transport = #transport{
                                 proto = udp, 

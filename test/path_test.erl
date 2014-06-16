@@ -108,6 +108,8 @@ basic() ->
         nksip_uac:register(ua1, "sip:nksip", [supported, contact, {meta, [<<"path">>]}]),
     [P1, P2] = nksip_parse:uris(Path),
 
+    
+    {ok, Registrar} = nksip:find_app_id(registrar),
     [#reg_contact{
         contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},
         path = [
@@ -116,7 +118,7 @@ basic() ->
             #uri{scheme = sip,domain = <<"localhost">>,port = 5061,
                     opts = [{<<"transport">>,<<"tls">>}, <<"lr">>]} = P2Uri
         ]
-    }] = nksip_registrar:get_info(registrar, sip, <<"ua1">>, <<"nksip">>),
+    }] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
 
     P1 = P1Uri,
     P2 = P2Uri,

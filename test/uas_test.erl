@@ -123,7 +123,7 @@ auto() ->
     {ok, _} = nksip:start(server2, ?MODULE, server2, [
         {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5080}]},
-        {registrar_min_time, 1},
+        {nksip_registrar_min_time, 1},
         {plugins, [nksip_uac_auto]},
         {nksip_uac_auto_timer, 1}
     ]),
