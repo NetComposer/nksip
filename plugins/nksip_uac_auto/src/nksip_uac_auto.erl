@@ -55,13 +55,13 @@ deps() ->
 parse_config(PluginOpts, Config) ->
     Defaults = [
         {nksip_uac_auto_timer, 5},                     % (secs)
-        {nksip_uac_auto_expires, 300},                 % (secs)
+        {nksip_uac_auto_register_expires, 300},        % (secs)
         {nksip_uac_auto_outbound_all_fail, 30},        % (secs)
         {nksip_uac_auto_outbound_any_ok, 90},          % (secs)
         {nksip_uac_auto_outbound_max_time, 1800}       % (secs)
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    nksip_registrar_lib:parse_config(PluginOpts1, [], Config).
+    nksip_uac_auto_lib:parse_config(PluginOpts1, [], Config).
 
 
 

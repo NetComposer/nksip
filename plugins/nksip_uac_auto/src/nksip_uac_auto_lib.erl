@@ -41,12 +41,12 @@ parse_config([], Unknown, Config) ->
 
 parse_config([Term|Rest], Unknown, Config) ->
     Op = case Term of
-        {register, Register} ->
+        {nksip_uac_auto_register, Register} ->
             case nksip_parse:uris(Register) of
                 error -> error;
                 Uris -> {update, Uris}
             end;
-        {register_expires, Expires} ->
+        {nksip_uac_auto_register_expires, Expires} ->
             case is_integer(Expires) andalso Expires>0 of
                 true -> update;
                 false -> error
@@ -85,7 +85,7 @@ parse_config([Term|Rest], Unknown, Config) ->
             Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
             parse_config(Rest, Unknown, Config1);
         error ->
-            {error, Term};
+            {error, {invalid_config, element(1, Term)}};
         unknown ->
             parse_config(Rest, [Term|Unknown], Config)
     end.

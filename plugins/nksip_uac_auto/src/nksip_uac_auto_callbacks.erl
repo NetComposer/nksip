@@ -39,8 +39,8 @@ nkcb_init(AppId, PluginsState) ->
     Config = AppId:config(),
     Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
-    RegTime = nksip_lib:get_integer(nksip_uac_auto_expires, Config),
-    case nksip_lib:get_value(register, Config) of
+    RegTime = nksip_lib:get_integer(nksip_uac_auto_register_expires, Config),
+    case nksip_lib:get_value(nksip_uac_auto_register, Config) of
         undefined ->
             ok;
         RegUris ->
@@ -59,7 +59,7 @@ nkcb_init(AppId, PluginsState) ->
     State = #state{
         app_id = AppId, 
         outbound = lists:member(<<"outbound">>, Supported),
-        ob_base_time = nksip_lib:get_value(nksip_uac_outbound_any_ok, Config),
+        ob_base_time = nksip_lib:get_value(nksip_uac_auto_outbound_any_ok, Config),
         pos = 1,
         pings = [], 
         regs = []
