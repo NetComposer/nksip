@@ -402,7 +402,7 @@ refresh(Id, Opts) ->
          Error :: unknown_core | invalid_uri | no_host | service_unavailable.
 
 stun(App, UriSpec, _Opts) ->
-    case nksip:find_app(App) of
+    case nksip:find_app_id(App) of
         {ok, AppId} ->
             case nksip_transport:get_listening(AppId, udp, ipv4) of
                 [] -> 

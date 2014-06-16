@@ -53,7 +53,7 @@
     {ok, reg_publish()} | {error, term()}.
 
 find(App, AOR, Tag) ->
-    {ok, AppId} = nksip:find_app(App),
+    {ok, AppId} = nksip:find_app_id(App),
     case callback(AppId, {get, AOR, Tag}) of
         #reg_publish{} = Reg -> {ok, Reg};
         Other -> {error, Other}

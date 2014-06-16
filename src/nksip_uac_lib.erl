@@ -37,7 +37,7 @@
     nksip_uac:result() | {error, nksip_uac:error()}.
 
 send(App, Method, Uri, Opts) ->
-    case nksip:find_app(App) of
+    case nksip:find_app_id(App) of
         {ok, AppId} -> nksip_call:send(AppId, Method, Uri, Opts);
         not_found -> {error, sipapp_not_found}
     end.
@@ -333,7 +333,7 @@ parse_opts([Term|Rest], Req, Opts) ->
                         true -> 
                             ignore;
                         false -> 
-                            throw({invalid, Term})
+                            throw({invalid_config, min_cseq})
                     end;
                 true ->
                     move_to_last
@@ -359,7 +359,7 @@ parse_opts([Term|Rest], Req, Opts) ->
                     (is_list(Realm0) orelse is_binary(Realm0)) ->
                     {nksip_lib:to_binary(Realm0), nksip_lib:to_binary(Pass0)};
                 _ ->
-                    throw({invalid, Term})
+                    throw({invalid_config, pass})
             end,
             Passes0 = nksip_lib:get_value(passes, Opts, []),
             Passes1 = lists:keystore(Realm1, 1, Passes0, {Realm1, Pass1}),
@@ -437,13 +437,13 @@ parse_opts([Term|Rest], Req, Opts) ->
         {session_expires, {SE, Refresh}} when is_integer(SE) ->
             case AppId:config_min_session_expires() of
                 MinSE when SE<MinSE -> 
-                    throw({invalid, Term});
+                    throw({invalid_config, session_expires});
                 _ when Refresh==undefined -> 
                     {replace, <<"session-expires">>, SE};
                 _ when Refresh==uac; Refresh==uas -> 
                     {replace, <<"session-expires">>, {SE, [{<<"refresher">>, Refresh}]}};
                 _ ->
-                    throw({invalid, Term})
+                    throw({invalid_config, session_expires})
             end;
 
         % Event options
@@ -474,7 +474,7 @@ parse_opts([Term|Rest], Req, Opts) ->
                         {<<"reason">>, nksip_lib:to_binary(Reason)},
                         {<<"retry-after">>, Retry}]};                
                 _ ->
-                    throw({invalid, Term})
+                    throw({invalid_config, session_state})
             end,
             {replace, <<"subscription-state">>, Value};
         {refer_to, Url} ->
@@ -484,8 +484,10 @@ parse_opts([Term|Rest], Req, Opts) ->
         {sip_if_match, ETag} ->
             {replace, <<"sip-if-match">>, nksip_lib:to_binary(ETag)};
 
+        _ when is_tuple(Term) ->
+            throw({invalid_config, element(1, Term)});
         _ ->
-            throw({invalid, Term})
+            throw({invalid_config, Term})
     end,
     case Op of
         {add, AddName, AddValue} ->

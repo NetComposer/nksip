@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([authorize_data/2, realms/1, make_ha1/3]).
--export([make_request/3, make_response/2]).
+-export([make_request/3, make_response/2, get_authentication/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").

@@ -132,9 +132,6 @@ init([]) ->
     ?MODULE:put(current_cseq, nksip_lib:cseq()-?MINUS_CSEQ),
     case parse_config(application:get_all_env(nksip), []) of
         {ok, EnvConfig1} ->
-
-            ?P("ENV: ~p", [EnvConfig1]),
-
             EnvConfig2 = nksip_lib:defaults(EnvConfig1, default_config()),
             GlobalOpts = [Key || {Key, _} <- default_config()],
             AppConfig = nksip_lib:delete(EnvConfig2, 
@@ -270,6 +267,8 @@ parse_config([Term|Rest], Opts) ->
         update -> 
             Opts1 = nksip_lib:store_value(Term, Opts),
             parse_config(Rest, Opts1);
+        error when is_tuple(Term) ->
+            {error, {invalid, element(1, Term)}};
         error ->
             {error, {invalid, Term}}
     end.

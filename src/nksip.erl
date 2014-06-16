@@ -25,7 +25,7 @@
 
 -export([start/4, stop/1, stop_all/0, get_all/0, update/2]).
 -export([get/2, get/3, put/3, del/2]).
--export([get_pid/1, find_app/1, call/3, call/2, cast/2]).
+-export([get_pid/1, find_app_id/1, call/3, call/2, cast/2, config/1]).
 -export([get_uuid/1, get_gruu_pub/1, get_gruu_temp/1]).
 
 -include("nksip.hrl").
@@ -178,7 +178,7 @@ start(AppName, Module, Args, Opts) ->
     ok | {error, term()}.
 
 stop(App) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} ->
             case nksip_sup:stop_sipapp(AppId) of
                 ok -> 
@@ -205,7 +205,7 @@ stop_all() ->
     {ok, app_id()} | {error, term()}.
 
 update(App, Opts) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
             Opts2 = AppId:config() ++ Opts1,
@@ -230,7 +230,7 @@ get_all() ->
     {ok, term()} | undefined | {error, term()}.
 
 get(App, Key) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> nksip_sipapp_srv:get(AppId, Key);
         not_found -> {error, not_found}
     end.
@@ -253,7 +253,7 @@ get(AppId, Key, Default) ->
     ok | {error, term()}.
 
 put(App, Key, Value) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> nksip_sipapp_srv:put(AppId, Key, Value);
         not_found -> {error, not_found}
     end.
@@ -264,7 +264,7 @@ put(App, Key, Value) ->
     ok | {error, term()}.
 
 del(App, Key) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> nksip_sipapp_srv:del(AppId, Key);
         not_found -> {error, not_found}
     end.
@@ -275,7 +275,7 @@ del(App, Key) ->
     pid() | undefined.
 
 get_pid(App) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> whereis(AppId);
         _ -> undefined
     end.
@@ -294,7 +294,7 @@ call(App, Term) ->
     term().
 
 call(App, Term, Time) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> 
             Time1 = case Time of 
                 default -> nksip_config_cache:sync_call_time();
@@ -311,17 +311,17 @@ call(App, Term, Time) ->
     term().
 
 cast(App, Term) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> gen_server:cast(AppId, Term);
         not_found -> error(sipapp_not_found)
     end.
 
 
 %% @doc Gets the internal name of an existing SipApp
--spec find_app(term()) ->
+-spec find_app_id(term()) ->
     {ok, app_id()} | not_found.
 
-find_app(App) when is_atom(App) ->
+find_app_id(App) when is_atom(App) ->
     case erlang:function_exported(App, config_local_host, 0) of
         true ->
             {ok, App};
@@ -332,12 +332,22 @@ find_app(App) when is_atom(App) ->
             end
     end;
 
-find_app(App) ->
+find_app_id(App) ->
     case nksip_proc:values({nksip_sipapp_name, App}) of
         [] -> not_found;
         [{AppId, _}] -> {ok, AppId}
     end.
 
+
+%% @doc Gets current SipApp configuration
+-spec config(app_name()|app_id()) ->
+    nksip:optslist().
+
+config(App) ->
+    case find_app_id(App) of
+        {ok, AppId} -> AppId:config();
+        not_found -> error(sipapp_not_found)
+    end.
 
 
 %% @doc Gets SipApp's UUID
@@ -345,7 +355,7 @@ find_app(App) ->
     {ok, binary()} | {error, term()}.
 
 get_uuid(App) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} ->
             [{UUID, _Pid}] = nksip_proc:values({nksip_sipapp_uuid, AppId}),
             {ok, <<"<urn:uuid:", UUID/binary, ">">>};
@@ -359,7 +369,7 @@ get_uuid(App) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(App) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> 
             case nksip_config:get({nksip_gruu_pub, AppId}) of
                 undefined -> undefined;
@@ -375,7 +385,7 @@ get_gruu_pub(App) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(App) ->
-    case find_app(App) of
+    case find_app_id(App) of
         {ok, AppId} -> 
             case nksip_config:get({nksip_gruu_temp, AppId}) of
                 undefined -> undefined;

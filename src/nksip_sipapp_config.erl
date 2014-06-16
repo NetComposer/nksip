@@ -117,10 +117,10 @@ sort_plugins([Name|Rest], PlugList) when is_atom(Name) ->
                                     sort_plugins([BasePlugin, Name|Rest], PlugList)
                             end;
                         _ ->
-                            throw({invalid, {plugin, Name}})
+                            throw({invalid_plugin, Name})
                     end;
                 _ ->
-                    throw({invalid, {plugin, Name}})
+                    throw({invalid_plugin, Name})
             end
     end;
 
@@ -252,7 +252,7 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
                     (is_list(Realm0) orelse is_binary(Realm0)) ->
                     {nksip_lib:to_binary(Realm0), nksip_lib:to_binary(Pass0)};
                 _ ->
-                    throw({invalid, Term})
+                    throw({invalid_config, pass})
             end,
             Passes0 = nksip_lib:get_value(passes, Opts, []),
             Passes1 = lists:keystore(Realm1, 1, Passes0, {Realm1, Pass1}),
@@ -299,7 +299,8 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
                 update -> {element(1, Term), element(2, Term)};
                 {update, Val1} -> {element(1, Term), Val1};
                 {update, Key1, Val1} -> {Key1, Val1};
-                error -> throw({invalid, Term})
+                error when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
+                error -> throw({invalid_config, Term})
             end,
             {lists:keystore(Key, 1, Opts, {Key, Val}), RestOpts}
     end,
@@ -324,7 +325,7 @@ parse_plugins_opts([Plugin|RestPlugins], ConfigOpts, PluginOpts) ->
                     % ?P("OK: ~p, ~p", [PluginOpts1, ConfigOpts1]),
                     parse_plugins_opts(RestPlugins, ConfigOpts1, PluginOpts1);
                 {error, Error} ->
-                    throw({invalid, Error})
+                    throw(Error)
             end;
         false ->
             parse_plugins_opts(RestPlugins, ConfigOpts, PluginOpts)
@@ -340,7 +341,7 @@ parse_transports([Transport|Rest], Acc) ->
     case Transport of
         {Scheme, Ip, Port} -> TOpts = [];
         {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
-        _ -> Scheme=Ip=Port=TOpts=throw({invalid, {transport, Transport}})
+        _ -> Scheme=Ip=Port=TOpts=throw({invalid_transport, Transport})
     end,
     case 
         (Scheme==udp orelse Scheme==tcp orelse 
@@ -348,7 +349,7 @@ parse_transports([Transport|Rest], Acc) ->
          Scheme==ws  orelse Scheme==wss)
     of
         true -> ok;
-        false -> throw({invalid, {transport, Transport}})
+        false -> throw({invalid_transport, Transport})
     end,
     Ip1 = case Ip of
         all ->
@@ -357,20 +358,20 @@ parse_transports([Transport|Rest], Acc) ->
             {0,0,0,0,0,0,0,0};
         _ when is_tuple(Ip) ->
             case catch inet_parse:ntoa(Ip) of
-                {error, _} -> throw({invalid, {transport, Transport}});
-                {'EXIT', _} -> throw({invalid, {transport, Transport}});
+                {error, _} -> throw({invalid_transport, Transport});
+                {'EXIT', _} -> throw({invalid_transport, Transport});
                 _ -> Ip
             end;
         _ ->
             case catch nksip_lib:to_ip(Ip) of
                 {ok, PIp} -> PIp;
-                _ -> throw({invalid, {transport, Transport}})
+                _ -> throw({invalid_transport, Transport})
             end
     end,
     Port1 = case Port of
         any -> 0;
         _ when is_integer(Port), Port >= 0 -> Port;
-        _ -> throw({invalid, {transport, Transport}})
+        _ -> throw({invalid_transport, Transport})
     end,
     parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
 
