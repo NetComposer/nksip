@@ -83,7 +83,7 @@ find(App, {Scheme, User, Domain}) ->
     find(App, Scheme, User, Domain);
 
 find(App, Uri) ->
-    case nksip:find_app(App) of
+    case nksip:find_app_id(App) of
         {ok, AppId} -> nksip_registrar_lib:find(AppId, Uri);
         _ -> []
     end.
@@ -94,7 +94,7 @@ find(App, Uri) ->
     [nksip:uri()].
 
 find(App, Scheme, User, Domain) ->
-    case nksip:find_app(App) of
+    case nksip:find_app_id(App) of
         {ok, AppId} -> nksip_registrar_lib:find(AppId, Scheme, User, Domain);
         _ -> []
     end.
@@ -115,7 +115,7 @@ qfind(App, {Scheme, User, Domain}) ->
     nksip:uri_set().
 
 qfind(App, Scheme, User, Domain) ->
-    case nksip:find_app(App) of
+    case nksip:find_app_id(App) of
         {ok, AppId} -> nksip_registrar_lib:qfind(AppId, Scheme, User, Domain);
         _ ->
             []
@@ -127,7 +127,7 @@ qfind(App, Scheme, User, Domain) ->
     ok | not_found | callback_error.
 
 delete(App, Scheme, User, Domain) ->
-    case nksip:find_app(App) of
+    case nksip:find_app_id(App) of
         {ok, AppId} ->
             AOR = {
                 nksip_parse:scheme(Scheme), 
@@ -191,7 +191,7 @@ request(Req) ->
     ok | callback_error | sipapp_not_found.
 
 clear(App) -> 
-    case nksip:find_app(App) of
+    case nksip:find_app_id(App) of
         {ok, AppId} ->
             case nksip_registrar_lib:store_del_all(AppId) of
                 ok -> ok;

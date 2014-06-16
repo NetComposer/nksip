@@ -26,7 +26,8 @@
 -include("../../../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([parse_config/3, find/2, find/4, qfind/4, is_registered/2, request/1]).
+-export([find/2, find/4, qfind/4, is_registered/2, request/1]).
+-export([parse_config/3, get_info/4]).
 -export([store_get/2, store_del/2, store_del_all/1]).
 -export_type([reg_contact/0, index/0]).
 
@@ -93,7 +94,7 @@ parse_config([Term|Rest], Unknown, Config) ->
             Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
             parse_config(Rest, Unknown, Config1);
         error ->
-            {error, Term};
+            {error, {invalid_config, element(1, Term)}};
         unknown ->
             parse_config(Rest, [Term|Unknown], Config)
     end.
@@ -418,7 +419,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         #reg_contact{next_tmp_pos=Next} ->
             ExtOpts2 = case 
                 InstId /= <<>> andalso RegId == <<>> andalso 
-                Expires>0 andalso lists:member({registrar_gruu, true}, Opts)
+                Expires>0 andalso lists:member({gruu, true}, Opts)
             of
                 true ->
                     case Scheme of
