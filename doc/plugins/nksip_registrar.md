@@ -2,17 +2,15 @@
 
 ## Description
 
-This plugin implemts includes a full registrar implementation according to RFC3261. _Path_ is also supported according to RFC3327.
-
+This plugin implemts includes a full registrar implementation according to RFC3261. _Path_ is also supported, according to RFC3327.
+,
 It uses by default the buil-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/3](#sip_registrar_store3).
 
-Each started SipApp maintains its fully independent set of registrations.
+Each started SipApp activating this pluign maintains a fully independent set of registrations.
 
-When a new _REGISTER_ request arrives at a SipApp, and if you order to `process` the request in `sip_route/6` callback, NkSIP will try to call `sip_register/3` callback if it is defined. If it is not defined, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
+When a new _REGISTER_ request arrives at a SipApp, and if you order to `process` the request in [sip_route/6](../reference/callback_functions.md#sip_route5) callback, NkSIP will try to call [sip_register/3](../reference/callback_functions.md#sip_register3) callback if it is defined in yor SipApp's callback module. If it is not defined there, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
 
-Use [find/4](#find4) or [qfind/4](qfind4) to search for a specific registration's 
-contacts, and [is_registered/1](is_registered1) to check if the _Request-URI_ of a 
-specific request is registered.
+Use [find/4](#find4) or [qfind/4](qfind4) to search for a specific registration's contacts, and [is_registered/1](#is_registered1) to check if the _Request-URI_ of a specific request is registered.
 
 
 ## Dependant plugins
@@ -24,21 +22,115 @@ None
 
 Option|Default|Description
 ---|---|---
-
-
-
+nksip_registrar_default_time|3600 (1h)|Default registration expiration
+nksip_registrar_min_time|60 (1m)|Minimum registration expiration
+nksip_registrar_max_time|86400 (24h)|Maximum registration expiration
 
 
 ## API functions
 
-### start_register/5 
+### find/2
 
 ```erlang
-nksip_uac_auto:start_register(nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(), 
-								    Time::pos_integer(), Opts::nksip:optslist()) -> 
-    {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
+-spec find(nksip:app_name()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
+    [nksip:uri()].
 ```
 
+Finds the registered contacts for this SipApp and _AOR_ or _Uri_, for example `nksip_registrar:find(my_app, "sip:user@domain")` or `nksip_registrar:find("my_other_app", {sip, <<"user">>, <<"domain">>})`
+
+
+### find/4
+
+```erlanf
+-spec find(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+    [nksip:uri()].
+```
+
+Similar to `find/2`.
+
+
+### qfind/2
+
+```erlang
+-spec qfind(nksip:app_name()|nksip:app_id(), AOR::nksip:aor()) ->
+    nksip:uri_set().
+```
+
+Gets all current registered contacts for an AOR, aggregated on Q values.
+You can use this function to generate a parallel and/o serial proxy request. For example, you could implement the following [sip_route/6](../reference/callback_functions.md#sip_route5) callback function:
+
+```erlang
+sip_route(Scheme, User, Domain, Req, _Call) -> 
+    case Domain of
+    	<<"nksip">> when User == <<>> ->
+            process;
+        <<"nksip">> ->
+            case nksip_registrar:qfind(my_registrar, Scheme, User, Domain) of
+                [] -> {reply, temporarily_unavailable};
+                UriList -> {proxy, UriList, Opts}
+            end;
+        false ->
+            {reply, forbidden}
+    end.
+```
+
+Using this example, when a new request arrives at our proxy for domain <<"nksip">> and having an user, will be forked to all registered contacts, launching in parallel contacts having the same 'q' value.
+
+
+### qfind/4
+
+```erlang
+-spec qfind(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+    nksip:uri_set().
+```
+
+Similar to `qfind/2`
+
+
+### delete/4
+
+```erlanf
+-spec delete(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+    ok | not_found | callback_error.
+```
+
+Deletes all registered contacts for an _AOR_.
+
+
+### is_registered/1
+
+```erlang
+-spec is_registered(Req::nksip:request()) ->
+    boolean().
+```
+
+Finds if a the request has a _From_ header that has been already registered using the same transport, ip and port, or have a registered _Contact_ header  having the same received transport, ip and port.
+
+
+### process/1
+
+```erlang
+-spec request(nksip:request()) ->
+    nksip:sipreply().
+```
+
+Call this function to process and incoming _REGISTER_ request. It returns an appropiate response, depending on the registration result.
+If the Expires_ header is 0, the indicated _Contact_ will be unregistered. If _Contact_ header is `*', all previous contacts will be unregistered.
+The requested _Contact_ will replace a previous registration if it has the same `reg-id` and `+sip_instace` values, or has the same transport scheme,
+protocol, user, domain and port.
+
+If the request is successful, a 200-code `nksip:sipreply()` is returned, including one or more _Contact_ headers (for all of the current registered contacts), _Date_ and _Allow_ headers.
+
+
+For example, you could implement the following [sip_reigster/2](../reference/callback_functions.md#sip_register2) callback function:
+
+```erlang
+sip_register(Req, _Call) ->
+	case nksip_request:meta(domain, Req) of
+		<<"nksip">> -> {reply, nksip_registrar:process(Req)};
+		_ -> {reply, forbidden}
+	end.
+```
 
 
 ## Callback functions
@@ -57,4 +149,22 @@ You can implement any of these callback functions in your SipApp callback module
 
 If implemented, it will called each time a registration serie changes its state.
 
+
+## Available application callback functions
+
+### sip_registrar_store
+
+```erlang
+-spec sip_registrar_store(StoreOp, AppId) ->
+    [RegContact] | ok | not_found when 
+        StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
+                   {del, AOR} | del_all,
+        AppId :: nksip:app_id(),
+        AOR :: nksip:aor(),
+        RegContact :: nksip_registrar_lib:reg_contact(),
+        TTL :: integer().
+```
+
+Implement this callback function in your callback function to use a different store thant then defaut RAM-only storage.
+See the [default implementation](../../plugins/nksip_registrar/nksip_registrar_sipapp.erl) as a basis. 
 
