@@ -22,8 +22,8 @@
 -module(nksip_uac_auto).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_ping/5, stop_ping/2, get_pings/1]).
--export([start_register/5, stop_register/2, get_registers/1]).
+-export([start_ping/4, stop_ping/2, get_pings/1]).
+-export([start_register/4, stop_register/2, get_registers/1]).
 -export([version/0, deps/0, parse_config/2]).
 
 
@@ -55,13 +55,10 @@ deps() ->
 parse_config(PluginOpts, Config) ->
     Defaults = [
         {nksip_uac_auto_timer, 5},                     % (secs)
-        {nksip_uac_auto_register_expires, 300},        % (secs)
-        {nksip_uac_auto_outbound_all_fail, 30},        % (secs)
-        {nksip_uac_auto_outbound_any_ok, 90},          % (secs)
-        {nksip_uac_auto_outbound_max_time, 1800}       % (secs)
+        {nksip_uac_auto_register_expires, 300}         % (secs)
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    nksip_uac_auto_lib:parse_config(PluginOpts1, [], Config).
+    parse_config(PluginOpts1, [], Config).
 
 
 
@@ -71,18 +68,28 @@ parse_config(PluginOpts, Config) ->
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
-                        nksip:optslist()) -> 
-    {ok, boolean()} | {error, invalid_uri}.
+-spec start_register(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), 
+                     nksip:optslist()) -> 
+    {ok, boolean()} | {error, term()}.
 
-start_register(App, RegId, Uri, Time, Opts) 
-                when is_integer(Time), Time > 0, is_list(Opts) ->
-    case nksip_parse:uris(Uri) of
-        [ValidUri] -> 
-            Msg = {'$nksip_uac_auto_start_register', RegId, ValidUri, Time, Opts},
-            nksip:call(App, Msg);
-        _ -> 
-            {error, invalid_uri}
+start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
+    try
+        case nksip:find_app_id(App) of
+            {ok, AppId} -> ok;
+            _ -> AppId = throw(invalid_app)
+        end,
+        case nksip_uac_lib:make(AppId, 'REGISTER', Uri, Opts) of
+            {ok, _, _} -> ok;
+            {error, MakeError} -> throw(MakeError)
+        end,
+        case lists:keymember(meta, 1, Opts) of
+            true -> throw(meta_not_allowed);
+            false -> ok
+        end,
+        Msg = {'$nksip_uac_auto_start_register', RegId, Uri, Opts},
+        nksip:call(App, Msg)
+    catch
+        throw:Error -> {error, Error}
     end.
 
 
@@ -104,18 +111,29 @@ get_registers(App) ->
 
 
 %% @doc Starts a new automatic ping serie.
--spec start_ping(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
-                    nksip:optslist()) -> 
+-spec start_ping(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), 
+                 nksip:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri}.
 
-start_ping(App, PingId, Uri, Time, Opts) 
-            when is_integer(Time), Time > 0, is_list(Opts) ->
-    case nksip_parse:uris(Uri) of
-        [ValidUri] -> 
-            Msg = {'$nksip_uac_auto_start_ping', PingId, ValidUri, Time, Opts},
-            nksip:call(App, Msg);
-        _ -> 
-            {error, invalid_uri}
+
+start_ping(App, RegId, Uri, Opts) when is_list(Opts) ->
+    try
+        case nksip:find_app_id(App) of
+            {ok, AppId} -> ok;
+            _ -> AppId = throw(invalid_app)
+        end,
+        case nksip_uac_lib:make(AppId, 'OPTIONS', Uri, Opts) of
+            {ok, _, _} -> ok;
+            {error, MakeError} -> throw(MakeError)
+        end,
+        case lists:keymember(meta, 1, Opts) of
+            true -> throw(meta_not_allowed);
+            false -> ok
+        end,
+        Msg = {'$nksip_uac_auto_start_ping', RegId, Uri, Opts},
+        nksip:call(App, Msg)
+    catch
+        throw:Error -> {error, Error}
     end.
 
 
@@ -135,3 +153,52 @@ get_pings(App) ->
     nksip:call(App, '$nksip_uac_auto_get_pings').
 
 
+%% ===================================================================
+%% Private
+%% ===================================================================
+
+
+% @private
+-spec parse_config(PluginConfig, Unknown, Config) ->
+    {ok, Unknown, Config} | {error, term()}
+    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
+         Config::nksip:optslist().
+
+parse_config([], Unknown, Config) ->
+    {ok, Unknown, Config};
+
+parse_config([Term|Rest], Unknown, Config) ->
+    Op = case Term of
+        {nksip_uac_auto_register, Register} ->
+            case nksip_parse:uris(Register) of
+                error -> error;
+                Uris -> {update, Uris}
+            end;
+        {nksip_uac_auto_register_expires, Expires} ->
+            case is_integer(Expires) andalso Expires>0 of
+                true -> update;
+                false -> error
+            end;
+        {nksip_uac_auto_timer, Timer} ->
+            case is_integer(Timer) andalso Timer>0 of
+                true -> update;
+                false -> error
+            end;
+        _ ->
+            unknown
+    end,
+    case Op of
+        update ->
+            Key = element(1, Term),
+            Val = element(2, Term),
+            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
+            parse_config(Rest, Unknown, Config1);
+        {update, Val} ->
+            Key = element(1, Term),
+            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
+            parse_config(Rest, Unknown, Config1);
+        error ->
+            {error, {invalid_config, element(1, Term)}};
+        unknown ->
+            parse_config(Rest, [Term|Unknown], Config)
+    end.

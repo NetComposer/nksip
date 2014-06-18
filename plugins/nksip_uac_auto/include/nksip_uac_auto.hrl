@@ -21,7 +21,6 @@
 
 -record(sipreg, {
     id :: term(),
-    pos :: integer(),
     ruri :: nksip:uri(),
     opts :: nksip:optslist(),
     call_id :: nksip:call_id(),
@@ -29,19 +28,12 @@
     from :: any(),
     cseq :: nksip:cseq(),
     next :: nksip_lib:timestamp(),
-    ok :: boolean(),
-    req_pid :: pid(),
-    conn_monitor :: reference(),
-    conn_pid :: pid(),
-    fails :: non_neg_integer()
+    ok :: boolean()
 }).
 
 
 -record(state, {
     app_id :: nksip:app_id(),
-    outbound :: boolean(),
-    ob_base_time :: pos_integer(),     % For outbound support
-    pos :: integer(),
     pings :: [#sipreg{}],
     regs :: [#sipreg{}]
 }).
