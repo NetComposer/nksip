@@ -43,10 +43,14 @@
 -define(MAX_DIALOG_TIME, 30*60).
 
 
-
-
--define(DO_LOG(Level, App, CallId, Text, Opts),
-    lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])).
+-define(
+    DO_LOG(Level, App, CallId, Text, Opts),
+    case CallId of
+        <<>> ->
+            lager:Level([{app, App}], "~p "++Text, [App, CallId|Opts]);
+        _ -> 
+            lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])
+    end).
 
 
 

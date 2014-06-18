@@ -28,6 +28,7 @@
 
 -export([get/2, put/3, put_new/3, del/2]).
 -export([get_appid/1, get_name/1, config/1, pending_msgs/0]).
+-export([get_plugin_state/2, set_plugin_state/3]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
 
@@ -123,6 +124,20 @@ pending_msgs() ->
             {Name, Len}
         end,
         nksip_proc:values(nksip_sipapps)).
+
+
+%% @private
+get_plugin_state(Plugin, [{Plugin, PluginState}|_]) -> 
+    PluginState;
+get_plugin_state(Plugin, [_|Rest]) -> 
+    get_plugin_state(Plugin, Rest).
+
+
+%% @private
+set_plugin_state(Plugin, PluginState, [{Plugin, _}|Rest]) ->
+    [{Plugin, PluginState}|Rest];
+set_plugin_state(Plugin, PluginState, State) ->
+    lists:keystore(Plugin, 1, State, {Plugin, PluginState}).
 
 
 

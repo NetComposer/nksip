@@ -373,7 +373,12 @@ parse_opts([Term|Rest], Req, Opts) ->
         {Name, Value} when Name==record_flow; Name==route_flow ->
             {update, Req, [{Name, Value}|Opts]};
         {meta, List} when is_list(List) ->
-            {update, Req, [{meta,List}|Opts]};
+            case lists:keyfind(meta, 1, Opts) of
+                false -> 
+                    {update, Req, [{meta, List}|Opts]};
+                List0 ->
+                    {update, Req, lists:keystore(meta, 1, Opts, {meta, List0++List})}
+            end;
         {local_host, auto} ->
             {update, Req, [{local_host, auto}|Opts]};
         {local_host, Host} ->

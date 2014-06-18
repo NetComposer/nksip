@@ -38,7 +38,7 @@
     from | from_tag | from_scheme | from_user | from_domain | 
     to | to_tag | to_scheme | to_user | to_domain | 
     cseq_num | cseq_method | forwards | routes | contacts | require | supported | 
-    expires | event | refer_to | realms | rseq_num | rack | 
+    expires | retry_after | event | refer_to | realms | rseq_num | rack | 
     {header, string()|binary()} | all_headers | string()|binary().
 
 
@@ -116,6 +116,12 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
         require -> S#sipmsg.require;
         supported -> S#sipmsg.supported;
         expires -> S#sipmsg.expires;
+        retry_after -> 
+            case header(<<"retry-after">>, S, integers) of
+                [] -> undefined;
+                [Retry] -> Retry;
+                _ -> error
+            end;
         event -> S#sipmsg.event;
         refer_to -> 
             case header(<<"refer-to">>, S, uris) of
