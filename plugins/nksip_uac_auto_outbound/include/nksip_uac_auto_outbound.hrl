@@ -22,6 +22,7 @@
 -record(sipreg_ob, {
     id :: term(),
     pos :: integer(),
+    cseq :: nksip:cseq(),
     req_pid :: pid(),
     conn_monitor :: reference(),
     conn_pid :: pid(),

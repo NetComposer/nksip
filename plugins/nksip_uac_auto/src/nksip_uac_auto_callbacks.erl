@@ -24,9 +24,9 @@
 
 -export([nkcb_init/2, nkcb_handle_call/4, nkcb_handle_cast/3, 
          nkcb_handle_info/3, nkcb_terminate/3]).
--export([nkcb_uac_auto_launch_register/2, nkcb_uac_auto_launch_unregister/2, 
+-export([nkcb_uac_auto_launch_register/4, nkcb_uac_auto_launch_unregister/4, 
          nkcb_uac_auto_update_register/4, 
-         nkcb_uac_auto_launch_ping/2, nkcb_uac_auto_update_ping/4]).
+         nkcb_uac_auto_launch_ping/3, nkcb_uac_auto_update_ping/4]).
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
@@ -106,8 +106,9 @@ nkcb_handle_call(AppId, {'$nksip_uac_auto_stop_register', RegId},
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, Reg, Regs1} -> 
             gen_server:reply(From, ok),
-            spawn(fun() -> AppId:nkcb_uac_auto_launch_unregister(AppId, Reg, ) end),
-            {ok, set_state(State#state{regs=Regs1}, AllState)};
+            {ok, AllState1} = 
+                AppId:nkcb_uac_auto_launch_unregister(AppId, Reg, false, AllState),
+            {ok, set_state(State#state{regs=Regs1}, AllState1)};
         false -> 
             gen_server:reply(From, not_found),
             {ok, AllState}
@@ -184,20 +185,22 @@ nkcb_handle_call(_AppId, _Msg, _From, _AllState) ->
 
 %% @private
 nkcb_handle_cast(AppId, {'$nksip_uac_auto_register_answer', RegId, Code, Meta}, 
-                   AllState) ->
+                 AllState) ->
     #state{regs=Regs} = State = get_state(AllState),
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OldOK}=Reg, Regs1} ->
-            #sipreg{ok=OK} = Reg1 = 
-                AppId:nkcb_uac_auto_update_register(Reg, Code, Meta, State),
-            case OK of
+            {ok, Reg1, AllState1} = 
+                AppId:nkcb_uac_auto_update_register(Reg, Code, Meta, AllState),
+            #sipreg{ok=Ok} = Reg1,
+            case Ok of
                 OldOK -> 
                     ok;
                 _ -> 
-                    AppId:nkcb_call(sip_uac_auto_register_update, [RegId, OK, AppId], AppId)
+                    AppId:nkcb_call(sip_uac_auto_register_update, 
+                                    [RegId, Ok, AppId], AppId)
             end,
             State1 = State#state{regs=[Reg1|Regs1]},
-            {ok, set_state(State1, AllState)};
+            {ok, set_state(State1, AllState1)};
         false ->
             {ok, AllState}
     end;
@@ -236,10 +239,10 @@ nkcb_handle_cast(_AppId, '$nksip_uac_auto_force_regs', AllState) ->
 nkcb_handle_cast(AppId, '$nksip_uac_auto_check', AllState) ->
     #state{pings=Pings, regs=Regs} = State = get_state(AllState),
     Now = nksip_lib:timestamp(),
-    Pings1 = check_pings(AppId, Now, Pings, []),
-    Regs1 = check_registers(AppId, Now, Regs, []),
+    {Pings1, AllState1} = check_pings(AppId, Now, Pings, [], AllState),
+    {Regs1, AllState2} = check_registers(AppId, Now, Regs, [], AllState1),
     State1 = State#state{pings=Pings1, regs=Regs1},
-    {ok, set_state(State1, AllState)};
+    {ok, set_state(State1, AllState2)};
 
 nkcb_handle_cast(_ApId, _Msg, _AllState) ->
     continue.
@@ -261,10 +264,12 @@ nkcb_handle_info(_AppId, _Msg, _AllState) ->
 nkcb_terminate(AppId, _Reason, AllState) ->  
     #state{regs=Regs} = get_state(AllState),
     lists:foreach(
-        fun(#sipreg{ok=Ok}=Reg) -> 
+        fun(#sipreg{ok=Ok}=Reg, Acc) -> 
             case Ok of
-                true -> AppId:nkcb_uac_auto_launch_unregister(AppId, Reg);
-                _ -> ok
+                true -> 
+                    AppId:nkcb_uac_auto_launch_unregister(AppId, Reg, true, Acc);
+                false ->
+                    ok
             end
         end,
         Regs),
@@ -278,10 +283,10 @@ nkcb_terminate(AppId, _Reason, AllState) ->
 
 
 %% @private
--spec nkcb_uac_auto_launch_register(nksip:app_id(), #sipreg{}) -> 
-    #sipreg{}.
+-spec nkcb_uac_auto_launch_register(nksip:app_id(), #sipreg{}, boolean(), list()) -> 
+    {ok, #sipreg{}, list()}.
 
-nkcb_uac_auto_launch_register(AppId, Reg)->
+nkcb_uac_auto_launch_register(AppId, Reg, Sync, AllState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,    
     Opts1 = [{cseq_num, CSeq}, {meta, [cseq_num, retry_after]}|Opts],
     Self = self(),
@@ -292,29 +297,37 @@ nkcb_uac_auto_launch_register(AppId, Reg)->
         end,
         gen_server:cast(Self, {'$nksip_uac_auto_register_answer', RegId, Code, Meta})
     end,
-    spawn_link(Fun),
-    Reg#sipreg{next=undefined}.
+    case Sync of
+        true -> Fun();
+        false -> spawn_link(Fun)
+    end,
+    {ok, Reg#sipreg{next=undefined}, AllState}.
     
 
 %% @private
--spec nkcb_uac_auto_launch_unregister(nksip:app_id(), #sipreg{}) -> 
-    ok.
+-spec nkcb_uac_auto_launch_unregister(nksip:app_id(), #sipreg{}, boolean(), list()) -> 
+    {ok, list()}.
 
-nkcb_uac_auto_launch_unregister(AppId, Reg)->
+nkcb_uac_auto_launch_unregister(AppId, Reg, Sync, AllState)->
     #sipreg{ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
     Opts1 = [{cseq_num, CSeq}|lists:keystore(expires, 1, Opts, {expires, 0})],
-    nksip_uac:register(AppId, RUri, Opts1),
-    ok.
+    Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
+    case Sync of
+        true -> Fun();
+        false -> spawn_link(Fun)
+    end,
+    {ok, AllState}.
 
    
 %% @private
--spec nkcb_uac_auto_update_register(#sipreg{}, nksip:sip_code(), nksip:optslist(), #state{}) ->
-    #sipreg{}.
+-spec nkcb_uac_auto_update_register(#sipreg{}, nksip:sip_code(), nksip:optslist(), 
+                                    list()) ->
+    {ok, #sipreg{}, list()}.
 
-nkcb_uac_auto_update_register(Reg, Code, _Meta, _State) when Code<200 ->
-    Reg;
+nkcb_uac_auto_update_register(Reg, Code, _Meta, AllState) when Code<200 ->
+    {ok, Reg, AllState};
 
-nkcb_uac_auto_update_register(Reg, Code, Meta, _State) ->
+nkcb_uac_auto_update_register(Reg, Code, Meta, AllState) ->
     #sipreg{interval=Interval, from=From} = Reg,
     case From of
         undefined -> ok;
@@ -325,21 +338,22 @@ nkcb_uac_auto_update_register(Reg, Code, Meta, _State) ->
         undefined -> Interval;
         Retry -> Retry
     end,
-    Reg#sipreg{
+    Reg1 = Reg#sipreg{
         ok = Code < 300,
         cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
         from = undefined,
         next = nksip_lib:timestamp() + Time
-    }.
+    },
+    {ok, Reg1, AllState}.
 
 
 %%%%%% Ping
 
 %% @private
--spec nkcb_uac_auto_launch_ping(nksip:app_id(), #sipreg{}) -> 
-    #sipreg{}.
+-spec nkcb_uac_auto_launch_ping(nksip:app_id(), #sipreg{}, list()) -> 
+    {ok, #sipreg{}, list()}.
 
-nkcb_uac_auto_launch_ping(AppId, Ping)->
+nkcb_uac_auto_launch_ping(AppId, Ping, AllState)->
     #sipreg{id=PingId, ruri=RUri, opts=Opts, cseq=CSeq} = Ping,
     Opts1 = [{cseq_num, CSeq}, {meta, [cseq_num, retry_after]} | Opts],
     Self = self(),
@@ -351,18 +365,18 @@ nkcb_uac_auto_launch_ping(AppId, Ping)->
         gen_server:cast(Self, {'$nksip_uac_auto_ping_answer', PingId, Code, Meta})
     end,
     spawn_link(Fun),
-    Ping#sipreg{next=undefined}.
+    {ok, Ping#sipreg{next=undefined}, AllState}.
 
 
    
 %% @private
--spec nkcb_uac_auto_update_ping(#sipreg{}, nksip:sip_code(), nksip:optslist(), #state{}) ->
-    #sipreg{}.
+-spec nkcb_uac_auto_update_ping(#sipreg{}, nksip:sip_code(), nksip:optslist(), list()) ->
+    {ok, #sipreg{}, list()}.
 
-nkcb_uac_auto_update_ping(Ping, Code, _Meta, _State) when Code<200 ->
-    Ping;
+nkcb_uac_auto_update_ping(Ping, Code, _Meta, AllState) when Code<200 ->
+    {ok, Ping, AllState};
 
-nkcb_uac_auto_update_ping(Ping, Code, Meta, _State) ->
+nkcb_uac_auto_update_ping(Ping, Code, Meta, AllState) ->
     #sipreg{from=From, interval=Interval} = Ping,
     case From of
         undefined -> ok;
@@ -373,12 +387,14 @@ nkcb_uac_auto_update_ping(Ping, Code, Meta, _State) ->
         undefined -> Interval;
         Retry -> Retry
     end,
-    Ping#sipreg{
+    Ping1 = Ping#sipreg{
         ok = Code < 300,
         cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
         from = undefined,
         next = nksip_lib:timestamp() + Time
-    }.
+    },
+    {ok, Ping1, AllState}.
+
 
 
 %% ===================================================================
@@ -386,31 +402,33 @@ nkcb_uac_auto_update_ping(Ping, Code, Meta, _State) ->
 %% ===================================================================
 
 %% @private
-check_pings(AppId, Now, [#sipreg{next=Next}=Ping|Rest], Acc) ->
-    Acc1 = case is_integer(Next) andalso Now>=Next of 
+check_pings(AppId, Now, [#sipreg{next=Next}=Ping|Rest], Acc, AllState) ->
+    case is_integer(Next) andalso Now>=Next of 
         true -> 
-            [AppId:nkcb_uac_auto_launch_ping(AppId, Ping)|Acc];
+            {ok, Ping1, AllState1} = 
+                AppId:nkcb_uac_auto_launch_ping(AppId, Ping, AllState),
+            check_pings(AppId, Now, Rest, [Ping1|Acc], AllState1);
         false ->
-            [Ping|Acc]
-    end,
-    check_pings(AppId, Now, Rest, Acc1);
-
-check_pings(_, _, [], Acc) ->
-    Acc.
+            check_pings(AppId, Now, Rest, [Ping|Acc], AllState)
+    end;
+    
+check_pings(_, _, [], Acc, AllState) ->
+    {Acc, AllState}.
 
 
 %% @private Only one register in each cycle
-check_registers(AppId, Now, [#sipreg{next=Next}=Reg|Rest], Acc) ->
+check_registers(AppId, Now, [#sipreg{next=Next}=Reg|Rest], Acc, AllState) ->
     case Now>=Next of
         true -> 
-            Reg1 = AppId:nkcb_uac_auto_launch_register(AppId, Reg),
-            check_registers(AppId, -1, Rest, [Reg1|Acc]);
+            {ok, Reg1, AllState1} = 
+                AppId:nkcb_uac_auto_launch_register(AppId, Reg, false, AllState),
+            check_registers(AppId, -1, Rest, [Reg1|Acc], AllState1);
         false ->
-            check_registers(AppId, Now, Rest, [Reg|Acc])
+            check_registers(AppId, Now, Rest, [Reg|Acc], AllState)
     end;
 
-check_registers(_, _, [], Acc) ->
-    Acc.
+check_registers(_, _, [], Acc, AllState) ->
+    {Acc, AllState}.
 
 
 %% @private
