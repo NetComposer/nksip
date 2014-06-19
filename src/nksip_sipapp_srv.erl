@@ -136,8 +136,8 @@ get_plugin_state(Plugin, [_|Rest]) ->
 %% @private
 set_plugin_state(Plugin, PluginState, [{Plugin, _}|Rest]) ->
     [{Plugin, PluginState}|Rest];
-set_plugin_state(Plugin, PluginState, State) ->
-    lists:keystore(Plugin, 1, State, {Plugin, PluginState}).
+set_plugin_state(Plugin, PluginState, AllState) ->
+    lists:keystore(Plugin, 1, AllState, {Plugin, PluginState}).
 
 
 
