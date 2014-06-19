@@ -35,7 +35,10 @@
 
 nkcb_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
     Module = AppId:module(),
-    case erlang:function_exported(Module, sip_register, 2) of
+    case 
+        Module/=nksip_sipapp andalso
+        erlang:function_exported(Module, sip_register, 2) 
+    of
         true ->
             continue;
         false ->
