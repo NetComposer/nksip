@@ -160,7 +160,8 @@ start(AppName, Module, Args, Opts) ->
         undefined ->
             Opts1 = [{name, AppName}, {module, Module}|Opts],
             case nksip_sipapp_config:parse_config(Opts1) of
-                {ok, AppId} ->
+                {ok, AppId, _Plugins, Syntax} ->
+                    ok = nksip_code_util:compile(AppId, Syntax),
                     case nksip_sup:start_sipapp(AppId, Args) of
                         ok -> {ok, AppId};
                         {error, Error} -> {error, Error}
@@ -209,9 +210,22 @@ update(App, Opts) ->
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
             Opts2 = Opts1 ++ AppId:config(),
-            {ok, AppId} = nksip_sipapp_config:parse_config(Opts2),
-            nksip_sipapp_srv:updated(AppId),
-            {ok, AppId};
+            case nksip_sipapp_config:parse_config(Opts2) of
+                {ok, AppId, NewPlugins, Syntax} ->
+                    OldPlugins = AppId:config_plugins(),
+                    case OldPlugins--NewPlugins of
+                        [] -> ok;
+                        ToStop -> nksip_sipapp_srv:stop_plugins(AppId, ToStop)
+                    end,
+                    ok = nksip_code_util:compile(AppId, Syntax),
+                    case NewPlugins--OldPlugins of
+                        [] -> ok;
+                        ToStart -> nksip_sipapp_srv:start_plugins(AppId, ToStart)
+                    end,
+                    {ok, AppId};
+                {error, Error} ->
+                    {error, Error}
+            end;
         not_found ->
             {error, not_found}
     end.

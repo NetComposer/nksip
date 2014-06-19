@@ -25,62 +25,11 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--export([nkcb_init/2, nkcb_handle_call/4, nkcb_handle_cast/3, 
-	     nkcb_handle_info/3, nkcb_terminate/3, nkcb_sipapp_updated/2]).
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3]).
+-export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
+	     nkcb_sipapp_updated/1]).
 
 -type nkcb_common() :: continue | {continue, list()}.
-
-
-%% @doc Called after starting the SipApp process and before calling application-level
-%% init/1 callback. Can be used to store metadata.
--spec nkcb_init(nksip:app_id(), nksip_sipapp_srv:plugins_state()) ->
-	{ok, nksip_sipapp_srv:plugins_state()} | nkcb_common().
-
-nkcb_init(_AppId, PluginsState) ->
-	{ok, PluginsState}.
-
-
-%% @doc Called when the SipApp process receives a handle_call/3.
-%% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
--spec nkcb_handle_call(nksip:app_id(), term(), from(), nksip_sipapp_srv:plugins_state()) ->
-	{ok, nksip_sipapp_srv:plugins_state()} | nkcb_common().
-
-nkcb_handle_call(AppId, Msg, From, PluginsState) ->
-	{continue, [AppId, Msg, From, PluginsState]}.
-
-
-%% @doc Called when the SipApp process receives a handle_cast/3.
-%% Return {ok, NewPluginState} or continue.
--spec nkcb_handle_cast(nksip:app_id(), term(), nksip_sipapp_srv:plugins_state()) ->
-	{ok, nksip_sipapp_srv:plugins_state()} | nkcb_common().
-
-nkcb_handle_cast(AppId, Msg, PluginsState) ->
-	{continue, [AppId, Msg, PluginsState]}.
-
-
-%% @doc Called when the SipApp process receives a handle_info/3.
-%% Return {ok, NewPluginState} or continue.
--spec nkcb_handle_info(nksip:app_id(), term(), nksip_sipapp_srv:plugins_state()) ->
-	{ok, nksip_sipapp_srv:plugins_state()} | nkcb_common().
-
-nkcb_handle_info(AppId, Msg, PluginsState) ->
-	{continue, [AppId, Msg, PluginsState]}.
-
-
-%% @doc Called when the SipApp process receives a terminate/2.
--spec nkcb_terminate(nksip:app_id(), term(), nksip_sipapp_srv:plugins_state()) ->
-	ok.
-
-nkcb_terminate(_AppId, _Reason, _PluginsState) ->
-	ok.
-
-%% @doc Called when the SipApp is updated with a new configuration
--spec nkcb_sipapp_updated(nksip:app_id(), nksip_sipapp_srv:plugins_state()) ->
-	{ok, nksip_sipapp_srv:plugins_state()} | nkcb_common().
-
-nkcb_sipapp_updated(_AppId, PluginsState) ->
-	{ok, PluginsState}.
 
 
 %% @doc This plugin callback function is used to call application-level 
@@ -155,6 +104,42 @@ nkcb_authorize_data(List, #trans{request=Req}, Call) ->
         false -> []
     end,
     {ok, lists:flatten([Digest, Dialog, List])}.
+
+
+%% @doc Called when the SipApp process receives a handle_call/3.
+%% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
+-spec nkcb_handle_call(term(), from(), nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+
+nkcb_handle_call(Msg, From, SipAppState) ->
+	{continue, [Msg, From, SipAppState]}.
+
+
+%% @doc Called when the SipApp process receives a handle_cast/3.
+%% Return {ok, NewPluginState} or continue.
+-spec nkcb_handle_cast(term(), nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+
+nkcb_handle_cast(Msg, SipAppState) ->
+	{continue, [Msg, SipAppState]}.
+
+
+%% @doc Called when the SipApp process receives a handle_info/3.
+%% Return {ok, NewPluginState} or continue.
+-spec nkcb_handle_info(term(), nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+
+nkcb_handle_info(Msg, SipAppState) ->
+	{continue, [Msg, SipAppState]}.
+
+
+%% @doc Called when the SipApp is updated with a new configuration
+-spec nkcb_sipapp_updated(nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+
+nkcb_sipapp_updated(SipAppState) ->
+	{ok, SipAppState}.
+
 
 
 

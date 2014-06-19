@@ -24,7 +24,9 @@
 
 -export([start_ping/4, stop_ping/2, get_pings/1]).
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, deps/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
+
+-include("nksip_uac_auto.hrl").
 
 
 %% ===================================================================
@@ -54,11 +56,46 @@ deps() ->
 
 parse_config(PluginOpts, Config) ->
     Defaults = [
-        {nksip_uac_auto_timer, 5},                     % (secs)
-        {nksip_uac_auto_register_expires, 300}         % (secs)
+        {nksip_uac_auto_timer, 5}                     % (secs)
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
     parse_config(PluginOpts1, [], Config).
+
+
+%% @doc Called when the plugin is started 
+-spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
+    {ok, nksip_siapp_srv:state()}.
+
+init(AppId, SipAppState) ->
+    lager:warning("UAC AUTO START"),
+    Config = AppId:config(),
+    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
+    erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
+    State = #state{pings=[], regs=[]},
+    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto, State, SipAppState),
+    {ok, SipAppState1}.
+
+
+%% @doc Called when the plugin is shutdown
+-spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
+   {ok, nksip_sipapp_srv:state()}.
+
+terminate(AppId, SipAppState) ->  
+    lager:warning("UAC AUTO STOP"),
+    #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto, SipAppState),
+    lists:foreach(
+        fun(#sipreg{ok=Ok}=Reg) -> 
+            case Ok of
+                true -> 
+                    AppId:nkcb_uac_auto_launch_unregister(Reg, true, SipAppState);
+                false ->
+                    ok
+            end
+        end,
+        Regs),
+    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto, undefined, SipAppState),
+    {ok, SipAppState1}.
+
 
 
 
@@ -169,16 +206,6 @@ parse_config([], Unknown, Config) ->
 
 parse_config([Term|Rest], Unknown, Config) ->
     Op = case Term of
-        {nksip_uac_auto_register, Register} ->
-            case nksip_parse:uris(Register) of
-                error -> error;
-                Uris -> {update, Uris}
-            end;
-        {nksip_uac_auto_register_expires, Expires} ->
-            case is_integer(Expires) andalso Expires>0 of
-                true -> update;
-                false -> error
-            end;
         {nksip_uac_auto_timer, Timer} ->
             case is_integer(Timer) andalso Timer>0 of
                 true -> update;
@@ -191,10 +218,6 @@ parse_config([Term|Rest], Unknown, Config) ->
         update ->
             Key = element(1, Term),
             Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        {update, Val} ->
-            Key = element(1, Term),
             Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
             parse_config(Rest, Unknown, Config1);
         error ->

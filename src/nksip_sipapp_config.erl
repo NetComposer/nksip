@@ -90,8 +90,7 @@ parse_config(Opts) ->
             || {{Fun, Arity}, Mod} <- AppCallbacks
         ],
         Syntax = Cache ++ SipApp ++ PluginCallbacks,
-        ok = nksip_code_util:compile(AppId, Syntax),
-        {ok, AppId} 
+        {ok, AppId, Plugins, Syntax} 
     catch
         throw:Throw -> {error, Throw}
     end.

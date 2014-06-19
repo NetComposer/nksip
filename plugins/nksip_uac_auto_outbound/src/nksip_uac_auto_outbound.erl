@@ -23,7 +23,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start_register/5, stop_register/2, get_registers/1]).
--export([version/0, deps/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
+
+-include("nksip_uac_auto_outbound.hrl").
 
 
 %% ===================================================================
@@ -59,6 +61,41 @@ parse_config(PluginOpts, Config) ->
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
     parse_config(PluginOpts1, [], Config).
+
+
+%% @doc Called when the plugin is started 
+-spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
+    {ok, nksip_siapp_srv:state()}.
+
+init(AppId, SipAppState) ->
+    lager:warning("UAC AUTO OB START"),
+    Config = AppId:config(),
+    Supported = AppId:config_supported(),
+    StateOb = #state_ob{
+        outbound = lists:member(<<"outbound">>, Supported),
+        ob_base_time = nksip_lib:get_value(nksip_uac_auto_outbound_any_ok, Config),
+        pos = 1,
+        regs = []
+    },
+    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_outbound, StateOb, SipAppState),
+    {ok, SipAppState1}.
+
+
+%% @doc Called when the plugin is shutdown
+-spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
+    {ok, nksip_sipapp_srv:state()}.
+
+terminate(_AppId, SipAppState) ->  
+    % #state_ob{regs=RegsOb} = 
+    %     nksip_sipapp_srv:get_meta(nksip_uac_auto_outbound, SipAppState),
+    % lists:foreach(
+    %     fun(Reg) -> nksip_uac_auto_outbound_lib:launch_unregister(AppId, Reg) end,
+    %     RegsOb),
+    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_outbound, undefined, 
+                                             SipAppState),
+    lager:warning("UAC AUTO OB STOP1: ~p", [SipAppState1]),
+    {ok, SipAppState1}.
+
 
 
 

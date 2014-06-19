@@ -27,7 +27,7 @@
 
 -export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
--export([version/0, deps/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/2, terminate/2]).
 
 
 %% ===================================================================
@@ -68,6 +68,17 @@ parse_config(PluginOpts, Config) ->
         false -> lists:keystore(allow, 1, Config, {allow, Allow++[<<"REGISTER">>]})
     end,
     nksip_registrar_lib:parse_config(PluginOpts1, [], Config1).
+
+
+%% @doc Called when the plugin is shutdown
+-spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
+    {ok, nksip_sipapp_srv:state()}.
+
+terminate(AppId, SipAppState) ->  
+    lager:warning("REG TERMINATE: ~p", [AppId]),
+    nksip_registrar:clear(AppId),
+    {ok, SipAppState}.
+
 
 
 

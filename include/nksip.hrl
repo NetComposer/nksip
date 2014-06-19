@@ -125,6 +125,14 @@
 %% ===================================================================
 
 
+-record(sipapp_srv, {
+    app_id :: nksip:app_id(),
+    args :: term(),
+    sipapp_state :: term(),
+    meta :: list()
+}).
+
+
 -record(transport, {
     proto = udp :: nksip:protocol(),
     local_ip :: inet:ip_address(),
