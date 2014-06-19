@@ -82,11 +82,10 @@ nkcb_handle_call(AppId, {'$nksip_uac_auto_start_register', RegId, Uri, Opts},
         Expires -> 
             Opts2 = Opts1
     end,
-    Opts3 = [contact, {meta, [cseq_num]}|Opts2],
     Reg = #sipreg{
         id = RegId,
         ruri = Uri,
-        opts = Opts3,
+        opts = Opts2,
         call_id = CallId,
         interval = Expires,
         from = From,
@@ -152,7 +151,7 @@ nkcb_handle_call(AppId, {'$nksip_uac_auto_start_ping', PingId, Uri, Opts},
         next = 0,
         ok = undefined
     },
-    ?debug(AppId, CallId, "Started auto ping: ~p", [Ping]),
+    ?info(AppId, CallId, "Started auto ping: ~p", [Ping]),
     Pinsg1 = lists:keystore(PingId, #sipreg.id, Pings, Ping),
     gen_server:cast(self(), '$nksip_uac_auto_check'),
     State1 = State#state{pings=Pinsg1},
@@ -206,12 +205,14 @@ nkcb_handle_cast(AppId, {'$nksip_uac_auto_register_answer', RegId, Code, Meta},
     end;
 
 nkcb_handle_cast(AppId, {'$nksip_uac_auto_ping_answer', PingId, Code, Meta}, 
-                    AllState) ->
+                 AllState) ->
     #state{pings=Pings} = State = get_state(AllState),
+    lager:warning("PING ANSWER: ~p, ~p", [Code, Meta]),
+
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OldOK}=Ping, Pings1} ->
-            #sipreg{ok=OK} = Ping1 = 
-                AppId:nkcb_uac_auto_update_ping(Ping, Code, Meta, State),
+            {ok, #sipreg{ok=OK}=Ping1, AllState1} = 
+                AppId:nkcb_uac_auto_update_ping(Ping, Code, Meta, AllState),
             case OK of
                 OldOK -> 
                     ok;
@@ -219,7 +220,7 @@ nkcb_handle_cast(AppId, {'$nksip_uac_auto_ping_answer', PingId, Code, Meta},
                     AppId:nkcb_call(sip_uac_auto_ping_update, [PingId, OK, AppId], AppId)
             end,
             State1 = State#state{pings=[Ping1|Pings1]},
-            {ok, set_state(State1, AllState)};
+            {ok, set_state(State1, AllState1)};
         false ->
             {ok, AllState}
     end;
@@ -263,16 +264,16 @@ nkcb_handle_info(_AppId, _Msg, _AllState) ->
 %% @private
 nkcb_terminate(AppId, _Reason, AllState) ->  
     #state{regs=Regs} = get_state(AllState),
-    lists:foreach(
-        fun(#sipreg{ok=Ok}=Reg, Acc) -> 
-            case Ok of
-                true -> 
-                    AppId:nkcb_uac_auto_launch_unregister(AppId, Reg, true, Acc);
-                false ->
-                    ok
-            end
-        end,
-        Regs),
+    % lists:foreach(
+    %     fun(#sipreg{ok=Ok}=Reg, Acc) -> 
+    %         case Ok of
+    %             true -> 
+    %                 AppId:nkcb_uac_auto_launch_unregister(AppId, Reg, true, Acc);
+    %             false ->
+    %                 ok
+    %         end
+    %     end,
+    %     Regs),
     continue.
 
 
@@ -288,7 +289,7 @@ nkcb_terminate(AppId, _Reason, AllState) ->
 
 nkcb_uac_auto_launch_register(AppId, Reg, Sync, AllState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,    
-    Opts1 = [{cseq_num, CSeq}, {meta, [cseq_num, retry_after]}|Opts],
+    Opts1 = [contact, {cseq_num, CSeq}, {meta, [cseq_num, retry_after]}|Opts],
     Self = self(),
     Fun = fun() ->
         case nksip_uac:register(AppId, RUri, Opts1) of
@@ -310,7 +311,7 @@ nkcb_uac_auto_launch_register(AppId, Reg, Sync, AllState)->
 
 nkcb_uac_auto_launch_unregister(AppId, Reg, Sync, AllState)->
     #sipreg{ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
-    Opts1 = [{cseq_num, CSeq}|lists:keystore(expires, 1, Opts, {expires, 0})],
+    Opts1 = [contact, {cseq_num, CSeq}|lists:keystore(expires, 1, Opts, {expires, 0})],
     Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
     case Sync of
         true -> Fun();
@@ -333,7 +334,7 @@ nkcb_uac_auto_update_register(Reg, Code, Meta, AllState) ->
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, Code<300})
     end,
-    Time = case Code==503 andalso nksip:get_value(retry_after, Meta) of
+    Time = case Code==503 andalso nksip_lib:get_value(retry_after, Meta) of
         false -> Interval;
         undefined -> Interval;
         Retry -> Retry
@@ -382,7 +383,7 @@ nkcb_uac_auto_update_ping(Ping, Code, Meta, AllState) ->
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, Code<300})
     end,
-    Time = case Code==503 andalso nksip:get_value(retry_after, Meta) of
+    Time = case Code==503 andalso nksip_lib:get_value(retry_after, Meta) of
         false -> Interval;
         undefined -> Interval;
         Retry -> Retry

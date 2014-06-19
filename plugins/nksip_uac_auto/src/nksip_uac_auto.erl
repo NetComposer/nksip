@@ -78,13 +78,13 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
             {ok, AppId} -> ok;
             _ -> AppId = throw(invalid_app)
         end,
-        case nksip_uac_lib:make(AppId, 'REGISTER', Uri, Opts) of
-            {ok, _, _} -> ok;
-            {error, MakeError} -> throw(MakeError)
-        end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
             false -> ok
+        end,
+        case nksip_uac_lib:make(AppId, 'REGISTER', Uri, Opts) of
+            {ok, _, _} -> ok;
+            {error, MakeError} -> throw(MakeError)
         end,
         Msg = {'$nksip_uac_auto_start_register', RegId, Uri, Opts},
         nksip:call(App, Msg)
@@ -116,21 +116,21 @@ get_registers(App) ->
     {ok, boolean()} | {error, invalid_uri}.
 
 
-start_ping(App, RegId, Uri, Opts) when is_list(Opts) ->
+start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
     try
         case nksip:find_app_id(App) of
             {ok, AppId} -> ok;
             _ -> AppId = throw(invalid_app)
         end,
-        case nksip_uac_lib:make(AppId, 'OPTIONS', Uri, Opts) of
-            {ok, _, _} -> ok;
-            {error, MakeError} -> throw(MakeError)
-        end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
             false -> ok
         end,
-        Msg = {'$nksip_uac_auto_start_ping', RegId, Uri, Opts},
+        case nksip_uac_lib:make(AppId, 'OPTIONS', Uri, Opts) of
+            {ok, _, _} -> ok;
+            {error, MakeError} -> throw(MakeError)
+        end,
+        Msg = {'$nksip_uac_auto_start_ping', PingId, Uri, Opts},
         nksip:call(App, Msg)
     catch
         throw:Error -> {error, Error}
