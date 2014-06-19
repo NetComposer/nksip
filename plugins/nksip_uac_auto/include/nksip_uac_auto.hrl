@@ -33,7 +33,6 @@
 
 
 -record(state, {
-    app_id :: nksip:app_id(),
     pings :: [#sipreg{}],
     regs :: [#sipreg{}]
 }).

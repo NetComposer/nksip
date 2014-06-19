@@ -31,7 +31,6 @@
 
 
 -record(state_ob, {
-    app_id :: nksip:app_id(),
     outbound :: boolean(),
     ob_base_time :: pos_integer(),  
     pos :: integer(),

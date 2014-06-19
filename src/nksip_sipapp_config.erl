@@ -68,9 +68,10 @@ parse_config(Opts) ->
         Environment = nksip_config_cache:app_config(),
         Defaults = nksip_lib:defaults(Environment, default_config()),
         Opts1 = nksip_lib:defaults(Opts, Defaults),
-        {Opts2, PluginOpts} = parse_opts(Opts1, [], []),
-        Plugins0 = proplists:get_all_values(plugins, Opts),
-        Plugins = sort_plugins(lists:flatten(Plugins0), []),
+        % Reverse to process last (and win) the first options
+        {Opts2, PluginOpts} = parse_opts(lists:reverse(Opts1), [], []),
+        Plugins0 = nksip_lib:get_value(plugins, Opts, []),
+        Plugins = sort_plugins(Plugins0, []),
         Opts3 = [{plugins, Plugins}|Opts2],
         Opts4 = parse_plugins_opts(Plugins, Opts3, PluginOpts),
         Cache = cache_syntax(Opts4),

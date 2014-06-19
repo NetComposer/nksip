@@ -27,14 +27,21 @@
 -behaviour(gen_server).
 
 -export([get/2, put/3, put_new/3, del/2]).
--export([get_appid/1, get_name/1, config/1, pending_msgs/0]).
+-export([get_appid/1, get_name/1, config/1, pending_msgs/0, updated/1]).
 -export([get_plugin_state/2, set_plugin_state/3]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
+-export_type([plugins_state/0]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
+
+%% ===================================================================
+%% Types
+%% ===================================================================
+
+-type plugins_state() :: [{Plugin::atom(), Value::term()}].
 
 
 %% ===================================================================
@@ -127,6 +134,11 @@ pending_msgs() ->
 
 
 %% @private
+updated(AppId) ->
+    gen_server:call(AppId, '$nksip_sipapp_srv_updated', 30000).
+
+
+%% @private
 get_plugin_state(Plugin, [{Plugin, PluginState}|_]) -> 
     PluginState;
 get_plugin_state(Plugin, [_|Rest]) -> 
@@ -148,7 +160,9 @@ set_plugin_state(Plugin, PluginState, AllState) ->
 
 -record(state, {
     app_id :: nksip:app_id(),
-    plugin_state :: list(),
+    args :: term(),
+    plugins :: [atom()],
+    plugins_state :: plugins_state(),
     sipapp_state :: term()
 }).
 
@@ -166,9 +180,15 @@ init([AppId, Args]) ->
     AppName = nksip_lib:get_value(name, Config),
     nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
     update_uuid(AppId, AppName),
-    {ok, PluginState} = AppId:nkcb_init(AppId, []),
-    State1 = #state{app_id=AppId, plugin_state=PluginState},
-    case erlang:function_exported(AppId, init, 1) andalso AppId:init(Args) of
+    Plugins = AppId:config_plugins(),
+    {ok, Args1, PluginState} = start_plugins(Plugins, AppId, Args, []),
+    State1 = #state{
+        app_id = AppId, 
+        args = Args1, 
+        plugins = Plugins, 
+        plugins_state = PluginState
+    },
+    case erlang:function_exported(AppId, init, 1) andalso AppId:init(Args1) of
         {ok, ModState} -> 
             {ok, State1#state{sipapp_state=ModState}};
         {ok, ModState, Timeout} -> 
@@ -181,16 +201,75 @@ init([AppId, Args]) ->
 
 
 %% @private
+start_plugins([Plugin|Rest], AppId, Args, PluginState) ->
+    case erlang:function_exported(Plugin, init, 2) of
+        true ->
+            {ok, Args1, State} = Plugin:init(AppId, Args),
+            PluginState1 = lists:keystore(Plugin, 1, PluginState, {Plugin, State}),
+            start_plugins(Rest, AppId, Args1, PluginState1);
+        false ->
+            start_plugins(Rest, AppId, Args, PluginState)
+    end;
+
+start_plugins([], _AppId, Args, PluginState) ->
+    {ok, Args, PluginState}.
+
+
+
+stop_plugins([Plugin|Rest], AppId, PluginState) ->
+    PluginState1 = lists:keydelete(Plugin, 1, PluginState),
+    case erlang:function_exported(Plugin, terminate, 2) of
+        true ->
+            case lists:keyfind(Plugin, 1, PluginState) of
+                false -> State = undefined;
+                {Plugin, State} -> ok
+            end,
+            ok = Plugin:terminate(AppId, State),
+            stop_plugins(Rest, AppId, PluginState1);
+        false ->
+            stop_plugins(Rest, AppId, PluginState1)
+    end;
+
+stop_plugins([], _AppId, PluginState) ->
+    {ok, PluginState}.
+
+
+
+
+
+
+
+
+
+
+
+%% @private
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
 
+handle_call('$nksip_sipapp_srv_updated', _From, State) ->
+    #state{app_id=AppId, args=Args, plugins=OldPlugins, plugins_state=PluginState} = State,
+    NewPlugins = AppId:config_plugins(),
+    ToStop = OldPlugins -- NewPlugins,
+    {ok, PluginState1} = stop_plugins(ToStop, AppId, PluginState),
+    ToStart = NewPlugins -- OldPlugins,
+    {ok, Args1, PluginState2} = start_plugins(ToStart, AppId, Args, PluginState1),
+    State1 = State#state{plugins=NewPlugins, args=Args1, plugins_state=PluginState2},
+    {ok, State2} = AppId:nkcb_sipapp_updated(AppId, State1),
+    {reply, ok, State2};
+
+handle_call(state, _From, State) ->
+    {reply, State, State};
+
 handle_call(Msg, From, State) ->
-    #state{app_id=AppId, plugin_state=PluginState} = State,
+    #state{app_id=AppId, plugins_state=PluginState} = State,
     case AppId:nkcb_handle_call(AppId, Msg, From, PluginState) of
-        continue -> 
-            mod_handle_call(Msg, From, State);
-        {ok, PluginState1} -> 
-            {noreply, State#state{plugin_state=PluginState1}}
+        {continue, [AppId, Msg1, From1, PluginState1]} ->
+            State1 = State#state{plugins_state=PluginState1},
+            mod_handle_call(Msg1, From1, State1);
+        {ok, PluginState1} ->
+            State1 = State#state{plugins_state=PluginState1},
+            {noreply, State1}
     end.
 
 
@@ -199,12 +278,14 @@ handle_call(Msg, From, State) ->
     gen_server_cast(#state{}).
 
 handle_cast(Msg, State) -> 
-    #state{app_id=AppId, plugin_state=PluginState} = State,
+    #state{app_id=AppId, plugins_state=PluginState} = State,
     case AppId:nkcb_handle_cast(AppId, Msg, PluginState) of
-        continue -> 
-            mod_handle_cast(Msg, State);
+        {continue, [AppId, Msg1, PluginState1]} -> 
+            State1 = State#state{plugins_state=PluginState1},
+            mod_handle_cast(Msg1, State1);
         {ok, PluginState1} -> 
-            {noreply, State#state{plugin_state=PluginState1}}
+            State1 = State#state{plugins_state=PluginState1},
+            {noreply, State1}
     end.
 
 
@@ -213,12 +294,14 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 handle_info(Msg, State) -> 
-    #state{app_id=AppId, plugin_state=PluginState} = State,
+    #state{app_id=AppId, plugins_state=PluginState} = State,
     case AppId:nkcb_handle_info(AppId, Msg, PluginState) of
-        continue -> 
-            mod_handle_info(Msg, State);
+        {continue, [AppId, Msg1, PluginState1]} -> 
+            State1 = State#state{plugins_state=PluginState1},
+            mod_handle_info(Msg1, State1);
         {ok, PluginState1} -> 
-            {noreply, State#state{plugin_state=PluginState1}}
+            State1 = State#state{plugins_state=PluginState1},
+            {noreply, State1}
     end.
 
 
@@ -241,12 +324,14 @@ code_change(OldVsn, #state{app_id=AppId, sipapp_state=ModState}=State, Extra) ->
     gen_server_terminate().
 
 terminate(Reason, State) ->  
-    #state{app_id=AppId, plugin_state=PluginState, sipapp_state=ModState} = State,
-    AppId:nkcb_terminate(AppId, Reason, PluginState),
+    #state{app_id=AppId, plugins=Plugins, plugins_state=PluginState, 
+           sipapp_state=ModState} = State,
+    ok = AppId:nkcb_terminate(AppId, Reason, PluginState),
     case erlang:function_exported(AppId, terminate, 2) of
         true -> AppId:terminate(Reason, ModState);
         false -> ok
-    end.
+    end,
+    stop_plugins(Plugins, AppId, PluginState).
     
 
 

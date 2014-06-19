@@ -208,8 +208,10 @@ update(App, Opts) ->
     case find_app_id(App) of
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
-            Opts2 = AppId:config() ++ Opts1,
-            nksip_sipapp_config:parse_config(Opts2);
+            Opts2 = Opts1 ++ AppId:config(),
+            {ok, AppId} = nksip_sipapp_config:parse_config(Opts2),
+            nksip_sipapp_srv:updated(AppId),
+            {ok, AppId};
         not_found ->
             {error, not_found}
     end.

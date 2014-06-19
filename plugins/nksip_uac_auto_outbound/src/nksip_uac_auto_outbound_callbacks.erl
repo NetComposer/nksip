@@ -22,9 +22,9 @@
 -module(nksip_uac_auto_outbound_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([nkcb_init/2, nkcb_handle_info/3, nkcb_terminate/3]).
+-export([nkcb_init/2, nkcb_sipapp_updated/2, nkcb_handle_info/3, nkcb_terminate/3]).
 -export([nkcb_uac_auto_launch_register/4, nkcb_uac_auto_launch_unregister/4, 
-         nkcb_uac_auto_update_register/4]).
+         nkcb_uac_auto_update_register/5]).
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
@@ -41,7 +41,6 @@ nkcb_init(AppId, AllState) ->
     Config = AppId:config(),
     Supported = AppId:config_supported(),
     StateOb = #state_ob{
-        app_id = AppId,
         outbound = lists:member(<<"outbound">>, Supported),
         ob_base_time = nksip_lib:get_value(nksip_uac_auto_outbound_any_ok, Config),
         pos = 1,
@@ -49,6 +48,14 @@ nkcb_init(AppId, AllState) ->
     },
     StateOb1 = set_state(StateOb, AllState),
     {continue, [AppId, StateOb1]}.
+
+
+%% @private
+nkcb_sipapp_updated(AppId, AllState) ->
+    case lists:keymember(nksip_uac_auto_outbound, 1, AllState) of
+        true -> continue;
+        false -> nkcb_init(AppId, AllState)
+    end.
 
 
 %% @private
@@ -65,12 +72,12 @@ nkcb_handle_info(AppId, {'DOWN', Mon, process, _Pid, _}, AllState) ->
             continue
     end;
 
-nkcb_handle_info(_AppId, {'$nksip_uac_auto_register_notify', RegId}, AllState) ->
+nkcb_handle_info(AppId, {'$nksip_uac_auto_register_notify', RegId}, AllState) ->
     #state_ob{regs=RegsOb} = StateOb = get_state(AllState),
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
         {value, RegOb, RegsOb1} -> 
             State1 = StateOb#state_ob{regs=[RegOb#sipreg_ob{fails=0}|RegsOb1]},
-            State2 = update_basetime(State1),
+            State2 = update_basetime(AppId, State1),
             {ok, set_state(State2, AllState)};
         false -> 
             continue
@@ -149,15 +156,16 @@ nkcb_uac_auto_launch_unregister(AppId, Reg, Sync, AllState)->
 
   
 %% @private
--spec nkcb_uac_auto_update_register(#sipreg{}, nksip:sip_code(), nksip:optslist(), list()) ->
+-spec nkcb_uac_auto_update_register(nksip:app_id(), #sipreg{}, nksip:sip_code(), 
+                                    nksip:optslist(), list()) ->
     {ok, #sipreg{}, list()}.
 
-nkcb_uac_auto_update_register(Reg, Code, _Meta, AllState) when Code<200 ->
+nkcb_uac_auto_update_register(_AppId, Reg, Code, _Meta, AllState) when Code<200 ->
     {ok, Reg, AllState};
 
-nkcb_uac_auto_update_register(Reg, Code, Meta, AllState) when Code<300 ->
+nkcb_uac_auto_update_register(AppId, Reg, Code, Meta, AllState) when Code<300 ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
-    #state_ob{app_id=AppId, regs=RegsOb} = StateOb = get_state(AllState),
+    #state_ob{regs=RegsOb} = StateOb = get_state(AllState),
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
         {value, #sipreg_ob{conn_monitor=Monitor}=RegOb1, RegsOb1} ->
             case is_reference(Monitor) of
@@ -201,9 +209,9 @@ nkcb_uac_auto_update_register(Reg, Code, Meta, AllState) when Code<300 ->
             continue
     end;
 
-nkcb_uac_auto_update_register(Reg, Code, Meta, AllState) ->
+nkcb_uac_auto_update_register(AppId, Reg, Code, Meta, AllState) ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
-    #state_ob{app_id=AppId, regs=RegsOb, ob_base_time=BaseTime} = StateOb = 
+    #state_ob{regs=RegsOb, ob_base_time=BaseTime} = StateOb = 
         get_state(AllState),
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
         {value, #sipreg_ob{conn_monitor=Monitor, fails=Fails}=RegOb1, RegsOb1} ->
@@ -233,7 +241,7 @@ nkcb_uac_auto_update_register(Reg, Code, Meta, AllState) ->
 
     
 %% @private
-update_basetime(#state_ob{app_id=AppId, regs=Regs}=StateOb) ->
+update_basetime(AppId, #state_ob{regs=Regs}=StateOb) ->
     Key = case [true || #sipreg_ob{fails=0} <- Regs] of
         [] -> 
             ?notice(AppId, <<>>, "all outbound flows have failed", []),
