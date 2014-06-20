@@ -22,7 +22,7 @@
 -module(nksip_uac_auto_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start_register/5, stop_register/2, get_registers/1]).
+-export([start_register/4, stop_register/2, get_registers/1]).
 -export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
 
 -include("nksip_uac_auto_outbound.hrl").
@@ -105,19 +105,12 @@ terminate(_AppId, SipAppState) ->
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), pos_integer(),
-                        nksip:optslist()) -> 
-    {ok, boolean()} | {error, invalid_uri}.
+-spec start_register(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(),                 nksip:optslist()) -> 
+    {ok, boolean()} | {error, term()}.
 
-start_register(App, RegId, Uri, Time, Opts) 
-                when is_integer(Time), Time > 0, is_list(Opts) ->
-    case nksip_parse:uris(Uri) of
-        [ValidUri] -> 
-            Msg = {'$nksip_uac_auto_start_register', RegId, ValidUri, Time, Opts},
-            nksip:call(App, Msg);
-        _ -> 
-            {error, invalid_uri}
-    end.
+start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
+    Opts1 = [{user, ['$nksip_uac_auto_outbound']}|Opts],
+    nksip_uac_auto:start_register(App, RegId, Uri, Opts1).
 
 
 %% @doc Stops a previously started registration serie.
@@ -133,9 +126,9 @@ stop_register(App, RegId) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(App) ->
-    nksip_uac_auto:get_registers(App).
+    nksip:call(App, '$nksip_uac_auto_outbound_get_registers').
 
-
+    
 
 %% ===================================================================
 %% Private
