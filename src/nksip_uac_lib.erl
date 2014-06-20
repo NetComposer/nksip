@@ -379,6 +379,13 @@ parse_opts([Term|Rest], Req, Opts) ->
                 {meta, List0} ->
                     {update, Req, lists:keystore(meta, 1, Opts, {meta, List0++List})}
             end;
+        {user, List} when is_list(List) ->
+            case lists:keyfind(user, 1, Opts) of
+                false -> 
+                    {update, Req, [{user, List}|Opts]};
+                {user, List0} ->
+                    {update, Req, lists:keystore(user, 1, Opts, {user, List0++List})}
+            end;
         {local_host, auto} ->
             {update, Req, [{local_host, auto}|Opts]};
         {local_host, Host} ->
