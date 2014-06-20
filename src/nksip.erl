@@ -214,13 +214,17 @@ update(App, Opts) ->
                 {ok, AppId, NewPlugins, Syntax} ->
                     OldPlugins = AppId:config_plugins(),
                     case OldPlugins--NewPlugins of
-                        [] -> ok;
-                        ToStop -> nksip_sipapp_srv:stop_plugins(AppId, ToStop)
+                        [] -> 
+                            ok;
+                        ToStop -> 
+                            nksip_sipapp_srv:stop_plugins(AppId, lists:reverse(ToStop))
                     end,
                     ok = nksip_code_util:compile(AppId, Syntax),
                     case NewPlugins--OldPlugins of
-                        [] -> ok;
-                        ToStart -> nksip_sipapp_srv:start_plugins(AppId, ToStart)
+                        [] -> 
+                            ok;
+                        ToStart -> 
+                            nksip_sipapp_srv:start_plugins(AppId, ToStart)
                     end,
                     {ok, AppId};
                 {error, Error} ->

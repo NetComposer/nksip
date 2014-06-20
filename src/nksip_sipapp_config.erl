@@ -73,7 +73,7 @@ parse_config(Opts) ->
         Plugins0 = nksip_lib:get_value(plugins, Opts, []),
         Plugins = sort_plugins(Plugins0, []),
         Opts3 = [{plugins, Plugins}|Opts2],
-        Opts4 = parse_plugins_opts(Plugins, Opts3, PluginOpts),
+        Opts4 = parse_plugins_opts(Plugins, Opts3, lists:reverse(PluginOpts)),
         Cache = cache_syntax(Opts4),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
         AppName = nksip_lib:get_value(name, Opts4, nksip),
