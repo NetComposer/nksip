@@ -68,8 +68,7 @@ parse_config(PluginOpts, Config) ->
 
 init(AppId, SipAppState) ->
     lager:warning("UAC AUTO START"),
-    Config = AppId:config(),
-    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
+    Timer = 1000 * nksip_sipapp_srv:config(AppId, nksip_uac_auto_timer),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
     State = #state{pings=[], regs=[]},
     SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto, State, SipAppState),

@@ -28,7 +28,8 @@
 -behaviour(gen_server).
 
 -export([get/2, put/3, put_new/3, del/2]).
--export([get_appid/1, get_name/1, config/1, pending_msgs/0, start_plugins/2, stop_plugins/2]).
+-export([get_appid/1, get_name/1, config/1, config/2]).
+-export([pending_msgs/0, start_plugins/2, stop_plugins/2]).
 -export([get_meta/2, set_meta/3]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -124,6 +125,14 @@ get_name(AppId) ->
 
 config(AppId) ->
     AppId:config().
+
+
+%% @doc Gets a value from the sipapp's configuration
+-spec config(nksip:app_id(), term()) ->
+    term() | undefined.
+
+config(AppId, Key) ->
+    nksip_lib:get_value(Key, AppId:config()).
 
 
 pending_msgs() ->

@@ -228,8 +228,7 @@ nkcb_handle_cast(_Msg, _SipAppState) ->
 %% @private
 nkcb_handle_info({timeout, _, '$nksip_uac_auto_timer'}, SipAppState) ->
     #sipapp_srv{app_id=AppId} = SipAppState,
-    Config = AppId:config(),
-    Timer = 1000 * nksip_lib:get_value(nksip_uac_auto_timer, Config),
+    Timer = 1000 * nksip_sipapp_srv:config(AppId, nksip_uac_auto_timer),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
     gen_server:cast(self(), '$nksip_uac_auto_check'),
     continue;

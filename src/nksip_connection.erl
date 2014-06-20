@@ -79,7 +79,7 @@ connect(AppId, Proto, Ip, Port, Res, _Opts) ->
     case nksip_transport:get_listening(AppId, Proto, Class) of
         [{Transp, Pid}|_] -> 
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, resource=Res},
-            Config = AppId:config(),
+            Config = nksip_sipapp_srv:config(AppId),
             case Proto of
                 udp -> nksip_transport_udp:connect(Pid, Transp1, Config);
                 tcp -> nksip_transport_tcp:connect(AppId, Transp1, Config);

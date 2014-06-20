@@ -269,7 +269,7 @@ process(Req, Opts) ->
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
-    Config = AppId:config(),
+    Config = nksip_sipapp_srv:config(AppId),
     DefTime = nksip_lib:get_value(nksip_registrar_default_time, Config),
     Default = case nksip_sipmsg:meta(expires, Req) of
         D0 when is_integer(D0) -> D0;
