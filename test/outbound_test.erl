@@ -500,9 +500,9 @@ outbound() ->
 
 
     {true, KA1, Refresh1} = nksip_connection:get_refresh(Pid1),
-    check_time(KA1, ?DEFAULT_TCP_KEEPALIVE),
+    check_time(KA1, 120),
     {true, KA2, Refresh2} = nksip_connection:get_refresh(Pid2),
-    check_time(KA2, ?DEFAULT_UDP_KEEPALIVE),
+    check_time(KA2, 25),
     true = Refresh1 > 1 andalso Refresh2 > 1,
 
     {false, _} = nksip_connection:get_refresh(Pid3),

@@ -23,7 +23,6 @@
     id :: term(),
     pos :: integer(),
     cseq :: nksip:cseq(),
-    req_pid :: pid(),
     conn_monitor :: reference(),
     conn_pid :: pid(),
     fails :: non_neg_integer()
@@ -32,7 +31,6 @@
 
 -record(state_ob, {
     outbound :: boolean(),
-    ob_base_time :: pos_integer(),  
     pos :: integer(),
     regs = [#sipreg_ob{}]
 }).
