@@ -283,13 +283,12 @@ code_change(OldVsn, #sipapp_srv{app_id=AppId, sipapp_state=ModState}=State, Extr
     gen_server_terminate().
 
 terminate(Reason, State) ->  
-    ok.
-    % #sipapp_srv{app_id=AppId, sipapp_state=ModState} = State,
-    % case erlang:function_exported(AppId, terminate, 2) of
-    %     true -> AppId:terminate(Reason, ModState);
-    %     false -> ok
-    % end,
-    % do_stop_plugins(AppId:config_plugins(), State).
+    #sipapp_srv{app_id=AppId, sipapp_state=ModState} = State,
+    case erlang:function_exported(AppId, terminate, 2) of
+        true -> AppId:terminate(Reason, ModState);
+        false -> ok
+    end,
+    do_stop_plugins(lists:reverse(AppId:config_plugins()), State).
     
 
 
