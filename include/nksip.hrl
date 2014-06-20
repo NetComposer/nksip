@@ -47,7 +47,7 @@
     DO_LOG(Level, App, CallId, Text, Opts),
     case CallId of
         <<>> ->
-            lager:Level([{app, App}], "~p "++Text, [App, CallId|Opts]);
+            lager:Level([{app, App}], "~p "++Text, [App|Opts]);
         _ -> 
             lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])
     end).
