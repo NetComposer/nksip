@@ -92,10 +92,16 @@ If you are defining a server, you indicate in the [SipApp's config](../reference
 ## Uris
 
 There many places in NkSIP where you must _SIP Uris_. For example, to send a request to a remote host, you use a SIP uri:
-```nksip_uac:options(my_app, "<sip:sip2sip.info>", [])``` 
+
+```
+nksip_uac:options(my_app, "<sip:sip2sip.info>", [])
+``` 
 
 In this example, you could also have used `sip:sip2sip.info`, but, according to RFC3261, you should use the enclosing `<` and `>` if your are using uri parameters or headers: 
-```<sip:host;transport=tcp?user-agent=my_user_agent>```
+
+```
+<sip:host;transport=tcp?user-agent=my_user_agent>
+```
 
 If you don't enclose them, the _transport_ uri parameter and _user-agent_ header will not be part of the request uri, but _external_ parameters and headers (some common external parameters are used in SIP, like `<sip:user@host>;tag=abc`. 
 
