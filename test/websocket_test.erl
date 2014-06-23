@@ -100,16 +100,16 @@ stop1() ->
     ok.
 
 
-% ws2_test_() ->
-%     {setup, spawn, 
-%         fun() -> start2() end,
-%         fun(_) -> stop2() end,
-%         [
-%             fun basic/0, 
-%             fun sharing/0,
-%             fun proxy/0
-%         ]
-%     }.
+ws2_test_() ->
+    {setup, spawn, 
+        fun() -> start2() end,
+        fun(_) -> stop2() end,
+        [
+            fun basic/0, 
+            fun sharing/0,
+            fun proxy/0
+        ]
+    }.
 
 
 start2() ->

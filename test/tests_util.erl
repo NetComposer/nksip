@@ -29,6 +29,11 @@
 -define(WAIT_TIMEOUT, 10000).
 
 start_nksip() ->
+    code:add_path("plugins/nksip_registrar/ebin"),
+    code:add_path("plugins/nksip_uac_auto/ebin"),
+    code:add_path("plugins/nksip_uac_auto_outbound/ebin"),
+    code:add_path("plugins/nksip_outbound/ebin"),
+    code:add_path("plugins/nksip_gruu/ebin"),
     nksip_app:start(),
     log(info).
 
