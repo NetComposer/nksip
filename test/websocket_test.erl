@@ -29,14 +29,14 @@
 -compile([export_all]).
 
 
-% ws1_test_() ->
-%     {setup, spawn, 
-%         fun() -> start1() end,
-%         fun(_) -> stop1() end,
-%         [
-%             fun webserver/0
-%         ]
-%     }.
+ws1_test_() ->
+    {setup, spawn, 
+        fun() -> start1() end,
+        fun(_) -> stop1() end,
+        [
+            fun webserver/0
+        ]
+    }.
 
 
 start1() ->

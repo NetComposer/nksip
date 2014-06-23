@@ -298,7 +298,7 @@ terminate(Reason, State) ->
       
 %% @private
 do_start_plugins([Plugin|Rest], #sipapp_srv{app_id=AppId}=State) ->
-    ?info(AppId, <<>>, "Starting plugin ~p", [Plugin]),
+    ?debug(AppId, <<>>, "Starting plugin ~p", [Plugin]),
     case erlang:function_exported(Plugin, init, 2) of
         true ->
             {ok, #sipapp_srv{}=State1} = Plugin:init(AppId, State),
@@ -313,7 +313,7 @@ do_start_plugins([], State) ->
 
 %% @private
 do_stop_plugins([Plugin|Rest], #sipapp_srv{app_id=AppId}=State) ->
-    ?info(AppId, <<>>, "Stopping plugin ~p", [Plugin]),
+    ?debug(AppId, <<>>, "Stopping plugin ~p", [Plugin]),
     case erlang:function_exported(Plugin, terminate, 2) of
         true ->
             {ok, #sipapp_srv{}=State1} = Plugin:terminate(AppId, State),

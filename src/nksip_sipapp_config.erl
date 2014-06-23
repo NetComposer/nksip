@@ -97,11 +97,7 @@ parse_config(Opts) ->
         Syntax = Cache ++ SipApp ++ PluginCallbacks,
         {ok, AppId, Plugins, Syntax} 
     catch
-        throw:Throw -> 
-
-            lager:warning("CODE: ~p", [code:get_path()]),
-
-            {error, Throw}
+        throw:Throw -> {error, Throw}
     end.
 
 
