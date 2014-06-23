@@ -24,7 +24,14 @@
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
+-include("nksip_registrar.hrl").
+
 -export([nkcb_sip_method/2, nkcb_authorize_data/3]).
+-export([nkcb_nksip_registrar_request_opts/2, nkcb_nksip_registrar_request_reply/3,
+         nkcb_nksip_registrar_get_index/2, nkcb_nksip_registrar_update_regcontact/4]).
+
+
+%%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% @private This plugin callback is called when a call to one of the method specific
@@ -54,3 +61,40 @@ nkcb_authorize_data(List, #trans{request=Req}=Trans, Call) ->
         true -> {continue, [[register|List], Trans, Call]};
         false -> continue
     end.
+
+
+
+%%%%%%%%%%%%%%%% Published plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%% @private
+-spec nkcb_nksip_registrar_request_opts(nksip:request(), list()) ->
+    {continue, list()}.
+
+nkcb_nksip_registrar_request_opts(Req, List) ->
+    {continue, [Req, List]}.
+
+
+%% @private
+-spec nkcb_nksip_registrar_request_reply(nksip:sipreply(), #reg_contact{}, list()) ->
+    {continue, list()}.
+
+nkcb_nksip_registrar_request_reply(Reply, Regs, Opts) ->
+    {continue, [Reply, Regs, Opts]}.
+
+
+%% @private
+-spec nkcb_nksip_registrar_get_index(nksip:uri(), list()) ->
+    {continue, list()}.
+
+nkcb_nksip_registrar_get_index(Contact, Opts) ->
+    {continue, [Contact, Opts]}.
+
+
+%% @private
+-spec nkcb_nksip_registrar_update_regcontact(#reg_contact{}, #reg_contact{}, 
+                                             nksip:request(), list()) ->
+    {continue, list()}.
+
+nkcb_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
+    {continue, [RegContact, Base, Req, Opts]}.

@@ -28,12 +28,8 @@
     call_id :: nksip:call_id(),
     cseq :: nksip:cseq(),
     transport :: nksip_transport:transport(),
-    path :: [nksip:uri()],
-    instance_id :: binary(),
-    reg_id :: binary(),
-    min_tmp_pos :: integer(),
-    next_tmp_pos :: integer(),
-    meta = [] :: nksip:optslist()  % No current use
+    path = [] :: [nksip:uri()],
+    meta = [] :: nksip:optslist()  
 }).
 
 -record(nksip_registrar_time, {
