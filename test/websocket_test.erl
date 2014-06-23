@@ -331,7 +331,7 @@ proxy() ->
 
 
 init(Id) ->
-    nksip:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
+    ok = nksip:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
     {ok, []}.
 
 

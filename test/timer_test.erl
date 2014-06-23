@@ -111,7 +111,7 @@ basic() ->
              CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd]),
    
     % Start events also at ua1
-    nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
+    ok = nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
     CallId1 = nksip_dialog:call_id(Dialog1A),
     CSeq1 = receive 
@@ -269,7 +269,7 @@ proxy() ->
             ]),
    
     % Start events also at ua1
-    nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
+    ok = nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
     CallId1 = nksip_dialog:call_id(Dialog1A),
     receive 

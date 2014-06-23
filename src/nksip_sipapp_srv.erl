@@ -190,7 +190,7 @@ init([AppId, Args]) ->
     nksip_proc:put(nksip_sipapps, AppId),   
     Config = AppId:config(),
     AppName = nksip_lib:get_value(name, Config),
-    nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
+    true = nksip_proc:reg({nksip_sipapp_name, AppName}, AppId), 
     Plugins = AppId:config_plugins(),
     State = #sipapp_srv{
         app_id = AppId, 
