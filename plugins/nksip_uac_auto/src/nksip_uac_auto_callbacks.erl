@@ -184,7 +184,6 @@ nkcb_handle_cast({'$nksip_uac_auto_register_answer', RegId, Code, Meta},
 nkcb_handle_cast({'$nksip_uac_auto_ping_answer', PingId, Code, Meta}, SipAppState) ->
     #state{pings=Pings} = State = get_state(SipAppState),
     #sipapp_srv{app_id=AppId} = SipAppState,
-    lager:warning("PING ANSWER: ~p, ~p", [Code, Meta]),
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OldOK}=Ping, Pings1} ->
             {ok, #sipreg{ok=OK}=Ping1, SipAppState1} = 

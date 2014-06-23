@@ -68,7 +68,6 @@ parse_config(PluginOpts, Config) ->
     {ok, nksip_siapp_srv:state()}.
 
 init(AppId, SipAppState) ->
-    lager:warning("UAC AUTO OB START"),
     Config = AppId:config(),
     Supported = AppId:config_supported(),
     StateOb = #state_ob{
@@ -93,7 +92,6 @@ terminate(_AppId, SipAppState) ->
     %     RegsOb),
     SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_outbound, undefined, 
                                              SipAppState),
-    lager:warning("UAC AUTO OB STOP1: ~p", [SipAppState1]),
     {ok, SipAppState1}.
 
 

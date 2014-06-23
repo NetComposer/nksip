@@ -50,8 +50,6 @@ nkcb_sip_method(_Trans, _Call) ->
 
 %% @private
 nkcb_authorize_data(List, #trans{request=Req}=Trans, Call) ->
-    lager:warning("REG AUTH"),
-
     case nksip_registrar:is_registered(Req) of
         true -> {continue, [[register|List], Trans, Call]};
         false -> continue

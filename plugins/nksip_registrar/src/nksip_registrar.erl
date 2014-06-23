@@ -75,7 +75,6 @@ parse_config(PluginOpts, Config) ->
     {ok, nksip_sipapp_srv:state()}.
 
 terminate(AppId, SipAppState) ->  
-    lager:warning("REG TERMINATE: ~p", [AppId]),
     nksip_registrar:clear(AppId),
     {ok, SipAppState}.
 
