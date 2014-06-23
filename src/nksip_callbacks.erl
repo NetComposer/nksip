@@ -25,8 +25,9 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3]).
--export([nkcb_uac_response/4]).
+-export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
+		 nkcb_transport_uac_headers/6]).
+-export([nkcb_uac_response/4, nkcb_uac_proxy_opts/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
 
@@ -114,6 +115,25 @@ nkcb_authorize_data(List, #trans{request=Req}, Call) ->
 
 nkcb_uac_response(Req, Resp, UAC, Call) ->
     {ok, Req, Resp, UAC, Call}.
+
+
+%% @doc Called to add options for proxy UAC processing
+-spec nkcb_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
+	{ok, nksip:request(), nksip:optslist()}.
+
+nkcb_uac_proxy_opts(Req, ReqOpts) ->
+	{ok, Req, ReqOpts}.
+
+
+%% @doc Called to add headers just before sending the request
+-spec nkcb_transport_uac_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
+							     nksip:protocol(), binary(), inet:port_number()) ->
+	{ok, nksip:request()}.
+
+nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
+	Req1 = nksip_transport_uac:add_headers(Req, Opts, Scheme, Proto, Host, Port),
+	{ok, Req1}.
+
 
 
 %% @doc Called when the SipApp process receives a handle_call/3.

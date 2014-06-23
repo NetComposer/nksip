@@ -22,8 +22,9 @@
 -module(nksip_outbound_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make_contact/3, check_several_reg_id/1]).
--export([proxy_opts/2, registrar/1, encode_flow/1, decode_flow/1]).
+-export([add_headers/6, check_several_reg_id/1]).
+-export([proxy_opts/2, registrar/1]).
+-export([decode_flow/1]).
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
@@ -32,6 +33,76 @@
 %% ===================================================================
 %% Types
 %% ===================================================================
+
+-spec add_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
+                  nksip:protocol(), binary(), inet:port_number()) ->
+    nksip:request().
+
+add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
+    #sipmsg{
+        class = {req, Method},
+        app_id = AppId, 
+        from = {From, _},
+        vias = Vias,
+        contacts = Contacts,
+        headers = Headers
+    } = Req,    
+    case nksip_lib:get_value(record_flow, Opts) of
+        FlowPid when is_pid(FlowPid) -> FlowOb = false;
+        {FlowPid, ob} -> FlowOb = true;
+        undefined -> FlowPid = FlowOb = false
+    end,
+    RouteUser = case FlowPid of
+        false -> 
+            GlobalId = nksip_config_cache:global_id(),
+            RouteBranch = case Vias of
+                [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
+                _ -> <<>>
+            end,
+            RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
+            <<"NkQ", RouteHash/binary>>;
+        FlowPid -> 
+            FlowToken = encode_flow(FlowPid),
+            <<"NkF", FlowToken/binary>>
+    end,
+    RecordRoute = case lists:member(record_route, Opts) of
+        true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
+                  Method=='REFER' -> 
+            nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                       RouteUser, [<<"lr">>]);
+        _ ->
+            []
+    end,
+    Path = case lists:member(path, Opts) of
+        true when Method=='REGISTER' ->
+            case RouteUser of
+                <<"NkQ", _/binary>> ->
+                    nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                               RouteUser, [<<"lr">>]);
+                <<"NkF", _/binary>> ->
+                    PathOpts = case FlowOb of
+                        true -> [<<"lr">>, <<"ob">>];
+                        false -> [<<"lr">>]
+                    end,
+                    nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                               RouteUser, PathOpts)
+            end;
+        _ ->
+            []
+    end,
+    Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
+        true ->
+            Contact0 = nksip_transport:make_route(Scheme, Proto, ListenHost, 
+                                                  ListenPort, From#uri.user, []),
+            [make_contact(Req, Contact0, Opts)];
+        false ->
+            Contacts
+    end,
+    Headers1 = nksip_headers:update(Headers, [
+                                {before_multi, <<"record-route">>, RecordRoute},
+                                {before_multi, <<"path">>, Path}]),
+    Req#sipmsg{headers=Headers1, contacts=Contacts1}.
+
 
 %% @private
 -spec make_contact(nksip:request(), nksip:uri(), nksip:optslist()) ->
@@ -64,7 +135,6 @@ make_contact(Req, Contact, _Opts) ->
         false ->
             Contact
     end.
-
 
 
 %% @doc Checks if we have several contacts with a 'reg-id' having expires>0

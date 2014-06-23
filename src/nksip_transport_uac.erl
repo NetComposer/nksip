@@ -23,7 +23,7 @@
 -module(nksip_transport_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send_request/2, resend_request/2]).
+-export([send_request/2, resend_request/2, add_headers/6]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -111,15 +111,15 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
 
 make_request_fun(Req, Dest, Opts) ->
     #sipmsg{
-        class = {req, Method},
+        % class = {req, Method},
         app_id = AppId, 
         ruri = RUri, 
         call_id = CallId,
-        from = {From, _},
+        % from = {From, _},
         vias = Vias,
         routes = Routes, 
-        contacts = Contacts, 
-        headers = Headers, 
+        % contacts = Contacts, 
+        % headers = Headers, 
         body = Body
     } = Req,
     #uri{scheme=Scheme} = Dest,     % RUri or first route
@@ -131,63 +131,11 @@ make_request_fun(Req, Dest, Opts) ->
         } = Transp,
         ListenHost = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
         ?call_debug("UAC listenhost is ~s", [ListenHost]),
-        RouteBranch = case Vias of
-            [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
-            _ -> <<>>
-        end,
-        % The user hash is used when the Record-Route is sent back from the UAS
-        % to notice it is ours, and change it to the destination transport
-        % (see nksip_transport_uas:send_response/2)
-        % The nksip tag is used to confirm it is ours and to check if a strict router
-        % has used it as Request Uri (see nksip_uas:strict_router/1)
-        case nksip_lib:get_value(record_flow, Opts) of
-            FlowPid when is_pid(FlowPid) -> FlowOb = false;
-            {FlowPid, ob} -> FlowOb = true;
-            undefined -> FlowPid = FlowOb = false
-        end,
-        GlobalId = nksip_config_cache:global_id(),
-        RouteUser = case FlowPid of
-            false -> 
-                RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
-                <<"NkQ", RouteHash/binary>>;
-            FlowPid -> 
-                FlowToken = nksip_outbound_lib:encode_flow(FlowPid),
-                <<"NkF", FlowToken/binary>>
-        end,
-        RecordRoute = case lists:member(record_route, Opts) of
-            true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
-                      Method=='REFER' -> 
-                nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
-                                           RouteUser, [<<"lr">>]);
-            _ ->
-                []
-        end,
-        Path = case lists:member(path, Opts) of
-            true when Method=='REGISTER' ->
-                case RouteUser of
-                    <<"NkQ", _/binary>> ->
-                        nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
-                                                   RouteUser, [<<"lr">>]);
-                    <<"NkF", _/binary>> ->
-                        PathOpts = case FlowOb of
-                            true -> [<<"lr">>, <<"ob">>];
-                            false -> [<<"lr">>]
-                        end,
-                        nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
-                                                   RouteUser, PathOpts)
-                end;
-            _ ->
-                []
-        end,
-        Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
-            true ->
-                Contact0 = nksip_transport:make_route(Scheme, Proto, ListenHost, 
-                                                     ListenPort, From#uri.user, []),
-                [nksip_outbound_lib:make_contact(Req, Contact0, Opts)];
-            false ->
-                Contacts
-        end,
+        {ok, Req1} = 
+            AppId:nkcb_transport_uac_headers(Req, Opts, Scheme, 
+                                             Proto, ListenHost, ListenPort),
         IsStateless = lists:member(stateless_via, Opts),
+        GlobalId = nksip_config_cache:global_id(),
         Branch = case Vias of
             [Via0|_] when IsStateless ->
                 % If it is a stateless proxy, generates the new Branch as a hash
@@ -217,22 +165,68 @@ make_request_fun(Req, Dest, Opts) ->
             port = ListenPort, 
             opts = [<<"rport">>, {<<"branch">>, Branch}]
         },
-        Headers1 = nksip_headers:update(Headers, [
-                                    {before_multi, <<"record-route">>, RecordRoute},
-                                    {before_multi, <<"path">>, Path}]),
         Body1 = case Body of 
             #sdp{} = SDP -> nksip_sdp:update_ip(SDP, ListenHost);
             _ -> Body
         end,
-        Req#sipmsg{
+        Req1#sipmsg{
             transport = Transp,
             ruri = RUri#uri{ext_opts=[], ext_headers=[]},
             vias = [Via1|Vias],
             routes = Routes,
-            contacts = Contacts1,
-            headers = Headers1,
             body = Body1
         }
     end.
 
 
+%% @private
+-spec add_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
+                  nksip:protocol(), binary(), inet:port_number()) ->
+    nksip:request().
+
+add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
+    #sipmsg{
+        class = {req, Method},
+        app_id = AppId, 
+        from = {From, _},
+        vias = Vias,
+        contacts = Contacts,
+        headers = Headers
+    } = Req,    
+    GlobalId = nksip_config_cache:global_id(),
+    RouteBranch = case Vias of
+        [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
+        _ -> <<>>
+    end,
+    RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
+    RouteUser = <<"NkQ", RouteHash/binary>>,
+    RecordRoute = case lists:member(record_route, Opts) of
+        true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
+                  Method=='REFER' -> 
+            nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                       RouteUser, [<<"lr">>]);
+        _ ->
+            []
+    end,
+    Path = case lists:member(path, Opts) of
+        true when Method=='REGISTER' ->
+            nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                                       RouteUser, [<<"lr">>]);
+        _ ->
+            []
+    end,
+    Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
+        true ->
+            Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
+                                                  ListenPort, From#uri.user, []),
+            #uri{ext_opts=CExtOpts} = Contact,
+            {ok, UUID} = nksip:get_uuid(AppId),
+            CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
+            [Contact#uri{ext_opts=CExtOpts1}];
+        false ->
+            Contacts
+    end,    
+    Headers1 = nksip_headers:update(Headers, [
+                                {before_multi, <<"record-route">>, RecordRoute},
+                                {before_multi, <<"path">>, Path}]),
+    Req#sipmsg{headers=Headers1, contacts=Contacts1}.

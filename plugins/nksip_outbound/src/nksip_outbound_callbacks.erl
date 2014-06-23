@@ -24,8 +24,24 @@
 
 -include("../../../include/nksip.hrl").
 -include("../../../plugins/nksip_registrar/include/nksip_registrar.hrl").
+-export([nkcb_uac_proxy_opts/2, nkcb_transport_uac_headers/6]).
 -export([nkcb_nksip_registrar_request_opts/2, nkcb_nksip_registrar_request_reply/3,
 	     nkcb_nksip_registrar_get_index/2]).
+
+
+
+%% @private
+nkcb_uac_proxy_opts(Req, ReqOpts) ->
+    case nksip_outbound_lib:proxy_opts(Req, ReqOpts) of
+        {ok, ProxyOpts} -> {ok, Req, ProxyOpts};
+        {error, OutError} -> throw({reply, OutError})
+    end.
+
+
+%% @private
+nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
+    Req1 = nksip_outbound_lib:add_headers(Req, Opts, Scheme, Proto, Host, Port),
+    {ok, Req1}.
 
 
 %% @private
