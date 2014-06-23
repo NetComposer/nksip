@@ -28,7 +28,8 @@
 -behaviour(gen_server).
 
 -export([get/2, put/3, put_new/3, del/2]).
--export([get_appid/1, get_name/1, config/1, pending_msgs/0, start_plugins/2, stop_plugins/2]).
+-export([get_appid/1, get_name/1, config/1, config/2]).
+-export([pending_msgs/0, start_plugins/2, stop_plugins/2]).
 -export([get_meta/2, set_meta/3]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
@@ -124,6 +125,14 @@ get_name(AppId) ->
 
 config(AppId) ->
     AppId:config().
+
+
+%% @doc Gets a value from the sipapp's configuration
+-spec config(nksip:app_id(), term()) ->
+    term() | undefined.
+
+config(AppId, Key) ->
+    nksip_lib:get_value(Key, AppId:config()).
 
 
 pending_msgs() ->
@@ -274,13 +283,12 @@ code_change(OldVsn, #sipapp_srv{app_id=AppId, sipapp_state=ModState}=State, Extr
     gen_server_terminate().
 
 terminate(Reason, State) ->  
-    ok.
-    % #sipapp_srv{app_id=AppId, sipapp_state=ModState} = State,
-    % case erlang:function_exported(AppId, terminate, 2) of
-    %     true -> AppId:terminate(Reason, ModState);
-    %     false -> ok
-    % end,
-    % do_stop_plugins(AppId:config_plugins(), State).
+    #sipapp_srv{app_id=AppId, sipapp_state=ModState} = State,
+    case erlang:function_exported(AppId, terminate, 2) of
+        true -> AppId:terminate(Reason, ModState);
+        false -> ok
+    end,
+    do_stop_plugins(lists:reverse(AppId:config_plugins()), State).
     
 
 
@@ -291,6 +299,7 @@ terminate(Reason, State) ->
       
 %% @private
 do_start_plugins([Plugin|Rest], #sipapp_srv{app_id=AppId}=State) ->
+    ?info(AppId, <<>>, "Starting plugin ~p", [Plugin]),
     case erlang:function_exported(Plugin, init, 2) of
         true ->
             {ok, #sipapp_srv{}=State1} = Plugin:init(AppId, State),
@@ -305,6 +314,7 @@ do_start_plugins([], State) ->
 
 %% @private
 do_stop_plugins([Plugin|Rest], #sipapp_srv{app_id=AppId}=State) ->
+    ?info(AppId, <<>>, "Stopping plugin ~p", [Plugin]),
     case erlang:function_exported(Plugin, terminate, 2) of
         true ->
             {ok, #sipapp_srv{}=State1} = Plugin:terminate(AppId, State),
