@@ -45,7 +45,7 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [{nksip_uac_auto, "^0\."}].
+    [{nksip_uac_auto, "^0\."}, {nksip_outbound, "^0\."}].
 
 
 %% @doc Parses this plugin specific configuration
