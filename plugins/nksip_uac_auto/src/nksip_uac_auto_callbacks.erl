@@ -271,7 +271,7 @@ nkcb_uac_auto_launch_register(Reg, Sync, SipAppState)->
 
 nkcb_uac_auto_launch_unregister(Reg, Sync, SipAppState)->
     #sipreg{ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
-    Opts1 = [contact, {cseq_num, CSeq}|lists:keystore(expires, 1, Opts, {expires, 0})],
+    Opts1 = [contact, {cseq_num, CSeq}|nksip_lib:store_value(expires, 0, Opts)],
     #sipapp_srv{app_id=AppId} = SipAppState,
     Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
     case Sync of

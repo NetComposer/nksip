@@ -362,12 +362,12 @@ parse_opts([Term|Rest], Req, Opts) ->
                     throw({invalid_config, pass})
             end,
             Passes0 = nksip_lib:get_value(passes, Opts, []),
-            Passes1 = lists:keystore(Realm1, 1, Passes0, {Realm1, Pass1}),
-            Opts1 = lists:keystore(passes, 1, Opts, {passes, Passes1}),
+            Passes1 = nksip_lib:store_value(Realm1, Pass1, Passes0),
+            Opts1 = nksip_lib:store_value(passes, Passes1, Opts),
             {update, Req, Opts1};
         {passes, Passes} ->
             Passes0 = nksip_lib:get_value(passes, Opts, []),
-            Opts1 = lists:keystore(passes, 1, Opts, {passes, Passes++Passes0}),
+            Opts1 = nksip_lib:store_value(passes, Passes++Passes0, Opts),
             {update, Req, Opts1};
 
         {Name, Value} when Name==record_flow; Name==route_flow ->
@@ -377,14 +377,14 @@ parse_opts([Term|Rest], Req, Opts) ->
                 false -> 
                     {update, Req, [{meta, List}|Opts]};
                 {meta, List0} ->
-                    {update, Req, lists:keystore(meta, 1, Opts, {meta, List0++List})}
+                    {update, Req, nksip_lib:store_value(meta, List0++List, Opts)}
             end;
         {user, List} when is_list(List) ->
             case lists:keyfind(user, 1, Opts) of
                 false -> 
                     {update, Req, [{user, List}|Opts]};
                 {user, List0} ->
-                    {update, Req, lists:keystore(user, 1, Opts, {user, List0++List})}
+                    {update, Req, nksip_lib:store_value(user, List0++List, Opts)}
             end;
         {local_host, auto} ->
             {update, Req, [{local_host, auto}|Opts]};

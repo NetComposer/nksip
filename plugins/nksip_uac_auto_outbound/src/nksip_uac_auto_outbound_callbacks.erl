@@ -67,7 +67,7 @@ nkcb_handle_info({'DOWN', Mon, process, _Pid, _}, SipAppState) ->
     #state_ob{regs=RegsOb} = get_state(SipAppState),
     case lists:keyfind(Mon, #sipreg_ob.conn_monitor, RegsOb) of
         #sipreg_ob{id=RegId, cseq=CSeq} ->
-            #sipapp_srv{app_id=AppId} = SipAppState,
+            #sipapp_srv{app_id=_AppId} = SipAppState,
             % ?info(AppId, <<>>, "register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
             Msg = {'$nksip_uac_auto_register_answer', RegId, 503, Meta},
@@ -162,7 +162,7 @@ nkcb_uac_auto_launch_unregister(Reg, Sync, SipAppState)->
                 false -> ok
             end,
             Opts1 = [contact, {cseq_num, CSeq}, {reg_id, Pos} |
-                     lists:keystore(expires, 1, Opts, {expires, 0})],
+                     nksip_lib:store_value(expires, 0, Opts)],
             #sipapp_srv{app_id=AppId} = SipAppState,
             Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
             case Sync of

@@ -260,7 +260,7 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
                     throw({invalid_config, pass})
             end,
             Passes0 = nksip_lib:get_value(passes, Opts, []),
-            Passes1 = lists:keystore(Realm1, 1, Passes0, {Realm1, Pass1}),
+            Passes1 = nksip_lib:store_value(Realm1, Pass1, Passes0),
             {update, passes, Passes1};
         {passes, _Passes} ->
             update;
@@ -307,7 +307,7 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
                 error when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
                 error -> throw({invalid_config, Term})
             end,
-            {lists:keystore(Key, 1, Opts, {Key, Val}), RestOpts}
+            {nksip_lib:store_value(Key, Val, Opts), RestOpts}
     end,
     parse_opts(Rest, RestOpts1, Opts1).
 
