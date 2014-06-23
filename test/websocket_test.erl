@@ -29,14 +29,14 @@
 -compile([export_all]).
 
 
-ws1_test_() ->
-    {setup, spawn, 
-        fun() -> start1() end,
-        fun(_) -> stop1() end,
-        [
-            fun webserver/0
-        ]
-    }.
+% ws1_test_() ->
+%     {setup, spawn, 
+%         fun() -> start1() end,
+%         fun(_) -> stop1() end,
+%         [
+%             fun webserver/0
+%         ]
+%     }.
 
 
 start1() ->
@@ -100,16 +100,16 @@ stop1() ->
     ok.
 
 
-ws2_test_() ->
-    {setup, spawn, 
-        fun() -> start2() end,
-        fun(_) -> stop2() end,
-        [
-            fun basic/0, 
-            fun sharing/0,
-            fun proxy/0
-        ]
-    }.
+% ws2_test_() ->
+%     {setup, spawn, 
+%         fun() -> start2() end,
+%         fun(_) -> stop2() end,
+%         [
+%             fun basic/0, 
+%             fun sharing/0,
+%             fun proxy/0
+%         ]
+%     }.
 
 
 start2() ->
@@ -117,7 +117,7 @@ start2() ->
 
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
-        {plugins, [nksip_registrar]},
+        {plugins, [nksip_registrar, nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [
             {udp, all, 5060},
@@ -129,18 +129,21 @@ start2() ->
 
     {ok, _} = nksip:start(ua1, ?MODULE, ua1, [
         {from, "\"NkSIP Client\" <sip:client1@nksip>"},
+        {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
     {ok, _} = nksip:start(ua2, ?MODULE, ua2, [
         {from, "<sip:client2@nksip>"},
+        {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [{ws, all, any}, {wss, all, 8091}]}
     ]),
 
     {ok, _} = nksip:start(ua3, ?MODULE, ua3, [
         {from, "<sip:client3@nksip>"},
+        {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "invalid.invalid"},
         {transports, [{ws, all, 8080, [{dispatch, "/client3"}]}]}
     ]),
@@ -284,13 +287,13 @@ proxy() ->
                            [contact]),
 
     % Using or public GRUU, UA1 (without websocket support) is able to reach us
-    {ok, C2Pub} = nksip:get_gruu_pub(ua2),
+    {ok, C2Pub} = nksip_gruu:get_gruu_pub(ua2),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options(ua1, C2Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
     % The same with our private GRUU
-    {ok, C2Priv} = nksip:get_gruu_temp(ua2),
+    {ok, C2Priv} = nksip_gruu:get_gruu_temp(ua2),
     {ok, 200, [{_, [<<"ua2">>]}]} = 
         nksip_uac:options(ua1, C2Priv, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
@@ -302,12 +305,12 @@ proxy() ->
                            [contact, {meta, [contacts]}]),
     #uri{domain = <<"invalid.invalid">>} = C3Contact,
     
-    {ok, C3Pub} = nksip:get_gruu_pub(ua3),
+    {ok, C3Pub} = nksip_gruu:get_gruu_pub(ua3),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options(ua1, C3Pub, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
 
-    {ok, C3Priv} = nksip:get_gruu_temp(ua3),
+    {ok, C3Priv} = nksip_gruu:get_gruu_temp(ua3),
     {ok, 200, [{_, [<<"ua3">>]}]} = 
         nksip_uac:options(ua1, C3Priv, 
                           [{route, "<sip:127.0.0.1;lr>"}, {meta, [<<"x-nk-id">>]}]),
@@ -345,7 +348,7 @@ sip_route(_Scheme, User, Domain, Req, _Call) ->
                     process;
                 true when Domain =:= <<"nksip">> ->
                     RUri = nksip_request:meta(ruri, Req),
-                    case nksip_registrar:find(server1, RUri) of
+                    case nksip_gruu:registrar_find(server1, RUri) of
                         [] -> {reply, temporarily_unavailable};
                         UriList -> {proxy, UriList, Opts}
                     end;

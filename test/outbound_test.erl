@@ -46,7 +46,7 @@ start() ->
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start(registrar, ?MODULE, [], [
-        {plugins, [nksip_registrar]},
+        {plugins, [nksip_registrar, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5090}, {tls, all, 5091}]}
     ]),
@@ -54,31 +54,37 @@ start() ->
     {ok, _} = nksip:start(ua1, ?MODULE, [], [
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5101}, {tls, all, 5102}]}
     ]),
 
     {ok, _} = nksip:start(ua2, ?MODULE, [], [
         {local_host, "127.0.0.1"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5103}, {tls, all, 5104}]}
     ]),
 
     {ok, _} = nksip:start(p1, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
     {ok, _} = nksip:start(p2, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
     {ok, _} = nksip:start(p3, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
 
     {ok, _} = nksip:start(p4, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5200}, {tls, all, 5201}]}
     ]),
 
@@ -133,6 +139,7 @@ basic() ->
     ok.
 
 
+
 flow() ->
     nksip_registrar:clear(registrar),
     nksip_transport:stop_all_connected(),
@@ -169,7 +176,7 @@ flow() ->
         }=Path1]
     }] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
             
-    {ok, Pid1, Transp1} = nksip_outbound:decode_flow(Flow1),
+    {ok, Pid1, Transp1} = nksip_outbound_lib:decode_flow(Flow1),
 
     [#uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -182,7 +189,7 @@ flow() ->
         list_to_binary(http_uri:decode(binary_to_list(QRoute1))) == 
         nksip_unparse:uri(Path1),
 
-    % Now, if a send a request to this Contact, it goes to the registrar first, 
+    % Now, if we send a request to this Contact, it goes to the registrar first, 
     % and the same transport is reused
     {ok, 200, [{local, Local2}, {remote, {tcp, {127,0,0,1}, 5090, <<>>}}]} = 
         nksip_uac:options(ua2, Contact1, [{meta,[local, remote]}]),
@@ -357,8 +364,8 @@ register() ->
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
     ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
-    {ok, _, #transport{remote_port=5101}} = nksip_outbound:decode_flow(Flow1),
-    {ok, _, #transport{remote_port=5103}} = nksip_outbound:decode_flow(Flow2),
+    {ok, _, #transport{remote_port=5101}} = nksip_outbound_lib:decode_flow(Flow1),
+    {ok, _, #transport{remote_port=5103}} = nksip_outbound_lib:decode_flow(Flow2),
     ok.
 
 
@@ -391,14 +398,14 @@ proxy() ->
                     local_port = 5080,
                     remote_ip = {127,0,0,1},
                     remote_port = _Remote1}
-    } = nksip_outbound:decode_flow(Flow1),
+    } = nksip_outbound_lib:decode_flow(Flow1),
 
     {ok, Pid2, #transport{
                     proto = udp,
                     local_port = 5060,
                     remote_ip = {127,0,0,1},
                     remote_port = 5101}
-    } = nksip_outbound:decode_flow(Flow2),
+    } = nksip_outbound_lib:decode_flow(Flow2),
      
 
     % Now, if we send a request to this contact, it has two routes
