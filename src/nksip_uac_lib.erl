@@ -145,7 +145,7 @@ proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
         ConfigOpts = AppId:config_uac_proxy(),
         {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, []),
         {Req3, ReqOpts2} = parse_opts(Opts, Req2, ReqOpts1),
-        ReqOpts3 = case nksip_outbound:proxy_opts(Req3, ReqOpts2) of
+        ReqOpts3 = case nksip_outbound_lib:proxy_opts(Req3, ReqOpts2) of
             {ok, ProxyOpts} -> ProxyOpts;
             {error, OutError} -> throw({reply, OutError})
         end,
