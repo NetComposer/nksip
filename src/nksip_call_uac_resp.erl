@@ -186,7 +186,7 @@ response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call)
 
 % Final [3456]xx response received, real response
 response_status(invite_proceeding, Resp, UAC, Call) ->
-    #sipmsg{to={To, ToTag}} = Resp,
+    #sipmsg{app_id=AppId, to={To, ToTag}} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
     UAC1 = UAC#trans{
         request = Req#sipmsg{to={To, ToTag}}, 
@@ -204,8 +204,9 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
         _ -> 
             UAC3#trans{status=finished}
     end,
-    received_gruu(Req, Resp, UAC5, update(UAC5, Call));
-
+    {ok, CbReq, CbResp, CbUAC, CbCall} = 
+        AppId:nkcb_uac_response(Req, Resp, UAC5, update(UAC5, Call)),
+    received_auth(CbReq, CbResp, CbUAC, CbCall);
 
 response_status(invite_accepted, _Resp, #trans{code=Code}, Call) 
                    when Code < 200 ->
@@ -257,7 +258,7 @@ response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
 
 % Final response received, real response
 response_status(proceeding, Resp, UAC, Call) ->
-    #sipmsg{to={_, ToTag}} = Resp,
+    #sipmsg{app_id=AppId, to={_, ToTag}} = Resp,
     #trans{proto=Proto, request=Req} = UAC,
     UAC2 = case Proto of
         udp -> 
@@ -272,7 +273,9 @@ response_status(proceeding, Resp, UAC, Call) ->
             UAC1 = UAC#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
-    received_gruu(Req, Resp, UAC2, update(UAC2, Call));
+    {ok, CbReq, CbResp, CbUAC, CbCall} = 
+        AppId:nkcb_uac_response(Req, Resp, UAC2, update(UAC2, Call)),
+    received_auth(CbReq, CbResp, CbUAC, CbCall);
 
 response_status(completed, Resp, UAC, Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}, to={_, ToTag}} = Resp,
@@ -329,57 +332,6 @@ do_received_hangup(Resp, UAC, Call) ->
                         [Id, Status, Code])
     end,
     update(UAC1, Call).
-
-
-%% @private 
--spec received_gruu(nksip:request(), nksip:response(), 
-                       nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-received_gruu(Req, Resp, UAC, Call) ->
-    #trans{method = Method, code=Code} = UAC,
-    #sipmsg{contacts=Contacts} = Resp,
-    #call{app_id=AppId} = Call,
-    case Method=='REGISTER' andalso Code>=200 andalso Code<300 of
-        true -> find_gruus(AppId, Contacts);
-        false -> ok
-    end,
-    received_auth(Req, Resp, UAC, Call).
-
-
-%% @private
-find_gruus(AppId, [#uri{ext_opts=Opts}|Rest]) ->
-    HasPubGruu = case nksip_lib:get_value(<<"pub-gruu">>, Opts) of
-        undefined -> 
-            false;
-        PubGruu ->
-            case nksip_parse:ruris(nksip_lib:unquote(PubGruu)) of
-                [PubUri] -> 
-                    nksip_config:put({nksip_gruu_pub, AppId}, PubUri),
-                    true;
-                _ -> 
-                    false
-            end
-    end,
-    HasTmpGruu = case nksip_lib:get_value(<<"temp-gruu">>, Opts) of
-        undefined -> 
-            false;
-        TempGruu ->
-            case nksip_parse:ruris(nksip_lib:unquote(TempGruu)) of
-                [TempUri] -> 
-                    nksip_config:put({nksip_gruu_temp, AppId}, TempUri),
-                    true;
-                _ -> 
-                    false
-            end
-    end,
-    case HasPubGruu andalso HasTmpGruu of
-        true -> ok;
-        false -> find_gruus(AppId, Rest)
-    end;
-
-find_gruus(_, []) ->
-    ok.
 
 
 %% @private 

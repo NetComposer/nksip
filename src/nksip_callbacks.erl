@@ -26,6 +26,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3]).
+-export([nkcb_uac_response/4]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
 
@@ -104,6 +105,15 @@ nkcb_authorize_data(List, #trans{request=Req}, Call) ->
         false -> []
     end,
     {ok, lists:flatten([Digest, Dialog, List])}.
+
+
+%% @doc Called after the UAC processes a response
+-spec nkcb_uac_response(nksip:request(), nksip:response(), 
+			            nksip_call:trans(), nksip:call()) ->
+	{ok, nksip:request(), nksip:response(), nksip_call:trans(), nksip:call()}.
+
+nkcb_uac_response(Req, Resp, UAC, Call) ->
+    {ok, Req, Resp, UAC, Call}.
 
 
 %% @doc Called when the SipApp process receives a handle_call/3.
