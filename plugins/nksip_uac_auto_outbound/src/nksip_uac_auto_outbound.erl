@@ -55,9 +55,11 @@ deps() ->
 
 parse_config(PluginOpts, Config) ->
     Defaults = [
-        {nksip_uac_auto_outbound_all_fail, 30},        % (secs)
-        {nksip_uac_auto_outbound_any_ok, 90},          % (secs)
-        {nksip_uac_auto_outbound_max_time, 1800}       % (secs)
+        {nksip_uac_auto_outbound_default_udp_ttl, 25},
+        {nksip_uac_auto_outbound_default_tcp_ttl, 120},
+        {nksip_uac_auto_outbound_all_fail, 30},
+        {nksip_uac_auto_outbound_any_ok, 90},  
+        {nksip_uac_auto_outbound_max_time, 1800}
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
     parse_config(PluginOpts1, [], Config).
@@ -68,11 +70,9 @@ parse_config(PluginOpts, Config) ->
     {ok, nksip_siapp_srv:state()}.
 
 init(AppId, SipAppState) ->
-    Config = AppId:config(),
     Supported = AppId:config_supported(),
     StateOb = #state_ob{
         outbound = lists:member(<<"outbound">>, Supported),
-        ob_base_time = nksip_lib:get_value(nksip_uac_auto_outbound_any_ok, Config),
         pos = 1,
         regs = []
     },
@@ -85,11 +85,20 @@ init(AppId, SipAppState) ->
     {ok, nksip_sipapp_srv:state()}.
 
 terminate(_AppId, SipAppState) ->  
-    % #state_ob{regs=RegsOb} = 
-    %     nksip_sipapp_srv:get_meta(nksip_uac_auto_outbound, SipAppState),
-    % lists:foreach(
-    %     fun(Reg) -> nksip_uac_auto_outbound_lib:launch_unregister(AppId, Reg) end,
-    %     RegsOb),
+    #state_ob{regs=RegsOb} = 
+        nksip_sipapp_srv:get_meta(nksip_uac_auto_outbound, SipAppState),
+    lists:foreach(
+        fun(#sipreg_ob{conn_monitor=Monitor, conn_pid=Pid}) -> 
+            case is_reference(Monitor) of
+                true -> erlang:demonitor(Monitor);
+                false -> ok
+            end, 
+            case is_pid(Pid) of
+                true -> nksip_connection:stop_refresh(Pid);
+                false -> ok
+            end
+        end,
+        RegsOb),
     SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_outbound, undefined, 
                                              SipAppState),
     {ok, SipAppState1}.
@@ -154,6 +163,16 @@ parse_config([Term|Rest], Unknown, Config) ->
                 false -> error
             end;
         {nksip_uac_auto_outbound_max_time, Secs} -> 
+            case is_integer(Secs) andalso Secs>=1 of
+                true -> update;
+                false -> error
+            end;
+        {nksip_uac_auto_outbound_default_udp_ttl, Secs} ->
+            case is_integer(Secs) andalso Secs>=1 of
+                true -> update;
+                false -> error
+            end;
+        {nksip_uac_auto_outbound_default_tcp_ttl, Secs} ->
             case is_integer(Secs) andalso Secs>=1 of
                 true -> update;
                 false -> error
