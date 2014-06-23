@@ -43,19 +43,21 @@ start() ->
 
     {ok, _} = nksip:start(server1, ?MODULE, [], [
         {from, "sip:server1@nksip"},
-        {plugins, [nksip_registrar]},
+        {plugins, [nksip_registrar, nksip_gruu]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
     {ok, _} = nksip:start(ua1, ?MODULE, [], [
         {from, "sip:client1@nksip"},
+        {plugins, [nksip_gruu]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
     {ok, _} = nksip:start(ua2, ?MODULE, [], [
         {from, "sip:client1@nksip"},
+        {plugins, [nksip_gruu]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
@@ -91,10 +93,10 @@ register() ->
     {ok, Inst1} = nksip:get_uuid(ua1),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub1,
     #uri{domain = <<"nksip">>, port=0} = Tmp1,
+    {ok, Pub1} = nksip_gruu:get_gruu_pub(ua1),
+    {ok, Tmp1} = nksip_gruu:get_gruu_temp(ua1),
 
-    {ok, Pub1} = nksip:get_gruu_pub(ua1),
-    {ok, Tmp1} = nksip:get_gruu_temp(ua1),
-
+    % Now we register a second UA with the same AOR
     {ok, 200, [{_, [PC2, PC1]}]} =
         nksip_uac:register(ua2, "sip:127.0.0.1", [contact, {meta, [contacts]}]),
     #uri{
@@ -103,32 +105,31 @@ register() ->
         port = 5080,
         ext_opts = EOpts2
     } = PC2,
+
     Inst2 = list_to_binary(
                 nksip_lib:unquote(nksip_lib:get_value(<<"+sip.instance">>, EOpts2))),
     [Pub2] = nksip_parse:ruris(nksip_lib:unquote(
                                nksip_lib:get_value(<<"pub-gruu">>, EOpts2))),
     [Tmp2] = nksip_parse:ruris(nksip_lib:unquote(
                                nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
-
     {ok, Inst2} = nksip:get_uuid(ua2),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub2,
     #uri{domain = <<"nksip">>, port=0} = Tmp2,
-
-    {ok, Pub2} = nksip:get_gruu_pub(ua2),
-    {ok, Tmp2} = nksip:get_gruu_temp(ua2),
+    {ok, Pub2} = nksip_gruu:get_gruu_pub(ua2),
+    {ok, Tmp2} = nksip_gruu:get_gruu_temp(ua2),
 
 
     % Now we have two contacts stored for this AOR
-    [PC2a, PC1a] = nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
+    [PC2, PC1] = nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
 
-    true = PC2#uri{ext_opts=[]} == PC2a#uri{headers=[]},
-    true = PC1#uri{ext_opts=[]} == PC1a#uri{headers=[]},
+    % true = PC2#uri{ext_opts=[]} == PC2a#uri{headers=[]},
+    % true = PC1#uri{ext_opts=[]} == PC1a#uri{headers=[]},
 
     % But we use the Public or Private GRUUs, only one of each
-    [PC1a] = nksip_registrar:find(server1, Pub1),
-    [PC2a] = nksip_registrar:find(server1, Pub2),
-    [PC1a] = nksip_registrar:find(server1, Tmp1),
-    [PC2a] = nksip_registrar:find(server1, Tmp2),
+    [PC1a] = nksip_gruu:registrar_find(server1, Pub1),
+    [PC2a] = nksip_gruu:registrar_find(server1, Pub2),
+    [PC1a] = nksip_gruu:registrar_find(server1, Tmp1),
+    [PC2a] = nksip_gruu:registrar_find(server1, Tmp2),
 
     {ok, 403, []} = nksip_uac:register(ua1, "sip:127.0.0.1", [{contact, Pub1}]),
     {ok, 403, []} = nksip_uac:register(ua1, "sip:127.0.0.1", [{contact, Tmp1}]),
@@ -154,8 +155,8 @@ temp_gruu() ->
                                nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
 
     true = Tmp1 /= Tmp2,
-    [#uri{port=5070}] = nksip_registrar:find(server1, Tmp1),
-    [#uri{port=5070}] = nksip_registrar:find(server1, Tmp2),
+    [#uri{port=5070}] = nksip_gruu:registrar_find(server1, Tmp1),
+    [#uri{port=5070}] = nksip_gruu:registrar_find(server1, Tmp2),
 
     % Now we change the Call-ID, both are invalidated and only the new one is valid
     {ok, 200, [{_, [#uri{ext_opts=EOpts3}]}]} =
@@ -164,12 +165,12 @@ temp_gruu() ->
                                nksip_lib:get_value(<<"temp-gruu">>, EOpts3))),
 
     true = Tmp1 /= Tmp3 andalso Tmp2 /= Tmp3,
-    [] = nksip_registrar:find(server1, Tmp1),
-    [] = nksip_registrar:find(server1, Tmp2),
-    [#uri{port=5070}] = nksip_registrar:find(server1, Tmp3),
+    [] = nksip_gruu:registrar_find(server1, Tmp1),
+    [] = nksip_gruu:registrar_find(server1, Tmp2),
+    [#uri{port=5070}] = nksip_gruu:registrar_find(server1, Tmp3),
 
     {ok, 200, []} = nksip_uac:register(ua1, "sip:127.0.0.1", [unregister_all]),
-    [] = nksip_registrar:find(server1, Tmp3),
+    [] = nksip_gruu:registrar_find(server1, Tmp3),
     ok.
 
 

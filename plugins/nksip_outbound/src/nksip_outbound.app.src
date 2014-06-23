@@ -1,0 +1,8 @@
+{application, nksip_outbound, [
+    {description, "NkSIP Outbound Plugin"},
+    {vsn, "0.1"},
+    {modules, []},
+    {registered, []},
+    {applications, []},
+    {env, []}
+]}.

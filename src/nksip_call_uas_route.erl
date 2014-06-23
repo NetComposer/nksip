@@ -126,7 +126,7 @@ authorize_launch(UAS, #call{app_id=AppId}=Call) ->
     % finding authentication info
     case erlang:function_exported(AppId:module(), sip_authorize, 3) of
         true ->
-            AuthData = AppId:nkcb_authorize_data([], UAS, Call),
+            {ok, AuthData} = AppId:nkcb_authorize_data([], UAS, Call),
             Args = [AuthData, UAS#trans.request, Call],
             case AppId:nkcb_call(sip_authorize, Args, AppId) of
                 {ok, Reply} -> authorize_reply(Reply, UAS, Call);

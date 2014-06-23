@@ -64,8 +64,10 @@ parse_config(PluginOpts, Config) ->
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
     Allow = nksip_lib:get_value(allow, Config),
     Config1 = case lists:member(<<"REGISTER">>, Allow) of
-        true -> Config;
-        false -> lists:keystore(allow, 1, Config, {allow, Allow++[<<"REGISTER">>]})
+        true -> 
+            Config;
+        false -> 
+            nksip_lib:store_value(allow, Allow++[<<"REGISTER">>], Config)
     end,
     nksip_registrar_lib:parse_config(PluginOpts1, [], Config1).
 
@@ -86,6 +88,7 @@ terminate(AppId, SipAppState) ->
 %% ===================================================================
 
 %% @doc Gets all current registered contacts for an AOR.
+%% Use nksip_gruu:find/2 to process gruu options.
 -spec find(nksip:app_name()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 

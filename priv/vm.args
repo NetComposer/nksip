@@ -8,6 +8,8 @@
 -pa plugins/nksip_registrar/ebin
 -pa plugins/nksip_uac_auto/ebin
 -pa plugins/nksip_uac_auto_outbound/ebin
+-pa plugins/nksip_outbound/ebin
+-pa plugins/nksip_gruu/ebin
 -pa samples/nksip_loadtest/ebin
 
 ## Name of the node

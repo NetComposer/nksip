@@ -37,7 +37,7 @@ outbound_test_() ->
             fun flow/0,
             fun register/0,
             fun proxy/0,
-            {timeout, 60, fun outbound/0}
+            {timeout, 60, fun uac_auto/0}
         ]
     }.
 
@@ -46,7 +46,7 @@ start() ->
     tests_util:start_nksip(),
 
     {ok, _} = nksip:start(registrar, ?MODULE, [], [
-        {plugins, [nksip_registrar]},
+        {plugins, [nksip_registrar, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5090}, {tls, all, 5091}]}
     ]),
@@ -54,31 +54,37 @@ start() ->
     {ok, _} = nksip:start(ua1, ?MODULE, [], [
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5101}, {tls, all, 5102}]}
     ]),
 
     {ok, _} = nksip:start(ua2, ?MODULE, [], [
         {local_host, "127.0.0.1"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5103}, {tls, all, 5104}]}
     ]),
 
     {ok, _} = nksip:start(p1, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
     {ok, _} = nksip:start(p2, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
     {ok, _} = nksip:start(p3, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5080}, {tls, all, 5081}]}
     ]),
 
     {ok, _} = nksip:start(p4, ?MODULE, [], [
         {local_host, "localhost"},
+        {plugins, [nksip_outbound]},
         {transports, [{udp, all, 5200}, {tls, all, 5201}]}
     ]),
 
@@ -103,8 +109,7 @@ basic() ->
     % RepHd = {<<"x-nk-reply">>, base64:encode(erlang:term_to_binary({Ref, Self}))},
 
     {ok, 603, []} = nksip_uac:invite(ua2, "sip:127.0.0.1:5103", 
-                                        [contact, CB, get_request]),
-    % Ob option is only added to dialog-generating requests
+                                    [contact, CB, get_request]),
     receive 
         {Ref, #sipmsg{contacts=[#uri{opts=Opts1}]}} ->
             true = lists:member(<<"ob">>, Opts1)
@@ -112,16 +117,27 @@ basic() ->
         error(basic)
     end,
   
-    {ok, 200, []} = nksip_uac:options(ua2, "sip:127.0.0.1:5103", 
-                                        [contact, CB, get_request, 
-                                         {supported, "path"}]),
+    % Ob option is only added to dialog-generating requests
+    {ok, 603, []} = nksip_uac:invite(ua2, "sip:127.0.0.1:5103", 
+                                    [contact, CB, get_request, {supported, []}]),
     receive 
         {Ref, #sipmsg{contacts=[#uri{opts=Opts2}]}} ->
             false = lists:member(<<"ob">>, Opts2)
     after 1000 ->
         error(basic)
     end,
+
+
+    {ok, 200, []} = nksip_uac:options(ua2, "sip:127.0.0.1:5103", 
+                                        [contact, CB, get_request]),
+    receive 
+        {Ref, #sipmsg{contacts=[#uri{opts=Opts3}]}} ->
+            false = lists:member(<<"ob">>, Opts3)
+    after 1000 ->
+        error(basic)
+    end,
     ok.
+
 
 
 flow() ->
@@ -160,7 +176,7 @@ flow() ->
         }=Path1]
     }] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
             
-    {ok, Pid1, Transp1} = nksip_outbound:decode_flow(Flow1),
+    {ok, Pid1, Transp1} = nksip_outbound_lib:decode_flow(Flow1),
 
     [#uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -173,7 +189,7 @@ flow() ->
         list_to_binary(http_uri:decode(binary_to_list(QRoute1))) == 
         nksip_unparse:uri(Path1),
 
-    % Now, if a send a request to this Contact, it goes to the registrar first, 
+    % Now, if we send a request to this Contact, it goes to the registrar first, 
     % and the same transport is reused
     {ok, 200, [{local, Local2}, {remote, {tcp, {127,0,0,1}, 5090, <<>>}}]} = 
         nksip_uac:options(ua2, Contact1, [{meta,[local, remote]}]),
@@ -348,8 +364,8 @@ register() ->
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
     ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
-    {ok, _, #transport{remote_port=5101}} = nksip_outbound:decode_flow(Flow1),
-    {ok, _, #transport{remote_port=5103}} = nksip_outbound:decode_flow(Flow2),
+    {ok, _, #transport{remote_port=5101}} = nksip_outbound_lib:decode_flow(Flow1),
+    {ok, _, #transport{remote_port=5103}} = nksip_outbound_lib:decode_flow(Flow2),
     ok.
 
 
@@ -382,14 +398,14 @@ proxy() ->
                     local_port = 5080,
                     remote_ip = {127,0,0,1},
                     remote_port = _Remote1}
-    } = nksip_outbound:decode_flow(Flow1),
+    } = nksip_outbound_lib:decode_flow(Flow1),
 
     {ok, Pid2, #transport{
                     proto = udp,
                     local_port = 5060,
                     remote_ip = {127,0,0,1},
                     remote_port = 5101}
-    } = nksip_outbound:decode_flow(Flow2),
+    } = nksip_outbound_lib:decode_flow(Flow2),
      
 
     % Now, if we send a request to this contact, it has two routes
@@ -449,26 +465,33 @@ proxy() ->
     ok.
 
 
-outbound() ->
+uac_auto() ->
     nksip_registrar:clear(registrar),
     nksip_transport:stop_all_connected(),
     {ok, UA3_Id} = nksip:start(ua3, ?MODULE, ua3, [
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5106}, {tls, all, 5107}]},
-        {plugins, [nksip_uac_auto]},
-        {nksip_uac_auto_register, 
-            "<sip:127.0.0.1:5090;transport=tcp>, 
-             <sip:127.0.0.1:5090;transport=udp>"},
+        {plugins, [nksip_uac_auto_outbound]},
         {nksip_uac_auto_outbound_all_fail, 1},
         {nksip_uac_auto_outbound_any_ok, 2},
         {nksip_uac_auto_timer, 1}
     ]),
     timer:sleep(100),
+    {ok, true} = 
+        nksip_uac_auto_outbound:start_register(ua3, auto1, 
+                                               "<sip:127.0.0.1:5090;transport=tcp>", []),
+    {ok, true} = 
+        nksip_uac_auto_outbound:start_register(ua3, auto2, 
+                                               "<sip:127.0.0.1:5090;transport=udp>", []),
 
-    [{<<"auto-1">>, true, _},{<<"auto-2">>, true, _}] = 
+
+    [{auto1, true, _},{auto2, true, _}] = 
         lists:sort(nksip_uac_auto:get_registers(ua3)),
+    [{auto1, true, _, _},{auto2, true, _, _}] = 
+        lists:sort(nksip_uac_auto_outbound:get_registers(ua3)),
 
+    timer:sleep(100),
     % UA3 should have two connections to Registrar
     [
         {
@@ -497,8 +520,6 @@ outbound() ->
         }
     ] = lists:sort(nksip_transport:get_all_connected(RegistrarId)),
 
-
-
     {true, KA1, Refresh1} = nksip_connection:get_refresh(Pid1),
     check_time(KA1, 120),
     {true, KA2, Refresh2} = nksip_connection:get_refresh(Pid2),
@@ -511,14 +532,14 @@ outbound() ->
     lager:error("Next error about process failed is expected"),
     exit(Pid1, kill),
     timer:sleep(50),
-    [{<<"auto-1">>, false, _},{<<"auto-2">>, true, _}] = 
+    [{auto1, false, _},{auto2, true, _}] = 
         lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (1/3)"),
     wait_register(10),  % 50
 
     nksip_connection:stop(Pid2, normal),
     timer:sleep(50),
-    [{<<"auto-1">>, true, _},{<<"auto-2">>, false, _}] = 
+    [{auto1, true, _},{auto2, false, _}] = 
         lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (2/3)"),
     wait_register(50),
@@ -527,7 +548,7 @@ outbound() ->
     nksip_connection:stop(Pid5, normal),
     nksip_connection:stop(Pid6, normal),
     timer:sleep(50),
-    [{<<"auto-1">>, false, _},{<<"auto-2">>, false, _}] = 
+    [{auto1, false, _},{auto2, false, _}] = 
         lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (3/3)"),
     wait_register(100),
@@ -548,7 +569,7 @@ wait_register(0) ->
     error(register);
 wait_register(N) ->
     case lists:sort(nksip_uac_auto:get_registers(ua3)) of
-        [{<<"auto-1">>, true, _},{<<"auto-2">>, true, _}] -> ok;
+        [{auto1, true, _},{auto2, true, _}] -> ok;
         _ -> timer:sleep(1000), wait_register(N-1)
     end.
         

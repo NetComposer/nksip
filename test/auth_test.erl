@@ -92,7 +92,7 @@ digest() ->
     SipC2 = "sip:127.0.0.1:5071",
 
     {ok, 401, []} = nksip_uac:options(client1, SipC2, []),
-    % {ok, 200, []} = nksip_uac:options(client1, SipC2, [{pass, "1234"}]),
+    {ok, 200, []} = nksip_uac:options(client1, SipC2, [{pass, "1234"}]),
     {ok, 403, []} = nksip_uac:options(client1, SipC2, [{pass, "12345"}]),
     {ok, 200, []} = nksip_uac:options(client1, SipC2, [{pass, {"1234", "client2"}}]),
     {ok, 403, []} = nksip_uac:options(client1, SipC2, [{pass, {"1234", "other"}}]),

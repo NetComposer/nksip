@@ -75,9 +75,9 @@ stop() ->
 basic() ->
     Ref = make_ref(),
     Pid = self(),
-    nksip:put(server1, inline_test, {Ref, Pid}),
-    nksip:put(client1, inline_test, {Ref, Pid}),
-    nksip:put(client2, inline_test, {Ref, Pid}),
+    ok = nksip:put(server1, inline_test, {Ref, Pid}),
+    ok = nksip:put(client1, inline_test, {Ref, Pid}),
+    ok = nksip:put(client2, inline_test, {Ref, Pid}),
     nksip_registrar:clear(server1),
     
     {ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", [contact]),
@@ -126,9 +126,9 @@ basic() ->
 cancel() ->
     Ref = make_ref(),
     Pid = self(),
-    nksip:put(server1, inline_test, {Ref, Pid}),
-    nksip:put(client1, inline_test, {Ref, Pid}),
-    nksip:put(client2, inline_test, {Ref, Pid}),
+    ok = nksip:put(server1, inline_test, {Ref, Pid}),
+    ok = nksip:put(client1, inline_test, {Ref, Pid}),
+    ok = nksip:put(client2, inline_test, {Ref, Pid}),
 
     {ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1", [contact]),
     ok = tests_util:wait(Ref, [{server1, route}]),

@@ -151,7 +151,7 @@ make_request_fun(Req, Dest, Opts) ->
                 RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
                 <<"NkQ", RouteHash/binary>>;
             FlowPid -> 
-                FlowToken = nksip_outbound:encode_flow(FlowPid),
+                FlowToken = nksip_outbound_lib:encode_flow(FlowPid),
                 <<"NkF", FlowToken/binary>>
         end,
         RecordRoute = case lists:member(record_route, Opts) of
@@ -183,7 +183,7 @@ make_request_fun(Req, Dest, Opts) ->
             true ->
                 Contact0 = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                      ListenPort, From#uri.user, []),
-                [nksip_outbound:make_contact(Req, Contact0, Opts)];
+                [nksip_outbound_lib:make_contact(Req, Contact0, Opts)];
             false ->
                 Contacts
         end,

@@ -30,7 +30,7 @@
 -export([get/2, put/3, put_new/3, del/2]).
 -export([get_appid/1, get_name/1, config/1, config/2]).
 -export([pending_msgs/0, start_plugins/2, stop_plugins/2]).
--export([get_meta/2, set_meta/3]).
+-export([get_meta/2, set_meta/3, update_uuid/3]).
 -export([start_link/2, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
          handle_info/2]).
 -export_type([state/0]).
@@ -190,8 +190,7 @@ init([AppId, Args]) ->
     nksip_proc:put(nksip_sipapps, AppId),   
     Config = AppId:config(),
     AppName = nksip_lib:get_value(name, Config),
-    nksip_proc:put({nksip_sipapp_name, AppName}, AppId), 
-    update_uuid(AppId, AppName),
+    true = nksip_proc:reg({nksip_sipapp_name, AppName}, AppId), 
     Plugins = AppId:config_plugins(),
     State = #sipapp_srv{
         app_id = AppId, 
@@ -299,7 +298,7 @@ terminate(Reason, State) ->
       
 %% @private
 do_start_plugins([Plugin|Rest], #sipapp_srv{app_id=AppId}=State) ->
-    ?info(AppId, <<>>, "Starting plugin ~p", [?MODULE]),
+    ?info(AppId, <<>>, "Starting plugin ~p", [Plugin]),
     case erlang:function_exported(Plugin, init, 2) of
         true ->
             {ok, #sipapp_srv{}=State1} = Plugin:init(AppId, State),
@@ -314,7 +313,7 @@ do_start_plugins([], State) ->
 
 %% @private
 do_stop_plugins([Plugin|Rest], #sipapp_srv{app_id=AppId}=State) ->
-    ?info(AppId, <<>>, "Stopping plugin ~p", [?MODULE]),
+    ?info(AppId, <<>>, "Stopping plugin ~p", [Plugin]),
     case erlang:function_exported(Plugin, terminate, 2) of
         true ->
             {ok, #sipapp_srv{}=State1} = Plugin:terminate(AppId, State),
@@ -394,20 +393,19 @@ mod_handle_info(Info, #sipapp_srv{app_id=AppId, sipapp_state=ModState}=State) ->
 
 
 %% @private
-update_uuid(AppId, AppName) ->
-    case read_uuid(AppId) of
+update_uuid(AppId, AppName, BasePath) ->
+    case read_uuid(AppId, BasePath) of
         {ok, UUID} ->
             ok;
         {error, Path} ->
             UUID = nksip_lib:uuid_4122(),
             save_uuid(Path, AppName, UUID)
     end,
-    nksip_proc:put({nksip_sipapp_uuid, AppId}, UUID).
+    {ok, UUID}.
 
 
 %% @private
-read_uuid(AppId) ->
-    BasePath = nksip_config:get(local_data_path),
+read_uuid(AppId, BasePath) ->
     Path = filename:join(BasePath, atom_to_list(AppId)++".uuid"),
     case file:read_file(Path) of
         {ok, Binary} ->

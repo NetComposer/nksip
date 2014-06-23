@@ -26,7 +26,7 @@
 -export([start/4, stop/1, stop_all/0, get_all/0, update/2]).
 -export([get/2, get/3, put/3, del/2]).
 -export([get_pid/1, find_app_id/1, call/3, call/2, cast/2, config/1]).
--export([get_uuid/1, get_gruu_pub/1, get_gruu_temp/1]).
+-export([get_uuid/1]).
 
 -include("nksip.hrl").
 
@@ -209,7 +209,8 @@ update(App, Opts) ->
     case find_app_id(App) of
         {ok, AppId} ->
             Opts1 = nksip_lib:delete(Opts, transport),
-            Opts2 = Opts1 ++ AppId:config(),
+            OldConfig = nksip_lib:delete(AppId:config(), [allow, supported]),
+            Opts2 = Opts1 ++ OldConfig,
             case nksip_sipapp_config:parse_config(Opts2) of
                 {ok, AppId, NewPlugins, Syntax} ->
                     OldPlugins = AppId:config_plugins(),
@@ -376,44 +377,11 @@ config(App) ->
 
 get_uuid(App) ->
     case find_app_id(App) of
-        {ok, AppId} ->
-            [{UUID, _Pid}] = nksip_proc:values({nksip_sipapp_uuid, AppId}),
+        {ok, AppId} -> 
+            UUID = AppId:uuid(),
             {ok, <<"<urn:uuid:", UUID/binary, ">">>};
         not_found -> 
             {error, not_found}
     end.
-
-
-%% @doc Gets the last detected public GRUU
--spec get_gruu_pub(nksip:app_name()|nksip:app_id()) ->
-    {ok, nksip:uri()} | undefined | {error, term()}.
-
-get_gruu_pub(App) ->
-    case find_app_id(App) of
-        {ok, AppId} -> 
-            case nksip_config:get({nksip_gruu_pub, AppId}) of
-                undefined -> undefined;
-                Value -> {ok, Value}
-            end;
-        _ -> 
-            {error, not_found}
-    end.
-
-
-%% @doc Gets the last detected temporary GRUU
--spec get_gruu_temp(nksip:app_name()|nksip:app_id()) ->
-    {ok, nksip:uri()} | undefined | {error, term()}.
-
-get_gruu_temp(App) ->
-    case find_app_id(App) of
-        {ok, AppId} -> 
-            case nksip_config:get({nksip_gruu_temp, AppId}) of
-                undefined -> undefined;
-                Value -> {ok, Value}
-            end;
-        _ -> 
-            {error, not_found}
-    end.
-
 
 
