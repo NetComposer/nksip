@@ -68,7 +68,7 @@ nkcb_handle_info({'DOWN', Mon, process, _Pid, _}, SipAppState) ->
     case lists:keyfind(Mon, #sipreg_ob.conn_monitor, RegsOb) of
         #sipreg_ob{id=RegId, cseq=CSeq} ->
             #sipapp_srv{app_id=AppId} = SipAppState,
-            ?info(AppId, <<>>, "register outbound flow ~p has failed", [RegId]),
+            % ?info(AppId, <<>>, "register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
             Msg = {'$nksip_uac_auto_register_answer', RegId, 503, Meta},
             gen_server:cast(self(), Msg),
