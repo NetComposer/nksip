@@ -372,8 +372,8 @@ config(App) ->
 
 get_uuid(App) ->
     case find_app_id(App) of
-        {ok, AppId} ->
-            [{UUID, _Pid}] = nksip_proc:values({nksip_sipapp_uuid, AppId}),
+        {ok, AppId} -> 
+            UUID = AppId:uuid(),
             {ok, <<"<urn:uuid:", UUID/binary, ">">>};
         not_found -> 
             {error, not_found}

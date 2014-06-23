@@ -65,6 +65,13 @@ default_config() ->
 %% @private
 parse_config(Opts) ->
     try
+        AppName = nksip_lib:get_value(name, Opts, nksip),
+        AppId = nksip_sipapp_srv:get_appid(AppName),
+        BasePath = nksip_config_cache:local_data_path(),
+        case nksip_sipapp_srv:update_uuid(AppId, AppName, BasePath) of
+            {ok, UUID} -> ok;
+            {error, Error} -> UUID = throw(Error)
+        end,
         Environment = nksip_config_cache:app_config(),
         Defaults = nksip_lib:defaults(Environment, default_config()),
         Opts1 = nksip_lib:defaults(Opts, Defaults),
@@ -72,12 +79,10 @@ parse_config(Opts) ->
         {Opts2, PluginOpts} = parse_opts(lists:reverse(Opts1), [], []),
         Plugins0 = nksip_lib:get_value(plugins, Opts, []),
         Plugins = sort_plugins(Plugins0, []),
-        Opts3 = [{plugins, Plugins}|Opts2],
+        Opts3 = [{plugins, Plugins}, {uuid, UUID}|Opts2],
         Opts4 = parse_plugins_opts(Plugins, Opts3, PluginOpts),
         Cache = cache_syntax(Opts4),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
-        AppName = nksip_lib:get_value(name, Opts4, nksip),
-        AppId = nksip_sipapp_srv:get_appid(AppName),
         PluginModules = [
             list_to_atom(atom_to_list(Plugin) ++ "_sipapp")
             || Plugin <- Plugins
@@ -155,7 +160,7 @@ insert_plugins([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
 parse_opts([], RestOpts, Opts) ->
     {Opts, lists:reverse(RestOpts)};
 
-parse_opts([{plugins, _}|Rest], RestOpts, Opts) ->
+parse_opts([{Ignore, _}|Rest], RestOpts, Opts) when Ignore==plugins; Ignore==uuid ->
     parse_opts(Rest, RestOpts, Opts);
 
 parse_opts([Atom|Rest], RestOpts, Opts) when is_atom(Atom) ->
@@ -382,6 +387,7 @@ cache_syntax(Opts) ->
     Cache = [
         {name, nksip_lib:get_value(name, Opts)},
         {module, nksip_lib:get_value(module, Opts)},
+        {uuid, nksip_lib:get_value(uuid, Opts)},
         {config, Opts},
         {config_plugins, nksip_lib:get_value(plugins, Opts, [])},
         {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
