@@ -29,7 +29,6 @@
 -export([find/2, find/4, qfind/4, is_registered/2, request/1]).
 -export([parse_config/3, get_info/4, make_contact/1]).
 -export([store_get/2, store_del/2, store_del_all/1]).
--export_type([reg_contact/0, index/0]).
 
 -define(AES_IV, <<"12345678abcdefgh">>).
 
@@ -37,8 +36,6 @@
 %% ===================================================================
 %% Types and records
 %% ===================================================================
-
--type reg_contact() :: #reg_contact{}.
 
 -type index() :: 
     {

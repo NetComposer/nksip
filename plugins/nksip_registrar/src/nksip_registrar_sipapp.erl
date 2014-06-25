@@ -33,7 +33,7 @@
                    {del, AOR} | del_all,
         AppId :: nksip:app_id(),
         AOR :: nksip:aor(),
-        RegContact :: nksip_registrar_lib:reg_contact(),
+        RegContact :: nksip_registrar:reg_contact(),
         TTL :: integer().
 
 sip_registrar_store(Op, AppId) ->
