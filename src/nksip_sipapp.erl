@@ -28,7 +28,6 @@
 -export([sip_subscribe/2, sip_resubscribe/2, sip_notify/2, sip_message/2]).
 -export([sip_refer/2, sip_publish/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
--export([sip_publish_store/2]).
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 -include("nksip.hrl").
@@ -181,8 +180,9 @@ sip_refer(_Req, _Call) ->
 -spec sip_publish(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-sip_publish(_Req, _Call) ->
-    {reply, forbidden}.
+sip_publish(Req, _Call) ->
+    AppId = nksip_request:app_id(Req),
+    {reply, {method_not_allowed, AppId:config_allow()}}.
 
 
 %% @doc Called when a valid INFO request is received.
@@ -222,38 +222,6 @@ sip_dialog_update(_Status, _Dialog, _Call) ->
 sip_session_update(_Status, _Dialog, _Call) ->
     ok.
 
-
-%% @doc Called when a operation database must be done on the publiser database.
-%% This default implementation uses the built-in memory database.
--spec sip_publish_store(StoreOp, AppId) ->
-    [RegPublish] | ok | not_found when
-        StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
-                   {del, AOR, Tag} | del_all,
-        AppId :: nksip:app_id(),
-        AOR :: nksip:aor(),
-        Tag :: binary(),
-        RegPublish :: nksip_publish:reg_publish(),
-        TTL :: integer().
-
-sip_publish_store(Op, AppId) ->
-    case Op of
-        {get, AOR, Tag} ->
-            nksip_store:get({nksip_publish, AppId, AOR, Tag}, not_found);
-        {put, AOR, Tag, Record, TTL} -> 
-            nksip_store:put({nksip_publish, AppId, AOR, Tag}, Record, [{ttl, TTL}]);
-        {del, AOR, Tag} ->
-            nksip_store:del({nksip_publish, AppId, AOR, Tag});
-        del_all ->
-            FoldFun = fun(Key, _Value, Acc) ->
-                case Key of
-                    {nksip_publish, AppId, AOR, Tag} -> 
-                        nksip_store:del({nksip_publish, AppId, AOR, Tag});
-                    _ -> 
-                        Acc
-                end
-            end,
-            nksip_store:fold(FoldFun, none)
-    end.
 
 
 %%%%%%%%%%%%%% gen_server Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -24,6 +24,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
+-include("../plugins/nksip_event_compositor/include/nksip_event_compositor.hrl").
 
 -compile([export_all]).
 
@@ -46,9 +47,10 @@ start() ->
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, [], [
-        {from, "sip:client2@nksip"},
+    {ok, _} = nksip:start(server, ?MODULE, [], [
+        {from, "sip:server@nksip"},
         no_100,
+        {plugins, [nksip_event_compositor]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         {events, "nkpublish"}
@@ -60,7 +62,7 @@ start() ->
 
 stop() ->
     ok = nksip:stop(client1),
-    ok = nksip:stop(client2).
+    ok = nksip:stop(server).
 
 
 basic() ->
@@ -71,7 +73,7 @@ basic() ->
             [{event, "nkpublish"}, {expires, 5}, {body, <<"data1">>}]),
 
     AOR = {sip, <<"user1">>, <<"127.0.0.1">>},
-    {ok, #reg_publish{data = <<"data1">>}} = nksip_publish:find(client2, AOR, ETag1),
+    {ok, #reg_publish{data = <<"data1">>}} = nksip_event_compositor:find(server, AOR, ETag1),
 
     % This ETag1 is not at the server
     {ok, 412, []} = nksip_uac:publish(client1, SipC2, 
@@ -81,26 +83,23 @@ basic() ->
         nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {expires, 0}, {sip_if_match, ETag1}]),
 
-    {error, not_found} = nksip_publish:find(client2, AOR, ETag1),
+    not_found = nksip_event_compositor:find(server, AOR, ETag1),
 
     {ok, 200, [{sip_etag, ETag2}, {expires, 60}]} = 
         nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {expires, 60}, {body, <<"data2">>}]),
 
-    {ok, #reg_publish{data = <<"data2">>}} = nksip_publish:find(client2, AOR, ETag2),
+    {ok, #reg_publish{data = <<"data2">>}} = nksip_event_compositor:find(server, AOR, ETag2),
 
     {ok, 200, [{sip_etag, ETag2}, {expires, 1}]} = 
         nksip_uac:publish(client1, SipC2, 
             [{event, "nkpublish"}, {expires, 1}, {sip_if_match, ETag2}, {body, <<"data3">>}]),
 
-    {ok, #reg_publish{data = <<"data3">>}} = nksip_publish:find(client2, AOR, ETag2),
+    {ok, #reg_publish{data = <<"data3">>}} = nksip_event_compositor:find(server, AOR, ETag2),
     ok.
 
 
-%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (default is ok) %%%%%%%%%%%%%%%%%%%%%
 
-
-sip_publish(Req, _Call) ->
-    {reply, nksip_publish:request(Req)}.
 
 

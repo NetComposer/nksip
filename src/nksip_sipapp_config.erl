@@ -43,7 +43,7 @@
 default_config() ->
     [
         {allow, "INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,PRACK,UPDATE,"
-                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE,PUBLISH"},
+                "SUBSCRIBE,NOTIFY,REFER,MESSAGE"},
         {supported, "100rel,timer,path"},
         {timer_t1, 500},                    % (msecs) 0.5 secs
         {timer_t2, 4000},                   % (msecs) 4 secs

@@ -30,7 +30,6 @@
 
 -define(MSG_ROUTERS, 8).
 -define(DEFAULT_EVENT_EXPIRES, 60).
--define(DEFAULT_PUBLISH_EXPIRES, 60).
 
 
 
@@ -296,12 +295,6 @@
     key :: binary(),
     attributes = [] :: [nksip_sdp:sdp_a()],
     medias = [] :: [nksip_sdp:sdp_m()]
-}).
-
-
--record(reg_publish, {
-    data :: nksip:body(),
-    meta = [] :: nksip:optslist()   % No current use
 }).
 
 
