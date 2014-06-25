@@ -79,7 +79,7 @@ parse_config(Opts) ->
         {Opts2, PluginOpts} = parse_opts(lists:reverse(Opts1), [], []),
         Plugins0 = nksip_lib:get_value(plugins, Opts, []),
         Plugins = sort_plugins(Plugins0, []),
-        Opts3 = [{plugins, Plugins}, {uuid, UUID}|Opts2],
+        Opts3 = [{plugins, Plugins}, {uuid, UUID}, {cached_configs, []}|Opts2],
         Opts4 = parse_plugins_opts(Plugins, Opts3, PluginOpts),
         Cache = cache_syntax(Opts4),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
@@ -160,7 +160,8 @@ insert_plugins([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
 parse_opts([], RestOpts, Opts) ->
     {Opts, lists:reverse(RestOpts)};
 
-parse_opts([{Ignore, _}|Rest], RestOpts, Opts) when Ignore==plugins; Ignore==uuid ->
+parse_opts([{Ignore, _}|Rest], RestOpts, Opts) 
+        when Ignore==plugins; Ignore==uuid; Ignore==cached_configs ->
     parse_opts(Rest, RestOpts, Opts);
 
 parse_opts([Atom|Rest], RestOpts, Opts) when is_atom(Atom) ->
@@ -430,6 +431,11 @@ cache_syntax(Opts) ->
             tuple(local_host, Opts),
             tuple(local_host6, Opts)
         ])}
+    ] 
+    ++
+    [
+        {Fun, Value} ||
+        {Fun, Value} <- nksip_lib:get_value(cached_configs, Opts, [])
     ],
     lists:foldl(
         fun({Key, Value}, Acc) -> [nksip_code_util:getter(Key, Value)|Acc] end,
