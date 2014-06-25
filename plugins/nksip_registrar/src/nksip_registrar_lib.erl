@@ -233,16 +233,13 @@ process(Req, Opts) ->
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
-    Config = nksip_sipapp_srv:config(AppId),
-    DefTime = nksip_lib:get_value(nksip_registrar_default_time, Config),
+    Times = AppId:config_nksip_registrar_times(),
     Default = case nksip_sipmsg:meta(expires, Req) of
-        D0 when is_integer(D0) -> D0;
-        _ -> DefTime
+        D0 when is_integer(D0), D0>0 -> D0;
+        _ -> Times#nksip_registrar_time.default
     end,
     TimeLong = nksip_lib:l_timestamp(),
-    Times = #nksip_registrar_time{
-        min = nksip_lib:get_value(nksip_registrar_min_time, Config),
-        max = nksip_lib:get_value(nksip_registrar_max_time, Config),
+    Times1 = Times#nksip_registrar_time{
         default = Default,
         time = TimeLong div 1000000,
         time_long = TimeLong
@@ -250,7 +247,7 @@ process(Req, Opts) ->
     case Contacts of
         [] -> ok;
         [#uri{domain=(<<"*">>)}] when Default==0 -> del_all(Req);
-        _ -> update(Req, Times, Opts)
+        _ -> update(Req, Times1, Opts)
     end.
 
 
