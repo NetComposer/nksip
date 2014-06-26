@@ -21,12 +21,8 @@
 %% @doc NkSIP SIP basic message print and trace tool
 %%
 %% This module implements a simple but useful SIP trace utility. 
-%% You can configure any <i>SipApp</i> to trace SIP messages sent or received
+%% You can configure any SipApp to trace SIP messages sent or received
 %% from specific IPs, to console or a disk file.
-%%
-%% It also allows to store (in memory) detailed information about 
-%% every request or response sent or received for debug purposes.
-
 -module(nksip_trace).
 
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -37,8 +33,8 @@
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
 
--include("nksip.hrl").
--include("nksip_call.hrl").
+-include("../../../include/nksip.hrl").
+-include("../../../include/nksip_call.hrl").
 
 -type file() :: console | string() | binary().
 -type ip_list() :: all | string() | binary() | [string()|binary()].
@@ -164,7 +160,7 @@ start(App, File, IpList) ->
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
-        {error, not_found} ->
+        not_found ->
             {error, sipapp_not_found}
     end.
 
@@ -189,7 +185,7 @@ stop(App) ->
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
-        {error, not_found} ->
+        not_found ->
             {error, sipapp_not_found}
     end.    
 
@@ -221,7 +217,7 @@ print(Header, #sipmsg{}=SipMsg) ->
     ok.
 
 sipmsg(AppId, _CallId, Header, Transport, Binary) ->
-    case AppId:config_trace() of
+    case AppId:config_nksip_trace() of
         {File, all} ->
             AppName = AppId:name(),
             Msg = print_packet(AppName, Header, Transport, Binary),
@@ -368,7 +364,7 @@ write(AppId, File, Msg) ->
     case File of
         console ->
             io:format("\n        ---- ~f ~s", [Time, Msg]);
-        file ->
+        _ ->
             case nksip_config:get({nksip_trace_file, AppId}) of
                 {File, Device} ->
                     Txt = io_lib:format("\n        ---- ~f ~s", [Time, Msg]),
