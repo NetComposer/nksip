@@ -27,8 +27,8 @@
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
 -export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
 
--include("nksip.hrl").
--include("nksip_call.hrl").
+-include("../../../include/nksip.hrl").
+-include("../../../include/nksip_call.hrl").
 
 
 % ===================================================================

@@ -26,7 +26,6 @@
 
 -export([init/1, start_link/0]).
 
--include("nksip.hrl").
 
 %% @private
 start_link() ->
