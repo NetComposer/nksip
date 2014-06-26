@@ -22,6 +22,7 @@
 -module(nksip_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-export([ensure_all_started/2]).
 -export([cseq/0, luid/0, lhash/1, uid/0, uuid_4122/0, hash/1, hash36/1]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([timestamp/0, l_timestamp/0, l_timestamp_to_float/1]).
@@ -56,7 +57,35 @@
 %% Public
 %% =================================================================
 
-%
+%% @doc Ensure that an application and all of its transitive
+%% dependencies are started.
+ensure_all_started(Application, Type) ->
+    case ensure_all_started(Application, Type, []) of
+        {ok, Started} ->
+            {ok, lists:reverse(Started)};
+        {error, Reason, Started} ->
+            [ application:stop(App) || App <- Started ],
+            {error, Reason}
+    end.
+
+ensure_all_started(Application, Type, Started) ->
+    case application:start(Application, Type) of
+        ok ->
+            {ok, [Application | Started]};
+        {error, {already_started, Application}} ->
+            {ok, Started};
+        {error, {not_started, Dependency}} ->
+            case ensure_all_started(Dependency, Type, Started) of
+                {ok, NewStarted} ->
+                    ensure_all_started(Application, Type, NewStarted);
+                Error ->
+                    Error
+            end;
+        {error, Reason} ->
+            {error, Reason, Started}
+    end.
+
+
 %% @doc Generates an incrementing-each-second 31 bit integer.
 %% It will not wrap around until until {{2080,1,19},{3,14,7}} GMT.
 -spec cseq() -> 
