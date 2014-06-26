@@ -191,29 +191,10 @@ is_registered([
 
 request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
     try
-        % case lists:member(nksip_outbound, AppId:config_plugins()) of
-        %     true ->
-                % case nksip_outbound:registrar(Req) of
-                %     {true, Req1} -> Opts1 = [{outbound, true}];
-                %     {false, Req1} -> Opts1 = [{outbound, false}];
-                %     no_outbound -> Req1 = Req, Opts1 = [];
-                %     {error, OutError} -> Req1 = Opts1 = throw(OutError)
-            %     end;
-            % false ->
-            %     Req1 = Req,
-            %     Opts1 = [] 
-        % end,
         {continue, [Req1, Opts]} = AppId:nkcb_nksip_registrar_request_opts(Req, []),
         process(Req1, Opts),
         {ok, Regs} = store_get(AppId, aor(To)),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
-        % ObReq = case 
-        %     lists:member({outbound, true}, Opts1) andalso
-        %     [true || #reg_contact{index={ob, _, _}} <- Regs] 
-        % of
-        %     [_|_] -> [{require, <<"outbound">>}];
-        %     _ -> []
-        % end,
         Reply = {ok, [{contact, Contacts1}, date, allow, supported]},
         {continue, [Reply1, _, _]} = 
             AppId:nkcb_nksip_registrar_request_reply(Reply, Regs, Opts),
@@ -235,7 +216,7 @@ process(Req, Opts) ->
     end,
     Times = AppId:config_nksip_registrar_times(),
     Default = case nksip_sipmsg:meta(expires, Req) of
-        D0 when is_integer(D0), D0>0 -> D0;
+        D0 when is_integer(D0), D0>=0 -> D0;
         _ -> Times#nksip_registrar_time.default
     end,
     TimeLong = nksip_lib:l_timestamp(),
@@ -390,58 +371,6 @@ update_regcontacts([], _Req, _Times, _Path, _Opts, Acc) ->
     lists:reverse(lists:keysort(#reg_contact.updated, Acc)).
 
 
-% %% @private
-% update_checks(Contact, Req) ->
-%     #uri{scheme=Scheme, user=User, domain=Domain, opts=_Opts} = Contact,
-%     #sipmsg{to={To, _}} = Req,
-    % case lists:member(<<"gr">>, Opts) of
-    %     true ->
-    %         case catch decrypt(User) of
-    %             LoopTmp when is_binary(LoopTmp) ->
-    %                 {{LScheme, LUser, LDomain}, _, _} = binary_to_term(LoopTmp),
-    %                 case aor(To) of
-    %                     {LScheme, LUser, LDomain} -> 
-    %                         throw({forbidden, "Invalid Contact"});
-    %                     _ -> 
-    %                         ok
-    %                 end;
-    %             _ ->
-    %                 ok
-    %         end;
-    %     false ->
-    %         ok
-    % end.
-
-
-% %% @private
-% check_several_reg_id([], _Expires, _Found) ->
-%     ok;
-
-% check_several_reg_id([#uri{ext_opts=Opts}|Rest], Default, Found) ->
-%     case nksip_lib:get_value(<<"reg-id">>, Opts) of
-%         undefined -> 
-%             check_several_reg_id(Rest, Default, Found);
-%         _ ->
-%             Expires = case nksip_lib:get_list(<<"expires">>, Opts) of
-%                 [] ->
-%                     Default;
-%                 Expires0 ->
-%                     case catch list_to_integer(Expires0) of
-%                         Expires1 when is_integer(Expires1) -> Expires1;
-%                         _ -> Default
-%                     end
-%             end,
-%             case Expires of
-%                 0 -> 
-%                     check_several_reg_id(Rest, Default, Found);
-%                 _ when Found ->
-%                     throw({invalid_request, "Several 'reg-id' Options"});
-%                 _ ->
-%                     check_several_reg_id(Rest, Default, true)
-%             end
-%     end.
-
-
 %% @private
 aor(#uri{scheme=Scheme, user=User, domain=Domain}) ->
     {Scheme, User, Domain}.
@@ -530,18 +459,4 @@ callback(AppId, Op) ->
         {ok, Reply} -> Reply;
         _ -> error
     end.
-
-
-% %% @private
-% encrypt(Bin) ->
-%     <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
-%     base64:encode(crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin)).
-
-
-% %% @private
-% decrypt(Bin) ->
-%     <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
-%     crypto:aes_cfb_128_decrypt(Key, ?AES_IV, base64:decode(Bin)).
-
-
 

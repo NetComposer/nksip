@@ -78,16 +78,20 @@ parse_config(PluginOpts, Config) ->
         false -> 
             nksip_lib:store_value(allow, Allow++[<<"REGISTER">>], Config)
     end,
-    {ok, Unknown, Config2} = nksip_registrar_lib:parse_config(PluginOpts1, [], Config1),
-    Times = #nksip_registrar_time{
-        min = nksip_lib:get_value(nksip_registrar_min_time, Config2),
-        max = nksip_lib:get_value(nksip_registrar_max_time, Config2),
-        default = nksip_lib:get_value(nksip_registrar_default_time, Config2)
-    },
-    Cached1 = nksip_lib:get_value(cached_configs, Config2, []),
-    Cached2 = nksip_lib:store_value(config_nksip_registrar_times, Times, Cached1),
-    Config3 = nksip_lib:store_value(cached_configs, Cached2, Config2),
-    {ok, Unknown, Config3}.
+    case nksip_registrar_lib:parse_config(PluginOpts1, [], Config1) of
+        {ok, Unknown, Config2} ->
+            Times = #nksip_registrar_time{
+                min = nksip_lib:get_value(nksip_registrar_min_time, Config2),
+                max = nksip_lib:get_value(nksip_registrar_max_time, Config2),
+                default = nksip_lib:get_value(nksip_registrar_default_time, Config2)
+            },
+            Cached1 = nksip_lib:get_value(cached_configs, Config2, []),
+            Cached2 = nksip_lib:store_value(config_nksip_registrar_times, Times, Cached1),
+            Config3 = nksip_lib:store_value(cached_configs, Cached2, Config2),
+            {ok, Unknown, Config3};
+        {error, Error} ->
+            {error, Error}
+    end.
 
 
 %% @doc Called when the plugin is shutdown
