@@ -80,8 +80,12 @@ parse_config([], Unknown, Config) ->
 
 parse_config([Term|Rest], Unknown, Config) ->
     Op = case Term of
-        {nksip_debug, true} ->
-            {update, true};
+        {nksip_debug, Bool} ->
+            case Bool of
+                true -> {update, true};
+                false -> {update, false};
+                _ -> error
+            end;
        _ ->
             unknown
     end,
@@ -89,8 +93,8 @@ parse_config([Term|Rest], Unknown, Config) ->
         {update, true} ->
             Config1 = [{nksip_debug, true}|lists:keydelete(nksip_debug, 1, Config)],
             parse_config(Rest, Unknown, Config1);
-        {error, OpError} ->
-            {error, OpError};
+        error ->
+            {error, {invalid_config, element(1, Term)}};
         unknown ->
             parse_config(Rest, [Term|Unknown], Config)
     end.

@@ -25,7 +25,7 @@
 -behaviour(application).
 -export([start/0, start/2, stop/1]).
 
--define(APP, nksip_trace).
+-define(APP, nksip_debug).
 
 
 %% ===================================================================
@@ -46,7 +46,7 @@ start() ->
 
 %% @private OTP standard start callback
 start(_Type, _Args) ->
-    nksip_trace_sup:start_link().
+    nksip_debug_sup:start_link().
 
 %% @private OTP standard stop callback
 stop(_) ->
