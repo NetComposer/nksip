@@ -98,21 +98,12 @@ connect(AppId, Proto, Ip, Port, Res, _Opts) ->
     ok | {error, term()}.
 
 send(Pid, #sipmsg{}=SipMsg) ->
-    #sipmsg{app_id=AppId, class=Class, call_id=CallId, transport=Transp} = SipMsg,
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+    #sipmsg{app_id=AppId, call_id=CallId, transport=Transp} = SipMsg,
+    #transport{proto=Proto} = Transp,
     Packet = nksip_unparse:packet(SipMsg),
     case do_send(Pid, Proto, Packet) of
         ok ->
-            case Class of
-                {req, Method} ->
-                    nksip_trace:insert(SipMsg, {Proto, Ip, Port, Method, Packet}),
-                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
-                    ok;
-                {resp, Code, _Reason} ->
-                    nksip_trace:insert(SipMsg, {Proto, Ip, Port, Code, Packet}),
-                    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
-                    ok
-            end;
+            AppId:nkcb_connection_send(SipMsg, Packet);
         udp_too_large ->
             {error, udp_too_large};
         {error, Error} ->
@@ -612,11 +603,10 @@ do_parse(Data, State) ->
     {ok, #state{}} | {error, term()}.
 
 do_parse(AppId, Transp, Data, State) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+    #transport{proto=Proto} = Transp,
     case nksip_parse:packet(AppId, Transp, Data) of
-        {ok, #sipmsg{call_id=CallId, class=_Class}=SipMsg, Rest} -> 
-            nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Data),
-            nksip_trace:insert(AppId, CallId, {Proto, Ip, Port, Data}),
+        {ok, #sipmsg{class=_Class}=SipMsg, Rest} -> 
+            AppId:nkcb_connection_recv(SipMsg, Data),
             case nksip_call_router:incoming_sync(SipMsg) of
                 ok -> 
                     do_parse(Rest, State);
@@ -638,6 +628,9 @@ do_parse(AppId, Transp, Data, State) ->
             ?notice(AppId, <<>>, "error parsing ~p request: ~p", [Proto, Error]),
             {error, parse_error}
     end.
+
+
+
 
 
 %% @private

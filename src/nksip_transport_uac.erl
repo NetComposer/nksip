@@ -70,7 +70,7 @@ send_request(Req, Opts) ->
         end,
         Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
         MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
-        nksip_trace:insert(Req, {uac_out_request, Method}),
+        AppId:nkcb_debug(Req, {uac_out_request, Method}),
         Dests = case nksip_lib:get_value(route_flow, Opts) of
             {Transp, Pid} -> 
                 [{flow, {Pid, Transp}}, DestUri];
@@ -81,7 +81,7 @@ send_request(Req, Opts) ->
             {ok, SentReq} -> 
                 {ok, SentReq};
             error ->
-                nksip_trace:insert(Req, uac_out_request_error),
+                AppId:nkcb_debug(Req, uac_out_request_error),
                 {error, service_unavailable}
         end
     catch

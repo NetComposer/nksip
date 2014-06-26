@@ -28,8 +28,10 @@
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
 		 nkcb_transport_uac_headers/6]).
 -export([nkcb_uac_response/4, nkcb_uac_proxy_opts/2]).
+-export([nkcb_connection_send/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
+-export([nkcb_debug/2]).
 
 -type nkcb_common() :: continue | {continue, list()}.
 
@@ -135,6 +137,20 @@ nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
 	{ok, Req1}.
 
 
+%% @doc Called when a new message has been sent
+-spec nkcb_connection_send(nksip:request()|nksip:response(), binary()) ->
+	ok | nkcb_common().
+
+nkcb_connection_send(_SipMsg, _Packet) ->
+	ok.
+
+
+%% @doc Called when a new message has been received and parsed
+-spec nkcb_connection_recv(nksip:request()|nksip:response(), binary()) ->
+	ok | nkcb_common().
+
+nkcb_connection_recv(_SipMsg, _Packet) ->
+    ok.
 
 %% @doc Called when the SipApp process receives a handle_call/3.
 %% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
@@ -171,7 +187,12 @@ nkcb_sipapp_updated(SipAppState) ->
 	{ok, SipAppState}.
 
 
+%% doc Called at specific debug points
+-spec nkcb_debug(nksip:request()|nksip:response(), term()) ->
+    ok | nkcb_common().
 
+nkcb_debug(_SipMsg, _Info) ->
+    ok.
 
 
 
