@@ -176,7 +176,7 @@ start(AppName, Module, Args, Opts) ->
 
 %% @doc Stops a started SipApp, stopping any registered transports.
 -spec stop(app_name()|app_id()) -> 
-    ok | {error, term()}.
+    ok | {error, not_found}.
 
 stop(App) ->
     case find_app_id(App) of

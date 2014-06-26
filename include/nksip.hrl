@@ -81,10 +81,13 @@
         false -> ok
     end).
 
--define(w(T), lager:warning(T)).
 
-
-
+-define(N(T), lager:notice(T)).
+-define(N(T,P), lager:notice(T,P)).
+-define(W(T), lager:warning(T)).
+-define(W(T,P), lager:warning(T,P)).
+-define(E(T), lager:error(T)).
+-define(E(T,P), lager:error(T,P)).
 
 -include_lib("kernel/include/inet_sctp.hrl").
 

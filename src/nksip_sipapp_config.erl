@@ -168,7 +168,7 @@ parse_opts([], RestOpts, Opts) ->
     {Opts, lists:reverse(RestOpts)};
 
 parse_opts([{Ignore, _}|Rest], RestOpts, Opts) 
-        when Ignore==plugins; Ignore==uuid; Ignore==cached_configs ->
+        when Ignore==id; Ignore==plugins; Ignore==uuid; Ignore==cached_configs ->
     parse_opts(Rest, RestOpts, Opts);
 
 parse_opts([Atom|Rest], RestOpts, Opts) when is_atom(Atom) ->
