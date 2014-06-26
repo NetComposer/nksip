@@ -79,7 +79,14 @@ parse_config(Opts) ->
         {Opts2, PluginOpts} = parse_opts(lists:reverse(Opts1), [], []),
         Plugins0 = nksip_lib:get_value(plugins, Opts, []),
         Plugins = sort_plugins(Plugins0, []),
-        Opts3 = [{plugins, Plugins}, {uuid, UUID}, {cached_configs, []}|Opts2],
+        Opts3 = [
+            {id, AppId},
+            {plugins, Plugins}, 
+            {uuid, UUID}, 
+            {cached_configs, []}
+            |
+            Opts2
+        ],
         Opts4 = parse_plugins_opts(Plugins, Opts3, PluginOpts),
         Cache = cache_syntax(Opts4),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
@@ -289,10 +296,10 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
         {log_level, none} -> {update, 0};
         {log_level, Level} when Level>=0, Level=<8 -> {update, Level};
 
-        {trace, Trace} when is_boolean(Trace) ->
-            {update, Trace};
-        {store_trace, Trace} when is_boolean(Trace) ->
-            {update, Trace};
+        % {trace, Trace} when is_boolean(Trace) ->
+        %     {update, Trace};
+        % {store_trace, Trace} when is_boolean(Trace) ->
+        %     {update, Trace};
 
         _Other ->
             unknown
@@ -392,9 +399,9 @@ cache_syntax(Opts) ->
         {config, Opts},
         {config_plugins, nksip_lib:get_value(plugins, Opts, [])},
         {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
-        {config_trace, 
-            {nksip_lib:get_value(trace, Opts, ?DEFAULT_TRACE), 
-             nksip_lib:get_value(store_trace, Opts, false)}},
+        % {config_trace, 
+        %     {nksip_lib:get_value(trace, Opts, ?DEFAULT_TRACE), 
+        %      nksip_lib:get_value(store_trace, Opts, false)}},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
         {config_timers, {

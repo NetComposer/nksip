@@ -81,6 +81,9 @@
         false -> ok
     end).
 
+-define(w(T), lager:warning(T)).
+
+
 
 
 -include_lib("kernel/include/inet_sctp.hrl").

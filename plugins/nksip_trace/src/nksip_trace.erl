@@ -28,19 +28,68 @@
 %% every request or response sent or received for debug purposes.
 
 -module(nksip_trace).
--behaviour(gen_server).
 
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
+-export([version/0, deps/0, parse_config/2, terminate/2]).
+
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
--export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
-         handle_cast/2, handle_info/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
+
+
+% ===================================================================
+%% Plugin specific
+%% ===================================================================
+
+%% @doc Version
+-spec version() ->
+    string().
+
+version() ->
+    "0.1".
+
+
+%% @doc Dependant plugins
+-spec deps() ->
+    [{atom(), string()}].
+    
+deps() ->
+    [].
+
+
+%% @doc Parses this plugin specific configuration
+-spec parse_config(PluginOpts, Config) ->
+    {ok, PluginOpts, Config} | {error, term()} 
+    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+
+parse_config(PluginOpts, Config) ->
+    Defaults = [
+        {nksip_trace, {console, all}}
+    ],
+    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),    
+    case parse_config(PluginOpts1, [], Config) of
+        {ok, Unknown, Config1} ->
+            Trace = nksip_lib:get_value(nksip_trace, Config1),
+            Cached1 = nksip_lib:get_value(cached_configs, Config1, []),
+            Cached2 = nksip_lib:store_value(config_nksip_trace, Trace, Cached1),
+            Config2 = nksip_lib:store_value(cached_configs, Cached2, Config1),
+            {ok, Unknown, Config2};
+        {error, Error} ->
+            {error, Error}
+    end.
+
+
+%% @doc Called when the plugin is shutdown
+-spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
+    {ok, nksip_sipapp_srv:state()}.
+
+terminate(AppId, SipAppState) ->  
+    close_file(AppId),
+    {ok, SipAppState}.
 
 
 
@@ -191,118 +240,103 @@ sipmsg(AppId, _CallId, Header, Transport, Binary) ->
 
 
 %% ===================================================================
-%% gen_server
-%% ===================================================================
-
--record(state, {}).
-
-%% @private
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-        
-
-%% @private 
--spec init(term()) ->
-    gen_server_init(#state{}).
-
-init([]) ->
-    ets:new(nksip_trace_msgs, [named_table, public, bag, {write_concurrency, true}]),
-    {ok, #state{}}.
-
-
-%% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
-
-handle_call(Msg, _From, State) -> 
-    lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
-    {noreply, State}.
-
-
-%% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
-handle_cast(Msg, State) -> 
-    lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
-    {noreply, State}.
-
-
-%% @private
--spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
-
-handle_info(Info, State) -> 
-    lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
-    {noreply, State}.
-
-
-%% @private
--spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-
-%% @private
--spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
-terminate(_Reason, _State) ->  
-    ok.
-
-
-%% ===================================================================
 %% Private
 %% ===================================================================
 
 
 %% @private
-insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
-    insert(AppId, CallId, Info).
+-spec parse_config(PluginConfig, Unknown, Config) ->
+    {ok, Unknown, Config} | {error, term()}
+    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
+         Config::nksip:optslist().
 
+parse_config([], Unknown, Config) ->
+    {ok, Unknown, Config};
 
-%% @private
-insert(AppId, CallId, Info) ->
-    case AppId:config_trace() of
-        {_, true} ->
-            Time = nksip_lib:l_timestamp(),
-            Info1 = case Info of
-                {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
-                                      Type==warning; Type==error ->
-                    {Type, nksip_lib:msg(Str, Fmt)};
-                _ ->
-                    Info
-            end,
-            AppName = AppId:name(),
-            ets:insert(nksip_trace_msgs, {CallId, Time, AppName, Info1});
+parse_config([Term|Rest], Unknown, Config) ->
+    Op = case Term of
+        {nksip_trace, true} ->
+            {update, {console, all}};
+        {nksip_trace, {File, IpList}} -> 
+            AppId = nksip_lib:get_value(id, Config),
+            close_file(AppId),
+            case open_file(AppId, File) of
+                {ok, IoDevice} when IpList==all ->
+                    {update, {IoDevice, all}};
+                {ok, IoDevice} ->
+                    case compile_ips(IpList, []) of
+                        {ok, CompIpList} -> {update, {IoDevice, CompIpList}};
+                        {error, Error} -> {error, Error}
+                    end;
+                {error, Error} -> 
+                    {error, Error}
+            end;
+        {nksip_trace, File} ->
+            AppId = nksip_lib:get_value(id, Config),
+            close_file(AppId),
+            case open_file(AppId, File) of
+                {ok, IoDevice} -> {update, {IoDevice, all}};
+                {error, Error} -> {error, Error}
+            end;
         _ ->
-            ok
+            unknown
+    end,
+    case Op of
+        {update, Trace} ->
+            Config1 = [{nksip_trace, Trace}|lists:keydelete(nksip_trace, 1, Config)],
+            parse_config(Rest, Unknown, Config1);
+        {error, OpError} ->
+            {error, OpError};
+        unknown ->
+            parse_config(Rest, [Term|Unknown], Config)
     end.
 
 
 %% @private
-find(CallId) ->
-    Lines = lists:sort([{Time, AppId, Info} || {_, Time, AppId, Info} 
-                         <- ets:lookup(nksip_trace_msgs, CallId)]),
-    [{nksip_lib:l_timestamp_to_float(Time), AppId, Info} 
-        || {Time, AppId, Info} <- Lines].
+close_file(AppId) ->
+    case nksip_config:get({nksip_trace_file, AppId}) of
+        undefined -> 
+            ok;
+        {File, OldDevice} ->
+            ?notice(AppId, <<>>, "Closing file ~s (~p)", [File, OldDevice]),
+            file:close(OldDevice)
+    end.
+ 
+
+%% @private
+open_file(_AppId, console) ->
+    {ok, console};
+
+open_file(AppId, File) when is_binary(File) ->
+    open_file(AppId, binary_to_list(File));
+
+open_file(AppId, File) ->
+    case file:open(File, [append]) of
+        {ok, IoDevice} -> 
+            ?notice(AppId, <<>>, "File ~s opened for trace (~p)", [File, IoDevice]),
+            nksip_config:put({nksip_trace_file, AppId}, {File, IoDevice}),
+            {ok, file};
+        {error, _Error} -> 
+            lager:warning("File: ~p", [File]),
+            {error, {could_not_open, File}}
+    end.
 
 
 %% @private
-find(AppId, CallId) ->
-    [{Start, Info} || {Start, C, Info} <- find(CallId), C==AppId].
+compile_ips([], Acc) ->
+    lists:reverse(Acc);
 
+compile_ips(Ip, Acc) when is_binary(Ip) ->
+    compile_ips(binary_to_list(Ip), Acc);
 
-%% @private
-dump_msgs() ->
-    ets:tab2list(nksip_trace_msgs).
+compile_ips([First|_]=String, Acc) when is_integer(First) ->
+    compile_ips([String], Acc);
 
-
-%% @private
-reset_msgs() ->
-    ets:delete_all_objects(nksip_trace_msgs).
+compile_ips([Ip|Rest], Acc) ->
+    case re:compile(Ip) of
+        {ok, Comp} -> compile_ips(Rest, [Comp|Acc]);
+        {error, _Error} -> {error, {invalid_ip, Ip}}
+    end.
 
 
 %% @private
