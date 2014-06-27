@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc NkSIP Deep Denbugging plugin
+%% @doc NkSIP Deep Debug plugin
 -module(nksip_debug).
 
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
