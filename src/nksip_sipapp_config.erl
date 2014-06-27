@@ -254,24 +254,6 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
                 error -> error;
                 Uris -> {update, Uris}
             end;
-        {pass, Pass} ->
-            {Realm1, Pass1} = case Pass of
-                _ when is_list(Pass) -> 
-                    {<<>>, list_to_binary(Pass)};
-                _ when is_binary(Pass) -> 
-                    {<<>>, Pass};
-                {Pass0, Realm0} when 
-                    (is_list(Pass0) orelse is_binary(Pass0)) andalso
-                    (is_list(Realm0) orelse is_binary(Realm0)) ->
-                    {nksip_lib:to_binary(Realm0), nksip_lib:to_binary(Pass0)};
-                _ ->
-                    throw({invalid_config, pass})
-            end,
-            Passes0 = nksip_lib:get_value(passes, Opts, []),
-            Passes1 = nksip_lib:store_value(Realm1, Pass1, Passes0),
-            {update, passes, Passes1};
-        {passes, _Passes} ->
-            update;
         {local_host, Host} ->
             {update, nksip_lib:to_host(Host)};
         {local_host6, Host} ->
@@ -399,9 +381,6 @@ cache_syntax(Opts) ->
         {config, Opts},
         {config_plugins, nksip_lib:get_value(plugins, Opts, [])},
         {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
-        % {config_trace, 
-        %     {nksip_lib:get_value(trace, Opts, ?DEFAULT_TRACE), 
-        %      nksip_lib:get_value(store_trace, Opts, false)}},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
         {config_timers, {
@@ -409,7 +388,6 @@ cache_syntax(Opts) ->
             nksip_lib:get_value(timer_t2, Opts),
             nksip_lib:get_value(timer_t4, Opts),
             1000*nksip_lib:get_value(timer_c, Opts)}},
-        % {config_sync_call_time, 1000*nksip_lib:get_value(sync_call_time, Opts)},
         {config_from, nksip_lib:get_value(from, Opts)},
         {config_no_100, lists:member({no_100, true}, Opts)},
         {config_supported, nksip_lib:get_value(supported, Opts)},
@@ -424,15 +402,13 @@ cache_syntax(Opts) ->
             tuple(local_host, Opts),
             tuple(local_host6, Opts),
             tuple(no_100, Opts),
-            tuple(passes, Opts),
             tuple(from, Opts),
             tuple(route, Opts)
         ])},
         {config_uac_proxy, lists:flatten([
             tuple(local_host, Opts),
             tuple(local_host6, Opts),
-            tuple(no_100, Opts),
-            tuple(pass, Opts)
+            tuple(no_100, Opts)
         ])},
         {config_uas, lists:flatten([
             tuple(local_host, Opts),

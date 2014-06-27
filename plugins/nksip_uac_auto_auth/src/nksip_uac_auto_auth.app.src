@@ -1,0 +1,8 @@
+{application, nksip_uac_auto_auth, [
+    {description, "NkSIP UAC Automatic Authentication Plugin"},
+    {vsn, "0.1"},
+    {modules, []},
+    {registered, []},
+    {applications, []},
+    {env, []}
+]}.
