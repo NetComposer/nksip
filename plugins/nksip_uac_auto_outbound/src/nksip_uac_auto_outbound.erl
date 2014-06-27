@@ -45,7 +45,7 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [{nksip_uac_auto, "^0\."}, {nksip_outbound, "^0\."}].
+    [{nksip_uac_auto_register, "^0\."}, {nksip_outbound, "^0\."}].
 
 
 %% @doc Parses this plugin specific configuration
@@ -117,7 +117,7 @@ terminate(_AppId, SipAppState) ->
 
 start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
     Opts1 = [{user, ['$nksip_uac_auto_outbound']}|Opts],
-    nksip_uac_auto:start_register(App, RegId, Uri, Opts1).
+    nksip_uac_auto_register:start_register(App, RegId, Uri, Opts1).
 
 
 %% @doc Stops a previously started registration serie.
@@ -125,7 +125,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
     ok | not_found.
 
 stop_register(App, RegId) ->
-    nksip_uac_auto:stop_register(App, RegId).
+    nksip_uac_auto_register:stop_register(App, RegId).
     
 
 %% @doc Get current registration status.

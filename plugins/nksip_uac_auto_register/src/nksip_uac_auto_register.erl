@@ -19,14 +19,14 @@
 %% -------------------------------------------------------------------
 
 %% @doc Plugin implementing automatic registrations and pings support for SipApps.
--module(nksip_uac_auto).
+-module(nksip_uac_auto_register).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start_ping/4, stop_ping/2, get_pings/1]).
 -export([start_register/4, stop_register/2, get_registers/1]).
 -export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
 
--include("nksip_uac_auto.hrl").
+-include("nksip_uac_auto_register.hrl").
 
 
 %% ===================================================================
@@ -56,7 +56,7 @@ deps() ->
 
 parse_config(PluginOpts, Config) ->
     Defaults = [
-        {nksip_uac_auto_timer, 5}                     % (secs)
+        {nksip_uac_auto_register_timer, 5}                     % (secs)
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
     parse_config(PluginOpts1, [], Config).
@@ -67,10 +67,10 @@ parse_config(PluginOpts, Config) ->
     {ok, nksip_siapp_srv:state()}.
 
 init(AppId, SipAppState) ->
-    Timer = 1000 * nksip_sipapp_srv:config(AppId, nksip_uac_auto_timer),
-    erlang:start_timer(Timer, self(), '$nksip_uac_auto_timer'),
+    Timer = 1000 * nksip_sipapp_srv:config(AppId, nksip_uac_auto_register_timer),
+    erlang:start_timer(Timer, self(), '$nksip_uac_auto_register_timer'),
     State = #state{pings=[], regs=[]},
-    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto, State, SipAppState),
+    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_register, State, SipAppState),
     {ok, SipAppState1}.
 
 
@@ -79,18 +79,18 @@ init(AppId, SipAppState) ->
    {ok, nksip_sipapp_srv:state()}.
 
 terminate(AppId, SipAppState) ->  
-    #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto, SipAppState),
+    #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto_register, SipAppState),
     lists:foreach(
         fun(#sipreg{ok=Ok}=Reg) -> 
             case Ok of
                 true -> 
-                    AppId:nkcb_uac_auto_launch_unregister(Reg, true, SipAppState);
+                    AppId:nkcb_uac_auto_register_launch_unregister(Reg, true, SipAppState);
                 false ->
                     ok
             end
         end,
         Regs),
-    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto, undefined, SipAppState),
+    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_register, undefined, SipAppState),
     {ok, SipAppState1}.
 
 
@@ -120,7 +120,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
-        Msg = {'$nksip_uac_auto_start_register', RegId, Uri, Opts},
+        Msg = {'$nksip_uac_auto_register_start_register', RegId, Uri, Opts},
         nksip:call(App, Msg)
     catch
         throw:Error -> {error, Error}
@@ -132,7 +132,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
     ok | not_found.
 
 stop_register(App, RegId) ->
-    nksip:call(App, {'$nksip_uac_auto_stop_register', RegId}).
+    nksip:call(App, {'$nksip_uac_auto_register_stop_register', RegId}).
     
 
 %% @doc Get current registration status.
@@ -140,7 +140,7 @@ stop_register(App, RegId) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(App) ->
-    nksip:call(App, '$nksip_uac_auto_get_registers').
+    nksip:call(App, '$nksip_uac_auto_register_get_registers').
 
 
 
@@ -164,7 +164,7 @@ start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
-        Msg = {'$nksip_uac_auto_start_ping', PingId, Uri, Opts},
+        Msg = {'$nksip_uac_auto_register_start_ping', PingId, Uri, Opts},
         nksip:call(App, Msg)
     catch
         throw:Error -> {error, Error}
@@ -176,7 +176,7 @@ start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
     ok | not_found.
 
 stop_ping(App, PingId) ->
-    nksip:call(App, {'$nksip_uac_auto_stop_ping', PingId}).
+    nksip:call(App, {'$nksip_uac_auto_register_stop_ping', PingId}).
     
 
 %% @doc Get current ping status.
@@ -184,7 +184,7 @@ stop_ping(App, PingId) ->
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_pings(App) ->
-    nksip:call(App, '$nksip_uac_auto_get_pings').
+    nksip:call(App, '$nksip_uac_auto_register_get_pings').
 
 
 %% ===================================================================
@@ -203,7 +203,7 @@ parse_config([], Unknown, Config) ->
 
 parse_config([Term|Rest], Unknown, Config) ->
     Op = case Term of
-        {nksip_uac_auto_timer, Timer} ->
+        {nksip_uac_auto_register_timer, Timer} ->
             case is_integer(Timer) andalso Timer>0 of
                 true -> update;
                 false -> error

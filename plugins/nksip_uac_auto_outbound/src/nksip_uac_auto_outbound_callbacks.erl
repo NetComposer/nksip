@@ -18,17 +18,18 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private nksip_uac_auto plugin callbacksuests and related functions.
+%% @private
 -module(nksip_uac_auto_outbound_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([nkcb_handle_call/3, nkcb_handle_info/2]).
--export([nkcb_uac_auto_launch_register/3, nkcb_uac_auto_launch_unregister/3, 
-         nkcb_uac_auto_update_register/4]).
+-export([nkcb_uac_auto_register_launch_register/3, 
+         nkcb_uac_auto_register_launch_unregister/3, 
+         nkcb_uac_auto_register_update_register/4]).
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
--include("../../../plugins/nksip_uac_auto/include/nksip_uac_auto.hrl").
+-include("../../../plugins/nksip_uac_auto_register/include/nksip_uac_auto_register.hrl").
 -include("nksip_uac_auto_outbound.hrl").
 
 
@@ -40,7 +41,7 @@
 
 %% @private
 nkcb_handle_call('$nksip_uac_auto_outbound_get_registers', From, SipAppState) ->
-    #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto, SipAppState),
+    #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto_register, SipAppState),
     #state_ob{regs=RegsOb} = get_state(SipAppState),
     Now = nksip_lib:timestamp(),
     Info = [
@@ -70,7 +71,7 @@ nkcb_handle_info({'DOWN', Mon, process, _Pid, _}, SipAppState) ->
             #sipapp_srv{app_id=_AppId} = SipAppState,
             % ?info(AppId, <<>>, "register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
-            Msg = {'$nksip_uac_auto_register_answer', RegId, 503, Meta},
+            Msg = {'$nksip_uac_auto_register_answer_register', RegId, 503, Meta},
             gen_server:cast(self(), Msg),
             {ok, SipAppState};
         false ->
@@ -95,10 +96,10 @@ nkcb_handle_info(_Msg, _SipAppState) ->
 
 
 %% @private
--spec nkcb_uac_auto_launch_register(#sipreg{}, boolean(), nksip_sipapp_srv:state()) -> 
+-spec nkcb_uac_auto_register_launch_register(#sipreg{}, boolean(), nksip_sipapp_srv:state()) -> 
     {ok, #sipreg{}, nksip_sipapp_srv:state()} | continue.
 
-nkcb_uac_auto_launch_register(Reg, Sync, SipAppState)->
+nkcb_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,   
     #state_ob{outbound=Ob, pos=NextPos, regs=RegsOb} = StateOb = get_state(SipAppState),
     #sipapp_srv{app_id=AppId} = SipAppState,
@@ -124,7 +125,7 @@ nkcb_uac_auto_launch_register(Reg, Sync, SipAppState)->
                     {ok, Code, Meta1} -> ok;
                     _ -> Code=500, Meta1=[{cseq_num, CSeq}]
                 end,
-                Msg1 = {'$nksip_uac_auto_register_answer', RegId, Code, Meta1},
+                Msg1 = {'$nksip_uac_auto_register_answer_register', RegId, Code, Meta1},
                 gen_server:cast(Self, Msg1)
             end,
             case Sync of
@@ -141,10 +142,10 @@ nkcb_uac_auto_launch_register(Reg, Sync, SipAppState)->
 
 
 %% @private
--spec nkcb_uac_auto_launch_unregister(#sipreg{}, boolean(), nksip_sipapp_srv:state()) -> 
+-spec nkcb_uac_auto_register_launch_unregister(#sipreg{}, boolean(), nksip_sipapp_srv:state()) -> 
     {ok, nksip_sipapp_srv:state()} | continue | {continue, list()}.
 
-nkcb_uac_auto_launch_unregister(Reg, Sync, SipAppState)->
+nkcb_uac_auto_register_launch_unregister(Reg, Sync, SipAppState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
     StateOb = get_state(SipAppState),
     % This plugin could have already stopped
@@ -178,14 +179,14 @@ nkcb_uac_auto_launch_unregister(Reg, Sync, SipAppState)->
 
   
 %% @private
--spec nkcb_uac_auto_update_register(#sipreg{}, nksip:sip_code(), 
+-spec nkcb_uac_auto_register_update_register(#sipreg{}, nksip:sip_code(), 
                                     nksip:optslist(), nksip_sipapp_srv:state()) ->
     {ok, #sipreg{}, nksip_sipapp_srv:state()}.
 
-nkcb_uac_auto_update_register(Reg, Code, _Meta, SipAppState) when Code<200 ->
+nkcb_uac_auto_register_update_register(Reg, Code, _Meta, SipAppState) when Code<200 ->
     {ok, Reg, SipAppState};
 
-nkcb_uac_auto_update_register(Reg, Code, Meta, SipAppState) when Code<300 ->
+nkcb_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) when Code<300 ->
     #sipreg{id=RegId, call_id=CallId, opts=Opts} = Reg,
     #sipapp_srv{app_id=AppId} = SipAppState,
     #state_ob{regs=RegsOb} = StateOb = get_state(SipAppState),
@@ -250,7 +251,7 @@ nkcb_uac_auto_update_register(Reg, Code, Meta, SipAppState) when Code<300 ->
             continue
     end;
 
-nkcb_uac_auto_update_register(Reg, Code, Meta, SipAppState) ->
+nkcb_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
     #state_ob{regs=RegsOb} = StateOb = get_state(SipAppState),
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of

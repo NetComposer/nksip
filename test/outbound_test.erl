@@ -487,7 +487,7 @@ uac_auto() ->
 
 
     [{auto1, true, _},{auto2, true, _}] = 
-        lists:sort(nksip_uac_auto:get_registers(ua3)),
+        lists:sort(nksip_uac_auto_register:get_registers(ua3)),
     [{auto1, true, _, _},{auto2, true, _, _}] = 
         lists:sort(nksip_uac_auto_outbound:get_registers(ua3)),
 
@@ -533,14 +533,14 @@ uac_auto() ->
     exit(Pid1, kill),
     timer:sleep(50),
     [{auto1, false, _},{auto2, true, _}] = 
-        lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
+        lists:sort(nksip_uac_auto_register:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (1/3)"),
     wait_register(10),  % 50
 
     nksip_connection:stop(Pid2, normal),
     timer:sleep(50),
     [{auto1, true, _},{auto2, false, _}] = 
-        lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
+        lists:sort(nksip_uac_auto_register:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (2/3)"),
     wait_register(50),
 
@@ -549,7 +549,7 @@ uac_auto() ->
     nksip_connection:stop(Pid6, normal),
     timer:sleep(50),
     [{auto1, false, _},{auto2, false, _}] = 
-        lists:sort(nksip_uac_auto:get_registers(UA3_Id)),
+        lists:sort(nksip_uac_auto_register:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (3/3)"),
     wait_register(100),
 
@@ -568,7 +568,7 @@ check_time(Time, Limit) ->
 wait_register(0) -> 
     error(register);
 wait_register(N) ->
-    case lists:sort(nksip_uac_auto:get_registers(ua3)) of
+    case lists:sort(nksip_uac_auto_register:get_registers(ua3)) of
         [{auto1, true, _},{auto2, true, _}] -> ok;
         _ -> timer:sleep(1000), wait_register(N-1)
     end.

@@ -47,16 +47,16 @@ start() ->
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         {supported, "a;a_param, 100rel"},
-        {plugins, [nksip_registrar, nksip_uac_auto]},
+        {plugins, [nksip_registrar, nksip_uac_auto_register]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
-        {nksip_uac_auto_timer, 1}
+        {nksip_uac_auto_register_timer, 1}
     ]),
 
     {ok, _} = nksip:start(client1, ?MODULE, client1, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
-        {plugins, [nksip_uac_auto]},
-        {nksip_uac_auto_timer, 1}
+        {plugins, [nksip_uac_auto_register]},
+        {nksip_uac_auto_register_timer, 1}
     ]),
             
     {ok, _} = nksip:start(client2, ?MODULE, client2, [
@@ -120,61 +120,61 @@ auto() ->
     % Start a new server to test ping and register options
     nksip:stop(server2),
     {ok, _} = nksip:start(server2, ?MODULE, server2, [
-        {plugins, [nksip_registrar, nksip_uac_auto]},
+        {plugins, [nksip_registrar, nksip_uac_auto_register]},
         {transports, [{udp, all, 5080}]},
         {nksip_registrar_min_time, 1},
-        {nksip_uac_auto_timer, 1}
+        {nksip_uac_auto_register_timer, 1}
     ]),
     timer:sleep(200),
-    {error, invalid_app} = nksip_uac_auto:start_ping(none, ping1, "sip::a", []),
-    {error, invalid_uri} = nksip_uac_auto:start_ping(client1, ping1, "sip::a", []),
+    {error, invalid_app} = nksip_uac_auto_register:start_ping(none, ping1, "sip::a", []),
+    {error, invalid_uri} = nksip_uac_auto_register:start_ping(client1, ping1, "sip::a", []),
     Ref = make_ref(),
     
     ok = nksip:put(client1, callback, {Ref, self()}),
     
-    {ok, true} = nksip_uac_auto:start_ping(client1, ping1, 
+    {ok, true} = nksip_uac_auto_register:start_ping(client1, ping1, 
                                 "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 5}]),
 
-    {error, invalid_app} = nksip_uac_auto:start_register(none, reg1, "sip::a", []),
-    {error, invalid_uri} = nksip_uac_auto:start_register(client1, reg1, "sip::a", []),
-    {ok, true} = nksip_uac_auto:start_register(client1, reg1, 
+    {error, invalid_app} = nksip_uac_auto_register:start_register(none, reg1, "sip::a", []),
+    {error, invalid_uri} = nksip_uac_auto_register:start_register(client1, reg1, "sip::a", []),
+    {ok, true} = nksip_uac_auto_register:start_register(client1, reg1, 
                                 "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 1}]),
 
-    [{ping1, true, _}] = nksip_uac_auto:get_pings(client1),
-    [{reg1, true, _}] = nksip_uac_auto:get_registers(client1),
+    [{ping1, true, _}] = nksip_uac_auto_register:get_pings(client1),
+    [{reg1, true, _}] = nksip_uac_auto_register:get_registers(client1),
 
     ok = tests_util:wait(Ref, [{ping, ping1, true}, {reg, reg1, true}]),
 
     lager:info("Next infos about connection error to port 9999 are expected"),
-    {ok, false} = nksip_uac_auto:start_ping(client1, ping2, 
+    {ok, false} = nksip_uac_auto_register:start_ping(client1, ping2, 
                                             "<sip:127.0.0.1:9999;transport=tcp>",
                                             [{expires, 1}]),
-    {ok, false} = nksip_uac_auto:start_register(client1, reg2, 
+    {ok, false} = nksip_uac_auto_register:start_register(client1, reg2, 
                                             "<sip:127.0.0.1:9999;transport=tcp>",
                                             [{expires, 1}]),
     ok = tests_util:wait(Ref, [{ping, ping2, false}, {reg, reg2, false}]),
 
     [{ping1, true,_}, {ping2, false,_}] = 
-        lists:sort(nksip_uac_auto:get_pings(client1)),
+        lists:sort(nksip_uac_auto_register:get_pings(client1)),
     [{reg1, true,_}, {reg2, false,_}] = 
-        lists:sort(nksip_uac_auto:get_registers(client1)),
+        lists:sort(nksip_uac_auto_register:get_registers(client1)),
     
-    ok = nksip_uac_auto:stop_ping(client1, ping2),
-    ok = nksip_uac_auto:stop_register(client1, reg2),
+    ok = nksip_uac_auto_register:stop_ping(client1, ping2),
+    ok = nksip_uac_auto_register:stop_register(client1, reg2),
 
-    [{ping1, true, _}] = nksip_uac_auto:get_pings(client1),
-    [{reg1, true, _}] = nksip_uac_auto:get_registers(client1),
+    [{ping1, true, _}] = nksip_uac_auto_register:get_pings(client1),
+    [{reg1, true, _}] = nksip_uac_auto_register:get_registers(client1),
 
     ok = nksip:stop(server2),
     lager:info("Next info about connection error to port 5080 is expected"),
-    {ok, false} = nksip_uac_auto:start_ping(client1, ping3, 
+    {ok, false} = nksip_uac_auto_register:start_ping(client1, ping3, 
                                             "<sip:127.0.0.1:5080;transport=tcp>",
                                             [{expires, 1}]),
-    ok = nksip_uac_auto:stop_ping(client1, ping1),
-    ok = nksip_uac_auto:stop_ping(client1, ping3),
-    ok = nksip_uac_auto:stop_register(client1, reg1),
-    [] = nksip_uac_auto:get_pings(client1),
-    [] = nksip_uac_auto:get_registers(client1),
+    ok = nksip_uac_auto_register:stop_ping(client1, ping1),
+    ok = nksip_uac_auto_register:stop_ping(client1, ping3),
+    ok = nksip_uac_auto_register:stop_register(client1, reg1),
+    [] = nksip_uac_auto_register:get_pings(client1),
+    [] = nksip_uac_auto_register:get_registers(client1),
     ok.
 
 
@@ -298,13 +298,13 @@ sip_options(Req, _Call) ->
     end.
 
 
-sip_uac_auto_ping_update(PingId, OK, AppId=State) ->
+sip_uac_auto_register_updated_ping(PingId, OK, AppId=State) ->
     {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
     Pid ! {Ref, {ping, PingId, OK}},
     {noreply, State}.
 
 
-sip_uac_auto_register_update(RegId, OK, AppId=State) ->
+sip_uac_auto_register_updated_register(RegId, OK, AppId=State) ->
     {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
     Pid ! {Ref, {reg, RegId, OK}},
     {noreply, State}.
