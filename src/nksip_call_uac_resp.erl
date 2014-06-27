@@ -206,7 +206,7 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
     end,
     {ok, CbReq, CbResp, CbUAC, CbCall} = 
         AppId:nkcb_uac_response(Req, Resp, UAC5, update(UAC5, Call)),
-    received_auth(CbReq, CbResp, CbUAC, CbCall);
+    received_422(CbReq, CbResp, CbUAC, CbCall);
 
 response_status(invite_accepted, _Resp, #trans{code=Code}, Call) 
                    when Code < 200 ->
@@ -275,7 +275,7 @@ response_status(proceeding, Resp, UAC, Call) ->
     end,
     {ok, CbReq, CbResp, CbUAC, CbCall} = 
         AppId:nkcb_uac_response(Req, Resp, UAC2, update(UAC2, Call)),
-    received_auth(CbReq, CbResp, CbUAC, CbCall);
+    received_422(CbReq, CbResp, CbUAC, CbCall);
 
 response_status(completed, Resp, UAC, Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}, to={_, ToTag}} = Resp,
@@ -334,34 +334,34 @@ do_received_hangup(Resp, UAC, Call) ->
     update(UAC1, Call).
 
 
-%% @private 
--spec received_auth(nksip:request(), nksip:response(), 
-                       nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
+% %% @private 
+% -spec received_auth(nksip:request(), nksip:response(), 
+%                        nksip_call:trans(), nksip_call:call()) ->
+%     nksip_call:call().
 
-received_auth(Req, Resp, UAC, Call) ->
-     #trans{
-        id = Id,
-        opts = Opts,
-        method = Method, 
-        code = Code, 
-        iter = Iter,
-        from = From
-    } = UAC,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
-    case 
-        (Code==401 orelse Code==407) andalso Iter < ?MAX_AUTH_TRIES
-        andalso Method/='CANCEL' andalso (not IsProxy) andalso
-        nksip_auth:make_request(Req, Resp, Opts) 
-    of
-        false ->
-            received_422(Req, Resp, UAC, Call);
-        {ok, Req1} ->
-            nksip_call_uac_req:resend(Req1, UAC, Call);
-        {error, Error} ->
-            ?call_debug("UAC ~p could not generate new auth request: ~p", [Id, Error]),    
-            received_422(Req, Resp, UAC, Call)
-    end.
+% received_auth(Req, Resp, UAC, Call) ->
+%      #trans{
+%         id = Id,
+%         opts = Opts,
+%         method = Method, 
+%         code = Code, 
+%         iter = Iter,
+%         from = From
+%     } = UAC,
+%     IsProxy = case From of {fork, _} -> true; _ -> false end,
+%     case 
+%         (Code==401 orelse Code==407) andalso Iter < ?MAX_AUTH_TRIES
+%         andalso Method/='CANCEL' andalso (not IsProxy) andalso
+%         nksip_auth:make_request(Req, Resp, Opts) 
+%     of
+%         false ->
+%             received_422(Req, Resp, UAC, Call);
+%         {ok, Req1} ->
+%             nksip_call_uac_req:resend(Req1, UAC, Call);
+%         {error, Error} ->
+%             ?call_debug("UAC ~p could not generate new auth request: ~p", [Id, Error]),    
+%             received_422(Req, Resp, UAC, Call)
+%     end.
 
 
 %% @private 

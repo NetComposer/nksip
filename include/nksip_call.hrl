@@ -86,6 +86,7 @@
     code :: 0 | nksip:sip_code(),
     to_tags = [] :: [nksip:tag()],
     stateless :: boolean(),
+    iter = 1 :: pos_integer(),
     rseq = 0 :: 0 | nksip:cseq(),
     pracks = [] :: [prack()],
     timeout_timer :: {nksip_call_lib:timeout_timer(), reference()},
@@ -96,8 +97,7 @@
     cancel :: undefined | to_cancel | cancelled,
     loop_id :: integer(),
     ack_trans_id :: integer(),
-    iter = 1 :: integer(),
-    meta1 = [] :: nksip:optslist()
+    meta = [] :: nksip:optslist()
 }).
 
 

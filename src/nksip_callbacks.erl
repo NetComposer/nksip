@@ -27,7 +27,7 @@
 -include("nksip_call.hrl").
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
 		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
--export([nkcb_uac_response/4, nkcb_uac_proxy_opts/2]).
+-export([nkcb_uac_response/4, nkcb_parse_uac_opt/3, nkcb_uac_proxy_opts/2]).
 -export([nkcb_connection_send/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
@@ -117,6 +117,15 @@ nkcb_authorize_data(List, #trans{request=Req}, Call) ->
 
 nkcb_uac_response(Req, Resp, UAC, Call) ->
     {ok, Req, Resp, UAC, Call}.
+
+
+
+%% @doc Called to parse specific UAC options
+-spec nkcb_parse_uac_opt(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+	{continue, list()}.
+
+nkcb_parse_uac_opt(PluginOpts, Req, Opts) ->
+	{continue, [PluginOpts, Req, Opts]}.
 
 
 %% @doc Called to add options for proxy UAC processing

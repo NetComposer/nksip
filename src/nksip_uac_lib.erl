@@ -111,22 +111,23 @@ make(AppId, Method, Uri, Opts) ->
             start = nksip_lib:l_timestamp()
         },
         ConfigOpts = AppId:config_uac(),
-        {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, []),
+        {Req2, ReqOpts1, RestOpts1} = parse_opts(ConfigOpts, Req1, [], []),
         Req3 = case RUri of
             #uri{headers=[]} -> Req2;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req2, post)
         end,
-        {Req4, ReqOpts2} = parse_opts(Opts, Req3, ReqOpts1),
-        ReqOpts3 = case 
+        {Req4, ReqOpts2, RestOpts2} = parse_opts(Opts, Req3, RestOpts1, ReqOpts1),
+        {Req5, ReqOpts3} = parse_rest_opts(RestOpts2, Req4, ReqOpts2),
+        ReqOpts4 = case 
             (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
              Method=='NOTIFY' orelse Method=='REFER' orelse Method=='UPDATE')
             andalso Req4#sipmsg.contacts==[]
-            andalso not lists:member(contact, ReqOpts2)
+            andalso not lists:member(contact, ReqOpts3)
         of  
-            true -> [contact|ReqOpts2];
-            false -> ReqOpts2
+            true -> [contact|ReqOpts3];
+            false -> ReqOpts3
         end,
-        {ok, Req4, ReqOpts3}
+        {ok, Req5, ReqOpts4}
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -143,11 +144,12 @@ proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req, post)
         end,
         ConfigOpts = AppId:config_uac_proxy(),
-        {Req2, ReqOpts1} = parse_opts(ConfigOpts, Req1, []),
-        {Req3, ReqOpts2} = parse_opts(Opts, Req2, ReqOpts1),
-        {ok, Req4, ReqOpts4} = AppId:nkcb_uac_proxy_opts(Req3, ReqOpts2),
-        Req5 = remove_local_routes(Req4),
-        {ok, Req5, ReqOpts4}
+        {Req2, ReqOpts1, RestOpts1} = parse_opts(ConfigOpts, Req1, [], []),
+        {Req3, ReqOpts2, RestOpts2} = parse_opts(Opts, Req2, RestOpts1, ReqOpts1),
+        {Req4, ReqOpts3} = parse_rest_opts(RestOpts2, Req3, ReqOpts2),
+        {ok, Req5, ReqOpts4} = AppId:nkcb_uac_proxy_opts(Req4, ReqOpts3),
+        Req6 = remove_local_routes(Req5),
+        {ok, Req6, ReqOpts4}
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -266,14 +268,14 @@ is_stateless(Resp, GlobalId) ->
 
 
 %% @private
--spec parse_opts(nksip:optslist(), nksip:request(), nksip:optslist()) ->
-    {nksip:request(), nksip:optslist()}.
+-spec parse_opts(nksip:optslist(), nksip:request(), nksip:optslist(), nksip:optslist()) ->
+    {nksip:request(), nksip:optslist(), nksip:optslist()}.
 
 
-parse_opts([], Req, Opts) ->
-    {Req, Opts};
+parse_opts([], Req, RestOpts, Opts) ->
+    {Req, Opts, lists:reverse(RestOpts)};
 
-parse_opts([Term|Rest], Req, Opts) ->
+parse_opts([Term|Rest], Req, RestOpts, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}} = Req,
     Op = case Term of
         
@@ -344,28 +346,6 @@ parse_opts([Term|Rest], Req, Opts) ->
                Term==stateless; Term==no_dialog; Term==no_auto_expire;
                Term==follow_redirects ->
             {update, Req, [Term|Opts]};
-
-        {pass, Pass} ->
-            {Realm1, Pass1} = case Pass of
-                _ when is_list(Pass) -> 
-                    {<<>>, list_to_binary(Pass)};
-                _ when is_binary(Pass) -> 
-                    {<<>>, Pass};
-                {Pass0, Realm0} when 
-                    (is_list(Pass0) orelse is_binary(Pass0)) andalso
-                    (is_list(Realm0) orelse is_binary(Realm0)) ->
-                    {nksip_lib:to_binary(Realm0), nksip_lib:to_binary(Pass0)};
-                _ ->
-                    throw({invalid_config, pass})
-            end,
-            Passes0 = nksip_lib:get_value(passes, Opts, []),
-            Passes1 = nksip_lib:store_value(Realm1, Pass1, Passes0),
-            Opts1 = nksip_lib:store_value(passes, Passes1, Opts),
-            {update, Req, Opts1};
-        {passes, Passes} ->
-            Passes0 = nksip_lib:get_value(passes, Opts, []),
-            Opts1 = nksip_lib:store_value(passes, Passes++Passes0, Opts),
-            {update, Req, Opts1};
 
         {Name, Value} when Name==record_flow; Name==route_flow ->
             {update, Req, [{Name, Value}|Opts]};
@@ -493,36 +473,47 @@ parse_opts([Term|Rest], Req, Opts) ->
         {sip_if_match, ETag} ->
             {replace, <<"sip-if-match">>, nksip_lib:to_binary(ETag)};
 
-        _ when is_tuple(Term) ->
-            throw({invalid_config, element(1, Term)});
         _ ->
-            throw({invalid_config, Term})
+            unknown
     end,
     case Op of
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
             PReq = nksip_parse_header:parse(PName, AddValue, Req, post),
-            parse_opts(Rest, PReq, Opts);
+            parse_opts(Rest, PReq, RestOpts, Opts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
             PReq = nksip_parse_header:parse(PName, RepValue, Req, replace),
-            parse_opts(Rest, PReq, Opts);
+            parse_opts(Rest, PReq, RestOpts, Opts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
             PReq = nksip_parse_header:parse(PName, InsValue, Req, pre),
-            parse_opts(Rest, PReq, Opts);
+            parse_opts(Rest, PReq, RestOpts, Opts);
         {update, UpdReq, UpdOpts} -> 
-            parse_opts(Rest, UpdReq, UpdOpts);
+            parse_opts(Rest, UpdReq, RestOpts, UpdOpts);
         {retry, Terms} ->
-            parse_opts(Terms, Req, Opts);
+            parse_opts(Terms, Req, RestOpts, Opts);
         move_to_last ->
-            parse_opts(Rest++[Term], Req, Opts);
+            parse_opts(Rest++[Term], Req, RestOpts, Opts);
         ignore ->
-            parse_opts(Rest, Req, Opts)
+            parse_opts(Rest, Req, RestOpts, Opts);
+        unknown ->
+            parse_opts(Rest, Req, [Term|RestOpts], Opts)
     end.
 
 
 
+%% @private
+-spec parse_rest_opts(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+    {nksip:request(), nksip:optslist()}.
+
+parse_rest_opts(RestOpts, #sipmsg{app_id=AppId}=Req, Opts) ->
+    {continue, [Unknown, Req1, Opts1]} = AppId:nkcb_parse_uac_opt(RestOpts, Req, Opts),
+    case Unknown of
+        [] -> {Req1, Opts1};
+        [Term|_] when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
+        [Term|_] -> throw({invalid_config, Term})
+    end.
 
 
 %% ===================================================================
