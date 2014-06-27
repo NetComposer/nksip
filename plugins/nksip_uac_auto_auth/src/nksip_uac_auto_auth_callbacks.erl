@@ -51,41 +51,9 @@ nkcb_parse_uac_opt(PluginOpts, #sipmsg{app_id=AppId}=Req, Opts) ->
 % @doc Called after the UAC processes a response
 -spec nkcb_uac_response(nksip:request(), nksip:response(), 
                         nksip_call:trans(), nksip:call()) ->
-    {ok, nksip:request(), nksip:response(), nksip_call:trans(), nksip:call()}.
+    continue | {ok, nksip:call()}.
 
 nkcb_uac_response(Req, Resp, UAC, Call) ->
-     #trans{
-        id = Id,
-        opts = Opts,
-        method = Method, 
-        code = Code, 
-        from = From,
-        iter = Iters
-    } = UAC,
-    #call{app_id=AppId, call_id=CallId} = Call,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
-    case 
-        (Code==401 orelse Code==407) andalso Method/='CANCEL' andalso 
-        (not IsProxy)
-    of
-        true ->
-            Max = case nksip_lib:get_value(nksip_uac_auto_auth_max_tries, Opts) of
-                undefined -> 
-                    nksip_sipapp_srv:config(AppId, nksip_uac_auto_auth_max_tries);
-                Max0 ->
-                    Max0
-            end,
-            case Iters < Max andalso nksip_auth:make_request(Req, Resp, Opts) of
-                {ok, Req1} ->
-                    Call1 = nksip_call_uac_req:resend(Req1, UAC, Call),
-                    {ok, Call1};
-                {error, Error} ->
-                    ?debug(AppId, CallId, 
-                           "UAC ~p could not generate new auth request: ~p", [Id, Error]),    
-                    continue;
-                false ->
-                    continue
-            end;
-        false ->
-            continue
-    end.
+    nksip_uac_auto_auth:check_auth(Req, Resp, UAC, Call).
+
+

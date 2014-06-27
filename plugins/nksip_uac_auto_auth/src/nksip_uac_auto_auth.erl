@@ -23,7 +23,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include("../../../include/nksip.hrl").
+-include("../../../include/nksip_call.hrl").
 
+-export([check_auth/4]).
 -export([version/0, deps/0, parse_config/2, parse_config/3]).
 
 %% ===================================================================
@@ -65,6 +67,51 @@ parse_config(PluginOpts, Config) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% @doc Called after the UAC processes a response
+-spec check_auth(nksip:request(), nksip:response(), nksip_call:trans(), nksip:call()) ->
+    continue | {ok, nksip:call()}.
+
+check_auth(Req, Resp, UAC, Call) ->
+     #trans{
+        id = TransId,
+        opts = Opts,
+        method = Method, 
+        code = Code, 
+        from = From,
+        iter = Iters
+    } = UAC,
+    IsProxy = case From of {fork, _} -> true; _ -> false end,
+    case 
+        (Code==401 orelse Code==407) andalso Method/='CANCEL' andalso 
+        (not IsProxy)
+    of
+        true ->
+            #call{app_id=AppId, call_id=CallId} = Call,
+            Max = case nksip_lib:get_value(nksip_uac_auto_auth_max_tries, Opts) of
+                undefined -> 
+                    nksip_sipapp_srv:config(AppId, nksip_uac_auto_auth_max_tries);
+                Max0 ->
+                    Max0
+            end,
+            case Iters < Max andalso nksip_auth:make_request(Req, Resp, Opts) of
+                {ok, Req1} ->
+                    {ok, nksip_call_uac_req:resend(Req1, UAC, Call)};
+                {error, Error} ->
+                    ?debug(AppId, CallId, 
+                           "UAC ~p could not generate new auth request: ~p", 
+                           [TransId, Error]),    
+                    continue;
+                false ->
+                    continue
+            end;
+        false ->
+            continue
+    end.
+
 
 %% @private
 -spec parse_config(PluginConfig, Unknown, Config) ->
