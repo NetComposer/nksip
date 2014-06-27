@@ -44,18 +44,18 @@ start() ->
 
     {ok, _} = nksip:start(client1, ?MODULE, [], [
         {from, "sip:client1@nksip"},
+        {plugins, [nksip_100rel]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
-        {supported, "100rel"},
         no_100
     ]),
     
     {ok, _} = nksip:start(client2, ?MODULE, [], [
         {from, "sip:client2@nksip"},
+        {plugins, [nksip_100rel]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
-        no_100,
-        {supported, "100rel"}
+        no_100
     ]),
 
     tests_util:log(),
@@ -81,26 +81,27 @@ basic() ->
     % No do100rel in call to invite, neither in app config
     Hd1 = {add, "x-nk-op", "prov-busy"},
     Fields1 = {meta, [supported, require]},
-    {ok, 486, Values1} = nksip_uac:invite(client1, SipC2, [CB, get_request, Hd1, Fields1]),    [
-        {supported,  [<<"100rel">>]},
+    {ok, 486, Values1} = nksip_uac:invite(client1, SipC2, [CB, get_request, Hd1, Fields1]), 
+    [
+        {supported,  [<<"100rel">>|_]},
         {require, []}
     ] = Values1,
     receive {Ref, {req, Req1}} -> 
-        [<<"100rel">>] = nksip_sipmsg:meta(supported, Req1),
+        [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Req1),
         [] = nksip_sipmsg:meta(require, Req1)
     after 1000 -> 
         error(basic) 
     end,
     receive 
         {Ref, {resp, 180, Resp1a}} -> 
-            [<<"100rel">>] = nksip_sipmsg:meta(supported, Resp1a),
+            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp1a),
             [] = nksip_sipmsg:meta(require, Resp1a)
     after 1000 -> 
         error(basic) 
     end,
     receive 
         {Ref, {resp, 183, Resp1b}} -> 
-            [<<"100rel">>] = nksip_sipmsg:meta(supported, Resp1b),
+            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp1b),
             [] = nksip_sipmsg:meta(require, Resp1b)
     after 1000 -> 
         error(basic) 
@@ -116,20 +117,20 @@ basic() ->
     {ok, 486, Values2} = nksip_uac:invite(client1, SipC2, 
                             [CB, get_request, Fields2, {require, "100rel"}|Hds2]),
     [
-        {supported, [<<"100rel">>]},
+        {supported, [<<"100rel">>|_]},
         {require, []},
         {cseq_num, CSeq2},
         {rseq_num, undefined}
     ] = Values2,
     receive {Ref, {req, Req2}} -> 
-        [<<"100rel">>] = nksip_sipmsg:meta(supported, Req2),
+        [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Req2),
         [<<"100rel">>] = nksip_sipmsg:meta(require, Req2)
     after 1000 -> 
         error(basic) 
     end,
     RSeq2a = receive 
         {Ref, {resp, 180, Resp2a}} -> 
-            [<<"100rel">>] = nksip_sipmsg:meta(supported, Resp2a),
+            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp2a),
             [<<"100rel">>] = nksip_sipmsg:meta(require, Resp2a),
             CSeq2 = nksip_sipmsg:meta(cseq_num, Resp2a),
             RSeq2a_0 = nksip_sipmsg:meta(rseq_num, Resp2a),
@@ -139,7 +140,7 @@ basic() ->
     end,
     RSeq2b = receive 
         {Ref, {resp, 183, Resp2b}} -> 
-            [<<"100rel">>] = nksip_sipmsg:meta(supported, Resp2b),
+            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp2b),
             [<<"100rel">>] = nksip_sipmsg:meta(require, Resp2b),
             CSeq2 = nksip_sipmsg:meta(cseq_num, Resp2b),
             RSeq2b_0 = nksip_sipmsg:meta(rseq_num, Resp2b),
