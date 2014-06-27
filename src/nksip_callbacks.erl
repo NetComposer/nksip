@@ -26,7 +26,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
-		 nkcb_transport_uac_headers/6]).
+		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
 -export([nkcb_uac_response/4, nkcb_uac_proxy_opts/2]).
 -export([nkcb_connection_send/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
@@ -151,6 +151,15 @@ nkcb_connection_send(_SipMsg, _Packet) ->
 
 nkcb_connection_recv(_SipMsg, _Packet) ->
     ok.
+
+
+%% @doc Called when the transport has just sent a response
+-spec nkcb_transport_uas_sent(nksip:response()) ->
+    ok | nkcb_common().
+
+nkcb_transport_uas_sent(_Resp) ->
+	ok.
+
 
 %% @doc Called when the SipApp process receives a handle_call/3.
 %% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.

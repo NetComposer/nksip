@@ -42,7 +42,6 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
         app_id = AppId, 
         vias = [Via|_],
-        start = Start,
         cseq = {_, Method},
         transport = Transp
     } = Resp,
@@ -70,8 +69,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
     AppId:nkcb_debug(Resp, {send_response, Method, Code}),
     Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun, Opts),
-    Elapsed = nksip_lib:l_timestamp()-Start,
-    nksip_stats:uas_response(Elapsed),
+    AppId:nkcb_transport_uas_sent(Resp),
     Return.
 
 

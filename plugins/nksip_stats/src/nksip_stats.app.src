@@ -1,0 +1,9 @@
+{application, nksip_stats, [
+    {description, "NkSIP Stats Plugin"},
+    {vsn, "0.1.0"},
+    {modules, []},
+    {registered, []},
+    {mod, {nksip_stats_app, []}},
+    {applications, [kernel, stdlib, nksip]},
+    {env, []}
+]}.
