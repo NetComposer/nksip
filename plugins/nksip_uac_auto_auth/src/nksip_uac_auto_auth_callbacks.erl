@@ -36,45 +36,16 @@
     {continue, list()}.
 
 nkcb_parse_uac_opt(PluginOpts, #sipmsg{app_id=AppId}=Req, Opts) ->
-    AppPasses = nksip_sipapp_srv:get_config(AppId, passes, []),
-    PluginOpts1 = [{passes, AppPasses}|PluginOpts],
-    case nksip_uac_auto_auth:parse_config(PluginOpts1, [], Opts) of
-        {ok, Unknown, Config1} ->
-            {continue, [Unknown, Req, Config1]};
+    Opts1 = case nksip_sipapp_srv:config(AppId, passes) of
+        undefined -> Opts;
+        AppPasses -> [{passes, AppPasses}|Opts]
+    end,
+    case nksip_uac_auto_auth:parse_config(PluginOpts, [], Opts1) of
+        {ok, Unknown, Opts2} ->
+            {continue, [Unknown, Req, Opts2]};
         {error, Error} ->
             {error, Error}
     end.
-
-
-
-
-    case Pass of
-        Pass0 when is_list(Pass0); is_binary(Pass0) -> 
-            Pass1 = nksip_lib:to_binary(Pass0),
-            Passes1 = nksip_lib:store_value(<<>>, Pass1, Passes0),
-            Opts1 = nksip_lib:store_value(passes, Passes1, Opts),
-            {ok, {update, Req, Opts1}};
-        {Pass0, Realm0} when 
-            (is_list(Pass0) orelse is_binary(Pass0)) andalso
-            (is_list(Realm0) orelse is_binary(Realm0)) ->
-            Pass1 = nksip_lib:to_binary(Pass0),
-            Realm1 = nksip_lib:to_binary(Realm0),
-            Passes1 = nksip_lib:store_value(Realm1, Pass1, Passes0),
-            Opts1 = nksip_lib:store_value(passes, Passes1, Opts),
-            {ok, {update, Req, Opts1}};
-        _ ->
-            error
-    end;
-
-nkcb_parse_uac_opt({passes, Passes}, Req, Opts) ->
-    Passes0 = nksip_lib:get_value(passes, Opts, []),
-    Opts1 = nksip_lib:store_value(passes, Passes++Passes0, Opts),
-    {update, Req, Opts1};
-
-        
-nkcb_parse_uac_opt(_Term, _Req, _Opts) ->
-    continue.
-
 
 
 % @doc Called after the UAC processes a response
@@ -98,11 +69,16 @@ nkcb_uac_response(Req, Resp, UAC, Call) ->
         (not IsProxy)
     of
         true ->
-            Max = nksip_sipapp_srv:config(AppId, nksip_uac_auto_auth_max_tries),
+            Max = case nksip_lib:get_value(nksip_uac_auto_auth_max_tries, Opts) of
+                undefined -> 
+                    nksip_sipapp_srv:config(AppId, nksip_uac_auto_auth_max_tries);
+                Max0 ->
+                    Max0
+            end,
             case Iters < Max andalso nksip_auth:make_request(Req, Resp, Opts) of
                 {ok, Req1} ->
                     Call1 = nksip_call_uac_req:resend(Req1, UAC, Call),
-                    {ok, Req, Resp, UAC, Call1};
+                    {ok, Call1};
                 {error, Error} ->
                     ?debug(AppId, CallId, 
                            "UAC ~p could not generate new auth request: ~p", [Id, Error]),    

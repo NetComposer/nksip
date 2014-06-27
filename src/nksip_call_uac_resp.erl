@@ -186,7 +186,7 @@ response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call)
 
 % Final [3456]xx response received, real response
 response_status(invite_proceeding, Resp, UAC, Call) ->
-    #sipmsg{app_id=AppId, to={To, ToTag}} = Resp,
+    #sipmsg{to={To, ToTag}} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
     UAC1 = UAC#trans{
         request = Req#sipmsg{to={To, ToTag}}, 
@@ -204,9 +204,7 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
         _ -> 
             UAC3#trans{status=finished}
     end,
-    {ok, CbReq, CbResp, CbUAC, CbCall} = 
-        AppId:nkcb_uac_response(Req, Resp, UAC5, update(UAC5, Call)),
-    received_422(CbReq, CbResp, CbUAC, CbCall);
+    received_422(Req, Resp, UAC5, update(UAC5, Call));
 
 response_status(invite_accepted, _Resp, #trans{code=Code}, Call) 
                    when Code < 200 ->
@@ -258,7 +256,7 @@ response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
 
 % Final response received, real response
 response_status(proceeding, Resp, UAC, Call) ->
-    #sipmsg{app_id=AppId, to={_, ToTag}} = Resp,
+    #sipmsg{to={_, ToTag}} = Resp,
     #trans{proto=Proto, request=Req} = UAC,
     UAC2 = case Proto of
         udp -> 
@@ -273,9 +271,7 @@ response_status(proceeding, Resp, UAC, Call) ->
             UAC1 = UAC#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
-    {ok, CbReq, CbResp, CbUAC, CbCall} = 
-        AppId:nkcb_uac_response(Req, Resp, UAC2, update(UAC2, Call)),
-    received_422(CbReq, CbResp, CbUAC, CbCall);
+    received_422(Req, Resp, UAC2, update(UAC2, Call));
 
 response_status(completed, Resp, UAC, Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}, to={_, ToTag}} = Resp,
@@ -379,16 +375,22 @@ received_422(Req, Resp, UAC, Call) ->
         {resend, Req1, Call1} ->
             nksip_call_uac_req:resend(Req1, UAC, Call1);
         false ->
-            received_reply(Resp, UAC, Call)
+            received_reply(Req, Resp, UAC, Call)
     end.
 
 
 %% @private 
--spec received_reply(nksip:response(), nksip_call:trans(), nksip_call:call()) ->
+-spec received_reply(nksip:request(), nksip:response(), 
+                     nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-received_reply(Resp, UAC, Call) ->
-    nksip_call_uac_reply:reply({resp, Resp}, UAC, Call) .
+received_reply(Req, Resp, UAC, #call{app_id=AppId}=Call) ->
+    case AppId:nkcb_uac_response(Req, Resp, UAC, Call) of
+        {continue, [_Req1, Resp1, UAC1, Call1]} ->
+            nksip_call_uac_reply:reply({resp, Resp1}, UAC1, Call1);
+        {ok, Call1} ->
+            Call1
+    end.
 
 
 %% @private

@@ -52,6 +52,7 @@ start() ->
 
     {ok, _} = nksip:start(client1, ?MODULE, [], [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {plugins, [nksip_uac_auto_auth]},
         {local_host, "127.0.0.1"},
         {route, "<sip:127.0.0.1;lr>"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}

@@ -113,11 +113,10 @@ nkcb_authorize_data(List, #trans{request=Req}, Call) ->
 %% @doc Called after the UAC processes a response
 -spec nkcb_uac_response(nksip:request(), nksip:response(), 
 			            nksip_call:trans(), nksip:call()) ->
-	{ok, nksip:request(), nksip:response(), nksip_call:trans(), nksip:call()}.
+	nkcb_common().
 
 nkcb_uac_response(Req, Resp, UAC, Call) ->
-    {ok, Req, Resp, UAC, Call}.
-
+    {continue, [Req, Resp, UAC, Call]}.
 
 
 %% @doc Called to parse specific UAC options

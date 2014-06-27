@@ -24,7 +24,7 @@
 
 -include("../../../include/nksip.hrl").
 
--export([version/0, deps/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/2, parse_config/3]).
 
 %% ===================================================================
 %% Plugin specific
@@ -80,47 +80,49 @@ parse_config([Term|Rest], Unknown, Config) ->
     Op = case Term of
         {nksip_uac_auto_auth_max_tries, Tries} ->
             case is_integer(Tries) andalso Tries>=0 of
-                true -> update;
+                true -> {update, nksip_uac_auto_auth_max_tries, Tries};
                 false -> error
             end;
-        {pass, Pass} ->
-            case Pass of
-                _ when is_list(Pass) -> 
-                    {pass, <<>>, list_to_binary(Pass)};
-                _ when is_binary(Pass) -> 
-                    {pass, <<>>, Pass};
-                {Pass0, Realm0} when 
-                    (is_list(Pass0) orelse is_binary(Pass0)) andalso
-                    (is_list(Realm0) orelse is_binary(Realm0)) ->
-                    {pass, nksip_lib:to_binary(Realm0), nksip_lib:to_binary(Pass0)};
-                _ ->
+        {pass, PassTerm} ->
+            case get_pass(PassTerm) of
+                {ok, Realm, Pass} ->
+                    Passes0 = nksip_lib:get_value(passes, Config, []),
+                    Passes1 = nksip_lib:store_value(Realm, Pass, Passes0),
+                    {update, passes, Passes1};
+                error ->
                     error
             end;
         {passes, Passes} when is_list(Passes) ->
             Passes0 = nksip_lib:get_value(passes, Config, []),
-            {update, Passes++Passes0};
+            {update, passes, Passes++Passes0};
         _ ->
             unknown
     end,
     case Op of
-        {pass, Realm1, Pass1} ->
-            Passes0 = nksip_lib:get_value(passes, Config, []),
-            Passes1 = nksip_lib:store_value(Realm1, Pass1, Passes0),
-            Config1 = [{passes, Passes1}|lists:keydelete(passes, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        update ->
-            Key = element(1, Term),
-            Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        {update, Val} ->
-            Key = element(1, Term),
+        {update, Key, Val} ->
             Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
             parse_config(Rest, Unknown, Config1);
         error ->
             {error, {invalid_config, element(1, Term)}};
         unknown ->
             parse_config(Rest, [Term|Unknown], Config)
+    end.
+
+
+
+%% @private
+get_pass(PassTerm) ->
+    case PassTerm of
+        _ when is_list(PassTerm) -> 
+            {ok, <<>>, list_to_binary(PassTerm)};
+        _ when is_binary(PassTerm) -> 
+            {ok, <<>>, PassTerm};
+        {Realm, Pass} when 
+            (is_list(Realm) orelse is_binary(Realm)) andalso
+            (is_list(Pass) orelse is_binary(Pass)) ->
+            {ok, nksip_lib:to_binary(Realm), nksip_lib:to_binary(Pass)};
+        _ ->
+            error
     end.
 
 
