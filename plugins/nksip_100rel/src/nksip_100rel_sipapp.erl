@@ -22,37 +22,15 @@
 -module(nksip_100rel_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([sip_event_compositor_store/2]).
+-export([sip_prack/2]).
 
 
-% @doc Called when a operation database must be done on the compositor database.
-%% This default implementation uses the built-in memory database.
--spec sip_event_compositor_store(StoreOp, AppId) ->
-    [RegPublish] | ok | not_found when
-        StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
-                   {del, AOR, Tag} | del_all,
-        AppId :: nksip:app_id(),
-        AOR :: nksip:aor(),
-        Tag :: binary(),
-        RegPublish :: nksip_100rel:reg_publish(),
-        TTL :: integer().
+%% @doc Called when a valid PRACK request is received.
+-spec sip_prack(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
 
-sip_event_compositor_store(Op, AppId) ->
-    case Op of
-        {get, AOR, Tag} ->
-            nksip_store:get({nksip_100rel, AppId, AOR, Tag}, not_found);
-        {put, AOR, Tag, Record, TTL} -> 
-            nksip_store:put({nksip_100rel, AppId, AOR, Tag}, Record, [{ttl, TTL}]);
-        {del, AOR, Tag} ->
-            nksip_store:del({nksip_100rel, AppId, AOR, Tag});
-        del_all ->
-            FoldFun = fun(Key, _Value, Acc) ->
-                case Key of
-                    {nksip_100rel, AppId, AOR, Tag} -> 
-                        nksip_store:del({nksip_100rel, AppId, AOR, Tag});
-                    _ -> 
-                        Acc
-                end
-            end,
-            nksip_store:fold(FoldFun, none)
-    end.
+sip_prack(_Req, _Call) ->
+    {reply, ok}.
+
+
+

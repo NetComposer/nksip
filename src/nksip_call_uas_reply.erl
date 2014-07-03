@@ -60,7 +60,7 @@ reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
     reply(Reply, UAS1, update(UAS1, Call));
 
 reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts}, 
-           #trans{status=Status, code=LastCode}=UAS, Call)
+           #trans{status=Status, code=LastCode, request=Req}=UAS, Call)
            when Status==invite_proceeding orelse 
                 Status==trying orelse 
                 Status==proceeding orelse
@@ -74,7 +74,15 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                         LastCode>=200 andalso LastCode<300
                     )
                 ) ->
-    dialog({Resp, SendOpts}, UAS, Call);
+    {Resp1, SendOpts1} = 
+        nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
+    #call{app_id=AppId} = Call,
+    case AppId:nkcb_uas_sent_reply({Resp1, SendOpts1}, UAS, Call) of
+        {continue, [{Resp2, SendOpts2}, UAS2, Call2]} ->
+            send({Resp2, SendOpts2}, UAS2, update(UAS2, Call2));
+        {error, Error} ->
+            {{error, Error}, Call}
+    end;
 
 reply({#sipmsg{class={resp, Code, _Reason}}, _}, #trans{code=LastCode}=UAS, Call) ->
     #trans{status=Status, id=Id, method=Method} = UAS,
@@ -89,54 +97,6 @@ reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
     ?call_info("UAS ~p ~p cannot send ~p response in ~p (no stored request)", 
                [Id, Method, SipReply, Status]),
     {{error, invalid_call}, Call}.
-
-
-%% @private
--spec dialog(incoming(), nksip_call:trans(), nksip_call:call()) ->
-    reply_return().
-
-dialog({Resp, SendOpts}, #trans{request=Req}=UAS, Call) ->
-    {Resp1, SendOpts1} = 
-        nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
-    case lists:member(rseq, SendOpts1) of
-        true ->
-            case check_prack(Resp1, UAS) of
-                {ok, Resp2, UAS1} ->
-                    send({Resp2, SendOpts1}, UAS1, update(UAS1, Call));
-                {error, Error} ->
-                    {{error, Error}, Call}
-            end;
-        false ->
-            send({Resp1, SendOpts1}, UAS, Call)
-    end.
-
-
-%% @private
--spec check_prack(nksip:response(), nksip_call:trans()) ->
-    {ok, nksip:response(), nksip_call:trans()} | {error, Error}
-    when Error :: stateless_not_allowed | pending_prack.
-
-check_prack(_, #trans{stateless=true}) ->
-    {error, stateless_not_allowed};
-
-check_prack(Resp, UAS) ->
-    #sipmsg{dialog_id=DialogId, cseq={CSeq, Method}} = Resp,
-    #trans{rseq=LastRSeq, pracks=WaitPRAcks} = UAS,
-    case WaitPRAcks of
-        [] ->
-            RSeq = case LastRSeq of
-                0 -> crypto:rand_uniform(1, 2147483647);
-                _ -> LastRSeq+1
-            end,
-            Headers1 = nksip_headers:update(Resp, [{single, <<"rseq">>, RSeq}]),
-            Resp1 = Resp#sipmsg{headers=Headers1},
-            PRAcks = [{RSeq, CSeq, Method, DialogId}],
-            UAS1 = UAS#trans{rseq=RSeq, pracks=PRAcks},
-            {ok, Resp1, UAS1};
-        _ ->
-            
-            {error, pending_prack}
-    end.
 
 
 %% @private

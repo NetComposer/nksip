@@ -142,7 +142,7 @@ make(Req, Code, Opts) ->
     },
     ConfigOpts = AppId:config_uas(),
     try
-        {Resp2, RespOpts2} = parse_opts(ConfigOpts, Resp1, [], Req, Code),
+        {Resp2, RespOpts2, RestOpts2} = parse_opts(ConfigOpts, Req, Resp1, Code, [], []),
         Opts1 = case RUri#uri.scheme of
             sips ->
                 [secure|Opts];
@@ -166,11 +166,14 @@ make(Req, Code, Opts) ->
             true -> [do100rel|Opts1];
             false -> Opts1
         end,
-        {Resp3, RespOpts3} = parse_opts(Opts2, Resp2, RespOpts2, Req, Code),
-        {ok, Resp3, RespOpts3}
+        {Resp3, RespOpts3, RestOpts3} = 
+            parse_opts(Opts2, Req, Resp2, Code, RespOpts2, RestOpts2),
+        {Resp4, RespOpts4} = parse_rest_opts(RestOpts3, Req, Resp3, RespOpts3),
+        {ok, Resp4, RespOpts4}
     catch
         throw:Throw -> {error, Throw}
     end.
+
 
 
 
@@ -236,15 +239,15 @@ ruri_has_maddr(#sipmsg{
 
 
 %% @private
--spec parse_opts(nksip:optslist(), nksip:response(), nksip:optslist(),
-                 nksip:request(), nksip:sip_code()) -> 
-    {nksip:response(), nksip:optslist()}.
+-spec parse_opts(nksip:optslist(), nksip:request(), nksip:response(), 
+                 nksip:sip_code(), nksip:optslist(), nksip:optslist()) -> 
+    {nksip:response(), nksip:optslist(), nksip:optslist()}.
 
-parse_opts([], Resp, Opts, _Req, _Code) ->
-    {Resp, Opts};
+parse_opts([], _Req, Resp, _Code, Opts, RestOpts) ->
+    {Resp, Opts, RestOpts};
 
 
-parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
+parse_opts([Term|Rest], Req, Resp, Code, Opts, RestOpts) ->
     #sipmsg{app_id=AppId} = Req,
     Op = case Term of
     
@@ -252,12 +255,18 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
             ignore;
 
          % Header manipulation
-        {add, Name, Value} -> {add, Name, Value};
-        {add, {Name, Value}} -> {add, Name, Value};
-        {replace, Name, Value} -> {replace, Name, Value};
-        {replace, {Name, Value}} -> {replace, Name, Value};
-        {insert, Name, Value} -> {insert, Name, Value};
-        {insert, {Name, Value}} -> {insert, Name, Value};
+        {add, Name, Value} -> 
+            {add, Name, Value};
+        {add, {Name, Value}} -> 
+            {add, Name, Value};
+        {replace, Name, Value} -> 
+            {replace, Name, Value};
+        {replace, {Name, Value}} -> 
+            {replace, Name, Value};
+        {insert, Name, Value} -> 
+            {insert, Name, Value};
+        {insert, {Name, Value}} -> 
+            {insert, Name, Value};
 
         {Name, Value} when Name==from; Name==to; Name==content_type; 
                            Name==require; Name==supported; 
@@ -275,21 +284,21 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
                 [Time] -> {replace, <<"timestamp">>, Time};
                 _ -> ignore
             end;
-        do100rel ->
-            case lists:member(<<"100rel">>, Req#sipmsg.supported) of
-                true -> 
-                    case lists:keymember(require, 1, Opts) of
-                        true -> 
-                            move_to_last;
-                        false ->
-                            #sipmsg{require=Require} = Resp,
-                            Require1 = nksip_lib:store_value(<<"100rel">>, Require),
-                            Resp1 = Resp#sipmsg{require=Require1},
-                            {update, Resp1, [rseq|Opts]}
-                    end;
-                false -> 
-                    ignore
-            end;
+        % do100rel ->
+        %     case lists:member(<<"100rel">>, Req#sipmsg.supported) of
+        %         true -> 
+        %             case lists:keymember(require, 1, Opts) of
+        %                 true -> 
+        %                     move_to_last;
+        %                 false ->
+        %                     #sipmsg{require=Require} = Resp,
+        %                     Require1 = nksip_lib:store_value(<<"100rel">>, Require),
+        %                     Resp1 = Resp#sipmsg{require=Require1},
+        %                     {update, Resp1, [rseq|Opts]}
+        %             end;
+        %         false -> 
+        %             ignore
+        %     end;
 
         {body, Body} ->
             case lists:keymember(content_type, 1, Rest) of
@@ -307,11 +316,15 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
             end;
         {to_tag, _} when Code==100 ->
             ignore;
-        {to_tag, ToTag} when is_binary(ToTag) ->
-            #sipmsg{to={#uri{ext_opts=ExtOpts}=To, _}} = Resp,
-            ExtOpts1 = nksip_lib:store_value(<<"tag">>, ToTag, ExtOpts),
-            {update, Resp#sipmsg{to={To#uri{ext_opts=ExtOpts1}, ToTag}}, Opts};
-
+        {to_tag, ToTag} ->
+            case is_binary(ToTag) of
+                true ->
+                    #sipmsg{to={#uri{ext_opts=ExtOpts}=To, _}} = Resp,
+                    ExtOpts1 = nksip_lib:store_value(<<"tag">>, ToTag, ExtOpts),
+                    {update, Resp#sipmsg{to={To#uri{ext_opts=ExtOpts1}, ToTag}}, Opts};
+                false ->
+                    throw({invalid_config, to_tag})
+            end;
 
         %% Pass-through options
         _ when Term==contact; Term==no_dialog; Term==secure; Term==rseq ->
@@ -363,18 +376,27 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
         www_authenticate ->
             #sipmsg{from={#uri{domain=FromDomain}, _}} = Req,
             {add, <<"www-authenticate">>, nksip_auth:make_response(FromDomain, Req)};
-        {www_authenticate, Realm} when is_binary(Realm) ->
-            {add, <<"www-authenticate">>, nksip_auth:make_response(Realm, Req)};
+        {www_authenticate, Realm} ->
+            case is_binary(Realm) of
+                true ->
+                    {add, <<"www-authenticate">>, nksip_auth:make_response(Realm, Req)};
+                false ->
+                    throw({invalid_config, www_authenticate})
+            end;
         proxy_authenticate ->
             #sipmsg{from={#uri{domain=FromDomain}, _}} = Req,
             {add, <<"proxy-authenticate">>, nksip_auth:make_response(FromDomain, Req)};
-        {proxy_authenticate, Realm} when is_binary(Realm) ->
-            {add, <<"proxy-authenticate">>, nksip_auth:make_response(Realm, Req)};
-
+        {proxy_authenticate, Realm} ->
+            case is_binary(Realm) of
+                true ->
+                    {add, <<"proxy-authenticate">>, nksip_auth:make_response(Realm, Req)};
+                false ->
+                    throw({invalid_config, proxy_authenticate})
+            end;
         {service_route, Routes} when Code>=200, Code<300, 
                                      element(2, Req#sipmsg.class)=='REGISTER' ->
             case nksip_parse:uris(Routes) of
-                error -> throw({invalid, service_route});
+                error -> throw({invalid_config, service_route});
                 Uris -> {replace, <<"service-route">>, Uris}
             end;
         {service_route, _} ->
@@ -384,31 +406,45 @@ parse_opts([Term|Rest], Resp, Opts, Req, Code) ->
         {sip_etag, ETag} ->
             {replace, <<"sip-etag">>, nksip_lib:to_binary(ETag)};
 
-        {Name, _} ->
-            throw({invalid, Name});
         _ ->
-            throw({invalid, Term})
+            unknown
     end,
     case Op of
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
             PResp = nksip_parse_header:parse(PName, AddValue, Resp, post),
-            parse_opts(Rest, PResp, Opts, Req, Code);
+            parse_opts(Rest, Req, PResp, Code, Opts, RestOpts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
             PResp = nksip_parse_header:parse(PName, RepValue, Resp, replace),
-            parse_opts(Rest, PResp, Opts, Req, Code);
+            parse_opts(Rest, Req, PResp, Code, Opts, RestOpts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
             PResp = nksip_parse_header:parse(PName, InsValue, Resp, pre),
-            parse_opts(Rest, PResp, Opts, Req, Code);
+            parse_opts(Rest, Req, PResp, Code, Opts, RestOpts);
         {update, UpdResp, UpdOpts} -> 
-            parse_opts(Rest, UpdResp, UpdOpts, Req, Code);
+            parse_opts(Rest, Req, UpdResp, Code, UpdOpts, RestOpts);
         % {retry, RetTerm} ->
-        %     parse_opts([RetTerm|Rest], Resp, Opts, Req, Code);
+        %     parse_opts([RetTerm|Rest], Req, Resp, Code, Opts, RestOpts);
         move_to_last ->
-            parse_opts(Rest++[Term], Resp, Opts, Req, Code);
+            parse_opts(Rest++[Term], Req, Resp, Code, Opts, RestOpts);
         ignore ->
-            parse_opts(Rest, Resp, Opts, Req, Code)
+            parse_opts(Rest, Req, Resp, Code, Opts, RestOpts);
+        unknown ->
+            parse_opts(Rest, Req, Resp, Code, Opts, [Term|RestOpts])
+    end.
+
+%% @private
+-spec parse_rest_opts(nksip:optslist(), nksip:request(), nksip:response(), 
+                      nksip:optslist()) ->
+    {nksip:request(), nksip:optslist()}.
+
+parse_rest_opts(RestOpts, #sipmsg{app_id=AppId}=Req, Resp, Opts) ->
+    {continue, [Unknown, _Req1, Resp1, Opts1]} = 
+        AppId:nkcb_parse_uas_opt(RestOpts, Req, Resp, Opts),
+    case Unknown of
+        [] -> {Resp1, Opts1};
+        [Term|_] when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
+        [Term|_] -> throw({invalid_config, Term})
     end.
 

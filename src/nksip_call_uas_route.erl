@@ -137,33 +137,6 @@ authorize_launch(UAS, #call{app_id=AppId}=Call) ->
     end.
 
 
-% %% @private
-% -spec authorize_data(list(), nksip_call:trans(), nksip_call:call()) ->
-%     list().
-
-% authorize_data(List, #trans{id=Id,request=Req}=UAS, Call) ->
-%     #call{app_id=AppId} = Call,
-%     % IsRegistered = case nksip_registrar:is_registered(Req) of
-%     %     true -> register;
-%     %     false -> []
-%     % end,
-%     PassFun = fun(User, Realm) ->
-%         Args = [User, Realm, UAS#trans.request, Call],
-%         case AppId:nkcb_call(sip_get_user_pass, Args, AppId) of
-%             {ok, Reply} -> ok;
-%             error -> Reply = false
-%         end,
-%         ?call_debug("UAS ~p calling get_user_pass(~p, ~p): ~p", 
-%                     [Id, User, Realm, Reply]),
-%         Reply
-%     end,
-%     List1 = nksip_auth:get_authentication(Req, PassFun) ++ List,
-%     case nksip_call_lib:check_auth(Req, Call) of
-%         true -> [dialog|List1];
-%         false -> List1
-%     end.
-
-
 %% @private
 -spec authorize_reply(term(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
@@ -327,56 +300,6 @@ do_route({strict_proxy, Opts}, #trans{request=Req}=UAS, Call) ->
         _ ->
             reply({internal_error, <<"Invalid Srict Routing">>}, UAS, Call)
     end.
-
-
-
-% ===================================================================
-% App Reply
-% ===================================================================
-
-
-% %% @private Called when there is a SipApp response available
-% -spec app_reply(atom(), nksip_call_uas:id(), nksip:sipreply(), nksip_call:call()) ->
-%     nksip_call:call().
-
-% app_reply(Fun, Id, Reply, #call{trans=Trans}=Call) ->
-%     case lists:keyfind(Id, #trans.id, Trans) of
-%         #trans{class=uas}=UAS when Reply==async ->
-%             UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
-%             update(UAS1, Call);
-%         #trans{class=uas, callback_timer={{callback, Fun}, _}, request=Req}=UAS ->
-%             UAS1 = nksip_call_lib:callback_timer(cancel, UAS, Call),
-%             Call1 = update(UAS1, Call),
-%             case Fun of
-%                 authorize -> 
-%                     authorize_reply(Reply, UAS1, Call1);
-%                 route -> 
-%                     route_reply(Reply, UAS1, Call1);
-%                 ack ->
-%                     Call1;
-%                 _ when not is_record(Req, sipmsg) ->
-%                     Call1;
-%                 _ when Fun==invite; Fun==reinvite; Fun==bye; 
-%                        Fun==options; Fun==register; Fun==info;
-%                        Fun==prack; Fun==update; Fun==message;
-%                        Fun==subscribe; Fun==resubscribe;
-%                        Fun==notify; Fun==refer; Fun==publish ->
-%                     {Resp, SendOpts} = nksip_reply:reply(Req, Reply),
-%                     #sipmsg{class={resp, Code, _Reason}} = Resp,
-%                     {Resp1, SendOpts1} = case Code >= 200 of
-%                         true -> 
-%                             {Resp, SendOpts};
-%                         false -> 
-%                             Reply1 = {internal_error, <<"Invalid SipApp reply">>},
-%                             nksip_reply:reply(Req, Reply1)
-%                     end,
-%                     reply({Resp1, SendOpts1}, UAS1, Call1)
-%             end;
-%         _ ->
-%             ?call_debug("Unknown UAS ~p received SipApp ~p reply", [Id, Fun]),
-%             Call
-%     end.
-
 
 
 

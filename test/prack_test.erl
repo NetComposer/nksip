@@ -82,26 +82,25 @@ basic() ->
     Hd1 = {add, "x-nk-op", "prov-busy"},
     Fields1 = {meta, [supported, require]},
     {ok, 486, Values1} = nksip_uac:invite(client1, SipC2, [CB, get_request, Hd1, Fields1]), 
-    [
-        {supported,  [<<"100rel">>|_]},
-        {require, []}
-    ] = Values1,
+    [{supported,  Sup1}, {require, []}] = Values1,
+    true = lists:member(<<"100rel">>, Sup1),
+
     receive {Ref, {req, Req1}} -> 
-        [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Req1),
+        true = lists:member(<<"100rel">>, nksip_sipmsg:meta(supported, Req1)),
         [] = nksip_sipmsg:meta(require, Req1)
     after 1000 -> 
         error(basic) 
     end,
     receive 
         {Ref, {resp, 180, Resp1a}} -> 
-            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp1a),
+            true = lists:member(<<"100rel">>, nksip_sipmsg:meta(supported, Resp1a)),
             [] = nksip_sipmsg:meta(require, Resp1a)
     after 1000 -> 
         error(basic) 
     end,
     receive 
         {Ref, {resp, 183, Resp1b}} -> 
-            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp1b),
+            true = lists:member(<<"100rel">>, nksip_sipmsg:meta(supported, Resp1b)),
             [] = nksip_sipmsg:meta(require, Resp1b)
     after 1000 -> 
         error(basic) 
@@ -117,20 +116,22 @@ basic() ->
     {ok, 486, Values2} = nksip_uac:invite(client1, SipC2, 
                             [CB, get_request, Fields2, {require, "100rel"}|Hds2]),
     [
-        {supported, [<<"100rel">>|_]},
+        {supported, Sup2},
         {require, []},
         {cseq_num, CSeq2},
         {rseq_num, undefined}
     ] = Values2,
+    true = lists:member(<<"100rel">>, Sup2),
+
     receive {Ref, {req, Req2}} -> 
-        [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Req2),
+        true = lists:member(<<"100rel">>, nksip_sipmsg:meta(supported, Req2)),
         [<<"100rel">>] = nksip_sipmsg:meta(require, Req2)
     after 1000 -> 
         error(basic) 
     end,
     RSeq2a = receive 
         {Ref, {resp, 180, Resp2a}} -> 
-            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp2a),
+            true = lists:member(<<"100rel">>, nksip_sipmsg:meta(supported, Resp2a)),
             [<<"100rel">>] = nksip_sipmsg:meta(require, Resp2a),
             CSeq2 = nksip_sipmsg:meta(cseq_num, Resp2a),
             RSeq2a_0 = nksip_sipmsg:meta(rseq_num, Resp2a),
@@ -140,7 +141,7 @@ basic() ->
     end,
     RSeq2b = receive 
         {Ref, {resp, 183, Resp2b}} -> 
-            [<<"100rel">>|_] = nksip_sipmsg:meta(supported, Resp2b),
+        true = lists:member(<<"100rel">>, nksip_sipmsg:meta(supported, Resp2b)),
             [<<"100rel">>] = nksip_sipmsg:meta(require, Resp2b),
             CSeq2 = nksip_sipmsg:meta(cseq_num, Resp2b),
             RSeq2b_0 = nksip_sipmsg:meta(rseq_num, Resp2b),

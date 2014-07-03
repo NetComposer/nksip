@@ -28,6 +28,7 @@
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
 		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
 -export([nkcb_uac_pre_response/3, nkcb_uac_response/4, nkcb_parse_uac_opt/3, nkcb_uac_proxy_opts/2]).
+-export([nkcb_uas_sent_reply/3, nkcb_uas_method/4, nkcb_parse_uas_opt/4]).
 -export([nkcb_connection_send/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
@@ -151,6 +152,33 @@ nkcb_uac_proxy_opts(Req, ReqOpts) ->
 nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
 	Req1 = nksip_transport_uac:add_headers(Req, Opts, Scheme, Proto, Host, Port),
 	{ok, Req1}.
+
+
+%% @doc Called when a new reponse has been sent
+-spec nkcb_uas_sent_reply({nksip:response(), nksip:optlist()}, 
+							 nksip_call:trans(), nksip_call:call()) ->
+	{error, term()} | nkcb_common().
+
+nkcb_uas_sent_reply({Resp, RespOpts}, UAS, Call) ->
+	{continue, [{Resp, RespOpts}, UAS, Call]}.
+
+
+%% @doc Called when a new request has to be processed
+-spec nkcb_uas_method(nksip:method(), nksip:request(), 
+					  nksip_call:trans(), nksip_call:call()) ->
+	{ok, nksip_call:trans(), nksip_call:call()} | nkcb_common().
+
+nkcb_uas_method(Method, Req, UAS, Call) ->
+	{continue, [Method, Req, UAS, Call]}.
+
+
+%% @doc Called to parse specific UAS options
+-spec nkcb_parse_uas_opt(nksip:optslist(), nksip:request(), nksip:response(), 
+						 nksip:optslist()) ->
+	{continue, list()}.
+
+nkcb_parse_uas_opt(PluginOpts, Req, Resp, Opts) ->
+	{continue, [PluginOpts, Req, Resp, Opts]}.
 
 
 %% @doc Called when a new message has been sent

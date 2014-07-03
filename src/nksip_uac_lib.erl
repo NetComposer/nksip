@@ -379,8 +379,8 @@ parse_opts([Term|Rest], Req, RestOpts, Opts) ->
             end;
         {callback, Fun} when is_function(Fun, 1) ->
             {update, Req, [{callback, Fun}|Opts]};
-        {prack_callback, Fun} when is_function(Fun, 2) ->
-            {update, Req, [{prack_callback, Fun}|Opts]};
+        % {prack_callback, Fun} when is_function(Fun, 2) ->
+        %     {update, Req, [{prack_callback, Fun}|Opts]};
         {reg_id, RegId} when is_integer(RegId), RegId>0 ->
             {update, Req, [{reg_id, RegId}|Opts]};
         {refer_subscription_id, Refer} when is_binary(Refer) ->

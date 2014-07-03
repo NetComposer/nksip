@@ -24,7 +24,7 @@
 
 -export([sip_get_user_pass/4, sip_authorize/3, sip_route/5]).
 -export([sip_invite/2, sip_reinvite/2, sip_cancel/3, sip_ack/2, sip_bye/2]).
--export([sip_options/2, sip_register/2, sip_info/2, sip_prack/2, sip_update/2]).
+-export([sip_options/2, sip_register/2, sip_info/2, sip_update/2]).
 -export([sip_subscribe/2, sip_resubscribe/2, sip_notify/2, sip_message/2]).
 -export([sip_refer/2, sip_publish/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
@@ -125,14 +125,6 @@ sip_ack(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_bye(_Req, _Call) ->
-    {reply, ok}.
-
-
-%% @doc Called when a valid PRACK request is received.
--spec sip_prack(Req::nksip:request(), Call::nksip:call()) ->
-    {reply, nksip:sipreply()} | noreply.
-
-sip_prack(_Req, _Call) ->
     {reply, ok}.
 
 

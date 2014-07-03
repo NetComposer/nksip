@@ -136,27 +136,37 @@ dialog(Method, Req, UAS, Call) ->
     try
         case Stateless orelse ToTag == <<>> of
             true ->
-                {UAS1, Call1} = method(Method, Req, UAS, Call),
-                case AppId:nkcb_sip_method(UAS1, Call1) of
-                    {reply, Reply} -> reply(Reply, UAS1, Call1);
-                    noreply -> Call1
+                case AppId:nkcb_uas_method(Method, Req, UAS, Call) of
+                    {continue, [Method1, Req1, UAS1, Call1]} ->
+                        {UAS2, Call2} = method(Method1, Req1, UAS1, Call1);
+                    {ok, UAS2, Call2} ->
+                        ok
+                end,
+                case AppId:nkcb_sip_method(UAS2, Call2) of
+                    {reply, Reply} -> reply(Reply, UAS2, Call2);
+                    noreply -> Call2
                 end;
             false ->           
                 case nksip_call_uas_dialog:request(Req, Call) of
-                    {ok, Call1} -> 
-                        {UAS2, Call2} = method(Method, Req, UAS, Call1),
-                        case AppId:nkcb_sip_method(UAS2, Call2) of
-                            {reply, Reply} -> reply(Reply, UAS2, Call2);
-                            noreply -> Call1
+                    {ok, Call1} ->
+                        case AppId:nkcb_uas_method(Method, Req, UAS, Call1) of
+                            {continue, [Method2, Req2, UAS2, Call2]} ->
+                                {UAS3, Call3} = method(Method2, Req2, UAS2, Call2);
+                            {ok, UAS3, Call3} ->
+                                ok
+                        end,
+                        case AppId:nkcb_sip_method(UAS3, Call3) of
+                            {reply, Reply} -> reply(Reply, UAS3, Call3);
+                            noreply -> Call3
                         end;
                     {error, Error} when Method=='ACK' -> 
                         ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
                                      [Id, Error]),
-                        UAS1 = UAS#trans{status=finished},
-                        update(UAS1, Call);
+                        UAS2 = UAS#trans{status=finished},
+                        update(UAS2, Call);
                     {error, Error} ->
-                        UAS1 = UAS#trans{opts=[no_dialog|Opts]},
-                        reply(Error, UAS1, Call)
+                        UAS2 = UAS#trans{opts=[no_dialog|Opts]},
+                        reply(Error, UAS2, Call)
                 end
         end
     catch
@@ -200,32 +210,30 @@ method('REGISTER', Req, UAS, Call) ->
             end
     end;
 
-method('PRACK', Req, UAS, Call) ->
-    #sipmsg{dialog_id=DialogId} = Req,
-    #call{trans=Trans} = Call,
-    {RSeq, CSeq, Method} = case nksip_sipmsg:header(<<"rack">>, Req) of
-        [RACK] ->
-            case nksip_lib:tokens(RACK) of
-                [RSeqB, CSeqB, MethodB] ->
-                    {
-                        nksip_lib:to_integer(RSeqB),
-                        nksip_lib:to_integer(CSeqB),
-                        nksip_parse:method(MethodB)
-                    };
-                _ ->
-                    throw({reply, {invalid_request, <<"Invalid RAck">>}})
-            end;
-        _ ->
-            throw({reply, {invalid_request, <<"Invalid RAck">>}})
-    end,
-    case lists:keyfind([{RSeq, CSeq, Method, DialogId}], #trans.pracks, Trans) of
-        #trans{status=invite_proceeding} = OrigUAS -> ok;
-        _ -> OrigUAS = throw({reply, no_transaction})
-    end,
-    OrigUAS1 = OrigUAS#trans{pracks=[]},
-    OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
-    OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
-    {UAS, update(OrigUAS3, Call)};
+% method('PRACK', Req, UAS, Call) ->
+%     #sipmsg{dialog_id=DialogId} = Req,
+%     #call{trans=Trans} = Call,
+%     {RSeq, CSeq, Method} = case nksip_sipmsg:header(<<"rack">>, Req) of
+%         [RACK] ->
+%             case nksip_lib:tokens(RACK) of
+%                 [RSeqB, CSeqB, MethodB] ->
+%                     {
+%                         nksip_lib:to_integer(RSeqB),
+%                         nksip_lib:to_integer(CSeqB),
+%                         nksip_parse:method(MethodB)
+%                     };
+%                 _ ->
+%                     throw({reply, {invalid_request, <<"Invalid RAck">>}})
+%             end;
+%         _ ->
+%             throw({reply, {invalid_request, <<"Invalid RAck">>}})
+%     end,
+%     OrigUAS = find_prack_trans(RSeq, CSeq, Method, DialogId, Trans),
+%     Meta = lists:keydelete(nksip_100rel_pracks, 1, OrigUAS#trans.meta),
+%     OrigUAS1 = OrigUAS#trans{meta=Meta},
+%     OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
+%     OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
+%     {UAS, update(OrigUAS3, Call)};
 
 method('UPDATE', _Req, UAS, Call) ->
     {UAS, Call};
