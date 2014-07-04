@@ -49,7 +49,7 @@
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
     Req1 = case From of 
-        {fork, _} -> nksip_call_timer:proxy_request(Req, Call);
+        {fork, _} -> nksip_timers_lib:proxy_request(Req, Call);
         _ -> Req
     end,
     {#trans{id=Id}=UAC, Call1} = new_uac(Req1, Opts, From, Call),

@@ -446,7 +446,7 @@ update_response(Req, {Resp, Opts}, Call) ->
     end,
     Resp2 = case Req of
         #sipmsg{} -> 
-            nksip_call_timer:uas_update_timer(Req, Resp1, Call);
+            nksip_timers_lib:uas_update_timer(Req, Resp1, Call);
         _ ->
             % In a multiple 2xx scenario, request is already deleted at UAS
             ?call_info("Skipping timer check because of no request", []),

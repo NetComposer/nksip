@@ -47,7 +47,7 @@ route(UAS, UriList, ProxyOpts, Call) ->
         % lager:warning("URISET: ~p", [UriList]),
         #trans{request=Req, method=Method} = UAS,
         Req1 = check_request(Req, ProxyOpts),
-        {Req2, Call1} = case nksip_call_timer:uas_check_422(Req1, Call) of
+        {Req2, Call1} = case nksip_timers_lib:uas_check_422(Req1, Call) of
             continue -> {Req1, Call};
             {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
             {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}

@@ -379,8 +379,6 @@ parse_opts([Term|Rest], Req, RestOpts, Opts) ->
             end;
         {callback, Fun} when is_function(Fun, 1) ->
             {update, Req, [{callback, Fun}|Opts]};
-        % {prack_callback, Fun} when is_function(Fun, 2) ->
-        %     {update, Req, [{prack_callback, Fun}|Opts]};
         {reg_id, RegId} when is_integer(RegId), RegId>0 ->
             {update, Req, [{reg_id, RegId}|Opts]};
         {refer_subscription_id, Refer} when is_binary(Refer) ->
@@ -424,8 +422,8 @@ parse_opts([Term|Rest], Req, RestOpts, Opts) ->
         {session_expires, SE} when is_integer(SE) ->
             {retry, [{session_expires, {SE, undefined}}|Rest]};
         {session_expires, {SE, Refresh}} when is_integer(SE) ->
-            case AppId:config_min_session_expires() of
-                MinSE when SE<MinSE -> 
+            case AppId:config_nksip_timers() of
+                {_, MinSE} when SE<MinSE -> 
                     throw({invalid_config, session_expires});
                 _ when Refresh==undefined -> 
                     {replace, <<"session-expires">>, SE};

@@ -13,6 +13,7 @@
 -pa plugins/nksip_outbound/ebin
 -pa plugins/nksip_gruu/ebin
 -pa plugins/nksip_100rel/ebin
+-pa plugins/nksip_timers/ebin
 -pa plugins/nksip_trace/ebin
 -pa plugins/nksip_debug/ebin
 -pa plugins/nksip_stats/ebin

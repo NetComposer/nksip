@@ -47,7 +47,7 @@ dialyze: app
 	-Werror_handling  #-Wunmatched_returns -Wrace_conditions -Wunderspecs
 
 shell: 
-	erl -config priv/app.config -args_file priv/vm.args 
+	erl -config priv/app.config -args_file priv/vm.args -s reloader
 
 tutorial: 
 	erl -config samples/nksip_tutorial/priv/app.config \

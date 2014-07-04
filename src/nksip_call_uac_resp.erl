@@ -107,7 +107,7 @@ response(Resp, UAC, Call) ->
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
     Resp2 = case IsProxy of
-        true -> nksip_call_timer:proxy_response(Req, Resp1);
+        true -> nksip_timers_lib:proxy_response(Req, Resp1);
         false -> Resp1
     end,
     Call3 = case NoDialog of
@@ -356,7 +356,7 @@ received_422(Req, Resp, UAC, Call) ->
     IsProxy = case From of {fork, _} -> true; _ -> false end,
     case 
         (not IsProxy) andalso 
-        nksip_call_timer:uac_received_422(Req, Resp, UAC, Call) 
+        nksip_timers_lib:uac_received_422(Req, Resp, UAC, Call) 
     of
         {resend, Req1, Call1} ->
             nksip_call_uac_req:resend(Req1, UAC, Call1);

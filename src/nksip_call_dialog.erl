@@ -124,8 +124,9 @@ update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
         media_started = Media,
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer,
-        refresh_timer = RefreshTimer
+        meta = Meta
     } = Invite,    
+    RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     cancel_timer(RefreshTimer),
@@ -370,32 +371,32 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
         % class from #invite{} can only be used for INVITE, not UPDATE
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer, 
-        refresh_timer = RefreshTimer
+        meta = Meta
     } = Invite,
+    RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     cancel_timer(RefreshTimer),
-    Invite1 = case nksip_call_timer:get_timer(Req, Resp, Class, Call) of
+    Meta1 = nksip_lib:delete(Meta, [nksip_timers_refresh, nksip_timers_se]),
+    Invite1 = case nksip_timers_lib:get_timer(Req, Resp, Class, Call) of
         {refresher, SE} ->
+            Refresh = start_timer(500*SE, invite_refresh, DialogId),
             Invite#invite{
                 retrans_timer = undefined,
-                session_expires = SE,
                 timeout_timer = start_timer(1000*SE, invite_timeout, DialogId),
-                refresh_timer = start_timer(500*SE, invite_refresh, DialogId)
+                meta = [{nksip_timers_se, SE}, {nksip_timers_refresh, Refresh}|Meta1]
             };
         {refreshed, SE} ->
             Invite#invite{
                 retrans_timer = undefined,
-                session_expires = SE,
                 timeout_timer = start_timer(750*SE, invite_timeout, DialogId),
-                refresh_timer = undefined
+                meta = [{nksip_timers_se, SE}, {nksip_timers_refresh, undefined}|Meta1]
             };
         {none, Timeout} ->
             Invite#invite{
                 retrans_timer = undefined,
-                session_expires = undefined,
                 timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId),
-                refresh_timer = undefined
+                meta = [{nksip_timers_se, undefined}, {nksip_timers_refresh, undefined}|Meta1]
             }
     end,
     Dialog#dialog{invite=Invite1};
@@ -406,12 +407,13 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     #invite{
         status = Status,
         retrans_timer = RetransTimer,
-        session_expires = SessionExpires,
         timeout_timer = TimeoutTimer, 
-        refresh_timer = RefreshTimer
+        meta = Meta
     } = Invite,
     #call{timers={T1, _, _, _}} = Call,
     cancel_timer(RetransTimer),
+    SessionExpires = nksip_lib:get_value(nksip_timers_se, Meta),
+    RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
     {RetransTimer1, NextRetrans1} = case Status of
         accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
         _ -> {undefined, undefined}
@@ -425,12 +427,12 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
             cancel_timer(RefreshTimer),
             {undefined, start_timer(64*T1, invite_timeout, DialogId), undefined}
     end,
+    Meta1 = nksip_lib:delete(Meta, [nksip_timers_se, nksip_timers_refresh]),
     Invite1 = Invite#invite{
         retrans_timer = RetransTimer1,
         next_retrans = NextRetrans1,
-        session_expires = SessionExpires1,
         timeout_timer = TimeoutTimer1,
-        refresh_timer = RefreshTimer1
+        meta = [{nksip_timers_se, SessionExpires1}, {nksip_timers_refresh, RefreshTimer1}|Meta1]
     },
     Dialog#dialog{invite=Invite1}.
 

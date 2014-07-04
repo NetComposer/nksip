@@ -49,8 +49,8 @@ default_config() ->
         {timer_t2, 4000},                   % (msecs) 4 secs
         {timer_t4, 5000},                   % (msecs) 5 secs
         {timer_c,  180},                    % (secs) 3min
-        {session_expires, 1800},            % (secs) 30 min
-        {min_session_expires, 90},          % (secs) 90 secs (min 90, recomended 1800)
+        % {session_expires, 1800},            % (secs) 30 min
+        % {min_session_expires, 90},          % (secs) 90 secs (min 90, recomended 1800)
         {udp_timeout, 180},                 % (secs) 3 min
         {tcp_timeout, 180},                 % (secs) 3 min
         {sctp_timeout, 180},                % (secs) 3 min
@@ -192,10 +192,10 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
             update;
         {timer_c, Secs}  when is_integer(Secs), Secs>=1 ->
             update;
-        {session_expires, Secs} when is_integer(Secs), Secs>=5 ->
-            update;
-        {min_session_expires, Secs} when is_integer(Secs), Secs>=1 ->
-            update;
+        % {session_expires, Secs} when is_integer(Secs), Secs>=5 ->
+        %     update;
+        % {min_session_expires, Secs} when is_integer(Secs), Secs>=1 ->
+        %     update;
         {udp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
             update;
         {tcp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
@@ -206,10 +206,6 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
             update;
         {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 ->
             update;
-        % {sipapp_timeout, MSecs} when is_float(MSecs), MSecs>=0.01 ->
-        %     update;
-        % {sipapp_timeout, Secs} when is_integer(Secs), Secs>=5, Secs=<180 ->
-        %     update;
         {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
             update;
         {max_connections, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
@@ -392,7 +388,7 @@ cache_syntax(Opts) ->
         {config_route, nksip_lib:get_value(route, Opts, [])},
         {config_local_host, nksip_lib:get_value(local_host, Opts, auto)},
         {config_local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
-        {config_min_session_expires, nksip_lib:get_value(min_session_expires, Opts)},
+        % {config_min_session_expires, nksip_lib:get_value(min_session_expires, Opts)},
         {config_uac, lists:flatten([
             tuple(local_host, Opts),
             tuple(local_host6, Opts),

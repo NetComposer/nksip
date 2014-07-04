@@ -249,9 +249,9 @@
     timeout_timer :: reference(),
     retrans_timer :: reference(),
     next_retrans :: integer(),
-    session_expires :: integer(),
-    refresh_timer :: reference(),
-    meta = [] :: nksip:optslist()   % No current use
+    % session_expires :: integer(),
+    % refresh_timer :: reference(),
+    meta = [] :: nksip:optslist()   
 }).
 
 

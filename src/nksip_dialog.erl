@@ -178,12 +178,14 @@ meta(Field, #dialog{invite=I}=D) when is_atom(Field) ->
         invite_remote_sdp -> undefined;
         invite_timeout when is_record(I, invite) -> read_timer(I#invite.timeout_timer);
         invite_timeout -> undefined;
-        invite_session_expires when is_record(I, invite) -> I#invite.session_expires;
+        invite_session_expires when is_record(I, invite) -> 
+            nksip_lib:get_value(nksip_timers_se, I#invite.meta);
         invite_session_expires -> undefined;
         invite_refresh when is_record(I, invite) -> 
-            case is_reference(I#invite.refresh_timer) of
+            RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, I#invite.meta),
+            case is_reference(RefreshTimer) of
                 true -> 
-                    case erlang:read_timer(I#invite.refresh_timer) of
+                    case erlang:read_timer(RefreshTimer) of
                         false -> expired;
                         IR -> IR
                     end;

@@ -112,7 +112,7 @@ check_missing_dialog(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 check_422(Method, Req, UAS, Call) ->
-    case nksip_call_timer:uas_check_422(Req, Call) of
+    case nksip_timers_lib:uas_check_422(Req, Call) of
         continue -> 
             dialog(Method, Req, UAS, Call);
         {update, Req1, Call1} ->
