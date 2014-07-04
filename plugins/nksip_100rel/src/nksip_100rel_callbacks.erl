@@ -25,9 +25,9 @@
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
 
--export([nkcb_parse_uac_opt/3, 
+-export([nkcb_parse_uac_opt/2, 
          nkcb_uac_pre_response/3, nkcb_uac_response/4, 
-         nkcb_parse_uas_opt/4, nkcb_uas_timer/3,
+         nkcb_parse_uas_opt/3, nkcb_uas_timer/3,
          nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4]).
 
 
@@ -36,15 +36,18 @@
 
 
 %% @doc Called to parse specific UAC options
--spec nkcb_parse_uac_opt(nksip:optslist(), nksip:request(), nksip:optslist()) ->
-    {continue, list()}.
+-spec nkcb_parse_uac_opt(nksip:request(), nksip:optslist()) ->
+    {error, term()}|{continue, list()}.
 
-nkcb_parse_uac_opt(PluginOpts, Req, Opts) ->
-    case nksip_100rel_lib:parse_config(PluginOpts, [], Opts) of
-        {ok, Unknown, Opts2} ->
-            {continue, [Unknown, Req, Opts2]};
-        {error, Error} ->
-            {error, Error}
+nkcb_parse_uac_opt(Req, Opts) ->
+    case lists:ketyake(prack_callback, 1, Opts) of
+        {value, {prack_callback, Fun}, Opts1} when is_function(Fun, 2) ->
+            Opts2 = [{pass_through, {prack_callback, Fun}}|Opts1],
+            {continue, [Req, Opts2]};
+        {value, _, _} ->
+            {error, {invalid_config, prack_callback}};
+        false ->
+            {continue, [Req, Opts]} 
     end.
 
 
@@ -89,18 +92,17 @@ nkcb_uac_response(_Req, Resp, UAC, Call) ->
 
 
 %% @doc Called to parse specific UAS options
--spec nkcb_parse_uas_opt(nksip:optslist(), nksip:request(), nksip:response(), 
-                         nksip:optslist()) ->
+-spec nkcb_parse_uas_opt(nksip:request(), nksip:response(), nksip:optslist()) ->
     {continue, list()}.
 
-nkcb_parse_uas_opt(PluginOpts, Req, Resp, Opts) ->
+nkcb_parse_uas_opt(Req, Resp, Opts) ->
     #sipmsg{class={req, Method}, require=ReqRequire, supported=ReqSupported} = Req,
     #sipmsg{class={resp, Code, _}, require=RespRequire} = Resp,
     case 
         (Method=='INVITE' andalso Code>100 andalso Code<200
         andalso lists:member(<<"100rel">>, ReqRequire))
         orelse
-        lists:member(do100rel, PluginOpts) 
+        lists:member(do100rel, Opts) 
     of
         true ->
             case lists:member(<<"100rel">>, ReqSupported) of
@@ -109,14 +111,14 @@ nkcb_parse_uas_opt(PluginOpts, Req, Resp, Opts) ->
                         true -> Resp;
                         false -> Resp#sipmsg{require=[<<"100rel">>|RespRequire]}
                     end,
-                    PluginOpts1 = PluginOpts -- [do100rel],
-                    {continue, [PluginOpts1, Req, Resp1, Opts]};
+                    Opts1 = nksip_lib:delete(Opts, do100rel),
+                    {continue, [Req, Resp1, Opts1]};
                 false -> 
-                    PluginOpts1 = PluginOpts -- [do100rel],
-                    {continue, [PluginOpts1, Req, Resp, Opts]}
+                    Opts1 = nksip_lib:delete(Opts, do100rel),
+                    {continue, [Req, Resp, Opts1]}
             end;
         false ->
-            {continue, [PluginOpts, Req, Resp, Opts]}
+            {continue, [Req, Resp, Opts]}
     end.
 
 

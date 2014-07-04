@@ -68,9 +68,6 @@ parse_config(PluginOpts, Config) ->
 %% Private
 %% ===================================================================
 
-%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 % @doc Called after the UAC processes a response
 -spec check_auth(nksip:request(), nksip:response(), nksip_call:trans(), nksip:call()) ->
     continue | {ok, nksip:call()}.

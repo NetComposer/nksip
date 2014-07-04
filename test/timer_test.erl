@@ -27,15 +27,15 @@
 
 -compile([export_all]).
 
-timer_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun basic/0},
-            {timeout, 60, fun proxy/0}
-        ]
-    }.
+% timer_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun basic/0},
+%             {timeout, 60, fun proxy/0}
+%         ]
+%     }.
 
 start() ->
     tests_util:start_nksip(),
@@ -44,14 +44,16 @@ start() ->
         {local_host, "localhost"},
         no_100,
         {transports, [{udp, all, 5060}]},
-        {min_session_expires, 2}
+        {plugins, [nksip_timers]},
+        {nksip_timers_min_se, 2}
     ]),
 
     {ok, _} = nksip:start(p2, ?MODULE, [], [
         {local_host, "localhost"},
         no_100,
         {transports, [{udp, all, 5070}]},
-        {min_session_expires, 3}
+        {plugins, [nksip_timers]},
+        {nksip_timers_min_se, 3}
     ]),
 
     {ok, _} = nksip:start(ua1, ?MODULE, [], [
@@ -59,20 +61,21 @@ start() ->
         {local_host, "127.0.0.1"},
         no_100,
         {transports, [{udp, all, 5071}]},
-        {min_session_expires, 1}
+        {plugins, [nksip_timers]},
+        {nksip_timers_min_se, 1}
     ]),
 
     {ok, _} = nksip:start(ua2, ?MODULE, [], [
         {local_host, "127.0.0.1"},
         no_100,
         {transports, [{udp, all, 5072}]},
-        {min_session_expires, 2}
+        {plugins, [nksip_timers]},
+        {nksip_timers_min_se, 2}
     ]),
     
     {ok, _} = nksip:start(ua3, ?MODULE, [], [
         {local_host, "127.0.0.1"},
         no_100,
-        {supported, ""},
         {transports, [{udp, all, 5073}]}
     ]),
 
@@ -96,18 +99,18 @@ basic() ->
     CB = {callback, fun ({req, R, _Call}) -> Self ! {Ref, R}; (_) -> ok end},
 
     % ua2 has a min_session_expires of 2
-    {error, {invalid_config, session_expires}} = 
-        nksip_uac:invite(ua2, "sip:any", [{session_expires, 1}]),
+    {error, {invalid_config, nksip_timers_se}} = 
+        nksip_uac:invite(ua2, "sip:any", [{nksip_timers_se, 1}]),
 
-    % ua1 sends a INVITE to ua2, with session_expires=1
+    % ua1 sends a INVITE to ua2, with nksip_timers_se=1
     % ua2 rejects the request, with a 422 response, including Min-SE=2
-    % ua1 updates its Min-SE to 2, and updates session_expires=2
+    % ua1 updates its Min-SE to 2, and updates nksip_timers_se=2
     % ua2 receives again the INVITE. Now it is valid.
 
     SDP1 = nksip_sdp:new(),
     {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
-            [{session_expires, 1}, {meta, [<<"session-expires">>]}, 
+            [{nksip_timers_se, 1}, {meta, [<<"session-expires">>]}, 
              CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd]),
    
     % Start events also at ua1
@@ -159,7 +162,7 @@ basic() ->
     % We use Min-SE=3, so ua1 will increment Session-Timer to 3
 
     {ok, 200, _} = nksip_uac:invite(Dialog1B, [auto_2xx_ack, {body, SDP2}, 
-                                                   {min_se, 3}]),
+                                               {nksip_timers_min_se, 3}]),
 
     ok = tests_util:wait(Ref, [
         {ua2, dialog_confirmed},
@@ -192,7 +195,7 @@ basic() ->
     % 422 and a new request will be sent
 
     {ok, 200, [{<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
-        nksip_uac:update(Dialog1A, [{session_expires, 1}, {meta, [<<"session-expires">>]}]),
+        nksip_uac:update(Dialog1A, [{nksip_timers_se, 1}, {meta, [<<"session-expires">>]}]),
 
     2 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     undefined = nksip_dialog:meta(invite_refresh, Dialog1A),
@@ -223,7 +226,7 @@ basic() ->
     % Now ua1 refreshes, but change roles, becoming refresher. 
     % Using session_expires option overrides automatic behaviour, no Min-SE is sent
 
-    {ok, 200, []} = nksip_uac:update(Dialog1A, [{session_expires, {2,uac}}]),
+    {ok, 200, []} = nksip_uac:update(Dialog1A, [{nksip_timers_se, {2,uac}}]),
 
     90 = nksip_dialog:meta(invite_session_expires, Dialog1A),
     true = erlang:is_integer(nksip_dialog:meta(invite_refresh, Dialog1A)),
@@ -242,7 +245,7 @@ basic() ->
 
     % Lower time to wait for timeout
 
-    {ok, 200, []} = nksip_uac:update(Dialog1A, [{session_expires, {2,uac}}, {min_se, 2}]),
+    {ok, 200, []} = nksip_uac:update(Dialog1A, [{nksip_timers_se, {2,uac}}, {nksip_timers_min_se, 2}]),
     SDP3 = nksip_sdp:increment(SDP2),
     ok = tests_util:wait(Ref, [
         {ua1, {refresh, SDP3}},

@@ -111,23 +111,24 @@ make(AppId, Method, Uri, Opts) ->
             start = nksip_lib:l_timestamp()
         },
         ConfigOpts = AppId:config_uac(),
-        {Req2, ReqOpts1, RestOpts1} = parse_opts(ConfigOpts, Req1, [], []),
+        %% First, the plugins have the oportunity of parse everything
+        %% Should remove parsed options and possibly parse headers in Req
+        {Req2, ReqOpts2} = parse_plugin_opts(Req1, ConfigOpts++Opts),
         Req3 = case RUri of
             #uri{headers=[]} -> Req2;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req2, post)
         end,
-        {Req4, ReqOpts2, RestOpts2} = parse_opts(Opts, Req3, RestOpts1, ReqOpts1),
-        {Req5, ReqOpts3} = parse_rest_opts(RestOpts2, Req4, ReqOpts2),
-        ReqOpts4 = case 
+        {Req4, ReqOpts4} = parse_opts(ReqOpts2, Req3, []),
+        ReqOpts5 = case 
             (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
              Method=='NOTIFY' orelse Method=='REFER' orelse Method=='UPDATE')
             andalso Req4#sipmsg.contacts==[]
-            andalso not lists:member(contact, ReqOpts3)
+            andalso not lists:member(contact, ReqOpts4)
         of  
-            true -> [contact|ReqOpts3];
-            false -> ReqOpts3
+            true -> [contact|ReqOpts4];
+            false -> ReqOpts4
         end,
-        {ok, Req5, ReqOpts4}
+        {ok, Req4, ReqOpts5}
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -139,17 +140,16 @@ make(AppId, Method, Uri, Opts) ->
     
 proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
     try
-        Req1 = case RUri of
-            #uri{headers=[]} -> Req;
-            #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req, post)
-        end,
         ConfigOpts = AppId:config_uac_proxy(),
-        {Req2, ReqOpts1, RestOpts1} = parse_opts(ConfigOpts, Req1, [], []),
-        {Req3, ReqOpts2, RestOpts2} = parse_opts(Opts, Req2, RestOpts1, ReqOpts1),
-        {Req4, ReqOpts3} = parse_rest_opts(RestOpts2, Req3, ReqOpts2),
-        {ok, Req5, ReqOpts4} = AppId:nkcb_uac_proxy_opts(Req4, ReqOpts3),
-        Req6 = remove_local_routes(Req5),
-        {ok, Req6, ReqOpts4}
+        {Req1, ReqOpts1} = parse_plugin_opts(ConfigOpts++Opts, Req),
+        Req2 = case RUri of
+            #uri{headers=[]} -> Req1;
+            #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
+        end,
+        {Req3, ReqOpts3} = parse_opts(ReqOpts1, Req2, []),
+        {ok, Req4, ReqOpts4} = AppId:nkcb_uac_proxy_opts(Req3, ReqOpts3),
+        Req5 = remove_local_routes(Req4),
+        {ok, Req5, ReqOpts4}
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -268,19 +268,21 @@ is_stateless(Resp, GlobalId) ->
 
 
 %% @private
--spec parse_opts(nksip:optslist(), nksip:request(), nksip:optslist(), nksip:optslist()) ->
-    {nksip:request(), nksip:optslist(), nksip:optslist()}.
+-spec parse_opts(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+    {nksip:request(), nksip:optslist()}.
 
 
-parse_opts([], Req, RestOpts, Opts) ->
-    {Req, Opts, lists:reverse(RestOpts)};
+parse_opts([], Req, Opts) ->
+    {Req, Opts};
 
-parse_opts([Term|Rest], Req, RestOpts, Opts) ->
+parse_opts([Term|Rest], Req, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}} = Req,
     Op = case Term of
         
         ignore ->
             ignore;
+        {pass_through, Pass} ->
+            {update, Req, [Pass|Opts]};
 
         % Header manipulation
         {add, Name, Value} -> {add, Name, Value};
@@ -416,22 +418,22 @@ parse_opts([Term|Rest], Req, RestOpts, Opts) ->
         unregister ->
             {retry, [contact, {expires, 0}|Rest]};
 
-        % Timer options
-        {min_se, SE} when is_binary(SE); is_integer(SE) ->
-            {replace, <<"min-se">>, SE};
-        {session_expires, SE} when is_integer(SE) ->
-            {retry, [{session_expires, {SE, undefined}}|Rest]};
-        {session_expires, {SE, Refresh}} when is_integer(SE) ->
-            case AppId:config_nksip_timers() of
-                {_, MinSE} when SE<MinSE -> 
-                    throw({invalid_config, session_expires});
-                _ when Refresh==undefined -> 
-                    {replace, <<"session-expires">>, SE};
-                _ when Refresh==uac; Refresh==uas -> 
-                    {replace, <<"session-expires">>, {SE, [{<<"refresher">>, Refresh}]}};
-                _ ->
-                    throw({invalid_config, session_expires})
-            end;
+        % % Timer options
+        % {min_se, SE} when is_binary(SE); is_integer(SE) ->
+        %     {replace, <<"min-se">>, SE};
+        % {session_expires, SE} when is_integer(SE) ->
+        %     {retry, [{session_expires, {SE, undefined}}|Rest]};
+        % {session_expires, {SE, Refresh}} when is_integer(SE) ->
+        %     case AppId:config_nksip_timers() of
+        %         {_, MinSE} when SE<MinSE -> 
+        %             throw({invalid_config, session_expires});
+        %         _ when Refresh==undefined -> 
+        %             {replace, <<"session-expires">>, SE};
+        %         _ when Refresh==uac; Refresh==uas -> 
+        %             {replace, <<"session-expires">>, {SE, [{<<"refresher">>, Refresh}]}};
+        %         _ ->
+        %             throw({invalid_config, session_expires})
+        %     end;
 
         % Event options
         {subscription_state, ST} when Method=='NOTIFY'->
@@ -471,46 +473,46 @@ parse_opts([Term|Rest], Req, RestOpts, Opts) ->
         {sip_if_match, ETag} ->
             {replace, <<"sip-if-match">>, nksip_lib:to_binary(ETag)};
 
+        _ when is_tuple(Term) ->
+            throw({invalid_config, element(1, Term)});
         _ ->
-            unknown
+            throw({invalid_config, Term})
     end,
     case Op of
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
             PReq = nksip_parse_header:parse(PName, AddValue, Req, post),
-            parse_opts(Rest, PReq, RestOpts, Opts);
+            parse_opts(Rest, PReq, Opts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
             PReq = nksip_parse_header:parse(PName, RepValue, Req, replace),
-            parse_opts(Rest, PReq, RestOpts, Opts);
+            parse_opts(Rest, PReq, Opts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
             PReq = nksip_parse_header:parse(PName, InsValue, Req, pre),
-            parse_opts(Rest, PReq, RestOpts, Opts);
+            parse_opts(Rest, PReq, Opts);
         {update, UpdReq, UpdOpts} -> 
-            parse_opts(Rest, UpdReq, RestOpts, UpdOpts);
+            parse_opts(Rest, UpdReq, UpdOpts);
         {retry, Terms} ->
-            parse_opts(Terms, Req, RestOpts, Opts);
+            parse_opts(Terms, Req, Opts);
         move_to_last ->
-            parse_opts(Rest++[Term], Req, RestOpts, Opts);
+            parse_opts(Rest++[Term], Req, Opts);
         ignore ->
-            parse_opts(Rest, Req, RestOpts, Opts);
-        unknown ->
-            parse_opts(Rest, Req, [Term|RestOpts], Opts)
+            parse_opts(Rest, Req, Opts)
     end.
 
 
 
 %% @private
--spec parse_rest_opts(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+-spec parse_plugin_opts(nksip:request(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_rest_opts(RestOpts, #sipmsg{app_id=AppId}=Req, Opts) ->
-    {continue, [Unknown, Req1, Opts1]} = AppId:nkcb_parse_uac_opt(RestOpts, Req, Opts),
-    case Unknown of
-        [] -> {Req1, Opts1};
-        [Term|_] when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
-        [Term|_] -> throw({invalid_config, Term})
+parse_plugin_opts(#sipmsg{app_id=AppId}=Req, Opts) ->
+    case AppId:nkcb_parse_uac_opt(Req, Opts) of
+        {continue, [Req1, Opts1]} ->
+            {Req1, Opts1};
+        {error, Error} ->
+            throw(Error)
     end.
 
 

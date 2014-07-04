@@ -25,7 +25,6 @@
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
 
--export([parse_config/3]).
 -export([is_prack_retrans/2, send_prack/4]).
 -export([uas_store_info/2, uas_method/3]).
 -export([retrans_timer/2, timeout_timer/2]).
@@ -33,38 +32,6 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
-
-%% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {prack_callback, Fun} ->
-            case is_function(Fun, 2) of
-                true -> update;
-                false -> error
-            end;
-        _ ->
-            unknown
-    end,
-    case Op of
-        update ->
-            Key = element(1, Term),
-            Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.
 
 
 %% @private

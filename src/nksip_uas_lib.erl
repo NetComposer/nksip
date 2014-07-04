@@ -142,8 +142,6 @@ make(Req, Code, Opts) ->
     },
     ConfigOpts = AppId:config_uas(),
     try
-        {Resp2, RespOpts2, RestOpts2} = 
-            parse_opts(ConfigOpts, Req, Resp1, Code, [], []),
         Opts1 = case RUri#uri.scheme of
             sips ->
                 [secure|Opts];
@@ -160,10 +158,9 @@ make(Req, Code, Opts) ->
                         Opts
                 end
         end,
-        {Resp3, RespOpts3, RestOpts3} = 
-            parse_opts(Opts1, Req, Resp2, Code, RespOpts2, RestOpts2),
-        {Resp4, RespOpts4} = parse_rest_opts(RestOpts3, Req, Resp3, RespOpts3),
-        {ok, Resp4, RespOpts4}
+        {Resp2, Opts2} = parse_plugin_opts(ConfigOpts++Opts1, Req, Resp1),
+        {Resp3, Opts3} = parse_opts(Opts2, Req, Resp2, Code, []),
+        {ok, Resp3, Opts3}
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -234,19 +231,21 @@ ruri_has_maddr(#sipmsg{
 
 %% @private
 -spec parse_opts(nksip:optslist(), nksip:request(), nksip:response(), 
-                 nksip:sip_code(), nksip:optslist(), nksip:optslist()) -> 
-    {nksip:response(), nksip:optslist(), nksip:optslist()}.
+                 nksip:sip_code(), nksip:optslist()) -> 
+    {nksip:response(), nksip:optslist()}.
 
-parse_opts([], _Req, Resp, _Code, Opts, RestOpts) ->
-    {Resp, Opts, RestOpts};
+parse_opts([], _Req, Resp, _Code, Opts) ->
+    {Resp, Opts};
 
 
-parse_opts([Term|Rest], Req, Resp, Code, Opts, RestOpts) ->
+parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
     #sipmsg{app_id=AppId} = Req,
     Op = case Term of
     
         ignore ->
             ignore;
+        {pass_through, Pass} ->
+            {update, Req, [Pass|Opts]};
 
          % Header manipulation
         {add, Name, Value} -> 
@@ -385,45 +384,43 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts, RestOpts) ->
         {sip_etag, ETag} ->
             {replace, <<"sip-etag">>, nksip_lib:to_binary(ETag)};
 
+        _ when is_tuple(Term) ->
+            throw({invalid_config, element(1, Term)});
         _ ->
-            unknown
+            throw({invalid_config, Term})
     end,
     case Op of
         {add, AddName, AddValue} ->
             PName = nksip_parse_header:name(AddName), 
             PResp = nksip_parse_header:parse(PName, AddValue, Resp, post),
-            parse_opts(Rest, Req, PResp, Code, Opts, RestOpts);
+            parse_opts(Rest, Req, PResp, Code, Opts);
         {replace, RepName, RepValue} ->
             PName = nksip_parse_header:name(RepName), 
             PResp = nksip_parse_header:parse(PName, RepValue, Resp, replace),
-            parse_opts(Rest, Req, PResp, Code, Opts, RestOpts);
+            parse_opts(Rest, Req, PResp, Code, Opts);
         {insert, InsName, InsValue} ->
             PName = nksip_parse_header:name(InsName), 
             PResp = nksip_parse_header:parse(PName, InsValue, Resp, pre),
-            parse_opts(Rest, Req, PResp, Code, Opts, RestOpts);
+            parse_opts(Rest, Req, PResp, Code, Opts);
         {update, UpdResp, UpdOpts} -> 
-            parse_opts(Rest, Req, UpdResp, Code, UpdOpts, RestOpts);
+            parse_opts(Rest, Req, UpdResp, Code, UpdOpts);
         % {retry, RetTerm} ->
-        %     parse_opts([RetTerm|Rest], Req, Resp, Code, Opts, RestOpts);
+        %     parse_opts([RetTerm|Rest], Req, Resp, Code, Opts);
         move_to_last ->
-            parse_opts(Rest++[Term], Req, Resp, Code, Opts, RestOpts);
+            parse_opts(Rest++[Term], Req, Resp, Code, Opts);
         ignore ->
-            parse_opts(Rest, Req, Resp, Code, Opts, RestOpts);
-        unknown ->
-            parse_opts(Rest, Req, Resp, Code, Opts, [Term|RestOpts])
+            parse_opts(Rest, Req, Resp, Code, Opts)
     end.
 
 %% @private
--spec parse_rest_opts(nksip:optslist(), nksip:request(), nksip:response(), 
-                      nksip:optslist()) ->
+-spec parse_plugin_opts(nksip:request(), nksip:response(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_rest_opts(RestOpts, #sipmsg{app_id=AppId}=Req, Resp, Opts) ->
-    {continue, [Unknown, _Req1, Resp1, Opts1]} = 
-        AppId:nkcb_parse_uas_opt(RestOpts, Req, Resp, Opts),
-    case Unknown of
-        [] -> {Resp1, Opts1};
-        [Term|_] when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
-        [Term|_] -> throw({invalid_config, Term})
+parse_plugin_opts(#sipmsg{app_id=AppId}=Req, Resp, Opts) ->
+    case AppId:nkcb_parse_uas_opt(Req, Resp, Opts) of
+        {continue, [_, Resp1, Opts1]} ->
+            {Resp1, Opts1};
+        {error, Error} ->
+            throw(Error)
     end.
 

@@ -25,7 +25,7 @@
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
 
--export([parse_config/3]).
+-export([parse_config/3, parse_uac_config/3]).
 -export([uac_received_422/4, uac_update_timer/3, uas_check_422/2, uas_update_timer/3]).
 -export([get_timer/4, proxy_request/2, proxy_response/2]).
 
@@ -37,20 +37,23 @@
 %% Private
 %% ===================================================================
 
+
 %% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
+-spec parse_config(nksip:optslist(), nksip:optslist(), nksip:optslist()) ->
+    {ok, nksip:optslist(), nksip:optslist()} | {error, term()}.
 
 parse_config([], Unknown, Config) ->
     {ok, Unknown, Config};
 
-
 parse_config([Term|Rest], Unknown, Config) ->
     Op = case Term of
-        {prack_callback, Fun} ->
-            case is_function(Fun, 2) of
+        {nksip_timers_se, Secs} ->
+            case is_integer(Secs) andalso Secs>=5 of
+                true -> update;
+                false -> error
+            end;
+        {nksip_timers_min_se, Secs} ->
+            case is_integer(Secs) andalso Secs>=1 of
                 true -> update;
                 false -> error
             end;
@@ -70,6 +73,44 @@ parse_config([Term|Rest], Unknown, Config) ->
     end.
 
 
+
+%% @private
+-spec parse_uac_config(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
+
+parse_uac_config([], _Req, Opts) ->
+    {ok, lists:reverse(Opts)};
+
+parse_uac_config([Term|Rest], Req, Opts) ->
+    case Term of
+        {nksip_timers_min_se, SE} when is_integer(SE) ->
+            parse_uac_config(Rest, Req, [{replace, <<"min-se">>, SE}|Opts]);
+        {nksip_timers_min_se, _} ->
+            {error, {invalid_config, nksip_timers_min_se}};
+        {nksip_timers_se, SE} when is_integer(SE) ->
+            parse_uac_config([{nksip_timers_se, {SE, undefined}}|Rest], Req, Opts);
+        {nksip_timers_se, {SE, Refresh}} when is_integer(SE) ->
+            #sipmsg{app_id=AppId} = Req,
+            case AppId:config_nksip_timers() of
+                {_, MinSE} when SE<MinSE -> 
+                    {error, {invalid_config, nksip_timers_se}};
+                _ when Refresh==undefined -> 
+                    Rep = {replace, <<"session-expires">>, SE},
+                    parse_uac_config(Rest, Req, [Rep|Opts]);
+                _ when Refresh==uac; Refresh==uas -> 
+                    Rep = {replace, <<"session-expires">>, 
+                            {SE, [{<<"refresher">>, Refresh}]}},
+                    parse_uac_config(Rest, Req, [Rep|Opts]);
+                _ ->
+                    {error, {invalid_config, nksip_timers_se}}
+            end;
+        {nksip_timers_se, _} ->
+            {error, {invalid_config, nksip_timers_se}};
+        _ ->
+            parse_uac_config(Rest, Req, [Term|Opts])
+    end.
+
+
 %% @private
 -spec get_timer(nksip:request(), nksip:response(), uac|uas, nksip_call:call()) ->
     {refresher | refreshed | none, integer()}.
@@ -78,7 +119,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
     #call{app_id=AppId} = Call,
     Config = nksip_sipapp_srv:config(AppId),
-    Default = nksip_lib:get_value(session_expires, Config),
+    Default = nksip_lib:get_value(nksip_timers_se, Config),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
             {SE0, Refresh0};
@@ -123,8 +164,8 @@ uac_update_timer(Method, Dialog, Call) ->
                 false -> uas
             end,
             [
-                {session_expires, {SE1, Class}} |
-                case is_integer(MinSE) of true -> [{min_se, MinSE}]; false -> [] end
+                {nksip_timers_se, {SE1, Class}} |
+                case is_integer(MinSE) of true -> [{nksip_timers_min_se, MinSE}]; false -> [] end
             ];
         _ ->
             []
@@ -259,7 +300,7 @@ uas_update_timer(
                 _ -> {0, undefined}
             end,
             Config = nksip_sipapp_srv:config(AppId),
-            Default = nksip_lib:get_value(session_expires, Config),
+            Default = nksip_lib:get_value(nksip_timers_se, Config),
             SE = case ReqSE of
                 0 -> max(ReqMinSE, Default);
                 _ -> max(ReqMinSE, min(ReqSE, Default))
@@ -301,7 +342,7 @@ proxy_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
         _ -> 0
     end,
             Config = nksip_sipapp_srv:config(AppId),
-            Default = nksip_lib:get_value(session_expires, Config),
+            Default = nksip_lib:get_value(nksip_timers_se, Config),
     SE = case ReqSE of
         0 -> max(ReqMinSE, Default);
         _ -> max(ReqMinSE, min(ReqSE, Default))

@@ -25,18 +25,18 @@
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
 
--export([nkcb_parse_uac_opt/3]).
+-export([nkcb_parse_uac_opt/2]).
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @doc Called to parse specific UAC options
--spec nkcb_parse_uac_opt(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+-spec nkcb_parse_uac_opt(nksip:request(), nksip:optslist()) ->
     {continue, list()}.
 
-nkcb_parse_uac_opt(PluginOpts, Req, Opts) ->
-    case nksip_timers_lib:parse_config(PluginOpts, [], Opts) of
-        {ok, Unknown, Opts2} ->
-            {continue, [Unknown, Req, Opts2]};
+nkcb_parse_uac_opt(Req, Opts) ->
+    case nksip_timers_lib:parse_uac_config(Req, Opts) of
+        {ok, Opts1} ->
+            {continue, [Req, Opts1]};
         {error, Error} ->
             {error, Error}
     end.
