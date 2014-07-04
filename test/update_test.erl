@@ -45,6 +45,7 @@ start() ->
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {plugins, [nksip_100rel]},
         no_100
     ]),
     
@@ -52,6 +53,7 @@ start() ->
         {from, "sip:client2@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
+        {plugins, [nksip_100rel]},
         no_100
     ]),
 

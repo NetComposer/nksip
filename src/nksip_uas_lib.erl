@@ -100,7 +100,7 @@ make(Req, Code, Opts) ->
         to = {#uri{ext_opts=ExtOpts}=To, ToTag},
         routes = Routes,
         contacts = Contacts,
-        require = Require,
+        % require = Require,
         to_tag_candidate = NewToTag
     } = Req, 
     NewToTag1 = case NewToTag of
@@ -142,7 +142,8 @@ make(Req, Code, Opts) ->
     },
     ConfigOpts = AppId:config_uas(),
     try
-        {Resp2, RespOpts2, RestOpts2} = parse_opts(ConfigOpts, Req, Resp1, Code, [], []),
+        {Resp2, RespOpts2, RestOpts2} = 
+            parse_opts(ConfigOpts, Req, Resp1, Code, [], []),
         Opts1 = case RUri#uri.scheme of
             sips ->
                 [secure|Opts];
@@ -159,15 +160,8 @@ make(Req, Code, Opts) ->
                         Opts
                 end
         end,
-        Opts2 = case 
-            Method=='INVITE' andalso Code>100 andalso Code<200
-            andalso lists:member(<<"100rel">>, Require) 
-        of
-            true -> [do100rel|Opts1];
-            false -> Opts1
-        end,
         {Resp3, RespOpts3, RestOpts3} = 
-            parse_opts(Opts2, Req, Resp2, Code, RespOpts2, RestOpts2),
+            parse_opts(Opts1, Req, Resp2, Code, RespOpts2, RestOpts2),
         {Resp4, RespOpts4} = parse_rest_opts(RestOpts3, Req, Resp3, RespOpts3),
         {ok, Resp4, RespOpts4}
     catch
@@ -284,22 +278,6 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts, RestOpts) ->
                 [Time] -> {replace, <<"timestamp">>, Time};
                 _ -> ignore
             end;
-        % do100rel ->
-        %     case lists:member(<<"100rel">>, Req#sipmsg.supported) of
-        %         true -> 
-        %             case lists:keymember(require, 1, Opts) of
-        %                 true -> 
-        %                     move_to_last;
-        %                 false ->
-        %                     #sipmsg{require=Require} = Resp,
-        %                     Require1 = nksip_lib:store_value(<<"100rel">>, Require),
-        %                     Resp1 = Resp#sipmsg{require=Require1},
-        %                     {update, Resp1, [rseq|Opts]}
-        %             end;
-        %         false -> 
-        %             ignore
-        %     end;
-
         {body, Body} ->
             case lists:keymember(content_type, 1, Rest) of
                 false ->
@@ -327,7 +305,8 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts, RestOpts) ->
             end;
 
         %% Pass-through options
-        _ when Term==contact; Term==no_dialog; Term==secure; Term==rseq ->
+        % _ when Term==contact; Term==no_dialog; Term==secure; Term==rseq ->
+        _ when Term==contact; Term==no_dialog; Term==secure ->
             {update, Resp, [Term|Opts]};
         {local_host, auto} ->
             {update, Resp, [{local_host, auto}|Opts]};

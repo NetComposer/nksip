@@ -25,6 +25,7 @@
 -export([update_sipmsg/2, update/2]).
 -export([update_auth/3, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3]).
+-export([cancel_timer/1, start_timer/3]).
 -export_type([timeout_timer/0, retrans_timer/0, expire_timer/0, timer/0]).
 
 
@@ -33,9 +34,9 @@
 
 -type timeout_timer() :: timer_b | timer_c | timer_d | timer_f | timer_h | 
                          timer_i | timer_j | timer_k | timer_l | timer_m | 
-                         noinvite | prack_timeout | cancel.
+                         noinvite | cancel.
 
--type retrans_timer() :: timer_a | timer_e | timer_g | prack_retrans | cancel.
+-type retrans_timer() :: timer_a | timer_e | timer_g | cancel.
 
 -type expire_timer() ::  expire | cancel.
 
@@ -66,6 +67,7 @@ update_sipmsg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
 
 
 %% @private
+%% Updates a transaction on a call. New transaction will be the first.
 -spec update(trans(), call()) ->
     call().
 
@@ -107,22 +109,22 @@ update(New, Call) ->
             ?call_debug("~s ~p ~p ~p -> ~p", [CS, Id, Method, OldStatus, NewStatus]),
             Call#call{trans=[New|Rest]}
     end,
-    hibernate(New, Call1).
+    maybe_hibernate(New, Call1).
 
 
 %% @private 
--spec hibernate(trans(), call()) ->
+-spec maybe_hibernate(trans(), call()) ->
     call().
 
-hibernate(#trans{status=Status}, Call) 
+maybe_hibernate(#trans{status=Status}, Call) 
           when Status==invite_accepted; Status==completed; 
                Status==finished ->
     Call#call{hibernate=Status};
 
-hibernate(#trans{class=uac, status=invite_completed}, Call) ->
+maybe_hibernate(#trans{class=uac, status=invite_completed}, Call) ->
     Call#call{hibernate=invite_completed};
 
-hibernate(_, Call) ->
+maybe_hibernate(_, Call) ->
     Call.
 
 
@@ -192,7 +194,7 @@ timeout_timer(cancel, Trans, _Call) ->
 timeout_timer(Tag, Trans, Call) 
             when Tag==timer_b; Tag==timer_f; Tag==timer_m;
                  Tag==timer_h; Tag==timer_j; Tag==timer_l;
-                 Tag==noinvite; Tag==prack_timeout ->
+                 Tag==noinvite ->
     cancel_timer(Trans#trans.timeout_timer),
     #call{timers={T1, _, _, _}} = Call,
     Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
@@ -226,8 +228,7 @@ retrans_timer(cancel, Trans, _Call) ->
     cancel_timer(Trans#trans.retrans_timer),
     Trans#trans{retrans_timer=undefined};
 
-retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call) 
-              when Tag==timer_a; Tag==prack_retrans ->
+retrans_timer(timer_a, #trans{next_retrans=Next}=Trans, Call) -> 
     cancel_timer(Trans#trans.retrans_timer),
     Time = case is_integer(Next) of
         true -> 
@@ -237,7 +238,7 @@ retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call)
             T1
     end,
     Trans#trans{
-        retrans_timer = start_timer(Time, Tag, Trans),
+        retrans_timer = start_timer(Time, timer_a, Trans),
         next_retrans = 2*Time
     };
 
@@ -311,19 +312,11 @@ start_timer(Time, Tag, #trans{class=Class, id=Id}) ->
 -spec cancel_timer({timer(), reference()}|undefined) -> 
     ok.
 
-cancel_timer({_Tag, Ref}) when is_reference(Ref) -> 
-    case erlang:cancel_timer(Ref) of
-        false -> 
-            receive 
-                {timeout, Ref, _} -> ok
-            after 0 -> 
-                ok
-            end;
-        _Time -> 
-            ok
-    end;
+cancel_timer(undefined) ->
+    ok;
 
-cancel_timer(_) -> 
+cancel_timer({_Tag, Ref}) when is_reference(Ref) -> 
+    nksip_lib:cancel_timer(Ref),
     ok.
 
 

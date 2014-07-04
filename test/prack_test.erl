@@ -47,6 +47,7 @@ start() ->
         {plugins, [nksip_100rel]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {timer_t1, 100},
         no_100
     ]),
     
@@ -55,6 +56,7 @@ start() ->
         {plugins, [nksip_100rel]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
+        {timer_t1, 100},
         no_100
     ]),
 
@@ -269,7 +271,7 @@ media() ->
     ok = tests_util:wait(Ref, [{client2, sdp_stop},
                                {client2, {dialog_stop, caller_bye}}]), 
     ok.
-
+   
 
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
@@ -341,6 +343,13 @@ sip_invite(Req, _Call) ->
                     ok = nksip_request:reply({rel_ringing, SDP}, ReqId),
                     timer:sleep(100),
                     nksip_request:reply(ok, ReqId);
+                <<"retrans">> ->
+                    spawn(
+                        fun() ->
+                            nksip_request:reply(ringing, ReqId),
+                            timer:sleep(2000),
+                            nksip_request:reply(busy, ReqId)
+                        end);
                 _ ->
                     nksip_request:reply(decline, ReqId)
             end

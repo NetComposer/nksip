@@ -28,7 +28,7 @@
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
 		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
 -export([nkcb_uac_pre_response/3, nkcb_uac_response/4, nkcb_parse_uac_opt/3, nkcb_uac_proxy_opts/2]).
--export([nkcb_uas_sent_reply/3, nkcb_uas_method/4, nkcb_parse_uas_opt/4]).
+-export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/4, nkcb_uas_timer/3]).
 -export([nkcb_connection_send/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
@@ -154,15 +154,23 @@ nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
 	{ok, Req1}.
 
 
-%% @doc Called when a new reponse has been sent
--spec nkcb_uas_sent_reply({nksip:response(), nksip:optlist()}, 
+%% @doc Called when a new reponse is going to be sent
+-spec nkcb_uas_send_reply({nksip:response(), nksip:optlist()}, 
 							 nksip_call:trans(), nksip_call:call()) ->
 	{error, term()} | nkcb_common().
 
-nkcb_uas_sent_reply({Resp, RespOpts}, UAS, Call) ->
+nkcb_uas_send_reply({Resp, RespOpts}, UAS, Call) ->
 	{continue, [{Resp, RespOpts}, UAS, Call]}.
 
 
+%% @doc Called when a new reponse is sent
+-spec nkcb_uas_sent_reply(nksip_call:call()) ->
+	{ok, nksip_call:call()} | nkcb_common().
+
+nkcb_uas_sent_reply(Call) ->
+	{continue, [Call]}.
+
+	
 %% @doc Called when a new request has to be processed
 -spec nkcb_uas_method(nksip:method(), nksip:request(), 
 					  nksip_call:trans(), nksip_call:call()) ->
@@ -170,6 +178,14 @@ nkcb_uas_sent_reply({Resp, RespOpts}, UAS, Call) ->
 
 nkcb_uas_method(Method, Req, UAS, Call) ->
 	{continue, [Method, Req, UAS, Call]}.
+
+
+%% @doc Called when a UAS timer is fired
+-spec nkcb_uas_timer(nksip_call_lib:timer()|term(), nksip_call:trans(), nksip_call:call()) ->
+    {ok, nksip_call:call()} | nkcb_common().
+
+nkcb_uas_timer(Tag, UAS, Call) ->
+	{continue, [Tag, UAS, Call]}.
 
 
 %% @doc Called to parse specific UAS options
