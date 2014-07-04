@@ -507,9 +507,6 @@ parse_opts([Term|Rest], Req, RestOpts, Opts) ->
 -spec parse_rest_opts(nksip:optslist(), nksip:request(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_rest_opts([], Req, Opts) ->
-    {Req, Opts};
-
 parse_rest_opts(RestOpts, #sipmsg{app_id=AppId}=Req, Opts) ->
     {continue, [Unknown, Req1, Opts1]} = AppId:nkcb_parse_uac_opt(RestOpts, Req, Opts),
     case Unknown of
