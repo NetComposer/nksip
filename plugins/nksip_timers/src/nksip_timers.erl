@@ -48,8 +48,8 @@ deps() ->
 
 parse_config(PluginOpts, Config) ->
     Defaults = [
-        {nksip_timers_se, 1800},
-        {nksip_timers_min_se, 90}
+        {nksip_timers_se, 1800},        % (secs) 30 min
+        {nksip_timers_min_se, 90}       % (secs) 90 secs (min 90, recomended 1800)
     ],
     PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
     Supported = nksip_lib:get_value(supported, Config),

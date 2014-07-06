@@ -113,22 +113,22 @@ make(AppId, Method, Uri, Opts) ->
         ConfigOpts = AppId:config_uac(),
         %% First, the plugins have the oportunity of parse everything
         %% Should remove parsed options and possibly parse headers in Req
-        {Req2, ReqOpts2} = parse_plugin_opts(Req1, ConfigOpts++Opts),
+        {Req2, Opts2} = parse_plugin_opts(Req1, ConfigOpts++Opts),
         Req3 = case RUri of
             #uri{headers=[]} -> Req2;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req2, post)
         end,
-        {Req4, ReqOpts4} = parse_opts(ReqOpts2, Req3, []),
-        ReqOpts5 = case 
+        {Req4, Opts4} = parse_opts(Opts2, Req3, []),
+        Opts5 = case 
             (Method=='INVITE' orelse Method=='SUBSCRIBE' orelse
              Method=='NOTIFY' orelse Method=='REFER' orelse Method=='UPDATE')
             andalso Req4#sipmsg.contacts==[]
-            andalso not lists:member(contact, ReqOpts4)
+            andalso not lists:member(contact, Opts4)
         of  
-            true -> [contact|ReqOpts4];
-            false -> ReqOpts4
+            true -> [contact|Opts4];
+            false -> Opts4
         end,
-        {ok, Req4, ReqOpts5}
+        {ok, Req4, Opts5}
     catch
         throw:Throw -> {error, Throw}
     end.
@@ -141,15 +141,15 @@ make(AppId, Method, Uri, Opts) ->
 proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
     try
         ConfigOpts = AppId:config_uac_proxy(),
-        {Req1, ReqOpts1} = parse_plugin_opts(ConfigOpts++Opts, Req),
+        {Req1, Opts1} = parse_plugin_opts(Req, ConfigOpts++Opts),
         Req2 = case RUri of
             #uri{headers=[]} -> Req1;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
         end,
-        {Req3, ReqOpts3} = parse_opts(ReqOpts1, Req2, []),
-        {ok, Req4, ReqOpts4} = AppId:nkcb_uac_proxy_opts(Req3, ReqOpts3),
+        {Req3, Opts3} = parse_opts(Opts1, Req2, []),
+        {ok, Req4, Opts4} = AppId:nkcb_uac_proxy_opts(Req3, Opts3),
         Req5 = remove_local_routes(Req4),
-        {ok, Req5, ReqOpts4}
+        {ok, Req5, Opts4}
     catch
         throw:Throw -> {error, Throw}
     end.

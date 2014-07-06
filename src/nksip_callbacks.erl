@@ -29,6 +29,7 @@
 		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
 -export([nkcb_uac_pre_response/3, nkcb_uac_response/4, nkcb_parse_uac_opt/3, nkcb_uac_proxy_opts/2]).
 -export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/3, nkcb_uas_timer/3]).
+-export([nkcb_dialog_update/3]).
 -export([nkcb_connection_send/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
@@ -194,6 +195,14 @@ nkcb_uas_timer(Tag, UAS, Call) ->
 
 nkcb_parse_uas_opt(Req, Resp, Opts) ->
 	{continue, [Req, Resp, Opts]}.
+
+
+%% @doc Called when a dialog must update its internal state
+-spec nkcb_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
+    {ok, nksip_call:call()} | nkcb_common().
+
+nkcb_dialog_update(Type, Dialog, Call) ->
+	{continue, [Type, Dialog, Call]}.
 
 
 %% @doc Called when a new message has been sent

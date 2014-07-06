@@ -158,7 +158,7 @@ make(Req, Code, Opts) ->
                         Opts
                 end
         end,
-        {Resp2, Opts2} = parse_plugin_opts(ConfigOpts++Opts1, Req, Resp1),
+        {Resp2, Opts2} = parse_plugin_opts(Req, Resp1, ConfigOpts++Opts1),
         {Resp3, Opts3} = parse_opts(Opts2, Req, Resp2, Code, []),
         {ok, Resp3, Opts3}
     catch

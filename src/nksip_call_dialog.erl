@@ -26,6 +26,7 @@
 -include("nksip_call.hrl").
 
 -export([create/4, update/3, stop/3, find/2, store/2, get_meta/3, update_meta/4]).
+-export([target_update/5, session_update/2, route_update/4, dialog_update/3, reason/1]).
 -export([timer/3]).
 -export_type([sdp_offer/0]).
 
@@ -95,22 +96,36 @@ create(Class, Req, Resp, Call) ->
 -spec update(term(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-update(prack, Dialog, Call) ->
+
+update(Type, Dialog, #call{app_id=AppId}=Call) ->
+    case AppId:nkcb_dialog_update(Type, Dialog, Call) of
+        {continue, [Type1, Dialog1, Call1]} ->
+            do_update(Type1, Dialog1, Call1);
+        {ok, Call1} ->
+            Call1
+    end.
+
+
+%% @private
+-spec do_update(term(), nksip:dialog(), nksip_call:call()) ->
+    nksip_call:call().
+
+do_update(prack, Dialog, Call) ->
     Dialog1 = session_update(Dialog, Call),
     store(Dialog1, Call);
 
-update({update, Class, Req, Resp}, Dialog, Call) ->
+do_update({update, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = target_update(Class, Req, Resp, Dialog, Call),
     Dialog2 = session_update(Dialog1, Call),
     Dialog3 = timer_update(Req, Resp, Class, Dialog2, Call),
     store(Dialog3, Call);
 
-update({subscribe, Class, Req, Resp}, Dialog, Call) ->
+do_update({subscribe, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = route_update(Class, Req, Resp, Dialog),
     Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
     store(Dialog2, Call);
 
-update({notify, Class, Req, Resp}, Dialog, Call) ->
+do_update({notify, Class, Req, Resp}, Dialog, Call) ->
     Dialog1 = route_update(Class, Req, Resp, Dialog),
     Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
     Dialog3 = case Dialog2#dialog.blocked_route_set of
@@ -119,7 +134,7 @@ update({notify, Class, Req, Resp}, Dialog, Call) ->
     end,
     store(Dialog3, Call);
 
-update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
+do_update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{
         media_started = Media,
         retrans_timer = RetransTimer,
@@ -137,7 +152,7 @@ update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
     end,
     store(Dialog#dialog{invite=undefined}, Call);
 
-update({invite, Status}, Dialog, Call) ->
+do_update({invite, Status}, Dialog, Call) ->
     #dialog{
         id = DialogId, 
         blocked_route_set = BlockedRouteSet,
@@ -185,7 +200,7 @@ update({invite, Status}, Dialog, Call) ->
     Dialog4 = timer_update(Req, Resp, Class, Dialog3, Call),
     store(Dialog4, Call);
 
-update(none, Dialog, Call) ->
+do_update(none, Dialog, Call) ->
     store(Dialog, Call).
     
 
@@ -363,76 +378,54 @@ session_update(Dialog, _Call) ->
                    nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
-timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
+timer_update(_Req, #sipmsg{class={resp, Code, _}}, _Class,
              #dialog{invite=#invite{status=confirmed}}=Dialog, Call)
              when Code>=200 andalso Code<300 ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
-    #invite{
-        % class from #invite{} can only be used for INVITE, not UPDATE
-        retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer, 
-        meta = Meta
-    } = Invite,
-    RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
+    #call{app_id=AppId} = Call,
+    % class from #invite{} can only be used for INVITE, not UPDATE
+    #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
+    cancel_timer(RetransTimer),
+    case Code>=200 andalso Code<300 of
+        true -> 
+            cancel_timer(TimeoutTimer),
+            Timeout = nksip_sipapp_srv:config(AppId, dialog_timeout),
+            Invite1 = Invite#invite{
+                retrans_timer = undefined,
+                timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId)
+            },
+            Dialog#dialog{invite=Invite1};
+        false ->
+            % We are returning to confirmed after a non-2xx response
+            Invite1 = Invite#invite{
+                retrans_timer = undefined
+            },
+            Dialog#dialog{invite=Invite1}
+    end;
+
+timer_update(_Req, _Resp, _Class, 
+             #dialog{invite=#invite{status=accepted_uas}}=Dialog, Call) ->
+    #dialog{id=DialogId, invite=Invite} = Dialog,
+    #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
+    #call{timers={T1, _, _, _}} = Call,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
-    cancel_timer(RefreshTimer),
-    Meta1 = nksip_lib:delete(Meta, [nksip_timers_refresh, nksip_timers_se]),
-    Invite1 = case nksip_timers_lib:get_timer(Req, Resp, Class, Call) of
-        {refresher, SE} ->
-            Refresh = start_timer(500*SE, invite_refresh, DialogId),
-            Invite#invite{
-                retrans_timer = undefined,
-                timeout_timer = start_timer(1000*SE, invite_timeout, DialogId),
-                meta = [{nksip_timers_se, SE}, {nksip_timers_refresh, Refresh}|Meta1]
-            };
-        {refreshed, SE} ->
-            Invite#invite{
-                retrans_timer = undefined,
-                timeout_timer = start_timer(750*SE, invite_timeout, DialogId),
-                meta = [{nksip_timers_se, SE}, {nksip_timers_refresh, undefined}|Meta1]
-            };
-        {none, Timeout} ->
-            Invite#invite{
-                retrans_timer = undefined,
-                timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId),
-                meta = [{nksip_timers_se, undefined}, {nksip_timers_refresh, undefined}|Meta1]
-            }
-    end,
+    Invite1 = Invite#invite{
+        retrans_timer = start_timer(T1, invite_retrans, DialogId),
+        next_retrans = 2*T1,
+        timeout_timer = start_timer(64*T1, invite_timeout, DialogId)
+    },
     Dialog#dialog{invite=Invite1};
-
 
 timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
-    #invite{
-        status = Status,
-        retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer, 
-        meta = Meta
-    } = Invite,
+    #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
     #call{timers={T1, _, _, _}} = Call,
     cancel_timer(RetransTimer),
-    SessionExpires = nksip_lib:get_value(nksip_timers_se, Meta),
-    RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
-    {RetransTimer1, NextRetrans1} = case Status of
-        accepted_uas -> {start_timer(T1, invite_retrans, DialogId), 2*T1};
-        _ -> {undefined, undefined}
-    end,
-    {SessionExpires1, TimeoutTimer1, RefreshTimer1} = case Status of
-        confirmed -> 
-            % It is a non-2xx back to confirmed
-            {SessionExpires, TimeoutTimer, RefreshTimer};  
-        _ -> 
-            cancel_timer(TimeoutTimer),
-            cancel_timer(RefreshTimer),
-            {undefined, start_timer(64*T1, invite_timeout, DialogId), undefined}
-    end,
-    Meta1 = nksip_lib:delete(Meta, [nksip_timers_se, nksip_timers_refresh]),
+    cancel_timer(TimeoutTimer),
     Invite1 = Invite#invite{
-        retrans_timer = RetransTimer1,
-        next_retrans = NextRetrans1,
-        timeout_timer = TimeoutTimer1,
-        meta = [{nksip_timers_se, SessionExpires1}, {nksip_timers_refresh, RefreshTimer1}|Meta1]
+        retrans_timer = undefined,
+        timeout_timer = start_timer(64*T1, invite_timeout, DialogId)
     },
     Dialog#dialog{invite=Invite1}.
 
@@ -600,7 +593,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
             end,
             Dialogs1 = case IsFirst of
                 true -> [Dialog|Rest];
-                false -> lists:keystore(Id, #dialog.id, Dialogs, Dialog)
+                false -> [Dialog|lists:keydelete(Id, #dialog.id, Dialogs)]
             end,
             Call#call{dialogs=Dialogs1, hibernate=Hibernate}
     end.
@@ -634,14 +627,8 @@ reason(Other) -> Other.
 
 
 %% @private
-cancel_timer(Ref) when is_reference(Ref) -> 
-    case erlang:cancel_timer(Ref) of
-        false -> receive {timeout, Ref, _} -> ok after 0 -> ok end;
-        _ -> ok
-    end;
-
-cancel_timer(_) ->
-    ok.
+cancel_timer(Ref) ->
+    nksip_lib:cancel_timer(Ref).
 
 
 %% @private

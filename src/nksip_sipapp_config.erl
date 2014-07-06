@@ -44,19 +44,17 @@ default_config() ->
     [
         {allow, "INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,UPDATE,"
                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE"},
-        {supported, "timer,path"},
+        {supported, "path"},
         {timer_t1, 500},                    % (msecs) 0.5 secs
         {timer_t2, 4000},                   % (msecs) 4 secs
         {timer_t4, 5000},                   % (msecs) 5 secs
         {timer_c,  180},                    % (secs) 3min
-        % {session_expires, 1800},            % (secs) 30 min
-        % {min_session_expires, 90},          % (secs) 90 secs (min 90, recomended 1800)
         {udp_timeout, 180},                 % (secs) 3 min
         {tcp_timeout, 180},                 % (secs) 3 min
         {sctp_timeout, 180},                % (secs) 3 min
         {ws_timeout, 180},                  % (secs) 3 min
+        {dialog_timeout, 1800},             % (secs) 30 min
         {nonce_timeout, 30},                % (secs) 30 secs
-        % {sipapp_timeout, 32},               % (secs) 32 secs  
         {max_calls, 100000},                % Each Call-ID counts as a call
         {max_connections, 1024}             % Per transport and SipApp
     ].
@@ -192,10 +190,6 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
             update;
         {timer_c, Secs}  when is_integer(Secs), Secs>=1 ->
             update;
-        % {session_expires, Secs} when is_integer(Secs), Secs>=5 ->
-        %     update;
-        % {min_session_expires, Secs} when is_integer(Secs), Secs>=1 ->
-        %     update;
         {udp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
             update;
         {tcp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
@@ -203,6 +197,8 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
         {sctp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
             update;
         {ws_timeout, Secs} when is_integer(Secs), Secs>=5 -> 
+            update;
+        {dialog_timeout, Secs} when is_integer(Secs), Secs>=5 ->
             update;
         {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 ->
             update;
