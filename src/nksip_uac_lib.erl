@@ -94,8 +94,14 @@ make(AppId, Method, Uri, Opts) ->
             error -> Method1 = RUri1 = throw(invalid_uri)
         end,
         FromTag = nksip_lib:uid(),
-        DefFrom = #uri{user = <<"user">>, domain = <<"nksip">>, 
-                  ext_opts = [{<<"tag">>, FromTag}]},
+        DefFrom = case AppId:config_from() of
+            undefined ->
+                #uri{user = <<"user">>, domain = <<"nksip">>, 
+                     ext_opts = [{<<"tag">>, FromTag}]};
+            #uri{ext_opts=FromOpts}=ConfigFrom ->
+                ConfigFrom#uri{
+                    ext_opts=nksip_lib:store_value(<<"tag">>, FromTag, FromOpts)}
+        end,
         DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
         Req1 = #sipmsg{
             id = nksip_lib:uid(),
@@ -110,10 +116,11 @@ make(AppId, Method, Uri, Opts) ->
             transport = #transport{},
             start = nksip_lib:l_timestamp()
         },
-        ConfigOpts = AppId:config_uac(),
-        %% First, the plugins have the oportunity of parse everything
-        %% Should remove parsed options and possibly parse headers in Req
-        {Req2, Opts2} = parse_plugin_opts(Req1, ConfigOpts++Opts),
+        Opts1 = case AppId:config_route() of
+            [] -> Opts;
+            DefRoutes -> [{route, DefRoutes}|Opts]
+        end,
+        {Req2, Opts2} = parse_plugin_opts(Req1, Opts1),
         Req3 = case RUri of
             #uri{headers=[]} -> Req2;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req2, post)
@@ -140,8 +147,7 @@ make(AppId, Method, Uri, Opts) ->
     
 proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
     try
-        ConfigOpts = AppId:config_uac_proxy(),
-        {Req1, Opts1} = parse_plugin_opts(Req, ConfigOpts++Opts),
+        {Req1, Opts1} = parse_plugin_opts(Req, Opts),
         Req2 = case RUri of
             #uri{headers=[]} -> Req1;
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
@@ -281,8 +287,6 @@ parse_opts([Term|Rest], Req, Opts) ->
         
         ignore ->
             ignore;
-        {pass_through, Pass} ->
-            {update, Req, [Pass|Opts]};
 
         % Header manipulation
         {add, Name, Value} -> {add, Name, Value};
@@ -324,6 +328,8 @@ parse_opts([Term|Rest], Req, Opts) ->
         {cseq_num, CSeq} when is_integer(CSeq), CSeq>0, CSeq<4294967296 ->
             #sipmsg{cseq={_, CSeqMethod}} = Req,
             {update, Req#sipmsg{cseq={CSeq, CSeqMethod}}, Opts};
+        {cseq_num, _} ->
+            error;
         {min_cseq, MinCSeq} ->
             case lists:keymember(cseq_num, 1, Rest) of
                 false -> 
@@ -334,7 +340,7 @@ parse_opts([Term|Rest], Req, Opts) ->
                         true -> 
                             ignore;
                         false -> 
-                            throw({invalid_config, min_cseq})
+                            error
                     end;
                 true ->
                     move_to_last
@@ -358,6 +364,8 @@ parse_opts([Term|Rest], Req, Opts) ->
                 {meta, List0} ->
                     {update, Req, nksip_lib:store_value(meta, List0++List, Opts)}
             end;
+        {meta, _} ->
+            error;
         {user, List} when is_list(List) ->
             case lists:keyfind(user, 1, Opts) of
                 false -> 
@@ -365,6 +373,8 @@ parse_opts([Term|Rest], Req, Opts) ->
                 {user, List0} ->
                     {update, Req, nksip_lib:store_value(user, List0++List, Opts)}
             end;
+        {user, _} ->
+            error;
         {local_host, auto} ->
             {update, Req, [{local_host, auto}|Opts]};
         {local_host, Host} ->
@@ -381,10 +391,16 @@ parse_opts([Term|Rest], Req, Opts) ->
             end;
         {callback, Fun} when is_function(Fun, 1) ->
             {update, Req, [{callback, Fun}|Opts]};
+        {callback, _} ->
+            error;
         {reg_id, RegId} when is_integer(RegId), RegId>0 ->
             {update, Req, [{reg_id, RegId}|Opts]};
+        {reg_id, _} ->
+            error;
         {refer_subscription_id, Refer} when is_binary(Refer) ->
             {update, Req, [{refer_subscription_id, Refer}|Opts]};
+        {refer_subscription_id, _} ->
+            error;
 
         %% Automatic header generation (replace existing headers)
         user_agent ->
@@ -466,6 +482,8 @@ parse_opts([Term|Rest], Req, Opts) ->
                     throw({invalid_config, session_state})
             end,
             {replace, <<"subscription-state">>, Value};
+        {subscription_state, _} ->
+            error;
         {refer_to, Url} ->
             {replace, "refer-to", Url};
 
@@ -473,10 +491,8 @@ parse_opts([Term|Rest], Req, Opts) ->
         {sip_if_match, ETag} ->
             {replace, <<"sip-if-match">>, nksip_lib:to_binary(ETag)};
 
-        _ when is_tuple(Term) ->
-            throw({invalid_config, element(1, Term)});
         _ ->
-            throw({invalid_config, Term})
+            {update, Req, [Term|Opts]}
     end,
     case Op of
         {add, AddName, AddValue} ->
@@ -498,7 +514,11 @@ parse_opts([Term|Rest], Req, Opts) ->
         move_to_last ->
             parse_opts(Rest++[Term], Req, Opts);
         ignore ->
-            parse_opts(Rest, Req, Opts)
+            parse_opts(Rest, Req, Opts);
+        error when is_tuple(Term) ->
+            throw({invalid_config, element(1, Term)});
+        error_ ->
+            throw({invalid_config, Term})
     end.
 
 

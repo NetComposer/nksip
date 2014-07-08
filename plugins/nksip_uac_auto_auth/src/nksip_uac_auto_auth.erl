@@ -26,7 +26,7 @@
 -include("../../../include/nksip_call.hrl").
 
 -export([check_auth/4]).
--export([version/0, deps/0, parse_config/1, parse_config/2]).
+-export([version/0, deps/0, parse_config/1, do_parse_config/1]).
 
 %% ===================================================================
 %% Plugin specific
@@ -55,7 +55,53 @@ deps() ->
 parse_config(Opts) ->
     Defaults = [{nksip_uac_auto_auth_max_tries, 5}],
     Opts1 = nksip_lib:defaults(Opts, Defaults),
-    parse_config(Opts1, []).
+    do_parse_config(Opts1).
+    
+
+%% @doc Parses this plugin specific configuration
+-spec do_parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
+
+do_parse_config(Opts) ->
+    try
+        case nksip_lib:get_value(nksip_uac_auto_auth_max_tries, Opts) of
+            undefined ->
+                ok;
+            Tries when is_integer(Tries), Tries>=0 -> 
+                ok;
+            _ -> 
+                throw(nksip_uac_auto_auth_max_tries)
+        end,
+        case nksip_lib:get_value(pass, Opts) of
+            undefined ->
+                case nksip_lib:get_value(passes, Opts) of
+                    undefined -> 
+                        {ok, Opts};
+                    Passes ->
+                        case check_passes(Passes, []) of
+                            {ok, Passes1} -> 
+                                {ok, nksip_lib:store_value(passes, Passes1, Opts)};
+                            error -> 
+                                throw(passes)
+                        end
+                end;
+            Pass ->
+                case lists:keymember(passes, 1, Opts) of
+                    false -> ok;
+                    true -> throw(passes)
+                end,
+                case check_passes([Pass], []) of
+                    {ok, Passes} -> 
+                        {ok, [{passes, Passes}|lists:keydelete(pass, 1, Opts)]};
+                    error -> 
+                        throw(pass)
+                end
+        end
+    catch
+        throw:OptName -> {error, {invalid_config, OptName}}
+    end.
+
+
 
 
 %% ===================================================================
@@ -88,7 +134,15 @@ check_auth(Req, Resp, UAC, Call) ->
                 Max0 ->
                     Max0
             end,
-            case Iters < Max andalso nksip_auth:make_request(Req, Resp, Opts) of
+            DefPasses = nksip_sipapp_srv:config(AppId, passes, []),
+            Passes = case nksip_lib:get_value(passes, Opts) of
+                undefined -> DefPasses;
+                Passes0 -> Passes0++DefPasses
+            end,
+            case 
+                Passes/=[] andalso Iters < Max andalso 
+                nksip_auth:make_request(Req, Resp, [{passes, Passes}]) 
+            of
                 {ok, Req1} ->
                     {ok, nksip_call_uac_req:resend(Req1, UAC, Call)};
                 {error, Error} ->
@@ -105,57 +159,20 @@ check_auth(Req, Resp, UAC, Call) ->
 
 
 %% @private
--spec parse_config(nksip:optslist(), nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
+check_passes([], Acc) ->
+    {ok, lists:reverse(Acc)};
 
-parse_config([], Opts) ->
-    {ok, lists:reverse(Opts)};
-
-parse_config([Term|Rest], Opts) ->
-    Op = case Term of
-        {nksip_uac_auto_auth_max_tries, Tries} ->
-            case is_integer(Tries) andalso Tries>=0 of
-                true -> {update, nksip_uac_auto_auth_max_tries, Tries};
-                false -> error
-            end;
-        {pass, PassTerm} ->
-            case get_pass(PassTerm) of
-                {ok, Realm, Pass} ->
-                    Passes0 = nksip_lib:get_value(passes, Opts, []),
-                    Passes1 = nksip_lib:store_value(Realm, Pass, Passes0),
-                    {update, passes, Passes1};
-                error ->
-                    error
-            end;
-        {passes, Passes} when is_list(Passes) ->
-            Passes0 = nksip_lib:get_value(passes, Opts, []),
-            {update, passes, Passes++Passes0};
-        _ ->
-            unknown
-    end,
-    case Op of
-        {update, Key, Val} ->
-            Opts1 = [{Key, Val}|nksip_lib:delete(Opts, Key)],
-            parse_config(Rest, Opts1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Opts])
-    end.
-
-
-
-%% @private
-get_pass(PassTerm) ->
+check_passes([PassTerm|Rest], Acc) ->
     case PassTerm of
         _ when is_list(PassTerm) -> 
-            {ok, <<>>, list_to_binary(PassTerm)};
+            check_passes(Rest, [{<<>>, list_to_binary(PassTerm)}|Acc]);
         _ when is_binary(PassTerm) -> 
-            {ok, <<>>, PassTerm};
+            check_passes(Rest, [{<<>>, PassTerm}|Acc]);
         {Realm, Pass} when 
             (is_list(Realm) orelse is_binary(Realm)) andalso
             (is_list(Pass) orelse is_binary(Pass)) ->
-            {ok, nksip_lib:to_binary(Realm), nksip_lib:to_binary(Pass)};
+            Acc1 = [{nksip_lib:to_binary(Realm), nksip_lib:to_binary(Pass)}|Acc],
+            check_passes(Rest, Acc1);
         _ ->
             error
     end.

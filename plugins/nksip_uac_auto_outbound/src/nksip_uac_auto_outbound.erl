@@ -54,38 +54,45 @@ deps() ->
 
 parse_config(Opts) ->
     Defaults = [
-        {nksip_uac_auto_outbound_default_udp_ttl, 25},
-        {nksip_uac_auto_outbound_default_tcp_ttl, 120},
         {nksip_uac_auto_outbound_all_fail, 30},
         {nksip_uac_auto_outbound_any_ok, 90},  
-        {nksip_uac_auto_outbound_max_time, 1800}
+        {nksip_uac_auto_outbound_max_time, 1800},
+        {nksip_uac_auto_outbound_default_udp_ttl, 25},
+        {nksip_uac_auto_outbound_default_tcp_ttl, 120}
     ],
     Opts1 = nksip_lib:defaults(Opts, Defaults),
     try
         case nksip_lib:get_value(nksip_uac_auto_outbound_all_fail, Opts1) of
             undefined -> ok;
-            AllFail when is_integer(AllFail) andalso AllFail>=1 -> ok;
-            _ -> throw(nksip_uac_auto_outbound_all_fail)
+            AllFail when is_integer(AllFail) andalso AllFail>=1 -> 
+                ok;
+            _ -> 
+                throw(nksip_uac_auto_outbound_all_fail)
         end,
         case nksip_lib:get_value(nksip_uac_auto_outbound_any_ok, Opts1) of
             undefined -> ok;
-            AnyOk when is_integer(AnyOk) andalso AnyOk>=1 -> ok;
-            _ -> throw(nksip_uac_auto_outbound_any_ok)
+            AnyOk when is_integer(AnyOk) andalso AnyOk>=1 -> 
+                ok;
+            _ -> 
+                throw(nksip_uac_auto_outbound_any_ok)
         end,
         case nksip_lib:get_value(nksip_uac_auto_outbound_max_time, Opts1) of
-            undefined -> ok;
-            Max when is_integer(Max) andalso Max>=1 -> ok;
-            _ -> throw(nksip_uac_auto_outbound_max_time)
+            Max when is_integer(Max) andalso Max>=1 -> 
+                ok;
+            _ -> 
+                throw(nksip_uac_auto_outbound_max_time)
         end,
         case nksip_lib:get_value(nksip_uac_auto_outbound_default_udp_ttl, Opts1) of
-            undefined -> ok;
-            Udp when is_integer(Udp) andalso Udp>=1 -> ok;
-            _ -> throw(nksip_uac_auto_outbound_default_udp_ttl)
+            Udp when is_integer(Udp) andalso Udp>=1 -> 
+                ok;
+            _ -> 
+                throw(nksip_uac_auto_outbound_default_udp_ttl)
         end,
         case nksip_lib:get_value(nksip_uac_auto_outbound_default_tcp_ttl, Opts1) of
-            undefined -> ok;
-            Tcp when is_integer(Tcp) andalso Tcp>=1 -> ok;
-            _ -> throw(nksip_uac_auto_outbound_default_tcp_ttl)
+            Tcp when is_integer(Tcp) andalso Tcp>=1 -> 
+                ok;
+            _ -> 
+                throw(nksip_uac_auto_outbound_default_tcp_ttl)
         end,
         {ok, Opts1}
     catch

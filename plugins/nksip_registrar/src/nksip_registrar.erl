@@ -78,17 +78,23 @@ parse_config(Opts) ->
             nksip_lib:store_value(allow, Allow++[<<"REGISTER">>], Opts1)
     end,
     try
-        case nksip_lib:get_value(nksip_registrar_default_time, Opts) of
-            Def when is_integer(Def), Def>=5 -> ok;
-            _ -> throw(nksip_registrar_default_time)
+        case nksip_lib:get_value(nksip_registrar_default_time, Opts2) of
+            Def when is_integer(Def), Def>=5 -> 
+                ok;
+            _ -> 
+                throw(nksip_registrar_default_time)
         end,
-        case nksip_lib:get_value(nksip_registrar_min_time, Opts) of
-            Min when is_integer(Min), Min>=1 -> ok;
-            _ -> throw(nksip_registrar_min_time)
+        case nksip_lib:get_value(nksip_registrar_min_time, Opts2) of
+            Min when is_integer(Min), Min>=1 -> 
+                ok;
+            _ -> 
+                throw(nksip_registrar_min_time)
         end,
-        case nksip_lib:get_value(nksip_registrar_max_time, Opts) of
-            Max when is_integer(Max), Max>=60 -> ok;
-            _ -> throw(nksip_registrar_max_time)
+        case nksip_lib:get_value(nksip_registrar_max_time, Opts2) of
+            Max when is_integer(Max), Max>=60 -> 
+                ok;
+            _ -> 
+                throw(nksip_registrar_max_time)
         end,
         Times = #nksip_registrar_time{
             min = nksip_lib:get_value(nksip_registrar_min_time, Opts2),

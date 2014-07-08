@@ -65,8 +65,7 @@ start() ->
     {ok, _} = nksip:start(client2, ?MODULE, [], [
         {from, "sip:client2@nksip"},
         {plugins, [nksip_uac_auto_auth]},
-        {pass, "jj"},
-        {pass, {"client1", "4321"}},
+        {passes, ["jj", {"client1", "4321"}]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5071}]}
     ]),
@@ -234,9 +233,10 @@ proxy() ->
     % client2 replies with 401, and we generate a new request
     % Server2 and client2 accepts their digests
     {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, "sip:client2@nksip", 
-                                            [Route, {pass, {"server2", "1234"}},
-                                            {pass, {"client2", "1234"}},
-                                            {supported, ""},    % No outbound
+                                            [Route, 
+                                            {passes, [{"server2", "1234"}, 
+                                                      {"client2", "1234"}]},
+                                            % {supported, ""},    % No outbound
                                             RepHd]),
     % Server2 inserts a Record-Route, so every in-dialog request is sent to Server2
     % ACK uses the same authentication headers from last invite

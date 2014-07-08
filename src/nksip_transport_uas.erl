@@ -97,7 +97,6 @@ resend_response(Resp, Opts) ->
 %% ===================================================================
 
 %% @private
-%% Recognizes options local_host, make_contact
 -spec make_response_fun(binary(), nksip:response(), nksip:optslist()) ->
     function().
 

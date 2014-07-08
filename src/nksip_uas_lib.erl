@@ -92,7 +92,6 @@ preprocess(Req) ->
 
 make(Req, Code, Opts) ->
   #sipmsg{
-        app_id = AppId,
         class = {req, Method},
         ruri = RUri,
         vias = [LastVia|_] = Vias,
@@ -140,7 +139,6 @@ make(Req, Code, Opts) ->
         event = undefined,
         body = <<>>
     },
-    ConfigOpts = AppId:config_uas(),
     try
         Opts1 = case RUri#uri.scheme of
             sips ->
@@ -158,7 +156,7 @@ make(Req, Code, Opts) ->
                         Opts
                 end
         end,
-        {Resp2, Opts2} = parse_plugin_opts(Req, Resp1, ConfigOpts++Opts1),
+        {Resp2, Opts2} = parse_plugin_opts(Req, Resp1, Opts1),
         {Resp3, Opts3} = parse_opts(Opts2, Req, Resp2, Code, []),
         {ok, Resp3, Opts3}
     catch

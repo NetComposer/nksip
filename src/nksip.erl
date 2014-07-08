@@ -159,9 +159,8 @@ start(AppName, Module, Args, Opts) ->
     case get_pid(AppName) of
         undefined ->
             Opts1 = [{name, AppName}, {module, Module}|Opts],
-            case nksip_sipapp_config:parse_config(Opts1) of
-                {ok, AppId, _Plugins, Syntax} ->
-                    ok = nksip_code_util:compile(AppId, Syntax),
+            case nksip_sipapp_config:start(Opts1) of
+                {ok, AppId} ->
                     case nksip_sup:start_sipapp(AppId, Args) of
                         ok -> {ok, AppId};
                         {error, Error} -> {error, Error}
@@ -207,30 +206,8 @@ stop_all() ->
 
 update(App, Opts) ->
     case find_app_id(App) of
-        {ok, AppId} ->
-            Opts1 = nksip_lib:delete(Opts, transport),
-            OldConfig = nksip_lib:delete(AppId:config(), [allow, supported]),
-            Opts2 = Opts1 ++ OldConfig,
-            case nksip_sipapp_config:parse_config(Opts2) of
-                {ok, AppId, NewPlugins, Syntax} ->
-                    OldPlugins = AppId:config_plugins(),
-                    case OldPlugins--NewPlugins of
-                        [] -> 
-                            ok;
-                        ToStop -> 
-                            nksip_sipapp_srv:stop_plugins(AppId, lists:reverse(ToStop))
-                    end,
-                    ok = nksip_code_util:compile(AppId, Syntax),
-                    case NewPlugins--OldPlugins of
-                        [] -> 
-                            ok;
-                        ToStart -> 
-                            nksip_sipapp_srv:start_plugins(AppId, ToStart)
-                    end,
-                    {ok, AppId};
-                {error, Error} ->
-                    {error, Error}
-            end;
+        {ok, AppId} -> 
+            nksip_sipapp_config:update(AppId, Opts);
         not_found ->
             {error, not_found}
     end.

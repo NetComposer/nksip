@@ -23,7 +23,7 @@
 -module(nksip_sipapp_config).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([parse_config/1]).
+-export([start/1, update/2]).
 
 -include("nksip.hrl").
 
@@ -61,26 +61,70 @@ default_config() ->
 
 
 %% @private
-parse_config(Opts) ->
+start(Opts) ->
+    AppName = nksip_lib:get_value(name, Opts, nksip),
+    AppId = nksip_sipapp_srv:get_appid(AppName),
+    BasePath = nksip_config_cache:local_data_path(),
+    case nksip_sipapp_srv:update_uuid(AppId, AppName, BasePath) of
+        {ok, UUID} -> ok;
+        {error, Error} -> UUID = throw(Error)
+    end,
+    Environment = nksip_config_cache:app_config(),
+    Defaults = nksip_lib:defaults(Environment, default_config()),
+    Opts1 = lists:map(
+        fun(T) -> case T of {K, V} -> {K, V}; _ -> {T, true} end end, 
+        Opts),
+    Opts2 = nksip_lib:defaults(Opts1, Defaults),
+    case parse_start(AppId, UUID, Opts2) of
+        {ok, AppId, _Plugins, Syntax} ->
+            ok = nksip_code_util:compile(AppId, Syntax),
+            {ok, AppId};
+        {error, ParseError} ->
+            {error, ParseError}
+    end.
+
+
+%% @private
+update(AppId, Opts) ->
+    Opts1 = nksip_lib:delete(Opts, transport),
+    Opts2 = lists:map(
+        fun(T) -> case T of {K, V} -> {K, V}; _ -> {T, true} end end, 
+        Opts1),
+    OldConfig = AppId:config(),
+    Opts3 = Opts2 ++ nksip_lib:delete(OldConfig, [K || {K, _} <- Opts]),
+    UUID = nksip_lib:get_value(uuid, OldConfig),
+    case parse_start(AppId, UUID, Opts3) of
+        {ok, AppId, NewPlugins, Syntax} ->
+            OldPlugins = AppId:config_plugins(),
+            case OldPlugins--NewPlugins of
+                [] -> 
+                    ok;
+                ToStop -> 
+                    nksip_sipapp_srv:stop_plugins(AppId, lists:reverse(ToStop))
+            end,
+            ok = nksip_code_util:compile(AppId, Syntax),
+            case NewPlugins--OldPlugins of
+                [] -> 
+                    ok;
+                ToStart -> 
+                    nksip_sipapp_srv:start_plugins(AppId, ToStart)
+            end,
+            {ok, AppId};
+        {error, Error} ->
+            {error, Error}
+    end.
+
+
+%% @private
+parse_start(AppId, UUID, Opts) ->
     try
-        AppName = nksip_lib:get_value(name, Opts, nksip),
-        AppId = nksip_sipapp_srv:get_appid(AppName),
-        BasePath = nksip_config_cache:local_data_path(),
-        case nksip_sipapp_srv:update_uuid(AppId, AppName, BasePath) of
-            {ok, UUID} -> ok;
-            {error, Error} -> UUID = throw(Error)
-        end,
-        Environment = nksip_config_cache:app_config(),
-        Defaults = nksip_lib:defaults(Environment, default_config()),
-        Opts1 = nksip_lib:defaults(Opts, Defaults),
-        % Reverse so that first options win
-        Opts2 = parse_opts(lists:reverse(Opts1), []),
-        Plugins0 = nksip_lib:get_value(plugins, Opts, []),
-        Plugins = sort_plugins(Plugins0, []),
+        Opts1 = nksip_lib:delete(Opts, [id, uuid, sorted_plugins, cached_configs]),
+        Opts2 = parse_opts(Opts1, []),
+        Plugins = sort_plugins(nksip_lib:get_value(plugins, Opts2, []), []),
         Opts3 = [
             {id, AppId},
-            {plugins, Plugins}, 
             {uuid, UUID}, 
+            {sorted_plugins, Plugins}, 
             {cached_configs, []}
             |
             Opts2
@@ -164,13 +208,6 @@ insert_plugins([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
 %% @private Parse the list of app start options
 parse_opts([], Opts) ->
     Opts;
-
-parse_opts([{Ignore, _}|Rest], Opts) 
-        when Ignore==id; Ignore==plugins; Ignore==uuid; Ignore==cached_configs ->
-    parse_opts(Rest, Opts);
-
-parse_opts([Atom|Rest], Opts) when is_atom(Atom) ->
-    parse_opts([{Atom, true}|Rest], Opts);
 
 parse_opts([Term|Rest], Opts) ->
     Op = case Term of
@@ -271,20 +308,25 @@ parse_opts([Term|Rest], Opts) ->
         {log_level, Level} when Level>=0, Level=<8 -> {update, Level};
 
         _Other ->
-            unknown
+            update
     end,
     Opts1 = case Op of
-        unknown ->
-            [Term|Opts];
+        % unknown ->
+        %     [Term|Opts];
+        error when is_tuple(Term) -> 
+            throw({invalid_config, element(1, Term)});
+        error -> 
+            throw({invalid_config, Term});
         _ ->
             {Key, Val} = case Op of
                 update -> {element(1, Term), element(2, Term)};
                 {update, Val1} -> {element(1, Term), Val1};
-                {update, Key1, Val1} -> {Key1, Val1};
-                error when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
-                error -> throw({invalid_config, Term})
+                {update, Key1, Val1} -> {Key1, Val1}
             end,
-            nksip_lib:store_value(Key, Val, Opts)
+            case lists:keymember(Key, 1, Opts) of
+                true -> throw({invalid_config, {duplicated_key, Key}});
+                false -> [{Key, Val}|Opts]
+            end
     end,
     parse_opts(Rest, Opts1).
 
@@ -359,7 +401,7 @@ cache_syntax(Opts) ->
         {module, nksip_lib:get_value(module, Opts)},
         {uuid, nksip_lib:get_value(uuid, Opts)},
         {config, Opts},
-        {config_plugins, nksip_lib:get_value(plugins, Opts, [])},
+        {config_plugins, nksip_lib:get_value(sorted_plugins, Opts, [])},
         {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
@@ -376,24 +418,7 @@ cache_syntax(Opts) ->
         {config_events, nksip_lib:get_value(events, Opts, [])},
         {config_route, nksip_lib:get_value(route, Opts, [])},
         {config_local_host, nksip_lib:get_value(local_host, Opts, auto)},
-        {config_local_host6, nksip_lib:get_value(local_host6, Opts, auto)},
-        % {config_min_session_expires, nksip_lib:get_value(min_session_expires, Opts)},
-        {config_uac, lists:flatten([
-            tuple(local_host, Opts),
-            tuple(local_host6, Opts),
-            tuple(no_100, Opts),
-            tuple(from, Opts),
-            tuple(route, Opts)
-        ])},
-        {config_uac_proxy, lists:flatten([
-            tuple(local_host, Opts),
-            tuple(local_host6, Opts),
-            tuple(no_100, Opts)
-        ])},
-        {config_uas, lists:flatten([
-            tuple(local_host, Opts),
-            tuple(local_host6, Opts)
-        ])}
+        {config_local_host6, nksip_lib:get_value(local_host6, Opts, auto)}
     ] 
     ++
     [
@@ -406,17 +431,17 @@ cache_syntax(Opts) ->
         Cache).
 
 
-%% @private
-tuple(Name, Opts) ->
-    tuple(Name, Opts, []).
+% %% @private
+% tuple(Name, Opts) ->
+%     tuple(Name, Opts, []).
 
 
-%% @private
-tuple(Name, Opts, Default) ->
-    case nksip_lib:get_value(Name, Opts) of
-        undefined -> Default;
-        Value -> {Name, Value}
-    end.
+% %% @private
+% tuple(Name, Opts, Default) ->
+%     case nksip_lib:get_value(Name, Opts) of
+%         undefined -> Default;
+%         Value -> {Name, Value}
+%     end.
 
 
 %% @private Generates the ready-to-compile syntax of the generated callback module
