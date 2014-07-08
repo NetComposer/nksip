@@ -22,7 +22,7 @@
 -module(nksip_event_compositor_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([parse_config/3, store_get/3, store_put/5, store_del/3, store_del_all/1]).
+-export([store_get/3, store_put/5, store_del/3, store_del_all/1]).
 
 -include("../../../include/nksip.hrl").
 -include("nksip_event_compositor.hrl").
@@ -32,38 +32,6 @@
 %% ===================================================================
 %% Internal
 %% ===================================================================
-
-
-%% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {nksip_event_compositor_default_expires, Secs} ->
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        _ ->
-            unknown
-    end,
-    case Op of
-        update ->
-            Key = element(1, Term),
-            Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.
 
 
 %% @private

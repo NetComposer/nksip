@@ -26,7 +26,7 @@
 -include("../../../include/nksip_call.hrl").
 
 -export([check_auth/4]).
--export([version/0, deps/0, parse_config/2, parse_config/3]).
+-export([version/0, deps/0, parse_config/1, parse_config/2]).
 
 %% ===================================================================
 %% Plugin specific
@@ -49,19 +49,13 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
-    Defaults = [
-        {nksip_uac_auto_auth_max_tries, 5}
-    ],
-    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    parse_config(PluginOpts1, [], Config).
-
-
-
+parse_config(Opts) ->
+    Defaults = [{nksip_uac_auto_auth_max_tries, 5}],
+    Opts1 = nksip_lib:defaults(Opts, Defaults),
+    parse_config(Opts1, []).
 
 
 %% ===================================================================
@@ -111,16 +105,13 @@ check_auth(Req, Resp, UAC, Call) ->
 
 
 %% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
+-spec parse_config(nksip:optslist(), nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
+parse_config([], Opts) ->
+    {ok, lists:reverse(Opts)};
 
-
-parse_config([Term|Rest], Unknown, Config) ->
+parse_config([Term|Rest], Opts) ->
     Op = case Term of
         {nksip_uac_auto_auth_max_tries, Tries} ->
             case is_integer(Tries) andalso Tries>=0 of
@@ -130,26 +121,26 @@ parse_config([Term|Rest], Unknown, Config) ->
         {pass, PassTerm} ->
             case get_pass(PassTerm) of
                 {ok, Realm, Pass} ->
-                    Passes0 = nksip_lib:get_value(passes, Config, []),
+                    Passes0 = nksip_lib:get_value(passes, Opts, []),
                     Passes1 = nksip_lib:store_value(Realm, Pass, Passes0),
                     {update, passes, Passes1};
                 error ->
                     error
             end;
         {passes, Passes} when is_list(Passes) ->
-            Passes0 = nksip_lib:get_value(passes, Config, []),
+            Passes0 = nksip_lib:get_value(passes, Opts, []),
             {update, passes, Passes++Passes0};
         _ ->
             unknown
     end,
     case Op of
         {update, Key, Val} ->
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
+            Opts1 = [{Key, Val}|nksip_lib:delete(Opts, Key)],
+            parse_config(Rest, Opts1);
         error ->
             {error, {invalid_config, element(1, Term)}};
         unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
+            parse_config(Rest, [Term|Opts])
     end.
 
 

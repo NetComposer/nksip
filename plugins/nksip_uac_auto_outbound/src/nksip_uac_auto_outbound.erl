@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
+-export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
 
 -include("nksip_uac_auto_outbound.hrl").
 
@@ -49,11 +49,10 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
+parse_config(Opts) ->
     Defaults = [
         {nksip_uac_auto_outbound_default_udp_ttl, 25},
         {nksip_uac_auto_outbound_default_tcp_ttl, 120},
@@ -61,8 +60,38 @@ parse_config(PluginOpts, Config) ->
         {nksip_uac_auto_outbound_any_ok, 90},  
         {nksip_uac_auto_outbound_max_time, 1800}
     ],
-    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    parse_config(PluginOpts1, [], Config).
+    Opts1 = nksip_lib:defaults(Opts, Defaults),
+    try
+        case nksip_lib:get_value(nksip_uac_auto_outbound_all_fail, Opts1) of
+            undefined -> ok;
+            AllFail when is_integer(AllFail) andalso AllFail>=1 -> ok;
+            _ -> throw(nksip_uac_auto_outbound_all_fail)
+        end,
+        case nksip_lib:get_value(nksip_uac_auto_outbound_any_ok, Opts1) of
+            undefined -> ok;
+            AnyOk when is_integer(AnyOk) andalso AnyOk>=1 -> ok;
+            _ -> throw(nksip_uac_auto_outbound_any_ok)
+        end,
+        case nksip_lib:get_value(nksip_uac_auto_outbound_max_time, Opts1) of
+            undefined -> ok;
+            Max when is_integer(Max) andalso Max>=1 -> ok;
+            _ -> throw(nksip_uac_auto_outbound_max_time)
+        end,
+        case nksip_lib:get_value(nksip_uac_auto_outbound_default_udp_ttl, Opts1) of
+            undefined -> ok;
+            Udp when is_integer(Udp) andalso Udp>=1 -> ok;
+            _ -> throw(nksip_uac_auto_outbound_default_udp_ttl)
+        end,
+        case nksip_lib:get_value(nksip_uac_auto_outbound_default_tcp_ttl, Opts1) of
+            undefined -> ok;
+            Tcp when is_integer(Tcp) andalso Tcp>=1 -> ok;
+            _ -> throw(nksip_uac_auto_outbound_default_tcp_ttl)
+        end,
+        {ok, Opts1}
+    catch
+        throw:Name -> {error, {invalid_config, Name}}
+    end.
+
 
 
 %% @doc Called when the plugin is started 
@@ -136,59 +165,3 @@ get_registers(App) ->
     nksip:call(App, '$nksip_uac_auto_outbound_get_registers').
 
     
-
-%% ===================================================================
-%% Private
-%% ===================================================================
-
-% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {nksip_uac_auto_outbound_all_fail, Secs} ->
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        {nksip_uac_auto_outbound_any_ok, Secs} ->
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        {nksip_uac_auto_outbound_max_time, Secs} -> 
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        {nksip_uac_auto_outbound_default_udp_ttl, Secs} ->
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        {nksip_uac_auto_outbound_default_tcp_ttl, Secs} ->
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        _ ->
-            unknown
-    end,
-    case Op of
-        update ->
-            Key = element(1, Term),
-            Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.
-

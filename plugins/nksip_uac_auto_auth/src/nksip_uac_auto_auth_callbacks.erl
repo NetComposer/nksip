@@ -26,23 +26,23 @@
 -include("../../../include/nksip_call.hrl").
 
 
--export([nkcb_parse_uac_opt/3, nkcb_uac_response/4]).
+-export([nkcb_parse_uac_opts/2, nkcb_uac_response/4]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @doc Called to parse specific UAC options
--spec nkcb_parse_uac_opt(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+-spec nkcb_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()}.
 
-nkcb_parse_uac_opt(#sipmsg{app_id=AppId}=Req, Opts) ->
-    % Opts1 = case nksip_sipapp_srv:config(AppId, passes) of
-    %     undefined -> Opts;
-    %     AppPasses -> [{passes, AppPasses}|Opts]
-    % end,
-    case nksip_uac_auto_auth:parse_config(PluginOpts, [], Opts1) of
-        {ok, Unknown, Opts2} ->
-            {continue, [Unknown, Req, Opts2]};
+nkcb_parse_uac_opts(#sipmsg{app_id=AppId}=Req, Opts) ->
+    Opts1 = case nksip_sipapp_srv:config(AppId, passes) of
+        undefined -> Opts;
+        AppPasses -> [{passes, AppPasses}|Opts]
+    end,
+    case nksip_uac_auto_auth:parse_config(Opts1, []) of
+        {ok, Opts2} ->
+            {continue, [Req, Opts2]};
         {error, Error} ->
             {error, Error}
     end.

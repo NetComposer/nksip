@@ -25,7 +25,7 @@
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
 
--export([version/0, deps/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/1]).
 
 
 %% ===================================================================
@@ -49,23 +49,22 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
-    Allow = nksip_lib:get_value(allow, Config),
-    Config1 = case lists:member(<<"PRACK">>, Allow) of
+parse_config(Opts) ->
+    Allow = nksip_lib:get_value(allow, Opts),
+    Opts1 = case lists:member(<<"PRACK">>, Allow) of
         true -> 
-            Config;
+            Opts;
         false -> 
-            nksip_lib:store_value(allow, Allow++[<<"PRACK">>], Config)
+            nksip_lib:store_value(allow, Allow++[<<"PRACK">>], Opts)
     end,
-    Supported = nksip_lib:get_value(supported, Config),
-    Config2 = case lists:member(<<"100rel">>, Supported) of
-        true -> Config1;
-        false -> nksip_lib:store_value(supported, Supported++[<<"100rel">>], Config1)
+    Supported = nksip_lib:get_value(supported, Opts),
+    Opts2 = case lists:member(<<"100rel">>, Supported) of
+        true -> Opts1;
+        false -> nksip_lib:store_value(supported, Supported++[<<"100rel">>], Opts1)
     end,
-    {ok, PluginOpts, Config2}.
+    {ok, Opts2}.
 
 

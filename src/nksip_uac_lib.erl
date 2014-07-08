@@ -508,7 +508,7 @@ parse_opts([Term|Rest], Req, Opts) ->
     {nksip:request(), nksip:optslist()}.
 
 parse_plugin_opts(#sipmsg{app_id=AppId}=Req, Opts) ->
-    case AppId:nkcb_parse_uac_opt(Req, Opts) of
+    case AppId:nkcb_parse_uac_opts(Req, Opts) of
         {continue, [Req1, Opts1]} ->
             {Req1, Opts1};
         {error, Error} ->

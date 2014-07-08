@@ -25,7 +25,7 @@
 -compile({no_auto_import, [get/1, put/2]}).
 
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
+-export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
@@ -52,54 +52,21 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
-    case parse_config(PluginOpts, [], Config) of
-        {ok, Unknown, Config1} ->
-            Trace = nksip_lib:get_value(nksip_debug, Config1),
-            Cached1 = nksip_lib:get_value(cached_configs, Config1, []),
+parse_config(Opts) ->
+    case nksip_lib:get_value(nksip_debug, Opts) of
+        {nksip_debug, Trace} when is_boolean(Trace) ->
+            Cached1 = nksip_lib:get_value(cached_configs, Opts, []),
             Cached2 = nksip_lib:store_value(config_nksip_debug, Trace, Cached1),
-            Config2 = nksip_lib:store_value(cached_configs, Cached2, Config1),
-            {ok, Unknown, Config2};
-        {error, Error} ->
-            {error, Error}
+            Opts1 = nksip_lib:store_value(cached_configs, Cached2, Opts),
+            {ok, Opts1};
+        {nksip_debug, _} ->
+            {error, {invalid_config, nksip_debug}};
+        false ->
+            {ok, Opts}
     end.
-
-
-%% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {nksip_debug, Bool} ->
-            case Bool of
-                true -> {update, true};
-                false -> {update, false};
-                _ -> error
-            end;
-       _ ->
-            unknown
-    end,
-    case Op of
-        {update, true} ->
-            Config1 = [{nksip_debug, true}|lists:keydelete(nksip_debug, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.
-
-
 
 
 %% @doc Called when the plugin is started 

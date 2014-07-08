@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([info/0, get_uas_avg/0, response_time/1]).
--export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
+-export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
 
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
@@ -54,16 +54,16 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
+
+parse_config(Opts) ->
     case nksip_config:get(nksip_stats_period) of
         undefined ->
-            {ok, PluginOpts, Config};
+            {ok, Opts};
         Period when is_integer(Period), Period>0 ->
-            {ok, PluginOpts, Config};
+            {ok, Opts};
         _ ->
             {error, {invalid_global_config, nksip_stats_period}}
     end.

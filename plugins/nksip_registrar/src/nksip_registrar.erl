@@ -27,7 +27,7 @@
 
 -export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
--export([version/0, deps/0, parse_config/2, terminate/2]).
+-export([version/0, deps/0, parse_config/1, terminate/2]).
 -export_type([reg_contact/0]).
 
 
@@ -60,37 +60,47 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
+parse_config(Opts) ->
     Defaults = [
         {nksip_registrar_default_time, 3600},     % (secs) 1 hour
         {nksip_registrar_min_time, 60},           % (secs) 1 min
         {nksip_registrar_max_time, 86400}         % (secs) 24 hour
     ],
-    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    Allow = nksip_lib:get_value(allow, Config),
-    Config1 = case lists:member(<<"REGISTER">>, Allow) of
+    Opts1 = nksip_lib:defaults(Opts, Defaults),
+    Allow = nksip_lib:get_value(allow, Opts1),
+    Opts2 = case lists:member(<<"REGISTER">>, Allow) of
         true -> 
-            Config;
+            Opts1;
         false -> 
-            nksip_lib:store_value(allow, Allow++[<<"REGISTER">>], Config)
+            nksip_lib:store_value(allow, Allow++[<<"REGISTER">>], Opts1)
     end,
-    case nksip_registrar_lib:parse_config(PluginOpts1, [], Config1) of
-        {ok, Unknown, Config2} ->
-            Times = #nksip_registrar_time{
-                min = nksip_lib:get_value(nksip_registrar_min_time, Config2),
-                max = nksip_lib:get_value(nksip_registrar_max_time, Config2),
-                default = nksip_lib:get_value(nksip_registrar_default_time, Config2)
-            },
-            Cached1 = nksip_lib:get_value(cached_configs, Config2, []),
-            Cached2 = nksip_lib:store_value(config_nksip_registrar_times, Times, Cached1),
-            Config3 = nksip_lib:store_value(cached_configs, Cached2, Config2),
-            {ok, Unknown, Config3};
-        {error, Error} ->
-            {error, Error}
+    try
+        case nksip_lib:get_value(nksip_registrar_default_time, Opts) of
+            Def when is_integer(Def), Def>=5 -> ok;
+            _ -> throw(nksip_registrar_default_time)
+        end,
+        case nksip_lib:get_value(nksip_registrar_min_time, Opts) of
+            Min when is_integer(Min), Min>=1 -> ok;
+            _ -> throw(nksip_registrar_min_time)
+        end,
+        case nksip_lib:get_value(nksip_registrar_max_time, Opts) of
+            Max when is_integer(Max), Max>=60 -> ok;
+            _ -> throw(nksip_registrar_max_time)
+        end,
+        Times = #nksip_registrar_time{
+            min = nksip_lib:get_value(nksip_registrar_min_time, Opts2),
+            max = nksip_lib:get_value(nksip_registrar_max_time, Opts2),
+            default = nksip_lib:get_value(nksip_registrar_default_time, Opts2)
+        },
+        Cached1 = nksip_lib:get_value(cached_configs, Opts2, []),
+        Cached2 = nksip_lib:store_value(config_nksip_registrar_times, Times, Cached1),
+        Opts3 = nksip_lib:store_value(cached_configs, Cached2, Opts2),
+        {ok, Opts3}
+    catch
+        throw:OptName -> {error, {invalid_config, OptName}}
     end.
 
 

@@ -31,7 +31,7 @@
 -include("nksip_event_compositor.hrl").
 
 -export([find/3, request/1, clear/1]).
--export([version/0, deps/0, parse_config/2, terminate/2]).
+-export([version/0, deps/0, parse_config/1, terminate/2]).
 -export_type([reg_publish/0]).
 
 
@@ -63,23 +63,26 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
-    Defaults = [
-        {nksip_event_compositor_default_expires, 60}
-    ],
-    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    Allow = nksip_lib:get_value(allow, Config),
-    Config1 = case lists:member(<<"PUBLISH">>, Allow) of
+parse_config(Opts) ->
+    Defaults = [{nksip_event_compositor_default_expires, 60}],
+    Opts1 = nksip_lib:defaults(Opts, Defaults),
+    Allow = nksip_lib:get_value(allow, Opts1),
+    Opts2 = case lists:member(<<"PUBLISH">>, Allow) of
         true -> 
-            Config;
+            Opts1;
         false -> 
-            nksip_lib:store_value(allow, Allow++[<<"PUBLISH">>], Config)
+            nksip_lib:store_value(allow, Allow++[<<"PUBLISH">>], Opts1)
     end,
-    nksip_event_compositor_lib:parse_config(PluginOpts1, [], Config1).
+    case nksip_lib:get_value(nksip_event_compositor_default_expires, Opts2) of
+        Secs when is_integer(Secs), Secs>=1 ->
+            {ok, Opts2};
+        _ ->
+            {error, {invalid_config, nksip_event_compositor_default_expires}}
+    end.
+
 
 
 %% @doc Called when the plugin is shutdown

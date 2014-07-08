@@ -24,7 +24,7 @@
 
 -export([start_ping/4, stop_ping/2, get_pings/1]).
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, deps/0, parse_config/2, init/2, terminate/2]).
+-export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
 
 -include("nksip_uac_auto_register.hrl").
 
@@ -50,16 +50,18 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
-    Defaults = [
-        {nksip_uac_auto_register_timer, 5}                     % (secs)
-    ],
-    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),
-    parse_config(PluginOpts1, [], Config).
+parse_config(Opts) ->
+    Defaults = [{nksip_uac_auto_register_timer, 5}],                   % (secs)
+    Opts1 = nksip_lib:defaults(Opts, Defaults),
+    case nksip_lib:get_value(nksip_uac_auto_register_timer, Opts1) of
+        Timer when is_integer(Timer), Timer>0 -> 
+            {ok, Opts1};
+        _ -> 
+            {error, {invalid_config, nksip_uac_auto_register_timer}}
+    end.
 
 
 %% @doc Called when the plugin is started 
@@ -186,39 +188,3 @@ stop_ping(App, PingId) ->
 get_pings(App) ->
     nksip:call(App, '$nksip_uac_auto_register_get_pings').
 
-
-%% ===================================================================
-%% Private
-%% ===================================================================
-
-
-% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {nksip_uac_auto_register_timer, Timer} ->
-            case is_integer(Timer) andalso Timer>0 of
-                true -> update;
-                false -> error
-            end;
-        _ ->
-            unknown
-    end,
-    case Op of
-        update ->
-            Key = element(1, Term),
-            Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.

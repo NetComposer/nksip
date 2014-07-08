@@ -27,7 +27,7 @@
 -include("nksip_registrar.hrl").
 
 -export([find/2, find/4, qfind/4, is_registered/2, request/1]).
--export([parse_config/3, get_info/4, make_contact/1]).
+-export([get_info/4, make_contact/1]).
 -export([store_get/2, store_del/2, store_del_all/1]).
 
 -define(AES_IV, <<"12345678abcdefgh">>).
@@ -53,48 +53,6 @@
 %% ===================================================================
 %% Internal
 %% ===================================================================
-
-
-%% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {nksip_registrar_default_time, Secs} ->
-            case is_integer(Secs) andalso Secs>=5 of
-                true -> update;
-                false -> error
-            end;
-        {nksip_registrar_min_time, Secs} ->
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        {nksip_registrar_max_time, Secs} ->
-            case is_integer(Secs) andalso Secs>=60 of
-                true -> update;
-                false -> error
-            end;
-        _ ->
-            unknown
-    end,
-    case Op of
-        update ->
-            Key = element(1, Term),
-            Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.
 
 
 %% @private

@@ -73,8 +73,8 @@ parse_config(Opts) ->
         Environment = nksip_config_cache:app_config(),
         Defaults = nksip_lib:defaults(Environment, default_config()),
         Opts1 = nksip_lib:defaults(Opts, Defaults),
-        % Reverse to process last (and win) the first options
-        {Opts2, PluginOpts} = parse_opts(lists:reverse(Opts1), [], []),
+        % Reverse so that first options win
+        Opts2 = parse_opts(lists:reverse(Opts1), []),
         Plugins0 = nksip_lib:get_value(plugins, Opts, []),
         Plugins = sort_plugins(Plugins0, []),
         Opts3 = [
@@ -85,7 +85,7 @@ parse_config(Opts) ->
             |
             Opts2
         ],
-        Opts4 = parse_plugins_opts(Plugins, Opts3, PluginOpts),
+        Opts4 = parse_plugins_opts(Plugins, Opts3),
         Cache = cache_syntax(Opts4),
         PluginCallbacks = plugin_callbacks_syntax([nksip|Plugins]),
         PluginModules = [
@@ -162,17 +162,17 @@ insert_plugins([], _Name, _Ver, [{DepName, _}|_], _Acc) ->
 
 
 %% @private Parse the list of app start options
-parse_opts([], RestOpts, Opts) ->
-    {Opts, lists:reverse(RestOpts)};
+parse_opts([], Opts) ->
+    Opts;
 
-parse_opts([{Ignore, _}|Rest], RestOpts, Opts) 
+parse_opts([{Ignore, _}|Rest], Opts) 
         when Ignore==id; Ignore==plugins; Ignore==uuid; Ignore==cached_configs ->
-    parse_opts(Rest, RestOpts, Opts);
+    parse_opts(Rest, Opts);
 
-parse_opts([Atom|Rest], RestOpts, Opts) when is_atom(Atom) ->
-    parse_opts([{Atom, true}|Rest], RestOpts, Opts);
+parse_opts([Atom|Rest], Opts) when is_atom(Atom) ->
+    parse_opts([{Atom, true}|Rest], Opts);
 
-parse_opts([Term|Rest], RestOpts, Opts) ->
+parse_opts([Term|Rest], Opts) ->
     Op = case Term of
 
         % Internal options
@@ -273,9 +273,9 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
         _Other ->
             unknown
     end,
-    {Opts1, RestOpts1} = case Op of
+    Opts1 = case Op of
         unknown ->
-            {Opts, [Term|RestOpts]};
+            [Term|Opts];
         _ ->
             {Key, Val} = case Op of
                 update -> {element(1, Term), element(2, Term)};
@@ -284,33 +284,26 @@ parse_opts([Term|Rest], RestOpts, Opts) ->
                 error when is_tuple(Term) -> throw({invalid_config, element(1, Term)});
                 error -> throw({invalid_config, Term})
             end,
-            {nksip_lib:store_value(Key, Val, Opts), RestOpts}
+            nksip_lib:store_value(Key, Val, Opts)
     end,
-    parse_opts(Rest, RestOpts1, Opts1).
+    parse_opts(Rest, Opts1).
 
 
 %% @private
-parse_plugins_opts([], ConfigOpts, []) ->
-    ConfigOpts;
+parse_plugins_opts([], Opts) ->
+    Opts;
 
-parse_plugins_opts([], ConfigOpts, PluginOpts) ->
-    lager:notice("Ignoring unrecognized options starting '~p' SipApp: ~p",
-                 [nksip_lib:get_value(name, ConfigOpts), PluginOpts]),
-    ConfigOpts;
-
-parse_plugins_opts([Plugin|RestPlugins], ConfigOpts, PluginOpts) ->
-    % ?P("CALLING ~p, ~p, ~p", [Plugin, PluginOpts, ConfigOpts]),
-    case erlang:function_exported(Plugin, parse_config, 2) of
+parse_plugins_opts([Plugin|RestPlugins], Opts) ->
+    case erlang:function_exported(Plugin, parse_config, 1) of
         true -> 
-            case Plugin:parse_config(PluginOpts, ConfigOpts) of
-                {ok, PluginOpts1, ConfigOpts1} ->
-                    % ?P("OK: ~p, ~p", [PluginOpts1, ConfigOpts1]),
-                    parse_plugins_opts(RestPlugins, ConfigOpts1, PluginOpts1);
+            case Plugin:parse_config(Opts) of
+                {ok, Opts1} ->
+                    parse_plugins_opts(RestPlugins, Opts1);
                 {error, Error} ->
                     throw(Error)
             end;
         false ->
-            parse_plugins_opts(RestPlugins, ConfigOpts, PluginOpts)
+            parse_plugins_opts(RestPlugins, Opts)
     end.
 
 

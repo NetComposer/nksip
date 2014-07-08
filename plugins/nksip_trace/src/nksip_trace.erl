@@ -28,7 +28,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
--export([version/0, deps/0, parse_config/2, terminate/2]).
+-export([version/0, deps/0, parse_config/1, terminate/2]).
 
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
@@ -61,37 +61,51 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
-    Defaults = [
-        {nksip_trace, {console, all}}
-    ],
-    PluginOpts1 = nksip_lib:defaults(PluginOpts, Defaults),    
-    case parse_config(PluginOpts1, [], Config) of
-        {ok, Unknown, Config1} ->
-            {File, IpList} = nksip_lib:get_value(nksip_trace, Config1),
-            AppId = nksip_lib:get_value(id, Config),
-            close_file(AppId),
-            case open_file(AppId, File) of
-                ok -> 
-                    case compile_ips(IpList, []) of
-                        {ok, CompIpList} ->
-                            Cached1 = nksip_lib:get_value(cached_configs, Config1, []),
-                            Cached2 = nksip_lib:store_value(config_nksip_trace,
-                                                            {File, CompIpList}, Cached1),
-                            Config2 = nksip_lib:store_value(cached_configs, Cached2, Config1),
-                            {ok, Unknown, Config2};
-                        error ->
-                            {error, {invalid_config, {invalid_re, IpList}}}
-                    end;
-                error -> 
-                    {error, {invalid_config, {could_not_open, File}}}
-            end;
-        {error, Error} ->
-            {error, Error}
+parse_config(Opts) ->
+    Defaults = [{nksip_trace, {console, all}}],
+    Opts1 = nksip_lib:defaults(Opts, Defaults),    
+    try
+        {File, IpList} = case nksip_lib:get_value(nksip_trace, Opts1) of
+            {File0, IpList0} -> 
+                case norm_file(File0) of
+                    {ok, File1} ->
+                        case norm_iplist(IpList0, []) of
+                            {ok, IpList1} -> {File1, IpList1};
+                            error -> throw({invalid_re, IpList0})
+                        end;
+                    error ->
+                        throw({invalid_file, File0})
+                end;
+            File0 -> 
+                case norm_file(File0) of
+                    {ok, File1} -> 
+                        {File1, all};
+                    error ->
+                        throw({invalid_file, File0})
+                end
+        end,
+        AppId = nksip_lib:get_value(id, Opts1),
+        close_file(AppId),
+        case open_file(AppId, File) of
+            ok -> 
+                case compile_ips(IpList, []) of
+                    {ok, CompIpList} ->
+                        Cached1 = nksip_lib:get_value(cached_configs, Opts1, []),
+                        Cached2 = nksip_lib:store_value(config_nksip_trace,
+                                                        {File, CompIpList}, Cached1),
+                        Opts2 = nksip_lib:store_value(cached_configs, Cached2, Opts1),
+                        {ok, Opts2};
+                    error ->
+                        throw({invalid_re, IpList})
+                end;
+            error -> 
+                throw({invalid_config, {could_not_open, File}})
+        end
+    catch
+        throw:Error -> {error, {invalid_config, Error}}
     end.
 
 
@@ -240,48 +254,6 @@ sipmsg(AppId, _CallId, Header, Transport, Binary) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
-
-
-%% @private
--spec parse_config(PluginConfig, Unknown, Config) ->
-    {ok, Unknown, Config} | {error, term()}
-    when PluginConfig::nksip:optslist(), Unknown::nksip:optslist(), 
-         Config::nksip:optslist().
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {nksip_trace, {File, IpList}} -> 
-            case norm_file(File) of
-                {ok, File1} ->
-                    case norm_iplist(IpList, []) of
-                        {ok, IpList1} -> {update, {File1, IpList1}};
-                        error -> {invalid_re, IpList}
-                    end;
-                error ->
-                    {error, {invalid_file, File}}
-            end;
-        {nksip_trace, File} -> 
-            case norm_file(File) of
-                {ok, File1} -> 
-                    {update, {File1, all}};
-                error ->
-                    {error, {invalid_file, File}}
-            end;
-        _ ->
-            unknown
-    end,
-    case Op of
-        {update, Trace} ->
-            Config1 = [{nksip_trace, Trace}|lists:keydelete(nksip_trace, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        {error, OpError} ->
-            {error, {invalid_config, OpError}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.
 
 
 %% @private

@@ -24,7 +24,7 @@
 
 -include("../../../include/nksip.hrl").
 
--export([version/0, deps/0, parse_config/2]).
+-export([version/0, deps/0, parse_config/1]).
 
 
 %% ===================================================================
@@ -48,17 +48,16 @@ deps() ->
 
 
 %% @doc Parses this plugin specific configuration
--spec parse_config(PluginOpts, Config) ->
-    {ok, PluginOpts, Config} | {error, term()} 
-    when PluginOpts::nksip:optslist(), Config::nksip:optslist().
+-spec parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(PluginOpts, Config) ->
-    Supported = nksip_lib:get_value(supported, Config),
-    Config1 = case lists:member(<<"outbound">>, Supported) of
-        true -> Config;
-        false -> nksip_lib:store_value(supported, Supported++[<<"outbound">>], Config)
+parse_config(Opts) ->
+    Supported = nksip_lib:get_value(supported, Opts),
+    Opts1 = case lists:member(<<"outbound">>, Supported) of
+        true -> Opts;
+        false -> nksip_lib:store_value(supported, Supported++[<<"outbound">>], Opts)
     end,
-    nksip_registrar_lib:parse_config(PluginOpts, [], Config1).
+    {ok, Opts1}.
 
 
 

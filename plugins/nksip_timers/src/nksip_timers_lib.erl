@@ -25,7 +25,7 @@
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
 
--export([parse_config/3, parse_uac_config/3]).
+-export([parse_uac_config/3]).
 -export([uac_received_422/4, uac_update_timer/3, uas_check_422/2, uas_update_timer/3]).
 -export([timer_update/5, proxy_request/2, proxy_response/2]).
 
@@ -36,42 +36,6 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
-
-
-%% @private
--spec parse_config(nksip:optslist(), nksip:optslist(), nksip:optslist()) ->
-    {ok, nksip:optslist(), nksip:optslist()} | {error, term()}.
-
-parse_config([], Unknown, Config) ->
-    {ok, Unknown, Config};
-
-parse_config([Term|Rest], Unknown, Config) ->
-    Op = case Term of
-        {nksip_timers_se, Secs} ->
-            case is_integer(Secs) andalso Secs>=5 of
-                true -> update;
-                false -> error
-            end;
-        {nksip_timers_min_se, Secs} ->
-            case is_integer(Secs) andalso Secs>=1 of
-                true -> update;
-                false -> error
-            end;
-        _ ->
-            unknown
-    end,
-    case Op of
-        update ->
-            Key = element(1, Term),
-            Val = element(2, Term),
-            Config1 = [{Key, Val}|lists:keydelete(Key, 1, Config)],
-            parse_config(Rest, Unknown, Config1);
-        error ->
-            {error, {invalid_config, element(1, Term)}};
-        unknown ->
-            parse_config(Rest, [Term|Unknown], Config)
-    end.
-
 
 
 %% @private

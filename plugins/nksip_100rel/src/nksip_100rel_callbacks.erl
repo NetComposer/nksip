@@ -25,7 +25,7 @@
 -include("../../../include/nksip.hrl").
 -include("../../../include/nksip_call.hrl").
 
--export([nkcb_parse_uac_opt/2, 
+-export([nkcb_parse_uac_opts/2, 
          nkcb_uac_pre_response/3, nkcb_uac_response/4, 
          nkcb_parse_uas_opt/3, nkcb_uas_timer/3,
          nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4]).
@@ -36,15 +36,14 @@
 
 
 %% @doc Called to parse specific UAC options
--spec nkcb_parse_uac_opt(nksip:request(), nksip:optslist()) ->
+-spec nkcb_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {error, term()}|{continue, list()}.
 
-nkcb_parse_uac_opt(Req, Opts) ->
-    case lists:ketyake(prack_callback, 1, Opts) of
-        {value, {prack_callback, Fun}, Opts1} when is_function(Fun, 2) ->
-            Opts2 = [{pass_through, {prack_callback, Fun}}|Opts1],
-            {continue, [Req, Opts2]};
-        {value, _, _} ->
+nkcb_parse_uac_opts(Req, Opts) ->
+    case lists:keyfind(prack_callback, 1, Opts) of
+        {prack_callback, Fun} when is_function(Fun, 2) ->
+            {continue, [Req, Opts]};
+        {prack_callback, _} ->
             {error, {invalid_config, prack_callback}};
         false ->
             {continue, [Req, Opts]} 
