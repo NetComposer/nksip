@@ -397,10 +397,10 @@ parse_opts([Term|Rest], Req, Opts) ->
             {update, Req, [{reg_id, RegId}|Opts]};
         {reg_id, _} ->
             error;
-        {refer_subscription_id, Refer} when is_binary(Refer) ->
-            {update, Req, [{refer_subscription_id, Refer}|Opts]};
-        {refer_subscription_id, _} ->
-            error;
+        % {refer_subscription_id, Refer} when is_binary(Refer) ->
+        %     {update, Req, [{refer_subscription_id, Refer}|Opts]};
+        % {refer_subscription_id, _} ->
+        %     error;
 
         %% Automatic header generation (replace existing headers)
         user_agent ->

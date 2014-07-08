@@ -28,7 +28,8 @@
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
 		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
 -export([nkcb_uac_pre_response/3, nkcb_uac_response/4, nkcb_parse_uac_opts/2,
-		 nkcb_uac_proxy_opts/2, nkcb_make_uac_dialog/4, nkcb_uac_pre_request/4]).
+		 nkcb_uac_proxy_opts/2, nkcb_make_uac_dialog/4, nkcb_uac_pre_request/4,
+		 nkcb_uac_reply/3]).
 -export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/3, nkcb_uas_timer/3, nkcb_uas_dialog_response/4, nkcb_uas_process/2]).
 -export([nkcb_dialog_update/3, nkcb_route/4]).
 -export([nkcb_connection_send/2, nkcb_connection_recv/2]).
@@ -161,6 +162,15 @@ nkcb_make_uac_dialog(Method, Uri, Opts, Call) ->
 
 nkcb_uac_pre_request(Req, Opts, From, Call) ->
 	{continue, [Req, Opts, From, Call]}.
+
+
+%% @doc Called when the UAC must send a reply to the user
+-spec nkcb_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
+                     nksip_call:trans(), nksip_call:call()) ->
+    {ok, nksip:call()} | {continue, list()}.
+
+nkcb_uac_reply(Class, UAC, Call) ->
+    {continue, [Class, UAC, Call]}.
 
 
 %% @doc Called to add headers just before sending the request

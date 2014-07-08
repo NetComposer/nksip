@@ -33,10 +33,25 @@
 %% ===================================================================
 
 %% @private
--spec reply(req | resp | {error, term()}, nksip_call:trans(), nksip_call:call()) ->
+-spec reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
+            nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
+reply(Class, UAC, #call{app_id=AppId}=Call) ->
+    case AppId:nkcb_uac_reply(Class, UAC, Call) of
+        {continue, [Class1, UAC1, Call1]} ->
+            do_reply(Class1, UAC1, Call1);
+        {ok, Call1} ->
+            {ok, Call1}
+    end.
+
+
+%% @private
+-spec do_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
+               nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:call().
+
+do_reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
     CB = nksip_lib:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case 
@@ -52,7 +67,7 @@ reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
     end,
     Call;
 
-reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
+do_reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
     CB = nksip_lib:get_value(callback, Opts),
     case is_function(CB, 1) andalso lists:member(get_request, Opts) of
         true -> call(CB, {req, Req, Call});
@@ -60,28 +75,28 @@ reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
     end,
     Call;
 
-reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
-    #sipmsg{class={resp, Code, Reason}} = Resp,
-    case nksip_lib:get_value(refer_subscription_id, Opts) of
-        undefined -> 
-            ok;
-        SubsId ->
-            Sipfrag = <<
-                "SIP/2.0 ", (nksip_lib:to_binary(Code))/binary, 32,
-                Reason/binary
-            >>,
-            NotifyOpts = [
-                async, 
-                {content_type, <<"message/sipfrag;version=2.0">>}, 
-                {body, Sipfrag},
-                {subscription_state, 
-                    case Code>=200 of 
-                        true -> {terminated, noresource}; 
-                        false -> active
-                    end}
-            ],
-            nksip_uac:notify(SubsId, NotifyOpts)
-    end,
+do_reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
+    #sipmsg{class={resp, Code, _Reason}} = Resp,
+    % case nksip_lib:get_value(refer_subscription_id, Opts) of
+    %     undefined -> 
+    %         ok;
+    %     SubsId ->
+    %         Sipfrag = <<
+    %             "SIP/2.0 ", (nksip_lib:to_binary(Code))/binary, 32,
+    %             Reason/binary
+    %         >>,
+    %         NotifyOpts = [
+    %             async, 
+    %             {content_type, <<"message/sipfrag;version=2.0">>}, 
+    %             {body, Sipfrag},
+    %             {subscription_state, 
+    %                 case Code>=200 of 
+    %                     true -> {terminated, noresource}; 
+    %                     false -> active
+    %                 end}
+    %         ],
+    %         nksip_uac:notify(SubsId, NotifyOpts)
+    % end,
     CB = nksip_lib:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case 
@@ -97,7 +112,7 @@ reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     end,
     Call;
 
-reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
+do_reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
     CB = nksip_lib:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case is_function(CB, 1) andalso Async of
@@ -110,13 +125,13 @@ reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
     end,
     Call;
 
-reply({req, _}, #trans{from={fork, _}}, Call) ->
+do_reply({req, _}, #trans{from={fork, _}}, Call) ->
     Call;
 
-reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
+do_reply({resp, Resp}, #trans{id=Id, from={fork, ForkId}}, Call) ->
     nksip_call_fork:response(ForkId, Id, Resp, Call);
 
-reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
+do_reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Reply = case nksip_reply:parse(Error) of
         error -> 
             ?call_notice("Invalid proxy internal response: ~p", [Error]),
@@ -129,7 +144,7 @@ reply({error, Error}, #trans{id=Id, from={fork, ForkId}, request=Req}, Call) ->
     Resp1 = Resp#sipmsg{vias=[#via{}|Resp#sipmsg.vias]},
     nksip_call_fork:response(ForkId, Id, Resp1, Call);
 
-reply(_, #trans{from=none}, Call) ->
+do_reply(_, #trans{from=none}, Call) ->
     Call.
 
 

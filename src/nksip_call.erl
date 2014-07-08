@@ -27,6 +27,7 @@
 -module(nksip_call).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-export([app_id/1, call_id/1]).
 -export([send/2, send/4, send_dialog/3, cancel/1, send_reply/2]).
 -export([find_dialog/1]).
 -export([get_authorized_list/1, clear_authorized_list/1, stop_dialog/1]).
@@ -75,6 +76,22 @@
 %% ===================================================================
 %% Public
 %% ===================================================================
+
+%% @doc Gets the AppId
+-spec app_id(call()) ->
+    nksip:app_id().
+
+app_id(#call{app_id=AppId}) ->
+    AppId.
+
+
+%% @doc Gets the CallId
+-spec call_id(call()) ->
+    nksip:call_id().
+
+call_id(#call{call_id=CallId}) ->
+    CallId.
+
 
 %% @doc Sends a new request.
 -spec send(nksip:request(), nksip:optslist()) ->
