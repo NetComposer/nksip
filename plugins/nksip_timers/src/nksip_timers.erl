@@ -52,27 +52,31 @@ parse_config(Opts) ->
     ],
     Opts1 = nksip_lib:defaults(Opts, Defaults),
     Supported = nksip_lib:get_value(supported, Opts),
-    Opts1 = case lists:member(<<"timer">>, Supported) of
-        true -> Opts;
-        false -> nksip_lib:store_value(supported, Supported++[<<"timer">>], Opts)
+    Opts2 = case lists:member(<<"timer">>, Supported) of
+        true -> Opts1;
+        false -> nksip_lib:store_value(supported, Supported++[<<"timer">>], Opts1)
     end,
     try
-        case nksip_lib:get_value(nksip_timers_se, Opts) of
-            SE when is_integer(SE), SE>=5 -> ok;
-            _ -> throw(nksip_timers_se)
+        case nksip_lib:get_value(nksip_timers_se, Opts2) of
+            SE when is_integer(SE), SE>=5 -> 
+                ok;
+            _ -> 
+                throw(nksip_timers_se)
         end,
-        case nksip_lib:get_value(nksip_timers_min_se, Opts) of
-            MinSE when is_integer(MinSE), MinSE>=1 -> ok;
-            _ -> throw(nksip_timers_min_se)
+        case nksip_lib:get_value(nksip_timers_min_se, Opts2) of
+            MinSE when is_integer(MinSE), MinSE>=1 -> 
+                ok;
+            _ -> 
+                throw(nksip_timers_min_se)
         end,
         Times = {
-            nksip_lib:get_value(nksip_timers_se, Opts1),
-            nksip_lib:get_value(nksip_timers_min_se, Opts1)
+            nksip_lib:get_value(nksip_timers_se, Opts2),
+            nksip_lib:get_value(nksip_timers_min_se, Opts2)
         },
-        Cached1 = nksip_lib:get_value(cached_configs, Opts1, []),
+        Cached1 = nksip_lib:get_value(cached_configs, Opts2, []),
         Cached2 = nksip_lib:store_value(config_nksip_timers, Times, Cached1),
-        Opts2 = nksip_lib:store_value(cached_configs, Cached2, Opts1),
-        {ok, Opts2}
+        Opts3 = nksip_lib:store_value(cached_configs, Cached2, Opts2),
+        {ok, Opts3}
     catch
         throw:OptName -> {error, {invalid_config, OptName}}
     end.

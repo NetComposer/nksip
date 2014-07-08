@@ -425,9 +425,8 @@ ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call
 
  %% @private
 -spec make(integer(), nksip:method(), nksip:optslist(), nksip_call:call()) ->
-    {ok, {AppId, RUri, Opts}, nksip_call:call()} | {error, Error}
-    when Error :: invalid_dialog | unknown_dialog | unknown_subscription,
-         AppId::nksip:app_id(), RUri::nksip:uri(), Opts::nksip:optslist().
+    {ok, RUri::nksip:uri(), nksip:optslist(), nksip_call:call()} | {error, Error}
+    when Error :: invalid_dialog | unknown_dialog | unknown_subscription.
 
 make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
@@ -440,14 +439,18 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
                 _ when Method=='SUBSCRIBE'; Method=='NOTIFY' ->
                     case nksip_call_event:request_uac_opts(Method, Opts, Dialog) of
                         {ok, Opts1} -> 
-                            {Result, Dialog1} = generate(Method, Opts1, Dialog, Call),
-                            {ok, Result, store(Dialog1, Call)};
+                            {RUri, Opts2, Dialog1} = generate(Method, Opts1, Dialog, Call),
+                            {continue, [RUri2, Opts3, Dialog3, Call3]} = 
+                                nkcb_
+
+
+                            {ok, RUri, Opts2, store(Dialog1, Call)};
                         {error, Error} ->
                             {error, Error}
                     end;
                 _ ->
-                    {Result, Dialog1} = generate(Method, Opts, Dialog, Call),
-                    {ok, Result, store(Dialog1, Call)}
+                    {RUri, Opts2, Dialog1} = generate(Method, Opts, Dialog, Call),
+                    {ok, RUri, Opts2, store(Dialog1, Call)}
             end;
         _ ->
             {error, unknown_dialog}
@@ -578,7 +581,7 @@ generate(Method, Opts, Dialog, Call) ->
             end
             | Opts
         ],
-    {{RUri, Opts1}, Dialog#dialog{local_seq=LCSeq}}.
+    {RUri, Opts1, Dialog#dialog{local_seq=LCSeq}}.
 
 
 

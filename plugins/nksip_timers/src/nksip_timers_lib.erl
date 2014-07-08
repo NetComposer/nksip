@@ -26,7 +26,7 @@
 -include("../../../include/nksip_call.hrl").
 
 -export([parse_uac_config/3]).
--export([uac_received_422/4, uac_update_timer/3, uas_check_422/2, uas_update_timer/3]).
+-export([uac_received_422/4, make_uac_dialog/3, uas_check_422/2, uas_update_timer/3]).
 -export([timer_update/5, proxy_request/2, proxy_response/2]).
 
 
@@ -84,58 +84,47 @@ parse_uac_config([Term|Rest], Req, Opts) ->
 timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
              #dialog{invite=#invite{status=confirmed}}=Dialog, Call)
              when Code>=200 andalso Code<300 ->
-    #dialog{id=DialogId, invite=Invite} = Dialog,
-    #invite{
-        % class from #invite{} can only be used for INVITE, not UPDATE
-        retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer, 
-        meta = Meta
-    } = Invite,
+    #dialog{id=DialogId, invite=Invite, meta=Meta} = Dialog,
+   % class from #invite{} can only be used for INVITE, not UPDATE
+    #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
     RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
     nksip_lib:cancel_timer(RetransTimer),
     nksip_lib:cancel_timer(TimeoutTimer),
     nksip_lib:cancel_timer(RefreshTimer),
     Meta1 = nksip_lib:delete(Meta, [nksip_timers_refresh, nksip_timers_se]),
-    Invite1 = case get_timer(Req, Resp, Class, Call) of
+    case get_timer(Req, Resp, Class, Call) of
         {refresher, SE} ->
-            TimeoutTimer1 = start_timer(1000*SE, invite_timeout, DialogId),
-            Refresh = start_timer(500*SE, invite_refresh, DialogId),
+            Invite1 = Invite#invite{
+                retrans_timer = undefined,
+                timeout_timer = start_timer(1000*SE, invite_timeout, DialogId)
+            },
             Meta2 = [
                 {nksip_timers_se, SE}, 
-                {nksip_timers_refresh, Refresh}
+                {nksip_timers_refresh, start_timer(500*SE, invite_refresh, DialogId)}
                 | Meta1
-            ],
-            Invite#invite{
-                retrans_timer = undefined,
-                timeout_timer = TimeoutTimer1,
-                meta = Meta2
-            };
+            ];
         {refreshed, SE} ->
-            TimeoutTimer1 = start_timer(750*SE, invite_timeout, DialogId),
+            Invite1 = Invite#invite{
+                retrans_timer = undefined,
+                timeout_timer = start_timer(750*SE, invite_timeout, DialogId)
+            },
             Meta2 = [
                 {nksip_timers_se, SE}, 
                 {nksip_timers_refresh, undefined}
                 | Meta1
-            ],
-            Invite#invite{
-                retrans_timer = undefined,
-                timeout_timer = TimeoutTimer1,
-                meta= Meta2
-            };
+            ];
         {none, Timeout} ->
-            TimeoutTimer1 = start_timer(1000*Timeout, invite_timeout, DialogId),
+            Invite1 = Invite#invite{
+                retrans_timer = undefined,
+                timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId)
+            },
             Meta2 = [
                 {nksip_timers_se, undefined}, 
                 {nksip_timers_refresh, undefined} 
                 | Meta1
-            ],
-            Invite#invite{
-                retrans_timer = undefined,
-                timeout_timer = TimeoutTimer1,
-                meta = Meta2
-            }
+            ]
     end,
-    Dialog#dialog{invite=Invite1};
+    Dialog#dialog{invite=Invite1, meta=Meta2};
 
 % We are returning to confirmed after a non-2xx response
 timer_update(_Req, _Resp, _Class, 
@@ -150,12 +139,8 @@ timer_update(_Req, _Resp, _Class,
 
 timer_update(_Req, _Resp, _Class,
              #dialog{invite=#invite{status=accepted_uas}}=Dialog, Call) ->
-    #dialog{id=DialogId, invite=Invite} = Dialog,
-    #invite{
-        retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer, 
-        meta = Meta
-    } = Invite,
+    #dialog{id=DialogId, invite=Invite, meta=Meta} = Dialog,
+    #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
     RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
     nksip_lib:cancel_timer(RetransTimer),
     nksip_lib:cancel_timer(TimeoutTimer),
@@ -166,18 +151,13 @@ timer_update(_Req, _Resp, _Class,
     Invite1 = Invite#invite{
         retrans_timer = start_timer(T1, invite_retrans, DialogId),
         next_retrans = 2*T1,
-        timeout_timer = start_timer(64*T1, invite_timeout, DialogId),
-        meta = Meta2
+        timeout_timer = start_timer(64*T1, invite_timeout, DialogId)
     },
-    Dialog#dialog{invite=Invite1};
+    Dialog#dialog{invite=Invite1, meta=Meta2};
 
 timer_update(_Req, _Resp, _Class, Dialog, Call) ->
-    #dialog{id=DialogId, invite=Invite} = Dialog,
-    #invite{
-        retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer, 
-        meta = Meta
-    } = Invite,
+    #dialog{id=DialogId, invite=Invite, meta = Meta} = Dialog,
+    #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
     RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
     nksip_lib:cancel_timer(RetransTimer),
     nksip_lib:cancel_timer(TimeoutTimer),
@@ -187,10 +167,9 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     Meta2 = [{nksip_timers_se, undefined}, {nksip_timers_refresh, undefined}|Meta1],
     Invite1 = Invite#invite{
         retrans_timer = undefined,
-        timeout_timer = start_timer(64*T1, invite_timeout, DialogId),
-        meta = Meta2
+        timeout_timer = start_timer(64*T1, invite_timeout, DialogId)        
     },
-    Dialog#dialog{invite=Invite1}.
+    Dialog#dialog{invite=Invite1, meta=Meta2}.
 
 
 %% @private
@@ -223,11 +202,11 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
 
 
 %% @private
--spec uac_update_timer(nksip:method(), nksip:dialog(), nksip_call:call()) ->
+-spec make_uac_dialog(nksip:method(), nksip:dialog(), nksip_call:call()) ->
     nksip:optslist().
 
-uac_update_timer(Method, Dialog, Call) ->
-    #dialog{id=DialogId, invite=#invite{meta=Meta}} = Dialog,
+make_uac_dialog(Method, Dialog, Call) ->
+    #dialog{id=DialogId, meta=Meta} = Dialog,
     SE = nksip_lib:get_value(nksip_timers_se, Meta),
     case is_integer(SE) andalso (Method=='INVITE' orelse Method=='UPDATE') of
         true ->
@@ -246,7 +225,10 @@ uac_update_timer(Method, Dialog, Call) ->
             end,
             [
                 {nksip_timers_se, {SE1, Class}} |
-                case is_integer(MinSE) of true -> [{nksip_timers_min_se, MinSE}]; false -> [] end
+                case is_integer(MinSE) of true -> 
+                    [{nksip_timers_min_se, MinSE}]; 
+                    false -> [] 
+                end
             ];
         _ ->
             []

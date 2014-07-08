@@ -248,10 +248,10 @@
     sdp_answer :: nksip_call_dialog:sdp_offer(),
     timeout_timer :: reference(),
     retrans_timer :: reference(),
-    next_retrans :: integer(),
+    next_retrans :: integer()
     % session_expires :: integer(),
     % refresh_timer :: reference(),
-    meta = [] :: nksip:optslist()   
+    % meta = [] :: nksip:optslist()   
 }).
 
 
@@ -265,8 +265,8 @@
     timer_n :: reference(),
     timer_expire :: reference(),
     timer_middle :: reference(),
-    last_notify_cseq :: nksip:cseq(),
-    meta = [] :: nksip:optslist()   % No current use
+    last_notify_cseq :: nksip:cseq()
+    % meta = [] :: nksip:optslist()   % No current use
 }).
 
 

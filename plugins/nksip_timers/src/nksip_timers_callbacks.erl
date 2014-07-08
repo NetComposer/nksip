@@ -52,21 +52,21 @@ nkcb_dialog_update({update, Class, Req, Resp}, Dialog, Call) ->
     Dialog3 = nksip_timers_lib:timer_update(Req, Resp, Class, Dialog2, Call),
     {ok, nksip_call_dialog:store(Dialog3, Call)};
 
-nkcb_dialog_update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
+nkcb_dialog_update({invite, {stop, Reason}}, Dialog, Call) ->
+    #dialog{meta=Meta, invite=Invite} = Dialog,
     #invite{
         media_started = Media,
         retrans_timer = RetransTimer,
-        timeout_timer = TimeoutTimer,
-        meta = Meta
+        timeout_timer = TimeoutTimer
     } = Invite,    
     RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
     nksip_lib:cancel_timer(RetransTimer),
     nksip_lib:cancel_timer(TimeoutTimer),
     nksip_lib:cancel_timer(RefreshTimer),
     StopReason = nksip_call_dialog:reason(Reason),
-    nksip_call_dialog:dialog_update({invite_status, {stop, StopReason}}, Dialog, Call),
+    nksip_call_dialog:sip_dialog_update({invite_status, {stop, StopReason}}, Dialog, Call),
     case Media of
-        true -> nksip_call_dialog:session_update(stop, Dialog, Call);
+        true -> nksip_call_dialog:sip_session_update(stop, Dialog, Call);
         _ -> ok
     end,
     {ok, nksip_call_dialog:store(Dialog#dialog{invite=undefined}, Call)};
@@ -87,7 +87,7 @@ nkcb_dialog_update({invite, Status}, Dialog, Call) ->
         OldStatus -> 
             Dialog;
         _ -> 
-            nksip_call_dialog:dialog_update({invite_status, Status}, Dialog, Call),
+            nksip_call_dialog:sip_dialog_update({invite_status, Status}, Dialog, Call),
             Dialog#dialog{invite=Invite#invite{status=Status}}
     end,
     ?call_debug("Dialog ~s ~p -> ~p", [DialogId, OldStatus, Status]),
@@ -102,7 +102,7 @@ nkcb_dialog_update({invite, Status}, Dialog, Call) ->
         Status==bye ->
             case Media of
                 true -> 
-                    nksip_call_dialog:session_update(stop, Dialog1, Call),
+                    nksip_call_dialog:sip_session_update(stop, Dialog1, Call),
                     #dialog{invite=I1} = Dialog1,
                     Dialog1#dialog{invite=I1#invite{media_started=false}};
                 _ ->

@@ -262,7 +262,7 @@ work({send, Method, Uri, Opts}, From, Call) ->
 
 work({send_dialog, DialogId, Method, Opts}, From, Call) ->
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
-        {ok, {RUri, Opts1}, Call1} -> 
+        {ok, RUri, Opts1, Call1} -> 
             work({send, Method, RUri, Opts1}, From, Call1);
         {error, Error} ->
             gen_server:reply(From, {error, Error}),
@@ -489,7 +489,7 @@ sync_send_dialog(DialogId, Method, Opts, Call) ->
 make_dialog(DialogId, Method, Opts, Call) ->
     #call{app_id=AppId, call_id=CallId} = Call,
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
-        {ok, {RUri, Opts1}, Call1} -> 
+        {ok, RUri, Opts1, Call1} -> 
             Opts2 = [{call_id, CallId} | Opts1],
             case nksip_uac_lib:make(AppId, Method, RUri, Opts2) of
                 {ok, Req, ReqOpts} ->
