@@ -23,6 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([request/4, resend/3]).
+-export_type([uac_from/0]).
 -import(nksip_call_lib, [update/2]).
 
 -include("nksip.hrl").
@@ -48,12 +49,10 @@
 
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
-    Req1 = case From of 
-        {fork, _} -> nksip_timers_lib:proxy_request(Req, Call);
-        _ -> Req
-    end,
-    {#trans{id=Id}=UAC, Call1} = new_uac(Req1, Opts, From, Call),
-    case lists:member(async, Opts) andalso From of
+    #call{app_id=AppId} = Call,
+    {continue, [Req1, Opts1, From1, Call1]} = AppId:nkcb_uac_pre_request(Req, Opts, From, Call),
+    {#trans{id=Id}=UAC, Call2} = new_uac(Req1, Opts1, From1, Call1),
+    case lists:member(async, Opts1) andalso From1 of
         {srv, SrvFrom} when Method=='ACK' -> 
             gen_server:reply(SrvFrom, async);
         {srv, SrvFrom} ->
@@ -61,15 +60,15 @@ request(Req, Opts, From, Call) ->
         _ ->
             ok
     end,
-    case From of
+    case From1 of
         {fork, ForkId} ->
             ?call_debug("UAC ~p sending request ~p ~p (~s, fork: ~p)", 
-                        [Id, Method, Opts, MsgId, ForkId]);
+                        [Id, Method, Opts1, MsgId, ForkId]);
         _ ->
             ?call_debug("UAC ~p sending request ~p ~p (~s)", 
-                        [Id, Method, Opts, MsgId])
+                        [Id, Method, Opts1, MsgId])
     end,
-    send(UAC, Call1).
+    send(UAC, Call2).
 
 
 %% @private

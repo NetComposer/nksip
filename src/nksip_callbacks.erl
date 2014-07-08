@@ -27,9 +27,10 @@
 -include("nksip_call.hrl").
 -export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
 		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
--export([nkcb_uac_pre_response/3, nkcb_uac_response/4, nkcb_parse_uac_opts/2, nkcb_uac_proxy_opts/2]).
--export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/3, nkcb_uas_timer/3]).
--export([nkcb_dialog_update/3]).
+-export([nkcb_uac_pre_response/3, nkcb_uac_response/4, nkcb_parse_uac_opts/2,
+		 nkcb_uac_proxy_opts/2, nkcb_make_uac_dialog/4, nkcb_uac_pre_request/4]).
+-export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/3, nkcb_uas_timer/3, nkcb_uas_dialog_response/4, nkcb_uas_process/2]).
+-export([nkcb_dialog_update/3, nkcb_route/4]).
 -export([nkcb_connection_send/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
@@ -125,8 +126,8 @@ nkcb_uac_pre_response(Resp, UAC, Call) ->
 					    nksip_call:trans(), nksip:call()) ->
 	{ok, nksip:call()} | nkcb_common().
 
-nkcb_uac_response(_Req, _Resp, _UAC, _Call) ->
-    continue.
+nkcb_uac_response(Req, Resp, UAC, Call) ->
+    {continue, [Req, Resp, UAC, Call]}.
 
 
 %% @doc Called to parse specific UAC options
@@ -143,6 +144,23 @@ nkcb_parse_uac_opts(Req, Opts) ->
 
 nkcb_uac_proxy_opts(Req, ReqOpts) ->
 	{ok, Req, ReqOpts}.
+
+
+%% @doc Called when a new in-dialog request is being generated
+-spec nkcb_make_uac_dialog(nksip:method(), nksip:uri(), nksip:optslist(), nksip:call()) ->
+	{continue, list()}.
+
+nkcb_make_uac_dialog(Method, Uri, Opts, Call) ->
+	{continue, [Method, Uri, Opts, Call]}.
+
+
+%% @doc Called when the UAC is preparing a request to be sent
+-spec nkcb_uac_pre_request(nksip:request(), nksip:optlist(), 
+                           nksip_call_uac_req:uac_from(), nksip:call()) ->
+    {continue, list()}.
+
+nkcb_uac_pre_request(Req, Opts, From, Call) ->
+	{continue, [Req, Opts, From, Call]}.
 
 
 %% @doc Called to add headers just before sending the request
@@ -197,12 +215,38 @@ nkcb_parse_uas_opt(Req, Resp, Opts) ->
 	{continue, [Req, Resp, Opts]}.
 
 
+%% @doc Called when preparing a UAS dialog response
+-spec nkcb_uas_dialog_response(nksip:request(), nksip:response(), 
+                               nksip:optlist(), nksip:call()) ->
+    {ok, nksip:response(), nksip:optslist()}.
+
+nkcb_uas_dialog_response(_Req, Resp, Opts, _Call) ->
+    {ok, Resp, Opts}.
+
+
+%% @doc Called when the UAS is proceesing a request
+-spec nkcb_uas_process(nksip_trans:trans(), nksip_call:call()) ->
+    {ok, nksip:call()} | {continue, list()}.
+
+nkcb_uas_process(UAS, Call) ->
+	{continue, [UAS, Call]}.
+
+
 %% @doc Called when a dialog must update its internal state
 -spec nkcb_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
     {ok, nksip_call:call()} | nkcb_common().
 
 nkcb_dialog_update(Type, Dialog, Call) ->
 	{continue, [Type, Dialog, Call]}.
+
+
+%% @doc Called when a proxy is preparing a routing
+-spec nkcb_route(nksip:uri_set(), nksip:optslist(), 
+                 nksip_call:trans(), nksip_call:call()) -> 
+    {continue, list()} | {reply, nksip:sipreply(), nksip_call:call()}.
+
+nkcb_route(UriList, ProxyOpts, UAS, Call) ->
+	{continue, [UriList, ProxyOpts, UAS, Call]}.
 
 
 %% @doc Called when a new message has been sent

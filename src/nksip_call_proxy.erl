@@ -34,33 +34,40 @@
 %% ===================================================================
 
 %% @doc Tries to route a request to set of uris, serially and/or in parallel.
--spec route(nksip_call:trans(), nksip:uri_set(), nksip:optslist(), nksip_call:call()) -> 
+-spec route(nksip:uri_set(), nksip:optslist(), nksip_call:trans(), nksip_call:call()) -> 
     {fork, nksip_call:trans(), nksip:uri_set()} | noreply | 
     {reply, nksip:sipreply(), nksip_call:call()}.
 
-route(UAS, UriList, ProxyOpts, Call) ->
+route(UriList, ProxyOpts, UAS, Call) ->
     try
+        #call{app_id=AppId} = Call,
         UriSet = case normalize_uriset(UriList) of
             [[]] -> throw({reply, temporarily_unavailable});
             UriSet0 -> UriSet0
         end,
         % lager:warning("URISET: ~p", [UriList]),
-        #trans{request=Req, method=Method} = UAS,
-        Req1 = check_request(Req, ProxyOpts),
-        {Req2, Call1} = case nksip_timers_lib:uas_check_422(Req1, Call) of
-            continue -> {Req1, Call};
-            {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
-            {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
+        #trans{method=Method} = UAS,
+        case AppId:nkcb_route(UriSet, ProxyOpts, UAS, Call) of
+            {continue, [UriSet1, ProxyOpts1, UAS1, Call1]} ->
+                ok;
+            {reply, Reply, Call1} ->
+                UriSet1=ProxyOpts1=UAS1=throw({reply, Reply, Call1})
         end,
-        Stateless = lists:member(stateless, ProxyOpts),
+        Req1 = check_request(UAS1#trans.request, ProxyOpts1),
+        % {Req2, Call1} = case nksip_timers_lib:uas_check_422(Req1, Call) of
+        %     continue -> {Req1, Call};
+        %     {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
+        %     {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
+        % end,
+        Stateless = lists:member(stateless, ProxyOpts1),
         case Method of
             'ACK' when Stateless ->
-                [[First|_]|_] = UriSet,
-                route_stateless(Req2, First, ProxyOpts, Call1);
+                [[First|_]|_] = UriSet1,
+                route_stateless(Req1, First, ProxyOpts1, Call1);
             'ACK' ->
-                {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts};
+                {fork, UAS1#trans{request=Req1}, UriSet1, ProxyOpts1};
             _ ->
-                case nksip_sipmsg:header(<<"proxy-require">>, Req, tokens) of
+                case nksip_sipmsg:header(<<"proxy-require">>, Req1, tokens) of
                     [] -> 
                         ok;
                     PR ->
@@ -69,15 +76,15 @@ route(UAS, UriList, ProxyOpts, Call) ->
                 end,
                 case Stateless of
                     true -> 
-                        [[First|_]|_] = UriSet,
-                        route_stateless(Req2, First, ProxyOpts, Call1);
+                        [[First|_]|_] = UriSet1,
+                        route_stateless(Req1, First, ProxyOpts1, Call1);
                     false ->
-                        {fork, UAS#trans{request=Req2}, UriSet, ProxyOpts}
+                        {fork, UAS1#trans{request=Req1}, UriSet1, ProxyOpts1}
                 end
         end
     catch
-        throw:{reply, Reply} -> {reply, Reply, Call};
-        throw:{reply, Reply, TCall} -> {reply, Reply, TCall}
+        throw:{reply, TReply} -> {reply, TReply, Call};
+        throw:{reply, TReply, TCall} -> {reply, TReply, TCall}
     end.
 
 

@@ -26,8 +26,8 @@
 -include("../../../include/nksip_call.hrl").
 
 -export([parse_uac_config/3]).
--export([uac_received_422/4, make_uac_dialog/3, uas_check_422/2, uas_update_timer/3]).
--export([timer_update/5, proxy_request/2, proxy_response/2]).
+-export([uac_received_422/4, make_uac_dialog/3, uas_check_422/2, uas_dialog_response/3]).
+-export([timer_update/5, uac_pre_request/2, uac_pre_response/2]).
 
 
 -define(MAX_422_TRIES, 5).
@@ -344,10 +344,10 @@ uas_check_422(#sipmsg{app_id=AppId, class={req, Method}}=Req, Call) ->
 
 
 %% @private
--spec uas_update_timer(nksip:request(), nksip:response(), nksip_call:call()) ->
+-spec uas_dialog_response(nksip:request(), nksip:response(), nksip_call:call()) ->
     nksip:response().
 
-uas_update_timer(
+uas_dialog_response(
         Req, #sipmsg{app_id=AppId, class={resp, Code, _}, cseq={_, Method}}=Resp, _Call)
         when Code>=200 andalso Code<300 andalso 
              (Method=='INVITE' orelse Method=='UPDATE') ->
@@ -389,15 +389,15 @@ uas_update_timer(
             Resp
     end;
 
-uas_update_timer(_Req, Resp, _Call) ->
+uas_dialog_response(_Req, Resp, _Call) ->
     Resp.
 
 
 %% @private
--spec proxy_request(nksip:request(), nksip_call:call()) ->
+-spec uac_pre_request(nksip:request(), nksip_call:call()) ->
     nksip:request().
 
-proxy_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
+uac_pre_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
     ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
         [ReqMinSE0] -> ReqMinSE0;
@@ -421,15 +421,15 @@ proxy_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
             Req#sipmsg{headers=Headers1}
     end;
 
-proxy_request(Req, _Call) ->
+uac_pre_request(Req, _Call) ->
     Req.
 
 
 %% @private
--spec proxy_response(nksip:request(), nksip:response()) ->
+-spec uac_pre_response(nksip:request(), nksip:response()) ->
     nksip:response().
 
-proxy_response(Req, Resp) ->
+uac_pre_response(Req, Resp) ->
     case parse(Resp) of
         {ok, _, _} ->
             Resp;

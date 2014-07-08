@@ -102,25 +102,31 @@ check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
              Method=='NOTIFY' ->
     reply(no_transaction, UAS, Call);
 
-check_missing_dialog(Method, Req, UAS, Call) ->
-    check_422(Method, Req, UAS, Call).
-
-
-%% @private
--spec check_422(nksip:method(), nksip:request(), 
-                nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-check_422(Method, Req, UAS, Call) ->
-    case nksip_timers_lib:uas_check_422(Req, Call) of
-        continue -> 
-            dialog(Method, Req, UAS, Call);
-        {update, Req1, Call1} ->
-            UAS1 = UAS#trans{request=Req1},
-            dialog(Method, Req1, UAS1, update(UAS1, Call1));
-        {reply, Reply, Call1} ->
-            reply(Reply, UAS, Call1)
+check_missing_dialog(Method, _Req, UAS, #call{app_id=AppId}=Call) ->
+    case AppId:nkcb_uas_process(UAS, Call) of
+        {continue, [UAS1, Call1]} ->
+            dialog(Method, UAS1#trans.request, UAS1, Call1);
+        {ok, Call1} ->
+            Call1
     end.
+
+  
+
+% %% @private
+% -spec check_422(nksip:method(), nksip:request(), 
+%                 nksip_call:trans(), nksip_call:call()) ->
+%     nksip_call:call().
+
+% check_422(Method, Req, UAS, Call) ->
+%     case nksip_timers_lib:uas_check_422(Req, Call) of
+%         continue -> 
+%             dialog(Method, Req, UAS, Call);
+%         {update, Req1, Call1} ->
+%             UAS1 = UAS#trans{request=Req1},
+%             dialog(Method, Req1, UAS1, update(UAS1, Call1));
+%         {reply, Reply, Call1} ->
+%             reply(Reply, UAS, Call1)
+%     end.
 
 
 %% @private

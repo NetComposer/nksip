@@ -431,6 +431,7 @@ ack(#sipmsg{class={req, 'ACK'}}=AckReq, Call) ->
 
 update_response(Req, {Resp, Opts}, Call) ->
     #sipmsg{contacts=Contacts} = Resp,
+    #call{app_id=AppId} = Call,
     DialogId = nksip_dialog:make_id(uas, Resp),
     {Resp1, Opts1} = case Contacts of
         [] ->
@@ -444,15 +445,16 @@ update_response(Req, {Resp, Opts}, Call) ->
         _ ->
             {Resp#sipmsg{dialog_id=DialogId}, Opts}
     end,
-    Resp2 = case Req of
-        #sipmsg{} -> 
-            nksip_timers_lib:uas_update_timer(Req, Resp1, Call);
-        _ ->
-            % In a multiple 2xx scenario, request is already deleted at UAS
-            ?call_info("Skipping timer check because of no request", []),
-            Resp1 
-    end,
-    {Resp2, Opts1}.
+    {ok, Resp2, Opts2} = AppId:nkcb_uas_dialog_response(Req, Resp1, Opts1, Call),
+    % Resp2 = case Req of
+    %     #sipmsg{} -> 
+    %         nksip_timers_lib:uas_update_timer(Req, Resp1, Call);
+    %     _ ->
+    %         % In a multiple 2xx scenario, request is already deleted at UAS
+    %         ?call_info("Skipping timer check because of no request", []),
+    %         Resp1 
+    % end,
+    {Resp2, Opts2}.
 
 
 

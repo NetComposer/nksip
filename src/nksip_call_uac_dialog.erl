@@ -428,7 +428,7 @@ ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call
     {ok, RUri::nksip:uri(), nksip:optslist(), nksip_call:call()} | {error, Error}
     when Error :: invalid_dialog | unknown_dialog | unknown_subscription.
 
-make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
+make(DialogId, Method, Opts, #call{app_id=AppId, dialogs=Dialogs}=Call) ->
     case lists:keyfind(DialogId, #dialog.id, Dialogs) of
         #dialog{invite=Invite}=Dialog ->
             ?call_debug("Dialog ~s make ~p request", [DialogId, Method]),
@@ -440,17 +440,19 @@ make(DialogId, Method, Opts, #call{dialogs=Dialogs}=Call) ->
                     case nksip_call_event:request_uac_opts(Method, Opts, Dialog) of
                         {ok, Opts1} -> 
                             {RUri, Opts2, Dialog1} = generate(Method, Opts1, Dialog, Call),
-                            {continue, [RUri2, Opts3, Dialog3, Call3]} = 
-                                nkcb_
-
-
-                            {ok, RUri, Opts2, store(Dialog1, Call)};
+                            Call1 = store(Dialog1, Call),
+                            {continue, [_, RUri3, Opts3, Call3]} = 
+                                AppId:nkcb_make_uac_dialog(Method, RUri, Opts2, Call1),
+                            {ok, RUri3, Opts3, Call3};
                         {error, Error} ->
                             {error, Error}
                     end;
                 _ ->
                     {RUri, Opts2, Dialog1} = generate(Method, Opts, Dialog, Call),
-                    {ok, RUri, Opts2, store(Dialog1, Call)}
+                    Call1 = store(Dialog1, Call),
+                    {continue, [_, RUri3, Opts3, Call3]} = 
+                        AppId:nkcb_make_uac_dialog(Method, RUri, Opts2, Call1),
+                    {ok, RUri3, Opts3, Call3}
             end;
         _ ->
             {error, unknown_dialog}
@@ -524,7 +526,7 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
     {{RUri, Opts}, nksip:dialog()} 
     when RUri::nksip:uri(), Opts::nksip:optslist().
 
-generate(Method, Opts, Dialog, Call) ->
+generate(Method, Opts, Dialog, _Call) ->
     #dialog{
         call_id = CallId,
         local_uri = From,
@@ -557,11 +559,6 @@ generate(Method, Opts, Dialog, Call) ->
                 [{add, Auth} || Auth <-Auths];
             _ ->
                 []
-        end
-        ++
-        case lists:keymember(nksip_timers_se, 1, Opts) of
-            true -> [];
-            false -> nksip_timers_lib:uac_update_timer(Method, Dialog, Call)
         end
         ++
         [

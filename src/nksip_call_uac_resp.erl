@@ -106,13 +106,13 @@ response(Resp, UAC, Call) ->
                          if NoDialog -> "(no dialog) "; true -> "" end, Code1])
     end,
     IsProxy = case From of {fork, _} -> true; _ -> false end,
-    Resp2 = case IsProxy of
-        true -> nksip_timers_lib:proxy_response(Req, Resp1);
-        false -> Resp1
-    end,
+    % Resp2 = case IsProxy of
+    %     true -> nksip_timers_lib:proxy_response(Req, Resp1);
+    %     false -> Resp1
+    % end,
     Call3 = case NoDialog of
         false when is_record(Req, sipmsg) -> 
-            nksip_call_uac_dialog:response(Req, Resp2, IsProxy, Call2);
+            nksip_call_uac_dialog:response(Req, Resp1, IsProxy, Call2);
         _ -> 
             Call2
     end,
@@ -124,7 +124,7 @@ response(Resp, UAC, Call) ->
     end,
     Msg = {MsgId, Id, DialogId},
     Call5 = Call4#call{msgs=[Msg|Msgs]},
-    response_status(Status, Resp2, UAC1, update(UAC1, Call5)).
+    response_status(Status, Resp1, UAC1, update(UAC1, Call5)).
 
 
 %% @private
@@ -148,8 +148,8 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code 
         _ -> update(UAC1, Call1)
     end,
     case AppId:nkcb_uac_response(Req, Resp, UAC1, Call2) of
-        continue ->
-            Call2;
+        {continue, [_, _, _, Call3]} ->
+            Call3;
         {ok, Call3} ->
             Call3
     end;
@@ -209,8 +209,8 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
     end,
     Call1 = update(UAC5, Call),
     case AppId:nkcb_uac_response(Req, Resp, UAC5, Call1) of
-        continue ->
-            received_422(Req, Resp, UAC5, Call1);
+        {continue, [Req6, Resp6, UAC6, Call6]} ->
+            received_reply(Req6, Resp6, UAC6, Call6);
         {ok, Call2} ->
             Call2
     end;
@@ -283,8 +283,8 @@ response_status(proceeding, Resp, UAC, Call) ->
     end,
     Call1 = update(UAC2, Call),
     case AppId:nkcb_uac_response(Req, Resp, UAC2, Call1) of
-        continue ->
-            received_422(Req, Resp, UAC2, Call1);
+        {continue, [Req6, Resp6, UAC6, Call6]} ->
+            received_reply(Req6, Resp6, UAC6, Call6);
         {ok, Call2} ->
             Call2
     end;
@@ -346,23 +346,23 @@ do_received_hangup(Resp, UAC, Call) ->
     update(UAC1, Call).
 
 
-%% @private 
--spec received_422(nksip:request(), nksip:response(), 
-                       nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
+% %% @private 
+% -spec received_422(nksip:request(), nksip:response(), 
+%                        nksip_call:trans(), nksip_call:call()) ->
+%     nksip_call:call().
 
-received_422(Req, Resp, UAC, Call) ->
-    #trans{from=From} = UAC,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
-    case 
-        (not IsProxy) andalso 
-        nksip_timers_lib:uac_received_422(Req, Resp, UAC, Call) 
-    of
-        {resend, Req1, Call1} ->
-            nksip_call_uac_req:resend(Req1, UAC, Call1);
-        false ->
-            received_reply(Req, Resp, UAC, Call)
-    end.
+% received_422(Req, Resp, UAC, Call) ->
+%     #trans{from=From} = UAC,
+%     IsProxy = case From of {fork, _} -> true; _ -> false end,
+%     case 
+%         (not IsProxy) andalso 
+%         nksip_timers_lib:uac_received_422(Req, Resp, UAC, Call) 
+%     of
+%         {resend, Req1, Call1} ->
+%             nksip_call_uac_req:resend(Req1, UAC, Call1);
+%         false ->
+%             received_reply(Req, Resp, UAC, Call)
+%     end.
 
 
 %% @private 
