@@ -26,7 +26,7 @@ When implementing a registrar, call [registrar_find/2](#registrar_find2) instead
 
 ## Dependant Plugins
 
-* `nksip_registrar`
+None, but if `nksip_registrar` is activated it will be modified to support GRUUs. Without nksip_registrar, can be used as a client.
 
 
 ## Configuration Values
