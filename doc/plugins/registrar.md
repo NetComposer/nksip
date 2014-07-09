@@ -1,12 +1,11 @@
-# nksip_registrar plugin
+# Registrar Server Plugin
 
 ## Description
 
-This plugin implemts includes a full registrar implementation according to RFC3261. _Path_ is also supported, according to RFC3327.
-,
-It uses by default the buil-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/3](#sip_registrar_store3).
+This plugin provides a full registrar server implementation according to RFC3261. _Path_ is also supported, according to RFC3327. It uses by default the built-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/3](#sip_registrar_store2). Each started SipApp activating this plugin maintains a fully independent set of registrations.
 
-Each started SipApp activating this pluign maintains a fully independent set of registrations.
+Once activated, 
+
 
 When a new _REGISTER_ request arrives at a SipApp, and if you order to `process` the request in [sip_route/6](../reference/callback_functions.md#sip_route5) callback, NkSIP will try to call [sip_register/3](../reference/callback_functions.md#sip_register3) callback if it is defined in yor SipApp's callback module. If it is not defined there, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
 
@@ -41,7 +40,7 @@ Finds the registered contacts for this SipApp and _AOR_ or _Uri_, for example `n
 
 ### find/4
 
-```erlanf
+```erlang
 -spec find(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 ```
@@ -74,7 +73,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     end.
 ```
 
-Using this example, when a new request arrives at our proxy for domain <<"nksip">> and having an user, will be forked to all registered contacts, launching in parallel contacts having the same 'q' value.
+Using this example, when a new request arrives at our proxy for domain 'nksip' and having an user, will be forked to all registered contacts, launching in parallel contacts having the same 'q' value.
 
 
 ### qfind/4
@@ -89,7 +88,7 @@ Similar to `qfind/2`
 
 ### delete/4
 
-```erlanf
+```erlang
 -spec delete(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 ```
@@ -115,12 +114,10 @@ Finds if a the request has a _From_ header that has been already registered usin
 ```
 
 Call this function to process and incoming _REGISTER_ request. It returns an appropiate response, depending on the registration result.
-If the Expires_ header is 0, the indicated _Contact_ will be unregistered. If _Contact_ header is `*', all previous contacts will be unregistered.
-The requested _Contact_ will replace a previous registration if it has the same `reg-id` and `+sip_instace` values, or has the same transport scheme,
-protocol, user, domain and port.
+If the Expires_ header is 0, the indicated _Contact_ will be unregistered. If _Contact_ header is `*`, all previous contacts will be unregistered.
+The requested _Contact_ will replace a previous registration if it has the same `reg-id` and `+sip_instance` values, or has the same transport scheme, protocol, user, domain and port.
 
 If the request is successful, a 200-code `nksip:sipreply()` is returned, including one or more _Contact_ headers (for all of the current registered contacts), _Date_ and _Allow_ headers.
-
 
 For example, you could implement the following [sip_reigster/2](../reference/callback_functions.md#sip_register2) callback function:
 
@@ -139,20 +136,7 @@ You can implement any of these callback functions in your SipApp callback module
 
 
 
-### sip_uac_auto_register_update/3
-
-```erlang
--spec sip_uac_auto_register_update(AppId::nksip:app_id(), 
-	                               RegId::term(), OK::boolean()) ->
-    ok.
-```
-
-If implemented, it will called each time a registration serie changes its state.
-
-
-## Available application callback functions
-
-### sip_registrar_store
+### sip_registrar_store/2
 
 ```erlang
 -spec sip_registrar_store(StoreOp, AppId) ->
