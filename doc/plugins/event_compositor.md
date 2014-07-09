@@ -101,7 +101,7 @@ You can implement any of these callback functions in your SipApp callback module
 ```
 
 Implement this callback function in your callback function to use a different store thant then defaut RAM-only storage.
-See the [default implementation](../../plugins/nksip_event_compositor/src/nksip_event_compositor_sipapp.erl) as a basis. 
+See the [default implementation](../../plugins/src/nksip_event_compositor_sipapp.erl) as a basis. 
 
 
 ## Examples
