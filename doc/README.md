@@ -29,10 +29,19 @@
 * [SDP](api/sdp.md)
 
 ## [4. Standard Plugins](plugins/README.md)
-* [Auto Register](plugins/nksip_uac_auto.md)
-* [Registrar](plugins/nksip_registrar.md)
+* [Registrar](plugins/registrar.md)
 * [Event State Compositor](plugins/event_compositor.md)
-* [Tracer](plugins/tracer.md)
+* [Reliable Provisional Responses](plugins/100rel.md)
+* [Session Timers](plugins/timers.md)
+* [GRUU](plugins/gruu.md)
+* [Outbound](plugins/outbound.md)
+* [Refer](plugins/refer.md)
+* [Auto Authentication](plugins/auto_auth.md)
+* [Auto Register](plugins/auto_register.md)
+* [Auto Outbound](plugins/auto_outbound.md)
+* [Trace](plugins/trace.md)
+* [Stats](plugins/stats.md)
+* [Debug](plugins/debug.md)
 
 ## [5. Cookbook](cookbook/README.md)
 * Generic
