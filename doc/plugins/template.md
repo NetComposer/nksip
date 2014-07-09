@@ -1,5 +1,6 @@
-# Registrar Server Plugin
+# Plugin
 
+* [Name](#name)
 * [Description](#description)
 * [Dependant Plugins](#dependant-plugins)
 * [Configuration Values](#configuration-values)
@@ -7,6 +8,9 @@
 * [Callback Functions](#callback-functions)
 * [Examples](#examples)
 
+
+## Name
+### `nksip_`
 
 
 ## Description
