@@ -1,5 +1,14 @@
 # Registrar Server Plugin
 
+* [Description](#description)
+* [Dependant Plugins](#dependant_plugins)
+* [Configuration Values](#configuration_values)
+* [API Functions](#api_functions)
+* [Callback Functions](#callback_functions)
+* [Examples](#examples)
+
+
+
 ## Description
 
 This plugin provides a full registrar server implementation according to RFC3261. _Path_ is also supported, according to RFC3327. It uses by default the built-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/2](#sip_registrar_store2). Each started SipApp activating this plugin maintains a fully independent set of registrations.
@@ -18,6 +27,8 @@ None
 
 
 ## Configuration values
+
+### SipApp configuration values
 
 Option|Default|Description
 ---|---|---
@@ -121,7 +132,7 @@ The requested _Contact_ will replace a previous registration if it has the same 
 
 If the request is successful, a 200-code `nksip:sipreply()` is returned, including one or more _Contact_ headers (for all of the current registered contacts), _Date_ and _Allow_ headers.
 
-For example, you could implement the following [sip_reigster/2](../reference/callback_functions.md#sip_register2) callback function:
+For example, you could implement the following [sip_register/2](../reference/callback_functions.md#sip_register2) callback function:
 
 ```erlang
 sip_register(Req, _Call) ->
@@ -152,5 +163,5 @@ You can implement any of these callback functions in your SipApp callback module
 ```
 
 Implement this callback function in your callback function to use a different store thant then defaut RAM-only storage.
-See the [default implementation](../../plugins/nksip_registrar/nksip_registrar_sipapp.erl) as a basis. 
+See the [default implementation](../../plugins/nksip_registrar/src/nksip_registrar_sipapp.erl) as a basis. 
 
