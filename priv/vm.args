@@ -5,19 +5,7 @@
 -pa deps/cowboy/ebin 
 -pa deps/wsock/ebin 
 -pa ../nksip/ebin
--pa plugins/nksip_registrar/ebin
--pa plugins/nksip_event_compositor/ebin
--pa plugins/nksip_uac_auto_register/ebin
--pa plugins/nksip_uac_auto_auth/ebin
--pa plugins/nksip_uac_auto_outbound/ebin
--pa plugins/nksip_outbound/ebin
--pa plugins/nksip_gruu/ebin
--pa plugins/nksip_100rel/ebin
--pa plugins/nksip_timers/ebin
--pa plugins/nksip_refer/ebin
--pa plugins/nksip_trace/ebin
--pa plugins/nksip_debug/ebin
--pa plugins/nksip_stats/ebin
+-pa plugins/ebin
 -pa samples/nksip_loadtest/ebin
 
 ## Name of the node

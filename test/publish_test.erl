@@ -24,7 +24,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
--include("../plugins/nksip_event_compositor/include/nksip_event_compositor.hrl").
+-include("../plugins/include/nksip_event_compositor.hrl").
 
 -compile([export_all]).
 

@@ -1,8 +1,0 @@
-{application, nksip_uac_auto_outbound, [
-    {description, "NkSIP UAC Auto Registration Outbound Plugin"},
-    {vsn, "0.1"},
-    {modules, []},
-    {registered, []},
-    {applications, []},
-    {env, []}
-]}.

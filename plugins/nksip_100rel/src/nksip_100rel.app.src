@@ -1,8 +1,0 @@
-{application, nksip_100rel, [
-    {description, "NkSIP Reliable Provisional Responses Plugin"},
-    {vsn, "0.1"},
-    {modules, []},
-    {registered, []},
-    {applications, []},
-    {env, []}
-]}.
