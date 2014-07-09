@@ -42,7 +42,7 @@ None
     nksip:sipreply().
 ```
 
-Use this function to process an incoming REFER manually (for example if you implement sip_refer/2](../reference/callback_functions.md#sip_refer2)).
+Use this function to process an incoming REFER manually (for example if you implement [sip_refer/2](../reference/callback_functions.md#sip_refer2)).
 
 
 
