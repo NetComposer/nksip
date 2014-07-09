@@ -1,7 +1,6 @@
 # Event State Compositor Plugin 
-### `nksip_event_compositor`
 
-
+* [Name](#name)
 * [Description](#description)
 * [Dependant Plugins](#dependant-plugins)
 * [Configuration Values](#configuration-values)
@@ -9,6 +8,8 @@
 * [Callback Functions](#callback-functions)
 * [Examples](#examples)
 
+## Name
+### `nksip_event_compositor`
 
 ## Description
 
