@@ -79,7 +79,6 @@ After a dialog has being established, you can send new INVITE requests (called _
 You case use specific options:
 * `{expires, Expires}`: NkSIP will CANCEL the request if no final response has been received in this period in seconds. 
 * `{session_expires, SE}`: NkSIP will automatically start a session timer (according to RFC4028). Use SE=0 to disable it. If the session timer is active, and a 422 (_Session Interval Too Small_) is received, NkSIP will automatically resend the request updating Session-Expires header.
-* `{prack_callback, Fun}`: If included, this function will be called when a reliable provisional response has been received, and before sending the corresponding PRACK. It will be called as `{RemoteSDP, Response, Call}`. If RemoteSDP is a SDP, it is an offer and you must supply an answer as function return. If it is `<<>>`, you can return `<<>>` or send a new offer. If this option is not included, PRACKs will be sent with no body.
 
 If you want to be able to _CANCEL_ the request, you should use the `async` option to get the corresponding `RequestId` to use when calling `cancel/2`.
 
