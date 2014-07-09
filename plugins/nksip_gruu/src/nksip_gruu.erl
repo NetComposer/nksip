@@ -45,7 +45,7 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [].
+    [{nksip_registrar, ".*"}].
 
 
 %% @doc Parses this plugin specific configuration
@@ -98,7 +98,7 @@ get_gruu_temp(App) ->
     end.
 
 
-%% @private
+%% @doc 
 -spec registrar_find(nksip:app_name()|nksip:app_id(), nksip:uri()) ->
     [nksip:uri()].
 
