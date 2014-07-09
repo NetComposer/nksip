@@ -13,12 +13,20 @@
 
 This plugin provides a full registrar server implementation according to RFC3261. _Path_ is also supported, according to RFC3327. It uses by default the built-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/2](#sip_registrar_store2). Each started SipApp activating this plugin maintains a fully independent set of registrations.
 
-Once activated, 
+Once activated, the following happens:
+* When a new _REGISTER_request arrives, you have two options:
+  * Not implementing `sip_register/2` in you SipApp callback function. In this case, the request will be processed automatically.
+  * Implementing your own `sip_register/`. You must inspect the request, and, in case you want it to be process, call [request/1](#request1)
+  * 
 
 
-When a new _REGISTER_ request arrives at a SipApp, and if you order to `process` the request in [sip_route/6](../reference/callback_functions.md#sip_route5) callback, NkSIP will try to call [sip_register/3](../reference/callback_functions.md#sip_register3) callback if it is defined in yor SipApp's callback module. If it is not defined there, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
+When a new _REGISTER_ request arrives at a SipApp, and if you order to `process` the request in [sip_route/6](../reference/callback_functions.md#sip_route5) callback, NkSIP will try to call [sip_register/2](../reference/callback_functions.md#sip_register2) callback if it is defined in yor SipApp's callback module. If it is not defined there, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
 
 Use [find/4](#find4) or [qfind/4](qfind4) to search for a specific registration's contacts, and [is_registered/1](#is_registered1) to check if the _Request-URI_ of a specific request is registered.
+
+
+_REGISTER_ will also be added to all generated _Allow_ headers.
+
 
 
 ## Dependant Plugins
@@ -165,3 +173,70 @@ You can implement any of these callback functions in your SipApp callback module
 Implement this callback function in your callback function to use a different store thant then defaut RAM-only storage.
 See the [default implementation](../../plugins/nksip_registrar/src/nksip_registrar_sipapp.erl) as a basis. 
 
+## Examples
+
+```erlang
+-module(example).
+-compile([export_all]).
+
+-include_lib("include/nksip.hrl").
+
+
+start() ->
+    {ok, _} = nksip:start(server, ?MODULE, [], [
+        {from, "sip:server@nksip"},
+        {plugins, [nksip_registrar]},
+        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {nksip_registrar_min_time, 60}
+    ]),
+    {ok, _} = nksip:start(client, ?MODULE, [], [
+        {from, "sip:client@nksip"},
+        {local_host, "127.0.0.1"},
+        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+    ]).
+
+stop() ->
+    ok = nksip:stop(server),
+    ok = nksip:stop(client).
+
+
+test1() ->
+    {ok, 200, []} = nksip_uac:register(client, "sip:127.0.0.1", [unregister_all]),
+    [] = nksip_registrar:find(server, sip, <<"client">>, <<"nksip">>),
+    
+    {ok, 200, []} = nksip_uac:register(client, "sip:127.0.0.1", [contact]),
+    [
+        #uri{
+            user = <<"client">>,
+            domain = <<"127.0.0.1">>,
+            port = 5070
+        }
+    ] = nksip_registrar:find(server, sip, "client", "nksip"),
+    {ok, 200, []} = nksip_uac:register(client, "sip:127.0.0.1", [unregister_all]),
+    [] = nksip_registrar:find(server, sip, <<"client">>, <<"nksip">>),
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
+
+sip_route(Scheme, User, Domain, Req, _Call) ->
+    case nksip_request:app_name(Req) of
+        server ->
+            Opts = [record_route, {insert, "x-nk-server", "server"}],
+            case lists:member(Domain, [<<"nksip">>, <<"127.0.0.1">>]) of
+                true when User =:= <<>> ->
+                    process;
+                true when Domain =:= <<"nksip">> ->
+                    case nksip_registrar:find(server, Scheme, User, Domain) of
+                        [] -> {reply, temporarily_unavailable};
+                        UriList -> {proxy, UriList, Opts}
+                    end;
+                _ ->
+                    {proxy, ruri, Opts}
+            end;
+        client ->
+            process
+    end.
+```
