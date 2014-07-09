@@ -181,7 +181,7 @@ See the [default implementation](../../plugins/nksip_registrar/src/nksip_registr
 -module(example).
 -compile([export_all]).
 
--include_lib("include/nksip.hrl").
+-include_lib("nksip/include/nksip.hrl").
 
 
 start() ->

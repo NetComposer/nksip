@@ -109,8 +109,8 @@ See the [default implementation](../../plugins/nksip_event_compositor/src/nksip_
 ```erlang
 -module(example).
 
--include_lib("include/nksip.hrl").
--include_lib("include/nksip_event_compositor.hrl").
+-include_lib("nksip/include/nksip.hrl").
+-include_lib("nksip/plugins/include/nksip_event_compositor.hrl").
 -compile([export_all]).
 
 start() ->
