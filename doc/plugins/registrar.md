@@ -2,7 +2,7 @@
 
 ## Description
 
-This plugin provides a full registrar server implementation according to RFC3261. _Path_ is also supported, according to RFC3327. It uses by default the built-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/3](#sip_registrar_store2). Each started SipApp activating this plugin maintains a fully independent set of registrations.
+This plugin provides a full registrar server implementation according to RFC3261. _Path_ is also supported, according to RFC3327. It uses by default the built-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/2](#sip_registrar_store2). Each started SipApp activating this plugin maintains a fully independent set of registrations.
 
 Once activated, 
 
@@ -35,7 +35,9 @@ nksip_registrar_max_time|86400 (24h)|Maximum registration expiration
     [nksip:uri()].
 ```
 
-Finds the registered contacts for this SipApp and _AOR_ or _Uri_, for example `nksip_registrar:find(my_app, "sip:user@domain")` or `nksip_registrar:find("my_other_app", {sip, <<"user">>, <<"domain">>})`
+Finds the registered contacts for this SipApp and _AOR_ or _Uri_, for example
+```nksip_registrar:find(my_app, "sip:user@domain")``` or 
+```nksip_registrar:find("my_other_app", {sip, <<"user">>, <<"domain">>})```
 
 
 ### find/4
@@ -55,7 +57,7 @@ Similar to `find/2`.
     nksip:uri_set().
 ```
 
-Gets all current registered contacts for an AOR, aggregated on Q values.
+Gets all current registered contacts for an _AOR_, aggregated on _Q_ values.
 You can use this function to generate a parallel and/o serial proxy request. For example, you could implement the following [sip_route/6](../reference/callback_functions.md#sip_route5) callback function:
 
 ```erlang
