@@ -1,4 +1,5 @@
-# Registrar Server Plugin
+# Event State Compositor Plugin (nksip_event_compositor)
+
 
 * [Description](#description)
 * [Dependant Plugins](#dependant-plugins)
