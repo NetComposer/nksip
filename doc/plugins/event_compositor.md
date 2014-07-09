@@ -15,6 +15,8 @@
 
 This plugin provides full support to implement an Event State Compositor, according to RFC3903. It uses by default the built-in RAM-only store, but can be configured to use any other database implementing callback [sip_publish_store/2](#sip_event_compositor_store2).
 
+_PUBLISH_ will also be added to default generared _Allow_ headers.
+
 ## Dependant Plugins
 
 None
