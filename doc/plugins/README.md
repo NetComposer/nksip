@@ -13,5 +13,4 @@
 * [Auto Outbound](auto_outbound.md)
 * [Trace](trace.md)
 * [Stats](stats.md)
-* [Debug](debug.md)
 
