@@ -32,16 +32,18 @@
 
 % @doc Called when a REFER request arrives
 -spec sip_refer(ReferTo::nksip:uri(), Req::nksip:request(), Call::nksip:call()) ->
-        {reply, nksip:sipreply()} | noreply.
+        boolean().
 
 sip_refer(_ReferTo, _Req, _Call) ->
-    ok.
+    false.
     
 
 % @doc Called when a REFER event is received
-% -spec sip_refer_update(ReferTo::nksip:uri(), Req::nksip:request(), Call::nksip:call()) ->
-%         {reply, nksip:sipreply()} | noreply.
+-spec sip_refer_update(SubsId, Status, Call) ->
+	ok
+	when SubsId :: nksip:subscription_id(), 
+		 Status :: init | active | {notify, binary()} | terminated,
+		 Call :: nksip:call().
 
-sip_refer_update(SubsId, Status, _Call) ->
-    lager:warning("REFER UPDATE: ~p, ~p", [SubsId, Status]),
+sip_refer_update(_SubsId, _Status, _Call) ->
     ok.

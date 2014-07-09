@@ -191,7 +191,7 @@ in_dialog() ->
 
 
 sip_refer(_ReferTo, _Req, _Call) ->
-    ok.
+    true.
 
 sip_refer_update(SubsId, Status, Call) ->
     DialogId = nksip_dialog:get_id(SubsId),

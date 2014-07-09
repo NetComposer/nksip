@@ -65,13 +65,15 @@ process(Req, #call{app_id=AppId, call_id=CallId}=Call) ->
     case nksip_sipmsg:header(<<"refer-to">>, Req, uris) of
         [ReferTo] -> 
             case catch AppId:sip_refer(ReferTo, Req, Call) of
-                ok ->
+                true ->
                     SubsId = nksip_subscription:get_id(Req), 
                     InvCallId = <<"nksip_refer_", CallId/binary>>,
                     Opts = [async, auto_2xx_ack, {call_id, InvCallId}, 
                            {refer_subscription_id, SubsId}],
                     spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
                     ok;
+                false ->
+                    forbidden;
                 {'EXIT', Error} ->
                     ?call_error("Error calling callback sip_refer/3: ~p", [Error]),
                     {internal_error, "SipApp Error"}
