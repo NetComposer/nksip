@@ -1,30 +1,36 @@
-# nksip_uac_auto plugin
+# Registrar Server Plugin
+
+* [Description](#description)
+* [Dependant Plugins](#dependant-plugins)
+* [Configuration Values](#configuration-values)
+* [API Functions](#api-functions)
+* [Callback Functions](#callback-functions)
+* [Examples](#examples)
+
+
 
 ## Description
 
-This plugin...
 
 
-## Dependant plugins
+## Dependant Plugins
 
 None
 
 
-## Configuration values
+## Configuration Values
+
+### SipApp configuration values
 
 Option|Default|Description
 ---|---|---
 
 
-
 ## API functions
 
-### start_register/5 
+### find/2
 
 ```erlang
-nksip_uac_auto:start_register(nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(), 
-								    Time::pos_integer(), Opts::nksip:optslist()) -> 
-    {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
 ```
 
 
@@ -33,16 +39,10 @@ nksip_uac_auto:start_register(nksip:app_name()|nksip:app_id(), Id::term(), Uri::
 
 You can implement any of these callback functions in your SipApp callback module.
 
-
-
-### sip_uac_auto_register_update/3
+### sip_registrar_store/2
 
 ```erlang
--spec sip_uac_auto_register_update(AppId::nksip:app_id(), 
-	                               RegId::term(), OK::boolean()) ->
-    ok.
 ```
 
-If implemented, it will called each time a registration serie changes its state.
-
+## Examples
 
