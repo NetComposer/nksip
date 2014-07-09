@@ -1,10 +1,10 @@
 # Registrar Server Plugin
 
 * [Description](#description)
-* [Dependant Plugins](#dependant_plugins)
-* [Configuration Values](#configuration_values)
-* [API Functions](#api_functions)
-* [Callback Functions](#callback_functions)
+* [Dependant Plugins](#dependant-plugins)
+* [Configuration Values](#configuration-values)
+* [API Functions](#api-functions)
+* [Callback Functions](#callback-functions)
 * [Examples](#examples)
 
 
@@ -21,12 +21,12 @@ When a new _REGISTER_ request arrives at a SipApp, and if you order to `process`
 Use [find/4](#find4) or [qfind/4](qfind4) to search for a specific registration's contacts, and [is_registered/1](#is_registered1) to check if the _Request-URI_ of a specific request is registered.
 
 
-## Dependant plugins
+## Dependant Plugins
 
 None
 
 
-## Configuration values
+## Configuration Values
 
 ### SipApp configuration values
 
