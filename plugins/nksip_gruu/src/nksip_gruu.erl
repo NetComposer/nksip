@@ -41,11 +41,12 @@ version() ->
 
 
 %% @doc Dependant plugins
+%% If nksip_registrar is activated, it will update it
 -spec deps() ->
     [{atom(), string()}].
     
 deps() ->
-    [{nksip_registrar, ".*"}].
+    [].
 
 
 %% @doc Parses this plugin specific configuration
@@ -98,7 +99,7 @@ get_gruu_temp(App) ->
     end.
 
 
-%% @doc 
+%% @doc Use this function instead of nksip_registrar:find/2,4 to decode the generated GRUUs.
 -spec registrar_find(nksip:app_name()|nksip:app_id(), nksip:uri()) ->
     [nksip:uri()].
 
