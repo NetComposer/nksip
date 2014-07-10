@@ -191,7 +191,7 @@ nksip_uac:refer(DialogId, Opts
 
 Sends an _REFER_ for a remote party. 
 
-Asks the remote party to start a new connection to the indicated uri in the mandatory `refer_to` parameter. If a 2xx response is received, the remote party has agreed and will start a new connection. A new subscription will be stablished, and you will start to receive NOTIFYs. Implement the callback function [notify/2](../reference/callback_functions.md#notify2) to receive them, filtering using the indicated `subscription_id`.
+Asks the remote party to start a new connection to the indicated uri in the mandatory `refer_to` parameter. If a 2xx response is received, the remote party has agreed and will start a new connection. A new subscription will be stablished, and you will start to receive NOTIFYs. Implement the callback function [sip_notify/2](../reference/callback_functions.md#sip_notify2) to receive them, filtering using the indicated `subscription_id`.
 
 In case of 2xx response, the first returned value is allways `{subscription_id, SubscriptionId}`, even if the `meta` option is not used.
 
