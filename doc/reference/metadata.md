@@ -66,11 +66,11 @@ Besides this values, you can use any `string()` or `binary()` to the get that he
 
 
 ## Dialogs Metadata
-Available when calling `nksip_dialog:meta/2`.
+Available when calling nksip_dialog:meta/2`.
 
 Name|Type|Description
 ---|---|---
-id|`nksip:id()`|Dialog's Id
+id|`nksip:id()`|Dialog's handle
 app_id|`nksip:app_id()`|Internal SipApp name this dialog belongs to
 app_name|`term()`|User SipApp name this dialog belongs to
 created|`nksip_lib:timestamp()`|Creation date
@@ -94,8 +94,6 @@ invite_answered|`nksip_lib:timestamp()}`|Answer (first 2xx response) timestamp f
 invite_local_sdp|`nksip:sdp()}`|Current local SDP
 invite_remote_sdp|`nksip:sdp()}`|Current remote SDP
 invite_timeout|`integer()`|Seconds to expire current state
-invite_session_expires|`integer()`|Seconds to expire current session
-invite_refresh|`integer()`|Seconds to refresh
 subscriptions|`nksip:id()`|Lists all active subscriptions
 call_id|`nksip:call_id()`|Call-ID of the dialog
 from_tag|`binary()`|From tag
