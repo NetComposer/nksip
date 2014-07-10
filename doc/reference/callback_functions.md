@@ -64,7 +64,7 @@ Callback|Reason
 
 ### sip_get_user_pass/4
 ```erlang
--spec get_user_pass(User::binary(), Realm::binary(), Request:nksip:request(), Call::nksip:call()) ->
+get_user_pass(User::binary(), Realm::binary(), Request:nksip:request(), Call::nksip:call()) ->
     true | false | Pass::binary().
 ```
 
@@ -81,7 +81,7 @@ If you don't define this function, NkSIP will reply with password `<<>>` if user
 
 ### sip_authorize/3
 ```erlang
--spec authorize(AuthList, Request::nksip:request(), Call::nksip:call()) ->
+authorize(AuthList, Request::nksip:request(), Call::nksip:call()) ->
     ok | forbidden | authenticate | {authenticate, Realm::binary()} |
     proxy_authenticate | {proxy_authenticate, Realm::binary()}
     when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
@@ -124,7 +124,7 @@ sip_authorize(Auth, Req, _Call) ->
 
 ### sip_route/5
 ```erlang
--spec sip_route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
+sip_route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
                 Request::nksip:request(), Call::nksip:call()) ->
     proxy | {proxy, ruri | nksip:uri_set()} | 
     {proxy, ruri | nksip:uri_set(), nksip:optslist()} | 
@@ -180,7 +180,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 
 ### sip_options/2
 ```erlang
--spec sip_options(Request::nksip:request(), Call::nksip:call()) ->
+sip_options(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -193,7 +193,7 @@ NkSIP will not send any body in its automatic response. This is ok for proxies. 
 
 ### sip_register/2
 ```erlang
--spec sip_register(Request::nksip:request(), Call::nksip:call()) ->
+sip_register(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -206,7 +206,7 @@ If this function is not defined, and no `registrar` option is found, a _405 Meth
 You should define this function in case you are implementing a registrar server and need a specific REGISTER processing (for example to add some headers to the response).
 
 ```erlang
--spec register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
+register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 register(Req, Call) ->
@@ -225,7 +225,7 @@ register(Req, Call) ->
 
 ### sip_invite/2
 ```erlang
--spec sip_invite(Request::nksip:request(), Call::nksip:call()) ->
+sip_invite(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -267,7 +267,7 @@ If this functions is not implemented, it will reply with a _603 Decline_.
 
 ### sip_reinvite/2
 ```erlang
--spec sip_reinvite(Request::nksip:request(), Call::nksip:call()) ->
+sip_reinvite(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -278,7 +278,7 @@ It works the same way as [sip_invite/2](#sip_invite2), and, if it is not impleme
 
 ### sip_cancel/3
 ```erlang
--spec sip_cancel(InviteRequest::nksip:request(), Request::nksip:request(), 
+sip_cancel(InviteRequest::nksip:request(), Request::nksip:request(), 
                  Call::nksip:call()) ->
     ok.
 ```
@@ -292,7 +292,7 @@ You can get additional information of the cancelled INVITE using `InviteRequest`
 
 ### sip_ack/2
 ```erlang
--spec sip_ack(Request::nksip:request(), Call::nksip:call()) ->
+sip_ack(Request::nksip:request(), Call::nksip:call()) ->
     ok.
 ```
 
@@ -303,7 +303,7 @@ You don't usually need to implement this callback. One possible reason to do it 
 
 ### sip_bye/2
 ```erlang
--spec sip_bye(Request::nksip:request(), Call::nksip:call()) ->
+sip_bye(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -314,7 +314,7 @@ When a BYE request is received, NkSIP will automatically response 481 _Call/Tran
 
 ### sip_prack/2
 ```erlang
--spec sip_prack(Request::nksip:request(), Call::nksip:call()) ->
+sip_prack(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -325,7 +325,7 @@ This function is called by NkSIP when a new valid in-dialog PRACK request has to
 
 ### sip_update/2
 ```erlang
--spec sip_update(Req::nksip:request(), Call::nksip:call()) ->
+sip_update(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -338,7 +338,7 @@ If not implemented will reply _603 Decline_.
 
 ### sip_subscribe/2
 ```erlang
--spec sip_subscribe(Request::nksip:request(), Call::nksip:call()) ->
+sip_subscribe(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -360,7 +360,7 @@ If not implemented will reply _603 Decline_.
 
 ### sip_resubscribe/2
 ```erlang
--spec sip_resubscribe(Request::nksip:request(), Call::nksip:call()) ->
+sip_resubscribe(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -371,7 +371,7 @@ You won't usually have to implement this function, if not implemented it will re
 
 ### sip_notify/2
 ```erlang
--spec sip_notify(Request::nksip:request(), Call::nksip:call()) ->
+sip_notify(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -383,7 +383,7 @@ You should extract any relevant information and return `ok`. If not implemented,
 
 ### sip_refer/2
 ```erlang
--spec sip_refer(Request::nksip:request(), Call::nksip:call()) ->
+sip_refer(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -413,7 +413,7 @@ If not implemented a _603 Decline_ will be returned.
 
 ### sip_publish/2
 ```erlang
--spec sip_publish(Request::nksip:request(), Call::nksip:call()) ->
+sip_publish(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -425,7 +425,7 @@ If not implemented a _603 Decline_ will be returned.
 
 ### sip_info/2
 ```erlang
--spec sip_info(Req::nksip:request(), Call::nksip:call()) ->
+sip_info(Req::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 
@@ -436,7 +436,7 @@ When an INFO request is received, NkSIP will automatically response 481 _Call/Tr
 
 ### sip_message/2
 ```erlang
--spec sip_message(Request::nksip:request(), Call::nksip:call()) ->
+sip_message(Request::nksip:request(), Call::nksip:call()) ->
     {reply, nksip:sipreply()} | noreply.
 ```
 This function is called by NkSIP to process a new incoming MESSAGE request.
@@ -447,7 +447,7 @@ If not implemented a _603 Decline_ will be returned.
 
 ### sip_dialog_update/3
 ```erlang
--spec sip_dialog_update(DialogStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
+sip_dialog_update(DialogStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
     ok
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |
@@ -464,7 +464,7 @@ Any dialog can have multiple usages simultaneously, as much as _one_ _INVITE usa
 NkSIP will call this function every time a dialog is created, its target is updated or it is destroyed. It will be called also when the status of the _usage_ changes, as `{invite_status, Status}` for the INVITE usage and `{subscription_status, Status, Subscription}` for SUBSCRIBE usages.
 
 ```erlang
--spec dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
+dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
     ok
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |
@@ -475,7 +475,7 @@ NkSIP will call this function every time a dialog is created, its target is upda
 
 ### sip_session_update/3
 ```erlang
--spec sip_session_update(SessionStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
+sip_session_update(SessionStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
     ok 
     when SessionStatus :: {start, Local, Remote} | {update, Local, Remote} | stop,
                           Local::nksip_sdp:sdp(), Remote::nksip_sdp:sdp().
@@ -488,7 +488,7 @@ When NkSIP will call this function when detects that, inside an existing dialog,
 
 ### sip_registrar_store_op/3
 ```erlang
--spec sip_registrar_store(StoreOp, AppId) ->
+sip_registrar_store(StoreOp, AppId) ->
     [RegContact] | ok | not_found when 
         StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
                    {del, AOR} | del_all,
@@ -511,7 +511,7 @@ del_all|ok|Delete all stored information for this `AppId`.
 
 ### sip_publish_store_op/3
 ```erlang
--spec sip_publish_store(StoreOp, AppId) ->
+sip_publish_store(StoreOp, AppId) ->
     RegPublish | ok | not_found when
         StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
                    {del, AOR, Tag} | del_all,
@@ -543,7 +543,7 @@ This callback function is called when the SipApp is launched using `nksip:start/
 If `{ok, State}` or `{ok, State, Timeout}` is returned the SipApp is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the SipApp will not start. 
 
 ```erlang
--spec init(Args::term()) ->
+init(Args::term()) ->
     {ok, State::term()} | {ok, State::term(), Timeout::timeout()} |
     {stop, Reason::term()}.
 
@@ -555,7 +555,7 @@ init([]) ->
 Called when the SipApp is stopped.
 
 ```erlang
--spec terminate(Reason::term(), State::term()) ->
+terminate(Reason::term(), State::term()) ->
     ok.
 
 terminate(_Reason, _State) ->
@@ -566,7 +566,7 @@ terminate(_Reason, _State) ->
 Called when a direct call to the SipApp process is made using `gen_server:call/2,3`.
 
 ```erlang
--spec handle_call(Msg::term(), From::from(), State::term()) ->
+handle_call(Msg::term(), From::from(), State::term()) ->
       {noreply, State} | {noreply, State, Timeout} | 
       {reply, Reply, State} | {reply, Reply, State, Timeout} | 
       {stop, Reason, State} | {stop, Reason, Reply, State}
@@ -582,7 +582,7 @@ handle_call(Msg, _From, State) ->
 Called when a direct cast to the SipApp process is made using `gen_server:cast/2`.
 
 ```erlang
--spec handle_cast(Msg::term(), State::term()) ->
+handle_cast(Msg::term(), State::term()) ->
       {noreply, State} | {noreply, State, Timeout} | 
       {stop, Reason, State} 
       when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
@@ -597,7 +597,7 @@ handle_cast(Msg, State) ->
 Called when the SipApp process receives an unknown message.
 
 ```erlang
--spec handle_info(Msg::term(), State::term()) ->
+handle_info(Msg::term(), State::term()) ->
       {noreply, State} | {noreply, State, Timeout} | 
       {stop, Reason, State} 
       when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
@@ -611,7 +611,7 @@ See gen_server's documentation
 
 
 ```erlang
--spec code_change(OldVsn::term(), State::term(), Extra::term()) ->
+code_change(OldVsn::term(), State::term(), Extra::term()) ->
     {ok, NewState::term()}.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -624,7 +624,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 ### sip_ping_update/3
 ```erlang
--spec sip_ping_update(PingId::term(), OK::boolean(), AppId::nksip:app_id()) ->
+sip_ping_update(PingId::term(), OK::boolean(), AppId::nksip:app_id()) ->
     ok.
 ```
 
@@ -634,7 +634,7 @@ See [nksip_sipapp_auto:start_ping/5](../../src/nksip_sipapp_auto.erl).
 
 ### sip_register_update/3
 ```erlang
--spec sip_register_update(RegId::term(), OK::boolean(), AppId::nksip:app_id()) ->
+sip_register_update(RegId::term(), OK::boolean(), AppId::nksip:app_id()) ->
     ok.
 ```
 

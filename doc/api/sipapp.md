@@ -30,7 +30,7 @@ Function|Description
 
 ### nksip:start/4
 ```erlang
--spec start(UserName::nksip:app_name(), CallbackModule::atom(), Args::term(), Opts::nksip:optslist()) -> 
+start(UserName::nksip:app_name(), CallbackModule::atom(), Args::term(), Opts::nksip:optslist()) -> 
 	{ok, nksip:app_id()} | {error, term()}.
 ```
 
@@ -43,7 +43,7 @@ NkSIP returns the _internal name_ of the application. In most API calls you can 
 
 ### nksip:stop/1
 ```erlang
--spec stop(Name::nksip:app_name()|nksip:app_id()) -> 
+stop(Name::nksip:app_name()|nksip:app_id()) -> 
     ok | {error,term()}.
 ```
 Stops a currently started SipApp.
@@ -51,7 +51,7 @@ Stops a currently started SipApp.
 
 ### nksip:stop_all/0
 ```erlang
--spec stop_all() -> 
+stop_all() -> 
    	ok.
 ```
 Stops all currently started SipApps.
@@ -59,7 +59,7 @@ Stops all currently started SipApps.
 
 ### nksip:update/2
 ```erlang
--spec update(nksip:app_name()|nksip:app_id(), nksip:optslist()) ->
+update(nksip:app_name()|nksip:app_id(), nksip:optslist()) ->
     {ok, nksip:app_id()} | {error, term()}.
 ```
 Updates the callback module or options of a running SipApp. It is not allowed to change transports.
@@ -67,7 +67,7 @@ Updates the callback module or options of a running SipApp. It is not allowed to
 
 ### nksip:get_all/0
 ```erlang
--spec get_all() ->
+get_all() ->
     [{AppName::term(), AppId::nksip:app_id()}].
 ```
 Gets the user and internal ids of all started SipApps.
@@ -75,7 +75,7 @@ Gets the user and internal ids of all started SipApps.
 
 ### nksip:get/2
 ```erlang
--spec get(nksip:app_name()|nksip:app_id(), term()) ->
+get(nksip:app_name()|nksip:app_id(), term()) ->
     {ok, term()} | undefined | {error, term()}.
 ```
 Gets a value from SipApp's store.
@@ -83,7 +83,7 @@ Gets a value from SipApp's store.
 
 ### nksip:get/3
 ```erlang
--spec get(nksip:app_name()|nksip:app_id(), term(), term()) ->
+get(nksip:app_name()|nksip:app_id(), term(), term()) ->
     {ok, term()} | {error, term()}.
 ```
 Gets a value from SipApp's store, using a default if not found.
@@ -91,7 +91,7 @@ Gets a value from SipApp's store, using a default if not found.
 
 ### nksip:put/3
 ```erlang
--spec put(nksip:app_name()|nksip:app_id(), term(), term()) ->
+put(nksip:app_name()|nksip:app_id(), term(), term()) ->
     ok | {error, term()}.
 ```
 Inserts a value in SipApp's store.
@@ -99,7 +99,7 @@ Inserts a value in SipApp's store.
 
 ### nksip:del/2
 ```erlang
--spec del(nksip:app_name()|nksip:app_id(), term()) ->
+del(nksip:app_name()|nksip:app_id(), term()) ->
     ok | {error, term()}.
 ```
 Deletes a value from SipApp's store.
@@ -107,7 +107,7 @@ Deletes a value from SipApp's store.
 
 ### nksip:get_pid/1
 ```erlang
--spec get_pid(nksip:app_name()|app_id()) -> 
+get_pid(nksip:app_name()|app_id()) -> 
     pid() | undefined.
 ```
 Gets the SipApp's _gen_server process_ `pid()`.
@@ -115,7 +115,7 @@ Gets the SipApp's _gen_server process_ `pid()`.
 
 ### nksip:find_app/1
 ```erlang
--spec find_app(term()) ->
+find_app(term()) ->
     {ok, app_id()} | not_found.
 ```
 Finds the _internal name_ of an existing SipApp.
@@ -123,7 +123,7 @@ Finds the _internal name_ of an existing SipApp.
 
 ### nksip:call/2
 ```erlang
--spec call(nksip:app_name()|nksip:app_id(), term()) ->
+call(nksip:app_name()|nksip:app_id(), term()) ->
     term().
 ```
 Synchronous call to the SipApp's gen_server process. It is a simple `gen_server:call/2` but allowing SipApp names.
@@ -131,14 +131,14 @@ Synchronous call to the SipApp's gen_server process. It is a simple `gen_server:
 
 ### nksip:call/3
 ```erlang
--spec call(nksip:app_name()|nksip:app_id(), term(), pos_integer()|infinity) ->
+call(nksip:app_name()|nksip:app_id(), term(), pos_integer()|infinity) ->
     term().
 ```
 Synchronous call to the SipApp's gen_server process. It is a simple `gen_server:call/3` but allowing SipApp names.
 
 
 ```erlang
--spec cast(nksip:app_name()|nksip:app_id(), term()) ->
+cast(nksip:app_name()|nksip:app_id(), term()) ->
     term().
 ```
 Asynchronous call to the SipApp's gen_server process. It is a simple `gen_server:cast/2` but allowing SipApp names.
@@ -146,7 +146,7 @@ Asynchronous call to the SipApp's gen_server process. It is a simple `gen_server
 
 ### nksip:get_uuid/1
 ```erlang
--spec get_uuid(nksip:app_name()|nksip:nksip:app_id()) -> 
+get_uuid(nksip:app_name()|nksip:nksip:app_id()) -> 
     {ok, binary()} | {error, term()}.
 ```
 Gets the SipApp's _UUID_.
@@ -154,7 +154,7 @@ Gets the SipApp's _UUID_.
 
 ### nksip:get_gruu_pub/1
 ```erlang
--spec get_gruu_pub(nksip:app_name()|nksip:nksip:app_id()) ->
+get_gruu_pub(nksip:app_name()|nksip:nksip:app_id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 ```
 Gets the last detected public _GRUU_.
@@ -162,7 +162,7 @@ Gets the last detected public _GRUU_.
 
 ### nksip:get_gruu_temp/1
 ```erlang
--spec get_gruu_temp(nksip:app_name()|nksip:nksip:app_id()) ->
+get_gruu_temp(nksip:app_name()|nksip:nksip:app_id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 ```
 Gets the last detected temporary _GRUU_.

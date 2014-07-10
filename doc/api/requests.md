@@ -30,7 +30,7 @@ Function|Description
 
 ### nksip_request:get_handle/1
 ```erlang
--spec get_id(nksip:request()|nksip:id()) ->
+get_id(nksip:request()|nksip:id()) ->
     nksip:id().
 ```
 Grabs a request's handle.
@@ -38,7 +38,7 @@ Grabs a request's handle.
 
 ### nksip_request:app_id/1
 ```erlang
--spec app_id(nksip:request()|nksip:id()) -> 
+app_id(nksip:request()|nksip:id()) -> 
     nksip:app_id().
 ```
 Gets then SipApp's _internal name_.
@@ -46,7 +46,7 @@ Gets then SipApp's _internal name_.
 
 ### nksip_request:app_name/1
 ```erlang
--spec app_name(nksip:request()|nksip:id()) -> 
+app_name(nksip:request()|nksip:id()) -> 
     term().
 ```
 Gets the SipApp's _user name_
@@ -54,7 +54,7 @@ Gets the SipApp's _user name_
 
 ### nksip_request:method/1
 ```erlang
--spec method(nksip:request()|nksip:id()) ->
+method(nksip:request()|nksip:id()) ->
     nksip:method() | error.
 ```
 Gets the method of the request.
@@ -62,7 +62,7 @@ Gets the method of the request.
 
 ### nksip_request:body/1
 ```erlang
--spec body(nksip:request()|nksip:id()) ->
+body(nksip:request()|nksip:id()) ->
     nksip:body() | error.
 ```
 Gets the body of the request.
@@ -70,7 +70,7 @@ Gets the body of the request.
 
 ### nksip_request:call_id/1
 ```erlang
--spec call_id(nksip:request()|nksip:id()) ->
+call_id(nksip:request()|nksip:id()) ->
     nksip:call_id().
 ```
 Gets the Call-ID header of the request.
@@ -78,7 +78,7 @@ Gets the Call-ID header of the request.
 
 ### nksip_request:meta/2
 ```erlang
--spec meta(Meta::nksip_sipmsg:field()|[nksip_sipmsg:field()], nksip:request()|nksip:id()) ->
+meta(Meta::nksip_sipmsg:field()|[nksip_sipmsg:field()], nksip:request()|nksip:id()) ->
     term() | [{nksip_sipmsg:field(), term()}] | error.
 ```
 Gets specific metadata from the request.
@@ -89,7 +89,7 @@ If `Meta` is simple term, its value is returned. If it is a list, it will return
 
 ### nksip_request:header/2
 ```erlang
--spec header(Name::string()|binary()|[string()|binary()], nksip:request()|nksip:id()) -> 
+header(Name::string()|binary()|[string()|binary()], nksip:request()|nksip:id()) -> 
     [binary()] | [{binary(), binary()}] | error.
 ```
 Gets the values for a header or headers in a request.
@@ -101,7 +101,7 @@ NkSIP uses only lowercase for header names.
 
 ### nksip_request:reply/2
 ```erlang
--spec reply(nksip:sipreply(), nksip:id()) -> 
+reply(nksip:sipreply(), nksip:id()) -> 
     ok | {error, Error}
     when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
 ```
@@ -112,7 +112,7 @@ See [Receiving Requests](../guide/receiving_requests.md) for a overall descripti
 
 ### nksip_request:is_local_route/1
 ```erlang
--spec is_local_route(nksip:request()) -> 
+is_local_route(nksip:request()) -> 
     boolean().
 ```
 Checks if this request would be sent to a local address in case of beeing proxied.

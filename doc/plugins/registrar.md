@@ -52,7 +52,7 @@ nksip_registrar_max_time|86400 (24h)|Maximum registration expiration
 ### find/2
 
 ```erlang
--spec find(nksip:app_name()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
+find(nksip:app_name()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 ```
 
@@ -64,7 +64,7 @@ Finds the registered contacts for this SipApp and _AOR_ or _Uri_, for example
 ### find/4
 
 ```erlang
--spec find(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+find(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 ```
 
@@ -74,7 +74,7 @@ Similar to `find/2`.
 ### qfind/2
 
 ```erlang
--spec qfind(nksip:app_name()|nksip:app_id(), AOR::nksip:aor()) ->
+qfind(nksip:app_name()|nksip:app_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 ```
 
@@ -102,7 +102,7 @@ Using this example, when a new request arrives at our proxy for domain 'nksip' a
 ### qfind/4
 
 ```erlang
--spec qfind(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+qfind(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 ```
 
@@ -112,7 +112,7 @@ Similar to `qfind/2`
 ### delete/4
 
 ```erlang
--spec delete(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+delete(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 ```
 
@@ -122,7 +122,7 @@ Deletes all registered contacts for an _AOR_.
 ### is_registered/1
 
 ```erlang
--spec is_registered(Req::nksip:request()) ->
+is_registered(Req::nksip:request()) ->
     boolean().
 ```
 
@@ -132,7 +132,7 @@ Finds if a the request has a _From_ header that has been already registered usin
 ### process/1
 
 ```erlang
--spec request(nksip:request()) ->
+request(nksip:request()) ->
     nksip:sipreply().
 ```
 
@@ -162,7 +162,7 @@ You can implement any of these callback functions in your SipApp callback module
 ### sip_registrar_store/2
 
 ```erlang
--spec sip_registrar_store(StoreOp, AppId) ->
+sip_registrar_store(StoreOp, AppId) ->
     [RegContact] | ok | not_found when 
         StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
                    {del, AOR} | del_all,

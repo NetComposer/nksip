@@ -25,7 +25,7 @@ Function|Description
 
 ## start/4
 ```erlang
--spec start(Name::term(), Callback::atom(), Args::term(), Opts::nksip:optslist()) -> 
+start(Name::term(), Callback::atom(), Args::term(), Opts::nksip:optslist()) -> 
 	{ok, app_id()} | {error, term()}.
 ```
 
@@ -34,7 +34,7 @@ Starts a new SipApp. See [starting a SipApp](../guide/start_a_sipapp.md)
 
 ## stop/1
 ```erlang
--spec stop(Name::term()|app_id()) -> 
+stop(Name::term()|app_id()) -> 
     ok | error.
 ```
 

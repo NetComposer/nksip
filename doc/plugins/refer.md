@@ -38,7 +38,7 @@ None
 ### process/2
 
 ```erlang
--spec process(nksip:request(), nksip:call()) ->
+process(nksip:request(), nksip:call()) ->
     nksip:sipreply().
 ```
 
@@ -54,7 +54,7 @@ You can implement any of these callback functions in your SipApp callback module
 ### sip_refer/3
 
 ```erlang
--spec sip_refer(ReferTo::nksip:uri(), Req::nksip:request(), Call::nksip:call()) ->
+sip_refer(ReferTo::nksip:uri(), Req::nksip:request(), Call::nksip:call()) ->
         boolean().
 ```
 
@@ -64,7 +64,7 @@ Called when a REFER request arrives. Reply `true` to continue the processing of 
 ### sip_refer_update/3
 
 ```erlang
--spec sip_refer_update(SubsId, Status, Call) ->
+sip_refer_update(SubsId, Status, Call) ->
 	ok
 	when SubsId :: nksip:subscription_id(), 
 		 Status :: init | active | {notify, binary()} | terminated,

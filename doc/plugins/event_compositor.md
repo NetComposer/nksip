@@ -35,7 +35,7 @@ nksip_event_compositor_default_expires|60 (secs)|Default expiration for stored e
 ### find/3
 
 ```erlang
--spec find(App::nksip:app_id()|term(), AOR::nksip:aor(), Tag::binary()) ->
+find(App::nksip:app_id()|term(), AOR::nksip:aor(), Tag::binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 ```
 
@@ -44,7 +44,7 @@ Finds a stored published information.
 
 ### request/1
 ```erlang
--spec request(nksip:request()) ->
+request(nksip:request()) ->
     nksip:sipreply().
 ```
 
@@ -73,7 +73,7 @@ sip_publish(Req, _Call) ->
 ### clear/1
 
 ```erlang
--spec clear(nksip:app_name()|nksip:app_id()) -> 
+clear(nksip:app_name()|nksip:app_id()) -> 
     ok | callback_error | sipapp_not_found.
 ```
 
@@ -89,7 +89,7 @@ You can implement any of these callback functions in your SipApp callback module
 ### sip_event_compositor_store/2
 
 ```erlang
--spec sip_event_compositor_store(StoreOp, AppId) ->
+sip_event_compositor_store(StoreOp, AppId) ->
     [RegPublish] | ok | not_found when
         StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
                    {del, AOR, Tag} | del_all,

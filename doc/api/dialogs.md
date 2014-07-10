@@ -34,7 +34,7 @@ Function|Description
 
 ### nksip_dialog:get_handle/1
 ```erlang
--spec get_id(nksip:dialog()|nksip:request()|nksip:response()|nksip:id()) ->
+get_id(nksip:dialog()|nksip:request()|nksip:response()|nksip:id()) ->
     nksip:id().
 ```
 Grabs a dialog's handle.
@@ -42,7 +42,7 @@ Grabs a dialog's handle.
 
 ### nksip_dialog:app_id/1
 ```erlang
--spec app_id(nksip:dialog()|nksip:id()) -> 
+app_id(nksip:dialog()|nksip:id()) -> 
     nksip:app_id().
 ```
 Gets then SipApp's _internal name_.
@@ -50,7 +50,7 @@ Gets then SipApp's _internal name_.
 
 ### nksip_dialog:app_name/1
 ```erlang
--spec app_name(nksip:dialog()|nksip:id()) -> 
+app_name(nksip:dialog()|nksip:id()) -> 
     term().
 ```
 Gets the SipApp's _user name_
@@ -58,7 +58,7 @@ Gets the SipApp's _user name_
 
 ### nksip_dialog:call_id/1
 ```erlang
--spec call_id(nksip:dialog()|nksip:id()) ->
+call_id(nksip:dialog()|nksip:id()) ->
     nksip:call_id().
 ```
 Gets the Call-ID header of the dialog.
@@ -66,7 +66,7 @@ Gets the Call-ID header of the dialog.
 
 ### nksip_dialog:meta/2
 ```erlang
--spec meta(nksip_dialog:field()|[nksip_dialog:field()], nksip:dialog()|nksip:id()) -> 
+meta(nksip_dialog:field()|[nksip_dialog:field()], nksip:dialog()|nksip:id()) -> 
     term() | [{field(), term()}] | error.
 ```
 Gets specific metadata from the dialog.
@@ -77,7 +77,7 @@ If `Meta` is simple term, its value is returned. If it is a list, it will return
 
 ### nksip_dialog:get_dialog/2
 ```erlang
--spec get_dialog(nksip:request()|nksip:response()|nksip:subscription(), nksip:call()) ->
+get_dialog(nksip:request()|nksip:response()|nksip:subscription(), nksip:call()) ->
     nksip:dialog()|error.
 ```
 Gets a dialog object from a request and a call objects.
@@ -85,7 +85,7 @@ Gets a dialog object from a request and a call objects.
 
 ### nksip_dialog:get_all/0
 ```erlang
--spec get_all() ->
+get_all() ->
     [nksip:id()].
 ```
 Get the handles of all started dialogs.
@@ -93,7 +93,7 @@ Get the handles of all started dialogs.
 
 ### nksip_dialog:get_all/2
 ```erlang
--spec get_all(App::nksip:app_id(), CallId::nksip:call_id()) ->
+get_all(App::nksip:app_id(), CallId::nksip:call_id()) ->
     [nksip:id()].
 ```
 Gets all current started dialog handles belonging to App and having Call-ID.
@@ -101,7 +101,7 @@ Gets all current started dialog handles belonging to App and having Call-ID.
 
 ### nksip_dialog:bye_all/0
 ```erlang
--spec bye_all() ->
+bye_all() ->
     ok.
 ```
 Sends an in-dialog BYE to all existing dialogs.
@@ -109,7 +109,7 @@ Sends an in-dialog BYE to all existing dialogs.
 
 ### nksip_dialog:stop/1
 ```erlang
--spec stop(nksip:id()) ->
+stop(nksip:id()) ->
     ok.
 ```
 Stops an existing dialog from its handle (remove it from memory).
@@ -117,7 +117,7 @@ Stops an existing dialog from its handle (remove it from memory).
 
 ### nksip_dialog:stop_all/0
 ```erlang
--spec stop_all() ->
+stop_all() ->
     ok.
 ```
 Stops (deletes) all current dialogs.

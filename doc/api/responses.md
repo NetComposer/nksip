@@ -29,7 +29,7 @@ Function|Description
 
 ### nksip_response:get_handle/1
 ```erlang
--spec get_handle(nksip:response()|nksip:id()) ->
+get_handle(nksip:response()|nksip:id()) ->
     nksip:id().
 ```
 Grabs a response's handle.
@@ -37,7 +37,7 @@ Grabs a response's handle.
 
 ### nksip_response:app_id/1
 ```erlang
--spec app_id(nksip:response()|nksip:id()) -> 
+app_id(nksip:response()|nksip:id()) -> 
     nksip:app_id().
 ```
 Gets then SipApp's _internal name_.
@@ -45,7 +45,7 @@ Gets then SipApp's _internal name_.
 
 ### nksip_response:app_name/1
 ```erlang
--spec app_name(nksip:response()|nksip:id()) -> 
+app_name(nksip:response()|nksip:id()) -> 
     term().
 ```
 Gets the SipApp's _user name_
@@ -53,7 +53,7 @@ Gets the SipApp's _user name_
 
 ### nksip_response:code/1
 ```erlang
--spec code(nksip:response()|nksip:id()) ->
+code(nksip:response()|nksip:id()) ->
     nksip:sip_code() | error.
 ```
 Gets the SIP code of the response.
@@ -61,7 +61,7 @@ Gets the SIP code of the response.
 
 ### nksip_response:body/1
 ```erlang
--spec body(nksip:response()|nksip:id()) ->
+body(nksip:response()|nksip:id()) ->
     nksip:body() | error.
 ```
 Gets the body of the response.
@@ -69,7 +69,7 @@ Gets the body of the response.
 
 ### nksip_response:call_id/1
 ```erlang
--spec call_id(nksip:response()|nksip:id()) ->
+call_id(nksip:response()|nksip:id()) ->
     nksip:call_id().
 ```
 Gets the Call-ID header of the response.
@@ -77,7 +77,7 @@ Gets the Call-ID header of the response.
 
 ### nksip_response:meta/2
 ```erlang
--spec meta(Meta::nksip_sipmsg:field()|[nksip_sipmsg:field()], nksip:response()|nksip:id()) ->
+meta(Meta::nksip_sipmsg:field()|[nksip_sipmsg:field()], nksip:response()|nksip:id()) ->
     term() | [{nksip_sipmsg:field(), term()}] | error.
 ```
 Gets specific metadata from the response.
@@ -88,7 +88,7 @@ If `Meta` is simple term, its value is returned. If it is a list, it will return
 
 ### nksip_response:header/2
 ```erlang
--spec header(Name::string()|binary()|[string()|binary()], nksip:response()|nksip:id()) -> 
+header(Name::string()|binary()|[string()|binary()], nksip:response()|nksip:id()) -> 
     [binary()] | [{binary(), binary()}] | error.
 ```
 Gets the values for a header or headers in a response.
@@ -100,7 +100,7 @@ NkSIP uses only lowercase for header names.
 
 ### nksip_response:wait_491/0
 ```erlang
--spec wait_491() -> 
+wait_491() -> 
     ok.
 ```
 Sleeps a random time between 2.1 and 4 secs. It should be called after receiving a 491 response and before trying the response again.

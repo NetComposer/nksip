@@ -31,7 +31,7 @@ Function|Description
 
 ### nksip_subscription:get_handle/1
 ```erlang
--spec get_id(nksip:subscription()|nksip:request()|nksip:response()|nksip:id()) ->
+get_id(nksip:subscription()|nksip:request()|nksip:response()|nksip:id()) ->
     nksip:id().
 ```
 Grabs a subscription's handle.
@@ -39,7 +39,7 @@ Grabs a subscription's handle.
 
 ### nksip_subscription:app_id/1
 ```erlang
--spec app_id(nksip:subscription()|nksip:id()) -> 
+app_id(nksip:subscription()|nksip:id()) -> 
     nksip:app_id().
 ```
 Gets then SipApp's _internal name_.
@@ -47,7 +47,7 @@ Gets then SipApp's _internal name_.
 
 ### nksip_subscription:app_name/1
 ```erlang
--spec app_name(nksip:subscription()|nksip:id()) -> 
+app_name(nksip:subscription()|nksip:id()) -> 
     term().
 ```
 Gets the SipApp's _user name_
@@ -55,7 +55,7 @@ Gets the SipApp's _user name_
 
 ### nksip_subscription:call_id/1
 ```erlang
--spec call_id(nksip:subscription()|nksip:id()) ->
+call_id(nksip:subscription()|nksip:id()) ->
     nksip:call_id().
 ```
 Gets the Call-ID header of the subscription.
@@ -63,7 +63,7 @@ Gets the Call-ID header of the subscription.
 
 ### nksip_subscription:meta/2
 ```erlang
--spec meta(nksip_subscription:field()|[nksip_subscription:field()], nksip:subscription()|nksip:id()) -> 
+meta(nksip_subscription:field()|[nksip_subscription:field()], nksip:subscription()|nksip:id()) -> 
     term() | [{field(), term()}] | error.
 ```
 Gets specific metadata from the subscription.
@@ -74,7 +74,7 @@ If `Meta` is simple term, its value is returned. If it is a list, it will return
 
 ### nksip_subscription:get_subscription/2
 ```erlang
--spec get_subscription(nksip:request()|nksip:response(), nksip:call()) ->
+get_subscription(nksip:request()|nksip:response(), nksip:call()) ->
     nksip:subscription()|error.
 ```
 Gets a subscription object from a request and a call objects.
@@ -82,7 +82,7 @@ Gets a subscription object from a request and a call objects.
 
 ### nksip_subscription:get_all/0
 ```erlang
--spec get_all() ->
+get_all() ->
     [nksip:id()].
 ```
 Get the handles of all started subscription.
@@ -90,7 +90,7 @@ Get the handles of all started subscription.
 
 ### nksip_subscription:get_all/2
 ```erlang
--spec get_all(App::nksip:app_id(), CallId::nksip:call_id()) ->
+get_all(App::nksip:app_id(), CallId::nksip:call_id()) ->
     [nksip:id()].
 ```
 Gets all current started subscription handles belonging to App and having Call-ID.
@@ -98,7 +98,7 @@ Gets all current started subscription handles belonging to App and having Call-I
 
 ### nksip_subscription:bye_all/0
 ```erlang
--spec bye_all() ->
+bye_all() ->
     ok.
 ```
 Sends an in-subscription BYE to all existing subscription.
@@ -106,7 +106,7 @@ Sends an in-subscription BYE to all existing subscription.
 
 ### nksip_subscription:stop/1
 ```erlang
--spec stop(nksip:id()) ->
+stop(nksip:id()) ->
     ok.
 ```
 Stops an existing subscription from its handle (remove it from memory).
@@ -114,7 +114,7 @@ Stops an existing subscription from its handle (remove it from memory).
 
 ### nksip_subscription:stop_all/0
 ```erlang
--spec stop_all() ->
+stop_all() ->
     ok.
 ```
 Stops (deletes) all current subscription.

@@ -109,7 +109,7 @@ You can implement any of these callback functions in your SipApp callback module
 ### sip_uac_auto_register_updated_register/3
 
 ```erlang
--spec sip_uac_auto_register_updated_register(Id::term(), OK::boolean(), 
+sip_uac_auto_register_updated_register(Id::term(), OK::boolean(), 
                                              AppId::nksip:app_id()) ->
     ok.
 ```
@@ -120,7 +120,7 @@ If implemented, it will called each time a registration serie changes its state.
 ### sip_uac_auto_register_updated_ping/3
 
 ```erlang
--spec sip_uac_auto_register_updated_ping(Id::term(), OK::boolean(), 
+sip_uac_auto_register_updated_ping(Id::term(), OK::boolean(), 
                                          AppId::nksip:app_id()) ->
     ok.
 ```
