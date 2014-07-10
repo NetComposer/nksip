@@ -20,7 +20,7 @@ Then you will have to setup in your erlang environment any [configuration parame
 
 ### Start NkSIP as a stand-alone application
 
-NkSIP does not currently include any standard Erlang release building system. In the near future, NkSIP will be refactored as a module under the upcoming _NkCore_ project, so it will make no sense including one.
+NkSIP does not include any standard Erlang release building system. In the near future, NkSIP will be refactored as a module under the upcoming _NkCore_ project, so it makes no sense including one.
 
 If you want to start it stand alone now, you can use your own method based on the _development environment_ method.
 
