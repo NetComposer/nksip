@@ -15,12 +15,14 @@
 * Dialog and SDP processing utility functions, including media start and stop detection.
 
 ## Included standard plugins:
-* SIP Digest Authentication.
-* SIP Registrar.
-* SIP Event State Compositor.
+* Digest Authentication.
+* Registrar Server and Automatic Registrations.
+* Event State Compositor.
 * Reliable provisional responses.
-* Automatic registrations and timed pings.
+* Session Timers
+* SIP REFER.
 * Outbound and GRUU.
+* Trace and Statistics.
 
 ## Implemented RFCs
 In the current version the following RFCs are fully implemented (see notes):
