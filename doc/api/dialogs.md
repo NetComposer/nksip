@@ -24,7 +24,7 @@ Function|Description
 [meta/2](#meta2)|Gets specific metadata from the dialog
 [get_dialog/2](#get_dialog2)|Gets a dialog object from a request and a call objects
 [get_all/0](#get_all0)|Get the handles of all started dialogs
-[get_all/2](#get_all2)Gets all current started dialog handles belonging to App and having Call-ID
+[get_all/2](#get_all2)|Gets all current started dialog handles belonging to App and having Call-ID
 [bye_all/0](#bye_all0)|Sends an in-dialog BYE to all existing dialogs
 [stop/1](#stop1)|Stops an existing dialog from its handle (remove it from memory)
 [stop_all/0](#stop_all0)|Stops (removes from memory) all current dialogs
@@ -80,7 +80,7 @@ If `Meta` is simple term, its value is returned. If it is a list, it will return
 nksip_dialog:get_dialog(nksip:request()|nksip:response()|nksip:subscription(), nksip:call()) ->
     nksip:dialog()|error.
 ```
-Gets a dialog object from a request and a call objects.
+Gets a dialog object from a _request_, _response_ or _subscription_ object and a _call object_.
 
 
 ### get_all/0
@@ -96,7 +96,7 @@ Get the handles of all started dialogs.
 nksip_dialog:get_all(App::nksip:app_id(), CallId::nksip:call_id()) ->
     [nksip:id()].
 ```
-Gets all current started dialog handles belonging to App and having Call-ID.
+Gets all current started dialog handles belonging to a SipApp and having a specific _Call-ID_.
 
 
 ### bye_all/0
@@ -112,7 +112,7 @@ Sends an in-dialog BYE to all existing dialogs.
 nksip_dialog:stop(nksip:id()) ->
     ok.
 ```
-Stops an existing dialog from its handle (remove it from memory).
+Destroys an existing dialog from its handle (remove it from memory).
 
 
 ### stop_all/0
@@ -120,4 +120,4 @@ Stops an existing dialog from its handle (remove it from memory).
 nksip_dialog:stop_all() ->
     ok.
 ```
-Stops (deletes) all current dialogs.
+Destroys all current dialogs.
