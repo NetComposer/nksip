@@ -20,7 +20,7 @@ A **SipApp** represents a SIP entity started by NkSIP. When [starting a SipApp](
 
 You can develop _any_ kind of SIP application with NkSIP. This includes endpoints, stateful and stateless proxies, registrars and redirect servers, B2BUAs or any combination of the above, all at the same time, in the same SipApp or in different ones.
 
-Each SipApp starts listening on one or more sets of transport, ip address and port. For example, you could start a _server1_ SipApp, which could be a proxy server listening on 192.168.0.1:5060 using protocols UDP and TCP, and on 192.168.0.1:5061 using TLS, and another one called _b2bua2_ behaving as a B2BUA could be started listening on any other ip and port of the host. For websocket (WS and WSS transports), SipApps can share the same ip and port, and the request is routed to the right SipApp depending on the _url_.
+Each SipApp starts listening on one or more sets of transport, ip address and port. For example, you could start a _app1_ SipApp, which could be a proxy server listening on 192.168.0.1:5060 using protocols UDP and TCP, and on 192.168.0.1:5061 using TLS, and another one called _app2_ behaving as a B2BUA could be started listening on any other ip and port of the host. For websocket (WS and WSS transports), SipApps can share the same ip and port, and the request is routed to the right SipApp depending on the _url_.
 
 When starting a SipApp, you must supply a **callback Erlang module** for it. There is a number of [callback functions this module can implement](../reference/callback_functions.md). Each of them has an default behaviour, so all of them are optional.
 
@@ -123,9 +123,9 @@ In some circumstances, it makes sense to override NkSIP automatic calculation of
 
 ## Plugins
 
-There are two different ways to include behaviours in NkSIP: SipApps and Plugins. 
+There are two different ways to include behaviours in NkSIP: _SipApps_ and _Plugins_. 
 
-SipApps are the easier way. They are fully described in the documentation, and should be used for nearly all user SIP applications. In the future, it will be even possible to write SipApps in other languages than Erlang.
+SipApps are the easier way. They are fully described in the documentation, and should be used for nearly all user SIP applications. In the future, it will possible to write SipApps in other languages than Erlang.
 
 Plugins are designed as a way to add functionality to NkSIP, useful for many SipApps. They must be written in Erlang, work very closely to the core and can make NkSIP fail when processing a call if they have a bug. When starting any application, you tell NkSIP all the plugins you want to use for your it. Each one can have a different set of active plugins.
 
