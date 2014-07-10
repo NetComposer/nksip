@@ -20,7 +20,46 @@ Each media must define a `Media` (like `<<"audio">>` or `<<"video">>`), a `Port`
 If `Host` is `"auto.nksip"`, NkSIP it will be changed to the current local address
 before sending.
 
-See [sdp3_test/0](../../src/nksip_sdp.erl) for an example.
+```erlang
+1> nksip_sdp:new("local", [
+        {<<"audio">>, 10000, [{rtpmap, 0, "Params0"}, {rtpmap, 1, "Params1"}, sendrecv]},
+        {<<"video">>, 10001, [{rtpmap, 2, "Params2"}, {rtpmap, 3, "Params3"}, sendrecv]}
+   ]).
+#sdp{sdp_vsn = <<"0">>,user = <<"-">>,id = 1405007035,
+     vsn = 1405007035,
+     address = {<<"IN">>,<<"IP4">>,<<"local">>},
+     session = <<"nksip">>,info = undefined,uri = undefined,
+     email = undefined,phone = undefined,
+     connect = {<<"IN">>,<<"IP4">>,<<"local">>},
+     bandwidth = [],
+     time = [{0,0,[]}],
+     zone = undefined,key = undefined,attributes = [],
+     medias = [#sdp_m{media = <<"audio">>,port = 10000,
+                      nports = 1,proto = <<"RTP/AVP">>,
+                      fmt = [<<"0">>,<<"1">>],
+                      info = undefined,connect = undefined,bandwidth = [],
+                      key = undefined,...},
+               #sdp_m{media = <<"video">>,port = 10001,nports = 1,
+                      proto = <<"RTP/AVP">>,
+                      fmt = [<<"2">>,<<"3">>],
+                      info = undefined,connect = undefined,bandwidth = [],...}]}
+                      
+2> io:format("~s", [nksip_sdp:unparse(v(-2))]).
+v=0
+o=- 1405007035 1405007035 IN IP4 local
+s=nksip
+c=IN IP4 local
+t=0 0
+m=audio 10000 RTP/AVP 0 1
+a=rtpmap:0 Params0
+a=rtpmap:1 Params1
+a=sendrecv
+m=video 10001 RTP/AVP 2 3
+a=rtpmap:2 Params2
+a=rtpmap:3 Params3
+a=sendrecv
+ok
+```
 
 
 ### new/0
