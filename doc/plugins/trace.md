@@ -36,12 +36,12 @@ Option|Default|Description
 nksip_trace|-|Configures tracing for this SipApp (see bellow)
 
 You can use the following options for `nksip_trace`:
-* {nksip_trace, console}: Tracing for all IPs will be sent to the console
-* {nksip_trace, File::string()}: Tracing will be sent to this file
-* {nksip_trace, {console, IpSpec::list()}}: Trace to console, but only for this IPs (see bellow)
-* {nksip_trace, {File::string(), IpSpec::list()}}: Trace to file, but only for this IPs (see bellow)
+* `{nksip_trace, console}`: Tracing for all IPs will be sent to the console
+* `{nksip_trace, File::string()}`: Tracing will be sent to this file
+* `{nksip_trace, {console, IpSpec::list()}}`: Trace to console, but only for this IPs (see bellow)
+* `{nksip_trace, {File::string(), IpSpec::list()}}`: Trace to file, but only for this IPs (see bellow)
 
-IpSpec can be an IP (like "10.0.0.1"), list of IPs (like ["10.0.0.1", "10.0.0.2"]) or a regular expression or list of regular expressions (like ["10.0.0.1", "^11.*"])
+IpSpec can be an IP (like `"10.0.0.1"`), list of IPs (like `["10.0.0.1", "10.0.0.2"]`) or a regular expression or list of regular expressions (like `["10.0.0.1", "^11.*"]`)
 
 Tracing will be much faster if you don't use IP filtering.
 
@@ -63,7 +63,7 @@ start() ->
     [{nksip:app_name(), ok|{error, term()}}].
 ```
 
-Equivalent to `start(AppId, console, all)' for all started SipApps.
+Equivalent to `start(AppId, console, all)` for all started SipApps.
 
 
 ### start/1
