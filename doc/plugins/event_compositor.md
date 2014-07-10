@@ -100,7 +100,17 @@ sip_event_compositor_store(StoreOp, AppId) ->
         TTL :: integer().
 ```
 
-Implement this callback function in your callback function to use a different store thant then defaut RAM-only storage.
+Called when a operation database must be done on the publisher database. By default the in-memory database is used, but you can impement it to use your own database.
+
+The possible values for Op and their allowed reply are:
+
+Op|Response|Comments
+---|---|---
+{get, AOR, Tag}|RegPublish &#124; not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
+{put, AOR, Tag, RegPublish, TTL}|ok|Store this information this `AOR`, `AppId` and `Tag`. The record must be automatically deleted after `TTL` seconds.
+{del, AOR, Tag}|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
+del_all|ok|Delete all stored information for this `AppId`.
+
 See the [default implementation](../../plugins/src/nksip_event_compositor_sipapp.erl) as a basis. 
 
 

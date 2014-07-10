@@ -172,7 +172,15 @@ sip_registrar_store(StoreOp, AppId) ->
         TTL :: integer().
 ```
 
-Implement this callback function in your callback function to use a different store thant then defaut RAM-only storage.
+Called when a operation database must be done on the registrar database. By default the in-memory database is used, but you can impement it to use your own database.
+
+Op|Response|Comments
+---|---|---
+{get, AOR}|[RegContact]|Retrieve all stored contacts for this `AOR` and `AppId`.
+{put, AOR, [RegContact], TTL}|ok|Store the list of contacts for this `AOR` and `AppId`. The record must be automatically deleted after `TTL` seconds.
+{del, AOR}|ok &#124; not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
+del_all|ok|Delete all stored information for this `AppId`.
+
 See the [default implementation](../../plugins/src/nksip_registrar_sipapp.erl) as a basis. 
 
 ## Examples

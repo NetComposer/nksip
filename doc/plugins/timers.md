@@ -17,6 +17,8 @@
 
 This module provides full support for the SIP Session Timers extension, according to RFC4028. Once activated, the time before the dialog is timed out and destroyed is negotiated as described in the RFC.
 
+NkSIP will automatically start a session timer for every INVIYE. Use `{nksip_timer_se, 0`} to disable it. If the session timer is active, and a 422 (Session Interval Too Small) is received, NkSIP will automatically resend the request updating Session-Expires header.
+
 `timer` will be added to all automatically generated _Supported_ headers.
 
 
@@ -40,9 +42,29 @@ The previous options can also be used in each _INVITE_ request sent calling [inv
 
 
 
+
+
 ## API functions
 
-None
+### get_session_expires/1
+```erlang
+get_session_expires(nksip:id()|nksip:dialog()) ->
+    non_neg_integer() | undefined.
+```
+
+Gets the current session expires value for a dialog
+
+
+### get_session_refresh/1
+
+```erlang
+get_session_refresh(nksip:id()|nksip:dialog()) ->
+    non_neg_integer() | undefined.
+```
+
+Gets the reamining time to refresh the session
+
+
 
 
 ## Callback functions
