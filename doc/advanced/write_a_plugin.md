@@ -6,8 +6,8 @@ Please have a look at [runtime configuration](runtime_configuration.md) and [plu
 * [Plugins or SipApps](#plugins-or-sipapps)
 * [Plugin main module description](#plugin-main-module-description)
 * [Plugin callbacks module description](#plugin-callbacks-module-description)
-* [Application callbacks module description](application-callbacks-module-description)
-* [How to write a plugin](how-to-write-a-plugin)
+* [Application callbacks module description](#application-callbacks-module-description)
+* [How to write a plugin](#how-to-write-a-plugin)
 
 
 ## Plugins or SipApps
@@ -56,7 +56,7 @@ Must return the list of dependant plugins. Its type is `[{Plugin::atom(), Versio
 
 
 ### Optional functions
-There are other **optional** functions that your plugin main module (`my_plugin.erl`) can implement:
+There are other **optional** functions that your plugin main module can implement:
 
 
 #### parse_config/1
@@ -92,19 +92,19 @@ When the SipApp stops (or the plugin is deactivated because of a reconfiguration
 
 Then plugin can also include an Erlang module called after the main module, but ending in `_callbacks` (for example `nksip_registrar_callbacks`). 
 
-In this case, any function exported in this module is considered as a plugin callback by NkSIP:
+In this case, any function exported in this module is considered as a _plugin callback_ by NkSIP:
 
 * If NkSIP has a _plugin callback_ with the same name and arity, this function is included in the plugin chain as described in [plugin architecture](plugin_architecture.md).
 * If there is no _plugin callback_ with the same name and arity, it is a new _plugin callback_ that other plugins can overload.
 
-The [nksip_registrar](../plugins/registrar.md) plugin is an example of plugin that exports plugin callback functions for other plugins to overload.
+The [nksip_registrar](../plugins/registrar.md) plugin is an example of plugin that exports _plugin callback_ functions for other plugins to overload.
 
 
 ## Application callbacks module description
 
 Then plugin can also include an Erlang module called after the main module, but ending in `_sipapp` (for example `nksip_uac_auto_register_sipapp`). 
 
-In this case, any exported function in this module is considered as an application callback, that any SipApp activating this module can implement in its callback module.
+In this case, any exported function in this module is considered as an _application callback_, that any SipApp activating this module can implement in its callback module.
 
 # How to write a plugin
 
