@@ -14,7 +14,7 @@ Most functions in the API allows two ways to refer to the requests:
 
 Function|Description
 ---|---
-[get_handle/1](#get_handle1)|Grabs a request's handle
+[get_id/1](#get_id1)|Grabs a request's handle
 [app_id/1](#app_id1)|Gets then SipApp's _internal name_
 [app_name/1](#app_name1)|Gets the SipApp's _user name_
 [method/1](#method1)|Gets the method of the request
@@ -28,7 +28,7 @@ Function|Description
 
 ## Functions List
 
-### get_handle/1
+### get_id/1
 ```erlang
 nksip_request:get_id(nksip:request()|nksip:id()) ->
     nksip:id().
