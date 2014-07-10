@@ -103,7 +103,7 @@ increment(Key, Count) ->
 default_config() ->
     [
         {global_max_calls, 100000},         % Each Call-ID counts as a call
-        {global_max_connections, 1024},     % Per transport and SipApp
+        {global_max_connections, 1024},     % 
         {dns_cache_ttl, 3600},              % (secs) 1 hour
         {local_data_path, "log"},           % To store UUID
         {sync_call_time, 30}                % Synchronous call timeout
