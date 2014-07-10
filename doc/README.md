@@ -17,8 +17,6 @@
 * [Sending Options](reference/sending_options.md)
 * [Application callback functions](reference/callback_functions.md)
 * [Replying options](reference/reply_options.md)
-* [Resolver](reference/resolver.md)
-* [API](reference/api.md)
 
 ## [3. API](api/README.md)
 * [SipApp API](api/sipapp.md)
@@ -26,7 +24,7 @@
 * [Responses API](api/responses.md)
 * [Dialogs API](api/dialogs.md)
 * [Subscriptions API](api/subscriptions.md)
-* [SDP](api/sdp.md)
+* [SDP API](api/sdp.md)
 
 ## [4. Standard Plugins](plugins/README.md)
 * [Registrar](plugins/registrar.md)
