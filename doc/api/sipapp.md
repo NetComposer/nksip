@@ -34,7 +34,7 @@ nksip:start(UserName::nksip:app_name(), CallbackModule::atom(), Args::term(), Op
 
 Starts a new SipApp. 
 
-See [Starting a SipApp](../guide/start_a_sipapp.md) and [Configurarion](../reference/configuration.md) to see the list of available configuration options. 
+See [Starting a SipApp](../guide/start_a_sipapp.md) and [Configuration](../reference/configuration.md) to see the list of available configuration options. 
 
 NkSIP returns the _internal name_ of the application. In most API calls you can use the _user name_ or the _internal name_.
 
@@ -60,7 +60,9 @@ Stops all currently started SipApps.
 nksip:update(nksip:app_name()|nksip:app_id(), nksip:optslist()) ->
     {ok, nksip:app_id()} | {error, term()}.
 ```
-Updates the callback module or options of a running SipApp. It is not allowed to change transports.
+Updates the callback module or options of a running SipApp.
+
+You can change any configuration parameter on the fly, except for transports. See [Configuration](../reference/configuration.md).
 
 
 ### get_all/0
@@ -77,6 +79,7 @@ nksip:get(nksip:app_name()|nksip:app_id(), term()) ->
     {ok, term()} | undefined | {error, term()}.
 ```
 Gets a value from SipApp's store.
+See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
 
 
 ### get/3
@@ -85,7 +88,7 @@ nksip:get(nksip:app_name()|nksip:app_id(), term(), term()) ->
     {ok, term()} | {error, term()}.
 ```
 Gets a value from SipApp's store, using a default if not found.
-
+See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
 
 ### put/3
 ```erlang
@@ -93,7 +96,7 @@ nksip:put(nksip:app_name()|nksip:app_id(), term(), term()) ->
     ok | {error, term()}.
 ```
 Inserts a value in SipApp's store.
-
+See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
 
 ### del/2
 ```erlang
@@ -101,7 +104,7 @@ nksip:del(nksip:app_name()|nksip:app_id(), term()) ->
     ok | {error, term()}.
 ```
 Deletes a value from SipApp's store.
-
+See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
 
 ### get_pid/1
 ```erlang
