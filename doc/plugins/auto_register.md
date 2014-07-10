@@ -42,7 +42,7 @@ start_register(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user
     {ok, boolean()} | {error, term()}.
 ```
 
-Programs the SipApp to start a serie of automatic registrations to the registrar at `Uri`. `Id` indentifies this request to be be able to stop it later. Use [get_registers/1](#get_registers1) or the  callback function [sip_uac_auto_register_update/3](#sip_uac_auto_register_update3) to know about the registration status.
+Programs the SipApp to start a serie of automatic registrations to the registrar at `Uri`. `Id` indentifies this request to be be able to stop it later. Use [get_registers/1](#get_registers1) or the  callback function [sip_uac_auto_register_updated_register/3](#sip_uac_auto_register_updated_register3) to know about the registration status.
 
 Opts are passed to the REGISTER sending functions. You can use the `expires` option to change the default re-register time from the default of 300 secs.
 
@@ -72,9 +72,9 @@ Get current registration status, including if last registration was successful a
 start_ping(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(), 
 		   Opts::nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
+```
 
-
-Programs the SipApp to start a serie of _pings_ (OPTION requests) to the SIP element at `Uri`. `Id` indentifies this request to be able to stop it later. Use [get_pings1](#get_pings1) or the callback function [sip_uac_auto_ping_update/3](#sip_uac_auto_ping_update3) to know about the ping status.
+Programs the SipApp to start a serie of _pings_ (OPTION requests) to the SIP element at `Uri`. `Id` indentifies this request to be able to stop it later. Use [get_pings1](#get_pings1) or the callback function [sip_uac_auto_register_updated_ping/3](#sip_uac_auto_register_updated_ping3) to know about the ping status.
 
 You can use the `expires` option to change the default re-options time from the default of 300 secs.
 
@@ -87,7 +87,7 @@ stop_ping(App::nksip:app_name()|nksip:app_id(), Id::term()) ->
     ok | not_found.
 
 Stops a previously started ping serie.
-
+```
 
 ### get_pings/1
 
