@@ -127,7 +127,7 @@ get_uas_avg() ->
     gen_server:call(nksip_stats_srv, get_uas_avg).
 
 
-%% @doc Informs the module about the last response time
+%% @private Informs the module about the last response time
 -spec response_time(nksip_lib:l_timestamp()) ->
     ok.
 
