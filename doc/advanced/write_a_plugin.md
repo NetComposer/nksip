@@ -3,6 +3,13 @@
 Please have a look at [runtime configuration](runtime_configuration.md) and [plugin architecture](plugin_architecture.md) before reading this guide.
 
 
+* [Plugins or SipApps](#plugins-or-sipapps)
+* [Plugin main module description](#plugin-main-module-description)
+* [Plugin callbacks module description](#plugin-callbacks-module-description)
+* [Application callbacks module description](application-callbacks-module-description)
+* [How to write a plugin](how-to-write-a-plugin)
+
+
 ## Plugins or SipApps
 
 Sometimes the doubt about writing a specific functionality as a SipApp or a plugin may arise. As a rule of thumb, plugins should implement functionality useful to a broad range of SipApps.
@@ -27,9 +34,10 @@ Speed|Very High (if Erlang)|Very High
 
 ## Plugin main module description
 
-A plugin must have main erlang module, that **must implement** the following functions:
+### Mandatory functions
+A plugin must have a _main_ Erlang module, that **must implement** the following functions:
 
-### version/0
+#### version/0
 ```erlang
 version() ->
     string().
@@ -38,7 +46,7 @@ version() ->
 Must return the version of the plugin.
 
 
-### deps/0
+#### deps/0
 ```erlang
 deps() ->
     [{atom(), string()}].
@@ -46,10 +54,12 @@ deps() ->
 
 Must return the list of dependant plugins. Its type is `[{Plugin::atom(), VersionRE::string()|binary()}]`. NkSIP will find the requested plugins and make sure their version is correct. `VersionRE` is a regular expression that will be applied againts found dependant plugins.
 
-There are another three **optional** functions that your plugin main module (`my_plugin.erl`) can implement:
+
+### Optional functions
+There are other **optional** functions that your plugin main module (`my_plugin.erl`) can implement:
 
 
-### parse_config/1
+#### parse_config/1
 ```erlang
 parse_config(nksip:optslist()) ->
     {ok, nksip:optslist()} | {error, term()}.
@@ -60,7 +70,7 @@ When the SipApp activating this plugin starts, the list of configuration options
 It is also called when the SipApp is reconfigured.
 
 
-### init/2
+#### init/2
 ```erlang
 init(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_siapp_srv:state()}.
@@ -69,13 +79,13 @@ init(nksip:app_id(), nksip_sipapp_srv:state()) ->
 When the gen_server supporting the SipApp starts (or the plugin is activated after a reconfiguration), this function is called from it. The plugin can read and store information in the gen_server's state, using the funcions `nksip_sipapp_srv:get_meta/2` and `nksip_siapp_srv:set_meta/3` (the [nksip_uac_auto_register](../../plugins/src/nksip_uac_auto_register.erl) plugin is an example of using this functions).
 
 
-### terminate/2
+#### terminate/2
 ```erlang
 terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
    {ok, nksip_sipapp_srv:state()}.
 ```
 
-Called when the SipApp stops (or the plugin is deactivated because of a reconfiguration) this function is called. The plugin must clean any stored state.
+When the SipApp stops (or the plugin is deactivated because of a reconfiguration) this function is called. The plugin must clean any stored state.
 
 
 ## Plugin callbacks module description
