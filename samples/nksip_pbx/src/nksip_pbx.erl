@@ -60,4 +60,9 @@ trace(false) -> nksip_trace:stop().
 %% Availanle options are `debug' (maximum), `info' (medium) and `notice' (minimum).
 -spec loglevel(debug|info|notice) -> ok.
 
-loglevel(Level) -> lager:set_loglevel(lager_console_backend, Level).
+loglevel(Level) -> 
+	lager:set_loglevel(lager_console_backend, Level),
+	{ok, _} = nksip:update(pbx, [{log_level, Level}]).
+
+
+
