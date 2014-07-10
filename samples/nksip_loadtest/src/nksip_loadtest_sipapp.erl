@@ -23,7 +23,6 @@
 %% @doc SipApp callback module
 
 -module(nksip_loadtest_sipapp).
--behaviour(nksip_sipapp).
 
 -export([init/1, sip_route/5, sip_invite/3]).
 

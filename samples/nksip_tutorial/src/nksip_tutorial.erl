@@ -28,23 +28,26 @@
 
 %% @doc Launches the full tutorial.
 launch() ->
-    ok = nksip:start(server, nksip_tutorial_sipapp_server, [server], 
+    {ok, _} = nksip:start(server, nksip_tutorial_sipapp_server, [], 
         [
-            registrar, 
-            {transport, {udp, any, 5060}}, 
-            {transport, {tls, any, 5061}}
+            {plugins, [nksip_registrar]},
+            {transports, [{udp, all, 5060}, {tls, all, 5061}]}
          ]),
-    ok = nksip:start(client1, nksip_tutorial_sipapp_client, [client1], 
+    {ok, _} = nksip:start(client1, nksip_tutorial_sipapp_client, [], 
         [
+            {plugins, [nksip_uac_auto_auth]},
             {from, "sip:client1@nksip"},
-            {transport, {udp, {127,0,0,1}, 5070}}, 
-            {transport, {tls, {127,0,0,1}, 5071}}
+            {transports, [{udp, {127,0,0,1}, 5070}, {tls, {127,0,0,1}, 5071}]}
         ]),
-    ok = nksip:start(client2, nksip_tutorial_sipapp_client, [client2], 
-        [   {from, "sips:client2@nksip"},
-            {transport, {udp, {127,0,0,1}, 5080}}, 
-            {transport, {tls, {127,0,0,1}, 5081}}
+    {ok, _} = nksip:start(client2, nksip_tutorial_sipapp_client, [], 
+        [
+            {plugins, [nksip_uac_auto_auth]},
+            {from, "sips:client2@nksip"},
+            {transports, [{udp, {127,0,0,1}, 5080}, {tls, {127,0,0,1}, 5081}]}
         ]),
+
+    nksip_registrar_util:clear(),
+
 
     {ok,200,[]} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
     {ok,407,[{reason_phrase, <<"Proxy Authentication Required">>}]} =
@@ -53,7 +56,7 @@ launch() ->
     {ok,200,[]} = nksip_uac:options(client1, "sip:127.0.0.1", [{pass, "1234"}]),
     {ok,200,[]} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}]),
 
-    {ok,200,[{<<"contact">>, [<<"<sip:client1@127.0.0.1:5070>;expires=3600">>]}]} = 
+    {ok,200,[{<<"contact">>, [<<"<sip:client1@127.0.0.1:5070>", _/binary>>]}]} = 
         nksip_uac:register(client1, "sip:127.0.0.1", 
                            [{pass, "1234"}, contact, {meta, [<<"contact">>]}]),
 
@@ -66,12 +69,12 @@ launch() ->
     {ok,200,[]} = nksip_uac:options(client2, "sips:127.0.0.1", []),
 
     {ok,407,[]} = nksip_uac:options(client1, "sips:client2@nksip", [{route, "<sip:127.0.0.1;lr>"}]),
-    {ok,200,[{<<"nksip-id">>, [<<"client2">>]}]} = 
+    {ok,200,[{<<"x-nk-id">>, [<<"client2">>]}]} = 
         nksip_uac:options(client1, "sips:client2@nksip", 
                           [{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"},
-                           {meta, [<<"nksip-id">>]}]),
+                           {meta, [<<"x-nk-id">>]}]),
 
-    {ok,488,[{dialog_id, _}]} = 
+    {ok,488,[]} = 
         nksip_uac:invite(client2, "sip:client1@nksip", [{route, "<sips:127.0.0.1;lr>"}]),
 
     {ok,200,[{dialog_id, DlgId}]}= 
@@ -79,7 +82,7 @@ launch() ->
                         [{route, "<sips:127.0.0.1;lr>"}, {body, nksip_sdp:new()}]),
     ok = nksip_uac:ack(DlgId, []),
 
-    confirmed = nksip_dialog:meta(DlgId, status, client2),
+    confirmed = nksip_dialog:meta(invite_status, DlgId),
     [_, _, _] = nksip_dialog:get_all_data(),
 
     {ok,200,[]} = nksip_uac:bye(DlgId, []),
@@ -92,14 +95,27 @@ launch() ->
 %% ===================================================================
 
 %% @doc Enables SIP trace messages to console.
--spec trace(Start::boolean()) -> ok.
+-spec trace(Start::boolean()) -> 
+    ok.
 
-trace(true) ->  nksip_trace:start();
-trace(false) -> nksip_trace:stop().
+trace(true) ->  
+    nksip_trace:start(),
+    ok;
+trace(false) -> 
+    nksip_trace:stop(),
+    ok.
 
 
 %% @doc Changes console log level.
 %% Availanle options are `debug' (maximum), `info' (medium) and `notice' (minimum).
--spec loglevel(debug|info|notice) -> ok.
+-spec loglevel(debug|info|notice) -> 
+    ok.
 
-loglevel(Level) -> lager:set_loglevel(lager_console_backend, Level).
+loglevel(Level) -> 
+    lager:set_loglevel(lager_console_backend, Level),
+    {ok, _} = nksip:update(server, [{log_level, Level}]),
+    {ok, _} = nksip:update(client1, [{log_level, Level}]),
+    {ok, _} = nksip:update(client2, [{log_level, Level}]),
+    ok.
+
+

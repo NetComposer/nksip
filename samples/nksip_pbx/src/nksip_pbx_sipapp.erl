@@ -33,7 +33,6 @@
 %% See {@link //nksip_pbx} for an overview.
 
 -module(nksip_pbx_sipapp).
--behaviour(nksip_sipapp).
 
 -export([start/0, stop/0, check_speed/1, get_speed/0]).
 -export([init/1, sip_get_user_pass/3, sip_authorize/4, sip_route/6]). 

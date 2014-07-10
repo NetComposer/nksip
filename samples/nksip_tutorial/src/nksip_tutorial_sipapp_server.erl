@@ -27,10 +27,9 @@
 %% Other requests are proxied to the same origin Request-URI
 
 -module(nksip_tutorial_sipapp_server).
--behaviour(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, sip_get_user_pass/3, sip_authorize/4, sip_route/6, handle_call/3]).
+-export([init/1, sip_get_user_pass/4, sip_authorize/3, sip_route/5, handle_call/3]).
 
 
 
@@ -39,13 +38,13 @@
 %% ===================================================================
 
 -record(state, {
-    id,
     started
 }).
 
 %% @doc SipApp intialization.
-init([Id]) ->
-    {ok, #state{id=Id, started=httpd_util:rfc1123_date()}}.
+init([]) ->
+    nksip:put(server, started, httpd_util:rfc1123_date()),
+    {ok, []}.
 
 
 %% @doc Called to check user's password.
@@ -53,8 +52,10 @@ init([Id]) ->
 %% If the incoming user's realm is "nksip", the password for any user is "1234". 
 %% For other realms, no password is valid.
 %%
-sip_get_user_pass(_User, <<"nksip">>, _Req) -> <<"1234">>;
-sip_get_user_pass(_User, _Realm, _Req) -> false.
+sip_get_user_pass(_User, <<"nksip">>, _Req, _Call) -> 
+    <<"1234">>;
+sip_get_user_pass(_User, _Realm, _Req, _Call) -> 
+    false.
 
 
 %% @doc Called to check if a request should be authorized.
@@ -74,18 +75,18 @@ sip_get_user_pass(_User, _Realm, _Req) -> false.
 %% 4) If no digest header is present, reply with a 407 response sending 
 %%    a challenge to the user.
 %%
-sip_authorize(_ReqId, Auth, _From, State) ->
-    case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
+sip_authorize(AuthList, _Req, _Call) ->
+    case lists:member(dialog, AuthList) orelse lists:member(register, AuthList) of
         true -> 
-            {reply, true, State};
+            ok;
         false ->
-            case proplists:get_value({digest, <<"nksip">>}, Auth) of
+            case proplists:get_value({digest, <<"nksip">>}, AuthList) of
                 true -> 
-                    {reply, true, State};       % Password is valid
+                    ok;            % Password is valid
                 false -> 
-                    {reply, false, State};      % User has failed authentication
+                    forbidden;     % User has failed authentication
                 undefined -> 
-                    {reply, {proxy_authenticate, <<"nksip">>}, State}
+                    {proxy_authenticate, <<"nksip">>}
                     
             end
     end.
@@ -100,27 +101,18 @@ sip_authorize(_ReqId, Auth, _From, State) ->
 %% - If it has user part, and domain is "nksip", find if it is registered and proxy.
 %%   For other domain, proxy the request.
 %%
-sip_route(ReqId, _Scheme, <<>>, Domain, _From, State) ->
-    Reply = case Domain of
-        <<"nksip">> ->
-            process;
-        _ ->
-            case nksip_request:is_local_route(ReqId) of
-                true -> process;
-                false -> proxy
-            end
-    end,
-    {reply, Reply, State};
-
-sip_route(_ReqId, Scheme, User, Domain, _From, #state{id=Id}=State) ->
-    Reply = case Domain of
-        <<"nksip">> ->
-            UriList = nksip_registrar:find(Id, Scheme, User, <<"nksip">>),
-            {proxy, UriList, [record_route]};
-        _ ->
-            proxy
-    end,
-    {reply, Reply, State}.
+sip_route(_Scheme, <<>>, <<"nksip">>, _Req, _Call) ->
+    process;
+sip_route(_Scheme, <<>>, _Domain, Req, _Call) ->
+    case nksip_request:is_local_route(Req) of
+        true -> process;
+        false -> proxy
+    end;
+sip_route(Scheme, User, <<"nksip">>, _Req, _Call) ->
+    UriList = nksip_registrar:find(server, Scheme, User, <<"nksip">>),
+    {proxy, UriList, [record_route]};
+sip_route(_Scheme, _User, _Domain, _Req, _Call) ->
+    proxy.
 
 
 %% @doc Synchronous user call.

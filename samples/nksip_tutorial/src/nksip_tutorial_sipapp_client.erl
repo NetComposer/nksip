@@ -22,49 +22,40 @@
 %% This modules implements a client callback module for NkSIP Tutorial.
 
 -module(nksip_tutorial_sipapp_client).
--behaviour(nksip_sipapp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, sip_invite/4, sip_options/4]).
+-export([sip_invite/2, sip_options/2]).
 
 %% ===================================================================
 %% Callbacks
 %% ===================================================================
-
--record(state, {
-    id
-}).
-
-%% @doc SipApp intialization.
-init([Id]) ->
-    {ok, #state{id=Id}}.
 
 
 %% @doc Called when an INVITE is received.
 %% If the request has a SDP body, reply 180 Ringing, wait 2 seconds and reply 
 %% 200 Ok with the same body (spawns a new process to avoid blocking the process).
 %% If not, reply 488 Not Acceptable with a Warning header.
-sip_invite(ReqId, Meta, From, State) ->
-    SDP = nksip_lib:get_value(body, Meta),
-    case nksip_sdp:is_sdp(SDP) of
+sip_invite(Req, _Call) ->
+    Body = nksip_request:body(Req),
+    case nksip_sdp:is_sdp(Body) of
         true ->
+            ReqId = nksip_request:get_id(Req),
             Fun = fun() ->
                 nksip_request:reply(ringing, ReqId),
                 timer:sleep(2000),
-                nksip:reply(From, {answer, SDP})
+                nksip_request:reply({answer, Body}, ReqId)
             end,
             spawn(Fun),
-            {noreply, State};
+            noreply;
         false ->
-            {reply, {not_acceptable, <<"Invalid SDP">>}, State}
+            {reply, {not_acceptable, <<"Invalid SDP">>}}
     end.
 
 
 %% @doc Called when an OPTIONS is received.
 %% Reply 200 Ok with a custom header and some options.
-sip_options(_ReqId, _Meta, _From, #state{id=Id}=State) ->
-    Headers = [{"x-nk-id", Id}],
-    Opts = [contact, allow, accept, supported],
-    {reply, {ok, Headers, <<>>, Opts}, State}.
+sip_options(Req, _Call) ->
+    AppName = nksip_request:app_name(Req),
+    {reply, {ok, [{add, "x-nk-id", AppName}, contact, allow, accept, supported]}}.
 
 
