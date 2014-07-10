@@ -1,10 +1,10 @@
 # Callback Functions
 
 Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. 
-* See [Receiving Requests](../guide/receiving_requests.md) and [Sending Responses](../guide/sending_responses.md) for an introduction. 
+* See [Receiving Requests](../guide/receiving_requests.md) for an introduction. 
 * The full list of reply options is available [here](sending_options.md).
 * The default implementation of each callback can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
-* Installed plugins can provide additional callbacks, or modify the default behaviour described in this document.
+* Installed plugins can provide additional callbacks, or modify the default behaviour described in this document.See the [plugins documentation](../plugins/README.md).
 
 ## SIP Callbacks
 
@@ -21,7 +21,6 @@ Callback|Reason
 [sip_ack/2](#sip_ack2)|Called by NkSIP when a new valid in-dialog ACK request has to be processed locally
 [sip_bye/2](#sip_bye2)|Called to process a BYE request
 [sip_update/2](#sip_update2)|Called to process a UPDATE request
-[sip_prack/2](#sip_prack2)|Called to process a PRACK request
 [sip_subscribe/2](#sip_subscribe2)|Called to process a new out-of-dialog SUBSCRIBE request
 [sip_resubscribe/2](#sip_resubscribe2)|Called to process a new in-dialog SUBSCRIBE request
 [sip_notify/2](#sip_notify2)|Called to process a NOTIFY request
@@ -31,11 +30,9 @@ Callback|Reason
 [sip_message/2](#sip_message2)|Called to process a MESSAGE request
 [sip_dialog_update/3](#sip_dialog_update3)|Called when a dialog's state changes
 [sip_session_update/3](#session_update3)|Called when a SDP session is created or updated
-[sip_registrar_store_op/3](#sip_registrar_store_op3)|Called when a operation database must be done on the registrar database
-[sip_publish_store_op/3](#sip_publish_store_op3)|Called when a operation database must be done on the publisher database
 
 
-## 'gen_server' Callbacks
+## Gen_server Callbacks
 
 Callback|Reason
 ---|---
@@ -46,13 +43,6 @@ Callback|Reason
 [handle_info/2](#handle_info2)|Called when a unknown message is received at the SipApp process
 [code_change/3](#code_change3)|See gen_server's documentation
 
-
-## Other Callbacks
-
-Callback|Reason
----|---
-[sip_ping_update/3](#sip_ping_update3)|Called when an automatic ping state changes
-[sip_register_update/3](#sip_register_update3)|Called when an automatic registration state changes
 
 
 ## Callback List
@@ -312,16 +302,6 @@ Called when a valid BYE request is received.
 When a BYE request is received, NkSIP will automatically response 481 _Call/Transaction does not exist_ if it doesn't belong to a current dialog. If it does, NkSIP stops the dialog and this callback functions is called. You won't usually need to implement this function, but in case you do, you should reply `ok` to send a _200 OK_ response back. 
 
 
-### sip_prack/2
-```erlang
-sip_prack(Request::nksip:request(), Call::nksip:call()) ->
-    {reply, nksip:sipreply()} | noreply.
-```
-
-Called when a valid PRACK request is received.
-
-This function is called by NkSIP when a new valid in-dialog PRACK request has to be processed locally, in response to a sent reliable provisional response. You don't usually need to implement this callback. One possible reason to do it is to receive the SDP body from the other party in case it was not present in the INVITE (you can also get it from the [sip_session_update/3](#sip_session_update3) callback).
-
 
 ### sip_update/2
 ```erlang
@@ -486,53 +466,6 @@ Called when a dialog has updated its SDP session parameters.
 When NkSIP will call this function when detects that, inside an existing dialog, both parties have agreed on a specific SDP defined session. You can use the functions in [SDP API](../api/sdp.md) to process the SDP data. This function will be also called after each new successful SDP negotiation.
 
 
-### sip_registrar_store_op/3
-```erlang
-sip_registrar_store(StoreOp, AppId) ->
-    [RegContact] | ok | not_found when 
-        StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
-                   {del, AOR} | del_all,
-        AppId :: nksip:app_id(),
-        AOR :: nksip:aor(),
-        RegContact :: nksip_registrar:reg_contact(),
-        TTL :: integer().
-
-```
-
-Called when a operation database must be done on the registrar database. By default the in-memory database is used, but you can impement it to use your own database.
-
-Op|Response|Comments
----|---|---
-{get, AOR}|[RegContact]|Retrieve all stored contacts for this `AOR` and `AppId`.
-{put, AOR, [RegContact], TTL}|ok|Store the list of contacts for this `AOR` and `AppId`. The record must be automatically deleted after `TTL` seconds.
-{del, AOR}|ok &#124; not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
-del_all|ok|Delete all stored information for this `AppId`.
-
-
-### sip_publish_store_op/3
-```erlang
-sip_publish_store(StoreOp, AppId) ->
-    RegPublish | ok | not_found when
-        StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
-                   {del, AOR, Tag} | del_all,
-        AppId :: nksip:app_id(),
-        AOR :: nksip:aor(),
-        Tag :: binary(),
-        RegPublish :: nksip_publish:reg_publish(),
-        TTL :: integer().
-```
-Called when a operation database must be done on the publisher database. By default the in-memory database is used, but you can impement it to use your own database.
-
-The possible values for Op and their allowed reply are:
-
-Op|Response|Comments
----|---|---
-{get, AOR, Tag}|RegPublish &#124; not_found|Retrieve store information this `AOR`, `AppId` and `Tag`.
-{put, AOR, Tag, RegPublish, TTL}|ok|Store this information this `AOR`, `AppId` and `Tag`. The record must be automatically deleted after `TTL` seconds.
-{del, AOR, Tag}|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
-del_all|ok|Delete all stored information for this `AppId`.
-
-
 
 <!-- gen_server Callbacks ---------------------------------------------->
 
@@ -617,26 +550,3 @@ code_change(OldVsn::term(), State::term(), Extra::term()) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 ```
-
-
-<!-- Other Callbacks ---------------------------------------------->
-
-
-### sip_ping_update/3
-```erlang
-sip_ping_update(PingId::term(), OK::boolean(), AppId::nksip:app_id()) ->
-    ok.
-```
-
-Called when the status of an automatic ping configuration changes.
-See [nksip_sipapp_auto:start_ping/5](../../src/nksip_sipapp_auto.erl).
-
-
-### sip_register_update/3
-```erlang
-sip_register_update(RegId::term(), OK::boolean(), AppId::nksip:app_id()) ->
-    ok.
-```
-
-Called when the status of an automatic registration configuration changes.
-See [nksip_sipapp_auto:start_register/5](../../src/nksip_sipapp_auto.erl).
