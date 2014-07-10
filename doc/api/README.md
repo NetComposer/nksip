@@ -7,4 +7,4 @@
 * [Responses API](responses.md)
 * [Dialogs API](dialogs.md)
 * [Subscriptions API](subscriptions.md)
-* [SDP](sdp.md)
+* [SDP API](sdp.md)
