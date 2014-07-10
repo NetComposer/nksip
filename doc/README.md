@@ -11,14 +11,15 @@
 * [Receiving Requests](guide/receiving_requests.md)
 * [Sending Responses](guide/sending_responses.md)
 
+
 ## [2. Reference  Guide](reference/README.md)
 * [Configuration](reference/configuration.md)
 * [Sending Functions](reference/sending_functions.md)
 * [Sending Options](reference/sending_options.md)
-* [Callback Functions](reference/callback_functions.md)
-* [Replying Options](reference/reply_options.md)
-* [Logging Options](reference/log.md)
+* [Application callback functions](reference/callback_functions.md)
+* [Replying options](reference/reply_options.md)
 * [Resolver](reference/resolver.md)
+* [API](reference/api.md)
 
 ## [3. API](api/README.md)
 * [SipApp API](api/sipapp.md)
