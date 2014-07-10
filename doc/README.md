@@ -15,8 +15,9 @@
 * [Configuration](reference/configuration.md)
 * [Sending Functions](reference/sending_functions.md)
 * [Sending Options](reference/sending_options.md)
-* [Application callback functions](reference/callback_functions.md)
-* [Replying options](reference/reply_options.md)
+* [Callback Functions](reference/callback_functions.md)
+* [Replying Options](reference/reply_options.md)
+* [Logging System](reference/log.md)
 
 ## [3. API](api/README.md)
 * [SipApp API](api/sipapp.md)
