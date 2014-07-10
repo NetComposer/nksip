@@ -1,8 +1,0 @@
-{application, nksip_uac_auto_register, [
-    {description, "NkSIP UAC Auto Registration Plugin"},
-    {vsn, "0.1"},
-    {modules, []},
-    {registered, []},
-    {applications, []},
-    {env, []}
-]}.

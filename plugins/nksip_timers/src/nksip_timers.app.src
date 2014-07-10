@@ -1,8 +1,0 @@
-{application, nksip_timers, [
-    {description, "NkSIP Session Timers Plugin"},
-    {vsn, "0.1"},
-    {modules, []},
-    {registered, []},
-    {applications, []},
-    {env, []}
-]}.

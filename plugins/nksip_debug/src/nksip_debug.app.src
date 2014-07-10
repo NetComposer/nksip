@@ -1,9 +1,0 @@
-{application, nksip_debug, [
-    {description, "NkSIP SIP Trace Plugin"},
-    {vsn, "0.1.0"},
-    {modules, []},
-    {registered, []},
-    {mod, {nksip_debug_app, []}},
-    {applications, [kernel, stdlib, nksip]},
-    {env, []}
-]}.

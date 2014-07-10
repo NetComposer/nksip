@@ -173,7 +173,7 @@ You can implement any of these callback functions in your SipApp callback module
 ```
 
 Implement this callback function in your callback function to use a different store thant then defaut RAM-only storage.
-See the [default implementation](../../plugins/nksip_registrar/src/nksip_registrar_sipapp.erl) as a basis. 
+See the [default implementation](../../plugins/src/nksip_registrar_sipapp.erl) as a basis. 
 
 ## Examples
 
@@ -181,7 +181,7 @@ See the [default implementation](../../plugins/nksip_registrar/src/nksip_registr
 -module(example).
 -compile([export_all]).
 
--include_lib("include/nksip.hrl").
+-include_lib("nksip/include/nksip.hrl").
 
 
 start() ->

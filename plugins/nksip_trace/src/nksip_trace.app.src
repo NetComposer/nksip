@@ -1,8 +1,0 @@
-{application, nksip_trace, [
-    {description, "NkSIP SIP Trace Plugin"},
-    {vsn, "0.1.0"},
-    {modules, []},
-    {registered, []},
-    {applications, [kernel, stdlib, nksip]},
-    {env, []}
-]}.

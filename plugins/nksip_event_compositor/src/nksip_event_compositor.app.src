@@ -1,8 +1,0 @@
-{application, nksip_event_compositor, [
-    {description, "NkSIP Event State Compositor Plugin"},
-    {vsn, "0.1"},
-    {modules, []},
-    {registered, []},
-    {applications, []},
-    {env, []}
-]}.

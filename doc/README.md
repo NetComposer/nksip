@@ -41,7 +41,6 @@
 * [Auto Outbound](plugins/auto_outbound.md)
 * [Trace](plugins/trace.md)
 * [Stats](plugins/stats.md)
-* [Debug](plugins/debug.md)
 
 ## [5. Cookbook](cookbook/README.md)
 * Generic

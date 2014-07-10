@@ -1,8 +1,0 @@
-{application, nksip_refer, [
-    {description, "NkSIP REFER Plugin"},
-    {vsn, "0.1"},
-    {modules, []},
-    {registered, []},
-    {applications, []},
-    {env, []}
-]}.
