@@ -397,10 +397,6 @@ parse_opts([Term|Rest], Req, Opts) ->
             {update, Req, [{reg_id, RegId}|Opts]};
         {reg_id, _} ->
             error;
-        % {refer_subscription_id, Refer} when is_binary(Refer) ->
-        %     {update, Req, [{refer_subscription_id, Refer}|Opts]};
-        % {refer_subscription_id, _} ->
-        %     error;
 
         %% Automatic header generation (replace existing headers)
         user_agent ->
@@ -433,23 +429,6 @@ parse_opts([Term|Rest], Req, Opts) ->
             {retry, [{contact, <<"*">>}, {expires, 0}|Rest]};
         unregister ->
             {retry, [contact, {expires, 0}|Rest]};
-
-        % % Timer options
-        % {min_se, SE} when is_binary(SE); is_integer(SE) ->
-        %     {replace, <<"min-se">>, SE};
-        % {session_expires, SE} when is_integer(SE) ->
-        %     {retry, [{session_expires, {SE, undefined}}|Rest]};
-        % {session_expires, {SE, Refresh}} when is_integer(SE) ->
-        %     case AppId:config_nksip_timers() of
-        %         {_, MinSE} when SE<MinSE -> 
-        %             throw({invalid_config, session_expires});
-        %         _ when Refresh==undefined -> 
-        %             {replace, <<"session-expires">>, SE};
-        %         _ when Refresh==uac; Refresh==uas -> 
-        %             {replace, <<"session-expires">>, {SE, [{<<"refresher">>, Refresh}]}};
-        %         _ ->
-        %             throw({invalid_config, session_expires})
-        %     end;
 
         % Event options
         {subscription_state, ST} when Method=='NOTIFY'->
