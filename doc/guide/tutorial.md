@@ -25,7 +25,7 @@ Now you can start a simple SipApp proxy server using the included [server callba
 
 NkSip returns the _internal name_ of the application, which is alwats an `atom()`, calculated as a hash over the name.
 
-Now we can start two clients, using the included [client callback module](../../samples/nksip_tutorial/src/nksip_tutorial_sipapp_client.erl). The first is called `client1` and listens on `127.0.0.1` ports `5070` for udp and tcp and `5071` for tls, and the second is called `client2` and listens on all interfaces, random ports. We also configure the _From_ header to be used on each one, the second one using `sips`.
+Now we can start two clients, using the included [client callback module](../../samples/nksip_tutorial/src/nksip_tutorial_sipapp_client.erl). The first is called client1 and listens on `127.0.0.1` ports `5070` for udp and tcp and `5071` for tls, and the second is called client2 and listens on all interfaces, random ports. We also configure the _From_ header to be used on each one, the second one using `sips`.
 
 We also activate the [nksip_uac_auto_auth](../plugins/auto_auth.md) plugin to generate automatic digest authentications:
 
@@ -54,7 +54,7 @@ From now on, you could start tracing to see all SIP messages on the console, usi
 [{client2,ok},{client1,ok},{server,ok}]
 ```
 
-Let's try now to send an _OPTIONS_ from `client2` to `client1` and from `client1` to the `server`:
+Let's try now to send an _OPTIONS_ from client2 to client1 and from client1 to the server:
 ```erlang
 5> nksip_uac:options(client2, "sip:127.0.0.1:5070", []).
 {ok,200,[]}
@@ -138,7 +138,7 @@ We can check this second registration has worked. If we send a _REGISTER_ reques
 
 ```erlang
 11> nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, {meta, [all_headers]}]).
-{ok,200,[{all_headers, [{<<"CallId">>, ...}]}]}
+{ok,200,[{all_headers, [{<<"call-id">>, ...}]}]}
 ```
 
 Now, if we want to send the same _OPTIONS_ again, we don't need to include the authentication, because the origins of the requests are already registered:
@@ -149,7 +149,7 @@ Now, if we want to send the same _OPTIONS_ again, we don't need to include the a
 {ok,200,[]}
 ```
 
-Now let's send an _OPTIONS_ from `client1` to `client2` through the proxy. As they are already registered, we can use their registered names or _address-of-record_. We use the option `route` to send the request to the proxy (you usually include this option in the call to `nksip:start/4`, to send _every_ request to the proxy automatically).
+Now let's send an _OPTIONS_ from client1 to client2 through the proxy. As they are already registered, we can use their registered names or _address-of-record_. We use the option `route` to send the request to the proxy (you usually include this option in the call to `nksip:start/4`, to send _every_ request to the proxy automatically).
 
 The first request is not authorized. The reason is that we are using a `sips` uri as a target, so NkSIP must use tls. But the origin port is then different from the one we registered, so we must authenticate again:
 
@@ -170,7 +170,7 @@ sip_options(Req, _Call) ->
     {reply, {ok, [{add, "x-nk-id", AppName}, contact, allow, accept, supported]}}.
 ```
 
-Now let's try a _INVITE_ from `client2` to `client1` through the proxy. NkSIP will call the callback `invite/2` in `client1`'s callback module:
+Now let's try a _INVITE_ from client2 to client1 through the proxy. NkSIP will call the callback `invite/2` in client1's callback module:
 
 ```erlang
 sip_invite(Req, _Call) ->
@@ -190,7 +190,7 @@ sip_invite(Req, _Call) ->
     end.
 ```
 
-In the first call, since we don't include a body, `client1` will reply `not_acceptable` (code `488`).
+In the first call, since we don't include a body, client1 will reply `not_acceptable` (code `488`).
 In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. For 2xx _INVITE_ responses, NkSIP will allways include the `dialog_id` value, After receiving each `2xx` response to an _INVITE_, we must send an _ACK_ inmediatly:
 
 ```erlang
@@ -212,7 +212,7 @@ The call is accepted and we have started a _dialog_:
 confirmed
 ```
 
-You can _print_ all dialogs in the console. We see dialogs at `client1`, `client2` and at `server`. The three dialogs are the same actually, but in different SipApps (do not use this command in production with many thousands of dialogs):
+You can _print_ all dialogs in the console. We see dialogs at client1, client2 and at the server. The three dialogs are the same actually, but in different SipApps (do not use this command in production with many thousands of dialogs):
 ```erlang
 20> nksip_dialog:get_all_data().
 ```
