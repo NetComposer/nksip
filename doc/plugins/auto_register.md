@@ -34,7 +34,7 @@ nksip_uac_auto_register_timer|5 (secs)|Interval to check for new expired timers
 
 ## API functions
 
-### start_register/5 
+### start_register/4 
 
 ```erlang
 start_register(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(), 
@@ -66,7 +66,7 @@ get_registers(App::nksip:app_name()|nksip:app_id()) ->
 Get current registration status, including if last registration was successful and time remaining to next one.
  
 
-### start_ping/5
+### start_ping/4
 
 ```erlang
 start_ping(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(), 

@@ -1,4 +1,4 @@
-# Plugin
+# UAC Auto Registration Plugin
 
 * [Name](#name)
 * [Description](#description)
@@ -10,20 +10,20 @@
 
 
 ## Name
-### `nksip_`
+### `nksip_uac_auto_register`
 
 
 ## Description
 
+This plugin allows a SipApp to program a serie of automatic registrations (sending REGISTER request) to a remote registrar, using SIP Outbound (RFC5626).
 
-, at `Time` (in seconds) intervals. 
-
-If the SipApp is configured to support outbound (RFC5626), there is a `reg_id` option in `Opts` with a numeric value, and also the remote party replies indicating it has outbound support, NkSIP will keep the _flow_ opened sending _keep-alive_ packets. If the flow goes down, NkSIP will try to re-send the registration at specific intervals.
+Once a REGISTER to a remote registrar is successful, NkSIP will keep the flow opened sending refreshes over the connection as described in the outbound specification. If the flow fails, a new REGISTER will be send automatically to reopen it (after a specific time described in the specification).
 
 
 ## Dependant Plugins
 
-None
+* [nksip_uac_auto_register](#auto_register.md)
+* [nksip_outbound](#outbound.md)
 
 
 ## Configuration Values
@@ -32,25 +32,49 @@ None
 
 Option|Default|Description
 ---|---|---
+nksip_uac_auto_outbound_all_fail|30|Basetime to use then all connections have failed
+nksip_uac_auto_outbound_any_ok|90|Basetime to use when some, but not all, connections have failed
+nksip_uac_auto_outbound_max_time|1800|Maximum time for outbound
+nksip_uac_auto_outbound_default_udp_ttl|25|UDP connection default TTL
+nksip_uac_auto_outbound_default_tcp_ttl|120|TCP connection default TTL
 
 
 ## API functions
 
-### find/2
+### start_register/4
 
 ```erlang
+start_register(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(),
+			   Opts::nksip:optslist()) -> 
+    {ok, boolean()} | {error, term()}.
 ```
 
+Similar to [nksip_uac_auto_register:start_register/4](#auto_register.md#start_register4), but using the outbound algorithm as desribed above.
 
 
-## Callback functions
-
-You can implement any of these callback functions in your SipApp callback module.
-
-### sip_registrar_store/2
+### stop_register/2
 
 ```erlang
+stop_register(App::nksip:app_name()|nksip:app_id(), Id::term()) -> 
+    ok | not_found.
 ```
+
+Stops a previously started registration serie.
+
+
+### get_registers/1
+
+```erlang
+get_registers(App::nksip:app_name()|nksip:app_id()) -> 
+    [{Id::term(), OK::boolean(), Time::non_neg_integer(), Fails::non_neg_integer}].
+```
+Get current registration status, including if last registration was successful, the time remaining to next one and the number of current outbound fails.
+ 
+
 
 ## Examples
+
+See [outbound_test.erl](../../test/outbound_test.erl) for examples
+
+
 
