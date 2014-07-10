@@ -191,7 +191,10 @@ sip_invite(Req, _Call) ->
 ```
 
 In the first call, since we don't include a body, client1 will reply `not_acceptable` (code `488`).
-In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. For 2xx _INVITE_ responses, NkSIP will allways include the `dialog_id` value, After receiving each `2xx` response to an _INVITE_, we must send an _ACK_ inmediatly:
+In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. For 2xx _INVITE_ responses, NkSIP will allways include the `dialog_id` value.
+
+We include the option `auto_2xx_ack` for NkSIP to generate the mandatory ACK automatically, instead of having to call 
+to `nksip_uac:ack(DlgId, [])` manually inmeditaly after the 2xx response.
 
 ```erlang
 16> nksip_uac:invite(client2, "sip:client1@nksip", [{route, "<sips:127.0.0.1;lr>"}]).
@@ -199,7 +202,8 @@ In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wa
 17> {ok,200,[{dialog_id, DlgId}]} = nksip_uac:invite(client2, "sip:client1@nksip", 
                                         [
                                             {route, "<sips:127.0.0.1;lr>"}, 
-                                            {body, nksip_sdp:new()}
+                                            {body, nksip_sdp:new()},
+                                            auto_2xx_ack
                                         ]).
 {ok,200,[{dialog_id, <<"...">>}]}					   
 18> nksip_uac:ack(DlgId, []),
@@ -215,6 +219,7 @@ confirmed
 You can _print_ all dialogs in the console. We see dialogs at client1, client2 and at the server. The three dialogs are the same actually, but in different SipApps (do not use this command in production with many thousands of dialogs):
 ```erlang
 20> nksip_dialog:get_all_data().
+[...]
 ```
 
 Ok, let's stop the call, the dialogs and the SipApps:
@@ -225,7 +230,7 @@ Ok, let's stop the call, the dialogs and the SipApps:
 ok
 ```
 
-The full code for this tutorial is available [here](../samples/nksip_tutorial/src/nksip_tutorial.erl).
+The full code for this tutorial is available [here](../../samples/nksip_tutorial/src/nksip_tutorial.erl).
 
 
 
