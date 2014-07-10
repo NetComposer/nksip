@@ -10,5 +10,4 @@
 * [Starting a SipApp](start_a_sipapp.md)
 * [Sending Requests](sending_requests.md)
 * [Receiving Requests](receiving_requests.md)
-* [Sending Responses](sending_responses.md)
 
