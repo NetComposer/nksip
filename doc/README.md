@@ -9,7 +9,6 @@
 * [Starting a SipApp](guide/start_a_sipapp.md)
 * [Sending Requests](guide/sending_requests.md)
 * [Receiving Requests](guide/receiving_requests.md)
-* [Sending Responses](guide/sending_responses.md)
 
 
 ## [2. Reference  Guide](reference/README.md)
