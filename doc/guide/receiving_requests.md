@@ -8,9 +8,9 @@ There are currently three different kinds of callbacks:
 * [sip callbacks](#sip-callbacks)
 * [gen_server callbacks](#gen_server-callbacks)
 
-Keep in mind that the plugins you activate when starting your SipApp can add new callbacks. See the [plugins documentation](../plugins/README.md)
+Keep in mind that the plugins you activate when starting your SipApp can add new callbacks. See the [plugins documentation](../plugins/README.md).
 
-The list of available _sip callback functions_ is available [here](../reference/callback_functions.md#sip-callbacks).
+The list of available callback functions is available [here](../reference/callback_functions.md#sip-callbacks).
 
 
 ## sip callbacks
@@ -47,8 +47,6 @@ Under the hood, each started SipApp starts a new standard OTP _gen_server_ proce
 Its state is created while starting the SipApp, in the call to [init/1](../reference/callback_functions.md#init1), and can be used implementing the callbacks [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2). You can use this process as a standard OTP gen_server process for your application, for example to control the concurrent access any resource (like the ETS supporting the SipApp variables).
 
 When you (or any other process by the matter) calls `gen_server:call/2,3`, `gen_server:cast/2` or sends a message to the registered application's process (the same as the _internal name_), NkSIP will call [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2).
-
-The list of available _gen_server callback functions_ is available [here](../reference/callback_functions.md#gen_server-callbacks).
 
 
 
