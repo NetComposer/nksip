@@ -219,9 +219,9 @@ sip_invite(Request::nksip:request(), Call::nksip:call()) ->
 
 This function is called by NkSIP to process a new INVITE request as an endpoint.
 
-You would usually extract information from the Request (using the [API](../README.md#3-api)) like user, body, content-type, etc., and maybe get information from the body with the functions in the `nksip_sdp` module, and you should then reply a final response (like `ok`, `{answer, Body}` or `busy`, see the [reply options](reply_options.md)).
+You would usually extract information from the Request (using the [Request API](../api/requests.md)) like user, body, content-type, etc., and maybe get information from the body with the functions in the [SDP API](../api/sdp.md), and you should then reply a final response (like `ok`, `{answer, Body}` or `busy`, see the [reply options](reply_options.md)).
 
-Alternatively, you can grab a _request handle_ (calling `nksip_request:get_handle(Request)`), return a provisional (1xx) response (like `{reply, ringing}`) and _spawn_ a new process to process the request and send a final response later on calling `nksip_request:reply/2`. You should use this technique also if you are going to spend more than a few miliseconds processing the callback function, in order to not to block new requests and retransmissions having the same _Call-ID_. You shouldn't copy the `Request` and `Call` objects to the spawned process, as they are quite heavy. It is recommended to extract all needed information before spawning the request and pass it to the spawned process.
+Alternatively, you can grab a _request handle_ (calling `nksip_request:get_id(Request)`), return a provisional (1xx) response (like `{reply, ringing}`) and _spawn_ a new process to process the request and send a final response, later on, calling `nksip_request:reply/2`. You should use this technique also if you are going to spend more than a few miliseconds processing the callback function, in order to not to block new requests and retransmissions having the same _Call-ID_. You shouldn't copy the `Request` and `Call` objects to the spawned process, as they are quite heavy. It is recommended to extract all needed information before spawning the request and pass it to the spawned process.
 
 NkSIP will usually send a _100 Trying_ response before calling this callback, unless option `no_100` is used.
 
@@ -261,7 +261,7 @@ sip_reinvite(Request::nksip:request(), Call::nksip:call()) ->
 
 This function is called when a new in-dialog INVITE request is received. 
 
-It works the same way as [sip_invite/2](#sip_invite2), and, if it is not implement, it will call `sip_invite/2`. You should implement it to have different behaviours for new and in-dialog INVITE requests.
+It works the same way as [sip_invite/2](#sip_invite2), and, if it is not implement, it will simply call it. You should implement it to have different behaviours for new and in-dialog INVITE requests.
 
 
 ### sip_cancel/3
@@ -275,7 +275,7 @@ Called when a pending INVITE request is cancelled.
 
 When a CANCEL request is received by NkSIP, it will check if it belongs to an existing INVITE transaction. If not, a 481 _Call/Transaction does not exist_ will be automatically replied. If it belongs to an existing INVITE transaction, NkSIP replies 200 _OK_ to the CANCEL request. If the matching INVITE transaction has not yet replied a final response, NkSIP replies it with a _487 Request Terminated_ and this function is called. If a final response has already beeing replied, it has no effect.
 
-You can get additional information of the cancelled INVITE using `InviteRequest`
+You can get additional information of the cancelled INVITE using `InviteRequest` with the [Request API](../api/requests.md).
 
 
 ### sip_ack/2
@@ -367,7 +367,9 @@ sip_refer(Request::nksip:request(), Call::nksip:call()) ->
 
 This function is called by NkSIP to process a new incoming REFER.
 
-You should send `ok` if the request has been accepte or `decline` if not. If you are going to spend more than a few seconds to reply, you should reply `accepted`, and if the request is not accepted later on, send a NOTIFY with appropiate reason.
+If you want to be able to process incoming REFERs in a simple way, use the [nksip_refer](../plugins/refer.md) plugin. 
+
+If you want to process it manually, you should send `ok` if the request has been accepte or `decline` if not. If you are going to spend more than a few miliseconds to reply, you should reply `accepted`, and if the request is not accepted later on, send a NOTIFY with appropiate reason.
 
 If you reply a 2xx response like `ok`  or `accepted`, a dialog and a subscription will start. You should extract the _Refer-To_ header, start a new INVITE to that url and, according to RFC3515,  send any response back to the subscription using [nksip_uac:notify/3](sending_functions.md#notify). The request sending functions accept option `{refer_subscription_id, SubsHandle}` to automatically send a valid NOTIFY after each provisional or the final response.
 
@@ -396,7 +398,8 @@ sip_publish(Request::nksip:request(), Call::nksip:call()) ->
 ```
 
 This function is called by NkSIP to process a new incoming PUBLISH request. 
-If you want to use NkSIP's _event state compositor_, simply reply the return value from calling `nksip_publish:request(Req)`.
+
+If you want to use NkSIP's _event state compositor_, see the [nksip_event_compositor](../plugins/event_compositor.md) plugin that manages everything automatically.
 
 If not implemented a _603 Decline_ will be returned.
 
