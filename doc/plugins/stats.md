@@ -12,12 +12,10 @@
 ## Name
 ### `nksip_stats`
 
-This plugins implements a (yet) very simple statistics module.
-Once activated, it will take note of the response time for each received request, and for each period (5 secs by default), compute minimum, maximum, average and standard deviation of response times.
-
-
 ## Description
 
+This plugins implements a (yet) very simple statistics module.
+Once activated, it will take note of the response time for each received request, and for each period (5 secs by default), compute minimum, maximum, average and standard deviation of response times.
 
 
 ## Dependant Plugins
@@ -57,17 +55,12 @@ Gets the call statistics for the current period.
 
 ## Callback functions
 
-You can implement any of these callback functions in your SipApp callback module.
-
-### sip_registrar_store/2
-
-```erlang
-```
+None
 
 ## Examples
 
 ```erlang
-nksip:start("my_app", nksip_sipapp, [], [{plugins, [nksip_stats]}])
+nksip:start("my_app", nksip_sipapp, [], [{plugins, [nksip_stats]}]).
 ```
 
 and afterwards
