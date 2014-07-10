@@ -86,7 +86,7 @@ Called for every incoming request to be authorized or not.
 
 You can use the tags included in `AuthList` in order to decide to authenticate or not the request. `AuthList` includes the following tags:
 * `dialog`: the request is in-dialog and coming from the same ip and port than the last request for an existing dialog.
-* `register`: the request comes from the same ip, port and transport of a currently valid registration (and the method is not _REGISTER_).
+* `register`: the request comes from the same ip, port and transport of a currently valid registration (and the method is not _REGISTER_). This option will also appear if the [nksip_registrar](../plugins/registrar.md) plugin is activated.
 * `{{digest, Realm}, true}`: there is at least one valid user authenticated (has a correct password) with this `Realm`.
 * `{{digest, Realm}, false}`: there is at least one user offering an authentication header for this `Realm`, but all of them have failed the authentication (no password was valid). 
 
@@ -176,7 +176,7 @@ sip_options(Request::nksip:request(), Call::nksip:call()) ->
 
 Called when a OPTIONS request is received.
 
-This function is called by NkSIP to process a new incoming OPTIONS request as an endpoint. If not defined, NkSIP will reply with a _200 OK_ response, including options `contact`, `allow`, `allow_event`, `accept` and `supported`. See the list of available options [here](reply_options.md)).
+This function is called by NkSIP to process a new incoming OPTIONS request as an endpoint. If not defined, NkSIP will reply with a _200 OK_ response, including options `contact`, `allow`, `allow_event`, `accept` and `supported`. See the list of available options [here](reply_options.md).
 
 NkSIP will not send any body in its automatic response. This is ok for proxies. If you are implementing an endpoint or B2BUA, you should implement this function and include in your response a SDP body representing your supported list of codecs, and also the previous options.
 
@@ -189,11 +189,9 @@ sip_register(Request::nksip:request(), Call::nksip:call()) ->
 
 This function is called by NkSIP to process a new incoming REGISTER request. 
 
-If it is not defined, but `registrar` option was present in the SipApp's startup config, NkSIP will process the request. It will NOT check if _From_ and _To_ headers contains the same URI, or if the registered domain is valid or not. If you need to check this, implement this function, and reply the response from calling `nksip_registrar:request/1` if everything is ok. See [nksip_registrar.erl](../../src/nksip_reqistrar.erk) for other possible response codes defined in the SIP standard registration process.
+If the you don't implement this function, and the [nksip_registrar](../plugins/registrar.md) plugin is activated, it will be processed as a registrar server. It will NOT check if _From_ and _To_ headers contains the same URI, or if the registered domain is valid or not. If you need to check this, implement this function, and reply the response from calling `nksip_registrar:request/1` if everything is ok. 
 
-If this function is not defined, and no `registrar` option is found, a _405 Method not allowed_ would be replied. 
-
-You should define this function in case you are implementing a registrar server and need a specific REGISTER processing (for example to add some headers to the response).
+If this function is not defined, and the registrar plugin is not activated, a _405 Method not allowed_ would be replied. 
 
 ```erlang
 register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
