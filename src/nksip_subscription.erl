@@ -25,11 +25,12 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_id/1, app_id/1, app_name/1, call_id/1, meta/2]).
--export([get_all/0, get_all/2]).
+-export([get_all/0, get_all/2, get_subscription/2]).
 -export([parse_id/1, get_subscription/1, make_id/1, find/2, subscription_state/1, remote_id/2]).
 -export_type([id/0, status/0, subscription_state/0, terminated_reason/0]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
@@ -167,6 +168,28 @@ meta(Field, <<"U_", _/binary>>=Id) ->
     end.
 
 
+%% @doc Gets the subscription object corresponding to a request or subscription and a call
+-spec get_subscription(nksip:request()|nksip:response()|nksip:subscription(), nksip:call()) ->
+    nksip:subscription()|error.
+
+get_subscription({uses_subs, _Subs, _Dialog}=UserSubs, _) ->
+    UserSubs;
+
+get_subscription(#sipmsg{}=SipMsg, #call{}=Call) ->
+    case nksip_dialog:get_dialog(SipMsg, Call) of
+        {ok, Dialog} ->
+            SubsId = make_id(SipMsg),
+            case find(SubsId, Dialog) of
+                #subscription{}=Subs ->
+                    {user_subs, Subs, Dialog};
+                not_found ->
+                    error
+            end;
+        error ->
+            error
+    end.
+
+
 %% @doc Gets all started subscription ids.
 -spec get_all() ->
     [nksip:id()].
@@ -194,39 +217,11 @@ get_all(AppId, CallId) ->
 %% ===================================================================
 
 
-% %% @private
-% -spec get_id(nksip:token()|undefined, nksip_dialog:id()) ->
-%     nksip:id().
-
-% get_id({Type, Opts}, <<"D_", _/binary>>=Id) when is_binary(Type), is_list(Opts) ->
-%     {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
-%     App = atom_to_binary(AppId, latin1), 
-%     EventId = nksip_lib:get_binary(<<"id">>, Opts, <<>>),
-%     <<$U, $_, App/binary, Type/binary, $_, EventId/binary, $_, DialogId/binary,
-%       CallId/binary>>;
-
-% get_id({Type, Opts}, #dialog{}=Dialog) when is_binary(Type), is_list(Opts) ->
-%     get_id({Type, Opts}, nksip_dialog:get_id(Dialog));
-
-% get_id(_, _) ->
-%     <<>>.
-
-
 %% @private
--spec parse_id(nksip:id()) ->
-    {nksip:app_id(), id(), nksip_dialog:id(), nksip:call_id()}.
-
-parse_id(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, App:7/binary, 
-         $_, CallId/binary>>) ->
-    AppId = binary_to_existing_atom(App, latin1),
-    {AppId, SubsId, DialogId, CallId}. 
-
-
-%% @doc Gets a full subscription record.
 -spec get_subscription(nksip:id()) ->
     nksip:dialog() | error.
 
-get_subscription(Id) ->
+get_subscription(<<"U_", _/binary>>=Id) ->
     {_AppId, SubsId, _DialogId, _CallId} = parse_id(Id),
     DialogId = nksip_dialog:get_id(Id),
     Fun = fun(#dialog{}=Dialog) ->
@@ -239,6 +234,17 @@ get_subscription(Id) ->
         {ok, Event} -> Event;
         _ -> error
     end.
+
+
+
+%% @private
+-spec parse_id(nksip:id()) ->
+    {nksip:app_id(), id(), nksip_dialog:id(), nksip:call_id()}.
+
+parse_id(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, App:7/binary, 
+         $_, CallId/binary>>) ->
+    AppId = binary_to_existing_atom(App, latin1),
+    {AppId, SubsId, DialogId, CallId}. 
 
 
 %% @private
@@ -254,20 +260,6 @@ make_id(#sipmsg{class={resp, _, _}, cseq={CSeqNum, 'REFER'}}) ->
 make_id(#sipmsg{event={Event, Opts}}) ->
     Id = nksip_lib:get_value(<<"id">>, Opts),
     nksip_lib:hash({Event, Id}).
-
-
-
-% %% @private
-% -spec id(nksip:request()|nksip:response()) ->
-%     nksip:id().
-
-% id(#sipmsg{cseq={CSeq, 'REFER'}, dialog_id=DialogId}) ->
-%     Event = {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]},
-%     get_id(Event, DialogId);
-
-% id(#sipmsg{event = Event, dialog_id = <<"D_", _/binary>>=DialogId}) ->
-%     get_id(Event, DialogId).
-
 
 
 %% @private Finds a event.
@@ -345,9 +337,5 @@ subscription_state(#sipmsg{}=SipMsg) ->
         throw:invalid -> invalid
     end.
 
-% %% @private
-% find_sep([$_|Rest], Acc) -> {list_to_binary(lists:reverse(Acc)), Rest};
-% find_sep([], Acc) -> {list_to_binary(lists:reverse(Acc)), []};
-% find_sep([Ch|Rest], Acc) -> find_sep(Rest, [Ch|Acc]).
 
 
