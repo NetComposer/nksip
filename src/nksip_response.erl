@@ -27,6 +27,7 @@
 -export([app_id/1, app_name/1, code/1, body/1, call_id/1]).
 -export([meta/2, header/2]).
 -export([wait_491/0]).
+-export([apply_meta/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -93,10 +94,7 @@ meta(Fields, #sipmsg{}=Resp) when is_list(Fields), not is_integer(hd(Fields)) ->
     [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
 meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id) ->
     Fun = fun(Resp) -> {ok, meta(Fields, Resp)} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end;
+    apply_meta(Fun, Id);
 meta(Field, #sipmsg{}=Resp) -> 
     nksip_sipmsg:meta(Field, Resp);
 meta(Field, Id) when is_binary(Id) ->
@@ -128,4 +126,13 @@ wait_491() ->
     timer:sleep(10*crypto:rand_uniform(210, 400)).
 
 
+%% @private Applies a custom function to a response at the remote process
+-spec apply_meta(function(), nksip:id()) ->
+    term() | error.
+
+apply_meta(Fun, Id) when is_function(Fun, 1), is_binary(Id) ->
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.
 

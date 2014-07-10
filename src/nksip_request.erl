@@ -27,6 +27,7 @@
 -export([get_id/1, app_id/1, app_name/1, method/1, body/1, call_id/1]).
 -export([meta/2, header/2]).
 -export([is_local_route/1, reply/2]).
+-export([apply_meta/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -104,10 +105,7 @@ meta(Fields, #sipmsg{}=Req) when is_list(Fields), not is_integer(hd(Fields)) ->
     [{Field, nksip_sipmsg:meta(Field, Req)} || Field <- Fields];
 meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id) ->
     Fun = fun(Req) -> {ok, meta(Fields, Req)} end,
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end;
+    apply_meta(Fun, Id);
 meta(Field, #sipmsg{}=Req) -> 
     nksip_sipmsg:meta(Field, Req);
 meta(Field, Id) when is_binary(Id) ->
@@ -153,3 +151,13 @@ is_local_route(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri, routes=Routes}) 
         [Route|_] -> nksip_transport:is_local(AppId, Route)
     end.
 
+
+%% @private Applies a custom function to a request at the remote process
+-spec apply_meta(function(), nksip:id()) ->
+    term() | error.
+
+apply_meta(Fun, Id) when is_function(Fun, 1), is_binary(Id) ->
+    case nksip_call_router:apply_sipmsg(Id, Fun) of
+        {ok, Values} -> Values;
+        _ -> error
+    end.

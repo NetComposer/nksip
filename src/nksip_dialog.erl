@@ -255,8 +255,7 @@ stop_all() ->
 %% Private
 %% ===================================================================
 
-%% @private
-%% Applies a custom function to a dialog at the remote process
+%% @private Applies a custom function to a dialog at the remote process
 -spec apply_meta(function(), nksip:id()) ->
     term() | error.
 
