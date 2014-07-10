@@ -27,6 +27,7 @@
 
 -export([app_id/1, app_name/1, get_id/1, call_id/1, meta/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
+-export([apply_meta/2]).
 -export([get_dialog/1, get_all_data/0, make_id/2, parse_id/1, remote_id/2, change_app/2]).
 -export_type([id/0, invite_status/0, field/0, stop_reason/0]).
 
@@ -57,8 +58,7 @@
     local_target | raw_local_target | remote_target | raw_remote_target | 
     early | secure | route_set | raw_route_set | 
     invite_status | invite_answered | invite_local_sdp | invite_remote_sdp |
-    invite_timeout | invite_session_expires | invite_refresh |
-    subscriptions | call_id | from_tag | to_tag.
+    invite_timeout | subscriptions | call_id | from_tag | to_tag.
 
 
 %% All dialog INVITE states
@@ -178,21 +178,6 @@ meta(Field, #dialog{invite=I}=D) when is_atom(Field) ->
         invite_remote_sdp -> undefined;
         invite_timeout when is_record(I, invite) -> read_timer(I#invite.timeout_timer);
         invite_timeout -> undefined;
-        invite_session_expires when is_record(I, invite) -> 
-            nksip_lib:get_value(nksip_timers_se, D#dialog.meta);
-        invite_session_expires -> undefined;
-        invite_refresh when is_record(I, invite) -> 
-            RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, D#dialog.meta),
-            case is_reference(RefreshTimer) of
-                true -> 
-                    case erlang:read_timer(RefreshTimer) of
-                        false -> expired;
-                        IR -> IR
-                    end;
-                false ->
-                 undefined
-            end;
-        invite_refresh -> undefined;
         subscriptions -> 
             [nksip_subscription:get_id({user_subs, S, D}) || S <- D#dialog.subscriptions];
         call_id -> D#dialog.call_id;
@@ -269,6 +254,23 @@ stop_all() ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+%% @private
+%% Applies a custom function to a dialog at the remote process
+-spec apply_meta(function(), nksip:id()) ->
+    term() | error.
+
+apply_meta(Fun, Id) when is_function(Fun, 1) ->
+    case get_id(Id) of
+        <<>> ->
+            error;
+        DialogId ->
+            case nksip_call_router:apply_dialog(DialogId, Fun) of
+                {ok, Values} -> Values;
+                _ -> error
+            end
+    end.
+
 
 %% @private
 -spec parse_id(nksip:id()) -> 

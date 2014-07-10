@@ -18,6 +18,7 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
+-export([get_session_expires/1, get_session_refresh/1]).
 -export([version/0, deps/0, parse_config/1]).
 
 
@@ -80,3 +81,52 @@ parse_config(Opts) ->
     catch
         throw:OptName -> {error, {invalid_config, OptName}}
     end.
+
+
+%% ===================================================================
+%% Public specific
+%% ===================================================================
+
+
+%% @doc Gets the current session expires value for a dialog
+-spec get_session_expires(nksip:dialog()|nksip:id()) ->
+    non_neg_integer() | undefined.
+
+get_session_expires(Id) when is_binary(Id) ->
+    Fun = fun(Dialog) -> {ok, get_session_expires(Dialog)} end,
+    nksip_dialog:apply_meta(Fun, Id);
+
+get_session_expires(#dialog{invite=Invite, meta=Meta}) ->
+    case is_record(Invite, invite) of
+        true ->
+            nksip_lib:get_value(nksip_timers_se, Meta);
+        false ->
+            undefined
+    end.
+
+
+%% @doc Gets the reamining time to refresh the session
+-spec get_session_refresh(nksip:dialog()|nksip:id()) ->
+    non_neg_integer() | undefined.
+
+get_session_refresh(Id) when is_binary(Id) ->
+    Fun = fun(Dialog) -> {ok, get_session_refresh(Dialog)} end,
+    nksip_dialog:apply_meta(Fun, Id);
+
+get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
+    case is_record(Invite, invite) of
+        true ->
+            RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
+            case is_reference(RefreshTimer) of
+                true -> 
+                    case erlang:read_timer(RefreshTimer) of
+                        false -> expired;
+                        IR -> IR
+                    end;
+                false ->
+                    undefined
+            end;
+        false -> 
+            undefined
+    end.
+
