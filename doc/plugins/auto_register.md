@@ -74,7 +74,7 @@ start_ping(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri
     {ok, boolean()} | {error, term()}.
 ```
 
-Programs the SipApp to start a serie of _pings_ (OPTION requests) to the SIP element at `Uri`. `Id` indentifies this request to be able to stop it later. Use [get_pings1](#get_pings1) or the callback function [sip_uac_auto_register_updated_ping/3](#sip_uac_auto_register_updated_ping3) to know about the ping status.
+Programs the SipApp to start a serie of _pings_ (OPTION requests) to the SIP element at `Uri`. `Id` indentifies this request to be able to stop it later. Use [get_pings/1](#get_pings1) or the callback function [sip_uac_auto_register_updated_ping/3](#sip_uac_auto_register_updated_ping3) to know about the ping status.
 
 You can use the `expires` option to change the default re-options time from the default of 300 secs.
 
@@ -85,9 +85,10 @@ You can use the `expires` option to change the default re-options time from the 
 ```erlang
 stop_ping(App::nksip:app_name()|nksip:app_id(), Id::term()) ->
     ok | not_found.
+```
 
 Stops a previously started ping serie.
-```
+
 
 ### get_pings/1
 
