@@ -1,8 +1,8 @@
 # Configuration
 
-NkSIP has two types of configuration options:
-* Global configuration options. Any started SipApp can override most of them.
-* SiApp configuration options. They are defined when starting the SipApp calling `nksip:start/4`
+* [Global configuration options](#global-configuration-options).
+* [SipApp configuration options](#sipapp-configuration-options).
+* [Reconfiguration](#reconfiguration)
 
 Keep in mind that nstalled plugins can add specific configuration options. See the [plugins documentation](../plugins/README.md).
 
@@ -65,3 +65,10 @@ no_100|||If present, forbids the generation of automatic `100-type` responses fo
 log_level|`debug`&#124;`info`&#124;`notice`&#124;`warning`&#124;`error`|`notice`|Current log level (the [global log level](../reference/log.md) should also be adjusted)
 
 
+## Reconfiguration
+
+Any SipApp can be reconfigured on the fly. 
+
+Any of the previous parameters can be changed (currently, except for `transports`), and the new options will be used fot the next call.
+
+You can even change the plugin list on the fly, but you must be sure of the effects of such a change.
