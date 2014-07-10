@@ -15,7 +15,7 @@ It also generates and compiles _on the fly_ the module `nksip_config_cache`, cop
 
 When a SipApp starts, it copies all configuration values from the global config, allowing it to change any of its values for this specific application. 
 
-Then it generates and compiles on the fly a module called as the _internal name_ of the application. This module has a number of functions that also work as a cache configuration (like the previous `nksip_config_cache`), but specific for this SipApp. It has functions as `name/0` (for the _user name_ of the application), `config/0` for the full config, etc.
+Then it generates and compiles on the fly a module called with the same name as the _internal name_ of the application. This module has a number of functions that also work as a cache configuration (like the previous `nksip_config_cache`), but specific for this SipApp. It has functions as `name/0` (for the _user name_ of the application), `config/0` for the full config, etc.
 
 This module also includes all the functions in the _callback module_, and all the detected _plugin callbacks_.
 
