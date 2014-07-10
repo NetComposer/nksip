@@ -3,7 +3,7 @@
 Please have a look at [runtime configuration](runtime_configuration.md) and [plugin architecture](plugin_architecture.md) before reading this guide.
 
 
-### Plugins or SipApps
+## Plugins or SipApps
 
 Sometimes the doubt about writing a specific functionality as a SipApp or a plugin may arise. As a rule of thumb, plugins should implement functionality useful to a broad range of SipApps.
 
@@ -25,13 +25,84 @@ Speed|Very High (if Erlang)|Very High
 
 
 
-### How to write a plugin
+## Plugin main module description
+
+A plugin must have main erlang module, that **must implement** the following functions:
+
+### version/0
+```erlang
+version() ->
+    string().
+```
+
+Must return the version of the plugin.
+
+
+### deps/0
+```erlang
+deps() ->
+    [{atom(), string()}].
+```
+
+Must return the list of dependant plugins. Its type is `[{Plugin::atom(), VersionRE::string()|binary()}]`. NkSIP will find the requested plugins and make sure their version is correct. `VersionRE` is a regular expression that will be applied againts found dependant plugins.
+
+There are another three **optional** functions that your plugin main module (`my_plugin.erl`) can implement:
+
+
+### parse_config/1
+```erlang
+parse_config(nksip:optslist()) ->
+    {ok, nksip:optslist()} | {error, term()}.
+```
+
+When the SipApp activating this plugin starts, the list of configuration options is parsed. If implemented, this function is called after parsing the core options. The plugin can add new options or modify existing ones.
+
+It is also called when the SipApp is reconfigured.
+
+
+### init/2
+```erlang
+init(nksip:app_id(), nksip_sipapp_srv:state()) ->
+    {ok, nksip_siapp_srv:state()}.
+```
+
+When the gen_server supporting the SipApp starts (or the plugin is activated after a reconfiguration), this function is called from it. The plugin can read and store information in the gen_server's state, using the funcions `nksip_sipapp_srv:get_meta/2` and `nksip_siapp_srv:set_meta/3` (the [nksip_uac_auto_register](../../plugins/src/nksip_uac_auto_register.erl) plugin is an example of using this functions).
+
+
+### terminate/2
+```erlang
+terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
+   {ok, nksip_sipapp_srv:state()}.
+```
+
+Called when the SipApp stops (or the plugin is deactivated because of a reconfiguration) this function is called. The plugin must clean any stored state.
+
+
+## Plugin callbacks module description
+
+Then plugin can also include an Erlang module called after the main module, but ending in `_callbacks` (for example `nksip_registrar_callbacks`). 
+
+In this case, any function exported in this module is considered as a plugin callback by NkSIP:
+
+* If NkSIP has a _plugin callback_ with the same name and arity, this function is included in the plugin chain as described in [plugin architecture](plugin_architecture.md).
+* If there is no _plugin callback_ with the same name and arity, it is a new _plugin callback_ that other plugins can overload.
+
+The [nksip_registrar](../plugins/registrar.md) plugin is an example of plugin that exports plugin callback functions for other plugins to overload.
+
+
+## Application callbacks module description
+
+Then plugin can also include an Erlang module called after the main module, but ending in `_sipapp` (for example `nksip_uac_auto_register_sipapp`). 
+
+In this case, any exported function in this module is considered as an application callback, that any SipApp activating this module can implement in its callback module.
+
+# How to write a plugin
 
 To write a new plugin:
 
 1. Create a module with the name of your plugin (for example `my_plugin.erl`).
 1. Define the function `my_plugin:version()` returning the current version of it (as a `string()` or `binary()`). Other plugins may request a dependency on a specific version of the plugin.
-1. Define the function `my_plugin:deps()` returning a list of dependant plugins and required versions. Its type is `[{Plugin::atom(), VersionRE::string()|binary()}]`. NkSIP will find the requested plugins and make sure their version is correct. `VersionRE` is a regular expressio that will be applied againts found dependant plugins.
+1. Define the function `my_plugin:deps()` returning a list of dependant plugins and required versions. I
 1. Put in this module any other public API function you want to make available to SipApps. 
 1. Create a module with the same name as the main module but ending in "_callbacks" (for example `my_plugin_callbacks.erl`), and implement in it the [plugin callbacks functions](plugin_callbacks.md) you want to override. Each pluig callback can return:
 	* `continue`: continue calling the next plugin callback, or the default NkSIP implementation if no other is available.
@@ -40,6 +111,12 @@ To write a new plugin:
 1. If your plugin is going to offer new application-level callbacks to SipApps using this module, place them in a module with the same name as the main module but ending in "_sipapp" (for example `my_plugin_sipapp.erl`). Please notice that NkSIP will not allow two different pluigns implement the same application callback module, or reimplement a [standard NkSIP application callback](../reference/callback_functions.md). For this reason it is recomended that they are named after the name of the plugin (i.e. "my_plugin_callback1").
 1. SipApp can now request to use your plugin using the `plugins` configuration option.
 
+If it is neccessary, implement the optional functions `parse_config/1`, `init/2` and/or `terminate/2`.
+
 NkSIP's official plugins are found in the `plugins` directory of the distribution. You can place new plugins wherever you want, as long as they are compiled and available in the Erlang code path. They can be standard Erlang applications or not, whatever makes more sense for each specific plugin.
+
+
+
+### Contribute a plugin
 
 If you think your plugin is interesting for many users, and meets NkSIP code quality standards, please send a pull request to be included as a standard plugin.
