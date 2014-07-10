@@ -28,6 +28,7 @@ Speed|Very High (if Erlang)|Very High
 ### How to write a plugin
 
 To write a new plugin:
+
 1. Create a module with the name of your plugin (for example `my_plugin`).
 1. Define the function `my_plugin:version()` returning the current version of it (as a `string()` or `binary()`). Other plugins may request a dependency on a specific version of the plugin.
 1. Define the function `my_plugin:deps()` returning a list of depatendant plugins and required versions. Its type is `[{Plugin::atom(), VersionRE::string()|binary()}]`. NkSIP will find the requested plugins and make sure their version is correct. `VsersionRE` is a regular expressio tha
