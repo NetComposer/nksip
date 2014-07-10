@@ -1,14 +1,13 @@
 # Metadata Fields
 NkSIP allows the retrieval of specific information from requests, reponses, dialogs and subscriptions.
-The available options are defined here.
+The available options are defined here for:
 
-* [Requests and Responses](#requests-and-responses-metadata)
-* [Dialogs](#fialog-metadata)
-* [Subscriptions](#subscriptions-metadata)
+* [Requests and Responses](#requests-and-responses-metadata) (See [requests](../api/requests.md) and  [responses](../api/responses.md) APIs).
+* [Dialogs](#fialog-metadata) (See [dialogs](../api/dialogs.md) API)
+* [Subscriptions](#subscriptions-metadata) (See [subscriptions](../api/subscriptions.md) API)
 
 
-Installed plugins can install aditional metadata fields.
-
+Keep in mind that activated plugins can install aditional metadata fields. See the [plugins documentation](../plugins/README.md).
 
 
 ## Request and Responses Metadata
