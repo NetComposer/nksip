@@ -32,6 +32,7 @@ Two different plugins _cannot_ implement the same _application callback_ twice, 
 
 
 When a SipApp starts, [you can configure it](../guide/start_a_sipapp.md) to activate any number of the currently installed plugins. For each defined plugin NkSIP will perform a serie of actions (`nksip_registrar` is used as an example plugin): 
+
 1. Find the module `nksip_registrar` that must be loaded.
 1. Call `nksip_registrar:version()` to get the current version of this plugin. It can be any `string()` or `binary()`.
 1. Call `nksip_registrar:deps()` to get the list of dependant modules. Its type is '[{Plugin::atom(), VersionRE::string()|binary()}]'. NkSIP will then include this plugin as if we had included it also in the application configuration, before the dependant plugin, and checking that the version is correct.
