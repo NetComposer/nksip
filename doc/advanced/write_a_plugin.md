@@ -104,7 +104,7 @@ The [nksip_registrar](../plugins/registrar.md) plugin is an example of plugin th
 
 Then plugin can also include an Erlang module called after the main module, but ending in `_sipapp` (for example `nksip_uac_auto_register_sipapp`). 
 
-In this case, any exported function in this module is considered as an _application callback_, that any SipApp activating this module can implement in its callback module.
+In this case, any exported function in this module is considered as an _application callback_, that any SipApp activating this plugin can implement in its callback module.
 
 # How to write a plugin
 
@@ -112,16 +112,16 @@ To write a new plugin:
 
 1. Create a module with the name of your plugin (for example `my_plugin.erl`).
 1. Define the function `my_plugin:version()` returning the current version of it (as a `string()` or `binary()`). Other plugins may request a dependency on a specific version of the plugin.
-1. Define the function `my_plugin:deps()` returning a list of dependant plugins and required versions. I
+1. Define the function `my_plugin:deps()` returning a list of dependant plugins and required versions.
 1. Put in this module any other public API function you want to make available to SipApps. 
-1. Create a module with the same name as the main module but ending in "_callbacks" (for example `my_plugin_callbacks.erl`), and implement in it the [plugin callbacks functions](plugin_callbacks.md) you want to override. Each pluig callback can return:
+1. Create a module with the same name as the main module but ending in "_callbacks" (for example `my_plugin_callbacks.erl`), and implement in it the [plugin callbacks functions](plugin_callbacks.md) you want to override. Each plugin callback can return:
 	* `continue`: continue calling the next plugin callback, or the default NkSIP implementation if no other is available.
-	* `{continue, Args::list()}`: continue calling the next plugin, but changing the called parameters.
-	* AnyOther: finish the callback chain, the effect depends on each specific callback (see [_plugin callbacks_](plugin_callbacks.md)) 
+	* `{continue, Args::list()}`: continue calling the next plugin, but changing the calling parameters on the way.
+	* `AnyOther`: finish the callback chain, return this value to NkSIP. The effect depends on each specific callback (see [_plugin callbacks_](plugin_callbacks.md)).
 1. If your plugin is going to offer new application-level callbacks to SipApps using this module, place them in a module with the same name as the main module but ending in "_sipapp" (for example `my_plugin_sipapp.erl`). Please notice that NkSIP will not allow two different pluigns implement the same application callback module, or reimplement a [standard NkSIP application callback](../reference/callback_functions.md). For this reason it is recomended that they are named after the name of the plugin (i.e. "my_plugin_callback1").
 1. SipApp can now request to use your plugin using the `plugins` configuration option.
 
-If it is neccessary, implement the optional functions `parse_config/1`, `init/2` and/or `terminate/2`.
+If it is neccessary, implement the optional functions [parse_config/1](#parse_config1), [init/2](#init2) and/or [terminate/2](#terminate2).
 
 NkSIP's official plugins are found in the `plugins` directory of the distribution. You can place new plugins wherever you want, as long as they are compiled and available in the Erlang code path. They can be standard Erlang applications or not, whatever makes more sense for each specific plugin.
 
@@ -129,4 +129,4 @@ NkSIP's official plugins are found in the `plugins` directory of the distributio
 
 ### Contribute a plugin
 
-If you think your plugin is interesting for many users, and meets NkSIP code quality standards, please send a pull request to be included as a standard plugin.
+If you think your plugin is interesting for many users, and it meets NkSIP code quality standards, please send a pull request to be included as a standard plugin.
