@@ -17,6 +17,7 @@
 * [Sending Options](reference/sending_options.md)
 * [Callback Functions](reference/callback_functions.md)
 * [Replying Options](reference/reply_options.md)
+* [Metadata Options](reference/metadata.md)
 * [Logging System](reference/log.md)
 
 ## [3. API](api/README.md)
