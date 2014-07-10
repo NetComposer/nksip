@@ -213,36 +213,34 @@ parse_opts([Term|Rest], Opts) ->
     Op = case Term of
 
         % Internal options
-        {name, _Name} ->
-            update;
-        {module, Module} when is_atom(Module) ->
-            update;
+        {name, _Name} -> update;
+        {module, Module} when is_atom(Module) -> update;
 
         % System options
-        {timer_t1, MSecs} when is_integer(MSecs), MSecs>=10, MSecs=<2500 ->
-            update;
-        {timer_t2, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<16000 ->
-            update;
-        {timer_t4, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<25000 ->
-            update;
-        {timer_c, Secs}  when is_integer(Secs), Secs>=1 ->
-            update;
-        {udp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
-            update;
-        {tcp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
-            update;
-        {sctp_timeout, Secs} when is_integer(Secs), Secs>=5 ->
-            update;
-        {ws_timeout, Secs} when is_integer(Secs), Secs>=5 -> 
-            update;
-        {dialog_timeout, Secs} when is_integer(Secs), Secs>=5 ->
-            update;
-        {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 ->
-            update;
-        {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
-            update;
-        {max_connections, Max} when is_integer(Max), Max>=1, Max=<1000000 ->
-            update;
+        {timer_t1, MSecs} when is_integer(MSecs), MSecs>=10, MSecs=<2500 -> update;
+        {timer_t1, _} -> error;
+        {timer_t2, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<16000 -> update;
+        {timer_t2, _} -> error;
+        {timer_t4, MSecs} when is_integer(MSecs), MSecs>=100, MSecs=<25000 -> update;
+        {timer_t4, _} -> error;
+        {timer_c, Secs}  when is_integer(Secs), Secs>=1 -> update;
+        {timer_c, _} -> error;
+        {udp_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
+        {udp_timeout, _} -> error;
+        {tcp_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
+        {tcp_timeout, _} -> error;
+        {sctp_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
+        {sctp_timeout, _} -> error;
+        {ws_timeout, Secs} when is_integer(Secs), Secs>=5 ->  update;
+        {ws_timeout, _} -> error;
+        {dialog_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
+        {dialog_timeout, _} -> error;
+        {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
+        {nonce_timeout, _} -> error;
+        {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 -> update;
+        {max_calls, _} -> error;
+        {max_connections, Max} when is_integer(Max), Max>=1, Max=<1000000 -> update;
+        {max_connections, _} -> error;
 
         % Startup options
         {transports, Transports} ->
@@ -295,6 +293,8 @@ parse_opts([Term|Rest], Opts) ->
             end;
         {no_100, true} ->
             {update, true};
+        {no_100, _} ->
+            error;
 
         {log_level, debug} -> {update, 8};
         {log_level, info} -> {update, 7};
@@ -306,6 +306,7 @@ parse_opts([Term|Rest], Opts) ->
         {log_level, emergency} -> {update, 1};
         {log_level, none} -> {update, 0};
         {log_level, Level} when Level>=0, Level=<8 -> {update, Level};
+        {log_level, _} -> error;
 
         _Other ->
             update
