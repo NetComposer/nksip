@@ -75,7 +75,6 @@ unregister_all||For REGISTER requests, sets Contact to "*" and Expires to 0|Only
 unregister||For REGISTER requests, sets `contact` and Expires to 0|Only for REGISTER
 {subscription_state, ST}|see [notify/2](sending_functions.md#notify)|Only to be used in NOTIFY requests
 {refer_to, Url}|Url::`string()`&#124;`binary()`&#124;`nksip:uri()`|Replaces Refer-To header|Only to be used in REFER requests
-for each response.
 {sip_if_match, ETag}|ETag::`string()`&#124;`binary()`|Replaces SIP-If-Match header|Only to be used in PUBLISH requests
 
 
