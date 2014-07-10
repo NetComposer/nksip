@@ -1,4 +1,4 @@
-# UAC Auto Registration Plugin
+# UAC Auto Outbound Registration Plugin
 
 * [Name](#name)
 * [Description](#description)
@@ -10,7 +10,7 @@
 
 
 ## Name
-### `nksip_uac_auto_register`
+### `nksip_uac_auto_outbound`
 
 
 ## Description
@@ -22,8 +22,8 @@ Once a REGISTER to a remote registrar is successful, NkSIP will keep the flow op
 
 ## Dependant Plugins
 
-* [nksip_uac_auto_register](#auto_register.md)
-* [nksip_outbound](#outbound.md)
+* [nksip_uac_auto_register](auto_register.md)
+* [nksip_outbound](outbound.md)
 
 
 ## Configuration Values
@@ -49,7 +49,7 @@ start_register(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user
     {ok, boolean()} | {error, term()}.
 ```
 
-Similar to [nksip_uac_auto_register:start_register/4](#auto_register.md#start_register4), but using the outbound algorithm as desribed above.
+Similar to [nksip_uac_auto_register:start_register/4](auto_register.md#start_register4), but using the outbound algorithm as desribed above.
 
 
 ### stop_register/2
