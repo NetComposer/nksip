@@ -5,20 +5,12 @@ Once started a SipApp with a name, a _callback module_ and a group of options, i
 All of the callback functions are optional, so you only have to implement the functions you need. For example, if you need to perform authentication, you should implement [sip_authorize/3](../reference/callback_functions.md#sip_authorize3). If you don't implement it, no authorization would be done.
 
 There are currently three different kinds of callbacks:
-* [gen_server callbacks](#gen_server-callbacks)
 * [sip callbacks](#sip-callbacks)
-* [other callbacks](#other-callbacks)
+* [gen_server callbacks](#gen_server-callbacks)
 
-## gen_server callbacks
+Keep in mind that the plugins you activate when starting your SipApp can add new callbacks. See the [plugins documentation](../plugins/README.md)
 
-Under the hood, each started SipApp starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the SipApp.
-
-Its state is created while starting the SipApp, in the call to [init/1](../reference/callback_functions.md#init1), and can be used implementing the callbacks [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2). You can use this process as a standard OTP gen_server process for your application, for example to control the concurrent access any resource (like the ETS supporting the SipApp variables).
-
-When you (or any other process by the matter) calls `gen_server:call/2,3`, `gen_server:cast/2` or sends a message to the registered application's process (the same as the _internal name_), NkSIP will call [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2).
-
-The list of available _gen_server callback functions_ is available [here](../reference/callback_functions.md#gen_server-callbacks).
-
+The list of available _sip callback functions_ is available [here](../reference/callback_functions.md#sip-callbacks).
 
 
 ## sip callbacks
@@ -35,23 +27,30 @@ Many callback functions receive some of the following arguments:
 * `Dialog`: represents a specific dialog (`#dialog{}`) associated to this request.
 * `Subscription`: represents a specific subscription (`#subscription{}`) associated to a specific dialog.
 
-In all cases you should use the functions in [API](../README.md#3-api) to extract information from these objects and not use them directly, as its type can change in the future. In case you need to spawn a new process, it is recommended that you don't pass any of these objects to the new process, as they are quite heavy. You should extract a _handler_ for each of them (using `*:get_id()` functions) and pass it to the new process.
+In all cases you should use the functions in [API](../api/README.md) to extract information from these objects and not use them directly, as its type can change in the future. In case you need to spawn a new process, it is recommended that you don't pass any of these objects to the new process, as they are quite heavy. You should extract a _handler_ for each of them (using the corresponding `get_id()` function) and pass it to the new process.
 
 A typical call order would be the following:
-* When a request is received having an _Authorization_ or _Proxy-Authorization_ header, [sip_get_user_pass/4](../reference/callback_functions.md#sip_get_user_pass4]) is called to check the user`s password.
+* When a request is received having an _Authorization_ or _Proxy-Authorization_ header, [sip_get_user_pass/4](../reference/callback_functions.md#sip_get_user_pass4) is called to check the user`s password.
 * NkSIP calls [sip_authorize/3](../reference/callback_functions.md#sip_authorize3) to check if the request should be authorized.
 * If authorized, it calls [sip_route/5](../reference/callback_functions.md#sip_route5) to decide what to do with the request: proxy, reply or process it locally.
 * If the request is going to be processed locally, [sip_invite/2](../reference/callback_functions.md#sip_invite2), [sip_options/2](../reference/callback_functions.md#sip_options2), [sip_register/2](../reference/callback_functions.md#sip_register2), etc., are called depending on the incoming method, and the user must send a reply. If the request is a valid _CANCEL_, belonging to an active _INVITE_ transaction, the INVITE is cancelled and [sip_cancel/3](../reference/callback_functions.md#sip_cancel3) is called. After sending a successful response to an _INVITE_ request, the other party will send an _ACK_ and [sip_ack/2](../reference/callback_functions.md#sip_ack2) will be called.
 * If the request creates or modifies a dialog and/or a SDP session, [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3) and/or [sip_session_update/3](../reference/callback_functions.md#sip_session_update3) are called.
 * If the remote party sends an in-dialog invite (a _reINVITE_), NkSIP will call [sip_reinvite/2](../reference/callback_functions.md#sip_reinvite2) if it is defined, or [sip_invite/2](../reference/callback_functions.md#sip_invite2) again if not. 
 
-Many of the functions in this group allow you to send a response to the incoming request. NkSIP allows you to use easy response codes like `busy`, `redirect`, etc. Specific responses like `authenticate` are used to send an authentication request to the other party. In case you need to, you can also reply any response code, headers, and body. It is also possible to send _reliable provisional responses_, that the other party will acknowledge with a _PRACK_ request. All of it is handled by NkSIP automatically. The full list of reply options is available [here](reply_options.md).
-
-The list of available _sip callback functions_ is available [here](../reference/callback_functions.md#sip-callbacks).
+Many of the functions in this group allow you to send a response to the incoming request. NkSIP allows you to use easy response codes like `busy`, `redirect`, etc. Specific responses like `authenticate` are used to send an authentication request to the other party. In case you need to, you can also reply any response code, headers, and body. It is also possible to send _reliable provisional responses_, that the other party will acknowledge with a _PRACK_ request. All of it is handled by NkSIP automatically. The full list of reply options is available [here](../reference/reply_options.md).
 
 
-## Other callbacks
+## gen_server callbacks
 
-There are other callbacks that are not related to the gen_server process nor the call process.
+Under the hood, each started SipApp starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the SipApp.
 
-The list of the _rest of callback functions_ is available [here](../reference/callback_functions.md#other-callbacks).
+Its state is created while starting the SipApp, in the call to [init/1](../reference/callback_functions.md#init1), and can be used implementing the callbacks [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2). You can use this process as a standard OTP gen_server process for your application, for example to control the concurrent access any resource (like the ETS supporting the SipApp variables).
+
+When you (or any other process by the matter) calls `gen_server:call/2,3`, `gen_server:cast/2` or sends a message to the registered application's process (the same as the _internal name_), NkSIP will call [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2).
+
+The list of available _gen_server callback functions_ is available [here](../reference/callback_functions.md#gen_server-callbacks).
+
+
+
+
+
