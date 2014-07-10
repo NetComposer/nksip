@@ -1,10 +1,10 @@
-# NkSIP SipApps` API
+# NkSIP SDP API
 
 Function|Description
 ---|---
 [new/2](#new2)|Generates a simple base SDP record
 [new/0](#new0)|Generates a simple base SDP record using host `"auto.nksip"`
-[empty/0](#empty0)|Generates an empty SDP record, using host `"local.nksip"`
+[empty/0](#empty0)|Generates an empty SDP record, using host `"auto.nksip"`
 [increment/1](#increment1)|Increments the SDP version by one
 [update/2](#update2)|Updates and SDP changing all medias
 [is_sdp/1](#is_sdp1)|Checks if term is an valid SDP
@@ -91,7 +91,7 @@ nksip_sdp:empty() ->
     nksip_sdp:sdp().
 ```
 
-Generates an empty SDP record, using host `"local.nksip"` (see [new/2](#new2)).
+Generates an empty SDP record, using host `"auto.nksip"` (see [new/2](#new2)).
 Equivalent to `new(<<"auto.nksip">>, [])`.
 
 
