@@ -16,7 +16,7 @@ Name|Type|Default|Comments
 global_max_calls|`integer()`|100000|Maximum number of simultaneous calls (each different Call-ID counts as a call)
 global_max_connections|`integer()`|1024|Maximum number of simultaneous connections NkSIP will accept
 dns_cache_ttl|`integer()`|3600|DNS cache TTL (See `nksip_dns`) (secs) (SipApps cannot override)
-local_data_path|`string()`&#124;`binary()`|"log"|Path to store UUID files (SipApps cannot override)
+local_data_path|`string()`|"log"|Path to store UUID files (SipApps cannot override)
 sync_call_time|`integer()`|30|Time to wait in sync calls
 
 
@@ -58,7 +58,7 @@ accept|`string()`&#124;`binary()`|"*/*"|If defined, this value will be used inst
 events|`string()`&#124;`binary()`|""|Lists the Event Packages this SipApp supports
 from|`user_uri()`|"NkSIP App <sip:user@nksip>"|Default _From_ to use in the requests
 route|`user_uri()`|[]|Route (outbound proxy) to use. Generates one or more `Route` headers in every request, for example `<sip:1.2.3.4;lr>, <sip:abcd;lr>` (you will usually append the `lr` option to use _loose routing_)
-local_host|auto&#124;`string()`&#124;`binary()`&#124;auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_. If set to `auto` NkSIP will use the IP of the transport selected in every case. If that transport is listening on all addresses NkSIP will try to find the best IP using the first valid IP among the network interfaces `ethX` and `enX`, or localhost if none is found
+local_host|auto&#124;`string()`&#124;`binary()`&#124;|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_. If set to `auto` NkSIP will use the IP of the transport selected in every case. If that transport is listening on all addresses NkSIP will try to find the best IP using the first valid IP among the network interfaces `ethX` and `enX`, or localhost if none is found
 local_host6|auto&#124;`string()`&#124;`binary()`|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_ for IPv6 transports. See `local_host` option.
 no_100|||If present, forbids the generation of automatic `100-type` responses for INVITE requests
 log_level|`debug`&#124;`info`&#124;`notice`&#124;`warning`&#124;`error`|`notice`|Current log level (the [global log level](../reference/log.md) should also be adjusted)

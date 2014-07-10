@@ -7,6 +7,5 @@
 * [Sending Options](sending_options.md)
 * [Callback Functions](callback_functions.md)
 * [Replying Options](reply_options.md)
-* [Logging Options](log.md)
-* [Resolver](resolver.md)
+* [Logging System](log.md)
 
