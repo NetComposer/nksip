@@ -227,6 +227,11 @@ NkSIP will usually send a _100 Trying_ response before calling this callback, un
 
 Inmediatly after you send the first provisional or final response, a dialog will be created, and NkSIP will call [sip_dialog_update/3](#sip_dialog_update3) and possibly [sip_session_update/3](#sip_session_update3). The dialog will be destroyed if no ACK in received after sending a successful final response.
 
+To generate _reliable provisional responses_, activate the [nksip_100rel](../plugins/100rel.md) plugin and reply `rel_ringing` or `rel_session_progress`.
+
+To use session timers, activate the  [nksip_timers](../plugins/timers.md) plugin.
+
+
 Example:
 ```erlang
 sip_invite(Req, Call) ->
