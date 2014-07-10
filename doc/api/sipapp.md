@@ -112,6 +112,7 @@ nksip:get_pid(nksip:app_name()|app_id()) ->
     pid() | undefined.
 ```
 Gets the SipApp's _gen_server process_ `pid()`.
+See [starting a SipApp](../guide/start_a_sipapp.md).
 
 
 ### find_app/1
