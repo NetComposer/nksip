@@ -152,7 +152,7 @@ Sends an SUBSCRIBE request.
 
 These functions send a new subscription request to the other party. You **must** use option `{event, Event}` to select an _Event Package_ supported at the server, and commonly an `{expires, Expires}` option (default for this package will be used if expires is not defined). Options `contact`, `supported`, `allow` and `allow_event` are automatically added.
 
-If the remote party returns a 2xx response, it means that the subscription has been accepted, and a NOTIFY request should arrive inmediatly. After the reception of the NOTIFY, NkSIP will call the corresponding callback [notify/2](../reference/callback_functions.md#notify2) and the subscription state will change, so NkSIP will call [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3).
+If the remote party returns a 2xx response, it means that the subscription has been accepted, and a NOTIFY request should arrive inmediatly. After the reception of the NOTIFY, NkSIP will call the corresponding callback [sip_notify/2](../reference/callback_functions.md#sip_notify2) and the subscription state will change, so NkSIP will call [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3).
 
 If `Id` is a _subscription's id_, it will send as a reSUBSCRIBE, using the same _Event_ and _Expires_ as the last _SUBSCRIBE_, refreshing the subscription in order to avoid its expiration.
 
@@ -195,6 +195,7 @@ Asks the remote party to start a new connection to the indicated uri in the mand
 
 In case of 2xx response, the first returned value is allways `{subscription_id, SubscriptionId}`, even if the `meta` option is not used.
 
+If you activate the [nksip_refer plugin](../plugins/refer.md), NkSIP processes this information automatically.
 
 
 ### publish 
@@ -209,6 +210,9 @@ Sends an PUBLISH request.
 This functions sends a new publishing to the other party, you **must** include the mandatory `{event, Event}` remote supported event package and include a body. Options `supported`, `allow` and `allow_event` are automatically added.
 
 If the remote party returns a 2xx response, it means that the publishing has been accepted, and the body has been stored. A _SIP-ETag_ header will be returned (a `sip_etag` parameter will always be returned in meta). You can use this ETag (using `{sip_if_match, ETag}` option) to update the stored information (sending a new body), or deleting it (using `{expires, 0}`).
+
+NkSIP includes the implementation of an Event State Compositor (the server that must receive the PUBLISH requests) in the [nksip_event_compositor](../plugins/event_compositor.md) plugin.
+
 
 
 ### Generic Request
