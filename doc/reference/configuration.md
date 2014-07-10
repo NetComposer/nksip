@@ -16,7 +16,7 @@ Name|Type|Default|Comments
 global_max_calls|`integer()`|100000|Maximum number of simultaneous calls (each different Call-ID counts as a call)
 global_max_connections|`integer()`|1024|Maximum number of simultaneous connections NkSIP will accept
 dns_cache_ttl|`integer()`|3600|DNS cache TTL (See `nksip_dns`) (secs) (SipApps cannot override)
-local_data_path|`string()`&#124;`binary()`|"log"|Path to store UUID files (SipApps cannot override)
+local_data_path|`string()`|"log"|Path to store UUID files (SipApps cannot override)
 sync_call_time|`integer()`|30|Time to wait in sync calls
 
 
