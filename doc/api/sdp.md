@@ -2,26 +2,20 @@
 
 Function|Description
 ---|---
-[start/4](#start4)|Starts a new SipApp
+[new/2](#new2)|Generates a simple base SDP record
+[new/0](#new0)|Generates a simple base SDP record using host `"auto.nksip"`
+[empty/0](#empty0)|Generates an empty SDP record, using host `"local.nksip"`
+[increment/1](#increment1)|Increments the SDP version by one
+[update/2](#update2)|Updates and SDP changing all medias
+[is_sdp/1](#is_sdp1)|Checks if term is an valid SDP
+[is_new/2](#is_new2)|Checks if `SDP2` is newer than `SDP1`
+[parse/1](#parse1)|Parses a binary SDP packet
+[unparse/1](#unparse1)|Generates a binary SDP packet from an `nksip_sdp:sdp()` record.
 
-
-### new/2
-```erlang
-nksip_sdp:new(Host::string()|binary(), MediaSpecs::[nksip_sdp:media_spec()]) -> 
-    nksip_sdp:sdp().
-```
-    
-Generates a simple base SDP record. 
-
-It will use the indicated `Host` and a `MediaSpecs` description to generate a new `nksip_sdp:sdp()` record, having several `m` sections, one for each media. 
-
-Each media must define a `Media` (like `<<"audio">>` or `<<"video">>`), a `Port` and a list of `Attributes`. Each attributes can have the form `{rtpmap, Pos, Data}` to define a codec (like `{rtpmap, 0, <<"PCMU/8000">>}`) or a standard SDP `a` attribute (like `<<"inactive">>` or `<<"ptime:30">>`). The class will be `RTP/AVP`.
-
-If `Host` is `"auto.nksip"`, NkSIP it will be changed to the current local address
-before sending.
+## Example
 
 ```erlang
-1> nksip_sdp:new("local", [
+1> SDP = nksip_sdp:new("local", [
         {<<"audio">>, 10000, [{rtpmap, 0, "Params0"}, {rtpmap, 1, "Params1"}, sendrecv]},
         {<<"video">>, 10001, [{rtpmap, 2, "Params2"}, {rtpmap, 3, "Params3"}, sendrecv]}
    ]).
@@ -44,7 +38,7 @@ before sending.
                       fmt = [<<"2">>,<<"3">>],
                       info = undefined,connect = undefined,bandwidth = [],...}]}
                       
-2> io:format("~s", [nksip_sdp:unparse(v(-2))]).
+2> io:format("~s", [nksip_sdp:unparse(SDP)]).
 v=0
 o=- 1405007035 1405007035 IN IP4 local
 s=nksip
@@ -60,6 +54,26 @@ a=rtpmap:3 Params3
 a=sendrecv
 ok
 ```
+
+
+## API
+
+### new/2
+```erlang
+nksip_sdp:new(Host::string()|binary(), MediaSpecs::[nksip_sdp:media_spec()]) -> 
+    nksip_sdp:sdp().
+```
+    
+Generates a simple base SDP record. 
+
+It will use the indicated `Host` and a `MediaSpecs` description to generate a new `nksip_sdp:sdp()` record, having several `m` sections, one for each media. 
+
+Each media must define a `Media` (like `<<"audio">>` or `<<"video">>`), a `Port` and a list of `Attributes`. Each attributes can have the form `{rtpmap, Pos, Data}` to define a codec (like `{rtpmap, 0, <<"PCMU/8000">>}`) or a standard SDP `a` attribute (like `<<"inactive">>` or `<<"ptime:30">>`). The class will be `RTP/AVP`.
+
+If `Host` is `"auto.nksip"`, NkSIP it will be changed to the current local address
+before sending.
+
+
 
 
 ### new/0
