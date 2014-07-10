@@ -1,26 +1,25 @@
 # Metadata Fields
 NkSIP allows the retrieval of specific information from requests, reponses, dialogs and subscriptions.
-The available options are defined here.
+The available options are defined here for:
 
-* [Requests and Responses](#requests-and-responses-metadata)
-* [Dialogs](#fialog-metadata)
-* [Subscriptions](#subscriptions-metadata)
+* [Requests and Responses](#requests-and-responses-metadata) (See [requests](../api/requests.md) and  [responses](../api/responses.md) APIs).
+* [Dialogs](#fialog-metadata) (See [dialogs](../api/dialogs.md) API)
+* [Subscriptions](#subscriptions-metadata) (See [subscriptions](../api/subscriptions.md) API)
 
 
-Installed plugins can install aditional metadata fields.
-
+Keep in mind that activated plugins can install aditional metadata fields. See the [plugins documentation](../plugins/README.md).
 
 
 ## Request and Responses Metadata
-Accesible when calling `nksip_request:meta/2`, `nksip_response:meta/2` and when using the option `meta` in the [requests sending functions](../guide/sending_requests.md).
+Accesible when calling [nksip_request:meta/2](../api/requests.md#meta2), [nksip_response:meta/2](../api/responses.md#meta2) and when using the option `meta` in the [requests sending functions](../reference/sending_options.md).
 
 Name|Type|Description
 ---|---|---
-id|`nksip:id()`|Request or response's id
+id|`nksip:id()`|Request or response's handle
 app_id|`nksip:app_id()`|Internal SipApp name this request or response belongs to
 app_name|`term()`|User SipApp name this request or response belongs to
-dialog_id|`nksip:id()`|Dialog's id of this request or response
-subscription_id|`nksip_id()`|Subscription's id of this request or response
+dialog_id|`nksip:id()`|Dialog's handle of this request or response
+subscription_id|`nksip_id()`|Subscription's handle of this request or response
 proto|`nksip:protocol()`|Transport protocol
 local|`{nksip:protocol(),inet:ip_address(),inet:port_number()}`|Local transport protocol, ip and port
 remote|`{nksip:protocol(),inet:ip_address(),inet:port_number()}`|Remote transport protocol, ip and port
@@ -63,7 +62,7 @@ rack|`{integer(),integer(),nksip:method()}`&#124;`undefined`|RAck header
 {header, Name}|`[binary()]`|Gets an unparsed header value
 all_headers|`[{binary(),[binary()]}]`|Gets all headers and values
 
-Besides this values, you can use any string() or binary() to the get that header's value
+Besides this values, you can use any `string()` or `binary()` to the get that header's value (use allways lowercase).
 
 
 ## Dialogs Metadata

@@ -43,7 +43,7 @@ OPTIONS requests are usually sent to get the current set of SIP features and cod
 
 Options `supported`, `allow` and `allow_event` are automatically added.
 
-NkSIP has an automatic remote _pinging_ feature that can be activated on any SipApp (see plugins).
+NkSIP has an automatic remote _pinging_ feature that can be activated on any SipApp, using [nksip_uac_auto_register](../plugins/auto_register.md) plugin.
 
 
 ### register
@@ -54,10 +54,12 @@ nksip_uac:register(App, Uri, Opts)
 This function is used to send a new REGISTER request to any registrar server, to register a new _Contact_, delete a current registration or get the list of current registered contacts from the registrar. To register a contact you should use optons `{contact, Contact}` or `contact`, and typically `expires`. If you include no contact, the current list of registered contacts should be returned by the server (use `contact` as _meta_ option to get it)
 
 Options `to_as_from`, `supported`, `allow` and `allow_events` are automatically added. 
-You can use also use the options `unregister` to unregister included or default contact and `unregister_all` to unregister all contacts. Option `reg_id` is also available for outbound support.
+You can use also use the options `unregister` to unregister included or default contact and `unregister_all` to unregister all contacts. 
+
+NkSIP has an automatic registration feature that can be activated using [nksip_uac_auto_register](../plugins/auto_register.md) plugin. For outbound compatible registrations, see [nksip_uac_auto_outbound](../plugins/auto_outbound.md) plugin.
+
 Keep in mind that, once you send a REGISTER requests, following refreshes should have the same _Call-ID_ and incremented _CSeq_ headers.
 
-NkSIP has an automatic registration feature that can be activated on any SipApp (see plugins).
 
 
 ### invite
@@ -70,21 +72,23 @@ These functions sends a new session invitation to another endpoint or proxy. Opt
 
 When the first provisional response from the remote party is received (as 180 _Ringing_) a new dialog will be started, and the corresponding callback [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3) in the callback module will be called. If this response has also a valid SDP body, a new session will be associated with the dialog and the corresponding callback [sip_session_update/3](../reference/callback_functions.md#sip_session_update3)  will also be called.
 
-When the first 2xx response is received, the dialog is confirmed. **You must then call `ack/2` immediately** (or use the `auto_2xx_ack` option), offering an SDP body if you haven't done it in the INVITE request. The dialog is destroyed when a BYE is sent or received, or a 408 _Timeout_ or 481 _Call Does Not Exist_ response is received. If a secondary 2xx response is received (usually because a proxy server has forked the request) NkSIP will automatically acknowledge it and send BYE. 
+When the first 2xx response is received, the dialog is confirmed. **You must then call `ack/2` immediately, or use the `auto_2xx_ack` option**, offering an SDP body if you haven't done it in the INVITE request. The dialog is destroyed when a BYE is sent or received, or a 408 _Timeout_ or 481 _Call Does Not Exist_ response is received. If a secondary 2xx response is received (usually because a proxy server has forked the request) NkSIP will automatically acknowledge it and send BYE. 
 
 If a 3xx-6xx response is received instead of a 2xx response, the _early dialog_ is destroyed. You should not call `ack/2` in this case, as NkSIP will do it for you automatically.
 
-After a dialog has being established, you can send new INVITE requests (called _reINVITEs_) _inside_ this dialog, as well as in-dialog OPTIONS, BYE, UPDATE, INFO, SUBSCRIBE, MESSAGE, REFER or PUBLISH.
+After a dialog has being established, you can send new INVITE requests (called _reINVITEs_) _inside_ this dialog, as well as in-dialog OPTIONS, BYE, UPDATE, INFO, SUBSCRIBE, MESSAGE, REFER or PUBLISH. If no request is sent or received in the dialog after a time (defined in the `dialog_timeout` configuration option), it is destroyed.
 
-You case use specific options:
-* `{expires, Expires}`: NkSIP will CANCEL the request if no final response has been received in this period in seconds. 
-* `{session_expires, SE}`: NkSIP will automatically start a session timer (according to RFC4028). Use SE=0 to disable it. If the session timer is active, and a 422 (_Session Interval Too Small_) is received, NkSIP will automatically resend the request updating Session-Expires header.
+If you activate the [session timers plugin](../plugins/timers.md) NkSIP will have a different timing behaviours.
+
+If you use the option `{expires, Expires}`, NkSIP will CANCEL the request if no final response has been received in this period in seconds. 
 
 If you want to be able to _CANCEL_ the request, you should use the `async` option to get the corresponding `RequestId` to use when calling `cancel/2`.
 
 If a 491 response is received, it usually means that the remote party is starting another reINVITE transaction right now. You should call `nksip_response:wait_491/0` and try again.
 
-The first _meta_ returned value is allways `{dialog_id, DialogId}`, even if the `meta` option is not used.
+For successful (2xx) responses, the first _meta_ returned value is allways `{dialog_id, DialogId}`, even if the `meta` option is not used.
+
+
 
 
 ### ack
@@ -124,7 +128,7 @@ This call is always asychronous. It returns a soon as the request is received an
 nksip_uac:update(DialogId, Opts)
 ```
 
-Sends an  UPDATE on a currently ongoing dialog, allowing to change the media session before the dialog has been confirmed. A session timer will be started.
+Sends an  UPDATE on a currently ongoing dialog, allowing to change the media session before the dialog has been confirmed. A session timer will be started if the [session timers plugin](../plugins/timers.md) is activated.
 Options `supported`, `accept` and `allow` are automatically added.
 
 
@@ -148,7 +152,7 @@ Sends an SUBSCRIBE request.
 
 These functions send a new subscription request to the other party. You **must** use option `{event, Event}` to select an _Event Package_ supported at the server, and commonly an `{expires, Expires}` option (default for this package will be used if expires is not defined). Options `contact`, `supported`, `allow` and `allow_event` are automatically added.
 
-If the remote party returns a 2xx response, it means that the subscription has been accepted, and a NOTIFY request should arrive inmediatly. After the reception of the NOTIFY, NkSIP will call the corresponding callback [notify/2](../reference/callback_functions.md#notify2) and the subscription state will change, so NkSIP will call [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3).
+If the remote party returns a 2xx response, it means that the subscription has been accepted, and a NOTIFY request should arrive inmediatly. After the reception of the NOTIFY, NkSIP will call the corresponding callback [sip_notify/2](../reference/callback_functions.md#sip_notify2) and the subscription state will change, so NkSIP will call [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3).
 
 If `Id` is a _subscription's id_, it will send as a reSUBSCRIBE, using the same _Event_ and _Expires_ as the last _SUBSCRIBE_, refreshing the subscription in order to avoid its expiration.
 
@@ -187,10 +191,11 @@ nksip_uac:refer(DialogId, Opts
 
 Sends an _REFER_ for a remote party. 
 
-Asks the remote party to start a new connection to the indicated uri in the mandatory `refer_to` parameter. If a 2xx response is received, the remote party has agreed and will start a new connection. A new subscription will be stablished, and you will start to receive NOTIFYs. Implement the callback function [notify/2](../reference/callback_functions.md#notify2) to receive them, filtering using the indicated `subscription_id`.
+Asks the remote party to start a new connection to the indicated uri in the mandatory `refer_to` parameter. If a 2xx response is received, the remote party has agreed and will start a new connection. A new subscription will be stablished, and you will start to receive NOTIFYs. Implement the callback function [sip_notify/2](../reference/callback_functions.md#sip_notify2) to receive them, filtering using the indicated `subscription_id`.
 
 In case of 2xx response, the first returned value is allways `{subscription_id, SubscriptionId}`, even if the `meta` option is not used.
 
+If you activate the [nksip_refer plugin](../plugins/refer.md), NkSIP processes this information automatically.
 
 
 ### publish 
@@ -205,6 +210,9 @@ Sends an PUBLISH request.
 This functions sends a new publishing to the other party, you **must** include the mandatory `{event, Event}` remote supported event package and include a body. Options `supported`, `allow` and `allow_event` are automatically added.
 
 If the remote party returns a 2xx response, it means that the publishing has been accepted, and the body has been stored. A _SIP-ETag_ header will be returned (a `sip_etag` parameter will always be returned in meta). You can use this ETag (using `{sip_if_match, ETag}` option) to update the stored information (sending a new body), or deleting it (using `{expires, 0}`).
+
+NkSIP includes the implementation of an Event State Compositor (the server that must receive the PUBLISH requests) in the [nksip_event_compositor](../plugins/event_compositor.md) plugin.
+
 
 
 ### Generic Request

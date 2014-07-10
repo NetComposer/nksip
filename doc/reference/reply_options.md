@@ -1,17 +1,19 @@
 # Reply Options
 
-Many of the SipApp's [callback functions](callback_functions.md) allows you to send a response back for the received request. Currently the following replies are recognized:
+Many of the SipApp's [callback functions](callback_functions.md) allows you to send a response back for the received request. Currently recognized options are documented in this page.
+
+Keep in mind that activated pluings can add new options. See the [plugins documentation](../plugins/README.md).
 
 Response|Types|Code|Comments
 ---|---|---|---
 Code|Code::`nksip:sip_code()`|Code|
 {Code, Opts}|Code::`nksip:sip_code()`, Opts::`nksip:optslist()`|Code|See [options](#options)
 ringing||180|
-rel_ringing||180|_Reliable responses_ will be used
-{rel_ringing, Body}|Body::`nksip:body()`|180|_Reliable responses_ will be used, send a body
+rel_ringing||180|_Reliable responses_ will be used (must activate [plugin](../plugins/100rel.md))
+{rel_ringing, Body}|Body::`nksip:body()`|180|_Reliable responses_ will be used, send a body (must activate [plugin](../plugins/100rel.md))
 session_progress||183|
-rel_session_progress||183|_Reliable responses_ will be used
-{rel_session_progress, Body}|Body:`nksip:body()`|183|_Reliable responses_ will be used, send a body
+rel_session_progress||183|_Reliable responses_ will be used (must activate [plugin](../plugins/100rel.md))
+{rel_session_progress, Body}|Body:`nksip:body()`|183|_Reliable responses_ will be used, send a body (must activate [plugin](../plugins/100rel.md))
 ok||200|
 {ok, Opts}|Opts:`nksip:optslist()`|200|See [options](#options)
 {answer, Body}|Body::`nksip:body()`|200|Send a body
@@ -94,7 +96,7 @@ proxy_authenticate||Generates an automatic Proxy-Authenticate header, using From
 {reason, Reason}|Reason::`string()`&#124;`binary()`|Replaces Reason header|
 {event, Reason}|Event::`string()`&#124;`binary()`&#124;`nksip:token()`|Replaces Event header|
 timestamp||If the request has a Timestamp_ header it is copied to the response
-do100rel||Activates reliable provisional responses, if supported
+do100rel||Activates reliable provisional responses, if supported (must activate [plugin](../plugins/100rel.md))
 {sip_etag, ETag}|ETag::`string()`&#124;`binary()`|Replaces Sip-ETag header|Only to be used in PUBLISH requests
 no_dialog|-|Do not process dialogs for this request|
 ignore|-|Ignore this option|
