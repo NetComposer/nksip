@@ -35,19 +35,21 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 * Dialog and SDP processing utility functions, including media start and stop detection.
 
 ## Standard plugins
-* SIP Digest Authentication.
-* SIP Registrar.
-* SIP Event State Compositor.
+* Digest Authentication.
+* Registrar Server and Automatic Registrations.
+* Event State Compositor.
 * Reliable provisional responses.
-* Automatic registrations and timed pings.
+* Session Timers
+* SIP REFER.
 * Outbound and GRUU.
+* Trace and Statistics.
 
 
 # Documentation
 
 [1. User Guide](doc/README.md#1-user-guide)<br/>
 [2. Reference  Guide](doc/README.md#2-reference--guide)<br/>
-[3. API](doc/README.md#3-api)<br/>
+[3. API Guide](doc/README.md#3-api)<br/>
 [4. Standard Plugins](doc/README.md#4-standard-plugins)<br/>
 [5. Cookbook](doc/README.md#5-cookbook)<br/>
 [6. Sample Applications](doc/README.md#6-sample-applications)<br/>
