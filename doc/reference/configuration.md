@@ -50,6 +50,7 @@ max_connections|`integer()`|1024|Maximum number of simultaneous connections NkSI
 
 Key|Type|Default|Description
 ---|---|---|---
+plugins|`[atom()]`|`[]`|List of [plugins](../plugins/README.md) to activate
 transports|[{Proto, Ip, Port}&#124;{Proto, Ip, Port, Opts}], Proto::`protocol()`, Ip::`inet:ip_address()`&#124;`string()`&#124;`binary()`&#124;all&#124;all6, Port::`inet:port_number()`&#124;any|[{udp, any, all}, {tls, any, all}]`|The SipApp can start any number of transports. If an UDP transport is started, a TCP transport on the same IP and port will be started automatically. Use `all` to use _all_ available IPv4 addresses and `all6` for all IPv6 addresses, and `any` to use any available port
 certfile|`string()`|"(privdir)/cert.pem"|Path to the certificate file for TLS
 keyfile|`string()`|"(privdir)/key.pem"|Path to the key file for TLS
