@@ -66,7 +66,7 @@ Besides this values, you can use any `string()` or `binary()` to the get that he
 
 
 ## Dialogs Metadata
-Available when calling nksip_dialog:meta/2`.
+Available when calling [nksip_dialog:meta/2](../api/dialogs.md#meta2).
 
 Name|Type|Description
 ---|---|---
@@ -101,7 +101,7 @@ to_tag|`binary()`|To tag
 
 
 ## Subscriptions Metadata
-Available when calling `nksip_subscription:meta/2`.
+Available when calling [nksip_subscriptions:meta/2](../api/subscriptions.md#meta2).
 All dialog options are available for subscriptions, and also:
 
 Name|Type|Description
