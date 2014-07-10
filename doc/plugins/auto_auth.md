@@ -15,7 +15,7 @@
 
 ## Description
 
-This plugin provides the capability of, after receiving a 401 or 407 response, automatically retry the request using digest authentication. If, after a successful response, the next proxy or element send another 401 or 407, a new authentication is added, up to the value configured in `nksip_uac_auto_auth_max_tries`.
+This plugin provides the capability of, after receiving a 401 or 407 response, automatically retry the request using digest authentication. If, after a successful response, the next proxy or element sends another 401 or 407, a new authentication is added, up to the value configured in `nksip_uac_auto_auth_max_tries`.
 
 You can configure the password to use with the [options](#configuration-values) `pass` or `passes`. When a 401 or 407 response is received, NkSIP finds a password for the _realm_ in the response. If none is found, the password with realm `<<>>` is used.
 
@@ -38,7 +38,7 @@ passes|-|List of passes to use for digest authentication (see bellow)
 
 You can use only one of `pass` or `passes` configuration option. In the first case, it can have the form `Pass::binary()` or `{Realm::binary(), Pass::binary()}`. In the second form, must be a list of any of the previous types.
 
-In case you don't want to use a clear-text function, you can use the function nksip_auth:make_ha1/3 to get a hash of the password that can be used instead of the real password.
+In case you don't want to use a clear-text function, you can use the function [nksip_auth:make_ha1/3](../../src/nksip_auth.erl) to get a hash of the password that can be used instead of the real password.
 
 
 
