@@ -32,7 +32,7 @@
 		 nkcb_uac_reply/3]).
 -export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/3, nkcb_uas_timer/3, nkcb_uas_dialog_response/4, nkcb_uas_process/2]).
 -export([nkcb_dialog_update/3, nkcb_route/4]).
--export([nkcb_connection_send/2, nkcb_connection_recv/2]).
+-export([nkcb_connection_sent/2, nkcb_connection_recv/2]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
 -export([nkcb_debug/2]).
@@ -260,10 +260,10 @@ nkcb_route(UriList, ProxyOpts, UAS, Call) ->
 
 
 %% @doc Called when a new message has been sent
--spec nkcb_connection_send(nksip:request()|nksip:response(), binary()) ->
+-spec nkcb_connection_sent(nksip:request()|nksip:response(), binary()) ->
 	ok | nkcb_common().
 
-nkcb_connection_send(_SipMsg, _Packet) ->
+nkcb_connection_sent(_SipMsg, _Packet) ->
 	ok.
 
 
