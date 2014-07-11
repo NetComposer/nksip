@@ -95,7 +95,7 @@ do_send(_Pid, udp, Packet) when byte_size(Packet) > ?MAX_UDP ->
     udp_too_large;
 
 do_send(Pid, _Proto, Packet) ->
-    case catch gen_server:call(Pid, {send, Packet}) of
+    case catch gen_server:call(Pid, {send, Packet}, 30000) of
         ok -> ok;
         {'EXIT', Error} -> {error, Error}
     end.
@@ -121,8 +121,6 @@ stop(Pid, Reason) ->
     ok | error.
 
 start_refresh(Pid, Secs, Ref) ->
-    Rand = crypto:rand_uniform(80, 101),
-    Time = (Rand*Secs) div 100,
     case catch gen_server:call(Pid, {start_refresh, Time, Ref, self()}) of
         ok -> ok;
         _ -> error
