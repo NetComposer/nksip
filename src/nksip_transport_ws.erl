@@ -36,8 +36,8 @@
 -export([get_listener/3, connect/3]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
-% -export([init/3, websocket_init/3, websocket_handle/3, websocket_info/3, 
-%          websocket_terminate/3]).
+-export([init/3, websocket_init/3, websocket_handle/3, websocket_info/3, 
+         websocket_terminate/3]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -80,9 +80,9 @@ get_listener(AppId, Transp, Opts) ->
          
 connect(AppId, Transp, Opts) ->
     try
-        case nksip_connection:check_max(AppId) of
-            true -> ok;
-            false -> throw(max_connections)
+        case nksip_connection:is_max(AppId) of
+            false -> ok;
+            true -> throw(max_connections)
         end,
         #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transp,
         {InetMod, TranspMod} = case Proto of
@@ -233,66 +233,66 @@ terminate(_Reason, _State) ->
 % %% Cowboy's callbacks
 % %% ===================================================================
 
-% -record(ws_state, {
-%     conn_pid :: pid()
-% }).
+-record(ws_state, {
+    conn_pid :: pid()
+}).
 
 
-% %% @private
-% init({Transp, http}, _Req, _Opts) when Transp==tcp; Transp==ssl ->
-%     {upgrade, protocol, cowboy_websocket}.
+%% @private
+init({Transp, http}, _Req, _Opts) when Transp==tcp; Transp==ssl ->
+    {upgrade, protocol, cowboy_websocket}.
 
-% %% @private
-% websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
-%     WsProtos = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req) of
-%         {ok, ProtList, Req2} when is_list(ProtList) -> ProtList;
-%         {ok, _, Req2} -> []
-%     end,
-%     case lists:member(<<"sip">>, WsProtos) of
-%         true ->
-%             Req3 = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, 
-%                                               <<"sip">>, Req2),
-%             Timeout = nksip_lib:get_value(timeout, Opts),
-%             {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req3),
-%             {Path, _} = cowboy_req:path(Req3),
-%             Transp1 = Transp#transport{
-%                 remote_ip = RemoteIp, 
-%                 remote_port = RemotePort,
-%                 resource = Path
-%             },
-%             {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
-%             {ok, Req3, #ws_state{conn_pid=Pid}};
-%         false -> 
-%             {shutdown, Req2}
-%     end.
-
-
-% %% @private
-% websocket_handle({text, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
-%     nksip_connection:incoming(Pid, Msg),
-%     {ok, Req, State};
-
-% websocket_handle({binary, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
-%     nksip_connection:incoming(Pid, Msg),
-%     {ok, Req, State};
-
-% websocket_handle(_Data, Req, State) ->
-%     {ok, Req, State}.
+%% @private
+websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
+    WsProtos = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req) of
+        {ok, ProtList, Req2} when is_list(ProtList) -> ProtList;
+        {ok, _, Req2} -> []
+    end,
+    case lists:member(<<"sip">>, WsProtos) of
+        true ->
+            Req3 = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, 
+                                              <<"sip">>, Req2),
+            Timeout = nksip_lib:get_value(timeout, Opts),
+            {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req3),
+            {Path, _} = cowboy_req:path(Req3),
+            Transp1 = Transp#transport{
+                remote_ip = RemoteIp, 
+                remote_port = RemotePort,
+                resource = Path
+            },
+            {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
+            {ok, Req3, #ws_state{conn_pid=Pid}};
+        false -> 
+            {shutdown, Req2}
+    end.
 
 
-% %% @private
-% websocket_info({send, Frames}, Req, State) ->
-%     {reply, Frames, Req, State};
+%% @private
+websocket_handle({text, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
+    nksip_connection:incoming(Pid, Msg),
+    {ok, Req, State};
 
-% websocket_info(Info, Req, #ws_state{conn_pid=Pid}=State) ->
-%     Pid ! Info,
-%     {ok, Req, State}.
+websocket_handle({binary, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
+    nksip_connection:incoming(Pid, Msg),
+    {ok, Req, State};
+
+websocket_handle(_Data, Req, State) ->
+    {ok, Req, State}.
 
 
-% %% @private
-% websocket_terminate(Reason, _Req, #ws_state{conn_pid=Pid}) ->
-%     nksip_connection:stop(Pid, Reason),
-%     ok.
+%% @private
+websocket_info({send, Frames}, Req, State) ->
+    {reply, Frames, Req, State};
+
+websocket_info(Info, Req, #ws_state{conn_pid=Pid}=State) ->
+    Pid ! Info,
+    {ok, Req, State}.
+
+
+%% @private
+websocket_terminate(Reason, _Req, #ws_state{conn_pid=Pid}) ->
+    nksip_connection:stop(Pid, Reason),
+    ok.
 
 
 
@@ -339,10 +339,10 @@ dispatch(List, Args) ->
 -spec outbound_opts(nksip:protocol(), nksip:app_id()) ->
     nksip:optslist().
 
-outbound_opts(tcp, _AppId) ->
+outbound_opts(ws, _AppId) ->
     [binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
 
-outbound_opts(tls, AppId) ->
+outbound_opts(wss, AppId) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
             DefCert = filename:join(PrivDir, "cert.pem"),
