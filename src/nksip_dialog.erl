@@ -27,7 +27,7 @@
 
 -export([app_id/1, app_name/1, get_id/1, call_id/1, meta/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
--export([apply_meta/2]).
+-export([apply_meta/2, apply_dialog/2]).
 -export([get_dialog/1, get_all_data/0, make_id/2, parse_id/1, remote_id/2, change_app/2]).
 -export_type([id/0, invite_status/0, field/0, stop_reason/0]).
 
@@ -140,7 +140,7 @@ meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id)
         <<>> ->
             error;
         DialogId ->
-            case nksip_router:apply_dialog(DialogId, Fun) of
+            case apply_dialog(DialogId, Fun) of
                 {ok, Values} -> Values;
                 _ -> error
             end
@@ -212,7 +212,11 @@ get_dialog({uses_subs, _Subs, Dialog}, _) ->
     [nksip:id()].
 
 get_all() ->
-    nksip_router:get_all_dialogs().
+    lists:flatten([
+        get_all(AppId, CallId)
+        || 
+        {AppId, CallId, _} <- nksip_router:get_all_calls()
+    ]).
 
 
 %% @doc Finds all existing dialogs having a `Call-ID'.
@@ -221,8 +225,13 @@ get_all() ->
 
 get_all(App, CallId) ->
     case nksip:find_app_id(App) of
-        {ok, AppId} -> nksip_router:get_all_dialogs(AppId, CallId);
-        _ ->[]
+        {ok, AppId} -> 
+            case nksip_router:send_work_sync(AppId, CallId, get_all_dialogs) of
+                {ok, Ids} -> Ids;
+                _ -> []
+            end;
+        _ ->
+            []
     end.
 
 
@@ -264,7 +273,7 @@ apply_meta(Fun, Id) when is_function(Fun, 1) ->
         <<>> ->
             error;
         DialogId ->
-            case nksip_router:apply_dialog(DialogId, Fun) of
+            case apply_dialog(DialogId, Fun) of
                 {ok, Values} -> Values;
                 _ -> error
             end
@@ -355,7 +364,7 @@ get_dialog(Id) ->
         <<>> ->
             error;
         DialogId ->
-            case nksip_router:apply_dialog(DialogId, Fun) of
+            case apply_dialog(DialogId, Fun) of
                 {ok, Dialog} -> Dialog;
                 _ -> error
             end
@@ -420,6 +429,11 @@ get_all_data() ->
 %% @private
 read_timer(Ref) when is_reference(Ref) -> (erlang:read_timer(Ref))/1000;
 read_timer(_) -> undefined.
+
+%% @private
+apply_dialog(Id, Fun) ->
+    {AppId, DialogId, CallId} = parse_id(Id),
+    nksip_router:send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun}).
 
 
 

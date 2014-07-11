@@ -157,7 +157,7 @@ is_local_route(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri, routes=Routes}) 
     term() | error.
 
 apply_meta(Fun, Id) when is_function(Fun, 1), is_binary(Id) ->
-    case nksip_router:apply_sipmsg(Id, Fun) of
+    case nksip_sipmsg:apply_sipmsg(Id, Fun) of
         {ok, Values} -> Values;
         _ -> error
     end.

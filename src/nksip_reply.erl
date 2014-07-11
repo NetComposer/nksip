@@ -122,7 +122,7 @@ reply(Req, SipReply) ->
 -spec post(nksip:request(), nksip:sip_code(), nksip:optslist()) ->
     nksip:optslist().
 
-post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
+post(#sipmsg{app_id=AppId, class={req, Method}}=Req, Code, Opts) ->
     Opts1 = case Code>100 of
         true -> [timestamp|Opts];
         false -> Opts
@@ -167,7 +167,10 @@ post(#sipmsg{class={req, Method}}=Req, Code, Opts) ->
     end,
     Opts7 = case Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' of
         true ->
-            Expires = nksip_lib:get_value(expires, Opts6, ?DEFAULT_EVENT_EXPIRES),
+            Expires = case nksip_lib:get_value(expires, Opts6) of
+                undefined -> nksip_sipapp_srv:config(AppId, event_expires);
+                Expires0 -> Expires0
+            end,
             Expires1 = min(Req#sipmsg.expires, Expires),
             [{expires, Expires1} | nksip_lib:delete(Opts6, expires)];
         false ->

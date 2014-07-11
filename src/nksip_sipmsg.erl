@@ -26,6 +26,7 @@
 
 -export([meta/2, header/2, header/3, all_headers/1]).
 -export([supported/2, require/2, is_dialog_forming/1, get_id/1, parse_id/1]).
+-export([apply_sipmsg/2]).
 -export_type([id/0]).
 -include("nksip.hrl").
 
@@ -328,6 +329,16 @@ parse_id(Bin) ->
     end,
     {Class, binary_to_existing_atom(App, latin1), Id, CallId}.
 
+
+%% @doc Applies a fun to a SipMsg and returns the result.
+-spec apply_sipmsg(nksip:id(), function()) ->
+    term() | {error, term()}.
+
+apply_sipmsg(Id, Fun) ->
+    case parse_id(Id) of
+        {Class, AppId, MsgId, CallId} when Class==req; Class==resp->
+            nksip_router:send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun})
+    end.
 
 
 

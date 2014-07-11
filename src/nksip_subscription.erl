@@ -80,7 +80,7 @@ get_id(<<"U_", _/binary>>=Id) ->
     Id;
 get_id(<<Class, $_, _/binary>>=Id) when Class==$R; Class==$S ->
     Fun = fun(#sipmsg{}=SipMsg) -> {ok, get_id(SipMsg)} end,
-    case nksip_router:apply_sipmsg(Id, Fun) of
+    case nksip_sipmsg:apply_sipmsg(Id, Fun) of
         {ok, Id1} -> Id1;
         {error, _} -> <<>>
     end.
@@ -132,7 +132,7 @@ meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id)
         end
     end,
     DialogId = nksip_dialog:get_id(Id),
-    case nksip_router:apply_dialog(DialogId, Fun) of
+    case nksip_dialog:apply_dialog(DialogId, Fun) of
         {ok, Values} -> Values;
         _ -> error
     end;
@@ -197,7 +197,7 @@ get_subscription(#sipmsg{}=SipMsg, #call{}=Call) ->
 get_all() ->
     lists:flatten([
         nksip_dialog:meta(subscriptions, Id) 
-        || Id <- nksip_router:get_all_dialogs()
+        || Id <- nksip_dialog:get_all()
     ]).
 
 
@@ -208,7 +208,7 @@ get_all() ->
 get_all(AppId, CallId) ->
     lists:flatten([
         nksip_dialog:meta(subscriptions, Id)
-        || Id <- nksip_router:get_all_dialogs(AppId, CallId)
+        || Id <- nksip_dialog:get_all(AppId, CallId)
     ]).
 
 
@@ -230,7 +230,7 @@ get_subscription(<<"U_", _/binary>>=Id) ->
             _ -> error
         end
     end,
-    case nksip_router:apply_dialog(DialogId, Fun) of
+    case nksip_dialog:apply_dialog(DialogId, Fun) of
         {ok, Event} -> Event;
         _ -> error
     end.

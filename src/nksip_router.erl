@@ -25,10 +25,7 @@
 -behaviour(gen_server).
 
 -export([incoming_sync/1]).
--export([apply_dialog/2, get_all_dialogs/0, get_all_dialogs/2]).
--export([apply_sipmsg/2]).
--export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
--export([get_all_calls/0, get_all_data/0, get_all_info/0, clear_all_calls/0]).
+-export([get_all_calls/0]).
 -export([pending_msgs/0, pending_work/0]).
 -export([send_work_sync/3, send_work_async/3]).
 -export([pos2name/1, start_link/2]).
@@ -61,101 +58,34 @@
 %% Public
 %% ===================================================================
 
-% %% @doc Called when a new request or response has been received.
-% incoming_async(#sipmsg{call_id=CallId}=SipMsg) ->
-%     gen_server:cast(name(CallId), {incoming, SipMsg}).
+%% @doc Sends a synchronous piece of {@link nksip_call:work()} to a call.
+-spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
+    any() | {error, sync_error()}.
+
+send_work_sync(AppId, CallId, Work) ->
+    Name = name(CallId),
+    Timeout = nksip_config_cache:sync_call_time(),
+    WorkSpec = {send_work_sync, AppId, CallId, Work, self()},
+    case catch gen_server:call(Name, WorkSpec, Timeout) of
+        {'EXIT', Error} ->
+            ?warning(AppId, CallId, "error calling send_work_sync (~p): ~p",
+                     [work_id(Work), Error]),
+            {error, timeout};
+        Other ->
+            Other
+    end.
 
 
 %% @doc Called when a new request or response has been received.
 incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
-    case catch gen_server:call(name(CallId), {incoming, SipMsg}, ?SYNC_TIMEOUT) of
+    Name = name(CallId),
+    Timeout = nksip_config_cache:sync_call_time(),
+    case catch gen_server:call(Name, {incoming, SipMsg}, Timeout) of
         {'EXIT', Error} -> 
             ?warning(AppId, CallId, "error calling incoming_sync: ~p", [Error]),
             {error, timeout};
         Result -> 
             Result
-    end.
-
-
-%% @doc Applies a fun to a dialog and returns the result.
--spec apply_dialog(nksip:id(), function()) ->
-    term() | {error, Error}
-    when Error :: unknown_dialog | sync_error().
-
-apply_dialog(Id, Fun) ->
-    {AppId, DialogId, CallId} = nksip_dialog:parse_id(Id),
-    send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun}).
-
-%% @doc Get all dialog ids for all calls.
--spec get_all_dialogs() ->
-    [nksip:id()].
-
-get_all_dialogs() ->
-    lists:flatten([
-        get_all_dialogs(AppId, CallId)
-        || 
-        {AppId, CallId, _} <- get_all_calls()
-    ]).
-
-
-%% @doc Get all dialog ids for this SipApp, having CallId.
--spec get_all_dialogs(nksip:app_id(), nksip:call_id()) ->
-    [nksip:id()].
-
-get_all_dialogs(AppId, CallId) ->
-    case send_work_sync(AppId, CallId, get_all_dialogs) of
-        {ok, Ids} -> Ids;
-        _ -> []
-    end.
-
-
-%% @doc Applies a fun to a SipMsg and returns the result.
--spec apply_sipmsg(nksip:id(), function()) ->
-    term() | {error, Error}
-    when Error :: unknown_sipmsg | invalid_id | sync_error().
-
-apply_sipmsg(Id, Fun) ->
-    case nksip_sipmsg:parse_id(Id) of
-        {Class, AppId, MsgId, CallId} when Class==req; Class==resp->
-            send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun})
-    end.
-
-
-%% @doc Applies a fun to a transaction and returns the result.
--spec apply_transaction(nksip:id(), function()) ->
-    term() | {error, Error}
-    when Error :: unknown_transaction | sync_error().
-
-apply_transaction(Id, Fun) ->
-    case nksip_sipmsg:parse_id(Id) of
-        {Class, AppId, MsgId, CallId} when Class==req; Class==resp->
-            send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun})
-    end.
-            
-
-
-%% @doc Get all active transactions for all calls.
--spec get_all_transactions() ->
-    [{nksip:app_id(), nksip:call_id(), uac, nksip_call_uac:id()} |
-     {nksip:app_id(), nksip:call_id(), uas, nksip_call_uas:id()}].
-
-get_all_transactions() ->
-    lists:flatten(
-        [
-            [{AppId, CallId, Class, Id} 
-                || {Class, Id} <- get_all_transactions(AppId, CallId)]
-            || {AppId, CallId, _} <- get_all_calls()
-        ]).
-
-
-%% @doc Get all active transactions for this SipApp, having CallId.
--spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
-    [{uac, nksip_call_uac:id()} | {uas, nksip_call_uas:id()}].
-
-get_all_transactions(AppId, CallId) ->
-    case send_work_sync(AppId, CallId, get_all_transactions) of
-        {ok, Ids} -> Ids;
-        _ -> []
     end.
 
 
@@ -166,28 +96,6 @@ get_all_transactions(AppId, CallId) ->
 get_all_calls() ->
     Fun = fun(Name, Acc) -> [call_fold(Name)|Acc] end,
     lists:flatten(router_fold(Fun)).
-
-
-%% @doc Get all started calls.
--spec get_all_info() ->
-    [term()].
-
-get_all_info() ->
-    lists:sort(lists:flatten([send_work_sync(AppId, CallId, info)
-        || {AppId, CallId, _} <- get_all_calls()])).
-
-
-%% @doc Removes all calls, dialogs, transactions and forks.
-clear_all_calls() ->
-    lists:foreach(fun({_, _, Pid}) -> nksip_call_srv:stop(Pid) end, get_all_calls()).    
-
-
-%% @private
-get_all_data() ->
-    [
-        {AppId, CallId, nksip_call_srv:get_data(Pid)}
-        || {AppId, CallId, Pid} <- get_all_calls()
-    ].
 
 
 %% @private
@@ -214,8 +122,7 @@ pending_msgs() ->
 -record(state, {
     pos :: integer(),
     name :: atom(),
-    pending :: dict(),
-    max_calls :: integer()
+    pending :: dict()
 }).
 
 
@@ -232,8 +139,7 @@ init([Pos, Name]) ->
     SD = #state{
         pos = Pos, 
         name = Name, 
-        pending = dict:new(),
-        max_calls = nksip_config:get(max_calls)
+        pending = dict:new()
     },
     {ok, SD}.
 
@@ -360,22 +266,6 @@ terminate(_Reason, _SD) ->
 %% Internal
 %% ===================================================================
 
-%% @doc Sends a synchronous piece of {@link nksip_call:work()} to a call.
--spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
-    any() | {error, sync_error()}.
-
-send_work_sync(AppId, CallId, Work) ->
-    WorkSpec = {send_work_sync, AppId, CallId, Work, self()},
-    case catch gen_server:call(name(CallId), WorkSpec, ?SYNC_TIMEOUT) of
-        {'EXIT', Error} ->
-            ?warning(AppId, CallId, "error calling send_work_sync (~p): ~p",
-                     [work_id(Work), Error]),
-            {error, timeout};
-        Other ->
-            Other
-    end.
-
-
 %% @private 
 -spec name(nksip:call_id()) ->
     atom().
@@ -403,8 +293,10 @@ send_work_sync(AppId, CallId, Work, Caller, From, SD) ->
             {ok, SD#state{pending=Pending1}};
         not_found ->
             case do_call_start(AppId, CallId, SD) of
-                {ok, SD1} -> send_work_sync(AppId, CallId, Work, Caller, From, SD1);
-                {error, Error} -> {error, Error}
+                {ok, SD1} -> 
+                    send_work_sync(AppId, CallId, Work, Caller, From, SD1);
+                {error, Error} -> 
+                    {error, Error}
             end
    end.
 
@@ -414,14 +306,21 @@ send_work_sync(AppId, CallId, Work, Caller, From, SD) ->
     {ok, #state{}} | {error, sipapp_not_found | too_many_calls}.
 
 do_call_start(AppId, CallId, SD) ->
-    #state{name=Name, max_calls=MaxCalls} = SD,
-    case nksip_counters:value(nksip_calls) < MaxCalls of
+    #state{name=Name} = SD,
+    Max = nksip_config_cache:global_max_calls(),
+    case nksip_counters:value(nksip_calls) < Max of
         true ->
-            {ok, Pid} = nksip_call_srv:start(AppId, CallId),
-            erlang:monitor(process, Pid),
-            Id = {call, AppId, CallId},
-            true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
-            {ok, SD};
+            AppMax = AppId:config_max_calls(),
+            case nksip_counters:value({nksip_calls, AppId}) < AppMax of
+                true ->
+                    {ok, Pid} = nksip_call_srv:start(AppId, CallId),
+                    erlang:monitor(process, Pid),
+                    Id = {call, AppId, CallId},
+                    true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
+                    {ok, SD};
+                false ->
+                    {error, too_many_calls}
+            end;
         false ->
             {error, too_many_calls}
     end.

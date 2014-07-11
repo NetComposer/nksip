@@ -34,6 +34,7 @@
 -export([get_all/0, get_info/0, clear_all/0]).
 -export([app_reply/4, work/3, timeout/3]).
 -export([sync_send_dialog/4, make_dialog/4]).
+-export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
 -import(nksip_router, [send_work_sync/3, send_work_async/3]).
 
 -export_type([call/0, trans/0, fork/0, work/0]).
@@ -212,12 +213,52 @@ get_all() ->
     [term()].
 
 get_info() ->
-    nksip_router:get_all_info().
-
+    lists:sort(lists:flatten([send_work_sync(AppId, CallId, info)
+        || {AppId, CallId, _} <- nksip_router:get_all_calls()])).
 
 %% @private 
 clear_all() ->
-    nksip_router:clear_all_calls().
+    lists:foreach(
+        fun({_, _, Pid}) -> nksip_call_srv:stop(Pid) end, 
+        nksip_router:get_all_calls()).    
+
+
+%% @doc Get all active transactions for all calls.
+-spec get_all_transactions() ->
+    [{nksip:app_id(), nksip:call_id(), uac, nksip_call_uac:id()} |
+     {nksip:app_id(), nksip:call_id(), uas, nksip_call_uas:id()}].
+
+get_all_transactions() ->
+    lists:flatten(
+        [
+            [{AppId, CallId, Class, Id} 
+                || {Class, Id} <- get_all_transactions(AppId, CallId)]
+            || {AppId, CallId, _} <- nksip_router:get_all_calls()
+        ]).
+
+
+%% @doc Get all active transactions for this SipApp, having CallId.
+-spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
+    [{uac, nksip_call_uac:id()} | {uas, nksip_call_uas:id()}].
+
+get_all_transactions(AppId, CallId) ->
+    case send_work_sync(AppId, CallId, get_all_transactions) of
+        {ok, Ids} -> Ids;
+        _ -> []
+    end.
+
+
+%% @doc Applies a fun to a transaction and returns the result.
+-spec apply_transaction(nksip:id(), function()) ->
+    term() | {error, term()}.
+
+apply_transaction(Id, Fun) ->
+    case nksip_sipmsg:parse_id(Id) of
+        {Class, AppId, MsgId, CallId} when Class==req; Class==resp->
+            send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun})
+    end.
+            
+
 
 
 %% ===================================================================

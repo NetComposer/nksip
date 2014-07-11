@@ -122,15 +122,15 @@ invalid(Test) ->
         nksip_uac:register(C1, "sip:127.0.0.1", [contact, {meta, [call_id]}]),
     % The UAC has generated a transaction
     {ok, C1Id} = nksip:find_app_id(C1),
-    [{uac, _}] = nksip_router:get_all_transactions(C1Id, CallId1),
+    [{uac, _}] = nksip_call:get_all_transactions(C1Id, CallId1),
     case Test of
         stateless -> 
             {ok, S1Id} = nksip:find_app_id(S1),
-            [] = nksip_router:get_all_transactions(S1Id, CallId1);
+            [] = nksip_call:get_all_transactions(S1Id, CallId1);
         stateful -> 
             {ok, S1Id} = nksip:find_app_id(S1),
             [{uas, _}] = 
-                nksip_router:get_all_transactions(S1Id, CallId1)
+                nksip_call:get_all_transactions(S1Id, CallId1)
     end,
 
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
@@ -144,7 +144,7 @@ invalid(Test) ->
         nksip_uac:options(C1, "sip:client2@nksip", Opts3),
     
     % The 420 response is always stateless
-    [] = nksip_router:get_all_transactions(S1Id, CallId3),
+    [] = nksip_call:get_all_transactions(S1Id, CallId3),
 
     % Force Forwards=0 using REGISTER
     CallId4 = nksip_lib:luid(),
