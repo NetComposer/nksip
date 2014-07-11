@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
--export([start_listener/5, connect/6, send/2, async_send/2, stop/2]).
+-export([is_max/1, send/2, async_send/2, stop/2]).
 -export([start_refresh/3, stop_refresh/1, set_timeout/2, get_transport/1, get_refresh/1]).
 -export([incoming/2, stop_all/0]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3,   
@@ -42,55 +42,33 @@
 %% Public
 %% ===================================================================
 
+%% @doc Checks if we already have the maximum number of connections
+-spec is_max(nksip:app_id()) ->
+    boolean().
 
-%% @doc Starts a new listening server
--spec start_listener(nksip:app_id(), nksip:protocol(), 
-                    inet:ip_address(), inet:port_number(), nksip:optslist()) ->
-    {ok, pid()} | {error, term()}.
-
-start_listener(AppId, Proto, Ip, Port, Opts) ->
-    Transp = #transport{
-        proto = Proto,
-        local_ip = Ip, 
-        local_port = Port,
-        listen_ip = Ip,
-        listen_port = Port,
-        remote_ip = {0,0,0,0},
-        remote_port = 0
-    },
-    Spec = case Proto of
-        udp -> nksip_transport_udp:get_listener(AppId, Transp, Opts);
-        tcp -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
-        tls -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
-        sctp -> nksip_transport_sctp:get_listener(AppId, Transp, Opts);
-        ws -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
-        wss -> nksip_transport_ws:get_listener(AppId, Transp, Opts)
-    end,
-    nksip_transport_sup:add_transport(AppId, Spec).
-
-    
-%% @doc Starts a new connection to a remote server
--spec connect(nksip:app_id(), nksip:protocol(), inet:ip_address(), inet:port_number(), 
-              binary(), nksip:optslist()) ->
-    {ok, pid(), nksip_transport:transport()} | {error, term()}.
-         
-connect(AppId, Proto, Ip, Port, Res, _Opts) ->
-    Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-    case nksip_transport:get_listening(AppId, Proto, Class) of
-        [{Transp, Pid}|_] -> 
-            Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, resource=Res},
-            Config = nksip_sipapp_srv:config(AppId),
-            case Proto of
-                udp -> nksip_transport_udp:connect(Pid, Transp1, Config);
-                tcp -> nksip_transport_tcp:connect(AppId, Transp1, Config);
-                tls -> nksip_transport_tcp:connect(AppId, Transp1, Config);
-                sctp -> nksip_transport_sctp:connect(Pid, Transp1, Config);
-                ws -> nksip_transport_ws:connect(AppId, Transp1, Config);
-                wss -> nksip_transport_ws:connect(AppId, Transp1, Config)
-            end;
-        [] ->
-            {error, no_listening_transport}
+is_max(AppId) ->
+    Max = nksip_config_cache:global_max_connections(),
+    case nksip_counters:value(nksip_connections) of
+        Current when Current > Max -> 
+            true;
+        _ -> 
+            AppMax = AppId:config_max_connections(),
+            case nksip_counters:value({nksip_connections, AppId}) of
+                AppCurrent when AppCurrent > AppMax -> 
+                    true;
+                _ ->
+                    false
+            end
     end.
+
+
+%% @doc Starts a new connection
+-spec start_link(nksip:app_id(), nksip:transport(), port()|pid(), integer()) ->
+    {ok, pid()}.
+
+start_link(AppId, Transport, SocketOrPid, Timeout) -> 
+    Args = [AppId, Transport, SocketOrPid, Timeout],
+    gen_server:start_link(?MODULE, Args, []).
 
 
 %% @doc Sends a new request or response to a started connection
@@ -103,7 +81,7 @@ send(Pid, #sipmsg{}=SipMsg) ->
     Packet = nksip_unparse:packet(SipMsg),
     case do_send(Pid, Proto, Packet) of
         ok ->
-            AppId:nkcb_connection_send(SipMsg, Packet);
+            AppId:nkcb_connection_sent(SipMsg, Packet);
         udp_too_large ->
             {error, udp_too_large};
         {error, Error} ->
@@ -220,9 +198,6 @@ stop_all() ->
 %% ===================================================================
 
 
-%% @private
-start_link(AppId, Transport, SocketOrPid, Timeout) -> 
-    gen_server:start_link(?MODULE, [AppId, Transport, SocketOrPid, Timeout], []).
 
 -record(state, {
     app_id :: nksip:app_id(),
@@ -251,7 +226,7 @@ init([AppId, Transport, SocketOrPid, Timeout]) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port, Res}}, Transport), 
     nksip_proc:put(nksip_transports, {AppId, Transport}),
-    nksip_counters:async([nksip_connections]),
+    nksip_counters:async([nksip_connections, {nksip_connections, AppId}]),
     case is_pid(SocketOrPid) of
         true ->
             Socket = undefined,

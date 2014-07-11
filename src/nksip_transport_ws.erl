@@ -33,18 +33,16 @@
 
 % -behaviour(cowboy_websocket_handler).
 
--export([get_listener/3]).
+-export([get_listener/3, connect/3]).
 -export([start_link/4, init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, 
          handle_info/2]).
--export([init/3, websocket_init/3, websocket_handle/3, websocket_info/3, 
-         websocket_terminate/3]).
+% -export([init/3, websocket_init/3, websocket_handle/3, websocket_info/3, 
+%          websocket_terminate/3]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 -include_lib("wsock/include/wsock.hrl").
-% -include("../deps/wsock/include/wsock.hrl").
 
--compile([export_all]).
 
 %% ===================================================================
 %% Private
@@ -81,14 +79,18 @@ get_listener(AppId, Transp, Opts) ->
     {ok, term()} | {error, term()}.
          
 connect(AppId, Transp, Opts) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transp,
-    {InetMod, TranspMod} = case Proto of
-        ws -> {inet, gen_tcp};
-        wss -> {ssl, ssl}
-    end,
-    Res1 = case Res of <<>> -> <<"/">>; _ -> Res end,
-    SocketOpts = outbound_opts(Proto, Opts),
     try
+        case nksip_connection:check_max(AppId) of
+            true -> ok;
+            false -> throw(max_connections)
+        end,
+        #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transp,
+        {InetMod, TranspMod} = case Proto of
+            ws -> {inet, gen_tcp};
+            wss -> {ssl, ssl}
+        end,
+        Res1 = case Res of <<>> -> <<"/">>; _ -> Res end,
+        SocketOpts = outbound_opts(Proto, AppId),
         Socket = case TranspMod:connect(Ip, Port, SocketOpts) of
             {ok, Socket0} -> Socket0;
             {error, Error1} -> throw(Error1) 
@@ -117,7 +119,7 @@ connect(AppId, Transp, Opts) ->
             remote_port = Port,
             resource = Res1
         },
-        Timeout = 1000*nksip_lib:get_value(ws_timeout, Opts),
+        Timeout = 1000 * nksip_sipapp_srv:config(AppId, ws_timeout),
         Spec = {
             {AppId, Proto, Ip, Port, make_ref()},
             {nksip_connection, start_link, 
@@ -227,70 +229,70 @@ terminate(_Reason, _State) ->
     ok.
 
 
-%% ===================================================================
-%% Cowboy's callbacks
-%% ===================================================================
+% %% ===================================================================
+% %% Cowboy's callbacks
+% %% ===================================================================
 
--record(ws_state, {
-    conn_pid :: pid()
-}).
-
-
-%% @private
-init({Transp, http}, _Req, _Opts) when Transp==tcp; Transp==ssl ->
-    {upgrade, protocol, cowboy_websocket}.
-
-%% @private
-websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
-    WsProtos = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req) of
-        {ok, ProtList, Req2} when is_list(ProtList) -> ProtList;
-        {ok, _, Req2} -> []
-    end,
-    case lists:member(<<"sip">>, WsProtos) of
-        true ->
-            Req3 = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, 
-                                              <<"sip">>, Req2),
-            Timeout = nksip_lib:get_value(timeout, Opts),
-            {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req3),
-            {Path, _} = cowboy_req:path(Req3),
-            Transp1 = Transp#transport{
-                remote_ip = RemoteIp, 
-                remote_port = RemotePort,
-                resource = Path
-            },
-            {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
-            {ok, Req3, #ws_state{conn_pid=Pid}};
-        false -> 
-            {shutdown, Req2}
-    end.
+% -record(ws_state, {
+%     conn_pid :: pid()
+% }).
 
 
-%% @private
-websocket_handle({text, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
-    nksip_connection:incoming(Pid, Msg),
-    {ok, Req, State};
+% %% @private
+% init({Transp, http}, _Req, _Opts) when Transp==tcp; Transp==ssl ->
+%     {upgrade, protocol, cowboy_websocket}.
 
-websocket_handle({binary, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
-    nksip_connection:incoming(Pid, Msg),
-    {ok, Req, State};
+% %% @private
+% websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
+%     WsProtos = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req) of
+%         {ok, ProtList, Req2} when is_list(ProtList) -> ProtList;
+%         {ok, _, Req2} -> []
+%     end,
+%     case lists:member(<<"sip">>, WsProtos) of
+%         true ->
+%             Req3 = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, 
+%                                               <<"sip">>, Req2),
+%             Timeout = nksip_lib:get_value(timeout, Opts),
+%             {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req3),
+%             {Path, _} = cowboy_req:path(Req3),
+%             Transp1 = Transp#transport{
+%                 remote_ip = RemoteIp, 
+%                 remote_port = RemotePort,
+%                 resource = Path
+%             },
+%             {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
+%             {ok, Req3, #ws_state{conn_pid=Pid}};
+%         false -> 
+%             {shutdown, Req2}
+%     end.
 
-websocket_handle(_Data, Req, State) ->
-    {ok, Req, State}.
+
+% %% @private
+% websocket_handle({text, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
+%     nksip_connection:incoming(Pid, Msg),
+%     {ok, Req, State};
+
+% websocket_handle({binary, Msg}, Req, #ws_state{conn_pid=Pid}=State) ->
+%     nksip_connection:incoming(Pid, Msg),
+%     {ok, Req, State};
+
+% websocket_handle(_Data, Req, State) ->
+%     {ok, Req, State}.
 
 
-%% @private
-websocket_info({send, Frames}, Req, State) ->
-    {reply, Frames, Req, State};
+% %% @private
+% websocket_info({send, Frames}, Req, State) ->
+%     {reply, Frames, Req, State};
 
-websocket_info(Info, Req, #ws_state{conn_pid=Pid}=State) ->
-    Pid ! Info,
-    {ok, Req, State}.
+% websocket_info(Info, Req, #ws_state{conn_pid=Pid}=State) ->
+%     Pid ! Info,
+%     {ok, Req, State}.
 
 
-%% @private
-websocket_terminate(Reason, _Req, #ws_state{conn_pid=Pid}) ->
-    nksip_connection:stop(Pid, Reason),
-    ok.
+% %% @private
+% websocket_terminate(Reason, _Req, #ws_state{conn_pid=Pid}) ->
+%     nksip_connection:stop(Pid, Reason),
+%     ok.
 
 
 
@@ -334,13 +336,13 @@ dispatch(List, Args) ->
 
 
 %% @private Gets socket options for outbound connections
--spec outbound_opts(nksip:protocol(), nksip:optslist()) ->
+-spec outbound_opts(nksip:protocol(), nksip:app_id()) ->
     nksip:optslist().
 
-outbound_opts(ws, _Opts) ->
+outbound_opts(tcp, _AppId) ->
     [binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
 
-outbound_opts(wss, Opts) ->
+outbound_opts(tls, AppId) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
             DefCert = filename:join(PrivDir, "cert.pem"),
@@ -349,13 +351,15 @@ outbound_opts(wss, Opts) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = nksip_lib:get_value(certfile, Opts, DefCert),
-    Key = nksip_lib:get_value(keyfile, Opts, DefKey),
+    Config = nksip_sipapp_srv:config(AppId),
+    Cert = nksip_lib:get_value(certfile, Config, DefCert),
+    Key = nksip_lib:get_value(keyfile, Config, DefKey),
     lists:flatten([
-        outbound_opts(ws, Opts),
+        binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw},
         case Cert of "" -> []; _ -> {certfile, Cert} end,
         case Key of "" -> []; _ -> {keyfile, Key} end
     ]).
+
 
 %% @private
 -spec handshake_req(inet:ip_address(), inet:port_number(), binary(), 
@@ -364,8 +368,10 @@ outbound_opts(wss, Opts) ->
 
 handshake_req(Ip, Port, Res, Opts) ->
     Host = case nksip_lib:get_value(transport_uri, Opts) of
-        #uri{domain=Domain} -> binary_to_list(Domain);
-        undefined -> binary_to_list(nksip_lib:to_host(Ip))
+        #uri{domain=Domain} -> 
+            binary_to_list(Domain);
+        undefined -> 
+            binary_to_list(nksip_lib:to_host(Ip))
     end,
     Res1 = nksip_lib:to_list(Res),
     {ok, #handshake{message=Msg1}=HS1} = wsock_handshake:open(Res1, Host, Port),
