@@ -145,7 +145,7 @@ timer_update(_Req, _Resp, _Class,
     nksip_lib:cancel_timer(RetransTimer),
     nksip_lib:cancel_timer(TimeoutTimer),
     nksip_lib:cancel_timer(RefreshTimer),
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     Meta1 = nksip_lib:delete(Meta, [nksip_timers_se, nksip_timers_refresh]),
     Meta2 = [{nksip_timers_se, undefined}, {nksip_timers_refresh, undefined}|Meta1],
     Invite1 = Invite#invite{
@@ -162,7 +162,7 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     nksip_lib:cancel_timer(RetransTimer),
     nksip_lib:cancel_timer(TimeoutTimer),
     nksip_lib:cancel_timer(RefreshTimer),
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     Meta1 = nksip_lib:delete(Meta, [nksip_timers_se, nksip_timers_refresh]),
     Meta2 = [{nksip_timers_se, undefined}, {nksip_timers_refresh, undefined}|Meta1],
     Invite1 = Invite#invite{

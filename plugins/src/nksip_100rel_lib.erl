@@ -201,7 +201,7 @@ find_prack_trans(RSeq, CSeq, Method, Dialog, [Trans|Rest]) ->
 
 timeout_timer(UAS, Call) ->
     #trans{timeout_timer=Timeout0} = UAS,
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     nksip_call_lib:cancel_timer(Timeout0),
     Timeout1 = nksip_call_lib:start_timer(64*T1, nksip_100rel_prack_timeout, UAS),
     UAS#trans{timeout_timer=Timeout1}.
@@ -213,7 +213,7 @@ timeout_timer(UAS, Call) ->
 
 retrans_timer(UAS, Call) ->
     #trans{retrans_timer=Retrans0, next_retrans=Next} = UAS,
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     nksip_call_lib:cancel_timer(Retrans0),
     Time = case is_integer(Next) of
         true -> Next;

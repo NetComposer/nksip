@@ -29,15 +29,7 @@
 -define(VERSION, "0.4.0").
 
 -define(MSG_ROUTERS, 8).
--define(DEFAULT_EVENT_EXPIRES, 60).
-
-
-
-% Maximum transaction time (15min)
--define(MAX_TRANS_TIME, 15*60).
-
-% Maximum time in dialogs between updates (30min)
--define(MAX_DIALOG_TIME, 30*60).
+% -define(DEFAULT_EVENT_EXPIRES, 60).
 
 
 -define(

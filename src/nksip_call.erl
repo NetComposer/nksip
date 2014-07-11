@@ -471,8 +471,7 @@ timeout({remove_prov_event, Id}, _Ref, Call) ->
     nksip_call_event:remove_prov_event(Id, Call);
 
 timeout(check_call, _Ref, Call) ->
-    TransTime = 1000*?MAX_TRANS_TIME,
-    DialogTime = 1000*?MAX_DIALOG_TIME,
+    #call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call,
     Now = nksip_lib:timestamp(),
     Trans1 = check_call_trans(Now, TransTime, Call),
     Forks1 = check_call_forks(Now, TransTime, Call),

@@ -26,6 +26,7 @@
 -export([start/1, update/2]).
 
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 -define(DEFAULT_LOG_LEVEL, 8).  % 8:debug, 7:info, 6:notice, 5:warning, 4:error
 -define(DEFAULT_TRACE, false).
@@ -53,7 +54,9 @@ default_config() ->
         {tcp_timeout, 180},                 % (secs) 3 min
         {sctp_timeout, 180},                % (secs) 3 min
         {ws_timeout, 180},                  % (secs) 3 min
+        {trans_timeout, 900},               % (secs) 15 min
         {dialog_timeout, 1800},             % (secs) 30 min
+        {event_expires, 60},                % (secs) 1 min
         {nonce_timeout, 30},                % (secs) 30 secs
         {max_calls, 100000},                % Each Call-ID counts as a call
         {max_connections, 1024}             % Per transport and SipApp
@@ -233,8 +236,12 @@ parse_opts([Term|Rest], Opts) ->
         {sctp_timeout, _} -> error;
         {ws_timeout, Secs} when is_integer(Secs), Secs>=5 ->  update;
         {ws_timeout, _} -> error;
+        {trans_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
+        {trans_timeout, _} -> error;
         {dialog_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
         {dialog_timeout, _} -> error;
+        {event_expires, Secs} when is_integer(Secs), Secs>=1 -> update;
+        {event_expires, _} -> error;
         {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
         {nonce_timeout, _} -> error;
         {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 -> update;
@@ -406,11 +413,13 @@ cache_syntax(Opts) ->
         {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
-        {config_timers, {
-            nksip_lib:get_value(timer_t1, Opts),
-            nksip_lib:get_value(timer_t2, Opts),
-            nksip_lib:get_value(timer_t4, Opts),
-            1000*nksip_lib:get_value(timer_c, Opts)}},
+        {config_timers, #call_timers{
+            t1 = nksip_lib:get_value(timer_t1, Opts),
+            t2 = nksip_lib:get_value(timer_t2, Opts),
+            t4 = nksip_lib:get_value(timer_t4, Opts),
+            tc = nksip_lib:get_value(timer_c, Opts),
+            trans = nksip_lib:get_value(trans_timeout, Opts),
+            dialog = nksip_lib:get_value(dialog_timeout, Opts)}},
         {config_from, nksip_lib:get_value(from, Opts)},
         {config_no_100, lists:member({no_100, true}, Opts)},
         {config_supported, nksip_lib:get_value(supported, Opts)},

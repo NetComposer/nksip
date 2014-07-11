@@ -79,9 +79,9 @@ response(Resp, UAC, Call) ->
         request = Req, 
         from = From
     } = UAC,
-    #call{msgs=Msgs} = Call,
+    #call{msgs=Msgs, timers=#call_timers{trans=TransTime}} = Call,
     Now = nksip_lib:timestamp(),
-    case Now-Start < ?MAX_TRANS_TIME of
+    case Now-Start < TransTime of
         true -> 
             Code1 = Code,
             Resp1 = Resp;

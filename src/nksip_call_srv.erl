@@ -87,7 +87,7 @@ get_data(Pid) ->
     gen_server_init(call()).
 
 init([AppId, CallId]) ->
-    nksip_counters:async([nksip_calls]),
+    nksip_counters:async([nksip_calls, {nksip_calls, AppId}]),
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
         app_id = AppId, 
@@ -103,7 +103,8 @@ init([AppId, CallId]) ->
         timers = AppId:config_timers()
     },
     nksip_config:put_log_cache(AppId, CallId),
-    erlang:start_timer(2000*?MAX_TRANS_TIME, self(), check_call),
+    Timeout = 2000*(Call#call.timers)#call_timers.trans,
+    erlang:start_timer(Timeout, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()]),
     {ok, Call}.
 

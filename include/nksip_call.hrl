@@ -136,6 +136,15 @@
 }.
 
 
+-record(call_timers, {
+    t1 :: integer(),
+    t2 :: integer(),
+    t4 :: integer(), 
+    tc :: integer(),
+    trans :: integer(),
+    dialog :: integer()
+}).
+
 
 %% Current Meta uses:
 %% - nksip_min_se: Pre-dialog received MinSE header
@@ -151,7 +160,7 @@
     auths = [] :: [call_auth()],
     msgs = [] :: [call_msg()],
     events = [] :: [#provisional_event{}],
-    timers :: {T1::integer(), T2::integer(), T4::integer(), TC::integer()},
+    timers :: #call_timers{},
     meta = [] :: nksip:optslist()
 }).
 
