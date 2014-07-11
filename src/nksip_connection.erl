@@ -120,8 +120,8 @@ stop(Pid, Reason) ->
 -spec start_refresh(pid(), pos_integer(), term()) ->
     ok | error.
 
-start_refresh(Pid, Secs, Ref) ->
-    case catch gen_server:call(Pid, {start_refresh, Time, Ref, self()}) of
+start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
+    case catch gen_server:call(Pid, {start_refresh, Secs, Ref, self()}) of
         ok -> ok;
         _ -> error
     end.
@@ -161,7 +161,7 @@ get_transport(Pid) ->
     end.
 
 
-%% @private Gets the transport record (and extends the timeout)
+%% @private Gets remaining and total refresh time  (and extends the timeout)
 -spec get_refresh(pid()) ->
     {true, pos_integer(), pos_integer()} | {false, pos_integer()} | error.
 
@@ -176,13 +176,13 @@ get_refresh(Pid) ->
             error 
     end.
 
+
 %% @private 
 -spec incoming(pid(), binary()) ->
     ok.
 
 incoming(Pid, Packet) when is_binary(Packet) ->
     gen_server:cast(Pid, {incoming, Packet}).
-
 
 
 %% @private
@@ -211,8 +211,8 @@ stop_all() ->
     refresh_notify = [] :: [from()],
     buffer = <<>> :: binary(),
     rnrn_pattern :: binary:cp(),
-    ws_frag = #message{},            % Store previous ws fragmented message
-    ws_pid :: pid()                  % Cowboy protocol's pid
+    ws_frag = #message{},            % store previous ws fragmented message
+    ws_pid :: pid()                  % ws protocol's pid
 }).
 
 
@@ -496,15 +496,17 @@ do_send(Packet, State) ->
     end.
 
     
-%% @private
+%% @private Parse for UDP/TCP/TLS/SCTP
 -spec parse(binary(), #state{}) ->
     gen_server_info(#state{}).
 
 parse(Binary, #state{buffer=Buffer}=State) ->
     Data = <<Buffer/binary, Binary/binary>>,
     case do_parse(Data, State) of
-        {ok, State1} -> do_noreply(State1);
-        {error, Error} -> do_stop(Error, State)
+        {ok, State1} -> 
+            do_noreply(State1);
+        {error, Error} -> 
+            do_stop(Error, State)
     end.
 
 
@@ -515,6 +517,7 @@ parse(Binary, #state{buffer=Buffer}=State) ->
 do_parse(<<>>, State) ->
     {ok, State#state{buffer = <<>>}};
 
+%% For TCP, we send a \r\n\r\n, remote must reply with \r\n
 do_parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
     ?debug(AppId, <<>>, "transport responding to refresh", []),
@@ -603,10 +606,7 @@ do_parse(AppId, Transp, Data, State) ->
     end.
 
 
-
-
-
-%% @private
+%% @private Parse for WS/WSS
 -spec parse_ws(binary(), #state{}) ->
     gen_server_info(#state{}).
 
