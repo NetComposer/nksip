@@ -93,10 +93,10 @@
     invalid_contact | invalid_cseq | invalid_content_type | invalid_require |
     invalid_accept | invalid_event | invalid_subscription_state | 
     unknown_dialog | bad_event | request_pending | service_unavailable | 
-    nksip_call_router:sync_error().
+    nksip_router:sync_error().
 
 -type cancel_error() :: 
-    unknown_request | invalid_request | nksip_call_router:sync_error().
+    unknown_request | invalid_request | nksip_router:sync_error().
 
 
 

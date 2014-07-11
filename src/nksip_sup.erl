@@ -120,9 +120,9 @@ init(ChildSpecs) ->
 
 %% @private
 get_call_routers(Pos) ->
-    Name = nksip_call_router:pos2name(Pos),
+    Name = nksip_router:pos2name(Pos),
     {Name,
-        {nksip_call_router, start_link, [Pos, Name]},
+        {nksip_router, start_link, [Pos, Name]},
         permanent,
         5000,
         worker,

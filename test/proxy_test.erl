@@ -122,15 +122,15 @@ invalid(Test) ->
         nksip_uac:register(C1, "sip:127.0.0.1", [contact, {meta, [call_id]}]),
     % The UAC has generated a transaction
     {ok, C1Id} = nksip:find_app_id(C1),
-    [{uac, _}] = nksip_call_router:get_all_transactions(C1Id, CallId1),
+    [{uac, _}] = nksip_router:get_all_transactions(C1Id, CallId1),
     case Test of
         stateless -> 
             {ok, S1Id} = nksip:find_app_id(S1),
-            [] = nksip_call_router:get_all_transactions(S1Id, CallId1);
+            [] = nksip_router:get_all_transactions(S1Id, CallId1);
         stateful -> 
             {ok, S1Id} = nksip:find_app_id(S1),
             [{uas, _}] = 
-                nksip_call_router:get_all_transactions(S1Id, CallId1)
+                nksip_router:get_all_transactions(S1Id, CallId1)
     end,
 
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
@@ -144,19 +144,19 @@ invalid(Test) ->
         nksip_uac:options(C1, "sip:client2@nksip", Opts3),
     
     % The 420 response is always stateless
-    [] = nksip_call_router:get_all_transactions(S1Id, CallId3),
+    [] = nksip_router:get_all_transactions(S1Id, CallId3),
 
     % Force Forwards=0 using REGISTER
     CallId4 = nksip_lib:luid(),
     Work4 = {make, 'REGISTER', "sip:any", []},
     {ok, C1Id} = nksip:find_app_id(C1),
-    {ok, Req4, Opts4} = nksip_call_router:send_work_sync(C1Id, CallId4, Work4),
+    {ok, Req4, Opts4} = nksip_router:send_work_sync(C1Id, CallId4, Work4),
     {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 
     % Force Forwards=0 using OPTIONS. Server will reply
     CallId5 = nksip_lib:luid(),
     Work5 = {make, 'OPTIONS', "sip:any", []},
-    {ok, Req5, Opts5} = nksip_call_router:send_work_sync(C1Id, CallId5, Work5),
+    {ok, Req5, Opts5} = nksip_router:send_work_sync(C1Id, CallId5, Work5),
     {ok, 200, [{reason_phrase, <<"Max Forwards">>}]} = 
         nksip_call:send(Req5#sipmsg{forwards=0}, [{meta,[reason_phrase]}|Opts5]),
 

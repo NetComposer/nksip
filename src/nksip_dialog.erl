@@ -140,7 +140,7 @@ meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id)
         <<>> ->
             error;
         DialogId ->
-            case nksip_call_router:apply_dialog(DialogId, Fun) of
+            case nksip_router:apply_dialog(DialogId, Fun) of
                 {ok, Values} -> Values;
                 _ -> error
             end
@@ -212,7 +212,7 @@ get_dialog({uses_subs, _Subs, Dialog}, _) ->
     [nksip:id()].
 
 get_all() ->
-    nksip_call_router:get_all_dialogs().
+    nksip_router:get_all_dialogs().
 
 
 %% @doc Finds all existing dialogs having a `Call-ID'.
@@ -221,7 +221,7 @@ get_all() ->
 
 get_all(App, CallId) ->
     case nksip:find_app_id(App) of
-        {ok, AppId} -> nksip_call_router:get_all_dialogs(AppId, CallId);
+        {ok, AppId} -> nksip_router:get_all_dialogs(AppId, CallId);
         _ ->[]
     end.
 
@@ -264,7 +264,7 @@ apply_meta(Fun, Id) when is_function(Fun, 1) ->
         <<>> ->
             error;
         DialogId ->
-            case nksip_call_router:apply_dialog(DialogId, Fun) of
+            case nksip_router:apply_dialog(DialogId, Fun) of
                 {ok, Values} -> Values;
                 _ -> error
             end
@@ -355,7 +355,7 @@ get_dialog(Id) ->
         <<>> ->
             error;
         DialogId ->
-            case nksip_call_router:apply_dialog(DialogId, Fun) of
+            case nksip_router:apply_dialog(DialogId, Fun) of
                 {ok, Dialog} -> Dialog;
                 _ -> error
             end

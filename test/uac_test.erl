@@ -211,7 +211,7 @@ timeout() ->
         <<"Timer C Timeout">> -> ok;
         <<"Timer B Timeout">> -> ok
     end,
-    nksip_call_router:clear_all_calls(),
+    nksip_router:clear_all_calls(),
     ok.
 
 

@@ -133,7 +133,7 @@ header(Name, Id) when is_binary(Id) ->
 %% be called outside of the callback function.
 -spec reply(nksip:sipreply(), nksip:id()) -> 
     ok | {error, Error}
-    when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
+    when Error :: invalid_call | invalid_request | nksip_router:sync_error().
 
 reply(SipReply, <<"R_", _/binary>>=Id) ->
     nksip_call:send_reply(Id, SipReply).
@@ -157,7 +157,7 @@ is_local_route(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri, routes=Routes}) 
     term() | error.
 
 apply_meta(Fun, Id) when is_function(Fun, 1), is_binary(Id) ->
-    case nksip_call_router:apply_sipmsg(Id, Fun) of
+    case nksip_router:apply_sipmsg(Id, Fun) of
         {ok, Values} -> Values;
         _ -> error
     end.

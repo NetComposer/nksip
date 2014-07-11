@@ -110,8 +110,8 @@ info() ->
     [
         {calls, nksip_counters:value(nksip_calls)},
         {dialogs, nksip_counters:value(nksip_dialogs)},
-        {routers_queue, nksip_call_router:pending_msgs()},
-        {routers_pending, nksip_call_router:pending_work()},
+        {routers_queue, nksip_router:pending_msgs()},
+        {routers_pending, nksip_router:pending_work()},
         {tcp_connections, nksip_counters:value(nksip_transport_tcp)},
         {counters_queue, nksip_counters:pending_msgs()},
         {core_queues, nksip_sipapp_srv:pending_msgs()},

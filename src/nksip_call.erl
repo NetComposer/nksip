@@ -34,7 +34,7 @@
 -export([get_all/0, get_info/0, clear_all/0]).
 -export([app_reply/4, work/3, timeout/3]).
 -export([sync_send_dialog/4, make_dialog/4]).
--import(nksip_call_router, [send_work_sync/3, send_work_async/3]).
+-import(nksip_router, [send_work_sync/3, send_work_async/3]).
 
 -export_type([call/0, trans/0, fork/0, work/0]).
 
@@ -139,7 +139,7 @@ cancel(Id) ->
 %% @doc Gets the Dialog Id of a request or response id
 -spec find_dialog(nksip:id()) ->
     {ok, nksip:id()} | {error, Error}
-    when Error :: unknown_dialog | invalid_request | nksip_call_router:sync_error().
+    when Error :: unknown_dialog | invalid_request | nksip_router:sync_error().
 
 find_dialog(Id) ->
     case nksip_sipmsg:parse_id(Id) of
@@ -159,7 +159,7 @@ app_reply(Fun, TransId, Pid, Reply) ->
 %% @doc Sends a synchronous request reply.
 -spec send_reply(nksip:id(), nksip:sipreply()) ->
     {ok, nksip:response()} | {error, Error}
-    when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
+    when Error :: invalid_call | invalid_request | nksip_router:sync_error().
 
 send_reply(Id, Reply) ->
     {req, AppId, ReqId, CallId} = nksip_sipmsg:parse_id(Id),
@@ -204,7 +204,7 @@ stop_dialog(Id) ->
     [{nksip:app_id(), nksip:call_id(), pid()}].
 
 get_all() ->
-    nksip_call_router:get_all_calls().
+    nksip_router:get_all_calls().
 
 
 %% @doc Get information about all started calls.
@@ -212,12 +212,12 @@ get_all() ->
     [term()].
 
 get_info() ->
-    nksip_call_router:get_all_info().
+    nksip_router:get_all_info().
 
 
 %% @private 
 clear_all() ->
-    nksip_call_router:clear_all_calls().
+    nksip_router:clear_all_calls().
 
 
 %% ===================================================================

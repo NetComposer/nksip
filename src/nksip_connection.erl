@@ -583,7 +583,7 @@ do_parse(AppId, Transp, Data, State) ->
     case nksip_parse:packet(AppId, Transp, Data) of
         {ok, #sipmsg{class=_Class}=SipMsg, Rest} -> 
             AppId:nkcb_connection_recv(SipMsg, Data),
-            case nksip_call_router:incoming_sync(SipMsg) of
+            case nksip_router:incoming_sync(SipMsg) of
                 ok -> 
                     do_parse(Rest, State);
                 {error, Error} -> 
