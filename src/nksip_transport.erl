@@ -391,14 +391,17 @@ try_connect(AppId, Proto, Ip, Port, Res, Opts, Try) ->
                 do_connect(AppId, Proto, Ip, Port, Res, Opts)
             catch
                 error:Value -> 
-                    ?call_warning("Exception ~p launching connection", Value),
+                    ?call_warning("Exception ~p launching connection: ~p", 
+                                  [Value, erlang:get_stacktrace()]),
                     {error, Value}
             after
                 nksip_sipapp_srv:del(AppId, {nksip_connect_block, ConnId})
             end;
         false ->
             timer:sleep(100),
-            try_connect(AppId, Proto, Ip, Port, Res, Opts, Try-1)
+            try_connect(AppId, Proto, Ip, Port, Res, Opts, Try-1);
+        {error, _} ->
+            {error, locking_error}
     end.
                 
 

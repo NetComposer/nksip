@@ -298,13 +298,13 @@ sip_options(Req, _Call) ->
     end.
 
 
-sip_uac_auto_register_updated_ping(PingId, OK, AppId=State) ->
+sip_uac_auto_register_updated_ping(PingId, OK, AppId) ->
     {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
     Pid ! {Ref, {ping, PingId, OK}},
     ok.
 
 
-sip_uac_auto_register_updated_register(RegId, OK, AppId=State) ->
+sip_uac_auto_register_updated_register(RegId, OK, AppId) ->
     {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
     Pid ! {Ref, {reg, RegId, OK}},
     ok.
