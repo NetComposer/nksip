@@ -32,7 +32,7 @@
 -export([find_dialog/1]).
 -export([get_authorized_list/1, clear_authorized_list/1, stop_dialog/1]).
 -export([get_all/0, get_info/0, clear_all/0]).
--export([app_reply/4, work/3, timeout/3]).
+-export([app_reply/4, work/3, timeout/3, check_call/1]).
 -export([sync_send_dialog/4, make_dialog/4]).
 -export([apply_transaction/2, get_all_transactions/0, get_all_transactions/2]).
 -import(nksip_router, [send_work_sync/3, send_work_async/3]).
@@ -509,15 +509,14 @@ timeout({dlg, Tag, Id}, _Ref, #call{dialogs=Dialogs}=Call) ->
     end;
 
 timeout({remove_prov_event, Id}, _Ref, Call) ->
-    nksip_call_event:remove_prov_event(Id, Call);
+    nksip_call_event:remove_prov_event(Id, Call).
 
-timeout(check_call, _Ref, Call) ->
-    #call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call,
+
+check_call(#call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call) ->
     Now = nksip_lib:timestamp(),
     Trans1 = check_call_trans(Now, TransTime, Call),
     Forks1 = check_call_forks(Now, TransTime, Call),
     Dialogs1 = check_call_dialogs(Now, DialogTime, Call),
-    erlang:start_timer(round(2*TransTime), self(), check_call),
     Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}.
 
 

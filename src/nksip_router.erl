@@ -32,26 +32,9 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2,
             handle_info/2]).
 
--export_type([sync_error/0]).
-
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
-% % -define(SYNC_TIMEOUT, 45000).
--define(SYNC_TIMEOUT, 5000).
-
-
-%% TODO: If there are several pending messages and the process stops,
-%% it will resend the messages in reverse order. The last monitor
-%% comes first
-
-
-%% ===================================================================
-%% Types
-%% ===================================================================
-
-
--type sync_error() :: sipapp_not_found | too_many_calls | timeout | looped_process.
 
 
 %% ===================================================================
@@ -60,7 +43,7 @@
 
 %% @doc Sends a synchronous piece of {@link nksip_call:work()} to a call.
 -spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work()) ->
-    any() | {error, sync_error()}.
+    any() | {error, too_many_calls | looped_process | timeout}.
 
 send_work_sync(AppId, CallId, Work) ->
     Name = name(CallId),
@@ -77,6 +60,9 @@ send_work_sync(AppId, CallId, Work) ->
 
 
 %% @doc Called when a new request or response has been received.
+-spec incoming_sync(nksip:request()|nksip:response()) ->
+    ok | {error, too_many_calls | looped_process | timeout}.
+
 incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
     Name = name(CallId),
     Timeout = nksip_config_cache:sync_call_time(),
@@ -198,12 +184,20 @@ handle_cast(Msg, SD) ->
 -spec handle_info(term(), #state{}) ->
     gen_server_info(#state{}).
 
-handle_info({sync_work_ok, Ref}, #state{pending=Pending}=SD) ->
-    erlang:demonitor(Ref),
-    Pending1 = dict:erase(Ref, Pending),
+handle_info({sync_work_ok, Ref, Pid}, #state{pending=Pending}=SD) ->
+    Pending1 = case dict:find(Pid, Pending) of
+        {ok, {_AppId, _CallId, [{Ref, _From, _Work}]}} ->
+            dict:erase(Pid, Pending);
+        {ok, {AppId, CallId, WorkList}} ->
+            WorkList1 = lists:keydelete(Ref, 1, WorkList),
+            dict:store(Pid, {AppId, CallId, WorkList1});
+        error ->
+            lager:notice("Receiving sync_work_ok for unknown work"),
+            Pending
+    end,
     {noreply, SD#state{pending=Pending1}};
 
-handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
+handle_info({'DOWN', _MRef, process, Pid, _Reason}, SD) ->
     #state{pos=Pos, name=Name, pending=Pending} = SD,
     case ets:lookup(Name, Pid) of
         [{Pid, Id}] ->
@@ -214,29 +208,17 @@ handle_info({'DOWN', MRef, process, Pid, _Reason}, SD) ->
         [] ->
             ok
     end,
-    case dict:find(MRef, Pending) of
-        {ok, {AppId, CallId, From, Work}} -> 
+    case dict:find(Pid, Pending) of
+        {ok, {AppId, CallId, WorkList}} -> 
             % We had pending work for this process.
-            % Actually, we know the process has stopped normally (it hasn't failed).
+            % Actually, we know the process has stopped normally before processing
+            % these requests (it hasn't failed due to an error).
             % If the process had failed due to an error processing the work,
             % the "received work" message would have been received an the work will
             % not be present in Pending.
-            Pending1 = dict:erase(MRef, Pending),
-            SD1 = SD#state{pending=Pending1},
-            case send_work_sync(AppId, CallId, Work, none, From, SD1) of
-                {ok, SD2} -> 
-                    ?debug(AppId, CallId, "resending work ~p from ~p", 
-                           [work_id(Work), From]),
-                    {noreply, SD2};
-                {error, Error} ->
-                    case From of
-                        {Pid, Ref} when is_pid(Pid), is_reference(Ref) ->
-                            gen_server:reply(From, {error, Error});
-                        _ ->
-                            ok
-                    end,
-                    {noreply, SD}
-            end;
+            SD1 = SD#state{pending=dict:erase(Pid, Pending)},
+            SD2 = resend_worklist(AppId, CallId, lists:reverse(WorkList), SD1),
+            {noreply, SD2};
         error ->
             {noreply, SD}
     end;
@@ -278,23 +260,18 @@ name(CallId) ->
 %% @private
 -spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call:work(), 
                      pid() | none, from(), #state{}) ->
-    {ok, #state{}} | {error, sync_error()}.
+    {ok, #state{}} | {error, looped_process | too_many_calls}.
 
-send_work_sync(AppId, CallId, Work, Caller, From, SD) ->
-    #state{name=Name, pending=Pending} = SD,
+send_work_sync(AppId, CallId, Work, Caller, From, #state{name=Name}=SD) ->
     case find(Name, AppId, CallId) of
         {ok, Caller} ->
             {error, looped_process};
         {ok, Pid} -> 
-            Ref = erlang:monitor(process, Pid),
-            Self = self(),
-            nksip_call_srv:sync_work(Pid, Ref, Self, Work, From),
-            Pending1 = dict:store(Ref, {AppId, CallId, From, Work}, Pending),
-            {ok, SD#state{pending=Pending1}};
+            {ok, do_send_work_sync(Pid, AppId, CallId, Work, From, SD)};
         not_found ->
             case do_call_start(AppId, CallId, SD) of
-                {ok, SD1} -> 
-                    send_work_sync(AppId, CallId, Work, Caller, From, SD1);
+                {ok, Pid} -> 
+                    {ok, do_send_work_sync(Pid, AppId, CallId, Work, From, SD)};
                 {error, Error} -> 
                     {error, Error}
             end
@@ -302,8 +279,25 @@ send_work_sync(AppId, CallId, Work, Caller, From, SD) ->
 
 
 %% @private
+-spec do_send_work_sync(pid(), nksip:app_id(), nksip:call_id(), nksip_call:work(), 
+                        from(), #state{}) ->
+    #state{}.
+
+do_send_work_sync(Pid, AppId, CallId, Work, From, #state{pending=Pending}=SD) ->
+    Ref = make_ref(),
+    nksip_call_srv:sync_work(Pid, Ref, self(), Work, From),
+    Pending1 = case dict:find(Pid, Pending) of
+        {ok, {_, _, WorkList}} ->
+            dict:store(Pid, {AppId, CallId, [{Ref, From, Work}|WorkList]});
+        error ->
+            dict:store(Pid, {AppId, CallId, [{Ref, From, Work}]})
+    end,
+    SD#state{pending=Pending1}.
+    
+
+%% @private
 -spec do_call_start(nksip:app_id(), nksip:call_id(), #state{}) ->
-    {ok, #state{}} | {error, sipapp_not_found | too_many_calls}.
+    {ok, pid()} | {error, too_many_calls}.
 
 do_call_start(AppId, CallId, SD) ->
     #state{name=Name} = SD,
@@ -317,7 +311,7 @@ do_call_start(AppId, CallId, SD) ->
                     erlang:monitor(process, Pid),
                     Id = {call, AppId, CallId},
                     true = ets:insert(Name, [{Id, Pid}, {Pid, Id}]),
-                    {ok, SD};
+                    {ok, Pid};
                 false ->
                     {error, too_many_calls}
             end;
@@ -346,6 +340,33 @@ send_work_async(Name, AppId, CallId, Work) ->
             ?info(AppId, CallId, "trying to send work ~p to deleted call", 
                   [work_id(Work)])
    end.
+
+
+%% @private
+-spec resend_worklist(nksip:app_id(), nksip:call_id(), 
+                      [{reference(), from()|none, nksip_call:work()}], #state{}) ->
+    #state{}.
+
+resend_worklist(_AppId, _CallId, [], SD) ->
+    SD;
+
+resend_worklist(AppId, CallId, [{_Ref, From, Work}|Rest], SD) ->
+    case send_work_sync(AppId, CallId, Work, none, From, SD) of
+        {ok, SD1} -> 
+            ?debug(AppId, CallId, "resending work ~p from ~p", 
+                   [work_id(Work), From]),
+            resend_worklist(AppId, CallId, Rest, SD1);
+        {error, Error} ->
+            case From of
+                {Pid, Ref} when is_pid(Pid), is_reference(Ref) ->
+                    gen_server:reply(From, {error, Error});
+                _ ->
+                    ok
+            end,
+            resend_worklist(AppId, CallId, Rest, SD)
+    end.
+
+
 
 
 %% @private

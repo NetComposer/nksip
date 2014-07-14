@@ -127,7 +127,7 @@ handle_call(get_data, _From, Call) ->
     gen_server_cast(call()).
 
 handle_cast({sync_work, Ref, Pid, Work, From}, Call) ->
-    Pid ! {sync_work_ok, Ref},
+    Pid ! {sync_work_ok, Ref, self()},
     next(nksip_call:work(Work, From, Call));
 
 handle_cast({async_work, Work}, Call) ->
@@ -145,11 +145,17 @@ handle_cast(Msg, Call) ->
 -spec handle_info(term(), call()) ->
     gen_server_info(call()).
 
+handle_info({timeout, _Ref, check_call}, Call) ->
+    Call1 = nksip_call:check_call(Call),
+    Timeout = 2000*(Call#call.timers)#call_timers.trans,
+    erlang:start_timer(Timeout, self(), check_call),
+    next(Call1);
+
 handle_info({timeout, Ref, Type}, Call) ->
     next(nksip_call:timeout(Type, Ref, Call));
 
-handle_info(timeout, Call) ->
-    next(Call);
+% handle_info(timeout, Call) ->
+%     next(Call);
 
 handle_info(Info, Call) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
@@ -183,8 +189,10 @@ terminate(_Reason, #call{}) ->
 
 next(#call{trans=[], forks=[], dialogs=[], events=[]}=Call) -> 
     case erlang:process_info(self(), message_queue_len) of
-        {_, 0} -> {stop, normal, Call};
-        _ -> {noreply, Call}
+        {_, 0} -> 
+            {stop, normal, Call};
+        _ -> 
+            {noreply, Call}
     end;
 
 next(#call{hibernate=Hibernate}=Call) -> 
