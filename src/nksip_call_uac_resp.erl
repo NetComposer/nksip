@@ -325,9 +325,10 @@ do_received_hangup(Resp, UAC, Call) ->
                        "(dialog ~s)", [Id, Status, DialogId]),
             spawn(
                 fun() ->
-                    case nksip_uac:ack(nksip_sipmsg:get_id(Resp), []) of
+                    Handle = nksip_dialog_lib:get_handle(Resp),
+                    case nksip_uac:ack(Handle, []) of
                         ok ->
-                            case nksip_uac:bye(nksip_sipmsg:get_id(Resp), []) of
+                            case nksip_uac:bye(Handle, []) of
                                 {ok, 200, []} ->
                                     ok;
                                 ByeErr ->
@@ -389,7 +390,7 @@ send_ack(#trans{request=Req, id=Id}, _Call) ->
 
 
 %% @private
--spec send_2xx_ack(nksip_dialog:id(), nksip_call:call()) ->
+-spec send_2xx_ack(nksip_dialog_lib:id(), nksip_call:call()) ->
     nksip_call:call().
 
 send_2xx_ack(DialogId, Call) ->

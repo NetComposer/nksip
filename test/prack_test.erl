@@ -205,7 +205,7 @@ media() ->
         vsn = SDP#sdp.vsn+2
     },
     % Hack to find remote dialog
-    DialogId1B = nksip_dialog:remote_id(DialogId1, client2),
+    DialogId1B = nksip_dialog_lib:remote_id(DialogId1, client2),
     {RemoteSDP1, SDP} = get_sessions(client2, DialogId1B),
     {ok, 200, _} = nksip_uac:bye(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, sdp_stop},
@@ -233,7 +233,7 @@ media() ->
         address = {<<"IN">>, <<"IP4">>, <<"client2">>},
         vsn = SDP#sdp.vsn+1
     },
-    DialogId2B = nksip_dialog:remote_id(DialogId2, client2),
+    DialogId2B = nksip_dialog_lib:remote_id(DialogId2, client2),
     {RemoteSDP2, LocalSDP2} = get_sessions(client2, DialogId2B),
     {ok, 200, _} = nksip_uac:bye(DialogId2, []),
     ok = tests_util:wait(Ref, [{client2, sdp_stop},
@@ -265,7 +265,7 @@ media() ->
         address = {<<"IN">>, <<"IP4">>, <<"client2">>},
         connect = {<<"IN">>, <<"IP4">>, <<"client2">>}
     },
-    DialogId3B = nksip_dialog:remote_id(DialogId3, client2),
+    DialogId3B = nksip_dialog_lib:remote_id(DialogId3, client2),
     {RemoteSDP3, LocalSDP3} = get_sessions(client2, DialogId3B),
     {ok, 200, _} = nksip_uac:bye(DialogId3, []),
     ok = tests_util:wait(Ref, [{client2, sdp_stop},
@@ -280,11 +280,11 @@ media() ->
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
-        [Op0] -> Op0;
-        _ -> <<"decline">>
+        {ok, [Op0]} -> Op0;
+        {ok, _} -> <<"decline">>
     end,
-    App = nksip_request:app_name(Req),
-    ReqId = nksip_request:get_id(Req),
+    {ok, App} = nksip_request:app_name(Req),
+    {ok, ReqId} = nksip_request:get_handle(Req),
     proc_lib:spawn(
         fun() ->
             case Op of
@@ -315,9 +315,9 @@ sip_invite(Req, _Call) ->
                     ok = nksip_request:reply(busy, ReqId);
                 <<"rel-prov-answer">> ->
                     SDP = case nksip_request:body(Req) of
-                        #sdp{} = RemoteSDP ->
+                        {ok, #sdp{} = RemoteSDP} ->
                             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(App)}};
-                        _ -> 
+                        {ok, _} -> 
                             <<>>
                     end,
                     ok = nksip_request:reply({rel_ringing, SDP}, ReqId),
@@ -329,9 +329,9 @@ sip_invite(Req, _Call) ->
                     nksip_request:reply({answer, SDP2}, ReqId);
                 <<"rel-prov-answer2">> ->
                     SDP = case nksip_request:body(Req) of
-                        #sdp{} = RemoteSDP ->
+                        {ok, #sdp{} = RemoteSDP} ->
                             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(App)}};
-                        _ -> 
+                        {ok, _} -> 
                             <<>>
                     end,
                     ok = nksip_request:reply({rel_ringing, SDP}, ReqId),
@@ -363,13 +363,13 @@ sip_ack(Req, _Call) ->
 
 
 sip_prack(Req, _Call) ->
-    RAck = nksip_request:meta(rack, Req),
+    {ok, RAck} = nksip_request:meta(rack, Req),
     tests_util:send_ref({prack, RAck}, Req),
     Body = case nksip_request:body(Req) of
-        #sdp{} = RemoteSDP ->
+        {ok, #sdp{} = RemoteSDP} ->
             App = nksip_request:app_name(Req),
             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(App)}};
-        _ -> 
+        {ok, _} -> 
             <<>>
     end,        
     {reply, {answer, Body}}.

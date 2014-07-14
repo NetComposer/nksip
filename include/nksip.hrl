@@ -145,7 +145,7 @@
     id :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:sip_code(), binary()},
     app_id :: nksip:app_id(),
-    dialog_id :: nksip_dialog:id(),
+    dialog_id :: nksip_dialog_lib:id(),
     ruri :: nksip:uri(),
     vias = [] :: [nksip:via()],
     from :: {nksip:uri(), FromTag::binary()},
@@ -202,7 +202,7 @@
 %% - {nksip_min_se, MinSE}
 
 -record(dialog, {
-    id :: nksip_dialog:id(),
+    id :: nksip_dialog_lib:id(),
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),
@@ -248,7 +248,7 @@
 
 
 -record(subscription, {
-    id :: nksip_subscription:id(),
+    id :: nksip_subscription_lib:id(),
     event :: nksip:token(),
     expires :: pos_integer(),
     status :: nksip_subscription:status(),

@@ -210,24 +210,24 @@ init(Id) ->
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
             {ok, Domains} = nksip:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     case nksip_request:header(<<"x-nk-op">>, Req) of
-                        [<<"reply-request">>] ->
+                        {ok, [<<"reply-request">>]} ->
                             Body = base64:encode(term_to_binary(Req)),
                             {reply, {ok, [{body, Body}, contact]}};
-                        [<<"reply-stateless">>] ->
+                        {ok, [<<"reply-stateless">>]} ->
                             {reply_stateless, ok};
-                        [<<"reply-stateful">>] ->
+                        {ok, [<<"reply-stateful">>]} ->
                             {reply, ok};
-                        [<<"reply-invalid">>] ->
+                        {ok, [<<"reply-invalid">>]} ->
                             {reply, 'INVALID'};
-                        [<<"force-error">>] ->
+                        {ok, [<<"force-error">>]} ->
                             error(test_error);
-                        _ ->
+                        {ok, _} ->
                             process
                     end;
                 true when Domain =:= <<"nksip">> ->
@@ -247,15 +247,15 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
-        [Op0] -> Op0;
-        _ -> <<"decline">>
+        {ok, [Op0]} -> Op0;
+        {ok, _} -> <<"decline">>
     end,
     Sleep = case nksip_request:header(<<"x-nk-sleep">>, Req) of
-        [Sleep0] -> nksip_lib:to_integer(Sleep0);
-        _ -> 0
+        {ok, [Sleep0]} -> nksip_lib:to_integer(Sleep0);
+        {ok, _} -> 0
     end,
-    ReqId = nksip_request:get_id(Req),
-    DialogId = nksip_dialog:get_id(Req),
+    {ok, ReqId} = nksip_request:get_handle(Req),
+    {ok, DialogId} = nksip_dialog:get_handle(Req),
     proc_lib:spawn(
         fun() ->
             case Sleep of
@@ -272,7 +272,7 @@ sip_invite(Req, _Call) ->
                 <<"busy">> ->
                     nksip_request:reply(busy, ReqId);
                 <<"increment">> ->
-                    SDP1 = nksip_dialog:meta(invite_local_sdp, DialogId),
+                    {ok, SDP1} = nksip_dialog:meta(invite_local_sdp, DialogId),
                     SDP2 = nksip_sdp:increment(SDP1),
                     nksip_request:reply({ok, [{body, SDP2}]}, ReqId);
                 _ ->
@@ -284,8 +284,8 @@ sip_invite(Req, _Call) ->
 
 sip_options(Req, _Call) ->
     case nksip_request:header(<<"x-nk-sleep">>, Req) of
-        [Sleep0] -> 
-            ReqId = nksip_request:get_id(Req),
+        {ok, [Sleep0]} -> 
+            ReqId = nksip_request:get_handle(Req),
             spawn(
                 fun() ->
                     nksip_request:reply(101, ReqId), 
@@ -293,7 +293,7 @@ sip_options(Req, _Call) ->
                     nksip_request:reply({ok, [contact]}, ReqId)
                 end),
             noreply;
-        _ ->
+        {ok, _} ->
             {reply, {ok, [contact]}}
     end.
 

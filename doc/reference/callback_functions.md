@@ -157,7 +157,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
         _ when Domain =:= <<"127.0.0.1">> ->
             proxy;
         _ ->
-            App = nksip_request:app_name(Req),
+            {ok, App} = nksip_request:app_name(Req),
             case nksip_registrar:find(App, Scheme, User, Domain) of
                 [] -> 
                     {reply, temporarily_unavailable};
@@ -194,14 +194,14 @@ If the you don't implement this function, and the [nksip_registrar](../plugins/r
 If this function is not defined, and the registrar plugin is not activated, a _405 Method not allowed_ would be replied. 
 
 ```erlang
-register(ReqId::nksip:id(), Meta::meta(), From::from(), State::term()) ->
+register(ReqId::nksip:handle(), Meta::meta(), From::from(), State::term()) ->
     call_reply(nksip:sipreply()).
 
 register(Req, Call) ->
-    [{from_scheme, FromScheme}, {from_user, FromUser}, {from_domain, FromDomain}] = 
-        nksip_request:meta([from_scheme, from_user, from_domain], Req),
-    [{to_scheme, ToScheme}, {to_user, ToUser}, {to_domain, ToDomain}] = 
-        nksip_request:meta([to_scheme, to_user, to_domain], Req),
+    {ok, [{from_scheme, FromScheme}, {from_user, FromUser}, {from_domain, FromDomain}]} = 
+        nksip_request:metas([from_scheme, from_user, from_domain], Req),
+    {ok, [{to_scheme, ToScheme}, {to_user, ToUser}, {to_domain, ToDomain}]} = 
+        nksip_request:metas([to_scheme, to_user, to_domain], Req),
     case {FromScheme, FromUser, FromDomain} of
         {ToScheme, ToUser, ToDomain} ->
             {reply, nksip_registrar:request(Request)};
@@ -221,7 +221,7 @@ This function is called by NkSIP to process a new INVITE request as an endpoint.
 
 You would usually extract information from the Request (using the [Request API](../api/requests.md)) like user, body, content-type, etc., and maybe get information from the body with the functions in the [SDP API](../api/sdp.md), and you should then reply a final response (like `ok`, `{answer, Body}` or `busy`, see the [reply options](reply_options.md)).
 
-Alternatively, you can grab a _request handle_ (calling `nksip_request:get_id(Request)`), return a provisional (1xx) response (like `{reply, ringing}`) and _spawn_ a new process to process the request and send a final response, later on, calling `nksip_request:reply/2`. You should use this technique also if you are going to spend more than a few miliseconds processing the callback function, in order to not to block new requests and retransmissions having the same _Call-ID_. You shouldn't copy the `Request` and `Call` objects to the spawned process, as they are quite heavy. It is recommended to extract all needed information before spawning the request and pass it to the spawned process.
+Alternatively, you can grab a _request handle_ (calling `nksip_request:get_handle(Request)`), return a provisional (1xx) response (like `{reply, ringing}`) and _spawn_ a new process to process the request and send a final response, later on, calling `nksip_request:reply/2`. You should use this technique also if you are going to spend more than a few miliseconds processing the callback function, in order to not to block new requests and retransmissions having the same _Call-ID_. You shouldn't copy the `Request` and `Call` objects to the spawned process, as they are quite heavy. It is recommended to extract all needed information before spawning the request and pass it to the spawned process.
 
 NkSIP will usually send a _100 Trying_ response before calling this callback, unless option `no_100` is used.
 
@@ -235,10 +235,10 @@ To use session timers, activate the  [nksip_timers](../plugins/timers.md) plugin
 Example:
 ```erlang
 sip_invite(Req, Call) ->
-    ReqId = nksip_request:get_id(Req),
+    {ok, ReqId} = nksip_request:get_handle(Req),
     HasSDP = case nksip_dialog:get_dialog(Req, Call) of
         {ok, Dialog} -> {true, nksip_dialog:meta(invite_local_sdp, Dialog)};
-        error -> false
+        {error, _} -> false
     end,
     proc_lib:spawn(
         fun() ->
@@ -333,7 +333,7 @@ Example:
 ```erlang
 subscribe(Req, Call) ->
     case nksip_request:meta(event, Req) of
-        {<<"my_event">>, _} -> {reply, {ok, [{expires, 10}]}};
+        {ok, {<<"my_event">>, _}} -> {reply, {ok, [{expires, 10}]}};
         _ -> {reply, forbidden}
     end.
 ```
@@ -382,14 +382,14 @@ This would be a typical implementation:
 ```erlang
 refer(Req, Call) ->
     case nksip_request:meta(refer_to, Req) of
-        error ->
-            {reply, invalid_request};
-        Uri ->
-            SubsId = nksip_subscription:get_id(Req), 
-            AppId = nksip_request:app_id(Req),
+        {ok, Uri} ->
+            {ok, SubsId} = nksip_subscription:get_handle(Req), 
+            {ok, AppId} = nksip_request:app_id(Req),
             Opts = [async, auto_2xx_ack, {refer_subscription_id, SubsId}],
             spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
-            {reply, ok}
+            {reply, ok};
+        error ->
+            {reply, invalid_request}
     end.
 ```
 
@@ -450,7 +450,7 @@ Any dialog can have multiple usages simultaneously, as much as _one_ _INVITE usa
 NkSIP will call this function every time a dialog is created, its target is updated or it is destroyed. It will be called also when the status of the _usage_ changes, as `{invite_status, Status}` for the INVITE usage and `{subscription_status, Status, Subscription}` for SUBSCRIBE usages.
 
 ```erlang
-dialog_update(DialogId::nksip_dialog:id(), DialogStatus, State::term()) ->
+dialog_update(DialogId::nksip:handle(), DialogStatus, State::term()) ->
     ok
     when DialogStatus :: start | target_update | 
                          {invite_status, nksip_dialog:invite_status()} |

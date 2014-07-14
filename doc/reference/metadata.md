@@ -15,10 +15,10 @@ Accesible when calling [nksip_request:meta/2](../api/requests.md#meta2), [nksip_
 
 Name|Type|Description
 ---|---|---
-id|`nksip:id()`|Request or response's handle
+id|`nksip:handle()`|Request or response's handle
 app_id|`nksip:app_id()`|Internal SipApp name this request or response belongs to
 app_name|`term()`|User SipApp name this request or response belongs to
-dialog_id|`nksip:id()`|Dialog's handle of this request or response
+dialog_id|`nksip:handle()`|Dialog's handle of this request or response
 subscription_id|`nksip_id()`|Subscription's handle of this request or response
 proto|`nksip:protocol()`|Transport protocol
 local|`{nksip:protocol(),inet:ip_address(),inet:port_number()}`|Local transport protocol, ip and port
@@ -70,7 +70,7 @@ Available when calling [nksip_dialog:meta/2](../api/dialogs.md#meta2).
 
 Name|Type|Description
 ---|---|---
-id|`nksip:id()`|Dialog's handle
+id|`nksip:handle()`|Dialog's handle
 app_id|`nksip:app_id()`|Internal SipApp name this dialog belongs to
 app_name|`term()`|User SipApp name this dialog belongs to
 created|`nksip_lib:timestamp()`|Creation date
@@ -94,7 +94,7 @@ invite_answered|`nksip_lib:timestamp()}`|Answer (first 2xx response) timestamp f
 invite_local_sdp|`nksip:sdp()}`|Current local SDP
 invite_remote_sdp|`nksip:sdp()}`|Current remote SDP
 invite_timeout|`integer()`|Seconds to expire current state
-subscriptions|`nksip:id()`|Lists all active subscriptions
+subscriptions|`nksip:handle()`|Lists all active subscriptions
 call_id|`nksip:call_id()`|Call-ID of the dialog
 from_tag|`binary()`|From tag
 to_tag|`binary()`|To tag
@@ -106,7 +106,7 @@ All dialog options are available for subscriptions, and also:
 
 Name|Type|Description
 ---|---|---
-id|`nksip:id()`|Subscription's Id
+id|`nksip:handle()`|Subscription's Id
 status|`nksip_subscription:status()`|Subscription's current status
 event|`nksip:token()`|Event header
 raw_event|`binary()`|Unparsed Event header

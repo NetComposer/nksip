@@ -163,11 +163,14 @@ response(Resp, Opts) ->
     #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp,
     Fields0 = case Method of
         'INVITE' when Code>100, Code<300 -> 
-            [{dialog_id, nksip_dialog:get_id(Resp)}];
+            Handle = nksip_dialog_lib:get_handle(Resp),
+            [{dialog_id, Handle}];
         'SUBSCRIBE' when Code>=200, Code<300 -> 
-            [{subscription_id, nksip_subscription:get_id(Resp)}];
+            Handle = nksip_subscription_lib:get_handle(Resp),
+            [{subscription_id, Handle}];
         'REFER' when Code>=200, Code<300 -> 
-            [{subscription_id, nksip_subscription:get_id(Resp)}];
+            Handle = nksip_subscription_lib:get_handle(Resp),
+            [{subscription_id, Handle}];
         'PUBLISH' when Code>=200, Code<300 ->
             Expires = nksip_sipmsg:meta(expires, Resp),
             case nksip_sipmsg:header(<<"sip-etag">>, Resp) of

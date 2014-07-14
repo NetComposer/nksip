@@ -55,17 +55,17 @@ stop(Pid) ->
     gen_server:cast(Pid, stop).
 
 
-%% @doc Sends a synchronous piece of {@link nksip_call:work()} to the call.
+%% @doc Sends a synchronous piece of {@link nksip_call_worker:work()} to the call.
 %% After receiving the work, the call will send `{sync_work_ok, Ref}' to `Sender'
--spec sync_work(pid(), reference(), pid(), nksip_call:work(), from()|none) ->
+-spec sync_work(pid(), reference(), pid(), nksip_call_worker:work(), from()|none) ->
     ok.
 
 sync_work(Pid, Ref, Sender, Work, From) ->
     gen_server:cast(Pid, {sync_work, Ref, Sender, Work, From}).
 
 
-%% @doc Sends an asynchronous piece of {@link nksip_call:work()} to the call.
--spec async_work(pid(), nksip_call:work()) ->
+%% @doc Sends an asynchronous piece of {@link nksip_call_worker:work()} to the call.
+-spec async_work(pid(), nksip_call_worker:work()) ->
     ok.
 
 async_work(Pid, Work) ->
@@ -128,10 +128,10 @@ handle_call(get_data, _From, Call) ->
 
 handle_cast({sync_work, Ref, Pid, Work, From}, Call) ->
     Pid ! {sync_work_ok, Ref, self()},
-    next(nksip_call:work(Work, From, Call));
+    next(nksip_call_worker:work(Work, From, Call));
 
 handle_cast({async_work, Work}, Call) ->
-    next(nksip_call:work(Work, none, Call));
+    next(nksip_call_worker:work(Work, none, Call));
 
 handle_cast(stop, Call) ->
     {stop, normal, Call};
@@ -152,7 +152,7 @@ handle_info({timeout, _Ref, check_call}, Call) ->
     next(Call1);
 
 handle_info({timeout, Ref, Type}, Call) ->
-    next(nksip_call:timeout(Type, Ref, Call));
+    next(nksip_call_worker:timeout(Type, Ref, Call));
 
 % handle_info(timeout, Call) ->
 %     next(Call);

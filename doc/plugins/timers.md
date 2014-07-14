@@ -48,7 +48,7 @@ The previous options can also be used in each _INVITE_ request sent calling [inv
 
 ### get_session_expires/1
 ```erlang
-get_session_expires(nksip:id()|nksip:dialog()) ->
+get_session_expires(nksip:handle()|nksip:dialog()) ->
     non_neg_integer() | undefined.
 ```
 
@@ -58,7 +58,7 @@ Gets the current session expires value for a dialog
 ### get_session_refresh/1
 
 ```erlang
-get_session_refresh(nksip:id()|nksip:dialog()) ->
+get_session_refresh(nksip:handle()|nksip:dialog()) ->
     non_neg_integer() | undefined.
 ```
 

@@ -75,8 +75,8 @@ nkcb_sip_method(#trans{method='SUBSCRIBE', request=Req}, _Call) ->
 nkcb_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
     case Req#sipmsg.event of
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
-            Body = nksip_request:body(Req),
-            SubsId = nksip_subscription:get_id(Req),
+            {ok, Body} = nksip_request:body(Req),
+            SubsId = nksip_subscription_lib:get_handle(Req),
             #call{app_id=AppId} = Call,
             catch AppId:sip_refer_update(SubsId, {notify, Body}, Call),
             {reply, ok};
@@ -105,7 +105,7 @@ nkcb_call(sip_dialog_update,
           ], 
           _AppId) ->
     #call{app_id=AppId} = Call,
-    SubsId = nksip_subscription:get_id(Subs),
+    {ok, SubsId} = nksip_subscription:get_handle(Subs),
     Status1 = case Status of
         init -> init;
         active -> active;

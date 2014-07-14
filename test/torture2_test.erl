@@ -508,9 +508,9 @@ send(tcp, Msg) ->
 
 route(Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 when Scheme=/=sip, Scheme=/=sips ->
+        {ok, server1} when Scheme=/=sip, Scheme=/=sips ->
             {reply, unsupported_uri_scheme};
-        _ ->
+        {ok, _} ->
             process
     end.
 

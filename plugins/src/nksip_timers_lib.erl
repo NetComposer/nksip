@@ -481,7 +481,7 @@ parse(SipMsg) ->
 
 
 %% @private
--spec start_timer(integer(), atom(), nksip_dialog:id()) ->
+-spec start_timer(integer(), atom(), nksip_dialog_lib:id()) ->
     reference().
 
 start_timer(Time, Tag, Id) ->

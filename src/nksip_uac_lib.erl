@@ -22,61 +22,14 @@
 -module(nksip_uac_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([send/4, send_dialog/3]).
--export([get_authorized_list/1, clear_authorized_list/1]).
--export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1, is_stateless/2]).
+-export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1, is_stateless/1]).
 -include("nksip.hrl").
  
 
 %% ===================================================================
-%% Public
+%% Private
 %% ===================================================================
 
-
--spec send(nksip:app_name()|nksip:app_id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->
-    nksip_uac:result() | {error, nksip_uac:error()}.
-
-send(App, Method, Uri, Opts) ->
-    case nksip:find_app_id(App) of
-        {ok, AppId} -> nksip_call:send(AppId, Method, Uri, Opts);
-        not_found -> {error, sipapp_not_found}
-    end.
-
-
-% R: requests
-% S: responses
-% D: dialogs
-% U: subscriptions
-
-
-
-%% @private
--spec send_dialog(nksip:method(), nksip:id(), nksip:optslist()) ->
-    nksip_uac:result() | nksip_uac:ack_result() | {error, nksip_uac:error()}.
-
-send_dialog(Method, <<$U, $_, _/binary>>=Id, Opts) ->
-    nksip_call:send_dialog(Id, Method, [{subscription_id, Id}|Opts]);
-
-send_dialog(Method, <<Class, $_, _/binary>>=Id, Opts)
-            when Class==$R; Class==$S; Class==$D ->
-    nksip_call:send_dialog(Id, Method, Opts).
-
-
-%% @doc Gets authorized list of transport, ip and ports for a dialog.
--spec get_authorized_list(nksip:id()) ->
-    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
-
-get_authorized_list(Id) ->
-    nksip_call:get_authorized_list(Id).
-
-
-%% @doc Clears authorized list of transport, ip and ports for a dialog.
--spec clear_authorized_list(nksip_dialog:id()) ->
-    ok | error.
-
-clear_authorized_list(Id) ->
-        nksip_call:clear_authorized_list(Id).
-    
 
 %% @doc Generates a new request.
 %% See {@link nksip_uac} for the decription of most options.
@@ -103,6 +56,11 @@ make(AppId, Method, Uri, Opts) ->
                     ext_opts=nksip_lib:store_value(<<"tag">>, FromTag, FromOpts)}
         end,
         DefTo = RUri1#uri{port=0, opts=[], headers=[], ext_opts=[], ext_headers=[]},
+        % We select only first Call-ID
+        CallId = case nksip_lib:get_value(call_id, Opts) of
+            undefined -> nksip_lib:luid();
+            CallId0 -> CallId0
+        end,
         Req1 = #sipmsg{
             id = nksip_lib:uid(),
             class = {req, Method1},
@@ -110,7 +68,7 @@ make(AppId, Method, Uri, Opts) ->
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
             from = {DefFrom, FromTag},
             to = {DefTo, <<>>},
-            call_id = nksip_lib:luid(),
+            call_id = CallId,
             cseq = {nksip_config:cseq(), Method1},
             forwards = 70,
             transport = #transport{},
@@ -252,15 +210,16 @@ make_ack(#sipmsg{vias=[Via|_], cseq={CSeq, _}}=Req) ->
 
 
 %% @doc Checks if a response is a stateless response
--spec is_stateless(nksip:response(), binary()) ->
+-spec is_stateless(nksip:response()) ->
     boolean().
 
-is_stateless(Resp, GlobalId) ->
+is_stateless(Resp) ->
     #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
     case nksip_lib:get_binary(<<"branch">>, Opts) of
         <<"z9hG4bK", Branch/binary>> ->
             case binary:split(Branch, <<"-">>) of
                 [BaseBranch, NkSip] ->
+                    GlobalId = nksip_config_cache:global_id(),
                     case nksip_lib:hash({BaseBranch, GlobalId, stateless}) of
                         NkSip -> true;
                         _ -> false
@@ -285,8 +244,7 @@ parse_opts([Term|Rest], Req, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}} = Req,
     Op = case Term of
         
-        ignore ->
-            ignore;
+        ignore -> ignore;
 
         % Header manipulation
         {add, Name, Value} -> {add, Name, Value};
@@ -296,7 +254,10 @@ parse_opts([Term|Rest], Req, Opts) ->
         {insert, Name, Value} -> {insert, Name, Value};
         {insert, {Name, Value}} -> {insert, Name, Value};
 
-        {Name, Value} when Name==from; Name==to; Name==call_id;
+        {call_id, CallId} when is_binary(CallId) -> ignore;
+        {call_id, _} -> error;
+
+        {Name, Value} when Name==from; Name==to; 
                            Name==content_type; Name==require; Name==supported; 
                            Name==expires; Name==contact; Name==route; 
                            Name==reason; Name==event ->

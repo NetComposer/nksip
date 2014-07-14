@@ -56,7 +56,8 @@ request(Req, Opts, From, Call) ->
         {srv, SrvFrom} when Method=='ACK' -> 
             gen_server:reply(SrvFrom, async);
         {srv, SrvFrom} ->
-            gen_server:reply(SrvFrom, {async, nksip_sipmsg:get_id(Req)});
+            Handle = nksip_sipmsg:get_handle(Req),
+            gen_server:reply(SrvFrom, {async, Handle});
         _ ->
             ok
     end,

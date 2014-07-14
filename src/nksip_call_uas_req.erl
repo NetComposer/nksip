@@ -147,7 +147,7 @@ process_retrans(UAS, Call) ->
 
 
 %% @private
--spec process_request(nksip:request(), nksip_call_uas:id(), nksip_call:call()) ->
+-spec process_request(nksip:request(), nksip_call:trans_id(), nksip_call:call()) ->
     nksip_call:call().
 
 process_request(Req, TransId, Call) ->
@@ -161,7 +161,7 @@ process_request(Req, TransId, Call) ->
     #call{trans=Trans, next=Id, msgs=Msgs} = Call,
     ?call_debug("UAS ~p started for ~p (~s)", [Id, Method, MsgId]),
     LoopId = loop_id(Req),
-    DialogId = nksip_dialog:make_id(uas, Req),
+    DialogId = nksip_dialog_lib:make_id(uas, Req),
     UAS = #trans{
         id = Id,
         class = uas,

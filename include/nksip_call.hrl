@@ -66,12 +66,12 @@
     RSeq::nksip:cseq(), 
     CSeq::nksip:cseq(), 
     CSeqMethod:: nksip:method(),
-    DialogId :: nksip_dialog:id()
+    DialogId :: nksip_dialog_lib:id()
 }.
 
 
 -record(trans, {
-    id :: nksip_call_uac:id() | nksip_call_uas:id(),
+    id :: nksip_call:trans_id(),
     class :: uac | uas,
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nksip_lib:timestamp(),
@@ -116,13 +116,13 @@
 
 
 -record(provisional_event, {
-    id :: {Id::nksip_subscription:id(), Tag::binary()},
+    id :: {Id::nksip_subscription_lib:id(), Tag::binary()},
     timer_n :: reference()
 }).
 
 
 -type call_auth() :: {
-    nksip_dialog:id(), 
+    nksip_dialog_lib:id(), 
     nksip:protocol(), 
     inet:ip_address(), 
     inet:port_number()
@@ -131,8 +131,8 @@
 
 -type call_msg() :: {
     nksip_sipmsg:id(), 
-    nksip_call_uac:id()|nksip_call_uas:id(), 
-    nksip_dialog:id()
+    nksip_call:trans_id(),
+    nksip_dialog_lib:id()
 }.
 
 

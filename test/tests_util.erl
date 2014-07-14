@@ -79,13 +79,13 @@ get_ref() ->
 
 save_ref(Req) ->
     case nksip_request:header(<<"x-nk-reply">>, Req) of
-        [RepBin] -> 
+        {ok, [RepBin]} -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
-            AppId = nksip_request:app_id(Req),
+            {ok, AppId} = nksip_request:app_id(Req),
             {ok, Dialogs} = nksip:get(AppId, dialogs, []),
-            DialogId = nksip_dialog:get_id(Req),
+            {ok, DialogId} = nksip_dialog:get_handle(Req),
             ok = nksip:put(AppId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
-        _ ->
+        {ok, _} ->
             ok
     end.
 
@@ -96,8 +96,8 @@ update_ref(AppId, Ref, DialogId) ->
 
 
 send_ref(Msg, Req) ->
-    DialogId = nksip_dialog:get_id(Req),
-    AppId = nksip_request:app_id(Req),
+    {ok, DialogId} = nksip_dialog:get_handle(Req),
+    {ok, AppId} = nksip_request:app_id(Req),
     {ok, Dialogs} = nksip:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
@@ -109,10 +109,10 @@ send_ref(Msg, Req) ->
     end.
 
 dialog_update(Update, Dialog) ->
-    App = nksip_dialog:app_name(Dialog),
+    {ok, App} = nksip_dialog:app_name(Dialog),
     case nksip:get(App, dialogs, []) of
         {ok, Dialogs} ->
-            DialogId = nksip_dialog:get_id(Dialog),
+            {ok, DialogId} = nksip_dialog:get_handle(Dialog),
             case lists:keyfind(DialogId, 1, Dialogs) of
                 {DialogId, Ref, Pid} ->
                     case Update of
@@ -124,7 +124,8 @@ dialog_update(Update, Dialog) ->
                         {invite_refresh, SDP} -> Pid ! {Ref, {App, {refresh, SDP}}};
                         invite_timeout -> Pid ! {Ref, {App, timeout}};
                         {subscription_status, Status, Subs} -> 
-                            Pid ! {Ref, {subs, Status, nksip_subscription:get_id(Subs)}};
+                            {ok, Handle} = nksip_subscription:get_handle(Subs),
+                            Pid ! {Ref, {subs, Status, Handle}};
                         stop -> ok
                     end;
                 false -> 
@@ -137,9 +138,9 @@ dialog_update(Update, Dialog) ->
 
 
 session_update(Update, Dialog) ->
-    App = nksip_dialog:app_name(Dialog),
+    {ok, App} = nksip_dialog:app_name(Dialog),
     {ok, Dialogs} = nksip:get(App, dialogs, []),
-    DialogId = nksip_dialog:get_id(Dialog),
+    {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
             ok;

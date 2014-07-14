@@ -116,7 +116,7 @@ basic() ->
     % Start events also at ua1
     ok = nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
-    CallId1 = nksip_dialog:call_id(Dialog1A),
+    {ok, CallId1} = nksip_dialog:call_id(Dialog1A),
     CSeq1 = receive 
         {Ref, #sipmsg{cseq={CSeq1_0, _}, headers=Headers1, call_id=CallId1}} ->
             1 = proplists:get_value(<<"session-expires">>, Headers1),
@@ -148,7 +148,7 @@ basic() ->
         {ua2, {refresh, SDP2}}      % The same SDP ua2 sent
     ]),
 
-    Dialog1B = nksip_dialog:remote_id(Dialog1A, ua2),
+    Dialog1B = nksip_dialog_lib:remote_id(Dialog1A, ua2),
     2 = nksip_timers:get_session_expires(Dialog1A),
     undefined = nksip_timers:get_session_refresh( Dialog1A),
     2 = nksip_timers:get_session_expires(Dialog1B),
@@ -274,7 +274,7 @@ proxy() ->
     % Start events also at ua1
     ok = nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
-    CallId1 = nksip_dialog:call_id(Dialog1A),
+    {ok, CallId1} = nksip_dialog:call_id(Dialog1A),
     receive 
         {Ref, #sipmsg{headers=Headers1, call_id=CallId1}} ->
             1 = proplists:get_value(<<"session-expires">>, Headers1),
@@ -306,7 +306,7 @@ proxy() ->
         {ua2, ack}
     ]),
 
-    Dialog1B = nksip_dialog:remote_id(Dialog1A, ua2),
+    Dialog1B = nksip_dialog_lib:remote_id(Dialog1A, ua2),
     3 = nksip_timers:get_session_expires(Dialog1A),
     undefined = nksip_timers:get_session_refresh( Dialog1A),
     3 = nksip_timers:get_session_expires(Dialog1B),
@@ -348,7 +348,7 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog3B = nksip_dialog:remote_id(Dialog3A, ua2),
+    Dialog3B = nksip_dialog_lib:remote_id(Dialog3A, ua2),
     1800 = nksip_timers:get_session_expires(Dialog3A),
     undefined = nksip_timers:get_session_refresh( Dialog3A),
     1800 = nksip_timers:get_session_expires(Dialog3B),
@@ -368,7 +368,7 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog4B = nksip_dialog:remote_id(Dialog4A, ua3),
+    Dialog4B = nksip_dialog_lib:remote_id(Dialog4A, ua3),
     1800 = nksip_timers:get_session_expires(Dialog4A),
     true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog4A)),
     undefined = nksip_timers:get_session_expires(Dialog4B),
@@ -389,7 +389,7 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog5B = nksip_dialog:remote_id(Dialog5A, ua3),
+    Dialog5B = nksip_dialog_lib:remote_id(Dialog5A, ua3),
     undefined = nksip_timers:get_session_expires(Dialog5A),
     undefined = nksip_timers:get_session_refresh( Dialog5A),
     undefined = nksip_timers:get_session_expires(Dialog5B),
@@ -405,18 +405,18 @@ proxy() ->
 
 sip_route(_Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        p1 -> 
+        {ok, p1} -> 
             {proxy, ruri, [record_route, {route, "<sip:127.0.0.1:5070;lr>"}]};
-        p2 ->
+        {ok, p2} ->
             {proxy, ruri, [record_route]};
-        _ ->
+        {ok, _} ->
             process
     end.
 
 
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
-    Body = nksip_request:body(Req),
+    {ok, Body} = nksip_request:body(Req),
     Body1 = nksip_sdp:increment(Body),
     {reply, {answer, Body1}}.
 

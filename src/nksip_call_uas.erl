@@ -44,15 +44,21 @@
 %% ===================================================================
 
 %% @private
--spec timer(nksip_call_lib:timer()|term(), nksip_call:trans(), nksip_call:call()) ->
+-spec timer(nksip_call_lib:timer()|term(), id(), nksip_call:call()) ->
     nksip_call:call().
 
-timer(Tag, UAS, #call{app_id=AppId}=Call) ->
-    case AppId:nkcb_uas_timer(Tag, UAS, Call) of
-        {ok, Call1} ->
-            Call1;
-        {continue, [Tag1, UAS1, Call1]} ->
-            do_timer(Tag1, UAS1, Call1)
+timer(Tag, Id, #call{app_id=AppId, trans=Trans}=Call) ->
+    case lists:keyfind(Id, #trans.id, Trans) of
+        #trans{class=uas}=UAS ->
+            case AppId:nkcb_uas_timer(Tag, UAS, Call) of
+                {ok, Call1} ->
+                    Call1;
+                {continue, [Tag1, UAS1, Call1]} ->
+                    do_timer(Tag1, UAS1, Call1)
+            end;
+        false ->
+            ?call_warning("Call ignoring uas timer (~p, ~p)", [Tag, Id]),
+            Call
     end.
 
 

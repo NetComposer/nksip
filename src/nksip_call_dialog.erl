@@ -444,7 +444,7 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
 
 
 %% @private Gets a value from dialog's meta, or call's meta if no dialog found
--spec get_meta(term(), nksip_dialog:id(), nksip_call:call()) ->
+-spec get_meta(term(), nksip_dialog_lib:id(), nksip_call:call()) ->
     term() | undefined.
 
 get_meta(Key, DialogId, Call) ->
@@ -455,7 +455,7 @@ get_meta(Key, DialogId, Call) ->
 
 
 %% @private Stores a value in dialog's meta, or call's meta if no dialog found
--spec update_meta(term(), term(), nksip_dialog:id(), nksip_call:call()) ->
+-spec update_meta(term(), term(), nksip_dialog_lib:id(), nksip_call:call()) ->
     nksip_call:call().
 
 update_meta(Key, Value, DialogId, Call) ->
@@ -475,10 +475,26 @@ update_meta(Key, Value, DialogId, Call) ->
 
 %% @private Called when a dialog timer is fired
 -spec timer(invite_retrans|invite_timeout|invite_refresh, 
+            nksip_dialog_lib:id(), nksip_call:call()) ->
+    nksip_call:call().
+
+   
+timer(Tag, Id, Call) ->
+    case find(Id, Call) of
+        #dialog{} = Dialog ->
+            do_timer(Tag, Dialog, Call);
+        not_found ->
+            ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id]),
+            Call
+    end.
+
+
+%% @private Called when a dialog timer is fired
+-spec do_timer(invite_retrans|invite_timeout|invite_refresh, 
             nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
+do_timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of
         #invite{status=Status, response=Resp, next_retrans=Next} ->
             case Status of
@@ -508,12 +524,12 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
             Call
     end;
 
-timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
+do_timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{local_sdp=SDP} = Invite,
     sip_dialog_update({invite_refresh, SDP}, Dialog, Call),
     Call;
 
-timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
+do_timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of
         #invite{class=Class, status=Status} ->
             ?call_notice("Dialog ~s (~p) timeout timer fired", [DialogId, Status]),
@@ -539,7 +555,7 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
             Call
     end;
 
-timer({event, Tag}, Dialog, Call) ->
+do_timer({event, Tag}, Dialog, Call) ->
     nksip_call_event:timer(Tag, Dialog, Call).
 
 
@@ -549,7 +565,7 @@ timer({event, Tag}, Dialog, Call) ->
 %% ===================================================================
 
 %% @private
--spec find(nksip_dialog:id(), nksip_call:call()) ->
+-spec find(nksip_dialog_lib:id(), nksip_call:call()) ->
     nksip:dialog() | not_found.
 
 find(Id, #call{dialogs=Dialogs}) ->
@@ -557,7 +573,7 @@ find(Id, #call{dialogs=Dialogs}) ->
 
 
 %% @private
--spec do_find(nksip_dialog:id(), [nksip:dialog()]) ->
+-spec do_find(nksip_dialog_lib:id(), [nksip:dialog()]) ->
     nksip:dialog() | not_found.
 
 do_find(_, []) -> not_found;
@@ -630,7 +646,7 @@ cancel_timer(Ref) ->
 
 
 %% @private
--spec start_timer(integer(), atom(), nksip_dialog:id()) ->
+-spec start_timer(integer(), atom(), nksip_dialog_lib:id()) ->
     reference().
 
 start_timer(Time, Tag, Id) ->

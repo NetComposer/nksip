@@ -24,10 +24,9 @@
 
 -include("nksip.hrl").
 
--export([app_id/1, app_name/1, code/1, body/1, call_id/1]).
--export([meta/2, header/2]).
+-export([get_handle/1, app_id/1, app_name/1, code/1, body/1, call_id/1]).
+-export([meta/2, metas/2, header/2]).
 -export([wait_491/0]).
--export([apply_meta/2]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -38,84 +37,101 @@
 %% ===================================================================
 
 
-%% @doc Gets internal app's id
--spec app_id(nksip:response()|nksip:id()) -> 
-    nksip:app_id().
 
-app_id(#sipmsg{app_id=AppId}) ->
-    AppId;
-app_id(Id) when is_binary(Id) ->
-    {req, AppId, _Id, _CallId} = nksip_sipmsg:parse_id(Id),
-    AppId.
+%% @doc Gets response's id
+-spec get_handle(nksip:response()|nksip:handle()) ->
+    {ok, nksip:handle()}.
 
-
-%% @doc Gets app's name
--spec app_name(nksip:response()|nksip:id()) -> 
-    term().
-
-app_name(Resp) -> 
-    (app_id(Resp)):name().
-
-
--spec code(nksip:response()|nksip:id()) ->
-    nksip:sip_code()|error.
-
-code(#sipmsg{class={resp, Code, _Phrase}}) -> 
-    Code;
-code(Id) when is_binary(Id) ->
-    meta(code, Id).
-
-%% @doc Gets the body of the response
--spec body(nksip:response()|nksip:id()) ->
-    nksip:body() | error.
-
-body(#sipmsg{body=Body}) -> 
-    Body;
-body(Id) when is_binary(Id) ->
-    meta(body, Id).
-
-
-%% @doc Gets the calls's id of a response id
--spec call_id(nksip:response()|nksip:id()) ->
-    nksip:call_id().
-
-call_id(#sipmsg{call_id=CallId}) ->
-    CallId;
-call_id(Id) when is_binary(Id) ->
-    {resp, _AppId, _Id, CallId} = nksip_sipmsg:parse_id(Id),
-    CallId.
-
-
-%% @doc Get a specific metadata (see {@link field()}) from the response
--spec meta(nksip_sipmsg:field(), nksip:response()|nksip:id()) ->
-    term() | [{nksip_sipmsg:field(), term()}] | error.
-
-meta(Fields, #sipmsg{}=Resp) when is_list(Fields), not is_integer(hd(Fields)) ->
-    [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
-meta(Fields, Id) when is_list(Fields), not is_integer(hd(Fields)), is_binary(Id) ->
-    Fun = fun(Resp) -> {ok, meta(Fields, Resp)} end,
-    apply_meta(Fun, Id);
-meta(Field, #sipmsg{}=Resp) -> 
-    nksip_sipmsg:meta(Field, Resp);
-meta(Field, Id) when is_binary(Id) ->
-    case meta([Field], Id) of
-        [{_, Value}] -> Value;
-        _ -> error
+get_handle(Term) ->
+    case nksip_sipmsg:get_handle(Term) of
+        <<"S_", _/binary>> = Handle -> {ok, Handle};
+        _ -> error(invalid_response)
     end.
 
 
-%% @doc Gets values for a header in a response.
--spec header(string()|binary()|[string()|binary()], nksip:response()|nksip:id()) -> 
-    [binary()] | [{binary(), binary()}] | error.
+%% @doc Gets internal app's id
+-spec app_id(nksip:response()|nksip:handle()) -> 
+    {ok, nksip:app_id()}.
 
-header(Names, #sipmsg{}=Resp) when is_list(Names), not is_integer(hd(Names)) ->
-    [{nksip_lib:to_binary(Name), nksip_sipmsg:header(Name, Resp)} || Name <- Names];
-header(Names, Id) when is_list(Names), not is_integer(hd(Names)), is_binary(Id) ->
-    meta([nksip_lib:to_binary(Name) || Name<-Names], Id);
-header(Name, #sipmsg{}=Resp) -> 
-    nksip_sipmsg:header(Name, Resp);
-header(Name, Id) when is_binary(Id) ->
-    meta(nksip_lib:to_binary(Name), Id).
+app_id(#sipmsg{class={resp, _, _}, app_id=AppId}) ->
+    {ok, AppId};
+app_id(Handle) ->
+    case nksip_sipmsg:parse_handle(Handle) of
+        {req, AppId, _Id, _CallId} -> {ok, AppId};
+        _ -> error(invalid_response)
+    end.
+
+
+%% @doc Gets app's name
+-spec app_name(nksip:response()|nksip:handle()) -> 
+    {ok, nksip:app_name()}.
+
+app_name(Req) -> 
+    {ok, AppId} = app_id(Req),
+    {ok, AppId:name()}.
+
+
+%% @doc Gets the calls's id of a response id
+-spec call_id(nksip:response()|nksip:handle()) ->
+    {ok, nksip:call_id()}.
+
+call_id(#sipmsg{class={resp, _, _}, call_id=CallId}) ->
+    {ok, CallId};
+call_id(Handle) ->
+    case nksip_sipmsg:parse_handle(Handle) of
+        {req, _AppId, _Id, CallId} -> {ok, CallId};
+        _ -> error(invalid_response)
+    end.
+
+
+%% @doc Gets the response's code
+-spec code(nksip:response()|nksip:handle()) ->
+    {ok, nksip:sip_code()} | {error, term()}.
+
+code(#sipmsg{class={resp, Code, _Phrase}}) -> 
+    {ok, Code};
+code(Term) when is_binary(Term) ->
+    meta(code, Term).
+
+
+%% @doc Gets the body of the response
+-spec body(nksip:response()|nksip:handle()) ->
+    {ok, nksip:body()} | {error, term()}.
+
+body(#sipmsg{class={resp, _, _}, body=Body}) -> 
+    {ok, Body};
+body(Handle) ->
+    meta(body, Handle).
+
+
+%% @doc Get a specific metadata
+-spec meta(nksip_sipmsg:field(), nksip:response()|nksip:handle()) ->
+    {ok, term()} | {error, term()}.
+
+meta(Field, #sipmsg{class={resp, _, _}}=Req) -> 
+    {ok, nksip_sipmsg:meta(Field, Req)};
+meta(Field, Handle) ->
+    nksip_sipmsg:remote_meta(Field, Handle).
+
+
+%% @doc Get a group of specific metadata
+-spec metas([nksip_sipmsg:field()], nksip:response()|nksip:handle()) ->
+    {ok, [{nksip_sipmsg:field(), term()}]} | {error, term()}.
+
+metas(Fields, #sipmsg{class={resp, _, _}}=Req) when is_list(Fields) ->
+    {ok, nksip_sipmsg:metas(Fields, Req)};
+metas(Fields, Handle) when is_list(Fields) ->
+    nksip_sipmsg:remote_metas(Fields, Handle).
+
+
+%% @doc Gets values for a header in a response.
+-spec header(string()|binary(), nksip:response()|nksip:handle()) -> 
+    {ok, [binary()]} | {error, term()}.
+
+header(Name, #sipmsg{class={resp, _, _}}=Req) -> 
+    {ok, nksip_sipmsg:header(Name, Req)};
+header(Name, Handle) when is_binary(Handle) ->
+    meta(nksip_lib:to_binary(Name), Handle).
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after
@@ -125,14 +141,4 @@ header(Name, Id) when is_binary(Id) ->
 wait_491() ->
     timer:sleep(10*crypto:rand_uniform(210, 400)).
 
-
-%% @private Applies a custom function to a response at the remote process
--spec apply_meta(function(), nksip:id()) ->
-    term() | error.
-
-apply_meta(Fun, Id) when is_function(Fun, 1), is_binary(Id) ->
-    case nksip_sipmsg:apply_sipmsg(Id, Fun) of
-        {ok, Values} -> Values;
-        _ -> error
-    end.
 

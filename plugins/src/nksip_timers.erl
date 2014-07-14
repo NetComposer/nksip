@@ -89,12 +89,8 @@ parse_config(Opts) ->
 
 
 %% @doc Gets the current session expires value for a dialog
--spec get_session_expires(nksip:dialog()|nksip:id()) ->
+-spec get_session_expires(nksip:dialog()|nksip:handle()) ->
     non_neg_integer() | undefined.
-
-get_session_expires(Id) when is_binary(Id) ->
-    Fun = fun(Dialog) -> {ok, get_session_expires(Dialog)} end,
-    nksip_dialog:apply_meta(Fun, Id);
 
 get_session_expires(#dialog{invite=Invite, meta=Meta}) ->
     case is_record(Invite, invite) of
@@ -102,16 +98,16 @@ get_session_expires(#dialog{invite=Invite, meta=Meta}) ->
             nksip_lib:get_value(nksip_timers_se, Meta);
         false ->
             undefined
-    end.
+    end;
+
+get_session_expires(Handle) ->
+    Fun = fun(#dialog{}=Dialog) -> get_session_expires(Dialog) end,
+    nksip_dialog:meta({function, Fun}, Handle).
 
 
 %% @doc Gets the reamining time to refresh the session
--spec get_session_refresh(nksip:dialog()|nksip:id()) ->
+-spec get_session_refresh(nksip:dialog()|nksip:handle()) ->
     non_neg_integer() | undefined.
-
-get_session_refresh(Id) when is_binary(Id) ->
-    Fun = fun(Dialog) -> {ok, get_session_refresh(Dialog)} end,
-    nksip_dialog:apply_meta(Fun, Id);
 
 get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
     case is_record(Invite, invite) of
@@ -128,5 +124,10 @@ get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
             end;
         false -> 
             undefined
-    end.
+    end;
+
+get_session_refresh(Handle) ->
+    Fun = fun(#dialog{}=Dialog) -> get_session_refresh(Dialog) end,
+    nksip_dialog:meta({function, Fun}, Handle).
+
 

@@ -333,7 +333,7 @@ best_response(#fork{request=Req, responses=Resps}) ->
    call().
     
 cancel_all(#fork{method='INVITE', pending=[UAC|Rest]}=Fork, Reason, Call) ->
-    Call1 = nksip_call_uac:cancel(UAC, Reason, Call),
+    Call1 = nksip_call_uac:cancel(UAC, Reason, undefined, Call),
     cancel_all(Fork#fork{pending=Rest}, Reason, Call1);
 
 cancel_all(_Fork, _Reason, Call) ->

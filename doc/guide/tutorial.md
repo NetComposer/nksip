@@ -166,7 +166,7 @@ Our callback `options/2` is called for every received options request, which inc
 
 ```erlang
 sip_options(Req, _Call) ->
-    AppName = nksip_request:app_name(Req),
+    {ok, AppName} = nksip_request:app_name(Req),
     {reply, {ok, [{add, "x-nk-id", AppName}, contact, allow, accept, supported]}}.
 ```
 
@@ -174,10 +174,10 @@ Now let's try a _INVITE_ from client2 to client1 through the proxy. NkSIP will c
 
 ```erlang
 sip_invite(Req, _Call) ->
-    Body = nksip_request:body(Req),
+    {ok, Body} = nksip_request:body(Req),
     case nksip_sdp:is_sdp(Body) of
         true ->
-            ReqId = nksip_request:get_id(Req),
+            {ok, ReqId} = nksip_request:get_handle(Req),
             Fun = fun() ->
                 nksip_request:reply(ringing, ReqId),
                 timer:sleep(2000),
@@ -213,7 +213,7 @@ ok
 The call is accepted and we have started a _dialog_:
 ```erlang
 19> nksip_dialog:meta(invite_status, DlgId).
-confirmed
+{ok, confirmed}
 ```
 
 You can _print_ all dialogs in the console. We see dialogs at client1, client2 and at the server. The three dialogs are the same actually, but in different SipApps (do not use this command in production with many thousands of dialogs):

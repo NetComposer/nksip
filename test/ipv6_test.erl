@@ -184,7 +184,7 @@ invite() ->
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    DialogId2 = nksip_dialog_lib:remote_id(DialogId1, client2),
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
     {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(DialogId2, Hds),
     ok = nksip_uac:ack(DialogId2, []),
@@ -232,7 +232,7 @@ proxy() ->
     async = nksip_uac:ack(DialogId1, [async, {callback, AckFun}]),
     ?RECV({Ref, ok_1}),
 
-    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    DialogId2 = nksip_dialog_lib:remote_id(DialogId1, client2),
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
     {ok, 200, []} = nksip_uac:bye(DialogId1, []),
     ok.
@@ -280,7 +280,7 @@ bridge_4_6() ->
     async  = nksip_uac:ack(DialogId1, [async, {callback, FunAck}]),
     ?RECV({Ref, ok_1}),
    
-    DialogId3 = nksip_dialog:remote_id(DialogId1, client3),
+    DialogId3 = nksip_dialog_lib:remote_id(DialogId1, client3),
     {ok, 200, []} = nksip_uac:options(DialogId3, []),
     {ok, 200, []} = nksip_uac:bye(DialogId1, []),
     ok.
@@ -535,7 +535,7 @@ init(Id) ->
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             Opts = [
                 {insert, "x-nk-id", "server1"},
                 {route, "<sip:[::1]:5061;lr;transport=tcp>"}
@@ -552,21 +552,21 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ ->
                     {proxy_stateless, ruri, Opts}
             end;
-        server2 ->
+        {ok, server2} ->
             Opts = [
                 record_route,
                 {insert, "x-nk-id", "server2"}
             ],
             {proxy, ruri, Opts};
-        _ ->
+        {ok, _} ->
             process
     end.
 
 
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
-    Ids = nksip_request:header(<<"x-nk-id">>, Req),
-    AppName = nksip_request:app_name(Req),
+    {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
+    {ok, AppName} = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppName|Ids])}],
     {reply, {ok, Hds}}.
 

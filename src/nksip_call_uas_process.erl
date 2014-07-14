@@ -79,7 +79,7 @@ check_supported(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 check_notify('NOTIFY', Req, UAS, Call) ->
-    case nksip_subscription:subscription_state(Req) of
+    case nksip_subscription_lib:state(Req) of
         invalid -> reply({invalid_request, "Invalid Subscription-State"}, UAS, Call);
         _ -> check_missing_dialog('NOTIFY', Req, UAS, Call)
     end;

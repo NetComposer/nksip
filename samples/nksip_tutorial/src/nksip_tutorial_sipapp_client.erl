@@ -36,10 +36,10 @@
 %% 200 Ok with the same body (spawns a new process to avoid blocking the process).
 %% If not, reply 488 Not Acceptable with a Warning header.
 sip_invite(Req, _Call) ->
-    Body = nksip_request:body(Req),
+    {ok, Body} = nksip_request:body(Req),
     case nksip_sdp:is_sdp(Body) of
         true ->
-            ReqId = nksip_request:get_id(Req),
+            {ok, ReqId} = nksip_request:get_handle(Req),
             Fun = fun() ->
                 nksip_request:reply(ringing, ReqId),
                 timer:sleep(2000),
@@ -55,7 +55,7 @@ sip_invite(Req, _Call) ->
 %% @doc Called when an OPTIONS is received.
 %% Reply 200 Ok with a custom header and some options.
 sip_options(Req, _Call) ->
-    AppName = nksip_request:app_name(Req),
+    {ok, AppName} = nksip_request:app_name(Req),
     {reply, {ok, [{add, "x-nk-id", AppName}, contact, allow, accept, supported]}}.
 
 

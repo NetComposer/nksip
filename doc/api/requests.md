@@ -4,7 +4,7 @@ This document describes the API NkSIP makes available to extract information fro
 
 Most functions in the API allows two ways to refer to the requests:
 * From a full *request object* (`nksip:request()`). Most functions called in the SipApp's _callback module_ receive a full request object, and you can use these functions to get information from it.
-* From a *request handle* (`nksip:id()`). You can get a request handle from a request object using [get_id/1](#get_id1). You can then use the handle to call most functions in this API. 
+* From a *request handle* (`nksip:handle()`). You can get a request handle from a request object using [get_id/1](#get_id1). You can then use the handle to call most functions in this API. 
     
     In this case, the API function must contact with the corresponding call process to get the actual request, so you cannot use this method _inside_ the same call process (like in the callback functions). This method is useful to refer to the request from a _spawned_ process (specially for [reply/2](#reply2)), avoiding the need to copy the full object. Please notice that the request object may not exists any longer at the moment that the handle is used. Most functions return `error` in this case.
 
@@ -21,6 +21,7 @@ Function|Description
 [body/1](#body1)|Gets the body of the request
 [call_id/1](#call_id1)|Gets the Call-ID header of the request
 [meta/2](#meta2)|Gets specific metadata from the request
+[metas/2](#meta2)|Gets specific metadata from the request
 [header/2](#header2)|Gets the values for a header or headers in a request
 [reply/2](#reply2)|Sends a reply to a request using a handle
 [is_local_route/1](#is_local_route1)|Checks if this request would be sent to a local address in case of beeing proxied
@@ -30,80 +31,86 @@ Function|Description
 
 ### get_id/1
 ```erlang
-nksip_request:get_id(nksip:request()|nksip:id()) ->
-    nksip:id().
+nksip_request:get_handle(nksip:request()|nksip:handle()) ->
+    {ok, nksip:handle()} | {error, term()}.
 ```
 Grabs a request's handle.
 
 
 ### app_id/1
 ```erlang
-nksip_request:app_id(nksip:request()|nksip:id()) -> 
-    nksip:app_id().
+nksip_request:app_id(nksip:request()|nksip:handle()) -> 
+    {ok, nksip:app_id()} | {error, term()}.
 ```
 Gets then SipApp's _internal name_.
 
 
 ### app_name/1
 ```erlang
-nksip_request:app_name(nksip:request()|nksip:id()) -> 
-    term().
+nksip_request:app_name(nksip:request()|nksip:handle()) -> 
+    {ok, nksip:app_name()} | {error, term()}.
 ```
 Gets the SipApp's _user name_
 
 
 ### method/1
 ```erlang
-nksip_request:method(nksip:request()|nksip:id()) ->
-    nksip:method() | error.
+nksip_request:method(nksip:request()|nksip:handle()) ->
+    {ok, nksip:method()} | {error, term()}.
 ```
 Gets the method of the request.
 
 
 ### body/1
 ```erlang
-nksip_request:body(nksip:request()|nksip:id()) ->
-    nksip:body() | error.
+nksip_request:body(nksip:request()|nksip:handle()) ->
+    {ok, nksip:body()} | {error, term()}.
 ```
 Gets the body of the request.
 
 
 ### call_id/1
 ```erlang
-nksip_request:call_id(nksip:request()|nksip:id()) ->
-    nksip:call_id().
+nksip_request:call_id(nksip:request()|nksip:handle()) ->
+    {ok, nksip:call_id()} | {error, term()}.
 ```
 Gets the Call-ID header of the request.
 
 
 ### meta/2
 ```erlang
-nksip_request:meta(Meta::nksip_sipmsg:field()|[nksip_sipmsg:field()], nksip:request()|nksip:id()) ->
-    term() | [{nksip_sipmsg:field(), term()}] | error.
+nksip_request:meta(Meta::nksip_sipmsg:field(), nksip:request()|nksip:handle()) ->
+    {ok, term()} | {error, term()}.
 ```
 Gets specific metadata from the request.
 
 See [Metadata Fields](../reference/metadata.md) for a description of available fields.
-If `Meta` is simple term, its value is returned. If it is a list, it will return a list of tuples, where the first element is the field name and the second is the value.
+
+
+### metas/2
+```erlang
+nksip_request:meta(Meta::[nksip_sipmsg:field()], nksip:request()|nksip:handle()) ->
+    {ok, [{nksip_sipmsg:field(), term()}]} | {error, term()}.
+```
+Gets specific metadata from the request.
+
+See [Metadata Fields](../reference/metadata.md) for a description of available fields.
 
 
 ### header/2
 ```erlang
-nksip_request:header(Name::string()|binary()|[string()|binary()], nksip:request()|nksip:id()) -> 
-    [binary()] | [{binary(), binary()}] | error.
+nksip_request:header(Name::string()|binary(), nksip:request()|nksip:handle()) -> 
+    {ok, [binary()]} | {error, term()}.
 ```
-Gets the values for a header or headers in a request.
-
-If `Name` is a single value, a list is returned with the values of all the headers having that name. If it is a list, a list of tuples is returned, where the first element is the header name and the second is the list of values.
+Gets the all the values for a header.
 
 NkSIP uses only lowercase for header names.
 
 
 ### reply/2
 ```erlang
-nksip_request:reply(nksip:sipreply(), nksip:id()) -> 
-    ok | {error, Error}
-    when Error :: invalid_call | invalid_request | nksip_call_router:sync_error().
+nksip_request:reply(nksip:sipreply(), nksip:handle()) -> 
+    ok | {error, term()}.
 ```
 Sends a reply to a request using a handle.
 

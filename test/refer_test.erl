@@ -77,7 +77,7 @@ basic() ->
     {ok, 200, [{subscription_id, Subs1A}]} = 
         nksip_uac:refer(client1, SipC2, [{refer_to, "sips:127.0.0.1:5081"}]),
 
-    Dialog1A = nksip_dialog:get_id(Subs1A),
+    {ok, Dialog1A} = nksip_dialog:get_handle(Subs1A),
     % Prepare to send us the received NOTIFYs
     {ok, Dialogs} = nksip:get(client1, dialogs, []),
     ok = nksip:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
@@ -91,25 +91,25 @@ basic() ->
     timer:sleep(100),
 
     [Subs1A] = nksip_dialog:meta(subscriptions, Dialog1A),
-    [
+    {ok, [
         {status, active},
         {event, {<<"refer">>, [{<<"id">>, _}]}},
         {expires, 180}
-    ] = nksip_subscription:meta([status, event, expires], Subs1A),
+    ]} = nksip_subscription:metas([status, event, expires], Subs1A),
 
     CallId = nksip_dialog:call_id(Dialog1A),
     [Dialog1B] = nksip_dialog:get_all(client2, CallId),
     [Subs1B] = nksip_dialog:meta(subscriptions, Dialog1B),
-    [
+    {ok, [
         {status, active},
         {event, {<<"refer">>, [{<<"id">>, _}]}},
         {expires, 180}
-    ] = nksip_subscription:meta([status, event, expires], Subs1B),
+    ]} = nksip_subscription:metas([status, event, expires], Subs1B),
 
     % Let's do a refresh
     {ok, 200, _} = nksip_uac:subscribe(Subs1A, [{expires, 10}]),
-    10 = nksip_subscription:meta(expires, Subs1A),
-    10 = nksip_subscription:meta(expires, Subs1B),
+    {ok, 10} = nksip_subscription:meta(expires, Subs1A),
+    {ok, 10} = nksip_subscription:meta(expires, Subs1B),
     
     % Lets find the INVITE dialogs at client2 and client3
     % Call-ID of the INVITE is the same as the original starting with  "nksip_refer"
@@ -118,7 +118,7 @@ basic() ->
     [Dialog2A] = nksip_dialog:get_all(client2, InvCallId),
     
     proceeding_uac = nksip_dialog:meta(invite_status, Dialog2A),
-    Dialog2B = nksip_dialog:remote_id(Dialog2A, client3),
+    Dialog2B = nksip_dialog_lib:remote_id(Dialog2A, client3),
     proceeding_uas = nksip_dialog:meta(invite_status, Dialog2B),
 
     % Final response received. Subscription is stopped.
@@ -194,7 +194,7 @@ sip_refer(_ReferTo, _Req, _Call) ->
     true.
 
 sip_refer_update(SubsId, Status, Call) ->
-    DialogId = nksip_dialog:get_id(SubsId),
+    {ok, DialogId} = nksip_dialog:get_handle(SubsId),
     AppId = nksip_call:app_id(Call),
     {ok, Dialogs} = nksip:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
@@ -206,7 +206,7 @@ sip_refer_update(SubsId, Status, Call) ->
 
 
 sip_invite(Req, _Call) ->
-    ReqId = nksip_request:get_id(Req),
+    {ok, ReqId} = nksip_request:get_handle(Req),
     spawn(
         fun() ->
             nksip_request:reply(180, ReqId),

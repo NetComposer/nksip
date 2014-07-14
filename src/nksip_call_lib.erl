@@ -129,7 +129,7 @@ maybe_hibernate(_, Call) ->
 
 
 %% @private
--spec update_auth(nksip_dialog:id(), nksip:request()|nksip:response(), call()) ->
+-spec update_auth(nksip_dialog_lib:id(), nksip:request()|nksip:response(), call()) ->
     call().
 
 update_auth(<<>>, _SipMsg, Call) ->

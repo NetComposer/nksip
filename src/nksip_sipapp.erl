@@ -83,7 +83,7 @@ sip_options(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_register(Req, _Call) ->
-    AppId = nksip_request:app_id(Req),
+    {ok, AppId} = nksip_request:app_id(Req),
     {reply, {method_not_allowed, AppId:config_allow()}}.
 
 
@@ -100,7 +100,7 @@ sip_invite(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_reinvite(Req, Call) ->
-    AppId = nksip_request:app_id(Req),
+    {ok, AppId} = nksip_request:app_id(Req),
     AppId:sip_invite(Req, Call).
 
 
@@ -173,7 +173,7 @@ sip_refer(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_publish(Req, _Call) ->
-    AppId = nksip_request:app_id(Req),
+    {ok, AppId} = nksip_request:app_id(Req),
     {reply, {method_not_allowed, AppId:config_allow()}}.
 
 

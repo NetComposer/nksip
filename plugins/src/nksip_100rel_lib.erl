@@ -51,8 +51,8 @@ is_prack_retrans(Resp, UAC) ->
 
 
 %% @private
--spec send_prack(nksip:response(), nksip_call_uac:id(), 
-                 nksip_dialog:id(), nksip_call:call()) ->
+-spec send_prack(nksip:response(), nksip_call:trans_id(), 
+                 nksip_dialog_lib:id(), nksip_call:call()) ->
     continue | {ok, nksip:call()}.
 
 send_prack(Resp, Id, DialogId, Call) ->

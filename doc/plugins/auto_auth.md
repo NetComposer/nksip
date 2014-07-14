@@ -129,7 +129,7 @@ sip_get_user_pass(User, Realm, _Req, _Call) ->
 
 % Authorization is only used for "auth" suite
 sip_authorize(Auth, Req, _Call) ->
-    App = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:app_name(Req),
     BinId = nksip_lib:to_binary(App) ,
     case nksip_lib:get_value({digest, BinId}, Auth) of
         true -> ok;                         % At least one user is authenticated

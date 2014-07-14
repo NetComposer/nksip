@@ -43,18 +43,18 @@
 
 %% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
 %% <i>Proxy-Authenticate</i> headers from a response.
--spec realms(nksip:response()|nksip:id()) ->
+-spec realms(nksip:response()|nksip:handle()) ->
     [Realm::binary()].
 
 realms(#sipmsg{headers=Headers}) ->
     get_realms(Headers, []);
 
 realms(RespId) ->
-    Hd1 = case nksip_response:header(RespId, ?RESP_WWW) of
+    {ok, Hd1} = case nksip_response:header(RespId, ?RESP_WWW) of
         WWW when is_list(WWW) -> [{?RESP_WWW, Data} || Data <- WWW];
         _ -> []
     end,
-    Hd2 = case nksip_response:header(RespId, ?RESP_PROXY) of
+    {ok, Hd2} = case nksip_response:header(RespId, ?RESP_PROXY) of
         Proxy when is_list(Proxy) -> [{?RESP_PROXY, Data} || Data <- Proxy];
         _ -> []
     end,

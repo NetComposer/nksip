@@ -119,7 +119,7 @@ dialog() ->
                                {client2, dialog_confirmed},
                                {client2, sdp_start}]),
     
-    [
+    {ok, [
         {invite_status, confirmed},
         {created, Created}, 
         {updated, Updated}, 
@@ -162,7 +162,7 @@ dialog() ->
                 }]      
         } = RemoteSDP},
         {call_id, CallId}
-    ] = nksip_dialog:meta([
+    ]} = nksip_dialog:metas([
             invite_status, created, updated, invite_answered, 
             local_target, raw_remote_target, route_set, early,
             secure, local_seq, remote_seq, invite_local_sdp, 
@@ -178,8 +178,8 @@ dialog() ->
     true = (Now - RemoteSDPId) < 2,
 
     % Hack to find remote dialog
-    DialogIdB = nksip_dialog:remote_id(DialogIdA, client2),
-    [
+    DialogIdB = nksip_dialog_lib:remote_id(DialogIdA, client2),
+    {ok, [
         {invite_status, confirmed},
         {created, Created2},
         {updated, Updated2},
@@ -195,7 +195,7 @@ dialog() ->
         {invite_local_sdp, RemoteSDP},
         {invite_remote_sdp, LocalSDP},
         {call_id, CallId}
-    ] = nksip_dialog:meta([
+    ]} = nksip_dialog:metas([
             invite_status, created, updated, invite_answered, 
             raw_local_target, remote_target, route_set, early,
             secure, local_seq, remote_seq, invite_local_sdp, 
@@ -211,16 +211,16 @@ dialog() ->
     % Sends an in-dialog OPTIONS. Local CSeq should be incremented
     {ok, 200, [{cseq_num, CSeq1}]} = nksip_uac:options(DialogIdA, [{meta, [cseq_num]}]),
     CSeq = CSeq1 - 1,
-    0 = nksip_dialog:meta(remote_seq, DialogIdA),
-    0 = nksip_dialog:meta(local_seq, DialogIdB),
-    CSeq = nksip_dialog:meta(remote_seq, DialogIdB) - 1,
+    {ok, 0} = nksip_dialog:meta(remote_seq, DialogIdA),
+    {ok, 0} = nksip_dialog:meta(local_seq, DialogIdB),
+    CSeq = element(2, nksip_dialog:meta(remote_seq, DialogIdB)) - 1,
 
     % Sends now from the remote party to us, forcing initial CSeq
     {ok, 200, []} = nksip_uac:options(DialogIdB, [{cseq_num, 9999}]),
-    CSeq = nksip_dialog:meta(local_seq, DialogIdA) -1,
-    9999 = nksip_dialog:meta(remote_seq, DialogIdA),
-    9999 = nksip_dialog:meta(local_seq, DialogIdB),
-    CSeq = nksip_dialog:meta(remote_seq, DialogIdB) -1,
+    CSeq = element(2, nksip_dialog:meta(local_seq, DialogIdA)) -1,
+    {ok, 9999} = nksip_dialog:meta(remote_seq, DialogIdA),
+    {ok, 9999} = nksip_dialog:meta(local_seq, DialogIdB),
+    CSeq = element(2, nksip_dialog:meta(remote_seq, DialogIdB)) -1,
 
     % Force invalid CSeq
     {ok, 500, [{reason_phrase, <<"Old CSeq in Dialog">>}]} = 
@@ -276,7 +276,7 @@ rr_contact() ->
                                {client2, sdp_start}]),
 
     % Test generated dialog values: local and remote targets, record route, SDPs.
-    [
+    {ok, [
         {raw_local_target, <<"<sip:abc>">>},
         {raw_remote_target, <<"<sip:ok@127.0.0.1:5070>">>},
         {raw_route_set, RR},
@@ -284,17 +284,17 @@ rr_contact() ->
             #sdp{vsn=LVsn1, connect={_, _, <<"client1">>}, medias=[LMed1]} = LocalSDP},
         {invite_remote_sdp, 
             #sdp{vsn=RVsn1, connect={_, _, <<"client2">>}} = RemoteSDP}
-    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, raw_route_set, 
+    ]} = nksip_dialog:metas([raw_local_target, raw_remote_target, raw_route_set, 
                             invite_local_sdp, invite_remote_sdp], DialogIdA),
 
-    DialogIdB = nksip_dialog:remote_id(DialogIdA, client2),
-    [
+    DialogIdB = nksip_dialog_lib:remote_id(DialogIdA, client2),
+    {ok, [
         {raw_local_target, <<"<sip:ok@127.0.0.1:5070>">>},
         {raw_remote_target, <<"<sip:abc>">>},
         {raw_route_set, RR1},
         {invite_local_sdp, RemoteSDP}, 
         {invite_remote_sdp, LocalSDP}
-    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, raw_route_set, 
+    ]} = nksip_dialog:metas([raw_local_target, raw_remote_target, raw_route_set, 
                             invite_local_sdp, invite_remote_sdp], DialogIdB),
     true = lists:member({<<"sendrecv">>, []}, LMed1#sdp_m.attributes),
     RR1 = lists:reverse(RR),
@@ -343,7 +343,7 @@ rr_contact() ->
     % Test SDP version has been incremented
     LVsn2 = LVsn1+1, 
     RVsn2 = RVsn1+1,
-    [
+    {ok, [
         {invite_local_sdp, 
             #sdp{vsn=LVsn2, connect={_, _, <<"client1">>}, medias=[LMed2]}=LocalSDP2},
         {invite_remote_sdp, 
@@ -351,16 +351,16 @@ rr_contact() ->
         {local_target, 
             #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {raw_remote_target, <<"<sip:ok@127.0.0.1:5070>">>}
-    ] = nksip_dialog:meta([invite_local_sdp, invite_remote_sdp, local_target,
+    ]} = nksip_dialog:metas([invite_local_sdp, invite_remote_sdp, local_target,
                             raw_remote_target], DialogIdA),
 
-    [
+    {ok, [
         {invite_local_sdp, RemoteSDP2},
         {invite_remote_sdp, LocalSDP2},
         {remote_target, 
             #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {raw_local_target, <<"<sip:ok@127.0.0.1:5070>">>}
-    ] = nksip_dialog:meta([invite_local_sdp, invite_remote_sdp, remote_target,
+    ]} = nksip_dialog:metas([invite_local_sdp, invite_remote_sdp, remote_target,
                             raw_local_target], DialogIdB),
     true = lists:member({<<"sendonly">>, []}, LMed2#sdp_m.attributes),
 
@@ -378,33 +378,33 @@ rr_contact() ->
                                {client2, sdp_update}]),
 
     LVsn3 = LVsn2+1, RVsn3 = RVsn2+1,
-    [
+    {ok, [
         {invite_local_sdp, #sdp{vsn=LVsn3, connect={_, _, <<"client1">>}} = LocalSDP3},
         {invite_remote_sdp, #sdp{vsn=RVsn3, connect={_, _, <<"client2">>}} = RemoteSDP3}
-    ] = nksip_dialog:meta([invite_local_sdp, invite_remote_sdp], DialogIdA),
+    ]} = nksip_dialog:metas([invite_local_sdp, invite_remote_sdp], DialogIdA),
     
-    [
+    {ok, [
         {invite_local_sdp, RemoteSDP3},
         {invite_remote_sdp, LocalSDP3}
-    ] = nksip_dialog:meta([invite_local_sdp, invite_remote_sdp], DialogIdB),
+    ]} = nksip_dialog:metas([invite_local_sdp, invite_remote_sdp], DialogIdB),
 
     %% Test Contact is not modified
     {ok, 200, []} = nksip_uac:options(DialogIdA, [{contact, <<"sip:aaa">>}]),
-    [
+    {ok, [
         {invite_local_sdp, #sdp{vsn=LVsn3}},
         {invite_remote_sdp, #sdp{vsn=RVsn3}},
         {local_target, 
             #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {raw_remote_target, <<"<sip:ok@127.0.0.1:5070>">>}
-    ] = nksip_dialog:meta([invite_local_sdp, invite_remote_sdp, 
+    ]} = nksip_dialog:metas([invite_local_sdp, invite_remote_sdp, 
                             local_target, raw_remote_target], DialogIdA),
     
-    [
+    {ok, [
         {remote_target,  
             #uri{user = <<"client1">>, domain = <<"localhost">>, port=5060}}, 
         {raw_local_target, <<"<sip:ok@127.0.0.1:5070>">>},
         {invite_local_sdp, #sdp{vsn=RVsn3}}
-    ] = nksip_dialog:meta([remote_target, raw_local_target, invite_local_sdp],
+    ]} = nksip_dialog:metas([remote_target, raw_local_target, invite_local_sdp],
                            DialogIdB), 
    
     {LocalSDP3, RemoteSDP3} = get_sessions(client1, DialogIdA),
@@ -442,14 +442,14 @@ multiple_uac() ->
     {ok, 200, [{dialog_id, DialogIdA}]} = 
         nksip_uac:invite(client1, "<sip:ok@127.0.0.1:5070;transport=tcp>", 
                          [RepHd, OpAnswer]),
-    [{local_seq, _CSeq}, {invite_status, accepted_uac}] = 
-        nksip_dialog:meta([local_seq, invite_status], DialogIdA),
+    {ok, [{local_seq, _CSeq}, {invite_status, accepted_uac}]} = 
+        nksip_dialog:metas([local_seq, invite_status], DialogIdA),
     
     {error, request_pending} = nksip_uac:invite(DialogIdA, []), 
     ok = nksip_uac:ack(DialogIdA, []),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     Fun = fun({resp, 200, _Req, _Call}) -> Self ! {Ref, ok1} end,
-    DialogIdB = nksip_dialog:remote_id(DialogIdA, client2),
+    DialogIdB = nksip_dialog_lib:remote_id(DialogIdA, client2),
     {async, _} = nksip_uac:invite(DialogIdB, [async, {callback, Fun}, OpAnswer]),
     ok = tests_util:wait(Ref, [ok1]),
     % % CSeq uses next NkSIP's cseq. The next for dialog is CSeq+1, the first 
@@ -470,9 +470,9 @@ multiple_uas() ->
     ok = nksip_uac:ack(DialogId1A, [RepHd]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
-    confirmed = nksip_dialog:meta(invite_status, DialogId1A),
-    DialogId1B = nksip_dialog:remote_id(DialogId1A, client2),
-    confirmed = nksip_dialog:meta(invite_status, DialogId1B),
+    {ok, confirmed} = nksip_dialog:meta(invite_status, DialogId1A),
+    DialogId1B = nksip_dialog_lib:remote_id(DialogId1A, client2),
+    {ok, confirmed} = nksip_dialog:meta(invite_status, DialogId1B),
 
     MakeFun = fun() ->
         fun(Reply) ->
@@ -482,7 +482,7 @@ multiple_uas() ->
                 {resp, Code, _Resp, _Call} when Code < 200 -> 
                     Self ! {Ref, provisional};
                 {resp, Code, Resp, _Call} when Code < 300 -> 
-                    FDlgId = nksip_dialog:get_id(Resp),
+                    {ok, FDlgId} = nksip_dialog:get_handle(Resp),
                     spawn(fun() -> nksip_uac:ack(FDlgId, [RepHd]) end)
             end
         end
@@ -504,8 +504,8 @@ multiple_uas() ->
     % % Previous invite will reply 200, and Fun will send ACK
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]), 
     
-    confirmed = nksip_dialog:meta(invite_status, DialogId1A),
-    confirmed = nksip_dialog:meta(invite_status, DialogId1B),
+    {ok, confirmed} = nksip_dialog:meta(invite_status, DialogId1A),
+    {ok, confirmed} = nksip_dialog:meta(invite_status, DialogId1B),
     {ok, 200, []} = nksip_uac:bye(DialogId1A, []),
     ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}, {client2, bye}]),
 
@@ -515,11 +515,11 @@ multiple_uas() ->
     ok = nksip_uac:ack(DialogId2A, [RepHd]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
     
-    [{invite_status, confirmed}, {local_seq, LSeq}, {remote_seq, RSeq}] = 
-        nksip_dialog:meta([invite_status, local_seq, remote_seq], DialogId2A),
-    DialogId2B = nksip_dialog:remote_id(DialogId2A, client2),
-    [{invite_status, confirmed}, {local_seq, RSeq}, {remote_seq, LSeq}] = 
-        nksip_dialog:meta([invite_status, local_seq, remote_seq], DialogId2B),
+    {ok, [{invite_status, confirmed}, {local_seq, LSeq}, {remote_seq, RSeq}]} = 
+        nksip_dialog:metas([invite_status, local_seq, remote_seq], DialogId2A),
+    DialogId2B = nksip_dialog_lib:remote_id(DialogId2A, client2),
+    {ok, [{invite_status, confirmed}, {local_seq, RSeq}, {remote_seq, LSeq}]} = 
+        nksip_dialog:metas([invite_status, local_seq, remote_seq], DialogId2B),
 
     % The remote party (client2) will send a reinvite to the local (client1),
     % but the response will be delayed 300msecs
@@ -550,24 +550,24 @@ multiple_uas() ->
 
 sip_invite(Req, Call) ->
     tests_util:save_ref(Req),
-    Values = nksip_request:header(<<"x-nk">>, Req),
+    {ok, Values} = nksip_request:header(<<"x-nk">>, Req),
     Hds = case Values of [] -> []; _ -> [{add, "x-nk", nksip_lib:bjoin(Values)}] end,
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
-        [Op0] -> Op0;
-        _ -> <<"decline">>
+        {ok, [Op0]} -> Op0;
+        {ok, _} -> <<"decline">>
     end,
     Sleep = case nksip_request:header(<<"x-nk-sleep">>, Req) of
-        [Sleep0] -> nksip_lib:to_integer(Sleep0);
-        _ -> 0
+        {ok, [Sleep0]} -> nksip_lib:to_integer(Sleep0);
+        {ok, _} -> 0
     end,
     Prov = case nksip_request:header(<<"x-nk-prov">>, Req) of
-        [<<"true">>] -> true;
-        _ -> false
+        {ok, [<<"true">>]} -> true;
+        {ok, _} -> false
     end,
-    ReqId = nksip_request:get_id(Req),
-    SDP1 = case nksip_dialog:get_dialog(Req, Call) of
+    {ok, ReqId} = nksip_request:get_handle(Req),
+    {ok, SDP1} = case nksip_dialog:get_dialog(Req, Call) of
         {ok, Dialog} -> nksip_dialog:meta(invite_local_sdp, Dialog);
-        error -> undefined
+        {error, _} -> {ok, undefined}
     end,
     proc_lib:spawn(
         fun() ->
@@ -604,8 +604,8 @@ sip_ack(Req, _Call) ->
 
 
 sip_options(Req, _Call) ->
-    Ids = nksip_request:header(<<"x-nk-id">>, Req),
-    App = nksip_request:app_name(Req),
+    {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
+    {ok, App} = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
