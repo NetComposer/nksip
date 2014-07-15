@@ -182,6 +182,8 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
                 false when element(1, Reply)==error -> 
                     ?notice(AppId, <<>>, "Error ~p on SCTP connection up", 
                             [element(2, Reply)]),
+                    State;
+                false ->
                     State
             end;
         #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
@@ -247,7 +249,7 @@ do_connect(Ip, Port, AssocId, State) ->
     #state{app_id=AppId} = State,
     case nksip_transport:get_connected(AppId, sctp, Ip, Port, <<>>) of
         [{Transp, Pid}|_] -> 
-            {Pid, Transp};
+            {ok, Pid, Transp};
         [] -> 
             case nksip_connection:is_max(AppId) of
                 false ->
