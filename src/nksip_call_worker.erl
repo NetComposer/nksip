@@ -136,10 +136,10 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
         {ok, Dialog} ->
             case catch Fun(Dialog) of
                 {Reply, {update, #dialog{}=Dialog1}} ->
-                    gen_server:reply(From, Reply),
+                    gen_server:reply(From, {apply, Reply}),
                     nksip_call_dialog:store(Dialog1, Call);
                 Reply ->
-                    gen_server:reply(From, Reply),
+                    gen_server:reply(From, {apply, Reply}),
                     Call
             end;
         not_found -> 
@@ -180,10 +180,10 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
         {ok, Msg} -> 
             case catch Fun(Msg) of
                 {Reply, {update, #sipmsg{}=SipMsg1}} ->
-                    gen_server:reply(From, {ok, Reply}),
+                    gen_server:reply(From, {apply, Reply}),
                     nksip_call_lib:update_sipmsg(SipMsg1, Call);
                 Reply ->
-                    gen_server:reply(From, {ok, Reply}),
+                    gen_server:reply(From, {apply, Reply}),
                     Call
             end;
         not_found -> 
@@ -193,8 +193,10 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
 
 work({apply_transaction, MsgId, Fun}, From, Call) ->
     case get_trans(MsgId, Call) of
-        {ok, Trans} -> gen_server:reply(From, catch Fun(Trans));
-        not_found ->  gen_server:reply(From, {error, unknown_transaction})
+        {ok, Trans} -> 
+            gen_server:reply(From, {apply, catch Fun(Trans)});
+        not_found ->  
+            gen_server:reply(From, {error, unknown_transaction})
     end,
     Call;
 

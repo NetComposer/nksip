@@ -62,7 +62,7 @@ meta(Name, #sipmsg{}=SipMsg) when is_list(Name); is_binary(Name) ->
 
 meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
     case Name of
-        handle -> element(2, get_handle(S));
+        handle -> get_handle(S);
         internal_id -> S#sipmsg.id;
         app_id -> S#sipmsg.app_id;
         app_name -> apply(S#sipmsg.app_id, name, []);
@@ -327,9 +327,7 @@ get_handle(#sipmsg{app_id=AppId, class=Class, id=MsgId, call_id=CallId}) ->
         CallId/binary
     >>;
 
-get_handle(O) ->
-    lager:warning("INVALID: ~p", [O]),
-
+get_handle(_) ->
     error(invalid_handle).
     
 
@@ -376,9 +374,12 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 end
             end,
             case nksip_call:apply_sipmsg(AppId, CallId, MsgId, Fun) of
-                {ok, {ok, Values}} -> {ok, Values};
-                {ok, {error, {invalid_field, Field}}} -> error({invalid_field, Field});
-                {error, Error} -> {error, Error}
+                {apply, {ok, Values}} -> 
+                    {ok, Values};
+                {apply, {error, {invalid_field, Field}}} -> 
+                    error({invalid_field, Field});
+                {error, Error} -> 
+                    {error, Error}
             end;
         _ ->
             error(invalid_handle)

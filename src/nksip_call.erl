@@ -309,7 +309,7 @@ make_dialog(DialogId, Method, Opts, Call) ->
 
 %% @private
 -spec apply_sipmsg(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
-    {ok, term()} | {error, term()}.
+    {apply, term()} | {error, term()}.
 
 apply_sipmsg(AppId, CallId, MsgId, Fun) ->
     nksip_router:send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun}).
@@ -317,7 +317,7 @@ apply_sipmsg(AppId, CallId, MsgId, Fun) ->
 
 %% @private Applies a fun to a transaction and returns the result.
 -spec apply_transaction(nksip:handle(), function()) ->
-    term() | {error, term()}.
+    {apply, term()} | {error, term()}.
 
 apply_transaction(Id, Fun) ->
     {_Class, AppId, MsgId, CallId} = nksip_sipmsg:parse_handle(Id),
@@ -327,7 +327,7 @@ apply_transaction(Id, Fun) ->
 
 %% @private
 -spec apply_dialog(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id(), function()) ->
-    {ok, [nksip:handle()]} | {error, term()}.
+    {apply, term()} | {error, term()}.
 
 apply_dialog(AppId, CallId, DialogId, Fun) ->
     nksip_router:send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun}).

@@ -127,7 +127,7 @@ basic() ->
         {raw_remote_target, <<"<sip:b@127.0.0.1:5070>">>},
         {invite_local_sdp, SDP5},
         {invite_remote_sdp, SDP4} 
-    ]} = nksip_dialog:metad([raw_local_target, raw_remote_target, 
+    ]} = nksip_dialog:metas([raw_local_target, raw_remote_target, 
                             invite_local_sdp, invite_remote_sdp], DialogId),
     {ok, [
         {raw_local_target, <<"<sip:b@127.0.0.1:5070>">>},

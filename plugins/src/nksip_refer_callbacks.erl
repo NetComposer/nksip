@@ -109,6 +109,7 @@ nkcb_call(sip_dialog_update,
     Status1 = case Status of
         init -> init;
         active -> active;
+        middle_timer -> middle_timer;
         {terminated, _} -> terminated
     end,
     catch AppId:sip_refer_update(SubsId, Status1, Call),

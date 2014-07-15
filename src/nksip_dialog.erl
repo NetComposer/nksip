@@ -119,6 +119,11 @@ call_id(Handle) ->
 
 meta(Field, #dialog{}=Dialog) -> 
     {ok, nksip_dialog_lib:meta(Field, Dialog)};
+meta(Field, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+    case get_handle(MsgHandle) of
+        {ok, DlgHandle} -> meta(Field, DlgHandle);
+        {error, Error} -> {error, Error}
+    end;
 meta(Field, Handle) ->
     nksip_dialog_lib:remote_meta(Field, Handle).
 
@@ -129,6 +134,11 @@ meta(Field, Handle) ->
 
 metas(Fields, #dialog{}=Dialog) when is_list(Fields) ->
     {ok, nksip_dialog_lib:metas(Fields, Dialog)};
+metas(Fields, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+    case get_handle(MsgHandle) of
+        {ok, DlgHandle} -> metas(Fields, DlgHandle);
+        {error, Error} -> {error, Error}
+    end;
 metas(Fields, Handle) when is_list(Fields) ->
     nksip_dialog_lib:remote_metas(Fields, Handle).
 

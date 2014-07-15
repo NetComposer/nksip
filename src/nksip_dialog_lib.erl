@@ -80,7 +80,7 @@ parse_handle(_) ->
 -spec meta(nksip_dialog:field(), nksip:dialog()) -> 
     term().
 
-meta(Field, #dialog{invite=I}=D) when is_atom(Field) ->
+meta(Field, #dialog{invite=I}=D) ->
     case Field of
         handle -> element(2, get_handle(D));
         internal_id -> D#dialog.id;
@@ -119,7 +119,7 @@ meta(Field, #dialog{invite=I}=D) when is_atom(Field) ->
         to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
         full_dialog -> D;
         {function, Fun} -> Fun(D);
-        _ -> error(invalid_field) 
+        _ -> error({invalid_field, Field}) 
     end.
 
 %% @doc Get specific metadata from the dialog
@@ -150,14 +150,19 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
         {AppId, DialogId, CallId} ->
             Fun = fun(Dialog) ->
                 case catch metas(Fields, Dialog) of
-                    {'EXIT', _} -> {error, invalid_field};
-                    Values -> {ok, Values}
+                    {'EXIT', {{invalid_field, Field}, _}} -> 
+                        {error, {invalid_field, Field}};
+                    Values -> 
+                        {ok, Values}
                 end
             end,
             case nksip_call:apply_dialog(AppId, CallId, DialogId, Fun) of
-                {ok, Values} -> {ok, Values};
-                {error, invalid_field} -> error(invalid_field);
-                {error, Error} -> {error, Error}
+                {apply, {ok, Values}} -> 
+                    {ok, Values};
+                {apply, {error, {invalid_field, Field}}} -> 
+                    error({invalid_field, Field});
+                {error, Error} -> 
+                    {error, Error}
             end;
         _ ->
             error(invalid_handle)

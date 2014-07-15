@@ -367,7 +367,7 @@ sip_prack(Req, _Call) ->
     tests_util:send_ref({prack, RAck}, Req),
     Body = case nksip_request:body(Req) of
         {ok, #sdp{} = RemoteSDP} ->
-            App = nksip_request:app_name(Req),
+            {ok, App} = nksip_request:app_name(Req),
             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(App)}};
         {ok, _} -> 
             <<>>

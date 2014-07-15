@@ -57,7 +57,7 @@ app_id(#sipmsg{class={resp, _, _}, app_id=AppId}) ->
     {ok, AppId};
 app_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, AppId, _Id, _CallId} -> {ok, AppId};
+        {resp, AppId, _Id, _CallId} -> {ok, AppId};
         _ -> error(invalid_response)
     end.
 
@@ -79,7 +79,7 @@ call_id(#sipmsg{class={resp, _, _}, call_id=CallId}) ->
     {ok, CallId};
 call_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, _AppId, _Id, CallId} -> {ok, CallId};
+        {resp, _AppId, _Id, CallId} -> {ok, CallId};
         _ -> error(invalid_response)
     end.
 

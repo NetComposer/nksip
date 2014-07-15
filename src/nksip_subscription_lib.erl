@@ -134,17 +134,22 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 case find(SubsId, Dialog) of
                     #subscription{} = U -> 
                         case catch metas(Fields, {user_subs, U, Dialog}) of
-                            {'EXIT', _} -> {error, invalid_field};
-                            Values -> {ok, Values}
+                            {'EXIT', {{invalid_field, Field}, _}} -> 
+                                {error, {invalid_field, Field}};
+                            Values -> 
+                                {ok, Values}
                         end;
                     not_found -> 
                         {error, invalid_subscription}
                 end
             end,
             case nksip_call:apply_dialog(AppId, CallId, DialogId, Fun) of
-                {ok, Values} -> {ok, Values};
-                {error, invalid_field} -> error(invalid_field);
-                {error, Error} -> {error, Error}
+                {apply, {ok, Values}} -> 
+                    {ok, Values};
+                {apply, {error, {invalid_field, Field}}} -> 
+                    error({invalid_field, Field});
+                {error, Error} -> 
+                    {error, Error}
             end;
         _ ->
             error(invalid_handle)

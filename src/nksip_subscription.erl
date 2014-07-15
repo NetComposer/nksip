@@ -111,6 +111,11 @@ call_id(Id) ->
 
 meta(Field, {user_subs, _, _}=Subs) -> 
     {ok, nksip_subscription_lib:meta(Field, Subs)};
+meta(Field, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+    case get_handle(MsgHandle) of
+        {ok, SubsHandle} -> meta(Field, SubsHandle);
+        {error, Error} -> {error, Error}
+    end;
 meta(Field, Handle) ->
     nksip_subscription_lib:remote_meta(Field, Handle).
 
@@ -121,6 +126,11 @@ meta(Field, Handle) ->
 
 metas(Fields, {user_subs, _, _}=Subs) when is_list(Fields) ->
     {ok, nksip_subscription_lib:metas(Fields, Subs)};
+metas(Fields, <<Class, $_, _/binary>>=MsgHandle) when Class==$R; Class==$S ->
+    case get_handle(MsgHandle) of
+        {ok, SubsHandle} -> metas(Fields, SubsHandle);
+        {error, Error} -> {error, Error}
+    end;
 metas(Fields, Handle) when is_list(Fields) ->
     nksip_subscription_lib:remote_metas(Fields, Handle).
 

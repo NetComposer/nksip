@@ -161,7 +161,7 @@ call(CB, Arg) ->
 %% @private
 response(Resp, Opts) ->
     #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp,
-    Fields0 = case Method of
+    Metas0 = case Method of
         'INVITE' when Code>100, Code<300 -> 
             Handle = nksip_dialog_lib:get_handle(Resp),
             [{dialog_id, Handle}];
@@ -180,13 +180,14 @@ response(Resp, Opts) ->
         _ -> 
             []
     end,
-    Values = case nksip_lib:get_value(meta, Opts, []) of
+
+    Metas = case nksip_lib:get_value(meta, Opts, []) of
         [] ->
-            Fields0;
+            Metas0;
         Fields when is_list(Fields) ->
-            Fields0 ++ [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
+            Metas0 ++ nksip_sipmsg:metas(Fields, Resp);
         _ ->
-            Fields0
+            Metas0
     end,
-    {ok, Code, Values}.
+    {ok, Code, Metas}.
 

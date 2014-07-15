@@ -285,7 +285,7 @@ sip_invite(Req, _Call) ->
 sip_options(Req, _Call) ->
     case nksip_request:header(<<"x-nk-sleep">>, Req) of
         {ok, [Sleep0]} -> 
-            ReqId = nksip_request:get_handle(Req),
+            {ok, ReqId} = nksip_request:get_handle(Req),
             spawn(
                 fun() ->
                     nksip_request:reply(101, ReqId), 

@@ -620,7 +620,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 false ->
                     {Proxy, ruri, Opts}
             end;
-        _ ->
+        {ok, _} ->
             process
     end.
 
