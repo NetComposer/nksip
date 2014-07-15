@@ -41,18 +41,16 @@
                 {send_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
                 {cancel, nksip_sipmsg:id()} |
                 {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
-                make, nksip:method(), nksip:user_uri(), nksip:optslist()} |                
                 {incoming, #sipmsg{}} | 
-                {make_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
-                {apply_dialog, nksip_dialog_lib:id(), function()} |
-                {find_dialog, nksip_sipmsg:id()} |
+                info |
                 get_all_dialogs | 
                 {stop_dialog, nksip_dialog_lib:id()} |
-                {apply_sipmsg, nksip_sipmsg:id(), function()} |
-                {apply_transaction, nksip_sipmsg:id(), function()} |
-                get_all_transactions | info |
+                {apply_dialog, nksip_dialog_lib:id(), function()} |
                 {get_authorized_list, nksip_dialog_lib:id()} | 
-                {clear_authorized_list, nksip_dialog_lib:id()}.
+                {clear_authorized_list, nksip_dialog_lib:id()} |
+                get_all_transactions | 
+                {apply_transaction, nksip_sipmsg:id(), function()} |
+                {apply_sipmsg, nksip_sipmsg:id(), function()}.
 
 
 
@@ -88,7 +86,13 @@ work({send_dialog, DialogId, Method, Opts}, From, Call) ->
             Call
     end;
 
-work({cancel, ReqId, Opts}, From, Call) ->
+work({send_cancel, ReqId, Opts}, From, Call) ->
+    case is_list(Opts) of
+        true -> ok;
+        false -> error(cancel1)
+    end,
+
+
     case get_trans_id(ReqId, Call) of
         {ok, TransId} ->
             nksip_call_uac:cancel(TransId, Opts, {srv, From}, Call);
@@ -97,24 +101,16 @@ work({cancel, ReqId, Opts}, From, Call) ->
             Call
     end;
 
-work({send_reply, ReqId, Reply}, From, Call) ->
+work({send_reply, ReqId, SipReply}, From, Call) ->
     case get_trans(ReqId, Call) of
         {ok, #trans{class=uas}=UAS} ->
-            case nksip_call_uas_reply:reply(Reply, UAS, Call) of
-                {{ok, _SipMsg}, Call1} -> Result = ok;
-                {{error, Error}, Call1} -> Result = {error, Error}
-            end;
+            {Reply, Call1} = nksip_call_uas_reply:reply(SipReply, UAS, Call),
+            gen_server:reply(From, Reply),
+            Call1;
         _ -> 
-            Result = {error, invalid_call},
-            Call1 = Call
-    end,
-    gen_server:reply(From, Result),
-    Call1;
-
-
-
-
-
+            gen_server:reply(From, {error, invalid_call}),
+            Call
+    end;
 
 work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
     nksip_call_uas_req:request(Req, Call);
@@ -128,14 +124,20 @@ work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
     end;
 
 
-
-
-work({make, Method, Uri, Opts}, From, Call) ->
-    #call{app_id=AppId, call_id=CallId} = Call,
-    Opts1 = [{call_id, CallId} | Opts],
-    Reply = nksip_uac_lib:make(AppId, Method, Uri, Opts1),
-    gen_server:reply(From, Reply),
+work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
+    Ids = [nksip_dialog_lib:get_handle(Dialog) || Dialog <- Dialogs],
+    gen_server:reply(From, {ok, Ids}),
     Call;
+
+work({stop_dialog, DialogId}, From, Call) ->
+    case get_dialog(DialogId, Call) of
+        {ok, Dialog} ->
+            gen_fsm:reply(From, ok),
+            nksip_call_dialog:stop(forced, Dialog, Call);
+        not_found ->
+            gen_fsm:reply(From, {error, unknown_dialog}),
+            Call
+    end;
 
 work({apply_dialog, DialogId, Fun}, From, Call) ->
     case get_dialog(DialogId, Call) of
@@ -153,32 +155,28 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
             Call
     end;
     
-work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
-    Ids = [nksip_dialog_lib:get_handle(Dialog) || Dialog <- Dialogs],
+work({get_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
+    List = [{Proto, Ip, Port} || {D, Proto, Ip, Port} <- Auths, D==DlgId],
+    gen_server:reply(From, {ok, List}),
+    Call;
+
+work({clear_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
+    Auths1 = [{D, Proto, Ip, Port} || {D, Proto, Ip, Port} <- Auths, D/=DlgId],
+    gen_server:reply(From, ok),
+    Call#call{auths=Auths1};
+
+work(get_all_transactions, From, #call{trans=Trans}=Call) ->
+    Ids = [{Class, Id} || #trans{id=Id, class=Class} <- Trans],
     gen_server:reply(From, {ok, Ids}),
     Call;
 
-work({stop_dialog, DialogId}, From, Call) ->
-    case get_dialog(DialogId, Call) of
-        {ok, Dialog} ->
-            gen_fsm:reply(From, ok),
-            nksip_call_dialog:stop(forced, Dialog, Call);
-        not_found ->
-            gen_fsm:reply(From, {error, unknown_dialog}),
-            Call
-    end;
-
-work({find_dialog, MsgId}, From, Call) ->
-    Reply = case find_dialog(MsgId, Call) of
-        {ok, DialogId} -> 
-            case get_dialog(DialogId, Call) of
-                {ok, Dialog} -> {ok, nksip_dialog_lib:get_handle(Dialog)};
-                not_found -> {ok, <<>>}
-            end;
-        not_found -> 
-            {ok, <<>>}
+work({apply_transaction, MsgId, Fun}, From, Call) ->
+    case get_trans(MsgId, Call) of
+        {ok, Trans} -> 
+            gen_server:reply(From, {apply, catch Fun(Trans)});
+        not_found ->  
+            gen_server:reply(From, {error, unknown_transaction})
     end,
-    gen_server:reply(From, Reply),
     Call;
 
 work({apply_sipmsg, MsgId, Fun}, From, Call) ->
@@ -196,20 +194,6 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
             gen_server:reply(From, {error, unknown_sipmsg}),
             Call
     end;
-
-work({apply_transaction, MsgId, Fun}, From, Call) ->
-    case get_trans(MsgId, Call) of
-        {ok, Trans} -> 
-            gen_server:reply(From, {apply, catch Fun(Trans)});
-        not_found ->  
-            gen_server:reply(From, {error, unknown_transaction})
-    end,
-    Call;
-
-work(get_all_transactions, From, #call{trans=Trans}=Call) ->
-    Ids = [{Class, Id} || #trans{id=Id, class=Class} <- Trans],
-    gen_server:reply(From, {ok, Ids}),
-    Call;
 
 work(info, From, Call) -> 
     #call{
@@ -257,18 +241,6 @@ work(info, From, Call) ->
     gen_server:reply(From, InfoTrans++InfoDialog++InfoProvEvents),
     Call;
 
-work({get_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
-    List = [{Proto, Ip, Port} || 
-            {D, Proto, Ip, Port} <- Auths, D==DlgId],
-    gen_server:reply(From, {ok, List}),
-    Call;
-
-work({clear_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
-    Auths1 = [{D, Proto, Ip, Port} || 
-              {D, Proto, Ip, Port} <- Auths, D/=DlgId],
-    gen_server:reply(From, ok),
-    Call#call{auths=Auths1};
-
 work(crash, _, _) ->
     error(forced_crash).
 
@@ -301,15 +273,15 @@ timeout({remove_prov_event, Id}, _Ref, Call) ->
 %% ===================================================================
 
 
-%% @private
--spec find_dialog(nksip_sipmsg:id(), nksip_call:call()) ->
-    {ok, nksip_dialog_lib:id()} | not_found.
+% %% @private
+% -spec find_dialog(nksip_sipmsg:id(), nksip_call:call()) ->
+%     {ok, nksip_dialog_lib:id()} | not_found.
 
-find_dialog(MsgId, #call{msgs=Msgs}) ->
-    case lists:keyfind(MsgId, 1, Msgs) of
-        false -> not_found;
-        {MsgId, _TransId, DialogId} -> {ok, DialogId}
-    end.
+% find_dialog(MsgId, #call{msgs=Msgs}) ->
+%     case lists:keyfind(MsgId, 1, Msgs) of
+%         false -> not_found;
+%         {MsgId, _TransId, DialogId} -> {ok, DialogId}
+%     end.
 
 
 %% @private

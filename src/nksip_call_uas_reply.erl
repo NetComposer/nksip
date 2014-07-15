@@ -31,11 +31,6 @@
 -type incoming() :: 
     nksip:sipreply() | {nksip:response(), nksip:optslist()}.
 
--type reply_error() :: 
-    invalid_call | pending_prack | stateless_not_allowed | service_unavailable.
-
--type reply_return() :: 
-    {{ok, nksip:response()} | {error, reply_error()}, nksip_call:call()}.
 
 
 %% ===================================================================
@@ -44,7 +39,8 @@
 
 %% @doc Sends a transaction reply
 -spec reply(incoming(), nksip_call:trans(), nksip_call:call()) ->
-    reply_return().
+    {ok, nksip_call:call()} | {{error, term()}, nksip_call:call()}.
+
 
 reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
     ?call_notice("UAC ~p 'ACK' (~p) trying to send a reply ~p", [Id, Status, Reply]),
@@ -54,8 +50,10 @@ reply(Reply, #trans{method='ACK', id=Id, status=Status}=UAS, Call) ->
 reply(Reply, #trans{status=Status, method=Method}=UAS, Call)
           when Status==authorize; Status==route ->
     UAS1 = case Method of
-        'INVITE' -> UAS#trans{status=invite_proceeding};
-        _ -> UAS#trans{status=trying}
+        'INVITE' -> 
+            UAS#trans{status=invite_proceeding};
+        _ -> 
+            UAS#trans{status=trying}
     end,
     reply(Reply, UAS1, update(UAS1, Call));
 
@@ -101,7 +99,7 @@ reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 
 %% @private
 -spec send(incoming(), nksip_call:trans(), nksip_call:call()) ->
-    reply_return().
+    {ok, nksip_call:call()} | {error, term()}.
 
 send({Resp, SendOpts}, UAS, Call) ->
     #sipmsg{
@@ -118,7 +116,7 @@ send({Resp, SendOpts}, UAS, Call) ->
     #call{app_id=AppId, msgs=Msgs} = Call,
     case nksip_transport_uas:send_response(Resp, SendOpts) of
         {ok, Resp2} -> 
-            UserReply = {ok, Resp2};
+            UserReply = ok;
         error -> 
             UserReply = {error, service_unavailable},
             {Resp2, _} = nksip_reply:reply(Req, service_unavailable)

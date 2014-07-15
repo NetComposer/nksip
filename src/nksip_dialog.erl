@@ -27,6 +27,7 @@
 
 -export([app_id/1, app_name/1, get_handle/1, call_id/1, meta/2, metas/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
+-export([get_authorized_list/1, clear_authorized_list/1]).
 -export([get_all_data/0]).
 -export_type([invite_status/0, field/0, stop_reason/0]).
 
@@ -158,7 +159,7 @@ get_dialog({uses_subs, _Subs, Dialog}, _) ->
     {ok, Dialog}.
 
 
-%% @doc Gets all started dialog ids.
+%% @doc Gets all started dialogs handles
 -spec get_all() ->
     [nksip:handle()].
 
@@ -166,14 +167,17 @@ get_all() ->
     nksip_call:get_all_dialogs().
 
 
-%% @doc Finds all existing dialogs having a `Call-ID'.
+%% @doc Finds all started dialogs handles having `Call-ID'.
 -spec get_all(nksip:app_name()|nksip:app_id(), nksip:call_id()) ->
     [nksip:handle()].
 
 get_all(App, CallId) ->
     case nksip:find_app_id(App) of
         {ok, AppId} -> 
-            nksip_call:get_all_dialogs(AppId, CallId);
+            case nksip_call:get_all_dialogs(AppId, CallId) of
+                {ok, Handles} -> Handles;
+                {error, _} -> []
+            end;
         _ ->
             []
     end.
@@ -190,10 +194,11 @@ bye_all() ->
 
 %% @doc Stops an existing dialog (remove it from memory).
 -spec stop(nksip:handle()) ->
-    ok.
+    ok | {error, term()}.
 
-stop(Id) ->
-    nksip_call:stop_dialog(Id).
+stop(Handle) ->
+    {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    nksip_call:stop_dialog(AppId, CallId, DialogId).
 
 
 %% @doc Stops (deletes) all current dialogs.
@@ -204,6 +209,25 @@ stop_all() ->
     lists:foreach(fun(DialogId) -> stop(DialogId) end, get_all()).
 
 
+%% @doc Gets the authorized list of transport, ip and ports for a dialog.
+-spec get_authorized_list(nksip:handle()) ->
+    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
+
+get_authorized_list(Handle) ->
+    {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    case nksip_call:get_authorized_list(AppId, CallId, DialogId)of
+        {ok, List} -> List;
+        _ -> []
+    end.
+
+
+%% @doc Clears the authorized list of transport, ip and ports for a dialog.
+-spec clear_authorized_list(nksip:handle()) ->
+    ok | {error, term()}.
+
+clear_authorized_list(Handle) ->
+    {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
+    nksip_call:clear_authorized_list(AppId, CallId, DialogId).
 
 
 

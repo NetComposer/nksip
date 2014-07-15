@@ -137,7 +137,8 @@ header(Name, Handle) when is_binary(Handle) ->
     ok | {error, term()}.
 
 reply(SipReply, Handle) ->
-    nksip_call:send_reply(Handle, SipReply).
+    {req, AppId, ReqId, CallId} = nksip_sipmsg:parse_handle(Handle),
+    nksip_call:send_reply(AppId, CallId, ReqId, SipReply).
 
 
 %% @doc Checks if this request would be sent to a local address in case of beeing proxied.

@@ -394,7 +394,7 @@ send_ack(#trans{request=Req, id=Id}, _Call) ->
     nksip_call:call().
 
 send_2xx_ack(DialogId, Call) ->
-    case nksip_call:sync_send_dialog(DialogId, 'ACK', [async], Call) of
+    case nksip_call_uac_req:dialog(DialogId, 'ACK', [async], Call) of
         {ok, Call1} ->
             Call1;
         {error, Error} ->

@@ -22,7 +22,7 @@
 -module(nksip_call_uac_req).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/4, resend/3]).
+-export([request/4, dialog/4, resend/3]).
 -export_type([uac_from/0]).
 -import(nksip_call_lib, [update/2]).
 
@@ -70,6 +70,39 @@ request(Req, Opts, From, Call) ->
                         [Id, Method, Opts1, MsgId])
     end,
     send(UAC, Call2).
+
+
+%% @doc Sends a new in-dialog request from inside the call process
+-spec dialog(nksip_dialog_lib:id(), nksip:method(), nksip:optslist(), nksip_call:call()) ->
+    {ok, nksip_call:call()} | {error, term()}.
+
+dialog(DialogId, Method, Opts, Call) ->
+    case make_dialog(DialogId, Method, Opts, Call) of
+        {ok, Req, ReqOpts, Call1} ->
+            {ok, request(Req, ReqOpts, none, Call1)};
+        {error, Error} ->
+            {error, Error}
+    end.
+
+
+%% @private Generates a new in-dialog request from inside the call process
+-spec make_dialog(nksip_dialog_lib:id(), nksip:method(), nksip:optslist(), nksip_call:call()) ->
+    {ok, nksip:request(), nksip:optslist(), nksip_call:call()} | {error, term()}.
+
+make_dialog(DialogId, Method, Opts, Call) ->
+    #call{app_id=AppId, call_id=CallId} = Call,
+    case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
+        {ok, RUri, Opts1, Call1} -> 
+            Opts2 = [{call_id, CallId} | Opts1],
+            case nksip_uac_lib:make(AppId, Method, RUri, Opts2) of
+                {ok, Req, ReqOpts} ->
+                    {ok, Req, ReqOpts, Call1};
+                {error, Error} ->
+                    {error, Error}
+            end;
+        {error, Error} ->
+            {error, Error}
+    end.
 
 
 %% @private

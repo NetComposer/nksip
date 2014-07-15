@@ -29,6 +29,8 @@ Function|Description
 [bye_all/0](#bye_all0)|Sends an in-dialog BYE to all existing dialogs
 [stop/1](#stop1)|Stops an existing dialog from its handle (remove it from memory)
 [stop_all/0](#stop_all0)|Stops (removes from memory) all current dialogs
+[get_authorized_list/0](#get_authorized_list1)|Gets the authorized list of transport, ip and ports for a dialog.
+[clear_authorized_list/0](#clear_authorized_list1)|Clear the authorized list of transport, ip and ports for a dialog.
 
 
 ## Functions List
@@ -120,7 +122,7 @@ Sends an in-dialog BYE to all existing dialogs.
 ### stop/1
 ```erlang
 nksip_dialog:stop(nksip:handle()) ->
-    ok.
+    ok | {error, term()}.
 ```
 Destroys an existing dialog from its handle (remove it from memory).
 
@@ -131,3 +133,22 @@ nksip_dialog:stop_all() ->
     ok.
 ```
 Destroys all current dialogs.
+
+
+### get_authorized_list/1
+```erlang
+get_authorized_list(nksip:handle()) ->
+    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
+```
+
+Gets the authorized list of transport, ip and ports for a dialog.
+
+
+### clear_authorized_list/1
+```erlang
+clear_authorized_list(nksip:handle()) ->
+    ok | {error, term()}.
+```
+
+Clears the authorized list of transport, ip and ports for a dialog.
+

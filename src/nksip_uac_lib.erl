@@ -32,7 +32,6 @@
 
 
 %% @doc Generates a new request.
-%% See {@link nksip_uac} for the decription of most options.
 -spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->    
     {ok, nksip:request(), nksip:optslist()} | {error, term()}.
     

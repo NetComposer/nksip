@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call Management Module
+%% @private Call Management Module
 %%
 %% A new {@link nksip_call_srv} process is started for every different
 %% Call-ID request or response, incoming or outcoming.
@@ -28,15 +28,14 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([app_id/1, call_id/1]).
--export([send/2, send/4, send_dialog/3, cancel/1, send_reply/2]).
--export([stop_dialog/1]).
-
--export([get_authorized_list/1, clear_authorized_list/1]).
+-export([send/2, send/5, send_dialog/5, send_cancel/4]).
+-export([send_reply/4]).
 -export([get_all/0, get_info/0, clear_all/0]).
--export([get_all_dialogs/0, get_all_dialogs/2, apply_dialog/4]).
+-export([get_all_dialogs/0, get_all_dialogs/2, apply_dialog/4, stop_dialog/3]).
+-export([get_authorized_list/3, clear_authorized_list/3]).
+-export([get_all_transactions/0, get_all_transactions/2, apply_transaction/4]).
 -export([apply_sipmsg/4]).
--export([get_all_transactions/0, get_all_transactions/2, apply_transaction/2]).
--export([sync_send_dialog/4, make_dialog/4, check_call/1]).
+-export([check_call/1]).
 -export_type([call/0, trans/0, trans_id/0, fork/0]).
 
 -include("nksip.hrl").
@@ -100,91 +99,34 @@ send(AppId, CallId, Method, Uri, Opts) ->
 
 
 %% @private Generates and sends a new in-dialog request.
--spec send_dialog(nksip:method(), nksip:handle(), nksip:optslist()) ->
+-spec send_dialog(nksip:app_id(), nksip:call_id(), nksip:method(), 
+                  nksip_dialog:id(), nksip:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result().
 
 send_dialog(AppId, CallId, Method, DialogId, Opts) ->
     nksip_router:send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts}).
 
 
-%% @doc Cancels an ongoing INVITE request.
--spec cancel(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(),
-             nksip:error_reason()|undefined) ->
+%% @private Cancels an ongoing INVITE request.
+-spec send_cancel(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(),
+                  nksip:optlist()) ->
     nksip_uac:uac_cancel_result().
 
-send_cancel(AppId, CallId, RequestId, Reason) ->
-    nksip_call:router:send_work_sync(AppId, CallId, {send_cancel, RequestId, Reason}).
+send_cancel(AppId, CallId, RequestId, Opts) ->
+    nksip_router:send_work_sync(AppId, CallId, {send_cancel, RequestId, Opts}).
 
 
 
-%% @doc Sends a synchronous request reply.
--spec send_reply(nksip:request()|nksip:handle(), nksip:sipreply()) ->
+%% @private Sends a synchronous request reply.
+-spec send_reply(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), 
+                 nksip:sipreply()) ->
     {ok, nksip:response()} | {error, term()}.
 
-send_reply(Term, Reply) ->
-    Handle = nksip_sipmsg:get_handle(Term),
-    case nksip_sipmsg:parse_handle(Handle) of
-        {req, AppId, ReqId, CallId} ->
-            send_work_sync(AppId, CallId, {send_reply, ReqId, Reply});
-        _ ->
-            {error, invalid_request}
-    end.
+send_reply(AppId, CallId, ReqId, SipReply) ->
+    nksip_router:send_work_sync(AppId, CallId, {send_reply, ReqId, SipReply}).
     
 
-
-
-
-
-
-
-
-
-
-
-
-% %% @doc Gets the Dialog Id of a request or response id
-% -spec find_dialog(nksip:handle()) ->
-%     {ok, nksip:handle()} | {error, term()}.
-
-% find_dialog(Id) ->
-%     {_Class, AppId, MsgId, CallId} = nksip_sipmsg:parse_handle(Id),
-%     send_work_sync(AppId, CallId, {find_dialog, MsgId}).
-
-
-%% @doc Stops (deletes) a dialog.
--spec stop_dialog(nksip:handle()) ->
-    ok | {error, term()}.
- 
-stop_dialog(Id) ->
-    {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Id),
-    send_work_sync(AppId, CallId, {stop_dialog, DialogId}).
-
-
-%% @doc Gets authorized list of transport, ip and ports for a dialog.
--spec get_authorized_list(nksip:handle()) ->
-    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
-
-get_authorized_list(Id) ->
-    {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Id),
-    case send_work_sync(AppId, CallId, {get_authorized_list, DialogId}) of
-        {ok, List} -> List;
-        _ -> []
-    end.
-
-
-%% @doc Clears authorized list of transport, ip and ports for a dialog.
--spec clear_authorized_list(nksip:handle()) ->
-    ok | error.
-
-clear_authorized_list(Id) ->
-    {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Id),
-    case send_work_sync(AppId, CallId, {clear_authorized_list, DialogId}) of
-        ok -> ok;
-        _ -> error
-    end.
-
-
-%% @doc Get all started calls.
+%% @private Get all started calls (dangerous in production with many calls)
 -spec get_all() ->
     [{nksip:app_id(), nksip:call_id(), pid()}].
 
@@ -192,122 +134,55 @@ get_all() ->
     nksip_router:get_all_calls().
 
 
-%% @doc Get information about all started calls.
+%% @private Get information about all started calls (dangerous in production with many calls)
 -spec get_info() ->
     [term()].
 
 get_info() ->
-    lists:sort(lists:flatten([send_work_sync(AppId, CallId, info)
+    lists:sort(lists:flatten([nksip_router:send_work_sync(AppId, CallId, info)
         || {AppId, CallId, _} <- nksip_router:get_all_calls()])).
 
-%% @private 
+
+%% @private Deletes all started calls
+-spec clear_all() ->
+    pos_integer().
+
 clear_all() ->
-    lists:foreach(
-        fun({_, _, Pid}) -> nksip_call_srv:stop(Pid) end, 
+    lists:foldl(
+        fun({_, _, Pid}, Acc) -> nksip_call_srv:stop(Pid), Acc+1 end, 
+        0,
         nksip_router:get_all_calls()).    
 
 
-%% @doc Gets all started dialog ids.
+%% @private Gets all started dialog handles (dangerous in production with many calls)
 -spec get_all_dialogs() ->
     [nksip:handle()].
 
 get_all_dialogs() ->
     lists:flatten([
-        get_all_dialogs(AppId, CallId)
+        case get_all_dialogs(AppId, CallId) of
+            {ok, Handles} -> Handles;
+            {error, _} -> []
+        end
         || 
         {AppId, CallId, _} <- nksip_router:get_all_calls()
     ]).
 
 
-%% @doc Finds all existing dialogs having a `Call-ID'.
+%% @private Finds all started dialogs handles having a `Call-ID'.
 -spec get_all_dialogs(nksip:app_id(), nksip:call_id()) ->
-    [nksip:handle()].
+    {ok, [nksip:handle()]} | {error, term()}.
 
 get_all_dialogs(AppId, CallId) ->
-    case send_work_sync(AppId, CallId, get_all_dialogs) of
-        {ok, Ids} -> Ids;
-        _ -> []
-    end.
+    nksip_router:send_work_sync(AppId, CallId, get_all_dialogs).
 
 
-%% @doc Get all active transactions for all calls.
--spec get_all_transactions() ->
-    [{nksip:app_id(), nksip:call_id(), uac, nksip_call:trans_id()} |
-     {nksip:app_id(), nksip:call_id(), uas, nksip_call:trans_id()}].
-
-get_all_transactions() ->
-    lists:flatten(
-        [
-            [{AppId, CallId, Class, Id} 
-                || {Class, Id} <- get_all_transactions(AppId, CallId)]
-            || {AppId, CallId, _} <- nksip_router:get_all_calls()
-        ]).
-
-
-%% @doc Get all active transactions for this SipApp, having CallId.
--spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
-    [{uac, nksip_call:trans_id()} | {uas, nksip_call:trans_id()}].
-
-get_all_transactions(AppId, CallId) ->
-    case send_work_sync(AppId, CallId, get_all_transactions) of
-        {ok, Ids} -> Ids;
-        _ -> []
-    end.
-
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
-%% @private Sends a new in-dialog request from inside the call process
--spec sync_send_dialog(nksip_dialog_lib:id(), nksip:method(), nksip:optslist(), call()) ->
-    {ok, call()} | {error, term()}.
-
-sync_send_dialog(DialogId, Method, Opts, Call) ->
-    case make_dialog(DialogId, Method, Opts, Call) of
-        {ok, Req, ReqOpts, Call1} ->
-            {ok, nksip_call_uac_req:request(Req, ReqOpts, none, Call1)};
-        {error, Error} ->
-            {error, Error}
-    end.
-
-
-%% @private Generates a new in-dialog request from inside the call process
--spec make_dialog(nksip_dialog_lib:id(), nksip:method(), nksip:optslist(), call()) ->
-    {ok, nksip:request(), nksip:optslist(), call()} | {error, term()}.
-
-make_dialog(DialogId, Method, Opts, Call) ->
-    #call{app_id=AppId, call_id=CallId} = Call,
-    case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
-        {ok, RUri, Opts1, Call1} -> 
-            Opts2 = [{call_id, CallId} | Opts1],
-            case nksip_uac_lib:make(AppId, Method, RUri, Opts2) of
-                {ok, Req, ReqOpts} ->
-                    {ok, Req, ReqOpts, Call1};
-                {error, Error} ->
-                    {error, Error}
-            end;
-        {error, Error} ->
-            {error, Error}
-    end.
-
-
-%% @private
--spec apply_sipmsg(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
-    {apply, term()} | {error, term()}.
-
-apply_sipmsg(AppId, CallId, MsgId, Fun) ->
-    nksip_router:send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun}).
-
-
-%% @private Applies a fun to a transaction and returns the result.
--spec apply_transaction(nksip:handle(), function()) ->
-    {apply, term()} | {error, term()}.
-
-apply_transaction(Id, Fun) ->
-    {_Class, AppId, MsgId, CallId} = nksip_sipmsg:parse_handle(Id),
-    send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun}).
-            
+%% @private Deletes a dialog
+-spec stop_dialog(nksip:app_id(), nksip:call_id(), nksip_dialog:id()) ->
+    ok | {error, term()}.
+ 
+stop_dialog(AppId, CallId, DialogId) ->
+    nksip_router:send_work_sync(AppId, CallId, {stop_dialog, DialogId}).
 
 
 %% @private
@@ -317,6 +192,63 @@ apply_transaction(Id, Fun) ->
 apply_dialog(AppId, CallId, DialogId, Fun) ->
     nksip_router:send_work_sync(AppId, CallId, {apply_dialog, DialogId, Fun}).
 
+
+%% @private Gets authorized list of transport, ip and ports for a dialog.
+-spec get_authorized_list(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id()) ->
+    {ok, [{nksip:protocol(), inet:ip_address(), inet:port_number()}]} | {error, term()}.
+
+get_authorized_list(AppId, CallId, DialogId) ->
+    nksip_router:send_work_sync(AppId, CallId, {get_authorized_list, DialogId}).
+
+
+%% @private Gets authorized list of transport, ip and ports for a dialog.
+-spec clear_authorized_list(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id()) ->
+    ok | {error, term()}.
+
+clear_authorized_list(AppId, CallId, DialogId) ->
+    nksip_router:send_work_sync(AppId, CallId, {clear_authorized_list, DialogId}).
+
+
+%% @private Get all active transactions for all calls.
+-spec get_all_transactions() ->
+    [{nksip:app_id(), nksip:call_id(), uac, nksip_call:trans_id()} |
+     {nksip:app_id(), nksip:call_id(), uas, nksip_call:trans_id()}].
+    
+get_all_transactions() ->
+    lists:flatten(
+        [
+            case get_all_transactions(AppId, CallId) of
+                {ok, List} ->
+                    [{AppId, CallId, Class, Id} || {Class, Id} <- List];
+                {error, _} ->
+                    []
+            end
+            || {AppId, CallId, _} <- nksip_router:get_all_calls()
+        ]).
+
+
+%% @private Get all active transactions for this SipApp, having CallId.
+-spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
+    {ok, [{uac|uas, nksip_call:trans_id()}]} | {error, term()}.
+
+get_all_transactions(AppId, CallId) ->
+    nksip_router:send_work_sync(AppId, CallId, get_all_transactions).
+
+
+%% @private Applies a fun to a transaction and returns the result.
+-spec apply_transaction(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
+    {apply, term()} | {error, term()}.
+
+apply_transaction(AppId, CallId, MsgId, Fun) ->
+    nksip_router:send_work_sync(AppId, CallId, {apply_transaction, MsgId, Fun}).
+
+
+%% @private
+-spec apply_sipmsg(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
+    {apply, term()} | {error, term()}.
+
+apply_sipmsg(AppId, CallId, MsgId, Fun) ->
+    nksip_router:send_work_sync(AppId, CallId, {apply_sipmsg, MsgId, Fun}).
 
 
 %% @private Checks if the call has expired elements

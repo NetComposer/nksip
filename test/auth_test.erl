@@ -164,20 +164,20 @@ dialog() ->
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    [{udp, {127,0,0,1}, 5071}] = nksip_call:get_authorized_list(DialogId1),
+    [{udp, {127,0,0,1}, 5071}] = nksip_dialog:get_authorized_list(DialogId1),
     DialogId2 = nksip_dialog_lib:remote_id(DialogId1, client2),
-    [{udp, {127,0,0,1}, 5070}] = nksip_call:get_authorized_list(DialogId2),
+    [{udp, {127,0,0,1}, 5070}] = nksip_dialog:get_authorized_list(DialogId2),
 
     {ok, 200, []} = nksip_uac:options(DialogId1, []),
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
 
-    ok = nksip_call:clear_authorized_list(DialogId2),
+    ok = nksip_dialog:clear_authorized_list(DialogId2),
     {ok, 401, []} = nksip_uac:options(DialogId1, []),
     {ok, 200, []} = nksip_uac:options(DialogId1, [{pass, "1234"}]),
     {ok, 200, []} = nksip_uac:options(DialogId1, []),
 
-    ok = nksip_call:clear_authorized_list(DialogId1),
-    [] = nksip_call:get_authorized_list(DialogId1),
+    ok = nksip_dialog:clear_authorized_list(DialogId1),
+    [] = nksip_dialog:get_authorized_list(DialogId1),
 
     % Force an invalid password, because the SipApp config has a valid one
     {ok, 403, []} = nksip_uac:options(DialogId2, [{pass, {"client1", "invalid"}}]),

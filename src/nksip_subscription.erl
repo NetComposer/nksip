@@ -152,7 +152,10 @@ get_subscription(#sipmsg{}=SipMsg, #call{}=Call) ->
 
 get_all() ->
     lists:flatten([
-        nksip_dialog:meta(subscriptions, Id) 
+        case nksip_dialog:meta(subscriptions, Id) of
+            {ok, Ids} -> Ids;
+            _ -> []
+        end
         || Id <- nksip_dialog:get_all()
     ]).
 
@@ -163,7 +166,10 @@ get_all() ->
 
 get_all(AppId, CallId) ->
     lists:flatten([
-        nksip_dialog:meta(subscriptions, Id)
+        case nksip_dialog:meta(subscriptions, Id) of
+            {ok, Ids} -> Ids;
+            _ -> []
+        end
         || Id <- nksip_dialog:get_all(AppId, CallId)
     ]).
 

@@ -101,14 +101,24 @@ send_prack(Resp, Id, DialogId, Call) ->
             nksip_lib:to_list(Method)
         ]),
         Opts2 = [{add, "rack", RAck}, {body, Body}],
-        case nksip_call:make_dialog(DialogId, 'PRACK', Opts2, Call) of
-            {ok, Req, ReqOpts, Call1} -> 
+        % case nksip_call:make_dialog(DialogId, 'PRACK', Opts2, Call) of
+        %     {ok, Req, ReqOpts, Call1} -> 
+        %         PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
+        %         Meta1 = nksip_lib:store_value(nksip_100rel_pracks, PRAcks1, Meta),
+        %         Meta2 = nksip_lib:store_value(nksip_100rel_rseq, RSeq, Meta1),
+        %         UAC1 = UAC#trans{meta=Meta2},
+        %         Call2 = nksip_call_lib:update(UAC1, Call1),
+        %         {ok, nksip_call_uac_req:request(Req, ReqOpts, none, Call2)};
+        %     {error, Error} ->
+        %         throw(Error)
+        % end
+        case nksip_call_uac_req:dialog(DialogId, 'PRACK', Opts2, Call) of
+            {ok, #call{trans=[UAC1|_]}=Call1} -> 
                 PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
                 Meta1 = nksip_lib:store_value(nksip_100rel_pracks, PRAcks1, Meta),
                 Meta2 = nksip_lib:store_value(nksip_100rel_rseq, RSeq, Meta1),
-                UAC1 = UAC#trans{meta=Meta2},
-                Call2 = nksip_call_lib:update(UAC1, Call1),
-                {ok, nksip_call_uac_req:request(Req, ReqOpts, none, Call2)};
+                UAC2 = UAC1#trans{meta=Meta2},
+                {ok, nksip_call_lib:update(UAC2, Call1)};
             {error, Error} ->
                 throw(Error)
         end

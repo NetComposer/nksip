@@ -404,13 +404,13 @@ send_dialog(Method, Handle, Opts) ->
     end.
 
 %% @private
--spec send_cancel(nksip:handle(), nksip:error_reason()|undefined) ->
+-spec send_cancel(nksip:handle(), nksip:optslist()) ->
     uac_ack_result().
     
-send_cancel(Handle, Reason) ->
+send_cancel(Handle, Opts) ->
     case nksip_sipmsg:parse_handle(Handle) of
         {req, AppId, ReqId, CallId} ->
-            nksip_call:send_cancel(AppId, CallId, ReqId, Reason);
+            nksip_call:send_cancel(AppId, CallId, ReqId, Opts);
         _ ->
             {error, invalid_request}
     end.

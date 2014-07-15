@@ -192,7 +192,7 @@ do_timer(expire, #trans{id=Id, status=Status}=UAC, Call) ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer Expire fired, sending CANCEL", 
                         [Id, Status]),
             UAC2 = UAC1#trans{status=invite_proceeding},
-            cancel(UAC2, undefined, update(UAC2, Call));
+            cancel(UAC2, [], update(UAC2, Call));
         true ->
             ?call_debug("UAC ~p 'INVITE' (~p) Timer Expire fired", [Id, Status]),
             update(UAC1, Call)
