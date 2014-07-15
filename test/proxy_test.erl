@@ -361,7 +361,7 @@ invite(Test) ->
     {async, ReqId7} = nksip_uac:invite(C1, "sip:client2@nksip", 
                                         [{add, "x-nk-op", ok}, {add, "x-nk-sleep", 5000}, RepHd,
                                          async, {callback, RespFun}]),
-    ok = nksip_uac:cancel(ReqId7),
+    ok = nksip_uac:cancel(ReqId7, []),
     ok = tests_util:wait(Ref, [487, {{Test, client2}, bye}]),
     ok.
 

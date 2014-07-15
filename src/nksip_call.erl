@@ -29,14 +29,14 @@
 
 -export([app_id/1, call_id/1]).
 -export([send/2, send/4, send_dialog/3, cancel/1, send_reply/2]).
--export([find_dialog/1, stop_dialog/1]).
+-export([stop_dialog/1]).
+
 -export([get_authorized_list/1, clear_authorized_list/1]).
 -export([get_all/0, get_info/0, clear_all/0]).
 -export([get_all_dialogs/0, get_all_dialogs/2, apply_dialog/4]).
 -export([apply_sipmsg/4]).
 -export([get_all_transactions/0, get_all_transactions/2, apply_transaction/2]).
 -export([sync_send_dialog/4, make_dialog/4, check_call/1]).
--import(nksip_router, [send_work_sync/3, send_work_async/3]).
 -export_type([call/0, trans/0, trans_id/0, fork/0]).
 
 -include("nksip.hrl").
@@ -87,48 +87,33 @@ call_id(#call{call_id=CallId}) ->
     nksip_uac:result() | nksip_uac:ack_result().
 
 send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
-    send_work_sync(AppId, CallId, {send, Req, Opts}).
+    nksip_router:send_work_sync(AppId, CallId, {send, Req, Opts}).
 
 
 %% @private Generates and sends a new request.
--spec send(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->
+-spec send(nksip:app_id(), nksip:call_id(), nksip:method(), 
+           nksip:user_uri(), nksip:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result().
 
-send(AppId, Method, Uri, Opts) ->
-    case nksip_lib:get_binary(call_id, Opts) of
-        <<>> -> CallId = nksip_lib:luid();
-        CallId -> ok
-    end,
-    send_work_sync(AppId, CallId, {send, Method, Uri, Opts}).
+send(AppId, CallId, Method, Uri, Opts) ->
+    nksip_router:send_work_sync(AppId, CallId, {send, Method, Uri, Opts}).
 
 
 %% @private Generates and sends a new in-dialog request.
--spec send_dialog(nksip:dialog()|nksip:request()|nksip:response()|nksip:handle(),
-                  nksip:method(), nksip:optslist()) ->
+-spec send_dialog(nksip:method(), nksip:handle(), nksip:optslist()) ->
     nksip_uac:result() | nksip_uac:ack_result().
 
-send_dialog(Term, Method, Opts) ->
-    case nksip_dialog:get_handle(Term) of
-        {ok, Handle} ->
-            {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),
-            send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts});
-        {error, Error} -> 
-            {error, Error}
-    end.
+send_dialog(AppId, CallId, Method, DialogId, Opts) ->
+    nksip_router:send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts}).
 
 
 %% @doc Cancels an ongoing INVITE request.
--spec cancel(nksip:request()|nksip:handle()) ->
+-spec cancel(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(),
+             nksip:error_reason()|undefined) ->
     nksip_uac:uac_cancel_result().
 
-cancel(Term) ->
-    Handle = nksip_sipmsg:get_handle(Term),
-    case nksip_sipmsg:parse_handle(Handle) of
-        {req, AppId, ReqId, CallId} ->
-            send_work_sync(AppId, CallId, {cancel, ReqId});
-        _ ->
-            {error, invalid_request}
-    end.
+send_cancel(AppId, CallId, RequestId, Reason) ->
+    nksip_call:router:send_work_sync(AppId, CallId, {send_cancel, RequestId, Reason}).
 
 
 
@@ -157,13 +142,13 @@ send_reply(Term, Reply) ->
 
 
 
-%% @doc Gets the Dialog Id of a request or response id
--spec find_dialog(nksip:handle()) ->
-    {ok, nksip:handle()} | {error, term()}.
+% %% @doc Gets the Dialog Id of a request or response id
+% -spec find_dialog(nksip:handle()) ->
+%     {ok, nksip:handle()} | {error, term()}.
 
-find_dialog(Id) ->
-    {_Class, AppId, MsgId, CallId} = nksip_sipmsg:parse_handle(Id),
-    send_work_sync(AppId, CallId, {find_dialog, MsgId}).
+% find_dialog(Id) ->
+%     {_Class, AppId, MsgId, CallId} = nksip_sipmsg:parse_handle(Id),
+%     send_work_sync(AppId, CallId, {find_dialog, MsgId}).
 
 
 %% @doc Stops (deletes) a dialog.

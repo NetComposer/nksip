@@ -28,7 +28,7 @@
 
 -include("nksip.hrl").
 
--export([options/3, options/2, register/3, invite/3, invite/2, ack/2, bye/2, cancel/1]).
+-export([options/3, options/2, register/3, invite/3, invite/2, ack/2, bye/2, cancel/2]).
 -export([info/2, update/2, subscribe/2, subscribe/3, notify/2]).
 -export([message/3, message/2, refer/3, refer/2, publish/3, publish/2]).
 -export([request/3, request/2, refresh/2, stun/3]).
@@ -67,9 +67,9 @@ options(App, Uri, Opts) ->
 -spec options(nksip:handle(), nksip:optslist()) ->
     uac_result().
 
-options(Id, Opts) ->
+options(Handle, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send_dialog('OPTIONS', Id, Opts1).
+    send_dialog('OPTIONS', Handle, Opts1).
 
 
 %% @doc Sends a REGISTER request.
@@ -94,9 +94,9 @@ invite(App, Uri, Opts) ->
 -spec invite(nksip:handle(), nksip:optslist()) ->
     uac_result().
 
-invite(Id, Opts) ->
+invite(Handle, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send_dialog('INVITE', Id, Opts1).
+    send_dialog('INVITE', Handle, Opts1).
 
 
 
@@ -104,41 +104,41 @@ invite(Id, Opts) ->
 -spec ack(nksip:handle(), nksip:optslist()) ->
     uac_ack_result().
 
-ack(Id, Opts) ->
-    send_dialog('ACK', Id, Opts).
+ack(Handle, Opts) ->
+    send_dialog('ACK', Handle, Opts).
 
 
 %% @doc Sends an BYE for a current dialog, terminating the session.
 -spec bye(nksip:handle(), nksip:optslist()) -> 
     uac_result().
 
-bye(Id, Opts) ->
-    send_dialog('BYE', Id, Opts).
+bye(Handle, Opts) ->
+    send_dialog('BYE', Handle, Opts).
 
 
 %% @doc Sends an <i>INFO</i> for a current dialog.
 -spec info(nksip:handle(), nksip:optslist()) -> 
     uac_result().
 
-info(Id, Opts) ->
-    send_dialog('INFO', Id, Opts).
+info(Handle, Opts) ->
+    send_dialog('INFO', Handle, Opts).
 
 
 %% @doc Sends an <i>CANCEL</i> for a currently ongoing <i>INVITE</i> request.
--spec cancel(nksip:handle()) ->
+-spec cancel(nksip:handle(), nksip:optslist()) ->
     uac_cancel_result().
 
-cancel(ReqId) ->
-    nksip_call:cancel(ReqId).
+cancel(Handle, Opts) ->
+    send_cancel(Handle, Opts).
 
 
 %% @doc Sends a UPDATE on a currently ongoing dialog.
 -spec update(nksip:handle(), nksip:optslist()) ->
     uac_result().
 
-update(Id, Opts) ->
+update(Handle, Opts) ->
     Opts1 = [supported, accept, allow | Opts],
-    send_dialog('UPDATE', Id, Opts1).
+    send_dialog('UPDATE', Handle, Opts1).
 
 
 
@@ -160,9 +160,9 @@ subscribe(App, Uri, Opts) ->
 -spec subscribe(nksip:handle(), nksip:optslist()) ->
     uac_result().
 
-subscribe(Id, Opts) ->
+subscribe(Handle, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send_dialog('SUBSCRIBE', Id, Opts1).
+    send_dialog('SUBSCRIBE', Handle, Opts1).
 
 
 
@@ -170,12 +170,12 @@ subscribe(Id, Opts) ->
 -spec notify(nksip:handle(), nksip:optslist()) -> 
     uac_result().
 
-notify(Id, Opts) ->
+notify(Handle, Opts) ->
     Opts1 = case lists:keymember(subscription_state, 1, Opts) of
         true -> Opts;
         false -> [{subscription_state, active}|Opts]
     end,
-    send_dialog('NOTIFY', Id, Opts1).
+    send_dialog('NOTIFY', Handle, Opts1).
 
 
 %% @doc Sends an out-of-dialog MESSAGE request.
@@ -194,12 +194,12 @@ message(App, Uri, Opts) ->
 -spec message(nksip:handle(), nksip:optslist()) ->
     uac_result().
 
-message(Id, Opts) ->
+message(Handle, Opts) ->
     Opts1 = case lists:keymember(expires, 1, Opts) of
         true -> [date|Opts];
         _ -> Opts
     end,
-    send_dialog('MESSAGE', Id, Opts1).
+    send_dialog('MESSAGE', Handle, Opts1).
 
 
 
@@ -220,13 +220,13 @@ refer(App, Uri, Opts) ->
 -spec refer(nksip:handle(), nksip:optslist()) -> 
     uac_result() |  {error, invalid_refer_to}.
 
-refer(Id, Opts) ->
+refer(Handle, Opts) ->
     case nksip_lib:get_binary(refer_to, Opts) of
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
             Opts1 = [{insert, "refer-to", ReferTo} | nksip_lib:delete(Opts, refer_to)],
-            send_dialog('REFER', Id, Opts1)
+            send_dialog('REFER', Handle, Opts1)
     end.
 
 
@@ -243,9 +243,9 @@ publish(App, Uri, Opts) ->
 -spec publish(nksip:handle(), nksip:optslist()) ->
     uac_result().
 
-publish(Id, Opts) ->
+publish(Handle, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send_dialog('PUBLISH', Id, Opts1).
+    send_dialog('PUBLISH', Handle, Opts1).
 
 
 
@@ -261,8 +261,8 @@ request(App, Dest, Opts) ->
 -spec request(nksip:handle(), nksip:optslist()) -> 
     uac_result().
 
-request(Id, Opts) ->
-    send_dialog(undefined, Id, Opts).
+request(Handle, Opts) ->
+    send_dialog(undefined, Handle, Opts).
 
 
 
@@ -282,10 +282,10 @@ request(Id, Opts) ->
 -spec refresh(nksip:handle(), nksip:optslist()) ->
     uac_result().
 
-refresh(Id, Opts) ->
+refresh(Handle, Opts) ->
     Body1 = case nksip_lib:get_value(body, Opts) of
         undefined ->
-            case nksip_dialog:meta(invite_local_sdp, Id) of
+            case nksip_dialog:meta(invite_local_sdp, Handle) of
                 {ok, #sdp{} = SDP} -> SDP;
                 _ -> <<>>
             end;
@@ -312,7 +312,7 @@ refresh(Id, Opts) ->
         _ -> Body1
     end,
     Opts2 = nksip_lib:delete(Opts, [body, active, inactive, hold]),
-    invite(Id, [{body, Body2}|Opts2]).
+    invite(Handle, [{body, Body2}|Opts2]).
 
 
 
@@ -374,7 +374,11 @@ stun(App, UriSpec, _Opts) ->
 send(App, Method, Uri, Opts) ->
     case nksip:find_app_id(App) of
         {ok, AppId} -> 
-            nksip_call:send(AppId, Method, Uri, Opts);
+            case nksip_lib:get_binary(call_id, Opts) of
+                <<>> -> CallId = nksip_lib:luid();
+                CallId -> ok
+            end,
+            nksip_call:send(AppId, CallId, Method, Uri, Opts);
         not_found -> 
             {error, sipapp_not_found}
     end.
@@ -384,12 +388,32 @@ send(App, Method, Uri, Opts) ->
 -spec send_dialog(nksip:method(), nksip:handle(), nksip:optslist()) ->
     uac_result() | uac_ack_result() | {error, term()}.
 
-send_dialog(Method, <<$U, $_, _/binary>>=Id, Opts) ->
-    nksip_call:send_dialog(Id, Method, [{subscription_id, Id}|Opts]);
+send_dialog(Method, Handle, Opts) ->
+    case nksip_dialog:get_handle(Handle) of
+        {ok, DlgHandle} ->
+            Opts1 = case Handle of 
+                <<$U, $_, _/binary>>=SubsHandle ->
+                    [{subscription_id, SubsHandle}|Opts];
+                _ ->
+                    Opts
+            end,
+            {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(DlgHandle),
+            nksip_call:send_dialog(AppId, CallId, Method, DialogId, Opts1);
+        {error, Error} ->
+            {error, Error}
+    end.
 
-send_dialog(Method, <<Class, $_, _/binary>>=Id, Opts)
-            when Class==$R; Class==$S; Class==$D ->
-    nksip_call:send_dialog(Id, Method, Opts).
+%% @private
+-spec send_cancel(nksip:handle(), nksip:error_reason()|undefined) ->
+    uac_ack_result().
+    
+send_cancel(Handle, Reason) ->
+    case nksip_sipmsg:parse_handle(Handle) of
+        {req, AppId, ReqId, CallId} ->
+            nksip_call:send_cancel(AppId, CallId, ReqId, Reason);
+        _ ->
+            {error, invalid_request}
+    end.
 
 
 

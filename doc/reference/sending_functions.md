@@ -119,6 +119,8 @@ Sends an _CANCEL_ for a currently ongoing _INVITE_ request.
 
 You can use this function to send a CANCEL requests to abort a currently _calling_ INVITE request, using the `RequestId` obtained when calling `invite/2,3` _asynchronously_. The CANCEL request will eventually be received at the remote end, and, if it hasn't yet answered the matching INVITE request, it will finish it with a 487 code. 
 
+The only recognized option is `{reason, string()|binary()}`.
+
 This call is always asychronous. It returns a soon as the request is received and the cancelling INVITE is found.
 
 

@@ -49,18 +49,18 @@
 
 
 %% @doc Tries to cancel an ongoing invite request with a reason
--spec cancel(nksip_call:trans_id(), nksip:error_reason()|undefined, 
+-spec cancel(nksip_call:trans_id(), nksip:optslist(), 
              {srv, from()} | undefined, nksip_call:call()) ->
     nksip_call:call().
 
-cancel(Id, Reason, From, #call{trans=Trans}=Call) when is_integer(Id) ->
+cancel(Id, Opts, From, #call{trans=Trans}=Call) when is_integer(Id) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uac, method='INVITE'} = UAC ->
             case From of
                 {srv, SrvFrom} -> gen_server:reply(SrvFrom, ok);
                 _ -> ok
             end,
-            cancel(UAC, Reason, Call);
+            cancel(UAC, Opts, Call);
         _ -> 
             case From of
                 {srv, SrvFrom} -> gen_server:reply(SrvFrom, {error, unknown_request});
@@ -73,11 +73,10 @@ cancel(Id, Reason, From, #call{trans=Trans}=Call) when is_integer(Id) ->
 
 
 %% @doc Tries to cancel an ongoing invite request with a reason
--spec cancel(nksip_call:trans(), nksip:error_reason()|undefined, 
-             nksip_call:call()) ->
+-spec cancel(nksip_call:trans(), nksip:optslist(), nksip_call:call()) ->
     nksip_call:call().
 
-cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Reason, Call)
+cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Opts, Call)
        when Cancel==undefined; Cancel==to_cancel ->
     case Status of
         invite_calling ->
@@ -86,12 +85,12 @@ cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}=UAC, Reason, Call)
             update(UAC1, Call);
         invite_proceeding ->
             ?call_debug("UAC ~p (invite_proceeding) generating CANCEL", [Id]),
-            CancelReq = nksip_uac_lib:make_cancel(UAC#trans.request, Reason),
+            CancelReq = nksip_uac_lib:make_cancel(UAC#trans.request, Opts),
             UAC1 = UAC#trans{cancel=cancelled},
             nksip_call_uac_req:request(CancelReq, [no_dialog], none, update(UAC1, Call))
     end;
 
-cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}, _Reason, Call) ->
+cancel(#trans{id=Id, class=uac, cancel=Cancel, status=Status}, _Opts, Call) ->
     ?call_debug("UAC ~p (~p) cannot CANCEL request: (~p)", [Id, Status, Cancel]),
     Call.
 

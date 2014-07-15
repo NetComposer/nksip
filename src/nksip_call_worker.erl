@@ -35,13 +35,14 @@
 %% ===================================================================
 
 
--type work() :: {incoming, #sipmsg{}} | 
-                {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
-                {make, nksip:method(), nksip:user_uri(), nksip:optslist()} |
+-type work() :: 
                 {send, nksip:request(), nksip:optslist()} |
                 {send, nksip:method(), nksip:user_uri(), nksip:optslist()} |
                 {send_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
                 {cancel, nksip_sipmsg:id()} |
+                {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
+                make, nksip:method(), nksip:user_uri(), nksip:optslist()} |                
+                {incoming, #sipmsg{}} | 
                 {make_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
                 {apply_dialog, nksip_dialog_lib:id(), function()} |
                 {find_dialog, nksip_sipmsg:id()} |
@@ -87,28 +88,14 @@ work({send_dialog, DialogId, Method, Opts}, From, Call) ->
             Call
     end;
 
-work({cancel, ReqId}, From, Call) ->
+work({cancel, ReqId, Opts}, From, Call) ->
     case get_trans_id(ReqId, Call) of
         {ok, TransId} ->
-            nksip_call_uac:cancel(TransId, undefined, {srv, From}, Call);
+            nksip_call_uac:cancel(TransId, Opts, {srv, From}, Call);
         _ ->
             gen_server:reply(From, {error, unknown_request}),
             Call
     end;
-
-work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
-    nksip_call_uas_req:request(Req, Call);
-
-work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
-    case nksip_uac_lib:is_stateless(Resp) of
-        true -> 
-            nksip_call_proxy:response_stateless(Resp, Call);
-        false -> 
-            nksip_call_uac_resp:response(Resp, Call)
-    end;
-
-
-
 
 work({send_reply, ReqId, Reply}, From, Call) ->
     case get_trans(ReqId, Call) of
@@ -123,6 +110,25 @@ work({send_reply, ReqId, Reply}, From, Call) ->
     end,
     gen_server:reply(From, Result),
     Call1;
+
+
+
+
+
+
+work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
+    nksip_call_uas_req:request(Req, Call);
+
+work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
+    case nksip_uac_lib:is_stateless(Resp) of
+        true -> 
+            nksip_call_proxy:response_stateless(Resp, Call);
+        false -> 
+            nksip_call_uac_resp:response(Resp, Call)
+    end;
+
+
+
 
 work({make, Method, Uri, Opts}, From, Call) ->
     #call{app_id=AppId, call_id=CallId} = Call,

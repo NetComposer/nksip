@@ -141,10 +141,10 @@ do_remove_local_routes(AppId, [Route|RestRoutes]) ->
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
--spec make_cancel(nksip:request(), nksip:error_reason()|undefined) ->
+-spec make_cancel(nksip:request(), nksip:optlist()) ->
     nksip:request().
 
-make_cancel(Req, Reason) ->
+make_cancel(Req, Opts) ->
     #sipmsg{
         class = {req, _}, 
         cseq = {CSeq, _}, 
@@ -152,7 +152,7 @@ make_cancel(Req, Reason) ->
         headers = Hds
     } = Req,
     Headers1 = nksip_lib:extract(Hds, <<"route">>),
-    Headers2 = case Reason of
+    Headers2 = case nksip_lib:get_value(reason, Opts) of
         undefined ->
             Headers1;
         Reason ->

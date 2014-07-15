@@ -173,7 +173,7 @@ header(<<"supported">>, Value) ->
 header(<<"event">>, Value) ->
     {single_token(Value), #sipmsg.event};
 
-header(<<"reason">>, Value) ->
+header(<<"F">>, Value) ->
     case is_binary(Value) of
         true -> 
             Value;

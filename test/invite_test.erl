@@ -86,7 +86,7 @@ cancel() ->
     {async, Req3Id} = nksip_uac:invite(client1, "sip:any@127.0.0.1:5070", 
                                         [{callback, Fun}, async | Hds2]),
     timer:sleep(100),
-    ok = nksip_uac:cancel(Req3Id),
+    ok = nksip_uac:cancel(Req3Id, []),
     
     % Test invite expire, UAC must send CANCEL
     Remote = "sip:any@127.0.0.1:5070",

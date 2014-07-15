@@ -144,7 +144,7 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code 
     UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC1, Call),
     Call2 = case Cancel of
-        to_cancel -> nksip_call_uac:cancel(UAC1, undefined, update(UAC1, Call1));
+        to_cancel -> nksip_call_uac:cancel(UAC1, [], update(UAC1, Call1));
         _ -> update(UAC1, Call1)
     end,
     case AppId:nkcb_uac_response(Req, Resp, UAC1, Call2) of
