@@ -36,21 +36,21 @@
 
 
 -type work() :: 
-                {send, nksip:request(), nksip:optslist()} |
-                {send, nksip:method(), nksip:user_uri(), nksip:optslist()} |
-                {send_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
-                {cancel, nksip_sipmsg:id()} |
-                {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
-                {incoming, #sipmsg{}} | 
-                info |
-                get_all_dialogs | 
-                {stop_dialog, nksip_dialog_lib:id()} |
-                {apply_dialog, nksip_dialog_lib:id(), function()} |
-                {get_authorized_list, nksip_dialog_lib:id()} | 
-                {clear_authorized_list, nksip_dialog_lib:id()} |
-                get_all_transactions | 
-                {apply_transaction, nksip_sipmsg:id(), function()} |
-                {apply_sipmsg, nksip_sipmsg:id(), function()}.
+    {send, nksip:request(), nksip:optslist()} |
+    {send, nksip:method(), nksip:user_uri(), nksip:optslist()} |
+    {send_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
+    {cancel, nksip_sipmsg:id()} |
+    {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
+    {incoming, #sipmsg{}} | 
+    info |
+    get_all_dialogs | 
+    {stop_dialog, nksip_dialog_lib:id()} |
+    {apply_dialog, nksip_dialog_lib:id(), function()} |
+    {get_authorized_list, nksip_dialog_lib:id()} | 
+    {clear_authorized_list, nksip_dialog_lib:id()} |
+    get_all_transactions | 
+    {apply_transaction, nksip_sipmsg:id(), function()} |
+    {apply_sipmsg, nksip_sipmsg:id(), function()}.
 
 
 
@@ -182,14 +182,8 @@ work({apply_transaction, MsgId, Fun}, From, Call) ->
 work({apply_sipmsg, MsgId, Fun}, From, Call) ->
     case get_sipmsg(MsgId, Call) of
         {ok, Msg} -> 
-            case catch Fun(Msg) of
-                {Reply, {update, #sipmsg{}=SipMsg1}} ->
-                    gen_server:reply(From, {apply, Reply}),
-                    nksip_call_lib:update_sipmsg(SipMsg1, Call);
-                Reply ->
-                    gen_server:reply(From, {apply, Reply}),
-                    Call
-            end;
+            gen_server:reply(From, {apply, catch Fun(Msg)}),
+            Call;
         not_found -> 
             gen_server:reply(From, {error, unknown_sipmsg}),
             Call

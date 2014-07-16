@@ -142,16 +142,17 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code 
     #call{app_id=AppId} = Call,
     % Add another 3 minutes
     UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
-    Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC1, Call),
-    Call2 = case Cancel of
-        to_cancel -> nksip_call_uac:cancel(UAC1, [], update(UAC1, Call1));
-        _ -> update(UAC1, Call1)
+    Call1 = update(UAC1, Call),
+    Call2 = nksip_call_uac_reply:reply({resp, Resp}, UAC1, Call1),
+    Call3 = case Cancel of
+        to_cancel -> nksip_call_uac:cancel(UAC1, [], Call2);
+        _ -> Call2
     end,
-    case AppId:nkcb_uac_response(Req, Resp, UAC1, Call2) of
-        {continue, [_, _, _, Call3]} ->
-            Call3;
-        {ok, Call3} ->
-            Call3
+    case AppId:nkcb_uac_response(Req, Resp, UAC1, Call3) of
+        {continue, [_, _, _, Call4]} ->
+            Call4;
+        {ok, Call4} ->
+            Call4
     end;
 
 

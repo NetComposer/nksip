@@ -164,9 +164,9 @@ nkcb_uac_pre_request(Req, Opts, From, Call) ->
 	{continue, [Req, Opts, From, Call]}.
 
 
-%% @doc Called when the UAC must send a reply to the user
+%% @doc Called when the UAC transaction must send a reply to the user
 -spec nkcb_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
-                     nksip_call:trans(), nksip_call:call()) ->
+                     nksip_trans:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
 nkcb_uac_reply(Class, UAC, Call) ->

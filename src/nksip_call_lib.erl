@@ -22,7 +22,7 @@
 -module(nksip_call_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([update_sipmsg/2, update/2]).
+-export([update/2]).
 -export([update_auth/3, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3]).
 -export([cancel_timer/1, start_timer/3]).
@@ -57,75 +57,54 @@
 
 
 %% @private
--spec update_sipmsg(nksip:request()|nksip:response(), call()) -> 
-    call().
-
-update_sipmsg(#sipmsg{id=MsgId}=Msg, #call{msgs=Msgs}=Call) ->
-    ?call_debug("Updating sipmsg ~p", [MsgId]),
-    Msgs1 = lists:keyreplace(MsgId, #sipmsg.id, Msgs, Msg),
-    Call#call{msgs=Msgs1}.
-
-
-%% @private
 %% Updates a transaction on a call. New transaction will be the first.
 -spec update(trans(), call()) ->
     call().
 
 update(New, Call) ->
     #trans{
-        id = Id, 
+        id = TransId, 
         class = Class, 
         status = NewStatus, 
-        method = Method, 
-        callback_timer = AppTimer
+        method = Method
     } = New,
-    #call{trans=Trans} = Call,
+    #call{
+        trans= Trans,
+        hibernate = Hibernate
+    } = Call,
     case Trans of
-        [#trans{id=Id, status=OldStatus}|Rest] -> 
+        [#trans{id=TransId, status=OldStatus}|Rest] -> 
             ok;
         _ -> 
-            case lists:keytake(Id, #trans.id, Trans) of 
+            case lists:keytake(TransId, #trans.id, Trans) of 
                 {value, #trans{status=OldStatus}, Rest} -> ok;
                 false -> OldStatus=finished, Rest=Trans
             end
     end,
-    CS = case Class of uac -> "UAC"; uas -> "UAS" end,
-    Call1 = case NewStatus of
-        finished ->
-            case AppTimer of
-                undefined ->
-                    ?call_debug("~s ~p ~p (~p) removed", 
-                                [CS, Id, Method, OldStatus]),
-                    Call#call{trans=Rest};
-                {Fun, _} ->
-                    ?call_debug("~s ~p ~p (~p) is not removed because it is "
-                               "waiting for ~p reply", 
-                               [CS, Id, Method, NewStatus, Fun]),
-                    Call#call{trans=[New|Rest]}
-            end;
-        _ when NewStatus==OldStatus -> 
-            Call#call{trans=[New|Rest]};
-        _ -> 
-            ?call_debug("~s ~p ~p ~p -> ~p", [CS, Id, Method, OldStatus, NewStatus]),
-            Call#call{trans=[New|Rest]}
+    CS = case Class of 
+        uac -> <<"UAC">>; 
+        uas -> <<"UAS">> 
     end,
-    maybe_hibernate(New, Call1).
-
-
-%% @private 
--spec maybe_hibernate(trans(), call()) ->
-    call().
-
-maybe_hibernate(#trans{status=Status}, Call) 
-          when Status==invite_accepted; Status==completed; 
-               Status==finished ->
-    Call#call{hibernate=Status};
-
-maybe_hibernate(#trans{class=uac, status=invite_completed}, Call) ->
-    Call#call{hibernate=invite_completed};
-
-maybe_hibernate(_, Call) ->
-    Call.
+    NewTrans = case NewStatus of
+        finished ->
+            ?call_debug("~s ~p ~p (~p) removed", 
+                        [CS, TransId, Method, OldStatus]),
+            Rest;
+        _ when NewStatus==OldStatus -> 
+            [New|Rest];
+        _ -> 
+            ?call_debug("~s ~p ~p ~p -> ~p", [CS, TransId, Method, OldStatus, NewStatus]),
+            [New|Rest]
+    end,
+    NewHibernate = if
+        NewStatus==invite_accepted; NewStatus==completed; NewStatus==finished ->
+            NewStatus;
+        NewStatus==invite_completed, Class==uac ->
+            NewStatus;
+        true ->
+            Hibernate
+    end,
+    Call#call{trans=NewTrans, hibernate=NewHibernate}.
 
 
 %% @private
@@ -265,13 +244,13 @@ expire_timer(cancel, Trans, _Call) ->
     Trans#trans{expire_timer=undefined};
 
 expire_timer(expire, Trans, _Call) ->
-    #trans{id=Id, class=Class, request=Req, opts=Opts} = Trans,
+    #trans{id=TransId, class=Class, request=Req, opts=Opts} = Trans,
     cancel_timer(Trans#trans.expire_timer),
     Timer = case nksip_sipmsg:meta(expires, Req) of
         Expires when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
                 true -> 
-                    ?call_debug("UAC ~p skipping INVITE expire", [Id]),
+                    ?call_debug("UAC ~p skipping INVITE expire", [TransId]),
                     undefined;
                 _ -> 
                     Time = case Class of 
@@ -304,8 +283,8 @@ expire_timer(expire, Trans, _Call) ->
 -spec start_timer(integer(), timer(), trans()) ->
     {timer(), reference()}.
 
-start_timer(Time, Tag, #trans{class=Class, id=Id}) ->
-    {Tag, erlang:start_timer(round(Time), self(), {Class, Tag, Id})}.
+start_timer(Time, Tag, #trans{class=Class, id=TransId}) ->
+    {Tag, erlang:start_timer(round(Time), self(), {Class, Tag, TransId})}.
 
 
 %% @private

@@ -41,51 +41,47 @@
 send_request(Req, Opts) ->
     #sipmsg{app_id=AppId, class={req, Method}, ruri=RUri, routes=Routes} = Req,
     ?call_debug("UAC send opts: ~p", [Opts]),
-    try
-        case Routes of
-            [] -> 
-                DestUri = RUri1 = RUri,
-                Routes1 = [];
-            [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
-                case lists:member(<<"lr">>, RouteOpts) of
-                    true ->     
-                        DestUri = TopRoute#uri{
-                            scheme = case RUri#uri.scheme of
-                                sips -> sips;
-                                _ -> TopRoute#uri.scheme
-                            end
-                        },
-                        RUri1 = RUri,
-                        Routes1 = [TopRoute|RestRoutes];
-                    false ->
-                        DestUri = RUri1 = TopRoute#uri{
-                            scheme = case RUri#uri.scheme of
-                                sips -> sips;
-                                _ -> TopRoute#uri.scheme
-                            end
-                        },
-                        CRUri = RUri#uri{headers=[], ext_opts=[], ext_headers=[]},
-                        Routes1 = RestRoutes ++ [CRUri]
-                end
-        end,
-        Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
-        MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
-        AppId:nkcb_debug(Req, {uac_out_request, Method}),
-        Dests = case nksip_lib:get_value(route_flow, Opts) of
-            {Transp, Pid} -> 
-                [{flow, {Pid, Transp}}, DestUri];
-            undefined -> 
-                [DestUri]
-        end,
-        case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
-            {ok, SentReq} -> 
-                {ok, SentReq};
-            error ->
-                AppId:nkcb_debug(Req, uac_out_request_error),
-                {error, service_unavailable}
-        end
-    catch
-        throw:Throw -> {error, Throw}
+    case Routes of
+        [] -> 
+            DestUri = RUri1 = RUri,
+            Routes1 = [];
+        [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
+            case lists:member(<<"lr">>, RouteOpts) of
+                true ->     
+                    DestUri = TopRoute#uri{
+                        scheme = case RUri#uri.scheme of
+                            sips -> sips;
+                            _ -> TopRoute#uri.scheme
+                        end
+                    },
+                    RUri1 = RUri,
+                    Routes1 = [TopRoute|RestRoutes];
+                false ->
+                    DestUri = RUri1 = TopRoute#uri{
+                        scheme = case RUri#uri.scheme of
+                            sips -> sips;
+                            _ -> TopRoute#uri.scheme
+                        end
+                    },
+                    CRUri = RUri#uri{headers=[], ext_opts=[], ext_headers=[]},
+                    Routes1 = RestRoutes ++ [CRUri]
+            end
+    end,
+    Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
+    MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
+    AppId:nkcb_debug(Req, {uac_out_request, Method}),
+    Dests = case nksip_lib:get_value(route_flow, Opts) of
+        {Transp, Pid} -> 
+            [{flow, {Pid, Transp}}, DestUri];
+        undefined -> 
+            [DestUri]
+    end,
+    case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
+        {ok, SentReq} -> 
+            {ok, SentReq};
+        error ->
+            AppId:nkcb_debug(Req, uac_out_request_error),
+            {error, service_unavailable}
     end.
 
 
@@ -111,15 +107,11 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
 
 make_request_fun(Req, Dest, Opts) ->
     #sipmsg{
-        % class = {req, Method},
         app_id = AppId, 
         ruri = RUri, 
         call_id = CallId,
-        % from = {From, _},
         vias = Vias,
         routes = Routes, 
-        % contacts = Contacts, 
-        % headers = Headers, 
         body = Body
     } = Req,
     #uri{scheme=Scheme} = Dest,     % RUri or first route
@@ -195,8 +187,10 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     } = Req,    
     GlobalId = nksip_config_cache:global_id(),
     RouteBranch = case Vias of
-        [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
-        _ -> <<>>
+        [#via{opts=RBOpts}|_] -> 
+            nksip_lib:get_binary(<<"branch">>, RBOpts);
+        _ -> 
+            <<>>
     end,
     RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
     RouteUser = <<"NkQ", RouteHash/binary>>,
@@ -218,7 +212,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
         true ->
             Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
-                                                  ListenPort, From#uri.user, []),
+                                                 ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
             {ok, UUID} = nksip:get_uuid(AppId),
             CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
@@ -227,6 +221,6 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
             Contacts
     end,    
     Headers1 = nksip_headers:update(Headers, [
-                                {before_multi, <<"record-route">>, RecordRoute},
-                                {before_multi, <<"path">>, Path}]),
+        {before_multi, <<"record-route">>, RecordRoute},
+        {before_multi, <<"path">>, Path}]),
     Req#sipmsg{headers=Headers1, contacts=Contacts1}.
