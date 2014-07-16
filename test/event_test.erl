@@ -92,7 +92,7 @@ basic() ->
         error(event) 
     end,
 
-    {ok, 200, [{subscription_id, Subs1A}, {"event", [<<"myevent4;id=4;o=2">>]}]} = 
+    {ok, 200, [{subscription, Subs1A}, {"event", [<<"myevent4;id=4;o=2">>]}]} = 
         nksip_uac:subscribe(client1, SipC2, 
             [{event, "myevent4;id=4;o=2"}, {expires, 1}, RepHd, {meta, ["event"]}]),
 
@@ -135,7 +135,7 @@ basic() ->
     {error, _} = nksip_subscription:meta(status, Subs1B),
 
 
-    {ok, 200, [{subscription_id, Subs2A}]} = 
+    {ok, 200, [{subscription, Subs2A}]} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4;id=4;o=2"}, {expires, 2}, RepHd]),
  
     Subs2B = nksip_subscription_lib:remote_id(Subs2A, client2),
@@ -182,7 +182,7 @@ refresh() ->
     {Ref, Hd1} = tests_util:get_ref(),
     Hd2 = {add, "x-nk-op", "expires-2"},
 
-    {ok, 200, [{subscription_id, Subs1A}]} = 
+    {ok, 200, [{subscription, Subs1A}]} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, {expires, 5}, Hd1, Hd2]),
     Subs1B = nksip_subscription_lib:remote_id(Subs1A, client2),
     {ok, 200, []} = nksip_uac:notify(Subs1B, []),
@@ -197,7 +197,7 @@ refresh() ->
     ]),
 
     % We send a refresh, changing timeout to 20 secs
-    {ok, 200, [{subscription_id, Subs1A}]} = nksip_uac:subscribe(Subs1A, [{expires, 20}]),
+    {ok, 200, [{subscription, Subs1A}]} = nksip_uac:subscribe(Subs1A, [{expires, 20}]),
     {ok, 20} = nksip_subscription:meta(expires, Subs1A),
     {ok, 20} = nksip_subscription:meta(expires, Subs1B),
     
@@ -206,14 +206,14 @@ refresh() ->
     ok = tests_util:wait(Ref, [{subs, {terminated, giveup}, Subs1B}]),
     
     % A new subscription
-    {ok, 200, [{subscription_id, Subs2A}]} = 
+    {ok, 200, [{subscription, Subs2A}]} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4"}, {expires, 5}, Hd1, Hd2]),
     Subs2B = nksip_subscription_lib:remote_id(Subs2A, client2),
     {ok, 200, []} = nksip_uac:notify(Subs2B, []),
     ok = tests_util:wait(Ref, [{subs, init, Subs2B}, {subs, active, Subs2B}]),
 
     % And a refresh with expire=0, actually it is not removed until notify
-    {ok, 200, [{subscription_id, Subs2A}]} = nksip_uac:subscribe(Subs2A, [{expires, 0}]),
+    {ok, 200, [{subscription, Subs2A}]} = nksip_uac:subscribe(Subs2A, [{expires, 0}]),
     % Notify will use status:terminated;reason=timeout automatically
     {ok, 200, []} = nksip_uac:notify(Subs2B, []),
     ok = tests_util:wait(Ref, [{subs, {terminated, timeout}, Subs2B}]),
@@ -223,7 +223,7 @@ refresh() ->
 dialog() ->
     SipC2 = "sip:127.0.0.1:5070",
 
-    {ok, 200, [{subscription_id, Subs1A}, {dialog_handle, DialogA}]} = 
+    {ok, 200, [{subscription, Subs1A}, {dialog_handle, DialogA}]} = 
         nksip_uac:subscribe(client1, SipC2, [{event, "myevent4;id=1"}, {expires, 2}, 
                                              {contact, "sip:a@127.0.0.1"}, {meta, [dialog_handle]}]),
     Subs1B = nksip_subscription_lib:remote_id(Subs1A, client2),
@@ -249,7 +249,7 @@ dialog() ->
 
     % We send another subscription request using the same dialog, but different Event Id
     % We update our local target
-    {ok, 200, [{subscription_id, Subs2A}]} = 
+    {ok, 200, [{subscription, Subs2A}]} = 
         nksip_uac:subscribe(DialogA, [{event, "myevent4;id=2"}, {expires, 2}, 
                                       {contact, "sip:a3@127.0.0.1"}]),
     Subs2B = nksip_subscription_lib:remote_id(Subs2A, client2),
@@ -275,14 +275,14 @@ dialog() ->
     % Now we have a dialog with 2 subscriptions
     {ok, [Subs1A, Subs2A]} = nksip_dialog:meta(subscriptions, DialogA),
 
-    {ok, 200, [{dialog_id, DialogB}]} = nksip_uac:invite(DialogB, []),
+    {ok, 200, [{dialog, DialogB}]} = nksip_uac:invite(DialogB, []),
     ok = nksip_uac:ack(DialogB, []),
     % Now we have a dialog with 2 subscriptions and a INVITE
 
     {ok, 489, []} =
         nksip_uac:subscribe(DialogB, [{event, "myevent4"}]),
 
-    {ok, 200, [{subscription_id, Subs3B}]} = 
+    {ok, 200, [{subscription, Subs3B}]} = 
         nksip_uac:subscribe(DialogB, [{event, "myevent1"}, {expires, 1}]),
     Subs3A = nksip_subscription_lib:remote_id(Subs3B, client1),
     {ok, 200, []} = nksip_uac:notify(Subs3A, []),

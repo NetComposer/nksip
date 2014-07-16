@@ -421,7 +421,7 @@ stop(#subscription{id=Id}, Dialog, Call) ->
     {ok, nksip:optslist()} | {error, unknown_subscription}.
 
 request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
-    case lists:keytake(subscription_id, 1, Opts) of
+    case lists:keytake(subscription, 1, Opts) of
         false ->
             {ok, Opts};
         {value, {_, Id}, Opts1} ->

@@ -329,7 +329,7 @@ invite2() ->
 
     Body2 = {body, [{clientB1, {503, 500}}, {clientC1, {415, 500}},
                     {clientC3, {200, 1000}}]},
-    {ok, 200, [{dialog_id, Dlg_C2_1}]} = nksip_uac:invite(client2, QUri, 
+    {ok, 200, [{dialog, Dlg_C2_1}]} = nksip_uac:invite(client2, QUri, 
                                             [CB, Body2, RepHd, {supported, ""}]),
     ok = nksip_uac:ack(Dlg_C2_1, []),
     ok = tests_util:wait(Ref, [{clientA1, 580}, {clientB1, 503}, {clientC1, 415},
@@ -461,7 +461,7 @@ multiple_200() ->
     % client1 ACKs and BYEs second and third. They will not go to serverR, so
     % dialogs stay in accepted_uac state there.
     Body1 = {body, [{clientA1, 200}, {clientB1, 200}, {clientC1, 200}]},
-    {ok, 200, [{dialog_id, Dlg_C1_1}]} = nksip_uac:invite(client1, QUri, [Body1, RepHd]),
+    {ok, 200, [{dialog, Dlg_C1_1}]} = nksip_uac:invite(client1, QUri, [Body1, RepHd]),
     {ok, CallId1} = nksip_dialog:call_id(Dlg_C1_1),
     ok = nksip_uac:ack(Dlg_C1_1, []),
 
@@ -503,7 +503,7 @@ multiple_200() ->
 
 
     % client3 requests are sent to server3, which is stateful and record-routing
-    {ok, 200, [{dialog_id, Dlg_C3_2}]} = nksip_uac:invite(client3, QUri, [Body1, RepHd]),
+    {ok, 200, [{dialog, Dlg_C3_2}]} = nksip_uac:invite(client3, QUri, [Body1, RepHd]),
     {ok, CallId2} = nksip_dialog:call_id(Dlg_C3_2),
     ok = nksip_uac:ack(Dlg_C3_2, []),
 
@@ -542,7 +542,7 @@ multiple_200() ->
     % ServerR receives the 200 from clientB1 and CANCELs A1 y client1
     % Client1 make the dialog with B1, but can receive a 180 form A1 and/or client1
     Body3 = {body, [{clientA1, {200, 500}}, {clientB1, 200}, {clientC1, {200, 500}}]},
-    {ok, 200, [{dialog_id, Dlg_C1_3}]} = nksip_uac:invite(client1, QUri, [Body3, RepHd]),
+    {ok, 200, [{dialog, Dlg_C1_3}]} = nksip_uac:invite(client1, QUri, [Body3, RepHd]),
     {ok, CallId3} = nksip_dialog:call_id(Dlg_C1_3),
     ok = nksip_uac:ack(Dlg_C1_3, []),
     ok = tests_util:wait(Ref, 

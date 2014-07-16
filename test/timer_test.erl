@@ -108,7 +108,7 @@ basic() ->
     % ua2 receives again the INVITE. Now it is valid.
 
     SDP1 = nksip_sdp:new(),
-    {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
+    {ok, 200, [{dialog, Dialog1A}, {<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{nksip_timers_se, 1}, {meta, [<<"session-expires">>]}, 
              CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd]),
@@ -264,7 +264,7 @@ proxy() ->
     CB = {callback, fun ({req, R, _Call}) -> Self ! {Ref, R}; (_) -> ok end},
 
     SDP1 = nksip_sdp:new(),
-    {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"3;refresher=uas">>]}]} = 
+    {ok, 200, [{dialog, Dialog1A}, {<<"session-expires">>,[<<"3;refresher=uas">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{nksip_timers_se, 1}, {meta, [<<"session-expires">>]}, 
              CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd,
@@ -328,7 +328,7 @@ proxy() ->
 
     % p1 received a Session-Timer of 1801. Since it has configured a 
     % time of 1800, and it is > MinSE, it chages the value
-    {ok, 200, [{dialog_id, Dialog2}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}]} = 
+    {ok, 200, [{dialog, Dialog2}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{nksip_timers_se, 1801}, {meta, [<<"session-expires">>]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
@@ -339,7 +339,7 @@ proxy() ->
     % Now ua1 does not support the timer extension. p1 adds a Session-Expires
     % header. ua2 accepts the session proposal, but it doesn't add the
     % 'Require' header
-    {ok, 200, [{dialog_id, Dialog3A}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}, 
+    {ok, 200, [{dialog, Dialog3A}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}, 
                {require, []}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{replace, nksip_timers_se, <<>>}, {supported, "100rel,path"}, 
@@ -360,7 +360,7 @@ proxy() ->
     % ua3 doesn not support the timer extension. It does not return any
     % Session-Expires, but p2 remembers ua1 supports the extension
     % and adds a response and require
-    {ok, 200, [{dialog_id, Dialog4A}, {<<"session-expires">>,[<<"1800;refresher=uac">>]}, 
+    {ok, 200, [{dialog, Dialog4A}, {<<"session-expires">>,[<<"1800;refresher=uac">>]}, 
                {require, [<<"timer">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5073", 
             [{meta,[<<"session-expires">>, require]}, 
@@ -380,7 +380,7 @@ proxy() ->
 
     % None of UAC and UAS supports the extension
     % Router adds a Session-Expires header, but it is not honored
-    {ok, 200, [{dialog_id, Dialog5A}, {<<"session-expires">>,[]}, 
+    {ok, 200, [{dialog, Dialog5A}, {<<"session-expires">>,[]}, 
                {require, []}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5073", 
             [{replace, nksip_timers_se, <<>>}, {supported, "100rel,path"}, 

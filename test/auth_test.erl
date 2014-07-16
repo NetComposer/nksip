@@ -123,7 +123,7 @@ invite() ->
     % client3 does not support dialog's authentication, only digest is used
     {ok, 401, [{cseq_num, CSeq}]} = 
         nksip_uac:invite(client1, SipC3, [{meta, [cseq_num]}]),
-    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, SipC3, 
+    {ok, 200, [{dialog, DialogId1}]} = nksip_uac:invite(client1, SipC3, 
                                              [{pass, "abcd"}, RepHd]),
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client3, ack}]),
@@ -145,7 +145,7 @@ invite() ->
     DialogId3 = nksip_dialog_lib:remote_id(DialogId1, client3),
     {ok, 200, [{cseq_num, CSeq2}]} = 
         nksip_uac:options(DialogId3, [{meta, [cseq_num]}]),
-    {ok, 200, [{dialog_id, DialogId3}]} = 
+    {ok, 200, [{dialog, DialogId3}]} = 
         nksip_uac:invite(DialogId3, [RepHd]),
     ok = nksip_uac:ack(DialogId3, [RepHd]),
     ok = tests_util:wait(Ref, [{client1, ack}]),
@@ -159,7 +159,7 @@ dialog() ->
     SipC2 = "sip:127.0.0.1:5071",
     {Ref, RepHd} = tests_util:get_ref(),
 
-    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, SipC2, 
+    {ok, 200, [{dialog, DialogId1}]} = nksip_uac:invite(client1, SipC2, 
                                             [{pass, "1234"}, RepHd]),
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
@@ -232,7 +232,7 @@ proxy() ->
     % Server2 now accepts and sends to client2
     % client2 replies with 401, and we generate a new request
     % Server2 and client2 accepts their digests
-    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, "sip:client2@nksip", 
+    {ok, 200, [{dialog, DialogId1}]} = nksip_uac:invite(client1, "sip:client2@nksip", 
                                             [Route, 
                                             {passes, [{"server2", "1234"}, 
                                                       {"client2", "1234"}]},

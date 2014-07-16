@@ -217,10 +217,10 @@ is_stateless(Resp) ->
     case nksip_lib:get_binary(<<"branch">>, Opts) of
         <<"z9hG4bK", Branch/binary>> ->
             case binary:split(Branch, <<"-">>) of
-                [BaseBranch, NkSip] ->
+                [BaseBranch, NkSIP] ->
                     GlobalId = nksip_config_cache:global_id(),
                     case nksip_lib:hash({BaseBranch, GlobalId, stateless}) of
-                        NkSip -> true;
+                        NkSIP -> true;
                         _ -> false
                     end;
                 _ ->

@@ -93,7 +93,6 @@
     retrans_timer :: {nksip_call_lib:retrans_timer(), reference()},
     next_retrans :: non_neg_integer(),
     expire_timer :: {nksip_call_lib:expire_timer(), reference()},
-    callback_timer :: {term(), reference()},
     ack_trans_id :: integer(),
     meta = [] :: nksip:optslist()
 }).

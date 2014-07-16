@@ -110,7 +110,7 @@ dialog() ->
     Hds = [{add, "x-nk-op", "answer"}, RepHd],
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
 
-    {ok, 200, [{dialog_id, DialogIdA}]} = 
+    {ok, 200, [{dialog, DialogIdA}]} = 
         nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", [{body, SDP}|Hds]),
     ok = nksip_uac:ack(DialogIdA, []),
     % We don't receive callbacks from client1, since it has not stored the reply in 
@@ -230,7 +230,7 @@ dialog() ->
     [DialogIdB] = nksip_dialog:get_all(client2, CallId),
     
     % Send the dialog de opposite way
-    {ok, 200, [{dialog_id, DialogIdB}]} = nksip_uac:invite(DialogIdB, Hds),
+    {ok, 200, [{dialog, DialogIdB}]} = nksip_uac:invite(DialogIdB, Hds),
     ok = nksip_uac:ack(DialogIdB, []),
 
     % Now we receive callbacks from both
@@ -256,7 +256,7 @@ rr_contact() ->
         {add, "x-nk-op", "answer"}, RepHd,
         {add, "record-route", nksip_lib:bjoin(lists:reverse(RR), <<", ">>)}],
 
-    {ok, 200, [{dialog_id, DialogIdA}, {<<"record-route">>, RRH}]} = 
+    {ok, 200, [{dialog, DialogIdA}, {<<"record-route">>, RRH}]} = 
             nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", 
                                     [{contact, "sip:abc"},
                                      {meta, [<<"record-route">>]}|Hds1]),
@@ -369,7 +369,7 @@ rr_contact() ->
 
     % reINVITE from the other party
     Hds3 = [{add, "x-nk-op", increment}, RepHd],
-    {ok, 200, [{dialog_id, DialogIdB}]} = nksip_uac:refresh(DialogIdB, Hds3),
+    {ok, 200, [{dialog, DialogIdB}]} = nksip_uac:refresh(DialogIdB, Hds3),
     ok = nksip_uac:ack(DialogIdB, []),
     ok = tests_util:wait(Ref, [{client1, ack}, 
                                {client1, dialog_confirmed},
@@ -439,7 +439,7 @@ multiple_uac() ->
     OpAnswer = {add, "x-nk-op", "answer"},
     % Stablish a dialog between client1 and client2, but do not send the ACK 
     % yet, it will stay in accepted_uac state
-    {ok, 200, [{dialog_id, DialogIdA}]} = 
+    {ok, 200, [{dialog, DialogIdA}]} = 
         nksip_uac:invite(client1, "<sip:ok@127.0.0.1:5070;transport=tcp>", 
                          [RepHd, OpAnswer]),
     {ok, [{local_seq, _CSeq}, {invite_status, accepted_uac}]} = 
@@ -465,7 +465,7 @@ multiple_uas() ->
     Hds = [{add, "x-nk-op", ok}, RepHd],
 
     % Set a new dialog between client1 and client2
-    {ok, 200, [{dialog_id, DialogId1A}]} = 
+    {ok, 200, [{dialog, DialogId1A}]} = 
         nksip_uac:invite(client1, "<sip:ok@127.0.0.1:5070;transport=tcp>", Hds),
     ok = nksip_uac:ack(DialogId1A, [RepHd]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),
@@ -510,7 +510,7 @@ multiple_uas() ->
     ok = tests_util:wait(Ref, [{client2, {dialog_stop, caller_bye}}, {client2, bye}]),
 
     % Set a new dialog
-    {ok, 200, [{dialog_id, DialogId2A}]} = 
+    {ok, 200, [{dialog, DialogId2A}]} = 
         nksip_uac:invite(client1, "<sip:ok@127.0.0.1:5070;transport=tcp>", Hds),
     ok = nksip_uac:ack(DialogId2A, [RepHd]),
     ok = tests_util:wait(Ref, [{client2, ack}, {client2, dialog_confirmed}]),

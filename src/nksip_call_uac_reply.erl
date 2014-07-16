@@ -77,26 +77,6 @@ do_reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
 
 do_reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    % case nksip_lib:get_value(refer_subscription_id, Opts) of
-    %     undefined -> 
-    %         ok;
-    %     SubsId ->
-    %         Sipfrag = <<
-    %             "SIP/2.0 ", (nksip_lib:to_binary(Code))/binary, 32,
-    %             Reason/binary
-    %         >>,
-    %         NotifyOpts = [
-    %             async, 
-    %             {content_type, <<"message/sipfrag;version=2.0">>}, 
-    %             {body, Sipfrag},
-    %             {subscription_state, 
-    %                 case Code>=200 of 
-    %                     true -> {terminated, noresource}; 
-    %                     false -> active
-    %                 end}
-    %         ],
-    %         nksip_uac:notify(SubsId, NotifyOpts)
-    % end,
     CB = nksip_lib:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case 
@@ -164,13 +144,13 @@ response(Resp, Opts) ->
     Metas0 = case Method of
         'INVITE' when Code>100, Code<300 -> 
             Handle = nksip_dialog_lib:get_handle(Resp),
-            [{dialog_id, Handle}];
+            [{dialog, Handle}];
         'SUBSCRIBE' when Code>=200, Code<300 -> 
             Handle = nksip_subscription_lib:get_handle(Resp),
-            [{subscription_id, Handle}];
+            [{subscription, Handle}];
         'REFER' when Code>=200, Code<300 -> 
             Handle = nksip_subscription_lib:get_handle(Resp),
-            [{subscription_id, Handle}];
+            [{subscription, Handle}];
         'PUBLISH' when Code>=200, Code<300 ->
             Expires = nksip_sipmsg:meta(expires, Resp),
             case nksip_sipmsg:header(<<"sip-etag">>, Resp) of
@@ -180,7 +160,6 @@ response(Resp, Opts) ->
         _ -> 
             []
     end,
-
     Metas = case nksip_lib:get_value(meta, Opts, []) of
         [] ->
             Metas0;

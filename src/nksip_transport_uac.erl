@@ -143,13 +143,13 @@ make_request_fun(Req, Dest, Opts) ->
                         {AppId, Via0, ToTag, FromTag, CallId, CSeq, RUri}
                 end,
                 BaseBranch = nksip_lib:hash(Base),
-                NkSip = nksip_lib:hash({BaseBranch, GlobalId, stateless}),
-                <<"z9hG4bK", BaseBranch/binary, $-, NkSip/binary>>;
+                NkSIP = nksip_lib:hash({BaseBranch, GlobalId, stateless}),
+                <<"z9hG4bK", BaseBranch/binary, $-, NkSIP/binary>>;
             _ ->
                 % Generate a brand new Branch
                 BaseBranch = nksip_lib:uid(),
-                NkSip = nksip_lib:hash({BaseBranch, GlobalId}),
-                <<"z9hG4bK", BaseBranch/binary, $-, NkSip/binary>>
+                NkSIP = nksip_lib:hash({BaseBranch, GlobalId}),
+                <<"z9hG4bK", BaseBranch/binary, $-, NkSIP/binary>>
         end,
         Via1 = #via{
             proto = Proto, 

@@ -157,7 +157,7 @@ nkcb_make_uac_dialog(Method, Uri, Opts, Call) ->
 
 %% @doc Called when the UAC is preparing a request to be sent
 -spec nkcb_uac_pre_request(nksip:request(), nksip:optlist(), 
-                           nksip_call_uac_req:uac_from(), nksip:call()) ->
+                           nksip_call_uac:uac_from(), nksip:call()) ->
     {continue, list()}.
 
 nkcb_uac_pre_request(Req, Opts, From, Call) ->

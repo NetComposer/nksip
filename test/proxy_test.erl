@@ -326,7 +326,7 @@ invite(Test) ->
     ok = tests_util:wait(Ref, [180]),
 
     % Provisional 180 and 200
-    {ok, 200, [{dialog_id, DialogId1}]} = 
+    {ok, 200, [{dialog, DialogId1}]} = 
         nksip_uac:invite(C1, "sip:client2@nksip", 
                                 [{add, "x-nk-op", ok}, {add, "x-nk-prov", true},
                                  {add, "x-nk-sleep", 100}, RepHd,
@@ -341,13 +341,13 @@ invite(Test) ->
     {ok, 200, [{<<"x-nk-id">>, [<<"client1">>]}]} = 
         nksip_uac:options(DialogId2, [{meta,[<<"x-nk-id">>]}]),
     
-    {ok, 200, [{dialog_id, DialogId1}, {<<"x-nk-id">>, [<<"client2">>]}]} = 
+    {ok, 200, [{dialog, DialogId1}, {<<"x-nk-id">>, [<<"client2">>]}]} = 
         nksip_uac:invite(DialogId1, [{add, "x-nk-op", ok},
                                          {meta, [<<"x-nk-id">>]}]),
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{{Test, client2}, ack}]),
 
-    {ok, 200, [{dialog_id, DialogId2}, {<<"x-nk-id">>, [<<"client1">>]}]} = 
+    {ok, 200, [{dialog, DialogId2}, {<<"x-nk-id">>, [<<"client1">>]}]} = 
         nksip_uac:invite(DialogId2, [{add, "x-nk-op", ok}, RepHd,     
                                          {meta, [<<"x-nk-id">>]}]),
     ok = nksip_uac:ack(DialogId2, []),
@@ -399,7 +399,7 @@ servers(Test) ->
     {ok, 200, Values3} = nksip_uac:invite(C1, "sips:client2@nksip2", 
                                             [Fs3, {add, "x-nk-op", ok}, RepHd]),
     [
-        {dialog_id, DialogIdA1},
+        {dialog, DialogIdA1},
         {<<"contact">>, [C2Contact]},
         {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values3,
@@ -436,7 +436,7 @@ servers(Test) ->
     Fs6 = {meta, [<<"record-route">>, <<"x-nk-id">>]},
     {ok, 200, Values6} = nksip_uac:invite(C1, "sips:client2@nksip2", [Fs6|Hds6]),
     [
-        {dialog_id, DialogIdB1},
+        {dialog, DialogIdB1},
         {<<"record-route">>, [RR1, RR2]},
         {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values6,
@@ -489,7 +489,7 @@ dialog() ->
     {ok, 200, Values1} = nksip_uac:invite(C1, "sip:client2@nksip",
                                 [{add, "x-nk-op", "answer"}, {add, "x-nk-rr", true}, 
                                   RepHd, {body, SDP}]),
-    [{dialog_id, DialogId1}] = Values1,
+    [{dialog, DialogId1}] = Values1,
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{{stateful, client2}, ack}]),
 

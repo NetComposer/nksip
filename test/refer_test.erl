@@ -74,7 +74,7 @@ basic() ->
     Ref = make_ref(),
     Self = self(),
     
-    {ok, 200, [{subscription_id, Subs1A}]} = 
+    {ok, 200, [{subscription, Subs1A}]} = 
         nksip_uac:refer(client1, SipC2, [{refer_to, "sips:127.0.0.1:5081"}]),
 
     {ok, Dialog1A} = nksip_dialog:get_handle(Subs1A),
@@ -143,9 +143,9 @@ in_dialog() ->
     Ref = make_ref(),
     Self = self(),
     
-    {ok, 200, [{dialog_id, Dialog1A}]} = nksip_uac:invite(client1, SipC2, [auto_2xx_ack]),
+    {ok, 200, [{dialog, Dialog1A}]} = nksip_uac:invite(client1, SipC2, [auto_2xx_ack]),
 
-    {ok, 200, [{subscription_id, Subs1}]} = 
+    {ok, 200, [{subscription, Subs1}]} = 
         nksip_uac:refer(Dialog1A, [{refer_to, "sips:127.0.0.1:5081"}]),
 
     {ok, Dialogs} = nksip:get(client1, dialogs, []),
@@ -193,13 +193,13 @@ in_dialog() ->
 sip_refer(_ReferTo, _Req, _Call) ->
     true.
 
-sip_refer_update(SubsId, Status, Call) ->
-    {ok, DialogId} = nksip_dialog:get_handle(SubsId),
+sip_refer_update(SubsHandle, Status, Call) ->
+    {ok, DialogId} = nksip_dialog:get_handle(SubsHandle),
     AppId = nksip_call:app_id(Call),
     {ok, Dialogs} = nksip:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
-            Pid ! {Ref, {AppId:name(), SubsId, Status}};
+            Pid ! {Ref, {AppId:name(), SubsHandle, Status}};
         false ->
             ok
     end.

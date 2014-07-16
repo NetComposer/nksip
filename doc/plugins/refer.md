@@ -66,7 +66,7 @@ Called when a REFER request arrives. Reply `true` to continue the processing of 
 ```erlang
 sip_refer_update(SubsId, Status, Call) ->
 	ok
-	when SubsId :: nksip:subscription_id(), 
+	when SubsId :: nksip:handle(), 
 		 Status :: init | active | {notify, binary()} | terminated,
 		 Call :: nksip:call().
 ```

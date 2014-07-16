@@ -65,7 +65,7 @@
     {ok, nksip:handle()} | {error, term()}.
 
 get_handle(<<Class, $_, _/binary>>=Handle) when Class==$R; Class==$S ->
-    case nksip_sipmsg:remote_meta(subscription_id, Handle) of
+    case nksip_sipmsg:remote_meta(subscription_handle, Handle) of
         {ok, SubsHandle} -> {ok, SubsHandle};
         {error, _} -> {error, invalid_subscription}
     end;

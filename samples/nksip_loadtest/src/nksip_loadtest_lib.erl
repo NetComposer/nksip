@@ -287,7 +287,7 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
                 end;
             invite ->
                 case nksip_uac:invite({client, Pos}, RUri, Opts) of
-                    {ok, 200, [{dialog_id, D}]} -> 
+                    {ok, 200, [{dialog, D}]} -> 
                         case nksip_uac:ack({client, Pos}, D, []) of
                             ok -> 
                                 case nksip_uac:bye({client, Pos}, D, []) of

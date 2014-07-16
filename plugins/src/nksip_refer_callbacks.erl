@@ -76,9 +76,9 @@ nkcb_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
     case Req#sipmsg.event of
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
-            SubsId = nksip_subscription_lib:get_handle(Req),
+            SubsHandle = nksip_subscription_lib:get_handle(Req),
             #call{app_id=AppId} = Call,
-            catch AppId:sip_refer_update(SubsId, {notify, Body}, Call),
+            catch AppId:sip_refer_update(SubsHandle, {notify, Body}, Call),
             {reply, ok};
         _ ->
             continue

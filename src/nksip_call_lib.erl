@@ -22,7 +22,7 @@
 -module(nksip_call_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([update/2]).
+-export([uac_transaction_id/1, uas_transaction_id/1, update/2]).
 -export([update_auth/3, check_auth/2]).
 -export([timeout_timer/3, retrans_timer/3, expire_timer/3]).
 -export([cancel_timer/1, start_timer/3]).
@@ -40,9 +40,7 @@
 
 -type expire_timer() ::  expire | cancel.
 
--type callback_timer() :: {callback, atom()}.
-
--type timer() :: timeout_timer() | retrans_timer() | expire_timer() | callback_timer().
+-type timer() :: timeout_timer() | retrans_timer() | expire_timer().
 
 -type call() :: nksip_call:call().
 
@@ -54,6 +52,43 @@
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+
+%% @private
+-spec uac_transaction_id(nksip:request()|nksip:response()) -> 
+    integer().
+
+uac_transaction_id(#sipmsg{cseq={_, Method}, vias=[Via|_]}) ->
+    Branch = nksip_lib:get_value(<<"branch">>, Via#via.opts),
+    erlang:phash2({Method, Branch}).
+
+
+%% @private
+-spec uas_transaction_id(nksip:request()) ->
+    integer().
+    
+uas_transaction_id(Req) ->
+        #sipmsg{
+            class = {req, Method},
+            ruri = RUri, 
+            from = {_, FromTag}, 
+            to = {_, ToTag}, 
+            vias = [Via|_], 
+            cseq = {CSeq, _}
+        } = Req,
+    {_Transp, ViaIp, ViaPort} = nksip_parse:transport(Via),
+    case nksip_lib:get_value(<<"branch">>, Via#via.opts) of
+        <<"z9hG4bK", Branch/binary>> when byte_size(Branch) > 0 ->
+            erlang:phash2({Method, ViaIp, ViaPort, Branch});
+        _ ->
+            % pre-RFC3261 style
+            {_, UriIp, UriPort} = nksip_parse:transport(RUri),
+            -erlang:phash2({UriIp, UriPort, FromTag, ToTag, CSeq, 
+                            Method, ViaIp, ViaPort})
+    end.
+
+
 
 
 %% @private
@@ -246,7 +281,7 @@ expire_timer(cancel, Trans, _Call) ->
 expire_timer(expire, Trans, _Call) ->
     #trans{id=TransId, class=Class, request=Req, opts=Opts} = Trans,
     cancel_timer(Trans#trans.expire_timer),
-    Timer = case nksip_sipmsg:meta(expires, Req) of
+    Timer = case Req#sipmsg.expires of
         Expires when is_integer(Expires), Expires > 0 -> 
             case lists:member(no_auto_expire, Opts) of
                 true -> 
@@ -263,20 +298,6 @@ expire_timer(expire, Trans, _Call) ->
             undefined
     end,
     Trans#trans{expire_timer=Timer}.
-
-
-% %% @private
-% -spec callback_timer(atom(), trans(), call()) ->
-%     trans(). 
-
-% callback_timer(cancel, Trans, _Call) ->
-%     cancel_timer(Trans#trans.callback_timer),
-%     Trans#trans{callback_timer=undefined};
-
-% callback_timer(Fun, Trans, Call) ->
-%     cancel_timer(Trans#trans.callback_timer),
-%     #call{timers={_, _, _, _, Time}} = Call,
-%     Trans#trans{callback_timer=start_timer(Time, {callback, Fun}, Trans)}.
 
 
 %% @private

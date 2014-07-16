@@ -93,7 +93,7 @@ basic() ->
     {ok, 480, []} = nksip_uac:options(client2, "sip:client3@nksip", []),
     ok = tests_util:wait(Ref, [{server1, route}]),
 
-    {ok, 200, [{dialog_id, Dlg2}]} = nksip_uac:invite(client2, "sip:client1@nksip", []),
+    {ok, 200, [{dialog, Dlg2}]} = nksip_uac:invite(client2, "sip:client1@nksip", []),
     ok = nksip_uac:ack(Dlg2, []),
     ok = tests_util:wait(Ref, [
             {server1, route}, {server1, dialog_start}, {server1, route}, 

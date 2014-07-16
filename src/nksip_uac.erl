@@ -393,7 +393,7 @@ send_dialog(Method, Handle, Opts) ->
         {ok, DlgHandle} ->
             Opts1 = case Handle of 
                 <<$U, $_, _/binary>>=SubsHandle ->
-                    [{subscription_id, SubsHandle}|Opts];
+                    [{subscription, SubsHandle}|Opts];
                 _ ->
                     Opts
             end,

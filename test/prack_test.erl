@@ -190,7 +190,7 @@ media() ->
     % We don't receive callbacks from client1, since it has not stored the reply in 
     % its state
     Hds1 = [{add, "x-nk-op", "rel-prov-answer"}, RepHd],
-    {ok, 200, [{dialog_id, DialogId1}]} = 
+    {ok, 200, [{dialog, DialogId1}]} = 
         nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", [{body, SDP}|Hds1]),
     ok = nksip_uac:ack(DialogId1, []),
     receive {Ref, {client2, {prack, _}}} -> ok after 1000 -> error(media) end,
@@ -219,7 +219,7 @@ media() ->
                 Self ! {Ref, prack_sdp_ok},
                 nksip_sdp:increment(SDP)
             end},
-    {ok, 200, [{dialog_id, DialogId2}]} = 
+    {ok, 200, [{dialog, DialogId2}]} = 
         nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", [{body, SDP}, CB|Hds2]),
     ok = nksip_uac:ack(DialogId2, []),
     receive {Ref, {client2, {prack, _}}} -> ok after 1000 -> error(media) end,
@@ -251,7 +251,7 @@ media() ->
                 Self ! {Ref, {prack_sdp_ok, FunLocalSDP}},
                 FunLocalSDP
             end},
-    {ok, 200, [{dialog_id, DialogId3}]} = 
+    {ok, 200, [{dialog, DialogId3}]} = 
         nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", [CB3|Hds3]),
     ok = nksip_uac:ack(DialogId3, []),
     receive {Ref, {client2, {prack, _}}} -> ok after 1000 -> error(media) end,

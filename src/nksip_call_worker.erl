@@ -64,7 +64,7 @@
     nksip_call:call().
 
 work({send, Req, Opts}, From, Call) ->
-    nksip_call_uac_req:request(Req, Opts, {srv, From}, Call);
+    nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
     #call{app_id=AppId, call_id=CallId} = Call,
@@ -104,7 +104,7 @@ work({send_cancel, ReqId, Opts}, From, Call) ->
 work({send_reply, ReqId, SipReply}, From, Call) ->
     case get_trans(ReqId, Call) of
         {ok, #trans{class=uas}=UAS} ->
-            {Reply, Call1} = nksip_call_uas_reply:reply(SipReply, UAS, Call),
+            {Reply, Call1} = nksip_call_uas:reply(SipReply, UAS, Call),
             gen_server:reply(From, Reply),
             Call1;
         _ -> 
@@ -113,14 +113,14 @@ work({send_reply, ReqId, SipReply}, From, Call) ->
     end;
 
 work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
-    nksip_call_uas_req:request(Req, Call);
+    nksip_call_uas:request(Req, Call);
 
 work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
     case nksip_uac_lib:is_stateless(Resp) of
         true -> 
             nksip_call_proxy:response_stateless(Resp, Call);
         false -> 
-            nksip_call_uac_resp:response(Resp, Call)
+            nksip_call_uac:response(Resp, Call)
     end;
 
 
@@ -249,10 +249,10 @@ work(crash, _, _) ->
     nksip_call:call().
 
 timeout({uac, Tag, Id}, _Ref, Call) ->
-    nksip_call_uac:timer(Tag, Id, Call);
+    nksip_call_uac_timer:timer(Tag, Id, Call);
 
 timeout({uas, Tag, Id}, _Ref, Call) ->
-    nksip_call_uas:timer(Tag, Id, Call);
+    nksip_call_uas_timer:timer(Tag, Id, Call);
 
 timeout({dlg, Tag, Id}, _Ref, Call) ->
     nksip_call_dialog:timer(Tag, Id, Call);

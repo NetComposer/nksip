@@ -39,11 +39,11 @@ sip_refer(_ReferTo, _Req, _Call) ->
     
 
 % @doc Called when a REFER event is received
--spec sip_refer_update(SubsId, Status, Call) ->
+-spec sip_refer_update(SubsHandle, Status, Call) ->
 	ok
-	when SubsId :: nksip:subscription_id(), 
+	when SubsHandle :: nksip:handle(), 
 		 Status :: init | active | {notify, binary()} | terminated,
 		 Call :: nksip:call().
 
-sip_refer_update(_SubsId, _Status, _Call) ->
+sip_refer_update(_SubsHandle, _Status, _Call) ->
     ok.

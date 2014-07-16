@@ -140,7 +140,7 @@ launch([Uri|Rest], Id, Call) ->
     Call2 = case nksip_uac_lib:proxy_make(Req1, Opts) of
         {ok, Req2, Opts1} ->
             ?call_debug("Fork ~p starting UAC ~p", [Id, Next]),
-            ReqCall = nksip_call_uac_req:request(Req2, Opts1, {fork, Id}, Call1),
+            ReqCall = nksip_call_uac:request(Req2, Opts1, {fork, Id}, Call1),
             ReqCall#call{next=Next+1};
         {error, {reply, Reply}} ->
             {Resp, _} = nksip_reply:reply(Req, Reply),
@@ -285,8 +285,7 @@ send_reply(Resp, Fork, Call) ->
             ?call_debug("Fork ~p ~p send reply to UAS: ~p", [TransId, Method, Code]),
             % Put the original transport back in the response
             Resp1 = Resp#sipmsg{transport=Req#sipmsg.transport},
-            {_, Call1} = nksip_call_uas_reply:reply({Resp1, []}, UAS, Call),
-            Call1;
+            nksip_call_uas:do_reply({Resp1, []}, UAS, Call);
         _ ->
             ?call_debug("Unknown UAS ~p received fork reply", [TransId]),
             Call

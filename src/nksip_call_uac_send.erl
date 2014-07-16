@@ -19,11 +19,10 @@
 %% -------------------------------------------------------------------
 
 %% @doc Call UAC Management: Request sending
--module(nksip_call_uac_req).
+-module(nksip_call_uac_send).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/4, dialog/4, resend/3]).
--export_type([uac_from/0]).
+-export([send/2]).
 -import(nksip_call_lib, [update/2]).
 
 -include("nksip.hrl").
@@ -33,153 +32,6 @@
 %% ===================================================================
 %% Types
 %% ===================================================================
-
-
--type uac_from() :: none | {srv, from()} | {fork, nksip_call_fork:id()}.
-
-
-%% ===================================================================
-%% Private
-%% ===================================================================
-
-
-%% @doc Starts a new UAC transaction.
--spec request(nksip:request(), nksip:optslist(), uac_from(), nksip_call:call()) ->
-    nksip_call:call().
-
-request(Req, Opts, From, Call) ->
-    #sipmsg{class={req, Method}, id=MsgId} = Req,
-    #call{app_id=AppId} = Call,
-    {continue, [Req1, Opts1, From1, Call1]} = AppId:nkcb_uac_pre_request(Req, Opts, From, Call),
-    {#trans{id=TransId}=UAC, Call2} = make_trans(Req1, Opts1, From1, Call1),
-    case lists:member(async, Opts1) andalso From1 of
-        {srv, SrvFrom} when Method=='ACK' -> 
-            gen_server:reply(SrvFrom, async);
-        {srv, SrvFrom} ->
-            Handle = nksip_sipmsg:get_handle(Req),
-            gen_server:reply(SrvFrom, {async, Handle});
-        _ ->
-            ok
-    end,
-    case From1 of
-        {fork, ForkId} ->
-            ?call_debug("UAC ~p sending request ~p ~p (~s, fork: ~p)", 
-                        [TransId, Method, Opts1, MsgId, ForkId]);
-        _ ->
-            ?call_debug("UAC ~p sending request ~p ~p (~s)", 
-                        [TransId, Method, Opts1, MsgId])
-    end,
-    send(UAC, Call2).
-
-
-%% @doc Sends a new in-dialog request from inside the call process
--spec dialog(nksip_dialog_lib:id(), nksip:method(), nksip:optslist(), nksip_call:call()) ->
-    {ok, nksip_call:call()} | {error, term()}.
-
-dialog(DialogId, Method, Opts, Call) ->
-    case make_dialog(DialogId, Method, Opts, Call) of
-        {ok, Req, ReqOpts, Call1} ->
-            {ok, request(Req, ReqOpts, none, Call1)};
-        {error, Error} ->
-            {error, Error}
-    end.
-
-
-%% @private Generates a new in-dialog request from inside the call process
--spec make_dialog(nksip_dialog_lib:id(), nksip:method(), nksip:optslist(), nksip_call:call()) ->
-    {ok, nksip:request(), nksip:optslist(), nksip_call:call()} | {error, term()}.
-
-make_dialog(DialogId, Method, Opts, Call) ->
-    #call{app_id=AppId, call_id=CallId} = Call,
-    case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
-        {ok, RUri, Opts1, Call1} -> 
-            Opts2 = [{call_id, CallId} | Opts1],
-            case nksip_uac_lib:make(AppId, Method, RUri, Opts2) of
-                {ok, Req, ReqOpts} ->
-                    {ok, Req, ReqOpts, Call1};
-                {error, Error} ->
-                    {error, Error}
-            end;
-        {error, Error} ->
-            {error, Error}
-    end.
-
-
-%% @private
--spec make_trans(nksip:request(), nksip:optslist(), uac_from(), nksip_call:call()) ->
-    {nksip_call:trans(), nksip_call:call()}.
-
-make_trans(Req, Opts, From, Call) ->
-    #sipmsg{class={req, Method}, id=MsgId, ruri=RUri} = Req, 
-    #call{next=TransId, trans=Trans, msgs=Msgs} = Call,
-    Status = case Method of
-        'ACK' -> ack;
-        'INVITE'-> invite_calling;
-        _ -> trying
-    end,
-    IsProxy = case From of {fork, _} -> true; _ -> false end,
-    Opts1 = case 
-        IsProxy andalso 
-        (Method=='SUBSCRIBE' orelse Method=='NOTIFY' orelse Method=='REFER') 
-    of
-        true -> [no_dialog|Opts];
-        false -> Opts
-    end,
-    DialogId = nksip_call_uac_dialog:uac_id(Req, IsProxy, Call),
-    UAC = #trans{
-        id = TransId,
-        class = uac,
-        status = Status,
-        start = nksip_lib:timestamp(),
-        from = From,
-        opts = Opts1,
-        trans_id = undefined,
-        request = Req#sipmsg{dialog_id=DialogId},
-        method = Method,
-        ruri = RUri,
-        proto = undefined,
-        response = undefined,
-        code = 0,
-        to_tags = [],
-        stateless = undefined,
-        iter = 1,
-        cancel = undefined,
-        loop_id = undefined,
-        timeout_timer = undefined, 
-        retrans_timer = undefined,
-        next_retrans = undefined,
-        expire_timer = undefined,
-        callback_timer = undefined,
-        ack_trans_id  = undefined,
-        meta = []
-    },
-    Msg = {MsgId, TransId, DialogId},
-    {UAC, Call#call{trans=[UAC|Trans], msgs=[Msg|Msgs], next=TransId+1}}.
-
-
-%% @private
-%% Resend a requests using same Call-Id, incremented CSeq
--spec resend(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-resend(Req, UAC, Call) ->
-     #trans{
-        id = TransId,
-        status = Status,
-        opts = Opts,
-        method = Method,
-        iter = Iter,
-        from = From
-    } = UAC,
-    #sipmsg{vias=[_|Vias], cseq={_, CSeqMethod}} = Req,
-    ?call_info("UAC ~p ~p (~p) resending updated request", [TransId, Method, Status]),
-    {CSeq, Call1} = nksip_call_uac_dialog:new_local_seq(Req, Call),
-    Req1 = Req#sipmsg{vias=Vias, cseq={CSeq, CSeqMethod}},
-    % Contact would be already generated
-    Opts1 = Opts -- [contact],
-    {NewUAC, Call2} = make_trans(Req1, Opts1, From, Call1),
-    NewUAC1 = NewUAC#trans{iter=Iter+1},
-    send(NewUAC1, update(NewUAC1, Call2)).
 
 
 %% @private
@@ -252,7 +104,7 @@ sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
     UAC1 = UAC#trans{
         status = finished, 
         request = Req,
-        trans_id = nksip_call_uac:transaction_id(Req)
+        trans_id = nksip_call_lib:uac_transaction_id(Req)
     },
     Call1 = update(UAC1, Call),
     Call2 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call1),
@@ -276,7 +128,7 @@ sent_request(Req, UAC, Call) ->
     UAC1 = UAC#trans{
         request = Req, 
         proto = Proto,
-        trans_id = nksip_call_uac:transaction_id(Req)
+        trans_id = nksip_call_lib:uac_transaction_id(Req)
     },
     Call1 = update(UAC1, Call),
     Call2 = case lists:member(no_dialog, Opts) of

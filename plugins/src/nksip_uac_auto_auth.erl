@@ -144,7 +144,7 @@ check_auth(Req, Resp, UAC, Call) ->
                 nksip_auth:make_request(Req, Resp, [{passes, Passes}]) 
             of
                 {ok, Req1} ->
-                    {ok, nksip_call_uac_req:resend(Req1, UAC, Call)};
+                    {ok, nksip_call_uac:resend(Req1, UAC, Call)};
                 {error, Error} ->
                     ?debug(AppId, CallId, 
                            "UAC ~p could not generate new auth request: ~p", 

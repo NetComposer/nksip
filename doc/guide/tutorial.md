@@ -23,7 +23,7 @@ Now you can start a simple SipApp proxy server using the included [server callba
 {ok,armejl7}
 ```
 
-NkSip returns the _internal name_ of the application, which is alwats an `atom()`, calculated as a hash over the name.
+NkSIP returns the _internal name_ of the application, which is alwats an `atom()`, calculated as a hash over the name.
 
 Now we can start two clients, using the included [client callback module](../../samples/nksip_tutorial/src/nksip_tutorial_sipapp_client.erl). The first is called client1 and listens on `127.0.0.1` ports `5070` for udp and tcp and `5071` for tls, and the second is called client2 and listens on all interfaces, random ports. We also configure the _From_ header to be used on each one, the second one using `sips`.
 
@@ -191,7 +191,7 @@ sip_invite(Req, _Call) ->
 ```
 
 In the first call, since we don't include a body, client1 will reply `not_acceptable` (code `488`).
-In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. For 2xx _INVITE_ responses, NkSIP will allways include the `dialog_id` value.
+In the second, we _spawn_ a new process, reply a _provisional_ `180 Ringing`, wait two seconds and reply a `final` `200 Ok` with the same body. For 2xx _INVITE_ responses, NkSIP will allways include the `dialog` value.
 
 We include the option `auto_2xx_ack` for NkSIP to generate the mandatory ACK automatically, instead of having to call 
 to `nksip_uac:ack(DlgId, [])` manually inmeditaly after the 2xx response.
@@ -199,13 +199,13 @@ to `nksip_uac:ack(DlgId, [])` manually inmeditaly after the 2xx response.
 ```erlang
 16> nksip_uac:invite(client2, "sip:client1@nksip", [{route, "<sips:127.0.0.1;lr>"}]).
 {ok,488,[]}
-17> {ok,200,[{dialog_id, DlgId}]} = nksip_uac:invite(client2, "sip:client1@nksip", 
+17> {ok,200,[{dialog, DlgId}]} = nksip_uac:invite(client2, "sip:client1@nksip", 
                                         [
                                             {route, "<sips:127.0.0.1;lr>"}, 
                                             {body, nksip_sdp:new()},
                                             auto_2xx_ack
                                         ]).
-{ok,200,[{dialog_id, <<"...">>}]}					   
+{ok,200,[{dialog, <<"...">>}]}					   
 18> nksip_uac:ack(DlgId, []),
 ok
 ```

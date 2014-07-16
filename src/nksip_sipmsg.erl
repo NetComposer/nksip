@@ -33,7 +33,7 @@
 -type id() :: binary().
 
 -type field() ::  
-    handle | internal_id | app_id | app_name | dialog_id | subscription_id |
+    handle | internal_id | app_id | app_name | dialog_handle | subscription_handle |
     proto | local | remote | method | ruri | scheme | user | domain | aor |
     code | reason_phrase | content_type | body | call_id | vias | 
     from | from_tag | from_scheme | from_user | from_domain | 

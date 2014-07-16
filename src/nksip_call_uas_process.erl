@@ -59,17 +59,19 @@ check_supported(Method, Req, UAS, Call) ->
             case Event of
                 {Type, _} ->
                     case lists:member(Type, [<<"refer">>|SupEvents]) of
-                        true -> check_notify(Method, Req, UAS, Call);
-                        false -> reply(bad_event, UAS, Call)
+                        true -> 
+                            check_notify(Method, Req, UAS, Call);
+                        false -> 
+                            nksip_call_uas:do_reply(bad_event, UAS, Call)
                     end;
                 _ ->
-                    reply(bad_event, UAS, Call)
+                    nksip_call_uas:do_reply(bad_event, UAS, Call)
             end;
         [] ->
             check_notify(Method, Req, UAS, Call);
         BadRequires -> 
             RequiresTxt = nksip_lib:bjoin(BadRequires),
-            reply({bad_extension,  RequiresTxt}, UAS, Call)
+            nksip_call_uas:do_reply({bad_extension,  RequiresTxt}, UAS, Call)
     end.
 
 
@@ -80,8 +82,10 @@ check_supported(Method, Req, UAS, Call) ->
 
 check_notify('NOTIFY', Req, UAS, Call) ->
     case nksip_subscription_lib:state(Req) of
-        invalid -> reply({invalid_request, "Invalid Subscription-State"}, UAS, Call);
-        _ -> check_missing_dialog('NOTIFY', Req, UAS, Call)
+        invalid -> 
+            nksip_call_uas:do_reply({invalid_request, "Invalid Subscription-State"}, UAS, Call);
+        _ -> 
+            check_missing_dialog('NOTIFY', Req, UAS, Call)
     end;
 check_notify(Method, Req, UAS, Call) ->
     check_missing_dialog(Method, Req, UAS, Call).
@@ -100,7 +104,7 @@ check_missing_dialog('ACK', #sipmsg{to={_, <<>>}}, UAS, Call) ->
 check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
         when Method=='BYE'; Method=='INFO'; Method=='PRACK'; Method=='UPDATE';
              Method=='NOTIFY' ->
-    reply(no_transaction, UAS, Call);
+    nksip_call_uas:do_reply(no_transaction, UAS, Call);
 
 check_missing_dialog(Method, _Req, UAS, #call{app_id=AppId}=Call) ->
     case AppId:nkcb_uas_process(UAS, Call) of
@@ -109,24 +113,6 @@ check_missing_dialog(Method, _Req, UAS, #call{app_id=AppId}=Call) ->
         {ok, Call1} ->
             Call1
     end.
-
-  
-
-% %% @private
-% -spec check_422(nksip:method(), nksip:request(), 
-%                 nksip_call:trans(), nksip_call:call()) ->
-%     nksip_call:call().
-
-% check_422(Method, Req, UAS, Call) ->
-%     case nksip_timers_lib:uas_check_422(Req, Call) of
-%         continue -> 
-%             dialog(Method, Req, UAS, Call);
-%         {update, Req1, Call1} ->
-%             UAS1 = UAS#trans{request=Req1},
-%             dialog(Method, Req1, UAS1, update(UAS1, Call1));
-%         {reply, Reply, Call1} ->
-%             reply(Reply, UAS, Call1)
-%     end.
 
 
 %% @private
@@ -149,8 +135,10 @@ dialog(Method, Req, UAS, Call) ->
                         ok
                 end,
                 case AppId:nkcb_sip_method(UAS2, Call2) of
-                    {reply, Reply} -> reply(Reply, UAS2, Call2);
-                    noreply -> Call2
+                    {reply, Reply} -> 
+                        nksip_call_uas:do_reply(Reply, UAS2, Call2);
+                    noreply -> 
+                        Call2
                 end;
             false ->           
                 case nksip_call_uas_dialog:request(Req, Call) of
@@ -162,8 +150,10 @@ dialog(Method, Req, UAS, Call) ->
                                 ok
                         end,
                         case AppId:nkcb_sip_method(UAS3, Call3) of
-                            {reply, Reply} -> reply(Reply, UAS3, Call3);
-                            noreply -> Call3
+                            {reply, Reply} -> 
+                                nksip_call_uas:do_reply(Reply, UAS3, Call3);
+                            noreply -> 
+                                Call3
                         end;
                     {error, Error} when Method=='ACK' -> 
                         ?call_notice("UAS ~p 'ACK' dialog request error: ~p", 
@@ -172,11 +162,12 @@ dialog(Method, Req, UAS, Call) ->
                         update(UAS2, Call);
                     {error, Error} ->
                         UAS2 = UAS#trans{opts=[no_dialog|Opts]},
-                        reply(Error, UAS2, Call)
+                        nksip_call_uas:do_reply(Error, UAS2, Call)
                 end
         end
     catch
-        throw:{reply, TReply} -> reply(TReply, UAS, Call)
+        throw:{reply, TReply} -> 
+            nksip_call_uas:do_reply(TReply, UAS, Call)
     end.
 
 
@@ -215,31 +206,7 @@ method('REGISTER', Req, UAS, Call) ->
                 false -> throw({reply, {bad_extension, <<"path">>}})
             end
     end;
-
-% method('PRACK', Req, UAS, Call) ->
-%     #sipmsg{dialog_id=DialogId} = Req,
-%     #call{trans=Trans} = Call,
-%     {RSeq, CSeq, Method} = case nksip_sipmsg:header(<<"rack">>, Req) of
-%         [RACK] ->
-%             case nksip_lib:tokens(RACK) of
-%                 [RSeqB, CSeqB, MethodB] ->
-%                     {
-%                         nksip_lib:to_integer(RSeqB),
-%                         nksip_lib:to_integer(CSeqB),
-%                         nksip_parse:method(MethodB)
-%                     };
-%                 _ ->
-%                     throw({reply, {invalid_request, <<"Invalid RAck">>}})
-%             end;
-%         _ ->
-%             throw({reply, {invalid_request, <<"Invalid RAck">>}})
-%     end,
-%     OrigUAS = find_prack_trans(RSeq, CSeq, Method, DialogId, Trans),
-%     Meta = lists:keydelete(nksip_100rel_pracks, 1, OrigUAS#trans.meta),
-%     OrigUAS1 = OrigUAS#trans{meta=Meta},
-%     OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
-%     OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
-%     {UAS, update(OrigUAS3, Call)};
+    
 
 method('UPDATE', _Req, UAS, Call) ->
     {UAS, Call};
@@ -275,8 +242,10 @@ method('MESSAGE', Req, UAS, Call) ->
 
 method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
     case proplists:get_all_values(<<"refer-to">>, Headers) of
-        [_ReferTo] -> {UAS, Call};
-        _ -> throw({reply, invalid_request})
+        [_ReferTo] -> 
+            {UAS, Call};
+        _ -> 
+            throw({reply, invalid_request})
     end;
 
 method('PUBLISH', Req, UAS, Call) ->
@@ -288,29 +257,4 @@ method('PUBLISH', Req, UAS, Call) ->
 
 method(_Method, #sipmsg{app_id=AppId}, _UAS, _Call) ->
     throw({reply, {method_not_allowed, AppId:config_allow()}}).
-
-
-
-
-%% ===================================================================
-%% Utils
-%% ===================================================================
-
-
-%% @private Sends a transaction reply
--spec reply(nksip:sipreply() | {nksip:response(), nksip:optslist()}, 
-            nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-reply(Reply, UAS, Call) ->
-    {_, Call1} = nksip_call_uas_reply:reply(Reply, UAS, Call),
-    Call1.
-
-
-
-
-
-
-
-
 

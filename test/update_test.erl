@@ -106,7 +106,7 @@ basic() ->
         {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
     ],
     {ok, 200, Values1} = nksip_uac:invite(C1, SipC2, [CB, Body | Hds1]),
-    [{dialog_id, DialogId}] = Values1,
+    [{dialog, DialogId}] = Values1,
     ok = nksip_uac:ack(DialogId, []),
     ok = tests_util:wait(Ref, [
                                 {client2, sdp_start}, 
@@ -163,7 +163,7 @@ pending() ->
         end
     end},    Body = {body, SDP0},
     Hd1 = {add, "x-nk-op", "pending1"},
-    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, SipC2, [Hd1, Body, CB]),
+    {ok, 200, [{dialog, DialogId}]} = nksip_uac:invite(C1, SipC2, [Hd1, Body, CB]),
     ok = nksip_uac:ack(DialogId, []),
 
     ok = tests_util:wait(Ref, [fun_ok_1]),

@@ -539,7 +539,7 @@ do_timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                 _ ->
                     ?call_notice("Dialog ~s sending BYE on timeout", [DialogId]),
                     case 
-                        nksip_call_uac_req:dialog(DialogId, 'BYE', 
+                        nksip_call_uac:dialog(DialogId, 'BYE', 
                             [async, {reason, {sip, 408, "Dialog Timeout"}}], Call) 
                     of
                         {ok, Call1} ->

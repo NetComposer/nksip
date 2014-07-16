@@ -450,7 +450,7 @@ proxy() ->
         opts = [<<"lr">>,<<"ob">>]
     } = Path3,
 
-    {ok, 200, [{dialog_id, DialogId}]} = 
+    {ok, 200, [{dialog, DialogId}]} = 
         nksip_uac:invite(ua2, Contact2, [auto_2xx_ack, {add, "x-nk-op", "ok"}]),
 
     {ok, [

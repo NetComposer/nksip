@@ -171,7 +171,7 @@ uac() ->
 info() ->
     SipC1 = "sip:127.0.0.1:5070",
     Hd1 = {add, <<"x-nk-op">>, <<"ok">>},
-    {ok, 200, [{dialog_id, DialogId2}]} = nksip_uac:invite(client2, SipC1, [Hd1]),
+    {ok, 200, [{dialog, DialogId2}]} = nksip_uac:invite(client2, SipC1, [Hd1]),
     ok = nksip_uac:ack(DialogId2, []),
     Fs = {meta, [<<"x-nk-method">>, <<"x-nk-dialog">>]},
     DialogId1 = nksip_dialog_lib:remote_id(DialogId2, client1),

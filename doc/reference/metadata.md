@@ -18,8 +18,8 @@ Name|Type|Description
 id|`nksip:handle()`|Request or response's handle
 app_id|`nksip:app_id()`|Internal SipApp name this request or response belongs to
 app_name|`term()`|User SipApp name this request or response belongs to
-dialog_id|`nksip:handle()`|Dialog's handle of this request or response
-subscription_id|`nksip_id()`|Subscription's handle of this request or response
+dialog_handle|`nksip:handle()`|Dialog's handle of this request or response
+subscription_handle|`nksip_id()`|Subscription's handle of this request or response
 proto|`nksip:protocol()`|Transport protocol
 local|`{nksip:protocol(),inet:ip_address(),inet:port_number()}`|Local transport protocol, ip and port
 remote|`{nksip:protocol(),inet:ip_address(),inet:port_number()}`|Remote transport protocol, ip and port

@@ -165,35 +165,27 @@ stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 200 ->
 % RFC6026 accepted state, to wait for INVITE retransmissions
 % Dialog will send 2xx retransmissionshrl
 stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 300 ->
-    #trans{id=Id, request=Req, response=Resp, callback_timer=AppTimer} = UAS,
+    #trans{id=Id, request=Req, response=Resp} = UAS,
     UAS1 = case Id < 0 of
         true -> 
             % In old-style transactions, save Id to be used in
             % detecting ACKs
             #sipmsg{to=To} = Resp,
-            ACKTrans = nksip_call_uas:transaction_id(Req#sipmsg{to=To}),
+            ACKTrans = nksip_call_lib:uas_transaction_id(Req#sipmsg{to=To}),
             UAS#trans{ack_trans_id=ACKTrans};
         _ ->
             UAS
     end,
     % If the invite/3 call has not returned, maintain values
-    UAS2 = case AppTimer of
-        undefined -> 
-            UAS1#trans{status=invite_accepted, request=undefined, response=undefined};
-        _ -> 
-            UAS1#trans{status=invite_accepted}
-    end,
+    UAS2 = UAS1#trans{status=invite_accepted, request=undefined, response=undefined},
     UAS3 = nksip_call_lib:expire_timer(cancel, UAS2, Call),
     nksip_call_lib:timeout_timer(timer_l, UAS3, Call);
 
 stateful_reply(invite_proceeding, Code, UAS, Call) when Code >= 300 ->
-    #trans{proto=Proto, callback_timer=AppTimer} = UAS,
+    #trans{proto=Proto} = UAS,
     UAS1 = UAS#trans{status=invite_completed},
     UAS2 = nksip_call_lib:expire_timer(cancel, UAS1, Call),
-    UAS3 = case AppTimer of
-        undefined -> UAS2#trans{request=undefined};
-        _ -> UAS2
-    end,
+    UAS3 = UAS2#trans{request=undefined},
     UAS4 = nksip_call_lib:timeout_timer(timer_h, UAS3, Call),
     case Proto of 
         udp -> nksip_call_lib:retrans_timer(timer_g, UAS4, Call);
@@ -207,14 +199,11 @@ stateful_reply(proceeding, Code, UAS, _Call) when Code < 200 ->
     UAS;
 
 stateful_reply(proceeding, Code, UAS, Call) when Code >= 200 ->
-    #trans{proto=Proto, callback_timer=AppTimer} = UAS,
+    #trans{proto=Proto} = UAS,
     UAS1 = UAS#trans{request=undefined, status=completed},
     case Proto of
         udp -> 
-            UAS2 = case AppTimer of
-                undefined ->  UAS1#trans{request=undefined};
-                _ -> UAS1
-            end,
+            UAS2 = UAS1#trans{request=undefined},
             nksip_call_lib:timeout_timer(timer_j, UAS2, Call);
         _ -> 
             UAS2 = UAS1#trans{status=finished},
