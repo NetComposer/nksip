@@ -22,7 +22,7 @@
 -module(nksip_call_uas).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([request/2, terminate_request/2, reply/3, do_reply/3]).
+-export([request/2, reply/3, do_reply/3]).
 -export_type([status/0, incoming/0]).
 -import(nksip_call_lib, [update/2]).
 
@@ -37,10 +37,9 @@
 
 
 -type status() ::  
-    authorize | route | ack |
-    invite_proceeding | invite_accepted | invite_completed | 
-    invite_confirmed | 
-    trying | proceeding | completed | finished.
+    invite_proceeding | invite_accepted | invite_completed | invite_confirmed | 
+    trying | proceeding | completed | 
+    ack | finished.
 
 -type incoming() :: 
     nksip:sipreply() | {nksip:response(), nksip:optslist()}.
@@ -155,7 +154,7 @@ process_retrans(UAS, Call) ->
     of
         true when is_record(Resp, sipmsg) ->
             #sipmsg{class={resp, Code, _Reason}} = Resp,
-            case nksip_transport_uas:resend_response(Resp, []) of
+            case nksip_call_uas_transp:resend_response(Resp, []) of
                 {ok, _} ->
                     ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
                                [Id, Method, Status, Code]);
@@ -209,10 +208,15 @@ process_request(Req, UASTransId, Call) ->
     ?call_debug("UAS ~p started for ~p (~s)", [NextId, Method, MsgId]),
     LoopId = loop_id(Req1),
     DialogId = nksip_dialog_lib:make_id(uas, Req1),
+    Status = case Method of
+        'INVITE' -> invite_proceeding;
+        'ACK' -> ack;
+        _ -> trying
+    end,
     UAS = #trans{
         id = NextId,
         class = uas,
-        status = authorize,
+        status = Status,
         start = nksip_lib:timestamp(),
         from = undefined,
         opts = [],
@@ -269,30 +273,6 @@ do_reply(Reply, Trans, Call) ->
     {_, Call1} = nksip_call_uas_reply:reply(Reply, Trans, Call),
     Call1.
 
-
-%% @private
--spec terminate_request(nksip_call:trans(), nksip_call:call()) ->
-    nksip_call:call().
-
-terminate_request(#trans{status=Status}=UAS, Call)
-                  when Status==authorize; Status==route ->
-    UAS1 = UAS#trans{cancel=cancelled},
-    Call1 = update(UAS1, Call),
-    do_reply(request_terminated, UAS1, Call1);
-
-terminate_request(#trans{status=invite_proceeding, from=From}=UAS, Call) ->
-    case From of
-        {fork, ForkId} -> 
-            nksip_call_fork:cancel(ForkId, Call);
-        _ ->  
-            UAS1 = UAS#trans{cancel=cancelled},
-            Call1 = update(UAS1, Call),
-            do_reply(request_terminated, UAS1, Call1)
-    end;
-
-terminate_request(_, Call) ->
-    Call.
-    
 
 
 %% ===================================================================

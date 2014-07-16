@@ -179,7 +179,7 @@ nkcb_uac_reply(Class, UAC, Call) ->
 	{ok, nksip:request()}.
 
 nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
-	Req1 = nksip_transport_uac:add_headers(Req, Opts, Scheme, Proto, Host, Port),
+	Req1 = nksip_call_uac_transp:add_headers(Req, Opts, Scheme, Proto, Host, Port),
 	{ok, Req1}.
 
 

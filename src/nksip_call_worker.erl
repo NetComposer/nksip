@@ -69,7 +69,7 @@ work({send, Req, Opts}, From, Call) ->
 work({send, Method, Uri, Opts}, From, Call) ->
     #call{app_id=AppId, call_id=CallId} = Call,
     Opts1 = [{call_id, CallId} | Opts],
-    case nksip_uac_lib:make(AppId, Method, Uri, Opts1) of
+    case nksip_call_uac_make:make(AppId, Method, Uri, Opts1) of
         {ok, Req, ReqOpts} -> 
             work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
@@ -116,7 +116,7 @@ work({incoming, #sipmsg{class={req, _}}=Req}, none, Call) ->
     nksip_call_uas:request(Req, Call);
 
 work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
-    case nksip_uac_lib:is_stateless(Resp) of
+    case nksip_call_uac:is_stateless(Resp) of
         true -> 
             nksip_call_proxy:response_stateless(Resp, Call);
         false -> 

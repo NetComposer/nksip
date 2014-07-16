@@ -19,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @doc UAS Process helper functions
--module(nksip_uas_lib).
+-module(nksip_call_uas_make).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -export([make/3]).
 -include("nksip.hrl").

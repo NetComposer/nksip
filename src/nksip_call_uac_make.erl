@@ -19,10 +19,10 @@
 %% -------------------------------------------------------------------
 
 %% @doc UAC process helper functions
--module(nksip_uac_lib).
+-module(nksip_call_uac_make).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1, is_stateless/1]).
+-export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1]).
 -include("nksip.hrl").
  
 
@@ -206,29 +206,6 @@ make_ack(#sipmsg{vias=[Via|_], cseq={CSeq, _}}=Req) ->
         event = undefined,
         body = <<>>
     }.
-
-
-%% @doc Checks if a response is a stateless response
--spec is_stateless(nksip:response()) ->
-    boolean().
-
-is_stateless(Resp) ->
-    #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
-    case nksip_lib:get_binary(<<"branch">>, Opts) of
-        <<"z9hG4bK", Branch/binary>> ->
-            case binary:split(Branch, <<"-">>) of
-                [BaseBranch, NkSIP] ->
-                    GlobalId = nksip_config_cache:global_id(),
-                    case nksip_lib:hash({BaseBranch, GlobalId, stateless}) of
-                        NkSIP -> true;
-                        _ -> false
-                    end;
-                _ ->
-                    false
-            end;
-        _ ->
-            false
-    end.
 
 
 %% @private

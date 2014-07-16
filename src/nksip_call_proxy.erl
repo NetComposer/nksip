@@ -95,10 +95,10 @@ route(UriList, ProxyOpts, UAS, Call) ->
 route_stateless(Req, Uri, ProxyOpts, _Call) ->
     #sipmsg{class={req, Method}} = Req,
     Req1 = Req#sipmsg{ruri=Uri},
-    case nksip_uac_lib:proxy_make(Req1, ProxyOpts) of
+    case nksip_call_uac_make:proxy_make(Req1, ProxyOpts) of
         {ok, Req2, ProxyOpts1} ->
             SendOpts = [stateless_via | ProxyOpts1],
-            case nksip_transport_uac:send_request(Req2, SendOpts) of
+            case nksip_call_uac_transp:send_request(Req2, SendOpts) of
                 {ok, _} ->  
                     ?call_debug("Stateless proxy routing ~p to ~s", 
                                 [Method, nksip_unparse:uri(Uri)]);
@@ -133,7 +133,7 @@ response_stateless(#sipmsg{vias=[_, Via|RestVias], transport=Transp}=Resp, Call)
     end,
     Transp1 = Transp#transport{proto=ViaProto, remote_ip=RIp, remote_port=RPort},
     Resp1 = Resp#sipmsg{vias=[Via|RestVias], transport=Transp1},
-    case nksip_transport_uas:send_response(Resp1, []) of
+    case nksip_call_uas_transp:send_response(Resp1, []) of
         {ok, _} -> 
             ?call_debug("Stateless proxy sent ~p ~p response", [Method, Code]);
         error -> 

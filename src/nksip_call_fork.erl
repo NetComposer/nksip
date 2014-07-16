@@ -137,7 +137,7 @@ launch([Uri|Rest], Id, Call) ->
         _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
     end,
     Call1 = update(Fork1, Call),
-    Call2 = case nksip_uac_lib:proxy_make(Req1, Opts) of
+    Call2 = case nksip_call_uac_make:proxy_make(Req1, Opts) of
         {ok, Req2, Opts1} ->
             ?call_debug("Fork ~p starting UAC ~p", [Id, Next]),
             ReqCall = nksip_call_uac:request(Req2, Opts1, {fork, Id}, Call1),

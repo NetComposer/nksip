@@ -499,7 +499,7 @@ do_timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
         #invite{status=Status, response=Resp, next_retrans=Next} ->
             case Status of
                 accepted_uas ->
-                    case nksip_transport_uas:resend_response(Resp, []) of
+                    case nksip_call_uas_transp:resend_response(Resp, []) of
                         {ok, _} ->
                             ?call_info("Dialog ~s resent response", [DialogId]),
                             #call{timers=#call_timers{t2=T2}} = Call,

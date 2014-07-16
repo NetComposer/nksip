@@ -19,8 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @doc UAS Transport Layer
-
--module(nksip_transport_uas).
+-module(nksip_call_uas_transp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send_response/2, resend_response/2]).

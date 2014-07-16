@@ -276,7 +276,7 @@ do_response('INVITE', Code, _Req, _Resp,
     #dialog{id=DialogId, invite=Invite} = Dialog,
     case Invite#invite.ack of
         #sipmsg{}=ACK ->
-            case nksip_transport_uac:resend_request(ACK, []) of
+            case nksip_call_uac_transp:resend_request(ACK, []) of
                 {ok, _} ->
                     ?call_info("Dialog ~s (accepted_uac) retransmitting 'ACK'", 
                                [DialogId]),

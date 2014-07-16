@@ -58,7 +58,7 @@ timer(Tag, TransId, #call{trans=Trans}=Call) ->
 % INVITE retrans
 do_timer(timer_a, UAC, Call) ->
     #trans{id=TransId, request=Req, status=Status} = UAC,
-    case nksip_transport_uac:resend_request(Req, []) of
+    case nksip_call_uac_transp:resend_request(Req, []) of
         {ok, _} ->
             ?call_info("UAC ~p (~p) retransmitting 'INVITE'", [TransId, Status]),
             UAC1 = nksip_call_lib:retrans_timer(timer_a, UAC, Call),
@@ -97,7 +97,7 @@ do_timer(timer_m,  #trans{id=TransId, status=Status}=UAC, Call) ->
 % No INVITE retrans
 do_timer(timer_e, UAC, Call) ->
     #trans{id=TransId, status=Status, method=Method, request=Req} = UAC,
-    case nksip_transport_uac:resend_request(Req, []) of
+    case nksip_call_uac_transp:resend_request(Req, []) of
         {ok, _} ->
             ?call_info("UAC ~p (~p) retransmitting ~p", [TransId, Status, Method]),
             UAC1 = nksip_call_lib:retrans_timer(timer_e, UAC, Call),

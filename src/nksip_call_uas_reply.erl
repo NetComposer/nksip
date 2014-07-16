@@ -114,7 +114,7 @@ send({Resp, SendOpts}, UAS, Call) ->
         stateless = Stateless
     } = UAS,    
     #call{app_id=AppId, msgs=Msgs} = Call,
-    case nksip_transport_uas:send_response(Resp, SendOpts) of
+    case nksip_call_uas_transp:send_response(Resp, SendOpts) of
         {ok, Resp2} -> 
             UserReply = ok;
         error -> 

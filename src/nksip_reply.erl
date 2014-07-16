@@ -86,19 +86,19 @@
 
 %% @doc Generates a new SIP response and send options using helper replies.
 %% Currently recognized replies are described in this module.
-%% See {@link nksip_uas_lib:response/5}.
+%% See {@link nksip_call_uas_make:response/5}.
 -spec reply(nksip:request(), sipreply() | {nksip:sip_code(), nksip:optslist()}) ->
     {nksip:response(), nksip:optslist()}.
 
 reply(Req, {Code, Opts}) 
         when is_integer(Code), Code>=100, Code=<699, is_list(Opts)->
     ?call_debug("user reply to ~p: {~p, ~p}", [element(2, Req#sipmsg.class), Code, Opts]),
-    case nksip_uas_lib:make(Req, Code, Opts) of
+    case nksip_call_uas_make:make(Req, Code, Opts) of
         {ok, Resp, RespOpts} ->
             {Resp, RespOpts};
         {error, Error} ->
             ?call_error("Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
-            nksip_uas_lib:make(Req, 500, [])
+            nksip_call_uas_make:make(Req, 500, [])
     end;
     
 reply(Req, SipReply) -> 

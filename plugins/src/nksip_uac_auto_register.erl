@@ -118,7 +118,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
             true -> throw(meta_not_allowed);
             false -> ok
         end,
-        case nksip_uac_lib:make(AppId, 'REGISTER', Uri, Opts) of
+        case nksip_call_uac_make:make(AppId, 'REGISTER', Uri, Opts) of
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
@@ -162,7 +162,7 @@ start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
             true -> throw(meta_not_allowed);
             false -> ok
         end,
-        case nksip_uac_lib:make(AppId, 'OPTIONS', Uri, Opts) of
+        case nksip_call_uac_make:make(AppId, 'OPTIONS', Uri, Opts) of
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,

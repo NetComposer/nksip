@@ -69,7 +69,7 @@ do_timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
 % INVITE 3456xx retrans
 do_timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    UAS2 = case nksip_transport_uas:resend_response(Resp, []) of
+    UAS2 = case nksip_call_uas_transp:resend_response(Resp, []) of
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p response", [Id, Code]),
             nksip_call_lib:retrans_timer(timer_g, UAS, Call);
@@ -109,7 +109,17 @@ do_timer(timer_h, #trans{id=Id}=UAS, Call) ->
     UAS3 = nksip_call_lib:retrans_timer(cancel, UAS2, Call),
     update(UAS3, Call);
 
-do_timer(expire, #trans{id=Id, method=Method, status=Status}=UAS, Call) ->
-    ?call_debug("UAS ~p ~p (~p) Timer Expire fired: sending 487",[Id, Method, Status]),
-    nksip_call_uas:terminate_request(UAS, Call).
+do_timer(expire, #trans{id=Id, status=invite_proceeding, from=From}=UAS, Call) ->
+    ?call_debug("UAS ~p 'INVITE' Timer Expire fired: sending 487",[Id]),
+    case From of
+        {fork, ForkId} -> 
+            nksip_call_fork:cancel(ForkId, Call);
+        _ ->  
+            UAS1 = UAS#trans{cancel=cancelled},
+            Call1 = update(UAS1, Call),
+            nksip_call_uas:do_reply(request_terminated, UAS1, Call1)
+    end;
 
+do_timer(expire, #trans{id=Id, status=Status}, Call) ->
+    ?call_debug("UAS ~p 'INVITE' (~p) Timer Expire fired (ignored)", [Id, Status]),
+    Call.

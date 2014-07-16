@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([request/4, dialog/4, resend/3, cancel/3, cancel/4]).
--export([response/2]).
+-export([is_stateless/1, response/2]).
 -export_type([status/0, uac_from/0]).
 -import(nksip_call_lib, [update/2]).
 
@@ -35,12 +35,13 @@
 %% Types
 %% ===================================================================
 
--type status() :: invite_calling | invite_proceeding | invite_accepted |
-                  invite_completed |
-                  trying | proceeding | completed |
-                  finished | ack.
+-type status() :: 
+    invite_calling | invite_proceeding | invite_accepted | invite_completed | 
+    trying | proceeding | completed |
+    finished | ack.
 
--type uac_from() :: none | {srv, from()} | {fork, nksip_call_fork:id()}.
+-type uac_from() :: 
+    none | {srv, from()} | {fork, nksip_call_fork:id()}.
 
 
 %% ===================================================================
@@ -100,7 +101,7 @@ make_dialog(DialogId, Method, Opts, Call) ->
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
         {ok, RUri, Opts1, Call1} -> 
             Opts2 = [{call_id, CallId} | Opts1],
-            case nksip_uac_lib:make(AppId, Method, RUri, Opts2) of
+            case nksip_call_uac_make:make(AppId, Method, RUri, Opts2) of
                 {ok, Req, ReqOpts} ->
                     {ok, Req, ReqOpts, Call1};
                 {error, Error} ->
@@ -173,7 +174,7 @@ cancel(#trans{id=TransId, class=uac, cancel=Cancel, status=Status}=UAC, Opts, Ca
             update(UAC1, Call);
         invite_proceeding ->
             ?call_debug("UAC ~p (invite_proceeding) generating CANCEL", [TransId]),
-            CancelReq = nksip_uac_lib:make_cancel(UAC#trans.request, Opts),
+            CancelReq = nksip_call_uac_make:make_cancel(UAC#trans.request, Opts),
             UAC1 = UAC#trans{cancel=cancelled},
             request(CancelReq, [no_dialog], none, update(UAC1, Call))
     end;
@@ -181,6 +182,29 @@ cancel(#trans{id=TransId, class=uac, cancel=Cancel, status=Status}=UAC, Opts, Ca
 cancel(#trans{id=TransId, cancel=Cancel, status=Status}, _Opts, Call) ->
     ?call_debug("UAC ~p (~p) cannot CANCEL request: (~p)", [TransId, Status, Cancel]),
     Call.
+
+
+%% @doc Checks if a response is a stateless response
+-spec is_stateless(nksip:response()) ->
+    boolean().
+
+is_stateless(Resp) ->
+    #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
+    case nksip_lib:get_binary(<<"branch">>, Opts) of
+        <<"z9hG4bK", Branch/binary>> ->
+            case binary:split(Branch, <<"-">>) of
+                [BaseBranch, NkSIP] ->
+                    GlobalId = nksip_config_cache:global_id(),
+                    case nksip_lib:hash({BaseBranch, GlobalId, stateless}) of
+                        NkSIP -> true;
+                        _ -> false
+                    end;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
+    end.
 
 
 %% @private

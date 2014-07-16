@@ -334,8 +334,8 @@ do_received_hangup(Resp, UAC, Call) ->
     ok.
 
 send_ack(#trans{request=Req, id=TransId}, _Call) ->
-    Ack = nksip_uac_lib:make_ack(Req),
-    case nksip_transport_uac:resend_request(Ack, []) of
+    Ack = nksip_call_uac_make:make_ack(Req),
+    case nksip_call_uac_transp:resend_request(Ack, []) of
         {ok, _} -> 
             ok;
         error -> 

@@ -51,7 +51,7 @@ send_100(UAS, #call{app_id=AppId}=Call) ->
     case Method=='INVITE' andalso (not AppId:config_no_100()) of 
         true ->
             {Resp, SendOpts} = nksip_reply:reply(Req, 100),
-            case nksip_transport_uas:send_response(Resp, SendOpts) of
+            case nksip_call_uas_transp:send_response(Resp, SendOpts) of
                 {ok, _} -> 
                     check_cancel(UAS, Call);
                 error ->
@@ -69,19 +69,22 @@ send_100(UAS, #call{app_id=AppId}=Call) ->
 
 check_cancel(#trans{id=Id}=UAS, #call{app_id=AppId}=Call) ->
     case is_cancel(UAS, Call) of
-        {true, #trans{id=InvId, status=Status}=InvUAS} ->
-            ?call_debug("UAS ~p matched 'CANCEL' as ~p (~p)", [Id, InvId, Status]),
-            if
-                Status==authorize; Status==route; Status==invite_proceeding ->
-                    Call1 = nksip_call_uas:do_reply(ok, UAS, Call), 
-                    Args = [InvUAS#trans.request, UAS#trans.request, Call],
-                    AppId:nkcb_call(sip_cancel, Args, AppId),
-                    nksip_call_uas:terminate_request(InvUAS, Call1);
-                true ->
-                    nksip_call_uas:do_reply(no_transaction, UAS, Call)
+        {true, #trans{status=invite_proceeding, id=InvId, from=From}=InvUAS} ->
+            ?call_debug("UAS ~p matched 'CANCEL' as ~p", [Id, InvId]),
+            Call1 = nksip_call_uas:do_reply(ok, UAS, Call), 
+            Args = [InvUAS#trans.request, UAS#trans.request, Call1],
+            AppId:nkcb_call(sip_cancel, Args, AppId),
+            case From of
+                {fork, ForkId} -> 
+                    nksip_call_fork:cancel(ForkId, Call1);
+                _ ->  
+                    InvUAS1 = InvUAS#trans{cancel=cancelled},
+                    Call2 = update(InvUAS1, Call1),
+                    nksip_call_uas:do_reply(request_terminated, InvUAS1, Call2)
             end;
+        {true, _} ->
+            nksip_call_uas:do_reply(no_transaction, UAS, Call);
         false ->
-            % Only for case of stateless proxy
             authorize_launch(UAS, Call)
     end.
 
@@ -109,7 +112,7 @@ is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}) ->
                     false
             end;
         _ ->
-            ?call_debug("received unknown CANCEL", []),
+            ?call_debug("received CANCEL for unknown transaction", []),
             false
     end;
 
@@ -132,8 +135,8 @@ authorize_launch(UAS, #call{app_id=AppId}=Call) ->
                 {ok, Reply} -> 
                     authorize_reply(Reply, UAS, Call);
                 error ->
-                 nksip_call_uas:do_reply({internal_error, "SipApp Error"}, UAS, Call)
-            end;
+                    nksip_call_uas:do_reply({internal_error, "SipApp Error"}, UAS, Call)
+            end;    
         false ->
             authorize_reply(ok, UAS, Call)
     end.
@@ -143,15 +146,17 @@ authorize_launch(UAS, #call{app_id=AppId}=Call) ->
 -spec authorize_reply(term(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
+authorize_reply(Reply, UAS, Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
     #sipmsg{dialog_id=DialogId, to={_, ToTag}} = Req,
     ?call_debug("UAS ~p ~p authorize reply: ~p", [Id, Method, Reply]),
     case Reply of
         ok ->
             Call1 = case ToTag of
-                <<>> -> Call;
-                _ -> nksip_call_lib:update_auth(DialogId, Req, Call)
+                <<>> -> 
+                    Call;
+                _ -> 
+                    nksip_call_lib:update_auth(DialogId, Req, Call)
             end,
             route_launch(UAS, Call1);
         forbidden -> 
@@ -167,12 +172,7 @@ authorize_reply(Reply, #trans{status=authorize}=UAS, Call) ->
         Other -> 
             ?call_warning("Invalid response calling authenticate/2: ~p", [Other]),
             nksip_call_uas:do_reply({internal_error, "SipApp Response"}, UAS, Call)
-    end;
-
-% Request has been already answered (i.e. cancelled)
-authorize_reply(_Reply, UAS, Call) ->
-    update(UAS, Call).
-
+    end.
 
 
 %% @private
@@ -180,13 +180,11 @@ authorize_reply(_Reply, UAS, Call) ->
     nksip_call:call().
 
 route_launch(#trans{ruri=RUri}=UAS, #call{app_id=AppId}=Call) ->
-    UAS1 = UAS#trans{status=route},
-    Call1 = update(UAS1, Call),
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
     Args = [Scheme, User, Domain, UAS#trans.request, Call],
     case AppId:nkcb_call(sip_route, Args, AppId) of
         {ok, Reply} -> 
-            route_reply(Reply, UAS1, Call1);
+            route_reply(Reply, UAS, Call);
         error -> 
             nksip_call_uas:do_reply({internal_error, "SipApp Error"}, UAS, Call)
     end.
@@ -196,7 +194,7 @@ route_launch(#trans{ruri=RUri}=UAS, #call{app_id=AppId}=Call) ->
 -spec route_reply(term(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-route_reply(Reply, #trans{status=route}=UAS, Call) ->
+route_reply(Reply, UAS, Call) ->
     #trans{id=Id, method=Method, ruri=RUri} = UAS,
     ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply]),
     Route = case Reply of
@@ -218,17 +216,7 @@ route_reply(Reply, #trans{status=route}=UAS, Call) ->
             ?call_warning("Invalid reply from route/5 callback: ~p", [Invalid]),
             {reply_stateless, {internal_error, "Invalid SipApp Reply"}}
     end,
-    Status = case Method of
-        'INVITE' -> invite_proceeding;
-        'ACK' -> ack;
-        _ -> trying
-    end,
-    UAS1 = UAS#trans{status=Status},
-    do_route(Route, UAS1, update(UAS1, Call));
-
-% Request has been already answered
-route_reply(_Reply, UAS, Call) ->
-    update(UAS, Call).
+    do_route(Route, UAS, Call).
 
 
 %% @private

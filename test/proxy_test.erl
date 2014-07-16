@@ -148,11 +148,11 @@ invalid(Test) ->
 
     % Force Forwards=0 using REGISTER
     {ok, C1Id} = nksip:find_app_id(C1),
-    {ok, Req4, Opts4} = nksip_uac_lib:make(C1Id, 'REGISTER', "sip:any", []), 
+    {ok, Req4, Opts4} = nksip_call_uac_make:make(C1Id, 'REGISTER', "sip:any", []), 
     {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 
     % Force Forwards=0 using OPTIONS. Server will reply
-    {ok, Req5, Opts5} = nksip_uac_lib:make(C1Id, 'OPTIONS', "sip:any", []),
+    {ok, Req5, Opts5} = nksip_call_uac_make:make(C1Id, 'OPTIONS', "sip:any", []),
     {ok, 200, [{reason_phrase, <<"Max Forwards">>}]} = 
         nksip_call:send(Req5#sipmsg{forwards=0}, [{meta,[reason_phrase]}|Opts5]),
 

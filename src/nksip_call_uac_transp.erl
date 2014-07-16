@@ -19,8 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @doc UAC Transport Layer
-
--module(nksip_transport_uac).
+-module(nksip_call_uac_transp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([send_request/2, resend_request/2, add_headers/6]).
