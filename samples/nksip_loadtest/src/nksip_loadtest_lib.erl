@@ -40,14 +40,14 @@ start_server() ->
 %% @doc Start a test server SipApp called `Name' listening on port `Port' for 
 %% udp and tcp, and `Port+1' for tls.
 start_server(Name, Port) ->
-    CoreOpts = [
-        registrar,
-        {transport, {udp, {0,0,0,0}, Port}},
-        {transport, {tls, {0,0,0,0}, Port+1}},
+    Opts = [
+        {plugins, [nksip_registrar]},
+        {transports, [{udp, {0,0,0,0}, Port}, {tls, {0,0,0,0}, Port+1}]},
+        {log_level, info},
         no_100
     ],
-    case nksip:start(Name, nksip_loadtest_sipapp, [Name], CoreOpts) of
-        ok -> ok;
+    case nksip:start(Name, nksip_loadtest_sipapp, [], Opts) of
+        {ok, _} -> ok;
         {error, already_started} -> ok
     end.
 
@@ -133,7 +133,8 @@ launch(Opts) ->
         false ->
             case lists:member(tcp, Opts) of
                 true -> tcp;
-                false -> udp           end
+                false -> udp           
+            end
     end,
     Messages = proplists:get_value(messages, Opts, 1),
     Processes = case proplists:get_value(clients, Opts, 10) of

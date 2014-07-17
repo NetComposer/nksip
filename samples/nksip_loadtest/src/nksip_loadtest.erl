@@ -43,28 +43,12 @@ full() ->
 %% @doc Performs a full load test suite, using 10.000 requests with 10 clients.
 %%
 %% Available options are:
-%% <br/>
-%% <table border="1">
-%%  <tr><th>Option</th><th>Description</th></tr>
-%%  <tr>
-%%      <td>`messages'</td>
-%%      <td>Number of requests to send (default 10000)</td>
-%%  </tr>
-%%  <tr>
-%%      <td>`clients'</td>
-%%      <td>Number of parallel clients to start (default 10)</td>
-%%  </tr>
-%%  <tr>
-%%      <td>`host'</td>
-%%      <td>Use it in case the NkSIP server being tested is started at another node.
-%%          Default is "127.0.0.1"</td>
-%%  </tr>
-%%  <tr>
-%%      <td>`port'</td>
-%%      <td>NkSIP server listening port. Default is 5060 for udp and tcp,
-%%          and 5061 for tls</td>
-%%  </tr>
-%% </table>
+%% - messages: Number of requests to send (default 10000)
+%% - clients: Number of parallel clients to start (default 10)
+%% - host: Use it in case the NkSIP server being tested is started at another node.
+%%         Default is "127.0.0.1"</td>
+%% - port: NkSIP server listening port. 
+%%         Default is 5060 for udp and tcp, and 5061 for tls
 full(Opts) ->
     Messages = proplists:get_value(messages, Opts, 10000),
     Clients = proplists:get_value(clients, Opts, 10),

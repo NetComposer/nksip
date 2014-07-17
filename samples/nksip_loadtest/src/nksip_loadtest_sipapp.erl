@@ -24,20 +24,13 @@
 
 -module(nksip_loadtest_sipapp).
 
--export([init/1, sip_route/5, sip_invite/3]).
+-export([sip_route/5, sip_invite/2]).
 
 -define(PROXY_URI, "<sip:127.0.0.1:5061;transport=tcp>").
 
  
-%% All callback functions are "inline"
-
-%% @doc SipApp initialization
-init([_AppId]) ->
-    {ok, {}}.
-
-
 %% @doc Request routing callback
-sip_route(_, <<"stateless">>, _, _, _) ->
+sip_route(_Scheme, <<"stateless">>, _Domain, _Req, _Call) ->
     process_stateless;
 
 sip_route(_, <<"stateful">>, _, _, _) ->
@@ -53,6 +46,7 @@ sip_route(_Request, _Scheme, _User, _Domain, _From) ->
     process.
 
 %% @doc Answer the call with the same SDP body
-sip_invite(Req, _Meta, _From) ->
-    {answer, nksip_sipmsg:meta(body, Req)}.
+sip_invite(Req, _Call) ->
+	{ok, SDP} = nksip_request:meta(body, Req),
+    {reply, {ok, [{body, SDP}]}}.
 
