@@ -9,6 +9,6 @@ If offers two different test modes:
 * In the `standard` mode, it generates and sends the requests using NkSIP request generation functions.
 * In `raw` mode, it sends locally generated raw packets. This mode is useful to test a NkSIP in the same machine as an UAS server, without the UAC processing overhead.
 
-Full test suites are available in nksip_loadtest:full/0` and nksip_loadtest:full/1`. More fine-grained tests can be started with nksip_loadtest:launch/1`.
+Full test suites are available in `nksip_loadtest:full/0` and `nksip_loadtest:full/1`. More fine-grained tests can be started with `nksip_loadtest:launch/1`.
 
-The test is directed to a started NkSIP in the same host by default, but you can start this application and a listening server (using nksip_loadtest_lib:start_server/0`) on another node and use the option `host` to send the requests to the remote node.
+The test is directed to a started NkSIP in the same host by default, but you can start a listening server (using `nksip_loadtest_lib:start_server/0`) and this application on another node, and use the option `host` to send the requests to the remote node.
