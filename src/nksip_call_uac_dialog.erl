@@ -25,10 +25,29 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([pre_request/2, request/3, ack/2, response/4]).
+-export([pre_request/2, request/3, response/4]).
 -export([make/4, new_local_seq/2, uac_dialog_id/3]).
 -import(nksip_call_dialog, [find/2, update/3, store/2]).
 
+%% Offer/Answer Model
+%%
+%% - If I send an offer in INVITE
+%%   - If provisional does not have SDP, nothing happens
+%%   - If provisional have SDP, it is the answer
+%%   - If new provisional/final have, SDP, reuses the same offer and is the new answer
+%%   - If provisional is reliable, and have SDP:
+%%     -  The PRACK can start a new offer, reply of ACK must answer
+%%     -  IF PRACK has no SDP, nothing happens
+%%
+%% - If INVITE does not have an offer
+%%   - Provisional can have the offer
+%%   - If it is reliable, can reply in PRACK
+%%   - If not, must reply in ACK when final
+%%
+%% - Can only send UPDATE when no offer is already sent or received
+ 
+%% The PRACK stuff should be in the nksip_100rel plugin,
+%% but the offer/answer model processing is still here
 
 %% ===================================================================
 %% Private
@@ -41,7 +60,7 @@
     when Error :: unknown_dialog | request_pending.
 
 pre_request(#sipmsg{class={req, 'ACK'}}, _) ->
-    error(ack_in_dialog_pre_request);
+    ok;
 
 pre_request(Req, Call) ->
     #sipmsg{class={req, Method}, dialog_id=DialogId} = Req,
@@ -84,6 +103,9 @@ pre_request(Req, Call) ->
 %% @private
 -spec request(nksip:request(), boolean(), nksip_call:call()) ->
     nksip_call:call().
+
+request(#sipmsg{class={req, 'ACK'}}=Req, _, Call) ->
+    do_ack(Req, Call);
 
 request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, IsProxy, Call) ->
     ?call_debug("Dialog ~s UAC request ~p", [DialogId, Method]), 
@@ -169,6 +191,48 @@ do_request(_Method, _Req, _IsProxy, Dialog, Call) ->
 
 
 %% @private
+-spec do_ack(nksip:request(), nksip_call:call()) ->
+    nksip_call:call().
+
+do_ack(#sipmsg{class={req, 'ACK'}, to={_, <<>>}}, Call) ->
+    ?call_notice("Dialog UAC invalid ACK", []),
+    Call;
+
+do_ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call) ->
+    case find(DialogId, Call) of
+        #dialog{invite=#invite{}=Invite}=Dialog1 ->
+            #invite{status=Status, request=InvReq} = Invite,
+            #sipmsg{cseq={InvCSeq, _}} = InvReq,
+            case Status of
+                accepted_uac when CSeq==InvCSeq ->
+                    ?call_debug("Dialog ~s (~p) UAC request 'ACK'", [DialogId, Status]),
+                    {HasSDP, SDP, Offer, Answer} = get_sdp(AckReq, Invite), 
+                    {Offer1, Answer1} = case Offer of
+                        {remote, invite, _} when HasSDP -> 
+                            {Offer, {local, ack, SDP}};
+                        {remote, invite, _} -> 
+                            {undefined, undefined};
+                        _ -> 
+                            {Offer, Answer}
+                    end,
+                    Invite1 = Invite#invite{
+                        ack = AckReq, 
+                        sdp_offer = Offer1, 
+                        sdp_answer = Answer1
+                    },
+                    Dialog2 = Dialog1#dialog{invite=Invite1},
+                    update({invite, confirmed}, Dialog2, Call);
+                _ ->
+                    ?call_notice("Dialog ~s (~p) ignoring ACK", [DialogId, Status]),
+                    store(Dialog1, Call)
+            end;
+        not_found ->
+            ?call_notice("Dialog ~s not found for UAC ACK", [DialogId]),
+            Call
+    end.
+
+
+%% @private
 -spec response(nksip:request(), nksip:response(), boolean(), nksip_call:call()) ->
     nksip_call:call().
 
@@ -237,7 +301,8 @@ do_response('INVITE', Code, Req, Resp,
         {local, invite, _} when Code>=200 ->
             {undefined, undefined};
         undefined when HasSDP, element(1, Req#sipmsg.body)==sdp ->
-            % New answer to previous INVITE offer, it is not a new offer
+            % We have completed a previous offer/answer (in a provisional response)
+            % Now we have a new answer, must reuse the same offer
            {{local, invite, Req#sipmsg.body}, {remote, invite, SDP}};
         undefined when HasSDP ->
             {{remote, invite, SDP}, undefined};
@@ -346,9 +411,12 @@ do_response('UPDATE', Code, Req, Resp,
             when Code>=200, Code<300 ->
     {HasSDP, SDP, Offer, Answer} = get_sdp(Resp, Invite),
     {Offer1, Answer1} = case Offer of
-        {local, update, _} when HasSDP -> {Offer, {remote, update, SDP}};
-        {local, update, _} -> {undefined, undefined};
-        _ -> {Offer, Answer}
+        {local, update, _} when HasSDP -> 
+            {Offer, {remote, update, SDP}};
+        {local, update, _} -> 
+            {undefined, undefined};
+        _ -> 
+            {Offer, Answer}
     end,
     Invite1 = Invite#invite{sdp_offer=Offer1, sdp_answer=Answer1},
     update({update, uac, Req, Resp}, Dialog#dialog{invite=Invite1}, Call);
@@ -387,46 +455,7 @@ do_response('REFER', Code, Req, Resp, Dialog, Call) ->
     
 do_response(_, _Code, _Req, _Resp, Dialog, Call) ->
     store(Dialog, Call).
-
-
-%% @private
--spec ack(nksip:request(), nksip_call:call()) ->
-    nksip_call:call().
-
-ack(#sipmsg{class={req, 'ACK'}, to={_, <<>>}}, Call) ->
-    ?call_notice("Dialog UAC invalid ACK", []),
-    Call;
-
-ack(#sipmsg{class={req, 'ACK'}, cseq={CSeq, _}, dialog_id=DialogId}=AckReq, Call) ->
-    case find(DialogId, Call) of
-        #dialog{invite=#invite{}=Invite}=Dialog1 ->
-            #invite{status=Status, request=InvReq} = Invite,
-            #sipmsg{cseq={InvCSeq, _}} = InvReq,
-            case Status of
-                accepted_uac when CSeq==InvCSeq ->
-                    ?call_debug("Dialog ~s (~p) UAC request 'ACK'", [DialogId, Status]),
-                    {HasSDP, SDP, Offer, Answer} = get_sdp(AckReq, Invite), 
-                    {Offer1, Answer1} = case Offer of
-                        {remote, invite, _} when HasSDP -> {Offer, {local, ack, SDP}};
-                        {remote, invite, _} -> {undefined, undefined};
-                        _ -> {Offer, Answer}
-                    end,
-                    Invite1 = Invite#invite{
-                        ack = AckReq, 
-                        sdp_offer = Offer1, 
-                        sdp_answer = Answer1
-                    },
-                    Dialog2 = Dialog1#dialog{invite=Invite1},
-                    update({invite, confirmed}, Dialog2, Call);
-                _ ->
-                    ?call_notice("Dialog ~s (~p) ignoring ACK", [DialogId, Status]),
-                    store(Dialog1, Call)
-            end;
-        not_found ->
-            ?call_notice("Dialog ~s not found for UAC ACK", [DialogId]),
-            Call
-    end.
-    
+   
 
  %% @private
 -spec make(integer(), nksip:method(), nksip:optslist(), nksip_call:call()) ->

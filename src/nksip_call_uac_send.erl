@@ -110,7 +110,7 @@ sent_request(#sipmsg{class={req, 'ACK'}}=Req, UAC, Call) ->
     Call2 = nksip_call_uac_reply:reply({req, Req}, UAC1, Call1),
     case lists:member(no_dialog, Opts) of
         true -> Call1;
-        false -> nksip_call_uac_dialog:ack(Req, Call2)
+        false -> nksip_call_uac_dialog:request(Req, undefined, Call2)
     end;
 
 sent_request(Req, UAC, Call) ->

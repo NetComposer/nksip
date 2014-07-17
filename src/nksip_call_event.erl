@@ -111,12 +111,12 @@ uac_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call)
                 when Code>=300 ->
     case Subs#subscription.answered of
         undefined ->
-            update({active, 10}, Subs, Dialog, Call);
-            % update({terminated, {code, Code}, undefined}, Subs, Dialog, Call);
+            % update({active, 10}, Subs, Dialog, Call);
+            update({terminated, {code, Code}, undefined}, Subs, Dialog, Call);
         _ when Code==405; Code==408; Code==481; Code==501 ->
             update({terminated, {code, Code}, undefined}, Subs, Dialog, Call);
         _ ->
-            update(none, Subs, Dialog, Call)
+            store(Subs, Dialog, Call)
     end;
 
 uac_do_response('NOTIFY', Code, Req, _Resp, Subs, Dialog, Call) 
@@ -231,8 +231,7 @@ uas_do_response('SUBSCRIBE', Code, _Req, _Resp, Subs, Dialog, Call)
         _ when Code==405; Code==408; Code==481; Code==501 ->
             update({terminated, {code, Code}, undefined}, Subs, Dialog, Call);
         _ ->
-            update(none, Subs, Dialog, Call)
-
+            store(Subs, Dialog, Call)
     end;
 
 uas_do_response('NOTIFY', Code, Req, _Resp, Subs, Dialog, Call) 
@@ -259,9 +258,6 @@ uas_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
 %% @private
 -spec update(term(), nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
-
-update(none, Subs, Dialog, Call) ->
-    store(Subs, Dialog, Call);
 
 update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) ->
     #subscription{
@@ -370,23 +366,18 @@ update({terminated, Reason, Retry}, Subs, Dialog, Call) ->
     dialog_update({terminated, Reason, Retry}, Subs, Dialog, Call),
     store(Subs#subscription{status={terminated, Reason}}, Dialog, Call).
 
-% update(Status, Subs, Dialog, Call) ->
-%     ?call_warning("Unknown event status: ~p", [Status]),
-%     store(Subs, Dialog, Call).
-%     % update({terminated, {code, 500}, undefined}, Subs, Dialog, Call).
-
 
 %% @private. Create a provisional event and start timer N.
--spec create_prov_event(nksip:request(),  nksip_call:call()) ->
+-spec create_prov_event(nksip:request(), nksip_call:call()) ->
     nksip_call:call().
 
 create_prov_event(#sipmsg{from={_, FromTag}}=Req, Call) ->
     Id = nksip_subscription_lib:make_id(Req),
     ?call_debug("Provisional event ~s (~s) UAC created", [Id, FromTag]),
-    #call{timers=#call_timers{t1=T1}} = Call,
+    #call{timers=#call_timers{t1=T1}, events=Events} = Call,
     Timer = erlang:start_timer(64*T1, self(), {remove_prov_event, {Id, FromTag}}),
     ProvEvent = #provisional_event{id={Id, FromTag}, timer_n=Timer},
-    Call#call{events=[ProvEvent|Call#call.events]}.
+    Call#call{events=[ProvEvent|Events]}.
 
 
 %% @private Removes a stored provisional event.
@@ -463,19 +454,6 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
     [{event, Event}, {subscription_state, SS1} | Opts1].
 
 
-% %% @private
-% maybe_add_refer_event(#sipmsg{class={req, 'REFER'}}=Req, Call) ->
-%     #sipmsg{cseq={CSeq, _}} = Req,
-%     #call{timers={_, _, _, TimerC, _}} = Call,
-%     Req#sipmsg{
-%         event = {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]},
-%         expires = round(TimerC/1000)
-%     };
-
-% maybe_add_refer_event(Req, _Call) ->
-%     Req.
-
-
 %% @private Called when a dialog timer is fired
 -spec timer({middle|timeout, nksip_subscription:id()}, nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
@@ -487,7 +465,7 @@ timer({Type, Id}, Dialog, Call) ->
             Call;
         #subscription{} = Subs when Type==timeout -> 
             Dialog1 = update({terminated, timeout, undefined}, Subs, Dialog, Call),
-            nksip_call_dialog:update(none, Dialog1, Call);
+            nksip_call_dialog:store(Dialog1, Call);
         not_found -> 
             ?call_notice("Subscription ~s timer fired for unknown event", [Id]),
             Call
@@ -584,20 +562,13 @@ dialog_update(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
         {terminated, Reason, undefined} -> {terminated, Reason};
         _ -> Status
     end,
-    % Id = nksip_subscription:get_handle(Subs, Dialog),
     Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
     AppId:nkcb_call(sip_dialog_update, Args, AppId).
 
 
 %% @private
-cancel_timer(Ref) when is_reference(Ref) -> 
-    case erlang:cancel_timer(Ref) of
-        false -> receive {timeout, Ref, _} -> ok after 0 -> ok end;
-        _ -> ok
-    end;
-
-cancel_timer(_) ->
-    ok.
+cancel_timer(Ref) ->
+    nksip_lib:cancel_timer(Ref).
 
 
 %% @private

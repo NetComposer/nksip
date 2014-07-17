@@ -267,16 +267,6 @@ timeout({remove_prov_event, Id}, _Ref, Call) ->
 %% ===================================================================
 
 
-% %% @private
-% -spec find_dialog(nksip_sipmsg:id(), nksip_call:call()) ->
-%     {ok, nksip_dialog_lib:id()} | not_found.
-
-% find_dialog(MsgId, #call{msgs=Msgs}) ->
-%     case lists:keyfind(MsgId, 1, Msgs) of
-%         false -> not_found;
-%         {MsgId, _TransId, DialogId} -> {ok, DialogId}
-%     end.
-
 
 %% @private
 -spec get_trans_id(nksip_sipmsg:id(), nksip_call:call()) ->

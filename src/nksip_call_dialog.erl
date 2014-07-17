@@ -32,7 +32,7 @@
 -export_type([sdp_offer/0]).
 
 -type sdp_offer() ::
-    {local|remote, invite|prack|update|ack, nksip_sdp:sdp()} | undefined.
+    {local|remote, nksip:method(), nksip_sdp:sdp()} | undefined.
 
 
 %% ===================================================================

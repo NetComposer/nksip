@@ -221,7 +221,6 @@
     invite :: nksip:invite(),
     subscriptions = [] :: [nksip:subscription()],
     supported = [] :: [nksip:token()],
-    % allowed = [] :: [nksip:method()],
     meta = [] :: nksip:optslist()
 }).
 
@@ -241,9 +240,6 @@
     timeout_timer :: reference(),
     retrans_timer :: reference(),
     next_retrans :: integer()
-    % session_expires :: integer(),
-    % refresh_timer :: reference(),
-    % meta = [] :: nksip:optslist()   
 }).
 
 
@@ -258,7 +254,6 @@
     timer_expire :: reference(),
     timer_middle :: reference(),
     last_notify_cseq :: nksip:cseq()
-    % meta = [] :: nksip:optslist()   % No current use
 }).
 
 
