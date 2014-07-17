@@ -91,7 +91,7 @@ do_request('INVITE', Req,
                 sdp_offer = Offer1,
                 sdp_answer = undefined
             },
-            {ok, update(none, Dialog#dialog{invite=Invite1}, Call)}
+            {ok, store(Dialog#dialog{invite=Invite1}, Call)}
     end;
 
 do_request('INVITE', _Req, #dialog{invite=#invite{status=Status}}, _Call) ->
@@ -117,13 +117,13 @@ do_request('PRACK', Req,
     case Offer of
         undefined when HasSDP ->
             Invite1 = Invite#invite{sdp_offer={remote, prack, SDP}},
-            {ok, update(none, Dialog#dialog{invite=Invite1}, Call)};
+            {ok, store(Dialog#dialog{invite=Invite1}, Call)};
         {local, invite, _} when HasSDP -> 
             Invite1 = Invite#invite{sdp_answer={remote, prack, SDP}},
             {ok, update(prack, Dialog#dialog{invite=Invite1}, Call)};
         _ -> 
             % If {local, invite, _} and no SDP, ACK must answer or delete
-            {ok, update(none, Dialog, Call)}
+            {ok, store(Dialog, Call)}
     end;
 
 do_request('PRACK', _Req, _Dialog, _Call) ->
@@ -134,9 +134,9 @@ do_request('UPDATE', Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
     case Offer of
         undefined when HasSDP -> 
             Invite1 = Invite#invite{sdp_offer={remote, update, SDP}},
-            {ok, update(none, Dialog#dialog{invite=Invite1}, Call)};
+            {ok, store(Dialog#dialog{invite=Invite1}, Call)};
         undefined ->
-            {ok, update(none, Dialog, Call)};
+            {ok, store(Dialog, Call)};
         {local, _, _} -> 
             {error, request_pending};
         {remote, _, _} -> 
@@ -145,13 +145,13 @@ do_request('UPDATE', Req, #dialog{invite=#invite{}=Invite}=Dialog, Call) ->
 
 do_request('SUBSCRIBE', Req, Dialog, Call) ->
     case nksip_call_event:uas_request(Req, Dialog, Call) of
-        {ok, Dialog1} -> {ok, update(none, Dialog1, Call)};
+        {ok, Dialog1} -> {ok, store(Dialog1, Call)};
         {error, Error} -> {error, Error}
     end;
         
 do_request('NOTIFY', Req, Dialog, Call) ->
     case nksip_call_event:uas_request(Req, Dialog, Call) of
-        {ok, Dialog1} -> {ok, update(none, Dialog1, Call)};
+        {ok, Dialog1} -> {ok, store(Dialog1, Call)};
         {error, Error} -> {error, Error}
     end;
 
@@ -159,7 +159,7 @@ do_request('REFER', Req, Dialog, Call) ->
     do_request('SUBSCRIBE', Req, Dialog, Call);
 
 do_request(_, _, Dialog, Call) ->
-    {ok, update(none, Dialog, Call)}.
+    {ok, store(Dialog, Call)}.
 
 
 %% @private
@@ -274,7 +274,7 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
     end,
     ?call_info("Dialog UAS ~s ignoring unexpected INVITE response ~p in ~p", 
                  [DialogId, Code, Status]),
-    update(none, Dialog, Call);
+    store(Dialog, Call);
 
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
     #dialog{caller_tag=CallerTag} = Dialog,
@@ -294,9 +294,9 @@ do_response('PRACK', Code, _Req, Resp,
             update(prack, Dialog#dialog{invite=Invite1}, Call);
         {remote, prack, _} -> 
             Invite1 = Invite#invite{sdp_offer=undefined, sdp_answer=undefined},
-            update(none, Dialog#dialog{invite=Invite1}, Call);
+            store(Dialog#dialog{invite=Invite1}, Call);
         _ ->
-            update(none, Dialog, Call)
+            store(Dialog, Call)
     end;
 
 do_response('PRACK', Code, _Req, _Resp, 
@@ -305,9 +305,9 @@ do_response('PRACK', Code, _Req, _Resp,
     case Invite#invite.sdp_offer of
         {remote, prack, _} -> 
             Invite1 = Invite#invite{sdp_offer=undefined, sdp_answer=undefined},
-            update(none, Dialog#dialog{invite=Invite1}, Call);
+            store(Dialog#dialog{invite=Invite1}, Call);
         _ -> 
-            update(none, Dialog, Call)
+            store(Dialog, Call)
     end;
     
 do_response('UPDATE', Code, Req, Resp,
@@ -328,9 +328,9 @@ do_response('UPDATE', Code, _Req, _Resp,
     case Invite#invite.sdp_offer of
         {remote, update, _} ->
             Invite1 = Invite#invite{sdp_offer=undefined, sdp_answer=undefined},
-            update(none, Dialog#dialog{invite=Invite1}, Call);
+            store(Dialog#dialog{invite=Invite1}, Call);
         _ -> 
-            update(none, Dialog, Call)
+            store(Dialog, Call)
     end;
     
 do_response('UPDATE', Code, Req, Resp,
@@ -351,9 +351,9 @@ do_response('UPDATE', Code, _Req, _Resp,
     case Invite#invite.sdp_offer of
         {local, update, _} -> 
             Invite1 = Invite#invite{sdp_offer=undefined, sdp_answer=undefined},
-            update(none, Dialog#dialog{invite=Invite1}, Call);
+            store(Dialog#dialog{invite=Invite1}, Call);
         _ ->
-            update(none, Dialog, Call)
+            store(Dialog, Call)
     end;
  
 do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
@@ -364,7 +364,7 @@ do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call) when Code>=300 ->
     % If subscription ends, it will call nksip_call_dialog:update/3, removing
     % the dialog if no other use
     Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
-    update(none, Dialog1, Call);
+    store(Dialog1, Call);
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
     Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
@@ -372,13 +372,13 @@ do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=200, Code<300 ->
 
 do_response('NOTIFY', Code, Req, Resp, Dialog, Call) when Code>=300 ->
     Dialog1 = nksip_call_event:uas_response(Req, Resp, Dialog, Call),
-    update(none, Dialog1, Call);
+    store(Dialog1, Call);
 
 do_response('REFER', Code, Req, Resp, Dialog, Call) ->
     do_response('SUBSCRIBE', Code, Req, Resp, Dialog, Call);
 
 do_response(_, _, _, _, Dialog, Call) ->
-    update(none, Dialog, Call).
+    store(Dialog, Call).
 
 
 %% @private

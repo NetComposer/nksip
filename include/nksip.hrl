@@ -221,7 +221,7 @@
     invite :: nksip:invite(),
     subscriptions = [] :: [nksip:subscription()],
     supported = [] :: [nksip:token()],
-    allowed = [] :: [nksip:method()],
+    % allowed = [] :: [nksip:method()],
     meta = [] :: nksip:optslist()
 }).
 

@@ -227,7 +227,7 @@ make_trans(Req, Opts, From, Call) ->
         true -> [no_dialog|Opts];
         false -> Opts
     end,
-    DialogId = nksip_call_uac_dialog:uac_id(Req, IsProxy, Call),
+    DialogId = nksip_call_uac_dialog:uac_dialog_id(Req, IsProxy, Call),
     UAC = #trans{
         id = TransId,
         class = uac,
@@ -271,7 +271,7 @@ response(Resp, #call{app_id=AppId, trans=Trans}=Call) ->
                 {fork, _} -> true; 
                 _ -> false 
             end,
-            DialogId = nksip_call_uac_dialog:uac_id(Resp, IsProxy, Call),
+            DialogId = nksip_call_uac_dialog:uac_dialog_id(Resp, IsProxy, Call),
             Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId},
             case AppId:nkcb_uac_pre_response(Resp1, UAC, Call) of
                 {continue, [Resp2, UAC2, Call2]} ->
