@@ -33,7 +33,7 @@
 
 %% @doc Called to parse specific UAC options
 -spec nkcb_parse_uac_opts(nksip:request(), nksip:optslist()) ->
-    {continue, list()}.
+    {continue, list()} | {error, term()}.
 
 nkcb_parse_uac_opts(#sipmsg{app_id=_AppId}=Req, Opts) ->
     case nksip_uac_auto_auth:do_parse_config(Opts) of

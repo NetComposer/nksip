@@ -39,7 +39,7 @@
     from | from_tag | from_scheme | from_user | from_domain | 
     to | to_tag | to_scheme | to_user | to_domain | 
     cseq_num | cseq_method | forwards | routes | contacts | require | supported | 
-    expires | retry_after | event | refer_to | realms | rseq_num | rack | 
+    expires | expired | retry_after | event | refer_to | realms | rseq_num | rack | 
     {header, string()|binary()} | all_headers | string() | binary().
 
 
@@ -117,6 +117,7 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
         require -> S#sipmsg.require;
         supported -> S#sipmsg.supported;
         expires -> S#sipmsg.expires;
+        expired -> expired(S);
         retry_after -> 
             case header(<<"retry-after">>, S, integers) of
                 [] -> undefined;
@@ -304,6 +305,34 @@ is_dialog_forming(#sipmsg{class={req, Method}, to={_, ToTag}}) ->
 
 is_dialog_forming(_)  ->
     false.
+
+
+%% @doc Checks if a request has expired looking at its Expires header
+%% and Data header or received date if missing
+-spec expired(nksip:request()) ->
+    boolean().
+
+expired(#sipmsg{expires=Expires, start=Start}=Req) ->
+    case is_integer(Expires) of
+        true ->
+            case nksip_sipmsg:header(<<"date">>, Req, dates) of
+                [Date] ->
+                    Final = nksip_lib:gmt_to_timestamp(Date) + Expires,
+                    case nksip_lib:timestamp() of
+                        TS when TS > Final -> true;
+                        _ -> false
+                    end;
+                _ ->
+                    Final = Start/1000 + Expires,
+                    case nksip_lib:timestamp() of
+                        TS when TS > Final -> true;
+                        _ -> false
+                    end
+            end;
+        false ->
+            false
+    end.
+
 
 
 %% @private

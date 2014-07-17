@@ -49,19 +49,19 @@ start(Trans, UriSet, ForkOpts, #call{forks=Forks}=Call) ->
         id = TransId,
         class = Class,
         start = nksip_lib:timestamp(),
-        uriset = UriSet,
         request  = Req,
         method = Method,
         opts = ForkOpts,
+        uriset = UriSet,
         uacs = [],
         pending = [],
         responses = [],
-        final = false
+        final = false,
+        meta = []
     },
     ?call_debug("Fork ~p ~p started from UAS (~p)", [TransId, Method, ForkOpts]),
     Call1 = Call#call{forks=[Fork|Forks]},
     next(Fork, Call1).
-
 
 
 %% @doc Tries to cancel an ongoing fork.
@@ -121,8 +121,10 @@ next(#fork{id=Id, method=Method, pending=Pending}, Call) ->
 
 launch([], Id, Call) ->
     case lists:keyfind(Id, #fork.id, Call#call.forks) of
-        #fork{} = Fork -> next(Fork, Call);
-        false -> Call
+        #fork{} = Fork -> 
+            next(Fork, Call);
+        false -> 
+            Call
     end;
 
 launch([Uri|Rest], Id, Call) -> 
@@ -133,16 +135,20 @@ launch([Uri|Rest], Id, Call) ->
     Req1 = Req#sipmsg{ruri=Uri, id=nksip_lib:uid()},
     ?call_debug("Fork ~p ~p launching to ~s", [Id, Method, nksip_unparse:uri(Uri)]),
     Fork1 = case Method of
-        'ACK' -> Fork#fork{uacs=[Next|UACs]};
-        _ -> Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
+        'ACK' -> 
+            Fork#fork{uacs=[Next|UACs]};
+        _ -> 
+            Fork#fork{uacs=[Next|UACs], pending=[Next|Pending]}
     end,
     Call1 = update(Fork1, Call),
     Call2 = case nksip_call_uac_make:proxy_make(Req1, Opts) of
-        {ok, Req2, Opts1} ->
+        {ok, Req2, Opts2} ->
             ?call_debug("Fork ~p starting UAC ~p", [Id, Next]),
-            ReqCall = nksip_call_uac:request(Req2, Opts1, {fork, Id}, Call1),
+            % CAUTION: If NkSIP generates an automatic response (45xx) to this request,
+            % it will call response/4 and can modify this same fork object
+            ReqCall = nksip_call_uac:request(Req2, Opts2, {fork, Id}, Call1),
             ReqCall#call{next=Next+1};
-        {error, {reply, Reply}} ->
+        {reply, Reply} ->
             {Resp, _} = nksip_reply:reply(Req, Reply),
             ForkT = Fork#fork{responses=[Resp|Resps]},
             update(ForkT, Call1);
@@ -156,6 +162,7 @@ launch([Uri|Rest], Id, Call) ->
     end,
     %% CAUTION: This call to launch/3 can update the fork's state, can even delete it!
     launch(Rest, Id, Call2).
+
 
 %% @private Called when a launched UAC has a response
 -spec response(id(), integer(), nksip:response(),call()) ->
@@ -180,8 +187,10 @@ response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
                             ?call_debug("Fork ~p ~p received new response ~p from ~s",
                                        [Id, Method, Code, ToTag]),
                             case Code>=200 andalso  Code<300 of
-                                true -> send_reply(Resp1, Fork, Call);
-                                false -> Call
+                                true -> 
+                                    send_reply(Resp1, Fork, Call);
+                                false -> 
+                                    Call
                             end;
                         false ->
                             ?call_debug("Fork ~p ~p received unexpected response "
@@ -190,7 +199,7 @@ response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
                     end
             end;
         false ->
-            ?call_notice("Unknown fork ~p received ~p", [Id, Code]),
+            ?call_notice("Received response ~p for nknown fork ~p", [Code, Id]),
             Call
     end.
 
@@ -202,8 +211,10 @@ response(Id, Pos, #sipmsg{vias=[_|Vias]}=Resp, #call{forks=Forks}=Call) ->
 % 1xx
 waiting(Code, Resp, _Pos, #fork{final=Final}=Fork, Call) when Code < 200 ->
     case Final of
-        false -> send_reply(Resp, Fork, Call);
-        _ -> Call
+        false -> 
+            send_reply(Resp, Fork, Call);
+        _ -> 
+            Call
     end;
     
 % 2xx
@@ -213,8 +224,10 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 300 ->
     Fork1 = Fork#fork{pending=Pending1, uriset=[]},
     Call1 = cancel_all(Fork1, {sip, 200, "Call completed elsewhere"}, Call),
     Fork2 = case Final of
-        false -> Fork1#fork{final='2xx'};
-        _ -> Fork1
+        false -> 
+            Fork1#fork{final='2xx'};
+        _ -> 
+            Fork1
     end,
     Call2 = send_reply(Resp, Fork2, Call1),
     next(Fork2, update(Fork2, Call2));
@@ -235,8 +248,10 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
     case lists:member(follow_redirects, Opts) of
         true when Final==false, Contacts /= [] -> 
             Contacts1 = case RUri#uri.scheme of
-                sips -> [Contact || #uri{scheme=sips}=Contact <- Contacts];
-                _ -> Contacts
+                sips -> 
+                    [Contact || #uri{scheme=sips}=Contact <- Contacts];
+                _ -> 
+                    Contacts
             end,
             ?call_debug("Fork ~p redirect to ~p", [Id, nksip_unparse:uri(Contacts1)]),
             launch(Contacts1, Id, update(Fork1, Call));

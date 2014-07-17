@@ -110,7 +110,7 @@
     pending :: [integer()],
     responses :: [nksip:response()], 
     final :: false | '2xx' | '6xx',
-    meta = [] :: nksip:optslist()   % No current use
+    meta = [] :: nksip:optslist() 
 }).
 
 

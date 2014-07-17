@@ -295,27 +295,7 @@ do_method('SUBSCRIBE', _Req, UAS, Call) ->
 do_method('NOTIFY', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
-do_method('MESSAGE', Req, UAS, Call) ->
-    #sipmsg{expires=Expires, start=Start} = Req,
-    _Expired = case is_integer(Expires) of
-        true ->
-            case nksip_sipmsg:header(<<"date">>, Req, dates) of
-                [Date] ->
-                    Final = nksip_lib:gmt_to_timestamp(Date) + Expires,
-                    case nksip_lib:timestamp() of
-                        TS when TS > Final -> true;
-                        _ -> false
-                    end;
-                _ ->
-                    Final = Start/1000 + Expires,
-                    case nksip_lib:timestamp() of
-                        TS when TS > Final -> true;
-                        _ -> false
-                    end
-            end;
-        _ ->
-            false
-    end,
+do_method('MESSAGE', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
 do_method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
@@ -326,11 +306,7 @@ do_method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
             {reply, invalid_request}
     end;
 
-do_method('PUBLISH', Req, UAS, Call) ->
-    _ETag = case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
-        [Tag] -> Tag;
-        _ -> <<>>
-    end,
+do_method('PUBLISH', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
 do_method(_Method, #sipmsg{app_id=AppId}, _UAS, _Call) ->

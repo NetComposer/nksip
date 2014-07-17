@@ -76,6 +76,8 @@ check_cancel(#trans{id=Id}=UAS, #call{app_id=AppId}=Call) ->
             AppId:nkcb_call(sip_cancel, Args, AppId),
             case From of
                 {fork, ForkId} -> 
+                    % We do not cancel our UAS request, we send it to the fork
+                    % Proxied remotes should send the 487 (ot not)
                     nksip_call_fork:cancel(ForkId, Call1);
                 _ ->  
                     InvUAS1 = InvUAS#trans{cancel=cancelled},
@@ -276,7 +278,8 @@ do_route({proxy, UriList, ProxyOpts}, UAS, Call) ->
                 'ACK' -> UAS2#trans{status=finished};
                 _ -> UAS2
             end,
-            nksip_call_fork:start(UAS3, UriSet, ProxyOpts1, update(UAS3, Call));
+            Call3 = update(UAS3, Call),
+            nksip_call_fork:start(UAS3, UriSet, ProxyOpts1, Call3);
         {reply, SipReply, Call1} ->
             nksip_call_uas:do_reply(SipReply, UAS, Call1)
     end;

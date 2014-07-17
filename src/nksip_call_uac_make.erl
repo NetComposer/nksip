@@ -100,7 +100,8 @@ make(AppId, Method, Uri, Opts) ->
 
 %% @private 
 -spec proxy_make(nksip:request(), nksip:optslist()) ->    
-    {ok, nksip:request(), nksip:optslist()} | {error, term()}.
+    {ok, nksip:request(), nksip:optslist()} | {error, term()} | 
+    {reply, nksip:sipreply()}.
     
 proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
     try
@@ -110,9 +111,13 @@ proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
         end,
         {Req3, Opts3} = parse_opts(Opts1, Req2, []),
-        {ok, Req4, Opts4} = AppId:nkcb_uac_proxy_opts(Req3, Opts3),
-        Req5 = remove_local_routes(Req4),
-        {ok, Req5, Opts4}
+        case AppId:nkcb_uac_proxy_opts(Req3, Opts3) of
+            {continue, [Req4, Opts4]} ->
+                Req5 = remove_local_routes(Req4),
+                {ok, Req5, Opts4};
+            {reply, Reply} ->
+                {reply, Reply}
+        end
     catch
         throw:Throw -> {error, Throw}
     end.

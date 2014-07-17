@@ -113,6 +113,8 @@ do_timer(expire, #trans{id=Id, status=invite_proceeding, from=From}=UAS, Call) -
     ?call_debug("UAS ~p 'INVITE' Timer Expire fired: sending 487",[Id]),
     case From of
         {fork, ForkId} -> 
+            % We do not cancel our UAS request, we send it to the fork
+            % Proxied remotes should send the 487 (ot not)
             nksip_call_fork:cancel(ForkId, Call);
         _ ->  
             UAS1 = UAS#trans{cancel=cancelled},

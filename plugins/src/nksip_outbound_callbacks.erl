@@ -30,11 +30,16 @@
 
 
 
-%% @private
+%% @doc Called to add options for proxy UAC processing
+-spec nkcb_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
+    {continue, list()} | {reply, nksip:sipreply()}.
+
 nkcb_uac_proxy_opts(Req, ReqOpts) ->
     case nksip_outbound_lib:proxy_opts(Req, ReqOpts) of
-        {ok, ProxyOpts} -> {ok, Req, ProxyOpts};
-        {error, OutError} -> throw({reply, OutError})
+        {ok, ProxyOpts} -> 
+            {continue, [Req, ProxyOpts]};
+        {error, OutError} -> 
+            {reply, OutError}
     end.
 
 

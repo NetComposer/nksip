@@ -141,10 +141,10 @@ nkcb_parse_uac_opts(Req, Opts) ->
 
 %% @doc Called to add options for proxy UAC processing
 -spec nkcb_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
-	{ok, nksip:request(), nksip:optslist()}.
+	{reply, nksip:sipreply()} | nkcb_common().
 
 nkcb_uac_proxy_opts(Req, ReqOpts) ->
-	{ok, Req, ReqOpts}.
+	{continue, [Req, ReqOpts]}.
 
 
 %% @doc Called when a new in-dialog request is being generated

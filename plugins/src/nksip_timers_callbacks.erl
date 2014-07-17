@@ -33,7 +33,7 @@
 
 %% @doc Called to parse specific UAC options
 -spec nkcb_parse_uac_opts(nksip:request(), nksip:optslist()) ->
-    {continue, list()}.
+    {continue, list()} | {error, term()}.
 
 nkcb_parse_uac_opts(Req, Opts) ->
     case nksip_timers_lib:parse_uac_config(Opts, Req, []) of

@@ -53,6 +53,7 @@ contacts|`[nksip:uri()]`|Contact headers
 require|`[binary()]`|Tokens in Require header
 supported|`[binary()]`|Tokens in Supported header
 expires|`integer()`&#124;`undefined`|Expires header
+expired|`boolean()`|`true`if the request has expired (looking at Expires and Date headers, or received date if missing)
 event|`nksip:token()`&#124;`undefined`|Token in Event header
 retry_after|`integer()`&#124;`undefined`&#124;`error`|Retry-After header
 refer_to|`nksip:uri()`&#124;`error`|URL in Refer-To header
