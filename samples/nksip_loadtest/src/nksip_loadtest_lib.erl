@@ -41,7 +41,7 @@ start_server() ->
 %% udp and tcp, and `Port+1' for tls.
 start_server(Name, Port) ->
     Opts = [
-        {plugins, [nksip_registrar]},
+        {plugins, [nksip_registrar, nksip_trace, nksip_stats, nksip_debug]},
         {transports, [{udp, {0,0,0,0}, Port}, {tls, {0,0,0,0}, Port+1}]},
         {log_level, info},
         no_100

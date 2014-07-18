@@ -74,17 +74,21 @@ parse_config(Opts) ->
     {ok, nksip_siapp_srv:state()}.
 
 init(_AppId, SipAppState) ->
-    case whereis(nksip_stats_sup) of
+    case whereis(nksip_stats_srv) of
         undefined ->
-            case nksip_stats_app:start() of
-                ok ->
-                    {ok, SipAppState};
-                {error, _Error} ->
-                    error("Could not start nksip_stats application")
-            end;
+            Child = {
+                nksip_stats_srv,
+                {nksip_stats_srv, start_link, []},
+                permanent,
+                5000,
+                worker,
+                [nksip_stats_srv]
+            },
+            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
         _ ->
-            {ok, SipAppState}
-    end.
+            ok
+    end,
+    {ok, SipAppState}.
 
 
 
@@ -93,8 +97,8 @@ init(_AppId, SipAppState) ->
     {ok, nksip_sipapp_srv:state()}.
 
 terminate(_AppId, SipAppState) ->  
+    % We don't remove nksip_stats_srv, in case other SipApp is using it
     {ok, SipAppState}.
-
 
 
 %% ===================================================================
@@ -112,7 +116,7 @@ info() ->
         {dialogs, nksip_counters:value(nksip_dialogs)},
         {routers_queue, nksip_router:pending_msgs()},
         {routers_pending, nksip_router:pending_work()},
-        {tcp_connections, nksip_counters:value(nksip_transport_tcp)},
+        {connections, nksip_counters:value(nksip_connections)},
         {counters_queue, nksip_counters:pending_msgs()},
         {core_queues, nksip_sipapp_srv:pending_msgs()},
         {uas_response, nksip_stats:get_uas_avg()}

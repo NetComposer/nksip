@@ -56,16 +56,14 @@ deps() ->
     {ok, nksip:optslist()} | {error, term()}.
 
 parse_config(Opts) ->
-    case nksip_lib:get_value(nksip_debug, Opts) of
-        {nksip_debug, Trace} when is_boolean(Trace) ->
+    case nksip_lib:get_value(nksip_debug, Opts, false) of
+        Trace when is_boolean(Trace) ->
             Cached1 = nksip_lib:get_value(cached_configs, Opts, []),
             Cached2 = nksip_lib:store_value(config_nksip_debug, Trace, Cached1),
             Opts1 = nksip_lib:store_value(cached_configs, Cached2, Opts),
             {ok, Opts1};
-        {nksip_debug, _} ->
-            {error, {invalid_config, nksip_debug}};
-        false ->
-            {ok, Opts}
+        _ ->
+            {error, {invalid_config, nksip_debug}}
     end.
 
 
@@ -74,17 +72,21 @@ parse_config(Opts) ->
     {ok, nksip_siapp_srv:state()}.
 
 init(_AppId, SipAppState) ->
-    case whereis(nksip_debug_sup) of
+    case whereis(nksip_debug_srv) of
         undefined ->
-            case nksip_debug_app:start() of
-                ok ->
-                    {ok, SipAppState};
-                {error, _Error} ->
-                    error("Could not start nksip_debug application")
-            end;
+            Child = {
+                nksip_debug_srv,
+                {nksip_debug_srv, start_link, []},
+                permanent,
+                5000,
+                worker,
+                [nksip_debug_srv]
+            },
+            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
         _ ->
-            {ok, SipAppState}
-    end.
+            ok
+    end,
+    {ok, SipAppState}.
 
 
 
