@@ -97,6 +97,7 @@ do_send(_Pid, udp, Packet) when byte_size(Packet) > ?MAX_UDP ->
 do_send(Pid, _Proto, Packet) ->
     case catch gen_server:call(Pid, {send, Packet}, 30000) of
         ok -> ok;
+        {error, Error} -> {error, Error};
         {'EXIT', Error} -> {error, Error}
     end.
 
