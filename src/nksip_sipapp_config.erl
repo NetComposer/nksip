@@ -28,9 +28,6 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--define(DEFAULT_LOG_LEVEL, 8).  % 8:debug, 7:info, 6:notice, 5:warning, 4:error
--define(DEFAULT_TRACE, false).
-
 
 %% ===================================================================
 %% Private
@@ -43,6 +40,7 @@
 
 default_config() ->
     [
+        {log_level, notice},
         {allow, "INVITE,ACK,CANCEL,BYE,OPTIONS,INFO,UPDATE,"
                 "SUBSCRIBE,NOTIFY,REFER,MESSAGE"},
         {supported, "path"},
@@ -50,7 +48,7 @@ default_config() ->
         {timer_t2, 4000},                   % (msecs) 4 secs
         {timer_t4, 5000},                   % (msecs) 5 secs
         {timer_c,  180},                    % (secs) 3min
-        {udp_timeout, 180},                 % (secs) 3 min
+        {udp_timeout, 30},                  % (secs) 30 secs
         {tcp_timeout, 180},                 % (secs) 3 min
         {sctp_timeout, 180},                % (secs) 3 min
         {ws_timeout, 180},                  % (secs) 3 min
@@ -364,9 +362,10 @@ parse_transports([], Acc) ->
 
 parse_transports([Transport|Rest], Acc) ->
     case Transport of
-        {Scheme, Ip, Port} -> TOpts = [];
         {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
-        _ -> Scheme=Ip=Port=TOpts=throw({invalid_transport, Transport})
+        {Scheme, Ip, Port} -> TOpts = [];
+        {Scheme, Ip} -> Port = any, TOpts = [];
+        Scheme -> Ip = all, Port = any, TOpts = []
     end,
     case 
         (Scheme==udp orelse Scheme==tcp orelse 
@@ -410,7 +409,7 @@ cache_syntax(Opts) ->
         {uuid, nksip_lib:get_value(uuid, Opts)},
         {config, Opts},
         {config_plugins, nksip_lib:get_value(sorted_plugins, Opts, [])},
-        {config_log_level, nksip_lib:get_value(log_level, Opts, ?DEFAULT_LOG_LEVEL)},
+        {config_log_level, nksip_lib:get_value(log_level, Opts)},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
         {config_timers, #call_timers{
