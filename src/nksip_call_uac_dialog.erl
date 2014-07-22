@@ -368,8 +368,13 @@ do_response('INVITE', Code, _Req, _Resp, #dialog{id=DialogId}=Dialog, Call) ->
         #invite{status=Status} -> ok;
         _ -> Status = undefined
     end,
-    ?call_notice("Dialog UAC ~s ignoring unexpected INVITE response ~p in ~p", 
-                 [DialogId, Code, Status]),
+    case Status of
+        bye -> 
+            ok;
+        _ ->
+            ?call_notice("Dialog UAC ~s ignoring unexpected INVITE response ~p in ~p", 
+                         [DialogId, Code, Status])
+    end,
     store(Dialog, Call);
 
 do_response('BYE', _Code, Req, _Resp, Dialog, Call) ->
