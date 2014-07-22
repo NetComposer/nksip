@@ -8,8 +8,8 @@
 -pa samples/nksip_loadtest/ebin
 
 ## Name of the node
--name nksip_loadtest@127.0.0.1
--setcookie nksip
+#-name nksip_loadtest@127.0.0.1
+#-setcookie nksip
 
 ## More processes
 +P 1000000

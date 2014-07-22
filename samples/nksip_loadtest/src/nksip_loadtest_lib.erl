@@ -218,6 +218,7 @@ launch(Opts) ->
             Fun = fun(Pos) -> 
                 ok = iter_full(MsgType, Pos, RUri, Pid, CallId, PerProcess) 
             end,
+            timer:sleep(100),
             empty(),
             Start = now(),
             [proc_lib:spawn(fun() -> Fun(Pos) end) || Pos <- lists:seq(1, Processes)],
@@ -241,8 +242,13 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [{client, Pos}], []) of
-        ok -> start_clients(Pos+1, Max);
+    Opts = [
+        {plugins, [nksip_debug]},
+        {nksip_debug, true},
+        {transports, [udp,tcp,tls]}
+    ],
+    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [{client, Pos}], Opts) of
+        {ok, _} -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
         _ -> error
     end.
@@ -289,9 +295,9 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
             invite ->
                 case nksip_uac:invite({client, Pos}, RUri, Opts) of
                     {ok, 200, [{dialog, D}]} -> 
-                        case nksip_uac:ack({client, Pos}, D, []) of
+                        case nksip_uac:ack(D, []) of
                             ok -> 
-                                case nksip_uac:bye({client, Pos}, D, []) of
+                                case nksip_uac:bye(D, []) of
                                     {ok, 200, []} -> ok;
                                     Other3 -> throw({invalid_bye_response, Other3}) 
                                 end;
@@ -304,7 +310,7 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
         end,
         true
     catch
-        _:E -> 
+        throw:E -> 
             io:format("\nError in ~s: ~p\n", [CallId, E]),
             false
     end,
@@ -336,7 +342,7 @@ iter_raw(MsgType, Pos, Host, TransStr, State, Transport, Pid, CallId0, Messages)
         end,
         true
     catch
-        error:E -> 
+        throw:E -> 
             io:format("\nError in ~s: ~p\n", [CallId, E]),
             false
     end,
@@ -360,7 +366,7 @@ iter_raw(MsgType, Pos, Host, TransStr, State, Transport, Pid, CallId0, Messages)
         <<"SIP/2.0 200", _/binary>> = recv(Transport),
         true
     catch
-        error:E -> 
+        throw:E -> 
             io:format("\nError in ~s: ~p\n", [CallId, E]),
             false
     end,
