@@ -24,7 +24,7 @@
 
 -include("../include/nksip.hrl").
 
--export([nkcb_connection_sent/2, nkcb_connection_recv/2, nkcb_debug/2]).
+-export([nkcb_connection_sent/2, nkcb_connection_recv/2, nkcb_debug/2, nkcb_debug/3]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -65,3 +65,11 @@ nkcb_debug(SipMsg, Info) ->
     nksip_debug:insert(SipMsg, Info),
     continue.
 
+
+%% doc Called at specific debug points
+-spec nkcb_debug(nksip:app_id(), nksip:call_id(), term()) ->
+    continue.
+
+nkcb_debug(AppId, CallId, Info) ->
+    nksip_debug:insert(AppId, CallId, Info),
+    continue.

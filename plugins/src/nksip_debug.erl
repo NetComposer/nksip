@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
--export([start/1, stop/1, print/1]).
+-export([start/1, stop/1, print/1, print_all/0]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
 -export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
 
@@ -190,6 +190,19 @@ print(CallId) ->
         fun({Time, App, Info}, Acc) ->
             io:format("~f (~f, ~f) ~p\n~p\n\n\n", 
                       [Time, (Time-Start)*1000, (Time-Acc)*1000, App, Info]),
+            Time
+        end,
+        Start,
+        Lines).
+
+
+%% @private
+print_all() ->
+    [{_, Start, _, _}|_] = Lines = lists:keysort(2, dump_msgs()),
+    lists:foldl(
+        fun({CallId, Time, App, Info}, Acc) ->
+            io:format("~p (~p, ~p) ~s ~p\n~p\n\n\n", 
+                      [Time, (Time-Start), (Time-Acc), CallId, App, Info]),
             Time
         end,
         Start,
