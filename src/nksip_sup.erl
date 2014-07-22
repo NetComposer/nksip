@@ -105,7 +105,7 @@ start_link() ->
             [?MODULE]}
      ] 
      ++
-     [get_call_routers(N) || N <- lists:seq(0, ?MSG_ROUTERS-1)],
+     [get_call_routers(N) || N <- lists:seq(0, nksip_config_cache:msg_routers()-1)],
   supervisor:start_link({local, ?MODULE}, ?MODULE, {{one_for_one, 10, 60}, ChildsSpec}).
 
 %% @private

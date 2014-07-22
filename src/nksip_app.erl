@@ -57,6 +57,7 @@ start(_Type, _Args) ->
         _ ->
             ok
     end,
+    ok = nksip_config:make_cache(),
     {ok, Pid} = nksip_sup:start_link(),
     MainIp = nksip_config:get(main_ip),
     MainIp6 = nksip_config:get(main_ip6),

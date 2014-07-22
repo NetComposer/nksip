@@ -28,10 +28,6 @@
 
 -define(VERSION, "0.4.0").
 
--define(MSG_ROUTERS, 8).
-% -define(DEFAULT_EVENT_EXPIRES, 60).
-
-
 -define(
     DO_LOG(Level, App, CallId, Text, Opts),
     case CallId of

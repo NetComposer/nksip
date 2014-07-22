@@ -253,7 +253,7 @@ terminate(_Reason, _SD) ->
     atom().
 
 name(CallId) ->
-    Pos = erlang:phash2(CallId) rem ?MSG_ROUTERS,
+    Pos = erlang:phash2(CallId) rem nksip_config_cache:msg_routers(),
     pos2name(Pos).
 
 
@@ -392,7 +392,7 @@ router_fold(Fun, Init) ->
     lists:foldl(
         fun(Pos, Acc) -> Fun(pos2name(Pos), Acc) end,
         Init,
-        lists:seq(0, ?MSG_ROUTERS-1)).
+        lists:seq(0, nksip_config_cache:msg_routers()-1)).
 
 %% @private
 call_fold(Name) ->

@@ -78,7 +78,8 @@ start(Opts) ->
     Opts2 = nksip_lib:defaults(Opts1, Defaults),
     case parse_start(AppId, UUID, Opts2) of
         {ok, AppId, _Plugins, Syntax} ->
-            ok = nksip_code_util:compile(AppId, Syntax),
+            {ok, Tree} = nksip_code_util:compile(AppId, Syntax),
+            ok = nksip_code_util:write(AppId, Tree),
             {ok, AppId};
         {error, ParseError} ->
             {error, ParseError}
@@ -103,7 +104,8 @@ update(AppId, Opts) ->
                 ToStop -> 
                     nksip_sipapp_srv:stop_plugins(AppId, lists:reverse(ToStop))
             end,
-            ok = nksip_code_util:compile(AppId, Syntax),
+            {ok, Tree} = nksip_code_util:compile(AppId, Syntax),
+            ok = nksip_code_util:write(AppId, Tree),
             case NewPlugins--OldPlugins of
                 [] -> 
                     ok;
