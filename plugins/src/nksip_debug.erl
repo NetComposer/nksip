@@ -24,6 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
+-export([start/1, stop/1, print/1]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
 -export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
 
@@ -103,6 +104,47 @@ terminate(_AppId, SipAppState) ->
 %% Public
 %% ===================================================================
 
+%% @doc Configures a SipApp to start debugging
+-spec start(nksip:app_id()|nksip:app_name()) ->
+    ok | {error, term()}.
+
+start(App) ->
+    case nksip:find_app_id(App) of
+        {ok, AppId} ->
+            Plugins1 = AppId:config_plugins(),
+            Plugins2 = nksip_lib:store_value(nksip_debug, Plugins1),
+            case nksip:update(AppId, [{plugins, Plugins2}, {nksip_debug, true}]) of
+                {ok, _} -> ok;
+                {error, Error} -> {error, Error}
+            end;
+        not_found ->
+            {error, sipapp_not_found}
+    end.
+
+
+%% @doc Stop debugging in a specific SipApp
+-spec stop(nksip:app_id()|nksip:app_name()) ->
+    ok | {error, term()}.
+
+stop(App) ->
+    case nksip:find_app_id(App) of
+        {ok, AppId} ->
+            Plugins = AppId:config_plugins() -- [nksip_debug],
+            case nksip:update(App, [{plugins, Plugins}]) of
+                {ok, _} -> ok;
+                {error, Error} -> {error, Error}
+            end;
+        not_found ->
+            {error, sipapp_not_found}
+    end.    
+
+
+
+%% ===================================================================
+%% Internal
+%% ===================================================================
+
+
 
 %% @private
 insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
@@ -131,7 +173,7 @@ insert(AppId, CallId, Info) ->
 %% @private
 find(CallId) ->
     Lines = lists:sort([{Time, AppId, Info} || {_, Time, AppId, Info} 
-                         <- ets:lookup(nksip_debug_msgs, CallId)]),
+                         <- ets:lookup(nksip_debug_msgs, nksip_lib:to_binary(CallId))]),
     [{nksip_lib:l_timestamp_to_float(Time), AppId, Info} 
         || {Time, AppId, Info} <- Lines].
 
@@ -139,6 +181,19 @@ find(CallId) ->
 %% @private
 find(AppId, CallId) ->
     [{Start, Info} || {Start, C, Info} <- find(CallId), C==AppId].
+
+
+%% @private
+print(CallId) ->
+    [{Start, _, _}|_] = Lines = find(CallId),
+    lists:foldl(
+        fun({Time, App, Info}, Acc) ->
+            io:format("~f (~f, ~f) ~p\n~p\n\n\n", 
+                      [Time, (Time-Start)*1000, (Time-Acc)*1000, App, Info]),
+            Time
+        end,
+        Start,
+        Lines).
 
 
 %% @private
