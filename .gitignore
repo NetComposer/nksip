@@ -4,3 +4,4 @@ log/
 *.beam
 .eunit
 uuid_*
+/nksip.profile
