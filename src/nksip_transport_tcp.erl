@@ -43,7 +43,7 @@
 
 get_listener(AppId, Transp, Opts) ->
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
-    Listeners = nksip_lib:get_value(listeners, Opts, 1),
+    Listeners = nksip_lib:get_value(listeners, Opts, 100),
     Module = case Proto of
         tcp -> ranch_tcp;
         tls -> ranch_ssl
