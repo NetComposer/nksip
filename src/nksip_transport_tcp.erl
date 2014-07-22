@@ -207,6 +207,7 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp]) ->
         listen_ip = LocalIp,
         listen_port = LocalPort
     },
+    AppId:nkcb_debug(AppId, <<>>, ranch_start),
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
     Timeout = 1000 * nksip_sipapp_srv:config(AppId, tcp_timeout),
     nksip_connection:start_link(AppId, Transp1, Socket, Timeout).

@@ -212,6 +212,7 @@ stop_all() ->
     refresh_notify = [] :: [from()],
     buffer = <<>> :: binary(),
     rnrn_pattern :: binary:cp(),
+    callid_pattern :: binary:cp(),
     ws_frag = #message{},            % store previous ws fragmented message
     ws_pid :: pid()                  % ws protocol's pid
 }).
@@ -246,6 +247,7 @@ init([AppId, Transport, SocketOrPid, Timeout]) ->
         in_refresh = false,
         buffer = <<>>,
         rnrn_pattern = binary:compile_pattern(<<"\r\n\r\n">>),
+        callid_pattern = element(2, re:compile("call\-id\s*:\s*(.*?)\s*\r\n", [caseless])),
         ws_frag = undefined,
         ws_pid = Pid
     },
@@ -502,7 +504,10 @@ do_send(Packet, State) ->
     gen_server_info(#state{}).
 
 parse(Binary, #state{buffer=Buffer}=State) ->
-    Data = <<Buffer/binary, Binary/binary>>,
+    Data = case Buffer of
+        <<>> -> Binary;
+        _ -> <<Buffer/binary, Binary/binary>>
+    end,
     case do_parse(Data, State) of
         {ok, State1} -> 
             do_noreply(State1);
@@ -581,8 +586,11 @@ do_parse(Data, State) ->
 
 do_parse(AppId, Transp, Data, State) ->
     #transport{proto=Proto} = Transp,
+    AppId:nkcb_debug(AppId, CallId, start_parse),
+    {match, [CallId]} = re:run(Data, State#state.callid_pattern, [{capture, all_but_first, binary}]),
+    AppId:nkcb_debug(AppId, CallId, start_parse),
     case nksip_parse:packet(AppId, Transp, Data) of
-        {ok, #sipmsg{class=_Class}=SipMsg, Rest} -> 
+        {ok, #sipmsg{call_id=CallId, class=_Class}=SipMsg, Rest} -> 
             AppId:nkcb_connection_recv(SipMsg, Data),
             case nksip_router:incoming_sync(SipMsg) of
                 ok -> 

@@ -66,6 +66,7 @@ send_work_sync(AppId, CallId, Work) ->
 incoming_sync(#sipmsg{app_id=AppId, call_id=CallId}=SipMsg) ->
     Name = name(CallId),
     Timeout = nksip_config_cache:sync_call_time(),
+    ?debug(AppId, CallId, <<"Router Incoming">>, []),
     case catch gen_server:call(Name, {incoming, SipMsg}, Timeout) of
         {'EXIT', Error} -> 
             ?warning(AppId, CallId, "error calling incoming_sync: ~p", [Error]),
@@ -145,6 +146,7 @@ handle_call({send_work_sync, AppId, CallId, Work, Caller}, From, SD) ->
 
 handle_call({incoming, SipMsg}, _From, SD) ->
     #sipmsg{app_id=AppId, call_id=CallId} = SipMsg,
+    ?debug(AppId, CallId, <<"Router Received incoming">>, []),
     case send_work_sync(AppId, CallId, {incoming, SipMsg}, none, none, SD) of
         {ok, SD1} -> 
             {reply, ok, SD1};
@@ -284,6 +286,7 @@ send_work_sync(AppId, CallId, Work, Caller, From, #state{name=Name}=SD) ->
     #state{}.
 
 do_send_work_sync(Pid, AppId, CallId, Work, From, #state{pending=Pending}=SD) ->
+    ?debug(AppId, CallId, <<"do_send_work_sync">>, []),
     Ref = make_ref(),
     nksip_call_srv:sync_work(Pid, Ref, self(), Work, From),
     Pending1 = case dict:find(Pid, Pending) of
@@ -301,6 +304,7 @@ do_send_work_sync(Pid, AppId, CallId, Work, From, #state{pending=Pending}=SD) ->
 
 do_call_start(AppId, CallId, SD) ->
     #state{name=Name} = SD,
+    ?debug(AppId, CallId, <<"do_call_start">>, []),
     Max = nksip_config_cache:global_max_calls(),
     case nksip_counters:value(nksip_calls) < Max of
         true ->
