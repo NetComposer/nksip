@@ -219,7 +219,7 @@ handle_info({sync_work_ok, Ref, Pid}, #state{pending=Pending}=SD) ->
             WorkList1 = lists:keydelete(Ref, 1, WorkList),
             dict:store(Pid, {AppId, CallId, WorkList1}, Pending);
         error ->
-            lager:notice("Receiving sync_work_ok for unknown work"),
+            lager:warning("Receiving sync_work_ok for unknown work"),
             Pending
     end,
     {noreply, SD#state{pending=Pending1}};

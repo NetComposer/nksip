@@ -175,7 +175,7 @@ handle_call(get_port, _From, #state{transport=#transport{listen_port=Port}}=Stat
     {reply, {ok, Port}, State};
 
 handle_call(Msg, _Form, State) -> 
-    lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
+    lager:error("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
@@ -193,7 +193,7 @@ handle_cast({send_stun, Ip, Port, Pid}, #state{app_id=AppId}=State) ->
     {noreply, do_send_stun(AppId, Ip, Port, {cast, Pid}, State)};
 
 handle_cast(Msg, State) -> 
-    lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
+    lager:error("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 

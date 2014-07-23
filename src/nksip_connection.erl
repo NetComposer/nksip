@@ -301,7 +301,7 @@ handle_call(get_refresh, From, State) ->
     do_noreply(State);
 
 handle_call(Msg, _From, State) ->
-    lager:warning("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
+    lager:error("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
     do_noreply(State).
 
 
@@ -360,7 +360,7 @@ handle_cast({stop, Reason}, State) ->
     do_stop(Reason, State);
 
 handle_cast(Msg, State) ->
-    lager:warning("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
+    lager:error("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
     do_noreply(State).
 
 

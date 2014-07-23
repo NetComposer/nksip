@@ -209,7 +209,7 @@ handle_info({'DOWN', MRef, process, _Pid, _Reason}, #state{webserver=MRef}=State
     {noreply, State};
     
 handle_info(Msg, State) -> 
-    lager:error("Module ~p received unexpected info ~p", [?MODULE, Msg]),
+    lager:warning("Module ~p received unexpected info ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
