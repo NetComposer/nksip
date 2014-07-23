@@ -41,10 +41,9 @@ start_server() ->
 %% udp and tcp, and `Port+1' for tls.
 start_server(Name, Port) ->
     Opts = [
-        {plugins, [nksip_registrar, nksip_stats, nksip_debug]},
-        {transports, [{udp, {0,0,0,0}, Port}, {tls, {0,0,0,0}, Port+1}]},
-        {log_level, info},
-        {debug, true},
+        {plugins, [nksip_registrar, nksip_stats]},
+        {transports, [{udp, all, Port}, {tls, all, Port+1}]},
+        {log_level, notice},
         no_100
     ],
     case nksip:start(Name, nksip_loadtest_sipapp, [], Opts) of
@@ -243,11 +242,7 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    Opts = [
-        {plugins, [nksip_debug]},
-        {nksip_debug, true},
-        {transports, [udp,tcp,tls]}
-    ],
+    Opts = [{transports, [udp,tcp,tls]}],
     case nksip:start({client, Pos}, nksip_loadtest_sipapp, [{client, Pos}], Opts) of
         {ok, _} -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
