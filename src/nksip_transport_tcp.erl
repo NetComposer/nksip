@@ -30,7 +30,6 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--define(MAX_BUFFER, 64*1024*1024).
 
 
 %% ===================================================================
@@ -48,13 +47,14 @@ get_listener(AppId, Transp, Opts) ->
         tcp -> ranch_tcp;
         tls -> ranch_ssl
     end,
+    Timeout = 1000 * nksip_sipapp_srv:config(AppId, tcp_timeout),
     Spec = ranch:child_spec(
         {AppId, Proto, Ip, Port}, 
         Listeners, 
         Module,
         listen_opts(Proto, Ip, Port, Opts), 
         ?MODULE,
-        [AppId, Transp]),
+        [AppId, Transp, Timeout]),
     % Little hack to use our start_link instead of ranch's one
     {ranch_listener_sup, start_link, StartOpts} = element(2, Spec),
     setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}).
@@ -176,10 +176,10 @@ listen_opts(tls, Ip, Port, Opts) ->
     {ok, pid()}.
 
 ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol, 
-                    [AppId, Transp]) ->
+                    [AppId, Transp, Timeout]) ->
     case 
         ranch_listener_sup:start_link(Ref, NbAcceptors, RanchTransp, TransOpts, 
-                                      Protocol, [AppId, Transp])
+                                      Protocol, [AppId, Transp, Timeout])
     of
         {ok, Pid} ->
             Port = ranch:get_port(Ref),
@@ -196,7 +196,7 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol,
 -spec start_link(pid(), port(), atom(), term()) ->
     {ok, pid()}.
 
-start_link(_ListenerPid, Socket, Module, [AppId, Transp]) ->
+start_link(_ListenerPid, Socket, Module, [AppId, Transp, Timeout]) ->
     {ok, {LocalIp, LocalPort}} = Module:sockname(Socket),
     {ok, {RemoteIp, RemotePort}} = Module:peername(Socket),
     Transp1 = Transp#transport{
@@ -207,9 +207,7 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp]) ->
         listen_ip = LocalIp,
         listen_port = LocalPort
     },
-    AppId:nkcb_debug(AppId, <<>>, ranch_start),
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
-    Timeout = 1000 * nksip_sipapp_srv:config(AppId, tcp_timeout),
     nksip_connection:start_link(AppId, Transp1, Socket, Timeout).
 
 

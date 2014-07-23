@@ -113,7 +113,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     listen_port = ListenPort
                 } = Transport) ->
         ListenHost = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
-        ?call_debug("UAS listenhost is ~s", [ListenHost]),
+        % ?call_debug("UAS listenhost is ~s", [ListenHost]),
         Scheme = case Proto==tls andalso lists:member(secure, Opts) of
             true -> sips;
             _ -> sip

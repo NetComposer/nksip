@@ -37,7 +37,6 @@
 -define(MAX_UDP, 1500).
 
 
-
 %% ===================================================================
 %% Public
 %% ===================================================================
@@ -212,7 +211,6 @@ stop_all() ->
     refresh_notify = [] :: [from()],
     buffer = <<>> :: binary(),
     rnrn_pattern :: binary:cp(),
-    callid_pattern :: binary:cp(),
     ws_frag = #message{},            % store previous ws fragmented message
     ws_pid :: pid()                  % ws protocol's pid
 }).
@@ -236,7 +234,7 @@ init([AppId, Transport, SocketOrPid, Timeout]) ->
             Socket = SocketOrPid,
             Pid = undefined
     end,
-    ?debug(AppId, <<>>, "created ~p connection ~p (~p) ~p", 
+    ?debug(AppId, <<>>, "Created ~p connection ~p (~p) ~p", 
                 [Proto, {Ip, Port}, self(), Timeout]),
     State = #state{
         app_id = AppId,
@@ -247,7 +245,6 @@ init([AppId, Transport, SocketOrPid, Timeout]) ->
         in_refresh = false,
         buffer = <<>>,
         rnrn_pattern = binary:compile_pattern(<<"\r\n\r\n">>),
-        callid_pattern = element(2, re:compile("call\-id\s*:\s*(.*?)\s*\r\n", [caseless])),
         ws_frag = undefined,
         ws_pid = Pid
     },
@@ -447,13 +444,13 @@ code_change(_OldVsn, State, _Extra) ->
     gen_server_terminate().
 
 terminate(_Reason, #state{app_id=AppId, ws_pid=Pid, proto=Proto}) when is_pid(Pid) ->
-    ?debug(AppId, <<>>, "~p connection process stopped (~p)", [Proto, self()]),
+    ?debug(AppId, <<>>, "Connection ~p process stopped (~p)", [Proto, self()]),
     Pid ! stop;
 
 terminate(_Reason, State) ->
     #state{app_id=AppId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, sctp_id=AssocId} = Transp,
-    ?debug(AppId, <<>>, "~p connection process stopped (~p)", [Proto, self()]),
+    ?debug(AppId, <<>>, "Connection ~p process stopped (~p)", [Proto, self()]),
     case Proto of
         udp -> ok;
         tcp -> gen_tcp:close(Socket);
@@ -575,24 +572,21 @@ do_parse(Data, State) ->
         nomatch ->
             ?notice(AppId, <<>>, "invalid partial msg ~p: ~p", [Proto, Data]),
             {error, parse_error};
-        _ ->
-            do_parse(AppId, Transp, Data, State)
+        {Pos, 4} ->
+            do_parse(AppId, Transp, Data, Pos+4, State)
     end.
 
 
 %% @private
--spec do_parse(nksip:app_id(), nksip:transport(), binary(), #state{}) ->
+-spec do_parse(nksip:app_id(), nksip:transport(), binary(), integer(), #state{}) ->
     {ok, #state{}} | {error, term()}.
 
-do_parse(AppId, Transp, Data, State) ->
+do_parse(AppId, Transp, Data, Pos, State) ->
     #transport{proto=Proto} = Transp,
-    AppId:nkcb_debug(AppId, CallId, start_parse),
-    {match, [CallId]} = re:run(Data, State#state.callid_pattern, [{capture, all_but_first, binary}]),
-    AppId:nkcb_debug(AppId, CallId, start_parse),
-    case nksip_parse:packet(AppId, Transp, Data) of
-        {ok, #sipmsg{call_id=CallId, class=_Class}=SipMsg, Rest} -> 
-            AppId:nkcb_connection_recv(SipMsg, Data),
-            case nksip_router:incoming_sync(SipMsg) of
+    case extract(Proto, Data, Pos) of
+        {ok, CallId, Msg, Rest} ->
+            AppId:nkcb_connection_recv(AppId, CallId, Transp, Msg),
+            case nksip_router:incoming_sync(AppId, CallId, Transp, Msg) of
                 ok -> 
                     do_parse(Rest, State);
                 {error, Error} -> 
@@ -605,15 +599,10 @@ do_parse(AppId, Transp, Data, State) ->
         partial ->
             ?notice(AppId, <<>>, "ignoring partial msg ~p: ~p", [Proto, Data]),
             {ok, State};
-        {reply_error, Error, Reply} ->
-            ?notice(AppId, <<>>, "error parsing ~p request: ~p", [Proto, Error]),
-            do_send(Reply, State),
-            {error, Error};
-        {error, Error} -> 
-            ?notice(AppId, <<>>, "error parsing ~p request: ~p", [Proto, Error]),
+        error ->
+            ?notice(AppId, <<>>, "error parsing ~p request", [Proto]),
             {error, parse_error}
     end.
-
 
 %% @private Parse for WS/WSS
 -spec parse_ws(binary(), #state{}) ->
@@ -660,8 +649,10 @@ do_parse_ws_messages([#message{type=fragmented}=Msg|Rest], State) ->
 do_parse_ws_messages([#message{type=Type, payload=Data}|Rest], State) 
         when Type==text; Type==binary ->
     case do_parse(nksip_lib:to_binary(Data), State) of
-        {ok, State1} -> do_parse_ws_messages(Rest, State1);
-        {error, Error} -> {error, Error}
+        {ok, State1} -> 
+            do_parse_ws_messages(Rest, State1);
+        {error, Error} -> 
+            {error, Error}
     end;
 
 do_parse_ws_messages([#message{type=close}|_], _State) ->
@@ -691,7 +682,43 @@ do_stop(Reason, #state{app_id=AppId, proto=Proto}=State) ->
     {stop, normal, State}.
 
 
+%% @private
+-spec extract(nksip:protocol(), binary(), integer()) ->
+    {ok, nksip:call_id(), binary(), binary()} | partial | error.
 
+extract(Proto, Data, Pos) ->
+    case 
+        re:run(Data, nksip_config_cache:re_call_id(), [{capture, all_but_first, binary}])
+    of
+        {match, [_, CallId]} ->
+            case 
+                re:run(Data, nksip_config_cache:re_content_length(), 
+                       [{capture, all_but_first, list}])
+            of
+                {match, [_, CL0]} ->
+                    case catch list_to_integer(CL0) of
+                        CL when is_integer(CL), CL>=0 ->
+                            MsgSize = Pos+CL,
+                            case byte_size(Data) of
+                                MsgSize ->
+                                    {ok, CallId, Data, <<>>};
+                                BS when BS<MsgSize andalso (Proto==tcp orelse Proto==tls) ->
+                                    partial;
+                                BS when BS<MsgSize ->
+                                    error;
+                                _ ->
+                                    {Msg, Rest} = split_binary(Data, MsgSize),
+                                    {ok, CallId, Msg, Rest}
+                            end;
+                        _ ->
+                            error
+                    end;
+                _ ->
+                    error
+            end;
+        _ ->
+            error
+    end.
 
 
 

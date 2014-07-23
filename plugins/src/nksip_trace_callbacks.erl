@@ -24,7 +24,7 @@
 
 -include("../include/nksip.hrl").
 
--export([nkcb_connection_sent/2, nkcb_connection_recv/2]).
+-export([nkcb_connection_sent/2, nkcb_connection_recv/4]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -41,10 +41,10 @@ nkcb_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nkcb_connection_recv(nksip:request()|nksip:response(), binary()) ->
+-spec nkcb_connection_recv(nksip:app_id(), nksip:call_id(), 
+					       nksip:transport(), binary()) ->
     continue.
 
-nkcb_connection_recv(SipMsg, Packet) ->
-    #sipmsg{app_id=AppId, call_id=CallId, transport=Transp} = SipMsg,
+nkcb_connection_recv(AppId, CallId, Transp, Packet) ->
     nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
     continue.

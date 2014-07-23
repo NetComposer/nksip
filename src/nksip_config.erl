@@ -34,6 +34,8 @@
 -compile({no_auto_import,[put/2]}).
 
 -define(MINUS_CSEQ, 46111468).  % Generate lower values to debug
+-define(RE_CALL_ID, "\r\n\s*(i|call\-id)\s*:\s*(.*?)\s*\r\n").
+-define(RE_CONTENT_LENGTH, "\r\n\s*(l|content-length)\s*:\s*(.*?)\s*\r\n").
 
 
 %% ===================================================================
@@ -139,6 +141,10 @@ make_cache() ->
                     nksip_lib:get_value(global_max_calls, EnvConfig2)},
                 {msg_routers, 
                     nksip_lib:get_value(msg_routers, EnvConfig2)},
+                {re_call_id, 
+                    element(2, re:compile(?RE_CALL_ID, [caseless]))},
+                {re_content_length, 
+                    element(2, re:compile(?RE_CONTENT_LENGTH, [caseless]))},
                 {app_config, AppConfig}
             ],
             make_cache(CacheConfig),

@@ -42,6 +42,7 @@
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
+    {incoming, nksip:app_id(), nksip:call_id(), nksip:transport(), binary()} | 
     info |
     get_all_dialogs | 
     {stop_dialog, nksip_dialog_lib:id()} |
@@ -123,6 +124,17 @@ work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
             nksip_call_uac:response(Resp, Call)
     end;
 
+work({incoming, AppId, CallId, Transp, Msg}, none, Call) ->
+    case nksip_parse:packet(AppId, CallId, Transp, Msg) of
+        {ok, SipMsg} ->
+            work({incoming, SipMsg}, none, Call);
+        {error, Error} ->
+            ?call_error("Error parsing SipMsg: ~p", [Error]),
+            Call;
+        {reply_error, Error, _Reply} ->
+            ?call_error("Error parsing SipMsg: ~p", [Error]),
+            Call
+    end;
 
 work(get_all_dialogs, From, #call{dialogs=Dialogs}=Call) ->
     Ids = [nksip_dialog_lib:get_handle(Dialog) || Dialog <- Dialogs],
