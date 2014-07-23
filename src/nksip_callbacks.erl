@@ -35,7 +35,7 @@
 -export([nkcb_connection_sent/2, nkcb_connection_recv/4]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
--export([nkcb_debug/2, nkcb_debug/3]).
+-export([nkcb_debug/3]).
 
 -type nkcb_common() :: continue | {continue, list()}.
 
@@ -317,14 +317,6 @@ nkcb_handle_info(Msg, SipAppState) ->
 
 nkcb_sipapp_updated(SipAppState) ->
 	{ok, SipAppState}.
-
-
-%% doc Called at specific debug points
--spec nkcb_debug(nksip:request()|nksip:response(), term()) ->
-    ok | nkcb_common().
-
-nkcb_debug(_SipMsg, _Info) ->
-    ok.
 
 
 %% doc Called at specific debug points

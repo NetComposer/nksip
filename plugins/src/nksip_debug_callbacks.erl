@@ -24,7 +24,7 @@
 
 -include("../include/nksip.hrl").
 
--export([nkcb_connection_sent/2, nkcb_connection_recv/4, nkcb_debug/2, nkcb_debug/3]).
+-export([nkcb_connection_sent/2, nkcb_connection_recv/4, nkcb_debug/3]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -54,15 +54,6 @@ nkcb_connection_sent(SipMsg, Packet) ->
 nkcb_connection_recv(AppId, CallId, Transp, Packet) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     nksip_debug:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
-    continue.
-
-
-%% doc Called at specific debug points
--spec nkcb_debug(nksip:request()|nksip:response(), term()) ->
-    continue.
-
-nkcb_debug(SipMsg, Info) ->
-    nksip_debug:insert(SipMsg, Info),
     continue.
 
 

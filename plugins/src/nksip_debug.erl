@@ -26,7 +26,7 @@
 
 -export([start/1, stop/1, print/1, print_all/0]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
+-export([version/0, deps/0, init/2, terminate/2]).
 
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
@@ -52,20 +52,20 @@ deps() ->
     [].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
+% %% @doc Parses this plugin specific configuration
+% -spec parse_config(nksip:optslist()) ->
+%     {ok, nksip:optslist()} | {error, term()}.
 
-parse_config(Opts) ->
-    case nksip_lib:get_value(nksip_debug, Opts, false) of
-        Trace when is_boolean(Trace) ->
-            Cached1 = nksip_lib:get_value(cached_configs, Opts, []),
-            Cached2 = nksip_lib:store_value(config_nksip_debug, Trace, Cached1),
-            Opts1 = nksip_lib:store_value(cached_configs, Cached2, Opts),
-            {ok, Opts1};
-        _ ->
-            {error, {invalid_config, nksip_debug}}
-    end.
+% parse_config(Opts) ->
+%     case nksip_lib:get_value(nksip_debug, Opts, false) of
+%         Trace when is_boolean(Trace) ->
+%             Cached1 = nksip_lib:get_value(cached_configs, Opts, []),
+%             Cached2 = nksip_lib:store_value(config_nksip_debug, Trace, Cached1),
+%             Opts1 = nksip_lib:store_value(cached_configs, Cached2, Opts),
+%             {ok, Opts1};
+%         _ ->
+%             {error, {invalid_config, nksip_debug}}
+%     end.
 
 
 %% @doc Called when the plugin is started 
@@ -113,7 +113,7 @@ start(App) ->
         {ok, AppId} ->
             Plugins1 = AppId:config_plugins(),
             Plugins2 = nksip_lib:store_value(nksip_debug, Plugins1),
-            case nksip:update(AppId, [{plugins, Plugins2}, {nksip_debug, true}]) of
+            case nksip:update(AppId, [{plugins, Plugins2}, {debug, true}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -130,7 +130,7 @@ stop(App) ->
     case nksip:find_app_id(App) of
         {ok, AppId} ->
             Plugins = AppId:config_plugins() -- [nksip_debug],
-            case nksip:update(App, [{plugins, Plugins}]) of
+            case nksip:update(App, [{plugins, Plugins}, {debug, false}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -153,21 +153,16 @@ insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
 
 %% @private
 insert(AppId, CallId, Info) ->
-    case AppId:config_nksip_debug() of
-        true ->
-            Time = nksip_lib:l_timestamp(),
-            Info1 = case Info of
-                {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
-                                      Type==warning; Type==error ->
-                    {Type, nksip_lib:msg(Str, Fmt)};
-                _ ->
-                    Info
-            end,
-            AppName = AppId:name(),
-            ets:insert(nksip_debug_msgs, {CallId, Time, AppName, Info1});
+    Time = nksip_lib:l_timestamp(),
+    Info1 = case Info of
+        {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
+                              Type==warning; Type==error ->
+            {Type, nksip_lib:msg(Str, Fmt)};
         _ ->
-            ok
-    end.
+            Info
+    end,
+    AppName = AppId:name(),
+    ets:insert(nksip_debug_msgs, {CallId, Time, AppName, Info1}).
 
 
 %% @private

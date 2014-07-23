@@ -40,6 +40,7 @@
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
         app_id = AppId, 
+        call_id = CallId,
         vias = [Via|_],
         cseq = {_, Method},
         transport = Transp
@@ -66,7 +67,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     GlobalId = nksip_config_cache:global_id(),
     RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
-    AppId:nkcb_debug(Resp, {send_response, Method, Code}),
+    AppId:nkcb_debug(AppId, CallId, {send_response, Method, Code}),
     Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun, Opts),
     AppId:nkcb_transport_uas_sent(Resp),
     Return.
@@ -76,13 +77,14 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
 -spec resend_response(Resp::nksip:response(), nksip:optslist()) ->
     {ok, nksip:response()} | error.
 
-resend_response(#sipmsg{class={resp, Code, _}, app_id=AppId, cseq={_, Method}, 
+resend_response(#sipmsg{class={resp, Code, _}, 
                         transport=#transport{}=Transport}=Resp, Opts) ->
+    #sipmsg{app_id=AppId, cseq={_, Method}, call_id=CallId} = Resp,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeResp = fun(_) -> Resp end,
     TranspSpec = [{current, {Proto, Ip, Port, Res}}],
     Return = nksip_transport:send(AppId, TranspSpec, MakeResp, Opts),
-    AppId:nkcb_debug(Resp, {sent_response, Method, Code}),
+    AppId:nkcb_debug(AppId, CallId, {sent_response, Method, Code}),
     Return;
 
 resend_response(Resp, Opts) ->

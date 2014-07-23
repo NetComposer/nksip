@@ -38,7 +38,11 @@
     end).
 
 -define(DO_DEBUG(AppId, CallId, Level, Text, List),
-    AppId:nkcb_debug(AppId, CallId, {Level, Text, List})).
+    case AppId:config_debug() of
+        false -> ok;
+        _ -> AppId:nkcb_debug(AppId, CallId, {Level, Text, List})
+    end).
+
 
 -define(debug(AppId, CallId, Text, List), 
     ?DO_DEBUG(AppId, CallId, debug, Text, List),

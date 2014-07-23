@@ -57,7 +57,8 @@ default_config() ->
         {event_expires, 60},                % (secs) 1 min
         {nonce_timeout, 30},                % (secs) 30 secs
         {max_calls, 100000},                % Each Call-ID counts as a call
-        {max_connections, 1024}             % Per transport and SipApp
+        {max_connections, 1024},            % Per transport and SipApp
+        {debug, false}                      % Used in nksip_debug plugin
     ].
 
 
@@ -303,6 +304,8 @@ parse_opts([Term|Rest], Opts) ->
         {no_100, _} ->
             error;
 
+        {debug, Term} -> {update, Term};
+
         {log_level, debug} -> {update, 8};
         {log_level, info} -> {update, 7};
         {log_level, notice} -> {update, 6};
@@ -412,6 +415,7 @@ cache_syntax(Opts) ->
         {config, Opts},
         {config_plugins, nksip_lib:get_value(sorted_plugins, Opts, [])},
         {config_log_level, nksip_lib:get_value(log_level, Opts)},
+        {config_debug, nksip_lib:get_value(debug, Opts)},
         {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
         {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
         {config_timers, #call_timers{
