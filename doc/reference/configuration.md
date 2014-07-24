@@ -51,10 +51,10 @@ max_connections|`integer()`|1024|Maximum number of simultaneous connections NkSI
 Key|Type|Default|Description
 ---|---|---|---
 plugins|`[atom()]`|`[]`|List of [plugins](../plugins/README.md) to activate
-transports|[Proto&#124;{Proto, Ip}&#124;{Proto, Ip, Port}&#124;{Proto, Ip, Port, Opts}], Proto::`protocol()`, Ip::`inet:ip_address()`&#124;`string()`&#124;`binary()`&#124;all&#124;all6, Port::`inet:port_number()`&#124;any|[{udp, any, all}, {tls, any, all}]`|The SipApp can start any number of transports. If an UDP transport is started, a TCP transport on the same IP and port will be started automatically. Use `all` to use _all_ available IPv4 addresses and `all6` for all IPv6 addresses, and `any` to use any available port
+transports|[Proto&#124;{Proto, Ip}&#124;{Proto, Ip, Port}&#124;{Proto, Ip, Port, Opts}], Proto::`nksip:protocol()`, Ip::`inet:ip_address()`&#124;`string()`&#124;`binary()`&#124;all&#124;all6, Port::`inet:port_number()`&#124;any|`[udp]`|The SipApp can start any number of transports. If an UDP transport is started, a TCP transport on the same IP and port will be started automatically. Use `all` to use _all_ available IPv4 addresses and `all6` for all IPv6 addresses, and `any` to use any available port
 certfile|`string()`|"(privdir)/cert.pem"|Path to the certificate file for TLS
 keyfile|`string()`|"(privdir)/key.pem"|Path to the key file for TLS
-supported|`string()`&#124;`binary()`|(installed plugins)|If present, these tokens will be used in _Supported_ headers instead of the default supported list, for example "my_token1, mytoken2, 100rel"
+supported|`string()`&#124;`binary()`|(installed plugins)|If present, these tokens will be used in _Supported_ headers instead of the default supported list, for example `"my_token1, mytoken2, 100rel"`
 accept|`string()`&#124;`binary()`|"*/*"|If defined, this value will be used instead of default when option `accept` is used
 events|`string()`&#124;`binary()`|""|Lists the Event Packages this SipApp supports
 from|`user_uri()`|"NkSIP App <sip:user@nksip>"|Default _From_ to use in the requests
