@@ -51,8 +51,8 @@ is_prack_retrans(Resp, UAC) ->
 
 
 %% @private
--spec send_prack(nksip:response(), nksip_call_uac:id(), 
-                 nksip_dialog:id(), nksip_call:call()) ->
+-spec send_prack(nksip:response(), nksip_call:trans_id(), 
+                 nksip_dialog_lib:id(), nksip_call:call()) ->
     continue | {ok, nksip:call()}.
 
 send_prack(Resp, Id, DialogId, Call) ->
@@ -101,14 +101,24 @@ send_prack(Resp, Id, DialogId, Call) ->
             nksip_lib:to_list(Method)
         ]),
         Opts2 = [{add, "rack", RAck}, {body, Body}],
-        case nksip_call:make_dialog(DialogId, 'PRACK', Opts2, Call) of
-            {ok, Req, ReqOpts, Call1} -> 
+        % case nksip_call:make_dialog(DialogId, 'PRACK', Opts2, Call) of
+        %     {ok, Req, ReqOpts, Call1} -> 
+        %         PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
+        %         Meta1 = nksip_lib:store_value(nksip_100rel_pracks, PRAcks1, Meta),
+        %         Meta2 = nksip_lib:store_value(nksip_100rel_rseq, RSeq, Meta1),
+        %         UAC1 = UAC#trans{meta=Meta2},
+        %         Call2 = nksip_call_lib:update(UAC1, Call1),
+        %         {ok, nksip_call_uac:request(Req, ReqOpts, none, Call2)};
+        %     {error, Error} ->
+        %         throw(Error)
+        % end
+        case nksip_call_uac:dialog(DialogId, 'PRACK', Opts2, Call) of
+            {ok, #call{trans=[UAC1|_]}=Call1} -> 
                 PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
                 Meta1 = nksip_lib:store_value(nksip_100rel_pracks, PRAcks1, Meta),
                 Meta2 = nksip_lib:store_value(nksip_100rel_rseq, RSeq, Meta1),
-                UAC1 = UAC#trans{meta=Meta2},
-                Call2 = nksip_call_lib:update(UAC1, Call1),
-                {ok, nksip_call_uac_req:request(Req, ReqOpts, none, Call2)};
+                UAC2 = UAC1#trans{meta=Meta2},
+                {ok, nksip_call_lib:update(UAC2, Call1)};
             {error, Error} ->
                 throw(Error)
         end
@@ -201,7 +211,7 @@ find_prack_trans(RSeq, CSeq, Method, Dialog, [Trans|Rest]) ->
 
 timeout_timer(UAS, Call) ->
     #trans{timeout_timer=Timeout0} = UAS,
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     nksip_call_lib:cancel_timer(Timeout0),
     Timeout1 = nksip_call_lib:start_timer(64*T1, nksip_100rel_prack_timeout, UAS),
     UAS#trans{timeout_timer=Timeout1}.
@@ -213,7 +223,7 @@ timeout_timer(UAS, Call) ->
 
 retrans_timer(UAS, Call) ->
     #trans{retrans_timer=Retrans0, next_retrans=Next} = UAS,
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     nksip_call_lib:cancel_timer(Retrans0),
     Time = case is_integer(Next) of
         true -> Next;

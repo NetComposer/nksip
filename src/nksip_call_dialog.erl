@@ -32,7 +32,7 @@
 -export_type([sdp_offer/0]).
 
 -type sdp_offer() ::
-    {local|remote, invite|prack|update|ack, nksip_sdp:sdp()} | undefined.
+    {local|remote, nksip:method(), nksip_sdp:sdp()} | undefined.
 
 
 %% ===================================================================
@@ -68,11 +68,12 @@ create(Class, Req, Resp, Call) ->
         remote_target = #uri{},
         route_set = [],
         blocked_route_set = false,
-        secure = Proto==tls andalso Scheme==sips,
         early = true,
+        secure = Proto==tls andalso Scheme==sips,
         caller_tag = FromTag,
         invite = undefined,
-        subscriptions = []
+        subscriptions = [],
+        meta = []
     },
     sip_dialog_update(start, Dialog, Call),
     case Class of 
@@ -110,30 +111,6 @@ update(Type, Dialog, #call{app_id=AppId}=Call) ->
 %% @private
 -spec do_update(term(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
-
-do_update(prack, Dialog, Call) ->
-    Dialog1 = session_update(Dialog, Call),
-    store(Dialog1, Call);
-
-do_update({update, Class, Req, Resp}, Dialog, Call) ->
-    Dialog1 = target_update(Class, Req, Resp, Dialog, Call),
-    Dialog2 = session_update(Dialog1, Call),
-    Dialog3 = timer_update(Req, Resp, Class, Dialog2, Call),
-    store(Dialog3, Call);
-
-do_update({subscribe, Class, Req, Resp}, Dialog, Call) ->
-    Dialog1 = route_update(Class, Req, Resp, Dialog),
-    Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
-    store(Dialog2, Call);
-
-do_update({notify, Class, Req, Resp}, Dialog, Call) ->
-    Dialog1 = route_update(Class, Req, Resp, Dialog),
-    Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
-    Dialog3 = case Dialog2#dialog.blocked_route_set of
-        true -> Dialog2;
-        false -> Dialog2#dialog{blocked_route_set=true}
-    end,
-    store(Dialog3, Call);
 
 do_update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{
@@ -197,6 +174,30 @@ do_update({invite, Status}, Dialog, Call) ->
     end,
     Dialog4 = timer_update(Req, Resp, Class, Dialog3, Call),
     store(Dialog4, Call);
+
+do_update(prack, Dialog, Call) ->
+    Dialog1 = session_update(Dialog, Call),
+    store(Dialog1, Call);
+
+do_update({update, Class, Req, Resp}, Dialog, Call) ->
+    Dialog1 = target_update(Class, Req, Resp, Dialog, Call),
+    Dialog2 = session_update(Dialog1, Call),
+    Dialog3 = timer_update(Req, Resp, Class, Dialog2, Call),
+    store(Dialog3, Call);
+
+do_update({subscribe, Class, Req, Resp}, Dialog, Call) ->
+    Dialog1 = route_update(Class, Req, Resp, Dialog),
+    Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
+    store(Dialog2, Call);
+
+do_update({notify, Class, Req, Resp}, Dialog, Call) ->
+    Dialog1 = route_update(Class, Req, Resp, Dialog),
+    Dialog2 = target_update(Class, Req, Resp, Dialog1, Call),
+    Dialog3 = case Dialog2#dialog.blocked_route_set of
+        true -> Dialog2;
+        false -> Dialog2#dialog{blocked_route_set=true}
+    end,
+    store(Dialog3, Call);
 
 do_update(none, Dialog, Call) ->
     store(Dialog, Call).
@@ -370,15 +371,13 @@ session_update(Dialog, _Call) ->
     Dialog.
 
 
-
 %% @private
 -spec timer_update(nksip:request(), nksip:response(), uac|uas,
                    nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
 timer_update(_Req, #sipmsg{class={resp, Code, _}}, _Class,
-             #dialog{invite=#invite{status=confirmed}}=Dialog, Call)
-             when Code>=200 andalso Code<300 ->
+             #dialog{invite=#invite{status=confirmed}}=Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #call{app_id=AppId} = Call,
     % class from #invite{} can only be used for INVITE, not UPDATE
@@ -405,7 +404,7 @@ timer_update(_Req, _Resp, _Class,
              #dialog{invite=#invite{status=accepted_uas}}=Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     Invite1 = Invite#invite{
@@ -418,7 +417,7 @@ timer_update(_Req, _Resp, _Class,
 timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
-    #call{timers={T1, _, _, _}} = Call,
+    #call{timers=#call_timers{t1=T1}} = Call,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     Invite1 = Invite#invite{
@@ -438,13 +437,15 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
         Dialog,
         Subs),
     case Invite of
-        #invite{} -> update({invite, {stop, reason(Reason)}}, Dialog1, Call);
-        undefined -> update(none, Dialog1, Call)
+        #invite{} -> 
+            update({invite, {stop, reason(Reason)}}, Dialog1, Call);
+        undefined -> 
+            update(none, Dialog1, Call)
     end.
 
 
 %% @private Gets a value from dialog's meta, or call's meta if no dialog found
--spec get_meta(term(), nksip_dialog:id(), nksip_call:call()) ->
+-spec get_meta(term(), nksip_dialog_lib:id(), nksip_call:call()) ->
     term() | undefined.
 
 get_meta(Key, DialogId, Call) ->
@@ -455,7 +456,7 @@ get_meta(Key, DialogId, Call) ->
 
 
 %% @private Stores a value in dialog's meta, or call's meta if no dialog found
--spec update_meta(term(), term(), nksip_dialog:id(), nksip_call:call()) ->
+-spec update_meta(term(), term(), nksip_dialog_lib:id(), nksip_call:call()) ->
     nksip_call:call().
 
 update_meta(Key, Value, DialogId, Call) ->
@@ -475,18 +476,34 @@ update_meta(Key, Value, DialogId, Call) ->
 
 %% @private Called when a dialog timer is fired
 -spec timer(invite_retrans|invite_timeout|invite_refresh, 
+            nksip_dialog_lib:id(), nksip_call:call()) ->
+    nksip_call:call().
+
+   
+timer(Tag, Id, Call) ->
+    case find(Id, Call) of
+        #dialog{} = Dialog ->
+            do_timer(Tag, Dialog, Call);
+        not_found ->
+            ?call_warning("Call ignoring dialog timer (~p, ~p)", [Tag, Id]),
+            Call
+    end.
+
+
+%% @private Called when a dialog timer is fired
+-spec do_timer(invite_retrans|invite_timeout|invite_refresh, 
             nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
-timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
+do_timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of
         #invite{status=Status, response=Resp, next_retrans=Next} ->
             case Status of
                 accepted_uas ->
-                    case nksip_transport_uas:resend_response(Resp, []) of
+                    case nksip_call_uas_transp:resend_response(Resp, []) of
                         {ok, _} ->
                             ?call_info("Dialog ~s resent response", [DialogId]),
-                            #call{timers={_, T2, _, _}} = Call,
+                            #call{timers=#call_timers{t2=T2}} = Call,
                             Invite1 = Invite#invite{
                                 retrans_timer = start_timer(Next, invite_retrans, DialogId),
                                 next_retrans = min(2*Next, T2)
@@ -502,18 +519,18 @@ timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                                 [DialogId, Status]),
                     Call
             end;
-        _ ->
+        undefined ->
             ?call_notice("Dialog ~s retrans timer fired with no INVITE", 
                          [DialogId]),
             Call
     end;
 
-timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
+do_timer(invite_refresh, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{local_sdp=SDP} = Invite,
     sip_dialog_update({invite_refresh, SDP}, Dialog, Call),
     Call;
 
-timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
+do_timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
     case Invite of
         #invite{class=Class, status=Status} ->
             ?call_notice("Dialog ~s (~p) timeout timer fired", [DialogId, Status]),
@@ -523,7 +540,7 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                 _ ->
                     ?call_notice("Dialog ~s sending BYE on timeout", [DialogId]),
                     case 
-                        nksip_call:sync_send_dialog(DialogId, 'BYE', 
+                        nksip_call_uac:dialog(DialogId, 'BYE', 
                             [async, {reason, {sip, 408, "Dialog Timeout"}}], Call) 
                     of
                         {ok, Call1} ->
@@ -539,7 +556,7 @@ timer(invite_timeout, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
             Call
     end;
 
-timer({event, Tag}, Dialog, Call) ->
+do_timer({event, Tag}, Dialog, Call) ->
     nksip_call_event:timer(Tag, Dialog, Call).
 
 
@@ -549,7 +566,7 @@ timer({event, Tag}, Dialog, Call) ->
 %% ===================================================================
 
 %% @private
--spec find(nksip_dialog:id(), nksip_call:call()) ->
+-spec find(nksip_dialog_lib:id(), nksip_call:call()) ->
     nksip:dialog() | not_found.
 
 find(Id, #call{dialogs=Dialogs}) ->
@@ -557,7 +574,7 @@ find(Id, #call{dialogs=Dialogs}) ->
 
 
 %% @private
--spec do_find(nksip_dialog:id(), [nksip:dialog()]) ->
+-spec do_find(nksip_dialog_lib:id(), [nksip:dialog()]) ->
     nksip:dialog() | not_found.
 
 do_find(_, []) -> not_found;
@@ -574,7 +591,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
     case Dialogs of
         [] -> Rest = [], IsFirst = true;
         [#dialog{id=Id}|Rest] -> IsFirst = true;
-        _ -> Rest=[], IsFirst = false
+        _ -> Rest=undefined, IsFirst = false
     end,
     case Invite==undefined andalso Subs==[] of
         true ->
@@ -586,12 +603,16 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
             Call#call{dialogs=Dialogs1, hibernate=dialog_stop};
         false ->
             Hibernate = case Invite of
-                #invite{status=confirmed} -> dialog_confirmed;
-                _ -> Call#call.hibernate
+                #invite{status=confirmed} -> 
+                    dialog_confirmed;
+                _ -> 
+                    Call#call.hibernate
             end,
             Dialogs1 = case IsFirst of
-                true -> [Dialog|Rest];
-                false -> [Dialog|lists:keydelete(Id, #dialog.id, Dialogs)]
+                true -> 
+                    [Dialog|Rest];
+                false -> 
+                    [Dialog|lists:keydelete(Id, #dialog.id, Dialogs)]
             end,
             Call#call{dialogs=Dialogs1, hibernate=Hibernate}
     end.
@@ -630,7 +651,7 @@ cancel_timer(Ref) ->
 
 
 %% @private
--spec start_timer(integer(), atom(), nksip_dialog:id()) ->
+-spec start_timer(integer(), atom(), nksip_dialog_lib:id()) ->
     reference().
 
 start_timer(Time, Tag, Id) ->

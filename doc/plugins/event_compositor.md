@@ -55,7 +55,7 @@ For example, you could implement the following [sip_publish/2](../reference/call
 ```erlang
 sip_publish(Req, _Call) ->
 	case nksip_request:meta(domain, Req) of
-		<<"nksip">> -> {reply, nksip_event_compositor:process(Req)};
+		{ok, <<"nksip">>} -> {reply, nksip_event_compositor:process(Req)};
 		_ -> {reply, forbidden}
 	end.
 ```

@@ -32,10 +32,10 @@
 		 nkcb_uac_reply/3]).
 -export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/3, nkcb_uas_timer/3, nkcb_uas_dialog_response/4, nkcb_uas_process/2]).
 -export([nkcb_dialog_update/3, nkcb_route/4]).
--export([nkcb_connection_send/2, nkcb_connection_recv/2]).
+-export([nkcb_connection_sent/2, nkcb_connection_recv/4]).
 -export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
 	     nkcb_sipapp_updated/1]).
--export([nkcb_debug/2]).
+-export([nkcb_debug/3]).
 
 -type nkcb_common() :: continue | {continue, list()}.
 
@@ -141,10 +141,10 @@ nkcb_parse_uac_opts(Req, Opts) ->
 
 %% @doc Called to add options for proxy UAC processing
 -spec nkcb_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
-	{ok, nksip:request(), nksip:optslist()}.
+	{reply, nksip:sipreply()} | nkcb_common().
 
 nkcb_uac_proxy_opts(Req, ReqOpts) ->
-	{ok, Req, ReqOpts}.
+	{continue, [Req, ReqOpts]}.
 
 
 %% @doc Called when a new in-dialog request is being generated
@@ -157,16 +157,16 @@ nkcb_make_uac_dialog(Method, Uri, Opts, Call) ->
 
 %% @doc Called when the UAC is preparing a request to be sent
 -spec nkcb_uac_pre_request(nksip:request(), nksip:optlist(), 
-                           nksip_call_uac_req:uac_from(), nksip:call()) ->
+                           nksip_call_uac:uac_from(), nksip:call()) ->
     {continue, list()}.
 
 nkcb_uac_pre_request(Req, Opts, From, Call) ->
 	{continue, [Req, Opts, From, Call]}.
 
 
-%% @doc Called when the UAC must send a reply to the user
+%% @doc Called when the UAC transaction must send a reply to the user
 -spec nkcb_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
-                     nksip_call:trans(), nksip_call:call()) ->
+                     nksip_trans:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
 nkcb_uac_reply(Class, UAC, Call) ->
@@ -179,7 +179,7 @@ nkcb_uac_reply(Class, UAC, Call) ->
 	{ok, nksip:request()}.
 
 nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
-	Req1 = nksip_transport_uac:add_headers(Req, Opts, Scheme, Proto, Host, Port),
+	Req1 = nksip_call_uac_transp:add_headers(Req, Opts, Scheme, Proto, Host, Port),
 	{ok, Req1}.
 
 
@@ -260,19 +260,20 @@ nkcb_route(UriList, ProxyOpts, UAS, Call) ->
 
 
 %% @doc Called when a new message has been sent
--spec nkcb_connection_send(nksip:request()|nksip:response(), binary()) ->
+-spec nkcb_connection_sent(nksip:request()|nksip:response(), binary()) ->
 	ok | nkcb_common().
 
-nkcb_connection_send(_SipMsg, _Packet) ->
+nkcb_connection_sent(_SipMsg, _Packet) ->
 	ok.
 
 
 %% @doc Called when a new message has been received and parsed
--spec nkcb_connection_recv(nksip:request()|nksip:response(), binary()) ->
-	ok | nkcb_common().
+-spec nkcb_connection_recv(nksip:app_id(), nksip:call_id(), 
+					       nksip:transport(), binary()) ->
+    ok | nkcb_common().
 
-nkcb_connection_recv(_SipMsg, _Packet) ->
-    ok.
+nkcb_connection_recv(_AppId, _CallId, _Transp, _Packet) ->
+	ok.
 
 
 %% @doc Called when the transport has just sent a response
@@ -319,11 +320,10 @@ nkcb_sipapp_updated(SipAppState) ->
 
 
 %% doc Called at specific debug points
--spec nkcb_debug(nksip:request()|nksip:response(), term()) ->
+-spec nkcb_debug(nksip:app_id(), nksip:call_id(), term()) ->
     ok | nkcb_common().
 
-nkcb_debug(_SipMsg, _Info) ->
+nkcb_debug(_AppId, _CallId, _Info) ->
     ok.
-
 
 

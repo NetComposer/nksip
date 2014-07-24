@@ -108,7 +108,7 @@ basic() ->
     % ua2 receives again the INVITE. Now it is valid.
 
     SDP1 = nksip_sdp:new(),
-    {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
+    {ok, 200, [{dialog, Dialog1A}, {<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{nksip_timers_se, 1}, {meta, [<<"session-expires">>]}, 
              CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd]),
@@ -116,7 +116,7 @@ basic() ->
     % Start events also at ua1
     ok = nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
-    CallId1 = nksip_dialog:call_id(Dialog1A),
+    {ok, CallId1} = nksip_dialog:call_id(Dialog1A),
     CSeq1 = receive 
         {Ref, #sipmsg{cseq={CSeq1_0, _}, headers=Headers1, call_id=CallId1}} ->
             1 = proplists:get_value(<<"session-expires">>, Headers1),
@@ -148,11 +148,11 @@ basic() ->
         {ua2, {refresh, SDP2}}      % The same SDP ua2 sent
     ]),
 
-    Dialog1B = nksip_dialog:remote_id(Dialog1A, ua2),
-    2 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    2 = nksip_timers:get_session_expires(Dialog1B),
-    expired = nksip_timers:get_session_refresh( Dialog1B),
+    Dialog1B = nksip_dialog_lib:remote_id(Dialog1A, ua2),
+    {ok, 2} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 2 } = nksip_timers:get_session_expires(Dialog1B),
+    {ok, expired} = nksip_timers:get_session_refresh( Dialog1B),
 
     % Now ua2 (current refresher) "refreshs" the dialog
     % We must include a min_se option because of ua2 has no received any 422 
@@ -171,10 +171,10 @@ basic() ->
         {ua2, {refresh, SDP2}}
     ]),
 
-    3 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    3 = nksip_timers:get_session_expires(Dialog1A),
-    expired = nksip_timers:get_session_refresh( Dialog1B),
+    {ok, 3} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 3} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, expired} = nksip_timers:get_session_refresh( Dialog1B),
 
     % Now we send another refresh from ua2 to ua1, this time using UPDATE
     % An automatic Min-SE header is not added by NkSIP because ua2 has not
@@ -184,10 +184,10 @@ basic() ->
     {ok, 200, [{<<"session-expires">>, [<<"90;refresher=uac">>]}]} = 
         nksip_uac:update(Dialog1B, [{meta,[<<"session-expires">>]}]),
 
-    90 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    90 = nksip_timers:get_session_expires(Dialog1B),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog1B)),
+    {ok, 90} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 90} = nksip_timers:get_session_expires(Dialog1B),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog1B))),
 
 
     % Before waiting for expiration, ua1 sends a refresh to ua2.
@@ -197,10 +197,10 @@ basic() ->
     {ok, 200, [{<<"session-expires">>,[<<"2;refresher=uas">>]}]} = 
         nksip_uac:update(Dialog1A, [{nksip_timers_se, 1}, {meta, [<<"session-expires">>]}]),
 
-    2 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    2 = nksip_timers:get_session_expires(Dialog1B),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog1B)),
+    {ok, 2} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 2} = nksip_timers:get_session_expires(Dialog1B),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog1B))),
 
     % Now both ua1 and ua2 has received a 422 response or a refresh request with MinSE,
     % so it will be used in new requests
@@ -218,29 +218,29 @@ basic() ->
         error(basic)
     end,
 
-    2 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    2 = nksip_timers:get_session_expires(Dialog1B),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog1B)),
+    {ok, 2} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 2} = nksip_timers:get_session_expires(Dialog1B),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog1B))),
 
     % Now ua1 refreshes, but change roles, becoming refresher. 
     % Using session_expires option overrides automatic behaviour, no Min-SE is sent
 
     {ok, 200, []} = nksip_uac:update(Dialog1A, [{nksip_timers_se, {2,uac}}]),
 
-    90 = nksip_timers:get_session_expires(Dialog1A),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog1A)),
-    90 = nksip_timers:get_session_expires(Dialog1B),
-    undefined = nksip_timers:get_session_refresh( Dialog1B),
+    {ok, 90} = nksip_timers:get_session_expires(Dialog1A),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog1A))),
+    {ok, 90} = nksip_timers:get_session_expires(Dialog1B),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1B),
 
     
     % Now ua1 send no Session-Expires, but ua2 insists, using default time
     % (and changing roles again)
     {ok, 200, []} = nksip_uac:update(Dialog1A, [{replace, session_expires, <<>>}]),
-    1800 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    1800 = nksip_timers:get_session_expires(Dialog1B),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog1B)),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog1B),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog1B))),
 
 
     % Lower time to wait for timeout
@@ -264,7 +264,7 @@ proxy() ->
     CB = {callback, fun ({req, R, _Call}) -> Self ! {Ref, R}; (_) -> ok end},
 
     SDP1 = nksip_sdp:new(),
-    {ok, 200, [{dialog_id, Dialog1A}, {<<"session-expires">>,[<<"3;refresher=uas">>]}]} = 
+    {ok, 200, [{dialog, Dialog1A}, {<<"session-expires">>,[<<"3;refresher=uas">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{nksip_timers_se, 1}, {meta, [<<"session-expires">>]}, 
              CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd,
@@ -274,7 +274,7 @@ proxy() ->
     % Start events also at ua1
     ok = nksip:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
-    CallId1 = nksip_dialog:call_id(Dialog1A),
+    {ok, CallId1} = nksip_dialog:call_id(Dialog1A),
     receive 
         {Ref, #sipmsg{headers=Headers1, call_id=CallId1}} ->
             1 = proplists:get_value(<<"session-expires">>, Headers1),
@@ -306,29 +306,29 @@ proxy() ->
         {ua2, ack}
     ]),
 
-    Dialog1B = nksip_dialog:remote_id(Dialog1A, ua2),
-    3 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    3 = nksip_timers:get_session_expires(Dialog1B),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog1B)),
+    Dialog1B = nksip_dialog_lib:remote_id(Dialog1A, ua2),
+    {ok, 3} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 3} = nksip_timers:get_session_expires(Dialog1B),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog1B))),
 
-    3 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
-    3 = nksip_timers:get_session_expires(Dialog1A),
-    undefined = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 3} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
+    {ok, 3} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog1A),
 
     {ok, 200, []} = nksip_uac:update(Dialog1A, [{nksip_timers_se, 1000}]),
-    1000 = nksip_timers:get_session_expires(Dialog1A),
-    1000 = nksip_timers:get_session_expires(Dialog1B),
-    1000 = nksip_timers:get_session_expires(Dialog1A),
-    1000 = nksip_timers:get_session_expires(Dialog1A),
+    {ok, 1000} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, 1000} = nksip_timers:get_session_expires(Dialog1B),
+    {ok, 1000} = nksip_timers:get_session_expires(Dialog1A),
+    {ok, 1000} = nksip_timers:get_session_expires(Dialog1A),
 
     {ok, 200, []} = nksip_uac:bye(Dialog1B, []),
 
 
     % p1 received a Session-Timer of 1801. Since it has configured a 
     % time of 1800, and it is > MinSE, it chages the value
-    {ok, 200, [{dialog_id, Dialog2}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}]} = 
+    {ok, 200, [{dialog, Dialog2}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{nksip_timers_se, 1801}, {meta, [<<"session-expires">>]}, 
              auto_2xx_ack, {body, SDP1}, {route, "<sip:127.0.0.1:5060;lr>"}
@@ -339,7 +339,7 @@ proxy() ->
     % Now ua1 does not support the timer extension. p1 adds a Session-Expires
     % header. ua2 accepts the session proposal, but it doesn't add the
     % 'Require' header
-    {ok, 200, [{dialog_id, Dialog3A}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}, 
+    {ok, 200, [{dialog, Dialog3A}, {<<"session-expires">>,[<<"1800;refresher=uas">>]}, 
                {require, []}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5072", 
             [{replace, nksip_timers_se, <<>>}, {supported, "100rel,path"}, 
@@ -348,19 +348,19 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog3B = nksip_dialog:remote_id(Dialog3A, ua2),
-    1800 = nksip_timers:get_session_expires(Dialog3A),
-    undefined = nksip_timers:get_session_refresh( Dialog3A),
-    1800 = nksip_timers:get_session_expires(Dialog3B),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog3B)),
-    1800 = nksip_timers:get_session_expires(Dialog3A),
-    1800 = nksip_timers:get_session_expires(Dialog3A),
+    Dialog3B = nksip_dialog_lib:remote_id(Dialog3A, ua2),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog3A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog3A),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog3B),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog3B))),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog3A),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog3A),
     {ok, 200, []} = nksip_uac:bye(Dialog3A, []),
 
     % ua3 doesn not support the timer extension. It does not return any
     % Session-Expires, but p2 remembers ua1 supports the extension
     % and adds a response and require
-    {ok, 200, [{dialog_id, Dialog4A}, {<<"session-expires">>,[<<"1800;refresher=uac">>]}, 
+    {ok, 200, [{dialog, Dialog4A}, {<<"session-expires">>,[<<"1800;refresher=uac">>]}, 
                {require, [<<"timer">>]}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5073", 
             [{meta,[<<"session-expires">>, require]}, 
@@ -368,19 +368,19 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog4B = nksip_dialog:remote_id(Dialog4A, ua3),
-    1800 = nksip_timers:get_session_expires(Dialog4A),
-    true = erlang:is_integer(nksip_timers:get_session_refresh( Dialog4A)),
-    undefined = nksip_timers:get_session_expires(Dialog4B),
-    undefined  = nksip_timers:get_session_refresh( Dialog4B),
-    1800 = nksip_timers:get_session_expires(Dialog4A),
-    1800 = nksip_timers:get_session_expires(Dialog4A),
+    Dialog4B = nksip_dialog_lib:remote_id(Dialog4A, ua3),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog4A),
+    true = erlang:is_integer(element(2, nksip_timers:get_session_refresh( Dialog4A))),
+    {ok, undefined} = nksip_timers:get_session_expires(Dialog4B),
+    {ok, undefined}  = nksip_timers:get_session_refresh( Dialog4B),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog4A),
+    {ok, 1800} = nksip_timers:get_session_expires(Dialog4A),
     {ok, 200, []} = nksip_uac:bye(Dialog4A, []),
 
 
     % None of UAC and UAS supports the extension
     % Router adds a Session-Expires header, but it is not honored
-    {ok, 200, [{dialog_id, Dialog5A}, {<<"session-expires">>,[]}, 
+    {ok, 200, [{dialog, Dialog5A}, {<<"session-expires">>,[]}, 
                {require, []}]} = 
         nksip_uac:invite(ua1, "sip:127.0.0.1:5073", 
             [{replace, nksip_timers_se, <<>>}, {supported, "100rel,path"}, 
@@ -389,13 +389,13 @@ proxy() ->
             ]),
 
     timer:sleep(100),
-    Dialog5B = nksip_dialog:remote_id(Dialog5A, ua3),
-    undefined = nksip_timers:get_session_expires(Dialog5A),
-    undefined = nksip_timers:get_session_refresh( Dialog5A),
-    undefined = nksip_timers:get_session_expires(Dialog5B),
-    undefined = nksip_timers:get_session_refresh( Dialog5B),
-    undefined = nksip_timers:get_session_expires(Dialog5A),
-    undefined = nksip_timers:get_session_expires(Dialog5A),
+    Dialog5B = nksip_dialog_lib:remote_id(Dialog5A, ua3),
+    {ok, undefined} = nksip_timers:get_session_expires(Dialog5A),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog5A),
+    {ok, undefined} = nksip_timers:get_session_expires(Dialog5B),
+    {ok, undefined} = nksip_timers:get_session_refresh( Dialog5B),
+    {ok, undefined} = nksip_timers:get_session_expires(Dialog5A),
+    {ok, undefined} = nksip_timers:get_session_expires(Dialog5A),
     {ok, 200, []} = nksip_uac:bye(Dialog5A, []),
     ok.
 
@@ -405,18 +405,18 @@ proxy() ->
 
 sip_route(_Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        p1 -> 
+        {ok, p1} -> 
             {proxy, ruri, [record_route, {route, "<sip:127.0.0.1:5070;lr>"}]};
-        p2 ->
+        {ok, p2} ->
             {proxy, ruri, [record_route]};
-        _ ->
+        {ok, _} ->
             process
     end.
 
 
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
-    Body = nksip_request:body(Req),
+    {ok, Body} = nksip_request:body(Req),
     Body1 = nksip_sdp:increment(Body),
     {reply, {answer, Body1}}.
 

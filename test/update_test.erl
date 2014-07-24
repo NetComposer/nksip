@@ -84,9 +84,9 @@ basic() ->
         case Reply of
             {resp, 180, Resp1, _Call} ->
                 % Both sessions have been stablished
-                FunD1 = nksip_dialog:get_id(Resp1),
+                {ok, FunD1} = nksip_dialog:get_handle(Resp1),
                 spawn(fun() ->
-                    FunD2 = nksip_dialog:remote_id(FunD1, client2),
+                    FunD2 = nksip_dialog_lib:remote_id(FunD1, client2),
                     SDP1 = SDP0#sdp{vsn=Vsn0+1}, 
                     {SDP1,SDP0} = get_sessions(C2, FunD2),
                     SDP2 = SDP0#sdp{vsn=Vsn0+2},
@@ -106,7 +106,7 @@ basic() ->
         {add, "x-nk-reply", base64:encode(erlang:term_to_binary({Ref, Self}))}
     ],
     {ok, 200, Values1} = nksip_uac:invite(C1, SipC2, [CB, Body | Hds1]),
-    [{dialog_id, DialogId}] = Values1,
+    [{dialog, DialogId}] = Values1,
     ok = nksip_uac:ack(DialogId, []),
     ok = tests_util:wait(Ref, [
                                 {client2, sdp_start}, 
@@ -119,23 +119,23 @@ basic() ->
                             ]),
     SDP4 = SDP0#sdp{vsn=Vsn0+4},
     SDP5 = SDP0#sdp{vsn=Vsn0+5},
-    DialogId2 = nksip_dialog:remote_id(DialogId, client2),
+    DialogId2 = nksip_dialog_lib:remote_id(DialogId, client2),
     {SDP4,SDP5} = get_sessions(C2, DialogId2),
 
-    [
+    {ok, [
         {raw_local_target, <<"<sip:a@127.0.0.1>">>},
         {raw_remote_target, <<"<sip:b@127.0.0.1:5070>">>},
         {invite_local_sdp, SDP5},
         {invite_remote_sdp, SDP4} 
-    ] = nksip_dialog:meta([raw_local_target, raw_remote_target, 
+    ]} = nksip_dialog:metas([raw_local_target, raw_remote_target, 
                             invite_local_sdp, invite_remote_sdp], DialogId),
-    [
+    {ok, [
         {raw_local_target, <<"<sip:b@127.0.0.1:5070>">>},
         {raw_remote_target, <<"<sip:a@127.0.0.1>">>},        
         {invite_local_sdp, SDP4},
         {invite_remote_sdp, SDP5} 
-    ] = 
-        nksip_dialog:meta([raw_local_target, raw_remote_target, 
+    ]} = 
+        nksip_dialog:metas([raw_local_target, raw_remote_target, 
                             invite_local_sdp, invite_remote_sdp], DialogId2),
 
     {ok, 200, []} = nksip_uac:bye(DialogId, []),
@@ -153,7 +153,7 @@ pending() ->
     CB = {callback, fun(Reply) ->
         case Reply of
             {resp, 180, Resp1, _Call} ->
-                FunD1 = nksip_dialog:get_id(Resp1),
+                {ok, FunD1} = nksip_dialog:get_handle(Resp1),
                 % We have an offer, but no answer
                 spawn(fun() ->
                     SDP1 = SDP0#sdp{vsn=Vsn0+1}, 
@@ -163,7 +163,7 @@ pending() ->
         end
     end},    Body = {body, SDP0},
     Hd1 = {add, "x-nk-op", "pending1"},
-    {ok, 200, [{dialog_id, DialogId}]} = nksip_uac:invite(C1, SipC2, [Hd1, Body, CB]),
+    {ok, 200, [{dialog, DialogId}]} = nksip_uac:invite(C1, SipC2, [Hd1, Body, CB]),
     ok = nksip_uac:ack(DialogId, []),
 
     ok = tests_util:wait(Ref, [fun_ok_1]),
@@ -177,11 +177,11 @@ pending() ->
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
-        [Op0] -> Op0;
-        _ -> <<"decline">>
+        {ok, [Op0]} -> Op0;
+        {ok, _} -> <<"decline">>
     end,
-    Body = nksip_request:body(Req),
-    ReqId = nksip_request:get_id(Req),
+    {ok, Body} = nksip_request:body(Req),
+    {ok, ReqId} = nksip_request:get_handle(Req),
     proc_lib:spawn(
         fun() ->
             case Op of
@@ -209,8 +209,8 @@ sip_ack(Req, _Call) ->
 sip_update(Req, _Call) ->
     tests_util:send_ref(update, Req),
     Body = case nksip_request:body(Req) of
-        #sdp{} = SDP -> nksip_sdp:increment(SDP);
-        _ -> <<>>
+        {ok, #sdp{} = SDP} -> nksip_sdp:increment(SDP);
+        {ok, _} -> <<>>
     end,        
     {reply, {answer, Body}}.
 

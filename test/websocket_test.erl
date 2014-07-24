@@ -340,14 +340,14 @@ init(Id) ->
 
 sip_route(_Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", "server1"}],
             {ok, Domains} = nksip:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;
                 true when Domain =:= <<"nksip">> ->
-                    RUri = nksip_request:meta(ruri, Req),
+                    {ok, RUri} = nksip_request:meta(ruri, Req),
                     case nksip_gruu:registrar_find(server1, RUri) of
                         [] -> {reply, temporarily_unavailable};
                         UriList -> {proxy, UriList, Opts}
@@ -361,8 +361,8 @@ sip_route(_Scheme, User, Domain, Req, _Call) ->
 
 
 sip_options(Req, _Call) ->
-    Ids = nksip_request:header(<<"x-nk-id">>, Req),
-    App = nksip_request:app_name(Req),
+    {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
+    {ok, App} = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 

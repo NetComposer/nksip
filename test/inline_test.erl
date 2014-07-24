@@ -93,7 +93,7 @@ basic() ->
     {ok, 480, []} = nksip_uac:options(client2, "sip:client3@nksip", []),
     ok = tests_util:wait(Ref, [{server1, route}]),
 
-    {ok, 200, [{dialog_id, Dlg2}]} = nksip_uac:invite(client2, "sip:client1@nksip", []),
+    {ok, 200, [{dialog, Dlg2}]} = nksip_uac:invite(client2, "sip:client1@nksip", []),
     ok = nksip_uac:ack(Dlg2, []),
     ok = tests_util:wait(Ref, [
             {server1, route}, {server1, dialog_start}, {server1, route}, 
@@ -104,7 +104,7 @@ basic() ->
     ok = tests_util:wait(Ref, [{server1, route}, {client1, info}]),
 
     SDP = nksip_sdp:new("client1", [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
-    Dlg1 = nksip_dialog:remote_id(Dlg2, client1),
+    Dlg1 = nksip_dialog_lib:remote_id(Dlg2, client1),
     {ok, 200, _} = nksip_uac:invite(Dlg1, [{body, SDP}]),
     ok = nksip_uac:ack(Dlg1, []),
 
@@ -137,7 +137,7 @@ cancel() ->
     Hds = {add, "x-nk-op", "wait"},
     CB = {callback, fun({resp, Code, _Req, _Call}) -> Pid ! {Ref, {ok, Code}} end},
     {async, ReqId} = nksip_uac:invite(client1, "sip:client2@nksip", [async, Hds, CB]),
-    ok = nksip_uac:cancel(ReqId),
+    ok = nksip_uac:cancel(ReqId, []),
     receive {Ref, {ok, 180}} -> ok after 500 -> error(inline) end,
     receive {Ref, {ok, 487}} -> ok after 500 -> error(inline) end,
 
@@ -176,20 +176,20 @@ init([]) ->
 
 sip_get_user_pass(User, Realm, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             case {User, Realm} of
                 {<<"client1">>, <<"nksip">>} -> <<"1234">>;
                 {<<"client2">>, <<"nksip">>} -> <<"4321">>;
                 _ -> false
             end;
-        _ ->
+        {ok, _} ->
             true
     end.
 
 
 sip_authorize(Auth, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             case nksip_sipmsg:header(<<"x-nk-auth">>, Req) of
                 [<<"true">>] ->
                     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
@@ -205,14 +205,14 @@ sip_authorize(Auth, Req, _Call) ->
                 _ ->
                     ok
             end;
-        _ ->
+        {ok, _} ->
             ok
     end.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             send_reply(Req, route),
             Opts = [
                 record_route,
@@ -244,7 +244,7 @@ sip_invite(Req, _Call) ->
     send_reply(Req, invite),
     case nksip_sipmsg:header(<<"x-nk-op">>, Req) of
         [<<"wait">>] ->
-            ReqId = nksip_request:get_id(Req),
+            {ok, ReqId} = nksip_request:get_handle(Req),
             lager:error("Next error about a looped_process is expected"),
             {error, looped_process} = nksip_request:reply(ringing, ReqId),
             spawn(
@@ -265,7 +265,7 @@ sip_reinvite(Req, _Call) ->
 
 
 sip_cancel(InvReq, Req, _Call) ->
-    'INVITE' = nksip_request:method(InvReq),
+    {ok, 'INVITE'} = nksip_request:method(InvReq),
     send_reply(Req, cancel),
     ok.
 
@@ -289,7 +289,7 @@ sip_options(Req, _Call) ->
     send_reply(Req, options),
     App = nksip_sipmsg:meta(app_name, Req),
     Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
-    ReqId = nksip_request:get_id(Req),
+    {ok, ReqId} = nksip_request:get_handle(Req),
     Reply = {ok, [{add, "x-nk-id", [nksip_lib:to_binary(App)|Ids]}]},
     spawn(fun() -> nksip_request:reply(Reply, ReqId) end),
     noreply.
@@ -318,7 +318,7 @@ sip_session_update(State, Dialog, _Call) ->
 send_reply(Elem, Msg) ->
     App = case Elem of
         #sipmsg{} -> nksip_sipmsg:meta(app_name, Elem);
-        #dialog{} -> nksip_dialog:meta(app_name, Elem)
+        #dialog{} -> nksip_dialog_lib:meta(app_name, Elem)
     end,
     case nksip:get(App, inline_test) of
         {ok, {Ref, Pid}} -> Pid ! {Ref, {App, Msg}};

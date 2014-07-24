@@ -54,11 +54,6 @@ route(UriList, ProxyOpts, UAS, Call) ->
                 UriSet1=ProxyOpts1=UAS1=throw({reply, Reply, Call1})
         end,
         Req1 = check_request(UAS1#trans.request, ProxyOpts1),
-        % {Req2, Call1} = case nksip_timers_lib:uas_check_422(Req1, Call) of
-        %     continue -> {Req1, Call};
-        %     {reply, ReplyTimer, CallTimer} -> throw({reply, ReplyTimer, CallTimer});
-        %     {update, ReqTimer, CallTimer} -> {ReqTimer, CallTimer}
-        % end,
         Stateless = lists:member(stateless, ProxyOpts1),
         case Method of
             'ACK' when Stateless ->
@@ -95,10 +90,10 @@ route(UriList, ProxyOpts, UAS, Call) ->
 route_stateless(Req, Uri, ProxyOpts, _Call) ->
     #sipmsg{class={req, Method}} = Req,
     Req1 = Req#sipmsg{ruri=Uri},
-    case nksip_uac_lib:proxy_make(Req1, ProxyOpts) of
-        {ok, Req2, ProxyOpts1} ->
-            SendOpts = [stateless_via | ProxyOpts1],
-            case nksip_transport_uac:send_request(Req2, SendOpts) of
+    case nksip_call_uac_make:proxy_make(Req1, ProxyOpts) of
+        {ok, Req2, ProxyOpts2} ->
+            SendOpts = [stateless_via | ProxyOpts2],
+            case nksip_call_uac_transp:send_request(Req2, SendOpts) of
                 {ok, _} ->  
                     ?call_debug("Stateless proxy routing ~p to ~s", 
                                 [Method, nksip_unparse:uri(Uri)]);
@@ -107,7 +102,7 @@ route_stateless(Req, Uri, ProxyOpts, _Call) ->
                                  [Method, nksip_unparse:uri(Uri), Error])
             end,
            noreply;
-        {error, {reply, Reply}} ->
+        {reply, Reply} ->
             throw({reply, Reply});
         {error, Error} ->
             ?call_warning("Error procesing proxy opts: ~p, ~p: ~p", 
@@ -133,7 +128,7 @@ response_stateless(#sipmsg{vias=[_, Via|RestVias], transport=Transp}=Resp, Call)
     end,
     Transp1 = Transp#transport{proto=ViaProto, remote_ip=RIp, remote_port=RPort},
     Resp1 = Resp#sipmsg{vias=[Via|RestVias], transport=Transp1},
-    case nksip_transport_uas:send_response(Resp1, []) of
+    case nksip_call_uas_transp:send_response(Resp1, []) of
         {ok, _} -> 
             ?call_debug("Stateless proxy sent ~p ~p response", [Method, Code]);
         error -> 

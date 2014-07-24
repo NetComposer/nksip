@@ -81,8 +81,10 @@ init([Reg, ChildSpecs]) ->
 
 start_transports(AppId, [{Proto, Ip, Port, TOpts}|Rest], Opts) ->
     case nksip_transport:start_transport(AppId, Proto, Ip, Port, TOpts++Opts) of
-        {ok, _} -> start_transports(AppId, Rest, Opts);
-        {error, Error} -> {error, {could_not_start, {Proto, Error}}}
+        {ok, _} -> 
+            start_transports(AppId, Rest, Opts);
+        {error, Error} -> 
+            {error, {could_not_start, {Proto, Error}}}
     end;
 
 start_transports(_AppId, [], _Opts) ->

@@ -204,35 +204,11 @@ nkcb_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) when Code<3
                 true ->
                     case nksip_transport:get_connected(AppId, Proto, Ip, Port, Res) of
                         [{_, Pid}|_] -> 
-                            FlowTimer = case 
-                                nksip_lib:get_value(<<"flow-timer">>, Meta) 
-                            of
-                                [FlowTimer0] -> nksip_lib:to_integer(FlowTimer0);
-                                _ -> undefined
-                            end,
-                            Secs = case FlowTimer of
-                                FT when is_integer(FT), FT > 5 -> 
-                                    FT;
-                                _ when Proto==udp -> 
-                                    nksip_sipapp_srv:config(AppId,
-                                                nksip_uac_auto_outbound_default_udp_ttl);
-                                _ -> 
-                                    nksip_sipapp_srv:config(AppId,
-                                                nksip_uac_auto_outbound_default_tcp_ttl)
-                            end,
-                            Ref = {'$nksip_uac_auto_outbound_notify', RegId},
-                            case 
-                                nksip_connection:start_refresh(Pid, Secs, Ref) 
-                            of
+                            case start_refresh(AppId, Meta, Proto, Pid, Reg) of
                                 ok -> 
-                                    ?info(AppId, CallId, 
-                                          "successfully set outbound keep-alive: ~p secs", 
-                                          [Secs]),
                                     Mon = erlang:monitor(process, Pid),
                                     RegOb1#sipreg_ob{conn_monitor=Mon, conn_pid=Pid};
                                 error -> 
-                                    ?notice(AppId, CallId, 
-                                            "could not start outbound keep-alive", []),
                                     RegOb1
                             end;
                         [] -> 
@@ -304,4 +280,37 @@ get_state(SipAppState) ->
 %% @private
 set_state(State, SipAppState) ->
     nksip_sipapp_srv:set_meta(nksip_uac_auto_outbound, State, SipAppState).
+
+
+%% @private
+start_refresh(AppId, Meta, Proto, Pid, Reg) ->
+    #sipreg{id=RegId, call_id=CallId} = Reg,
+    FlowTimer = case nksip_lib:get_value(<<"flow-timer">>, Meta) of
+        [FlowTimer0] -> nksip_lib:to_integer(FlowTimer0);
+        _ -> undefined
+    end,
+    Secs = case FlowTimer of
+        FT when is_integer(FT), FT > 5 -> 
+            FT;
+        _ when Proto==udp -> 
+            nksip_sipapp_srv:config(AppId,
+                                    nksip_uac_auto_outbound_default_udp_ttl);
+        _ -> 
+            nksip_sipapp_srv:config(AppId,
+                                    nksip_uac_auto_outbound_default_tcp_ttl)
+    end,
+    Ref = {'$nksip_uac_auto_outbound_notify', RegId},
+    Rand = crypto:rand_uniform(80, 101),
+    Time = (Rand*Secs) div 100,
+    case nksip_connection:start_refresh(Pid, Time, Ref) of
+        ok -> 
+            ?info(AppId, CallId, "successfully set outbound keep-alive: ~p secs", 
+                  [Secs]),
+            ok;
+        error -> 
+            ?notice(AppId, CallId, "could not start outbound keep-alive", []),
+            error
+    end.
+
+
 

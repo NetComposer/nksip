@@ -24,7 +24,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([expression/1, getter/2, fun_expr/4, call_expr/4, callback_expr/3]).
--export([case_expr/5, compile/2]).
+-export([case_expr/5, compile/2, write/2]).
 -export([get_funs/1]).
 
 
@@ -147,12 +147,6 @@ compile(Mod, Tree) ->
         | Tree
     ],
 
-    BasePath = nksip_config:get(local_data_path),
-    Path = filename:join(BasePath, atom_to_list(Mod)++".erl"),
-    Content = list_to_binary(
-        [io_lib:format("~s\n\n", [erl_prettypr:format(S)]) || S <-Tree1]),
-    file:write_file(Path, Content),
-
     % io:format("\nGenerated ~p:\n\n", [Mod]),
     % [io:format("~s\n\n", [erl_prettypr:format(S)]) || S<-Tree],
    
@@ -163,12 +157,26 @@ compile(Mod, Tree) ->
             code:purge(Mod),
             File = atom_to_list(Mod)++".erl",
             case code:load_binary(Mod, File, Bin) of
-                {module, Mod} -> ok;
-                Error -> {error, Error}
+                {module, Mod} -> 
+                    {ok, Tree1};
+                Error -> 
+                    {error, Error}
             end;
         Error ->
             {error, Error}
     end.
+
+
+%% @doc Writes a generated tree as a standard erlang file
+-spec write(atom(), [erl_syntax:syntaxTree()]) ->
+    ok | {error, term()}.
+
+write(Mod, Tree) ->
+    BasePath = nksip_config_cache:local_data_path(),
+    Path = filename:join(BasePath, atom_to_list(Mod)++".erl"),
+    Content = list_to_binary(
+        [io_lib:format("~s\n\n", [erl_prettypr:format(S)]) || S <-Tree]),
+    file:write_file(Path, Content).
 
 
 %% @doc Gets the list of exported functions of a module

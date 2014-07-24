@@ -33,7 +33,7 @@
 
 %% @doc Called to parse specific UAC options
 -spec nkcb_parse_uac_opts(nksip:request(), nksip:optslist()) ->
-    {continue, list()}.
+    {continue, list()} | {error, term()}.
 
 nkcb_parse_uac_opts(Req, Opts) ->
     case nksip_timers_lib:parse_uac_config(Opts, Req, []) of
@@ -141,7 +141,7 @@ nkcb_make_uac_dialog(Method, Uri, Opts, #call{dialogs=[Dialog|_]}=Call) ->
 
 %% @doc Called when the UAC is preparing a request to be sent
 -spec nkcb_uac_pre_request(nksip:request(), nksip:optlist(), 
-                           nksip_call_uac_req:uac_from(), nksip:call()) ->
+                           nksip_call_uac:uac_from(), nksip:call()) ->
     {continue, list()}.
 
 nkcb_uac_pre_request(Req, Opts, From, Call) ->
@@ -178,7 +178,7 @@ nkcb_uac_response(Req, Resp, UAC, Call) ->
         nksip_timers_lib:uac_received_422(Req, Resp, UAC, Call) 
     of
         {resend, Req1, Call1} ->
-            {ok, nksip_call_uac_req:resend(Req1, UAC, Call1)};
+            {ok, nksip_call_uac:resend(Req1, UAC, Call1)};
         false ->
             continue
     end.
@@ -213,8 +213,7 @@ nkcb_uas_process(#trans{request=Req}=UAS, Call) ->
             UAS1 = UAS#trans{request=Req1},
             {continue, [UAS1, nksip_call_lib:update(UAS1, Call1)]};
         {reply, Reply, Call1} ->
-            {_, Call2} = nksip_call_uas_reply:reply(Reply, UAS, Call1),
-            {ok, Call2}
+            {ok, nksip_call_uas:do_reply(Reply, UAS, Call1)}
     end.
 
 

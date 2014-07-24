@@ -450,16 +450,16 @@ proxy() ->
         opts = [<<"lr">>,<<"ob">>]
     } = Path3,
 
-    {ok, 200, [{dialog_id, DialogId}]} = 
+    {ok, 200, [{dialog, DialogId}]} = 
         nksip_uac:invite(ua2, Contact2, [auto_2xx_ack, {add, "x-nk-op", "ok"}]),
 
-    [
+    {ok, [
         #uri{
             user = <<"NkF", Flow3/binary>>,
             port = 5080,
             opts = [<<"lr">>]
         }
-    ] = nksip_dialog:meta(route_set, DialogId),
+    ]} = nksip_dialog:meta(route_set, DialogId),
 
     nksip_uac:bye(DialogId, []),
     ok.
@@ -584,7 +584,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
         % It domain is 'nksip', it sends the request to P2, 
         % inserting Path and x-nk-id headers
         % If not, simply proxies the request adding a x-nk-id header
-        p1 ->
+        {ok, p1} ->
             Base = [{insert, "x-nk-id", "p1"}],
             case Domain of 
                 <<"nksip">> -> 
@@ -594,7 +594,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ -> 
                     {proxy, ruri, Base}
             end;
-        p2 ->
+        {ok, p2} ->
             % P2 is an intermediate proxy.
             % For 'nksip' domain, sends the request to P3, inserting x-nk-id header
             % For other, simply proxies and adds header
@@ -606,7 +606,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ -> 
                     {proxy, ruri, Base}
             end;
-        p3 ->
+        {ok, p3} ->
             % P3 is the SBC. 
             % For 'nksip', it sends everything to the registrar, inserting Path header
             % For other proxies the request
@@ -618,13 +618,13 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ -> 
                     {proxy, ruri, [record_route|Base]}
             end;
-        p4 ->
+        {ok, p4} ->
             % P4 is a dumb router, only adds a header
             % For 'nksip', it sends everything to the registrar, inserting Path header
             % For other proxies the request
             Base = [{insert, "x-nk-id", "p4"}, path, record_route],
             {proxy, ruri, Base};
-        registrar ->
+        {ok, registrar} ->
             % Registrar is the registrar proxy for "nksip" domain
             case Domain of
                 <<"nksip">> when User == <<>> ->
@@ -639,21 +639,21 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ ->
                     {proxy, ruri, []}
             end;
-        _ ->
+        {ok, _} ->
             process
     end.
 
 
 sip_invite(Req, _Call) ->
     case nksip_request:header(<<"x-nk-op">>, Req) of
-        [<<"ok">>] -> {reply, ok};
-        _ -> {reply, 603}
+        {ok, [<<"ok">>]} -> {reply, ok};
+        {ok, _} -> {reply, 603}
     end.
 
 
 sip_options(Req, _Call) ->
-    Ids = nksip_request:header(<<"x-nk-id">>, Req),
-    App = nksip_request:app_name(Req),
+    {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
+    {ok, App} = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 

@@ -64,7 +64,7 @@ The ETS table is associated to the SipApp's supervisor process, so it will not b
 
 
 ### SipApp gen_server state
-You can also use the state stored in the gen_server process, following the standard OTP pattern. The initial state is stored when calling callback `init/1`. You should call `gen_server:call/2,3` or `gen_server:cast/2` from your callbacks functions, or send any message to the registered application name, and NkSip will call again your `handle_call/3`, `handle_cast/2` or `handle_info/2` with the current state, so that you can access it and change it necessary.
+You can also use the state stored in the gen_server process, following the standard OTP pattern. The initial state is stored when calling callback `init/1`. You should call `gen_server:call/2,3` or `gen_server:cast/2` from your callbacks functions, or send any message to the registered application name, and NkSIP will call again your `handle_call/3`, `handle_cast/2` or `handle_info/2` with the current state, so that you can access it and change it necessary.
 
 Keep in mind that if your are receiving heavy traffic this can be a bottleneck, as all callbacks must wait for the gen_server process. Also if the application fails and the supervisor restarts the gen_server process the state would be lost.
 

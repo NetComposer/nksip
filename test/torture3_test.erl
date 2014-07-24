@@ -85,7 +85,7 @@ transaction_1() ->
         "\r\n">>,
     #sipmsg{vias=[#via{opts = [{<<"branch">>,<<"z9hG4bK">>}]}]} = Req = parse(Msg),
     % It is detected as a pre-RFC3261 tag
-    true = nksip_call_uas:transaction_id(Req) < 0,
+    true = nksip_call_lib:uas_transaction_id(Req) < 0,
     ok.
 
 
@@ -452,9 +452,9 @@ send(tcp, Msg) ->
 
 sip_route(Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 when Scheme=/=sip, Scheme=/=sips ->
+        {ok, server1} when Scheme=/=sip, Scheme=/=sips ->
             {reply, unsupported_uri_scheme};
-        _ ->
+        {ok, _} ->
             process
     end.
 

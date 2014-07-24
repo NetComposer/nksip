@@ -229,7 +229,7 @@ init(AppName) ->
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             {ok, Domains} = nksip:get(server1, domains),
             Opts = [
                 record_route,
@@ -238,18 +238,18 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     case nksip_request:header(<<"x-nk-op">>, Req) of
-                        [<<"reply-request">>] ->
+                        {ok, [<<"reply-request">>]} ->
                             Body = base64:encode(term_to_binary(Req)),
                             {reply, {ok, [{body, Body}, contact]}};
-                        [<<"reply-stateless">>] ->
+                        {ok, [<<"reply-stateless">>]} ->
                             {reply_stateless, ok};
-                        [<<"reply-stateful">>] ->
+                        {ok, [<<"reply-stateful">>]} ->
                             {reply, ok};
-                        [<<"reply-invalid">>] ->
+                        {ok, [<<"reply-invalid">>]} ->
                             {reply, 'INVALID'};
-                        [<<"force-error">>] ->
+                        {ok, [<<"force-error">>]} ->
                             error(test_error);
-                        _ ->
+                        {ok, _} ->
                             process
                     end;
                 true when Domain =:= <<"nksip">> ->
@@ -260,7 +260,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ ->
                     {proxy, ruri, Opts}
             end;
-        _ ->
+        {ok, _} ->
             process
     end.
 

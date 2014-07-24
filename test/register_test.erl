@@ -93,10 +93,10 @@ register1() ->
         case Term of
             ({req, Req1, _Call}) ->
                 FCallId1 = nksip_sipmsg:meta(call_id, Req1),
-                FCSeq1 = nksip_request:meta(cseq_num, Req1),
+                {ok, FCSeq1} = nksip_request:meta(cseq_num, Req1),
                 Self ! {Ref, {cb1_1, FCallId1, FCSeq1}};
             ({resp, 200, Resp1, _Call}) ->
-                [FContact1] = nksip_response:header(<<"contact">>, Resp1),
+                {ok, [FContact1]} = nksip_response:header(<<"contact">>, Resp1),
                 Self ! {Ref, {cb1_2, FContact1}}
         end
     end,
@@ -301,7 +301,7 @@ init(Id) ->
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
             {ok, Domains} = nksip:get(server1, domains),
             case lists:member(Domain, Domains) of
@@ -315,6 +315,6 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ ->
                     {proxy, ruri, Opts}
             end;
-        _ ->
+        {ok, _} ->
             process
     end.

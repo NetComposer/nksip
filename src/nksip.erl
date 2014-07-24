@@ -30,7 +30,8 @@
 
 -include("nksip.hrl").
 
--export_type([app_name/0, app_id/0, id/0, request/0, response/0, sipreply/0, optslist/0]).
+-export_type([app_name/0, app_id/0, handle/0]).
+-export_type([request/0, response/0, sipreply/0, optslist/0]).
 -export_type([call/0, transport/0, uri/0, user_uri/0]).
 -export_type([header/0, header_name/0, header_value/0]).
 -export_type([scheme/0, protocol/0, method/0, sip_code/0, via/0]).
@@ -49,8 +50,13 @@
 %% Interna Name of each started SipApp
 -type app_id() :: atom().
 
-%% External request, response, dialog or event id
--type id() :: binary().
+%% External handle for a request, response, dialog or event
+%% It is a binary starting with:
+%% R_: requests
+%% S_: responses
+%% D_: dialogs
+%% U_: subscriptions
+-type handle() :: binary().
 
 %% Parsed SIP Request
 -type request() :: #sipmsg{}.

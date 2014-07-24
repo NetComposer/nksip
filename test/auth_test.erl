@@ -123,7 +123,7 @@ invite() ->
     % client3 does not support dialog's authentication, only digest is used
     {ok, 401, [{cseq_num, CSeq}]} = 
         nksip_uac:invite(client1, SipC3, [{meta, [cseq_num]}]),
-    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, SipC3, 
+    {ok, 200, [{dialog, DialogId1}]} = nksip_uac:invite(client1, SipC3, 
                                              [{pass, "abcd"}, RepHd]),
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client3, ack}]),
@@ -135,17 +135,17 @@ invite() ->
     {ok, 200, _} = nksip_uac:invite(DialogId1, [{pass, "abcd"}]),
     
     FunAck = fun({req, ACK3, _Call}) ->
-        AckCSeq = nksip_request:meta(cseq_num, ACK3),
+        {ok, AckCSeq} = nksip_request:meta(cseq_num, ACK3),
         Self ! {Ref, {ack_cseq, AckCSeq-8}}
     end,
     ok = nksip_uac:ack(DialogId1, [get_request, {callback, FunAck}]),
     ok = tests_util:wait(Ref, [{ack_cseq, CSeq}, {client3, ack}]),
 
     % client1 does support dialog's authentication
-    DialogId3 = nksip_dialog:remote_id(DialogId1, client3),
+    DialogId3 = nksip_dialog_lib:remote_id(DialogId1, client3),
     {ok, 200, [{cseq_num, CSeq2}]} = 
         nksip_uac:options(DialogId3, [{meta, [cseq_num]}]),
-    {ok, 200, [{dialog_id, DialogId3}]} = 
+    {ok, 200, [{dialog, DialogId3}]} = 
         nksip_uac:invite(DialogId3, [RepHd]),
     ok = nksip_uac:ack(DialogId3, [RepHd]),
     ok = tests_util:wait(Ref, [{client1, ack}]),
@@ -159,25 +159,25 @@ dialog() ->
     SipC2 = "sip:127.0.0.1:5071",
     {Ref, RepHd} = tests_util:get_ref(),
 
-    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, SipC2, 
+    {ok, 200, [{dialog, DialogId1}]} = nksip_uac:invite(client1, SipC2, 
                                             [{pass, "1234"}, RepHd]),
     ok = nksip_uac:ack(DialogId1, []),
     ok = tests_util:wait(Ref, [{client2, ack}]),
 
-    [{udp, {127,0,0,1}, 5071}] = nksip_uac_lib:get_authorized_list(DialogId1),
-    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
-    [{udp, {127,0,0,1}, 5070}] = nksip_uac_lib:get_authorized_list(DialogId2),
+    [{udp, {127,0,0,1}, 5071}] = nksip_dialog:get_authorized_list(DialogId1),
+    DialogId2 = nksip_dialog_lib:remote_id(DialogId1, client2),
+    [{udp, {127,0,0,1}, 5070}] = nksip_dialog:get_authorized_list(DialogId2),
 
     {ok, 200, []} = nksip_uac:options(DialogId1, []),
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
 
-    ok = nksip_uac_lib:clear_authorized_list(DialogId2),
+    ok = nksip_dialog:clear_authorized_list(DialogId2),
     {ok, 401, []} = nksip_uac:options(DialogId1, []),
     {ok, 200, []} = nksip_uac:options(DialogId1, [{pass, "1234"}]),
     {ok, 200, []} = nksip_uac:options(DialogId1, []),
 
-    ok = nksip_uac_lib:clear_authorized_list(DialogId1),
-    [] = nksip_uac_lib:get_authorized_list(DialogId1),
+    ok = nksip_dialog:clear_authorized_list(DialogId1),
+    [] = nksip_dialog:get_authorized_list(DialogId1),
 
     % Force an invalid password, because the SipApp config has a valid one
     {ok, 403, []} = nksip_uac:options(DialogId2, [{pass, {"client1", "invalid"}}]),
@@ -232,7 +232,7 @@ proxy() ->
     % Server2 now accepts and sends to client2
     % client2 replies with 401, and we generate a new request
     % Server2 and client2 accepts their digests
-    {ok, 200, [{dialog_id, DialogId1}]} = nksip_uac:invite(client1, "sip:client2@nksip", 
+    {ok, 200, [{dialog, DialogId1}]} = nksip_uac:invite(client1, "sip:client2@nksip", 
                                             [Route, 
                                             {passes, [{"server2", "1234"}, 
                                                       {"client2", "1234"}]},
@@ -246,7 +246,7 @@ proxy() ->
     % Server2 and client2 accepts the request because of dialog authentication
     {ok, 200, []} = nksip_uac:options(DialogId1, []),
     % The same for client1
-    DialogId2 = nksip_dialog:remote_id(DialogId1, client2),
+    DialogId2 = nksip_dialog_lib:remote_id(DialogId1, client2),
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
     {ok, 200, []} = nksip_uac:bye(DialogId2, []),
     ok.
@@ -257,7 +257,7 @@ proxy() ->
 
 
 sip_get_user_pass(User, Realm, Req, _Call) ->
-    App = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:app_name(Req),
     if
         App==server1; App==server2 ->
             % Password for user "client1", any realm, is "1234"
@@ -286,7 +286,7 @@ sip_get_user_pass(User, Realm, Req, _Call) ->
 
 % Authorization is only used for "auth" suite
 sip_authorize(Auth, Req, _Call) ->
-    App = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:app_name(Req),
     IsDialog = lists:member(dialog, Auth),
     IsRegister = lists:member(register, Auth),
     if
@@ -322,7 +322,7 @@ sip_authorize(Auth, Req, _Call) ->
 % Finds the user and proxies to server2
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server1 ->
+        {ok, server1} ->
             Opts = [{route, "<sip:127.0.0.1:5061;lr>"}],
             case User of
                 <<>> -> 
@@ -337,9 +337,9 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                             {proxy, UriList, Opts}
                     end
             end;
-        server2 ->
+        {ok, server2} ->
             {proxy, ruri, [record_route]};
-        _ ->
+        {ok, _} ->
             process
     end.
 

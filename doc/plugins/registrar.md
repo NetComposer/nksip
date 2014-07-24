@@ -147,7 +147,7 @@ For example, you could implement the following [sip_register/2](../reference/cal
 ```erlang
 sip_register(Req, _Call) ->
 	case nksip_request:meta(domain, Req) of
-		<<"nksip">> -> {reply, nksip_registrar:process(Req)};
+		{ok, <<"nksip">>} -> {reply, nksip_registrar:process(Req)};
 		_ -> {reply, forbidden}
 	end.
 ```
@@ -233,7 +233,7 @@ test1() ->
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        server ->
+        {ok, server} ->
             Opts = [record_route, {insert, "x-nk-server", "server"}],
             case lists:member(Domain, [<<"nksip">>, <<"127.0.0.1">>]) of
                 true when User =:= <<>> ->
@@ -246,7 +246,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ ->
                     {proxy, ruri, Opts}
             end;
-        client ->
+        {ok, client} ->
             process
     end.
 ```

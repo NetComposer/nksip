@@ -28,18 +28,6 @@
 
 -define(VERSION, "0.4.0").
 
--define(MSG_ROUTERS, 8).
--define(DEFAULT_EVENT_EXPIRES, 60).
-
-
-
-% Maximum transaction time (15min)
--define(MAX_TRANS_TIME, 15*60).
-
-% Maximum time in dialogs between updates (30min)
--define(MAX_DIALOG_TIME, 30*60).
-
-
 -define(
     DO_LOG(Level, App, CallId, Text, Opts),
     case CallId of
@@ -49,33 +37,43 @@
             lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])
     end).
 
+-define(DO_DEBUG(AppId, CallId, Level, Text, List),
+    case AppId:config_debug() of
+        false -> ok;
+        _ -> AppId:nkcb_debug(AppId, CallId, {Level, Text, List})
+    end).
 
 
 -define(debug(AppId, CallId, Text, List), 
+    ?DO_DEBUG(AppId, CallId, debug, Text, List),
     case AppId:config_log_level() >= 8 of
         true -> ?DO_LOG(debug, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(info(AppId, CallId, Text, List), 
+    ?DO_DEBUG(AppId, CallId, info, Text, List),
     case AppId:config_log_level() >= 7 of
         true -> ?DO_LOG(info, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(notice(AppId, CallId, Text, List), 
+    ?DO_DEBUG(AppId, CallId, notice, Text, List),
     case AppId:config_log_level() >= 6 of
         true -> ?DO_LOG(notice, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(warning(AppId, CallId, Text, List), 
+    ?DO_DEBUG(AppId, CallId, warning, Text, List),
     case AppId:config_log_level() >= 5 of
         true -> ?DO_LOG(warning, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(error(AppId, CallId, Text, List), 
+    ?DO_DEBUG(AppId, CallId, error, Text, List),
     case AppId:config_log_level() >= 4 of
         true -> ?DO_LOG(error, AppId:name(), CallId, Text, List);
         false -> ok
@@ -153,7 +151,7 @@
     id :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:sip_code(), binary()},
     app_id :: nksip:app_id(),
-    dialog_id :: nksip_dialog:id(),
+    dialog_id :: nksip_dialog_lib:id(),
     ruri :: nksip:uri(),
     vias = [] :: [nksip:via()],
     from :: {nksip:uri(), FromTag::binary()},
@@ -210,7 +208,7 @@
 %% - {nksip_min_se, MinSE}
 
 -record(dialog, {
-    id :: nksip_dialog:id(),
+    id :: nksip_dialog_lib:id(),
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
     created :: nksip_lib:timestamp(),
@@ -229,7 +227,6 @@
     invite :: nksip:invite(),
     subscriptions = [] :: [nksip:subscription()],
     supported = [] :: [nksip:token()],
-    allowed = [] :: [nksip:method()],
     meta = [] :: nksip:optslist()
 }).
 
@@ -249,14 +246,11 @@
     timeout_timer :: reference(),
     retrans_timer :: reference(),
     next_retrans :: integer()
-    % session_expires :: integer(),
-    % refresh_timer :: reference(),
-    % meta = [] :: nksip:optslist()   
 }).
 
 
 -record(subscription, {
-    id :: nksip_subscription:id(),
+    id :: nksip_subscription_lib:id(),
     event :: nksip:token(),
     expires :: pos_integer(),
     status :: nksip_subscription:status(),
@@ -266,7 +260,6 @@
     timer_expire :: reference(),
     timer_middle :: reference(),
     last_notify_cseq :: nksip:cseq()
-    % meta = [] :: nksip:optslist()   % No current use
 }).
 
 

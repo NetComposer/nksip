@@ -77,26 +77,6 @@ do_reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
 
 do_reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    % case nksip_lib:get_value(refer_subscription_id, Opts) of
-    %     undefined -> 
-    %         ok;
-    %     SubsId ->
-    %         Sipfrag = <<
-    %             "SIP/2.0 ", (nksip_lib:to_binary(Code))/binary, 32,
-    %             Reason/binary
-    %         >>,
-    %         NotifyOpts = [
-    %             async, 
-    %             {content_type, <<"message/sipfrag;version=2.0">>}, 
-    %             {body, Sipfrag},
-    %             {subscription_state, 
-    %                 case Code>=200 of 
-    %                     true -> {terminated, noresource}; 
-    %                     false -> active
-    %                 end}
-    %         ],
-    %         nksip_uac:notify(SubsId, NotifyOpts)
-    % end,
     CB = nksip_lib:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case 
@@ -161,13 +141,16 @@ call(CB, Arg) ->
 %% @private
 response(Resp, Opts) ->
     #sipmsg{class={resp, Code, _}, cseq={_, Method}}=Resp,
-    Fields0 = case Method of
+    Metas0 = case Method of
         'INVITE' when Code>100, Code<300 -> 
-            [{dialog_id, nksip_dialog:get_id(Resp)}];
+            Handle = nksip_dialog_lib:get_handle(Resp),
+            [{dialog, Handle}];
         'SUBSCRIBE' when Code>=200, Code<300 -> 
-            [{subscription_id, nksip_subscription:get_id(Resp)}];
+            Handle = nksip_subscription_lib:get_handle(Resp),
+            [{subscription, Handle}];
         'REFER' when Code>=200, Code<300 -> 
-            [{subscription_id, nksip_subscription:get_id(Resp)}];
+            Handle = nksip_subscription_lib:get_handle(Resp),
+            [{subscription, Handle}];
         'PUBLISH' when Code>=200, Code<300 ->
             Expires = nksip_sipmsg:meta(expires, Resp),
             case nksip_sipmsg:header(<<"sip-etag">>, Resp) of
@@ -177,13 +160,13 @@ response(Resp, Opts) ->
         _ -> 
             []
     end,
-    Values = case nksip_lib:get_value(meta, Opts, []) of
+    Metas = case nksip_lib:get_value(meta, Opts, []) of
         [] ->
-            Fields0;
+            Metas0;
         Fields when is_list(Fields) ->
-            Fields0 ++ [{Field, nksip_sipmsg:meta(Field, Resp)} || Field <- Fields];
+            Metas0 ++ nksip_sipmsg:metas(Fields, Resp);
         _ ->
-            Fields0
+            Metas0
     end,
-    {ok, Code, Values}.
+    {ok, Code, Metas}.
 

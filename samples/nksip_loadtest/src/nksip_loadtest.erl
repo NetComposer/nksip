@@ -43,41 +43,22 @@ full() ->
 %% @doc Performs a full load test suite, using 10.000 requests with 10 clients.
 %%
 %% Available options are:
-%% <br/>
-%% <table border="1">
-%%  <tr><th>Option</th><th>Description</th></tr>
-%%  <tr>
-%%      <td>`messages'</td>
-%%      <td>Number of requests to send (default 10000)</td>
-%%  </tr>
-%%  <tr>
-%%      <td>`clients'</td>
-%%      <td>Number of parallel clients to start (default 10)</td>
-%%  </tr>
-%%  <tr>
-%%      <td>`host'</td>
-%%      <td>Use it in case the NkSIP server being tested is started at another node.
-%%          Default is "127.0.0.1"</td>
-%%  </tr>
-%%  <tr>
-%%      <td>`port'</td>
-%%      <td>NkSIP server listening port. Default is 5060 for udp and tcp,
-%%          and 5061 for tls</td>
-%%  </tr>
-%% </table>
+%% - messages: Number of requests to send (default 10000)
+%% - clients: Number of parallel clients to start (default 10)
+%% - host: Use it in case the NkSIP server being tested is started at another node.
+%%         Default is "127.0.0.1"</td>
+%% - port: NkSIP server listening port. 
+%%         Default is 5060 for udp and tcp, and 5061 for tls
 full(Opts) ->
     Messages = proplists:get_value(messages, Opts, 10000),
     Clients = proplists:get_value(clients, Opts, 10),
     nksip_loadtest_lib:start_server(),
 
     Opts1 = [{messages, Messages}, {clients, Clients}|Opts],
-    only_uas_register_stateless(Opts1),
-    only_uas_register_stateful(Opts1),
+    only_uas_register(Opts1),
     only_uas_call(Opts1),
-
     nksip_loadtest_lib:start_clients(Clients),
-    register_stateless([no_auto_start|Opts1]),
-    register_stateful([no_auto_start|Opts1]),
+    register([no_auto_start|Opts1]),
     call([no_auto_start|Opts1]),
     nksip_loadtest_lib:stop_clients(Clients),
     ok.
@@ -86,25 +67,16 @@ full(Opts) ->
 % Only UAS set of tests use the "raw" version of the load suite, using raw 
 % packets as UAC, with low overhead. UDP can't be used this way.
 
+
 %% @private
-only_uas_register_stateless(Opts) ->
+only_uas_register(Opts) ->
     % Raw versions don't retransmit, so UDP will have packet loss
-    % {_, P1, R1} = launch([raw, register, stateless|Opts1]),
-    % io:format("UAS REGISTER Stateless UDP (~p% ok): ~p req/sec\n\n", [P1, R1]),
-    {_, P2, R2} = launch([raw, register, stateless, tcp|Opts]),
-    io:format("UAS REGISTER Stateless TCP (~p% ok): ~p req/sec\n\n", [P2, R2]),
-    {_, P3, R3} = launch([raw, register, stateless, tls|Opts]),
-    io:format("UAS REGISTER Stateless TLS (~p% ok): ~p req/sec\n\n\n\n", [P3, R3]).
-
-
-%% @private
-only_uas_register_stateful(Opts) ->
     % {_, P1, R1} = launch([raw, register|Opts]),
-    % io:format("UAS REGISTER Statefull UDP (~p% ok): ~p req/sec\n\n", [P1, R1]),
+    % io:format("UAS REGISTER UDP (~p% ok): ~p req/sec\n\n", [P1, R1]),
     {_, P2, R2} = launch([raw, register, tcp|Opts]),
-    io:format("UAS REGISTER Statefull TCP (~p% ok): ~p req/sec\n\n", [P2, R2]),
+    io:format("UAS REGISTER TCP (~p% ok): ~p req/sec\n\n", [P2, R2]),
     {_, P3, R3} = launch([raw, register, tls|Opts]),
-    io:format("UAS REGISTER Statefull TLS (~p% ok): ~p req/sec\n\n\n\n", [P3, R3]).
+    io:format("UAS REGISTER TLS (~p% ok): ~p req/sec\n\n\n\n", [P3, R3]).
 
 
 %% @private
@@ -119,24 +91,15 @@ only_uas_call(Opts) ->
 
 % Full versions set of tests use UAC generation and UAS response
 
+   
 %% @private
-register_stateless(Opts) ->
-    {_, P4, R4} = launch([register, stateless|Opts]),
-    io:format("UAC+UAS REGISTER Stateless UDP (~p% ok): ~p req/sec\n\n", [P4, R4]),
-    {_, P5, R5} = launch([register, stateless, tcp|Opts]),
-    io:format("UAC+UAS REGISTER Stateless TCP (~p% ok): ~p req/sec\n\n", [P5, R5]),
-    {_, P6, R6} = launch([register, stateless, tls|Opts]),
-    io:format("UAC+UAS REGISTER Stateless TLS (~p% ok): ~p req/sec\n\n\n\n", [P6, R6]).
-
-    
-%% @private
-register_stateful(Opts) ->
+register(Opts) ->
     {_, P4, R4} = launch([register|Opts]),
-    io:format("UAC+UAS REGISTER Statefull UDP (~p% ok): ~p req/sec\n\n", [P4, R4]),
+    io:format("UAC+UAS REGISTER UDP (~p% ok): ~p req/sec\n\n", [P4, R4]),
     {_, P5, R5} = launch([register, tcp|Opts]),
-    io:format("UAC+UAS REGISTER Statefull TCP (~p% ok): ~p req/sec\n\n", [P5, R5]),
+    io:format("UAC+UAS REGISTER TCP (~p% ok): ~p req/sec\n\n", [P5, R5]),
     {_, P6, R6} = launch([register, tls|Opts]),
-    io:format("UAC+UAS REGISTER Statefull TLS (~p% ok): ~p req/sec\n\n\n\n", [P6, R6]).
+    io:format("UAC+UAS REGISTER TLS (~p% ok): ~p req/sec\n\n\n\n", [P6, R6]).
 
 
 %% @private

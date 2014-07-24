@@ -66,7 +66,7 @@ process(Req, #call{app_id=AppId, call_id=CallId}=Call) ->
         [ReferTo] -> 
             case catch AppId:sip_refer(ReferTo, Req, Call) of
                 true ->
-                    SubsId = nksip_subscription:get_id(Req), 
+                    {ok, SubsId} = nksip_subscription:get_handle(Req), 
                     InvCallId = <<"nksip_refer_", CallId/binary>>,
                     Opts = [async, auto_2xx_ack, {call_id, InvCallId}, 
                            {refer_subscription_id, SubsId}],

@@ -228,12 +228,10 @@ init([AppId, Args]) ->
     gen_server_call(#sipapp_srv{}).
 
 handle_call({'$nksip_sipapp_srv_start_plugins', Plugins}, _From, State) ->
-    lager:warning("START: ~p, ~p", [Plugins, State]),
     State1 = do_start_plugins(Plugins, State),
     {reply, ok, State1};
 
 handle_call({'$nksip_sipapp_srv_stop_plugins', Plugins}, _From, State) ->
-    lager:warning("STOP: ~p, ~p", [Plugins, State]),
     State1 = do_stop_plugins(Plugins, State),
     {reply, ok, State1};
 

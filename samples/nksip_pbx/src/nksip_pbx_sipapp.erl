@@ -110,7 +110,7 @@ sip_get_user_pass(_User, _Realm, _Req, _Call) ->
 %%          a challenge to the user.</li>
 %% </ul>
 sip_authorize(Auth, Req, _Call) ->
-    Method = nksip_request:method(Req),
+    {ok, Method} = nksip_request:method(Req),
     lager:notice("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
@@ -189,20 +189,20 @@ sip_route(Scheme, User, Domain, _Req, _Call) ->
 
 
 sip_dialog_update(Status, Dialog, _Call) ->
-    DialogId = nksip_dialog:get_id(Dialog),
+    {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     lager:notice("PBX Dialog ~s Update: ~p", [DialogId, Status]),
     ok.
 
 
 sip_session_update({start, LocalSDP, RemoteSDP}, Dialog, _Call) ->
-    DialogId = nksip_dialog:get_id(Dialog),
+    {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     lager:notice("PBX Session ~s Update: start", [DialogId]),
     lager:notice("Local SDP: ~p", [nksip_sdp:unparse(LocalSDP)]),
     lager:notice("Remote SDP: ~p", [nksip_sdp:unparse(RemoteSDP)]),
     ok;
 
 sip_session_update(Status, Dialog, _Call) ->
-    DialogId = nksip_dialog:get_id(Dialog),
+    {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     lager:notice("PBX Session ~s Update: ~p", [DialogId, Status]),
     ok.
 
@@ -274,7 +274,7 @@ find_all() ->
 
 %% @doc Gets all registered contacts, excluding the one in `Request'
 find_all_except_me(ReqId) ->
-    [From] = nksip_request:header(<<"from">>, ReqId),
+    {ok, [From]} = nksip_request:header(<<"from">>, ReqId),
     [{Scheme, User, Domain}] = nksip_parse:aors(From),
     AOR = {Scheme, User, Domain},
     All = [

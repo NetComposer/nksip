@@ -89,29 +89,28 @@ parse_config(Opts) ->
 
 
 %% @doc Gets the current session expires value for a dialog
--spec get_session_expires(nksip:dialog()|nksip:id()) ->
-    non_neg_integer() | undefined.
-
-get_session_expires(Id) when is_binary(Id) ->
-    Fun = fun(Dialog) -> {ok, get_session_expires(Dialog)} end,
-    nksip_dialog:apply_meta(Fun, Id);
+-spec get_session_expires(nksip:dialog()|nksip:handle()) ->
+    {ok, non_neg_integer() | undefined} | {error, term()}.
 
 get_session_expires(#dialog{invite=Invite, meta=Meta}) ->
     case is_record(Invite, invite) of
         true ->
-            nksip_lib:get_value(nksip_timers_se, Meta);
+            {ok, nksip_lib:get_value(nksip_timers_se, Meta)};
         false ->
-            undefined
+            {ok, undefined}
+    end;
+
+get_session_expires(Handle) ->
+    Fun = fun(#dialog{}=Dialog) -> get_session_expires(Dialog) end,
+    case nksip_dialog:meta({function, Fun}, Handle) of
+        {ok, Value} -> Value;
+        {error, Error} -> {error, Error}
     end.
 
 
 %% @doc Gets the reamining time to refresh the session
--spec get_session_refresh(nksip:dialog()|nksip:id()) ->
-    non_neg_integer() | undefined.
-
-get_session_refresh(Id) when is_binary(Id) ->
-    Fun = fun(Dialog) -> {ok, get_session_refresh(Dialog)} end,
-    nksip_dialog:apply_meta(Fun, Id);
+-spec get_session_refresh(nksip:dialog()|nksip:handle()) ->
+    {ok, non_neg_integer() | expired | undefined} | {error, term()}.
 
 get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
     case is_record(Invite, invite) of
@@ -120,13 +119,21 @@ get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
             case is_reference(RefreshTimer) of
                 true -> 
                     case erlang:read_timer(RefreshTimer) of
-                        false -> expired;
-                        IR -> IR
+                        false -> {ok, expired};
+                        IR -> {ok, IR}
                     end;
                 false ->
-                    undefined
+                    {ok, undefined}
             end;
         false -> 
-            undefined
+            {ok, undefined}
+    end;
+
+get_session_refresh(Handle) ->
+    Fun = fun(#dialog{}=Dialog) -> get_session_refresh(Dialog) end,
+    case nksip_dialog:meta({function, Fun}, Handle) of
+        {ok, Value} -> Value;
+        {error, Error} -> {error, Error}
     end.
+
 

@@ -77,12 +77,12 @@ launch() ->
     {ok,488,[]} = 
         nksip_uac:invite(client2, "sip:client1@nksip", [{route, "<sips:127.0.0.1;lr>"}]),
 
-    {ok,200,[{dialog_id, DlgId}]}= 
+    {ok,200,[{dialog, DlgId}]}= 
         nksip_uac:invite(client2, "sip:client1@nksip", 
                         [{route, "<sips:127.0.0.1;lr>"}, {body, nksip_sdp:new()},
                           auto_2xx_ack]),
 
-    confirmed = nksip_dialog:meta(invite_status, DlgId),
+    {ok, confirmed} = nksip_dialog:meta(invite_status, DlgId),
     [_, _, _] = nksip_dialog:get_all_data(),
 
     {ok,200,[]} = nksip_uac:bye(DlgId, []),

@@ -176,7 +176,7 @@ nkcb_uas_method(Method, Req, UAS, Call) ->
 
 nkcb_uas_timer(nksip_100rel_prack_retrans, #trans{id=Id, response=Resp}=UAS, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    UAS2 = case nksip_transport_uas:resend_response(Resp, []) of
+    UAS2 = case nksip_call_uas_transp:resend_response(Resp, []) of
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p reliable response", 
                        [Id, Code]),
@@ -192,8 +192,7 @@ nkcb_uas_timer(nksip_100rel_prack_retrans, #trans{id=Id, response=Resp}=UAS, Cal
 nkcb_uas_timer(nksip_100rel_prack_timeout, #trans{id=Id, method=Method}=UAS, Call) ->
     ?call_notice("UAS ~p ~p reliable provisional response timeout", [Id, Method]),
     Reply = {internal_error, <<"Reliable Provisional Response Timeout">>},
-    {_, Call1} = nksip_call_uas_reply:reply(Reply, UAS, Call),
-    {ok, Call1};
+    {ok, nksip_call_uas:do_reply(Reply, UAS, Call)};
 
 nkcb_uas_timer(_Tag, _UAS, _Call) ->
     continue.

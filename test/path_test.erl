@@ -136,7 +136,7 @@ basic() ->
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
-        p1 ->
+        {ok, p1} ->
             % P1 is the outbound proxy.
             % It domain is 'nksip', it sends the request to P2, 
             % inserting Path and x-nk-id headers
@@ -150,7 +150,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ -> 
                     {proxy, ruri, Base}
             end;
-        p2 ->
+        {ok, p2} ->
             % P2 is an intermediate proxy.
             % For 'nksip' domain, sends the request to P3, inserting x-nk-id header
             % For other, simply proxies and adds header
@@ -162,7 +162,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ -> 
                     {proxy, ruri, Base}
             end;
-        p3 ->
+        {ok, p3} ->
             % P3 is the SBC. 
             % For 'nksip', it sends everything to the registrar, inserting Path header
             % For other proxies the request
@@ -174,13 +174,13 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ -> 
                     {proxy, ruri, [record_route|Base]}
             end;
-        p4 ->
+        {ok, p4} ->
             % P4 is a dumb router, only adds a header
             % For 'nksip', it sends everything to the registrar, inserting Path header
             % For other proxies the request
             Base = [{insert, "x-nk-id", "p4"}, path, record_route],
             {proxy, ruri, Base};
-        registrar ->
+        {ok, registrar} ->
             case Domain of
                 <<"nksip">> when User == <<>> ->
                     process;
@@ -194,21 +194,21 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 _ ->
                     {proxy, ruri, []}
             end;
-        _ ->
+        {ok, _} ->
             process
     end.
 
 
 sip_invite(Req, _Call) ->
     case nksip_request:header(<<"x-nk-op">>, Req) of
-        [<<"ok">>] -> {reply, ok};
-        _ -> {reply, 603}
+        {ok, [<<"ok">>]} -> {reply, ok};
+        {ok, _} -> {reply, 603}
     end.
 
 
 sip_options(Req, _Call) ->
-    Ids = nksip_request:header(<<"x-nk-id">>, Req),
-    App = nksip_request:app_name(Req),
+    {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
+    {ok, App} = nksip_request:app_name(Req),
     Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
