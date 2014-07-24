@@ -35,12 +35,12 @@ timer_t1|`integer()`|500|Standar SIP T1 timer (msecs)
 timer_t2|`integer()`|4000|Standar SIP T2 timer (msecs)
 timer_t4|`integer()`|5000|Standar SIP T4 timer (msecs)
 timer_c|`integer()`|180|Standar SIP C timer (secs)
-siapp_timer|`integer()`|5|Interval to process timers internally in SipApp process (secs)
 udp_timeout|`integer()`|30|Time to remove UDP association if no message has been received (secs)
 tcp_timeout|`integer()`|180|Time to disconnect TCP/SSL connection if no message has been received (secs)
 sctp_timeout|`integer()`|180|Time to disconnect SCTP associations if no message has been received (secs)
 ws_timeout|`integer()`|180|Time to disconnect WS/WSS connections if no message has been received (secs)
 dialog_timeout|`integer()`|1800|Time to timeout non-refreshed dialogs (secs)
+event_expires|`integer()`|60|Default Expires for events (secs)
 nonce_timeout|`integer()`|30|Time a new `nonce` in an authenticate header will be usable (secs)
 max_calls|`integer()`|100000|Maximum number of simultaneous calls (each different Call-ID counts as a call)
 max_connections|`integer()`|1024|Maximum number of simultaneous connections NkSIP will accept
@@ -51,7 +51,7 @@ max_connections|`integer()`|1024|Maximum number of simultaneous connections NkSI
 Key|Type|Default|Description
 ---|---|---|---
 plugins|`[atom()]`|`[]`|List of [plugins](../plugins/README.md) to activate
-transports|[{Proto, Ip, Port}&#124;{Proto, Ip, Port, Opts}], Proto::`protocol()`, Ip::`inet:ip_address()`&#124;`string()`&#124;`binary()`&#124;all&#124;all6, Port::`inet:port_number()`&#124;any|[{udp, any, all}, {tls, any, all}]`|The SipApp can start any number of transports. If an UDP transport is started, a TCP transport on the same IP and port will be started automatically. Use `all` to use _all_ available IPv4 addresses and `all6` for all IPv6 addresses, and `any` to use any available port
+transports|[Proto&#124;{Proto, Ip}&#124;{Proto, Ip, Port}&#124;{Proto, Ip, Port, Opts}], Proto::`protocol()`, Ip::`inet:ip_address()`&#124;`string()`&#124;`binary()`&#124;all&#124;all6, Port::`inet:port_number()`&#124;any|[{udp, any, all}, {tls, any, all}]`|The SipApp can start any number of transports. If an UDP transport is started, a TCP transport on the same IP and port will be started automatically. Use `all` to use _all_ available IPv4 addresses and `all6` for all IPv6 addresses, and `any` to use any available port
 certfile|`string()`|"(privdir)/cert.pem"|Path to the certificate file for TLS
 keyfile|`string()`|"(privdir)/key.pem"|Path to the key file for TLS
 supported|`string()`&#124;`binary()`|(installed plugins)|If present, these tokens will be used in _Supported_ headers instead of the default supported list, for example "my_token1, mytoken2, 100rel"
