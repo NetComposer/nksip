@@ -11,7 +11,7 @@ If you want to embed NkSIP in your own Erlang application, and you are using _re
 
 ```erlang
 {deps, [
-  {nksip, ".*", {git, "git://github.com/kalta/nksip", {tag, "v0.3.0"}}}
+  {nksip, ".*", {git, "git://github.com/kalta/nksip", {tag, "v0.4.0"}}}
 ]}.
 ```
  
