@@ -66,10 +66,7 @@ start(Opts) ->
     AppName = nksip_lib:get_value(name, Opts, nksip),
     AppId = nksip_sipapp_srv:get_appid(AppName),
     BasePath = nksip_config_cache:local_data_path(),
-    case nksip_sipapp_srv:update_uuid(AppId, AppName, BasePath) of
-        {ok, UUID} -> ok;
-        {error, Error} -> UUID = throw(Error)
-    end,
+    {ok, UUID} = nksip_sipapp_srv:update_uuid(AppId, AppName, BasePath),
     Environment = nksip_config_cache:app_config(),
     Defaults = nksip_lib:defaults(Environment, default_config()),
     Opts1 = lists:map(
@@ -330,8 +327,8 @@ parse_opts([Term|Rest], Opts) ->
         _ ->
             {Key, Val} = case Op of
                 update -> {element(1, Term), element(2, Term)};
-                {update, Val1} -> {element(1, Term), Val1};
-                {update, Key1, Val1} -> {Key1, Val1}
+                {update, Val1} -> {element(1, Term), Val1}
+                % {update, Key1, Val1} -> {Key1, Val1}
             end,
             case lists:keymember(Key, 1, Opts) of
                 true -> throw({invalid_config, {duplicated_key, Key}});

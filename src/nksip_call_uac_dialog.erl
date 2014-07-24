@@ -95,16 +95,16 @@ pre_request(Req, Call) ->
                 true ->
                     ok
             end;
-        false ->
+        not_found ->
             {error, unknown_dialog}
     end.
 
 
 %% @private
--spec request(nksip:request(), boolean(), nksip_call:call()) ->
+-spec request(nksip:request(), true|false|undefined, nksip_call:call()) ->
     nksip_call:call().
 
-request(#sipmsg{class={req, 'ACK'}}=Req, _, Call) ->
+request(#sipmsg{class={req, 'ACK'}}=Req, undefined, Call) ->
     do_ack(Req, Call);
 
 request(#sipmsg{class={req, Method}, dialog_id=DialogId}=Req, IsProxy, Call) ->
@@ -463,7 +463,7 @@ do_response(_, _Code, _Req, _Resp, Dialog, Call) ->
    
 
  %% @private
--spec make(integer(), nksip:method(), nksip:optslist(), nksip_call:call()) ->
+-spec make(nksip_dialog_lib:id(), nksip:method(), nksip:optslist(), nksip_call:call()) ->
     {ok, RUri::nksip:uri(), nksip:optslist(), nksip_call:call()} | {error, Error}
     when Error :: invalid_dialog | unknown_dialog | unknown_subscription.
 
@@ -564,7 +564,7 @@ get_sdp(#sipmsg{body=Body}, #invite{sdp_offer=Offer, sdp_answer=Answer}) ->
 
 %% @private
 -spec generate(nksip:method(), nksip:optslist(), nksip:dialog(), nksip_call:call()) ->
-    {{RUri, Opts}, nksip:dialog()} 
+    {RUri, Opts, nksip:dialog()} 
     when RUri::nksip:uri(), Opts::nksip:optslist().
 
 generate(Method, Opts, Dialog, _Call) ->

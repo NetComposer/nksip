@@ -140,7 +140,7 @@ nkcb_make_uac_dialog(Method, Uri, Opts, #call{dialogs=[Dialog|_]}=Call) ->
 
 
 %% @doc Called when the UAC is preparing a request to be sent
--spec nkcb_uac_pre_request(nksip:request(), nksip:optlist(), 
+-spec nkcb_uac_pre_request(nksip:request(), nksip:optslist(), 
                            nksip_call_uac:uac_from(), nksip:call()) ->
     {continue, list()}.
 
@@ -186,7 +186,7 @@ nkcb_uac_response(Req, Resp, UAC, Call) ->
 
 %% @doc Called when preparing a UAS dialog response
 -spec nkcb_uas_dialog_response(nksip:request(), nksip:response(), 
-                               nksip:optlist(), nksip:call()) ->
+                               nksip:optslist(), nksip:call()) ->
     {ok, nksip:response(), nksip:optslist()} | continue.
 
 nkcb_uas_dialog_response(Req, Resp, Opts, Call) ->
@@ -202,7 +202,7 @@ nkcb_uas_dialog_response(Req, Resp, Opts, Call) ->
 
 
 %% @doc Called when the UAS is proceesing a request
--spec nkcb_uas_process(nksip_trans:trans(), nksip_call:call()) ->
+-spec nkcb_uas_process(nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
 nkcb_uas_process(#trans{request=Req}=UAS, Call) ->

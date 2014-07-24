@@ -204,33 +204,6 @@
 }).
 
 
-%% Meta current uses:
-%% - {nksip_min_se, MinSE}
-
--record(dialog, {
-    id :: nksip_dialog_lib:id(),
-    app_id :: nksip:app_id(),
-    call_id :: nksip:call_id(),
-    created :: nksip_lib:timestamp(),
-    updated :: nksip_lib:timestamp(),
-    local_seq :: 0 | nksip:cseq(),
-    remote_seq :: 0 | nksip:cseq(),
-    local_uri :: nksip:uri(),
-    remote_uri :: nksip:uri(),
-    local_target :: nksip:uri(),        % Only for use in proxy
-    remote_target :: nksip:uri(),
-    route_set :: [nksip:uri()],
-    blocked_route_set :: boolean(),
-    early :: boolean(),
-    secure :: boolean(),
-    caller_tag :: nksip:tag(),
-    invite :: nksip:invite(),
-    subscriptions = [] :: [nksip:subscription()],
-    supported = [] :: [nksip:token()],
-    meta = [] :: nksip:optslist()
-}).
-
-
 -record(invite, {
     status :: nksip_dialog:invite_status(),
     answered :: nksip_lib:timestamp(),
@@ -261,6 +234,34 @@
     timer_middle :: reference(),
     last_notify_cseq :: nksip:cseq()
 }).
+
+
+%% Meta current uses:
+%% - {nksip_min_se, MinSE}
+
+-record(dialog, {
+    id :: nksip_dialog_lib:id(),
+    app_id :: nksip:app_id(),
+    call_id :: nksip:call_id(),
+    created :: nksip_lib:timestamp(),
+    updated :: nksip_lib:timestamp(),
+    local_seq :: 0 | nksip:cseq(),
+    remote_seq :: 0 | nksip:cseq(),
+    local_uri :: nksip:uri(),
+    remote_uri :: nksip:uri(),
+    local_target :: nksip:uri(),        % Only for use in proxy
+    remote_target :: nksip:uri(),
+    route_set :: [nksip:uri()],
+    blocked_route_set :: boolean(),
+    early :: boolean(),
+    secure :: boolean(),
+    caller_tag :: nksip:tag(),
+    invite :: nksip:invite(),
+    subscriptions = [] :: [#subscription{}],
+    supported = [] :: [nksip:token()],
+    meta = [] :: nksip:optslist()
+}).
+
 
 
 -record(sdp_m, {

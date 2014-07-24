@@ -51,7 +51,7 @@
 
 -type trans() :: #trans{}.
 
--type trans_id() :: binary().
+-type trans_id() :: integer().
 
 -type fork() :: #fork{}.
 
@@ -83,7 +83,7 @@ call_id(#call{call_id=CallId}) ->
 
 %% @private Sends a new request.
 -spec send(nksip:request(), nksip:optslist()) ->
-    nksip_uac:result() | nksip_uac:ack_result().
+    nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
 send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
     nksip_router:send_work_sync(AppId, CallId, {send, Req, Opts}).
@@ -92,7 +92,7 @@ send(#sipmsg{app_id=AppId, call_id=CallId}=Req, Opts) ->
 %% @private Generates and sends a new request.
 -spec send(nksip:app_id(), nksip:call_id(), nksip:method(), 
            nksip:user_uri(), nksip:optslist()) ->
-    nksip_uac:result() | nksip_uac:ack_result().
+    nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
 send(AppId, CallId, Method, Uri, Opts) ->
     nksip_router:send_work_sync(AppId, CallId, {send, Method, Uri, Opts}).
@@ -100,8 +100,8 @@ send(AppId, CallId, Method, Uri, Opts) ->
 
 %% @private Generates and sends a new in-dialog request.
 -spec send_dialog(nksip:app_id(), nksip:call_id(), nksip:method(), 
-                  nksip_dialog:id(), nksip:optslist()) ->
-    nksip_uac:result() | nksip_uac:ack_result().
+                  nksip_dialog_lib:id(), nksip:optslist()) ->
+    nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
 send_dialog(AppId, CallId, Method, DialogId, Opts) ->
     nksip_router:send_work_sync(AppId, CallId, {send_dialog, DialogId, Method, Opts}).
@@ -109,7 +109,7 @@ send_dialog(AppId, CallId, Method, DialogId, Opts) ->
 
 %% @private Cancels an ongoing INVITE request.
 -spec send_cancel(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(),
-                  nksip:optlist()) ->
+                  nksip:optslist()) ->
     nksip_uac:uac_cancel_result().
 
 send_cancel(AppId, CallId, RequestId, Opts) ->
@@ -178,7 +178,7 @@ get_all_dialogs(AppId, CallId) ->
 
 
 %% @private Deletes a dialog
--spec stop_dialog(nksip:app_id(), nksip:call_id(), nksip_dialog:id()) ->
+-spec stop_dialog(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id()) ->
     ok | {error, term()}.
  
 stop_dialog(AppId, CallId, DialogId) ->

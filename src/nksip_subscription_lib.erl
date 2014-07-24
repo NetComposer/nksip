@@ -128,31 +128,27 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    case parse_handle(Handle) of
-        {AppId, SubsId, DialogId, CallId} ->
-            Fun = fun(Dialog) ->
-                case find(SubsId, Dialog) of
-                    #subscription{} = U -> 
-                        case catch metas(Fields, {user_subs, U, Dialog}) of
-                            {'EXIT', {{invalid_field, Field}, _}} -> 
-                                {error, {invalid_field, Field}};
-                            Values -> 
-                                {ok, Values}
-                        end;
-                    not_found -> 
-                        {error, invalid_subscription}
-                end
-            end,
-            case nksip_call:apply_dialog(AppId, CallId, DialogId, Fun) of
-                {apply, {ok, Values}} -> 
-                    {ok, Values};
-                {apply, {error, {invalid_field, Field}}} -> 
-                    error({invalid_field, Field});
-                {error, Error} -> 
-                    {error, Error}
-            end;
-        _ ->
-            error(invalid_handle)
+    {AppId, SubsId, DialogId, CallId} = parse_handle(Handle),
+    Fun = fun(Dialog) ->
+        case find(SubsId, Dialog) of
+            #subscription{} = U -> 
+                case catch metas(Fields, {user_subs, U, Dialog}) of
+                    {'EXIT', {{invalid_field, Field}, _}} -> 
+                        {error, {invalid_field, Field}};
+                    Values -> 
+                        {ok, Values}
+                end;
+            not_found -> 
+                {error, invalid_subscription}
+        end
+    end,
+    case nksip_call:apply_dialog(AppId, CallId, DialogId, Fun) of
+        {apply, {ok, Values}} -> 
+            {ok, Values};
+        {apply, {error, {invalid_field, Field}}} -> 
+            error({invalid_field, Field});
+        {error, Error} -> 
+            {error, Error}
     end.
 
 

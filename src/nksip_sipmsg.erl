@@ -27,7 +27,7 @@
 -export([meta/2, metas/2, header/2, header/3, all_headers/1]).
 -export([supported/2, require/2, is_dialog_forming/1, get_handle/1, parse_handle/1]).
 -export([remote_meta/2, remote_metas/2]).
--export_type([id/0]).
+-export_type([id/0, field/0]).
 -include("nksip.hrl").
 
 -type id() :: binary().
@@ -151,7 +151,7 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
                     undefined
             end;
         all_headers -> all_headers(S);
-        {header, Name} -> header(Name, S);
+        {header, HeaderName} -> header(HeaderName, S);
         _ -> error({invalid_field, Name})
     end.
 
@@ -263,7 +263,7 @@ all_headers(SipMsg) ->
             _ -> {<<"require">>, header(<<"require">>, SipMsg)}
         end,
         case SipMsg#sipmsg.supported of
-            <<>> -> [];
+            [] -> [];
             _ -> {<<"supported">>, header(<<"supported">>, SipMsg)}
         end,
         case SipMsg#sipmsg.expires of
@@ -392,26 +392,22 @@ remote_meta(Field, Handle) ->
     {ok, [{field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    case parse_handle(Handle) of
-        {_Class, AppId, MsgId, CallId} ->
-            Fun = fun(SipMsg) ->
-                case catch metas(Fields, SipMsg) of
-                    {'EXIT', {{invalid_field, Field}, _}} -> 
-                        {error, {invalid_field, Field}};
-                    Values -> 
-                        {ok, Values}
-                end
-            end,
-            case nksip_call:apply_sipmsg(AppId, CallId, MsgId, Fun) of
-                {apply, {ok, Values}} -> 
-                    {ok, Values};
-                {apply, {error, {invalid_field, Field}}} -> 
-                    error({invalid_field, Field});
-                {error, Error} -> 
-                    {error, Error}
-            end;
-        _ ->
-            error(invalid_handle)
+    {_Class, AppId, MsgId, CallId} = parse_handle(Handle),
+    Fun = fun(SipMsg) ->
+        case catch metas(Fields, SipMsg) of
+            {'EXIT', {{invalid_field, Field}, _}} -> 
+                {error, {invalid_field, Field}};
+            Values -> 
+                {ok, Values}
+        end
+    end,
+    case nksip_call:apply_sipmsg(AppId, CallId, MsgId, Fun) of
+        {apply, {ok, Values}} -> 
+            {ok, Values};
+        {apply, {error, {invalid_field, Field}}} -> 
+            error({invalid_field, Field});
+        {error, Error} -> 
+            {error, Error}
     end.
 
 

@@ -145,7 +145,7 @@ do_remove_local_routes(AppId, [Route|RestRoutes]) ->
 
 
 %% @doc Generates a <i>CANCEL</i> request from an <i>INVITE</i> request.
--spec make_cancel(nksip:request(), nksip:optlist()) ->
+-spec make_cancel(nksip:request(), nksip:optslist()) ->
     nksip:request().
 
 make_cancel(Req, Opts) ->
@@ -438,7 +438,7 @@ parse_opts([Term|Rest], Req, Opts) ->
             parse_opts(Rest, Req, Opts);
         error when is_tuple(Term) ->
             throw({invalid_config, element(1, Term)});
-        error_ ->
+        error ->
             throw({invalid_config, Term})
     end.
 

@@ -24,9 +24,8 @@
 
 -export([request/2, reply/3, do_reply/3]).
 -export_type([status/0, incoming/0]).
+
 -import(nksip_call_lib, [update/2]).
-
-
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -229,7 +228,7 @@ process_request(Req, UASTransId, Call) ->
         code = 0,
         to_tags = [],
         stateless = true,
-        iter = undefined,
+        iter = 1,
         cancel = undefined,
         loop_id = LoopId,
         timeout_timer = undefined,

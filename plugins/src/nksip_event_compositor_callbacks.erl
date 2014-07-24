@@ -35,7 +35,7 @@
 %% @private This plugin callback is called when a call to one of the method specific
 %% application-level SipApp callbacks is needed.
 -spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
-    {reply, nksip:sip_reply()} | noreply.
+    {reply, nksip:sipreply()} | noreply.
 
 
 nkcb_sip_method(#trans{method='PUBLISH', request=Req}, #call{app_id=AppId}) ->

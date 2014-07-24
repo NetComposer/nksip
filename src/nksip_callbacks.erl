@@ -59,7 +59,7 @@ nkcb_call(Fun, Args, AppId) ->
 %% @doc This plugin callback is called when a call to one of the method specific
 %% application-level SipApp callbacks is needed.
 -spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
-	{reply, nksip:sip_reply()} | noreply | nkcb_common().
+	{reply, nksip:sipreply()} | noreply | nkcb_common().
 
 
 nkcb_sip_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
@@ -155,7 +155,7 @@ nkcb_make_uac_dialog(Method, Uri, Opts, Call) ->
 
 
 %% @doc Called when the UAC is preparing a request to be sent
--spec nkcb_uac_pre_request(nksip:request(), nksip:optlist(), 
+-spec nkcb_uac_pre_request(nksip:request(), nksip:optslist(), 
                            nksip_call_uac:uac_from(), nksip:call()) ->
     {continue, list()}.
 
@@ -165,7 +165,7 @@ nkcb_uac_pre_request(Req, Opts, From, Call) ->
 
 %% @doc Called when the UAC transaction must send a reply to the user
 -spec nkcb_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
-                     nksip_trans:trans(), nksip_call:call()) ->
+                     nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
 nkcb_uac_reply(Class, UAC, Call) ->
@@ -183,7 +183,7 @@ nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
 
 
 %% @doc Called when a new reponse is going to be sent
--spec nkcb_uas_send_reply({nksip:response(), nksip:optlist()}, 
+-spec nkcb_uas_send_reply({nksip:response(), nksip:optslist()}, 
 							 nksip_call:trans(), nksip_call:call()) ->
 	{error, term()} | nkcb_common().
 
@@ -226,7 +226,7 @@ nkcb_parse_uas_opt(Req, Resp, Opts) ->
 
 %% @doc Called when preparing a UAS dialog response
 -spec nkcb_uas_dialog_response(nksip:request(), nksip:response(), 
-                               nksip:optlist(), nksip:call()) ->
+                               nksip:optslist(), nksip:call()) ->
     {ok, nksip:response(), nksip:optslist()}.
 
 nkcb_uas_dialog_response(_Req, Resp, Opts, _Call) ->
@@ -234,7 +234,7 @@ nkcb_uas_dialog_response(_Req, Resp, Opts, _Call) ->
 
 
 %% @doc Called when the UAS is proceesing a request
--spec nkcb_uas_process(nksip_trans:trans(), nksip_call:call()) ->
+-spec nkcb_uas_process(nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
 nkcb_uas_process(UAS, Call) ->

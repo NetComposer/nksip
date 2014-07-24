@@ -50,12 +50,12 @@ realms(#sipmsg{headers=Headers}) ->
     get_realms(Headers, []);
 
 realms(RespId) ->
-    {ok, Hd1} = case nksip_response:header(RespId, ?RESP_WWW) of
-        WWW when is_list(WWW) -> [{?RESP_WWW, Data} || Data <- WWW];
+    Hd1 = case nksip_response:header(RespId, ?RESP_WWW) of
+        {ok, WWW} when is_list(WWW) -> [{?RESP_WWW, Data} || Data <- WWW];
         _ -> []
     end,
-    {ok, Hd2} = case nksip_response:header(RespId, ?RESP_PROXY) of
-        Proxy when is_list(Proxy) -> [{?RESP_PROXY, Data} || Data <- Proxy];
+    Hd2 = case nksip_response:header(RespId, ?RESP_PROXY) of
+        {ok, Proxy} when is_list(Proxy) -> [{?RESP_PROXY, Data} || Data <- Proxy];
         _ -> []
     end,
     get_realms(Hd1++Hd2, []).

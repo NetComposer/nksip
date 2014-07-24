@@ -61,7 +61,7 @@ getter(Fun, Value) ->
 
 %% @doc Generates a function expression (fun(A1,B1,..) -> Value)
 %% Vers represents the suffix to use in the variable names
--spec fun_expr(atom(), pos_integer(), pos_integer(), term()) ->
+-spec fun_expr(atom(), integer(), integer(), term()) ->
     erl_syntax:syntaxTree().
 
 fun_expr(Fun, Arity, Vers, Value) ->
@@ -72,7 +72,7 @@ fun_expr(Fun, Arity, Vers, Value) ->
 
 %% @doc Generates a call expression (mod:fun(A1,B1,..))
 %% Vers represents the suffix to use in the variable names.
--spec call_expr(atom(), atom(), pos_integer(), pos_integer()) ->
+-spec call_expr(atom(), atom(), integer(), integer()) ->
     erl_syntax:syntaxTree().
 
 call_expr(Mod, Fun, Arity, Vers) ->
@@ -83,7 +83,7 @@ call_expr(Mod, Fun, Arity, Vers) ->
 
 
 %% @doc Generates a call expression (fun(A0,B0...) -> mod:fun(A0,B0,..))
--spec callback_expr(atom(), atom(), pos_integer()) ->
+-spec callback_expr(atom(), atom(), integer()) ->
     erl_syntax:syntaxTree().
 
 callback_expr(Mod, Fun, Arity) ->
@@ -97,7 +97,7 @@ callback_expr(Mod, Fun, Arity) ->
 %%     Other -> Other
 %% end
 %% Vers represents the suffix to use in the variable names.
--spec case_expr(atom(), atom(), pos_integer(), pos_integer(), 
+-spec case_expr(atom(), atom(), integer(), integer(), 
                [erl_syntax:syntaxTree()]) ->
     erl_syntax:syntaxTree().
 
@@ -180,7 +180,7 @@ write(Mod, Tree) ->
 
 %% @doc Gets the list of exported functions of a module
 -spec get_funs(atom()) ->
-    [{atom(), pos_integer()}] | error.
+    [{atom(), integer()}] | error.
 
 get_funs(Mod) ->
     case catch Mod:module_info() of

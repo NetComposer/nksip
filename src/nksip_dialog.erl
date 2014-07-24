@@ -115,7 +115,7 @@ call_id(Handle) ->
 
 
 %% @doc Get a specific metadata
--spec meta(field(), nksip:dialog()) ->
+-spec meta(field(), nksip:dialog()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 
 meta(Field, #dialog{}=Dialog) -> 
@@ -130,7 +130,7 @@ meta(Field, Handle) ->
 
 
 %% @doc Get a group of specific metadata
--spec metas([field()], nksip:dialog()) ->
+-spec metas([field()], nksip:dialog()|nksip:handle()) ->
     {ok, [{field(), term()}]} | {error, term()}.
 
 metas(Fields, #dialog{}=Dialog) when is_list(Fields) ->

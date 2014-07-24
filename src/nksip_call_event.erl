@@ -98,7 +98,7 @@ uac_response(_Req, _Resp, Dialog, _Call) ->
 
 %% @private
 -spec uac_do_response(nksip:method(), nksip:sip_code(), nksip:request(), 
-                      nksip:response(), nksip:subscription(), nksip:dialog(), 
+                      nksip:response(), #subscription{}, nksip:dialog(), 
                       nksip_call:call()) ->
     nksip:dialog().
 
@@ -212,7 +212,7 @@ uas_response(_Req, _Resp, Dialog, _Call) ->
 
 %% @private
 -spec uas_do_response(nksip:method(), nksip:sip_code(), nksip:request(), 
-                      nksip:response(), nksip:subscription(), nksip:dialog(), 
+                      nksip:response(), #subscription{}, nksip:dialog(), 
                       nksip_call:call()) ->
     nksip:dialog().
 
@@ -256,7 +256,7 @@ uas_do_response(_, _Code, _Req, _Resp, _Subs, Dialog, _Call) ->
 
 
 %% @private
--spec update(term(), nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
+-spec update(term(), #subscription{}, nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
 update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) ->
@@ -409,7 +409,7 @@ stop(#subscription{id=Id}, Dialog, Call) ->
 
 %% @private
 -spec request_uac_opts(nksip:method(), nksip:optslist(), 
-                       nksip:dialog() | nksip:subscription()) ->
+                       nksip:dialog() | #subscription{}) ->
     {ok, nksip:optslist()} | {error, unknown_subscription}.
 
 request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
@@ -455,7 +455,8 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
 
 
 %% @private Called when a dialog timer is fired
--spec timer({middle|timeout, nksip_subscription:id()}, nksip:dialog(), nksip_call:call()) ->
+-spec timer({middle|timeout, nksip_subscription_lib:id()}, 
+            nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
 timer({Type, Id}, Dialog, Call) ->
@@ -479,7 +480,7 @@ timer({Type, Id}, Dialog, Call) ->
 
 %% @private Creates a new event
 -spec create(uac|uas, nksip:request(), nksip:dialog(), nksip_call:call()) ->
-    nksip:subscription().
+    #subscription{}.
 
 create(Class, #sipmsg{class={req, Method}}=Req, Dialog, Call) ->
     Event = case Method of
@@ -522,7 +523,7 @@ do_is_prov_event(Id, [_|Rest]) -> do_is_prov_event(Id, Rest).
 
 
 %% @private Updates an updated event into dialog
--spec store(nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
+-spec store(#subscription{}, nksip:dialog(), nksip_call:call()) ->
     nksip:dialog().
 
 store(Subs, Dialog, _Call) ->
@@ -554,7 +555,7 @@ store(Subs, Dialog, _Call) ->
 
 
 %% @private
--spec dialog_update(term(), nksip:subscription(), nksip:dialog(), nksip_call:call()) ->
+-spec dialog_update(term(), #subscription{}, nksip:dialog(), nksip_call:call()) ->
     ok.
 
 dialog_update(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
@@ -572,7 +573,7 @@ cancel_timer(Ref) ->
 
 
 %% @private
--spec start_timer(integer(), {atom(), nksip_subscription:id()}, nksip:dialog()) ->
+-spec start_timer(integer(), {atom(), nksip_subscription_lib:id()}, nksip:dialog()) ->
     reference().
 
 start_timer(Time, Tag, #dialog{id=Id}) ->

@@ -122,7 +122,7 @@ nkcb_parse_uas_opt(Req, Resp, Opts) ->
 
 
 %% @doc Called when a new reponse is going to be sent
--spec nkcb_uas_send_reply({nksip:response(), nksip:optlist()}, 
+-spec nkcb_uas_send_reply({nksip:response(), nksip:optslist()}, 
                              nksip_call:trans(), nksip_call:call()) ->
     {continue, list()} | {error, term()}.
 

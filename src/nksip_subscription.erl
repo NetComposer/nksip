@@ -25,8 +25,8 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([get_handle/1, app_id/1, app_name/1, call_id/1, meta/2, metas/2]).
--export([get_all/0, get_all/2, get_subscription/2]).
--export_type([status/0, subscription_state/0, terminated_reason/0]).
+-export([get_all/0, get_all/2]).
+-export_type([field/0, status/0, subscription_state/0, terminated_reason/0]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -106,7 +106,7 @@ call_id(Id) ->
 
 
 %% @doc Get a specific metadata
--spec meta(field(), nksip:subscription()) ->
+-spec meta(field(), nksip:subscription()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 
 meta(Field, {user_subs, _, _}=Subs) -> 
@@ -121,7 +121,7 @@ meta(Field, Handle) ->
 
 
 %% @doc Get a group of specific metadata
--spec metas([field()], nksip:subscription()) ->
+-spec metas([field()], nksip:subscription()|nksip:handle()) ->
     {ok, [{field(), term()}]} | {error, term()}.
 
 metas(Fields, {user_subs, _, _}=Subs) when is_list(Fields) ->
@@ -135,15 +135,15 @@ metas(Fields, Handle) when is_list(Fields) ->
     nksip_subscription_lib:remote_metas(Fields, Handle).
 
 
-%% @doc Gets the subscription object corresponding to a request or subscription and a call
--spec get_subscription(nksip:request()|nksip:response()|nksip:subscription(), nksip:call()) ->
-    {ok, nksip:subscription()} | {error, term()}.
+% %% @doc Gets the subscription object corresponding to a request or subscription and a call
+% -spec get_subscription(nksip:request()|nksip:response()|nksip:subscription(), nksip:call()) ->
+%     {ok, nksip:subscription()} | {error, term()}.
 
-get_subscription({uses_subs, _Subs, _Dialog}=UserSubs, _) ->
-    UserSubs;
+% get_subscription({uses_subs, _Subs, _Dialog}=UserSubs, _) ->
+%     UserSubs;
 
-get_subscription(#sipmsg{}=SipMsg, #call{}=Call) ->
-    nksip_subscription_lib:get_subscription(SipMsg, Call).
+% get_subscription(#sipmsg{}=SipMsg, #call{}=Call) ->
+%     nksip_subscription_lib:get_subscription(SipMsg, Call).
 
 
 %% @doc Gets all started subscription ids.

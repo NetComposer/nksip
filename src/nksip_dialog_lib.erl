@@ -67,7 +67,7 @@ get_handle(_) ->
 
 %% @doc 
 -spec parse_handle(nksip:handle()) -> 
-    {nksip:app_id(), id(), nksip:call_id()} | error.
+    {nksip:app_id(), id(), nksip:call_id()}.
 
 parse_handle(<<$D, $_, _/binary>>=Bin) ->
     <<$D, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>> = Bin,
@@ -82,7 +82,7 @@ parse_handle(_) ->
 
 meta(Field, #dialog{invite=I}=D) ->
     case Field of
-        handle -> element(2, get_handle(D));
+        handle -> get_handle(D);
         internal_id -> D#dialog.id;
         app_id -> D#dialog.app_id;
         app_name -> apply(D#dialog.app_id, name, []);
@@ -146,26 +146,22 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    case parse_handle(Handle) of
-        {AppId, DialogId, CallId} ->
-            Fun = fun(Dialog) ->
-                case catch metas(Fields, Dialog) of
-                    {'EXIT', {{invalid_field, Field}, _}} -> 
-                        {error, {invalid_field, Field}};
-                    Values -> 
-                        {ok, Values}
-                end
-            end,
-            case nksip_call:apply_dialog(AppId, CallId, DialogId, Fun) of
-                {apply, {ok, Values}} -> 
-                    {ok, Values};
-                {apply, {error, {invalid_field, Field}}} -> 
-                    error({invalid_field, Field});
-                {error, Error} -> 
-                    {error, Error}
-            end;
-        _ ->
-            error(invalid_handle)
+    {AppId, DialogId, CallId} = parse_handle(Handle),
+    Fun = fun(Dialog) ->
+        case catch metas(Fields, Dialog) of
+            {'EXIT', {{invalid_field, Field}, _}} -> 
+                {error, {invalid_field, Field}};
+            Values -> 
+                {ok, Values}
+        end
+    end,
+    case nksip_call:apply_dialog(AppId, CallId, DialogId, Fun) of
+        {apply, {ok, Values}} -> 
+            {ok, Values};
+        {apply, {error, {invalid_field, Field}}} -> 
+            error({invalid_field, Field});
+        {error, Error} -> 
+            {error, Error}
     end.
 
 
@@ -215,7 +211,7 @@ remote_id(<<$D, _/binary>>=DialogId, App) ->
     FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
     ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),
     Id = case make_id(uac, FromTag, ToTag) of
-        BaseId -> make_id(uas, FromTag,ToTag);
+        BaseId -> make_id(uas, FromTag, ToTag);
         RemoteId -> RemoteId
     end,
     BinApp = atom_to_binary(AppId, latin1),

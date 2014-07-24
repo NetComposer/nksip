@@ -34,7 +34,7 @@
 %% ===================================================================
 
 %% @doc Sends a transaction reply
--spec reply(nksip_uas:incoming(), nksip_call:trans(), nksip_call:call()) ->
+-spec reply(nksip_call_uas:incoming(), nksip_call:trans(), nksip_call:call()) ->
     {ok | {error, term()}, nksip_call:call()}.
 
 
@@ -84,7 +84,7 @@ reply(SipReply, #trans{id=Id, method=Method, status=Status}, Call) ->
 
 
 %% @private
--spec send(nksip_uas:incoming(), nksip_call:trans(), nksip_call:call()) ->
+-spec send(nksip_call_uas:incoming(), nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip_call:call()} | {error, term()}.
 
 send({Resp, SendOpts}, UAS, Call) ->

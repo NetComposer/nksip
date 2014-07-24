@@ -39,6 +39,7 @@
     {send, nksip:request(), nksip:optslist()} |
     {send, nksip:method(), nksip:user_uri(), nksip:optslist()} |
     {send_dialog, nksip_dialog_lib:id(), nksip:method(), nksip:optslist()} |
+    {send_cancel, nksip_sipmsg:id(), nksip:sipreply()} |
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
