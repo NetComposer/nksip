@@ -99,20 +99,18 @@ sip_authorize(AuthList, _Req, _Call) ->
 %%   not local (for example because of a Route header), proxy the request.
 %%
 %% - If it has user part, and domain is "nksip", find if it is registered and proxy.
-%%   For other domain, proxy the request.
+%%   For other domain, proxy the request if it is not for ourselves.
 %%
 sip_route(_Scheme, <<>>, <<"nksip">>, _Req, _Call) ->
     process;
-sip_route(_Scheme, <<>>, _Domain, Req, _Call) ->
-    case nksip_request:is_local_route(Req) of
-        true -> process;
-        false -> proxy
-    end;
 sip_route(Scheme, User, <<"nksip">>, _Req, _Call) ->
     UriList = nksip_registrar:find(server, Scheme, User, <<"nksip">>),
     {proxy, UriList, [record_route]};
-sip_route(_Scheme, _User, _Domain, _Req, _Call) ->
-    proxy.
+sip_route(_Scheme, _User, _Domain, Req, _Call) ->
+    case nksip_request:is_local_ruri(Req) of
+        true -> process;
+        false -> proxy
+    end.
 
 
 %% @doc Synchronous user call.
