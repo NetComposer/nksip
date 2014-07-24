@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc NkSIP Config Cache
+%% @private NkSIP Config Cache
 %%
 %%
 %% This module is hot compiled in run-time, after NkSIP application has started.

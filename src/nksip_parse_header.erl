@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SIP message parsing functions
+%% @private SIP message parsing functions
 %%
 %% This module implements several functions to parse sip requests, responses
 %% headers, uris, vias, etc.

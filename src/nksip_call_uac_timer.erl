@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call UAC Timers
+%% @private Call UAC Timers
 -module(nksip_call_uac_timer).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

@@ -19,7 +19,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc NkSIP Transport control module
-
 -module(nksip_transport).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

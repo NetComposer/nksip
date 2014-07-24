@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call UAS Management: Reply
+%% @private Call UAS Management: Reply
 -module(nksip_call_uas_reply).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call UAC Management: Response processing
+%% @private Call UAC Management: Response processing
 -module(nksip_call_uac_resp).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

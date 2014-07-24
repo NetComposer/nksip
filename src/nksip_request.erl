@@ -19,10 +19,8 @@
 %% -------------------------------------------------------------------
 
 %% @doc User Request Management Functions.
-
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
-
 
 -export([get_handle/1, app_id/1, app_name/1, method/1, body/1, call_id/1]).
 -export([meta/2, metas/2, header/2, reply/2, is_local_ruri/1]).

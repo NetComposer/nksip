@@ -19,7 +19,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc NkSIP Erlang code parser and hot loader utilities
-
 -module(nksip_code_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

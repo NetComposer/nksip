@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call UAS Timer anagement
+%% @private Call UAS Timer anagement
 -module(nksip_call_uas_timer).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

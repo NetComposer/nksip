@@ -19,7 +19,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc NkSIP Webserver control
-
 -module(nksip_webserver).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).

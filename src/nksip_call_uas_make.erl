@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc UAS Process helper functions
+%% @doc UAS Response Generation
 -module(nksip_call_uas_make).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -export([make/3]).
@@ -32,7 +32,7 @@
 
 
 
-%% @private
+%% @doc Response Generation
 -spec make(nksip:request(), nksip:sip_code(), nksip:optslist()) -> 
     {ok, nksip:response(), nksip:optslist()} | {error, term()}.
 

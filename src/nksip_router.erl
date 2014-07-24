@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call Distribution Router
+%% @private Call Distribution Router
 -module(nksip_router).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

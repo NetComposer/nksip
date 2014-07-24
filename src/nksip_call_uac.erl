@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Call UAC Management: Request sending
+%% @doc Call UAC Management
 -module(nksip_call_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

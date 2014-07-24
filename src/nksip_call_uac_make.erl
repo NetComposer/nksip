@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc UAC process helper functions
+%% @doc UAC Request Generation
 -module(nksip_call_uac_make).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

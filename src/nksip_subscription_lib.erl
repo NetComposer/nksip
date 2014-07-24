@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc User Subscriptions Library Module.
+%% @private User Subscriptions Library Module.
 -module(nksip_subscription_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 

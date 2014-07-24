@@ -19,7 +19,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc NkSIP Config Server.
-
 -module(nksip_config).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).

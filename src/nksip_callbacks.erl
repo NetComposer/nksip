@@ -19,7 +19,6 @@
 %% -------------------------------------------------------------------
 
 %% @doc SipApp plugin callbacks default implementation
-
 -module(nksip_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
