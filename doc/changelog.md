@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.4.0 (not yet released)
+## [0.4.0](https://github.com/kalta/nksip/releases/tag/v0.4.0)
  
-* Extraction of non-core functionality intro plugins
-* New UAS API
-* **Powerful plugin mechanism**.
+* Extraction of non-core functionality intro plugins.
+* New UAS API.
+* Powerful plugin mechanism.
 * Reliable provisional responses.
 * UPDATE and MESSAGE methods.
 * Full event support (SUBSCRIBE/NOTIFY).
