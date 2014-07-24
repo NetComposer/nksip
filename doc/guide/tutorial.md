@@ -205,7 +205,12 @@ to `nksip_uac:ack(DlgId, [])` manually inmeditaly after the 2xx response.
                                             {body, nksip_sdp:new()},
                                             auto_2xx_ack
                                         ]).
-{ok,200,[{dialog, <<"...">>}]}					   
+{ok,200,[{dialog, <<"...">>}]}	
+```
+
+If we hadn't included the `auto_2xx_ack`, we should have sent the mandatory ACK for 2xx responses:
+
+```erlang
 18> nksip_uac:ack(DlgId, []),
 ok
 ```
