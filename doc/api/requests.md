@@ -24,7 +24,7 @@ Function|Description
 [metas/2](#meta2)|Gets specific metadata from the request
 [header/2](#header2)|Gets the values for a header or headers in a request
 [reply/2](#reply2)|Sends a reply to a request using a handle
-[is_local_route/1](#is_local_route1)|Checks if this request would be sent to a local address in case of beeing proxied
+[is_local_ruri/1](#is_local_ruri1)|Checks if this request would be sent to a local address in case of beeing proxied
 
 
 ## Functions List
@@ -117,12 +117,10 @@ Sends a reply to a request using a handle.
 See [Receiving Requests](../guide/receiving_requests.md) for a overall description and [Reply Options](../reference/reply_options.md) for a description of available responses.
 
 
-### is_local_route/1
+### is_local_ruri/1
 ```erlang
-nksip_request:is_local_route(nksip:request()) -> 
+nksip_request:is_local_ruri(nksip:request()) -> 
     boolean().
 ```
-Checks if this request would be sent to a local address in case of beeing proxied.
-
-It will return `true` if the first _Route_ header points to a local address or, if there are no Route header, the _Request-Uri_ points to a local address.
+Checks if the R-URI of this request points to a local address.
 

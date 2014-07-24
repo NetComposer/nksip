@@ -42,7 +42,7 @@
 
 %% @doc Parses a header value. 
 %% If Name is binary(), it will is supposed it is canonical; if not sure, 
-%% call `name(Name)`. If it is a string() or atom(), it is  converted to canonical form.
+%% call `name(Name)'. If it is a string() or atom(), it is  converted to canonical form.
 %% Throws {invalid, Name} in case of invalid header.
 -spec parse(binary(), term()) ->
     {binary(), term()}.

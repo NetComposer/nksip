@@ -46,7 +46,7 @@ full() ->
 %% - messages: Number of requests to send (default 10000)
 %% - clients: Number of parallel clients to start (default 10)
 %% - host: Use it in case the NkSIP server being tested is started at another node.
-%%         Default is "127.0.0.1"</td>
+%%         Default is "127.0.0.1"
 %% - port: NkSIP server listening port. 
 %%         Default is 5060 for udp and tcp, and 5061 for tls
 full(Opts) ->

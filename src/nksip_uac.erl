@@ -21,7 +21,7 @@
 %% @doc Request sending functions as UAC.
 %%
 %% In case of using a SIP URI as destination, is is possible to include
-%% custom headers: "<sip:host;method=REGISTER?contact=*&expires=10>"
+%% custom headers: `"<sip:host;method=REGISTER?contact=*&expires=10>"'
 %% 
 -module(nksip_uac).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').

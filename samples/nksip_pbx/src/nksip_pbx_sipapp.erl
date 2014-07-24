@@ -22,8 +22,7 @@
 
 %% @doc SipApp callback module.
 %%
-%% This module implements the mandatory callback module of each SipApp application,
-%% with behaviour `nksip_sipapp'.
+%% This module implements the mandatory callback module of each SipApp application
 %%
 %% This SipApp implements a SIP proxy, allowing  endpoints to register 
 %% and call each other using its registered uri. 
@@ -96,22 +95,21 @@ sip_get_user_pass(_User, _Realm, _Req, _Call) ->
 
 
 %% @doc SipApp Callback: Called to check if a request should be authorized.
-%% <ul>
-%%      <li>We first check to see if the request is an in-dialog request, coming from 
-%%          the same ip and port of a previously authorized request.</li>
-%%      <li>If not, we check if we have a previous authorized REGISTER request from 
-%%          the same ip and port.</li> 
-%%      <li>Next, we check if the request has a valid authentication header with realm 
-%%          "nksip". If `{{digest, <<"nksip">>}, true}' is present, the user has 
-%%          provided a valid password and it is authorized. 
-%%          If `{{digest, <<"nksip">>}, false}' is present, we have presented 
-%%          a challenge, but the user has failed it. We send 403.</li>
-%%      <li>If no digest header is present, reply with a 407 response sending 
-%%          a challenge to the user.</li>
-%% </ul>
+%% - We first check to see if the request is an in-dialog request, coming from 
+%%   the same ip and port of a previously authorized request.
+%% - If not, we check if we have a previous authorized REGISTER request from 
+%%   the same ip and port.
+%% - Next, we check if the request has a valid authentication header with realm 
+%%   "nksip". If `{{digest, <<"nksip">>}, true}' is present, the user has 
+%%   provided a valid password and it is authorized. 
+%%   If `{{digest, <<"nksip">>}, false}' is present, we have presented 
+%%   a challenge, but the user has failed it. We send 403.
+%% - If no digest header is present, reply with a 407 response sending 
+%%   a challenge to the user.
+
 sip_authorize(Auth, Req, _Call) ->
     {ok, Method} = nksip_request:method(Req),
-    lager:notice("Request ~p auth data: ~p", [Method, Auth]),
+    lager:info("Request ~p auth data: ~p", [Method, Auth]),
     case lists:member(dialog, Auth) orelse lists:member(register, Auth) of
         true -> 
             ok;
@@ -130,61 +128,65 @@ sip_authorize(Auth, Req, _Call) ->
 
 %% @doc SipApp Callback: Called to decide how to route every new request.
 %%
-%% <ul>
-%%      <li>If the user part of the request-uri is 200, proxy in parallel to all
-%%          registered endpoints but me, including a <i>Record-Route</i>, so
-%%          all dialog requests will go to this proxy.</li>
-%%      <li>If it is 201, call in parallel each two random endpoints, including
-%%          a custom header but no <i>Record-Route</i>, so next dialog requests will
-%%          go directly to the endpoint.</li>
-%%      <li>For 202, send the request to the fastest registered endpoint.</li>
-%%      <li>For 203, to the slowest.</li>
-%%      <li>If there is a different user part in the request-uri, check to see if 
-%%          it is already registered with us and redirect to it.</li>
-%%      <li>If the there is no user part in the request-uri (only the domain) 
-%%          process locally if it is one of our domains.
-%%          (Since we have not implemented `invite/4', `options/4,' etc., all responses
-%%          will be default responses). REGISTER will be processed as configured
-%%          when starting the SipApp.</li>
-%% </ul>
+%%  - If the user part of the request-uri is 200, proxy in parallel to all
+%%    registered endpoints but me, including a Record-Route header, so
+%%    that all dialog requests will go to this proxy.
+%%  - If it is 201, call in parallel each two random endpoints, including
+%%    a custom header but no Record-Route, so next dialog requests will
+%%    go directly to the endpoint.
+%%  - For 202, send the request to the fastest registered endpoint.
+%%  - For 203, to the slowest.
+%%  - If there is a different user part in the request-uri, check to see if 
+%%    it is already registered with us and redirect to it.
+%%  - If the there is no user part in the request-uri (only the domain) 
+%%    process locally if it is one of our domains.
+%%    (Since we have not implemented `sip_invite/2', `sip_options/2,' etc., all responses
+%%    will be default responses). REGISTER will be processed as configured
+%%    when starting the SipApp.
 
-sip_route(_Scheme, <<"200">>, _, Req, _Call) ->
+sip_route(_Scheme, <<"200">>, <<"nksip">>, Req, _Call) ->
     UriList = find_all_except_me(Req),
     {proxy, UriList, [record_route]};
 
-sip_route(_Scheme, <<"201">>, _, Req, _Call) ->
+sip_route(_Scheme, <<"201">>, <<"nksip">>, Req, _Call) ->
     All = random_list(find_all_except_me(Req)),
     UriList = take_in_pairs(All),
     {proxy, UriList, [{add, "x-nksip-server", <<"201">>}]};
 
-sip_route(_Scheme, <<"202">>, _, _Req, _Call) ->
-    Speed = nksip:get(pbx, speed),
+sip_route(_Scheme, <<"202">>, <<"nksip">>, _Req, _Call) ->
+    {ok, Speed} = nksip:get(pbx, speed),
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {proxy, UriList};
 
-sip_route(_Scheme, <<"203">>, _, _Req, _Call) ->
-    Speed = nksip:get(pbx, speed),
+sip_route(_Scheme, <<"203">>, <<"nksip">>, _Req, _Call) ->
+    {ok, Speed} = nksip:get(pbx, speed),
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {proxy, lists:reverse(UriList)};
 
-sip_route(_Scheme, <<>>, Domain, Req, _Call) ->
-    case lists:member(Domain, ?DOMAINS) of
+sip_route(_Scheme, <<"300">>, <<"nksip">>, _Req, _Call) ->
+    process;
+
+% The request is for us
+sip_route(_Scheme, <<>>, <<"nksip">>, _Req, _Call) ->
+    process;
+
+% The request is for one of our users or a SUBSCRIBE
+sip_route(Scheme, User, <<"nksip">>, Req, _Call) ->
+    case nksip_request:method(Req) of
+        {ok, 'SUBSCRIBE'} ->
+            {reply, forbidden};
+        _ ->
+            UriList = nksip_registrar:find(pbx, Scheme, User, <<"nksip">>),
+            {proxy, UriList, [record_route]}
+    end;
+
+% The request is for another domain, let's proxy it
+sip_route(_Scheme, _User, _Domain, Req, _Call) ->
+    case nksip_request:is_local_ruri(Req) of
         true ->
             process;
         false ->
-            case nksip_request:is_local_route(Req) of
-                true -> process;
-                false -> proxy
-            end
-    end;
-    
-sip_route(Scheme, User, Domain, _Req, _Call) ->
-    case lists:member(Domain, ?DOMAINS) of
-        true ->
-            UriList = nksip_registrar:find(pbx, Scheme, User, Domain),
-            {proxy, UriList, [record_route]};
-        false ->
-            proxy
+            {proxy, ruri, [record_route]}
     end.
 
 

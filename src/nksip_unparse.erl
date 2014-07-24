@@ -46,7 +46,7 @@ uri(#uri{}=Uri) ->
     list_to_binary(raw_uri(Uri)).
 
 
-%% @doc Serializes an `uri()' as a R-URI (without < and >)
+%% @doc Serializes an `uri()' as a R-URI (without `<' and `>')
 -spec ruri(nksip:uri()) ->
     binary().
 

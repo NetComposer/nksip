@@ -85,7 +85,7 @@ aors(Term) ->
 
 
 %% @doc Parses all URIs found in `Term'.
--spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
+-spec uris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
     [nksip:uri()] | error.
                 
 uris(#uri{}=Uri) -> [Uri];
@@ -97,7 +97,7 @@ uris(Term) -> uris([Term]).
 
 
 %% @doc Parses all URIs found in `Term'.
--spec uris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
+-spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
     [nksip:uri()] | error.
                 
 ruris(RUris) -> 
