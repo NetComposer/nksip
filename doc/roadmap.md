@@ -2,10 +2,8 @@
 
 ## v0.4
 
-* Documentation improvement.
-* Heavy testing
-* Extraction of non-core functionality into plugins
-* Test in R17
+* ~~Documentation improvement~~.
+* ~~Extraction of non-core functionality into plugins~~.
 * ~~**Powerful plugin mechanism**~~.
 * ~~New UAS API~~
 * ~~Reliable provisional responses~~.
@@ -28,12 +26,15 @@
 
 ## v0.5
 
+* Test in R17
 * Extraction of non-SIP functionality into a new Erlang project, NkCore
+* Distributed version, based on [Riak Core](https://github.com/basho/riak_core).
+* Heavy testing
 
 
 ## v0.6
 
-* Socket external control (to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM).
+* External control (to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM).
 * node.js integration
 
 
@@ -41,7 +42,6 @@
 
 * Javascript, Python, Ruby, Lua, Java libraries. Elixir DSL?
 * _Bridge_ support for B2BUA.
-* Fully distributed, highly available version based on [Riak Core](https://github.com/basho/riak_core).
 * IMS and RCS extensions.
 * More application examples.
 * Better statistics support.
