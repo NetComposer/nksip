@@ -3,6 +3,7 @@
 NkSIP implements and advanced and very efficient run-time configuration system. As explained in [the reference guide](../reference/configuration.md), it has two types of configuration options:
 * Global configuration options. They are defined as standard Erlang environment variables for nksip application. Any started SipApp can override most of them.
 * SiApp configuration options. They are defined when starting the SipApp calling `nksip:start/4`.
+* Call Config
 
 ### Global config
 
@@ -22,7 +23,7 @@ This module also includes all the functions in the _callback module_, and all th
 
 ### Calls config
 
-Each time a new call process is started, NkSIP copies three values in the process registry: the current _log level_, the _user name_ of the application and the _call-id_. These values are read-only and only used to speed the logging process.
+Each time a new call process is started, NkSIP copies three values in the process registry: the current _log level_, the application and the _call-id_. These values are read-only and only used to speed the logging process.
 
 
 
