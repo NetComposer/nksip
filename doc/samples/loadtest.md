@@ -2,7 +2,7 @@
 
 This Erlang application is a _SipApp_ implementing a very simple SIP load tester.
 
-Its purpose is to test NkSIP under heavy load, using any supported transport (`udp`, `tcp` or `tls`), and testing _OPTION_ requests, _REGISTER_ requests and _INVITE_ + _ACK_ + _BYE_ call setups. It can configured to process the requests in a stateless or stateful way.
+Its purpose is to test NkSIP under heavy load, using transports `udp`, `tcp` and `tls`, and testing _OPTION_ requests, _REGISTER_ requests and _INVITE_ + _ACK_ + _BYE_ call setups. 
 
 If offers two different test modes:
 
