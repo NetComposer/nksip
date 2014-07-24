@@ -43,7 +43,7 @@ launch() ->
         [
             {plugins, [nksip_uac_auto_auth]},
             {from, "sips:client2@nksip"},
-            {transports, [{udp, {127,0,0,1}, 5080}, {tls, {127,0,0,1}, 5081}]}
+            {transports, [udp, tls]}
         ]),
 
     nksip_registrar_util:clear(),

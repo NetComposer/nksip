@@ -41,7 +41,7 @@ We also activate the [nksip_uac_auto_auth](../plugins/auto_auth.md) plugin to ge
         [
             {plugins, [nksip_uac_auto_auth]},
             {from, "sips:client2@nksip"},
-            {transports, [{udp, {127,0,0,1}, 5080}, {tls, {127,0,0,1}, 5081}]}
+            {transports, [udp, tls]}
         ]).
 {ok,ayr8ncm}
 
