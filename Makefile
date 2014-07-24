@@ -1,7 +1,6 @@
 PROJECT = nksip
 DIALYZER = dialyzer
 REBAR = ./rebar
-CONFIG ERL_FLAGS="-config priv/app.config"
 
 all: app
 
