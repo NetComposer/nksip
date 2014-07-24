@@ -129,10 +129,20 @@ work({incoming, AppId, CallId, Transp, Msg}, none, Call) ->
         {ok, SipMsg} ->
             work({incoming, SipMsg}, none, Call);
         {error, Error} ->
-            ?call_error("Error parsing SipMsg: ~p", [Error]),
+            ?call_warning("Error parsing SipMsg: ~p", [Error]),
             Call;
-        {reply_error, Error, _Reply} ->
-            ?call_error("Error parsing SipMsg: ~p", [Error]),
+        {reply_error, Error, Reply} ->
+            case nksip_transport:get_connected(AppId, Transp) of
+                [{_, Pid}|_] -> 
+                    case nksip_connection:send(Pid, Reply) of
+                        ok -> 
+                            ok;
+                        {error, _SendError} -> 
+                            ?call_warning("Error parsing SipMsg: ~p", [Error])
+                    end;
+                [] ->
+                    ?call_warning("Error parsing SipMsg: ~p", [Error])
+            end,
             Call
     end;
 
