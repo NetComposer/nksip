@@ -31,7 +31,7 @@ You can start NkSIP stand alone in the following way. First you will need to dow
 ```
 > git clone https://github.com/kalta/nksip
 > cd nksip
-> git checkout v0.3.0 -q
+> git checkout v0.4.0 -q
 > make
 ```
 
