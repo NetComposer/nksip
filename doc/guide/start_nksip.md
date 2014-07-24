@@ -11,7 +11,7 @@ If you want to embed NkSIP in your own Erlang application, and you are using _re
 
 ```erlang
 {deps, [
-  {nksip, ".*", {git, "git://github.com/kalta/nksip", {tag, "v0.3.0"}}}
+  {nksip, ".*", {git, "git://github.com/kalta/nksip", {tag, "v0.4.0"}}}
 ]}.
 ```
  
@@ -31,7 +31,7 @@ You can start NkSIP stand alone in the following way. First you will need to dow
 ```
 > git clone https://github.com/kalta/nksip
 > cd nksip
-> git checkout v0.3.0 -q
+> git checkout v0.4.0 -q
 > make
 ```
 

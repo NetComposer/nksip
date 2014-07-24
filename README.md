@@ -53,7 +53,7 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 [ 7. Advanced Concepts](doc/README.md#7-advanced-concepts)<br/>
 [ 8. Roadmap](doc/roadmap.md)<br/>
 [ 9. Changelog](doc/changelog.md)<br/>
-[10. Presentations](presentations)<br/>
+[10. Presentations](doc/presentations)<br/>
 
 
 
