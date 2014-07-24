@@ -35,7 +35,7 @@ When a SipApp starts, [you can configure it](../guide/start_a_sipapp.md) to acti
 
 1. Find the module `nksip_registrar` that must be loaded.
 1. Call `nksip_registrar:version()` to get the current version of this plugin. It can be any `string()` or `binary()`.
-1. Call `nksip_registrar:deps()` to get the list of dependant modules. Its type is '[{Plugin::atom(), VersionRE::string()|binary()}]'. NkSIP will then include this plugin as if we had included it also in the application configuration, before the dependant plugin, and checking that the version is correct.
+1. Call `nksip_registrar:deps()` to get the list of dependant modules. Its type is `[{Plugin::atom(), VersionRE::string()|binary()}]`. NkSIP will then include this plugin as if we had included it also in the application configuration, before the dependant plugin, and checking that the version is correct.
 1. After the sorted list of plugins is complete, implemented callbacks on each of them are extracted as described above, and the corresponding Erlang code is generated.
 1. Application callbacks are then extracted from the defined SipApp's callback module, plugins having a "_sipapp" module and NkSIP standard `nksip_sipapp.erl` module.
 1. All of it is compiled _on the fly_ in the runtime application callbacks module (called with the same name as the _internal name_ of the SipApp) 
