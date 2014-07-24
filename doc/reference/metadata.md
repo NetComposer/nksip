@@ -15,7 +15,7 @@ Accesible when calling [nksip_request:meta/2](../api/requests.md#meta2), [nksip_
 
 Name|Type|Description
 ---|---|---
-id|`nksip:handle()`|Request or response's handle
+handle|`nksip:handle()`|Request or response's handle
 app_id|`nksip:app_id()`|Internal SipApp name this request or response belongs to
 app_name|`term()`|User SipApp name this request or response belongs to
 dialog_handle|`nksip:handle()`|Dialog's handle of this request or response
@@ -71,7 +71,7 @@ Available when calling [nksip_dialog:meta/2](../api/dialogs.md#meta2).
 
 Name|Type|Description
 ---|---|---
-id|`nksip:handle()`|Dialog's handle
+handle|`nksip:handle()`|Dialog's handle
 app_id|`nksip:app_id()`|Internal SipApp name this dialog belongs to
 app_name|`term()`|User SipApp name this dialog belongs to
 created|`nksip_lib:timestamp()`|Creation date
@@ -107,7 +107,7 @@ All dialog options are available for subscriptions, and also:
 
 Name|Type|Description
 ---|---|---
-id|`nksip:handle()`|Subscription's Id
+handle|`nksip:handle()`|Subscription's Id
 status|`nksip_subscription:status()`|Subscription's current status
 event|`nksip:token()`|Event header
 raw_event|`binary()`|Unparsed Event header
