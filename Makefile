@@ -1,6 +1,7 @@
 PROJECT = nksip
 DIALYZER = dialyzer
 REBAR = ./rebar
+CONFIG ERL_FLAGS="-config priv/app.config"
 
 all: app
 
@@ -36,7 +37,7 @@ clean-docs:
 tests: app eunit
 
 eunit:
-	@$(REBAR) eunit skip_deps=true
+	export ERL_FLAGS="-config test/app.config"; ./rebar eunit skip_deps=true
 
 build-plt:
 	@$(DIALYZER) --build_plt --output_plt .$(PROJECT).plt \

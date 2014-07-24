@@ -25,7 +25,7 @@
 
 
 -export([get_handle/1, app_id/1, app_name/1, method/1, body/1, call_id/1]).
--export([meta/2, metas/2, header/2, reply/2, is_local_route/1]).
+-export([meta/2, metas/2, header/2, reply/2, is_local_ruri/1]).
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
@@ -141,15 +141,10 @@ reply(SipReply, Handle) ->
     nksip_call:send_reply(AppId, CallId, ReqId, SipReply).
 
 
-%% @doc Checks if this request would be sent to a local address in case of beeing proxied.
-%% It will return `true' if the first <i>Route</i> header points to a local address
-%% or the <i>Request-Uri</i> if there is no <i>Route</i> headers.
--spec is_local_route(nksip:request()) -> 
+%% @doc Checks if this R-URI of this request points to a local address
+-spec is_local_ruri(nksip:request()) -> 
     boolean().
 
-is_local_route(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri, routes=Routes}) ->
-    case Routes of
-        [] -> nksip_transport:is_local(AppId, RUri);
-        [Route|_] -> nksip_transport:is_local(AppId, Route)
-    end.
+is_local_ruri(#sipmsg{class={req, _}, app_id=AppId, ruri=RUri}) ->
+    nksip_transport:is_local(AppId, RUri).
 

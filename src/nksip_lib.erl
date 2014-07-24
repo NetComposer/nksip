@@ -789,8 +789,11 @@ cancel_timer(_) ->
 
 msg(Msg, Vars) ->
     case catch list_to_binary(io_lib:format(Msg, Vars)) of
-        {'EXIT', _} -> <<"Msg parser error">>;
-        Result -> Result
+        {'EXIT', _} -> 
+            lager:warning("MSG PARSE ERROR: ~p, ~p", [Msg, Vars]),
+            <<"Msg parser error">>;
+        Result -> 
+            Result
     end.
 
 

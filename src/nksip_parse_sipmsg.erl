@@ -48,7 +48,9 @@ parse(Bin) ->
         {Headers, Rest2} = headers(Rest1, []),
         {ok, Class, Headers, Rest2}
     catch
-        throw:{line, _} -> error
+        throw:{line, _Line} -> 
+            % lager:error("LINE: ~p", [_Line]),
+            error
     end.
 
 

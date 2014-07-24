@@ -86,6 +86,13 @@ send(Pid, #sipmsg{}=SipMsg) ->
         {error, Error} ->
             ?notice(AppId, CallId, "could not send ~p message: ~p", [Proto, Error]),
             {error, Error}
+    end;
+
+send(Pid, Packet) when is_binary(Packet) ->
+    case catch gen_server:call(Pid, {send, Packet}, 30000) of
+        ok -> ok;
+        {error, Error} -> {error, Error};
+        {'EXIT', Error} -> {error, Error}
     end.
 
 
@@ -368,7 +375,6 @@ handle_cast(Msg, State) ->
 -spec handle_info(term(), #state{}) ->
     gen_server_info(#state{}).
 
-%% @private
 handle_info({tcp, Socket, Packet}, #state{proto=Proto, socket=Socket}=State) ->
     inet:setopts(Socket, [{active, once}]),
     case Proto of
@@ -529,6 +535,9 @@ do_parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State)
         {error, _} -> {error, send_error}
     end;
 
+do_parse(<<"\r\n">>, #state{proto=udp}=State) ->
+    {ok, State};
+
 do_parse(<<"\r\n", Rest/binary>>, #state{proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
     #state{
@@ -570,7 +579,7 @@ do_parse(Data, State) ->
         nomatch when Proto==tcp; Proto==tls ->
             {ok, State#state{buffer=Data}};
         nomatch ->
-            ?notice(AppId, <<>>, "invalid partial msg ~p: ~p", [Proto, Data]),
+            ?notice(AppId, <<>>, "ignoring partial ~p msg: ~p", [Proto, Data]),
             {error, parse_error};
         {Pos, 4} ->
             do_parse(AppId, Transp, Data, Pos+4, State)
@@ -599,8 +608,8 @@ do_parse(AppId, Transp, Data, Pos, State) ->
         partial ->
             ?notice(AppId, <<>>, "ignoring partial msg ~p: ~p", [Proto, Data]),
             {ok, State};
-        error ->
-            ?notice(AppId, <<>>, "error parsing ~p request", [Proto]),
+        {error, Error} ->
+            reply_error(Data, Error, State),
             {error, parse_error}
     end.
 
@@ -684,7 +693,7 @@ do_stop(Reason, #state{app_id=AppId, proto=Proto}=State) ->
 
 %% @private
 -spec extract(nksip:protocol(), binary(), integer()) ->
-    {ok, nksip:call_id(), binary(), binary()} | partial | error.
+    {ok, nksip:call_id(), binary(), binary()} | partial | {error, binary()}.
 
 extract(Proto, Data, Pos) ->
     case 
@@ -705,22 +714,34 @@ extract(Proto, Data, Pos) ->
                                 BS when BS<MsgSize andalso (Proto==tcp orelse Proto==tls) ->
                                     partial;
                                 BS when BS<MsgSize ->
-                                    error;
-                                _ ->
+                                    {error, <<"Invalid Content-Length">>};
+                                _ when Proto==tcp; Proto==tls ->
                                     {Msg, Rest} = split_binary(Data, MsgSize),
-                                    {ok, CallId, Msg, Rest}
+                                    {ok, CallId, Msg, Rest};
+                                _ ->
+                                    {error, <<"Invalid Content-Length">>}
                             end;
                         _ ->
-                            error
+                            {error, <<"Invalid Content-Length">>}
                     end;
                 _ ->
-                    error
+                    {error, <<"Invalid Content-Length">>}
             end;
         _ ->
-            error
+            {error, <<"Invalid Call-ID">>}
     end.
 
 
+%% @private
+-spec reply_error(binary(), binary(), #state{}) ->
+    ok.
 
-
+reply_error(Data, Msg, #state{app_id=AppId}=State) ->
+    case nksip_parse_sipmsg:parse(Data) of
+        {ok, {req, _, _}, Headers, _} ->
+            Resp = nksip_unparse:response(Headers, 400, Msg),
+            do_send(Resp, State);
+        O ->
+            ?notice(AppId, <<>>, "error parsing request: ~s", [O])
+    end.
 

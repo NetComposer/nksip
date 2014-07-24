@@ -424,7 +424,8 @@ application_15() ->
 %% Internal
 
 parse(Msg) ->
-    case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
+    {ok, AppId} = nksip:find_app_id(server1),
+    case nksip_parse:packet(AppId, #transport{proto=udp}, Msg) of
         {ok, SipMsg, <<>>} -> SipMsg;
         {ok, SipMsg, Tail} -> {tail, SipMsg, Tail};
         partial -> partial;
