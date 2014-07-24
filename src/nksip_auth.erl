@@ -204,7 +204,7 @@ authorize_data(Req, #call{app_id=AppId}=Call) ->
             {ok, Reply} -> ok;
             error -> Reply = false
         end,
-        ?call_debug("UAS ~p calling get_user_pass(~p, ~p, Req, Call): ~p", 
+        ?call_debug("UAS calling get_user_pass(~p, ~p, Req, Call): ~p", 
                     [User, Realm, Reply]),
         Reply
     end,
@@ -352,8 +352,9 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
         nksip_lib:get_value(algorithm, AuthHeader, 'MD5') /= 'MD5'
     of
         true ->
-            ?call_notice("received invalid parameters in Authorization Header: ~p", 
-                        [AuthHeader]),
+            ?notice(AppId, CallId, 
+                    "received invalid parameters in Authorization Header: ~p", 
+                    [AuthHeader]),
             not_found;
         false ->
             % Should we check the uri in the authdata matches the ruri of the request?

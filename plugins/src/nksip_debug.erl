@@ -162,7 +162,7 @@ insert(AppId, CallId, Info) ->
             Info
     end,
     AppName = AppId:name(),
-    ets:insert(nksip_debug_msgs, {CallId, Time, AppName, Info1}).
+    catch ets:insert(nksip_debug_msgs, {CallId, Time, AppName, Info1}).
 
 
 %% @private
