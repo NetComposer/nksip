@@ -8,7 +8,7 @@ Firt of all install last stable version of NkSIP:
 ```
 > git clone https://github.com/kalta/nksip
 > cd nksip
-> git checkout v0.3.0 -q
+> git checkout v0.4.0 -q
 > make
 > make tutorial
 ```
