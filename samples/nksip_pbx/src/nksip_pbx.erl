@@ -21,7 +21,8 @@
 -module(nksip_pbx).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start/0, stop/0, trace/1, loglevel/1]).
+-export([start/0, stop/0]).
+-export([check_speed/1, get_speed/0, trace/1, loglevel/1]).
 
 %% ===================================================================
 %% Start & Stop
@@ -49,11 +50,23 @@ stop() ->
 %% Utilities
 %% ===================================================================
 
+%% @doc Stops or restart automatic response time detection.
+check_speed(Bool) ->
+    nksip:cast(pbx, {check_speed, Bool}).
+
+
+%% @doc Get all registered endpoints with their last respnse time.
+get_speed() ->
+    nksip:call(pbx, get_speed).
+
+
 %% @doc Enables SIP trace messages to console.
 -spec trace(Start::boolean()) -> ok.
 
-trace(true) ->  nksip_trace:start();
-trace(false) -> nksip_trace:stop().
+trace(true) ->  
+	nksip_trace:start();
+trace(false) -> 
+	nksip_trace:stop().
 
 
 %% @doc Changes console log level.

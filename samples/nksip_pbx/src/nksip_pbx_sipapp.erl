@@ -33,12 +33,12 @@
 
 -module(nksip_pbx_sipapp).
 
--export([start/0, stop/0, check_speed/1, get_speed/0]).
+-export([start/0, stop/0]).
 -export([init/1, sip_get_user_pass/4, sip_authorize/3, sip_route/5]). 
+-export([sip_invite/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
 
--define(DOMAINS, [<<"nksip">>, <<"127.0.0.1">>]).
 -define(TIME_CHECK, 10000).
 
 -include("../../../include/nksip.hrl").
@@ -49,25 +49,15 @@
 %% and acting as a registrar.
 start() ->
     CoreOpts = [
-        {plugins, [nksip_registrar]},                      
+        {plugins, [nksip_registrar, nksip_100rel, nksip_gruu, nksip_outbound, nksip_timers]},                      
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ],
-    ok = nksip:start(pbx, ?MODULE, [], CoreOpts).
+    {ok, _} = nksip:start(pbx, ?MODULE, [], CoreOpts).
 
 
 %% @doc Stops the SipApp.
 stop() ->
     nksip:stop(pbx).
-
-
-%% @doc Stops or restart automatic response time detection.
-check_speed(Bool) ->
-    nksip:cast(pbx, {check_speed, Bool}).
-
-
-%% @doc Get all registered endpoints with their last respnse time.
-get_speed() ->
-    nksip:call(pbx, get_speed).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%  NkSIP CallBacks %%%%%%%%%%%%%%%%%%%%%%%%
@@ -198,9 +188,16 @@ sip_dialog_update(Status, Dialog, _Call) ->
 
 sip_session_update({start, LocalSDP, RemoteSDP}, Dialog, _Call) ->
     {ok, DialogId} = nksip_dialog:get_handle(Dialog),
-    lager:notice("PBX Session ~s Update: start", [DialogId]),
-    lager:notice("Local SDP: ~p", [nksip_sdp:unparse(LocalSDP)]),
-    lager:notice("Remote SDP: ~p", [nksip_sdp:unparse(RemoteSDP)]),
+    lager:notice("PBX Session ~s Start", [DialogId]),
+    lager:notice("Local SDP: ~s", [nksip_sdp:unparse(LocalSDP)]),
+    lager:notice("Remote SDP: ~s", [nksip_sdp:unparse(RemoteSDP)]),
+    ok;
+
+sip_session_update({update, LocalSDP, RemoteSDP}, Dialog, _Call) ->
+    {ok, DialogId} = nksip_dialog:get_handle(Dialog),
+    lager:notice("PBX Session ~s Update", [DialogId]),
+    lager:notice("Local SDP: ~s", [nksip_sdp:unparse(LocalSDP)]),
+    lager:notice("Remote SDP: ~s", [nksip_sdp:unparse(RemoteSDP)]),
     ok;
 
 sip_session_update(Status, Dialog, _Call) ->
@@ -209,18 +206,39 @@ sip_session_update(Status, Dialog, _Call) ->
     ok.
 
 
+%% Called when extension 300 is called
+%% - Generates fake SDP, as inactive
+%% - Sends a 180 Ringing (using reliable provisional responses if possible)
+%% - Sends a 200 OK after 5 seconds
+sip_invite(Req, _Call) ->
+    {ok, Body} = nksip_request:body(Req),
+    case nksip_sdp:is_sdp(Body) of
+        true ->
+            {ok, Handle} = nksip_request:get_handle(Req),
+            SDP1 = Body#sdp{vsn=Body#sdp.vsn+1000},
+            SDP2 = nksip_sdp:update(SDP1, inactive),
+            spawn(
+                fun() ->
+                    nksip_request:reply(rel_ringing, Handle),
+                    timer:sleep(5000),
+                    nksip_request:reply({ok, [{body, SDP2}]}, Handle)
+                end),
+            noreply;
+        false ->
+            {reply, forbidden}
+    end.
 
 
 %% @doc SipApp Callback: Synchronous user call.
 handle_call(get_speed, _From, State) ->
-    Speed = nksip:get(pbx, speed),
+    {ok, Speed} = nksip:get(pbx, speed),
     Reply = [{Time, nksip_unparse:uri(Uri)} || {Time, Uri} <- Speed],
     {reply, Reply, State}.
 
 
 %% @doc SipApp Callback: Asynchronous user cast.
 handle_cast({speed_update, Speed}, State) ->
-    Speed = nksip:put(pbx, speed, Speed),
+    ok = nksip:put(pbx, speed, Speed),
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
     {noreply, State};
 
