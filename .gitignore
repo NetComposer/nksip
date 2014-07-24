@@ -5,3 +5,5 @@ log/
 .eunit
 uuid_*
 /nksip.profile
+
+/.nksip.plt
