@@ -27,7 +27,7 @@ Many callback functions receive some of the following arguments:
 * `Dialog`: represents a specific dialog (`#dialog{}`) associated to this request.
 * `Subscription`: represents a specific subscription (`#subscription{}`) associated to a specific dialog.
 
-In all cases you should use the functions in [API](../api/README.md) to extract information from these objects and not use them directly, as its type can change in the future. In case you need to spawn a new process, it is recommended that you don't pass any of these objects to the new process, as they are quite heavy. You should extract a _handler_ for each of them (using the corresponding `get_id()` function) and pass it to the new process.
+In all cases you should use the functions in [API](../api/README.md) to extract information from these objects and not use them directly, as its type can change in the future. In case you need to spawn a new process, it is recommended that you don't pass any of these objects to the new process, as they are quite heavy. You should extract a _handler_ for each of them (using the corresponding `get_handle()` function) and pass it to the new process.
 
 A typical call order would be the following:
 * When a request is received having an _Authorization_ or _Proxy-Authorization_ header, [sip_get_user_pass/4](../reference/callback_functions.md#sip_get_user_pass4) is called to check the user`s password.

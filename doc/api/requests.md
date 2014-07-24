@@ -4,7 +4,7 @@ This document describes the API NkSIP makes available to extract information fro
 
 Most functions in the API allows two ways to refer to the requests:
 * From a full *request object* (`nksip:request()`). Most functions called in the SipApp's _callback module_ receive a full request object, and you can use these functions to get information from it.
-* From a *request handle* (`nksip:handle()`). You can get a request handle from a request object using [get_id/1](#get_id1). You can then use the handle to call most functions in this API. 
+* From a *request handle* (`nksip:handle()`). You can get a request handle from a request object using [get_handle/1](#get_handle1). You can then use the handle to call most functions in this API. 
     
     In this case, the API function must contact with the corresponding call process to get the actual request, so you cannot use this method _inside_ the same call process (like in the callback functions). This method is useful to refer to the request from a _spawned_ process (specially for [reply/2](#reply2)), avoiding the need to copy the full object. Please notice that the request object may not exists any longer at the moment that the handle is used. Most functions return `error` in this case.
 
@@ -14,7 +14,7 @@ Most functions in the API allows two ways to refer to the requests:
 
 Function|Description
 ---|---
-[get_id/1](#get_id1)|Grabs a request's handle
+[get_handle/1](#get_handle1)|Grabs a request's handle
 [app_id/1](#app_id1)|Gets then SipApp's _internal name_
 [app_name/1](#app_name1)|Gets the SipApp's _user name_
 [method/1](#method1)|Gets the method of the request
@@ -29,7 +29,7 @@ Function|Description
 
 ## Functions List
 
-### get_id/1
+### get_handle/1
 ```erlang
 nksip_request:get_handle(nksip:request()|nksip:handle()) ->
     {ok, nksip:handle()} | {error, term()}.

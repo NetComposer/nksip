@@ -4,7 +4,7 @@ This document describes the API NkSIP makes available to extract information fro
 
 Most functions in the API allows two ways to refer to the subscription:
 * From a full *subscription object* (`nksip:subscription()`). In some specific _callback functions_ like [sip_dialog_update/3](../reference/callback_functions.md#sip_dialog_update3) you receive a full subscription object. You can use these API functions inside the function call. You can also get a full subscription object calling [get_subscription/2](#get_subscription2) using a request and a call object (received in callback functions like [sip_invite/2](../reference/callback_functions.md#sip_invite2), [sip_options/2](../reference/callback_functions.md#sip_options2), etc.
-* From a *subscription handle* (`nksip:handle()`). You can get a subscription handle from a subscription object, request or response objects or handles for subscription, request, responses or subscriptions, calling [get_id/1](#get_id/1). You can then use the handle to call most functions in this API. 
+* From a *subscription handle* (`nksip:handle()`). You can get a subscription handle from a subscription object, request or response objects or handles for subscription, request, responses or subscriptions, calling [get_handle/1](#get_handle/1). You can then use the handle to call most functions in this API. 
     
 In this case, the API function must contact with the corresponding call process to get the actual subscription, so you cannot use this method _inside_ the same call process (like in the callback functions). This method is useful to refer to the subscription from a _spawned_ process, avoiding the need to copy the full object. Please notice that the subscription object may not exists any longer at the moment that the handle is used. Most functions return `error` in this case.
 
@@ -14,7 +14,7 @@ In this case, the API function must contact with the corresponding call process 
 
 Function|Description
 ---|---
-[get_id/1](#get_id1)|Grabs a subscription's handle
+[get_handle/1](#get_handle1)|Grabs a subscription's handle
 [app_id/1](#app_id1)|Gets then SipApp's _internal name_
 [app_name/1](#app_name1)|Gets the SipApp's _user name_
 [call_id/1](#call_id1)|Gets the Call-ID header of the subscription
@@ -26,7 +26,7 @@ Function|Description
 
 ## Functions List
 
-### get_id/1
+### get_handle/1
 ```erlang
 nksip_subscription:get_handle(nksip:subscription()|nksip:request()|nksip:response()|nksip:handle()) ->
     {ok, nksip:handle()} | {error, term()}.
