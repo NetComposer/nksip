@@ -44,15 +44,15 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 
 # Documentation
 
-[1. User Guide](doc/README.md#1-user-guide)<br/>
-[2. Reference  Guide](doc/README.md#2-reference--guide)<br/>
-[3. API Guide](doc/README.md#3-api)<br/>
-[4. Standard Plugins](doc/README.md#4-standard-plugins)<br/>
-[5. Cookbook](doc/README.md#5-cookbook)<br/>
-[6. Sample Applications](doc/README.md#6-sample-applications)<br/>
-[7. Advanced Concepts](doc/README.md#7-advanced-concepts)<br/>
-[8. Roadmap](doc/roadmap.md)<br/>
-[9. Changelog](doc/changelog.md)<br/>
+[ 1. User Guide](doc/README.md#1-user-guide)<br/>
+[ 2. Reference  Guide](doc/README.md#2-reference--guide)<br/>
+[ 3. API Guide](doc/README.md#3-api)<br/>
+[ 4. Standard Plugins](doc/README.md#4-standard-plugins)<br/>
+[ 5. Cookbook](doc/README.md#5-cookbook)<br/>
+[ 6. Sample Applications](doc/README.md#6-sample-applications)<br/>
+[ 7. Advanced Concepts](doc/README.md#7-advanced-concepts)<br/>
+[ 8. Roadmap](doc/roadmap.md)<br/>
+[ 9. Changelog](doc/changelog.md)<br/>
 [10. Presentations](presentations)<br/>
 
 
@@ -72,9 +72,9 @@ Now you can start a simple SipApp using the included [default callback module](s
 ```erlang
 > make shell
 1> nksip:start(test1, nksip_sipapp, [], []).
-ok
+{ok,b746wle}
 2> nksip_uac:options(test1, "sip:sip2sip.info", []).
-{ok, 200, []}
+{ok,200,[]}
 ```
  
 From this point you can read the [tutorial](doc/guide/tutorial.md) or start hacking with the included [nksip_pbx](doc/samples/pbx.md) application:
