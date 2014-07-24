@@ -25,7 +25,7 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 * A written from scratch, fully typed 100% Erlang code with few external dependencies.
 * Robust and highly scalable, using all available processor cores automatically.
 * More than 150 tests covering nearly all of the functionality.
-* Sophisticated plugin mechanism, that adds zero overhead to the core.
+* Sophisticated plugin mechanism, that adds very low overhead to the core.
 * Hot, on-the-fly core and application configuration and code upgrades.
 * IPv6 support and IPv4 <-> IPv6 bridge.
 * Full support for NAPTR and SRV location, including priority and weights.
