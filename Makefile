@@ -27,6 +27,8 @@ docs: clean-docs
 clean-docs:
 	rm -f doc/*.css doc/*.html \
 	      doc/*.png doc/edoc-info
+	rm -f plugins/doc/*.css plugins/doc/*.html \
+	      plugins/doc/*.png plugins/doc/edoc-info
 	rm -f samples/nksip_loadtest/doc/*.css samples/nksip_loadtest/doc/*.html \
 	      samples/nksip_loadtest/doc/*.png samples/nksip_loadtest/doc/edoc-info
 	rm -f samples/nksip_pbx/doc/*.css samples/nksip_pbx/doc/*.html \
