@@ -97,7 +97,7 @@ start(Test) ->
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, any}, {tls, all, any}]}
+        {transports, [udp, tls]}
     ]),
 
     tests_util:log(),
