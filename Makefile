@@ -15,10 +15,10 @@ clean: clean-docs clean-logs
 	rm -f erl_crash.dump
 
 clean-logs:
-	rm -rf log 
-	rm -rf samples/nksip_loadtest/log 
-	rm -rf samples/nksip_pbx/log 
-	rm -rf samples/nksip_tutorial/log 
+	rm -rf log/*
+	rm -rf samples/nksip_loadtest/log/*
+	rm -rf samples/nksip_pbx/log/* 
+	rm -rf samples/nksip_tutorial/log/*
 
 docs: clean-docs
 	@$(REBAR) doc skip_deps=true
@@ -47,7 +47,7 @@ dialyze: app
 	-Werror_handling  #-Wunmatched_returns -Wrace_conditions -Wunderspecs
 
 shell: 
-	erl -config priv/app.config -args_file priv/vm.args -s reloader
+	erl -config priv/app.config -args_file priv/vm.args
 
 tutorial: 
 	erl -config samples/nksip_tutorial/priv/app.config \
@@ -55,7 +55,7 @@ tutorial:
 
 loadtest: app
 	erl -config samples/nksip_loadtest/priv/app.config \
-		-args_file samples/nksip_loadtest/priv/vm.args -s nksip_loadtest -s reloader
+		-args_file samples/nksip_loadtest/priv/vm.args -s nksip_loadtest
 
 pbx: app
 	erl -config samples/nksip_pbx/priv/app.config \
