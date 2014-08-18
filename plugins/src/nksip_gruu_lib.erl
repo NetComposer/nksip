@@ -160,7 +160,7 @@ update_regcontact(RegContact, Base, Req, Opts) ->
     RegId = nksip_lib:get_binary(<<"reg-id">>, ExtOpts),
     Expires = nksip_lib:get_integer(<<"expires">>, ExtOpts),
     case 
-        InstId /= <<>> andalso RegId == <<>> andalso 
+        InstId /= <<>> andalso 
         Expires>0 andalso lists:member({gruu, true}, Opts)
     of
         true ->
