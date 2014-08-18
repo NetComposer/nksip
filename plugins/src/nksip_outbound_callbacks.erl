@@ -43,7 +43,7 @@ nkcb_uac_proxy_opts(Req, ReqOpts) ->
     end.
 
 
-%% @private
+%% @doc Called when preparing the request for sending
 nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
     Req1 = nksip_outbound_lib:add_headers(Req, Opts, Scheme, Proto, Host, Port),
     {ok, Req1}.

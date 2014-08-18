@@ -198,7 +198,6 @@ process(Req, Opts) ->
 update(Req, Times, Opts) ->
     #sipmsg{app_id=AppId, to={To, _}, contacts=Contacts} = Req,
     #nksip_registrar_time{time=Now} = Times,
-    % check_several_reg_id(Contacts, Default, false),
     Path = case nksip_sipmsg:header(<<"path">>, Req, uris) of
         error -> throw({invalid_request, "Invalid Path"});
         Path0 -> Path0
