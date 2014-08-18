@@ -157,11 +157,10 @@ update_regcontact(RegContact, Base, Req, Opts) ->
         undefined -> <<>>;
         Inst0 -> nksip_lib:hash(Inst0)
     end,
-    RegId = nksip_lib:get_binary(<<"reg-id">>, ExtOpts),
     Expires = nksip_lib:get_integer(<<"expires">>, ExtOpts),
     case 
-        InstId /= <<>> andalso 
-        Expires>0 andalso lists:member({gruu, true}, Opts)
+        InstId /= <<>> andalso Expires>0 andalso 
+        lists:member({gruu, true}, Opts)
     of
         true ->
             case Scheme of
@@ -183,9 +182,8 @@ update_regcontact(RegContact, Base, Req, Opts) ->
             ExtOpts3 = nksip_lib:store_value(<<"temp-gruu">>, Tmp, ExtOpts2),
             Contact3 = Contact#uri{ext_opts=ExtOpts3},
             Meta2 = nksip_lib:store_value(nksip_gruu_instance_id, InstId, Meta1),
-            Meta3 = nksip_lib:store_value(nksip_gruu_reg_id, RegId, Meta2),
-            Meta4 = nksip_lib:store_value(nksip_gruu_tmp_next, Next+1, Meta3),
-            RegContact#reg_contact{contact=Contact3, meta=Meta4};
+            Meta3 = nksip_lib:store_value(nksip_gruu_tmp_next, Next+1, Meta2),
+            RegContact#reg_contact{contact=Contact3, meta=Meta3};
         false ->
             RegContact
     end.
