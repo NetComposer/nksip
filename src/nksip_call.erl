@@ -257,9 +257,9 @@ apply_sipmsg(AppId, CallId, MsgId, Fun) ->
 
 check_call(#call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call) ->
     Now = nksip_lib:timestamp(),
-    Trans1 = check_call_trans(Now, TransTime, Call),
-    Forks1 = check_call_forks(Now, TransTime, Call),
-    Dialogs1 = check_call_dialogs(Now, DialogTime, Call),
+    Trans1 = check_call_trans(Now, 2*TransTime, Call),
+    Forks1 = check_call_forks(Now, 2*TransTime, Call),
+    Dialogs1 = check_call_dialogs(Now, 2*DialogTime, Call),
     Call#call{trans=Trans1, forks=Forks1, dialogs=Dialogs1}.
 
 
@@ -270,7 +270,7 @@ check_call(#call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call
 check_call_trans(Now, MaxTime, #call{trans=Trans}) ->
     lists:filter(
         fun(#trans{id=Id, start=Start}) ->
-            case Now - Start < MaxTime/1000 of
+            case Now - Start < MaxTime of
                 true ->
                     true;
                 false ->
@@ -288,7 +288,7 @@ check_call_trans(Now, MaxTime, #call{trans=Trans}) ->
 check_call_forks(Now, MaxTime, #call{forks=Forks}) ->
     lists:filter(
         fun(#fork{id=Id, start=Start}) ->
-            case Now - Start < MaxTime/1000 of
+            case Now - Start < MaxTime of
                 true ->
                     true;
                 false ->
@@ -306,7 +306,7 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}) ->
 check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}) ->
     lists:filter(
         fun(#dialog{id=Id, updated=Updated}) ->
-            case Now - Updated < MaxTime/1000 of
+            case Now - Updated < MaxTime of
                 true ->
                     true;
                 false ->
