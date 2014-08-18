@@ -48,6 +48,7 @@ start() ->
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {event_expires_offset, 0},
         {events, "myevent1,myevent2,myevent3"}
     ]),
     
@@ -56,6 +57,7 @@ start() ->
         no_100,
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
+        {event_expires_offset, 0},
         {events, "myevent4"}
     ]),
 

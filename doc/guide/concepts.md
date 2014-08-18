@@ -88,6 +88,8 @@ You can send a new subscription requirement to a server sending a [subscribe req
 
 If you are defining a server, you indicate in the [SipApp's config](../reference/configuration.md) the event packages you support, and NkSIP will call your callback [sip_subscribe/2](../reference/callback_functions.md#sip_subscribe2) when a new valid SUBSCRIBE arrives. If you accept it, you [should call inmeditaly nksip_uac:notify/2](../reference/sending_functions.md#notify) to send a NOTIFY, and after that, any time you want to. You can also terminate the subscription at any moment.
 
+NkSIP will auto expire the subscriptions after the time proposed in the _Expires_ header (or config parameter `nksip_expires` if not present), and adding the offet time defined in config parameter `nksip_expires_offset`).
+
 
 ## Uris
 

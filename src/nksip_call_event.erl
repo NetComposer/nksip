@@ -271,16 +271,16 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     cancel_timer(TimerExpire),
     cancel_timer(TimerMiddle),
     #call{app_id=AppId, timers=#call_timers{t1=T1, tc=TC}} = Call,
-    Default = nksip_sipapp_srv:config(AppId, event_expires),
+    Config = nksip_sipapp_srv:config(AppId),
     ReqExpires = case Req#sipmsg.expires of
         RE0 when is_integer(RE0), RE0>=0 -> RE0;
         _ when Method=='REFER' -> TC;
-        _ -> Default
+        _ -> nksip_lib:get_value(event_exires, Config)
     end,
     RespExpires = case Resp#sipmsg.expires of
         SE0 when is_integer(SE0), SE0>=0 -> SE0;
         _ when Method=='REFER' -> TC;
-        _ -> Default
+        _ -> nksip_lib:get_value(event_exires, Config)
     end,
     Expires = min(ReqExpires, RespExpires),
     ?call_debug("Event ~s expires updated to ~p", [Id, Expires]),
@@ -291,8 +291,11 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
             start_timer(64*T1, {timeout, Id}, Dialog)
     end,
     TimerExpire1 = case Expires of
-        0 -> undefined;
-        _ -> start_timer(1000*Expires, {timeout, Id}, Dialog)
+        0 -> 
+            undefined;
+        _ ->
+            Offset = nksip_lib:get_value(event_expires_offset, Config),
+            start_timer(1000*(Expires+Offset), {timeout, Id}, Dialog)
     end,
     TimerMiddle1= case Expires of
         0 -> undefined;
@@ -342,11 +345,13 @@ update({Status, Expires}, Subs, Dialog, Call)
         undefined -> nksip_lib:timestamp();
         _ -> Answered
     end,
+    #call{app_id=AppId} = Call,
+    Offset = nksip_sipapp_srv:config(AppId, event_expires_offset),
     Subs1 = Subs#subscription{
         status = Status,
         answered = Answered1,
         timer_n = undefined,
-        timer_expire = start_timer(1000*Expires, {timeout, Id}, Dialog),
+        timer_expire = start_timer(1000*(Expires+Offset), {timeout, Id}, Dialog),
         timer_middle = start_timer(500*Expires, {middle, Id}, Dialog)
     },
     store(Subs1, Dialog, Call);

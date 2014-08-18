@@ -41,6 +41,7 @@ sctp_timeout|`integer()`|180|Time to disconnect SCTP associations if no message 
 ws_timeout|`integer()`|180|Time to disconnect WS/WSS connections if no message has been received (secs)
 dialog_timeout|`integer()`|1800|Time to timeout non-refreshed dialogs (secs)
 event_expires|`integer()`|60|Default Expires for events (secs)
+event_expires_offset|`integer()`|5|Additional time to add to Expires header (secs)
 nonce_timeout|`integer()`|30|Time a new `nonce` in an authenticate header will be usable (secs)
 max_calls|`integer()`|100000|Maximum number of simultaneous calls (each different Call-ID counts as a call)
 max_connections|`integer()`|1024|Maximum number of simultaneous connections NkSIP will accept

@@ -54,6 +54,7 @@ default_config() ->
         {trans_timeout, 900},               % (secs) 15 min
         {dialog_timeout, 1800},             % (secs) 30 min
         {event_expires, 60},                % (secs) 1 min
+        {event_expires_offset, 5},          % (secs) 5 secs
         {nonce_timeout, 30},                % (secs) 30 secs
         {max_calls, 100000},                % Each Call-ID counts as a call
         {max_connections, 1024},            % Per transport and SipApp
@@ -239,6 +240,8 @@ parse_opts([Term|Rest], Opts) ->
         {dialog_timeout, _} -> error;
         {event_expires, Secs} when is_integer(Secs), Secs>=1 -> update;
         {event_expires, _} -> error;
+        {event_expires_offset, Secs} when is_integer(Secs), Secs>=0 -> update;
+        {event_expires_offset, _} -> error;
         {nonce_timeout, Secs} when is_integer(Secs), Secs>=5 -> update;
         {nonce_timeout, _} -> error;
         {max_calls, Max} when is_integer(Max), Max>=1, Max=<1000000 -> update;

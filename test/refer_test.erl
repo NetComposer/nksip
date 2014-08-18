@@ -43,11 +43,13 @@ start() ->
 
     {ok, _} = nksip:start(client1, ?MODULE, [], [
         {transports, [{udp, all, 5060}]},
+        {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
     
     {ok, _} = nksip:start(client2, ?MODULE, [], [
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
+        {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
 
@@ -56,6 +58,7 @@ start() ->
         no_100,
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5080}, {tls, all, 5081}]},
+        {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
 
