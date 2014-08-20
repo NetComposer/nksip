@@ -197,13 +197,33 @@ aor(#uri{scheme=Scheme, user=User, domain=Domain}) ->
 %% @private
 encrypt(Bin) ->
     <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
-    base64:encode(crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin)).
+    base64:encode(do_encrypt(Key, Bin)).
 
 
 %% @private
 decrypt(Bin) ->
     <<Key:16/binary, _/binary>> = nksip_config_cache:global_id(),
-    crypto:aes_cfb_128_decrypt(Key, ?AES_IV, base64:decode(Bin)).
+    do_decrypt(Key, base64:decode(Bin)).
+
+
+-ifdef(old_hash).
+
+do_encrypt(Key, Bin) ->
+    crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin).
+
+do_decrypt(Key, Dec) ->
+    crypto:aes_cfb_128_decrypt(Key, ?AES_IV, Dec).
+
+-else.
+
+do_encrypt(Key, Bin) ->
+    crypto:block_encrypt(aes_cfb128, Key, ?AES_IV, Bin).
+
+do_decrypt(Key, Dec) ->
+    crypto:block_decrypt(aes_cfb128, Key, ?AES_IV, Dec).
+
+-endif.
+
 
 
 
