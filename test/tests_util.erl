@@ -26,7 +26,7 @@
 -export([get_ref/0, save_ref/1, update_ref/3, send_ref/2, dialog_update/2, session_update/2]).
 
 -define(LOG_LEVEL, warning).    % debug, info, notice, warning, error
--define(WAIT_TIMEOUT, 10000).
+-define(WAIT_TIMEOUT, 20000).
 
 start_nksip() ->
     nksip_app:start(),
