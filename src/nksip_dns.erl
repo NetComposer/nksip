@@ -176,8 +176,11 @@ get_ips(Host) ->
                     ok;
                 {error, _} -> 
                     case inet:getaddrs(Host1, inet6) of
-                        {ok, Ips} -> ok;
-                        {error, _} -> Ips = []
+                        {ok, Ips} -> 
+                            lager:warning("ADDRS6 for ~s: ~p", [Host1, Ips]),
+                            ok;
+                        {error, _} -> 
+                            Ips = []
                     end
             end,
             Now = nksip_lib:timestamp(),
@@ -624,7 +627,7 @@ resolv_test() ->
     ok.
 
 path_test() ->
-    [{udp, {127,0,0,1}, 5060, <<>>}] = 
+    [{udp, {127,0,0,1}, 5060, <<>>}|_] = 
         nksip_dns:resolve("sip://localhost/base"),
     [{ws, {127,0,0,1}, 80, <<"/base">>}] = 
         nksip_dns:resolve("<sip://localhost/base;transport=ws>"),
