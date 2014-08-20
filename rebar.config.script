@@ -1,14 +1,24 @@
-% Define 'old_hash' for old releases
+% Define 'old_hash' for releases < R15B01, and 'r17' for >= 17.0
 
-case erlang:system_info(otp_release) of
+ErlOpts = case erlang:system_info(otp_release) of
 	"R"++Rest when Rest =< "15B01" -> 
-        HashDefine = [{d,old_hash}],
+        [{d, old_hash}];
+    "R"++_ ->
+        [];
+    Rls when Rls >= "17" -> 
+        [{d, r17}];
+    _ -> 
+        []
+end,
+io:format("ERLOPTS: ~p\n", [ErlOpts]),
+case ErlOpts of
+    [] ->
+        CONFIG;
+    _ ->
         case lists:keysearch(erl_opts, 1, CONFIG) of
-            {value, {erl_opts, Opts}} ->
-                lists:keyreplace(erl_opts, 1, CONFIG, {erl_opts,Opts++HashDefine});
+            {value, {erl_opts, OldOpts}} ->
+                lists:keyreplace(erl_opts, 1, CONFIG, {erl_opts, OldOpts++ErlOpts});
             false ->
-                CONFIG ++ [{erl_opts, HashDefine}]
-        end;
-	_ -> 
-		CONFIG
+                CONFIG ++ [{erl_opts, ErlOpts}]
+        end
 end.

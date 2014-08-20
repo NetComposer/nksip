@@ -121,11 +121,16 @@ pending_msgs() ->
 %% gen_server
 %% ===================================================================
 
+-ifdef(r17).
+-type dict_type() :: dict:dict().
+-else.
+-type dict_type() :: dict().
+-endif.
 
 -record(state, {
     pos :: integer(),
     name :: atom(),
-    pending :: dict:dict()
+    pending :: dict_type()
 }).
 
 
