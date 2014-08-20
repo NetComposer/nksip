@@ -23,6 +23,8 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(gen_server).
 
+-compile([export_all]).
+
 -include("nksip.hrl").
 
 -export([resolve/1, get_ips/1, get_srvs/1, get_naptr/1, clear/1, clear/0]).
@@ -165,10 +167,12 @@ get_ips(Host) ->
     Host1 = nksip_lib:to_list(Host),
     case ets:lookup(?MODULE, {ips, Host1}) of
         [{_, Ips, _Time}] ->
+            lager:warning("CACHED for ~s: ~p", [Host1, Ips]),
             random(Ips);
         [] ->
             case inet:getaddrs(Host1, inet) of
                 {ok, Ips} -> 
+                    lager:warning("ADDRS for ~s: ~p", [Host1, Ips]),
                     ok;
                 {error, _} -> 
                     case inet:getaddrs(Host1, inet6) of
