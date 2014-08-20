@@ -413,11 +413,10 @@ stop(#subscription{id=Id}, Dialog, Call) ->
 
 
 %% @private
--spec request_uac_opts(nksip:method(), nksip:optslist(), 
-                       nksip:dialog() | #subscription{}) ->
+-spec request_uac_opts(nksip:method(), nksip:optslist(), nksip:dialog()) ->
     {ok, nksip:optslist()} | {error, unknown_subscription}.
 
-request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
+request_uac_opts(Method, Opts, Dialog) ->
     case lists:keytake(subscription, 1, Opts) of
         false ->
             {ok, Opts};
@@ -425,22 +424,31 @@ request_uac_opts(Method, Opts, #dialog{}=Dialog) ->
             {_AppId, SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Id),
             case nksip_subscription_lib:find(SubsId, Dialog) of
                 #subscription{} = Subs ->
-                    {ok, request_uac_opts(Method, Opts1, Subs)};
+                    {ok, request_uac_opts(Method, Opts1, Dialog, Subs)};
                 not_found ->
                     {error, unknown_subscription}
             end
-    end;
+    end.
 
-request_uac_opts('SUBSCRIBE', Opts, #subscription{event=Event, expires=Expires}) ->
+
+-spec request_uac_opts(nksip:method(), nksip:optslist(), nksip:dialog(),
+                       #subscription{}) ->
+    {ok, nksip:optslist()} | {error, unknown_subscription}.
+
+request_uac_opts('SUBSCRIBE', Opts, _Dialog, Subs) ->
+    #subscription{event=Event, expires=Expires} = Subs,
     [{event, Event}, {expires, Expires} | Opts];
 
-request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer}) ->
+request_uac_opts('NOTIFY', Opts, Dialog, Subs) ->
+    #subscription{event=Event, timer_expire=Timer} = Subs,
+    #dialog{app_id=AppId} = Dialog,
+    Offset = nksip_sipapp_srv:config(AppId, event_expires_offset),
     {value, {_, SS}, Opts1} = lists:keytake(subscription_state, 1, Opts),
     SS1 = case SS of
         State when State==active; State==pending ->
             case is_reference(Timer) of
                 true -> 
-                    Expires = round(erlang:read_timer(Timer)/1000),
+                    Expires = round(erlang:read_timer(Timer)/1000) - Offset,
                     {State, Expires};
                 false ->
                     {terminated, timeout, undefined}
@@ -448,7 +456,7 @@ request_uac_opts('NOTIFY', Opts, #subscription{event=Event, timer_expire=Timer})
         {State, _Expire} when State==active; State==pending ->
             case is_reference(Timer) of
                 true -> 
-                    Expires = round(erlang:read_timer(Timer)/1000),
+                    Expires = round(erlang:read_timer(Timer)/1000) - Offset,
                     {State, Expires};
                 false ->
                     {terminated, timeout, undefined}
