@@ -167,17 +167,14 @@ get_ips(Host) ->
     Host1 = nksip_lib:to_list(Host),
     case ets:lookup(?MODULE, {ips, Host1}) of
         [{_, Ips, _Time}] ->
-            lager:warning("CACHED for ~s: ~p", [Host1, Ips]),
             random(Ips);
         [] ->
             case inet:getaddrs(Host1, inet) of
                 {ok, Ips} -> 
-                    lager:warning("ADDRS for ~s: ~p", [Host1, Ips]),
                     ok;
                 {error, _} -> 
                     case inet:getaddrs(Host1, inet6) of
                         {ok, Ips} -> 
-                            lager:warning("ADDRS6 for ~s: ~p", [Host1, Ips]),
                             ok;
                         {error, _} -> 
                             Ips = []
@@ -627,11 +624,12 @@ resolv_test() ->
     ok.
 
 path_test() ->
+    % Travis CI environment returns several entries for "localhost"
     [{udp, {127,0,0,1}, 5060, <<>>}|_] = 
         nksip_dns:resolve("sip://localhost/base"),
-    [{ws, {127,0,0,1}, 80, <<"/base">>}] = 
+    [{ws, {127,0,0,1}, 80, <<"/base">>}|_] = 
         nksip_dns:resolve("<sip://localhost/base;transport=ws>"),
-    [{wss, {127,0,0,1}, 1234, <<"/base">>}] = 
+    [{wss, {127,0,0,1}, 1234, <<"/base">>}|_] = 
         nksip_dns:resolve("<sips://localhost:1234/base;transport=ws>"),
     ok.
 
