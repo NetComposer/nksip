@@ -53,7 +53,7 @@ wait(Ref, List) ->
                     wait(Ref, List -- [Term]);
                 false -> 
                     lager:warning("Timer Test Wait unexpected term: ~p", [Term]),
-                    wait(Ref, List);
+                    wait(Ref, List)
                     % {error, {unexpected_term, Term, List}}
             end
     after   
