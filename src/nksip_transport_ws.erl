@@ -100,8 +100,7 @@ connect(AppId, Transp, Opts) ->
             ok -> ok;
             {error, Error2} -> throw(Error2)
         end,
-        ?debug(AppId, <<>>, "Sent ws hanshake: ~s", [print_headers(Data1)]),
-        case TranspMod:recv(Socket, 0, 5000) of
+        case recv(TranspMod, Socket, <<>>) of
             {ok, Data2} ->
                 ?debug(AppId, <<>>, "received ws reply: ~s", [print_headers(Data2)]),
                 case handshake_resp(AppId, Data2, HandshakeReq) of
@@ -136,6 +135,22 @@ connect(AppId, Transp, Opts) ->
         {ok, Pid, Transp1}
     catch
         throw:TError -> {error, TError}
+    end.
+
+
+%% @private
+recv(Mod, Socket, Buff) ->
+    case Mod:recv(Socket, 0, 5000) of
+        {ok, Data} ->
+            Data1 = <<Buff/binary, Data/binary>>,
+            case binary:match(Data, <<"\r\n\r\n">>) of
+                nomatch -> 
+                    recv(Mod, Socket, Data1);
+                _ ->
+                    {ok, Data1}
+            end;
+        {error, Error} ->
+            {error, Error}
     end.
 
 
@@ -394,11 +409,16 @@ handshake_resp(AppId, Data, Req) ->
                     case nksip_lib:get_value("Sec-Websocket-Protocol", Headers) of
                         "sip" -> 
                             ok;
-                        Other ->
-                            ?warning(AppId, <<>>, 
-                                     "websocket server did not send protocol: ~p", 
-                                     [Other]),
-                            ok
+                        _ ->
+                            %% R15 sends it in lowercase (?)
+                            case nksip_lib:get_value("sec-websocket-protocol", Headers) of
+                                "sip" -> 
+                                    ok;
+                                _ ->
+                                    ?warning(AppId, <<>>, 
+                                        "websocket server did not send protocol: ~p", 
+                                        [Headers])
+                            end
                     end;
                 {error, Error1} -> 
                     {error, Error1}
