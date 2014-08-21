@@ -26,6 +26,12 @@
 -include("../include/nksip.hrl").
 
 -compile([export_all]).
+-ifdef(is_travis).
+-define(TIMEOUT, 100000).
+-else.
+-define(TIMEOUT, 10000).
+-endif.
+
 
 prack_test_() ->
     {setup, spawn, 
@@ -173,7 +179,7 @@ pending() ->
     {ok, 486, _} = nksip_uac:invite(client1, SipC2, Hds),
     receive
         {Ref, {_, pending_prack_ok}} -> ok
-    after 1000 ->
+    after ?TIMEOUT ->
         error(pending)
     end.
 

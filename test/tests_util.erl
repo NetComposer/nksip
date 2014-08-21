@@ -28,9 +28,9 @@
 -define(LOG_LEVEL, warning).    % debug, info, notice, warning, error
 
 -ifdef(is_travis).
--define(WAIT_TIMEOUT, 10000).
--else.
 -define(WAIT_TIMEOUT, 100000).
+-else.
+-define(WAIT_TIMEOUT, 10000).
 -endif.
 
 start_nksip() ->
