@@ -1,4 +1,8 @@
+<!---
+NkSIP passes 100% tests in branch master
+Travis CI still fails sometimes due to timers
 [![Build Status](https://travis-ci.org/kalta/nksip.png?branch=master)](https://travis-ci.org/kalta/nksip)
+-->
 
 ## Introduction
 
