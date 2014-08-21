@@ -30,7 +30,7 @@
 -ifdef(is_travis).
 -define(WAIT_TIMEOUT, 10000).
 -else.
--define(WAIT_TIMEOUT, 60000).
+-define(WAIT_TIMEOUT, 100000).
 -endif.
 
 start_nksip() ->
