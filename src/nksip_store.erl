@@ -288,7 +288,11 @@ terminate(_Reason, _State) ->
 %% @private
 -spec timeout() -> integer().
 timeout() ->
-    nksip_config:get(nksip_store_timer, ?STORE_TIMER).
+    % In some tests edge cases ETS is not available
+    case catch nksip_config:get(nksip_store_timer, ?STORE_TIMER) of
+        {'EXIT', _} -> ?STORE_TIMER;
+        Timeout -> Timeout
+    end.
 
 %% @private
 delete_expired_iter('$end_of_table') ->
