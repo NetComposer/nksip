@@ -1,5 +1,11 @@
 # Changelog
 
+## Current (main branch)
+* Added offset time to subscriptions (Thanks Luis Azedo)
+* Removed no reg-id test for GRUUs (Thanks James Van Vleet)
+* Added support for R15B, R16B and 17.1
+
+
 ## [0.4.0](https://github.com/kalta/nksip/releases/tag/v0.4.0)
  
 * Extraction of non-core functionality intro plugins.

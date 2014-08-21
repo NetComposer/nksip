@@ -1,8 +1,4 @@
-<!---
-Removed travis support until I find out why it fails.
-NkSIP's master branch allways passes 100% of the tests
 [![Build Status](https://travis-ci.org/kalta/nksip.png?branch=master)](https://travis-ci.org/kalta/nksip)
--->
 
 ## Introduction
 
@@ -59,7 +55,7 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 
 # Quick Start
 
-NkSIP has been tested on OSX and Linux, using Erlang R15B y R16B
+NkSIP has been tested on OSX and Linux, using Erlang R15B03, R16B03 and 17.1
 
 ```
 > git clone https://github.com/kalta/nksip

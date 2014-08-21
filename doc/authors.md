@@ -3,8 +3,10 @@
 NkSIP is possible thanks to:
 
 * Carlos González Florido
+* Gerardo Puerta
 * Daniel White
 * Dmitry Belyaev
-* Gerardo Puerta
+* Luis Azedo
+* James Van Vleet
 * Nikita Krylov
 * Francis Joanis
