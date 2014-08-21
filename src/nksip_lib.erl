@@ -124,11 +124,19 @@ uuid_4122() ->
     binary().
 
 lhash(Base) -> 
-    <<I:160/integer>> = crypto:hash(sha, term_to_binary(Base)),
+    <<I:160/integer>> = sha(term_to_binary(Base)),
     case encode_integer(I) of
         Hash when byte_size(Hash) == 27 -> Hash;
         Hash -> <<(binary:copy(<<"a">>, 27-byte_size(Hash)))/binary, Hash/binary>>
     end.
+
+
+%% @private
+-ifdef(old_crypto_hash).
+sha(Term) -> crypto:sha(Term).
+-else.
+sha(Term) -> crypto:hash(sha, Term).
+-endif.
 
 
 %% @doc Generates a new random tag of 6 chars

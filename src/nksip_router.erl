@@ -121,10 +121,10 @@ pending_msgs() ->
 %% gen_server
 %% ===================================================================
 
--ifdef(r17).
--type dict_type() :: dict:dict().
--else.
+-ifdef(old_types).
 -type dict_type() :: dict().
+-else.
+-type dict_type() :: dict:dict().
 -endif.
 
 -record(state, {

@@ -206,7 +206,7 @@ decrypt(Bin) ->
     do_decrypt(Key, base64:decode(Bin)).
 
 
--ifdef(old_hash).
+-ifdef(old_crypto_block).
 
 do_encrypt(Key, Bin) ->
     crypto:aes_cfb_128_encrypt(Key, ?AES_IV, Bin).
