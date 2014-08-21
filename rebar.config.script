@@ -16,15 +16,19 @@ Opts3 = case Release < "17" of
     true -> [{d, old_types}|Opts2];
     false -> Opts2
 end,
-% io:format("ERLOPTS: ~p\n", [Opts3]),
-case Opts3 of
+Opts4 = case os:getenv("TRAVIS") == "true" of
+    true -> [{d, is_travis}|Opts3];
+    false -> Opts3
+end,
+io:format("ERLOPTS: ~p\n", [Opts4]),
+case Opts4 of
     [] ->
         CONFIG;
     _ ->
         case lists:keysearch(erl_opts, 1, CONFIG) of
             {value, {erl_opts, OldOpts}} ->
-                lists:keyreplace(erl_opts, 1, CONFIG, {erl_opts, OldOpts++Opts3});
+                lists:keyreplace(erl_opts, 1, CONFIG, {erl_opts, OldOpts++Opts4});
             false ->
-                CONFIG ++ [{erl_opts, Opts3}]
+                CONFIG ++ [{erl_opts, Opts4}]
         end
 end.
