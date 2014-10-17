@@ -188,6 +188,8 @@ make_response(Realm, Req) ->
 %% <ul>
 %%    <li>`{{digest, Realm}, true}': there is at least one valid user authenticated
 %%        with this `Realm'.</li>
+%%    <li>`{{digest, Realm}, invalid}': there is at least one user offering
+%%        an invalid authentication header for this `Realm'</li>
 %%    <li>`{{digest, Realm}, false}': there is at least one user offering 
 %%        an authentication header for this `Realm', but all of them have
 %%        failed the authentication.</li>
@@ -195,7 +197,7 @@ make_response(Realm, Req) ->
 %%
 -spec authorize_data(nksip:request(), nksip_call:call()) ->
     [Authorized] 
-    when Authorized :: {{digest, Realm::binary()}, true|false}.
+    when Authorized :: {{digest, Realm::binary()}, true|invalid|false}.
 
 authorize_data(Req, #call{app_id=AppId}=Call) ->
     PassFun = fun(User, Realm) ->
@@ -223,26 +225,27 @@ authorize_data(Req, #call{app_id=AppId}=Call) ->
 %%
 -spec get_authentication(nksip:request(), function()) -> 
     [Authorized] 
-    when Authorized :: {{digest, Realm::binary()}, true|false}.
+    when Authorized :: {{digest, Realm::binary()}, true|invalid|false}.
 
 get_authentication(Req, PassFun) ->
-    Fun = fun({Ok, _User, Realm}, Acc) ->
+    Fun = fun({Res, _User, Realm}, Acc) ->
         case lists:keyfind(Realm, 1, Acc) of
-            false when Ok -> [{Realm, true}|Acc];
-            false -> [{Realm, false}|Acc];
+            false -> [{Realm, Res}|Acc];
             {Realm, true} -> Acc;
-            {Realm, false} when Ok -> nksip_lib:store_value(Realm, true, Acc);
+            {Realm, _} when Res == true -> nksip_lib:store_value(Realm, Res, Acc);
+            {Realm, invalid} -> Acc;
+            {Realm, _} when Res == invalid -> nksip_lib:store_value(Realm, Res, Acc);
             {Realm, false} -> Acc
         end
     end,
-    [{{digest, Realm}, Ok} || 
-        {Realm, Ok} <- lists:foldl(Fun, [], check_digest(Req, PassFun))].
+    [{{digest, Realm}, Res} || 
+        {Realm, Res} <- lists:foldl(Fun, [], check_digest(Req, PassFun))].
 
 
 %% @private Finds auth headers in request, and for each one extracts user and 
 %% realm, calling `get_user_pass/3' callback to check if it is correct.
 -spec check_digest(Req::nksip:request(), function()) ->
-    [{boolean(), User::binary(), Realm::binary()}].
+    [{true | invalid | false, User::binary(), Realm::binary()}].
 
 check_digest(#sipmsg{headers=Headers}=Req, Fun) ->
     check_digest(Headers, Req, Fun, []).
@@ -266,14 +269,7 @@ check_digest([{Name, Data}|Rest], Req, Fun, Acc)
                 false -> false;
                 Pass -> check_auth_header(AuthData, Resp, User, Realm, Pass, Req)
             end,
-            case Result of
-                true ->
-                    check_digest(Rest, Req, Fun, [{true, User, Realm}|Acc]);
-                false ->
-                    check_digest(Rest, Req, Fun, [{false, User, Realm}|Acc]);
-                not_found ->
-                    check_digest(Rest, Req, Fun, Acc)
-            end
+            check_digest(Rest, Req, Fun, [{Result, User, Realm}|Acc])
     end;
     
 check_digest([_|Rest], Req, Fun, Acc) ->
@@ -337,7 +333,7 @@ make_auth_request(AuthHeaderData, UserOpts) ->
 %% @private
 -spec check_auth_header(nksip:optslist(), binary(), binary(), binary(), 
                             binary(), nksip:request()) -> 
-    true | false | not_found.
+    true | invalid | false.
 
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
     #sipmsg{
@@ -355,7 +351,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
             ?notice(AppId, CallId, 
                     "received invalid parameters in Authorization Header: ~p", 
                     [AuthHeader]),
-            not_found;
+            invalid;
         false ->
             % Should we check the uri in the authdata matches the ruri of the request?
             Uri = nksip_lib:get_value(uri, AuthHeader),
@@ -368,7 +364,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
                         Opaque -> ?call_notice("received invalid nonce", []);
                         _ -> ok
                     end,
-                    not_found;
+                    invalid;
                 Method=='ACK' orelse Found=={Ip, Port} ->
                     CNonce = nksip_lib:get_value(cnonce, AuthHeader),
                     Nc = nksip_lib:get_value(nc, AuthHeader),
