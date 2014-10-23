@@ -210,8 +210,8 @@ application_7() ->
         "Content-Length:0\r\n"
         "\r\n">>,
     Req = #sipmsg{} = parse(Msg),
-    % No authentication token found
-    [] = nksip_auth:get_authentication(Req, fun(_, _) -> <<"1234">> end),
+    % No valid authentication token found
+    [{{digest,<<>>},invalid}] = nksip_auth:get_authentication(Req, fun(_, _) -> <<"1234">> end),
     ok.
 
     
