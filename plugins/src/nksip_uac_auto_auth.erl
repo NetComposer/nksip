@@ -141,7 +141,7 @@ check_auth(Req, Resp, UAC, Call) ->
             end,
             case 
                 Passes/=[] andalso Iters < Max andalso 
-                nksip_auth:make_request(Req, Resp, [{passes, Passes}]) 
+                nksip_auth:make_request(Req, Resp, [{passes, Passes}|Opts]) 
             of
                 {ok, Req1} ->
                     {ok, nksip_call_uac:resend(Req1, UAC, Call)};
