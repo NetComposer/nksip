@@ -432,10 +432,6 @@ handshake_resp(AppId, Data, Req) ->
 
 
 %% private 
-print_headers(List) when is_list(List)->
-    Lines = [[<<"        ">>, Line]  || Line <- List],
-    list_to_binary(io_lib:format("\r\n\r\n~s\r\n", [list_to_binary(Lines)]));
-
 print_headers(Binary) ->
     Lines = [
         [<<"        ">>, Line, <<"\n">>]

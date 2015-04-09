@@ -433,7 +433,7 @@ request_uac_opts(Method, Opts, Dialog) ->
 
 -spec request_uac_opts(nksip:method(), nksip:optslist(), nksip:dialog(),
                        #subscription{}) ->
-    {ok, nksip:optslist()} | {error, unknown_subscription}.
+    nksip:optslist().
 
 request_uac_opts('SUBSCRIBE', Opts, _Dialog, Subs) ->
     #subscription{event=Event, expires=Expires} = Subs,
