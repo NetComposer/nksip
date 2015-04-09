@@ -44,8 +44,9 @@
 %% Types
 %% ===================================================================
 
-%% Standard Proplist
--type optslist() :: [atom() | binary() | {atom()|binary(), term()}].
+%% Not so standard Proplist
+-type optslist() :: [atom() | binary() | {atom()|binary(), term()} |
+                     {atom(), atom()|binary(), term()}].
 
 %% System timestamp
 -type timestamp() :: non_neg_integer().
