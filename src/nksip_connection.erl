@@ -526,9 +526,9 @@ parse(Binary, #state{buffer=Buffer}=State) ->
 do_parse(<<>>, State) ->
     {ok, State#state{buffer = <<>>}};
 
-%% For TCP, we send a \r\n\r\n, remote must reply with \r\n
+%% For TCP and UDP, we send a \r\n\r\n, remote must reply with \r\n
 do_parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=AppId, proto=Proto}=State) 
-        when Proto==tcp; Proto==tls; Proto==sctp ->
+        when Proto==tcp; Proto==udp; Proto==tls; Proto==sctp ->
     ?debug(AppId, <<>>, "transport responding to refresh", []),
     case do_send(<<"\r\n">>, State) of
         ok -> do_parse(Rest, State);
