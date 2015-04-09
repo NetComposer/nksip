@@ -60,7 +60,7 @@ Option|Types|Description|Commment
 {expires, Expires}|Expires::`string()`&#124;`binary()`&#124;`integer()`|Replaces Expires header|
 {contact, Contact}|Contact::`string()`&#124;`binary()`&#124;`nksip:uri()`&#124;`[nksip:uri()]`|Replaces Contact header|
 {route, Route}|Route::`string()`&#124;`binary()`&#124;`nksip:uri()`&#124;`[nksip:uri()]`|Replaces Route header|
-{reason, Reason}|Reason::`string()`&#124;`binary()`|Replaces Reason header|
+{reason, Reason}|Reason::`nksip:error_reason()`&#124;`binary()`|Replaces Reason header|
 {event, Reason}|Event::`string()`&#124;`binary()`&#124;`nksip:token()`|Replaces Event header|
 {cseq_num, CSeq}|CSeq::`integer()`|Sets the numeric part of the CSeq header|Do not use in in-dialog requests|Useful for REFER
 
