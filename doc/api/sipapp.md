@@ -17,7 +17,7 @@ Function|Description
 [put/3](#put3)|Saves a vaule for a SipApp variable
 [del/2](#del2)|Deletes a SipApp variable
 [get_pid/1](#get_pid1)|Gets the pid of a SipApp's gen_server process
-[find_app/1](#find_app1)|Finds the _internal name_ for a currently started SipApp
+[find_app_id/1](#find_app_id1)|Finds the _internal name_ for a currently started SipApp
 [call/2](#call2)|Synchronous call to the SipApp's gen_server process
 [call/3](#call3)|Synchronous call to the SipApp's gen_server process with timeout
 [cast/2](#call3)|Asynchronous call to the SipApp's gen_server process
@@ -115,9 +115,9 @@ Gets the SipApp's _gen_server process_ `pid()`.
 See [starting a SipApp](../guide/start_a_sipapp.md).
 
 
-### find_app/1
+### find_app_id/1
 ```erlang
-nksip:find_app(term()) ->
+nksip:find_app_id(term()) ->
     {ok, app_id()} | not_found.
 ```
 Finds the _internal name_ of an existing SipApp.
