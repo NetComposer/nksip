@@ -34,6 +34,7 @@
 -endif.
 
 start_nksip() ->
+    lager:start(),
     nksip_app:start(),
     log().
 

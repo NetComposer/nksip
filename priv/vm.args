@@ -28,6 +28,7 @@
 -env ERL_CRASH_DUMP .
 
 # Start apps
+-s lager
 -s nksip_app
 
 
