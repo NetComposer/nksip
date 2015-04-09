@@ -36,7 +36,8 @@ uac_test_() ->
             {timeout, 60, fun uac/0},
             {timeout, 60, fun info/0},
             {timeout, 60, fun message/0},
-            {timeout, 60, fun timeout/0}
+            {timeout, 60, fun timeout/0},
+            {timeout, 60, fun bye_with_reason/0}
         ]
     }.
 
@@ -234,6 +235,21 @@ message() ->
     end,
     ok.
 
+
+bye_with_reason() ->
+    SipC1 = "sip:127.0.0.1:5070",
+    Hd1 = {add, <<"x-nk-op">>, <<"ok">>},
+    {ok, 200, [{dialog, DialogId2}]} = nksip_uac:invite(client2, SipC1, [Hd1]),
+    ok = nksip_uac:ack(DialogId2, []),
+    Fs = {meta, [<<"x-nk-method">>, <<"x-nk-dialog">>]},
+    DialogId1 = nksip_dialog_lib:remote_id(DialogId2, client1),
+
+    {ok, 200, Values1} = nksip_uac:info(DialogId2, [Fs]),
+    [{<<"x-nk-method">>, [<<"info">>]}, {<<"x-nk-dialog">>, [DialogId1]}] = Values1,
+
+    %% send a BYE with custom reason header
+    {ok, 200, []} = nksip_uac:bye(DialogId2, [{reason, <<"custom reason">>}]),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
