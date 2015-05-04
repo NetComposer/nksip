@@ -179,7 +179,7 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
     #call{app_id=AppId} = Call,
-    {_, Default} = AppId:config_nksip_timers(),
+    {Default, _} = AppId:config_nksip_timers(),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
             {SE0, Refresh0};
