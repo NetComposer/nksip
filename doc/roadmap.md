@@ -58,6 +58,20 @@
 * [RFC4538](http://tools.ietf.org/html/rfc4538): Dialog authorization
 
 
+# UPDATE - UPDATE - UPDATE
+
+Most features after v0.4 will not be developed in the current NkSIP repository.
+
+Only bug corrections and contributions will be added here.
+
+Most of them will be developed in a new, much more ambitious project, NetComposer.io.
+
+Please contact carlosj.gf@gmail.com for details.
+
+
+
+
+
 
 
 
