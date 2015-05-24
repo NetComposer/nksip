@@ -232,7 +232,7 @@ nkcb_handle_info({timeout, _, '$nksip_uac_auto_register_timer'}, SipAppState) ->
     Timer = 1000 * nksip_sipapp_srv:config(AppId, nksip_uac_auto_register_timer),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_register_timer'),
     gen_server:cast(self(), '$nksip_uac_auto_register_check'),
-    continue;
+    {ok, SipAppState};
 
 nkcb_handle_info(_Msg, _SipAppState) ->
     continue.
