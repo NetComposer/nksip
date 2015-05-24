@@ -196,10 +196,10 @@ sip_message(_Req, _Call) ->
 %% @doc Called when a dialog has changed its state.
 -spec sip_dialog_update(DialogStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
     ok when 
-        DialogStatus :: start | target_update | 
-                        {invite_status, nksip_dialog:invite_status()} |
-                        {subscription_status, nksip_subscription:status(), nksip:subscription()} |
-                        {stop, nksip_dialog:stop_reason()}.
+      DialogStatus :: start | target_update | stop |
+                      {invite_status, nksip_dialog:invite_status() | {stop, nksip_dialog:stop_reason()}} |
+                      {invite_refresh, SDP::nksip_sdp:sdp()} |
+                      {subscription_status, nksip_subscription:status(), nksip:subscription()}.
     
 sip_dialog_update(_Status, _Dialog, _Call) ->
     ok.

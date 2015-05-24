@@ -435,11 +435,13 @@ If not implemented a _603 Decline_ will be returned.
 ```erlang
 sip_dialog_update(DialogStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
     ok
-    when DialogStatus :: start | target_update | 
-                         {invite_status, nksip_dialog:invite_status()} |
-                         {subscription_status, nksip_subscription:status(), nksip:subscription()} |
-                         {stop, nksip_dialog:stop_reason()}.Called when a dialog has changed its state.
+    when DialogStatus :: start | target_update | stop |
+                         {invite_status, nksip_dialog:invite_status() | {stop, nksip_dialog:stop_reason()}} |
+                         {invite_refresh, SDP::nksip_sdp:sdp()} |
+                         {subscription_status, nksip_subscription:status(), nksip:subscription()}.
 ```
+
+Called when a dialog has changed its state.
 
 A new dialog will be created when you send a new dialog-forming request (like INVITE, SUBSCRIBE or REFER) and a provisional (1xx) or successful (2xx) response is received. If the response is provisional, the dialog will be marked as temporary or _early_, waiting for the final response to be confirmed or deleted. Dialogs will also be created for _subscriptions_, after a valid NOTIFY is sent or received. 
 
@@ -448,15 +450,6 @@ Once the dialog is established, some in-dialog methods (like INVITE, UPDATE, SUB
 Any dialog can have multiple usages simultaneously, as much as _one_ _INVITE usage_ and a _unlimited_ number of _SUBSCRIBE usages_. The _INVITE usage_ is destroyed when a valid in-dialog BYE request is sent or received. A _SUBSCRIPTION usage_ is destroyed when a NOTIFY with _status=terminated_ is received. When no usage is left, the dialog itself is destroyed.
 
 NkSIP will call this function every time a dialog is created, its target is updated or it is destroyed. It will be called also when the status of the _usage_ changes, as `{invite_status, Status}` for the INVITE usage and `{subscription_status, Status, Subscription}` for SUBSCRIBE usages.
-
-```erlang
-dialog_update(DialogId::nksip:handle(), DialogStatus, State::term()) ->
-    ok
-    when DialogStatus :: start | target_update | 
-                         {invite_status, nksip_dialog:invite_status()} |
-                         {subscription_status, nksip_subscription:status(), nksip:subscription()} |
-                         {stop, nksip_dialog:stop_reason()}.
-```
 
 
 ### sip_session_update/3

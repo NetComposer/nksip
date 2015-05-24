@@ -71,7 +71,7 @@
 -type sipreply() :: nksip_reply:sipreply().
 
 %% Generic options list
--type optslist() :: nksip:optslist().
+-type optslist() :: nksip_lib:optslist().
 
 %% Transport
 -type transport() :: #transport{}.
