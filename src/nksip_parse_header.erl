@@ -176,7 +176,7 @@ header(<<"event">>, Value) ->
 header(<<"reason">>, Value) ->
     case is_binary(Value) of
         true -> 
-            Value;
+            {Value, add};
         false ->
             case nksip_unparse:error_reason(Value) of
                 error -> throw(invalid);
