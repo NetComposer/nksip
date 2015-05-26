@@ -64,7 +64,7 @@ Most features after v0.4 will not be developed in the current NkSIP repository.
 
 Only bug corrections and contributions will be added here.
 
-Most of them will be developed in a new, much more ambitious project, NetComposer.io.
+Most of them will be developed in a new, much more ambitious project, [NetComposer.io](http://www.slideshare.net/carlosjgf/net-composer-v2).
 
 Please contact carlosj.gf@gmail.com for details.
 
