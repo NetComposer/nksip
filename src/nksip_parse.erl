@@ -121,6 +121,7 @@ vias(Term) -> vias([Term]).
 -spec tokens(Term :: binary() | string() | [binary() | string()]) -> 
     [nksip:token()] | error.
 
+tokens([<<>>]) -> [];
 tokens([]) -> [];
 tokens([First|_]=String) when is_integer(First) -> tokens([String]);  
 tokens(List) when is_list(List) -> parse_tokens(List, []);
