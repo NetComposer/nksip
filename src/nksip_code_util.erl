@@ -172,6 +172,7 @@ compile(Mod, Tree) ->
 
 write(Mod, Tree) ->
     BasePath = nksip_config_cache:local_data_path(),
+    file:make_dir(BasePath),
     Path = filename:join(BasePath, atom_to_list(Mod)++".erl"),
     Content = list_to_binary(
         [io_lib:format("~s\n\n", [erl_prettypr:format(S)]) || S <-Tree]),
