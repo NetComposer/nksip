@@ -45,7 +45,7 @@ route(UriList, ProxyOpts, UAS, Call) ->
             [[]] -> throw({reply, temporarily_unavailable});
             UriSet0 -> UriSet0
         end,
-        % lager:warning("URISET: ~p", [UriList]),
+        % error_logger:warning_msg("URISET: ~p", [UriList]),
         #trans{method=Method} = UAS,
         case AppId:nkcb_route(UriSet, ProxyOpts, UAS, Call) of
             {continue, [UriSet1, ProxyOpts1, UAS1, Call1]} ->

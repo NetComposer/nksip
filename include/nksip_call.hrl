@@ -38,28 +38,28 @@
 -define(call_debug(Text, List),
     ?DO_DEBUG(debug, Text, List),
     case erlang:get(nksip_log_level)>=8 of
-        true -> ?DO_CALL_LOG(debug, Text, List);
+        true -> ?DO_CALL_LOG(info_msg, Text, List);
         false -> ok
     end).
 
 -define(call_info(Text, List),
     ?DO_DEBUG(info, Text, List),
     case erlang:get(nksip_log_level)>=7 of
-        true -> ?DO_CALL_LOG(info, Text, List);
+        true -> ?DO_CALL_LOG(info_msg, Text, List);
         false -> ok
     end).
 
 -define(call_notice(Text, List),
     ?DO_DEBUG(notice, Text, List),
     case erlang:get(nksip_log_level)>=6 of
-        true -> ?DO_CALL_LOG(notice, Text, List);
+        true -> ?DO_CALL_LOG(info_msg, Text, List);
         false -> ok
     end).
 
 -define(call_warning(Text, List),
     ?DO_DEBUG(warning, Text, List),
     case erlang:get(nksip_log_level)>=5 of
-        true -> ?DO_CALL_LOG(warning, Text, List);
+        true -> ?DO_CALL_LOG(warning_msg, Text, List);
         false -> 
             ok
     end).
@@ -67,7 +67,7 @@
 -define(call_error(Text, List),
     ?DO_DEBUG(error, Text, List),
     case erlang:get(nksip_log_level)>=4 of
-        true -> ?DO_CALL_LOG(error, Text, List);
+        true -> ?DO_CALL_LOG(error_msg, Text, List);
         false -> ok
     end).
 

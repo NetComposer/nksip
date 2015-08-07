@@ -63,7 +63,7 @@ route|`user_uri()`|[]|Route (outbound proxy) to use. Generates one or more `Rout
 local_host|auto&#124;`string()`&#124;`binary()`&#124;|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_. If set to `auto` NkSIP will use the IP of the transport selected in every case. If that transport is listening on all addresses NkSIP will try to find the best IP using the first valid IP among the network interfaces `ethX` and `enX`, or localhost if none is found
 local_host6|auto&#124;`string()`&#124;`binary()`|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_ for IPv6 transports. See `local_host` option.
 no_100|||If present, forbids the generation of automatic `100-type` responses for INVITE requests
-log_level|`debug`&#124;`info`&#124;`notice`&#124;`warning`&#124;`error`|`notice`|Current log level (the [global log level](../reference/log.md) should also be adjusted)
+log_level|`debug`&#124;`info`&#124;`notice`&#124;`warning`&#124;`error`|`notice`|Current log level
 
 
 ## Reconfiguration

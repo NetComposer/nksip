@@ -505,7 +505,7 @@ handle_call(Msg::term(), From::from(), State::term()) ->
       when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
 
 handle_call(Msg, _From, State) ->
-    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
+    error_logger:warning_msg("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
     {noreply, State}.
 ```
 
@@ -520,7 +520,7 @@ handle_cast(Msg::term(), State::term()) ->
       when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
 
 handle_cast(Msg, State) ->
-    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
+    error_logger:warning_msg("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
     {noreply, State}.
 ```
 

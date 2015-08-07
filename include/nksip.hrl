@@ -32,9 +32,9 @@
     DO_LOG(Level, App, CallId, Text, Opts),
     case CallId of
         <<>> ->
-            lager:Level([{app, App}], "~p "++Text, [App|Opts]);
+            error_logger:Level("~p "++Text, [App|Opts]);
         _ -> 
-            lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])
+            error_logger:Level("~p (~s) "++Text, [App, CallId|Opts])
     end).
 
 -define(DO_DEBUG(AppId, CallId, Level, Text, List),
@@ -47,45 +47,38 @@
 -define(debug(AppId, CallId, Text, List), 
     ?DO_DEBUG(AppId, CallId, debug, Text, List),
     case AppId:config_log_level() >= 8 of
-        true -> ?DO_LOG(debug, AppId:name(), CallId, Text, List);
+        true -> ?DO_LOG(info_msg, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(info(AppId, CallId, Text, List), 
     ?DO_DEBUG(AppId, CallId, info, Text, List),
     case AppId:config_log_level() >= 7 of
-        true -> ?DO_LOG(info, AppId:name(), CallId, Text, List);
+        true -> ?DO_LOG(info_msg, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(notice(AppId, CallId, Text, List), 
     ?DO_DEBUG(AppId, CallId, notice, Text, List),
     case AppId:config_log_level() >= 6 of
-        true -> ?DO_LOG(notice, AppId:name(), CallId, Text, List);
+        true -> ?DO_LOG(info_msg, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(warning(AppId, CallId, Text, List), 
     ?DO_DEBUG(AppId, CallId, warning, Text, List),
     case AppId:config_log_level() >= 5 of
-        true -> ?DO_LOG(warning, AppId:name(), CallId, Text, List);
+        true -> ?DO_LOG(warning_msg, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(error(AppId, CallId, Text, List), 
     ?DO_DEBUG(AppId, CallId, error, Text, List),
     case AppId:config_log_level() >= 4 of
-        true -> ?DO_LOG(error, AppId:name(), CallId, Text, List);
+        true -> ?DO_LOG(error_msg, AppId:name(), CallId, Text, List);
         false -> ok
     end).
 
-
--define(N(T), lager:notice(T)).
--define(N(T,P), lager:notice(T,P)).
--define(W(T), lager:warning(T)).
--define(W(T,P), lager:warning(T,P)).
--define(E(T), lager:error(T)).
--define(E(T,P), lager:error(T,P)).
 
 -include_lib("kernel/include/inet_sctp.hrl").
 
@@ -326,7 +319,7 @@
 -endif.
 
 -ifndef(I).
--define(I(S,P), lager:info(S++"\n", P)).
+-define(I(S,P), error_logger:info_msg(S++"\n", P)).
 -define(I(S), ?I(S, [])).
 -endif.
 

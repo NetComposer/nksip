@@ -144,7 +144,8 @@ handle_call({connect, Ip, Port}, From, State) ->
     {noreply, State#state{pending=[{{Ip, Port}, From}|Pending]}};
 
 handle_call(Msg, _From, State) ->
-    lager:error("Module ~p received unexpected call: ~p", [?MODULE, Msg]),
+    error_logger:error_msg("Module ~p received unexpected call: ~p",
+                           [?MODULE, Msg]),
     {noreply, State}.
 
 
@@ -161,7 +162,8 @@ handle_cast(stop, State) ->
     {stop, normal, State};
 
 handle_cast(Msg, State) ->
-    lager:error("Module ~p received unexpected cast: ~p", [?MODULE, Msg]),
+    error_logger:error_msg("Module ~p received unexpected cast: ~p",
+                           [?MODULE, Msg]),
     {noreply, State}.
 
 
@@ -217,7 +219,8 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
     {noreply, State1};
 
 handle_info(Info, State) -> 
-    lager:warning("Module ~p received unexpected info: ~p (~p)", [?MODULE, Info, State]),
+    error_logger:warning_msg("Module ~p received unexpected info: ~p (~p)",
+                             [?MODULE, Info, State]),
     {noreply, State}.
 
 

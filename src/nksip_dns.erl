@@ -282,7 +282,8 @@ init([]) ->
     gen_server_call(#state{}).
 
 handle_call(Msg, _From, State) -> 
-    lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
+    error_logger:error_msg("Module ~p received unexpected call ~p",
+                           [?MODULE, Msg]),
     {noreply, State}.
 
 
@@ -291,7 +292,8 @@ handle_call(Msg, _From, State) ->
     gen_server_cast(#state{}).
 
 handle_cast(Msg, State) -> 
-    lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
+    error_logger:error_msg("Module ~p received unexpected cast ~p",
+                           [?MODULE, Msg]),
     {noreply, State}.
 
 
@@ -307,7 +309,8 @@ handle_info({timeout, _, check_ttl}, #state{ttl=TTL}=State) ->
     {noreply, State};
 
 handle_info(Info, State) -> 
-    lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
+    error_logger:warning_msg("Module ~p received unexpected info: ~p",
+                             [?MODULE, Info]),
     {noreply, State}.
 
 
