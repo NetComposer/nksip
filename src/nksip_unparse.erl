@@ -22,6 +22,7 @@
 -module(nksip_unparse).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 
 -export([uri/1, ruri/1, uri2proplist/1, via/1, token/1, header/1]).
@@ -40,7 +41,7 @@
     binary().
 
 uri(UriList) when is_list(UriList)->
-    nksip_lib:bjoin([uri(Uri) || Uri <- UriList]);
+    nklib_util:bjoin([uri(Uri) || Uri <- UriList]);
 
 uri(#uri{}=Uri) ->
     list_to_binary(raw_uri(Uri)).
@@ -144,9 +145,9 @@ error_reason(_) ->
 
 %% @private
 do_error_reason({Name, Code, Text}) ->
-    Token = {nksip_lib:to_binary(Name), [
-        {<<"cause">>, nksip_lib:to_binary(Code)},
-        {<<"text">>, <<$", (nksip_lib:to_binary(Text))/binary, $">>}
+    Token = {nklib_util:to_binary(Name), [
+        {<<"cause">>, nklib_util:to_binary(Code)},
+        {<<"text">>, <<$", (nklib_util:to_binary(Text))/binary, $">>}
     ]},
     nksip_unparse:token(Token).
 
@@ -158,7 +159,7 @@ do_error_reason({Name, Code, Text}) ->
 add_sip_instance(AppId, #uri{ext_opts=ExtOpts}=Uri) ->
     case nksip:get_uuid(AppId) of
         {ok, UUID} ->
-            ExtOpts1 = nksip_lib:store_value(<<"+sip.instance">>, UUID, ExtOpts),
+            ExtOpts1 = nklib_util:store_value(<<"+sip.instance">>, UUID, ExtOpts),
             {ok, Uri#uri{ext_opts=ExtOpts1}};
         {error, not_found} ->
             {error, sipapp_not_found}
@@ -175,7 +176,7 @@ add_sip_instance(AppId, #uri{ext_opts=ExtOpts}=Uri) ->
     binary().
 
 packet(#sipmsg{class={resp, Code, Reason}}=Response) ->
-    list_to_binary([<<"SIP/2.0 ">>, nksip_lib:to_binary(Code), 32, 
+    list_to_binary([<<"SIP/2.0 ">>, nklib_util:to_binary(Code), 32, 
         case Reason of
             <<>> -> response_phrase(Code);
             RespText -> RespText
@@ -184,7 +185,7 @@ packet(#sipmsg{class={resp, Code, Reason}}=Response) ->
 
 packet(#sipmsg{class={req, Method}, ruri=RUri}=Request)  ->
     list_to_binary([
-        nksip_lib:to_binary(Method), 
+        nklib_util:to_binary(Method), 
         32, raw_ruri(RUri), <<" SIP/2.0\r\n">>,
         serialize(Request)
     ]).
@@ -196,18 +197,18 @@ packet(#sipmsg{class={req, Method}, ruri=RUri}=Request)  ->
 
 response(Headers, Code, Reason) ->
    list_to_binary([
-        "SIP/2.0 ", nksip_lib:to_list(Code), 32,
+        "SIP/2.0 ", nklib_util:to_list(Code), 32,
             case Reason of
                 <<>> -> response_phrase(Code);
                 _ -> Reason
             end,
             "\r\n",
-        "Via: ", nksip_lib:get_binary(<<"via">>, Headers), "\r\n",
-        "From: ", nksip_lib:get_binary(<<"from">>, Headers), "\r\n",
-        "To: ", nksip_lib:get_binary(<<"to">>, Headers), "\r\n",
-        "Call-ID: ", nksip_lib:get_binary(<<"call-id">>, Headers), "\r\n",
-        "CSeq: ", nksip_lib:get_binary(<<"cseq">>, Headers), "\r\n",
-        "Max-Forwards: ", nksip_lib:get_binary(<<"max-forwards">>, Headers), "\r\n",
+        "Via: ", nklib_util:get_binary(<<"via">>, Headers), "\r\n",
+        "From: ", nklib_util:get_binary(<<"from">>, Headers), "\r\n",
+        "To: ", nklib_util:get_binary(<<"to">>, Headers), "\r\n",
+        "Call-ID: ", nklib_util:get_binary(<<"call-id">>, Headers), "\r\n",
+        "CSeq: ", nklib_util:get_binary(<<"cseq">>, Headers), "\r\n",
+        "Max-Forwards: ", nklib_util:get_binary(<<"max-forwards">>, Headers), "\r\n",
         "Content-Length: 0\r\n",
         "\r\n"
     ]).
@@ -222,7 +223,7 @@ raw_uri(#uri{domain=(<<"*">>)}) ->
 
 raw_uri(#uri{}=Uri) ->
     [
-        Uri#uri.disp, $<, nksip_lib:to_binary(Uri#uri.scheme), $:,
+        Uri#uri.disp, $<, nklib_util:to_binary(Uri#uri.scheme), $:,
         case Uri#uri.user of
             <<>> -> <<>>;
             User ->
@@ -250,7 +251,7 @@ raw_uri(#uri{}=Uri) ->
 
 raw_ruri(#uri{}=Uri) ->
     [
-        nksip_lib:to_binary(Uri#uri.scheme), $:,
+        nklib_util:to_binary(Uri#uri.scheme), $:,
         case Uri#uri.user of
             <<>> -> <<>>;
             User ->
@@ -274,7 +275,7 @@ raw_ruri(#uri{}=Uri) ->
 
 raw_via(#via{}=Via) ->
     [
-        <<"SIP/2.0/">>, string:to_upper(nksip_lib:to_list(Via#via.proto)), 
+        <<"SIP/2.0/">>, string:to_upper(nklib_util:to_list(Via#via.proto)), 
         32, Via#via.domain, 
         case Via#via.port of
             0 -> [];
@@ -302,11 +303,11 @@ raw_tokens(Tokens) ->
     iolist().
 
 raw_tokens([{Head, Opts}, Second | Rest], Acc) ->
-    Head1 = nksip_lib:to_binary(Head),
+    Head1 = nklib_util:to_binary(Head),
     raw_tokens([Second|Rest], [[Head1, gen_opts(Opts), $,]|Acc]);
 
 raw_tokens([{Head, Opts}], Acc) ->
-    Head1 = nksip_lib:to_binary(Head),
+    Head1 = nklib_util:to_binary(Head),
     lists:reverse([[Head1, gen_opts(Opts)]|Acc]).
 
 
@@ -344,8 +345,8 @@ serialize(#sipmsg{
         {<<"To">>, To},
         {<<"Call-ID">>, CallId},
         {<<"CSeq">>, 
-            <<(nksip_lib:to_binary(CSeq))/binary, " ", 
-              (nksip_lib:to_binary(Method))/binary>>},
+            <<(nklib_util:to_binary(CSeq))/binary, " ", 
+              (nklib_util:to_binary(Method))/binary>>},
         {<<"Max-Forwards">>, Forwards},
         {<<"Content-Length">>, byte_size(Body1)},
         [{<<"Route">>, Route} || Route <- Routes],
@@ -388,7 +389,7 @@ unparse_header(List) when is_list(List) ->
     join([unparse_header(Term) || Term <- List], []);
 
 unparse_header(Value) when is_integer(Value); is_atom(Value) ->
-    nksip_lib:to_binary(Value).
+    nklib_util:to_binary(Value).
 
 
 
@@ -495,10 +496,10 @@ gen_opts(Opts) ->
 gen_opts([], Acc) ->
     lists:reverse(Acc);
 gen_opts([{K, V}|Rest], Acc) ->
-    gen_opts(Rest, [[$;, nksip_lib:to_binary(K), 
-                        $=, nksip_lib:to_binary(V)] | Acc]);
+    gen_opts(Rest, [[$;, nklib_util:to_binary(K), 
+                        $=, nklib_util:to_binary(V)] | Acc]);
 gen_opts([K|Rest], Acc) ->
-    gen_opts(Rest, [[$;, nksip_lib:to_binary(K)] | Acc]).
+    gen_opts(Rest, [[$;, nklib_util:to_binary(K)] | Acc]).
 
 
 %% @private
@@ -513,10 +514,10 @@ gen_headers([], Acc) ->
     [[_|R1]|R2] = lists:reverse(Acc),
     [$?, R1|R2];
 gen_headers([{K, V}|Rest], Acc) ->
-    gen_headers(Rest, [[$&, nksip_lib:to_binary(K), 
-                        $=, nksip_lib:to_binary(V)] | Acc]);
+    gen_headers(Rest, [[$&, nklib_util:to_binary(K), 
+                        $=, nklib_util:to_binary(V)] | Acc]);
 gen_headers([K|Rest], Acc) ->
-    gen_headers(Rest, [[$&, nksip_lib:to_binary(K)] | Acc]).
+    gen_headers(Rest, [[$&, nklib_util:to_binary(K)] | Acc]).
 
 
 
@@ -594,7 +595,7 @@ q850_prase(Code) ->
 
 % @private 
 capitalize(Name) ->
-    capitalize(nksip_lib:to_binary(Name), true, <<>>).
+    capitalize(nklib_util:to_binary(Name), true, <<>>).
 
 
 % @private 

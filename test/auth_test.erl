@@ -296,8 +296,8 @@ sip_authorize(Auth, Req, _Call) ->
                 true ->
                     ok;
                 false ->
-                    BinId = nksip_lib:to_binary(App) ,
-                    case nksip_lib:get_value({digest, BinId}, Auth) of
+                    BinId = nklib_util:to_binary(App) ,
+                    case nklib_util:get_value({digest, BinId}, Auth) of
                         true -> ok;
                         false -> forbidden;
                         undefined -> {proxy_authenticate, BinId}
@@ -307,8 +307,8 @@ sip_authorize(Auth, Req, _Call) ->
             % client3 doesn't support dialog authorization
             ok;
         true ->
-            BinId = nksip_lib:to_binary(App) ,
-            case nksip_lib:get_value({digest, BinId}, Auth) of
+            BinId = nklib_util:to_binary(App) ,
+            case nklib_util:get_value({digest, BinId}, Auth) of
                 true -> ok;                         % At least one user is authenticated
                 false -> forbidden;                 % Failed authentication
                 undefined -> {authenticate, BinId}  % No auth header

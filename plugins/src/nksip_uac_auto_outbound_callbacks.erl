@@ -43,7 +43,7 @@
 nkcb_handle_call('$nksip_uac_auto_outbound_get_registers', From, SipAppState) ->
     #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto_register, SipAppState),
     #state_ob{regs=RegsOb} = get_state(SipAppState),
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Info = [
         {RegId, Ok, Next-Now, Fails} 
         ||
@@ -103,12 +103,12 @@ nkcb_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,   
     #state_ob{outbound=Ob, pos=NextPos, regs=RegsOb} = StateOb = get_state(SipAppState),
     #sipapp_srv{app_id=AppId} = SipAppState,
-    User = nksip_lib:get_value(user, Opts, []),
+    User = nklib_util:get_value(user, Opts, []),
     case Ob andalso lists:member('$nksip_uac_auto_outbound', User) of
         true ->
             RegOb1 = case lists:keyfind(RegId, #sipreg_ob.id, RegsOb) of
                 false ->
-                    Pos = case nksip_lib:get_value(reg_id, Opts) of
+                    Pos = case nklib_util:get_value(reg_id, Opts) of
                         UserPos when is_integer(UserPos), UserPos>0 -> UserPos;
                         _ -> NextPos
                     end,
@@ -163,7 +163,7 @@ nkcb_uac_auto_register_launch_unregister(Reg, Sync, SipAppState)->
                 false -> ok
             end,
             Opts1 = [contact, {cseq_num, CSeq}, {reg_id, Pos} |
-                     nksip_lib:store_value(expires, 0, Opts)],
+                     nklib_util:store_value(expires, 0, Opts)],
             #sipapp_srv{app_id=AppId} = SipAppState,
             Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
             case Sync of
@@ -196,8 +196,8 @@ nkcb_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) when Code<3
                 true -> erlang:demonitor(Monitor);
                 false -> ok
             end,
-            {Proto, Ip, Port, Res} = nksip_lib:get_value(remote, Meta),
-            Require = nksip_lib:get_value(require, Meta),
+            {Proto, Ip, Port, Res} = nklib_util:get_value(remote, Meta),
+            Require = nklib_util:get_value(require, Meta),
             % 'fails' is not updated until the connection confirmation arrives
             % (or process down)
             RegOb2 = case lists:member(<<"outbound">>, Require) of
@@ -220,7 +220,7 @@ nkcb_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) when Code<3
                     RegOb1
             end,
             StateOb2 = StateOb#state_ob{regs=[RegOb2|RegsOb1]},
-            Time = nksip_lib:get_value(expires, Opts),
+            Time = nklib_util:get_value(expires, Opts),
             Reg1 = Reg#sipreg{interval=Time},
             {continue, [Reg1, Code, Meta, set_state(StateOb2, SipAppState)]};
         false ->
@@ -243,10 +243,10 @@ nkcb_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) ->
             end,
             #sipapp_srv{app_id=AppId} = SipAppState,
             Config = nksip_sipapp_srv:config(AppId),
-            MaxTime = nksip_lib:get_value(nksip_uac_auto_outbound_max_time, Config),
+            MaxTime = nklib_util:get_value(nksip_uac_auto_outbound_max_time, Config),
             BaseTime = case [true || #sipreg_ob{fails=0} <- RegsOb] of
-                [] -> nksip_lib:get_value(nksip_uac_auto_outbound_all_fail, Config);
-                _ -> nksip_lib:get_value(nksip_uac_auto_outbound_any_ok, Config)
+                [] -> nklib_util:get_value(nksip_uac_auto_outbound_all_fail, Config);
+                _ -> nklib_util:get_value(nksip_uac_auto_outbound_any_ok, Config)
             end,
             Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
             Time = round(crypto:rand_uniform(50, 101) * Upper / 100),
@@ -285,8 +285,8 @@ set_state(State, SipAppState) ->
 %% @private
 start_refresh(AppId, Meta, Proto, Pid, Reg) ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
-    FlowTimer = case nksip_lib:get_value(<<"flow-timer">>, Meta) of
-        [FlowTimer0] -> nksip_lib:to_integer(FlowTimer0);
+    FlowTimer = case nklib_util:get_value(<<"flow-timer">>, Meta) of
+        [FlowTimer0] -> nklib_util:to_integer(FlowTimer0);
         _ -> undefined
     end,
     Secs = case FlowTimer of

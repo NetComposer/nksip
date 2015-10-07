@@ -25,6 +25,7 @@
 -export([start/4, cancel/2, response/4]).
 -export_type([id/0]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -48,7 +49,7 @@ start(Trans, UriSet, ForkOpts, #call{forks=Forks}=Call) ->
     Fork = #fork{
         id = TransId,
         class = Class,
-        start = nksip_lib:timestamp(),
+        start = nklib_util:timestamp(),
         request  = Req,
         method = Method,
         opts = ForkOpts,
@@ -132,7 +133,7 @@ launch([Uri|Rest], Id, Call) ->
     Fork = lists:keyfind(Id, #fork.id, Call#call.forks),
     #fork{request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
-    Req1 = Req#sipmsg{ruri=Uri, id=nksip_lib:uid()},
+    Req1 = Req#sipmsg{ruri=Uri, id=nklib_util:uid()},
     ?call_debug("Fork ~p ~p launching to ~s", [Id, Method, nksip_unparse:uri(Uri)]),
     Fork1 = case Method of
         'ACK' -> 
@@ -326,9 +327,9 @@ best_response(#fork{request=Req, responses=Resps}) ->
         [{3999, Best}|_] ->
             Names = [<<"www-authenticate">>, <<"proxy-authenticate">>],
             Headers1 = [
-                nksip_lib:delete(Best#sipmsg.headers, Names) |
+                nklib_util:delete(Best#sipmsg.headers, Names) |
                 [
-                    nksip_lib:extract(Headers, Names) || 
+                    nklib_util:extract(Headers, Names) || 
                     #sipmsg{class={resp, Code, _}, headers=Headers}
                     <- Resps, Code==401 orelse Code==407
                 ]

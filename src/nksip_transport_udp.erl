@@ -138,16 +138,16 @@ init([AppId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
             Self = self(),
             spawn(fun() -> start_tcp(AppId, Ip, Port1, Opts, Self) end),
             Transp1 = Transp#transport{local_port=Port1, listen_port=Port1},
-            nksip_proc:put(nksip_transports, {AppId, Transp1}),
-            nksip_proc:put({nksip_listen, AppId}, Transp1),
+            nklib_proc:put(nksip_transports, {AppId, Transp1}),
+            nklib_proc:put({nksip_listen, AppId}, Transp1),
             State = #state{
                 app_id = AppId, 
                 transport = Transp1, 
                 socket = Socket,
                 tcp_pid = undefined,
                 stuns = [],
-                timer_t1 = nksip_lib:get_value(timer_t1, Opts),
-                timeout = 1000*nksip_lib:get_value(udp_timeout, Opts)
+                timer_t1 = nklib_util:get_value(timer_t1, Opts),
+                timeout = 1000*nklib_util:get_value(udp_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->
@@ -316,12 +316,12 @@ do_stun_response(TransId, Attrs, State) ->
     #state{app_id=AppId, stuns=Stuns} = State,
     case lists:keytake(TransId, #stun.id, Stuns) of
         {value, #stun{retrans_timer=Retrans, from=From}, Stuns1} ->
-            nksip_lib:cancel_timer(Retrans),
-            case nksip_lib:get_value(xor_mapped_address, Attrs) of
+            nklib_util:cancel_timer(Retrans),
+            case nklib_util:get_value(xor_mapped_address, Attrs) of
                 {StunIp, StunPort} -> 
                     ok;
                 _ ->
-                    case nksip_lib:get_value(mapped_address, Attrs) of
+                    case nklib_util:get_value(mapped_address, Attrs) of
                         {StunIp, StunPort} -> ok;
                         _ -> StunIp = StunPort = undefined
                     end

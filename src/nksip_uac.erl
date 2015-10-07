@@ -208,11 +208,11 @@ message(Handle, Opts) ->
     uac_result().
 
 refer(App, Uri, Opts) ->
-    case nksip_lib:get_binary(refer_to, Opts) of
+    case nklib_util:get_binary(refer_to, Opts) of
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
-            Opts1 = [{insert, "refer-to", ReferTo} | nksip_lib:delete(Opts, refer_to)],
+            Opts1 = [{insert, "refer-to", ReferTo} | nklib_util:delete(Opts, refer_to)],
             send(App, 'REFER', Uri, Opts1)
     end.
 
@@ -221,11 +221,11 @@ refer(App, Uri, Opts) ->
     uac_result() |  {error, invalid_refer_to}.
 
 refer(Handle, Opts) ->
-    case nksip_lib:get_binary(refer_to, Opts) of
+    case nklib_util:get_binary(refer_to, Opts) of
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
-            Opts1 = [{insert, "refer-to", ReferTo} | nksip_lib:delete(Opts, refer_to)],
+            Opts1 = [{insert, "refer-to", ReferTo} | nklib_util:delete(Opts, refer_to)],
             send_dialog('REFER', Handle, Opts1)
     end.
 
@@ -283,7 +283,7 @@ request(Handle, Opts) ->
     uac_result().
 
 refresh(Handle, Opts) ->
-    Body1 = case nksip_lib:get_value(body, Opts) of
+    Body1 = case nklib_util:get_value(body, Opts) of
         undefined ->
             case nksip_dialog:meta(invite_local_sdp, Handle) of
                 {ok, #sdp{} = SDP} -> SDP;
@@ -311,7 +311,7 @@ refresh(Handle, Opts) ->
         #sdp{} -> nksip_sdp:increment(Body1);
         _ -> Body1
     end,
-    Opts2 = nksip_lib:delete(Opts, [body, active, inactive, hold]),
+    Opts2 = nklib_util:delete(Opts, [body, active, inactive, hold]),
     invite(Handle, [{body, Body2}|Opts2]).
 
 
@@ -340,7 +340,7 @@ stun(App, UriSpec, _Opts) ->
                     case nksip_parse:uris(UriSpec) of
                         [Uri] ->
                             Transp = nksip_dns:resolve(Uri),
-                            case nksip_lib:extract(Transp, udp) of
+                            case nklib_util:extract(Transp, udp) of
                                 [{udp, Ip, Port, _}|_] -> 
                                     case nksip_transport_udp:send_stun_sync(Pid, Ip, Port) of
                                         {ok, SIp, SPort} ->
@@ -374,8 +374,8 @@ stun(App, UriSpec, _Opts) ->
 send(App, Method, Uri, Opts) ->
     case nksip:find_app_id(App) of
         {ok, AppId} -> 
-            case nksip_lib:get_binary(call_id, Opts) of
-                <<>> -> CallId = nksip_lib:luid();
+            case nklib_util:get_binary(call_id, Opts) of
+                <<>> -> CallId = nklib_util:luid();
                 CallId -> ok
             end,
             nksip_call:send(AppId, CallId, Method, Uri, Opts);

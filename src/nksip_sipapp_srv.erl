@@ -105,7 +105,7 @@ put_new(AppId, Key, Value) ->
 get_appid(AppName) ->
     list_to_atom(
         string:to_lower(
-            case binary_to_list(nksip_lib:hash36(AppName)) of
+            case binary_to_list(nklib_util:hash36(AppName)) of
                 [F|Rest] when F>=$0, F=<$9 -> [$A+F-$0|Rest];
                 Other -> Other
             end)).
@@ -132,7 +132,7 @@ config(AppId) ->
     term() | undefined.
 
 config(AppId, Key) ->
-    nksip_lib:get_value(Key, AppId:config()).
+    nklib_util:get_value(Key, AppId:config()).
 
 
 %% @doc Gets a value from the sipapp's configuration with a default
@@ -153,7 +153,7 @@ pending_msgs() ->
             {_, Len} = erlang:process_info(Pid, message_queue_len),
             {Name, Len}
         end,
-        nksip_proc:values(nksip_sipapps)).
+        nklib_proc:values(nksip_sipapps)).
 
 
 %% @private
@@ -199,10 +199,10 @@ start_link(AppId, Args) ->
 %% @private
 init([AppId, Args]) ->
     process_flag(trap_exit, true),          % Allow receiving terminate/2
-    nksip_proc:put(nksip_sipapps, AppId),   
+    nklib_proc:put(nksip_sipapps, AppId),   
     Config = AppId:config(),
-    AppName = nksip_lib:get_value(name, Config),
-    true = nksip_proc:reg({nksip_sipapp_name, AppName}, AppId), 
+    AppName = nklib_util:get_value(name, Config),
+    true = nklib_proc:reg({nksip_sipapp_name, AppName}, AppId), 
     Plugins = AppId:config_plugins(),
     State = #sipapp_srv{
         app_id = AppId, 
@@ -408,7 +408,7 @@ update_uuid(AppId, AppName, BasePath) ->
         {ok, UUID} ->
             ok;
         {error, Path} ->
-            UUID = nksip_lib:uuid_4122(),
+            UUID = nklib_util:uuid_4122(),
             save_uuid(Path, AppName, UUID)
     end,
     {ok, UUID}.
@@ -430,7 +430,7 @@ read_uuid(AppId, BasePath) ->
 
 %% @private
 save_uuid(Path, AppId, UUID) ->
-    Content = [UUID, $,, nksip_lib:to_binary(AppId)],
+    Content = [UUID, $,, nklib_util:to_binary(AppId)],
     case file:write_file(Path, Content) of
         ok ->
             ok;

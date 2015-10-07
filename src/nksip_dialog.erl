@@ -242,7 +242,7 @@ clear_authorized_list(Handle) ->
     [{nksip:handle(), nksip:optslist()}].
 
 get_all_data() ->
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Fun = fun(DialogId, Acc) ->
         case meta(full_dialog, DialogId) of
             {ok, #dialog{}=Dialog} ->

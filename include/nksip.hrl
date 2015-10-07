@@ -80,12 +80,6 @@
     end).
 
 
--define(N(T), lager:notice(T)).
--define(N(T,P), lager:notice(T,P)).
--define(W(T), lager:warning(T)).
--define(W(T,P), lager:warning(T,P)).
--define(E(T), lager:error(T)).
--define(E(T,P), lager:error(T,P)).
 
 -include_lib("kernel/include/inet_sctp.hrl").
 
@@ -170,7 +164,7 @@
     body = <<>> :: nksip:body(),
     to_tag_candidate = <<>> :: nksip:tag(),
     transport :: nksip_transport:transport(),
-    start :: nksip_lib:l_timestamp(),
+    start :: nklib_util:l_timestamp(),
     meta = [] :: nksip:optslist()   % No current use
 }).
 
@@ -180,20 +174,6 @@
     headers = [] :: [nksip:header()],
     body = <<>> :: nksip:body(),
     opts = [] :: nksip:optslist()
-}).
-
--record(uri, {
-    disp = <<>> :: binary(),
-    scheme = sip :: nksip:scheme(),
-    user = <<>> :: binary(), 
-    pass = <<>> :: binary(), 
-    domain = <<"invalid.invalid">> :: binary(), 
-    port = 0 :: inet:port_number(),             % 0 means "no port in message"
-    path = <<>> :: binary(),
-    opts = [] :: nksip:optslist(),
-    headers = [] :: [binary()|nksip:header()],
-    ext_opts = [] :: nksip:optslist(),
-    ext_headers = [] :: [binary()|nksip:header()]
 }).
 
 -record(via, {
@@ -206,7 +186,7 @@
 
 -record(invite, {
     status :: nksip_dialog:invite_status(),
-    answered :: nksip_lib:timestamp(),
+    answered :: nklib_util:timestamp(),
     class :: uac | uas | proxy,
     request :: nksip:request(),
     response :: nksip:response(),
@@ -228,7 +208,7 @@
     expires :: pos_integer(),
     status :: nksip_subscription:status(),
     class :: uac | uas,
-    answered :: nksip_lib:timestamp(),
+    answered :: nklib_util:timestamp(),
     timer_n :: reference(),
     timer_expire :: reference(),
     timer_middle :: reference(),
@@ -243,8 +223,8 @@
     id :: nksip_dialog_lib:id(),
     app_id :: nksip:app_id(),
     call_id :: nksip:call_id(),
-    created :: nksip_lib:timestamp(),
-    updated :: nksip_lib:timestamp(),
+    created :: nklib_util:timestamp(),
+    updated :: nklib_util:timestamp(),
     local_seq :: 0 | nksip:cseq(),
     remote_seq :: 0 | nksip:cseq(),
     local_uri :: nksip:uri(),
@@ -320,13 +300,13 @@
     erlang:put(debug_timer, tl(erlang:get(debug_timer)))).
 -endif.
 
--ifndef(P).
--define(P(S,P), io:format(S++"\n", P)).
--define(P(S), ?P(S, [])).
--endif.
+% -ifndef(P).
+% -define(P(S,P), io:format(S++"\n", P)).
+% -define(P(S), ?P(S, [])).
+% -endif.
 
--ifndef(I).
--define(I(S,P), lager:info(S++"\n", P)).
--define(I(S), ?I(S, [])).
--endif.
+% -ifndef(I).
+% -define(I(S,P), lager:info(S++"\n", P)).
+% -define(I(S), ?I(S, [])).
+% -endif.
 

@@ -36,7 +36,7 @@
     pid() | undefined.
 
 get_pid(AppId) ->
-    nksip_proc:whereis_name({nksip_transport_sup, AppId}).
+    nklib_proc:whereis_name({nksip_transport_sup, AppId}).
 
 
 %% @private Starts a new transport control process under this supervisor
@@ -60,7 +60,7 @@ start_link(AppId) ->
     Spec = {{one_for_one, 10, 60}, []},
     {ok, SupPid} = supervisor:start_link(?MODULE, [Reg, Spec]),
     Config = nksip_sipapp_srv:config(AppId),
-    Transports = nksip_lib:get_value(transports, Config, [{udp, {0,0,0,0}, 0, []}]), 
+    Transports = nklib_util:get_value(transports, Config, [{udp, {0,0,0,0}, 0, []}]), 
     case start_transports(AppId, Transports, Config) of
         ok -> {ok, SupPid};
         {error, Error} -> {error, Error}
@@ -69,7 +69,7 @@ start_link(AppId) ->
 
 %% @private
 init([Reg, ChildSpecs]) ->
-    yes = nksip_proc:register_name(Reg, self()),
+    yes = nklib_proc:register_name(Reg, self()),
     {ok, ChildSpecs}.
 
 

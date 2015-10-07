@@ -196,7 +196,7 @@ sip_authorize(Auth, Req, _Call) ->
                         true ->
                             ok;
                         false ->
-                            case nksip_lib:get_value({digest, <<"nksip">>}, Auth) of
+                            case nklib_util:get_value({digest, <<"nksip">>}, Auth) of
                                 true -> ok;
                                 false -> forbidden;
                                 undefined -> {proxy_authenticate, <<"nksip">>}
@@ -290,7 +290,7 @@ sip_options(Req, _Call) ->
     App = nksip_sipmsg:meta(app_name, Req),
     Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
     {ok, ReqId} = nksip_request:get_handle(Req),
-    Reply = {ok, [{add, "x-nk-id", [nksip_lib:to_binary(App)|Ids]}]},
+    Reply = {ok, [{add, "x-nk-id", [nklib_util:to_binary(App)|Ids]}]},
     spawn(fun() -> nksip_request:reply(Reply, ReqId) end),
     noreply.
 

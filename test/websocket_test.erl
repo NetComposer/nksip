@@ -21,6 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(websocket_test).
+-include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -362,6 +363,6 @@ sip_route(_Scheme, User, Domain, Req, _Call) ->
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, App} = nksip_request:app_name(Req),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 

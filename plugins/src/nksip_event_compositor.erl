@@ -68,15 +68,15 @@ deps() ->
 
 parse_config(Opts) ->
     Defaults = [{nksip_event_compositor_default_expires, 60}],
-    Opts1 = nksip_lib:defaults(Opts, Defaults),
-    Allow = nksip_lib:get_value(allow, Opts1),
+    Opts1 = nklib_util:defaults(Opts, Defaults),
+    Allow = nklib_util:get_value(allow, Opts1),
     Opts2 = case lists:member(<<"PUBLISH">>, Allow) of
         true -> 
             Opts1;
         false -> 
-            nksip_lib:store_value(allow, Allow++[<<"PUBLISH">>], Opts1)
+            nklib_util:store_value(allow, Allow++[<<"PUBLISH">>], Opts1)
     end,
-    case nksip_lib:get_value(nksip_event_compositor_default_expires, Opts2) of
+    case nklib_util:get_value(nksip_event_compositor_default_expires, Opts2) of
         Secs when is_integer(Secs), Secs>=1 ->
             {ok, Opts2};
         _ ->
@@ -126,7 +126,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
         [] when Body == <<>> ->
             {invalid_request, <<"No Body">>};
         [] ->
-            Tag = nksip_lib:uid(),
+            Tag = nklib_util:uid(),
             nksip_event_compositor_lib:store_put(AppId, AOR, Tag, Expires1, Body);
         [Tag] ->
             case find(AppId, AOR, Tag) of

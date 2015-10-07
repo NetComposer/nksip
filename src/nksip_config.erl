@@ -119,27 +119,27 @@ default_config() ->
 make_cache() ->
     case parse_config(application:get_all_env(nksip), []) of
         {ok, EnvConfig1} ->
-            EnvConfig2 = nksip_lib:defaults(EnvConfig1, default_config()),
+            EnvConfig2 = nklib_util:defaults(EnvConfig1, default_config()),
             GlobalOpts = [Key || {Key, _} <- default_config()],
-            AppConfig = nksip_lib:delete(EnvConfig2, 
+            AppConfig = nklib_util:delete(EnvConfig2, 
                                          [included_applications|GlobalOpts]),
             CacheConfig = [
-                {global_id, nksip_lib:luid()},
+                {global_id, nklib_util:luid()},
                 {local_ips, nksip_lib:get_local_ips()},
                 {main_ip, nksip_lib:find_main_ip()},
                 {main_ip6, nksip_lib:find_main_ip(auto, ipv6)},
                 {sync_call_time, 
-                    1000*nksip_lib:get_value(sync_call_time, EnvConfig2)},
+                    1000*nklib_util:get_value(sync_call_time, EnvConfig2)},
                 {dns_cache_ttl, 
-                    nksip_lib:get_value(dns_cache_ttl, EnvConfig2)},
+                    nklib_util:get_value(dns_cache_ttl, EnvConfig2)},
                 {local_data_path, 
-                    nksip_lib:get_value(local_data_path, EnvConfig2)},
+                    nklib_util:get_value(local_data_path, EnvConfig2)},
                 {global_max_connections, 
-                    nksip_lib:get_value(global_max_connections, EnvConfig2)},
+                    nklib_util:get_value(global_max_connections, EnvConfig2)},
                 {global_max_calls, 
-                    nksip_lib:get_value(global_max_calls, EnvConfig2)},
+                    nklib_util:get_value(global_max_calls, EnvConfig2)},
                 {msg_routers, 
-                    nksip_lib:get_value(msg_routers, EnvConfig2)},
+                    nklib_util:get_value(msg_routers, EnvConfig2)},
                 {re_call_id, 
                     element(2, re:compile(?RE_CALL_ID, [caseless]))},
                 {re_content_length, 
@@ -293,7 +293,7 @@ parse_config([Term|Rest], Opts) ->
     end,
     case Op of
         update -> 
-            Opts1 = nksip_lib:store_value(Term, Opts),
+            Opts1 = nklib_util:store_value(Term, Opts),
             parse_config(Rest, Opts1);
         error when is_tuple(Term) ->
             {error, {invalid, element(1, Term)}};
@@ -305,9 +305,11 @@ parse_config([Term|Rest], Opts) ->
 %% @private
 make_cache(Config) ->
     Syntax = lists:foldl(
-        fun({Key, Value}, Acc) -> [nksip_code_util:getter(Key, Value)|Acc] end,
+        fun({Key, Value}, Acc) -> [nklib_code:getter(Key, Value)|Acc] end,
         [],
         Config),
-    {ok, Tree} = nksip_code_util:compile(nksip_config_cache, Syntax),
-    ok = nksip_code_util:write(nksip_config_cache, Tree).
+    {ok, Tree} = nklib_code:compile(nksip_config_cache, Syntax),
+    BasePath = nksip_config_cache:local_data_path(),
+    file:make_dir(BasePath),
+    ok = nklib_code:write(nksip_config_cache, Tree, BasePath).
 

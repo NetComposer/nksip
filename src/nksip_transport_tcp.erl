@@ -42,7 +42,7 @@
 
 get_listener(AppId, Transp, Opts) ->
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
-    Listeners = nksip_lib:get_value(listeners, Opts, 100),
+    Listeners = nklib_util:get_value(listeners, Opts, 100),
     Module = case Proto of
         tcp -> ranch_tcp;
         tls -> ranch_ssl
@@ -128,8 +128,8 @@ outbound_opts(tls, AppId) ->
             DefKey = ""
     end,
     Config = nksip_sipapp_srv:config(AppId),
-    Cert = nksip_lib:get_value(certfile, Config, DefCert),
-    Key = nksip_lib:get_value(keyfile, Config, DefKey),
+    Cert = nklib_util:get_value(certfile, Config, DefCert),
+    Key = nklib_util:get_value(keyfile, Config, DefKey),
     lists:flatten([
         binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw},
         case Cert of "" -> []; _ -> {certfile, Cert} end,
@@ -143,7 +143,7 @@ outbound_opts(tls, AppId) ->
     nksip:optslist().
 
 listen_opts(tcp, Ip, Port, Opts) ->
-    Max = nksip_lib:get_value(max_connections, Opts, 100),
+    Max = nklib_util:get_value(max_connections, Opts, 100),
     [
         {ip, Ip}, {port, Port}, {active, false}, 
         {nodelay, true}, {keepalive, true}, {packet, raw},
@@ -159,9 +159,9 @@ listen_opts(tls, Ip, Port, Opts) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = nksip_lib:get_value(certfile, Opts, DefCert),
-    Key = nksip_lib:get_value(keyfile, Opts, DefKey),
-    Max = nksip_lib:get_value(max_connections, Opts, 100),
+    Cert = nklib_util:get_value(certfile, Opts, DefCert),
+    Key = nklib_util:get_value(keyfile, Opts, DefKey),
+    Max = nklib_util:get_value(max_connections, Opts, 100),
     lists:flatten([
         {ip, Ip}, {port, Port}, {active, false}, 
         {nodelay, true}, {keepalive, true}, {packet, raw},
@@ -184,8 +184,8 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol,
         {ok, Pid} ->
             Port = ranch:get_port(Ref),
             Transp1 = Transp#transport{local_port=Port, listen_port=Port},
-            nksip_proc:put(nksip_transports, {AppId, Transp1}, Pid),
-            nksip_proc:put({nksip_listen, AppId}, Transp1, Pid),
+            nklib_proc:put(nksip_transports, {AppId, Transp1}, Pid),
+            nklib_proc:put({nksip_listen, AppId}, Transp1, Pid),
             {ok, Pid};
         Other ->
             Other

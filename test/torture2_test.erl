@@ -21,6 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(torture2_test).
+-include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").

@@ -334,10 +334,10 @@ do_send_work_sync(Pid, AppId, CallId, Work, From, #state{pending=Pending}=SD) ->
 do_call_start(AppId, CallId, SD) ->
     #state{name=Name} = SD,
     Max = nksip_config_cache:global_max_calls(),
-    case nksip_counters:value(nksip_calls) < Max of
+    case nklib_counters:value(nksip_calls) < Max of
         true ->
             AppMax = AppId:config_max_calls(),
-            case nksip_counters:value({nksip_calls, AppId}) < AppMax of
+            case nklib_counters:value({nksip_calls, AppId}) < AppMax of
                 true ->
                     {ok, Pid} = nksip_call_srv:start(AppId, CallId),
                     erlang:monitor(process, Pid),

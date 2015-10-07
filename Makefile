@@ -10,6 +10,9 @@ deps:
 app: deps
 	@$(REBAR) compile
 
+cnodeps:
+	./rebar compile skip_deps=true
+
 clean: clean-docs clean-logs
 	@$(REBAR) clean
 	rm -f erl_crash.dump
@@ -64,7 +67,7 @@ pbx: app
 		-args_file samples/nksip_pbx/priv/vm.args -s nksip_pbx
 
 build_tests:
-	erlc -pa ebin -pa deps/lager/ebin -o ebin -I include \
+	erlc -pa ebin -pa deps/lager/ebin -pa deps/nklib/ebin -o ebin -I include \
 	+export_all +debug_info +"{parse_transform, lager_transform}" \
 	test/*.erl
 

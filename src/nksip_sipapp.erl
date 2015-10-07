@@ -30,6 +30,8 @@
 -export([sip_dialog_update/3, sip_session_update/3]).
 -export([init/1, terminate/2]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
+
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 
 

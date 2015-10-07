@@ -57,7 +57,7 @@ store_put(AppId, AOR, Tag, Expires, Reg) ->
         true -> Reg;
         false -> #reg_publish{data=Reg}
     end,
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Reg2 = Reg1#reg_publish{expires=Now+Expires},
     case callback(AppId, {put, AOR, Tag, Reg2, Expires}) of
         {ok, ok} -> 

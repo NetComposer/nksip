@@ -60,7 +60,7 @@ check_supported(Method, Req, UAS, Call) ->
         [] ->
             check_event(Method, Req, UAS, Call);
         BadRequires -> 
-            RequiresTxt = nksip_lib:bjoin(BadRequires),
+            RequiresTxt = nklib_util:bjoin(BadRequires),
             nksip_call_uas:do_reply({bad_extension,  RequiresTxt}, UAS, Call)
     end.
 

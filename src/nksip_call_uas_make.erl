@@ -22,6 +22,7 @@
 -module(nksip_call_uas_make).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -export([make/3]).
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -49,7 +50,7 @@ make(Req, Code, Opts) ->
         to_tag_candidate = NewToTag
     } = Req, 
     NewToTag1 = case NewToTag of
-        <<>> -> nksip_lib:hash(make_ref());
+        <<>> -> nklib_util:hash(make_ref());
         _ -> NewToTag
     end,
     case Code of
@@ -67,9 +68,9 @@ make(Req, Code, Opts) ->
                     {To, ToTag}
             end
     end,
-    ReasonPhrase = nksip_lib:get_binary(reason_phrase, Opts),
+    ReasonPhrase = nklib_util:get_binary(reason_phrase, Opts),
     Resp1 = Req#sipmsg{
-        id = nksip_lib:uid(),
+        id = nklib_util:uid(),
         class = {resp, Code, ReasonPhrase},
         vias = Vias1,
         to = {To1, ToTag1},
@@ -185,7 +186,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             case is_binary(ToTag) of
                 true ->
                     #sipmsg{to={#uri{ext_opts=ExtOpts}=To, _}} = Resp,
-                    ExtOpts1 = nksip_lib:store_value(<<"tag">>, ToTag, ExtOpts),
+                    ExtOpts1 = nklib_util:store_value(<<"tag">>, ToTag, ExtOpts),
                     {update, Resp#sipmsg{to={To#uri{ext_opts=ExtOpts1}, ToTag}}, Opts};
                 false ->
                     throw({invalid_config, to_tag})
@@ -198,16 +199,16 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         {local_host, auto} ->
             {update, Resp, [{local_host, auto}|Opts]};
         {local_host, Host} ->
-            {update, Resp, [{local_host, nksip_lib:to_host(Host)}|Opts]};
+            {update, Resp, [{local_host, nklib_util:to_host(Host)}|Opts]};
         {local_host6, auto} ->
             {update, Resp, [{local_host6, auto}|Opts]};
         {local_host6, Host} ->
-            case nksip_lib:to_ip(Host) of
+            case nklib_util:to_ip(Host) of
                 {ok, HostIp6} -> 
                     % Ensure it is enclosed in `[]'
-                    {update, Resp, [{local_host6, nksip_lib:to_host(HostIp6, true)}|Opts]};
+                    {update, Resp, [{local_host6, nklib_util:to_host(HostIp6, true)}|Opts]};
                 error -> 
-                    {update, Resp, [{local_host6, nksip_lib:to_binary(Host)}|Opts]}
+                    {update, Resp, [{local_host6, nklib_util:to_binary(Host)}|Opts]}
             end;
 
         %% Automatic header generation (replace existing headers)
@@ -230,7 +231,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             end, 
             {replace, <<"accept">>, Accept};
         date ->
-            Date = nksip_lib:to_binary(httpd_util:rfc1123_date()),
+            Date = nklib_util:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
             case AppId:config_events() of
@@ -270,7 +271,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
 
         % Publish options
         {sip_etag, ETag} ->
-            {replace, <<"sip-etag">>, nksip_lib:to_binary(ETag)};
+            {replace, <<"sip-etag">>, nklib_util:to_binary(ETag)};
 
         _ when is_tuple(Term) ->
             throw({invalid_config, element(1, Term)});

@@ -130,7 +130,7 @@ work({incoming, AppId, CallId, Transp, Msg}, none, Call) ->
         {ok, SipMsg} ->
             work({incoming, SipMsg}, none, Call);
         {error, Error} ->
-            ?call_warning("Error parsing SipMsg: ~p", [Error]),
+            ?call_warning("Error parsing SipMsg1: ~p", [Error]),
             Call;
         {reply_error, Error, Reply} ->
             case nksip_transport:get_connected(AppId, Transp) of
@@ -139,10 +139,10 @@ work({incoming, AppId, CallId, Transp, Msg}, none, Call) ->
                         ok -> 
                             ok;
                         {error, _SendError} -> 
-                            ?call_warning("Error parsing SipMsg: ~p", [Error])
+                            ?call_warning("Error parsing SipMsg2: ~p", [Error])
                     end;
                 [] ->
-                    ?call_warning("Error parsing SipMsg: ~p", [Error])
+                    ?call_warning("Error parsing SipMsg3: ~p", [Error])
             end,
             Call
     end;

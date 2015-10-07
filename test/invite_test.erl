@@ -21,6 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(invite_test).
+-include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -170,7 +171,7 @@ dialog() ->
             DialogIdA),
 
     
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     true = (Now - Created) < 2,
     true = (Now - Updated) < 2,
     true = (Now - Answered) < 2,
@@ -254,7 +255,7 @@ rr_contact() ->
     RR = [<<"<sip:127.0.0.1:5070;lr>">>, <<"<sips:abc:123>">>, <<"<sip:127.0.0.1;lr>">>],
     Hds1 = [
         {add, "x-nk-op", "answer"}, RepHd,
-        {add, "record-route", nksip_lib:bjoin(lists:reverse(RR), <<", ">>)}],
+        {add, "record-route", nklib_util:bjoin(lists:reverse(RR), <<", ">>)}],
 
     {ok, 200, [{dialog, DialogIdA}, {<<"record-route">>, RRH}]} = 
             nksip_uac:invite(client1, "sip:ok@127.0.0.1:5070", 
@@ -551,13 +552,13 @@ multiple_uas() ->
 sip_invite(Req, Call) ->
     tests_util:save_ref(Req),
     {ok, Values} = nksip_request:header(<<"x-nk">>, Req),
-    Hds = case Values of [] -> []; _ -> [{add, "x-nk", nksip_lib:bjoin(Values)}] end,
+    Hds = case Values of [] -> []; _ -> [{add, "x-nk", nklib_util:bjoin(Values)}] end,
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         {ok, [Op0]} -> Op0;
         {ok, _} -> <<"decline">>
     end,
     Sleep = case nksip_request:header(<<"x-nk-sleep">>, Req) of
-        {ok, [Sleep0]} -> nksip_lib:to_integer(Sleep0);
+        {ok, [Sleep0]} -> nklib_util:to_integer(Sleep0);
         {ok, _} -> 0
     end,
     Prov = case nksip_request:header(<<"x-nk-prov">>, Req) of
@@ -606,7 +607,7 @@ sip_ack(Req, _Call) ->
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, App} = nksip_request:app_name(Req),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
 

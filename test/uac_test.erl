@@ -72,13 +72,13 @@ uac() ->
     % lager:error("Next error about 'unknown_sipapp' is expected"),
     {error, sipapp_not_found} = nksip_uac:options(none, SipC1, []),
     lager:error("Next 2 errors about 'too_many_calls' are expected"),
-    nksip_counters:incr(nksip_calls, 1000000000),
+    nklib_counters:incr(nksip_calls, 1000000000),
     {error, too_many_calls} = nksip_uac:options(client2, SipC1, []),
-    nksip_counters:incr(nksip_calls, -1000000000),
+    nklib_counters:incr(nksip_calls, -1000000000),
     {ok, Client2Id} = nksip:find_app_id(client2),
-    nksip_counters:incr({nksip_calls, Client2Id}, 1000000000),
+    nklib_counters:incr({nksip_calls, Client2Id}, 1000000000),
     {error, too_many_calls} = nksip_uac:options(client2, SipC1, []),
-    nksip_counters:incr({nksip_calls, Client2Id}, -1000000000),
+    nklib_counters:incr({nksip_calls, Client2Id}, -1000000000),
 
     Self = self(),
     Ref = make_ref(),
@@ -229,7 +229,7 @@ message() ->
     receive 
         {Ref, {ok, 10, RawDate, <<"text/plain">>, <<"Message">>}} ->
             Date = httpd_util:convert_request_date(binary_to_list(RawDate)),
-            true = nksip_lib:timestamp() - nksip_lib:gmt_to_timestamp(Date) < 2
+            true = nklib_util:timestamp() - nklib_util:gmt_to_timestamp(Date) < 2
         after 1000 -> 
             error(message)
     end,
@@ -262,7 +262,7 @@ sip_invite(Req, _Call) ->
         {ok, _} -> <<"decline">>
     end,
     Sleep = case nksip_request:header(<<"x-nk-sleep">>, Req) of
-        {ok, [Sleep0]} -> nksip_lib:to_integer(Sleep0);
+        {ok, [Sleep0]} -> nklib_util:to_integer(Sleep0);
         {ok, _} -> 0
     end,
     Prov = case nksip_request:header(<<"x-nk-prov">>, Req) of
@@ -308,7 +308,7 @@ sip_options(Req, _Call) ->
             spawn(
                 fun() ->
                     nksip_request:reply(101, ReqId), 
-                    timer:sleep(nksip_lib:to_integer(Sleep0)),
+                    timer:sleep(nklib_util:to_integer(Sleep0)),
                     nksip_request:reply({ok, [contact]}, ReqId)
                 end),
             noreply; 

@@ -75,7 +75,7 @@ parse(Proto, Bin) ->
             [] -> 
                 {ok, Class, Headers, Rest2, <<>>};
             [CL0] ->
-                case nksip_lib:to_integer(CL0) of
+                case nklib_util:to_integer(CL0) of
                     error -> 
                         {reply, Class, Headers, <<"Content-Length">>};
                     CL when CL<0 ->

@@ -64,20 +64,22 @@ default_config() ->
 
 %% @private
 start(Opts) ->
-    AppName = nksip_lib:get_value(name, Opts, nksip),
+    AppName = nklib_util:get_value(name, Opts, nksip),
     AppId = nksip_sipapp_srv:get_appid(AppName),
     BasePath = nksip_config_cache:local_data_path(),
     {ok, UUID} = nksip_sipapp_srv:update_uuid(AppId, AppName, BasePath),
     Environment = nksip_config_cache:app_config(),
-    Defaults = nksip_lib:defaults(Environment, default_config()),
+    Defaults = nklib_util:defaults(Environment, default_config()),
     Opts1 = lists:map(
         fun(T) -> case T of {K, V} -> {K, V}; _ -> {T, true} end end, 
         Opts),
-    Opts2 = nksip_lib:defaults(Opts1, Defaults),
+    Opts2 = nklib_util:defaults(Opts1, Defaults),
     case parse_start(AppId, UUID, Opts2) of
         {ok, AppId, _Plugins, Syntax} ->
-            {ok, Tree} = nksip_code_util:compile(AppId, Syntax),
-            ok = nksip_code_util:write(AppId, Tree),
+            {ok, Tree} = nklib_code:compile(AppId, Syntax),
+            BasePath = nksip_config_cache:local_data_path(),
+            file:make_dir(BasePath),
+            ok = nklib_code:write(AppId, Tree, BasePath),
             {ok, AppId};
         {error, ParseError} ->
             {error, ParseError}
@@ -86,13 +88,13 @@ start(Opts) ->
 
 %% @private
 update(AppId, Opts) ->
-    Opts1 = nksip_lib:delete(Opts, transport),
+    Opts1 = nklib_util:delete(Opts, transport),
     Opts2 = lists:map(
         fun(T) -> case T of {K, V} -> {K, V}; _ -> {T, true} end end, 
         Opts1),
     OldConfig = AppId:config(),
-    Opts3 = Opts2 ++ nksip_lib:delete(OldConfig, [K || {K, _} <- Opts]),
-    UUID = nksip_lib:get_value(uuid, OldConfig),
+    Opts3 = Opts2 ++ nklib_util:delete(OldConfig, [K || {K, _} <- Opts]),
+    UUID = nklib_util:get_value(uuid, OldConfig),
     case parse_start(AppId, UUID, Opts3) of
         {ok, AppId, NewPlugins, Syntax} ->
             OldPlugins = AppId:config_plugins(),
@@ -102,8 +104,10 @@ update(AppId, Opts) ->
                 ToStop -> 
                     nksip_sipapp_srv:stop_plugins(AppId, lists:reverse(ToStop))
             end,
-            {ok, Tree} = nksip_code_util:compile(AppId, Syntax),
-            ok = nksip_code_util:write(AppId, Tree),
+            {ok, Tree} = nklib_code:compile(AppId, Syntax),
+            BasePath = nksip_config_cache:local_data_path(),
+            file:make_dir(BasePath),
+            ok = nklib_code:write(AppId, Tree, BasePath),
             case NewPlugins--OldPlugins of
                 [] -> 
                     ok;
@@ -119,9 +123,9 @@ update(AppId, Opts) ->
 %% @private
 parse_start(AppId, UUID, Opts) ->
     try
-        Opts1 = nksip_lib:delete(Opts, [id, uuid, sorted_plugins, cached_configs]),
+        Opts1 = nklib_util:delete(Opts, [id, uuid, sorted_plugins, cached_configs]),
         Opts2 = parse_opts(Opts1, []),
-        Plugins = sort_plugins(nksip_lib:get_value(plugins, Opts2, []), []),
+        Plugins = sort_plugins(nklib_util:get_value(plugins, Opts2, []), []),
         Opts3 = [
             {id, AppId},
             {uuid, UUID}, 
@@ -137,11 +141,11 @@ parse_start(AppId, UUID, Opts) ->
             list_to_atom(atom_to_list(Plugin) ++ "_sipapp")
             || Plugin <- Plugins
         ],
-        Module = nksip_lib:get_value(module, Opts4, nksip_sipapp),
+        Module = nklib_util:get_value(module, Opts4, nksip_sipapp),
         AppModules = [Module|PluginModules++[nksip_sipapp]],
         AppCallbacks = get_all_app_callbacks(AppModules),
         SipApp = [
-            nksip_code_util:callback_expr(Mod, Fun, Arity)
+            nklib_code:callback_expr(Mod, Fun, Arity)
             || {{Fun, Arity}, Mod} <- AppCallbacks
         ],
         Syntax = Cache ++ SipApp ++ PluginCallbacks,
@@ -253,9 +257,9 @@ parse_opts([Term|Rest], Opts) ->
         {transports, Transports} ->
             {update, parse_transports(Transports, [])};
         {certfile, File} ->
-            {update, nksip_lib:to_list(File)};
+            {update, nklib_util:to_list(File)};
         {keyfile, File} ->
-            {update, nksip_lib:to_list(File)};
+            {update, nklib_util:to_list(File)};
         {supported, Supported} ->
             case nksip_parse:tokens(Supported) of
                 error -> error;
@@ -289,14 +293,14 @@ parse_opts([Term|Rest], Opts) ->
                 Uris -> {update, Uris}
             end;
         {local_host, Host} ->
-            {update, nksip_lib:to_host(Host)};
+            {update, nklib_util:to_host(Host)};
         {local_host6, Host} ->
-            case nksip_lib:to_ip(Host) of
+            case nklib_util:to_ip(Host) of
                 {ok, HostIp6} -> 
                     % Ensure it is enclosed in `[]'
-                    {update, nksip_lib:to_host(HostIp6, true)};
+                    {update, nklib_util:to_host(HostIp6, true)};
                 error -> 
-                    {update, nksip_lib:to_binary(Host)}
+                    {update, nklib_util:to_binary(Host)}
             end;
         {no_100, true} ->
             {update, true};
@@ -391,7 +395,7 @@ parse_transports([Transport|Rest], Acc) ->
                 _ -> Ip
             end;
         _ ->
-            case catch nksip_lib:to_ip(Ip) of
+            case catch nklib_util:to_ip(Ip) of
                 {ok, PIp} -> PIp;
                 _ -> throw({invalid_transport, Transport})
             end
@@ -408,39 +412,39 @@ parse_transports([Transport|Rest], Acc) ->
 %% @private Generates a ready-to-compile config getter functions
 cache_syntax(Opts) ->
     Cache = [
-        {name, nksip_lib:get_value(name, Opts)},
-        {module, nksip_lib:get_value(module, Opts)},
-        {uuid, nksip_lib:get_value(uuid, Opts)},
+        {name, nklib_util:get_value(name, Opts)},
+        {module, nklib_util:get_value(module, Opts)},
+        {uuid, nklib_util:get_value(uuid, Opts)},
         {config, Opts},
-        {config_plugins, nksip_lib:get_value(sorted_plugins, Opts, [])},
-        {config_log_level, nksip_lib:get_value(log_level, Opts)},
-        {config_debug, nksip_lib:get_value(debug, Opts)},
-        {config_max_connections, nksip_lib:get_value(max_connections, Opts)},
-        {config_max_calls, nksip_lib:get_value(max_calls, Opts)},
+        {config_plugins, nklib_util:get_value(sorted_plugins, Opts, [])},
+        {config_log_level, nklib_util:get_value(log_level, Opts)},
+        {config_debug, nklib_util:get_value(debug, Opts)},
+        {config_max_connections, nklib_util:get_value(max_connections, Opts)},
+        {config_max_calls, nklib_util:get_value(max_calls, Opts)},
         {config_timers, #call_timers{
-            t1 = nksip_lib:get_value(timer_t1, Opts),
-            t2 = nksip_lib:get_value(timer_t2, Opts),
-            t4 = nksip_lib:get_value(timer_t4, Opts),
-            tc = nksip_lib:get_value(timer_c, Opts),
-            trans = nksip_lib:get_value(trans_timeout, Opts),
-            dialog = nksip_lib:get_value(dialog_timeout, Opts)}},
-        {config_from, nksip_lib:get_value(from, Opts)},
+            t1 = nklib_util:get_value(timer_t1, Opts),
+            t2 = nklib_util:get_value(timer_t2, Opts),
+            t4 = nklib_util:get_value(timer_t4, Opts),
+            tc = nklib_util:get_value(timer_c, Opts),
+            trans = nklib_util:get_value(trans_timeout, Opts),
+            dialog = nklib_util:get_value(dialog_timeout, Opts)}},
+        {config_from, nklib_util:get_value(from, Opts)},
         {config_no_100, lists:member({no_100, true}, Opts)},
-        {config_supported, nksip_lib:get_value(supported, Opts)},
-        {config_allow, nksip_lib:get_value(allow, Opts)},
-        {config_accept, nksip_lib:get_value(accept, Opts)},
-        {config_events, nksip_lib:get_value(events, Opts, [])},
-        {config_route, nksip_lib:get_value(route, Opts, [])},
-        {config_local_host, nksip_lib:get_value(local_host, Opts, auto)},
-        {config_local_host6, nksip_lib:get_value(local_host6, Opts, auto)}
+        {config_supported, nklib_util:get_value(supported, Opts)},
+        {config_allow, nklib_util:get_value(allow, Opts)},
+        {config_accept, nklib_util:get_value(accept, Opts)},
+        {config_events, nklib_util:get_value(events, Opts, [])},
+        {config_route, nklib_util:get_value(route, Opts, [])},
+        {config_local_host, nklib_util:get_value(local_host, Opts, auto)},
+        {config_local_host6, nklib_util:get_value(local_host6, Opts, auto)}
     ] 
     ++
     [
         {Fun, Value} ||
-        {Fun, Value} <- nksip_lib:get_value(cached_configs, Opts, [])
+        {Fun, Value} <- nklib_util:get_value(cached_configs, Opts, [])
     ],
     lists:foldl(
-        fun({Key, Value}, Acc) -> [nksip_code_util:getter(Key, Value)|Acc] end,
+        fun({Key, Value}, Acc) -> [nklib_code:getter(Key, Value)|Acc] end,
         [],
         Cache).
 
@@ -452,7 +456,7 @@ cache_syntax(Opts) ->
 
 % %% @private
 % tuple(Name, Opts, Default) ->
-%     case nksip_lib:get_value(Name, Opts) of
+%     case nklib_util:get_value(Name, Opts) of
 %         undefined -> Default;
 %         Value -> {Name, Value}
 %     end.
@@ -467,7 +471,7 @@ plugin_callbacks_syntax(Plugins) ->
 %% @private
 plugin_callbacks_syntax([Name|Rest], Dict) ->
     Mod = list_to_atom(atom_to_list(Name)++"_callbacks"),
-    case nksip_code_util:get_funs(Mod) of
+    case nklib_code:get_funs(Mod) of
         error ->
             plugin_callbacks_syntax(Rest, Dict);
         List ->
@@ -478,7 +482,7 @@ plugin_callbacks_syntax([Name|Rest], Dict) ->
 plugin_callbacks_syntax([], Dict) ->
     dict:fold(
         fun({Fun, Arity}, {Value, Pos}, Syntax) ->
-            [nksip_code_util:fun_expr(Fun, Arity, Pos, [Value])|Syntax]
+            [nklib_code:fun_expr(Fun, Arity, Pos, [Value])|Syntax]
         end,
         [],
         Dict).
@@ -489,10 +493,10 @@ plugin_callbacks_syntax([{Fun, Arity}|Rest], Mod, Dict) ->
     case dict:find({Fun, Arity}, Dict) of
         error ->
             Pos = 1,
-            Value = nksip_code_util:call_expr(Mod, Fun, Arity, Pos);
+            Value = nklib_code:call_expr(Mod, Fun, Arity, Pos);
         {ok, {Syntax, Pos0}} ->
             Pos = Pos0+1,
-            Value = nksip_code_util:case_expr(Mod, Fun, Arity, Pos, [Syntax])
+            Value = nklib_code:case_expr(Mod, Fun, Arity, Pos, [Syntax])
     end,
     Dict1 = dict:store({Fun, Arity}, {Value, Pos}, Dict),
     plugin_callbacks_syntax(Rest, Mod, Dict1);
@@ -511,7 +515,7 @@ get_all_app_callbacks(ModList) ->
 
 %% @private
 get_all_app_callbacks([Mod|Rest], Acc) ->
-    Acc1 = case nksip_code_util:get_funs(Mod) of
+    Acc1 = case nklib_code:get_funs(Mod) of
         error ->
             Acc;
         List ->

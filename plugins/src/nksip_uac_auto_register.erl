@@ -55,8 +55,8 @@ deps() ->
 
 parse_config(Opts) ->
     Defaults = [{nksip_uac_auto_register_timer, 5}],                   % (secs)
-    Opts1 = nksip_lib:defaults(Opts, Defaults),
-    case nksip_lib:get_value(nksip_uac_auto_register_timer, Opts1) of
+    Opts1 = nklib_util:defaults(Opts, Defaults),
+    case nklib_util:get_value(nksip_uac_auto_register_timer, Opts1) of
         Timer when is_integer(Timer), Timer>0 -> 
             {ok, Opts1};
         _ -> 

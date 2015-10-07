@@ -21,6 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(register_test).
+-include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -72,11 +73,11 @@ stop() ->
 
 register1() ->
     Config = nksip:config(server1),
-    Min = nksip_lib:get_value(nksip_registrar_min_time, Config),
-    MinB = nksip_lib:to_binary(Min),
-    Max = nksip_lib:get_value(nksip_registrar_max_time, Config),
-    MaxB = nksip_lib:to_binary(Max),
-    DefB = nksip_lib:get_binary(nksip_registrar_default_time, Config),
+    Min = nklib_util:get_value(nksip_registrar_min_time, Config),
+    MinB = nklib_util:to_binary(Min),
+    Max = nklib_util:get_value(nksip_registrar_max_time, Config),
+    MaxB = nklib_util:to_binary(Max),
+    DefB = nklib_util:get_binary(nksip_registrar_default_time, Config),
     
     % Method not allowed
     {ok, 405, []} = nksip_uac:register(client2, "sip:127.0.0.1:5070", []),
@@ -117,7 +118,7 @@ register1() ->
     C1_UUID = <<$", UUID/binary, $">>,
     MakeContact = fun(Exp) ->
         list_to_binary([
-            "<sip:", Name, "@", Domain, ":", nksip_lib:to_binary(Port),
+            "<sip:", Name, "@", Domain, ":", nklib_util:to_binary(Port),
             ">;+sip.instance=", C1_UUID, ";expires=", Exp])
         end,
 
@@ -147,7 +148,7 @@ register1() ->
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
 
     Opts5 = [{expires, Min}, contact, {meta, [<<"contact">>]}],
-    ExpB = nksip_lib:to_binary(Min),
+    ExpB = nklib_util:to_binary(Min),
     {ok, 200, Values6} = nksip_uac:register(client1, "sip:127.0.0.1", Opts5),
     [{_, [Contact6]}] = Values6,
     Contact6 = MakeContact(ExpB),
@@ -156,7 +157,7 @@ register1() ->
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
 
     {ok, Registrar} = nksip:find_app_id(server1),
-    Expire = nksip_lib:timestamp()+Min,
+    Expire = nklib_util:timestamp()+Min,
     [#reg_contact{
             contact = #uri{
                 user = <<"client1">>, domain=Domain, port=Port, 
@@ -181,7 +182,7 @@ register1() ->
 
     true = nksip_registrar:is_registered(Request1),
 
-    {ok, Ip} = nksip_lib:to_ip(Domain),
+    {ok, Ip} = nklib_util:to_ip(Domain),
     
     % Now coming from the Contact's registered address
     Request2 = Request1#sipmsg{transport=(Request1#sipmsg.transport)

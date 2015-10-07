@@ -24,6 +24,7 @@
 
 -export([send_request/2, resend_request/2, add_headers/6]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -75,7 +76,7 @@ send_request(Req, Opts) ->
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
     AppId:nkcb_debug(AppId, CallId, {uac_out_request, Method}),
-    Dests = case nksip_lib:get_value(route_flow, Opts) of
+    Dests = case nklib_util:get_value(route_flow, Opts) of
         {Transp, Pid} -> 
             [{flow, {Pid, Transp}}, DestUri];
         undefined -> 
@@ -138,7 +139,7 @@ make_request_fun(Req, Dest, Opts) ->
                 % If it is a stateless proxy, generates the new Branch as a hash
                 % of the main NkSIP's id and the old branch. It generates also 
                 % a nksip tag to detect the response correctly
-                Base = case nksip_lib:get_binary(<<"branch">>, Via0#via.opts) of
+                Base = case nklib_util:get_binary(<<"branch">>, Via0#via.opts) of
                     <<"z9hG4bK", OBranch/binary>> ->
                         {AppId, OBranch};
                     _ ->
@@ -147,13 +148,13 @@ make_request_fun(Req, Dest, Opts) ->
                         % Any of these will change in every transaction
                         {AppId, Via0, ToTag, FromTag, CallId, CSeq, RUri}
                 end,
-                BaseBranch = nksip_lib:hash(Base),
-                NkSIP = nksip_lib:hash({BaseBranch, GlobalId, stateless}),
+                BaseBranch = nklib_util:hash(Base),
+                NkSIP = nklib_util:hash({BaseBranch, GlobalId, stateless}),
                 <<"z9hG4bK", BaseBranch/binary, $-, NkSIP/binary>>;
             _ ->
                 % Generate a brand new Branch
-                BaseBranch = nksip_lib:uid(),
-                NkSIP = nksip_lib:hash({BaseBranch, GlobalId}),
+                BaseBranch = nklib_util:uid(),
+                NkSIP = nklib_util:hash({BaseBranch, GlobalId}),
                 <<"z9hG4bK", BaseBranch/binary, $-, NkSIP/binary>>
         end,
         Via1 = #via{
@@ -193,11 +194,11 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     GlobalId = nksip_config_cache:global_id(),
     RouteBranch = case Vias of
         [#via{opts=RBOpts}|_] -> 
-            nksip_lib:get_binary(<<"branch">>, RBOpts);
+            nklib_util:get_binary(<<"branch">>, RBOpts);
         _ -> 
             <<>>
     end,
-    RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
+    RouteHash = nklib_util:hash({GlobalId, AppId, RouteBranch}),
     RouteUser = <<"NkQ", RouteHash/binary>>,
     RecordRoute = case lists:member(record_route, Opts) of
         true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';

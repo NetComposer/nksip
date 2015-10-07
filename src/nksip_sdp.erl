@@ -83,25 +83,25 @@
     sdp().
     
 new(Host, MediaSpecList) ->
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Medias = [
         #sdp_m{
-            media = nksip_lib:to_binary(Media), 
+            media = nklib_util:to_binary(Media), 
             port = Port,
-            fmt = [nksip_lib:to_binary(Pos) || {rtpmap, Pos, _} <- Attributes],
+            fmt = [nklib_util:to_binary(Pos) || {rtpmap, Pos, _} <- Attributes],
             attributes = [
                     case Attr of
                         {rtpmap, Pos, Data} ->
                             {<<"rtpmap">>, 
-                                [nksip_lib:to_binary(Pos), nksip_lib:to_binary(Data)]};
+                                [nklib_util:to_binary(Pos), nklib_util:to_binary(Data)]};
                         Other ->
-                            parse_sdp_a(nksip_lib:to_binary(Other))
+                            parse_sdp_a(nklib_util:to_binary(Other))
                     end
                     || Attr <- Attributes]
         }
         || {Media, Port, Attributes} <- MediaSpecList
     ],
-    Address = {<<"IN">>, <<"IP4">>, nksip_lib:to_host(Host)},
+    Address = {<<"IN">>, <<"IP4">>, nklib_util:to_host(Host)},
     #sdp{
         id = Now, 
         vsn = Now, 
@@ -152,9 +152,9 @@ update_state([], _State, Acc) ->
     lists:reverse(Acc);
 
 update_state([#sdp_m{attributes=Attrs}=SDPM|Rest], State, Acc) ->
-    Attrs1 = nksip_lib:delete(Attrs, [<<"inactive">>, <<"recvonly">>, <<"sendonly">>, 
+    Attrs1 = nklib_util:delete(Attrs, [<<"inactive">>, <<"recvonly">>, <<"sendonly">>, 
                                         <<"sendrecv">>]),
-    Attrs2 = Attrs1 ++ [{nksip_lib:to_binary(State), []}],
+    Attrs2 = Attrs1 ++ [{nklib_util:to_binary(State), []}],
     update_state(Rest, State, [SDPM#sdp_m{attributes=Attrs2}|Acc]).
 
 
@@ -198,8 +198,8 @@ unparse(#sdp{}=SDP) ->
     {OType, OAddrType, OAddress} = SDP#sdp.address,
     list_to_binary([
         $v, $=, SDP#sdp.sdp_vsn, 13, 10,
-        $o, $=, SDP#sdp.user, 32, nksip_lib:to_binary(SDP#sdp.id), 32, 
-            nksip_lib:to_binary(SDP#sdp.vsn), 32, OType, 32, OAddrType, 32, 
+        $o, $=, SDP#sdp.user, 32, nklib_util:to_binary(SDP#sdp.id), 32, 
+            nklib_util:to_binary(SDP#sdp.vsn), 32, OType, 32, OAddrType, 32, 
             OAddress, 13, 10,
         $s, $=, SDP#sdp.session, 13, 10,
         case SDP#sdp.info of undefined -> []; I -> [$i, $=, I, 13, 10] end,
@@ -295,7 +295,7 @@ update_ip(#sdp{connect = {_, _, <<"auto.nksip">>}} = SDP, ListenAddr) ->
                 _ -> Ip = {0,0,0,0}, Class = <<"IP4">>
             end
     end,
-    Addr = {<<"IN">>, Class, nksip_lib:to_host(Ip, false)}, 
+    Addr = {<<"IN">>, Class, nklib_util:to_host(Ip, false)}, 
     SDP#sdp{address=Addr, connect=Addr};
 
 update_ip(Any, _) ->
@@ -347,8 +347,8 @@ parse_sdp(b, R, SDP) ->
     parse_sdp(t, R, SDP#sdp{bandwidth=lists:reverse(SDP#sdp.bandwidth)});
 parse_sdp(t, [{$t, T}|R], SDP) ->
     [BinStart, BinStop] = binary:split(T, <<" ">>),
-    Start = nksip_lib:to_integer(BinStart),
-    Stop = nksip_lib:to_integer(BinStop),
+    Start = nklib_util:to_integer(BinStart),
+    Stop = nklib_util:to_integer(BinStop),
     {Reps, R1} = parse_sdp_t(R, []),
     parse_sdp(t, R1, SDP#sdp{time=[{Start, Stop, Reps}|SDP#sdp.time]});
 parse_sdp(t, R, SDP) ->

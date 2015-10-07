@@ -22,6 +22,7 @@
 -module(nksip_headers).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 
 -export([header/2, new/1, update/2]).
@@ -45,20 +46,20 @@ header(Name, [{_Token, Opts}|_]=List) when is_list(Opts) ->
 header(Name, Binary) when is_binary(Binary) ->
     {Name, Binary};
 header(Name, Integer) when is_integer(Integer) ->
-    {Name, nksip_lib:to_binary(Integer)};
+    {Name, nklib_util:to_binary(Integer)};
 header(Name, [F|_]=List) when is_integer(F) ->
-    {Name, nksip_lib:to_binary(List)};
+    {Name, nklib_util:to_binary(List)};
 header(Name, List) when is_list(List) ->
     Values = [
         case Term of
             #uri{} -> nksip_unparse:uri(Term);
-            _ -> nksip_lib:to_binary(Term)
+            _ -> nklib_util:to_binary(Term)
         end
         || Term <- List
     ], 
-    {Name, nksip_lib:bjoin(Values)};
+    {Name, nklib_util:bjoin(Values)};
 header(Name, Raw) ->
-    {Name, nksip_lib:to_binary(Raw)}.
+    {Name, nklib_util:to_binary(Raw)}.
 
 
 %% @doc Generates a header list from a list of specifications.
@@ -135,14 +136,14 @@ update(Headers, [{default_multi, Name, ValueOrValues}|R]) ->
     end;
 
 update(Headers, [{single, Name, ValueOrValues}|R]) ->
-    Headers1 = nksip_lib:delete(Headers, Name),
+    Headers1 = nklib_util:delete(Headers, Name),
     case ValueOrValues of
         [] -> update(Headers1, R);
         _ -> update([header(Name, ValueOrValues)|Headers1], R)
     end;
 
 update(Headers, [{multi, Name, ValueOrValues}|R]) ->
-    Headers1 = nksip_lib:delete(Headers, Name),
+    Headers1 = nklib_util:delete(Headers, Name),
     case ValueOrValues of
         [] -> 
             update(Headers1, R);
@@ -215,7 +216,7 @@ extract(Name, [{Name, Value}|Rest], Acc1, Acc2) when is_binary(Value)->
     extract(Name, Rest, [Value|Acc1], Acc2);
 
 extract(Name, [{Name, Value}|Rest], Acc1, Acc2) ->
-    extract(Name, Rest, [nksip_lib:to_binary(Value)|Acc1], Acc2);
+    extract(Name, Rest, [nklib_util:to_binary(Value)|Acc1], Acc2);
 
 extract(Name, [Term|Rest], Acc1, Acc2) ->
     extract(Name, Rest, Acc1, [Term|Acc2]);

@@ -59,7 +59,7 @@ response(Resp, UAC, Call) ->
         msgs = Msgs, 
         timers = #call_timers{trans=TransTime}
     } = Call,
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     case Now-Start < TransTime of
         true -> 
             Code1 = Code,

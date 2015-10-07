@@ -322,7 +322,7 @@ sip_invite(Req, _Call) ->
                 <<"rel-prov-answer">> ->
                     SDP = case nksip_request:body(Req) of
                         {ok, #sdp{} = RemoteSDP} ->
-                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(App)}};
+                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nklib_util:to_binary(App)}};
                         {ok, _} -> 
                             <<>>
                     end,
@@ -336,7 +336,7 @@ sip_invite(Req, _Call) ->
                 <<"rel-prov-answer2">> ->
                     SDP = case nksip_request:body(Req) of
                         {ok, #sdp{} = RemoteSDP} ->
-                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(App)}};
+                            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nklib_util:to_binary(App)}};
                         {ok, _} -> 
                             <<>>
                     end,
@@ -344,7 +344,7 @@ sip_invite(Req, _Call) ->
                     timer:sleep(100),
                     nksip_request:reply(ok, ReqId);
                 <<"rel-prov-answer3">> ->
-                    SDP = nksip_sdp:new(nksip_lib:to_binary(App), 
+                    SDP = nksip_sdp:new(nklib_util:to_binary(App), 
                                         [{"test", 1234, [{rtpmap, 0, "codec1"}]}]),
                     ok = nksip_request:reply({rel_ringing, SDP}, ReqId),
                     timer:sleep(100),
@@ -374,7 +374,7 @@ sip_prack(Req, _Call) ->
     Body = case nksip_request:body(Req) of
         {ok, #sdp{} = RemoteSDP} ->
             {ok, App} = nksip_request:app_name(Req),
-            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nksip_lib:to_binary(App)}};
+            RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nklib_util:to_binary(App)}};
         {ok, _} -> 
             <<>>
     end,        

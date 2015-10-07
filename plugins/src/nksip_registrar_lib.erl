@@ -22,6 +22,7 @@
 -module(nksip_registrar_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
@@ -105,7 +106,7 @@ qfind_iter([], Acc) ->
     [#reg_contact{}].
 
 get_info(AppId, Scheme, User, Domain) ->
-    AOR = {Scheme, nksip_lib:to_binary(User), nksip_lib:to_binary(Domain)},
+    AOR = {Scheme, nklib_util:to_binary(User), nklib_util:to_binary(Domain)},
     case catch store_get(AppId, AOR) of
         {ok, RegContacts} -> RegContacts;
         _ -> []
@@ -134,7 +135,7 @@ is_registered([
                 #transport{proto=Proto, remote_ip=Ip, remote_port=Port}=Transport) ->
     case nksip_parse:transport(Contact) of
         {Proto, Domain, Port} -> 
-            case nksip_lib:to_ip(Domain) of
+            case nklib_util:to_ip(Domain) of
                 {ok, Ip} -> true;
                 _ -> is_registered(R, Transport)
             end;
@@ -177,7 +178,7 @@ process(Req, Opts) ->
         D0 when is_integer(D0), D0>=0 -> D0;
         _ -> Times#nksip_registrar_time.default
     end,
-    TimeLong = nksip_lib:l_timestamp(),
+    TimeLong = nklib_util:l_timestamp(),
     Times1 = Times#nksip_registrar_time{
         default = Default,
         time = TimeLong div 1000000,
@@ -252,7 +253,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         time = Now,
         time_long = LongNow
     } = Times,
-    UriExpires = case nksip_lib:get_list(<<"expires">>, ExtOpts) of
+    UriExpires = case nklib_util:get_list(<<"expires">>, ExtOpts) of
         [] ->
             Default;
         Exp1List ->
@@ -267,7 +268,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         UriExpires>Max -> Max;
         true -> UriExpires
     end,
-    Q = case nksip_lib:get_list(<<"q">>, ExtOpts) of
+    Q = case nklib_util:get_list(<<"q">>, ExtOpts) of
         [] -> 
             1.0;
         Q0 ->
@@ -282,7 +283,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
             end
     end,
     ExpireBin = list_to_binary(integer_to_list(Expires)),
-    ExtOpts1 = nksip_lib:store_value(<<"expires">>, ExpireBin, ExtOpts),
+    ExtOpts1 = nklib_util:store_value(<<"expires">>, ExpireBin, ExtOpts),
     Index = case AppId:nkcb_nksip_registrar_get_index(Contact, Opts) of
         {ok, Index0} -> 
             Index0;

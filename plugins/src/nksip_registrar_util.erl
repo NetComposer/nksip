@@ -38,14 +38,14 @@
 
 get_all() ->
     [
-        {AppId, AOR, nksip_store:get({nksip_registrar, AppId, AOR}, [])}
+        {AppId, AOR, nklib_store:get({nksip_registrar, AppId, AOR}, [])}
         || {AppId, AOR} <- all()
     ].
 
 
 %% @private
 print_all() ->
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Print = fun({AppId, {Scheme, User, Domain}, Regs}) ->
         io:format("\n --- ~p --- ~p:~s@~s ---\n", [AppId:name(), Scheme, User, Domain]),
         lists:foreach(
@@ -64,7 +64,7 @@ print_all() ->
 
 clear() ->
     Fun = fun(AppId, AOR, _Val, Acc) ->
-        nksip_store:del({nksip_registrar, AppId, AOR}),
+        nklib_store:del({nksip_registrar, AppId, AOR}),
         Acc+1
     end,
     fold(Fun, 0).
@@ -83,6 +83,6 @@ fold(Fun, Acc0) when is_function(Fun, 4) ->
             _ -> Acc
         end
     end,
-    nksip_store:fold(FoldFun, Acc0).
+    nklib_store:fold(FoldFun, Acc0).
 
 

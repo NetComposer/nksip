@@ -61,10 +61,10 @@ nkcb_dialog_update({invite, {stop, Reason}}, Dialog, Call) ->
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer
     } = Invite,    
-    RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
-    nksip_lib:cancel_timer(RetransTimer),
-    nksip_lib:cancel_timer(TimeoutTimer),
-    nksip_lib:cancel_timer(RefreshTimer),
+    RefreshTimer = nklib_util:get_value(nksip_timers_refresh, Meta),
+    nklib_util:cancel_timer(RetransTimer),
+    nklib_util:cancel_timer(TimeoutTimer),
+    nklib_util:cancel_timer(RefreshTimer),
     StopReason = nksip_call_dialog:reason(Reason),
     nksip_call_dialog:sip_dialog_update({invite_status, {stop, StopReason}}, Dialog, Call),
     case Media of

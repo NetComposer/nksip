@@ -51,32 +51,32 @@ parse_config(Opts) ->
         {nksip_timers_se, 1800},        % (secs) 30 min
         {nksip_timers_min_se, 90}       % (secs) 90 secs (min 90, recomended 1800)
     ],
-    Opts1 = nksip_lib:defaults(Opts, Defaults),
-    Supported = nksip_lib:get_value(supported, Opts),
+    Opts1 = nklib_util:defaults(Opts, Defaults),
+    Supported = nklib_util:get_value(supported, Opts),
     Opts2 = case lists:member(<<"timer">>, Supported) of
         true -> Opts1;
-        false -> nksip_lib:store_value(supported, Supported++[<<"timer">>], Opts1)
+        false -> nklib_util:store_value(supported, Supported++[<<"timer">>], Opts1)
     end,
     try
-        case nksip_lib:get_value(nksip_timers_se, Opts2) of
+        case nklib_util:get_value(nksip_timers_se, Opts2) of
             SE when is_integer(SE), SE>=5 -> 
                 ok;
             _ -> 
                 throw(nksip_timers_se)
         end,
-        case nksip_lib:get_value(nksip_timers_min_se, Opts2) of
+        case nklib_util:get_value(nksip_timers_min_se, Opts2) of
             MinSE when is_integer(MinSE), MinSE>=1 -> 
                 ok;
             _ -> 
                 throw(nksip_timers_min_se)
         end,
         Times = {
-            nksip_lib:get_value(nksip_timers_se, Opts2),
-            nksip_lib:get_value(nksip_timers_min_se, Opts2)
+            nklib_util:get_value(nksip_timers_se, Opts2),
+            nklib_util:get_value(nksip_timers_min_se, Opts2)
         },
-        Cached1 = nksip_lib:get_value(cached_configs, Opts2, []),
-        Cached2 = nksip_lib:store_value(config_nksip_timers, Times, Cached1),
-        Opts3 = nksip_lib:store_value(cached_configs, Cached2, Opts2),
+        Cached1 = nklib_util:get_value(cached_configs, Opts2, []),
+        Cached2 = nklib_util:store_value(config_nksip_timers, Times, Cached1),
+        Opts3 = nklib_util:store_value(cached_configs, Cached2, Opts2),
         {ok, Opts3}
     catch
         throw:OptName -> {error, {invalid_config, OptName}}
@@ -95,7 +95,7 @@ parse_config(Opts) ->
 get_session_expires(#dialog{invite=Invite, meta=Meta}) ->
     case is_record(Invite, invite) of
         true ->
-            {ok, nksip_lib:get_value(nksip_timers_se, Meta)};
+            {ok, nklib_util:get_value(nksip_timers_se, Meta)};
         false ->
             {ok, undefined}
     end;
@@ -115,7 +115,7 @@ get_session_expires(Handle) ->
 get_session_refresh(#dialog{invite=Invite, meta=Meta}) ->
     case is_record(Invite, invite) of
         true ->
-            RefreshTimer = nksip_lib:get_value(nksip_timers_refresh, Meta),
+            RefreshTimer = nklib_util:get_value(nksip_timers_refresh, Meta),
             case is_reference(RefreshTimer) of
                 true -> 
                     case erlang:read_timer(RefreshTimer) of

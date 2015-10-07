@@ -21,6 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(outbound_test).
+-include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -158,7 +159,7 @@ flow() ->
         opts = [{<<"transport">>, <<"tcp">>}],
         ext_opts = EOpts1
     } = PContact,
-    QInstanceC1 = nksip_lib:get_value(<<"+sip.instance">>, EOpts1),
+    QInstanceC1 = nklib_util:get_value(<<"+sip.instance">>, EOpts1),
 
     {ok, InstanceC1} = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
@@ -269,7 +270,7 @@ register() ->
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
     {ok, Registrar} = nksip:find_app_id(registrar),
-    QInstanceC1_id = nksip_lib:hash(QInstanceC1),
+    QInstanceC1_id = nklib_util:hash(QInstanceC1),
     [#reg_contact{
         index = {ob, QInstanceC1_id, <<"1">>},
         contact = Contact1,
@@ -325,7 +326,7 @@ register() ->
     true = <<$", InstanceC2/binary, $">> == QInstanceC2,
     true = InstanceC1 /= InstanceC2,
 
-    QInstanceC2_id = nksip_lib:hash(QInstanceC2),
+    QInstanceC2_id = nklib_util:hash(QInstanceC2),
     [
         #reg_contact{
             index = {ob, QInstanceC2_id, <<"1">>},
@@ -654,7 +655,7 @@ sip_invite(Req, _Call) ->
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, App} = nksip_request:app_name(Req),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
 

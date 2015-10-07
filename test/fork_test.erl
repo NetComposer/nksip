@@ -21,7 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(fork_test).
-
+-include_lib("nklib/include/nklib.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
 
@@ -184,32 +184,32 @@ regs() ->
     Reg = "sip:nksip",
     Opts = [contact, {meta, [contacts]}],
     {ok, 200, Values1} = nksip_uac:register(clientA1, Reg, Opts),
-    [{contacts, [#uri{user= <<"clientA1">>}=CA1]}] = Values1,
+    [{contacts, [#uri{scheme=sip, user= <<"clientA1">>}=CA1]}] = Values1,
     {ok, 200, []} = nksip_uac:register(clientA1, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values3} = nksip_uac:register(clientB1, Reg, Opts),
-    [{contacts, [#uri{user= <<"clientB1">>}=CB1]}] = Values3,
+    [{contacts, [#uri{scheme=sip, user= <<"clientB1">>}=CB1]}] = Values3,
     {ok, 200, []} = nksip_uac:register(clientB1, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values5} = nksip_uac:register(clientC1, Reg, Opts),
-    [{contacts, [#uri{user= <<"clientC1">>}=CC1]}] = Values5,
+    [{contacts, [#uri{scheme=sip, user= <<"clientC1">>}=CC1]}] = Values5,
     {ok, 200, []} = nksip_uac:register(clientC1, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
     
     {ok, 200, Values7} = nksip_uac:register(clientA2, Reg, Opts),
-    [{contacts, [#uri{user= <<"clientA2">>}=CA2]}] = Values7,
+    [{contacts, [#uri{scheme=sip, user= <<"clientA2">>}=CA2]}] = Values7,
     {ok, 200, []} = nksip_uac:register(clientA2, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values9} = nksip_uac:register(clientB2, Reg, Opts),
-    [{contacts, [#uri{user= <<"clientB2">>}=CB2]}] = Values9,
+    [{contacts, [#uri{scheme=sip, user= <<"clientB2">>}=CB2]}] = Values9,
     {ok, 200, []} = nksip_uac:register(clientB2, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values11} = nksip_uac:register(clientC3, Reg, Opts),
-    [{contacts, [#uri{user= <<"clientC3">>}=CC3]}] = Values11, 
+    [{contacts, [#uri{scheme=sip, user= <<"clientC3">>}=CC3]}] = Values11, 
     {ok, 200, []} = nksip_uac:register(clientC3, Reg, 
                 [{from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),    
 
@@ -428,7 +428,7 @@ redirect() ->
     PortD1 = get_port(clientD1, udp, ipv4),
     PortD2 = get_port(clientD2, tcp, ipv4),
     Contacts = ["sip:127.0.0.1:"++integer_to_list(PortD1),
-                #uri{domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
+                #uri{scheme=sip, domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
     Body1 = {body, [{clientC1, {redirect, Contacts}}, {clientD2, 570}]},
     Fs = {meta, [<<"contact">>]},
@@ -643,13 +643,13 @@ sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, App} = nksip_request:app_name(Req),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     case nksip_request:body(Req) of
         {ok, Ops} when is_list(Ops) ->
             {ok, ReqId} = nksip_request:get_handle(Req),
             proc_lib:spawn(
                 fun() ->
-                    case nksip_lib:get_value(App, Ops) of
+                    case nklib_util:get_value(App, Ops) of
                         {redirect, Contacts} ->
                             Code = 300,
                             nksip_request:reply({redirect, Contacts}, ReqId);
@@ -685,7 +685,7 @@ sip_ack(Req, _Call) ->
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, App} = nksip_request:app_name(Req),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([App|Ids])}],
+    Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
 

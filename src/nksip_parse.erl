@@ -26,6 +26,7 @@
 -module(nksip_parse).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -153,13 +154,13 @@ dates(Term) -> dates([Term]).
     {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
-    Proto1 = case nksip_lib:get_value(<<"transport">>, Opts) of
+    Proto1 = case nklib_util:get_value(<<"transport">>, Opts) of
         Atom when is_atom(Atom) -> 
             Atom;
         Other ->
-            LcTransp = string:to_lower(nksip_lib:to_list(Other)),
+            LcTransp = string:to_lower(nklib_util:to_list(Other)),
             case catch list_to_existing_atom(LcTransp) of
-                {'EXIT', _} -> nksip_lib:to_binary(Other);
+                {'EXIT', _} -> nklib_util:to_binary(Other);
                 Atom -> Atom
             end
     end,
@@ -208,7 +209,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     {ok, #sipmsg{}} | {error, term()} | {reply_error, term(), binary()}.
 
 packet(AppId, CallId, Transp, Packet) ->
-    Start = nksip_lib:l_timestamp(),
+    Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Packet) of
         {ok, Class, Headers, Body} ->
             try 
@@ -232,7 +233,7 @@ packet(AppId, CallId, Transp, Packet) ->
                         {resp, Code1, Reason}
                 end,
                 Req0 = #sipmsg{
-                    id = nksip_lib:uid(),
+                    id = nklib_util:uid(),
                     class = MsgClass,
                     app_id = AppId,
                     ruri = RUri1,
@@ -266,11 +267,11 @@ packet(AppId, CallId, Transp, Packet) ->
     {reply_error, term(), binary()}.
 
 packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
-    Start = nksip_lib:l_timestamp(),
+    Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Proto, Packet) of
         {ok, Class, Headers, Body, Rest} ->
             try 
-                CallId = case nksip_lib:get_value(<<"call-id">>, Headers) of
+                CallId = case nklib_util:get_value(<<"call-id">>, Headers) of
                     CallId0 when byte_size(CallId0) > 0 -> CallId0;
                     _ -> throw({invalid, <<"Call-ID">>})
                 end,
@@ -290,7 +291,7 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
                         {resp, Code1, Reason}
                 end,
                 Req0 = #sipmsg{
-                    id = nksip_lib:uid(),
+                    id = nklib_util:uid(),
                     class = MsgClass,
                     app_id = AppId,
                     ruri = RUri1,
@@ -331,14 +332,16 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
 parse_sipmsg(SipMsg, Headers) ->
     From = case uris(proplists:get_all_values(<<"from">>, Headers)) of
         [From0] -> From0;
-        _ -> throw({invalid, <<"From">>})
+        O -> 
+            lager:warning("II: ~p, ~p", [Headers, O]),
+            throw({invalid, <<"From">>})
     end,
-    FromTag = nksip_lib:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
+    FromTag = nklib_util:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
     To = case uris(proplists:get_all_values(<<"to">>, Headers)) of
         [To0] -> To0;
         _ -> throw({invalid, <<"To">>})
     end,
-    ToTag = nksip_lib:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
+    ToTag = nklib_util:get_value(<<"tag">>, To#uri.ext_opts, <<>>),
     Vias = case vias(proplists:get_all_values(<<"via">>, Headers)) of
         [] -> throw({invalid, <<"via">>});
         error -> throw({invalid, <<"Via">>});
@@ -346,7 +349,7 @@ parse_sipmsg(SipMsg, Headers) ->
     end,
     CSeq = case proplists:get_all_values(<<"cseq">>, Headers) of
         [CSeq0] -> 
-            case nksip_lib:tokens(CSeq0) of
+            case nklib_util:words(CSeq0) of
                 [CSeqNum, CSeqMethod] -> 
                     CSeqMethod1 = nksip_parse:method(CSeqMethod),
                     case SipMsg#sipmsg.class of
@@ -354,7 +357,7 @@ parse_sipmsg(SipMsg, Headers) ->
                         {req, _} -> throw({invalid, <<"CSeq">>});
                         {resp, _, _} -> ok
                     end,
-                    case nksip_lib:to_integer(CSeqNum) of
+                    case nklib_util:to_integer(CSeqNum) of
                         CSeqInt 
                             when is_integer(CSeqInt), CSeqInt>=0, CSeqInt<4294967296 ->
                             {CSeqInt, CSeqMethod1};
@@ -377,7 +380,9 @@ parse_sipmsg(SipMsg, Headers) ->
         Routes0 -> Routes0
     end,
     Contacts = case uris(proplists:get_all_values(<<"contact">>, Headers)) of
-        error -> throw({invalid, <<"Contact">>});
+        error -> 
+            lager:warning("C: ~p", [Headers]),
+            throw({invalid, <<"Contact">>});
         Contacts0 -> Contacts0
     end,
     Expires = case integers(proplists:get_all_values(<<"expires">>, Headers)) of
@@ -477,7 +482,7 @@ scheme(tel) ->
 scheme(mailto) ->
     mailto;
 scheme(Other) ->
-    case string:to_lower(nksip_lib:to_list(Other)) of 
+    case string:to_lower(nklib_util:to_list(Other)) of 
         "sip" -> sip;
         "sips" -> sips;
         "tel" -> tel;
@@ -551,7 +556,7 @@ parse_integers([], Acc) ->
     Acc;
 
 parse_integers([Next|Rest], Acc) ->
-    case catch list_to_integer(string:strip(nksip_lib:to_list(Next))) of
+    case catch list_to_integer(string:strip(nklib_util:to_list(Next))) of
         {'EXIT', _} -> error;
         Integer -> parse_integers(Rest, Acc++[Integer])
     end.
@@ -565,7 +570,7 @@ parse_dates([], Acc) ->
     Acc;
 
 parse_dates([Next|Rest], Acc) ->
-    Base = string:strip(nksip_lib:to_list(Next)),
+    Base = string:strip(nklib_util:to_list(Next)),
     case lists:reverse(Base) of
         "TMG " ++ _ ->               % Should be in "GMT"
             case catch httpd_util:convert_request_date(Base) of

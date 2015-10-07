@@ -40,7 +40,7 @@
     ok | {error, Reason::term()}.
 
 start() ->
-    case nksip_lib:ensure_all_started(?APP, permanent) of
+    case nklib_util:ensure_all_started(?APP, permanent) of
         {ok, _Started} ->
             ok;
         Error ->
@@ -63,7 +63,7 @@ start(_Type, _Args) ->
     MainIp6 = nksip_config:get(main_ip6),
     {ok, Vsn} = application:get_key(nksip, vsn),
     lager:notice("NkSIP v~s has started. Main IP is ~s (~s)", 
-                    [Vsn, nksip_lib:to_host(MainIp), nksip_lib:to_host(MainIp6)]),
+                    [Vsn, nklib_util:to_host(MainIp), nklib_util:to_host(MainIp6)]),
     {ok, Pid}.
 
 

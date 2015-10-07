@@ -127,12 +127,12 @@ nkcb_call(_, _, _) ->
 
 nkcb_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
     #sipmsg{class={resp, Code, Reason}} = Resp,
-    case nksip_lib:get_value(refer_subscription_id, Opts) of
+    case nklib_util:get_value(refer_subscription_id, Opts) of
         undefined -> 
             ok;
         SubsId ->
             Sipfrag = <<
-                "SIP/2.0 ", (nksip_lib:to_binary(Code))/binary, 32,
+                "SIP/2.0 ", (nklib_util:to_binary(Code))/binary, 32,
                 Reason/binary
             >>,
             NotifyOpts = [

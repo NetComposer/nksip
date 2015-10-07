@@ -60,7 +60,7 @@
     integer().
 
 uac_transaction_id(#sipmsg{cseq={_, Method}, vias=[Via|_]}) ->
-    Branch = nksip_lib:get_value(<<"branch">>, Via#via.opts),
+    Branch = nklib_util:get_value(<<"branch">>, Via#via.opts),
     erlang:phash2({Method, Branch}).
 
 
@@ -78,7 +78,7 @@ uas_transaction_id(Req) ->
             cseq = {CSeq, _}
         } = Req,
     {_Transp, ViaIp, ViaPort} = nksip_parse:transport(Via),
-    case nksip_lib:get_value(<<"branch">>, Via#via.opts) of
+    case nklib_util:get_value(<<"branch">>, Via#via.opts) of
         <<"z9hG4bK", Branch/binary>> when byte_size(Branch) > 0 ->
             erlang:phash2({Method, ViaIp, ViaPort, Branch});
         _ ->
@@ -316,7 +316,7 @@ cancel_timer(undefined) ->
     ok;
 
 cancel_timer({_Tag, Ref}) when is_reference(Ref) -> 
-    nksip_lib:cancel_timer(Ref),
+    nklib_util:cancel_timer(Ref),
     ok.
 
 

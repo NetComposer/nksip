@@ -39,21 +39,21 @@
 sip_registrar_store(Op, AppId) ->
     case Op of
         {get, AOR} ->
-            nksip_store:get({nksip_registrar, AppId, AOR}, []);
+            nklib_store:get({nksip_registrar, AppId, AOR}, []);
         {put, AOR, Contacts, TTL} -> 
-            nksip_store:put({nksip_registrar, AppId, AOR}, Contacts, [{ttl, TTL}]);
+            nklib_store:put({nksip_registrar, AppId, AOR}, Contacts, [{ttl, TTL}]);
         {del, AOR} ->
-            nksip_store:del({nksip_registrar, AppId, AOR});
+            nklib_store:del({nksip_registrar, AppId, AOR});
         del_all ->
             FoldFun = fun(Key, _Value, Acc) ->
                 case Key of
                     {nksip_registrar, AppId, AOR} -> 
-                        nksip_store:del({nksip_registrar, AppId, AOR});
+                        nklib_store:del({nksip_registrar, AppId, AOR});
                     _ -> 
                         Acc
                 end
             end,
-            nksip_store:fold(FoldFun, none)
+            nklib_store:fold(FoldFun, none)
     end.
 
 

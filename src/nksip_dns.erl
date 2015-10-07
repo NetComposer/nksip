@@ -25,6 +25,7 @@
 
 -compile([export_all]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 
 -export([resolve/1, get_ips/1, get_srvs/1, get_naptr/1, clear/1, clear/0]).
@@ -110,18 +111,18 @@ resolve_srvs(_, [], Acc) ->
     {naptr, sip|sips, string()}.
 
 resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port, path=Path}) ->
-    Target = nksip_lib:get_list(<<"maddr">>, Opts, Host),
-    case nksip_lib:to_ip(Target) of 
+    Target = nklib_util:get_list(<<"maddr">>, Opts, Host),
+    case nklib_util:to_ip(Target) of 
         {ok, TargetIp} -> IsNumeric = true;
         _ -> TargetIp = IsNumeric = false
     end,
-    Proto = case nksip_lib:get_value(<<"transport">>, Opts) of
+    Proto = case nklib_util:get_value(<<"transport">>, Opts) of
         Atom when is_atom(Atom) -> 
             Atom;
         Other -> 
-            LcTransp = string:to_lower(nksip_lib:to_list(Other)),
+            LcTransp = string:to_lower(nklib_util:to_list(Other)),
             case catch list_to_existing_atom(LcTransp) of
-                {'EXIT', _} -> nksip_lib:to_binary(Other);
+                {'EXIT', _} -> nklib_util:to_binary(Other);
                 Atom -> Atom
             end
     end,
@@ -164,7 +165,7 @@ resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port, path=Path}) -
     [inet:ip_address()].
 
 get_ips(Host) ->
-    Host1 = nksip_lib:to_list(Host),
+    Host1 = nklib_util:to_list(Host),
     case ets:lookup(?MODULE, {ips, Host1}) of
         [{_, Ips, _Time}] ->
             random(Ips);
@@ -180,7 +181,7 @@ get_ips(Host) ->
                             Ips = []
                     end
             end,
-            Now = nksip_lib:timestamp(),
+            Now = nklib_util:timestamp(),
             ets:insert(?MODULE, {{ips, Host1}, Ips, Now}),
             random(Ips)
     end.
@@ -192,7 +193,7 @@ get_ips(Host) ->
     [{string(), inet:port_number()}].
 
 get_srvs(Domain) ->
-    Domain1 = nksip_lib:to_list(Domain),
+    Domain1 = nklib_util:to_list(Domain),
     case ets:lookup(?MODULE, {srvs, Domain1}) of
         [{_, Srvs, _Time}] ->
             rfc2782_sort(Srvs);
@@ -201,7 +202,7 @@ get_srvs(Domain) ->
                 [] -> [];
                 Res -> [{O, W, {D, P}} || {O, W, P, D} <- Res]
             end,
-            Now = nksip_lib:timestamp(),
+            Now = nklib_util:timestamp(),
             ets:insert(?MODULE, {{srvs, Domain1}, Srvs, Now}),
             rfc2782_sort(Srvs)
     end.
@@ -213,7 +214,7 @@ get_srvs(Domain) ->
 
 %% TODO: Check site certificates in case of tls
 get_naptr(Domain) ->
-    Domain1 = nksip_lib:to_list(Domain),
+    Domain1 = nklib_util:to_list(Domain),
     case ets:lookup(?MODULE, {naptr, Domain1}) of
         [{_, Naptr, _Time}] ->
             Naptr;
@@ -225,7 +226,7 @@ get_naptr(Domain) ->
                     [Value || Term <- lists:sort(Res), 
                               (Value = naptr_filter(Term)) /= false]
             end,
-            Now = nksip_lib:timestamp(),
+            Now = nklib_util:timestamp(),
             ets:insert(?MODULE, {{naptr, Domain1}, Naptr, Now}),
             Naptr
     end.
@@ -236,7 +237,7 @@ get_naptr(Domain) ->
     ok.
 
 clear(Domain) ->
-    Domain1 = nksip_lib:to_list(Domain),
+    Domain1 = nklib_util:to_list(Domain),
     ets:delete(?MODULE, {ips, Domain1}),
     ets:delete(?MODULE, {srvs, Domain1}),
     ets:delete(?MODULE, {naptr, Domain1}),
@@ -300,7 +301,7 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 handle_info({timeout, _, check_ttl}, #state{ttl=TTL}=State) ->
-    Last = nksip_lib:timestamp() - TTL,
+    Last = nklib_util:timestamp() - TTL,
     Spec = [{{'_', '_', '$1'}, [{'<', '$1', Last}], [true]}],
     ets:select_delete(?MODULE, Spec),
     erlang:start_timer(1000*?CHECK_INTERVAL, self(), check_ttl), 
@@ -562,7 +563,7 @@ resolv_test() ->
         _ ->
             false
     end,
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     
     Naptr = [
         {sips, tls, "_sips._tcp.test1.local"},

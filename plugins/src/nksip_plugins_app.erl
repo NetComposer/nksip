@@ -37,7 +37,7 @@
     ok | {error, Reason::term()}.
 
 start() ->
-    case nksip_lib:ensure_all_started(?APP, permanent) of
+    case nklib_util:ensure_all_started(?APP, permanent) of
         {ok, _Started} ->
             ok;
         Error ->

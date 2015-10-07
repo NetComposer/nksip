@@ -27,6 +27,7 @@
 -export([get_handle/1, parse_handle/1, make_id/2, remote_id/2, change_app/2]).
 -export_type([id/0]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -101,7 +102,7 @@ meta(Field, #dialog{invite=I}=D) ->
         early -> D#dialog.early;
         secure -> D#dialog.secure;
         route_set -> D#dialog.route_set;
-        raw_route_set -> [nksip_lib:to_binary(Route) || Route <- D#dialog.route_set];
+        raw_route_set -> [nklib_util:to_binary(Route) || Route <- D#dialog.route_set];
         invite_status when is_record(I, invite) -> I#invite.status;
         invite_status -> undefined;
         invite_answered when is_record(I, invite) -> I#invite.answered;
@@ -115,8 +116,8 @@ meta(Field, #dialog{invite=I}=D) ->
         subscriptions -> 
             [nksip_subscription_lib:get_handle({user_subs, S, D}) || S <- D#dialog.subscriptions];
         call_id -> D#dialog.call_id;
-        from_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
-        to_tag -> nksip_lib:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
+        from_tag -> nklib_util:get_binary(<<"tag">>, (D#dialog.local_uri)#uri.ext_opts);
+        to_tag -> nklib_util:get_binary(<<"tag">>, (D#dialog.remote_uri)#uri.ext_opts);
         full_dialog -> D;
         {function, Fun} -> Fun(D);
         _ -> error({invalid_field, Field}) 
@@ -198,8 +199,8 @@ make_id(_, #sipmsg{}) ->
 
 make_id(Class, FromTag, ToTag) ->
     case Class of
-        uac -> nksip_lib:hash({ToTag, FromTag});
-        uas -> nksip_lib:hash({FromTag, ToTag})
+        uac -> nklib_util:hash({ToTag, FromTag});
+        uas -> nklib_util:hash({FromTag, ToTag})
     end.
 
 
@@ -208,8 +209,8 @@ remote_id(<<$D, _/binary>>=DialogId, App) ->
     {ok, AppId} = nksip:find_app_id(App),
     {ok, [{internal_id, BaseId}, {local_uri, LUri}, {remote_uri, RUri}, {call_id, CallId}]} =  
         nksip_dialog:metas([internal_id, local_uri, remote_uri, call_id], DialogId),
-    FromTag = nksip_lib:get_binary(<<"tag">>, LUri#uri.ext_opts),
-    ToTag = nksip_lib:get_binary(<<"tag">>, RUri#uri.ext_opts),
+    FromTag = nklib_util:get_binary(<<"tag">>, LUri#uri.ext_opts),
+    ToTag = nklib_util:get_binary(<<"tag">>, RUri#uri.ext_opts),
     Id = case make_id(uac, FromTag, ToTag) of
         BaseId -> make_id(uas, FromTag, ToTag);
         RemoteId -> RemoteId

@@ -22,8 +22,8 @@
 -record(reg_contact, {
     index :: nksip_registrar_lib:index(),
     contact :: nksip:uri(), 
-    updated :: nksip_lib:l_timestamp(),
-    expire :: nksip_lib:timestamp(),
+    updated :: nklib_util:l_timestamp(),
+    expire :: nklib_util:timestamp(),
     q :: float(),  
     call_id :: nksip:call_id(),
     cseq :: nksip:cseq(),

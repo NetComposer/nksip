@@ -22,6 +22,7 @@
 -module(nksip_parse_uri).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -export([uris/1]).
 

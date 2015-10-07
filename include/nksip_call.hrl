@@ -85,7 +85,7 @@
     id :: nksip_call:trans_id(),
     class :: uac | uas,
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
-    start :: nksip_lib:timestamp(),
+    start :: nklib_util:timestamp(),
     from :: none | {srv, from()} | {fork, nksip_call_fork:id()},
     opts :: nksip:optslist(),
     trans_id :: integer(),
@@ -112,7 +112,7 @@
 -record(fork, {
     id :: nksip_call_fork:id(),
     class :: uac | uas,
-    start :: nksip_lib:timestamp(),
+    start :: nklib_util:timestamp(),
     request :: nksip:request(),
     method :: nksip:method(),
     opts :: nksip:optslist(),

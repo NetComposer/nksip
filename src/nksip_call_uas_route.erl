@@ -26,6 +26,7 @@
 
 -import(nksip_call_lib, [update/2]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 

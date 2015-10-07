@@ -40,19 +40,19 @@
 sip_event_compositor_store(Op, AppId) ->
     case Op of
         {get, AOR, Tag} ->
-            nksip_store:get({nksip_event_compositor, AppId, AOR, Tag}, not_found);
+            nklib_store:get({nksip_event_compositor, AppId, AOR, Tag}, not_found);
         {put, AOR, Tag, Record, TTL} -> 
-            nksip_store:put({nksip_event_compositor, AppId, AOR, Tag}, Record, [{ttl, TTL}]);
+            nklib_store:put({nksip_event_compositor, AppId, AOR, Tag}, Record, [{ttl, TTL}]);
         {del, AOR, Tag} ->
-            nksip_store:del({nksip_event_compositor, AppId, AOR, Tag});
+            nklib_store:del({nksip_event_compositor, AppId, AOR, Tag});
         del_all ->
             FoldFun = fun(Key, _Value, Acc) ->
                 case Key of
                     {nksip_event_compositor, AppId, AOR, Tag} -> 
-                        nksip_store:del({nksip_event_compositor, AppId, AOR, Tag});
+                        nklib_store:del({nksip_event_compositor, AppId, AOR, Tag});
                     _ -> 
                         Acc
                 end
             end,
-            nksip_store:fold(FoldFun, none)
+            nklib_store:fold(FoldFun, none)
     end.

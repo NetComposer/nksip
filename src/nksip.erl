@@ -28,6 +28,7 @@
 -export([get_pid/1, find_app_id/1, call/3, call/2, cast/2, config/1]).
 -export([get_uuid/1]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 
 -export_type([app_name/0, app_id/0, handle/0]).
@@ -226,7 +227,7 @@ update(App, Opts) ->
 
 get_all() ->
     [{AppId:name(), AppId} 
-      || {AppId, _Pid} <- nksip_proc:values(nksip_sipapps)].
+      || {AppId, _Pid} <- nklib_proc:values(nksip_sipapps)].
 
 
 %% @doc Gets a value from SipApp's store
@@ -330,14 +331,14 @@ find_app_id(App) when is_atom(App) ->
         true ->
             {ok, App};
         false ->
-            case nksip_proc:values({nksip_sipapp_name, App}) of
+            case nklib_proc:values({nksip_sipapp_name, App}) of
                 [] -> not_found;
                 [{AppId, _}] -> {ok, AppId}
             end
     end;
 
 find_app_id(App) ->
-    case nksip_proc:values({nksip_sipapp_name, App}) of
+    case nklib_proc:values({nksip_sipapp_name, App}) of
         [] -> not_found;
         [{AppId, _}] -> {ok, AppId}
     end.

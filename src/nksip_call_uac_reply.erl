@@ -52,7 +52,7 @@ reply(Class, UAC, #call{app_id=AppId}=Call) ->
     nksip_call:call().
 
 do_reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
-    CB = nksip_lib:get_value(callback, Opts),
+    CB = nklib_util:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case 
         is_function(CB, 1) andalso 
@@ -68,7 +68,7 @@ do_reply({req, Req}, #trans{from={srv, From}, method='ACK', opts=Opts}, Call) ->
     Call;
 
 do_reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
-    CB = nksip_lib:get_value(callback, Opts),
+    CB = nklib_util:get_value(callback, Opts),
     case is_function(CB, 1) andalso lists:member(get_request, Opts) of
         true -> call(CB, {req, Req, Call});
         false -> ok
@@ -77,7 +77,7 @@ do_reply({req, Req}, #trans{from={srv, _From}, opts=Opts}, Call) ->
 
 do_reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     #sipmsg{class={resp, Code, _Reason}} = Resp,
-    CB = nksip_lib:get_value(callback, Opts),
+    CB = nklib_util:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case 
         is_function(CB, 1) andalso Code>100 andalso 
@@ -93,7 +93,7 @@ do_reply({resp, Resp}, #trans{from={srv, From}, opts=Opts}, Call) ->
     Call;
 
 do_reply({error, Error}, #trans{from={srv, From}, opts=Opts}, Call) ->
-    CB = nksip_lib:get_value(callback, Opts),
+    CB = nklib_util:get_value(callback, Opts),
     Async = lists:member(async, Opts),
     case is_function(CB, 1) andalso Async of
         true -> call(CB, {error, Error});
@@ -160,7 +160,7 @@ response(Resp, Opts) ->
         _ -> 
             []
     end,
-    Metas = case nksip_lib:get_value(meta, Opts, []) of
+    Metas = case nklib_util:get_value(meta, Opts, []) of
         [] ->
             Metas0;
         Fields when is_list(Fields) ->

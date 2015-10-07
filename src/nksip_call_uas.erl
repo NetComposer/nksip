@@ -26,6 +26,7 @@
 -export_type([status/0, incoming/0]).
 
 -import(nksip_call_lib, [update/2]).
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -178,9 +179,9 @@ is_own_ack(#sipmsg{class={req, 'ACK'}}=Req) ->
         to = {_, ToTag},
         vias = [#via{opts=ViaOpts}|_]
     } = Req,
-    Branch = nksip_lib:get_binary(<<"branch">>, ViaOpts),
+    Branch = nklib_util:get_binary(<<"branch">>, ViaOpts),
     GlobalId = nksip_config_cache:global_id(),
-    nksip_lib:hash({GlobalId, Branch}) == ToTag;
+    nklib_util:hash({GlobalId, Branch}) == ToTag;
 
 is_own_ack(_) ->
     false.
@@ -216,7 +217,7 @@ process_request(Req, UASTransId, Call) ->
         id = NextId,
         class = uas,
         status = Status,
-        start = nksip_lib:timestamp(),
+        start = nklib_util:timestamp(),
         from = undefined,
         opts = [],
         trans_id = UASTransId, 
@@ -301,7 +302,7 @@ preprocess(Req) ->
         transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
         vias = [Via|ViaR]
     } = Req,
-    Received = nksip_lib:to_host(Ip, false), 
+    Received = nklib_util:to_host(Ip, false), 
     ViaOpts1 = [{<<"received">>, Received}|Via#via.opts],
     % For UDP, we honor the rport option
     % For connection transports, we force inclusion of remote port 
@@ -310,14 +311,14 @@ preprocess(Req) ->
         false when Proto==udp -> 
             ViaOpts1;
         _ -> 
-            [{<<"rport">>, nksip_lib:to_binary(Port)} | ViaOpts1 -- [<<"rport">>]]
+            [{<<"rport">>, nklib_util:to_binary(Port)} | ViaOpts1 -- [<<"rport">>]]
     end,
     Via1 = Via#via{opts=ViaOpts2},
-    Branch = nksip_lib:get_binary(<<"branch">>, ViaOpts2),
+    Branch = nklib_util:get_binary(<<"branch">>, ViaOpts2),
     GlobalId = nksip_config_cache:global_id(),
     ToTag1 = case ToTag of
         <<>> -> 
-            nksip_lib:hash({GlobalId, Branch});
+            nklib_util:hash({GlobalId, Branch});
         _ -> 
             ToTag
     end,
@@ -341,7 +342,7 @@ preprocess(Req) ->
 %% TODO: Is this working?
 strict_router(#sipmsg{app_id=AppId, ruri=RUri, routes=Routes}=Request) ->
     case 
-        nksip_lib:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
+        nklib_util:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
         andalso nksip_transport:is_local(AppId, RUri) of
     true ->
         case lists:reverse(Routes) of
@@ -365,7 +366,7 @@ ruri_has_maddr(Request) ->
         ruri = RUri, 
         transport=#transport{proto=Proto, local_port=LPort}
     } = Request,
-    case nksip_lib:get_binary(<<"maddr">>, RUri#uri.opts) of
+    case nklib_util:get_binary(<<"maddr">>, RUri#uri.opts) of
         <<>> ->
             Request;
         MAddr -> 
@@ -375,7 +376,7 @@ ruri_has_maddr(Request) ->
                         {Proto, _, LPort} ->
                             RUri1 = RUri#uri{
                                 port = 0,
-                                opts = nksip_lib:delete(RUri#uri.opts, 
+                                opts = nklib_util:delete(RUri#uri.opts, 
                                                         [<<"maddr">>, <<"transport">>])
                             },
                             Request#sipmsg{ruri=RUri1};

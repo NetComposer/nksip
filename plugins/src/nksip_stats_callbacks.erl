@@ -34,7 +34,7 @@
     continue.
 
 nkcb_transport_uas_sent(#sipmsg{start=Start}) ->
-    Elapsed = nksip_lib:l_timestamp()-Start,
+    Elapsed = nklib_util:l_timestamp()-Start,
     nksip_stats:response_time(Elapsed),
     continue.
 

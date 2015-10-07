@@ -578,7 +578,7 @@ generate(Method, Opts, Dialog, _Call) ->
         route_set = RouteSet,
         invite = Invite
     } = Dialog,
-    case nksip_lib:get_integer(cseq_num, Opts) of
+    case nklib_util:get_integer(cseq_num, Opts) of
         0 when Method == 'ACK' -> 
             #invite{request=#sipmsg{cseq={RCSeq, _}}} = Invite,
             LCSeq = CurrentCSeq;
@@ -595,7 +595,7 @@ generate(Method, Opts, Dialog, _Call) ->
         case Method of
             'ACK' ->
                 #invite{request=#sipmsg{headers=Headers}} = Invite,
-                Auths = nksip_lib:extract(Headers,
+                Auths = nklib_util:extract(Headers,
                                     [<<"authorization">>, <<"proxy-authorization">>]),
                 [{add, Auth} || Auth <-Auths];
             _ ->
@@ -612,7 +612,7 @@ generate(Method, Opts, Dialog, _Call) ->
                 true ->
                     ignore;
                 false ->
-                    case nksip_lib:get_value(contact, Opts, []) of
+                    case nklib_util:get_value(contact, Opts, []) of
                         [] -> {contact, LocalTarget};
                         _ -> ignore
                     end

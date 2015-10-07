@@ -104,7 +104,7 @@ sip_authorize(Auth, Req, _Call) ->
         true -> 
             ok;
         false ->
-            case nksip_lib:get_value({digest, <<"nksip">>}, Auth) of
+            case nklib_util:get_value({digest, <<"nksip">>}, Auth) of
                 true -> 
                     ok;             % Password is valid
                 false -> 

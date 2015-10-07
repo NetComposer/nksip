@@ -66,9 +66,9 @@ deps() ->
 
 parse_config(Opts) ->
     Defaults = [{nksip_trace, {console, all}}],
-    Opts1 = nksip_lib:defaults(Opts, Defaults),    
+    Opts1 = nklib_util:defaults(Opts, Defaults),    
     try
-        {File, IpList} = case nksip_lib:get_value(nksip_trace, Opts1) of
+        {File, IpList} = case nklib_util:get_value(nksip_trace, Opts1) of
             {File0, IpList0} -> 
                 case norm_file(File0) of
                     {ok, File1} ->
@@ -87,16 +87,16 @@ parse_config(Opts) ->
                         throw({invalid_file, File0})
                 end
         end,
-        AppId = nksip_lib:get_value(id, Opts1),
+        AppId = nklib_util:get_value(id, Opts1),
         close_file(AppId),
         case open_file(AppId, File) of
             ok -> 
                 case compile_ips(IpList, []) of
                     {ok, CompIpList} ->
-                        Cached1 = nksip_lib:get_value(cached_configs, Opts1, []),
-                        Cached2 = nksip_lib:store_value(config_nksip_trace,
+                        Cached1 = nklib_util:get_value(cached_configs, Opts1, []),
+                        Cached2 = nklib_util:store_value(config_nksip_trace,
                                                         {File, CompIpList}, Cached1),
-                        Opts2 = nksip_lib:store_value(cached_configs, Cached2, Opts1),
+                        Opts2 = nklib_util:store_value(cached_configs, Cached2, Opts1),
                         {ok, Opts2};
                     error ->
                         throw({invalid_re, IpList})
@@ -169,7 +169,7 @@ start(App, File, IpList) ->
     case nksip:find_app_id(App) of
         {ok, AppId} ->
             Plugins1 = AppId:config_plugins(),
-            Plugins2 = nksip_lib:store_value(nksip_trace, Plugins1),
+            Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
             case nksip:update(AppId, [{plugins, Plugins2}, {nksip_trace, {File, IpList}}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
@@ -332,7 +332,7 @@ compile_ips([Re|Rest], Acc) when element(1, Re)==re_pattern ->
 
 %% @private
 write(AppId, File, Msg) -> 
-    Time = nksip_lib:l_timestamp_to_float(nksip_lib:l_timestamp()), 
+    Time = nklib_util:l_timestamp_to_float(nklib_util:l_timestamp()), 
     case File of
         console ->
             io:format("\n        ---- ~f ~s", [Time, Msg]);

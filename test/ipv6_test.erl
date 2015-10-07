@@ -24,6 +24,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
+-include_lib("nklib/include/nklib.hrl").
 
 -compile([export_all]).
 -define(RECV(T), receive T -> ok after 1000 -> error(recv) end).
@@ -117,8 +118,8 @@ basic() ->
                 vias = [#via{domain=F_MainIp, opts=ViaOpts1}],
                 transport = Transp1
             } = Resp1,
-            <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts1),
-            RPort1 = nksip_lib:get_integer(<<"rport">>, ViaOpts1),
+            <<"::1">> = nklib_util:get_value(<<"received">>, ViaOpts1),
+            RPort1 = nklib_util:get_integer(<<"rport">>, ViaOpts1),
             %% For UDP transport, local ip is set to [:::] (?)
             #transport{
                 proto = udp,
@@ -148,8 +149,8 @@ basic() ->
                 vias = [#via{domain=MainIp, opts=ViaOpts2}],
                 transport = Transp2
             } = Resp2,
-            <<"::1">> = nksip_lib:get_value(<<"received">>, ViaOpts2),
-            RPort2 = nksip_lib:get_integer(<<"rport">>, ViaOpts2),
+            <<"::1">> = nklib_util:get_value(<<"received">>, ViaOpts2),
+            RPort2 = nklib_util:get_integer(<<"rport">>, ViaOpts2),
             %% For TCP transport, local ip is set to [::1]
             #transport{
                 proto = tcp,
@@ -369,7 +370,7 @@ torture_5() ->
                      opts = [{<<"received">>, Rec1 = <<"[2001:db8::9:255]">>},
                              {<<"branch">>, <<"z9hG4bKas3-111">>}]}]
     } = parse(Msg5),
-    {ok,{16#2001,16#db8,0,0,0,0,16#9,16#255}} = nksip_lib:to_ip(Rec1),
+    {ok,{16#2001,16#db8,0,0,0,0,16#9,16#255}} = nklib_util:to_ip(Rec1),
     ok.
 
 torture_6() ->
@@ -389,7 +390,7 @@ torture_6() ->
                      opts = [{<<"received">>, Rec2 = <<"2001:db8::9:255">>},
                              {<<"branch">>, <<"z9hG4bKas3">>}]}]
     } = parse(Msg6),
-    {ok,{8193,3512,0,0,0,0,9,597}} = nksip_lib:to_ip(Rec2),
+    {ok,{8193,3512,0,0,0,0,9,597}} = nklib_util:to_ip(Rec2),
     ok.
 
 torture_7() ->
@@ -510,9 +511,9 @@ torture_10() ->
         }
     } = parse(Msg10),
 
-    error = nksip_lib:to_ip(<<"2001:db8:::192.0.2.1">>),
+    error = nklib_util:to_ip(<<"2001:db8:::192.0.2.1">>),
     {ok, {0,0,0,0,0,16#ffff,16#C000,16#0202}} = 
-        nksip_lib:to_ip(<<"::ffff:192.0.2.2">>),
+        nklib_util:to_ip(<<"::ffff:192.0.2.2">>),
     ok.
 
 
@@ -567,7 +568,7 @@ sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, AppName} = nksip_request:app_name(Req),
-    Hds = [{add, "x-nk-id", nksip_lib:bjoin([AppName|Ids])}],
+    Hds = [{add, "x-nk-id", nklib_util:bjoin([AppName|Ids])}],
     {reply, {ok, Hds}}.
 
 

@@ -178,14 +178,14 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
     id().
 
 make_id(#sipmsg{class={req, 'REFER'}, cseq={CSeqNum, 'REFER'}}) ->
-    nksip_lib:hash({<<"refer">>, nksip_lib:to_binary(CSeqNum)});
+    nklib_util:hash({<<"refer">>, nklib_util:to_binary(CSeqNum)});
 
 make_id(#sipmsg{class={resp, _, _}, cseq={CSeqNum, 'REFER'}}) ->
-    nksip_lib:hash({<<"refer">>, nksip_lib:to_binary(CSeqNum)});
+    nklib_util:hash({<<"refer">>, nklib_util:to_binary(CSeqNum)});
 
 make_id(#sipmsg{event={Event, Opts}}) ->
-    Id = nksip_lib:get_value(<<"id">>, Opts),
-    nksip_lib:hash({Event, Id}).
+    Id = nklib_util:get_value(<<"id">>, Opts),
+    nklib_util:hash({Event, Id}).
 
 
 %% @private Finds a event.
@@ -227,26 +227,26 @@ state(#sipmsg{}=SipMsg) ->
         end,
         case Name of
             <<"active">> -> 
-                case nksip_lib:get_integer(<<"expires">>, Opts, -1) of
+                case nklib_util:get_integer(<<"expires">>, Opts, -1) of
                     -1 -> Expires = undefined;
                     Expires when is_integer(Expires), Expires>=0 -> ok;
                     _ -> Expires = throw(invalid)
                 end,
                  {active, Expires};
             <<"pending">> -> 
-                case nksip_lib:get_integer(<<"expires">>, Opts, -1) of
+                case nklib_util:get_integer(<<"expires">>, Opts, -1) of
                     -1 -> Expires = undefined;
                     Expires when is_integer(Expires), Expires>=0 -> ok;
                     _ -> Expires = throw(invalid)
                 end,
                 {pending, Expires};
             <<"terminated">> ->
-                case nksip_lib:get_integer(<<"retry-after">>, Opts, -1) of
+                case nklib_util:get_integer(<<"retry-after">>, Opts, -1) of
                     -1 -> Retry = undefined;
                     Retry when is_integer(Retry), Retry>=0 -> ok;
                     _ -> Retry = throw(invalid)
                 end,
-                case nksip_lib:get_value(<<"reason">>, Opts) of
+                case nklib_util:get_value(<<"reason">>, Opts) of
                     undefined -> 
                         {terminated, undefined, undefined};
                     Reason0 ->

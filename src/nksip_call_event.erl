@@ -275,12 +275,12 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     ReqExpires = case Req#sipmsg.expires of
         RE0 when is_integer(RE0), RE0>=0 -> RE0;
         _ when Method=='REFER' -> TC;
-        _ -> nksip_lib:get_value(event_exires, Config)
+        _ -> nklib_util:get_value(event_exires, Config)
     end,
     RespExpires = case Resp#sipmsg.expires of
         SE0 when is_integer(SE0), SE0>=0 -> SE0;
         _ when Method=='REFER' -> TC;
-        _ -> nksip_lib:get_value(event_exires, Config)
+        _ -> nklib_util:get_value(event_exires, Config)
     end,
     Expires = min(ReqExpires, RespExpires),
     ?call_debug("Event ~s expires updated to ~p", [Id, Expires]),
@@ -294,7 +294,7 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
         0 -> 
             undefined;
         _ ->
-            Offset = nksip_lib:get_value(event_expires_offset, Config),
+            Offset = nklib_util:get_value(event_expires_offset, Config),
             start_timer(1000*(Expires+Offset), {timeout, Id}, Dialog)
     end,
     TimerMiddle1= case Expires of
@@ -342,7 +342,7 @@ update({Status, Expires}, Subs, Dialog, Call)
     cancel_timer(TimerMiddle),
     ?call_debug("Event ~s expires updated to ~p", [Id, Expires]),
     Answered1 = case Answered of
-        undefined -> nksip_lib:timestamp();
+        undefined -> nklib_util:timestamp();
         _ -> Answered
     end,
     #call{app_id=AppId} = Call,
@@ -499,7 +499,7 @@ create(Class, #sipmsg{class={req, Method}}=Req, Dialog, Call) ->
     Event = case Method of
         'REFER' -> 
             #sipmsg{cseq={CSeq, _}} = Req,
-            {<<"refer">>, [{<<"id">>, nksip_lib:to_binary(CSeq)}]};
+            {<<"refer">>, [{<<"id">>, nklib_util:to_binary(CSeq)}]};
         _ ->
             Req#sipmsg.event
     end,        
@@ -582,7 +582,7 @@ dialog_update(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
 
 %% @private
 cancel_timer(Ref) ->
-    nksip_lib:cancel_timer(Ref).
+    nklib_util:cancel_timer(Ref).
 
 
 %% @private

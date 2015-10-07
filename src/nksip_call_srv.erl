@@ -87,7 +87,7 @@ get_data(Pid) ->
     gen_server_init(call()).
 
 init([AppId, CallId]) ->
-    nksip_counters:async([nksip_calls, {nksip_calls, AppId}]),
+    nklib_counters:async([nksip_calls, {nksip_calls, AppId}]),
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
         app_id = AppId, 

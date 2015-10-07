@@ -39,14 +39,14 @@
 
 get_all() ->
     [
-        {AppId, AOR, Tag, nksip_store:get({nksip_event_compositor, AppId, AOR, Tag}, [])}
+        {AppId, AOR, Tag, nklib_store:get({nksip_event_compositor, AppId, AOR, Tag}, [])}
         || {AppId, AOR, Tag} <- all()
     ].
 
 
 %% @private
 print_all() ->
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Print = fun({AppId, {Scheme, User, Domain}, Tag, Reg}) ->
         #reg_publish{expires=Expire, data=Data} = Reg,
         io:format("\n --- ~p --- ~p:~s@~s, ~s (~p) ---\n", 
@@ -64,7 +64,7 @@ print_all() ->
 
 clear() ->
     Fun = fun(AppId, AOR, Tag, _Val, Acc) ->
-        nksip_store:del({nksip_event_compositor, AppId, AOR, Tag}),
+        nklib_store:del({nksip_event_compositor, AppId, AOR, Tag}),
         Acc+1
     end,
     fold(Fun, 0).
@@ -85,6 +85,6 @@ fold(Fun, Acc0) when is_function(Fun, 5) ->
                 Acc
         end
     end,
-    nksip_store:fold(FoldFun, Acc0).
+    nklib_store:fold(FoldFun, Acc0).
 
 

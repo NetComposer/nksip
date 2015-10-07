@@ -52,10 +52,10 @@ deps() ->
     {ok, nksip:optslist()} | {error, term()}.
 
 parse_config(Opts) ->
-    Supported = nksip_lib:get_value(supported, Opts),
+    Supported = nklib_util:get_value(supported, Opts),
     Opts1 = case lists:member(<<"outbound">>, Supported) of
         true -> Opts;
-        false -> nksip_lib:store_value(supported, Supported++[<<"outbound">>], Opts)
+        false -> nklib_util:store_value(supported, Supported++[<<"outbound">>], Opts)
     end,
     {ok, Opts1}.
 

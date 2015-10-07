@@ -24,6 +24,7 @@
 
 -export([send_response/2, resend_response/2]).
     
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -47,25 +48,25 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     } = Resp,
     #via{proto=ViaProto, domain=ViaDomain, port=ViaPort, opts=ViaOpts} = Via,
     #transport{proto=RProto, remote_ip=RIp, remote_port=RPort, resource=Res} = Transp,
-    % {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(<<"received">>, ViaOpts)),
+    % {ok, RIp} = nklib_util:to_ip(nklib_util:get_value(<<"received">>, ViaOpts)),
     ViaRPort = lists:keymember(<<"rport">>, 1, ViaOpts),
     TranspSpec = case RProto of
         'udp' ->
-            case nksip_lib:get_binary(<<"maddr">>, ViaOpts) of
+            case nklib_util:get_binary(<<"maddr">>, ViaOpts) of
                 <<>> when ViaRPort -> [{udp, RIp, RPort, <<>>}];
                 <<>> -> [{udp, RIp, ViaPort, <<>>}];
-                MAddr -> [#uri{domain=MAddr, port=ViaPort}]   
+                MAddr -> [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
             end;
         _ ->
-            UriOpt = {<<"transport">>, nksip_lib:to_binary(ViaProto)},
+            UriOpt = {<<"transport">>, nklib_util:to_binary(ViaProto)},
             [
                 {current, {RProto, RIp, RPort, Res}}, 
-                #uri{domain=ViaDomain, port=ViaPort, opts=[UriOpt]}
+                #uri{scheme=sip, domain=ViaDomain, port=ViaPort, opts=[UriOpt]}
             ]
     end,
-    RouteBranch = nksip_lib:get_binary(<<"branch">>, ViaOpts),
+    RouteBranch = nklib_util:get_binary(<<"branch">>, ViaOpts),
     GlobalId = nksip_config_cache:global_id(),
-    RouteHash = <<"NkQ", (nksip_lib:hash({GlobalId, AppId, RouteBranch}))/binary>>,
+    RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, AppId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
     AppId:nkcb_debug(AppId, CallId, {send_response, Method, Code}),
     Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun, Opts),

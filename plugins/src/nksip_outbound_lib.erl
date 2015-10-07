@@ -26,6 +26,7 @@
 -export([registrar/1]).
 -export([decode_flow/1]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
@@ -215,7 +216,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
         contacts = Contacts,
         headers = Headers
     } = Req,    
-    case nksip_lib:get_value(record_flow, Opts) of
+    case nklib_util:get_value(record_flow, Opts) of
         FlowPid when is_pid(FlowPid) -> FlowOb = false;
         {FlowPid, ob} when is_pid(FlowPid) -> FlowOb = true;
         undefined -> FlowPid = FlowOb = false
@@ -224,10 +225,10 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
         false -> 
             GlobalId = nksip_config_cache:global_id(),
             RouteBranch = case Vias of
-                [#via{opts=RBOpts}|_] -> nksip_lib:get_binary(<<"branch">>, RBOpts);
+                [#via{opts=RBOpts}|_] -> nklib_util:get_binary(<<"branch">>, RBOpts);
                 _ -> <<>>
             end,
-            RouteHash = nksip_lib:hash({GlobalId, AppId, RouteBranch}),
+            RouteHash = nklib_util:hash({GlobalId, AppId, RouteBranch}),
             <<"NkQ", RouteHash/binary>>;
         FlowPid -> 
             FlowToken = encode_flow(FlowPid),
@@ -282,11 +283,11 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
 make_contact(#sipmsg{class={req, 'REGISTER'}}=Req, Contact, Opts) ->
     case 
         nksip_sipmsg:supported(<<"outbound">>, Req) andalso 
-        nksip_lib:get_integer(reg_id, Opts)
+        nklib_util:get_integer(reg_id, Opts)
     of
         RegId when is_integer(RegId), RegId>0 -> 
             #uri{ext_opts=CExtOpts1} = Contact,
-            CExtOpts2 = [{<<"reg-id">>, nksip_lib:to_binary(RegId)}|CExtOpts1],
+            CExtOpts2 = [{<<"reg-id">>, nklib_util:to_binary(RegId)}|CExtOpts1],
             Contact#uri{ext_opts=CExtOpts2};
         _ ->
             Contact
@@ -300,7 +301,7 @@ make_contact(Req, Contact, _Opts) ->
     of
         true ->
             #uri{opts=COpts} = Contact,
-            Contact#uri{opts=nksip_lib:store_value(<<"ob">>, COpts)};
+            Contact#uri{opts=nklib_util:store_value(<<"ob">>, COpts)};
         false ->
             Contact
     end.
@@ -322,11 +323,11 @@ check_several_reg_id([], _Found) ->
     ok;
 
 check_several_reg_id([#uri{ext_opts=Opts}|Rest], Found) ->
-    case nksip_lib:get_value(<<"reg-id">>, Opts) of
+    case nklib_util:get_value(<<"reg-id">>, Opts) of
         undefined -> 
             check_several_reg_id(Rest, Found);
         _ ->
-            Expires = case nksip_lib:get_list(<<"expires">>, Opts) of
+            Expires = case nklib_util:get_list(<<"expires">>, Opts) of
                 [] ->
                     default;
                 Expires0 ->

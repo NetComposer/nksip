@@ -47,12 +47,12 @@
 
 is_max(AppId) ->
     Max = nksip_config_cache:global_max_connections(),
-    case nksip_counters:value(nksip_connections) of
+    case nklib_counters:value(nksip_connections) of
         Current when Current > Max -> 
             true;
         _ -> 
             AppMax = AppId:config_max_connections(),
-            case nksip_counters:value({nksip_connections, AppId}) of
+            case nklib_counters:value({nksip_connections, AppId}) of
                 AppCurrent when AppCurrent > AppMax -> 
                     true;
                 _ ->
@@ -229,9 +229,9 @@ stop_all() ->
 
 init([AppId, Transport, SocketOrPid, Timeout]) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
-    nksip_proc:put({nksip_connection, {AppId, Proto, Ip, Port, Res}}, Transport), 
-    nksip_proc:put(nksip_transports, {AppId, Transport}),
-    nksip_counters:async([nksip_connections, {nksip_connections, AppId}]),
+    nklib_proc:put({nksip_connection, {AppId, Proto, Ip, Port, Res}}, Transport), 
+    nklib_proc:put(nksip_transports, {AppId, Transport}),
+    nklib_counters:async([nksip_connections, {nksip_connections, AppId}]),
     case is_pid(SocketOrPid) of
         true ->
             Socket = undefined,
@@ -272,7 +272,7 @@ handle_call({send, Packet}, From, State) ->
 
 handle_call({start_refresh, Secs, Ref, Pid}, From, State) ->
     #state{refresh_timer=RefreshTimer, refresh_notify=RefreshNotify} = State,
-    nksip_lib:cancel_timer(RefreshTimer),
+    nklib_util:cancel_timer(RefreshTimer),
     gen_server:reply(From, ok),
     RefreshNotify1 = case Ref of
         undefined -> RefreshNotify;
@@ -355,7 +355,7 @@ handle_cast({stun, error}, State) ->
     do_stop(stun_error, State);
 
 handle_cast(stop_refresh, #state{refresh_timer=RefreshTimer}=State) ->
-    nksip_lib:cancel_timer(RefreshTimer),
+    nklib_util:cancel_timer(RefreshTimer),
     State1 = State#state{
         in_refresh = false, 
         refresh_timer = undefined, 
@@ -657,7 +657,7 @@ do_parse_ws_messages([#message{type=fragmented}=Msg|Rest], State) ->
 
 do_parse_ws_messages([#message{type=Type, payload=Data}|Rest], State) 
         when Type==text; Type==binary ->
-    case do_parse(nksip_lib:to_binary(Data), State) of
+    case do_parse(nklib_util:to_binary(Data), State) of
         {ok, State1} -> 
             do_parse_ws_messages(Rest, State1);
         {error, Error} -> 

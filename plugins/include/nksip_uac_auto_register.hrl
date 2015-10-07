@@ -27,7 +27,7 @@
     interval :: non_neg_integer(),
     from :: any(),
     cseq :: nksip:cseq(),
-    next :: nksip_lib:timestamp(),
+    next :: nklib_util:timestamp(),
     ok :: boolean()
 }).
 

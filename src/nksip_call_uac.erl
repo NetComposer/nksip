@@ -190,12 +190,12 @@ cancel(#trans{id=TransId, cancel=Cancel, status=Status}, _Opts, Call) ->
 
 is_stateless(Resp) ->
     #sipmsg{vias=[#via{opts=Opts}|_]} = Resp,
-    case nksip_lib:get_binary(<<"branch">>, Opts) of
+    case nklib_util:get_binary(<<"branch">>, Opts) of
         <<"z9hG4bK", Branch/binary>> ->
             case binary:split(Branch, <<"-">>) of
                 [BaseBranch, NkSIP] ->
                     GlobalId = nksip_config_cache:global_id(),
-                    case nksip_lib:hash({BaseBranch, GlobalId, stateless}) of
+                    case nklib_util:hash({BaseBranch, GlobalId, stateless}) of
                         NkSIP -> true;
                         _ -> false
                     end;
@@ -232,7 +232,7 @@ make_trans(Req, Opts, From, Call) ->
         id = TransId,
         class = uac,
         status = Status,
-        start = nksip_lib:timestamp(),
+        start = nklib_util:timestamp(),
         from = From,
         opts = Opts1,
         trans_id = undefined,

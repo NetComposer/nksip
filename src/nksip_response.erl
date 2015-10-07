@@ -131,7 +131,7 @@ metas(Fields, Handle) when is_list(Fields) ->
 header(Name, #sipmsg{class={resp, _, _}}=Req) -> 
     {ok, nksip_sipmsg:header(Name, Req)};
 header(Name, Handle) when is_binary(Handle) ->
-    meta(nksip_lib:to_binary(Name), Handle).
+    meta(nklib_util:to_binary(Name), Handle).
 
 
 %% @doc Sleeps a random time between 2.1 and 4 secs. It should be called after

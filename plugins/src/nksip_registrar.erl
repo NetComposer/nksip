@@ -22,6 +22,7 @@
 -module(nksip_registrar).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("../include/nksip.hrl").
 -include("nksip_registrar.hrl").
 
@@ -69,41 +70,41 @@ parse_config(Opts) ->
         {nksip_registrar_min_time, 60},           % (secs) 1 min
         {nksip_registrar_max_time, 86400}         % (secs) 24 hour
     ],
-    Opts1 = nksip_lib:defaults(Opts, Defaults),
-    Allow = nksip_lib:get_value(allow, Opts1),
+    Opts1 = nklib_util:defaults(Opts, Defaults),
+    Allow = nklib_util:get_value(allow, Opts1),
     Opts2 = case lists:member(<<"REGISTER">>, Allow) of
         true -> 
             Opts1;
         false -> 
-            nksip_lib:store_value(allow, Allow++[<<"REGISTER">>], Opts1)
+            nklib_util:store_value(allow, Allow++[<<"REGISTER">>], Opts1)
     end,
     try
-        case nksip_lib:get_value(nksip_registrar_default_time, Opts2) of
+        case nklib_util:get_value(nksip_registrar_default_time, Opts2) of
             Def when is_integer(Def), Def>=5 -> 
                 ok;
             _ -> 
                 throw(nksip_registrar_default_time)
         end,
-        case nksip_lib:get_value(nksip_registrar_min_time, Opts2) of
+        case nklib_util:get_value(nksip_registrar_min_time, Opts2) of
             Min when is_integer(Min), Min>=1 -> 
                 ok;
             _ -> 
                 throw(nksip_registrar_min_time)
         end,
-        case nksip_lib:get_value(nksip_registrar_max_time, Opts2) of
+        case nklib_util:get_value(nksip_registrar_max_time, Opts2) of
             Max when is_integer(Max), Max>=60 -> 
                 ok;
             _ -> 
                 throw(nksip_registrar_max_time)
         end,
         Times = #nksip_registrar_time{
-            min = nksip_lib:get_value(nksip_registrar_min_time, Opts2),
-            max = nksip_lib:get_value(nksip_registrar_max_time, Opts2),
-            default = nksip_lib:get_value(nksip_registrar_default_time, Opts2)
+            min = nklib_util:get_value(nksip_registrar_min_time, Opts2),
+            max = nklib_util:get_value(nksip_registrar_max_time, Opts2),
+            default = nklib_util:get_value(nksip_registrar_default_time, Opts2)
         },
-        Cached1 = nksip_lib:get_value(cached_configs, Opts2, []),
-        Cached2 = nksip_lib:store_value(config_nksip_registrar_times, Times, Cached1),
-        Opts3 = nksip_lib:store_value(cached_configs, Cached2, Opts2),
+        Cached1 = nklib_util:get_value(cached_configs, Opts2, []),
+        Cached2 = nklib_util:store_value(config_nksip_registrar_times, Times, Cached1),
+        Opts3 = nklib_util:store_value(cached_configs, Cached2, Opts2),
         {ok, Opts3}
     catch
         throw:OptName -> {error, {invalid_config, OptName}}
@@ -182,8 +183,8 @@ delete(App, Scheme, User, Domain) ->
         {ok, AppId} ->
             AOR = {
                 nksip_parse:scheme(Scheme), 
-                nksip_lib:to_binary(User), 
-                nksip_lib:to_binary(Domain)
+                nklib_util:to_binary(User), 
+                nklib_util:to_binary(Domain)
             },
             nksip_registrar_lib:store_del(AppId, AOR);
         _ ->

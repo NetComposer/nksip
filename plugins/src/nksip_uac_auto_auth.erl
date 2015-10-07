@@ -54,7 +54,7 @@ deps() ->
 
 parse_config(Opts) ->
     Defaults = [{nksip_uac_auto_auth_max_tries, 5}],
-    Opts1 = nksip_lib:defaults(Opts, Defaults),
+    Opts1 = nklib_util:defaults(Opts, Defaults),
     do_parse_config(Opts1).
     
 
@@ -64,7 +64,7 @@ parse_config(Opts) ->
 
 do_parse_config(Opts) ->
     try
-        case nksip_lib:get_value(nksip_uac_auto_auth_max_tries, Opts) of
+        case nklib_util:get_value(nksip_uac_auto_auth_max_tries, Opts) of
             undefined ->
                 ok;
             Tries when is_integer(Tries), Tries>=0 -> 
@@ -72,15 +72,15 @@ do_parse_config(Opts) ->
             _ -> 
                 throw(nksip_uac_auto_auth_max_tries)
         end,
-        case nksip_lib:get_value(pass, Opts) of
+        case nklib_util:get_value(pass, Opts) of
             undefined ->
-                case nksip_lib:get_value(passes, Opts) of
+                case nklib_util:get_value(passes, Opts) of
                     undefined -> 
                         {ok, Opts};
                     Passes ->
                         case check_passes(Passes, []) of
                             {ok, Passes1} -> 
-                                {ok, nksip_lib:store_value(passes, Passes1, Opts)};
+                                {ok, nklib_util:store_value(passes, Passes1, Opts)};
                             error -> 
                                 throw(passes)
                         end
@@ -128,14 +128,14 @@ check_auth(Req, Resp, UAC, Call) ->
     of
         true ->
             #call{app_id=AppId, call_id=CallId} = Call,
-            Max = case nksip_lib:get_value(nksip_uac_auto_auth_max_tries, Opts) of
+            Max = case nklib_util:get_value(nksip_uac_auto_auth_max_tries, Opts) of
                 undefined -> 
                     nksip_sipapp_srv:config(AppId, nksip_uac_auto_auth_max_tries);
                 Max0 ->
                     Max0
             end,
             DefPasses = nksip_sipapp_srv:config(AppId, passes, []),
-            Passes = case nksip_lib:get_value(passes, Opts) of
+            Passes = case nklib_util:get_value(passes, Opts) of
                 undefined -> DefPasses;
                 Passes0 -> Passes0++DefPasses
             end,
@@ -171,7 +171,7 @@ check_passes([PassTerm|Rest], Acc) ->
         {Realm, Pass} when 
             (is_list(Realm) orelse is_binary(Realm)) andalso
             (is_list(Pass) orelse is_binary(Pass)) ->
-            Acc1 = [{nksip_lib:to_binary(Realm), nksip_lib:to_binary(Pass)}|Acc],
+            Acc1 = [{nklib_util:to_binary(Realm), nklib_util:to_binary(Pass)}|Acc],
             check_passes(Rest, Acc1);
         _ ->
             error

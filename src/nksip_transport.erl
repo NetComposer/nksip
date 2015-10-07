@@ -31,6 +31,7 @@
 
 -export_type([transport/0]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -57,7 +58,7 @@
 
 get_all() ->
     All = [{AppId, Transp, Pid} 
-            || {{AppId, Transp}, Pid} <- nksip_proc:values(nksip_transports)],
+            || {{AppId, Transp}, Pid} <- nklib_proc:values(nksip_transports)],
     lists:sort(All).
 
 
@@ -86,7 +87,7 @@ get_listening(AppId, Proto, Class) ->
                 false
         end
     end,
-    lists:filter(Fun, nksip_proc:values({nksip_listen, AppId})).
+    lists:filter(Fun, nklib_proc:values({nksip_listen, AppId})).
 
 
 %% @private Finds a listening transport of Proto
@@ -108,7 +109,7 @@ get_connected(AppId, Transp) ->
     [{nksip_transport:transport(), pid()}].
 
 get_connected(AppId, Proto, Ip, Port, Res) ->
-    nksip_proc:values({nksip_connection, {AppId, Proto, Ip, Port, Res}}).
+    nklib_proc:values({nksip_connection, {AppId, Proto, Ip, Port, Res}}).
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
@@ -119,14 +120,14 @@ is_local(AppId, #uri{}=Uri) ->
     Listen = [
         {Proto, Ip, Port, Res} ||
         {#transport{proto=Proto, listen_ip=Ip, listen_port=Port, resource=Res}, _Pid} 
-        <- nksip_proc:values({nksip_listen, AppId})
+        <- nklib_proc:values({nksip_listen, AppId})
     ],
     is_local(Listen, nksip_dns:resolve(Uri), nksip_config_cache:local_ips());
 
 is_local(AppId, #via{}=Via) ->
     {Proto, Host, Port} = nksip_parse:transport(Via),
-    Transp = {<<"transport">>, nksip_lib:to_binary(Proto)},
-    Uri = #uri{domain=Host, port=Port, opts=[Transp]},
+    Transp = {<<"transport">>, nklib_util:to_binary(Proto)},
+    Uri = #uri{scheme=sip, domain=Host, port=Port, opts=[Transp]},
     is_local(AppId, Uri).
 
 
@@ -187,7 +188,7 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
             {#transport{listen_ip=LIp, listen_port=LPort}, Pid} 
             <- get_listening(AppId, Proto, Class)
     ],
-    case nksip_lib:get_value({Ip, Port}, Listening) of
+    case nklib_util:get_value({Ip, Port}, Listening) of
         undefined -> 
             Transp = #transport{
                 proto = Proto,
@@ -220,28 +221,28 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
 get_listenhost(AppId, Ip, Opts) ->
     case size(Ip) of
         4 ->
-            Host = case nksip_lib:get_value(local_host, Opts) of
+            Host = case nklib_util:get_value(local_host, Opts) of
                 undefined -> AppId:config_local_host();
                 Host0 -> Host0
             end,
             case Host of
                 auto when Ip == {0,0,0,0} -> 
-                    nksip_lib:to_host(nksip_config_cache:main_ip()); 
+                    nklib_util:to_host(nksip_config_cache:main_ip()); 
                 auto ->
-                    nksip_lib:to_host(Ip);
+                    nklib_util:to_host(Ip);
                 _ -> 
                     Host
             end;
         8 ->
-            Host = case nksip_lib:get_value(local_host6, Opts) of
+            Host = case nklib_util:get_value(local_host6, Opts) of
                 undefined -> AppId:config_local_host6();
                 Host0 -> Host0
             end,
             case Host of
                 auto when Ip == {0,0,0,0,0,0,0,0} -> 
-                    nksip_lib:to_host(nksip_config_cache:main_ip6(), true);
+                    nklib_util:to_host(nksip_config_cache:main_ip6(), true);
                 auto -> 
-                    nksip_lib:to_host(Ip, true);
+                    nklib_util:to_host(Ip, true);
                 _ -> 
                     Host
             end
@@ -257,7 +258,7 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
     UriOpts = case Proto of
         tls when Scheme==sips -> Opts;
         udp when Scheme==sip -> Opts;
-        _ -> [{<<"transport">>, nksip_lib:to_binary(Proto)}|Opts] 
+        _ -> [{<<"transport">>, nklib_util:to_binary(Proto)}|Opts] 
     end,
     #uri{
         scheme = Scheme,
@@ -445,7 +446,7 @@ default_port(_) -> 0.
 
 %% @private
 get_all_connected() ->
-    nksip_proc:fold_names(
+    nklib_proc:fold_names(
         fun(Name, Values, Acc) ->
             case Name of
                 {nksip_connection, {AppId, _Proto, _Ip, _Port, _Res}} -> 

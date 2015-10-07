@@ -21,6 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(gruu_test).
+-include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -85,11 +86,11 @@ register() ->
         ext_opts = EOpts1
     } = PC1,
     Inst1 = list_to_binary(
-                nksip_lib:unquote(nksip_lib:get_value(<<"+sip.instance">>, EOpts1))),
-    [Pub1] = nksip_parse:ruris(nksip_lib:unquote(
-                               nksip_lib:get_value(<<"pub-gruu">>, EOpts1))),
-    [Tmp1] = nksip_parse:ruris(nksip_lib:unquote(
-                               nksip_lib:get_value(<<"temp-gruu">>, EOpts1))),
+                nklib_util:unquote(nklib_util:get_value(<<"+sip.instance">>, EOpts1))),
+    [Pub1] = nksip_parse:ruris(nklib_util:unquote(
+                               nklib_util:get_value(<<"pub-gruu">>, EOpts1))),
+    [Tmp1] = nksip_parse:ruris(nklib_util:unquote(
+                               nklib_util:get_value(<<"temp-gruu">>, EOpts1))),
     {ok, Inst1} = nksip:get_uuid(ua1),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub1,
     #uri{domain = <<"nksip">>, port=0} = Tmp1,
@@ -107,11 +108,11 @@ register() ->
     } = PC2,
 
     Inst2 = list_to_binary(
-                nksip_lib:unquote(nksip_lib:get_value(<<"+sip.instance">>, EOpts2))),
-    [Pub2] = nksip_parse:ruris(nksip_lib:unquote(
-                               nksip_lib:get_value(<<"pub-gruu">>, EOpts2))),
-    [Tmp2] = nksip_parse:ruris(nksip_lib:unquote(
-                               nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
+                nklib_util:unquote(nklib_util:get_value(<<"+sip.instance">>, EOpts2))),
+    [Pub2] = nksip_parse:ruris(nklib_util:unquote(
+                               nklib_util:get_value(<<"pub-gruu">>, EOpts2))),
+    [Tmp2] = nksip_parse:ruris(nklib_util:unquote(
+                               nklib_util:get_value(<<"temp-gruu">>, EOpts2))),
     {ok, Inst2} = nksip:get_uuid(ua2),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub2,
     #uri{domain = <<"nksip">>, port=0} = Tmp2,
@@ -142,8 +143,8 @@ temp_gruu() ->
     {ok, 200, [{_, CallId}, {_, CSeq}, {_, [#uri{ext_opts=EOpts1}]}]} =
         nksip_uac:register(ua1, "sip:127.0.0.1", 
                            [contact, {meta, [call_id, cseq_num, contacts]}]),
-    [Tmp1] = nksip_parse:ruris(nksip_lib:unquote(
-                               nksip_lib:get_value(<<"temp-gruu">>, EOpts1))),
+    [Tmp1] = nksip_parse:ruris(nklib_util:unquote(
+                               nklib_util:get_value(<<"temp-gruu">>, EOpts1))),
 
     % We send a new request with the same Call-ID, NkSIP generates a new valid 
     % and different temporary GRUU, both are valid
@@ -151,8 +152,8 @@ temp_gruu() ->
         nksip_uac:register(ua1, "sip:127.0.0.1", 
                                [contact, {call_id, CallId}, {cseq_num, CSeq+1}, 
                                 {meta, [contacts]}]),
-    [Tmp2] = nksip_parse:ruris(nksip_lib:unquote(
-                               nksip_lib:get_value(<<"temp-gruu">>, EOpts2))),
+    [Tmp2] = nksip_parse:ruris(nklib_util:unquote(
+                               nklib_util:get_value(<<"temp-gruu">>, EOpts2))),
 
     true = Tmp1 /= Tmp2,
     [#uri{port=5070}] = nksip_gruu:registrar_find(server1, Tmp1),
@@ -161,8 +162,8 @@ temp_gruu() ->
     % Now we change the Call-ID, both are invalidated and only the new one is valid
     {ok, 200, [{_, [#uri{ext_opts=EOpts3}]}]} =
         nksip_uac:register(ua1, "sip:127.0.0.1", [contact, {meta, [contacts]}]),
-    [Tmp3] = nksip_parse:ruris(nksip_lib:unquote(
-                               nksip_lib:get_value(<<"temp-gruu">>, EOpts3))),
+    [Tmp3] = nksip_parse:ruris(nklib_util:unquote(
+                               nklib_util:get_value(<<"temp-gruu">>, EOpts3))),
 
     true = Tmp1 /= Tmp3 andalso Tmp2 /= Tmp3,
     [] = nksip_gruu:registrar_find(server1, Tmp1),

@@ -96,7 +96,7 @@ start_link(AppId, Transp, Opts) ->
 
 init([AppId, Transp, Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
-    Autoclose = nksip_lib:get_value(sctp_timeout, Opts),
+    Autoclose = nklib_util:get_value(sctp_timeout, Opts),
     Opts1 = [
         binary, {reuseaddr, true}, {ip, Ip}, {active, once},
         {sctp_initmsg, 
@@ -110,8 +110,8 @@ init([AppId, Transp, Opts]) ->
             {ok, Port1} = inet:port(Socket),
             Transp1 = Transp#transport{local_port=Port1, listen_port=Port1},
             ok = gen_sctp:listen(Socket, true),
-            nksip_proc:put(nksip_transports, {AppId, Transp1}),
-            nksip_proc:put({nksip_listen, AppId}, Transp1),
+            nklib_proc:put(nksip_transports, {AppId, Transp1}),
+            nklib_proc:put({nksip_listen, AppId}, Transp1),
             State = #state{ 
                 app_id = AppId, 
                 transport = Transp1, 

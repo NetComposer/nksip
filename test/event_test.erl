@@ -22,6 +22,7 @@
 
 -module(event_test).
 
+-include_lib("nklib/include/nklib.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
 
@@ -483,7 +484,7 @@ sip_dialog_update(Update, Dialog, _Call) ->
 make_notify(Req) ->
     #sipmsg{from={From, FromTag}, to={To, _}, cseq={CSeq, _}, to_tag_candidate=ToTag} = Req,
     Req#sipmsg{
-        id = nksip_lib:uid(),
+        id = nklib_util:uid(),
         class = {req, 'NOTIFY'},
         ruri = hd(nksip_parse:uris("sip:127.0.0.1")),
         vias = [],

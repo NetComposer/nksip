@@ -44,14 +44,14 @@
 nkcb_handle_call({'$nksip_uac_auto_register_start_register', RegId, Uri, Opts}, 
                  From, SipAppState) ->
     #state{regs=Regs} = State = get_state(SipAppState),
-    case nksip_lib:get_value(call_id, Opts) of
+    case nklib_util:get_value(call_id, Opts) of
         undefined -> 
-            CallId = nksip_lib:luid(),
+            CallId = nklib_util:luid(),
             Opts1 = [{call_id, CallId}|Opts];
         CallId -> 
             Opts1 = Opts
     end,
-    case nksip_lib:get_value(expires, Opts) of
+    case nklib_util:get_value(expires, Opts) of
         undefined -> 
             Expires = 300,
             Opts2 = [{expires, Expires}|Opts1];
@@ -92,7 +92,7 @@ nkcb_handle_call({'$nksip_uac_auto_register_stop_register', RegId}, From, SipApp
 
 nkcb_handle_call('$nksip_uac_auto_register_get_registers', From, SipAppState) ->
     #state{regs=Regs} = get_state(SipAppState),
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Info = [
         {RegId, Ok, Next-Now}
         ||  #sipreg{id=RegId, ok=Ok, next=Next} <- Regs
@@ -103,19 +103,19 @@ nkcb_handle_call('$nksip_uac_auto_register_get_registers', From, SipAppState) ->
 nkcb_handle_call({'$nksip_uac_auto_register_start_ping', PingId, Uri, Opts}, 
                  From,  SipAppState) ->
     #state{pings=Pings} = State = get_state(SipAppState),
-    case nksip_lib:get_value(call_id, Opts) of
+    case nklib_util:get_value(call_id, Opts) of
         undefined -> 
-            CallId = nksip_lib:luid(),
+            CallId = nklib_util:luid(),
             Opts1 = [{call_id, CallId}|Opts];
         CallId -> 
             Opts1 = Opts
     end,
-    case nksip_lib:get_value(expires, Opts) of
+    case nklib_util:get_value(expires, Opts) of
         undefined -> 
             Expires = 300,
             Opts2 = Opts1;
         Expires -> 
-            Opts2 = nksip_lib:delete(Opts1, expires)
+            Opts2 = nklib_util:delete(Opts1, expires)
     end,
     Ping = #sipreg{
         id = PingId,
@@ -148,7 +148,7 @@ nkcb_handle_call({'$nksip_uac_auto_register_stop_ping', PingId}, From, SipAppSta
 
 nkcb_handle_call('$nksip_uac_auto_register_get_pings', From, SipAppState) ->
     #state{pings=Pings} = get_state(SipAppState),
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Info = [
         {PingId, Ok, Next-Now}
         ||  #sipreg{id=PingId, ok=Ok, next=Next} <- Pings
@@ -216,7 +216,7 @@ nkcb_handle_cast('$nksip_uac_auto_register_force_regs', SipAppState) ->
 
 nkcb_handle_cast('$nksip_uac_auto_register_check', SipAppState) ->
     #state{pings=Pings, regs=Regs} = State = get_state(SipAppState),
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     {Pings1, SipAppState1} = check_pings(Now, Pings, [], SipAppState),
     {Regs1, SipAppState2} = check_registers(Now, Regs, [], SipAppState1),
     State1 = State#state{pings=Pings1, regs=Regs1},
@@ -272,7 +272,7 @@ nkcb_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
 
 nkcb_uac_auto_register_launch_unregister(Reg, Sync, SipAppState)->
     #sipreg{ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
-    Opts1 = [contact, {cseq_num, CSeq}|nksip_lib:store_value(expires, 0, Opts)],
+    Opts1 = [contact, {cseq_num, CSeq}|nklib_util:store_value(expires, 0, Opts)],
     #sipapp_srv{app_id=AppId} = SipAppState,
     Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
     case Sync of
@@ -296,16 +296,16 @@ nkcb_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) ->
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, Code<300})
     end,
-    Time = case Code==503 andalso nksip_lib:get_value(retry_after, Meta) of
+    Time = case Code==503 andalso nklib_util:get_value(retry_after, Meta) of
         false -> Interval;
         undefined -> Interval;
         Retry -> Retry
     end,
     Reg1 = Reg#sipreg{
         ok = Code < 300,
-        cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
+        cseq = nklib_util:get_value(cseq_num, Meta) + 1,
         from = undefined,
-        next = nksip_lib:timestamp() + Time
+        next = nklib_util:timestamp() + Time
     },
     {ok, Reg1, SipAppState}.
 
@@ -347,16 +347,16 @@ nkcb_uac_auto_register_update_ping(Ping, Code, Meta, SipAppState) ->
         undefined -> ok;
         _ -> gen_server:reply(From, {ok, Code<300})
     end,
-    Time = case Code==503 andalso nksip_lib:get_value(retry_after, Meta) of
+    Time = case Code==503 andalso nklib_util:get_value(retry_after, Meta) of
         false -> Interval;
         undefined -> Interval;
         Retry -> Retry
     end,
     Ping1 = Ping#sipreg{
         ok = Code < 300,
-        cseq = nksip_lib:get_value(cseq_num, Meta) + 1,
+        cseq = nklib_util:get_value(cseq_num, Meta) + 1,
         from = undefined,
-        next = nksip_lib:timestamp() + Time
+        next = nklib_util:timestamp() + Time
     },
     {ok, Ping1, SipAppState}.
 

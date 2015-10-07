@@ -39,6 +39,7 @@
 -export([init/3, websocket_init/3, websocket_handle/3, websocket_info/3, 
          websocket_terminate/3]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 -include_lib("wsock/include/wsock.hrl").
@@ -61,7 +62,7 @@ get_listener(AppId, Transp, Opts) ->
         {value, {_, Dispatch}, Opts1} -> 
             ok
     end,
-    Timeout = 1000*nksip_lib:get_value(ws_timeout, Opts),
+    Timeout = 1000*nklib_util:get_value(ws_timeout, Opts),
     Dispatch1 = dispatch(Dispatch, [AppId, Transp, [{timeout, Timeout}]]),
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     {
@@ -185,13 +186,13 @@ init([AppId, Transp, Dispatch, Opts]) ->
         {ok, WebPid} ->
             Port1 = nksip_webserver:get_port(Proto, Ip, Port),
             Transp1 = Transp#transport{listen_port=Port1},   
-            nksip_proc:put(nksip_transports, {AppId, Transp1}),
-            nksip_proc:put({nksip_listen, AppId}, Transp1),
+            nklib_proc:put(nksip_transports, {AppId, Transp1}),
+            nklib_proc:put({nksip_listen, AppId}, Transp1),
             State = #state{
                 app_id = AppId, 
                 transport = Transp,
                 webserver = erlang:monitor(process, WebPid),
-                timeout = 1000*nksip_lib:get_value(ws_timeout, Opts)
+                timeout = 1000*nklib_util:get_value(ws_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->
@@ -267,7 +268,7 @@ websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
         true ->
             Req3 = cowboy_req:set_resp_header(<<"sec-websocket-protocol">>, 
                                               <<"sip">>, Req2),
-            Timeout = nksip_lib:get_value(timeout, Opts),
+            Timeout = nklib_util:get_value(timeout, Opts),
             {{RemoteIp, RemotePort}, _} = cowboy_req:peer(Req3),
             {Path, _} = cowboy_req:path(Req3),
             Transp1 = Transp#transport{
@@ -367,8 +368,8 @@ outbound_opts(wss, AppId) ->
             DefKey = ""
     end,
     Config = nksip_sipapp_srv:config(AppId),
-    Cert = nksip_lib:get_value(certfile, Config, DefCert),
-    Key = nksip_lib:get_value(keyfile, Config, DefKey),
+    Cert = nklib_util:get_value(certfile, Config, DefCert),
+    Key = nklib_util:get_value(keyfile, Config, DefKey),
     lists:flatten([
         binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw},
         case Cert of "" -> []; _ -> {certfile, Cert} end,
@@ -382,13 +383,13 @@ outbound_opts(wss, AppId) ->
     {binary(), #handshake{}}.
 
 handshake_req(Ip, Port, Res, Opts) ->
-    Host = case nksip_lib:get_value(transport_uri, Opts) of
+    Host = case nklib_util:get_value(transport_uri, Opts) of
         #uri{domain=Domain} -> 
             binary_to_list(Domain);
         undefined -> 
-            binary_to_list(nksip_lib:to_host(Ip))
+            binary_to_list(nklib_util:to_host(Ip))
     end,
-    Res1 = nksip_lib:to_list(Res),
+    Res1 = nklib_util:to_list(Res),
     {ok, #handshake{message=Msg1}=HS1} = wsock_handshake:open(Res1, Host, Port),
     #http_message{headers=Headers1} = Msg1,
     Headers2 = [{"Sec-Websocket-Protocol", "sip"}|Headers1],
@@ -406,12 +407,12 @@ handshake_resp(AppId, Data, Req) ->
         {ok, Resp} ->
             case wsock_handshake:handle_response(Resp, Req) of
                 {ok, #handshake{message=#http_message{headers=Headers}}} -> 
-                    case nksip_lib:get_value("Sec-Websocket-Protocol", Headers) of
+                    case nklib_util:get_value("Sec-Websocket-Protocol", Headers) of
                         "sip" -> 
                             ok;
                         _ ->
                             %% R15 sends it in lowercase (?)
-                            case nksip_lib:get_value("sec-websocket-protocol", Headers) of
+                            case nklib_util:get_value("sec-websocket-protocol", Headers) of
                                 "sip" -> 
                                     ok;
                                 _ ->

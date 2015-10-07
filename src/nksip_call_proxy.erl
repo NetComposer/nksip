@@ -25,6 +25,7 @@
 -export([route/4, response_stateless/2]).
 -export([normalize_uriset/1]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -66,7 +67,7 @@ route(UriList, ProxyOpts, UAS, Call) ->
                     [] -> 
                         ok;
                     PR ->
-                        Text = nksip_lib:bjoin([T || {T, _} <- PR]),
+                        Text = nklib_util:bjoin([T || {T, _} <- PR]),
                         throw({reply, {bad_extension, Text}})
                 end,
                 case Stateless of
@@ -121,8 +122,8 @@ response_stateless(#sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
 response_stateless(#sipmsg{vias=[_, Via|RestVias], transport=Transp}=Resp, Call) ->
     #sipmsg{cseq={_, Method}, class={resp, Code, _}} = Resp,
     #via{proto=ViaProto, port=ViaPort, opts=ViaOpts} = Via,
-    {ok, RIp} = nksip_lib:to_ip(nksip_lib:get_value(<<"received">>, ViaOpts)),
-    RPort = case nksip_lib:get_integer(<<"rport">>, ViaOpts) of
+    {ok, RIp} = nklib_util:to_ip(nklib_util:get_value(<<"received">>, ViaOpts)),
+    RPort = case nklib_util:get_integer(<<"rport">>, ViaOpts) of
         0 -> ViaPort;
         RPort0 -> RPort0
     end,
@@ -189,7 +190,7 @@ normalize_uriset(UriSet) when is_binary(UriSet) ->
     [pruris(UriSet)];
 
 normalize_uriset(UriSet) when is_list(UriSet) ->
-    case nksip_lib:is_string(UriSet) of
+    case nklib_util:is_string(UriSet) of
         true -> [pruris(UriSet)];
         false -> normalize_uriset(single, UriSet, [], [])
     end;
@@ -217,13 +218,13 @@ normalize_uriset(multi, [Bin|R], Acc1, Acc2) when is_binary(Bin) ->
     end;
 
 normalize_uriset(single, [List|R], Acc1, Acc2) when is_list(List) -> 
-    case nksip_lib:is_string(List) of
+    case nklib_util:is_string(List) of
         true -> normalize_uriset(single, R, Acc1++pruris(List), Acc2);
         false -> normalize_uriset(multi, [List|R], Acc1, Acc2)
     end;
 
 normalize_uriset(multi, [List|R], Acc1, Acc2) when is_list(List) -> 
-    case nksip_lib:is_string(List) of
+    case nklib_util:is_string(List) of
         true when Acc1==[] ->
             normalize_uriset(multi, R, [], Acc2++[pruris(List)]);
         true ->
@@ -268,11 +269,11 @@ pruris(RUri) ->
 
 
 normalize_test() ->
-    UriA = #uri{domain=(<<"a">>)},
-    UriB = #uri{domain=(<<"b">>)},
-    UriC = #uri{domain=(<<"c">>)},
-    UriD = #uri{domain=(<<"d">>)},
-    UriE = #uri{domain=(<<"e">>)},
+    UriA = #uri{scheme=sip, domain=(<<"a">>)},
+    UriB = #uri{scheme=sip, domain=(<<"b">>)},
+    UriC = #uri{scheme=sip, domain=(<<"c">>)},
+    UriD = #uri{scheme=sip, domain=(<<"d">>)},
+    UriE = #uri{scheme=sip, domain=(<<"e">>)},
 
     ?assert(normalize_uriset([]) == [[]]),
     ?assert(normalize_uriset(a) == [[]]),

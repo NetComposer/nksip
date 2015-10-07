@@ -112,12 +112,12 @@ terminate(_AppId, SipAppState) ->
 
 info() ->
     [
-        {calls, nksip_counters:value(nksip_calls)},
-        {dialogs, nksip_counters:value(nksip_dialogs)},
+        {calls, nklib_counters:value(nksip_calls)},
+        {dialogs, nklib_counters:value(nksip_dialogs)},
         {routers_queue, nksip_router:pending_msgs()},
         {routers_pending, nksip_router:pending_work()},
-        {connections, nksip_counters:value(nksip_connections)},
-        {counters_queue, nksip_counters:pending_msgs()},
+        {connections, nklib_counters:value(nksip_connections)},
+        {counters_queue, nklib_counters:pending_msgs()},
         {core_queues, nksip_sipapp_srv:pending_msgs()},
         {uas_response, nksip_stats:get_uas_avg()}
     ].
@@ -132,7 +132,7 @@ get_uas_avg() ->
 
 
 %% @private Informs the module about the last response time
--spec response_time(nksip_lib:l_timestamp()) ->
+-spec response_time(nklib_util:l_timestamp()) ->
     ok.
 
 response_time(Time) when is_number(Time) ->

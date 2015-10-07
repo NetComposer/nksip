@@ -35,7 +35,7 @@
 -record(state, {
     last_uas :: {Min::integer(), Max::integer(), Avg::integer(), Std::integer()},
     avg_uas_values :: [integer()],
-    last_check :: nksip_lib:timestamp(),
+    last_check :: nklib_util:timestamp(),
     period :: integer()
 }).
 
@@ -50,7 +50,7 @@ start_link() ->
     gen_server_init(#state{}).
 
 init([]) ->
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     State = #state{
         last_uas = {0,0,0,0}, 
         avg_uas_values = [], 
@@ -91,7 +91,7 @@ handle_cast(Msg, State) ->
 
 handle_info(timeout, #state{avg_uas_values=Values, period=Period}=State) ->
     LastUas = calculate(Values),
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     State1 = State#state{last_uas=LastUas, avg_uas_values=[], last_check=Now}, 
     {noreply, State1, 1000*Period};
 
@@ -124,7 +124,7 @@ terminate(_Reason, _State) ->
 
 %% @private
 timeout(#state{last_check=Last, period=Period}) ->
-    case (Last+Period) - nksip_lib:timestamp() of
+    case (Last+Period) - nklib_util:timestamp() of
         Time when Time > 0 -> 1000*Time;
         _ -> 0
     end.

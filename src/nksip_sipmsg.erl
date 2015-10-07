@@ -28,6 +28,7 @@
 -export([supported/2, require/2, is_dialog_forming/1, get_handle/1, parse_handle/1]).
 -export([remote_meta/2, remote_metas/2]).
 -export_type([id/0, field/0]).
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 
 -type id() :: binary().
@@ -136,11 +137,11 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
         rack ->
             case header(<<"rack">>, S) of 
                 [RAck] ->
-                    case nksip_lib:tokens(RAck) of
+                    case nklib_util:words(RAck) of
                         [RSeq, CSeq, Method] ->
                             {
-                                nksip_lib:to_integer(RSeq),
-                                nksip_lib:to_integer(CSeq),
+                                nklib_util:to_integer(RSeq),
+                                nklib_util:to_integer(CSeq),
                                 nksip_parse:method(Method)
                             };
                         _ ->
@@ -176,21 +177,21 @@ header(Name, S) ->
         <<"call-id">> -> 
             S#sipmsg.call_id;
         <<"via">> -> 
-            [nksip_lib:to_binary(Via) || Via <- S#sipmsg.vias];
+            [nklib_util:to_binary(Via) || Via <- S#sipmsg.vias];
         <<"from">> -> 
             [nksip_unparse:uri(element(1, S#sipmsg.from))];
         <<"to">> -> 
             [nksip_unparse:uri(element(1, S#sipmsg.to))];
         <<"cseq">> ->
             #sipmsg{cseq={CSeqNum, Method}} = S,
-            [<<(nksip_lib:to_binary(CSeqNum))/binary, 32, 
-              (nksip_lib:to_binary(Method))/binary>>];
+            [<<(nklib_util:to_binary(CSeqNum))/binary, 32, 
+              (nklib_util:to_binary(Method))/binary>>];
         <<"forwards">> -> 
-            [nksip_lib:to_binary(S#sipmsg.forwards)];
+            [nklib_util:to_binary(S#sipmsg.forwards)];
         <<"route">> -> 
-            [nksip_lib:to_binary(Route) || Route <- S#sipmsg.routes];
+            [nklib_util:to_binary(Route) || Route <- S#sipmsg.routes];
         <<"contact">> -> 
-            [nksip_lib:to_binary(Contact) || Contact <- S#sipmsg.contacts];
+            [nklib_util:to_binary(Contact) || Contact <- S#sipmsg.contacts];
         <<"content-type">> -> 
             case S#sipmsg.content_type of
                 undefined -> [];
@@ -199,17 +200,17 @@ header(Name, S) ->
         <<"require">> -> 
             case S#sipmsg.require of
                 [] -> [];
-                Require -> [nksip_lib:bjoin(Require)]
+                Require -> [nklib_util:bjoin(Require)]
             end;
         <<"supported">> -> 
             case S#sipmsg.supported of
                 [] -> [];
-                Supported -> [nksip_lib:bjoin(Supported)]
+                Supported -> [nklib_util:bjoin(Supported)]
             end;
         <<"expires">> -> 
             case S#sipmsg.expires of
                 undefined -> [];
-                Expires -> [nksip_lib:to_binary(Expires)]
+                Expires -> [nklib_util:to_binary(Expires)]
             end;
         <<"event">> -> 
             case S#sipmsg.event of
@@ -317,14 +318,14 @@ expired(#sipmsg{expires=Expires, start=Start}=Req) ->
         true ->
             case nksip_sipmsg:header(<<"date">>, Req, dates) of
                 [Date] ->
-                    Final = nksip_lib:gmt_to_timestamp(Date) + Expires,
-                    case nksip_lib:timestamp() of
+                    Final = nklib_util:gmt_to_timestamp(Date) + Expires,
+                    case nklib_util:timestamp() of
                         TS when TS > Final -> true;
                         _ -> false
                     end;
                 _ ->
                     Final = Start/1000 + Expires,
-                    case nksip_lib:timestamp() of
+                    case nklib_util:timestamp() of
                         TS when TS > Final -> true;
                         _ -> false
                     end

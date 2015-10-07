@@ -22,6 +22,7 @@
 -module(nksip_call_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -56,16 +57,16 @@ create(Class, Req, Resp, Call) ->
     } = Resp,
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     ?call_debug("Dialog ~s ~s created", [DialogId, UA]),
-    nksip_counters:async([nksip_dialogs]),
-    Now = nksip_lib:timestamp(),
+    nklib_counters:async([nksip_dialogs]),
+    Now = nklib_util:timestamp(),
     Dialog = #dialog{
         id = DialogId,
         app_id = AppId,
         call_id = CallId, 
         created = Now,
         updated = Now,
-        local_target = #uri{},
-        remote_target = #uri{},
+        local_target = #uri{scheme=sip},
+        remote_target = #uri{scheme=sip},
         route_set = [],
         blocked_route_set = false,
         early = true,
@@ -245,7 +246,7 @@ target_update(Class, Req, Resp, Dialog, Call) ->
         [LT] -> LT;
         _ -> LocalTarget
     end,
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Early1 = Early andalso Code >= 100 andalso Code < 200,
     case RemoteTarget of
         #uri{domain = <<"invalid.invalid">>} -> ok;
@@ -450,8 +451,8 @@ stop(Reason, #dialog{invite=Invite, subscriptions=Subs}=Dialog, Call) ->
 
 get_meta(Key, DialogId, Call) ->
     case find(DialogId, Call) of
-        #dialog{meta=DlgMeta} -> nksip_lib:get_value(Key, DlgMeta);
-        not_found -> nksip_lib:get_value(Key, Call#call.meta)
+        #dialog{meta=DlgMeta} -> nklib_util:get_value(Key, DlgMeta);
+        not_found -> nklib_util:get_value(Key, Call#call.meta)
     end.
 
 
@@ -462,13 +463,13 @@ get_meta(Key, DialogId, Call) ->
 update_meta(Key, Value, DialogId, Call) ->
     case find(DialogId, Call) of
         #dialog{meta=DialogMeta1} = Dialog1 ->
-            DialogMeta2 = nksip_lib:store_value(Key, Value, DialogMeta1),
+            DialogMeta2 = nklib_util:store_value(Key, Value, DialogMeta1),
             Dialog2 = Dialog1#dialog{meta=DialogMeta2},
             ?call_debug("Meta {~p,~p} updated in dialog", [Key, Value]),
             store(Dialog2, Call);
         not_found ->
             #call{meta=CallMeta1} = Call,
-            CallMeta2 = nksip_lib:store_value(Key, Value, CallMeta1),
+            CallMeta2 = nklib_util:store_value(Key, Value, CallMeta1),
             ?call_debug("Meta {~p,~p} updated in call", [Key, Value]),
             Call#call{meta=CallMeta2}
     end.
@@ -647,7 +648,7 @@ reason(Other) -> Other.
 
 %% @private
 cancel_timer(Ref) ->
-    nksip_lib:cancel_timer(Ref).
+    nklib_util:cancel_timer(Ref).
 
 
 %% @private

@@ -21,6 +21,7 @@
 %% -------------------------------------------------------------------
 
 -module(proxy_test).
+-include_lib("nklib/include/nklib.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -215,7 +216,7 @@ opts(Test) ->
              {body, Body4},
              {meta, [<<"x-nk">>, <<"x-nk-r">>]}],
     {ok, 200, Values4} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts4),
-    NkR4 = nksip_lib:bjoin([nksip_unparse:uri(Uri2#uri{opts=[lr], ext_opts=[]}),
+    NkR4 = nklib_util:bjoin([nksip_unparse:uri(Uri2#uri{opts=[lr], ext_opts=[]}),
                             <<"<sip:aaa>">>]),
     [
         {<<"x-nk">>, []}, 
@@ -629,16 +630,16 @@ sip_invite(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, {_Test, App}} = nksip_request:app_name(Req),
     Hds = [
-        case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
-        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
-        {add, "x-nk-id", nksip_lib:bjoin([App|Ids])}
+        case Values of [] -> ignore; _ -> {add, "x-nk", nklib_util:bjoin(Values)} end,
+        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nklib_util:bjoin(Routes)} end,
+        {add, "x-nk-id", nklib_util:bjoin([App|Ids])}
     ],
     Op = case nksip_request:header(<<"x-nk-op">>, Req) of
         {ok, [Op0]} -> Op0;
         {ok, _} -> <<"decline">>
     end,
     Sleep = case nksip_request:header(<<"x-nk-sleep">>, Req) of
-        {ok, [Sleep0]} -> nksip_lib:to_integer(Sleep0);
+        {ok, [Sleep0]} -> nklib_util:to_integer(Sleep0);
         {ok, _} -> 0
     end,
     Prov = case nksip_request:header(<<"x-nk-prov">>, Req) of
@@ -693,9 +694,9 @@ sip_options(Req, _Call) ->
     {ok, Routes} = nksip_request:header(<<"route">>, Req),
     {ok, {_Test, App}} = nksip_request:app_name(Req),
     Hds = [
-        case Values of [] -> ignore; _ -> {add, "x-nk", nksip_lib:bjoin(Values)} end,
-        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nksip_lib:bjoin(Routes)} end,
-        {add, "x-nk-id", nksip_lib:bjoin([App|Ids])}
+        case Values of [] -> ignore; _ -> {add, "x-nk", nklib_util:bjoin(Values)} end,
+        case Routes of [] -> ignore; _ -> {add, "x-nk-r", nklib_util:bjoin(Routes)} end,
+        {add, "x-nk-id", nklib_util:bjoin([App|Ids])}
     ],
     {reply, {ok, [contact|Hds]}}.
 

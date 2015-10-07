@@ -256,7 +256,7 @@ apply_sipmsg(AppId, CallId, MsgId, Fun) ->
     call().
 
 check_call(#call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call) ->
-    Now = nksip_lib:timestamp(),
+    Now = nklib_util:timestamp(),
     Trans1 = check_call_trans(Now, 2*TransTime, Call),
     Forks1 = check_call_forks(Now, 2*TransTime, Call),
     Dialogs1 = check_call_dialogs(Now, 2*DialogTime, Call),
@@ -264,7 +264,7 @@ check_call(#call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call
 
 
 %% @private
--spec check_call_trans(nksip_lib:timestamp(), integer(), call()) ->
+-spec check_call_trans(nklib_util:timestamp(), integer(), call()) ->
     [trans()].
 
 check_call_trans(Now, MaxTime, #call{trans=Trans}) ->
@@ -282,7 +282,7 @@ check_call_trans(Now, MaxTime, #call{trans=Trans}) ->
 
 
 %% @private
--spec check_call_forks(nksip_lib:timestamp(), integer(), call()) ->
+-spec check_call_forks(nklib_util:timestamp(), integer(), call()) ->
     [fork()].
 
 check_call_forks(Now, MaxTime, #call{forks=Forks}) ->
@@ -300,7 +300,7 @@ check_call_forks(Now, MaxTime, #call{forks=Forks}) ->
 
 
 %% @private
--spec check_call_dialogs(nksip_lib:timestamp(), integer(), call()) ->
+-spec check_call_dialogs(nklib_util:timestamp(), integer(), call()) ->
     [nksip:dialog()].
 
 check_call_dialogs(Now, MaxTime, #call{dialogs=Dialogs}) ->

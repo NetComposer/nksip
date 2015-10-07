@@ -3,6 +3,8 @@
 -pa deps/ranch/ebin 
 -pa deps/cowlib/ebin 
 -pa deps/cowboy/ebin 
+-pa deps/nklib/ebin
+-pa deps/jsx/ebin
 -pa deps/wsock/ebin 
 -pa ../nksip/ebin
 -pa plugins/ebin

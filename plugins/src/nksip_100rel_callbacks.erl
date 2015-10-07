@@ -110,10 +110,10 @@ nkcb_parse_uas_opt(Req, Resp, Opts) ->
                         true -> Resp;
                         false -> Resp#sipmsg{require=[<<"100rel">>|RespRequire]}
                     end,
-                    Opts1 = nksip_lib:delete(Opts, do100rel),
+                    Opts1 = nklib_util:delete(Opts, do100rel),
                     {continue, [Req, Resp1, Opts1]};
                 false -> 
-                    Opts1 = nksip_lib:delete(Opts, do100rel),
+                    Opts1 = nklib_util:delete(Opts, do100rel),
                     {continue, [Req, Resp, Opts1]}
             end;
         false ->

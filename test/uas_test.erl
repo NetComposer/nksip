@@ -251,7 +251,7 @@ sip_invite(Req, _Call) ->
         {ok, _} -> <<"decline">>
     end,
     Sleep = case nksip_request:header(<<"x-nk-sleep">>, Req) of
-        {ok, [Sleep0]} -> nksip_lib:to_integer(Sleep0);
+        {ok, [Sleep0]} -> nklib_util:to_integer(Sleep0);
         {ok, _} -> 0
     end,
     {ok, ReqId} = nksip_request:get_handle(Req),
@@ -289,7 +289,7 @@ sip_options(Req, _Call) ->
             spawn(
                 fun() ->
                     nksip_request:reply(101, ReqId), 
-                    timer:sleep(nksip_lib:to_integer(Sleep0)),
+                    timer:sleep(nklib_util:to_integer(Sleep0)),
                     nksip_request:reply({ok, [contact]}, ReqId)
                 end),
             noreply;

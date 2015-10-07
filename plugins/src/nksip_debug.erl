@@ -57,11 +57,11 @@ deps() ->
 %     {ok, nksip:optslist()} | {error, term()}.
 
 % parse_config(Opts) ->
-%     case nksip_lib:get_value(nksip_debug, Opts, false) of
+%     case nklib_util:get_value(nksip_debug, Opts, false) of
 %         Trace when is_boolean(Trace) ->
-%             Cached1 = nksip_lib:get_value(cached_configs, Opts, []),
-%             Cached2 = nksip_lib:store_value(config_nksip_debug, Trace, Cached1),
-%             Opts1 = nksip_lib:store_value(cached_configs, Cached2, Opts),
+%             Cached1 = nklib_util:get_value(cached_configs, Opts, []),
+%             Cached2 = nklib_util:store_value(config_nksip_debug, Trace, Cached1),
+%             Opts1 = nklib_util:store_value(cached_configs, Cached2, Opts),
 %             {ok, Opts1};
 %         _ ->
 %             {error, {invalid_config, nksip_debug}}
@@ -112,7 +112,7 @@ start(App) ->
     case nksip:find_app_id(App) of
         {ok, AppId} ->
             Plugins1 = AppId:config_plugins(),
-            Plugins2 = nksip_lib:store_value(nksip_debug, Plugins1),
+            Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
             case nksip:update(AppId, [{plugins, Plugins2}, {debug, true}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
@@ -153,11 +153,11 @@ insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
 
 %% @private
 insert(AppId, CallId, Info) ->
-    Time = nksip_lib:l_timestamp(),
+    Time = nklib_util:l_timestamp(),
     Info1 = case Info of
         {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
                               Type==warning; Type==error ->
-            {Type, nksip_lib:msg(Str, Fmt)};
+            {Type, nklib_util:msg(Str, Fmt)};
         _ ->
             Info
     end,
@@ -168,8 +168,8 @@ insert(AppId, CallId, Info) ->
 %% @private
 find(CallId) ->
     Lines = lists:sort([{Time, AppId, Info} || {_, Time, AppId, Info} 
-                         <- ets:lookup(nksip_debug_msgs, nksip_lib:to_binary(CallId))]),
-    [{nksip_lib:l_timestamp_to_float(Time), AppId, Info} 
+                         <- ets:lookup(nksip_debug_msgs, nklib_util:to_binary(CallId))]),
+    [{nklib_util:l_timestamp_to_float(Time), AppId, Info} 
         || {Time, AppId, Info} <- Lines].
 
 

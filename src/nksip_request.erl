@@ -126,7 +126,7 @@ metas(Fields, Handle) when is_list(Fields) ->
 header(Name, #sipmsg{class={req, _}}=Req) -> 
     {ok, nksip_sipmsg:header(Name, Req)};
 header(Name, Handle) when is_binary(Handle) ->
-    meta(nksip_lib:to_binary(Name), Handle).
+    meta(nklib_util:to_binary(Name), Handle).
 
 
 %% @doc Sends a reply to a request. Must get the request's id before, and

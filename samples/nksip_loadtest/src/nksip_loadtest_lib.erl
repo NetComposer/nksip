@@ -174,7 +174,7 @@ launch(Opts) ->
         false -> start_server()
     end,
     Pid = self(),
-    CallId = integer_to_list(nksip_lib:timestamp() - ?BASE),
+    CallId = integer_to_list(nklib_util:timestamp() - ?BASE),
     io:format("Starting test ~s (~p, ~p, ~s) for ~p messages with ~p clients: ", 
         [string:to_upper(atom_to_list(MsgType)), Raw, Transport, 
             State, Messages, Processes]),
@@ -282,7 +282,7 @@ iter_full(MsgType, Pos, RUri, Pid, CallId0, Messages) ->
                     Other -> throw({invalid_options_response, Other})
                 end;
             register ->
-                From = <<"sip:", (nksip_lib:to_binary(Pos))/binary, "@localhost">>,
+                From = <<"sip:", (nklib_util:to_binary(Pos))/binary, "@localhost">>,
                 Opts1 = [contact, {from, From}, to_as_from|Opts],
                 case nksip_uac:register({client, Pos}, RUri, Opts1) of
                     {ok, 200, []} -> ok;
@@ -405,7 +405,7 @@ options(Host, Transport, CallId) ->
     [
         <<"OPTIONS sip:">>, Host, <<" SIP/2.0\r\n">>,
         <<"Via: SIP/2.0/">>, Transport, 32, <<" 127.0.0.1;branch=z9hG4bK">>, 
-            nksip_lib:luid(), <<";rport\r\n">>,
+            nklib_util:luid(), <<";rport\r\n">>,
         <<"From: <sip:test@nksip>;tag=">>, integer_to_list(Tag), <<"\r\n">>,
         <<"To: <sip:test@nksip>\r\n">>,
         <<"Call-ID: ">>, CallId,  <<"\r\n">>,
@@ -421,7 +421,7 @@ register(Host, Transport, CallId) ->
     [
         <<"REGISTER sip:">>, Host, <<" SIP/2.0\r\n">>,
         <<"Via: SIP/2.0/">>, Transport, 32, <<" 127.0.0.1;branch=z9hG4bK">>, 
-            nksip_lib:luid(), <<";rport\r\n">>,
+            nklib_util:luid(), <<";rport\r\n">>,
         <<"From: <sip:test@nksip>;tag=">>, integer_to_list(Tag), <<"\r\n">>,
         <<"To: <sip:test@nksip>\r\n">>,
         <<"Call-ID: ">>, CallId,  <<"\r\n">>,
@@ -438,7 +438,7 @@ invite(Host, Transport, CallId) ->
     [
         <<"INVITE sip:">>, Host, <<" SIP/2.0\r\n">>,
         <<"Via: SIP/2.0/">>, Transport, 32, <<" 127.0.0.1;branch=z9hG4bK">>, 
-            nksip_lib:luid(), <<";rport\r\n">>,
+            nklib_util:luid(), <<";rport\r\n">>,
         <<"From: <sip:test@nksip>;tag=">>, integer_to_list(Tag), <<"\r\n">>,
         <<"To: <sip:test@nksip>\r\n">>,
         <<"Call-ID: ">>, CallId,  <<"\r\n">>,
@@ -461,7 +461,7 @@ ack(Host, Transport, CallId, To) ->
     [
         <<"ACK sip:">>, Host, <<" SIP/2.0\r\n">>,
         <<"Via: SIP/2.0/">>, Transport, 32, <<" 127.0.0.1;branch=z9hG4bK">>, 
-            nksip_lib:luid(), <<";rport\r\n">>,
+            nklib_util:luid(), <<";rport\r\n">>,
         <<"From: <sip:test@nksip>;tag=">>, integer_to_list(Tag), <<"\r\n">>,
         <<"To: ">>, To, <<"\r\n">>,
         <<"Call-ID: ">>, CallId, <<"\r\n">>,
@@ -477,7 +477,7 @@ bye(Host, Transport, CallId, To) ->
     [
         <<"BYE sip:">>, Host, <<" SIP/2.0\r\n">>,
         <<"Via: SIP/2.0/">>, Transport, 32, <<" 127.0.0.1;branch=z9hG4bK">>, 
-            nksip_lib:luid(), <<";rport\r\n">>,
+            nklib_util:luid(), <<";rport\r\n">>,
         <<"From: <sip:test@nksip>;tag=">>, integer_to_list(Tag), <<"\r\n">>,
         <<"To: ">>, To, <<"\r\n">>,
         <<"Call-ID: ">>, CallId, <<"\r\n">>,

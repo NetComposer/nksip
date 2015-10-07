@@ -160,7 +160,7 @@ handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
             end,
             case do_update_server(Ref, Apps1) of
                 ok ->
-                    WebApps1 = nksip_lib:store_value(AppId, WebApps),
+                    WebApps1 = nklib_util:store_value(AppId, WebApps),
                     Server1 = Server#server_info{apps=WebApps1},
                     State1 = State#state{
                         servers = [Server1|Servers1], 
@@ -283,7 +283,7 @@ terminate(_Reason, _State) ->
 do_start_server(Ref, Dispatch, Opts) ->
     {Proto, Ip, Port} = Ref,
     Env = {env, [{dispatch, cowboy_router:compile(Dispatch)}]},
-    Listeners = nksip_lib:get_value(listeners, Opts, 1), 
+    Listeners = nklib_util:get_value(listeners, Opts, 1), 
     ListenOpts = listen_opts(Proto, Ip, Port, Opts), 
     TransMod = if
         Proto==tcp; Proto==ws -> ranch_tcp;
@@ -367,8 +367,8 @@ listen_opts(wss, Ip, Port, Opts) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = nksip_lib:get_value(certfile, Opts, DefCert),
-    Key = nksip_lib:get_value(keyfile, Opts, DefKey),
+    Cert = nklib_util:get_value(certfile, Opts, DefCert),
+    Key = nklib_util:get_value(keyfile, Opts, DefKey),
     lists:flatten([
         {ip, Ip}, {port, Port}, 
         % {keepalive, true}, 
@@ -393,7 +393,7 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol, [Env]) ->
         {ok, Pid} ->
             {Proto, Ip, _} = Ref,
             Port = ranch:get_port(Ref),
-            nksip_proc:put({nksip_webserver, {Proto, Ip, Port}}, [], Pid),
+            nklib_proc:put({nksip_webserver, {Proto, Ip, Port}}, [], Pid),
             gen_server:cast(?MODULE, {webserver_started, Ref, Pid}),
             {ok, Pid};
         Other ->
