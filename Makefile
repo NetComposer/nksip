@@ -1,6 +1,7 @@
 PROJECT = nksip
 DIALYZER = dialyzer
 REBAR = ./rebar
+RELOADER = -s nkreloader
 
 all: app
 
@@ -52,7 +53,7 @@ dialyze: app
 	-Werror_handling  #-Wunmatched_returns -Wrace_conditions -Wunderspecs
 
 shell: 
-	erl -config priv/app.config -args_file priv/vm.args
+	erl -config priv/app.config -args_file priv/vm.args $(RELOADER)
 
 tutorial: 
 	erl -config samples/nksip_tutorial/priv/app.config \

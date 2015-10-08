@@ -24,61 +24,37 @@
 
 -behaviour(supervisor).
 
--export([start_sipapp/2, stop_sipapp/1]).
--export([init/1, start_link/0, start_sipapps_sup/0]).
+% -export([start_sipapp/2, stop_sipapp/1]).
+-export([init/1, start_link/0]).
 
 -include("nksip.hrl").
 
-%% @private Starts a new SipApp's process
-start_sipapp(AppId, Args) ->
-    Spec = {AppId,
-                {nksip_sipapp_sup, start_link, [AppId, Args]},
-                permanent,
-                infinity,
-                supervisor,
-                [nksip_sipapp_sup]},
-    case supervisor:start_child(nksip_sipapp_sup, Spec) of
-        {ok, _SupPid} -> ok;
-        {error, {Error, _}} -> {error, Error};
-        {error, Error} -> {error, Error}
-    end.
+% %% @private Starts a new SipApp's process
+% start_sipapp(AppId, Args) ->
+%     Spec = {AppId,
+%                 {nksip_sipapp_sup, start_link, [AppId, Args]},
+%                 permanent,
+%                 infinity,
+%                 supervisor,
+%                 [nksip_sipapp_sup]},
+%     case supervisor:start_child(nksip_sipapp_sup, Spec) of
+%         {ok, _SupPid} -> ok;
+%         {error, {Error, _}} -> {error, Error};
+%         {error, Error} -> {error, Error}
+%     end.
 
 
-%% @private Stops a SipApp's core
-stop_sipapp(AppId) ->
-    case supervisor:terminate_child(nksip_sipapp_sup, AppId) of
-        ok -> ok = supervisor:delete_child(nksip_sipapp_sup, AppId);
-        {error, _} -> error
-    end.
+% %% @private Stops a SipApp's core
+% stop_sipapp(AppId) ->
+%     case supervisor:terminate_child(nksip_sipapp_sup, AppId) of
+%         ok -> ok = supervisor:delete_child(nksip_sipapp_sup, AppId);
+%         {error, _} -> error
+%     end.
 
 
 %% @private
 start_link() ->
     ChildsSpec = [
-        % {nksip_config,
-        %     {nksip_config, start_link, []},
-        %     permanent,
-        %     5000,
-        %     worker,
-        %     [nksip_config]},
-        % {nksip_proc,
-        %     {nksip_proc, start_link, []},
-        %     permanent,
-        %     5000,
-        %     worker,
-        %     [nksip_proc]},
-        % {nksip_counters,
-        %     {nksip_counters, start_link, []},
-        %     permanent,
-        %     5000,
-        %     worker,
-        %     [nksip_counters]},
-        % {nksip_store,
-        %     {nksip_store, start_link, []},
-        %     permanent,
-        %     5000,
-        %     worker,
-        %     [nksip_store]},
         {nksip_dns,
             {nksip_dns, start_link, []},
             permanent,
@@ -96,22 +72,22 @@ start_link() ->
             permanent,
             5000,
             worker,
-            [nksip_webserver]},
-        {nksip_sipapp_sup,
-            {?MODULE, start_sipapps_sup, []},
-            permanent,
-            infinity,
-            supervisor,
-            [?MODULE]}
+            [nksip_webserver]}
+        % {nksip_sipapp_sup,
+        %     {?MODULE, start_sipapps_sup, []},
+        %     permanent,
+        %     infinity,
+        %     supervisor,
+        %     [?MODULE]}
      ] 
      ++
      [get_call_routers(N) || N <- lists:seq(0, nksip_config_cache:msg_routers()-1)],
   supervisor:start_link({local, ?MODULE}, ?MODULE, {{one_for_one, 10, 60}, ChildsSpec}).
 
-%% @private
-start_sipapps_sup() ->
-    supervisor:start_link({local, nksip_sipapp_sup}, 
-                            ?MODULE, {{one_for_one, 10, 60}, []}).
+% %% @private
+% start_sipapps_sup() ->
+%     supervisor:start_link({local, nksip_sipapp_sup}, 
+%                             ?MODULE, {{one_for_one, 10, 60}, []}).
 
 %% @private
 init(ChildSpecs) ->

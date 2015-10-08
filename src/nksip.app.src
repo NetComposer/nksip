@@ -14,7 +14,8 @@
         lager,
         ranch,
         cowlib,
-        cowboy
+        cowboy,
+        nkservice
     ]},
     {env, [
     ]}

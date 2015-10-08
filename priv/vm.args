@@ -6,9 +6,10 @@
 -pa deps/nklib/ebin
 -pa deps/jsx/ebin
 -pa deps/wsock/ebin 
--pa ../nksip/ebin
+-pa deps/nkservice/ebin
 -pa plugins/ebin
 -pa samples/nksip_loadtest/ebin
+-pa ../nksip/ebin
 
 ## Name of the node
 -name nksip_shell@127.0.0.1

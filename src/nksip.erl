@@ -168,7 +168,7 @@ start(AppName, Module, Args, Opts) ->
             Opts1 = [{name, AppName}, {module, Module}|Opts],
             case nksip_sipapp_config:start(Opts1) of
                 {ok, AppId} ->
-                    case nksip_sup:start_sipapp(AppId, Args) of
+                    case nkservice_sup:start_service(AppId, none, Args) of
                         ok -> {ok, AppId};
                         {error, Error} -> {error, Error}
                     end;
@@ -187,7 +187,7 @@ start(AppName, Module, Args, Opts) ->
 stop(App) ->
     case find_app_id(App) of
         {ok, AppId} ->
-            case nksip_sup:stop_sipapp(AppId) of
+            case nkservice_sup:stop_service(AppId) of
                 ok -> 
                     ok;
                 error -> 
