@@ -349,7 +349,7 @@ invalid_12() ->
         "m=video 3227 RTP/AVP 31\r\n"
         "a=rtpmap:31 LPC\r\n">>,
     #sipmsg{headers=[{<<"date">>, Date}]} = parse(Msg),
-    error = nksip_parse:dates(Date),
+    error = nklib_parse:dates(Date),
     ok.
 
 

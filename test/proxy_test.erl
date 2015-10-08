@@ -216,7 +216,7 @@ opts(Test) ->
              {body, Body4},
              {meta, [<<"x-nk">>, <<"x-nk-r">>]}],
     {ok, 200, Values4} = nksip_uac:options(C1, "sip:client2_op@nksip", Opts4),
-    NkR4 = nklib_util:bjoin([nksip_unparse:uri(Uri2#uri{opts=[lr], ext_opts=[]}),
+    NkR4 = nklib_util:bjoin([nklib_unparse:uri(Uri2#uri{opts=[lr], ext_opts=[]}),
                             <<"<sip:aaa>">>]),
     [
         {<<"x-nk">>, []}, 
@@ -404,7 +404,7 @@ servers(Test) ->
         {<<"contact">>, [C2Contact]},
         {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values3,
-    [#uri{port=C2Port}] = nksip_parse:uris(C2Contact),
+    [#uri{port=C2Port}] = nklib_parse:uris(C2Contact),
 
     % ACK is sent directly
     AckFun1 = fun({req, #sipmsg{ruri=#uri{scheme=sips, port=C2Port_1}}, _Call}) ->
@@ -442,9 +442,9 @@ servers(Test) ->
         {<<"x-nk-id">>, [<<"client2,server2,server1">>]}
     ] = Values6,
     [#uri{port=5081, opts=[{<<"transport">>, <<"tls">>}, <<"lr">>]}] = 
-        nksip_parse:uris(RR1),
+        nklib_parse:uris(RR1),
     [#uri{port=5061, opts=[{<<"transport">>, <<"tls">>}, <<"lr">>]}] =
-        nksip_parse:uris(RR2),
+        nklib_parse:uris(RR2),
 
     % Sends an options in the dialog before the ACK
     {ok, 200, Values7} = nksip_uac:options(DialogIdB1, [Fs4]),

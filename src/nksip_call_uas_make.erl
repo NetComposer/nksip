@@ -262,7 +262,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             end;
         {service_route, Routes} when Code>=200, Code<300, 
                                      element(2, Req#sipmsg.class)=='REGISTER' ->
-            case nksip_parse:uris(Routes) of
+            case nklib_parse:uris(Routes) of
                 error -> throw({invalid_config, service_route});
                 Uris -> {replace, <<"service-route">>, Uris}
             end;

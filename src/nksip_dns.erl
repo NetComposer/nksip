@@ -79,7 +79,7 @@ resolve(#uri{path=Path}=Uri) ->
     end;
 
 resolve(Uri) ->
-    case nksip_parse:uris(Uri) of
+    case nklib_parse:uris(Uri) of
         [PUri] -> resolve(PUri);
         _ -> []
     end.
@@ -274,7 +274,7 @@ start_link() ->
 init([]) ->
     ?MODULE = ets:new(?MODULE, [named_table, public]),   
     erlang:start_timer(1000*?CHECK_INTERVAL, self(), check_ttl), 
-    TTL = nksip_config:get(dns_cache_ttl),
+    TTL = nksip_config_cache:dns_cache_ttl(),
     {ok, #state{ttl=TTL}}.
 
 
@@ -550,7 +550,7 @@ uri_test() ->
     ],
     lists:foreach(
         fun({Uri, Result}) -> 
-            [PUri] = nksip_parse:uris(Uri),
+            [PUri] = nklib_parse:uris(Uri),
             ?assertMatch(Result, resolve_uri(PUri)) 
         end,
         Test).

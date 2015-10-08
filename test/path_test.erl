@@ -107,7 +107,7 @@ basic() ->
 
     {ok, 200, [{<<"path">>, Path}]} = 
         nksip_uac:register(ua1, "sip:nksip", [supported, contact, {meta, [<<"path">>]}]),
-    [P1, P2] = nksip_parse:uris(Path),
+    [P1, P2] = nklib_parse:uris(Path),
 
     
     {ok, Registrar} = nksip:find_app_id(registrar),

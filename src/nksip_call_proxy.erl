@@ -97,10 +97,10 @@ route_stateless(Req, Uri, ProxyOpts, _Call) ->
             case nksip_call_uac_transp:send_request(Req2, SendOpts) of
                 {ok, _} ->  
                     ?call_debug("Stateless proxy routing ~p to ~s", 
-                                [Method, nksip_unparse:uri(Uri)]);
+                                [Method, nklib_unparse:uri(Uri)]);
                 {error, Error} -> 
                     ?call_notice("Stateless proxy could not route ~p to ~s: ~p",
-                                 [Method, nksip_unparse:uri(Uri), Error])
+                                 [Method, nklib_unparse:uri(Uri), Error])
             end,
            noreply;
         {reply, Reply} ->
@@ -252,7 +252,7 @@ uri2ruri(Uri) ->
     Uri#uri{ext_opts=[], ext_headers=[]}.
 
 pruris(RUri) ->
-    case nksip_parse:uris(RUri) of
+    case nklib_parse:uris(RUri) of
         error -> [];
         RUris -> [uri2ruri(Uri) || Uri <- RUris]
     end.

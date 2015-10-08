@@ -448,7 +448,7 @@ valid_7_test() ->
         {<<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-value">>,
             [{<<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-parameter-name">>,
                 <<"unknown-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong-parameter-value">>}]}
-    ] = nksip_parse:tokens(HeaderValue),
+    ] = nklib_parse:tokens(HeaderValue),
     ok.
 
 
@@ -523,7 +523,7 @@ valid_9_test() ->
         {<<"multipart/signed">>,[]},
         {<<"message/sip">>,[]},
         {<<"message/sipfrag">>,[]}
-    ] = nksip_parse:tokens(Accept),
+    ] = nklib_parse:tokens(Accept),
     ok.
 
 
@@ -645,7 +645,7 @@ valid_11_test() ->
             },
         body = <<"--7a9cbec02ceef655\r\nContent-Type: text/plain\r\nCo", _/binary>>
     } = parse(Msg),
-    [{{2005,10,15},{4,44,56}}] = nksip_parse:dates(Date),
+    [{{2005,10,15},{4,44,56}}] = nklib_parse:dates(Date),
     ok.
 
 

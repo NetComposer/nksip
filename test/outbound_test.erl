@@ -188,7 +188,7 @@ flow() ->
 
     true = 
         list_to_binary(http_uri:decode(binary_to_list(QRoute1))) == 
-        nksip_unparse:uri(Path1),
+        nklib_unparse:uri(Path1),
 
     % Now, if we send a request to this Contact, it goes to the registrar first, 
     % and the same transport is reused
@@ -218,7 +218,7 @@ flow() ->
     % to registrar, but it has to start a new connection to ua1 (is has no opened 
     % connection to port 5101)
   
-    QRoute2 = http_uri:encode(binary_to_list(nksip_unparse:uri(Path1#uri{user = <<>>}))),
+    QRoute2 = http_uri:encode(binary_to_list(nklib_unparse:uri(Path1#uri{user = <<>>}))),
     {ok, 200, []} = 
         nksip_uac:options(ua2, Contact1#uri{headers=[{<<"route">>, QRoute2}]}, []), 
 
@@ -387,7 +387,7 @@ proxy() ->
 
     Contact1 = nksip_registrar:find(registrar, sip, <<"ua1">>, <<"nksip">>),
     [#uri{headers=[{<<"route">>, QRoute1}]}] = Contact1,
-    [Path1, Path2] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute1))),
+    [Path1, Path2] = nklib_parse:uris(http_uri:decode(binary_to_list(QRoute1))),
 
     #uri{user = <<"NkF", Flow1/binary>>, port = 5080, 
         opts = [<<"lr">>]} = Path1,
@@ -442,7 +442,7 @@ proxy() ->
 
     Contact2 = nksip_registrar:find(registrar, sip, <<"ua1">>, <<"nksip">>),
     [#uri{headers=[{<<"route">>, QRoute2}]}] = Contact2,
-    [Path3] = nksip_parse:uris(http_uri:decode(binary_to_list(QRoute2))),
+    [Path3] = nklib_parse:uris(http_uri:decode(binary_to_list(QRoute2))),
 
     
     #uri{

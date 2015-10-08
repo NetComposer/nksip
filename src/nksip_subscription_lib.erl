@@ -91,7 +91,7 @@ meta(Field, {user_subs, U, D}) ->
         event -> 
             U#subscription.event;
         raw_event -> 
-            nksip_unparse:token(U#subscription.event);
+            nklib_unparse:token(U#subscription.event);
         class -> 
             U#subscription.class;
         answered -> 

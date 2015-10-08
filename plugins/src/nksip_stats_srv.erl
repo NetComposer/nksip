@@ -55,7 +55,7 @@ init([]) ->
         last_uas = {0,0,0,0}, 
         avg_uas_values = [], 
         last_check = Now,
-        period = nksip_config:get(nksip_stats_period, 5)
+        period = nksip_app:get(nksip_stats_period, 5)
     },
     {ok, State}.
 

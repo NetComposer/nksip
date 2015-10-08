@@ -182,7 +182,7 @@ delete(App, Scheme, User, Domain) ->
     case nksip:find_app_id(App) of
         {ok, AppId} ->
             AOR = {
-                nksip_parse:scheme(Scheme), 
+                nklib_parse:scheme(Scheme), 
                 nklib_util:to_binary(User), 
                 nklib_util:to_binary(Domain)
             },

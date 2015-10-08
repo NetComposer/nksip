@@ -134,7 +134,7 @@ launch([Uri|Rest], Id, Call) ->
     #fork{request=Req, method=Method, opts=Opts,
           uacs=UACs, pending=Pending, responses=Resps} = Fork,
     Req1 = Req#sipmsg{ruri=Uri, id=nklib_util:uid()},
-    ?call_debug("Fork ~p ~p launching to ~s", [Id, Method, nksip_unparse:uri(Uri)]),
+    ?call_debug("Fork ~p ~p launching to ~s", [Id, Method, nklib_unparse:uri(Uri)]),
     Fork1 = case Method of
         'ACK' -> 
             Fork#fork{uacs=[Next|UACs]};
@@ -254,7 +254,7 @@ waiting(Code, Resp, Pos, Fork, Call) when Code < 400 ->
                 _ -> 
                     Contacts
             end,
-            ?call_debug("Fork ~p redirect to ~p", [Id, nksip_unparse:uri(Contacts1)]),
+            ?call_debug("Fork ~p redirect to ~p", [Id, nklib_unparse:uri(Contacts1)]),
             launch(Contacts1, Id, update(Fork1, Call));
         _ ->
             Fork2 = Fork1#fork{responses=[Resp|Resps]},

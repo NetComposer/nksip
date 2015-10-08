@@ -46,7 +46,7 @@ basic_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    nksip_config:put(nksip_store_timer, 200),
+    nklib_store:update_timer(200),
 
     {ok, _} = nksip:start(server1, ?MODULE, server1, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},

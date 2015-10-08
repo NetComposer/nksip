@@ -179,9 +179,9 @@ header(Name, S) ->
         <<"via">> -> 
             [nklib_util:to_binary(Via) || Via <- S#sipmsg.vias];
         <<"from">> -> 
-            [nksip_unparse:uri(element(1, S#sipmsg.from))];
+            [nklib_unparse:uri(element(1, S#sipmsg.from))];
         <<"to">> -> 
-            [nksip_unparse:uri(element(1, S#sipmsg.to))];
+            [nklib_unparse:uri(element(1, S#sipmsg.to))];
         <<"cseq">> ->
             #sipmsg{cseq={CSeqNum, Method}} = S,
             [<<(nklib_util:to_binary(CSeqNum))/binary, 32, 
@@ -195,7 +195,7 @@ header(Name, S) ->
         <<"content-type">> -> 
             case S#sipmsg.content_type of
                 undefined -> [];
-                ContentType -> [nksip_unparse:token(ContentType)]
+                ContentType -> [nklib_unparse:token(ContentType)]
             end;
         <<"require">> -> 
             case S#sipmsg.require of
@@ -215,7 +215,7 @@ header(Name, S) ->
         <<"event">> -> 
             case S#sipmsg.event of
                 undefined -> [];
-                Event -> [nksip_unparse:token(Event)]
+                Event -> [nklib_unparse:token(Event)]
             end;
         _ -> 
             [nksip_unparse:header(Value) || 
@@ -231,10 +231,10 @@ header(Name, S) ->
 header(Name, #sipmsg{}=SipMsg, Type) ->
     Raw = header(Name, SipMsg),
     case Type of
-        uris -> nksip_parse:uris(Raw);
-        tokens -> nksip_parse:tokens(Raw);
-        integers -> nksip_parse:integers(Raw);
-        dates -> nksip_parse:dates(Raw)
+        uris -> nklib_parse:uris(Raw);
+        tokens -> nklib_parse:tokens(Raw);
+        integers -> nklib_parse:integers(Raw);
+        dates -> nklib_parse:dates(Raw)
     end.
 
 

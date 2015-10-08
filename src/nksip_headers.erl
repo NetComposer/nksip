@@ -38,11 +38,11 @@
     nksip:header().
 
 header(Name, #uri{}=Uri) ->
-    {Name, nksip_unparse:uri(Uri)};
+    {Name, nklib_unparse:uri(Uri)};
 header(Name, {Token, Opts}) when is_list(Opts)->
-    {Name, nksip_unparse:token({Token, Opts})};
+    {Name, nklib_unparse:token({Token, Opts})};
 header(Name, [{_Token, Opts}|_]=List) when is_list(Opts) ->
-    {Name, nksip_unparse:token(List)};
+    {Name, nklib_unparse:token(List)};
 header(Name, Binary) when is_binary(Binary) ->
     {Name, Binary};
 header(Name, Integer) when is_integer(Integer) ->
@@ -52,7 +52,7 @@ header(Name, [F|_]=List) when is_integer(F) ->
 header(Name, List) when is_list(List) ->
     Values = [
         case Term of
-            #uri{} -> nksip_unparse:uri(Term);
+            #uri{} -> nklib_unparse:uri(Term);
             _ -> nklib_util:to_binary(Term)
         end
         || Term <- List

@@ -59,7 +59,7 @@ deps() ->
 
 
 parse_config(Opts) ->
-    case nksip_config:get(nksip_stats_period) of
+    case nksip_app:get(nksip_stats_period) of
         undefined ->
             {ok, Opts};
         Period when is_integer(Period), Period>0 ->

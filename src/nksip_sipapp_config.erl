@@ -261,34 +261,34 @@ parse_opts([Term|Rest], Opts) ->
         {keyfile, File} ->
             {update, nklib_util:to_list(File)};
         {supported, Supported} ->
-            case nksip_parse:tokens(Supported) of
+            case nklib_parse:tokens(Supported) of
                 error -> error;
                 Tokens -> {update, [T||{T, _}<-Tokens]}
             end;
         {allow, Allow} ->
-            case nksip_parse:tokens(Allow) of
+            case nklib_parse:tokens(Allow) of
                 error -> error;
                 Tokens -> {update, [A||{A, _}<-Tokens]}
             end;
         {accept, Accept} ->
-            case nksip_parse:tokens(Accept) of
+            case nklib_parse:tokens(Accept) of
                 error -> error;
                 Tokens -> {update, [A||{A, _}<-Tokens]}
             end;
         {events, Event} ->
-            case nksip_parse:tokens(Event) of
+            case nklib_parse:tokens(Event) of
                 error -> error;
                 Tokens -> {update, [T||{T, _}<-Tokens]}
             end;
         
         % Default headers and options
         {from, From} ->
-            case nksip_parse:uris(From) of
+            case nklib_parse:uris(From) of
                 [Uri] -> {update, Uri};
                 _ -> error 
             end;
         {route, Route} ->
-            case nksip_parse:uris(Route) of
+            case nklib_parse:uris(Route) of
                 error -> error;
                 Uris -> {update, Uris}
             end;

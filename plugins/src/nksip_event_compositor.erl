@@ -27,6 +27,7 @@
 -module(nksip_event_compositor).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("../include/nksip.hrl").
 -include("nksip_event_compositor.hrl").
 

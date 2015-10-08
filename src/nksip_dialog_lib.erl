@@ -92,13 +92,13 @@ meta(Field, #dialog{invite=I}=D) ->
         local_seq -> D#dialog.local_seq; 
         remote_seq  -> D#dialog.remote_seq; 
         local_uri -> D#dialog.local_uri;
-        raw_local_uri -> nksip_unparse:uri(D#dialog.local_uri);
+        raw_local_uri -> nklib_unparse:uri(D#dialog.local_uri);
         remote_uri -> D#dialog.remote_uri;
-        raw_remote_uri -> nksip_unparse:uri(D#dialog.remote_uri);
+        raw_remote_uri -> nklib_unparse:uri(D#dialog.remote_uri);
         local_target -> D#dialog.local_target;
-        raw_local_target -> nksip_unparse:uri(D#dialog.local_target);
+        raw_local_target -> nklib_unparse:uri(D#dialog.local_target);
         remote_target -> D#dialog.remote_target;
-        raw_remote_target -> nksip_unparse:uri(D#dialog.remote_target);
+        raw_remote_target -> nklib_unparse:uri(D#dialog.remote_target);
         early -> D#dialog.early;
         secure -> D#dialog.secure;
         route_set -> D#dialog.route_set;

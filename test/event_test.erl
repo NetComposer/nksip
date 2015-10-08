@@ -486,13 +486,13 @@ make_notify(Req) ->
     Req#sipmsg{
         id = nklib_util:uid(),
         class = {req, 'NOTIFY'},
-        ruri = hd(nksip_parse:uris("sip:127.0.0.1")),
+        ruri = hd(nklib_parse:uris("sip:127.0.0.1")),
         vias = [],
         from = {To#uri{ext_opts=[{<<"tag">>, ToTag}]}, ToTag},
         to = {From, FromTag},
         cseq = {CSeq+1, 'NOTIFY'},
         routes = [],
-        contacts = nksip_parse:uris("sip:127.0.0.1:5070"),
+        contacts = nklib_parse:uris("sip:127.0.0.1:5070"),
         expires = 0,
         headers = [{<<"subscription-state">>, <<"active;expires=5">>}],
         transport = undefined

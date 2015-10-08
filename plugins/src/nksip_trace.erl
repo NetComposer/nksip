@@ -287,12 +287,12 @@ norm_iplist(Term, Acc) ->
 
 %% @private
 close_file(AppId) ->
-    case nksip_config:get({nksip_trace_file, AppId}) of
+    case nksip_app:get({nksip_trace_file, AppId}) of
         undefined -> 
             ok;
         {File, OldDevice} ->
             ?notice(AppId, <<>>, "Closing file ~s (~p)", [File, OldDevice]),
-            nksip_config:del({nksip_trace_file, AppId}),
+            nksip_app:del({nksip_trace_file, AppId}),
             file:close(OldDevice),
             ok
     end.
@@ -306,7 +306,7 @@ open_file(AppId, File) ->
     case file:open(binary_to_list(File), [append]) of
         {ok, IoDevice} -> 
             ?notice(AppId, <<>>, "File ~s opened for trace (~p)", [File, IoDevice]),
-            nksip_config:put({nksip_trace_file, AppId}, {File, IoDevice}),
+            nksip_app:put({nksip_trace_file, AppId}, {File, IoDevice}),
             ok;
         {error, _Error} -> 
             error
@@ -337,7 +337,7 @@ write(AppId, File, Msg) ->
         console ->
             io:format("\n        ---- ~f ~s", [Time, Msg]);
         _ ->
-            case nksip_config:get({nksip_trace_file, AppId}) of
+            case nksip_app:get({nksip_trace_file, AppId}) of
                 {File, Device} ->
                     Txt = io_lib:format("\n        ---- ~f ~s", [Time, Msg]),
                     catch file:write(Device, Txt);

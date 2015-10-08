@@ -339,7 +339,7 @@ make_contact(#reg_contact{contact=Contact, path=[]}) ->
     Contact;
 make_contact(#reg_contact{contact=Contact, path=Path}) ->
     #uri{headers=Headers} = Contact,
-    Route1 = nksip_unparse:uri(Path),
+    Route1 = nklib_unparse:uri(Path),
     Routes2 = list_to_binary(http_uri:encode(binary_to_list(Route1))),
     Headers1 = [{<<"route">>, Routes2}|Headers],
     Contact#uri{headers=Headers1, ext_opts=[], ext_headers=[]}.

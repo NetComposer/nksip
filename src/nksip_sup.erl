@@ -55,12 +55,12 @@ stop_sipapp(AppId) ->
 %% @private
 start_link() ->
     ChildsSpec = [
-        {nksip_config,
-            {nksip_config, start_link, []},
-            permanent,
-            5000,
-            worker,
-            [nksip_config]},
+        % {nksip_config,
+        %     {nksip_config, start_link, []},
+        %     permanent,
+        %     5000,
+        %     worker,
+        %     [nksip_config]},
         % {nksip_proc,
         %     {nksip_proc, start_link, []},
         %     permanent,

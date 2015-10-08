@@ -195,13 +195,13 @@ header(_Name, Value) ->
 
 
 single_uri(Data) ->
-    case nksip_parse:uris(Data) of
+    case nklib_parse:uris(Data) of
         [#uri{} = Uri] -> Uri;
         _ -> throw(invalid)
     end.
 
 uris(Data) ->
-    case nksip_parse:uris(Data) of
+    case nklib_parse:uris(Data) of
         error -> throw(invalid);
         Uris -> Uris
     end.
@@ -213,19 +213,19 @@ vias(Data) ->
     end.
 
 single_token(Data) ->
-    case nksip_parse:tokens(Data) of
+    case nklib_parse:tokens(Data) of
         [Token] -> Token;
         _ -> throw(invalid)
     end.
 
 % tokens(Data) ->
-%     case nksip_parse:tokens(Data) of
+%     case nklib_parse:tokens(Data) of
 %         error -> throw(invalid);
 %         Tokens -> Tokens
 %     end.
 
 names(Data) ->
-    case nksip_parse:tokens(Data) of
+    case nklib_parse:tokens(Data) of
         error -> throw(invalid);
         Tokens -> [Token || {Token, _} <- Tokens]
     end.
@@ -450,7 +450,7 @@ uri_test() ->
         "&route=sip%3Ar1%2Csip%3Ar2"
         "&body=my%20body&user1=data2"
         "&Route=sip%3Ar3>",
-    [#uri{headers=UriHeaders}] = nksip_parse:uris(Uri),
+    [#uri{headers=UriHeaders}] = nklib_parse:uris(Uri),
 
     Base = #sipmsg{
         from = {#uri{domain = <<"f">>, ext_opts=[{<<"tag">>, <<"f">>}]}, <<"f">>},

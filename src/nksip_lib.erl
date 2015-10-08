@@ -22,8 +22,9 @@
 -module(nksip_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([cseq/0]).
+-export([get_cseq/0, initial_cseq/0]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
+-export([put_log_cache/2]).
 
 -include("nksip.hrl").
 
@@ -34,12 +35,24 @@
 %% Public
 %% =================================================================
 
+
+%% @doc Gets a new `CSeq'.
+%% After booting, CSeq's counter is set using {@link nksip_lib:cseq/0}. Then each call 
+%% to this function increments the counter by one.
+-spec get_cseq() -> 
+    nksip:cseq().
+
+get_cseq() ->
+    nklib_config:increment(nksip, current_cseq, 1).
+
+
+
 %% @doc Generates an incrementing-each-second 31 bit integer.
 %% It will not wrap around until until {{2080,1,19},{3,14,7}} GMT.
--spec cseq() -> 
+-spec initial_cseq() -> 
     non_neg_integer().
 
-cseq() ->
+initial_cseq() ->
     case binary:encode_unsigned(nklib_util:timestamp()-1325376000) of  % Base is 1/1/2012
         <<_:1, CSeq:31>> -> ok;
         <<_:9, CSeq:31>> -> ok
@@ -135,4 +148,9 @@ find_real_ip([_|R], Type) ->
     find_real_ip(R, Type).
 
 
-
+%% @private Save cache for speed log access
+put_log_cache(AppId, CallId) ->
+    erlang:put(nksip_app_id, AppId),
+    erlang:put(nksip_call_id, CallId),
+    erlang:put(nksip_app_name, AppId:name()),
+    erlang:put(nksip_log_level, AppId:config_log_level()).

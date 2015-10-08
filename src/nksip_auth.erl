@@ -303,7 +303,7 @@ make_auth_request(AuthHeaderData, UserOpts) ->
                 <<"HA1!", HA1/binary>> -> ok; %_Pass = <<"hash">>;
                 _ -> <<"HA1!", HA1/binary>> = make_ha1(User, Pass, Realm)
             end,
-            Uri = nksip_unparse:ruri(nklib_util:get_value(ruri, UserOpts)),
+            Uri = nklib_unparse:uri3(nklib_util:get_value(ruri, UserOpts)),
             Method1 = case nklib_util:get_value(method, UserOpts) of
                 'ACK' -> 'INVITE';
                 Method -> Method

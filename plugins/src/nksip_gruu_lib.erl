@@ -52,7 +52,7 @@ find_gruus(AppId, [#uri{ext_opts=Opts}|Rest]) ->
         PubGruu ->
             case nksip_parse:ruris(nklib_util:unquote(PubGruu)) of
                 [PubUri] -> 
-                    nksip_config:put({nksip_gruu_pub, AppId}, PubUri),
+                    nksip_app:put({nksip_gruu_pub, AppId}, PubUri),
                     true;
                 _ -> 
                     false
@@ -64,7 +64,7 @@ find_gruus(AppId, [#uri{ext_opts=Opts}|Rest]) ->
         TempGruu ->
             case nksip_parse:ruris(nklib_util:unquote(TempGruu)) of
                 [TempUri] -> 
-                    nksip_config:put({nksip_gruu_temp, AppId}, TempUri),
+                    nksip_app:put({nksip_gruu_temp, AppId}, TempUri),
                     true;
                 _ -> 
                     false
@@ -175,11 +175,11 @@ update_regcontact(RegContact, Base, Req, Opts) ->
                 domain = AORDomain,
                 opts = [{<<"gr">>, InstId}]
             },
-            Pub = list_to_binary([$", nksip_unparse:ruri(PubUri), $"]),
+            Pub = list_to_binary([$", nklib_unparse:uri3(PubUri), $"]),
             ExtOpts2 = nklib_util:store_value(<<"pub-gruu">>, Pub, ExtOpts),
             TmpBin = term_to_binary({aor(To), InstId, Next}),
             TmpUri = PubUri#uri{user=encrypt(TmpBin), opts=[<<"gr">>]},
-            Tmp = list_to_binary([$", nksip_unparse:ruri(TmpUri), $"]),
+            Tmp = list_to_binary([$", nklib_unparse:uri3(TmpUri), $"]),
             ExtOpts3 = nklib_util:store_value(<<"temp-gruu">>, Tmp, ExtOpts2),
             Contact3 = Contact#uri{ext_opts=ExtOpts3},
             Meta2 = nklib_util:store_value(nksip_gruu_instance_id, InstId, Meta1),

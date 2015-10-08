@@ -50,7 +50,7 @@ print_all() ->
         io:format("\n --- ~p --- ~p:~s@~s ---\n", [AppId:name(), Scheme, User, Domain]),
         lists:foreach(
             fun(#reg_contact{contact=Contact, expire=Expire, q=Q}) ->
-                io:format("    ~s, ~p, ~p\n", [nksip_unparse:uri(Contact), Expire-Now, Q])
+                io:format("    ~s, ~p, ~p\n", [nklib_unparse:uri(Contact), Expire-Now, Q])
             end, Regs)
     end,
     lists:foreach(Print, get_all()),

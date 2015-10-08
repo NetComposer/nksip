@@ -230,7 +230,7 @@ register2() ->
                         [{contact, ManualContact}, {from, "sips:client1@nksip"},
                          {meta, [<<"contact">>]}, {expires, 300}]),
     [{<<"contact">>, Contact3}] = Values3,
-    Contact3Uris = nksip_parse:uris(Contact3),
+    Contact3Uris = nklib_parse:uris(Contact3),
 
     {ok, 200, Values4} = nksip_uac:register(client1, "sip:127.0.0.1", 
                                             [{meta,[contacts]}]),

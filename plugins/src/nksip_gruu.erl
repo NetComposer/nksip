@@ -74,7 +74,7 @@ parse_config(Opts) ->
 get_gruu_pub(App) ->
     case nksip:find_app_id(App) of
         {ok, AppId} -> 
-            case nksip_config:get({nksip_gruu_pub, AppId}) of
+            case nksip_app:get({nksip_gruu_pub, AppId}) of
                 undefined -> undefined;
                 Value -> {ok, Value}
             end;
@@ -90,7 +90,7 @@ get_gruu_pub(App) ->
 get_gruu_temp(App) ->
     case nksip:find_app_id(App) of
         {ok, AppId} -> 
-            case nksip_config:get({nksip_gruu_temp, AppId}) of
+            case nksip_app:get({nksip_gruu_temp, AppId}) of
                 undefined -> undefined;
                 Value -> {ok, Value}
             end;

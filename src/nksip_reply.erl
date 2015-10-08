@@ -209,17 +209,17 @@ parse(Term) ->
         accepted ->
             {202, []};
         {redirect, Contacts} ->
-            case nksip_parse:uris(Contacts) of
+            case nklib_parse:uris(Contacts) of
                 error -> error;
                 PContacts -> {300, [{contact, PContacts}]}
             end;
         {redirect_permanent, Contact} ->
-            case nksip_parse:uris(Contact) of
+            case nklib_parse:uris(Contact) of
                 [PContact] -> {301, [{contact, PContact}]};
                 _ -> error
             end;
         {redirect_temporary, Contact} ->
-            case nksip_parse:uris(Contact) of
+            case nklib_parse:uris(Contact) of
                 [PContact] -> {302, [{contact, PContact}]};
                 _ -> error
             end;

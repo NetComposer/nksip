@@ -352,7 +352,7 @@ listen_opts(ws, Ip, Port, _Opts) ->
     lists:flatten([
         {ip, Ip}, {port, Port}, 
         % {keepalive, true}, 
-        case nksip_config:get(max_connections) of
+        case nksip_config_cache:global_max_connections() of
             undefined -> [];
             Max -> {max_connections, Max}
         end
@@ -374,7 +374,7 @@ listen_opts(wss, Ip, Port, Opts) ->
         % {keepalive, true}, 
         case Cert of "" -> []; _ -> {certfile, Cert} end,
         case Key of "" -> []; _ -> {keyfile, Key} end,
-        case nksip_config:get(max_connections) of
+        case nksip_config_cache:global_max_connections() of
             undefined -> [];
             Max -> {max_connections, Max}
         end

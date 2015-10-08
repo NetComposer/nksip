@@ -232,7 +232,7 @@ sip_invite(Req, _Call) ->
 %% @doc SipApp Callback: Synchronous user call.
 handle_call(get_speed, _From, State) ->
     {ok, Speed} = nksip:get(pbx, speed),
-    Reply = [{Time, nksip_unparse:uri(Uri)} || {Time, Uri} <- Speed],
+    Reply = [{Time, nklib_unparse:uri(Uri)} || {Time, Uri} <- Speed],
     {reply, Reply, State}.
 
 

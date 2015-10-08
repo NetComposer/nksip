@@ -30,8 +30,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([method/1, scheme/1, aors/1, uris/1, ruris/1, vias/1]).
--export([tokens/1, integers/1, dates/1]).
+-export([method/1, aors/1, ruris/1, vias/1]).
 -export([uri_method/2]).
 -export([transport/1]).
 -export([packet/4, packet/3]).
@@ -82,19 +81,7 @@ method(Method) when is_binary(Method) ->
                 
 aors(Term) ->
     [{Scheme, User, Domain} || 
-     #uri{scheme=Scheme, user=User, domain=Domain} <- uris(Term)].
-
-
-%% @doc Parses all URIs found in `Term'.
--spec uris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
-    [nksip:uri()] | error.
-                
-uris(#uri{}=Uri) -> [Uri];
-uris([#uri{}=Uri]) -> [Uri];
-uris([]) -> [];
-uris([First|_]=String) when is_integer(First) -> uris([String]);    % It's a string
-uris(List) when is_list(List) -> parse_uris(List, []);
-uris(Term) -> uris([Term]).
+     #uri{scheme=Scheme, user=User, domain=Domain} <- nklib_parse:uris(Term)].
 
 
 %% @doc Parses all URIs found in `Term'.
@@ -102,7 +89,7 @@ uris(Term) -> uris([Term]).
     [nksip:uri()] | error.
                 
 ruris(RUris) -> 
-    case uris(RUris) of
+    case nklib_parse:uris(RUris) of
         error -> error;
         Uris -> parse_ruris(Uris, [])
     end.
@@ -117,36 +104,6 @@ vias([First|_]=String) when is_integer(First) -> vias([String]);    % It's a str
 vias(List) when is_list(List) -> parse_vias(List, []);
 vias(Term) -> vias([Term]).
 
-
-%% @doc Gets a list of `tokens()' from `Term'
--spec tokens(Term :: binary() | string() | [binary() | string()]) -> 
-    [nksip:token()] | error.
-
-tokens([<<>>]) -> [];
-tokens([]) -> [];
-tokens([First|_]=String) when is_integer(First) -> tokens([String]);  
-tokens(List) when is_list(List) -> parse_tokens(List, []);
-tokens(Term) -> tokens([Term]).
-
-
-%% @doc Gets a list of `integer()' from `Term'
--spec integers(Term :: binary() | string() | [binary() | string()]) -> 
-    [integer()] | error.
-
-integers([]) -> [];
-integers([First|_]=String) when is_integer(First) -> integers([String]);  
-integers(List) when is_list(List) -> parse_integers(List, []);
-integers(Term) -> integers([Term]).
-
-
-%% @doc Gets a list of `calendar:datetime()' from `Term'
--spec dates(Term :: binary() | string() | [binary() | string()]) -> 
-    [calendar:datetime()] | error.
-
-dates([]) -> [];
-dates([First|_]=String) when is_integer(First) -> dates([String]);  
-dates(List) when is_list(List) -> parse_dates(List, []);
-dates(Term) -> dates([Term]).
 
 
 %% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
@@ -182,21 +139,6 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
     end,
     {Proto, Host, Port1}.
 
-% subscription_state(ST) ->
-    
-
-
-%     % Event options
-%         {subscription_state, ST} when is_tuple(ST) ->
-%             case catch nksip_unparse:token(ST) of
-%                 Bin when is_binary(Bin) ->
-%                     {replace, <<"subscription-state">>, Bin};
-%                 _ ->
-%                     throw({invalid, subscription_state})
-%             end;
-
-
-
 
 
 %% ===================================================================
@@ -215,7 +157,7 @@ packet(AppId, CallId, Transp, Packet) ->
             try 
                 MsgClass = case Class of
                     {req, Method, RUri} ->
-                        case uris(RUri) of
+                        case nklib_parse:uris(RUri) of
                             [RUri1] -> 
                                 [RUri1];
                             _ -> RUri1 = 
@@ -277,7 +219,7 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
                 end,
                 MsgClass = case Class of
                     {req, Method, RUri} ->
-                        case uris(RUri) of
+                        case nklib_parse:uris(RUri) of
                             [RUri1] -> [RUri1];
                             _ -> RUri1 = throw({invalid, <<"Request-URI">>})
                         end,
@@ -330,14 +272,12 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
     #sipmsg{}.
 
 parse_sipmsg(SipMsg, Headers) ->
-    From = case uris(proplists:get_all_values(<<"from">>, Headers)) of
+    From = case nklib_parse:uris(proplists:get_all_values(<<"from">>, Headers)) of
         [From0] -> From0;
-        O -> 
-            lager:warning("II: ~p, ~p", [Headers, O]),
-            throw({invalid, <<"From">>})
+        _ -> throw({invalid, <<"From">>})
     end,
     FromTag = nklib_util:get_value(<<"tag">>, From#uri.ext_opts, <<>>),
-    To = case uris(proplists:get_all_values(<<"to">>, Headers)) of
+    To = case nklib_parse:uris(proplists:get_all_values(<<"to">>, Headers)) of
         [To0] -> To0;
         _ -> throw({invalid, <<"To">>})
     end,
@@ -370,40 +310,40 @@ parse_sipmsg(SipMsg, Headers) ->
         _ -> 
             throw({invalid, <<"CSeq">>})
     end,
-    Forwards = case integers(proplists:get_all_values(<<"max-forwards">>, Headers)) of
+    Forwards = case nklib_parse:integers(proplists:get_all_values(<<"max-forwards">>, Headers)) of
         [] -> 70;
         [Forwards0] when Forwards0>=0, Forwards0<300 -> Forwards0;
         _ -> throw({invalid, <<"Max-Forwards">>})
     end,
-    Routes = case uris(proplists:get_all_values(<<"route">>, Headers)) of
+    Routes = case nklib_parse:uris(proplists:get_all_values(<<"route">>, Headers)) of
         error -> throw({invalid, <<"Route">>});
         Routes0 -> Routes0
     end,
-    Contacts = case uris(proplists:get_all_values(<<"contact">>, Headers)) of
+    Contacts = case nklib_parse:uris(proplists:get_all_values(<<"contact">>, Headers)) of
         error -> 
             lager:warning("C: ~p", [Headers]),
             throw({invalid, <<"Contact">>});
         Contacts0 -> Contacts0
     end,
-    Expires = case integers(proplists:get_all_values(<<"expires">>, Headers)) of
+    Expires = case nklib_parse:integers(proplists:get_all_values(<<"expires">>, Headers)) of
         [] -> undefined;
         [Expires0] when Expires0>=0 -> Expires0;
         _ -> throw({invalid, <<"Expires">>})
     end,
-    ContentType = case tokens(proplists:get_all_values(<<"content-type">>, Headers)) of
+    ContentType = case nklib_parse:tokens(proplists:get_all_values(<<"content-type">>, Headers)) of
         [] -> undefined;
         [ContentType0] -> ContentType0;
         _ -> throw({invalid, <<"Content-Type">>})
     end,
-    Require = case tokens(proplists:get_all_values(<<"require">>, Headers)) of
+    Require = case nklib_parse:tokens(proplists:get_all_values(<<"require">>, Headers)) of
         error -> throw({invalid, <<"Require">>});
         Require0 -> [N || {N, _} <- Require0]
     end,
-    Supported = case tokens(proplists:get_all_values(<<"supported">>, Headers)) of
+    Supported = case nklib_parse:tokens(proplists:get_all_values(<<"supported">>, Headers)) of
         error -> throw({invalid, <<"Supported">>});
         Supported0 -> [N || {N, _} <- Supported0]
     end,
-    Event = case tokens(proplists:get_all_values(<<"event">>, Headers)) of
+    Event = case nklib_parse:tokens(proplists:get_all_values(<<"event">>, Headers)) of
         [] ->
             case SipMsg#sipmsg.class of
                 {req, 'SUBSCRIBE'} -> throw({invalid, <<"Event">>});
@@ -469,41 +409,6 @@ parse_sipmsg(SipMsg, Headers) ->
     }.
 
           
-%% @private
--spec scheme(term()) ->
-    nksip:scheme().
-
-scheme(sip) ->
-    sip;
-scheme(sips) ->
-    sips;
-scheme(tel) ->
-    tel;
-scheme(mailto) ->
-    mailto;
-scheme(Other) ->
-    case string:to_lower(nklib_util:to_list(Other)) of 
-        "sip" -> sip;
-        "sips" -> sips;
-        "tel" -> tel;
-        "mailto" -> mailto;
-        _ -> list_to_binary(Other)
-    end.
-
-
-%% @private
--spec parse_uris([#uri{}|binary()|string()], [#uri{}]) ->
-    [#uri{}] | error.
-
-parse_uris([], Acc) ->
-    Acc;
-
-parse_uris([Next|Rest], Acc) ->
-    case nksip_parse_uri:uris(Next) of
-        error -> error;
-        UriList -> parse_uris(Rest, Acc++UriList)
-    end.
-
 
 %% @private
 -spec parse_ruris([#uri{}], [#uri{}]) ->
@@ -513,7 +418,7 @@ parse_ruris([], Acc) ->
     lists:reverse(Acc);
 
 parse_ruris([#uri{opts=[], headers=[], ext_opts=Opts}=Uri|Rest], Acc) ->
-    parse_uris(Rest, [Uri#uri{opts=Opts, ext_opts=[], ext_headers=[]}|Acc]);
+    parse_ruris(Rest, [Uri#uri{opts=Opts, ext_opts=[], ext_headers=[]}|Acc]);
 
 parse_ruris(_, _) ->
     error.
@@ -534,60 +439,13 @@ parse_vias([Next|Rest], Acc) ->
     end.
 
 
-%% @private
--spec parse_tokens([binary()|string()], [nksip:token()]) ->
-    [nksip:token()] | error.
-
-parse_tokens([], Acc) ->
-    Acc;
-
-parse_tokens([Next|Rest], Acc) ->
-    case nksip_parse_tokens:tokens(Next) of
-        error -> error;
-        TokenList -> parse_tokens(Rest, Acc++TokenList)
-    end.
-
-
-%% @private
--spec parse_integers([binary()|string()], [integer()]) ->
-    [integer()] | error.
-
-parse_integers([], Acc) ->
-    Acc;
-
-parse_integers([Next|Rest], Acc) ->
-    case catch list_to_integer(string:strip(nklib_util:to_list(Next))) of
-        {'EXIT', _} -> error;
-        Integer -> parse_integers(Rest, Acc++[Integer])
-    end.
-
-
-%% @private
--spec parse_dates([binary()|string()], [calendar:datetime()]) ->
-    [calendar:datetime()] | error.
-
-parse_dates([], Acc) ->
-    Acc;
-
-parse_dates([Next|Rest], Acc) ->
-    Base = string:strip(nklib_util:to_list(Next)),
-    case lists:reverse(Base) of
-        "TMG " ++ _ ->               % Should be in "GMT"
-            case catch httpd_util:convert_request_date(Base) of
-                {_, _} = Date -> parse_dates(Rest, Acc++[Date]);
-                _ -> error
-            end;
-        _ ->
-            error
-    end.
-
 
 %% @doc Modifies a request based on uri options
 -spec uri_method(nksip:user_uri(), nksip:method()) ->
     {nksip:method(), nksip:uri()} | error.
 
 uri_method(RawUri, Default) ->
-    case nksip_parse:uris(RawUri) of
+    case nklib_parse:uris(RawUri) of
         [#uri{opts=UriOpts}=Uri] ->
             case lists:keytake(<<"method">>, 1, UriOpts) of
                 false ->

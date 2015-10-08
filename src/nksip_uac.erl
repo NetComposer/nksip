@@ -337,7 +337,7 @@ stun(App, UriSpec, _Opts) ->
                 [] -> 
                     {error, no_udp_transport};
                 [{#transport{listen_ip=LIp, listen_port=LPort}, Pid}|_] ->
-                    case nksip_parse:uris(UriSpec) of
+                    case nklib_parse:uris(UriSpec) of
                         [Uri] ->
                             Transp = nksip_dns:resolve(Uri),
                             case nklib_util:extract(Transp, udp) of

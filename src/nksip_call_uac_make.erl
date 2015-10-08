@@ -38,7 +38,7 @@
     
 make(AppId, Method, Uri, Opts) ->
     try
-        case nksip_parse:uris(Uri) of
+        case nklib_parse:uris(Uri) of
             [RUri] -> ok;
             _ -> RUri = throw(invalid_uri)
         end,
@@ -69,7 +69,7 @@ make(AppId, Method, Uri, Opts) ->
             from = {DefFrom, FromTag},
             to = {DefTo, <<>>},
             call_id = CallId,
-            cseq = {nksip_config:cseq(), Method1},
+            cseq = {nksip_lib:get_cseq(), Method1},
             forwards = 70,
             transport = #transport{},
             start = nklib_util:l_timestamp()
