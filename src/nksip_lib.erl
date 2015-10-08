@@ -22,6 +22,7 @@
 -module(nksip_lib).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-export([parse_service/1, parse_service/2]).
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([put_log_cache/2]).
@@ -34,6 +35,159 @@
 %% ===================================================================
 %% Public
 %% =================================================================
+
+
+parse_service(Data) ->
+    parse_service(Data, service_defaults()).
+
+
+parse_service(Data, Defaults) ->
+    ParseOpts = #{return=>map, defaults=>Defaults},
+    case nklib_config:parse_config(Data, service_syntax(), ParseOpts) of
+        {ok, Parsed, _} ->
+            {ok, Parsed};
+        {error, Error} ->
+            {error, Error}
+    end.
+
+
+service_syntax() ->
+    #{
+        % Internal options
+        name => any,
+        module => atom,
+
+        % System options
+        timer_t1 => {integer, 10, 2500},
+        timer_t2 => {integer, 100, 16000},
+        timer_t4 => {integer, 100, 25000},
+        timer_c => {integer, 1, none},
+        udp_timeout => {integer, 5, none},
+        tcp_timeout => {integer, 5, none},
+        sctp_timeout => {integer, 5, none},
+        ws_timeout => {integer, 5, none},
+        trans_timeout => {integer, 5, none},
+        dialog_timeout => {integer, 5, none},
+        event_expires => {integer, 1, none},
+        event_expires_offset => {integer, 0, none},
+        nonce_timeout => {integer, 5, none},
+        max_calls => {integer, 1, 1000000},
+        max_connections => {integer, 1, 1000000},
+        
+        % Startup options
+        transports => fun parse_transports/3,
+        certfile => path,
+        keyfile => path,
+        supported => words,
+        allow => words,
+        accept => words,
+        events => words,
+        
+        % Default headers and options
+        from => uri,
+        route => uris,
+        local_host => [{enum, [auto]}, host],
+        local_host6 => [{enum, [auto]}, host6],
+        no_100 => {enum, [true]},
+
+        debug => boolean,
+        log_level => log_level
+    }.
+
+
+service_defaults() ->
+    [
+        {log_level, notice},
+        {allow, [
+            <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
+            <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
+            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>]},
+        {supported, [<<"path">>]},
+        {timer_t1, 500},                    % (msecs) 0.5 secs
+        {timer_t2, 4000},                   % (msecs) 4 secs
+        {timer_t4, 5000},                   % (msecs) 5 secs
+        {timer_c,  180},                    % (secs) 3min
+        {udp_timeout, 30},                  % (secs) 30 secs
+        {tcp_timeout, 180},                 % (secs) 3 min
+        {sctp_timeout, 180},                % (secs) 3 min
+        {ws_timeout, 180},                  % (secs) 3 min
+        {trans_timeout, 900},               % (secs) 15 min
+        {dialog_timeout, 1800},             % (secs) 30 min
+        {event_expires, 60},                % (secs) 1 min
+        {event_expires_offset, 5},          % (secs) 5 secs
+        {nonce_timeout, 30},                % (secs) 30 secs
+        {from, undefined},
+        {accept, undefined},
+        {events, []},
+        {route, []},
+        {local_host, auto},
+        {local_host6, auto},
+        {no_100, true},
+        {max_calls, 100000},                % Each Call-ID counts as a call
+        {max_connections, 1024},            % Per transport and SipApp
+        {debug, false}                      % Used in nksip_debug plugin
+    ].
+
+
+
+   
+
+%% @private
+parse_transports(_, List, _) when is_list(List) ->
+    try
+        do_parse_transports(List, [])
+    catch
+        throw:Throw -> {error, Throw}
+    end;
+
+parse_transports(_, _List, _) ->
+    error.
+
+
+%% @private
+do_parse_transports([], Acc) ->
+    lists:reverse(Acc);
+
+do_parse_transports([Transport|Rest], Acc) ->
+    case Transport of
+        {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
+        {Scheme, Ip, Port} -> TOpts = [];
+        {Scheme, Ip} -> Port = any, TOpts = [];
+        Scheme -> Ip = all, Port = any, TOpts = []
+    end,
+    case 
+        (Scheme==udp orelse Scheme==tcp orelse 
+         Scheme==tls orelse Scheme==sctp orelse
+         Scheme==ws  orelse Scheme==wss)
+    of
+        true -> ok;
+        false -> throw({invalid_transport, Transport})
+    end,
+    Ip1 = case Ip of
+        all ->
+            {0,0,0,0};
+        all6 ->
+            {0,0,0,0,0,0,0,0};
+        _ when is_tuple(Ip) ->
+            case catch inet_parse:ntoa(Ip) of
+                {error, _} -> throw({invalid_transport, Transport});
+                {'EXIT', _} -> throw({invalid_transport, Transport});
+                _ -> Ip
+            end;
+        _ ->
+            case catch nklib_util:to_ip(Ip) of
+                {ok, PIp} -> PIp;
+                _ -> throw({invalid_transport, Transport})
+            end
+    end,
+    Port1 = case Port of
+        any -> 0;
+        _ when is_integer(Port), Port >= 0 -> Port;
+        _ -> throw({invalid_transport, Transport})
+    end,
+    do_parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
+
+
 
 
 %% @doc Gets a new `CSeq'.

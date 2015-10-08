@@ -165,19 +165,61 @@
 start(AppName, Module, Args, Opts) ->
     case get_pid(AppName) of
         undefined ->
-            Opts1 = [{name, AppName}, {module, Module}|Opts],
-            case nksip_sipapp_config:start(Opts1) of
-                {ok, AppId} ->
-                    case nkservice_sup:start_service(AppId, none, Args) of
-                        ok -> {ok, AppId};
-                        {error, Error} -> {error, Error}
-                    end;
-                {error, Error} ->
-                    {error, Error}
+            try
+            Opts1 = nklib_util:to_map(Opts),
+            Opts2 = Opts1#{name=>AppName, args=>Args},
+            Def = nksip_config_cache:app_config(),
+            ParsedDef = case nksip_lib:parse_service(Def) of
+                {ok, ParsedDef0} -> ParsedDef0;
+                {error, Error} -> throw(Error)
+            end,
+            ParsedOpts = case nksip_lib:parse_service(Def, ParsedDef) of
+                {ok, ParsedOpts0} -> ParsedOpts0;
+                {error, Error} -> throw(Error)
+            end,
+            Timers = #call_timers{
+                t1 = maps:get(timer_t1, Opts),
+                t2 = maps:get(timer_t2, Opts),
+                t4 = maps:get(timer_t4, Opts),
+                tc = maps:get(timer_c, Opts),
+                trans = maps:get(trans_timeout, Opts),
+                dialog = maps:get(dialog_timeout, Opts)},
+            CachedConfig1 = maps:with(
+                [log_level, debug, max_connections, max_calls, from, no_100, supported,
+                 allow, accept, events, route, local_host, local_host, local_host6,
+                 max_calls, timers], ParsedOpts#{timers=>Timers}),
+
+
+
+
+
+
+            AppId = nksip_sipapp_srv:get_appid(AppName),
+           case nkservice_sup:start_service(AppId, Module, Opts2) of
+                ok -> {ok, AppId};
+                {error, Error} -> {error, Error}
             end;
         _ ->
             {error, already_started}
     end.
+
+
+
+make_opts() ->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 %% @doc Stops a started SipApp, stopping any registered transports.
