@@ -76,9 +76,9 @@ stop() ->
 basic() ->
     Ref = make_ref(),
     Pid = self(),
-    ok = nksip:put(server1, inline_test, {Ref, Pid}),
-    ok = nksip:put(client1, inline_test, {Ref, Pid}),
-    ok = nksip:put(client2, inline_test, {Ref, Pid}),
+    ok = nkservice_server:put(server1, inline_test, {Ref, Pid}),
+    ok = nkservice_server:put(client1, inline_test, {Ref, Pid}),
+    ok = nkservice_server:put(client2, inline_test, {Ref, Pid}),
     nksip_registrar:clear(server1),
     
     {ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", [contact]),
@@ -118,18 +118,18 @@ basic() ->
             {server1, route}, {server1, session_stop}, {server1, dialog_stop},
             {client1, session_stop}, {client1, dialog_stop}, 
             {client2, bye}, {client2, session_stop}, {client2, dialog_stop}]),
-    nksip:del(server1, inline_test),
-    nksip:del(client1, inline_test),
-    nksip:del(client2, inline_test),
+    nkservice_server:del(server1, inline_test),
+    nkservice_server:del(client1, inline_test),
+    nkservice_server:del(client2, inline_test),
     ok.
 
 
 cancel() ->
     Ref = make_ref(),
     Pid = self(),
-    ok = nksip:put(server1, inline_test, {Ref, Pid}),
-    ok = nksip:put(client1, inline_test, {Ref, Pid}),
-    ok = nksip:put(client2, inline_test, {Ref, Pid}),
+    ok = nkservice_server:put(server1, inline_test, {Ref, Pid}),
+    ok = nkservice_server:put(client1, inline_test, {Ref, Pid}),
+    ok = nkservice_server:put(client2, inline_test, {Ref, Pid}),
 
     {ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1", [contact]),
     ok = tests_util:wait(Ref, [{server1, route}]),
@@ -147,9 +147,9 @@ cancel() ->
             {client1, dialog_start}, {client1, dialog_stop},
             {client2, invite}, {client2, cancel},
             {client2, dialog_start}, {client2, dialog_stop}]),
-    nksip:del(server1, inline_test),
-    nksip:del(client1, inline_test),
-    nksip:del(client2, inline_test),
+    nkservice_server:del(server1, inline_test),
+    nkservice_server:del(client1, inline_test),
+    nkservice_server:del(client2, inline_test),
     ok.
 
 
@@ -320,8 +320,8 @@ send_reply(Elem, Msg) ->
         #sipmsg{} -> nksip_sipmsg:meta(app_name, Elem);
         #dialog{} -> nksip_dialog_lib:meta(app_name, Elem)
     end,
-    case nksip:get(App, inline_test) of
-        {ok, {Ref, Pid}} -> Pid ! {Ref, {App, Msg}};
+    case nkservice_server:get(App, inline_test) of
+        {Ref, Pid} -> Pid ! {Ref, {App, Msg}};
         _ -> ok
     end.
 

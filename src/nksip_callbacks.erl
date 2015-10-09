@@ -24,27 +24,294 @@
 
 -include("nksip.hrl").
 -include("nksip_call.hrl").
--export([nkcb_call/3, nkcb_sip_method/2, nkcb_authorize_data/3, 
-		 nkcb_transport_uac_headers/6, nkcb_transport_uas_sent/1]).
--export([nkcb_uac_pre_response/3, nkcb_uac_response/4, nkcb_parse_uac_opts/2,
-		 nkcb_uac_proxy_opts/2, nkcb_make_uac_dialog/4, nkcb_uac_pre_request/4,
-		 nkcb_uac_reply/3]).
--export([nkcb_uas_send_reply/3, nkcb_uas_sent_reply/1, nkcb_uas_method/4, nkcb_parse_uas_opt/3, nkcb_uas_timer/3, nkcb_uas_dialog_response/4, nkcb_uas_process/2]).
--export([nkcb_dialog_update/3, nkcb_route/4]).
--export([nkcb_connection_sent/2, nkcb_connection_recv/4]).
--export([nkcb_handle_call/3, nkcb_handle_cast/2, nkcb_handle_info/2, 
-	     nkcb_sipapp_updated/1]).
--export([nkcb_debug/3]).
 
--type nkcb_common() :: continue | {continue, list()}.
+-export([sip_get_user_pass/4, sip_authorize/3, sip_route/5]).
+-export([sip_invite/2, sip_reinvite/2, sip_cancel/3, sip_ack/2, sip_bye/2]).
+-export([sip_options/2, sip_register/2, sip_info/2, sip_update/2]).
+-export([sip_subscribe/2, sip_resubscribe/2, sip_notify/2, sip_message/2]).
+-export([sip_refer/2, sip_publish/2]).
+-export([sip_dialog_update/3, sip_session_update/3]).
+-export([init/1, terminate/2]).
+-export([handle_call/3, handle_cast/2, handle_info/2]).
+
+
+-export([nks_call/3, nks_sip_method/2, nks_authorize_data/3, 
+		 nks_transport_uac_headers/6, nks_transport_uas_sent/1]).
+-export([nks_uac_pre_response/3, nks_uac_response/4, nks_parse_uac_opts/2,
+		 nks_uac_proxy_opts/2, nks_make_uac_dialog/4, nks_uac_pre_request/4,
+		 nks_uac_reply/3]).
+-export([nks_uas_send_reply/3, nks_uas_sent_reply/1, nks_uas_method/4, nks_parse_uas_opt/3, nks_uas_timer/3, nks_uas_dialog_response/4, nks_uas_process/2]).
+-export([nks_dialog_update/3, nks_route/4]).
+-export([nks_connection_sent/2, nks_connection_recv/4]).
+-export([nks_handle_call/3, nks_handle_cast/2, nks_handle_info/2, 
+	     nks_sipapp_updated/1]).
+-export([nks_debug/3]).
+
+-type nks_common() :: continue | {continue, list()}.
+
+
+
+%%%%%%%%%%%%%% SIP Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%% @doc Called to check a user password for a realm.
+-spec sip_get_user_pass(User::binary(), Realm::binary(), Req::nksip:request(), 
+                        Call::nksip:call()) ->
+    true | false | binary().
+
+sip_get_user_pass(<<"anonymous">>, _, _Req, _Call) -> <<>>;
+sip_get_user_pass(_User, _Realm, _Req, _Call) -> false.
+
+
+
+%% @doc Called for every incoming request to be authorized or not.
+-spec sip_authorize(AuthList, Req::nksip:request(), Call::nksip:call()) ->
+    ok | forbidden | authenticate | {authenticate, Realm::binary()} |
+    proxy_authenticate | {proxy_authenticate, Realm::binary()}
+    when AuthList :: [dialog|register|{{digest, Realm::binary}, boolean()}].
+
+sip_authorize(_AuthList, _Req, _Call) ->
+    ok.
+
+
+%% @doc This function is called by NkSIP for every new request, to check if it must be 
+-spec sip_route(Scheme::nksip:scheme(), User::binary(), Domain::binary(), 
+            Req::nksip:request(), Call::nksip:call()) ->
+    proxy | {proxy, ruri | nksip:uri_set()} | 
+    {proxy, ruri | nksip:uri_set(), nksip:optslist()} | 
+    proxy_stateless | {proxy_stateless, ruri | nksip:uri_set()} | 
+    {proxy_stateless, ruri | nksip:uri_set(), nksip:optslist()} | 
+    process | process_stateless |
+    {reply, nksip:sipreply()} | {reply_stateless, nksip:sipreply()}.
+
+sip_route(_Scheme, _User, _Domain, _Req, _Call) ->
+    process.
+
+
+%% @doc Called when a OPTIONS request is received.
+-spec sip_options(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_options(_Req, _Call) ->
+    {reply, {ok, [contact, allow, allow_event, accept, supported]}}.
+    
+
+%% @doc This function is called by NkSIP to process a new incoming REGISTER request. 
+-spec sip_register(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_register(Req, _Call) ->
+    {ok, AppId} = nksip_request:app_id(Req),
+    {reply, {method_not_allowed, AppId:config_allow()}}.
+
+
+%% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
+-spec sip_invite(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_invite(_Req, _Call) ->
+    {reply, decline}.
+
+
+%% @doc This function is called when a new in-dialog INVITE request is received.
+-spec sip_reinvite(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_reinvite(Req, Call) ->
+    {ok, AppId} = nksip_request:app_id(Req),
+    AppId:sip_invite(Req, Call).
+
+
+%% @doc Called when a pending INVITE request is cancelled.
+-spec sip_cancel(InviteReq::nksip:request(), Req::nksip:request(), Call::nksip:call()) ->
+    ok.
+
+sip_cancel(_CancelledReq, _Req, _Call) ->
+    ok.
+
+
+%% @doc Called when a valid ACK request is received.
+-spec sip_ack(Req::nksip:request(), Call::nksip:call()) ->
+    ok.
+
+sip_ack(_Req, _Call) ->
+    ok.
+
+
+%% @doc Called when a valid BYE request is received.
+-spec sip_bye(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_bye(_Req, _Call) ->
+    {reply, ok}.
+
+
+%% @doc Called when a valid UPDATE request is received.
+-spec sip_update(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_update(_Req, _Call) ->
+    {reply, decline}.
+
+
+%% @doc This function is called by NkSIP to process a new incoming SUBSCRIBE
+-spec sip_subscribe(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_subscribe(_Req, _Call) ->
+    {reply, decline}.
+
+
+%% @doc This function is called by NkSIP to process a new in-subscription SUBSCRIBE
+-spec sip_resubscribe(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_resubscribe(_Req, _Call) ->
+    {reply, ok}.
+
+
+%% @doc This function is called by NkSIP to process a new incoming NOTIFY
+-spec sip_notify(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_notify(_Req, _Call) ->
+    {reply, ok}.
+
+
+%% @doc This function is called by NkSIP to process a new incoming REFER.
+-spec sip_refer(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_refer(_Req, _Call) ->
+    {reply, decline}.
+
+
+%% @doc This function is called by NkSIP to process a new incoming PUBLISH request. 
+-spec sip_publish(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_publish(Req, _Call) ->
+    {ok, AppId} = nksip_request:app_id(Req),
+    {reply, {method_not_allowed, AppId:config_allow()}}.
+
+
+%% @doc Called when a valid INFO request is received.
+-spec sip_info(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_info(_Req, _Call) ->
+    {reply, ok}.
+
+
+%% @doc This function is called by NkSIP to process a new incoming MESSAGE
+-spec sip_message(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_message(_Req, _Call) ->
+    {reply, decline}.
+
+
+%% @doc Called when a dialog has changed its state.
+-spec sip_dialog_update(DialogStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
+    ok when 
+      DialogStatus :: start | target_update | stop |
+                      {invite_status, nksip_dialog:invite_status() | {stop, nksip_dialog:stop_reason()}} |
+                      {invite_refresh, SDP::nksip_sdp:sdp()} |
+                      {subscription_status, nksip_subscription:status(), nksip:subscription()}.
+    
+sip_dialog_update(_Status, _Dialog, _Call) ->
+    ok.
+
+
+%% @doc Called when a dialog has updated its SDP session parameters.
+-spec sip_session_update(SessionStatus, Dialog::nksip:dialog(), Call::nksip:call()) ->
+    ok when 
+        SessionStatus :: {start, Local, Remote} | {update, Local, Remote} | stop,
+                         Local::nksip_sdp:sdp(), Remote::nksip_sdp:sdp().
+
+sip_session_update(_Status, _Dialog, _Call) ->
+    ok.
+
+
+
+%%%%%%%%%%%%%% gen_server Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%% @doc SipApp initialization.
+%%
+%% This callback function is called when the SipApp is launched using 
+%% {@link nksip:start/4}.
+%%
+%% If `{ok, State}' or `{ok, State, Timeout}' is returned the SipApp is started with
+%% this initial state. If a `Timeout' is provided (in milliseconds) a 
+%% `timeout' message will be sent to the process 
+%% (you will need to implement {@link handle_info/2} to receive it).
+%% If `{stop, Reason}' is returned the SipApp will not start. 
+%%
+-spec init(Args::term()) ->
+    {ok, State::term()} | {ok, State::term(), Timeout::timeout()} |
+    {stop, Reason::term()}.
+
+init(Arg) ->
+    {ok, Arg}.
+
+
+%% @doc Called when the SipApp is stopped.
+-spec terminate(Reason::term(), State::term()) ->
+    ok.
+
+terminate(_Reason, _State) ->
+    ok.
+
+
+%% @doc Called when a direct call to the SipApp process is made using 
+%% {@link nksip:call/2} or {@link nksip:call/3}.
+-spec handle_call(Msg::term(), From::from(), State::term()) ->
+    {reply, Reply::RetType, State::term()} | 
+    {reply, Reply::RetType, State::term(), Timeout::timeout()} |
+    {noreply, State::term()} | 
+    {noreply, State::term(), Timeout::timeout()} |
+    {stop, Reason::term(), Reply::RetType, State::term()} | 
+    {stop, Reason::term(), State::term()}.
+
+handle_call(Msg, _From, State) ->
+    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
+
+
+%% @doc Called when a direct cast to the SipApp process is made using 
+%% {@link nksip:cast/2}.
+-spec handle_cast(Msg::term(), State::term()) ->
+    {noreply, State::term()} |
+    {noreply, State::term(), Timeout::timeout()} |
+    {stop, Reason::term(), State::term()}.
+
+handle_cast(Msg, State) ->
+    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
+    {noreply, State}.
+
+
+%% @doc Called when the SipApp process receives an unknown message.
+-spec handle_info(Msg::term(), State::term()) ->
+    {noreply, State::term()} |
+    {noreply, State::term(), Timeout::timeout()} |
+    {stop, Reason::term(), State::term()}.
+
+handle_info(_Msg, State) ->
+    {noreply, State}.
+
+
+
+%%%%%%%%%%%%%% Internal Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% @doc This plugin callback function is used to call application-level 
 %% SipApp callbacks.
--spec nkcb_call(atom(), list(), nksip:app_id()) ->
-	{ok, term()} | error | nkcb_common().
+-spec nks_call(atom(), list(), nksip:app_id()) ->
+	{ok, term()} | error | nks_common().
 
-nkcb_call(Fun, Args, AppId) ->
+nks_call(Fun, Args, AppId) ->
 	case catch apply(AppId, Fun, Args) of
 	    {'EXIT', Error} -> 
 	        ?call_error("Error calling callback ~p/~p: ~p", [Fun, length(Args), Error]),
@@ -58,18 +325,18 @@ nkcb_call(Fun, Args, AppId) ->
 
 %% @doc This plugin callback is called when a call to one of the method specific
 %% application-level SipApp callbacks is needed.
--spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
-	{reply, nksip:sipreply()} | noreply | nkcb_common().
+-spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
+	{reply, nksip:sipreply()} | noreply | nks_common().
 
 
-nkcb_sip_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
+nks_sip_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
 	case catch AppId:sip_ack(Req, Call) of
 		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
 	noreply;
 
-nkcb_sip_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
+nks_sip_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 	#sipmsg{to={_, ToTag}} = Req,
 	Fun = case Method of
 		'INVITE' when ToTag == <<>> -> sip_invite;
@@ -101,10 +368,10 @@ nkcb_sip_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 %% @doc This callback is called when the application use has implemented the
 %% sip_authorize/3 callback, and a list with authentication tokens must be
 %% generated
--spec nkcb_authorize_data(list(), nksip_call:trans(), nksip_call:call()) ->
-	{ok, list()} | nkcb_common().
+-spec nks_authorize_data(list(), nksip_call:trans(), nksip_call:call()) ->
+	{ok, list()} | nks_common().
 
-nkcb_authorize_data(List, #trans{request=Req}, Call) ->
+nks_authorize_data(List, #trans{request=Req}, Call) ->
 	Digest = nksip_auth:authorize_data(Req, Call),
 	Dialog = case nksip_call_lib:check_auth(Req, Call) of
         true -> dialog;
@@ -114,215 +381,215 @@ nkcb_authorize_data(List, #trans{request=Req}, Call) ->
 
 
 %% @doc Called after the UAC pre processes a response
--spec nkcb_uac_pre_response(nksip:response(),  nksip_call:trans(), nksip:call()) ->
-	{ok, nksip:call()} | nkcb_common().
+-spec nks_uac_pre_response(nksip:response(),  nksip_call:trans(), nksip:call()) ->
+	{ok, nksip:call()} | nks_common().
 
-nkcb_uac_pre_response(Resp, UAC, Call) ->
+nks_uac_pre_response(Resp, UAC, Call) ->
     {continue, [Resp, UAC, Call]}.
 
 
 %% @doc Called after the UAC processes a response
--spec nkcb_uac_response(nksip:request(), nksip:response(), 
+-spec nks_uac_response(nksip:request(), nksip:response(), 
 					    nksip_call:trans(), nksip:call()) ->
-	{ok, nksip:call()} | nkcb_common().
+	{ok, nksip:call()} | nks_common().
 
-nkcb_uac_response(Req, Resp, UAC, Call) ->
+nks_uac_response(Req, Resp, UAC, Call) ->
     {continue, [Req, Resp, UAC, Call]}.
 
 
 %% @doc Called to parse specific UAC options
--spec nkcb_parse_uac_opts(nksip:request(), nksip:optslist()) ->
-	{error, term()} | nkcb_common().
+-spec nks_parse_uac_opts(nksip:request(), nksip:optslist()) ->
+	{error, term()} | nks_common().
 
-nkcb_parse_uac_opts(Req, Opts) ->
+nks_parse_uac_opts(Req, Opts) ->
 	{continue, [Req, Opts]}.
 
 
 %% @doc Called to add options for proxy UAC processing
--spec nkcb_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
-	{reply, nksip:sipreply()} | nkcb_common().
+-spec nks_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
+	{reply, nksip:sipreply()} | nks_common().
 
-nkcb_uac_proxy_opts(Req, ReqOpts) ->
+nks_uac_proxy_opts(Req, ReqOpts) ->
 	{continue, [Req, ReqOpts]}.
 
 
 %% @doc Called when a new in-dialog request is being generated
--spec nkcb_make_uac_dialog(nksip:method(), nksip:uri(), nksip:optslist(), nksip:call()) ->
+-spec nks_make_uac_dialog(nksip:method(), nksip:uri(), nksip:optslist(), nksip:call()) ->
 	{continue, list()}.
 
-nkcb_make_uac_dialog(Method, Uri, Opts, Call) ->
+nks_make_uac_dialog(Method, Uri, Opts, Call) ->
 	{continue, [Method, Uri, Opts, Call]}.
 
 
 %% @doc Called when the UAC is preparing a request to be sent
--spec nkcb_uac_pre_request(nksip:request(), nksip:optslist(), 
+-spec nks_uac_pre_request(nksip:request(), nksip:optslist(), 
                            nksip_call_uac:uac_from(), nksip:call()) ->
     {continue, list()}.
 
-nkcb_uac_pre_request(Req, Opts, From, Call) ->
+nks_uac_pre_request(Req, Opts, From, Call) ->
 	{continue, [Req, Opts, From, Call]}.
 
 
 %% @doc Called when the UAC transaction must send a reply to the user
--spec nkcb_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
+-spec nks_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
                      nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
-nkcb_uac_reply(Class, UAC, Call) ->
+nks_uac_reply(Class, UAC, Call) ->
     {continue, [Class, UAC, Call]}.
 
 
 %% @doc Called to add headers just before sending the request
--spec nkcb_transport_uac_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
+-spec nks_transport_uac_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
 							     nksip:protocol(), binary(), inet:port_number()) ->
 	{ok, nksip:request()}.
 
-nkcb_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
+nks_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
 	Req1 = nksip_call_uac_transp:add_headers(Req, Opts, Scheme, Proto, Host, Port),
 	{ok, Req1}.
 
 
 %% @doc Called when a new reponse is going to be sent
--spec nkcb_uas_send_reply({nksip:response(), nksip:optslist()}, 
+-spec nks_uas_send_reply({nksip:response(), nksip:optslist()}, 
 							 nksip_call:trans(), nksip_call:call()) ->
-	{error, term()} | nkcb_common().
+	{error, term()} | nks_common().
 
-nkcb_uas_send_reply({Resp, RespOpts}, UAS, Call) ->
+nks_uas_send_reply({Resp, RespOpts}, UAS, Call) ->
 	{continue, [{Resp, RespOpts}, UAS, Call]}.
 
 
 %% @doc Called when a new reponse is sent
--spec nkcb_uas_sent_reply(nksip_call:call()) ->
-	{ok, nksip_call:call()} | nkcb_common().
+-spec nks_uas_sent_reply(nksip_call:call()) ->
+	{ok, nksip_call:call()} | nks_common().
 
-nkcb_uas_sent_reply(Call) ->
+nks_uas_sent_reply(Call) ->
 	{continue, [Call]}.
 
 	
 %% @doc Called when a new request has to be processed
--spec nkcb_uas_method(nksip:method(), nksip:request(), 
+-spec nks_uas_method(nksip:method(), nksip:request(), 
 					  nksip_call:trans(), nksip_call:call()) ->
-	{ok, nksip_call:trans(), nksip_call:call()} | nkcb_common().
+	{ok, nksip_call:trans(), nksip_call:call()} | nks_common().
 
-nkcb_uas_method(Method, Req, UAS, Call) ->
+nks_uas_method(Method, Req, UAS, Call) ->
 	{continue, [Method, Req, UAS, Call]}.
 
 
 %% @doc Called when a UAS timer is fired
--spec nkcb_uas_timer(nksip_call_lib:timer()|term(), nksip_call:trans(), nksip_call:call()) ->
-    {ok, nksip_call:call()} | nkcb_common().
+-spec nks_uas_timer(nksip_call_lib:timer()|term(), nksip_call:trans(), nksip_call:call()) ->
+    {ok, nksip_call:call()} | nks_common().
 
-nkcb_uas_timer(Tag, UAS, Call) ->
+nks_uas_timer(Tag, UAS, Call) ->
 	{continue, [Tag, UAS, Call]}.
 
 
 %% @doc Called to parse specific UAS options
--spec nkcb_parse_uas_opt(nksip:request(), nksip:response(), nksip:optslist()) ->
-	{error, term()} | nkcb_common().
+-spec nks_parse_uas_opt(nksip:request(), nksip:response(), nksip:optslist()) ->
+	{error, term()} | nks_common().
 
-nkcb_parse_uas_opt(Req, Resp, Opts) ->
+nks_parse_uas_opt(Req, Resp, Opts) ->
 	{continue, [Req, Resp, Opts]}.
 
 
 %% @doc Called when preparing a UAS dialog response
--spec nkcb_uas_dialog_response(nksip:request(), nksip:response(), 
+-spec nks_uas_dialog_response(nksip:request(), nksip:response(), 
                                nksip:optslist(), nksip:call()) ->
     {ok, nksip:response(), nksip:optslist()}.
 
-nkcb_uas_dialog_response(_Req, Resp, Opts, _Call) ->
+nks_uas_dialog_response(_Req, Resp, Opts, _Call) ->
     {ok, Resp, Opts}.
 
 
 %% @doc Called when the UAS is proceesing a request
--spec nkcb_uas_process(nksip_call:trans(), nksip_call:call()) ->
+-spec nks_uas_process(nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
-nkcb_uas_process(UAS, Call) ->
+nks_uas_process(UAS, Call) ->
 	{continue, [UAS, Call]}.
 
 
 %% @doc Called when a dialog must update its internal state
--spec nkcb_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
-    {ok, nksip_call:call()} | nkcb_common().
+-spec nks_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
+    {ok, nksip_call:call()} | nks_common().
 
-nkcb_dialog_update(Type, Dialog, Call) ->
+nks_dialog_update(Type, Dialog, Call) ->
 	{continue, [Type, Dialog, Call]}.
 
 
 %% @doc Called when a proxy is preparing a routing
--spec nkcb_route(nksip:uri_set(), nksip:optslist(), 
+-spec nks_route(nksip:uri_set(), nksip:optslist(), 
                  nksip_call:trans(), nksip_call:call()) -> 
     {continue, list()} | {reply, nksip:sipreply(), nksip_call:call()}.
 
-nkcb_route(UriList, ProxyOpts, UAS, Call) ->
+nks_route(UriList, ProxyOpts, UAS, Call) ->
 	{continue, [UriList, ProxyOpts, UAS, Call]}.
 
 
 %% @doc Called when a new message has been sent
--spec nkcb_connection_sent(nksip:request()|nksip:response(), binary()) ->
-	ok | nkcb_common().
+-spec nks_connection_sent(nksip:request()|nksip:response(), binary()) ->
+	ok | nks_common().
 
-nkcb_connection_sent(_SipMsg, _Packet) ->
+nks_connection_sent(_SipMsg, _Packet) ->
 	ok.
 
 
 %% @doc Called when a new message has been received and parsed
--spec nkcb_connection_recv(nksip:app_id(), nksip:call_id(), 
+-spec nks_connection_recv(nksip:app_id(), nksip:call_id(), 
 					       nksip:transport(), binary()) ->
-    ok | nkcb_common().
+    ok | nks_common().
 
-nkcb_connection_recv(_AppId, _CallId, _Transp, _Packet) ->
+nks_connection_recv(_AppId, _CallId, _Transp, _Packet) ->
 	ok.
 
 
 %% @doc Called when the transport has just sent a response
--spec nkcb_transport_uas_sent(nksip:response()) ->
-    ok | nkcb_common().
+-spec nks_transport_uas_sent(nksip:response()) ->
+    ok | nks_common().
 
-nkcb_transport_uas_sent(_Resp) ->
+nks_transport_uas_sent(_Resp) ->
 	ok.
 
 
 %% @doc Called when the SipApp process receives a handle_call/3.
 %% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
--spec nkcb_handle_call(term(), from(), nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+-spec nks_handle_call(term(), from(), nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nks_common().
 
-nkcb_handle_call(Msg, From, SipAppState) ->
+nks_handle_call(Msg, From, SipAppState) ->
 	{continue, [Msg, From, SipAppState]}.
 
 
 %% @doc Called when the SipApp process receives a handle_cast/3.
 %% Return {ok, NewPluginState} or continue.
--spec nkcb_handle_cast(term(), nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+-spec nks_handle_cast(term(), nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nks_common().
 
-nkcb_handle_cast(Msg, SipAppState) ->
+nks_handle_cast(Msg, SipAppState) ->
 	{continue, [Msg, SipAppState]}.
 
 
 %% @doc Called when the SipApp process receives a handle_info/3.
 %% Return {ok, NewPluginState} or continue.
--spec nkcb_handle_info(term(), nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+-spec nks_handle_info(term(), nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nks_common().
 
-nkcb_handle_info(Msg, SipAppState) ->
+nks_handle_info(Msg, SipAppState) ->
 	{continue, [Msg, SipAppState]}.
 
 
 %% @doc Called when the SipApp is updated with a new configuration
--spec nkcb_sipapp_updated(nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nkcb_common().
+-spec nks_sipapp_updated(nksip_sipapp_srv:state()) ->
+	{ok, nksip_sipapp_srv:state()} | nks_common().
 
-nkcb_sipapp_updated(SipAppState) ->
+nks_sipapp_updated(SipAppState) ->
 	{ok, SipAppState}.
 
 
 %% doc Called at specific debug points
--spec nkcb_debug(nksip:app_id(), nksip:call_id(), term()) ->
-    ok | nkcb_common().
+-spec nks_debug(nksip:app_id(), nksip:call_id(), term()) ->
+    ok | nks_common().
 
-nkcb_debug(_AppId, _CallId, _Info) ->
+nks_debug(_AppId, _CallId, _Info) ->
     ok.
 
 

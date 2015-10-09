@@ -42,7 +42,7 @@
 timer(Tag, Id, #call{app_id=AppId, trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uas}=UAS ->
-            case AppId:nkcb_uas_timer(Tag, UAS, Call) of
+            case AppId:nks_uas_timer(Tag, UAS, Call) of
                 {ok, Call1} ->
                     Call1;
                 {continue, [Tag1, UAS1, Call1]} ->

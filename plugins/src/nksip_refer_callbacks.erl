@@ -26,17 +26,17 @@
 -include("../include/nksip_call.hrl").
 
 
--export([nkcb_parse_uac_opts/2, nkcb_sip_method/2, nkcb_call/3, nkcb_uac_reply/3]).
+-export([nks_parse_uac_opts/2, nks_sip_method/2, nks_call/3, nks_uac_reply/3]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% @doc Called to parse specific UAC options
--spec nkcb_parse_uac_opts(nksip:request(), nksip:optslist()) ->
+-spec nks_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {error, term()}|{continue, list()}.
 
-nkcb_parse_uac_opts(Req, Opts) ->
+nks_parse_uac_opts(Req, Opts) ->
     case lists:keyfind(refer_subscription_id, 1, Opts) of
         {refer_subscription_id, Refer} when is_binary(Refer) ->
             {continue, [Req, Opts]};
@@ -49,10 +49,10 @@ nkcb_parse_uac_opts(Req, Opts) ->
 
 %% @private This plugin callback is called when a call to one of the method specific
 %% application-level SipApp callbacks is needed.
--spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
+-spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-nkcb_sip_method(#trans{method='REFER', request=Req}, #call{app_id=AppId}=Call) ->
+nks_sip_method(#trans{method='REFER', request=Req}, #call{app_id=AppId}=Call) ->
     Module = AppId:module(),
     case 
         Module/=nksip_sipapp andalso
@@ -64,7 +64,7 @@ nkcb_sip_method(#trans{method='REFER', request=Req}, #call{app_id=AppId}=Call) -
             {reply, nksip_refer:process(Req, Call)}
     end;
 
-nkcb_sip_method(#trans{method='SUBSCRIBE', request=Req}, _Call) ->
+nks_sip_method(#trans{method='SUBSCRIBE', request=Req}, _Call) ->
     case Req#sipmsg.event of
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {reply, ok};
@@ -72,7 +72,7 @@ nkcb_sip_method(#trans{method='SUBSCRIBE', request=Req}, _Call) ->
             continue
     end;
 
-nkcb_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
+nks_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
     case Req#sipmsg.event of
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
@@ -85,16 +85,16 @@ nkcb_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
     end;
 
 
-nkcb_sip_method(_Trans, _Call) ->
+nks_sip_method(_Trans, _Call) ->
     continue.
 
 
 %% @doc This plugin callback function is used to call application-level 
 %% SipApp callbacks.
--spec nkcb_call(atom(), list(), nksip:app_id()) ->
+-spec nks_call(atom(), list(), nksip:app_id()) ->
     continue.
 
-nkcb_call(sip_dialog_update, 
+nks_call(sip_dialog_update, 
           [
             {
                 subscription_status, 
@@ -115,17 +115,17 @@ nkcb_call(sip_dialog_update,
     catch AppId:sip_refer_update(SubsId, Status1, Call),
     continue;
 
-nkcb_call(_, _, _) ->
+nks_call(_, _, _) ->
     continue.
 
 
 
     %% @doc Called when the UAC must send a reply to the user
--spec nkcb_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
+-spec nks_uac_reply({req, nksip:request()} | {resp, nksip:response()} | {error, term()}, 
                      nksip_call:trans(), nksip_call:call()) ->
     {ok, nksip:call()} | {continue, list()}.
 
-nkcb_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
+nks_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
     #sipmsg{class={resp, Code, Reason}} = Resp,
     case nklib_util:get_value(refer_subscription_id, Opts) of
         undefined -> 
@@ -149,6 +149,6 @@ nkcb_uac_reply({resp, Resp}, #trans{from={srv, _}, opts=Opts}=UAC, Call) ->
     end,
     {continue, [{resp, Resp}, UAC, Call]};
 
-nkcb_uac_reply(Class, UAC, Call) ->
+nks_uac_reply(Class, UAC, Call) ->
     {continue, [Class, UAC, Call]}.
 

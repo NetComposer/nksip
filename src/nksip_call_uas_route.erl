@@ -74,7 +74,7 @@ check_cancel(#trans{id=Id}=UAS, #call{app_id=AppId}=Call) ->
             ?call_debug("UAS ~p matched 'CANCEL' as ~p", [Id, InvId]),
             Call1 = nksip_call_uas:do_reply(ok, UAS, Call), 
             Args = [InvUAS#trans.request, UAS#trans.request, Call1],
-            AppId:nkcb_call(sip_cancel, Args, AppId),
+            AppId:nks_call(sip_cancel, Args, AppId),
             case From of
                 {fork, ForkId} -> 
                     % We do not cancel our UAS request, we send it to the fork
@@ -132,9 +132,9 @@ authorize_launch(UAS, #call{app_id=AppId}=Call) ->
     % finding authentication info
     case erlang:function_exported(AppId:module(), sip_authorize, 3) of
         true ->
-            {ok, AuthData} = AppId:nkcb_authorize_data([], UAS, Call),
+            {ok, AuthData} = AppId:nks_authorize_data([], UAS, Call),
             Args = [AuthData, UAS#trans.request, Call],
-            case AppId:nkcb_call(sip_authorize, Args, AppId) of
+            case AppId:nks_call(sip_authorize, Args, AppId) of
                 {ok, Reply} -> 
                     authorize_reply(Reply, UAS, Call);
                 error ->
@@ -185,7 +185,7 @@ authorize_reply(Reply, UAS, Call) ->
 route_launch(#trans{ruri=RUri}=UAS, #call{app_id=AppId}=Call) ->
     #uri{scheme=Scheme, user=User, domain=Domain} = RUri,
     Args = [Scheme, User, Domain, UAS#trans.request, Call],
-    case AppId:nkcb_call(sip_route, Args, AppId) of
+    case AppId:nks_call(sip_route, Args, AppId) of
         {ok, Reply} -> 
             route_reply(Reply, UAS, Call);
         error -> 

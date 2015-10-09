@@ -120,7 +120,7 @@ check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
     nksip_call_uas:do_reply(no_transaction, UAS, Call);
 
 check_missing_dialog(Method, _Req, UAS, #call{app_id=AppId}=Call) ->
-    case AppId:nkcb_uas_process(UAS, Call) of
+    case AppId:nks_uas_process(UAS, Call) of
         {continue, [UAS1, Call1]} ->
             dialog(Method, UAS1#trans.request, UAS1, Call1);
         {ok, Call1} ->
@@ -164,7 +164,7 @@ dialog(Method, Req, UAS, Call) ->
 
 method(Method, Req, UAS, Call) ->
     #call{app_id=AppId} = Call,
-    case AppId:nkcb_uas_method(Method, Req, UAS, Call) of
+    case AppId:nks_uas_method(Method, Req, UAS, Call) of
         {continue, [Method1, Req1, UAS1, Call1]} ->
             case do_method(Method1, Req1, UAS1, Call1) of
                 {noreply, UAS2, Call2} ->
@@ -184,7 +184,7 @@ method(Method, Req, UAS, Call) ->
 
 call_user_sip_method(UAS, Call) ->
     #call{app_id=AppId} = Call,
-    case AppId:nkcb_sip_method(UAS, Call) of
+    case AppId:nks_sip_method(UAS, Call) of
         {reply, Reply} -> 
             nksip_call_uas:do_reply(Reply, UAS, Call);
         noreply -> 
@@ -204,13 +204,13 @@ call_user_sip_method(UAS, Call) ->
 %     try
 %         case Stateless orelse ToTag == <<>> of
 %             true ->
-%                 case AppId:nkcb_uas_method(Method, Req, UAS, Call) of
+%                 case AppId:nks_uas_method(Method, Req, UAS, Call) of
 %                     {continue, [Method1, Req1, UAS1, Call1]} ->
 %                         {UAS2, Call2} = method(Method1, Req1, UAS1, Call1);
 %                     {ok, UAS2, Call2} ->
 %                         ok
 %                 end,
-%                 case AppId:nkcb_sip_method(UAS2, Call2) of
+%                 case AppId:nks_sip_method(UAS2, Call2) of
 %                     {reply, Reply} -> 
 %                         nksip_call_uas:do_reply(Reply, UAS2, Call2);
 %                     noreply -> 
@@ -219,13 +219,13 @@ call_user_sip_method(UAS, Call) ->
 %             false ->           
 %                 case nksip_call_uas_dialog:request(Req, Call) of
 %                     {ok, Call1} ->
-%                         case AppId:nkcb_uas_method(Method, Req, UAS, Call1) of
+%                         case AppId:nks_uas_method(Method, Req, UAS, Call1) of
 %                             {continue, [Method2, Req2, UAS2, Call2]} ->
 %                                 {UAS3, Call3} = method(Method2, Req2, UAS2, Call2);
 %                             {ok, UAS3, Call3} ->
 %                                 ok
 %                         end,
-%                         case AppId:nkcb_sip_method(UAS3, Call3) of
+%                         case AppId:nks_sip_method(UAS3, Call3) of
 %                             {reply, Reply} -> 
 %                                 nksip_call_uas:do_reply(Reply, UAS3, Call3);
 %                             noreply -> 

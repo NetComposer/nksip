@@ -130,7 +130,7 @@ auto() ->
     {error, invalid_uri} = nksip_uac_auto_register:start_ping(client1, ping1, "sip::a", []),
     Ref = make_ref(),
     
-    ok = nksip:put(client1, callback, {Ref, self()}),
+    ok = nkservice_server:put(client1, callback, {Ref, self()}),
     
     {ok, true} = nksip_uac_auto_register:start_ping(client1, ping1, 
                                 "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 5}]),
@@ -204,7 +204,7 @@ timeout() ->
 
 
 init(Id) ->
-    ok = nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, []}.
 
 
@@ -212,7 +212,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
-            {ok, Domains} = nksip:get(server1, domains),
+            Domains = nkservice_server:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     case nksip_request:header(<<"x-nk-op">>, Req) of
@@ -299,13 +299,13 @@ sip_options(Req, _Call) ->
 
 
 sip_uac_auto_register_updated_ping(PingId, OK, AppId) ->
-    {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
+    {Ref, Pid} = nkservice_server:get(AppId, callback, []),
     Pid ! {Ref, {ping, PingId, OK}},
     ok.
 
 
 sip_uac_auto_register_updated_register(RegId, OK, AppId) ->
-    {ok, {Ref, Pid}} = nksip:get(AppId, callback, []),
+    {Ref, Pid} = nkservice_server:get(AppId, callback, []),
     Pid ! {Ref, {reg, RegId, OK}},
     ok.
 

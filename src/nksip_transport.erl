@@ -385,7 +385,7 @@ try_connect(AppId, udp, Ip, Port, Res, Opts, _Try) ->
 
 try_connect(AppId, Proto, Ip, Port, Res, Opts, Try) ->
     ConnId = {AppId, Proto, Ip, Port, Res},
-    case nksip_sipapp_srv:put_new(AppId, {nksip_connect_block, ConnId}, true) of
+    case nkservice_server:put_new(AppId, {nksip_connect_block, ConnId}, true) of
         true ->
             try 
                 do_connect(AppId, Proto, Ip, Port, Res, Opts)
@@ -395,7 +395,7 @@ try_connect(AppId, Proto, Ip, Port, Res, Opts, Try) ->
                                   [Value, erlang:get_stacktrace()]),
                     {error, Value}
             after
-                nksip_sipapp_srv:del(AppId, {nksip_connect_block, ConnId})
+                nkservice_server:del(AppId, {nksip_connect_block, ConnId})
             end;
         false ->
             timer:sleep(100),

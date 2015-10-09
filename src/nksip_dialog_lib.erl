@@ -206,7 +206,7 @@ make_id(Class, FromTag, ToTag) ->
 
 %% @private Hack to find the UAS dialog from the UAC and the opposite way
 remote_id(<<$D, _/binary>>=DialogId, App) ->
-    {ok, AppId} = nksip:find_app_id(App),
+    {ok, AppId} = nkservice:find(App),
     {ok, [{internal_id, BaseId}, {local_uri, LUri}, {remote_uri, RUri}, {call_id, CallId}]} =  
         nksip_dialog:metas([internal_id, local_uri, remote_uri, call_id], DialogId),
     FromTag = nklib_util:get_binary(<<"tag">>, LUri#uri.ext_opts),
@@ -222,7 +222,7 @@ remote_id(<<$D, _/binary>>=DialogId, App) ->
 %% @private Hack to find de dialog at another app in the same machine
 change_app(Id, App) ->
     {_, DialogId, CallId} = parse_handle(Id),
-    {ok, AppId1} = nksip:find_app_id(App),
+    {ok, AppId1} = nkservice:find(App),
     App1 = atom_to_binary(AppId1, latin1),
     <<$D, $_, DialogId/binary, $_, App1/binary, $_, CallId/binary>>.
 

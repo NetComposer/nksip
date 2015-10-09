@@ -26,7 +26,7 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_event_compositor.hrl").
 
--export([nkcb_sip_method/2]).
+-export([nks_sip_method/2]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -34,11 +34,11 @@
 
 %% @private This plugin callback is called when a call to one of the method specific
 %% application-level SipApp callbacks is needed.
--spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
+-spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
 
-nkcb_sip_method(#trans{method='PUBLISH', request=Req}, #call{app_id=AppId}) ->
+nks_sip_method(#trans{method='PUBLISH', request=Req}, #call{app_id=AppId}) ->
     Module = AppId:module(),
     case 
         Module/=nksip_sipapp andalso
@@ -49,7 +49,7 @@ nkcb_sip_method(#trans{method='PUBLISH', request=Req}, #call{app_id=AppId}) ->
         false ->
             {reply, nksip_event_compositor:request(Req)}
     end;
-nkcb_sip_method(_Trans, _Call) ->
+nks_sip_method(_Trans, _Call) ->
     continue.
 
 

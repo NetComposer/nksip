@@ -239,7 +239,7 @@ handle_call(state, _From, State) ->
     {reply, State, State};
 
 handle_call(Msg, From, #sipapp_srv{app_id=AppId}=State) ->
-    case AppId:nkcb_handle_call(Msg, From, State) of
+    case AppId:nks_handle_call(Msg, From, State) of
         {continue, [Msg1, From1, State1]} ->
             mod_handle_call(Msg1, From1, State1);
         {ok, State1} ->
@@ -252,7 +252,7 @@ handle_call(Msg, From, #sipapp_srv{app_id=AppId}=State) ->
     gen_server_cast(#sipapp_srv{}).
 
 handle_cast(Msg, #sipapp_srv{app_id=AppId}=State) -> 
-    case AppId:nkcb_handle_cast(Msg, State) of
+    case AppId:nks_handle_cast(Msg, State) of
         {continue, [Msg1, State1]} -> 
             mod_handle_cast(Msg1, State1);
         {ok, State1} -> 
@@ -265,7 +265,7 @@ handle_cast(Msg, #sipapp_srv{app_id=AppId}=State) ->
     gen_server_info(#sipapp_srv{}).
 
 handle_info(Msg, #sipapp_srv{app_id=AppId}=State) -> 
-    case AppId:nkcb_handle_info(Msg, State) of
+    case AppId:nks_handle_info(Msg, State) of
         {continue, [Msg1, State1]} -> 
             mod_handle_info(Msg1, State1);
         {ok, State1} -> 

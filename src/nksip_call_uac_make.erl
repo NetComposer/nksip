@@ -112,7 +112,7 @@ proxy_make(#sipmsg{app_id=AppId, ruri=RUri}=Req, Opts) ->
             #uri{headers=Headers} -> nksip_parse_header:headers(Headers, Req1, post)
         end,
         {Req3, Opts3} = parse_opts(Opts1, Req2, []),
-        case AppId:nkcb_uac_proxy_opts(Req3, Opts3) of
+        case AppId:nks_uac_proxy_opts(Req3, Opts3) of
             {continue, [Req4, Opts4]} ->
                 Req5 = remove_local_routes(Req4),
                 {ok, Req5, Opts4};
@@ -450,7 +450,7 @@ parse_opts([Term|Rest], Req, Opts) ->
     {nksip:request(), nksip:optslist()}.
 
 parse_plugin_opts(#sipmsg{app_id=AppId}=Req, Opts) ->
-    case AppId:nkcb_parse_uac_opts(Req, Opts) of
+    case AppId:nks_parse_uac_opts(Req, Opts) of
         {continue, [Req1, Opts1]} ->
             {Req1, Opts1};
         {error, Error} ->

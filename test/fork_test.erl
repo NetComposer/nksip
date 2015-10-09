@@ -355,7 +355,7 @@ invite2() ->
     % lager:notice("A")
 
 
-    {ok, C2Id} = nksip:find_app_id(client2),
+    {ok, C2Id} = nkservice:find(client2),
     {ok, CallId} = nksip_dialog:call_id(Dlg_C2_1),
     [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:app_id(D))==C2Id,
                             element(2, nksip_dialog:call_id(D))=:=CallId, D/=Dlg_C2_1],
@@ -578,7 +578,7 @@ multiple_200() ->
 
 
 init(Id) ->
-    ok = nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, []}.
 
 
@@ -599,7 +599,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                     {ok, _} -> []
                 end
             ]),
-            {ok, Domains} = nksip:get(serverR, domains),
+            Domains = nkservice_server:get(serverR, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;
@@ -619,7 +619,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
             % Always Record-Route
             % If domain is "nksip" routes to serverR
             Opts = [record_route, {insert, "x-nk-id", App}],
-            {ok, Domains} = nksip:get(App, domains),
+            Domains = nkservice_server:get(App, domains),
             case lists:member(Domain, Domains) of
                 true when Domain==<<"nksip">>, App==server1 ->
                     {proxy_stateless, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};
@@ -698,7 +698,7 @@ sip_bye(Req, _Call) ->
 %%%%%
 
 get_port(App, Proto, Class) ->
-    case nksip:find_app_id(App) of
+    case nkservice:find(App) of
         {ok, AppId} -> 
             case nksip_transport:get_listening(AppId, Proto, Class) of
                 [{#transport{listen_port=Port}, _Pid}|_] -> Port;

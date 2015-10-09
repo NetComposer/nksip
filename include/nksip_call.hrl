@@ -29,7 +29,7 @@
     ?DO_LOG(Level, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List)).
 
 -define(DO_DEBUG(Level, Text, List),
-    (erlang:get(nksip_app_id)):nkcb_debug(erlang:get(nksip_app_id), 
+    (erlang:get(nksip_app_id)):nks_debug(erlang:get(nksip_app_id), 
                                           erlang:get(nksip_call_id),
                                           {Level, Text, List})).
 

@@ -118,7 +118,7 @@ info() ->
         {routers_pending, nksip_router:pending_work()},
         {connections, nklib_counters:value(nksip_connections)},
         {counters_queue, nklib_counters:pending_msgs()},
-        {core_queues, nksip_sipapp_srv:pending_msgs()},
+        {core_queues, nkservice_server:pending_msgs()},
         {uas_response, nksip_stats:get_uas_avg()}
     ].
 

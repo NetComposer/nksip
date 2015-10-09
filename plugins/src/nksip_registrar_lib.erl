@@ -150,13 +150,13 @@ is_registered([
 
 request(#sipmsg{app_id=AppId, to={To, _}}=Req) ->
     try
-        {continue, [Req1, Opts]} = AppId:nkcb_nksip_registrar_request_opts(Req, []),
+        {continue, [Req1, Opts]} = AppId:nks_nksip_registrar_request_opts(Req, []),
         process(Req1, Opts),
         {ok, Regs} = store_get(AppId, aor(To)),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
         Reply = {ok, [{contact, Contacts1}, date, allow, supported]},
         {continue, [Reply1, _, _]} = 
-            AppId:nkcb_nksip_registrar_request_reply(Reply, Regs, Opts),
+            AppId:nks_nksip_registrar_request_reply(Reply, Regs, Opts),
         Reply1
     catch
         throw:Throw -> Throw
@@ -284,7 +284,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
     end,
     ExpireBin = list_to_binary(integer_to_list(Expires)),
     ExtOpts1 = nklib_util:store_value(<<"expires">>, ExpireBin, ExtOpts),
-    Index = case AppId:nkcb_nksip_registrar_get_index(Contact, Opts) of
+    Index = case AppId:nks_nksip_registrar_get_index(Contact, Opts) of
         {ok, Index0} -> 
             Index0;
         {continue, [_, _]} -> 
@@ -320,7 +320,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
                 path = Path
             },
             {continue, [RegContact1, _, _, _]} = 
-                AppId:nkcb_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts),
+                AppId:nks_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts),
             [RegContact1|Acc1]
     end,
     update_regcontacts(Rest, Req, Times, Path, Opts, Acc2);
@@ -413,7 +413,7 @@ store_del_all(AppId) ->
     term() | error.
 
 callback(AppId, Op) -> 
-    case AppId:nkcb_call(sip_registrar_store, [Op, AppId], AppId) of
+    case AppId:nks_call(sip_registrar_store, [Op, AppId], AppId) of
         {ok, Reply} -> Reply;
         _ -> error
     end.

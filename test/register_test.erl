@@ -72,7 +72,7 @@ stop() ->
 
 
 register1() ->
-    Config = nksip:config(server1),
+    Config = nkservice_server:config(server1),
     Min = nklib_util:get_value(nksip_registrar_min_time, Config),
     MinB = nklib_util:to_binary(Min),
     Max = nklib_util:get_value(nksip_registrar_max_time, Config),
@@ -114,7 +114,7 @@ register1() ->
         ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, DefB}]
     }] = 
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
-    {ok, UUID} = nksip:get_uuid(client1),
+    UUID = nksip:get_uuid(client1),
     C1_UUID = <<$", UUID/binary, $">>,
     MakeContact = fun(Exp) ->
         list_to_binary([
@@ -156,7 +156,7 @@ register1() ->
           ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, ExpB}]}] = 
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
 
-    {ok, Registrar} = nksip:find_app_id(server1),
+    {ok, Registrar} = nkservice:find(server1),
     Expire = nklib_util:timestamp()+Min,
     [#reg_contact{
             contact = #uri{
@@ -173,7 +173,7 @@ register1() ->
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
     Request1 = #sipmsg{
-                app_id = element(2, nksip:find_app_id(server1)), 
+                app_id = element(2, nkservice:find(server1)), 
                 from = {#uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>}, <<>>},
                 transport = #transport{
                                 proto = udp, 
@@ -220,7 +220,7 @@ register2() ->
     {ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", 
                     [{contact, "tel:123456"}, {expires, 300}]),
 
-    {ok, UUID1} = nksip:get_uuid(client1),
+    UUID1 = nksip:get_uuid(client1),
     QUUID1 = <<$", UUID1/binary, $">>,
 
     % Now we register a different AOR (with sips)
@@ -296,7 +296,7 @@ register2() ->
 
 
 init(Id) ->
-    ok = nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, []}.
 
 
@@ -304,7 +304,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
-            {ok, Domains} = nksip:get(server1, domains),
+            Domains = nkservice_server:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;

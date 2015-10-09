@@ -75,7 +75,7 @@ uac() ->
     nklib_counters:incr(nksip_calls, 1000000000),
     {error, too_many_calls} = nksip_uac:options(client2, SipC1, []),
     nklib_counters:incr(nksip_calls, -1000000000),
-    {ok, Client2Id} = nksip:find_app_id(client2),
+    {ok, Client2Id} = nkservice:find(client2),
     nklib_counters:incr({nksip_calls, Client2Id}, 1000000000),
     {error, too_many_calls} = nksip_uac:options(client2, SipC1, []),
     nklib_counters:incr({nksip_calls, Client2Id}, -1000000000),

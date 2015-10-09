@@ -122,14 +122,14 @@ invalid(Test) ->
     {ok, 200, [{call_id, CallId1}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1", [contact, {meta, [call_id]}]),
     % The UAC has generated a transaction
-    {ok, C1Id} = nksip:find_app_id(C1),
+    {ok, C1Id} = nkservice:find(C1),
     {ok, [{uac, _}]} = nksip_call:get_all_transactions(C1Id, CallId1),
     case Test of
         stateless -> 
-            {ok, S1Id} = nksip:find_app_id(S1),
+            {ok, S1Id} = nkservice:find(S1),
             {ok, []} = nksip_call:get_all_transactions(S1Id, CallId1);
         stateful -> 
-            {ok, S1Id} = nksip:find_app_id(S1),
+            {ok, S1Id} = nkservice:find(S1),
             {ok, [{uas, _}]} = 
                 nksip_call:get_all_transactions(S1Id, CallId1)
     end,
@@ -148,7 +148,7 @@ invalid(Test) ->
     {ok, []} = nksip_call:get_all_transactions(S1Id, CallId3),
 
     % Force Forwards=0 using REGISTER
-    {ok, C1Id} = nksip:find_app_id(C1),
+    {ok, C1Id} = nkservice:find(C1),
     {ok, Req4, Opts4} = nksip_call_uac_make:make(C1Id, 'REGISTER', "sip:any", []), 
     {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 
@@ -573,7 +573,7 @@ init(Id) ->
         {_, server2} -> [<<"nksip2">>, <<"127.0.0.1">>, <<"[::1]">>];
         _ -> []
     end,
-    ok = nksip:put(Id, domains, Domains),
+    ok = nkservice_server:put(Id, domains, Domains),
     {ok, []}.
 
 
@@ -591,7 +591,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 stateful -> proxy;
                 stateless -> proxy_stateless
             end,
-            {ok, Domains} = nksip:get(AppName, domains),
+            Domains = nkservice_server:get(AppName, domains),
             case lists:member(Domain, Domains) of
                 true when User == <<>>, Test==stateless ->
                     process_stateless;

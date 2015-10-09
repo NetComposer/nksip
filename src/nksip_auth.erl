@@ -203,7 +203,7 @@ make_response(Realm, Req) ->
 authorize_data(Req, #call{app_id=AppId}=Call) ->
     PassFun = fun(User, Realm) ->
         Args = [User, Realm, Req, Call],
-        case AppId:nkcb_call(sip_get_user_pass, Args, AppId) of
+        case AppId:nks_call(sip_get_user_pass, Args, AppId) of
             {ok, Reply} -> ok;
             error -> Reply = false
         end,

@@ -71,7 +71,7 @@ stop() ->
 %% We program a timer to check our nodes.
 init([]) ->
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
-    nksip:put(pbx, speed, []),
+    nkservice_server:put(pbx, speed, []),
     {ok, #state{auto_check=true}}.
 
 
@@ -144,12 +144,12 @@ sip_route(_Scheme, <<"201">>, <<"nksip">>, Req, _Call) ->
     {proxy, UriList, [{add, "x-nksip-server", <<"201">>}]};
 
 sip_route(_Scheme, <<"202">>, <<"nksip">>, _Req, _Call) ->
-    {ok, Speed} = nksip:get(pbx, speed),
+    Speed = nkservice_server:get(pbx, speed),
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {proxy, UriList};
 
 sip_route(_Scheme, <<"203">>, <<"nksip">>, _Req, _Call) ->
-    {ok, Speed} = nksip:get(pbx, speed),
+    Speed = nkservice_server:get(pbx, speed),
     UriList = [[Uri] || {_Time, Uri} <- lists:sort(Speed)],
     {proxy, lists:reverse(UriList)};
 
@@ -231,14 +231,14 @@ sip_invite(Req, _Call) ->
 
 %% @doc SipApp Callback: Synchronous user call.
 handle_call(get_speed, _From, State) ->
-    {ok, Speed} = nksip:get(pbx, speed),
+    Speed = nkservice_server:get(pbx, speed),
     Reply = [{Time, nklib_unparse:uri(Uri)} || {Time, Uri} <- Speed],
     {reply, Reply, State}.
 
 
 %% @doc SipApp Callback: Asynchronous user cast.
 handle_cast({speed_update, Speed}, State) ->
-    ok = nksip:put(pbx, speed, Speed),
+    ok = nkservice_server:put(pbx, speed, Speed),
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
     {noreply, State};
 

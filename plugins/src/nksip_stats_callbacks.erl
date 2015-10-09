@@ -24,16 +24,16 @@
 
 -include("../include/nksip.hrl").
 
--export([nkcb_transport_uas_sent/1]).
+-export([nks_transport_uas_sent/1]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @doc Called when the transport has just sent a response
--spec nkcb_transport_uas_sent(nksip:response()) ->
+-spec nks_transport_uas_sent(nksip:response()) ->
     continue.
 
-nkcb_transport_uas_sent(#sipmsg{start=Start}) ->
+nks_transport_uas_sent(#sipmsg{start=Start}) ->
     Elapsed = nklib_util:l_timestamp()-Start,
     nksip_stats:response_time(Elapsed),
     continue.

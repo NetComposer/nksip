@@ -112,7 +112,7 @@ reply(Tag, Expires) ->
     term() | error.
 
 callback(AppId, Op) -> 
-    AppId:nkcb_call(sip_event_compositor_store, [Op, AppId], AppId).
+    AppId:nks_call(sip_event_compositor_store, [Op, AppId], AppId).
 
 
 

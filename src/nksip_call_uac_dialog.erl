@@ -494,7 +494,7 @@ do_make(Method, Opts, Dialog, #call{app_id=AppId}=Call) ->
     {RUri, Opts1, Dialog1} = generate(Method, Opts, Dialog, Call),
     Call1 = store(Dialog1, Call),
     {continue, [_, RUri2, Opts2, Call2]} = 
-        AppId:nkcb_make_uac_dialog(Method, RUri, Opts1, Call1),
+        AppId:nks_make_uac_dialog(Method, RUri, Opts1, Call1),
     {ok, RUri2, Opts2, Call2}.
 
 

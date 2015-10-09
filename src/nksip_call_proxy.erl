@@ -48,7 +48,7 @@ route(UriList, ProxyOpts, UAS, Call) ->
         end,
         % lager:warning("URISET: ~p", [UriList]),
         #trans{method=Method} = UAS,
-        case AppId:nkcb_route(UriSet, ProxyOpts, UAS, Call) of
+        case AppId:nks_route(UriSet, ProxyOpts, UAS, Call) of
             {continue, [UriSet1, ProxyOpts1, UAS1, Call1]} ->
                 ok;
             {reply, Reply, Call1} ->

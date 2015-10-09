@@ -161,10 +161,10 @@ flow() ->
     } = PContact,
     QInstanceC1 = nklib_util:get_value(<<"+sip.instance">>, EOpts1),
 
-    {ok, InstanceC1} = nksip:get_uuid(ua1),
+    InstanceC1 = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
-    {ok, Registrar} = nksip:find_app_id(registrar),
+    {ok, Registrar} = nkservice:find(registrar),
     [#reg_contact{
         index = {sip, tcp, <<"ua1">>, <<"127.0.0.1">>, 5101},
         contact = PContact,
@@ -197,14 +197,14 @@ flow() ->
 
     {tcp, {127,0,0,1}, LocalPort1, <<>>} = Local1,
     {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
-    {ok, UA1_Id} = nksip:find_app_id(ua1),
-    {ok, UA2_Id} = nksip:find_app_id(ua2),
+    {ok, UA1_Id} = nkservice:find(ua1),
+    {ok, UA2_Id} = nkservice:find(ua2),
     [{#transport{local_port=LocalPort1, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(UA1_Id),
     [{#transport{local_port=LocalPort2, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(UA2_Id),
 
-    {ok, Registrar_Id} = nksip:find_app_id(Registrar),
+    {ok, Registrar_Id} = nkservice:find(Registrar),
     [
         {#transport{local_port=5090, remote_port=LocalPortA}, _},
         {#transport{local_port=5090, remote_port=LocalPortB}, _}
@@ -266,10 +266,10 @@ register() ->
             {<<"+sip.instance">>, QInstanceC1},
             {<<"expires">>,<<"3600">>}]
     } = Contact1,
-    {ok, InstanceC1} = nksip:get_uuid(ua1),
+    InstanceC1 = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
-    {ok, Registrar} = nksip:find_app_id(registrar),
+    {ok, Registrar} = nkservice:find(registrar),
     QInstanceC1_id = nklib_util:hash(QInstanceC1),
     [#reg_contact{
         index = {ob, QInstanceC1_id, <<"1">>},
@@ -322,7 +322,7 @@ register() ->
             {<<"+sip.instance">>, QInstanceC2},
             {<<"expires">>,<<"3600">>}]
     } = Contact3,
-    {ok, InstanceC2} = nksip:get_uuid(ua2),
+    InstanceC2 = nksip:get_uuid(ua2),
     true = <<$", InstanceC2/binary, $">> == QInstanceC2,
     true = InstanceC1 /= InstanceC2,
 
@@ -507,7 +507,7 @@ uac_auto() ->
         }
     ] = lists:sort(nksip_transport:get_all_connected(UA3_Id)),
 
-    {ok, RegistrarId} = nksip:find_app_id(registrar),
+    {ok, RegistrarId} = nkservice:find(registrar),
     [
         {
             #transport{proto = tcp, local_port = 5090,

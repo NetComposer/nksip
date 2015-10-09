@@ -68,9 +68,9 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     GlobalId = nksip_config_cache:global_id(),
     RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, AppId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
-    AppId:nkcb_debug(AppId, CallId, {send_response, Method, Code}),
+    AppId:nks_debug(AppId, CallId, {send_response, Method, Code}),
     Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun, Opts),
-    AppId:nkcb_transport_uas_sent(Resp),
+    AppId:nks_transport_uas_sent(Resp),
     Return.
 
 
@@ -85,7 +85,7 @@ resend_response(#sipmsg{class={resp, Code, _},
     MakeResp = fun(_) -> Resp end,
     TranspSpec = [{current, {Proto, Ip, Port, Res}}],
     Return = nksip_transport:send(AppId, TranspSpec, MakeResp, Opts),
-    AppId:nkcb_debug(AppId, CallId, {sent_response, Method, Code}),
+    AppId:nks_debug(AppId, CallId, {sent_response, Method, Code}),
     Return;
 
 resend_response(Resp, Opts) ->

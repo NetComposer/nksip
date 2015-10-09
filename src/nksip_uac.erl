@@ -331,7 +331,7 @@ refresh(Handle, Opts) ->
          Error :: unknown_core | invalid_uri | no_host | service_unavailable.
 
 stun(App, UriSpec, _Opts) ->
-    case nksip:find_app_id(App) of
+    case nkservice:find(App) of
         {ok, AppId} ->
             case nksip_transport:get_listening(AppId, udp, ipv4) of
                 [] -> 
@@ -372,7 +372,7 @@ stun(App, UriSpec, _Opts) ->
     uac_result() | {error, term()}.
 
 send(App, Method, Uri, Opts) ->
-    case nksip:find_app_id(App) of
+    case nkservice:find(App) of
         {ok, AppId} -> 
             case nklib_util:get_binary(call_id, Opts) of
                 <<>> -> CallId = nklib_util:luid();

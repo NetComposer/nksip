@@ -75,7 +75,7 @@ send_request(Req, Opts) ->
     end,
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
-    AppId:nkcb_debug(AppId, CallId, {uac_out_request, Method}),
+    AppId:nks_debug(AppId, CallId, {uac_out_request, Method}),
     Dests = case nklib_util:get_value(route_flow, Opts) of
         {Transp, Pid} -> 
             [{flow, {Pid, Transp}}, DestUri];
@@ -86,7 +86,7 @@ send_request(Req, Opts) ->
         {ok, SentReq} -> 
             {ok, SentReq};
         error ->
-            AppId:nkcb_debug(AppId, CallId, uac_out_request_error),
+            AppId:nks_debug(AppId, CallId, uac_out_request_error),
             {error, service_unavailable}
     end.
 
@@ -130,7 +130,7 @@ make_request_fun(Req, Dest, Opts) ->
         ListenHost = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
         ?call_debug("UAC listenhost is ~s", [ListenHost]),
         {ok, Req1} = 
-            AppId:nkcb_transport_uac_headers(Req, Opts, Scheme, 
+            AppId:nks_transport_uac_headers(Req, Opts, Scheme, 
                                              Proto, ListenHost, ListenPort),
         IsStateless = lists:member(stateless_via, Opts),
         GlobalId = nksip_config_cache:global_id(),
@@ -220,7 +220,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
             Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
-            {ok, UUID} = nksip:get_uuid(AppId),
+            UUID = nksip:get_uuid(AppId),
             CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
             [Contact#uri{ext_opts=CExtOpts1}];
         false ->

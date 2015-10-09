@@ -169,6 +169,6 @@ stop_register(App, RegId) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(App) ->
-    nksip:call(App, '$nksip_uac_auto_outbound_get_registers').
+    nkservice_server:call(App, '$nksip_uac_auto_outbound_get_registers').
 
     

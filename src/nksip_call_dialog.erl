@@ -101,7 +101,7 @@ create(Class, Req, Resp, Call) ->
 
 
 update(Type, Dialog, #call{app_id=AppId}=Call) ->
-    case AppId:nkcb_dialog_update(Type, Dialog, Call) of
+    case AppId:nks_dialog_update(Type, Dialog, Call) of
         {continue, [Type1, Dialog1, Call1]} ->
             do_update(Type1, Dialog1, Call1);
         {ok, Call1} ->
@@ -624,7 +624,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
     ok.
 
 sip_dialog_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
-    AppId:nkcb_call(sip_dialog_update, [Arg, Dialog, Call], AppId),
+    AppId:nks_call(sip_dialog_update, [Arg, Dialog, Call], AppId),
     ok.
 
 
@@ -633,7 +633,7 @@ sip_dialog_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
     ok.
 
 sip_session_update(Arg, Dialog, #call{app_id=AppId}=Call) ->
-    AppId:nkcb_call(sip_session_update, [Arg, Dialog, Call], AppId),
+    AppId:nks_call(sip_session_update, [Arg, Dialog, Call], AppId),
     ok.
 
 

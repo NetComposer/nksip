@@ -40,7 +40,7 @@
 -define(DO_DEBUG(AppId, CallId, Level, Text, List),
     case AppId:config_debug() of
         false -> ok;
-        _ -> AppId:nkcb_debug(AppId, CallId, {Level, Text, List})
+        _ -> AppId:nks_debug(AppId, CallId, {Level, Text, List})
     end).
 
 

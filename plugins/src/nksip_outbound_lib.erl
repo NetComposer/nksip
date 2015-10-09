@@ -264,7 +264,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
             Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
-            {ok, UUID} = nksip:get_uuid(AppId),
+            UUID = nksip:get_uuid(AppId),
             CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
             [make_contact(Req, Contact#uri{ext_opts=CExtOpts1}, Opts)];
         false ->

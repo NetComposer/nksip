@@ -43,7 +43,7 @@
 
 %% @doc SipApp intialization.
 init([]) ->
-    nksip:put(server, started, httpd_util:rfc1123_date()),
+    nkservice_server:put(server, started, httpd_util:rfc1123_date()),
     {ok, []}.
 
 

@@ -91,7 +91,7 @@ register() ->
                                nklib_util:get_value(<<"pub-gruu">>, EOpts1))),
     [Tmp1] = nksip_parse:ruris(nklib_util:unquote(
                                nklib_util:get_value(<<"temp-gruu">>, EOpts1))),
-    {ok, Inst1} = nksip:get_uuid(ua1),
+    Inst1 = nksip:get_uuid(ua1),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub1,
     #uri{domain = <<"nksip">>, port=0} = Tmp1,
     {ok, Pub1} = nksip_gruu:get_gruu_pub(ua1),
@@ -113,7 +113,7 @@ register() ->
                                nklib_util:get_value(<<"pub-gruu">>, EOpts2))),
     [Tmp2] = nksip_parse:ruris(nklib_util:unquote(
                                nklib_util:get_value(<<"temp-gruu">>, EOpts2))),
-    {ok, Inst2} = nksip:get_uuid(ua2),
+    Inst2 = nksip:get_uuid(ua2),
     #uri{user = <<"client1">>, domain = <<"nksip">>, port = 0} = Pub2,
     #uri{domain = <<"nksip">>, port=0} = Tmp2,
     {ok, Pub2} = nksip_gruu:get_gruu_pub(ua2),

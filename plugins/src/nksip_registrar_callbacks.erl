@@ -26,9 +26,9 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([nkcb_sip_method/2, nkcb_authorize_data/3]).
--export([nkcb_nksip_registrar_request_opts/2, nkcb_nksip_registrar_request_reply/3,
-         nkcb_nksip_registrar_get_index/2, nkcb_nksip_registrar_update_regcontact/4]).
+-export([nks_sip_method/2, nks_authorize_data/3]).
+-export([nks_nksip_registrar_request_opts/2, nks_nksip_registrar_request_reply/3,
+         nks_nksip_registrar_get_index/2, nks_nksip_registrar_update_regcontact/4]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -36,11 +36,11 @@
 
 %% @private This plugin callback is called when a call to one of the method specific
 %% application-level SipApp callbacks is needed.
--spec nkcb_sip_method(nksip_call:trans(), nksip_call:call()) ->
+-spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
 
-nkcb_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
+nks_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
     Module = AppId:module(),
     case 
         Module/=nksip_sipapp andalso
@@ -51,12 +51,12 @@ nkcb_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
         false ->
             {reply, nksip_registrar:request(Req)}
     end;
-nkcb_sip_method(_Trans, _Call) ->
+nks_sip_method(_Trans, _Call) ->
     continue.
 
 
 %% @private
-nkcb_authorize_data(List, #trans{request=Req}=Trans, Call) ->
+nks_authorize_data(List, #trans{request=Req}=Trans, Call) ->
     case nksip_registrar:is_registered(Req) of
         true -> {continue, [[register|List], Trans, Call]};
         false -> continue
@@ -68,33 +68,33 @@ nkcb_authorize_data(List, #trans{request=Req}=Trans, Call) ->
 
 
 %% @private
--spec nkcb_nksip_registrar_request_opts(nksip:request(), list()) ->
+-spec nks_nksip_registrar_request_opts(nksip:request(), list()) ->
     {continue, list()}.
 
-nkcb_nksip_registrar_request_opts(Req, List) ->
+nks_nksip_registrar_request_opts(Req, List) ->
     {continue, [Req, List]}.
 
 
 %% @private
--spec nkcb_nksip_registrar_request_reply(nksip:sipreply(), #reg_contact{}, list()) ->
+-spec nks_nksip_registrar_request_reply(nksip:sipreply(), #reg_contact{}, list()) ->
     {continue, list()}.
 
-nkcb_nksip_registrar_request_reply(Reply, Regs, Opts) ->
+nks_nksip_registrar_request_reply(Reply, Regs, Opts) ->
     {continue, [Reply, Regs, Opts]}.
 
 
 %% @private
--spec nkcb_nksip_registrar_get_index(nksip:uri(), list()) ->
+-spec nks_nksip_registrar_get_index(nksip:uri(), list()) ->
     {continue, list()}.
 
-nkcb_nksip_registrar_get_index(Contact, Opts) ->
+nks_nksip_registrar_get_index(Contact, Opts) ->
     {continue, [Contact, Opts]}.
 
 
 %% @private
--spec nkcb_nksip_registrar_update_regcontact(#reg_contact{}, #reg_contact{}, 
+-spec nks_nksip_registrar_update_regcontact(#reg_contact{}, #reg_contact{}, 
                                              nksip:request(), list()) ->
     {continue, list()}.
 
-nkcb_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
+nks_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
     {continue, [RegContact, Base, Req, Opts]}.

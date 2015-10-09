@@ -630,7 +630,7 @@ sip_session_update(Update, Dialog, _Call) ->
 %%%%%%%%%%%%%%%%%%%%%%%  Util %%%%%%%%%%%%%%%%%%%%%
 
 get_sessions(AppId, DialogId) ->
-    {ok, Sessions} = nksip:get(AppId, sessions, []),
+    Sessions = nkservice_server:get(AppId, sessions, []),
     case lists:keyfind(DialogId, 1, Sessions) of
         {_DialogId, Local, Remote} -> {Local, Remote};
         _ -> not_found

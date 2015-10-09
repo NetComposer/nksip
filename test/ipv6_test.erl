@@ -530,7 +530,7 @@ parse(Msg) ->
 
 
 init(Id) ->
-    ok = nksip:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, []}.
 
 
@@ -541,7 +541,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 {insert, "x-nk-id", "server1"},
                 {route, "<sip:[::1]:5061;lr;transport=tcp>"}
             ],
-            {ok, Domains} = nksip:get(server1, domains),
+            Domains = nkservice_server:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;

@@ -86,23 +86,23 @@ save_ref(Req) ->
         {ok, [RepBin]} -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             {ok, AppId} = nksip_request:app_id(Req),
-            {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+            Dialogs = nkservice_server:get(AppId, dialogs, []),
             {ok, DialogId} = nksip_dialog:get_handle(Req),
-            ok = nksip:put(AppId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
+            ok = nkservice_server:put(AppId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
         {ok, _} ->
             ok
     end.
 
 
 update_ref(AppId, Ref, DialogId) ->
-    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
-    ok = nksip:put(AppId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
+    Dialogs = nkservice_server:get(AppId, dialogs, []),
+    ok = nkservice_server:put(AppId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
 
 
 send_ref(Msg, Req) ->
     {ok, DialogId} = nksip_dialog:get_handle(Req),
     {ok, AppId} = nksip_request:app_id(Req),
-    {ok, Dialogs} = nksip:get(AppId, dialogs, []),
+    Dialogs = nkservice_server:get(AppId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
             % lager:warning("FOUND ~p, ~p", [AppId, D]),
@@ -114,7 +114,7 @@ send_ref(Msg, Req) ->
 
 dialog_update(Update, Dialog) ->
     {ok, App} = nksip_dialog:app_name(Dialog),
-    case nksip:get(App, dialogs, []) of
+    case nkservice_server:get(App, dialogs, []) of
         {ok, Dialogs} ->
             {ok, DialogId} = nksip_dialog:get_handle(Dialog),
             case lists:keyfind(DialogId, 1, Dialogs) of
@@ -143,7 +143,7 @@ dialog_update(Update, Dialog) ->
 
 session_update(Update, Dialog) ->
     {ok, App} = nksip_dialog:app_name(Dialog),
-    {ok, Dialogs} = nksip:get(App, dialogs, []),
+    Dialogs = nkservice_server:get(App, dialogs, []),
     {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
@@ -152,13 +152,13 @@ session_update(Update, Dialog) ->
             case Update of
                 {start, Local, Remote} ->
                     Pid ! {Ref, {App, sdp_start}},
-                    {ok, Sessions} = nksip:get(App, sessions, []),
-                    nksip:put(App, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Sessions = nkservice_server:get(App, sessions, []),
+                    nkservice_server:put(App, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 {update, Local, Remote} ->
                     Pid ! {Ref, {App, sdp_update}},
-                    {ok, Sessions} = nksip:get(App, sessions, []),
-                    nksip:put(App, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Sessions = nkservice_server:get(App, sessions, []),
+                    nkservice_server:put(App, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 stop ->
                     Pid ! {Ref, {App, sdp_stop}},

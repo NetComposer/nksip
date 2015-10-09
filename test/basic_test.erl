@@ -190,9 +190,7 @@ transport() ->
 
 cast_info() ->
     % Direct calls to SipApp's core processing app
-    {ok, S1} = nksip:find_app_id(server1),
-    Pid = nksip:get_pid(server1),
-    true = is_pid(Pid),
+    {ok, S1} = nkservice:find(server1),
     Pid = whereis(S1),
     undefined = nksip:get_pid(other),
 
@@ -220,18 +218,19 @@ stun() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(error1) ->
+init(#{name:=error1}) ->
     {stop, error1};
 
-init(AppName) ->
-    ok = nksip:put(AppName, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+init(#{name:=AppName}) ->
+    lager:warnig("APP1"),
+    ok = nkservice_server:put(AppName, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, AppName}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         {ok, server1} ->
-            {ok, Domains} = nksip:get(server1, domains),
+            Domains = nkservice_server:get(server1, domains),
             Opts = [
                 record_route,
                 {insert, "x-nk-server", server1}
@@ -267,11 +266,11 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 
 
 handle_call(get_domains, _From, AppId=State) ->
-    {ok, Domains} = nksip:get(AppId, domains),
+    Domains = nkservice_server:get(AppId, domains),
     {reply, {ok, AppId, Domains}, State};
 
 handle_call({set_domains, Domains}, _From, AppId=State) ->
-    ok = nksip:put(AppId, domains, Domains),
+    ok = nkservice_server:put(AppId, domains, Domains),
     {reply, {ok, AppId}, State}.
 
 handle_cast({cast_test, Ref, Pid}, AppId=State) ->

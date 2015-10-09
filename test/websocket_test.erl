@@ -61,8 +61,8 @@ start1() ->
     ?debugFmt("Starting ~p", [?MODULE]).
 
 webserver() ->
-    {ok, WsA} = nksip:find_app_id(ws_a),
-    {ok, WsB} = nksip:find_app_id(ws_b),
+    {ok, WsA} = nkservice:find(ws_a),
+    {ok, WsB} = nkservice:find(ws_b),
     [
         {#transport{proto=ws, local_port=0, listen_port=_LP}, _},
         {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
@@ -160,8 +160,8 @@ stop2() ->
 
 
 basic() ->
-    {ok, UA2} = nksip:find_app_id(ua2),
-    {ok, S1} = nksip:find_app_id(server1),
+    {ok, UA2} = nkservice:find(ua2),
+    {ok, S1} = nkservice:find(server1),
 
     [] = nksip_transport:get_all_connected(S1),
     [] = nksip_transport:get_all_connected(UA2),
@@ -318,7 +318,7 @@ proxy() ->
 
     % Let's stop the transports
     [nksip_connection:stop(Pid, normal) || 
-        {_, Pid} <- nksip_transport:get_all_connected(element(2, nksip:find_app_id(server1)))],
+        {_, Pid} <- nksip_transport:get_all_connected(element(2, nkservice:find(server1)))],
     timer:sleep(100),
 
     {ok, 430, []} = nksip_uac:options(ua1, C2Pub, 
@@ -334,7 +334,7 @@ proxy() ->
 
 
 init(Id) ->
-    ok = nksip:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
+    ok = nkservice_server:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
     {ok, []}.
 
 
@@ -342,7 +342,7 @@ sip_route(_Scheme, User, Domain, Req, _Call) ->
     case nksip_request:app_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", "server1"}],
-            {ok, Domains} = nksip:get(server1, domains),
+            Domains = nkservice_server:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;
