@@ -56,6 +56,7 @@ service_syntax() ->
         % Internal options
         name => any,
         module => atom,
+        plugins => {list, atom},
 
         % System options
         timer_t1 => {integer, 10, 2500},

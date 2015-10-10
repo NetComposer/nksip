@@ -31,17 +31,17 @@
 -compile([export_all]).
 
 
-basic_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun running/0}, 
-            {timeout, 60, fun transport/0}, 
-            {timeout, 60, fun cast_info/0}, 
-            {timeout, 60, fun stun/0}
-        ]
-    }.
+% basic_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun running/0}, 
+%             {timeout, 60, fun transport/0}, 
+%             {timeout, 60, fun cast_info/0}, 
+%             {timeout, 60, fun stun/0}
+%         ]
+%     }.
 
 
 start() ->
@@ -222,7 +222,7 @@ init(#{name:=error1}) ->
     {stop, error1};
 
 init(#{name:=AppName}) ->
-    lager:warnig("APP1"),
+    lager:warning("APP1"),
     ok = nkservice_server:put(AppName, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, AppName}.
 

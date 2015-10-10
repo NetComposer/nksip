@@ -184,16 +184,19 @@ start(AppName, Module, Args, Opts) ->
              supported, allow, accept, events, route, local_host, local_host, 
              local_host6, max_calls, timers], 
             Opts1#{timers=>Timers}),
-        Plugins = maps:get(plugins, Opts1, []), 
+        % Plugins = maps:get(plugins, Opts1, []), 
+        % ModuleDeps = [{Name, <<>>} || Name<-[nksip|Plugins]],
+        % lager:warning("P0: ~p", [Plugins]),
         Opts2 = Opts1#{
             name => AppName, 
             class => nksip,
             args => Args,
-            plugins => [nksip|Plugins],
+            % plugins => [{Module, ModuleDeps}|Plugins],
+            callbacks => [Module, nksip],
             config => Config
         },
         SrvId = get_appid(AppName),
-        case nkservice_server:start(SrvId, Module, Opts2) of
+        case nkservice_server:start(SrvId, Opts2) of
             ok -> {ok, SrvId};
             {error, Error} -> {error, Error}
         end

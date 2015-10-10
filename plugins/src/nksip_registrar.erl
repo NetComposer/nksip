@@ -57,7 +57,7 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [].
+    [{sip, ""}].
 
 
 %% @doc Parses this plugin specific configuration
