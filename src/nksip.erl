@@ -24,7 +24,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start/4, stop/1, stop_all/0, update/2]).
--export([get_uuid/1]).
+-export([get_config/1, get_uuid/1]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
@@ -71,7 +73,7 @@
 -type sipreply() :: nksip_reply:sipreply().
 
 %% Generic options list
--type optslist() :: nksip_lib:optslist().
+-type optslist() :: nksip_util:optslist().
 
 %% Transport
 -type transport() :: #transport{}.
@@ -162,46 +164,17 @@
 	{ok, app_id()} | {error, term()}.
 
 start(AppName, Module, Args, Opts) ->
-    try
-        Def = nksip_config_cache:app_config(),
-        ParsedDef = case nksip_lib:parse_service(Def) of
-            {ok, ParsedDef0} -> ParsedDef0;
-            {error, ParseError1} -> throw(ParseError1)
-        end,
-        Opts1 = case nksip_lib:parse_service(Opts, ParsedDef) of
-            {ok, ParsedOpts0} -> ParsedOpts0;
-            {error, ParseError2} -> throw(ParseError2)
-        end,
-        Timers = #call_timers{
-            t1 = maps:get(timer_t1, Opts1),
-            t2 = maps:get(timer_t2, Opts1),
-            t4 = maps:get(timer_t4, Opts1),
-            tc = maps:get(timer_c, Opts1),
-            trans = maps:get(trans_timeout, Opts1),
-            dialog = maps:get(dialog_timeout, Opts1)},
-        Config = maps:with(
-            [log_level, debug, max_connections, max_calls, from, no_100, 
-             supported, allow, accept, events, route, local_host, local_host, 
-             local_host6, max_calls, timers], 
-            Opts1#{timers=>Timers}),
-        % Plugins = maps:get(plugins, Opts1, []), 
-        % ModuleDeps = [{Name, <<>>} || Name<-[nksip|Plugins]],
-        % lager:warning("P0: ~p", [Plugins]),
-        Opts2 = Opts1#{
-            name => AppName, 
-            class => nksip,
-            args => Args,
-            % plugins => [{Module, ModuleDeps}|Plugins],
-            callbacks => [Module, nksip],
-            config => Config
-        },
-        SrvId = get_appid(AppName),
-        case nkservice_server:start(SrvId, Opts2) of
-            ok -> {ok, SrvId};
-            {error, Error} -> {error, Error}
-        end
-    catch
-        throw:Throw -> {error, Throw}
+    Opts2 = Opts#{
+        name => AppName, 
+        class => nksip,
+        args => Args,
+        callback => Module,
+        plugins => [nksip|maps:get(plugins, Opts, [])]
+    },
+    SrvId = get_appid(AppName),
+    case nkservice_server:start(SrvId, Opts2) of
+        ok -> {ok, SrvId};
+        {error, Error} -> {error, Error}
     end.
 
 
@@ -230,12 +203,13 @@ stop_all() ->
     {ok, app_id()} | {error, term()}.
 
 update(App, Opts) ->
-    case nkservice_server:find(App) of
-        {ok, AppId} -> 
-            nksip_sipapp_config:update(AppId, Opts);
-        not_found ->
-            {error, not_found}
-    end.
+    Opts1 = case Opts of
+        #{plugins:=Plugins} ->
+            Opts#{plugins=>[nksip|Plugins]};
+        _ ->
+            Opts
+    end,
+    nkservice_server:update(App, Opts1).
 
     
 
@@ -265,3 +239,58 @@ get_appid(AppName) ->
                 Other -> Other
             end)).
 
+
+%% @doc Gets service's config
+-spec get_config(nksip:app_name()|nksip:app_id()) -> 
+    map().
+
+get_config(AppName) ->
+    nkservice_server:get_cache(AppName, config_sip).
+
+
+%% ===================================================================
+%% Pugin functions
+%% ===================================================================
+
+version() ->
+    {ok, Vsn} = application:get_key(nksip, vsn),
+    Vsn.
+
+deps() ->
+    [].
+
+plugin_start(SrvSpec) ->
+    try
+        lager:notice("Plugin NKSIP starting: ~p", [maps:get(id, SrvSpec)]),
+        Def = nksip_config_cache:app_config(),
+        ParsedDef = case nksip_util:parse_syntax(Def) of
+            {ok, ParsedDef0} -> ParsedDef0;
+            {error, ParseError1} -> throw(ParseError1)
+        end,
+        Config1 = case nksip_util:parse_syntax(SrvSpec, ParsedDef) of
+            {ok, ParsedOpts0} -> ParsedOpts0;
+            {error, ParseError2} -> throw(ParseError2)
+        end,
+        Timers = #call_timers{
+            t1 = maps:get(sip_timer_t1, Config1),
+            t2 = maps:get(sip_timer_t2, Config1),
+            t4 = maps:get(sip_timer_t4, Config1),
+            tc = maps:get(sip_timer_c, Config1),
+            trans = maps:get(sip_trans_timeout, Config1),
+            dialog = maps:get(sip_dialog_timeout, Config1)},
+        Config2 = maps:with(cached(), Config1#{sip=>Config1, sip_timers=>Timers}),
+        nkservice_util:add_config(Config2, SrvSpec)
+    catch
+        throw:Throw -> {stop, Throw}
+    end.
+
+
+plugin_stop(SrvSpec) ->
+    lager:notice("Plugin NKSIP stopping: ~p", [maps:get(id, SrvSpec)]),
+    nkservice_util:del_config(cached(), SrvSpec).
+
+
+cached() ->
+    [sip, sip_max_connections, sip_max_calls, sip_from, 
+     sip_no_100, sip_supported, sip_allow, sip_accept, sip_events, sip_route, 
+     sip_local_host, sip_local_host6, sip_max_calls, sip_timers].

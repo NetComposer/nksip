@@ -96,9 +96,9 @@ running() ->
         nksip:start(name, ?MODULE, none, [{transports, [{other, all, any}]}]),
     {error, {invalid_transport, _}} = 
         nksip:start(name, ?MODULE, none, [{transports, [{udp, {1,2,3}, any}]}]),
-    {error, {invalid_config, nksip_registrar_min_time}} = 
+    {error, {invalid_config, sip_registrar_min_time}} = 
         nksip:start(name, ?MODULE, none, 
-                    [{plugins, [nksip_registrar]}, {nksip_registrar_min_time, -1}]),
+                    [{plugins, [nksip_registrar]}, {sip_registrar_min_time, -1}]),
 
     {error, {invalid_plugin, invalid}} = 
         nksip:start(name, ?MODULE, none, [{plugins, [nksip_registrar, invalid]}]),

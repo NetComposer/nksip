@@ -102,7 +102,7 @@ init([AppId, CallId]) ->
         events = [],
         timers = AppId:config_timers()
     },
-    nksip_lib:put_log_cache(AppId, CallId),
+    nksip_util:put_log_cache(AppId, CallId),
     Timeout = 2000*(Call#call.timers)#call_timers.trans,
     erlang:start_timer(Timeout, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()]),

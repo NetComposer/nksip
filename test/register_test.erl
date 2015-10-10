@@ -49,7 +49,7 @@ start() ->
         {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
         {supported, "100rel,timer,path"},        % No outbound
-        {nksip_registrar_min_time, 60}
+        {sip_registrar_min_time, 60}
     ]),
 
     {ok, _} = nksip:start(client1, ?MODULE, client1, [
@@ -73,11 +73,11 @@ stop() ->
 
 register1() ->
     Config = nkservice_server:config(server1),
-    Min = nklib_util:get_value(nksip_registrar_min_time, Config),
+    Min = nklib_util:get_value(sip_registrar_min_time, Config),
     MinB = nklib_util:to_binary(Min),
-    Max = nklib_util:get_value(nksip_registrar_max_time, Config),
+    Max = nklib_util:get_value(sip_registrar_max_time, Config),
     MaxB = nklib_util:to_binary(Max),
-    DefB = nklib_util:get_binary(nksip_registrar_default_time, Config),
+    DefB = nklib_util:get_binary(sip_registrar_default_time, Config),
     
     % Method not allowed
     {ok, 405, []} = nksip_uac:register(client2, "sip:127.0.0.1:5070", []),

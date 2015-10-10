@@ -28,7 +28,7 @@
 
 -export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
--export([version/0, deps/0, parse_config/1, terminate/2]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 -export_type([reg_contact/0]).
 
 
@@ -57,67 +57,110 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [{sip, ""}].
+    [nksip].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
-
-parse_config(Opts) ->
-    Defaults = [
-        {nksip_registrar_default_time, 3600},     % (secs) 1 hour
-        {nksip_registrar_min_time, 60},           % (secs) 1 min
-        {nksip_registrar_max_time, 86400}         % (secs) 24 hour
-    ],
-    Opts1 = nklib_util:defaults(Opts, Defaults),
-    Allow = nklib_util:get_value(allow, Opts1),
-    Opts2 = case lists:member(<<"REGISTER">>, Allow) of
-        true -> 
-            Opts1;
-        false -> 
-            nklib_util:store_value(allow, Allow++[<<"REGISTER">>], Opts1)
-    end,
-    try
-        case nklib_util:get_value(nksip_registrar_default_time, Opts2) of
-            Def when is_integer(Def), Def>=5 -> 
-                ok;
-            _ -> 
-                throw(nksip_registrar_default_time)
-        end,
-        case nklib_util:get_value(nksip_registrar_min_time, Opts2) of
-            Min when is_integer(Min), Min>=1 -> 
-                ok;
-            _ -> 
-                throw(nksip_registrar_min_time)
-        end,
-        case nklib_util:get_value(nksip_registrar_max_time, Opts2) of
-            Max when is_integer(Max), Max>=60 -> 
-                ok;
-            _ -> 
-                throw(nksip_registrar_max_time)
-        end,
-        Times = #nksip_registrar_time{
-            min = nklib_util:get_value(nksip_registrar_min_time, Opts2),
-            max = nklib_util:get_value(nksip_registrar_max_time, Opts2),
-            default = nklib_util:get_value(nksip_registrar_default_time, Opts2)
-        },
-        Cached1 = nklib_util:get_value(cached_configs, Opts2, []),
-        Cached2 = nklib_util:store_value(config_nksip_registrar_times, Times, Cached1),
-        Opts3 = nklib_util:store_value(cached_configs, Cached2, Opts2),
-        {ok, Opts3}
-    catch
-        throw:OptName -> {error, {invalid_config, OptName}}
+plugin_start(SrvSpec) ->
+    lager:warning("REG"),
+    case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
+        {ok, RegConfig} ->
+            % SipConfig1 = maps:get(config_sip, SrvSpec),
+            % SipConfig2 = maps:merge(SipConfig1, Config),
+            #{
+                sip_registrar_min_time := Min, 
+                sip_registrar_max_time := Max,
+                sip_registrar_default_time := Default
+            } = RegConfig,
+            Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
+            Config = #{sip_registrar_timers=>Timers},
+            lager:warning("ADD CONFIG"),
+            nkservice_util:add_config(Config, SrvSpec);
+        {error, Error} ->
+            {stop, Error}
     end.
 
 
-%% @doc Called when the plugin is shutdown
--spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_sipapp_srv:state()}.
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    clear(SrvId),
+    nkservice_util:del_config([sip_registrar_timers], SrvSpec).
 
-terminate(AppId, SipAppState) ->  
-    clear(AppId),
-    {ok, SipAppState}.
+
+
+syntax() ->
+    #{
+        sip_registrar_default_time => {integer, 5, none},
+        sip_registrar_min_time => {integer, 1, none},
+        sip_registrar_max_time => {ineteger, 60, none}
+    }.
+
+defaults() ->
+    #{
+        sip_registrar_default_time => 3600,     % (secs) 1 hour
+        sip_registrar_min_time => 60,           % (secs) 1 min
+        sip_registrar_max_time => 86400         % (secs) 24 hour
+    }.
+
+
+
+
+% %% @doc Parses this plugin specific configuration
+% -spec parse_config(nksip:optslist()) ->
+%     {ok, nksip:optslist()} | {error, term()}.
+
+% parse_config(Opts) ->
+%     Defaults = [
+%         {sip_registrar_default_time, 3600},     % (secs) 1 hour
+%         {sip_registrar_min_time, 60},           % (secs) 1 min
+%         {sip_registrar_max_time, 86400}         % (secs) 24 hour
+%     ],
+%     Opts1 = nklib_util:defaults(Opts, Defaults),
+%     Allow = nklib_util:get_value(allow, Opts1),
+%     Opts2 = case lists:member(<<"REGISTER">>, Allow) of
+%         true -> 
+%             Opts1;
+%         false -> 
+%             nklib_util:store_value(allow, Allow++[<<"REGISTER">>], Opts1)
+%     end,
+%     try
+%         case nklib_util:get_value(sip_registrar_default_time, Opts2) of
+%             Def when is_integer(Def), Def>=5 -> 
+%                 ok;
+%             _ -> 
+%                 throw(sip_registrar_default_time)
+%         end,
+%         case nklib_util:get_value(sip_registrar_min_time, Opts2) of
+%             Min when is_integer(Min), Min>=1 -> 
+%                 ok;
+%             _ -> 
+%                 throw(sip_registrar_min_time)
+%         end,
+%         case nklib_util:get_value(sip_registrar_max_time, Opts2) of
+%             Max when is_integer(Max), Max>=60 -> 
+%                 ok;
+%             _ -> 
+%                 throw(sip_registrar_max_time)
+%         end,
+%         Times = #nksip_registrar_time{
+%             min = nklib_util:get_value(sip_registrar_min_time, Opts2),
+%             max = nklib_util:get_value(sip_registrar_max_time, Opts2),
+%             default = nklib_util:get_value(sip_registrar_default_time, Opts2)
+%         },
+%         Cached1 = nklib_util:get_value(cached_configs, Opts2, []),
+%         Cached2 = nklib_util:store_value(config_nksip_registrar_times, Times, Cached1),
+%         Opts3 = nklib_util:store_value(cached_configs, Cached2, Opts2),
+%         {ok, Opts3}
+%     catch
+%         throw:OptName -> {error, {invalid_config, OptName}}
+%     end.
+
+
+% %% @doc Called when the plugin is shutdown
+% -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
+%     {ok, nksip_sipapp_srv:state()}.
+
+% terminate(AppId, SipAppState) ->  
+%     clear(AppId),
+%     {ok, SipAppState}.
 
 
 

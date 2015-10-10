@@ -503,7 +503,7 @@ do_make(Method, Opts, Dialog, #call{app_id=AppId}=Call) ->
     {nksip:cseq(), nksip_call:call()}.
 
 new_local_seq(#sipmsg{dialog_id = <<>>}, Call) ->
-    {nksip_lib:get_cseq(), Call};
+    {nksip_util:get_cseq(), Call};
 
 new_local_seq(#sipmsg{dialog_id=DialogId}, Call) ->
     case find(DialogId, Call) of
@@ -511,7 +511,7 @@ new_local_seq(#sipmsg{dialog_id=DialogId}, Call) ->
             Dialog1 = Dialog#dialog{local_seq=LocalSeq+1},
             {LocalSeq+1, store(Dialog1, Call)};
         not_found ->
-            {nksip_lib:get_cseq(), Call}
+            {nksip_util:get_cseq(), Call}
     end.
 
 
@@ -585,7 +585,7 @@ generate(Method, Opts, Dialog, _Call) ->
         0 when CurrentCSeq > 0 -> 
             RCSeq = LCSeq = CurrentCSeq+1;
         0 -> 
-            RCSeq = LCSeq = nksip_lib:get_cseq()+1000;
+            RCSeq = LCSeq = nksip_util:get_cseq()+1000;
         RCSeq when CurrentCSeq > 0 -> 
             LCSeq = CurrentCSeq;
         RCSeq -> 

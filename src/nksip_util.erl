@@ -19,10 +19,10 @@
 %% -------------------------------------------------------------------
 
 %% @doc Common library utility funcions
--module(nksip_lib).
+-module(nksip_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([parse_service/1, parse_service/2]).
+-export([parse_syntax/1, parse_syntax/2]).
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([put_log_cache/2]).
@@ -37,96 +37,86 @@
 %% =================================================================
 
 
-parse_service(Data) ->
-    parse_service(Data, service_defaults()).
+parse_syntax(Data) ->
+    nkservice_util:parse_syntax(Data, syntax(), defaults()).
 
 
-parse_service(Data, Defaults) ->
-    ParseOpts = #{return=>map, defaults=>Defaults},
-    case nklib_config:parse_config(Data, service_syntax(), ParseOpts) of
-        {ok, Parsed, _} ->
-            {ok, Parsed};
-        {error, Error} ->
-            {error, Error}
-    end.
+parse_syntax(Data, Defaults) ->
+    nkservice_util:parse_syntax(Data, syntax(), Defaults).
 
 
-service_syntax() ->
+
+syntax() ->
     #{
-        % Internal options
-        name => any,
-        module => atom,
-        plugins => {list, atom},
-
         % System options
-        timer_t1 => {integer, 10, 2500},
-        timer_t2 => {integer, 100, 16000},
-        timer_t4 => {integer, 100, 25000},
-        timer_c => {integer, 1, none},
-        udp_timeout => {integer, 5, none},
-        tcp_timeout => {integer, 5, none},
-        sctp_timeout => {integer, 5, none},
-        ws_timeout => {integer, 5, none},
-        trans_timeout => {integer, 5, none},
-        dialog_timeout => {integer, 5, none},
-        event_expires => {integer, 1, none},
-        event_expires_offset => {integer, 0, none},
-        nonce_timeout => {integer, 5, none},
-        max_calls => {integer, 1, 1000000},
-        max_connections => {integer, 1, 1000000},
+        sip_timer_t1 => {integer, 10, 2500},
+        sip_timer_t2 => {integer, 100, 16000},
+        sip_timer_t4 => {integer, 100, 25000},
+        sip_timer_c => {integer, 1, none},
+        sip_udp_timeout => {integer, 5, none},
+        sip_tcp_timeout => {integer, 5, none},
+        sip_sctp_timeout => {integer, 5, none},
+        sip_ws_timeout => {integer, 5, none},
+        sip_trans_timeout => {integer, 5, none},
+        sip_dialog_timeout => {integer, 5, none},
+        sip_event_expires => {integer, 1, none},
+        sip_event_expires_offset => {integer, 0, none},
+        sip_nonce_timeout => {integer, 5, none},
+        sip_max_calls => {integer, 1, 1000000},
+        sip_max_connections => {integer, 1, 1000000},
         
         % Startup options
-        transports => fun parse_transports/3,
-        certfile => path,
-        keyfile => path,
-        supported => words,
-        allow => words,
-        accept => words,
-        events => words,
+        sip_transports => fun parse_transports/3,
+        sip_certfile => path,
+        sip_keyfile => path,
+        sip_supported => words,
+        sip_allow => words,
+        sip_accept => words,
+        sip_events => words,
         
         % Default headers and options
-        from => uri,
-        route => uris,
-        local_host => [{enum, [auto]}, host],
-        local_host6 => [{enum, [auto]}, host6],
-        no_100 => {enum, [true]},
+        sip_from => uri,
+        sip_route => uris,
+        sip_local_host => [{enum, [auto]}, host],
+        sip_local_host6 => [{enum, [auto]}, host6],
+        sip_no_100 => {enum, [true]},
 
         debug => boolean,
         log_level => log_level
     }.
 
 
-service_defaults() ->
+defaults() ->
     [
-        {log_level, notice},
-        {allow, [
+        {sip_allow, [
             <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
             <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
             <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>]},
-        {supported, [<<"path">>]},
-        {timer_t1, 500},                    % (msecs) 0.5 secs
-        {timer_t2, 4000},                   % (msecs) 4 secs
-        {timer_t4, 5000},                   % (msecs) 5 secs
-        {timer_c,  180},                    % (secs) 3min
-        {udp_timeout, 30},                  % (secs) 30 secs
-        {tcp_timeout, 180},                 % (secs) 3 min
-        {sctp_timeout, 180},                % (secs) 3 min
-        {ws_timeout, 180},                  % (secs) 3 min
-        {trans_timeout, 900},               % (secs) 15 min
-        {dialog_timeout, 1800},             % (secs) 30 min
-        {event_expires, 60},                % (secs) 1 min
-        {event_expires_offset, 5},          % (secs) 5 secs
-        {nonce_timeout, 30},                % (secs) 30 secs
-        {from, undefined},
-        {accept, undefined},
-        {events, []},
-        {route, []},
-        {local_host, auto},
-        {local_host6, auto},
-        {no_100, true},
-        {max_calls, 100000},                % Each Call-ID counts as a call
-        {max_connections, 1024},            % Per transport and SipApp
-        {debug, false}                      % Used in nksip_debug plugin
+        {sip_supported, [<<"path">>]},
+        {sip_timer_t1, 500},                    % (msecs) 0.5 secs
+        {sip_timer_t2, 4000},                   % (msecs) 4 secs
+        {sip_timer_t4, 5000},                   % (msecs) 5 secs
+        {sip_timer_c,  180},                    % (secs) 3min
+        {sip_udp_timeout, 30},                  % (secs) 30 secs
+        {sip_tcp_timeout, 180},                 % (secs) 3 min
+        {sip_sctp_timeout, 180},                % (secs) 3 min
+        {sip_ws_timeout, 180},                  % (secs) 3 min
+        {sip_trans_timeout, 900},               % (secs) 15 min
+        {sip_dialog_timeout, 1800},             % (secs) 30 min
+        {sip_event_expires, 60},                % (secs) 1 min
+        {sip_event_expires_offset, 5},          % (secs) 5 secs
+        {sip_nonce_timeout, 30},                % (secs) 30 secs
+        {sip_from, undefined},
+        {sip_accept, undefined},
+        {sip_events, []},
+        {sip_route, []},
+        {sip_local_host, auto},
+        {sip_local_host6, auto},
+        {sip_no_100, true},
+        {sip_max_calls, 100000},                % Each Call-ID counts as a call
+        {sip_max_connections, 1024},            % Per transport and SipApp
+        {log_level, notice},
+        {debug, false}                          % Used in nksip_debug plugin
     ].
 
 
@@ -192,7 +182,7 @@ do_parse_transports([Transport|Rest], Acc) ->
 
 
 %% @doc Gets a new `CSeq'.
-%% After booting, CSeq's counter is set using {@link nksip_lib:cseq/0}. Then each call 
+%% After booting, CSeq's counter is set using {@link nksip_util:cseq/0}. Then each call 
 %% to this function increments the counter by one.
 -spec get_cseq() -> 
     nksip:cseq().

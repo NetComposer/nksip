@@ -46,7 +46,7 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [].
+    [nksip].
 
 
 

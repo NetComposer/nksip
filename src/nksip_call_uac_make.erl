@@ -69,7 +69,7 @@ make(AppId, Method, Uri, Opts) ->
             from = {DefFrom, FromTag},
             to = {DefTo, <<>>},
             call_id = CallId,
-            cseq = {nksip_lib:get_cseq(), Method1},
+            cseq = {nksip_util:get_cseq(), Method1},
             forwards = 70,
             transport = #transport{},
             start = nklib_util:l_timestamp()

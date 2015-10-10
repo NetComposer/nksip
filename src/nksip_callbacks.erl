@@ -31,9 +31,6 @@
 -export([sip_subscribe/2, sip_resubscribe/2, sip_notify/2, sip_message/2]).
 -export([sip_refer/2, sip_publish/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
--export([init/1, terminate/2]).
--export([handle_call/3, handle_cast/2, handle_info/2]).
-
 
 -export([nks_call/3, nks_sip_method/2, nks_authorize_data/3, 
 		 nks_transport_uac_headers/6, nks_transport_uas_sent/1]).
@@ -231,76 +228,6 @@ sip_dialog_update(_Status, _Dialog, _Call) ->
 
 sip_session_update(_Status, _Dialog, _Call) ->
     ok.
-
-
-
-%%%%%%%%%%%%%% gen_server Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
-%% @doc SipApp initialization.
-%%
-%% This callback function is called when the SipApp is launched using 
-%% {@link nksip:start/4}.
-%%
-%% If `{ok, State}' or `{ok, State, Timeout}' is returned the SipApp is started with
-%% this initial state. If a `Timeout' is provided (in milliseconds) a 
-%% `timeout' message will be sent to the process 
-%% (you will need to implement {@link handle_info/2} to receive it).
-%% If `{stop, Reason}' is returned the SipApp will not start. 
-%%
--spec init(Args::term()) ->
-    {ok, State::term()} | {ok, State::term(), Timeout::timeout()} |
-    {stop, Reason::term()}.
-
-init(Arg) ->
-    {ok, Arg}.
-
-
-%% @doc Called when the SipApp is stopped.
--spec terminate(Reason::term(), State::term()) ->
-    ok.
-
-terminate(_Reason, _State) ->
-    ok.
-
-
-%% @doc Called when a direct call to the SipApp process is made using 
-%% {@link nksip:call/2} or {@link nksip:call/3}.
--spec handle_call(Msg::term(), From::from(), State::term()) ->
-    {reply, Reply::RetType, State::term()} | 
-    {reply, Reply::RetType, State::term(), Timeout::timeout()} |
-    {noreply, State::term()} | 
-    {noreply, State::term(), Timeout::timeout()} |
-    {stop, Reason::term(), Reply::RetType, State::term()} | 
-    {stop, Reason::term(), State::term()}.
-
-handle_call(Msg, _From, State) ->
-    lager:warning("Unexpected handle_call in ~p: ~p", [Msg, ?MODULE]),
-    {noreply, State}.
-
-
-%% @doc Called when a direct cast to the SipApp process is made using 
-%% {@link nksip:cast/2}.
--spec handle_cast(Msg::term(), State::term()) ->
-    {noreply, State::term()} |
-    {noreply, State::term(), Timeout::timeout()} |
-    {stop, Reason::term(), State::term()}.
-
-handle_cast(Msg, State) ->
-    lager:warning("Unexpected handle_cast in ~p: ~p", [Msg, ?MODULE]),
-    {noreply, State}.
-
-
-%% @doc Called when the SipApp process receives an unknown message.
--spec handle_info(Msg::term(), State::term()) ->
-    {noreply, State::term()} |
-    {noreply, State::term(), Timeout::timeout()} |
-    {stop, Reason::term(), State::term()}.
-
-handle_info(_Msg, State) ->
-    {noreply, State}.
-
 
 
 %%%%%%%%%%%%%% Internal Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -591,5 +518,6 @@ nks_sipapp_updated(SipAppState) ->
 
 nks_debug(_AppId, _CallId, _Info) ->
     ok.
+
 
 

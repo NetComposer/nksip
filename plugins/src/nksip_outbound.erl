@@ -44,7 +44,7 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [].
+    [nksip].
 
 
 %% @doc Parses this plugin specific configuration
