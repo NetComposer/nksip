@@ -23,10 +23,10 @@
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([start/4, stop/1, stop_all/0, update/2]).
+-export([start/3, stop/1, stop_all/0, update/2]).
 -export([get_config/1, get_uuid/1]).
 -export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
-
+-export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
@@ -160,14 +160,13 @@
 %% ===================================================================
 
 %% @doc Starts a new SipApp.
--spec start(app_name(), atom(), term(), optslist()) -> 
+-spec start(app_name(), atom(), optslist()) -> 
 	{ok, app_id()} | {error, term()}.
 
-start(AppName, Module, Args, Opts) ->
+start(AppName, Module, Opts) ->
     Opts2 = Opts#{
         name => AppName, 
         class => nksip,
-        args => Args,
         callback => Module,
         plugins => [nksip|maps:get(plugins, Opts, [])]
     },
@@ -267,19 +266,19 @@ plugin_start(SrvSpec) ->
             {ok, ParsedDef0} -> ParsedDef0;
             {error, ParseError1} -> throw(ParseError1)
         end,
-        Config1 = case nksip_util:parse_syntax(SrvSpec, ParsedDef) of
+        SipConfig = case nksip_util:parse_syntax(SrvSpec, ParsedDef) of
             {ok, ParsedOpts0} -> ParsedOpts0;
             {error, ParseError2} -> throw(ParseError2)
         end,
         Timers = #call_timers{
-            t1 = maps:get(sip_timer_t1, Config1),
-            t2 = maps:get(sip_timer_t2, Config1),
-            t4 = maps:get(sip_timer_t4, Config1),
-            tc = maps:get(sip_timer_c, Config1),
-            trans = maps:get(sip_trans_timeout, Config1),
-            dialog = maps:get(sip_dialog_timeout, Config1)},
-        Config2 = maps:with(cached(), Config1#{sip=>Config1, sip_timers=>Timers}),
-        nkservice_util:add_config(Config2, SrvSpec)
+            t1 = maps:get(sip_timer_t1, SipConfig),
+            t2 = maps:get(sip_timer_t2, SipConfig),
+            t4 = maps:get(sip_timer_t4, SipConfig),
+            tc = maps:get(sip_timer_c, SipConfig),
+            trans = maps:get(sip_trans_timeout, SipConfig),
+            dialog = maps:get(sip_dialog_timeout, SipConfig)},
+        Cache = maps:with(cached(), SipConfig#{sip=>SipConfig, sip_timers=>Timers}),
+        nkservice_util:add_config(#{sip=>SipConfig}, Cache, SrvSpec)
     catch
         throw:Throw -> {stop, Throw}
     end.
@@ -287,10 +286,28 @@ plugin_start(SrvSpec) ->
 
 plugin_stop(SrvSpec) ->
     lager:notice("Plugin NKSIP stopping: ~p", [maps:get(id, SrvSpec)]),
-    nkservice_util:del_config(cached(), SrvSpec).
+    nkservice_util:del_config([sip], cached(), SrvSpec).
 
 
 cached() ->
     [sip, sip_max_connections, sip_max_calls, sip_from, 
      sip_no_100, sip_supported, sip_allow, sip_accept, sip_events, sip_route, 
      sip_local_host, sip_local_host6, sip_max_calls, sip_timers].
+
+
+%% @private
+plugin_update_value(Key, Fun, SrvSpec) ->
+    SipConfig1 = maps:get(sip, SrvSpec),
+    Value1 = maps:get(Key, SipConfig1),
+    Value2 = Fun(Value1),
+    SipConfig2 = maps:put(Key, Value2, SipConfig1),
+    Cache = case lists:member(Key, cached()) of
+        true -> maps:put(Key, Value2, #{});
+        false -> #{}
+    end,
+    nkservice_util:add_config(#{sip=>SipConfig2}, Cache, SrvSpec).
+
+
+
+
+

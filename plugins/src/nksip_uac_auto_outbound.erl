@@ -106,7 +106,7 @@ parse_config(Opts) ->
     {ok, nksip_siapp_srv:state()}.
 
 init(AppId, SipAppState) ->
-    Supported = AppId:config_supported(),
+    Supported = AppId:cache_sip_supported(),
     StateOb = #state_ob{
         outbound = lists:member(<<"outbound">>, Supported),
         pos = 1,

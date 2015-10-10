@@ -61,28 +61,29 @@ deps() ->
 
 
 plugin_start(SrvSpec) ->
-    lager:warning("REG"),
+    lager:warning("REG START"),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, RegConfig} ->
-            % SipConfig1 = maps:get(config_sip, SrvSpec),
-            % SipConfig2 = maps:merge(SipConfig1, Config),
+            UpdFun = fun(Allow) -> nklib_util:store_value(<<"REGISTER">>, Allow) end,
+            {ok, SrvSpec1} = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
             #{
                 sip_registrar_min_time := Min, 
                 sip_registrar_max_time := Max,
                 sip_registrar_default_time := Default
             } = RegConfig,
             Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
-            Config = #{sip_registrar_timers=>Timers},
-            lager:warning("ADD CONFIG"),
-            nkservice_util:add_config(Config, SrvSpec);
+            Cache = #{sip_registrar_timers=>Timers},
+            nkservice_util:add_config(#{}, Cache, SrvSpec1);
         {error, Error} ->
             {stop, Error}
     end.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    clear(SrvId),
-    nkservice_util:del_config([sip_registrar_timers], SrvSpec).
+    lager:warning("REG STOP"),
+    UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
+    {ok, SrvSpec1} = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
+    nkservice_util:del_config([], [sip_registrar_timers], SrvSpec1).
 
 
 
@@ -178,7 +179,7 @@ find(App, {Scheme, User, Domain}) ->
     find(App, Scheme, User, Domain);
 
 find(App, Uri) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> nksip_registrar_lib:find(AppId, Uri);
         _ -> []
     end.
@@ -189,7 +190,7 @@ find(App, Uri) ->
     [nksip:uri()].
 
 find(App, Scheme, User, Domain) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> nksip_registrar_lib:find(AppId, Scheme, User, Domain);
         _ -> []
     end.
@@ -210,7 +211,7 @@ qfind(App, {Scheme, User, Domain}) ->
     nksip:uri_set().
 
 qfind(App, Scheme, User, Domain) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> nksip_registrar_lib:qfind(AppId, Scheme, User, Domain);
         _ ->
             []
@@ -222,7 +223,7 @@ qfind(App, Scheme, User, Domain) ->
     ok | not_found | callback_error.
 
 delete(App, Scheme, User, Domain) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} ->
             AOR = {
                 nklib_parse:scheme(Scheme), 
@@ -286,7 +287,7 @@ request(Req) ->
     ok | callback_error | sipapp_not_found.
 
 clear(App) -> 
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} ->
             case nksip_registrar_lib:store_del_all(AppId) of
                 ok -> ok;

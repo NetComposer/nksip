@@ -336,7 +336,7 @@ do_call_start(AppId, CallId, SD) ->
     Max = nksip_config_cache:global_max_calls(),
     case nklib_counters:value(nksip_calls) < Max of
         true ->
-            AppMax = AppId:config_max_calls(),
+            AppMax = AppId:cache_sip_max_calls(),
             case nklib_counters:value({nksip_calls, AppId}) < AppMax of
                 true ->
                     {ok, Pid} = nksip_call_srv:start(AppId, CallId),

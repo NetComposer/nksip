@@ -166,7 +166,7 @@ start(AppId, File) ->
     ok | {error, term()}.
 
 start(App, File, IpList) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} ->
             Plugins1 = AppId:config_plugins(),
             Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
@@ -192,7 +192,7 @@ stop() ->
     ok | {error, term()}.
 
 stop(App) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} ->
             Plugins = AppId:config_plugins() -- [nksip_trace],
             case nksip:update(App, [{plugins, Plugins}]) of

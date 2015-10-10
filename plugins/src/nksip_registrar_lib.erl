@@ -173,7 +173,7 @@ process(Req, Opts) ->
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
-    Times = AppId:config_nksip_registrar_times(),
+    Times = AppId:cache_sip_registrar_times(),
     Default = case nksip_sipmsg:meta(expires, Req) of
         D0 when is_integer(D0), D0>=0 -> D0;
         _ -> Times#nksip_registrar_time.default

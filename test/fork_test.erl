@@ -355,7 +355,7 @@ invite2() ->
     % lager:notice("A")
 
 
-    {ok, C2Id} = nkservice:find(client2),
+    {ok, C2Id} = nkservice_server:find(client2),
     {ok, CallId} = nksip_dialog:call_id(Dlg_C2_1),
     [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:app_id(D))==C2Id,
                             element(2, nksip_dialog:call_id(D))=:=CallId, D/=Dlg_C2_1],
@@ -698,7 +698,7 @@ sip_bye(Req, _Call) ->
 %%%%%
 
 get_port(App, Proto, Class) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> 
             case nksip_transport:get_listening(AppId, Proto, Class) of
                 [{#transport{listen_port=Port}, _Pid}|_] -> Port;

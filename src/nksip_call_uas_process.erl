@@ -55,7 +55,7 @@ process(#trans{method=Method, request=Req}=UAS, Call) ->
 check_supported(Method, Req, UAS, Call) ->
     #sipmsg{require=Require} = Req,
     #call{app_id=AppId} = Call,
-    Supported = AppId:config_supported(),
+    Supported = AppId:cache_sip_supported(),
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] ->
             check_event(Method, Req, UAS, Call);
@@ -73,7 +73,7 @@ check_supported(Method, Req, UAS, Call) ->
 check_event(Method, Req, UAS, Call) when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
     #sipmsg{event=Event} = Req,
     #call{app_id=AppId} = Call,
-    SupEvents = AppId:config_events(),
+    SupEvents = AppId:cache_sip_events(),
     case Event of
         {Type, _} ->
             case lists:member(Type, [<<"refer">>|SupEvents]) of
@@ -310,5 +310,5 @@ do_method('PUBLISH', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
 do_method(_Method, #sipmsg{app_id=AppId}, _UAS, _Call) ->
-    {reply, {method_not_allowed, AppId:config_allow()}}.
+    {reply, {method_not_allowed, AppId:cache_sip_allow()}}.
 

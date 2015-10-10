@@ -109,7 +109,7 @@ terminate(_AppId, SipAppState) ->
     ok | {error, term()}.
 
 start(App) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} ->
             Plugins1 = AppId:config_plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
@@ -127,7 +127,7 @@ start(App) ->
     ok | {error, term()}.
 
 stop(App) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} ->
             Plugins = AppId:config_plugins() -- [nksip_debug],
             case nksip:update(App, [{plugins, Plugins}, {debug, false}]) of

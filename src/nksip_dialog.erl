@@ -172,7 +172,7 @@ get_all() ->
     [nksip:handle()].
 
 get_all(App, CallId) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> 
             case nksip_call:get_all_dialogs(AppId, CallId) of
                 {ok, Handles} -> Handles;

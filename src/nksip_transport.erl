@@ -222,7 +222,7 @@ get_listenhost(AppId, Ip, Opts) ->
     case size(Ip) of
         4 ->
             Host = case nklib_util:get_value(local_host, Opts) of
-                undefined -> AppId:config_local_host();
+                undefined -> AppId:cache_sip_local_host();
                 Host0 -> Host0
             end,
             case Host of
@@ -235,7 +235,7 @@ get_listenhost(AppId, Ip, Opts) ->
             end;
         8 ->
             Host = case nklib_util:get_value(local_host6, Opts) of
-                undefined -> AppId:config_local_host6();
+                undefined -> AppId:cache_sip_local_host6();
                 Host0 -> Host0
             end,
             case Host of

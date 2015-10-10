@@ -120,6 +120,16 @@ defaults() ->
     ].
 
 
+plugin_update_value(Key, Fun, SrvSpec) ->
+    SipConfig1 = maps:get(sip, SrvSpec),
+    Value1 = maps:get(Keysip_allow, SipConfig1),
+            Allow2 = nklib_util:store_value(<<"REGISTER">>, Allow1),
+            SipConfig2 = SipConfig1#{sip_allow=>Allow2},
+)
+
+
+
+
 
    
 

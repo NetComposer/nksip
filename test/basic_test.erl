@@ -190,7 +190,7 @@ transport() ->
 
 cast_info() ->
     % Direct calls to SipApp's core processing app
-    {ok, S1} = nkservice:find(server1),
+    {ok, S1} = nkservice_server:find(server1),
     Pid = whereis(S1),
     undefined = nksip:get_pid(other),
 

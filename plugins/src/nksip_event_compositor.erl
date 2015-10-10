@@ -106,7 +106,7 @@ terminate(AppId, SipAppState) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 find(App, AOR, Tag) ->
-    {ok, AppId} = nkservice:find(App),
+    {ok, AppId} = nkservice_server:find(App),
     nksip_event_compositor_lib:store_get(AppId, AOR, Tag).
 
 
@@ -153,7 +153,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
     ok | callback_error | sipapp_not_found.
 
 clear(App) -> 
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} ->
             case nksip_event_compositor_lib:store_del_all(AppId) of
                 ok -> ok;

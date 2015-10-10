@@ -51,7 +51,7 @@ is_max(AppId) ->
         Current when Current > Max -> 
             true;
         _ -> 
-            AppMax = AppId:config_max_connections(),
+            AppMax = AppId:cache_sip_max_connections(),
             case nklib_counters:value({nksip_connections, AppId}) of
                 AppCurrent when AppCurrent > AppMax -> 
                     true;

@@ -47,7 +47,7 @@ make(AppId, Method, Uri, Opts) ->
             error -> Method1 = RUri1 = throw(invalid_uri)
         end,
         FromTag = nklib_util:uid(),
-        DefFrom = case AppId:config_from() of
+        DefFrom = case AppId:cache_sip_from() of
             undefined ->
                 #uri{scheme=sip, user = <<"user">>, domain = <<"nksip">>, 
                      ext_opts = [{<<"tag">>, FromTag}]};
@@ -74,7 +74,7 @@ make(AppId, Method, Uri, Opts) ->
             transport = #transport{},
             start = nklib_util:l_timestamp()
         },
-        Opts1 = case AppId:config_route() of
+        Opts1 = case AppId:cache_sip_route() of
             [] -> Opts;
             DefRoutes -> [{route, DefRoutes}|Opts]
         end,
@@ -345,11 +345,11 @@ parse_opts([Term|Rest], Req, Opts) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            {replace, <<"supported">>, AppId:config_supported()};
+            {replace, <<"supported">>, AppId:cache_sip_supported()};
         allow ->        
-            {replace, <<"allow">>,  AppId:config_allow()};
+            {replace, <<"allow">>,  AppId:cache_sip_allow()};
         accept ->
-            Accept = case AppId:config_accept() of
+            Accept = case AppId:cache_sip_accept() of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 undefined ->
@@ -362,7 +362,7 @@ parse_opts([Term|Rest], Req, Opts) ->
             Date = nklib_util:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            case AppId:config_events() of
+            case AppId:cache_sip_events() of
                 [] -> ignore;
                 Events -> {replace, <<"allow-event">>, Events}
             end;

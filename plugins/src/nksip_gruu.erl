@@ -72,7 +72,7 @@ parse_config(Opts) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(App) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> 
             case nksip_app:get({nksip_gruu_pub, AppId}) of
                 undefined -> undefined;
@@ -88,7 +88,7 @@ get_gruu_pub(App) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(App) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> 
             case nksip_app:get({nksip_gruu_temp, AppId}) of
                 undefined -> undefined;
@@ -104,7 +104,7 @@ get_gruu_temp(App) ->
     [nksip:uri()].
 
 registrar_find(App, Uri) ->
-    case nkservice:find(App) of
+    case nkservice_server:find(App) of
         {ok, AppId} -> 
             nksip_gruu_lib:find(AppId, Uri);
         _ ->

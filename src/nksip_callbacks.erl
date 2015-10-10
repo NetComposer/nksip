@@ -99,7 +99,7 @@ sip_options(_Req, _Call) ->
 
 sip_register(Req, _Call) ->
     {ok, AppId} = nksip_request:app_id(Req),
-    {reply, {method_not_allowed, AppId:config_allow()}}.
+    {reply, {method_not_allowed, AppId:cache_sip_allow()}}.
 
 
 %% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
@@ -189,7 +189,7 @@ sip_refer(_Req, _Call) ->
 
 sip_publish(Req, _Call) ->
     {ok, AppId} = nksip_request:app_id(Req),
-    {reply, {method_not_allowed, AppId:config_allow()}}.
+    {reply, {method_not_allowed, AppId:cache_sip_allow()}}.
 
 
 %% @doc Called when a valid INFO request is received.

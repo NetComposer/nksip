@@ -110,7 +110,7 @@ terminate(AppId, SipAppState) ->
 
 start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice:find(App) of
+        case nkservice_server:find(App) of
             {ok, AppId} -> ok;
             _ -> AppId = throw(invalid_app)
         end,
@@ -154,7 +154,7 @@ get_registers(App) ->
 
 start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice:find(App) of
+        case nkservice_server:find(App) of
             {ok, AppId} -> ok;
             _ -> AppId = throw(invalid_app)
         end,

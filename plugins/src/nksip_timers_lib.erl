@@ -55,7 +55,7 @@ parse_uac_config([Term|Rest], Req, Opts) ->
             parse_uac_config([{nksip_timers_se, {SE, undefined}}|Rest], Req, Opts);
         {nksip_timers_se, {SE, Refresh}} when is_integer(SE) ->
             #sipmsg{app_id=AppId} = Req,
-            case AppId:config_nksip_timers() of
+            case AppId:cache_sip_timers() of
                 {_, MinSE} when SE<MinSE -> 
                     {error, {invalid_config, nksip_timers_se}};
                 _ when Refresh==undefined -> 
@@ -179,7 +179,7 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
     #call{app_id=AppId} = Call,
-    {Default, _} = AppId:config_nksip_timers(),
+    {Default, _} = AppId:cache_sip_timers(),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
             {SE0, Refresh0};
@@ -255,7 +255,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
         true ->
             case nksip_sipmsg:header(<<"min-se">>, Resp, integers) of
                 [RespMinSE] ->
-                    {_, ConfigMinSE} = AppId:config_nksip_timers(),
+                    {_, ConfigMinSE} = AppId:cache_sip_timers(),
                     CurrentMinSE = case 
                         nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
                     of
@@ -311,7 +311,7 @@ uas_check_422(#sipmsg{app_id=AppId, class={req, Method}}=Req, Call) ->
                 {ok, SE, _} ->
                     case 
                         erlang:function_exported(AppId, config_nksip_timers, 0)
-                        andalso AppId:config_nksip_timers() 
+                        andalso AppId:cache_sip_timers() 
                     of
                         {_, MinSE} when SE < MinSE ->
                             #sipmsg{dialog_id=DialogId} = Req,

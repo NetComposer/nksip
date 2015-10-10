@@ -61,8 +61,8 @@ start1() ->
     ?debugFmt("Starting ~p", [?MODULE]).
 
 webserver() ->
-    {ok, WsA} = nkservice:find(ws_a),
-    {ok, WsB} = nkservice:find(ws_b),
+    {ok, WsA} = nkservice_server:find(ws_a),
+    {ok, WsB} = nkservice_server:find(ws_b),
     [
         {#transport{proto=ws, local_port=0, listen_port=_LP}, _},
         {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
@@ -160,8 +160,8 @@ stop2() ->
 
 
 basic() ->
-    {ok, UA2} = nkservice:find(ua2),
-    {ok, S1} = nkservice:find(server1),
+    {ok, UA2} = nkservice_server:find(ua2),
+    {ok, S1} = nkservice_server:find(server1),
 
     [] = nksip_transport:get_all_connected(S1),
     [] = nksip_transport:get_all_connected(UA2),
@@ -318,7 +318,7 @@ proxy() ->
 
     % Let's stop the transports
     [nksip_connection:stop(Pid, normal) || 
-        {_, Pid} <- nksip_transport:get_all_connected(element(2, nkservice:find(server1)))],
+        {_, Pid} <- nksip_transport:get_all_connected(element(2, nkservice_server:find(server1)))],
     timer:sleep(100),
 
     {ok, 430, []} = nksip_uac:options(ua1, C2Pub, 

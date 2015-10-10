@@ -71,7 +71,7 @@ proxy_opts(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Opts) ->
         transport = Transp, 
         contacts = Contacts
     } = Req,
-    Supported = AppId:config_supported(),
+    Supported = AppId:cache_sip_supported(),
     Opts1 = case 
         lists:member(path, Opts) andalso
         nksip_sipmsg:supported(<<"path">>, Req) andalso 
@@ -100,7 +100,7 @@ proxy_opts(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Opts) ->
 
 proxy_opts(Req, Opts) ->
     #sipmsg{app_id=AppId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
-    Supported = AppId:config_supported(),
+    Supported = AppId:cache_sip_supported(),
     case 
         nksip_sipmsg:supported(<<"outbound">>, Req) andalso 
         lists:member(<<"outbound">>, Supported)
@@ -354,7 +354,7 @@ check_several_reg_id([#uri{ext_opts=Opts}|Rest], Found) ->
 registrar(Req) ->
     #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
     case 
-        lists:member(<<"outbound">>, AppId:config_supported()) andalso
+        lists:member(<<"outbound">>, AppId:cache_sip_supported()) andalso
         nksip_sipmsg:supported(<<"outbound">>, Req)
     of
         true when length(Vias)==1 ->     % We are the first host
