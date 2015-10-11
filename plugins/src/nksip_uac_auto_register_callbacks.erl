@@ -70,8 +70,8 @@ nks_handle_call({'$nksip_uac_auto_register_start_register', RegId, Uri, Opts},
         ok = undefined
     },
     Regs1 = lists:keystore(RegId, #sipreg.id, Regs, Reg),
-    #sipapp_srv{app_id=AppId} = SipAppState,
-    ?debug(AppId, CallId, "Started auto registration: ~p", [Reg]),
+    #sipapp_srv{app_id=SrvId} = SipAppState,
+    ?debug(SrvId, CallId, "Started auto registration: ~p", [Reg]),
     gen_server:cast(self(), '$nksip_uac_auto_register_check'),
     State1 = State#state{regs=Regs1},
     {ok, set_state(State1, SipAppState)};
@@ -81,9 +81,9 @@ nks_handle_call({'$nksip_uac_auto_register_stop_register', RegId}, From, SipAppS
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, Reg, Regs1} -> 
             gen_server:reply(From, ok),
-            #sipapp_srv{app_id=AppId} = SipAppState,
+            #sipapp_srv{app_id=SrvId} = SipAppState,
             {ok, SipAppState1} = 
-                AppId:nks_uac_auto_register_launch_unregister(Reg, false, SipAppState),
+                SrvId:nks_uac_auto_register_launch_unregister(Reg, false, SipAppState),
             {ok, set_state(State#state{regs=Regs1}, SipAppState1)};
         false -> 
             gen_server:reply(From, not_found),
@@ -128,8 +128,8 @@ nks_handle_call({'$nksip_uac_auto_register_start_ping', PingId, Uri, Opts},
         next = 0,
         ok = undefined
     },
-    #sipapp_srv{app_id=AppId} = SipAppState,
-    ?info(AppId, CallId, "Started auto ping: ~p", [Ping]),
+    #sipapp_srv{app_id=SrvId} = SipAppState,
+    ?info(SrvId, CallId, "Started auto ping: ~p", [Ping]),
     Pinsg1 = lists:keystore(PingId, #sipreg.id, Pings, Ping),
     gen_server:cast(self(), '$nksip_uac_auto_register_check'),
     State1 = State#state{pings=Pinsg1},
@@ -164,18 +164,18 @@ nks_handle_call(_Msg, _From, _SipAppState) ->
 nks_handle_cast({'$nksip_uac_auto_register_answer_register', RegId, Code, Meta}, 
                  SipAppState) ->
     #state{regs=Regs} = State = get_state(SipAppState),
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OldOK}=Reg, Regs1} ->
             {ok, Reg1, SipAppState1} = 
-                AppId:nks_uac_auto_register_update_register(Reg, Code, Meta, SipAppState),
+                SrvId:nks_uac_auto_register_update_register(Reg, Code, Meta, SipAppState),
             #sipreg{ok=Ok} = Reg1,
             case Ok of
                 OldOK -> 
                     ok;
                 _ -> 
-                    AppId:nks_call(sip_uac_auto_register_updated_register, 
-                                    [RegId, Ok, AppId], AppId)
+                    SrvId:nks_call(sip_uac_auto_register_updated_register, 
+                                    [RegId, Ok, SrvId], SrvId)
             end,
             State1 = State#state{regs=[Reg1|Regs1]},
             {ok, set_state(State1, SipAppState1)};
@@ -185,16 +185,16 @@ nks_handle_cast({'$nksip_uac_auto_register_answer_register', RegId, Code, Meta},
 
 nks_handle_cast({'$nksip_uac_auto_register_answer_ping', PingId, Code, Meta}, SipAppState) ->
     #state{pings=Pings} = State = get_state(SipAppState),
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OldOK}=Ping, Pings1} ->
             {ok, #sipreg{ok=OK}=Ping1, SipAppState1} = 
-                AppId:nks_uac_auto_register_update_ping(Ping, Code, Meta, SipAppState),
+                SrvId:nks_uac_auto_register_update_ping(Ping, Code, Meta, SipAppState),
             case OK of
                 OldOK -> 
                     ok;
                 _ -> 
-                    AppId:nks_call(sip_uac_auto_register_updated_ping, [PingId, OK, AppId], AppId)
+                    SrvId:nks_call(sip_uac_auto_register_updated_ping, [PingId, OK, SrvId], SrvId)
             end,
             State1 = State#state{pings=[Ping1|Pings1]},
             {ok, set_state(State1, SipAppState1)};
@@ -228,8 +228,8 @@ nks_handle_cast(_Msg, _SipAppState) ->
 
 %% @private
 nks_handle_info({timeout, _, '$nksip_uac_auto_register_timer'}, SipAppState) ->
-    #sipapp_srv{app_id=AppId} = SipAppState,
-    Timer = 1000 * nksip_sipapp_srv:config(AppId, nksip_uac_auto_register_timer),
+    #sipapp_srv{app_id=SrvId} = SipAppState,
+    Timer = 1000 * nksip_sipapp_srv:config(SrvId, nksip_uac_auto_register_timer),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_register_timer'),
     gen_server:cast(self(), '$nksip_uac_auto_register_check'),
     {ok, SipAppState};
@@ -251,9 +251,9 @@ nks_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,    
     Opts1 = [contact, {cseq_num, CSeq}, {meta, [cseq_num, retry_after]}|Opts],
     Self = self(),
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     Fun = fun() ->
-        case nksip_uac:register(AppId, RUri, Opts1) of
+        case nksip_uac:register(SrvId, RUri, Opts1) of
             {ok, Code, Meta} -> ok;
             _ -> Code=500, Meta=[{cseq_num, CSeq}]
         end,
@@ -273,8 +273,8 @@ nks_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
 nks_uac_auto_register_launch_unregister(Reg, Sync, SipAppState)->
     #sipreg{ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
     Opts1 = [contact, {cseq_num, CSeq}|nklib_util:store_value(expires, 0, Opts)],
-    #sipapp_srv{app_id=AppId} = SipAppState,
-    Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
+    Fun = fun() -> nksip_uac:register(SrvId, RUri, Opts1) end,
     case Sync of
         true -> Fun();
         false -> spawn_link(Fun)
@@ -320,9 +320,9 @@ nks_uac_auto_register_launch_ping(Ping, SipAppState)->
     #sipreg{id=PingId, ruri=RUri, opts=Opts, cseq=CSeq} = Ping,
     Opts1 = [{cseq_num, CSeq}, {meta, [cseq_num, retry_after]} | Opts],
     Self = self(),
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     Fun = fun() ->
-        case nksip_uac:options(AppId, RUri, Opts1) of
+        case nksip_uac:options(SrvId, RUri, Opts1) of
             {ok, Code, Meta} -> ok;
             _ -> Code=500, Meta=[{cseq_num, CSeq}]
         end,
@@ -370,9 +370,9 @@ nks_uac_auto_register_update_ping(Ping, Code, Meta, SipAppState) ->
 check_pings(Now, [#sipreg{next=Next}=Ping|Rest], Acc, SipAppState) ->
     case is_integer(Next) andalso Now>=Next of 
         true -> 
-            #sipapp_srv{app_id=AppId} = SipAppState,
+            #sipapp_srv{app_id=SrvId} = SipAppState,
             {ok, Ping1, SipAppState1} = 
-                AppId:nks_uac_auto_register_launch_ping(Ping, SipAppState),
+                SrvId:nks_uac_auto_register_launch_ping(Ping, SipAppState),
             check_pings(Now, Rest, [Ping1|Acc], SipAppState1);
         false ->
             check_pings(Now, Rest, [Ping|Acc], SipAppState)
@@ -384,11 +384,11 @@ check_pings(_, [], Acc, SipAppState) ->
 
 %% @private Only one register in each cycle
 check_registers(Now, [#sipreg{next=Next}=Reg|Rest], Acc, SipAppState) ->
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     case Now>=Next of
         true -> 
             {ok, Reg1, SipAppState1} = 
-                AppId:nks_uac_auto_register_launch_register(Reg, false, SipAppState),
+                SrvId:nks_uac_auto_register_launch_register(Reg, false, SipAppState),
             check_registers(-1, Rest, [Reg1|Acc], SipAppState1);
         false ->
             check_registers(Now, Rest, [Reg|Acc], SipAppState)

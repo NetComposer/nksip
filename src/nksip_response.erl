@@ -53,11 +53,11 @@ get_handle(Term) ->
 -spec app_id(nksip:response()|nksip:handle()) -> 
     {ok, nksip:app_id()}.
 
-app_id(#sipmsg{class={resp, _, _}, app_id=AppId}) ->
-    {ok, AppId};
+app_id(#sipmsg{class={resp, _, _}, app_id=SrvId}) ->
+    {ok, SrvId};
 app_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {resp, AppId, _Id, _CallId} -> {ok, AppId};
+        {resp, SrvId, _Id, _CallId} -> {ok, SrvId};
         _ -> error(invalid_response)
     end.
 
@@ -67,8 +67,8 @@ app_id(Handle) ->
     {ok, nksip:app_name()}.
 
 app_name(Req) -> 
-    {ok, AppId} = app_id(Req),
-    {ok, AppId:name()}.
+    {ok, SrvId} = app_id(Req),
+    {ok, SrvId:name()}.
 
 
 %% @doc Gets the calls's id of a response id
@@ -79,7 +79,7 @@ call_id(#sipmsg{class={resp, _, _}, call_id=CallId}) ->
     {ok, CallId};
 call_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {resp, _AppId, _Id, CallId} -> {ok, CallId};
+        {resp, _SrvId, _Id, CallId} -> {ok, CallId};
         _ -> error(invalid_response)
     end.
 

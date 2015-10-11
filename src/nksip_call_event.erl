@@ -270,8 +270,8 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     cancel_timer(TimerN),
     cancel_timer(TimerExpire),
     cancel_timer(TimerMiddle),
-    #call{app_id=AppId, timers=#call_timers{t1=T1, tc=TC}} = Call,
-    Config = nksip_sipapp_srv:config(AppId),
+    #call{app_id=SrvId, timers=#call_timers{t1=T1, tc=TC}} = Call,
+    Config = nksip_sipapp_srv:config(SrvId),
     ReqExpires = case Req#sipmsg.expires of
         RE0 when is_integer(RE0), RE0>=0 -> RE0;
         _ when Method=='REFER' -> TC;
@@ -345,8 +345,8 @@ update({Status, Expires}, Subs, Dialog, Call)
         undefined -> nklib_util:timestamp();
         _ -> Answered
     end,
-    #call{app_id=AppId} = Call,
-    Offset = nksip_sipapp_srv:config(AppId, event_expires_offset),
+    #call{app_id=SrvId} = Call,
+    Offset = nksip_sipapp_srv:config(SrvId, event_expires_offset),
     Subs1 = Subs#subscription{
         status = Status,
         answered = Answered1,
@@ -421,7 +421,7 @@ request_uac_opts(Method, Opts, Dialog) ->
         false ->
             {ok, Opts};
         {value, {_, Id}, Opts1} ->
-            {_AppId, SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Id),
+            {_SrvId, SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Id),
             case nksip_subscription_lib:find(SubsId, Dialog) of
                 #subscription{} = Subs ->
                     {ok, request_uac_opts(Method, Opts1, Dialog, Subs)};
@@ -441,8 +441,8 @@ request_uac_opts('SUBSCRIBE', Opts, _Dialog, Subs) ->
 
 request_uac_opts('NOTIFY', Opts, Dialog, Subs) ->
     #subscription{event=Event, timer_expire=Timer} = Subs,
-    #dialog{app_id=AppId} = Dialog,
-    Offset = nksip_sipapp_srv:config(AppId, event_expires_offset),
+    #dialog{app_id=SrvId} = Dialog,
+    Offset = nksip_sipapp_srv:config(SrvId, event_expires_offset),
     {value, {_, SS}, Opts1} = lists:keytake(subscription_state, 1, Opts),
     SS1 = case SS of
         State when State==active; State==pending ->
@@ -571,13 +571,13 @@ store(Subs, Dialog, _Call) ->
 -spec dialog_update(term(), #subscription{}, nksip:dialog(), nksip_call:call()) ->
     ok.
 
-dialog_update(Status, Subs, Dialog, #call{app_id=AppId}=Call) ->
+dialog_update(Status, Subs, Dialog, #call{app_id=SrvId}=Call) ->
     Status1 = case Status of
         {terminated, Reason, undefined} -> {terminated, Reason};
         _ -> Status
     end,
     Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
-    AppId:nks_call(sip_dialog_update, Args, AppId).
+    SrvId:nks_call(sip_dialog_update, Args, SrvId).
 
 
 %% @private

@@ -57,8 +57,8 @@
     [{nksip:app_id(), transport(), pid()}].
 
 get_all() ->
-    All = [{AppId, Transp, Pid} 
-            || {{AppId, Transp}, Pid} <- nklib_proc:values(nksip_transports)],
+    All = [{SrvId, Transp, Pid} 
+            || {{SrvId, Transp}, Pid} <- nklib_proc:values(nksip_transports)],
     lists:sort(All).
 
 
@@ -66,15 +66,15 @@ get_all() ->
 -spec get_all(nksip:app_id()) -> 
     [{transport(), pid()}].
 
-get_all(AppId) ->
-    [{Transp, Pid} || {A, Transp, Pid} <- get_all(), AppId==A].
+get_all(SrvId) ->
+    [{Transp, Pid} || {A, Transp, Pid} <- get_all(), SrvId==A].
 
 
 %% @private Finds a listening transport of Proto.
 -spec get_listening(nksip:app_id(), nksip:protocol(), ipv4|ipv6) -> 
     [{transport(), pid()}].
 
-get_listening(AppId, Proto, Class) ->
+get_listening(SrvId, Proto, Class) ->
     Fun = fun({#transport{proto=TProto, listen_ip=TListen}, _}) -> 
         case TProto==Proto of
             true ->
@@ -87,17 +87,17 @@ get_listening(AppId, Proto, Class) ->
                 false
         end
     end,
-    lists:filter(Fun, nklib_proc:values({nksip_listen, AppId})).
+    lists:filter(Fun, nklib_proc:values({nksip_listen, SrvId})).
 
 
 %% @private Finds a listening transport of Proto
 -spec get_connected(nksip:app_id(), nksip:transport()|undefined) ->
     [{nksip_transport:transport(), pid()}].
 
-get_connected(AppId, Transp) ->
+get_connected(SrvId, Transp) ->
     case Transp of
         #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} ->
-            get_connected(AppId, Proto, Ip, Port, Res);
+            get_connected(SrvId, Proto, Ip, Port, Res);
         _ ->
             []
     end.
@@ -108,27 +108,27 @@ get_connected(AppId, Transp) ->
                     inet:ip_address(), inet:port_number(), binary()) ->
     [{nksip_transport:transport(), pid()}].
 
-get_connected(AppId, Proto, Ip, Port, Res) ->
-    nklib_proc:values({nksip_connection, {AppId, Proto, Ip, Port, Res}}).
+get_connected(SrvId, Proto, Ip, Port, Res) ->
+    nklib_proc:values({nksip_connection, {SrvId, Proto, Ip, Port, Res}}).
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
 -spec is_local(nksip:app_id(), Input::nksip:uri()|nksip:via()) -> 
     boolean().
 
-is_local(AppId, #uri{}=Uri) ->
+is_local(SrvId, #uri{}=Uri) ->
     Listen = [
         {Proto, Ip, Port, Res} ||
         {#transport{proto=Proto, listen_ip=Ip, listen_port=Port, resource=Res}, _Pid} 
-        <- nklib_proc:values({nksip_listen, AppId})
+        <- nklib_proc:values({nksip_listen, SrvId})
     ],
     is_local(Listen, nksip_dns:resolve(Uri), nksip_config_cache:local_ips());
 
-is_local(AppId, #via{}=Via) ->
+is_local(SrvId, #via{}=Via) ->
     {Proto, Host, Port} = nksip_parse:transport(Via),
     Transp = {<<"transport">>, nklib_util:to_binary(Proto)},
     Uri = #uri{scheme=sip, domain=Host, port=Port, opts=[Transp]},
-    is_local(AppId, Uri).
+    is_local(SrvId, Uri).
 
 
 %% @private
@@ -181,12 +181,12 @@ is_local_ip(Ip) ->
                       inet:port_number(), nksip:optslist()) ->
     {ok, pid()} | {error, term()}.
 
-start_transport(AppId, Proto, Ip, Port, Opts) ->
+start_transport(SrvId, Proto, Ip, Port, Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     Listening = [
         {{LIp, LPort}, Pid} || 
             {#transport{listen_ip=LIp, listen_port=LPort}, Pid} 
-            <- get_listening(AppId, Proto, Class)
+            <- get_listening(SrvId, Proto, Class)
     ],
     case nklib_util:get_value({Ip, Port}, Listening) of
         undefined -> 
@@ -200,14 +200,14 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
                 remote_port = 0
             },
             Spec = case Proto of
-                udp -> nksip_transport_udp:get_listener(AppId, Transp, Opts);
-                tcp -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
-                tls -> nksip_transport_tcp:get_listener(AppId, Transp, Opts);
-                sctp -> nksip_transport_sctp:get_listener(AppId, Transp, Opts);
-                ws -> nksip_transport_ws:get_listener(AppId, Transp, Opts);
-                wss -> nksip_transport_ws:get_listener(AppId, Transp, Opts)
+                udp -> nksip_transport_udp:get_listener(SrvId, Transp, Opts);
+                tcp -> nksip_transport_tcp:get_listener(SrvId, Transp, Opts);
+                tls -> nksip_transport_tcp:get_listener(SrvId, Transp, Opts);
+                sctp -> nksip_transport_sctp:get_listener(SrvId, Transp, Opts);
+                ws -> nksip_transport_ws:get_listener(SrvId, Transp, Opts);
+                wss -> nksip_transport_ws:get_listener(SrvId, Transp, Opts)
             end,
-            nksip_transport_sup:add_transport(AppId, Spec);
+            nksip_transport_sup:add_transport(SrvId, Spec);
         Pid when is_pid(Pid) -> 
             {ok, Pid}
     end.
@@ -218,11 +218,11 @@ start_transport(AppId, Proto, Ip, Port, Opts) ->
 -spec get_listenhost(nksip:app_id(), inet:ip_address(), nksip:optslist()) ->
     binary().
 
-get_listenhost(AppId, Ip, Opts) ->
+get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
             Host = case nklib_util:get_value(local_host, Opts) of
-                undefined -> AppId:cache_sip_local_host();
+                undefined -> SrvId:cache_sip_local_host();
                 Host0 -> Host0
             end,
             case Host of
@@ -235,7 +235,7 @@ get_listenhost(AppId, Ip, Opts) ->
             end;
         8 ->
             Host = case nklib_util:get_value(local_host6, Opts) of
-                undefined -> AppId:cache_sip_local_host6();
+                undefined -> SrvId:cache_sip_local_host6();
                 Host0 -> Host0
             end,
             case Host of
@@ -281,44 +281,44 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
     when TSpec :: #uri{} | connection() | {current, connection()} | 
                   {flow, {pid(), nksip:transport()}}.
 
-send(AppId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
+send(SrvId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     Resolv = nksip_dns:resolve(Uri),
     ?call_debug("Transport send to ~p (~p)", [Resolv, Rest]),
-    send(AppId, Resolv++Rest, MakeMsg, [{transport_uri, Uri}|Opts]);
+    send(SrvId, Resolv++Rest, MakeMsg, [{transport_uri, Uri}|Opts]);
 
-send(AppId, [{current, {udp, Ip, Port, Res}}|Rest], MakeMsg, Opts) ->
-    send(AppId, [{udp, Ip, Port, Res}|Rest], MakeMsg, Opts);
+send(SrvId, [{current, {udp, Ip, Port, Res}}|Rest], MakeMsg, Opts) ->
+    send(SrvId, [{udp, Ip, Port, Res}|Rest], MakeMsg, Opts);
 
-send(AppId, [{current, {Proto, Ip, Port, Res}=D}|Rest], MakeMsg, Opts) ->
+send(SrvId, [{current, {Proto, Ip, Port, Res}=D}|Rest], MakeMsg, Opts) ->
     ?call_debug("Transport send to current ~p (~p)", [D, Rest]),
-    case get_connected(AppId, Proto, Ip, Port, Res) of
+    case get_connected(SrvId, Proto, Ip, Port, Res) of
         [{Transp, Pid}|_] -> 
             SipMsg = MakeMsg(Transp),
             case nksip_connection:send(Pid, SipMsg) of
                 ok -> 
                     {ok, SipMsg};
                 {error, _Error} -> 
-                    send(AppId, Rest, MakeMsg, Opts)
+                    send(SrvId, Rest, MakeMsg, Opts)
             end;
         [] ->
-            send(AppId, Rest, MakeMsg, Opts)
+            send(SrvId, Rest, MakeMsg, Opts)
     end;
 
-send(AppId, [{flow, {Pid, Transp}=D}|Rest], MakeMsg, Opts) ->
+send(SrvId, [{flow, {Pid, Transp}=D}|Rest], MakeMsg, Opts) ->
     ?call_debug("Transport send to flow ~p (~p)", [D, Rest]),
     SipMsg = MakeMsg(Transp),
     case nksip_connection:send(Pid, SipMsg) of
         ok -> 
             {ok, SipMsg};
         {error, _} -> 
-            send(AppId, Rest, MakeMsg, Opts)
+            send(SrvId, Rest, MakeMsg, Opts)
     end;
 
-send(AppId, [{Proto, Ip, 0, Res}|Rest], MakeMsg, Opts) ->
-    send(AppId, [{Proto, Ip, default_port(Proto), Res}|Rest], MakeMsg, Opts);
+send(SrvId, [{Proto, Ip, 0, Res}|Rest], MakeMsg, Opts) ->
+    send(SrvId, [{Proto, Ip, default_port(Proto), Res}|Rest], MakeMsg, Opts);
 
-send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
-    case get_connected(AppId, Proto, Ip, Port, Res) of
+send(SrvId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
+    case get_connected(SrvId, Proto, Ip, Port, Res) of
         [{Transp, Pid}|_] -> 
             ?call_debug("Transport send to connected ~p (~p)", [D, Rest]),
             SipMsg = MakeMsg(Transp),
@@ -326,34 +326,34 @@ send(AppId, [{Proto, Ip, Port, Res}=D|Rest], MakeMsg, Opts) ->
                 ok -> 
                     {ok, SipMsg};
                 {error, udp_too_large} ->
-                    send(AppId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
+                    send(SrvId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
                 {error, _} -> 
-                    send(AppId, Rest, MakeMsg, Opts)
+                    send(SrvId, Rest, MakeMsg, Opts)
             end;
         [] ->
             ?call_debug("Transport send to new ~p (~p)", [D, Rest]),
-            case connect(AppId, Proto, Ip, Port, Res, Opts) of
+            case connect(SrvId, Proto, Ip, Port, Res, Opts) of
                 {ok, Pid, Transp} ->
                     SipMsg = MakeMsg(Transp),
                     case nksip_connection:send(Pid, SipMsg) of
                         ok -> 
                             {ok, SipMsg};
                         {error, udp_too_large} ->
-                            send(AppId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
+                            send(SrvId, [{tcp, Ip, Port, Res}|Rest], MakeMsg, Opts);
                         {error, Error} -> 
                             ?call_warning("Error sending to new transport: ~p", [Error]),
-                            send(AppId, Rest, MakeMsg, Opts)
+                            send(SrvId, Rest, MakeMsg, Opts)
                     end;
                 {error, Error} ->
                     ?call_notice("error connecting to ~p:~p (~p): ~p",
                                 [Ip, Port, Proto, Error]),
-                    send(AppId, Rest, MakeMsg, Opts)
+                    send(SrvId, Rest, MakeMsg, Opts)
             end
     end;
 
-send(AppId, [Other|Rest], MakeMsg, Opts) ->
+send(SrvId, [Other|Rest], MakeMsg, Opts) ->
     ?call_warning("invalid send specification: ~p", [Other]),
-    send(AppId, Rest, MakeMsg, Opts);
+    send(SrvId, Rest, MakeMsg, Opts);
 
 send(_, [], _MakeMsg, _Opts) ->
     error.
@@ -372,34 +372,34 @@ send(_, [], _MakeMsg, _Opts) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
 
 %% Do not open simultanous connections to the same destination
-connect(AppId, Proto, Ip, Port, Res, Opts) ->
-    try_connect(AppId, Proto, Ip, Port, Res, Opts, 300).
+connect(SrvId, Proto, Ip, Port, Res, Opts) ->
+    try_connect(SrvId, Proto, Ip, Port, Res, Opts, 300).
     
 
 %% @private
 try_connect(_, _, _, _, _, _, 0) ->
     {error, connection_busy};
 
-try_connect(AppId, udp, Ip, Port, Res, Opts, _Try) ->
-    do_connect(AppId, udp, Ip, Port, Res, Opts);
+try_connect(SrvId, udp, Ip, Port, Res, Opts, _Try) ->
+    do_connect(SrvId, udp, Ip, Port, Res, Opts);
 
-try_connect(AppId, Proto, Ip, Port, Res, Opts, Try) ->
-    ConnId = {AppId, Proto, Ip, Port, Res},
-    case nkservice_server:put_new(AppId, {nksip_connect_block, ConnId}, true) of
+try_connect(SrvId, Proto, Ip, Port, Res, Opts, Try) ->
+    ConnId = {SrvId, Proto, Ip, Port, Res},
+    case nkservice_server:put_new(SrvId, {nksip_connect_block, ConnId}, true) of
         true ->
             try 
-                do_connect(AppId, Proto, Ip, Port, Res, Opts)
+                do_connect(SrvId, Proto, Ip, Port, Res, Opts)
             catch
                 error:Value -> 
                     ?call_warning("Exception ~p launching connection: ~p", 
                                   [Value, erlang:get_stacktrace()]),
                     {error, Value}
             after
-                nkservice_server:del(AppId, {nksip_connect_block, ConnId})
+                nkservice_server:del(SrvId, {nksip_connect_block, ConnId})
             end;
         false ->
             timer:sleep(100),
-            try_connect(AppId, Proto, Ip, Port, Res, Opts, Try-1);
+            try_connect(SrvId, Proto, Ip, Port, Res, Opts, Try-1);
         {error, _} ->
             {error, locking_error}
     end.
@@ -410,18 +410,18 @@ try_connect(AppId, Proto, Ip, Port, Res, Opts, Try) ->
               binary(), nksip:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
          
-do_connect(AppId, Proto, Ip, Port, Res, Opts) ->
+do_connect(SrvId, Proto, Ip, Port, Res, Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
-    case nksip_transport:get_listening(AppId, Proto, Class) of
+    case nksip_transport:get_listening(SrvId, Proto, Class) of
         [{Transp, Pid}|_] -> 
             Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, resource=Res},
             case Proto of
                 udp -> nksip_transport_udp:connect(Pid, Transp1);
-                tcp -> nksip_transport_tcp:connect(AppId, Transp1);
-                tls -> nksip_transport_tcp:connect(AppId, Transp1);
+                tcp -> nksip_transport_tcp:connect(SrvId, Transp1);
+                tls -> nksip_transport_tcp:connect(SrvId, Transp1);
                 sctp -> nksip_transport_sctp:connect(Pid, Transp1);
-                ws -> nksip_transport_ws:connect(AppId, Transp1, Opts);
-                wss -> nksip_transport_ws:connect(AppId, Transp1, Opts)
+                ws -> nksip_transport_ws:connect(SrvId, Transp1, Opts);
+                wss -> nksip_transport_ws:connect(SrvId, Transp1, Opts)
             end;
         [] ->
             {error, no_listening_transport}
@@ -449,8 +449,8 @@ get_all_connected() ->
     nklib_proc:fold_names(
         fun(Name, Values, Acc) ->
             case Name of
-                {nksip_connection, {AppId, _Proto, _Ip, _Port, _Res}} -> 
-                    [{AppId, Transp, Pid} || {val, Transp, Pid} <- Values] ++ Acc;
+                {nksip_connection, {SrvId, _Proto, _Ip, _Port, _Res}} -> 
+                    [{SrvId, Transp, Pid} || {val, Transp, Pid} <- Values] ++ Acc;
                 _ ->
                     Acc
             end
@@ -459,8 +459,8 @@ get_all_connected() ->
 
 
 %% @private
-get_all_connected(AppId) ->
-    [{Transp, Pid} || {LAppId, Transp, Pid} <- get_all_connected(), AppId==LAppId].
+get_all_connected(SrvId) ->
+    [{Transp, Pid} || {LSrvId, Transp, Pid} <- get_all_connected(), SrvId==LSrvId].
 
 
 %% @private

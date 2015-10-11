@@ -219,8 +219,8 @@ do_error_reason({Name, Code, Text}) ->
 % -spec add_sip_instance(nksip:app_id(), nksip:uri()) ->
 %     {ok, nksip:uri()} | {error, sipapp_not_found}.
 
-% add_sip_instance(AppId, #uri{ext_opts=ExtOpts}=Uri) ->
-%     case nksip:get_uuid(AppId) of
+% add_sip_instance(SrvId, #uri{ext_opts=ExtOpts}=Uri) ->
+%     case nksip:get_uuid(SrvId) of
 %         {ok, UUID} ->
 %             ExtOpts1 = nklib_util:store_value(<<"+sip.instance">>, UUID, ExtOpts),
 %             {ok, Uri#uri{ext_opts=ExtOpts1}};

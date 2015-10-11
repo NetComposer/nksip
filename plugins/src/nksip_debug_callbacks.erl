@@ -35,7 +35,7 @@
     continue.
 
 nks_connection_sent(SipMsg, Packet) ->
-    #sipmsg{app_id=_AppId, class=Class, call_id=_CallId, transport=Transp} = SipMsg,
+    #sipmsg{app_id=_SrvId, class=Class, call_id=_CallId, transport=Transp} = SipMsg,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     case Class of
         {req, Method} ->
@@ -51,9 +51,9 @@ nks_connection_sent(SipMsg, Packet) ->
                            nksip:transport(), binary()) ->
     continue.
 
-nks_connection_recv(AppId, CallId, Transp, Packet) ->
+nks_connection_recv(SrvId, CallId, Transp, Packet) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-    nksip_debug:insert(AppId, CallId, {Proto, Ip, Port, Packet}),
+    nksip_debug:insert(SrvId, CallId, {Proto, Ip, Port, Packet}),
     continue.
 
 
@@ -61,6 +61,6 @@ nks_connection_recv(AppId, CallId, Transp, Packet) ->
 -spec nks_debug(nksip:app_id(), nksip:call_id(), term()) ->
     continue.
 
-nks_debug(AppId, CallId, Info) ->
-    nksip_debug:insert(AppId, CallId, Info),
+nks_debug(SrvId, CallId, Info) ->
+    nksip_debug:insert(SrvId, CallId, Info),
     continue.

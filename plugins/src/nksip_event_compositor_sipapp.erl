@@ -27,29 +27,29 @@
 
 % @doc Called when a operation database must be done on the compositor database.
 %% This default implementation uses the built-in memory database.
--spec sip_event_compositor_store(StoreOp, AppId) ->
+-spec sip_event_compositor_store(StoreOp, SrvId) ->
     [RegPublish] | ok | not_found when
         StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
                    {del, AOR, Tag} | del_all,
-        AppId :: nksip:app_id(),
+        SrvId :: nksip:app_id(),
         AOR :: nksip:aor(),
         Tag :: binary(),
         RegPublish :: nksip_event_compositor:reg_publish(),
         TTL :: integer().
 
-sip_event_compositor_store(Op, AppId) ->
+sip_event_compositor_store(Op, SrvId) ->
     case Op of
         {get, AOR, Tag} ->
-            nklib_store:get({nksip_event_compositor, AppId, AOR, Tag}, not_found);
+            nklib_store:get({nksip_event_compositor, SrvId, AOR, Tag}, not_found);
         {put, AOR, Tag, Record, TTL} -> 
-            nklib_store:put({nksip_event_compositor, AppId, AOR, Tag}, Record, [{ttl, TTL}]);
+            nklib_store:put({nksip_event_compositor, SrvId, AOR, Tag}, Record, [{ttl, TTL}]);
         {del, AOR, Tag} ->
-            nklib_store:del({nksip_event_compositor, AppId, AOR, Tag});
+            nklib_store:del({nksip_event_compositor, SrvId, AOR, Tag});
         del_all ->
             FoldFun = fun(Key, _Value, Acc) ->
                 case Key of
-                    {nksip_event_compositor, AppId, AOR, Tag} -> 
-                        nklib_store:del({nksip_event_compositor, AppId, AOR, Tag});
+                    {nksip_event_compositor, SrvId, AOR, Tag} -> 
+                        nklib_store:del({nksip_event_compositor, SrvId, AOR, Tag});
                     _ -> 
                         Acc
                 end

@@ -37,8 +37,8 @@
             nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-reply(Class, UAC, #call{app_id=AppId}=Call) ->
-    case AppId:nks_uac_reply(Class, UAC, Call) of
+reply(Class, UAC, #call{app_id=SrvId}=Call) ->
+    case SrvId:nks_uac_reply(Class, UAC, Call) of
         {continue, [Class1, UAC1, Call1]} ->
             do_reply(Class1, UAC1, Call1);
         {ok, Call1} ->

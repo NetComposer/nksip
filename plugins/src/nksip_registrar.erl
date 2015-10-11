@@ -61,7 +61,6 @@ deps() ->
 
 
 plugin_start(SrvSpec) ->
-    lager:warning("REG START"),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, RegConfig} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"REGISTER">>, Allow) end,
@@ -80,7 +79,7 @@ plugin_start(SrvSpec) ->
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:warning("REG STOP"),
+    clear(SrvId),
     UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
     {ok, SrvSpec1} = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
     nkservice_util:del_config([], [sip_registrar_timers], SrvSpec1).
@@ -159,8 +158,8 @@ defaults() ->
 % -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
 %     {ok, nksip_sipapp_srv:state()}.
 
-% terminate(AppId, SipAppState) ->  
-%     clear(AppId),
+% terminate(SrvId, SipAppState) ->  
+%     clear(SrvId),
 %     {ok, SipAppState}.
 
 
@@ -180,7 +179,7 @@ find(App, {Scheme, User, Domain}) ->
 
 find(App, Uri) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> nksip_registrar_lib:find(AppId, Uri);
+        {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Uri);
         _ -> []
     end.
 
@@ -191,7 +190,7 @@ find(App, Uri) ->
 
 find(App, Scheme, User, Domain) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> nksip_registrar_lib:find(AppId, Scheme, User, Domain);
+        {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Scheme, User, Domain);
         _ -> []
     end.
 
@@ -212,7 +211,7 @@ qfind(App, {Scheme, User, Domain}) ->
 
 qfind(App, Scheme, User, Domain) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> nksip_registrar_lib:qfind(AppId, Scheme, User, Domain);
+        {ok, SrvId} -> nksip_registrar_lib:qfind(SrvId, Scheme, User, Domain);
         _ ->
             []
     end.
@@ -224,13 +223,13 @@ qfind(App, Scheme, User, Domain) ->
 
 delete(App, Scheme, User, Domain) ->
     case nkservice_server:find(App) of
-        {ok, AppId} ->
+        {ok, SrvId} ->
             AOR = {
                 nklib_parse:scheme(Scheme), 
                 nklib_util:to_binary(User), 
                 nklib_util:to_binary(Domain)
             },
-            nksip_registrar_lib:store_del(AppId, AOR);
+            nksip_registrar_lib:store_del(SrvId, AOR);
         _ ->
             not_found
     end.
@@ -246,11 +245,11 @@ is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
     false;
 
 is_registered(#sipmsg{
-                app_id = AppId, 
+                app_id = SrvId, 
                 from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
                 transport=Transport
             }) ->
-    case catch nksip_registrar_lib:store_get(AppId, {Scheme, User, Domain}) of
+    case catch nksip_registrar_lib:store_get(SrvId, {Scheme, User, Domain}) of
         {ok, Regs} -> nksip_registrar_lib:is_registered(Regs, Transport);
         _ -> false
     end.
@@ -288,8 +287,8 @@ request(Req) ->
 
 clear(App) -> 
     case nkservice_server:find(App) of
-        {ok, AppId} ->
-            case nksip_registrar_lib:store_del_all(AppId) of
+        {ok, SrvId} ->
+            case nksip_registrar_lib:store_del_all(SrvId) of
                 ok -> ok;
                 _ -> callback_error
             end;

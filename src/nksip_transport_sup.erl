@@ -35,16 +35,30 @@
 -spec get_pid(nksip:app_id()) ->
     pid() | undefined.
 
-get_pid(AppId) ->
-    nklib_proc:whereis_name({nksip_transport_sup, AppId}).
+get_pid(SrvId) ->
+    nklib_proc:whereis_name({nksip_transport_sup, SrvId}).
+
+
+install(SrvId) ->
+    case get_pid(SrvId) of
+        undefined ->
+            
+
+
+        Pid ->
+            {ok, Pid}
+    end.
+    
+
+
 
 
 %% @private Starts a new transport control process under this supervisor
 -spec add_transport(nksip:app_id(), any()) ->
     {ok, pid()} | {error, term()}.
 
-add_transport(AppId, Spec) ->
-    case supervisor:start_child(get_pid(AppId), Spec) of
+add_transport(SrvId, Spec) ->
+    case supervisor:start_child(get_pid(SrvId), Spec) of
         {ok, Pid} -> {ok, Pid};
         {error, {Error, _}} -> {error, Error};
         {error, Error} -> {error, Error}
@@ -55,13 +69,13 @@ add_transport(AppId, Spec) ->
 -spec start_link(nksip:app_id()) -> 
     {ok, pid()} | {error, term()}.
 
-start_link(AppId) ->
-    Reg = {nksip_transport_sup, AppId},
+start_link(SrvId) ->
+    Reg = {nksip_transport_sup, SrvId},
     Spec = {{one_for_one, 10, 60}, []},
     {ok, SupPid} = supervisor:start_link(?MODULE, [Reg, Spec]),
-    Config = nksip_sipapp_srv:config(AppId),
+    Config = nksip_sipapp_srv:config(SrvId),
     Transports = nklib_util:get_value(transports, Config, [{udp, {0,0,0,0}, 0, []}]), 
-    case start_transports(AppId, Transports, Config) of
+    case start_transports(SrvId, Transports, Config) of
         ok -> {ok, SupPid};
         {error, Error} -> {error, Error}
     end.
@@ -79,15 +93,15 @@ init([Reg, ChildSpecs]) ->
     ok | {error, Error}
     when Error ::  {could_not_start, {udp|tcp|tls|sctp|ws|wss, term()}}.
 
-start_transports(AppId, [{Proto, Ip, Port, TOpts}|Rest], Opts) ->
-    case nksip_transport:start_transport(AppId, Proto, Ip, Port, TOpts++Opts) of
+start_transports(SrvId, [{Proto, Ip, Port, TOpts}|Rest], Opts) ->
+    case nksip_transport:start_transport(SrvId, Proto, Ip, Port, TOpts++Opts) of
         {ok, _} -> 
-            start_transports(AppId, Rest, Opts);
+            start_transports(SrvId, Rest, Opts);
         {error, Error} -> 
             {error, {could_not_start, {Proto, Error}}}
     end;
 
-start_transports(_AppId, [], _Opts) ->
+start_transports(_SrvId, [], _Opts) ->
     ok.
 
 

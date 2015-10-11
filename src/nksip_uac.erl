@@ -332,8 +332,8 @@ refresh(Handle, Opts) ->
 
 stun(App, UriSpec, _Opts) ->
     case nkservice_server:find(App) of
-        {ok, AppId} ->
-            case nksip_transport:get_listening(AppId, udp, ipv4) of
+        {ok, SrvId} ->
+            case nksip_transport:get_listening(SrvId, udp, ipv4) of
                 [] -> 
                     {error, no_udp_transport};
                 [{#transport{listen_ip=LIp, listen_port=LPort}, Pid}|_] ->
@@ -373,12 +373,12 @@ stun(App, UriSpec, _Opts) ->
 
 send(App, Method, Uri, Opts) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> 
+        {ok, SrvId} -> 
             case nklib_util:get_binary(call_id, Opts) of
                 <<>> -> CallId = nklib_util:luid();
                 CallId -> ok
             end,
-            nksip_call:send(AppId, CallId, Method, Uri, Opts);
+            nksip_call:send(SrvId, CallId, Method, Uri, Opts);
         not_found -> 
             {error, sipapp_not_found}
     end.
@@ -397,8 +397,8 @@ send_dialog(Method, Handle, Opts) ->
                 _ ->
                     Opts
             end,
-            {AppId, DialogId, CallId} = nksip_dialog_lib:parse_handle(DlgHandle),
-            nksip_call:send_dialog(AppId, CallId, Method, DialogId, Opts1);
+            {SrvId, DialogId, CallId} = nksip_dialog_lib:parse_handle(DlgHandle),
+            nksip_call:send_dialog(SrvId, CallId, Method, DialogId, Opts1);
         {error, Error} ->
             {error, Error}
     end.
@@ -409,8 +409,8 @@ send_dialog(Method, Handle, Opts) ->
     
 send_cancel(Handle, Opts) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, AppId, ReqId, CallId} ->
-            nksip_call:send_cancel(AppId, CallId, ReqId, Opts);
+        {req, SrvId, ReqId, CallId} ->
+            nksip_call:send_cancel(SrvId, CallId, ReqId, Opts);
         _ ->
             {error, invalid_request}
     end.

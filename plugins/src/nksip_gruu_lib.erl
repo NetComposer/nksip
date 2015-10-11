@@ -36,23 +36,23 @@
 -spec update_gruu(nksip:response()) ->
     ok.
 
-update_gruu(#sipmsg{app_id=AppId, contacts=Contacts, class={resp, Code, _}, 
+update_gruu(#sipmsg{app_id=SrvId, contacts=Contacts, class={resp, Code, _}, 
                       cseq={_, Method}}) ->
     case Method=='REGISTER' andalso Code>=200 andalso Code<300 of
-        true -> find_gruus(AppId, Contacts);
+        true -> find_gruus(SrvId, Contacts);
         false -> ok
     end.
 
 
 %% @private
-find_gruus(AppId, [#uri{ext_opts=Opts}|Rest]) ->
+find_gruus(SrvId, [#uri{ext_opts=Opts}|Rest]) ->
     HasPubGruu = case nklib_util:get_value(<<"pub-gruu">>, Opts) of
         undefined -> 
             false;
         PubGruu ->
             case nksip_parse:ruris(nklib_util:unquote(PubGruu)) of
                 [PubUri] -> 
-                    nksip_app:put({nksip_gruu_pub, AppId}, PubUri),
+                    nksip_app:put({nksip_gruu_pub, SrvId}, PubUri),
                     true;
                 _ -> 
                     false
@@ -64,7 +64,7 @@ find_gruus(AppId, [#uri{ext_opts=Opts}|Rest]) ->
         TempGruu ->
             case nksip_parse:ruris(nklib_util:unquote(TempGruu)) of
                 [TempUri] -> 
-                    nksip_app:put({nksip_gruu_temp, AppId}, TempUri),
+                    nksip_app:put({nksip_gruu_temp, SrvId}, TempUri),
                     true;
                 _ -> 
                     false
@@ -72,7 +72,7 @@ find_gruus(AppId, [#uri{ext_opts=Opts}|Rest]) ->
     end,
     case HasPubGruu andalso HasTmpGruu of
         true -> ok;
-        false -> find_gruus(AppId, Rest)
+        false -> find_gruus(SrvId, Rest)
     end;
 
 find_gruus(_, []) ->
@@ -83,7 +83,7 @@ find_gruus(_, []) ->
 -spec find(nksip:app_id(), nksip:uri()) ->
     [nksip:uri()].
 
-find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
+find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
     case lists:member(<<"gr">>, Opts) of
         true -> 
             % It is probably a tmp GRUU
@@ -93,24 +93,24 @@ find(AppId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
                     [
                         nksip_registrar_lib:make_contact(Reg) 
                         || #reg_contact{meta=Meta}=Reg 
-                        <- nksip_registrar_lib:get_info(AppId, Scheme1, User1, Domain1), 
+                        <- nksip_registrar_lib:get_info(SrvId, Scheme1, User1, Domain1), 
                         nklib_util:get_value(nksip_gruu_instance_id, Meta)==InstId,
                         nklib_util:get_value(nksip_gruu_tmp_min, Meta, 0)=<Pos
                     ];
                 _ ->
-                    ?notice(AppId, <<>>, 
+                    ?notice(SrvId, <<>>, 
                             "private GRUU not recognized: ~p", [User]),
-                    nksip_registrar_lib:find(AppId, Scheme, User, Domain)
+                    nksip_registrar_lib:find(SrvId, Scheme, User, Domain)
             end;
         false ->
             case nklib_util:get_value(<<"gr">>, Opts) of
                 undefined -> 
-                    nksip_registrar_lib:find(AppId, Scheme, User, Domain);
+                    nksip_registrar_lib:find(SrvId, Scheme, User, Domain);
                 InstId ->
                     [
                         nksip_registrar_lib:make_contact(Reg) 
                         || #reg_contact{meta=Meta}=Reg 
-                        <- nksip_registrar_lib:get_info(AppId, Scheme, User, Domain), 
+                        <- nksip_registrar_lib:get_info(SrvId, Scheme, User, Domain), 
                         nklib_util:get_value(nksip_gruu_instance_id, Meta)==InstId
                     ]
             end

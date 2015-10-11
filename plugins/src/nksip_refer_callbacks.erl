@@ -52,8 +52,8 @@ nks_parse_uac_opts(Req, Opts) ->
 -spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-nks_sip_method(#trans{method='REFER', request=Req}, #call{app_id=AppId}=Call) ->
-    Module = AppId:module(),
+nks_sip_method(#trans{method='REFER', request=Req}, #call{app_id=SrvId}=Call) ->
+    Module = SrvId:module(),
     case 
         Module/=nksip_sipapp andalso
         erlang:function_exported(Module, sip_refer, 2) 
@@ -77,8 +77,8 @@ nks_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
             SubsHandle = nksip_subscription_lib:get_handle(Req),
-            #call{app_id=AppId} = Call,
-            catch AppId:sip_refer_update(SubsHandle, {notify, Body}, Call),
+            #call{app_id=SrvId} = Call,
+            catch SrvId:sip_refer_update(SubsHandle, {notify, Body}, Call),
             {reply, ok};
         _ ->
             continue
@@ -103,8 +103,8 @@ nks_call(sip_dialog_update,
             }, 
             _Dialog, Call
           ], 
-          _AppId) ->
-    #call{app_id=AppId} = Call,
+          _SrvId) ->
+    #call{app_id=SrvId} = Call,
     {ok, SubsId} = nksip_subscription:get_handle(Subs),
     Status1 = case Status of
         init -> init;
@@ -112,7 +112,7 @@ nks_call(sip_dialog_update,
         middle_timer -> middle_timer;
         {terminated, _} -> terminated
     end,
-    catch AppId:sip_refer_update(SubsId, Status1, Call),
+    catch SrvId:sip_refer_update(SubsId, Status1, Call),
     continue;
 
 nks_call(_, _, _) ->

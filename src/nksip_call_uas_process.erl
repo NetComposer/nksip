@@ -54,8 +54,8 @@ process(#trans{method=Method, request=Req}=UAS, Call) ->
 
 check_supported(Method, Req, UAS, Call) ->
     #sipmsg{require=Require} = Req,
-    #call{app_id=AppId} = Call,
-    Supported = AppId:cache_sip_supported(),
+    #call{app_id=SrvId} = Call,
+    Supported = SrvId:cache_sip_supported(),
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] ->
             check_event(Method, Req, UAS, Call);
@@ -72,8 +72,8 @@ check_supported(Method, Req, UAS, Call) ->
 
 check_event(Method, Req, UAS, Call) when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
     #sipmsg{event=Event} = Req,
-    #call{app_id=AppId} = Call,
-    SupEvents = AppId:cache_sip_events(),
+    #call{app_id=SrvId} = Call,
+    SupEvents = SrvId:cache_sip_events(),
     case Event of
         {Type, _} ->
             case lists:member(Type, [<<"refer">>|SupEvents]) of
@@ -119,8 +119,8 @@ check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
              Method=='NOTIFY' ->
     nksip_call_uas:do_reply(no_transaction, UAS, Call);
 
-check_missing_dialog(Method, _Req, UAS, #call{app_id=AppId}=Call) ->
-    case AppId:nks_uas_process(UAS, Call) of
+check_missing_dialog(Method, _Req, UAS, #call{app_id=SrvId}=Call) ->
+    case SrvId:nks_uas_process(UAS, Call) of
         {continue, [UAS1, Call1]} ->
             dialog(Method, UAS1#trans.request, UAS1, Call1);
         {ok, Call1} ->
@@ -163,8 +163,8 @@ dialog(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 method(Method, Req, UAS, Call) ->
-    #call{app_id=AppId} = Call,
-    case AppId:nks_uas_method(Method, Req, UAS, Call) of
+    #call{app_id=SrvId} = Call,
+    case SrvId:nks_uas_method(Method, Req, UAS, Call) of
         {continue, [Method1, Req1, UAS1, Call1]} ->
             case do_method(Method1, Req1, UAS1, Call1) of
                 {noreply, UAS2, Call2} ->
@@ -183,8 +183,8 @@ method(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 call_user_sip_method(UAS, Call) ->
-    #call{app_id=AppId} = Call,
-    case AppId:nks_sip_method(UAS, Call) of
+    #call{app_id=SrvId} = Call,
+    case SrvId:nks_sip_method(UAS, Call) of
         {reply, Reply} -> 
             nksip_call_uas:do_reply(Reply, UAS, Call);
         noreply -> 
@@ -200,17 +200,17 @@ call_user_sip_method(UAS, Call) ->
 %     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
 %     #sipmsg{to={_, ToTag}} = Req,
 %     #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
-%     #call{app_id=AppId} = Call,
+%     #call{app_id=SrvId} = Call,
 %     try
 %         case Stateless orelse ToTag == <<>> of
 %             true ->
-%                 case AppId:nks_uas_method(Method, Req, UAS, Call) of
+%                 case SrvId:nks_uas_method(Method, Req, UAS, Call) of
 %                     {continue, [Method1, Req1, UAS1, Call1]} ->
 %                         {UAS2, Call2} = method(Method1, Req1, UAS1, Call1);
 %                     {ok, UAS2, Call2} ->
 %                         ok
 %                 end,
-%                 case AppId:nks_sip_method(UAS2, Call2) of
+%                 case SrvId:nks_sip_method(UAS2, Call2) of
 %                     {reply, Reply} -> 
 %                         nksip_call_uas:do_reply(Reply, UAS2, Call2);
 %                     noreply -> 
@@ -219,13 +219,13 @@ call_user_sip_method(UAS, Call) ->
 %             false ->           
 %                 case nksip_call_uas_dialog:request(Req, Call) of
 %                     {ok, Call1} ->
-%                         case AppId:nks_uas_method(Method, Req, UAS, Call1) of
+%                         case SrvId:nks_uas_method(Method, Req, UAS, Call1) of
 %                             {continue, [Method2, Req2, UAS2, Call2]} ->
 %                                 {UAS3, Call3} = method(Method2, Req2, UAS2, Call2);
 %                             {ok, UAS3, Call3} ->
 %                                 ok
 %                         end,
-%                         case AppId:nks_sip_method(UAS3, Call3) of
+%                         case SrvId:nks_sip_method(UAS3, Call3) of
 %                             {reply, Reply} -> 
 %                                 nksip_call_uas:do_reply(Reply, UAS3, Call3);
 %                             noreply -> 
@@ -309,6 +309,6 @@ do_method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
 do_method('PUBLISH', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
-do_method(_Method, #sipmsg{app_id=AppId}, _UAS, _Call) ->
-    {reply, {method_not_allowed, AppId:cache_sip_allow()}}.
+do_method(_Method, #sipmsg{app_id=SrvId}, _UAS, _Call) ->
+    {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.
 

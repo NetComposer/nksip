@@ -48,25 +48,28 @@ start() ->
     tests_util:start_nksip(),
     nklib_store:update_timer(200),
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
-        {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
-        {plugins, [nksip_registrar]},
-        {transports, [
+    {ok, _} = nksip:start(server1, ?MODULE, #{
+        arg => server1,
+        sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
+        plugins => [nksip_registrar],
+        sip_transports => [
             {udp, all, 5060, [{listeners, 10}]},
             {tls, all, 5061}
-        ]}
-    ]),
+        ]
+    }),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-        {transports, [
-            {udp, all, 5070},
-            {tls, all, 5071}
-        ]}
-    ]),
+    % {ok, _} = nksip:start(client1, ?MODULE, #{
+    %     arg => client1,
+    %     from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
+    %     transports => [
+    %         {udp, all, 5070},
+    %         {tls, all, 5071}
+    %     ]
+    % }),
 
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
+    % {ok, _} = nksip:start(client2, ?MODULE, #{
+    %     arg => client2,
+    %     sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).

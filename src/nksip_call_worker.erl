@@ -69,9 +69,9 @@ work({send, Req, Opts}, From, Call) ->
     nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    #call{app_id=AppId, call_id=CallId} = Call,
+    #call{app_id=SrvId, call_id=CallId} = Call,
     Opts1 = [{call_id, CallId} | Opts],
-    case nksip_call_uac_make:make(AppId, Method, Uri, Opts1) of
+    case nksip_call_uac_make:make(SrvId, Method, Uri, Opts1) of
         {ok, Req, ReqOpts} -> 
             work({send, Req, ReqOpts}, From, Call);
         {error, Error} ->
@@ -125,15 +125,15 @@ work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
             nksip_call_uac:response(Resp, Call)
     end;
 
-work({incoming, AppId, CallId, Transp, Msg}, none, Call) ->
-    case nksip_parse:packet(AppId, CallId, Transp, Msg) of
+work({incoming, SrvId, CallId, Transp, Msg}, none, Call) ->
+    case nksip_parse:packet(SrvId, CallId, Transp, Msg) of
         {ok, SipMsg} ->
             work({incoming, SipMsg}, none, Call);
         {error, Error} ->
             ?call_warning("Error parsing SipMsg1: ~p", [Error]),
             Call;
         {reply_error, Error, Reply} ->
-            case nksip_transport:get_connected(AppId, Transp) of
+            case nksip_transport:get_connected(SrvId, Transp) of
                 [{_, Pid}|_] -> 
                     case nksip_connection:send(Pid, Reply) of
                         ok -> 
@@ -214,7 +214,7 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
 
 work(info, From, Call) -> 
     #call{
-        app_id = AppId, 
+        app_id = SrvId, 
         call_id = CallId, 
         trans = Trans, 
         dialogs = Dialogs,
@@ -227,7 +227,7 @@ work(info, From, Call) ->
                 {Tag, Timer} -> {Tag, erlang:read_timer(Timer)};
                 undefined -> undefined
             end,
-            {trans, AppId, CallId, Id, Class, Method, Status, T}
+            {trans, SrvId, CallId, Id, Class, Method, Status, T}
         end,
         Trans),
     InfoDialog = lists:map(
@@ -248,7 +248,7 @@ work(info, From, Call) ->
                     #subscription{id=EvId, status=Status, class=Class, timer_expire=Exp} 
                     <- Subs
                 ],
-            {dlg, AppId, DlgId, {invite, Inv}, {event, Ev}}
+            {dlg, SrvId, DlgId, {invite, Inv}, {event, Ev}}
         end,
         Dialogs),
     InfoProvEvents = case ProvEvents of

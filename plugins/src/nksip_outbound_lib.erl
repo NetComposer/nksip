@@ -64,14 +64,14 @@
     {ok, nksip:optslist()} | {error, Error}
     when Error :: flow_failed | forbidden.
 
-proxy_opts(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Opts) ->
+proxy_opts(#sipmsg{app_id=SrvId, class={req, 'REGISTER'}}=Req, Opts) ->
     #sipmsg{
-        app_id = AppId,
+        app_id = SrvId,
         vias = Vias, 
         transport = Transp, 
         contacts = Contacts
     } = Req,
-    Supported = AppId:cache_sip_supported(),
+    Supported = SrvId:cache_sip_supported(),
     Opts1 = case 
         lists:member(path, Opts) andalso
         nksip_sipmsg:supported(<<"path">>, Req) andalso 
@@ -81,7 +81,7 @@ proxy_opts(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Opts) ->
         [#uri{ext_opts=ContactOpts}] ->
             case lists:keymember(<<"reg-id">>, 1, ContactOpts) of
                 true ->
-                    case nksip_transport:get_connected(AppId, Transp) of
+                    case nksip_transport:get_connected(SrvId, Transp) of
                         [{Transp, Pid}|_] ->
                             case length(Vias)==1 of
                                 true -> [{record_flow, {Pid, ob}}|Opts];
@@ -99,8 +99,8 @@ proxy_opts(#sipmsg{app_id=AppId, class={req, 'REGISTER'}}=Req, Opts) ->
     {ok, Opts1};
 
 proxy_opts(Req, Opts) ->
-    #sipmsg{app_id=AppId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
-    Supported = AppId:cache_sip_supported(),
+    #sipmsg{app_id=SrvId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
+    Supported = SrvId:cache_sip_supported(),
     case 
         nksip_sipmsg:supported(<<"outbound">>, Req) andalso 
         lists:member(<<"outbound">>, Supported)
@@ -116,7 +116,7 @@ proxy_opts(Req, Opts) ->
                             case lists:member(<<"ob">>, COpts) of
                                 true ->
                                     Opts2 = case 
-                                        nksip_transport:get_connected(AppId, Transp) 
+                                        nksip_transport:get_connected(SrvId, Transp) 
                                     of
                                         [{_, Pid}|_] -> [{record_flow, Pid}|Opts1];
                                         _ -> Opts1
@@ -144,8 +144,8 @@ do_proxy_opts(_Req, Opts, []) ->
     {ok, Opts};
 
 do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
-    #sipmsg{app_id=AppId, transport=Transp} = Req,
-    case nksip_transport:is_local(AppId, Route) andalso Route of
+    #sipmsg{app_id=SrvId, transport=Transp} = Req,
+    case nksip_transport:is_local(SrvId, Route) andalso Route of
         #uri{user = <<"NkF", Token/binary>>, opts=RouteOpts} ->
             case decode_flow(Token) of
                 {ok, Pid, FlowTransp} ->
@@ -170,7 +170,7 @@ do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
         #uri{opts=RouteOpts} ->
             case lists:member(<<"ob">>, RouteOpts) of
                 true ->
-                    Opts1 = case nksip_transport:get_connected(AppId, Transp) of
+                    Opts1 = case nksip_transport:get_connected(SrvId, Transp) of
                         [{_, Pid}|_] -> [{record_flow, Pid}|Opts];
                         _ -> Opts
                     end,
@@ -210,7 +210,7 @@ flow_type(_, _) ->
 add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     #sipmsg{
         class = {req, Method},
-        app_id = AppId, 
+        app_id = SrvId, 
         from = {From, _},
         vias = Vias,
         contacts = Contacts,
@@ -228,7 +228,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
                 [#via{opts=RBOpts}|_] -> nklib_util:get_binary(<<"branch">>, RBOpts);
                 _ -> <<>>
             end,
-            RouteHash = nklib_util:hash({GlobalId, AppId, RouteBranch}),
+            RouteHash = nklib_util:hash({GlobalId, SrvId, RouteBranch}),
             <<"NkQ", RouteHash/binary>>;
         FlowPid -> 
             FlowToken = encode_flow(FlowPid),
@@ -264,7 +264,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
             Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
-            UUID = nksip:get_uuid(AppId),
+            UUID = nksip:get_uuid(SrvId),
             CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
             [make_contact(Req, Contact#uri{ext_opts=CExtOpts1}, Opts)];
         false ->
@@ -352,9 +352,9 @@ check_several_reg_id([#uri{ext_opts=Opts}|Rest], Found) ->
     {boolean(), nksip:request()} | no_outbound.
 
 registrar(Req) ->
-    #sipmsg{app_id=AppId, vias=Vias, transport=Transp} = Req,
+    #sipmsg{app_id=SrvId, vias=Vias, transport=Transp} = Req,
     case 
-        lists:member(<<"outbound">>, AppId:cache_sip_supported()) andalso
+        lists:member(<<"outbound">>, SrvId:cache_sip_supported()) andalso
         nksip_sipmsg:supported(<<"outbound">>, Req)
     of
         true when length(Vias)==1 ->     % We are the first host
@@ -363,10 +363,10 @@ registrar(Req) ->
                 listen_ip = ListenIp, 
                 listen_port = ListenPort
             } = Transp,
-            case nksip_transport:get_connected(AppId, Transp) of
+            case nksip_transport:get_connected(SrvId, Transp) of
                 [{_, Pid}|_] ->
                     Flow = encode_flow(Pid),
-                    Host = nksip_transport:get_listenhost(AppId, ListenIp, []),
+                    Host = nksip_transport:get_listenhost(SrvId, ListenIp, []),
                     Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>, <<"ob">>]),

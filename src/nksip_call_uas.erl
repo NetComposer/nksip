@@ -340,10 +340,10 @@ preprocess(Req) ->
 %%   in the ruri
 %%
 %% TODO: Is this working?
-strict_router(#sipmsg{app_id=AppId, ruri=RUri, routes=Routes}=Request) ->
+strict_router(#sipmsg{app_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
     case 
         nklib_util:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
-        andalso nksip_transport:is_local(AppId, RUri) of
+        andalso nksip_transport:is_local(SrvId, RUri) of
     true ->
         case lists:reverse(Routes) of
             [] ->
@@ -362,7 +362,7 @@ strict_router(#sipmsg{app_id=AppId, ruri=RUri, routes=Routes}=Request) ->
 % this address, default port and no transport parameter
 ruri_has_maddr(Request) ->
     #sipmsg{
-        app_id = AppId, 
+        app_id = SrvId, 
         ruri = RUri, 
         transport=#transport{proto=Proto, local_port=LPort}
     } = Request,
@@ -370,7 +370,7 @@ ruri_has_maddr(Request) ->
         <<>> ->
             Request;
         MAddr -> 
-            case nksip_transport:is_local(AppId, RUri#uri{domain=MAddr}) of
+            case nksip_transport:is_local(SrvId, RUri#uri{domain=MAddr}) of
                 true ->
                     case nksip_parse:transport(RUri) of
                         {Proto, _, LPort} ->

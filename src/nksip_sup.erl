@@ -30,9 +30,9 @@
 -include("nksip.hrl").
 
 % %% @private Starts a new SipApp's process
-% start_sipapp(AppId, Args) ->
-%     Spec = {AppId,
-%                 {nksip_sipapp_sup, start_link, [AppId, Args]},
+% start_sipapp(SrvId, Args) ->
+%     Spec = {SrvId,
+%                 {nksip_sipapp_sup, start_link, [SrvId, Args]},
 %                 permanent,
 %                 infinity,
 %                 supervisor,
@@ -45,9 +45,9 @@
 
 
 % %% @private Stops a SipApp's core
-% stop_sipapp(AppId) ->
-%     case supervisor:terminate_child(nksip_sipapp_sup, AppId) of
-%         ok -> ok = supervisor:delete_child(nksip_sipapp_sup, AppId);
+% stop_sipapp(SrvId) ->
+%     case supervisor:terminate_child(nksip_sipapp_sup, SrvId) of
+%         ok -> ok = supervisor:delete_child(nksip_sipapp_sup, SrvId);
 %         {error, _} -> error
 %     end.
 

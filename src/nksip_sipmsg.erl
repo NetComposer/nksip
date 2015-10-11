@@ -343,7 +343,7 @@ expired(#sipmsg{expires=Expires, start=Start}=Req) ->
 get_handle(<<Ch, _/binary>>=Handle) when Ch==$R; Ch==$S ->
     Handle;
 
-get_handle(#sipmsg{app_id=AppId, class=Class, id=MsgId, call_id=CallId}) ->
+get_handle(#sipmsg{app_id=SrvId, class=Class, id=MsgId, call_id=CallId}) ->
     <<
         case Class of
             {req, _} -> $R;
@@ -352,7 +352,7 @@ get_handle(#sipmsg{app_id=AppId, class=Class, id=MsgId, call_id=CallId}) ->
         $_,
         MsgId/binary,
         $_,
-        (atom_to_binary(AppId, latin1))/binary,
+        (atom_to_binary(SrvId, latin1))/binary,
         $_,
         CallId/binary
     >>;
@@ -393,7 +393,7 @@ remote_meta(Field, Handle) ->
     {ok, [{field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {_Class, AppId, MsgId, CallId} = parse_handle(Handle),
+    {_Class, SrvId, MsgId, CallId} = parse_handle(Handle),
     Fun = fun(SipMsg) ->
         case catch metas(Fields, SipMsg) of
             {'EXIT', {{invalid_field, Field}, _}} -> 
@@ -402,7 +402,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 {ok, Values}
         end
     end,
-    case nksip_call:apply_sipmsg(AppId, CallId, MsgId, Fun) of
+    case nksip_call:apply_sipmsg(SrvId, CallId, MsgId, Fun) of
         {apply, {ok, Values}} -> 
             {ok, Values};
         {apply, {error, {invalid_field, Field}}} -> 

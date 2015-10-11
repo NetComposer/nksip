@@ -40,8 +40,8 @@
     {reply, nksip:sipreply()} | noreply.
 
 
-nks_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=AppId}) ->
-    Module = AppId:module(),
+nks_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=SrvId}) ->
+    Module = SrvId:module(),
     case 
         Module/=nksip_sipapp andalso
         erlang:function_exported(Module, sip_register, 2) 

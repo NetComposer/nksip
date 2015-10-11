@@ -87,9 +87,9 @@ parse_config(Opts) ->
                         throw({invalid_file, File0})
                 end
         end,
-        AppId = nklib_util:get_value(id, Opts1),
-        close_file(AppId),
-        case open_file(AppId, File) of
+        SrvId = nklib_util:get_value(id, Opts1),
+        close_file(SrvId),
+        case open_file(SrvId, File) of
             ok -> 
                 case compile_ips(IpList, []) of
                     {ok, CompIpList} ->
@@ -113,8 +113,8 @@ parse_config(Opts) ->
 -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_sipapp_srv:state()}.
 
-terminate(AppId, SipAppState) ->  
-    close_file(AppId),
+terminate(SrvId, SipAppState) ->  
+    close_file(SrvId),
     {ok, SipAppState}.
 
 
@@ -128,8 +128,8 @@ terminate(AppId, SipAppState) ->
     [{App::nksip:app_name(), File::console|binary(), IpList::all|[binary()]}].
 
 get_all() ->
-    Fun = fun({AppName, AppId}, Acc) ->
-        case nksip_sipapp_srv:config(AppId, nksip_trace) of
+    Fun = fun({AppName, SrvId}, Acc) ->
+        case nksip_sipapp_srv:config(SrvId, nksip_trace) of
             undefined -> Acc;
             {File, IpList} -> [{AppName, File, IpList}]
         end
@@ -137,28 +137,28 @@ get_all() ->
     lists:foldl(Fun, [], nksip:get_all()).
 
 
-%% @doc Equivalent to `start(AppId, console, all)' for all started SipApps.
+%% @doc Equivalent to `start(SrvId, console, all)' for all started SipApps.
 -spec start() -> 
     [{nksip:app_name(), ok|{error, term()}}].
 
 start() -> 
-    lists:map(fun({AppName, AppId}) -> {AppName, start(AppId)} end, nksip:get_all()).
+    lists:map(fun({AppName, SrvId}) -> {AppName, start(SrvId)} end, nksip:get_all()).
 
 
-%% @doc Equivalent to `start(AppId, console, all)'.
+%% @doc Equivalent to `start(SrvId, console, all)'.
 -spec start(nksip:app_id()|nksip:app_name()) -> 
     ok | {error, term()}.
 
-start(AppId) -> 
-    start(AppId, console, all).
+start(SrvId) -> 
+    start(SrvId, console, all).
 
 
-%% @doc Equivalent to `start(AppId, File, all)'.
+%% @doc Equivalent to `start(SrvId, File, all)'.
 -spec start(nksip:app_id()|nksip:app_name(), file()) -> 
     ok | {error, term()}.
 
-start(AppId, File) -> 
-    start(AppId, File, all).
+start(SrvId, File) -> 
+    start(SrvId, File, all).
 
 
 %% @doc Configures a SipApp to start tracing SIP messages.
@@ -167,10 +167,10 @@ start(AppId, File) ->
 
 start(App, File, IpList) ->
     case nkservice_server:find(App) of
-        {ok, AppId} ->
-            Plugins1 = AppId:config_plugins(),
+        {ok, SrvId} ->
+            Plugins1 = SrvId:config_plugins(),
             Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
-            case nksip:update(AppId, [{plugins, Plugins2}, {nksip_trace, {File, IpList}}]) of
+            case nksip:update(SrvId, [{plugins, Plugins2}, {nksip_trace, {File, IpList}}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -184,7 +184,7 @@ start(App, File, IpList) ->
     ok.
 
 stop() ->
-    lists:map(fun({AppName, AppId}) -> {AppName, stop(AppId)} end, nksip:get_all()).
+    lists:map(fun({AppName, SrvId}) -> {AppName, stop(SrvId)} end, nksip:get_all()).
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
@@ -193,8 +193,8 @@ stop() ->
 
 stop(App) ->
     case nkservice_server:find(App) of
-        {ok, AppId} ->
-            Plugins = AppId:config_plugins() -- [nksip_trace],
+        {ok, SrvId} ->
+            Plugins = SrvId:config_plugins() -- [nksip_trace],
             case nksip:update(App, [{plugins, Plugins}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
@@ -230,19 +230,19 @@ print(Header, #sipmsg{}=SipMsg) ->
              nksip_transport:transport(), binary()) ->
     ok.
 
-sipmsg(AppId, _CallId, Header, Transport, Binary) ->
-    case AppId:config_nksip_trace() of
+sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
+    case SrvId:config_nksip_trace() of
         {File, all} ->
-            AppName = AppId:name(),
+            AppName = SrvId:name(),
             Msg = print_packet(AppName, Header, Transport, Binary),
-            write(AppId, File, Msg);
+            write(SrvId, File, Msg);
         {File, IpList} ->
             #transport{local_ip=Ip1, remote_ip=Ip2} = Transport,
             case has_ip([Ip1, Ip2], IpList) of
                 true ->
-                    AppName = AppId:name(),
+                    AppName = SrvId:name(),
                     Msg = print_packet(AppName, Header, Transport, Binary),
-                    write(AppId, File, Msg);
+                    write(SrvId, File, Msg);
                 false ->
                     ok
             end;
@@ -286,27 +286,27 @@ norm_iplist(Term, Acc) ->
 
 
 %% @private
-close_file(AppId) ->
-    case nksip_app:get({nksip_trace_file, AppId}) of
+close_file(SrvId) ->
+    case nksip_app:get({nksip_trace_file, SrvId}) of
         undefined -> 
             ok;
         {File, OldDevice} ->
-            ?notice(AppId, <<>>, "Closing file ~s (~p)", [File, OldDevice]),
-            nksip_app:del({nksip_trace_file, AppId}),
+            ?notice(SrvId, <<>>, "Closing file ~s (~p)", [File, OldDevice]),
+            nksip_app:del({nksip_trace_file, SrvId}),
             file:close(OldDevice),
             ok
     end.
  
 
 %% @private
-open_file(_AppId, console) ->
+open_file(_SrvId, console) ->
     ok;
 
-open_file(AppId, File) ->
+open_file(SrvId, File) ->
     case file:open(binary_to_list(File), [append]) of
         {ok, IoDevice} -> 
-            ?notice(AppId, <<>>, "File ~s opened for trace (~p)", [File, IoDevice]),
-            nksip_app:put({nksip_trace_file, AppId}, {File, IoDevice}),
+            ?notice(SrvId, <<>>, "File ~s opened for trace (~p)", [File, IoDevice]),
+            nksip_app:put({nksip_trace_file, SrvId}, {File, IoDevice}),
             ok;
         {error, _Error} -> 
             error
@@ -331,13 +331,13 @@ compile_ips([Re|Rest], Acc) when element(1, Re)==re_pattern ->
 
 
 %% @private
-write(AppId, File, Msg) -> 
+write(SrvId, File, Msg) -> 
     Time = nklib_util:l_timestamp_to_float(nklib_util:l_timestamp()), 
     case File of
         console ->
             io:format("\n        ---- ~f ~s", [Time, Msg]);
         _ ->
-            case nksip_app:get({nksip_trace_file, AppId}) of
+            case nksip_app:get({nksip_trace_file, SrvId}) of
                 {File, Device} ->
                     Txt = io_lib:format("\n        ---- ~f ~s", [Time, Msg]),
                     catch file:write(Device, Txt);
@@ -348,7 +348,7 @@ write(AppId, File, Msg) ->
 
 
 %% @private
-print_packet(AppId, Info, 
+print_packet(SrvId, Info, 
                 #transport{
                     proto = Proto,
                     local_ip = LIp, 
@@ -372,7 +372,7 @@ print_packet(AppId, Info,
         || Line <- binary:split(Binary, <<"\r\n">>, [global])
     ],
     io_lib:format("~p ~s ~s:~p (~p, ~s:~p) (~p)\n\n~s", 
-                    [AppId, Info, RHost, RPort, 
+                    [SrvId, Info, RHost, RPort, 
                     Proto, LHost, LPort, self(), list_to_binary(Lines)]).
 
 

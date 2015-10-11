@@ -42,11 +42,11 @@
 -spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
     term().
 
-get_listener(AppId, Transp, Opts) ->
+get_listener(SrvId, Transp, Opts) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
     {
-        {AppId, sctp, Ip, Port}, 
-        {?MODULE, start_link, [AppId, Transp, Opts]},
+        {SrvId, sctp, Ip, Port}, 
+        {?MODULE, start_link, [SrvId, Transp, Opts]},
         permanent, 
         5000, 
         worker, 
@@ -77,8 +77,8 @@ connect(Pid, Transp) ->
 
 
 %% @private
-start_link(AppId, Transp, Opts) -> 
-    gen_server:start_link(?MODULE, [AppId, Transp, Opts], []).
+start_link(SrvId, Transp, Opts) -> 
+    gen_server:start_link(?MODULE, [SrvId, Transp, Opts], []).
 
 
 -record(state, {
@@ -94,7 +94,7 @@ start_link(AppId, Transp, Opts) ->
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([AppId, Transp, Opts]) ->
+init([SrvId, Transp, Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
     Autoclose = nklib_util:get_value(sctp_timeout, Opts),
     Opts1 = [
@@ -110,10 +110,10 @@ init([AppId, Transp, Opts]) ->
             {ok, Port1} = inet:port(Socket),
             Transp1 = Transp#transport{local_port=Port1, listen_port=Port1},
             ok = gen_sctp:listen(Socket, true),
-            nklib_proc:put(nksip_transports, {AppId, Transp1}),
-            nklib_proc:put({nksip_listen, AppId}, Transp1),
+            nklib_proc:put(nksip_transports, {SrvId, Transp1}),
+            nklib_proc:put({nksip_listen, SrvId}, Transp1),
             State = #state{ 
-                app_id = AppId, 
+                app_id = SrvId, 
                 transport = Transp1, 
                 socket = Socket,
                 pending = [],
@@ -121,7 +121,7 @@ init([AppId, Transp, Opts]) ->
             },
             {ok, State};
         {error, Error} ->
-            ?error(AppId, <<>>, "could not start SCTP transport on ~p:~p (~p)", 
+            ?error(SrvId, <<>>, "could not start SCTP transport on ~p:~p (~p)", 
                    [Ip, Port, Error]),
             {stop, Error}
     end.
@@ -170,7 +170,7 @@ handle_cast(Msg, State) ->
     gen_server_info(#state{}).
 
 handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
-    #state{app_id=AppId, socket=Socket} = State,
+    #state{app_id=SrvId, socket=Socket} = State,
     State1 = case SAC of
         #sctp_assoc_change{state=comm_up, assoc_id=AssocId} ->
             Reply = do_connect(Ip, Port, AssocId, State),
@@ -180,14 +180,14 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
                     gen_server:reply(From, Reply),
                     State#state{pending=Pending1};
                 false when element(1, Reply)==error -> 
-                    ?notice(AppId, <<>>, "Error ~p on SCTP connection up", 
+                    ?notice(SrvId, <<>>, "Error ~p on SCTP connection up", 
                             [element(2, Reply)]),
                     State;
                 false ->
                     State
             end;
         #sctp_assoc_change{state=shutdown_comp, assoc_id=AssocId} ->
-            case nksip_transport:get_connected(AppId, sctp, Ip, Port, <<>>) of
+            case nksip_transport:get_connected(SrvId, sctp, Ip, Port, <<>>) of
                 [{#transport{sctp_id=AssocId}, Pid}|_] ->
                     nksip_connection:stop(Pid, normal);
                 _ ->
@@ -206,11 +206,11 @@ handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
                 {ok, Pid, _Transp1} ->
                     nksip_connection:incoming(Pid, Data);
                 {error, Error} ->
-                    ?notice(AppId, <<>>, "Error ~p on SCTP connection up", [Error])
+                    ?notice(SrvId, <<>>, "Error ~p on SCTP connection up", [Error])
             end,
             State;
         Other ->
-            ?notice(AppId, <<>>, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other]),
+            ?notice(SrvId, <<>>, "SCTP unknown data from ~p, ~p: ~p", [Ip, Port, Other]),
             State
     end,
     ok = inet:setopts(Socket, [{active, once}]),
@@ -233,8 +233,8 @@ code_change(_OldVsn, State, _Extra) ->
 -spec terminate(term(), #state{}) ->
     gen_server_terminate().
 
-terminate(_Reason, #state{app_id=AppId, socket=Socket}) ->  
-    ?debug(AppId, <<>>, "SCTP server process stopped", []),
+terminate(_Reason, #state{app_id=SrvId, socket=Socket}) ->  
+    ?debug(SrvId, <<>>, "SCTP server process stopped", []),
     gen_sctp:close(Socket).
 
 
@@ -246,16 +246,16 @@ terminate(_Reason, #state{app_id=AppId, socket=Socket}) ->
 
 %% @private
 do_connect(Ip, Port, AssocId, State) ->
-    #state{app_id=AppId} = State,
-    case nksip_transport:get_connected(AppId, sctp, Ip, Port, <<>>) of
+    #state{app_id=SrvId} = State,
+    case nksip_transport:get_connected(SrvId, sctp, Ip, Port, <<>>) of
         [{Transp, Pid}|_] -> 
             {ok, Pid, Transp};
         [] -> 
-            case nksip_connection:is_max(AppId) of
+            case nksip_connection:is_max(SrvId) of
                 false ->
                     #state{socket=Socket, transport=Transp, timeout=Timeout} = State,
                     Transp1 = Transp#transport{remote_ip=Ip, remote_port=Port, sctp_id=AssocId},
-                    {ok, Pid} = nksip_connection:start_link(AppId, Transp1, Socket, Timeout),
+                    {ok, Pid} = nksip_connection:start_link(SrvId, Transp1, Socket, Timeout),
                     {ok, Pid, Transp1};
                 true ->
                     {error, max_connections}

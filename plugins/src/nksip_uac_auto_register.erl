@@ -68,8 +68,8 @@ parse_config(Opts) ->
 -spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_siapp_srv:state()}.
 
-init(AppId, SipAppState) ->
-    Timer = 1000 * nksip_sipapp_srv:config(AppId, nksip_uac_auto_register_timer),
+init(SrvId, SipAppState) ->
+    Timer = 1000 * nksip_sipapp_srv:config(SrvId, nksip_uac_auto_register_timer),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_register_timer'),
     State = #state{pings=[], regs=[]},
     SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_register, State, SipAppState),
@@ -80,13 +80,13 @@ init(AppId, SipAppState) ->
 -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
    {ok, nksip_sipapp_srv:state()}.
 
-terminate(AppId, SipAppState) ->  
+terminate(SrvId, SipAppState) ->  
     #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto_register, SipAppState),
     lists:foreach(
         fun(#sipreg{ok=Ok}=Reg) -> 
             case Ok of
                 true -> 
-                    AppId:nks_uac_auto_register_launch_unregister(Reg, true, SipAppState);
+                    SrvId:nks_uac_auto_register_launch_unregister(Reg, true, SipAppState);
                 false ->
                     ok
             end
@@ -111,14 +111,14 @@ terminate(AppId, SipAppState) ->
 start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
     try
         case nkservice_server:find(App) of
-            {ok, AppId} -> ok;
-            _ -> AppId = throw(invalid_app)
+            {ok, SrvId} -> ok;
+            _ -> SrvId = throw(invalid_app)
         end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
             false -> ok
         end,
-        case nksip_call_uac_make:make(AppId, 'REGISTER', Uri, Opts) of
+        case nksip_call_uac_make:make(SrvId, 'REGISTER', Uri, Opts) of
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
@@ -155,14 +155,14 @@ get_registers(App) ->
 start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
     try
         case nkservice_server:find(App) of
-            {ok, AppId} -> ok;
-            _ -> AppId = throw(invalid_app)
+            {ok, SrvId} -> ok;
+            _ -> SrvId = throw(invalid_app)
         end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
             false -> ok
         end,
-        case nksip_call_uac_make:make(AppId, 'OPTIONS', Uri, Opts) of
+        case nksip_call_uac_make:make(SrvId, 'OPTIONS', Uri, Opts) of
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,

@@ -118,7 +118,7 @@ response_status(invite_calling, Resp, UAC, Call) ->
 
 response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code < 200 ->
     #trans{request=Req, cancel=Cancel} = UAC,
-    #call{app_id=AppId} = Call,
+    #call{app_id=SrvId} = Call,
     % Add another 3 minutes
     UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
     Call1 = update(UAC1, Call),
@@ -127,7 +127,7 @@ response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code 
         to_cancel -> nksip_call_uac:cancel(UAC1, [], Call2);
         _ -> Call2
     end,
-    case AppId:nks_uac_response(Req, Resp, UAC1, Call3) of
+    case SrvId:nks_uac_response(Req, Resp, UAC1, Call3) of
         {continue, [_, _, _, Call4]} ->
             Call4;
         {ok, Call4} ->
@@ -172,7 +172,7 @@ response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call)
 response_status(invite_proceeding, Resp, UAC, Call) ->
     #sipmsg{to={To, ToTag}} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
-    #call{app_id=AppId} = Call,
+    #call{app_id=SrvId} = Call,
     UAC1 = UAC#trans{
         request = Req#sipmsg{to={To, ToTag}}, 
         response = undefined, 
@@ -190,7 +190,7 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
             UAC3#trans{status=finished}
     end,
     Call1 = update(UAC5, Call),
-    case AppId:nks_uac_response(Req, Resp, UAC5, Call1) of
+    case SrvId:nks_uac_response(Req, Resp, UAC5, Call1) of
         {continue, [_Req6, Resp6, UAC6, Call6]} ->
             nksip_call_uac_reply:reply({resp, Resp6}, UAC6, Call6);
         {ok, Call2} ->
@@ -249,7 +249,7 @@ response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
 response_status(proceeding, Resp, UAC, Call) ->
     #sipmsg{to={_, ToTag}} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
-    #call{app_id=AppId} = Call,
+    #call{app_id=SrvId} = Call,
     UAC2 = case Proto of
         udp -> 
             UAC1 = UAC#trans{
@@ -264,7 +264,7 @@ response_status(proceeding, Resp, UAC, Call) ->
             nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
     Call1 = update(UAC2, Call),
-    case AppId:nks_uac_response(Req, Resp, UAC2, Call1) of
+    case SrvId:nks_uac_response(Req, Resp, UAC2, Call1) of
         {continue, [_Req6, Resp6, UAC6, Call6]} ->
             nksip_call_uac_reply:reply({resp, Resp6}, UAC6, Call6);
         {ok, Call2} ->

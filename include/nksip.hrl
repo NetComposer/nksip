@@ -37,45 +37,45 @@
             lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])
     end).
 
--define(DO_DEBUG(AppId, CallId, Level, Text, List),
-    case AppId:config_debug() of
+-define(DO_DEBUG(SrvId, CallId, Level, Text, List),
+    case SrvId:config_debug() of
         false -> ok;
-        _ -> AppId:nks_debug(AppId, CallId, {Level, Text, List})
+        _ -> SrvId:nks_debug(SrvId, CallId, {Level, Text, List})
     end).
 
 
--define(debug(AppId, CallId, Text, List), 
-    ?DO_DEBUG(AppId, CallId, debug, Text, List),
-    case AppId:config_log_level() >= 8 of
-        true -> ?DO_LOG(debug, AppId:name(), CallId, Text, List);
+-define(debug(SrvId, CallId, Text, List), 
+    ?DO_DEBUG(SrvId, CallId, debug, Text, List),
+    case SrvId:config_log_level() >= 8 of
+        true -> ?DO_LOG(debug, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
--define(info(AppId, CallId, Text, List), 
-    ?DO_DEBUG(AppId, CallId, info, Text, List),
-    case AppId:config_log_level() >= 7 of
-        true -> ?DO_LOG(info, AppId:name(), CallId, Text, List);
+-define(info(SrvId, CallId, Text, List), 
+    ?DO_DEBUG(SrvId, CallId, info, Text, List),
+    case SrvId:config_log_level() >= 7 of
+        true -> ?DO_LOG(info, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
--define(notice(AppId, CallId, Text, List), 
-    ?DO_DEBUG(AppId, CallId, notice, Text, List),
-    case AppId:config_log_level() >= 6 of
-        true -> ?DO_LOG(notice, AppId:name(), CallId, Text, List);
+-define(notice(SrvId, CallId, Text, List), 
+    ?DO_DEBUG(SrvId, CallId, notice, Text, List),
+    case SrvId:config_log_level() >= 6 of
+        true -> ?DO_LOG(notice, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
--define(warning(AppId, CallId, Text, List), 
-    ?DO_DEBUG(AppId, CallId, warning, Text, List),
-    case AppId:config_log_level() >= 5 of
-        true -> ?DO_LOG(warning, AppId:name(), CallId, Text, List);
+-define(warning(SrvId, CallId, Text, List), 
+    ?DO_DEBUG(SrvId, CallId, warning, Text, List),
+    case SrvId:config_log_level() >= 5 of
+        true -> ?DO_LOG(warning, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
--define(error(AppId, CallId, Text, List), 
-    ?DO_DEBUG(AppId, CallId, error, Text, List),
-    case AppId:config_log_level() >= 4 of
-        true -> ?DO_LOG(error, AppId:name(), CallId, Text, List);
+-define(error(SrvId, CallId, Text, List), 
+    ?DO_DEBUG(SrvId, CallId, error, Text, List),
+    case SrvId:config_log_level() >= 4 of
+        true -> ?DO_LOG(error, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 

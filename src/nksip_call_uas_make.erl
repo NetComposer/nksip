@@ -128,7 +128,7 @@ parse_opts([], _Req, Resp, _Code, Opts) ->
 
 
 parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
-    #sipmsg{app_id=AppId} = Req,
+    #sipmsg{app_id=SrvId} = Req,
     Op = case Term of
     
         ignore ->
@@ -215,13 +215,13 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            Supported = AppId:cache_sip_supported(),
+            Supported = SrvId:cache_sip_supported(),
             {replace, <<"supported">>, Supported};
         allow ->        
-            {replace, <<"allow">>, AppId:cache_sip_allow()};
+            {replace, <<"allow">>, SrvId:cache_sip_allow()};
         accept ->
             #sipmsg{class={req, Method}} = Req,
-            Accept = case AppId:cache_sip_accept() of
+            Accept = case SrvId:cache_sip_accept() of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 undefined ->
@@ -234,7 +234,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
             Date = nklib_util:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            case AppId:cache_sip_events() of
+            case SrvId:cache_sip_events() of
                 [] -> ignore;
                 Events -> {replace, <<"allow-event">>, Events}
             end;
@@ -305,8 +305,8 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
 -spec parse_plugin_opts(nksip:request(), nksip:response(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_plugin_opts(#sipmsg{app_id=AppId}=Req, Resp, Opts) ->
-    case AppId:nks_parse_uas_opt(Req, Resp, Opts) of
+parse_plugin_opts(#sipmsg{app_id=SrvId}=Req, Resp, Opts) ->
+    case SrvId:nks_parse_uas_opt(Req, Resp, Opts) of
         {continue, [_, Resp1, Opts1]} ->
             {Resp1, Opts1};
         {error, Error} ->

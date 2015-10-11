@@ -40,7 +40,7 @@
 
 send_request(Req, Opts) ->
     #sipmsg{
-        app_id = AppId, 
+        app_id = SrvId, 
         call_id = CallId, 
         class = {req, Method}, 
         ruri = RUri, 
@@ -75,18 +75,18 @@ send_request(Req, Opts) ->
     end,
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
-    AppId:nks_debug(AppId, CallId, {uac_out_request, Method}),
+    SrvId:nks_debug(SrvId, CallId, {uac_out_request, Method}),
     Dests = case nklib_util:get_value(route_flow, Opts) of
         {Transp, Pid} -> 
             [{flow, {Pid, Transp}}, DestUri];
         undefined -> 
             [DestUri]
     end,
-    case nksip_transport:send(AppId, Dests, MakeReqFun, Opts) of
+    case nksip_transport:send(SrvId, Dests, MakeReqFun, Opts) of
         {ok, SentReq} -> 
             {ok, SentReq};
         error ->
-            AppId:nks_debug(AppId, CallId, uac_out_request_error),
+            SrvId:nks_debug(SrvId, CallId, uac_out_request_error),
             {error, service_unavailable}
     end.
 
@@ -95,10 +95,10 @@ send_request(Req, Opts) ->
 -spec resend_request(nksip:request(), nksip:optslist()) -> 
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
+resend_request(#sipmsg{app_id=SrvId, transport=Transport}=Req, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeReq = fun(_) -> Req end,
-    nksip_transport:send(AppId, [{Proto, Ip, Port, Res}], MakeReq, Opts).
+    nksip_transport:send(SrvId, [{Proto, Ip, Port, Res}], MakeReq, Opts).
         
 
 
@@ -113,7 +113,7 @@ resend_request(#sipmsg{app_id=AppId, transport=Transport}=Req, Opts) ->
 
 make_request_fun(Req, Dest, Opts) ->
     #sipmsg{
-        app_id = AppId, 
+        app_id = SrvId, 
         ruri = RUri, 
         call_id = CallId,
         vias = Vias,
@@ -127,10 +127,10 @@ make_request_fun(Req, Dest, Opts) ->
             listen_ip = ListenIp, 
             listen_port = ListenPort
         } = Transp,
-        ListenHost = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
+        ListenHost = nksip_transport:get_listenhost(SrvId, ListenIp, Opts),
         ?call_debug("UAC listenhost is ~s", [ListenHost]),
         {ok, Req1} = 
-            AppId:nks_transport_uac_headers(Req, Opts, Scheme, 
+            SrvId:nks_transport_uac_headers(Req, Opts, Scheme, 
                                              Proto, ListenHost, ListenPort),
         IsStateless = lists:member(stateless_via, Opts),
         GlobalId = nksip_config_cache:global_id(),
@@ -141,12 +141,12 @@ make_request_fun(Req, Dest, Opts) ->
                 % a nksip tag to detect the response correctly
                 Base = case nklib_util:get_binary(<<"branch">>, Via0#via.opts) of
                     <<"z9hG4bK", OBranch/binary>> ->
-                        {AppId, OBranch};
+                        {SrvId, OBranch};
                     _ ->
                         #sipmsg{from={_, FromTag}, to={_, ToTag}, call_id=CallId, 
                                     cseq={CSeq, _}} = Req,
                         % Any of these will change in every transaction
-                        {AppId, Via0, ToTag, FromTag, CallId, CSeq, RUri}
+                        {SrvId, Via0, ToTag, FromTag, CallId, CSeq, RUri}
                 end,
                 BaseBranch = nklib_util:hash(Base),
                 NkSIP = nklib_util:hash({BaseBranch, GlobalId, stateless}),
@@ -185,7 +185,7 @@ make_request_fun(Req, Dest, Opts) ->
 add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     #sipmsg{
         class = {req, Method},
-        app_id = AppId, 
+        app_id = SrvId, 
         from = {From, _},
         vias = Vias,
         contacts = Contacts,
@@ -198,7 +198,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
         _ -> 
             <<>>
     end,
-    RouteHash = nklib_util:hash({GlobalId, AppId, RouteBranch}),
+    RouteHash = nklib_util:hash({GlobalId, SrvId, RouteBranch}),
     RouteUser = <<"NkQ", RouteHash/binary>>,
     RecordRoute = case lists:member(record_route, Opts) of
         true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
@@ -220,7 +220,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
             Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
-            UUID = nksip:get_uuid(AppId),
+            UUID = nksip:get_uuid(SrvId),
             CExtOpts1 = [{<<"+sip.instance">>, <<$", UUID/binary, $">>}|CExtOpts],
             [Contact#uri{ext_opts=CExtOpts1}];
         false ->

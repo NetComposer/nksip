@@ -48,6 +48,8 @@ parse_syntax(Data, Defaults) ->
 
 syntax() ->
     #{
+        log_level => log_level,
+
         % System options
         sip_timer_t1 => {integer, 10, 2500},
         sip_timer_t2 => {integer, 100, 16000},
@@ -81,13 +83,13 @@ syntax() ->
         sip_local_host6 => [{enum, [auto]}, host6],
         sip_no_100 => {enum, [true]},
 
-        debug => boolean,
-        log_level => log_level
+        sip_debug => boolean
     }.
 
 
 defaults() ->
     [
+        {log_level, notice},
         {sip_allow, [
             <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
             <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
@@ -115,23 +117,9 @@ defaults() ->
         {sip_no_100, true},
         {sip_max_calls, 100000},                % Each Call-ID counts as a call
         {sip_max_connections, 1024},            % Per transport and SipApp
-        {log_level, notice},
-        {debug, false}                          % Used in nksip_debug plugin
+        {sip_debug, false}                      % Used in nksip_debug plugin
     ].
 
-
-plugin_update_value(Key, Fun, SrvSpec) ->
-    SipConfig1 = maps:get(sip, SrvSpec),
-    Value1 = maps:get(Keysip_allow, SipConfig1),
-            Allow2 = nklib_util:store_value(<<"REGISTER">>, Allow1),
-            SipConfig2 = SipConfig1#{sip_allow=>Allow2},
-)
-
-
-
-
-
-   
 
 %% @private
 parse_transports(_, List, _) when is_list(List) ->
@@ -147,11 +135,11 @@ parse_transports(_, _List, _) ->
 
 %% @private
 do_parse_transports([], Acc) ->
-    lists:reverse(Acc);
+    {ok, lists:reverse(Acc)};
 
 do_parse_transports([Transport|Rest], Acc) ->
     case Transport of
-        {Scheme, Ip, Port, TOpts} when is_list(TOpts) -> ok;
+        {Scheme, Ip, Port, TOpts} when is_list(TOpts); is_map(TOpts) -> ok;
         {Scheme, Ip, Port} -> TOpts = [];
         {Scheme, Ip} -> Port = any, TOpts = [];
         Scheme -> Ip = all, Port = any, TOpts = []
@@ -186,7 +174,8 @@ do_parse_transports([Transport|Rest], Acc) ->
         _ when is_integer(Port), Port >= 0 -> Port;
         _ -> throw({invalid_transport, Transport})
     end,
-    do_parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts}|Acc]).
+    TOpts1 = nklib_util:to_list(TOpts),
+    do_parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts1}|Acc]).
 
 
 
@@ -304,8 +293,8 @@ find_real_ip([_|R], Type) ->
 
 
 %% @private Save cache for speed log access
-put_log_cache(AppId, CallId) ->
-    erlang:put(nksip_app_id, AppId),
+put_log_cache(SrvId, CallId) ->
+    erlang:put(nksip_app_id, SrvId),
     erlang:put(nksip_call_id, CallId),
-    erlang:put(nksip_app_name, AppId:name()),
-    erlang:put(nksip_log_level, AppId:config_log_level()).
+    erlang:put(nksip_app_name, SrvId:name()),
+    erlang:put(nksip_log_level, SrvId:config_log_level()).

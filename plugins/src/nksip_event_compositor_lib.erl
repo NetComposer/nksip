@@ -38,8 +38,8 @@
 -spec store_get(nksip:app_id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
-store_get(AppId, AOR, Tag) ->
-    case callback(AppId, {get, AOR, Tag}) of
+store_get(SrvId, AOR, Tag) ->
+    case callback(SrvId, {get, AOR, Tag}) of
         {ok, #reg_publish{} = Reg} -> {ok, Reg};
         {ok, not_found} -> not_found;
         {ok, Res} -> {error, {invalid_callback_response, Res}};
@@ -52,21 +52,21 @@ store_get(AppId, AOR, Tag) ->
                 #reg_publish{}|nksip:body()) ->
     nksip:sipreply().
 
-store_put(AppId, AOR, Tag, Expires, Reg) ->
+store_put(SrvId, AOR, Tag, Expires, Reg) ->
     Reg1 = case is_record(Reg, reg_publish) of
         true -> Reg;
         false -> #reg_publish{data=Reg}
     end,
     Now = nklib_util:timestamp(),
     Reg2 = Reg1#reg_publish{expires=Now+Expires},
-    case callback(AppId, {put, AOR, Tag, Reg2, Expires}) of
+    case callback(SrvId, {put, AOR, Tag, Reg2, Expires}) of
         {ok, ok} -> 
             reply(Tag, Expires);
         {ok, Resp} -> 
-            ?warning(AppId, <<>>, "invalid callback response: ~p", [Resp]),
+            ?warning(SrvId, <<>>, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
         error -> 
-            ?warning(AppId, <<>>, "invalid callback response", []),
+            ?warning(SrvId, <<>>, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
 
@@ -75,15 +75,15 @@ store_put(AppId, AOR, Tag, Expires, Reg) ->
 -spec store_del(nksip:app_id(), nksip:aor(), binary()) ->
     nksip:sipreply().
 
-store_del(AppId, AOR, Tag) ->
-    case callback(AppId, {del, AOR, Tag}) of
+store_del(SrvId, AOR, Tag) ->
+    case callback(SrvId, {del, AOR, Tag}) of
         {ok, ok} -> 
             reply(Tag, 0);
         {ok, Resp} -> 
-            ?warning(AppId, <<>>, "invalid callback response: ~p", [Resp]),
+            ?warning(SrvId, <<>>, "invalid callback response: ~p", [Resp]),
             {internal_error, "Callback Invalid Response"};
         error -> 
-            ?warning(AppId, <<>>, "invalid callback response", []),
+            ?warning(SrvId, <<>>, "invalid callback response", []),
             {internal_error, "Callback Invalid Response"}
     end.
 
@@ -94,8 +94,8 @@ store_del(AppId, AOR, Tag) ->
 -spec store_del_all(nksip:app_id()) ->
     ok | {error, term()}.
 
-store_del_all(AppId) ->
-    case callback(AppId, del_all) of
+store_del_all(SrvId) ->
+    case callback(SrvId, del_all) of
         {ok, ok} -> ok;
         {ok, _Resp} -> {error, invalid_callback}; 
         error -> {error, invalid_callback}
@@ -111,8 +111,8 @@ reply(Tag, Expires) ->
 -spec callback(nksip:app_id(), term()) ->
     term() | error.
 
-callback(AppId, Op) -> 
-    AppId:nks_call(sip_event_compositor_store, [Op, AppId], AppId).
+callback(SrvId, Op) -> 
+    SrvId:nks_call(sip_event_compositor_store, [Op, SrvId], SrvId).
 
 
 

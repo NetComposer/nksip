@@ -105,8 +105,8 @@ parse_config(Opts) ->
 -spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_siapp_srv:state()}.
 
-init(AppId, SipAppState) ->
-    Supported = AppId:cache_sip_supported(),
+init(SrvId, SipAppState) ->
+    Supported = SrvId:cache_sip_supported(),
     StateOb = #state_ob{
         outbound = lists:member(<<"outbound">>, Supported),
         pos = 1,
@@ -120,7 +120,7 @@ init(AppId, SipAppState) ->
 -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_sipapp_srv:state()}.
 
-terminate(_AppId, SipAppState) ->  
+terminate(_SrvId, SipAppState) ->  
     #state_ob{regs=RegsOb} = 
         nksip_sipapp_srv:get_meta(nksip_uac_auto_outbound, SipAppState),
     lists:foreach(

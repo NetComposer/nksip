@@ -192,7 +192,7 @@ stop(App) ->
 
 stop_all() ->
     lists:foreach(
-        fun({AppId, _, _}) -> stop(AppId) end, 
+        fun({SrvId, _, _}) -> stop(SrvId) end, 
         nkservice_server:get_all(nksip)).
 
 
@@ -258,9 +258,9 @@ version() ->
 deps() ->
     [].
 
-plugin_start(SrvSpec) ->
+plugin_start(#{id:=SrvId}=SrvSpec) ->
     try
-        lager:notice("Plugin NKSIP starting: ~p", [maps:get(id, SrvSpec)]),
+        lager:notice("Plugin NKSIP starting: ~p", [SrvId]),
         Def = nksip_config_cache:app_config(),
         ParsedDef = case nksip_util:parse_syntax(Def) of
             {ok, ParsedDef0} -> ParsedDef0;
@@ -278,7 +278,38 @@ plugin_start(SrvSpec) ->
             trans = maps:get(sip_trans_timeout, SipConfig),
             dialog = maps:get(sip_dialog_timeout, SipConfig)},
         Cache = maps:with(cached(), SipConfig#{sip=>SipConfig, sip_timers=>Timers}),
-        nkservice_util:add_config(#{sip=>SipConfig}, Cache, SrvSpec)
+        TranspSpec = maps:get(sip_transport, Sip, []),
+        Child = #{
+            id => nksip_transport_sup,
+            start => {nksip_transport_sup, start_link, [SrvId, TranspSpec]},
+            restart => permanent,
+            type => supervisor
+        },
+
+
+
+
+        {ok, SrvSpec1} = nkservice_util:add_config(#{sip=>SipConfig}, Cache, SrvSpec),
+
+
+
+
+
+
+        TranspSupPid = case nksip_transport_sup:get_pid(SrvId) of
+            undefined ->
+                case nksip_
+
+
+            TransSupPid0 ->
+                TransSupPid0
+        end,
+
+
+
+
+
+
     catch
         throw:Throw -> {stop, Throw}
     end.

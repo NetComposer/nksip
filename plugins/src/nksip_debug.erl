@@ -72,7 +72,7 @@ deps() ->
 -spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_siapp_srv:state()}.
 
-init(_AppId, SipAppState) ->
+init(_SrvId, SipAppState) ->
     case whereis(nksip_debug_srv) of
         undefined ->
             Child = {
@@ -95,7 +95,7 @@ init(_AppId, SipAppState) ->
 -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_sipapp_srv:state()}.
 
-terminate(_AppId, SipAppState) ->  
+terminate(_SrvId, SipAppState) ->  
     {ok, SipAppState}.
 
 
@@ -110,10 +110,10 @@ terminate(_AppId, SipAppState) ->
 
 start(App) ->
     case nkservice_server:find(App) of
-        {ok, AppId} ->
-            Plugins1 = AppId:config_plugins(),
+        {ok, SrvId} ->
+            Plugins1 = SrvId:config_plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
-            case nksip:update(AppId, [{plugins, Plugins2}, {debug, true}]) of
+            case nksip:update(SrvId, [{plugins, Plugins2}, {debug, true}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -128,8 +128,8 @@ start(App) ->
 
 stop(App) ->
     case nkservice_server:find(App) of
-        {ok, AppId} ->
-            Plugins = AppId:config_plugins() -- [nksip_debug],
+        {ok, SrvId} ->
+            Plugins = SrvId:config_plugins() -- [nksip_debug],
             case nksip:update(App, [{plugins, Plugins}, {debug, false}]) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
@@ -147,12 +147,12 @@ stop(App) ->
 
 
 %% @private
-insert(#sipmsg{app_id=AppId, call_id=CallId}, Info) ->
-    insert(AppId, CallId, Info).
+insert(#sipmsg{app_id=SrvId, call_id=CallId}, Info) ->
+    insert(SrvId, CallId, Info).
 
 
 %% @private
-insert(AppId, CallId, Info) ->
+insert(SrvId, CallId, Info) ->
     Time = nklib_util:l_timestamp(),
     Info1 = case Info of
         {Type, Str, Fmt} when Type==debug; Type==info; Type==notice; 
@@ -161,21 +161,21 @@ insert(AppId, CallId, Info) ->
         _ ->
             Info
     end,
-    AppName = AppId:name(),
+    AppName = SrvId:name(),
     catch ets:insert(nksip_debug_msgs, {CallId, Time, AppName, Info1}).
 
 
 %% @private
 find(CallId) ->
-    Lines = lists:sort([{Time, AppId, Info} || {_, Time, AppId, Info} 
+    Lines = lists:sort([{Time, SrvId, Info} || {_, Time, SrvId, Info} 
                          <- ets:lookup(nksip_debug_msgs, nklib_util:to_binary(CallId))]),
-    [{nklib_util:l_timestamp_to_float(Time), AppId, Info} 
-        || {Time, AppId, Info} <- Lines].
+    [{nklib_util:l_timestamp_to_float(Time), SrvId, Info} 
+        || {Time, SrvId, Info} <- Lines].
 
 
 %% @private
-find(AppId, CallId) ->
-    [{Start, Info} || {Start, C, Info} <- find(CallId), C==AppId].
+find(SrvId, CallId) ->
+    [{Start, Info} || {Start, C, Info} <- find(CallId), C==SrvId].
 
 
 %% @private

@@ -73,7 +73,7 @@ parse_config(Opts) ->
 -spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_siapp_srv:state()}.
 
-init(_AppId, SipAppState) ->
+init(_SrvId, SipAppState) ->
     case whereis(nksip_stats_srv) of
         undefined ->
             Child = {
@@ -96,7 +96,7 @@ init(_AppId, SipAppState) ->
 -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_sipapp_srv:state()}.
 
-terminate(_AppId, SipAppState) ->  
+terminate(_SrvId, SipAppState) ->  
     % We don't remove nksip_stats_srv, in case other SipApp is using it
     {ok, SipAppState}.
 

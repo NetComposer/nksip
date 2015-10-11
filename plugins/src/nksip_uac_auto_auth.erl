@@ -127,14 +127,14 @@ check_auth(Req, Resp, UAC, Call) ->
         (not IsProxy)
     of
         true ->
-            #call{app_id=AppId, call_id=CallId} = Call,
+            #call{app_id=SrvId, call_id=CallId} = Call,
             Max = case nklib_util:get_value(nksip_uac_auto_auth_max_tries, Opts) of
                 undefined -> 
-                    nksip_sipapp_srv:config(AppId, nksip_uac_auto_auth_max_tries);
+                    nksip_sipapp_srv:config(SrvId, nksip_uac_auto_auth_max_tries);
                 Max0 ->
                     Max0
             end,
-            DefPasses = nksip_sipapp_srv:config(AppId, passes, []),
+            DefPasses = nksip_sipapp_srv:config(SrvId, passes, []),
             Passes = case nklib_util:get_value(passes, Opts) of
                 undefined -> DefPasses;
                 Passes0 -> Passes0++DefPasses
@@ -146,7 +146,7 @@ check_auth(Req, Resp, UAC, Call) ->
                 {ok, Req1} ->
                     {ok, nksip_call_uac:resend(Req1, UAC, Call)};
                 {error, Error} ->
-                    ?debug(AppId, CallId, 
+                    ?debug(SrvId, CallId, 
                            "UAC ~p could not generate new auth request: ~p", 
                            [TransId, Error]),    
                     continue;

@@ -73,8 +73,8 @@ parse_config(Opts) ->
 
 get_gruu_pub(App) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> 
-            case nksip_app:get({nksip_gruu_pub, AppId}) of
+        {ok, SrvId} -> 
+            case nksip_app:get({nksip_gruu_pub, SrvId}) of
                 undefined -> undefined;
                 Value -> {ok, Value}
             end;
@@ -89,8 +89,8 @@ get_gruu_pub(App) ->
 
 get_gruu_temp(App) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> 
-            case nksip_app:get({nksip_gruu_temp, AppId}) of
+        {ok, SrvId} -> 
+            case nksip_app:get({nksip_gruu_temp, SrvId}) of
                 undefined -> undefined;
                 Value -> {ok, Value}
             end;
@@ -105,8 +105,8 @@ get_gruu_temp(App) ->
 
 registrar_find(App, Uri) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> 
-            nksip_gruu_lib:find(AppId, Uri);
+        {ok, SrvId} -> 
+            nksip_gruu_lib:find(SrvId, Uri);
         _ ->
             []
     end.

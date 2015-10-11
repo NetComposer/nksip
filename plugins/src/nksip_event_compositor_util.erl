@@ -39,18 +39,18 @@
 
 get_all() ->
     [
-        {AppId, AOR, Tag, nklib_store:get({nksip_event_compositor, AppId, AOR, Tag}, [])}
-        || {AppId, AOR, Tag} <- all()
+        {SrvId, AOR, Tag, nklib_store:get({nksip_event_compositor, SrvId, AOR, Tag}, [])}
+        || {SrvId, AOR, Tag} <- all()
     ].
 
 
 %% @private
 print_all() ->
     Now = nklib_util:timestamp(),
-    Print = fun({AppId, {Scheme, User, Domain}, Tag, Reg}) ->
+    Print = fun({SrvId, {Scheme, User, Domain}, Tag, Reg}) ->
         #reg_publish{expires=Expire, data=Data} = Reg,
         io:format("\n --- ~p --- ~p:~s@~s, ~s (~p) ---\n", 
-                  [AppId:name(), Scheme, User, Domain, Tag, Expire-Now]),
+                  [SrvId:name(), Scheme, User, Domain, Tag, Expire-Now]),
         io:format("~p\n", [Data])
     end,
     lists:foreach(Print, get_all()),
@@ -63,8 +63,8 @@ print_all() ->
     integer().
 
 clear() ->
-    Fun = fun(AppId, AOR, Tag, _Val, Acc) ->
-        nklib_store:del({nksip_event_compositor, AppId, AOR, Tag}),
+    Fun = fun(SrvId, AOR, Tag, _Val, Acc) ->
+        nklib_store:del({nksip_event_compositor, SrvId, AOR, Tag}),
         Acc+1
     end,
     fold(Fun, 0).
@@ -72,15 +72,15 @@ clear() ->
 
 %% @private
 all() -> 
-    fold(fun(AppId, AOR, Tag, _Value, Acc) -> [{AppId, AOR, Tag}|Acc] end, []).
+    fold(fun(SrvId, AOR, Tag, _Value, Acc) -> [{SrvId, AOR, Tag}|Acc] end, []).
 
 
 %% @private
 fold(Fun, Acc0) when is_function(Fun, 5) ->
     FoldFun = fun(Key, Value, Acc) ->
         case Key of
-            {nksip_event_compositor, AppId, AOR, Tag} -> 
-                Fun(AppId, AOR, Tag, Value, Acc);
+            {nksip_event_compositor, SrvId, AOR, Tag} -> 
+                Fun(SrvId, AOR, Tag, Value, Acc);
             _ -> 
                 Acc
         end

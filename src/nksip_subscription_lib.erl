@@ -51,12 +51,12 @@
     nksip:handle().
 
 get_handle({user_subs, #subscription{id=SubsId}, 
-               #dialog{app_id=AppId, id=DialogId, call_id=CallId}}) ->
-    App = atom_to_binary(AppId, latin1), 
+               #dialog{app_id=SrvId, id=DialogId, call_id=CallId}}) ->
+    App = atom_to_binary(SrvId, latin1), 
     <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
-get_handle(#sipmsg{app_id=AppId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
+get_handle(#sipmsg{app_id=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
     SubsId = make_id(SipMsg),
-    App = atom_to_binary(AppId, latin1), 
+    App = atom_to_binary(SrvId, latin1), 
     <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
 get_handle(<<"U_", _/binary>>=Id) ->
     Id;
@@ -70,8 +70,8 @@ get_handle(_) ->
 
 parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, App:7/binary, 
          $_, CallId/binary>>) ->
-    AppId = binary_to_existing_atom(App, latin1),
-    {AppId, SubsId, DialogId, CallId};
+    SrvId = binary_to_existing_atom(App, latin1),
+    {SrvId, SubsId, DialogId, CallId};
 parse_handle(_) ->
     error(invalid_handle).
 
@@ -128,7 +128,7 @@ remote_meta(Field, Handle) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->
-    {AppId, SubsId, DialogId, CallId} = parse_handle(Handle),
+    {SrvId, SubsId, DialogId, CallId} = parse_handle(Handle),
     Fun = fun(Dialog) ->
         case find(SubsId, Dialog) of
             #subscription{} = U -> 
@@ -142,7 +142,7 @@ remote_metas(Fields, Handle) when is_list(Fields) ->
                 {error, invalid_subscription}
         end
     end,
-    case nksip_call:apply_dialog(AppId, CallId, DialogId, Fun) of
+    case nksip_call:apply_dialog(SrvId, CallId, DialogId, Fun) of
         {apply, {ok, Values}} -> 
             {ok, Values};
         {apply, {error, {invalid_field, Field}}} -> 
@@ -207,11 +207,11 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
 %% @private Hack to find the UAS subscription from the UAC and the opposite way
 remote_id(Handle, App) ->
-    {_AppId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
+    {_SrvId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
     {ok, DialogHandle} = nksip_dialog:get_handle(Handle),
     RemoteId = nksip_dialog_lib:remote_id(DialogHandle, App),
-    {AppId1, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
-    App1 = atom_to_binary(AppId1, latin1),
+    {SrvId1, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
+    App1 = atom_to_binary(SrvId1, latin1),
     <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, App1/binary, $_, CallId/binary>>.
 
 

@@ -98,8 +98,8 @@ sip_options(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_register(Req, _Call) ->
-    {ok, AppId} = nksip_request:app_id(Req),
-    {reply, {method_not_allowed, AppId:cache_sip_allow()}}.
+    {ok, SrvId} = nksip_request:app_id(Req),
+    {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.
 
 
 %% @doc This function is called by NkSIP to process a new INVITE request as an endpoint.
@@ -115,8 +115,8 @@ sip_invite(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_reinvite(Req, Call) ->
-    {ok, AppId} = nksip_request:app_id(Req),
-    AppId:sip_invite(Req, Call).
+    {ok, SrvId} = nksip_request:app_id(Req),
+    SrvId:sip_invite(Req, Call).
 
 
 %% @doc Called when a pending INVITE request is cancelled.
@@ -188,8 +188,8 @@ sip_refer(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_publish(Req, _Call) ->
-    {ok, AppId} = nksip_request:app_id(Req),
-    {reply, {method_not_allowed, AppId:cache_sip_allow()}}.
+    {ok, SrvId} = nksip_request:app_id(Req),
+    {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.
 
 
 %% @doc Called when a valid INFO request is received.
@@ -238,8 +238,8 @@ sip_session_update(_Status, _Dialog, _Call) ->
 -spec nks_call(atom(), list(), nksip:app_id()) ->
 	{ok, term()} | error | nks_common().
 
-nks_call(Fun, Args, AppId) ->
-	case catch apply(AppId, Fun, Args) of
+nks_call(Fun, Args, SrvId) ->
+	case catch apply(SrvId, Fun, Args) of
 	    {'EXIT', Error} -> 
 	        ?call_error("Error calling callback ~p/~p: ~p", [Fun, length(Args), Error]),
 	        error;
@@ -256,14 +256,14 @@ nks_call(Fun, Args, AppId) ->
 	{reply, nksip:sipreply()} | noreply | nks_common().
 
 
-nks_sip_method(#trans{method='ACK', request=Req}, #call{app_id=AppId}=Call) ->
-	case catch AppId:sip_ack(Req, Call) of
+nks_sip_method(#trans{method='ACK', request=Req}, #call{app_id=SrvId}=Call) ->
+	case catch SrvId:sip_ack(Req, Call) of
 		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
 	noreply;
 
-nks_sip_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
+nks_sip_method(#trans{method=Method, request=Req}, #call{app_id=SrvId}=Call) ->
 	#sipmsg{to={_, ToTag}} = Req,
 	Fun = case Method of
 		'INVITE' when ToTag == <<>> -> sip_invite;
@@ -281,7 +281,7 @@ nks_sip_method(#trans{method=Method, request=Req}, #call{app_id=AppId}=Call) ->
 		'REFER' -> sip_refer;
 		'PUBLISH' -> sip_publish
 	end,
-	case catch AppId:Fun(Req, Call) of
+	case catch SrvId:Fun(Req, Call) of
 		{reply, Reply} -> 
 			{reply, Reply};
 		noreply -> 
@@ -465,7 +465,7 @@ nks_connection_sent(_SipMsg, _Packet) ->
 					       nksip:transport(), binary()) ->
     ok | nks_common().
 
-nks_connection_recv(_AppId, _CallId, _Transp, _Packet) ->
+nks_connection_recv(_SrvId, _CallId, _Transp, _Packet) ->
 	ok.
 
 
@@ -516,7 +516,7 @@ nks_sipapp_updated(SipAppState) ->
 -spec nks_debug(nksip:app_id(), nksip:call_id(), term()) ->
     ok | nks_common().
 
-nks_debug(_AppId, _CallId, _Info) ->
+nks_debug(_SrvId, _CallId, _Info) ->
     ok.
 
 

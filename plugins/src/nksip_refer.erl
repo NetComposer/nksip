@@ -61,16 +61,16 @@ deps() ->
 -spec process(nksip:request(), nksip:call()) ->
     nksip:sipreply().
 
-process(Req, #call{app_id=AppId, call_id=CallId}=Call) ->
+process(Req, #call{app_id=SrvId, call_id=CallId}=Call) ->
     case nksip_sipmsg:header(<<"refer-to">>, Req, uris) of
         [ReferTo] -> 
-            case catch AppId:sip_refer(ReferTo, Req, Call) of
+            case catch SrvId:sip_refer(ReferTo, Req, Call) of
                 true ->
                     {ok, SubsId} = nksip_subscription:get_handle(Req), 
                     InvCallId = <<"nksip_refer_", CallId/binary>>,
                     Opts = [async, auto_2xx_ack, {call_id, InvCallId}, 
                            {refer_subscription_id, SubsId}],
-                    spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
+                    spawn(fun() -> nksip_uac:invite(SrvId, ReferTo, Opts) end),
                     ok;
                 false ->
                     forbidden;

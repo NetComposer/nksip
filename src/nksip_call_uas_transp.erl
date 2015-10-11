@@ -40,7 +40,7 @@
 
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
-        app_id = AppId, 
+        app_id = SrvId, 
         call_id = CallId,
         vias = [Via|_],
         cseq = {_, Method},
@@ -66,11 +66,11 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     end,
     RouteBranch = nklib_util:get_binary(<<"branch">>, ViaOpts),
     GlobalId = nksip_config_cache:global_id(),
-    RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, AppId, RouteBranch}))/binary>>,
+    RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, SrvId, RouteBranch}))/binary>>,
     MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
-    AppId:nks_debug(AppId, CallId, {send_response, Method, Code}),
-    Return = nksip_transport:send(AppId, TranspSpec, MakeRespFun, Opts),
-    AppId:nks_transport_uas_sent(Resp),
+    SrvId:nks_debug(SrvId, CallId, {send_response, Method, Code}),
+    Return = nksip_transport:send(SrvId, TranspSpec, MakeRespFun, Opts),
+    SrvId:nks_transport_uas_sent(Resp),
     Return.
 
 
@@ -80,12 +80,12 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
 
 resend_response(#sipmsg{class={resp, Code, _}, 
                         transport=#transport{}=Transport}=Resp, Opts) ->
-    #sipmsg{app_id=AppId, cseq={_, Method}, call_id=CallId} = Resp,
+    #sipmsg{app_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeResp = fun(_) -> Resp end,
     TranspSpec = [{current, {Proto, Ip, Port, Res}}],
-    Return = nksip_transport:send(AppId, TranspSpec, MakeResp, Opts),
-    AppId:nks_debug(AppId, CallId, {sent_response, Method, Code}),
+    Return = nksip_transport:send(SrvId, TranspSpec, MakeResp, Opts),
+    SrvId:nks_debug(SrvId, CallId, {sent_response, Method, Code}),
     Return;
 
 resend_response(Resp, Opts) ->
@@ -104,7 +104,7 @@ resend_response(Resp, Opts) ->
 
 make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
-        app_id = AppId,
+        app_id = SrvId,
         to = {To, _},
         headers = Headers,
         contacts = Contacts, 
@@ -115,7 +115,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     listen_ip = ListenIp, 
                     listen_port = ListenPort
                 } = Transport) ->
-        ListenHost = nksip_transport:get_listenhost(AppId, ListenIp, Opts),
+        ListenHost = nksip_transport:get_listenhost(SrvId, ListenIp, Opts),
         % ?call_debug("UAS listenhost is ~s", [ListenHost]),
         Scheme = case Proto==tls andalso lists:member(secure, Opts) of
             true -> sips;

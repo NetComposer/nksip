@@ -77,11 +77,11 @@ get_handle(Term) ->
 -spec app_id(nksip:subscription()|nksip:handle()) ->
     {ok, nksip:app_id()}.
 
-app_id({user_subs, _, #dialog{app_id=AppId}}) ->
-    {ok, AppId};
+app_id({user_subs, _, #dialog{app_id=SrvId}}) ->
+    {ok, SrvId};
 app_id(Handle) ->
-    {AppId, _SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Handle),
-    {ok, AppId}.
+    {SrvId, _SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Handle),
+    {ok, SrvId}.
 
 
 %% @doc Gets app's name
@@ -89,8 +89,8 @@ app_id(Handle) ->
     {ok, nksip:app_name()} | {error, term()}.
 
 app_name(Term) -> 
-    {ok, AppId} = app_id(Term),
-    {ok, AppId:name()}.
+    {ok, SrvId} = app_id(Term),
+    {ok, SrvId:name()}.
 
 
 %% @doc Gets thel Call-ID of the subscription
@@ -100,7 +100,7 @@ app_name(Term) ->
 call_id({user_subs, _, #dialog{call_id=CallId}}) ->
     {ok, CallId};
 call_id(Id) ->
-    {_AppId, _SubsId, _DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
+    {_SrvId, _SubsId, _DialogId, CallId} = nksip_subscription_lib:parse_handle(Id),
     {ok, CallId}. 
 
 
@@ -164,13 +164,13 @@ get_all() ->
 -spec get_all(nksip:app_id(), nksip:call_id()) ->
     [nksip:handle()].
 
-get_all(AppId, CallId) ->
+get_all(SrvId, CallId) ->
     lists:flatten([
         case nksip_dialog:meta(subscriptions, Id) of
             {ok, Ids} -> Ids;
             _ -> []
         end
-        || Id <- nksip_dialog:get_all(AppId, CallId)
+        || Id <- nksip_dialog:get_all(SrvId, CallId)
     ]).
 
 

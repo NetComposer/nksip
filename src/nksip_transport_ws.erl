@@ -54,7 +54,7 @@
 -spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
     term().
 
-get_listener(AppId, Transp, Opts) ->
+get_listener(SrvId, Transp, Opts) ->
     case lists:keytake(dispatch, 1, Opts) of
         false -> 
             Dispatch = "/",
@@ -63,11 +63,11 @@ get_listener(AppId, Transp, Opts) ->
             ok
     end,
     Timeout = 1000*nklib_util:get_value(ws_timeout, Opts),
-    Dispatch1 = dispatch(Dispatch, [AppId, Transp, [{timeout, Timeout}]]),
+    Dispatch1 = dispatch(Dispatch, [SrvId, Transp, [{timeout, Timeout}]]),
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     {
         {ws, {Proto, Ip, Port}},
-        {?MODULE, start_link, [AppId, Transp, Dispatch1, Opts1]},
+        {?MODULE, start_link, [SrvId, Transp, Dispatch1, Opts1]},
         permanent,
         5000,
         worker,
@@ -79,9 +79,9 @@ get_listener(AppId, Transp, Opts) ->
 -spec connect(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
     {ok, term()} | {error, term()}.
          
-connect(AppId, Transp, Opts) ->
+connect(SrvId, Transp, Opts) ->
     try
-        case nksip_connection:is_max(AppId) of
+        case nksip_connection:is_max(SrvId) of
             false -> ok;
             true -> throw(max_connections)
         end,
@@ -91,7 +91,7 @@ connect(AppId, Transp, Opts) ->
             wss -> {ssl, ssl}
         end,
         Res1 = case Res of <<>> -> <<"/">>; _ -> Res end,
-        SocketOpts = outbound_opts(Proto, AppId),
+        SocketOpts = outbound_opts(Proto, SrvId),
         Socket = case TranspMod:connect(Ip, Port, SocketOpts) of
             {ok, Socket0} -> Socket0;
             {error, Error1} -> throw(Error1) 
@@ -103,8 +103,8 @@ connect(AppId, Transp, Opts) ->
         end,
         case recv(TranspMod, Socket, <<>>) of
             {ok, Data2} ->
-                ?debug(AppId, <<>>, "received ws reply: ~s", [print_headers(Data2)]),
-                case handshake_resp(AppId, Data2, HandshakeReq) of
+                ?debug(SrvId, <<>>, "received ws reply: ~s", [print_headers(Data2)]),
+                case handshake_resp(SrvId, Data2, HandshakeReq) of
                     ok -> ok;
                     {error, Error3} -> throw(Error3)
                 end;
@@ -119,20 +119,20 @@ connect(AppId, Transp, Opts) ->
             remote_port = Port,
             resource = Res1
         },
-        Timeout = 1000 * nksip_sipapp_srv:config(AppId, ws_timeout),
+        Timeout = 1000 * nksip_sipapp_srv:config(SrvId, ws_timeout),
         Spec = {
-            {AppId, Proto, Ip, Port, make_ref()},
+            {SrvId, Proto, Ip, Port, make_ref()},
             {nksip_connection, start_link, 
-                [AppId, Transp1, Socket, Timeout]},
+                [SrvId, Transp1, Socket, Timeout]},
             temporary,
             5000,
             worker,
             [?MODULE]
         },
-        {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
+        {ok, Pid} = nksip_transport_sup:add_transport(SrvId, Spec),
         TranspMod:controlling_process(Socket, Pid),
         InetMod:setopts(Socket, [{active, once}]),
-        ?debug(AppId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
+        ?debug(SrvId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
         {ok, Pid, Transp1}
     catch
         throw:TError -> {error, TError}
@@ -170,26 +170,26 @@ recv(Mod, Socket, Buff) ->
 
 
 %% @private
-start_link(AppId, Transp, Dispatch, Opts) ->
-    gen_server:start_link(?MODULE, [AppId, Transp, Dispatch, Opts], []).
+start_link(SrvId, Transp, Dispatch, Opts) ->
+    gen_server:start_link(?MODULE, [SrvId, Transp, Dispatch, Opts], []).
     
 
 %% @private 
 -spec init(term()) ->
     gen_server_init(#state{}).
 
-init([AppId, Transp, Dispatch, Opts]) ->
+init([SrvId, Transp, Dispatch, Opts]) ->
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     case 
-        nksip_webserver:start_server(AppId, Proto, Ip, Port, Dispatch, Opts) 
+        nksip_webserver:start_server(SrvId, Proto, Ip, Port, Dispatch, Opts) 
     of
         {ok, WebPid} ->
             Port1 = nksip_webserver:get_port(Proto, Ip, Port),
             Transp1 = Transp#transport{listen_port=Port1},   
-            nklib_proc:put(nksip_transports, {AppId, Transp1}),
-            nklib_proc:put({nksip_listen, AppId}, Transp1),
+            nklib_proc:put(nksip_transports, {SrvId, Transp1}),
+            nklib_proc:put({nksip_listen, SrvId}, Transp1),
             State = #state{
-                app_id = AppId, 
+                app_id = SrvId, 
                 transport = Transp,
                 webserver = erlang:monitor(process, WebPid),
                 timeout = 1000*nklib_util:get_value(ws_timeout, Opts)
@@ -259,7 +259,7 @@ init({Transp, http}, _Req, _Opts) when Transp==tcp; Transp==ssl ->
     {upgrade, protocol, cowboy_websocket}.
 
 %% @private
-websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
+websocket_init(_TransportName, Req, [SrvId, Transp, Opts]) ->
     WsProtos = case cowboy_req:parse_header(<<"sec-websocket-protocol">>, Req) of
         {ok, ProtList, Req2} when is_list(ProtList) -> ProtList;
         {ok, _, Req2} -> []
@@ -276,7 +276,7 @@ websocket_init(_TransportName, Req, [AppId, Transp, Opts]) ->
                 remote_port = RemotePort,
                 resource = Path
             },
-            {ok, Pid} = nksip_connection:start_link(AppId, Transp1, self(), Timeout),
+            {ok, Pid} = nksip_connection:start_link(SrvId, Transp1, self(), Timeout),
             {ok, Req3, #ws_state{conn_pid=Pid}};
         false -> 
             {shutdown, Req2}
@@ -355,10 +355,10 @@ dispatch(List, Args) ->
 -spec outbound_opts(nksip:protocol(), nksip:app_id()) ->
     nksip:optslist().
 
-outbound_opts(ws, _AppId) ->
+outbound_opts(ws, _SrvId) ->
     [binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
 
-outbound_opts(wss, AppId) ->
+outbound_opts(wss, SrvId) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
             DefCert = filename:join(PrivDir, "cert.pem"),
@@ -367,7 +367,7 @@ outbound_opts(wss, AppId) ->
             DefCert = "",
             DefKey = ""
     end,
-    Config = nksip_sipapp_srv:config(AppId),
+    Config = nksip_sipapp_srv:config(SrvId),
     Cert = nklib_util:get_value(certfile, Config, DefCert),
     Key = nklib_util:get_value(keyfile, Config, DefKey),
     lists:flatten([
@@ -402,7 +402,7 @@ handshake_req(Ip, Port, Res, Opts) ->
 -spec handshake_resp(nksip:app_id(), binary(), #handshake{}) ->
     ok | {error, term()}.
 
-handshake_resp(AppId, Data, Req) ->
+handshake_resp(SrvId, Data, Req) ->
     case wsock_http:decode(Data, response) of
         {ok, Resp} ->
             case wsock_handshake:handle_response(Resp, Req) of
@@ -416,7 +416,7 @@ handshake_resp(AppId, Data, Req) ->
                                 "sip" -> 
                                     ok;
                                 _ ->
-                                    ?warning(AppId, <<>>, 
+                                    ?warning(SrvId, <<>>, 
                                         "websocket server did not send protocol: ~p", 
                                         [Headers])
                             end

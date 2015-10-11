@@ -90,8 +90,8 @@ parse_config(Opts) ->
 -spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
     {ok, nksip_sipapp_srv:state()}.
 
-terminate(AppId, SipAppState) ->  
-    clear(AppId),
+terminate(SrvId, SipAppState) ->  
+    clear(SrvId),
     {ok, SipAppState}.
 
 
@@ -106,8 +106,8 @@ terminate(AppId, SipAppState) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 find(App, AOR, Tag) ->
-    {ok, AppId} = nkservice_server:find(App),
-    nksip_event_compositor_lib:store_get(AppId, AOR, Tag).
+    {ok, SrvId} = nkservice_server:find(App),
+    nksip_event_compositor_lib:store_get(SrvId, AOR, Tag).
 
 
 %% @doc Processes a PUBLISH request according to RFC3903
@@ -115,12 +115,12 @@ find(App, AOR, Tag) ->
     nksip:sipreply().
 
 request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
-    #sipmsg{app_id=AppId, ruri=RUri, expires=Expires, body=Body} = Req,
+    #sipmsg{app_id=SrvId, ruri=RUri, expires=Expires, body=Body} = Req,
     Expires1 = case is_integer(Expires) andalso Expires>0 of
         true -> 
             Expires;
         _ -> 
-            nksip_sipapp_srv:config(AppId, nksip_event_compositor_default_expires)
+            nksip_sipapp_srv:config(SrvId, nksip_event_compositor_default_expires)
     end,
     AOR = {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain},
     case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
@@ -128,19 +128,19 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
             {invalid_request, <<"No Body">>};
         [] ->
             Tag = nklib_util:uid(),
-            nksip_event_compositor_lib:store_put(AppId, AOR, Tag, Expires1, Body);
+            nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Body);
         [Tag] ->
-            case find(AppId, AOR, Tag) of
+            case find(SrvId, AOR, Tag) of
                 {ok, _Reg} when Expires==0 -> 
-                    nksip_event_compositor_lib:store_del(AppId, AOR, Tag);
+                    nksip_event_compositor_lib:store_del(SrvId, AOR, Tag);
                 {ok, Reg} when Body == <<>> -> 
-                    nksip_event_compositor_lib:store_put(AppId, AOR, Tag, Expires1, Reg);
+                    nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Reg);
                 {ok, _} -> 
-                    nksip_event_compositor_lib:store_put(AppId, AOR, Tag, Expires1, Body);
+                    nksip_event_compositor_lib:store_put(SrvId, AOR, Tag, Expires1, Body);
                 not_found ->    
                     conditional_request_failed;
                 {error, Error} ->
-                    ?warning(AppId, <<>>, "Error calling callback: ~p", [Error]),
+                    ?warning(SrvId, <<>>, "Error calling callback: ~p", [Error]),
                     {internal_error, <<"Callback Invalid Response">>}
             end;
         _ ->
@@ -154,8 +154,8 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
 
 clear(App) -> 
     case nkservice_server:find(App) of
-        {ok, AppId} ->
-            case nksip_event_compositor_lib:store_del_all(AppId) of
+        {ok, SrvId} ->
+            case nksip_event_compositor_lib:store_del_all(SrvId) of
                 ok -> ok;
                 _ -> callback_error
             end;

@@ -31,20 +31,20 @@
 
 
 %% @doc Called when the status of an automatic registration status changes.
--spec sip_uac_auto_register_updated_register(AppId::nksip:app_id(), 
+-spec sip_uac_auto_register_updated_register(SrvId::nksip:app_id(), 
 	                               RegId::term(), OK::boolean()) ->
     ok.
 
-sip_uac_auto_register_updated_register( _AppId, _RegId, _OK) ->
+sip_uac_auto_register_updated_register( _SrvId, _RegId, _OK) ->
     ok.
 
 
 %% @doc Called when the status of an automatic ping status changes.
--spec sip_uac_auto_register_updated_ping(AppId::nksip:app_id(), 
+-spec sip_uac_auto_register_updated_ping(SrvId::nksip:app_id(), 
 	                           PingId::term(), OK::boolean()) ->
     ok.
 
-sip_uac_auto_register_updated_ping(_AppId, _PingId, _OK) ->
+sip_uac_auto_register_updated_ping(_SrvId, _PingId, _OK) ->
     ok.
 
 

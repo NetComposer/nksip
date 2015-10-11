@@ -68,8 +68,8 @@ nks_handle_info({'DOWN', Mon, process, _Pid, _}, SipAppState) ->
     #state_ob{regs=RegsOb} = get_state(SipAppState),
     case lists:keyfind(Mon, #sipreg_ob.conn_monitor, RegsOb) of
         #sipreg_ob{id=RegId, cseq=CSeq} ->
-            #sipapp_srv{app_id=_AppId} = SipAppState,
-            % ?info(AppId, <<>>, "register outbound flow ~p has failed", [RegId]),
+            #sipapp_srv{app_id=_SrvId} = SipAppState,
+            % ?info(SrvId, <<>>, "register outbound flow ~p has failed", [RegId]),
             Meta = [{cseq_num, CSeq}],
             Msg = {'$nksip_uac_auto_register_answer_register', RegId, 503, Meta},
             gen_server:cast(self(), Msg),
@@ -80,10 +80,10 @@ nks_handle_info({'DOWN', Mon, process, _Pid, _}, SipAppState) ->
 
 nks_handle_info({'$nksip_uac_auto_outbound_notify', RegId}, SipAppState) ->
     #state_ob{regs=RegsOb} = StateOb = get_state(SipAppState),
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
         {value, RegOb, RegsOb1} -> 
-            ?debug(AppId, <<>>, "connection for register ~p successfully refreshed",
+            ?debug(SrvId, <<>>, "connection for register ~p successfully refreshed",
                    [RegId]),
             StateOb1 = StateOb#state_ob{regs=[RegOb#sipreg_ob{fails=0}|RegsOb1]},
             {ok, set_state(StateOb1, SipAppState)};
@@ -102,7 +102,7 @@ nks_handle_info(_Msg, _SipAppState) ->
 nks_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,   
     #state_ob{outbound=Ob, pos=NextPos, regs=RegsOb} = StateOb = get_state(SipAppState),
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     User = nklib_util:get_value(user, Opts, []),
     case Ob andalso lists:member('$nksip_uac_auto_outbound', User) of
         true ->
@@ -121,7 +121,7 @@ nks_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
             Opts1 = [contact, {cseq_num, CSeq}, {meta, Meta}, {reg_id, Pos} | Opts],
             Self = self(),
             Fun = fun() ->
-                case nksip_uac:register(AppId, RUri, Opts1) of
+                case nksip_uac:register(SrvId, RUri, Opts1) of
                     {ok, Code, Meta1} -> ok;
                     _ -> Code=500, Meta1=[{cseq_num, CSeq}]
                 end,
@@ -133,7 +133,7 @@ nks_uac_auto_register_launch_register(Reg, Sync, SipAppState)->
                 false -> spawn_link(Fun)
             end,
             StateOb1 = StateOb#state_ob{pos=max(NextPos, Pos+1), regs=RegsOb1},
-            ?debug(AppId, <<>>, "Started auto registration outbound: ~p", [RegId]),
+            ?debug(SrvId, <<>>, "Started auto registration outbound: ~p", [RegId]),
             Reg1 = Reg#sipreg{next=undefined},
             {ok, Reg1, set_state(StateOb1, SipAppState)};
         false ->
@@ -164,8 +164,8 @@ nks_uac_auto_register_launch_unregister(Reg, Sync, SipAppState)->
             end,
             Opts1 = [contact, {cseq_num, CSeq}, {reg_id, Pos} |
                      nklib_util:store_value(expires, 0, Opts)],
-            #sipapp_srv{app_id=AppId} = SipAppState,
-            Fun = fun() -> nksip_uac:register(AppId, RUri, Opts1) end,
+            #sipapp_srv{app_id=SrvId} = SipAppState,
+            Fun = fun() -> nksip_uac:register(SrvId, RUri, Opts1) end,
             case Sync of
                 true -> Fun();
                 false -> spawn_link(Fun)
@@ -188,7 +188,7 @@ nks_uac_auto_register_update_register(Reg, Code, _Meta, SipAppState) when Code<2
 
 nks_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) when Code<300 ->
     #sipreg{id=RegId, call_id=CallId, opts=Opts} = Reg,
-    #sipapp_srv{app_id=AppId} = SipAppState,
+    #sipapp_srv{app_id=SrvId} = SipAppState,
     #state_ob{regs=RegsOb} = StateOb = get_state(SipAppState),
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
         {value, #sipreg_ob{conn_monitor=Monitor}=RegOb1, RegsOb1} ->
@@ -202,9 +202,9 @@ nks_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) when Code<30
             % (or process down)
             RegOb2 = case lists:member(<<"outbound">>, Require) of
                 true ->
-                    case nksip_transport:get_connected(AppId, Proto, Ip, Port, Res) of
+                    case nksip_transport:get_connected(SrvId, Proto, Ip, Port, Res) of
                         [{_, Pid}|_] -> 
-                            case start_refresh(AppId, Meta, Proto, Pid, Reg) of
+                            case start_refresh(SrvId, Meta, Proto, Pid, Reg) of
                                 ok -> 
                                     Mon = erlang:monitor(process, Pid),
                                     RegOb1#sipreg_ob{conn_monitor=Mon, conn_pid=Pid};
@@ -212,7 +212,7 @@ nks_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) when Code<30
                                     RegOb1
                             end;
                         [] -> 
-                            ?notice(AppId, CallId, 
+                            ?notice(SrvId, CallId, 
                                     "could not start outbound keep-alive", []),
                             RegOb1
                     end;
@@ -241,8 +241,8 @@ nks_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) ->
                 true -> nksip_connection:stop_refresh(Pid);
                 false -> ok
             end,
-            #sipapp_srv{app_id=AppId} = SipAppState,
-            Config = nksip_sipapp_srv:config(AppId),
+            #sipapp_srv{app_id=SrvId} = SipAppState,
+            Config = nksip_sipapp_srv:config(SrvId),
             MaxTime = nklib_util:get_value(nksip_uac_auto_outbound_max_time, Config),
             BaseTime = case [true || #sipreg_ob{fails=0} <- RegsOb] of
                 [] -> nklib_util:get_value(nksip_uac_auto_outbound_all_fail, Config);
@@ -250,7 +250,7 @@ nks_uac_auto_register_update_register(Reg, Code, Meta, SipAppState) ->
             end,
             Upper = min(MaxTime, BaseTime*math:pow(2, Fails+1)),
             Time = round(crypto:rand_uniform(50, 101) * Upper / 100),
-            ?notice(AppId, CallId, "Outbound registration failed "
+            ?notice(SrvId, CallId, "Outbound registration failed "
                          "(basetime: ~p, fails: ~p, upper: ~p, time: ~p)",
                          [BaseTime, Fails+1, Upper, Time]),
             RegOb2 = RegOb1#sipreg_ob{
@@ -283,7 +283,7 @@ set_state(State, SipAppState) ->
 
 
 %% @private
-start_refresh(AppId, Meta, Proto, Pid, Reg) ->
+start_refresh(SrvId, Meta, Proto, Pid, Reg) ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
     FlowTimer = case nklib_util:get_value(<<"flow-timer">>, Meta) of
         [FlowTimer0] -> nklib_util:to_integer(FlowTimer0);
@@ -293,10 +293,10 @@ start_refresh(AppId, Meta, Proto, Pid, Reg) ->
         FT when is_integer(FT), FT > 5 -> 
             FT;
         _ when Proto==udp -> 
-            nksip_sipapp_srv:config(AppId,
+            nksip_sipapp_srv:config(SrvId,
                                     nksip_uac_auto_outbound_default_udp_ttl);
         _ -> 
-            nksip_sipapp_srv:config(AppId,
+            nksip_sipapp_srv:config(SrvId,
                                     nksip_uac_auto_outbound_default_tcp_ttl)
     end,
     Ref = {'$nksip_uac_auto_outbound_notify', RegId},
@@ -304,11 +304,11 @@ start_refresh(AppId, Meta, Proto, Pid, Reg) ->
     Time = (Rand*Secs) div 100,
     case nksip_connection:start_refresh(Pid, Time, Ref) of
         ok -> 
-            ?info(AppId, CallId, "successfully set outbound keep-alive: ~p secs", 
+            ?info(SrvId, CallId, "successfully set outbound keep-alive: ~p secs", 
                   [Secs]),
             ok;
         error -> 
-            ?notice(AppId, CallId, "could not start outbound keep-alive", []),
+            ?notice(SrvId, CallId, "could not start outbound keep-alive", []),
             error
     end.
 

@@ -35,8 +35,8 @@
     continue.
 
 nks_connection_sent(SipMsg, Packet) ->
-    #sipmsg{app_id=AppId, call_id=CallId, transport=Transp} = SipMsg,
-    nksip_trace:sipmsg(AppId, CallId, <<"TO">>, Transp, Packet),
+    #sipmsg{app_id=SrvId, call_id=CallId, transport=Transp} = SipMsg,
+    nksip_trace:sipmsg(SrvId, CallId, <<"TO">>, Transp, Packet),
     continue.
 
 
@@ -45,6 +45,6 @@ nks_connection_sent(SipMsg, Packet) ->
 					       nksip:transport(), binary()) ->
     continue.
 
-nks_connection_recv(AppId, CallId, Transp, Packet) ->
-    nksip_trace:sipmsg(AppId, CallId, <<"FROM">>, Transp, Packet),
+nks_connection_recv(SrvId, CallId, Transp, Packet) ->
+    nksip_trace:sipmsg(SrvId, CallId, <<"FROM">>, Transp, Packet),
     continue.

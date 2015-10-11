@@ -43,8 +43,8 @@
 -spec start(nksip:app_id(), nksip:call_id()) ->
     {ok, pid()}.
 
-start(AppId, CallId) ->
-    gen_server:start(?MODULE, [AppId, CallId], []).
+start(SrvId, CallId) ->
+    gen_server:start(?MODULE, [SrvId, CallId], []).
 
 
 %% @doc Stops a call (deleting  all associated transactions, dialogs and forks!).
@@ -86,11 +86,11 @@ get_data(Pid) ->
 -spec init(term()) ->
     gen_server_init(call()).
 
-init([AppId, CallId]) ->
-    nklib_counters:async([nksip_calls, {nksip_calls, AppId}]),
+init([SrvId, CallId]) ->
+    nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
-        app_id = AppId, 
+        app_id = SrvId, 
         call_id = CallId, 
         next = Id+1,
         hibernate = false,
@@ -100,9 +100,9 @@ init([AppId, CallId]) ->
         auths = [],
         msgs = [],
         events = [],
-        timers = AppId:config_timers()
+        timers = SrvId:config_timers()
     },
-    nksip_util:put_log_cache(AppId, CallId),
+    nksip_util:put_log_cache(SrvId, CallId),
     Timeout = 2000*(Call#call.timers)#call_timers.trans,
     erlang:start_timer(Timeout, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()]),

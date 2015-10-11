@@ -43,18 +43,18 @@
                    term(), nksip:optslist()) ->
     {ok, pid()} | {error, term()}.
 
-start_server(AppId, Proto, Ip, Port, Disp, Opts) 
+start_server(SrvId, Proto, Ip, Port, Disp, Opts) 
         when 
             (Proto==tcp orelse Proto==tls orelse Proto==ws orelse Proto==wss) andalso
             is_list(Disp) andalso is_list(Opts) ->
-    case nksip_transport_sup:get_pid(AppId) of
+    case nksip_transport_sup:get_pid(SrvId) of
         AppPid when is_pid(AppPid) ->
             case catch cowboy_router:compile(Disp) of
                 {'EXIT', _} -> 
                     {error, invalid_dispatch};
                 _ ->
                     Ref = {Proto, Ip, Port},
-                    gen_server:call(?MODULE, {start, AppId, AppPid, Ref, Disp, Opts})
+                    gen_server:call(?MODULE, {start, SrvId, AppPid, Ref, Disp, Opts})
             end;
         _ ->
             {error, sipapp_not_found}
@@ -66,8 +66,8 @@ start_server(AppId, Proto, Ip, Port, Disp, Opts)
                   inet:ip_address(), inet:port_number()) ->
     ok | {error, in_use} | {error, not_found}.
 
-stop_server(AppId, Proto, Ip, Port) ->
-    gen_server:call(?MODULE, {stop, AppId, {Proto, Ip, Port}}).
+stop_server(SrvId, Proto, Ip, Port) ->
+    gen_server:call(?MODULE, {stop, SrvId, {Proto, Ip, Port}}).
 
 
 %% @doc Get the real port of a webserver
@@ -129,7 +129,7 @@ init([]) ->
 -spec handle_call(term(), from(), #state{}) ->
     gen_server_call(#state{}).
 
-handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
+handle_call({start, SrvId, AppPid, Ref, Disp, Opts}, _From, State) ->
     #state{servers=Servers, apps=Apps} = State,
     case lists:keytake(Ref, #server_info.ref, Servers) of
         false ->
@@ -137,7 +137,7 @@ handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
                 {ok, WebPid} ->
                     % We will receive a {webserver_started, _, _} msg
                     App = #app_info{
-                        index = {AppId, Ref},
+                        index = {SrvId, Ref},
                         dispatch = Disp,
                         mon = erlang:monitor(process, AppPid)
                     },
@@ -147,10 +147,10 @@ handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
                     {reply, {error, Error}, State}
             end;
         {value, #server_info{apps=WebApps, pid=WebPid}=Server, Servers1} ->
-            Apps1 = case lists:keytake({AppId, Ref}, #app_info.index, Apps) of
+            Apps1 = case lists:keytake({SrvId, Ref}, #app_info.index, Apps) of
                 false -> 
                     App = #app_info{
-                        index = {AppId, Ref},
+                        index = {SrvId, Ref},
                         dispatch = Disp,
                         mon = erlang:monitor(process, AppPid)
                     },
@@ -160,7 +160,7 @@ handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
             end,
             case do_update_server(Ref, Apps1) of
                 ok ->
-                    WebApps1 = nklib_util:store_value(AppId, WebApps),
+                    WebApps1 = nklib_util:store_value(SrvId, WebApps),
                     Server1 = Server#server_info{apps=WebApps1},
                     State1 = State#state{
                         servers = [Server1|Servers1], 
@@ -172,13 +172,13 @@ handle_call({start, AppId, AppPid, Ref, Disp, Opts}, _From, State) ->
             end
     end;
 
-handle_call({stop, AppId, Ref}, _From, State) ->
+handle_call({stop, SrvId, Ref}, _From, State) ->
     #state{servers=Servers, apps=Apps} = State,
     case lists:keytake(Ref, #server_info.ref, Servers) of
         false ->
             {reply, {error, not_found}, State};
         {value, #server_info{apps=WebApps, mon=WebMon}=Server, Servers1} ->
-            Apps1 = case lists:keytake({AppId, Ref}, #app_info.index, Apps) of
+            Apps1 = case lists:keytake({SrvId, Ref}, #app_info.index, Apps) of
                 false -> 
                     Apps;
                 {value, #app_info{mon=AppMon}, RestApps} -> 
@@ -186,9 +186,9 @@ handle_call({stop, AppId, Ref}, _From, State) ->
                     RestApps
             end,
             State1 = State#state{apps=Apps1},
-            case lists:member(AppId, WebApps) of
+            case lists:member(SrvId, WebApps) of
                 true ->
-                    case WebApps -- [AppId] of
+                    case WebApps -- [SrvId] of
                         [] ->
                             erlang:demonitor(WebMon),
                             Reply = do_stop_server(Ref),
@@ -216,7 +216,7 @@ handle_call(Msg, _From, State) ->
 
 handle_cast({webserver_started, Ref, WebPid}, State) ->
     #state{apps=Apps, servers=Servers} = State,
-    WebApps = [AppId || #app_info{index={AppId, WebRef}} <- Apps, WebRef==Ref],
+    WebApps = [SrvId || #app_info{index={SrvId, WebRef}} <- Apps, WebRef==Ref],
     Server = #server_info{
         ref = Ref, 
         apps = WebApps, 
@@ -241,8 +241,8 @@ handle_cast(Msg, State) ->
 handle_info({'DOWN', MRef, process, _Pid, _Reason}, State) ->
     #state{apps=Apps, servers=Servers} = State,
     case lists:keyfind(MRef, #app_info.mon, Apps) of
-        #app_info{index={AppId, Ref}} -> 
-            {reply, _, State1} = handle_call({stop, AppId, Ref}, none, State),
+        #app_info{index={SrvId, Ref}} -> 
+            {reply, _, State1} = handle_call({stop, SrvId, Ref}, none, State),
             {noreply, State1};
         false ->
             case lists:keytake(MRef, #server_info.mon, Servers) of

@@ -101,7 +101,7 @@ make_ha1(User, Pass, Realm) ->
 make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     #sipmsg{
         class = {req, Method},
-        % app_id = AppId,
+        % app_id = SrvId,
         ruri = RUri, 
         from = {#uri{user=User}, _},
         headers = ReqHeaders
@@ -169,15 +169,15 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
 
 make_response(Realm, Req) ->
     #sipmsg{
-        app_id = AppId, 
+        app_id = SrvId, 
         call_id = CallId,
         transport=#transport{remote_ip=Ip, remote_port=Port}
     } = Req,
     Nonce = nklib_util:luid(),
-    Config = nksip_sipapp_srv:config(AppId),
+    Config = nksip_sipapp_srv:config(SrvId),
     Timeout = nklib_util:get_value(nonce_timeout, Config),
-    put_nonce(AppId, CallId, Nonce, {Ip, Port}, Timeout),
-    Opaque = nklib_util:hash(AppId),
+    put_nonce(SrvId, CallId, Nonce, {Ip, Port}, Timeout),
+    Opaque = nklib_util:hash(SrvId),
     list_to_binary([
         "Digest realm=\"", Realm, "\", nonce=\"", Nonce, "\", "
         "algorithm=MD5, qop=\"auth\", opaque=\"", Opaque, "\""
@@ -200,10 +200,10 @@ make_response(Realm, Req) ->
     [Authorized] 
     when Authorized :: {{digest, Realm::binary()}, true|invalid|false}.
 
-authorize_data(Req, #call{app_id=AppId}=Call) ->
+authorize_data(Req, #call{app_id=SrvId}=Call) ->
     PassFun = fun(User, Realm) ->
         Args = [User, Realm, Req, Call],
-        case AppId:nks_call(sip_get_user_pass, Args, AppId) of
+        case SrvId:nks_call(sip_get_user_pass, Args, SrvId) of
             {ok, Reply} -> ok;
             error -> Reply = false
         end,
@@ -339,7 +339,7 @@ make_auth_request(AuthHeaderData, UserOpts) ->
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
     #sipmsg{
         class = {req, Method},
-        app_id = AppId,
+        app_id = SrvId,
         call_id = CallId,
         transport = #transport{remote_ip=Ip, remote_port=Port}
     } = Req,
@@ -349,7 +349,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
         nklib_util:get_value(algorithm, AuthHeader, 'MD5') /= 'MD5'
     of
         true ->
-            ?notice(AppId, CallId, 
+            ?notice(SrvId, CallId, 
                     "received invalid parameters in Authorization Header: ~p", 
                     [AuthHeader]),
             invalid;
@@ -357,11 +357,11 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
             % Should we check the uri in the authdata matches the ruri of the request?
             Uri = nklib_util:get_value(uri, AuthHeader),
             Nonce = nklib_util:get_value(nonce, AuthHeader),
-            Found = get_nonce(AppId, CallId, Nonce),
+            Found = get_nonce(SrvId, CallId, Nonce),
             if
                 Found==not_found ->
                     Opaque = nklib_util:get_value(opaque, AuthHeader),
-                    case nklib_util:hash(AppId) of
+                    case nklib_util:hash(SrvId) of
                         Opaque -> ?call_notice("received invalid nonce", []);
                         _ -> ok
                     end,
@@ -455,12 +455,12 @@ md5(Term) -> crypto:hash(md5, Term).
 
 
 %% @private
-get_nonce(AppId, CallId, Nonce) ->
-    nklib_store:get({nksip_auth_nonce, AppId, CallId, Nonce}).
+get_nonce(SrvId, CallId, Nonce) ->
+    nklib_store:get({nksip_auth_nonce, SrvId, CallId, Nonce}).
 
 %% @private
-put_nonce(AppId, CallId, Nonce, Term, Timeout) ->
-    nklib_store:put({nksip_auth_nonce, AppId, CallId, Nonce}, Term,
+put_nonce(SrvId, CallId, Nonce, Term, Timeout) ->
+    nklib_store:put({nksip_auth_nonce, SrvId, CallId, Nonce}, Term,
                     [{ttl, Timeout}]).
 
 

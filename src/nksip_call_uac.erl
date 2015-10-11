@@ -55,9 +55,9 @@
 
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
-    #call{app_id=AppId} = Call,
+    #call{app_id=SrvId} = Call,
     {continue, [Req1, Opts1, From1, Call1]} = 
-        AppId:nks_uac_pre_request(Req, Opts, From, Call),
+        SrvId:nks_uac_pre_request(Req, Opts, From, Call),
     {#trans{id=TransId}=UAC, Call2} = make_trans(Req1, Opts1, From1, Call1),
     case lists:member(async, Opts1) andalso From1 of
         {srv, SrvFrom} when Method=='ACK' -> 
@@ -97,11 +97,11 @@ dialog(DialogId, Method, Opts, Call) ->
     {ok, nksip:request(), nksip:optslist(), nksip_call:call()} | {error, term()}.
 
 make_dialog(DialogId, Method, Opts, Call) ->
-    #call{app_id=AppId, call_id=CallId} = Call,
+    #call{app_id=SrvId, call_id=CallId} = Call,
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
         {ok, RUri, Opts1, Call1} -> 
             Opts2 = [{call_id, CallId} | Opts1],
-            case nksip_call_uac_make:make(AppId, Method, RUri, Opts2) of
+            case nksip_call_uac_make:make(SrvId, Method, RUri, Opts2) of
                 {ok, Req, ReqOpts} ->
                     {ok, Req, ReqOpts, Call1};
                 {error, Error} ->
@@ -262,7 +262,7 @@ make_trans(Req, Opts, From, Call) ->
 -spec response(nksip:response(), nksip_call:call()) ->
     nksip_call:call().
 
-response(Resp, #call{app_id=AppId, trans=Trans}=Call) ->
+response(Resp, #call{app_id=SrvId, trans=Trans}=Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}} = Resp,
     TransId = nksip_call_lib:uac_transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of
@@ -273,7 +273,7 @@ response(Resp, #call{app_id=AppId, trans=Trans}=Call) ->
             end,
             DialogId = nksip_call_uac_dialog:uac_dialog_id(Resp, IsProxy, Call),
             Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId},
-            case AppId:nks_uac_pre_response(Resp1, UAC, Call) of
+            case SrvId:nks_uac_pre_response(Resp1, UAC, Call) of
                 {continue, [Resp2, UAC2, Call2]} ->
                     nksip_call_uac_resp:response(Resp2, UAC2, Call2);
                 {ok, Call2} ->

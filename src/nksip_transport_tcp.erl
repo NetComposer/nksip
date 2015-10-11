@@ -40,21 +40,21 @@
 -spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
     term().
 
-get_listener(AppId, Transp, Opts) ->
+get_listener(SrvId, Transp, Opts) ->
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     Listeners = nklib_util:get_value(listeners, Opts, 100),
     Module = case Proto of
         tcp -> ranch_tcp;
         tls -> ranch_ssl
     end,
-    Timeout = 1000 * nksip_sipapp_srv:config(AppId, tcp_timeout),
+    Timeout = 1000 * nksip_sipapp_srv:config(SrvId, tcp_timeout),
     Spec = ranch:child_spec(
-        {AppId, Proto, Ip, Port}, 
+        {SrvId, Proto, Ip, Port}, 
         Listeners, 
         Module,
         listen_opts(Proto, Ip, Port, Opts), 
         ?MODULE,
-        [AppId, Transp, Timeout]),
+        [SrvId, Transp, Timeout]),
     % Little hack to use our start_link instead of ranch's one
     {ranch_listener_sup, start_link, StartOpts} = element(2, Spec),
     setelement(2, Spec, {?MODULE, ranch_start_link, StartOpts}).
@@ -64,11 +64,11 @@ get_listener(AppId, Transp, Opts) ->
 -spec connect(nksip:app_id(), nksip:transport()) ->
     {ok, term()} | {error, term()}.
          
-connect(AppId, Transp) ->
-    case nksip_connection:is_max(AppId) of
+connect(SrvId, Transp) ->
+    case nksip_connection:is_max(SrvId) of
         false ->
             #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-            SocketOpts = outbound_opts(Proto, AppId),
+            SocketOpts = outbound_opts(Proto, SrvId),
             {InetMod, TranspMod} = case Proto of
                 tcp -> {inet, gen_tcp};
                 tls -> {ssl, ssl}
@@ -82,20 +82,20 @@ connect(AppId, Transp) ->
                         remote_ip = Ip,
                         remote_port = Port
                     },
-                    Timeout = 1000 * nksip_sipapp_srv:config(AppId, tcp_timeout),
+                    Timeout = 1000 * nksip_sipapp_srv:config(SrvId, tcp_timeout),
                     Spec = {
-                        {AppId, Proto, Ip, Port, make_ref()},
+                        {SrvId, Proto, Ip, Port, make_ref()},
                         {nksip_connection, start_link, 
-                            [AppId, Transp1, Socket, Timeout]},
+                            [SrvId, Transp1, Socket, Timeout]},
                         temporary,
                         5000,
                         worker,
                         [?MODULE]
                     },
-                    {ok, Pid} = nksip_transport_sup:add_transport(AppId, Spec),
+                    {ok, Pid} = nksip_transport_sup:add_transport(SrvId, Spec),
                     TranspMod:controlling_process(Socket, Pid),
                     InetMod:setopts(Socket, [{active, once}]),
-                    ?debug(AppId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
+                    ?debug(SrvId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
                     {ok, Pid, Transp1};
                 {error, Error} ->
                     {error, Error}
@@ -115,10 +115,10 @@ connect(AppId, Transp) ->
 -spec outbound_opts(nksip:protocol(), nksip:app_id()) ->
     nksip:optslist().
 
-outbound_opts(tcp, _AppId) ->
+outbound_opts(tcp, _SrvId) ->
     [binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw}];
 
-outbound_opts(tls, AppId) ->
+outbound_opts(tls, SrvId) ->
     case code:priv_dir(nksip) of
         PrivDir when is_list(PrivDir) ->
             DefCert = filename:join(PrivDir, "cert.pem"),
@@ -127,7 +127,7 @@ outbound_opts(tls, AppId) ->
             DefCert = "",
             DefKey = ""
     end,
-    Config = nksip_sipapp_srv:config(AppId),
+    Config = nksip_sipapp_srv:config(SrvId),
     Cert = nklib_util:get_value(certfile, Config, DefCert),
     Key = nklib_util:get_value(keyfile, Config, DefKey),
     lists:flatten([
@@ -176,16 +176,16 @@ listen_opts(tls, Ip, Port, Opts) ->
     {ok, pid()}.
 
 ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol, 
-                    [AppId, Transp, Timeout]) ->
+                    [SrvId, Transp, Timeout]) ->
     case 
         ranch_listener_sup:start_link(Ref, NbAcceptors, RanchTransp, TransOpts, 
-                                      Protocol, [AppId, Transp, Timeout])
+                                      Protocol, [SrvId, Transp, Timeout])
     of
         {ok, Pid} ->
             Port = ranch:get_port(Ref),
             Transp1 = Transp#transport{local_port=Port, listen_port=Port},
-            nklib_proc:put(nksip_transports, {AppId, Transp1}, Pid),
-            nklib_proc:put({nksip_listen, AppId}, Transp1, Pid),
+            nklib_proc:put(nksip_transports, {SrvId, Transp1}, Pid),
+            nklib_proc:put({nksip_listen, SrvId}, Transp1, Pid),
             {ok, Pid};
         Other ->
             Other
@@ -196,7 +196,7 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol,
 -spec start_link(pid(), port(), atom(), term()) ->
     {ok, pid()}.
 
-start_link(_ListenerPid, Socket, Module, [AppId, Transp, Timeout]) ->
+start_link(_ListenerPid, Socket, Module, [SrvId, Transp, Timeout]) ->
     {ok, {LocalIp, LocalPort}} = Module:sockname(Socket),
     {ok, {RemoteIp, RemotePort}} = Module:peername(Socket),
     Transp1 = Transp#transport{
@@ -208,6 +208,6 @@ start_link(_ListenerPid, Socket, Module, [AppId, Transp, Timeout]) ->
         listen_port = LocalPort
     },
     Module:setopts(Socket, [{nodelay, true}, {keepalive, true}]),
-    nksip_connection:start_link(AppId, Transp1, Socket, Timeout).
+    nksip_connection:start_link(SrvId, Transp1, Socket, Timeout).
 
 

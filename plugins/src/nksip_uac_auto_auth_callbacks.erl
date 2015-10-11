@@ -35,7 +35,7 @@
 -spec nks_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()} | {error, term()}.
 
-nks_parse_uac_opts(#sipmsg{app_id=_AppId}=Req, Opts) ->
+nks_parse_uac_opts(#sipmsg{app_id=_SrvId}=Req, Opts) ->
     case nksip_uac_auto_auth:do_parse_config(Opts) of
         {ok, Opts2} ->
             {continue, [Req, Opts2]};

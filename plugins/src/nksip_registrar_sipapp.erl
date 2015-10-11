@@ -27,28 +27,28 @@
 
 % @doc Called when a operation database must be done on the registrar database.
 %% This default implementation uses the built-in memory database.
--spec sip_registrar_store(StoreOp, AppId) ->
+-spec sip_registrar_store(StoreOp, SrvId) ->
     [RegContact] | ok | not_found when 
         StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
                    {del, AOR} | del_all,
-        AppId :: nksip:app_id(),
+        SrvId :: nksip:app_id(),
         AOR :: nksip:aor(),
         RegContact :: nksip_registrar:reg_contact(),
         TTL :: integer().
 
-sip_registrar_store(Op, AppId) ->
+sip_registrar_store(Op, SrvId) ->
     case Op of
         {get, AOR} ->
-            nklib_store:get({nksip_registrar, AppId, AOR}, []);
+            nklib_store:get({nksip_registrar, SrvId, AOR}, []);
         {put, AOR, Contacts, TTL} -> 
-            nklib_store:put({nksip_registrar, AppId, AOR}, Contacts, [{ttl, TTL}]);
+            nklib_store:put({nksip_registrar, SrvId, AOR}, Contacts, [{ttl, TTL}]);
         {del, AOR} ->
-            nklib_store:del({nksip_registrar, AppId, AOR});
+            nklib_store:del({nksip_registrar, SrvId, AOR});
         del_all ->
             FoldFun = fun(Key, _Value, Acc) ->
                 case Key of
-                    {nksip_registrar, AppId, AOR} -> 
-                        nklib_store:del({nksip_registrar, AppId, AOR});
+                    {nksip_registrar, SrvId, AOR} -> 
+                        nklib_store:del({nksip_registrar, SrvId, AOR});
                     _ -> 
                         Acc
                 end

@@ -150,7 +150,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 -spec packet(nksip:app_id(), nksip:call_id(), nksip_transport:transport(), binary()) ->
     {ok, #sipmsg{}} | {error, term()} | {reply_error, term(), binary()}.
 
-packet(AppId, CallId, Transp, Packet) ->
+packet(SrvId, CallId, Transp, Packet) ->
     Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Packet) of
         {ok, Class, Headers, Body} ->
@@ -177,7 +177,7 @@ packet(AppId, CallId, Transp, Packet) ->
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    app_id = AppId,
+                    app_id = SrvId,
                     ruri = RUri1,
                     call_id = CallId,
                     body = Body,
@@ -208,7 +208,7 @@ packet(AppId, CallId, Transp, Packet) ->
     {ok, #sipmsg{}, binary()} | partial | {error, term()} |
     {reply_error, term(), binary()}.
 
-packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
+packet(SrvId, #transport{proto=Proto}=Transp, Packet) ->
     Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Proto, Packet) of
         {ok, Class, Headers, Body, Rest} ->
@@ -235,7 +235,7 @@ packet(AppId, #transport{proto=Proto}=Transp, Packet) ->
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    app_id = AppId,
+                    app_id = SrvId,
                     ruri = RUri1,
                     call_id = CallId,
                     body = Body,

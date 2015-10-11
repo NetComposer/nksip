@@ -54,8 +54,8 @@ parse_uac_config([Term|Rest], Req, Opts) ->
         {nksip_timers_se, SE} when is_integer(SE) ->
             parse_uac_config([{nksip_timers_se, {SE, undefined}}|Rest], Req, Opts);
         {nksip_timers_se, {SE, Refresh}} when is_integer(SE) ->
-            #sipmsg{app_id=AppId} = Req,
-            case AppId:cache_sip_timers() of
+            #sipmsg{app_id=SrvId} = Req,
+            case SrvId:cache_sip_timers() of
                 {_, MinSE} when SE<MinSE -> 
                     {error, {invalid_config, nksip_timers_se}};
                 _ when Refresh==undefined -> 
@@ -178,8 +178,8 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
 
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
-    #call{app_id=AppId} = Call,
-    {Default, _} = AppId:cache_sip_timers(),
+    #call{app_id=SrvId} = Call,
+    {Default, _} = SrvId:cache_sip_timers(),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
             {SE0, Refresh0};
@@ -241,7 +241,7 @@ make_uac_dialog(Method, Dialog, Call) ->
     {resend, nksip:request(), nksip_call:call()} | false.
 
 uac_received_422(Req, Resp, UAC, Call) ->
-    #sipmsg{app_id=AppId, dialog_id=DialogId} = Resp,
+    #sipmsg{app_id=SrvId, dialog_id=DialogId} = Resp,
     #trans{
         method = Method, 
         code = Code, 
@@ -255,7 +255,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
         true ->
             case nksip_sipmsg:header(<<"min-se">>, Resp, integers) of
                 [RespMinSE] ->
-                    {_, ConfigMinSE} = AppId:cache_sip_timers(),
+                    {_, ConfigMinSE} = SrvId:cache_sip_timers(),
                     CurrentMinSE = case 
                         nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
                     of
@@ -300,7 +300,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
     continue | {update, nksip:request(), nksip_call:call()} | 
                {reply, nksip:sipreply(), nksip_call:call()}.
 
-uas_check_422(#sipmsg{app_id=AppId, class={req, Method}}=Req, Call) ->
+uas_check_422(#sipmsg{app_id=SrvId, class={req, Method}}=Req, Call) ->
     case Method=='INVITE' orelse Method=='UPDATE' of
         true ->
             case parse(Req) of
@@ -310,8 +310,8 @@ uas_check_422(#sipmsg{app_id=AppId, class={req, Method}}=Req, Call) ->
                     {reply, invalid_request, Call};
                 {ok, SE, _} ->
                     case 
-                        erlang:function_exported(AppId, config_nksip_timers, 0)
-                        andalso AppId:cache_sip_timers() 
+                        erlang:function_exported(SrvId, config_nksip_timers, 0)
+                        andalso SrvId:cache_sip_timers() 
                     of
                         {_, MinSE} when SE < MinSE ->
                             #sipmsg{dialog_id=DialogId} = Req,
@@ -348,7 +348,7 @@ uas_check_422(#sipmsg{app_id=AppId, class={req, Method}}=Req, Call) ->
     nksip:response().
 
 uas_dialog_response(
-        Req, #sipmsg{app_id=AppId, class={resp, Code, _}, cseq={_, Method}}=Resp, _Call)
+        Req, #sipmsg{app_id=SrvId, class={resp, Code, _}, cseq={_, Method}}=Resp, _Call)
         when Code>=200 andalso Code<300 andalso 
              (Method=='INVITE' orelse Method=='UPDATE') ->
     case nksip_sipmsg:supported(<<"timer">>, Resp) of
@@ -365,7 +365,7 @@ uas_dialog_response(
                 {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
                 _ -> {0, undefined}
             end,
-            Config = nksip_sipapp_srv:config(AppId),
+            Config = nksip_sipapp_srv:config(SrvId),
             Default = nklib_util:get_value(nksip_timers_se, Config),
             SE = case ReqSE of
                 0 -> max(ReqMinSE, Default);
@@ -397,7 +397,7 @@ uas_dialog_response(_Req, Resp, _Call) ->
 -spec uac_pre_request(nksip:request(), nksip_call:call()) ->
     nksip:request().
 
-uac_pre_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
+uac_pre_request(#sipmsg{app_id=SrvId, class={req, Method}}=Req, _Call)
                  when Method=='INVITE'; Method=='UPDATE' ->
     ReqMinSE = case nksip_sipmsg:header(<<"min-se">>, Req, integers) of
         [ReqMinSE0] -> ReqMinSE0;
@@ -407,7 +407,7 @@ uac_pre_request(#sipmsg{app_id=AppId, class={req, Method}}=Req, _Call)
         {ok, ReqSE0, _} -> ReqSE0;
         _ -> 0
     end,
-            Config = nksip_sipapp_srv:config(AppId),
+            Config = nksip_sipapp_srv:config(SrvId),
             Default = nklib_util:get_value(nksip_timers_se, Config),
     SE = case ReqSE of
         0 -> max(ReqMinSE, Default);

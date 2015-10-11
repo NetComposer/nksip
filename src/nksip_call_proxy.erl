@@ -41,14 +41,14 @@
 
 route(UriList, ProxyOpts, UAS, Call) ->
     try
-        #call{app_id=AppId} = Call,
+        #call{app_id=SrvId} = Call,
         UriSet = case normalize_uriset(UriList) of
             [[]] -> throw({reply, temporarily_unavailable});
             UriSet0 -> UriSet0
         end,
         % lager:warning("URISET: ~p", [UriList]),
         #trans{method=Method} = UAS,
-        case AppId:nks_route(UriSet, ProxyOpts, UAS, Call) of
+        case SrvId:nks_route(UriSet, ProxyOpts, UAS, Call) of
             {continue, [UriSet1, ProxyOpts1, UAS1, Call1]} ->
                 ok;
             {reply, Reply, Call1} ->
