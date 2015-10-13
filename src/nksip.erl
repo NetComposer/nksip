@@ -23,6 +23,8 @@
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-compile([export_all]).
+
 -export([start/3, stop/1, stop_all/0, update/2]).
 -export([get_config/1, get_uuid/1]).
 -export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
@@ -32,7 +34,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export_type([app_name/0, handle/0]).
+-export_type([srv_id/0, srv_name/0, handle/0]).
 -export_type([request/0, response/0, sipreply/0, optslist/0]).
 -export_type([call/0, transport/0, uri/0, user_uri/0]).
 -export_type([header/0, header_name/0, header_value/0]).
@@ -47,7 +49,7 @@
 %% ===================================================================
 
 %% User Name of each started Service
--type app_name() :: nkservice:name().
+-type srv_name() :: nkservice:name().
 
 %% Interna Name of each started Service
 -type srv_id() :: nkservice:id().
@@ -160,26 +162,22 @@
 %% ===================================================================
 
 %% @doc Starts a new Service.
--spec start(app_name(), atom(), optslist()) -> 
+-spec start(srv_name(), atom(), optslist()) -> 
 	{ok, srv_id()} | {error, term()}.
 
-start(AppName, Module, Opts) ->
+start(Name, Module, Opts) ->
     Opts2 = Opts#{
-        name => AppName, 
         class => nksip,
         callback => Module,
-        plugins => [nksip|maps:get(plugins, Opts, [])]
+        plugins => [nksip|maps:get(plugins, Opts, [])],
+        transports => maps:get(transports, Opts, [{udp, all, any}])
     },
-    SrvId = get_appid(AppName),
-    case nkservice_server:start(SrvId, Opts2) of
-        ok -> {ok, SrvId};
-        {error, Error} -> {error, Error}
-    end.
+    nkservice_server:start(Name, Opts2).
 
 
 
 %% @doc Stops a started Service, stopping any registered transports.
--spec stop(app_name()|srv_id()) -> 
+-spec stop(srv_name()|srv_id()) -> 
     ok | {error, not_found}.
 
 stop(App) ->
@@ -198,7 +196,7 @@ stop_all() ->
 
 %% @doc Updates the callback module or options of a running Service.
 %% It is not allowed to change transports
--spec update(app_name()|srv_id(), optslist()) ->
+-spec update(srv_name()|srv_id(), optslist()) ->
     {ok, srv_id()} | {error, term()}.
 
 update(App, Opts) ->
@@ -224,19 +222,6 @@ get_uuid(Srv) ->
         not_found ->
             error(service_not_found)
     end.
-
-
-%% @doc Generates a internal name (an atom()) for any term
--spec get_appid(nkservice:name()) ->
-    nkservice:id().
-
-get_appid(AppName) ->
-    list_to_atom(
-        string:to_lower(
-            case binary_to_list(nklib_util:hash36(AppName)) of
-                [F|Rest] when F>=$0, F=<$9 -> [$A+F-$0|Rest];
-                Other -> Other
-            end)).
 
 
 %% @doc Gets service's config
@@ -277,11 +262,11 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
             tc = maps:get(sip_timer_c, SipConfig),
             trans = maps:get(sip_trans_timeout, SipConfig),
             dialog = maps:get(sip_dialog_timeout, SipConfig)},
-        Cache = maps:with(cached(), SipConfig#{sip=>SipConfig, sip_timers=>Timers}),
+        Cache1 = maps:with(cached(), SipConfig),
+        Cache2 = Cache1#{sip_timers=>Timers},
         Update = #{
-            spec => #{sip=>SipConfig},
-            cache => Cache,
-            transports => maps:get(sip_transports, SipConfig)
+            spec => SipConfig,
+            cache => Cache2
         },
         {ok, nkservice_util:update_spec(Update, SrvSpec)}
     catch
@@ -291,14 +276,22 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
 
 plugin_stop(SrvSpec) ->
     lager:notice("Plugin NKSIP stopping: ~p", [maps:get(id, SrvSpec)]),
-    nkservice_util:del_config([sip], cached(), SrvSpec).
+    Update = #{
+        spec => maps:keys(nksip_util:syntax())
+        % Remove SIP Transports!!
+    },
+    L = nkservice_util:remove_spec(Update, SrvSpec),
+    lager:warning("\n1: ~p\n2: ~p", [SrvSpec, L]),
+    {ok, L}.
 
 
 cached() ->
-    [sip, sip_max_connections, sip_max_calls, sip_from, 
-     sip_no_100, sip_supported, sip_allow, sip_accept, sip_events, sip_route, 
-     sip_local_host, sip_local_host6, sip_max_calls, sip_timers,
-     sip_tcp_timeout, sip_udp_timeout, sip_ws_timeout, sip_sctp_timeout].
+    [
+        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
+        sip_event_expires, sip_event_expires_offset, sip_events, 
+        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
+        sip_route, sip_supported, sip_trans_timeout
+    ].
 
 
 %% @private

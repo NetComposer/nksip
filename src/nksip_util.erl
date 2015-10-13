@@ -22,7 +22,7 @@
 -module(nksip_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([parse_syntax/1, parse_syntax/2]).
+-export([parse_syntax/1, parse_syntax/2, syntax/0]).
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([put_log_cache/2]).
@@ -48,6 +48,8 @@ parse_syntax(Data, Defaults) ->
 
 syntax() ->
     #{
+        sip_allow => words,
+        sip_supported => words,
         sip_timer_t1 => {integer, 10, 2500},
         sip_timer_t2 => {integer, 100, 16000},
         sip_timer_t4 => {integer, 100, 25000},
@@ -57,26 +59,18 @@ syntax() ->
         sip_event_expires => {integer, 1, none},
         sip_event_expires_offset => {integer, 0, none},
         sip_nonce_timeout => {integer, 5, none},
-        sip_max_calls => {integer, 1, 1000000},
-        sip_supported => words,
-        sip_allow => words,
+        sip_from => uri,
         sip_accept => words,
         sip_events => words,
-        
-        % Default headers and options
-        sip_from => uri,
         sip_route => uris,
-        sip_local_host => [{enum, [auto]}, host],
-        sip_local_host6 => [{enum, [auto]}, host6],
         sip_no_100 => {enum, [true]},
-
+        sip_max_calls => {integer, 1, 1000000},
         sip_debug => boolean
     }.
 
 
 defaults() ->
     #{
-        log_level => notice,
         sip_allow => [
             <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
             <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
@@ -86,10 +80,6 @@ defaults() ->
         sip_timer_t2 => 4000,                   % (msecs) 4 secs
         sip_timer_t4 => 5000,                   % (msecs) 5 secs
         sip_timer_c =>  180,                    % (secs) 3min
-        sip_udp_timeout => 30,                  % (secs) 30 secs
-        sip_tcp_timeout => 180,                 % (secs) 3 min
-        sip_sctp_timeout => 180,                % (secs) 3 min
-        sip_ws_timeout => 180,                  % (secs) 3 min
         sip_trans_timeout => 900,               % (secs) 15 min
         sip_dialog_timeout => 1800,             % (secs) 30 min
         sip_event_expires => 60,                % (secs) 1 min
@@ -99,14 +89,8 @@ defaults() ->
         sip_accept => undefined,
         sip_events => [],
         sip_route => [],
-        sip_local_host => auto,
-        sip_local_host6 => auto,
         sip_no_100 => true,
         sip_max_calls => 100000,                % Each Call-ID counts as a call
-        sip_max_connections => 1024,            % Per transport and Service
-
-        sip_transports => #{{udp, {0,0,0,0}, 0} => []},
-
         sip_debug => false                      % Used in nksip_debug plugin
     }.
 
