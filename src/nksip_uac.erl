@@ -55,7 +55,7 @@
 %% ===================================================================
 
 %% @doc Sends an out-of-dialog OPTIONS request.
--spec options(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec options(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 options(App, Uri, Opts) ->
@@ -73,7 +73,7 @@ options(Handle, Opts) ->
 
 
 %% @doc Sends a REGISTER request.
--spec register(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec register(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 register(App, Uri, Opts) ->
@@ -82,7 +82,7 @@ register(App, Uri, Opts) ->
 
 
 %% @doc Sends an out-of-dialog INVITE request.
--spec invite(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec invite(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 invite(App, Uri, Opts) ->
@@ -143,7 +143,7 @@ update(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog SUBSCRIBE request.
--spec subscribe(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec subscribe(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 subscribe(App, Uri, Opts) ->
@@ -179,7 +179,7 @@ notify(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog MESSAGE request.
--spec message(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec message(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 message(App, Uri, Opts) ->
@@ -204,7 +204,7 @@ message(Handle, Opts) ->
 
 
 %% @doc Sends an <i>REFER</i> for a remote party
--spec refer(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) -> 
+-spec refer(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) -> 
     uac_result().
 
 refer(App, Uri, Opts) ->
@@ -231,7 +231,7 @@ refer(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog PUBLISH request.
--spec publish(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec publish(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 publish(App, Uri, Opts) ->
@@ -250,7 +250,7 @@ publish(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog request constructed from a SIP-Uri
--spec request(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) -> 
+-spec request(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) -> 
     uac_result().
 
 request(App, Dest, Opts) ->
@@ -324,7 +324,7 @@ refresh(Handle, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(nksip:app_name()|nksip:app_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec stun(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),
@@ -367,7 +367,7 @@ stun(App, UriSpec, _Opts) ->
 
 
 %% @private
--spec send(nksip:app_name()|nksip:app_id(), nksip:method(), nksip:user_uri(), 
+-spec send(nkservice:name()|nkservice:id(), nksip:method(), nksip:user_uri(), 
            nksip:optslist()) ->
     uac_result() | {error, term()}.
 

@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SipApp Tutorial server callback module implementation.
+%% @doc Service Tutorial server callback module implementation.
 %%
 %% This modules implements a proxy server callback module for NkSIP Tutorial.
 %% It allows any request from any user in domain "nksip", having password "1234".
@@ -41,7 +41,7 @@
     started
 }).
 
-%% @doc SipApp intialization.
+%% @doc Service intialization.
 init([]) ->
     nkservice_server:put(server, started, httpd_util:rfc1123_date()),
     {ok, []}.

@@ -101,7 +101,7 @@ make_ha1(User, Pass, Realm) ->
 make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     #sipmsg{
         class = {req, Method},
-        % app_id = SrvId,
+        % srv_id = SrvId,
         ruri = RUri, 
         from = {#uri{user=User}, _},
         headers = ReqHeaders
@@ -169,13 +169,12 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
 
 make_response(Realm, Req) ->
     #sipmsg{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         call_id = CallId,
         transport=#transport{remote_ip=Ip, remote_port=Port}
     } = Req,
     Nonce = nklib_util:luid(),
-    Config = nksip_sipapp_srv:config(SrvId),
-    Timeout = nklib_util:get_value(nonce_timeout, Config),
+    Timeout = SrvId:cache_sip_nonce_timeout(),
     put_nonce(SrvId, CallId, Nonce, {Ip, Port}, Timeout),
     Opaque = nklib_util:hash(SrvId),
     list_to_binary([
@@ -200,7 +199,7 @@ make_response(Realm, Req) ->
     [Authorized] 
     when Authorized :: {{digest, Realm::binary()}, true|invalid|false}.
 
-authorize_data(Req, #call{app_id=SrvId}=Call) ->
+authorize_data(Req, #call{srv_id=SrvId}=Call) ->
     PassFun = fun(User, Realm) ->
         Args = [User, Realm, Req, Call],
         case SrvId:nks_call(sip_get_user_pass, Args, SrvId) of
@@ -339,7 +338,7 @@ make_auth_request(AuthHeaderData, UserOpts) ->
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
     #sipmsg{
         class = {req, Method},
-        app_id = SrvId,
+        srv_id = SrvId,
         call_id = CallId,
         transport = #transport{remote_ip=Ip, remote_port=Port}
     } = Req,

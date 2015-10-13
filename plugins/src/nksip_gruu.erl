@@ -54,10 +54,10 @@ deps() ->
     {ok, nksip:optslist()} | {error, term()}.
 
 parse_config(Opts) ->
-    Supported = nklib_util:get_value(supported, Opts),
+    Supported = nklib_util:get_value(sip_supported, Opts),
     Opts1 = case lists:member(<<"gruu">>, Supported) of
         true -> Opts;
-        false -> nklib_util:store_value(supported, Supported++[<<"gruu">>], Opts)
+        false -> nklib_util:store_value(sip_supported, Supported++[<<"gruu">>], Opts)
     end,
     {ok, Opts1}.
 
@@ -68,7 +68,7 @@ parse_config(Opts) ->
 
 
 %% @doc Gets the last detected public GRUU
--spec get_gruu_pub(nksip:app_name()|nksip:app_id()) ->
+-spec get_gruu_pub(nkservice:name()|nkservice:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(App) ->
@@ -84,7 +84,7 @@ get_gruu_pub(App) ->
 
 
 %% @doc Gets the last detected temporary GRUU
--spec get_gruu_temp(nksip:app_name()|nksip:app_id()) ->
+-spec get_gruu_temp(nkservice:name()|nkservice:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(App) ->
@@ -100,7 +100,7 @@ get_gruu_temp(App) ->
 
 
 %% @doc Use this function instead of nksip_registrar:find/2,4 to decode the generated GRUUs.
--spec registrar_find(nksip:app_name()|nksip:app_id(), nksip:uri()) ->
+-spec registrar_find(nkservice:name()|nkservice:id(), nksip:uri()) ->
     [nksip:uri()].
 
 registrar_find(App, Uri) ->

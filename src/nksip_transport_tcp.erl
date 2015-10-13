@@ -37,7 +37,7 @@
 %% ===================================================================
 
 %% @private Starts a new listening server
--spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
+-spec get_listener(nkservice:id(), nksip:transport(), nksip:optslist()) ->
     term().
 
 get_listener(SrvId, Transp, Opts) ->
@@ -47,7 +47,7 @@ get_listener(SrvId, Transp, Opts) ->
         tcp -> ranch_tcp;
         tls -> ranch_ssl
     end,
-    Timeout = 1000 * nksip_sipapp_srv:config(SrvId, tcp_timeout),
+    Timeout = 1000 * SrvId:cache_sip_tcp_timeout(),
     Spec = ranch:child_spec(
         {SrvId, Proto, Ip, Port}, 
         Listeners, 
@@ -61,7 +61,7 @@ get_listener(SrvId, Transp, Opts) ->
 
     
 %% @private Starts a new connection to a remote server
--spec connect(nksip:app_id(), nksip:transport()) ->
+-spec connect(nkservice:id(), nksip:transport()) ->
     {ok, term()} | {error, term()}.
          
 connect(SrvId, Transp) ->
@@ -82,7 +82,7 @@ connect(SrvId, Transp) ->
                         remote_ip = Ip,
                         remote_port = Port
                     },
-                    Timeout = 1000 * nksip_sipapp_srv:config(SrvId, tcp_timeout),
+                    Timeout = 1000 * SrvId:cache_sip_tcp_timeout(),
                     Spec = {
                         {SrvId, Proto, Ip, Port, make_ref()},
                         {nksip_connection, start_link, 
@@ -92,7 +92,7 @@ connect(SrvId, Transp) ->
                         worker,
                         [?MODULE]
                     },
-                    {ok, Pid} = nksip_transport_sup:add_transport(SrvId, Spec),
+                    {ok, Pid} = nkservice_transport_sup:add_transport(SrvId, Spec),
                     TranspMod:controlling_process(Socket, Pid),
                     InetMod:setopts(Socket, [{active, once}]),
                     ?debug(SrvId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
@@ -112,7 +112,7 @@ connect(SrvId, Transp) ->
 
 
 %% @private Gets socket options for outbound connections
--spec outbound_opts(nksip:protocol(), nksip:app_id()) ->
+-spec outbound_opts(nksip:protocol(), nkservice:id()) ->
     nksip:optslist().
 
 outbound_opts(tcp, _SrvId) ->
@@ -127,9 +127,14 @@ outbound_opts(tls, SrvId) ->
             DefCert = "",
             DefKey = ""
     end,
-    Config = nksip_sipapp_srv:config(SrvId),
-    Cert = nklib_util:get_value(certfile, Config, DefCert),
-    Key = nklib_util:get_value(keyfile, Config, DefKey),
+    Cert = case erlang:function_exported(SrvId, cache_sip_certfile, 0) of
+        true -> SrvId:cache_sip_certfile();
+        false -> DefCert
+    end,
+    Key = case erlang:function_exported(SrvId, cache_sip_keyfile, 0) of
+        true -> SrvId:cache_sip_keyfile();
+        false -> DefKey
+    end,
     lists:flatten([
         binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw},
         case Cert of "" -> []; _ -> {certfile, Cert} end,
@@ -159,9 +164,9 @@ listen_opts(tls, Ip, Port, Opts) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = nklib_util:get_value(certfile, Opts, DefCert),
-    Key = nklib_util:get_value(keyfile, Opts, DefKey),
-    Max = nklib_util:get_value(max_connections, Opts, 100),
+    Cert = nklib_util:get_value(sip_certfile, Opts, DefCert),
+    Key = nklib_util:get_value(sip_keyfile, Opts, DefKey),
+    Max = nklib_util:get_value(sip_max_connections, Opts, 100),
     lists:flatten([
         {ip, Ip}, {port, Port}, {active, false}, 
         {nodelay, true}, {keepalive, true}, {packet, raw},

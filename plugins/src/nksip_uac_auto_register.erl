@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Plugin implementing automatic registrations and pings support for SipApps.
+%% @doc Plugin implementing automatic registrations and pings support for Services.
 -module(nksip_uac_auto_register).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -65,35 +65,33 @@ parse_config(Opts) ->
 
 
 %% @doc Called when the plugin is started 
--spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_siapp_srv:state()}.
+-spec init(nkservice:spec(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-init(SrvId, SipAppState) ->
-    Timer = 1000 * nksip_sipapp_srv:config(SrvId, nksip_uac_auto_register_timer),
+init(_ServiceSpec, #{srv_id:=SrvId}=ServiceState) ->
+    Timer = 1000 * SrvId:cache_sip_uac_auto_register_timer(),
     erlang:start_timer(Timer, self(), '$nksip_uac_auto_register_timer'),
     State = #state{pings=[], regs=[]},
-    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_register, State, SipAppState),
-    {ok, SipAppState1}.
+    {ok, ServiceState#{nksip_uac_auto_register=>State}}.
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
-   {ok, nksip_sipapp_srv:state()}.
+-spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+   {ok, nkservice_server:sub_state()}.
 
-terminate(SrvId, SipAppState) ->  
-    #state{regs=Regs} = nksip_sipapp_srv:get_meta(nksip_uac_auto_register, SipAppState),
+terminate(SrvId, ServiceState) ->  
+    #state{regs=Regs} = maps:get(nksip_uac_auto_register, ServiceState),
     lists:foreach(
         fun(#sipreg{ok=Ok}=Reg) -> 
             case Ok of
                 true -> 
-                    SrvId:nks_uac_auto_register_launch_unregister(Reg, true, SipAppState);
+                    SrvId:nks_uac_auto_register_launch_unregister(Reg, true, ServiceState);
                 false ->
                     ok
             end
         end,
         Regs),
-    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_register, undefined, SipAppState),
-    {ok, SipAppState1}.
+    {ok, maps:remove(nksip_uac_auto_register, ServiceState)}.
 
 
 
@@ -104,7 +102,7 @@ terminate(SrvId, SipAppState) ->
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), 
+-spec start_register(nkservice:name()|nkservice:id(), term(), nksip:user_uri(), 
                      nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
@@ -130,7 +128,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
 
 
 %% @doc Stops a previously started registration serie.
--spec stop_register(nksip:app_name()|nksip:app_id(), term()) -> 
+-spec stop_register(nkservice:name()|nkservice:id(), term()) -> 
     ok | not_found.
 
 stop_register(App, RegId) ->
@@ -138,7 +136,7 @@ stop_register(App, RegId) ->
     
 
 %% @doc Get current registration status.
--spec get_registers(nksip:app_name()|nksip:app_id()) -> 
+-spec get_registers(nkservice:name()|nkservice:id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(App) ->
@@ -147,7 +145,7 @@ get_registers(App) ->
 
 
 %% @doc Starts a new automatic ping serie.
--spec start_ping(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(), 
+-spec start_ping(nkservice:name()|nkservice:id(), term(), nksip:user_uri(), 
                  nksip:optslist()) -> 
     {ok, boolean()} | {error, invalid_uri}.
 
@@ -174,7 +172,7 @@ start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
 
 
 %% @doc Stops a previously started ping serie.
--spec stop_ping(nksip:app_name()|nksip:app_id(), term()) -> 
+-spec stop_ping(nkservice:name()|nkservice:id(), term()) -> 
     ok | not_found.
 
 stop_ping(App, PingId) ->
@@ -182,7 +180,7 @@ stop_ping(App, PingId) ->
     
 
 %% @doc Get current ping status.
--spec get_pings(nksip:app_name()|nksip:app_id()) -> 
+-spec get_pings(nkservice:name()|nkservice:id()) -> 
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_pings(App) ->

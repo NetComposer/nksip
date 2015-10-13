@@ -54,7 +54,7 @@ process(#trans{method=Method, request=Req}=UAS, Call) ->
 
 check_supported(Method, Req, UAS, Call) ->
     #sipmsg{require=Require} = Req,
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     Supported = SrvId:cache_sip_supported(),
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] ->
@@ -72,7 +72,7 @@ check_supported(Method, Req, UAS, Call) ->
 
 check_event(Method, Req, UAS, Call) when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
     #sipmsg{event=Event} = Req,
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     SupEvents = SrvId:cache_sip_events(),
     case Event of
         {Type, _} ->
@@ -119,7 +119,7 @@ check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
              Method=='NOTIFY' ->
     nksip_call_uas:do_reply(no_transaction, UAS, Call);
 
-check_missing_dialog(Method, _Req, UAS, #call{app_id=SrvId}=Call) ->
+check_missing_dialog(Method, _Req, UAS, #call{srv_id=SrvId}=Call) ->
     case SrvId:nks_uas_process(UAS, Call) of
         {continue, [UAS1, Call1]} ->
             dialog(Method, UAS1#trans.request, UAS1, Call1);
@@ -163,7 +163,7 @@ dialog(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 method(Method, Req, UAS, Call) ->
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     case SrvId:nks_uas_method(Method, Req, UAS, Call) of
         {continue, [Method1, Req1, UAS1, Call1]} ->
             case do_method(Method1, Req1, UAS1, Call1) of
@@ -183,7 +183,7 @@ method(Method, Req, UAS, Call) ->
     nksip_call:call().
 
 call_user_sip_method(UAS, Call) ->
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     case SrvId:nks_sip_method(UAS, Call) of
         {reply, Reply} -> 
             nksip_call_uas:do_reply(Reply, UAS, Call);
@@ -200,7 +200,7 @@ call_user_sip_method(UAS, Call) ->
 %     % lager:error("DIALOG: ~p\n~p\n~p\n~p", [Method, Req, UAS, Call]),
 %     #sipmsg{to={_, ToTag}} = Req,
 %     #trans{id=Id, opts=Opts, stateless=Stateless} = UAS,
-%     #call{app_id=SrvId} = Call,
+%     #call{srv_id=SrvId} = Call,
 %     try
 %         case Stateless orelse ToTag == <<>> of
 %             true ->
@@ -309,6 +309,6 @@ do_method('REFER', #sipmsg{headers=Headers}, UAS, Call) ->
 do_method('PUBLISH', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
-do_method(_Method, #sipmsg{app_id=SrvId}, _UAS, _Call) ->
+do_method(_Method, #sipmsg{srv_id=SrvId}, _UAS, _Call) ->
     {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.
 

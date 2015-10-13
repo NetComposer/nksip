@@ -39,7 +39,7 @@
 %% ===================================================================
 
 %% @private Starts a new listening server
--spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
+-spec get_listener(nkservice:id(), nksip:transport(), nksip:optslist()) ->
     term().
 
 get_listener(SrvId, Transp, Opts) ->
@@ -82,21 +82,18 @@ start_link(SrvId, Transp, Opts) ->
 
 
 -record(state, {
-    app_id :: nksip:app_id(),
+    srv_id :: nkservice:id(),
     transport :: nksip_transport:transport(),
     socket :: port(),
-    pending :: [{inet:ip_address(), inet:port_number(), from()}],
+    pending :: [{inet:ip_address(), inet:port_number(), {pid(), term()}}],
     timeout :: integer()
 }).
 
 
 %% @private 
--spec init(term()) ->
-    gen_server_init(#state{}).
-
 init([SrvId, Transp, Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
-    Autoclose = nklib_util:get_value(sctp_timeout, Opts),
+    Autoclose = nklib_util:get_value(sip_sctp_timeout, Opts),
     Opts1 = [
         binary, {reuseaddr, true}, {ip, Ip}, {active, once},
         {sctp_initmsg, 
@@ -113,7 +110,7 @@ init([SrvId, Transp, Opts]) ->
             nklib_proc:put(nksip_transports, {SrvId, Transp1}),
             nklib_proc:put({nksip_listen, SrvId}, Transp1),
             State = #state{ 
-                app_id = SrvId, 
+                srv_id = SrvId, 
                 transport = Transp1, 
                 socket = Socket,
                 pending = [],
@@ -128,9 +125,6 @@ init([SrvId, Transp, Opts]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
-
 handle_call({connect, Ip, Port}, From, State) ->
     #state{socket=Socket, pending=Pending} = State,
     Self = self(),
@@ -149,9 +143,6 @@ handle_call(Msg, _From, State) ->
 
 
 %% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
 handle_cast({connection_error, Error, From}, #state{pending=Pending}=State) ->
     gen_server:reply(From, {error, Error}),
     Pending1 = lists:keydelete(From, 2, Pending),
@@ -166,11 +157,8 @@ handle_cast(Msg, State) ->
 
 
 %% @private
--spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
-
 handle_info({sctp, Socket, Ip, Port, {Anc, SAC}}, State) ->
-    #state{app_id=SrvId, socket=Socket} = State,
+    #state{srv_id=SrvId, socket=Socket} = State,
     State1 = case SAC of
         #sctp_assoc_change{state=comm_up, assoc_id=AssocId} ->
             Reply = do_connect(Ip, Port, AssocId, State),
@@ -222,18 +210,12 @@ handle_info(Info, State) ->
 
 
 %% @private
--spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
-
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
--spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
-terminate(_Reason, #state{app_id=SrvId, socket=Socket}) ->  
+terminate(_Reason, #state{srv_id=SrvId, socket=Socket}) ->  
     ?debug(SrvId, <<>>, "SCTP server process stopped", []),
     gen_sctp:close(Socket).
 
@@ -246,7 +228,7 @@ terminate(_Reason, #state{app_id=SrvId, socket=Socket}) ->
 
 %% @private
 do_connect(Ip, Port, AssocId, State) ->
-    #state{app_id=SrvId} = State,
+    #state{srv_id=SrvId} = State,
     case nksip_transport:get_connected(SrvId, sctp, Ip, Port, <<>>) of
         [{Transp, Pid}|_] -> 
             {ok, Pid, Transp};

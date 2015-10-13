@@ -52,10 +52,10 @@ parse_config(Opts) ->
         {nksip_timers_min_se, 90}       % (secs) 90 secs (min 90, recomended 1800)
     ],
     Opts1 = nklib_util:defaults(Opts, Defaults),
-    Supported = nklib_util:get_value(supported, Opts),
+    Supported = nklib_util:get_value(sip_supported, Opts),
     Opts2 = case lists:member(<<"timer">>, Supported) of
         true -> Opts1;
-        false -> nklib_util:store_value(supported, Supported++[<<"timer">>], Opts1)
+        false -> nklib_util:store_value(sip_supported, Supported++[<<"timer">>], Opts1)
     end,
     try
         case nklib_util:get_value(nksip_timers_se, Opts2) of

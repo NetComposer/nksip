@@ -39,7 +39,7 @@
 -spec timer(nksip_call_lib:timer()|term(), nksip_call:trans_id(), nksip_call:call()) ->
     nksip_call:call().
 
-timer(Tag, Id, #call{app_id=SrvId, trans=Trans}=Call) ->
+timer(Tag, Id, #call{srv_id=SrvId, trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uas}=UAS ->
             case SrvId:nks_uas_timer(Tag, UAS, Call) of

@@ -69,10 +69,10 @@ deps() ->
 
 
 %% @doc Called when the plugin is started 
--spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_siapp_srv:state()}.
+-spec init(nkservice:spec(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-init(_SrvId, SipAppState) ->
+init(_SrvId, ServiceState) ->
     case whereis(nksip_debug_srv) of
         undefined ->
             Child = {
@@ -87,16 +87,16 @@ init(_SrvId, SipAppState) ->
         _ ->
             ok
     end,
-    {ok, SipAppState}.
+    {ok, ServiceState}.
 
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_sipapp_srv:state()}.
+-spec terminate(term(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-terminate(_SrvId, SipAppState) ->  
-    {ok, SipAppState}.
+terminate(_Reason, ServiceState) ->  
+    {ok, ServiceState}.
 
 
 
@@ -104,8 +104,8 @@ terminate(_SrvId, SipAppState) ->
 %% Public
 %% ===================================================================
 
-%% @doc Configures a SipApp to start debugging
--spec start(nksip:app_id()|nksip:app_name()) ->
+%% @doc Configures a Service to start debugging
+-spec start(nkservice:id()|nkservice:name()) ->
     ok | {error, term()}.
 
 start(App) ->
@@ -122,8 +122,8 @@ start(App) ->
     end.
 
 
-%% @doc Stop debugging in a specific SipApp
--spec stop(nksip:app_id()|nksip:app_name()) ->
+%% @doc Stop debugging in a specific Service
+-spec stop(nkservice:id()|nkservice:name()) ->
     ok | {error, term()}.
 
 stop(App) ->
@@ -147,7 +147,7 @@ stop(App) ->
 
 
 %% @private
-insert(#sipmsg{app_id=SrvId, call_id=CallId}, Info) ->
+insert(#sipmsg{srv_id=SrvId, call_id=CallId}, Info) ->
     insert(SrvId, CallId, Info).
 
 

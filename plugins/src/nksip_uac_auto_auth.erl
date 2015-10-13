@@ -127,10 +127,10 @@ check_auth(Req, Resp, UAC, Call) ->
         (not IsProxy)
     of
         true ->
-            #call{app_id=SrvId, call_id=CallId} = Call,
+            #call{srv_id=SrvId, call_id=CallId} = Call,
             Max = case nklib_util:get_value(nksip_uac_auto_auth_max_tries, Opts) of
                 undefined -> 
-                    nksip_sipapp_srv:config(SrvId, nksip_uac_auto_auth_max_tries);
+                    SrvId:cache_sip_uac_auto_auth_max_tries();
                 Max0 ->
                     Max0
             end,

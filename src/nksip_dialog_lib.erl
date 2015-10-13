@@ -50,10 +50,10 @@
 -spec get_handle(nksip:dialog()|nksip:request()|nksip:response()|nksip:handle()) ->
     nksip:handle().
 
-get_handle(#dialog{id=Id, app_id=SrvId, call_id=CallId}) ->
+get_handle(#dialog{id=Id, srv_id=SrvId, call_id=CallId}) ->
     App = atom_to_binary(SrvId, latin1),
     <<$D, $_, Id/binary, $_, App/binary, $_, CallId/binary>>;
-get_handle(#sipmsg{dialog_id=DialogId, app_id=SrvId, call_id=CallId}) ->
+get_handle(#sipmsg{dialog_id=DialogId, srv_id=SrvId, call_id=CallId}) ->
     App = atom_to_binary(SrvId, latin1),
     <<$D, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
 get_handle(<<"D_", _/binary>>=DialogId) ->
@@ -68,7 +68,7 @@ get_handle(_) ->
 
 %% @doc 
 -spec parse_handle(nksip:handle()) -> 
-    {nksip:app_id(), id(), nksip:call_id()}.
+    {nkservice:id(), id(), nksip:call_id()}.
 
 parse_handle(<<$D, $_, _/binary>>=Bin) ->
     <<$D, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>> = Bin,
@@ -85,8 +85,8 @@ meta(Field, #dialog{invite=I}=D) ->
     case Field of
         handle -> get_handle(D);
         internal_id -> D#dialog.id;
-        app_id -> D#dialog.app_id;
-        app_name -> apply(D#dialog.app_id, name, []);
+        srv_id -> D#dialog.srv_id;
+        app_name -> apply(D#dialog.srv_id, name, []);
         created -> D#dialog.created;
         updated -> D#dialog.updated;
         local_seq -> D#dialog.local_seq; 

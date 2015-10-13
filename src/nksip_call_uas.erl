@@ -340,7 +340,7 @@ preprocess(Req) ->
 %%   in the ruri
 %%
 %% TODO: Is this working?
-strict_router(#sipmsg{app_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
+strict_router(#sipmsg{srv_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
     case 
         nklib_util:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
         andalso nksip_transport:is_local(SrvId, RUri) of
@@ -362,7 +362,7 @@ strict_router(#sipmsg{app_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
 % this address, default port and no transport parameter
 ruri_has_maddr(Request) ->
     #sipmsg{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         ruri = RUri, 
         transport=#transport{proto=Proto, local_port=LPort}
     } = Request,

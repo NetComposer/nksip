@@ -40,7 +40,7 @@
 
 send_request(Req, Opts) ->
     #sipmsg{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         call_id = CallId, 
         class = {req, Method}, 
         ruri = RUri, 
@@ -95,7 +95,7 @@ send_request(Req, Opts) ->
 -spec resend_request(nksip:request(), nksip:optslist()) -> 
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{app_id=SrvId, transport=Transport}=Req, Opts) ->
+resend_request(#sipmsg{srv_id=SrvId, transport=Transport}=Req, Opts) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeReq = fun(_) -> Req end,
     nksip_transport:send(SrvId, [{Proto, Ip, Port, Res}], MakeReq, Opts).
@@ -113,7 +113,7 @@ resend_request(#sipmsg{app_id=SrvId, transport=Transport}=Req, Opts) ->
 
 make_request_fun(Req, Dest, Opts) ->
     #sipmsg{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         ruri = RUri, 
         call_id = CallId,
         vias = Vias,
@@ -185,7 +185,7 @@ make_request_fun(Req, Dest, Opts) ->
 add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     #sipmsg{
         class = {req, Method},
-        app_id = SrvId, 
+        srv_id = SrvId, 
         from = {From, _},
         vias = Vias,
         contacts = Contacts,

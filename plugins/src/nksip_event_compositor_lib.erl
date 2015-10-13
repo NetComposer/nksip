@@ -35,7 +35,7 @@
 
 
 %% @private
--spec store_get(nksip:app_id(), nksip:aor(), binary()) ->
+-spec store_get(nkservice:id(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 store_get(SrvId, AOR, Tag) ->
@@ -48,7 +48,7 @@ store_get(SrvId, AOR, Tag) ->
 
 
 %% @private
--spec store_put(nksip:app_id(), nksip:aor(), integer(), integer(),
+-spec store_put(nkservice:id(), nksip:aor(), integer(), integer(),
                 #reg_publish{}|nksip:body()) ->
     nksip:sipreply().
 
@@ -72,7 +72,7 @@ store_put(SrvId, AOR, Tag, Expires, Reg) ->
 
 
 %% @private
--spec store_del(nksip:app_id(), nksip:aor(), binary()) ->
+-spec store_del(nkservice:id(), nksip:aor(), binary()) ->
     nksip:sipreply().
 
 store_del(SrvId, AOR, Tag) ->
@@ -91,7 +91,7 @@ store_del(SrvId, AOR, Tag) ->
 
 
 %% @private
--spec store_del_all(nksip:app_id()) ->
+-spec store_del_all(nkservice:id()) ->
     ok | {error, term()}.
 
 store_del_all(SrvId) ->
@@ -108,7 +108,7 @@ reply(Tag, Expires) ->
 
 
 %% @private 
--spec callback(nksip:app_id(), term()) ->
+-spec callback(nkservice:id(), term()) ->
     term() | error.
 
 callback(SrvId, Op) -> 

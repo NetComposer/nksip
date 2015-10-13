@@ -22,7 +22,7 @@
 -module(nksip_request).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, app_id/1, app_name/1, method/1, body/1, call_id/1]).
+-export([get_handle/1, srv_id/1, app_name/1, method/1, body/1, call_id/1]).
 -export([meta/2, metas/2, header/2, reply/2, is_local_ruri/1]).
 
 -include("nksip.hrl").
@@ -45,12 +45,12 @@ get_handle(Term) ->
 
 
 %% @doc Gets internal app's id
--spec app_id(nksip:request()|nksip:handle()) -> 
-    {ok, nksip:app_id()}.
+-spec srv_id(nksip:request()|nksip:handle()) -> 
+    {ok, nkservice:id()}.
 
-app_id(#sipmsg{class={req, _}, app_id=SrvId}) ->
+srv_id(#sipmsg{class={req, _}, srv_id=SrvId}) ->
     {ok, SrvId};
-app_id(Handle) ->
+srv_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
         {req, SrvId, _Id, _CallId} -> {ok, SrvId};
         _ -> error(invalid_request)
@@ -59,10 +59,10 @@ app_id(Handle) ->
 
 %% @doc Gets app's name
 -spec app_name(nksip:request()|nksip:handle()) -> 
-    {ok, nksip:app_name()}.
+    {ok, nkservice:name()}.
 
 app_name(Req) -> 
-    {ok, SrvId} = app_id(Req),
+    {ok, SrvId} = srv_id(Req),
     {ok, SrvId:name()}.
 
 
@@ -143,6 +143,6 @@ reply(SipReply, Handle) ->
 -spec is_local_ruri(nksip:request()) -> 
     boolean().
 
-is_local_ruri(#sipmsg{class={req, _}, app_id=SrvId, ruri=RUri}) ->
+is_local_ruri(#sipmsg{class={req, _}, srv_id=SrvId, ruri=RUri}) ->
     nksip_transport:is_local(SrvId, RUri).
 

@@ -41,7 +41,7 @@ start_link() ->
 
 %% @private 
 -spec init(term()) ->
-    gen_server_init(#state{}).
+    {ok, #state{}}.
 
 init([]) ->
     ets:new(nksip_debug_msgs, [named_table, public, bag, {write_concurrency, true}]),
@@ -49,8 +49,8 @@ init([]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
+-spec handle_call(term(), {pid(), term()}, #state{}) ->
+    {noreply, #state{}}.
 
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
@@ -59,7 +59,7 @@ handle_call(Msg, _From, State) ->
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
+    {noreply, #state{}}.
 
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
@@ -68,7 +68,7 @@ handle_cast(Msg, State) ->
 
 %% @private
 -spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
+    {noreply, #state{}}.
 
 handle_info(Info, State) -> 
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
@@ -77,7 +77,7 @@ handle_info(Info, State) ->
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
+    {ok, #state{}}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -85,7 +85,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @private
 -spec terminate(term(), #state{}) ->
-    gen_server_terminate().
+    ok.
 
 terminate(_Reason, _State) ->  
     ok.

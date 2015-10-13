@@ -34,7 +34,7 @@
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nksip:app_id(), nksip:aor(), [#reg_contact{}]}].
+    [{nkservice:id(), nksip:aor(), [#reg_contact{}]}].
 
 get_all() ->
     [
@@ -57,7 +57,7 @@ print_all() ->
     io:format("\n\n").
 
 
-%% @private Clear all stored records for all SipApps, only with buil-in database
+%% @private Clear all stored records for all Services, only with buil-in database
 %% Returns the number of deleted items.
 -spec clear() -> 
     integer().

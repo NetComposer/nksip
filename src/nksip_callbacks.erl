@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SipApp plugin callbacks default implementation
+%% @doc Service plugin callbacks default implementation
 -module(nksip_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -40,7 +40,7 @@
 -export([nks_uas_send_reply/3, nks_uas_sent_reply/1, nks_uas_method/4, nks_parse_uas_opt/3, nks_uas_timer/3, nks_uas_dialog_response/4, nks_uas_process/2]).
 -export([nks_dialog_update/3, nks_route/4]).
 -export([nks_connection_sent/2, nks_connection_recv/4]).
--export([nks_handle_call/3, nks_handle_cast/2, nks_handle_info/2, 
+-export([handle_call/3, handle_cast/2, handle_info/2, 
 	     nks_sipapp_updated/1]).
 -export([nks_debug/3]).
 
@@ -98,7 +98,7 @@ sip_options(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_register(Req, _Call) ->
-    {ok, SrvId} = nksip_request:app_id(Req),
+    {ok, SrvId} = nksip_request:srv_id(Req),
     {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.
 
 
@@ -115,7 +115,7 @@ sip_invite(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_reinvite(Req, Call) ->
-    {ok, SrvId} = nksip_request:app_id(Req),
+    {ok, SrvId} = nksip_request:srv_id(Req),
     SrvId:sip_invite(Req, Call).
 
 
@@ -188,7 +188,7 @@ sip_refer(_Req, _Call) ->
     {reply, nksip:sipreply()} | noreply.
 
 sip_publish(Req, _Call) ->
-    {ok, SrvId} = nksip_request:app_id(Req),
+    {ok, SrvId} = nksip_request:srv_id(Req),
     {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.
 
 
@@ -234,8 +234,8 @@ sip_session_update(_Status, _Dialog, _Call) ->
 
 
 %% @doc This plugin callback function is used to call application-level 
-%% SipApp callbacks.
--spec nks_call(atom(), list(), nksip:app_id()) ->
+%% Service callbacks.
+-spec nks_call(atom(), list(), nkservice:id()) ->
 	{ok, term()} | error | nks_common().
 
 nks_call(Fun, Args, SrvId) ->
@@ -251,19 +251,19 @@ nks_call(Fun, Args, SrvId) ->
 
 
 %% @doc This plugin callback is called when a call to one of the method specific
-%% application-level SipApp callbacks is needed.
+%% application-level Service callbacks is needed.
 -spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
 	{reply, nksip:sipreply()} | noreply | nks_common().
 
 
-nks_sip_method(#trans{method='ACK', request=Req}, #call{app_id=SrvId}=Call) ->
+nks_sip_method(#trans{method='ACK', request=Req}, #call{srv_id=SrvId}=Call) ->
 	case catch SrvId:sip_ack(Req, Call) of
 		ok -> ok;
 		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
 	end,
 	noreply;
 
-nks_sip_method(#trans{method=Method, request=Req}, #call{app_id=SrvId}=Call) ->
+nks_sip_method(#trans{method=Method, request=Req}, #call{srv_id=SrvId}=Call) ->
 	#sipmsg{to={_, ToTag}} = Req,
 	Fun = case Method of
 		'INVITE' when ToTag == <<>> -> sip_invite;
@@ -288,7 +288,7 @@ nks_sip_method(#trans{method=Method, request=Req}, #call{app_id=SrvId}=Call) ->
 			noreply;
 		Error -> 
 			?call_error("Error calling callback ~p/2: ~p", [Fun, Error]),
-			{reply, {internal_error, "SipApp Error"}}
+			{reply, {internal_error, "Service Error"}}
 	end.
 
 
@@ -461,7 +461,7 @@ nks_connection_sent(_SipMsg, _Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_connection_recv(nksip:app_id(), nksip:call_id(), 
+-spec nks_connection_recv(nkservice:id(), nksip:call_id(), 
 					       nksip:transport(), binary()) ->
     ok | nks_common().
 
@@ -477,43 +477,43 @@ nks_transport_uas_sent(_Resp) ->
 	ok.
 
 
-%% @doc Called when the SipApp process receives a handle_call/3.
+%% @doc Called when the Service process receives a handle_call/3.
 %% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
--spec nks_handle_call(term(), from(), nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nks_common().
+-spec handle_call(term(), {pid(), term()}, nksip_srv:state()) ->
+	{ok, nksip_srv:state()} | nks_common().
 
-nks_handle_call(Msg, From, SipAppState) ->
-	{continue, [Msg, From, SipAppState]}.
+handle_call(Msg, From, ServiceState) ->
+	{continue, [Msg, From, ServiceState]}.
 
 
-%% @doc Called when the SipApp process receives a handle_cast/3.
+%% @doc Called when the Service process receives a handle_cast/3.
 %% Return {ok, NewPluginState} or continue.
--spec nks_handle_cast(term(), nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nks_common().
+-spec handle_cast(term(), nksip_srv:state()) ->
+	{ok, nksip_srv:state()} | nks_common().
 
-nks_handle_cast(Msg, SipAppState) ->
-	{continue, [Msg, SipAppState]}.
+handle_cast(Msg, ServiceState) ->
+	{continue, [Msg, ServiceState]}.
 
 
-%% @doc Called when the SipApp process receives a handle_info/3.
+%% @doc Called when the Service process receives a handle_info/3.
 %% Return {ok, NewPluginState} or continue.
--spec nks_handle_info(term(), nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nks_common().
+-spec handle_info(term(), nksip_srv:state()) ->
+	{ok, nksip_srv:state()} | nks_common().
 
-nks_handle_info(Msg, SipAppState) ->
-	{continue, [Msg, SipAppState]}.
+handle_info(Msg, ServiceState) ->
+	{continue, [Msg, ServiceState]}.
 
 
-%% @doc Called when the SipApp is updated with a new configuration
--spec nks_sipapp_updated(nksip_sipapp_srv:state()) ->
-	{ok, nksip_sipapp_srv:state()} | nks_common().
+%% @doc Called when the Service is updated with a new configuration
+-spec nks_sipapp_updated(nksip_srv:state()) ->
+	{ok, nksip_srv:state()} | nks_common().
 
-nks_sipapp_updated(SipAppState) ->
-	{ok, SipAppState}.
+nks_sipapp_updated(ServiceState) ->
+	{ok, ServiceState}.
 
 
 %% doc Called at specific debug points
--spec nks_debug(nksip:app_id(), nksip:call_id(), term()) ->
+-spec nks_debug(nkservice:id(), nksip:call_id(), term()) ->
     ok | nks_common().
 
 nks_debug(_SrvId, _CallId, _Info) ->

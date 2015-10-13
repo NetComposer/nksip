@@ -25,10 +25,20 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
+-export([sip_prack/2]).
 -export([nks_parse_uac_opts/2, 
          nks_uac_pre_response/3, nks_uac_response/4, 
          nks_parse_uas_opt/3, nks_uas_timer/3,
          nks_uas_send_reply/3, nks_uas_sent_reply/1, nks_uas_method/4]).
+
+
+
+%% @doc Called when a valid PRACK request is received.
+-spec sip_prack(Req::nksip:request(), Call::nksip:call()) ->
+    {reply, nksip:sipreply()} | noreply.
+
+sip_prack(_Req, _Call) ->
+    {reply, ok}.
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%

@@ -53,17 +53,17 @@ deps() ->
     {ok, nksip:optslist()} | {error, term()}.
 
 parse_config(Opts) ->
-    Allow = nklib_util:get_value(allow, Opts),
+    Allow = nklib_util:get_value(sip_allow, Opts),
     Opts1 = case lists:member(<<"PRACK">>, Allow) of
         true -> 
             Opts;
         false -> 
-            nklib_util:store_value(allow, Allow++[<<"PRACK">>], Opts)
+            nklib_util:store_value(sip_allow, Allow++[<<"PRACK">>], Opts)
     end,
-    Supported = nklib_util:get_value(supported, Opts),
+    Supported = nklib_util:get_value(sip_supported, Opts),
     Opts2 = case lists:member(<<"100rel">>, Supported) of
         true -> Opts1;
-        false -> nklib_util:store_value(supported, Supported++[<<"100rel">>], Opts1)
+        false -> nklib_util:store_value(sip_supported, Supported++[<<"100rel">>], Opts1)
     end,
     {ok, Opts2}.
 

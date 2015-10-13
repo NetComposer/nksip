@@ -268,9 +268,6 @@ start_link() ->
         
 
 %% @private 
--spec init(term()) ->
-    gen_server_init(#state{}).
-
 init([]) ->
     ?MODULE = ets:new(?MODULE, [named_table, public]),   
     erlang:start_timer(1000*?CHECK_INTERVAL, self(), check_ttl), 
@@ -279,27 +276,18 @@ init([]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
-
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
--spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
-
 handle_info({timeout, _, check_ttl}, #state{ttl=TTL}=State) ->
     Last = nklib_util:timestamp() - TTL,
     Spec = [{{'_', '_', '$1'}, [{'<', '$1', Last}], [true]}],
@@ -313,17 +301,11 @@ handle_info(Info, State) ->
 
 
 %% @private
--spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
-
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
--spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
 terminate(_Reason, _State) ->  
     ok.
 

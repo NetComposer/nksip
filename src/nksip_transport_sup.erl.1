@@ -19,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 %% @private NkSIP Transport Supervisor.
-%% Start the SipApp core's transport supervisor and starts and connects 
+%% Start the Service core's transport supervisor and starts and connects 
 %% all configured transports.
 
 -module(nksip_transport_sup).
@@ -31,30 +31,16 @@
 -include("nksip.hrl").
 
 
-%% @private Gets the SipApp's transport supervisor's pid()
--spec get_pid(nksip:app_id()) ->
+%% @private Gets the Service's transport supervisor's pid()
+-spec get_pid(nkservice:service_id()) ->
     pid() | undefined.
 
 get_pid(SrvId) ->
     nklib_proc:whereis_name({nksip_transport_sup, SrvId}).
 
 
-install(SrvId) ->
-    case get_pid(SrvId) of
-        undefined ->
-            
-
-
-        Pid ->
-            {ok, Pid}
-    end.
-    
-
-
-
-
 %% @private Starts a new transport control process under this supervisor
--spec add_transport(nksip:app_id(), any()) ->
+-spec add_transport(nkservice:service_id(), any()) ->
     {ok, pid()} | {error, term()}.
 
 add_transport(SrvId, Spec) ->
@@ -66,7 +52,7 @@ add_transport(SrvId, Spec) ->
 
 
 %% @private
--spec start_link(nksip:app_id()) -> 
+-spec start_link(nkservice:service_id()) -> 
     {ok, pid()} | {error, term()}.
 
 start_link(SrvId) ->
@@ -87,9 +73,9 @@ init([Reg, ChildSpecs]) ->
     {ok, ChildSpecs}.
 
 
-%% @private Tries to start all the configured transports for a SipApp.
+%% @private Tries to start all the configured transports for a Service.
 %% For every UDP transport it will start a TCP transport on the same port
--spec start_transports(nksip:app_id(), [term()], nksip:optslist()) ->
+-spec start_transports(nkservice:service_id(), [term()], nksip:optslist()) ->
     ok | {error, Error}
     when Error ::  {could_not_start, {udp|tcp|tls|sctp|ws|wss, term()}}.
 

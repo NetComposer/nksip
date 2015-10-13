@@ -61,7 +61,7 @@ deps() ->
 -spec process(nksip:request(), nksip:call()) ->
     nksip:sipreply().
 
-process(Req, #call{app_id=SrvId, call_id=CallId}=Call) ->
+process(Req, #call{srv_id=SrvId, call_id=CallId}=Call) ->
     case nksip_sipmsg:header(<<"refer-to">>, Req, uris) of
         [ReferTo] -> 
             case catch SrvId:sip_refer(ReferTo, Req, Call) of
@@ -76,7 +76,7 @@ process(Req, #call{app_id=SrvId, call_id=CallId}=Call) ->
                     forbidden;
                 {'EXIT', Error} ->
                     ?call_error("Error calling callback sip_refer/3: ~p", [Error]),
-                    {internal_error, "SipApp Error"}
+                    {internal_error, "Service Error"}
             end;
         _ ->
             invalid_request

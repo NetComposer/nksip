@@ -41,7 +41,7 @@
     finished | ack.
 
 -type uac_from() :: 
-    none | {srv, from()} | {fork, nksip_call_fork:id()}.
+    none | {srv, {pid(), term()}} | {fork, nksip_call_fork:id()}.
 
 
 %% ===================================================================
@@ -55,7 +55,7 @@
 
 request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     {continue, [Req1, Opts1, From1, Call1]} = 
         SrvId:nks_uac_pre_request(Req, Opts, From, Call),
     {#trans{id=TransId}=UAC, Call2} = make_trans(Req1, Opts1, From1, Call1),
@@ -97,7 +97,7 @@ dialog(DialogId, Method, Opts, Call) ->
     {ok, nksip:request(), nksip:optslist(), nksip_call:call()} | {error, term()}.
 
 make_dialog(DialogId, Method, Opts, Call) ->
-    #call{app_id=SrvId, call_id=CallId} = Call,
+    #call{srv_id=SrvId, call_id=CallId} = Call,
     case nksip_call_uac_dialog:make(DialogId, Method, Opts, Call) of
         {ok, RUri, Opts1, Call1} -> 
             Opts2 = [{call_id, CallId} | Opts1],
@@ -139,7 +139,7 @@ resend(Req, UAC, Call) ->
 
 %% @doc Tries to cancel an ongoing invite request with a reason
 -spec cancel(nksip_call:trans_id(), nksip:optslist(), 
-             {srv, from()} | undefined, nksip_call:call()) ->
+             {srv, {pid(), term()}} | undefined, nksip_call:call()) ->
     nksip_call:call().
 
 cancel(TransId, Opts, From, #call{trans=Trans}=Call) when is_integer(TransId) ->
@@ -262,7 +262,7 @@ make_trans(Req, Opts, From, Call) ->
 -spec response(nksip:response(), nksip_call:call()) ->
     nksip_call:call().
 
-response(Resp, #call{app_id=SrvId, trans=Trans}=Call) ->
+response(Resp, #call{srv_id=SrvId, trans=Trans}=Call) ->
     #sipmsg{class={resp, Code, _Reason}, cseq={_, Method}} = Resp,
     TransId = nksip_call_lib:uac_transaction_id(Resp),
     case lists:keyfind(TransId, #trans.trans_id, Trans) of

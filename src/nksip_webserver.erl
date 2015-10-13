@@ -39,7 +39,7 @@
 
 
 %% @doc Starts a new webserver, or returns a already started one
--spec start_server(nksip:app_id(), tcp|tls|ws|wss, inet:ip_address(), inet:port_number(), 
+-spec start_server(nkservice:id(), tcp|tls|ws|wss, inet:ip_address(), inet:port_number(), 
                    term(), nksip:optslist()) ->
     {ok, pid()} | {error, term()}.
 
@@ -47,7 +47,7 @@ start_server(SrvId, Proto, Ip, Port, Disp, Opts)
         when 
             (Proto==tcp orelse Proto==tls orelse Proto==ws orelse Proto==wss) andalso
             is_list(Disp) andalso is_list(Opts) ->
-    case nksip_transport_sup:get_pid(SrvId) of
+    case nkservice_transport_sup:get_pid(SrvId) of
         AppPid when is_pid(AppPid) ->
             case catch cowboy_router:compile(Disp) of
                 {'EXIT', _} -> 
@@ -62,7 +62,7 @@ start_server(SrvId, Proto, Ip, Port, Disp, Opts)
 
 
 %% @doc Stops a started webserver
--spec stop_server(nksip:app_id(), tcp|tls|ws|wss, 
+-spec stop_server(nkservice:id(), tcp|tls|ws|wss, 
                   inet:ip_address(), inet:port_number()) ->
     ok | {error, in_use} | {error, not_found}.
 
@@ -92,7 +92,7 @@ stop_all() ->
 
 -record(server_info, {
     ref :: server_ref(),
-    apps = [] :: [nksip:app_id()],
+    apps = [] :: [nkservice:id()],
     dispatch = [] :: list(),
     pid :: pid(), 
     mon :: reference()
@@ -100,7 +100,7 @@ stop_all() ->
 
 
 -record(app_info, {
-    index :: {nksip:app_id(), server_ref()}, 
+    index :: {nkservice:id(), server_ref()}, 
     dispatch = [] :: list(),
     mon :: reference()
 }).
@@ -118,17 +118,11 @@ start_link() ->
         
 
 %% @private 
--spec init(term()) ->
-    gen_server_init(#state{}).
-
 init([]) ->
     {ok, #state{servers=[], apps=[]}}.
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
-
 handle_call({start, SrvId, AppPid, Ref, Disp, Opts}, _From, State) ->
     #state{servers=Servers, apps=Apps} = State,
     case lists:keytake(Ref, #server_info.ref, Servers) of
@@ -211,9 +205,6 @@ handle_call(Msg, _From, State) ->
     {noreply, State}.
 
 %% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
 handle_cast({webserver_started, Ref, WebPid}, State) ->
     #state{apps=Apps, servers=Servers} = State,
     WebApps = [SrvId || #app_info{index={SrvId, WebRef}} <- Apps, WebRef==Ref],
@@ -235,9 +226,6 @@ handle_cast(Msg, State) ->
 
 
 %% @private
--spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
-
 handle_info({'DOWN', MRef, process, _Pid, _Reason}, State) ->
     #state{apps=Apps, servers=Servers} = State,
     case lists:keyfind(MRef, #app_info.mon, Apps) of
@@ -256,17 +244,11 @@ handle_info({'DOWN', MRef, process, _Pid, _Reason}, State) ->
 
 
 %% @private
--spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
-
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
--spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
 terminate(_Reason, _State) ->  
     ok.
 
@@ -367,8 +349,8 @@ listen_opts(wss, Ip, Port, Opts) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = nklib_util:get_value(certfile, Opts, DefCert),
-    Key = nklib_util:get_value(keyfile, Opts, DefKey),
+    Cert = nklib_util:get_value(sip_certfile, Opts, DefCert),
+    Key = nklib_util:get_value(sip_keyfile, Opts, DefKey),
     lists:flatten([
         {ip, Ip}, {port, Port}, 
         % {keepalive, true}, 

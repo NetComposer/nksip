@@ -25,7 +25,7 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([app_id/1, app_name/1, get_handle/1, call_id/1, meta/2, metas/2]).
+-export([srv_id/1, app_name/1, get_handle/1, call_id/1, meta/2, metas/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
 -export([get_authorized_list/1, clear_authorized_list/1]).
 -export([get_all_data/0]).
@@ -49,7 +49,7 @@
 % -type spec() :: id() | nksip:handle().
 
 -type field() :: 
-    get_handle | app_id | app_name | created | updated | local_seq | remote_seq | 
+    get_handle | srv_id | app_name | created | updated | local_seq | remote_seq | 
     local_uri | raw_local_uri | remote_uri | raw_remote_uri | 
     local_target | raw_local_target | remote_target | raw_remote_target | 
     early | secure | route_set | raw_route_set | 
@@ -84,22 +84,22 @@ get_handle(Term) ->
 
 
 %% @doc Gets thel App of a dialog
--spec app_id(nksip:dialog()|nksip:handle()) ->
-    {ok, nksip:app_id()}.
+-spec srv_id(nksip:dialog()|nksip:handle()) ->
+    {ok, nkservice:id()}.
 
-app_id(#dialog{app_id=SrvId}) ->
+srv_id(#dialog{srv_id=SrvId}) ->
     {ok, SrvId};
-app_id(Handle) ->
+srv_id(Handle) ->
     {SrvId, _DialogId, _CallId} = nksip_dialog_lib:parse_handle(Handle),
     {ok, SrvId}.
 
 
 %% @doc Gets app's name
 -spec app_name(nksip:dialog()|nksip:handle()) -> 
-    {ok, nksip:app_name()} | {error, term()}.
+    {ok, nkservice:name()} | {error, term()}.
 
 app_name(Term) -> 
-    {ok, SrvId} = app_id(Term),
+    {ok, SrvId} = srv_id(Term),
     {ok, SrvId:name()}.
 
 
@@ -168,7 +168,7 @@ get_all() ->
 
 
 %% @doc Finds all started dialogs handles having `Call-ID'.
--spec get_all(nksip:app_name()|nksip:app_id(), nksip:call_id()) ->
+-spec get_all(nkservice:name()|nkservice:id(), nksip:call_id()) ->
     [nksip:handle()].
 
 get_all(App, CallId) ->
@@ -248,7 +248,7 @@ get_all_data() ->
             {ok, #dialog{}=Dialog} ->
                 Data = {DialogId, [
                     {id, Dialog#dialog.id},
-                    {app_id, Dialog#dialog.app_id},
+                    {srv_id, Dialog#dialog.srv_id},
                     {call_id, Dialog#dialog.call_id},
                     {local_uri, nklib_unparse:uri(Dialog#dialog.local_uri)},
                     {remote_uri, nklib_unparse:uri(Dialog#dialog.remote_uri)},

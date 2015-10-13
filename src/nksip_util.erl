@@ -48,29 +48,16 @@ parse_syntax(Data, Defaults) ->
 
 syntax() ->
     #{
-        log_level => log_level,
-
-        % System options
         sip_timer_t1 => {integer, 10, 2500},
         sip_timer_t2 => {integer, 100, 16000},
         sip_timer_t4 => {integer, 100, 25000},
         sip_timer_c => {integer, 1, none},
-        sip_udp_timeout => {integer, 5, none},
-        sip_tcp_timeout => {integer, 5, none},
-        sip_sctp_timeout => {integer, 5, none},
-        sip_ws_timeout => {integer, 5, none},
         sip_trans_timeout => {integer, 5, none},
         sip_dialog_timeout => {integer, 5, none},
         sip_event_expires => {integer, 1, none},
         sip_event_expires_offset => {integer, 0, none},
         sip_nonce_timeout => {integer, 5, none},
         sip_max_calls => {integer, 1, 1000000},
-        sip_max_connections => {integer, 1, 1000000},
-        
-        % Startup options
-        sip_transports => fun parse_transports/3,
-        sip_certfile => path,
-        sip_keyfile => path,
         sip_supported => words,
         sip_allow => words,
         sip_accept => words,
@@ -88,94 +75,41 @@ syntax() ->
 
 
 defaults() ->
-    [
-        {log_level, notice},
-        {sip_allow, [
+    #{
+        log_level => notice,
+        sip_allow => [
             <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
             <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
-            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>]},
-        {sip_supported, [<<"path">>]},
-        {sip_timer_t1, 500},                    % (msecs) 0.5 secs
-        {sip_timer_t2, 4000},                   % (msecs) 4 secs
-        {sip_timer_t4, 5000},                   % (msecs) 5 secs
-        {sip_timer_c,  180},                    % (secs) 3min
-        {sip_udp_timeout, 30},                  % (secs) 30 secs
-        {sip_tcp_timeout, 180},                 % (secs) 3 min
-        {sip_sctp_timeout, 180},                % (secs) 3 min
-        {sip_ws_timeout, 180},                  % (secs) 3 min
-        {sip_trans_timeout, 900},               % (secs) 15 min
-        {sip_dialog_timeout, 1800},             % (secs) 30 min
-        {sip_event_expires, 60},                % (secs) 1 min
-        {sip_event_expires_offset, 5},          % (secs) 5 secs
-        {sip_nonce_timeout, 30},                % (secs) 30 secs
-        {sip_from, undefined},
-        {sip_accept, undefined},
-        {sip_events, []},
-        {sip_route, []},
-        {sip_local_host, auto},
-        {sip_local_host6, auto},
-        {sip_no_100, true},
-        {sip_max_calls, 100000},                % Each Call-ID counts as a call
-        {sip_max_connections, 1024},            % Per transport and SipApp
-        {sip_debug, false}                      % Used in nksip_debug plugin
-    ].
+            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>],
+        sip_supported => [<<"path">>],
+        sip_timer_t1 => 500,                    % (msecs) 0.5 secs
+        sip_timer_t2 => 4000,                   % (msecs) 4 secs
+        sip_timer_t4 => 5000,                   % (msecs) 5 secs
+        sip_timer_c =>  180,                    % (secs) 3min
+        sip_udp_timeout => 30,                  % (secs) 30 secs
+        sip_tcp_timeout => 180,                 % (secs) 3 min
+        sip_sctp_timeout => 180,                % (secs) 3 min
+        sip_ws_timeout => 180,                  % (secs) 3 min
+        sip_trans_timeout => 900,               % (secs) 15 min
+        sip_dialog_timeout => 1800,             % (secs) 30 min
+        sip_event_expires => 60,                % (secs) 1 min
+        sip_event_expires_offset => 5,          % (secs) 5 secs
+        sip_nonce_timeout => 30,                % (secs) 30 secs
+        sip_from => undefined,
+        sip_accept => undefined,
+        sip_events => [],
+        sip_route => [],
+        sip_local_host => auto,
+        sip_local_host6 => auto,
+        sip_no_100 => true,
+        sip_max_calls => 100000,                % Each Call-ID counts as a call
+        sip_max_connections => 1024,            % Per transport and Service
 
+        sip_transports => #{{udp, {0,0,0,0}, 0} => []},
 
-%% @private
-parse_transports(_, List, _) when is_list(List) ->
-    try
-        do_parse_transports(List, [])
-    catch
-        throw:Throw -> {error, Throw}
-    end;
+        sip_debug => false                      % Used in nksip_debug plugin
+    }.
 
-parse_transports(_, _List, _) ->
-    error.
-
-
-%% @private
-do_parse_transports([], Acc) ->
-    {ok, lists:reverse(Acc)};
-
-do_parse_transports([Transport|Rest], Acc) ->
-    case Transport of
-        {Scheme, Ip, Port, TOpts} when is_list(TOpts); is_map(TOpts) -> ok;
-        {Scheme, Ip, Port} -> TOpts = [];
-        {Scheme, Ip} -> Port = any, TOpts = [];
-        Scheme -> Ip = all, Port = any, TOpts = []
-    end,
-    case 
-        (Scheme==udp orelse Scheme==tcp orelse 
-         Scheme==tls orelse Scheme==sctp orelse
-         Scheme==ws  orelse Scheme==wss)
-    of
-        true -> ok;
-        false -> throw({invalid_transport, Transport})
-    end,
-    Ip1 = case Ip of
-        all ->
-            {0,0,0,0};
-        all6 ->
-            {0,0,0,0,0,0,0,0};
-        _ when is_tuple(Ip) ->
-            case catch inet_parse:ntoa(Ip) of
-                {error, _} -> throw({invalid_transport, Transport});
-                {'EXIT', _} -> throw({invalid_transport, Transport});
-                _ -> Ip
-            end;
-        _ ->
-            case catch nklib_util:to_ip(Ip) of
-                {ok, PIp} -> PIp;
-                _ -> throw({invalid_transport, Transport})
-            end
-    end,
-    Port1 = case Port of
-        any -> 0;
-        _ when is_integer(Port), Port >= 0 -> Port;
-        _ -> throw({invalid_transport, Transport})
-    end,
-    TOpts1 = nklib_util:to_list(TOpts),
-    do_parse_transports(Rest, [{Scheme, Ip1, Port1, TOpts1}|Acc]).
 
 
 
@@ -294,7 +228,7 @@ find_real_ip([_|R], Type) ->
 
 %% @private Save cache for speed log access
 put_log_cache(SrvId, CallId) ->
-    erlang:put(nksip_app_id, SrvId),
+    erlang:put(nksip_srv_id, SrvId),
     erlang:put(nksip_call_id, CallId),
     erlang:put(nksip_app_name, SrvId:name()),
     erlang:put(nksip_log_level, SrvId:config_log_level()).

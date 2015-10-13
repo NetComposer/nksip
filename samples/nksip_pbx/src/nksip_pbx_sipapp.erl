@@ -20,11 +20,11 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SipApp callback module.
+%% @doc Service callback module.
 %%
-%% This module implements the mandatory callback module of each SipApp application
+%% This module implements the mandatory callback module of each Service application
 %%
-%% This SipApp implements a SIP proxy, allowing  endpoints to register 
+%% This Service implements a SIP proxy, allowing  endpoints to register 
 %% and call each other using its registered uri. 
 %% Each registered endpoint's speed is monitored and special "extensions" are
 %% available to call all nodes, call the fastest, etc.
@@ -45,7 +45,7 @@
 -include("../../../plugins/include/nksip_registrar.hrl").
 
 
-%% @doc Starts a new SipApp, listening on port 5060 for udp and tcp and 5061 for tls,
+%% @doc Starts a new Service, listening on port 5060 for udp and tcp and 5061 for tls,
 %% and acting as a registrar.
 start() ->
     CoreOpts = [
@@ -55,7 +55,7 @@ start() ->
     {ok, _} = nksip:start(pbx, ?MODULE, [], CoreOpts).
 
 
-%% @doc Stops the SipApp.
+%% @doc Stops the Service.
 stop() ->
     nksip:stop(pbx).
 
@@ -66,7 +66,7 @@ stop() ->
     auto_check
 }).
 
-%% @doc SipApp Callback: initialization.
+%% @doc Service Callback: initialization.
 %% This function is called by NkSIP after calling `nksip:start/4'.
 %% We program a timer to check our nodes.
 init([]) ->
@@ -75,7 +75,7 @@ init([]) ->
     {ok, #state{auto_check=true}}.
 
 
-%% @doc SipApp Callback: Called to check user's password.
+%% @doc Service Callback: Called to check user's password.
 %% If the incoming user's realm is one of our domains, the password for any 
 %% user is "1234". For other realms, no password is valid.
 sip_get_user_pass(_User, <<"nksip">>, _Req, _Call) ->
@@ -84,7 +84,7 @@ sip_get_user_pass(_User, _Realm, _Req, _Call) ->
     false.
 
 
-%% @doc SipApp Callback: Called to check if a request should be authorized.
+%% @doc Service Callback: Called to check if a request should be authorized.
 %% - We first check to see if the request is an in-dialog request, coming from 
 %%   the same ip and port of a previously authorized request.
 %% - If not, we check if we have a previous authorized REGISTER request from 
@@ -116,7 +116,7 @@ sip_authorize(Auth, Req, _Call) ->
     end.
 
 
-%% @doc SipApp Callback: Called to decide how to route every new request.
+%% @doc Service Callback: Called to decide how to route every new request.
 %%
 %%  - If the user part of the request-uri is 200, proxy in parallel to all
 %%    registered endpoints but me, including a Record-Route header, so
@@ -132,7 +132,7 @@ sip_authorize(Auth, Req, _Call) ->
 %%    process locally if it is one of our domains.
 %%    (Since we have not implemented `sip_invite/2', `sip_options/2,' etc., all responses
 %%    will be default responses). REGISTER will be processed as configured
-%%    when starting the SipApp.
+%%    when starting the Service.
 
 sip_route(_Scheme, <<"200">>, <<"nksip">>, Req, _Call) ->
     UriList = find_all_except_me(Req),
@@ -229,14 +229,14 @@ sip_invite(Req, _Call) ->
     end.
 
 
-%% @doc SipApp Callback: Synchronous user call.
+%% @doc Service Callback: Synchronous user call.
 handle_call(get_speed, _From, State) ->
     Speed = nkservice_server:get(pbx, speed),
     Reply = [{Time, nklib_unparse:uri(Uri)} || {Time, Uri} <- Speed],
     {reply, Reply, State}.
 
 
-%% @doc SipApp Callback: Asynchronous user cast.
+%% @doc Service Callback: Asynchronous user cast.
 handle_cast({speed_update, Speed}, State) ->
     ok = nkservice_server:put(pbx, speed, Speed),
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
@@ -249,9 +249,9 @@ handle_cast({check_speed, false}, State) ->
     {noreply, State#state{auto_check=false}}.
 
 
-%% @doc SipApp Callback: External erlang message received.
+%% @doc Service Callback: External erlang message received.
 %% The programmed timer sends a `{timeout, _Ref, check_speed}' message
-%% periodically to the SipApp.
+%% periodically to the Service.
 handle_info({timeout, _, check_speed}, #state{auto_check=true}=State) ->
     Self = self(),
     spawn(fun() -> test_speed(Self) end),

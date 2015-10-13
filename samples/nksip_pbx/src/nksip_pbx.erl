@@ -29,7 +29,7 @@
 %% ===================================================================
 
 
-%% @doc Starts the SipApp.
+%% @doc Starts the Service.
 -spec start() -> ok.
 
 start() ->
@@ -38,7 +38,7 @@ start() ->
     trace(false).
 
 
-%% @doc Stops the SipApp.
+%% @doc Stops the Service.
 -spec stop() -> ok.
 
 stop() ->

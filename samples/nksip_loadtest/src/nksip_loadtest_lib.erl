@@ -32,12 +32,12 @@
 %% Public
 %% ===================================================================
 
-%% @doc Start a test server SipApp called `server' listening on port `5060'.
+%% @doc Start a test server Service called `server' listening on port `5060'.
 start_server() ->
     start_server(loadtest, 5060).
 
 
-%% @doc Start a test server SipApp called `Name' listening on port `Port' for 
+%% @doc Start a test server Service called `Name' listening on port `Port' for 
 %% udp and tcp, and `Port+1' for tls.
 start_server(Name, Port) ->
     Opts = [
@@ -52,12 +52,12 @@ start_server(Name, Port) ->
     end.
 
 
-%% @doc Stops SipApp called `server'.
+%% @doc Stops Service called `server'.
 stop_server() ->
     stop_server(loadtest).
 
 
-%% @doc Stops SipApp called `Name'.
+%% @doc Stops Service called `Name'.
 stop_server(Name) ->
     nksip:stop(Name).
 

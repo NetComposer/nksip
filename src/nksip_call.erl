@@ -27,7 +27,7 @@
 -module(nksip_call).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([app_id/1, call_id/1]).
+-export([srv_id/1, call_id/1]).
 -export([send/2, send/5, send_dialog/5, send_cancel/4]).
 -export([send_reply/4]).
 -export([get_all/0, get_info/0, clear_all/0]).
@@ -62,10 +62,10 @@
 %% ===================================================================
 
 %% @doc Gets the SrvId
--spec app_id(call()) ->
-    nksip:app_id().
+-spec srv_id(call()) ->
+    nkservice:id().
 
-app_id(#call{app_id=SrvId}) ->
+srv_id(#call{srv_id=SrvId}) ->
     SrvId.
 
 
@@ -85,12 +85,12 @@ call_id(#call{call_id=CallId}) ->
 -spec send(nksip:request(), nksip:optslist()) ->
     nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
-send(#sipmsg{app_id=SrvId, call_id=CallId}=Req, Opts) ->
+send(#sipmsg{srv_id=SrvId, call_id=CallId}=Req, Opts) ->
     nksip_router:send_work_sync(SrvId, CallId, {send, Req, Opts}).
 
 
 %% @private Generates and sends a new request.
--spec send(nksip:app_id(), nksip:call_id(), nksip:method(), 
+-spec send(nkservice:id(), nksip:call_id(), nksip:method(), 
            nksip:user_uri(), nksip:optslist()) ->
     nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
@@ -99,7 +99,7 @@ send(SrvId, CallId, Method, Uri, Opts) ->
 
 
 %% @private Generates and sends a new in-dialog request.
--spec send_dialog(nksip:app_id(), nksip:call_id(), nksip:method(), 
+-spec send_dialog(nkservice:id(), nksip:call_id(), nksip:method(), 
                   nksip_dialog_lib:id(), nksip:optslist()) ->
     nksip_uac:uac_result() | nksip_uac:uac_ack_result().
 
@@ -108,7 +108,7 @@ send_dialog(SrvId, CallId, Method, DialogId, Opts) ->
 
 
 %% @private Cancels an ongoing INVITE request.
--spec send_cancel(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(),
+-spec send_cancel(nkservice:id(), nksip:call_id(), nksip_sipmsg:id(),
                   nksip:optslist()) ->
     nksip_uac:uac_cancel_result().
 
@@ -118,7 +118,7 @@ send_cancel(SrvId, CallId, RequestId, Opts) ->
 
 
 %% @private Sends a synchronous request reply.
--spec send_reply(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), 
+-spec send_reply(nkservice:id(), nksip:call_id(), nksip_sipmsg:id(), 
                  nksip:sipreply()) ->
     {ok, nksip:response()} | {error, term()}.
 
@@ -128,7 +128,7 @@ send_reply(SrvId, CallId, ReqId, SipReply) ->
 
 %% @private Get all started calls (dangerous in production with many calls)
 -spec get_all() ->
-    [{nksip:app_id(), nksip:call_id(), pid()}].
+    [{nkservice:id(), nksip:call_id(), pid()}].
 
 get_all() ->
     nksip_router:get_all_calls().
@@ -170,7 +170,7 @@ get_all_dialogs() ->
 
 
 %% @private Finds all started dialogs handles having a `Call-ID'.
--spec get_all_dialogs(nksip:app_id(), nksip:call_id()) ->
+-spec get_all_dialogs(nkservice:id(), nksip:call_id()) ->
     {ok, [nksip:handle()]} | {error, term()}.
 
 get_all_dialogs(SrvId, CallId) ->
@@ -178,7 +178,7 @@ get_all_dialogs(SrvId, CallId) ->
 
 
 %% @private Deletes a dialog
--spec stop_dialog(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id()) ->
+-spec stop_dialog(nkservice:id(), nksip:call_id(), nksip_dialog_lib:id()) ->
     ok | {error, term()}.
  
 stop_dialog(SrvId, CallId, DialogId) ->
@@ -186,7 +186,7 @@ stop_dialog(SrvId, CallId, DialogId) ->
 
 
 %% @private
--spec apply_dialog(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id(), function()) ->
+-spec apply_dialog(nkservice:id(), nksip:call_id(), nksip_dialog_lib:id(), function()) ->
     {apply, term()} | {error, term()}.
 
 apply_dialog(SrvId, CallId, DialogId, Fun) ->
@@ -194,7 +194,7 @@ apply_dialog(SrvId, CallId, DialogId, Fun) ->
 
 
 %% @private Gets authorized list of transport, ip and ports for a dialog.
--spec get_authorized_list(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id()) ->
+-spec get_authorized_list(nkservice:id(), nksip:call_id(), nksip_dialog_lib:id()) ->
     {ok, [{nksip:protocol(), inet:ip_address(), inet:port_number()}]} | {error, term()}.
 
 get_authorized_list(SrvId, CallId, DialogId) ->
@@ -202,7 +202,7 @@ get_authorized_list(SrvId, CallId, DialogId) ->
 
 
 %% @private Gets authorized list of transport, ip and ports for a dialog.
--spec clear_authorized_list(nksip:app_id(), nksip:call_id(), nksip_dialog_lib:id()) ->
+-spec clear_authorized_list(nkservice:id(), nksip:call_id(), nksip_dialog_lib:id()) ->
     ok | {error, term()}.
 
 clear_authorized_list(SrvId, CallId, DialogId) ->
@@ -211,8 +211,8 @@ clear_authorized_list(SrvId, CallId, DialogId) ->
 
 %% @private Get all active transactions for all calls.
 -spec get_all_transactions() ->
-    [{nksip:app_id(), nksip:call_id(), uac, nksip_call:trans_id()} |
-     {nksip:app_id(), nksip:call_id(), uas, nksip_call:trans_id()}].
+    [{nkservice:id(), nksip:call_id(), uac, nksip_call:trans_id()} |
+     {nkservice:id(), nksip:call_id(), uas, nksip_call:trans_id()}].
     
 get_all_transactions() ->
     lists:flatten(
@@ -227,8 +227,8 @@ get_all_transactions() ->
         ]).
 
 
-%% @private Get all active transactions for this SipApp, having CallId.
--spec get_all_transactions(nksip:app_id(), nksip:call_id()) ->
+%% @private Get all active transactions for this Service, having CallId.
+-spec get_all_transactions(nkservice:id(), nksip:call_id()) ->
     {ok, [{uac|uas, nksip_call:trans_id()}]} | {error, term()}.
 
 get_all_transactions(SrvId, CallId) ->
@@ -236,7 +236,7 @@ get_all_transactions(SrvId, CallId) ->
 
 
 %% @private Applies a fun to a transaction and returns the result.
--spec apply_transaction(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
+-spec apply_transaction(nkservice:id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
     {apply, term()} | {error, term()}.
 
 apply_transaction(SrvId, CallId, MsgId, Fun) ->
@@ -244,7 +244,7 @@ apply_transaction(SrvId, CallId, MsgId, Fun) ->
 
 
 %% @private
--spec apply_sipmsg(nksip:app_id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
+-spec apply_sipmsg(nkservice:id(), nksip:call_id(), nksip_sipmsg:id(), function()) ->
     {apply, term()} | {error, term()}.
 
 apply_sipmsg(SrvId, CallId, MsgId, Fun) ->

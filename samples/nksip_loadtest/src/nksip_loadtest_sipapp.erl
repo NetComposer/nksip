@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SipApp callback module
+%% @doc Service callback module
 
 -module(nksip_loadtest_sipapp).
 

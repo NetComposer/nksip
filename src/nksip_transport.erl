@@ -52,9 +52,9 @@
 %% Public
 %% ===================================================================
 
-%% @doc Gets all registered transports in all SipApps.
+%% @doc Gets all registered transports in all Services.
 -spec get_all() -> 
-    [{nksip:app_id(), transport(), pid()}].
+    [{nkservice:id(), transport(), pid()}].
 
 get_all() ->
     All = [{SrvId, Transp, Pid} 
@@ -62,8 +62,8 @@ get_all() ->
     lists:sort(All).
 
 
-%% @doc Gets all registered transports for a SipApp.
--spec get_all(nksip:app_id()) -> 
+%% @doc Gets all registered transports for a Service.
+-spec get_all(nkservice:id()) -> 
     [{transport(), pid()}].
 
 get_all(SrvId) ->
@@ -71,7 +71,7 @@ get_all(SrvId) ->
 
 
 %% @private Finds a listening transport of Proto.
--spec get_listening(nksip:app_id(), nksip:protocol(), ipv4|ipv6) -> 
+-spec get_listening(nkservice:id(), nksip:protocol(), ipv4|ipv6) -> 
     [{transport(), pid()}].
 
 get_listening(SrvId, Proto, Class) ->
@@ -91,7 +91,7 @@ get_listening(SrvId, Proto, Class) ->
 
 
 %% @private Finds a listening transport of Proto
--spec get_connected(nksip:app_id(), nksip:transport()|undefined) ->
+-spec get_connected(nkservice:id(), nksip:transport()|undefined) ->
     [{nksip_transport:transport(), pid()}].
 
 get_connected(SrvId, Transp) ->
@@ -104,7 +104,7 @@ get_connected(SrvId, Transp) ->
 
 
 %% @private Finds a listening transport of Proto
--spec get_connected(nksip:app_id(), nksip:protocol(), 
+-spec get_connected(nkservice:id(), nksip:protocol(), 
                     inet:ip_address(), inet:port_number(), binary()) ->
     [{nksip_transport:transport(), pid()}].
 
@@ -113,7 +113,7 @@ get_connected(SrvId, Proto, Ip, Port, Res) ->
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
--spec is_local(nksip:app_id(), Input::nksip:uri()|nksip:via()) -> 
+-spec is_local(nkservice:id(), Input::nksip:uri()|nksip:via()) -> 
     boolean().
 
 is_local(SrvId, #uri{}=Uri) ->
@@ -176,8 +176,8 @@ is_local_ip(Ip) ->
 
 
 %% @doc Start a new listening transport.
-%% Opts should have the transport options ++ SipApp configuration
--spec start_transport(nksip:app_id(), nksip:protocol(), inet:ip_address(), 
+%% Opts should have the transport options ++ Service configuration
+-spec start_transport(nkservice:id(), nksip:protocol(), inet:ip_address(), 
                       inet:port_number(), nksip:optslist()) ->
     {ok, pid()} | {error, term()}.
 
@@ -207,7 +207,7 @@ start_transport(SrvId, Proto, Ip, Port, Opts) ->
                 ws -> nksip_transport_ws:get_listener(SrvId, Transp, Opts);
                 wss -> nksip_transport_ws:get_listener(SrvId, Transp, Opts)
             end,
-            nksip_transport_sup:add_transport(SrvId, Spec);
+            nkservice_transport_sup:add_transport(SrvId, Spec);
         Pid when is_pid(Pid) -> 
             {ok, Pid}
     end.
@@ -215,13 +215,13 @@ start_transport(SrvId, Proto, Ip, Port, Opts) ->
 
 
 %% @private 
--spec get_listenhost(nksip:app_id(), inet:ip_address(), nksip:optslist()) ->
+-spec get_listenhost(nkservice:id(), inet:ip_address(), nksip:optslist()) ->
     binary().
 
 get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
-            Host = case nklib_util:get_value(local_host, Opts) of
+            Host = case nklib_util:get_value(sip_local_host, Opts) of
                 undefined -> SrvId:cache_sip_local_host();
                 Host0 -> Host0
             end,
@@ -234,7 +234,7 @@ get_listenhost(SrvId, Ip, Opts) ->
                     Host
             end;
         8 ->
-            Host = case nklib_util:get_value(local_host6, Opts) of
+            Host = case nklib_util:get_value(sip_local_host6, Opts) of
                 undefined -> SrvId:cache_sip_local_host6();
                 Host0 -> Host0
             end,
@@ -276,7 +276,7 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
 %% ===================================================================
 
 %% @private
--spec send(nksip:app_id(), [TSpec], function(), nksip:optslist()) ->
+-spec send(nkservice:id(), [TSpec], function(), nksip:optslist()) ->
     {ok, nksip:request()|nksip:response()} | error
     when TSpec :: #uri{} | connection() | {current, connection()} | 
                   {flow, {pid(), nksip:transport()}}.
@@ -366,7 +366,7 @@ send(_, [], _MakeMsg, _Opts) ->
 
 
 %% @private Starts a new outbound connection.
--spec connect(nksip:app_id(), nksip:protocol(),
+-spec connect(nkservice:id(), nksip:protocol(),
                        inet:ip_address(), inet:port_number(), binary(), 
                        nksip:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
@@ -406,7 +406,7 @@ try_connect(SrvId, Proto, Ip, Port, Res, Opts, Try) ->
                 
 
 %% @private Starts a new connection to a remote server
--spec do_connect(nksip:app_id(), nksip:protocol(), inet:ip_address(), inet:port_number(), 
+-spec do_connect(nkservice:id(), nksip:protocol(), inet:ip_address(), inet:port_number(), 
               binary(), nksip:optslist()) ->
     {ok, pid(), nksip_transport:transport()} | {error, term()}.
          

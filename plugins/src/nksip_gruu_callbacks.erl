@@ -30,7 +30,7 @@
 
 
 %% @private
-nks_nksip_registrar_request_opts(#sipmsg{app_id=SrvId, contacts=Contacts}=Req, Opts) ->
+nks_nksip_registrar_request_opts(#sipmsg{srv_id=SrvId, contacts=Contacts}=Req, Opts) ->
     case 
         lists:member(<<"gruu">>, SrvId:cache_sip_supported()) andalso 
         nksip_sipmsg:supported(<<"gruu">>, Req)

@@ -128,7 +128,7 @@ parse_opts([], _Req, Resp, _Code, Opts) ->
 
 
 parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
-    #sipmsg{app_id=SrvId} = Req,
+    #sipmsg{srv_id=SrvId} = Req,
     Op = case Term of
     
         ignore ->
@@ -305,7 +305,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
 -spec parse_plugin_opts(nksip:request(), nksip:response(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_plugin_opts(#sipmsg{app_id=SrvId}=Req, Resp, Opts) ->
+parse_plugin_opts(#sipmsg{srv_id=SrvId}=Req, Resp, Opts) ->
     case SrvId:nks_parse_uas_opt(Req, Resp, Opts) of
         {continue, [_, Resp1, Opts1]} ->
             {Resp1, Opts1};

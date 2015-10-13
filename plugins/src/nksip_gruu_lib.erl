@@ -36,7 +36,7 @@
 -spec update_gruu(nksip:response()) ->
     ok.
 
-update_gruu(#sipmsg{app_id=SrvId, contacts=Contacts, class={resp, Code, _}, 
+update_gruu(#sipmsg{srv_id=SrvId, contacts=Contacts, class={resp, Code, _}, 
                       cseq={_, Method}}) ->
     case Method=='REGISTER' andalso Code>=200 andalso Code<300 of
         true -> find_gruus(SrvId, Contacts);
@@ -80,7 +80,7 @@ find_gruus(_, []) ->
 
 
 %% @private
--spec find(nksip:app_id(), nksip:uri()) ->
+-spec find(nkservice:id(), nksip:uri()) ->
     [nksip:uri()].
 
 find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->

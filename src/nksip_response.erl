@@ -24,7 +24,7 @@
 
 -include("nksip.hrl").
 
--export([get_handle/1, app_id/1, app_name/1, code/1, body/1, call_id/1]).
+-export([get_handle/1, srv_id/1, app_name/1, code/1, body/1, call_id/1]).
 -export([meta/2, metas/2, header/2]).
 -export([wait_491/0]).
 
@@ -50,12 +50,12 @@ get_handle(Term) ->
 
 
 %% @doc Gets internal app's id
--spec app_id(nksip:response()|nksip:handle()) -> 
-    {ok, nksip:app_id()}.
+-spec srv_id(nksip:response()|nksip:handle()) -> 
+    {ok, nkservice:id()}.
 
-app_id(#sipmsg{class={resp, _, _}, app_id=SrvId}) ->
+srv_id(#sipmsg{class={resp, _, _}, srv_id=SrvId}) ->
     {ok, SrvId};
-app_id(Handle) ->
+srv_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
         {resp, SrvId, _Id, _CallId} -> {ok, SrvId};
         _ -> error(invalid_response)
@@ -64,10 +64,10 @@ app_id(Handle) ->
 
 %% @doc Gets app's name
 -spec app_name(nksip:response()|nksip:handle()) -> 
-    {ok, nksip:app_name()}.
+    {ok, nkservice:name()}.
 
 app_name(Req) -> 
-    {ok, SrvId} = app_id(Req),
+    {ok, SrvId} = srv_id(Req),
     {ok, SrvId:name()}.
 
 

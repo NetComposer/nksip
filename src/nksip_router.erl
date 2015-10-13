@@ -42,7 +42,7 @@
 %% ===================================================================
 
 %% @doc Sends a synchronous piece of {@link nksip_call_worker:work()} to a call.
--spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call_worker:work()) ->
+-spec send_work_sync(nkservice:id(), nksip:call_id(), nksip_call_worker:work()) ->
     any() | {error, too_many_calls | looped_process | timeout}.
 
 send_work_sync(SrvId, CallId, Work) ->
@@ -63,7 +63,7 @@ send_work_sync(SrvId, CallId, Work) ->
 -spec incoming_sync(nksip:request()|nksip:response()) ->
     ok | {error, too_many_calls | looped_process | timeout}.
 
-incoming_sync(#sipmsg{app_id=SrvId, call_id=CallId}=SipMsg) ->
+incoming_sync(#sipmsg{srv_id=SrvId, call_id=CallId}=SipMsg) ->
     Name = name(CallId),
     Timeout = nksip_config_cache:sync_call_time(),
     case catch gen_server:call(Name, {incoming, SipMsg}, Timeout) of
@@ -76,7 +76,7 @@ incoming_sync(#sipmsg{app_id=SrvId, call_id=CallId}=SipMsg) ->
 
 
 %% @doc Called when a new request or response has been received.
--spec incoming_sync(nksip:app_id(), nksip:call_id(), nksip:transport(), binary()) ->
+-spec incoming_sync(nkservice:id(), nksip:call_id(), nksip:transport(), binary()) ->
     ok | {error, too_many_calls | looped_process | timeout}.
 
 incoming_sync(SrvId, CallId, Transp, Msg) ->
@@ -94,7 +94,7 @@ incoming_sync(SrvId, CallId, Transp, Msg) ->
 
 %% @doc Get all started calls.
 -spec get_all_calls() ->
-    [{nksip:app_id(), nksip:call_id(), pid()}].
+    [{nkservice:id(), nksip:call_id(), pid()}].
 
 get_all_calls() ->
     Fun = fun(Name, Acc) -> [call_fold(Name)|Acc] end,
@@ -140,7 +140,7 @@ start_link(Pos, Name) ->
         
 %% @private 
 -spec init(term()) ->
-    gen_server_init(#state{}).
+    {ok, #state{}}.
 
 init([Pos, Name]) ->
     Name = ets:new(Name, [named_table, protected]),
@@ -153,8 +153,8 @@ init([Pos, Name]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
+-spec handle_call(term(), {pid(), term()}, #state{}) ->
+    {reply, term(), #state{}} | {noreply, #state{}}.
 
 handle_call({send_work_sync, SrvId, CallId, Work, Caller}, From, SD) ->
     case send_work_sync(SrvId, CallId, Work, Caller, From, SD) of
@@ -166,7 +166,7 @@ handle_call({send_work_sync, SrvId, CallId, Work, Caller}, From, SD) ->
     end;
 
 handle_call({incoming, SipMsg}, _From, SD) ->
-    #sipmsg{app_id=SrvId, call_id=CallId} = SipMsg,
+    #sipmsg{srv_id=SrvId, call_id=CallId} = SipMsg,
     case send_work_sync(SrvId, CallId, {incoming, SipMsg}, none, none, SD) of
         {ok, SD1} -> 
             {reply, ok, SD1};
@@ -195,10 +195,10 @@ handle_call(Msg, _From, SD) ->
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
+    {noreply, #state{}}.
 
 handle_cast({incoming, SipMsg}, SD) ->
-    #sipmsg{app_id=SrvId, call_id=CallId} = SipMsg,
+    #sipmsg{srv_id=SrvId, call_id=CallId} = SipMsg,
     case send_work_sync(SrvId, CallId, {incoming, SipMsg}, none, none, SD) of
         {ok, SD1} -> 
             {noreply, SD1};
@@ -214,7 +214,7 @@ handle_cast(Msg, SD) ->
 
 %% @private
 -spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
+    {noreply, #state{}}.
 
 handle_info({sync_work_ok, Ref, Pid}, #state{pending=Pending}=SD) ->
     Pending1 = case dict:find(Pid, Pending) of
@@ -262,7 +262,7 @@ handle_info(Info, SD) ->
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
+    {ok, #state{}}.
 
 code_change(_OldVsn, SD, _Extra) ->
     {ok, SD}.
@@ -270,7 +270,7 @@ code_change(_OldVsn, SD, _Extra) ->
 
 %% @private
 -spec terminate(term(), #state{}) ->
-    gen_server_terminate().
+    ok.
 
 terminate(_Reason, _SD) ->  
     ok.
@@ -290,8 +290,8 @@ name(CallId) ->
 
 
 %% @private
--spec send_work_sync(nksip:app_id(), nksip:call_id(), nksip_call_worker:work(), 
-                     pid() | none, from(), #state{}) ->
+-spec send_work_sync(nkservice:id(), nksip:call_id(), nksip_call_worker:work(), 
+                     pid() | none, {pid(), term()}, #state{}) ->
     {ok, #state{}} | {error, looped_process | too_many_calls}.
 
 send_work_sync(SrvId, CallId, Work, Caller, From, #state{name=Name}=SD) ->
@@ -311,8 +311,8 @@ send_work_sync(SrvId, CallId, Work, Caller, From, #state{name=Name}=SD) ->
 
 
 %% @private
--spec do_send_work_sync(pid(), nksip:app_id(), nksip:call_id(), nksip_call_worker:work(), 
-                        from(), #state{}) ->
+-spec do_send_work_sync(pid(), nkservice:id(), nksip:call_id(), nksip_call_worker:work(), 
+                        {pid(), term()}, #state{}) ->
     #state{}.
 
 do_send_work_sync(Pid, SrvId, CallId, Work, From, #state{pending=Pending}=SD) ->
@@ -328,7 +328,7 @@ do_send_work_sync(Pid, SrvId, CallId, Work, From, #state{pending=Pending}=SD) ->
     
 
 %% @private
--spec do_call_start(nksip:app_id(), nksip:call_id(), #state{}) ->
+-spec do_call_start(nkservice:id(), nksip:call_id(), #state{}) ->
     {ok, pid()} | {error, too_many_calls}.
 
 do_call_start(SrvId, CallId, SD) ->
@@ -353,7 +353,7 @@ do_call_start(SrvId, CallId, SD) ->
 
 
 %% @doc Sends an asynchronous piece of {@link nksip_call_worker:work()} to a call.
--spec send_work_async(nksip:app_id(), nksip:call_id(), nksip_call_worker:work()) ->
+-spec send_work_async(nkservice:id(), nksip:call_id(), nksip_call_worker:work()) ->
     ok.
 
 send_work_async(SrvId, CallId, Work) ->
@@ -361,7 +361,7 @@ send_work_async(SrvId, CallId, Work) ->
 
 
 %% @private Sends an asynchronous piece of {@link nksip_call_worker:work()} to a call.
--spec send_work_async(atom(), nksip:app_id(), nksip:call_id(), nksip_call_worker:work()) ->
+-spec send_work_async(atom(), nkservice:id(), nksip:call_id(), nksip_call_worker:work()) ->
     ok.
 
 send_work_async(Name, SrvId, CallId, Work) ->
@@ -375,8 +375,8 @@ send_work_async(Name, SrvId, CallId, Work) ->
 
 
 %% @private
--spec resend_worklist(nksip:app_id(), nksip:call_id(), 
-                      [{reference(), from()|none, nksip_call_worker:work()}], #state{}) ->
+-spec resend_worklist(nkservice:id(), nksip:call_id(), 
+                      [{reference(), {pid(), term()}|none, nksip_call_worker:work()}], #state{}) ->
     #state{}.
 
 resend_worklist(_SrvId, _CallId, [], SD) ->
@@ -402,7 +402,7 @@ resend_worklist(SrvId, CallId, [{_Ref, From, Work}|Rest], SD) ->
 
 
 %% @private
--spec find(atom(), nksip:app_id(), nksip:call_id()) ->
+-spec find(atom(), nkservice:id(), nksip:call_id()) ->
     {ok, pid()} | not_found.
 
 find(Name, SrvId, CallId) ->

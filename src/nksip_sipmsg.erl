@@ -34,7 +34,7 @@
 -type id() :: binary().
 
 -type field() ::  
-    handle | internal_id | app_id | app_name | dialog_handle | subscription_handle |
+    handle | internal_id | srv_id | app_name | dialog_handle | subscription_handle |
     proto | local | remote | method | ruri | scheme | user | domain | aor |
     code | reason_phrase | content_type | body | call_id | vias | 
     from | from_tag | from_scheme | from_user | from_domain | 
@@ -65,8 +65,8 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
     case Name of
         handle -> get_handle(S);
         internal_id -> S#sipmsg.id;
-        app_id -> S#sipmsg.app_id;
-        app_name -> apply(S#sipmsg.app_id, name, []);
+        srv_id -> S#sipmsg.srv_id;
+        app_name -> apply(S#sipmsg.srv_id, name, []);
         dialog_handle -> nksip_dialog_lib:get_handle(S);
         subscription_handle -> nksip_subscription_lib:get_handle(S);
         proto -> 
@@ -343,7 +343,7 @@ expired(#sipmsg{expires=Expires, start=Start}=Req) ->
 get_handle(<<Ch, _/binary>>=Handle) when Ch==$R; Ch==$S ->
     Handle;
 
-get_handle(#sipmsg{app_id=SrvId, class=Class, id=MsgId, call_id=CallId}) ->
+get_handle(#sipmsg{srv_id=SrvId, class=Class, id=MsgId, call_id=CallId}) ->
     <<
         case Class of
             {req, _} -> $R;
@@ -363,7 +363,7 @@ get_handle(_) ->
 
 %% @private
 -spec parse_handle(nksip:handle()) -> 
-    {req|resp, nksip:app_id(), id(), nksip:call_id()}.
+    {req|resp, nkservice:id(), id(), nksip:call_id()}.
 
 parse_handle(<<Ch, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>>)
          when Ch==$R; Ch==$S ->

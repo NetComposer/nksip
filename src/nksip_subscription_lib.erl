@@ -51,10 +51,10 @@
     nksip:handle().
 
 get_handle({user_subs, #subscription{id=SubsId}, 
-               #dialog{app_id=SrvId, id=DialogId, call_id=CallId}}) ->
+               #dialog{srv_id=SrvId, id=DialogId, call_id=CallId}}) ->
     App = atom_to_binary(SrvId, latin1), 
     <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
-get_handle(#sipmsg{app_id=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
+get_handle(#sipmsg{srv_id=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
     SubsId = make_id(SipMsg),
     App = atom_to_binary(SrvId, latin1), 
     <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
@@ -66,7 +66,7 @@ get_handle(_) ->
 
 %% @private
 -spec parse_handle(nksip:handle()) ->
-    {nksip:app_id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
+    {nkservice:id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
 
 parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, App:7/binary, 
          $_, CallId/binary>>) ->

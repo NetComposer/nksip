@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SipApps management module.
+%% @doc Services management module.
 
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -32,7 +32,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export_type([app_name/0, app_id/0, handle/0]).
+-export_type([app_name/0, handle/0]).
 -export_type([request/0, response/0, sipreply/0, optslist/0]).
 -export_type([call/0, transport/0, uri/0, user_uri/0]).
 -export_type([header/0, header_name/0, header_value/0]).
@@ -46,11 +46,11 @@
 %% Types
 %% ===================================================================
 
-%% User Name of each started SipApp
--type app_name() :: nkservice:service_name().
+%% User Name of each started Service
+-type app_name() :: nkservice:name().
 
-%% Interna Name of each started SipApp
--type app_id() :: nkservice:service_id().
+%% Interna Name of each started Service
+-type srv_id() :: nkservice:id().
 
 %% External handle for a request, response, dialog or event
 %% It is a binary starting with:
@@ -159,9 +159,9 @@
 %% Public functions
 %% ===================================================================
 
-%% @doc Starts a new SipApp.
+%% @doc Starts a new Service.
 -spec start(app_name(), atom(), optslist()) -> 
-	{ok, app_id()} | {error, term()}.
+	{ok, srv_id()} | {error, term()}.
 
 start(AppName, Module, Opts) ->
     Opts2 = Opts#{
@@ -178,15 +178,15 @@ start(AppName, Module, Opts) ->
 
 
 
-%% @doc Stops a started SipApp, stopping any registered transports.
--spec stop(app_name()|app_id()) -> 
+%% @doc Stops a started Service, stopping any registered transports.
+-spec stop(app_name()|srv_id()) -> 
     ok | {error, not_found}.
 
 stop(App) ->
     nkservice_server:stop(App).
 
 
-%% @doc Stops all started SipApps.
+%% @doc Stops all started Services.
 -spec stop_all() -> 
     ok.
 
@@ -196,10 +196,10 @@ stop_all() ->
         nkservice_server:get_all(nksip)).
 
 
-%% @doc Updates the callback module or options of a running SipApp.
+%% @doc Updates the callback module or options of a running Service.
 %% It is not allowed to change transports
--spec update(app_name()|app_id(), optslist()) ->
-    {ok, app_id()} | {error, term()}.
+-spec update(app_name()|srv_id(), optslist()) ->
+    {ok, srv_id()} | {error, term()}.
 
 update(App, Opts) ->
     Opts1 = case Opts of
@@ -213,7 +213,7 @@ update(App, Opts) ->
     
 
 %% @doc Gets service's UUID
--spec get_uuid(nksip:app_name()|nksip:app_id()) -> 
+-spec get_uuid(nkservice:name()|nkservice:id()) -> 
     binary().
 
 get_uuid(Srv) ->
@@ -227,8 +227,8 @@ get_uuid(Srv) ->
 
 
 %% @doc Generates a internal name (an atom()) for any term
--spec get_appid(nksip:app_name()) ->
-    nksip:app_id().
+-spec get_appid(nkservice:name()) ->
+    nkservice:id().
 
 get_appid(AppName) ->
     list_to_atom(
@@ -240,7 +240,7 @@ get_appid(AppName) ->
 
 
 %% @doc Gets service's config
--spec get_config(nksip:app_name()|nksip:app_id()) -> 
+-spec get_config(nkservice:name()|nkservice:id()) -> 
     map().
 
 get_config(AppName) ->
@@ -278,38 +278,12 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
             trans = maps:get(sip_trans_timeout, SipConfig),
             dialog = maps:get(sip_dialog_timeout, SipConfig)},
         Cache = maps:with(cached(), SipConfig#{sip=>SipConfig, sip_timers=>Timers}),
-        TranspSpec = maps:get(sip_transport, Sip, []),
-        Child = #{
-            id => nksip_transport_sup,
-            start => {nksip_transport_sup, start_link, [SrvId, TranspSpec]},
-            restart => permanent,
-            type => supervisor
+        Update = #{
+            spec => #{sip=>SipConfig},
+            cache => Cache,
+            transports => maps:get(sip_transports, SipConfig)
         },
-
-
-
-
-        {ok, SrvSpec1} = nkservice_util:add_config(#{sip=>SipConfig}, Cache, SrvSpec),
-
-
-
-
-
-
-        TranspSupPid = case nksip_transport_sup:get_pid(SrvId) of
-            undefined ->
-                case nksip_
-
-
-            TransSupPid0 ->
-                TransSupPid0
-        end,
-
-
-
-
-
-
+        {ok, nkservice_util:update_spec(Update, SrvSpec)}
     catch
         throw:Throw -> {stop, Throw}
     end.
@@ -323,7 +297,8 @@ plugin_stop(SrvSpec) ->
 cached() ->
     [sip, sip_max_connections, sip_max_calls, sip_from, 
      sip_no_100, sip_supported, sip_allow, sip_accept, sip_events, sip_route, 
-     sip_local_host, sip_local_host6, sip_max_calls, sip_timers].
+     sip_local_host, sip_local_host6, sip_max_calls, sip_timers,
+     sip_tcp_timeout, sip_udp_timeout, sip_ws_timeout, sip_sctp_timeout].
 
 
 %% @private
@@ -331,12 +306,12 @@ plugin_update_value(Key, Fun, SrvSpec) ->
     SipConfig1 = maps:get(sip, SrvSpec),
     Value1 = maps:get(Key, SipConfig1),
     Value2 = Fun(Value1),
-    SipConfig2 = maps:put(Key, Value2, SipConfig1),
+    SipConfig2 = #{sip => maps:put(Key, Value2, SipConfig1)},
     Cache = case lists:member(Key, cached()) of
         true -> maps:put(Key, Value2, #{});
         false -> #{}
     end,
-    nkservice_util:add_config(#{sip=>SipConfig2}, Cache, SrvSpec).
+    nkservice_util:add_config(#{config=>SipConfig2, cache=>Cache}, SrvSpec).
 
 
 

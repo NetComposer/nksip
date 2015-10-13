@@ -40,7 +40,7 @@
 %% ===================================================================
 
 %% @doc Starts a new call process.
--spec start(nksip:app_id(), nksip:call_id()) ->
+-spec start(nkservice:id(), nksip:call_id()) ->
     {ok, pid()}.
 
 start(SrvId, CallId) ->
@@ -57,7 +57,7 @@ stop(Pid) ->
 
 %% @doc Sends a synchronous piece of {@link nksip_call_worker:work()} to the call.
 %% After receiving the work, the call will send `{sync_work_ok, Ref}' to `Sender'
--spec sync_work(pid(), reference(), pid(), nksip_call_worker:work(), from()|none) ->
+-spec sync_work(pid(), reference(), pid(), nksip_call_worker:work(), {pid(), term()}|none) ->
     ok.
 
 sync_work(Pid, Ref, Sender, Work, From) ->
@@ -84,13 +84,13 @@ get_data(Pid) ->
 
 %% @private 
 -spec init(term()) ->
-    gen_server_init(call()).
+    {ok, call()}.
 
 init([SrvId, CallId]) ->
     nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
     Id = erlang:phash2(make_ref()) * 1000,
     Call = #call{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         call_id = CallId, 
         next = Id+1,
         hibernate = false,
@@ -110,8 +110,8 @@ init([SrvId, CallId]) ->
 
 
 %% @private
--spec handle_call(term(), from(), call()) ->
-    gen_server_call(call()).
+-spec handle_call(term(), {pid(), term()}, call()) ->
+    {reply, term(), call()} | {noreply, call()}.
 
 handle_call(get_data, _From, Call) ->
     #call{trans=Trans, forks=Forks, dialogs=Dialogs} = Call,
@@ -124,7 +124,7 @@ handle_call(get_data, _From, Call) ->
 
 %% @private
 -spec handle_cast(term(), call()) ->
-    gen_server_cast(call()).
+    {noreply, call()} | {stop, term(), call()}.
 
 handle_cast({sync_work, Ref, Pid, Work, From}, Call) ->
     Pid ! {sync_work_ok, Ref, self()},
@@ -143,7 +143,7 @@ handle_cast(Msg, Call) ->
 
 %% @private
 -spec handle_info(term(), call()) ->
-    gen_server_info(call()).
+    {noreply, call()} | {stop, term(), call()}.
 
 handle_info({timeout, _Ref, check_call}, Call) ->
     Call1 = nksip_call:check_call(Call),
@@ -164,7 +164,7 @@ handle_info(Info, Call) ->
 
 %% @private
 -spec code_change(term(), call(), term()) ->
-    gen_server_code_change(call()).
+    {ok, call()}.
 
 code_change(_OldVsn, Call, _Extra) -> 
     {ok, Call}.
@@ -172,7 +172,7 @@ code_change(_OldVsn, Call, _Extra) ->
 
 %% @private
 -spec terminate(term(), call()) ->
-    gen_server_terminate().
+    ok.
 
 terminate(_Reason, #call{}) ->
     ?call_debug("Call process stopped", []).
@@ -185,7 +185,7 @@ terminate(_Reason, #call{}) ->
 
 %% @private
 -spec next(call()) ->
-    gen_server_cast(call()).
+    {noreply, call()} | {stop, normal, call()}.
 
 next(#call{trans=[], forks=[], dialogs=[], events=[]}=Call) -> 
     case erlang:process_info(self(), message_queue_len) of

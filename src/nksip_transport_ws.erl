@@ -51,7 +51,7 @@
 
 
 %% @private Starts a new listening server
--spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
+-spec get_listener(nkservice:id(), nksip:transport(), nksip:optslist()) ->
     term().
 
 get_listener(SrvId, Transp, Opts) ->
@@ -62,7 +62,7 @@ get_listener(SrvId, Transp, Opts) ->
         {value, {_, Dispatch}, Opts1} -> 
             ok
     end,
-    Timeout = 1000*nklib_util:get_value(ws_timeout, Opts),
+    Timeout = 1000*nklib_util:get_value(sip_ws_timeout, Opts),
     Dispatch1 = dispatch(Dispatch, [SrvId, Transp, [{timeout, Timeout}]]),
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     {
@@ -76,7 +76,7 @@ get_listener(SrvId, Transp, Opts) ->
 
 
 %% @private Starts a new connection to a remote server
--spec connect(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
+-spec connect(nkservice:id(), nksip:transport(), nksip:optslist()) ->
     {ok, term()} | {error, term()}.
          
 connect(SrvId, Transp, Opts) ->
@@ -119,7 +119,7 @@ connect(SrvId, Transp, Opts) ->
             remote_port = Port,
             resource = Res1
         },
-        Timeout = 1000 * nksip_sipapp_srv:config(SrvId, ws_timeout),
+        Timeout = 1000 * SrvId:cache_sip_ws_timeout(),
         Spec = {
             {SrvId, Proto, Ip, Port, make_ref()},
             {nksip_connection, start_link, 
@@ -129,7 +129,7 @@ connect(SrvId, Transp, Opts) ->
             worker,
             [?MODULE]
         },
-        {ok, Pid} = nksip_transport_sup:add_transport(SrvId, Spec),
+        {ok, Pid} = nkservice_transport_sup:add_transport(SrvId, Spec),
         TranspMod:controlling_process(Socket, Pid),
         InetMod:setopts(Socket, [{active, once}]),
         ?debug(SrvId, <<>>, "~p connected to ~p", [Proto, {Ip, Port}]),
@@ -162,7 +162,7 @@ recv(Mod, Socket, Buff) ->
 %% ===================================================================
 
 -record(state, {
-    app_id :: nksip:app_id(),
+    srv_id :: nkservice:id(),
     transport :: nksip:transport(),
     webserver :: reference(),
     timeout :: pos_integer()
@@ -175,9 +175,6 @@ start_link(SrvId, Transp, Dispatch, Opts) ->
     
 
 %% @private 
--spec init(term()) ->
-    gen_server_init(#state{}).
-
 init([SrvId, Transp, Dispatch, Opts]) ->
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     case 
@@ -189,10 +186,10 @@ init([SrvId, Transp, Dispatch, Opts]) ->
             nklib_proc:put(nksip_transports, {SrvId, Transp1}),
             nklib_proc:put({nksip_listen, SrvId}, Transp1),
             State = #state{
-                app_id = SrvId, 
+                srv_id = SrvId, 
                 transport = Transp,
                 webserver = erlang:monitor(process, WebPid),
-                timeout = 1000*nklib_util:get_value(ws_timeout, Opts)
+                timeout = 1000*nklib_util:get_value(sip_ws_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->
@@ -201,26 +198,17 @@ init([SrvId, Transp, Dispatch, Opts]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
-
 handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 %% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
 handle_cast(Msg, State) -> 
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
--spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
-
 handle_info({'DOWN', MRef, process, _Pid, _Reason}, #state{webserver=MRef}=State) ->
     {noreply, State};
     
@@ -230,17 +218,11 @@ handle_info(Msg, State) ->
 
 
 %% @private
--spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
-
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 
 %% @private
--spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
 terminate(_Reason, _State) ->  
     ok.
 
@@ -352,7 +334,7 @@ dispatch(List, Args) ->
 
 
 %% @private Gets socket options for outbound connections
--spec outbound_opts(nksip:protocol(), nksip:app_id()) ->
+-spec outbound_opts(nksip:protocol(), nkservice:id()) ->
     nksip:optslist().
 
 outbound_opts(ws, _SrvId) ->
@@ -367,9 +349,14 @@ outbound_opts(wss, SrvId) ->
             DefCert = "",
             DefKey = ""
     end,
-    Config = nksip_sipapp_srv:config(SrvId),
-    Cert = nklib_util:get_value(certfile, Config, DefCert),
-    Key = nklib_util:get_value(keyfile, Config, DefKey),
+    Cert = case erlang:function_exported(SrvId, cache_sip_certfile, 0) of
+        true -> SrvId:cache_sip_certfile();
+        false -> DefCert
+    end,
+    Key = case erlang:function_exported(SrvId, cache_sip_keyfile, 0) of
+        true -> SrvId:cache_sip_keyfile();
+        false -> DefKey
+    end,
     lists:flatten([
         binary, {active, false}, {nodelay, true}, {keepalive, true}, {packet, raw},
         case Cert of "" -> []; _ -> {certfile, Cert} end,
@@ -399,7 +386,7 @@ handshake_req(Ip, Port, Res, Opts) ->
 
 
 %% @private
--spec handshake_resp(nksip:app_id(), binary(), #handshake{}) ->
+-spec handshake_resp(nkservice:id(), binary(), #handshake{}) ->
     ok | {error, term()}.
 
 handshake_resp(SrvId, Data, Req) ->

@@ -84,48 +84,18 @@
 -include_lib("kernel/include/inet_sctp.hrl").
 
 
-%% ===================================================================
-%% Types
-%% ===================================================================
-
--type from() :: term().
-
--type gen_server_time() :: 
-        non_neg_integer() | hibernate.
-
--type gen_server_init(State) ::
-        {ok, State} | {ok, State, gen_server_time()} | ignore.
-
--type gen_server_cast(State) :: 
-        {noreply, State} | {noreply, State, gen_server_time()} |
-        {stop, term(), State}.
-
--type gen_server_info(State) :: 
-        gen_server_cast(State).
-
--type gen_server_call(State) :: 
-        {reply, term(), State} | {reply, term(), State, gen_server_time()} |
-        {stop, term(), term(), State} | gen_server_cast(State).
-
--type gen_server_code_change(State) ::
-        {ok, State}.
-
--type gen_server_terminate() ::
-        ok.
-
-
 
 %% ===================================================================
 %% Records
 %% ===================================================================
 
 
--record(sipapp_srv, {
-    app_id :: nksip:app_id(),
-    args :: term(),
-    sipapp_state :: term(),
-    meta :: list()
-}).
+% -record(sipapp_srv, {
+%     srv_id :: nkservice:service_id(),
+%     args :: term(),
+%     sipapp_state :: term(),
+%     meta :: list()
+% }).
 
 
 -record(transport, {
@@ -144,7 +114,7 @@
 -record(sipmsg, {
     id :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:sip_code(), binary()},
-    app_id :: nksip:app_id(),
+    srv_id :: nkservice:service_id(),
     dialog_id :: nksip_dialog_lib:id(),
     ruri :: nksip:uri(),
     vias = [] :: [nksip:via()],
@@ -221,7 +191,7 @@
 
 -record(dialog, {
     id :: nksip_dialog_lib:id(),
-    app_id :: nksip:app_id(),
+    srv_id :: nkservice:service_id(),
     call_id :: nksip:call_id(),
     created :: nklib_util:timestamp(),
     updated :: nklib_util:timestamp(),

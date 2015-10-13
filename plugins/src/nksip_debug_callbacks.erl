@@ -35,7 +35,7 @@
     continue.
 
 nks_connection_sent(SipMsg, Packet) ->
-    #sipmsg{app_id=_SrvId, class=Class, call_id=_CallId, transport=Transp} = SipMsg,
+    #sipmsg{srv_id=_SrvId, class=Class, call_id=_CallId, transport=Transp} = SipMsg,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     case Class of
         {req, Method} ->
@@ -47,7 +47,7 @@ nks_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_connection_recv(nksip:app_id(), nksip:call_id(), 
+-spec nks_connection_recv(nkservice:id(), nksip:call_id(), 
                            nksip:transport(), binary()) ->
     continue.
 
@@ -58,7 +58,7 @@ nks_connection_recv(SrvId, CallId, Transp, Packet) ->
 
 
 %% doc Called at specific debug points
--spec nks_debug(nksip:app_id(), nksip:call_id(), term()) ->
+-spec nks_debug(nkservice:id(), nksip:call_id(), term()) ->
     continue.
 
 nks_debug(SrvId, CallId, Info) ->

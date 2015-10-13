@@ -47,7 +47,7 @@ start_link() ->
 
 %% @private 
 -spec init(term()) ->
-    gen_server_init(#state{}).
+    {ok, #state{}}.
 
 init([]) ->
     Now = nklib_util:timestamp(),
@@ -61,8 +61,9 @@ init([]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
+-spec handle_call(term(), {pid(), term()}, #state{}) ->
+    {reply, term(), #state{}} | {noreply, #state{}}.
+
 
 handle_call(get_uas_avg, _From, #state{last_uas=LastUas}=State) ->
     {reply, LastUas, State, timeout(State)};
@@ -74,7 +75,7 @@ handle_call(Msg, _From, State) ->
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
+    {noreply, #state{}}.
 
 handle_cast({response_time, Time}, #state{avg_uas_values=Values}=State) ->
     State1 = State#state{avg_uas_values=[Time|Values]},
@@ -87,7 +88,7 @@ handle_cast(Msg, State) ->
 
 %% @private
 -spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
+    {noreply, #state{}}.
 
 handle_info(timeout, #state{avg_uas_values=Values, period=Period}=State) ->
     LastUas = calculate(Values),
@@ -102,7 +103,7 @@ handle_info(Info, State) ->
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
+    {ok, #state{}}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -110,8 +111,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @private
 -spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
+    ok.
+    
 terminate(_Reason, _State) ->  
     ok.
 

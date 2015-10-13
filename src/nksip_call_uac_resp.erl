@@ -118,7 +118,7 @@ response_status(invite_calling, Resp, UAC, Call) ->
 
 response_status(invite_proceeding, Resp, #trans{code=Code}=UAC, Call) when Code < 200 ->
     #trans{request=Req, cancel=Cancel} = UAC,
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     % Add another 3 minutes
     UAC1 = nksip_call_lib:timeout_timer(timer_c, UAC, Call),
     Call1 = update(UAC1, Call),
@@ -172,7 +172,7 @@ response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call)
 response_status(invite_proceeding, Resp, UAC, Call) ->
     #sipmsg{to={To, ToTag}} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     UAC1 = UAC#trans{
         request = Req#sipmsg{to={To, ToTag}}, 
         response = undefined, 
@@ -249,7 +249,7 @@ response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
 response_status(proceeding, Resp, UAC, Call) ->
     #sipmsg{to={_, ToTag}} = Resp,
     #trans{request=Req, proto=Proto} = UAC,
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     UAC2 = case Proto of
         udp -> 
             UAC1 = UAC#trans{

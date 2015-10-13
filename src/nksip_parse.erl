@@ -147,7 +147,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nksip:app_id(), nksip:call_id(), nksip_transport:transport(), binary()) ->
+-spec packet(nkservice:id(), nksip:call_id(), nksip_transport:transport(), binary()) ->
     {ok, #sipmsg{}} | {error, term()} | {reply_error, term(), binary()}.
 
 packet(SrvId, CallId, Transp, Packet) ->
@@ -177,7 +177,7 @@ packet(SrvId, CallId, Transp, Packet) ->
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    app_id = SrvId,
+                    srv_id = SrvId,
                     ruri = RUri1,
                     call_id = CallId,
                     body = Body,
@@ -204,7 +204,7 @@ packet(SrvId, CallId, Transp, Packet) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nksip:app_id(), nksip_transport:transport(), binary()) ->
+-spec packet(nkservice:id(), nksip_transport:transport(), binary()) ->
     {ok, #sipmsg{}, binary()} | partial | {error, term()} |
     {reply_error, term(), binary()}.
 
@@ -235,7 +235,7 @@ packet(SrvId, #transport{proto=Proto}=Transp, Packet) ->
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
-                    app_id = SrvId,
+                    srv_id = SrvId,
                     ruri = RUri1,
                     call_id = CallId,
                     body = Body,

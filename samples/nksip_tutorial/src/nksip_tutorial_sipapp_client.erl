@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SipApp Tutorial client callback module implementation.
+%% @doc Service Tutorial client callback module implementation.
 %% This modules implements a client callback module for NkSIP Tutorial.
 
 -module(nksip_tutorial_sipapp_client).

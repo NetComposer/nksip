@@ -43,7 +43,7 @@
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
-    {incoming, nksip:app_id(), nksip:call_id(), nksip:transport(), binary()} | 
+    {incoming, nkservice:id(), nksip:call_id(), nksip:transport(), binary()} | 
     info |
     get_all_dialogs | 
     {stop_dialog, nksip_dialog_lib:id()} |
@@ -62,14 +62,14 @@
 
 
 %% @private
--spec work(work(), from()|none, nksip_call:call()) ->
+-spec work(work(), {pid(), term()}|none, nksip_call:call()) ->
     nksip_call:call().
 
 work({send, Req, Opts}, From, Call) ->
     nksip_call_uac:request(Req, Opts, {srv, From}, Call);
 
 work({send, Method, Uri, Opts}, From, Call) ->
-    #call{app_id=SrvId, call_id=CallId} = Call,
+    #call{srv_id=SrvId, call_id=CallId} = Call,
     Opts1 = [{call_id, CallId} | Opts],
     case nksip_call_uac_make:make(SrvId, Method, Uri, Opts1) of
         {ok, Req, ReqOpts} -> 
@@ -214,7 +214,7 @@ work({apply_sipmsg, MsgId, Fun}, From, Call) ->
 
 work(info, From, Call) -> 
     #call{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         call_id = CallId, 
         trans = Trans, 
         dialogs = Dialogs,

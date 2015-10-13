@@ -21,7 +21,7 @@
 %% @doc NkSIP Event State Compositor Plugin
 %%
 %% This module implements a Event State Compositor, according to RFC3903
-%% By default, it uses the RAM-only built-in store, but any SipApp can implement 
+%% By default, it uses the RAM-only built-in store, but any Service can implement 
 %% sip_event_compositor_store/3 callback to use any external database.
 
 -module(nksip_event_compositor).
@@ -70,12 +70,12 @@ deps() ->
 parse_config(Opts) ->
     Defaults = [{nksip_event_compositor_default_expires, 60}],
     Opts1 = nklib_util:defaults(Opts, Defaults),
-    Allow = nklib_util:get_value(allow, Opts1),
+    Allow = nklib_util:get_value(sip_allow, Opts1),
     Opts2 = case lists:member(<<"PUBLISH">>, Allow) of
         true -> 
             Opts1;
         false -> 
-            nklib_util:store_value(allow, Allow++[<<"PUBLISH">>], Opts1)
+            nklib_util:store_value(sip_allow, Allow++[<<"PUBLISH">>], Opts1)
     end,
     case nklib_util:get_value(nksip_event_compositor_default_expires, Opts2) of
         Secs when is_integer(Secs), Secs>=1 ->
@@ -87,12 +87,12 @@ parse_config(Opts) ->
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_sipapp_srv:state()}.
+-spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-terminate(SrvId, SipAppState) ->  
+terminate(SrvId, ServiceState) ->  
     clear(SrvId),
-    {ok, SipAppState}.
+    {ok, ServiceState}.
 
 
 
@@ -102,7 +102,7 @@ terminate(SrvId, SipAppState) ->
 %% ===================================================================
 
 %% @doc Finds a stored published information
--spec find(nksip:app_id()|term(), nksip:aor(), binary()) ->
+-spec find(nkservice:id()|term(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 find(App, AOR, Tag) ->
@@ -115,12 +115,12 @@ find(App, AOR, Tag) ->
     nksip:sipreply().
 
 request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
-    #sipmsg{app_id=SrvId, ruri=RUri, expires=Expires, body=Body} = Req,
+    #sipmsg{srv_id=SrvId, ruri=RUri, expires=Expires, body=Body} = Req,
     Expires1 = case is_integer(Expires) andalso Expires>0 of
         true -> 
             Expires;
         _ -> 
-            nksip_sipapp_srv:config(SrvId, nksip_event_compositor_default_expires)
+            SrvId:cache_sip_event_compositor_default_expires()
     end,
     AOR = {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain},
     case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
@@ -148,8 +148,8 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
     end.
 
 
-%% @doc Clear all stored records by a SipApp's core.
--spec clear(nksip:app_name()|nksip:app_id()) -> 
+%% @doc Clear all stored records by a Service's core.
+-spec clear(nkservice:name()|nkservice:id()) -> 
     ok | callback_error | sipapp_not_found.
 
 clear(App) -> 

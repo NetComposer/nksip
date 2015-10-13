@@ -24,7 +24,7 @@
 -module(nksip_subscription).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, app_id/1, app_name/1, call_id/1, meta/2, metas/2]).
+-export([get_handle/1, srv_id/1, app_name/1, call_id/1, meta/2, metas/2]).
 -export([get_all/0, get_all/2]).
 -export_type([field/0, status/0, subscription_state/0, terminated_reason/0]).
 
@@ -74,22 +74,22 @@ get_handle(Term) ->
 
 
 %% @doc Gets thel App of a dialog
--spec app_id(nksip:subscription()|nksip:handle()) ->
-    {ok, nksip:app_id()}.
+-spec srv_id(nksip:subscription()|nksip:handle()) ->
+    {ok, nkservice:id()}.
 
-app_id({user_subs, _, #dialog{app_id=SrvId}}) ->
+srv_id({user_subs, _, #dialog{srv_id=SrvId}}) ->
     {ok, SrvId};
-app_id(Handle) ->
+srv_id(Handle) ->
     {SrvId, _SubsId, _DialogId, _CallId} = nksip_subscription_lib:parse_handle(Handle),
     {ok, SrvId}.
 
 
 %% @doc Gets app's name
 -spec app_name(nksip:dialog()|nksip:handle()) -> 
-    {ok, nksip:app_name()} | {error, term()}.
+    {ok, nkservice:name()} | {error, term()}.
 
 app_name(Term) -> 
-    {ok, SrvId} = app_id(Term),
+    {ok, SrvId} = srv_id(Term),
     {ok, SrvId:name()}.
 
 
@@ -161,7 +161,7 @@ get_all() ->
 
 
 %% @doc Finds all existing subscriptions having a `Call-ID'.
--spec get_all(nksip:app_id(), nksip:call_id()) ->
+-spec get_all(nkservice:id(), nksip:call_id()) ->
     [nksip:handle()].
 
 get_all(SrvId, CallId) ->

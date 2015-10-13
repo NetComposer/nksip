@@ -26,21 +26,56 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
+-export([sip_registrar_store/2]).
+
 -export([nks_sip_method/2, nks_authorize_data/3]).
 -export([nks_nksip_registrar_request_opts/2, nks_nksip_registrar_request_reply/3,
          nks_nksip_registrar_get_index/2, nks_nksip_registrar_update_regcontact/4]).
+
+
+% @doc Called when a operation database must be done on the registrar database.
+%% This default implementation uses the built-in memory database.
+-spec sip_registrar_store(StoreOp, SrvId) ->
+    [RegContact] | ok | not_found when 
+        StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
+                   {del, AOR} | del_all,
+        SrvId :: nkservice:id(),
+        AOR :: nksip:aor(),
+        RegContact :: nksip_registrar:reg_contact(),
+        TTL :: integer().
+
+sip_registrar_store(Op, SrvId) ->
+    case Op of
+        {get, AOR} ->
+            nklib_store:get({nksip_registrar, SrvId, AOR}, []);
+        {put, AOR, Contacts, TTL} -> 
+            nklib_store:put({nksip_registrar, SrvId, AOR}, Contacts, [{ttl, TTL}]);
+        {del, AOR} ->
+            nklib_store:del({nksip_registrar, SrvId, AOR});
+        del_all ->
+            FoldFun = fun(Key, _Value, Acc) ->
+                case Key of
+                    {nksip_registrar, SrvId, AOR} -> 
+                        nklib_store:del({nksip_registrar, SrvId, AOR});
+                    _ -> 
+                        Acc
+                end
+            end,
+            nklib_store:fold(FoldFun, none)
+    end.
+
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% @private This plugin callback is called when a call to one of the method specific
-%% application-level SipApp callbacks is needed.
+%% application-level Service callbacks is needed.
 -spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
 
-nks_sip_method(#trans{method='REGISTER', request=Req}, #call{app_id=SrvId}) ->
+nks_sip_method(#trans{method='REGISTER', request=Req}, #call{srv_id=SrvId}) ->
     Module = SrvId:module(),
     case 
         Module/=nksip_sipapp andalso

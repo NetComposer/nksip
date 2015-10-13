@@ -26,7 +26,29 @@
 -include("../include/nksip_call.hrl").
 
 
+-export([sip_refer/3, sip_refer_update/3]).
 -export([nks_parse_uac_opts/2, nks_sip_method/2, nks_call/3, nks_uac_reply/3]).
+
+
+% @doc Called when a REFER request arrives
+-spec sip_refer(ReferTo::nksip:uri(), Req::nksip:request(), Call::nksip:call()) ->
+        boolean().
+
+sip_refer(_ReferTo, _Req, _Call) ->
+    false.
+    
+
+% @doc Called when a REFER event is received
+-spec sip_refer_update(SubsHandle, Status, Call) ->
+    ok
+    when SubsHandle :: nksip:handle(), 
+         Status :: init | active | {notify, binary()} | terminated,
+         Call :: nksip:call().
+
+sip_refer_update(_SubsHandle, _Status, _Call) ->
+    ok.
+
+
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48,11 +70,11 @@ nks_parse_uac_opts(Req, Opts) ->
 
 
 %% @private This plugin callback is called when a call to one of the method specific
-%% application-level SipApp callbacks is needed.
+%% application-level Service callbacks is needed.
 -spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
-nks_sip_method(#trans{method='REFER', request=Req}, #call{app_id=SrvId}=Call) ->
+nks_sip_method(#trans{method='REFER', request=Req}, #call{srv_id=SrvId}=Call) ->
     Module = SrvId:module(),
     case 
         Module/=nksip_sipapp andalso
@@ -77,7 +99,7 @@ nks_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
             SubsHandle = nksip_subscription_lib:get_handle(Req),
-            #call{app_id=SrvId} = Call,
+            #call{srv_id=SrvId} = Call,
             catch SrvId:sip_refer_update(SubsHandle, {notify, Body}, Call),
             {reply, ok};
         _ ->
@@ -90,8 +112,8 @@ nks_sip_method(_Trans, _Call) ->
 
 
 %% @doc This plugin callback function is used to call application-level 
-%% SipApp callbacks.
--spec nks_call(atom(), list(), nksip:app_id()) ->
+%% Service callbacks.
+-spec nks_call(atom(), list(), nkservice:id()) ->
     continue.
 
 nks_call(sip_dialog_update, 
@@ -104,7 +126,7 @@ nks_call(sip_dialog_update,
             _Dialog, Call
           ], 
           _SrvId) ->
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     {ok, SubsId} = nksip_subscription:get_handle(Subs),
     Status1 = case Status of
         init -> init;

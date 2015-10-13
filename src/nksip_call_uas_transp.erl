@@ -40,7 +40,7 @@
 
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         call_id = CallId,
         vias = [Via|_],
         cseq = {_, Method},
@@ -80,7 +80,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
 
 resend_response(#sipmsg{class={resp, Code, _}, 
                         transport=#transport{}=Transport}=Resp, Opts) ->
-    #sipmsg{app_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
+    #sipmsg{srv_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
     MakeResp = fun(_) -> Resp end,
     TranspSpec = [{current, {Proto, Ip, Port, Res}}],
@@ -104,7 +104,7 @@ resend_response(Resp, Opts) ->
 
 make_response_fun(RouteHash, Resp, Opts) ->
     #sipmsg{
-        app_id = SrvId,
+        srv_id = SrvId,
         to = {To, _},
         headers = Headers,
         contacts = Contacts, 

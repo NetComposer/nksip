@@ -68,7 +68,7 @@ get_port(Pid) ->
 
 
 %% @private Starts a new listening server
--spec get_listener(nksip:app_id(), nksip:transport(), nksip:optslist()) ->
+-spec get_listener(nkservice:id(), nksip:transport(), nksip:optslist()) ->
     term().
 
 get_listener(SrvId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts) ->
@@ -112,11 +112,11 @@ start_link(SrvId, Transp, Opts) ->
     packet :: binary(),
     retrans_timer :: reference(),
     next_retrans :: integer(),
-    from :: from()
+    from :: {pid(), term()}
 }).
 
 -record(state, {
-    app_id :: nksip:app_id(),
+    srv_id :: nkservice:id(),
     transport :: nksip_transport:transport(),
     socket :: port(),
     tcp_pid :: pid(),
@@ -127,9 +127,6 @@ start_link(SrvId, Transp, Opts) ->
 
 
 %% @private 
--spec init(term()) ->
-    gen_server_init(#state{}).
-
 init([SrvId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
     case open_port(SrvId, Ip, Port, 5) of
         {ok, Socket}  ->
@@ -141,13 +138,13 @@ init([SrvId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
             nklib_proc:put(nksip_transports, {SrvId, Transp1}),
             nklib_proc:put({nksip_listen, SrvId}, Transp1),
             State = #state{
-                app_id = SrvId, 
+                srv_id = SrvId, 
                 transport = Transp1, 
                 socket = Socket,
                 tcp_pid = undefined,
                 stuns = [],
-                timer_t1 = nklib_util:get_value(timer_t1, Opts),
-                timeout = 1000*nklib_util:get_value(udp_timeout, Opts)
+                timer_t1 = nklib_util:get_value(sip_timer_t1, Opts),
+                timeout = 1000*nklib_util:get_value(sip_udp_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->
@@ -158,9 +155,6 @@ init([SrvId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
-
 handle_call({connect, Ip, Port}, _From, State) ->
     {reply, do_connect(Ip, Port, State), State};
 
@@ -168,7 +162,7 @@ handle_call({connect, Ip, Port}, _From, State) ->
 handle_call({send, Ip, Port, Packet}, _From, #state{socket=Socket}=State) ->
     {reply, gen_udp:send(Socket, Ip, Port, Packet), State};
 
-handle_call({send_stun, Ip, Port}, From, #state{app_id=SrvId}=State) ->
+handle_call({send_stun, Ip, Port}, From, #state{srv_id=SrvId}=State) ->
     {noreply, do_send_stun(SrvId, Ip, Port, {call, From}, State)};
 
 handle_call(get_port, _From, #state{transport=#transport{listen_port=Port}}=State) ->
@@ -180,16 +174,13 @@ handle_call(Msg, _Form, State) ->
 
 
 %% @private
--spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
-
 handle_cast({matching_tcp, {ok, Pid}}, State) ->
     {noreply, State#state{tcp_pid=Pid}};
 
 handle_cast({matching_tcp, {error, Error}}, State) ->
     {stop, {matching_tcp, {error, Error}}, State};
 
-handle_cast({send_stun, Ip, Port, Pid}, #state{app_id=SrvId}=State) ->
+handle_cast({send_stun, Ip, Port, Pid}, #state{srv_id=SrvId}=State) ->
     {noreply, do_send_stun(SrvId, Ip, Port, {cast, Pid}, State)};
 
 handle_cast(Msg, State) -> 
@@ -198,15 +189,12 @@ handle_cast(Msg, State) ->
 
 
 %% @private
--spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
-
 handle_info({udp, Socket, _Ip, _Port, <<_, _>>}, #state{socket=Socket}=State) ->
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, State};
 
 handle_info({udp, Socket, Ip, Port, <<0:2, _Header:158, _Msg/binary>>=Packet}, State) ->
-    #state{app_id=SrvId, socket=Socket} = State,
+    #state{srv_id=SrvId, socket=Socket} = State,
     ok = inet:setopts(Socket, [{active, once}]),
     case nksip_stun:decode(Packet) of
         {request, binding, TransId, _} ->
@@ -242,16 +230,10 @@ handle_info(Info, State) ->
 
 
 %% @private
--spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
-
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% @private
--spec terminate(term(), #state{}) ->
-    gen_server_terminate().
-
 terminate(_Reason, _State) ->  
     ok.
 
@@ -290,7 +272,7 @@ do_send_stun(SrvId, Ip, Port, From, State) ->
 %% @private
 do_stun_retrans(Stun, State) ->
     #stun{dest={Ip, Port}, packet=Packet, next_retrans=Next} = Stun,
-    #state{app_id=SrvId, stuns=Stuns, timer_t1=T1, socket=Socket} = State,
+    #state{srv_id=SrvId, stuns=Stuns, timer_t1=T1, socket=Socket} = State,
     case Next =< (16*T1) of
         true ->
             case gen_udp:send(Socket, Ip, Port, Packet) of
@@ -313,7 +295,7 @@ do_stun_retrans(Stun, State) ->
 
 %% @private
 do_stun_response(TransId, Attrs, State) ->
-    #state{app_id=SrvId, stuns=Stuns} = State,
+    #state{srv_id=SrvId, stuns=Stuns} = State,
     case lists:keytake(TransId, #stun.id, Stuns) of
         {value, #stun{retrans_timer=Retrans, from=From}, Stuns1} ->
             nklib_util:cancel_timer(Retrans),
@@ -341,7 +323,7 @@ do_stun_response(TransId, Attrs, State) ->
 %% @private
 do_stun_timeout(Stun, State) ->
     #stun{dest={Ip, Port}, from=From} = Stun,
-    #state{app_id=SrvId} = State,
+    #state{srv_id=SrvId} = State,
     ?notice(SrvId, <<>>, "STUN request to ~p timeout", [{Ip, Port}]),
     case From of
         {call, CallFrom} -> gen_server:reply(CallFrom, error);
@@ -365,7 +347,7 @@ start_tcp(SrvId, Ip, Port, Opts, Pid) ->
     end.
 
 %% @private Checks if a port is available for UDP and TCP
--spec open_port(nksip:app_id(), inet:ip_address(), inet:port_number(), integer()) ->
+-spec open_port(nkservice:id(), inet:ip_address(), inet:port_number(), integer()) ->
     {ok, port()} | {error, term()}.
 
 open_port(SrvId, Ip, Port, Iter) ->
@@ -400,7 +382,7 @@ read_packets(Ip, Port, Packet, #state{socket=Socket}=State, N) ->
 
 %% @private
 do_connect(Ip, Port, State) ->
-    #state{app_id=SrvId, transport=Transp, socket=Socket, timeout=Timeout}= State,
+    #state{srv_id=SrvId, transport=Transp, socket=Socket, timeout=Timeout}= State,
     case nksip_transport:get_connected(SrvId, udp, Ip, Port, <<>>) of
         [{Transp1, Pid}|_] -> 
             {ok, Pid, Transp1};

@@ -26,19 +26,53 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_event_compositor.hrl").
 
+-export([sip_event_compositor_store/2]).
 -export([nks_sip_method/2]).
+
+% @doc Called when a operation database must be done on the compositor database.
+%% This default implementation uses the built-in memory database.
+-spec sip_event_compositor_store(StoreOp, SrvId) ->
+    [RegPublish] | ok | not_found when
+        StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
+                   {del, AOR, Tag} | del_all,
+        SrvId :: nkservice:id(),
+        AOR :: nksip:aor(),
+        Tag :: binary(),
+        RegPublish :: nksip_event_compositor:reg_publish(),
+        TTL :: integer().
+
+sip_event_compositor_store(Op, SrvId) ->
+    case Op of
+        {get, AOR, Tag} ->
+            nklib_store:get({nksip_event_compositor, SrvId, AOR, Tag}, not_found);
+        {put, AOR, Tag, Record, TTL} -> 
+            nklib_store:put({nksip_event_compositor, SrvId, AOR, Tag}, Record, [{ttl, TTL}]);
+        {del, AOR, Tag} ->
+            nklib_store:del({nksip_event_compositor, SrvId, AOR, Tag});
+        del_all ->
+            FoldFun = fun(Key, _Value, Acc) ->
+                case Key of
+                    {nksip_event_compositor, SrvId, AOR, Tag} -> 
+                        nklib_store:del({nksip_event_compositor, SrvId, AOR, Tag});
+                    _ -> 
+                        Acc
+                end
+            end,
+            nklib_store:fold(FoldFun, none)
+    end.
+
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% @private This plugin callback is called when a call to one of the method specific
-%% application-level SipApp callbacks is needed.
+%% application-level Service callbacks is needed.
 -spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
     {reply, nksip:sipreply()} | noreply.
 
 
-nks_sip_method(#trans{method='PUBLISH', request=Req}, #call{app_id=SrvId}) ->
+nks_sip_method(#trans{method='PUBLISH', request=Req}, #call{srv_id=SrvId}) ->
     Module = SrvId:module(),
     case 
         Module/=nksip_sipapp andalso

@@ -42,7 +42,7 @@
 %% ===================================================================
 
 %% @doc Checks if we already have the maximum number of connections
--spec is_max(nksip:app_id()) ->
+-spec is_max(nkservice:id()) ->
     boolean().
 
 is_max(SrvId) ->
@@ -62,7 +62,7 @@ is_max(SrvId) ->
 
 
 %% @doc Starts a new connection
--spec start_link(nksip:app_id(), nksip:transport(), port()|pid(), integer()) ->
+-spec start_link(nkservice:id(), nksip:transport(), port()|pid(), integer()) ->
     {ok, pid()}.
 
 start_link(SrvId, Transport, SocketOrPid, Timeout) -> 
@@ -75,7 +75,7 @@ start_link(SrvId, Transport, SocketOrPid, Timeout) ->
     ok | {error, term()}.
 
 send(Pid, #sipmsg{}=SipMsg) ->
-    #sipmsg{app_id=SrvId, call_id=CallId, transport=Transp} = SipMsg,
+    #sipmsg{srv_id=SrvId, call_id=CallId, transport=Transp} = SipMsg,
     #transport{proto=Proto} = Transp,
     Packet = nksip_unparse:packet(SipMsg),
     case do_send(Pid, Proto, Packet) of
@@ -205,7 +205,7 @@ stop_all() ->
 
 
 -record(state, {
-    app_id :: nksip:app_id(),
+    srv_id :: nkservice:id(),
     proto :: nksip:protocol(),
     transport :: nksip_transport:transport(),
     socket :: port() | ssl:sslsocket(),
@@ -215,7 +215,7 @@ stop_all() ->
     in_refresh :: boolean(),
     refresh_timer :: reference(),
     refresh_time :: pos_integer(),
-    refresh_notify = [] :: [from()],
+    refresh_notify = [] :: [{pid(), term()}],
     buffer = <<>> :: binary(),
     rnrn_pattern :: binary:cp(),
     ws_frag = #message{},            % store previous ws fragmented message
@@ -225,7 +225,7 @@ stop_all() ->
 
 %% @private 
 -spec init(term()) ->
-    gen_server_init(#state{}).
+    {ok, #state{}, pos_integer()}.
 
 init([SrvId, Transport, SocketOrPid, Timeout]) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
@@ -244,7 +244,7 @@ init([SrvId, Transport, SocketOrPid, Timeout]) ->
     ?debug(SrvId, <<>>, "Created ~p connection ~p (~p) ~p", 
                 [Proto, {Ip, Port}, self(), Timeout]),
     State = #state{
-        app_id = SrvId,
+        srv_id = SrvId,
         proto = Proto,
         transport = Transport, 
         socket = Socket, 
@@ -259,8 +259,8 @@ init([SrvId, Transport, SocketOrPid, Timeout]) ->
 
 
 %% @private
--spec handle_call(term(), from(), #state{}) ->
-    gen_server_call(#state{}).
+-spec handle_call(term(), {pid(), term()}, #state{}) ->
+    {noreply, #state{}} | {stop, term(), #state{}}.
 
 handle_call({send, Packet}, From, State) ->
     Reply = do_send(Packet, State),
@@ -314,7 +314,7 @@ handle_call(Msg, _From, State) ->
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
-    gen_server_cast(#state{}).
+    {noreply, #state{}} | {stop, term(), #state{}}.
 
 handle_cast({send, Packet}, State) ->
     case do_send(Packet, State) of
@@ -327,7 +327,7 @@ handle_cast({incoming, Packet}, State) ->
 
 handle_cast({stun, {ok, StunIp, StunPort}}, State) ->
     #state{
-        app_id = SrvId,
+        srv_id = SrvId,
         nat_ip = NatIp, 
         nat_port = NatPort, 
         refresh_time = RefreshTime,
@@ -373,7 +373,7 @@ handle_cast(Msg, State) ->
 
 %% @private
 -spec handle_info(term(), #state{}) ->
-    gen_server_info(#state{}).
+    {noreply, #state{}} | {stop, term(), #state{}}.
 
 handle_info({tcp, Socket, Packet}, #state{proto=Proto, socket=Socket}=State) ->
     inet:setopts(Socket, [{active, once}]),
@@ -405,7 +405,7 @@ handle_info({shoot, _ListenerPid}, #state{proto=tls, socket=Socket}=State) ->
     do_noreply(State);
 
 handle_info({timeout, _, refresh}, #state{proto=udp}=State) ->
-    #state{app_id=SrvId, transport=Transp} = State,
+    #state{srv_id=SrvId, transport=Transp} = State,
     #transport{remote_ip=Ip, remote_port=Port} = Transp,
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     case nksip_transport:get_listening(SrvId, udp, Class) of
@@ -417,7 +417,7 @@ handle_info({timeout, _, refresh}, #state{proto=udp}=State) ->
             do_stop(no_listening_transport, State)
     end;
 
-handle_info({timeout, _, refresh}, #state{app_id=SrvId}=State) ->
+handle_info({timeout, _, refresh}, #state{srv_id=SrvId}=State) ->
     ?debug(SrvId, <<>>, "transport sending refresh", []),
     case do_send(<<"\r\n\r\n">>, State) of
         ok -> 
@@ -439,7 +439,7 @@ handle_info(Info, State) ->
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
-    gen_server_code_change(#state{}).
+    {ok, #state{}}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -447,14 +447,14 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @private
 -spec terminate(term(), #state{}) ->
-    gen_server_terminate().
+    ok.
 
-terminate(_Reason, #state{app_id=SrvId, ws_pid=Pid, proto=Proto}) when is_pid(Pid) ->
+terminate(_Reason, #state{srv_id=SrvId, ws_pid=Pid, proto=Proto}) when is_pid(Pid) ->
     ?debug(SrvId, <<>>, "Connection ~p process stopped (~p)", [Proto, self()]),
     Pid ! stop;
 
 terminate(_Reason, State) ->
-    #state{app_id=SrvId, socket=Socket, transport=Transp} = State,
+    #state{srv_id=SrvId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, sctp_id=AssocId} = Transp,
     ?debug(SrvId, <<>>, "Connection ~p process stopped (~p)", [Proto, self()]),
     case Proto of
@@ -482,7 +482,7 @@ do_send(Packet, #state{ws_pid=Pid}) when is_pid(Pid) ->
     ok;
 
 do_send(Packet, State) ->
-    #state{app_id=SrvId, socket=Socket, transport=Transp} = State,
+    #state{srv_id=SrvId, socket=Socket, transport=Transp} = State,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port, sctp_id=AssocId} = Transp,
     case
         case Proto of
@@ -504,7 +504,7 @@ do_send(Packet, State) ->
     
 %% @private Parse for UDP/TCP/TLS/SCTP
 -spec parse(binary(), #state{}) ->
-    gen_server_info(#state{}).
+    {noreply, #state{}} | {stop, term(), #state{}}.
 
 parse(Binary, #state{buffer=Buffer}=State) ->
     Data = case Buffer of
@@ -527,7 +527,7 @@ do_parse(<<>>, State) ->
     {ok, State#state{buffer = <<>>}};
 
 %% For TCP and UDP, we send a \r\n\r\n, remote must reply with \r\n
-do_parse(<<"\r\n\r\n", Rest/binary>>, #state{app_id=SrvId, proto=Proto}=State) 
+do_parse(<<"\r\n\r\n", Rest/binary>>, #state{srv_id=SrvId, proto=Proto}=State) 
         when Proto==tcp; Proto==udp; Proto==tls; Proto==sctp ->
     ?debug(SrvId, <<>>, "transport responding to refresh", []),
     case do_send(<<"\r\n">>, State) of
@@ -541,7 +541,7 @@ do_parse(<<"\r\n">>, #state{proto=udp}=State) ->
 do_parse(<<"\r\n", Rest/binary>>, #state{proto=Proto}=State) 
         when Proto==tcp; Proto==tls; Proto==sctp ->
     #state{
-        app_id = SrvId,
+        srv_id = SrvId,
         refresh_notify = RefreshNotify, 
         refresh_time = RefreshTime,
         in_refresh = InRefresh
@@ -563,14 +563,14 @@ do_parse(<<"\r\n", Rest/binary>>, #state{proto=Proto}=State)
     },
     do_parse(Rest, State1);
 
-do_parse(Data, #state{app_id=SrvId, proto=Proto})
+do_parse(Data, #state{srv_id=SrvId, proto=Proto})
         when (Proto==tcp orelse Proto==tls) andalso byte_size(Data) > ?MAX_MSG ->
     ?warning(SrvId, <<>>, "dropping TCP/TLS closing because of max_buffer", []),
     {error, msg_too_large};
 
 do_parse(Data, State) ->
     #state{
-        app_id = SrvId,
+        srv_id = SrvId,
         proto = Proto,
         transport = Transp,
         rnrn_pattern = RNRN
@@ -587,7 +587,7 @@ do_parse(Data, State) ->
 
 
 %% @private
--spec do_parse(nksip:app_id(), nksip:transport(), binary(), integer(), #state{}) ->
+-spec do_parse(nkservice:id(), nksip:transport(), binary(), integer(), #state{}) ->
     {ok, #state{}} | {error, term()}.
 
 do_parse(SrvId, Transp, Data, Pos, State) ->
@@ -615,9 +615,9 @@ do_parse(SrvId, Transp, Data, Pos, State) ->
 
 %% @private Parse for WS/WSS
 -spec parse_ws(binary(), #state{}) ->
-    gen_server_info(#state{}).
+    {noreply, #state{}} | {stop, term(), #state{}}.
 
-parse_ws(Packet, #state{app_id=SrvId, ws_frag=FragMsg}=State) ->
+parse_ws(Packet, #state{srv_id=SrvId, ws_frag=FragMsg}=State) ->
     {Result, State1} = case FragMsg of
         undefined -> 
             {
@@ -683,7 +683,7 @@ do_noreply(#state{timeout=Timeout}=State) ->
 
 
 %% @private
-do_stop(Reason, #state{app_id=SrvId, proto=Proto}=State) ->
+do_stop(Reason, #state{srv_id=SrvId, proto=Proto}=State) ->
     case Reason of
         normal -> ok;
         _ -> ?debug(SrvId, <<>>, "~p connection stop: ~p", [Proto, Reason])
@@ -736,7 +736,7 @@ extract(Proto, Data, Pos) ->
 -spec reply_error(binary(), binary(), #state{}) ->
     ok.
 
-reply_error(Data, Msg, #state{app_id=SrvId}=State) ->
+reply_error(Data, Msg, #state{srv_id=SrvId}=State) ->
     case nksip_parse_sipmsg:parse(Data) of
         {ok, {req, _, _}, Headers, _} ->
             Resp = nksip_unparse:response(Headers, 400, Msg),

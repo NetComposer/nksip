@@ -35,13 +35,13 @@
     continue.
 
 nks_connection_sent(SipMsg, Packet) ->
-    #sipmsg{app_id=SrvId, call_id=CallId, transport=Transp} = SipMsg,
+    #sipmsg{srv_id=SrvId, call_id=CallId, transport=Transp} = SipMsg,
     nksip_trace:sipmsg(SrvId, CallId, <<"TO">>, Transp, Packet),
     continue.
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_connection_recv(nksip:app_id(), nksip:call_id(), 
+-spec nks_connection_recv(nkservice:id(), nksip:call_id(), 
 					       nksip:transport(), binary()) ->
     continue.
 

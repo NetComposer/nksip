@@ -21,7 +21,7 @@
 %% @doc NkSIP SIP basic message print and trace tool
 %%
 %% This module implements a simple but useful SIP trace utility. 
-%% You can configure any SipApp to trace SIP messages sent or received
+%% You can configure any Service to trace SIP messages sent or received
 %% from specific IPs, to console or a disk file.
 -module(nksip_trace).
 
@@ -110,12 +110,12 @@ parse_config(Opts) ->
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_sipapp_srv:state()}.
+-spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-terminate(SrvId, SipAppState) ->  
+terminate(SrvId, ServiceState) ->  
     close_file(SrvId),
-    {ok, SipAppState}.
+    {ok, ServiceState}.
 
 
 
@@ -123,30 +123,30 @@ terminate(SrvId, SipAppState) ->
 %% Public
 %% ===================================================================
 
-%% @doc Get all SipApps currently tracing messages.
+%% @doc Get all Services currently tracing messages.
 -spec get_all() ->
-    [{App::nksip:app_name(), File::console|binary(), IpList::all|[binary()]}].
+    [{App::nkservice:name(), File::console|binary(), IpList::all|[binary()]}].
 
 get_all() ->
     Fun = fun({AppName, SrvId}, Acc) ->
-        case nksip_sipapp_srv:config(SrvId, nksip_trace) of
-            undefined -> Acc;
+        case catch SrvId:cache_sip_trace() of
+            {'EXIT', _} -> Acc;
             {File, IpList} -> [{AppName, File, IpList}]
         end
     end,
     lists:foldl(Fun, [], nksip:get_all()).
 
 
-%% @doc Equivalent to `start(SrvId, console, all)' for all started SipApps.
+%% @doc Equivalent to `start(SrvId, console, all)' for all started Services.
 -spec start() -> 
-    [{nksip:app_name(), ok|{error, term()}}].
+    [{nkservice:name(), ok|{error, term()}}].
 
 start() -> 
     lists:map(fun({AppName, SrvId}) -> {AppName, start(SrvId)} end, nksip:get_all()).
 
 
 %% @doc Equivalent to `start(SrvId, console, all)'.
--spec start(nksip:app_id()|nksip:app_name()) -> 
+-spec start(nkservice:id()|nkservice:name()) -> 
     ok | {error, term()}.
 
 start(SrvId) -> 
@@ -154,15 +154,15 @@ start(SrvId) ->
 
 
 %% @doc Equivalent to `start(SrvId, File, all)'.
--spec start(nksip:app_id()|nksip:app_name(), file()) -> 
+-spec start(nkservice:id()|nkservice:name(), file()) -> 
     ok | {error, term()}.
 
 start(SrvId, File) -> 
     start(SrvId, File, all).
 
 
-%% @doc Configures a SipApp to start tracing SIP messages.
--spec start(nksip:app_id()|nksip:app_id(), file(), ip_list()) ->
+%% @doc Configures a Service to start tracing SIP messages.
+-spec start(nkservice:id()|nkservice:id(), file(), ip_list()) ->
     ok | {error, term()}.
 
 start(App, File, IpList) ->
@@ -188,7 +188,7 @@ stop() ->
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
--spec stop(nksip:app_id()|nksip:app_name()) ->
+-spec stop(nkservice:id()|nkservice:name()) ->
     ok | {error, term()}.
 
 stop(App) ->
@@ -226,7 +226,7 @@ print(Header, #sipmsg{}=SipMsg) ->
 
 
 %% @private
--spec sipmsg(nksip:app_id(), nksip:call_id(), binary(), 
+-spec sipmsg(nkservice:id(), nksip:call_id(), binary(), 
              nksip_transport:transport(), binary()) ->
     ok.
 

@@ -47,7 +47,7 @@
 create(Class, Req, Resp, Call) ->
     #sipmsg{ruri=#uri{scheme=Scheme}} = Req,
     #sipmsg{
-        app_id = SrvId,
+        srv_id = SrvId,
         call_id = CallId, 
         dialog_id = DialogId,
         from = {From, FromTag},
@@ -61,7 +61,7 @@ create(Class, Req, Resp, Call) ->
     Now = nklib_util:timestamp(),
     Dialog = #dialog{
         id = DialogId,
-        app_id = SrvId,
+        srv_id = SrvId,
         call_id = CallId, 
         created = Now,
         updated = Now,
@@ -100,7 +100,7 @@ create(Class, Req, Resp, Call) ->
     nksip_call:call().
 
 
-update(Type, Dialog, #call{app_id=SrvId}=Call) ->
+update(Type, Dialog, #call{srv_id=SrvId}=Call) ->
     case SrvId:nks_dialog_update(Type, Dialog, Call) of
         {continue, [Type1, Dialog1, Call1]} ->
             do_update(Type1, Dialog1, Call1);
@@ -292,7 +292,7 @@ target_update(Class, Req, Resp, Dialog, Call) ->
     nksip:dialog().
 
 route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
-    #dialog{app_id=SrvId} = Dialog,
+    #dialog{srv_id=SrvId} = Dialog,
     RouteSet = if
         Class==uac; Class==proxy ->
             RR = nksip_sipmsg:header(<<"record-route">>, Resp, uris),
@@ -380,14 +380,14 @@ session_update(Dialog, _Call) ->
 timer_update(_Req, #sipmsg{class={resp, Code, _}}, _Class,
              #dialog{invite=#invite{status=confirmed}}=Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     % class from #invite{} can only be used for INVITE, not UPDATE
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
     cancel_timer(RetransTimer),
     case Code>=200 andalso Code<300 of
         true -> 
             cancel_timer(TimeoutTimer),
-            Timeout = nksip_sipapp_srv:config(SrvId, dialog_timeout),
+            Timeout =SrvId:cache_sip_dialog_timeout(),
             Invite1 = Invite#invite{
                 retrans_timer = undefined,
                 timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId)
@@ -623,7 +623,7 @@ store(#dialog{}=Dialog, #call{dialogs=Dialogs}=Call) ->
 -spec sip_dialog_update(term(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-sip_dialog_update(Arg, Dialog, #call{app_id=SrvId}=Call) ->
+sip_dialog_update(Arg, Dialog, #call{srv_id=SrvId}=Call) ->
     SrvId:nks_call(sip_dialog_update, [Arg, Dialog, Call], SrvId),
     ok.
 
@@ -632,7 +632,7 @@ sip_dialog_update(Arg, Dialog, #call{app_id=SrvId}=Call) ->
 -spec sip_session_update(term(), nksip:dialog(), nksip_call:call()) ->
     ok.
 
-sip_session_update(Arg, Dialog, #call{app_id=SrvId}=Call) ->
+sip_session_update(Arg, Dialog, #call{srv_id=SrvId}=Call) ->
     SrvId:nks_call(sip_session_update, [Arg, Dialog, Call], SrvId),
     ok.
 

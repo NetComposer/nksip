@@ -64,9 +64,9 @@
     {ok, nksip:optslist()} | {error, Error}
     when Error :: flow_failed | forbidden.
 
-proxy_opts(#sipmsg{app_id=SrvId, class={req, 'REGISTER'}}=Req, Opts) ->
+proxy_opts(#sipmsg{srv_id=SrvId, class={req, 'REGISTER'}}=Req, Opts) ->
     #sipmsg{
-        app_id = SrvId,
+        srv_id = SrvId,
         vias = Vias, 
         transport = Transp, 
         contacts = Contacts
@@ -99,7 +99,7 @@ proxy_opts(#sipmsg{app_id=SrvId, class={req, 'REGISTER'}}=Req, Opts) ->
     {ok, Opts1};
 
 proxy_opts(Req, Opts) ->
-    #sipmsg{app_id=SrvId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
+    #sipmsg{srv_id=SrvId, routes=Routes, contacts=Contacts, transport=Transp} = Req,
     Supported = SrvId:cache_sip_supported(),
     case 
         nksip_sipmsg:supported(<<"outbound">>, Req) andalso 
@@ -144,7 +144,7 @@ do_proxy_opts(_Req, Opts, []) ->
     {ok, Opts};
 
 do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
-    #sipmsg{app_id=SrvId, transport=Transp} = Req,
+    #sipmsg{srv_id=SrvId, transport=Transp} = Req,
     case nksip_transport:is_local(SrvId, Route) andalso Route of
         #uri{user = <<"NkF", Token/binary>>, opts=RouteOpts} ->
             case decode_flow(Token) of
@@ -210,7 +210,7 @@ flow_type(_, _) ->
 add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     #sipmsg{
         class = {req, Method},
-        app_id = SrvId, 
+        srv_id = SrvId, 
         from = {From, _},
         vias = Vias,
         contacts = Contacts,
@@ -352,7 +352,7 @@ check_several_reg_id([#uri{ext_opts=Opts}|Rest], Found) ->
     {boolean(), nksip:request()} | no_outbound.
 
 registrar(Req) ->
-    #sipmsg{app_id=SrvId, vias=Vias, transport=Transp} = Req,
+    #sipmsg{srv_id=SrvId, vias=Vias, transport=Transp} = Req,
     case 
         lists:member(<<"outbound">>, SrvId:cache_sip_supported()) andalso
         nksip_sipmsg:supported(<<"outbound">>, Req)

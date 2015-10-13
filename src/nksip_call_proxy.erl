@@ -41,7 +41,7 @@
 
 route(UriList, ProxyOpts, UAS, Call) ->
     try
-        #call{app_id=SrvId} = Call,
+        #call{srv_id=SrvId} = Call,
         UriSet = case normalize_uriset(UriList) of
             [[]] -> throw({reply, temporarily_unavailable});
             UriSet0 -> UriSet0

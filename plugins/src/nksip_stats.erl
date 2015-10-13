@@ -70,10 +70,10 @@ parse_config(Opts) ->
 
 
 %% @doc Called when the plugin is started 
--spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_siapp_srv:state()}.
+-spec init(nkservice:spec(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-init(_SrvId, SipAppState) ->
+init(_ServiceSpec, ServiceState) ->
     case whereis(nksip_stats_srv) of
         undefined ->
             Child = {
@@ -88,17 +88,17 @@ init(_SrvId, SipAppState) ->
         _ ->
             ok
     end,
-    {ok, SipAppState}.
+    {ok, ServiceState}.
 
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_sipapp_srv:state()}.
+-spec terminate(term(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-terminate(_SrvId, SipAppState) ->  
-    % We don't remove nksip_stats_srv, in case other SipApp is using it
-    {ok, SipAppState}.
+terminate(_Reason, ServiceState) ->  
+    % We don't remove nksip_stats_srv, in case other Service is using it
+    {ok, ServiceState}.
 
 
 %% ===================================================================

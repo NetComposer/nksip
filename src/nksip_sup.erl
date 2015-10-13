@@ -29,7 +29,7 @@
 
 -include("nksip.hrl").
 
-% %% @private Starts a new SipApp's process
+% %% @private Starts a new Service's process
 % start_sipapp(SrvId, Args) ->
 %     Spec = {SrvId,
 %                 {nksip_sipapp_sup, start_link, [SrvId, Args]},
@@ -44,7 +44,7 @@
 %     end.
 
 
-% %% @private Stops a SipApp's core
+% %% @private Stops a Service's core
 % stop_sipapp(SrvId) ->
 %     case supervisor:terminate_child(nksip_sipapp_sup, SrvId) of
 %         ok -> ok = supervisor:delete_child(nksip_sipapp_sup, SrvId);

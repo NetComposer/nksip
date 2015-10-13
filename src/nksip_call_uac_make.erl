@@ -33,7 +33,7 @@
 
 
 %% @doc Generates a new request.
--spec make(nksip:app_id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->    
+-spec make(nkservice:id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->    
     {ok, nksip:request(), nksip:optslist()} | {error, term()}.
     
 make(SrvId, Method, Uri, Opts) ->
@@ -64,7 +64,7 @@ make(SrvId, Method, Uri, Opts) ->
         Req1 = #sipmsg{
             id = nklib_util:uid(),
             class = {req, Method1},
-            app_id = SrvId,
+            srv_id = SrvId,
             ruri = RUri1#uri{headers=[], ext_opts=[], ext_headers=[]},
             from = {DefFrom, FromTag},
             to = {DefTo, <<>>},
@@ -104,7 +104,7 @@ make(SrvId, Method, Uri, Opts) ->
     {ok, nksip:request(), nksip:optslist()} | {error, term()} | 
     {reply, nksip:sipreply()}.
     
-proxy_make(#sipmsg{app_id=SrvId, ruri=RUri}=Req, Opts) ->
+proxy_make(#sipmsg{srv_id=SrvId, ruri=RUri}=Req, Opts) ->
     try
         {Req1, Opts1} = parse_plugin_opts(Req, Opts),
         Req2 = case RUri of
@@ -125,7 +125,7 @@ proxy_make(#sipmsg{app_id=SrvId, ruri=RUri}=Req, Opts) ->
 
 
 %% @private
-remove_local_routes(#sipmsg{app_id=SrvId, routes=Routes}=Req) ->
+remove_local_routes(#sipmsg{srv_id=SrvId, routes=Routes}=Req) ->
     case do_remove_local_routes(SrvId, Routes) of
         Routes -> Req;
         Routes1 -> Req#sipmsg{routes=Routes1}
@@ -223,7 +223,7 @@ parse_opts([], Req, Opts) ->
     {Req, Opts};
 
 parse_opts([Term|Rest], Req, Opts) ->
-    #sipmsg{app_id=SrvId, class={req, Method}} = Req,
+    #sipmsg{srv_id=SrvId, class={req, Method}} = Req,
     Op = case Term of
         
         ignore -> ignore;
@@ -449,7 +449,7 @@ parse_opts([Term|Rest], Req, Opts) ->
 -spec parse_plugin_opts(nksip:request(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
-parse_plugin_opts(#sipmsg{app_id=SrvId}=Req, Opts) ->
+parse_plugin_opts(#sipmsg{srv_id=SrvId}=Req, Opts) ->
     case SrvId:nks_parse_uac_opts(Req, Opts) of
         {continue, [Req1, Opts1]} ->
             {Req1, Opts1};

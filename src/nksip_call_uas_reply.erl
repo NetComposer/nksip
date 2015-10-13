@@ -60,7 +60,7 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
                 ) ->
     {Resp1, SendOpts1} = 
         nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
-    #call{app_id=SrvId} = Call,
+    #call{srv_id=SrvId} = Call,
     case SrvId:nks_uas_send_reply({Resp1, SendOpts1}, UAS, Call) of
         {continue, [{Resp2, SendOpts2}, UAS2, Call2]} ->
             send({Resp2, SendOpts2}, UAS2, update(UAS2, Call2));
@@ -100,7 +100,7 @@ send({Resp, SendOpts}, UAS, Call) ->
         stateless = Stateless
     } = UAS,    
     #call{
-        app_id = SrvId, 
+        srv_id = SrvId, 
         msgs = Msgs
     } = Call,
     case nksip_call_uas_transp:send_response(Resp, SendOpts) of

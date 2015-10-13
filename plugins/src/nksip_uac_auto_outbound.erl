@@ -18,7 +18,7 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc Plugin implementing automatic registrations and pings support for SipApps.
+%% @doc Plugin implementing automatic registrations and pings support for Services.
 -module(nksip_uac_auto_outbound).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -102,27 +102,25 @@ parse_config(Opts) ->
 
 
 %% @doc Called when the plugin is started 
--spec init(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_siapp_srv:state()}.
+-spec init(nkservice:spec(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-init(SrvId, SipAppState) ->
+init(_ServiceSpec, #{srv_id:=SrvId}=ServiceState) ->
     Supported = SrvId:cache_sip_supported(),
-    StateOb = #state_ob{
+    State = #state_ob{
         outbound = lists:member(<<"outbound">>, Supported),
         pos = 1,
         regs = []
     },
-    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_outbound, StateOb, SipAppState),
-    {ok, SipAppState1}.
+    {ok, ServiceState#{nksip_uac_auto_outbound=>State}}.
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nksip:app_id(), nksip_sipapp_srv:state()) ->
-    {ok, nksip_sipapp_srv:state()}.
+-spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
 
-terminate(_SrvId, SipAppState) ->  
-    #state_ob{regs=RegsOb} = 
-        nksip_sipapp_srv:get_meta(nksip_uac_auto_outbound, SipAppState),
+terminate(_Reason, ServiceState) ->  
+    #state_ob{regs=RegsOb} = maps:get(nksip_uac_auto_outbound, ServiceState),
     lists:foreach(
         fun(#sipreg_ob{conn_monitor=Monitor, conn_pid=Pid}) -> 
             case is_reference(Monitor) of
@@ -135,9 +133,7 @@ terminate(_SrvId, SipAppState) ->
             end
         end,
         RegsOb),
-    SipAppState1 = nksip_sipapp_srv:set_meta(nksip_uac_auto_outbound, undefined, 
-                                             SipAppState),
-    {ok, SipAppState1}.
+    {ok, maps:remove(nksip_uac_auto_outbound, ServiceState)}.
 
 
 
@@ -148,7 +144,7 @@ terminate(_SrvId, SipAppState) ->
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nksip:app_name()|nksip:app_id(), term(), nksip:user_uri(),                 nksip:optslist()) -> 
+-spec start_register(nkservice:name()|nkservice:id(), term(), nksip:user_uri(),                 nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
 start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
@@ -157,7 +153,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
 
 
 %% @doc Stops a previously started registration serie.
--spec stop_register(nksip:app_name()|nksip:app_id(), term()) -> 
+-spec stop_register(nkservice:name()|nkservice:id(), term()) -> 
     ok | not_found.
 
 stop_register(App, RegId) ->
@@ -165,7 +161,7 @@ stop_register(App, RegId) ->
     
 
 %% @doc Get current registration status.
--spec get_registers(nksip:app_name()|nksip:app_id()) -> 
+-spec get_registers(nkservice:name()|nkservice:id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(App) ->

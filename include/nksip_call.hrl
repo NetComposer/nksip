@@ -29,7 +29,7 @@
     ?DO_LOG(Level, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List)).
 
 -define(DO_DEBUG(Level, Text, List),
-    (erlang:get(nksip_app_id)):nks_debug(erlang:get(nksip_app_id), 
+    (erlang:get(nksip_srv_id)):nks_debug(erlang:get(nksip_srv_id), 
                                           erlang:get(nksip_call_id),
                                           {Level, Text, List})).
 
@@ -86,7 +86,7 @@
     class :: uac | uas,
     status :: nksip_call_uac:status() | nksip_call_uas:status(),
     start :: nklib_util:timestamp(),
-    from :: none | {srv, from()} | {fork, nksip_call_fork:id()},
+    from :: none | {srv, {pid(), term()}} | {fork, nksip_call_fork:id()},
     opts :: nksip:optslist(),
     trans_id :: integer(),
     request :: nksip:request(),
@@ -160,7 +160,7 @@
 %% - nksip_min_se: Pre-dialog received MinSE header
 
 -record(call, {
-    app_id :: nksip:app_id(),
+    srv_id :: nkservice:service_id(),
     call_id :: nksip:call_id(),
     hibernate :: atom(),
     next :: integer(),
