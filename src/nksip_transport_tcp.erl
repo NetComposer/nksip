@@ -47,7 +47,7 @@ get_listener(SrvId, Transp, Opts) ->
         tcp -> ranch_tcp;
         tls -> ranch_ssl
     end,
-    Timeout = 1000 * SrvId:cache_sip_tcp_timeout(),
+    Timeout = 1000 * SrvId:cache_packet_tcp_timeout (),
     Spec = ranch:child_spec(
         {SrvId, Proto, Ip, Port}, 
         Listeners, 
@@ -82,7 +82,7 @@ connect(SrvId, Transp) ->
                         remote_ip = Ip,
                         remote_port = Port
                     },
-                    Timeout = 1000 * SrvId:cache_sip_tcp_timeout(),
+                    Timeout = 1000 * SrvId:cache_packet_tcp_timeout (),
                     Spec = {
                         {SrvId, Proto, Ip, Port, make_ref()},
                         {nksip_connection, start_link, 
@@ -127,12 +127,12 @@ outbound_opts(tls, SrvId) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = case erlang:function_exported(SrvId, cache_sip_certfile, 0) of
-        true -> SrvId:cache_sip_certfile();
+    Cert = case erlang:function_exported(SrvId, cache_packet_certfile, 0) of
+        true -> SrvId:cache_packet_certfile();
         false -> DefCert
     end,
-    Key = case erlang:function_exported(SrvId, cache_sip_keyfile, 0) of
-        true -> SrvId:cache_sip_keyfile();
+    Key = case erlang:function_exported(SrvId, cache_packet_keyfile, 0) of
+        true -> SrvId:cache_keyfile();
         false -> DefKey
     end,
     lists:flatten([
@@ -148,7 +148,7 @@ outbound_opts(tls, SrvId) ->
     nksip:optslist().
 
 listen_opts(tcp, Ip, Port, Opts) ->
-    Max = nklib_util:get_value(max_connections, Opts, 100),
+    Max = nklib_util:get_value(packet_max_connections, Opts, 100),
     [
         {ip, Ip}, {port, Port}, {active, false}, 
         {nodelay, true}, {keepalive, true}, {packet, raw},
@@ -164,9 +164,9 @@ listen_opts(tls, Ip, Port, Opts) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = nklib_util:get_value(sip_certfile, Opts, DefCert),
-    Key = nklib_util:get_value(sip_keyfile, Opts, DefKey),
-    Max = nklib_util:get_value(sip_max_connections, Opts, 100),
+    Cert = nklib_util:get_value(packet_certfile, Opts, DefCert),
+    Key = nklib_util:get_value(packet_keyfile, Opts, DefKey),
+    Max = nklib_util:get_value(packet_max_connections, Opts, 100),
     lists:flatten([
         {ip, Ip}, {port, Port}, {active, false}, 
         {nodelay, true}, {keepalive, true}, {packet, raw},

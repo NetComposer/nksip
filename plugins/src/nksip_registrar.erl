@@ -72,7 +72,7 @@ plugin_start(SrvSpec) ->
             } = RegConfig,
             Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
             Cache = #{sip_registrar_timers=>Timers},
-            {ok, nkservice_util:add_config(#{cache=>Cache}, SrvSpec1)};
+            {ok, nkservice_util:update_spec(#{cache=>Cache}, SrvSpec1)};
         {error, Error} ->
             {stop, Error}
     end.
@@ -81,8 +81,8 @@ plugin_start(SrvSpec) ->
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     clear(SrvId),
     UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
-    {ok, SrvSpec1} = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
-    {ok, nkservice_util:del_config(#{cache=>[sip_registrar_timers]}, SrvSpec1)}.
+    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
+    {ok, nkservice_util:remove_spec(#{cache=>[sip_registrar_timers]}, SrvSpec1)}.
 
 
 

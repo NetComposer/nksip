@@ -62,7 +62,7 @@ get_listener(SrvId, Transp, Opts) ->
         {value, {_, Dispatch}, Opts1} -> 
             ok
     end,
-    Timeout = 1000*nklib_util:get_value(sip_ws_timeout, Opts),
+    Timeout = 1000*nklib_util:get_value(packet_ws_timeout, Opts),
     Dispatch1 = dispatch(Dispatch, [SrvId, Transp, [{timeout, Timeout}]]),
     #transport{proto=Proto, listen_ip=Ip, listen_port=Port} = Transp,
     {
@@ -119,7 +119,7 @@ connect(SrvId, Transp, Opts) ->
             remote_port = Port,
             resource = Res1
         },
-        Timeout = 1000 * SrvId:cache_sip_ws_timeout(),
+        Timeout = 1000 * SrvId:cache_packet_ws_timeout (),
         Spec = {
             {SrvId, Proto, Ip, Port, make_ref()},
             {nksip_connection, start_link, 
@@ -189,7 +189,7 @@ init([SrvId, Transp, Dispatch, Opts]) ->
                 srv_id = SrvId, 
                 transport = Transp,
                 webserver = erlang:monitor(process, WebPid),
-                timeout = 1000*nklib_util:get_value(sip_ws_timeout, Opts)
+                timeout = 1000*nklib_util:get_value(packet_ws_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->
@@ -349,12 +349,12 @@ outbound_opts(wss, SrvId) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = case erlang:function_exported(SrvId, cache_sip_certfile, 0) of
-        true -> SrvId:cache_sip_certfile();
+    Cert = case erlang:function_exported(SrvId, cache_packet_certfile, 0) of
+        true -> SrvId:cache_packet_certfile();
         false -> DefCert
     end,
-    Key = case erlang:function_exported(SrvId, cache_sip_keyfile, 0) of
-        true -> SrvId:cache_sip_keyfile();
+    Key = case erlang:function_exported(SrvId, cache_packet_keyfile, 0) of
+        true -> SrvId:cache_keyfile();
         false -> DefKey
     end,
     lists:flatten([

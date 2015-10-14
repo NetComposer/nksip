@@ -144,7 +144,7 @@ init([SrvId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts]) ->
                 tcp_pid = undefined,
                 stuns = [],
                 timer_t1 = nklib_util:get_value(sip_timer_t1, Opts),
-                timeout = 1000*nklib_util:get_value(sip_udp_timeout, Opts)
+                timeout = 1000*nklib_util:get_value(packet_udp_timeout, Opts)
             },
             {ok, State};
         {error, Error} ->

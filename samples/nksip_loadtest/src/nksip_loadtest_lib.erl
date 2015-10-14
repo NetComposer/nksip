@@ -195,7 +195,7 @@ launch(Opts) ->
                     tls ->
                         Cert = filename:join(code:priv_dir(nksip), "cert.pem"),
                         Key = filename:join(code:priv_dir(nksip), "key.pem"),
-                        TcpOpts = [{certfile, Cert}, {keyfile, Key}, 
+                        TcpOpts = [{packet_certfile, Cert}, {packet_keyfile, Key}, 
                                     binary, {active, false}],
                         {ok, S} = ssl:connect(Ip, Port, TcpOpts),
                         ok = iter_raw(MsgType, Pos, Host, "TLS", State, 

@@ -181,7 +181,8 @@ is_local_ip(Ip) ->
                       inet:port_number(), nksip:optslist()) ->
     {ok, pid()} | {error, term()}.
 
-start_transport(SrvId, Proto, Ip, Port, Opts) ->
+start_transport(SrvId, Proto, Ip, Port, Map) ->
+    Opts = nklib_util:to_list(Map),
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
     Listening = [
         {{LIp, LPort}, Pid} || 
@@ -221,8 +222,8 @@ start_transport(SrvId, Proto, Ip, Port, Opts) ->
 get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
-            Host = case nklib_util:get_value(sip_local_host, Opts) of
-                undefined -> SrvId:cache_sip_local_host();
+            Host = case nklib_util:get_value(packet_local_host, Opts) of
+                undefined -> SrvId:cache_local_host();
                 Host0 -> Host0
             end,
             case Host of
@@ -234,8 +235,8 @@ get_listenhost(SrvId, Ip, Opts) ->
                     Host
             end;
         8 ->
-            Host = case nklib_util:get_value(sip_local_host6, Opts) of
-                undefined -> SrvId:cache_sip_local_host6();
+            Host = case nklib_util:get_value(packet_local_host6, Opts) of
+                undefined -> SrvId:cache_local_host6();
                 Host0 -> Host0
             end,
             case Host of

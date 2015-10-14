@@ -93,7 +93,7 @@ start_link(SrvId, Transp, Opts) ->
 %% @private 
 init([SrvId, Transp, Opts]) ->
     #transport{listen_ip=Ip, listen_port=Port} = Transp,
-    Autoclose = nklib_util:get_value(sip_sctp_timeout, Opts),
+    Autoclose = nklib_util:get_value(packet_sctp_timeout, Opts),
     Opts1 = [
         binary, {reuseaddr, true}, {ip, Ip}, {active, once},
         {sctp_initmsg, 

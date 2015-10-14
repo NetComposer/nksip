@@ -51,7 +51,7 @@ is_max(SrvId) ->
         Current when Current > Max -> 
             true;
         _ -> 
-            AppMax = SrvId:cache_sip_max_connections(),
+            AppMax = SrvId:cache_packet_max_connections(),
             case nklib_counters:value({nksip_connections, SrvId}) of
                 AppCurrent when AppCurrent > AppMax -> 
                     true;

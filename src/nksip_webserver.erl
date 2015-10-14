@@ -349,8 +349,8 @@ listen_opts(wss, Ip, Port, Opts) ->
             DefCert = "",
             DefKey = ""
     end,
-    Cert = nklib_util:get_value(sip_certfile, Opts, DefCert),
-    Key = nklib_util:get_value(sip_keyfile, Opts, DefKey),
+    Cert = nklib_util:get_value(packet_certfile, Opts, DefCert),
+    Key = nklib_util:get_value(packet_keyfile, Opts, DefKey),
     lists:flatten([
         {ip, Ip}, {port, Port}, 
         % {keepalive, true}, 

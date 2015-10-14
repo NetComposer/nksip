@@ -296,15 +296,14 @@ cached() ->
 
 %% @private
 plugin_update_value(Key, Fun, SrvSpec) ->
-    SipConfig1 = maps:get(sip, SrvSpec),
-    Value1 = maps:get(Key, SipConfig1),
+    Value1 = maps:get(Key, SrvSpec, undefined),
     Value2 = Fun(Value1),
-    SipConfig2 = #{sip => maps:put(Key, Value2, SipConfig1)},
+    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
     Cache = case lists:member(Key, cached()) of
         true -> maps:put(Key, Value2, #{});
         false -> #{}
     end,
-    nkservice_util:add_config(#{config=>SipConfig2, cache=>Cache}, SrvSpec).
+    nkservice_util:update_spec(#{spec=>SrvSpec2, cache=>Cache}, SrvSpec).
 
 
 
