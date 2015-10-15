@@ -29,16 +29,16 @@
 -compile([export_all]).
 
 
-% uas_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun uas/0}, 
-%             {timeout, 60, fun auto/0},
-%             {timeout, 60, fun timeout/0}
-%         ]
-%     }.
+uas_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun uas/0}, 
+            {timeout, 60, fun auto/0},
+            {timeout, 60, fun timeout/0}
+        ]
+    }.
 
 
 start() ->
@@ -126,7 +126,7 @@ auto() ->
         {sip_uac_auto_register_timer, 1}
     ]),
     timer:sleep(200),
-    {error, invalid_app} = nksip_uac_auto_register:start_ping(none, ping1, "sip::a", []),
+    {error, service_not_found} = nksip_uac_auto_register:start_ping(none, ping1, "sip::a", []),
     {error, invalid_uri} = nksip_uac_auto_register:start_ping(client1, ping1, "sip::a", []),
     Ref = make_ref(),
     
@@ -135,7 +135,7 @@ auto() ->
     {ok, true} = nksip_uac_auto_register:start_ping(client1, ping1, 
                                 "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 5}]),
 
-    {error, invalid_app} = nksip_uac_auto_register:start_register(none, reg1, "sip::a", []),
+    {error, service_not_found} = nksip_uac_auto_register:start_register(none, reg1, "sip::a", []),
     {error, invalid_uri} = nksip_uac_auto_register:start_register(client1, reg1, "sip::a", []),
     {ok, true} = nksip_uac_auto_register:start_register(client1, reg1, 
                                 "<sip:127.0.0.1:5080;transport=tcp>", [{expires, 1}]),

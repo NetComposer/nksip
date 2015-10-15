@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 
 -include("nksip_uac_auto_outbound.hrl").
 
@@ -98,7 +98,8 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
     lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
-            {ok, SrvSpec1};
+            Cache = maps:with(maps:keys(syntax()), SrvSpec1),
+            {ok, SrvSpec1#{cache=>maps:merge(OldCache, Cache)}};
         {error, Error} ->
             {stop, Error}
     end.
@@ -124,7 +125,7 @@ syntax() ->
 defaults() ->
     #{
         sip_uac_auto_outbound_all_fail => 30,
-        sip_uac_auto_outbound_any_ok => 90} =>,
+        sip_uac_auto_outbound_any_ok => 90,
         sip_uac_auto_outbound_max_time => 1800,
         sip_uac_auto_outbound_default_udp_ttl => 25,
         sip_uac_auto_outbound_default_tcp_ttl => 12
@@ -142,24 +143,24 @@ defaults() ->
 -spec start_register(nkservice:name()|nkservice:id(), term(), nksip:user_uri(),                 nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
-start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
-    Opts1 = [{user, ['$nksip_uac_auto_outbound']}|Opts],
-    nksip_uac_auto_register:start_register(App, RegId, Uri, Opts1).
+start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
+    Opts1 = [{user, [nksip_uac_auto_outbound]}|Opts],
+    nksip_uac_auto_register:start_register(Srv, RegId, Uri, Opts1).
 
 
 %% @doc Stops a previously started registration serie.
 -spec stop_register(nkservice:name()|nkservice:id(), term()) -> 
     ok | not_found.
 
-stop_register(App, RegId) ->
-    nksip_uac_auto_register:stop_register(App, RegId).
+stop_register(Srv, RegId) ->
+    nksip_uac_auto_register:stop_register(Srv, RegId).
     
 
 %% @doc Get current registration status.
 -spec get_registers(nkservice:name()|nkservice:id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_registers(App) ->
-    nkservice_server:call(App, '$nksip_uac_auto_outbound_get_registers').
+get_registers(Srv) ->
+    nkservice_server:call(Srv, nksip_uac_auto_outbound_get_registers).
 
     

@@ -29,18 +29,18 @@
 
 -compile([export_all]).
 
-outbound_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            fun basic/0,
-            fun flow/0,
-            fun register/0,
-            fun proxy/0,
-            {timeout, 60, fun uac_auto/0}
-        ]
-    }.
+% outbound_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             fun basic/0,
+%             fun flow/0,
+%             fun register/0,
+%             fun proxy/0,
+%             {timeout, 60, fun uac_auto/0}
+%         ]
+%     }.
 
 
 start() ->
@@ -469,7 +469,7 @@ proxy() ->
 uac_auto() ->
     nksip_registrar:clear(registrar),
     nksip_transport:stop_all_connected(),
-    {ok, UA3_Id} = nksip:start(ua3, ?MODULE, ua3, [
+    {ok, UA3_Id} = nksip:start(ua3, ?MODULE, [
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5106}, {tls, all, 5107}]},

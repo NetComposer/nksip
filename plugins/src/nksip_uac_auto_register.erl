@@ -105,11 +105,11 @@ defaults() ->
                      nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
-start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
+start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice_server:find(App) of
+        case nkservice_server:find(Srv) of
             {ok, SrvId} -> ok;
-            _ -> SrvId = throw(invalid_app)
+            _ -> SrvId = throw(service_not_found)
         end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
@@ -120,7 +120,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
             {error, MakeError} -> throw(MakeError)
         end,
         Msg = {nksip_uac_auto_register_start_register, RegId, Uri, Opts},
-        nkservice_server:call(App, Msg)
+        nkservice_server:call(SrvId, Msg)
     catch
         throw:Error -> {error, Error}
     end.
@@ -130,16 +130,16 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
 -spec stop_register(nkservice:name()|nkservice:id(), term()) -> 
     ok | not_found.
 
-stop_register(App, RegId) ->
-    nkservice_server:call(App, {'$nksip_uac_auto_register_stop_register', RegId}).
+stop_register(Srv, RegId) ->
+    nkservice_server:call(Srv, {nksip_uac_auto_register_stop_register, RegId}).
     
 
 %% @doc Get current registration status.
 -spec get_registers(nkservice:name()|nkservice:id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_registers(App) ->
-    nkservice_server:call(App, '$nksip_uac_auto_register_get_registers').
+get_registers(Srv) ->
+    nkservice_server:call(Srv, nksip_uac_auto_register_get_registers).
 
 
 
@@ -149,11 +149,11 @@ get_registers(App) ->
     {ok, boolean()} | {error, invalid_uri}.
 
 
-start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
+start_ping(Srv, PingId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice_server:find(App) of
+        case nkservice_server:find(Srv) of
             {ok, SrvId} -> ok;
-            _ -> SrvId = throw(invalid_app)
+            _ -> SrvId = throw(service_not_found)
         end,
         case lists:keymember(meta, 1, Opts) of
             true -> throw(meta_not_allowed);
@@ -163,8 +163,8 @@ start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
-        Msg = {'$nksip_uac_auto_register_start_ping', PingId, Uri, Opts},
-        nkservice_server:call(App, Msg)
+        Msg = {nksip_uac_auto_register_start_ping, PingId, Uri, Opts},
+        nkservice_server:call(SrvId, Msg)
     catch
         throw:Error -> {error, Error}
     end.
@@ -174,14 +174,14 @@ start_ping(App, PingId, Uri, Opts) when is_list(Opts) ->
 -spec stop_ping(nkservice:name()|nkservice:id(), term()) -> 
     ok | not_found.
 
-stop_ping(App, PingId) ->
-    nkservice_server:call(App, {'$nksip_uac_auto_register_stop_ping', PingId}).
+stop_ping(Srv, PingId) ->
+    nkservice_server:call(Srv, {nksip_uac_auto_register_stop_ping, PingId}).
     
 
 %% @doc Get current ping status.
 -spec get_pings(nkservice:name()|nkservice:id()) -> 
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
-get_pings(App) ->
-    nkservice_server:call(App, '$nksip_uac_auto_register_get_pings').
+get_pings(Srv) ->
+    nkservice_server:call(Srv, nksip_uac_auto_register_get_pings).
 
