@@ -41,13 +41,13 @@ publish_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [], [
+    {ok, _} = nksip:start(client1, ?MODULE, [
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
     
-    {ok, _} = nksip:start(server, ?MODULE, [], [
+    {ok, _} = nksip:start(server, ?MODULE, [
         {from, "sip:server@nksip"},
         no_100,
         {plugins, [nksip_event_compositor]},

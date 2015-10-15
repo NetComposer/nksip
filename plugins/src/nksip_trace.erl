@@ -128,13 +128,13 @@ terminate(SrvId, ServiceState) ->
     [{App::nkservice:name(), File::console|binary(), IpList::all|[binary()]}].
 
 get_all() ->
-    Fun = fun({AppName, SrvId}, Acc) ->
+    Fun = fun({SrvId, SrvName, _Pid}, Acc) ->
         case catch SrvId:cache_sip_trace() of
             {'EXIT', _} -> Acc;
-            {File, IpList} -> [{AppName, File, IpList}]
+            {File, IpList} -> [{SrvName, File, IpList}]
         end
     end,
-    lists:foldl(Fun, [], nksip:get_all()).
+    lists:foldl(Fun, [], nkservice_server:get_all(nksip)).
 
 
 %% @doc Equivalent to `start(SrvId, console, all)' for all started Services.
@@ -142,7 +142,7 @@ get_all() ->
     [{nkservice:name(), ok|{error, term()}}].
 
 start() -> 
-    lists:map(fun({AppName, SrvId}) -> {AppName, start(SrvId)} end, nksip:get_all()).
+    lists:map(fun({SrvName, SrvId}) -> {SrvName, start(SrvId)} end, nksip:get_all()).
 
 
 %% @doc Equivalent to `start(SrvId, console, all)'.
@@ -168,9 +168,9 @@ start(SrvId, File) ->
 start(App, File, IpList) ->
     case nkservice_server:find(App) of
         {ok, SrvId} ->
-            Plugins1 = SrvId:config_plugins(),
+            Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
-            case nksip:update(SrvId, [{plugins, Plugins2}, {nksip_trace, {File, IpList}}]) of
+            case nksip:update(SrvId, #{plugins=>Plugins2, nksip_trace=>{File, IpList}}) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -184,7 +184,7 @@ start(App, File, IpList) ->
     ok.
 
 stop() ->
-    lists:map(fun({AppName, SrvId}) -> {AppName, stop(SrvId)} end, nksip:get_all()).
+    lists:map(fun({SrvName, SrvId}) -> {SrvName, stop(SrvId)} end, nksip:get_all()).
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
@@ -194,8 +194,8 @@ stop() ->
 stop(App) ->
     case nkservice_server:find(App) of
         {ok, SrvId} ->
-            Plugins = SrvId:config_plugins() -- [nksip_trace],
-            case nksip:update(App, [{plugins, Plugins}]) of
+            Plugins = SrvId:plugins() -- [nksip_trace],
+            case nksip:update(App, #{plugins=>Plugins}) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -233,15 +233,15 @@ print(Header, #sipmsg{}=SipMsg) ->
 sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
     case SrvId:config_nksip_trace() of
         {File, all} ->
-            AppName = SrvId:name(),
-            Msg = print_packet(AppName, Header, Transport, Binary),
+            SrvName = SrvId:name(),
+            Msg = print_packet(SrvName, Header, Transport, Binary),
             write(SrvId, File, Msg);
         {File, IpList} ->
             #transport{local_ip=Ip1, remote_ip=Ip2} = Transport,
             case has_ip([Ip1, Ip2], IpList) of
                 true ->
-                    AppName = SrvId:name(),
-                    Msg = print_packet(AppName, Header, Transport, Binary),
+                    SrvName = SrvId:name(),
+                    Msg = print_packet(SrvName, Header, Transport, Binary),
                     write(SrvId, File, Msg);
                 false ->
                     ok

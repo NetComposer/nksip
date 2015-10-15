@@ -48,7 +48,7 @@ prack_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [], [
+    {ok, _} = nksip:start(client1, ?MODULE, [
         {from, "sip:client1@nksip"},
         {plugins, [nksip_100rel]},
         {local_host, "localhost"},
@@ -57,7 +57,7 @@ start() ->
         no_100
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, [], [
+    {ok, _} = nksip:start(client2, ?MODULE, [
         {from, "sip:client2@nksip"},
         {plugins, [nksip_100rel]},
         {local_host, "127.0.0.1"},

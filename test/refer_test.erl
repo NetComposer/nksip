@@ -41,19 +41,19 @@ refer_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [], [
+    {ok, _} = nksip:start(client1, ?MODULE, [
         {transports, [{udp, all, 5060}]},
         {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, [], [
+    {ok, _} = nksip:start(client2, ?MODULE, [
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
 
-    {ok, _} = nksip:start(client3, ?MODULE, [], [
+    {ok, _} = nksip:start(client3, ?MODULE, [
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},

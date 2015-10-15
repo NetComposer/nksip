@@ -44,7 +44,7 @@ uas_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         {supported, "a;a_param, 100rel"},
         {plugins, [nksip_registrar]},
@@ -52,14 +52,14 @@ start() ->
         {nksip_uac_auto_register_timer, 1}
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         {plugins, [nksip_uac_auto_register]},
         {nksip_uac_auto_register_timer, 1}
     ]),
             
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
     tests_util:log(),
@@ -110,7 +110,7 @@ uas() ->
 
     % Force invalid response
     lager:warning("Next warning about a invalid sipreply is expected"),
-    {ok, 500,  [{reason_phrase, <<"Invalid SipApp Response">>}]} = 
+    {ok, 500,  [{reason_phrase, <<"Invalid Server Response">>}]} = 
         nksip_uac:options(client1, "sip:127.0.0.1", [
             {add, "x-nk-op", "reply-invalid"}, {meta, [reason_phrase]}]),
     ok.
@@ -119,7 +119,7 @@ uas() ->
 auto() ->
     % Start a new server to test ping and register options
     nksip:stop(server2),
-    {ok, _} = nksip:start(server2, ?MODULE, server2, [
+    {ok, _} = nksip:start(server2, ?MODULE, [
         {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5080}]},
         {sip_registrar_min_time, 1},
@@ -184,7 +184,7 @@ timeout() ->
     % {ok, _} = nksip:update(client1, [{sipapp_timeout, 0.02}]),
 
     % % Client1 callback module has a 50msecs delay in route()
-    % {ok, 500, [{reason_phrase, <<"No SipApp Response">>}]} = 
+    % {ok, 500, [{reason_phrase, <<"No Server Response">>}]} = 
     %     nksip_uac:options(client2, SipC1, [{meta,[reason_phrase]}]),
 
     {ok, _} = nksip:update(client1, [{timer_t1, 10}, {timer_c, 1}, {sipapp_timeout, 10}]),
@@ -203,9 +203,9 @@ timeout() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(Id) ->
+init(#{name:=Id}, State) ->
     ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
-    {ok, []}.
+    {ok, State}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->

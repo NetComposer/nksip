@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Server Callback module
+%% Service Callback module
 %%
 %% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
@@ -34,7 +34,7 @@
 -module(nksip_pbx_sipapp).
 
 -export([start/0, stop/0]).
--export([init/1, sip_get_user_pass/4, sip_authorize/3, sip_route/5]). 
+-export([init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5]). 
 -export([sip_invite/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
 -export([handle_call/3, handle_cast/2, handle_info/2]).
@@ -52,7 +52,7 @@ start() ->
         {plugins, [nksip_registrar, nksip_100rel, nksip_gruu, nksip_outbound, nksip_timers]},                      
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ],
-    {ok, _} = nksip:start(pbx, ?MODULE, [], CoreOpts).
+    {ok, _} = nksip:start(pbx, ?MODULE, CoreOpts).
 
 
 %% @doc Stops the Service.
@@ -62,17 +62,14 @@ stop() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  NkSIP CallBacks %%%%%%%%%%%%%%%%%%%%%%%%
 
--record(state, {
-    auto_check
-}).
 
 %% @doc Service Callback: initialization.
 %% This function is called by NkSIP after calling `nksip:start/4'.
 %% We program a timer to check our nodes.
-init([]) ->
+init([], State) ->
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
     nkservice_server:put(pbx, speed, []),
-    {ok, #state{auto_check=true}}.
+    {ok, State#{auto_check=>true}}.
 
 
 %% @doc Service Callback: Called to check user's password.
@@ -243,21 +240,21 @@ handle_cast({speed_update, Speed}, State) ->
     {noreply, State};
 
 handle_cast({check_speed, true}, State) ->
-    handle_info({timeout, none, check_speed}, State#state{auto_check=true});
+    handle_info({timeout, none, check_speed}, State#{auto_check=>true});
 
 handle_cast({check_speed, false}, State) ->
-    {noreply, State#state{auto_check=false}}.
+    {noreply, State#{auto_check=>false}}.
 
 
 %% @doc Service Callback: External erlang message received.
 %% The programmed timer sends a `{timeout, _Ref, check_speed}' message
 %% periodically to the Service.
-handle_info({timeout, _, check_speed}, #state{auto_check=true}=State) ->
+handle_info({timeout, _, check_speed}, #{auto_check:=true}=State) ->
     Self = self(),
     spawn(fun() -> test_speed(Self) end),
     {noreply, State};
 
-handle_info({timeout, _, check_speed}, #state{auto_check=false}=State) ->
+handle_info({timeout, _, check_speed}, #{auto_check:=false}=State) ->
     {noreply, State}.
 
 

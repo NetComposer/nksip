@@ -222,8 +222,8 @@ start_transport(SrvId, Proto, Ip, Port, Map) ->
 get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
-            Host = case nklib_util:get_value(packet_local_host, Opts) of
-                undefined -> SrvId:cache_local_host();
+            Host = case nklib_util:get_value(local_host, Opts) of
+                undefined -> SrvId:cache_packet_local_host();
                 Host0 -> Host0
             end,
             case Host of
@@ -235,8 +235,8 @@ get_listenhost(SrvId, Ip, Opts) ->
                     Host
             end;
         8 ->
-            Host = case nklib_util:get_value(packet_local_host6, Opts) of
-                undefined -> SrvId:cache_local_host6();
+            Host = case nklib_util:get_value(local_host6, Opts) of
+                undefined -> SrvId:cache_packet_local_host6();
                 Host0 -> Host0
             end,
             case Host of

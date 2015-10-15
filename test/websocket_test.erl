@@ -42,7 +42,7 @@ ws1_test_() ->
 start1() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(ws_a, nksip_sipapp, [], [
+    {ok, _} = nksip:start(ws_a, nksip_sipapp, [
         {transports, [
             {ws, all, 8090, []},
             {wss, all, 8091, []},
@@ -50,7 +50,7 @@ start1() ->
         ]}
     ]),
 
-    {ok, _} = nksip:start(ws_b, nksip_sipapp, [], [
+    {ok, _} = nksip:start(ws_b, nksip_sipapp, [
         {transports, [
             {ws, all, 8090, []},
             {wss, all, 8092, [{dispatch, [{'_', ["/ws"]}]}]}
@@ -115,7 +115,7 @@ ws2_test_() ->
 start2() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, [
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
         {plugins, [nksip_registrar, nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
@@ -127,21 +127,21 @@ start2() ->
         ]}
     ]),
 
-    {ok, _} = nksip:start(ua1, ?MODULE, ua1, [
+    {ok, _} = nksip:start(ua1, ?MODULE, [
         {from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    {ok, _} = nksip:start(ua2, ?MODULE, ua2, [
+    {ok, _} = nksip:start(ua2, ?MODULE, [
         {from, "<sip:client2@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [{ws, all, any}, {wss, all, 8091}]}
     ]),
 
-    {ok, _} = nksip:start(ua3, ?MODULE, ua3, [
+    {ok, _} = nksip:start(ua3, ?MODULE, [
         {from, "<sip:client3@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "invalid.invalid"},
@@ -333,9 +333,9 @@ proxy() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(Id) ->
+init(#{name:=Id}, State) ->
     ok = nkservice_server:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
-    {ok, []}.
+    {ok, State}.
 
 
 sip_route(_Scheme, User, Domain, Req, _Call) ->

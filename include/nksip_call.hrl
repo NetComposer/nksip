@@ -26,7 +26,7 @@
 
 
 -define(DO_CALL_LOG(Level, Text, List), 
-    ?DO_LOG(Level, erlang:get(nksip_app_name), erlang:get(nksip_call_id), Text, List)).
+    ?DO_LOG(Level, erlang:get(nksip_srv_name), erlang:get(nksip_call_id), Text, List)).
 
 -define(DO_DEBUG(Level, Text, List),
     (erlang:get(nksip_srv_id)):nks_debug(erlang:get(nksip_srv_id), 

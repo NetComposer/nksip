@@ -28,18 +28,18 @@
 
 %% @doc Launches the full tutorial.
 launch() ->
-    {ok, _} = nksip:start(server, nksip_tutorial_sipapp_server, [], 
+    {ok, _} = nksip:start(server, nksip_tutorial_sipapp_server, 
         [
             {plugins, [nksip_registrar]},
             {transports, [{udp, all, 5060}, {tls, all, 5061}]}
          ]),
-    {ok, _} = nksip:start(client1, nksip_tutorial_sipapp_client, [], 
+    {ok, _} = nksip:start(client1, nksip_tutorial_sipapp_client, 
         [
             {plugins, [nksip_uac_auto_auth]},
             {from, "sip:client1@nksip"},
             {transports, [{udp, {127,0,0,1}, 5070}, {tls, {127,0,0,1}, 5071}]}
         ]),
-    {ok, _} = nksip:start(client2, nksip_tutorial_sipapp_client, [], 
+    {ok, _} = nksip:start(client2, nksip_tutorial_sipapp_client, 
         [
             {plugins, [nksip_uac_auto_auth]},
             {from, "sips:client2@nksip"},

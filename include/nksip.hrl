@@ -38,7 +38,7 @@
     end).
 
 -define(DO_DEBUG(SrvId, CallId, Level, Text, List),
-    case SrvId:config_debug() of
+    case SrvId:cache_sip_debug() of
         false -> ok;
         _ -> SrvId:nks_debug(SrvId, CallId, {Level, Text, List})
     end).
@@ -46,35 +46,35 @@
 
 -define(debug(SrvId, CallId, Text, List), 
     ?DO_DEBUG(SrvId, CallId, debug, Text, List),
-    case SrvId:config_log_level() >= 8 of
+    case SrvId:cache_log_level() >= 8 of
         true -> ?DO_LOG(debug, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(info(SrvId, CallId, Text, List), 
     ?DO_DEBUG(SrvId, CallId, info, Text, List),
-    case SrvId:config_log_level() >= 7 of
+    case SrvId:cache_log_level() >= 7 of
         true -> ?DO_LOG(info, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(notice(SrvId, CallId, Text, List), 
     ?DO_DEBUG(SrvId, CallId, notice, Text, List),
-    case SrvId:config_log_level() >= 6 of
+    case SrvId:cache_log_level() >= 6 of
         true -> ?DO_LOG(notice, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(warning(SrvId, CallId, Text, List), 
     ?DO_DEBUG(SrvId, CallId, warning, Text, List),
-    case SrvId:config_log_level() >= 5 of
+    case SrvId:cache_log_level() >= 5 of
         true -> ?DO_LOG(warning, SrvId:name(), CallId, Text, List);
         false -> ok
     end).
 
 -define(error(SrvId, CallId, Text, List), 
     ?DO_DEBUG(SrvId, CallId, error, Text, List),
-    case SrvId:config_log_level() >= 4 of
+    case SrvId:cache_log_level() >= 4 of
         true -> ?DO_LOG(error, SrvId:name(), CallId, Text, List);
         false -> ok
     end).

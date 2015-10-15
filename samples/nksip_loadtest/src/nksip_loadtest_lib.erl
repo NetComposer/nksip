@@ -46,7 +46,7 @@ start_server(Name, Port) ->
         {log_level, notice},
         no_100
     ],
-    case nksip:start(Name, nksip_loadtest_sipapp, [], Opts) of
+    case nksip:start(Name, nksip_loadtest_sipapp, Opts) of
         {ok, _} -> ok;
         {error, already_started} -> ok
     end.
@@ -242,8 +242,8 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    Opts = [{transports, [udp,tcp,tls]}],
-    case nksip:start({client, Pos}, nksip_loadtest_sipapp, [{client, Pos}], Opts) of
+    Opts = #{transports => [udp,tcp,tls], client=>Pos},
+    case nksip:start({client, Pos}, nksip_loadtest_sipapp, Opts) of
         {ok, _} -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
         _ -> error

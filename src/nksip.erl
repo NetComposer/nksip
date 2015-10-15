@@ -28,7 +28,6 @@
 -export([start/3, stop/1, stop_all/0, update/2]).
 -export([get_config/1, get_uuid/1]).
 -export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
--export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
@@ -166,11 +165,12 @@
 	{ok, srv_id()} | {error, term()}.
 
 start(Name, Module, Opts) ->
-    Opts2 = Opts#{
+    Opts1 = nklib_util:to_map(Opts),
+    Opts2 = Opts1#{
         class => nksip,
         callback => Module,
-        plugins => [nksip|maps:get(plugins, Opts, [])],
-        transports => maps:get(transports, Opts, [{udp, all, any}])
+        plugins => [nksip|maps:get(plugins, Opts1, [])],
+        transports => maps:get(transports, Opts1, [{udp, all, any}])
     },
     nkservice_server:start(Name, Opts2).
 
@@ -228,83 +228,53 @@ get_uuid(Srv) ->
 -spec get_config(nkservice:name()|nkservice:id()) -> 
     map().
 
-get_config(AppName) ->
-    nkservice_server:get_cache(AppName, config_sip).
+get_config(SrvName) ->
+    nkservice_server:get_cache(SrvName, config_sip).
 
 
 %% ===================================================================
 %% Pugin functions
 %% ===================================================================
 
+
 version() ->
     {ok, Vsn} = application:get_key(nksip, vsn),
     Vsn.
 
+
 deps() ->
     [].
 
+
 plugin_start(#{id:=SrvId}=SrvSpec) ->
     try
-        lager:notice("Plugin NKSIP starting: ~p", [SrvId]),
-        Def = nksip_config_cache:app_config(),
-        ParsedDef = case nksip_util:parse_syntax(Def) of
-            {ok, ParsedDef0} -> ParsedDef0;
-            {error, ParseError1} -> throw(ParseError1)
-        end,
-        SipConfig = case nksip_util:parse_syntax(SrvSpec, ParsedDef) of
-            {ok, ParsedOpts0} -> ParsedOpts0;
-            {error, ParseError2} -> throw(ParseError2)
+        lager:info("Plugin nksip starting (~p)", [SrvId]),
+        Syntax = nksip_util:syntax(),
+        Defaults = nklib_util:to_map(nksip_config_cache:sip_defaults()),
+        SrvSpec2 = case nkservice_util:parse_syntax(SrvSpec, Syntax, Defaults) of
+            {ok, Parsed2} -> Parsed2;
+            {error, Parse2Error} -> throw(Parse2Error)
         end,
         Timers = #call_timers{
-            t1 = maps:get(sip_timer_t1, SipConfig),
-            t2 = maps:get(sip_timer_t2, SipConfig),
-            t4 = maps:get(sip_timer_t4, SipConfig),
-            tc = maps:get(sip_timer_c, SipConfig),
-            trans = maps:get(sip_trans_timeout, SipConfig),
-            dialog = maps:get(sip_dialog_timeout, SipConfig)},
-        Cache1 = maps:with(cached(), SipConfig),
+            t1 = maps:get(sip_timer_t1, SrvSpec2),
+            t2 = maps:get(sip_timer_t2, SrvSpec2),
+            t4 = maps:get(sip_timer_t4, SrvSpec2),
+            tc = maps:get(sip_timer_c, SrvSpec2),
+            trans = maps:get(sip_trans_timeout, SrvSpec2),
+            dialog = maps:get(sip_dialog_timeout, SrvSpec2)},
+        OldCache = maps:get(cache, SrvSpec, #{}),
+        Cache1 = maps:with(nksip_util:cached(), SrvSpec2),
         Cache2 = Cache1#{sip_timers=>Timers},
-        Update = #{
-            spec => SipConfig,
-            cache => Cache2
-        },
-        {ok, nkservice_util:update_spec(Update, SrvSpec)}
+        {ok, SrvSpec2#{cache=>maps:merge(OldCache, Cache2)}}
     catch
         throw:Throw -> {stop, Throw}
     end.
 
 
-plugin_stop(SrvSpec) ->
-    lager:notice("Plugin NKSIP stopping: ~p", [maps:get(id, SrvSpec)]),
-    Update = #{
-        spec => maps:keys(nksip_util:syntax())
-        % Remove SIP Transports!!
-    },
-    L = nkservice_util:remove_spec(Update, SrvSpec),
-    lager:warning("\n1: ~p\n2: ~p", [SrvSpec, L]),
-    {ok, L}.
-
-
-cached() ->
-    [
-        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
-        sip_event_expires, sip_event_expires_offset, sip_events, 
-        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
-        sip_route, sip_supported, sip_trans_timeout
-    ].
-
-
-%% @private
-plugin_update_value(Key, Fun, SrvSpec) ->
-    Value1 = maps:get(Key, SrvSpec, undefined),
-    Value2 = Fun(Value1),
-    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
-    Cache = case lists:member(Key, cached()) of
-        true -> maps:put(Key, Value2, #{});
-        false -> #{}
-    end,
-    nkservice_util:update_spec(#{spec=>SrvSpec2, cache=>Cache}, SrvSpec).
-
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin nksip stopping (~p)", [SrvId]),
+    SrvSpec2 = maps:without(maps:keys(nksip_util:syntax()), SrvSpec),
+    {ok, SrvSpec2}.
 
 
 

@@ -64,7 +64,7 @@ start(_Type, _Args) ->
         _ ->
             ok
     end,
-    ConfigSpec = #{
+    Syntax1 = #{
         sync_call_time => {integer, 1, none},
         dns_cache_ttl => {integer, 5, none},
         local_data_path => binary,
@@ -72,7 +72,8 @@ start(_Type, _Args) ->
         global_max_connections => {integer, 1, 1000000},
         msg_routers => {integer, 1, 127}
     },
-    Defaults = #{
+    Syntax2 = maps:merge(Syntax1, nksip_util:syntax()),
+    Defaults1 = #{
         sync_call_time => 30,               % Secs
         dns_cache_ttl => 3600,              % (secs) 1 hour
         local_data_path => "log",           % To store UUID
@@ -80,8 +81,9 @@ start(_Type, _Args) ->
         global_max_connections => 1024,     % 
         msg_routers => 16                   % Number of parallel msg routers 
     },
-    case nklib_config:load_env(?APP, ?APP, Defaults, ConfigSpec) of
-        ok ->
+    Defaults2 = maps:merge(Defaults1, nksip_util:defaults()),
+    case nklib_config:load_env(?APP, ?APP, Syntax2, Defaults2) of
+        {ok, Parsed} ->
             file:make_dir(get(local_data_path)),
             put(global_id, nklib_util:luid()),
             put(local_ips, nksip_util:get_local_ips()),
@@ -91,21 +93,21 @@ start(_Type, _Args) ->
             put(re_call_id, element(2, re:compile(?RE_CALL_ID, [caseless]))),
             put(re_content_length, 
                     element(2, re:compile(?RE_CONTENT_LENGTH, [caseless]))),
-            AppEnv = nklib_util:delete(application:get_all_env(?APP),
-                                    [included_applications|maps:keys(ConfigSpec)]),
-            put(app_config, AppEnv),
-            CacheKeys = [global_id, local_ips, main_ip, main_ip6, app_config,
-                         re_call_id, re_content_length | maps:keys(ConfigSpec)],
+            SipKeys = maps:keys(nksip_util:syntax()),
+            SipDef = nklib_util:extract(Parsed, SipKeys),
+            put(sip_defaults, SipDef),
+            CacheKeys = [
+                global_id, local_ips, main_ip, main_ip6, re_call_id, re_content_length,
+                sip_defaults | maps:keys(Syntax1)],
             nklib_config:make_cache(CacheKeys, ?APP, none, 
                                     nksip_config_cache, get(local_data_path)),
-            % ok = nksip_config:make_cache(),
             {ok, Pid} = nksip_sup:start_link(),
             put(current_cseq, nksip_util:initial_cseq()-?MINUS_CSEQ),
             MainIp = get(main_ip),
             MainIp6 = get(main_ip6),
             {ok, Vsn} = application:get_key(nksip, vsn),
             lager:notice("NkSIP v~s has started. Main IP is ~s (~s)", 
-                            [Vsn, nklib_util:to_host(MainIp), nklib_util:to_host(MainIp6)]),
+                         [Vsn, nklib_util:to_host(MainIp), nklib_util:to_host(MainIp6)]),
             {ok, Pid};
         {error, Error} ->
             lager:error("Error parsing config: ~p", [Error]),

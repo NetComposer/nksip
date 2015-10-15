@@ -111,9 +111,9 @@ terminate(_Reason, ServiceState) ->
 start(App) ->
     case nkservice_server:find(App) of
         {ok, SrvId} ->
-            Plugins1 = SrvId:config_plugins(),
+            Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
-            case nksip:update(SrvId, [{plugins, Plugins2}, {debug, true}]) of
+            case nksip:update(SrvId, #{plugins=>Plugins2, debug=>true}) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -129,8 +129,8 @@ start(App) ->
 stop(App) ->
     case nkservice_server:find(App) of
         {ok, SrvId} ->
-            Plugins = SrvId:config_plugins() -- [nksip_debug],
-            case nksip:update(App, [{plugins, Plugins}, {debug, false}]) of
+            Plugins = SrvId:plugins() -- [nksip_debug],
+            case nksip:update(App, #{plugins=>Plugins, debug=>false}) of
                 {ok, _} -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -161,8 +161,8 @@ insert(SrvId, CallId, Info) ->
         _ ->
             Info
     end,
-    AppName = SrvId:name(),
-    catch ets:insert(nksip_debug_msgs, {CallId, Time, AppName, Info1}).
+    SrvName = SrvId:name(),
+    catch ets:insert(nksip_debug_msgs, {CallId, Time, SrvName, Info1}).
 
 
 %% @private

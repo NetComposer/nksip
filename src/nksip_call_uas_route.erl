@@ -130,7 +130,7 @@ is_cancel(_, _) ->
 authorize_launch(UAS, #call{srv_id=SrvId}=Call) ->
     % In case app has not implemented sip_authorize, we don't spend time
     % finding authentication info
-    case erlang:function_exported(SrvId:module(), sip_authorize, 3) of
+    case erlang:function_exported(SrvId:callback(), sip_authorize, 3) of
         true ->
             {ok, AuthData} = SrvId:nks_authorize_data([], UAS, Call),
             Args = [AuthData, UAS#trans.request, Call],

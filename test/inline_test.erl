@@ -43,14 +43,14 @@ inline_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, [], [
+    {ok, _} = nksip:start(server1, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
         {plugins, [nksip_registrar]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]}
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [], [
+    {ok, _} = nksip:start(client1, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {plugins, [nksip_uac_auto_auth]},
         {local_host, "127.0.0.1"},
@@ -58,7 +58,7 @@ start() ->
         {transports, [{udp, all, 5070}, {tls, all, 5071}]}
     ]),
 
-    {ok, _} = nksip:start(client2, ?MODULE, [], [
+    {ok, _} = nksip:start(client2, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
         {local_host, "127.0.0.1"},
         {route, "<sip:127.0.0.1;lr>"}]),
@@ -170,8 +170,8 @@ auth() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
-init([]) ->
-    {ok, []}.
+init(_, State) ->
+    {ok, State}.
 
 
 sip_get_user_pass(User, Realm, Req, _Call) ->

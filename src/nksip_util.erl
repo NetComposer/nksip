@@ -22,7 +22,7 @@
 -module(nksip_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([parse_syntax/1, parse_syntax/2, syntax/0]).
+-export([plugin_update_value/3, cached/0, syntax/0, defaults/0]).
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
 -export([put_log_cache/2]).
@@ -37,13 +37,28 @@
 %% =================================================================
 
 
-parse_syntax(Data) ->
-    nkservice_util:parse_syntax(Data, syntax(), defaults()).
+
+%% @private
+plugin_update_value(Key, Fun, SrvSpec) ->
+    Value1 = maps:get(Key, SrvSpec, undefined),
+    Value2 = Fun(Value1),
+    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
+    OldCache = maps:get(cache, SrvSpec, #{}),
+    Cache = case lists:member(Key, cached()) of
+        true -> maps:put(Key, Value2, #{});
+        false -> #{}
+    end,
+    SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
 
 
-parse_syntax(Data, Defaults) ->
-    nkservice_util:parse_syntax(Data, syntax(), Defaults).
 
+cached() ->
+    [
+        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
+        sip_event_expires, sip_event_expires_offset, sip_events, 
+        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
+        sip_route, sip_supported, sip_trans_timeout
+    ].
 
 
 syntax() ->
@@ -59,11 +74,11 @@ syntax() ->
         sip_event_expires => {integer, 1, none},
         sip_event_expires_offset => {integer, 0, none},
         sip_nonce_timeout => {integer, 5, none},
-        sip_from => uri,
-        sip_accept => words,
+        sip_from => [{enum, [undefined]}, uri],
+        sip_accept => [{enum, [undefined]}, words],
         sip_events => words,
         sip_route => uris,
-        sip_no_100 => {enum, [true]},
+        sip_no_100 => boolean,
         sip_max_calls => {integer, 1, 1000000},
         sip_debug => boolean
     }.
@@ -214,5 +229,5 @@ find_real_ip([_|R], Type) ->
 put_log_cache(SrvId, CallId) ->
     erlang:put(nksip_srv_id, SrvId),
     erlang:put(nksip_call_id, CallId),
-    erlang:put(nksip_app_name, SrvId:name()),
-    erlang:put(nksip_log_level, SrvId:config_log_level()).
+    erlang:put(nksip_srv_name, SrvId:name()),
+    erlang:put(nksip_log_level, SrvId:cache_log_level()).

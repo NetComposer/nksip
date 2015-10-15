@@ -29,7 +29,7 @@
 -module(nksip_tutorial_sipapp_server).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/1, sip_get_user_pass/4, sip_authorize/3, sip_route/5, handle_call/3]).
+-export([init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5, handle_call/3]).
 
 
 
@@ -37,14 +37,10 @@
 %% Callbacks
 %% ===================================================================
 
--record(state, {
-    started
-}).
-
 %% @doc Service intialization.
-init([]) ->
+init([], State) ->
     nkservice_server:put(server, started, httpd_util:rfc1123_date()),
-    {ok, []}.
+    {ok, State#{started=>undefined}}.
 
 
 %% @doc Called to check user's password.
@@ -114,5 +110,5 @@ sip_route(_Scheme, _User, _Domain, Req, _Call) ->
 
 
 %% @doc Synchronous user call.
-handle_call(get_started, _From, #state{started=Started}=State) ->
+handle_call(get_started, _From, #{started:=Started}=State) ->
     {reply, {ok, Started}, State}.

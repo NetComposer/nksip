@@ -31,17 +31,17 @@
 -compile([export_all]).
 
 
-% basic_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun running/0}, 
-%             {timeout, 60, fun transport/0}, 
-%             {timeout, 60, fun cast_info/0}, 
-%             {timeout, 60, fun stun/0}
-%         ]
-%     }.
+basic_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun running/0}, 
+            {timeout, 60, fun transport/0}, 
+            {timeout, 60, fun cast_info/0}, 
+            {timeout, 60, fun stun/0}
+        ]
+    }.
 
 
 start() ->
@@ -52,24 +52,24 @@ start() ->
         arg => server1,
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
         plugins => [nksip_registrar],
-        sip_transports => [
+        transports => [
             {udp, all, 5060, [{listeners, 10}]},
             {tls, all, 5061}
         ]
     }),
 
-    % {ok, _} = nksip:start(client1, ?MODULE, #{
-    %     arg => client1,
-    %     from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
-    %     transports => [
-    %         {udp, all, 5070},
-    %         {tls, all, 5071}
-    %     ]
-    % }),
+    {ok, _} = nksip:start(client1, ?MODULE, #{
+        arg => client1,
+        sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
+        transports => [
+            {udp, all, 5070},
+            {tls, all, 5071}
+        ]
+    }),
 
-    % {ok, _} = nksip:start(client2, ?MODULE, #{
-    %     arg => client2,
-    %     sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
+    {ok, _} = nksip:start(client2, ?MODULE, #{
+        arg => client2,
+        sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -77,34 +77,36 @@ start() ->
 
 stop() ->
     ok = nksip:stop_all(),
-    {error, not_found} = nksip:stop(server1),
-    {error, not_found} = nksip:stop(client1),
-    {error, not_found} = nksip:stop(client2),
+    {error, service_not_found} = nksip:stop(server1),
+    {error, service_not_found} = nksip:stop(client1),
+    {error, service_not_found} = nksip:stop(client2),
     ok.
 
 
 running() ->
-    {error, already_started} = nksip:start(server1, ?MODULE, server1, []),
-    {error, already_started} = nksip:start(client1, ?MODULE, client1, []),
-    {error, already_started} = nksip:start(client2, ?MODULE, client2, []),
-    [{client1, _}, {client2, _}, {server1, _}] = lists:sort(nksip:get_all()),
+    {error, already_started} = nksip:start(server1, ?MODULE, []),
+    {error, already_started} = nksip:start(client1, ?MODULE, []),
+    {error, already_started} = nksip:start(client2, ?MODULE, []),
+    [{_, server1, _}, {_, client2, _}, {_, client1, _}] = 
+        lists:sort(nkservice_server:get_all(nksip)),
 
-    lager:error("Next error about error1 is expected"),
-    {error, error1} = nksip:start(error1, ?MODULE, error1, [{transports, [{udp, all, 5090}]}]),
+    % lager:error("Next error about error1 is expected"),
+    {error, error1} = nksip:start(error1, ?MODULE, [{transports, [{udp, all, 5090}]}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
     {error, {invalid_transport, _}} = 
-        nksip:start(name, ?MODULE, none, [{transports, [{other, all, any}]}]),
+        nksip:start(name, ?MODULE, [{transports, [{other, all, any}]}]),
     {error, {invalid_transport, _}} = 
-        nksip:start(name, ?MODULE, none, [{transports, [{udp, {1,2,3}, any}]}]),
-    {error, {invalid_config, sip_registrar_min_time}} = 
-        nksip:start(name, ?MODULE, none, 
+        nksip:start(name, ?MODULE, [{transports, [{udp, {1,2,3}, any}]}]),
+    {error,{could_not_start_plugin,{nksip_registrar,
+            {syntax_error,<<"sip_registrar_min_time">>}}}} = 
+        nksip:start(name, ?MODULE, 
                     [{plugins, [nksip_registrar]}, {sip_registrar_min_time, -1}]),
 
     {error, {invalid_plugin, invalid}} = 
-        nksip:start(name, ?MODULE, none, [{plugins, [nksip_registrar, invalid]}]),
+        nksip:start(name, ?MODULE, [{plugins, [nksip_registrar, invalid]}]),
 
     ok.
     
@@ -192,10 +194,10 @@ transport() ->
 
 
 cast_info() ->
-    % Direct calls to SipApp's core processing app
+    % Direct calls to service's core processing app
     {ok, S1} = nkservice_server:find(server1),
     Pid = whereis(S1),
-    undefined = nksip:get_pid(other),
+    not_running = nkservice_server:get_pid(other),
 
     {ok, server1, Domains} = gen_server:call(S1, get_domains),
     {ok, server1} = gen_server:call(S1, {set_domains, [<<"test">>]}),
@@ -221,13 +223,12 @@ stun() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=error1}) ->
+init(#{name:=error1}, _State) ->
     {stop, error1};
 
-init(#{name:=AppName}) ->
-    lager:warning("APP1"),
-    ok = nkservice_server:put(AppName, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
-    {ok, AppName}.
+init(#{name:=Name}, State) ->
+    ok = nkservice_server:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    {ok, State#{my_name=>Name}}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
@@ -268,20 +269,20 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-handle_call(get_domains, _From, AppId=State) ->
-    Domains = nkservice_server:get(AppId, domains),
-    {reply, {ok, AppId, Domains}, State};
+handle_call(get_domains, _From, #{my_name:=Name}=State) ->
+    Domains = nkservice_server:get(Name, domains),
+    {reply, {ok, Name, Domains}, State};
 
-handle_call({set_domains, Domains}, _From, AppId=State) ->
-    ok = nkservice_server:put(AppId, domains, Domains),
-    {reply, {ok, AppId}, State}.
+handle_call({set_domains, Domains}, _From, #{my_name:=Name}=State) ->
+    ok = nkservice_server:put(Name, domains, Domains),
+    {reply, {ok, Name}, State}.
 
-handle_cast({cast_test, Ref, Pid}, AppId=State) ->
-    Pid ! {Ref, {cast_test, AppId}},
+handle_cast({cast_test, Ref, Pid}, #{my_name:=Name}=State) ->
+    Pid ! {Ref, {cast_test, Name}},
     {noreply, State}.
 
-handle_info({info_test, Ref, Pid}, AppId=State) ->
-    Pid ! {Ref, {info_test, AppId}},
+handle_info({info_test, Ref, Pid}, #{my_name:=Name}=State) ->
+    Pid ! {Ref, {info_test, Name}},
     {noreply, State}.
 
 

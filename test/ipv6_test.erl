@@ -61,31 +61,31 @@ start() ->
     %% NOTE: using 'any6' as ip for hosts fails in Linux
     %% (it works in OSX)
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, [
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
         {local_host6, "::1"},
         {transports, [{udp, all, 5060}, {udp, "::1", 5060}]}
     ]),
 
-    {ok, _} = nksip:start(server2, ?MODULE, server2, [
+    {ok, _} = nksip:start(server2, ?MODULE, [
         {from, "sip:server2@nksip"},
         {local_host, "127.0.0.1"},
         {local_host6, "::1"},
         {transports, [{udp, all, 5061}, {udp, "::1", 5061}]}
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [
         {from, "sip:client1@nksip"},
         {transports, [{udp, "::1", 5070}]}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [
         {from, "sip:client2@nksip"},
         {transports, [{udp, "::1", 5071}]}
     ]),
 
-    {ok, _} = nksip:start(client3, ?MODULE, client3, [
+    {ok, _} = nksip:start(client3, ?MODULE, [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5072}]}
@@ -529,9 +529,9 @@ parse(Msg) ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(Id) ->
-    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
-    {ok, []}.
+init(#{name:=Name}, State) ->
+    ok = nkservice_server:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    {ok, State}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
@@ -567,8 +567,8 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, AppName} = nksip_request:app_name(Req),
-    Hds = [{add, "x-nk-id", nklib_util:bjoin([AppName|Ids])}],
+    {ok, SrvName} = nksip_request:app_name(Req),
+    Hds = [{add, "x-nk-id", nklib_util:bjoin([SrvName|Ids])}],
     {reply, {ok, Hds}}.
 
 

@@ -60,37 +60,39 @@ deps() ->
     [nksip].
 
 
-plugin_start(SrvSpec) ->
+plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
+    lager:info("Plugin nksip_registrar starting (~p)", [SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
-        {ok, RegConfig} ->
+        {ok, SrvSpec1} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"REGISTER">>, Allow) end,
-            SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
+            SrvSpec2 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
             #{
                 sip_registrar_min_time := Min, 
                 sip_registrar_max_time := Max,
                 sip_registrar_default_time := Default
-            } = RegConfig,
+            } = SrvSpec2,
             Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
             Cache = #{sip_registrar_timers=>Timers},
-            {ok, nkservice_util:update_spec(#{cache=>Cache}, SrvSpec1)};
+            {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
         {error, Error} ->
             {stop, Error}
     end.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    clear(SrvId),
+    lager:info("Plugin nksip_registrar stopping (~p)", [SrvId]),
+    % clear(SrvId),
     UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
-    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
-    {ok, nkservice_util:remove_spec(#{cache=>[sip_registrar_timers]}, SrvSpec1)}.
-
+    SrvSpec1 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec),
+    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
+    {ok, SrvSpec2}.
 
 
 syntax() ->
     #{
         sip_registrar_default_time => {integer, 5, none},
         sip_registrar_min_time => {integer, 1, none},
-        sip_registrar_max_time => {ineteger, 60, none}
+        sip_registrar_max_time => {integer, 60, none}
     }.
 
 defaults() ->
