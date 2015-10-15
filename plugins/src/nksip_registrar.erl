@@ -49,7 +49,7 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
@@ -61,7 +61,7 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
-    lager:info("Plugin nksip_registrar starting (~p)", [SrvId]),
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"REGISTER">>, Allow) end,
@@ -72,7 +72,7 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
                 sip_registrar_default_time := Default
             } = SrvSpec2,
             Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
-            Cache = #{sip_registrar_timers=>Timers},
+            Cache = #{sip_registrar_time=>Timers},
             {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
         {error, Error} ->
             {stop, Error}
@@ -80,8 +80,8 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin nksip_registrar stopping (~p)", [SrvId]),
-    % clear(SrvId),
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    clear(SrvId),
     UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
     SrvSpec1 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
@@ -101,69 +101,6 @@ defaults() ->
         sip_registrar_min_time => 60,           % (secs) 1 min
         sip_registrar_max_time => 86400         % (secs) 24 hour
     }.
-
-
-
-
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     Defaults = [
-%         {sip_registrar_default_time, 3600},     % (secs) 1 hour
-%         {sip_registrar_min_time, 60},           % (secs) 1 min
-%         {sip_registrar_max_time, 86400}         % (secs) 24 hour
-%     ],
-%     Opts1 = nklib_util:defaults(Opts, Defaults),
-%     Allow = nklib_util:get_value(sip_allow, Opts1),
-%     Opts2 = case lists:member(<<"REGISTER">>, Allow) of
-%         true -> 
-%             Opts1;
-%         false -> 
-%             nklib_util:store_value(sip_allow, Allow++[<<"REGISTER">>], Opts1)
-%     end,
-%     try
-%         case nklib_util:get_value(sip_registrar_default_time, Opts2) of
-%             Def when is_integer(Def), Def>=5 -> 
-%                 ok;
-%             _ -> 
-%                 throw(sip_registrar_default_time)
-%         end,
-%         case nklib_util:get_value(sip_registrar_min_time, Opts2) of
-%             Min when is_integer(Min), Min>=1 -> 
-%                 ok;
-%             _ -> 
-%                 throw(sip_registrar_min_time)
-%         end,
-%         case nklib_util:get_value(sip_registrar_max_time, Opts2) of
-%             Max when is_integer(Max), Max>=60 -> 
-%                 ok;
-%             _ -> 
-%                 throw(sip_registrar_max_time)
-%         end,
-%         Times = #nksip_registrar_time{
-%             min = nklib_util:get_value(sip_registrar_min_time, Opts2),
-%             max = nklib_util:get_value(sip_registrar_max_time, Opts2),
-%             default = nklib_util:get_value(sip_registrar_default_time, Opts2)
-%         },
-%         Cached1 = nklib_util:get_value(cached_configs, Opts2, []),
-%         Cached2 = nklib_util:store_value(config_nksip_registrar_times, Times, Cached1),
-%         Opts3 = nklib_util:store_value(cached_configs, Cached2, Opts2),
-%         {ok, Opts3}
-%     catch
-%         throw:OptName -> {error, {invalid_config, OptName}}
-%     end.
-
-
-% %% @doc Called when the plugin is shutdown
-% -spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-%     {ok, nkservice_server:sub_state()}.
-
-% terminate(SrvId, ServiceState) ->  
-%     clear(SrvId),
-%     {ok, ServiceState}.
-
 
 
 
@@ -285,7 +222,7 @@ request(Req) ->
 
 %% @doc Clear all stored records by a Service's core.
 -spec clear(nkservice:name()|nkservice:id()) -> 
-    ok | callback_error | sipapp_not_found.
+    ok | callback_error | service_not_found.
 
 clear(App) -> 
     case nkservice_server:find(App) of
@@ -295,6 +232,6 @@ clear(App) ->
                 _ -> callback_error
             end;
         _ ->
-            sipapp_not_found
+            service_not_found
     end.
 

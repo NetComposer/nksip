@@ -150,7 +150,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
 
 %% @doc Clear all stored records by a Service's core.
 -spec clear(nkservice:name()|nkservice:id()) -> 
-    ok | callback_error | sipapp_not_found.
+    ok | callback_error | service_not_found.
 
 clear(App) -> 
     case nkservice_server:find(App) of
@@ -160,7 +160,7 @@ clear(App) ->
                 _ -> callback_error
             end;
         _ ->
-            sipapp_not_found
+            service_not_found
     end.
 
 

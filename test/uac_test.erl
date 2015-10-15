@@ -70,7 +70,7 @@ uac() ->
     {error, {invalid, <<"contact">>}} = nksip_uac:options(client2, SipC1, [{contact, "<>"}]),
     {error, {invalid_config, cseq_num}} = nksip_uac:options(client2, SipC1, [{cseq_num, -1}]),
     % lager:error("Next error about 'unknown_sipapp' is expected"),
-    {error, sipapp_not_found} = nksip_uac:options(none, SipC1, []),
+    {error, service_not_found} = nksip_uac:options(none, SipC1, []),
     lager:error("Next 2 errors about 'too_many_calls' are expected"),
     nklib_counters:incr(nksip_calls, 1000000000),
     {error, too_many_calls} = nksip_uac:options(client2, SipC1, []),
@@ -106,8 +106,8 @@ uac() ->
     end,
 
     % Sync
-    {ok, 200, Values2} = nksip_uac:options(client2, SipC1, [{meta, [app_name, handle, call_id]}]),
-    [{app_name, client2}, {handle, RespId2}, {call_id, CallId2}] = Values2,
+    {ok, 200, Values2} = nksip_uac:options(client2, SipC1, [{meta, [srv_name, handle, call_id]}]),
+    [{srv_name, client2}, {handle, RespId2}, {call_id, CallId2}] = Values2,
     {ok, CallId2} = nksip_response:call_id(RespId2),
     {error, _} = nksip_dialog:meta(status, RespId2),
     {error, invalid_dialog} = nksip_uac:options(RespId2, []),
@@ -191,7 +191,7 @@ info() ->
 
 timeout() ->
     SipC1 = "sip:127.0.0.1:5070",
-    {ok, _} = nksip:update(client2, [{timer_t1, 10}, {timer_c, 1}]),
+    ok = nksip:update(client2, [{timer_t1, 10}, {timer_c, 1}]),
 
     lager:notice("Next notices about several timeouts are expected"),
 

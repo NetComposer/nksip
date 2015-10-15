@@ -36,9 +36,9 @@
     {continue, list()} | {error, term()}.
 
 nks_parse_uac_opts(#sipmsg{srv_id=_SrvId}=Req, Opts) ->
-    case nksip_uac_auto_auth:do_parse_config(Opts) of
-        {ok, Opts2} ->
-            {continue, [Req, Opts2]};
+    case nklib_config:parse_config(Opts, nksip_uac_auto_auth:syntax()) of
+        {ok, Opts2, _Rest} ->
+            {continue, [Req, nklib_util:store_values(Opts2, Opts)]};
         {error, Error} ->
             {error, Error}
     end.

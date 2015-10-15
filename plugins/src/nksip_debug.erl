@@ -114,11 +114,11 @@ start(App) ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
             case nksip:update(SrvId, #{plugins=>Plugins2, debug=>true}) of
-                {ok, _} -> ok;
+                ok -> ok;
                 {error, Error} -> {error, Error}
             end;
         not_found ->
-            {error, sipapp_not_found}
+            {error, service_not_found}
     end.
 
 
@@ -131,11 +131,11 @@ stop(App) ->
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_debug],
             case nksip:update(App, #{plugins=>Plugins, debug=>false}) of
-                {ok, _} -> ok;
+                ok -> ok;
                 {error, Error} -> {error, Error}
             end;
         not_found ->
-            {error, sipapp_not_found}
+            {error, service_not_found}
     end.    
 
 

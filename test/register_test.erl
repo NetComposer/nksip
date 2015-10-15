@@ -44,7 +44,7 @@ register_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, server1, [
+    {ok, _} = nksip:start(server1, ?MODULE, [
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
@@ -52,14 +52,14 @@ start() ->
         {sip_registrar_min_time, 60}
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, client1, [
+    {ok, _} = nksip:start(client1, ?MODULE, [
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    {ok, _} = nksip:start(client2, ?MODULE, client2, [
+    {ok, _} = nksip:start(client2, ?MODULE, [
         {from, "sip:client2@nksip"}]),
 
     tests_util:log(),
@@ -72,12 +72,13 @@ stop() ->
 
 
 register1() ->
-    Config = nkservice_server:config(server1),
-    Min = nklib_util:get_value(sip_registrar_min_time, Config),
+    Spec = nkservice_server:get_spec(server1),
+    Min = maps:get(sip_registrar_min_time, Spec),
     MinB = nklib_util:to_binary(Min),
-    Max = nklib_util:get_value(sip_registrar_max_time, Config),
+    Max = maps:get(sip_registrar_max_time, Spec),
     MaxB = nklib_util:to_binary(Max),
-    DefB = nklib_util:get_binary(sip_registrar_default_time, Config),
+    Def = maps:get(sip_registrar_default_time, Spec),
+    DefB = nklib_util:to_binary(Def),
     
     % Method not allowed
     {ok, 405, []} = nksip_uac:register(client2, "sip:127.0.0.1:5070", []),
@@ -301,7 +302,7 @@ init(#{name:=Id}, State) ->
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
             Domains = nkservice_server:get(server1, domains),

@@ -150,13 +150,13 @@ is_registered([
 
 request(#sipmsg{srv_id=SrvId, to={To, _}}=Req) ->
     try
-        {continue, [Req1, Opts]} = SrvId:nks_nksip_registrar_request_opts(Req, []),
+        {continue, [Req1, Opts]} = SrvId:nks_sip_registrar_request_opts(Req, []),
         process(Req1, Opts),
         {ok, Regs} = store_get(SrvId, aor(To)),
         Contacts1 = [Contact || #reg_contact{contact=Contact} <- Regs],
         Reply = {ok, [{contact, Contacts1}, date, allow, supported]},
         {continue, [Reply1, _, _]} = 
-            SrvId:nks_nksip_registrar_request_reply(Reply, Regs, Opts),
+            SrvId:nks_sip_registrar_request_reply(Reply, Regs, Opts),
         Reply1
     catch
         throw:Throw -> Throw
@@ -173,7 +173,7 @@ process(Req, Opts) ->
         Scheme==sip; Scheme==sips -> ok;
         true -> throw(unsupported_uri_scheme)
     end,
-    Times = SrvId:cache_sip_registrar_times(),
+    Times = SrvId:cache_sip_registrar_time(),
     Default = case nksip_sipmsg:meta(expires, Req) of
         D0 when is_integer(D0), D0>=0 -> D0;
         _ -> Times#nksip_registrar_time.default
@@ -284,7 +284,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
     end,
     ExpireBin = list_to_binary(integer_to_list(Expires)),
     ExtOpts1 = nklib_util:store_value(<<"expires">>, ExpireBin, ExtOpts),
-    Index = case SrvId:nks_nksip_registrar_get_index(Contact, Opts) of
+    Index = case SrvId:nks_sip_registrar_get_index(Contact, Opts) of
         {ok, Index0} -> 
             Index0;
         {continue, [_, _]} -> 
@@ -320,7 +320,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
                 path = Path
             },
             {continue, [RegContact1, _, _, _]} = 
-                SrvId:nks_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts),
+                SrvId:nks_sip_registrar_update_regcontact(RegContact, Base, Req, Opts),
             [RegContact1|Acc1]
     end,
     update_regcontacts(Rest, Req, Times, Path, Opts, Acc2);

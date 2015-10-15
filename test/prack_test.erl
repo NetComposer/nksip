@@ -289,7 +289,7 @@ sip_invite(Req, _Call) ->
         {ok, [Op0]} -> Op0;
         {ok, _} -> <<"decline">>
     end,
-    {ok, App} = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:srv_name(Req),
     {ok, ReqId} = nksip_request:get_handle(Req),
     proc_lib:spawn(
         fun() ->
@@ -373,7 +373,7 @@ sip_prack(Req, _Call) ->
     tests_util:send_ref({prack, RAck}, Req),
     Body = case nksip_request:body(Req) of
         {ok, #sdp{} = RemoteSDP} ->
-            {ok, App} = nksip_request:app_name(Req),
+            {ok, App} = nksip_request:srv_name(Req),
             RemoteSDP#sdp{address={<<"IN">>, <<"IP4">>, nklib_util:to_binary(App)}};
         {ok, _} -> 
             <<>>
@@ -394,8 +394,8 @@ sip_session_update(Update, Dialog, _Call) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  Util %%%%%%%%%%%%%%%%%%%%%
 
-get_sessions(AppId, DialogId) ->
-    Sessions = nkservice_server:get(AppId, sessions, []),
+get_sessions(SrvId, DialogId) ->
+    Sessions = nkservice_server:get(SrvId, sessions, []),
     case lists:keyfind(DialogId, 1, Sessions) of
         {_DialogId, Local, Remote} -> {Local, Remote};
         _ -> not_found

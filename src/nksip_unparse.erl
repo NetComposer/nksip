@@ -217,7 +217,7 @@ do_error_reason({Name, Code, Text}) ->
 
 % %% @doc Adds a "+sip_instance" media feature tag to a Contact
 % -spec add_sip_instance(nkservice:id(), nksip:uri()) ->
-%     {ok, nksip:uri()} | {error, sipapp_not_found}.
+%     {ok, nksip:uri()} | {error, service_not_found}.
 
 % add_sip_instance(SrvId, #uri{ext_opts=ExtOpts}=Uri) ->
 %     case nksip:get_uuid(SrvId) of
@@ -225,7 +225,7 @@ do_error_reason({Name, Code, Text}) ->
 %             ExtOpts1 = nklib_util:store_value(<<"+sip.instance">>, UUID, ExtOpts),
 %             {ok, Uri#uri{ext_opts=ExtOpts1}};
 %         {error, not_found} ->
-%             {error, sipapp_not_found}
+%             {error, service_not_found}
 %     end.
 
 

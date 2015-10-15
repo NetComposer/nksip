@@ -165,7 +165,7 @@
 	{ok, srv_id()} | {error, term()}.
 
 start(Name, Module, Opts) ->
-    Opts1 = nklib_util:to_map(Opts),
+    Opts1 = nksip_util:adapt_opts(Opts),
     Opts2 = Opts1#{
         class => nksip,
         callback => Module,
@@ -173,7 +173,6 @@ start(Name, Module, Opts) ->
         transports => maps:get(transports, Opts1, [{udp, all, any}])
     },
     nkservice_server:start(Name, Opts2).
-
 
 
 %% @doc Stops a started Service, stopping any registered transports.
@@ -200,13 +199,14 @@ stop_all() ->
     {ok, srv_id()} | {error, term()}.
 
 update(App, Opts) ->
-    Opts1 = case Opts of
+    Opts1 = nksip_util:adapt_opts(Opts),
+    Opts2 = case Opts1 of
         #{plugins:=Plugins} ->
-            Opts#{plugins=>[nksip|Plugins]};
+            Opts1#{plugins=>[nksip|Plugins]};
         _ ->
-            Opts
+            Opts1
     end,
-    nkservice_server:update(App, Opts1).
+    nkservice_server:update(App, Opts2).
 
     
 

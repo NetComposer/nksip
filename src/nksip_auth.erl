@@ -93,7 +93,7 @@ make_ha1(User, Pass, Realm) ->
 %% for a request after receiving a 401 or 407 response.
 %% CSeq must be updated after calling this function.
 %%
-%% Recognized options are `pass', `user', `cnonce' and `nc'.
+%% Recognized options are `sip_pass', `user', `cnonce' and `nc'.
 -spec make_request(Req::nksip:request(), Resp::nksip:response(), nksip:optslist()) ->
     {ok, nksip:request()} | {error, Error}
     when Error :: invalid_auth_header | unknown_nonce | no_pass.
@@ -129,7 +129,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
             true -> throw(unknown_nonce);
             false -> ok
         end,
-        case nklib_util:get_value(passes, Opts) of
+        case nklib_util:get_value(sip_pass, Opts) of
             undefined -> 
                 ReqOpts = throw(no_pass);
             Passes ->
@@ -137,7 +137,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
                     {method, Method}, 
                     {ruri, RUri}, 
                     {user, nklib_util:get_binary(user, Opts, User)}, 
-                    {passes, Passes} 
+                    {sip_pass, Passes} 
                     | Opts
                 ]
         end,
@@ -292,7 +292,7 @@ make_auth_request(AuthHeaderData, UserOpts) ->
             Nonce = nklib_util:get_binary(nonce, AuthHeaderData, <<>>),  
             Nc = nklib_util:msg("~8.16.0B", [nklib_util:get_integer(nc, UserOpts, 1)]),
             Realm = nklib_util:get_binary(realm, AuthHeaderData, <<>>),
-            Passes = nklib_util:get_value(passes, UserOpts, []),
+            Passes = nklib_util:get_value(sip_pass, UserOpts, []),
             Pass = case nklib_util:get_value(Realm, Passes) of
                 undefined -> nklib_util:get_value(<<>>, Passes, <<>>);
                 RealmPass -> RealmPass

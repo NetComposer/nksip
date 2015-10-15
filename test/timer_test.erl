@@ -404,7 +404,7 @@ proxy() ->
 
 
 sip_route(_Scheme, _User, _Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, p1} -> 
             {proxy, ruri, [record_route, {route, "<sip:127.0.0.1:5070;lr>"}]};
         {ok, p2} ->

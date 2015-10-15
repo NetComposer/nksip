@@ -151,8 +151,8 @@ start() ->
     ?debugFmt("Starting ~p", [?MODULE]).
 
 
-do_start(AppId, Opts) ->
-    nksip:start(AppId, ?MODULE, AppId, Opts).
+do_start(SrvId, Opts) ->
+    nksip:start(SrvId, ?MODULE, Opts).
 
 
 
@@ -357,7 +357,7 @@ invite2() ->
 
     {ok, C2Id} = nkservice_server:find(client2),
     {ok, CallId} = nksip_dialog:call_id(Dlg_C2_1),
-    [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:app_id(D))==C2Id,
+    [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:srv_id(D))==C2Id,
                             element(2, nksip_dialog:call_id(D))=:=CallId, D/=Dlg_C2_1],
     {ok, proceeding_uac} = nksip_dialog:meta(invite_status, Dlg_C2_2),
     {ok, proceeding_uac} = nksip_dialog:meta(invite_status, Dlg_C2_3),
@@ -583,7 +583,7 @@ init(#{name:=Id}, State) ->
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, serverR} ->
             % Route for serverR in fork test
             % Adds x-nk-id header, and Record-Route if Nk-Rr is true
@@ -642,7 +642,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, App} = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:srv_name(Req),
     Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     case nksip_request:body(Req) of
         {ok, Ops} when is_list(Ops) ->
@@ -684,7 +684,7 @@ sip_ack(Req, _Call) ->
 
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, App} = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:srv_name(Req),
     Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
@@ -699,8 +699,8 @@ sip_bye(Req, _Call) ->
 
 get_port(App, Proto, Class) ->
     case nkservice_server:find(App) of
-        {ok, AppId} -> 
-            case nksip_transport:get_listening(AppId, Proto, Class) of
+        {ok, SrvId} -> 
+            case nksip_transport:get_listening(SrvId, Proto, Class) of
                 [{#transport{listen_port=Port}, _Pid}|_] -> Port;
                 _ -> not_found
             end;

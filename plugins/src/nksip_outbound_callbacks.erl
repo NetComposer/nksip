@@ -26,8 +26,8 @@
 -include("../include/nksip.hrl").
 -include("nksip_registrar.hrl").
 -export([nks_uac_proxy_opts/2, nks_transport_uac_headers/6]).
--export([nks_nksip_registrar_request_opts/2, nks_nksip_registrar_request_reply/3,
-	     nks_nksip_registrar_get_index/2]).
+-export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
+	     nks_sip_registrar_get_index/2]).
 
 
 
@@ -51,7 +51,7 @@ nks_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
 
 
 %% @private
-nks_nksip_registrar_request_opts(Req, Opts) ->
+nks_sip_registrar_request_opts(Req, Opts) ->
 	nksip_outbound_lib:check_several_reg_id(Req#sipmsg.contacts),
     case nksip_outbound_lib:registrar(Req) of
         {true, Req1} -> Opts1 = [{outbound, true}|Opts];
@@ -63,7 +63,7 @@ nks_nksip_registrar_request_opts(Req, Opts) ->
 
 
 %% @private
-nks_nksip_registrar_request_reply(Reply, Regs, Opts) ->
+nks_sip_registrar_request_reply(Reply, Regs, Opts) ->
 	Reply1 = case Reply of
 		{ok, ReplyOpts} ->
 	        case 
@@ -80,7 +80,7 @@ nks_nksip_registrar_request_reply(Reply, Regs, Opts) ->
 
 
 %% @private
-nks_nksip_registrar_get_index(#uri{ext_opts=ExtOpts}=Contact, Opts) ->
+nks_sip_registrar_get_index(#uri{ext_opts=ExtOpts}=Contact, Opts) ->
     InstId = case nklib_util:get_value(<<"+sip.instance">>, ExtOpts) of
         undefined -> <<>>;
         Inst0 -> nklib_util:hash(Inst0)

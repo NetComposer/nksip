@@ -425,8 +425,8 @@ application_15() ->
 %% Internal
 
 parse(Msg) ->
-    {ok, AppId} = nkservice_server:find(server1),
-    case nksip_parse:packet(AppId, #transport{proto=udp}, Msg) of
+    {ok, SrvId} = nkservice_server:find(server1),
+    case nksip_parse:packet(SrvId, #transport{proto=udp}, Msg) of
         {ok, SipMsg, <<>>} -> SipMsg;
         {ok, SipMsg, Tail} -> {tail, SipMsg, Tail};
         partial -> partial;
@@ -453,7 +453,7 @@ send(tcp, Msg) ->
 
 
 sip_route(Scheme, _User, _Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server1} when Scheme=/=sip, Scheme=/=sips ->
             {reply, unsupported_uri_scheme};
         {ok, _} ->

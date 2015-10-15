@@ -57,7 +57,7 @@ start_server(SrvId, Proto, Ip, Port, Disp, Opts)
                     gen_server:call(?MODULE, {start, SrvId, AppPid, Ref, Disp, Opts})
             end;
         _ ->
-            {error, sipapp_not_found}
+            {error, service_not_found}
     end.
 
 

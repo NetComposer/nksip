@@ -535,7 +535,7 @@ init(#{name:=Name}, State) ->
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server1} ->
             Opts = [
                 {insert, "x-nk-id", "server1"},
@@ -567,7 +567,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 sip_invite(Req, _Call) ->
     tests_util:save_ref(Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, SrvName} = nksip_request:app_name(Req),
+    {ok, SrvName} = nksip_request:srv_name(Req),
     Hds = [{add, "x-nk-id", nklib_util:bjoin([SrvName|Ids])}],
     {reply, {ok, Hds}}.
 

@@ -606,7 +606,7 @@ sip_ack(Req, _Call) ->
 
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, App} = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:srv_name(Req),
     Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 
@@ -629,8 +629,8 @@ sip_session_update(Update, Dialog, _Call) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  Util %%%%%%%%%%%%%%%%%%%%%
 
-get_sessions(AppId, DialogId) ->
-    Sessions = nkservice_server:get(AppId, sessions, []),
+get_sessions(SrvId, DialogId) ->
+    Sessions = nkservice_server:get(SrvId, sessions, []),
     case lists:keyfind(DialogId, 1, Sessions) of
         {_DialogId, Local, Remote} -> {Local, Remote};
         _ -> not_found

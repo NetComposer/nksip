@@ -25,7 +25,7 @@
 -include("../include/nksip.hrl").
 
 -export([get_gruu_pub/1, get_gruu_temp/1, registrar_find/2]).
--export([version/0, deps/0, parse_config/1]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 
 
 %% ===================================================================
@@ -37,7 +37,7 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
@@ -46,20 +46,35 @@ version() ->
     [{atom(), string()}].
     
 deps() ->
-    [nksip].
+    [nksip, nksip_registrar].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
+plugin_start(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
+    UpdFun = fun(Supported) -> nklib_util:store_value(<<"gruu">>, Supported) end,
+    SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    {ok, SrvSpec2}.
 
-parse_config(Opts) ->
-    Supported = nklib_util:get_value(sip_supported, Opts),
-    Opts1 = case lists:member(<<"gruu">>, Supported) of
-        true -> Opts;
-        false -> nklib_util:store_value(sip_supported, Supported++[<<"gruu">>], Opts)
-    end,
-    {ok, Opts1}.
+
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    UpdFun = fun(Supported) -> Supported -- [<<"gruu">>] end,
+    SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    {ok, SrvSpec2}.
+
+
+% %% @doc Parses this plugin specific configuration
+% -spec parse_config(nksip:optslist()) ->
+%     {ok, nksip:optslist()} | {error, term()}.
+
+% parse_config(Opts) ->
+%     Supported = nklib_util:get_value(sip_supported, Opts),
+%     Opts1 = case lists:member(<<"gruu">>, Supported) of
+%         true -> Opts;
+%         false -> nklib_util:store_value(sip_supported, Supported++[<<"gruu">>], Opts)
+%     end,
+%     {ok, Opts1}.
+
 
 
 %% ===================================================================
@@ -71,8 +86,8 @@ parse_config(Opts) ->
 -spec get_gruu_pub(nkservice:name()|nkservice:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
-get_gruu_pub(App) ->
-    case nkservice_server:find(App) of
+get_gruu_pub(Srv) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_pub, SrvId}) of
                 undefined -> undefined;
@@ -87,8 +102,8 @@ get_gruu_pub(App) ->
 -spec get_gruu_temp(nkservice:name()|nkservice:id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
-get_gruu_temp(App) ->
-    case nkservice_server:find(App) of
+get_gruu_temp(Srv) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_temp, SrvId}) of
                 undefined -> undefined;
@@ -103,8 +118,8 @@ get_gruu_temp(App) ->
 -spec registrar_find(nkservice:name()|nkservice:id(), nksip:uri()) ->
     [nksip:uri()].
 
-registrar_find(App, Uri) ->
-    case nkservice_server:find(App) of
+registrar_find(Srv, Uri) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> 
             nksip_gruu_lib:find(SrvId, Uri);
         _ ->

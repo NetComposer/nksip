@@ -502,7 +502,7 @@ dialog() ->
     {ok, 200, []} = nksip_uac:options(DialogId2, []),
 
     {ok, [
-        {app_name, C1}, 
+        {srv_name, C1}, 
         {invite_status, confirmed}, 
         {local_seq, LSeq}, 
         {remote_seq, RSeq}, 
@@ -515,7 +515,7 @@ dialog() ->
         {route_set, [#uri{domain = <<"localhost">>}]}
     ]} = 
         nksip_dialog:metas([
-            app_name, invite_status, local_seq, remote_seq, local_uri, remote_uri,
+            srv_name, invite_status, local_seq, remote_seq, local_uri, remote_uri,
             local_target, remote_target, invite_local_sdp, invite_remote_sdp, route_set],
             DialogId1),
 
@@ -525,7 +525,7 @@ dialog() ->
     #uri{user = <<"client2">>, domain = <<"127.0.0.1">>, port=_Port} = RTarget, 
 
     {ok, [
-        {app_name, C2},
+        {srv_name, C2},
         {invite_status, confirmed},
         {local_seq, RSeq},
         {remote_seq, LSeq},
@@ -538,14 +538,14 @@ dialog() ->
         {route_set, [#uri{domain = <<"localhost">>}]}
     ]} = 
         nksip_dialog:metas([
-            app_name, invite_status, local_seq, remote_seq, local_uri, remote_uri,
+            srv_name, invite_status, local_seq, remote_seq, local_uri, remote_uri,
             local_target, remote_target, invite_local_sdp, invite_remote_sdp, route_set],
             DialogId2),
     
     % DialogId1 is refered to client1. DialogID1S will refer to server1
     DialogId1S = nksip_dialog_lib:change_app(DialogId1, S1),
     {ok, [
-        {app_name, S1},
+        {srv_name, S1},
         {invite_status, confirmed},
         {local_uri, LUri},
         {remote_uri, RUri},
@@ -556,7 +556,7 @@ dialog() ->
         {route_set, []}          % The first route is deleted (it is itself)
     ]} =
         nksip_dialog:metas([
-            app_name, invite_status, local_uri, remote_uri, local_target, remote_target,
+            srv_name, invite_status, local_uri, remote_uri, local_target, remote_target,
             invite_local_sdp, invite_remote_sdp, route_set],
             DialogId1S),
 
@@ -582,7 +582,7 @@ init(#{my_test:=_Test, name:=Id}, State) ->
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, {Test, App}=SrvName} when App==server1; App==server2 ->
             Opts = [
                 {insert, "x-nk-id", App},
@@ -632,7 +632,7 @@ sip_invite(Req, _Call) ->
     {ok, Values} = nksip_request:header(<<"x-nk">>, Req),
     {ok, Routes} = nksip_request:header(<<"route">>, Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, {_Test, App}} = nksip_request:app_name(Req),
+    {ok, {_Test, App}} = nksip_request:srv_name(Req),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nklib_util:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nklib_util:bjoin(Routes)} end,
@@ -696,7 +696,7 @@ sip_options(Req, _Call) ->
     {ok, Values} = nksip_request:header(<<"x-nk">>, Req),
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
     {ok, Routes} = nksip_request:header(<<"route">>, Req),
-    {ok, {_Test, App}} = nksip_request:app_name(Req),
+    {ok, {_Test, App}} = nksip_request:srv_name(Req),
     Hds = [
         case Values of [] -> ignore; _ -> {add, "x-nk", nklib_util:bjoin(Values)} end,
         case Routes of [] -> ignore; _ -> {add, "x-nk-r", nklib_util:bjoin(Routes)} end,

@@ -53,17 +53,17 @@ launch() ->
     {ok,407,[{reason_phrase, <<"Proxy Authentication Required">>}]} =
         nksip_uac:options(client1, "sip:127.0.0.1", [{meta,[reason_phrase]}]),
 
-    {ok,200,[]} = nksip_uac:options(client1, "sip:127.0.0.1", [{pass, "1234"}]),
-    {ok,200,[]} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{pass, "1234"}]),
+    {ok,200,[]} = nksip_uac:options(client1, "sip:127.0.0.1", [{sip_pass, "1234"}]),
+    {ok,200,[]} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{sip_pass, "1234"}]),
 
     {ok,200,[{<<"contact">>, [<<"<sip:client1@127.0.0.1:5070>", _/binary>>]}]} = 
         nksip_uac:register(client1, "sip:127.0.0.1", 
-                           [{pass, "1234"}, contact, {meta, [<<"contact">>]}]),
+                           [{sip_pass, "1234"}, contact, {meta, [<<"contact">>]}]),
 
-    {ok,200,[]} = nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, contact]),
+    {ok,200,[]} = nksip_uac:register(client2, "sips:127.0.0.1", [{sip_pass, "1234"}, contact]),
 
     {ok,200,[{all_headers, _}]} = 
-        nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, {meta, [all_headers]}]),
+        nksip_uac:register(client2, "sips:127.0.0.1", [{sip_pass, "1234"}, {meta, [all_headers]}]),
 
     {ok,200,[]} = nksip_uac:options(client1, "sip:127.0.0.1", []),
     {ok,200,[]} = nksip_uac:options(client2, "sips:127.0.0.1", []),
@@ -71,7 +71,7 @@ launch() ->
     {ok,407,[]} = nksip_uac:options(client1, "sips:client2@nksip", [{route, "<sip:127.0.0.1;lr>"}]),
     {ok,200,[{<<"x-nk-id">>, [<<"client2">>]}]} = 
         nksip_uac:options(client1, "sips:client2@nksip", 
-                          [{route, "<sip:127.0.0.1;lr>"}, {pass, "1234"},
+                          [{route, "<sip:127.0.0.1;lr>"}, {sip_pass, "1234"},
                            {meta, [<<"x-nk-id">>]}]),
 
     {ok,488,[]} = 
@@ -112,9 +112,9 @@ trace(false) ->
 
 loglevel(Level) -> 
     lager:set_loglevel(lager_console_backend, Level),
-    {ok, _} = nksip:update(server, [{log_level, Level}]),
-    {ok, _} = nksip:update(client1, [{log_level, Level}]),
-    {ok, _} = nksip:update(client2, [{log_level, Level}]),
+    ok = nksip:update(server, [{log_level, Level}]),
+    ok = nksip:update(client1, [{log_level, Level}]),
+    ok = nksip:update(client2, [{log_level, Level}]),
     ok.
 
 

@@ -159,10 +159,10 @@ auth() ->
 
     Hd = {add, "x-nk-auth", true},
     {ok, 407, []} = nksip_uac:options(client1, SipS1, [Hd]),
-    {ok, 200, []} = nksip_uac:options(client1, SipS1, [Hd, {pass, "1234"}]),
+    {ok, 200, []} = nksip_uac:options(client1, SipS1, [Hd, {sip_pass, "1234"}]),
 
     {ok, 407, []} = nksip_uac:register(client1, SipS1, [Hd]),
-    {ok, 200, []} = nksip_uac:register(client1, SipS1, [Hd, {pass, "1234"}, contact]),
+    {ok, 200, []} = nksip_uac:register(client1, SipS1, [Hd, {sip_pass, "1234"}, contact]),
 
     {ok, 200, []} = nksip_uac:options(client1, SipS1, [Hd]),
     ok.
@@ -175,7 +175,7 @@ init(_, State) ->
 
 
 sip_get_user_pass(User, Realm, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server1} ->
             case {User, Realm} of
                 {<<"client1">>, <<"nksip">>} -> <<"1234">>;
@@ -188,7 +188,7 @@ sip_get_user_pass(User, Realm, Req, _Call) ->
 
 
 sip_authorize(Auth, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server1} ->
             case nksip_sipmsg:header(<<"x-nk-auth">>, Req) of
                 [<<"true">>] ->
@@ -211,7 +211,7 @@ sip_authorize(Auth, Req, _Call) ->
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server1} ->
             send_reply(Req, route),
             Opts = [
@@ -224,7 +224,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 true when Domain =:= <<"nksip">> ->
                     case nksip_registrar:find(server1, Scheme, User, Domain) of
                         [] -> 
-                            lager:notice("E: ~p, ~p, ~p", [Scheme, User, Domain]),
+                            % lager:notice("E: ~p, ~p, ~p", [Scheme, User, Domain]),
                             {reply, temporarily_unavailable};
                         UriList ->
                          {proxy, UriList, Opts}
@@ -287,7 +287,7 @@ sip_ack(Req, _Call) ->
 
 sip_options(Req, _Call) ->
     send_reply(Req, options),
-    App = nksip_sipmsg:meta(app_name, Req),
+    App = nksip_sipmsg:meta(srv_name, Req),
     Ids = nksip_sipmsg:header(<<"x-nk-id">>, Req),
     {ok, ReqId} = nksip_request:get_handle(Req),
     Reply = {ok, [{add, "x-nk-id", [nklib_util:to_binary(App)|Ids]}]},
@@ -317,8 +317,8 @@ sip_session_update(State, Dialog, _Call) ->
 
 send_reply(Elem, Msg) ->
     App = case Elem of
-        #sipmsg{} -> nksip_sipmsg:meta(app_name, Elem);
-        #dialog{} -> nksip_dialog_lib:meta(app_name, Elem)
+        #sipmsg{} -> nksip_sipmsg:meta(srv_name, Elem);
+        #dialog{} -> nksip_dialog_lib:meta(srv_name, Elem)
     end,
     case nkservice_server:get(App, inline_test) of
         {Ref, Pid} -> Pid ! {Ref, {App, Msg}};

@@ -75,7 +75,7 @@ trace(false) ->
 
 loglevel(Level) -> 
 	lager:set_loglevel(lager_console_backend, Level),
-	{ok, _} = nksip:update(pbx, [{log_level, Level}]).
+	ok = nksip:update(pbx, [{log_level, Level}]).
 
 
 

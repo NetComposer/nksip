@@ -32,5 +32,6 @@
 
 # Start apps
 -s nksip_app
+-s nksip_plugins_app
 
 

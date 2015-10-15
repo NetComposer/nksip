@@ -24,7 +24,7 @@
 
 -include("../include/nksip.hrl").
 
--export([version/0, deps/0, parse_config/1]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 
 
 %% ===================================================================
@@ -36,7 +36,7 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
@@ -47,17 +47,18 @@ deps() ->
     [nksip].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
+plugin_start(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
+    UpdFun = fun(Supported) -> nklib_util:store_value(<<"outbound">>, Supported) end,
+    SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    {ok, SrvSpec2}.
 
-parse_config(Opts) ->
-    Supported = nklib_util:get_value(sip_supported, Opts),
-    Opts1 = case lists:member(<<"outbound">>, Supported) of
-        true -> Opts;
-        false -> nklib_util:store_value(sip_supported, Supported++[<<"outbound">>], Opts)
-    end,
-    {ok, Opts1}.
+
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    UpdFun = fun(Supported) -> Supported -- [<<"outbound">>] end,
+    SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    {ok, SrvSpec2}.
 
 
 

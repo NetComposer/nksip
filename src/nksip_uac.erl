@@ -380,7 +380,7 @@ send(App, Method, Uri, Opts) ->
             end,
             nksip_call:send(SrvId, CallId, Method, Uri, Opts);
         not_found -> 
-            {error, sipapp_not_found}
+            {error, service_not_found}
     end.
 
 

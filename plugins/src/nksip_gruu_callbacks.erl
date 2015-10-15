@@ -25,12 +25,12 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
--export([nks_nksip_registrar_request_opts/2, nks_nksip_registrar_update_regcontact/4,
+-export([nks_sip_registrar_request_opts/2, nks_sip_registrar_update_regcontact/4,
          nks_uac_response/4]).
 
 
 %% @private
-nks_nksip_registrar_request_opts(#sipmsg{srv_id=SrvId, contacts=Contacts}=Req, Opts) ->
+nks_sip_registrar_request_opts(#sipmsg{srv_id=SrvId, contacts=Contacts}=Req, Opts) ->
     case 
         lists:member(<<"gruu">>, SrvId:cache_sip_supported()) andalso 
         nksip_sipmsg:supported(<<"gruu">>, Req)
@@ -46,7 +46,7 @@ nks_nksip_registrar_request_opts(#sipmsg{srv_id=SrvId, contacts=Contacts}=Req, O
 
 
 %% @private
-nks_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
+nks_sip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
 	RegContact1 = nksip_gruu_lib:update_regcontact(RegContact, Base, Req, Opts),
     {continue, [RegContact1, Base, Req, Opts]}.
 

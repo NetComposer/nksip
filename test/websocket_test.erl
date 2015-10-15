@@ -339,7 +339,7 @@ init(#{name:=Id}, State) ->
 
 
 sip_route(_Scheme, User, Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", "server1"}],
             Domains = nkservice_server:get(server1, domains),
@@ -362,7 +362,7 @@ sip_route(_Scheme, User, Domain, Req, _Call) ->
 
 sip_options(Req, _Call) ->
     {ok, Ids} = nksip_request:header(<<"x-nk-id">>, Req),
-    {ok, App} = nksip_request:app_name(Req),
+    {ok, App} = nksip_request:srv_name(Req),
     Hds = [{add, "x-nk-id", nklib_util:bjoin([App|Ids])}],
     {reply, {ok, [contact|Hds]}}.
 

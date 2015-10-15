@@ -44,7 +44,7 @@ start_server(Name, Port) ->
         {plugins, [nksip_registrar, nksip_stats]},
         {transports, [{udp, all, Port}, {tls, all, Port+1}]},
         {log_level, notice},
-        no_100
+        sip_no_100
     ],
     case nksip:start(Name, nksip_loadtest_sipapp, Opts) of
         {ok, _} -> ok;

@@ -29,8 +29,8 @@
 -export([sip_registrar_store/2]).
 
 -export([nks_sip_method/2, nks_authorize_data/3]).
--export([nks_nksip_registrar_request_opts/2, nks_nksip_registrar_request_reply/3,
-         nks_nksip_registrar_get_index/2, nks_nksip_registrar_update_regcontact/4]).
+-export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
+         nks_sip_registrar_get_index/2, nks_sip_registrar_update_regcontact/4]).
 
 
 % @doc Called when a operation database must be done on the registrar database.
@@ -76,11 +76,8 @@ sip_registrar_store(Op, SrvId) ->
 
 
 nks_sip_method(#trans{method='REGISTER', request=Req}, #call{srv_id=SrvId}) ->
-    Module = SrvId:module(),
-    case 
-        Module/=nksip_sipapp andalso
-        erlang:function_exported(Module, sip_register, 2) 
-    of
+    Module = SrvId:callback(),
+    case erlang:function_exported(Module, sip_register, 2) of
         true ->
             continue;
         false ->
@@ -103,33 +100,33 @@ nks_authorize_data(List, #trans{request=Req}=Trans, Call) ->
 
 
 %% @private
--spec nks_nksip_registrar_request_opts(nksip:request(), list()) ->
+-spec nks_sip_registrar_request_opts(nksip:request(), list()) ->
     {continue, list()}.
 
-nks_nksip_registrar_request_opts(Req, List) ->
+nks_sip_registrar_request_opts(Req, List) ->
     {continue, [Req, List]}.
 
 
 %% @private
--spec nks_nksip_registrar_request_reply(nksip:sipreply(), #reg_contact{}, list()) ->
+-spec nks_sip_registrar_request_reply(nksip:sipreply(), #reg_contact{}, list()) ->
     {continue, list()}.
 
-nks_nksip_registrar_request_reply(Reply, Regs, Opts) ->
+nks_sip_registrar_request_reply(Reply, Regs, Opts) ->
     {continue, [Reply, Regs, Opts]}.
 
 
 %% @private
--spec nks_nksip_registrar_get_index(nksip:uri(), list()) ->
+-spec nks_sip_registrar_get_index(nksip:uri(), list()) ->
     {continue, list()}.
 
-nks_nksip_registrar_get_index(Contact, Opts) ->
+nks_sip_registrar_get_index(Contact, Opts) ->
     {continue, [Contact, Opts]}.
 
 
 %% @private
--spec nks_nksip_registrar_update_regcontact(#reg_contact{}, #reg_contact{}, 
+-spec nks_sip_registrar_update_regcontact(#reg_contact{}, #reg_contact{}, 
                                              nksip:request(), list()) ->
     {continue, list()}.
 
-nks_nksip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
+nks_sip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
     {continue, [RegContact, Base, Req, Opts]}.

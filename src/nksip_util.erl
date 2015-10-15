@@ -22,6 +22,7 @@
 -module(nksip_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-export([adapt_opts/1]).
 -export([plugin_update_value/3, cached/0, syntax/0, defaults/0]).
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
@@ -36,29 +37,6 @@
 %% Public
 %% =================================================================
 
-
-
-%% @private
-plugin_update_value(Key, Fun, SrvSpec) ->
-    Value1 = maps:get(Key, SrvSpec, undefined),
-    Value2 = Fun(Value1),
-    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
-    OldCache = maps:get(cache, SrvSpec, #{}),
-    Cache = case lists:member(Key, cached()) of
-        true -> maps:put(Key, Value2, #{});
-        false -> #{}
-    end,
-    SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
-
-
-
-cached() ->
-    [
-        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
-        sip_event_expires, sip_event_expires_offset, sip_events, 
-        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
-        sip_route, sip_supported, sip_trans_timeout
-    ].
 
 
 syntax() ->
@@ -110,6 +88,76 @@ defaults() ->
     }.
 
 
+%% @private
+plugin_update_value(Key, Fun, SrvSpec) ->
+    Value1 = maps:get(Key, SrvSpec, undefined),
+    Value2 = Fun(Value1),
+    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
+    OldCache = maps:get(cache, SrvSpec, #{}),
+    Cache = case lists:member(Key, cached()) of
+        true -> maps:put(Key, Value2, #{});
+        false -> #{}
+    end,
+    SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
+
+
+cached() ->
+    [
+        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
+        sip_event_expires, sip_event_expires_offset, sip_events, 
+        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
+        sip_route, sip_supported, sip_trans_timeout
+    ].
+
+
+adapt() ->
+    #{
+        allow => sip_allow,
+        supported => sip_supported,
+        timer_t1 => sip_timer_t1,
+        timer_t2 => sip_timer_t2,
+        timer_t4 => sip_timer_t4,
+        timer_c => sip_timer_c,
+        trans_timeout => sip_trans_timeout,
+        dialog_timeout => sip_dialog_timeout,
+        event_expires => sip_event_expires,
+        event_expires_offset => sip_event_expires_offset,
+        nonce_timeout => sip_nonce_timeout,
+        from => sip_from,
+        accept => sip_accept,
+        events => sip_events,
+        route => sip_route,
+        no_100 => sip_no_100,
+        max_calls => sip_max_calls,
+        debug => sip_debug,
+        udp_timeout => packet_udp_timeout,
+        tcp_timeout => packet_tcp_timeout,
+        sctp_timeout => packet_sctp_timeout,
+        ws_timeout => packet_ws_timeout,
+        max_connections => packet_max_connections,
+        certfile => packet_certfile,
+        keyfile => packet_keyfile,
+        local_host => packet_local_host,
+        local_host6 => packet_local_host6
+    }.
+
+
+%% @private
+adapt_opts(Opts) ->
+    adapt_opts(nklib_util:to_list(Opts), []).
+
+adapt_opts([], Acc) ->
+    maps:from_list(Acc);
+
+adapt_opts([{Key, Val}|Rest], Acc) ->
+    Key1 = case maps:find(Key, adapt()) of
+        {ok, NewKey} -> NewKey;
+        error -> Key
+    end,
+    adapt_opts(Rest, [{Key1, Val}|Acc]);
+
+adapt_opts([Key|Rest], Acc) ->
+    adapt_opts([{Key, true}|Rest], Acc).
 
 
 

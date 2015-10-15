@@ -25,7 +25,7 @@
 -module(nksip_dialog).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([srv_id/1, app_name/1, get_handle/1, call_id/1, meta/2, metas/2]).
+-export([srv_id/1, srv_name/1, get_handle/1, call_id/1, meta/2, metas/2]).
 -export([get_dialog/2, get_all/0, get_all/2, stop/1, bye_all/0, stop_all/0]).
 -export([get_authorized_list/1, clear_authorized_list/1]).
 -export([get_all_data/0]).
@@ -49,7 +49,7 @@
 % -type spec() :: id() | nksip:handle().
 
 -type field() :: 
-    get_handle | srv_id | app_name | created | updated | local_seq | remote_seq | 
+    get_handle | srv_id | srv_name | created | updated | local_seq | remote_seq | 
     local_uri | raw_local_uri | remote_uri | raw_remote_uri | 
     local_target | raw_local_target | remote_target | raw_remote_target | 
     early | secure | route_set | raw_route_set | 
@@ -95,10 +95,10 @@ srv_id(Handle) ->
 
 
 %% @doc Gets app's name
--spec app_name(nksip:dialog()|nksip:handle()) -> 
+-spec srv_name(nksip:dialog()|nksip:handle()) -> 
     {ok, nkservice:name()} | {error, term()}.
 
-app_name(Term) -> 
+srv_name(Term) -> 
     {ok, SrvId} = srv_id(Term),
     {ok, SrvId:name()}.
 

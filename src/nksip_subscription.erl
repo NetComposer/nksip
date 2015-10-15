@@ -24,7 +24,7 @@
 -module(nksip_subscription).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([get_handle/1, srv_id/1, app_name/1, call_id/1, meta/2, metas/2]).
+-export([get_handle/1, srv_id/1, srv_name/1, call_id/1, meta/2, metas/2]).
 -export([get_all/0, get_all/2]).
 -export_type([field/0, status/0, subscription_state/0, terminated_reason/0]).
 
@@ -85,10 +85,10 @@ srv_id(Handle) ->
 
 
 %% @doc Gets app's name
--spec app_name(nksip:dialog()|nksip:handle()) -> 
+-spec srv_name(nksip:dialog()|nksip:handle()) -> 
     {ok, nkservice:name()} | {error, term()}.
 
-app_name(Term) -> 
+srv_name(Term) -> 
     {ok, SrvId} = srv_id(Term),
     {ok, SrvId:name()}.
 

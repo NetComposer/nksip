@@ -55,7 +55,7 @@ sip_invite(Req, _Call) ->
 %% @doc Called when an OPTIONS is received.
 %% Reply 200 Ok with a custom header and some options.
 sip_options(Req, _Call) ->
-    {ok, AppName} = nksip_request:app_name(Req),
+    {ok, AppName} = nksip_request:srv_name(Req),
     {reply, {ok, [{add, "x-nk-id", AppName}, contact, allow, accept, supported]}}.
 
 

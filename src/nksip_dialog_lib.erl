@@ -86,7 +86,7 @@ meta(Field, #dialog{invite=I}=D) ->
         handle -> get_handle(D);
         internal_id -> D#dialog.id;
         srv_id -> D#dialog.srv_id;
-        app_name -> apply(D#dialog.srv_id, name, []);
+        srv_name -> apply(D#dialog.srv_id, name, []);
         created -> D#dialog.created;
         updated -> D#dialog.updated;
         local_seq -> D#dialog.local_seq; 
