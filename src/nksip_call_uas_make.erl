@@ -306,7 +306,7 @@ parse_opts([Term|Rest], Req, Resp, Code, Opts) ->
     {nksip:request(), nksip:optslist()}.
 
 parse_plugin_opts(#sipmsg{srv_id=SrvId}=Req, Resp, Opts) ->
-    case SrvId:nks_parse_uas_opt(Req, Resp, Opts) of
+    case SrvId:nks_sip_parse_uas_opt(Req, Resp, Opts) of
         {continue, [_, Resp1, Opts1]} ->
             {Resp1, Opts1};
         {error, Error} ->

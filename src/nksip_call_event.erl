@@ -576,7 +576,7 @@ dialog_update(Status, Subs, Dialog, #call{srv_id=SrvId}=Call) ->
         _ -> Status
     end,
     Args = [{subscription_status, Status1, {user_subs, Subs, Dialog}}, Dialog, Call],
-    SrvId:nks_call(sip_dialog_update, Args, SrvId).
+    SrvId:nks_sip_call(sip_dialog_update, Args, SrvId).
 
 
 %% @private

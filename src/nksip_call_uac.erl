@@ -57,7 +57,7 @@ request(Req, Opts, From, Call) ->
     #sipmsg{class={req, Method}, id=MsgId} = Req,
     #call{srv_id=SrvId} = Call,
     {continue, [Req1, Opts1, From1, Call1]} = 
-        SrvId:nks_uac_pre_request(Req, Opts, From, Call),
+        SrvId:nks_sip_uac_pre_request(Req, Opts, From, Call),
     {#trans{id=TransId}=UAC, Call2} = make_trans(Req1, Opts1, From1, Call1),
     case lists:member(async, Opts1) andalso From1 of
         {srv, SrvFrom} when Method=='ACK' -> 
@@ -273,7 +273,7 @@ response(Resp, #call{srv_id=SrvId, trans=Trans}=Call) ->
             end,
             DialogId = nksip_call_uac_dialog:uac_dialog_id(Resp, IsProxy, Call),
             Resp1 = Resp#sipmsg{ruri=RUri, dialog_id=DialogId},
-            case SrvId:nks_uac_pre_response(Resp1, UAC, Call) of
+            case SrvId:nks_sip_uac_pre_response(Resp1, UAC, Call) of
                 {continue, [Resp2, UAC2, Call2]} ->
                     nksip_call_uac_resp:response(Resp2, UAC2, Call2);
                 {ok, Call2} ->

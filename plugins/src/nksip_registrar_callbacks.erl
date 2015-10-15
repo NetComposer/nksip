@@ -28,7 +28,7 @@
 
 -export([sip_registrar_store/2]).
 
--export([nks_sip_method/2, nks_authorize_data/3]).
+-export([nks_sip_method/2, nks_sip_authorize_data/3]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
          nks_sip_registrar_get_index/2, nks_sip_registrar_update_regcontact/4]).
 
@@ -88,7 +88,7 @@ nks_sip_method(_Trans, _Call) ->
 
 
 %% @private
-nks_authorize_data(List, #trans{request=Req}=Trans, Call) ->
+nks_sip_authorize_data(List, #trans{request=Req}=Trans, Call) ->
     case nksip_registrar:is_registered(Req) of
         true -> {continue, [[register|List], Trans, Call]};
         false -> continue

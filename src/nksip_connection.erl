@@ -80,7 +80,7 @@ send(Pid, #sipmsg{}=SipMsg) ->
     Packet = nksip_unparse:packet(SipMsg),
     case do_send(Pid, Proto, Packet) of
         ok ->
-            SrvId:nks_connection_sent(SipMsg, Packet);
+            SrvId:nks_sip_connection_sent(SipMsg, Packet);
         udp_too_large ->
             {error, udp_too_large};
         {error, Error} ->
@@ -594,7 +594,7 @@ do_parse(SrvId, Transp, Data, Pos, State) ->
     #transport{proto=Proto} = Transp,
     case extract(Proto, Data, Pos) of
         {ok, CallId, Msg, Rest} ->
-            SrvId:nks_connection_recv(SrvId, CallId, Transp, Msg),
+            SrvId:nks_sip_connection_recv(SrvId, CallId, Transp, Msg),
             case nksip_router:incoming_sync(SrvId, CallId, Transp, Msg) of
                 ok -> 
                     do_parse(Rest, State);

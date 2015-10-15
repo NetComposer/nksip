@@ -61,7 +61,7 @@ reply({#sipmsg{class={resp, Code, _Reason}}=Resp, SendOpts},
     {Resp1, SendOpts1} = 
         nksip_call_uas_dialog:update_response(Req, {Resp, SendOpts}, Call),
     #call{srv_id=SrvId} = Call,
-    case SrvId:nks_uas_send_reply({Resp1, SendOpts1}, UAS, Call) of
+    case SrvId:nks_sip_uas_send_reply({Resp1, SendOpts1}, UAS, Call) of
         {continue, [{Resp2, SendOpts2}, UAS2, Call2]} ->
             send({Resp2, SendOpts2}, UAS2, update(UAS2, Call2));
         {error, Error} ->
@@ -133,7 +133,7 @@ send({Resp, SendOpts}, UAS, Call) ->
             ?call_debug("UAS ~p ~p stateful reply ~p", [Id, Method, Code2]),
             UAS2 = UAS#trans{response=Resp2, code=Code2},
             Call4 = update(UAS2, Call3),
-            case SrvId:nks_uas_sent_reply(Call4) of
+            case SrvId:nks_sip_uas_sent_reply(Call4) of
                 {ok, Call5} ->
                     {UserReply, Call5};
                 {continue, [Call5]} ->

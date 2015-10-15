@@ -38,7 +38,7 @@
     nksip_call:call().
 
 reply(Class, UAC, #call{srv_id=SrvId}=Call) ->
-    case SrvId:nks_uac_reply(Class, UAC, Call) of
+    case SrvId:nks_sip_uac_reply(Class, UAC, Call) of
         {continue, [Class1, UAC1, Call1]} ->
             do_reply(Class1, UAC1, Call1);
         {ok, Call1} ->

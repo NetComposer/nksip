@@ -413,7 +413,7 @@ store_del_all(SrvId) ->
     term() | error.
 
 callback(SrvId, Op) -> 
-    case SrvId:nks_call(sip_registrar_store, [Op, SrvId], SrvId) of
+    case SrvId:nks_sip_call(sip_registrar_store, [Op, SrvId], SrvId) of
         {ok, Reply} -> Reply;
         _ -> error
     end.

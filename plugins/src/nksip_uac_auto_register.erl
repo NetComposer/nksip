@@ -85,7 +85,7 @@ terminate(SrvId, ServiceState) ->
         fun(#sipreg{ok=Ok}=Reg) -> 
             case Ok of
                 true -> 
-                    SrvId:nks_uac_auto_register_launch_unregister(Reg, true, ServiceState);
+                    SrvId:nks_sip_uac_auto_register_launch_unregister(Reg, true, ServiceState);
                 false ->
                     ok
             end

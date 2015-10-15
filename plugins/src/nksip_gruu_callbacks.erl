@@ -26,7 +26,7 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_update_regcontact/4,
-         nks_uac_response/4]).
+         nks_sip_uac_response/4]).
 
 
 %% @private
@@ -52,6 +52,6 @@ nks_sip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
 
 
 %% @private
-nks_uac_response(Req, Resp, UAC, Call) ->
+nks_sip_uac_response(Req, Resp, UAC, Call) ->
     nksip_gruu_lib:update_gruu(Resp),
     {continue, [Req, Resp, UAC, Call]}.

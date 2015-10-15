@@ -24,17 +24,17 @@
 
 -include("../include/nksip.hrl").
 
--export([nks_connection_sent/2, nks_connection_recv/4, nks_debug/3]).
+-export([nks_sip_connection_sent/2, nks_sip_connection_recv/4, nks_sip_debug/3]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% @doc Called when a new message has been sent
--spec nks_connection_sent(nksip:request()|nksip:response(), binary()) ->
+-spec nks_sip_connection_sent(nksip:request()|nksip:response(), binary()) ->
     continue.
 
-nks_connection_sent(SipMsg, Packet) ->
+nks_sip_connection_sent(SipMsg, Packet) ->
     #sipmsg{srv_id=_SrvId, class=Class, call_id=_CallId, transport=Transp} = SipMsg,
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     case Class of
@@ -47,20 +47,20 @@ nks_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_connection_recv(nkservice:id(), nksip:call_id(), 
+-spec nks_sip_connection_recv(nkservice:id(), nksip:call_id(), 
                            nksip:transport(), binary()) ->
     continue.
 
-nks_connection_recv(SrvId, CallId, Transp, Packet) ->
+nks_sip_connection_recv(SrvId, CallId, Transp, Packet) ->
     #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
     nksip_debug:insert(SrvId, CallId, {Proto, Ip, Port, Packet}),
     continue.
 
 
 %% doc Called at specific debug points
--spec nks_debug(nkservice:id(), nksip:call_id(), term()) ->
+-spec nks_sip_debug(nkservice:id(), nksip:call_id(), term()) ->
     continue.
 
-nks_debug(SrvId, CallId, Info) ->
+nks_sip_debug(SrvId, CallId, Info) ->
     nksip_debug:insert(SrvId, CallId, Info),
     continue.

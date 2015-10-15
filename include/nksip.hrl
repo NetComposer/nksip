@@ -40,7 +40,7 @@
 -define(DO_DEBUG(SrvId, CallId, Level, Text, List),
     case SrvId:cache_sip_debug() of
         false -> ok;
-        _ -> SrvId:nks_debug(SrvId, CallId, {Level, Text, List})
+        _ -> SrvId:nks_sip_debug(SrvId, CallId, {Level, Text, List})
     end).
 
 

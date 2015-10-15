@@ -75,7 +75,7 @@ send_request(Req, Opts) ->
     end,
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
-    SrvId:nks_debug(SrvId, CallId, {uac_out_request, Method}),
+    SrvId:nks_sip_debug(SrvId, CallId, {uac_out_request, Method}),
     Dests = case nklib_util:get_value(route_flow, Opts) of
         {Transp, Pid} -> 
             [{flow, {Pid, Transp}}, DestUri];
@@ -86,7 +86,7 @@ send_request(Req, Opts) ->
         {ok, SentReq} -> 
             {ok, SentReq};
         error ->
-            SrvId:nks_debug(SrvId, CallId, uac_out_request_error),
+            SrvId:nks_sip_debug(SrvId, CallId, uac_out_request_error),
             {error, service_unavailable}
     end.
 
@@ -130,7 +130,7 @@ make_request_fun(Req, Dest, Opts) ->
         ListenHost = nksip_transport:get_listenhost(SrvId, ListenIp, Opts),
         ?call_debug("UAC listenhost is ~s", [ListenHost]),
         {ok, Req1} = 
-            SrvId:nks_transport_uac_headers(Req, Opts, Scheme, 
+            SrvId:nks_sip_transport_uac_headers(Req, Opts, Scheme, 
                                              Proto, ListenHost, ListenPort),
         IsStateless = lists:member(stateless_via, Opts),
         GlobalId = nksip_config_cache:global_id(),

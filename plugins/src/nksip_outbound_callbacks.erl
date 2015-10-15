@@ -25,17 +25,17 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("../include/nksip.hrl").
 -include("nksip_registrar.hrl").
--export([nks_uac_proxy_opts/2, nks_transport_uac_headers/6]).
+-export([nks_sip_uac_proxy_opts/2, nks_sip_transport_uac_headers/6]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
 	     nks_sip_registrar_get_index/2]).
 
 
 
 %% @doc Called to add options for proxy UAC processing
--spec nks_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
+-spec nks_sip_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()} | {reply, nksip:sipreply()}.
 
-nks_uac_proxy_opts(Req, ReqOpts) ->
+nks_sip_uac_proxy_opts(Req, ReqOpts) ->
     case nksip_outbound_lib:proxy_opts(Req, ReqOpts) of
         {ok, ProxyOpts} -> 
             {continue, [Req, ProxyOpts]};
@@ -45,7 +45,7 @@ nks_uac_proxy_opts(Req, ReqOpts) ->
 
 
 %% @doc Called when preparing the request for sending
-nks_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
+nks_sip_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
     Req1 = nksip_outbound_lib:add_headers(Req, Opts, Scheme, Proto, Host, Port),
     {ok, Req1}.
 

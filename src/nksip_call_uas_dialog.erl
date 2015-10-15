@@ -458,7 +458,7 @@ update_response(Req, {Resp, Opts}, Call) ->
         _ ->
             {Resp#sipmsg{dialog_id=DialogId}, Opts}
     end,
-    {ok, Resp2, Opts2} = SrvId:nks_uas_dialog_response(Req, Resp1, Opts1, Call),
+    {ok, Resp2, Opts2} = SrvId:nks_sip_uas_dialog_response(Req, Resp1, Opts1, Call),
     {Resp2, Opts2}.
 
 

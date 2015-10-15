@@ -42,7 +42,7 @@
 timer(Tag, Id, #call{srv_id=SrvId, trans=Trans}=Call) ->
     case lists:keyfind(Id, #trans.id, Trans) of
         #trans{class=uas}=UAS ->
-            case SrvId:nks_uas_timer(Tag, UAS, Call) of
+            case SrvId:nks_sip_uas_timer(Tag, UAS, Call) of
                 {ok, Call1} ->
                     Call1;
                 {continue, [Tag1, UAS1, Call1]} ->

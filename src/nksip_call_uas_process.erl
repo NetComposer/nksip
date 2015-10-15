@@ -120,7 +120,7 @@ check_missing_dialog(Method, #sipmsg{to={_, <<>>}}, UAS, Call)
     nksip_call_uas:do_reply(no_transaction, UAS, Call);
 
 check_missing_dialog(Method, _Req, UAS, #call{srv_id=SrvId}=Call) ->
-    case SrvId:nks_uas_process(UAS, Call) of
+    case SrvId:nks_sip_uas_process(UAS, Call) of
         {continue, [UAS1, Call1]} ->
             dialog(Method, UAS1#trans.request, UAS1, Call1);
         {ok, Call1} ->
@@ -164,7 +164,7 @@ dialog(Method, Req, UAS, Call) ->
 
 method(Method, Req, UAS, Call) ->
     #call{srv_id=SrvId} = Call,
-    case SrvId:nks_uas_method(Method, Req, UAS, Call) of
+    case SrvId:nks_sip_uas_method(Method, Req, UAS, Call) of
         {continue, [Method1, Req1, UAS1, Call1]} ->
             case do_method(Method1, Req1, UAS1, Call1) of
                 {noreply, UAS2, Call2} ->
@@ -204,7 +204,7 @@ call_user_sip_method(UAS, Call) ->
 %     try
 %         case Stateless orelse ToTag == <<>> of
 %             true ->
-%                 case SrvId:nks_uas_method(Method, Req, UAS, Call) of
+%                 case SrvId:nks_sip_uas_method(Method, Req, UAS, Call) of
 %                     {continue, [Method1, Req1, UAS1, Call1]} ->
 %                         {UAS2, Call2} = method(Method1, Req1, UAS1, Call1);
 %                     {ok, UAS2, Call2} ->
@@ -219,7 +219,7 @@ call_user_sip_method(UAS, Call) ->
 %             false ->           
 %                 case nksip_call_uas_dialog:request(Req, Call) of
 %                     {ok, Call1} ->
-%                         case SrvId:nks_uas_method(Method, Req, UAS, Call1) of
+%                         case SrvId:nks_sip_uas_method(Method, Req, UAS, Call1) of
 %                             {continue, [Method2, Req2, UAS2, Call2]} ->
 %                                 {UAS3, Call3} = method(Method2, Req2, UAS2, Call2);
 %                             {ok, UAS3, Call3} ->

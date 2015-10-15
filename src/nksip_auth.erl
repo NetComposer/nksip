@@ -202,7 +202,7 @@ make_response(Realm, Req) ->
 authorize_data(Req, #call{srv_id=SrvId}=Call) ->
     PassFun = fun(User, Realm) ->
         Args = [User, Realm, Req, Call],
-        case SrvId:nks_call(sip_get_user_pass, Args, SrvId) of
+        case SrvId:nks_sip_call(sip_get_user_pass, Args, SrvId) of
             {ok, Reply} -> ok;
             error -> Reply = false
         end,

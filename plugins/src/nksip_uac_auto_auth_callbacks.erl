@@ -26,16 +26,16 @@
 -include("../include/nksip_call.hrl").
 
 
--export([nks_parse_uac_opts/2, nks_uac_response/4]).
+-export([nks_sip_parse_uac_opts/2, nks_sip_uac_response/4]).
 
 
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @doc Called to parse specific UAC options
--spec nks_parse_uac_opts(nksip:request(), nksip:optslist()) ->
+-spec nks_sip_parse_uac_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()} | {error, term()}.
 
-nks_parse_uac_opts(#sipmsg{srv_id=_SrvId}=Req, Opts) ->
+nks_sip_parse_uac_opts(#sipmsg{srv_id=_SrvId}=Req, Opts) ->
     case nklib_config:parse_config(Opts, nksip_uac_auto_auth:syntax()) of
         {ok, Opts2, _Rest} ->
             {continue, [Req, nklib_util:store_values(Opts2, Opts)]};
@@ -45,11 +45,11 @@ nks_parse_uac_opts(#sipmsg{srv_id=_SrvId}=Req, Opts) ->
 
 
 % @doc Called after the UAC processes a response
--spec nks_uac_response(nksip:request(), nksip:response(), 
+-spec nks_sip_uac_response(nksip:request(), nksip:response(), 
                         nksip_call:trans(), nksip:call()) ->
     continue | {ok, nksip:call()}.
 
-nks_uac_response(Req, Resp, UAC, Call) ->
+nks_sip_uac_response(Req, Resp, UAC, Call) ->
     nksip_uac_auto_auth:check_auth(Req, Resp, UAC, Call).
 
 
