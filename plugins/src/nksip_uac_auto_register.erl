@@ -24,7 +24,7 @@
 
 -export([start_ping/4, stop_ping/2, get_pings/1]).
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 
 -include("nksip_uac_auto_register.hrl").
 
@@ -38,60 +38,59 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
-
-parse_config(Opts) ->
-    Defaults = [{nksip_uac_auto_register_timer, 5}],                   % (secs)
-    Opts1 = nklib_util:defaults(Opts, Defaults),
-    case nklib_util:get_value(nksip_uac_auto_register_timer, Opts1) of
-        Timer when is_integer(Timer), Timer>0 -> 
-            {ok, Opts1};
-        _ -> 
-            {error, {invalid_config, nksip_uac_auto_register_timer}}
+plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
+    case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
+        {ok, SrvSpec2} ->
+            Cache = maps:with([sip_uac_auto_register_timer], SrvSpec2),
+            {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
+        {error, Error} ->
+            {stop, Error}
     end.
 
 
-%% @doc Called when the plugin is started 
--spec init(nkservice:spec(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
-
-init(_ServiceSpec, #{srv_id:=SrvId}=ServiceState) ->
-    Timer = 1000 * SrvId:cache_sip_uac_auto_register_timer(),
-    erlang:start_timer(Timer, self(), '$nksip_uac_auto_register_timer'),
-    State = #state{pings=[], regs=[]},
-    {ok, ServiceState#{nksip_uac_auto_register=>State}}.
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
+    {ok, SrvSpec2}.
 
 
-%% @doc Called when the plugin is shutdown
--spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-   {ok, nkservice_server:sub_state()}.
+syntax() ->
+    #{
+        sip_uac_auto_register_timer => {integer, 1, none}
+    }.
 
-terminate(SrvId, ServiceState) ->  
-    #state{regs=Regs} = maps:get(nksip_uac_auto_register, ServiceState),
-    lists:foreach(
-        fun(#sipreg{ok=Ok}=Reg) -> 
-            case Ok of
-                true -> 
-                    SrvId:nks_sip_uac_auto_register_launch_unregister(Reg, true, ServiceState);
-                false ->
-                    ok
-            end
-        end,
-        Regs),
-    {ok, maps:remove(nksip_uac_auto_register, ServiceState)}.
+defaults() ->
+    #{
+        sip_uac_auto_register_timer => 5
+    }.
+
+
+
+% %% @doc Parses this plugin specific configuration
+% -spec parse_config(nksip:optslist()) ->
+%     {ok, nksip:optslist()} | {error, term()}.
+
+% parse_config(Opts) ->
+%     Defaults = [{sip_uac_auto_register_timer, 5}],                   % (secs)
+%     Opts1 = nklib_util:defaults(Opts, Defaults),
+%     case nklib_util:get_value(sip_uac_auto_register_timer, Opts1) of
+%         Timer when is_integer(Timer), Timer>0 -> 
+%             {ok, Opts1};
+%         _ -> 
+%             {error, {invalid_config, sip_uac_auto_register_timer}}
+%     end.
 
 
 
@@ -120,7 +119,7 @@ start_register(App, RegId, Uri, Opts) when is_list(Opts) ->
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
-        Msg = {'$nksip_uac_auto_register_start_register', RegId, Uri, Opts},
+        Msg = {nksip_uac_auto_register_start_register, RegId, Uri, Opts},
         nkservice_server:call(App, Msg)
     catch
         throw:Error -> {error, Error}

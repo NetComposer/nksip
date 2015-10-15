@@ -49,14 +49,14 @@ start() ->
         {supported, "a;a_param, 100rel"},
         {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5060}, {tls, all, 5061}]},
-        {nksip_uac_auto_register_timer, 1}
+        {sip_uac_auto_register_timer, 1}
     ]),
 
     {ok, _} = nksip:start(client1, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {transports, [{udp, all, 5070}, {tls, all, 5071}]},
         {plugins, [nksip_uac_auto_register]},
-        {nksip_uac_auto_register_timer, 1}
+        {sip_uac_auto_register_timer, 1}
     ]),
             
     {ok, _} = nksip:start(client2, ?MODULE, [
@@ -123,7 +123,7 @@ auto() ->
         {plugins, [nksip_registrar]},
         {transports, [{udp, all, 5080}]},
         {sip_registrar_min_time, 1},
-        {nksip_uac_auto_register_timer, 1}
+        {sip_uac_auto_register_timer, 1}
     ]),
     timer:sleep(200),
     {error, invalid_app} = nksip_uac_auto_register:start_ping(none, ping1, "sip::a", []),

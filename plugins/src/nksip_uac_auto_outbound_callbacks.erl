@@ -26,7 +26,7 @@
          sip_uac_auto_register_updated_ping/3]).
 
 
--export([handle_call/3, handle_info/2]).
+-export([init/2, terminate/2, handle_call/3, handle_info/2]).
 -export([nks_sip_uac_auto_register_launch_register/3, 
          nks_sip_uac_auto_register_launch_unregister/3, 
          nks_sip_uac_auto_register_update_register/4]).
@@ -68,6 +68,42 @@ sip_uac_auto_register_updated_ping(_SrvId, _PingId, _OK) ->
 %% ===================================================================
 %% Plugin Callbacks
 %% ===================================================================
+
+
+%% @doc Called when the service is started 
+-spec init(nkservice:spec(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
+
+init(_ServiceSpec, #{srv_id:=SrvId}=ServiceState) ->
+    Supported = SrvId:cache_sip_supported(),
+    State = #state_ob{
+        outbound = lists:member(<<"outbound">>, Supported),
+        pos = 1,
+        regs = []
+    },
+    {ok, ServiceState#{nksip_uac_auto_outbound=>State}}.
+
+
+%% @doc Called when the plugin is shutdown
+-spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
+
+terminate(_Reason, ServiceState) ->  
+    #state_ob{regs=RegsOb} = maps:get(nksip_uac_auto_outbound, ServiceState),
+    lists:foreach(
+        fun(#sipreg_ob{conn_monitor=Monitor, conn_pid=Pid}) -> 
+            case is_reference(Monitor) of
+                true -> erlang:demonitor(Monitor);
+                false -> ok
+            end, 
+            case is_pid(Pid) of
+                true -> nksip_connection:stop_refresh(Pid);
+                false -> ok
+            end
+        end,
+        RegsOb),
+    {ok, maps:remove(nksip_uac_auto_outbound, ServiceState)}.
+
 
 
 %% @private
