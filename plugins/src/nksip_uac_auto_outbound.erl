@@ -161,6 +161,6 @@ stop_register(Srv, RegId) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(Srv) ->
-    nkservice_server:call(Srv, nksip_uac_auto_outbound_get_registers).
+    nkservice_server:call(Srv, nksip_uac_auto_outbound_get_regs).
 
     

@@ -137,9 +137,6 @@ proxy_opts(Req, Opts) ->
 
 
 %% @private
-%%
-
-
 do_proxy_opts(_Req, Opts, []) ->
     {ok, Opts};
 
@@ -200,9 +197,6 @@ flow_type(_, _) ->
 %%
 %% When generating a Contact, for REGISTER requests adds reg-id if requested.
 %% For others, if it is dialog-forming adds "ob" option.
-
-
-
 -spec add_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
                   nksip:protocol(), binary(), inet:port_number()) ->
     nksip:request().

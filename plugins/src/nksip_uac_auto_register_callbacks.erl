@@ -23,15 +23,18 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/2, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
--export([nks_sip_uac_auto_register_launch_register/3, 
-         nks_sip_uac_auto_register_launch_unregister/3, 
-         nks_sip_uac_auto_register_update_register/4, 
-         nks_sip_uac_auto_register_launch_ping/2, 
-         nks_sip_uac_auto_register_update_ping/4]).
+-export([nks_sip_uac_auto_register_send_reg/3, 
+         nks_sip_uac_auto_register_send_unreg/3, 
+         nks_sip_uac_auto_register_upd_reg/4, 
+         nks_sip_uac_auto_register_send_ping/2, 
+         nks_sip_uac_auto_register_upd_ping/4]).
 
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 -include("nksip_uac_auto_register.hrl").
+
+-define(SKEY, nksip_uac_auto_register).
+
 
 
 %% ===================================================================
@@ -45,32 +48,13 @@
 
 init(_Spec, #{id:=SrvId}=SrvState) ->
     Timer = 1000 * SrvId:cache_sip_uac_auto_register_timer(),
-    erlang:start_timer(Timer, self(), ?MODULE),
-    {ok, SrvState#{?MODULE=>#state{pings=[], regs=[]}}}.
-
-
-%% @doc Called when the service is shutdown
--spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-   {ok, nkservice_server:sub_state()}.
-
-terminate(_Reason, #{id:=SrvId, ?MODULE:=#state{regs=Regs}}=SrvState) ->  
-    lists:foreach(
-        fun(#sipreg{ok=Ok}=Reg) -> 
-            case Ok of
-                true -> 
-                    SrvId:nks_sip_uac_auto_register_launch_unregister(
-                            Reg, true, SrvState);
-                false ->
-                    ok
-            end
-        end,
-        Regs),
-    {ok, maps:remove(?MODULE, SrvState)}.
+    erlang:start_timer(Timer, self(), ?SKEY),
+    {ok, SrvState#{?SKEY=>#state{pings=[], regs=[], pids=[]}}}.
 
 
 %% @private 
-handle_call({nksip_uac_auto_register_start_register, RegId, Uri, Opts}, 
-            From, #{id:=SrvId, ?MODULE:=State}=SrvState) ->
+handle_call({nksip_uac_auto_register_start_reg, RegId, Uri, Opts}, 
+            From, #{id:=SrvId, ?SKEY:=State}=SrvState) ->
     #state{regs=Regs} = State,
     case nklib_util:get_value(call_id, Opts) of
         undefined -> 
@@ -100,21 +84,22 @@ handle_call({nksip_uac_auto_register_start_register, RegId, Uri, Opts},
     Regs1 = lists:keystore(RegId, #sipreg.id, Regs, Reg),
     ?debug(SrvId, CallId, "Started auto registration: ~p", [Reg]),
     gen_server:cast(self(), nksip_uac_auto_register_check),
-    {noreply, SrvState#{?MODULE=>State#state{regs=Regs1}}};
+    {noreply, SrvState#{?SKEY=>State#state{regs=Regs1}}};
 
-handle_call({nksip_uac_auto_register_stop_register, RegId}, 
-            _From, #{id:=SrvId, ?MODULE:=State}=SvcState) ->
+handle_call({nksip_uac_auto_register_stop_reg, RegId}, 
+            _From, #{id:=SrvId, ?SKEY:=State}=SvcState) ->
     #state{regs=Regs} = State,
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, Reg, Regs1} -> 
-            {ok, SvcState1} = 
-                SrvId:nks_sip_uac_auto_register_launch_unregister(Reg, false, SvcState),
-            {reply, ok, SvcState1#{?MODULE=>State#state{regs=Regs1}}};
+            SvcState1 = SvcState#{?SKEY=>State#state{regs=Regs1}},
+            {ok, SvcState2} = 
+                SrvId:nks_sip_uac_auto_register_send_unreg(Reg, false, SvcState1),
+            {reply, ok, SvcState2};
         false -> 
             {reply, not_found, SvcState}
     end;
 
-handle_call(nksip_uac_auto_register_get_registers, _From, #{?MODULE:=State}=SvcState) ->
+handle_call(nksip_uac_auto_register_get_regs, _From, #{?SKEY:=State}=SvcState) ->
     #state{regs=Regs} = State,
     Now = nklib_util:timestamp(),
     Info = [
@@ -123,8 +108,8 @@ handle_call(nksip_uac_auto_register_get_registers, _From, #{?MODULE:=State}=SvcS
     ],
     {reply, Info, SvcState};
 
-handle_call({nksip_uac_auto_register_start_ping, PingId, Uri, Opts}, From, SvcState) ->
-    #{id:=SrvId, ?MODULE:=State} = SvcState,
+handle_call({nksip_uac_auto_register_start_ping, PingId, Uri, Opts}, From, 
+            #{id:=SrvId, ?SKEY:=State}=SvcState) ->
     #state{pings=Pings} = State,
     case nklib_util:get_value(call_id, Opts) of
         undefined -> 
@@ -154,19 +139,19 @@ handle_call({nksip_uac_auto_register_start_ping, PingId, Uri, Opts}, From, SvcSt
     ?info(SrvId, CallId, "Started auto ping: ~p", [Ping]),
     Pinsg1 = lists:keystore(PingId, #sipreg.id, Pings, Ping),
     gen_server:cast(self(), nksip_uac_auto_register_check),
-    {noreply, SvcState#{?MODULE:=State#state{pings=Pinsg1}}};
+    {noreply, SvcState#{?SKEY:=State#state{pings=Pinsg1}}};
 
 handle_call({nksip_uac_auto_register_stop_ping, PingId}, _From, 
-            #{?MODULE:=State}=SvcState) ->
+            #{?SKEY:=State}=SvcState) ->
     #state{pings=Pings} = State,
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, _, Pings1} -> 
-            {reply, ok, SvcState#{?MODULE:=State#state{pings=Pings1}}};
+            {reply, ok, SvcState#{?SKEY:=State#state{pings=Pings1}}};
         false -> 
             {reply, not_found, SvcState}
     end;
 
-handle_call(nksip_uac_auto_register_get_pings, _From, #{?MODULE:=State}=SvcState) ->
+handle_call(nksip_uac_auto_register_get_pings, _From, #{?SKEY:=State}=SvcState) ->
     #state{pings=Pings} = State,
     Now = nklib_util:timestamp(),
     Info = [
@@ -180,78 +165,118 @@ handle_call(_Msg, _From, _SvcState) ->
 
 
 %% @private
-handle_cast({nksip_uac_auto_register_answer_register, RegId, Code, Meta}, 
-            #{id:=SrvId, ?MODULE:=State}=SvcState) ->
+handle_cast({nksip_uac_auto_register_reg_reply, RegId, Code, Meta}, 
+            #{id:=SrvId, ?SKEY:=State}=SvcState) ->
     #state{regs=Regs} = State,
     case lists:keytake(RegId, #sipreg.id, Regs) of
         {value, #sipreg{ok=OldOK}=Reg, Regs1} ->
             {ok, Reg1, SvcState1} = 
-                SrvId:nks_sip_uac_auto_register_update_register(
-                        Reg, Code, Meta, SvcState),
+                SrvId:nks_sip_uac_auto_register_upd_reg(Reg, Code, Meta, SvcState),
             #sipreg{ok=Ok} = Reg1,
             case Ok of
                 OldOK -> 
                     ok;
                 _ -> 
-                    SrvId:nks_sip_call(sip_uac_auto_register_updated_register, 
+                    SrvId:nks_sip_call(sip_uac_auto_register_updated_reg, 
                                        [RegId, Ok, SrvId], SrvId)
             end,
-            {noreply, SvcState1#{?MODULE:=State#state{regs=[Reg1|Regs1]}}};
+            {noreply, SvcState1#{?SKEY:=State#state{regs=[Reg1|Regs1]}}};
         false ->
             {noreply, SvcState}
     end;
 
-handle_cast({nksip_uac_auto_register_answer_ping, PingId, Code, Meta}, 
-            #{id:=SrvId, ?MODULE:=State}=SvcState) ->
+handle_cast({nksip_uac_auto_register_ping_reply, PingId, Code, Meta}, 
+            #{id:=SrvId, ?SKEY:=State}=SvcState) ->
     #state{pings=Pings} = State,
     case lists:keytake(PingId, #sipreg.id, Pings) of
         {value, #sipreg{ok=OldOK}=Ping, Pings1} ->
             {ok, #sipreg{ok=OK}=Ping1, SvcState1} = 
-                SrvId:nks_sip_uac_auto_register_update_ping(Ping, Code, Meta, SvcState),
+                SrvId:nks_sip_uac_auto_register_upd_ping(Ping, Code, Meta, SvcState),
             case OK of
                 OldOK -> 
                     ok;
                 _ -> 
                     SrvId:nks_sip_call(sip_uac_auto_register_updated_ping, 
-                                        [PingId, OK, SrvId], SrvId)
+                                       [PingId, OK, SrvId], SrvId)
             end,
-            {noreply, SvcState1#{?MODULE:=State#state{pings=[Ping1|Pings1]}}};
+            {noreply, SvcState1#{?SKEY:=State#state{pings=[Ping1|Pings1]}}};
         false ->
             {noreply, SvcState}
     end;
 
-handle_cast('$nksip_uac_auto_register_force_regs', #{?MODULE:=State}=SvcState) ->
-    #state{regs=Regs} = State,
-    Regs1 = lists:map(
-        fun(#sipreg{next=Next}=SipReg) ->
-            case is_integer(Next) of
-                true -> SipReg#sipreg{next=0};
-                false -> SipReg
-            end
-        end,
-        Regs),
-    {noreply, SvcState#{?MODULE:=State#state{regs=Regs1}}};
+% handle_cast('$nksip_uac_auto_register_force_regs', #{?SKEY:=State}=SvcState) ->
+%     #state{regs=Regs} = State,
+%     Regs1 = lists:map(
+%         fun(#sipreg{next=Next}=SipReg) ->
+%             case is_integer(Next) of
+%                 true -> SipReg#sipreg{next=0};
+%                 false -> SipReg
+%             end
+%         end,
+%         Regs),
+%     {noreply, SvcState#{?SKEY:=State#state{regs=Regs1}}};
 
-handle_cast(nksip_uac_auto_register_check, #{?MODULE:=State}=SvcState) ->
+handle_cast(nksip_uac_auto_register_check, #{?SKEY:=State}=SvcState) ->
     #state{pings=Pings, regs=Regs} = State,
     Now = nklib_util:timestamp(),
     {Pings1, SvcState1} = check_pings(Now, Pings, [], SvcState),
     {Regs1, SvcState2} = check_registers(Now, Regs, [], SvcState1),
-    {noreply, SvcState2#{?MODULE:=State#state{pings=Pings1, regs=Regs1}}};
+    #{?SKEY:=State2} = SvcState2,   % Get pids
+    {noreply, SvcState2#{?SKEY:=State2#state{pings=Pings1, regs=Regs1}}};
+
+handle_cast(nksip_uac_auto_register_terminate, SrvState) ->
+    {ok, SrvState1} = terminate(normal, SrvState),
+    {noreply, SrvState1};
 
 handle_cast(_Msg, _SvcState) ->
     continue.
 
 
 %% @private
-handle_info({timeout, _, ?MODULE}, #{id:=SrvId}=SvcState) ->
+handle_info({timeout, _, ?SKEY}, #{id:=SrvId}=SvcState) ->
     Timer = 1000 * SrvId:cache_sip_uac_auto_register_timer(),
-    erlang:start_timer(Timer, self(), ?MODULE),
+    erlang:start_timer(Timer, self(), ?SKEY),
     gen_server:cast(self(), nksip_uac_auto_register_check),
     {noreply, SvcState};
 
+handle_info({'EXIT', Pid, _Reason}, #{id:=_SrvId, ?SKEY:=State}=SvcState) ->
+    #state{pids=Pids} = State,
+    case lists:member(Pid, Pids) of
+        true ->
+            Pids1 = Pids -- [Pid],
+            {noreply, SvcState#{?SKEY:=State#state{pids=Pids1}}};
+        false ->
+            continue
+    end;
+
 handle_info(_Msg, _SvcState) ->
     continue.
+
+
+%% @doc Called when the service is shutdown
+-spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+   {ok, nkservice_server:sub_state()}.
+
+terminate(_Reason, SrvState) ->  
+    case SrvState of
+        #{id:=SrvId, ?SKEY:=#state{regs=Regs}} ->
+            lists:foreach(
+                fun(#sipreg{ok=Ok}=Reg) -> 
+                    case Ok of
+                        true -> 
+                            SrvId:nks_sip_uac_auto_register_send_unreg(
+                                    Reg, true, SrvState);
+                        false ->
+                            ok
+                    end
+                end,
+                Regs),
+            {ok, maps:remove(?SKEY, SrvState)};
+        _ ->
+            {ok, SrvState}
+    end.
+
+
 
 
 %% ===================================================================
@@ -260,11 +285,11 @@ handle_info(_Msg, _SvcState) ->
 
 
 %% @private
--spec nks_sip_uac_auto_register_launch_register(#sipreg{}, boolean(), 
-                                                nkservice_server:sub_state()) -> 
+-spec nks_sip_uac_auto_register_send_reg(#sipreg{}, boolean(), 
+                                         nkservice_server:sub_state()) -> 
     {ok, #sipreg{}, nkservice_server:sub_state()}.
 
-nks_sip_uac_auto_register_launch_register(Reg, Sync, #{id:=SrvId}=SvcState)->
+nks_sip_uac_auto_register_send_reg(Reg, Sync, #{id:=SrvId}=SvcState)->
     #sipreg{id=RegId, ruri=RUri, opts=Opts, cseq=CSeq} = Reg,    
     Opts1 = [contact, {cseq_num, CSeq}, {meta, [cseq_num, retry_after]}|Opts],
     Self = self(),
@@ -273,41 +298,46 @@ nks_sip_uac_auto_register_launch_register(Reg, Sync, #{id:=SrvId}=SvcState)->
             {ok, Code, Meta} -> ok;
             _ -> Code=500, Meta=[{cseq_num, CSeq}]
         end,
-        gen_server:cast(Self, {nksip_uac_auto_register_answer_register, RegId, Code, Meta})
+        gen_server:cast(Self, {nksip_uac_auto_register_reg_reply, RegId, Code, Meta})
     end,
-    case Sync of
-        true -> Fun();
-        false -> spawn_link(Fun)
+    SvcState1 = case Sync of
+        true -> 
+            Fun(),
+            SvcState;
+        false -> 
+            do_spawn(Fun, SvcState)
     end,
-    {ok, Reg#sipreg{next=undefined}, SvcState}.
+    {ok, Reg#sipreg{next=undefined}, SvcState1}.
     
 
 %% @private
--spec nks_sip_uac_auto_register_launch_unregister(#sipreg{}, boolean(), 
-                                                  nkservice_server:sub_state()) -> 
+-spec nks_sip_uac_auto_register_send_unreg(#sipreg{}, boolean(), 
+                                           nkservice_server:sub_state()) -> 
     {ok, nkservice_server:sub_state()}.
 
-nks_sip_uac_auto_register_launch_unregister(Reg, Sync, #{id:=SrvId}=SvcState)->
+nks_sip_uac_auto_register_send_unreg(Reg, Sync, #{id:=SrvId}=SvcState)->
     #sipreg{ruri=RUri, opts=Opts, cseq=CSeq} = Reg,
     Opts1 = [contact, {cseq_num, CSeq}|nklib_util:store_value(expires, 0, Opts)],
     Fun = fun() -> nksip_uac:register(SrvId, RUri, Opts1) end,
-    case Sync of
-        true -> Fun();
-        false -> spawn_link(Fun)
+    SvcState1 = case Sync of
+        true -> 
+            Fun(),
+            SvcState;
+        false -> 
+            do_spawn(Fun, SvcState)
     end,
-    {ok, SvcState}.
+    {ok, SvcState1}.
 
    
 %% @private
--spec nks_sip_uac_auto_register_update_register(#sipreg{}, nksip:sip_code(), 
-                                                nksip:optslist(), 
-                                                nkservice_server:sub_state()) ->
+-spec nks_sip_uac_auto_register_upd_reg(#sipreg{}, nksip:sip_code(), nksip:optslist(), 
+                                        nkservice_server:sub_state()) ->
     {ok, #sipreg{}, nkservice_server:sub_state()}.
 
-nks_sip_uac_auto_register_update_register(Reg, Code, _Meta, SvcState) when Code<200 ->
+nks_sip_uac_auto_register_upd_reg(Reg, Code, _Meta, SvcState) when Code<200 ->
     {ok, Reg, SvcState};
 
-nks_sip_uac_auto_register_update_register(Reg, Code, Meta, SvcState) ->
+nks_sip_uac_auto_register_upd_reg(Reg, Code, Meta, SvcState) ->
     #sipreg{interval=Interval, from=From} = Reg,
     case From of
         undefined -> ok;
@@ -330,10 +360,10 @@ nks_sip_uac_auto_register_update_register(Reg, Code, Meta, SvcState) ->
 %%%%%% Ping
 
 %% @private
--spec nks_sip_uac_auto_register_launch_ping(#sipreg{}, nkservice_server:sub_state()) -> 
+-spec nks_sip_uac_auto_register_send_ping(#sipreg{}, nkservice_server:sub_state()) -> 
     {ok, #sipreg{}, nkservice_server:sub_state()}.
 
-nks_sip_uac_auto_register_launch_ping(Ping, #{id:=SrvId}=SvcState)->
+nks_sip_uac_auto_register_send_ping(Ping, #{id:=SrvId}=SvcState)->
     #sipreg{id=PingId, ruri=RUri, opts=Opts, cseq=CSeq} = Ping,
     Opts1 = [{cseq_num, CSeq}, {meta, [cseq_num, retry_after]} | Opts],
     Self = self(),
@@ -342,22 +372,22 @@ nks_sip_uac_auto_register_launch_ping(Ping, #{id:=SrvId}=SvcState)->
             {ok, Code, Meta} -> ok;
             _ -> Code=500, Meta=[{cseq_num, CSeq}]
         end,
-        gen_server:cast(Self, {nksip_uac_auto_register_answer_ping, PingId, Code, Meta})
+        gen_server:cast(Self, {nksip_uac_auto_register_ping_reply, PingId, Code, Meta})
     end,
-    spawn_link(Fun),
-    {ok, Ping#sipreg{next=undefined}, SvcState}.
+    SvcState1 = do_spawn(Fun, SvcState),
+    {ok, Ping#sipreg{next=undefined}, SvcState1}.
 
 
    
 %% @private
--spec nks_sip_uac_auto_register_update_ping(#sipreg{}, nksip:sip_code(), 
+-spec nks_sip_uac_auto_register_upd_ping(#sipreg{}, nksip:sip_code(), 
                                 nksip:optslist(), nkservice_server:sub_state()) ->
     {ok, #sipreg{}, nkservice_server:sub_state()}.
 
-nks_sip_uac_auto_register_update_ping(Ping, Code, _Meta, SvcState) when Code<200 ->
+nks_sip_uac_auto_register_upd_ping(Ping, Code, _Meta, SvcState) when Code<200 ->
     {ok, Ping, SvcState};
 
-nks_sip_uac_auto_register_update_ping(Ping, Code, Meta, SvcState) ->
+nks_sip_uac_auto_register_upd_ping(Ping, Code, Meta, SvcState) ->
     #sipreg{from=From, interval=Interval} = Ping,
     case From of
         undefined -> ok;
@@ -387,7 +417,7 @@ check_pings(Now, [#sipreg{next=Next}=Ping|Rest], Acc, #{id:=SrvId}=SvcState) ->
     case is_integer(Next) andalso Now>=Next of 
         true -> 
             {ok, Ping1, SvcState1} = 
-                SrvId:nks_sip_uac_auto_register_launch_ping(Ping, SvcState),
+                SrvId:nks_sip_uac_auto_register_send_ping(Ping, SvcState),
             check_pings(Now, Rest, [Ping1|Acc], SvcState1);
         false ->
             check_pings(Now, Rest, [Ping|Acc], SvcState)
@@ -402,7 +432,7 @@ check_registers(Now, [#sipreg{next=Next}=Reg|Rest], Acc, #{id:=SrvId}=SvcState) 
     case Now>=Next of
         true -> 
             {ok, Reg1, SvcState1} = 
-                SrvId:nks_sip_uac_auto_register_launch_register(Reg, false, SvcState),
+                SrvId:nks_sip_uac_auto_register_send_reg(Reg, false, SvcState),
             check_registers(-1, Rest, [Reg1|Acc], SvcState1);
         false ->
             check_registers(Now, Rest, [Reg|Acc], SvcState)
@@ -410,5 +440,13 @@ check_registers(Now, [#sipreg{next=Next}=Reg|Rest], Acc, #{id:=SrvId}=SvcState) 
 
 check_registers(_, [], Acc, SvcState) ->
     {Acc, SvcState}.
+
+
+%% @private
+do_spawn(Fun, #{?SKEY:=State}=SvcState) ->
+    Pid = spawn_link(Fun),
+    #state{pids=Pids} = State,
+    SvcState#{?SKEY:=State#state{pids=[Pid|Pids]}}.
+
 
 

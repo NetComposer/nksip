@@ -62,6 +62,7 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    gen_server:cast(SrvId, nksip_uac_auto_register_terminate),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
     {ok, SrvSpec2}.
 
@@ -76,21 +77,6 @@ defaults() ->
         sip_uac_auto_register_timer => 5
     }.
 
-
-
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     Defaults = [{sip_uac_auto_register_timer, 5}],                   % (secs)
-%     Opts1 = nklib_util:defaults(Opts, Defaults),
-%     case nklib_util:get_value(sip_uac_auto_register_timer, Opts1) of
-%         Timer when is_integer(Timer), Timer>0 -> 
-%             {ok, Opts1};
-%         _ -> 
-%             {error, {invalid_config, sip_uac_auto_register_timer}}
-%     end.
 
 
 
@@ -119,7 +105,7 @@ start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
             {ok, _, _} -> ok;
             {error, MakeError} -> throw(MakeError)
         end,
-        Msg = {nksip_uac_auto_register_start_register, RegId, Uri, Opts},
+        Msg = {nksip_uac_auto_register_start_reg, RegId, Uri, Opts},
         nkservice_server:call(SrvId, Msg)
     catch
         throw:Error -> {error, Error}
@@ -131,7 +117,7 @@ start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
     ok | not_found.
 
 stop_register(Srv, RegId) ->
-    nkservice_server:call(Srv, {nksip_uac_auto_register_stop_register, RegId}).
+    nkservice_server:call(Srv, {nksip_uac_auto_register_stop_reg, RegId}).
     
 
 %% @doc Get current registration status.
@@ -139,7 +125,7 @@ stop_register(Srv, RegId) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(Srv) ->
-    nkservice_server:call(Srv, nksip_uac_auto_register_get_registers).
+    nkservice_server:call(Srv, nksip_uac_auto_register_get_regs).
 
 
 

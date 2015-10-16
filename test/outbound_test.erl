@@ -564,7 +564,14 @@ uac_auto() ->
 
 
 check_time(Time, Limit) ->
-    true = Time >= 0.8*Limit andalso Time =< Limit.
+    case Time >= 0.8*Limit andalso Time =< Limit of
+        true ->
+            ok;
+        false ->
+            lager:warning("Time error ~p not int ~p", [Time, Limit])
+            % error(time_error)
+    end.
+
 
 wait_register(0) -> 
     error(register);

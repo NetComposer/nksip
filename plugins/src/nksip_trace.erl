@@ -114,7 +114,7 @@ parse_config(Opts) ->
     {ok, nkservice_server:sub_state()}.
 
 terminate(SrvId, ServiceState) ->  
-    close_file(SrvId),
+    catch close_file(SrvId),
     {ok, ServiceState}.
 
 

@@ -34,7 +34,8 @@
 
 -record(state, {
     pings :: [#sipreg{}],
-    regs :: [#sipreg{}]
+    regs :: [#sipreg{}],
+    pids :: [pid()]
 }).
 
 

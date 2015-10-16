@@ -145,7 +145,7 @@ auto() ->
 
     ok = tests_util:wait(Ref, [{ping, ping1, true}, {reg, reg1, true}]),
 
-    lager:info("Next infos about connection error to port 9999 are expected"),
+    lager:notice("Next notices about connection error to port 9999 are expected"),
     {ok, false} = nksip_uac_auto_register:start_ping(client1, ping2, 
                                             "<sip:127.0.0.1:9999;transport=tcp>",
                                             [{expires, 1}]),
@@ -166,7 +166,7 @@ auto() ->
     [{reg1, true, _}] = nksip_uac_auto_register:get_registers(client1),
 
     ok = nksip:stop(server2),
-    lager:info("Next info about connection error to port 5080 is expected"),
+    lager:notice("Next notice about connection error to port 5080 is expected"),
     {ok, false} = nksip_uac_auto_register:start_ping(client1, ping3, 
                                             "<sip:127.0.0.1:5080;transport=tcp>",
                                             [{expires, 1}]),
@@ -304,7 +304,7 @@ sip_uac_auto_register_updated_ping(PingId, OK, SrvId) ->
     ok.
 
 
-sip_uac_auto_register_updated_register(RegId, OK, SrvId) ->
+sip_uac_auto_register_updated_reg(RegId, OK, SrvId) ->
     {Ref, Pid} = nkservice_server:get(SrvId, callback, []),
     Pid ! {Ref, {reg, RegId, OK}},
     ok.

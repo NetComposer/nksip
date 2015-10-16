@@ -26,7 +26,7 @@
 
 -export([start/1, stop/1, print/1, print_all/0]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--export([version/0, deps/0, init/2, terminate/2]).
+-export([version/0, deps/0, init/2]).
 
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
@@ -91,12 +91,12 @@ init(_SrvId, ServiceState) ->
 
 
 
-%% @doc Called when the plugin is shutdown
--spec terminate(term(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
+% %% @doc Called when the plugin is shutdown
+% -spec terminate(term(), nkservice_server:sub_state()) ->
+%     {ok, nkservice_server:sub_state()}.
 
-terminate(_Reason, ServiceState) ->  
-    {ok, ServiceState}.
+% terminate(_Reason, ServiceState) ->  
+%     {ok, ServiceState}.
 
 
 

@@ -91,7 +91,7 @@ parse_config(Opts) ->
     {ok, nkservice_server:sub_state()}.
 
 terminate(SrvId, ServiceState) ->  
-    clear(SrvId),
+    catch clear(SrvId),
     {ok, ServiceState}.
 
 
