@@ -29,18 +29,18 @@
 
 -compile([export_all]).
 
-% outbound_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun basic/0,
-%             fun flow/0,
-%             fun register/0,
-%             fun proxy/0,
-%             {timeout, 60, fun uac_auto/0}
-%         ]
-%     }.
+outbound_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            fun basic/0,
+            fun flow/0,
+            fun register/0,
+            fun proxy/0,
+            {timeout, 60, fun uac_auto/0}
+        ]
+    }.
 
 
 start() ->
@@ -474,9 +474,9 @@ uac_auto() ->
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5106}, {tls, all, 5107}]},
         {plugins, [nksip_uac_auto_outbound]},
-        {nksip_uac_auto_outbound_all_fail, 1},
-        {nksip_uac_auto_outbound_any_ok, 2},
-        {nksip_uac_auto_timer, 1}
+        {sip_uac_auto_outbound_all_fail, 1},
+        {sip_uac_auto_outbound_any_ok, 2},
+        {sip_uac_auto_register_timer, 1}
     ]),
     timer:sleep(100),
     {ok, true} = 
@@ -530,7 +530,7 @@ uac_auto() ->
     {false, _} = nksip_connection:get_refresh(Pid3),
     {false, _} = nksip_connection:get_refresh(Pid4),
 
-    lager:error("Next error about process failed is expected"),
+    % lager:error("Next error about process failed is expected"),
     exit(Pid1, kill),
     timer:sleep(50),
     [{auto1, false, _},{auto2, true, _}] = 
@@ -568,8 +568,8 @@ check_time(Time, Limit) ->
         true ->
             ok;
         false ->
-            lager:warning("Time error ~p not int ~p", [Time, Limit])
-            % error(time_error)
+            lager:warning("Time error ~p not int ~p", [Time, Limit]),
+            error(time_error)
     end.
 
 
@@ -578,7 +578,7 @@ wait_register(0) ->
 wait_register(N) ->
     case lists:sort(nksip_uac_auto_register:get_registers(ua3)) of
         [{auto1, true, _},{auto2, true, _}] -> ok;
-        _ -> timer:sleep(1000), wait_register(N-1)
+        _ -> timer:sleep(500), wait_register(N-1)
     end.
         
 

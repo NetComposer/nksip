@@ -22,10 +22,9 @@
 -module(nksip_uac_auto_outbound_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([sip_uac_auto_register_updated_reg/3, 
-         sip_uac_auto_register_updated_ping/3]).
+-export([sip_uac_auto_register_updated_reg/3]).
 
--export([init/2, terminate/2, handle_call/3, handle_info/2]).
+-export([init/2, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 -export([nks_sip_uac_auto_register_send_reg/3, 
          nks_sip_uac_auto_register_send_unreg/3, 
          nks_sip_uac_auto_register_upd_reg/4]).
@@ -44,23 +43,26 @@
 %% Callbacks
 %% ===================================================================
 
+% WHY IS THIS FUNCTION IMPLEMENTED HERE?
 
-%% @doc Called when the status of an automatic registration status changes.
+% @doc Called when the status of an automatic registration status changes.
 -spec sip_uac_auto_register_updated_reg(SrvId::nkservice:id(), 
                                    RegId::term(), OK::boolean()) ->
     ok.
 
 sip_uac_auto_register_updated_reg( _SrvId, _RegId, _OK) ->
+    % lager:warning("UPD O REG"),
     ok.
 
 
-%% @doc Called when the status of an automatic ping status changes.
--spec sip_uac_auto_register_updated_ping(SrvId::nkservice:id(), 
-                               PingId::term(), OK::boolean()) ->
-    ok.
+% %% @doc Called when the status of an automatic ping status changes.
+% -spec sip_uac_auto_register_updated_ping(SrvId::nkservice:id(), 
+%                                PingId::term(), OK::boolean()) ->
+%     ok.
 
-sip_uac_auto_register_updated_ping(_SrvId, _PingId, _OK) ->
-    ok.
+% sip_uac_auto_register_updated_ping(_SrvId, _PingId, _OK) ->
+%     lager:warning("UPD PING"),
+%     ok.
 
 
 
@@ -85,33 +87,6 @@ init(_ServiceSpec, #{id:=SrvId}=SrvState) ->
     {ok, SrvState#{?OB_SKEY=>State}}.
 
 
-%% @doc Called when the plugin is shutdown
--spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
-
-terminate(_Reason, SrvState) ->  
-    case SrvState of
-        #{?OB_SKEY:=State} ->
-            #state_ob{regs=RegsOb} = State,
-            lists:foreach(
-                fun(#sipreg_ob{conn_monitor=Monitor, conn_pid=Pid}) -> 
-                    case is_reference(Monitor) of
-                        true -> erlang:demonitor(Monitor);
-                        false -> ok
-                    end, 
-                    case is_pid(Pid) of
-                        true -> nksip_connection:stop_refresh(Pid);
-                        false -> ok
-                    end
-                end,
-                RegsOb),
-            {ok, maps:remove(?OB_SKEY, SrvState)};
-        _ ->
-            {ok, SrvState}
-    end.
-
-
-
 %% @private
 handle_call(nksip_uac_auto_outbound_get_regs, _From, 
             #{?REG_SKEY:=RegState, ?OB_SKEY:=State}=SrvState) ->
@@ -133,9 +108,20 @@ handle_call(_Msg, _From, _State) ->
     continue.
 
 
+-spec handle_cast(term(), nkservice_server:sub_state()) ->
+    {noreply, nkservice_server:sub_state()} | continue | {continue, list()}.
+
+handle_cast(nksip_uac_auto_outbound_terminate, SrvState) ->
+    {ok, SrvState1} = terminate(normal, SrvState),
+    {noreply, SrvState1};
+
+handle_cast(_Msg, _State) ->
+    continue.
+
+
 %% @private
 -spec handle_info(term(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()} | continue | {continue, list()}.
+    {noreply, nkservice_server:sub_state()} | continue | {continue, list()}.
 
 handle_info({'DOWN', Mon, process, _Pid, _}, #{?OB_SKEY:=State}=SrvState) ->
     #state_ob{regs=RegsOb} = State,
@@ -165,6 +151,32 @@ handle_info({nksip_uac_auto_outbound_notify, RegId},
 
 handle_info(_Msg, _State) ->
     continue.
+
+
+%% @doc Called when the plugin is shutdown
+-spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+    {ok, nkservice_server:sub_state()}.
+
+terminate(_Reason, SrvState) ->  
+    case SrvState of
+        #{?OB_SKEY:=State} ->
+            #state_ob{regs=RegsOb} = State,
+            lists:foreach(
+                fun(#sipreg_ob{conn_monitor=Monitor, conn_pid=Pid}) -> 
+                    case is_reference(Monitor) of
+                        true -> erlang:demonitor(Monitor);
+                        false -> ok
+                    end, 
+                    case is_pid(Pid) of
+                        true -> nksip_connection:stop_refresh(Pid);
+                        false -> ok
+                    end
+                end,
+                RegsOb),
+            {ok, maps:remove(?OB_SKEY, SrvState)};
+        _ ->
+            {ok, SrvState}
+    end.
 
 
 %% @private

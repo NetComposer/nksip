@@ -107,6 +107,7 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    gen_server:cast(SrvId, nksip_uac_auto_outbound_terminate),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
     {ok, SrvSpec2}.
 
@@ -128,7 +129,7 @@ defaults() ->
         sip_uac_auto_outbound_any_ok => 90,
         sip_uac_auto_outbound_max_time => 1800,
         sip_uac_auto_outbound_default_udp_ttl => 25,
-        sip_uac_auto_outbound_default_tcp_ttl => 12
+        sip_uac_auto_outbound_default_tcp_ttl => 120
     }.
 
 
