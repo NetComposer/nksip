@@ -60,7 +60,7 @@ deps() ->
     [nksip].
 
 
-plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
+plugin_start(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
@@ -69,7 +69,8 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
             #{
                 sip_registrar_min_time := Min, 
                 sip_registrar_max_time := Max,
-                sip_registrar_default_time := Default
+                sip_registrar_default_time := Default,
+                cache := OldCache
             } = SrvSpec2,
             Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
             Cache = #{sip_registrar_time=>Timers},

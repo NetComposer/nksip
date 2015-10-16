@@ -63,12 +63,13 @@ deps() ->
     [nksip].
 
 
-plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
+plugin_start(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"PUBLISH">>, Allow) end,
             SrvSpec2 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
+            #{cache:=OldCache} = SrvSpec2,
             Cache = maps:with(maps:keys(syntax()), SrvSpec1),
             {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
         {error, Error} ->

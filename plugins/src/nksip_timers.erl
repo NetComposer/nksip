@@ -42,13 +42,17 @@ deps() ->
     [nksip].
 
 
-plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
+plugin_start(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Supp) -> nklib_util:store_value(<<"timer">>, Supp) end,
             SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec1),
-            #{sip_timers_se:=SE, sip_timers_min_se:=MinSE} = SrvSpec2,
+            #{
+                sip_timers_se := SE, 
+                sip_timers_min_se := MinSE, 
+                cache := OldCache
+            } = SrvSpec2,
             Cache = #{sip_timers_times=>{SE, MinSE}},
             {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
         {error, Error} ->

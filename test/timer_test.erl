@@ -27,15 +27,15 @@
 
 -compile([export_all]).
 
-% timer_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun basic/0},
-%             {timeout, 60, fun proxy/0}
-%         ]
-%     }.
+timer_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun basic/0},
+            {timeout, 60, fun proxy/0}
+        ]
+    }.
 
 start() ->
     tests_util:start_nksip(),

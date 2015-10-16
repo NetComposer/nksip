@@ -433,7 +433,8 @@ uac_pre_response(Req, Resp) ->
                 {ok, SE, _} ->
                     case nksip_sipmsg:supported(<<"timer">>, Req) of
                         true ->
-                            SE_Token = {nklib_util:to_binary(SE), [{<<"refresher">>, <<"uac">>}]},
+                            SE_Token = {nklib_util:to_binary(SE), 
+                                            [{<<"refresher">>, <<"uac">>}]},
                             Headers1 = nksip_headers:update(Resp, 
                                 [{single, <<"session-expires">>, SE_Token}]),
                             #sipmsg{require=Require} = Resp,
