@@ -22,8 +22,6 @@
 -module(nksip_uac_auto_outbound_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([sip_uac_auto_register_updated_reg/3]).
-
 -export([init/2, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 -export([nks_sip_uac_auto_register_send_reg/3, 
          nks_sip_uac_auto_register_send_unreg/3, 
@@ -37,35 +35,6 @@
 
 -define(OB_SKEY, nksip_uac_auto_outbound).
 -define(REG_SKEY, nksip_uac_auto_register).
-
-
-%% ===================================================================
-%% Callbacks
-%% ===================================================================
-
-% WHY IS THIS FUNCTION IMPLEMENTED HERE?
-
-% @doc Called when the status of an automatic registration status changes.
--spec sip_uac_auto_register_updated_reg(SrvId::nkservice:id(), 
-                                   RegId::term(), OK::boolean()) ->
-    ok.
-
-sip_uac_auto_register_updated_reg( _SrvId, _RegId, _OK) ->
-    % lager:warning("UPD O REG"),
-    ok.
-
-
-% %% @doc Called when the status of an automatic ping status changes.
-% -spec sip_uac_auto_register_updated_ping(SrvId::nkservice:id(), 
-%                                PingId::term(), OK::boolean()) ->
-%     ok.
-
-% sip_uac_auto_register_updated_ping(_SrvId, _PingId, _OK) ->
-%     lager:warning("UPD PING"),
-%     ok.
-
-
-
 
 
 %% ===================================================================

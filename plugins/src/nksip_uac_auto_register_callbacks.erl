@@ -22,6 +22,8 @@
 -module(nksip_uac_auto_register_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-export([sip_uac_auto_register_updated_reg/3, sip_uac_auto_register_updated_ping/3]).
+
 -export([init/2, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
 -export([nks_sip_uac_auto_register_send_reg/3, 
          nks_sip_uac_auto_register_send_unreg/3, 
@@ -34,6 +36,29 @@
 -include("nksip_uac_auto_register.hrl").
 
 -define(SKEY, nksip_uac_auto_register).
+
+
+
+%% ===================================================================
+%% Offered callbacks
+%% ===================================================================
+
+% @doc Called when the status of an automatic registration status changes.
+-spec sip_uac_auto_register_updated_reg(RegId::term(), OK::boolean(),
+                                        SrvId::nkservice:id()) ->
+    ok.
+
+sip_uac_auto_register_updated_reg(_RegId, _OK, _SrvId) ->
+    ok.
+
+
+%% @doc Called when the status of an automatic ping status changes.
+-spec sip_uac_auto_register_updated_ping(PingId::term(), OK::boolean(),
+                                         SrvId::nkservice:id()) ->
+    ok.
+
+sip_uac_auto_register_updated_ping( _PingId, _OK, _SrvId) ->
+    ok.
 
 
 
@@ -177,8 +202,7 @@ handle_cast({nksip_uac_auto_register_reg_reply, RegId, Code, Meta},
                 OldOK -> 
                     ok;
                 _ -> 
-                    SrvId:nks_sip_call(sip_uac_auto_register_updated_reg, 
-                                       [RegId, Ok, SrvId], SrvId)
+                    SrvId:sip_uac_auto_register_updated_reg(RegId, Ok, SrvId)
             end,
             {noreply, SvcState1#{?SKEY:=State#state{regs=[Reg1|Regs1]}}};
         false ->
@@ -196,8 +220,7 @@ handle_cast({nksip_uac_auto_register_ping_reply, PingId, Code, Meta},
                 OldOK -> 
                     ok;
                 _ -> 
-                    SrvId:nks_sip_call(sip_uac_auto_register_updated_ping, 
-                                       [PingId, OK, SrvId], SrvId)
+                    SrvId:sip_uac_auto_register_updated_ping(PingId, OK, SrvId)
             end,
             {noreply, SvcState1#{?SKEY:=State#state{pings=[Ping1|Pings1]}}};
         false ->
