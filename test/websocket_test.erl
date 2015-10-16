@@ -42,7 +42,7 @@ ws1_test_() ->
 start1() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(ws_a, nksip_sipapp, [
+    {ok, _} = nksip:start(ws_a, nksip, [
         {transports, [
             {ws, all, 8090, []},
             {wss, all, 8091, []},
@@ -50,7 +50,7 @@ start1() ->
         ]}
     ]),
 
-    {ok, _} = nksip:start(ws_b, nksip_sipapp, [
+    {ok, _} = nksip:start(ws_b, nksip, [
         {transports, [
             {ws, all, 8090, []},
             {wss, all, 8092, [{dispatch, [{'_', ["/ws"]}]}]}

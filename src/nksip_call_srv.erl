@@ -100,7 +100,7 @@ init([SrvId, CallId]) ->
         auths = [],
         msgs = [],
         events = [],
-        timers = SrvId:cache_sip_timers()
+        timers = SrvId:cache_sip_times()
     },
     nksip_util:put_log_cache(SrvId, CallId),
     Timeout = 2000*(Call#call.timers)#call_timers.trans,

@@ -47,17 +47,17 @@ parse_uac_config([], _Req, Opts) ->
 
 parse_uac_config([Term|Rest], Req, Opts) ->
     case Term of
-        {nksip_timers_min_se, SE} when is_integer(SE) ->
+        {sip_timers_min_se, SE} when is_integer(SE) ->
             parse_uac_config(Rest, Req, [{replace, <<"min-se">>, SE}|Opts]);
-        {nksip_timers_min_se, _} ->
-            {error, {invalid_config, nksip_timers_min_se}};
-        {nksip_timers_se, SE} when is_integer(SE) ->
-            parse_uac_config([{nksip_timers_se, {SE, undefined}}|Rest], Req, Opts);
-        {nksip_timers_se, {SE, Refresh}} when is_integer(SE) ->
+        {sip_timers_min_se, _} ->
+            {error, {invalid_config, sip_timers_min_se}};
+        {sip_timers_se, SE} when is_integer(SE) ->
+            parse_uac_config([{sip_timers_se, {SE, undefined}}|Rest], Req, Opts);
+        {sip_timers_se, {SE, Refresh}} when is_integer(SE) ->
             #sipmsg{srv_id=SrvId} = Req,
-            case SrvId:cache_sip_timers() of
+            case SrvId:cache_sip_timers_times() of
                 {_, MinSE} when SE<MinSE -> 
-                    {error, {invalid_config, nksip_timers_se}};
+                    {error, {invalid_config, sip_timers_se}};
                 _ when Refresh==undefined -> 
                     Rep = {replace, <<"session-expires">>, SE},
                     parse_uac_config(Rest, Req, [Rep|Opts]);
@@ -66,10 +66,10 @@ parse_uac_config([Term|Rest], Req, Opts) ->
                             {SE, [{<<"refresher">>, Refresh}]}},
                     parse_uac_config(Rest, Req, [Rep|Opts]);
                 _ ->
-                    {error, {invalid_config, nksip_timers_se}}
+                    {error, {invalid_config, sip_timers_se}}
             end;
-        {nksip_timers_se, _} ->
-            {error, {invalid_config, nksip_timers_se}};
+        {sip_timers_se, _} ->
+            {error, {invalid_config, sip_timers_se}};
         _ ->
             parse_uac_config(Rest, Req, [Term|Opts])
     end.
@@ -87,11 +87,11 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
     #dialog{id=DialogId, invite=Invite, meta=Meta} = Dialog,
    % class from #invite{} can only be used for INVITE, not UPDATE
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
-    RefreshTimer = nklib_util:get_value(nksip_timers_refresh, Meta),
+    RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
     nklib_util:cancel_timer(RetransTimer),
     nklib_util:cancel_timer(TimeoutTimer),
     nklib_util:cancel_timer(RefreshTimer),
-    Meta1 = nklib_util:delete(Meta, [nksip_timers_refresh, nksip_timers_se]),
+    Meta1 = nklib_util:delete(Meta, [sip_timers_refresh, sip_timers_se]),
     case get_timer(Req, Resp, Class, Call) of
         {refresher, SE} ->
             Invite1 = Invite#invite{
@@ -99,8 +99,8 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
                 timeout_timer = start_timer(1000*SE, invite_timeout, DialogId)
             },
             Meta2 = [
-                {nksip_timers_se, SE}, 
-                {nksip_timers_refresh, start_timer(500*SE, invite_refresh, DialogId)}
+                {sip_timers_se, SE}, 
+                {sip_timers_refresh, start_timer(500*SE, invite_refresh, DialogId)}
                 | Meta1
             ];
         {refreshed, SE} ->
@@ -109,8 +109,8 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
                 timeout_timer = start_timer(750*SE, invite_timeout, DialogId)
             },
             Meta2 = [
-                {nksip_timers_se, SE}, 
-                {nksip_timers_refresh, undefined}
+                {sip_timers_se, SE}, 
+                {sip_timers_refresh, undefined}
                 | Meta1
             ];
         {none, Timeout} ->
@@ -119,8 +119,8 @@ timer_update(Req, #sipmsg{class={resp, Code, _}}=Resp, Class,
                 timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId)
             },
             Meta2 = [
-                {nksip_timers_se, undefined}, 
-                {nksip_timers_refresh, undefined} 
+                {sip_timers_se, undefined}, 
+                {sip_timers_refresh, undefined} 
                 | Meta1
             ]
     end,
@@ -141,13 +141,13 @@ timer_update(_Req, _Resp, _Class,
              #dialog{invite=#invite{status=accepted_uas}}=Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite, meta=Meta} = Dialog,
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
-    RefreshTimer = nklib_util:get_value(nksip_timers_refresh, Meta),
+    RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
     nklib_util:cancel_timer(RetransTimer),
     nklib_util:cancel_timer(TimeoutTimer),
     nklib_util:cancel_timer(RefreshTimer),
     #call{timers=#call_timers{t1=T1}} = Call,
-    Meta1 = nklib_util:delete(Meta, [nksip_timers_se, nksip_timers_refresh]),
-    Meta2 = [{nksip_timers_se, undefined}, {nksip_timers_refresh, undefined}|Meta1],
+    Meta1 = nklib_util:delete(Meta, [sip_timers_se, sip_timers_refresh]),
+    Meta2 = [{sip_timers_se, undefined}, {sip_timers_refresh, undefined}|Meta1],
     Invite1 = Invite#invite{
         retrans_timer = start_timer(T1, invite_retrans, DialogId),
         next_retrans = 2*T1,
@@ -158,13 +158,13 @@ timer_update(_Req, _Resp, _Class,
 timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite, meta = Meta} = Dialog,
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
-    RefreshTimer = nklib_util:get_value(nksip_timers_refresh, Meta),
+    RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
     nklib_util:cancel_timer(RetransTimer),
     nklib_util:cancel_timer(TimeoutTimer),
     nklib_util:cancel_timer(RefreshTimer),
     #call{timers=#call_timers{t1=T1}} = Call,
-    Meta1 = nklib_util:delete(Meta, [nksip_timers_se, nksip_timers_refresh]),
-    Meta2 = [{nksip_timers_se, undefined}, {nksip_timers_refresh, undefined}|Meta1],
+    Meta1 = nklib_util:delete(Meta, [sip_timers_se, sip_timers_refresh]),
+    Meta2 = [{sip_timers_se, undefined}, {sip_timers_refresh, undefined}|Meta1],
     Invite1 = Invite#invite{
         retrans_timer = undefined,
         timeout_timer = start_timer(64*T1, invite_timeout, DialogId)        
@@ -179,7 +179,7 @@ timer_update(_Req, _Resp, _Class, Dialog, Call) ->
 get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
              when Code>=200 andalso Code<300 ->
     #call{srv_id=SrvId} = Call,
-    {Default, _} = SrvId:cache_sip_timers(),
+    {Default, _} = SrvId:cache_sip_timers_times(),
     {SE, Refresh} = case parse(Resp) of
         {ok, SE0, Refresh0} ->
             {SE0, Refresh0};
@@ -207,7 +207,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
 
 make_uac_dialog(Method, Dialog, Call) ->
     #dialog{id=DialogId, meta=Meta} = Dialog,
-    SE = nklib_util:get_value(nksip_timers_se, Meta),
+    SE = nklib_util:get_value(sip_timers_se, Meta),
     case is_integer(SE) andalso (Method=='INVITE' orelse Method=='UPDATE') of
         true ->
             {SE1, MinSE} = case 
@@ -218,15 +218,15 @@ make_uac_dialog(Method, Dialog, Call) ->
             end,
             % Do not change the roles, if a refresh is sent from the 
             % refreshed instead of the refresher
-            RefreshTimer = nklib_util:get_value(nksip_timers_refresh, Meta),
+            RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
             Class = case is_reference(RefreshTimer) of
                 true -> uac;
                 false -> uas
             end,
             [
-                {nksip_timers_se, {SE1, Class}} |
+                {sip_timers_se, {SE1, Class}} |
                 case is_integer(MinSE) of true -> 
-                    [{nksip_timers_min_se, MinSE}]; 
+                    [{sip_timers_min_se, MinSE}]; 
                     false -> [] 
                 end
             ];
@@ -255,7 +255,7 @@ uac_received_422(Req, Resp, UAC, Call) ->
         true ->
             case nksip_sipmsg:header(<<"min-se">>, Resp, integers) of
                 [RespMinSE] ->
-                    {_, ConfigMinSE} = SrvId:cache_sip_timers(),
+                    {_, ConfigMinSE} = SrvId:cache_sip_timers_times(),
                     CurrentMinSE = case 
                         nksip_call_dialog:get_meta(nksip_min_se, DialogId, Call)
                     of
@@ -309,10 +309,7 @@ uas_check_422(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Call) ->
                 invalid ->
                     {reply, invalid_request, Call};
                 {ok, SE, _} ->
-                    case 
-                        erlang:function_exported(SrvId, config_nksip_timers, 0)
-                        andalso SrvId:cache_sip_timers() 
-                    of
+                    case SrvId:cache_sip_timers_times() of
                         {_, MinSE} when SE < MinSE ->
                             #sipmsg{dialog_id=DialogId} = Req,
                             Call1 = case 
@@ -365,7 +362,7 @@ uas_dialog_response(
                 {ok, ReqSE0, ReqRefresh0} -> {ReqSE0, ReqRefresh0};
                 _ -> {0, undefined}
             end,
-            Default = SrvId:cache_sip_timers_se(),
+            {Default, _} = SrvId:cache_sip_timers_times(),
             SE = case ReqSE of
                 0 -> max(ReqMinSE, Default);
                 _ -> max(ReqMinSE, min(ReqSE, Default))
@@ -406,7 +403,7 @@ uac_pre_request(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, _Call)
         {ok, ReqSE0, _} -> ReqSE0;
         _ -> 0
     end,
-    Default = SrvId:cache_sip_timers_se(),
+    {Default, _} = SrvId:cache_sip_timers_times(),
     SE = case ReqSE of
         0 -> max(ReqMinSE, Default);
         _ -> max(ReqMinSE, min(ReqSE, Default))

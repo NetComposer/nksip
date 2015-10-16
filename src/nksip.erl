@@ -264,7 +264,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
             dialog = maps:get(sip_dialog_timeout, SrvSpec2)},
         OldCache = maps:get(cache, SrvSpec, #{}),
         Cache1 = maps:with(nksip_util:cached(), SrvSpec2),
-        Cache2 = Cache1#{sip_timers=>Timers},
+        Cache2 = Cache1#{sip_times=>Timers},
         {ok, SrvSpec2#{cache=>maps:merge(OldCache, Cache2)}}
     catch
         throw:Throw -> {stop, Throw}

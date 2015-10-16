@@ -75,7 +75,7 @@ nks_sip_parse_uac_opts(Req, Opts) ->
     {reply, nksip:sipreply()} | noreply.
 
 nks_sip_method(#trans{method='REFER', request=Req}, #call{srv_id=SrvId}=Call) ->
-    Module = SrvId:module(),
+    Module = SrvId:callback(),
     case 
         Module/=nksip_sipapp andalso
         erlang:function_exported(Module, sip_refer, 2) 

@@ -29,6 +29,7 @@
          nks_sip_uac_pre_request/4, nks_sip_uac_pre_response/3, nks_sip_uac_response/4,
          nks_sip_uas_dialog_response/4, nks_sip_uas_process/2, nks_sip_route/4]).
 
+
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @doc Called to parse specific UAC options
@@ -61,12 +62,13 @@ nks_sip_dialog_update({invite, {stop, Reason}}, Dialog, Call) ->
         retrans_timer = RetransTimer,
         timeout_timer = TimeoutTimer
     } = Invite,    
-    RefreshTimer = nklib_util:get_value(nksip_timers_refresh, Meta),
+    RefreshTimer = nklib_util:get_value(sip_timers_refresh, Meta),
     nklib_util:cancel_timer(RetransTimer),
     nklib_util:cancel_timer(TimeoutTimer),
     nklib_util:cancel_timer(RefreshTimer),
     StopReason = nksip_call_dialog:reason(Reason),
-    nksip_call_dialog:sip_dialog_update({invite_status, {stop, StopReason}}, Dialog, Call),
+    nksip_call_dialog:sip_dialog_update(
+                                {invite_status, {stop, StopReason}}, Dialog, Call),
     case Media of
         true -> nksip_call_dialog:sip_session_update(stop, Dialog, Call);
         _ -> ok
@@ -126,11 +128,12 @@ nks_sip_dialog_update(_, _, _) ->
     
 
 %% @doc Called when a new in-dialog request is being generated
--spec nks_sip_make_uac_dialog(nksip:method(), nksip:uri(), nksip:optslist(), nksip:call()) ->
+-spec nks_sip_make_uac_dialog(nksip:method(), nksip:uri(), 
+                              nksip:optslist(), nksip:call()) ->
     {continue, list()}.
 
 nks_sip_make_uac_dialog(Method, Uri, Opts, #call{dialogs=[Dialog|_]}=Call) ->
-    Opts1 = case lists:keymember(nksip_timers_se, 1, Opts) of
+    Opts1 = case lists:keymember(sip_timers_se, 1, Opts) of
         true -> 
             Opts;
         false -> 

@@ -73,11 +73,8 @@ sip_event_compositor_store(Op, SrvId) ->
 
 
 nks_sip_method(#trans{method='PUBLISH', request=Req}, #call{srv_id=SrvId}) ->
-    Module = SrvId:module(),
-    case 
-        Module/=nksip_sipapp andalso
-        erlang:function_exported(Module, sip_publish, 2) 
-    of
+    Module = SrvId:callback(),
+    case erlang:function_exported(Module, sip_publish, 2) of
         true ->
             continue;
         false ->

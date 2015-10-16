@@ -28,7 +28,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
--export([version/0, deps/0, parse_config/1, terminate/2]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
@@ -49,26 +49,22 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
-
-parse_config(Opts) ->
-    Defaults = [{nksip_trace, {console, all}}],
-    Opts1 = nklib_util:defaults(Opts, Defaults),    
+plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
+    SrvSpec1 = maps:merge(#{sip_trace => {console, all}}, SrvSpec),
     try
-        {File, IpList} = case nklib_util:get_value(nksip_trace, Opts1) of
+        {File, IpList} = case maps:get(sip_trace, SrvSpec) of
             {File0, IpList0} -> 
                 case norm_file(File0) of
                     {ok, File1} ->
@@ -87,17 +83,13 @@ parse_config(Opts) ->
                         throw({invalid_file, File0})
                 end
         end,
-        SrvId = nklib_util:get_value(id, Opts1),
         close_file(SrvId),
         case open_file(SrvId, File) of
             ok -> 
                 case compile_ips(IpList, []) of
                     {ok, CompIpList} ->
-                        Cached1 = nklib_util:get_value(cached_configs, Opts1, []),
-                        Cached2 = nklib_util:store_value(config_nksip_trace,
-                                                        {File, CompIpList}, Cached1),
-                        Opts2 = nklib_util:store_value(cached_configs, Cached2, Opts1),
-                        {ok, Opts2};
+                        Cache = #{sip_trace => {File, CompIpList}},
+                        {ok, SrvSpec1#{cache=>maps:merge(OldCache, Cache)}};
                     error ->
                         throw({invalid_re, IpList})
                 end;
@@ -109,13 +101,70 @@ parse_config(Opts) ->
     end.
 
 
-%% @doc Called when the plugin is shutdown
--spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
-
-terminate(SrvId, ServiceState) ->  
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     catch close_file(SrvId),
-    {ok, ServiceState}.
+    {ok, SrvSpec}.
+
+
+
+
+% %% @doc Parses this plugin specific configuration
+% -spec parse_config(nksip:optslist()) ->
+%     {ok, nksip:optslist()} | {error, term()}.
+
+% parse_config(Opts) ->
+%     Defaults = [{nksip_trace, {console, all}}],
+%     Opts1 = nklib_util:defaults(Opts, Defaults),    
+%     try
+%         {File, IpList} = case nklib_util:get_value(nksip_trace, Opts1) of
+%             {File0, IpList0} -> 
+%                 case norm_file(File0) of
+%                     {ok, File1} ->
+%                         case norm_iplist(IpList0, []) of
+%                             {ok, IpList1} -> {File1, IpList1};
+%                             error -> throw({invalid_re, IpList0})
+%                         end;
+%                     error ->
+%                         throw({invalid_file, File0})
+%                 end;
+%             File0 -> 
+%                 case norm_file(File0) of
+%                     {ok, File1} -> 
+%                         {File1, all};
+%                     error ->
+%                         throw({invalid_file, File0})
+%                 end
+%         end,
+%         SrvId = nklib_util:get_value(id, Opts1),
+%         close_file(SrvId),
+%         case open_file(SrvId, File) of
+%             ok -> 
+%                 case compile_ips(IpList, []) of
+%                     {ok, CompIpList} ->
+%                         Cached1 = nklib_util:get_value(cached_configs, Opts1, []),
+%                         Cached2 = nklib_util:store_value(cache_sip_trace,
+%                                                         {File, CompIpList}, Cached1),
+%                         Opts2 = nklib_util:store_value(cached_configs, Cached2, Opts1),
+%                         {ok, Opts2};
+%                     error ->
+%                         throw({invalid_re, IpList})
+%                 end;
+%             error -> 
+%                 throw({invalid_config, {could_not_open, File}})
+%         end
+%     catch
+%         throw:Error -> {error, {invalid_config, Error}}
+%     end.
+
+
+% %% @doc Called when the plugin is shutdown
+% -spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+%     {ok, nkservice_server:sub_state()}.
+
+% terminate(SrvId, ServiceState) ->  
+%     catch close_file(SrvId),
+%     {ok, ServiceState}.
 
 
 
@@ -142,35 +191,37 @@ get_all() ->
     [{nkservice:name(), ok|{error, term()}}].
 
 start() -> 
-    lists:map(fun({SrvName, SrvId}) -> {SrvName, start(SrvId)} end, nksip:get_all()).
+    lists:map(
+        fun({SrvId, SrvName, _Pid}) -> {SrvName, start(SrvId)} end, 
+        nkservice_server:get_all(nksip)).
 
 
 %% @doc Equivalent to `start(SrvId, console, all)'.
 -spec start(nkservice:id()|nkservice:name()) -> 
     ok | {error, term()}.
 
-start(SrvId) -> 
-    start(SrvId, console, all).
+start(Srv) -> 
+    start(Srv, console, all).
 
 
-%% @doc Equivalent to `start(SrvId, File, all)'.
+%% @doc Equivalent to `start(Srv, File, all)'.
 -spec start(nkservice:id()|nkservice:name(), file()) -> 
     ok | {error, term()}.
 
-start(SrvId, File) -> 
-    start(SrvId, File, all).
+start(Srv, File) -> 
+    start(Srv, File, all).
 
 
 %% @doc Configures a Service to start tracing SIP messages.
 -spec start(nkservice:id()|nkservice:id(), file(), ip_list()) ->
     ok | {error, term()}.
 
-start(App, File, IpList) ->
-    case nkservice_server:find(App) of
+start(Srv, File, IpList) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
-            case nksip:update(SrvId, #{plugins=>Plugins2, nksip_trace=>{File, IpList}}) of
+            case nksip:update(SrvId, #{plugins=>Plugins2, sip_trace=>{File, IpList}}) of
                 ok -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -184,18 +235,20 @@ start(App, File, IpList) ->
     ok.
 
 stop() ->
-    lists:map(fun({SrvName, SrvId}) -> {SrvName, stop(SrvId)} end, nksip:get_all()).
+    lists:map(
+        fun({SrvId, SrvName, _Pid}) -> {SrvName, stop(SrvId)} end, 
+        nkservice_server:get_all(nksip)).
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
 -spec stop(nkservice:id()|nkservice:name()) ->
     ok | {error, term()}.
 
-stop(App) ->
-    case nkservice_server:find(App) of
+stop(Srv) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_trace],
-            case nksip:update(App, #{plugins=>Plugins}) of
+            case nksip:update(Srv, #{plugins=>Plugins}) of
                 ok -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -231,7 +284,7 @@ print(Header, #sipmsg{}=SipMsg) ->
     ok.
 
 sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
-    case SrvId:config_nksip_trace() of
+    case SrvId:cache_sip_trace() of
         {File, all} ->
             SrvName = SrvId:name(),
             Msg = print_packet(SrvName, Header, Transport, Binary),

@@ -32,7 +32,7 @@
 -include("nksip_event_compositor.hrl").
 
 -export([find/3, request/1, clear/1]).
--export([version/0, deps/0, parse_config/1, terminate/2]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 -export_type([reg_publish/0]).
 
 
@@ -52,47 +52,81 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
-
-parse_config(Opts) ->
-    Defaults = [{nksip_event_compositor_default_expires, 60}],
-    Opts1 = nklib_util:defaults(Opts, Defaults),
-    Allow = nklib_util:get_value(sip_allow, Opts1),
-    Opts2 = case lists:member(<<"PUBLISH">>, Allow) of
-        true -> 
-            Opts1;
-        false -> 
-            nklib_util:store_value(sip_allow, Allow++[<<"PUBLISH">>], Opts1)
-    end,
-    case nklib_util:get_value(nksip_event_compositor_default_expires, Opts2) of
-        Secs when is_integer(Secs), Secs>=1 ->
-            {ok, Opts2};
-        _ ->
-            {error, {invalid_config, nksip_event_compositor_default_expires}}
+plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
+    case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
+        {ok, SrvSpec1} ->
+            UpdFun = fun(Allow) -> nklib_util:store_value(<<"PUBLISH">>, Allow) end,
+            SrvSpec2 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
+            Cache = maps:with(maps:keys(syntax()), SrvSpec1),
+            {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
+        {error, Error} ->
+            {stop, Error}
     end.
 
 
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    UpdFun = fun(Allow) -> Allow -- [<<"PRACK">>] end,
+    SrvSpec1 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec),
+    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
+    clear(SrvId),
+    {ok, SrvSpec2}.
 
-%% @doc Called when the plugin is shutdown
--spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
 
-terminate(SrvId, ServiceState) ->  
-    catch clear(SrvId),
-    {ok, ServiceState}.
+syntax() ->
+    #{
+        sip_event_compositor_default_expires => {integer, 1, none}
+    }.
+
+defaults() ->
+    #{
+        sip_event_compositor_default_expires => 60
+    }.
+
+
+
+% %% @doc Parses this plugin specific configuration
+% -spec parse_config(nksip:optslist()) ->
+%     {ok, nksip:optslist()} | {error, term()}.
+
+% parse_config(Opts) ->
+%     Defaults = [{nksip_event_compositor_default_expires, 60}],
+%     Opts1 = nklib_util:defaults(Opts, Defaults),
+%     Allow = nklib_util:get_value(sip_allow, Opts1),
+%     Opts2 = case lists:member(<<"PUBLISH">>, Allow) of
+%         true -> 
+%             Opts1;
+%         false -> 
+%             nklib_util:store_value(sip_allow, Allow++[<<"PUBLISH">>], Opts1)
+%     end,
+%     case nklib_util:get_value(nksip_event_compositor_default_expires, Opts2) of
+%         Secs when is_integer(Secs), Secs>=1 ->
+%             {ok, Opts2};
+%         _ ->
+%             {error, {invalid_config, nksip_event_compositor_default_expires}}
+%     end.
+
+
+
+% %% @doc Called when the plugin is shutdown
+% -spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+%     {ok, nkservice_server:sub_state()}.
+
+% terminate(SrvId, ServiceState) ->  
+%     catch clear(SrvId),
+%     {ok, ServiceState}.
 
 
 
