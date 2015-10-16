@@ -93,8 +93,6 @@ work({send_cancel, ReqId, Opts}, From, Call) ->
         true -> ok;
         false -> error(cancel1)
     end,
-
-
     case get_trans_id(ReqId, Call) of
         {ok, TransId} ->
             nksip_call_uac:cancel(TransId, Opts, {srv, From}, Call);

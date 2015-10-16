@@ -20,7 +20,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(inline_test).
+-module(basic2_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -28,7 +28,7 @@
 -compile([export_all]).
 
 
-inline_test_() ->
+basic2_test_() ->
     {setup, spawn, 
         fun() -> start() end,
         fun(_) -> stop() end,

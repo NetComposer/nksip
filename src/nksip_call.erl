@@ -116,7 +116,6 @@ send_cancel(SrvId, CallId, RequestId, Opts) ->
     nksip_router:send_work_sync(SrvId, CallId, {send_cancel, RequestId, Opts}).
 
 
-
 %% @private Sends a synchronous request reply.
 -spec send_reply(nkservice:id(), nksip:call_id(), nksip_sipmsg:id(), 
                  nksip:sipreply()) ->

@@ -82,7 +82,7 @@ defaults() ->
         sip_accept => undefined,
         sip_events => [],
         sip_route => [],
-        sip_no_100 => true,
+        sip_no_100 => false,
         sip_max_calls => 100000,                % Each Call-ID counts as a call
         sip_debug => false                      % Used in nksip_debug plugin
     }.
