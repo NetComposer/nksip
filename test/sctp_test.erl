@@ -58,7 +58,7 @@ start() ->
 
     {ok, _} = nksip:start(client2, ?MODULE, [
         {from, "sip:client2@nksip"},
-        {passes, ["jj", {"4321", "client1"}]},
+        {sip_pass, ["jj", {"4321", "client1"}]},
         {local_host, "127.0.0.1"},
         {transports, [{udp, all, 5071}, {sctp, all, 5071}]}
     ]),
