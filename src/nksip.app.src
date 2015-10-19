@@ -10,11 +10,12 @@
         crypto,
         sasl,
         ssl,
-        nklib,
+        % nklib,
         lager,
-        ranch,
-        cowlib,
-        cowboy,
+        % ranch,
+        % cowlib,
+        % cowboy,
+        nkpacket,
         nkservice
     ]},
     {env, [

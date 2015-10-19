@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -27,7 +27,7 @@
     q :: float(),  
     call_id :: nksip:call_id(),
     cseq :: nksip:cseq(),
-    transport :: nksip_transport:transport(),
+    transport :: nkpacket:nkport(),
     path = [] :: [nksip:uri()],
     meta = [] :: nksip:optslist()  
 }).

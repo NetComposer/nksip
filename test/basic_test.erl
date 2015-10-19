@@ -31,17 +31,17 @@
 -compile([export_all]).
 
 
-basic_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun running/0}, 
-            {timeout, 60, fun transport/0}, 
-            {timeout, 60, fun cast_info/0}, 
-            {timeout, 60, fun stun/0}
-        ]
-    }.
+% basic_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun running/0}, 
+%             {timeout, 60, fun transport/0}, 
+%             {timeout, 60, fun cast_info/0}, 
+%             {timeout, 60, fun stun/0}
+%         ]
+%     }.
 
 
 start() ->
@@ -52,24 +52,18 @@ start() ->
         arg => server1,
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
         plugins => [nksip_registrar],
-        transports => [
-            {udp, all, 5060, [{listeners, 10}]},
-            {tls, all, 5061}
-        ]
+        transports => "sip://all;tcp_listeners=10, sips:all:5061"
     }),
 
-    {ok, _} = nksip:start(client1, ?MODULE, #{
-        arg => client1,
-        sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
-        transports => [
-            {udp, all, 5070},
-            {tls, all, 5071}
-        ]
-    }),
+    % {ok, _} = nksip:start(client1, ?MODULE, #{
+    %     arg => client1,
+    %     sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
+    %     transports => ["sip://all:5070", "sips:all:5071"]
+    % }),
 
-    {ok, _} = nksip:start(client2, ?MODULE, #{
-        arg => client2,
-        sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
+    % {ok, _} = nksip:start(client2, ?MODULE, #{
+    %     arg => client2,
+    %     sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).

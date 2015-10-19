@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,12 +22,13 @@
 -module(nksip_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([adapt_opts/1]).
+-export([adapt_opts/1, adapt_transports/3]).
 -export([plugin_update_value/3, cached/0, syntax/0, defaults/0]).
 -export([get_cseq/0, initial_cseq/0]).
--export([get_local_ips/0, find_main_ip/0, find_main_ip/2]).
+-export([get_listenhost/3, make_route/6]).
 -export([put_log_cache/2]).
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 
 
@@ -36,6 +37,7 @@
 %% ===================================================================
 %% Public
 %% =================================================================
+
 
 
 
@@ -129,16 +131,7 @@ adapt() ->
         route => sip_route,
         no_100 => sip_no_100,
         max_calls => sip_max_calls,
-        debug => sip_debug,
-        udp_timeout => packet_udp_timeout,
-        tcp_timeout => packet_tcp_timeout,
-        sctp_timeout => packet_sctp_timeout,
-        ws_timeout => packet_ws_timeout,
-        max_connections => packet_max_connections,
-        certfile => packet_certfile,
-        keyfile => packet_keyfile,
-        local_host => packet_local_host,
-        local_host6 => packet_local_host6
+        debug => sip_debug
     }.
 
 
@@ -159,6 +152,40 @@ adapt_opts([{Key, Val}|Rest], Acc) ->
 adapt_opts([Key|Rest], Acc) ->
     adapt_opts([{Key, true}|Rest], Acc).
 
+
+
+%% @private
+adapt_transports(SrvId, Transports, Config) ->
+    adapt_transports(SrvId, Transports, Config, []).
+
+
+%% @private
+adapt_transports(_SrvId, [], _Config, Acc) ->
+    lists:reverse(Acc);
+
+adapt_transports(SrvId, [{RawConns, Opts}|Rest], Config, Acc) ->
+    SipOpts = case RawConns of
+        [{nksip_protocol, Transp, _Ip, _Port}|_] ->
+            Base = #{group => {nksip, SrvId}},
+            case Transp of
+                udp ->
+                    Base#{
+                        udp_starts_tcp => true,
+                        udp_stun_reply => true,
+                        udp_stun_t1 => maps:get(sip_timer_t1, Config)
+                    };
+                ws ->
+                    Base#{ws_proto => sip};
+                wss -> 
+                    Base#{ws_proto => sip};
+                _ ->
+                    Base
+            end;
+        _ ->
+            Opts
+    end,
+    Opts1 = maps:merge(Opts, SipOpts),
+    adapt_transports(SrvId, Rest, Config, [{RawConns, Opts1}|Acc]).
 
 
 %% @doc Gets a new `CSeq'.
@@ -185,92 +212,59 @@ initial_cseq() ->
     CSeq.   
 
 
+%% @private 
+-spec get_listenhost(nkservice:id(), inet:ip_address(), nksip:optslist()) ->
+    binary().
 
-
-%% @doc Get all local network ips.
--spec get_local_ips() -> 
-    [inet:ip_address()].
-
-get_local_ips() ->
-    {ok, All} = inet:getifaddrs(),
-    lists:flatten([proplists:get_all_values(addr, Data) || {_, Data} <- All]).
-
-
-%% @doc Equivalent to `find_main_ip(auto, ipv4)'.
--spec find_main_ip() -> 
-    inet:ip_address().
-
-find_main_ip() ->
-    find_main_ip(auto, ipv4).
-
-
-%% @doc Finds the <i>best</i> local IP.
-%% If a network interface is supplied (as "en0") it returns its ip.
-%% If `auto' is used, probes `ethX' and `enX' interfaces. If none is available returns 
-%% localhost
--spec find_main_ip(auto|string(), ipv4|ipv6) -> 
-    inet:ip_address().
-
-find_main_ip(NetInterface, Type) ->
-    {ok, All} = inet:getifaddrs(),
-    case NetInterface of
-        auto ->
-            IFaces = lists:filter(
-                fun(Name) ->
-                    case Name of
-                        "eth" ++ _ -> true;
-                        "en" ++ _ -> true;
-                        _ -> false
-                    end
-                end,
-                proplists:get_keys(All)),
-            find_main_ip(lists:sort(IFaces), All, Type);
-        _ ->
-            find_main_ip([NetInterface], All, Type)   
-    end.
-
-
-%% @private
-find_main_ip([], _, ipv4) ->
-    {127,0,0,1};
-
-find_main_ip([], _, ipv6) ->
-    {0,0,0,0,0,0,0,1};
-
-find_main_ip([IFace|R], All, Type) ->
-    Data = nklib_util:get_value(IFace, All, []),
-    Flags = nklib_util:get_value(flags, Data, []),
-    case lists:member(up, Flags) andalso lists:member(running, Flags) of
-        true ->
-            Addrs = lists:zip(
-                proplists:get_all_values(addr, Data),
-                proplists:get_all_values(netmask, Data)),
-            case find_real_ip(Addrs, Type) of
-                error -> find_main_ip(R, All, Type);
-                Ip -> Ip
+get_listenhost(SrvId, Ip, Opts) ->
+    case size(Ip) of
+        4 ->
+            Host = case nklib_util:get_value(local_host, Opts) of
+                undefined -> SrvId:cache_packet_local_host();
+                Host0 -> Host0
+            end,
+            case Host of
+                auto when Ip == {0,0,0,0} -> 
+                    nklib_util:to_host(nkpacket_config_cache:main_ip()); 
+                auto ->
+                    nklib_util:to_host(Ip);
+                _ -> 
+                    Host
             end;
-        false ->
-            find_main_ip(R, All, Type)
+        8 ->
+            Host = case nklib_util:get_value(local_host6, Opts) of
+                undefined -> SrvId:cache_packet_local_host6();
+                Host0 -> Host0
+            end,
+            case Host of
+                auto when Ip == {0,0,0,0,0,0,0,0} -> 
+                    nklib_util:to_host(nkpacket_config_cache:main_ip6(), true);
+                auto -> 
+                    nklib_util:to_host(Ip, true);
+                _ -> 
+                    Host
+            end
     end.
 
-%% @private
-find_real_ip([], _Type) ->
-    error;
+    
+%% @private Makes a route record
+-spec make_route(nksip:scheme(), nksip:protocol(), binary(), inet:port_number(),
+                 binary(), nksip:optslist()) ->
+    #uri{}.
 
-% Skip link-local addresses
-find_real_ip([{{65152,_,_,_,_,_,_,_}, _Netmask}|R], Type) ->
-    find_real_ip(R, Type);
-
-find_real_ip([{{A,B,C,D}, Netmask}|_], ipv4) 
-             when Netmask /= {255,255,255,255} ->
-    {A,B,C,D};
-
-find_real_ip([{{A,B,C,D,E,F,G,H}, Netmask}|_], ipv6) 
-             when Netmask /= {65535,65535,65535,65535,65535,65535,65535,65535} ->
-    {A,B,C,D,E,F,G,H};
-
-find_real_ip([_|R], Type) ->
-    find_real_ip(R, Type).
+make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
+    UriOpts = case Proto of
+        tls when Scheme==sips -> Opts;
+        udp when Scheme==sip -> Opts;
+        _ -> [{<<"transport">>, nklib_util:to_binary(Proto)}|Opts] 
+    end,
+    #uri{
+        scheme = Scheme,
+        user = User,
+        domain = ListenHost,
+        port = Port,
+        opts = UriOpts
+    }.
 
 
 %% @private Save cache for speed log access

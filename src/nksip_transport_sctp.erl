@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -56,7 +56,7 @@ get_listener(SrvId, Transp, Opts) ->
 
 %% @private Starts a new connection to a remote server
 -spec connect(pid(), nksip:transport()) ->
-    {ok, pid(), nksip_transport:transport()} | {error, term()}.
+    {ok, pid(), nkpacket:nkport()} | {error, term()}.
 
 connect(Pid, Transp) ->
     #transport{remote_ip=Ip, remote_port=Port} = Transp,
@@ -83,7 +83,7 @@ start_link(SrvId, Transp, Opts) ->
 
 -record(state, {
     srv_id :: nkservice:id(),
-    transport :: nksip_transport:transport(),
+    transport :: nkpacket:nkport(),
     socket :: port(),
     pending :: [{inet:ip_address(), inet:port_number(), {pid(), term()}}],
     timeout :: integer()

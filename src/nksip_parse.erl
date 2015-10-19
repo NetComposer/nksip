@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -147,7 +147,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nkservice:id(), nksip:call_id(), nksip_transport:transport(), binary()) ->
+-spec packet(nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
     {ok, #sipmsg{}} | {error, term()} | {reply_error, term(), binary()}.
 
 packet(SrvId, CallId, Transp, Packet) ->
@@ -204,7 +204,7 @@ packet(SrvId, CallId, Transp, Packet) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nkservice:id(), nksip_transport:transport(), binary()) ->
+-spec packet(nkservice:id(), nkpacket:nkport(), binary()) ->
     {ok, #sipmsg{}, binary()} | partial | {error, term()} |
     {reply_error, term(), binary()}.
 

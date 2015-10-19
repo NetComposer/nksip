@@ -1,7 +1,7 @@
 %%
 %% nksip.hrl: Common types and records definition
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -133,7 +133,7 @@
     headers = [] :: [nksip:header()],
     body = <<>> :: nksip:body(),
     to_tag_candidate = <<>> :: nksip:tag(),
-    transport :: nksip_transport:transport(),
+    transport :: nkpacket:nkport(),
     start :: nklib_util:l_timestamp(),
     meta = [] :: nksip:optslist()   % No current use
 }).

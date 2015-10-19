@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -115,7 +115,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
                     listen_ip = ListenIp, 
                     listen_port = ListenPort
                 } = Transport) ->
-        ListenHost = nksip_transport:get_listenhost(SrvId, ListenIp, Opts),
+        ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
         % ?call_debug("UAS listenhost is ~s", [ListenHost]),
         Scheme = case Proto==tls andalso lists:member(secure, Opts) of
             true -> sips;
@@ -123,7 +123,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
         end,
         Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
             true ->
-                [nksip_transport:make_route(Scheme, Proto, ListenHost, 
+                [nksip_util:make_route(Scheme, Proto, ListenHost, 
                                             ListenPort, To#uri.user, [])];
             false ->
                 Contacts
@@ -131,7 +131,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
         UpdateRoutes = fun(#uri{user=User}=Route) ->
             case User of
                 RouteHash ->
-                    nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                    nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
                                                <<"NkS">>, [<<"lr">>]);
                 _ ->
                     Route

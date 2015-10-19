@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -114,7 +114,7 @@ get_info(SrvId, Scheme, User, Domain) ->
 
 
 %% @private
--spec is_registered([nksip:uri()], nksip_transport:transport()) ->
+-spec is_registered([nksip:uri()], nkpacket:nkport()) ->
     boolean().
 
 is_registered([], _) ->

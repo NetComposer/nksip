@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -207,7 +207,7 @@ stop_all() ->
 -record(state, {
     srv_id :: nkservice:id(),
     proto :: nksip:protocol(),
-    transport :: nksip_transport:transport(),
+    transport :: nkpacket:nkport(),
     socket :: port() | ssl:sslsocket(),
     timeout :: non_neg_integer(),
     nat_ip :: inet:ip_address(),

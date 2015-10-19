@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -231,7 +231,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     RecordRoute = case lists:member(record_route, Opts) of
         true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
                   Method=='REFER' -> 
-            nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+            nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
                                        RouteUser, [<<"lr">>]);
         _ ->
             []
@@ -240,14 +240,14 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
         true when Method=='REGISTER' ->
             case RouteUser of
                 <<"NkQ", _/binary>> ->
-                    nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                    nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
                                                RouteUser, [<<"lr">>]);
                 <<"NkF", _/binary>> ->
                     PathOpts = case FlowOb of
                         true -> [<<"lr">>, <<"ob">>];
                         false -> [<<"lr">>]
                     end,
-                    nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+                    nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
                                                RouteUser, PathOpts)
             end;
         _ ->
@@ -255,7 +255,7 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     end,
     Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
         true ->
-            Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
+            Contact = nksip_util:make_route(Scheme, Proto, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
             UUID = nksip:get_uuid(SrvId),
@@ -360,8 +360,8 @@ registrar(Req) ->
             case nksip_transport:get_connected(SrvId, Transp) of
                 [{_, Pid}|_] ->
                     Flow = encode_flow(Pid),
-                    Host = nksip_transport:get_listenhost(SrvId, ListenIp, []),
-                    Path = nksip_transport:make_route(sip, Proto, Host, ListenPort, 
+                    Host = nksip_util:get_listenhost(SrvId, ListenIp, []),
+                    Path = nksip_util:make_route(sip, Proto, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>, <<"ob">>]),
                     Headers1 = nksip_headers:update(Req, 

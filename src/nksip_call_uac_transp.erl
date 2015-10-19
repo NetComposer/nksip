@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -127,7 +127,7 @@ make_request_fun(Req, Dest, Opts) ->
             listen_ip = ListenIp, 
             listen_port = ListenPort
         } = Transp,
-        ListenHost = nksip_transport:get_listenhost(SrvId, ListenIp, Opts),
+        ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
         ?call_debug("UAC listenhost is ~s", [ListenHost]),
         {ok, Req1} = 
             SrvId:nks_sip_transport_uac_headers(Req, Opts, Scheme, 
@@ -203,21 +203,21 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     RecordRoute = case lists:member(record_route, Opts) of
         true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
                   Method=='REFER' -> 
-            nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+            nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
                                        RouteUser, [<<"lr">>]);
         _ ->
             []
     end,
     Path = case lists:member(path, Opts) of
         true when Method=='REGISTER' ->
-            nksip_transport:make_route(sip, Proto, ListenHost, ListenPort,
+            nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
                                        RouteUser, [<<"lr">>]);
         _ ->
             []
     end,
     Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
         true ->
-            Contact = nksip_transport:make_route(Scheme, Proto, ListenHost, 
+            Contact = nksip_util:make_route(Scheme, Proto, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
             UUID = nksip:get_uuid(SrvId),

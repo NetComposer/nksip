@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -86,9 +86,6 @@ start(_Type, _Args) ->
         {ok, Parsed} ->
             file:make_dir(get(local_data_path)),
             put(global_id, nklib_util:luid()),
-            put(local_ips, nksip_util:get_local_ips()),
-            put(main_ip, nksip_util:find_main_ip()),
-            put(main_ip6, nksip_util:find_main_ip(auto, ipv6)),
             put(sync_call_time, 1000*get(sync_call_time)),
             put(re_call_id, element(2, re:compile(?RE_CALL_ID, [caseless]))),
             put(re_content_length, 
@@ -97,14 +94,16 @@ start(_Type, _Args) ->
             SipDef = nklib_util:extract(Parsed, SipKeys),
             put(sip_defaults, SipDef),
             CacheKeys = [
-                global_id, local_ips, main_ip, main_ip6, re_call_id, re_content_length,
-                sip_defaults | maps:keys(Syntax1)],
+                global_id, re_call_id, re_content_length, sip_defaults 
+                | maps:keys(Syntax1)],
             nklib_config:make_cache(CacheKeys, ?APP, none, 
                                     nksip_config_cache, get(local_data_path)),
+            ok = nkpacket_config:register_protocol(sip, nksip_protocol),
+            ok = nkpacket_config:register_protocol(sips, nksip_protocol),
             {ok, Pid} = nksip_sup:start_link(),
             put(current_cseq, nksip_util:initial_cseq()-?MINUS_CSEQ),
-            MainIp = get(main_ip),
-            MainIp6 = get(main_ip6),
+            MainIp = nkpacket_config_cache:main_ip(),
+            MainIp6 = nkpacket_config_cache:main_ip6(),
             {ok, Vsn} = application:get_key(nksip, vsn),
             lager:notice("NkSIP v~s has started. Main IP is ~s (~s)", 
                          [Vsn, nklib_util:to_host(MainIp), nklib_util:to_host(MainIp6)]),

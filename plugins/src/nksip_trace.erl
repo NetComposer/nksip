@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -280,7 +280,7 @@ print(Header, #sipmsg{}=SipMsg) ->
 
 %% @private
 -spec sipmsg(nkservice:id(), nksip:call_id(), binary(), 
-             nksip_transport:transport(), binary()) ->
+             nkpacket:nkport(), binary()) ->
     ok.
 
 sipmsg(SrvId, _CallId, Header, Transport, Binary) ->

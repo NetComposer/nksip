@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -255,6 +255,13 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
             {ok, Parsed2} -> Parsed2;
             {error, Parse2Error} -> throw(Parse2Error)
         end,
+        Transp1 = case SrvSpec of
+            #{transports:=Transp0} ->
+                Transp0;
+            _ ->
+                [{[{nksip_protocol, udp, {0,0,0,0}, 5060}], #{}}]
+        end,
+        Transp2 = nksip_util:adapt_transports(SrvId, Transp1, SrvSpec2),
         Timers = #call_timers{
             t1 = maps:get(sip_timer_t1, SrvSpec2),
             t2 = maps:get(sip_timer_t2, SrvSpec2),
@@ -265,7 +272,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
         OldCache = maps:get(cache, SrvSpec, #{}),
         Cache1 = maps:with(nksip_util:cached(), SrvSpec2),
         Cache2 = Cache1#{sip_times=>Timers},
-        {ok, SrvSpec2#{cache=>maps:merge(OldCache, Cache2)}}
+        {ok, SrvSpec2#{cache=>maps:merge(OldCache, Cache2), transports=>Transp2}}
     catch
         throw:Throw -> {stop, Throw}
     end.

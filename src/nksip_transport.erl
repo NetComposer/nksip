@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2013 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -25,7 +25,6 @@
 -export([get_all/0, get_all/1, get_listening/3, get_connected/2, get_connected/5]).
 -export([is_local/2, is_local_ip/1]).
 -export([start_transport/5, default_port/1]).
--export([get_listenhost/3, make_route/6]).
 -export([send/4]).
 -export([get_all_connected/0, get_all_connected/1, stop_all_connected/0]).
 
@@ -92,7 +91,7 @@ get_listening(SrvId, Proto, Class) ->
 
 %% @private Finds a listening transport of Proto
 -spec get_connected(nkservice:id(), nksip:transport()|undefined) ->
-    [{nksip_transport:transport(), pid()}].
+    [{nkpacket:nkport(), pid()}].
 
 get_connected(SrvId, Transp) ->
     case Transp of
@@ -106,7 +105,7 @@ get_connected(SrvId, Transp) ->
 %% @private Finds a listening transport of Proto
 -spec get_connected(nkservice:id(), nksip:protocol(), 
                     inet:ip_address(), inet:port_number(), binary()) ->
-    [{nksip_transport:transport(), pid()}].
+    [{nkpacket:nkport(), pid()}].
 
 get_connected(SrvId, Proto, Ip, Port, Res) ->
     nklib_proc:values({nksip_connection, {SrvId, Proto, Ip, Port, Res}}).
@@ -122,7 +121,7 @@ is_local(SrvId, #uri{}=Uri) ->
         {#transport{proto=Proto, listen_ip=Ip, listen_port=Port, resource=Res}, _Pid} 
         <- nklib_proc:values({nksip_listen, SrvId})
     ],
-    is_local(Listen, nksip_dns:resolve(Uri), nksip_config_cache:local_ips());
+    is_local(Listen, nksip_dns:resolve(Uri), nkpacket_config_cache:local_ips());
 
 is_local(SrvId, #via{}=Via) ->
     {Proto, Host, Port} = nksip_parse:transport(Via),
@@ -215,59 +214,6 @@ start_transport(SrvId, Proto, Ip, Port, Map) ->
 
 
 
-%% @private 
--spec get_listenhost(nkservice:id(), inet:ip_address(), nksip:optslist()) ->
-    binary().
-
-get_listenhost(SrvId, Ip, Opts) ->
-    case size(Ip) of
-        4 ->
-            Host = case nklib_util:get_value(local_host, Opts) of
-                undefined -> SrvId:cache_packet_local_host();
-                Host0 -> Host0
-            end,
-            case Host of
-                auto when Ip == {0,0,0,0} -> 
-                    nklib_util:to_host(nksip_config_cache:main_ip()); 
-                auto ->
-                    nklib_util:to_host(Ip);
-                _ -> 
-                    Host
-            end;
-        8 ->
-            Host = case nklib_util:get_value(local_host6, Opts) of
-                undefined -> SrvId:cache_packet_local_host6();
-                Host0 -> Host0
-            end,
-            case Host of
-                auto when Ip == {0,0,0,0,0,0,0,0} -> 
-                    nklib_util:to_host(nksip_config_cache:main_ip6(), true);
-                auto -> 
-                    nklib_util:to_host(Ip, true);
-                _ -> 
-                    Host
-            end
-    end.
-
-    
-%% @private Makes a route record
--spec make_route(nksip:scheme(), nksip:protocol(), binary(), inet:port_number(),
-                 binary(), nksip:optslist()) ->
-    #uri{}.
-
-make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
-    UriOpts = case Proto of
-        tls when Scheme==sips -> Opts;
-        udp when Scheme==sip -> Opts;
-        _ -> [{<<"transport">>, nklib_util:to_binary(Proto)}|Opts] 
-    end,
-    #uri{
-        scheme = Scheme,
-        user = User,
-        domain = ListenHost,
-        port = Port,
-        opts = UriOpts
-    }.
 
 
 
@@ -370,7 +316,7 @@ send(_, [], _MakeMsg, _Opts) ->
 -spec connect(nkservice:id(), nksip:protocol(),
                        inet:ip_address(), inet:port_number(), binary(), 
                        nksip:optslist()) ->
-    {ok, pid(), nksip_transport:transport()} | {error, term()}.
+    {ok, pid(), nkpacket:nkport()} | {error, term()}.
 
 %% Do not open simultanous connections to the same destination
 connect(SrvId, Proto, Ip, Port, Res, Opts) ->
@@ -409,7 +355,7 @@ try_connect(SrvId, Proto, Ip, Port, Res, Opts, Try) ->
 %% @private Starts a new connection to a remote server
 -spec do_connect(nkservice:id(), nksip:protocol(), inet:ip_address(), inet:port_number(), 
               binary(), nksip:optslist()) ->
-    {ok, pid(), nksip_transport:transport()} | {error, term()}.
+    {ok, pid(), nkpacket:nkport()} | {error, term()}.
          
 do_connect(SrvId, Proto, Ip, Port, Res, Opts) ->
     Class = case size(Ip) of 4 -> ipv4; 8 -> ipv6 end,
