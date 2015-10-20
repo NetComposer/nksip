@@ -101,10 +101,10 @@ is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}) ->
     ReqTransId = nksip_call_lib:uas_transaction_id(TransReq),
     case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
         #trans{id=Id, class=uas, request=#sipmsg{}=InvReq} = InvUAS ->
-            #sipmsg{transport=#transport{remote_ip=CancelIp, remote_port=CancelPort}} =
-                CancelReq,
-            #sipmsg{transport=#transport{remote_ip=InvIp, remote_port=InvPort}} =
-                InvReq,
+            #sipmsg{nkport=CancelNkPort} = CancelReq,
+            {ok, {_, CancelIp, CancelPort}} = nkpacket:remote(CancelNkPort),
+            #sipmsg{nkport=InvNkPort} = InvReq,
+            {ok, {_, InvIp, InvPort}} = nkpacket:remote(InvNkPort),
             if
                 CancelIp==InvIp, CancelPort==InvPort ->
                     {true, InvUAS};

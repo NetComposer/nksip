@@ -463,7 +463,7 @@ nks_sip_connection_sent(_SipMsg, _Packet) ->
 
 %% @doc Called when a new message has been received and parsed
 -spec nks_sip_connection_recv(nkservice:id(), nksip:call_id(), 
-					       nksip:transport(), binary()) ->
+					       nkpacket:nkport(), binary()) ->
     ok | nks_sip_common().
 
 nks_sip_connection_recv(_SrvId, _CallId, _Transp, _Packet) ->

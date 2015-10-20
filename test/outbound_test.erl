@@ -22,6 +22,7 @@
 
 -module(outbound_test).
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -199,15 +200,15 @@ flow() ->
     {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
     {ok, UA1_Id} = nkservice_server:find(ua1),
     {ok, UA2_Id} = nkservice_server:find(ua2),
-    [{#transport{local_port=LocalPort1, remote_port=5090}, _}] = 
+    [{#nkport{local_port=LocalPort1, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(UA1_Id),
-    [{#transport{local_port=LocalPort2, remote_port=5090}, _}] = 
+    [{#nkport{local_port=LocalPort2, remote_port=5090}, _}] = 
         nksip_transport:get_all_connected(UA2_Id),
 
     {ok, Registrar_Id} = nkservice_server:find(Registrar),
     [
-        {#transport{local_port=5090, remote_port=LocalPortA}, _},
-        {#transport{local_port=5090, remote_port=LocalPortB}, _}
+        {#nkport{local_port=5090, remote_port=LocalPortA}, _},
+        {#nkport{local_port=5090, remote_port=LocalPortB}, _}
     ] = 
         nksip_transport:get_all_connected(Registrar_Id),
     true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortA, LocalPortB]),
@@ -223,14 +224,14 @@ flow() ->
         nksip_uac:options(ua2, Contact1#uri{headers=[{<<"route">>, QRoute2}]}, []), 
 
     [
-        {#transport{local_port=5101, remote_port=RemotePort}, _},
-        {#transport{local_port=LocalPort1, remote_port=5090}, _}
+        {#nkport{local_port=5101, remote_port=RemotePort}, _},
+        {#nkport{local_port=LocalPort1, remote_port=5090}, _}
     ] = 
         lists:sort(nksip_transport:get_all_connected(UA1_Id)),
     [
-        {#transport{local_port=5090, remote_port=LocalPortC}, _},
-        {#transport{local_port=5090, remote_port=LocalPortD}, _},
-        {#transport{local_port=RemotePort, remote_port=5101}, _}
+        {#nkport{local_port=5090, remote_port=LocalPortC}, _},
+        {#nkport{local_port=5090, remote_port=LocalPortD}, _},
+        {#nkport{local_port=RemotePort, remote_port=5101}, _}
     ] = 
         lists:sort(nksip_transport:get_all_connected(Registrar_Id)),
     true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortC, LocalPortD]),
@@ -365,8 +366,8 @@ register() ->
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
     ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
-    {ok, _, #transport{remote_port=5101}} = nksip_outbound_lib:decode_flow(Flow1),
-    {ok, _, #transport{remote_port=5103}} = nksip_outbound_lib:decode_flow(Flow2),
+    {ok, _, #nkport{remote_port=5101}} = nksip_outbound_lib:decode_flow(Flow1),
+    {ok, _, #nkport{remote_port=5103}} = nksip_outbound_lib:decode_flow(Flow2),
     ok.
 
 
@@ -394,15 +395,15 @@ proxy() ->
     #uri{user = <<"NkF", Flow2/binary>>, port = 5061,
          opts = [{<<"transport">>,<<"tls">>},<<"lr">>,<<"ob">>]} = Path2,
 
-    {ok, _Pid1, #transport{
-                    proto = tcp,
+    {ok, _Pid1, #nkport{
+                    transp = tcp,
                     local_port = 5080,
                     remote_ip = {127,0,0,1},
                     remote_port = _Remote1}
     } = nksip_outbound_lib:decode_flow(Flow1),
 
-    {ok, Pid2, #transport{
-                    proto = udp,
+    {ok, Pid2, #nkport{
+                    transp = udp,
                     local_port = 5060,
                     remote_ip = {127,0,0,1},
                     remote_port = 5101}
@@ -496,12 +497,12 @@ uac_auto() ->
     % UA3 should have two connections to Registrar
     [
         {
-            #transport{proto = tcp, local_port = Local1,
+            #nkport{transp = tcp, local_port = Local1,
                        remote_port = 5090, listen_port = 5106},
             Pid1
         },
         {
-            #transport{proto = udp, local_port = 5106,
+            #nkport{transp = udp, local_port = 5106,
                        remote_port = 5090, listen_port = 5106},
             Pid2
         }
@@ -510,12 +511,12 @@ uac_auto() ->
     {ok, RegistrarId} = nkservice_server:find(registrar),
     [
         {
-            #transport{proto = tcp, local_port = 5090,
+            #nkport{transp = tcp, local_port = 5090,
                        remote_port = Local1, listen_port=5090},
             Pid3
         },
         {
-            #transport{proto = udp, local_port = 5090, 
+            #nkport{transp = udp, local_port = 5090, 
              remote_port = 5106, listen_port = 5090},
             Pid4
         }
@@ -557,7 +558,7 @@ uac_auto() ->
     ok = nksip:stop(ua3),
     timer:sleep(100),
     [] = nksip_transport:get_all_connected(UA3_Id),
-    [{#transport{proto=udp}, _}] = nksip_transport:get_all_connected(RegistrarId),
+    [{#nkport{transp=udp}, _}] = nksip_transport:get_all_connected(RegistrarId),
     ok.
 
 

@@ -22,6 +22,7 @@
 
 -module(torture1_test).
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -83,11 +84,11 @@ valid_1_test() ->
         call_id = <<"wsinv.ndaksdj@192.0.2.1">>,
         cseq = {9, 'INVITE'},
         vias = [
-            #via{proto = udp, domain = <<"192.0.2.2">>, port = 0,
+            #via{transp = udp, domain = <<"192.0.2.2">>, port = 0,
                  opts = [{<<"branch">>, <<"390skdjuw">>}]},
-            #via{proto = tcp, domain = <<"spindle.example.com">>, port = 0,
+            #via{transp = tcp, domain = <<"spindle.example.com">>, port = 0,
                  opts = [{<<"branch">>,<<"z9hG4bK9ikj8">>}]},
-            #via{proto = udp, domain = <<"192.168.255.111">>, port = 0,
+            #via{transp = udp, domain = <<"192.168.255.111">>, port = 0,
                  opts = [{<<"branch">>,<<"z9hG4bK30239">>}]}
         ],
         content_type = {<<"application/sdp">>,[]},
@@ -159,7 +160,7 @@ valid_2_test() ->
         },
         vias = [
             #via{
-                proto = tcp, domain = <<"host1.example.com">>,
+                transp = tcp, domain = <<"host1.example.com">>,
                 port = 0, opts = [{<<"branch">>,<<"z9hG4bK-.!%66*_+`'~">>}]}
         ],
         to = {#uri{
@@ -396,7 +397,7 @@ valid_7_test() ->
         call_id = <<"longreq.onereallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallylongcallid">>,
         cseq = {3882340, 'INVITE'},
         vias = [
-            #via{proto = tcp,domain = <<"sip33.example.com">>},
+            #via{transp = tcp,domain = <<"sip33.example.com">>},
             #via{domain = <<"sip32.example.com">>},
             #via{domain = <<"sip31.example.com">>},
             #via{domain = <<"sip30.example.com">>},
@@ -430,7 +431,7 @@ valid_7_test() ->
             #via{domain = <<"sip2.example.com">>},
             #via{domain = <<"sip1.example.com">>},
             #via{
-                proto = tcp,domain = <<"host.example.com">>, port = 0,
+                transp = tcp,domain = <<"host.example.com">>, port = 0,
                 opts = [
                     {<<"received">>,<<"192.0.2.5">>},
                     {<<"branch">>,<<"verylonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglongbranchvalue">>}]
@@ -546,23 +547,23 @@ valid_10_test() ->
     #sipmsg{
         vias = [
             #via{
-                proto = udp, domain = <<"t1.example.com">>, port = 0,
+                transp = udp, domain = <<"t1.example.com">>, port = 0,
                 opts = [{<<"branch">>,<<"z9hG4bKkdjuw">>}]
             },
             #via{
-                proto = sctp, domain = <<"t2.example.com">>, port = 0,
+                transp = sctp, domain = <<"t2.example.com">>, port = 0,
                 opts = [{<<"branch">>,<<"z9hG4bKklasjdhf">>}]
             },
             #via{
-                proto = tls, domain = <<"t3.example.com">>, port = 0,
+                transp = tls, domain = <<"t3.example.com">>, port = 0,
                 opts = [{<<"branch">>,<<"z9hG4bK2980unddj">>}]
             },
             #via{
-                proto = <<"UNKNOWN">>,domain = <<"t4.example.com">>, port = 0,
+                transp = <<"UNKNOWN">>,domain = <<"t4.example.com">>, port = 0,
                 opts = [{<<"branch">>,<<"z9hG4bKasd0f3en">>}]
             },
             #via{
-                proto = tcp, domain = <<"t5.example.com">>, port = 0,
+                transp = tcp, domain = <<"t5.example.com">>, port = 0,
                 opts = [{<<"branch">>,<<"z9hG4bK0a9idfnee">>}]
             }
         ]
@@ -622,7 +623,7 @@ valid_11_test() ->
         "--7a9cbec02ceef655--\r\n">>,
     #sipmsg{
         vias = [
-            #via{proto = udp,domain = <<"127.0.0.1">>, port = 5070,
+            #via{transp = udp,domain = <<"127.0.0.1">>, port = 5070,
                  opts = [
                     {<<"branch">>,<<"z9hG4bK-d87543-4dade06d0bdb11ee-1--d87543-">>}, <<"rport">>]
             }
@@ -694,7 +695,7 @@ valid_13_test() ->
 
 %% Internal
 parse(Msg) ->
-    case nksip_parse:packet(test, #transport{proto=udp}, Msg) of
+    case nksip_parse:packet(test, #nkport{transp=udp}, Msg) of
         {ok, SipMsg, <<>>} -> SipMsg;
         {ok, SipMsg, Tail} -> {tail, SipMsg, Tail}
     end.

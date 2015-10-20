@@ -35,7 +35,7 @@
 
 -export_type([srv_id/0, srv_name/0, handle/0]).
 -export_type([request/0, response/0, sipreply/0, optslist/0]).
--export_type([call/0, transport/0, uri/0, user_uri/0]).
+-export_type([call/0, uri/0, user_uri/0]).
 -export_type([header/0, header_name/0, header_value/0]).
 -export_type([scheme/0, protocol/0, method/0, sip_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
@@ -75,9 +75,6 @@
 
 %% Generic options list
 -type optslist() :: nksip_util:optslist().
-
-%% Transport
--type transport() :: #transport{}.
 
 %% Parsed SIP Uri
 -type uri() :: #uri{}.

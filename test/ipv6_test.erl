@@ -23,6 +23,7 @@
 -module(ipv6_test).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("../include/nksip.hrl").
 -include_lib("nklib/include/nklib.hrl").
 
@@ -116,20 +117,20 @@ basic() ->
             #sipmsg{
                 ruri = #uri{domain=(<<"[::1]">>)}, 
                 vias = [#via{domain=F_MainIp, opts=ViaOpts1}],
-                transport = Transp1
+                nkport = NkPort1
             } = Resp1,
             <<"::1">> = nklib_util:get_value(<<"received">>, ViaOpts1),
             RPort1 = nklib_util:get_integer(<<"rport">>, ViaOpts1),
             %% For UDP transport, local ip is set to [:::] (?)
-            #transport{
-                proto = udp,
+            #nkport{
+                transp = udp,
                 local_ip =  {0,0,0,0,0,0,0,1},
                 local_port = RPort1,
                 remote_ip = {0,0,0,0,0,0,0,1},
                 remote_port = 5071,
                 listen_ip = {0,0,0,0,0,0,0,1},
                 listen_port = 5070
-            } = Transp1,
+            } = NkPort1,
             Self ! {Ref, {ok_2, F_MainIp}}
     end,
     RUri1 = "<sip:[::1]:5071>",
@@ -147,20 +148,20 @@ basic() ->
             #sipmsg{
                 ruri = #uri{domain=(<<"[::1]">>)}, 
                 vias = [#via{domain=MainIp, opts=ViaOpts2}],
-                transport = Transp2
+                nkport = NkPort2
             } = Resp2,
             <<"::1">> = nklib_util:get_value(<<"received">>, ViaOpts2),
             RPort2 = nklib_util:get_integer(<<"rport">>, ViaOpts2),
             %% For TCP transport, local ip is set to [::1]
-            #transport{
-                proto = tcp,
+            #nkport{
+                transp = tcp,
                 local_ip =  {0,0,0,0,0,0,0,1},
                 local_port = RPort2,
                 remote_ip = {0,0,0,0,0,0,0,1},
                 remote_port = 5071,
                 listen_ip = {0,0,0,0,0,0,0,1},
                 listen_port = 5070
-            } = Transp2,
+            } = NkPort2,
             Self ! {Ref, ok_4}
     end,
     RUri2 = "<sip:[::1]:5071;transport=tcp>",
@@ -439,7 +440,7 @@ torture_8() ->
              opts = [{<<"branch">>,<<"z9hG4bKas3-111">>}]},
         #via{domain = <<"192.0.2.1">>, port = 0,
              opts = [{<<"branch">>,<<"z9hG4bKjhja8781hjuaij65144">>}]},
-        #via{proto = tcp, domain = <<"[2001:db8::9:255]">>, port = 0,
+        #via{transp = tcp, domain = <<"[2001:db8::9:255]">>, port = 0,
              opts = [{<<"branch">>,<<"z9hG4bK451jj">>}, {<<"received">>,<<"192.0.2.200">>}]}
     ]} = parse(Msg8),
     ok.
@@ -518,7 +519,7 @@ torture_10() ->
 
 
 parse(Msg) ->
-    case nksip_parse:packet(test, #transport{}, Msg) of
+    case nksip_parse:packet(test, #nkport{}, Msg) of
         {ok, SipMsg, <<>>}  -> SipMsg;
         {reply_error, Error, Bin} -> {reply_error, Error, Bin};
         {error, Error} -> {error, Error}

@@ -68,7 +68,7 @@ get_port(Pid) ->
 
 
 %% @private Starts a new listening server
--spec get_listener(nkservice:id(), nksip:transport(), nksip:optslist()) ->
+-spec get_listener(nkservice:id(), nkpacket:nkport(), nksip:optslist()) ->
     term().
 
 get_listener(SrvId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts) ->
@@ -83,7 +83,7 @@ get_listener(SrvId, #transport{listen_ip=Ip, listen_port=Port}=Transp, Opts) ->
 
 
 %% @private Starts a new connection to a remote server
--spec connect(pid(), nksip:transport()) ->
+-spec connect(pid(), nkpacket:nkport()) ->
     {ok, pid(), nkpacket:nkport()} | {error, term()}.
          
 connect(Pid, #transport{remote_ip=Ip, remote_port=Port}) ->

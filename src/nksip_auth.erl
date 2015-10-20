@@ -171,8 +171,9 @@ make_response(Realm, Req) ->
     #sipmsg{
         srv_id = SrvId, 
         call_id = CallId,
-        transport=#transport{remote_ip=Ip, remote_port=Port}
+        nkport = NkPort
     } = Req,
+    {ok, {_, Ip, Port}} = nkpacket:remote(NkPort),
     Nonce = nklib_util:luid(),
     Timeout = SrvId:cache_sip_nonce_timeout(),
     put_nonce(SrvId, CallId, Nonce, {Ip, Port}, Timeout),
@@ -340,8 +341,9 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
         class = {req, Method},
         srv_id = SrvId,
         call_id = CallId,
-        transport = #transport{remote_ip=Ip, remote_port=Port}
+        nkport = NkPort
     } = Req,
+    {ok, {_, Ip, Port}} = nkpacket:remote(NkPort),
     case
         nklib_util:get_value(scheme, AuthHeader) /= digest orelse
         nklib_util:get_value(qop, AuthHeader) /= [auth] orelse

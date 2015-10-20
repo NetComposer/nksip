@@ -26,7 +26,7 @@
 %% Defines
 %% ===================================================================
 
--define(VERSION, "0.4.0").
+-define(VERSION, "0.5.0").
 
 -define(
     DO_LOG(Level, App, CallId, Text, Opts),
@@ -98,17 +98,17 @@
 % }).
 
 
--record(transport, {
-    proto = udp :: nksip:protocol(),
-    local_ip :: inet:ip_address(),
-    local_port :: inet:port_number(),
-    remote_ip :: inet:ip_address(),
-    remote_port :: inet:port_number(),
-    listen_ip :: inet:ip_address(),         % Ip this transport must report as listening
-    listen_port :: inet:port_number(),
-    sctp_id :: integer(),
-    resource = <<>> :: binary()      
-}).
+% -record(transport, {
+%     proto = udp :: nksip:protocol(),
+%     local_ip :: inet:ip_address(),
+%     local_port :: inet:port_number(),
+%     remote_ip :: inet:ip_address(),
+%     remote_port :: inet:port_number(),
+%     listen_ip :: inet:ip_address(),         % Ip this transport must report as listening
+%     listen_port :: inet:port_number(),
+%     sctp_id :: integer(),
+%     resource = <<>> :: binary()      
+% }).
 
 
 -record(sipmsg, {
@@ -133,7 +133,7 @@
     headers = [] :: [nksip:header()],
     body = <<>> :: nksip:body(),
     to_tag_candidate = <<>> :: nksip:tag(),
-    transport :: nkpacket:nkport(),
+    nkport :: nkpacket:nkport(),
     start :: nklib_util:l_timestamp(),
     meta = [] :: nksip:optslist()   % No current use
 }).
@@ -147,7 +147,7 @@
 }).
 
 -record(via, {
-    proto = udp :: nksip:protocol(),
+    transp = udp :: nkpacket:transport(),
     domain = <<"invalid.invalid">> :: binary(),
     port = 0 :: inet:port_number(),
     opts = [] :: nksip:optslist()

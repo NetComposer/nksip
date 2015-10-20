@@ -76,7 +76,7 @@ incoming_sync(#sipmsg{srv_id=SrvId, call_id=CallId}=SipMsg) ->
 
 
 %% @doc Called when a new request or response has been received.
--spec incoming_sync(nkservice:id(), nksip:call_id(), nksip:transport(), binary()) ->
+-spec incoming_sync(nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
     ok | {error, too_many_calls | looped_process | timeout}.
 
 incoming_sync(SrvId, CallId, Transp, Msg) ->

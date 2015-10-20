@@ -27,6 +27,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -132,12 +133,12 @@ transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
     end,
     {Proto2, Host, Port1};
 
-transport(#via{proto=Proto, domain=Host, port=Port}) ->
+transport(#via{transp=Transp, domain=Host, port=Port}) ->
     Port1 = case Port > 0 of
         true -> Port;
-        _ -> nksip_transport:default_port(Proto)
+        _ -> nksip_transport:default_port(Transp)
     end,
-    {Proto, Host, Port1}.
+    {Transp, Host, Port1}.
 
 
 
@@ -150,7 +151,7 @@ transport(#via{proto=Proto, domain=Host, port=Port}) ->
 -spec packet(nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
     {ok, #sipmsg{}} | {error, term()} | {reply_error, term(), binary()}.
 
-packet(SrvId, CallId, Transp, Packet) ->
+packet(SrvId, CallId, NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
     case nksip_parse_sipmsg:parse(Packet) of
         {ok, Class, Headers, Body} ->
@@ -181,7 +182,7 @@ packet(SrvId, CallId, Transp, Packet) ->
                     ruri = RUri1,
                     call_id = CallId,
                     body = Body,
-                    transport = Transp,
+                    nkport = NkPort,
                     start = Start
                 },
                 {ok, parse_sipmsg(Req0, Headers)}
@@ -208,9 +209,9 @@ packet(SrvId, CallId, Transp, Packet) ->
     {ok, #sipmsg{}, binary()} | partial | {error, term()} |
     {reply_error, term(), binary()}.
 
-packet(SrvId, #transport{proto=Proto}=Transp, Packet) ->
+packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
-    case nksip_parse_sipmsg:parse(Proto, Packet) of
+    case nksip_parse_sipmsg:parse(Transp, Packet) of
         {ok, Class, Headers, Body, Rest} ->
             try 
                 CallId = case nklib_util:get_value(<<"call-id">>, Headers) of
@@ -239,7 +240,7 @@ packet(SrvId, #transport{proto=Proto}=Transp, Packet) ->
                     ruri = RUri1,
                     call_id = CallId,
                     body = Body,
-                    transport = Transp,
+                    nkport = NkPort,
                     start = Start
                 },
                 {ok, parse_sipmsg(Req0, Headers), Rest}

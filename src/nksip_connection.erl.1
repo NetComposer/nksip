@@ -62,7 +62,7 @@ is_max(SrvId) ->
 
 
 %% @doc Starts a new connection
--spec start_link(nkservice:id(), nksip:transport(), port()|pid(), integer()) ->
+-spec start_link(nkservice:id(), nkpacket:nkport(), port()|pid(), integer()) ->
     {ok, pid()}.
 
 start_link(SrvId, Transport, SocketOrPid, Timeout) -> 
@@ -154,7 +154,7 @@ set_timeout(Pid, Secs) ->
 
 %% @private Gets the transport record (and extends the timeout)
 -spec get_transport(pid()) ->
-    {ok, nksip:transport()} | error.
+    {ok, nkpacket:nkport()} | error.
 
 get_transport(Pid) ->
     case is_process_alive(Pid) of
@@ -587,7 +587,7 @@ do_parse(Data, State) ->
 
 
 %% @private
--spec do_parse(nkservice:id(), nksip:transport(), binary(), integer(), #state{}) ->
+-spec do_parse(nkservice:id(), nkpacket:nkport(), binary(), integer(), #state{}) ->
     {ok, #state{}} | {error, term()}.
 
 do_parse(SrvId, Transp, Data, Pos, State) ->

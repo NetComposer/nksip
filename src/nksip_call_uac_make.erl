@@ -24,6 +24,7 @@
 
 -export([make/4, proxy_make/2, make_cancel/2, make_ack/2, make_ack/1]).
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
  
 
@@ -71,7 +72,7 @@ make(SrvId, Method, Uri, Opts) ->
             call_id = CallId,
             cseq = {nksip_util:get_cseq(), Method1},
             forwards = 70,
-            transport = #transport{},
+            nkport = #nkport{},
             start = nklib_util:l_timestamp()
         },
         Opts1 = case SrvId:cache_sip_route() of

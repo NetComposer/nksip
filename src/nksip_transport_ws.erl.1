@@ -51,7 +51,7 @@
 
 
 %% @private Starts a new listening server
--spec get_listener(nkservice:id(), nksip:transport(), nksip:optslist()) ->
+-spec get_listener(nkservice:id(), nkpacket:nkport(), nksip:optslist()) ->
     term().
 
 get_listener(SrvId, Transp, Opts) ->
@@ -76,7 +76,7 @@ get_listener(SrvId, Transp, Opts) ->
 
 
 %% @private Starts a new connection to a remote server
--spec connect(nkservice:id(), nksip:transport(), nksip:optslist()) ->
+-spec connect(nkservice:id(), nkpacket:nkport(), nksip:optslist()) ->
     {ok, term()} | {error, term()}.
          
 connect(SrvId, Transp, Opts) ->
@@ -163,7 +163,7 @@ recv(Mod, Socket, Buff) ->
 
 -record(state, {
     srv_id :: nkservice:id(),
-    transport :: nksip:transport(),
+    transport :: nkpacket:nkport(),
     webserver :: reference(),
     timeout :: pos_integer()
 }).

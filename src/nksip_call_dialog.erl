@@ -53,8 +53,9 @@ create(Class, Req, Resp, Call) ->
         from = {From, FromTag},
         to = {To, _},
         cseq = {CSeq, _},
-        transport = #transport{proto=Proto}
+        nkport = NkPort
     } = Resp,
+    {ok, {Transp, _, _}} = nkpacket:local(NkPort),
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     ?call_debug("Dialog ~s ~s created", [DialogId, UA]),
     nklib_counters:async([nksip_dialogs]),
@@ -70,7 +71,7 @@ create(Class, Req, Resp, Call) ->
         route_set = [],
         blocked_route_set = false,
         early = true,
-        secure = Proto==tls andalso Scheme==sips,
+        secure = Transp==tls andalso Scheme==sips,
         caller_tag = FromTag,
         invite = undefined,
         subscriptions = [],

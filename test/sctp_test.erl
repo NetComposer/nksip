@@ -23,6 +23,7 @@
 -module(sctp_test).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("../include/nksip.hrl").
 
 -compile([export_all]).
@@ -78,17 +79,17 @@ basic() ->
     Ref = make_ref(),
 
     Fun = fun
-        ({req, #sipmsg{vias=[#via{proto=sctp}], transport=ReqTransp}, _Call}) ->
-            #transport{
-                proto = sctp,
+        ({req, #sipmsg{vias=[#via{transp=sctp}], nkport=ReqNkPort}, _Call}) ->
+            #nkport{
+                transp = sctp,
                 local_port = FLocalPort,
                 remote_ip = {127,0,0,1},
                 remote_port = 5071,
                 listen_port = 5070,
-                sctp_id = FSctpId
-            } = ReqTransp,
+                socket = {_, FSctpId}
+            } = ReqNkPort,
             Self ! {Ref, {cb1, FLocalPort, FSctpId}};
-        ({resp, 200, #sipmsg{vias=[#via{proto=sctp}]}, _Call}) ->
+        ({resp, 200, #sipmsg{vias=[#via{transp=sctp}]}, _Call}) ->
             Self ! {Ref, cb2}
     end,
     {async, _} = nksip_uac:options(client1, SipC2, [async, {callback, Fun}, get_request]),
@@ -97,13 +98,13 @@ basic() ->
 
     % client1 should have started a new transport to client2:5071
     {ok, C1} = nkservice_server:find(client1),
-    [LocPid] = [Pid || {#transport{proto=sctp, local_port=LP, remote_port=5071,
-                                   sctp_id=Id}, Pid} 
+    [LocPid] = [Pid || {#nkport{transp=sctp, local_port=LP, remote_port=5071,
+                                   socket={_, Id}}, Pid} 
                         <- nksip_transport:get_all(C1), LP=:=LocalPort, Id=:=SctpId],
 
     % client2 should not have started a new transport also to client1:5070
     {ok, C2} = nkservice_server:find(client2),
-    [RemPid] = [Pid || {#transport{proto=sctp, remote_port=5070}, Pid} 
+    [RemPid] = [Pid || {#nkport{transp=sctp, remote_port=5070}, Pid} 
                        <- nksip_transport:get_all(C2)],
 
     % client1 should have started a new connection. client2 too.

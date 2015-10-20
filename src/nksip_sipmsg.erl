@@ -28,14 +28,16 @@
 -export([supported/2, require/2, is_dialog_forming/1, get_handle/1, parse_handle/1]).
 -export([remote_meta/2, remote_metas/2]).
 -export_type([id/0, field/0]).
+
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 
 -type id() :: binary().
 
 -type field() ::  
     handle | internal_id | srv_id | srv_name | dialog_handle | subscription_handle |
-    proto | local | remote | method | ruri | scheme | user | domain | aor |
+    transp | local | remote | method | ruri | scheme | user | domain | aor |
     code | reason_phrase | content_type | body | call_id | vias | 
     from | from_tag | from_scheme | from_user | from_domain | 
     to | to_tag | to_scheme | to_user | to_domain | 
@@ -69,22 +71,22 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
         srv_name -> apply(S#sipmsg.srv_id, name, []);
         dialog_handle -> nksip_dialog_lib:get_handle(S);
         subscription_handle -> nksip_subscription_lib:get_handle(S);
-        proto -> 
-            case S#sipmsg.transport of
-                #transport{proto=P} -> P; 
+        transp -> 
+            case S#sipmsg.nkport of
+                #nkport{transp=P} -> P; 
                 _ -> undefined 
             end;
         local -> 
-            case S#sipmsg.transport of 
-                #transport{proto=P, local_ip=Ip, local_port=Port, resource=Res} -> 
-                    {P, Ip, Port, Res};
+            case S#sipmsg.nkport of 
+                #nkport{transp=P, local_ip=Ip, local_port=Port} -> 
+                    {P, Ip, Port, <<"KK">>};
                 _ -> 
                     undefined
             end;
         remote -> 
-            case S#sipmsg.transport of 
-                #transport{proto=P, remote_ip=Ip, remote_port=Port, resource=Res} -> 
-                    {P, Ip, Port, Res};
+            case S#sipmsg.nkport of 
+                #nkport{transp=P, remote_ip=Ip, remote_port=Port} -> 
+                    {P, Ip, Port, <<"KK">>};
                 _ -> 
                     undefined
             end;

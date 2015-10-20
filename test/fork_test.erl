@@ -22,6 +22,7 @@
 
 -module(fork_test).
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
 
@@ -701,7 +702,7 @@ get_port(App, Proto, Class) ->
     case nkservice_server:find(App) of
         {ok, SrvId} -> 
             case nksip_transport:get_listening(SrvId, Proto, Class) of
-                [{#transport{listen_port=Port}, _Pid}|_] -> Port;
+                [{#nkport{listen_port=Port}, _Pid}|_] -> Port;
                 _ -> not_found
             end;
         not_found ->

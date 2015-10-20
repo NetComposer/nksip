@@ -300,7 +300,7 @@ send_reply(Resp, Fork, Call) ->
         #trans{class=uas}=UAS ->
             ?call_debug("Fork ~p ~p send reply to UAS: ~p", [TransId, Method, Code]),
             % Put the original transport back in the response
-            Resp1 = Resp#sipmsg{transport=Req#sipmsg.transport},
+            Resp1 = Resp#sipmsg{nkport=Req#sipmsg.nkport},
             nksip_call_uas:do_reply({Resp1, []}, UAS, Call);
         _ ->
             ?call_debug("Unknown UAS ~p received fork reply", [TransId]),

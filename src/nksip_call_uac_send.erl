@@ -117,17 +117,18 @@ sent_request(Req, UAC, Call) ->
     #sipmsg{
         class = {req, Method}, 
         to = {_, ToTag}, 
-        transport = #transport{proto=Proto}
+        nkport = NkPort
     } = Req,
     #trans{
         id = TransId, 
         opts = Opts, 
         from = From
     } = UAC,
+    {ok, {Transp, _, _}} = nkpacket:local(NkPort),
     ?call_debug("UAC ~p sent ~p request", [TransId, Method]),
     UAC1 = UAC#trans{
         request = Req, 
-        proto = Proto,
+        transp = Transp,
         trans_id = nksip_call_lib:uac_transaction_id(Req)
     },
     Call1 = update(UAC1, Call),
@@ -148,22 +149,22 @@ sent_request(Req, UAC, Call) ->
 -spec sent_update(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-sent_update(#sipmsg{class={req, 'INVITE'}}, #trans{proto=Proto}=UAC, Call) ->
+sent_update(#sipmsg{class={req, 'INVITE'}}, #trans{transp=Transp}=UAC, Call) ->
     UAC1 = UAC#trans{status=invite_calling},
     UAC2 = nksip_call_lib:expire_timer(expire, UAC1, Call),
     UAC3 = nksip_call_lib:timeout_timer(timer_b, UAC2, Call),
-    UAC4 = case Proto of 
-        udp -> 
+    UAC4 = case Transp of
+        udp ->
             nksip_call_lib:retrans_timer(timer_a, UAC3, Call);
         _ -> 
             UAC3
     end,
     update(UAC4, Call);
 
-sent_update(#sipmsg{class={req, Method}}=Req, #trans{proto=Proto}=UAC, Call) ->
+sent_update(#sipmsg{class={req, Method}}=Req, #trans{transp=Transp}=UAC, Call) ->
     UAC1 = UAC#trans{status=trying},
     UAC2 = nksip_call_lib:timeout_timer(timer_f, UAC1, Call),
-    UAC3 = case Proto of 
+    UAC3 = case Transp of 
         udp -> 
             nksip_call_lib:retrans_timer(timer_e, UAC2, Call);
         _ -> 

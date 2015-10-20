@@ -22,6 +22,7 @@
 
 -module(register_test).
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -176,8 +177,8 @@ register1() ->
     Request1 = #sipmsg{
                 srv_id = element(2, nkservice_server:find(server1)), 
                 from = {#uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>}, <<>>},
-                transport = #transport{
-                                proto = udp, 
+                nkport = #nkport{
+                                transp = udp, 
                                 remote_ip = {127,0,0,1}, 
                                 remote_port=Port}},
 
@@ -186,8 +187,8 @@ register1() ->
     {ok, Ip} = nklib_util:to_ip(Domain),
     
     % Now coming from the Contact's registered address
-    Request2 = Request1#sipmsg{transport=(Request1#sipmsg.transport)
-                                                #transport{remote_ip=Ip}},
+    Request2 = Request1#sipmsg{nkport=(Request1#sipmsg.nkport)
+                                                #nkport{remote_ip=Ip}},
     true = nksip_registrar:is_registered(Request2),
 
     ok = nksip_registrar:delete(server1, sip, <<"client1">>, <<"nksip">>),

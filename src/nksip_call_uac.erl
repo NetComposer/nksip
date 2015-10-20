@@ -239,7 +239,7 @@ make_trans(Req, Opts, From, Call) ->
         request = Req#sipmsg{dialog_id=DialogId},
         method = Method,
         ruri = RUri,
-        proto = undefined,
+        transp = undefined,
         response = undefined,
         code = 0,
         to_tags = [],

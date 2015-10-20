@@ -26,6 +26,7 @@
 -export([normalize_uriset/1]).
 
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -119,16 +120,16 @@ route_stateless(Req, Uri, ProxyOpts, _Call) ->
 response_stateless(#sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
     Call;
 
-response_stateless(#sipmsg{vias=[_, Via|RestVias], transport=Transp}=Resp, Call) ->
+response_stateless(#sipmsg{vias=[_, Via|RestVias], nkport=NkPort}=Resp, Call) ->
     #sipmsg{cseq={_, Method}, class={resp, Code, _}} = Resp,
-    #via{proto=ViaProto, port=ViaPort, opts=ViaOpts} = Via,
+    #via{transp=ViaTransp, port=ViaPort, opts=ViaOpts} = Via,
     {ok, RIp} = nklib_util:to_ip(nklib_util:get_value(<<"received">>, ViaOpts)),
     RPort = case nklib_util:get_integer(<<"rport">>, ViaOpts) of
         0 -> ViaPort;
         RPort0 -> RPort0
     end,
-    Transp1 = Transp#transport{proto=ViaProto, remote_ip=RIp, remote_port=RPort},
-    Resp1 = Resp#sipmsg{vias=[Via|RestVias], transport=Transp1},
+    NkPort1 = NkPort#nkport{transp=ViaTransp, remote_ip=RIp, remote_port=RPort},
+    Resp1 = Resp#sipmsg{vias=[Via|RestVias], nkport=NkPort1},
     case nksip_call_uas_transp:send_response(Resp1, []) of
         {ok, _} -> 
             ?call_debug("Stateless proxy sent ~p ~p response", [Method, Code]);

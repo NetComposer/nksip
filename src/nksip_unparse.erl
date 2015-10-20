@@ -301,7 +301,7 @@ do_error_reason({Name, Code, Text}) ->
 
 raw_via(#via{}=Via) ->
     [
-        <<"SIP/2.0/">>, string:to_upper(nklib_util:to_list(Via#via.proto)), 
+        <<"SIP/2.0/">>, string:to_upper(nklib_util:to_list(Via#via.transp)), 
         32, Via#via.domain, 
         case Via#via.port of
             0 -> [];

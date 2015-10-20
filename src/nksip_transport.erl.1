@@ -90,7 +90,7 @@ get_listening(SrvId, Proto, Class) ->
 
 
 %% @private Finds a listening transport of Proto
--spec get_connected(nkservice:id(), nksip:transport()|undefined) ->
+-spec get_connected(nkservice:id(), nkpacket:nkport()|undefined) ->
     [{nkpacket:nkport(), pid()}].
 
 get_connected(SrvId, Transp) ->
@@ -226,7 +226,7 @@ start_transport(SrvId, Proto, Ip, Port, Map) ->
 -spec send(nkservice:id(), [TSpec], function(), nksip:optslist()) ->
     {ok, nksip:request()|nksip:response()} | error
     when TSpec :: #uri{} | connection() | {current, connection()} | 
-                  {flow, {pid(), nksip:transport()}}.
+                  {flow, {pid(), nkpacket:nkport()}}.
 
 send(SrvId, [#uri{}=Uri|Rest], MakeMsg, Opts) ->
     Resolv = nksip_dns:resolve(Uri),

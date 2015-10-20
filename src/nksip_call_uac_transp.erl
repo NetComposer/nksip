@@ -25,6 +25,7 @@
 -export([send_request/2, resend_request/2, add_headers/6]).
 
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -95,10 +96,10 @@ send_request(Req, Opts) ->
 -spec resend_request(nksip:request(), nksip:optslist()) -> 
     {ok, nksip:request()} | error.
 
-resend_request(#sipmsg{srv_id=SrvId, transport=Transport}=Req, Opts) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
-    MakeReq = fun(_) -> Req end,
-    nksip_transport:send(SrvId, [{Proto, Ip, Port, Res}], MakeReq, Opts).
+resend_request(#sipmsg{srv_id=SrvId, nkport=NkPort}=Req, Opts) ->
+    % #transport{proto=Transp, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
+    MakeReq = fun(_) -> Req end.
+    % nksip_transport:send(SrvId, [{Transp, Ip, Port, Res}], MakeReq, Opts).
         
 
 
@@ -121,17 +122,17 @@ make_request_fun(Req, Dest, Opts) ->
         body = Body
     } = Req,
     #uri{scheme=Scheme} = Dest,     % RUri or first route
-    fun(Transp) ->
-        #transport{
-            proto = Proto, 
+    fun(NkPort) ->
+        #nkport{
+            transp = Transp, 
             listen_ip = ListenIp, 
             listen_port = ListenPort
-        } = Transp,
+        } = NkPort,
         ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
         ?call_debug("UAC listenhost is ~s", [ListenHost]),
         {ok, Req1} = 
             SrvId:nks_sip_transport_uac_headers(Req, Opts, Scheme, 
-                                             Proto, ListenHost, ListenPort),
+                                             Transp, ListenHost, ListenPort),
         IsStateless = lists:member(stateless_via, Opts),
         GlobalId = nksip_config_cache:global_id(),
         Branch = case Vias of
@@ -158,7 +159,7 @@ make_request_fun(Req, Dest, Opts) ->
                 <<"z9hG4bK", BaseBranch/binary, $-, NkSIP/binary>>
         end,
         Via1 = #via{
-            proto = Proto, 
+            transp = Transp, 
             domain = ListenHost, 
             port = ListenPort, 
             opts = [<<"rport">>, {<<"branch">>, Branch}]
@@ -168,7 +169,7 @@ make_request_fun(Req, Dest, Opts) ->
             _ -> Body
         end,
         Req1#sipmsg{
-            transport = Transp,
+            nkport = NkPort,
             ruri = RUri#uri{ext_opts=[], ext_headers=[]},
             vias = [Via1|Vias],
             routes = Routes,
@@ -182,7 +183,7 @@ make_request_fun(Req, Dest, Opts) ->
                   nksip:protocol(), binary(), inet:port_number()) ->
     nksip:request().
 
-add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
+add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
     #sipmsg{
         class = {req, Method},
         srv_id = SrvId, 
@@ -203,21 +204,21 @@ add_headers(Req, Opts, Scheme, Proto, ListenHost, ListenPort) ->
     RecordRoute = case lists:member(record_route, Opts) of
         true when Method=='INVITE'; Method=='SUBSCRIBE'; Method=='NOTIFY';
                   Method=='REFER' -> 
-            nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
+            nksip_util:make_route(sip, Transp, ListenHost, ListenPort,
                                        RouteUser, [<<"lr">>]);
         _ ->
             []
     end,
     Path = case lists:member(path, Opts) of
         true when Method=='REGISTER' ->
-            nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
+            nksip_util:make_route(sip, Transp, ListenHost, ListenPort,
                                        RouteUser, [<<"lr">>]);
         _ ->
             []
     end,
     Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
         true ->
-            Contact = nksip_util:make_route(Scheme, Proto, ListenHost, 
+            Contact = nksip_util:make_route(Scheme, Transp, ListenHost, 
                                                  ListenPort, From#uri.user, []),
             #uri{ext_opts=CExtOpts} = Contact,
             UUID = nksip:get_uuid(SrvId),

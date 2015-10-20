@@ -23,6 +23,7 @@
 
 -module(torture3_test).
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -426,7 +427,7 @@ application_15() ->
 
 parse(Msg) ->
     {ok, SrvId} = nkservice_server:find(server1),
-    case nksip_parse:packet(SrvId, #transport{proto=udp}, Msg) of
+    case nksip_parse:packet(SrvId, #nkport{transp=udp}, Msg) of
         {ok, SipMsg, <<>>} -> SipMsg;
         {ok, SipMsg, Tail} -> {tail, SipMsg, Tail};
         partial -> partial;

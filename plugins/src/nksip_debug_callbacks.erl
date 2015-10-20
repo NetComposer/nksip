@@ -35,25 +35,25 @@
     continue.
 
 nks_sip_connection_sent(SipMsg, Packet) ->
-    #sipmsg{srv_id=_SrvId, class=Class, call_id=_CallId, transport=Transp} = SipMsg,
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
+    #sipmsg{srv_id=_SrvId, class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
+    {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
     case Class of
         {req, Method} ->
-            nksip_debug:insert(SipMsg, {Proto, Ip, Port, Method, Packet});
+            nksip_debug:insert(SipMsg, {Transp, Ip, Port, Method, Packet});
         {resp, Code, _Reason} ->
-            nksip_debug:insert(SipMsg, {Proto, Ip, Port, Code, Packet})
+            nksip_debug:insert(SipMsg, {Transp, Ip, Port, Code, Packet})
     end,
     continue.
 
 
 %% @doc Called when a new message has been received and parsed
 -spec nks_sip_connection_recv(nkservice:id(), nksip:call_id(), 
-                           nksip:transport(), binary()) ->
+                           nkpacket:nkport(), binary()) ->
     continue.
 
-nks_sip_connection_recv(SrvId, CallId, Transp, Packet) ->
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port} = Transp,
-    nksip_debug:insert(SrvId, CallId, {Proto, Ip, Port, Packet}),
+nks_sip_connection_recv(SrvId, CallId, NkPort, Packet) ->
+    {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
+    nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
     continue.
 
 

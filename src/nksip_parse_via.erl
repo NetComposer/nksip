@@ -91,7 +91,7 @@ proto([Ch|Rest], Acc, Via) when Ch==32; Ch==9; Ch==13 ->
             {error, proto, ?LINE};
         _ ->
             Raw = lists:reverse(Acc),
-            Proto = case string:to_lower(Raw) of
+            Transp = case string:to_lower(Raw) of
                 "udp" -> udp;
                 "tcp" -> tcp;
                 "tls" -> tls;
@@ -100,7 +100,7 @@ proto([Ch|Rest], Acc, Via) when Ch==32; Ch==9; Ch==13 ->
                 "wss" -> wss;
                 _ -> list_to_binary(Raw)
             end,
-            domain(strip(Rest), [], false, Via#via{proto=Proto})
+            domain(strip(Rest), [], false, Via#via{transp=Transp})
     end;
 
 proto([Ch|Rest], Acc, Via) ->
@@ -314,16 +314,16 @@ via_test() ->
     error = vias("SIP/3.0/udp host"),
     error = vias("SIP/2.0/udp "),
     error = vias("SIP/2.0/udp a, "),
-    [#via{proto=udp, port=0, opts=[<<"rport">>, {<<"received">>, <<"1.2.3.4">>}, <<"c">>]}] =
+    [#via{transp=udp, port=0, opts=[<<"rport">>, {<<"received">>, <<"1.2.3.4">>}, <<"c">>]}] =
         vias("SIP/2.0/udp host;rport;received=1.2.3.4 ; c"),
     [
-        #via{proto = <<"kkk">>, domain = <<"host">>, port=1500, opts=[]},
-        #via{proto = udp, domain = <<"[1:2::3]">>, port=25, opts = [<<"d">>]}
+        #via{transp = <<"kkk">>, domain = <<"host">>, port=1500, opts=[]},
+        #via{transp = udp, domain = <<"[1:2::3]">>, port=25, opts = [<<"d">>]}
     ] = 
         vias("  SIP  / 2.0  / kkk     host : 1500  ,  SIP/2.0/UdP [1:2::3]:25;d"),
     [#via{domain= <<"host">>, port=12}] = vias("  SIP / 2.0/TCP host:12"),
     [
-        #via{proto=tls, domain= <<"host">>, port=0},
+        #via{transp=tls, domain= <<"host">>, port=0},
         #via{domain= <<"host2">>, port=5061, 
             opts=[<<"maddr">>, {<<"received">>, <<"1.2.3.4">>}, <<"a">>]}
     ] = 

@@ -44,7 +44,7 @@ response(Resp, UAC, Call) ->
         class = {resp, Code, _Reason}, 
         id = MsgId, 
         dialog_id = DialogId,
-        transport = Transport
+        nkport = NkPort
     } = Resp,
     #trans{
         id = TransId, 
@@ -78,7 +78,7 @@ response(Resp, UAC, Call) ->
     UAC1 = UAC#trans{response=Resp1, code=Code1},
     Call2 = update(UAC1, Call1),
     NoDialog = lists:member(no_dialog, Opts),
-    case Transport of
+    case NkPort of
         undefined -> 
             ok;    % It is own-generated
         _ -> 
@@ -160,7 +160,7 @@ response_status(invite_proceeding, Resp, #trans{code=Code, opts=Opts}=UAC, Call)
 
 
 % Final [3456]xx response received, own error response
-response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
+response_status(invite_proceeding, #sipmsg{nkport=undefined}=Resp, UAC, Call) ->
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
     UAC1 = UAC#trans{status=finished, cancel=undefined},
     UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
@@ -171,7 +171,7 @@ response_status(invite_proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call)
 % Final [3456]xx response received, real response
 response_status(invite_proceeding, Resp, UAC, Call) ->
     #sipmsg{to={To, ToTag}} = Resp,
-    #trans{request=Req, proto=Proto} = UAC,
+    #trans{request=Req, transp=Transp} = UAC,
     #call{srv_id=SrvId} = Call,
     UAC1 = UAC#trans{
         request = Req#sipmsg{to={To, ToTag}}, 
@@ -182,7 +182,7 @@ response_status(invite_proceeding, Resp, UAC, Call) ->
     UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
     UAC3 = nksip_call_lib:expire_timer(cancel, UAC2, Call),
     send_ack(UAC3, Call),
-    UAC5 = case Proto of
+    UAC5 = case Transp of
         udp -> 
             UAC4 = UAC3#trans{status=invite_completed},
             nksip_call_lib:timeout_timer(timer_d, UAC4, Call);
@@ -239,7 +239,7 @@ response_status(proceeding, #sipmsg{class={resp, Code, _Reason}}=Resp, UAC, Call
     nksip_call_uac_reply:reply({resp, Resp}, UAC, Call);
 
 % Final response received, own error response
-response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
+response_status(proceeding, #sipmsg{nkport=undefined}=Resp, UAC, Call) ->
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
     UAC1 = UAC#trans{status=finished},
     UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
@@ -248,9 +248,9 @@ response_status(proceeding, #sipmsg{transport=undefined}=Resp, UAC, Call) ->
 % Final response received, real response
 response_status(proceeding, Resp, UAC, Call) ->
     #sipmsg{to={_, ToTag}} = Resp,
-    #trans{request=Req, proto=Proto} = UAC,
+    #trans{request=Req, transp=Transp} = UAC,
     #call{srv_id=SrvId} = Call,
-    UAC2 = case Proto of
+    UAC2 = case Transp of
         udp -> 
             UAC1 = UAC#trans{
                 status = completed, 

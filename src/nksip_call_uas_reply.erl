@@ -171,11 +171,11 @@ stateful_reply(invite_proceeding, Code, UAS, Call) when Code < 300 ->
     nksip_call_lib:timeout_timer(timer_l, UAS3, Call);
 
 stateful_reply(invite_proceeding, Code, UAS, Call) when Code >= 300 ->
-    #trans{proto=Proto} = UAS,
+    #trans{transp=Transp} = UAS,
     UAS1 = UAS#trans{status=invite_completed, request=undefined},
     UAS2 = nksip_call_lib:expire_timer(cancel, UAS1, Call),
     UAS3 = nksip_call_lib:timeout_timer(timer_h, UAS2, Call),
-    case Proto of 
+    case Transp of 
         udp -> 
             nksip_call_lib:retrans_timer(timer_g, UAS3, Call);
         _ -> 
@@ -189,8 +189,8 @@ stateful_reply(proceeding, Code, UAS, _Call) when Code < 200 ->
     UAS;
 
 stateful_reply(proceeding, Code, UAS, Call) when Code >= 200 ->
-    #trans{proto=Proto} = UAS,
-    case Proto of
+    #trans{transp=Transp} = UAS,
+    case Transp of
         udp -> 
             UAS1 = UAS#trans{status=completed, request=undefined},
             nksip_call_lib:timeout_timer(timer_j, UAS1, Call);

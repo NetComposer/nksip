@@ -496,7 +496,7 @@ make_notify(Req) ->
         contacts = nklib_parse:uris("sip:127.0.0.1:5070"),
         expires = 0,
         headers = [{<<"subscription-state">>, <<"active;expires=5">>}],
-        transport = undefined
+        nkport = undefined
     }.
 
 

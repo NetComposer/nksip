@@ -104,12 +104,12 @@ is_trans_ack(_, _) ->
     nksip_call:call().
 
 process_trans_ack(InvUAS, Call) ->
-    #trans{id=Id, status=Status, proto=Proto} = InvUAS,
+    #trans{id=Id, status=Status, transp=Transp} = InvUAS,
     case Status of
         invite_completed ->
             InvUAS1 = InvUAS#trans{response=undefined},
             InvUAS2 = nksip_call_lib:retrans_timer(cancel, InvUAS1, Call),
-            InvUAS4 = case Proto of 
+            InvUAS4 = case Transp of 
                 udp -> 
                     InvUAS3 = InvUAS2#trans{status=invite_confirmed},
                     nksip_call_lib:timeout_timer(timer_i, InvUAS3, Call);
@@ -197,7 +197,7 @@ process_request(Req, UASTransId, Call) ->
         class = {req, Method}, 
         id = MsgId, 
         ruri = RUri, 
-        transport = Transp, 
+        nkport = NkPort, 
         to = {_, ToTag}
     } = Req1,
     #call{
@@ -213,6 +213,7 @@ process_request(Req, UASTransId, Call) ->
         'ACK' -> ack;
         _ -> trying
     end,
+    {ok, {Transp, _, _}} = nkpacket:local(NkPort),
     UAS = #trans{
         id = NextId,
         class = uas,
@@ -224,7 +225,7 @@ process_request(Req, UASTransId, Call) ->
         request = Req1#sipmsg{dialog_id=DialogId},
         method = Method,
         ruri = RUri,
-        proto = Transp#transport.proto,
+        transp = Transp,
         response = undefined,
         code = 0,
         to_tags = [],
@@ -299,16 +300,17 @@ loop_id(#sipmsg{from={_, FromTag}, cseq={CSeq, Method}}) ->
 preprocess(Req) ->
     #sipmsg{
         to = {_, ToTag},
-        transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}, 
+        nkport = NkPort, 
         vias = [Via|ViaR]
     } = Req,
+    {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
     Received = nklib_util:to_host(Ip, false), 
     ViaOpts1 = [{<<"received">>, Received}|Via#via.opts],
     % For UDP, we honor the rport option
     % For connection transports, we force inclusion of remote port 
     % to reuse the same connection
     ViaOpts2 = case lists:member(<<"rport">>, ViaOpts1) of
-        false when Proto==udp -> 
+        false when Transp==udp -> 
             ViaOpts1;
         _ -> 
             [{<<"rport">>, nklib_util:to_binary(Port)} | ViaOpts1 -- [<<"rport">>]]
@@ -364,8 +366,9 @@ ruri_has_maddr(Request) ->
     #sipmsg{
         srv_id = SrvId, 
         ruri = RUri, 
-        transport=#transport{proto=Proto, local_port=LPort}
+        nkport = NkPort
     } = Request,
+    {ok, {Transp, _, LPort}} = nkpacket:local(NkPort),
     case nklib_util:get_binary(<<"maddr">>, RUri#uri.opts) of
         <<>> ->
             Request;
@@ -373,7 +376,7 @@ ruri_has_maddr(Request) ->
             case nksip_transport:is_local(SrvId, RUri#uri{domain=MAddr}) of
                 true ->
                     case nksip_parse:transport(RUri) of
-                        {Proto, _, LPort} ->
+                        {Transp, _, LPort} ->
                             RUri1 = RUri#uri{
                                 port = 0,
                                 opts = nklib_util:delete(RUri#uri.opts, 

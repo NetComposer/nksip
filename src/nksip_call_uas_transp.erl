@@ -25,6 +25,7 @@
 -export([send_response/2, resend_response/2]).
     
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
@@ -44,13 +45,16 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
         call_id = CallId,
         vias = [Via|_],
         cseq = {_, Method},
-        transport = Transp
+        nkport = NkPort
     } = Resp,
-    #via{proto=ViaProto, domain=ViaDomain, port=ViaPort, opts=ViaOpts} = Via,
-    #transport{proto=RProto, remote_ip=RIp, remote_port=RPort, resource=Res} = Transp,
+    #via{transp=ViaTransp, domain=ViaDomain, port=ViaPort, opts=ViaOpts} = Via,
+    #nkport{transp=RTransp, remote_ip=RIp, remote_port=RPort} = NkPort,
+
+    Res = <<>>,
+
     % {ok, RIp} = nklib_util:to_ip(nklib_util:get_value(<<"received">>, ViaOpts)),
     ViaRPort = lists:keymember(<<"rport">>, 1, ViaOpts),
-    TranspSpec = case RProto of
+    TranspSpec = case RTransp of
         'udp' ->
             case nklib_util:get_binary(<<"maddr">>, ViaOpts) of
                 <<>> when ViaRPort -> [{udp, RIp, RPort, <<>>}];
@@ -58,9 +62,9 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
                 MAddr -> [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
             end;
         _ ->
-            UriOpt = {<<"transport">>, nklib_util:to_binary(ViaProto)},
+            UriOpt = {<<"transport">>, nklib_util:to_binary(ViaTransp)},
             [
-                {current, {RProto, RIp, RPort, Res}}, 
+                {current, {RTransp, RIp, RPort, Res}}, 
                 #uri{scheme=sip, domain=ViaDomain, port=ViaPort, opts=[UriOpt]}
             ]
     end,
@@ -78,12 +82,14 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
 -spec resend_response(Resp::nksip:response(), nksip:optslist()) ->
     {ok, nksip:response()} | error.
 
-resend_response(#sipmsg{class={resp, Code, _}, 
-                        transport=#transport{}=Transport}=Resp, Opts) ->
+resend_response(#sipmsg{class={resp, Code, _}, nkport=#nkport{}=NkPort}=Resp, Opts) ->
     #sipmsg{srv_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
-    #transport{proto=Proto, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
+    #nkport{transp=Transp, remote_ip=Ip, remote_port=Port} = NkPort,
+
+    Res = <<>>,
+
     MakeResp = fun(_) -> Resp end,
-    TranspSpec = [{current, {Proto, Ip, Port, Res}}],
+    TranspSpec = [{current, {Transp, Ip, Port, Res}}],
     Return = nksip_transport:send(SrvId, TranspSpec, MakeResp, Opts),
     SrvId:nks_sip_debug(SrvId, CallId, {sent_response, Method, Code}),
     Return;
@@ -110,20 +116,20 @@ make_response_fun(RouteHash, Resp, Opts) ->
         contacts = Contacts, 
         body = Body
     }= Resp,
-    fun(#transport{
-                    proto = Proto, 
+    fun(#nkport{
+                    transp = Transp, 
                     listen_ip = ListenIp, 
                     listen_port = ListenPort
-                } = Transport) ->
+                } = NkPort) ->
         ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
         % ?call_debug("UAS listenhost is ~s", [ListenHost]),
-        Scheme = case Proto==tls andalso lists:member(secure, Opts) of
+        Scheme = case Transp==tls andalso lists:member(secure, Opts) of
             true -> sips;
             _ -> sip
         end,
         Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
             true ->
-                [nksip_util:make_route(Scheme, Proto, ListenHost, 
+                [nksip_util:make_route(Scheme, Transp, ListenHost, 
                                             ListenPort, To#uri.user, [])];
             false ->
                 Contacts
@@ -131,7 +137,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
         UpdateRoutes = fun(#uri{user=User}=Route) ->
             case User of
                 RouteHash ->
-                    nksip_util:make_route(sip, Proto, ListenHost, ListenPort,
+                    nksip_util:make_route(sip, Transp, ListenHost, ListenPort,
                                                <<"NkS">>, [<<"lr">>]);
                 _ ->
                     Route
@@ -147,7 +153,7 @@ make_response_fun(RouteHash, Resp, Opts) ->
         end,
         % ViaOpts1 = lists:keydelete(<<"nksip_transport">>, 1, ViaOpts), 
         Resp#sipmsg{
-            transport = Transport, 
+            nkport = NkPort, 
             % vias = [Via#via{opts=ViaOpts}|ViaR],
             contacts = Contacts1,
             headers = Headers1, 

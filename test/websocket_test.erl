@@ -22,6 +22,7 @@
 
 -module(websocket_test).
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
@@ -64,15 +65,15 @@ webserver() ->
     {ok, WsA} = nkservice_server:find(ws_a),
     {ok, WsB} = nkservice_server:find(ws_b),
     [
-        {#transport{proto=ws, local_port=0, listen_port=_LP}, _},
-        {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
-        {#transport{proto=wss, local_port=8091, listen_port=8091}, _}
+        {#nkport{transp=ws, local_port=0, listen_port=_LP}, _},
+        {#nkport{transp=ws, local_port=8090, listen_port=8090}, _},
+        {#nkport{transp=wss, local_port=8091, listen_port=8091}, _}
     ] = 
         lists:sort(nksip_transport:get_all(WsA)),
 
     [
-        {#transport{proto=ws, local_port=8090, listen_port=8090}, _},
-        {#transport{proto=wss, local_port=8092, listen_port=8092}, _}
+        {#nkport{transp=ws, local_port=8090, listen_port=8090}, _},
+        {#nkport{transp=wss, local_port=8092, listen_port=8092}, _}
     ] = 
         lists:sort(nksip_transport:get_all(WsB)),
 
@@ -171,14 +172,14 @@ basic() ->
                          [{meta, [vias, local, remote]}]),
 
     [
-        {_, [#via{proto=ws, domain = <<"localhost">>, port=Port1}]},
+        {_, [#via{transp=ws, domain = <<"localhost">>, port=Port1}]},
         {_, {ws, {127,0,0,1}, Port2, <<"/">>}},
         {_, {ws, {127,0,0,1}, 8080, <<"/">>}}
     ] = Values1,
 
     [
-        {#transport{
-            proto = ws,
+        {#nkport{
+            transp = ws,
             local_ip = {127,0,0,1},
             local_port = Port2,
             remote_ip = {127,0,0,1},
@@ -189,8 +190,8 @@ basic() ->
     ] = nksip_transport:get_all_connected(UA2),
 
     [
-        {#transport{
-            proto = ws,
+        {#nkport{
+            transp = ws,
             local_ip = {0,0,0,0},
             local_port = 8080,
             remote_ip = {127,0,0,1},
@@ -214,15 +215,15 @@ basic() ->
                          [{meta, [vias, local, remote]}]),
 
     [
-        {_, [#via{proto=wss, domain = <<"localhost">>, port=8091}]},
+        {_, [#via{transp=wss, domain = <<"localhost">>, port=8091}]},
         {_, {wss, {127,0,0,1}, Port3, <<"/wss">>}},
         {_, {wss, {127,0,0,1}, 8081, <<"/wss">>}}
     ] = Values2,
 
     [
         {_, Pid1},
-        {#transport{
-            proto = wss,
+        {#nkport{
+            transp = wss,
             local_ip = {127,0,0,1},
             local_port = Port3,
             remote_ip = {127,0,0,1},
@@ -234,8 +235,8 @@ basic() ->
 
     [
         {_, Pid2},
-        {#transport{
-            proto = wss,
+        {#nkport{
+            transp = wss,
             local_ip = {0,0,0,0},
             local_port = 8081,
             remote_ip = {127,0,0,1},

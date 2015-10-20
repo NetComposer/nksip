@@ -92,7 +92,7 @@
     request :: nksip:request(),
     method :: nksip:method(),
     ruri :: nksip:uri(),
-    proto :: nksip:protocol(),
+    transp :: nkpacket:transport(),
     response :: nksip:response(),
     code :: 0 | nksip:sip_code(),
     to_tags = [] :: [nksip:tag()],
