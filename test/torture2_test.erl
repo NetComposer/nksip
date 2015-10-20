@@ -61,8 +61,9 @@ torture2_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, [
-        {transports, [{udp, all, 5060}]},
+    {ok, _} = nksip:start(server1, [
+        {callback, ?MODULE},
+        {transports, "sip:all:5060"},
         no_100
     ]),
     timer:sleep(100),

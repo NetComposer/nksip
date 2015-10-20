@@ -44,22 +44,25 @@ uas_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, [
+    {ok, _} = nksip:start(server1, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
         {supported, "a;a_param, 100rel"},
         {plugins, [nksip_registrar]},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"},
         {sip_uac_auto_register_timer, 1}
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [
+    {ok, _} = nksip:start(client1, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
         {plugins, [nksip_uac_auto_register]},
         {sip_uac_auto_register_timer, 1}
     ]),
             
-    {ok, _} = nksip:start(client2, ?MODULE, [
+    {ok, _} = nksip:start(client2, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
     tests_util:log(),
@@ -119,9 +122,10 @@ uas() ->
 auto() ->
     % Start a new server to test ping and register options
     nksip:stop(server2),
-    {ok, _} = nksip:start(server2, ?MODULE, [
+    {ok, _} = nksip:start(server2, [
+        {callback, ?MODULE},
         {plugins, [nksip_registrar]},
-        {transports, [{udp, all, 5080}]},
+        {transports, "sip:all:5080"},
         {sip_registrar_min_time, 1},
         {sip_uac_auto_register_timer, 1}
     ]),

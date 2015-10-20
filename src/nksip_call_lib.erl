@@ -157,7 +157,7 @@ update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
                 true ->
                     Call;
                 false -> 
-                    ?call_debug("Added cached auth for dialog ~s (~p:~p:~p)", 
+                    ?call_debug("added cached auth for dialog ~s (~p:~p:~p)", 
                                 [DialogId, Transp, Ip, Port]),
                     Call#call{auths=[{DialogId, Transp, Ip, Port}|Auths]}
             end;

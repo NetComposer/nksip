@@ -43,18 +43,21 @@ ws1_test_() ->
 start1() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(ws_a, nksip, [
+    {ok, _} = nksip:start(ws_a, [
+        {callback, ?MODULE},
         {transports, [
-            {ws, all, 8090, []},
-            {wss, all, 8091, []},
-            {ws, all, any, [{dispatch, "/ws"}]}
+            "<sip:all:8090;transport=ws>",
+            "<sip:all:8091;transport=wss>",
+            "<sip:all/ws;transport=ws>"
         ]}
     ]),
 
-    {ok, _} = nksip:start(ws_b, nksip, [
+    {ok, _} = nksip:start(ws_b, [
+        {callback, ?MODULE},
         {transports, [
-            {ws, all, 8090, []},
-            {wss, all, 8092, [{dispatch, [{'_', ["/ws"]}]}]}
+            "<sip:all:8090;transport=ws>",
+            "<sip:all/ws:8092;transport=ws>"
+            % {wss, all, 8092, [{dispatch, [{'_', ["/ws"]}]}]}
         ]}
     ]),
 
@@ -116,37 +119,41 @@ ws2_test_() ->
 start2() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, [
+    {ok, _} = nksip:start(server1, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
         {plugins, [nksip_registrar, nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
         {transports, [
-            {udp, all, 5060},
-            {tls, all, 5061},
-            {ws, all, 8080, [{listeners, 10}]},
-            {wss, all, 8081, [{dispatch, "/wss"}]}
+            "sip:all:5060",
+            "<sip:all:5061;transport=tls>",
+            "<sip:all:8080;transport=ws>;listeners=10",
+            "<sip:all/wss:8081;transport=wss>"
         ]}
     ]),
 
-    {ok, _} = nksip:start(ua1, ?MODULE, [
+    {ok, _} = nksip:start(ua1, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    {ok, _} = nksip:start(ua2, ?MODULE, [
+    {ok, _} = nksip:start(ua2, [
+        {callback, ?MODULE},
         {from, "<sip:client2@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "localhost"},
-        {transports, [{ws, all, any}, {wss, all, 8091}]}
+        {transports, "sip:all;transport=ws, sip:all:8091;transport=wss"}
     ]),
 
-    {ok, _} = nksip:start(ua3, ?MODULE, [
+    {ok, _} = nksip:start(ua3, [
+        {callback, ?MODULE},
         {from, "<sip:client3@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
         {local_host, "invalid.invalid"},
-        {transports, [{ws, all, 8080, [{dispatch, "/client3"}]}]}
+        {transports, "sip:all/client3:8080;transport=ws"}
     ]),
 
     tests_util:log().

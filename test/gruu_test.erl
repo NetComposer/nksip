@@ -42,25 +42,28 @@ gruu_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, [
+    {ok, _} = nksip:start(server1, [
+        {callback, ?MODULE},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar, nksip_gruu]},
         {local_host, "localhost"},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
-    {ok, _} = nksip:start(ua1, ?MODULE, [
+    {ok, _} = nksip:start(ua1, [
+        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {plugins, [nksip_gruu]},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    {ok, _} = nksip:start(ua2, ?MODULE, [
+    {ok, _} = nksip:start(ua2, [
+        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {plugins, [nksip_gruu]},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5080}, {tls, all, 5081}]}
+        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     nksip_registrar_util:clear(),

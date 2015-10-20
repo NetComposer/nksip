@@ -43,22 +43,25 @@ basic2_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, [
+    {ok, _} = nksip:start(server1, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
         {plugins, [nksip_registrar]},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [
+    {ok, _} = nksip:start(client1, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {plugins, [nksip_uac_auto_auth]},
         {local_host, "127.0.0.1"},
         {route, "<sip:127.0.0.1;lr>"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+        {transports, "sip:all:5070, <sip:all:5071;transport=tls>"}
     ]),
 
-    {ok, _} = nksip:start(client2, ?MODULE, [
+    {ok, _} = nksip:start(client2, [
+        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
         {local_host, "127.0.0.1"},
         {route, "<sip:127.0.0.1;lr>"}]),

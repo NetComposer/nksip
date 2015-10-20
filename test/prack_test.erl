@@ -48,20 +48,22 @@ prack_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [
+    {ok, _} = nksip:start(client1, [
+        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {plugins, [nksip_100rel]},
         {local_host, "localhost"},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"},
         {timer_t1, 100},
         no_100
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, [
+    {ok, _} = nksip:start(client2, [
+        {callback, ?MODULE},
         {from, "sip:client2@nksip"},
         {plugins, [nksip_100rel]},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
         {timer_t1, 100},
         no_100
     ]),

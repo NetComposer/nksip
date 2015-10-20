@@ -51,17 +51,19 @@ sctp_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    {ok, _} = nksip:start(client1, ?MODULE, [
+    {ok, _} = nksip:start(client1, [
+        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5070}, {sctp, all, 5070}]}
+        {transports, "sip:all:5070, <sip:all:5070;transport=sctp>"}
     ]),
 
-    {ok, _} = nksip:start(client2, ?MODULE, [
+    {ok, _} = nksip:start(client2, [
+        {callback, ?MODULE},
         {from, "sip:client2@nksip"},
         {sip_pass, ["jj", {"4321", "client1"}]},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5071}, {sctp, all, 5071}]}
+        {transports, "sip:all:5071, <sip:all:5071;transport=sctp>"}
     ]),
 
     tests_util:log(),

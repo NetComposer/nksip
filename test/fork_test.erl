@@ -52,7 +52,7 @@ start() ->
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1:5061;lr>"},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5071}]}
+        {transports, "sip:all:5071"}
     ]),
 
     % Server1 is stateless
@@ -60,7 +60,7 @@ start() ->
         {from, "sip:server1@nksip"},
         no_100,
         {local_host, "localhost"},
-        {transports, [{udp, all, 5061}]}
+        {transports, "sip:all:5061"}
     ]),
 
     {ok, _} = do_start(client2, [
@@ -73,7 +73,7 @@ start() ->
         {from, "sip:serverB@nksip"},
         no_100,
         {local_host, "localhost"},
-        {transports, [{udp, all, 5062}]}
+        {transports, "<sip:all:5062>"}
     ]),
 
     {ok, _} = do_start(client3, [
@@ -86,7 +86,7 @@ start() ->
         {from, "sip:server3@nksip"},
         no_100,
         {local_host, "localhost"},
-        {transports, [{udp, all, 5063}]}
+        {transports, "<sip:all:5063>"}
     ]),
 
 
@@ -97,7 +97,7 @@ start() ->
         {plugins, [nksip_registrar]},
         no_100,
         {local_host, "localhost"},
-        {transports, [{udp, all, 5060}]}
+        {transports, "sip:all:5060"}
     ]),
 
 
@@ -153,7 +153,7 @@ start() ->
 
 
 do_start(SrvId, Opts) ->
-    nksip:start(SrvId, ?MODULE, Opts).
+    nksip:start(SrvId, [{callback, ?MODULE}|Opts]).
 
 
 

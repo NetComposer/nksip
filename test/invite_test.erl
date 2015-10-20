@@ -45,19 +45,21 @@ invite_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [
+    {ok, _} = nksip:start(client1, [
+        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {supported, []},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
     
-    {ok, _} = nksip:start(client2, ?MODULE, [
+    {ok, _} = nksip:start(client2, [
+        {callback, ?MODULE},
         {from, "sip:client2@nksip"},
         no_100,
         {local_host, "127.0.0.1"},
         {supported, []},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     tests_util:log(),

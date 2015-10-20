@@ -59,7 +59,7 @@ timer(Tag, Id, #call{srv_id=SrvId, trans=Trans}=Call) ->
     nksip_call:call().
 
 do_timer(timer_c, #trans{id=Id, method=Method}=UAS, Call) ->
-    ?call_notice("UAS ~p ~p Timer C fired", [Id, Method]),
+    ?call_notice("UAS ~p ~p timer C fired", [Id, Method]),
     nksip_call_uas:do_reply({timeout, <<"Timer C Timeout">>}, UAS, Call);
 
 do_timer(noinvite, #trans{id=Id, method=Method}=UAS, Call) ->
@@ -82,35 +82,35 @@ do_timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
 
 % INVITE accepted finished
 do_timer(timer_l, #trans{id=Id}=UAS, Call) ->
-    ?call_debug("UAS ~p 'INVITE' Timer L fired", [Id]),
+    ?call_debug("UAS ~p 'INVITE' timer L fired", [Id]),
     UAS1 = UAS#trans{status=finished},
     UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
     update(UAS2, Call);
 
 % INVITE confirmed finished
 do_timer(timer_i, #trans{id=Id}=UAS, Call) ->
-    ?call_debug("UAS ~p 'INVITE' Timer I fired", [Id]),
+    ?call_debug("UAS ~p 'INVITE' timer I fired", [Id]),
     UAS1 = UAS#trans{status=finished},
     UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
     update(UAS2, Call);
 
 % NoINVITE completed finished
 do_timer(timer_j, #trans{id=Id, method=Method}=UAS, Call) ->
-    ?call_debug("UAS ~p ~p Timer J fired", [Id, Method]),
+    ?call_debug("UAS ~p ~p timer J fired", [Id, Method]),
     UAS1 = UAS#trans{status=finished},
     UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
     update(UAS2, Call);
 
 % INVITE completed timeout
 do_timer(timer_h, #trans{id=Id}=UAS, Call) ->
-    ?call_notice("UAS ~p 'INVITE' timeout (Timer H) fired, no ACK received", [Id]),
+    ?call_notice("UAS ~p 'INVITE' timeout (timer H) fired, no ACK received", [Id]),
     UAS1 = UAS#trans{status=finished},
     UAS2 = nksip_call_lib:timeout_timer(cancel, UAS1, Call),
     UAS3 = nksip_call_lib:retrans_timer(cancel, UAS2, Call),
     update(UAS3, Call);
 
 do_timer(expire, #trans{id=Id, status=invite_proceeding, from=From}=UAS, Call) ->
-    ?call_debug("UAS ~p 'INVITE' Timer Expire fired: sending 487",[Id]),
+    ?call_debug("UAS ~p 'INVITE' timer Expire fired: sending 487",[Id]),
     case From of
         {fork, ForkId} -> 
             % We do not cancel our UAS request, we send it to the fork
@@ -123,5 +123,5 @@ do_timer(expire, #trans{id=Id, status=invite_proceeding, from=From}=UAS, Call) -
     end;
 
 do_timer(expire, #trans{id=Id, status=Status}, Call) ->
-    ?call_debug("UAS ~p 'INVITE' (~p) Timer Expire fired (ignored)", [Id, Status]),
+    ?call_debug("UAS ~p 'INVITE' (~p) timer Expire fired (ignored)", [Id, Status]),
     Call.

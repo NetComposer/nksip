@@ -71,38 +71,42 @@ stateful_test_() ->
 start(Test) ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, ?MODULE, [
+    {ok, _} = nksip:start(server1, [
+        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
         {local_host, "localhost"},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"},
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    {ok, _} = nksip:start(server2, ?MODULE, [
+    {ok, _} = nksip:start(server2, [
+        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:server2@nksip"},
         {plugins, [nksip_registrar]},
         {local_host, "localhost"},
-        {transports, [{udp, all, 5080}, {tls, all, 5081}]},
+        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"},
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    {ok, _} = nksip:start(client1, ?MODULE, [
+    {ok, _} = nksip:start(client1, [
+        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    {ok, _} = nksip:start(client2, ?MODULE, [
+    {ok, _} = nksip:start(client2, [
+        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transports, [udp, tls]}
+        {transports, "sip:all:udp, sips:all"}
     ]),
 
     tests_util:log(),

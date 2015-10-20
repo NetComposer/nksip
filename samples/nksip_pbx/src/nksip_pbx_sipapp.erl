@@ -50,7 +50,7 @@
 start() ->
     CoreOpts = [
         {plugins, [nksip_registrar, nksip_100rel, nksip_gruu, nksip_outbound, nksip_timers]},                      
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ],
     {ok, _} = nksip:start(pbx, ?MODULE, CoreOpts).
 

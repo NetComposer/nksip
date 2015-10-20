@@ -49,7 +49,7 @@
     ok | error.
 
 start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
-    case catch gen_server:call(Pid, {start_refresh, Secs, Ref, self()}) of
+    case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}) of
         ok -> ok;
         _ -> error
     end.
@@ -91,8 +91,10 @@ default_port(_) -> invalid.
 -spec encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
     {ok, nkpacket:outcoming()} | continue | {error, term()}.
 
-encode(SipMsg, _NkPort) ->
-    {ok, nksip_unparse:packet(SipMsg)}.
+encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
+    Packet = nksip_unparse:packet(SipMsg),
+    SrvId:nks_sip_connection_sent(SipMsg, Packet),
+    {ok, Packet}.
 
 
 %% @doc Implement this function to allow NAPTR DNS queries.
@@ -366,7 +368,7 @@ do_parse(SrvId, NkPort, Data, Pos, #conn_state{transp=Transp}=State) ->
     case extract(Transp, Data, Pos) of
         {ok, CallId, Msg, Rest} ->
             SrvId:nks_sip_connection_recv(SrvId, CallId, NkPort, Msg),
-            case nksip_router:incoming_sync(SrvId, CallId, Transp, Msg) of
+            case nksip_router:incoming_sync(SrvId, CallId, NkPort, Msg) of
                 ok -> 
                     do_parse(Rest, NkPort, State);
                 {error, Error} -> 

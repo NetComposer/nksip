@@ -49,7 +49,6 @@ send_work_sync(SrvId, CallId, Work) ->
     Name = name(CallId),
     CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
     WorkSpec = {send_work_sync, SrvId, CallId, Work, self()},
-    lager:warning("SEND WORK"),
     case nklib_util:call(Name, WorkSpec, CallOpts) of
         {error, {exit, Exit}} ->
             ?warning(SrvId, CallId, "error calling send_work_sync (~p): ~p",
@@ -80,10 +79,10 @@ incoming_sync(#sipmsg{srv_id=SrvId, call_id=CallId}=SipMsg) ->
 -spec incoming_sync(nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
     ok | {error, too_many_calls | looped_process | {exit, term()}}.
 
-incoming_sync(SrvId, CallId, Transp, Msg) ->
+incoming_sync(SrvId, CallId, NkPort, Msg) ->
     Name = name(CallId),
     CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
-    case catch gen_server:call(Name, {incoming, SrvId, CallId, Transp, Msg}, CallOpts) of
+    case nklib_util:call(Name, {incoming, SrvId, CallId, NkPort, Msg}, CallOpts) of
         {error, {exit, Exit}} -> 
             ?warning(SrvId, CallId, "error calling incoming_sync: ~p", [Exit]),
             {error, {exit, Exit}};

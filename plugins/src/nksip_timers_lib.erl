@@ -197,7 +197,7 @@ get_timer(Req, #sipmsg{class={resp, Code, _}}=Resp, Class, Call)
         false when Refresh/=undefined -> refreshed;
         false -> none
     end,
-    ?call_info("Session Timer updated (~p, ~p)", [{Class, Refresh, Type}, SE]),
+    ?call_info("session timer updated (~p, ~p)", [{Class, Refresh, Type}, SE]),
     {Type, SE}.
 
 

@@ -105,7 +105,7 @@ init([SrvId, CallId]) ->
     },
     nksip_util:put_log_cache(SrvId, CallId),
     erlang:start_timer(2000 * TransTime, self(), check_call),
-    ?call_debug("Call process ~p started (~p)", [Id, self()]),
+    ?call_debug("call process ~p started (~p)", [Id, self()]),
     {ok, Call}.
 
 
@@ -175,7 +175,7 @@ code_change(_OldVsn, Call, _Extra) ->
     ok.
 
 terminate(_Reason, #call{}) ->
-    ?call_debug("Call process stopped", []).
+    ?call_debug("call process stopped", []).
 
 
 
@@ -200,7 +200,7 @@ next(#call{hibernate=Hibernate}=Call) ->
         false ->
             {noreply, Call};
         _ ->
-            ?call_debug("Call hibernating: ~p", [Hibernate]),
+            ?call_debug("call hibernating: ~p", [Hibernate]),
             {noreply, Call#call{hibernate=false}, hibernate}
     end.
 

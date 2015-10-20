@@ -31,7 +31,7 @@ launch() ->
     {ok, _} = nksip:start(server, nksip_tutorial_sipapp_server, 
         [
             {plugins, [nksip_registrar]},
-            {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+            {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
          ]),
     {ok, _} = nksip:start(client1, nksip_tutorial_sipapp_client, 
         [
