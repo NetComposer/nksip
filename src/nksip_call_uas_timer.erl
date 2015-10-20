@@ -73,7 +73,7 @@ do_timer(timer_g, #trans{id=Id, response=Resp}=UAS, Call) ->
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p response", [Id, Code]),
             nksip_call_lib:retrans_timer(timer_g, UAS, Call);
-        error -> 
+        {error, _} -> 
             ?call_notice("UAS ~p could not retransmit 'INVITE' ~p response", [Id, Code]),
             UAS1 = UAS#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAS1, Call)

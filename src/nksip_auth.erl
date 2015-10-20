@@ -173,7 +173,7 @@ make_response(Realm, Req) ->
         call_id = CallId,
         nkport = NkPort
     } = Req,
-    {ok, {_, Ip, Port}} = nkpacket:remote(NkPort),
+    {ok, {_, Ip, Port}} = nkpacket:get_remote(NkPort),
     Nonce = nklib_util:luid(),
     Timeout = SrvId:cache_sip_nonce_timeout(),
     put_nonce(SrvId, CallId, Nonce, {Ip, Port}, Timeout),
@@ -343,7 +343,7 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
         call_id = CallId,
         nkport = NkPort
     } = Req,
-    {ok, {_, Ip, Port}} = nkpacket:remote(NkPort),
+    {ok, {_, Ip, Port}} = nkpacket:get_remote(NkPort),
     case
         nklib_util:get_value(scheme, AuthHeader) /= digest orelse
         nklib_util:get_value(qop, AuthHeader) /= [auth] orelse

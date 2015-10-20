@@ -369,11 +369,11 @@ nks_sip_uac_reply(Class, UAC, Call) ->
 
 %% @doc Called to add headers just before sending the request
 -spec nks_sip_transport_uac_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
-							     nksip:protocol(), binary(), inet:port_number()) ->
+							     nkpacket:transport(), binary(), inet:port_number()) ->
 	{ok, nksip:request()}.
 
-nks_sip_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
-	Req1 = nksip_call_uac_transp:add_headers(Req, Opts, Scheme, Proto, Host, Port),
+nks_sip_transport_uac_headers(Req, Opts, Scheme, Transp, Host, Port) ->
+	Req1 = nksip_call_uac_transp:add_headers(Req, Opts, Scheme, Transp, Host, Port),
 	{ok, Req1}.
 
 

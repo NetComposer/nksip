@@ -45,8 +45,8 @@ nks_sip_uac_proxy_opts(Req, ReqOpts) ->
 
 
 %% @doc Called when preparing the request for sending
-nks_sip_transport_uac_headers(Req, Opts, Scheme, Proto, Host, Port) ->
-    Req1 = nksip_outbound_lib:add_headers(Req, Opts, Scheme, Proto, Host, Port),
+nks_sip_transport_uac_headers(Req, Opts, Scheme, Transp, Host, Port) ->
+    Req1 = nksip_outbound_lib:add_headers(Req, Opts, Scheme, Transp, Host, Port),
     {ok, Req1}.
 
 

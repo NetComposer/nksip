@@ -152,7 +152,7 @@ update_auth(<<>>, _SipMsg, Call) ->
 update_auth(DialogId, SipMsg, #call{auths=Auths}=Call) ->
     case SipMsg of
         #sipmsg{nkport=NkPort} ->
-            {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
+            {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
             case lists:member({DialogId, Transp, Ip, Port}, Auths) of
                 true ->
                     Call;
@@ -174,7 +174,7 @@ check_auth(#sipmsg{dialog_id = <<>>}, _Call) ->
     false;
 
 check_auth(#sipmsg{dialog_id=DialogId, nkport=NkPort}, Call) when is_tuple(NkPort)->
-    {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
+    {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     #call{auths=Auths} = Call,
     case lists:member({DialogId, Transp, Ip, Port}, Auths) of
         true ->

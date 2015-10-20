@@ -73,7 +73,7 @@ get_handle(Term) ->
     {ok, nksip_subscription_lib:get_handle(Term)}.
 
 
-%% @doc Gets thel App of a dialog
+%% @doc Gets thel SrvId of a dialog
 -spec srv_id(nksip:subscription()|nksip:handle()) ->
     {ok, nkservice:id()}.
 

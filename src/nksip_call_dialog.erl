@@ -55,7 +55,7 @@ create(Class, Req, Resp, Call) ->
         cseq = {CSeq, _},
         nkport = NkPort
     } = Resp,
-    {ok, {Transp, _, _}} = nkpacket:local(NkPort),
+    {ok, {Transp, _, _}} = nkpacket:get_local(NkPort),
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     ?call_debug("Dialog ~s ~s created", [DialogId, UA]),
     nklib_counters:async([nksip_dialogs]),
@@ -304,7 +304,7 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                     % If this a proxy, it has inserted Record-Route,
                     % and wants to send an in-dialog request (for example to send BYE)
                     % we must remove our own inserted Record-Route
-                    case nksip_transport:is_local(SrvId, FirstRS) of
+                    case nksip_util:is_local(SrvId, FirstRS) of
                         true -> RestRS;
                         false -> [FirstRS|RestRS]
                     end
@@ -315,7 +315,7 @@ route_update(Class, Req, Resp, #dialog{blocked_route_set=false}=Dialog) ->
                 [] ->
                     [];
                 [FirstRS|RestRS] ->
-                    case nksip_transport:is_local(SrvId, FirstRS) of
+                    case nksip_util:is_local(SrvId, FirstRS) of
                         true -> RestRS;
                         false -> [FirstRS|RestRS]
                     end
@@ -511,7 +511,7 @@ do_timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                                 next_retrans = min(2*Next, T2)
                             },
                             update(none, Dialog#dialog{invite=Invite1}, Call);
-                        error ->
+                        {error, _} ->
                             ?call_notice("Dialog ~s could not resend response", 
                                          [DialogId]),
                             update({invite, {stop, ack_timeout}}, Dialog, Call)

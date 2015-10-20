@@ -169,7 +169,7 @@ flow() ->
     [#reg_contact{
         index = {sip, tcp, <<"ua1">>, <<"127.0.0.1">>, 5101},
         contact = PContact,
-        transport = Transp1,
+        nkport = Transp1,
         path = [#uri{
             user = <<"NkF", Flow1/binary>>,
             domain = <<"localhost">>,

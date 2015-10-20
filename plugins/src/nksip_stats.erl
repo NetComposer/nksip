@@ -25,7 +25,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([info/0, get_uas_avg/0, response_time/1]).
--export([version/0, deps/0, parse_config/1, init/2, terminate/2]).
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
@@ -42,43 +42,25 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip].
 
 
-%% @doc Parses this plugin specific configuration
--spec parse_config(nksip:optslist()) ->
-    {ok, nksip:optslist()} | {error, term()}.
-
-
-parse_config(Opts) ->
-    case nksip_app:get(nksip_stats_period) of
-        undefined ->
-            {ok, Opts};
-        Period when is_integer(Period), Period>0 ->
-            {ok, Opts};
-        _ ->
-            {error, {invalid_global_config, nksip_stats_period}}
-    end.
-
-
-%% @doc Called when the plugin is started 
--spec init(nkservice:spec(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
-
-init(_ServiceSpec, ServiceState) ->
+plugin_start(#{id:=SrvId, cache:=_Cache}=SrvSpec) ->
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case whereis(nksip_stats_srv) of
         undefined ->
+            Period = maps:get(nksip_stats_period, SrvSpec, 5),
             Child = {
                 nksip_stats_srv,
-                {nksip_stats_srv, start_link, []},
+                {nksip_stats_srv, start_link, [Period]},
                 permanent,
                 5000,
                 worker,
@@ -88,17 +70,12 @@ init(_ServiceSpec, ServiceState) ->
         _ ->
             ok
     end,
-    {ok, ServiceState}.
+    {ok, SrvSpec}.
 
 
-
-%% @doc Called when the plugin is shutdown
--spec terminate(term(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
-
-terminate(_Reason, ServiceState) ->  
-    % We don't remove nksip_stats_srv, in case other Service is using it
-    {ok, ServiceState}.
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    {ok, SrvSpec}.
 
 
 %% ===================================================================

@@ -109,10 +109,10 @@ vias(Term) -> vias([Term]).
 
 %% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
 -spec transport(nksip:uri()|nksip:via()) -> 
-    {Proto::nksip:protocol(), Host::binary(), Port::inet:port_number()}.
+    {nkpacket:transport(), Host::binary(), Port::inet:port_number()}.
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
-    Proto1 = case nklib_util:get_value(<<"transport">>, Opts) of
+    Transp1 = case nklib_util:get_value(<<"transport">>, Opts) of
         Atom when is_atom(Atom) -> 
             Atom;
         Other ->
@@ -122,21 +122,21 @@ transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
                 Atom -> Atom
             end
     end,
-    Proto2 = case Proto1 of
+    Transp2 = case Transp1 of
         undefined when Scheme==sips -> tls;
         undefined -> udp;
         Other2 -> Other2
     end,
     Port1 = case Port > 0 of
         true -> Port;
-        _ -> nksip_transport:default_port(Proto2)
+        _ -> nksip_protocol:default_port(Transp2)
     end,
-    {Proto2, Host, Port1};
+    {Transp2, Host, Port1};
 
 transport(#via{transp=Transp, domain=Host, port=Port}) ->
     Port1 = case Port > 0 of
         true -> Port;
-        _ -> nksip_transport:default_port(Transp)
+        _ -> nksip_protocol:default_port(Transp)
     end,
     {Transp, Host, Port1}.
 

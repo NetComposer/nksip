@@ -137,7 +137,7 @@ terminate(_Reason, SrvState) ->
                         false -> ok
                     end, 
                     case is_pid(Pid) of
-                        true -> nksip_connection:stop_refresh(Pid);
+                        true -> nksip_protocol:stop_refresh(Pid);
                         false -> ok
                     end
                 end,
@@ -211,7 +211,7 @@ nks_sip_uac_auto_register_send_unreg(Reg, Sync, #{id:=SrvId, ?OB_SKEY:=State}=Sr
                 false -> ok
             end, 
             case is_pid(Pid) of
-                true -> nksip_connection:stop_refresh(Pid);
+                true -> nksip_protocol:stop_refresh(Pid);
                 false -> ok
             end,
             Opts1 = [contact, {cseq_num, CSeq}, {reg_id, Pos} |
@@ -251,15 +251,15 @@ nks_sip_uac_auto_register_upd_reg(Reg, Code, Meta,
                 true -> erlang:demonitor(Monitor);
                 false -> ok
             end,
-            {Proto, Ip, Port, Res} = nklib_util:get_value(remote, Meta),
+            {Transp, Ip, Port, Path} = nklib_util:get_value(remote, Meta),
             Require = nklib_util:get_value(require, Meta),
             % 'fails' is not updated until the connection confirmation arrives
             % (or process down)
             RegOb2 = case lists:member(<<"outbound">>, Require) of
                 true ->
-                    case nksip_transport:get_connected(SrvId, Proto, Ip, Port, Res) of
-                        [{_, Pid}|_] -> 
-                            case start_refresh(SrvId, Meta, Proto, Pid, Reg) of
+                    case nksip_util:get_connected(SrvId, Transp, Ip, Port, Path) of
+                        [Pid|_] -> 
+                            case start_refresh(SrvId, Meta, Transp, Pid, Reg) of
                                 ok -> 
                                     Mon = erlang:monitor(process, Pid),
                                     RegOb1#sipreg_ob{conn_monitor=Mon, conn_pid=Pid};
@@ -294,7 +294,7 @@ nks_sip_uac_auto_register_upd_reg(Reg, Code, Meta,
                 false -> ok
             end,
             case is_pid(Pid) of
-                true -> nksip_connection:stop_refresh(Pid);
+                true -> nksip_protocol:stop_refresh(Pid);
                 false -> ok
             end,
             MaxTime = SrvId:cache_sip_uac_auto_outbound_max_time(),
@@ -327,7 +327,7 @@ nks_sip_uac_auto_register_upd_reg(Reg, Code, Meta,
 
 
 %% @private
-start_refresh(SrvId, Meta, Proto, Pid, Reg) ->
+start_refresh(SrvId, Meta, Transp, Pid, Reg) ->
     #sipreg{id=RegId, call_id=CallId} = Reg,
     FlowTimer = case nklib_util:get_value(<<"flow-timer">>, Meta) of
         [FlowTimer0] -> nklib_util:to_integer(FlowTimer0);
@@ -336,7 +336,7 @@ start_refresh(SrvId, Meta, Proto, Pid, Reg) ->
     Secs = case FlowTimer of
         FT when is_integer(FT), FT > 5 -> 
             FT;
-        _ when Proto==udp -> 
+        _ when Transp==udp -> 
             SrvId:cache_sip_uac_auto_outbound_default_udp_ttl();
         _ -> 
             SrvId:cache_sip_uac_auto_outbound_default_tcp_ttl()
@@ -344,7 +344,7 @@ start_refresh(SrvId, Meta, Proto, Pid, Reg) ->
     Rand = crypto:rand_uniform(80, 101),
     Time = (Rand*Secs) div 100,
     Ref = {nksip_uac_auto_outbound_notify, RegId},
-    case nksip_connection:start_refresh(Pid, Time, Ref) of
+    case nksip_protocol:start_refresh(Pid, Time, Ref) of
         ok -> 
             ?info(SrvId, CallId, "successfully set outbound keep-alive: ~p secs", 
                   [Secs]),

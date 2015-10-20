@@ -42,7 +42,7 @@ version() ->
 
 %% @doc Dependant plugins
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip].

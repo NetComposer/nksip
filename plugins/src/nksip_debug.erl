@@ -26,8 +26,7 @@
 
 -export([start/1, stop/1, print/1, print_all/0]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--export([version/0, deps/0, init/2]).
-
+-export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
@@ -41,38 +40,19 @@
     string().
 
 version() ->
-    "0.1".
+    "0.2".
 
 
 %% @doc Dependant plugins
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip].
 
 
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     case nklib_util:get_value(nksip_debug, Opts, false) of
-%         Trace when is_boolean(Trace) ->
-%             Cached1 = nklib_util:get_value(cached_configs, Opts, []),
-%             Cached2 = nklib_util:store_value(config_nksip_debug, Trace, Cached1),
-%             Opts1 = nklib_util:store_value(cached_configs, Cached2, Opts),
-%             {ok, Opts1};
-%         _ ->
-%             {error, {invalid_config, nksip_debug}}
-%     end.
-
-
-%% @doc Called when the plugin is started 
--spec init(nkservice:spec(), nkservice_server:sub_state()) ->
-    {ok, nkservice_server:sub_state()}.
-
-init(_SrvId, ServiceState) ->
+plugin_start(#{id:=SrvId, cache:=Cache}=SrvSpec) ->
+    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case whereis(nksip_debug_srv) of
         undefined ->
             Child = {
@@ -87,16 +67,15 @@ init(_SrvId, ServiceState) ->
         _ ->
             ok
     end,
-    {ok, ServiceState}.
+    Debug = maps:get(sip_debug, SrvSpec, false),
+    {ok, SrvSpec#{cache=>Cache#{sip_debug=>Debug}}}.
 
 
+plugin_stop(#{id:=SrvId}=SrvSpec) ->
+    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    {ok, SrvSpec}.
 
-% %% @doc Called when the plugin is shutdown
-% -spec terminate(term(), nkservice_server:sub_state()) ->
-%     {ok, nkservice_server:sub_state()}.
 
-% terminate(_Reason, ServiceState) ->  
-%     {ok, ServiceState}.
 
 
 
@@ -108,12 +87,12 @@ init(_SrvId, ServiceState) ->
 -spec start(nkservice:id()|nkservice:name()) ->
     ok | {error, term()}.
 
-start(App) ->
-    case nkservice_server:find(App) of
+start(Srv) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
-            case nksip:update(SrvId, #{plugins=>Plugins2, debug=>true}) of
+            case nksip:update(SrvId, #{plugins=>Plugins2, sip_debug=>true}) of
                 ok -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -126,11 +105,11 @@ start(App) ->
 -spec stop(nkservice:id()|nkservice:name()) ->
     ok | {error, term()}.
 
-stop(App) ->
-    case nkservice_server:find(App) of
+stop(Srv) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_debug],
-            case nksip:update(App, #{plugins=>Plugins, debug=>false}) of
+            case nksip:update(Srv, #{plugins=>Plugins, sip_debug=>false}) of
                 ok -> ok;
                 {error, Error} -> {error, Error}
             end;
@@ -182,9 +161,9 @@ find(SrvId, CallId) ->
 print(CallId) ->
     [{Start, _, _}|_] = Lines = find(CallId),
     lists:foldl(
-        fun({Time, App, Info}, Acc) ->
+        fun({Time, Srv, Info}, Acc) ->
             io:format("~f (~f, ~f) ~p\n~p\n\n\n", 
-                      [Time, (Time-Start)*1000, (Time-Acc)*1000, App, Info]),
+                      [Time, (Time-Start)*1000, (Time-Acc)*1000, Srv, Info]),
             Time
         end,
         Start,
@@ -195,9 +174,9 @@ print(CallId) ->
 print_all() ->
     [{_, Start, _, _}|_] = Lines = lists:keysort(2, dump_msgs()),
     lists:foldl(
-        fun({CallId, Time, App, Info}, Acc) ->
+        fun({CallId, Time, Srv, Info}, Acc) ->
             io:format("~p (~p, ~p) ~s ~p\n~p\n\n\n", 
-                      [Time, (Time-Start), (Time-Acc), CallId, App, Info]),
+                      [Time, (Time-Start), (Time-Acc), CallId, Srv, Info]),
             Time
         end,
         Start,

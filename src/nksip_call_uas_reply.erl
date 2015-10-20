@@ -106,7 +106,7 @@ send({Resp, SendOpts}, UAS, Call) ->
     case nksip_call_uas_transp:send_response(Resp, SendOpts) of
         {ok, Resp2} -> 
             UserReply = ok;
-        error -> 
+        {error, _} -> 
             UserReply = {error, service_unavailable},
             {Resp2, _} = nksip_reply:reply(Req, service_unavailable)
     end,

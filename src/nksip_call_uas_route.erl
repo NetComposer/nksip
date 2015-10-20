@@ -55,7 +55,7 @@ send_100(UAS, #call{srv_id=SrvId}=Call) ->
             case nksip_call_uas_transp:send_response(Resp, SendOpts) of
                 {ok, _} -> 
                     check_cancel(UAS, Call);
-                error ->
+                {error, _} ->
                     ?call_notice("UAS ~p ~p could not send '100' response", [Id, Method]),
                     nksip_call_uas:do_reply(service_unavailable, UAS, Call)
             end;
@@ -102,9 +102,9 @@ is_cancel(#trans{method='CANCEL', request=CancelReq}, #call{trans=Trans}) ->
     case lists:keyfind(ReqTransId, #trans.trans_id, Trans) of
         #trans{id=Id, class=uas, request=#sipmsg{}=InvReq} = InvUAS ->
             #sipmsg{nkport=CancelNkPort} = CancelReq,
-            {ok, {_, CancelIp, CancelPort}} = nkpacket:remote(CancelNkPort),
+            {ok, {_, CancelIp, CancelPort}} = nkpacket:get_remote(CancelNkPort),
             #sipmsg{nkport=InvNkPort} = InvReq,
-            {ok, {_, InvIp, InvPort}} = nkpacket:remote(InvNkPort),
+            {ok, {_, InvIp, InvPort}} = nkpacket:get_remote(InvNkPort),
             if
                 CancelIp==InvIp, CancelPort==InvPort ->
                     {true, InvUAS};

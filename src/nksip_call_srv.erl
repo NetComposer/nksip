@@ -56,7 +56,7 @@ stop(Pid) ->
 
 
 %% @doc Sends a synchronous piece of {@link nksip_call_worker:work()} to the call.
-%% After receiving the work, the call will send `{sync_work_ok, Ref}' to `Sender'
+%% After receiving the work, the call will send `{sync_work_received, Ref}' to `Sender'
 -spec sync_work(pid(), reference(), pid(), nksip_call_worker:work(), {pid(), term()}|none) ->
     ok.
 
@@ -89,6 +89,7 @@ get_data(Pid) ->
 init([SrvId, CallId]) ->
     nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
     Id = erlang:phash2(make_ref()) * 1000,
+    #call_timers{trans=TransTime} = Timers = SrvId:cache_sip_times(),
     Call = #call{
         srv_id = SrvId, 
         call_id = CallId, 
@@ -100,11 +101,10 @@ init([SrvId, CallId]) ->
         auths = [],
         msgs = [],
         events = [],
-        timers = SrvId:cache_sip_times()
+        timers = Timers
     },
     nksip_util:put_log_cache(SrvId, CallId),
-    Timeout = 2000*(Call#call.timers)#call_timers.trans,
-    erlang:start_timer(Timeout, self(), check_call),
+    erlang:start_timer(2000 * TransTime, self(), check_call),
     ?call_debug("Call process ~p started (~p)", [Id, self()]),
     {ok, Call}.
 
@@ -127,7 +127,7 @@ handle_call(get_data, _From, Call) ->
     {noreply, call()} | {stop, term(), call()}.
 
 handle_cast({sync_work, Ref, Pid, Work, From}, Call) ->
-    Pid ! {sync_work_ok, Ref, self()},
+    Pid ! {sync_work_received, Ref, self()},
     next(nksip_call_worker:work(Work, From, Call));
 
 handle_cast({async_work, Work}, Call) ->

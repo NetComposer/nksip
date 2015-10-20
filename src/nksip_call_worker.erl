@@ -123,17 +123,17 @@ work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
             nksip_call_uac:response(Resp, Call)
     end;
 
-work({incoming, SrvId, CallId, Transp, Msg}, none, Call) ->
-    case nksip_parse:packet(SrvId, CallId, Transp, Msg) of
+work({incoming, SrvId, CallId, NkPort, Msg}, none, Call) ->
+    case nksip_parse:packet(SrvId, CallId, NkPort, Msg) of
         {ok, SipMsg} ->
             work({incoming, SipMsg}, none, Call);
         {error, Error} ->
             ?call_warning("Error parsing SipMsg1: ~p", [Error]),
             Call;
         {reply_error, Error, Reply} ->
-            case nksip_transport:get_connected(SrvId, Transp) of
-                [{_, Pid}|_] -> 
-                    case nksip_connection:send(Pid, Reply) of
+            case nksip_util:get_connected(SrvId, NkPort) of
+                [Pid|_] -> 
+                    case nkpacket_connection:send(Pid, Reply) of
                         ok -> 
                             ok;
                         {error, _SendError} -> 
@@ -177,12 +177,12 @@ work({apply_dialog, DialogId, Fun}, From, Call) ->
     end;
     
 work({get_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
-    List = [{Proto, Ip, Port} || {D, Proto, Ip, Port} <- Auths, D==DlgId],
+    List = [{Transp, Ip, Port} || {D, Transp, Ip, Port} <- Auths, D==DlgId],
     gen_server:reply(From, {ok, List}),
     Call;
 
 work({clear_authorized_list, DlgId}, From, #call{auths=Auths}=Call) ->
-    Auths1 = [{D, Proto, Ip, Port} || {D, Proto, Ip, Port} <- Auths, D/=DlgId],
+    Auths1 = [{D, Transp, Ip, Port} || {D, Transp, Ip, Port} <- Auths, D/=DlgId],
     gen_server:reply(From, ok),
     Call#call{auths=Auths1};
 

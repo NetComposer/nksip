@@ -3,7 +3,7 @@
     {vsn, "0.1.0"},
     {modules, []},
     {registered, []},
-    {mod, {nksip_plugins_app, []}},
-    {applications, [kernel, stdlib, nksip]},
+    % {mod, {nksip_plugins_app, []}},
+    {applications, [kernel, stdlib]},
     {env, []}
 ]}.

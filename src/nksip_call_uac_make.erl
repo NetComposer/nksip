@@ -138,7 +138,7 @@ do_remove_local_routes(_SrvId, []) ->
     [];
 
 do_remove_local_routes(SrvId, [Route|RestRoutes]) ->
-    case nksip_transport:is_local(SrvId, Route) of
+    case nksip_util:is_local(SrvId, Route) of
         true -> do_remove_local_routes(SrvId, RestRoutes);
         false -> [Route|RestRoutes]
     end.

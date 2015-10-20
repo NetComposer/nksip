@@ -52,12 +52,12 @@
 
 get_handle({user_subs, #subscription{id=SubsId}, 
                #dialog{srv_id=SrvId, id=DialogId, call_id=CallId}}) ->
-    App = atom_to_binary(SrvId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
+    Srv = atom_to_binary(SrvId, latin1), 
+    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
 get_handle(#sipmsg{srv_id=SrvId, dialog_id=DialogId, call_id=CallId}=SipMsg) ->
     SubsId = make_id(SipMsg),
-    App = atom_to_binary(SrvId, latin1), 
-    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, App/binary, $_, CallId/binary>>;
+    Srv = atom_to_binary(SrvId, latin1), 
+    <<$U, $_, SubsId/binary, $_, DialogId/binary, $_, Srv/binary, $_, CallId/binary>>;
 get_handle(<<"U_", _/binary>>=Id) ->
     Id;
 get_handle(_) ->
@@ -68,9 +68,9 @@ get_handle(_) ->
 -spec parse_handle(nksip:handle()) ->
     {nkservice:id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
 
-parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, App:7/binary, 
+parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, Srv:7/binary, 
          $_, CallId/binary>>) ->
-    SrvId = binary_to_existing_atom(App, latin1),
+    SrvId = binary_to_existing_atom(Srv, latin1),
     {SrvId, SubsId, DialogId, CallId};
 parse_handle(_) ->
     error(invalid_handle).
@@ -206,13 +206,13 @@ do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
 
 %% @private Hack to find the UAS subscription from the UAC and the opposite way
-remote_id(Handle, App) ->
+remote_id(Handle, Srv) ->
     {_SrvId0, SubsId, _DialogId, CallId} = parse_handle(Handle),
     {ok, DialogHandle} = nksip_dialog:get_handle(Handle),
-    RemoteId = nksip_dialog_lib:remote_id(DialogHandle, App),
+    RemoteId = nksip_dialog_lib:remote_id(DialogHandle, Srv),
     {SrvId1, RemDialogId, CallId} = nksip_dialog_lib:parse_handle(RemoteId),
-    App1 = atom_to_binary(SrvId1, latin1),
-    <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, App1/binary, $_, CallId/binary>>.
+    Srv1 = atom_to_binary(SrvId1, latin1),
+    <<$U, $_, SubsId/binary, $_, RemDialogId/binary, $_, Srv1/binary, $_, CallId/binary>>.
 
 
 %% @private

@@ -144,5 +144,5 @@ reply(SipReply, Handle) ->
     boolean().
 
 is_local_ruri(#sipmsg{class={req, _}, srv_id=SrvId, ruri=RUri}) ->
-    nksip_transport:is_local(SrvId, RUri).
+    nksip_util:is_local(SrvId, RUri).
 

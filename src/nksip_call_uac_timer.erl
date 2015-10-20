@@ -63,7 +63,7 @@ do_timer(timer_a, UAC, Call) ->
             ?call_info("UAC ~p (~p) retransmitting 'INVITE'", [TransId, Status]),
             UAC1 = nksip_call_lib:retrans_timer(timer_a, UAC, Call),
             update(UAC1, Call);
-        error ->
+        {error, _} ->
             ?call_notice("UAC ~p (~p) could not retransmit 'INVITE'", [TransId, Status]),
             Reply = {service_unavailable, <<"Resend Error">>},
             {Resp, _} = nksip_reply:reply(Req, Reply),
@@ -102,7 +102,7 @@ do_timer(timer_e, UAC, Call) ->
             ?call_info("UAC ~p (~p) retransmitting ~p", [TransId, Status, Method]),
             UAC1 = nksip_call_lib:retrans_timer(timer_e, UAC, Call),
             update(UAC1, Call);
-        error ->
+        {error, _} ->
             ?call_notice("UAC ~p (~p) could not retransmit ~p", [TransId, Status, Method]),
             Msg = {service_unavailable, <<"Resend Error">>},
             {Resp, _} = nksip_reply:reply(Req, Msg),

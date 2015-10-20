@@ -25,9 +25,10 @@
 
 -compile([export_all]).
 
--export([start/3, stop/1, stop_all/0, update/2]).
+-export([start/2, stop/1, stop_all/0, update/2]).
 -export([get_config/1, get_uuid/1]).
 -export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([plugin_update_value/3, syntax/0, defaults/0, cached/0]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
@@ -37,7 +38,7 @@
 -export_type([request/0, response/0, sipreply/0, optslist/0]).
 -export_type([call/0, uri/0, user_uri/0]).
 -export_type([header/0, header_name/0, header_value/0]).
--export_type([scheme/0, protocol/0, method/0, sip_code/0, via/0]).
+-export_type([scheme/0, method/0, sip_code/0, via/0]).
 -export_type([call_id/0, cseq/0, tag/0, body/0, uri_set/0, aor/0]).
 -export_type([dialog/0, invite/0, subscription/0, token/0, error_reason/0]).
 
@@ -98,8 +99,6 @@
 %% SIP Generic Header
 -type header() :: {header_name(), header_value()}.
 
-%% Recognized transport schemes
--type protocol() :: udp | tcp | tls | sctp | ws | wss | binary().
 
 %% Recognized SIP schemes
 -type scheme() :: sip | sips | tel | mailto | binary().
@@ -158,16 +157,15 @@
 %% ===================================================================
 
 %% @doc Starts a new Service.
--spec start(srv_name(), atom(), optslist()) -> 
+-spec start(srv_name(), optslist()) -> 
 	{ok, srv_id()} | {error, term()}.
 
-start(Name, Module, Opts) ->
+start(Name, Opts) ->
     Opts1 = nksip_util:adapt_opts(Opts),
     Opts2 = Opts1#{
         class => nksip,
-        callback => Module,
         plugins => [nksip|maps:get(plugins, Opts1, [])],
-        transports => maps:get(transports, Opts1, [{udp, all, any}])
+        transports => maps:get(transports, Opts1, "sip:all")
     },
     nkservice_server:start(Name, Opts2).
 
@@ -176,8 +174,8 @@ start(Name, Module, Opts) ->
 -spec stop(srv_name()|srv_id()) -> 
     ok | {error, not_found}.
 
-stop(App) ->
-    nkservice_server:stop(App).
+stop(Srv) ->
+    nkservice_server:stop(Srv).
 
 
 %% @doc Stops all started Services.
@@ -195,7 +193,7 @@ stop_all() ->
 -spec update(srv_name()|srv_id(), optslist()) ->
     {ok, srv_id()} | {error, term()}.
 
-update(App, Opts) ->
+update(Srv, Opts) ->
     Opts1 = nksip_util:adapt_opts(Opts),
     Opts2 = case Opts1 of
         #{plugins:=Plugins} ->
@@ -203,7 +201,7 @@ update(App, Opts) ->
         _ ->
             Opts1
     end,
-    nkservice_server:update(App, Opts2).
+    nkservice_server:update(Srv, Opts2).
 
     
 
@@ -246,9 +244,8 @@ deps() ->
 plugin_start(#{id:=SrvId}=SrvSpec) ->
     try
         lager:info("Plugin nksip starting (~p)", [SrvId]),
-        Syntax = nksip_util:syntax(),
         Defaults = nklib_util:to_map(nksip_config_cache:sip_defaults()),
-        SrvSpec2 = case nkservice_util:parse_syntax(SrvSpec, Syntax, Defaults) of
+        SrvSpec2 = case nkservice_util:parse_syntax(SrvSpec, syntax(), Defaults) of
             {ok, Parsed2} -> Parsed2;
             {error, Parse2Error} -> throw(Parse2Error)
         end,
@@ -267,7 +264,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
             trans = maps:get(sip_trans_timeout, SrvSpec2),
             dialog = maps:get(sip_dialog_timeout, SrvSpec2)},
         OldCache = maps:get(cache, SrvSpec, #{}),
-        Cache1 = maps:with(nksip_util:cached(), SrvSpec2),
+        Cache1 = maps:with(cached(), SrvSpec2),
         Cache2 = Cache1#{sip_times=>Timers},
         {ok, SrvSpec2#{cache=>maps:merge(OldCache, Cache2), transports=>Transp2}}
     catch
@@ -277,9 +274,87 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin nksip stopping (~p)", [SrvId]),
-    SrvSpec2 = maps:without(maps:keys(nksip_util:syntax()), SrvSpec),
+    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
     {ok, SrvSpec2}.
 
 
+%% ===================================================================
+%% Internal
+%% ===================================================================
+
+
+%% @private
+plugin_update_value(Key, Fun, SrvSpec) ->
+    Value1 = maps:get(Key, SrvSpec, undefined),
+    Value2 = Fun(Value1),
+    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
+    OldCache = maps:get(cache, SrvSpec, #{}),
+    Cache = case lists:member(Key, cached()) of
+        true -> maps:put(Key, Value2, #{});
+        false -> #{}
+    end,
+    SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
+
+
+
+%% @private
+syntax() ->
+    #{
+        sip_allow => words,
+        sip_supported => words,
+        sip_timer_t1 => {integer, 10, 2500},
+        sip_timer_t2 => {integer, 100, 16000},
+        sip_timer_t4 => {integer, 100, 25000},
+        sip_timer_c => {integer, 1, none},
+        sip_trans_timeout => {integer, 5, none},
+        sip_dialog_timeout => {integer, 5, none},
+        sip_event_expires => {integer, 1, none},
+        sip_event_expires_offset => {integer, 0, none},
+        sip_nonce_timeout => {integer, 5, none},
+        sip_from => [{enum, [undefined]}, uri],
+        sip_accept => [{enum, [undefined]}, words],
+        sip_events => words,
+        sip_route => uris,
+        sip_no_100 => boolean,
+        sip_max_calls => {integer, 1, 1000000},
+        sip_debug => boolean
+    }.
+
+
+%% @private
+defaults() ->
+    #{
+        sip_allow => [
+            <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
+            <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
+            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>],
+        sip_supported => [<<"path">>],
+        sip_timer_t1 => 500,                    % (msecs) 0.5 secs
+        sip_timer_t2 => 4000,                   % (msecs) 4 secs
+        sip_timer_t4 => 5000,                   % (msecs) 5 secs
+        sip_timer_c =>  180,                    % (secs) 3min
+        sip_trans_timeout => 900,               % (secs) 15 min
+        sip_dialog_timeout => 1800,             % (secs) 30 min
+        sip_event_expires => 60,                % (secs) 1 min
+        sip_event_expires_offset => 5,          % (secs) 5 secs
+        sip_nonce_timeout => 30,                % (secs) 30 secs
+        sip_from => undefined,
+        sip_accept => undefined,
+        sip_events => [],
+        sip_route => [],
+        sip_no_100 => false,
+        sip_max_calls => 100000,                % Each Call-ID counts as a call
+        sip_debug => false                      % Used in nksip_debug plugin
+    }.
+
+
+%% @private
+cached() ->
+    [
+        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
+        sip_event_expires, sip_event_expires_offset, sip_events, 
+        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
+        sip_route, sip_supported, sip_trans_timeout
+    ].
 
 

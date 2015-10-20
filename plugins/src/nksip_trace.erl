@@ -29,10 +29,10 @@
 -compile({no_auto_import, [get/1, put/2]}).
 
 -export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
-
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
 
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
@@ -64,7 +64,7 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
     lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     SrvSpec1 = maps:merge(#{sip_trace => {console, all}}, SrvSpec),
     try
-        {File, IpList} = case maps:get(sip_trace, SrvSpec) of
+        {File, IpList} = case maps:get(sip_trace, SrvSpec1) of
             {File0, IpList0} -> 
                 case norm_file(File0) of
                     {ok, File1} ->
@@ -109,64 +109,6 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
 
 
 
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     Defaults = [{nksip_trace, {console, all}}],
-%     Opts1 = nklib_util:defaults(Opts, Defaults),    
-%     try
-%         {File, IpList} = case nklib_util:get_value(nksip_trace, Opts1) of
-%             {File0, IpList0} -> 
-%                 case norm_file(File0) of
-%                     {ok, File1} ->
-%                         case norm_iplist(IpList0, []) of
-%                             {ok, IpList1} -> {File1, IpList1};
-%                             error -> throw({invalid_re, IpList0})
-%                         end;
-%                     error ->
-%                         throw({invalid_file, File0})
-%                 end;
-%             File0 -> 
-%                 case norm_file(File0) of
-%                     {ok, File1} -> 
-%                         {File1, all};
-%                     error ->
-%                         throw({invalid_file, File0})
-%                 end
-%         end,
-%         SrvId = nklib_util:get_value(id, Opts1),
-%         close_file(SrvId),
-%         case open_file(SrvId, File) of
-%             ok -> 
-%                 case compile_ips(IpList, []) of
-%                     {ok, CompIpList} ->
-%                         Cached1 = nklib_util:get_value(cached_configs, Opts1, []),
-%                         Cached2 = nklib_util:store_value(cache_sip_trace,
-%                                                         {File, CompIpList}, Cached1),
-%                         Opts2 = nklib_util:store_value(cached_configs, Cached2, Opts1),
-%                         {ok, Opts2};
-%                     error ->
-%                         throw({invalid_re, IpList})
-%                 end;
-%             error -> 
-%                 throw({invalid_config, {could_not_open, File}})
-%         end
-%     catch
-%         throw:Error -> {error, {invalid_config, Error}}
-%     end.
-
-
-% %% @doc Called when the plugin is shutdown
-% -spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-%     {ok, nkservice_server:sub_state()}.
-
-% terminate(SrvId, ServiceState) ->  
-%     catch close_file(SrvId),
-%     {ok, ServiceState}.
-
-
 
 %% ===================================================================
 %% Public
@@ -174,7 +116,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
 
 %% @doc Get all Services currently tracing messages.
 -spec get_all() ->
-    [{App::nkservice:name(), File::console|binary(), IpList::all|[binary()]}].
+    [{Srv::nkservice:name(), File::console|binary(), IpList::all|[binary()]}].
 
 get_all() ->
     Fun = fun({SrvId, SrvName, _Pid}, Acc) ->
@@ -290,7 +232,7 @@ sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
             Msg = print_packet(SrvName, Header, Transport, Binary),
             write(SrvId, File, Msg);
         {File, IpList} ->
-            #transport{local_ip=Ip1, remote_ip=Ip2} = Transport,
+            #nkport{local_ip=Ip1, remote_ip=Ip2} = Transport,
             case has_ip([Ip1, Ip2], IpList) of
                 true ->
                     SrvName = SrvId:name(),
@@ -402,8 +344,8 @@ write(SrvId, File, Msg) ->
 
 %% @private
 print_packet(SrvId, Info, 
-                #transport{
-                    proto = Proto,
+                #nkport{
+                    transp = Transp,
                     local_ip = LIp, 
                     local_port = LPort, 
                     remote_ip = RIp, 
@@ -426,7 +368,7 @@ print_packet(SrvId, Info,
     ],
     io_lib:format("~p ~s ~s:~p (~p, ~s:~p) (~p)\n\n~s", 
                     [SrvId, Info, RHost, RPort, 
-                    Proto, LHost, LPort, self(), list_to_binary(Lines)]).
+                    Transp, LHost, LPort, self(), list_to_binary(Lines)]).
 
 
 

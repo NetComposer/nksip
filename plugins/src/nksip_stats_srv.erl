@@ -22,7 +22,7 @@
 -behaviour(gen_server).
 
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
--export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
+-export([start_link/1, init/1, terminate/2, code_change/3, handle_call/3, 
          handle_cast/2, handle_info/2]).
 
 -include("../include/nksip.hrl").
@@ -41,21 +41,21 @@
 
 
 %% @private
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Period) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [Period], []).
         
 
 %% @private 
 -spec init(term()) ->
     {ok, #state{}}.
 
-init([]) ->
+init([Period]) ->
     Now = nklib_util:timestamp(),
     State = #state{
         last_uas = {0,0,0,0}, 
         avg_uas_values = [], 
         last_check = Now,
-        period = nksip_app:get(nksip_stats_period, 5)
+        period = Period
     },
     {ok, State}.
 

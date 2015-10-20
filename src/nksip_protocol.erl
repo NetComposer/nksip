@@ -23,6 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(nkpacket_protocol).
 
+-export([start_refresh/3, stop_refresh/1]).
 -export([transports/1, default_port/1, encode/2, naptr/2]).
 -export([conn_init/1, conn_parse/3, conn_encode/3, conn_stop/3]).
 -export([conn_handle_call/4, conn_handle_cast/3, conn_handle_info/3]).
@@ -35,6 +36,31 @@
 
 -define(MAX_MSG, 65535).
 -define(MAX_UDP, 1500).
+
+%% ===================================================================
+%% User
+%% ===================================================================
+
+
+%% @doc Start a time-alive series, with result notify
+%% If `Ref' is not `undefined', a message will be sent to self() using `Ref'
+%% (self() ! Ref) after the fist successful ping response
+-spec start_refresh(pid(), pos_integer(), term()) ->
+    ok | error.
+
+start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
+    case catch gen_server:call(Pid, {start_refresh, Secs, Ref, self()}) of
+        ok -> ok;
+        _ -> error
+    end.
+
+%% @doc Start a time-alive series, with result notify
+-spec stop_refresh(pid()) ->
+    ok.
+
+stop_refresh(Pid) ->
+    gen_server:cast(Pid, stop_refresh).
+
 
 %% ===================================================================
 %% Callbacks
@@ -62,11 +88,11 @@ default_port(_) -> invalid.
 %% @doc Implement this function to provide a 'quick' encode function, 
 %% in case you don't need the connection state to perform the encode.
 %% Do not implement it or return 'continue' to call conn_encode/2
--spec encode(term(), nkpacket:nkport()) ->
+-spec encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
     {ok, nkpacket:outcoming()} | continue | {error, term()}.
 
-encode(_, _) ->
-    continue.
+encode(SipMsg, _NkPort) ->
+    {ok, nksip_unparse:packet(SipMsg)}.
 
 
 %% @doc Implement this function to allow NAPTR DNS queries.
@@ -82,6 +108,8 @@ naptr(sip, "sip+d2w") -> {ok, ws};
 naptr(sips, "sips+d2t") -> {ok, tls};
 naptr(sips, "sips+d2w") -> {ok, wss};
 naptr(_, _) -> invalid.
+
+
 
 
 
@@ -123,9 +151,12 @@ conn_init(#nkport{meta=#{group:={nksip, SrvId}}, transp=Transp}) ->
 
 
 %% @doc This function is called when a new message arrives to the connection
--spec conn_parse(nkpacket:incoming(), nkpacket:nkport(), conn_state()) ->
+-spec conn_parse(nkpacket:incoming()|close, nkpacket:nkport(), conn_state()) ->
     {ok, conn_state()} | {bridge, nkpacket:nkport()} | 
     {stop, Reason::term(), conn_state()}.
+
+conn_parse(close, _NkPort, State) ->
+    {ok, State};
 
 conn_parse(Binary, NkPort, #conn_state{buffer=Buffer}=State) ->
     Data = case Buffer of
@@ -147,7 +178,6 @@ conn_parse(Binary, NkPort, #conn_state{buffer=Buffer}=State) ->
 
 conn_encode(_Term, _NkPort, ConnState) ->
     {error, not_defined, ConnState}.
-
 
 
 %% @doc Called when the connection received a gen_server:call/2,3
@@ -247,6 +277,8 @@ conn_handle_info(Msg, _NkPort, State) ->
 
 conn_stop(_Reason, _NkPort, _State) ->
     ok.
+
+
 
 
 

@@ -191,7 +191,7 @@ nks_sip_uas_timer(nksip_100rel_prack_retrans, #trans{id=Id, response=Resp}=UAS, 
             ?call_info("UAS ~p retransmitting 'INVITE' ~p reliable response", 
                        [Id, Code]),
             nksip_100rel_lib:retrans_timer(UAS, Call);
-        error -> 
+        {error, _} -> 
             ?call_notice("UAS ~p could not retransmit 'INVITE' ~p reliable response", 
                          [Id, Code]),
             UAS1 = UAS#trans{status=finished},

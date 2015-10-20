@@ -47,7 +47,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Supp) -> nklib_util:store_value(<<"timer">>, Supp) end,
-            SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec1),
+            SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec1),
             #{
                 sip_timers_se := SE, 
                 sip_timers_min_se := MinSE, 
@@ -63,7 +63,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     UpdFun = fun(Supp) -> Supp -- [<<"timer">>] end,
-    SrvSpec1 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    SrvSpec1 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
     {ok, SrvSpec2}.
 

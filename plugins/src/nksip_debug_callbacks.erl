@@ -36,7 +36,7 @@
 
 nks_sip_connection_sent(SipMsg, Packet) ->
     #sipmsg{srv_id=_SrvId, class=Class, call_id=_CallId, nkport=NkPort} = SipMsg,
-    {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
+    {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case Class of
         {req, Method} ->
             nksip_debug:insert(SipMsg, {Transp, Ip, Port, Method, Packet});
@@ -52,7 +52,7 @@ nks_sip_connection_sent(SipMsg, Packet) ->
     continue.
 
 nks_sip_connection_recv(SrvId, CallId, NkPort, Packet) ->
-    {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
+    {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
     continue.
 

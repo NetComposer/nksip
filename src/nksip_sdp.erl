@@ -289,7 +289,7 @@ update_ip(#sdp{connect = {_, _, <<"auto.nksip">>}} = SDP, ListenAddr) ->
         is_tuple(ListenAddr), size(ListenAddr)==8 ->
             Ip = ListenAddr, Class = <<"IP6">>;
         true ->
-            case nksip_dns:get_ips(ListenAddr) of
+            case nkpacket_dns:ips(ListenAddr) of
                 [Ip|_] when size(Ip)==4 -> Class = <<"IP4">>;
                 [Ip|_] when size(Ip)==8 -> Class = <<"IP6">>;
                 _ -> Ip = {0,0,0,0}, Class = <<"IP4">>

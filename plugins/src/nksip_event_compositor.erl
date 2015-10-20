@@ -68,7 +68,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"PUBLISH">>, Allow) end,
-            SrvSpec2 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
+            SrvSpec2 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
             #{cache:=OldCache} = SrvSpec2,
             Cache = maps:with(maps:keys(syntax()), SrvSpec1),
             {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
@@ -80,7 +80,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     UpdFun = fun(Allow) -> Allow -- [<<"PRACK">>] end,
-    SrvSpec1 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec),
+    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
     clear(SrvId),
     {ok, SrvSpec2}.
@@ -140,8 +140,8 @@ defaults() ->
 -spec find(nkservice:id()|term(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
-find(App, AOR, Tag) ->
-    {ok, SrvId} = nkservice_server:find(App),
+find(Srv, AOR, Tag) ->
+    {ok, SrvId} = nkservice_server:find(Srv),
     nksip_event_compositor_lib:store_get(SrvId, AOR, Tag).
 
 
@@ -187,8 +187,8 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
 -spec clear(nkservice:name()|nkservice:id()) -> 
     ok | callback_error | service_not_found.
 
-clear(App) -> 
-    case nkservice_server:find(App) of
+clear(Srv) -> 
+    case nkservice_server:find(Srv) of
         {ok, SrvId} ->
             case nksip_event_compositor_lib:store_del_all(SrvId) of
                 ok -> ok;

@@ -58,9 +58,9 @@
 -spec options(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
-options(App, Uri, Opts) ->
+options(Srv, Uri, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send(App, 'OPTIONS', Uri, Opts1).
+    send(Srv, 'OPTIONS', Uri, Opts1).
 
 
 %% @doc Sends an in-dialog OPTIONS request.
@@ -76,18 +76,18 @@ options(Handle, Opts) ->
 -spec register(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
-register(App, Uri, Opts) ->
+register(Srv, Uri, Opts) ->
     Opts1 = [to_as_from, supported, allow, allow_event | Opts],
-    send(App, 'REGISTER', Uri, Opts1).
+    send(Srv, 'REGISTER', Uri, Opts1).
 
 
 %% @doc Sends an out-of-dialog INVITE request.
 -spec invite(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
-invite(App, Uri, Opts) ->
+invite(Srv, Uri, Opts) ->
     Opts1 = [contact, supported, allow, allow_event | Opts],
-    send(App, 'INVITE', Uri, Opts1).
+    send(Srv, 'INVITE', Uri, Opts1).
 
 
 %% @doc Sends an in-dialog INVITE request.
@@ -146,11 +146,11 @@ update(Handle, Opts) ->
 -spec subscribe(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
-subscribe(App, Uri, Opts) ->
+subscribe(Srv, Uri, Opts) ->
     case lists:keymember(event, 1, Opts) of
         true ->
             Opts1 = [contact, supported, allow, allow_event | Opts],
-            send(App, 'SUBSCRIBE', Uri, Opts1);
+            send(Srv, 'SUBSCRIBE', Uri, Opts1);
         false ->
             {error, invalid_event}
     end.
@@ -182,12 +182,12 @@ notify(Handle, Opts) ->
 -spec message(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
-message(App, Uri, Opts) ->
+message(Srv, Uri, Opts) ->
     Opts1 = case lists:keymember(expires, 1, Opts) of
         true -> [date|Opts];
         _ -> Opts
     end,
-    send(App, 'MESSAGE', Uri, Opts1).
+    send(Srv, 'MESSAGE', Uri, Opts1).
 
 
 %% @doc Sends an in-dialog MESSAGE request.
@@ -207,13 +207,13 @@ message(Handle, Opts) ->
 -spec refer(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) -> 
     uac_result().
 
-refer(App, Uri, Opts) ->
+refer(Srv, Uri, Opts) ->
     case nklib_util:get_binary(refer_to, Opts) of
         <<>> ->
             {error, invalid_refer_to};
         ReferTo ->
             Opts1 = [{insert, "refer-to", ReferTo} | nklib_util:delete(Opts, refer_to)],
-            send(App, 'REFER', Uri, Opts1)
+            send(Srv, 'REFER', Uri, Opts1)
     end.
 
 
@@ -234,9 +234,9 @@ refer(Handle, Opts) ->
 -spec publish(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
-publish(App, Uri, Opts) ->
+publish(Srv, Uri, Opts) ->
     Opts1 = [supported, allow, allow_event | Opts],
-    send(App, 'PUBLISH', Uri, Opts1).
+    send(Srv, 'PUBLISH', Uri, Opts1).
 
 
 %% @doc Sends an in-dialog PUBLISH request.
@@ -253,8 +253,8 @@ publish(Handle, Opts) ->
 -spec request(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) -> 
     uac_result().
 
-request(App, Dest, Opts) ->
-    send(App, undefined, Dest, Opts).
+request(Srv, Dest, Opts) ->
+    send(Srv, undefined, Dest, Opts).
 
 
 %% @doc Sends an in-dialog request constructed from a SIP-Uri
@@ -330,8 +330,8 @@ refresh(Handle, Opts) ->
 %          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),
 %          Error :: unknown_core | invalid_uri | no_host | service_unavailable.
 
-% stun(App, UriSpec, _Opts) ->
-%     case nkservice_server:find(App) of
+% stun(Srv, UriSpec, _Opts) ->
+%     case nkservice_server:find(Srv) of
 %         {ok, SrvId} ->
 %             case nksip_transport:get_listening(SrvId, udp, ipv4) of
 %                 [] -> 
@@ -371,8 +371,8 @@ refresh(Handle, Opts) ->
            nksip:optslist()) ->
     uac_result() | {error, term()}.
 
-send(App, Method, Uri, Opts) ->
-    case nkservice_server:find(App) of
+send(Srv, Method, Uri, Opts) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> 
             case nklib_util:get_binary(call_id, Opts) of
                 <<>> -> CallId = nklib_util:luid();

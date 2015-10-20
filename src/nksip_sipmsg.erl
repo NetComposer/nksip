@@ -367,13 +367,13 @@ get_handle(_) ->
 -spec parse_handle(nksip:handle()) -> 
     {req|resp, nkservice:id(), id(), nksip:call_id()}.
 
-parse_handle(<<Ch, $_, Id:6/binary, $_, App:7/binary, $_, CallId/binary>>)
+parse_handle(<<Ch, $_, Id:6/binary, $_, Srv:7/binary, $_, CallId/binary>>)
          when Ch==$R; Ch==$S ->
     Class = case Ch of
         $R -> req;
         $S -> resp
     end,
-    {Class, binary_to_existing_atom(App, latin1), Id, CallId};
+    {Class, binary_to_existing_atom(Srv, latin1), Id, CallId};
 
 parse_handle(_) ->
     error(invalid_handle).

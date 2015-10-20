@@ -29,12 +29,12 @@
 -define(VERSION, "0.5.0").
 
 -define(
-    DO_LOG(Level, App, CallId, Text, Opts),
+    DO_LOG(Level, Srv, CallId, Text, Opts),
     case CallId of
         <<>> ->
-            lager:Level([{app, App}], "~p "++Text, [App|Opts]);
+            lager:Level([{app, Srv}], "~p "++Text, [Srv|Opts]);
         _ -> 
-            lager:Level([{app, App}, {call_id, CallId}], "~p (~s) "++Text, [App, CallId|Opts])
+            lager:Level([{app, Srv}, {call_id, CallId}], "~p (~s) "++Text, [Srv, CallId|Opts])
     end).
 
 -define(DO_DEBUG(SrvId, CallId, Level, Text, List),
@@ -89,26 +89,6 @@
 %% Records
 %% ===================================================================
 
-
-% -record(sipapp_srv, {
-%     srv_id :: nkservice:service_id(),
-%     args :: term(),
-%     sipapp_state :: term(),
-%     meta :: list()
-% }).
-
-
-% -record(transport, {
-%     proto = udp :: nksip:protocol(),
-%     local_ip :: inet:ip_address(),
-%     local_port :: inet:port_number(),
-%     remote_ip :: inet:ip_address(),
-%     remote_port :: inet:port_number(),
-%     listen_ip :: inet:ip_address(),         % Ip this transport must report as listening
-%     listen_port :: inet:port_number(),
-%     sctp_id :: integer(),
-%     resource = <<>> :: binary()      
-% }).
 
 
 -record(sipmsg, {

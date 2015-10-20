@@ -171,8 +171,8 @@ get_all() ->
 -spec get_all(nkservice:name()|nkservice:id(), nksip:call_id()) ->
     [nksip:handle()].
 
-get_all(App, CallId) ->
-    case nkservice_server:find(App) of
+get_all(Srv, CallId) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> 
             case nksip_call:get_all_dialogs(SrvId, CallId) of
                 {ok, Handles} -> Handles;
@@ -211,7 +211,7 @@ stop_all() ->
 
 %% @doc Gets the authorized list of transport, ip and ports for a dialog.
 -spec get_authorized_list(nksip:handle()) ->
-    [{nksip:protocol(), inet:ip_address(), inet:port_number()}].
+    [{nkpacket:transport(), inet:ip_address(), inet:port_number()}].
 
 get_authorized_list(Handle) ->
     {SrvId, DialogId, CallId} = nksip_dialog_lib:parse_handle(Handle),

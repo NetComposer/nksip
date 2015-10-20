@@ -54,7 +54,7 @@ version() ->
 
 %% @doc Dependant plugins
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip].
@@ -65,7 +65,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"REGISTER">>, Allow) end,
-            SrvSpec2 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
+            SrvSpec2 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
             #{
                 sip_registrar_min_time := Min, 
                 sip_registrar_max_time := Max,
@@ -84,7 +84,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     clear(SrvId),
     UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
-    SrvSpec1 = nksip_util:plugin_update_value(sip_allow, UpdFun, SrvSpec),
+    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
     {ok, SrvSpec2}.
 
@@ -114,11 +114,11 @@ defaults() ->
 -spec find(nkservice:name()|nkservice:id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
-find(App, {Scheme, User, Domain}) ->
-    find(App, Scheme, User, Domain);
+find(Srv, {Scheme, User, Domain}) ->
+    find(Srv, Scheme, User, Domain);
 
-find(App, Uri) ->
-    case nkservice_server:find(App) of
+find(Srv, Uri) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Uri);
         _ -> []
     end.
@@ -128,8 +128,8 @@ find(App, Uri) ->
 -spec find(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
-find(App, Scheme, User, Domain) ->
-    case nkservice_server:find(App) of
+find(Srv, Scheme, User, Domain) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Scheme, User, Domain);
         _ -> []
     end.
@@ -140,8 +140,8 @@ find(App, Scheme, User, Domain) ->
 -spec qfind(nkservice:name()|nkservice:id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
-qfind(App, {Scheme, User, Domain}) ->
-    qfind(App, Scheme, User, Domain).
+qfind(Srv, {Scheme, User, Domain}) ->
+    qfind(Srv, Scheme, User, Domain).
 
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
@@ -149,8 +149,8 @@ qfind(App, {Scheme, User, Domain}) ->
 -spec qfind(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
-qfind(App, Scheme, User, Domain) ->
-    case nkservice_server:find(App) of
+qfind(Srv, Scheme, User, Domain) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> nksip_registrar_lib:qfind(SrvId, Scheme, User, Domain);
         _ ->
             []
@@ -161,8 +161,8 @@ qfind(App, Scheme, User, Domain) ->
 -spec delete(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
-delete(App, Scheme, User, Domain) ->
-    case nkservice_server:find(App) of
+delete(Srv, Scheme, User, Domain) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} ->
             AOR = {
                 nklib_parse:scheme(Scheme), 
@@ -187,10 +187,10 @@ is_registered(#sipmsg{class={req, 'REGISTER'}}) ->
 is_registered(#sipmsg{
                 srv_id = SrvId, 
                 from = {#uri{scheme=Scheme, user=User, domain=Domain}, _},
-                transport=Transport
+                nkport=NkPort
             }) ->
     case catch nksip_registrar_lib:store_get(SrvId, {Scheme, User, Domain}) of
-        {ok, Regs} -> nksip_registrar_lib:is_registered(Regs, Transport);
+        {ok, Regs} -> nksip_registrar_lib:is_registered(Regs, NkPort);
         _ -> false
     end.
 
@@ -225,8 +225,8 @@ request(Req) ->
 -spec clear(nkservice:name()|nkservice:id()) -> 
     ok | callback_error | service_not_found.
 
-clear(App) -> 
-    case nkservice_server:find(App) of
+clear(Srv) -> 
+    case nkservice_server:find(Srv) of
         {ok, SrvId} ->
             case nksip_registrar_lib:store_del_all(SrvId) of
                 ok -> ok;

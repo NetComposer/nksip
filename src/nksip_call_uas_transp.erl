@@ -37,7 +37,7 @@
 
 %% @doc Sends a new `Response'.
 -spec send_response(nksip:response(), nksip:optslist()) ->
-    {ok, nksip:response()} | error.
+    {ok, nksip:response()} | {error, term()}.
 
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
@@ -49,48 +49,42 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     } = Resp,
     #via{transp=ViaTransp, domain=ViaDomain, port=ViaPort, opts=ViaOpts} = Via,
     #nkport{transp=RTransp, remote_ip=RIp, remote_port=RPort} = NkPort,
-
-    Res = <<>>,
-
     % {ok, RIp} = nklib_util:to_ip(nklib_util:get_value(<<"received">>, ViaOpts)),
     ViaRPort = lists:keymember(<<"rport">>, 1, ViaOpts),
     TranspSpec = case RTransp of
-        'udp' ->
+        udp ->
             case nklib_util:get_binary(<<"maddr">>, ViaOpts) of
-                <<>> when ViaRPort -> [{udp, RIp, RPort, <<>>}];
-                <<>> -> [{udp, RIp, ViaPort, <<>>}];
-                MAddr -> [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
+                <<>> when ViaRPort -> 
+                    [{nksip_protocol, udp, RIp, RPort}];
+                <<>> -> 
+                    [{nksip_protocol, RIp, ViaPort}];
+                MAddr -> 
+                    [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
             end;
         _ ->
             UriOpt = {<<"transport">>, nklib_util:to_binary(ViaTransp)},
             [
-                {current, {RTransp, RIp, RPort, Res}}, 
+                NkPort, 
                 #uri{scheme=sip, domain=ViaDomain, port=ViaPort, opts=[UriOpt]}
             ]
     end,
     RouteBranch = nklib_util:get_binary(<<"branch">>, ViaOpts),
     GlobalId = nksip_config_cache:global_id(),
     RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, SrvId, RouteBranch}))/binary>>,
-    MakeRespFun = make_response_fun(RouteHash, Resp, Opts),
+    PreFun = make_pre_fun(RouteHash, Opts),
     SrvId:nks_sip_debug(SrvId, CallId, {send_response, Method, Code}),
-    Return = nksip_transport:send(SrvId, TranspSpec, MakeRespFun, Opts),
+    Return = nksip_util:send(SrvId, TranspSpec, Resp, PreFun, Opts),
     SrvId:nks_sip_transport_uas_sent(Resp),
     Return.
 
 
 %% @doc Resends a previously sent response to the same ip, port and protocol.
 -spec resend_response(Resp::nksip:response(), nksip:optslist()) ->
-    {ok, nksip:response()} | error.
+    {ok, nksip:response()} | {error, term()}.
 
 resend_response(#sipmsg{class={resp, Code, _}, nkport=#nkport{}=NkPort}=Resp, Opts) ->
     #sipmsg{srv_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
-    #nkport{transp=Transp, remote_ip=Ip, remote_port=Port} = NkPort,
-
-    Res = <<>>,
-
-    MakeResp = fun(_) -> Resp end,
-    TranspSpec = [{current, {Transp, Ip, Port, Res}}],
-    Return = nksip_transport:send(SrvId, TranspSpec, MakeResp, Opts),
+    Return = nklib_util:send(SrvId, [NkPort], Resp, none, Opts),
     SrvId:nks_sip_debug(SrvId, CallId, {sent_response, Method, Code}),
     Return;
 
@@ -105,22 +99,23 @@ resend_response(Resp, Opts) ->
 %% ===================================================================
 
 %% @private
--spec make_response_fun(binary(), nksip:response(), nksip:optslist()) ->
+-spec make_pre_fun(binary(), nksip:optslist()) ->
     function().
 
-make_response_fun(RouteHash, Resp, Opts) ->
-    #sipmsg{
-        srv_id = SrvId,
-        to = {To, _},
-        headers = Headers,
-        contacts = Contacts, 
-        body = Body
-    }= Resp,
-    fun(#nkport{
-                    transp = Transp, 
-                    listen_ip = ListenIp, 
-                    listen_port = ListenPort
-                } = NkPort) ->
+make_pre_fun(RouteHash, Opts) ->
+    fun(Resp, NkPort) ->
+        #sipmsg{
+            srv_id = SrvId,
+            to = {To, _},
+            headers = Headers,
+            contacts = Contacts, 
+            body = Body
+        }= Resp,
+        #nkport{
+            transp = Transp, 
+            listen_ip = ListenIp, 
+            listen_port = ListenPort
+        } = NkPort,
         ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
         % ?call_debug("UAS listenhost is ~s", [ListenHost]),
         Scheme = case Transp==tls andalso lists:member(secure, Opts) of

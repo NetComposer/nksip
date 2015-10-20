@@ -54,7 +54,7 @@ send(UAC, Call) ->
     #trans{method=Method, id=TransId, request=Req, opts=Opts} = UAC,
     #sipmsg{to={_, ToTag}} = Req,
     NoDialog = lists:member(no_dialog, Opts),
-    % For proxies sending SUBSCRIBE or NOTIFY, NoDialog will be true
+    % For proxies sending SUBSCRIBE or NOTIFY, no_dialog will be true
     PreDialog = case NoDialog of
         true -> 
             ok;
@@ -124,7 +124,7 @@ sent_request(Req, UAC, Call) ->
         opts = Opts, 
         from = From
     } = UAC,
-    {ok, {Transp, _, _}} = nkpacket:local(NkPort),
+    {ok, {Transp, _, _}} = nkpacket:get_local(NkPort),
     ?call_debug("UAC ~p sent ~p request", [TransId, Method]),
     UAC1 = UAC#trans{
         request = Req, 

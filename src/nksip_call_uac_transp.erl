@@ -74,20 +74,20 @@ send_request(Req, Opts) ->
                     Routes1 = RestRoutes ++ [CRUri]
             end
     end,
-    Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
-    MakeReqFun = make_request_fun(Req1, DestUri, Opts),  
     SrvId:nks_sip_debug(SrvId, CallId, {uac_out_request, Method}),
     Dests = case nklib_util:get_value(route_flow, Opts) of
-        {Transp, Pid} -> 
-            [{flow, {Pid, Transp}}, DestUri];
+        #nkport{}=Flow -> 
+            [Flow, DestUri];
         undefined -> 
             [DestUri]
     end,
-    case nksip_transport:send(SrvId, Dests, MakeReqFun, Opts) of
+    Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
+    PreFun = make_pre_fun(DestUri, Opts),  
+    case nksip_util:send(SrvId, Dests, Req1, PreFun, Opts) of
         {ok, SentReq} -> 
             {ok, SentReq};
-        error ->
-            SrvId:nks_sip_debug(SrvId, CallId, uac_out_request_error),
+        {error, Error} ->
+            SrvId:nks_sip_debug(SrvId, CallId, {uac_out_request_error, Error}),
             {error, service_unavailable}
     end.
 
@@ -97,9 +97,7 @@ send_request(Req, Opts) ->
     {ok, nksip:request()} | error.
 
 resend_request(#sipmsg{srv_id=SrvId, nkport=NkPort}=Req, Opts) ->
-    % #transport{proto=Transp, remote_ip=Ip, remote_port=Port, resource=Res} = Transport,
-    MakeReq = fun(_) -> Req end.
-    % nksip_transport:send(SrvId, [{Transp, Ip, Port, Res}], MakeReq, Opts).
+    nksip_util:send(SrvId, [NkPort], Req, none, Opts).
         
 
 
@@ -109,20 +107,20 @@ resend_request(#sipmsg{srv_id=SrvId, nkport=NkPort}=Req, Opts) ->
 
 
 %% @private
--spec make_request_fun(nksip:request(), nksip:uri(), nksip:optslist()) ->
+-spec make_pre_fun(nksip:uri(), nklib:optslist()) ->
     function().
 
-make_request_fun(Req, Dest, Opts) ->
-    #sipmsg{
-        srv_id = SrvId, 
-        ruri = RUri, 
-        call_id = CallId,
-        vias = Vias,
-        routes = Routes, 
-        body = Body
-    } = Req,
+make_pre_fun(Dest, Opts) ->
     #uri{scheme=Scheme} = Dest,     % RUri or first route
-    fun(NkPort) ->
+    fun(Req, NkPort) ->
+        #sipmsg{
+            srv_id = SrvId, 
+            ruri = RUri, 
+            call_id = CallId,
+            vias = Vias,
+            routes = Routes, 
+            body = Body
+        } = Req,
         #nkport{
             transp = Transp, 
             listen_ip = ListenIp, 
@@ -180,7 +178,7 @@ make_request_fun(Req, Dest, Opts) ->
 
 %% @private
 -spec add_headers(nksip:request(), nksip:optslist(), nksip:scheme(),
-                  nksip:protocol(), binary(), inet:port_number()) ->
+                  nkpacket:transport(), binary(), inet:port_number()) ->
     nksip:request().
 
 add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->

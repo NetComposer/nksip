@@ -43,7 +43,7 @@ version() ->
 %% @doc Dependant plugins
 %% If nksip_registrar is activated, it will update it
 -spec deps() ->
-    [{atom(), string()}].
+    [atom()].
     
 deps() ->
     [nksip, nksip_registrar].
@@ -52,14 +52,14 @@ deps() ->
 plugin_start(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     UpdFun = fun(Supported) -> nklib_util:store_value(<<"gruu">>, Supported) end,
-    SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec),
     {ok, SrvSpec2}.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     UpdFun = fun(Supported) -> Supported -- [<<"gruu">>] end,
-    SrvSpec2 = nksip_util:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec),
     {ok, SrvSpec2}.
 
 

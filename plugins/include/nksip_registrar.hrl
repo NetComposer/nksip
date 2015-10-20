@@ -27,7 +27,7 @@
     q :: float(),  
     call_id :: nksip:call_id(),
     cseq :: nksip:cseq(),
-    transport :: nkpacket:nkport(),
+    nkport :: nkpacket:nkport(),
     path = [] :: [nksip:uri()],
     meta = [] :: nksip:optslist()  
 }).

@@ -43,17 +43,18 @@
 
 %% @doc Sends a synchronous piece of {@link nksip_call_worker:work()} to a call.
 -spec send_work_sync(nkservice:id(), nksip:call_id(), nksip_call_worker:work()) ->
-    any() | {error, too_many_calls | looped_process | timeout}.
+    any() | {error, too_many_calls | looped_process | {exit, term()}}.
 
 send_work_sync(SrvId, CallId, Work) ->
     Name = name(CallId),
-    Timeout = nksip_config_cache:sync_call_time(),
+    CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
     WorkSpec = {send_work_sync, SrvId, CallId, Work, self()},
-    case catch gen_server:call(Name, WorkSpec, Timeout) of
-        {'EXIT', Error} ->
+    lager:warning("SEND WORK"),
+    case nklib_util:call(Name, WorkSpec, CallOpts) of
+        {error, {exit, Exit}} ->
             ?warning(SrvId, CallId, "error calling send_work_sync (~p): ~p",
-                     [work_id(Work), Error]),
-            {error, timeout};
+                     [work_id(Work), Exit]),
+            {error, {exit, Exit}};
         Other ->
             Other
     end.
@@ -61,15 +62,15 @@ send_work_sync(SrvId, CallId, Work) ->
 
 %% @doc Called when a new request or response has been received.
 -spec incoming_sync(nksip:request()|nksip:response()) ->
-    ok | {error, too_many_calls | looped_process | timeout}.
+    ok | {error, too_many_calls | looped_process | {exit, term()}}.
 
 incoming_sync(#sipmsg{srv_id=SrvId, call_id=CallId}=SipMsg) ->
     Name = name(CallId),
-    Timeout = nksip_config_cache:sync_call_time(),
-    case catch gen_server:call(Name, {incoming, SipMsg}, Timeout) of
-        {'EXIT', Error} -> 
-            ?warning(SrvId, CallId, "error calling incoming_sync: ~p", [Error]),
-            {error, timeout};
+    CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
+    case nklib_util:call(Name, {incoming, SipMsg}, CallOpts) of
+        {error, {exit, Exit}} -> 
+            ?warning(SrvId, CallId, "error calling incoming_sync: ~p", [Exit]),
+            {error, {exit, Exit}};
         Result -> 
             Result
     end.
@@ -77,15 +78,15 @@ incoming_sync(#sipmsg{srv_id=SrvId, call_id=CallId}=SipMsg) ->
 
 %% @doc Called when a new request or response has been received.
 -spec incoming_sync(nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
-    ok | {error, too_many_calls | looped_process | timeout}.
+    ok | {error, too_many_calls | looped_process | {exit, term()}}.
 
 incoming_sync(SrvId, CallId, Transp, Msg) ->
     Name = name(CallId),
-    Timeout = nksip_config_cache:sync_call_time(),
-    case catch gen_server:call(Name, {incoming, SrvId, CallId, Transp, Msg}, Timeout) of
-        {'EXIT', Error} -> 
-            ?warning(SrvId, CallId, "error calling incoming_sync: ~p", [Error]),
-            {error, timeout};
+    CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
+    case catch gen_server:call(Name, {incoming, SrvId, CallId, Transp, Msg}, CallOpts) of
+        {error, {exit, Exit}} -> 
+            ?warning(SrvId, CallId, "error calling incoming_sync: ~p", [Exit]),
+            {error, {exit, Exit}};
         Result -> 
             Result
     end.
@@ -121,16 +122,13 @@ pending_msgs() ->
 %% gen_server
 %% ===================================================================
 
--ifdef(old_types).
--type dict_type() :: dict().
--else.
--type dict_type() :: dict:dict().
--endif.
+-type work_item() :: 
+    {reference(), {pid(), term()}, nksip_call_worker:work()}.
 
 -record(state, {
     pos :: integer(),
     name :: atom(),
-    pending :: dict_type()
+    pending :: #{pid()=>{nksip:srv_id(), nksip:call_id(), [work_item()]}}
 }).
 
 
@@ -144,93 +142,93 @@ start_link(Pos, Name) ->
 
 init([Pos, Name]) ->
     Name = ets:new(Name, [named_table, protected]),
-    SD = #state{
+    State = #state{
         pos = Pos, 
         name = Name, 
-        pending = dict:new()
+        pending = #{}
     },
-    {ok, SD}.
+    {ok, State}.
 
 
 %% @private
 -spec handle_call(term(), {pid(), term()}, #state{}) ->
     {reply, term(), #state{}} | {noreply, #state{}}.
 
-handle_call({send_work_sync, SrvId, CallId, Work, Caller}, From, SD) ->
-    case send_work_sync(SrvId, CallId, Work, Caller, From, SD) of
-        {ok, SD1} -> 
-            {noreply, SD1};
+handle_call({send_work_sync, SrvId, CallId, Work, Caller}, From, State) ->
+    case send_work_sync(SrvId, CallId, Work, Caller, From, State) of
+        {ok, State1} -> 
+            {noreply, State1};
         {error, Error} ->
             ?error(SrvId, CallId, "error sending work ~p: ~p", [Work, Error]),
-            {reply, {error, Error}, SD}
+            {reply, {error, Error}, State}
     end;
 
-handle_call({incoming, SipMsg}, _From, SD) ->
+handle_call({incoming, SipMsg}, _From, State) ->
     #sipmsg{srv_id=SrvId, call_id=CallId} = SipMsg,
-    case send_work_sync(SrvId, CallId, {incoming, SipMsg}, none, none, SD) of
-        {ok, SD1} -> 
-            {reply, ok, SD1};
+    case send_work_sync(SrvId, CallId, {incoming, SipMsg}, none, none, State) of
+        {ok, State1} -> 
+            {reply, ok, State1};
         {error, Error} ->
             ?error(SrvId, CallId, "error processing incoming message: ~p", [Error]),
-            {reply, {error, Error}, SD}
+            {reply, {error, Error}, State}
     end;
 
-handle_call({incoming, SrvId, CallId, Transp, Msg}, _From, SD) ->
-    case send_work_sync(SrvId, CallId, {incoming, SrvId, CallId, Transp, Msg}, none, none, SD) of
-        {ok, SD1} -> 
-            {reply, ok, SD1};
+handle_call({incoming, SrvId, CallId, Transp, Msg}, _From, State) ->
+    case send_work_sync(SrvId, CallId, {incoming, SrvId, CallId, Transp, Msg}, none, none, State) of
+        {ok, State1} -> 
+            {reply, ok, State1};
         {error, Error} ->
             ?error(SrvId, CallId, "error processing incoming message: ~p", [Error]),
-            {reply, {error, Error}, SD}
+            {reply, {error, Error}, State}
     end;
 
 
-handle_call(pending, _From, #state{pending=Pending}=SD) ->
-    {reply, dict:size(Pending), SD};
+handle_call(pending, _From, #state{pending=Pending}=State) ->
+    {reply, maps:size(Pending), State};
 
-handle_call(Msg, _From, SD) -> 
+handle_call(Msg, _From, State) -> 
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
-    {noreply, SD}.
+    {noreply, State}.
 
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
     {noreply, #state{}}.
 
-handle_cast({incoming, SipMsg}, SD) ->
+handle_cast({incoming, SipMsg}, State) ->
     #sipmsg{srv_id=SrvId, call_id=CallId} = SipMsg,
-    case send_work_sync(SrvId, CallId, {incoming, SipMsg}, none, none, SD) of
-        {ok, SD1} -> 
-            {noreply, SD1};
+    case send_work_sync(SrvId, CallId, {incoming, SipMsg}, none, none, State) of
+        {ok, State1} -> 
+            {noreply, State1};
         {error, Error} ->
             ?error(SrvId, CallId, "error processing incoming message: ~p", [Error]),
-            {noreply, SD}
+            {noreply, State}
     end;
 
-handle_cast(Msg, SD) ->
+handle_cast(Msg, State) ->
     lager:error("Module ~p received unexpected event: ~p", [?MODULE, Msg]),
-    {noreply, SD}.
+    {noreply, State}.
 
 
 %% @private
 -spec handle_info(term(), #state{}) ->
     {noreply, #state{}}.
 
-handle_info({sync_work_ok, Ref, Pid}, #state{pending=Pending}=SD) ->
-    Pending1 = case dict:find(Pid, Pending) of
+handle_info({sync_work_received, Ref, Pid}, #state{pending=Pending}=State) ->
+    Pending1 = case maps:find(Pid, Pending) of
         {ok, {_SrvId, _CallId, [{Ref, _From, _Work}]}} ->
-            dict:erase(Pid, Pending);
+            maps:remove(Pid, Pending);
         {ok, {SrvId, CallId, WorkList}} ->
             WorkList1 = lists:keydelete(Ref, 1, WorkList),
-            dict:store(Pid, {SrvId, CallId, WorkList1}, Pending);
+            maps:put(Pid, {SrvId, CallId, WorkList1}, Pending);
         error ->
-            lager:warning("Receiving sync_work_ok for unknown work"),
+            lager:warning("Receiving sync_work_received for unknown work"),
             Pending
     end,
-    {noreply, SD#state{pending=Pending1}};
+    {noreply, State#state{pending=Pending1}};
 
-handle_info({'DOWN', _MRef, process, Pid, _Reason}, SD) ->
-    #state{pos=Pos, name=Name, pending=Pending} = SD,
+handle_info({'DOWN', _MRef, process, Pid, _Reason}, State) ->
+    #state{pos=Pos, name=Name, pending=Pending} = State,
     case ets:lookup(Name, Pid) of
         [{Pid, Id}] ->
             {_, SrvId0, CallId0} = Id,
@@ -240,7 +238,7 @@ handle_info({'DOWN', _MRef, process, Pid, _Reason}, SD) ->
         [] ->
             ok
     end,
-    case dict:find(Pid, Pending) of
+    case maps:find(Pid, Pending) of
         {ok, {SrvId, CallId, WorkList}} -> 
             % We had pending work for this process.
             % Actually, we know the process has stopped normally before processing
@@ -248,31 +246,31 @@ handle_info({'DOWN', _MRef, process, Pid, _Reason}, SD) ->
             % If the process had failed due to an error processing the work,
             % the "received work" message would have been received an the work will
             % not be present in Pending.
-            SD1 = SD#state{pending=dict:erase(Pid, Pending)},
-            SD2 = resend_worklist(SrvId, CallId, lists:reverse(WorkList), SD1),
-            {noreply, SD2};
+            State1 = State#state{pending=maps:remove(Pid, Pending)},
+            State2 = resend_worklist(SrvId, CallId, lists:reverse(WorkList), State1),
+            {noreply, State2};
         error ->
-            {noreply, SD}
+            {noreply, State}
     end;
 
-handle_info(Info, SD) -> 
+handle_info(Info, State) -> 
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
-    {noreply, SD}.
+    {noreply, State}.
 
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
     {ok, #state{}}.
 
-code_change(_OldVsn, SD, _Extra) ->
-    {ok, SD}.
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 
 %% @private
 -spec terminate(term(), #state{}) ->
     ok.
 
-terminate(_Reason, _SD) ->  
+terminate(_Reason, _State) ->  
     ok.
 
 
@@ -294,16 +292,16 @@ name(CallId) ->
                      pid() | none, {pid(), term()}, #state{}) ->
     {ok, #state{}} | {error, looped_process | too_many_calls}.
 
-send_work_sync(SrvId, CallId, Work, Caller, From, #state{name=Name}=SD) ->
+send_work_sync(SrvId, CallId, Work, Caller, From, #state{name=Name}=State) ->
     case find(Name, SrvId, CallId) of
         {ok, Caller} ->
             {error, looped_process};
         {ok, Pid} -> 
-            {ok, do_send_work_sync(Pid, SrvId, CallId, Work, From, SD)};
+            {ok, do_send_work_sync(Pid, SrvId, CallId, Work, From, State)};
         not_found ->
-            case do_call_start(SrvId, CallId, SD) of
+            case do_call_start(SrvId, CallId, State) of
                 {ok, Pid} -> 
-                    {ok, do_send_work_sync(Pid, SrvId, CallId, Work, From, SD)};
+                    {ok, do_send_work_sync(Pid, SrvId, CallId, Work, From, State)};
                 {error, Error} -> 
                     {error, Error}
             end
@@ -315,29 +313,29 @@ send_work_sync(SrvId, CallId, Work, Caller, From, #state{name=Name}=SD) ->
                         {pid(), term()}, #state{}) ->
     #state{}.
 
-do_send_work_sync(Pid, SrvId, CallId, Work, From, #state{pending=Pending}=SD) ->
+do_send_work_sync(Pid, SrvId, CallId, Work, From, #state{pending=Pending}=State) ->
     Ref = make_ref(),
     nksip_call_srv:sync_work(Pid, Ref, self(), Work, From),
-    Pending1 = case dict:find(Pid, Pending) of
+    Pending1 = case maps:find(Pid, Pending) of
         {ok, {_, _, WorkList}} ->
-            dict:store(Pid, {SrvId, CallId, [{Ref, From, Work}|WorkList]}, Pending);
+            maps:put(Pid, {SrvId, CallId, [{Ref, From, Work}|WorkList]}, Pending);
         error ->
-            dict:store(Pid, {SrvId, CallId, [{Ref, From, Work}]}, Pending)
+            maps:put(Pid, {SrvId, CallId, [{Ref, From, Work}]}, Pending)
     end,
-    SD#state{pending=Pending1}.
+    State#state{pending=Pending1}.
     
 
 %% @private
 -spec do_call_start(nkservice:id(), nksip:call_id(), #state{}) ->
     {ok, pid()} | {error, too_many_calls}.
 
-do_call_start(SrvId, CallId, SD) ->
-    #state{name=Name} = SD,
+do_call_start(SrvId, CallId, State) ->
+    #state{name=Name} = State,
     Max = nksip_config_cache:global_max_calls(),
     case nklib_counters:value(nksip_calls) < Max of
         true ->
-            AppMax = SrvId:cache_sip_max_calls(),
-            case nklib_counters:value({nksip_calls, SrvId}) < AppMax of
+            SrvMax = SrvId:cache_sip_max_calls(),
+            case nklib_counters:value({nksip_calls, SrvId}) < SrvMax of
                 true ->
                     {ok, Pid} = nksip_call_srv:start(SrvId, CallId),
                     erlang:monitor(process, Pid),
@@ -379,15 +377,15 @@ send_work_async(Name, SrvId, CallId, Work) ->
                       [{reference(), {pid(), term()}|none, nksip_call_worker:work()}], #state{}) ->
     #state{}.
 
-resend_worklist(_SrvId, _CallId, [], SD) ->
-    SD;
+resend_worklist(_SrvId, _CallId, [], State) ->
+    State;
 
-resend_worklist(SrvId, CallId, [{_Ref, From, Work}|Rest], SD) ->
-    case send_work_sync(SrvId, CallId, Work, none, From, SD) of
-        {ok, SD1} -> 
+resend_worklist(SrvId, CallId, [{_Ref, From, Work}|Rest], State) ->
+    case send_work_sync(SrvId, CallId, Work, none, From, State) of
+        {ok, State1} -> 
             ?debug(SrvId, CallId, "resending work ~p from ~p", 
                    [work_id(Work), From]),
-            resend_worklist(SrvId, CallId, Rest, SD1);
+            resend_worklist(SrvId, CallId, Rest, State1);
         {error, Error} ->
             case From of
                 {Pid, Ref} when is_pid(Pid), is_reference(Ref) ->
@@ -395,7 +393,7 @@ resend_worklist(SrvId, CallId, [{_Ref, From, Work}|Rest], SD) ->
                 _ ->
                     ok
             end,
-            resend_worklist(SrvId, CallId, Rest, SD)
+            resend_worklist(SrvId, CallId, Rest, State)
     end.
 
 

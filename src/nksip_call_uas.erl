@@ -158,7 +158,7 @@ process_retrans(UAS, Call) ->
                 {ok, _} ->
                     ?call_info("UAS ~p ~p (~p) sending ~p retransmission", 
                                [Id, Method, Status, Code]);
-                error ->
+                {error, _} ->
                     ?call_notice("UAS ~p ~p (~p) could not send ~p retransmission", 
                                   [Id, Method, Status, Code])
             end;
@@ -213,7 +213,7 @@ process_request(Req, UASTransId, Call) ->
         'ACK' -> ack;
         _ -> trying
     end,
-    {ok, {Transp, _, _}} = nkpacket:local(NkPort),
+    {ok, {Transp, _, _}} = nkpacket:get_local(NkPort),
     UAS = #trans{
         id = NextId,
         class = uas,
@@ -303,7 +303,7 @@ preprocess(Req) ->
         nkport = NkPort, 
         vias = [Via|ViaR]
     } = Req,
-    {ok, {Transp, Ip, Port}} = nkpacket:remote(NkPort),
+    {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     Received = nklib_util:to_host(Ip, false), 
     ViaOpts1 = [{<<"received">>, Received}|Via#via.opts],
     % For UDP, we honor the rport option
@@ -345,7 +345,7 @@ preprocess(Req) ->
 strict_router(#sipmsg{srv_id=SrvId, ruri=RUri, routes=Routes}=Request) ->
     case 
         nklib_util:get_value(<<"nksip">>, RUri#uri.opts) /= undefined 
-        andalso nksip_transport:is_local(SrvId, RUri) of
+        andalso nksip_util:is_local(SrvId, RUri) of
     true ->
         case lists:reverse(Routes) of
             [] ->
@@ -368,12 +368,12 @@ ruri_has_maddr(Request) ->
         ruri = RUri, 
         nkport = NkPort
     } = Request,
-    {ok, {Transp, _, LPort}} = nkpacket:local(NkPort),
+    {ok, {Transp, _, LPort}} = nkpacket:get_local(NkPort),
     case nklib_util:get_binary(<<"maddr">>, RUri#uri.opts) of
         <<>> ->
             Request;
         MAddr -> 
-            case nksip_transport:is_local(SrvId, RUri#uri{domain=MAddr}) of
+            case nksip_util:is_local(SrvId, RUri#uri{domain=MAddr}) of
                 true ->
                     case nksip_parse:transport(RUri) of
                         {Transp, _, LPort} ->

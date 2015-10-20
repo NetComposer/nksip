@@ -133,7 +133,7 @@ response_stateless(#sipmsg{vias=[_, Via|RestVias], nkport=NkPort}=Resp, Call) ->
     case nksip_call_uas_transp:send_response(Resp1, []) of
         {ok, _} -> 
             ?call_debug("Stateless proxy sent ~p ~p response", [Method, Code]);
-        error -> 
+        {error, _} -> 
             ?call_notice("Stateless proxy could not send ~p ~p response", 
                          [Method, Code])
     end,

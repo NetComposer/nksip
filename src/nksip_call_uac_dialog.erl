@@ -352,7 +352,7 @@ do_response('INVITE', Code, _Req, _Resp,
                     ?call_info("Dialog ~s (accepted_uac) retransmitting 'ACK'", 
                                [DialogId]),
                     store(Dialog, Call);
-                error ->
+                {error, _} ->
                     ?call_notice("Dialog ~s (accepted_uac) could not retransmit 'ACK'", 
                                  [DialogId]),
                     update({invite, {stop, 503}}, Dialog, Call)

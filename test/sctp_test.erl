@@ -108,8 +108,8 @@ basic() ->
                        <- nksip_transport:get_all(C2)],
 
     % client1 should have started a new connection. client2 too.
-    [{_, LocPid}] = nksip_transport:get_connected(C1, sctp, {127,0,0,1}, 5071, <<>>),
-    [{_, RemPid}] = nksip_transport:get_connected(C2, sctp, {127,0,0,1}, LocalPort, <<>>),
+    [LocPid] = nksip_util:get_connected(C1, sctp, {127,0,0,1}, 5071, <<>>),
+    [RemPid] = nksip_util:get_connected(C2, sctp, {127,0,0,1}, LocalPort, <<>>),
     ok.
 
 

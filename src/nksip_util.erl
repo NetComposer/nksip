@@ -23,9 +23,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([adapt_opts/1, adapt_transports/3]).
--export([plugin_update_value/3, cached/0, syntax/0, defaults/0]).
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_listenhost/3, make_route/6]).
+-export([get_connected/2, get_connected/5, is_local/2, send/5]).
 -export([put_log_cache/2]).
 
 -include_lib("nklib/include/nklib.hrl").
@@ -40,78 +40,7 @@
 
 
 
-
-syntax() ->
-    #{
-        sip_allow => words,
-        sip_supported => words,
-        sip_timer_t1 => {integer, 10, 2500},
-        sip_timer_t2 => {integer, 100, 16000},
-        sip_timer_t4 => {integer, 100, 25000},
-        sip_timer_c => {integer, 1, none},
-        sip_trans_timeout => {integer, 5, none},
-        sip_dialog_timeout => {integer, 5, none},
-        sip_event_expires => {integer, 1, none},
-        sip_event_expires_offset => {integer, 0, none},
-        sip_nonce_timeout => {integer, 5, none},
-        sip_from => [{enum, [undefined]}, uri],
-        sip_accept => [{enum, [undefined]}, words],
-        sip_events => words,
-        sip_route => uris,
-        sip_no_100 => boolean,
-        sip_max_calls => {integer, 1, 1000000},
-        sip_debug => boolean
-    }.
-
-
-defaults() ->
-    #{
-        sip_allow => [
-            <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
-            <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
-            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>],
-        sip_supported => [<<"path">>],
-        sip_timer_t1 => 500,                    % (msecs) 0.5 secs
-        sip_timer_t2 => 4000,                   % (msecs) 4 secs
-        sip_timer_t4 => 5000,                   % (msecs) 5 secs
-        sip_timer_c =>  180,                    % (secs) 3min
-        sip_trans_timeout => 900,               % (secs) 15 min
-        sip_dialog_timeout => 1800,             % (secs) 30 min
-        sip_event_expires => 60,                % (secs) 1 min
-        sip_event_expires_offset => 5,          % (secs) 5 secs
-        sip_nonce_timeout => 30,                % (secs) 30 secs
-        sip_from => undefined,
-        sip_accept => undefined,
-        sip_events => [],
-        sip_route => [],
-        sip_no_100 => false,
-        sip_max_calls => 100000,                % Each Call-ID counts as a call
-        sip_debug => false                      % Used in nksip_debug plugin
-    }.
-
-
-%% @private
-plugin_update_value(Key, Fun, SrvSpec) ->
-    Value1 = maps:get(Key, SrvSpec, undefined),
-    Value2 = Fun(Value1),
-    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
-    OldCache = maps:get(cache, SrvSpec, #{}),
-    Cache = case lists:member(Key, cached()) of
-        true -> maps:put(Key, Value2, #{});
-        false -> #{}
-    end,
-    SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
-
-
-cached() ->
-    [
-        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
-        sip_event_expires, sip_event_expires_offset, sip_events, 
-        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
-        sip_route, sip_supported, sip_trans_timeout
-    ].
-
-
+%% @private Adapt old style parameters to new style
 adapt() ->
     #{
         allow => sip_allow,
@@ -248,15 +177,15 @@ get_listenhost(SrvId, Ip, Opts) ->
 
     
 %% @private Makes a route record
--spec make_route(nksip:scheme(), nksip:protocol(), binary(), inet:port_number(),
+-spec make_route(nksip:scheme(), nkpacket:transport(), binary(), inet:port_number(),
                  binary(), nksip:optslist()) ->
     #uri{}.
 
-make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
-    UriOpts = case Proto of
+make_route(Scheme, Transp, ListenHost, Port, User, Opts) ->
+    UriOpts = case Transp of
         tls when Scheme==sips -> Opts;
         udp when Scheme==sip -> Opts;
-        _ -> [{<<"transport">>, nklib_util:to_binary(Proto)}|Opts] 
+        _ -> [{<<"transport">>, nklib_util:to_binary(Transp)}|Opts] 
     end,
     #uri{
         scheme = Scheme,
@@ -265,6 +194,65 @@ make_route(Scheme, Proto, ListenHost, Port, User, Opts) ->
         port = Port,
         opts = UriOpts
     }.
+
+
+%% @private
+-spec get_connected(nksip:srv_id(), nkpacket:nkport()) ->
+    [pid()].
+
+get_connected(SrvId, NkPort) ->
+    {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
+    Path = maps:get(path, NkPort, <<"/">>),
+    get_connected(SrvId, Transp, Ip, Port, Path).
+
+
+%% @private
+-spec get_connected(nksip:srv_id(), nkpacket:transport(), inet:ip_address(), 
+                    inet:port_number(), binary()) ->
+    [pid()].
+
+get_connected(SrvId, Transp, Ip, Port, Path) ->
+    Raw = {nksip_protocol, Transp, Ip, Port},
+    nkpacket_transport:get_connected(Raw, #{group=>{nksip, SrvId}, path=>Path}).
+
+
+%% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
+-spec is_local(nkservice:id(), Input::nksip:uri()|nksip:via()) -> 
+    boolean().
+
+is_local(SrvId, #uri{}=Uri) ->
+    nkpacket:is_local(Uri, #{group=>{nksip, SrvId}});
+
+is_local(SrvId, #via{}=Via) ->
+    {Transp, Host, Port} = nksip_parse:transport(Via),
+    Transp = {<<"transport">>, nklib_util:to_binary(Transp)},
+    Uri = #uri{scheme=sip, domain=Host, port=Port, opts=[Transp]},
+    is_local(SrvId, Uri).
+
+
+%% @private
+-spec send(nksip:srv_id(), nkpacket:send_spec()|[nkpacket:send_spec()], 
+           nksip:request()|nksip:response(), nkpacket:pre_send_fun(), 
+           nkpacket:send_opts()) ->
+    {ok, #sipmsg{}} | {error, term()}.
+
+send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
+    case nkpacket_util:parse_opts(Opts) of
+        {ok, Opts1} ->
+            Opts2 = Opts1#{group => {nksip, SrvId}, listen_port=>mandatory},
+            Opts3 = case Fun of
+                none ->
+                    Opts2;   
+                _ ->
+                    Opts2#{pre_send_fun => Fun}
+            end,
+            case nkpacket_transport:send(Spec, Msg, Opts3) of
+                {ok, {_Pid, Msg1}} -> {ok, Msg1};
+                {error, Error} -> {error, Error}
+            end;
+        {error, Error} ->
+            {error, Error}
+    end.
 
 
 %% @private Save cache for speed log access

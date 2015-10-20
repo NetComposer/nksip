@@ -23,6 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
@@ -41,7 +42,7 @@
 -type index() :: 
     {
         Scheme::sip|sips,
-        Proto::nksip:protocol(), 
+        NkPort::nkpacket:nkport(), 
         User::binary(),
         Domain::binary(), 
         Port::inet:port_number()
@@ -122,9 +123,9 @@ is_registered([], _) ->
 
 is_registered([
                 #reg_contact{
-                    transport = #transport{proto=Proto, remote_ip=Ip, remote_port=Port}}
+                    nkport = #nkport{transp=Transp, remote_ip=Ip, remote_port=Port}}
                 | _ ], 
-                #transport{proto=Proto, remote_ip=Ip, remote_port=Port}) ->
+                #nkport{transp=Transp, remote_ip=Ip, remote_port=Port}) ->
     true;
 
 % If a TCP es registered, the transport source port is probably going to be 
@@ -132,15 +133,15 @@ is_registered([
 % When outbound is implemented this will be reworked 
 is_registered([
                 #reg_contact{contact=Contact}|R], 
-                #transport{proto=Proto, remote_ip=Ip, remote_port=Port}=Transport) ->
+                #nkport{transp=Transp, remote_ip=Ip, remote_port=Port}=NkPort) ->
     case nksip_parse:transport(Contact) of
-        {Proto, Domain, Port} -> 
+        {Transp, Domain, Port} -> 
             case nklib_util:to_ip(Domain) of
                 {ok, Ip} -> true;
-                _ -> is_registered(R, Transport)
+                _ -> is_registered(R, NkPort)
             end;
         _ ->
-            is_registered(R, Transport)
+            is_registered(R, NkPort)
     end.
 
 
@@ -237,7 +238,7 @@ update(Req, Times, Opts) ->
 update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
     #uri{scheme=Scheme, user=User, domain=Domain, ext_opts=ExtOpts} = Contact,
     #sipmsg{srv_id=SrvId, to={To, _}, call_id=CallId, 
-            cseq={CSeq, _}, transport=Transp} = Req,
+            cseq={CSeq, _}, nkport=NkPort} = Req,
     case Domain of
         <<"*">> -> throw(invalid_request);
         _ -> ok
@@ -288,8 +289,8 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
         {ok, Index0} -> 
             Index0;
         {continue, [_, _]} -> 
-            {Proto, Domain, Port} = nksip_parse:transport(Contact),
-            {Scheme, Proto, User, Domain, Port}
+            {Transp, Domain, Port} = nksip_parse:transport(Contact),
+            {Scheme, Transp, User, Domain, Port}
     end,
     % Find if this contact was already registered under the AOR
     {Base, Acc1} = case lists:keytake(Index, #reg_contact.index, Acc) of
@@ -316,7 +317,7 @@ update_regcontacts([Contact|Rest], Req, Times, Path, Opts, Acc) ->
                 q = Q,
                 call_id = CallId,
                 cseq = CSeq,
-                transport = Transp,
+                nkport = NkPort,
                 path = Path
             },
             {continue, [RegContact1, _, _, _]} = 

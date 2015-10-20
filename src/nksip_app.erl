@@ -72,7 +72,7 @@ start(_Type, _Args) ->
         global_max_connections => {integer, 1, 1000000},
         msg_routers => {integer, 1, 127}
     },
-    Syntax2 = maps:merge(Syntax1, nksip_util:syntax()),
+    Syntax2 = maps:merge(Syntax1, nksip:syntax()),
     Defaults1 = #{
         sync_call_time => 30,               % Secs
         dns_cache_ttl => 3600,              % (secs) 1 hour
@@ -81,7 +81,7 @@ start(_Type, _Args) ->
         global_max_connections => 1024,     % 
         msg_routers => 16                   % Number of parallel msg routers 
     },
-    Defaults2 = maps:merge(Defaults1, nksip_util:defaults()),
+    Defaults2 = maps:merge(Defaults1, nksip:defaults()),
     case nklib_config:load_env(?APP, ?APP, Syntax2, Defaults2) of
         {ok, Parsed} ->
             file:make_dir(get(local_data_path)),
@@ -90,7 +90,7 @@ start(_Type, _Args) ->
             put(re_call_id, element(2, re:compile(?RE_CALL_ID, [caseless]))),
             put(re_content_length, 
                     element(2, re:compile(?RE_CONTENT_LENGTH, [caseless]))),
-            SipKeys = maps:keys(nksip_util:syntax()),
+            SipKeys = maps:keys(nksip:syntax()),
             SipDef = nklib_util:extract(Parsed, SipKeys),
             put(sip_defaults, SipDef),
             CacheKeys = [

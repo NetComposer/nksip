@@ -35,7 +35,7 @@
 -define(CHECK_INTERVAL, 60).    % secs
 
 -type connection() :: 
-    {nksip:protocol(), inet:ip_address(), inet:port_number(), binary()}.
+    {nksip:transport(), inet:ip_address(), inet:port_number(), binary()}.
 
 
 %% ===================================================================
@@ -107,7 +107,7 @@ resolve_srvs(_, [], Acc) ->
 
 %% @private
 -spec resolve_uri(nksip:uri()) -> 
-    {ok, [{nksip:protocol(), inet:ip_address(), inet:port_number()}]} | 
+    {ok, [{nksip:transport(), inet:ip_address(), inet:port_number()}]} | 
     {naptr, sip|sips, string()}.
 
 resolve_uri(#uri{scheme=Scheme, domain=Host, opts=Opts, port=Port, path=Path}) ->
@@ -210,7 +210,7 @@ get_srvs(Domain) ->
 
 %% @doc Finds published services using DNS NAPTR search.
 -spec get_naptr(string()|binary()) -> 
-    [{sip|sips, nksip:protocol(), string()}].
+    [{sip|sips, nksip:transport(), string()}].
 
 %% TODO: Check site certificates in case of tls
 get_naptr(Domain) ->

@@ -338,7 +338,7 @@ send_ack(#trans{request=Req, id=TransId}, _Call) ->
     case nksip_call_uac_transp:resend_request(Ack, []) of
         {ok, _} -> 
             ok;
-        error -> 
+        {error, _} -> 
             ?call_notice("UAC ~p could not send non-2xx ACK", [TransId])
     end.
 

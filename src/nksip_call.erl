@@ -194,7 +194,7 @@ apply_dialog(SrvId, CallId, DialogId, Fun) ->
 
 %% @private Gets authorized list of transport, ip and ports for a dialog.
 -spec get_authorized_list(nkservice:id(), nksip:call_id(), nksip_dialog_lib:id()) ->
-    {ok, [{nksip:protocol(), inet:ip_address(), inet:port_number()}]} | {error, term()}.
+    {ok, [{nkpacket:transport(), inet:ip_address(), inet:port_number()}]} | {error, term()}.
 
 get_authorized_list(SrvId, CallId, DialogId) ->
     nksip_router:send_work_sync(SrvId, CallId, {get_authorized_list, DialogId}).

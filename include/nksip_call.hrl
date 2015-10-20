@@ -133,7 +133,7 @@
 
 -type call_auth() :: {
     nksip_dialog_lib:id(), 
-    nksip:protocol(), 
+    nkpacket:nkport(), 
     inet:ip_address(), 
     inet:port_number()
 }.

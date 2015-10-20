@@ -30,7 +30,7 @@
          handle_info/2]).
 -export([ranch_start_link/6, do_stop_server/1]).
 
--type server_ref() :: {nksip:protocol(), inet:ip_address(), inet:port_number()}.
+-type server_ref() :: {nkpacket:transport(), inet:ip_address(), inet:port_number()}.
 
 
 %% ===================================================================
@@ -43,9 +43,9 @@
                    term(), nksip:optslist()) ->
     {ok, pid()} | {error, term()}.
 
-start_server(SrvId, Proto, Ip, Port, Disp, Opts) 
+start_server(SrvId, Transp, Ip, Port, Disp, Opts) 
         when 
-            (Proto==tcp orelse Proto==tls orelse Proto==ws orelse Proto==wss) andalso
+            (Transp==tcp orelse Transp==tls orelse Transp==ws orelse Transp==wss) andalso
             is_list(Disp) andalso is_list(Opts) ->
     case nkservice_transport_sup:get_pid(SrvId) of
         AppPid when is_pid(AppPid) ->
@@ -53,7 +53,7 @@ start_server(SrvId, Proto, Ip, Port, Disp, Opts)
                 {'EXIT', _} -> 
                     {error, invalid_dispatch};
                 _ ->
-                    Ref = {Proto, Ip, Port},
+                    Ref = {Transp, Ip, Port},
                     gen_server:call(?MODULE, {start, SrvId, AppPid, Ref, Disp, Opts})
             end;
         _ ->
@@ -66,16 +66,16 @@ start_server(SrvId, Proto, Ip, Port, Disp, Opts)
                   inet:ip_address(), inet:port_number()) ->
     ok | {error, in_use} | {error, not_found}.
 
-stop_server(SrvId, Proto, Ip, Port) ->
-    gen_server:call(?MODULE, {stop, SrvId, {Proto, Ip, Port}}).
+stop_server(SrvId, Transp, Ip, Port) ->
+    gen_server:call(?MODULE, {stop, SrvId, {Transp, Ip, Port}}).
 
 
 %% @doc Get the real port of a webserver
 -spec get_port(tcp|tls|ws|wws, inet:ip_address(), inet:port_number()) ->
     inet:port_number() | undefined.
 
-get_port(Proto, Ip, Port) ->
-    case catch ranch:get_port({Proto, Ip, Port}) of
+get_port(Transp, Ip, Port) ->
+    case catch ranch:get_port({Transp, Ip, Port}) of
         Port1 when is_integer(Port1) -> Port1;
         _ -> undefined
     end.
@@ -263,13 +263,13 @@ terminate(_Reason, _State) ->
     {ok, pid()} | {error, term()}.
 
 do_start_server(Ref, Dispatch, Opts) ->
-    {Proto, Ip, Port} = Ref,
+    {Transp, Ip, Port} = Ref,
     Env = {env, [{dispatch, cowboy_router:compile(Dispatch)}]},
     Listeners = nklib_util:get_value(listeners, Opts, 1), 
-    ListenOpts = listen_opts(Proto, Ip, Port, Opts), 
+    ListenOpts = listen_opts(Transp, Ip, Port, Opts), 
     TransMod = if
-        Proto==tcp; Proto==ws -> ranch_tcp;
-        Proto==tls; Proto==wss -> ranch_ssl
+        Transp==tcp; Transp==ws -> ranch_tcp;
+        Transp==tls; Transp==wss -> ranch_ssl
     end,
     Spec = ranch:child_spec(Ref, Listeners,
                             TransMod, ListenOpts, cowboy_protocol, [Env]),
@@ -326,7 +326,7 @@ get_dispatch([{Host, Consts, Paths}|Rest], Acc) ->
 
 
 %% @private Gets socket options for listening connections
--spec listen_opts(nksip:protocol(), inet:ip_address(), inet:port_number(), 
+-spec listen_opts(nkpacket:transport(), inet:ip_address(), inet:port_number(), 
                     nksip:optslist()) ->
     nksip:optslist().
 
@@ -373,9 +373,9 @@ ranch_start_link(Ref, NbAcceptors, RanchTransp, TransOpts, Protocol, [Env]) ->
                                       Protocol, [Env])
     of
         {ok, Pid} ->
-            {Proto, Ip, _} = Ref,
+            {Transp, Ip, _} = Ref,
             Port = ranch:get_port(Ref),
-            nklib_proc:put({nksip_webserver, {Proto, Ip, Port}}, [], Pid),
+            nklib_proc:put({nksip_webserver, {Transp, Ip, Port}}, [], Pid),
             gen_server:cast(?MODULE, {webserver_started, Ref, Pid}),
             {ok, Pid};
         Other ->
