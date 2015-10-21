@@ -29,6 +29,7 @@
 -export([put_log_cache/2]).
 
 -include_lib("nklib/include/nklib.hrl").
+-include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 
 
@@ -202,9 +203,8 @@ make_route(Scheme, Transp, ListenHost, Port, User, Opts) ->
 -spec get_connected(nksip:srv_id(), nkpacket:nkport()) ->
     [pid()].
 
-get_connected(SrvId, NkPort) ->
-    {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
-    Path = maps:get(path, NkPort, <<"/">>),
+get_connected(SrvId, #nkport{transp=Transp, remote_ip=Ip, remote_port=Port, meta=Meta}) ->
+    Path = maps:get(path, Meta, <<"/">>),
     get_connected(SrvId, Transp, Ip, Port, Path).
 
 
@@ -239,26 +239,36 @@ is_local(SrvId, #via{}=Via) ->
     {ok, #sipmsg{}} | {error, term()}.
 
 send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
-    case nkpacket_util:parse_opts(Opts) of
-        {ok, Opts1} ->
-            Opts2 = Opts1#{
+    Opts1 = lists:filter(fun send_opts/1, Opts),
+    case nkpacket_util:parse_opts(Opts1) of
+        {ok, Opts2} ->
+            Opts3 = Opts2#{
                 group => {nksip, SrvId}, 
                 listen_port => true, 
                 udp_to_tcp=>true
             },
-            Opts3 = case Fun of
+            Opts4 = case Fun of
                 none ->
-                    Opts2;   
+                    Opts3;   
                 _ ->
-                    Opts2#{pre_send_fun => Fun}
+                    Opts3#{pre_send_fun => Fun}
             end,
-            case nkpacket_transport:send(Spec, Msg, Opts3) of
+            case nkpacket_transport:send(Spec, Msg, Opts4) of
                 {ok, {_Pid, Msg1}} -> {ok, Msg1};
                 {error, Error} -> {error, Error}
             end;
         {error, Error} ->
             {error, Error}
     end.
+
+
+send_opts({group, _}) -> true;
+send_opts({connect_timeout, _}) -> true;
+send_opts({no_dns_cache, _}) -> true;
+send_opts({idle_timeout, _}) -> true;
+send_opts({tls_opts, _}) -> true;
+send_opts(_) -> false.
+
 
 
 %% @private Save cache for speed log access

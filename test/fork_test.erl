@@ -37,7 +37,7 @@ fork_test_() ->
         {timeout, 60, fun basic/0}, 
         {timeout, 60, fun invite1/0}, 
         {timeout, 60, fun invite2/0}, 
-        {timeout, 60, fun redirect/0}, 
+        {timeout, 60, fun redirect/0},
         {timeout, 60, fun multiple_200/0}
       ]
   }.
@@ -46,6 +46,17 @@ fork_test_() ->
 start() ->
     tests_util:start_nksip(),
     
+    % Registrar server
+
+    {ok, _} = do_start(serverR, [
+        {from, "sip:serverR@nksip"},
+        {plugins, [nksip_registrar]},
+        no_100,
+        {local_host, "localhost"},
+        {transports, "sip:all:5060"}
+    ]),
+
+
     % Clients to initiate connections
 
     {ok, _} = do_start(client1, [
@@ -87,17 +98,6 @@ start() ->
         no_100,
         {local_host, "localhost"},
         {transports, "<sip:all:5063>"}
-    ]),
-
-
-    % Registrar server
-
-    {ok, _} = do_start(serverR, [
-        {from, "sip:serverR@nksip"},
-        {plugins, [nksip_registrar]},
-        no_100,
-        {local_host, "localhost"},
-        {transports, "sip:all:5060"}
     ]),
 
 
@@ -425,9 +425,9 @@ redirect() ->
     QUri = "sip:qtest@nksip",
     {Ref, RepHd} = tests_util:get_ref(),
     
-    not_found = get_port(other, udp, ipv4),
-    PortD1 = get_port(clientD1, udp, ipv4),
-    PortD2 = get_port(clientD2, tcp, ipv4),
+    not_found = get_port(other, udp),
+    PortD1 = get_port(clientD1, udp),
+    PortD2 = get_port(clientD2, tcp),
     Contacts = ["sip:127.0.0.1:"++integer_to_list(PortD1),
                 #uri{scheme=sip, domain= <<"127.0.0.1">>, port=PortD2, opts=[{transport, tcp}]}],
 
@@ -698,11 +698,11 @@ sip_bye(Req, _Call) ->
 
 %%%%%
 
-get_port(App, Proto, Class) ->
-    case nkservice_server:find(App) of
+get_port(Srv, Transp) ->
+    case nkservice_server:find(Srv) of
         {ok, SrvId} -> 
-            case nksip_transport:get_listening(SrvId, Proto, Class) of
-                [{#nkport{listen_port=Port}, _Pid}|_] -> Port;
+            case nkpacket:get_listening(nksip_protocol, Transp, #{group=>{nksip, SrvId}}) of
+                [#nkport{listen_port=Port}|_] -> Port;
                 _ -> not_found
             end;
         not_found ->

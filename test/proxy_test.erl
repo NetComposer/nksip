@@ -29,49 +29,49 @@
 -compile([export_all]).
 -define(RECV(T), receive T -> T after 1000 -> error(recv) end).
 
-stateless_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateless),
-            ?debugMsg("Starting proxy stateless")
-        end,
-        fun(_) -> 
-            stop(stateless) 
-        end,
-        [
-            fun() -> invalid() end,
-            fun() -> opts() end,
-            fun() -> transport() end, 
-            fun() -> invite() end,
-            fun() -> servers() end
-        ]
-    }.
+% stateless_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateless),
+%             ?debugMsg("Starting proxy stateless")
+%         end,
+%         fun(_) -> 
+%             stop(stateless) 
+%         end,
+%         [
+%             fun() -> invalid() end,
+%             fun() -> opts() end,
+%             fun() -> transport() end, 
+%             fun() -> invite() end,
+%             fun() -> servers() end
+%         ]
+%     }.
 
 
-stateful_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateful),
-            ?debugMsg("Starting proxy stateful")
-        end,
-        fun(_) -> 
-            stop(stateful) 
-        end,
-        [
-            fun() -> invalid() end,
-            fun() -> opts() end,
-            fun() -> transport() end, 
-            fun() -> invite() end,
-            fun() -> servers() end,
-            fun() -> dialog() end
-        ]
-    }.
+% stateful_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateful),
+%             ?debugMsg("Starting proxy stateful")
+%         end,
+%         fun(_) -> 
+%             stop(stateful) 
+%         end,
+%         [
+%             fun() -> invalid() end,
+%             fun() -> opts() end,
+%             fun() -> transport() end, 
+%             fun() -> invite() end,
+%             fun() -> servers() end,
+%             fun() -> dialog() end
+%         ]
+%     }.
 
 
 start(Test) ->
     tests_util:start_nksip(),
 
-    ok = tests_util:start(server1, ?MODULE, [
+    ok = tests_util:start_debug(server1, ?MODULE, [
         {test_type, Test},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
@@ -80,7 +80,7 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    ok = tests_util:start(server2, ?MODULE, [
+    ok = tests_util:start_debug(server2, ?MODULE, [
         {test_type, Test},
         {from, "sip:server2@nksip"},
         {plugins, [nksip_registrar]},
@@ -89,7 +89,7 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    ok = tests_util:start(client1, ?MODULE, [
+    ok = tests_util:start_debug(client1, ?MODULE, [
         {test_type, Test},
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
@@ -97,12 +97,12 @@ start(Test) ->
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    ok = tests_util:start(client2, ?MODULE, [
+    ok = tests_util:start_debug(client2, ?MODULE, [
         {test_type, Test},
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
         {local_host, "127.0.0.1"},
-        {transports, "sip:all:udp, sips:all"}
+        {transports, "sip:all, sips:all"}
     ]),
 
     tests_util:log(),
@@ -306,11 +306,11 @@ transport() ->
                                 [{route, "<sip:127.0.0.1;transport=tcp;lr>"},
                                  async, {callback, CB2}, get_request]),
 
-    _ = ?RECV({Ref, cb2_1}),
-    _ = ?RECV({Ref, cb2_2}),
+    % _ = ?RECV({Ref, cb2_1}),
+    % _ = ?RECV({Ref, cb2_2}),
 
-    {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
-    {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
+    % {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
+    % {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [unregister_all]),
     ok.
 
 
@@ -617,7 +617,11 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                         [] -> 
                             % ?P("FIND ~p: []", [{Name, Scheme, User, Domain}]),
                             {reply, temporarily_unavailable};
-                        UriList -> {Proxy, UriList, Opts}
+                        UriList -> 
+                            lager:warning("FOUND: ~p", [UriList]),
+
+
+                            {Proxy, UriList, Opts}
                     end;
                 true ->
                     {Proxy, ruri, Opts};

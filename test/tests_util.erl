@@ -50,7 +50,7 @@ start(Name, Module, Opts) ->
 start_debug(Name, Module, Opts) ->
     nklib_log:debug(),
     Opts1 = nklib_util:to_map(Opts),
-    Plugins = maps:get(plugins, Opts, []),
+    Plugins = maps:get(plugins, Opts1, []),
     Opts2 = Opts1#{
         plugins => [nksip_trace | Plugins],
         callback => Module,

@@ -125,7 +125,7 @@ uac() ->
     {ok, 486, [{call_id, CallId4}, {handle, RespId4}]} = 
         nksip_uac:invite(client2, SipC1, [CB, get_request, {meta, [call_id, handle]}|Hds]),
 
-    lager:notice("RESPID4: ~p", [RespId4]),
+    % lager:notice("RESPID4: ~p", [RespId4]),
 
 
     {ok, CallId4} = nksip_response:call_id(RespId4),

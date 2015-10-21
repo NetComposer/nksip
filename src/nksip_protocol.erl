@@ -94,7 +94,10 @@ default_port(_) -> invalid.
 encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
     Packet = nksip_unparse:packet(SipMsg),
     SrvId:nks_sip_connection_sent(SipMsg, Packet),
-    {ok, Packet}.
+    {ok, Packet};
+
+encode(Bin, _NkPort) when is_binary(Bin) ->
+    {ok, Bin}.
 
 
 %% @doc Implement this function to allow NAPTR DNS queries.

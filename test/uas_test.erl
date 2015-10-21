@@ -62,6 +62,13 @@ start() ->
     ok = tests_util:start(client2, ?MODULE, [
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
+    ok = tests_util:start(server2, ?MODULE, [
+        {plugins, [nksip_registrar]},
+        {transports, "sip:all:5080"},
+        {sip_registrar_min_time, 1},
+        {sip_uac_auto_register_timer, 1}
+    ]),
+
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
@@ -118,13 +125,13 @@ uas() ->
 
 auto() ->
     % Start a new server to test ping and register options
-    nksip:stop(server2),
-    ok = tests_util:start(server2, ?MODULE, [
-        {plugins, [nksip_registrar]},
-        {transports, "sip:all:5080"},
-        {sip_registrar_min_time, 1},
-        {sip_uac_auto_register_timer, 1}
-    ]),
+    % nksip:stop(server2),
+    % ok = tests_util:start(server2, ?MODULE, [
+    %     {plugins, [nksip_registrar]},
+    %     {transports, "sip:all:5080"},
+    %     {sip_registrar_min_time, 1},
+    %     {sip_uac_auto_register_timer, 1}
+    % ]),
     timer:sleep(200),
     {error, service_not_found} = nksip_uac_auto_register:start_ping(none, ping1, "sip::a", []),
     {error, invalid_uri} = nksip_uac_auto_register:start_ping(client1, ping1, "sip::a", []),
@@ -165,14 +172,15 @@ auto() ->
     [{ping1, true, _}] = nksip_uac_auto_register:get_pings(client1),
     [{reg1, true, _}] = nksip_uac_auto_register:get_registers(client1),
 
+    ok = nksip_uac_auto_register:stop_ping(client1, ping1),
+    ok = nksip_uac_auto_register:stop_register(client1, reg1),
     ok = nksip:stop(server2),
+    timer:sleep(500),
     lager:notice("Next notice about connection error to port 5080 is expected"),
     {ok, false} = nksip_uac_auto_register:start_ping(client1, ping3, 
                                             "<sip:127.0.0.1:5080;transport=tcp>",
                                             [{expires, 1}]),
-    ok = nksip_uac_auto_register:stop_ping(client1, ping1),
     ok = nksip_uac_auto_register:stop_ping(client1, ping3),
-    ok = nksip_uac_auto_register:stop_register(client1, reg1),
     [] = nksip_uac_auto_register:get_pings(client1),
     [] = nksip_uac_auto_register:get_registers(client1),
     ok.
