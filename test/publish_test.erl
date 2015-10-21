@@ -41,14 +41,14 @@ publish_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, [
+    ok = tests_util:start(client1, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {local_host, "localhost"},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
     
-    {ok, _} = nksip:start(server, [
+    ok = tests_util:start(server, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:server@nksip"},
         no_100,

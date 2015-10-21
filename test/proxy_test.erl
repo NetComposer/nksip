@@ -71,7 +71,7 @@ stateful_test_() ->
 start(Test) ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, [
+    ok = tests_util:start(server1, ?MODULE, [
         {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:server1@nksip"},
@@ -81,7 +81,7 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    {ok, _} = nksip:start(server2, [
+    ok = tests_util:start(server2, ?MODULE, [
         {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:server2@nksip"},
@@ -91,7 +91,7 @@ start(Test) ->
         {supported, "100rel,timer,path"}        % No outbound
     ]),
 
-    {ok, _} = nksip:start(client1, [
+    ok = tests_util:start(client1, ?MODULE, [
         {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:client1@nksip"},
@@ -100,7 +100,7 @@ start(Test) ->
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    {ok, _} = nksip:start(client2, [
+    ok = tests_util:start(client2, ?MODULE, [
         {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:client2@nksip"},

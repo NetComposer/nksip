@@ -84,7 +84,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
 
 resend_response(#sipmsg{class={resp, Code, _}, nkport=#nkport{}=NkPort}=Resp, Opts) ->
     #sipmsg{srv_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
-    Return = nklib_util:send(SrvId, [NkPort], Resp, none, Opts),
+    Return = nksip_util:send(SrvId, [NkPort], Resp, none, Opts),
     SrvId:nks_sip_debug(SrvId, CallId, {sent_response, Method, Code}),
     Return;
 

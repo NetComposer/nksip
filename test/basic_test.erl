@@ -31,39 +31,39 @@
 -compile([export_all]).
 
 
-% basic_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun running/0}, 
-%             {timeout, 60, fun transport/0}, 
-%             {timeout, 60, fun cast_info/0}, 
-%             {timeout, 60, fun stun/0}
-%         ]
-%     }.
+basic_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun running/0}, 
+            {timeout, 60, fun transport/0}, 
+            {timeout, 60, fun cast_info/0}, 
+            {timeout, 60, fun stun/0}
+        ]
+    }.
 
 
 start() ->
+    catch stop(),
+
     tests_util:start_nksip(),
     nklib_store:update_timer(200),
 
-    {ok, _} = nksip:start(server1, #{
-        callback => ?MODULE,
+    ok = tests_util:start(server1, ?MODULE, #{
         arg => server1,
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
         plugins => [nksip_registrar],
         transports => "sip://all;tcp_listeners=10, sips:all:5061"
     }),
 
-    {ok, _} = nksip:start(client1, #{
-        callback => ?MODULE,
+    ok = tests_util:start(client1, ?MODULE, #{
         arg => client1,
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
         transports => ["sip://all:5070", "sips:all:5071"]
     }),
 
-    {ok, _} = nksip:start(client2, #{
+    ok = tests_util:start(client2, ?MODULE, #{
         callback => ?MODULE,
         arg => client2,
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
@@ -84,19 +84,19 @@ running() ->
     {error, already_started} = nksip:start(server1, []),
     {error, already_started} = nksip:start(client1, []),
     {error, already_started} = nksip:start(client2, []),
-    [{_, server1, _}, {_, client2, _}, {_, client1, _}] = 
+    [{_, server1, _}, {_, client2, _}, {_, client1, _}] =
         lists:sort(nkservice_server:get_all(nksip)),
 
     % lager:error("Next error about error1 is expected"),
-    {error, error1} = nksip:start(error1, [{transports, "sip:all:5090"}]),
+    {error, error1} = nksip:start(error1, [
+        {callback, ?MODULE},
+        {transports, "sip:all:5090"}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
-    {error, {invalid_transport, _}} = 
+    {error, {syntax_error, <<"transports">>}} = 
         nksip:start(name, [{transports, "<sip:all;transport=other>"}]),
-    {error, {invalid_transport, _}} = 
-        nksip:start(name, [{transports, "sip:1.2.3"}]),
     {error,{could_not_start_plugin,{nksip_registrar,
             {syntax_error,<<"sip_registrar_min_time">>}}}} = 
         nksip:start(name, [{plugins, [nksip_registrar]}, {sip_registrar_min_time, -1}]),
@@ -222,7 +222,7 @@ stun() ->
 init(#{name:=error1}, _State) ->
     {stop, error1};
 
-init(#{name:=Name}, State) ->
+init(#{name:=Name, arg:=Name}, State) ->
     ok = nkservice_server:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State#{my_name=>Name}}.
 
@@ -280,6 +280,7 @@ handle_cast({cast_test, Ref, Pid}, #{my_name:=Name}=State) ->
 handle_info({info_test, Ref, Pid}, #{my_name:=Name}=State) ->
     Pid ! {Ref, {info_test, Name}},
     {noreply, State}.
+
 
 
 

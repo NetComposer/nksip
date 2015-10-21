@@ -42,7 +42,7 @@ auth_test_() ->
 
 start() ->
     tests_util:start_nksip(),
-    {ok, _} = nksip:start(server1, [
+    ok = tests_util:start(server1, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
@@ -50,23 +50,20 @@ start() ->
         {transports, "sip:all:5060"}
     ]),
 
-    {ok, _} = nksip:start(server2, [
-        {callback, ?MODULE}, 
+    ok = tests_util:start(server2, ?MODULE, [
         {from, "sip:server2@nksip"},
         {local_host, "localhost"},
         {transports, "sip:all:5061"}
     ]),
 
-    {ok, _} = nksip:start(client1, [
-        {callback, ?MODULE}, 
+    ok = tests_util:start(client1, ?MODULE, [
         {from, "sip:client1@nksip"},
         {plugins, [nksip_uac_auto_auth]},
         {local_host, "127.0.0.1"},
         {transports, "sip:all:5070"}
     ]),
     
-    {ok, _} = nksip:start(client2, [
-        {callback, ?MODULE}, 
+    ok = tests_util:start(client2, ?MODULE, [
         {from, "sip:client2@nksip"},
         {plugins, [nksip_uac_auto_auth]},
         {sip_pass, ["jj", {"client1", "4321"}]},
@@ -74,8 +71,7 @@ start() ->
         {transports, "sip:all:5071"}
     ]),
 
-    {ok, _} = nksip:start(client3, [
-        {callback, ?MODULE}, 
+    ok = tests_util:start(client3, ?MODULE, [
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, "sip:all:5072"}

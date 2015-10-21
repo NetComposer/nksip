@@ -52,7 +52,6 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId, cache:=Cache}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case whereis(nksip_debug_srv) of
         undefined ->
             Child = {
@@ -68,11 +67,12 @@ plugin_start(#{id:=SrvId, cache:=Cache}=SrvSpec) ->
             ok
     end,
     Debug = maps:get(sip_debug, SrvSpec, false),
+    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec#{cache=>Cache#{sip_debug=>Debug}}}.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec}.
 
 

@@ -43,7 +43,7 @@ ws1_test_() ->
 start1() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(ws_a, [
+    ok = tests_util:start(ws_a, ?MODULE, [
         {callback, ?MODULE},
         {transports, [
             "<sip:all:8090;transport=ws>",
@@ -52,7 +52,7 @@ start1() ->
         ]}
     ]),
 
-    {ok, _} = nksip:start(ws_b, [
+    ok = tests_util:start(ws_b, ?MODULE, [
         {callback, ?MODULE},
         {transports, [
             "<sip:all:8090;transport=ws>",
@@ -119,7 +119,7 @@ ws2_test_() ->
 start2() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, [
+    ok = tests_util:start(server1, ?MODULE, [
         {callback, ?MODULE},
         {from, "\"NkSIP Server\" <sip:server1@nksip>"},
         {plugins, [nksip_registrar, nksip_gruu, nksip_outbound]},
@@ -132,7 +132,7 @@ start2() ->
         ]}
     ]),
 
-    {ok, _} = nksip:start(ua1, [
+    ok = tests_util:start(ua1, ?MODULE, [
         {callback, ?MODULE},
         {from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
@@ -140,7 +140,7 @@ start2() ->
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    {ok, _} = nksip:start(ua2, [
+    ok = tests_util:start(ua2, ?MODULE, [
         {callback, ?MODULE},
         {from, "<sip:client2@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},
@@ -148,7 +148,7 @@ start2() ->
         {transports, "sip:all;transport=ws, sip:all:8091;transport=wss"}
     ]),
 
-    {ok, _} = nksip:start(ua3, [
+    ok = tests_util:start(ua3, ?MODULE, [
         {callback, ?MODULE},
         {from, "<sip:client3@nksip>"},
         {plugins, [nksip_gruu, nksip_outbound]},

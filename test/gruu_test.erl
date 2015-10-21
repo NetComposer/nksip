@@ -42,7 +42,7 @@ gruu_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, [
+    ok = tests_util:start(server1, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar, nksip_gruu]},
@@ -50,7 +50,7 @@ start() ->
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
-    {ok, _} = nksip:start(ua1, [
+    ok = tests_util:start(ua1, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {plugins, [nksip_gruu]},
@@ -58,7 +58,7 @@ start() ->
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    {ok, _} = nksip:start(ua2, [
+    ok = tests_util:start(ua2, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {plugins, [nksip_gruu]},

@@ -60,6 +60,8 @@ adapt() ->
         route => sip_route,
         no_100 => sip_no_100,
         max_calls => sip_max_calls,
+        local_host => sip_local_host,
+        local_host6 => sip_local_host6,        
         debug => sip_debug
     }.
 
@@ -149,7 +151,7 @@ get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
             Host = case nklib_util:get_value(local_host, Opts) of
-                undefined -> SrvId:cache_packet_local_host();
+                undefined -> SrvId:cache_sip_local_host();
                 Host0 -> Host0
             end,
             case Host of
@@ -162,7 +164,7 @@ get_listenhost(SrvId, Ip, Opts) ->
             end;
         8 ->
             Host = case nklib_util:get_value(local_host6, Opts) of
-                undefined -> SrvId:cache_packet_local_host6();
+                undefined -> SrvId:cache_sip_local_host6();
                 Host0 -> Host0
             end,
             case Host of
@@ -201,7 +203,7 @@ make_route(Scheme, Transp, ListenHost, Port, User, Opts) ->
     [pid()].
 
 get_connected(SrvId, NkPort) ->
-    {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
+    {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     Path = maps:get(path, NkPort, <<"/">>),
     get_connected(SrvId, Transp, Ip, Port, Path).
 
@@ -239,7 +241,11 @@ is_local(SrvId, #via{}=Via) ->
 send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
     case nkpacket_util:parse_opts(Opts) of
         {ok, Opts1} ->
-            Opts2 = Opts1#{group => {nksip, SrvId}, listen_port=>mandatory},
+            Opts2 = Opts1#{
+                group => {nksip, SrvId}, 
+                listen_port => true, 
+                udp_to_tcp=>true
+            },
             Opts3 = case Fun of
                 none ->
                     Opts2;   

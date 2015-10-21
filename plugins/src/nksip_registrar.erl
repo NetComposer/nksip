@@ -61,7 +61,6 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"REGISTER">>, Allow) end,
@@ -74,6 +73,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
             } = SrvSpec2,
             Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
             Cache = #{sip_registrar_time=>Timers},
+            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
             {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
         {error, Error} ->
             {stop, Error}
@@ -81,11 +81,11 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     clear(SrvId),
     UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
     SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
 
 

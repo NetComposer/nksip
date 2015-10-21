@@ -78,15 +78,21 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
             end;
         local -> 
             case S#sipmsg.nkport of 
-                #nkport{transp=P, local_ip=Ip, local_port=Port} -> 
-                    {P, Ip, Port, <<"KK">>};
+                #nkport{transp=T, local_ip=Ip, local_port=Port, meta=Meta} 
+                        when T==ws; T==wss -> 
+                    {T, Ip, Port, maps:get(path, Meta, <<>>)};
+                #nkport{transp=T, local_ip=Ip, local_port=Port} -> 
+                    {T, Ip, Port, <<>>};
                 _ -> 
                     undefined
             end;
         remote -> 
             case S#sipmsg.nkport of 
-                #nkport{transp=P, remote_ip=Ip, remote_port=Port} -> 
-                    {P, Ip, Port, <<"KK">>};
+                #nkport{transp=T, remote_ip=Ip, remote_port=Port, meta=Meta} 
+                        when T==ws; T==wss -> 
+                    {T, Ip, Port, maps:get(path, Meta, <<>>)};
+                #nkport{transp=T, remote_ip=Ip, remote_port=Port} -> 
+                    {T, Ip, Port, <<>>};
                 _ -> 
                     undefined
             end;

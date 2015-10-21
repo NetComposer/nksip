@@ -48,7 +48,7 @@ prack_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(client1, [
+    ok = tests_util:start(client1, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {plugins, [nksip_100rel]},
@@ -58,7 +58,7 @@ start() ->
         no_100
     ]),
     
-    {ok, _} = nksip:start(client2, [
+    ok = tests_util:start(client2, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client2@nksip"},
         {plugins, [nksip_100rel]},

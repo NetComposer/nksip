@@ -49,20 +49,20 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     UpdFun1 = fun(Allow) -> nklib_util:store_value(<<"PRACK">>, Allow) end,
     SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun1, SrvSpec),
     UpdFun2 = fun(Supported) -> nklib_util:store_value(<<"100rel">>, Supported) end,
     SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun2, SrvSpec1),
+    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     UpdFun1 = fun(Allow) -> Allow -- [<<"PRACK">>] end,
     SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun1, SrvSpec),
     UpdFun2 = fun(Supported) -> Supported -- [<<"100rel">>] end,
     SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun2, SrvSpec1),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
 
 

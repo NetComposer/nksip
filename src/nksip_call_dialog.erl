@@ -55,7 +55,7 @@ create(Class, Req, Resp, Call) ->
         cseq = {CSeq, _},
         nkport = NkPort
     } = Resp,
-    {ok, {Transp, _, _}} = nkpacket:get_local(NkPort),
+    {ok, {_, Transp, _, _}} = nkpacket:get_local(NkPort),
     UA = case Class of uac -> "UAC"; uas -> "UAS" end,
     ?call_debug("Dialog ~s ~s created", [DialogId, UA]),
     nklib_counters:async([nksip_dialogs]),

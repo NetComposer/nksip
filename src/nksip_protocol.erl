@@ -245,7 +245,7 @@ conn_handle_cast(Msg, _NkPort, State) ->
 
 conn_handle_info({timeout, _, refresh}, NkPort, #conn_state{transp=udp}=State) ->
     #conn_state{srv_id=SrvId} = State,
-    {ok, {udp, Ip, Port}} = nkpacket:get_remote(NkPort),
+    {ok, {_, udp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case get_listening(NkPort) of
         {ok, Pid} ->
             ?debug(SrvId, <<>>, "transport sending STUN", []),
@@ -455,14 +455,7 @@ do_send(Packet, NkPort) ->
 
 %% @private
 get_listening(#nkport{transp=Transp, local_ip=Ip, meta=#{group:=Group}}) ->
-    List = nkpacket:get_listening(nksip_protocol, Transp, #{group=>Group}),
-    iter_get_listening(size(Ip), List).
-
-iter_get_listening(Class, [#nkport{local_ip=Ip, pid=Pid}|_]) when size(Ip)==Class ->
-    {ok, Pid};
-
-iter_get_listening(Class, [_|Rest]) ->
-    iter_get_listening(Class, Rest);
-
-iter_get_listening(_Class, []) ->
-    false.
+    case nkpacket:get_listening(nksip_protocol, Transp, #{group=>Group, ip=>Ip}) of
+        [#nkport{pid=Pid}|_] -> {ok, Pid};
+        [] -> false
+    end.

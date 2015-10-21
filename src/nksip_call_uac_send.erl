@@ -124,7 +124,7 @@ sent_request(Req, UAC, Call) ->
         opts = Opts, 
         from = From
     } = UAC,
-    {ok, {Transp, _, _}} = nkpacket:get_local(NkPort),
+    {ok, {_, Transp, _, _}} = nkpacket:get_local(NkPort),
     ?call_debug("UAC ~p sent ~p request", [TransId, Method]),
     UAC1 = UAC#trans{
         request = Req, 

@@ -54,7 +54,6 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId, cache:=_Cache}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case whereis(nksip_stats_srv) of
         undefined ->
             Period = maps:get(nksip_stats_period, SrvSpec, 5),
@@ -70,11 +69,12 @@ plugin_start(#{id:=SrvId, cache:=_Cache}=SrvSpec) ->
         _ ->
             ok
     end,
+    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec}.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec}.
 
 

@@ -62,7 +62,7 @@ start() ->
     %% NOTE: using 'any6' as ip for hosts fails in Linux
     %% (it works in OSX)
 
-    {ok, _} = nksip:start(server1, [
+    ok = tests_util:start(server1, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
@@ -70,7 +70,7 @@ start() ->
         {transports, "sip:all:5060, sip:[::1]:5060"}
     ]),
 
-    {ok, _} = nksip:start(server2, [
+    ok = tests_util:start(server2, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:server2@nksip"},
         {local_host, "127.0.0.1"},
@@ -78,19 +78,19 @@ start() ->
         {transports, "sip:all:5061, sip:[::1]:5061"}
     ]),
 
-    {ok, _} = nksip:start(client1, [
+    ok = tests_util:start(client1, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {transports, "sip:[::1]:5070"}
     ]),
     
-    {ok, _} = nksip:start(client2, [
+    ok = tests_util:start(client2, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client2@nksip"},
         {transports, "sip:[::1]:5071"}
     ]),
 
-    {ok, _} = nksip:start(client3, [
+    ok = tests_util:start(client3, ?MODULE, [
         {callback, ?MODULE},
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},

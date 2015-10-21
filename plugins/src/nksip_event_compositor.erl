@@ -64,13 +64,13 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec1} ->
             UpdFun = fun(Allow) -> nklib_util:store_value(<<"PUBLISH">>, Allow) end,
             SrvSpec2 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
             #{cache:=OldCache} = SrvSpec2,
             Cache = maps:with(maps:keys(syntax()), SrvSpec1),
+            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
             {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
         {error, Error} ->
             {stop, Error}
@@ -78,11 +78,11 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     UpdFun = fun(Allow) -> Allow -- [<<"PRACK">>] end,
     SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
     clear(SrvId),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
 
 
@@ -95,41 +95,6 @@ defaults() ->
     #{
         sip_event_compositor_default_expires => 60
     }.
-
-
-
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     Defaults = [{nksip_event_compositor_default_expires, 60}],
-%     Opts1 = nklib_util:defaults(Opts, Defaults),
-%     Allow = nklib_util:get_value(sip_allow, Opts1),
-%     Opts2 = case lists:member(<<"PUBLISH">>, Allow) of
-%         true -> 
-%             Opts1;
-%         false -> 
-%             nklib_util:store_value(sip_allow, Allow++[<<"PUBLISH">>], Opts1)
-%     end,
-%     case nklib_util:get_value(nksip_event_compositor_default_expires, Opts2) of
-%         Secs when is_integer(Secs), Secs>=1 ->
-%             {ok, Opts2};
-%         _ ->
-%             {error, {invalid_config, nksip_event_compositor_default_expires}}
-%     end.
-
-
-
-% %% @doc Called when the plugin is shutdown
-% -spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
-%     {ok, nkservice_server:sub_state()}.
-
-% terminate(SrvId, ServiceState) ->  
-%     catch clear(SrvId),
-%     {ok, ServiceState}.
-
-
 
 
 %% ===================================================================

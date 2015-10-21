@@ -22,10 +22,10 @@
 
 -module(tests_util).
 
--export([start_nksip/0, empty/0, wait/2, log/0, log/1]).
+-export([start_nksip/0, start/3, start_debug/3, empty/0, wait/2, log/0, log/1]).
 -export([get_ref/0, save_ref/1, update_ref/3, send_ref/2, dialog_update/2, session_update/2]).
 
--define(LOG_LEVEL, info).    % debug, info, notice, warning, error
+-define(LOG_LEVEL, notice).    % debug, info, notice, warning, error
 
 -ifdef(is_travis).
 -define(WAIT_TIMEOUT, 100000).
@@ -36,6 +36,30 @@
 start_nksip() ->
     nksip_app:start(),
     log().
+
+
+start(Name, Module, Opts) ->
+    Opts1 = nklib_util:to_map(Opts),
+    Opts2 = Opts1#{
+        callback => Module
+    },
+    {ok, _} = nksip:start(Name, Opts2),
+    ok.
+
+
+start_debug(Name, Module, Opts) ->
+    nklib_log:debug(),
+    Opts1 = nklib_util:to_map(Opts),
+    Plugins = maps:get(plugins, Opts, []),
+    Opts2 = Opts1#{
+        plugins => [nksip_trace | Plugins],
+        callback => Module,
+        log_level => debug,
+        sip_trace => {console, all}
+    },
+    {ok, _} = nksip:start(Name, Opts2),
+    ok.
+
 
 empty() ->
     empty([]).

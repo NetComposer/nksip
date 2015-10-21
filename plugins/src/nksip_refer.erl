@@ -50,12 +50,12 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
+    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec}.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec}.
 
 

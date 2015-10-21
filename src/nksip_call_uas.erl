@@ -213,7 +213,7 @@ process_request(Req, UASTransId, Call) ->
         'ACK' -> ack;
         _ -> trying
     end,
-    {ok, {Transp, _, _}} = nkpacket:get_local(NkPort),
+    {ok, {_, Transp, _, _}} = nkpacket:get_local(NkPort),
     UAS = #trans{
         id = NextId,
         class = uas,
@@ -303,7 +303,7 @@ preprocess(Req) ->
         nkport = NkPort, 
         vias = [Via|ViaR]
     } = Req,
-    {ok, {Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
+    {ok, {_, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     Received = nklib_util:to_host(Ip, false), 
     ViaOpts1 = [{<<"received">>, Received}|Via#via.opts],
     % For UDP, we honor the rport option
@@ -368,7 +368,7 @@ ruri_has_maddr(Request) ->
         ruri = RUri, 
         nkport = NkPort
     } = Request,
-    {ok, {Transp, _, LPort}} = nkpacket:get_local(NkPort),
+    {ok, {_, Transp, _, LPort}} = nkpacket:get_local(NkPort),
     case nklib_util:get_binary(<<"maddr">>, RUri#uri.opts) of
         <<>> ->
             Request;

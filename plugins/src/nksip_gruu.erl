@@ -50,31 +50,17 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     UpdFun = fun(Supported) -> nklib_util:store_value(<<"gruu">>, Supported) end,
     SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     UpdFun = fun(Supported) -> Supported -- [<<"gruu">>] end,
     SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
-
-
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     Supported = nklib_util:get_value(sip_supported, Opts),
-%     Opts1 = case lists:member(<<"gruu">>, Supported) of
-%         true -> Opts;
-%         false -> nklib_util:store_value(sip_supported, Supported++[<<"gruu">>], Opts)
-%     end,
-%     {ok, Opts1}.
-
 
 
 %% ===================================================================

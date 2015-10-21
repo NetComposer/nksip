@@ -50,10 +50,10 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
         {ok, SrvSpec2} ->
             Cache = maps:with([sip_uac_auto_auth_max_tries, sip_pass], SrvSpec2),
+            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
             {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
         {error, Error} ->
             {stop, Error}
@@ -61,8 +61,8 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
 
 

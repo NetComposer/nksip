@@ -32,6 +32,7 @@
 -export([info/2, update/2, subscribe/2, subscribe/3, notify/2]).
 -export([message/3, message/2, refer/3, refer/2, publish/3, publish/2]).
 -export([request/3, request/2, refresh/2]).
+-export([stun/3]).
 -export_type([uac_result/0, uac_ack_result/0, uac_cancel_result/0]).
 
 
@@ -316,48 +317,60 @@ refresh(Handle, Opts) ->
 
 
 
-% %% @doc Sends a <i>STUN</i> binding request.
-% %%
-% %% Use this function to send a STUN binding request to a remote STUN or 
-% %% STUN-enabled SIP server, in order to get our remote ip and port.
-% %% If the remote server is a standard STUN server, use port 3478 
-% %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
-% %% server, use a standard SIP uri.
-% %%
-% -spec stun(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
-%     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, Error}
-%     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
-%          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number(),
-%          Error :: unknown_core | invalid_uri | no_host | service_unavailable.
+%% @doc Sends a <i>STUN</i> binding request.
+%%
+%% Use this function to send a STUN binding request to a remote STUN or 
+%% STUN-enabled SIP server, in order to get our remote ip and port.
+%% If the remote server is a standard STUN server, use port 3478 
+%% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
+%% server, use a standard SIP uri.
+%%
+-spec stun(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
+    {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, term()}
+    when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
+         RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number().
 
-% stun(Srv, UriSpec, _Opts) ->
-%     case nkservice_server:find(Srv) of
-%         {ok, SrvId} ->
-%             case nksip_transport:get_listening(SrvId, udp, ipv4) of
-%                 [] -> 
-%                     {error, no_udp_transport};
-%                 [{#nkport{listen_ip=LIp, listen_port=LPort}, Pid}|_] ->
-%                     case nklib_parse:uris(UriSpec) of
-%                         [Uri] ->
-%                             Transp = nksip_dns:resolve(Uri),
-%                             case nklib_util:extract(Transp, udp) of
-%                                 [{udp, Ip, Port, _}|_] -> 
-%                                     case nksip_transport_udp:send_stun_sync(Pid, Ip, Port) of
-%                                         {ok, SIp, SPort} ->
-%                                             {ok, {LIp, LPort}, {SIp, SPort}};
-%                                         error ->
-%                                             {error, service_unavailable}
-%                                     end;
-%                                 _ ->
-%                                     {error, no_host}
-%                             end;
-%                         _ ->
-%                             {error, invalid_uri}
-%                     end
-%             end;
-%         not_found ->
-%             {error, unkown_sipapp}
-%     end.
+stun(Srv, UriSpec, _Opts) ->
+    case nkservice_server:find(Srv) of
+        {ok, SrvId} ->
+            case nkpacket:resolve(UriSpec) of
+                {ok, [{nksip_protocol, _, Ip, _}|_]=Conns, _UriOpts} ->
+                    ListenOpts = #{group=>{nksip, SrvId}, ip=>Ip},
+                    case nkpacket:get_listening(nksip_protocol, udp, ListenOpts) of
+                        [NkPort|_] -> 
+                            {ok, {_, _, LocIp, LocPort}} = nkpacket:get_local(NkPort),
+                            case stun_send(Conns, nkpacket:pid(NkPort)) of
+                                {ok, RemIp, RemPort} ->
+                                    {ok, {LocIp, LocPort}, {RemIp, RemPort}};
+                                error ->
+                                    {error, service_unavailable}
+                            end;
+                        [] ->
+                            {error, no_listening_transport}
+                    end;
+                _ ->
+                    {error, invalid_uri}
+            end;
+        not_found ->
+            {error, service_not_started}
+    end.
+
+
+%% @private
+stun_send([], _Pid) ->
+    error;
+
+stun_send([{nksip_protocol, udp, Ip, Port}|Rest], Pid) ->
+    case nkpacket_transport_udp:send_stun_sync(Pid, Ip, Port, 30000) of
+        {ok, StunIp, StunPort} ->
+            {ok, StunIp, StunPort};
+        error ->
+            stun_send(Rest, Pid)
+    end;
+
+stun_send([_|Rest], Pid) ->
+    stun_send(Rest, Pid).
+
 
 
 
@@ -414,6 +427,5 @@ send_cancel(Handle, Opts) ->
         _ ->
             {error, invalid_request}
     end.
-
 
 

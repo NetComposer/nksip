@@ -59,7 +59,7 @@ torture3_test_() ->
 start() ->
     tests_util:start_nksip(),
 
-    {ok, _} = nksip:start(server1, [
+    ok = tests_util:start(server1, ?MODULE, [
         {callback, ?MODULE},
         {transports, "sip:all:5060"},
         {plugins, [nksip_registrar]},

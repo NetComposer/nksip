@@ -23,12 +23,10 @@
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--compile([export_all]).
-
 -export([start/2, stop/1, stop_all/0, update/2]).
 -export([get_config/1, get_uuid/1]).
 -export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
--export([plugin_update_value/3, syntax/0, defaults/0, cached/0]).
+-export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
@@ -172,7 +170,7 @@ start(Name, Opts) ->
 
 %% @doc Stops a started Service, stopping any registered transports.
 -spec stop(srv_name()|srv_id()) -> 
-    ok | {error, not_found}.
+    ok | {error, service_not_found}.
 
 stop(Srv) ->
     nkservice_server:stop(Srv).
@@ -243,9 +241,10 @@ deps() ->
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->
     try
-        lager:info("Plugin nksip starting (~p)", [SrvId]),
+        Syntax = nksip_syntax:syntax(),
+
         Defaults = nklib_util:to_map(nksip_config_cache:sip_defaults()),
-        SrvSpec2 = case nkservice_util:parse_syntax(SrvSpec, syntax(), Defaults) of
+        SrvSpec2 = case nkservice_util:parse_syntax(SrvSpec, Syntax, Defaults) of
             {ok, Parsed2} -> Parsed2;
             {error, Parse2Error} -> throw(Parse2Error)
         end,
@@ -264,8 +263,9 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
             trans = maps:get(sip_trans_timeout, SrvSpec2),
             dialog = maps:get(sip_dialog_timeout, SrvSpec2)},
         OldCache = maps:get(cache, SrvSpec, #{}),
-        Cache1 = maps:with(cached(), SrvSpec2),
+        Cache1 = maps:with(nksip_syntax:cached(), SrvSpec2),
         Cache2 = Cache1#{sip_times=>Timers},
+        lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
         {ok, SrvSpec2#{cache=>maps:merge(OldCache, Cache2), transports=>Transp2}}
     catch
         throw:Throw -> {stop, Throw}
@@ -273,8 +273,9 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin nksip stopping (~p)", [SrvId]),
-    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
+    Syntax = nksip_syntax:syntax(),
+    SrvSpec2 = maps:without(maps:keys(Syntax), SrvSpec),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec2}.
 
 
@@ -289,72 +290,9 @@ plugin_update_value(Key, Fun, SrvSpec) ->
     Value2 = Fun(Value1),
     SrvSpec2 = maps:put(Key, Value2, SrvSpec),
     OldCache = maps:get(cache, SrvSpec, #{}),
-    Cache = case lists:member(Key, cached()) of
+    Cache = case lists:member(Key, nksip_syntax:cached()) of
         true -> maps:put(Key, Value2, #{});
         false -> #{}
     end,
     SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
-
-
-
-%% @private
-syntax() ->
-    #{
-        sip_allow => words,
-        sip_supported => words,
-        sip_timer_t1 => {integer, 10, 2500},
-        sip_timer_t2 => {integer, 100, 16000},
-        sip_timer_t4 => {integer, 100, 25000},
-        sip_timer_c => {integer, 1, none},
-        sip_trans_timeout => {integer, 5, none},
-        sip_dialog_timeout => {integer, 5, none},
-        sip_event_expires => {integer, 1, none},
-        sip_event_expires_offset => {integer, 0, none},
-        sip_nonce_timeout => {integer, 5, none},
-        sip_from => [{enum, [undefined]}, uri],
-        sip_accept => [{enum, [undefined]}, words],
-        sip_events => words,
-        sip_route => uris,
-        sip_no_100 => boolean,
-        sip_max_calls => {integer, 1, 1000000},
-        sip_debug => boolean
-    }.
-
-
-%% @private
-defaults() ->
-    #{
-        sip_allow => [
-            <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
-            <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
-            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>],
-        sip_supported => [<<"path">>],
-        sip_timer_t1 => 500,                    % (msecs) 0.5 secs
-        sip_timer_t2 => 4000,                   % (msecs) 4 secs
-        sip_timer_t4 => 5000,                   % (msecs) 5 secs
-        sip_timer_c =>  180,                    % (secs) 3min
-        sip_trans_timeout => 900,               % (secs) 15 min
-        sip_dialog_timeout => 1800,             % (secs) 30 min
-        sip_event_expires => 60,                % (secs) 1 min
-        sip_event_expires_offset => 5,          % (secs) 5 secs
-        sip_nonce_timeout => 30,                % (secs) 30 secs
-        sip_from => undefined,
-        sip_accept => undefined,
-        sip_events => [],
-        sip_route => [],
-        sip_no_100 => false,
-        sip_max_calls => 100000,                % Each Call-ID counts as a call
-        sip_debug => false                      % Used in nksip_debug plugin
-    }.
-
-
-%% @private
-cached() ->
-    [
-        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
-        sip_event_expires, sip_event_expires_offset, sip_events, 
-        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
-        sip_route, sip_supported, sip_trans_timeout
-    ].
-
 

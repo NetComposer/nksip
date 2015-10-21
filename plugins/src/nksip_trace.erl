@@ -61,7 +61,6 @@ deps() ->
 
 
 plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
-    lager:info("Plugin ~p starting (~p)", [?MODULE, SrvId]),
     SrvSpec1 = maps:merge(#{sip_trace => {console, all}}, SrvSpec),
     try
         {File, IpList} = case maps:get(sip_trace, SrvSpec1) of
@@ -89,6 +88,7 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
                 case compile_ips(IpList, []) of
                     {ok, CompIpList} ->
                         Cache = #{sip_trace => {File, CompIpList}},
+                        lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
                         {ok, SrvSpec1#{cache=>maps:merge(OldCache, Cache)}};
                     error ->
                         throw({invalid_re, IpList})
@@ -97,13 +97,13 @@ plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
                 throw({invalid_config, {could_not_open, File}})
         end
     catch
-        throw:Error -> {error, {invalid_config, Error}}
+        throw:Error -> {stop, Error}
     end.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopping (~p)", [?MODULE, SrvId]),
     catch close_file(SrvId),
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
     {ok, SrvSpec}.
 
 
