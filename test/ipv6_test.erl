@@ -63,7 +63,6 @@ start() ->
     %% (it works in OSX)
 
     ok = tests_util:start(server1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
         {local_host6, "::1"},
@@ -71,7 +70,6 @@ start() ->
     ]),
 
     ok = tests_util:start(server2, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:server2@nksip"},
         {local_host, "127.0.0.1"},
         {local_host6, "::1"},
@@ -79,19 +77,16 @@ start() ->
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {transports, "sip:[::1]:5070"}
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:client2@nksip"},
         {transports, "sip:[::1]:5071"}
     ]),
 
     ok = tests_util:start(client3, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:client3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, "sip:all:5072"}

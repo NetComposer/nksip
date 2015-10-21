@@ -89,7 +89,6 @@ running() ->
 
     % lager:error("Next error about error1 is expected"),
     {error, error1} = nksip:start(error1, [
-        {callback, ?MODULE},
         {transports, "sip:all:5090"}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),

@@ -44,7 +44,6 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
         {plugins, [nksip_registrar]},
         {local_host, "127.0.0.1"},
@@ -52,7 +51,6 @@ start() ->
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {plugins, [nksip_uac_auto_auth]},
         {local_host, "127.0.0.1"},
@@ -61,7 +59,6 @@ start() ->
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
-        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
         {local_host, "127.0.0.1"},
         {route, "<sip:127.0.0.1;lr>"}]),

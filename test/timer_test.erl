@@ -41,7 +41,6 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(p1, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "localhost"},
         no_100,
         {transports, "sip:all:5060"},
@@ -50,7 +49,6 @@ start() ->
     ]),
 
     ok = tests_util:start(p2, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "localhost"},
         no_100,
         {transports, "sip:all:5070"},
@@ -59,7 +57,6 @@ start() ->
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         no_100,
@@ -69,7 +66,6 @@ start() ->
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "127.0.0.1"},
         no_100,
         {transports, "sip:all:5072"},
@@ -78,7 +74,6 @@ start() ->
     ]),
     
     ok = tests_util:start(ua3, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "127.0.0.1"},
         no_100,
         {transports, "sip:all:5073"}

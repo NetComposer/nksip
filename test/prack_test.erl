@@ -49,7 +49,6 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {plugins, [nksip_100rel]},
         {local_host, "localhost"},
@@ -59,7 +58,6 @@ start() ->
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:client2@nksip"},
         {plugins, [nksip_100rel]},
         {local_host, "127.0.0.1"},

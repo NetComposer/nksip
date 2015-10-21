@@ -43,7 +43,6 @@ auth_test_() ->
 start() ->
     tests_util:start_nksip(),
     ok = tests_util:start(server1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
         {local_host, "localhost"},

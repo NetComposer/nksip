@@ -48,14 +48,12 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(registrar, ?MODULE, [
-        {callback, ?MODULE},
         {plugins, [nksip_registrar, nksip_outbound]},
         {local_host, "localhost"},
         {transports, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
@@ -63,35 +61,30 @@ start() ->
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5103>", "<sip:all:5104;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p1, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(p2, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p3, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     ok = tests_util:start(p4, ?MODULE, [
-        {callback, ?MODULE},
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5200>", "<sip:all:5201;transport=tls>"]}
@@ -478,7 +471,6 @@ uac_auto() ->
     nksip_registrar:clear(registrar),
     nksip_transport:stop_all_connected(),
     {ok, UA3_Id} = nksip:start(ua3, [
-        {callback, ?MODULE},
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, ["<sip:all:5106>", "<sip:all:5107;transport=tls>"]},

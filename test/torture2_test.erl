@@ -62,7 +62,6 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {callback, ?MODULE},
         {transports, "sip:all:5060"},
         no_100
     ]),

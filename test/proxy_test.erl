@@ -72,7 +72,6 @@ start(Test) ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
@@ -82,7 +81,6 @@ start(Test) ->
     ]),
 
     ok = tests_util:start(server2, ?MODULE, [
-        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:server2@nksip"},
         {plugins, [nksip_registrar]},
@@ -92,7 +90,6 @@ start(Test) ->
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:client1@nksip"},
         {route, "<sip:127.0.0.1;lr>"},
@@ -101,7 +98,6 @@ start(Test) ->
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
-        {callback, ?MODULE},
         {test_type, Test},
         {from, "sip:client2@nksip"},
         {route, "<sip:127.0.0.1;lr>"},

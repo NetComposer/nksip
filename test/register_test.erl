@@ -46,7 +46,6 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:server1@nksip"},
         {plugins, [nksip_registrar]},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"},
@@ -55,7 +54,6 @@ start() ->
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:client1@nksip"},
         {local_host, "127.0.0.1"},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
@@ -63,7 +61,6 @@ start() ->
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
-        {callback, ?MODULE},
         {from, "sip:client2@nksip"}]),
 
     tests_util:log(),

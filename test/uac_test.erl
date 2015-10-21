@@ -45,13 +45,11 @@ uac_test_() ->
 start() ->
     tests_util:start_nksip(),
     ok = tests_util:start(client1, ?MODULE, [
-        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {transports, "sip:all:5070, <sip:all:5071;transport=tls>"}
     ]),
             
     ok = tests_util:start(client2, ?MODULE, [
-        {callback, ?MODULE},
         {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
