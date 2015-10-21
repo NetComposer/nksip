@@ -289,7 +289,7 @@ terminate(_Reason, SrvState) ->
                         true -> 
                             SrvId:nks_sip_uac_auto_register_send_unreg(
                                     Reg, true, SrvState);
-                        false ->
+                        _ ->    % CHANGE TO FALSE
                             ok
                     end
                 end,

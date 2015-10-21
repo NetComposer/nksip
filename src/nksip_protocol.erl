@@ -49,7 +49,8 @@
     ok | error.
 
 start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
-    case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}) of
+    Opts = #{timeout => 15000},
+    case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}, Opts) of
         ok -> ok;
         _ -> error
     end.
@@ -226,6 +227,35 @@ conn_handle_call(Msg, _From, _NkPort, State) ->
 %% @doc Called when the connection received a gen_server:cast/2
 -spec conn_handle_cast(term(), nkpacket:nkport(), conn_state()) ->
     {ok, conn_state()} | {stop, Reason::term(), conn_state()}.
+
+% conn_handle_cast({stun, {ok, StunIp, StunPort}}, State) ->
+%     #state{
+%         srv_id = SrvId,
+%         nat_ip = NatIp, 
+%         nat_port = NatPort, 
+%         refresh_time = RefreshTime,
+%         refresh_notify = RefreshNotify
+%     } = State,
+%     ?debug(SrvId, <<>>, "transport received STUN", []),
+%     case 
+%         {NatIp, NatPort} == {undefined, undefined} orelse
+%         {NatIp, NatPort} == {StunIp, StunPort}
+%     of
+%         true ->
+%             lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
+%             State1 = State#state{
+%                 nat_ip = StunIp,
+%                 nat_port = StunPort,
+%                 refresh_timer = erlang:start_timer(RefreshTime, self(), refresh),
+%                 refresh_notify = []
+%             },
+%             do_noreply(State1);
+%         false ->
+%             do_stop(stun_changed, State)
+%     end;
+
+% conn_handle_cast({stun, error}, State) ->
+%     do_stop(stun_error, State);
 
 conn_handle_cast(stop_refresh, _NkPort, State) ->
     #conn_state{refresh_timer=RefreshTimer} = State,

@@ -128,7 +128,12 @@ response_stateless(#sipmsg{vias=[_, Via|RestVias], nkport=NkPort}=Resp, Call) ->
         0 -> ViaPort;
         RPort0 -> RPort0
     end,
-    NkPort1 = NkPort#nkport{transp=ViaTransp, remote_ip=RIp, remote_port=RPort},
+    NkPort1 = NkPort#nkport{
+        transp = ViaTransp, 
+        remote_ip = RIp, 
+        remote_port = RPort,
+        socket = undefined          % Make use it is not used
+    },
     Resp1 = Resp#sipmsg{vias=[Via|RestVias], nkport=NkPort1},
     case nksip_call_uas_transp:send_response(Resp1, []) of
         {ok, _} -> 

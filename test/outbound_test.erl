@@ -30,61 +30,61 @@
 
 -compile([export_all]).
 
-outbound_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            fun basic/0,
-            fun flow/0,
-            fun register/0,
-            fun proxy/0,
-            {timeout, 60, fun uac_auto/0}
-        ]
-    }.
+% outbound_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             fun basic/0,
+%             fun flow/0,
+%             fun register/0,
+%             fun proxy/0,
+%             {timeout, 60, fun uac_auto/0}
+%         ]
+%     }.
 
 
 start() ->
     tests_util:start_nksip(),
 
-    ok = tests_util:start(registrar, ?MODULE, [
+    ok = tests_util:start_debug(registrar, ?MODULE, [
         {plugins, [nksip_registrar, nksip_outbound]},
         {local_host, "localhost"},
         {transports, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
     ]),
 
-    ok = tests_util:start(ua1, ?MODULE, [
+    ok = tests_util:start_debug(ua1, ?MODULE, [
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5101>", "<sip:all:5102;transport=tls>"]}
     ]),
 
-    ok = tests_util:start(ua2, ?MODULE, [
+    ok = tests_util:start_debug(ua2, ?MODULE, [
         {local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5103>", "<sip:all:5104;transport=tls>"]}
     ]),
 
-    ok = tests_util:start(p1, ?MODULE, [
+    ok = tests_util:start_debug(p1, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
-    ok = tests_util:start(p2, ?MODULE, [
+    ok = tests_util:start_debug(p2, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    ok = tests_util:start(p3, ?MODULE, [
+    ok = tests_util:start_debug(p3, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
-    ok = tests_util:start(p4, ?MODULE, [
+    ok = tests_util:start_debug(p4, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5200>", "<sip:all:5201;transport=tls>"]}
@@ -144,7 +144,7 @@ basic() ->
 
 flow() ->
     nksip_registrar:clear(registrar),
-    nksip_transport:stop_all_connected(),
+    nkpacket_connection:stop_all(),
     timer:sleep(50),
     
     % REGISTER with no reg-id, it is not processed using outbound (no Require in response)
@@ -178,7 +178,8 @@ flow() ->
         }=Path1]
     }] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
             
-    {ok, Pid1, Transp1} = nksip_outbound_lib:decode_flow(Flow1),
+    {ok, Transp1} = nksip_outbound_lib:decode_flow(Flow1),
+    #nkport{pid=Pid1} = Transp1,
 
     [#uri{
         user = <<"ua1">>, domain = <<"127.0.0.1">>, port = 5101, 
@@ -200,17 +201,15 @@ flow() ->
     {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
     {ok, UA1_Id} = nkservice_server:find(ua1),
     {ok, UA2_Id} = nkservice_server:find(ua2),
-    [{#nkport{local_port=LocalPort1, remote_port=5090}, _}] = 
-        nksip_transport:get_all_connected(UA1_Id),
-    [{#nkport{local_port=LocalPort2, remote_port=5090}, _}] = 
-        nksip_transport:get_all_connected(UA2_Id),
+    [#nkport{local_port=LocalPort1, remote_port=5090}] = get_all_connected(UA1_Id),
+    [#nkport{local_port=LocalPort2, remote_port=5090}] = get_all_connected(UA2_Id),
 
     {ok, Registrar_Id} = nkservice_server:find(Registrar),
     [
-        {#nkport{local_port=5090, remote_port=LocalPortA}, _},
-        {#nkport{local_port=5090, remote_port=LocalPortB}, _}
+        #nkport{local_port=5090, remote_port=LocalPortA},
+        #nkport{local_port=5090, remote_port=LocalPortB}
     ] = 
-        nksip_transport:get_all_connected(Registrar_Id),
+        get_all_connected(Registrar_Id),
     true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortA, LocalPortB]),
 
 
@@ -224,21 +223,21 @@ flow() ->
         nksip_uac:options(ua2, Contact1#uri{headers=[{<<"route">>, QRoute2}]}, []), 
 
     [
-        {#nkport{local_port=5101, remote_port=RemotePort}, _},
-        {#nkport{local_port=LocalPort1, remote_port=5090}, _}
+        #nkport{local_port=5101, remote_port=RemotePort},
+        #nkport{local_port=LocalPort1, remote_port=5090}
     ] = 
-        lists:sort(nksip_transport:get_all_connected(UA1_Id)),
+        lists:sort(get_all_connected(UA1_Id)),
     [
-        {#nkport{local_port=5090, remote_port=LocalPortC}, _},
-        {#nkport{local_port=5090, remote_port=LocalPortD}, _},
-        {#nkport{local_port=RemotePort, remote_port=5101}, _}
+        #nkport{local_port=5090, remote_port=LocalPortC},
+        #nkport{local_port=5090, remote_port=LocalPortD},
+        #nkport{local_port=RemotePort, remote_port=5101}
     ] = 
-        lists:sort(nksip_transport:get_all_connected(Registrar_Id)),
+        lists:sort(get_all_connected(Registrar_Id)),
     true = lists:sort([LocalPort1, LocalPort2]) == lists:sort([LocalPortC, LocalPortD]),
 
 
     % Now we stop the first flow from registrar to ua1. registrar should return 430 "Flow Failed"
-    nksip_connection:stop(Pid1, normal),
+    nkpacket_connection:stop(Pid1, normal),
     timer:sleep(50),
     {ok, 430, []} = nksip_uac:options(ua1, Contact1, []),
     ok.
@@ -366,8 +365,8 @@ register() ->
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
     ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
-    {ok, _, #nkport{remote_port=5101}} = nksip_outbound_lib:decode_flow(Flow1),
-    {ok, _, #nkport{remote_port=5103}} = nksip_outbound_lib:decode_flow(Flow2),
+    {ok, #nkport{remote_port=5101}} = nksip_outbound_lib:decode_flow(Flow1),
+    {ok, #nkport{remote_port=5103}} = nksip_outbound_lib:decode_flow(Flow2),
     ok.
 
 
@@ -395,15 +394,16 @@ proxy() ->
     #uri{user = <<"NkF", Flow2/binary>>, port = 5061,
          opts = [{<<"transport">>,<<"tls">>},<<"lr">>,<<"ob">>]} = Path2,
 
-    {ok, _Pid1, #nkport{
-                    transp = tcp,
-                    local_port = 5080,
-                    remote_ip = {127,0,0,1},
-                    remote_port = _Remote1}
+    {ok, #nkport{
+            transp = tcp,
+            local_port = 5080,
+            remote_ip = {127,0,0,1},
+            remote_port = _Remote1}
     } = nksip_outbound_lib:decode_flow(Flow1),
 
-    {ok, Pid2, #nkport{
+    {ok, #nkport{
                     transp = udp,
+                    pid = Pid2,
                     local_port = 5060,
                     remote_ip = {127,0,0,1},
                     remote_port = 5101}
@@ -421,7 +421,7 @@ proxy() ->
         nksip_uac:options(ua2, Contact1, [{meta,[<<"x-nk-id">>]}]),
 
     % If we stop the flow, P1 will return Flow Failed
-    nksip_connection:stop(Pid2, normal),
+    nkpacket_connection:stop(Pid2, normal),
     timer:sleep(50),
     {ok, 430, []} = nksip_uac:options(ua2, Contact1, []),
 
@@ -468,9 +468,10 @@ proxy() ->
 
 
 uac_auto() ->
+    start(),
     nksip_registrar:clear(registrar),
-    nksip_transport:stop_all_connected(),
-    {ok, UA3_Id} = nksip:start(ua3, [
+    nkpacket_connection:stop_all(),
+    ok = tests_util:start_debug(ua3, ?MODULE, [
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, ["<sip:all:5106>", "<sip:all:5107;transport=tls>"]},
@@ -479,6 +480,7 @@ uac_auto() ->
         {sip_uac_auto_outbound_any_ok, 2},
         {sip_uac_auto_register_timer, 1}
     ]),
+    {ok, UA3_Id} = nkservice_server:find(ua3),
     timer:sleep(100),
     {ok, true} = 
         nksip_uac_auto_outbound:start_register(ua3, auto1, 
@@ -496,31 +498,19 @@ uac_auto() ->
     timer:sleep(100),
     % UA3 should have two connections to Registrar
     [
-        {
-            #nkport{transp = tcp, local_port = Local1,
-                       remote_port = 5090, listen_port = 5106},
-            Pid1
-        },
-        {
-            #nkport{transp = udp, local_port = 5106,
-                       remote_port = 5090, listen_port = 5106},
-            Pid2
-        }
-    ] = lists:sort(nksip_transport:get_all_connected(UA3_Id)),
+        #nkport{transp = tcp, local_port = Local1, pid = Pid1,
+                remote_port = 5090, listen_port = 5106},
+        #nkport{transp = udp, local_port = 5106, pid = Pid2,
+                       remote_port = 5090, listen_port = 5106}
+    ] = lists:sort(get_all_connected(UA3_Id)),
 
     {ok, RegistrarId} = nkservice_server:find(registrar),
     [
-        {
-            #nkport{transp = tcp, local_port = 5090,
-                       remote_port = Local1, listen_port=5090},
-            Pid3
-        },
-        {
-            #nkport{transp = udp, local_port = 5090, 
-             remote_port = 5106, listen_port = 5090},
-            Pid4
-        }
-    ] = lists:sort(nksip_transport:get_all_connected(RegistrarId)),
+        #nkport{transp = tcp, local_port = 5090, pid = Pid3,
+                remote_port = Local1, listen_port=5090},
+        #nkport{transp = udp, local_port = 5090, pid = Pid4,
+                remote_port = 5106, listen_port = 5090}
+    ] = lists:sort(get_all_connected(RegistrarId)),
 
     {true, KA1, Refresh1} = nksip_connection:get_refresh(Pid1),
     check_time(KA1, 120),
@@ -539,16 +529,16 @@ uac_auto() ->
     ?debugMsg("waiting register... (1/3)"),
     wait_register(10),  % 50
 
-    nksip_connection:stop(Pid2, normal),
+    nkpacket_connection:stop(Pid2, normal),
     timer:sleep(50),
     [{auto1, true, _},{auto2, false, _}] = 
         lists:sort(nksip_uac_auto_register:get_registers(UA3_Id)),
     ?debugMsg("waiting register... (2/3)"),
     wait_register(50),
 
-    [{_, Pid5}, {_, Pid6}] = nksip_transport:get_all_connected(UA3_Id),
-    nksip_connection:stop(Pid5, normal),
-    nksip_connection:stop(Pid6, normal),
+    [#nkport{pid=Pid5}, #nkport{pid=Pid6}] = get_all_connected(UA3_Id),
+    nkpacket_connection:stop(Pid5, normal),
+    nkpacket_connection:stop(Pid6, normal),
     timer:sleep(50),
     [{auto1, false, _},{auto2, false, _}] = 
         lists:sort(nksip_uac_auto_register:get_registers(UA3_Id)),
@@ -557,8 +547,8 @@ uac_auto() ->
 
     ok = nksip:stop(ua3),
     timer:sleep(100),
-    [] = nksip_transport:get_all_connected(UA3_Id),
-    [{#nkport{transp=udp}, _}] = nksip_transport:get_all_connected(RegistrarId),
+    [] = get_all_connected(UA3_Id),
+    [#nkport{transp=udp}] = get_all_connected(RegistrarId),
     ok.
 
 
@@ -582,6 +572,13 @@ wait_register(N) ->
         _ -> timer:sleep(500), wait_register(N-1)
     end.
         
+
+get_all_connected(Id) ->
+    [
+        element(2, nkpacket:get_nkport(Pid))
+        || Pid <- nkpacket_connection:get_all({nksip, Id})
+    ].
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%

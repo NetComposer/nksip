@@ -152,7 +152,7 @@ do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
                             % Came from the same flow
                             [{record_flow, Pid}|Opts];
                         incoming ->
-                            [{route_flow, {FlowTransp, Pid}} |
+                            [{route_flow, FlowTransp} |
                                 case lists:member(<<"ob">>, RouteOpts) of
                                     true -> [{record_flow, Pid}|Opts];
                                     false -> Opts
@@ -364,7 +364,7 @@ registrar(Req) ->
             case nksip_util:get_connected(SrvId, NkPort) of
                 [Pid|_] ->
                     Flow = encode_flow(Pid),
-                    Host = nksip_util:get_listenhost(SrvId, ListenIp, #{}),
+                    Host = nksip_util:get_listenhost(SrvId, ListenIp, []),
                     Path = nksip_util:make_route(sip, Transp, Host, ListenPort, 
                                                       <<"NkF", Flow/binary>>, 
                                                       [<<"lr">>, <<"ob">>]),

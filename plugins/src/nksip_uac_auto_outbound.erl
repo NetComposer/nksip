@@ -48,51 +48,6 @@ deps() ->
     [nksip_uac_auto_register, nksip_outbound].
 
 
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     Opts1 = nklib_util:defaults(Opts, Defaults),
-%     try
-%         case nklib_util:get_value(nksip_uac_auto_outbound_all_fail, Opts1) of
-%             undefined -> ok;
-%             AllFail when is_integer(AllFail) andalso AllFail>=1 -> 
-%                 ok;
-%             _ -> 
-%                 throw(nksip_uac_auto_outbound_all_fail)
-%         end,
-%         case nklib_util:get_value(nksip_uac_auto_outbound_any_ok, Opts1) of
-%             undefined -> ok;
-%             AnyOk when is_integer(AnyOk) andalso AnyOk>=1 -> 
-%                 ok;
-%             _ -> 
-%                 throw(nksip_uac_auto_outbound_any_ok)
-%         end,
-%         case nklib_util:get_value(nksip_uac_auto_outbound_max_time, Opts1) of
-%             Max when is_integer(Max) andalso Max>=1 -> 
-%                 ok;
-%             _ -> 
-%                 throw(nksip_uac_auto_outbound_max_time)
-%         end,
-%         case nklib_util:get_value(nksip_uac_auto_outbound_default_udp_ttl, Opts1) of
-%             Udp when is_integer(Udp) andalso Udp>=1 -> 
-%                 ok;
-%             _ -> 
-%                 throw(nksip_uac_auto_outbound_default_udp_ttl)
-%         end,
-%         case nklib_util:get_value(nksip_uac_auto_outbound_default_tcp_ttl, Opts1) of
-%             Tcp when is_integer(Tcp) andalso Tcp>=1 -> 
-%                 ok;
-%             _ -> 
-%                 throw(nksip_uac_auto_outbound_default_tcp_ttl)
-%         end,
-%         {ok, Opts1}
-%     catch
-%         throw:Name -> {error, {invalid_config, Name}}
-%     end.
-
-
 
 plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
     case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of

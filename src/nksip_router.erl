@@ -50,7 +50,7 @@ send_work_sync(SrvId, CallId, Work) ->
     CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
     WorkSpec = {send_work_sync, SrvId, CallId, Work, self()},
     case nklib_util:call(Name, WorkSpec, CallOpts) of
-        {error, {exit, {timeout, _}}} ->
+        {error, {exit, {{timeout, _}, _StackTrace}}} ->
             {error, {exit, timeout}};
         {error, {exit, Exit}} ->
             ?warning(SrvId, CallId, "error calling send_work_sync (~p): ~p",
