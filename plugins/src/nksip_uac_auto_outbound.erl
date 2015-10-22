@@ -96,7 +96,7 @@ defaults() ->
 
 
 %% @doc Starts a new registration serie.
--spec start_register(nkservice:name()|nkservice:id(), term(), nksip:user_uri(),                 nksip:optslist()) -> 
+-spec start_register(nkservice:name()|nksip:srv_id(), term(), nksip:user_uri(),                 nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 
 start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
@@ -105,7 +105,7 @@ start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
 
 
 %% @doc Stops a previously started registration serie.
--spec stop_register(nkservice:name()|nkservice:id(), term()) -> 
+-spec stop_register(nkservice:name()|nksip:srv_id(), term()) -> 
     ok | not_found.
 
 stop_register(Srv, RegId) ->
@@ -113,7 +113,7 @@ stop_register(Srv, RegId) ->
     
 
 %% @doc Get current registration status.
--spec get_registers(nkservice:name()|nkservice:id()) -> 
+-spec get_registers(nkservice:name()|nksip:srv_id()) -> 
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(Srv) ->

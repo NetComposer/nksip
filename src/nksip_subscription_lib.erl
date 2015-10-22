@@ -66,7 +66,7 @@ get_handle(_) ->
 
 %% @private
 -spec parse_handle(nksip:handle()) ->
-    {nkservice:id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
+    {nksip:srv_id(), id(), nksip_dialog_lib:id(), nksip:call_id()}.
 
 parse_handle(<<"U_", SubsId:6/binary, $_, DialogId:6/binary, $_, Srv:7/binary, 
          $_, CallId/binary>>) ->

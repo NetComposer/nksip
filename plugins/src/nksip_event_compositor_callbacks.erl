@@ -35,7 +35,7 @@
     [RegPublish] | ok | not_found when
         StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
                    {del, AOR, Tag} | del_all,
-        SrvId :: nkservice:id(),
+        SrvId :: nksip:srv_id(),
         AOR :: nksip:aor(),
         Tag :: binary(),
         RegPublish :: nksip_event_compositor:reg_publish(),

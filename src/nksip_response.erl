@@ -51,7 +51,7 @@ get_handle(Term) ->
 
 %% @doc Gets internal app's id
 -spec srv_id(nksip:response()|nksip:handle()) -> 
-    {ok, nkservice:id()}.
+    {ok, nksip:srv_id()}.
 
 srv_id(#sipmsg{class={resp, _, _}, srv_id=SrvId}) ->
     {ok, SrvId};

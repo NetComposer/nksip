@@ -41,7 +41,7 @@ nks_sip_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_sip_connection_recv(nkservice:id(), nksip:call_id(), 
+-spec nks_sip_connection_recv(nksip:srv_id(), nksip:call_id(), 
 					       nkpacket:nkport(), binary()) ->
     continue.
 

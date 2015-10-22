@@ -123,7 +123,7 @@ handle_info(_Msg, _State) ->
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+-spec terminate(nksip:srv_id(), nkservice_server:sub_state()) ->
     {ok, nkservice_server:sub_state()}.
 
 terminate(_Reason, SrvState) ->  

@@ -50,7 +50,7 @@
 -type srv_name() :: nkservice:name().
 
 %% Interna Name of each started Service
--type srv_id() :: nkservice:id().
+-type srv_id() :: nksip:srv_id().
 
 %% External handle for a request, response, dialog or event
 %% It is a binary starting with:
@@ -204,7 +204,7 @@ update(Srv, Opts) ->
     
 
 %% @doc Gets service's UUID
--spec get_uuid(nkservice:name()|nkservice:id()) -> 
+-spec get_uuid(nkservice:name()|nksip:srv_id()) -> 
     binary().
 
 get_uuid(Srv) ->
@@ -218,7 +218,7 @@ get_uuid(Srv) ->
 
 
 %% @doc Gets service's config
--spec get_config(nkservice:name()|nkservice:id()) -> 
+-spec get_config(nkservice:name()|nksip:srv_id()) -> 
     map().
 
 get_config(SrvName) ->

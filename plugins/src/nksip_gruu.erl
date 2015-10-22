@@ -69,7 +69,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
 
 
 %% @doc Gets the last detected public GRUU
--spec get_gruu_pub(nkservice:name()|nkservice:id()) ->
+-spec get_gruu_pub(nkservice:name()|nksip:srv_id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(Srv) ->
@@ -85,7 +85,7 @@ get_gruu_pub(Srv) ->
 
 
 %% @doc Gets the last detected temporary GRUU
--spec get_gruu_temp(nkservice:name()|nkservice:id()) ->
+-spec get_gruu_temp(nkservice:name()|nksip:srv_id()) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(Srv) ->
@@ -101,7 +101,7 @@ get_gruu_temp(Srv) ->
 
 
 %% @doc Use this function instead of nksip_registrar:find/2,4 to decode the generated GRUUs.
--spec registrar_find(nkservice:name()|nkservice:id(), nksip:uri()) ->
+-spec registrar_find(nkservice:name()|nksip:srv_id(), nksip:uri()) ->
     [nksip:uri()].
 
 registrar_find(Srv, Uri) ->

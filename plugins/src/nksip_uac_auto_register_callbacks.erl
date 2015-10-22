@@ -45,7 +45,7 @@
 
 % @doc Called when the status of an automatic registration status changes.
 -spec sip_uac_auto_register_updated_reg(RegId::term(), OK::boolean(),
-                                        SrvId::nkservice:id()) ->
+                                        SrvId::nksip:srv_id()) ->
     ok.
 
 sip_uac_auto_register_updated_reg(_RegId, _OK, _SrvId) ->
@@ -54,7 +54,7 @@ sip_uac_auto_register_updated_reg(_RegId, _OK, _SrvId) ->
 
 %% @doc Called when the status of an automatic ping status changes.
 -spec sip_uac_auto_register_updated_ping(PingId::term(), OK::boolean(),
-                                         SrvId::nkservice:id()) ->
+                                         SrvId::nksip:srv_id()) ->
     ok.
 
 sip_uac_auto_register_updated_ping( _PingId, _OK, _SrvId) ->
@@ -277,7 +277,7 @@ handle_info(_Msg, _SvcState) ->
 
 
 %% @doc Called when the service is shutdown
--spec terminate(nkservice:id(), nkservice_server:sub_state()) ->
+-spec terminate(nksip:srv_id(), nkservice_server:sub_state()) ->
    {ok, nkservice_server:sub_state()}.
 
 terminate(_Reason, SrvState) ->  

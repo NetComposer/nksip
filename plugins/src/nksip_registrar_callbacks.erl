@@ -39,7 +39,7 @@
     [RegContact] | ok | not_found when 
         StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
                    {del, AOR} | del_all,
-        SrvId :: nkservice:id(),
+        SrvId :: nksip:srv_id(),
         AOR :: nksip:aor(),
         RegContact :: nksip_registrar:reg_contact(),
         TTL :: integer().

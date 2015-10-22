@@ -40,7 +40,7 @@
 %% ===================================================================
 
 %% @doc Starts a new call process.
--spec start(nkservice:id(), nksip:call_id()) ->
+-spec start(nksip:srv_id(), nksip:call_id()) ->
     {ok, pid()}.
 
 start(SrvId, CallId) ->
@@ -117,7 +117,7 @@ handle_call(get_data, _From, Call) ->
     #call{trans=Trans, forks=Forks, dialogs=Dialogs} = Call,
     {reply, {Trans, Forks, Dialogs}, Call};
  
- handle_call(Msg, _From, Call) ->
+handle_call(Msg, _From, Call) ->
     lager:error("Module ~p received unexpected sync event: ~p", [?MODULE, Msg]),
     {noreply, Call}.
 
@@ -154,8 +154,18 @@ handle_info({timeout, _Ref, check_call}, Call) ->
 handle_info({timeout, Ref, Type}, Call) ->
     next(nksip_call_worker:timeout(Type, Ref, Call));
 
-% handle_info(timeout, Call) ->
-%     next(Call);
+% handle_info({'DOWN', _Ref, process, Pid, _Reason}=Info, #call{srv_id=SrvId}=Call) ->
+%     case whereis(SrvId) of
+%         undefined ->
+%             lager:warning("Srv ~p down1", [SrvId]),
+%             {stop, normal, Call};
+%         Pid ->
+%             lager:warning("Srv ~p down2", [SrvId]),
+%             {stop, normal, Call};
+%         _ ->
+%             lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
+%             next(Call)
+%     end;
 
 handle_info(Info, Call) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),

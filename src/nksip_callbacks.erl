@@ -236,7 +236,7 @@ sip_session_update(_Status, _Dialog, _Call) ->
 
 %% @doc This plugin callback function is used to call application-level 
 %% Service callbacks.
--spec nks_sip_call(atom(), list(), nkservice:id()) ->
+-spec nks_sip_call(atom(), list(), nksip:srv_id()) ->
 	{ok, term()} | error | nks_sip_common().
 
 nks_sip_call(Fun, Args, SrvId) ->
@@ -462,7 +462,7 @@ nks_sip_connection_sent(_SipMsg, _Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_sip_connection_recv(nkservice:id(), nksip:call_id(), 
+-spec nks_sip_connection_recv(nksip:srv_id(), nksip:call_id(), 
 					       nkpacket:nkport(), binary()) ->
     ok | nks_sip_common().
 
@@ -506,7 +506,7 @@ handle_info(Msg, ServiceState) ->
 
 
 %% doc Called at specific debug points
--spec nks_sip_debug(nkservice:id(), nksip:call_id(), term()) ->
+-spec nks_sip_debug(nksip:srv_id(), nksip:call_id(), term()) ->
     ok | nks_sip_common().
 
 nks_sip_debug(_SrvId, _CallId, _Info) ->

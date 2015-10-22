@@ -34,7 +34,7 @@
 
 
 %% @doc Generates a new request.
--spec make(nkservice:id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->    
+-spec make(nksip:srv_id(), nksip:method(), nksip:user_uri(), nksip:optslist()) ->    
     {ok, nksip:request(), nksip:optslist()} | {error, term()}.
     
 make(SrvId, Method, Uri, Opts) ->

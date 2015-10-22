@@ -85,7 +85,7 @@ get_handle(Term) ->
 
 %% @doc Gets thel App of a dialog
 -spec srv_id(nksip:dialog()|nksip:handle()) ->
-    {ok, nkservice:id()}.
+    {ok, nksip:srv_id()}.
 
 srv_id(#dialog{srv_id=SrvId}) ->
     {ok, SrvId};
@@ -168,7 +168,7 @@ get_all() ->
 
 
 %% @doc Finds all started dialogs handles having `Call-ID'.
--spec get_all(nkservice:name()|nkservice:id(), nksip:call_id()) ->
+-spec get_all(nkservice:name()|nksip:srv_id(), nksip:call_id()) ->
     [nksip:handle()].
 
 get_all(Srv, CallId) ->

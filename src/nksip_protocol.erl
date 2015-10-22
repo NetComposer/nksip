@@ -124,7 +124,7 @@ naptr(_, _) -> invalid.
 %% ===================================================================
 
 -record(conn_state, {
-    srv_id :: nkservice:id(),
+    srv_id :: nksip:srv_id(),
     transp :: nkpacket:transport(),
     % timeout :: non_neg_integer(),
     % nat_ip :: inet:ip_address(),
@@ -394,7 +394,7 @@ do_parse(Data, NkPort, State) ->
 
 
 %% @private
--spec do_parse(nkservice:id(), nkpacket:nkport(), binary(), integer(), #conn_state{}) ->
+-spec do_parse(nksip:srv_id(), nkpacket:nkport(), binary(), integer(), #conn_state{}) ->
     {ok, #conn_state{}} | {error, term()}.
 
 do_parse(SrvId, NkPort, Data, Pos, #conn_state{transp=Transp}=State) ->

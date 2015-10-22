@@ -84,7 +84,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
 %% ===================================================================
 
 %% @doc Configures a Service to start debugging
--spec start(nkservice:id()|nkservice:name()) ->
+-spec start(nksip:srv_id()|nkservice:name()) ->
     ok | {error, term()}.
 
 start(Srv) ->
@@ -102,7 +102,7 @@ start(Srv) ->
 
 
 %% @doc Stop debugging in a specific Service
--spec stop(nkservice:id()|nkservice:name()) ->
+-spec stop(nksip:srv_id()|nkservice:name()) ->
     ok | {error, term()}.
 
 stop(Srv) ->

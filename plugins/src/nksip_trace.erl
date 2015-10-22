@@ -139,7 +139,7 @@ start() ->
 
 
 %% @doc Equivalent to `start(SrvId, console, all)'.
--spec start(nkservice:id()|nkservice:name()) -> 
+-spec start(nksip:srv_id()|nkservice:name()) -> 
     ok | {error, term()}.
 
 start(Srv) -> 
@@ -147,7 +147,7 @@ start(Srv) ->
 
 
 %% @doc Equivalent to `start(Srv, File, all)'.
--spec start(nkservice:id()|nkservice:name(), file()) -> 
+-spec start(nksip:srv_id()|nkservice:name(), file()) -> 
     ok | {error, term()}.
 
 start(Srv, File) -> 
@@ -155,7 +155,7 @@ start(Srv, File) ->
 
 
 %% @doc Configures a Service to start tracing SIP messages.
--spec start(nkservice:id()|nkservice:id(), file(), ip_list()) ->
+-spec start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()) ->
     ok | {error, term()}.
 
 start(Srv, File, IpList) ->
@@ -183,7 +183,7 @@ stop() ->
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.
--spec stop(nkservice:id()|nkservice:name()) ->
+-spec stop(nksip:srv_id()|nkservice:name()) ->
     ok | {error, term()}.
 
 stop(Srv) ->
@@ -221,7 +221,7 @@ print(Header, #sipmsg{}=SipMsg) ->
 
 
 %% @private
--spec sipmsg(nkservice:id(), nksip:call_id(), binary(), 
+-spec sipmsg(nksip:srv_id(), nksip:call_id(), binary(), 
              nkpacket:nkport(), binary()) ->
     ok.
 

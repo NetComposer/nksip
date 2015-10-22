@@ -371,7 +371,7 @@ get_handle(_) ->
 
 %% @private
 -spec parse_handle(nksip:handle()) -> 
-    {req|resp, nkservice:id(), id(), nksip:call_id()}.
+    {req|resp, nksip:srv_id(), id(), nksip:call_id()}.
 
 parse_handle(<<Ch, $_, Id:6/binary, $_, Srv:7/binary, $_, CallId/binary>>)
          when Ch==$R; Ch==$S ->

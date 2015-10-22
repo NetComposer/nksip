@@ -111,7 +111,7 @@ defaults() ->
 
 %% @doc Gets all current registered contacts for an AOR.
 %% Use nksip_gruu:find/2 to process gruu options.
--spec find(nkservice:name()|nkservice:id(), nksip:aor() | nksip:uri()) ->
+-spec find(nkservice:name()|nksip:srv_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 
 find(Srv, {Scheme, User, Domain}) ->
@@ -125,7 +125,7 @@ find(Srv, Uri) ->
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nkservice:name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
 find(Srv, Scheme, User, Domain) ->
@@ -137,7 +137,7 @@ find(Srv, Scheme, User, Domain) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:name()|nkservice:id(), AOR::nksip:aor()) ->
+-spec qfind(nkservice:name()|nksip:srv_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 
 qfind(Srv, {Scheme, User, Domain}) ->
@@ -146,7 +146,7 @@ qfind(Srv, {Scheme, User, Domain}) ->
 
 %% @doc Gets all current registered contacts for an AOR, aggregated on Q values.
 %% You can use this function to generate a parallel and/o serial proxy request.
--spec qfind(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nkservice:name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
 qfind(Srv, Scheme, User, Domain) ->
@@ -158,7 +158,7 @@ qfind(Srv, Scheme, User, Domain) ->
 
 
 %% @doc Deletes all registered contacts for an AOR (<i>Address-Of-Record</i>).
--spec delete(nkservice:name()|nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec delete(nkservice:name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 
 delete(Srv, Scheme, User, Domain) ->
@@ -222,7 +222,7 @@ request(Req) ->
 
 
 %% @doc Clear all stored records by a Service's core.
--spec clear(nkservice:name()|nkservice:id()) -> 
+-spec clear(nkservice:name()|nksip:srv_id()) -> 
     ok | callback_error | service_not_found.
 
 clear(Srv) -> 

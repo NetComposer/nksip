@@ -80,7 +80,7 @@ find_gruus(_, []) ->
 
 
 %% @private
--spec find(nkservice:id(), nksip:uri()) ->
+-spec find(nksip:srv_id(), nksip:uri()) ->
     [nksip:uri()].
 
 find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->

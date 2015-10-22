@@ -75,7 +75,7 @@ get_handle(Term) ->
 
 %% @doc Gets thel SrvId of a dialog
 -spec srv_id(nksip:subscription()|nksip:handle()) ->
-    {ok, nkservice:id()}.
+    {ok, nksip:srv_id()}.
 
 srv_id({user_subs, _, #dialog{srv_id=SrvId}}) ->
     {ok, SrvId};
@@ -161,7 +161,7 @@ get_all() ->
 
 
 %% @doc Finds all existing subscriptions having a `Call-ID'.
--spec get_all(nkservice:id(), nksip:call_id()) ->
+-spec get_all(nksip:srv_id(), nksip:call_id()) ->
     [nksip:handle()].
 
 get_all(SrvId, CallId) ->

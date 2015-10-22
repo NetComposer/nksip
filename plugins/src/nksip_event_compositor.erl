@@ -102,7 +102,7 @@ defaults() ->
 %% ===================================================================
 
 %% @doc Finds a stored published information
--spec find(nkservice:id()|term(), nksip:aor(), binary()) ->
+-spec find(nksip:srv_id()|term(), nksip:aor(), binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 find(Srv, AOR, Tag) ->
@@ -149,7 +149,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
 
 
 %% @doc Clear all stored records by a Service's core.
--spec clear(nkservice:name()|nkservice:id()) -> 
+-spec clear(nkservice:name()|nksip:srv_id()) -> 
     ok | callback_error | service_not_found.
 
 clear(Srv) -> 

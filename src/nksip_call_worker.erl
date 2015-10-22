@@ -43,7 +43,7 @@
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
-    {incoming, nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()} | 
+    {incoming, nksip:srv_id(), nksip:call_id(), nkpacket:nkport(), binary()} | 
     info |
     get_all_dialogs | 
     {stop_dialog, nksip_dialog_lib:id()} |

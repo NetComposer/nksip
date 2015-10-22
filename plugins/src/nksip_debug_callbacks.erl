@@ -47,7 +47,7 @@ nks_sip_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_sip_connection_recv(nkservice:id(), nksip:call_id(), 
+-spec nks_sip_connection_recv(nksip:srv_id(), nksip:call_id(), 
                            nkpacket:nkport(), binary()) ->
     continue.
 
@@ -58,7 +58,7 @@ nks_sip_connection_recv(SrvId, CallId, NkPort, Packet) ->
 
 
 %% doc Called at specific debug points
--spec nks_sip_debug(nkservice:id(), nksip:call_id(), term()) ->
+-spec nks_sip_debug(nksip:srv_id(), nksip:call_id(), term()) ->
     continue.
 
 nks_sip_debug(SrvId, CallId, Info) ->

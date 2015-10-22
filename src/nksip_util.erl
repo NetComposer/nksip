@@ -145,7 +145,7 @@ initial_cseq() ->
 
 
 %% @private 
--spec get_listenhost(nkservice:id(), inet:ip_address(), nksip:optslist()) ->
+-spec get_listenhost(nksip:srv_id(), inet:ip_address(), nksip:optslist()) ->
     binary().
 
 get_listenhost(SrvId, Ip, Opts) ->
@@ -219,7 +219,7 @@ get_connected(SrvId, Transp, Ip, Port, Path) ->
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
--spec is_local(nkservice:id(), Input::nksip:uri()|nksip:via()) -> 
+-spec is_local(nksip:srv_id(), Input::nksip:uri()|nksip:via()) -> 
     boolean().
 
 is_local(SrvId, #uri{}=Uri) ->

@@ -35,7 +35,7 @@
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nkservice:id(), nksip:aor(), binary(), #reg_publish{}}].
+    [{nksip:srv_id(), nksip:aor(), binary(), #reg_publish{}}].
 
 get_all() ->
     [

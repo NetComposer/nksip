@@ -58,7 +58,7 @@
 
 
 %% @private
--spec find(nkservice:id(), nksip:uri()) ->
+-spec find(nksip:srv_id(), nksip:uri()) ->
     [nksip:uri()].
 
 find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=_Opts}) ->
@@ -66,7 +66,7 @@ find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=_Opts}) ->
 
 
 %% @doc Gets all current registered contacts for an AOR.
--spec find(nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec find(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 
 find(SrvId, Scheme, User, Domain) ->
@@ -75,7 +75,7 @@ find(SrvId, Scheme, User, Domain) ->
 
 
 %% @private
--spec qfind(nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec qfind(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 
 qfind(SrvId, Scheme, User, Domain) ->
@@ -103,7 +103,7 @@ qfind_iter([], Acc) ->
 
 
 %% @private Gets all current stored info for an AOR.
--spec get_info(nkservice:id(), nksip:scheme(), binary(), binary()) ->
+-spec get_info(nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     [#reg_contact{}].
 
 get_info(SrvId, Scheme, User, Domain) ->
@@ -410,7 +410,7 @@ store_del_all(SrvId) ->
 
 
 %% @private 
--spec callback(nkservice:id(), term()) ->
+-spec callback(nksip:srv_id(), term()) ->
     term() | error.
 
 callback(SrvId, Op) -> 

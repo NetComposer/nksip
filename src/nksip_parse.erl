@@ -148,7 +148,7 @@ transport(#via{transp=Transp, domain=Host, port=Port}) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
+-spec packet(nksip:srv_id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
     {ok, #sipmsg{}} | {error, term()} | {reply_error, term(), binary()}.
 
 packet(SrvId, CallId, NkPort, Packet) ->
@@ -205,7 +205,7 @@ packet(SrvId, CallId, NkPort, Packet) ->
 
 %% @private First-stage SIP message parser
 %% 50K/sec on i7
--spec packet(nkservice:id(), nkpacket:nkport(), binary()) ->
+-spec packet(nksip:srv_id(), nkpacket:nkport(), binary()) ->
     {ok, #sipmsg{}, binary()} | partial | {error, term()} |
     {reply_error, term(), binary()}.
 

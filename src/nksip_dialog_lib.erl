@@ -68,7 +68,7 @@ get_handle(_) ->
 
 %% @doc 
 -spec parse_handle(nksip:handle()) -> 
-    {nkservice:id(), id(), nksip:call_id()}.
+    {nksip:srv_id(), id(), nksip:call_id()}.
 
 parse_handle(<<$D, $_, _/binary>>=Bin) ->
     <<$D, $_, Id:6/binary, $_, Srv:7/binary, $_, CallId/binary>> = Bin,

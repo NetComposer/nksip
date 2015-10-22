@@ -113,7 +113,7 @@ nks_sip_method(_Trans, _Call) ->
 
 %% @doc This plugin callback function is used to call application-level 
 %% Service callbacks.
--spec nks_sip_call(atom(), list(), nkservice:id()) ->
+-spec nks_sip_call(atom(), list(), nksip:srv_id()) ->
     continue.
 
 nks_sip_call(sip_dialog_update, 
