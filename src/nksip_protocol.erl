@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -behaviour(nkpacket_protocol).
 
--export([start_refresh/3, stop_refresh/1]).
+-export([start_refresh/3, stop_refresh/1, get_refresh/1]).
 -export([transports/1, default_port/1, encode/2, naptr/2]).
 -export([conn_init/1, conn_parse/3, conn_encode/3, conn_stop/3]).
 -export([conn_handle_call/4, conn_handle_cast/3, conn_handle_info/3]).
@@ -61,6 +61,15 @@ start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
 
 stop_refresh(Pid) ->
     gen_server:cast(Pid, stop_refresh).
+
+
+%% @private
+-spec get_refresh(pid()) ->
+    {true, integer(), integer()} | false.
+
+get_refresh(Pid) ->
+    nklib_util:call(Pid, get_refresh, #{timeout=>15000}).
+
 
 
 %% ===================================================================
@@ -215,7 +224,7 @@ conn_handle_call(get_refresh, From, _NkPort, State) ->
         false -> 
             false
     end,
-    gen_server:reply(From, {ok, Reply}),
+    gen_server:reply(From, Reply),
     {ok, State};
 
 
