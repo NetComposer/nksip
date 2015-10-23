@@ -156,7 +156,10 @@ naptr(_, _) -> invalid.
 -spec conn_init(nkpacket:nkport()) ->
     {ok, conn_state()} | {stop, term()}.
 
-conn_init(#nkport{meta=#{group:={nksip, SrvId}}, transp=Transp}) ->
+conn_init(#nkport{meta=#{group:={nksip, SrvId}}, transp=Transp}=P) ->
+    lager:warning("CONN INIT ~p: ~p (~p)", [SrvId:name(), P, self()]),
+    
+
     State = #conn_state{
         srv_id = SrvId,
         transp = Transp,
@@ -172,6 +175,12 @@ conn_init(#nkport{meta=#{group:={nksip, SrvId}}, transp=Transp}) ->
 
 conn_parse(close, _NkPort, State) ->
     {ok, State};
+
+conn_parse({binary, Binary}, NkPort, State) ->
+    conn_parse(Binary, NkPort, State);
+
+conn_parse({text, Binary}, NkPort, State) ->
+    conn_parse(Binary, NkPort, State);
 
 conn_parse(Binary, NkPort, #conn_state{buffer=Buffer}=State) ->
     Data = case Buffer of
