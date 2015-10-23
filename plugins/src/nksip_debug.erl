@@ -88,7 +88,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
     ok | {error, term()}.
 
 start(Srv) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
@@ -106,7 +106,7 @@ start(Srv) ->
     ok | {error, term()}.
 
 stop(Srv) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_debug],
             case nksip:update(Srv, #{plugins=>Plugins, sip_debug=>false}) of

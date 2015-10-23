@@ -165,7 +165,7 @@ flow() ->
     InstanceC1 = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
-    {ok, Registrar} = nkservice_server:find(registrar),
+    {ok, Registrar} = nkservice_server:get_srv_id(registrar),
     [#reg_contact{
         index = {sip, tcp, <<"ua1">>, <<"127.0.0.1">>, 5101},
         contact = PContact,
@@ -199,12 +199,12 @@ flow() ->
 
     {tcp, {127,0,0,1}, LocalPort1, <<>>} = Local1,
     {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
-    {ok, UA1_Id} = nkservice_server:find(ua1),
-    {ok, UA2_Id} = nkservice_server:find(ua2),
+    {ok, UA1_Id} = nkservice_server:get_srv_id(ua1),
+    {ok, UA2_Id} = nkservice_server:get_srv_id(ua2),
     [#nkport{local_port=LocalPort1, remote_port=5090}] = get_all_connected(UA1_Id),
     [#nkport{local_port=LocalPort2, remote_port=5090}] = get_all_connected(UA2_Id),
 
-    {ok, Registrar_Id} = nkservice_server:find(Registrar),
+    {ok, Registrar_Id} = nkservice_server:get_srv_id(Registrar),
     [
         #nkport{local_port=5090, remote_port=LocalPortA},
         #nkport{local_port=5090, remote_port=LocalPortB}
@@ -269,7 +269,7 @@ register() ->
     InstanceC1 = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
-    {ok, Registrar} = nkservice_server:find(registrar),
+    {ok, Registrar} = nkservice_server:get_srv_id(registrar),
     QInstanceC1_id = nklib_util:hash(QInstanceC1),
     [#reg_contact{
         index = {ob, QInstanceC1_id, <<"1">>},
@@ -480,7 +480,7 @@ uac_auto() ->
         {sip_uac_auto_outbound_any_ok, 2},
         {sip_uac_auto_register_timer, 1}
     ]),
-    {ok, UA3_Id} = nkservice_server:find(ua3),
+    {ok, UA3_Id} = nkservice_server:get_srv_id(ua3),
     timer:sleep(100),
     {ok, true} = 
         nksip_uac_auto_outbound:start_register(ua3, auto1, 
@@ -504,7 +504,7 @@ uac_auto() ->
                        remote_port = 5090, listen_port = 5106}
     ] = lists:sort(get_all_connected(UA3_Id)),
 
-    {ok, RegistrarId} = nkservice_server:find(registrar),
+    {ok, RegistrarId} = nkservice_server:get_srv_id(registrar),
     [
         #nkport{transp = tcp, local_port = 5090, pid = Pid3,
                 remote_port = Local1, listen_port=5090},

@@ -110,7 +110,7 @@ basic() ->
     [P1, P2] = nklib_parse:uris(Path),
 
     
-    {ok, Registrar} = nkservice_server:find(registrar),
+    {ok, Registrar} = nkservice_server:get_srv_id(registrar),
     [#reg_contact{
         contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},
         path = [

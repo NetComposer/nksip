@@ -426,7 +426,7 @@ application_15() ->
 %% Internal
 
 parse(Msg) ->
-    {ok, SrvId} = nkservice_server:find(server1),
+    {ok, SrvId} = nkservice_server:get_srv_id(server1),
     case nksip_parse:packet(SrvId, #nkport{transp=udp}, Msg) of
         {ok, SipMsg, <<>>} -> SipMsg;
         {ok, SipMsg, Tail} -> {tail, SipMsg, Tail};

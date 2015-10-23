@@ -356,7 +356,7 @@ invite2() ->
     % lager:notice("A")
 
 
-    {ok, C2Id} = nkservice_server:find(client2),
+    {ok, C2Id} = nkservice_server:get_srv_id(client2),
     {ok, CallId} = nksip_dialog:call_id(Dlg_C2_1),
     [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:srv_id(D))==C2Id,
                             element(2, nksip_dialog:call_id(D))=:=CallId, D/=Dlg_C2_1],
@@ -699,7 +699,7 @@ sip_bye(Req, _Call) ->
 %%%%%
 
 get_port(Srv, Transp) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nkpacket:get_listening(nksip_protocol, Transp, #{group=>{nksip, SrvId}}) of
                 [#nkport{listen_port=Port}|_] -> Port;

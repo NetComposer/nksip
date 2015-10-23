@@ -73,7 +73,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(Srv) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_pub, SrvId}) of
                 undefined -> undefined;
@@ -89,7 +89,7 @@ get_gruu_pub(Srv) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(Srv) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_temp, SrvId}) of
                 undefined -> undefined;
@@ -105,7 +105,7 @@ get_gruu_temp(Srv) ->
     [nksip:uri()].
 
 registrar_find(Srv, Uri) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
             nksip_gruu_lib:find(SrvId, Uri);
         _ ->

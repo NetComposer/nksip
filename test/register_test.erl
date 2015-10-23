@@ -158,7 +158,7 @@ register1() ->
           ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, ExpB}]}] = 
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
 
-    {ok, Registrar} = nkservice_server:find(server1),
+    {ok, Registrar} = nkservice_server:get_srv_id(server1),
     Expire = nklib_util:timestamp()+Min,
     [#reg_contact{
             contact = #uri{
@@ -175,7 +175,7 @@ register1() ->
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
     Request1 = #sipmsg{
-                srv_id = element(2, nkservice_server:find(server1)), 
+                srv_id = element(2, nkservice_server:get_srv_id(server1)), 
                 from = {#uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>}, <<>>},
                 nkport = #nkport{
                                 transp = udp, 

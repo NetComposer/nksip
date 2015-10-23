@@ -331,7 +331,7 @@ refresh(Handle, Opts) ->
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number().
 
 stun(Srv, UriSpec, _Opts) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             case nkpacket:resolve(UriSpec) of
                 {ok, [{nksip_protocol, _, Ip, _}|_]=Conns, _UriOpts} ->
@@ -385,7 +385,7 @@ stun_send([_|Rest], Pid) ->
     uac_result() | {error, term()}.
 
 send(Srv, Method, Uri, Opts) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nklib_util:get_binary(call_id, Opts) of
                 <<>> -> CallId = nklib_util:luid();

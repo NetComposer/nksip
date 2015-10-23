@@ -190,7 +190,7 @@ transport() ->
 
 cast_info() ->
     % Direct calls to service's core processing app
-    {ok, S1} = nkservice_server:find(server1),
+    {ok, S1} = nkservice_server:get_srv_id(server1),
     Pid = whereis(S1),
     not_running = nkservice_server:get_pid(other),
 

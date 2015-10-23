@@ -30,20 +30,21 @@
 -compile([export_all]).
 
 
-ws1_test_() ->
-    {setup, spawn, 
-        fun() -> start1() end,
-        fun(_) -> stop1() end,
-        [
-            fun webserver/0
-        ]
-    }.
+% ws1_test_() ->
+%     {setup, spawn, 
+%         fun() -> start1() end,
+%         fun(_) -> stop1() end,
+%         [
+%             fun webserver/0
+%         ]
+%     }.
 
 
 start1() ->
     tests_util:start_nksip(),
 
-    ok = tests_util:start(ws_a, ?MODULE, [
+    ok = tests_util:start_debug
+    (ws_a, ?MODULE, [
         {transports, [
             "<sip:all:8090;transport=ws>",
             "<sip:all:8091;transport=wss>",
@@ -51,10 +52,11 @@ start1() ->
         ]}
     ]),
 
-    ok = tests_util:start(ws_b, ?MODULE, [
+    ok = tests_util:start_debug
+    (ws_b, ?MODULE, [
         {transports, [
             "<sip:all:8090;transport=ws>",
-            "<sip:all/ws:8092;transport=ws>"
+            "<sip:all/ws:8092;transport=wss>"
             % {wss, all, 8092, [{dispatch, [{'_', ["/ws"]}]}]}
         ]}
     ]),
@@ -63,8 +65,8 @@ start1() ->
     ?debugFmt("Starting ~p", [?MODULE]).
 
 webserver() ->
-    {ok, WsA} = nkservice_server:find(ws_a),
-    {ok, WsB} = nkservice_server:find(ws_b),
+    {ok, WsA} = nkservice_server:get_srv_id(ws_a),
+    {ok, WsB} = nkservice_server:get_srv_id(ws_b),
     [
         {#nkport{transp=ws, local_port=0, listen_port=_LP}, _},
         {#nkport{transp=ws, local_port=8090, listen_port=8090}, _},
@@ -102,16 +104,16 @@ stop1() ->
     ok.
 
 
-ws2_test_() ->
-    {setup, spawn, 
-        fun() -> start2() end,
-        fun(_) -> stop2() end,
-        [
-            fun basic/0, 
-            fun sharing/0,
-            fun proxy/0
-        ]
-    }.
+% ws2_test_() ->
+%     {setup, spawn, 
+%         fun() -> start2() end,
+%         fun(_) -> stop2() end,
+%         [
+%             fun basic/0, 
+%             fun sharing/0,
+%             fun proxy/0
+%         ]
+%     }.
 
 
 start2() ->
@@ -162,8 +164,8 @@ stop2() ->
 
 
 basic() ->
-    {ok, UA2} = nkservice_server:find(ua2),
-    {ok, S1} = nkservice_server:find(server1),
+    {ok, UA2} = nkservice_server:get_srv_id(ua2),
+    {ok, S1} = nkservice_server:get_srv_id(server1),
 
     [] = nksip_transport:get_all_connected(S1),
     [] = nksip_transport:get_all_connected(UA2),
@@ -320,7 +322,7 @@ proxy() ->
 
     % Let's stop the transports
     [nksip_connection:stop(Pid, normal) || 
-        {_, Pid} <- nksip_transport:get_all_connected(element(2, nkservice_server:find(server1)))],
+        {_, Pid} <- nksip_transport:get_all_connected(element(2, nkservice_server:get_srv_id(server1)))],
     timer:sleep(100),
 
     {ok, 430, []} = nksip_uac:options(ua1, C2Pub, 

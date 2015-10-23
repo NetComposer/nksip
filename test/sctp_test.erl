@@ -97,13 +97,13 @@ basic() ->
     _ = ?RECV({Ref, cb2}),
 
     % client1 should have started a new transport to client2:5071
-    {ok, C1} = nkservice_server:find(client1),
+    {ok, C1} = nkservice_server:get_srv_id(client1),
     [LocPid] = [Pid || {#nkport{transp=sctp, local_port=LP, remote_port=5071,
                                    socket={_, Id}}, Pid} 
                         <- nksip_transport:get_all(C1), LP=:=LocalPort, Id=:=SctpId],
 
     % client2 should not have started a new transport also to client1:5070
-    {ok, C2} = nkservice_server:find(client2),
+    {ok, C2} = nkservice_server:get_srv_id(client2),
     [RemPid] = [Pid || {#nkport{transp=sctp, remote_port=5070}, Pid} 
                        <- nksip_transport:get_all(C2)],
 

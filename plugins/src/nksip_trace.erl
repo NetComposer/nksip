@@ -159,7 +159,7 @@ start(Srv, File) ->
     ok | {error, term()}.
 
 start(Srv, File, IpList) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
@@ -187,7 +187,7 @@ stop() ->
     ok | {error, term()}.
 
 stop(Srv) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_trace],
             case nksip:update(Srv, #{plugins=>Plugins}) of

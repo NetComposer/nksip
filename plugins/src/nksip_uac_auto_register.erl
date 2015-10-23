@@ -93,7 +93,7 @@ defaults() ->
 
 start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice_server:find(Srv) of
+        case nkservice_server:get_srv_id(Srv) of
             {ok, SrvId} -> ok;
             _ -> SrvId = throw(service_not_found)
         end,
@@ -137,7 +137,7 @@ get_registers(Srv) ->
 
 start_ping(Srv, PingId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice_server:find(Srv) of
+        case nkservice_server:get_srv_id(Srv) of
             {ok, SrvId} -> ok;
             _ -> SrvId = throw(service_not_found)
         end,

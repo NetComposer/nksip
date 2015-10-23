@@ -208,7 +208,7 @@ update(Srv, Opts) ->
     binary().
 
 get_uuid(Srv) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
             UUID = SrvId:uuid(),
             <<"<urn:uuid:", UUID/binary, ">">>;

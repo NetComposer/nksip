@@ -106,7 +106,7 @@ defaults() ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 find(Srv, AOR, Tag) ->
-    {ok, SrvId} = nkservice_server:find(Srv),
+    {ok, SrvId} = nkservice_server:get_srv_id(Srv),
     nksip_event_compositor_lib:store_get(SrvId, AOR, Tag).
 
 
@@ -153,7 +153,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
     ok | callback_error | service_not_found.
 
 clear(Srv) -> 
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             case nksip_event_compositor_lib:store_del_all(SrvId) of
                 ok -> ok;

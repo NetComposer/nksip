@@ -172,7 +172,7 @@ get_all() ->
     [nksip:handle()].
 
 get_all(Srv, CallId) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nksip_call:get_all_dialogs(SrvId, CallId) of
                 {ok, Handles} -> Handles;

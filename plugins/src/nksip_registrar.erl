@@ -118,7 +118,7 @@ find(Srv, {Scheme, User, Domain}) ->
     find(Srv, Scheme, User, Domain);
 
 find(Srv, Uri) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Uri);
         _ -> []
     end.
@@ -129,7 +129,7 @@ find(Srv, Uri) ->
     [nksip:uri()].
 
 find(Srv, Scheme, User, Domain) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> nksip_registrar_lib:find(SrvId, Scheme, User, Domain);
         _ -> []
     end.
@@ -150,7 +150,7 @@ qfind(Srv, {Scheme, User, Domain}) ->
     nksip:uri_set().
 
 qfind(Srv, Scheme, User, Domain) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> nksip_registrar_lib:qfind(SrvId, Scheme, User, Domain);
         _ ->
             []
@@ -162,7 +162,7 @@ qfind(Srv, Scheme, User, Domain) ->
     ok | not_found | callback_error.
 
 delete(Srv, Scheme, User, Domain) ->
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             AOR = {
                 nklib_parse:scheme(Scheme), 
@@ -226,7 +226,7 @@ request(Req) ->
     ok | callback_error | service_not_found.
 
 clear(Srv) -> 
-    case nkservice_server:find(Srv) of
+    case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} ->
             case nksip_registrar_lib:store_del_all(SrvId) of
                 ok -> ok;
