@@ -223,15 +223,33 @@ handle_info({sync_work_received, Ref, Pid}, #state{works=Works}=State) ->
     end,
     {noreply, State#state{works=Works1}};
 
-handle_info({'DOWN', _MRef, process, Pid, _Reason}, #state{services=Srvs}=State) ->
+handle_info({'DOWN', _MRef, process, Pid, _Reason}, State) ->
+    #state{name=Name, services=Srvs, works=Works} = State,
     case maps:find(Pid, Srvs) of
         {ok, {SrvId, CallPids}} ->
-            lager:warning("Service ~p (~p) down", [SrvId, SrvId:name()]),
-            State1 = do_service_down(CallPids, State),
-            State2 = State1#state{services=maps:remove(Pid, Srvs)},
-            {noreply, State2};
-        false ->
-            {noreply, do_call_down(Pid, State)}
+            % A service is down
+            lager:info("Service ~p (~p) down at ~p. Calls: ~p", 
+                          [SrvId, SrvId:name(), Name, CallPids]),
+            lists:foreach(fun(CallPid) -> gen_server:cast(CallPid, stop) end, CallPids),
+            State1 = State#state{services=maps:remove(Pid, Srvs)},
+            {noreply, State1};
+        error ->
+            % A call is down
+            State1 = remove_call(Pid, State),
+            State2 = case maps:find(Pid, Works) of
+                {ok, {SrvId, CallId, WorkList}} -> 
+                    % We had pending work for this process.
+                    % Actually, we know the process has stopped normally before processing
+                    % these requests (it hasn't failed due to an error).
+                    % If the process had failed due to an error processing the work,
+                    % the "received work" message would have been received an the work will
+                    % not be present in Works.
+                    St = State1#state{works=maps:remove(Pid, Works)},
+                    resend_worklist(SrvId, CallId, lists:reverse(WorkList), St);
+                error ->
+                    State1
+            end,
+            {noreply, State2}
     end;
 
 handle_info(Info, State) -> 
@@ -274,7 +292,7 @@ name(CallId) ->
     {ok, #state{}} | {error, looped_process | service_not_found | too_many_calls}.
 
 send_work_sync(SrvId, CallId, Work, Caller, From, #state{name=Name}=State) ->
-    case find(Name, SrvId, CallId) of
+    case find_call_pid(Name, SrvId, CallId) of
         {ok, Caller} ->
             {error, looped_process};
         {ok, CallPid} -> 
@@ -291,7 +309,7 @@ send_work_sync(SrvId, CallId, Work, Caller, From, #state{name=Name}=State) ->
 %% @private
 -spec do_send_work_sync(pid(), nksip:srv_id(), nksip:call_id(), nksip_call_worker:work(), 
                         {pid(), term()}, #state{}) ->
-    #state{}.
+    {ok, #state{}}.
 
 do_send_work_sync(CallPid, SrvId, CallId, Work, From, #state{works=Works}=State) ->
     Ref = make_ref(),
@@ -302,7 +320,7 @@ do_send_work_sync(CallPid, SrvId, CallId, Work, From, #state{works=Works}=State)
         error ->
             maps:put(CallPid, {SrvId, CallId, [{Ref, From, Work}]}, Works)
     end,
-    State#state{works=Works1}.
+    {ok, State#state{works=Works1}}.
     
 
 %% @private
@@ -311,7 +329,6 @@ do_send_work_sync(CallPid, SrvId, CallId, Work, From, #state{works=Works}=State)
     {ok, #state{}} | {error, too_many_calls}.
 
 do_call_start(SrvId, SrvPid, CallId, Work, From, State) ->
-    #state{name=Name, services=Srvs} = State,
     Max = nksip_config_cache:global_max_calls(),
     case nklib_counters:value(nksip_calls) < Max of
         true ->
@@ -319,17 +336,7 @@ do_call_start(SrvId, SrvPid, CallId, Work, From, State) ->
             case nklib_counters:value({nksip_calls, SrvId}) < SrvMax of
                 true ->
                     {ok, CallPid} = nksip_call_srv:start(SrvId, CallId),
-                    erlang:monitor(process, CallPid),
-                    RefId = {call, SrvId, CallId},
-                    true = ets:insert(Name, [{RefId, CallPid}, {CallPid, RefId}]),
-                    Srvs1 = case maps:find(SrvPid, Srvs) of
-                        {ok, {SrvId, OldCalls}} -> 
-                            maps:put(SrvPid, {SrvId, [CallPid|OldCalls]});
-                        false ->
-                            monitor(process, SrvPid),
-                            maps:put(SrvPid, {SrvId, [CallPid]}, Srvs)
-                    end,
-                    State1 = State#state{services=Srvs1},
+                    State1 = save_call(SrvId, SrvPid, CallId, CallPid, State),
                     do_send_work_sync(CallPid, SrvId, CallId, Work, From, State1);
                 false ->
                     {error, too_many_calls}
@@ -352,7 +359,7 @@ send_work_async(SrvId, CallId, Work) ->
     ok.
 
 send_work_async(Name, SrvId, CallId, Work) ->
-    case find(Name, SrvId, CallId) of
+    case find_call_pid(Name, SrvId, CallId) of
         {ok, CallPid} -> 
             nksip_call_srv:async_work(CallPid, Work);
         not_found -> 
@@ -388,70 +395,68 @@ resend_worklist(SrvId, CallId, [{_Ref, From, Work}|Rest], State) ->
 
 
 %% @private
--spec do_call_down(pid(), #state{}) ->
-    #state{}.
-
-do_call_down(CallPid, State) ->
-    #state{pos=Pos, name=Name, works=Works, services=Srvs} = State,
-    Srvs1 = case ets:lookup(Name, CallPid) of
-        [{CallPid, RefId}] ->
-            {_, SrvId, CallId} = RefId,
-            ?debug(SrvId, CallId, "Router ~p unregistering call", [Pos]),
-            ets:delete(Name, CallPid), 
-            ets:delete(Name, RefId),
-            {SrvId, Calls} = maps:get(SrvId, Srvs),
-            maps:put(SrvId, Calls -- [CallPid], Srvs);
-        [] ->
-            Srvs
-    end,
-    case maps:find(CallPid, Works) of
-        {ok, {SrvId1, CallId1, WorkList}} -> 
-            % We had pending work for this process.
-            % Actually, we know the process has stopped normally before processing
-            % these requests (it hasn't failed due to an error).
-            % If the process had failed due to an error processing the work,
-            % the "received work" message would have been received an the work will
-            % not be present in Works.
-            State1 = State#state{services=Srvs1, works=maps:remove(CallPid, Works)},
-            resend_worklist(SrvId1, CallId1, lists:reverse(WorkList), State1);
-        error ->
-            State#state{services=Srvs1}
-    end.
-
-
-%% @private
--spec do_service_down([pid()], #state{}) ->
-    #state{}.
-
-do_service_down([], State) ->
-    State;
-
-do_service_down([CallPid|Rest], #state{name=Name, works=Works}=State) ->
-    gen_server:cast(CallPid, stop),
-    case ets:lookup(Name, CallPid) of
-        [{CallPid, CallId}] ->
-            ets:delete(Name, CallPid), 
-            ets:delete(Name, CallId);
-        [] ->
-            ok
-    end,
-    Works1 = maps:remove(CallPid, Works),
-    do_service_down(Rest, State#state{works=Works1}).
-
-
-%% @private
--spec find(atom(), nksip:srv_id(), nksip:call_id()) ->
+-spec find_call_pid(atom(), nksip:srv_id(), nksip:call_id()) ->
     {ok, pid()} | not_found.
 
-find(Name, SrvId, CallId) ->
+find_call_pid(Name, SrvId, CallId) ->
     case ets:lookup(Name, {call, SrvId, CallId}) of
-        [{_, Pid}] -> {ok, Pid};
+        [{_, CallPid}] -> {ok, CallPid};
         [] -> not_found
     end.
 
 %% @private
 work_id(Tuple) when is_tuple(Tuple) -> element(1, Tuple);
 work_id(Other) -> Other.
+
+
+
+%% @private
+-spec save_call(nksip:srv_id(), pid(), nksip:call_id(), pid(), #state{}) ->
+    #state{}.
+
+save_call(SrvId, SrvPid, CallId, CallPid, #state{name=Name, services=Srvs}=State) ->
+    erlang:monitor(process, CallPid),
+    RefId = {call, SrvId, CallId},
+    true = ets:insert(Name, [{RefId, CallPid}, {CallPid, RefId}]),
+    OldCalls = case maps:find(SrvPid, Srvs) of
+        {ok, {SrvId, OldCalls0}} -> 
+            OldCalls0;
+        error -> 
+            monitor(process, SrvPid),
+            []
+    end,
+    Srvs1 = maps:put(SrvPid, {SrvId, [CallPid|OldCalls]}, Srvs),
+    State#state{services=Srvs1}.
+
+
+%% @private
+-spec remove_call(pid(), #state{}) ->
+    #state{}.
+
+remove_call(CallPid, #state{pos=Pos, name=Name, services=Srvs}=State) ->
+    case ets:lookup(Name, CallPid) of
+        [{CallPid, RefId}] ->
+            {_, SrvId, CallId} = RefId,
+            ?debug(SrvId, CallId, "Router ~p unregistering call", [Pos]),
+            ets:delete(Name, CallPid), 
+            ets:delete(Name, RefId),
+            case whereis(SrvId) of
+                undefined ->
+                    State;
+                SrvPid ->
+                    case maps:find(SrvPid, Srvs) of
+                        {ok, {SrvId, CallPids}} ->
+                            CallPids1 = CallPids -- [CallPid],
+                            Srvs1 = maps:put(SrvPid, {SrvId, CallPids1}, Srvs),
+                            State#state{services=Srvs1};
+                        error ->
+                            % It could be already deleted
+                            State
+                    end
+            end;
+        [] ->
+            State
+    end.
 
 
 %% @private
@@ -484,7 +489,7 @@ call_fold(Name) ->
 -spec pos2name(integer()) -> 
     atom().
 
-% Urgly but speedy
+% Ugly but speedy
 pos2name(0) -> nksip_router_0;
 pos2name(1) -> nksip_router_1;
 pos2name(2) -> nksip_router_2;
