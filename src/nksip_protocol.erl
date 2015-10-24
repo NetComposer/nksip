@@ -156,10 +156,8 @@ naptr(_, _) -> invalid.
 -spec conn_init(nkpacket:nkport()) ->
     {ok, conn_state()} | {stop, term()}.
 
-conn_init(#nkport{meta=#{group:={nksip, SrvId}}, transp=Transp}=_P) ->
+conn_init(#nkport{srv_id={nksip, SrvId}, transp=Transp}=_P) ->
     % lager:warning("CONN INIT ~p: ~p (~p)", [SrvId:name(), P, self()]),
-    
-
     State = #conn_state{
         srv_id = SrvId,
         transp = Transp,
@@ -505,8 +503,8 @@ do_send(Packet, NkPort) ->
 
 
 %% @private
-get_listening(#nkport{transp=Transp, local_ip=Ip, meta=#{group:=Group}}) ->
-    case nkpacket:get_listening(nksip_protocol, Transp, #{group=>Group, ip=>Ip}) of
+get_listening(#nkport{srv_id=SrvId, transp=Transp, local_ip=Ip}) ->
+    case nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>SrvId, ip=>Ip}) of
         [#nkport{pid=Pid}|_] -> {ok, Pid};
         [] -> false
     end.

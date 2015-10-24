@@ -98,7 +98,7 @@ adapt_transports(_SrvId, [], _Config, Acc) ->
 adapt_transports(SrvId, [{RawConns, Opts}|Rest], Config, Acc) ->
     SipOpts = case RawConns of
         [{nksip_protocol, Transp, _Ip, _Port}|_] ->
-            Base = #{group => {nksip, SrvId}},
+            Base = #{srv_id => {nksip, SrvId}},
             case Transp of
                 udp ->
                     Base#{
@@ -215,7 +215,7 @@ get_connected(SrvId, #nkport{transp=Transp, remote_ip=Ip, remote_port=Port, meta
 
 get_connected(SrvId, Transp, Ip, Port, Path) ->
     Raw = {nksip_protocol, Transp, Ip, Port},
-    nkpacket_transport:get_connected(Raw, #{group=>{nksip, SrvId}, path=>Path}).
+    nkpacket_transport:get_connected(Raw, #{srv_id=>{nksip, SrvId}, path=>Path}).
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
@@ -223,7 +223,7 @@ get_connected(SrvId, Transp, Ip, Port, Path) ->
     boolean().
 
 is_local(SrvId, #uri{}=Uri) ->
-    nkpacket:is_local(Uri, #{group=>{nksip, SrvId}});
+    nkpacket:is_local(Uri, #{srv_id=>{nksip, SrvId}});
 
 is_local(SrvId, #via{}=Via) ->
     {Transp, Host, Port} = nksip_parse:transport(Via),
@@ -243,7 +243,7 @@ send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
     case nkpacket_util:parse_opts(Opts1) of
         {ok, Opts2} ->
             Opts3 = Opts2#{
-                group => {nksip, SrvId}, 
+                srv_id => {nksip, SrvId}, 
                 listen_port => true, 
                 udp_to_tcp => true,
                 ws_proto => sip
@@ -263,7 +263,7 @@ send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
     end.
 
 
-send_opts({group, _}) -> true;
+send_opts({srv_id, _}) -> true;
 send_opts({connect_timeout, _}) -> true;
 send_opts({no_dns_cache, _}) -> true;
 send_opts({idle_timeout, _}) -> true;

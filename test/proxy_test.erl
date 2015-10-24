@@ -39,33 +39,33 @@ stateless_test_() ->
             stop(stateless) 
         end,
         [
-            fun() -> invalid() end,
-            fun() -> opts() end,
-            fun() -> transport() end, 
-            fun() -> invite() end,
+            % fun() -> invalid() end,
+            % fun() -> opts() end,
+            % fun() -> transport() end, 
+            % fun() -> invite() end,
             fun() -> servers() end
         ]
     }.
 
 
-stateful_test_() ->
-    {setup, spawn, 
-        fun() -> 
-            start(stateful),
-            ?debugMsg("Starting proxy stateful")
-        end,
-        fun(_) -> 
-            stop(stateful) 
-        end,
-        [
-            fun() -> invalid() end,
-            fun() -> opts() end,
-            fun() -> transport() end, 
-            fun() -> invite() end,
-            fun() -> servers() end,
-            fun() -> dialog() end
-        ]
-    }.
+% stateful_test_() ->
+%     {setup, spawn, 
+%         fun() -> 
+%             start(stateful),
+%             ?debugMsg("Starting proxy stateful")
+%         end,
+%         fun(_) -> 
+%             stop(stateful) 
+%         end,
+%         [
+%             fun() -> invalid() end,
+%             fun() -> opts() end,
+%             fun() -> transport() end, 
+%             fun() -> invite() end,
+%             fun() -> servers() end,
+%             fun() -> dialog() end
+%         ]
+%     }.
 
 
 start(Test) ->

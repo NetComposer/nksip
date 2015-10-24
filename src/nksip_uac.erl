@@ -335,7 +335,7 @@ stun(Srv, UriSpec, _Opts) ->
         {ok, SrvId} ->
             case nkpacket:resolve(UriSpec) of
                 {ok, [{nksip_protocol, _, Ip, _}|_]=Conns, _UriOpts} ->
-                    ListenOpts = #{group=>{nksip, SrvId}, ip=>Ip},
+                    ListenOpts = #{srv_id=>{nksip, SrvId}, ip=>Ip},
                     case nkpacket:get_listening(nksip_protocol, udp, ListenOpts) of
                         [NkPort|_] -> 
                             {ok, {_, _, LocIp, LocPort}} = nkpacket:get_local(NkPort),
