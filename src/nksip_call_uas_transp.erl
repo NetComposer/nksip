@@ -62,11 +62,10 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
                     [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
             end;
         _ ->
-            % We cannot use NkPort here, because it used also in stateless
-            % proxies, they erase the socket.
+            % Stateless proxy will remove the socket, but current will be used
             UriOpt = {<<"transport">>, nklib_util:to_binary(ViaTransp)},
             [
-                {current, {nksip_protocol, RTransp, RIp, RPort}},
+                NkPort,
                 #uri{scheme=sip, domain=ViaDomain, port=ViaPort, opts=[UriOpt]}
             ]
     end,

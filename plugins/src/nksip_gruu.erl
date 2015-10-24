@@ -46,7 +46,7 @@ version() ->
     [atom()].
     
 deps() ->
-    [nksip, nksip_registrar].
+    [nksip].
 
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->

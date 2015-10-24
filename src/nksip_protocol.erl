@@ -77,10 +77,10 @@ get_refresh(Pid) ->
 %% ===================================================================
 
 -spec transports(nklib:scheme()) ->
-    [nkpacket:transport()].
+    [nkpacket:transport() | {nkpacket:transport(), nkpacket:transport()}].
 
 transports(sip) -> [udp, tcp, tls, sctp, ws, wss];
-transports(sips) -> [tls, wss].
+transports(sips) -> [tls, wss, {tcp, tls}, {ws, wss}].
 
 
 -spec default_port(nkpacket:transport()) ->
@@ -156,8 +156,8 @@ naptr(_, _) -> invalid.
 -spec conn_init(nkpacket:nkport()) ->
     {ok, conn_state()} | {stop, term()}.
 
-conn_init(#nkport{meta=#{group:={nksip, SrvId}}, transp=Transp}=P) ->
-    lager:warning("CONN INIT ~p: ~p (~p)", [SrvId:name(), P, self()]),
+conn_init(#nkport{meta=#{group:={nksip, SrvId}}, transp=Transp}=_P) ->
+    % lager:warning("CONN INIT ~p: ~p (~p)", [SrvId:name(), P, self()]),
     
 
     State = #conn_state{

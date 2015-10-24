@@ -42,8 +42,8 @@ stateless_test_() ->
             fun() -> invalid() end,
             fun() -> opts() end,
             fun() -> transport() end, 
-            fun() -> invite() end
-            % fun() -> servers() end
+            fun() -> invite() end,
+            fun() -> servers() end
         ]
     }.
 
@@ -62,7 +62,7 @@ stateful_test_() ->
             fun() -> opts() end,
             fun() -> transport() end, 
             fun() -> invite() end,
-            % fun() -> servers() end,
+            fun() -> servers() end,
             fun() -> dialog() end
         ]
     }.

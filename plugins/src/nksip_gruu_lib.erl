@@ -109,9 +109,9 @@ find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
                 InstId ->
                     [
                         nksip_registrar_lib:make_contact(Reg) 
-                        || #reg_contact{meta=Meta}=Reg 
-                        <- nksip_registrar_lib:get_info(SrvId, Scheme, User, Domain), 
-                        nklib_util:get_value(nksip_gruu_instance_id, Meta)==InstId
+                            || #reg_contact{meta=Meta}=Reg 
+                            <- nksip_registrar_lib:get_info(SrvId, Scheme, User, Domain), 
+                            nklib_util:get_value(nksip_gruu_instance_id, Meta)==InstId
                     ]
             end
     end.

@@ -155,7 +155,12 @@ handle_call({send_work_sync, SrvId, CallId, Work, Caller}, From, State) ->
         {ok, State1} -> 
             {noreply, State1};
         {error, Error} ->
-            ?error(SrvId, CallId, "error sending work ~p: ~p", [Work, Error]),
+            case Error of
+                service_not_found ->
+                    ok;
+                _ ->
+                    ?error(SrvId, CallId, "error sending work ~p: ~p", [Work, Error])
+            end,
             {reply, {error, Error}, State}
     end;
 
