@@ -133,17 +133,14 @@ naptr(_, _) -> invalid.
 %% ===================================================================
 
 -record(conn_state, {
-    srv_id :: nksip:srv_id(),
-    transp :: nkpacket:transport(),
-    % timeout :: non_neg_integer(),
-    % nat_ip :: inet:ip_address(),
-    % nat_port :: inet:port_number(),
-    in_refresh = false :: boolean(),
-    refresh_timer :: reference(),
-    refresh_time :: pos_integer(),
-    refresh_notify = [] :: [{pid(), term()}],
     buffer = <<>> :: binary(),
-    rnrn_pattern :: binary:cp()
+    rnrn_pattern :: binary:cp(),
+    in_refresh = false :: boolean(),
+    refresh_time :: pos_integer(),
+    refresh_timer :: reference(),
+    nat_ip :: inet:ip_address(),
+    nat_port :: inet:port_number(),
+    refresh_notify = [] :: [{pid(), term()}]
 }).
 
 
@@ -156,11 +153,9 @@ naptr(_, _) -> invalid.
 -spec conn_init(nkpacket:nkport()) ->
     {ok, conn_state()} | {stop, term()}.
 
-conn_init(#nkport{srv_id={nksip, SrvId}, transp=Transp}=_P) ->
+conn_init(_NkPort) ->
     % lager:warning("CONN INIT ~p: ~p (~p)", [SrvId:name(), P, self()]),
     State = #conn_state{
-        srv_id = SrvId,
-        transp = Transp,
         rnrn_pattern = binary:compile_pattern(<<"\r\n\r\n">>)
     },
     {ok, State}.
@@ -244,42 +239,13 @@ conn_handle_call(Msg, _From, _NkPort, State) ->
 -spec conn_handle_cast(term(), nkpacket:nkport(), conn_state()) ->
     {ok, conn_state()} | {stop, Reason::term(), conn_state()}.
 
-% conn_handle_cast({stun, {ok, StunIp, StunPort}}, State) ->
-%     #state{
-%         srv_id = SrvId,
-%         nat_ip = NatIp, 
-%         nat_port = NatPort, 
-%         refresh_time = RefreshTime,
-%         refresh_notify = RefreshNotify
-%     } = State,
-%     ?debug(SrvId, <<>>, "transport received STUN", []),
-%     case 
-%         {NatIp, NatPort} == {undefined, undefined} orelse
-%         {NatIp, NatPort} == {StunIp, StunPort}
-%     of
-%         true ->
-%             lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
-%             State1 = State#state{
-%                 nat_ip = StunIp,
-%                 nat_port = StunPort,
-%                 refresh_timer = erlang:start_timer(RefreshTime, self(), refresh),
-%                 refresh_notify = []
-%             },
-%             do_noreply(State1);
-%         false ->
-%             do_stop(stun_changed, State)
-%     end;
-
-% conn_handle_cast({stun, error}, State) ->
-%     do_stop(stun_error, State);
-
 conn_handle_cast(stop_refresh, _NkPort, State) ->
     #conn_state{refresh_timer=RefreshTimer} = State,
     nklib_util:cancel_timer(RefreshTimer),
     State1 = State#conn_state{
         in_refresh = false, 
-        refresh_timer = undefined, 
-        refresh_time = undefined
+        refresh_time = undefined,
+        refresh_timer = undefined
     },
     {ok, State1};
 
@@ -292,19 +258,19 @@ conn_handle_cast(Msg, _NkPort, State) ->
 -spec conn_handle_info(term(), nkpacket:nkport(), conn_state()) ->
     {ok, conn_state()} | {stop, Reason::term(), conn_state()}.
 
-conn_handle_info({timeout, _, refresh}, NkPort, #conn_state{transp=udp}=State) ->
-    #conn_state{srv_id=SrvId} = State,
+conn_handle_info({timeout, _, refresh}, #nkport{transp=udp}=NkPort, State) ->
+    #nkport{srv_id={nksip, SrvId}} = NkPort,
     {ok, {_, udp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case get_listening(NkPort) of
         {ok, Pid} ->
             ?debug(SrvId, <<>>, "transport sending STUN", []),
             nkpacket_transport_udp:send_stun_async(Pid, Ip, Port),
-            {ok, #conn_state{refresh_timer=undefined}};
+            {ok, State#conn_state{refresh_timer=undefined}};
         false ->
             {stop, no_listening_transport, State}
     end;
 
-conn_handle_info({timeout, _, refresh}, NkPort, #conn_state{srv_id=SrvId}=State) ->
+conn_handle_info({timeout, _, refresh}, #nkport{srv_id={nksip, SrvId}}=NkPort, State) ->
     ?debug(SrvId, <<>>, "transport sending refresh", []),
     case do_send(<<"\r\n\r\n">>, NkPort) of
         ok -> 
@@ -313,13 +279,46 @@ conn_handle_info({timeout, _, refresh}, NkPort, #conn_state{srv_id=SrvId}=State)
             {stop, send_error, State}
     end;
 
-conn_handle_info({timeout, _, refreshed}, _NkPort, State) ->
-    {stop, refreshed_timeout, State};
+conn_handle_info({stun, {ok, StunIp, StunPort}}, NkPort, State) ->
+    #nkport{srv_id={nksip, SrvId}} = NkPort,
+    #conn_state{
+        nat_ip = NatIp, 
+        nat_port = NatPort, 
+        refresh_time = RefreshTime,
+        refresh_notify = RefreshNotify
+    } = State,
+    ?debug(SrvId, <<>>, "transport received STUN", []),
+    case 
+        {NatIp, NatPort} == {undefined, undefined} orelse
+        {NatIp, NatPort} == {StunIp, StunPort}
+    of
+        true ->
+            case RefreshTime of
+                undefined ->
+                    lager:warning("STUN UNDEFINED: ~p", [self()]);
+                _ ->
+                    ok
+            end,
+
+
+            lists:foreach(fun({Ref, Pid}) -> Pid ! Ref end, RefreshNotify),
+            State1 = State#conn_state{
+                nat_ip = StunIp,
+                nat_port = StunPort,
+                refresh_timer = erlang:start_timer(RefreshTime, self(), refresh),
+                refresh_notify = []
+            },
+            {ok, State1};
+        false ->
+            {stop, stun_changed, State}
+    end;
+
+conn_handle_info({stun, error}, _NkPort, State) ->
+    {stop, stun_error, State};
 
 conn_handle_info(Msg, _NkPort, State) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Msg]),
     {ok, State}.
-
 
 
 %% @doc Called when the connection stops
@@ -349,7 +348,7 @@ do_parse(<<>>, _NkPort, State) ->
 
 %% For TCP and UDP, we send a \r\n\r\n, remote must reply with \r\n
 do_parse(<<"\r\n\r\n", Rest/binary>>, 
-         NkPort, #conn_state{srv_id=SrvId, transp=Transp}=State) 
+         #nkport{srv_id={nksip, SrvId}, transp=Transp}=NkPort, State) 
          when Transp==tcp; Transp==udp; Transp==tls; Transp==sctp ->
     ?debug(SrvId, <<>>, "transport responding to refresh", []),
     case do_send(<<"\r\n">>, NkPort) of
@@ -359,13 +358,13 @@ do_parse(<<"\r\n\r\n", Rest/binary>>,
             {error, send_error}
     end;
 
-do_parse(<<"\r\n">>, _NkPort, #conn_state{transp=udp}=State) ->
+do_parse(<<"\r\n">>, #nkport{transp=udp}, State) ->
     {ok, State};
 
-do_parse(<<"\r\n", Rest/binary>>, NkPort, #conn_state{transp=Transp}=State) 
+do_parse(<<"\r\n", Rest/binary>>, #nkport{transp=Transp}=NkPort, State) 
         when Transp==tcp; Transp==tls; Transp==sctp ->
+    #nkport{srv_id={nksip, SrvId}} = NkPort,
     #conn_state{
-        srv_id = SrvId,
         refresh_notify = RefreshNotify, 
         refresh_time = RefreshTime,
         in_refresh = InRefresh
@@ -387,17 +386,13 @@ do_parse(<<"\r\n", Rest/binary>>, NkPort, #conn_state{transp=Transp}=State)
     },
     do_parse(Rest, NkPort, State1);
 
-do_parse(Data, _NkPort, #conn_state{srv_id=SrvId, transp=Transp})
+do_parse(Data, #nkport{srv_id={nksip, SrvId}, transp=Transp}, _State) 
         when (Transp==tcp orelse Transp==tls) andalso byte_size(Data) > ?MAX_MSG ->
     ?warning(SrvId, <<>>, "dropping TCP/TLS closing because of max_buffer", []),
     {error, msg_too_large};
 
-do_parse(Data, NkPort, State) ->
-    #conn_state{
-        srv_id = SrvId,
-        transp = Transp,
-        rnrn_pattern = RNRN
-    } = State,
+do_parse(Data, #nkport{srv_id={nksip, SrvId}, transp=Transp}=NkPort, State) ->
+    #conn_state{rnrn_pattern = RNRN} = State,
     case binary:match(Data, RNRN) of
         nomatch when Transp==tcp; Transp==tls ->
             {ok, State#conn_state{buffer=Data}};
@@ -413,7 +408,7 @@ do_parse(Data, NkPort, State) ->
 -spec do_parse(nksip:srv_id(), nkpacket:nkport(), binary(), integer(), #conn_state{}) ->
     {ok, #conn_state{}} | {error, term()}.
 
-do_parse(SrvId, NkPort, Data, Pos, #conn_state{transp=Transp}=State) ->
+do_parse(SrvId, #nkport{transp=Transp}=NkPort, Data, Pos, State) ->
     case extract(Transp, Data, Pos) of
         {ok, CallId, Msg, Rest} ->
             SrvId:nks_sip_connection_recv(SrvId, CallId, NkPort, Msg),
@@ -483,7 +478,7 @@ extract(Transp, Data, Pos) ->
 -spec reply_error(binary(), binary(), nkpacket:nkport(), #conn_state{}) ->
     ok.
 
-reply_error(Data, Msg, NkPort, #conn_state{srv_id=SrvId}) ->
+reply_error(Data, Msg, #nkport{srv_id={nksip, SrvId}}=NkPort, _State) ->
     case nksip_parse_sipmsg:parse(Data) of
         {ok, {req, _, _}, Headers, _} ->
             Resp = nksip_unparse:response(Headers, 400, Msg),
@@ -503,8 +498,8 @@ do_send(Packet, NkPort) ->
 
 
 %% @private
-get_listening(#nkport{srv_id=SrvId, transp=Transp, local_ip=Ip}) ->
-    case nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>SrvId, ip=>Ip}) of
+get_listening(#nkport{srv_id=TSrvId, transp=Transp, local_ip=Ip}) ->
+    case nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>TSrvId, ip=>Ip}) of
         [#nkport{pid=Pid}|_] -> {ok, Pid};
         [] -> false
     end.

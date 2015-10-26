@@ -30,61 +30,61 @@
 
 -compile([export_all]).
 
-% outbound_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             fun basic/0,
-%             fun flow/0,
-%             fun register/0,
-%             fun proxy/0,
-%             {timeout, 60, fun uac_auto/0}
-%         ]
-%     }.
+outbound_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            fun basic/0,
+            fun flow/0,
+            fun register/0,
+            fun proxy/0,
+            {timeout, 60, fun uac_auto/0}
+        ]
+    }.
 
 
 start() ->
     tests_util:start_nksip(),
 
-    ok = tests_util:start_debug(registrar, ?MODULE, [
+    ok = tests_util:start(registrar, ?MODULE, [
         {plugins, [nksip_registrar, nksip_outbound]},
         {local_host, "localhost"},
         {transports, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
     ]),
 
-    ok = tests_util:start_debug(ua1, ?MODULE, [
+    ok = tests_util:start(ua1, ?MODULE, [
         {from, "sip:ua1@nksip"},
         {local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5101>", "<sip:all:5102;transport=tls>"]}
     ]),
 
-    ok = tests_util:start_debug(ua2, ?MODULE, [
+    ok = tests_util:start(ua2, ?MODULE, [
         {local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5103>", "<sip:all:5104;transport=tls>"]}
     ]),
 
-    ok = tests_util:start_debug(p1, ?MODULE, [
+    ok = tests_util:start(p1, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
-    ok = tests_util:start_debug(p2, ?MODULE, [
+    ok = tests_util:start(p2, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
-    ok = tests_util:start_debug(p3, ?MODULE, [
+    ok = tests_util:start(p3, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
-    ok = tests_util:start_debug(p4, ?MODULE, [
+    ok = tests_util:start(p4, ?MODULE, [
         {local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5200>", "<sip:all:5201;transport=tls>"]}
@@ -468,10 +468,9 @@ proxy() ->
 
 
 uac_auto() ->
-    start(),
     nksip_registrar:clear(registrar),
     nkpacket_connection:stop_all(),
-    ok = tests_util:start_debug(ua3, ?MODULE, [
+    ok = tests_util:start(ua3, ?MODULE, [
         {from, "sip:ua3@nksip"},
         {local_host, "127.0.0.1"},
         {transports, ["<sip:all:5106>", "<sip:all:5107;transport=tls>"]},
