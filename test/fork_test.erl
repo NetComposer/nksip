@@ -701,7 +701,7 @@ sip_bye(Req, _Call) ->
 get_port(Srv, Transp) ->
     case nkservice_server:get_srv_id(Srv) of
         {ok, SrvId} -> 
-            case nkpacket:get_listening(nksip_protocol, Transp, #{group=>{nksip, SrvId}}) of
+            case nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>{nksip, SrvId}}) of
                 [#nkport{listen_port=Port}|_] -> Port;
                 _ -> not_found
             end;

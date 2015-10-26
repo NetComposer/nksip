@@ -344,7 +344,7 @@ proxy() ->
 
 all_listeners(Transp, SrvId) ->
     lists:sort(
-        nkpacket:get_listening(nksip_protocol, Transp, #{group=>{nksip, SrvId}})).
+        nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>{nksip, SrvId}})).
 
 all_connected(SrvId) ->
     lists:sort([
