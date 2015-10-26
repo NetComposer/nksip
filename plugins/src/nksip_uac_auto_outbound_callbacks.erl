@@ -227,8 +227,10 @@ nks_sip_uac_auto_register_send_unreg(Reg, Sync, #{id:=SrvId, ?OB_SKEY:=State}=Sr
             {ok, SrvState1#{?OB_SKEY:=State#state_ob{regs=RegsOb1}}};
         false ->
             continue 
-    end.
+    end;
 
+nks_sip_uac_auto_register_send_unreg(_Reg, _Sync, _SrvState)->
+    continue.
 
   
 %% @private
