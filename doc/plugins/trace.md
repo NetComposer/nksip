@@ -16,7 +16,7 @@
 ## Description
 
 This plugin allows to trace sent and received SIP messages to console or disk. 
-You can start tracing any specific SipApp, and for any IP or a specific set of IPs.
+You can start tracing any specific Service, and for any IP or a specific set of IPs.
 
 See the `nksip_trace` option [bellow](#configuration-values).
 
@@ -29,11 +29,11 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---
-nksip_trace|-|Configures tracing for this SipApp (see bellow)
+nksip_trace|-|Configures tracing for this Service (see bellow)
 
 You can use the following options for `nksip_trace`:
 * `{nksip_trace, console}`: Tracing for all IPs will be sent to the console
@@ -54,7 +54,7 @@ get_all() ->
     [{App::nksip:app_name(), File::console|binary(), IpList::all|[binary()]}].
 ```
 
-Get all SipApps currently tracing messages.
+Get all Services currently tracing messages.
 
 
 ### start/0
@@ -63,7 +63,7 @@ start() ->
     [{nksip:app_name(), ok|{error, term()}}].
 ```
 
-Equivalent to `start(AppId, console, all)` for all started SipApps.
+Equivalent to `start(AppId, console, all)` for all started Services.
 
 
 ### start/1
@@ -72,7 +72,7 @@ start(App::nksip:app_id()|nksip:app_name()) ->
     ok | {error, term()}.
 ```
 
-Equivalent to `start(AppId, console, all)` for a started SipApp.
+Equivalent to `start(AppId, console, all)` for a started Service.
 
 
 ### start/2
@@ -81,7 +81,7 @@ start(App::nksip:app_id()|nksip:app_name(), File::file()) ->
     ok | {error, term()}.
 ```
 
-Equivalent to `start(AppId, File, all)` for a started SipApp.
+Equivalent to `start(AppId, File, all)` for a started Service.
 
 
 ### start/3
@@ -90,7 +90,7 @@ start(nksip:app_id()|nksip:app_id(), file(), ip_list()) ->
     ok | {error, term()}.
 ```
 
-Configures a SipApp to start tracing SIP messages. Under the hood, it calls `nksip:update/2` to modify the SipApp configuration and include the corresponding `nksip_trace` option.
+Configures a Service to start tracing SIP messages. Under the hood, it calls `nksip:update/2` to modify the Service configuration and include the corresponding `nksip_trace` option.
 
 
 ### stop/0
@@ -108,7 +108,7 @@ stop(App::nksip:app_id()|nksip:app_name()) ->
     ok | {error, term()}.
 ```
 
-Stop tracing in a specific SipApp, closing trace file if it is opened.
+Stop tracing in a specific Service, closing trace file if it is opened.
 
 
 ### print/1
@@ -135,7 +135,7 @@ Pretty-print a `nksip:request()` or `nksip:response()` with a Tag.
 nksip_trace:start("my_app", "/tmp/1.trace", ["10.0.0.1", "^11.*"]).
 ```
 
-or using the SipApp configuration file:
+or using the Service configuration file:
 
 ```erlang
 nksip:start("my_app", nksip_sipapp, [], [

@@ -1,6 +1,6 @@
 # NkSIP Load Tester Sample Application
 
-This Erlang application is a _SipApp_ implementing a very simple SIP load tester.
+This Erlang application is a _Service_ implementing a very simple SIP load tester.
 
 Its purpose is to test NkSIP under heavy load, using transports _udp_, _tcp_ and _tls_, and testing _OPTION_ requests, _REGISTER_ requests and _INVITE_ + _ACK_ + _BYE_ call setups. 
 

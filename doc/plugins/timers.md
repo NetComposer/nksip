@@ -29,7 +29,7 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---

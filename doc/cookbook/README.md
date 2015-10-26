@@ -8,7 +8,7 @@
 * Managing authentication
 * Replying to a request
 
-### SipApps
+### Services
 
 * Stateless proxy server
 * Stateful proxy server

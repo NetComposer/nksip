@@ -1,6 +1,6 @@
 # Receiving Requests
 
-Once started a SipApp with a name, a _callback module_ and a group of options, it starts listening on a set of transports, ip addresses and ports, and can start receiving requests from other SIP endpoints. For each received request, NkSIP will call specific functions in your callback module. The full list of callback functions is described in [Callback Functions](../reference/callback_functions.md) and the default implementation of each one is in the [nksip_sipapp.erl](../../src/nksip_sipapp.erl) module.
+Once started a Service with a name, a _callback module_ and a group of options, it starts listening on a set of transports, ip addresses and ports, and can start receiving requests from other SIP endpoints. For each received request, NkSIP will call specific functions in your callback module. The full list of callback functions is described in [Callback Functions](../reference/callback_functions.md) and the default implementation of each one is in the [nksip_sipapp.erl](../../src/nksip_sipapp.erl) module.
 
 All of the callback functions are optional, so you only have to implement the functions you need. For example, if you need to perform authentication, you should implement [sip_authorize/3](../reference/callback_functions.md#sip_authorize3). If you don't implement it, no authorization would be done.
 
@@ -8,7 +8,7 @@ There are currently three different kinds of callbacks:
 * [sip callbacks](#sip-callbacks)
 * [gen_server callbacks](#gen_server-callbacks)
 
-Keep in mind that the plugins you activate when starting your SipApp can add new callbacks. See the [plugins documentation](../plugins/README.md).
+Keep in mind that the plugins you activate when starting your Service can add new callbacks. See the [plugins documentation](../plugins/README.md).
 
 The list of available callback functions is available [here](../reference/callback_functions.md#sip-callbacks).
 
@@ -17,7 +17,7 @@ The list of available callback functions is available [here](../reference/callba
 
 When a new request or response is received, NkSIP extracts its _Call-ID_ header, and sees if a process to manage that specific call has already been started, sending the request to it to be processed. If it is not yet started, a new one is launched, associated to this specific Call-ID. This process will then start start calling specific functions in the _callback module_.
 
-Some of these functions allow you to send a response back, while others expect an authorization or routing decision or are called to inform the SipApp about a specific event and don't expect any answer. 
+Some of these functions allow you to send a response back, while others expect an authorization or routing decision or are called to inform the Service about a specific event and don't expect any answer. 
 
 In all of the cases, **you shouldn't spend a long time inside them**, because new requests and retransmissions having the same Call-ID would be blocked until the callback function returns. However, INVITE processing could take a long time (since it can be necessary for the user to manually accept the call), see [sip_invite/2](../reference/callback_functions.md#sip_invite2) documentation.
 
@@ -42,9 +42,9 @@ Many of the functions in this group allow you to send a response to the incoming
 
 ## gen_server callbacks
 
-Under the hood, each started SipApp starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the SipApp.
+Under the hood, each started Service starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the Service.
 
-Its state is created while starting the SipApp, in the call to [init/1](../reference/callback_functions.md#init1), and can be used implementing the callbacks [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2). You can use this process as a standard OTP gen_server process for your application, for example to control the concurrent access any resource (like the ETS supporting the SipApp variables).
+Its state is created while starting the Service, in the call to [init/1](../reference/callback_functions.md#init1), and can be used implementing the callbacks [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2). You can use this process as a standard OTP gen_server process for your application, for example to control the concurrent access any resource (like the ETS supporting the Service variables).
 
 When you (or any other process by the matter) calls `gen_server:call/2,3`, `gen_server:cast/2` or sends a message to the registered application's process (the same as the _internal name_), NkSIP will call [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2).
 

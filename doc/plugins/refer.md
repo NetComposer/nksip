@@ -28,7 +28,7 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 None
 
@@ -48,7 +48,7 @@ Use this function to process an incoming REFER manually (for example if you impl
 
 ## Callback functions
 
-You can implement any of these callback functions in your SipApp callback module.
+You can implement any of these callback functions in your Service callback module.
 
 
 ### sip_refer/3

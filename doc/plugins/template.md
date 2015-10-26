@@ -24,7 +24,7 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---
@@ -41,7 +41,7 @@ Option|Default|Description
 
 ## Callback functions
 
-You can implement any of these callback functions in your SipApp callback module.
+You can implement any of these callback functions in your Service callback module.
 
 ### sip_registrar_store/2
 

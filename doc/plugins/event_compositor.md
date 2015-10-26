@@ -24,7 +24,7 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---
@@ -77,14 +77,14 @@ clear(nksip:app_name()|nksip:app_id()) ->
     ok | callback_error | sipapp_not_found.
 ```
 
-Clear all stored records by a SipApp.
+Clear all stored records by a Service.
 
 
 
 
 ## Callback functions
 
-You can implement any of these callback functions in your SipApp callback module.
+You can implement any of these callback functions in your Service callback module.
 
 ### sip_event_compositor_store/2
 

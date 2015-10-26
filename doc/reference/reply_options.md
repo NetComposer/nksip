@@ -1,6 +1,6 @@
 # Reply Options
 
-Many of the SipApp's [callback functions](callback_functions.md) allows you to send a response back for the received request. Currently recognized options are documented in this page.
+Many of the Service's [callback functions](callback_functions.md) allows you to send a response back for the received request. Currently recognized options are documented in this page.
 
 Keep in mind that activated pluings can add new options. See the [plugins documentation](../plugins/README.md).
 

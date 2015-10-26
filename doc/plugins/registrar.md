@@ -13,16 +13,16 @@
 
 ## Description
 
-This plugin provides a full registrar server implementation according to RFC3261. _Path_ is also supported, according to RFC3327. It uses by default the built-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/2](#sip_registrar_store2). Each started SipApp activating this plugin maintains a fully independent set of registrations.
+This plugin provides a full registrar server implementation according to RFC3261. _Path_ is also supported, according to RFC3327. It uses by default the built-in, RAM-only store, but can be configured to use any other database implementing callback [sip_registrar_store/2](#sip_registrar_store2). Each started Service activating this plugin maintains a fully independent set of registrations.
 
 Once activated, the following happens:
 * When a new _REGISTER_request arrives, you have two options:
-  * Not implementing `sip_register/2` in you SipApp callback function. In this case, the request will be processed automatically.
+  * Not implementing `sip_register/2` in you Service callback function. In this case, the request will be processed automatically.
   * Implementing your own `sip_register/`. You must inspect the request, and, in case you want it to be process, call [request/1](#request1)
   * 
 
 
-When a new _REGISTER_ request arrives at a SipApp, and if you order to `process` the request in [sip_route/6](../reference/callback_functions.md#sip_route5) callback, NkSIP will try to call [sip_register/2](../reference/callback_functions.md#sip_register2) callback if it is defined in yor SipApp's callback module. If it is not defined there, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
+When a new _REGISTER_ request arrives at a Service, and if you order to `process` the request in [sip_route/6](../reference/callback_functions.md#sip_route5) callback, NkSIP will try to call [sip_register/2](../reference/callback_functions.md#sip_register2) callback if it is defined in yor Service's callback module. If it is not defined there, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
 
 Use [find/4](#find4) or [qfind/4](qfind4) to search for a specific registration's contacts, and [is_registered/1](#is_registered1) to check if the _Request-URI_ of a specific request is registered.
 
@@ -38,7 +38,7 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---
@@ -56,7 +56,7 @@ find(nksip:app_name()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 ```
 
-Finds the registered contacts for this SipApp and _AOR_ or _Uri_, for example
+Finds the registered contacts for this Service and _AOR_ or _Uri_, for example
 ```nksip_registrar:find(my_app, "sip:user@domain")``` or 
 ```nksip_registrar:find("my_other_app", {sip, <<"user">>, <<"domain">>})```
 
@@ -155,7 +155,7 @@ sip_register(Req, _Call) ->
 
 ## Callback functions
 
-You can implement any of these callback functions in your SipApp callback module.
+You can implement any of these callback functions in your Service callback module.
 
 
 

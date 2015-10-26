@@ -28,7 +28,7 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---
@@ -100,7 +100,7 @@ test() ->
     HA1 = nksip_auth:make_ha1("client1", "1234", "client2"),
     {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{pass, HA1}]),
     
-    % Pass is invalid, but there is a valid one in SipApp's options
+    % Pass is invalid, but there is a valid one in Service's options
     {ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
     {ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", [{pass, "kk"}]),
     {ok, 403, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", [{pass, {"client1", "kk"}}]),

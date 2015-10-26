@@ -16,8 +16,8 @@ Accesible when calling [nksip_request:meta/2](../api/requests.md#meta2), [nksip_
 Name|Type|Description
 ---|---|---
 handle|`nksip:handle()`|Request or response's handle
-app_id|`nksip:app_id()`|Internal SipApp name this request or response belongs to
-app_name|`term()`|User SipApp name this request or response belongs to
+app_id|`nksip:app_id()`|Internal Service name this request or response belongs to
+app_name|`term()`|User Service name this request or response belongs to
 dialog_handle|`nksip:handle()`|Dialog's handle of this request or response
 subscription_handle|`nksip_id()`|Subscription's handle of this request or response
 proto|`nksip:protocol()`|Transport protocol
@@ -72,8 +72,8 @@ Available when calling [nksip_dialog:meta/2](../api/dialogs.md#meta2).
 Name|Type|Description
 ---|---|---
 handle|`nksip:handle()`|Dialog's handle
-app_id|`nksip:app_id()`|Internal SipApp name this dialog belongs to
-app_name|`term()`|User SipApp name this dialog belongs to
+app_id|`nksip:app_id()`|Internal Service name this dialog belongs to
+app_name|`term()`|User Service name this dialog belongs to
 created|`nksip_lib:timestamp()`|Creation date
 updated|`nksip_lib:timestamp()`|Last update
 local_seq|`integer()`|Local CSeq number

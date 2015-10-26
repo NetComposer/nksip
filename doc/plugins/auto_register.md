@@ -15,7 +15,7 @@
 
 ## Description
 
-This plugin allows a SipApp to program a serie of automatic registrations (sending REGISTER request) to a remote registrar, or automatic pings (sending OPTIONS requests) to any other SIP entity.
+This plugin allows a Service to program a serie of automatic registrations (sending REGISTER request) to a remote registrar, or automatic pings (sending OPTIONS requests) to any other SIP entity.
 
 
 ## Dependant Plugins
@@ -25,7 +25,7 @@ None
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---
@@ -42,7 +42,7 @@ start_register(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user
     {ok, boolean()} | {error, term()}.
 ```
 
-Programs the SipApp to start a serie of automatic registrations to the registrar at `Uri`. `Id` indentifies this request to be be able to stop it later. Use [get_registers/1](#get_registers1) or the  callback function [sip_uac_auto_register_updated_register/3](#sip_uac_auto_register_updated_register3) to know about the registration status.
+Programs the Service to start a serie of automatic registrations to the registrar at `Uri`. `Id` indentifies this request to be be able to stop it later. Use [get_registers/1](#get_registers1) or the  callback function [sip_uac_auto_register_updated_register/3](#sip_uac_auto_register_updated_register3) to know about the registration status.
 
 Opts are passed to the REGISTER sending functions. You can use the `expires` option to change the default re-register time from the default of 300 secs.
 
@@ -74,7 +74,7 @@ start_ping(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri
     {ok, boolean()} | {error, term()}.
 ```
 
-Programs the SipApp to start a serie of _pings_ (OPTION requests) to the SIP element at `Uri`. `Id` indentifies this request to be able to stop it later. Use [get_pings/1](#get_pings1) or the callback function [sip_uac_auto_register_updated_ping/3](#sip_uac_auto_register_updated_ping3) to know about the ping status.
+Programs the Service to start a serie of _pings_ (OPTION requests) to the SIP element at `Uri`. `Id` indentifies this request to be able to stop it later. Use [get_pings/1](#get_pings1) or the callback function [sip_uac_auto_register_updated_ping/3](#sip_uac_auto_register_updated_ping3) to know about the ping status.
 
 You can use the `expires` option to change the default re-options time from the default of 300 secs.
 
@@ -103,7 +103,7 @@ Get current ping status, including if last ping was successful and time remainin
 
 ## Callback functions
 
-You can implement any of these callback functions in your SipApp callback module.
+You can implement any of these callback functions in your Service callback module.
 
 
 

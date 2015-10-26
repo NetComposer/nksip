@@ -7,7 +7,7 @@
 * [Concepts](concepts.md)
 * [Tutorial](tutorial.md)
 * [Starting NkSIP](start_nksip.md)
-* [Starting a SipApp](start_a_sipapp.md)
+* [Starting a Service](start_a_sipapp.md)
 * [Sending Requests](sending_requests.md)
 * [Receiving Requests](receiving_requests.md)
 

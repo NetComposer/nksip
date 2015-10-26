@@ -18,8 +18,8 @@ Most functions in the API allows two ways to refer to the dialogs:
 Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a dialog's handle
-[app_id/1](#app_id1)|Gets then SipApp's _internal name_
-[app_name/1](#app_name1)|Gets the SipApp's _user name_
+[app_id/1](#app_id1)|Gets then Service's _internal name_
+[app_name/1](#app_name1)|Gets the Service's _user name_
 [call_id/1](#call_id1)|Gets the Call-ID header of the dialog
 [meta/2](#meta2)|Gets specific metadata from the dialog
 [metas/2](#meta2)|Gets specific metadata from the dialog
@@ -48,7 +48,7 @@ Grabs a dialog's handle.
 nksip_dialog:app_id(nksip:dialog()|nksip:handle()) -> 
     {ok, nksip:app_id()}.
 ```
-Gets then SipApp's _internal name_.
+Gets then Service's _internal name_.
 
 
 ### app_name/1
@@ -56,7 +56,7 @@ Gets then SipApp's _internal name_.
 nksip_dialog:app_name(nksip:dialog()|nksip:handle()) -> 
     {ok, nksip:app_name()}.
 ```
-Gets the SipApp's _user name_
+Gets the Service's _user name_
 
 
 ### call_id/1
@@ -108,7 +108,7 @@ Get the handles of all started dialogs.
 nksip_dialog:get_all(App::nksip:app_id(), CallId::nksip:call_id()) ->
     [nksip:handle()].
 ```
-Gets all current started dialog handles belonging to a SipApp and having a specific _Call-ID_.
+Gets all current started dialog handles belonging to a Service and having a specific _Call-ID_.
 
 
 ### bye_all/0

@@ -31,7 +31,7 @@ None, but if [nksip_registrar](registrar.md) is activated it will be modified to
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 None
 

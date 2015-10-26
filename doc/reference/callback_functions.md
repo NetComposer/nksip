@@ -1,6 +1,6 @@
 # Callback Functions
 
-Each SipApp must provide a _callback module_. The functions this callback module can implement are described here. 
+Each Service must provide a _callback module_. The functions this callback module can implement are described here. 
 * See [Receiving Requests](../guide/receiving_requests.md) for an introduction. 
 * The full list of reply options is available [here](sending_options.md).
 * The default implementation of each callback can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
@@ -36,11 +36,11 @@ Callback|Reason
 
 Callback|Reason
 ---|---
-[init/1](#init1)|Called when the SipApp is launched using `nksip:start/4`
-[terminate/2](#terminate2)|Called when the SipApp is stopped
-[handle_call/3](#handle_call3)|Called when a direct call to the SipApp process is made using `nksip:call/2` or `nksip:call/3`
-[handle_cast/2](#handle_cast2)|Called when a direct cast to the SipApp process is made using `nksip:cast/2`
-[handle_info/2](#handle_info2)|Called when a unknown message is received at the SipApp process
+[init/1](#init1)|Called when the Service is launched using `nksip:start/4`
+[terminate/2](#terminate2)|Called when the Service is stopped
+[handle_call/3](#handle_call3)|Called when a direct call to the Service process is made using `nksip:call/2` or `nksip:call/3`
+[handle_cast/2](#handle_cast2)|Called when a direct cast to the Service process is made using `nksip:cast/2`
+[handle_info/2](#handle_info2)|Called when a unknown message is received at the Service process
 [code_change/3](#code_change3)|See gen_server's documentation
 
 
@@ -141,7 +141,7 @@ You can also add headers to the request if the URI contains a _Route_ header.
 
 If you use `proxy_stataless` instead of `proxy`, the request will be proxied statelessly, without storing any state about it in the server. In this case you should use _only one url_.
 
-If we want to **act as an endpoint or B2BUA** and answer to the request from this SipApp, we must return `process` or `process_stataless`. NkSIP will then make additional checks to the request (like inspecting `Require` header), and will call the function corresponding to the method in the request (like [sip_invite/2](#sip_invite2), [sip_options/2](#sip_options2), etc.)
+If we want to **act as an endpoint or B2BUA** and answer to the request from this Service, we must return `process` or `process_stataless`. NkSIP will then make additional checks to the request (like inspecting `Require` header), and will call the function corresponding to the method in the request (like [sip_invite/2](#sip_invite2), [sip_options/2](#sip_options2), etc.)
 
 We can also **send a reply immediately**, replying `{reply, Reply}` or `{reply_stateless, Reply}`. See [the reply options](reply_options.md) for a descriptions of available reply options.
 
@@ -471,8 +471,8 @@ When NkSIP will call this function when detects that, inside an existing dialog,
 
 
 ### init/1
-This callback function is called when the SipApp is launched using `nksip:start/4`.
-If `{ok, State}` or `{ok, State, Timeout}` is returned the SipApp is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the SipApp will not start. 
+This callback function is called when the Service is launched using `nksip:start/4`.
+If `{ok, State}` or `{ok, State, Timeout}` is returned the Service is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the Service will not start. 
 
 ```erlang
 init(Args::term()) ->
@@ -484,7 +484,7 @@ init([]) ->
 ```
 
 ### terminate/2
-Called when the SipApp is stopped.
+Called when the Service is stopped.
 
 ```erlang
 terminate(Reason::term(), State::term()) ->
@@ -495,7 +495,7 @@ terminate(_Reason, _State) ->
 ```
 
 ### handle_call/3
-Called when a direct call to the SipApp process is made using `gen_server:call/2,3`.
+Called when a direct call to the Service process is made using `gen_server:call/2,3`.
 
 ```erlang
 handle_call(Msg::term(), From::from(), State::term()) ->
@@ -511,7 +511,7 @@ handle_call(Msg, _From, State) ->
 
 
 ### handle_cast/2
-Called when a direct cast to the SipApp process is made using `gen_server:cast/2`.
+Called when a direct cast to the Service process is made using `gen_server:cast/2`.
 
 ```erlang
 handle_cast(Msg::term(), State::term()) ->
@@ -526,7 +526,7 @@ handle_cast(Msg, State) ->
 
 
 ### handle_info/2
-Called when the SipApp process receives an unknown message.
+Called when the Service process receives an unknown message.
 
 ```erlang
 handle_info(Msg::term(), State::term()) ->

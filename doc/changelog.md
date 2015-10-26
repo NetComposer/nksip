@@ -1,9 +1,18 @@
 # Changelog
 
 ## Current (main branch)
-* Added offset time to subscriptions (Thanks Luis Azedo)
-* Removed no reg-id test for GRUUs (Thanks James Van Vleet)
-* Added support for R15B, R16B and 17.1
+
+
+## [0.5.0](https://github.com/kalta/nksip/releases/tag/v0.5.0)
+
+* Massive refactorization, removing 21 files and 2.500 changes in the code. All non-SIP functionality has been extracted into other projects (NkLIB, NkPACKET and NkSERVICE).
+* SipApps converted to Services.
+* New configuration system.
+* New plugin system.
+* Allow for Services without callback module (only for outgoing SIP applications).
+* Added offset time to subscriptions (Thanks Luis Azedo).
+* Removed no reg-id test for GRUUs (Thanks James Van Vleet).
+* Minimum Erlang version is now 17.0.
 
 
 ## [0.4.0](https://github.com/kalta/nksip/releases/tag/v0.4.0)

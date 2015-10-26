@@ -15,7 +15,7 @@
 
 ## Description
 
-This plugin allows a SipApp to program a serie of automatic registrations (sending REGISTER request) to a remote registrar, using SIP Outbound (RFC5626).
+This plugin allows a Service to program a serie of automatic registrations (sending REGISTER request) to a remote registrar, using SIP Outbound (RFC5626).
 
 Once a REGISTER to a remote registrar is successful, NkSIP will keep the flow opened sending refreshes over the connection as described in the outbound specification. If the flow fails, a new REGISTER will be send automatically to reopen it (after a specific time described in the specification).
 
@@ -28,7 +28,7 @@ Once a REGISTER to a remote registrar is successful, NkSIP will keep the flow op
 
 ## Configuration Values
 
-### SipApp configuration values
+### Service configuration values
 
 Option|Default|Description
 ---|---|---

@@ -43,7 +43,7 @@ OPTIONS requests are usually sent to get the current set of SIP features and cod
 
 Options `supported`, `allow` and `allow_event` are automatically added.
 
-NkSIP has an automatic remote _pinging_ feature that can be activated on any SipApp, using [nksip_uac_auto_register](../plugins/auto_register.md) plugin.
+NkSIP has an automatic remote _pinging_ feature that can be activated on any Service, using [nksip_uac_auto_register](../plugins/auto_register.md) plugin.
 
 
 ### register
@@ -168,7 +168,7 @@ nksip_uac:notify(SubscriptionId, Opts)
 
 Sends an _NOTIFY_ for a current server subscription.
 
-When your SipApp accepts a incoming SUBSCRIBE request, replying a 2xx response, you should send a NOTIFY inmediatly. You have to use the subscription's id from the call to callback `subscribe/3`. NkSIP will include the mandatory _Event_ and _Subscription-State_ headers for you, but **you must include** a `{subscription_state, ST}` option with the following allowed values:
+When your Service accepts a incoming SUBSCRIBE request, replying a 2xx response, you should send a NOTIFY inmediatly. You have to use the subscription's id from the call to callback `subscribe/3`. NkSIP will include the mandatory _Event_ and _Subscription-State_ headers for you, but **you must include** a `{subscription_state, ST}` option with the following allowed values:
 
 * `active`: the subscription is active. NkSIP will add a `expires` parameter indicating the remaining time.
 * `pending`: the subscription has not yet been authorized. A `expires` parameter will be added.

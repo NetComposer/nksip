@@ -15,8 +15,8 @@ In this case, the API function must contact with the corresponding call process 
 Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a subscription's handle
-[app_id/1](#app_id1)|Gets then SipApp's _internal name_
-[app_name/1](#app_name1)|Gets the SipApp's _user name_
+[app_id/1](#app_id1)|Gets then Service's _internal name_
+[app_name/1](#app_name1)|Gets the Service's _user name_
 [call_id/1](#call_id1)|Gets the Call-ID header of the subscription
 [meta/2](#meta2)|Gets specific metadata from the subscription
 [metas/2](#meta2)|Gets specific metadata from the subscription
@@ -39,7 +39,7 @@ Grabs a subscription's handle.
 nksip_subscription:app_id(nksip:subscription()|nksip:handle()) -> 
     {ok, nksip:app_id()}.
 ```
-Gets then SipApp's _internal name_.
+Gets then Service's _internal name_.
 
 
 ### app_name/1
@@ -47,7 +47,7 @@ Gets then SipApp's _internal name_.
 nksip_subscription:app_name(nksip:subscription()|nksip:handle()) -> 
     {ok, nksip:app_name()}.
 ```
-Gets the SipApp's _user name_
+Gets the Service's _user name_
 
 
 ### call_id/1

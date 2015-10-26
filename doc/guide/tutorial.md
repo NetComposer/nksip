@@ -13,7 +13,7 @@ Firt of all install last stable version of NkSIP:
 > make tutorial
 ```
 
-Now you can start a simple SipApp proxy server using the included [server callback module](../../samples/nksip_tutorial/src/nksip_tutorial_sipapp_server.erl). We will listen on all interfaces, port `5060` for udp and tcp and `5061` for tls. We also activate the [nksip_registrar](../plugins/registrar.md) plugin to tell NkSIP to process registrations:
+Now you can start a simple Service proxy server using the included [server callback module](../../samples/nksip_tutorial/src/nksip_tutorial_sipapp_server.erl). We will listen on all interfaces, port `5060` for udp and tcp and `5061` for tls. We also activate the [nksip_registrar](../plugins/registrar.md) plugin to tell NkSIP to process registrations:
 ```erlang
 1> nksip:start(server, nksip_tutorial_sipapp_server, [], 
         [
@@ -221,13 +221,13 @@ The call is accepted and we have started a _dialog_:
 {ok, confirmed}
 ```
 
-You can _print_ all dialogs in the console. We see dialogs at client1, client2 and at the server. The three dialogs are the same actually, but in different SipApps (do not use this command in production with many thousands of dialogs):
+You can _print_ all dialogs in the console. We see dialogs at client1, client2 and at the server. The three dialogs are the same actually, but in different Services (do not use this command in production with many thousands of dialogs):
 ```erlang
 20> nksip_dialog:get_all_data().
 [...]
 ```
 
-Ok, let's stop the call, the dialogs and the SipApps:
+Ok, let's stop the call, the dialogs and the Services:
 ```erlang
 21> nksip_uac:bye(DlgId, []).
 {ok,200,[]}
