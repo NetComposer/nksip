@@ -244,7 +244,7 @@ send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
         {ok, Opts2} ->
             Opts3 = Opts2#{
                 srv_id => {nksip, SrvId}, 
-                listen_port => true, 
+                base_nkport => true, 
                 udp_to_tcp => true,
                 ws_proto => sip
             },

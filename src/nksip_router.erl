@@ -334,7 +334,7 @@ do_send_work_sync(CallPid, SrvId, CallId, Work, From, #state{works=Works}=State)
     {ok, #state{}} | {error, too_many_calls}.
 
 do_call_start(SrvId, SrvPid, CallId, Work, From, State) ->
-    Max = nksip_config_cache:global_max_calls(),
+    Max = nksip_config_cache:max_calls(),
     case nklib_counters:value(nksip_calls) < Max of
         true ->
             SrvMax = SrvId:cache_sip_max_calls(),

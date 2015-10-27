@@ -66,9 +66,15 @@ plugin_start(#{id:=SrvId, cache:=Cache}=SrvSpec) ->
         _ ->
             ok
     end,
-    Debug = maps:get(sip_debug, SrvSpec, false),
-    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec#{cache=>Cache#{sip_debug=>Debug}}}.
+    Syntax = #{nksip_debug => boolean},
+    Defaults = #{nksip_debug => false},
+    case nkservice_util:parse_syntax(SrvSpec, Syntax, Defaults) of
+        {ok, #{nksip_debug:=Debug}} ->
+            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
+            {ok, SrvSpec#{cache=>Cache#{sip_debug=>Debug}}};
+        {error, Error} ->
+            {stop, Error}
+    end.
 
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->

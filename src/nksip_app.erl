@@ -64,42 +64,28 @@ start(_Type, _Args) ->
         _ ->
             ok
     end,
-    Syntax1 = #{
-        sync_call_time => {integer, 1, none},
-        dns_cache_ttl => {integer, 5, none},
-        local_data_path => binary,
-        global_max_calls => {integer, 1, 1000000},
-        global_max_connections => {integer, 1, 1000000},
-        msg_routers => {integer, 1, 127}
-    },
-    Syntax2 = maps:merge(Syntax1, nksip_syntax:syntax()),
-    Defaults1 = #{
-        sync_call_time => 30,               % Secs
-        dns_cache_ttl => 3600,              % (secs) 1 hour
-        local_data_path => "log",           % To store UUID
-        global_max_calls => 100000,          % Each Call-ID counts as a call
-        global_max_connections => 1024,     % 
-        msg_routers => 16                   % Number of parallel msg routers 
-    },
-    Defaults2 = maps:merge(Defaults1, nksip_syntax:defaults()),
-    case nklib_config:load_env(?APP, ?APP, Syntax2, Defaults2) of
+    AppSyntax = nksip_syntax:app_syntax(),
+    ServiceSyntax = nksip_syntax:syntax(),
+    Syntax = maps:merge(AppSyntax, ServiceSyntax),
+    Defaults = maps:merge(nksip_syntax:app_defaults(), nksip_syntax:defaults()),
+    case nklib_config:load_env(?APP, Syntax, Defaults) of
         {ok, Parsed} ->
-            file:make_dir(get(local_data_path)),
             put(global_id, nklib_util:luid()),
-            put(sync_call_time, 1000*get(sync_call_time)),
-            put(re_call_id, element(2, re:compile(?RE_CALL_ID, [caseless]))),
-            put(re_content_length, 
-                    element(2, re:compile(?RE_CONTENT_LENGTH, [caseless]))),
-            SipKeys = maps:keys(nksip_syntax:syntax()),
-            SipDef = nklib_util:extract(Parsed, SipKeys),
-            put(sip_defaults, SipDef),
+            {ok, ReCallId} = re:compile(?RE_CALL_ID, [caseless]),
+            put(re_call_id, ReCallId),
+            {ok, ReCL} = re:compile(?RE_CONTENT_LENGTH, [caseless]),
+            put(re_content_length, ReCL),
+            ServiceKeys = maps:keys(ServiceSyntax),
+            ServiceDefaults = nklib_util:extract(Parsed, ServiceKeys),
+            put(sip_defaults, ServiceDefaults),
             CacheKeys = [
                 global_id, re_call_id, re_content_length, sip_defaults 
-                | maps:keys(Syntax1)],
+                | maps:keys(nksip_syntax:app_syntax())],
+            DataPath = nkservice_app:get(log_path),
             nklib_config:make_cache(CacheKeys, ?APP, none, 
-                                    nksip_config_cache, get(local_data_path)),
-            ok = nkpacket_config:register_protocol(sip, nksip_protocol),
-            ok = nkpacket_config:register_protocol(sips, nksip_protocol),
+                                    nksip_config_cache, DataPath),
+            ok = nkpacket:register_protocol(sip, nksip_protocol),
+            ok = nkpacket:register_protocol(sips, nksip_protocol),
             {ok, Pid} = nksip_sup:start_link(),
             put(current_cseq, nksip_util:initial_cseq()-?MINUS_CSEQ),
             MainIp = nkpacket_config_cache:main_ip(),

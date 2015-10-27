@@ -22,15 +22,32 @@
 -module(nksip_syntax).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([syntax/0, defaults/0, cached/0]).
+-export([app_syntax/0, app_defaults/0, syntax/0, defaults/0, cached/0]).
+-export([packet_valid/0]).
 
 
 %% ===================================================================
 %% Internal
 %% ===================================================================
 
+app_syntax() ->
+    #{
+        sync_call_time => nat_integer,
+        max_calls => {integer, 1, 1000000},
+        msg_routers => {integer, 1, 127}
+    }.
+
+
+app_defaults() ->
+    #{
+        sync_call_time => 30000,            % MSecs
+        max_calls => 100000,                % Each Call-ID counts as a call
+        msg_routers => 16                   % Number of parallel msg routers 
+    }.
+    
 
 %% @private
+%% Transport options must be included in url
 syntax() ->
     #{
         sip_allow => words,
@@ -52,8 +69,22 @@ syntax() ->
         sip_max_calls => {integer, 1, 1000000},
         sip_local_host => [{enum, [auto]}, host],
         sip_local_host6 => [{enum, [auto]}, host6],
-        sip_debug => boolean
+
+        idle_timeout => pos_integer,
+        connect_timeout => nat_integer,
+        sctp_out_streams => nat_integer,
+        sctp_in_streams => nat_integer,
+        no_dns_cache => boolean,
+        tcp_max_connections => nat_integer,
+        tcp_listeners => nat_integer,
+        tls_certfile => string,
+        tls_keyfile => string,
+        tls_cacertfile => string,
+        tls_password => string,
+        tls_verify => boolean,
+        tls_depth => {integer, 0, 16}
     }.
+
 
 
 %% @private
@@ -80,8 +111,7 @@ defaults() ->
         sip_no_100 => false,
         sip_max_calls => 100000,                % Each Call-ID counts as a call
         sip_local_host => auto,
-        sip_local_host6 => auto,
-        sip_debug => false                      % Used in nksip_debug plugin
+        sip_local_host6 => auto
     }.
 
 
@@ -95,4 +125,12 @@ cached() ->
         sip_local_host, sip_local_host6
     ].
 
+
+packet_valid() ->
+    [
+        idle_timeout, connect_timeout, sctp_out_streams, sctp_in_streams, 
+        no_dns_cache, udp_stun_t1, tcp_max_connections, tcp_listeners, 
+        tls_certfile, tls_keyfile, tls_cacertfile, tls_password, 
+        tls_verify, tls_depth
+    ].
 

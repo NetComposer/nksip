@@ -150,6 +150,7 @@
 -type value() :: binary() | string() | atom() | integer().
 
 
+
 %% ===================================================================
 %% Public functions
 %% ===================================================================
@@ -242,7 +243,6 @@ deps() ->
 plugin_start(#{id:=SrvId}=SrvSpec) ->
     try
         Syntax = nksip_syntax:syntax(),
-
         Defaults = nklib_util:to_map(nksip_config_cache:sip_defaults()),
         SrvSpec2 = case nkservice_util:parse_syntax(SrvSpec, Syntax, Defaults) of
             {ok, Parsed2} -> Parsed2;
@@ -250,7 +250,10 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
         end,
         Transp1 = case SrvSpec of
             #{transports:=Transp0} ->
-                Transp0;
+                Valid = nksip_syntax:packet_valid(),
+                maps:filter(
+                    fun({Conn, Opts}) -> {Conn, maps:with(Valid, Opts)} end,
+                    Transp0);
             _ ->
                 [{[{nksip_protocol, udp, {0,0,0,0}, 5060}], #{}}]
         end,
