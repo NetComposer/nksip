@@ -4,8 +4,8 @@
 
 
 @author Carlos Gonzalez Florido <carlosj.gf@gmail.com>
-@copyright 2013 Carlos Gonzalez Florido
-@version 0.4.0
+@copyright 2015 Carlos Gonzalez Florido
+@version 0.5.0
 @title NkPBX Sample Application
 
 @doc This Erlang application is a <i>SipApp</i> implementing a basic PBX-like SIP proxy application with some extras. Its purpose is to demostrate the use of NkSIP SipApps. it starts a new SipApp named `pbx' listening on all of the host's interfaces, port 5060 for tcp and udp protocols and 5061 for tls. 

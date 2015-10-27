@@ -4,8 +4,8 @@
 
 
 @author Carlos Gonzalez Florido <carlosj.gf@gmail.com>
-@copyright 2013 Carlos Gonzalez Florido
-@version 0.4.0
+@copyright 2015 Carlos Gonzalez Florido
+@version 0.5.0
 @title NkSIP SIP Application Server
 
 @doc NkSIP is an Erlang SIP framework or <i>application server</i>.

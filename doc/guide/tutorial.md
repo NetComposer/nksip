@@ -8,12 +8,12 @@ Firt of all install last stable version of NkSIP:
 ```
 > git clone https://github.com/kalta/nksip
 > cd nksip
-> git checkout v0.4.0 -q
+> git checkout v0.5.0 -q
 > make
 > make tutorial
 ```
 
-Now you can start a simple Service proxy server using the included [server callback module](../../samples/nksip_tutorial/src/nksip_tutorial_sipapp_server.erl). We will listen on all interfaces, port `5060` for udp and tcp and `5061` for tls. We also activate the [nksip_registrar](../plugins/registrar.md) plugin to tell NkSIP to process registrations:
+Now you can start a simple proxy server using the included [server callback module](../../samples/nksip_tutorial/src/nksip_tutorial_sipapp_server.erl). We will listen on all interfaces, port `5060` for udp and tcp and `5061` for tls. We also activate the [nksip_registrar](../plugins/registrar.md) plugin to tell NkSIP to process registrations:
 ```erlang
 1> nksip:start(server, nksip_tutorial_sipapp_server, [], 
         [
