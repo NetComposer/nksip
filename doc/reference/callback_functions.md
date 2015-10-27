@@ -3,7 +3,7 @@
 Each Service must provide a _callback module_. The functions this callback module can implement are described here. 
 * See [Receiving Requests](../guide/receiving_requests.md) for an introduction. 
 * The full list of reply options is available [here](sending_options.md).
-* The default implementation of each callback can be reviewed in [nksip_sipapp.erl](../../src/nksip_sipapp.erl).
+* The default implementation of each callback can be reviewed in [nksip_callbacks.erl](../../src/nksip_callbacks.erl).
 * Installed plugins can provide additional callbacks, or modify the default behaviour described in this document.See the [plugins documentation](../plugins/README.md).
 
 ## SIP Callbacks
@@ -157,7 +157,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
         _ when Domain =:= <<"127.0.0.1">> ->
             proxy;
         _ ->
-            {ok, App} = nksip_request:app_name(Req),
+            {ok, App} = nksip_request:srv_name(Req),
             case nksip_registrar:find(App, Scheme, User, Domain) of
                 [] -> 
                     {reply, temporarily_unavailable};
@@ -384,7 +384,7 @@ refer(Req, Call) ->
     case nksip_request:meta(refer_to, Req) of
         {ok, Uri} ->
             {ok, SubsId} = nksip_subscription:get_handle(Req), 
-            {ok, AppId} = nksip_request:app_id(Req),
+            {ok, AppId} = nksip_request:srv_id(Req),
             Opts = [async, auto_2xx_ack, {refer_subscription_id, SubsId}],
             spawn(fun() -> nksip_uac:invite(AppId, ReferTo, Opts) end),
             {reply, ok};

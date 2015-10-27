@@ -35,7 +35,7 @@ nksip_event_compositor_default_expires|60 (secs)|Default expiration for stored e
 ### find/3
 
 ```erlang
-find(App::nksip:app_id()|term(), AOR::nksip:aor(), Tag::binary()) ->
+find(App::nksip:srv_id()|term(), AOR::nksip:aor(), Tag::binary()) ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 ```
 
@@ -73,7 +73,7 @@ sip_publish(Req, _Call) ->
 ### clear/1
 
 ```erlang
-clear(nksip:app_name()|nksip:app_id()) -> 
+clear(nksip:srv_name()|nksip:srv_id()) -> 
     ok | callback_error | sipapp_not_found.
 ```
 
@@ -93,7 +93,7 @@ sip_event_compositor_store(StoreOp, AppId) ->
     [RegPublish] | ok | not_found when
         StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
                    {del, AOR, Tag} | del_all,
-        AppId :: nksip:app_id(),
+        AppId :: nksip:srv_id(),
         AOR :: nksip:aor(),
         Tag :: binary(),
         RegPublish :: nksip_event_compositor:reg_publish(),

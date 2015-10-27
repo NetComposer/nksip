@@ -15,8 +15,8 @@ Most functions in the API allows two ways to refer to the requests:
 Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a request's handle
-[app_id/1](#app_id1)|Gets then Service's _internal name_
-[app_name/1](#app_name1)|Gets the Service's _user name_
+[srv_id/1](#srv_id1)|Gets then Service's _internal name_
+[srv_name/1](#srv_name1)|Gets the Service's _user name_
 [method/1](#method1)|Gets the method of the request
 [body/1](#body1)|Gets the body of the request
 [call_id/1](#call_id1)|Gets the Call-ID header of the request
@@ -37,18 +37,18 @@ nksip_request:get_handle(nksip:request()|nksip:handle()) ->
 Grabs a request's handle.
 
 
-### app_id/1
+### srv_id/1
 ```erlang
-nksip_request:app_id(nksip:request()|nksip:handle()) -> 
-    {ok, nksip:app_id()} | {error, term()}.
+nksip_request:srv_id(nksip:request()|nksip:handle()) -> 
+    {ok, nksip:srv_id()} | {error, term()}.
 ```
 Gets then Service's _internal name_.
 
 
-### app_name/1
+### srv_name/1
 ```erlang
-nksip_request:app_name(nksip:request()|nksip:handle()) -> 
-    {ok, nksip:app_name()} | {error, term()}.
+nksip_request:srv_name(nksip:request()|nksip:handle()) -> 
+    {ok, nksip:srv_name()} | {error, term()}.
 ```
 Gets the Service's _user name_
 

@@ -44,7 +44,7 @@ nksip_uac_auto_outbound_default_tcp_ttl|120|TCP connection default TTL
 ### start_register/4
 
 ```erlang
-start_register(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(),
+start_register(App::nksip:srv_name()|nksip:srv_id(), Id::term(), Uri::nksip:user_uri(),
 			   Opts::nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 ```
@@ -55,7 +55,7 @@ Similar to [nksip_uac_auto_register:start_register/4](auto_register.md#start_reg
 ### stop_register/2
 
 ```erlang
-stop_register(App::nksip:app_name()|nksip:app_id(), Id::term()) -> 
+stop_register(App::nksip:srv_name()|nksip:srv_id(), Id::term()) -> 
     ok | not_found.
 ```
 
@@ -65,7 +65,7 @@ Stops a previously started registration serie.
 ### get_registers/1
 
 ```erlang
-get_registers(App::nksip:app_name()|nksip:app_id()) -> 
+get_registers(App::nksip:srv_name()|nksip:srv_id()) -> 
     [{Id::term(), OK::boolean(), Time::non_neg_integer(), Fails::non_neg_integer}].
 ```
 Get current registration status, including if last registration was successful, the time remaining to next one and the number of current outbound fails.

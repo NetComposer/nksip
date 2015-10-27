@@ -166,7 +166,7 @@ Our callback `options/2` is called for every received options request, which inc
 
 ```erlang
 sip_options(Req, _Call) ->
-    {ok, AppName} = nksip_request:app_name(Req),
+    {ok, AppName} = nksip_request:srv_name(Req),
     {reply, {ok, [{add, "x-nk-id", AppName}, contact, allow, accept, supported]}}.
 ```
 

@@ -51,7 +51,7 @@ Tracing will be much faster if you don't use IP filtering.
 ### get_all/0
 ```erlang
 get_all() ->
-    [{App::nksip:app_name(), File::console|binary(), IpList::all|[binary()]}].
+    [{App::nksip:srv_name(), File::console|binary(), IpList::all|[binary()]}].
 ```
 
 Get all Services currently tracing messages.
@@ -60,7 +60,7 @@ Get all Services currently tracing messages.
 ### start/0
 ```erlang
 start() -> 
-    [{nksip:app_name(), ok|{error, term()}}].
+    [{nksip:srv_name(), ok|{error, term()}}].
 ```
 
 Equivalent to `start(AppId, console, all)` for all started Services.
@@ -68,7 +68,7 @@ Equivalent to `start(AppId, console, all)` for all started Services.
 
 ### start/1
 ```erlang
-start(App::nksip:app_id()|nksip:app_name()) -> 
+start(App::nksip:srv_id()|nksip:srv_name()) -> 
     ok | {error, term()}.
 ```
 
@@ -77,7 +77,7 @@ Equivalent to `start(AppId, console, all)` for a started Service.
 
 ### start/2
 ```erlang
-start(App::nksip:app_id()|nksip:app_name(), File::file()) -> 
+start(App::nksip:srv_id()|nksip:srv_name(), File::file()) -> 
     ok | {error, term()}.
 ```
 
@@ -86,7 +86,7 @@ Equivalent to `start(AppId, File, all)` for a started Service.
 
 ### start/3
 ```erlang
-start(nksip:app_id()|nksip:app_id(), file(), ip_list()) ->
+start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()) ->
     ok | {error, term()}.
 ```
 
@@ -104,7 +104,7 @@ Stop all tracing processes, closing all open files.
 
 ### stop/1
 ```erlang
-stop(App::nksip:app_id()|nksip:app_name()) ->
+stop(App::nksip:srv_id()|nksip:srv_name()) ->
     ok | {error, term()}.
 ```
 
@@ -138,7 +138,7 @@ nksip_trace:start("my_app", "/tmp/1.trace", ["10.0.0.1", "^11.*"]).
 or using the Service configuration file:
 
 ```erlang
-nksip:start("my_app", nksip_sipapp, [], [
+nksip:start("my_app", nksip_callbacks, [], [
 				{plugins, [nksip_trace]},
 				{nksip_trace, {"/tmp/1.trace", ["10.0.0.1", "^11.*"]}}]).
 ```

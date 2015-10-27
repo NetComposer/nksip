@@ -15,8 +15,8 @@ In this case, the API function must contact with the corresponding call process 
 Function|Description
 ---|---
 [get_handle/1](#get_handle1)|Grabs a response's handle
-[app_id/1](#app_id1)|Gets then Service's _internal name_
-[app_name/1](#app_name1)|Gets the Service's _user name_
+[srv_id/1](#srv_id1)|Gets then Service's _internal name_
+[srv_name/1](#srv_name1)|Gets the Service's _user name_
 [code/1](#method1)|Gets the SIP code of the response
 [body/1](#body1)|Gets the body of the response
 [call_id/1](#call_id1)|Gets the Call-ID header of the response
@@ -36,18 +36,18 @@ nksip_response:get_handle(nksip:response()|nksip:handle()) ->
 Grabs a response's handle.
 
 
-### app_id/1
+### srv_id/1
 ```erlang
-nksip_response:app_id(nksip:response()|nksip:handle()) -> 
-    {ok, nksip:app_id()} | {error, term()}.
+nksip_response:srv_id(nksip:response()|nksip:handle()) -> 
+    {ok, nksip:srv_id()} | {error, term()}.
 ```
 Gets then Service's _internal name_.
 
 
-### app_name/1
+### srv_name/1
 ```erlang
-nksip_response:app_name(nksip:response()|nksip:handle()) -> 
-    {ok, nksip:app_name()}  | {error, term()}.
+nksip_response:srv_name(nksip:response()|nksip:handle()) -> 
+    {ok, nksip:srv_name()}  | {error, term()}.
 ```
 Gets the Service's _user name_
 

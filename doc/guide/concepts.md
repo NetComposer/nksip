@@ -1,9 +1,9 @@
 # NkSIP Concepts
 
-NkSIP hides most SIP complexity from the developer, so even with some basic SIP knowledge it is possible to build complex, robust and scalable SIP applications. But _it is necessary_ to know some basic SIP concepts to use NkSIP. We won't try to describe SIP here (it would be difficult even to scratch the surface of the first of the RFCs), but we will try to explain the way NkSIP uses some basic SIP concepts in order to better understand how to use it.
+NkSIP hides most SIP complexity from the developer, make it easy to build complex, robust and scalable SIP applications, even with basic SIP knowledge. But _it is necessary_ to know some basic SIP concepts to use NkSIP. We won't try to describe SIP here (it would be difficult even to scratch the surface of the first of the RFCs), but we will try to explain the way NkSIP uses some basic SIP concepts in order to better understand how to use it.
 
 
-* [Services](#sipapps)
+* [Services](#services)
 * [Requests and Responses](#requests-and-responses)
 * [Transactions](#transactions)
 * [Dialogs](#dialogs)
@@ -16,17 +16,17 @@ NkSIP hides most SIP complexity from the developer, so even with some basic SIP 
 
 ## Services
 
-A **Service** represents a SIP entity started by NkSIP. When [starting a Service](start_a_sipapp.md), you [configure](../reference/configuration.md) some basic aspects and the new SIP element is started in the network. From this moment, it can [send requests](sending_requests.md) and [receive them](receiving_requests.md) from other SIP elements. NkSIP allows you to start any number of Services simultaneously, as long as they don't listen on the same ip and port or _url resource_.
+A **Service** represents a SIP entity started by NkSIP. When [starting a service](start_a_service.md), you [configure](../reference/configuration.md) some basic aspects and the new SIP element is started in the network. From this moment, it can [send requests](sending_requests.md) and [receive them](receiving_requests.md) from other SIP elements. NkSIP allows you to start any number of services simultaneously, as long as they don't listen on the same ip and port or _url resource_.
 
-You can develop _any_ kind of SIP application with NkSIP. This includes endpoints, stateful and stateless proxies, registrars and redirect servers, B2BUAs or any combination of the above, all at the same time, in the same Service or in different ones.
+You can develop _any_ kind of SIP application with NkSIP. This includes endpoints, stateful and stateless proxies, registrars and redirect servers, B2BUAs or any combination of the above, all at the same time, in the same service or in different ones.
 
-Each Service starts listening on one or more sets of transport, ip address and port. For example, you could start a _app1_ Service, which could be a proxy server listening on 192.168.0.1:5060 using protocols UDP and TCP, and on 192.168.0.1:5061 using TLS, and another one called _app2_ behaving as a B2BUA could be started listening on any other ip and port of the host. For websocket (WS and WSS transports), Services can share the same ip and port, and the request is routed to the right Service depending on the _url_.
+Each _service_ starts listening on one or more sets of transport, ip address and port. For example, you could start a _app1_ service, which could be a proxy server listening on 192.168.0.1:5060 using protocols UDP and TCP, and on 192.168.0.1:5061 using TLS, and another one called _app2_ behaving as a B2BUA could be started listening on any other ip and port of the host. For websocket (WS and WSS transports), services can share the same ip and port, and the request is routed to the right service depending on the _url_.
 
-When starting a Service, you must supply a **callback Erlang module** for it. There is a number of [callback functions this module can implement](../reference/callback_functions.md). Each of them has an default behaviour, so all of them are optional.
+When starting a service, you can optionally supply a **callback Erlang module** for it. There is a number of [callback functions this module can implement](../reference/callback_functions.md). Each of them has an default behaviour, so all of them are optional. If you don't plan to receive SIP requests (only sending them) you don't need to provide any callback module.
 
-You start a Service calling [`nksip:start/4`](../../src/nksip.erl). Any erlang term can be used as a name, but NkSIP will generate an atom as _internal name_ for the Service. In most API calls you can use any of them. 
+You start a service calling [`nksip:start/2`](../../src/nksip.erl). Any erlang term can be used as a name, but NkSIP will generate an atom as _internal name_ for the service. In most API calls you can use any of them. 
 
-Under the hood, the Service is a standard _gen_server_ erlang process, and you can use it with standard functions like `gen_server:call/3`, etc. The internal name is also the registered name for this process.
+Under the hood, the service is a standard _gen_server_ erlang process, and you can use it with standard functions like `gen_server:call/3`, etc. The internal name is also the registered name for this process.
 
 
 ## Requests and responses
@@ -37,7 +37,7 @@ There are a number of SIP request types (INVITE, OPTIONS, etc.), and each corres
 
 In NkSIP you can start [sending requests](sending_requests.md) using the functions in [`nksip_uac`](../../src/nksip_uac.erl) module, such as `options/3`, `invite/3` etc., and the response will be received as part of the function's return value. For example, if you send and OPTIONS request, the called party will probably reply with a _200 OK_ response containing, among other things, the codecs it supports.
 
-Your application will also start [receiving requests](receiving_requests.md) sent from other SIP endpoints or proxies, and NkSIP will then call the [corresponding function](../reference/callback_functions.md) in your _callback module_. Depending on the [value your function returns](../reference/reply_options.md), a specific SIP response will be generated and sent. For example, if someone sends you an INVITE, NkSIP will call `sip_invite(Request, Call)` in your callback module (if this function is not defined, the default implementation in [`nksip_sipapp`](../../src/nksip_sipapp.erl) module would be used). You could answer `{reply, busy}` to send a standard _486 Busy_ response, and NkSIP will generate all required SIP headers and send back the response.
+Your application will also start [receiving requests](receiving_requests.md) sent from other SIP endpoints or proxies, and NkSIP will then call the [corresponding function](../reference/callback_functions.md) in your _callback module_. Depending on the [value your function returns](../reference/reply_options.md), a specific SIP response will be generated and sent. For example, if someone sends you an INVITE, NkSIP will call `sip_invite(Request, Call)` in your callback module (if this function is not defined, the default implementation in [`nksip_callbacks`](../../src/nksip_callbacks.erl) module would be used). You could answer `{reply, busy}` to send a standard _486 Busy_ response, and NkSIP will generate all required SIP headers and send back the response.
 
 
 ## Transactions
@@ -116,7 +116,7 @@ When specifing _Route_ uris, you should nearly ever use the `lr` uri parameter.
 
 There are several situations in any SIP enabled application where we must send to the other party a SIP URI showing the transport protocol, ip address and port where we are currently listening to receive new requests. A _Contact_ header is used for this. For example, when sending a REGISTER we must indicate to the registrar where it must send any request directed to us. When starting a dialog with INVITE we must inform the other party where to receive in-dialog requests.
 
-NkSIP will try to automatically generate a correct _Contact_ header for you, using the same transport, ip and port used to send this specific request. For example, if we have a _Service_ listening on 192.168.0.1:5070 for UDP and TCP, and 192.168.0.1:5071 for TLS, sending a REGISTER to the _URI_ `<sip:registrar.com;transport=tcp>`, will generate a _Contact_ header like `<sip:192.168.0.1:5070;transport=tcp>`.
+NkSIP will try to automatically generate a correct _Contact_ header for you, using the same transport, ip and port used to send this specific request. For example, if we have a service listening on 192.168.0.1:5070 for UDP and TCP, and 192.168.0.1:5071 for TLS, sending a REGISTER to the _URI_ `<sip:registrar.com;transport=tcp>`, will generate a _Contact_ header like `<sip:192.168.0.1:5070;transport=tcp>`.
 
 If the listening address of the selected transport is _all_ (meaning "listen on all interfaces"). NkSIP will try to find, among all the ip addresses of the host, which is the _best one to use_. It uses a sorted list of network cards (specifically `eth0`, `eth1`, `en0` and `en1`) fetching the ip address from the first active network card. If none is available it will get any ip from the host.
 
@@ -129,7 +129,7 @@ There are two different ways to include behaviours in NkSIP: _Services_ and _Plu
 
 Services are the easier way. They are fully described in the documentation, and should be used for nearly all user SIP applications. In the future, it will possible to write Services in other languages than Erlang.
 
-Plugins are designed as a way to add functionality to NkSIP, useful for many Services. They must be written in Erlang, work very closely to the core and can make NkSIP fail when processing a call if they have a bug. When starting any application, you tell NkSIP all the plugins you want to use for your it. Each one can have a different set of active plugins.
+Plugins are designed as a way to add functionality to NkSIP, useful for many services. They must be written in Erlang, work very closely to the core and can make NkSIP fail when processing a call if they have a bug. When starting any application, you tell NkSIP all the plugins you want to use for your it. Each one can have a different set of active plugins.
 
 Plugins are typically used for event packages, implementing specific RFCs, adding new APIs to manage any external thing (like database access) or any other common, low-level functionality.
 

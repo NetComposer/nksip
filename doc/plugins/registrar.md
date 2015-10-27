@@ -52,7 +52,7 @@ nksip_registrar_max_time|86400 (24h)|Maximum registration expiration
 ### find/2
 
 ```erlang
-find(nksip:app_name()|nksip:app_id(), nksip:aor() | nksip:uri()) ->
+find(nksip:srv_name()|nksip:srv_id(), nksip:aor() | nksip:uri()) ->
     [nksip:uri()].
 ```
 
@@ -64,7 +64,7 @@ Finds the registered contacts for this Service and _AOR_ or _Uri_, for example
 ### find/4
 
 ```erlang
-find(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+find(nksip:srv_name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     [nksip:uri()].
 ```
 
@@ -74,7 +74,7 @@ Similar to `find/2`.
 ### qfind/2
 
 ```erlang
-qfind(nksip:app_name()|nksip:app_id(), AOR::nksip:aor()) ->
+qfind(nksip:srv_name()|nksip:srv_id(), AOR::nksip:aor()) ->
     nksip:uri_set().
 ```
 
@@ -102,7 +102,7 @@ Using this example, when a new request arrives at our proxy for domain 'nksip' a
 ### qfind/4
 
 ```erlang
-qfind(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+qfind(nksip:srv_name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     nksip:uri_set().
 ```
 
@@ -112,7 +112,7 @@ Similar to `qfind/2`
 ### delete/4
 
 ```erlang
-delete(nksip:app_name()|nksip:app_id(), nksip:scheme(), binary(), binary()) ->
+delete(nksip:srv_name()|nksip:srv_id(), nksip:scheme(), binary(), binary()) ->
     ok | not_found | callback_error.
 ```
 
@@ -166,7 +166,7 @@ sip_registrar_store(StoreOp, AppId) ->
     [RegContact] | ok | not_found when 
         StoreOp :: {get, AOR} | {put, AOR, [RegContact], TTL} | 
                    {del, AOR} | del_all,
-        AppId :: nksip:app_id(),
+        AppId :: nksip:srv_id(),
         AOR :: nksip:aor(),
         RegContact :: nksip_registrar_lib:reg_contact(),
         TTL :: integer().
@@ -232,7 +232,7 @@ test1() ->
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
-    case nksip_request:app_name(Req) of
+    case nksip_request:srv_name(Req) of
         {ok, server} ->
             Opts = [record_route, {insert, "x-nk-server", "server"}],
             case lists:member(Domain, [<<"nksip">>, <<"127.0.0.1">>]) of

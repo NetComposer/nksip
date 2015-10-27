@@ -31,17 +31,26 @@
 -compile([export_all]).
 
 
-basic_test_() ->
-    {setup, spawn, 
-        fun() -> start() end,
-        fun(_) -> stop() end,
-        [
-            {timeout, 60, fun running/0}, 
-            {timeout, 60, fun transport/0}, 
-            {timeout, 60, fun cast_info/0}, 
-            {timeout, 60, fun stun/0}
-        ]
-    }.
+% basic_test_() ->
+%     {setup, spawn, 
+%         fun() -> start() end,
+%         fun(_) -> stop() end,
+%         [
+%             {timeout, 60, fun running/0}, 
+%             {timeout, 60, fun transport/0}, 
+%             {timeout, 60, fun cast_info/0}, 
+%             {timeout, 60, fun stun/0}
+%         ]
+%     }.
+
+
+s1() ->
+    ok = tests_util:start(server1, ?MODULE, #{
+        arg => server1,
+        sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
+        plugins => [nksip_registrar],
+        transports => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234"
+    }).
 
 
 start() ->

@@ -37,7 +37,7 @@ nksip_uac_auto_register_timer|5 (secs)|Interval to check for new expired timers
 ### start_register/4 
 
 ```erlang
-start_register(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(), 
+start_register(App::nksip:srv_name()|nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), 
                Opts::nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 ```
@@ -50,7 +50,7 @@ Opts are passed to the REGISTER sending functions. You can use the `expires` opt
 ### stop_register/2
 
 ```erlang
-stop_register(App::nksip:app_name()|nksip:app_id(), Id::term()) -> 
+stop_register(App::nksip:srv_name()|nksip:srv_id(), Id::term()) -> 
     ok | not_found.
 ```
 
@@ -60,7 +60,7 @@ Stops a previously started registration serie.
 ### get_registers/1
 
 ```erlang
-get_registers(App::nksip:app_name()|nksip:app_id()) -> 
+get_registers(App::nksip:srv_name()|nksip:srv_id()) -> 
     [{Id::term(), OK::boolean(), Time::non_neg_integer()}].
 ```
 Get current registration status, including if last registration was successful and time remaining to next one.
@@ -69,7 +69,7 @@ Get current registration status, including if last registration was successful a
 ### start_ping/4
 
 ```erlang
-start_ping(App::nksip:app_name()|nksip:app_id(), Id::term(), Uri::nksip:user_uri(), 
+start_ping(App::nksip:srv_name()|nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), 
 		   Opts::nksip:optslist()) -> 
     {ok, boolean()} | {error, term()}.
 ```
@@ -83,7 +83,7 @@ You can use the `expires` option to change the default re-options time from the 
 ### stop_ping/2
 
 ```erlang
-stop_ping(App::nksip:app_name()|nksip:app_id(), Id::term()) ->
+stop_ping(App::nksip:srv_name()|nksip:srv_id(), Id::term()) ->
     ok | not_found.
 ```
 
@@ -93,7 +93,7 @@ Stops a previously started ping serie.
 ### get_pings/1
 
 ```erlang
-get_pings(App::nksip:app_name()|nksip:app_id()) -> 
+get_pings(App::nksip:srv_name()|nksip:srv_id()) -> 
     [{Id::term(), OK::boolean(), Time::non_neg_integer()}].
 ```
 
@@ -111,7 +111,7 @@ You can implement any of these callback functions in your Service callback modul
 
 ```erlang
 sip_uac_auto_register_updated_register(Id::term(), OK::boolean(), 
-                                             AppId::nksip:app_id()) ->
+                                             AppId::nksip:srv_id()) ->
     ok.
 ```
 
@@ -122,7 +122,7 @@ If implemented, it will called each time a registration serie changes its state.
 
 ```erlang
 sip_uac_auto_register_updated_ping(Id::term(), OK::boolean(), 
-                                         AppId::nksip:app_id()) ->
+                                         AppId::nksip:srv_id()) ->
     ok.
 ```
 

@@ -11,16 +11,16 @@ If you want to embed NkSIP in your own Erlang application, and you are using _re
 
 ```erlang
 {deps, [
-  {nksip, ".*", {git, "git://github.com/kalta/nksip", {tag, "v0.4.0"}}}
+  {nksip, ".*", {git, "git://github.com/kalta/nksip", {tag, "v0.5.0"}}}
 ]}.
 ```
  
-Then you will have to setup in your erlang environment any [configuration parameter](../reference/configuration.md) you want to change from NkSIP's defaults (usually in your `app.config` file), for `nksip` but also for `lagger` Erlang applications. You can then start NkSIP starting all dependencies (see [nksip.sipapp.src](../../src/nksip.app.src)) and finally start `nksip` Erlang application.
+Then you will have to setup in your erlang environment any [configuration parameter](../reference/configuration.md) you want to change from NkSIP's defaults (usually in your `app.config` file), for `nksip` but also some dependant applications like `nkservice`, `nkpacket` or `lagger`. You can then start NkSIP starting all dependencies (see [nksip.app.src](../../src/nksip.app.src)) and finally start `nksip` Erlang application.
 
 
 ### Start NkSIP as a stand-alone application
 
-NkSIP does not include any standard Erlang release building system. In the near future, NkSIP will be refactored as a module under the upcoming _NkCore_ project, so it makes no sense including one.
+NkSIP does not include any standard Erlang release building system. In the near future, NkSIP will be refactored as a module under the upcoming _NetComposer_ project, so it makes no sense including one.
 
 If you want to start it stand alone now, you can use your own method based on the _development environment_ method.
 
@@ -31,7 +31,7 @@ You can start NkSIP stand alone in the following way. First you will need to dow
 ```
 > git clone https://github.com/kalta/nksip
 > cd nksip
-> git checkout v0.4.0 -q
+> git checkout v0.5.0 -q
 > make
 ```
 
