@@ -160,7 +160,7 @@
 	{ok, srv_id()} | {error, term()}.
 
 start(Name, Opts) ->
-    Opts1 = nksip_util:adapt_opts(Opts),
+    Opts1 = nklib_util:to_map(Opts),
     Opts2 = Opts1#{
         class => nksip,
         plugins => [nksip|maps:get(plugins, Opts1, [])],
@@ -193,7 +193,7 @@ stop_all() ->
     {ok, srv_id()} | {error, term()}.
 
 update(Srv, Opts) ->
-    Opts1 = nksip_util:adapt_opts(Opts),
+    Opts1 = nklib_util:to_map(Opts),
     Opts2 = case Opts1 of
         #{plugins:=Plugins} ->
             Opts1#{plugins=>[nksip|Plugins]};

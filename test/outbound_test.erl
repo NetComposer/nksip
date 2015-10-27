@@ -311,7 +311,7 @@ register() ->
     % Send a third registration from a different instance
     {ok, 200, [{_, [Contact3, Contact2, Contact1]}]} = 
         nksip_uac:register(ua2, "sip:127.0.0.1:5090", 
-                            [{sip_from, "sip:ua1@nksip"}, contact, {reg_id, 1}, 
+                            [{from, "sip:ua1@nksip"}, contact, {reg_id, 1}, 
                              {meta, [contacts]}]),
     
     #uri{

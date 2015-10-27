@@ -31,17 +31,17 @@
 -compile([export_all]).
 
 
-% basic_test_() ->
-%     {setup, spawn, 
-%         fun() -> start() end,
-%         fun(_) -> stop() end,
-%         [
-%             {timeout, 60, fun running/0}, 
-%             {timeout, 60, fun transport/0}, 
-%             {timeout, 60, fun cast_info/0}, 
-%             {timeout, 60, fun stun/0}
-%         ]
-%     }.
+basic_test_() ->
+    {setup, spawn, 
+        fun() -> start() end,
+        fun(_) -> stop() end,
+        [
+            {timeout, 60, fun running/0}, 
+            {timeout, 60, fun transport/0}, 
+            {timeout, 60, fun cast_info/0}, 
+            {timeout, 60, fun stun/0}
+        ]
+    }.
 
 
 s1() ->
@@ -168,7 +168,7 @@ transport() ->
     Opts5 = [
         {add, "x-nk-op", "reply-request"},
         contact,
-        {sip_local_host, "mihost"},
+        {local_host, "mihost"},
         {route, [<<"<sip:127.0.0.1;lr>">>, "<sip:aaa;lr>, <sips:bbb:123;lr>"]},
         {meta, [body]}
     ],

@@ -67,7 +67,8 @@ syntax() ->
         sip_no_100 => boolean,
         sip_max_calls => {integer, 1, 1000000},
         sip_local_host => [{enum, [auto]}, host],
-        sip_local_host6 => [{enum, [auto]}, host6]
+        sip_local_host6 => [{enum, [auto]}, host6],
+        sip_debug => boolean       % Needs to be always defined
     }.
 
 
@@ -96,7 +97,8 @@ defaults() ->
         sip_no_100 => false,
         sip_max_calls => 100000,                % Each Call-ID counts as a call
         sip_local_host => auto,
-        sip_local_host6 => auto
+        sip_local_host6 => auto,
+        sip_debug => false
     }.
 
 

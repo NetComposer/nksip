@@ -22,7 +22,7 @@
 -module(nksip_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([adapt_opts/1, adapt_transports/3]).
+-export([adapt_transports/3]).
 -export([get_cseq/0, initial_cseq/0]).
 -export([get_listenhost/3, make_route/6]).
 -export([get_connected/2, get_connected/5, is_local/2, send/5]).
@@ -41,48 +41,48 @@
 
 
 
-%% @private Adapt old style parameters to new style
-adapt() ->
-    #{
-        allow => sip_allow,
-        supported => sip_supported,
-        timer_t1 => sip_timer_t1,
-        timer_t2 => sip_timer_t2,
-        timer_t4 => sip_timer_t4,
-        timer_c => sip_timer_c,
-        trans_timeout => sip_trans_timeout,
-        dialog_timeout => sip_dialog_timeout,
-        event_expires => sip_event_expires,
-        event_expires_offset => sip_event_expires_offset,
-        nonce_timeout => sip_nonce_timeout,
-        from => sip_from,
-        accept => sip_accept,
-        events => sip_events,
-        route => sip_route,
-        no_100 => sip_no_100,
-        max_calls => sip_max_calls,
-        local_host => sip_local_host,
-        local_host6 => sip_local_host6,        
-        debug => sip_debug
-    }.
+% %% @private Adapt old style parameters to new style
+% adapt() ->
+%     #{
+%         allow => sip_allow,
+%         supported => sip_supported,
+%         timer_t1 => sip_timer_t1,
+%         timer_t2 => sip_timer_t2,
+%         timer_t4 => sip_timer_t4,
+%         timer_c => sip_timer_c,
+%         trans_timeout => sip_trans_timeout,
+%         dialog_timeout => sip_dialog_timeout,
+%         event_expires => sip_event_expires,
+%         event_expires_offset => sip_event_expires_offset,
+%         nonce_timeout => sip_nonce_timeout,
+%         from => sip_from,
+%         accept => sip_accept,
+%         events => sip_events,
+%         route => sip_route,
+%         no_100 => sip_no_100,
+%         max_calls => sip_max_calls,
+%         local_host => sip_local_host,
+%         local_host6 => sip_local_host6,        
+%         debug => sip_debug
+%     }.
 
 
-%% @private
-adapt_opts(Opts) ->
-    adapt_opts(nklib_util:to_list(Opts), []).
+% %% @private
+% adapt_opts(Opts) ->
+%     adapt_opts(nklib_util:to_list(Opts), []).
 
-adapt_opts([], Acc) ->
-    maps:from_list(Acc);
+% adapt_opts([], Acc) ->
+%     maps:from_list(Acc);
 
-adapt_opts([{Key, Val}|Rest], Acc) ->
-    Key1 = case maps:find(Key, adapt()) of
-        {ok, NewKey} -> NewKey;
-        error -> Key
-    end,
-    adapt_opts(Rest, [{Key1, Val}|Acc]);
+% adapt_opts([{Key, Val}|Rest], Acc) ->
+%     Key1 = case maps:find(Key, adapt()) of
+%         {ok, NewKey} -> NewKey;
+%         error -> Key
+%     end,
+%     adapt_opts(Rest, [{Key1, Val}|Acc]);
 
-adapt_opts([Key|Rest], Acc) ->
-    adapt_opts([{Key, true}|Rest], Acc).
+% adapt_opts([Key|Rest], Acc) ->
+%     adapt_opts([{Key, true}|Rest], Acc).
 
 
 

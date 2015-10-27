@@ -376,7 +376,7 @@ servers() ->
     {Ref, RepHd} = tests_util:get_ref(),
     Self = self(),
 
-    Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {sip_from, "sips:client2@nksip2"}],
+    Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sips:127.0.0.1:5081", 
                                         [unregister_all|Opts2]),

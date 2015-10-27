@@ -187,32 +187,32 @@ regs() ->
     {ok, 200, Values1} = nksip_uac:register(clientA1, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientA1">>}=CA1]}] = Values1,
     {ok, 200, []} = nksip_uac:register(clientA1, Reg, 
-                [{sip_from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
+                [{from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values3} = nksip_uac:register(clientB1, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientB1">>}=CB1]}] = Values3,
     {ok, 200, []} = nksip_uac:register(clientB1, Reg, 
-                [{sip_from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
+                [{from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values5} = nksip_uac:register(clientC1, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientC1">>}=CC1]}] = Values5,
     {ok, 200, []} = nksip_uac:register(clientC1, Reg, 
-                [{sip_from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
+                [{from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
     
     {ok, 200, Values7} = nksip_uac:register(clientA2, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientA2">>}=CA2]}] = Values7,
     {ok, 200, []} = nksip_uac:register(clientA2, Reg, 
-                [{sip_from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
+                [{from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values9} = nksip_uac:register(clientB2, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientB2">>}=CB2]}] = Values9,
     {ok, 200, []} = nksip_uac:register(clientB2, Reg, 
-                [{sip_from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
+                [{from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values11} = nksip_uac:register(clientC3, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientC3">>}=CC3]}] = Values11, 
     {ok, 200, []} = nksip_uac:register(clientC3, Reg, 
-                [{sip_from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),    
+                [{from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),    
 
     [
         [

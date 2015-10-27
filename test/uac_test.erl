@@ -64,7 +64,7 @@ uac() ->
     SipC1 = "sip:127.0.0.1:5070",
 
     {error, invalid_uri} = nksip_uac:options(client2, "sip::a", []),
-    {error, {invalid, <<"from">>}} = nksip_uac:options(client2, SipC1, [{sip_from, "<>"}]),
+    {error, {invalid, <<"from">>}} = nksip_uac:options(client2, SipC1, [{from, "<>"}]),
     {error, {invalid, <<"to">>}} = nksip_uac:options(client2, SipC1, [{to, "<>"}]),
     {error, {invalid, <<"route">>}} = nksip_uac:options(client2, SipC1, [{route, "<>"}]),
     {error, {invalid, <<"contact">>}} = nksip_uac:options(client2, SipC1, [{contact, "<>"}]),
@@ -191,7 +191,7 @@ info() ->
 
 timeout() ->
     SipC1 = "sip:127.0.0.1:5070",
-    ok = nksip:update(client2, [{timer_t1, 10}, {timer_c, 1}]),
+    ok = nksip:update(client2, [{sip_timer_t1, 10}, {sip_timer_c, 1}]),
 
     lager:notice("Next notices about several timeouts are expected"),
 
