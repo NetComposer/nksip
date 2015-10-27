@@ -42,18 +42,18 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {from, "sip:client1@nksip"},
-        {local_host, "localhost"},
+        {sip_from, "sip:client1@nksip"},
+        {sip_local_host, "localhost"},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
     
     ok = tests_util:start(server, ?MODULE, [
-        {from, "sip:server@nksip"},
-        no_100,
+        {sip_from, "sip:server@nksip"},
+        {sip_no_100, true},
+        {sip_events, "nkpublish"},
+        {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_event_compositor]},
-        {local_host, "127.0.0.1"},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
-        {events, "nkpublish"}
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     tests_util:log(),

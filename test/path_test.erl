@@ -43,36 +43,36 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(p1, ?MODULE, [
-        {local_host, "localhost"},
+        {sip_local_host, "localhost"},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(p2, ?MODULE, [
-        {local_host, "localhost"},
+        {sip_local_host, "localhost"},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p3, ?MODULE, [
-        {local_host, "localhost"},
+        {sip_local_host, "localhost"},
         {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     ok = tests_util:start(registrar, ?MODULE, [
+        {sip_local_host, "localhost"},
         {plugins, [nksip_registrar]},
-        {local_host, "localhost"},
         {transports, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
-        {from, "sip:ua1@nksip"},
-        {route, "<sip:127.0.0.1;lr>"},
-        {local_host, "127.0.0.1"},
+        {sip_from, "sip:ua1@nksip"},
+        {sip_route, "<sip:127.0.0.1;lr>"},
+        {sip_local_host, "127.0.0.1"},
         {transports, "sip:all, <sip:all;transport=tls>"}
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
-        {route, "<sip:127.0.0.1:5090;lr>"},
-        {local_host, "127.0.0.1"},
+        {sip_route, "<sip:127.0.0.1:5090;lr>"},
+        {sip_local_host, "127.0.0.1"},
         {transports, "sip:all, <sip:all;transport=tls>"}
     ]),
 

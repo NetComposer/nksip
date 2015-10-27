@@ -42,23 +42,23 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(client1, ?MODULE, [
+        {sip_event_expires_offset, 0},
         {transports, "sip:all:5060"},
-        {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
+        {sip_event_expires_offset, 0},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
-        {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
 
     ok = tests_util:start(client3, ?MODULE, [
-        {from, "sip:client2@nksip"},
-        no_100,
-        {local_host, "127.0.0.1"},
+        {sip_from, "sip:client2@nksip"},
+        {sip_no_100, true},
+        {sip_local_host, "127.0.0.1"},
+        {sip_event_expires_offset, 0},
         {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"},
-        {event_expires_offset, 0},
         {plugins, [nksip_refer]}
     ]),
 

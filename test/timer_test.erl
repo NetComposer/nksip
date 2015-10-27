@@ -41,41 +41,41 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(p1, ?MODULE, [
-        {local_host, "localhost"},
-        no_100,
+        {sip_local_host, "localhost"},
+        {sip_no_100, true},
+        {sip_timers_min_se, 2},
         {transports, "sip:all:5060"},
-        {plugins, [nksip_timers]},
-        {sip_timers_min_se, 2}
+        {plugins, [nksip_timers]}
     ]),
 
     ok = tests_util:start(p2, ?MODULE, [
-        {local_host, "localhost"},
-        no_100,
+        {sip_local_host, "localhost"},
+        {sip_no_100, true},
+        {sip_timers_min_se, 3},
         {transports, "sip:all:5070"},
-        {plugins, [nksip_timers]},
-        {sip_timers_min_se, 3}
+        {plugins, [nksip_timers]}
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
-        {from, "sip:ua1@nksip"},
-        {local_host, "127.0.0.1"},
-        no_100,
+        {sip_from, "sip:ua1@nksip"},
+        {sip_local_host, "127.0.0.1"},
+        {sip_no_100, true},
+        {sip_timers_min_se, 1},
         {transports, "sip:all:5071"},
-        {plugins, [nksip_timers]},
-        {sip_timers_min_se, 1}
+        {plugins, [nksip_timers]}
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
-        {local_host, "127.0.0.1"},
-        no_100,
+        {sip_local_host, "127.0.0.1"},
+        {sip_no_100, true},
+        {sip_timers_min_se, 2},
         {transports, "sip:all:5072"},
-        {plugins, [nksip_timers]},
-        {sip_timers_min_se, 2}
+        {plugins, [nksip_timers]}
     ]),
     
     ok = tests_util:start(ua3, ?MODULE, [
-        {local_host, "127.0.0.1"},
-        no_100,
+        {sip_local_host, "127.0.0.1"},
+        {sip_no_100, true},
         {transports, "sip:all:5073"}
     ]),
 

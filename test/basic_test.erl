@@ -49,7 +49,8 @@ s1() ->
         arg => server1,
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
         plugins => [nksip_registrar],
-        transports => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234"
+        tls_versions => [tlsv1],
+        transports => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234" 
     }).
 
 
@@ -167,7 +168,7 @@ transport() ->
     Opts5 = [
         {add, "x-nk-op", "reply-request"},
         contact,
-        {local_host, "mihost"},
+        {sip_local_host, "mihost"},
         {route, [<<"<sip:127.0.0.1;lr>">>, "<sip:aaa;lr>, <sips:bbb:123;lr>"]},
         {meta, [body]}
     ],

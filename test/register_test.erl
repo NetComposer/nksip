@@ -46,22 +46,22 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {from, "sip:server1@nksip"},
+        {sip_from, "sip:server1@nksip"},
+        {sip_registrar_min_time, 60},
+        {sip_supported, "100rel,timer,path"},        % No outbound
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"},
-        {supported, "100rel,timer,path"},        % No outbound
-        {sip_registrar_min_time, 60}
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {from, "sip:client1@nksip"},
-        {local_host, "127.0.0.1"},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
-        {supported, "100rel,timer,path"}        % No outbound
+        {sip_from, "sip:client1@nksip"},
+        {sip_local_host, "127.0.0.1"},
+        {sip_supported, "100rel,timer,path"},       % No outbound
+        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
-        {from, "sip:client2@nksip"}]),
+        {sip_from, "sip:client2@nksip"}]),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
@@ -200,7 +200,7 @@ register2() ->
     nksip_registrar_util:clear(),
 
     Opts1 = [contact, {expires, 300}],
-    FromS = {from, <<"sips:client1@nksip">>},
+    FromS = {sip_from, <<"sips:client1@nksip">>},
 
     {ok, 200, Values1} = nksip_uac:register(client1, "sip:127.0.0.1", 
                             [unregister_all, {meta, [<<"contact">>]}]),
@@ -229,7 +229,7 @@ register2() ->
     % ManualContact = <<"<sips:client1@127.0.0.1:5071>;+sip.instance=", QUUID1/binary>>,
     ManualContact = <<"<sips:client1@127.0.0.1:5071>">>,
     {ok, 200, Values3} = nksip_uac:register(client1, "sips:127.0.0.1", 
-                        [{contact, ManualContact}, {from, "sips:client1@nksip"},
+                        [{contact, ManualContact}, {sip_from, "sips:client1@nksip"},
                          {meta, [<<"contact">>]}, {expires, 300}]),
     [{<<"contact">>, Contact3}] = Values3,
     Contact3Uris = nklib_parse:uris(Contact3),
@@ -257,7 +257,7 @@ register2() ->
 
     Contact = <<"<sips:client1@127.0.0.1:5071>;expires=0">>,
     {ok, 200, []} = nksip_uac:register(client1, "sips:127.0.0.1", 
-                                        [{contact, Contact}, {from, "sips:client1@nksip"},
+                                        [{contact, Contact}, {sip_from, "sips:client1@nksip"},
                                          {expires, 300}]),
     [] = nksip_registrar:find(server1, sips, <<"client1">>, <<"nksip">>),
 
@@ -266,7 +266,7 @@ register2() ->
     [] = nksip_registrar:find(server1, sip, <<"client2">>, <<"nksip">>),
 
     {ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1", 
-                                [{local_host, "aaa"}, contact]),
+                                [{sip_local_host, "aaa"}, contact]),
     {ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1", 
                                 [{contact, "<sip:bbb>;q=2.1;expires=180, <sips:ccc>;q=3"}]),
     {ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1", 

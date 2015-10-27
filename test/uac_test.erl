@@ -45,12 +45,12 @@ uac_test_() ->
 start() ->
     tests_util:start_nksip(),
     ok = tests_util:start(client1, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {transports, "sip:all:5070, <sip:all:5071;transport=tls>"}
     ]),
             
     ok = tests_util:start(client2, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
+        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
 
@@ -64,7 +64,7 @@ uac() ->
     SipC1 = "sip:127.0.0.1:5070",
 
     {error, invalid_uri} = nksip_uac:options(client2, "sip::a", []),
-    {error, {invalid, <<"from">>}} = nksip_uac:options(client2, SipC1, [{from, "<>"}]),
+    {error, {invalid, <<"from">>}} = nksip_uac:options(client2, SipC1, [{sip_from, "<>"}]),
     {error, {invalid, <<"to">>}} = nksip_uac:options(client2, SipC1, [{to, "<>"}]),
     {error, {invalid, <<"route">>}} = nksip_uac:options(client2, SipC1, [{route, "<>"}]),
     {error, {invalid, <<"contact">>}} = nksip_uac:options(client2, SipC1, [{contact, "<>"}]),

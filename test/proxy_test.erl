@@ -73,35 +73,35 @@ start(Test) ->
 
     ok = tests_util:start(server1, ?MODULE, [
         {test_type, Test},
-        {from, "sip:server1@nksip"},
+        {sip_from, "sip:server1@nksip"},
+        {sip_local_host, "localhost"},
+        {sip_supported, "100rel,timer,path"},        % No outbound
         {plugins, [nksip_registrar]},
-        {local_host, "localhost"},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"},
-        {supported, "100rel,timer,path"}        % No outbound
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(server2, ?MODULE, [
         {test_type, Test},
-        {from, "sip:server2@nksip"},
+        {sip_from, "sip:server2@nksip"},
+        {sip_local_host, "localhost"},
+        {sip_supported, "100rel,timer,path"},        % No outbound
         {plugins, [nksip_registrar]},
-        {local_host, "localhost"},
-        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"},
-        {supported, "100rel,timer,path"}        % No outbound
+        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
         {test_type, Test},
-        {from, "sip:client1@nksip"},
-        {route, "<sip:127.0.0.1;lr>"},
-        {local_host, "127.0.0.1"},
+        {sip_from, "sip:client1@nksip"},
+        {sip_route, "<sip:127.0.0.1;lr>"},
+        {sip_local_host, "127.0.0.1"},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
         {test_type, Test},
-        {from, "sip:client2@nksip"},
-        {route, "<sip:127.0.0.1;lr>"},
-        {local_host, "127.0.0.1"},
+        {sip_from, "sip:client2@nksip"},
+        {sip_route, "<sip:127.0.0.1;lr>"},
+        {sip_local_host, "127.0.0.1"},
         {transports, "sip:all, sips:all"}
     ]),
 
@@ -376,7 +376,7 @@ servers() ->
     {Ref, RepHd} = tests_util:get_ref(),
     Self = self(),
 
-    Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {from, "sips:client2@nksip2"}],
+    Opts2 = [{route, "<sips:127.0.0.1:5081;lr>"}, {sip_from, "sips:client2@nksip2"}],
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [unregister_all]),
     {ok, 200, []} = nksip_uac:register(C2, "sips:127.0.0.1:5081", 
                                         [unregister_all|Opts2]),

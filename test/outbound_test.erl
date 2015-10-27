@@ -48,44 +48,44 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(registrar, ?MODULE, [
+        {sip_local_host, "localhost"},
         {plugins, [nksip_registrar, nksip_outbound]},
-        {local_host, "localhost"},
         {transports, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
-        {from, "sip:ua1@nksip"},
-        {local_host, "127.0.0.1"},
+        {sip_from, "sip:ua1@nksip"},
+        {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5101>", "<sip:all:5102;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
-        {local_host, "127.0.0.1"},
+        {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5103>", "<sip:all:5104;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p1, ?MODULE, [
-        {local_host, "localhost"},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(p2, ?MODULE, [
-        {local_host, "localhost"},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p3, ?MODULE, [
-        {local_host, "localhost"},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     ok = tests_util:start(p4, ?MODULE, [
-        {local_host, "localhost"},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
         {transports, ["<sip:all:5200>", "<sip:all:5201;transport=tls>"]}
     ]),
@@ -311,7 +311,7 @@ register() ->
     % Send a third registration from a different instance
     {ok, 200, [{_, [Contact3, Contact2, Contact1]}]} = 
         nksip_uac:register(ua2, "sip:127.0.0.1:5090", 
-                            [{from, "sip:ua1@nksip"}, contact, {reg_id, 1}, 
+                            [{sip_from, "sip:ua1@nksip"}, contact, {reg_id, 1}, 
                              {meta, [contacts]}]),
     
     #uri{
@@ -471,13 +471,13 @@ uac_auto() ->
     nksip_registrar:clear(registrar),
     nkpacket_connection:stop_all(),
     ok = tests_util:start(ua3, ?MODULE, [
-        {from, "sip:ua3@nksip"},
-        {local_host, "127.0.0.1"},
-        {transports, ["<sip:all:5106>", "<sip:all:5107;transport=tls>"]},
-        {plugins, [nksip_uac_auto_outbound]},
+        {sip_from, "sip:ua3@nksip"},
+        {sip_local_host, "127.0.0.1"},
         {sip_uac_auto_outbound_all_fail, 1},
         {sip_uac_auto_outbound_any_ok, 2},
-        {sip_uac_auto_register_timer, 1}
+        {sip_uac_auto_register_timer, 1},
+        {plugins, [nksip_uac_auto_outbound]},
+        {transports, ["<sip:all:5106>", "<sip:all:5107;transport=tls>"]}
     ]),
     {ok, UA3_Id} = nkservice_server:get_srv_id(ua3),
     timer:sleep(100),

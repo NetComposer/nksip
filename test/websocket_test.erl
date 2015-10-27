@@ -62,9 +62,9 @@ start() ->
     ]),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {from, "\"NkSIP Server\" <sip:server1@nksip>"},
+        {sip_from, "\"NkSIP Server\" <sip:server1@nksip>"},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_registrar, nksip_gruu, nksip_outbound]},
-        {local_host, "localhost"},
         {transports, 
             "sip:all:5060, "
             "<sip:all:5061;transport=tls>, "
@@ -74,23 +74,23 @@ start() ->
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
-        {from, "\"NkSIP Client\" <sip:client1@nksip>"},
+        {sip_from, "\"NkSIP Client\" <sip:client1@nksip>"},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_gruu, nksip_outbound]},
-        {local_host, "localhost"},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
-        {from, "<sip:client2@nksip>"},
+        {sip_from, "<sip:client2@nksip>"},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_gruu, nksip_outbound]},
-        {local_host, "localhost"},
         {transports, "sip:all;transport=ws, sip:all:8091/ua2;transport=wss"}
     ]),
 
     ok = tests_util:start(ua3, ?MODULE, [
-        {from, "<sip:client3@nksip>"},
+        {sip_from, "<sip:client3@nksip>"},
+        {sip_local_host, "invalid.invalid"},
         {plugins, [nksip_gruu, nksip_outbound]},
-        {local_host, "invalid.invalid"},
         {transports, "sip:all:8080/client3;transport=ws"}
     ]),
 

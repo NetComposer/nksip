@@ -45,28 +45,28 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
-        {supported, "a;a_param, 100rel"},
+        {sip_from, "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>"},
+        {sip_supported, "a;a_param, 100rel"},
+        {sip_uac_auto_register_timer, 1},
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"},
-        {sip_uac_auto_register_timer, 1}
+        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {sip_uac_auto_register_timer, 1},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
-        {plugins, [nksip_uac_auto_register]},
-        {sip_uac_auto_register_timer, 1}
+        {plugins, [nksip_uac_auto_register]}
     ]),
             
     ok = tests_util:start(client2, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
+        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}]),
 
     ok = tests_util:start(server2, ?MODULE, [
-        {plugins, [nksip_registrar]},
-        {transports, "sip:all:5080"},
         {sip_registrar_min_time, 1},
-        {sip_uac_auto_register_timer, 1}
+        {sip_uac_auto_register_timer, 1},
+        {plugins, [nksip_registrar]},
+        {transports, "sip:all:5080"}
     ]),
 
     tests_util:log(),
@@ -84,12 +84,12 @@ uas() ->
     {ok, 200, Values1} = nksip_uac:options(client1, "sip:127.0.0.1", [
                                 {add, <<"x-nk-op">>, <<"reply-stateful">>},
                                 {meta, [call_id, from, cseq_num]}]),
-    [{call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}] = Values1,
+    [{call_id, CallId1}, {sip_from, From1}, {cseq_num, CSeq1}] = Values1,
 
     {ok, 482, [{reason_phrase, <<"Loop Detected">>}]} = 
         nksip_uac:options(client1, "sip:127.0.0.1", [
                             {add, <<"x-nk-op">>, <<"reply-stateful">>},
-                            {call_id, CallId1}, {from, From1}, {cseq_num, CSeq1}, 
+                            {call_id, CallId1}, {sip_from, From1}, {cseq_num, CSeq1}, 
                             {meta, [reason_phrase]}]),
 
     % Stateless proxies do not detect loops
@@ -100,7 +100,7 @@ uas() ->
     [{_, CallId3}, {_, From3}, {_, CSeq3}] = Values3,
     {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1", [
                         {add, "x-nk-op", "reply-stateless"},
-                        {call_id, CallId3}, {from, From3}, {cseq_num, CSeq3}]),
+                        {call_id, CallId3}, {sip_from, From3}, {cseq_num, CSeq3}]),
 
     % Test bad extension endpoint and proxy
     {ok, 420, [{all_headers, Hds5}]} = nksip_uac:options(client1, "sip:127.0.0.1", [

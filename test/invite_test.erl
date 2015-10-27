@@ -46,17 +46,17 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {from, "sip:client1@nksip"},
-        {local_host, "localhost"},
-        {supported, []},
+        {sip_from, "sip:client1@nksip"},
+        {sip_local_host, "localhost"},
+        {sip_supported, []},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
-        {from, "sip:client2@nksip"},
-        no_100,
-        {local_host, "127.0.0.1"},
-        {supported, []},
+        {sip_from, "sip:client2@nksip"},
+        {sip_no_100, true},
+        {sip_local_host, "127.0.0.1"},
+        {sip_supported, []},
         {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 

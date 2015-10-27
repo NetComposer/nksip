@@ -49,10 +49,10 @@ start() ->
     % Registrar server
 
     {ok, _} = do_start(serverR, [
-        {from, "sip:serverR@nksip"},
+        {sip_from, "sip:serverR@nksip"},
+        {sip_no_100, true},
+        {sip_local_host, "localhost"},
         {plugins, [nksip_registrar]},
-        no_100,
-        {local_host, "localhost"},
         {transports, "sip:all:5060"}
     ]),
 
@@ -60,43 +60,43 @@ start() ->
     % Clients to initiate connections
 
     {ok, _} = do_start(client1, [
-        {from, "sip:client1@nksip"},
-        {route, "<sip:127.0.0.1:5061;lr>"},
-        {local_host, "127.0.0.1"},
+        {sip_from, "sip:client1@nksip"},
+        {sip_route, "<sip:127.0.0.1:5061;lr>"},
+        {sip_local_host, "127.0.0.1"},
         {transports, "sip:all:5071"}
     ]),
 
     % Server1 is stateless
     {ok, _} = do_start(server1, [
-        {from, "sip:server1@nksip"},
-        no_100,
-        {local_host, "localhost"},
+        {sip_from, "sip:server1@nksip"},
+        {sip_no_100, true},
+        {sip_local_host, "localhost"},
         {transports, "sip:all:5061"}
     ]),
 
     {ok, _} = do_start(client2, [
-        {from, "sip:client2@nksip"},
-        {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:client2@nksip"},
+        {sip_route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
 
     {ok, _} = do_start(server2, [
-        {from, "sip:serverB@nksip"},
-        no_100,
-        {local_host, "localhost"},
+        {sip_from, "sip:serverB@nksip"},
+        {sip_no_100, true},
+        {sip_local_host, "localhost"},
         {transports, "<sip:all:5062>"}
     ]),
 
     {ok, _} = do_start(client3, [
-        {from, "sip:client3@nksip"},
-        {route, "<sip:127.0.0.1:5063;lr>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:client3@nksip"},
+        {sip_route, "<sip:127.0.0.1:5063;lr>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
 
     {ok, _} = do_start(server3, [
-        {from, "sip:server3@nksip"},
-        no_100,
-        {local_host, "localhost"},
+        {sip_from, "sip:server3@nksip"},
+        {sip_no_100, true},
+        {sip_local_host, "localhost"},
         {transports, "<sip:all:5063>"}
     ]),
 
@@ -104,45 +104,45 @@ start() ->
     % Clients to receive connections
 
     {ok, _} = do_start(clientA1, [
-        {from, "sip:clientA1@nksip"},
-        no_100,
-        {route, "<sip:127.0.0.1:5061;lr>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:clientA1@nksip"},
+        {sip_no_100, true},
+        {sip_route, "<sip:127.0.0.1:5061;lr>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
 
     {ok, _} = do_start(clientB1, [
-        {from, "sip:clientB1@nksip"},
-        no_100,
-        {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:clientB1@nksip"},
+        {sip_no_100, true},
+        {sip_route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
 
     {ok, _} = do_start(clientC1, [
-        {from, "sip:clientC1@nksip"},
-        no_100,
-        {route, "<sip:127.0.0.1:5063;lr>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:clientC1@nksip"},
+        {sip_no_100, true},
+        {sip_route, "<sip:127.0.0.1:5063;lr>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
 
     {ok, _} = do_start(clientA2, [
-        {from, "sip:clientA2@nksip"},
-        no_100,
-        {route, "<sip:127.0.0.1:5061;lr>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:clientA2@nksip"},
+        {sip_no_100, true},
+        {sip_route, "<sip:127.0.0.1:5061;lr>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
 
     {ok, _} = do_start(clientB2, [
-        {from, "sip:clientB2@nksip"},
-        no_100,
-        {route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:clientB2@nksip"},
+        {sip_no_100, true},
+        {sip_route, "<sip:127.0.0.1:5062;lr;transport=tcp>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
     
     {ok, _} = do_start(clientC3, [
-        {from, "sip:clientC3@nksip"},
-        no_100,
-        {route, "<sip:127.0.0.1:5063;lr>"},
-        {local_host, "127.0.0.1"}
+        {sip_from, "sip:clientC3@nksip"},
+        {sip_no_100, true},
+        {sip_route, "<sip:127.0.0.1:5063;lr>"},
+        {sip_local_host, "127.0.0.1"}
     ]),
 
     {ok, _} = do_start(clientD1, []),
@@ -187,32 +187,32 @@ regs() ->
     {ok, 200, Values1} = nksip_uac:register(clientA1, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientA1">>}=CA1]}] = Values1,
     {ok, 200, []} = nksip_uac:register(clientA1, Reg, 
-                [{from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
+                [{sip_from, "sip:qtest@nksip"}, {contact, CA1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values3} = nksip_uac:register(clientB1, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientB1">>}=CB1]}] = Values3,
     {ok, 200, []} = nksip_uac:register(clientB1, Reg, 
-                [{from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
+                [{sip_from, "sip:qtest@nksip"}, {contact, CB1#uri{ext_opts=[{q, 0.1}]}}]),
 
     {ok, 200, Values5} = nksip_uac:register(clientC1, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientC1">>}=CC1]}] = Values5,
     {ok, 200, []} = nksip_uac:register(clientC1, Reg, 
-                [{from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
+                [{sip_from, "sip:qtest@nksip"}, {contact, CC1#uri{ext_opts=[{q, 0.1}]}}]),
     
     {ok, 200, Values7} = nksip_uac:register(clientA2, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientA2">>}=CA2]}] = Values7,
     {ok, 200, []} = nksip_uac:register(clientA2, Reg, 
-                [{from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
+                [{sip_from, "sip:qtest@nksip"}, {contact, CA2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values9} = nksip_uac:register(clientB2, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientB2">>}=CB2]}] = Values9,
     {ok, 200, []} = nksip_uac:register(clientB2, Reg, 
-                [{from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
+                [{sip_from, "sip:qtest@nksip"}, {contact, CB2#uri{ext_opts=[{q, 0.2}]}}]),
 
     {ok, 200, Values11} = nksip_uac:register(clientC3, Reg, Opts),
     [{contacts, [#uri{scheme=sip, user= <<"clientC3">>}=CC3]}] = Values11, 
     {ok, 200, []} = nksip_uac:register(clientC3, Reg, 
-                [{from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),    
+                [{sip_from, "sip:qtest@nksip"}, {contact, CC3#uri{ext_opts=[{q, 0.3}]}}]),    
 
     [
         [

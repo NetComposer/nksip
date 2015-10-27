@@ -44,24 +44,24 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(server1, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
+        {sip_from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
+        {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_registrar]},
-        {local_host, "127.0.0.1"},
         {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
+        {sip_local_host, "127.0.0.1"},
+        {sip_route, "<sip:127.0.0.1;lr>"},
         {plugins, [nksip_uac_auto_auth]},
-        {local_host, "127.0.0.1"},
-        {route, "<sip:127.0.0.1;lr>"},
         {transports, "sip:all:5070, <sip:all:5071;transport=tls>"}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
-        {local_host, "127.0.0.1"},
-        {route, "<sip:127.0.0.1;lr>"}]),
+        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"},
+        {sip_local_host, "127.0.0.1"},
+        {sip_route, "<sip:127.0.0.1;lr>"}]),
 
     tests_util:log(),
     ?debugFmt("Starting ~p", [?MODULE]).
