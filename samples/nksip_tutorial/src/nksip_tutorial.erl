@@ -28,23 +28,23 @@
 
 %% @doc Launches the full tutorial.
 launch() ->
-    {ok, _} = nksip:start(server, nksip_tutorial_sipapp_server, 
-        [
-            {plugins, [nksip_registrar]},
-            {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
-         ]),
-    {ok, _} = nksip:start(client1, nksip_tutorial_sipapp_client, 
-        [
-            {plugins, [nksip_uac_auto_auth]},
-            {from, "sip:client1@nksip"},
-            {transports, [{udp, {127,0,0,1}, 5070}, {tls, {127,0,0,1}, 5071}]}
-        ]),
-    {ok, _} = nksip:start(client2, nksip_tutorial_sipapp_client, 
-        [
-            {plugins, [nksip_uac_auto_auth]},
-            {from, "sips:client2@nksip"},
-            {transports, [udp, tls]}
-        ]),
+    {ok, _} = nksip:start(server, #{
+        callback => nksip_tutorial_server_callbacks,
+        plugins => [nksip_registrar],
+        transports => "sip:all:5060, <sip:all:5061;transport=tls>"
+    }),
+    {ok, _} = nksip:start(client1, #{
+        sip_from => "sip:client1@nksip",
+        callback => nksip_tutorial_client_callbacks,
+        plugins => [nksip_uac_auto_auth],
+        transports => "sip:127.0.0.1:5070, sips:127.0.0.1:5071"
+    }),
+    {ok, _} = nksip:start(client2, #{
+        sip_from => "sips:client2@nksip",
+        callback => nksip_tutorial_client_callbacks,
+        plugins => [nksip_uac_auto_auth],
+        transports => "sip:localhost, sips:localhost"
+    }),
 
     nksip_registrar_util:clear(),
 
