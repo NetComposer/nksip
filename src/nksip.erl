@@ -250,10 +250,7 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
         end,
         Transp1 = case SrvSpec of
             #{transports:=Transp0} ->
-                Valid = nksip_syntax:packet_valid(),
-                maps:filter(
-                    fun({Conn, Opts}) -> {Conn, maps:with(Valid, Opts)} end,
-                    Transp0);
+                Transp0;
             _ ->
                 [{[{nksip_protocol, udp, {0,0,0,0}, 5060}], #{}}]
         end,

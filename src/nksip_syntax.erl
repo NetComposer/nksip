@@ -23,7 +23,6 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([app_syntax/0, app_defaults/0, syntax/0, defaults/0, cached/0]).
--export([packet_valid/0]).
 
 
 %% ===================================================================
@@ -68,21 +67,7 @@ syntax() ->
         sip_no_100 => boolean,
         sip_max_calls => {integer, 1, 1000000},
         sip_local_host => [{enum, [auto]}, host],
-        sip_local_host6 => [{enum, [auto]}, host6],
-
-        idle_timeout => pos_integer,
-        connect_timeout => nat_integer,
-        sctp_out_streams => nat_integer,
-        sctp_in_streams => nat_integer,
-        no_dns_cache => boolean,
-        tcp_max_connections => nat_integer,
-        tcp_listeners => nat_integer,
-        tls_certfile => string,
-        tls_keyfile => string,
-        tls_cacertfile => string,
-        tls_password => string,
-        tls_verify => boolean,
-        tls_depth => {integer, 0, 16}
+        sip_local_host6 => [{enum, [auto]}, host6]
     }.
 
 
@@ -124,13 +109,3 @@ cached() ->
         sip_route, sip_supported, sip_trans_timeout,
         sip_local_host, sip_local_host6
     ].
-
-
-packet_valid() ->
-    [
-        idle_timeout, connect_timeout, sctp_out_streams, sctp_in_streams, 
-        no_dns_cache, udp_stun_t1, tcp_max_connections, tcp_listeners, 
-        tls_certfile, tls_keyfile, tls_cacertfile, tls_password, 
-        tls_verify, tls_depth
-    ].
-
