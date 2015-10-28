@@ -4,7 +4,7 @@ Once started a _Service_ with a name, a _callback module_ and a group of options
 
 All of the callback functions are optional, so you only have to implement the functions you need. For example, if you need to perform authentication, you should implement [sip_authorize/3](../reference/callback_functions.md#sip_authorize3). If you don't implement it, no authorization would be done.
 
-Keep in mind that the plugins you activate when starting your Service can add new callbacks. See the [plugins documentation](../plugins/README.md).
+Keep in mind that the plugins you activate when starting your service can add new callbacks. See the [plugins documentation](../plugins/README.md).
 
 The list of available callback functions is available [here](../reference/callback_functions.md#sip-callbacks).
 
@@ -38,15 +38,6 @@ Many of the functions in this group allow you to send a response to the incoming
 
 ## Backend
 
-NkSIP uses the NkSERVICE (https://github.com/Nekso/nkservice) framework to process services, that offers some callbacks on its own (se https://github.com/Nekso/nkservice/blob/master/src/nkservice_callbacks.erl).
+NkSIP uses the NkSERVICE (https://github.com/Nekso/nkservice) framework to process services, and it offers some callbacks [on its own](https://github.com/Nekso/nkservice/blob/master/src/nkservice_callbacks.erl).
 
-Under the hood, each started Service starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the Service.
-
-Its state is created while starting the Service, in the call to [init/2](../reference/callback_functions.md#init2), and can be used implementing the callbacks [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2). You can use this process as a standard OTP gen_server process for your application, for example to control the concurrent access any resource (like the ETS supporting the Service variables). However, the state mamangement is very different from a standard gen_server: it is always an `map()`, where you can add your own keys.
-
-When you (or any other process by the matter) calls `gen_server:call/2,3`, `gen_server:cast/2` or sends a message to the registered application's process (the same as the _internal name_), NkSIP will call [handle_call/3](../reference/callback_functions.md#handle_call3), [handle_cast/2](../reference/callback_functions.md#handle_cast2) and [handle_info/2](../reference/callback_functions.md#handle_info2).
-
-
-
-
-
+Under the hood, each started service starts a new standard OTP _gen_server_ process, registered under the same _internal name_ of the service. See [start a Service](start_a_service.md).
