@@ -55,7 +55,7 @@ dialyze: app
 shell: 
 	erl -config priv/app.config -args_file priv/vm.args $(RELOADER)
 
-tutorial: 
+tutorial: app
 	erl -config samples/nksip_tutorial/priv/app.config \
 		-args_file samples/nksip_tutorial/priv/vm.args 
 

@@ -72,24 +72,16 @@ sip_get_user_pass(_User, _Realm, _Req, _Call) ->
 %%    a challenge to the user.
 %%
 sip_authorize(AuthList, _Req, _Call) ->
-    IsDialog = lists:member(dialog, AuthList),
-    IsRegister = lists:member(register, AuthList),
-    lager:warning("AUTH: ~p, ~p", [IsDialog, IsRegister]),
-
-
     case lists:member(dialog, AuthList) orelse lists:member(register, AuthList) of
         true -> 
             ok;
         false ->
             case proplists:get_value({digest, <<"nksip">>}, AuthList) of
                 true -> 
-                    lager:warning("AUTH OK"),
                     ok;            % Password is valid
                 false -> 
-                    lager:warning("AUTH FORBIDDEN"),
                     forbidden;     % User has failed authentication
                 undefined -> 
-                    lager:warning("FAILED AUTH: ~p", [AuthList]),
                     {proxy_authenticate, <<"nksip">>}
                     
             end
