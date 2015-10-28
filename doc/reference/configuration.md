@@ -22,7 +22,15 @@ tcp_timeout|`integer()`|180000|Default TCP timeout (msecs)
 sctp_timeout|`integer()`|180000|Default SCTP timeout (msecs)
 ws_timeout|`integer()`|180000|Default WS timeout (msecs)
 connect_timeout|`integer()`|30000|Default connect timeout (msecs)
-tls_opts|`nkpacket:tls_opts`||See nkpacket.erl
+sctp_out_streams|`integer()`|10|Default SCTP out streams
+sctp_in_streams|`integer()`|10|Default SCTP in streams
+tls_certfile|`string()`|-|Custom certificate file
+tls_keyfile|`string()`|-|Custom key file
+tls_cacertfile|`string()`|-|Custom CA certificate file
+tls_password|`string()`|-|Password fort the certificate
+tls_verify|`boolean()`|false|If we must check certificate
+tls_depth|`integer()`|0|TLS check depth
+
 
 ### nkservice
 
@@ -67,17 +75,41 @@ See specific lager configuration
 
 ## Service Configuration
 
-When starting each service, many configuration options can be changed:
+When starting each service, all sip_-class global configuration options can be used, and also:
+
+Name|Type|Default|Comments
+---|---|---|---
+plugins|`atom`|[]|List of plugins to use
+transports|`atom`|"sip:all"|List of transports to use.
+idle_timeout|`integer()`|(depends on transport)|Default connection idle timeout
+connect_timeout|(global)|Default outbound connection idle timeout
+sctp_out_streams|`integer()`|10|Default SCTP out streams
+sctp_in_streams|`integer()`|10|Default SCTP in streams
+tcp_listeners|`integer()`|10|Default number of TCP listenersº
+tls_certfile|`string()`|-|Custom certificate file
+tls_keyfile|`string()`|-|Custom key file
+tls_cacertfile|`string()`|-|Custom CA certificate file
+tls_password|`string()`|-|Password fort the certificate
+tls_verify|`boolean()`|false|If we must check certificate
+tls_depth|`integer()`|0|TLS check depth
 
 
+See [NkPACKET documentation](https://github.com/Nekso/nkpacket) for a description of allowed transports.
+Some examples are:
 
+```erlang
+"<sip:127.0.0.1;transport=ws>;idle_timeout=5000"
+"<sip:localhost:5060>, <sips:localhost:5061>;tls_password=pass"
+```
 
+All transport-related options above are allowed in URLs.
 
-
-## Reconfiguration
+# Reconfiguration
 
 Any Service can be reconfigured on the fly. 
 
-Any of the previous parameters can be changed (currently, except for `transports`), and the new options will be used fot the next call.
+Any of the previous parameters can be changed and the new options will be used fot the next call. 
 
 You can even change the plugin list on the fly, but you must be sure of the effects of such a change.
+
+You can add transports at any time, but must stop manually any transport you don't want to use any more.
