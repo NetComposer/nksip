@@ -22,7 +22,7 @@
 
 %% @doc Service callback module
 
--module(nksip_loadtest_sipapp).
+-module(nksip_loadtest_callbacks).
 
 -export([sip_route/5, sip_invite/2]).
 

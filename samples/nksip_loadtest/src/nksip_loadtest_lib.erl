@@ -40,13 +40,17 @@ start_server() ->
 %% @doc Start a test server Service called `Name' listening on port `Port' for 
 %% udp and tcp, and `Port+1' for tls.
 start_server(Name, Port) ->
-    Opts = [
-        {plugins, [nksip_registrar, nksip_stats]},
-        {transports, [{udp, all, Port}, {tls, all, Port+1}]},
-        {log_level, notice},
-        sip_no_100
-    ],
-    case nksip:start(Name, nksip_loadtest_sipapp, Opts) of
+    Opts = #{
+        plugins => [nksip_registrar, nksip_stats],
+        callback => nksip_loadtest_callbacks,
+        transports => [
+            {nksip_protocol, udp, {0,0,0,0}, Port, #{}},
+            {nksip_protocol, tls, {0,0,0,0}, Port+1, #{}}
+        ],
+        log_level => notice,
+        sip_no_100 => true
+    },
+    case nksip:start(Name, Opts) of
         {ok, _} -> ok;
         {error, already_started} -> ok
     end.
@@ -193,11 +197,9 @@ launch(Opts) ->
                                       {tcp, S}, Pid, CallId, PerProcess),
                         gen_tcp:close(S);
                     tls ->
-                        Cert = filename:join(code:priv_dir(nksip), "cert.pem"),
-                        Key = filename:join(code:priv_dir(nksip), "key.pem"),
-                        TcpOpts = [{packet_certfile, Cert}, {packet_keyfile, Key}, 
-                                    binary, {active, false}],
-                        {ok, S} = ssl:connect(Ip, Port, TcpOpts),
+                        TlsOpts = [binary, {active, false}] ++ 
+                                nkpacket_util:make_tls_opts([]),
+                        {ok, S} = ssl:connect(Ip, Port, TlsOpts),
                         ok = iter_raw(MsgType, Pos, Host, "TLS", State, 
                                     {tls, S}, Pid, CallId, PerProcess),
                         ssl:close(S)
@@ -242,8 +244,12 @@ start_clients(N) ->
 start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
-    Opts = #{transports => [udp,tcp,tls], client=>Pos},
-    case nksip:start({client, Pos}, nksip_loadtest_sipapp, Opts) of
+    Opts = #{
+        transports => "sip:all, sips:all",
+        client => Pos,
+        callback => nksip_loadtest_callbacks
+    },
+    case nksip:start({client, Pos}, Opts) of
         {ok, _} -> start_clients(Pos+1, Max);
         {error, already_started} -> start_clients(Pos+1, Max);
         _ -> error
