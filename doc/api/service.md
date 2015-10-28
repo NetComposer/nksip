@@ -16,8 +16,7 @@ Function|Description
 [get/3](#get3)|Gets a value for a Service variable, with a default
 [put/3](#put3)|Saves a vaule for a Service variable
 [del/2](#del2)|Deletes a Service variable
-[get_pid/1](#get_pid1)|Gets the pid of a Service's gen_server process
-[find_srv_id/1](#find_srv_id1)|Finds the _internal name_ for a currently started Service
+[get_srv_id/1](#get_srv_id1)|Finds the _internal name_ for a currently started Service
 [call/2](#call2)|Synchronous call to the Service's gen_server process
 [call/3](#call3)|Synchronous call to the Service's gen_server process with timeout
 [cast/2](#call3)|Asynchronous call to the Service's gen_server process
@@ -75,7 +74,7 @@ Gets the user and internal ids of all started Services.
 
 ### get/2
 ```erlang
-nksip:get(nksip:srv_name()|nksip:srv_id(), term()) ->
+nkservice_server:get(nksip:srv_name()|nksip:srv_id(), term()) ->
     {ok, term()} | undefined | {error, term()}.
 ```
 Gets a value from Service's store.
@@ -84,7 +83,7 @@ See [saving state information](../guide/start_a_service.md#saving-state-informat
 
 ### get/3
 ```erlang
-nksip:get(nksip:srv_name()|nksip:srv_id(), term(), term()) ->
+nkservice_server:get(nksip:srv_name()|nksip:srv_id(), term(), term()) ->
     {ok, term()} | {error, term()}.
 ```
 Gets a value from Service's store, using a default if not found.
@@ -92,7 +91,7 @@ See [saving state information](../guide/start_a_service.md#saving-state-informat
 
 ### put/3
 ```erlang
-nksip:put(nksip:srv_name()|nksip:srv_id(), term(), term()) ->
+nkservice_server:put(nksip:srv_name()|nksip:srv_id(), term(), term()) ->
     ok | {error, term()}.
 ```
 Inserts a value in Service's store.
@@ -100,24 +99,16 @@ See [saving state information](../guide/start_a_service.md#saving-state-informat
 
 ### del/2
 ```erlang
-nksip:del(nksip:srv_name()|nksip:srv_id(), term()) ->
+nkservice_server:del(nksip:srv_name()|nksip:srv_id(), term()) ->
     ok | {error, term()}.
 ```
 Deletes a value from Service's store.
 See [saving state information](../guide/start_a_service.md#saving-state-information).
 
-### get_pid/1
-```erlang
-nksip:get_pid(nksip:srv_name()|srv_id()) -> 
-    pid() | undefined.
-```
-Gets the Service's _gen_server process_ `pid()`.
-See [starting a Service](../guide/start_a_service.md).
-
 
 ### find_srv_id/1
 ```erlang
-nksip:find_srv_id(term()) ->
+nkservice_server:get_srv_id(term()) ->
     {ok, srv_id()} | not_found.
 ```
 Finds the _internal name_ of an existing Service.
@@ -125,7 +116,7 @@ Finds the _internal name_ of an existing Service.
 
 ### call/2
 ```erlang
-nksip:call(nksip:srv_name()|nksip:srv_id(), term()) ->
+nkservice_server:call(nksip:srv_name()|nksip:srv_id(), term()) ->
     term().
 ```
 Synchronous call to the Service's gen_server process. It is a simple `gen_server:call/2` but allowing Service names.
@@ -133,7 +124,7 @@ Synchronous call to the Service's gen_server process. It is a simple `gen_server
 
 ### call/3
 ```erlang
-nksip:call(nksip:srv_name()|nksip:srv_id(), term(), pos_integer()|infinity) ->
+nkservice_server:call(nksip:srv_name()|nksip:srv_id(), term(), pos_integer()|infinity) ->
     term().
 ```
 Synchronous call to the Service's gen_server process. It is a simple `gen_server:call/3` but allowing Service names.
@@ -141,7 +132,7 @@ Synchronous call to the Service's gen_server process. It is a simple `gen_server
 
 ### cast/2
 ```erlang
-nksip:cast(nksip:srv_name()|nksip:srv_id(), term()) ->
+nkservice_server:cast(nksip:srv_name()|nksip:srv_id(), term()) ->
     term().
 ```
 Asynchronous call to the Service's gen_server process. It is a simple `gen_server:cast/2` but allowing Service names.
