@@ -63,7 +63,7 @@ NkSIP scales automatically using all of the available cores on the machine. Usin
 
 # Quick Start
 
-NkSIP has been tested on OSX and Linux, using Erlang R15B03, R16B03 and 17.1
+NkSIP has been tested on OSX and Linux, using Erlang 17
 
 ```
 > git clone https://github.com/kalta/nksip
