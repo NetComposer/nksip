@@ -29,20 +29,21 @@
 %% ===================================================================
 
 
-%% @doc Starts the Service.
--spec start() -> ok.
-
+%% @doc Starts a new Service, listening on port 5060 for udp and tcp and 5061 for tls,
+%% and acting as a registrar.
 start() ->
-    nksip_pbx_sipapp:start(),
-    loglevel(notice),
-    trace(false).
+    {ok, _} = nksip:start(pbx, #{
+        callback => ?MODULE,
+        plugins => [nksip_registrar, nksip_100rel, nksip_gruu,
+                    nksip_outbound, nksip_timers],
+        transports => "<sip:all:5060>, <sip:all:5061;transport=tls>"
+    }),
+    ok.
 
 
 %% @doc Stops the Service.
--spec stop() -> ok.
-
 stop() ->
-    nksip_pbx_sipapp:stop().
+    nksip:stop(pbx).
 
 
 
@@ -52,12 +53,12 @@ stop() ->
 
 %% @doc Stops or restart automatic response time detection.
 check_speed(Bool) ->
-    nkservice_server:cast(bx, {check_speed, Bool}).
+    nkservice_server:cast(pbx, {check_speed, Bool}).
 
 
 %% @doc Get all registered endpoints with their last respnse time.
 get_speed() ->
-    nkservice_server:call(bx, get_speed).
+    nkservice_server:call(pbx, get_speed).
 
 
 %% @doc Enables SIP trace messages to console.
@@ -74,7 +75,7 @@ trace(false) ->
 -spec loglevel(debug|info|notice) -> ok.
 
 loglevel(Level) -> 
-	lager:set_loglevel(lager_console_backend, Level),
+	nklib_log:console_loglevel(Level),
 	ok = nksip:update(pbx, [{log_level, Level}]).
 
 

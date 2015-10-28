@@ -27,6 +27,7 @@
 -export([get_listenhost/3, make_route/6]).
 -export([get_connected/2, get_connected/5, is_local/2, send/5]).
 -export([put_log_cache/2]).
+-export([print_all/0]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
@@ -278,3 +279,20 @@ put_log_cache(SrvId, CallId) ->
     erlang:put(nksip_call_id, CallId),
     erlang:put(nksip_srv_name, SrvId:name()),
     erlang:put(nksip_log_level, SrvId:cache_log_level()).
+
+
+
+
+%% @private
+print_all() ->
+    lists:foreach(
+        fun(Pid) ->
+            {ok, #nkport{srv_id={nksip, SrvId}}=NkPort} = nkpacket:get_nkport(Pid),
+            {ok, Conn} = nkpacket:get_local(NkPort),
+            io:format("Srv ~p: ~p\n", [SrvId:name(), Conn])
+        end,
+        nkpacket:get_all()).
+
+
+
+

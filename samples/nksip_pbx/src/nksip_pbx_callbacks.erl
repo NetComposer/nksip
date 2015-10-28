@@ -31,9 +31,8 @@
 %%
 %% See {@link //nksip_pbx} for an overview.
 
--module(nksip_pbx_sipapp).
+-module(nksip_pbx_callbacks).
 
--export([start/0, stop/0]).
 -export([init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5]). 
 -export([sip_invite/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
@@ -45,31 +44,16 @@
 -include("../../../plugins/include/nksip_registrar.hrl").
 
 
-%% @doc Starts a new Service, listening on port 5060 for udp and tcp and 5061 for tls,
-%% and acting as a registrar.
-start() ->
-    CoreOpts = [
-        {plugins, [nksip_registrar, nksip_100rel, nksip_gruu, nksip_outbound, nksip_timers]},                      
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
-    ],
-    {ok, _} = nksip:start(pbx, ?MODULE, CoreOpts).
-
-
-%% @doc Stops the Service.
-stop() ->
-    nksip:stop(pbx).
-
-
 %%%%%%%%%%%%%%%%%%%%%%%  NkSIP CallBacks %%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %% @doc Service Callback: initialization.
 %% This function is called by NkSIP after calling `nksip:start/4'.
 %% We program a timer to check our nodes.
-init([], State) ->
+init(_Spec, State) ->
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
     nkservice_server:put(pbx, speed, []),
-    {ok, State#{auto_check=>true}}.
+    {ok, State#{nksip_pbx=>#{auto_check=>true}}}.
 
 
 %% @doc Service Callback: Called to check user's password.
@@ -240,21 +224,21 @@ handle_cast({speed_update, Speed}, State) ->
     {noreply, State};
 
 handle_cast({check_speed, true}, State) ->
-    handle_info({timeout, none, check_speed}, State#{auto_check=>true});
+    handle_info({timeout, none, check_speed}, State#{nksip_pbx=>#{auto_check=>true}});
 
 handle_cast({check_speed, false}, State) ->
-    {noreply, State#{auto_check=>false}}.
+    {noreply, State#{nksip_pbx=>#{auto_check=>false}}}.
 
 
 %% @doc Service Callback: External erlang message received.
 %% The programmed timer sends a `{timeout, _Ref, check_speed}' message
 %% periodically to the Service.
-handle_info({timeout, _, check_speed}, #{auto_check:=true}=State) ->
+handle_info({timeout, _, check_speed}, #{nksip_pbx:=#{auto_check:=true}}=State) ->
     Self = self(),
     spawn(fun() -> test_speed(Self) end),
     {noreply, State};
 
-handle_info({timeout, _, check_speed}, #{auto_check:=false}=State) ->
+handle_info({timeout, _, check_speed}, #{nksip_pbx:=#{auto_check:=false}}=State) ->
     {noreply, State}.
 
 
