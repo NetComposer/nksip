@@ -26,21 +26,19 @@
 
 ## v0.5
 
-* Test in R17
-* Extraction of non-SIP functionality into a new Erlang project, NkCore
-* Distributed version, based on [Riak Core](https://github.com/basho/riak_core).
-* Heavy testing
+* ~~Test in R17~~
+* ~~Extraction of non-SIP functionality into a new Erlang project, NkCore~~ (they have been extracted into three projects: [NkLIB](https://github.com/Nekso/nklib), [NkPACKET](https://github.com/Nekso/nkpacket) and [NkSERVICE](https://github.com/Nekso/nkservice).
 
 
 ## v0.6
 
+* Maps everywhere
 * External control (to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM).
-* node.js integration
+* Heavy testing
 
 
 ## No date
 
-* Javascript, Python, Ruby, Lua, Java libraries. Elixir DSL?
 * _Bridge_ support for B2BUA.
 * IMS and RCS extensions.
 * More application examples.
@@ -58,13 +56,9 @@
 * [RFC4538](http://tools.ietf.org/html/rfc4538): Dialog authorization
 
 
-# UPDATE - UPDATE - UPDATE
+# Other features
 
-Most features after v0.4 will not be developed in the current NkSIP repository.
-
-Only bug corrections and contributions will be added here.
-
-Most of them will be developed in a new, much more ambitious project, [NetComposer.io](http://www.slideshare.net/carlosjgf/net-composer-v2).
+The future distributed and highly available features of NkSIP will be developed in a new, much more ambitious project, [NetComposer.io](http://www.slideshare.net/carlosjgf/net-composer-v2).
 
 Please contact carlosj.gf@gmail.com for details.
 
