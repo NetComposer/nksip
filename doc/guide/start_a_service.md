@@ -1,7 +1,7 @@
 # Starting a Service
 
 * [Starting a Service](#starting-a-service)
-* [Implementation](#sipapp-implementation)
+* [Implementation](#service-implementation)
 * [Saving State](#saving-state-information)
 * [Reconfiguration](#reconfigure-the-service)
 

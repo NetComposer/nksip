@@ -74,7 +74,7 @@ sip_publish(Req, _Call) ->
 
 ```erlang
 clear(nksip:srv_name()|nksip:srv_id()) -> 
-    ok | callback_error | sipapp_not_found.
+    ok | callback_error | service_not_found.
 ```
 
 Clear all stored records by a Service.
@@ -111,7 +111,7 @@ Op|Response|Comments
 {del, AOR, Tag}|ok &#124; not_found|Delete stored information for this `AOR`, `AppId` and `Tag`, returning `ok` or `not_found` if it is not found.
 del_all|ok|Delete all stored information for this `AppId`.
 
-See the [default implementation](../../plugins/src/nksip_event_compositor_sipapp.erl) as a basis. 
+See the [default implementation](../../plugins/src/nksip_event_compositor_callbacks.erl) as a basis. 
 
 
 ## Examples

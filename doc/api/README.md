@@ -2,7 +2,7 @@
 
 ## API
 
-* [Service API](sipapp.md)
+* [Service API](service.md)
 * [Requests API](requests.md)
 * [Responses API](responses.md)
 * [Dialogs API](dialogs.md)

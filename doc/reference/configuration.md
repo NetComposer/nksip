@@ -1,7 +1,7 @@
 # Configuration
 
 * [Global configuration options](#global-configuration-options).
-* [Service configuration options](#sipapp-configuration-options).
+* [Service configuration options](#service-configuration-options).
 * [Reconfiguration](#reconfiguration)
 
 Keep in mind that installed plugins can add specific configuration options. See the [plugins documentation](../plugins/README.md).

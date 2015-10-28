@@ -181,7 +181,7 @@ Op|Response|Comments
 {del, AOR}|ok &#124; not_found|Delete all stored contacts for this `AOR` and `AppIdp`, returning `ok` or `not_found` if the `AOR` is not found.
 del_all|ok|Delete all stored information for this `AppId`.
 
-See the [default implementation](../../plugins/src/nksip_registrar_sipapp.erl) as a basis. 
+See the [default implementation](../../plugins/src/nksip_registrar_callbacks.erl) as a basis. 
 
 ## Examples
 

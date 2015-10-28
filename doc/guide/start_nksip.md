@@ -1,8 +1,7 @@
 # Starting NkSIP
 
-There are three main ways to start NkSIP:
+There are two main ways to start NkSIP:
 * Embedded in your own Erlang application
-* As a stand alone application
 * Starting it in a development environment
 
 ### Embedding NkSIP
@@ -15,14 +14,8 @@ If you want to embed NkSIP in your own Erlang application, and you are using _re
 ]}.
 ```
  
-Then you will have to setup in your erlang environment any [configuration parameter](../reference/configuration.md) you want to change from NkSIP's defaults (usually in your `app.config` file), for `nksip` but also some dependant applications like `nkservice`, `nkpacket` or `lagger`. You can then start NkSIP starting all dependencies (see [nksip.app.src](../../src/nksip.app.src)) and finally start `nksip` Erlang application.
+Then you will have to setup in your erlang environment any [configuration parameter](../reference/configuration.md) you want to change from NkSIP's defaults (usually in your `app.config` file), for `nksip` but also some dependant applications like `nkservice`, `nkpacket` or `lager`. You can then start NkSIP starting all dependencies (see [nksip.app.src](../../src/nksip.app.src)) and finally start `nksip` Erlang application.
 
-
-### Start NkSIP as a stand-alone application
-
-NkSIP does not include any standard Erlang release building system. In the near future, NkSIP will be refactored as a module under the upcoming _NetComposer_ project, so it makes no sense including one.
-
-If you want to start it stand alone now, you can use your own method based on the _development environment_ method.
 
 
 ### Start NkSIP in a development environment

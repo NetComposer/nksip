@@ -6,7 +6,7 @@
 * [Concepts](guide/concepts.md)
 * [Tutorial](guide/tutorial.md)
 * [Starting NkSIP](guide/start_nksip.md)
-* [Starting a Service](guide/start_a_sipapp.md)
+* [Starting a Service](guide/start_a_service.md)
 * [Sending Requests](guide/sending_requests.md)
 * [Receiving Requests](guide/receiving_requests.md)
 
@@ -21,7 +21,7 @@
 * [Logging System](reference/log.md)
 
 ## [3. API](api/README.md)
-* [Service API](api/sipapp.md)
+* [Service API](api/service.md)
 * [Requests API](api/requests.md)
 * [Responses API](api/responses.md)
 * [Dialogs API](api/dialogs.md)

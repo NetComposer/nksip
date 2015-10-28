@@ -2,7 +2,7 @@
 
 This document describes the API that NkSIP makes available to Services.<br/>
 Then SIP-specific functions are available in the [nksip.erl](../../src/nksip.erl) module, while other functions are available in the [nkservice_server](https://github.com/Nekso/nkservice/blob/master/src/nkservice_server.erl) module.<br/>
-See [Starting a Service](../guide/start_a_sipapp.md) for a general overview.
+See [Starting a Service](../guide/start_a_service.md) for a general overview.
 
 
 Function|Description
@@ -34,7 +34,7 @@ nksip:start(nkservice:name(),
 
 Starts a new Service. 
 
-See [Starting a Service](../guide/start_a_sipapp.md) and [Configuration](../reference/configuration.md) to see the list of available configuration options. 
+See [Starting a Service](../guide/start_a_service.md) and [Configuration](../reference/configuration.md) to see the list of available configuration options. 
 
 NkSIP returns the _internal name_ of the application. In most API calls you can use the _user name_ or the _internal name_.
 
@@ -79,7 +79,7 @@ nksip:get(nksip:srv_name()|nksip:srv_id(), term()) ->
     {ok, term()} | undefined | {error, term()}.
 ```
 Gets a value from Service's store.
-See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
+See [saving state information](../guide/start_a_service.md#saving-state-information).
 
 
 ### get/3
@@ -88,7 +88,7 @@ nksip:get(nksip:srv_name()|nksip:srv_id(), term(), term()) ->
     {ok, term()} | {error, term()}.
 ```
 Gets a value from Service's store, using a default if not found.
-See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
+See [saving state information](../guide/start_a_service.md#saving-state-information).
 
 ### put/3
 ```erlang
@@ -96,7 +96,7 @@ nksip:put(nksip:srv_name()|nksip:srv_id(), term(), term()) ->
     ok | {error, term()}.
 ```
 Inserts a value in Service's store.
-See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
+See [saving state information](../guide/start_a_service.md#saving-state-information).
 
 ### del/2
 ```erlang
@@ -104,7 +104,7 @@ nksip:del(nksip:srv_name()|nksip:srv_id(), term()) ->
     ok | {error, term()}.
 ```
 Deletes a value from Service's store.
-See [saving state information](../guide/start_a_sipapp.md#saving-state-information).
+See [saving state information](../guide/start_a_service.md#saving-state-information).
 
 ### get_pid/1
 ```erlang
@@ -112,7 +112,7 @@ nksip:get_pid(nksip:srv_name()|srv_id()) ->
     pid() | undefined.
 ```
 Gets the Service's _gen_server process_ `pid()`.
-See [starting a Service](../guide/start_a_sipapp.md).
+See [starting a Service](../guide/start_a_service.md).
 
 
 ### find_srv_id/1

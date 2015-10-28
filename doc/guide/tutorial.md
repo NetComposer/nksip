@@ -20,7 +20,7 @@ Now you can start a simple proxy server using the included [server callback modu
         callback => nksip_tutorial_server_callbacks,
         plugins => [nksip_registrar],
         transports => "sip:all:5060, <sip:all:5061;transport=tls>"
-    }),
+    }).
 {ok,armejl7}
 ```
 
@@ -135,7 +135,7 @@ Let's register now both clients with the server. We use the option `contact` to 
 9> nksip_uac:register(client1, "sip:127.0.0.1", 
                       [{sip_pass, "1234"}, contact, {meta, [<<"contact">>]}]).
 {ok,200,[{<<"contact">>, [<<"<sip:client1@localhost:5070>...">>]}]}
-10> nksip_uac:register(client2, "sips:127.0.0.1", [{pass, "1234"}, contact]).
+10> nksip_uac:register(client2, "sips:127.0.0.1", [{sip_pass, "1234"}, contact]).
 {ok,200,[]}
 ```
 
@@ -216,7 +216,7 @@ to `nksip_uac:ack(DlgId, [])` manually inmeditaly after the 2xx response.
 If we hadn't included the `auto_2xx_ack`, we should have sent the mandatory ACK for 2xx responses:
 
 ```erlang
-18> nksip_uac:ack(DlgId, []),
+18> nksip_uac:ack(DlgId, []).
 ok
 ```
 

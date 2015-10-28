@@ -27,7 +27,7 @@ Option|Default|Description
 ```erlang
 nksip_uac_auto:start_register(nksip:srv_name()|nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), 
 								    Time::pos_integer(), Opts::nksip:optslist()) -> 
-    {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
+    {ok, boolean()} | {error, invalid_uri|service_not_found}.
 ```
 
 Programs the Service to start a serie of automatic registrations to the registrar at `Uri`, at `Time` (in seconds) intervals. `RegId` indentifies this request to be be able to stop it later. Use [get_registers/1](#get_registers1) or the  callback function [sip_uac_auto_register_update/3](#sip_uac_auto_register_update3) to know about the registration status.
@@ -60,7 +60,7 @@ Get current registration status, including if last registration was successful a
 ```erlang
 nksip_uac_auto:start_ping(nksip:srv_name()|nksip:srv_id(), Id::term(), Uri::nksip:user_uri(), 
 						  Time::pos_integer(), Opts::nksip:optslist()) -> 
-    {ok, boolean()} | {error, invalid_uri|sipapp_not_found}.
+    {ok, boolean()} | {error, invalid_uri|service_not_found}.
 
 
 Programs the Service to start a serie of _pings_ (OPTION requests) to the SIP element at `Uri`, at `Time` (in seconds) intervals. `Id` indentifies this request to be able to stop it later. Use [get_pings1](#get_pings1) or the callback function [sip_uac_auto_ping_update/3](#sip_uac_auto_ping_update3) to know about the ping status.

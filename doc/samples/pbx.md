@@ -19,5 +19,5 @@ Extension|Description
 
 Feel free to use the functions `nksip_pbx:trace/1` to start or stop the trace of SIP messages to console or `nksip_pbx:loglevel/1` to change the console log level. 
 
-Use the function `nksip_pbx_sipapp:check_speed/1` to stop the automatic generation of
+Use the function `nksip_pbx_callbacks:check_speed/1` to stop the automatic generation of
 _OPTION_ requests.
