@@ -8,9 +8,7 @@ Travis CI still fails sometimes due to timers
 
 NkSIP is an Erlang SIP framework or _application server_, which greatly facilitates the development of robust and scalable server-side SIP applications like [proxy](http://en.wikipedia.org/wiki/Session_Initiation_Protocol#Proxy_server), [registrar](http://en.wikipedia.org/wiki/Session_Initiation_Protocol#Registrar), [redirect](http://en.wikipedia.org/wiki/Session_Initiation_Protocol#Redirect_server) or outbound servers, [B2BUAs](http://en.wikipedia.org/wiki/Back-to-back_user_agent), [SBCs](https://en.wikipedia.org/wiki/Session_border_controller) or load generators. NkSIP takes care of much of the SIP complexity, while allowing full access to requests and responses. 
 
-**IMPORTANT** - See the [ROADMAP UPDATE](doc/roadmap.md#update---update---update) for information on the future of NkSIP - **IMPORTANT**
-
-**IMPORTANT** - This version has important, incompatible changes, see the [CHANGELOG](doc/changelog.md)
+**IMPORTANT** - This version has important, incompatible changes, see the [CHANGELOG](doc/changelog.md) **IMPORTANT**
 
 A single NkSIP instance can start any number of SIP Services, each one listening on a specific set of transports (_udp_, _tcp_, _tls_, _sctp_, _ws_ or _wss_), ip addresses and ports. A Service can provide a _callback module_ where it can implement a number of _callback functions_. All of them are optional, having _sane defaults_ in case they are not implemented. For outgoing-only SIP applications, a callback module is not necessary.
 
