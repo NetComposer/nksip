@@ -21,7 +21,7 @@
 %% @doc Service Tutorial client callback module implementation.
 %% This modules implements a client callback module for NkSIP Tutorial.
 
--module(nksip_tutorial_sipapp_client).
+-module(nksip_tutorial_client_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([sip_invite/2, sip_options/2]).

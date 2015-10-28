@@ -26,24 +26,28 @@
 
 -export([launch/0, trace/1, loglevel/1]).
 
+
 %% @doc Launches the full tutorial.
 launch() ->
     {ok, _} = nksip:start(server, #{
+        sip_local_host => "localhost",
         callback => nksip_tutorial_server_callbacks,
         plugins => [nksip_registrar],
         transports => "sip:all:5060, <sip:all:5061;transport=tls>"
     }),
     {ok, _} = nksip:start(client1, #{
+        sip_local_host => "localhost",
         sip_from => "sip:client1@nksip",
         callback => nksip_tutorial_client_callbacks,
         plugins => [nksip_uac_auto_auth],
         transports => "sip:127.0.0.1:5070, sips:127.0.0.1:5071"
     }),
     {ok, _} = nksip:start(client2, #{
+        sip_local_host => "localhost",
         sip_from => "sips:client2@nksip",
         callback => nksip_tutorial_client_callbacks,
         plugins => [nksip_uac_auto_auth],
-        transports => "sip:localhost, sips:localhost"
+        transports => "sip:all, sips:all"
     }),
 
     nksip_registrar_util:clear(),
@@ -56,7 +60,7 @@ launch() ->
     {ok,200,[]} = nksip_uac:options(client1, "sip:127.0.0.1", [{sip_pass, "1234"}]),
     {ok,200,[]} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tls>", [{sip_pass, "1234"}]),
 
-    {ok,200,[{<<"contact">>, [<<"<sip:client1@127.0.0.1:5070>", _/binary>>]}]} = 
+    {ok,200,[{<<"contact">>, [<<"<sip:client1@localhost:5070>", _/binary>>]}]} = 
         nksip_uac:register(client1, "sip:127.0.0.1", 
                            [{sip_pass, "1234"}, contact, {meta, [<<"contact">>]}]),
 
@@ -84,6 +88,7 @@ launch() ->
 
     {ok, confirmed} = nksip_dialog:meta(invite_status, DlgId),
     [_, _, _] = nksip_dialog:get_all_data(),
+    timer:sleep(1000),
 
     {ok,200,[]} = nksip_uac:bye(DlgId, []),
     ok = nksip:stop_all().
@@ -111,28 +116,11 @@ trace(false) ->
     ok.
 
 loglevel(Level) -> 
-    lager:set_loglevel(lager_console_backend, Level),
+    nklib_log:console_loglevel(Level),
     ok = nksip:update(server, [{log_level, Level}]),
     ok = nksip:update(client1, [{log_level, Level}]),
     ok = nksip:update(client2, [{log_level, Level}]),
     ok.
 
 
-
-
-
-%% ===================================================================
-%% EUnit tests
-%% ===================================================================
-
-
-% -ifdef(TEST).
-
-% -include_lib("eunit/include/eunit.hrl").
-
-% tutorial_test() ->
-%     nksip_app:start(),
-%     ok = launch().
-
-% -endif.
 

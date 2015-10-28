@@ -1,10 +1,17 @@
--pa deps/goldrush/ebin 
--pa deps/lager/ebin 
--pa deps/ranch/ebin 
--pa deps/cowlib/ebin 
 -pa deps/cowboy/ebin 
--pa ../nksip/ebin
--pa ../nksip/plugins/ebin
+-pa deps/cowlib/ebin 
+-pa deps/goldrush/ebin 
+-pa deps/gun/ebin 
+-pa deps/jsx/ebin
+-pa deps/lager/ebin 
+-pa deps/nkdocker/ebin
+-pa deps/nklib/ebin
+-pa deps/nkpacket/ebin
+-pa deps/nkservice/ebin
+-pa deps/ranch/ebin 
+-pa deps/wsock/ebin 
+-pa plugins/ebin
+-pa ebin
 -pa samples/nksip_tutorial/ebin
 
 ## Name of the node
@@ -19,9 +26,6 @@
 
 ## Increase number of concurrent ports/sockets
 -env ERL_MAX_PORTS 65535
-
-## Tweak GC to run more often 
-#-env ERL_FULLSWEEP_AFTER 0
 
 ## Set the location of crash dumps
 -env ERL_CRASH_DUMP .

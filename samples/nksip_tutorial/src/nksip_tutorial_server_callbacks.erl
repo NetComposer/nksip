@@ -26,7 +26,7 @@
 %% Request with user and domain "nksip" are found (as a registrar) and proxied.
 %% Other requests are proxied to the same origin Request-URI
 
--module(nksip_tutorial_sipapp_server).
+-module(nksip_tutorial_server_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5, handle_call/3]).
@@ -38,9 +38,9 @@
 %% ===================================================================
 
 %% @doc Service intialization.
-init([], State) ->
+init(_Opts, State) ->
     nkservice_server:put(server, started, httpd_util:rfc1123_date()),
-    {ok, State#{started=>undefined}}.
+    {ok, State}.
 
 
 %% @doc Called to check user's password.
@@ -72,16 +72,24 @@ sip_get_user_pass(_User, _Realm, _Req, _Call) ->
 %%    a challenge to the user.
 %%
 sip_authorize(AuthList, _Req, _Call) ->
+    IsDialog = lists:member(dialog, AuthList),
+    IsRegister = lists:member(register, AuthList),
+    lager:warning("AUTH: ~p, ~p", [IsDialog, IsRegister]),
+
+
     case lists:member(dialog, AuthList) orelse lists:member(register, AuthList) of
         true -> 
             ok;
         false ->
             case proplists:get_value({digest, <<"nksip">>}, AuthList) of
                 true -> 
+                    lager:warning("AUTH OK"),
                     ok;            % Password is valid
                 false -> 
+                    lager:warning("AUTH FORBIDDEN"),
                     forbidden;     % User has failed authentication
                 undefined -> 
+                    lager:warning("FAILED AUTH: ~p", [AuthList]),
                     {proxy_authenticate, <<"nksip">>}
                     
             end
