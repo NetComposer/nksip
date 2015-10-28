@@ -33,7 +33,7 @@ None
 
 Option|Default|Description
 ---|---|---
-nksip_trace|-|Configures tracing for this Service (see bellow)
+sip_trace|-|Configures tracing for this Service (see bellow)
 
 You can use the following options for `nksip_trace`:
 * `{nksip_trace, console}`: Tracing for all IPs will be sent to the console

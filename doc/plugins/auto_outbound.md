@@ -32,11 +32,11 @@ Once a REGISTER to a remote registrar is successful, NkSIP will keep the flow op
 
 Option|Default|Description
 ---|---|---
-nksip_uac_auto_outbound_all_fail|30|Basetime to use then all connections have failed
-nksip_uac_auto_outbound_any_ok|90|Basetime to use when some, but not all, connections have failed
-nksip_uac_auto_outbound_max_time|1800|Maximum time for outbound
-nksip_uac_auto_outbound_default_udp_ttl|25|UDP connection default TTL
-nksip_uac_auto_outbound_default_tcp_ttl|120|TCP connection default TTL
+sip_uac_auto_outbound_all_fail|30|Basetime to use then all connections have failed
+sip_uac_auto_outbound_any_ok|90|Basetime to use when some, but not all, connections have failed
+sip_uac_auto_outbound_max_time|1800|Maximum time for outbound
+sip_uac_auto_outbound_default_udp_ttl|25|UDP connection default TTL
+sip_uac_auto_outbound_default_tcp_ttl|120|TCP connection default TTL
 
 
 ## API functions

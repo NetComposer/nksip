@@ -28,7 +28,7 @@ None
 
 Option|Default|Description
 ---|---|---
-nksip_event_compositor_default_expires|60 (secs)|Default expiration for stored events
+sip_event_compositor_default_expires|60 (secs)|Default expiration for stored events
 
 ## API functions
 
@@ -124,18 +124,18 @@ See the [default implementation](../../plugins/src/nksip_event_compositor_callba
 -compile([export_all]).
 
 start() ->
-    {ok, _} = nksip:start(client1, ?MODULE, [], [
-        {from, "sip:client1@nksip"},
-        {local_host, "localhost"},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]}
+    {ok, _} = nksip:start(client1, [
+        {sip_from, "sip:client1@nksip"},
+        {sip_local_host, "localhost"},
+        {transports, "sip:all:5060, sips:all:5061"}
     ]),
-    {ok, _} = nksip:start(server, ?MODULE, [], [
-        {from, "sip:server@nksip"},
-        no_100,
+    {ok, _} = nksip:start(server, [
+        {sip_from, "sip:server@nksip"},
+        {sip_local_host, "127.0.0.1"},
+        {sip_no_100, true},
+        {sip_events, "nkpublish"}
         {plugins, [nksip_event_compositor]},
-        {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
-        {events, "nkpublish"}
+        {transports, "sip:all:5070, sips:all:5071"}
     ]).
 
 

@@ -15,8 +15,8 @@ None
 Option|Default|Description
 ---|---|---
 {register, Uri::nksip:user_uri()}|-|If defined, it programs an automatic registration to this registrar on Service startup 
-{register_expires, Expires::integer()}|300|Default registration interval
-{nksip_uac_auto_timer, Secs::pos_integer()}|5|Interval to check for new expired timers
+{sip_register_expires, Expires::integer()}|300|Default registration interval
+{sip_uac_auto_timer, Secs::pos_integer()}|5|Interval to check for new expired timers
 
 
 

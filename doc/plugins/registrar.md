@@ -19,7 +19,7 @@ Once activated, the following happens:
 * When a new _REGISTER_request arrives, you have two options:
   * Not implementing `sip_register/2` in you Service callback function. In this case, the request will be processed automatically.
   * Implementing your own `sip_register/`. You must inspect the request, and, in case you want it to be process, call [request/1](#request1)
-  * 
+  
 
 
 When a new _REGISTER_ request arrives at a Service, and if you order to `process` the request in [sip_route/6](../reference/callback_functions.md#sip_route5) callback, NkSIP will try to call [sip_register/2](../reference/callback_functions.md#sip_register2) callback if it is defined in yor Service's callback module. If it is not defined there, NkSIP will process the request automatically. If you implement `sip_register/3` to customize the registration process you should call [request/1](#request1) directly.
@@ -42,9 +42,9 @@ None
 
 Option|Default|Description
 ---|---|---
-nksip_registrar_default_time|3600 (1h)|Default registration expiration
-nksip_registrar_min_time|60 (1m)|Minimum registration expiration
-nksip_registrar_max_time|86400 (24h)|Maximum registration expiration
+sip_registrar_default_time|3600 (1h)|Default registration expiration
+sip_registrar_min_time|60 (1m)|Minimum registration expiration
+sip_registrar_max_time|86400 (24h)|Maximum registration expiration
 
 
 ## API functions
@@ -193,16 +193,16 @@ See the [default implementation](../../plugins/src/nksip_registrar_callbacks.erl
 
 
 start() ->
-    {ok, _} = nksip:start(server, ?MODULE, [], [
-        {from, "sip:server@nksip"},
+    {ok, _} = nksip:start(server, [
+        {sip_from, "sip:server@nksip"},
+        {sip_registrar_min_time, 60},
         {plugins, [nksip_registrar]},
-        {transports, [{udp, all, 5060}, {tls, all, 5061}]},
-        {nksip_registrar_min_time, 60}
+        {transports, "sip:all:5060, sips:all:5061"}
     ]),
     {ok, _} = nksip:start(client, ?MODULE, [], [
-        {from, "sip:client@nksip"},
-        {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]}
+        {sip_from, "sip:client@nksip"},
+        {sip_local_host, "127.0.0.1"},
+        {transports, "sip:all:5070, sips:all:5071"}
     ]).
 
 stop() ->

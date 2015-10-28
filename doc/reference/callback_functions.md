@@ -36,7 +36,7 @@ Callback|Reason
 
 Callback|Reason
 ---|---
-[init/1](#init1)|Called when the Service is launched using `nksip:start/4`
+[init/2](#init2)|Called when the Service is launched using `nksip:start/2`
 [terminate/2](#terminate2)|Called when the Service is stopped
 [handle_call/3](#handle_call3)|Called when a direct call to the Service process is made using `nksip:call/2` or `nksip:call/3`
 [handle_cast/2](#handle_cast2)|Called when a direct cast to the Service process is made using `nksip:cast/2`
@@ -470,13 +470,15 @@ When NkSIP will call this function when detects that, inside an existing dialog,
 
 
 
-### init/1
-This callback function is called when the Service is launched using `nksip:start/4`.
-If `{ok, State}` or `{ok, State, Timeout}` is returned the Service is started with this initial state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the Service will not start. 
+### init/2
+This callback function is called when the Service is launched using `nksip:start/2`.
+You receive the service configuration and an initial state. The state is a map(), and you should
+only add new keys to it.
+If `{ok, State}` or `{ok, State, Timeout}` is returned the Service is started with this updated state. If a `Timeout` is provided (in milliseconds) a `timeout` message will be sent to the process (you will need to implement `handle_info/2` to receive it). If `{stop, Reason}` is returned the Service will not start. 
 
 ```erlang
-init(Args::term()) ->
-    {ok, State::term()} | {ok, State::term(), Timeout::timeout()} |
+init(Spec::nkservice:spec(), State::map()) ->
+    {ok, State::map()} | {ok, State::map(), Timeout::timeout()} |
     {stop, Reason::term()}.
 
 init([]) ->
@@ -487,7 +489,7 @@ init([]) ->
 Called when the Service is stopped.
 
 ```erlang
-terminate(Reason::term(), State::term()) ->
+terminate(Reason::term(), State::map()) ->
     ok.
 
 terminate(_Reason, _State) ->
@@ -498,7 +500,7 @@ terminate(_Reason, _State) ->
 Called when a direct call to the Service process is made using `gen_server:call/2,3`.
 
 ```erlang
-handle_call(Msg::term(), From::from(), State::term()) ->
+handle_call(Msg::term(), From::from(), State::map()) ->
       {noreply, State} | {noreply, State, Timeout} | 
       {reply, Reply, State} | {reply, Reply, State, Timeout} | 
       {stop, Reason, State} | {stop, Reason, Reply, State}
@@ -514,7 +516,7 @@ handle_call(Msg, _From, State) ->
 Called when a direct cast to the Service process is made using `gen_server:cast/2`.
 
 ```erlang
-handle_cast(Msg::term(), State::term()) ->
+handle_cast(Msg::term(), State::map()) ->
       {noreply, State} | {noreply, State, Timeout} | 
       {stop, Reason, State} 
       when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
@@ -529,7 +531,7 @@ handle_cast(Msg, State) ->
 Called when the Service process receives an unknown message.
 
 ```erlang
-handle_info(Msg::term(), State::term()) ->
+handle_info(Msg::term(), State::map()) ->
       {noreply, State} | {noreply, State, Timeout} | 
       {stop, Reason, State} 
       when State :: term(), Timeout :: infinity | non_neg_integer(), Reason :: term().
@@ -543,8 +545,8 @@ See gen_server's documentation
 
 
 ```erlang
-code_change(OldVsn::term(), State::term(), Extra::term()) ->
-    {ok, NewState::term()}.
+code_change(OldVsn::term(), State::map(), Extra::term()) ->
+    {ok, NewState::map()}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

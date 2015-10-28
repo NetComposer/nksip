@@ -137,17 +137,17 @@ If implemented, it will called each time a ping serie changes its state.
 -compile([export_all]).
 
 start() ->
-    {ok, _} = nksip:start(server, ?MODULE, [], [
+    {ok, _} = nksip:start(server, [
+        {sip_registrar_min_time, 1},
+        {sip_uac_auto_register_timer, 1},
         {plugins, [nksip_registrar]},
-        {transports, [{udp, all, 5080}]},
-        {nksip_registrar_min_time, 1},
-        {nksip_uac_auto_register_timer, 1}
+        {transports, "sip:all:5080"}
     ]),
-    {ok, _} = nksip:start(client, ?MODULE, [], [
-        {from, "\"NkSIP Basic SUITE Test Client\" <sip:client@nksip>"},
-        {transports, [{udp, all, 5070}, {tls, all, 5071}]},
-        {plugins, [nksip_uac_auto_register]},
-        {nksip_uac_auto_register_timer, 1}
+    {ok, _} = nksip:start(client, [
+        {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client@nksip>"},
+        {sip_uac_auto_register_timer, 1},
+        {transports, "sip:all:5070, sips:all:5071"},
+        {plugins, [nksip_uac_auto_register]}
     ]).
             
 

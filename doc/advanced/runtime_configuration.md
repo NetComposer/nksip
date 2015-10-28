@@ -5,6 +5,7 @@ NkSIP implements and advanced and very efficient run-time configuration system. 
 * Service configuration options. They are defined when starting the Service calling `nksip:start/2`.
 * Call Config
 
+
 ### Global config
 
 During NkSIP startup, the global configuration values from the nksip application environment are extracted, defining defaults for missing values, and storing them in an ETS table.

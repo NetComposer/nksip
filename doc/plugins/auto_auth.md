@@ -32,11 +32,10 @@ None
 
 Option|Default|Description
 ---|---|---
-nksip_uac_auto_auth_max_tries|5|Number of times to attemp the request
-pass|-|Pass to use for digest authentication (see bellow)
-passes|-|List of passes to use for digest authentication (see bellow)
+sip_uac_auto_auth_max_tries|5|Number of times to attemp the request
+sip_pass|-|Pass to use for digest authentication (see bellow)
 
-You can use only one of `pass` or `passes` configuration option. In the first case, it can have the form `Pass::binary()` or `{Realm::binary(), Pass::binary()}`. In the second form, must be a list of any of the previous types.
+You can use only one of `sip_pass` configuration option. Tt can have the form `Pass::binary()` or `{Realm::binary(), Pass::binary()}`, or a list of any of the previous types.
 
 In case you don't want to use a clear-text function, you can use the function [nksip_auth:make_ha1/3](../../src/nksip_auth.erl) to get a hash of the password that can be used instead of the real password.
 
@@ -70,18 +69,18 @@ None
 -compile([export_all]).
 
 start() ->
-    {ok, _} = nksip:start(client1, ?MODULE, [], [
-        {from, "sip:client1@nksip"},
+    {ok, _} = nksip:start(client1, [
+        {sip_from, "sip:client1@nksip"},
+        {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_uac_auto_auth]},
-        {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5070}]}
+        {transports, "sip:all:5070"}}
     ]),
-    {ok, _} = nksip:start(client2, ?MODULE, [], [
-        {from, "sip:client2@nksip"},
+    {ok, _} = nksip:start(client2, [
+        {sip_pass, ["jj", {"client1", "4321"}]},
+        {sip_from, "sip:client2@nksip"},
+        {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_uac_auto_auth]},
-        {passes, ["jj", {"client1", "4321"}]},
-        {local_host, "127.0.0.1"},
-        {transports, [{udp, all, 5071}]}
+        {transports, "sip:all:5071"}
     ]).
 
 
@@ -92,18 +91,18 @@ stop() ->
 
 test() ->
     {ok, 401, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", []),
-    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{pass, "1234"}]),
-    {ok, 403, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{pass, "12345"}]),
-    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{pass, {"client2", "1234"}}]),
-    {ok, 403, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{pass, {"other", "1234"}}]),
+    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{sip_pass, "1234"}]),
+    {ok, 403, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{sip_pass, "12345"}]),
+    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{sip_pass, {"client2", "1234"}}]),
+    {ok, 403, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{sip_pass, {"other", "1234"}}]),
 
     HA1 = nksip_auth:make_ha1("client1", "1234", "client2"),
-    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{pass, HA1}]),
+    {ok, 200, []} = nksip_uac:options(client1, "sip:127.0.0.1:5071", [{sip_pass, HA1}]),
     
     % Pass is invalid, but there is a valid one in Service's options
     {ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", []),
-    {ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", [{pass, "kk"}]),
-    {ok, 403, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", [{pass, {"client1", "kk"}}]),
+    {ok, 200, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", [{sip_pass, "kk"}]),
+    {ok, 403, []} = nksip_uac:options(client2, "sip:127.0.0.1:5070", [{sip_pass, {"client1", "kk"}}]),
     ok.
 
 
