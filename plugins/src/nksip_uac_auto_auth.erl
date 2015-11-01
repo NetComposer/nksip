@@ -79,6 +79,9 @@ defaults() ->
     }.
 
 
+parse_passes(_, [], _) ->
+    {ok, []};
+
 parse_passes(_, Passes, _) when is_list(Passes), not is_integer(hd(Passes)) ->
     check_passes(Passes, []);
 
