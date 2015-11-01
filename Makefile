@@ -65,7 +65,7 @@ loadtest: app
 
 pbx: app
 	erl -config samples/nksip_pbx/priv/app.config \
-		-args_file samples/nksip_pbx/priv/vm.args -s nksip_pbx
+		-args_file samples/nksip_pbx/priv/vm.args
 
 build_tests:
 	erlc -pa ebin -pa deps/lager/ebin -pa deps/nklib/ebin -pa deps/nkpacket/ebin \
