@@ -24,13 +24,13 @@
 * ~~Bug corrections~~.
 
 
-## v0.5
+## v0.5 (next version from master)
 
 * ~~Test in R17~~
 * ~~Extraction of non-SIP functionality into a new Erlang project, NkCore~~ (they have been extracted into three projects: [NkLIB](https://github.com/Nekso/nklib), [NkPACKET](https://github.com/Nekso/nkpacket) and [NkSERVICE](https://github.com/Nekso/nkservice).
 
 
-## v0.6
+## v0.6 (next version from development)
 
 * Maps everywhere
 * External control (to be able to use NkSIP without having to use Erlang or outside of the NkSIP Erlang VM).
