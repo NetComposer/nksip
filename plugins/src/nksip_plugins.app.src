@@ -1,6 +1,6 @@
 {application, nksip_plugins, [
     {description, "NkSIP Standard Plugins"},
-    {vsn, "master"},
+    {vsn, "develop"},
     {modules, []},
     {registered, []},
     % {mod, {nksip_plugins_app, []}},
