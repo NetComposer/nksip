@@ -32,7 +32,7 @@
 -include("nksip_event_compositor.hrl").
 
 -export([find/3, request/1, clear/1]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -export_type([reg_publish/0]).
 
 
@@ -56,10 +56,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 

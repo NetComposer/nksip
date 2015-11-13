@@ -73,7 +73,7 @@ stop() ->
 
 
 register1() ->
-    Spec = nkservice_server:get_spec(server1),
+    Spec = nkservice:get_spec(server1),
     Min = maps:get(sip_registrar_min_time, Spec),
     MinB = nklib_util:to_binary(Min),
     Max = maps:get(sip_registrar_max_time, Spec),
@@ -298,7 +298,7 @@ register2() ->
 
 
 init(#{name:=Id}, State) ->
-    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    ok = nkservice:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State}.
 
 
@@ -306,7 +306,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:srv_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
-            Domains = nkservice_server:get(server1, domains),
+            Domains = nkservice:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;

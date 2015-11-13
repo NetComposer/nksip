@@ -95,7 +95,7 @@ running() ->
     {error, already_started} = nksip:start(client1, []),
     {error, already_started} = nksip:start(client2, []),
     [{_, server1, _}, {_, client2, _}, {_, client1, _}] =
-        lists:sort(nkservice_server:get_all(nksip)),
+        lists:sort(nkservice:get_all(nksip)),
 
     % lager:error("Next error about error1 is expected"),
     {error, error1} = nksip:start(error1, [
@@ -232,14 +232,14 @@ init(#{name:=error1}, _State) ->
     {stop, error1};
 
 init(#{name:=Name, arg:=Name}, State) ->
-    ok = nkservice_server:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    ok = nkservice:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State#{my_name=>Name}}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:srv_name(Req) of
         {ok, server1} ->
-            Domains = nkservice_server:get(server1, domains),
+            Domains = nkservice:get(server1, domains),
             Opts = [
                 record_route,
                 {insert, "x-nk-server", server1}
@@ -275,11 +275,11 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
 
 
 handle_call(get_domains, _From, #{my_name:=Name}=State) ->
-    Domains = nkservice_server:get(Name, domains),
+    Domains = nkservice:get(Name, domains),
     {reply, {ok, Name, Domains}, State};
 
 handle_call({set_domains, Domains}, _From, #{my_name:=Name}=State) ->
-    ok = nkservice_server:put(Name, domains, Domains),
+    ok = nkservice:put(Name, domains, Domains),
     {reply, {ok, Name}, State}.
 
 handle_cast({cast_test, Ref, Pid}, #{my_name:=Name}=State) ->

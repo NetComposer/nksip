@@ -579,7 +579,7 @@ multiple_200() ->
 
 
 init(#{name:=Id}, State) ->
-    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+    ok = nkservice:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State}.
 
 
@@ -600,7 +600,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                     {ok, _} -> []
                 end
             ]),
-            Domains = nkservice_server:get(serverR, domains),
+            Domains = nkservice:get(serverR, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;
@@ -620,7 +620,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
             % Always Record-Route
             % If domain is "nksip" routes to serverR
             Opts = [record_route, {insert, "x-nk-id", App}],
-            Domains = nkservice_server:get(App, domains),
+            Domains = nkservice:get(App, domains),
             case lists:member(Domain, Domains) of
                 true when Domain==<<"nksip">>, App==server1 ->
                     {proxy_stateless, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};

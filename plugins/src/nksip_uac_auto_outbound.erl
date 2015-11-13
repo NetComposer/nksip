@@ -23,7 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 -include("nksip_uac_auto_outbound.hrl").
 
@@ -41,10 +41,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip_uac_auto_register, nksip_outbound].
 
 
@@ -117,6 +117,6 @@ stop_register(Srv, RegId) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(Srv) ->
-    nkservice_server:call(Srv, nksip_uac_auto_outbound_get_regs).
+    nkservice:call(Srv, nksip_uac_auto_outbound_get_regs).
 
     

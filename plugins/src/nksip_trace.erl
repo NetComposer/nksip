@@ -28,7 +28,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
 
@@ -53,10 +53,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 
@@ -125,7 +125,7 @@ get_all() ->
             {File, IpList} -> [{SrvName, File, IpList}]
         end
     end,
-    lists:foldl(Fun, [], nkservice_server:get_all(nksip)).
+    lists:foldl(Fun, [], nkservice:get_all(nksip)).
 
 
 %% @doc Equivalent to `start(SrvId, console, all)' for all started Services.
@@ -135,7 +135,7 @@ get_all() ->
 start() -> 
     lists:map(
         fun({SrvId, SrvName, _Pid}) -> {SrvName, start(SrvId)} end, 
-        nkservice_server:get_all(nksip)).
+        nkservice:get_all(nksip)).
 
 
 %% @doc Equivalent to `start(SrvId, console, all)'.
@@ -179,7 +179,7 @@ start(Srv, File, IpList) ->
 stop() ->
     lists:map(
         fun({SrvId, SrvName, _Pid}) -> {SrvName, stop(SrvId)} end, 
-        nkservice_server:get_all(nksip)).
+        nkservice:get_all(nksip)).
 
 
 %% @doc Stop tracing a specific trace process, closing file if it is opened.

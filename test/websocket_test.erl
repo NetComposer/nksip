@@ -358,7 +358,7 @@ all_connected(SrvId) ->
 
 
 init(#{name:=Id}, State) ->
-    ok = nkservice_server:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
+    ok = nkservice:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
     {ok, State}.
 
 
@@ -366,7 +366,7 @@ sip_route(_Scheme, User, Domain, Req, _Call) ->
     case nksip_request:srv_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", "server1"}],
-            Domains = nkservice_server:get(server1, domains),
+            Domains = nkservice:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;

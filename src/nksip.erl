@@ -25,7 +25,7 @@
 
 -export([start/2, stop/1, stop_all/0, update/2]).
 -export([get_config/1, get_uuid/1]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
@@ -166,7 +166,7 @@ start(Name, Opts) ->
         plugins => [nksip|maps:get(plugins, Opts1, [])],
         transports => maps:get(transports, Opts1, "sip:all")
     },
-    nkservice_server:start(Name, Opts2).
+    nkservice:start(Name, Opts2).
 
 
 %% @doc Stops a started Service, stopping any registered transports.
@@ -174,7 +174,7 @@ start(Name, Opts) ->
     ok | {error, service_not_found}.
 
 stop(Srv) ->
-    nkservice_server:stop(Srv).
+    nkservice:stop(Srv).
 
 
 %% @doc Stops all started Services.
@@ -184,7 +184,7 @@ stop(Srv) ->
 stop_all() ->
     lists:foreach(
         fun({SrvId, _, _}) -> stop(SrvId) end, 
-        nkservice_server:get_all(nksip)).
+        nkservice:get_all(nksip)).
 
 
 %% @doc Updates the callback module or options of a running Service.
@@ -200,7 +200,7 @@ update(Srv, Opts) ->
         _ ->
             Opts1
     end,
-    nkservice_server:update(Srv, Opts2).
+    nkservice:update(Srv, Opts2).
 
     
 
@@ -231,14 +231,15 @@ get_config(SrvName) ->
 %% ===================================================================
 
 
-version() ->
-    {ok, Vsn} = application:get_key(nksip, vsn),
-    Vsn.
+-spec plugin_deps() ->
+    [module()].
 
-
-deps() ->
+plugin_deps() ->
     [].
 
+
+-spec plugin_start(nkservice:spec()) ->
+    {ok, nkservice:spec()} | {stop, term()}.
 
 plugin_start(#{id:=SrvId}=SrvSpec) ->
     try
@@ -271,6 +272,9 @@ plugin_start(#{id:=SrvId}=SrvSpec) ->
         throw:Throw -> {stop, Throw}
     end.
 
+
+-spec plugin_stop(nkservice:spec()) ->
+    {ok, nkservice:spec()} | {stop, term()}.
 
 plugin_stop(#{id:=SrvId}=SrvSpec) ->
     Syntax = nksip_syntax:syntax(),

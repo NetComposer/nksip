@@ -25,7 +25,7 @@
 -include("../include/nksip.hrl").
 
 -export([get_gruu_pub/1, get_gruu_temp/1, registrar_find/2]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 
 %% ===================================================================
@@ -42,10 +42,10 @@ version() ->
 
 %% @doc Dependant plugins
 %% If nksip_registrar is activated, it will update it
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 

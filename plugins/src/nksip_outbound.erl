@@ -24,7 +24,7 @@
 
 -include("../include/nksip.hrl").
 
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 
 %% ===================================================================
@@ -40,10 +40,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 

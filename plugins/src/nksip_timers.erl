@@ -19,7 +19,7 @@
 -include("../include/nksip_call.hrl").
 
 -export([get_session_expires/1, get_session_refresh/1]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 
 %% ===================================================================
@@ -35,10 +35,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 

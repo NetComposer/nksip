@@ -26,7 +26,7 @@
 
 -export([start/1, stop/1, print/1, print_all/0]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
@@ -44,10 +44,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 

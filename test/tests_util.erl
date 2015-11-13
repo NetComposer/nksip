@@ -110,23 +110,23 @@ save_ref(Req) ->
         {ok, [RepBin]} -> 
             {Ref, Pid} = erlang:binary_to_term(base64:decode(RepBin)),
             {ok, SrvId} = nksip_request:srv_id(Req),
-            Dialogs = nkservice_server:get(SrvId, dialogs, []),
+            Dialogs = nkservice:get(SrvId, dialogs, []),
             {ok, DialogId} = nksip_dialog:get_handle(Req),
-            ok = nkservice_server:put(SrvId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
+            ok = nkservice:put(SrvId, dialogs, [{DialogId, Ref, Pid}|Dialogs]);
         {ok, _O} ->
             ok
     end.
 
 
 update_ref(SrvId, Ref, DialogId) ->
-    Dialogs = nkservice_server:get(SrvId, dialogs, []),
-    ok = nkservice_server:put(SrvId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
+    Dialogs = nkservice:get(SrvId, dialogs, []),
+    ok = nkservice:put(SrvId, dialogs, [{DialogId, Ref, self()}|Dialogs]).
 
 
 send_ref(Msg, Req) ->
     {ok, DialogId} = nksip_dialog:get_handle(Req),
     {ok, SrvId} = nksip_request:srv_id(Req),
-    Dialogs = nkservice_server:get(SrvId, dialogs, []),
+    Dialogs = nkservice:get(SrvId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
             % lager:warning("FOUND ~p, ~p", [SrvId, _D]),
@@ -138,7 +138,7 @@ send_ref(Msg, Req) ->
 
 dialog_update(Update, Dialog) ->
     {ok, SrvId} = nksip_dialog:srv_id(Dialog),
-    case catch nkservice_server:get(SrvId, dialogs, []) of
+    case catch nkservice:get(SrvId, dialogs, []) of
         Dialogs when is_list(Dialogs) ->
             {ok, DialogId} = nksip_dialog:get_handle(Dialog),
             case lists:keyfind(DialogId, 1, Dialogs) of
@@ -167,7 +167,7 @@ dialog_update(Update, Dialog) ->
 
 session_update(Update, Dialog) ->
     {ok, SrvId} = nksip_dialog:srv_id(Dialog),
-    Dialogs = nkservice_server:get(SrvId, dialogs, []),
+    Dialogs = nkservice:get(SrvId, dialogs, []),
     {ok, DialogId} = nksip_dialog:get_handle(Dialog),
     case lists:keyfind(DialogId, 1, Dialogs) of
         false -> 
@@ -177,13 +177,13 @@ session_update(Update, Dialog) ->
             case Update of
                 {start, Local, Remote} ->
                     Pid ! {Ref, {SrvName, sdp_start}},
-                    Sessions = nkservice_server:get(SrvId, sessions, []),
-                    nkservice_server:put(SrvId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Sessions = nkservice:get(SrvId, sessions, []),
+                    nkservice:put(SrvId, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 {update, Local, Remote} ->
                     Pid ! {Ref, {SrvName, sdp_update}},
-                    Sessions = nkservice_server:get(SrvId, sessions, []),
-                    nkservice_server:put(SrvId, sessions, [{DialogId, Local, Remote}|Sessions]),
+                    Sessions = nkservice:get(SrvId, sessions, []),
+                    nkservice:put(SrvId, sessions, [{DialogId, Local, Remote}|Sessions]),
                     ok;
                 stop ->
                     Pid ! {Ref, {SrvName, sdp_stop}},

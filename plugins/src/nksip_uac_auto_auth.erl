@@ -26,7 +26,7 @@
 -include("../include/nksip_call.hrl").
 
 -export([check_auth/4, syntax/0]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 %% ===================================================================
 %% Plugin specific
@@ -41,10 +41,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 

@@ -53,12 +53,12 @@ stop() ->
 
 %% @doc Stops or restart automatic response time detection.
 check_speed(Bool) ->
-    nkservice_server:cast(pbx, {check_speed, Bool}).
+    nkservice:cast(pbx, {check_speed, Bool}).
 
 
 %% @doc Get all registered endpoints with their last respnse time.
 get_speed() ->
-    nkservice_server:call(pbx, get_speed).
+    nkservice:call(pbx, get_speed).
 
 
 %% @doc Enables SIP trace messages to console.

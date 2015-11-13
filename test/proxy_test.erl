@@ -120,7 +120,7 @@ invalid() ->
     C1 = client1,
     C2 = client2,
     S1 = server1,
-    #{test_type:=Test} = nkservice_server:get_spec(S1),
+    #{test_type:=Test} = nkservice:get_spec(S1),
 
     % Request arrives at server1; it has no user, and domain belongs to it,
     % so it orders to process it (statelessly or statefully depending on Test)
@@ -181,7 +181,7 @@ invalid() ->
 opts() ->
     C1 = client1,
     C2 = client2,
-    #{test_type:=Test} = nkservice_server:get_spec(C1),
+    #{test_type:=Test} = nkservice:get_spec(C1),
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
     
@@ -580,14 +580,14 @@ init(#{test_type:=Test, name:=Id}, State) ->
         server2 -> [<<"nksip2">>, <<"127.0.0.1">>, <<"[::1]">>];
         _ -> []
     end,
-    ok = nkservice_server:put(Id, domains, Domains),
-    ok = nkservice_server:put(Id, test_type, Test),
+    ok = nkservice:put(Id, domains, Domains),
+    ok = nkservice:put(Id, test_type, Test),
     {ok, State}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     {ok, SrvId} = nksip_request:srv_id(Req),
-    Test = nkservice_server:get(SrvId, test_type),
+    Test = nkservice:get(SrvId, test_type),
     case nksip_request:srv_name(Req) of
         {ok, Name} when Name==server1; Name==server2 ->
             Opts = [
@@ -601,7 +601,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 stateful -> proxy;
                 stateless -> proxy_stateless
             end,
-            Domains = nkservice_server:get(SrvId, domains),
+            Domains = nkservice:get(SrvId, domains),
             case lists:member(Domain, Domains) of
                 true when User == <<>>, Test==stateless ->
                     process_stateless;

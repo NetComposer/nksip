@@ -24,7 +24,7 @@
 
 -export([start_ping/4, stop_ping/2, get_pings/1]).
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, deps/0, plugin_start/1, plugin_stop/1]).
+-export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 -include("nksip_uac_auto_register.hrl").
 
@@ -42,10 +42,10 @@ version() ->
 
 
 %% @doc Dependant plugins
--spec deps() ->
+-spec plugin_deps() ->
     [atom()].
     
-deps() ->
+plugin_deps() ->
     [nksip].
 
 
@@ -106,7 +106,7 @@ start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
             {error, MakeError} -> throw(MakeError)
         end,
         Msg = {nksip_uac_auto_register_start_reg, RegId, Uri, Opts},
-        nkservice_server:call(SrvId, Msg)
+        nkservice:call(SrvId, Msg)
     catch
         throw:Error -> {error, Error}
     end.
@@ -117,7 +117,7 @@ start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
     ok | not_found.
 
 stop_register(Srv, RegId) ->
-    nkservice_server:call(Srv, {nksip_uac_auto_register_stop_reg, RegId}).
+    nkservice:call(Srv, {nksip_uac_auto_register_stop_reg, RegId}).
     
 
 %% @doc Get current registration status.
@@ -125,7 +125,7 @@ stop_register(Srv, RegId) ->
     [{RegId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_registers(Srv) ->
-    nkservice_server:call(Srv, nksip_uac_auto_register_get_regs).
+    nkservice:call(Srv, nksip_uac_auto_register_get_regs).
 
 
 
@@ -150,7 +150,7 @@ start_ping(Srv, PingId, Uri, Opts) when is_list(Opts) ->
             {error, MakeError} -> throw(MakeError)
         end,
         Msg = {nksip_uac_auto_register_start_ping, PingId, Uri, Opts},
-        nkservice_server:call(SrvId, Msg)
+        nkservice:call(SrvId, Msg)
     catch
         throw:Error -> {error, Error}
     end.
@@ -161,7 +161,7 @@ start_ping(Srv, PingId, Uri, Opts) when is_list(Opts) ->
     ok | not_found.
 
 stop_ping(Srv, PingId) ->
-    nkservice_server:call(Srv, {nksip_uac_auto_register_stop_ping, PingId}).
+    nkservice:call(Srv, {nksip_uac_auto_register_stop_ping, PingId}).
     
 
 %% @doc Get current ping status.
@@ -169,5 +169,5 @@ stop_ping(Srv, PingId) ->
     [{PingId::term(), OK::boolean(), Time::non_neg_integer()}].
  
 get_pings(Srv) ->
-    nkservice_server:call(Srv, nksip_uac_auto_register_get_pings).
+    nkservice:call(Srv, nksip_uac_auto_register_get_pings).
 
