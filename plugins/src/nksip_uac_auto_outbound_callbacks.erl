@@ -22,7 +22,8 @@
 -module(nksip_uac_auto_outbound_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/2, terminate/2, handle_call/3, handle_cast/2, handle_info/2]).
+-export([service_init/2, service_terminate/2, service_handle_call/3, 
+         service_handle_cast/2, service_handle_info/2]).
 -export([nks_sip_uac_auto_register_send_reg/3, 
          nks_sip_uac_auto_register_send_unreg/3, 
          nks_sip_uac_auto_register_upd_reg/4]).
@@ -43,10 +44,10 @@
 
 
 %% @doc Called when the service is started 
--spec init(nkservice:spec(), nkservice_server:sub_state()) ->
+-spec service_init(nkservice:spec(), nkservice_server:sub_state()) ->
     {ok, nkservice_server:sub_state()}.
 
-init(_ServiceSpec, #{id:=SrvId}=SrvState) ->
+service_init(_ServiceSpec, #{id:=SrvId}=SrvState) ->
     Supported = SrvId:cache_sip_supported(),
     State = #state_ob{
         outbound = lists:member(<<"outbound">>, Supported),
@@ -57,7 +58,7 @@ init(_ServiceSpec, #{id:=SrvId}=SrvState) ->
 
 
 %% @private
-handle_call(nksip_uac_auto_outbound_get_regs, _From, 
+service_handle_call(nksip_uac_auto_outbound_get_regs, _From, 
             #{?REG_SKEY:=RegState, ?OB_SKEY:=State}=SrvState) ->
     #state{regs=Regs} = RegState,
     #state_ob{regs=RegsOb} = State,
@@ -73,26 +74,26 @@ handle_call(nksip_uac_auto_outbound_get_regs, _From,
     ],
     {reply, Info, SrvState};
 
-handle_call(_Msg, _From, _State) ->
+service_handle_call(_Msg, _From, _State) ->
     continue.
 
 
--spec handle_cast(term(), nkservice_server:sub_state()) ->
+-spec service_handle_cast(term(), nkservice_server:sub_state()) ->
     {noreply, nkservice_server:sub_state()} | continue | {continue, list()}.
 
-handle_cast(nksip_uac_auto_outbound_terminate, SrvState) ->
-    {ok, SrvState1} = terminate(normal, SrvState),
+service_handle_cast(nksip_uac_auto_outbound_terminate, SrvState) ->
+    {ok, SrvState1} = service_terminate(normal, SrvState),
     {noreply, SrvState1};
 
-handle_cast(_Msg, _State) ->
+service_handle_cast(_Msg, _State) ->
     continue.
 
 
 %% @private
--spec handle_info(term(), nkservice_server:sub_state()) ->
+-spec service_handle_info(term(), nkservice_server:sub_state()) ->
     {noreply, nkservice_server:sub_state()} | continue | {continue, list()}.
 
-handle_info({'DOWN', Mon, process, _Pid, _}, #{?OB_SKEY:=State}=SrvState) ->
+service_handle_info({'DOWN', Mon, process, _Pid, _}, #{?OB_SKEY:=State}=SrvState) ->
     #state_ob{regs=RegsOb} = State,
     case lists:keyfind(Mon, #sipreg_ob.conn_monitor, RegsOb) of
         #sipreg_ob{id=RegId, cseq=CSeq} ->
@@ -105,7 +106,7 @@ handle_info({'DOWN', Mon, process, _Pid, _}, #{?OB_SKEY:=State}=SrvState) ->
             continue
     end;
 
-handle_info({nksip_uac_auto_outbound_notify, RegId}, 
+service_handle_info({nksip_uac_auto_outbound_notify, RegId}, 
             #{id:=SrvId, ?OB_SKEY:=State}=SrvState) ->
     #state_ob{regs=RegsOb} = State,
     case lists:keytake(RegId, #sipreg_ob.id, RegsOb) of
@@ -118,15 +119,15 @@ handle_info({nksip_uac_auto_outbound_notify, RegId},
             continue
     end;
 
-handle_info(_Msg, _State) ->
+service_handle_info(_Msg, _State) ->
     continue.
 
 
 %% @doc Called when the plugin is shutdown
--spec terminate(nksip:srv_id(), nkservice_server:sub_state()) ->
+-spec service_terminate(nksip:srv_id(), nkservice_server:sub_state()) ->
     {ok, nkservice_server:sub_state()}.
 
-terminate(_Reason, SrvState) ->  
+service_terminate(_Reason, SrvState) ->  
     case SrvState of
         #{?OB_SKEY:=State} ->
             #state_ob{regs=RegsOb} = State,

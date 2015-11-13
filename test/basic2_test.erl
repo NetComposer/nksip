@@ -170,7 +170,7 @@ auth() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
-init(_, State) ->
+service_init(_, State) ->
     {ok, State}.
 
 

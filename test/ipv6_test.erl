@@ -530,7 +530,7 @@ parse(Msg) ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=Name}, State) ->
+service_init(#{name:=Name}, State) ->
     ok = nkservice:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State}.
 

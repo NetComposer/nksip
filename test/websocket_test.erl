@@ -357,7 +357,7 @@ all_connected(SrvId) ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=Id}, State) ->
+service_init(#{name:=Id}, State) ->
     ok = nkservice:put(Id, domains, [<<"localhost">>, <<"127.0.0.1">>, <<"nksip">>]),
     {ok, State}.
 

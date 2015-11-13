@@ -42,7 +42,6 @@
 		 nks_sip_uas_process/2]).
 -export([nks_sip_dialog_update/3, nks_sip_route/4]).
 -export([nks_sip_connection_sent/2, nks_sip_connection_recv/4]).
--export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([nks_sip_debug/3]).
 
 -type nks_sip_common() :: continue | {continue, list()}.
@@ -477,32 +476,6 @@ nks_sip_connection_recv(_SrvId, _CallId, _Transp, _Packet) ->
 nks_sip_transport_uas_sent(_Resp) ->
 	ok.
 
-
-%% @doc Called when the Service process receives a handle_call/3.
-%% Return {ok, NewPluginState} (should call gen_server:reply/2) or continue.
--spec handle_call(term(), {pid(), term()}, nksip_srv:state()) ->
-	{ok, nksip_srv:state()} | nks_sip_common().
-
-handle_call(Msg, From, ServiceState) ->
-	{continue, [Msg, From, ServiceState]}.
-
-
-%% @doc Called when the Service process receives a handle_cast/3.
-%% Return {ok, NewPluginState} or continue.
--spec handle_cast(term(), nksip_srv:state()) ->
-	{ok, nksip_srv:state()} | nks_sip_common().
-
-handle_cast(Msg, ServiceState) ->
-	{continue, [Msg, ServiceState]}.
-
-
-%% @doc Called when the Service process receives a handle_info/3.
-%% Return {ok, NewPluginState} or continue.
--spec handle_info(term(), nksip_srv:state()) ->
-	{ok, nksip_srv:state()} | nks_sip_common().
-
-handle_info(Msg, ServiceState) ->
-	{continue, [Msg, ServiceState]}.
 
 
 %% doc Called at specific debug points

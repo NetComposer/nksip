@@ -29,7 +29,8 @@
 -module(nksip_tutorial_server_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5, handle_call/3]).
+-export([service_init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5, 
+         service_handle_call/3]).
 
 
 
@@ -38,7 +39,7 @@
 %% ===================================================================
 
 %% @doc Service intialization.
-init(_Opts, State) ->
+service_init(_Opts, State) ->
     nkservice:put(server, started, httpd_util:rfc1123_date()),
     {ok, State}.
 
@@ -110,5 +111,5 @@ sip_route(_Scheme, _User, _Domain, Req, _Call) ->
 
 
 %% @doc Synchronous user call.
-handle_call(get_started, _From, #{started:=Started}=State) ->
+service_handle_call(get_started, _From, #{started:=Started}=State) ->
     {reply, {ok, Started}, State}.

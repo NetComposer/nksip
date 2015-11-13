@@ -297,7 +297,7 @@ register2() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=Id}, State) ->
+service_init(#{name:=Id}, State) ->
     ok = nkservice:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State}.
 

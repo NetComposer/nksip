@@ -574,7 +574,7 @@ dialog() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{test_type:=Test, name:=Id}, State) ->
+service_init(#{test_type:=Test, name:=Id}, State) ->
     Domains = case Id of
         server1 -> [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>];
         server2 -> [<<"nksip2">>, <<"127.0.0.1">>, <<"[::1]">>];

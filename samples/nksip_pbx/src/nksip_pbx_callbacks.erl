@@ -36,7 +36,7 @@
 -export([init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5]). 
 -export([sip_invite/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
--export([handle_call/3, handle_cast/2, handle_info/2]).
+-export([service_handle_call/3, service_handle_cast/2, service_handle_info/2]).
 
 -define(TIME_CHECK, 10000).
 
@@ -211,34 +211,35 @@ sip_invite(Req, _Call) ->
 
 
 %% @doc Service Callback: Synchronous user call.
-handle_call(get_speed, _From, State) ->
+service_handle_call(get_speed, _From, State) ->
     Speed = nkservice:get(pbx, speed),
     Reply = [{Time, nklib_unparse:uri(Uri)} || {Time, Uri} <- Speed],
     {reply, Reply, State}.
 
 
 %% @doc Service Callback: Asynchronous user cast.
-handle_cast({speed_update, Speed}, State) ->
+service_handle_cast({speed_update, Speed}, State) ->
     ok = nkservice:put(pbx, speed, Speed),
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
     {noreply, State};
 
-handle_cast({check_speed, true}, State) ->
-    handle_info({timeout, none, check_speed}, State#{nksip_pbx=>#{auto_check=>true}});
+service_handle_cast({check_speed, true}, State) ->
+    service_handle_info({timeout, none, check_speed}, 
+                        State#{nksip_pbx=>#{auto_check=>true}});
 
-handle_cast({check_speed, false}, State) ->
+service_handle_cast({check_speed, false}, State) ->
     {noreply, State#{nksip_pbx=>#{auto_check=>false}}}.
 
 
 %% @doc Service Callback: External erlang message received.
 %% The programmed timer sends a `{timeout, _Ref, check_speed}' message
 %% periodically to the Service.
-handle_info({timeout, _, check_speed}, #{nksip_pbx:=#{auto_check:=true}}=State) ->
+service_handle_info({timeout, _, check_speed}, #{nksip_pbx:=#{auto_check:=true}}=State) ->
     Self = self(),
     spawn(fun() -> test_speed(Self) end),
     {noreply, State};
 
-handle_info({timeout, _, check_speed}, #{nksip_pbx:=#{auto_check:=false}}=State) ->
+service_handle_info({timeout, _, check_speed}, #{nksip_pbx:=#{auto_check:=false}}=State) ->
     {noreply, State}.
 
 

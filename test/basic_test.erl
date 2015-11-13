@@ -228,10 +228,10 @@ stun() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=error1}, _State) ->
+service_init(#{name:=error1}, _State) ->
     {stop, error1};
 
-init(#{name:=Name, arg:=Name}, State) ->
+service_init(#{name:=Name, arg:=Name}, State) ->
     ok = nkservice:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State#{my_name=>Name}}.
 
@@ -274,19 +274,19 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-handle_call(get_domains, _From, #{my_name:=Name}=State) ->
+service_handle_call(get_domains, _From, #{my_name:=Name}=State) ->
     Domains = nkservice:get(Name, domains),
     {reply, {ok, Name, Domains}, State};
 
-handle_call({set_domains, Domains}, _From, #{my_name:=Name}=State) ->
+service_handle_call({set_domains, Domains}, _From, #{my_name:=Name}=State) ->
     ok = nkservice:put(Name, domains, Domains),
     {reply, {ok, Name}, State}.
 
-handle_cast({cast_test, Ref, Pid}, #{my_name:=Name}=State) ->
+service_handle_cast({cast_test, Ref, Pid}, #{my_name:=Name}=State) ->
     Pid ! {Ref, {cast_test, Name}},
     {noreply, State}.
 
-handle_info({info_test, Ref, Pid}, #{my_name:=Name}=State) ->
+service_handle_info({info_test, Ref, Pid}, #{my_name:=Name}=State) ->
     Pid ! {Ref, {info_test, Name}},
     {noreply, State}.
 

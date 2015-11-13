@@ -508,7 +508,7 @@ send(tcp, Msg) ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks %%%%%%%%%%%%%%%%%%%%%
 
 
-route(Scheme, _User, _Domain, Req, _Call) ->
+sip_route(Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:srv_name(Req) of
         {ok, server1} when Scheme=/=sip, Scheme=/=sips ->
             {reply, unsupported_uri_scheme};
