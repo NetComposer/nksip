@@ -7,3 +7,4 @@ uuid_*
 /nksip.profile
 /.nksip.plt
 .DS_Store
+.rebar
