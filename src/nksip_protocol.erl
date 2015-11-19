@@ -24,8 +24,8 @@
 -behaviour(nkpacket_protocol).
 
 -export([start_refresh/3, stop_refresh/1, get_refresh/1]).
--export([transports/1, default_port/1, encode/2, naptr/2]).
--export([conn_init/1, conn_parse/3, conn_encode/3, conn_stop/3]).
+-export([transports/1, default_port/1, naptr/2]).
+-export([conn_init/1, conn_parse/3, conn_encode/3, conn_encode/2, conn_stop/3]).
 -export([conn_handle_call/4, conn_handle_cast/3, conn_handle_info/3]).
 
 -type conn_state() :: nkpacket_protocol:conn_state().
@@ -93,21 +93,6 @@ default_port(sctp) -> 5060;
 default_port(ws) -> 80;
 default_port(wss) -> 443;
 default_port(_) -> invalid.
-
-
-%% @doc Implement this function to provide a 'quick' encode function, 
-%% in case you don't need the connection state to perform the encode.
-%% Do not implement it or return 'continue' to call conn_encode/2
--spec encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
-    {ok, nkpacket:outcoming()} | continue | {error, term()}.
-
-encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
-    Packet = nksip_unparse:packet(SipMsg),
-    SrvId:nks_sip_connection_sent(SipMsg, Packet),
-    {ok, Packet};
-
-encode(Bin, _NkPort) when is_binary(Bin) ->
-    {ok, Bin}.
 
 
 %% @doc Implement this function to allow NAPTR DNS queries.
@@ -195,6 +180,18 @@ conn_parse(Binary, NkPort, #conn_state{buffer=Buffer}=State) ->
 
 conn_encode(_Term, _NkPort, ConnState) ->
     {error, not_defined, ConnState}.
+
+
+-spec conn_encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
+    {ok, nkpacket:outcoming()} | continue | {error, term()}.
+
+conn_encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
+    Packet = nksip_unparse:packet(SipMsg),
+    SrvId:nks_sip_connection_sent(SipMsg, Packet),
+    {ok, Packet};
+
+conn_encode(Bin, _NkPort) when is_binary(Bin) ->
+    {ok, Bin}.
 
 
 %% @doc Called when the connection received a gen_server:call/2,3

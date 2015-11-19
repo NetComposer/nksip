@@ -84,9 +84,9 @@ start() ->
 
 stop() ->
     ok = nksip:stop_all(),
-    {error, service_not_found} = nksip:stop(server1),
-    {error, service_not_found} = nksip:stop(client1),
-    {error, service_not_found} = nksip:stop(client2),
+    {error, not_running} = nksip:stop(server1),
+    {error, not_running} = nksip:stop(client1),
+    {error, not_running} = nksip:stop(client2),
     ok.
 
 
@@ -202,7 +202,7 @@ cast_info() ->
     % Direct calls to service's core processing app
     {ok, S1} = nkservice_server:get_srv_id(server1),
     Pid = whereis(S1),
-    not_running = nkservice_server:get_pid(other),
+    not_running = nkservice:get_pid(other),
 
     {ok, server1, Domains} = gen_server:call(S1, get_domains),
     {ok, server1} = gen_server:call(S1, {set_domains, [<<"test">>]}),
