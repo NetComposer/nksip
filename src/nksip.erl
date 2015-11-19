@@ -171,7 +171,7 @@ start(Name, Opts) ->
 
 %% @doc Stops a started Service, stopping any registered transports.
 -spec stop(srv_name()|srv_id()) -> 
-    ok | {error, service_not_found}.
+    ok | {error, not_running}.
 
 stop(Srv) ->
     nkservice:stop(Srv).

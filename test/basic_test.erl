@@ -202,7 +202,7 @@ cast_info() ->
     % Direct calls to service's core processing app
     {ok, S1} = nkservice_server:get_srv_id(server1),
     Pid = whereis(S1),
-    not_running = nkservice:get_pid(other),
+    undefined = nkservice:get_pid(other),
 
     {ok, server1, Domains} = gen_server:call(S1, get_domains),
     {ok, server1} = gen_server:call(S1, {set_domains, [<<"test">>]}),
