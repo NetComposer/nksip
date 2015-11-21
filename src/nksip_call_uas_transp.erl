@@ -57,7 +57,7 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
                 <<>> when ViaRPort -> 
                     [{nksip_protocol, udp, RIp, RPort}];
                 <<>> -> 
-                    [{nksip_protocol, RIp, ViaPort}];
+                    [{nksip_protocol, udp, RIp, ViaPort}];
                 MAddr -> 
                     [#uri{scheme=sip, domain=MAddr, port=ViaPort}]   
             end;
