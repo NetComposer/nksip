@@ -110,7 +110,7 @@ running() ->
             {syntax_error,<<"sip_registrar_min_time">>}}}} = 
         nksip:start(name, [{plugins, [nksip_registrar]}, {sip_registrar_min_time, -1}]),
 
-    {error, {invalid_plugin, invalid}} = 
+    {error, {invalid_plugin_module, invalid}} = 
         nksip:start(name, [{plugins, [nksip_registrar, invalid]}]),
 
     ok.

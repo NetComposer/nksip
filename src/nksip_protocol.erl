@@ -256,7 +256,7 @@ conn_handle_cast(Msg, _NkPort, State) ->
     {ok, conn_state()} | {stop, Reason::term(), conn_state()}.
 
 conn_handle_info({timeout, _, refresh}, #nkport{transp=udp}=NkPort, State) ->
-    #nkport{srv_id={nksip, SrvId}} = NkPort,
+    #nkport{class={nksip, SrvId}} = NkPort,
     {ok, {_, udp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case get_listening(NkPort) of
         {ok, Pid} ->
@@ -267,7 +267,7 @@ conn_handle_info({timeout, _, refresh}, #nkport{transp=udp}=NkPort, State) ->
             {stop, no_listening_transport, State}
     end;
 
-conn_handle_info({timeout, _, refresh}, #nkport{srv_id={nksip, SrvId}}=NkPort, State) ->
+conn_handle_info({timeout, _, refresh}, #nkport{class={nksip, SrvId}}=NkPort, State) ->
     ?debug(SrvId, <<>>, "transport sending refresh", []),
     case do_send(<<"\r\n\r\n">>, NkPort) of
         ok -> 
@@ -277,7 +277,7 @@ conn_handle_info({timeout, _, refresh}, #nkport{srv_id={nksip, SrvId}}=NkPort, S
     end;
 
 conn_handle_info({stun, {ok, StunIp, StunPort}}, NkPort, State) ->
-    #nkport{srv_id={nksip, SrvId}} = NkPort,
+    #nkport{class={nksip, SrvId}} = NkPort,
     #conn_state{
         nat_ip = NatIp, 
         nat_port = NatPort, 
@@ -345,7 +345,7 @@ do_parse(<<>>, _NkPort, State) ->
 
 %% For TCP and UDP, we send a \r\n\r\n, remote must reply with \r\n
 do_parse(<<"\r\n\r\n", Rest/binary>>, 
-         #nkport{srv_id={nksip, SrvId}, transp=Transp}=NkPort, State) 
+         #nkport{class={nksip, SrvId}, transp=Transp}=NkPort, State) 
          when Transp==tcp; Transp==udp; Transp==tls; Transp==sctp ->
     ?debug(SrvId, <<>>, "transport responding to refresh", []),
     case do_send(<<"\r\n">>, NkPort) of
@@ -360,7 +360,7 @@ do_parse(<<"\r\n">>, #nkport{transp=udp}, State) ->
 
 do_parse(<<"\r\n", Rest/binary>>, #nkport{transp=Transp}=NkPort, State) 
         when Transp==tcp; Transp==tls; Transp==sctp ->
-    #nkport{srv_id={nksip, SrvId}} = NkPort,
+    #nkport{class={nksip, SrvId}} = NkPort,
     #conn_state{
         refresh_notify = RefreshNotify, 
         refresh_time = RefreshTime,
@@ -383,12 +383,12 @@ do_parse(<<"\r\n", Rest/binary>>, #nkport{transp=Transp}=NkPort, State)
     },
     do_parse(Rest, NkPort, State1);
 
-do_parse(Data, #nkport{srv_id={nksip, SrvId}, transp=Transp}, _State) 
+do_parse(Data, #nkport{class={nksip, SrvId}, transp=Transp}, _State) 
         when (Transp==tcp orelse Transp==tls) andalso byte_size(Data) > ?MAX_MSG ->
     ?warning(SrvId, <<>>, "dropping TCP/TLS closing because of max_buffer", []),
     {error, msg_too_large};
 
-do_parse(Data, #nkport{srv_id={nksip, SrvId}, transp=Transp}=NkPort, State) ->
+do_parse(Data, #nkport{class={nksip, SrvId}, transp=Transp}=NkPort, State) ->
     #conn_state{rnrn_pattern = RNRN} = State,
     case binary:match(Data, RNRN) of
         nomatch when Transp==tcp; Transp==tls ->
@@ -475,7 +475,7 @@ extract(Transp, Data, Pos) ->
 -spec reply_error(binary(), binary(), nkpacket:nkport(), #conn_state{}) ->
     ok.
 
-reply_error(Data, Msg, #nkport{srv_id={nksip, SrvId}}=NkPort, _State) ->
+reply_error(Data, Msg, #nkport{class={nksip, SrvId}}=NkPort, _State) ->
     case nksip_parse_sipmsg:parse(Data) of
         {ok, {req, _, _}, Headers, _} ->
             Resp = nksip_unparse:response(Headers, 400, Msg),
@@ -495,8 +495,8 @@ do_send(Packet, NkPort) ->
 
 
 %% @private
-get_listening(#nkport{srv_id=TSrvId, transp=Transp, local_ip=Ip}) ->
-    case nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>TSrvId, ip=>Ip}) of
+get_listening(#nkport{class=TSrvId, transp=Transp, local_ip=Ip}) ->
+    case nkpacket:get_listening(nksip_protocol, Transp, #{class=>TSrvId, ip=>Ip}) of
         [#nkport{pid=Pid}|_] -> {ok, Pid};
         [] -> false
     end.
