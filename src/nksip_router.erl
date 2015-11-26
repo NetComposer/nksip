@@ -47,9 +47,9 @@
 
 send_work_sync(SrvId, CallId, Work) ->
     Name = name(CallId),
-    CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
+    Timeout = nksip_config_cache:sync_call_time(),
     WorkSpec = {send_work_sync, SrvId, CallId, Work, self()},
-    case nklib_util:call(Name, WorkSpec, CallOpts) of
+    case nklib_util:call(Name, WorkSpec, Timeout) of
         {error, {exit, {{timeout, _}, _StackTrace}}} ->
             {error, {exit, timeout}};
         {error, {exit, Exit}} ->
@@ -67,8 +67,8 @@ send_work_sync(SrvId, CallId, Work) ->
 
 incoming_sync(#sipmsg{srv_id=SrvId, call_id=CallId}=SipMsg) ->
     Name = name(CallId),
-    CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
-    case nklib_util:call(Name, {incoming, SipMsg}, CallOpts) of
+    Timeout = nksip_config_cache:sync_call_time(),
+    case nklib_util:call(Name, {incoming, SipMsg}, Timeout) of
         {error, {exit, Exit}} -> 
             ?warning(SrvId, CallId, "error calling incoming_sync: ~p", [Exit]),
             {error, {exit, Exit}};
@@ -83,8 +83,8 @@ incoming_sync(#sipmsg{srv_id=SrvId, call_id=CallId}=SipMsg) ->
 
 incoming_sync(SrvId, CallId, NkPort, Msg) ->
     Name = name(CallId),
-    CallOpts = #{timeout => nksip_config_cache:sync_call_time()},
-    case nklib_util:call(Name, {incoming, SrvId, CallId, NkPort, Msg}, CallOpts) of
+    Timeout = nksip_config_cache:sync_call_time(),
+    case nklib_util:call(Name, {incoming, SrvId, CallId, NkPort, Msg}, Timeout) of
         {error, {exit, Exit}} -> 
             ?warning(SrvId, CallId, "error calling incoming_sync: ~p", [Exit]),
             {error, {exit, Exit}};

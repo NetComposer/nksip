@@ -49,8 +49,7 @@
     ok | error.
 
 start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
-    Opts = #{timeout => 15000},
-    case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}, Opts) of
+    case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}, 15000) of
         ok -> ok;
         _ -> error
     end.
@@ -68,7 +67,7 @@ stop_refresh(Pid) ->
     {true, integer(), integer()} | false.
 
 get_refresh(Pid) ->
-    nklib_util:call(Pid, get_refresh, #{timeout=>15000}).
+    nklib_util:call(Pid, get_refresh, 15000).
 
 
 
