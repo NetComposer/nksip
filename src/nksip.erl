@@ -25,7 +25,7 @@
 
 -export([start/2, stop/1, stop_all/0, update/2]).
 -export([get_config/1, get_uuid/1]).
--export([plugin_deps/0, plugin_start/1, plugin_stop/1]).
+-export([plugin_deps/0, plugin_init/0, plugin_start/1, plugin_stop/1]).
 -export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
@@ -236,6 +236,13 @@ get_config(SrvName) ->
 
 plugin_deps() ->
     [].
+
+
+-spec plugin_init() ->
+    ok.
+
+plugin_init() ->
+    ok = nksip_app:start().
 
 
 -spec plugin_start(nkservice:spec()) ->
