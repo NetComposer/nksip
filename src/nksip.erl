@@ -235,7 +235,7 @@ get_config(SrvName) ->
     [module()].
 
 plugin_deps() ->
-    [].
+    [nkservice].
 
 
 -spec plugin_init() ->
