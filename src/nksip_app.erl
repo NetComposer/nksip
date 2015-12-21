@@ -91,7 +91,7 @@ start(_Type, _Args) ->
             MainIp = nkpacket_config_cache:main_ip(),
             MainIp6 = nkpacket_config_cache:main_ip6(),
             {ok, Vsn} = application:get_key(nksip, vsn),
-            lager:notice("NkSIP v~s has started. Main IP is ~s (~s)", 
+            lager:info("NkSIP v~s has started. Main IP is ~s (~s)", 
                          [Vsn, nklib_util:to_host(MainIp), nklib_util:to_host(MainIp6)]),
             {ok, Pid};
         {error, Error} ->
