@@ -163,7 +163,7 @@ start(Name, Opts) ->
     Opts2 = Opts1#{
         class => nksip,
         plugins => [nksip|maps:get(plugins, Opts1, [])],
-        transports => maps:get(transports, Opts1, "sip:all")
+        sip_listen => maps:get(transports, Opts1, "sip:all")
     },
     nkservice:start(Name, Opts2).
 

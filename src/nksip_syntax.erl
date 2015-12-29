@@ -49,6 +49,7 @@ app_defaults() ->
 %% Transport options must be included in url
 syntax() ->
     #{
+        sip_listen => fun nkservice_syntax:parse_fun_listen/3,
         sip_allow => words,
         sip_supported => words,
         sip_timer_t1 => {integer, 10, 2500},
