@@ -25,6 +25,8 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
+-export([plugin_deps/0, plugin_parse/1, plugin_cache/1, plugin_listen/1]).
+-export([plugin_start/1, plugin_stop/1]).
 -export([sip_get_user_pass/4, sip_authorize/3, sip_route/5]).
 -export([sip_invite/2, sip_reinvite/2, sip_cancel/3, sip_ack/2, sip_bye/2]).
 -export([sip_options/2, sip_register/2, sip_info/2, sip_update/2]).
@@ -48,7 +50,82 @@
 
 
 
-%%%%%%%%%%%%%% SIP Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ===================================================================
+%% Plugin callbacks
+%% ===================================================================
+
+
+-spec plugin_deps() ->
+    [module()].
+
+plugin_deps() ->
+    [].
+
+
+-spec plugin_parse(nkservice:user_spec()) ->
+	{ok, nkservide:user_spec()} | {error, term()}.
+
+plugin_parse(UserSpec) ->
+	ok = nksip_app:start(),
+    Syntax = nksip_syntax:syntax(),
+    Defaults = nklib_util:to_map(nksip_config_cache:sip_defaults()),
+    case nkservice_util:parse_syntax(UserSpec, Syntax, Defaults) of
+    	{ok, Data} ->
+	        Transp1 = case Data of
+	            #{transports:=Transp0} ->
+	                Transp0;
+	            _ ->
+	                [{[{nksip_protocol, udp, {0,0,0,0}, 5060}], #{}}]
+	        end,
+	        {ok, Data#{listen=>Transp1}};
+	    {error, Error} ->
+	    	{error, Error}
+	  end.
+
+
+
+-spec plugin_cache(nkservice:user_spec()) ->
+	map().
+
+plugin_cache(#{nksip:=Data}) ->
+    Timers = #call_timers{
+	    t1 = maps:get(sip_timer_t1, Data),
+	    t2 = maps:get(sip_timer_t2, Data),
+	    t4 = maps:get(sip_timer_t4, Data),
+	    tc = maps:get(sip_timer_c, Data),
+	    trans = maps:get(sip_trans_timeout, Data),
+	    dialog = maps:get(sip_dialog_timeout, Data)
+	},
+	#{nksip_timers => Timers}.
+
+
+-spec plugin_listen(nkservice:service()) ->
+	list().
+
+plugin_listen(#{id:=Id, nksip:=#{listen:=Listen}=Data}) ->
+    nksip_util:adapt_transports(Id, Listen, Data).
+
+
+-spec plugin_start(nkservice:service()) ->
+	{ok, nkservice:service()} | {error, term()}.
+
+plugin_start(#{id:=Id, name:=Name}=Service) ->
+    lager:info("Plugin nksip (~p, ~s) started", [Id, Name]),
+    {ok, Service}.
+
+
+-spec plugin_stop(nkservice:spec()) ->
+    {ok, nkservice:service()} | {stop, term()}.
+
+plugin_stop(#{id:=Id, name:=Name}=Service) ->
+    lager:info("Plugin nksip (~p, ~s) stopped", [Id, Name]),
+    {ok, Service}.
+
+
+
+%% ===================================================================
+%% Sip callbacks
+%% ===================================================================
 
 
 %% @doc Called to check a user password for a realm.
@@ -230,7 +307,9 @@ sip_session_update(_Status, _Dialog, _Call) ->
     ok.
 
 
-%%%%%%%%%%%%%% Internal Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ===================================================================
+%% Internal callbacks
+%% ===================================================================
 
 
 %% @doc This plugin callback function is used to call application-level 

@@ -88,8 +88,8 @@
 
 
 %% @private
-adapt_transports(SrvId, Transports, Config) ->
-    adapt_transports(SrvId, Transports, Config, []).
+adapt_transports(Transports, Service) ->
+    adapt_transports(Transports, Service, []).
 
 
 %% @private
