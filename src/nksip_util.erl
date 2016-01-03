@@ -32,6 +32,7 @@
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 
@@ -102,10 +103,11 @@ adapt_transports(SrvId, [{RawConns, Opts}|Rest], Config, Acc) ->
             Base = #{class => {nksip, SrvId}},
             case Transp of
                 udp ->
+                    #config{sip_timer_t1=T1} = Config,
                     Base#{
                         udp_starts_tcp => true,
                         udp_stun_reply => true,
-                        udp_stun_t1 => maps:get(sip_timer_t1, Config)
+                        udp_stun_t1 => T1
                     };
                 ws ->
                     Base#{ws_proto => sip};
@@ -279,8 +281,6 @@ put_log_cache(SrvId, CallId) ->
     erlang:put(nksip_call_id, CallId),
     erlang:put(nksip_srv_name, SrvId:name()),
     erlang:put(nksip_log_level, SrvId:cache_log_level()).
-
-
 
 
 %% @private

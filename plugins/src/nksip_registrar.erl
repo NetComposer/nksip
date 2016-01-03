@@ -28,7 +28,6 @@
 
 -export([find/2, find/4, qfind/2, qfind/4, delete/4, clear/1]).
 -export([is_registered/1, request/1]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -export_type([reg_contact/0]).
 
 
@@ -37,71 +36,6 @@
 %% ===================================================================
 
 -type reg_contact() :: #reg_contact{}.
-
-
-
-%% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId}=SrvSpec) ->
-    case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
-        {ok, SrvSpec1} ->
-            UpdFun = fun(Allow) -> nklib_util:store_value(<<"REGISTER">>, Allow) end,
-            SrvSpec2 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
-            #{
-                sip_registrar_min_time := Min, 
-                sip_registrar_max_time := Max,
-                sip_registrar_default_time := Default,
-                cache := OldCache
-            } = SrvSpec2,
-            Timers = #nksip_registrar_time{min=Min, max=Max, default=Default},
-            Cache = #{sip_registrar_time=>Timers},
-            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-            {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
-        {error, Error} ->
-            {stop, Error}
-    end.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    clear(SrvId),
-    UpdFun = fun(Allow) -> Allow -- [<<"REGISTER">>] end,
-    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
-    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
-
-
-syntax() ->
-    #{
-        sip_registrar_default_time => {integer, 5, none},
-        sip_registrar_min_time => {integer, 1, none},
-        sip_registrar_max_time => {integer, 60, none}
-    }.
-
-defaults() ->
-    #{
-        sip_registrar_default_time => 3600,     % (secs) 1 hour
-        sip_registrar_min_time => 60,           % (secs) 1 min
-        sip_registrar_max_time => 86400         % (secs) 24 hour
-    }.
 
 
 

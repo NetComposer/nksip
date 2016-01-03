@@ -22,15 +22,67 @@
 -module(nksip_registrar_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
+         plugin_start/1, plugin_stop/1]).
 -export([sip_registrar_store/2]).
-
 -export([nks_sip_method/2, nks_sip_authorize_data/3]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
          nks_sip_registrar_get_index/2, nks_sip_registrar_update_regcontact/4]).
+
+
+%% ===================================================================
+%% Plugin
+%% ===================================================================
+
+plugin_deps() ->
+    [nksip].
+
+
+plugin_syntax() ->
+    #{
+        sip_allow => words,
+        sip_registrar_default_time => {integer, 5, none},
+        sip_registrar_min_time => {integer, 1, none},
+        sip_registrar_max_time => {integer, 60, none}
+    }.
+
+
+plugin_config(Config, _Service) ->
+    Allow1 = maps:get(sip_allow, Config, nksip_syntax:default_allow()),
+    Allow2 = nklib_util:store_value(<<"REGISTER">>, Allow1),
+    Config2 = Config#{sip_allow=>Allow2},
+    Cache = #nksip_registrar_time{
+        min = maps:get(sip_registrar_min_time, Config, 60), 
+        max = maps:get(sip_registrar_max_time, Config, 86400), 
+        default = maps:get(sip_registrar_default_time, Config, 3600)
+    },
+    {ok, Config2, Cache}.
+
+
+plugin_start(#{id:=SrvId}=Service) ->
+    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
+    {ok, Service}.
+
+
+plugin_stop(#{id:=SrvId, config_nksip:=SipConfig1}=Service) ->
+    nksip_registrar:clear(SrvId),
+    #config{sip_allow=Allow1} = SipConfig1,
+    Allow2 = Allow1 -- [<<"REGISTER">>],
+    SipConfig2 = SipConfig1#config{sip_allow=Allow2},
+    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
+    {ok, Service#{config_nksip:=SipConfig2}}.
+
+
+
+
+%% ===================================================================
+%% Specific
+%% ===================================================================
 
 
 % @doc Called when a operation database must be done on the registrar database.

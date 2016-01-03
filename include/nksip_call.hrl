@@ -175,4 +175,30 @@
 }).
 
 
+-record(config, {
+    sip_listen :: list(),
+    sip_allow :: [binary()],
+    sip_supported :: [binary()],
+    sip_timer_t1 :: integer(),
+    sip_timer_t2 :: integer(),
+    sip_timer_t4 :: integer(),
+    sip_timer_c :: integer(),
+    sip_trans_timeout :: integer(),
+    sip_dialog_timeout :: integer(),
+    sip_event_expires :: integer(),
+    sip_event_expires_offset :: integer(),
+    sip_nonce_timeout :: integer(),
+    sip_from :: #uri{},
+    sip_accept :: [binary()],
+    sip_events :: [binary()],
+    sip_route :: [#uri{}],
+    sip_no_100 :: boolean(),
+    sip_max_calls :: integer(),
+    sip_local_host :: auto | binary(),
+    sip_local_host6 :: auto | binary(),
+    sip_debug :: boolean()
+}).
+
+
+
 -endif.

@@ -22,7 +22,13 @@
 -module(nksip_syntax).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([app_syntax/0, app_defaults/0, syntax/0, defaults/0, cached/0]).
+-export([app_syntax/0, app_defaults/0, syntax/0]).
+-export([default_allow/0, default_supported/0]).
+-export([make_config/1]).
+
+-include_lib("nklib/include/nklib.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 %% ===================================================================
@@ -73,42 +79,40 @@ syntax() ->
     }.
 
 
+default_allow() ->
+    [
+        <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
+        <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
+        <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>
+    ].
 
-%% @private
-defaults() ->
-    #{
-        sip_allow => [
-            <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
-            <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
-            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>],
-        sip_supported => [<<"path">>],
-        sip_timer_t1 => 500,                    % (msecs) 0.5 secs
-        sip_timer_t2 => 4000,                   % (msecs) 4 secs
-        sip_timer_t4 => 5000,                   % (msecs) 5 secs
-        sip_timer_c =>  180,                    % (secs) 3min
-        sip_trans_timeout => 900,               % (secs) 15 min
-        sip_dialog_timeout => 1800,             % (secs) 30 min
-        sip_event_expires => 60,                % (secs) 1 min
-        sip_event_expires_offset => 5,          % (secs) 5 secs
-        sip_nonce_timeout => 30,                % (secs) 30 secs
-        sip_from => undefined,
-        sip_accept => undefined,
-        sip_events => [],
-        sip_route => [],
-        sip_no_100 => false,
-        sip_max_calls => 100000,                % Each Call-ID counts as a call
-        sip_local_host => auto,
-        sip_local_host6 => auto,
-        sip_debug => false
+
+default_supported() ->
+    [<<"path">>].
+
+
+make_config(Data) ->
+    #config{
+        sip_listen = maps:get(sip_listen, Data, []),
+        sip_allow = maps:get(sip_allow, Data, default_allow()),
+        sip_supported = maps:get(sip_supported, Data, default_supported()),
+        sip_timer_t1 = maps:get(sip_timer_t1, Data, 500),
+        sip_timer_t2 = maps:get(sip_timer_t2, Data, 4000),
+        sip_timer_t4 = maps:get(sip_timer_t4, Data, 5000),
+        sip_timer_c = maps:get(sip_timer_c, Data, 180),
+        sip_trans_timeout = maps:get(sip_trans_timeout, Data, 900),
+        sip_dialog_timeout = maps:get(sip_dialog_timeout, Data, 1800),
+        sip_event_expires = maps:get(sip_event_expires, Data, 60),
+        sip_event_expires_offset = maps:get(sip_event_expires_offset, Data, 5),
+        sip_nonce_timeout = maps:get(sip_nonce_timeout, Data, 30),
+        sip_from = maps:get(sip_from, Data, undefined),
+        sip_accept = maps:get(sip_accept, Data, undefined),
+        sip_events = maps:get(sip_events, Data, []),
+        sip_route = maps:get(sip_route, Data, []),
+        sip_no_100 = maps:get(sip_no_100, Data, false),
+        sip_max_calls = maps:get(sip_max_calls, Data, 100000),
+        sip_local_host = maps:get(sip_local_host, Data, auto),
+        sip_local_host6 = maps:get(sip_local_host6, Data, auto),
+        sip_debug = maps:get(sip_debug, Data, false)
     }.
 
-
-%% @private
-cached() ->
-    [
-        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
-        sip_event_expires, sip_event_expires_offset, sip_events, 
-        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
-        sip_route, sip_supported, sip_trans_timeout,
-        sip_local_host, sip_local_host6
-    ].

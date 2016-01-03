@@ -67,7 +67,8 @@ start(_Type, _Args) ->
     AppSyntax = nksip_syntax:app_syntax(),
     ServiceSyntax = nksip_syntax:syntax(),
     Syntax = maps:merge(AppSyntax, ServiceSyntax),
-    Defaults = maps:merge(nksip_syntax:app_defaults(), nksip_syntax:defaults()),
+    % Defaults = maps:merge(nksip_syntax:app_defaults(), nksip_syntax:defaults()),
+    Defaults = nksip_syntax:app_defaults(),
     case nklib_config:load_env(?APP, Syntax, Defaults) of
         {ok, Parsed} ->
             put(global_id, nklib_util:luid()),

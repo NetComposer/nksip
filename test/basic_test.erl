@@ -50,7 +50,7 @@ s1() ->
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
         plugins => [nksip_registrar],
         tls_versions => [tlsv1],
-        transports => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234" 
+        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234" 
     }).
 
 
@@ -64,13 +64,13 @@ start() ->
         arg => server1,
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
         plugins => [nksip_registrar],
-        transports => "sip://all;tcp_listeners=10, sips:all:5061"
+        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061"
     }),
 
     ok = tests_util:start(client1, ?MODULE, #{
         arg => client1,
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
-        transports => ["sip://all:5070", "sips:all:5071"]
+        sip_listen => ["sip://all:5070", "sips:all:5071"]
     }),
 
     ok = tests_util:start(client2, ?MODULE, #{
@@ -99,13 +99,13 @@ running() ->
 
     % lager:error("Next error about error1 is expected"),
     {error, error1} = nksip:start(error1, [
-        {transports, "sip:all:5090"}, {callback, ?MODULE}]),
+        {sip_listen, "sip:all:5090"}, {callback, ?MODULE}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
-    {error, {syntax_error, <<"transports">>}} = 
-        nksip:start(name, [{transports, "<sip:all;transport=other>"}]),
+    {error, {syntax_error, <<"sip_listen">>}} = 
+        nksip:start(name, [{sip_listen, "<sip:all;transport=other>"}]),
     {error,{could_not_start_plugin,{nksip_registrar,
             {syntax_error,<<"sip_registrar_min_time">>}}}} = 
         nksip:start(name, [{plugins, [nksip_registrar]}, {sip_registrar_min_time, -1}]),

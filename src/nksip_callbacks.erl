@@ -22,11 +22,12 @@
 -module(nksip_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
--export([plugin_deps/0, plugin_parse/2, plugin_cache/2, plugin_listen/2]).
--export([plugin_start/2, plugin_stop/1]).
+-export([plugin_deps/0, plugin_syntax/0, 
+		 plugin_config/2, plugin_listen/2, plugin_start/1, plugin_stop/1]).
 -export([sip_get_user_pass/4, sip_authorize/3, sip_route/5]).
 -export([sip_invite/2, sip_reinvite/2, sip_cancel/3, sip_ack/2, sip_bye/2]).
 -export([sip_options/2, sip_register/2, sip_info/2, sip_update/2]).
@@ -62,59 +63,46 @@ plugin_deps() ->
     [].
 
 
--spec plugin_parse(nkservice:user_spec(), nkservice:service()) ->
-	{ok, nkservide:user_spec()} | {error, term()}.
-
-plugin_parse(UserSpec, _Service) ->
-	ok = nksip_app:start(),
-    Syntax = nksip_syntax:syntax(),
-    Defaults = nklib_util:to_map(nksip_config_cache:sip_defaults()),
-    case nkservice_util:parse_syntax(UserSpec, Syntax, Defaults) of
-    	{ok, Data} -> {ok, UserSpec#{nksip=>Data}};
-    	{error, Error} -> {error, Error}
-    end.
-
-
--spec plugin_cache(nkservice:user_spec(), nkservice:service()) ->
+-spec plugin_syntax() ->
 	map().
 
-plugin_cache(#{nksip:=Data}, _Service) ->
-    Timers = #call_timers{
-	    t1 = maps:get(sip_timer_t1, Data),
-	    t2 = maps:get(sip_timer_t2, Data),
-	    t4 = maps:get(sip_timer_t4, Data),
-	    tc = maps:get(sip_timer_c, Data),
-	    trans = maps:get(sip_trans_timeout, Data),
-	    dialog = maps:get(sip_dialog_timeout, Data)
-	},
-	#{nksip_timers => Timers}.
+plugin_syntax() ->
+	nksip_syntax:syntax().
 
 
--spec plugin_listen(nkservice:user_spec(), nkservice:service()) ->
+-spec plugin_config(nkservice:config(), nkservice:service()) ->
+	{ok, tuple()}.
+
+plugin_config(Config, _Service) ->
+	{ok, Config, nksip_syntax:make_config(Config)}.
+
+
+-spec plugin_listen(nkservice:config(), nkservice:service()) ->
 	list().
 
-plugin_listen(#{nksip:=Data}, #{id:=Id}) ->
+plugin_listen(Data, #{id:=Id, config_nksip:=Config}) ->
 	case Data of
 		#{sip_listen:=Listen} ->
-		    nksip_util:adapt_transports(Id, Listen, Data);
+		    nksip_util:adapt_transports(Id, Listen, Config);
 		_ ->
 			[]	  
 	end.
 
 
--spec plugin_start(nkservice:user_spec(), nkservice:service()) ->
+-spec plugin_start(nkservice:service()) ->
 	{ok, nkservice:service()} | {error, term()}.
 
-plugin_start(#{nksip:=Data}, #{id:=Id, name:=Name}=Service) ->
-    lager:info("Plugin nksip (~p, ~s) started", [Id, Name]),
-    {ok, Service#{nksip=>Data}}.
+plugin_start(#{name:=Name}=Service) ->
+	ok = nksip_app:start(),
+    lager:info("Plugin nksip started for service ~s", [Name]),
+    {ok, Service}.
 
 
--spec plugin_stop(nkservice:spec()) ->
+-spec plugin_stop(nkservice:service()) ->
     {ok, nkservice:service()} | {stop, term()}.
 
-plugin_stop(#{id:=Id, name:=Name}=Service) ->
-    lager:info("Plugin nksip (~p, ~s) stopped", [Id, Name]),
+plugin_stop(#{name:=Name}=Service) ->
+    lager:info("Plugin nksip stopped for service ~s", [Name]),
     {ok, Service}.
 
 
