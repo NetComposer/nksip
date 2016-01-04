@@ -61,7 +61,7 @@ nksip:update(nksip:srv_name()|nksip:srv_id(), nksip:optslist()) ->
 ```
 Updates the callback module or options of a running Service.
 
-You can change any configuration parameter on the fly, except for transports. See [Configuration](../reference/configuration.md).
+You can change any configuration parameter on the fly, even for transports. See [Configuration](../reference/configuration.md).
 
 
 ### get_all/0

@@ -80,11 +80,11 @@ When starting each service, all sip_-class global configuration options can be u
 Name|Type|Default|Comments
 ---|---|---|---
 plugins|`atom`|[]|List of plugins to use
-transports|`atom`|"sip:all"|List of transports to use.
-idle_timeout|`integer()`|(depends on transport)|Default connection idle timeout
-connect_timeout|(global)|Default outbound connection idle timeout
-sctp_out_streams|`integer()`|10|Default SCTP out streams
-sctp_in_streams|`integer()`|10|Default SCTP in streams
+sip_listen|`atom`|"sip:all"|List of transports to use.
+service_idle_timeout|`integer()`|(depends on transport)|Default connection idle timeout
+service_connect_timeout|(global)|Default outbound connection idle timeout
+service_sctp_out_streams|`integer()`|10|Default SCTP out streams
+service_sctp_in_streams|`integer()`|10|Default SCTP in streams
 tcp_listeners|`integer()`|10|Default number of TCP listenersº
 tls_certfile|`string()`|-|Custom certificate file
 tls_keyfile|`string()`|-|Custom key file
