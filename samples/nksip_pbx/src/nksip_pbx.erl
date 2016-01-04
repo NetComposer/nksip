@@ -36,7 +36,7 @@ start() ->
         callback => ?MODULE,
         plugins => [nksip_registrar, nksip_100rel, nksip_gruu,
                     nksip_outbound, nksip_timers],
-        transports => "<sip:all:5060>, <sip:all:5061;transport=tls>"
+        sip_listen => "<sip:all:5060>, <sip:all:5061;transport=tls>"
     }),
     ok.
 

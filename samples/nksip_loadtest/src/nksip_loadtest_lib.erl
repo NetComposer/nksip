@@ -43,7 +43,7 @@ start_server(Name, Port) ->
     Opts = #{
         plugins => [nksip_registrar, nksip_stats],
         callback => nksip_loadtest_callbacks,
-        transports => [
+        sip_listen => [
             {nksip_protocol, udp, {0,0,0,0}, Port, #{}},
             {nksip_protocol, tls, {0,0,0,0}, Port+1, #{}}
         ],
@@ -245,7 +245,7 @@ start_clients(Pos, Max) when Pos > Max ->
     ok;
 start_clients(Pos, Max) ->
     Opts = #{
-        transports => "sip:all, sips:all",
+        sip_listen => "sip:all, sips:all",
         client => Pos,
         callback => nksip_loadtest_callbacks
     },
