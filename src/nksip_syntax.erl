@@ -92,27 +92,29 @@ default_supported() ->
 
 
 make_config(Data) ->
+    Times = #call_times{
+        t1 = maps:get(sip_timer_t1, Data, 500),
+        t2 = maps:get(sip_timer_t2, Data, 4000),
+        t4 = maps:get(sip_timer_t4, Data, 5000),
+        tc = maps:get(sip_timer_c, Data, 180),
+        trans = maps:get(sip_trans_timeout, Data, 900),
+        dialog = maps:get(sip_dialog_timeout, Data, 1800)
+    },
     #config{
-        sip_listen = maps:get(sip_listen, Data, []),
-        sip_allow = maps:get(sip_allow, Data, default_allow()),
-        sip_supported = maps:get(sip_supported, Data, default_supported()),
-        sip_timer_t1 = maps:get(sip_timer_t1, Data, 500),
-        sip_timer_t2 = maps:get(sip_timer_t2, Data, 4000),
-        sip_timer_t4 = maps:get(sip_timer_t4, Data, 5000),
-        sip_timer_c = maps:get(sip_timer_c, Data, 180),
-        sip_trans_timeout = maps:get(sip_trans_timeout, Data, 900),
-        sip_dialog_timeout = maps:get(sip_dialog_timeout, Data, 1800),
-        sip_event_expires = maps:get(sip_event_expires, Data, 60),
-        sip_event_expires_offset = maps:get(sip_event_expires_offset, Data, 5),
-        sip_nonce_timeout = maps:get(sip_nonce_timeout, Data, 30),
-        sip_from = maps:get(sip_from, Data, undefined),
-        sip_accept = maps:get(sip_accept, Data, undefined),
-        sip_events = maps:get(sip_events, Data, []),
-        sip_route = maps:get(sip_route, Data, []),
-        sip_no_100 = maps:get(sip_no_100, Data, false),
-        sip_max_calls = maps:get(sip_max_calls, Data, 100000),
-        sip_local_host = maps:get(sip_local_host, Data, auto),
-        sip_local_host6 = maps:get(sip_local_host6, Data, auto),
-        sip_debug = maps:get(sip_debug, Data, false)
+        debug = maps:get(sip_debug, Data, false),
+        allow = maps:get(sip_allow, Data, default_allow()),
+        supported = maps:get(sip_supported, Data, default_supported()),
+        event_expires = maps:get(sip_event_expires, Data, 60),
+        event_expires_offset = maps:get(sip_event_expires_offset, Data, 5),
+        nonce_timeout = maps:get(sip_nonce_timeout, Data, 30),
+        from = maps:get(sip_from, Data, undefined),
+        accept = maps:get(sip_accept, Data, undefined),
+        events = maps:get(sip_events, Data, []),
+        route = maps:get(sip_route, Data, []),
+        no_100 = maps:get(sip_no_100, Data, false),
+        max_calls = maps:get(sip_max_calls, Data, 100000),
+        local_host = maps:get(sip_local_host, Data, auto),
+        local_host6 = maps:get(sip_local_host6, Data, auto),
+        times = Times
     }.
 

@@ -25,18 +25,52 @@
 -include_lib("nklib/include/nklib.hrl").
 -include("../include/nksip.hrl").
 -include("nksip_registrar.hrl").
+
+-export([plugin_deps/0, plugin_config/2, plugin_start/2, plugin_stop/2]).
 -export([nks_sip_uac_proxy_opts/2, nks_sip_transport_uac_headers/6]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
 	     nks_sip_registrar_get_index/2]).
 
 
+%% ===================================================================
+%% Plugin
+%% ===================================================================
+
+plugin_deps() ->
+    [nksip].
+
+
+plugin_config(Config, _Service) ->
+    Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),
+    Supported2 = nklib_util:store_value(<<"outbound">>, Supported1),
+    Config2 = Config#{sip_supported=>Supported2},
+    {ok, Config2}.
+
+
+plugin_start(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+plugin_stop(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+    Supported1 = maps:get(sip_supported, Config, []),
+    Supported2 = Supported1 -- [<<"outbound">>],
+    {ok, Config#{sip_supported=>Supported2}}.
+
+
+
+
+%% ===================================================================
+%% SIP Core
+%% ===================================================================
 
 %% @doc Called to add options for proxy UAC processing
 -spec nks_sip_uac_proxy_opts(nksip:request(), nksip:optslist()) ->
     {continue, list()} | {reply, nksip:sipreply()}.
 
 nks_sip_uac_proxy_opts(Req, ReqOpts) ->
-    case nksip_outbound_lib:proxy_opts(Req, ReqOpts) of
+    case nksip_outbound:proxy_opts(Req, ReqOpts) of
         {ok, ProxyOpts} -> 
             {continue, [Req, ProxyOpts]};
         {error, OutError} -> 
@@ -46,14 +80,14 @@ nks_sip_uac_proxy_opts(Req, ReqOpts) ->
 
 %% @doc Called when preparing the request for sending
 nks_sip_transport_uac_headers(Req, Opts, Scheme, Transp, Host, Port) ->
-    Req1 = nksip_outbound_lib:add_headers(Req, Opts, Scheme, Transp, Host, Port),
+    Req1 = nksip_outbound:add_headers(Req, Opts, Scheme, Transp, Host, Port),
     {ok, Req1}.
 
 
 %% @private
 nks_sip_registrar_request_opts(Req, Opts) ->
-	nksip_outbound_lib:check_several_reg_id(Req#sipmsg.contacts),
-    case nksip_outbound_lib:registrar(Req) of
+	nksip_outbound:check_several_reg_id(Req#sipmsg.contacts),
+    case nksip_outbound:registrar(Req) of
         {true, Req1} -> Opts1 = [{outbound, true}|Opts];
         {false, Req1} -> Opts1 = [{outbound, false}|Opts];
         no_outbound -> Req1 = Req, Opts1 = Opts;

@@ -63,7 +63,7 @@ start() ->
 
     ok = tests_util:start(server1, ?MODULE, [
         {sip_no_100, true},
-        {transports, "sip:all:5060"}
+        {sip_listen, "sip:all:5060"}
     ]),
     timer:sleep(100),
     tests_util:log(),

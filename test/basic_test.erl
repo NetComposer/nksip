@@ -48,9 +48,9 @@ s1() ->
     ok = tests_util:start(server1, ?MODULE, #{
         arg => server1,
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
+        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234",
         plugins => [nksip_registrar],
-        tls_versions => [tlsv1],
-        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234" 
+        tls_versions => [tlsv1]
     }).
 
 
@@ -61,21 +61,21 @@ start() ->
     nklib_store:update_timer(200),
 
     ok = tests_util:start(server1, ?MODULE, #{
-        arg => server1,
+        arg => {my, server1},
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
-        plugins => [nksip_registrar],
-        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061"
+        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061",
+        plugins => [nksip_registrar]
     }),
 
     ok = tests_util:start(client1, ?MODULE, #{
-        arg => client1,
+        arg => {my, client1},
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
         sip_listen => ["sip://all:5070", "sips:all:5071"]
     }),
 
     ok = tests_util:start(client2, ?MODULE, #{
+        arg => {my, client2},
         callback => ?MODULE,
-        arg => client2,
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
 
     tests_util:log(),
@@ -97,20 +97,18 @@ running() ->
     [{_, server1, _}, {_, client2, _}, {_, client1, _}] =
         lists:sort(nkservice:get_all(nksip)),
 
-    % lager:error("Next error about error1 is expected"),
     {error, error1} = nksip:start(error1, [
         {sip_listen, "sip:all:5090"}, {callback, ?MODULE}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
-    {error, {syntax_error, <<"sip_listen">>}} = 
+    {error, {{nksip, {syntax_error, <<"sip_listen">>}}}} = 
         nksip:start(name, [{sip_listen, "<sip:all;transport=other>"}]),
-    {error,{could_not_start_plugin,{nksip_registrar,
-            {syntax_error,<<"sip_registrar_min_time">>}}}} = 
+    {error, {{nksip_registrar, {syntax_error,<<"sip_registrar_min_time">>}}}} = 
         nksip:start(name, [{plugins, [nksip_registrar]}, {sip_registrar_min_time, -1}]),
 
-    {error, {invalid_plugin_module, invalid}} = 
+    {error, {unknown_plugin, invalid}} = 
         nksip:start(name, [{plugins, [nksip_registrar, invalid]}]),
 
     ok.
@@ -200,7 +198,7 @@ transport() ->
 
 cast_info() ->
     % Direct calls to service's core processing app
-    {ok, S1} = nkservice_server:get_srv_id(server1),
+    {ok, S1} = nkservice_srv:get_srv_id(server1),
     Pid = whereis(S1),
     undefined = nkservice:get_pid(other),
 
@@ -231,7 +229,7 @@ stun() ->
 service_init(#{name:=error1}, _State) ->
     {stop, error1};
 
-service_init(#{name:=Name, arg:=Name}, State) ->
+service_init(#{name:=Name, config:=#{arg:={my, Name}}}, State) ->
     ok = nkservice:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State#{my_name=>Name}}.
 

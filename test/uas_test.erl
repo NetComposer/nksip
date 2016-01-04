@@ -49,13 +49,13 @@ start() ->
         {sip_supported, "a;a_param, 100rel"},
         {sip_uac_auto_register_timer, 1},
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {sip_uac_auto_register_timer, 1},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
         {plugins, [nksip_uac_auto_register]}
     ]),
             
@@ -66,7 +66,7 @@ start() ->
         {sip_registrar_min_time, 1},
         {sip_uac_auto_register_timer, 1},
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5080"}
+        {sip_listen, "sip:all:5080"}
     ]),
 
     tests_util:log(),
@@ -128,7 +128,7 @@ auto() ->
     % nksip:stop(server2),
     % ok = tests_util:start(server2, ?MODULE, [
     %     {plugins, [nksip_registrar]},
-    %     {transports, "sip:all:5080"},
+    %     {sip_listen, "sip:all:5080"},
     %     {sip_registrar_min_time, 1},
     %     {sip_uac_auto_register_timer, 1}
     % ]),

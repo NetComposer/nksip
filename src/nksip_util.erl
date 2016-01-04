@@ -42,52 +42,6 @@
 %% =================================================================
 
 
-
-% %% @private Adapt old style parameters to new style
-% adapt() ->
-%     #{
-%         allow => sip_allow,
-%         supported => sip_supported,
-%         timer_t1 => sip_timer_t1,
-%         timer_t2 => sip_timer_t2,
-%         timer_t4 => sip_timer_t4,
-%         timer_c => sip_timer_c,
-%         trans_timeout => sip_trans_timeout,
-%         dialog_timeout => sip_dialog_timeout,
-%         event_expires => sip_event_expires,
-%         event_expires_offset => sip_event_expires_offset,
-%         nonce_timeout => sip_nonce_timeout,
-%         from => sip_from,
-%         accept => sip_accept,
-%         events => sip_events,
-%         route => sip_route,
-%         no_100 => sip_no_100,
-%         max_calls => sip_max_calls,
-%         local_host => sip_local_host,
-%         local_host6 => sip_local_host6,        
-%         debug => sip_debug
-%     }.
-
-
-% %% @private
-% adapt_opts(Opts) ->
-%     adapt_opts(nklib_util:to_list(Opts), []).
-
-% adapt_opts([], Acc) ->
-%     maps:from_list(Acc);
-
-% adapt_opts([{Key, Val}|Rest], Acc) ->
-%     Key1 = case maps:find(Key, adapt()) of
-%         {ok, NewKey} -> NewKey;
-%         error -> Key
-%     end,
-%     adapt_opts(Rest, [{Key1, Val}|Acc]);
-
-% adapt_opts([Key|Rest], Acc) ->
-%     adapt_opts([{Key, true}|Rest], Acc).
-
-
-
 %% @private
 adapt_transports(SrvId, Transports, Service) ->
     adapt_transports(SrvId, Transports, Service, []).
@@ -103,7 +57,7 @@ adapt_transports(SrvId, [{RawConns, Opts}|Rest], Config, Acc) ->
             Base = #{class => {nksip, SrvId}},
             case Transp of
                 udp ->
-                    #config{sip_timer_t1=T1} = Config,
+                    #config{times=#call_times{t1=T1}} = Config,
                     Base#{
                         udp_starts_tcp => true,
                         udp_stun_reply => true,
@@ -155,7 +109,7 @@ get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
             Host = case nklib_util:get_value(local_host, Opts) of
-                undefined -> SrvId:cache_sip_local_host();
+                undefined -> ?GET_CONFIG(SrvId, local_host);
                 Host0 -> Host0
             end,
             case Host of
@@ -168,7 +122,7 @@ get_listenhost(SrvId, Ip, Opts) ->
             end;
         8 ->
             Host = case nklib_util:get_value(local_host6, Opts) of
-                undefined -> SrvId:cache_sip_local_host6();
+                undefined -> ?GET_CONFIG(SrvId, local_host6);
                 Host0 -> Host0
             end,
             case Host of
@@ -280,7 +234,7 @@ put_log_cache(SrvId, CallId) ->
     erlang:put(nksip_srv_id, SrvId),
     erlang:put(nksip_call_id, CallId),
     erlang:put(nksip_srv_name, SrvId:name()),
-    erlang:put(nksip_log_level, SrvId:cache_log_level()).
+    erlang:put(nksip_log_level, SrvId:log_level()).
 
 
 %% @private

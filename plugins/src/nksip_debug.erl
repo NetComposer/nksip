@@ -26,61 +26,8 @@
 
 -export([start/1, stop/1, print/1, print_all/0]).
 -export([insert/2, insert/3, find/1, find/2, dump_msgs/0, reset_msgs/0]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
-
-
-% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId, cache:=Cache}=SrvSpec) ->
-    case whereis(nksip_debug_srv) of
-        undefined ->
-            Child = {
-                nksip_debug_srv,
-                {nksip_debug_srv, start_link, []},
-                permanent,
-                5000,
-                worker,
-                [nksip_debug_srv]
-            },
-            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
-        _ ->
-            ok
-    end,
-    Syntax = #{nksip_debug => boolean},
-    Defaults = #{nksip_debug => false},
-    case nkservice_util:parse_syntax(SrvSpec, Syntax, Defaults) of
-        {ok, #{nksip_debug:=Debug}} ->
-            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-            {ok, SrvSpec#{cache=>Cache#{sip_debug=>Debug}}};
-        {error, Error} ->
-            {stop, Error}
-    end.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec}.
-
 
 
 
@@ -94,7 +41,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
     ok | {error, term()}.
 
 start(Srv) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_debug, Plugins1),
@@ -112,7 +59,7 @@ start(Srv) ->
     ok | {error, term()}.
 
 stop(Srv) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_debug],
             case nksip:update(Srv, #{plugins=>Plugins, sip_debug=>false}) of

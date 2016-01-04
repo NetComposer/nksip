@@ -66,30 +66,30 @@ start() ->
         {sip_from, "sip:server1@nksip"},
         {sip_local_host6, "::1"},
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, sip:[::1]:5060"}
+        {sip_listen, "sip:all:5060, sip:[::1]:5060"}
     ]),
 
     ok = tests_util:start(server2, ?MODULE, [
         {sip_from, "sip:server2@nksip"},
         {sip_local_host, "127.0.0.1"},
         {sip_local_host6, "::1"},
-        {transports, "sip:all:5061, sip:[::1]:5061"}
+        {sip_listen, "sip:all:5061, sip:[::1]:5061"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "sip:client1@nksip"},
-        {transports, "sip:[::1]:5070"}
+        {sip_listen, "sip:[::1]:5070"}
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
         {sip_from, "sip:client2@nksip"},
-        {transports, "sip:[::1]:5071"}
+        {sip_listen, "sip:[::1]:5071"}
     ]),
 
     ok = tests_util:start(client3, ?MODULE, [
         {sip_from, "sip:client3@nksip"},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all:5072"}
+        {sip_listen, "sip:all:5072"}
     ]),
 
     tests_util:log(),

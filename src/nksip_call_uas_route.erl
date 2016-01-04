@@ -49,7 +49,7 @@ launch(UAS, Call) ->
 
 send_100(UAS, #call{srv_id=SrvId}=Call) ->
     #trans{id=Id, method=Method, request=Req} = UAS,
-    case Method=='INVITE' andalso (not SrvId:cache_sip_no_100()) of 
+    case Method=='INVITE' andalso (not ?GET_CONFIG(SrvId, no_100)) of 
         true ->
             {Resp, SendOpts} = nksip_reply:reply(Req, 100),
             case nksip_call_uas_transp:send_response(Resp, SendOpts) of

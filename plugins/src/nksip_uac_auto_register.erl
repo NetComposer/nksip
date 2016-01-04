@@ -24,61 +24,8 @@
 
 -export([start_ping/4, stop_ping/2, get_pings/1]).
 -export([start_register/4, stop_register/2, get_registers/1]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 -include("nksip_uac_auto_register.hrl").
-
-
-%% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
-    case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
-        {ok, SrvSpec2} ->
-            Cache = maps:with([sip_uac_auto_register_timer], SrvSpec2),
-            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-            {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
-        {error, Error} ->
-            {stop, Error}
-    end.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    gen_server:cast(SrvId, nksip_uac_auto_register_terminate),
-    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
-
-
-syntax() ->
-    #{
-        sip_uac_auto_register_timer => {integer, 1, none}
-    }.
-
-defaults() ->
-    #{
-        sip_uac_auto_register_timer => 5
-    }.
-
-
-
 
 
 %% ===================================================================
@@ -93,7 +40,7 @@ defaults() ->
 
 start_register(Srv, RegId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice_server:get_srv_id(Srv) of
+        case nkservice_srv:get_srv_id(Srv) of
             {ok, SrvId} -> ok;
             _ -> SrvId = throw(service_not_found)
         end,
@@ -137,7 +84,7 @@ get_registers(Srv) ->
 
 start_ping(Srv, PingId, Uri, Opts) when is_list(Opts) ->
     try
-        case nkservice_server:get_srv_id(Srv) of
+        case nkservice_srv:get_srv_id(Srv) of
             {ok, SrvId} -> ok;
             _ -> SrvId = throw(service_not_found)
         end,

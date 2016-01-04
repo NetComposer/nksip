@@ -25,12 +25,49 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
+-export([plugin_deps/0, plugin_config/2, plugin_start/2, plugin_stop/2]).
 -export([sip_prack/2]).
 -export([nks_sip_parse_uac_opts/2, 
          nks_sip_uac_pre_response/3, nks_sip_uac_response/4, 
          nks_sip_parse_uas_opt/3, nks_sip_uas_timer/3,
          nks_sip_uas_send_reply/3, nks_sip_uas_sent_reply/1, nks_sip_uas_method/4]).
 
+
+
+%% ===================================================================
+%% Plugin
+%% ===================================================================
+
+plugin_deps() ->
+    [nksip].
+
+
+plugin_config(Config, _Service) ->
+    Allow1 = maps:get(sip_allow, Config, nksip_syntax:default_allow()),
+    Allow2 = nklib_util:store_value(<<"PRACK">>, Allow1),
+    Supported1 = maps:get(sip_supported, Config, nksip_syntax:default_supported()),
+    Supported2 = nklib_util:store_value(<<"100rel">>, Supported1),
+    Config2 = Config#{sip_allow=>Allow2, sip_supported=>Supported2},
+    {ok, Config2}.
+
+
+plugin_start(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+plugin_stop(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+    Allow1 = maps:get(sip_allow, Config, []),
+    Allow2 = Allow1 -- [<<"PRACK">>],
+    Supported1 = maps:get(sip_supported, Config, []),
+    Supported2 = Supported1 -- [<<"100rel">>],
+    {ok, Config#{sip_allow=>Allow2, sip_supported=>Supported2}}.
+
+
+%% ===================================================================
+%% Specific
+%% ===================================================================
 
 
 %% @doc Called when a valid PRACK request is received.
@@ -41,8 +78,10 @@ sip_prack(_Req, _Call) ->
     {reply, ok}.
 
 
-%%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% ===================================================================
+%% SIP Core
+%% ===================================================================
 
 
 %% @doc Called to parse specific UAC options
@@ -65,7 +104,7 @@ nks_sip_parse_uac_opts(Req, Opts) ->
     {ok, nksip:call()} | continue.
 
 nks_sip_uac_pre_response(Resp, UAC, Call) ->
-    case nksip_100rel_lib:is_prack_retrans(Resp, UAC) of
+    case nksip_100rel:is_prack_retrans(Resp, UAC) of
         true ->
             ?call_info("UAC received retransmission of reliable provisional "
                        "response", []),
@@ -92,7 +131,7 @@ nks_sip_uac_response(_Req, Resp, UAC, Call) ->
             continue;
         _ when Method=='INVITE', Code>100, Code<200 ->
             case lists:member(<<"100rel">>, Require) of
-                true -> nksip_100rel_lib:send_prack(Resp, Id, DialogId, Call);
+                true -> nksip_100rel:send_prack(Resp, Id, DialogId, Call);
                 false -> continue
             end;
         _ ->
@@ -139,7 +178,7 @@ nks_sip_parse_uas_opt(Req, Resp, Opts) ->
 nks_sip_uas_send_reply({Resp, SendOpts}, UAS, Call) ->
     case nksip_sipmsg:require(<<"100rel">>, Resp) of
         true ->
-            case nksip_100rel_lib:uas_store_info(Resp, UAS) of
+            case nksip_100rel:uas_store_info(Resp, UAS) of
                 {ok, Resp1, UAS1} ->
                     {continue, [{Resp1, SendOpts}, UAS1, Call]};
                 {error, Error} ->
@@ -158,8 +197,8 @@ nks_sip_uas_sent_reply(#call{trans=[UAS|_]}=Call) ->
     #trans{status=Status, response=Resp, code=Code} = UAS,
     case nksip_sipmsg:require(<<"100rel">>, Resp) of
         true when Status==invite_proceeding, Code<200 ->
-            UAS1 = nksip_100rel_lib:timeout_timer(UAS, Call),
-            UAS2 = nksip_100rel_lib:retrans_timer(UAS1, Call),
+            UAS1 = nksip_100rel:timeout_timer(UAS, Call),
+            UAS2 = nksip_100rel:retrans_timer(UAS1, Call),
             {ok, nksip_call_lib:update(UAS2, Call)};
         _ ->
             {continue, [Call]}
@@ -173,7 +212,7 @@ nks_sip_uas_sent_reply(#call{trans=[UAS|_]}=Call) ->
     {ok, nksip_call:trans(), nksip_call:call()} | {continue, list()}.
 
 nks_sip_uas_method('PRACK', Req, UAS, Call) ->
-    {UAS1, Call1} = nksip_100rel_lib:uas_method(Req, UAS, Call),
+    {UAS1, Call1} = nksip_100rel:uas_method(Req, UAS, Call),
     {ok, UAS1, Call1};
 
 nks_sip_uas_method(Method, Req, UAS, Call) ->
@@ -181,7 +220,8 @@ nks_sip_uas_method(Method, Req, UAS, Call) ->
 
 
 %% @doc Called when a UAS timer is fired
--spec nks_sip_uas_timer(nksip_call_lib:timer()|term(), nksip_call:trans(), nksip_call:call()) ->
+-spec nks_sip_uas_timer(nksip_call_lib:timer()|term(), nksip_call:trans(), 
+                        nksip_call:call()) ->
     {ok, nksip_call:call()} | continue.
 
 nks_sip_uas_timer(nksip_100rel_prack_retrans, #trans{id=Id, response=Resp}=UAS, Call) ->
@@ -190,7 +230,7 @@ nks_sip_uas_timer(nksip_100rel_prack_retrans, #trans{id=Id, response=Resp}=UAS, 
         {ok, _} ->
             ?call_info("UAS ~p retransmitting 'INVITE' ~p reliable response", 
                        [Id, Code]),
-            nksip_100rel_lib:retrans_timer(UAS, Call);
+            nksip_100rel:retrans_timer(UAS, Call);
         {error, _} -> 
             ?call_notice("UAS ~p could not retransmit 'INVITE' ~p reliable response", 
                          [Id, Code]),

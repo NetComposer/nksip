@@ -35,4 +35,10 @@
     regs = [#sipreg_ob{}]
 }).
 
-
+-record(nksip_uac_auto_outbound, {
+	all_fail,
+	any_ok,
+	max_time,
+	udp_ttl,
+	tcp_ttl
+}).

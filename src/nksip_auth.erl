@@ -175,7 +175,7 @@ make_response(Realm, Req) ->
     } = Req,
     {ok, {_, _, Ip, Port}} = nkpacket:get_remote(NkPort),
     Nonce = nklib_util:luid(),
-    Timeout = SrvId:cache_sip_nonce_timeout(),
+    Timeout = ?GET_CONFIG(SrvId, nonce_timeout),
     put_nonce(SrvId, CallId, Nonce, {Ip, Port}, Timeout),
     Opaque = nklib_util:hash(SrvId),
     list_to_binary([

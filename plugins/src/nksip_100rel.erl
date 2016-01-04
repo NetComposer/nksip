@@ -25,64 +25,217 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
+-export([is_prack_retrans/2, send_prack/4]).
+-export([uas_store_info/2, uas_method/3]).
+-export([retrans_timer/2, timeout_timer/2]).
 
 
 %% ===================================================================
-%% Plugin specific
+%% Private
 %% ===================================================================
 
-%% @doc Version
--spec version() ->
-    string().
 
-version() ->
-    "0.2".
+%% @private
+-spec is_prack_retrans(nksip:response(), nksip_call:trans()) ->
+    boolean().
 
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId}=SrvSpec) ->
-    UpdFun1 = fun(Allow) -> nklib_util:store_value(<<"PRACK">>, Allow) end,
-    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun1, SrvSpec),
-    UpdFun2 = fun(Supported) -> nklib_util:store_value(<<"100rel">>, Supported) end,
-    SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun2, SrvSpec1),
-    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
+is_prack_retrans(Resp, UAC) ->
+    #sipmsg{dialog_id=DialogId, cseq={CSeq, Method}} = Resp,
+    #trans{meta=Meta} = UAC,
+    case nksip_sipmsg:header(<<"rseq">>, Resp, integers) of
+        [RSeq] when is_integer(RSeq) ->
+            PRAcks = nklib_util:get_value(nksip_100rel_pracks, Meta, []),
+            lists:member({RSeq, CSeq, Method, DialogId}, PRAcks);
+        _ ->
+            false
+    end.
 
 
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    UpdFun1 = fun(Allow) -> Allow -- [<<"PRACK">>] end,
-    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun1, SrvSpec),
-    UpdFun2 = fun(Supported) -> Supported -- [<<"100rel">>] end,
-    SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun2, SrvSpec1),
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
+%% @private
+-spec send_prack(nksip:response(), nksip_call:trans_id(), 
+                 nksip_dialog_lib:id(), nksip_call:call()) ->
+    continue | {ok, nksip:call()}.
+
+send_prack(Resp, Id, DialogId, Call) ->
+    #sipmsg{class={resp, Code, _Phrase}, cseq={CSeq, _}} = Resp,
+    #call{trans=Trans} = Call,
+    try
+        case nksip_sipmsg:header(<<"rseq">>, Resp, integers) of
+            [RSeq] when RSeq > 0 -> ok;
+            _ -> RSeq = throw(invalid_rseq)
+        end,
+        case lists:keyfind(Id, #trans.id, Trans) of
+            #trans{} = UAC -> ok;
+            _ -> UAC = throw(no_transaction)
+        end,
+        #trans{method=Method, meta=Meta, opts=UACOpts} = UAC,
+        PRAcks = nklib_util:get_value(nksip_100rel_pracks, Meta, []),
+        LastRSeq = nklib_util:get_value(nksip_100rel_rseq, Meta, 0),
+        case LastRSeq of
+            0 -> ok;
+            _ when RSeq==LastRSeq+1 -> ok;
+            _ -> throw(rseq_out_of_order)
+        end,
+        case nksip_call_dialog:find(DialogId, Call) of
+            #dialog{invite=#invite{sdp_offer={remote, invite, RemoteSDP}}} -> ok;
+            _ -> RemoteSDP = <<>>
+        end,
+        Body = case nklib_util:get_value(prack_callback, UACOpts) of
+            Fun when is_function(Fun, 2) -> 
+                case catch Fun(RemoteSDP, {resp, Code, Resp, Call}) of
+                    Bin when is_binary(Bin) ->
+                        Bin;
+                    #sdp{} = LocalSDP -> 
+                        LocalSDP;
+                    Other ->
+                        ?call_warning("error calling prack_sdp/2: ~p", [Other]),
+                        <<>>
+                end;
+            _ ->
+                <<>>
+        end,
+        RAck = list_to_binary([ 
+            integer_to_list(RSeq),
+            32,
+            integer_to_list(CSeq),
+            32,
+            nklib_util:to_list(Method)
+        ]),
+        Opts2 = [{add, "rack", RAck}, {body, Body}],
+        % case nksip_call:make_dialog(DialogId, 'PRACK', Opts2, Call) of
+        %     {ok, Req, ReqOpts, Call1} -> 
+        %         PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
+        %         Meta1 = nklib_util:store_value(nksip_100rel_pracks, PRAcks1, Meta),
+        %         Meta2 = nklib_util:store_value(nksip_100rel_rseq, RSeq, Meta1),
+        %         UAC1 = UAC#trans{meta=Meta2},
+        %         Call2 = nksip_call_lib:update(UAC1, Call1),
+        %         {ok, nksip_call_uac:request(Req, ReqOpts, none, Call2)};
+        %     {error, Error} ->
+        %         throw(Error)
+        % end
+        case nksip_call_uac:dialog(DialogId, 'PRACK', Opts2, Call) of
+            {ok, #call{trans=[UAC1|_]}=Call1} -> 
+                PRAcks1 = [{RSeq, CSeq, Method, DialogId}|PRAcks],
+                Meta1 = nklib_util:store_value(nksip_100rel_pracks, PRAcks1, Meta),
+                Meta2 = nklib_util:store_value(nksip_100rel_rseq, RSeq, Meta1),
+                UAC2 = UAC1#trans{meta=Meta2},
+                {ok, nksip_call_lib:update(UAC2, Call1)};
+            {error, Error} ->
+                throw(Error)
+        end
+    catch
+        throw:TError ->
+            ?call_warning("could not send PRACK: ~p", [TError]),
+            continue
+    end.
 
 
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
 
-% parse_config(Opts) ->
-%     Allow = nklib_util:get_value(sip_allow, Opts),
-%     Opts1 = case lists:member(<<"PRACK">>, Allow) of
-%         true -> 
-%             Opts;
-%         false -> 
-%             nklib_util:store_value(sip_allow, Allow++[<<"PRACK">>], Opts)
-%     end,
-%     Supported = nklib_util:get_value(sip_supported, Opts),
-%     Opts2 = case lists:member(<<"100rel">>, Supported) of
-%         true -> Opts1;
-%         false -> nklib_util:store_value(sip_supported, Supported++[<<"100rel">>], Opts1)
-%     end,
-%     {ok, Opts2}.
+%% @private
+-spec uas_store_info(nksip:response(), nksip_call:trans()) ->
+    {ok, nksip:response(), nksip_call:trans()} | {error, Error}
+    when Error :: stateless_not_allowed | pending_prack.
+
+uas_store_info(_, #trans{stateless=true}) ->
+    {error, stateless_not_allowed};
+
+uas_store_info(Resp, UAS) ->
+    #sipmsg{dialog_id=DialogId, cseq={CSeq, Method}} = Resp,
+    #trans{meta=Meta} = UAS,
+    case nklib_util:get_value(nksip_100rel_pracks, Meta, []) of
+        [] ->
+            RSeq = case nklib_util:get_value(nksip_100rel_rseq, Meta, 0) of
+                0 -> crypto:rand_uniform(1, 2147483647);
+                LastRSeq -> LastRSeq+1
+            end,
+            Headers1 = nksip_headers:update(Resp, [{single, <<"rseq">>, RSeq}]),
+            Resp1 = Resp#sipmsg{headers=Headers1},
+            PRAcks = [{RSeq, CSeq, Method, DialogId}],
+            Meta1 = nklib_util:store_value(nksip_100rel_pracks, PRAcks, Meta),
+            Meta2 = nklib_util:store_value(nksip_100rel_rseq, RSeq, Meta1),
+            UAS1 = UAS#trans{meta=Meta2},
+            {ok, Resp1, UAS1};
+        _ ->
+            {error, pending_prack}
+    end.
+
+
+%% @private
+-spec uas_method(nksip:request(), nksip_call:trans(), nksip_call:call()) ->
+    {nksip_call:trans(), nksip_call:call()}.
+
+uas_method(Req, UAS, Call) ->
+    #sipmsg{dialog_id=DialogId} = Req,
+    #call{trans=Trans} = Call,
+    {RSeq, CSeq, Method} = case nksip_sipmsg:header(<<"rack">>, Req) of
+        [RACK] ->
+            case nklib_util:words(RACK) of
+                [RSeqB, CSeqB, MethodB] ->
+                    {
+                        nklib_util:to_integer(RSeqB),
+                        nklib_util:to_integer(CSeqB),
+                        nksip_parse:method(MethodB)
+                    };
+                _ ->
+                    throw({reply, {invalid_request, <<"Invalid RAck">>}})
+            end;
+        _ ->
+            throw({reply, {invalid_request, <<"Invalid RAck">>}})
+    end,
+    OrigUAS = find_prack_trans(RSeq, CSeq, Method, DialogId, Trans),
+    Meta = lists:keydelete(nksip_100rel_pracks, 1, OrigUAS#trans.meta),
+    OrigUAS1 = OrigUAS#trans{meta=Meta},
+    OrigUAS2 = nksip_call_lib:retrans_timer(cancel, OrigUAS1, Call),
+    OrigUAS3 = nksip_call_lib:timeout_timer(timer_c, OrigUAS2, Call),
+    {UAS, nksip_call_lib:update(OrigUAS3, Call)}.
+
+
+%% @private
+find_prack_trans(_RSeq, _CSeq, _Method, _DialogId, []) ->
+    throw({reply, no_transaction});
+
+find_prack_trans(RSeq, CSeq, Method, Dialog, [Trans|Rest]) ->
+    case 
+        Trans#trans.status==invite_proceeding andalso 
+        nklib_util:get_value(nksip_100rel_pracks, Trans#trans.meta, []) 
+    of
+        [{RSeq, CSeq, Method, Dialog}] -> 
+            Trans;
+        _ -> 
+            find_prack_trans(RSeq, CSeq, Method, Dialog, Rest)
+    end.
+
+
+%% @private
+-spec timeout_timer(nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:trans().
+
+timeout_timer(UAS, Call) ->
+    #trans{timeout_timer=Timeout0} = UAS,
+    #call{times=#call_times{t1=T1}} = Call,
+    nksip_call_lib:cancel_timer(Timeout0),
+    Timeout1 = nksip_call_lib:start_timer(64*T1, nksip_100rel_prack_timeout, UAS),
+    UAS#trans{timeout_timer=Timeout1}.
+
+
+%% @private
+-spec retrans_timer(nksip_call:trans(), nksip_call:call()) ->
+    nksip_call:trans().
+
+retrans_timer(UAS, Call) ->
+    #trans{retrans_timer=Retrans0, next_retrans=Next} = UAS,
+    #call{times=#call_times{t1=T1}} = Call,
+    nksip_call_lib:cancel_timer(Retrans0),
+    Time = case is_integer(Next) of
+        true -> Next;
+        false -> T1
+    end, 
+    Retrans1 = nksip_call_lib:start_timer(Time, nksip_100rel_prack_retrans, UAS),
+    UAS#trans{retrans_timer=Retrans1, next_retrans = 2*Time}.
+
+
+
+
+
 
 

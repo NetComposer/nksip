@@ -28,9 +28,9 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 -compile({no_auto_import, [get/1, put/2]}).
 
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
+-export([get_config/2, open_file/2, close_file/1]).
 
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("../include/nksip.hrl").
@@ -38,74 +38,6 @@
 
 -type file() :: console | string() | binary().
 -type ip_list() :: all | string() | binary() | [string()|binary()].
-
-
-% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
-    SrvSpec1 = maps:merge(#{sip_trace => {console, all}}, SrvSpec),
-    try
-        {File, IpList} = case maps:get(sip_trace, SrvSpec1) of
-            {File0, IpList0} -> 
-                case norm_file(File0) of
-                    {ok, File1} ->
-                        case norm_iplist(IpList0, []) of
-                            {ok, IpList1} -> {File1, IpList1};
-                            error -> throw({invalid_re, IpList0})
-                        end;
-                    error ->
-                        throw({invalid_file, File0})
-                end;
-            File0 -> 
-                case norm_file(File0) of
-                    {ok, File1} -> 
-                        {File1, all};
-                    error ->
-                        throw({invalid_file, File0})
-                end
-        end,
-        close_file(SrvId),
-        case open_file(SrvId, File) of
-            ok -> 
-                case compile_ips(IpList, []) of
-                    {ok, CompIpList} ->
-                        Cache = #{sip_trace => {File, CompIpList}},
-                        lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-                        {ok, SrvSpec1#{cache=>maps:merge(OldCache, Cache)}};
-                    error ->
-                        throw({invalid_re, IpList})
-                end;
-            error -> 
-                throw({invalid_config, {could_not_open, File}})
-        end
-    catch
-        throw:Error -> {stop, Error}
-    end.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    catch close_file(SrvId),
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec}.
-
 
 
 
@@ -120,7 +52,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
 
 get_all() ->
     Fun = fun({SrvId, SrvName, _Pid}, Acc) ->
-        case catch SrvId:cache_sip_trace() of
+        case catch SrvId:config_nksip_trace() of
             {'EXIT', _} -> Acc;
             {File, IpList} -> [{SrvName, File, IpList}]
         end
@@ -159,7 +91,7 @@ start(Srv, File) ->
     ok | {error, term()}.
 
 start(Srv, File, IpList) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins1 = SrvId:plugins(),
             Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
@@ -187,7 +119,7 @@ stop() ->
     ok | {error, term()}.
 
 stop(Srv) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} ->
             Plugins = SrvId:plugins() -- [nksip_trace],
             case nksip:update(Srv, #{plugins=>Plugins}) of
@@ -226,7 +158,7 @@ print(Header, #sipmsg{}=SipMsg) ->
     ok.
 
 sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
-    case SrvId:cache_sip_trace() of
+    case SrvId:config_nksip_trace() of
         {File, all} ->
             SrvName = SrvId:name(),
             Msg = print_packet(SrvName, Header, Transport, Binary),
@@ -249,6 +181,47 @@ sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+
+
+%% @doc
+get_config(Id, Trace) ->
+    try
+        {File, IpList} = case Trace of
+            {File0, IpList0} -> 
+                case norm_file(File0) of
+                    {ok, File1} ->
+                        case norm_iplist(IpList0, []) of
+                            {ok, IpList1} -> {File1, IpList1};
+                            error -> throw({invalid_re, IpList0})
+                        end;
+                    error ->
+                        throw({invalid_file, File0})
+                end;
+            File0 -> 
+                case norm_file(File0) of
+                    {ok, File1} -> 
+                        {File1, all};
+                    error ->
+                        throw({invalid_file, File0})
+                end
+        end,
+        close_file(Id),
+        case open_file(Id, File) of
+            ok -> 
+                close_file(Id),
+                case compile_ips(IpList, []) of
+                    {ok, CompIpList} ->
+                        {ok, {File, CompIpList}};
+                    error ->
+                        throw({invalid_re, IpList})
+                end;
+            error -> 
+                throw({invalid_config, {could_not_open, File}})
+        end
+    catch
+        throw:Error -> {error, Error}
+    end.
 
 
 %% @private

@@ -25,9 +25,33 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
-
+-export([plugin_deps/0, plugin_start/2, plugin_stop/2]).
 -export([sip_refer/3, sip_refer_update/3]).
 -export([nks_sip_parse_uac_opts/2, nks_sip_method/2, nks_sip_call/3, nks_sip_uac_reply/3]).
+
+
+%% ===================================================================
+%% Plugin
+%% ===================================================================
+
+plugin_deps() ->
+    [nksip].
+
+
+plugin_start(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+plugin_stop(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+
+%% ===================================================================
+%% Specific
+%% ===================================================================
 
 
 % @doc Called when a REFER request arrives
@@ -50,8 +74,9 @@ sip_refer_update(_SubsHandle, _Status, _Call) ->
 
 
 
-
-%%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
+%% ===================================================================
+%% SIP Core
+%% ===================================================================
 
 
 %% @doc Called to parse specific UAC options

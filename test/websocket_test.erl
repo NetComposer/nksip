@@ -47,7 +47,7 @@ start() ->
     tests_util:start_nksip(),
 
     ok = tests_util:start(ws_a, ?MODULE, [
-        {transports, [
+        {sip_listen, [
             "<sip:all:8090;transport=ws>",
             "<sips:all:8091;transport=wss>",
             "<sip:all/ws;transport=ws>"
@@ -55,9 +55,9 @@ start() ->
     ]),
 
     ok = tests_util:start(ws_b, ?MODULE, [
-        {transports, [
-            "sip:all:8090;transport=ws",
-            "sip:all:8092/ws;transport=wss"
+        {sip_listen, [
+            "sip:all:8092/ws;transport=wss",
+            "sip:all:8093;transport=ws"
         ]}
     ]),
 
@@ -65,7 +65,7 @@ start() ->
         {sip_from, "\"NkSIP Server\" <sip:server1@nksip>"},
         {sip_local_host, "localhost"},
         {plugins, [nksip_registrar, nksip_gruu, nksip_outbound]},
-        {transports, 
+        {sip_listen, 
             "sip:all:5060, "
             "<sip:all:5061;transport=tls>, "
             "<sip:all:8080;transport=ws>;listeners=10, "
@@ -77,21 +77,21 @@ start() ->
         {sip_from, "\"NkSIP Client\" <sip:client1@nksip>"},
         {sip_local_host, "localhost"},
         {plugins, [nksip_gruu, nksip_outbound]},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
         {sip_from, "<sip:client2@nksip>"},
         {sip_local_host, "localhost"},
         {plugins, [nksip_gruu, nksip_outbound]},
-        {transports, "sip:all;transport=ws, sip:all:8091/ua2;transport=wss"}
+        {sip_listen, "sip:all;transport=ws, sip:all:8091/ua2;transport=wss"}
     ]),
 
     ok = tests_util:start(ua3, ?MODULE, [
         {sip_from, "<sip:client3@nksip>"},
         {sip_local_host, "invalid.invalid"},
         {plugins, [nksip_gruu, nksip_outbound]},
-        {transports, "sip:all:8080/client3;transport=ws"}
+        {sip_listen, "sip:all:8080/client3;transport=ws"}
     ]),
 
     tests_util:log().
@@ -106,8 +106,8 @@ stop() ->
 
 
 basic1() ->
-    {ok, WsA} = nkservice_server:get_srv_id(ws_a),
-    {ok, WsB} = nkservice_server:get_srv_id(ws_b),
+    {ok, WsA} = nkservice_srv:get_srv_id(ws_a),
+    {ok, WsB} = nkservice_srv:get_srv_id(ws_b),
     
     [
         #nkport{transp=ws, local_port=8090, listen_port=8090,
@@ -124,7 +124,7 @@ basic1() ->
         = all_listeners(wss, WsA),
 
     [
-        #nkport{transp=ws, local_port=8090, listen_port=8090,
+        #nkport{transp=ws, local_port=8093, listen_port=8093,
                  meta=#{ws_proto:=<<"sip">>}}
     ] 
         = L3 = all_listeners(ws, WsB),
@@ -151,8 +151,8 @@ basic1() ->
 
 basic2() ->
     % start2(),
-    {ok, UA2} = nkservice_server:get_srv_id(ua2),
-    {ok, S1} = nkservice_server:get_srv_id(server1),
+    {ok, UA2} = nkservice_srv:get_srv_id(ua2),
+    {ok, S1} = nkservice_srv:get_srv_id(server1),
 
     [] = all_connected(S1),
     [] = all_connected(UA2),
@@ -329,7 +329,7 @@ proxy() ->
 
 
     % Let's stop the transports
-    {ok, S1} = nkservice_server:get_srv_id(server1),
+    {ok, S1} = nkservice_srv:get_srv_id(server1),
     [nkpacket_connection:stop(Pid, normal) || #nkport{pid=Pid} <- all_connected(S1)],
     timer:sleep(100),
 

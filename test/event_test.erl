@@ -58,7 +58,7 @@ start() ->
         {sip_local_host, "127.0.0.1"},
         {sip_event_expires_offset, 0},
         {sip_events, "myevent4"},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     tests_util:log(),

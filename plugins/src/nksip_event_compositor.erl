@@ -32,7 +32,6 @@
 -include("nksip_event_compositor.hrl").
 
 -export([find/3, request/1, clear/1]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 -export_type([reg_publish/0]).
 
 
@@ -44,60 +43,6 @@
 
 
 %% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId}=SrvSpec) ->
-    case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
-        {ok, SrvSpec1} ->
-            UpdFun = fun(Allow) -> nklib_util:store_value(<<"PUBLISH">>, Allow) end,
-            SrvSpec2 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec1),
-            #{cache:=OldCache} = SrvSpec2,
-            Cache = maps:with(maps:keys(syntax()), SrvSpec1),
-            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-            {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
-        {error, Error} ->
-            {stop, Error}
-    end.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    UpdFun = fun(Allow) -> Allow -- [<<"PRACK">>] end,
-    SrvSpec1 = nksip:plugin_update_value(sip_allow, UpdFun, SrvSpec),
-    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec1),
-    clear(SrvId),
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
-
-
-syntax() ->
-    #{
-        sip_event_compositor_default_expires => {integer, 1, none}
-    }.
-
-defaults() ->
-    #{
-        sip_event_compositor_default_expires => 60
-    }.
-
-
-%% ===================================================================
 %% Public
 %% ===================================================================
 
@@ -106,7 +51,7 @@ defaults() ->
     {ok, #reg_publish{}} | not_found | {error, term()}.
 
 find(Srv, AOR, Tag) ->
-    {ok, SrvId} = nkservice_server:get_srv_id(Srv),
+    {ok, SrvId} = nkservice_srv:get_srv_id(Srv),
     nksip_event_compositor_lib:store_get(SrvId, AOR, Tag).
 
 
@@ -120,7 +65,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
         true -> 
             Expires;
         _ -> 
-            SrvId:cache_sip_event_compositor_default_expires()
+            SrvId:config_nksip_event_compositor()
     end,
     AOR = {RUri#uri.scheme, RUri#uri.user, RUri#uri.domain},
     case nksip_sipmsg:header(<<"sip-if-match">>, Req) of
@@ -153,7 +98,7 @@ request(#sipmsg{class={req, 'PUBLISH'}}=Req) ->
     ok | callback_error | service_not_found.
 
 clear(Srv) -> 
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} ->
             case nksip_event_compositor_lib:store_del_all(SrvId) of
                 ok -> ok;

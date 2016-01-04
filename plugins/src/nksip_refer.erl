@@ -26,40 +26,6 @@
 -include("../include/nksip_call.hrl").
 
 -export([process/2]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
-
-
-%% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec}.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec}.
-
-
-
 
 
 %% ===================================================================

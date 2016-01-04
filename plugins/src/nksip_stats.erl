@@ -25,57 +25,11 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([info/0, get_uas_avg/0, response_time/1]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
 
-
-
-% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId, cache:=_Cache}=SrvSpec) ->
-    case whereis(nksip_stats_srv) of
-        undefined ->
-            Period = maps:get(nksip_stats_period, SrvSpec, 5),
-            Child = {
-                nksip_stats_srv,
-                {nksip_stats_srv, start_link, [Period]},
-                permanent,
-                5000,
-                worker,
-                [nksip_stats_srv]
-            },
-            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
-        _ ->
-            ok
-    end,
-    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec}.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec}.
 
 
 %% ===================================================================
@@ -95,7 +49,7 @@ info() ->
         {routers_pending, nksip_router:pending_work()},
         {connections, nklib_counters:value(nksip_connections)},
         {counters_queue, nklib_counters:pending_msgs()},
-        {core_queues, nkservice_server:pending_msgs()},
+        {core_queues, nkservice_srv:pending_msgs()},
         {uas_response, nksip_stats:get_uas_avg()}
     ].
 

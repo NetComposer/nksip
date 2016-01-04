@@ -337,7 +337,7 @@ do_call_start(SrvId, SrvPid, CallId, Work, From, State) ->
     Max = nksip_config_cache:max_calls(),
     case nklib_counters:value(nksip_calls) < Max of
         true ->
-            SrvMax = SrvId:cache_sip_max_calls(),
+            SrvMax = ?GET_CONFIG(SrvId, max_calls),
             case nklib_counters:value({nksip_calls, SrvId}) < SrvMax of
                 true ->
                     {ok, CallPid} = nksip_call_srv:start(SrvId, CallId),

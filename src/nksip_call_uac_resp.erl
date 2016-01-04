@@ -57,7 +57,7 @@ response(Resp, UAC, Call) ->
     } = UAC,
     #call{
         msgs = Msgs, 
-        timers = #call_timers{trans=TransTime}
+        times = #call_times{trans=TransTime}
     } = Call,
     Now = nklib_util:timestamp(),
     case Now-Start < TransTime of

@@ -25,42 +25,7 @@
 -include("../include/nksip.hrl").
 
 -export([get_gruu_pub/1, get_gruu_temp/1, registrar_find/2]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
 
-
-%% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
-%% If nksip_registrar is activated, it will update it
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-plugin_start(#{id:=SrvId}=SrvSpec) ->
-    UpdFun = fun(Supported) -> nklib_util:store_value(<<"gruu">>, Supported) end,
-    SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec),
-    lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    UpdFun = fun(Supported) -> Supported -- [<<"gruu">>] end,
-    SrvSpec2 = nksip:plugin_update_value(sip_supported, UpdFun, SrvSpec),
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
 
 
 %% ===================================================================
@@ -73,7 +38,7 @@ plugin_stop(#{id:=SrvId}=SrvSpec) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_pub(Srv) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_pub, SrvId}) of
                 undefined -> undefined;
@@ -89,7 +54,7 @@ get_gruu_pub(Srv) ->
     {ok, nksip:uri()} | undefined | {error, term()}.
 
 get_gruu_temp(Srv) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} -> 
             case nksip_app:get({nksip_gruu_temp, SrvId}) of
                 undefined -> undefined;
@@ -105,7 +70,7 @@ get_gruu_temp(Srv) ->
     [nksip:uri()].
 
 registrar_find(Srv, Uri) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} -> 
             nksip_gruu_lib:find(SrvId, Uri);
         _ ->

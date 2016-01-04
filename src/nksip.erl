@@ -24,8 +24,8 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start/2, stop/1, stop_all/0, update/2]).
--export([get_config/1, get_uuid/1]).
--export([plugin_update_value/3]).
+-export([get_uuid/1]).
+% -export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
 -include("nksip.hrl").
@@ -208,7 +208,7 @@ update(Srv, Opts) ->
     binary().
 
 get_uuid(Srv) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} -> 
             UUID = SrvId:uuid(),
             <<"<urn:uuid:", UUID/binary, ">">>;
@@ -217,12 +217,12 @@ get_uuid(Srv) ->
     end.
 
 
-%% @doc Gets service's config
--spec get_config(nkservice:name()|srv_id()) -> 
-    map().
+% %% @doc Gets service's config
+% -spec get_config(nkservice:name()|srv_id()) -> 
+%     map().
 
-get_config(SrvName) ->
-    nkservice_server:get_cache(SrvName, config_sip).
+% get_config(SrvName) ->
+%     nkservice_srv:get_item(SrvName, config).
 
 
 
@@ -232,15 +232,15 @@ get_config(SrvName) ->
 %% ===================================================================
 
 
-%% @private
-plugin_update_value(Key, Fun, SrvSpec) ->
-    Value1 = maps:get(Key, SrvSpec, undefined),
-    Value2 = Fun(Value1),
-    SrvSpec2 = maps:put(Key, Value2, SrvSpec),
-    OldCache = maps:get(cache, SrvSpec, #{}),
-    Cache = case lists:member(Key, nksip_syntax:cached()) of
-        true -> maps:put(Key, Value2, #{});
-        false -> #{}
-    end,
-    SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
+% %% @private
+% plugin_update_value(Key, Fun, SrvSpec) ->
+%     Value1 = maps:get(Key, SrvSpec, undefined),
+%     Value2 = Fun(Value1),
+%     SrvSpec2 = maps:put(Key, Value2, SrvSpec),
+%     OldCache = maps:get(cache, SrvSpec, #{}),
+%     Cache = case lists:member(Key, nksip_syntax:cached()) of
+%         true -> maps:put(Key, Value2, #{});
+%         false -> #{}
+%     end,
+%     SrvSpec2#{cache=>maps:merge(OldCache, Cache)}.
 

@@ -46,16 +46,16 @@ start() ->
     ok = tests_util:start(server1, ?MODULE, [
         {sip_from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
         {sip_local_host, "127.0.0.1"},
-        {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"},
+        {plugins, [nksip_registrar]}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {sip_local_host, "127.0.0.1"},
         {sip_route, "<sip:127.0.0.1;lr>"},
-        {plugins, [nksip_uac_auto_auth]},
-        {transports, "sip:all:5070, <sip:all:5071;transport=tls>"}
+        {sip_listen, "sip:all:5070, <sip:all:5071;transport=tls>"},
+        {plugins, [nksip_uac_auto_auth]}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
@@ -169,6 +169,7 @@ auth() ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
+
 
 service_init(_, State) ->
     {ok, State}.

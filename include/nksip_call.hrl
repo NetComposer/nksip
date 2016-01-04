@@ -24,6 +24,7 @@
 -ifndef(NKSIP_CALL_HRL_).
 -define(NKSIP_CALL_HRL_, 1).
 
+-include_lib("nklib/include/nklib.hrl").
 
 -define(DO_CALL_LOG(Level, Text, List), 
     ?DO_LOG(Level, erlang:get(nksip_srv_name), erlang:get(nksip_call_id), Text, List)).
@@ -146,7 +147,7 @@
 }.
 
 
--record(call_timers, {
+-record(call_times, {
     t1 :: integer(),
     t2 :: integer(),
     t4 :: integer(), 
@@ -170,33 +171,30 @@
     auths = [] :: [call_auth()],
     msgs = [] :: [call_msg()],
     events = [] :: [#provisional_event{}],
-    timers :: #call_timers{},
+    times :: #call_times{},
     meta = [] :: nksip:optslist()
 }).
 
 
+-define(GET_CONFIG(SrvId, Key), (SrvId:config_nksip())#config.Key).
+
+
 -record(config, {
-    sip_listen :: list(),
-    sip_allow :: [binary()],
-    sip_supported :: [binary()],
-    sip_timer_t1 :: integer(),
-    sip_timer_t2 :: integer(),
-    sip_timer_t4 :: integer(),
-    sip_timer_c :: integer(),
-    sip_trans_timeout :: integer(),
-    sip_dialog_timeout :: integer(),
-    sip_event_expires :: integer(),
-    sip_event_expires_offset :: integer(),
-    sip_nonce_timeout :: integer(),
-    sip_from :: #uri{},
-    sip_accept :: [binary()],
-    sip_events :: [binary()],
-    sip_route :: [#uri{}],
-    sip_no_100 :: boolean(),
-    sip_max_calls :: integer(),
-    sip_local_host :: auto | binary(),
-    sip_local_host6 :: auto | binary(),
-    sip_debug :: boolean()
+    allow :: [binary()],
+    supported :: [binary()],
+    event_expires :: integer(),
+    event_expires_offset :: integer(),
+    nonce_timeout :: integer(),
+    from :: #uri{},
+    accept :: [binary()],
+    events :: [binary()],
+    route :: [#uri{}],
+    no_100 :: boolean(),
+    max_calls :: integer(),
+    local_host :: auto | binary(),
+    local_host6 :: auto | binary(),
+    debug :: boolean(),
+    times :: #call_times{}
 }).
 
 

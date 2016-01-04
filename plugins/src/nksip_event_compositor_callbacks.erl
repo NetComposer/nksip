@@ -26,8 +26,51 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_event_compositor.hrl").
 
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
+         plugin_start/2, plugin_stop/2]).
 -export([sip_event_compositor_store/2]).
 -export([nks_sip_method/2]).
+
+
+%% ===================================================================
+%% Plugin
+%% ===================================================================
+
+plugin_deps() ->
+    [nksip].
+
+
+plugin_syntax() ->
+    #{
+        sip_event_compositor_default_expires => {integer, 1, none}
+    }.
+
+
+plugin_config(Config, _Service) ->
+    Expires = maps:get(sip_event_compositor_default_expires, Config, 60),
+    Allow1 = maps:get(sip_allow, Config, nksip_syntax:default_allow()),
+    Allow2 = nklib_util:store_value(<<"PUBLISH">>, Allow1),
+    Config2 = Config#{sip_allow=>Allow2},
+    {ok, Config2, Expires}.
+
+
+plugin_start(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+plugin_stop(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+    Allow1 = maps:get(sip_allow, Config, []),
+    Allow2 = Allow1 -- [<<"PUBLISH">>],
+    {ok, Config#{sip_allow=>Allow2}}.
+
+
+
+%% ===================================================================
+%% Specific
+%% ===================================================================
+
 
 % @doc Called when a operation database must be done on the compositor database.
 %% This default implementation uses the built-in memory database.
@@ -63,7 +106,9 @@ sip_event_compositor_store(Op, SrvId) ->
 
 
 
-%%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
+%% ===================================================================
+%% Core SIP
+%% ===================================================================
 
 
 %% @private This plugin callback is called when a call to one of the method specific

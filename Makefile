@@ -1,7 +1,7 @@
 PROJECT = nksip
 DIALYZER = dialyzer
 REBAR = ./rebar
-#RELOADER = -s nkreloader
+RELOADER = -s nkreloader
 
 all: app
 

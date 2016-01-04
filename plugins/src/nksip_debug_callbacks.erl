@@ -24,10 +24,57 @@
 
 -include("../include/nksip.hrl").
 
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
+         plugin_start/2, plugin_stop/2]).
 -export([nks_sip_connection_sent/2, nks_sip_connection_recv/4, nks_sip_debug/3]).
 
+%% ===================================================================
+%% Plugin
+%% ===================================================================
 
-%%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
+plugin_deps() ->
+    [nksip].
+
+
+plugin_syntax() ->
+    #{
+        sip_debug => boolean
+    }.
+
+
+plugin_config(Config, _Service) ->
+    Debug = maps:get(sip_debug, Config, false),
+    {ok, Config, Debug}.
+
+
+plugin_start(Config, #{name:=Name}) ->
+    case whereis(nksip_debug_srv) of
+        undefined ->
+            Child = {
+                nksip_debug_srv,
+                {nksip_debug_srv, start_link, []},
+                permanent,
+                5000,
+                worker,
+                [nksip_debug_srv]
+            },
+            {ok, _Pid} = supervisor:start_child(nksip_sup, Child);
+        _ ->
+            ok
+    end,
+    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+plugin_stop(Config, #{name:=Name}) ->
+    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+
+%% ===================================================================
+%% SIP Core
+%% ===================================================================
 
 
 %% @doc Called when a new message has been sent

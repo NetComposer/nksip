@@ -25,131 +25,29 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
--export([check_auth/4, syntax/0]).
--export([version/0, plugin_deps/0, plugin_start/1, plugin_stop/1]).
-
-%% ===================================================================
-%% Plugin specific
-%% ===================================================================
-
-%% @doc Version
--spec version() ->
-    string().
-
-version() ->
-    "0.2".
-
-
-%% @doc Dependant plugins
--spec plugin_deps() ->
-    [atom()].
-    
-plugin_deps() ->
-    [nksip].
-
-
-
-plugin_start(#{id:=SrvId, cache:=OldCache}=SrvSpec) ->
-    case nkservice_util:parse_syntax(SrvSpec, syntax(), defaults()) of
-        {ok, SrvSpec2} ->
-            Cache = maps:with([sip_uac_auto_auth_max_tries, sip_pass], SrvSpec2),
-            lager:info("Plugin ~p started (~p)", [?MODULE, SrvId]),
-            {ok, SrvSpec2#{cache:=maps:merge(OldCache, Cache)}};
-        {error, Error} ->
-            {stop, Error}
-    end.
-
-
-plugin_stop(#{id:=SrvId}=SrvSpec) ->
-    SrvSpec2 = maps:without(maps:keys(syntax()), SrvSpec),
-    lager:info("Plugin ~p stopped (~p)", [?MODULE, SrvId]),
-    {ok, SrvSpec2}.
-
-
-syntax() ->
-    #{
-        sip_uac_auto_auth_max_tries => {integer, 1, none},
-        sip_pass => fun parse_passes/3
-    }.
-
-defaults() ->
-    #{
-        sip_uac_auto_auth_max_tries => 5,
-        sip_pass => []
-    }.
-
-
-parse_passes(_, [], _) ->
-    {ok, []};
-
-parse_passes(_, Passes, _) when is_list(Passes), not is_integer(hd(Passes)) ->
-    check_passes(Passes, []);
-
-parse_passes(_, Pass, _) ->
-    check_passes([Pass], []).
-
-
-
-
-% %% @doc Parses this plugin specific configuration
-% -spec parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% parse_config(Opts) ->
-%     Defaults = [{sip_uac_auto_auth_max_tries, 5}],
-%     Opts1 = nklib_util:defaults(Opts, Defaults),
-%     do_parse_config(Opts1).
-    
-
-% %% @doc Parses this plugin specific configuration
-% -spec do_parse_config(nksip:optslist()) ->
-%     {ok, nksip:optslist()} | {error, term()}.
-
-% do_parse_config(Opts) ->
-%     try
-%         case nklib_util:get_value(sip_uac_auto_auth_max_tries, Opts) of
-%             undefined ->
-%                 ok;
-%             Tries when is_integer(Tries), Tries>=0 -> 
-%                 ok;
-%             _ -> 
-%                 throw(sip_uac_auto_auth_max_tries)
-%         end,
-%         case nklib_util:get_value(pass, Opts) of
-%             undefined ->
-%                 case nklib_util:get_value(passes, Opts) of
-%                     undefined -> 
-%                         {ok, Opts};
-%                     Passes ->
-%                         case check_passes(Passes, []) of
-%                             {ok, Passes1} -> 
-%                                 {ok, nklib_util:store_value(passes, Passes1, Opts)};
-%                             error -> 
-%                                 throw(passes)
-%                         end
-%                 end;
-%             Pass ->
-%                 case lists:keymember(passes, 1, Opts) of
-%                     false -> ok;
-%                     true -> throw(passes)
-%                 end,
-%                 case check_passes([Pass], []) of
-%                     {ok, Passes} -> 
-%                         {ok, [{passes, Passes}|lists:keydelete(pass, 1, Opts)]};
-%                     error -> 
-%                         throw(pass)
-%                 end
-%         end
-%     catch
-%         throw:OptName -> {error, {invalid_config, OptName}}
-%     end.
-
-
+-export([get_config/2, make_config/2, check_auth/4]).
 
 
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+-record(nksip_uac_auto_auth, {
+    max_tries,
+    pass
+ }).
+
+
+%% @doc Get cached config
+get_config(SrvId, max_tries) ->
+    (SrvId:config_nksip_uac_auto_auth())#nksip_uac_auto_auth.max_tries;
+get_config(SrvId, pass) ->
+    (SrvId:config_nksip_uac_auto_auth())#nksip_uac_auto_auth.pass.
+
+
+%% @private
+make_config(Tries, Pass) ->
+    #nksip_uac_auto_auth{max_tries=Tries, pass=Pass}.
 
 
 % @doc Called after the UAC processes a response
@@ -174,11 +72,11 @@ check_auth(Req, Resp, UAC, Call) ->
             #call{srv_id=SrvId, call_id=CallId} = Call,
             Max = case nklib_util:get_value(sip_uac_auto_auth_max_tries, Opts) of
                 undefined -> 
-                    SrvId:cache_sip_uac_auto_auth_max_tries();
+                    get_config(SrvId, max_tries);
                 Max0 ->
                     Max0
             end,
-            DefPasses = SrvId:cache_sip_pass(),
+            DefPasses = get_config(SrvId, pass),
             Passes = case nklib_util:get_value(sip_pass, Opts) of
                 undefined -> DefPasses;
                 Passes0 -> Passes0++DefPasses
@@ -202,23 +100,5 @@ check_auth(Req, Resp, UAC, Call) ->
     end.
 
 
-%% @private
-check_passes([], Acc) ->
-    {ok, lists:reverse(Acc)};
-
-check_passes([PassTerm|Rest], Acc) ->
-    case PassTerm of
-        _ when is_list(PassTerm) -> 
-            check_passes(Rest, [{<<>>, list_to_binary(PassTerm)}|Acc]);
-        _ when is_binary(PassTerm) -> 
-            check_passes(Rest, [{<<>>, PassTerm}|Acc]);
-        {Realm, Pass} when 
-            (is_list(Realm) orelse is_binary(Realm)) andalso
-            (is_list(Pass) orelse is_binary(Pass)) ->
-            Acc1 = [{nklib_util:to_binary(Realm), nklib_util:to_binary(Pass)}|Acc],
-            check_passes(Rest, Acc1);
-        _ ->
-            error
-    end.
 
 

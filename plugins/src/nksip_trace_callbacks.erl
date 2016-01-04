@@ -24,10 +24,50 @@
 
 -include("../include/nksip.hrl").
 
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
+         plugin_start/2, plugin_stop/2]).
 -export([nks_sip_connection_sent/2, nks_sip_connection_recv/4]).
 
 
-%%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
+%% ===================================================================
+%% Plugin
+%% ===================================================================
+
+plugin_deps() ->
+    [nksip].
+
+
+plugin_syntax() ->
+    #{
+        sip_debug => boolean
+    }.
+
+
+plugin_config(Config, #{id:=Id}) ->
+    Trace = maps:get(sip_trace, Config, {console, all}),
+    case nksip_trace:get_config(Id, Trace) of
+    	{ok, Cache} -> {ok, Config, Cache};
+    	{error, Error} -> {error, Error}
+    end.
+   	
+
+
+plugin_start(Config, #{id:=Id, name:=Name, config_nksip_trace:={File, _}}) ->
+	ok = nksip_trace:open_file(Id, File),
+    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
+	{ok, Config}.
+
+
+plugin_stop(Config, #{id:=Id, name:=Name}) ->
+    catch nksip_trace:close_file(Id),
+    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+    {ok, Config}.
+
+
+
+%% ===================================================================
+%% SIP Core
+%% ===================================================================
 
 
 %% @doc Called when a new message has been sent
@@ -48,3 +88,4 @@ nks_sip_connection_sent(SipMsg, Packet) ->
 nks_sip_connection_recv(SrvId, CallId, NkPort, Packet) ->
     nksip_trace:sipmsg(SrvId, CallId, <<"FROM">>, NkPort, Packet),
     continue.
+
