@@ -14,9 +14,10 @@ app: deps
 cnodeps:
 	./rebar compile skip_deps=true
 
-clean: clean-docs clean-logs
+clean: clean-docs clean-logs clean-edocs
 	@$(REBAR) clean
 	rm -f erl_crash.dump
+
 
 clean-logs:
 	rm -rf log/*
@@ -38,6 +39,40 @@ clean-docs:
 	      samples/nksip_pbx/doc/*.png samples/nksip_pbx/doc/edoc-info
 	rm -f samples/nksip_tutorial/doc/*.css samples/nksip_tutorial/doc/*.html \
 	      samples/nksip_tutorial/doc/*.png samples/nksip_tutorial/doc/edoc-info
+
+EDOC_SOURCE_PATH_H = "./src", \
+			"./include", \
+			"./priv/doc_src", \
+			"./samples/nksip_loadtest/src", \
+			"./samples/nksip_pbx/src", \
+			"./samples/nksip_tutorial/src", \
+			"./plugins/src", \
+			"./plugins/include", \
+			"./deps/nklib/src","./deps/nklib/include", \
+			"./deps/nkpacket/src","./deps/nkpacket/include", \
+			"./deps/nkservice/src","./deps/nkservice/include", \
+			"./deps/nkdocker/src","./deps/nkdocker/include" 
+			
+EDOC_SOURCE_PATH = "./priv/doc_src","./src"
+			
+USER_EDOC_OPTS = '[{source_path,[$(EDOC_SOURCE_PATH)]},\
+ 			{dir,"./edocs"}, \
+			]'
+
+DEVELOPER_EDOC_OPTS = '[{source_path,[$(EDOC_SOURCE_PATH)]},\
+ 			{dir,"./edocs"}, \
+			{private,true}, \
+			{todo,true} \
+			]'
+
+edocs: clean-edocs
+	erl -noshell -run edoc_run packages '[""]' $(USER_EDOC_OPTS)
+	
+edocs-dev: clean-edocs
+	erl -noshell -run edoc_run packages '[""]' $(DEVELOPER_EDOC_OPTS)
+
+clean-edocs:
+	rm -Rf edocs
 
 tests: app eunit
 
