@@ -1,8 +1,23 @@
 # NkSIP Services' API
 
+It is imporant to note that starting an nksip service, is really starting
+a nkservice service!  An nkservice is a generic service that can be many different
+things, including in this case, a SIP service.
+
+Much of the functionality of the nksip module is done via nkservice.  There are
+helper or convinience functions here, that really just call nkservice functions.
+
+NkSIP can be used as a stand-alone product or with other services available via nkservice.
+
+
 This document describes the API that NkSIP makes available to Services.<br/>
-Then SIP-specific functions are available in the [nksip.erl](../../src/nksip.erl) module, while other functions are available in the [nkservice_server](https://github.com/Nekso/nkservice/blob/master/src/nkservice_server.erl) module.<br/>
-See [Starting a Service](../guide/start_a_service.md) for a general overview.
+The SIP-specific functions are available in the [nksip.erl](../../src/nksip.erl) module, while other functions are available in the [nkservice](https://github.com/Nekso/nkservice/blob/master/src/nkservice.erl) module.<br/>
+
+***See Also:***
+* [Starting a Service](../guide/start_a_service.md) for a general overview.
+* [Tutorial](../guide/tutorial.md) For more examples of start and other options
+* [Configuration Options](../reference/configuration.md) for a list of available configuration options. 
+* [Source Code](../../src/nksip.erl) 
 
 
 Function|Description
@@ -25,7 +40,9 @@ Function|Description
 
 ## Functions list
 
+
 ### start/4
+----
 Starts a new Service. 
 
 NkSIP returns the _internal name_ of the application. In most API calls you can use the _user defined name_ `ServiceName` or the _internal generated id_ `srv_id()`.
@@ -109,6 +126,7 @@ timestamp/0                      uuid/0
 
 
 ### stop/1
+----
 Stops a currently started Service.
 
 Notice that the parameter for stop is either the _user defined name_ `ServiceName` used with the `nksip:start/2` function or the _internal generated id_ `srv_id()` which was generated and returned with `nksip:start/2`
@@ -130,6 +148,7 @@ ok
 ```
 
 ### stop_all/0
+----
 Stops all currently started SIP Services.
 
 ```erlang
@@ -139,6 +158,7 @@ Stops all currently started SIP Services.
 
 
 ### update/2
+----
 Updates the callback module or options of a running Service, on the fly.
 
 You can change any configuration parameter on the fly, even for transports. See [Configuration Options](../reference/configuration.md) for a list of available configuration options. 
@@ -171,14 +191,12 @@ or
 ok
 ``` 
 
-
-
-
 ***See Also:***
 * [Configuration Options](../reference/configuration.md) for a list of available configuration options. 
 
 
 ### get_all_services/0
+----
 Gets Id, Name, Class and Pid of all started SIP Services.
 
 ```erlang
@@ -200,6 +218,7 @@ Gets Id, Name, Class and Pid of all started SIP Services.
 
 
 ### get/2
+----
 Get the Value into of a Key from the data storage.  Each service has data storage options (See [saving state information](../guide/start_a_service.md#saving-state-information) ) for storing things they want to store and get back. 
 
 *NOTE:* This is a convienance function for nkservice:get(ServiceNameOrId, Key)
@@ -224,6 +243,7 @@ Get the Value into of a Key from the data storage.  Each service has data storag
 
 
 ### get/3
+----
 Get the Value of a Key from the data storage or `DefaultValue' if there is no stored value.  Each service has data storage options (See [saving state information](../guide/start_a_service.md#saving-state-information) ) for storing things they want to store and get back. 
 
 NOTE: This is a convienance function for nkservice:get(ServiceNameOrId, Key, DefaultValue)
@@ -237,10 +257,6 @@ NOTE: This is a convienance function for nkservice:get(ServiceNameOrId, Key, Def
             Result              :: term().
 ```
 
-
-%% > nksip:get(m2, hello_jim, "Hello there, Jim!").                    
-%%   "Hello there, Jim!"
-
 ***Example(s):***
 > 
 ```erlang
@@ -253,23 +269,56 @@ NOTE: This is a convienance function for nkservice:get(ServiceNameOrId, Key, Def
 
 
 ### put/3
+----
+Inserts or Updates a Key and Value into data storage.  Each service has data storage options (See [saving state information](../guide/start_a_service.md#saving-state-information) ) for storing things they want to store and get back. 
+
 ```erlang
-nkservice_server:put(nksip:srv_name()|nksip:srv_id(), term(), term()) ->
-    ok | {error, term()}.
+-spec put(ServiceNameOrId, Key, Value ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Key                 :: term(),
+            Value               :: term(),
+            Result              :: ok.
 ```
-Inserts a value in Service's store.
-See [saving state information](../guide/start_a_service.md#saving-state-information).
+
+***Example(s):***
+> 
+```erlang
+> nksip:put(m2, hello_world, "Hello World").
+  ok
+``` 
+
+***See Also:***
+* [Saving State Information](../guide/start_a_service.md#saving-state-information).
+
+
 
 ### del/2
+----
+Delete the Key and Value from the data store.    Each service has data storage options (See [saving state information](../guide/start_a_service.md#saving-state-information) ) for storing things they want to store and get back. 
+
+NOTE: This is a convienance function for nkservice:del(ServiceNameOrId, Key)
+
 ```erlang
-nkservice_server:del(nksip:srv_name()|nksip:srv_id(), term()) ->
-    ok | {error, term()}.
+-spec del( ServiceNameOrId, Key ) -> ok when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Key                 :: term().
 ```
-Deletes a value from Service's store.
-See [saving state information](../guide/start_a_service.md#saving-state-information).
+***Example(s):***
+> 
+```erlang
+> nksip:del(m2, hello).
+  ok
+``` 
+
+***See Also:***
+* [Saving State Information](../guide/start_a_service.md#saving-state-information).
+
 
 
 ### find_srv_id/1
+----
 ```erlang
 nkservice_server:get_srv_id(term()) ->
     {ok, srv_id()} | not_found.
