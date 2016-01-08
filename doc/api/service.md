@@ -5,13 +5,14 @@ Then SIP-specific functions are available in the [nksip.erl](../../src/nksip.erl
 See [Starting a Service](../guide/start_a_service.md) for a general overview.
 
 
+https://github.com/jbgledy/nksip/blob/k-dev-edoc-makefile/doc/api/service.md#get_all_services0
 Function|Description
 ---|---
 [start/2](#start4)|Starts a new Service
 [stop/1](#stop1)|Stops a started Service
-[stop_all/0](#stop_all/0)|Stops all started Services
-[update/2](#update/2)|Updates the configuration of a started Service
-[get_all_services/0](#get_all_services)|Gets all currenty started Services
+[stop_all/0](#stop_all0)|Stops all started Services
+[update/2](#update2)|Updates the configuration of a started Service
+[get_all_services/0](#get_all_services0)|Gets all currenty started Services
 [get/2](#get2)|Gets a value for a Service variable
 [get/3](#get3)|Gets a value for a Service variable, with a default
 [put/3](#put3)|Saves a vaule for a Service variable
@@ -20,7 +21,7 @@ Function|Description
 [call/2](#call2)|Synchronous call to the Service's gen_server process
 [call/3](#call3)|Synchronous call to the Service's gen_server process with timeout
 [cast/2](#call3)|Asynchronous call to the Service's gen_server process
-[get_uuid/1](#get_uuid/1)|Get the current _UUID_ for a stared Service
+[get_uuid/1](#get_uuid1)|Get the current _UUID_ for a stared Service
 
 
 ## Functions list
