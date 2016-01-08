@@ -5,7 +5,6 @@ Then SIP-specific functions are available in the [nksip.erl](../../src/nksip.erl
 See [Starting a Service](../guide/start_a_service.md) for a general overview.
 
 
-https://github.com/jbgledy/nksip/blob/k-dev-edoc-makefile/doc/api/service.md#get_all_services0
 Function|Description
 ---|---
 [start/2](#start4)|Starts a new Service
