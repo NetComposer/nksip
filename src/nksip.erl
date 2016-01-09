@@ -18,13 +18,22 @@
 %%
 %% -------------------------------------------------------------------
 
+%% ===================================================================
 %% @doc Services management module.
+%% 
+%% @todo Define ServiceName better.
+%% @todo Define options list better.
+%% @end 
+%% ===================================================================
 
 -module(nksip).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([start/2, stop/1, stop_all/0, update/2]).
 -export([get_uuid/1]).
+-export([get_all_services/0,get_config/1]).
+-export([get/2,get/3,put/3,put_new/3,del/2]).
+
 % -export([plugin_update_value/3]).
 
 -include_lib("nklib/include/nklib.hrl").
@@ -72,7 +81,8 @@
 -type sipreply() :: nksip_reply:sipreply().
 
 %% Generic options list
--type optslist() :: nksip_util:optslist().
+% -type optslist() :: nksip_util:optslist().  %% Note there is no longer a nksip_util:optslist()
+-type optslist() :: list() | map().
 
 %% Parsed SIP Uri
 -type uri() :: #uri{}.
@@ -154,9 +164,42 @@
 %% Public functions
 %% ===================================================================
 
+%%----------------------------------------------------------------
 %% @doc Starts a new Service.
--spec start(srv_name(), optslist()) -> 
-	{ok, srv_id()} | {error, term()}.
+%%
+%% Example(s) Starting a process 
+%% ```
+%% > nksip:start(server, #{
+%%         sip_local_host => "localhost",
+%%         callback => nksip_tutorial_server_callbacks,
+%%         plugins => [nksip_registrar],
+%%         transports => "sip:all:5060, <sip:all:5061;transport=tls>"
+%%     }).
+%% {ok,armejl7}
+%% '''
+%% or
+%% ```
+%% > nksip:start(me2, #{}).     %% NOTE: Using map() for options
+%% {ok,bbkj953}
+%% '''
+%% or
+%% ```
+%% > nksip:start(me2, [{sip_local_host, "localhost"}]).      %% NOTE: Using list() and tuples for options
+%% {ok,bbkj953}
+%% '''
+%% or
+%% ```
+%% > nksip:start(me2, []).      %% NOTE: Using empty list() for options
+%% {ok,bbkj953}
+%% '''
+
+%% @end
+%%----------------------------------------------------------------
+-spec start( ServiceName, OptionsMapOrList ) -> Result when 
+            ServiceName      :: srv_name(), 
+            OptionsMapOrList     :: optslist(),
+            Result          :: {ok, srv_id()} 
+                | {error, term()}.
 
 start(Name, Opts) ->
     Opts1 = nklib_util:to_map(Opts),
@@ -168,15 +211,24 @@ start(Name, Opts) ->
     nkservice:start(Name, Opts2).
 
 
+%%----------------------------------------------------------------
 %% @doc Stops a started Service, stopping any registered transports.
--spec stop(srv_name()|srv_id()) -> 
-    ok | {error, not_running}.
+%% @end
+%%----------------------------------------------------------------
+-spec stop( ServiceNameOrId ) -> Result when 
+        ServiceNameOrId     :: srv_name()  
+            | srv_id(),
+        Result              :: ok 
+            |  {error, not_running}.
 
 stop(Srv) ->
     nkservice:stop(Srv).
 
 
+%%----------------------------------------------------------------
 %% @doc Stops all started Services.
+%% @end
+%%----------------------------------------------------------------
 -spec stop_all() -> 
     ok.
 
@@ -186,10 +238,28 @@ stop_all() ->
         nkservice:get_all(nksip)).
 
 
+%%----------------------------------------------------------------
 %% @doc Updates the callback module or options of a running Service.
 %% It is not allowed to change transports
--spec update(srv_name()|srv_id(), optslist()) ->
-    {ok, srv_id()} | {error, term()}.
+%%
+%% Example(s) 
+%% ```
+%% > nksip:update(me, #{log_level => debug}).     %% NOTE: Using map() for options
+%%   ok
+%% '''
+%% or 
+%% ```
+%% > nksip:update(me, [{log_level,debug}]).     %% NOTE: Using list() and tuples for options
+%%   ok
+%% '''
+%% @end
+%%----------------------------------------------------------------
+-spec update( ServiceNameOrId, OptionsMapOrList ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            OptionsMapOrList         :: optslist(),
+            Result              ::  {ok, srv_id()} 
+                | {error, term()}.
 
 update(Srv, Opts) ->
     Opts1 = nklib_util:to_map(Opts),
@@ -203,9 +273,14 @@ update(Srv, Opts) ->
 
     
 
+%%----------------------------------------------------------------
 %% @doc Gets service's UUID
--spec get_uuid(nkservice:name()|srv_id()) -> 
-    binary().
+%% @end
+%%----------------------------------------------------------------
+-spec get_uuid( ServiceNameOrId ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Result              :: binary().
 
 get_uuid(Srv) ->
     case nkservice_srv:get_srv_id(Srv) of
@@ -217,12 +292,153 @@ get_uuid(Srv) ->
     end.
 
 
-% %% @doc Gets service's config
-% -spec get_config(nkservice:name()|srv_id()) -> 
-%     map().
+%% ===================================================================
+%% Convienance Functions 
+%% ===================================================================
 
-% get_config(SrvName) ->
-%     nkservice_srv:get_item(SrvName, config).
+%%----------------------------------------------------------------
+%% @doc Gets the Internal Id, User Defined Name, Class and Pid of all started SIP Services.
+%%
+%% NOTE: This is a convienance function for nkservice:get_all(nksip)
+%% @end
+%%----------------------------------------------------------------
+-spec get_all_services() -> Result when 
+    Result          :: [ ServiceData ],
+    ServiceData     :: { Id, Name, Class, Pid },
+    Id              :: nkservice:id(),
+    Name            :: nkservice:name(),
+    Class           :: nkservice:class(),
+    Pid             :: nkservice:pid().
+
+get_all_services() ->
+    nkservice:get_all(nksip).
+
+
+
+%%----------------------------------------------------------------
+%% @doc Gets service's config
+%%
+%% NOTE: This is a convienance function for nkservice_srv:get_item(SrvName, config)
+%%
+%% ```
+%% > nksip:get_item(bvdc609).
+%%   #{sip_listen => [{[{nksip_protocol,udp,{0,0,0,0},0}],#{}}]}
+%% '''
+%% @end
+%%----------------------------------------------------------------
+-spec get_config(ServiceNameOrId ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Result              :: map().
+
+get_config(SrvName) ->
+    nkservice_srv:get_item(SrvName, config).
+
+
+%%----------------------------------------------------------------
+%% @doc Inserts or Updates a Key and Value into data storage 
+%%
+%% NOTE: This is a convienance function for nkservice:put(ServiceNameOrId, Key, Value)
+%%
+%% ```
+%% > nksip:put(m2, hello_world, "Hello World").
+%%   ok
+%% '''
+%% @end
+%%----------------------------------------------------------------
+-spec put(ServiceNameOrId, Key, Value ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Key                 :: term(),
+            Value               :: term(),
+            Result              :: ok.
+
+put(ServiceNameOrId, Key, Value) ->
+    nkservice:put(ServiceNameOrId, Key, Value).
+
+%%----------------------------------------------------------------
+%% @doc Inserts a NEW Key and Value into data storage.  If the insert was successful it returns `true'
+%%  otherwise (for example if there is already a value for that key) returns `false'. 
+%%
+%% NOTE: This is a convienance function for nkservice:put_new(ServiceNameOrId, Key, Value)
+%%
+%% ```
+%% > nksip:put_new(m2, hello_world, "Hello World").
+%%   false      >> NOTE: A value for test already existed so false is returned.
+%% '''
+%% @end
+%%----------------------------------------------------------------
+-spec put_new(ServiceNameOrId, Key, Value ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Key                 :: term(),
+            Value               :: term(),
+            Result              :: true | false .
+
+put_new(ServiceNameOrId, Key, Value) ->
+    nkservice:put_new(ServiceNameOrId, Key, Value).
+
+%%----------------------------------------------------------------
+%% @doc Get the Value of a Key from the data storage.  
+%%
+%% NOTE: This is a convienance function for nkservice:get(ServiceNameOrId, Key)
+%%
+%% ```
+%% > nksip:get(m2, hello_world).                    
+%%   "Hello World"
+%% '''
+%% @end
+%%----------------------------------------------------------------
+-spec get(ServiceNameOrId, Key ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Key                 :: term(),
+            Result              :: term().
+
+get(ServiceNameOrId, Key) ->
+    nkservice:get(ServiceNameOrId, Key).
+
+
+%%----------------------------------------------------------------
+%% @doc Get the Value of a Key from the data storage or `DefaultValue' if there is no stored value.  
+%%
+%% NOTE: This is a convienance function for nkservice:get(ServiceNameOrId, Key, DefaultValue)
+%%
+%% ```
+%% > nksip:get(m2, hello_jim, "Hello there, Jim!").                    
+%%   "Hello there, Jim!"
+%% '''
+%% @end
+%%----------------------------------------------------------------
+-spec get( ServiceNameOrId, Key, DefaultValue ) -> Result when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Key                 :: term(),
+            DefaultValue        :: term(),
+            Result              :: term().
+
+get(ServiceNameOrId, Key, DefaultValue ) ->
+    nkservice:get(ServiceNameOrId, Key, DefaultValue ).
+
+
+%%----------------------------------------------------------------
+%% @doc Delete the Key and Value from the data store.    
+%%
+%% NOTE: This is a convienance function for nkservice:del(ServiceNameOrId, Key)
+%%
+%% ```
+%% > nksip:del(m2, hello).                    
+%%   ok
+%% '''
+%% @end
+%%----------------------------------------------------------------
+-spec del( ServiceNameOrId, Key ) -> ok when 
+            ServiceNameOrId     :: srv_name()
+                | srv_id(),
+            Key                 :: term().
+
+del( ServiceNameOrId, Key ) ->
+    nkservice:del(ServiceNameOrId, Key ).
 
 
 

@@ -18,10 +18,14 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @doc SIP message parsing functions
+%% @doc SIP message parsing functions.
 %%
 %% This module implements several functions to parse sip requests, responses
 %% headers, uris, vias, etc.
+%%
+%% @todo Type of msg_class() does not seem to be used anywhere - consider removing? 
+%% @todo Another Todo here 
+%% @end
 
 -module(nksip_parse).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
@@ -38,6 +42,8 @@
 
 -export_type([msg_class/0]).
 
+ 
+
 -type msg_class() :: {req, nksip:method(), binary()} | 
                      {resp, nksip:sip_code(), binary()}.
 
@@ -47,11 +53,19 @@
 %% Public
 %% ===================================================================
 
-%% @doc Parses any `term()' into a valid `nksip:method()'. If recognized it will be an
-%% `atom', or a `binary' if not.
--spec method(binary() | atom() | string()) -> 
-    nksip:method() | binary().
-
+%%----------------------------------------------------------------
+%% @doc Parses any `term()' into a valid `nksip:method()'. 
+%%
+%% If recognized it will be an `atom', or a `binary' if not.
+%% @end
+%%----------------------------------------------------------------
+-spec method( Method ) -> Result when 
+        Method  :: binary() 
+            | atom() 
+            | string(),     %% list of chars 
+        Result  :: nksip:method() 
+            | binary().
+    
 method(Method) when is_atom(Method) ->
     Method;
 method(Method) when is_list(Method) ->
@@ -76,18 +90,29 @@ method(Method) when is_binary(Method) ->
     end.
 
 
-%% @doc Parses all AORs found in `Term'.
--spec aors(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
-    [nksip:aor()].
+%%----------------------------------------------------------------
+%% @doc Parses and returns all AORs (Addres of Record) found in `UserUris'.
+%% @end
+%%----------------------------------------------------------------
+-spec aors( UserUris ) -> Results when 
+        UserUris    :: nksip:user_uri() 
+            | [ nksip:user_uri() ],
+        Results     :: [ nksip:aor() ].
                 
 aors(Term) ->
     [{Scheme, User, Domain} || 
      #uri{scheme=Scheme, user=User, domain=Domain} <- nklib_parse:uris(Term)].
 
 
-%% @doc Parses all URIs found in `Term'.
--spec ruris(Term :: nksip:user_uri() | [nksip:user_uri()]) -> 
-    [nksip:uri()] | error.
+%%----------------------------------------------------------------
+%% @doc Parses and returns all URIs found in `UserUris'.
+%% @end
+%%----------------------------------------------------------------
+-spec ruris( UserUris ) -> Results when 
+        UserUris    :: nksip:user_uri() 
+            | [ nksip:user_uri() ],
+        Results     :: [ nksip:uri() ] 
+            | error.
                 
 ruris(RUris) -> 
     case nklib_parse:uris(RUris) of
@@ -96,9 +121,18 @@ ruris(RUris) ->
     end.
           
 
-%% @doc Extracts all `via()' found in `Term'
--spec vias(Term :: binary() | string() | [binary() | string()]) -> 
-    [nksip:via()] | error.
+%%----------------------------------------------------------------
+%% @doc Extracts all `via()' found in `Vias'
+%% @see nksip_parse_via:vias/1
+%% @end
+%%----------------------------------------------------------------
+-spec vias( Vias ) -> Result when
+        Vias    :: binary() 
+            | string() 
+            | [ binary() ]
+            | [ string() ],
+        Result  :: [nksip:via()] 
+            | error.
 
 vias([]) -> [];
 vias([First|_]=String) when is_integer(First) -> vias([String]);    % It's a string
@@ -106,10 +140,22 @@ vias(List) when is_list(List) -> parse_vias(List, []);
 vias(Term) -> vias([Term]).
 
 
+%% ===================================================================
+%% Internal
+%% ===================================================================
 
-%% @private Gets the scheme, host and port from an `nksip:uri()' or `via()'
--spec transport(nksip:uri()|nksip:via()) -> 
-    {nkpacket:transport(), Host::binary(), Port::inet:port_number()}.
+%%----------------------------------------------------------------
+%% @doc Gets the scheme, host and port from an `nksip:uri()' or `via()'
+%% @private 
+%% @end
+%%----------------------------------------------------------------
+-spec transport( UriOrVia ) -> { Transport, Host, Port} when 
+        UriOrVia    :: nksip:uri()
+            | other_test 
+            | nksip:via(),
+        Transport   :: nkpacket:transport(), 
+        Host        :: binary(),
+        Port        :: inet:port_number().
 
 transport(#uri{scheme=Scheme, domain=Host, port=Port, opts=Opts}) ->
     Transp1 = case nklib_util:get_value(<<"transport">>, Opts) of
@@ -141,15 +187,25 @@ transport(#via{transp=Transp, domain=Host, port=Port}) ->
     {Transp, Host, Port1}.
 
 
-
-%% ===================================================================
-%% Internal
-%% ===================================================================
-
-%% @private First-stage SIP message parser
-%% 50K/sec on i7
--spec packet(nksip:srv_id(), nksip:call_id(), nkpacket:nkport(), binary()) ->
-    {ok, #sipmsg{}} | {error, term()} | {reply_error, term(), binary()}.
+%%----------------------------------------------------------------
+%% @doc First-stage SIP message parser
+%%
+%% Takes 4 parameters and returns a #sipmsg{} record or error.
+%% Able to do 50K/sec on i7
+%% @throws {reply_error, {invalid, InvHeader}, Resp} | {error, {invalid, InvHeader}}
+%% @see packet/3
+%% @private 
+%% @end
+%%----------------------------------------------------------------
+-spec packet( SrvId, CallId, NkPort, Packet) -> Result when 
+        SrvId       :: nksip:srv_id(), 
+        CallId      :: nksip:call_id(), 
+        NkPort      :: nkpacket:nkport(),
+        Packet      :: binary(),
+        Result      :: {ok, #sipmsg{}} 
+            | {error, invalid_message}
+            | {error, term()} 
+            | {reply_error, term(), binary()}.
 
 packet(SrvId, CallId, NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
@@ -203,11 +259,23 @@ packet(SrvId, CallId, NkPort, Packet) ->
 
 
 
-%% @private First-stage SIP message parser
-%% 50K/sec on i7
--spec packet(nksip:srv_id(), nkpacket:nkport(), binary()) ->
-    {ok, #sipmsg{}, binary()} | partial | {error, term()} |
-    {reply_error, term(), binary()}.
+%%----------------------------------------------------------------
+%% @doc First-stage SIP message parser. Takes 3 parameters and returns a #sipmsg{} record or error.
+%% Able to do 50K/sec on i7
+%% @see packet/4
+%% @throws {reply_error, {invalid, InvHeader}, Resp} | {error, {invalid, InvHeader}}
+%% @private 
+%% @end
+%%----------------------------------------------------------------
+-spec packet(SrvId, NkPort, Packet) -> Result when   
+        SrvId       :: nksip:srv_id(), 
+        NkPort      :: nkpacket:nkport(),
+        Packet      :: binary(),
+        Result      :: {ok, #sipmsg{}, Rest} 
+            | partial 
+            | {error, term()} 
+            | {reply_error, term(), binary()},
+        Rest        :: binary().
 
 packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
     Start = nklib_util:l_timestamp(),
@@ -268,9 +336,14 @@ packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
     end.
   
 
+%%----------------------------------------------------------------
+%% @doc Private function to parse SIP Messages 
 %% @private
--spec parse_sipmsg(#sipmsg{}, [nksip:header()]) -> 
-    #sipmsg{}.
+%% @end
+%%----------------------------------------------------------------
+-spec parse_sipmsg( SipMsg, HeaderList ) -> SipMsg when 
+        SipMsg      :: #sipmsg{}, 
+        HeaderList  :: [ nksip:header() ].
 
 parse_sipmsg(SipMsg, Headers) ->
     From = case nklib_parse:uris(proplists:get_all_values(<<"from">>, Headers)) of
@@ -410,10 +483,15 @@ parse_sipmsg(SipMsg, Headers) ->
     }.
 
           
-
+%%----------------------------------------------------------------
+%% @doc Parses UriList 
 %% @private
--spec parse_ruris([#uri{}], [#uri{}]) ->
-    [#uri{}] | error.
+%% @end
+%%----------------------------------------------------------------
+-spec parse_ruris( UriList, UriList ) -> Results when 
+        UriList     :: [ #uri{} ],
+        Results     :: UriList
+            | error.
 
 parse_ruris([], Acc) ->
     lists:reverse(Acc);
@@ -426,7 +504,10 @@ parse_ruris(_, _) ->
 
 
 
+%%----------------------------------------------------------------
 %% @private
+%% @end
+%%----------------------------------------------------------------
 -spec parse_vias([#via{}|binary()|string()], [#via{}]) ->
     [#via{}] | error.
 
@@ -441,7 +522,11 @@ parse_vias([Next|Rest], Acc) ->
 
 
 
+%%----------------------------------------------------------------
 %% @doc Modifies a request based on uri options
+%% @private
+%% @end
+%%----------------------------------------------------------------
 -spec uri_method(nksip:user_uri(), nksip:method()) ->
     {nksip:method(), nksip:uri()} | error.
 
