@@ -18,7 +18,21 @@
 %%
 %% -------------------------------------------------------------------
 
-%% @private SIP Via Parser
+%% ===================================================================
+%% @doc SIP Via Parser
+%%
+%% @see nksip_parse 
+%% @see nksip_parse_header 
+%% @see nksip_parse_sipmsg 
+%% @see nksip_parse_via 
+%% @see vias/1  
+%% @see nksip_parse:ruris/1
+%% @see binary() 
+%% @see nksip:srv_name()
+%% @private
+%% @end 
+%% ===================================================================
+
 -module(nksip_parse_via).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
@@ -30,7 +44,9 @@
 %% Public
 %% ===================================================================
 
-%% @doc Parse a serie of VIAs in a string
+%% @doc Parse a series of VIAs in a string
+%%
+%% @end
 -spec vias(binary() | string() | #via{}) ->
     [#via{}] | error.
 

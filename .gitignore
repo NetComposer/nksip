@@ -8,3 +8,6 @@ uuid_*
 /.nksip.plt
 .DS_Store
 .rebar
+edocs/
+.tags
+.tags_sorted_by_file
