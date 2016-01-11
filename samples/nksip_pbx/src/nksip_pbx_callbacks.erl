@@ -33,7 +33,7 @@
 
 -module(nksip_pbx_callbacks).
 
--export([init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5]). 
+-export([service_init/2, sip_get_user_pass/4, sip_authorize/3, sip_route/5]). 
 -export([sip_invite/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
 -export([service_handle_call/3, service_handle_cast/2, service_handle_info/2]).
@@ -50,7 +50,7 @@
 %% @doc Service Callback: initialization.
 %% This function is called by NkSIP after calling `nksip:start/4'.
 %% We program a timer to check our nodes.
-init(_Spec, State) ->
+service_init(_Spec, State) ->
     erlang:start_timer(?TIME_CHECK, self(), check_speed),
     nkservice:put(pbx, speed, []),
     {ok, State#{nksip_pbx=>#{auto_check=>true}}}.
