@@ -30,7 +30,7 @@
 -export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
          plugin_start/2, plugin_stop/2]).
 -export([sip_registrar_store/2]).
--export([nks_sip_method/2, nks_sip_authorize_data/3]).
+-export([sip_register/2, nks_sip_authorize_data/3]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
          nks_sip_registrar_get_index/2, nks_sip_registrar_update_regcontact/4]).
 
@@ -120,22 +120,12 @@ sip_registrar_store(Op, SrvId) ->
 %%%%%%%%%%%%%%%% Implemented core plugin callbacks %%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%% @private This plugin callback is called when a call to one of the method specific
-%% application-level Service callbacks is needed.
--spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
-    {reply, nksip:sipreply()} | noreply.
+%% @doc By default, we reply to register requests
+-spec sip_register(nksip:request(), nksip:call()) -> 
+    {reply, nksip:sipreply()}.
 
-
-nks_sip_method(#trans{method='REGISTER', request=Req}, #call{srv_id=SrvId}) ->
-    Module = SrvId:callback(),
-    case erlang:function_exported(Module, sip_register, 2) of
-        true ->
-            continue;
-        false ->
-            {reply, nksip_registrar:request(Req)}
-    end;
-nks_sip_method(_Trans, _Call) ->
-    continue.
+sip_register(Req, _Call) ->
+    {reply, nksip_registrar:request(Req)}.
 
 
 %% @private

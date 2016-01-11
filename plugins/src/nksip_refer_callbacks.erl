@@ -26,8 +26,9 @@
 -include("../include/nksip_call.hrl").
 
 -export([plugin_deps/0, plugin_start/2, plugin_stop/2]).
+-export([sip_refer/2, sip_subscribe/2, sip_notify/2]).
 -export([sip_refer/3, sip_refer_update/3]).
--export([nks_sip_parse_uac_opts/2, nks_sip_method/2, nks_sip_call/3, nks_sip_uac_reply/3]).
+-export([nks_sip_parse_uac_opts/2, nks_sip_call/3, nks_sip_uac_reply/3]).
 
 
 %% ===================================================================
@@ -94,32 +95,32 @@ nks_sip_parse_uac_opts(Req, Opts) ->
     end.
 
 
-%% @private This plugin callback is called when a call to one of the method specific
-%% application-level Service callbacks is needed.
--spec nks_sip_method(nksip_call:trans(), nksip_call:call()) ->
-    {reply, nksip:sipreply()} | noreply.
+%% @private 
+-spec sip_refer(nksip:request(), nksip:call()) ->
+    {reply, nksip:sipreply()}.
 
-nks_sip_method(#trans{method='REFER', request=Req}, #call{srv_id=SrvId}=Call) ->
-    Module = SrvId:callback(),
-    case 
-        Module/=nksip_sipapp andalso
-        erlang:function_exported(Module, sip_refer, 2) 
-    of
-        true ->
-            continue;
-        false ->
-            {reply, nksip_refer:process(Req, Call)}
-    end;
+sip_refer(Req, Call) ->
+    {reply, nksip_refer:process(Req, Call)}.
 
-nks_sip_method(#trans{method='SUBSCRIBE', request=Req}, _Call) ->
+
+%% @private 
+-spec sip_subscribe(nksip:request(), nksip:call()) ->
+    {reply, nksip:sipreply()}.
+
+sip_subscribe(Req, _Call) ->
     case Req#sipmsg.event of
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {reply, ok};
         _ ->
             continue
-    end;
+    end.
 
-nks_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
+
+%% @private 
+-spec sip_notify(nksip:request(), nksip:call()) ->
+    {reply, nksip:sipreply()}.
+
+sip_notify(Req, Call) ->
     case Req#sipmsg.event of
         {<<"refer">>, [{<<"id">>, _ReferId}]} ->
             {ok, Body} = nksip_request:body(Req),
@@ -129,11 +130,7 @@ nks_sip_method(#trans{method='NOTIFY', request=Req}, Call) ->
             {reply, ok};
         _ ->
             continue
-    end;
-
-
-nks_sip_method(_Trans, _Call) ->
-    continue.
+    end.
 
 
 %% @doc This plugin callback function is used to call application-level 

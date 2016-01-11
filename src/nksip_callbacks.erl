@@ -39,7 +39,7 @@
 -export([sip_refer/2, sip_publish/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
 
--export([nks_sip_call/3, nks_sip_method/2, nks_sip_authorize_data/3, 
+-export([nks_sip_call/3, nks_sip_authorize_data/3, 
 		 nks_sip_transport_uac_headers/6, nks_sip_transport_uas_sent/1]).
 -export([nks_sip_uac_pre_response/3, nks_sip_uac_response/4, nks_sip_parse_uac_opts/2,
 		 nks_sip_uac_proxy_opts/2, nks_sip_make_uac_dialog/4, nks_sip_uac_pre_request/4,
@@ -49,7 +49,7 @@
 		 nks_sip_uas_process/2]).
 -export([nks_sip_dialog_update/3, nks_sip_route/4]).
 -export([nks_sip_connection_sent/2, nks_sip_connection_recv/4]).
--export([handle_call/3, handle_cast/2, handle_info/2]).
+% -export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([nks_sip_debug/3]).
 
 -type nks_sip_common() :: continue | {continue, list()}.
@@ -520,54 +520,6 @@ nks_sip_call(Fun, Args, SrvId) ->
 	        {ok, Reply}
 	end.
 
-%%----------------------------------------------------------------
-%% @doc This plugin callback is called when a call to one of the method specific
-%% application-level Service callbacks is needed.
-%% @end
-%%----------------------------------------------------------------
--spec nks_sip_method( ReqTransaction, Call ) -> Result when 
-				ReqTransaction 		:: nksip_call:trans(),
-				Call 				:: nksip_call:call(),
-				Result 				:: {reply, Reply } 
-					| noreply 
-					| nks_sip_common(),
-				Reply 				:: nksip:sipreply().
-
-
-nks_sip_method(#trans{method='ACK', request=Req}, #call{srv_id=SrvId}=Call) ->
-	case catch SrvId:sip_ack(Req, Call) of
-		ok -> ok;
-		Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
-	end,
-	noreply;
-
-nks_sip_method(#trans{method=Method, request=Req}, #call{srv_id=SrvId}=Call) ->
-	#sipmsg{to={_, ToTag}} = Req,
-	Fun = case Method of
-		'INVITE' when ToTag == <<>> -> sip_invite;
-		'INVITE' -> sip_reinvite;
-		'UPDATE' -> sip_update;
-		'BYE' -> sip_bye;
-		'OPTIONS' -> sip_options;
-		'REGISTER' -> sip_register;
-		'PRACK' -> sip_prack;
-		'INFO' -> sip_info;
-		'MESSAGE' -> sip_message;
-		'SUBSCRIBE' when ToTag == <<>> -> sip_subscribe;
-		'SUBSCRIBE' -> sip_resubscribe;
-		'NOTIFY' -> sip_notify;
-		'REFER' -> sip_refer;
-		'PUBLISH' -> sip_publish
-	end,
-	case catch SrvId:Fun(Req, Call) of
-		{reply, Reply} -> 
-			{reply, Reply};
-		noreply -> 
-			noreply;
-		Error -> 
-			?call_error("Error calling callback ~p/2: ~p", [Fun, Error]),
-			{reply, {internal_error, "Service Error"}}
-	end.
 
 %%----------------------------------------------------------------
 %% @doc This callback is called when the application use has implemented the

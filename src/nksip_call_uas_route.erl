@@ -127,21 +127,21 @@ is_cancel(_, _) ->
 -spec authorize_launch(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-authorize_launch(UAS, #call{srv_id=SrvId}=Call) ->
+authorize_launch(#trans{request=Req}=UAS, #call{srv_id=SrvId}=Call) ->
     % In case app has not implemented sip_authorize, we don't spend time
     % finding authentication info
-    case erlang:function_exported(SrvId:callback(), sip_authorize, 3) of
-        true ->
+    case catch SrvId:sip_authorize([], Req, Call) of
+        ok ->
+            authorize_reply(ok, UAS, Call);
+        _ ->
             {ok, AuthData} = SrvId:nks_sip_authorize_data([], UAS, Call),
-            Args = [AuthData, UAS#trans.request, Call],
+            Args = [AuthData, Req, Call],
             case SrvId:nks_sip_call(sip_authorize, Args, SrvId) of
                 {ok, Reply} -> 
                     authorize_reply(Reply, UAS, Call);
                 error ->
                     nksip_call_uas:do_reply({internal_error, "Service Error"}, UAS, Call)
-            end;    
-        false ->
-            authorize_reply(ok, UAS, Call)
+            end
     end.
 
 
