@@ -406,7 +406,6 @@ do_parse(Data, #nkport{class={nksip, SrvId}, transp=Transp}=NkPort, State) ->
 do_parse(SrvId, #nkport{transp=Transp}=NkPort, Data, Pos, State) ->
     case extract(Transp, Data, Pos) of
         {ok, CallId, Msg, Rest} ->
-            SrvId:nks_sip_connection_recv(SrvId, CallId, NkPort, Msg),
             case nksip_router:incoming_sync(SrvId, CallId, NkPort, Msg) of
                 ok -> 
                     do_parse(Rest, NkPort, State);

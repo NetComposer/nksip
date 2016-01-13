@@ -26,7 +26,7 @@
 
 -export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
          plugin_start/2, plugin_stop/2]).
--export([nks_sip_connection_sent/2, nks_sip_connection_recv/4]).
+-export([nks_sip_connection_sent/2, nks_sip_connection_recv/2]).
 
 
 %% ===================================================================
@@ -81,11 +81,11 @@ nks_sip_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_sip_connection_recv(nksip:srv_id(), nksip:call_id(), 
-					       nkpacket:nkport(), binary()) ->
+-spec nks_sip_connection_recv(nksip:request()|nksip:response(), binary()) ->
     continue.
 
-nks_sip_connection_recv(SrvId, CallId, NkPort, Packet) ->
+nks_sip_connection_recv(SipMsg, Packet) ->
+    #sipmsg{srv_id=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
     nksip_trace:sipmsg(SrvId, CallId, <<"FROM">>, NkPort, Packet),
     continue.
 

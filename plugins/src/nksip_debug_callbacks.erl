@@ -26,7 +26,7 @@
 
 -export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
          plugin_start/2, plugin_stop/2]).
--export([nks_sip_connection_sent/2, nks_sip_connection_recv/4, nks_sip_debug/3]).
+-export([nks_sip_connection_sent/2, nks_sip_connection_recv/2, nks_sip_debug/3]).
 
 %% ===================================================================
 %% Plugin
@@ -94,11 +94,11 @@ nks_sip_connection_sent(SipMsg, Packet) ->
 
 
 %% @doc Called when a new message has been received and parsed
--spec nks_sip_connection_recv(nksip:srv_id(), nksip:call_id(), 
-                           nkpacket:nkport(), binary()) ->
+-spec nks_sip_connection_recv(nksip:sipmsg(), binary()) ->
     continue.
 
-nks_sip_connection_recv(SrvId, CallId, NkPort, Packet) ->
+nks_sip_connection_recv(NkPort, Packet) ->
+    #sipmsg{nkport=NkPort, call_id=CallId, srv_id=SrvId} = NkPort,
     {ok, {_Proto, Transp, Ip, Port}} = nkpacket:get_remote(NkPort),
     nksip_debug:insert(SrvId, CallId, {Transp, Ip, Port, Packet}),
     continue.

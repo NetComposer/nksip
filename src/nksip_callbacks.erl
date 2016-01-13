@@ -48,7 +48,7 @@
 		 nks_sip_parse_uas_opt/3, nks_sip_uas_timer/3, nks_sip_uas_dialog_response/4, 
 		 nks_sip_uas_process/2]).
 -export([nks_sip_dialog_update/3, nks_sip_route/4]).
--export([nks_sip_connection_sent/2, nks_sip_connection_recv/4]).
+-export([nks_sip_connection_sent/2, nks_sip_connection_recv/2]).
 % -export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([nks_sip_debug/3]).
 
@@ -808,15 +808,14 @@ nks_sip_connection_sent(_SipMsg, _Packet) ->
 %% @doc Called when a new message has been received and parsed
 %% @end
 %%----------------------------------------------------------------
--spec nks_sip_connection_recv( ServiceId, CallId, Transport, Packet) -> Result when 
-		ServiceId 		:: nksip:srv_id(), 
-		CallId 			:: nksip:call_id(), 
-		Transport 		:: nkpacket:nkport(), 
-		Packet 			:: binary(),
-		Result 			:: ok 
+-spec nks_sip_connection_recv( RequestOrResponse, Packet ) -> Result when 
+		RequestOrResponse 	:: nksip:request()
+			| nksip:response(), 
+		Packet 				:: binary(),
+		Result 				:: ok 
 			| nks_sip_common().
 
-nks_sip_connection_recv(_SrvId, _CallId, _Transp, _Packet) ->
+nks_sip_connection_recv(_SipMsg, _Packet) ->
 	ok.
 
 
