@@ -65,8 +65,8 @@ sip_route|`user_uri()`|[]|Route (outbound proxy) to use. Generates one or more `
 sip_no_100|`boolean()`|false|If true, forbids the generation of automatic `100-type` responses for INVITE requests
 sip_max_calls|`integer()`|100000|Maximum number of simultaneous calls (for each service)
 sip_local_host|auto&#124;`string()`&#124;`binary()`&#124;|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_. If set to `auto` NkSIP will use the IP of the transport selected in every case. If that transport is listening on all addresses NkSIP will try to find the best IP using the first valid IP among the network interfaces `ethX` and `enX`, or localhost if none is found
-sip_local_host6|auto&#124;`string()`&#124;`binary()`|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_ for IPv6 transports. See `local_host` option.
-
+sip_local_host6|auto&#124;`string()`&#124;`binary()`|auto|Default host or IP to use in headers like _Via_, _Contact_ and _Record-Route_ for IPv6 transports. See `local_host` option
+sip_udp_max_size|`integer()`|65507|Maximum UDP packet size. Bigger packets will be sent using TCP
 
 ### lager
 

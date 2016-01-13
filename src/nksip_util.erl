@@ -203,6 +203,7 @@ send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
                 class => {nksip, SrvId}, 
                 base_nkport => true, 
                 udp_to_tcp => true,
+                udp_max_size => ?GET_CONFIG(SrvId, udp_max_size),
                 ws_proto => sip
             },
             Opts4 = case Fun of

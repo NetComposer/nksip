@@ -34,8 +34,7 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 
 
--define(MAX_MSG, 65535).
--define(MAX_UDP, 1500).
+-define(MAX_MSG, 65507).
 
 %% ===================================================================
 %% User

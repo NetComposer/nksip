@@ -194,7 +194,8 @@
     local_host :: auto | binary(),
     local_host6 :: auto | binary(),
     debug :: boolean(),
-    times :: #call_times{}
+    times :: #call_times{},
+    udp_max_size :: integer()
 }).
 
 
