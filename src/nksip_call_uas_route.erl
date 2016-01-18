@@ -199,7 +199,7 @@ route_launch(#trans{ruri=RUri}=UAS, #call{srv_id=SrvId}=Call) ->
 
 route_reply(Reply, UAS, Call) ->
     #trans{id=Id, method=Method, ruri=RUri} = UAS,
-    ?call_info("UAS ~p ~p route reply: ~p", [Id, Method, Reply]),
+    ?call_debug("UAS ~p ~p route reply: ~p", [Id, Method, Reply]),
     Route = case Reply of
         {reply, Resp} -> {reply, Resp};
         {reply_stateless, Resp} -> {reply_stateless, Resp};
