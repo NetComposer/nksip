@@ -460,8 +460,10 @@ extract(Transp, Data, Pos) ->
                         _ ->
                             {error, <<"Invalid Content-Length">>}
                     end;
+                _ when Transp==udp ->
+                    {ok, CallId, Data, <<>>};
                 _ ->
-                    {error, <<"Invalid Content-Length">>}
+                    {error, <<"Missing Content-Length">>}
             end;
         _ ->
             {error, <<"Invalid Call-ID">>}
@@ -473,12 +475,13 @@ extract(Transp, Data, Pos) ->
     ok.
 
 reply_error(Data, Msg, #nkport{class={nksip, SrvId}}=NkPort, _State) ->
+    ?notice(SrvId, <<>>, "error parsing request: ~s", [Msg]),
     case nksip_parse_sipmsg:parse(Data) of
         {ok, {req, _, _}, Headers, _} ->
             Resp = nksip_unparse:response(Headers, 400, Msg),
             do_send(Resp, NkPort);
-        O ->
-            ?notice(SrvId, <<>>, "error parsing request: ~s", [O])
+        _ ->
+            ok
     end.
 
 
