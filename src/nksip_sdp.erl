@@ -182,8 +182,11 @@ is_new(_, _) -> false.
 
 parse(Bin) ->
     try
-        Data = [{K, V} 
-            || <<K, $=, V/binary>> <- binary:split(Bin, <<"\r\n">>, [global])],
+        Terms = case binary:split(Bin, <<"\r\n">>, [global]) of
+            [_] -> binary:split(Bin, <<"\n">>, [global]);
+            OkTerms -> OkTerms
+        end,
+        Data = [{K, V} || <<K, $=, V/binary>> <- Terms],
         parse_sdp(v, Data, #sdp{})
     catch
         _:_ -> error
