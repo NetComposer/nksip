@@ -367,6 +367,9 @@ parse_sdp(k, R, SDP) ->
 parse_sdp(a, [{$a, A}|R], SDP) -> 
     Attr = parse_sdp_a(A),
     parse_sdp(a, R, SDP#sdp{attributes=[Attr|SDP#sdp.attributes]});
+% Hack to accept b= inside a= (Freeswitch)
+parse_sdp(a, [{$b, B}|R], SDP) -> 
+    parse_sdp(a, R, SDP#sdp{bandwidth=[B|SDP#sdp.bandwidth]});
 parse_sdp(a, R, SDP) -> 
     parse_sdp(m, R, SDP#sdp{attributes=lists:reverse(SDP#sdp.attributes)});
 parse_sdp(m, [{$m, M}|R], SDP) ->
@@ -422,6 +425,9 @@ parse_sdp_m(k, R, SDPM) ->
 parse_sdp_m(a, [{$a, A}|R], SDPM) ->
     Attr = parse_sdp_a(A),
     parse_sdp_m(a, R, SDPM#sdp_m{attributes=[Attr|SDPM#sdp_m.attributes]});
+% Hack to accept b= inside a= (Freeswitch)
+parse_sdp_m(a, [{$b, B}|R], SDPM) ->
+    parse_sdp_m(a, R, SDPM#sdp_m{bandwidth=[B|SDPM#sdp_m.bandwidth]});
 parse_sdp_m(a, R, SDPM) ->
     {SDPM#sdp_m{attributes=lists:reverse(SDPM#sdp_m.attributes)}, R}.
 
