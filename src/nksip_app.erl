@@ -89,11 +89,8 @@ start(_Type, _Args) ->
             ok = nkpacket:register_protocol(sips, nksip_protocol),
             {ok, Pid} = nksip_sup:start_link(),
             put(current_cseq, nksip_util:initial_cseq()-?MINUS_CSEQ),
-            MainIp = nkpacket_config_cache:main_ip(),
-            MainIp6 = nkpacket_config_cache:main_ip6(),
             {ok, Vsn} = application:get_key(nksip, vsn),
-            lager:info("NkSIP v~s has started. Main IP is ~s (~s)", 
-                         [Vsn, nklib_util:to_host(MainIp), nklib_util:to_host(MainIp6)]),
+            lager:info("NkSIP v~s has started", [Vsn]),
             {ok, Pid};
         {error, Error} ->
             lager:error("Error parsing config: ~p", [Error]),
