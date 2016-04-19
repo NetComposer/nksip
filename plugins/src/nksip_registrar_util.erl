@@ -22,9 +22,28 @@
 -module(nksip_registrar_util).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
+-include_lib("nklib/include/nklib.hrl").
+-include("../include/nksip.hrl").
 -include("nksip_registrar.hrl").
 
+-export([force_domain/2]).
 -export([get_all/0, clear/0, print_all/0]).
+
+
+%% ===================================================================
+%% Public
+%% ===================================================================
+
+%% @doc Changes the domain in the To header
+-spec force_domain(nksip:request(), binary()) ->
+    nksip:request().
+
+force_domain(Req, Domain) ->
+    #sipmsg{to={#uri{domain=_Domain}=To, ToTag}} = Req,
+    To2 = To#uri{domain = nklib_util:to_binary(Domain)},
+    Req#sipmsg{to={To2, ToTag}}.
+
+
 
 
 %% ===================================================================
