@@ -21,7 +21,7 @@
 %% @doc Protocol behaviour
 -module(nksip_protocol).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
--behaviour(nkpacket_protocol).
+% -behaviour(nkpacket_protocol).
 
 -export([start_refresh/3, stop_refresh/1, get_refresh/1]).
 -export([transports/1, default_port/1, naptr/2]).
