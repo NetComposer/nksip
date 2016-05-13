@@ -228,7 +228,7 @@ add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
             end,
             RouteHash = nklib_util:hash({GlobalId, SrvId, RouteBranch}),
             <<"NkQ", RouteHash/binary>>;
-        FlowPid -> 
+        _ -> 
             FlowToken = encode_flow(FlowPid),
             <<"NkF", FlowToken/binary>>
     end,

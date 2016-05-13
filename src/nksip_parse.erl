@@ -214,28 +214,28 @@ packet(SrvId, CallId, NkPort, Packet) ->
             try 
                 MsgClass = case Class of
                     {req, Method, RUri} ->
-                        case nklib_parse:uris(RUri) of
+                        RUri2 = case nklib_parse:uris(RUri) of
                             [RUri1] -> 
-                                [RUri1];
-                            _ -> RUri1 = 
+                                RUri1;
+                            _ -> 
                                 throw({invalid, <<"Request-URI">>})
                         end,
                         {req, Method};
                     {resp, Code, Reason} ->
-                        case catch list_to_integer(Code) of
+                        RUri2 = undefined,
+                        Code2 = case catch list_to_integer(Code) of
                             Code1 when is_integer(Code1), Code1>=100, Code1<700 -> 
-                                ok;
+                                Code1;
                             _ -> 
-                                Code1 = throw({invalid, <<"Code">>})
+                                throw({invalid, <<"Code">>})
                         end,
-                        RUri1 = undefined,
-                        {resp, Code1, Reason}
+                        {resp, Code2, Reason}
                 end,
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
                     srv_id = SrvId,
-                    ruri = RUri1,
+                    ruri = RUri2,
                     call_id = CallId,
                     body = Body,
                     nkport = NkPort,
@@ -288,24 +288,26 @@ packet(SrvId, #nkport{transp=Transp}=NkPort, Packet) ->
                 end,
                 MsgClass = case Class of
                     {req, Method, RUri} ->
-                        case nklib_parse:uris(RUri) of
-                            [RUri1] -> [RUri1];
-                            _ -> RUri1 = throw({invalid, <<"Request-URI">>})
+                        RUri2 = case nklib_parse:uris(RUri) of
+                            [RUri1] -> RUri1;
+                            _ -> throw({invalid, <<"Request-URI">>})
                         end,
                         {req, Method};
                     {resp, Code, Reason} ->
-                        case catch list_to_integer(Code) of
-                            Code1 when is_integer(Code1), Code1>=100, Code1<700 -> ok;
-                            _ -> Code1 = throw({invalid, <<"Code">>})
+                        RUri2 = undefined,
+                        Code2  = case catch list_to_integer(Code) of
+                            Code1 when is_integer(Code1), Code1>=100, Code1<700 -> 
+                                Code1;
+                            _ -> 
+                                throw({invalid, <<"Code">>})
                         end,
-                        RUri1 = undefined,
-                        {resp, Code1, Reason}
+                        {resp, Code2, Reason}
                 end,
                 Req0 = #sipmsg{
                     id = nklib_util:uid(),
                     class = MsgClass,
                     srv_id = SrvId,
-                    ruri = RUri1,
+                    ruri = RUri2,
                     call_id = CallId,
                     body = Body,
                     nkport = NkPort,
