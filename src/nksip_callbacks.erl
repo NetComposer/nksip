@@ -39,7 +39,7 @@
 -export([sip_refer/2, sip_publish/2]).
 -export([sip_dialog_update/3, sip_session_update/3]).
 
--export([nks_sip_call/3, nks_sip_authorize_data/3, 
+-export([nks_preparse/2, nks_sip_call/3, nks_sip_authorize_data/3, 
 		 nks_sip_transport_uac_headers/6, nks_sip_transport_uas_sent/1]).
 -export([nks_sip_uac_pre_response/3, nks_sip_uac_response/4, nks_sip_parse_uac_opts/2,
 		 nks_sip_uac_proxy_opts/2, nks_sip_make_uac_dialog/4, nks_sip_uac_pre_request/4,
@@ -52,7 +52,7 @@
 % -export([handle_call/3, handle_cast/2, handle_info/2]).
 -export([nks_sip_debug/3]).
 
--type nks_sip_common() :: continue | {continue, list()}.
+-type continue() :: continue | {continue, list()}.
 
 
 
@@ -495,6 +495,17 @@ sip_session_update(_Status, _Dialog, _Call) ->
 %% Internal Callbacks
 %% ===================================================================
 
+%%----------------------------------------------------------------
+%% @doc Allows to preparse the headers before parsing
+%% @end
+%%----------------------------------------------------------------
+-spec nks_preparse(nksip:request()|nksip:response(), [nksip:header()]) -> 
+	{ok, nksip:request()|nksip:response(), [nksip:header()]} | continue().
+
+nks_preparse(SipMsg, Headers) ->
+	{ok, SipMsg, Headers}.
+
+
 
 %%----------------------------------------------------------------
 %% @doc This plugin callback function is used to call application-level 
@@ -507,7 +518,7 @@ sip_session_update(_Status, _Dialog, _Call) ->
 			ServiceId 			:: nksip:srv_id(),
 			Result 				:: {ok, term()} 
 				| error 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_call(Fun, Args, SrvId) ->
 	case catch apply(SrvId, Fun, Args) of
@@ -532,7 +543,7 @@ nks_sip_call(Fun, Args, SrvId) ->
 				ReqTransaction 	:: nksip_call:trans(),
 				Call 			:: nksip_call:call(),
 				Result 			:: {ok, list()} 
-					| nks_sip_common().
+					| continue().
 
 nks_sip_authorize_data(List, #trans{request=Req}, Call) ->
 	Digest = nksip_auth:authorize_data(Req, Call),
@@ -551,7 +562,7 @@ nks_sip_authorize_data(List, #trans{request=Req}, Call) ->
 			UacTransaction 		:: nksip_call:trans(), 
 			Call 				:: nksip:call(),
 			Result 				:: {ok, Call } 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_uac_pre_response(Resp, UAC, Call) ->
     {continue, [Resp, UAC, Call]}.
@@ -566,7 +577,7 @@ nks_sip_uac_pre_response(Resp, UAC, Call) ->
 			UacTransaction 		:: nksip_call:trans(), 
 			Call 				:: nksip:call(),
 			Result 				:: {ok, Call } 
-				| nks_sip_common().
+				| continue().
 
 
 nks_sip_uac_response(Req, Resp, UAC, Call) ->
@@ -580,7 +591,7 @@ nks_sip_uac_response(Req, Resp, UAC, Call) ->
 			Request 			:: nksip:request(),
 			OptionsList 		:: nksip:optslist(),
 			Result 				:: {error, term()} 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_parse_uac_opts(Req, Opts) ->
 	{continue, [Req, Opts]}.
@@ -593,7 +604,7 @@ nks_sip_parse_uac_opts(Req, Opts) ->
 			Request 			:: nksip:request(),
 			OptionsList 		:: nksip:optslist(),
 			Result 				:: {reply, Reply } 
-				| nks_sip_common(),
+				| continue(),
 			Reply 				:: nksip:sipreply().
 
 nks_sip_uac_proxy_opts(Req, ReqOpts) ->
@@ -673,7 +684,7 @@ nks_sip_transport_uac_headers(Req, Opts, Scheme, Transp, Host, Port) ->
 			UasTransaction		:: nksip_call:trans(), 
 			Call  				:: nksip_call:call(),
 			Result 				:: {error, term()} 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_uas_send_reply({Resp, RespOpts}, UAS, Call) ->
 	{continue, [{Resp, RespOpts}, UAS, Call]}.
@@ -683,7 +694,7 @@ nks_sip_uas_send_reply({Resp, RespOpts}, UAS, Call) ->
 -spec nks_sip_uas_sent_reply( Call) -> Result when 
 			Call  			:: nksip_call:call(),
 			Result 			:: {ok, Call } 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_uas_sent_reply(Call) ->
 	{continue, [Call]}.
@@ -698,7 +709,7 @@ nks_sip_uas_sent_reply(Call) ->
 			UasTransaction 	:: nksip_call:trans(), 
 			Call 			:: nksip_call:call(),
 			Result 			:: {ok, UasTransaction, Call} 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_uas_method(Method, Req, UAS, Call) ->
 	{continue, [Method, Req, UAS, Call]}.
@@ -713,7 +724,7 @@ nks_sip_uas_method(Method, Req, UAS, Call) ->
 			UasTransaction 	:: nksip_call:trans(), 
 			Call 			:: nksip_call:call(),
 			Result 			:: {ok, Call } 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_uas_timer(Tag, UAS, Call) ->
 	{continue, [Tag, UAS, Call]}.
@@ -727,7 +738,7 @@ nks_sip_uas_timer(Tag, UAS, Call) ->
 			Response 		:: nksip:response(), 
 			OptionsList 	:: nksip:optslist(),
 			Result 			:: {error, term()} 
-				| nks_sip_common().
+				| continue().
 
 nks_sip_parse_uas_opt(Req, Resp, Opts) ->
 	{continue, [Req, Resp, Opts]}.
@@ -768,7 +779,7 @@ nks_sip_uas_process(UAS, Call) ->
 		Dialog 			:: nksip:dialog(), 
 		Call 			:: nksip_call:call(),
 		Result 			:: {ok, Call } 
-			| nks_sip_common().
+			| continue().
 
 nks_sip_dialog_update(Type, Dialog, Call) ->
 	{continue, [Type, Dialog, Call]}.
@@ -798,7 +809,7 @@ nks_sip_route(UriList, ProxyOpts, UAS, Call) ->
 			| nksip:response(), 
 		Packet 				:: binary(),
 		Result 				:: ok 
-			| nks_sip_common().
+			| continue().
 
 nks_sip_connection_sent(_SipMsg, _Packet) ->
 	ok.
@@ -813,7 +824,7 @@ nks_sip_connection_sent(_SipMsg, _Packet) ->
 			| nksip:response(), 
 		Packet 				:: binary(),
 		Result 				:: ok 
-			| nks_sip_common().
+			| continue().
 
 nks_sip_connection_recv(_SipMsg, _Packet) ->
 	ok.
@@ -826,7 +837,7 @@ nks_sip_connection_recv(_SipMsg, _Packet) ->
 -spec nks_sip_transport_uas_sent( Response ) -> Result when 
 		Response 	:: nksip:response(),
 		Result 		:: ok 
-			| nks_sip_common().
+			| continue().
 
 nks_sip_transport_uas_sent(_Resp) ->
 	ok.
@@ -842,7 +853,7 @@ nks_sip_transport_uas_sent(_Resp) ->
 		CallId 			:: nksip:call_id(),
 		Info 			:: term(),
 		Result 			:: ok 
-			| nks_sip_common().
+			| continue().
 
 nks_sip_debug(_SrvId, _CallId, _Info) ->
     ok.
