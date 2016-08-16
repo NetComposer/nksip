@@ -26,8 +26,9 @@
 
 -export([new/2, new/0, empty/0, update/2, increment/1, parse/1, unparse/1]).
 -export([is_sdp/1, is_new/2, update_ip/2]).
+-export([add_candidates/2, extract_candidates/1]).
 
--export_type([sdp/0, sdp_a/0, sdp_m/0, sdp_t/0, address/0]).
+-export_type([sdp/0, sdp_a/0, sdp_m/0, sdp_t/0, address/0, candidate_map/0]).
 
 %% ===================================================================
 %% Types
@@ -56,6 +57,13 @@
                         Attributes :: 
                             [{rtpmap, Pos::integer(), Data::binary()} | binary()]
                     }.
+
+-type candidate_map() ::
+    #{
+        {Mid::binary(), Index::integer()} => binary()
+    }.
+
+
 
 
 %% ===================================================================
@@ -274,6 +282,100 @@ unparse(#sdp{}=SDP) ->
 
 unparse(_) ->
     undefined.
+
+
+%% @doc Add trickle ICE candidates to an SDP
+-spec add_candidates(#sdp{}|binary(), candidate_map()) ->
+    #sdp{} | {error, term()}.
+
+add_candidates(#sdp{medias=Medias}=SDP, Candidates) ->
+    case add_candidates(Medias, 0, Candidates, []) of
+        {ok, Medias2} ->
+            SDP#sdp{medias=Medias2};
+        {error, Error} ->
+            {error, Error}
+    end;
+
+add_candidates(SDP, Candidates) ->
+    case parse(SDP) of
+        #sdp{} = Parsed ->
+            add_candidates(Parsed, Candidates);
+        error ->
+            {error, parse_error}
+    end.
+
+
+%% @private
+add_candidates([], _Index, _Candidates, Acc) ->
+    {ok, lists:reverse(Acc)};
+
+add_candidates([#sdp_m{attributes=Attrs}=Media|Rest], Index, Candidates, Acc) ->
+    case lists:keyfind(<<"mid">>, 1, Attrs) of
+        {_, [Mid]} ->
+            List = maps:get({Mid, Index}, Candidates, []),
+            Attrs2 = lists:foldr(
+                fun(Line, FAcc) ->
+                    case Line of
+                        <<"candidate:", FRest/binary>> ->
+                            Data = binary:split(FRest, <<" ">>, [global]),
+                            [{<<"candidate">>, Data}|FAcc];
+                        _ ->
+                            lager:error("L: ~p", [Line]),
+                            FAcc
+                    end
+                end,
+                Attrs,
+                List),
+            Media2 = Media#sdp_m{attributes=Attrs2},
+            add_candidates(Rest, Index+1, Candidates, [Media2|Acc]);
+        _ ->
+            {error, missing_mid_in_sdp}
+    end.
+
+
+%% @doc Extract trickle ICE candidates from an SDP
+-spec extract_candidates(#sdp{}|binary()) ->
+    candidate_map() | {error, term()}.
+
+extract_candidates(#sdp{medias=Medias}) ->
+    extract_candidates(Medias, 0, #{});
+
+extract_candidates(SDP) ->
+    case parse(SDP) of
+        #sdp{} = Parsed ->
+            extract_candidates(Parsed);
+        error ->
+            {error, parse_error}
+    end.
+
+%% @private
+extract_candidates([], _Index, Acc) ->
+    Acc;
+
+extract_candidates([#sdp_m{attributes=Attrs}|Rest], Index, Acc) ->
+    case lists:keyfind(<<"mid">>, 1, Attrs) of
+        {_, [Mid]} ->
+            List = proplists:get_all_values(<<"candidate">>, Attrs),
+            Acc2 = lists:foldr(
+                fun(AList, FAcc) ->
+                    Data = nklib_util:bjoin(AList, <<" ">>),
+                    Values1 = maps:get({Mid, Index}, FAcc, []),
+                    Values2 = [<<"candidate:", Data/binary>>|Values1],
+                    maps:put({Mid, Index}, Values2, FAcc)
+                end,
+                Acc,
+                List),
+            extract_candidates(Rest, Index+1, Acc2);
+        _ ->
+            {error, missing_mid_in_sdp}
+    end.
+
+
+
+
+
+
+
     
 
 
@@ -654,6 +756,124 @@ sdp4_test() ->
     >>,
     ?assertMatch(Bin, unparse(SDP)),
     ?assertMatch(SDP, parse(Bin)).
+
+
+sdp5_test() ->
+    SDP2 = unparse(add_candidates(sdp1(), candidates1())),
+    SDP3 = binary:replace(SDP2, <<"\r\n">>, <<"\n">>, [global]),
+    SDP3 = sdp2(),
+    Candidates = extract_candidates(SDP3),
+    Candidates = candidates1().
+
+
+sdp1() -> 
+<<"v=0
+o=- 3680359967 3680359967 IN IP4 0.0.0.0
+s=Kurento Media Server
+c=IN IP4 0.0.0.0
+t=0 0
+a=msid-semantic: WMS FunlozxAXEnhW2MQ5pAmuJDLu4idCoGvdpGd
+a=group:BUNDLE audio video
+m=audio 1 UDP/TLS/RTP/SAVPF 111 0
+a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
+a=mid:audio
+a=rtcp:9 IN IP4 0.0.0.0
+a=rtpmap:111 opus/48000/2
+a=rtpmap:0 PCMU/8000
+a=setup:active
+a=sendrecv
+a=rtcp-mux
+a=fmtp:111 minptime=10;useinbandfec=1
+a=ssrc:478735377 cname:user2232009940@host-6307df3c
+a=ice-ufrag:KASd
+a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
+a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76
+m=video 1 UDP/TLS/RTP/SAVPF 100
+b=AS:500
+a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
+a=mid:video
+a=rtcp:9 IN IP4 0.0.0.0
+a=rtpmap:100 VP8/90000
+a=rtcp-fb:100 ccm fir
+a=rtcp-fb:100 nack
+a=rtcp-fb:100 nack pli
+a=rtcp-fb:100 goog-remb
+a=setup:active
+a=sendrecv
+a=rtcp-mux
+a=ssrc:732679706 cname:user2232009940@host-6307df3c
+a=ice-ufrag:KASd
+a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
+a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76
+m=application 0 DTLS/SCTP 5000
+a=inactive
+a=mid:data
+a=ice-ufrag:KASd
+a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
+a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76">>.
+
+sdp2() ->
+<<"v=0
+o=- 3680359967 3680359967 IN IP4 0.0.0.0
+s=Kurento Media Server
+c=IN IP4 0.0.0.0
+t=0 0
+a=msid-semantic: WMS FunlozxAXEnhW2MQ5pAmuJDLu4idCoGvdpGd
+a=group:BUNDLE audio video
+m=audio 1 UDP/TLS/RTP/SAVPF 111 0
+a=candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39573 typ host
+a=candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 9 typ host tcptype active
+a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
+a=mid:audio
+a=rtcp:9 IN IP4 0.0.0.0
+a=rtpmap:111 opus/48000/2
+a=rtpmap:0 PCMU/8000
+a=setup:active
+a=sendrecv
+a=rtcp-mux
+a=fmtp:111 minptime=10;useinbandfec=1
+a=ssrc:478735377 cname:user2232009940@host-6307df3c
+a=ice-ufrag:KASd
+a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
+a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76
+m=video 1 UDP/TLS/RTP/SAVPF 100
+b=AS:500
+a=candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39574 typ host
+a=candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 10 typ host tcptype active
+a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
+a=mid:video
+a=rtcp:9 IN IP4 0.0.0.0
+a=rtpmap:100 VP8/90000
+a=rtcp-fb:100 ccm fir
+a=rtcp-fb:100 nack
+a=rtcp-fb:100 nack pli
+a=rtcp-fb:100 goog-remb
+a=setup:active
+a=sendrecv
+a=rtcp-mux
+a=ssrc:732679706 cname:user2232009940@host-6307df3c
+a=ice-ufrag:KASd
+a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
+a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76
+m=application 0 DTLS/SCTP 5000
+a=inactive
+a=mid:data
+a=ice-ufrag:KASd
+a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
+a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76
+">>.
+
+
+candidates1() -> #{
+    {<<"audio">>,0} => [
+        <<"candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39573 typ host">>,
+        <<"candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 9 typ host tcptype active">>
+    ],
+    {<<"video">>,1} => [
+        <<"candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39574 typ host">>,
+        <<"candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 10 typ host tcptype active">>
+    ]
+}.
 
 
 -endif.
