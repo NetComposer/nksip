@@ -285,7 +285,7 @@ unparse(_) ->
 
 
 %% @doc Add trickle ICE candidates to an SDP
--spec add_candidates(#sdp{}|binary(), candidate_map()) ->
+-spec add_candidates(#sdp{}|binary(), [#candidate{}]) ->
     #sdp{} | {error, term()}.
 
 add_candidates(#sdp{medias=Medias}=SDP, Candidates) ->
@@ -312,7 +312,8 @@ add_candidates([], _Index, _Candidates, Acc) ->
 add_candidates([#sdp_m{attributes=Attrs}=Media|Rest], Index, Candidates, Acc) ->
     case lists:keyfind(<<"mid">>, 1, Attrs) of
         {_, [Mid]} ->
-            List = maps:get({Mid, Index}, Candidates, []),
+            List = [A || #candidate{m_id=M, m_index=I, a_line=A} <-Candidates,
+                         M==Mid andalso I==Index],
             Attrs2 = lists:foldr(
                 fun(Line, FAcc) ->
                     case Line of
@@ -324,9 +325,9 @@ add_candidates([#sdp_m{attributes=Attrs}=Media|Rest], Index, Candidates, Acc) ->
                             FAcc
                     end
                 end,
-                Attrs,
+                [],
                 List),
-            Media2 = Media#sdp_m{attributes=Attrs2},
+            Media2 = Media#sdp_m{attributes=Attrs++Attrs2},
             add_candidates(Rest, Index+1, Candidates, [Media2|Acc]);
         _ ->
             {error, missing_mid_in_sdp}
@@ -335,10 +336,10 @@ add_candidates([#sdp_m{attributes=Attrs}=Media|Rest], Index, Candidates, Acc) ->
 
 %% @doc Extract trickle ICE candidates from an SDP
 -spec extract_candidates(#sdp{}|binary()) ->
-    candidate_map() | {error, term()}.
+    [#candidate{}] | {error, term()}.
 
 extract_candidates(#sdp{medias=Medias}) ->
-    extract_candidates(Medias, 0, #{});
+    extract_candidates(Medias, 0, []);
 
 extract_candidates(SDP) ->
     case parse(SDP) of
@@ -358,10 +359,9 @@ extract_candidates([#sdp_m{attributes=Attrs}|Rest], Index, Acc) ->
             List = proplists:get_all_values(<<"candidate">>, Attrs),
             Acc2 = lists:foldr(
                 fun(AList, FAcc) ->
-                    Data = nklib_util:bjoin(AList, <<" ">>),
-                    Values1 = maps:get({Mid, Index}, FAcc, []),
-                    Values2 = [<<"candidate:", Data/binary>>|Values1],
-                    maps:put({Mid, Index}, Values2, FAcc)
+                    Line1 = nklib_util:bjoin(AList, <<" ">>),
+                    Line2 = <<"candidate:", Line1/binary>>,
+                    [#candidate{m_id=Mid, m_index=Index, a_line=Line2}|FAcc]
                 end,
                 Acc,
                 List),
@@ -567,6 +567,7 @@ join([], Acc) -> lists:reverse(Acc).
 %% ===================================================================
 
 
+-define(TEST, 1).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
@@ -758,12 +759,13 @@ sdp4_test() ->
     ?assertMatch(SDP, parse(Bin)).
 
 
+-compile([export_all]).
 sdp5_test() ->
     SDP2 = unparse(add_candidates(sdp1(), candidates1())),
     SDP3 = binary:replace(SDP2, <<"\r\n">>, <<"\n">>, [global]),
     SDP3 = sdp2(),
-    Candidates = extract_candidates(SDP3),
-    Candidates = candidates1().
+    Candidates = lists:sort(extract_candidates(SDP3)),
+    Candidates = lists:sort(candidates1()).
 
 
 sdp1() -> 
@@ -821,8 +823,6 @@ t=0 0
 a=msid-semantic: WMS FunlozxAXEnhW2MQ5pAmuJDLu4idCoGvdpGd
 a=group:BUNDLE audio video
 m=audio 1 UDP/TLS/RTP/SAVPF 111 0
-a=candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39573 typ host
-a=candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 9 typ host tcptype active
 a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
 a=mid:audio
 a=rtcp:9 IN IP4 0.0.0.0
@@ -836,10 +836,10 @@ a=ssrc:478735377 cname:user2232009940@host-6307df3c
 a=ice-ufrag:KASd
 a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
 a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76
+a=candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39573 typ host
+a=candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 9 typ host tcptype active
 m=video 1 UDP/TLS/RTP/SAVPF 100
 b=AS:500
-a=candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39574 typ host
-a=candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 10 typ host tcptype active
 a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
 a=mid:video
 a=rtcp:9 IN IP4 0.0.0.0
@@ -855,6 +855,8 @@ a=ssrc:732679706 cname:user2232009940@host-6307df3c
 a=ice-ufrag:KASd
 a=ice-pwd:aAGwQCWJ327QPNBMBOkT0U
 a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:61:2A:42:F4:07:98:84:4B:0E:06:84:94:76
+a=candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39574 typ host
+a=candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 10 typ host tcptype active
 m=application 0 DTLS/SCTP 5000
 a=inactive
 a=mid:data
@@ -864,16 +866,28 @@ a=fingerprint:sha-256 3B:8E:41:18:5F:68:50:A5:7E:57:91:12:CB:0A:27:86:67:E1:DA:6
 ">>.
 
 
-candidates1() -> #{
-    {<<"audio">>,0} => [
-        <<"candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39573 typ host">>,
-        <<"candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 9 typ host tcptype active">>
-    ],
-    {<<"video">>,1} => [
-        <<"candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39574 typ host">>,
-        <<"candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 10 typ host tcptype active">>
-    ]
-}.
+candidates1() -> [
+    #candidate{
+        m_id = <<"audio">>, 
+        m_index = 0, 
+        a_line= <<"candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39573 typ host">>
+    },
+    #candidate{
+        m_id = <<"audio">>, 
+        m_index = 0, 
+        a_line = <<"candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 9 typ host tcptype active">>
+    },
+    #candidate{
+        m_id = <<"video">>, 
+        m_index = 1, 
+        a_line = <<"candidate:1 1 UDP 2013266431 fe80::42:85ff:fe08:1f8d 39574 typ host">>
+    },
+    #candidate{
+        m_id = <<"video">>, 
+        m_index = 1, 
+        a_line = <<"candidate:2 1 TCP 1019217407 fe80::42:85ff:fe08:1f8d 10 typ host tcptype active">>
+    }
+].
 
 
 -endif.
