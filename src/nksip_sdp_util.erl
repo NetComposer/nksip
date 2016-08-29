@@ -82,28 +82,29 @@ add_candidates([], _Index, _Candidates, Acc) ->
     {ok, lists:reverse(Acc)};
 
 add_candidates([#sdp_m{attributes=Attrs}=Media|Rest], Index, Candidates, Acc) ->
-    case lists:keyfind(<<"mid">>, 1, Attrs) of
+    List = case lists:keyfind(<<"mid">>, 1, Attrs) of
         {_, [Mid]} ->
-            List = [A || #candidate{m_id=M, m_index=I, a_line=A} <-Candidates,
-                         M==Mid andalso I==Index],
-            Attrs2 = lists:foldr(
-                fun(Line, FAcc) ->
-                    case Line of
-                        <<"candidate:", FRest/binary>> ->
-                            Data = binary:split(FRest, <<" ">>, [global]),
-                            [{<<"candidate">>, Data}|FAcc];
-                        _ ->
-                            lager:error("L: ~p", [Line]),
-                            FAcc
-                    end
-                end,
-                [],
-                List),
-            Media2 = Media#sdp_m{attributes=Attrs++Attrs2},
-            add_candidates(Rest, Index+1, Candidates, [Media2|Acc]);
+            [A || #candidate{m_id=M, m_index=I, a_line=A} <-Candidates,
+                  M==Mid andalso I==Index];
         _ ->
-            {error, missing_mid_in_sdp}
-    end.
+            % Janus does not send mid field
+            [A || #candidate{m_index=I, a_line=A} <-Candidates, I==Index]
+    end,
+    Attrs2 = lists:foldr(
+        fun(Line, FAcc) ->
+            case Line of
+                <<"candidate:", FRest/binary>> ->
+                    Data = binary:split(FRest, <<" ">>, [global]),
+                    [{<<"candidate">>, Data}|FAcc];
+                _ ->
+                    lager:error("L: ~p", [Line]),
+                    FAcc
+            end
+        end,
+        [],
+        List),
+    Media2 = Media#sdp_m{attributes=Attrs++Attrs2},
+    add_candidates(Rest, Index+1, Candidates, [Media2|Acc]).
 
 
 %% @doc Extract trickle ICE candidates from an SDP
