@@ -26,6 +26,7 @@
 
 -export([add_candidates/2, extract_candidates/1]).
 -export([extract_codecs/1, insert_codecs/2]).
+-export([get_codec_list/2, remove_codec/3, filter_codec/3]).
 
 -export_type([candidate_map/0, codec_map/0]).
 
@@ -214,17 +215,86 @@ insert_codecs_media([Media|Rest], CodecMap, Acc) ->
     #sdp_m{media=Name, attributes=Attrs1} = Media,
     Codecs = maps:get(Name, CodecMap),
     Fmts2 = [Key || {Key, _, _} <- Codecs],
-    Attrs2 = insert_codecs_fmt(Codecs, Attrs1),
-    Media2 = Media#sdp_m{fmt=Fmts2, attributes=Attrs2},
-    insert_codecs_media(Rest, CodecMap, [Media2|Acc]).
+    case Fmts2 of
+        [] ->
+            insert_codecs_media(Rest, CodecMap, Acc);
+        _ ->
+            Attrs2 = insert_codecs_fmt(Codecs, Attrs1),
+            Media2 = Media#sdp_m{fmt=Fmts2, attributes=Attrs2},
+            insert_codecs_media(Rest, CodecMap, [Media2|Acc])
+    end.
 
 
+%% @private
 insert_codecs_fmt([], Attrs) ->
     Attrs;
 
 insert_codecs_fmt([{Fmt, _Name, Values}|Rest], Attrs) ->
     Attrs2 = [{Key, [Fmt|Data]} || {Key, Data} <-Values] ++ Attrs,
     insert_codecs_fmt(Rest, Attrs2).
+
+
+
+%% @doc Get a the list of codec names
+-spec get_codec_list(Media::atom()|binary(), codec_map()) ->
+    [binary()].
+
+get_codec_list(Media, CodecMap) ->
+    case maps:find(nklib_util:to_binary(Media), CodecMap) of
+        {ok, List} ->
+            [Name || {_Fmt, Name, _Data}<- List];
+        error ->
+            []
+    end.
+
+
+
+%% @doc Get a the list of codec names
+-spec remove_codec(Media::atom()|binary(), Codec::atom()|binary(), codec_map()) ->
+    codec_map().
+
+remove_codec(Media, Name, CodecMap) ->
+    Media2 = nklib_util:to_binary(Media),
+    Name2 = nklib_util:to_upper(Name),
+    case maps:find(Media2, CodecMap) of
+        {ok, List} ->
+            List2 = lists:filter(
+                fun({_Fmt, FName1, _Data}) ->
+                    FName2 = nklib_util:to_upper(FName1),
+                    case binary:match(FName2, Name2) of
+                        {0, _} -> false;
+                        _ -> true
+                    end
+                end,
+                List),
+            maps:put(Media2, List2, CodecMap);
+        error ->
+            CodecMap
+    end.
+
+
+%% @doc Get a the list of codec names
+-spec filter_codec(Media::atom()|binary(), Codec::atom()|binary(), codec_map()) ->
+    codec_map().
+
+filter_codec(Media, Name, CodecMap) ->
+    Media2 = nklib_util:to_binary(Media),
+    Name2 = nklib_util:to_upper(Name),
+    case maps:find(Media2, CodecMap) of
+        {ok, List} ->
+            List2 = lists:filter(
+                fun({_Fmt, FName1, _Data}) ->
+                    FName2 = nklib_util:to_upper(FName1),
+                    case binary:match(FName2, Name2) of
+                        {0, _} -> true;
+                        _ -> false
+                    end
+                end,
+                List),
+            maps:put(Media2, List2, CodecMap);
+        error ->
+            CodecMap
+    end.
 
 
 
