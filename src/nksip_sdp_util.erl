@@ -25,8 +25,8 @@
 -include("nksip.hrl").
 
 -export([add_candidates/2, extract_candidates/1]).
--export([extract_codecs/1, insert_codecs/2]).
--export([get_codec_list/2, remove_codec/3, filter_codec/3]).
+-export([extract_codec_map/1, insert_codec_map/2]).
+-export([get_codecs/2, remove_codec/3, filter_codec/3]).
 
 -export_type([candidate_map/0, codec_map/0]).
 
@@ -145,40 +145,40 @@ extract_candidates([#sdp_m{attributes=Attrs}|Rest], Index, Acc) ->
 
 
 %% @doc Extract all codecs from SDP
--spec extract_codecs(binary()|#sdp{}) ->
+-spec extract_codec_map(binary()|#sdp{}) ->
     {codec_map(), #sdp{}}.
 
-extract_codecs(#sdp{medias=Medias}=SDP) ->
-    {Codecs, Medias2} = extract_codecs_media(Medias, #{}, []),
+extract_codec_map(#sdp{medias=Medias}=SDP) ->
+    {Codecs, Medias2} = extract_codec_map_media(Medias, #{}, []),
     {Codecs, SDP#sdp{medias=Medias2}};
 
-extract_codecs(SDP) ->
+extract_codec_map(SDP) ->
     case nksip_sdp:parse(SDP) of
         #sdp{} = Parsed ->
-            extract_codecs(Parsed);
+            extract_codec_map(Parsed);
         error ->
             {error, parse_error}
     end.
 
 
 %% @private
-extract_codecs_media([], Codecs, Medias) ->
+extract_codec_map_media([], Codecs, Medias) ->
     {Codecs, Medias};
 
-extract_codecs_media([Media|Rest], Codecs, Medias) ->
+extract_codec_map_media([Media|Rest], Codecs, Medias) ->
     #sdp_m{media=Name, fmt=Fmts, attributes=Attrs} = Media,
     Base = [{Fmt, Fmt, []} || Fmt <- Fmts],
-    {MediaCodecs, Outs} = extract_codecs_fmt(Attrs, Base, []),
+    {MediaCodecs, Outs} = extract_codec_map_fmt(Attrs, Base, []),
     Codecs2 = maps:put(Name, MediaCodecs, Codecs),
     Medias2 = [Media#sdp_m{attributes=Outs, fmt=[]}|Medias],
-    extract_codecs_media(Rest, Codecs2, Medias2).
+    extract_codec_map_media(Rest, Codecs2, Medias2).
 
 
 %% @private
-extract_codecs_fmt([], Codecs, Outs) ->
+extract_codec_map_fmt([], Codecs, Outs) ->
     {Codecs, lists:reverse(Outs)};
 
-extract_codecs_fmt([{Key, [Fmt|Values2]=Values}|Rest], Codecs, Outs) ->
+extract_codec_map_fmt([{Key, [Fmt|Values2]=Values}|Rest], Codecs, Outs) ->
     case lists:keyfind(Fmt, 1, Codecs) of
         {Fmt, OldName, List} ->
             case Key of
@@ -189,58 +189,58 @@ extract_codecs_fmt([{Key, [Fmt|Values2]=Values}|Rest], Codecs, Outs) ->
             end,
             List2 = [{Key, Values2}|List],
             Codecs2 = lists:keystore(Fmt, 1, Codecs, {Fmt, Name2, List2}),
-            extract_codecs_fmt(Rest, Codecs2, Outs);
+            extract_codec_map_fmt(Rest, Codecs2, Outs);
         false ->
             Outs2 = [{Key, Values}|Outs],
-            extract_codecs_fmt(Rest, Codecs, Outs2)
+            extract_codec_map_fmt(Rest, Codecs, Outs2)
     end;
 
-extract_codecs_fmt([{Key, Values}|Rest], Codecs, Outs) ->
+extract_codec_map_fmt([{Key, Values}|Rest], Codecs, Outs) ->
     Outs2 = [{Key, Values}|Outs],
-    extract_codecs_fmt(Rest, Codecs, Outs2).
+    extract_codec_map_fmt(Rest, Codecs, Outs2).
 
 
 %% @doc Inserts a previously extract lists of codecs back
--spec insert_codecs(codec_map(), #sdp{}) ->
+-spec insert_codec_map(codec_map(), #sdp{}) ->
     #sdp{}.
 
-insert_codecs(CodecMap, #sdp{medias=Medias}=SDP) ->
-    Medias2 = insert_codecs_media(Medias, CodecMap, []),
+insert_codec_map(CodecMap, #sdp{medias=Medias}=SDP) ->
+    Medias2 = insert_codec_map_media(Medias, CodecMap, []),
     SDP#sdp{medias=Medias2}.
 
 
-insert_codecs_media([], _CodecMap, Acc) ->
+insert_codec_map_media([], _CodecMap, Acc) ->
     Acc;
 
-insert_codecs_media([Media|Rest], CodecMap, Acc) ->
+insert_codec_map_media([Media|Rest], CodecMap, Acc) ->
     #sdp_m{media=Name, attributes=Attrs1} = Media,
     Codecs = maps:get(Name, CodecMap),
     Fmts2 = [Key || {Key, _, _} <- Codecs],
     case Fmts2 of
         [] ->
-            insert_codecs_media(Rest, CodecMap, Acc);
+            insert_codec_map_media(Rest, CodecMap, Acc);
         _ ->
-            Attrs2 = insert_codecs_fmt(Codecs, Attrs1),
+            Attrs2 = insert_codec_map_fmt(Codecs, Attrs1),
             Media2 = Media#sdp_m{fmt=Fmts2, attributes=Attrs2},
-            insert_codecs_media(Rest, CodecMap, [Media2|Acc])
+            insert_codec_map_media(Rest, CodecMap, [Media2|Acc])
     end.
 
 
 %% @private
-insert_codecs_fmt([], Attrs) ->
+insert_codec_map_fmt([], Attrs) ->
     Attrs;
 
-insert_codecs_fmt([{Fmt, _Name, Values}|Rest], Attrs) ->
+insert_codec_map_fmt([{Fmt, _Name, Values}|Rest], Attrs) ->
     Attrs2 = [{Key, [Fmt|Data]} || {Key, Data} <-Values] ++ Attrs,
-    insert_codecs_fmt(Rest, Attrs2).
+    insert_codec_map_fmt(Rest, Attrs2).
 
 
 
 %% @doc Get a the list of codec names
--spec get_codec_list(Media::atom()|binary(), codec_map()) ->
+-spec get_codecs(Media::atom()|binary(), codec_map()) ->
     [binary()].
 
-get_codec_list(Media, CodecMap) ->
+get_codecs(Media, CodecMap) ->
     case maps:find(nklib_util:to_binary(Media), CodecMap) of
         {ok, List} ->
             [Name || {_Fmt, Name, _Data}<- List];
@@ -250,7 +250,7 @@ get_codec_list(Media, CodecMap) ->
 
 
 
-%% @doc Get a the list of codec names
+%% @doc Remove a codec from a code_map(). Only header is neccesary.
 -spec remove_codec(Media::atom()|binary(), Codec::atom()|binary(), codec_map()) ->
     codec_map().
 
@@ -274,7 +274,7 @@ remove_codec(Media, Name, CodecMap) ->
     end.
 
 
-%% @doc Get a the list of codec names
+%% @doc Filter codecs not having a header
 -spec filter_codec(Media::atom()|binary(), Codec::atom()|binary(), codec_map()) ->
     codec_map().
 
@@ -320,7 +320,7 @@ sdp1_test() ->
 
 sdp2_test() ->
     SDP1 = sdp1(),
-    {Codecs, SDP2} = extract_codecs(sdp1()),    
+    {Codecs, SDP2} = extract_codec_map(sdp1()),    
 
     #{
         <<"audio">> := [
@@ -340,7 +340,7 @@ sdp2_test() ->
         <<"application">> := [{<<"5000">>, <<"5000">>, []}]
     } = Codecs,
 
-    SDP3 = nksip_sdp:unparse(insert_codecs(Codecs, SDP2)),
+    SDP3 = nksip_sdp:unparse(insert_codec_map(Codecs, SDP2)),
     SDP1_S = sorted_sdp(SDP1),
     SDP3_S = sorted_sdp(SDP3),
     SDP1_S = SDP3_S,

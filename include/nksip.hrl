@@ -233,7 +233,7 @@
     m_index :: integer(),
     a_line :: binary(),
     last = false :: boolean(),
-    meta :: term()
+    type :: offer | answer
 }).
 
 -endif.
