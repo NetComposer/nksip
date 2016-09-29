@@ -232,8 +232,8 @@
     m_id :: binary(),
     m_index :: integer(),
     a_line :: binary(),
-    last = false :: boolean(),
-    type :: offer | answer
+    last = false :: boolean()
+    % type :: offer | answer
 }).
 
 -endif.
