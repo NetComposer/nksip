@@ -26,7 +26,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
--include("../plugins/include/nksip_registrar.hrl").
+-include("../include/nksip_registrar.hrl").
 
 -compile([export_all]).
 -define(RECV(T), receive T -> T after 1000 -> error(recv) end).

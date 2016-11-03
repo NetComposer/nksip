@@ -41,7 +41,7 @@
 -define(TIME_CHECK, 10000).
 
 -include("../../../include/nksip.hrl").
--include("../../../plugins/include/nksip_registrar.hrl").
+-include("../../../include/nksip_registrar.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%  NkSIP CallBacks %%%%%%%%%%%%%%%%%%%%%%%%
