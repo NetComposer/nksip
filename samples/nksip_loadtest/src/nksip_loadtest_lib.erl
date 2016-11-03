@@ -43,10 +43,9 @@ start_server(Name, Port) ->
     Opts = #{
         plugins => [nksip_registrar, nksip_stats],
         callback => nksip_loadtest_callbacks,
-        sip_listen => [
-            {nksip_protocol, udp, {0,0,0,0}, Port, #{}},
-            {nksip_protocol, tls, {0,0,0,0}, Port+1, #{}}
-        ],
+        sip_listen => 
+            "sip:all:" ++ integer_to_list(Port) ++ ","
+            "sips:all:" ++ integer_to_list(Port+1),
         log_level => notice,
         sip_no_100 => true
     },

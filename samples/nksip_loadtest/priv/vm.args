@@ -8,6 +8,7 @@
 -pa deps/nklib/ebin
 -pa deps/nkpacket/ebin
 -pa deps/nkservice/ebin
+-pa deps/luerl/ebin
 -pa deps/ranch/ebin 
 -pa deps/wsock/ebin 
 -pa plugins/ebin
