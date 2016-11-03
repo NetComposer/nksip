@@ -305,7 +305,7 @@ filter_codec(Media, Name, CodecMap) ->
 %% ===================================================================
 
 
--define(TEST, 1).
+% -define(TEST, 1).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
