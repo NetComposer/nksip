@@ -98,14 +98,14 @@ basic() ->
 
     % client1 should have started a new transport to client2:5071
     {ok, C1} = nkservice_srv:get_srv_id(client1),
-    [LocPid] = [Pid || {#nkport{transp=sctp, local_port=LP, remote_port=5071,
-                                   socket={_, Id}}, Pid} 
-                        <- nksip_transport:get_all(C1), LP=:=LocalPort, Id=:=SctpId],
+    % b3f
+    [LocPid] = nkpacket_connection:get_all({nksip, C1}),
+    {ok, #nkport{transp=sctp, local_port=LocalPort, remote_port=5071, socket={_, SctpId}}} = nkpacket:get_nkport(LocPid),
 
     % client2 should not have started a new transport also to client1:5070
     {ok, C2} = nkservice_srv:get_srv_id(client2),
-    [RemPid] = [Pid || {#nkport{transp=sctp, remote_port=5070}, Pid} 
-                       <- nksip_transport:get_all(C2)],
+    [RemPid] = nkpacket_connection:get_all({nksip, C2}),
+    {ok, #nkport{transp=sctp, remote_port=5070}} = nkpacket:get_nkport(RemPid),
 
     % client1 should have started a new connection. client2 too.
     [LocPid] = nksip_util:get_connected(C1, sctp, {127,0,0,1}, 5071, <<>>),
