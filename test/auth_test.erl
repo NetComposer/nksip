@@ -46,20 +46,24 @@ start() ->
         {sip_from, "sip:server1@nksip"},
         {sip_local_host, "localhost"},
         {plugins, [nksip_registrar]},
-        {sip_listen, "sip:all:5060"}
+        {sip_listen, "sip:all:5060"},
+        % Packet with all auth data can become large
+        {sip_udp_max_size, 2000}
     ]),
 
     ok = tests_util:start(server2, ?MODULE, [
         {sip_from, "sip:server2@nksip"},
         {sip_local_host, "localhost"},
-        {sip_listen, "sip:all:5061"}
+        {sip_listen, "sip:all:5061"},
+        {sip_udp_max_size, 2000}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "sip:client1@nksip"},
         {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_uac_auto_auth]},
-        {sip_listen, "sip:all:5070"}
+        {sip_listen, "sip:all:5070"},
+        {sip_udp_max_size, 2000}
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
@@ -67,7 +71,8 @@ start() ->
         {sip_pass, ["jj", {"client1", "4321"}]},
         {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_uac_auto_auth]},
-        {sip_listen, "sip:all:5071"}
+        {sip_listen, "sip:all:5071"},
+        {sip_udp_max_size, 2000}
     ]),
 
     ok = tests_util:start(client3, ?MODULE, [

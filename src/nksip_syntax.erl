@@ -30,6 +30,7 @@
 -include("nksip.hrl").
 -include("nksip_call.hrl").
 
+-define(UDP_MAX_SIZE, 1300).
 
 %% ===================================================================
 %% Internal
@@ -75,8 +76,8 @@ syntax() ->
         sip_max_calls => {integer, 1, 1000000},
         sip_local_host => [{enum, [auto]}, host],
         sip_local_host6 => [{enum, [auto]}, host6],
-        sip_debug => boolean,       % Needs to be always defined
-        sip_udp_max_size => nat_integer
+        sip_debug => boolean,                           % Needs to be always defined
+        sip_udp_max_size => nat_integer                 % Used for all sent packets
     }.
 
 
@@ -117,6 +118,6 @@ make_config(Data) ->
         local_host = maps:get(sip_local_host, Data, auto),
         local_host6 = maps:get(sip_local_host6, Data, auto),
         times = Times,
-        udp_max_size = maps:get(sip_udp_max_size, Data, 65507)
+        udp_max_size = maps:get(sip_udp_max_size, Data, ?UDP_MAX_SIZE)
     }.
 
