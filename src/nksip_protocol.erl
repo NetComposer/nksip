@@ -88,8 +88,8 @@ default_port(udp) -> 5060;
 default_port(tcp) -> 5060;
 default_port(tls) -> 5061;
 default_port(sctp) -> 5060;
-default_port(ws) -> 80;
-default_port(wss) -> 443;
+default_port(ws) -> 8080;
+default_port(wss) -> 8081;
 default_port(_) -> invalid.
 
 
