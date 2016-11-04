@@ -25,7 +25,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
--include("../plugins/include/nksip_registrar.hrl").
+-include("../include/nksip_registrar.hrl").
 
 -compile([export_all]).
 
@@ -44,36 +44,36 @@ start() ->
 
     ok = tests_util:start(p1, ?MODULE, [
         {sip_local_host, "localhost"},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(p2, ?MODULE, [
         {sip_local_host, "localhost"},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p3, ?MODULE, [
         {sip_local_host, "localhost"},
-        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
+        {sip_listen, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     ok = tests_util:start(registrar, ?MODULE, [
         {sip_local_host, "localhost"},
         {plugins, [nksip_registrar]},
-        {transports, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
+        {sip_listen, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
         {sip_from, "sip:ua1@nksip"},
         {sip_route, "<sip:127.0.0.1;lr>"},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all, <sip:all;transport=tls>"}
+        {sip_listen, "sip:all, <sip:all;transport=tls>"}
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
         {sip_route, "<sip:127.0.0.1:5090;lr>"},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all, <sip:all;transport=tls>"}
+        {sip_listen, "sip:all, <sip:all;transport=tls>"}
     ]),
 
     tests_util:log(),
@@ -110,7 +110,7 @@ basic() ->
     [P1, P2] = nklib_parse:uris(Path),
 
     
-    {ok, Registrar} = nkservice_server:get_srv_id(registrar),
+    {ok, Registrar} = nkservice_srv:get_srv_id(registrar),
     [#reg_contact{
         contact = #uri{scheme = sip,user = <<"ua1">>,domain = <<"127.0.0.1">>},
         path = [

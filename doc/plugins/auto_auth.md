@@ -73,14 +73,14 @@ start() ->
         {sip_from, "sip:client1@nksip"},
         {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_uac_auto_auth]},
-        {transports, "sip:all:5070"}}
+        {sip_listen, "sip:all:5070"}}
     ]),
     {ok, _} = nksip:start(client2, [
         {sip_pass, ["jj", {"client1", "4321"}]},
         {sip_from, "sip:client2@nksip"},
         {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_uac_auto_auth]},
-        {transports, "sip:all:5071"}
+        {sip_listen, "sip:all:5071"}
     ]).
 
 

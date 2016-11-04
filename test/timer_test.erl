@@ -44,7 +44,7 @@ start() ->
         {sip_local_host, "localhost"},
         {sip_no_100, true},
         {sip_timers_min_se, 2},
-        {transports, "sip:all:5060"},
+        {sip_listen, "sip:all:5060"},
         {plugins, [nksip_timers]}
     ]),
 
@@ -52,7 +52,7 @@ start() ->
         {sip_local_host, "localhost"},
         {sip_no_100, true},
         {sip_timers_min_se, 3},
-        {transports, "sip:all:5070"},
+        {sip_listen, "sip:all:5070"},
         {plugins, [nksip_timers]}
     ]),
 
@@ -61,7 +61,7 @@ start() ->
         {sip_local_host, "127.0.0.1"},
         {sip_no_100, true},
         {sip_timers_min_se, 1},
-        {transports, "sip:all:5071"},
+        {sip_listen, "sip:all:5071"},
         {plugins, [nksip_timers]}
     ]),
 
@@ -69,14 +69,14 @@ start() ->
         {sip_local_host, "127.0.0.1"},
         {sip_no_100, true},
         {sip_timers_min_se, 2},
-        {transports, "sip:all:5072"},
+        {sip_listen, "sip:all:5072"},
         {plugins, [nksip_timers]}
     ]),
     
     ok = tests_util:start(ua3, ?MODULE, [
         {sip_local_host, "127.0.0.1"},
         {sip_no_100, true},
-        {transports, "sip:all:5073"}
+        {sip_listen, "sip:all:5073"}
     ]),
 
 
@@ -114,7 +114,7 @@ basic() ->
              CB, auto_2xx_ack, get_request, {body, SDP1}, RepHd]),
    
     % Start events also at ua1
-    ok = nkservice_server:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
+    ok = nkservice:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
     {ok, CallId1} = nksip_dialog:call_id(Dialog1A),
     CSeq1 = receive 
@@ -272,7 +272,7 @@ proxy() ->
             ]),
    
     % Start events also at ua1
-    ok = nkservice_server:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
+    ok = nkservice:put(ua1, dialogs, [{Dialog1A, Ref, Self}]),
 
     {ok, CallId1} = nksip_dialog:call_id(Dialog1A),
     receive 

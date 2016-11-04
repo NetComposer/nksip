@@ -8,6 +8,7 @@ Firt of all install last stable version of NkSIP:
 ```
 > git clone https://github.com/kalta/nksip
 > cd nksip
+> git checkout v0.5.0
 > make
 > make tutorial
 ```
@@ -18,7 +19,7 @@ Now you can start a simple proxy server using the included [server callback modu
         sip_local_host => "localhost",
         callback => nksip_tutorial_server_callbacks,
         plugins => [nksip_registrar],
-        transports => "sip:all:5060, <sip:all:5061;transport=tls>"
+        sip_listen => "sip:all:5060, <sip:all:5061;transport=tls>"
     }).
 {ok,armejl7}
 ```
@@ -37,7 +38,7 @@ We also activate the [nksip_uac_auto_auth](../plugins/auto_auth.md) plugin to ge
         sip_from => "sip:client1@nksip",
         callback => nksip_tutorial_client_callbacks,
         plugins => [nksip_uac_auto_auth],
-        transports => "sip:127.0.0.1:5070, sips:127.0.0.1:5071"
+        sip_listen => "sip:127.0.0.1:5070, sips:127.0.0.1:5071"
     }).
 {ok,b3finlv}
 3> nksip:start(client2, #{
@@ -45,7 +46,7 @@ We also activate the [nksip_uac_auto_auth](../plugins/auto_auth.md) plugin to ge
         sip_from => "sips:client2@nksip",
         callback => nksip_tutorial_client_callbacks,
         plugins => [nksip_uac_auto_auth],
-        transports => "sip:all, sips:all"
+        sip_listen => "sip:all, sips:all"
     }).
 {ok,ayr8ncm}
 

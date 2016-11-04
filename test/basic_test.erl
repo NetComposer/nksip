@@ -48,9 +48,9 @@ s1() ->
     ok = tests_util:start(server1, ?MODULE, #{
         arg => server1,
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
+        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234",
         plugins => [nksip_registrar],
-        tls_versions => [tlsv1],
-        transports => "sip://all;tcp_listeners=10, sips:all:5061;tls_password=1234" 
+        tls_versions => [tlsv1]
     }).
 
 
@@ -61,21 +61,21 @@ start() ->
     nklib_store:update_timer(200),
 
     ok = tests_util:start(server1, ?MODULE, #{
-        arg => server1,
+        arg => {my, server1},
         sip_from => "\"NkSIP Basic SUITE Test Server\" <sip:server1@nksip>",
-        plugins => [nksip_registrar],
-        transports => "sip://all;tcp_listeners=10, sips:all:5061"
+        sip_listen => "sip://all;tcp_listeners=10, sips:all:5061",
+        plugins => [nksip_registrar]
     }),
 
     ok = tests_util:start(client1, ?MODULE, #{
-        arg => client1,
+        arg => {my, client1},
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>",
-        transports => ["sip://all:5070", "sips:all:5071"]
+        sip_listen => ["sip://all:5070", "sips:all:5071"]
     }),
 
     ok = tests_util:start(client2, ?MODULE, #{
+        arg => {my, client2},
         callback => ?MODULE,
-        arg => client2,
         sip_from => "\"NkSIP Basic SUITE Test Client\" <sip:client2@nksip>"}),
 
     tests_util:log(),
@@ -84,9 +84,9 @@ start() ->
 
 stop() ->
     ok = nksip:stop_all(),
-    {error, service_not_found} = nksip:stop(server1),
-    {error, service_not_found} = nksip:stop(client1),
-    {error, service_not_found} = nksip:stop(client2),
+    {error, not_running} = nksip:stop(server1),
+    {error, not_running} = nksip:stop(client1),
+    {error, not_running} = nksip:stop(client2),
     ok.
 
 
@@ -95,22 +95,20 @@ running() ->
     {error, already_started} = nksip:start(client1, []),
     {error, already_started} = nksip:start(client2, []),
     [{_, server1, _}, {_, client2, _}, {_, client1, _}] =
-        lists:sort(nkservice_server:get_all(nksip)),
+        lists:sort(nkservice:get_all(nksip)),
 
-    % lager:error("Next error about error1 is expected"),
     {error, error1} = nksip:start(error1, [
-        {transports, "sip:all:5090"}, {callback, ?MODULE}]),
+        {sip_listen, "sip:all:5090"}, {callback, ?MODULE}]),
     timer:sleep(100),
     {ok, P1} = gen_udp:open(5090, [{reuseaddr, true}, {ip, {0,0,0,0}}]),
     ok = gen_udp:close(P1),
     
-    {error, {syntax_error, <<"transports">>}} = 
-        nksip:start(name, [{transports, "<sip:all;transport=other>"}]),
-    {error,{could_not_start_plugin,{nksip_registrar,
-            {syntax_error,<<"sip_registrar_min_time">>}}}} = 
+    {error, {{nksip, {syntax_error, <<"sip_listen">>}}}} = 
+        nksip:start(name, [{sip_listen, "<sip:all;transport=other>"}]),
+    {error, {{nksip_registrar, {syntax_error,<<"sip_registrar_min_time">>}}}} = 
         nksip:start(name, [{plugins, [nksip_registrar]}, {sip_registrar_min_time, -1}]),
 
-    {error, {invalid_plugin, invalid}} = 
+    {error, {unknown_plugin, invalid}} = 
         nksip:start(name, [{plugins, [nksip_registrar, invalid]}]),
 
     ok.
@@ -200,9 +198,9 @@ transport() ->
 
 cast_info() ->
     % Direct calls to service's core processing app
-    {ok, S1} = nkservice_server:get_srv_id(server1),
+    {ok, S1} = nkservice_srv:get_srv_id(server1),
     Pid = whereis(S1),
-    not_running = nkservice_server:get_pid(other),
+    undefined = nkservice:get_pid(other),
 
     {ok, server1, Domains} = gen_server:call(S1, get_domains),
     {ok, server1} = gen_server:call(S1, {set_domains, [<<"test">>]}),
@@ -228,18 +226,18 @@ stun() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=error1}, _State) ->
+service_init(#{name:=error1}, _State) ->
     {stop, error1};
 
-init(#{name:=Name, arg:=Name}, State) ->
-    ok = nkservice_server:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+service_init(#{name:=Name, config:=#{arg:={my, Name}}}, State) ->
+    ok = nkservice:put(Name, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State#{my_name=>Name}}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:srv_name(Req) of
         {ok, server1} ->
-            Domains = nkservice_server:get(server1, domains),
+            Domains = nkservice:get(server1, domains),
             Opts = [
                 record_route,
                 {insert, "x-nk-server", server1}
@@ -274,19 +272,19 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     end.
 
 
-handle_call(get_domains, _From, #{my_name:=Name}=State) ->
-    Domains = nkservice_server:get(Name, domains),
+service_handle_call(get_domains, _From, #{my_name:=Name}=State) ->
+    Domains = nkservice:get(Name, domains),
     {reply, {ok, Name, Domains}, State};
 
-handle_call({set_domains, Domains}, _From, #{my_name:=Name}=State) ->
-    ok = nkservice_server:put(Name, domains, Domains),
+service_handle_call({set_domains, Domains}, _From, #{my_name:=Name}=State) ->
+    ok = nkservice:put(Name, domains, Domains),
     {reply, {ok, Name}, State}.
 
-handle_cast({cast_test, Ref, Pid}, #{my_name:=Name}=State) ->
+service_handle_cast({cast_test, Ref, Pid}, #{my_name:=Name}=State) ->
     Pid ! {Ref, {cast_test, Name}},
     {noreply, State}.
 
-handle_info({info_test, Ref, Pid}, #{my_name:=Name}=State) ->
+service_handle_info({info_test, Ref, Pid}, #{my_name:=Name}=State) ->
     Pid ! {Ref, {info_test, Name}},
     {noreply, State}.
 

@@ -141,12 +141,12 @@ start() ->
         {sip_registrar_min_time, 1},
         {sip_uac_auto_register_timer, 1},
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5080"}
+        {sip_listen, "sip:all:5080"}
     ]),
     {ok, _} = nksip:start(client, [
         {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client@nksip>"},
         {sip_uac_auto_register_timer, 1},
-        {transports, "sip:all:5070, sips:all:5071"},
+        {sip_listen, "sip:all:5070, sips:all:5071"},
         {plugins, [nksip_uac_auto_register]}
     ]).
             

@@ -46,16 +46,16 @@ start() ->
     ok = tests_util:start(server1, ?MODULE, [
         {sip_from, "\"NkSIP Basic SUITE Test Server\" <sip:server@nksip>"},
         {sip_local_host, "127.0.0.1"},
-        {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"},
+        {plugins, [nksip_registrar]}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "\"NkSIP Basic SUITE Test Client\" <sip:client1@nksip>"},
         {sip_local_host, "127.0.0.1"},
         {sip_route, "<sip:127.0.0.1;lr>"},
-        {plugins, [nksip_uac_auto_auth]},
-        {transports, "sip:all:5070, <sip:all:5071;transport=tls>"}
+        {sip_listen, "sip:all:5070, <sip:all:5071;transport=tls>"},
+        {plugins, [nksip_uac_auto_auth]}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
@@ -76,9 +76,9 @@ stop() ->
 basic() ->
     Ref = make_ref(),
     Pid = self(),
-    ok = nkservice_server:put(server1, inline_test, {Ref, Pid}),
-    ok = nkservice_server:put(client1, inline_test, {Ref, Pid}),
-    ok = nkservice_server:put(client2, inline_test, {Ref, Pid}),
+    ok = nkservice:put(server1, inline_test, {Ref, Pid}),
+    ok = nkservice:put(client1, inline_test, {Ref, Pid}),
+    ok = nkservice:put(client2, inline_test, {Ref, Pid}),
     nksip_registrar:clear(server1),
     
     {ok, 200, []} = nksip_uac:register(client1, "sip:127.0.0.1", [contact]),
@@ -118,18 +118,18 @@ basic() ->
             {server1, route}, {server1, session_stop}, {server1, dialog_stop},
             {client1, session_stop}, {client1, dialog_stop}, 
             {client2, bye}, {client2, session_stop}, {client2, dialog_stop}]),
-    nkservice_server:del(server1, inline_test),
-    nkservice_server:del(client1, inline_test),
-    nkservice_server:del(client2, inline_test),
+    nkservice:del(server1, inline_test),
+    nkservice:del(client1, inline_test),
+    nkservice:del(client2, inline_test),
     ok.
 
 
 cancel() ->
     Ref = make_ref(),
     Pid = self(),
-    ok = nkservice_server:put(server1, inline_test, {Ref, Pid}),
-    ok = nkservice_server:put(client1, inline_test, {Ref, Pid}),
-    ok = nkservice_server:put(client2, inline_test, {Ref, Pid}),
+    ok = nkservice:put(server1, inline_test, {Ref, Pid}),
+    ok = nkservice:put(client1, inline_test, {Ref, Pid}),
+    ok = nkservice:put(client2, inline_test, {Ref, Pid}),
 
     {ok, 200, []} = nksip_uac:register(client2, "sip:127.0.0.1", [contact]),
     ok = tests_util:wait(Ref, [{server1, route}]),
@@ -147,9 +147,9 @@ cancel() ->
             {client1, dialog_start}, {client1, dialog_stop},
             {client2, invite}, {client2, cancel},
             {client2, dialog_start}, {client2, dialog_stop}]),
-    nkservice_server:del(server1, inline_test),
-    nkservice_server:del(client1, inline_test),
-    nkservice_server:del(client2, inline_test),
+    nkservice:del(server1, inline_test),
+    nkservice:del(client1, inline_test),
+    nkservice:del(client2, inline_test),
     ok.
 
 
@@ -170,7 +170,8 @@ auth() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
-init(_, State) ->
+
+service_init(_, State) ->
     {ok, State}.
 
 
@@ -320,7 +321,7 @@ send_reply(Elem, Msg) ->
         #sipmsg{} -> nksip_sipmsg:meta(srv_name, Elem);
         #dialog{} -> nksip_dialog_lib:meta(srv_name, Elem)
     end,
-    case nkservice_server:get(App, inline_test) of
+    case nkservice:get(App, inline_test) of
         {Ref, Pid} -> Pid ! {Ref, {App, Msg}};
         _ -> ok
     end.

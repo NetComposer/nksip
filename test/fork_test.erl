@@ -53,7 +53,7 @@ start() ->
         {sip_no_100, true},
         {sip_local_host, "localhost"},
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060"}
+        {sip_listen, "sip:all:5060"}
     ]),
 
 
@@ -63,7 +63,7 @@ start() ->
         {sip_from, "sip:client1@nksip"},
         {sip_route, "<sip:127.0.0.1:5061;lr>"},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all:5071"}
+        {sip_listen, "sip:all:5071"}
     ]),
 
     % Server1 is stateless
@@ -71,7 +71,7 @@ start() ->
         {sip_from, "sip:server1@nksip"},
         {sip_no_100, true},
         {sip_local_host, "localhost"},
-        {transports, "sip:all:5061"}
+        {sip_listen, "sip:all:5061"}
     ]),
 
     {ok, _} = do_start(client2, [
@@ -84,7 +84,7 @@ start() ->
         {sip_from, "sip:serverB@nksip"},
         {sip_no_100, true},
         {sip_local_host, "localhost"},
-        {transports, "<sip:all:5062>"}
+        {sip_listen, "<sip:all:5062>"}
     ]),
 
     {ok, _} = do_start(client3, [
@@ -97,7 +97,7 @@ start() ->
         {sip_from, "sip:server3@nksip"},
         {sip_no_100, true},
         {sip_local_host, "localhost"},
-        {transports, "<sip:all:5063>"}
+        {sip_listen, "<sip:all:5063>"}
     ]),
 
 
@@ -356,7 +356,7 @@ invite2() ->
     % lager:notice("A")
 
 
-    {ok, C2Id} = nkservice_server:get_srv_id(client2),
+    {ok, C2Id} = nkservice_srv:get_srv_id(client2),
     {ok, CallId} = nksip_dialog:call_id(Dlg_C2_1),
     [Dlg_C2_2, Dlg_C2_3] = [D || D <- All, element(2, nksip_dialog:srv_id(D))==C2Id,
                             element(2, nksip_dialog:call_id(D))=:=CallId, D/=Dlg_C2_1],
@@ -578,8 +578,8 @@ multiple_200() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=Id}, State) ->
-    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+service_init(#{name:=Id}, State) ->
+    ok = nkservice:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State}.
 
 
@@ -600,7 +600,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                     {ok, _} -> []
                 end
             ]),
-            Domains = nkservice_server:get(serverR, domains),
+            Domains = nkservice:get(serverR, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;
@@ -620,7 +620,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
             % Always Record-Route
             % If domain is "nksip" routes to serverR
             Opts = [record_route, {insert, "x-nk-id", App}],
-            Domains = nkservice_server:get(App, domains),
+            Domains = nkservice:get(App, domains),
             case lists:member(Domain, Domains) of
                 true when Domain==<<"nksip">>, App==server1 ->
                     {proxy_stateless, ruri, [{route, "<sip:127.0.0.1;lr>"}|Opts]};
@@ -699,9 +699,9 @@ sip_bye(Req, _Call) ->
 %%%%%
 
 get_port(Srv, Transp) ->
-    case nkservice_server:get_srv_id(Srv) of
+    case nkservice_srv:get_srv_id(Srv) of
         {ok, SrvId} -> 
-            case nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>{nksip, SrvId}}) of
+            case nkpacket:get_listening(nksip_protocol, Transp, #{class=>{nksip, SrvId}}) of
                 [#nkport{listen_port=Port}|_] -> Port;
                 _ -> not_found
             end;

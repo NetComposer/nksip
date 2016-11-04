@@ -270,16 +270,16 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
     cancel_timer(TimerN),
     cancel_timer(TimerExpire),
     cancel_timer(TimerMiddle),
-    #call{srv_id=SrvId, timers=#call_timers{t1=T1, tc=TC}} = Call,
+    #call{srv_id=SrvId, times=#call_times{t1=T1, tc=TC}} = Call,
     ReqExpires = case Req#sipmsg.expires of
         RE0 when is_integer(RE0), RE0>=0 -> RE0;
         _ when Method=='REFER' -> TC;
-        _ -> SrvId:cache_sip_event_exires()
+        _ -> ?GET_CONFIG(SrvId, event_expires)
     end,
     RespExpires = case Resp#sipmsg.expires of
         SE0 when is_integer(SE0), SE0>=0 -> SE0;
         _ when Method=='REFER' -> TC;
-        _ -> SrvId:cache_sip_event_exires()
+        _ -> ?GET_CONFIG(SrvId, event_expires)
     end,
     Expires = min(ReqExpires, RespExpires),
     ?call_debug("Event ~s expires updated to ~p", [Id, Expires]),
@@ -293,7 +293,7 @@ update({subscribe, #sipmsg{class={req, Method}}=Req, Resp}, Subs, Dialog, Call) 
         0 -> 
             undefined;
         _ ->
-            Offset = SrvId:cache_sip_event_expires_offset(),
+            Offset = ?GET_CONFIG(SrvId, event_expires_offset),
             start_timer(1000*(Expires+Offset), {timeout, Id}, Dialog)
     end,
     TimerMiddle1= case Expires of
@@ -345,7 +345,7 @@ update({Status, Expires}, Subs, Dialog, Call)
         _ -> Answered
     end,
     #call{srv_id=SrvId} = Call,
-    Offset = SrvId:cache_sip_event_expires_offset(),
+    Offset = ?GET_CONFIG(SrvId, event_expires_offset),
     Subs1 = Subs#subscription{
         status = Status,
         answered = Answered1,
@@ -378,7 +378,7 @@ update({terminated, Reason, Retry}, Subs, Dialog, Call) ->
 create_prov_event(#sipmsg{from={_, FromTag}}=Req, Call) ->
     Id = nksip_subscription_lib:make_id(Req),
     ?call_debug("Provisional event ~s (~s) UAC created", [Id, FromTag]),
-    #call{timers=#call_timers{t1=T1}, events=Events} = Call,
+    #call{times=#call_times{t1=T1}, events=Events} = Call,
     Timer = erlang:start_timer(64*T1, self(), {remove_prov_event, {Id, FromTag}}),
     ProvEvent = #provisional_event{id={Id, FromTag}, timer_n=Timer},
     Call#call{events=[ProvEvent|Events]}.
@@ -441,7 +441,7 @@ request_uac_opts('SUBSCRIBE', Opts, _Dialog, Subs) ->
 request_uac_opts('NOTIFY', Opts, Dialog, Subs) ->
     #subscription{event=Event, timer_expire=Timer} = Subs,
     #dialog{srv_id=SrvId} = Dialog,
-    Offset = SrvId:cache_sip_event_expires_offset(),
+    Offset = ?GET_CONFIG(SrvId, event_expires_offset),
     {value, {_, SS}, Opts1} = lists:keytake(subscription_state, 1, Opts),
     SS1 = case SS of
         State when State==active; State==pending ->
@@ -503,7 +503,7 @@ create(Class, #sipmsg{class={req, Method}}=Req, Dialog, Call) ->
             Req#sipmsg.event
     end,        
     Id = nksip_subscription_lib:make_id(Req),
-    #call{timers=#call_timers{t1=T1}} = Call,
+    #call{times=#call_times{t1=T1}} = Call,
     Subs = #subscription{
         id = Id,
         event = Event,

@@ -168,7 +168,7 @@ post(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
     Opts7 = case Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' of
         true ->
             Expires = case nklib_util:get_value(expires, Opts6) of
-                undefined -> SrvId:cache_sip_event_expires();
+                undefined -> ?GET_CONFIG(SrvId, event_expires);
                 Expires0 -> Expires0
             end,
             Expires1 = min(Req#sipmsg.expires, Expires),

@@ -1,6 +1,6 @@
 {application, nksip, [
     {description, "NkSIP Framework"},
-    {vsn, "master"},
+    {vsn, "develop"},
     {modules, []},
     {registered, []},
     {mod, {nksip_app, []}},

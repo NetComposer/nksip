@@ -54,14 +54,14 @@ start() ->
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "sip:client1@nksip"},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all:5070, <sip:all:5070;transport=sctp>"}
+        {sip_listen, "sip:all:5070, <sip:all:5070;transport=sctp>"}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
         {sip_from, "sip:client2@nksip"},
         {sip_pass, ["jj", {"4321", "client1"}]},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all:5071, <sip:all:5071;transport=sctp>"}
+        {sip_listen, "sip:all:5071, <sip:all:5071;transport=sctp>"}
     ]),
 
     tests_util:log(),
@@ -97,15 +97,15 @@ basic() ->
     _ = ?RECV({Ref, cb2}),
 
     % client1 should have started a new transport to client2:5071
-    {ok, C1} = nkservice_server:get_srv_id(client1),
-    [LocPid] = [Pid || {#nkport{transp=sctp, local_port=LP, remote_port=5071,
-                                   socket={_, Id}}, Pid} 
-                        <- nksip_transport:get_all(C1), LP=:=LocalPort, Id=:=SctpId],
+    {ok, C1} = nkservice_srv:get_srv_id(client1),
+    % b3f
+    [LocPid] = nkpacket_connection:get_all({nksip, C1}),
+    {ok, #nkport{transp=sctp, local_port=LocalPort, remote_port=5071, socket={_, SctpId}}} = nkpacket:get_nkport(LocPid),
 
     % client2 should not have started a new transport also to client1:5070
-    {ok, C2} = nkservice_server:get_srv_id(client2),
-    [RemPid] = [Pid || {#nkport{transp=sctp, remote_port=5070}, Pid} 
-                       <- nksip_transport:get_all(C2)],
+    {ok, C2} = nkservice_srv:get_srv_id(client2),
+    [RemPid] = nkpacket_connection:get_all({nksip, C2}),
+    {ok, #nkport{transp=sctp, remote_port=5070}} = nkpacket:get_nkport(RemPid),
 
     % client1 should have started a new connection. client2 too.
     [LocPid] = nksip_util:get_connected(C1, sctp, {127,0,0,1}, 5071, <<>>),

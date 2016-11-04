@@ -54,7 +54,7 @@ start() ->
         {sip_timer_t1, 100},
         {sip_no_100, true},
         {plugins, [nksip_100rel]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
@@ -63,7 +63,7 @@ start() ->
         {sip_local_host, "127.0.0.1"},
         {sip_timer_t1, 100},
         {plugins, [nksip_100rel]},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     tests_util:log(),
@@ -395,7 +395,7 @@ sip_session_update(Update, Dialog, _Call) ->
 %%%%%%%%%%%%%%%%%%%%%%%  Util %%%%%%%%%%%%%%%%%%%%%
 
 get_sessions(SrvId, DialogId) ->
-    Sessions = nkservice_server:get(SrvId, sessions, []),
+    Sessions = nkservice:get(SrvId, sessions, []),
     case lists:keyfind(DialogId, 1, Sessions) of
         {_DialogId, Local, Remote} -> {Local, Remote};
         _ -> not_found

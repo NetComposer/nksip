@@ -24,7 +24,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
--include("../plugins/include/nksip_event_compositor.hrl").
+-include("../include/nksip_event_compositor.hrl").
 
 -compile([export_all]).
 
@@ -44,7 +44,7 @@ start() ->
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "sip:client1@nksip"},
         {sip_local_host, "localhost"},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
     
     ok = tests_util:start(server, ?MODULE, [
@@ -53,7 +53,7 @@ start() ->
         {sip_events, "nkpublish"},
         {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_event_compositor]},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     tests_util:log(),

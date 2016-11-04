@@ -26,7 +26,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
--include("../plugins/include/nksip_registrar.hrl").
+-include("../include/nksip_registrar.hrl").
 
 -compile([export_all]).
 -define(RECV(T), receive T -> T after 1000 -> error(recv) end).
@@ -50,14 +50,14 @@ start() ->
         {sip_registrar_min_time, 60},
         {sip_supported, "100rel,timer,path"},        % No outbound
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
         {sip_from, "sip:client1@nksip"},
         {sip_local_host, "127.0.0.1"},
         {sip_supported, "100rel,timer,path"},       % No outbound
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
@@ -73,12 +73,10 @@ stop() ->
 
 
 register1() ->
-    Spec = nkservice_server:get_spec(server1),
-    Min = maps:get(sip_registrar_min_time, Spec),
+    #nksip_registrar_time{min=Min, max=Max, default=Def} = 
+        nkservice_srv:get_item(server1, config_nksip_registrar),
     MinB = nklib_util:to_binary(Min),
-    Max = maps:get(sip_registrar_max_time, Spec),
     MaxB = nklib_util:to_binary(Max),
-    Def = maps:get(sip_registrar_default_time, Spec),
     DefB = nklib_util:to_binary(Def),
     
     % Method not allowed
@@ -158,7 +156,7 @@ register1() ->
           ext_opts=[{<<"+sip.instance">>, _}, {<<"expires">>, ExpB}]}] = 
         nksip_registrar:find(server1, sip, <<"client1">>, <<"nksip">>),
 
-    {ok, Registrar} = nkservice_server:get_srv_id(server1),
+    {ok, Registrar} = nkservice_srv:get_srv_id(server1),
     Expire = nklib_util:timestamp()+Min,
     [#reg_contact{
             contact = #uri{
@@ -175,7 +173,7 @@ register1() ->
     % Simulate a request coming at the server from 127.0.0.1:Port, 
     % From is sip:client1@nksip,
     Request1 = #sipmsg{
-                srv_id = element(2, nkservice_server:get_srv_id(server1)), 
+                srv_id = element(2, nkservice_srv:get_srv_id(server1)), 
                 from = {#uri{scheme=sip, user= <<"client1">>, domain= <<"nksip">>}, <<>>},
                 nkport = #nkport{
                                 transp = udp, 
@@ -297,8 +295,8 @@ register2() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{name:=Id}, State) ->
-    ok = nkservice_server:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
+service_init(#{name:=Id}, State) ->
+    ok = nkservice:put(Id, domains, [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>]),
     {ok, State}.
 
 
@@ -306,7 +304,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
     case nksip_request:srv_name(Req) of
         {ok, server1} ->
             Opts = [record_route, {insert, "x-nk-server", server1}],
-            Domains = nkservice_server:get(server1, domains),
+            Domains = nkservice:get(server1, domains),
             case lists:member(Domain, Domains) of
                 true when User =:= <<>> ->
                     process;

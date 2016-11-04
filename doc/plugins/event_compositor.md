@@ -127,7 +127,7 @@ start() ->
     {ok, _} = nksip:start(client1, [
         {sip_from, "sip:client1@nksip"},
         {sip_local_host, "localhost"},
-        {transports, "sip:all:5060, sips:all:5061"}
+        {sip_listen, "sip:all:5060, sips:all:5061"}
     ]),
     {ok, _} = nksip:start(server, [
         {sip_from, "sip:server@nksip"},
@@ -135,7 +135,7 @@ start() ->
         {sip_no_100, true},
         {sip_events, "nkpublish"}
         {plugins, [nksip_event_compositor]},
-        {transports, "sip:all:5070, sips:all:5071"}
+        {sip_listen, "sip:all:5070, sips:all:5071"}
     ]).
 
 

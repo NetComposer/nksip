@@ -63,7 +63,7 @@ start() ->
 
     ok = tests_util:start(server1, ?MODULE, [
         {sip_no_100, true},
-        {transports, "sip:all:5060"}
+        {sip_listen, "sip:all:5060"}
     ]),
     timer:sleep(100),
     tests_util:log(),
@@ -508,7 +508,7 @@ send(tcp, Msg) ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks %%%%%%%%%%%%%%%%%%%%%
 
 
-route(Scheme, _User, _Domain, Req, _Call) ->
+sip_route(Scheme, _User, _Domain, Req, _Call) ->
     case nksip_request:srv_name(Req) of
         {ok, server1} when Scheme=/=sip, Scheme=/=sips ->
             {reply, unsupported_uri_scheme};

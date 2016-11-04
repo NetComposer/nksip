@@ -36,7 +36,7 @@ start() ->
         callback => ?MODULE,
         plugins => [nksip_registrar, nksip_100rel, nksip_gruu,
                     nksip_outbound, nksip_timers],
-        transports => "<sip:all:5060>, <sip:all:5061;transport=tls>"
+        sip_listen => "<sip:all:5060>, <sip:all:5061;transport=tls>"
     }),
     ok.
 
@@ -53,12 +53,12 @@ stop() ->
 
 %% @doc Stops or restart automatic response time detection.
 check_speed(Bool) ->
-    nkservice_server:cast(pbx, {check_speed, Bool}).
+    nkservice:cast(pbx, {check_speed, Bool}).
 
 
 %% @doc Get all registered endpoints with their last respnse time.
 get_speed() ->
-    nkservice_server:call(pbx, get_speed).
+    nkservice:call(pbx, get_speed).
 
 
 %% @doc Enables SIP trace messages to console.

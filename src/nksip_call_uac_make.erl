@@ -26,6 +26,7 @@
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
+-include("nksip_call.hrl").
  
 
 %% ===================================================================
@@ -48,7 +49,7 @@ make(SrvId, Method, Uri, Opts) ->
             error -> Method1 = RUri1 = throw(invalid_uri)
         end,
         FromTag = nklib_util:uid(),
-        DefFrom = case SrvId:cache_sip_from() of
+        DefFrom = case ?GET_CONFIG(SrvId, from) of
             undefined ->
                 #uri{scheme=sip, user = <<"user">>, domain = <<"nksip">>, 
                      ext_opts = [{<<"tag">>, FromTag}]};
@@ -75,7 +76,7 @@ make(SrvId, Method, Uri, Opts) ->
             nkport = #nkport{},
             start = nklib_util:l_timestamp()
         },
-        Opts1 = case SrvId:cache_sip_route() of
+        Opts1 = case ?GET_CONFIG(SrvId, route) of
             [] -> Opts;
             DefRoutes -> [{route, DefRoutes}|Opts]
         end,
@@ -346,11 +347,11 @@ parse_opts([Term|Rest], Req, Opts) ->
         user_agent ->
             {replace, <<"user-agent">>, <<"NkSIP ", ?VERSION>>};
         supported ->
-            {replace, <<"supported">>, SrvId:cache_sip_supported()};
+            {replace, <<"supported">>, ?GET_CONFIG(SrvId, supported)};
         allow ->        
-            {replace, <<"allow">>,  SrvId:cache_sip_allow()};
+            {replace, <<"allow">>,  ?GET_CONFIG(SrvId, allow)};
         accept ->
-            Accept = case SrvId:cache_sip_accept() of
+            Accept = case ?GET_CONFIG(SrvId, accept) of
                 undefined when Method=='INVITE'; Method=='UPDATE'; Method=='PRACK' ->
                     <<"application/sdp">>;
                 undefined ->
@@ -363,7 +364,7 @@ parse_opts([Term|Rest], Req, Opts) ->
             Date = nklib_util:to_binary(httpd_util:rfc1123_date()),
             {replace, <<"date">>, Date};
         allow_event ->
-            case SrvId:cache_sip_events() of
+            case ?GET_CONFIG(SrvId, events) of
                 [] -> ignore;
                 Events -> {replace, <<"allow-event">>, Events}
             end;

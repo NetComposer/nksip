@@ -126,6 +126,7 @@ work({incoming, #sipmsg{class={resp, _, _}}=Resp}, none, Call) ->
 work({incoming, SrvId, CallId, NkPort, Msg}, none, Call) ->
     case nksip_parse:packet(SrvId, CallId, NkPort, Msg) of
         {ok, SipMsg} ->
+            SrvId:nks_sip_connection_recv(SipMsg, Msg),
             work({incoming, SipMsg}, none, Call);
         {error, Error} ->
             ?call_warning("Error parsing SipMsg1: ~p", [Error]),

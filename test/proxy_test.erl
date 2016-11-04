@@ -77,7 +77,7 @@ start(Test) ->
         {sip_local_host, "localhost"},
         {sip_supported, "100rel,timer,path"},        % No outbound
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(server2, ?MODULE, [
@@ -86,7 +86,7 @@ start(Test) ->
         {sip_local_host, "localhost"},
         {sip_supported, "100rel,timer,path"},        % No outbound
         {plugins, [nksip_registrar]},
-        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
+        {sip_listen, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     ok = tests_util:start(client1, ?MODULE, [
@@ -94,7 +94,7 @@ start(Test) ->
         {sip_from, "sip:client1@nksip"},
         {sip_route, "<sip:127.0.0.1;lr>"},
         {sip_local_host, "127.0.0.1"},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(client2, ?MODULE, [
@@ -102,7 +102,7 @@ start(Test) ->
         {sip_from, "sip:client2@nksip"},
         {sip_route, "<sip:127.0.0.1;lr>"},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all, sips:all"}
+        {sip_listen, "sip:all, sips:all"}
     ]),
 
     tests_util:log(),
@@ -120,21 +120,21 @@ invalid() ->
     C1 = client1,
     C2 = client2,
     S1 = server1,
-    #{test_type:=Test} = nkservice_server:get_spec(S1),
+    #{test_type:=Test} = nkservice_srv:get_item(S1, config),
 
     % Request arrives at server1; it has no user, and domain belongs to it,
     % so it orders to process it (statelessly or statefully depending on Test)
     {ok, 200, [{call_id, CallId1}]} = 
         nksip_uac:register(C1, "sip:127.0.0.1", [contact, {meta, [call_id]}]),
     % The UAC has generated a transaction
-    {ok, C1Id} = nkservice_server:get_srv_id(C1),
+    {ok, C1Id} = nkservice_srv:get_srv_id(C1),
     {ok, [{uac, _}]} = nksip_call:get_all_transactions(C1Id, CallId1),
     case Test of
         stateless -> 
-            {ok, S1Id} = nkservice_server:get_srv_id(S1),
+            {ok, S1Id} = nkservice_srv:get_srv_id(S1),
             {ok, []} = nksip_call:get_all_transactions(S1Id, CallId1);
         stateful -> 
-            {ok, S1Id} = nkservice_server:get_srv_id(S1),
+            {ok, S1Id} = nkservice_srv:get_srv_id(S1),
             {ok, [{uas, _}]} = 
                 nksip_call:get_all_transactions(S1Id, CallId1)
     end,
@@ -153,7 +153,7 @@ invalid() ->
     {ok, []} = nksip_call:get_all_transactions(S1Id, CallId3),
 
     % Force Forwards=0 using REGISTER
-    {ok, C1Id} = nkservice_server:get_srv_id(C1),
+    {ok, C1Id} = nkservice_srv:get_srv_id(C1),
     {ok, Req4, Opts4} = nksip_call_uac_make:make(C1Id, 'REGISTER', "sip:any", []), 
     {ok, 483, _} = nksip_call:send(Req4#sipmsg{forwards=0}, Opts4),
 
@@ -181,7 +181,7 @@ invalid() ->
 opts() ->
     C1 = client1,
     C2 = client2,
-    #{test_type:=Test} = nkservice_server:get_spec(C1),
+    #{test_type:=Test} = nkservice_srv:get_item(C1, config),
     {ok, 200, []} = nksip_uac:register(C1, "sip:127.0.0.1", [contact]),
     {ok, 200, []} = nksip_uac:register(C2, "sip:127.0.0.1", [contact]),
     
@@ -574,20 +574,20 @@ dialog() ->
 %%%%%%%%%%%%%%%%%%%%%%%  CallBacks (servers and clients) %%%%%%%%%%%%%%%%%%%%%
 
 
-init(#{test_type:=Test, name:=Id}, State) ->
+service_init(#{config:=#{test_type:=Test}, name:=Id}, State) ->
     Domains = case Id of
         server1 -> [<<"nksip">>, <<"127.0.0.1">>, <<"[::1]">>];
         server2 -> [<<"nksip2">>, <<"127.0.0.1">>, <<"[::1]">>];
         _ -> []
     end,
-    ok = nkservice_server:put(Id, domains, Domains),
-    ok = nkservice_server:put(Id, test_type, Test),
+    ok = nkservice:put(Id, domains, Domains),
+    ok = nkservice:put(Id, test_type, Test),
     {ok, State}.
 
 
 sip_route(Scheme, User, Domain, Req, _Call) ->
     {ok, SrvId} = nksip_request:srv_id(Req),
-    Test = nkservice_server:get(SrvId, test_type),
+    Test = nkservice:get(SrvId, test_type),
     case nksip_request:srv_name(Req) of
         {ok, Name} when Name==server1; Name==server2 ->
             Opts = [
@@ -601,7 +601,7 @@ sip_route(Scheme, User, Domain, Req, _Call) ->
                 stateful -> proxy;
                 stateless -> proxy_stateless
             end,
-            Domains = nkservice_server:get(SrvId, domains),
+            Domains = nkservice:get(SrvId, domains),
             case lists:member(Domain, Domains) of
                 true when User == <<>>, Test==stateless ->
                     process_stateless;

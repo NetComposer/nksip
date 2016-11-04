@@ -24,8 +24,8 @@
 -behaviour(nkpacket_protocol).
 
 -export([start_refresh/3, stop_refresh/1, get_refresh/1]).
--export([transports/1, default_port/1, encode/2, naptr/2]).
--export([conn_init/1, conn_parse/3, conn_encode/3, conn_stop/3]).
+-export([transports/1, default_port/1, naptr/2]).
+-export([conn_init/1, conn_parse/3, conn_encode/3, conn_encode/2, conn_stop/3]).
 -export([conn_handle_call/4, conn_handle_cast/3, conn_handle_info/3]).
 
 -type conn_state() :: nkpacket_protocol:conn_state().
@@ -34,8 +34,7 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 
 
--define(MAX_MSG, 65535).
--define(MAX_UDP, 1500).
+-define(MAX_MSG, 65507).
 
 %% ===================================================================
 %% User
@@ -49,8 +48,7 @@
     ok | error.
 
 start_refresh(Pid, Secs, Ref) when is_integer(Secs), Secs>0 ->
-    Opts = #{timeout => 15000},
-    case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}, Opts) of
+    case nklib_util:call(Pid, {start_refresh, Secs, Ref, self()}, 15000) of
         ok -> ok;
         _ -> error
     end.
@@ -68,7 +66,7 @@ stop_refresh(Pid) ->
     {true, integer(), integer()} | false.
 
 get_refresh(Pid) ->
-    nklib_util:call(Pid, get_refresh, #{timeout=>15000}).
+    nklib_util:call(Pid, get_refresh, 15000).
 
 
 
@@ -90,24 +88,9 @@ default_port(udp) -> 5060;
 default_port(tcp) -> 5060;
 default_port(tls) -> 5061;
 default_port(sctp) -> 5060;
-default_port(ws) -> 80;
-default_port(wss) -> 443;
+default_port(ws) -> 8080;
+default_port(wss) -> 8081;
 default_port(_) -> invalid.
-
-
-%% @doc Implement this function to provide a 'quick' encode function, 
-%% in case you don't need the connection state to perform the encode.
-%% Do not implement it or return 'continue' to call conn_encode/2
--spec encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
-    {ok, nkpacket:outcoming()} | continue | {error, term()}.
-
-encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
-    Packet = nksip_unparse:packet(SipMsg),
-    SrvId:nks_sip_connection_sent(SipMsg, Packet),
-    {ok, Packet};
-
-encode(Bin, _NkPort) when is_binary(Bin) ->
-    {ok, Bin}.
 
 
 %% @doc Implement this function to allow NAPTR DNS queries.
@@ -197,6 +180,18 @@ conn_encode(_Term, _NkPort, ConnState) ->
     {error, not_defined, ConnState}.
 
 
+-spec conn_encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
+    {ok, nkpacket:outcoming()} | continue | {error, term()}.
+
+conn_encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
+    Packet = nksip_unparse:packet(SipMsg),
+    SrvId:nks_sip_connection_sent(SipMsg, Packet),
+    {ok, Packet};
+
+conn_encode(Bin, _NkPort) when is_binary(Bin) ->
+    {ok, Bin}.
+
+
 %% @doc Called when the connection received a gen_server:call/2,3
 -spec conn_handle_call(term(), {pid(), term()}, nkpacket:nkport(), conn_state()) ->
     {ok, conn_state()} | {stop, Reason::term(), conn_state()}.
@@ -259,7 +254,7 @@ conn_handle_cast(Msg, _NkPort, State) ->
     {ok, conn_state()} | {stop, Reason::term(), conn_state()}.
 
 conn_handle_info({timeout, _, refresh}, #nkport{transp=udp}=NkPort, State) ->
-    #nkport{srv_id={nksip, SrvId}} = NkPort,
+    #nkport{class={nksip, SrvId}} = NkPort,
     {ok, {_, udp, Ip, Port}} = nkpacket:get_remote(NkPort),
     case get_listening(NkPort) of
         {ok, Pid} ->
@@ -270,7 +265,7 @@ conn_handle_info({timeout, _, refresh}, #nkport{transp=udp}=NkPort, State) ->
             {stop, no_listening_transport, State}
     end;
 
-conn_handle_info({timeout, _, refresh}, #nkport{srv_id={nksip, SrvId}}=NkPort, State) ->
+conn_handle_info({timeout, _, refresh}, #nkport{class={nksip, SrvId}}=NkPort, State) ->
     ?debug(SrvId, <<>>, "transport sending refresh", []),
     case do_send(<<"\r\n\r\n">>, NkPort) of
         ok -> 
@@ -280,7 +275,7 @@ conn_handle_info({timeout, _, refresh}, #nkport{srv_id={nksip, SrvId}}=NkPort, S
     end;
 
 conn_handle_info({stun, {ok, StunIp, StunPort}}, NkPort, State) ->
-    #nkport{srv_id={nksip, SrvId}} = NkPort,
+    #nkport{class={nksip, SrvId}} = NkPort,
     #conn_state{
         nat_ip = NatIp, 
         nat_port = NatPort, 
@@ -348,7 +343,7 @@ do_parse(<<>>, _NkPort, State) ->
 
 %% For TCP and UDP, we send a \r\n\r\n, remote must reply with \r\n
 do_parse(<<"\r\n\r\n", Rest/binary>>, 
-         #nkport{srv_id={nksip, SrvId}, transp=Transp}=NkPort, State) 
+         #nkport{class={nksip, SrvId}, transp=Transp}=NkPort, State) 
          when Transp==tcp; Transp==udp; Transp==tls; Transp==sctp ->
     ?debug(SrvId, <<>>, "transport responding to refresh", []),
     case do_send(<<"\r\n">>, NkPort) of
@@ -363,7 +358,7 @@ do_parse(<<"\r\n">>, #nkport{transp=udp}, State) ->
 
 do_parse(<<"\r\n", Rest/binary>>, #nkport{transp=Transp}=NkPort, State) 
         when Transp==tcp; Transp==tls; Transp==sctp ->
-    #nkport{srv_id={nksip, SrvId}} = NkPort,
+    #nkport{class={nksip, SrvId}} = NkPort,
     #conn_state{
         refresh_notify = RefreshNotify, 
         refresh_time = RefreshTime,
@@ -386,12 +381,12 @@ do_parse(<<"\r\n", Rest/binary>>, #nkport{transp=Transp}=NkPort, State)
     },
     do_parse(Rest, NkPort, State1);
 
-do_parse(Data, #nkport{srv_id={nksip, SrvId}, transp=Transp}, _State) 
+do_parse(Data, #nkport{class={nksip, SrvId}, transp=Transp}, _State) 
         when (Transp==tcp orelse Transp==tls) andalso byte_size(Data) > ?MAX_MSG ->
     ?warning(SrvId, <<>>, "dropping TCP/TLS closing because of max_buffer", []),
     {error, msg_too_large};
 
-do_parse(Data, #nkport{srv_id={nksip, SrvId}, transp=Transp}=NkPort, State) ->
+do_parse(Data, #nkport{class={nksip, SrvId}, transp=Transp}=NkPort, State) ->
     #conn_state{rnrn_pattern = RNRN} = State,
     case binary:match(Data, RNRN) of
         nomatch when Transp==tcp; Transp==tls ->
@@ -411,7 +406,6 @@ do_parse(Data, #nkport{srv_id={nksip, SrvId}, transp=Transp}=NkPort, State) ->
 do_parse(SrvId, #nkport{transp=Transp}=NkPort, Data, Pos, State) ->
     case extract(Transp, Data, Pos) of
         {ok, CallId, Msg, Rest} ->
-            SrvId:nks_sip_connection_recv(SrvId, CallId, NkPort, Msg),
             case nksip_router:incoming_sync(SrvId, CallId, NkPort, Msg) of
                 ok -> 
                     do_parse(Rest, NkPort, State);
@@ -466,8 +460,10 @@ extract(Transp, Data, Pos) ->
                         _ ->
                             {error, <<"Invalid Content-Length">>}
                     end;
+                _ when Transp==udp ->
+                    {ok, CallId, Data, <<>>};
                 _ ->
-                    {error, <<"Invalid Content-Length">>}
+                    {error, <<"Missing Content-Length">>}
             end;
         _ ->
             {error, <<"Invalid Call-ID">>}
@@ -478,13 +474,14 @@ extract(Transp, Data, Pos) ->
 -spec reply_error(binary(), binary(), nkpacket:nkport(), #conn_state{}) ->
     ok.
 
-reply_error(Data, Msg, #nkport{srv_id={nksip, SrvId}}=NkPort, _State) ->
+reply_error(Data, Msg, #nkport{class={nksip, SrvId}}=NkPort, _State) ->
+    ?notice(SrvId, <<>>, "error parsing request: ~s", [Msg]),
     case nksip_parse_sipmsg:parse(Data) of
         {ok, {req, _, _}, Headers, _} ->
             Resp = nksip_unparse:response(Headers, 400, Msg),
             do_send(Resp, NkPort);
-        O ->
-            ?notice(SrvId, <<>>, "error parsing request: ~s", [O])
+        _ ->
+            ok
     end.
 
 
@@ -498,8 +495,8 @@ do_send(Packet, NkPort) ->
 
 
 %% @private
-get_listening(#nkport{srv_id=TSrvId, transp=Transp, local_ip=Ip}) ->
-    case nkpacket:get_listening(nksip_protocol, Transp, #{srv_id=>TSrvId, ip=>Ip}) of
+get_listening(#nkport{class=TSrvId, transp=Transp, local_ip=Ip}) ->
+    case nkpacket:get_listening(nksip_protocol, Transp, #{class=>TSrvId, ip=>Ip}) of
         [#nkport{pid=Pid}|_] -> {ok, Pid};
         [] -> false
     end.

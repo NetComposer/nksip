@@ -42,10 +42,16 @@
 %% ===================================================================
 
 
+%%----------------------------------------------------------------
 %% @doc Extracts all the realms present in <i>WWW-Authenticate</i> or
 %% <i>Proxy-Authenticate</i> headers from a response.
--spec realms(nksip:response()|nksip:handle()) ->
-    [Realm::binary()].
+%% @end
+%%----------------------------------------------------------------
+-spec realms( SipMessageOrHandle ) -> RealmsList when
+        SipMessageOrHandle  :: nksip:response() 
+            | nksip:handle(),
+        RealmsList          :: [ Realm ],
+        Realm               :: binary().
 
 realms(#sipmsg{headers=Headers}) ->
     get_realms(Headers, []);
@@ -77,26 +83,39 @@ get_realms([], Acc) ->
     lists:usort(Acc).
 
 
+%%----------------------------------------------------------------
 %% @doc Generates a password hash to use in NkSIP authentication.
 %% In order to avoid storing the user's passwords in clear text, you can generate 
 %% a `hash' (fom `User', `Pass' and `Realm') and store and use it in
 %% {@link nksip_sipapp:get_user_pass/3} instead of the real password.
--spec make_ha1(binary()|string(), binary()|string(), binary()|string()) -> 
-    binary().
+%% @end
+%%----------------------------------------------------------------
+-spec make_ha1( User, Password, Realm ) -> Result when 
+        User    :: binary()|string(),
+        Password    :: binary()|string(), 
+        Realm       :: binary()|string(),
+        Result      :: binary().
 
 make_ha1(User, Pass, Realm) ->
     % <<"HA1!">> is a custom header to be detected as a ha1 hash
     <<"HA1!", (md5(list_to_binary([User, $:, Realm, $:, Pass])))/binary>>.
 
 
+%%----------------------------------------------------------------
 %% @doc Adds an <i>Authorization</i> or <i>Proxy-Authorization</i> header 
 %% for a request after receiving a 401 or 407 response.
 %% CSeq must be updated after calling this function.
 %%
 %% Recognized options are `sip_pass', `user', `cnonce' and `nc'.
--spec make_request(Req::nksip:request(), Resp::nksip:response(), nksip:optslist()) ->
-    {ok, nksip:request()} | {error, Error}
-    when Error :: invalid_auth_header | unknown_nonce | no_pass.
+%% @end
+%%----------------------------------------------------------------
+-spec make_request( Request, Response, OptionsList ) -> Result when 
+        Request     :: nksip:request(), 
+        Response    :: nksip:response(),
+        OptionsList :: nksip:optslist(),
+        Result      :: {ok, Request} 
+            | {error, Error},
+        Error       :: invalid_auth_header | unknown_nonce | no_pass.
 
 make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     #sipmsg{
@@ -157,6 +176,7 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
     end.
 
 
+%%----------------------------------------------------------------
 %% @doc Generates a <i>WWW-Authenticate</i> or <i>Proxy-Authenticate</i> header
 %% in response to a request.
 %% Use this function to answer to a request with a 401 or 407 response.
@@ -164,8 +184,12 @@ make_request(Req, #sipmsg{headers=RespHeaders}, Opts) ->
 %% A new `nonce' will be generated to be used by the client in its response, 
 %% but will expire after the time configured in global parameter `nonce_timeout'.
 %%
--spec make_response(binary(), nksip:request()) ->
-    binary().
+%% @end
+%%----------------------------------------------------------------
+-spec make_response( Realm, Request ) -> Result when
+        Realm       :: binary(), 
+        Request     :: nksip:request(),
+        Result      :: binary().
 
 make_response(Realm, Req) ->
     #sipmsg{
@@ -175,7 +199,7 @@ make_response(Realm, Req) ->
     } = Req,
     {ok, {_, _, Ip, Port}} = nkpacket:get_remote(NkPort),
     Nonce = nklib_util:luid(),
-    Timeout = SrvId:cache_sip_nonce_timeout(),
+    Timeout = ?GET_CONFIG(SrvId, nonce_timeout),
     put_nonce(SrvId, CallId, Nonce, {Ip, Port}, Timeout),
     Opaque = nklib_util:hash(SrvId),
     list_to_binary([
@@ -184,6 +208,7 @@ make_response(Realm, Req) ->
     ]).
 
 
+%%----------------------------------------------------------------
 %% @doc Extracts digest authentication information from a incoming request.
 %% The response can include:
 %% <ul>
@@ -196,9 +221,16 @@ make_response(Realm, Req) ->
 %%        failed the authentication.</li>
 %% </ul>
 %%
--spec authorize_data(nksip:request(), nksip_call:call()) ->
-    [Authorized] 
-    when Authorized :: {{digest, Realm::binary()}, true|invalid|false}.
+%% @end
+%%----------------------------------------------------------------
+-spec authorize_data( Request, Call ) -> AuthorizedList when 
+        Request         :: nksip:request(), 
+        Call            :: nksip_call:call(),
+        AuthorizedList  :: [ Authorized ],
+        Authorized      :: {{digest, Realm}, true }
+            | {{digest, Realm}, invalid }
+            | {{digest, Realm}, false},
+        Realm           :: binary().
 
 authorize_data(Req, #call{srv_id=SrvId}=Call) ->
     PassFun = fun(User, Realm) ->
@@ -219,14 +251,22 @@ authorize_data(Req, #call{srv_id=SrvId}=Call) ->
 %% ===================================================================
 
 
-%% @private Extracts digest authentication information from a incoming request.
+%%----------------------------------------------------------------
+%% @doc Extracts digest authentication information from a incoming request.
+%%
 %% `Fun' will be called when a password for a pair user, realm is needed.
 %% It can return `true' (accepts the request with any password), `false' 
 %% (doesn't accept the request) or a `binary()' pasword or hash.
-%%
--spec get_authentication(nksip:request(), function()) -> 
-    [Authorized] 
-    when Authorized :: {{digest, Realm::binary()}, true|invalid|false}.
+%% @see authorize_data/2
+%% @private
+%% @end
+%%----------------------------------------------------------------
+-spec get_authentication( Request, Function ) -> AuthorizedList when
+        Request     :: nksip:request(),
+        Function    :: function(), 
+        AuthorizedList  :: [ Authorized ],
+        Authorized      :: {{digest, Realm}, true | invalid | false},
+        Realm           :: binary().
 
 get_authentication(Req, PassFun) ->
     Fun = fun({Res, _User, Realm}, Acc) ->
@@ -243,10 +283,19 @@ get_authentication(Req, PassFun) ->
         {Realm, Res} <- lists:foldl(Fun, [], check_digest(Req, PassFun))].
 
 
-%% @private Finds auth headers in request, and for each one extracts user and 
+%%----------------------------------------------------------------
+%% @doc Finds auth headers in request, and for each one extracts user and 
 %% realm, calling `get_user_pass/3' callback to check if it is correct.
--spec check_digest(Req::nksip:request(), function()) ->
-    [{true | invalid | false, User::binary(), Realm::binary()}].
+%% @private
+%% @end
+%%----------------------------------------------------------------
+-spec check_digest( Request, Function ) -> ResultList when 
+        Request     :: nksip:request(),
+        Function    :: function(), 
+        ResultList  :: [ Result ],
+        Result      ::  {true | invalid | false, User, Realm},
+        User        :: binary(),
+        Realm       :: binary().
 
 check_digest(#sipmsg{headers=Headers}=Req, Fun) ->
     check_digest(Headers, Req, Fun, []).
@@ -277,9 +326,16 @@ check_digest([_|Rest], Req, Fun, Acc) ->
     check_digest(Rest, Req, Fun, Acc).
 
 
-%% @private Generates a Authorization or Proxy-Authorization header
--spec make_auth_request(nksip:optslist(), nksip:optslist()) ->
-    {ok, binary()} | error.
+%%----------------------------------------------------------------
+%% @doc Generates a Authorization or Proxy-Authorization header
+%% @private
+%% @end
+%%----------------------------------------------------------------
+-spec make_auth_request( AuthHeaderData, UserOpts ) -> Result when 
+            AuthHeaderData  :: nksip:optslist(),
+            UserOpts        :: nksip:optslist(),
+            Result          :: {ok, binary()} 
+                | error.
 
 make_auth_request(AuthHeaderData, UserOpts) ->
     QOP = nklib_util:get_value(qop, AuthHeaderData, []),
@@ -331,10 +387,19 @@ make_auth_request(AuthHeaderData, UserOpts) ->
     end.
 
 
+%%----------------------------------------------------------------
+%% @doc Check Auth Header
 %% @private
--spec check_auth_header(nksip:optslist(), binary(), binary(), binary(), 
-                            binary(), nksip:request()) -> 
-    true | invalid | false.
+%% @end
+%%----------------------------------------------------------------
+-spec check_auth_header(AuthHeader, Response, User, Realm, Password, Request ) -> Result when
+        AuthHeader      :: nksip:optslist(), 
+        Response        :: binary(), 
+        User            :: binary(), 
+        Realm           :: binary(), 
+        Password        :: binary(), 
+        Request         :: nksip:request(),
+        Result          :: true | invalid | false.
 
 check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
     #sipmsg{
@@ -410,9 +475,20 @@ check_auth_header(AuthHeader, Resp, User, Realm, Pass, Req) ->
 %     end,
 %     get_passes(Rest, Acc1).
 
-%% @private Generates a standard SIP Digest Response
--spec make_auth_response([atom()], nksip:method(), binary(), binary(), 
-                            binary(), binary(), binary()) -> binary().
+%%----------------------------------------------------------------
+%% @doc Generates a standard SIP Digest Response
+%% @private
+%% @end
+%%----------------------------------------------------------------
+-spec make_auth_response( QOP, Method, BinUri, HA1Bin, Nonce, CNonce, Nc ) -> Result when 
+            QOP             :: [ atom() ], 
+            Method          :: nksip:method(), 
+            BinUri          :: binary(), 
+            HA1Bin          :: binary(), 
+            Nonce           :: binary(), 
+            CNonce          :: binary(), 
+            Nc              :: binary(),
+            Result          :: binary().
 
 make_auth_response(QOP, Method, BinUri, HA1bin, Nonce, CNonce, Nc) ->
     HA1 = nklib_util:hex(HA1bin),
@@ -465,9 +541,16 @@ put_nonce(SrvId, CallId, Nonce, Term, Timeout) ->
                     [{ttl, Timeout}]).
 
 
+%%----------------------------------------------------------------
+%% @doc Parsed Header 
 %% @private
--spec parse_header(string() | binary()) ->
-    nksip:optslist() | {error, term()}.
+%% @end
+%%----------------------------------------------------------------
+-spec parse_header( StringOrBinary ) -> Results when 
+            StringOrBinary  :: string() 
+                | binary(),
+            Results         :: nksip:optslist() 
+                | {error, term()}.
 
 parse_header(Bin) when is_binary(Bin) ->
     parse_header(binary_to_list(Bin));

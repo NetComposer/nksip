@@ -43,13 +43,13 @@ start() ->
 
     ok = tests_util:start(client1, ?MODULE, [
         {sip_event_expires_offset, 0},
-        {transports, "sip:all:5060"},
+        {sip_listen, "sip:all:5060"},
         {plugins, [nksip_refer]}
     ]),
     
     ok = tests_util:start(client2, ?MODULE, [
         {sip_event_expires_offset, 0},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]},
         {plugins, [nksip_refer]}
     ]),
 
@@ -58,7 +58,7 @@ start() ->
         {sip_no_100, true},
         {sip_local_host, "127.0.0.1"},
         {sip_event_expires_offset, 0},
-        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"},
+        {sip_listen, "<sip:all:5080>,<sip:all:5081;transport=tls>"},
         {plugins, [nksip_refer]}
     ]),
 
@@ -82,8 +82,8 @@ basic() ->
 
     {ok, Dialog1A} = nksip_dialog:get_handle(Subs1A),
     % Prepare to send us the received NOTIFYs
-    Dialogs = nkservice_server:get(client1, dialogs, []),
-    ok = nkservice_server:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
+    Dialogs = nkservice:get(client1, dialogs, []),
+    ok = nkservice:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
 
     % client2 has sent the INVITE to client3, and it has replied 180
     ok = tests_util:wait(Ref, [
@@ -151,8 +151,8 @@ in_dialog() ->
     {ok, 200, [{subscription, Subs1}]} = 
         nksip_uac:refer(Dialog1A, [{refer_to, "sips:127.0.0.1:5081"}]),
 
-    Dialogs = nkservice_server:get(client1, dialogs, []),
-    ok = nkservice_server:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
+    Dialogs = nkservice:get(client1, dialogs, []),
+    ok = nkservice:put(client1, dialogs, [{Dialog1A, Ref, Self}|Dialogs]),
 
     % client2 has sent the INVITE to client3, and it has replied 180
     ok = tests_util:wait(Ref, [
@@ -199,7 +199,7 @@ sip_refer(_ReferTo, _Req, _Call) ->
 sip_refer_update(SubsHandle, Status, Call) ->
     {ok, DialogId} = nksip_dialog:get_handle(SubsHandle),
     SrvId = nksip_call:srv_id(Call),
-    Dialogs = nkservice_server:get(SrvId, dialogs, []),
+    Dialogs = nkservice:get(SrvId, dialogs, []),
     case lists:keyfind(DialogId, 1, Dialogs) of
         {DialogId, Ref, Pid}=_D -> 
             Pid ! {Ref, {SrvId:name(), SubsHandle, Status}};

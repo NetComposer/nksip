@@ -22,8 +22,15 @@
 -module(nksip_syntax).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([app_syntax/0, app_defaults/0, syntax/0, defaults/0, cached/0]).
+-export([app_syntax/0, app_defaults/0, syntax/0]).
+-export([default_allow/0, default_supported/0]).
+-export([make_config/1]).
 
+-include_lib("nklib/include/nklib.hrl").
+-include("nksip.hrl").
+-include("nksip_call.hrl").
+
+-define(UDP_MAX_SIZE, 1300).
 
 %% ===================================================================
 %% Internal
@@ -49,6 +56,7 @@ app_defaults() ->
 %% Transport options must be included in url
 syntax() ->
     #{
+        sip_listen => fun nkservice_syntax:parse_fun_listen/3,
         sip_allow => words,
         sip_supported => words,
         sip_timer_t1 => {integer, 10, 2500},
@@ -68,46 +76,48 @@ syntax() ->
         sip_max_calls => {integer, 1, 1000000},
         sip_local_host => [{enum, [auto]}, host],
         sip_local_host6 => [{enum, [auto]}, host6],
-        sip_debug => boolean       % Needs to be always defined
+        sip_debug => boolean,                           % Needs to be always defined
+        sip_udp_max_size => nat_integer                 % Used for all sent packets
     }.
 
 
-
-%% @private
-defaults() ->
-    #{
-        sip_allow => [
-            <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
-            <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
-            <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>],
-        sip_supported => [<<"path">>],
-        sip_timer_t1 => 500,                    % (msecs) 0.5 secs
-        sip_timer_t2 => 4000,                   % (msecs) 4 secs
-        sip_timer_t4 => 5000,                   % (msecs) 5 secs
-        sip_timer_c =>  180,                    % (secs) 3min
-        sip_trans_timeout => 900,               % (secs) 15 min
-        sip_dialog_timeout => 1800,             % (secs) 30 min
-        sip_event_expires => 60,                % (secs) 1 min
-        sip_event_expires_offset => 5,          % (secs) 5 secs
-        sip_nonce_timeout => 30,                % (secs) 30 secs
-        sip_from => undefined,
-        sip_accept => undefined,
-        sip_events => [],
-        sip_route => [],
-        sip_no_100 => false,
-        sip_max_calls => 100000,                % Each Call-ID counts as a call
-        sip_local_host => auto,
-        sip_local_host6 => auto,
-        sip_debug => false
-    }.
-
-
-%% @private
-cached() ->
+default_allow() ->
     [
-        sip_accept, sip_allow, sip_debug, sip_dialog_timeout, 
-        sip_event_expires, sip_event_expires_offset, sip_events, 
-        sip_from, sip_max_calls, sip_no_100, sip_nonce_timeout, 
-        sip_route, sip_supported, sip_trans_timeout,
-        sip_local_host, sip_local_host6
+        <<"INVITE">>,<<"ACK">>,<<"CANCEL">>,<<"BYE">>,
+        <<"OPTIONS">>,<<"INFO">>,<<"UPDATE">>,<<"SUBSCRIBE">>,
+        <<"NOTIFY">>,<<"REFER">>,<<"MESSAGE">>
     ].
+
+
+default_supported() ->
+    [<<"path">>].
+
+
+make_config(Data) ->
+    Times = #call_times{
+        t1 = maps:get(sip_timer_t1, Data, 500),
+        t2 = maps:get(sip_timer_t2, Data, 4000),
+        t4 = maps:get(sip_timer_t4, Data, 5000),
+        tc = maps:get(sip_timer_c, Data, 180),
+        trans = maps:get(sip_trans_timeout, Data, 900),
+        dialog = maps:get(sip_dialog_timeout, Data, 1800)
+    },
+    #config{
+        debug = maps:get(sip_debug, Data, false),
+        allow = maps:get(sip_allow, Data, default_allow()),
+        supported = maps:get(sip_supported, Data, default_supported()),
+        event_expires = maps:get(sip_event_expires, Data, 60),
+        event_expires_offset = maps:get(sip_event_expires_offset, Data, 5),
+        nonce_timeout = maps:get(sip_nonce_timeout, Data, 30),
+        from = maps:get(sip_from, Data, undefined),
+        accept = maps:get(sip_accept, Data, undefined),
+        events = maps:get(sip_events, Data, []),
+        route = maps:get(sip_route, Data, []),
+        no_100 = maps:get(sip_no_100, Data, false),
+        max_calls = maps:get(sip_max_calls, Data, 100000),
+        local_host = maps:get(sip_local_host, Data, auto),
+        local_host6 = maps:get(sip_local_host6, Data, auto),
+        times = Times,
+        udp_max_size = maps:get(sip_udp_max_size, Data, ?UDP_MAX_SIZE)
+    }.
+

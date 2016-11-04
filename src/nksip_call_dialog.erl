@@ -388,7 +388,8 @@ timer_update(_Req, #sipmsg{class={resp, Code, _}}, _Class,
     case Code>=200 andalso Code<300 of
         true -> 
             cancel_timer(TimeoutTimer),
-            Timeout =SrvId:cache_sip_dialog_timeout(),
+            Times = ?GET_CONFIG(SrvId, times),
+            #call_times{dialog=Timeout} = Times,
             Invite1 = Invite#invite{
                 retrans_timer = undefined,
                 timeout_timer = start_timer(1000*Timeout, invite_timeout, DialogId)
@@ -406,7 +407,7 @@ timer_update(_Req, _Resp, _Class,
              #dialog{invite=#invite{status=accepted_uas}}=Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
-    #call{timers=#call_timers{t1=T1}} = Call,
+    #call{times=#call_times{t1=T1}} = Call,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     Invite1 = Invite#invite{
@@ -419,7 +420,7 @@ timer_update(_Req, _Resp, _Class,
 timer_update(_Req, _Resp, _Class, Dialog, Call) ->
     #dialog{id=DialogId, invite=Invite} = Dialog,
     #invite{retrans_timer=RetransTimer, timeout_timer=TimeoutTimer} = Invite,
-    #call{timers=#call_timers{t1=T1}} = Call,
+    #call{times=#call_times{t1=T1}} = Call,
     cancel_timer(RetransTimer),
     cancel_timer(TimeoutTimer),
     Invite1 = Invite#invite{
@@ -505,7 +506,7 @@ do_timer(invite_retrans, #dialog{id=DialogId, invite=Invite}=Dialog, Call) ->
                     case nksip_call_uas_transp:resend_response(Resp, []) of
                         {ok, _} ->
                             ?call_info("Dialog ~s resent response", [DialogId]),
-                            #call{timers=#call_timers{t2=T2}} = Call,
+                            #call{times=#call_times{t2=T2}} = Call,
                             Invite1 = Invite#invite{
                                 retrans_timer = start_timer(Next, invite_retrans, DialogId),
                                 next_retrans = min(2*Next, T2)

@@ -73,7 +73,7 @@ NkSIP has been tested on OSX and Linux, using Erlang 17
 Now you can start a simple Service using the included [default callback module](src/nksip_callbacks.erl):
 ```erlang
 > make shell
-1> nksip:start(test1, []).
+1> nksip:start(test, #{sip_listen=>"sip:all, sips:all"}).
 {ok,b746wle}
 2> nksip_uac:options(test1, "sip:sip2sip.info", []).
 {ok,200,[]}

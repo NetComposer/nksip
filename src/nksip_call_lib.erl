@@ -211,7 +211,7 @@ timeout_timer(Tag, Trans, Call)
                  Tag==timer_h; Tag==timer_j; Tag==timer_l;
                  Tag==noinvite ->
     cancel_timer(Trans#trans.timeout_timer),
-    #call{timers=#call_timers{t1=T1}} = Call,
+    #call{times=#call_times{t1=T1}} = Call,
     Trans#trans{timeout_timer=start_timer(64*T1, Tag, Trans)};
 
 timeout_timer(timer_d, Trans, _) ->
@@ -221,12 +221,12 @@ timeout_timer(timer_d, Trans, _) ->
 timeout_timer(Tag, Trans, Call) 
                 when Tag==timer_k; Tag==timer_i ->
     cancel_timer(Trans#trans.timeout_timer),
-    #call{timers=#call_timers{t4=T4}} = Call,
+    #call{times=#call_times{t4=T4}} = Call,
     Trans#trans{timeout_timer=start_timer(T4, Tag, Trans)};
 
 timeout_timer(timer_c, Trans, Call) ->
     cancel_timer(Trans#trans.timeout_timer),
-    #call{timers=#call_timers{tc=TC}} = Call,
+    #call{times=#call_times{tc=TC}} = Call,
     Trans#trans{timeout_timer=start_timer(1000*TC, timer_c, Trans)}.
 
 % timeout_timer(sipapp_call, Trans, Call) ->
@@ -249,7 +249,7 @@ retrans_timer(timer_a, #trans{next_retrans=Next}=Trans, Call) ->
         true -> 
             Next;
         false -> 
-            #call{timers=#call_timers{t1=T1}} = Call,
+            #call{times=#call_times{t1=T1}} = Call,
             T1
     end,
     Trans#trans{
@@ -260,7 +260,7 @@ retrans_timer(timer_a, #trans{next_retrans=Next}=Trans, Call) ->
 retrans_timer(Tag, #trans{next_retrans=Next}=Trans, Call) 
                 when Tag==timer_e; Tag==timer_g ->
     cancel_timer(Trans#trans.retrans_timer),
-    #call{timers=#call_timers{t1=T1, t2=T2}} = Call,
+    #call{times=#call_times{t1=T1, t2=T2}} = Call,
     Time = case is_integer(Next) of
         true -> Next;
         false -> T1

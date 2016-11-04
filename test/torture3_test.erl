@@ -61,7 +61,7 @@ start() ->
 
     ok = tests_util:start(server1, ?MODULE, [
         {sip_no_100, true},
-        {transports, "sip:all:5060"},
+        {sip_listen, "sip:all:5060"},
         {plugins, [nksip_registrar]}
     ]),
 
@@ -426,7 +426,7 @@ application_15() ->
 %% Internal
 
 parse(Msg) ->
-    {ok, SrvId} = nkservice_server:get_srv_id(server1),
+    {ok, SrvId} = nkservice_srv:get_srv_id(server1),
     case nksip_parse:packet(SrvId, #nkport{transp=udp}, Msg) of
         {ok, SipMsg, <<>>} -> SipMsg;
         {ok, SipMsg, Tail} -> {tail, SipMsg, Tail};

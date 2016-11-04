@@ -13,7 +13,7 @@ You can create a _callback Erlang module_ (for very simple or outbound-only appl
 
 Once defined the callback module, call [`nksip:start/2`](../../src/nksip.erl) to start the service:
 ```erlang
-> nksip:start("my_app", #{transports=>"sip:127.0.0.1:5060"}).
+> nksip:start("my_app", #{sip_listen=>"sip:127.0.0.1:5060"}).
 {ok,ac0a6o5}
 ```
 

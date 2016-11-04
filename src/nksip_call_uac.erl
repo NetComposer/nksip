@@ -176,7 +176,10 @@ cancel(#trans{id=TransId, class=uac, cancel=Cancel, status=Status}=UAC, Opts, Ca
             ?call_debug("UAC ~p (invite_proceeding) generating CANCEL", [TransId]),
             CancelReq = nksip_call_uac_make:make_cancel(UAC#trans.request, Opts),
             UAC1 = UAC#trans{cancel=cancelled},
-            request(CancelReq, [no_dialog], none, update(UAC1, Call))
+            request(CancelReq, [no_dialog], none, update(UAC1, Call));
+        invite_completed ->
+            ?call_info("UAC ~p (invite_completed) received CANCEL", [TransId]),
+            Call
     end;
 
 cancel(#trans{id=TransId, cancel=Cancel, status=Status}, _Opts, Call) ->

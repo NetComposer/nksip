@@ -197,12 +197,12 @@ start() ->
         {sip_from, "sip:server@nksip"},
         {sip_registrar_min_time, 60},
         {plugins, [nksip_registrar]},
-        {transports, "sip:all:5060, sips:all:5061"}
+        {sip_listen, "sip:all:5060, sips:all:5061"}
     ]),
     {ok, _} = nksip:start(client, ?MODULE, [], [
         {sip_from, "sip:client@nksip"},
         {sip_local_host, "127.0.0.1"},
-        {transports, "sip:all:5070, sips:all:5071"}
+        {sip_listen, "sip:all:5070, sips:all:5071"}
     ]).
 
 stop() ->

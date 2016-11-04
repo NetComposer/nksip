@@ -89,7 +89,7 @@ get_data(Pid) ->
 init([SrvId, CallId]) ->
     nklib_counters:async([nksip_calls, {nksip_calls, SrvId}]),
     Id = erlang:phash2(make_ref()) * 1000,
-    #call_timers{trans=TransTime} = Timers = SrvId:cache_sip_times(),
+    #call_times{trans=TransTime} = Times = ?GET_CONFIG(SrvId, times),
     Call = #call{
         srv_id = SrvId, 
         call_id = CallId, 
@@ -101,7 +101,7 @@ init([SrvId, CallId]) ->
         auths = [],
         msgs = [],
         events = [],
-        timers = Timers
+        times = Times
     },
     nksip_util:put_log_cache(SrvId, CallId),
     erlang:start_timer(2000 * TransTime, self(), check_call),
@@ -147,7 +147,7 @@ handle_cast(Msg, Call) ->
 
 handle_info({timeout, _Ref, check_call}, Call) ->
     Call1 = nksip_call:check_call(Call),
-    Timeout = 2000*(Call#call.timers)#call_timers.trans,
+    Timeout = 2000*(Call#call.times)#call_times.trans,
     erlang:start_timer(Timeout, self(), check_call),
     next(Call1);
 

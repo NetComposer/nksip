@@ -254,7 +254,7 @@ apply_sipmsg(SrvId, CallId, MsgId, Fun) ->
 -spec check_call(call()) ->
     call().
 
-check_call(#call{timers=#call_timers{trans=TransTime, dialog=DialogTime}} = Call) ->
+check_call(#call{times=#call_times{trans=TransTime, dialog=DialogTime}} = Call) ->
     Now = nklib_util:timestamp(),
     Trans1 = check_call_trans(Now, 2*TransTime, Call),
     Forks1 = check_call_forks(Now, 2*TransTime, Call),

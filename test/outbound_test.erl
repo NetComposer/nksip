@@ -26,7 +26,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/nksip.hrl").
--include("../plugins/include/nksip_registrar.hrl").
+-include("../include/nksip_registrar.hrl").
 
 -compile([export_all]).
 
@@ -50,44 +50,44 @@ start() ->
     ok = tests_util:start(registrar, ?MODULE, [
         {sip_local_host, "localhost"},
         {plugins, [nksip_registrar, nksip_outbound]},
-        {transports, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
+        {sip_listen, ["<sip:all:5090>", "<sip:all:5091;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua1, ?MODULE, [
         {sip_from, "sip:ua1@nksip"},
         {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
-        {transports, ["<sip:all:5101>", "<sip:all:5102;transport=tls>"]}
+        {sip_listen, ["<sip:all:5101>", "<sip:all:5102;transport=tls>"]}
     ]),
 
     ok = tests_util:start(ua2, ?MODULE, [
         {sip_local_host, "127.0.0.1"},
         {plugins, [nksip_outbound]},
-        {transports, ["<sip:all:5103>", "<sip:all:5104;transport=tls>"]}
+        {sip_listen, ["<sip:all:5103>", "<sip:all:5104;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p1, ?MODULE, [
         {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
-        {transports, "sip:all:5060, <sip:all:5061;transport=tls>"}
+        {sip_listen, "sip:all:5060, <sip:all:5061;transport=tls>"}
     ]),
 
     ok = tests_util:start(p2, ?MODULE, [
         {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
-        {transports, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
+        {sip_listen, ["<sip:all:5070>", "<sip:all:5071;transport=tls>"]}
     ]),
 
     ok = tests_util:start(p3, ?MODULE, [
         {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
-        {transports, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
+        {sip_listen, "<sip:all:5080>,<sip:all:5081;transport=tls>"}
     ]),
 
     ok = tests_util:start(p4, ?MODULE, [
         {sip_local_host, "localhost"},
         {plugins, [nksip_outbound]},
-        {transports, ["<sip:all:5200>", "<sip:all:5201;transport=tls>"]}
+        {sip_listen, ["<sip:all:5200>", "<sip:all:5201;transport=tls>"]}
     ]),
 
     tests_util:log(),
@@ -165,7 +165,7 @@ flow() ->
     InstanceC1 = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
     
-    {ok, Registrar} = nkservice_server:get_srv_id(registrar),
+    {ok, Registrar} = nkservice_srv:get_srv_id(registrar),
     [#reg_contact{
         index = {sip, tcp, <<"ua1">>, <<"127.0.0.1">>, 5101},
         contact = PContact,
@@ -178,7 +178,7 @@ flow() ->
         }=Path1]
     }] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
             
-    {ok, Transp1} = nksip_outbound_lib:decode_flow(Flow1),
+    {ok, Transp1} = nksip_outbound:decode_flow(Flow1),
     #nkport{pid=Pid1} = Transp1,
 
     [#uri{
@@ -199,12 +199,12 @@ flow() ->
 
     {tcp, {127,0,0,1}, LocalPort1, <<>>} = Local1,
     {tcp, {127,0,0,1}, LocalPort2, <<>>} = Local2,
-    {ok, UA1_Id} = nkservice_server:get_srv_id(ua1),
-    {ok, UA2_Id} = nkservice_server:get_srv_id(ua2),
+    {ok, UA1_Id} = nkservice_srv:get_srv_id(ua1),
+    {ok, UA2_Id} = nkservice_srv:get_srv_id(ua2),
     [#nkport{local_port=LocalPort1, remote_port=5090}] = get_all_connected(UA1_Id),
     [#nkport{local_port=LocalPort2, remote_port=5090}] = get_all_connected(UA2_Id),
 
-    {ok, Registrar_Id} = nkservice_server:get_srv_id(Registrar),
+    {ok, Registrar_Id} = nkservice_srv:get_srv_id(Registrar),
     [
         #nkport{local_port=5090, remote_port=LocalPortA},
         #nkport{local_port=5090, remote_port=LocalPortB}
@@ -269,7 +269,7 @@ register() ->
     InstanceC1 = nksip:get_uuid(ua1),
     true = <<$", InstanceC1/binary, $">> == QInstanceC1,
 
-    {ok, Registrar} = nkservice_server:get_srv_id(registrar),
+    {ok, Registrar} = nkservice_srv:get_srv_id(registrar),
     QInstanceC1_id = nklib_util:hash(QInstanceC1),
     [#reg_contact{
         index = {ob, QInstanceC1_id, <<"1">>},
@@ -365,8 +365,8 @@ register() ->
             path = [#uri{user = <<"NkF", Flow1/binary>>}]
         }
     ] = nksip_registrar_lib:get_info(Registrar, sip, <<"ua1">>, <<"nksip">>),
-    {ok, #nkport{remote_port=5101}} = nksip_outbound_lib:decode_flow(Flow1),
-    {ok, #nkport{remote_port=5103}} = nksip_outbound_lib:decode_flow(Flow2),
+    {ok, #nkport{remote_port=5101}} = nksip_outbound:decode_flow(Flow1),
+    {ok, #nkport{remote_port=5103}} = nksip_outbound:decode_flow(Flow2),
     ok.
 
 
@@ -399,7 +399,7 @@ proxy() ->
             local_port = 5080,
             remote_ip = {127,0,0,1},
             remote_port = _Remote1}
-    } = nksip_outbound_lib:decode_flow(Flow1),
+    } = nksip_outbound:decode_flow(Flow1),
 
     {ok, #nkport{
                     transp = udp,
@@ -407,7 +407,7 @@ proxy() ->
                     local_port = 5060,
                     remote_ip = {127,0,0,1},
                     remote_port = 5101}
-    } = nksip_outbound_lib:decode_flow(Flow2),
+    } = nksip_outbound:decode_flow(Flow2),
      
 
     % Now, if we send a request to this contact, it has two routes
@@ -477,9 +477,9 @@ uac_auto() ->
         {sip_uac_auto_outbound_any_ok, 2},
         {sip_uac_auto_register_timer, 1},
         {plugins, [nksip_uac_auto_outbound]},
-        {transports, ["<sip:all:5106>", "<sip:all:5107;transport=tls>"]}
+        {sip_listen, ["<sip:all:5106>", "<sip:all:5107;transport=tls>"]}
     ]),
-    {ok, UA3_Id} = nkservice_server:get_srv_id(ua3),
+    {ok, UA3_Id} = nkservice_srv:get_srv_id(ua3),
     timer:sleep(100),
     {ok, true} = 
         nksip_uac_auto_outbound:start_register(ua3, auto1, 
@@ -503,7 +503,7 @@ uac_auto() ->
                        remote_port = 5090, listen_port = 5106}
     ] = lists:sort(get_all_connected(UA3_Id)),
 
-    {ok, RegistrarId} = nkservice_server:get_srv_id(registrar),
+    {ok, RegistrarId} = nkservice_srv:get_srv_id(registrar),
     [
         #nkport{transp = tcp, local_port = 5090, pid = Pid3,
                 remote_port = Local1, listen_port=5090},

@@ -55,7 +55,7 @@ process(#trans{method=Method, request=Req}=UAS, Call) ->
 check_supported(Method, Req, UAS, Call) ->
     #sipmsg{require=Require} = Req,
     #call{srv_id=SrvId} = Call,
-    Supported = SrvId:cache_sip_supported(),
+    Supported = ?GET_CONFIG(SrvId, supported),
     case [T || T <- Require, not lists:member(T, Supported)] of
         [] ->
             check_event(Method, Req, UAS, Call);
@@ -73,7 +73,7 @@ check_supported(Method, Req, UAS, Call) ->
 check_event(Method, Req, UAS, Call) when Method=='SUBSCRIBE'; Method=='PUBLISH' ->
     #sipmsg{event=Event} = Req,
     #call{srv_id=SrvId} = Call,
-    SupEvents = SrvId:cache_sip_events(),
+    SupEvents = ?GET_CONFIG(SrvId, events),
     case Event of
         {Type, _} ->
             case lists:member(Type, [<<"refer">>|SupEvents]) of
@@ -182,14 +182,44 @@ method(Method, Req, UAS, Call) ->
 -spec call_user_sip_method(nksip_call:trans(), nksip_call:call()) ->
     nksip_call:call().
 
-call_user_sip_method(UAS, Call) ->
-    #call{srv_id=SrvId} = Call,
-    case SrvId:nks_sip_method(UAS, Call) of
+call_user_sip_method(#trans{method='ACK', request=Req}, #call{srv_id=SrvId}=Call) ->
+    case catch SrvId:sip_ack(Req, Call) of
+        ok -> ok;
+        Error -> ?call_error("Error calling callback ack/1: ~p", [Error])
+    end,
+    Call;
+
+call_user_sip_method(#trans{method=Method, request=Req}=UAS, #call{srv_id=SrvId}=Call) ->
+    #sipmsg{to={_, ToTag}} = Req,
+    Fun = case Method of
+        'INVITE' when ToTag == <<>> -> sip_invite;
+        'INVITE' -> sip_reinvite;
+        'UPDATE' -> sip_update;
+        'BYE' -> sip_bye;
+        'OPTIONS' -> sip_options;
+        'REGISTER' -> sip_register;
+        'PRACK' -> sip_prack;
+        'INFO' -> sip_info;
+        'MESSAGE' -> sip_message;
+        'SUBSCRIBE' when ToTag == <<>> -> sip_subscribe;
+        'SUBSCRIBE' -> sip_resubscribe;
+        'NOTIFY' -> sip_notify;
+        'REFER' -> sip_refer;
+        'PUBLISH' -> sip_publish
+    end,
+    case catch SrvId:Fun(Req, Call) of
         {reply, Reply} -> 
             nksip_call_uas:do_reply(Reply, UAS, Call);
         noreply -> 
-            Call
+            Call;
+        Error -> 
+            ?call_error("Error calling callback ~p/2: ~p", [Fun, Error]),
+            Reply = {internal_error, "Service Error"},
+            nksip_call_uas:do_reply(Reply, UAS, Call)
     end.
+
+   
+
 
 
 % -spec dialog(nksip:method(), nksip:request(), 
@@ -310,5 +340,5 @@ do_method('PUBLISH', _Req, UAS, Call) ->
     {noreply, UAS, Call};
 
 do_method(_Method, #sipmsg{srv_id=SrvId}, _UAS, _Call) ->
-    {reply, {method_not_allowed, SrvId:cache_sip_allow()}}.
+    {reply, {method_not_allowed, ?GET_CONFIG(SrvId, allow)}}.
 

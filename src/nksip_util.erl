@@ -32,6 +32,7 @@
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
+-include("nksip_call.hrl").
 
 
 
@@ -41,55 +42,9 @@
 %% =================================================================
 
 
-
-% %% @private Adapt old style parameters to new style
-% adapt() ->
-%     #{
-%         allow => sip_allow,
-%         supported => sip_supported,
-%         timer_t1 => sip_timer_t1,
-%         timer_t2 => sip_timer_t2,
-%         timer_t4 => sip_timer_t4,
-%         timer_c => sip_timer_c,
-%         trans_timeout => sip_trans_timeout,
-%         dialog_timeout => sip_dialog_timeout,
-%         event_expires => sip_event_expires,
-%         event_expires_offset => sip_event_expires_offset,
-%         nonce_timeout => sip_nonce_timeout,
-%         from => sip_from,
-%         accept => sip_accept,
-%         events => sip_events,
-%         route => sip_route,
-%         no_100 => sip_no_100,
-%         max_calls => sip_max_calls,
-%         local_host => sip_local_host,
-%         local_host6 => sip_local_host6,        
-%         debug => sip_debug
-%     }.
-
-
-% %% @private
-% adapt_opts(Opts) ->
-%     adapt_opts(nklib_util:to_list(Opts), []).
-
-% adapt_opts([], Acc) ->
-%     maps:from_list(Acc);
-
-% adapt_opts([{Key, Val}|Rest], Acc) ->
-%     Key1 = case maps:find(Key, adapt()) of
-%         {ok, NewKey} -> NewKey;
-%         error -> Key
-%     end,
-%     adapt_opts(Rest, [{Key1, Val}|Acc]);
-
-% adapt_opts([Key|Rest], Acc) ->
-%     adapt_opts([{Key, true}|Rest], Acc).
-
-
-
 %% @private
-adapt_transports(SrvId, Transports, Config) ->
-    adapt_transports(SrvId, Transports, Config, []).
+adapt_transports(SrvId, Transports, Service) ->
+    adapt_transports(SrvId, Transports, Service, []).
 
 
 %% @private
@@ -99,13 +54,14 @@ adapt_transports(_SrvId, [], _Config, Acc) ->
 adapt_transports(SrvId, [{RawConns, Opts}|Rest], Config, Acc) ->
     SipOpts = case RawConns of
         [{nksip_protocol, Transp, _Ip, _Port}|_] ->
-            Base = #{srv_id => {nksip, SrvId}},
+            Base = #{class => {nksip, SrvId}},
             case Transp of
                 udp ->
+                    #config{times=#call_times{t1=T1}} = Config,
                     Base#{
                         udp_starts_tcp => true,
                         udp_stun_reply => true,
-                        udp_stun_t1 => maps:get(sip_timer_t1, Config)
+                        udp_stun_t1 => T1
                     };
                 ws ->
                     Base#{ws_proto => sip};
@@ -153,7 +109,7 @@ get_listenhost(SrvId, Ip, Opts) ->
     case size(Ip) of
         4 ->
             Host = case nklib_util:get_value(local_host, Opts) of
-                undefined -> SrvId:cache_sip_local_host();
+                undefined -> ?GET_CONFIG(SrvId, local_host);
                 Host0 -> Host0
             end,
             case Host of
@@ -166,7 +122,7 @@ get_listenhost(SrvId, Ip, Opts) ->
             end;
         8 ->
             Host = case nklib_util:get_value(local_host6, Opts) of
-                undefined -> SrvId:cache_sip_local_host6();
+                undefined -> ?GET_CONFIG(SrvId, local_host6);
                 Host0 -> Host0
             end,
             case Host of
@@ -216,7 +172,7 @@ get_connected(SrvId, #nkport{transp=Transp, remote_ip=Ip, remote_port=Port, meta
 
 get_connected(SrvId, Transp, Ip, Port, Path) ->
     Raw = {nksip_protocol, Transp, Ip, Port},
-    nkpacket_transport:get_connected(Raw, #{srv_id=>{nksip, SrvId}, path=>Path}).
+    nkpacket_transport:get_connected(Raw, #{class=>{nksip, SrvId}, path=>Path}).
 
 
 %% @doc Checks if an `nksip:uri()' or `nksip:via()' refers to a local started transport.
@@ -224,7 +180,7 @@ get_connected(SrvId, Transp, Ip, Port, Path) ->
     boolean().
 
 is_local(SrvId, #uri{}=Uri) ->
-    nkpacket:is_local(Uri, #{srv_id=>{nksip, SrvId}});
+    nkpacket:is_local(Uri, #{class=>{nksip, SrvId}});
 
 is_local(SrvId, #via{}=Via) ->
     {Transp, Host, Port} = nksip_parse:transport(Via),
@@ -244,9 +200,10 @@ send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
     case nkpacket_util:parse_opts(Opts1) of
         {ok, Opts2} ->
             Opts3 = Opts2#{
-                srv_id => {nksip, SrvId}, 
+                class => {nksip, SrvId}, 
                 base_nkport => true, 
                 udp_to_tcp => true,
+                udp_max_size => ?GET_CONFIG(SrvId, udp_max_size),
                 ws_proto => sip
             },
             Opts4 = case Fun of
@@ -264,7 +221,7 @@ send(SrvId, Spec, Msg, Fun, Opts) when is_list(Spec) ->
     end.
 
 
-send_opts({srv_id, _}) -> true;
+send_opts({class, _}) -> true;
 send_opts({connect_timeout, _}) -> true;
 send_opts({no_dns_cache, _}) -> true;
 send_opts({idle_timeout, _}) -> true;
@@ -278,16 +235,14 @@ put_log_cache(SrvId, CallId) ->
     erlang:put(nksip_srv_id, SrvId),
     erlang:put(nksip_call_id, CallId),
     erlang:put(nksip_srv_name, SrvId:name()),
-    erlang:put(nksip_log_level, SrvId:cache_log_level()).
-
-
+    erlang:put(nksip_log_level, SrvId:log_level()).
 
 
 %% @private
 print_all() ->
     lists:foreach(
         fun(Pid) ->
-            {ok, #nkport{srv_id={nksip, SrvId}}=NkPort} = nkpacket:get_nkport(Pid),
+            {ok, #nkport{class={nksip, SrvId}}=NkPort} = nkpacket:get_nkport(Pid),
             {ok, Conn} = nkpacket:get_local(NkPort),
             io:format("Srv ~p: ~p\n", [SrvId:name(), Conn])
         end,

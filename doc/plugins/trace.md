@@ -36,10 +36,10 @@ Option|Default|Description
 sip_trace|-|Configures tracing for this Service (see bellow)
 
 You can use the following options for `nksip_trace`:
-* `{nksip_trace, console}`: Tracing for all IPs will be sent to the console
-* `{nksip_trace, File::string()}`: Tracing will be sent to this file
-* `{nksip_trace, {console, IpSpec::list()}}`: Trace to console, but only for this IPs (see bellow)
-* `{nksip_trace, {File::string(), IpSpec::list()}}`: Trace to file, but only for this IPs (see bellow)
+* `{sip_trace, console}`: Tracing for all IPs will be sent to the console
+* `{sip_trace, File::string()}`: Tracing will be sent to this file
+* `{sip_trace, {console, IpSpec::list()}}`: Trace to console, but only for this IPs (see bellow)
+* `{sip_trace, {File::string(), IpSpec::list()}}`: Trace to file, but only for this IPs (see bellow)
 
 IpSpec can be an IP (like `"10.0.0.1"`), list of IPs (like `["10.0.0.1", "10.0.0.2"]`) or a regular expression or list of regular expressions (like `["10.0.0.1", "^11.*"]`)
 
@@ -140,7 +140,7 @@ or using the Service configuration file:
 ```erlang
 nksip:start("my_app", nksip_callbacks, [], [
 				{plugins, [nksip_trace]},
-				{nksip_trace, {"/tmp/1.trace", ["10.0.0.1", "^11.*"]}}]).
+				{sip_trace, {"/tmp/1.trace", ["10.0.0.1", "^11.*"]}}]).
 ```
 
 removing the trace:
