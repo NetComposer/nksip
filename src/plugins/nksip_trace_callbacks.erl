@@ -52,15 +52,13 @@ plugin_config(Config, #{id:=Id}) ->
    	
 
 
-plugin_start(Config, #{id:=Id, name:=Name, config_nksip_trace:={File, _}}) ->
+plugin_start(Config, #{id:=Id, config_nksip_trace:={File, _}}) ->
 	ok = nksip_trace:open_file(Id, File),
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
 	{ok, Config}.
 
 
-plugin_stop(Config, #{id:=Id, name:=Name}) ->
+plugin_stop(Config, #{id:=Id}) ->
     catch nksip_trace:close_file(Id),
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
     {ok, Config}.
 
 

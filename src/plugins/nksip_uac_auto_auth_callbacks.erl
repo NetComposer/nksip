@@ -27,8 +27,7 @@
 
 
 -export([nks_sip_parse_uac_opts/2, nks_sip_uac_response/4]).
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2]).
 
 
 %% ===================================================================
@@ -47,21 +46,11 @@ plugin_syntax() ->
     }.
 
 
-plugin_config(Config, #{name:=Name}) ->
+plugin_config(Config, _Service) ->
     Tries = maps:get(sip_uac_auto_auth_max_tries, Config, 5),
     Pass = maps:get(sip_pass, Config, []),
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
     {ok, Config, nksip_uac_auto_auth:make_config(Tries, Pass)}.
 
-
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
-    {ok, Config}.
 
 
 

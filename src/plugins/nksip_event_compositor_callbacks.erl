@@ -26,8 +26,7 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_event_compositor.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_stop/2]).
 -export([sip_event_compositor_store/2]).
 -export([sip_publish/2]).
 
@@ -53,14 +52,7 @@ plugin_config(Config, _Service) ->
     Config2 = Config#{sip_allow=>Allow2},
     {ok, Config2, Expires}.
 
-
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+plugin_stop(Config, _Service) ->
     Allow1 = maps:get(sip_allow, Config, []),
     Allow2 = Allow1 -- [<<"PUBLISH">>],
     {ok, Config#{sip_allow=>Allow2}}.

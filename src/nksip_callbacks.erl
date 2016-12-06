@@ -31,7 +31,7 @@
 -include("nksip_call.hrl").
 
 -export([plugin_deps/0, plugin_syntax/0, 
-		 plugin_config/2, plugin_listen/2, plugin_start/2, plugin_stop/2]).
+		 plugin_config/2, plugin_listen/2, plugin_start/2]).
 -export([sip_get_user_pass/4, sip_authorize/3, sip_route/5]).
 -export([sip_invite/2, sip_reinvite/2, sip_cancel/3, sip_ack/2, sip_bye/2]).
 -export([sip_options/2, sip_register/2, sip_info/2, sip_update/2]).
@@ -97,18 +97,11 @@ plugin_listen(Data, #{id:=Id, config_nksip:=Config}) ->
 -spec plugin_start(nkservice:config(), nkservice:service()) ->
 	{ok, nkservice:service()} | {error, term()}.
 
-plugin_start(Config, #{name:=Name}) ->
+plugin_start(Config, _Service) ->
 	ok = nksip_app:start(),
-    lager:info("Plugin nksip started for service ~s", [Name]),
     {ok, Config}.
 
 
--spec plugin_stop(nkservice:config(), nkservice:service()) ->
-    {ok, nkservice:service()} | {stop, term()}.
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin nksip stopped for service ~s", [Name]),
-    {ok, Config}.
 
 
 %% ===================================================================

@@ -23,8 +23,7 @@
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
 -export([sip_uac_auto_register_updated_reg/3, sip_uac_auto_register_updated_ping/3]).
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2]).
 -export([service_init/2, service_terminate/2, service_handle_call/3, 
          service_handle_cast/2, service_handle_info/2]).
 -export([nks_sip_uac_auto_register_send_reg/3, 
@@ -58,14 +57,6 @@ plugin_config(Config, _Service) ->
     {ok, Config, Time}.
 
 
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
-    {ok, Config}.
 
 
 service_init(#{id:=SrvId}, SrvState) ->

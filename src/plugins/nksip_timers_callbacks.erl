@@ -25,8 +25,7 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_stop/2]).
 -export([nks_sip_parse_uac_opts/2, nks_sip_dialog_update/3, nks_sip_make_uac_dialog/4,
          nks_sip_uac_pre_request/4, nks_sip_uac_pre_response/3, nks_sip_uac_response/4,
          nks_sip_uas_dialog_response/4, nks_sip_uas_process/2, nks_sip_route/4]).
@@ -56,13 +55,7 @@ plugin_config(Config, _Service) ->
     {ok, Config2, {SE, MinSE}}.
 
 
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+plugin_stop(Config, _Service) ->
     Supported1 = maps:get(sip_supported, Config, []),
     Supported2 = Supported1 -- [<<"timer">>],
     {ok, Config#{sip_supported=>Supported2}}.

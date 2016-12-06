@@ -24,8 +24,7 @@
 
 -include("../include/nksip.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_start/2]).
 -export([nks_sip_connection_sent/2, nks_sip_connection_recv/2, nks_sip_debug/3]).
 
 %% ===================================================================
@@ -47,7 +46,7 @@ plugin_config(Config, _Service) ->
     {ok, Config, Debug}.
 
 
-plugin_start(Config, #{name:=Name}) ->
+plugin_start(Config, _Service) ->
     case whereis(nksip_debug_srv) of
         undefined ->
             Child = {
@@ -62,13 +61,8 @@ plugin_start(Config, #{name:=Name}) ->
         _ ->
             ok
     end,
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
     {ok, Config}.
 
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
-    {ok, Config}.
 
 
 

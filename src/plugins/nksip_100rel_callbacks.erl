@@ -25,7 +25,7 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 
--export([plugin_deps/0, plugin_config/2, plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_config/2, plugin_stop/2]).
 -export([sip_prack/2]).
 -export([nks_sip_parse_uac_opts/2, 
          nks_sip_uac_pre_response/3, nks_sip_uac_response/4, 
@@ -51,13 +51,7 @@ plugin_config(Config, _Service) ->
     {ok, Config2}.
 
 
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+plugin_stop(Config, _Service) ->
     Allow1 = maps:get(sip_allow, Config, []),
     Allow2 = Allow1 -- [<<"PRACK">>],
     Supported1 = maps:get(sip_supported, Config, []),

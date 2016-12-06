@@ -27,8 +27,7 @@
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_stop/2]).
 -export([sip_registrar_store/2]).
 -export([sip_register/2, nks_sip_authorize_data/3]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_request_reply/3,
@@ -64,14 +63,8 @@ plugin_config(Config, _Service) ->
     {ok, Config2, Cache}.
 
 
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{id:=SrvId, name:=Name}) ->
+plugin_stop(Config, #{id:=SrvId}) ->
     nksip_registrar:clear(SrvId),
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
     Allow1 = maps:get(sip_allow, Config, []),
     Allow2 = Allow1 -- [<<"REGISTER">>],
     {ok, Config#{sip_allow=>Allow2}}.

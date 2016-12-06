@@ -25,7 +25,7 @@
 -include("../include/nksip.hrl").
 -include("../include/nksip_call.hrl").
 -include("nksip_registrar.hrl").
--export([plugin_deps/0, plugin_config/2, plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_config/2, plugin_stop/2]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_update_regcontact/4,
          nks_sip_uac_response/4]).
 
@@ -46,13 +46,7 @@ plugin_config(Config, _Service) ->
     {ok, Config2}.
 
 
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
+plugin_stop(Config, _Service) ->
     Supported1 = maps:get(sip_supported, Config, []),
     Supported2 = Supported1 -- [<<"gruu">>],
     {ok, Config#{sip_supported=>Supported2}}.

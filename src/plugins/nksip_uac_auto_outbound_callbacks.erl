@@ -22,8 +22,7 @@
 -module(nksip_uac_auto_outbound_callbacks).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([plugin_deps/0, plugin_syntax/0, plugin_config/2, 
-         plugin_start/2, plugin_stop/2]).
+-export([plugin_deps/0, plugin_syntax/0, plugin_config/2, plugin_stop/2]).
 -export([service_init/2, service_terminate/2, service_handle_call/3, 
          service_handle_cast/2, service_handle_info/2]).
 -export([nks_sip_uac_auto_register_send_reg/3, 
@@ -66,14 +65,8 @@ plugin_config(Config, _Service) ->
     {ok, Config, Cache}.
 
 
-plugin_start(Config, #{name:=Name}) ->
-    lager:info("Plugin ~p started (~s)", [?MODULE, Name]),
-    {ok, Config}.
-
-
-plugin_stop(Config, #{id:=Id, name:=Name}) ->
+plugin_stop(Config, #{id:=Id}) ->
     gen_server:cast(Id, nksip_uac_auto_outbound_terminate),
-    lager:info("Plugin ~p stopped (~s)", [?MODULE, Name]),
     {ok, Config}.
 
 
