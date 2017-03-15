@@ -78,8 +78,11 @@ send_request(Req, Opts) ->
     Dests = case nklib_util:get_value(route_flow, Opts) of
         #nkport{}=Flow -> 
             [Flow, DestUri];
-        undefined -> 
-            [DestUri]
+        undefined ->
+            case nklib_util:get_value(outbound_proxy, Opts) of
+                undefined -> [DestUri];
+                OutboundProxy -> [OutboundProxy]
+            end
     end,
     Req1 = Req#sipmsg{ruri=RUri1, routes=Routes1},
     PreFun = make_pre_fun(DestUri, Opts),  
