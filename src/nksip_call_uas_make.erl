@@ -78,7 +78,11 @@ make(Req, Code, Opts) ->
         cseq = {CSeqNum, Method},
         routes = [],
         contacts = [],
-        headers = [],
+        headers = case nksip_sipmsg:header(<<"record-route">>, Req) of
+                      [] ->
+                          [];
+                      RR -> [{ <<"record-route">>, RR }]
+                  end,
         content_type = undefined,
         supported = [],
         require = [],
