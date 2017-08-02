@@ -234,16 +234,24 @@ response_status(trying, Resp, UAC, Call) ->
     UAC2 = nksip_call_lib:retrans_timer(cancel, UAC1, Call),
     response_status(proceeding, Resp, UAC2, Call);
 
-response_status(proceeding, #sipmsg{class={resp, Code, _Reason}}=Resp, UAC, Call) 
+response_status(proceeding, #sipmsg{class={resp, Code, _Reason}}=Resp, #trans{transp=Transp} = UAC, #call{times=#call_times{t2=T2}} = Call) 
                 when Code < 200 ->
-    nksip_call_uac_reply:reply({resp, Resp}, UAC, Call);
+    UAC1 =
+        case Transp of
+            udp ->
+                nksip_call_lib:retrans_timer(timer_e, UAC#trans{next_retrans=T2}, Call);
+            _ ->
+                UAC
+        end,
+    nksip_call_uac_reply:reply({resp, Resp}, UAC1, update(UAC1, Call));
 
 % Final response received, own error response
 response_status(proceeding, #sipmsg{nkport=undefined}=Resp, UAC, Call) ->
     Call1 = nksip_call_uac_reply:reply({resp, Resp}, UAC, Call),
     UAC1 = UAC#trans{status=finished},
     UAC2 = nksip_call_lib:timeout_timer(cancel, UAC1, Call),
-    update(UAC2, Call1);
+    UAC3 = nksip_call_lib:retrans_timer(cancel, UAC2, Call),
+    update(UAC3, Call1);
 
 % Final response received, real response
 response_status(proceeding, Resp, UAC, Call) ->
@@ -263,8 +271,9 @@ response_status(proceeding, Resp, UAC, Call) ->
             UAC1 = UAC#trans{status=finished},
             nksip_call_lib:timeout_timer(cancel, UAC1, Call)
     end,
-    Call1 = update(UAC2, Call),
-    case SrvId:nks_sip_uac_response(Req, Resp, UAC2, Call1) of
+    UAC3 = nksip_call_lib:retrans_timer(cancel, UAC2, Call),
+    Call1 = update(UAC3, Call),
+    case SrvId:nks_sip_uac_response(Req, Resp, UAC3, Call1) of
         {continue, [_Req6, Resp6, UAC6, Call6]} ->
             nksip_call_uac_reply:reply({resp, Resp6}, UAC6, Call6);
         {ok, Call2} ->
