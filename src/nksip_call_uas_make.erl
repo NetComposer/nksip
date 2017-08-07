@@ -56,8 +56,9 @@ make(Req, Code, Opts) ->
     case Code of
         100 -> 
             Vias1 = [LastVia],
-            ExtOpts1 = lists:keydelete(<<"tag">>, 1, ExtOpts),
-            {To1, ToTag1} = {To#uri{ext_opts=ExtOpts1}, <<>>};
+            %% ExtOpts1 = lists:keydelete(<<"tag">>, 1, ExtOpts),
+            %% {To1, ToTag1} = {To#uri{ext_opts=ExtOpts1}, ToTag};
+            {To1, ToTag1} = {To, ToTag};
         _ -> 
             Vias1 = Vias,
             {To1, ToTag1} = case ToTag of
