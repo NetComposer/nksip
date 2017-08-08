@@ -53,7 +53,8 @@ send_request(Req, Opts) ->
             DestUri = RUri1 = RUri,
             Routes1 = [];
         [#uri{opts=RouteOpts}=TopRoute|RestRoutes] ->
-            case lists:member(<<"lr">>, RouteOpts) of
+            ?call_debug("UAC send route opts: ~p", [RouteOpts]),
+            case lists:member(<<"lr">>, RouteOpts) orelse proplists:is_defined(<<"lr">>, RouteOpts) of
                 true ->     
                     DestUri = TopRoute#uri{
                         scheme = case RUri#uri.scheme of
