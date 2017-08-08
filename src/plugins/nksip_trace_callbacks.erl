@@ -74,6 +74,10 @@ plugin_stop(Config, #{id:=Id, name:=Name}) ->
 -spec nks_sip_connection_sent(nksip:request()|nksip:response(), binary()) ->
     continue.
 
+nks_sip_connection_sent(SipMsg, { text, Packet }) ->
+    nks_sip_connection_sent(SipMsg, Packet);
+nks_sip_connection_sent(SipMsg, { binary, Packet }) ->
+    nks_sip_connection_sent(SipMsg, Packet);
 nks_sip_connection_sent(SipMsg, Packet) ->
     #sipmsg{srv_id=SrvId, call_id=CallId, nkport=NkPort} = SipMsg,
     nksip_trace:sipmsg(SrvId, CallId, <<"TO">>, NkPort, Packet),
