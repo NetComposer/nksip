@@ -114,6 +114,9 @@ update(Type, Dialog, #call{srv_id=SrvId}=Call) ->
 -spec do_update(term(), nksip:dialog(), nksip_call:call()) ->
     nksip_call:call().
 
+do_update({invite, {stop, _ } }, #dialog{id=DialogId, invite=undefined}, Call) ->
+    ?call_debug("Dialog stop of already stoped dialog ~s", [DialogId]),
+    Call;
 do_update({invite, {stop, Reason}}, #dialog{invite=Invite}=Dialog, Call) ->
     #invite{
         media_started = Media,
