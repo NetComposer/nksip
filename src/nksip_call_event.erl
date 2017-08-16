@@ -319,6 +319,10 @@ update({notify, Req}, Subs, Dialog, Call) ->
     end,
     update(Status, Subs1, Dialog, Call);
 
+update({Status, undefined}, #subscription{ id = Id }, Dialog, _Call)  ->
+    ?call_debug("Avoid to store subscption ~s: expires is undefined (status: ~p)", [ Id, Status ]),
+    Dialog;
+
 update({Status, Expires}, Subs, Dialog, Call) 
         when Status==active; Status==pending ->
     #subscription{
