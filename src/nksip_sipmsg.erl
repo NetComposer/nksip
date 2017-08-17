@@ -37,7 +37,7 @@
 
 -type field() ::  
     handle | internal_id | srv_id | srv_name | dialog_handle | subscription_handle |
-    transp | local | remote | method | ruri | scheme | user | domain | aor |
+    nkport | transp | local | remote | method | ruri | scheme | user | domain | aor |
     code | reason_phrase | content_type | body | call_id | vias | 
     from | from_tag | from_scheme | from_user | from_domain | 
     to | to_tag | to_scheme | to_user | to_domain | 
@@ -71,6 +71,7 @@ meta(Name, #sipmsg{class=Class, ruri=RUri, from=From, to=To}=S) ->
         srv_name -> apply(S#sipmsg.srv_id, name, []);
         dialog_handle -> nksip_dialog_lib:get_handle(S);
         subscription_handle -> nksip_subscription_lib:get_handle(S);
+        nkport -> S#sipmsg.nkport;
         transp -> 
             case S#sipmsg.nkport of
                 #nkport{transp=P} -> P; 

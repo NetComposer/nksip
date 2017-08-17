@@ -321,11 +321,24 @@ get_trans(SipMsgId, #call{trans=AllTrans}=Call) ->
 -spec get_sipmsg(nksip_sipmsg:id(), nksip_call:call()) ->
     {ok, nksip:request()|nksip:response()} | not_found.
 
-get_sipmsg(SipMsgId, Call) ->
+get_sipmsg(SipMsgId, #call{dialogs=Dialogs} = Call) ->
     case get_trans(SipMsgId, Call) of
         {ok, #trans{request=#sipmsg{id=SipMsgId}=Req}} -> {ok, Req};
         {ok, #trans{response=#sipmsg{id=SipMsgId}=Resp}} -> {ok, Resp};
-        _ -> not_found
+        _ ->
+            case 
+                [ SipMsg#sipmsg{
+                    dialog_id = Dialog#dialog.id
+                   }
+                  || Dialog <- Dialogs,
+                     SipMsg <- [ Dialog#dialog.invite#invite.request, Dialog#dialog.invite#invite.response ],
+                     SipMsg#sipmsg.id =:= SipMsgId ]
+            of
+                [] ->
+                    not_found;
+                [ Msg | _ ] ->
+                    { ok, Msg }
+            end
     end.
 
 
