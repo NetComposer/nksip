@@ -115,7 +115,7 @@ running() ->
     
 
 transport() ->
-    Body = base64:encode(crypto:rand_bytes(100)),
+    Body = base64:encode(crypto:strong_rand_bytes(100)),
     Opts1 = [
         {add, "x-nksip", "test1"}, 
         {add, "x-nk-op", "reply-request"}, 
