@@ -576,7 +576,12 @@ do_timer({event, Tag}, Dialog, Call) ->
     nksip:dialog() | not_found.
 
 find(Id, #call{dialogs=Dialogs}) ->
-    do_find(Id, Dialogs).
+    case do_find(Id, Dialogs) of
+        not_found ->
+            do_find2(Id, Dialogs);
+        Found ->
+            Found
+    end.
 
 
 %% @private
@@ -587,6 +592,13 @@ do_find(_, []) -> not_found;
 do_find(Id, [#dialog{id=Id}=Dialog|_]) -> Dialog;
 do_find(Id, [_|Rest]) -> do_find(Id, Rest).
 
+%% @private
+-spec do_find2(nksip_dialog_lib:id(), [nksip:dialog()]) ->
+    nksip:dialog() | not_found.
+
+do_find2(_, []) -> not_found;
+do_find2(Id, [#dialog{invite=#invite{request=#sipmsg{dialog_id=Id}}}=Dialog|_]) -> Dialog;
+do_find2(Id, [_|Rest]) -> do_find(Id, Rest).
 
 %% @private Updates a dialog into the call
 -spec store(nksip:dialog(), nksip_call:call()) ->
