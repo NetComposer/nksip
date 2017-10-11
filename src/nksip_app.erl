@@ -77,6 +77,7 @@ start(_Type, _Args) ->
             {ok, ReCL} = re:compile(?RE_CONTENT_LENGTH, [caseless]),
             put(re_content_length, ReCL),
             ServiceKeys = maps:keys(ServiceSyntax),
+	    % Parsed converted to list
             ServiceDefaults = nklib_util:extract(maps:to_list(Parsed), ServiceKeys),
             put(sip_defaults, ServiceDefaults),
             CacheKeys = [
