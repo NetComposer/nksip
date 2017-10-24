@@ -95,7 +95,7 @@ running() ->
     {error, already_started} = nksip:start(client1, []),
     {error, already_started} = nksip:start(client2, []),
     [{_, server1, _}, {_, client2, _}, {_, client1, _}] =
-        lists:sort(nkservice:get_all(nksip)),
+        lists:reverse(lists:sort(nkservice:get_all(nksip))),
 
     {error, error1} = nksip:start(error1, [
         {sip_listen, "sip:all:5090"}, {callback, ?MODULE}]),
@@ -157,7 +157,7 @@ transport() ->
         {body, BigBody},
         {meta, [body, remote]}
     ],
-    {ok, 200, Values4} = nksip_uac:options(client2, "sip:127.0.0.1", Opts4),
+    {ok, 200, Values4} = nksip_uac:options(client2, "<sip:127.0.0.1;transport=tcp>", Opts4),
     [{body, RespBody4}, {remote, {tcp, _, _, _}}] = Values4,
     Req4 = binary_to_term(base64:decode(RespBody4)),
     BigBodyHash = erlang:phash2(nksip_sipmsg:meta(body, Req4)),
