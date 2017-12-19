@@ -38,7 +38,7 @@
 
 -type file() :: console | string() | binary().
 -type ip_list() :: all | string() | binary() | [string()|binary()].
-
+-type sip_content() :: { sip_content,[binary()] }.
 
 
 
@@ -79,28 +79,51 @@ start(Srv) ->
 
 
 %% @doc Equivalent to `start(Srv, File, all)'.
+-spec start(nksip:srv_id()|nkservice:name(), file()) ->
+    ok | {error, term()}.
+
+start(all, File) ->
+    lists:map(
+        fun({SrvId, SrvName, _Pid}) -> {SrvName, start(SrvId,File)} end,
+        nkservice:get_all(nksip)).
+
+%% @doc Equivalent to `start(Srv, File, all)'.
 -spec start(nksip:srv_id()|nkservice:name(), file()) -> 
     ok | {error, term()}.
 
 start(Srv, File) -> 
     start(Srv, File, all).
 
+%% @doc Equivalent to `start(Srv, File, IpList)'.
+-spec start(nksip:srv_id()|nkservice:name(), file(), ip_list()|sip_content()) ->
+    ok | {error, term()}.
+
+start(all, File,IpList) ->
+    lists:map(
+        fun({SrvId, SrvName, _Pid}) -> {SrvName, start(SrvId,File,IpList)} end,
+        nkservice:get_all(nksip)).
+
 
 %% @doc Configures a Service to start tracing SIP messages.
--spec start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()) ->
+-spec start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()|sip_content()) ->
     ok | {error, term()}.
 
 start(Srv, File, IpList) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            Plugins1 = SrvId:plugins(),
-            Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
-            case nksip:update(SrvId, #{plugins=>Plugins2, sip_trace=>{File, IpList}}) of
-                ok -> ok;
-                {error, Error} -> {error, Error}
+    case checkTraceOptions(IpList) of
+         ok ->
+            case nkservice_srv:get_srv_id(Srv) of
+                {ok, SrvId} ->
+                    Plugins1 = SrvId:plugins(),
+                    Plugins2 = nklib_util:store_value(nksip_trace, Plugins1),
+                    case nksip:update(SrvId, #{plugins=>Plugins2, sip_trace=>{File, IpList}}) of
+                        ok -> ok;
+                        {error, Error} -> {error, Error}
+                    end;
+                not_found ->
+                    {error, service_not_found}
             end;
-        not_found ->
-            {error, service_not_found}
+        Err ->
+            Err
     end.
 
 
@@ -163,6 +186,15 @@ sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
             SrvName = SrvId:name(),
             Msg = print_packet(SrvName, Header, Transport, Binary),
             write(SrvId, File, Msg);
+        {File, {sip_content,ContentList}} ->
+            case binary:match(Binary,ContentList) of
+                nomatch ->
+                    ok;
+                _Match ->
+                    SrvName = SrvId:name(),
+                    Msg = print_packet(SrvName, Header, Transport, Binary),
+                    write(SrvId, File, Msg);
+            end;
         {File, IpList} ->
             #nkport{local_ip=Ip1, remote_ip=Ip2} = Transport,
             case has_ip([Ip1, Ip2], IpList) of
@@ -239,6 +271,8 @@ norm_iplist([], Acc) ->
     {ok, lists:reverse(Acc)};
 norm_iplist(all, []) -> 
     {ok, all};
+norm_iplist({sip_content,ContentList}, []) ->
+    {ok, {sip_content,ContentList}};
 norm_iplist(List, Acc) when is_integer(hd(List)) -> 
     norm_iplist(list_to_binary(List), Acc);
 norm_iplist([Ip|Rest], Acc) when is_binary(Ip) -> 
@@ -284,6 +318,8 @@ open_file(SrvId, File) ->
 %% @private
 compile_ips(all, []) ->
     {ok, all};
+compile_ips({sip_content,ContentList }, []) ->
+    {ok, {sip_content,ContentList }};
 
 compile_ips([], Acc) ->
     {ok, lists:reverse(Acc)};
@@ -364,7 +400,40 @@ has_ip2(Ip, [Re|Rest]) ->
         nomatch -> has_ip2(Ip, Rest)
     end.
 
+%% @private
+checkTraceOptions(Options) ->
+    case Options of
+        all ->
+            ok;
+        {sip_content,Opt }->
+            is_binList(Opt);
+        Opts when is_list(Options)->
+            is_ipaddList(Opts);
+        _oth ->
+            {error, invalid_input_options};
+    end.
 
+%% @private
+is_ipaddList([]) ->
+    ok;
+is_ipaddList([H|T])->
+    case inet_parse:ntoa(H) of
+        {error,Val} ->
+            {error,Val};
+        _Oth ->
+            is_ipaddList(T)
+    end.
+
+%% @private
+is_binList([]) ->
+    ok;
+is_binList([H|T])->
+    case is_binary(H) of
+        false ->
+            {error, not_binary_list};
+        true ->
+            is_BinList(T)
+    end.
 
 
 
