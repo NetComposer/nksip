@@ -85,11 +85,7 @@ start(Srv) ->
 start(all, File) ->
     lists:map(
         fun({SrvId, SrvName, _Pid}) -> {SrvName, start(SrvId,File)} end,
-        nkservice:get_all(nksip)).
-
-%% @doc Equivalent to `start(Srv, File, all)'.
--spec start(nksip:srv_id()|nkservice:name(), file()) -> 
-    ok | {error, term()}.
+        nkservice:get_all(nksip));
 
 start(Srv, File) -> 
     start(Srv, File, all).
@@ -101,12 +97,7 @@ start(Srv, File) ->
 start(all, File,IpList) ->
     lists:map(
         fun({SrvId, SrvName, _Pid}) -> {SrvName, start(SrvId,File,IpList)} end,
-        nkservice:get_all(nksip)).
-
-
-%% @doc Configures a Service to start tracing SIP messages.
--spec start(nksip:srv_id()|nksip:srv_id(), file(), ip_list()|sip_content()) ->
-    ok | {error, term()}.
+        nkservice:get_all(nksip));
 
 start(Srv, File, IpList) ->
     case checkTraceOptions(IpList) of
