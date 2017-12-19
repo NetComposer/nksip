@@ -193,7 +193,7 @@ sipmsg(SrvId, _CallId, Header, Transport, Binary) ->
                 _Match ->
                     SrvName = SrvId:name(),
                     Msg = print_packet(SrvName, Header, Transport, Binary),
-                    write(SrvId, File, Msg);
+                    write(SrvId, File, Msg)
             end;
         {File, IpList} ->
             #nkport{local_ip=Ip1, remote_ip=Ip2} = Transport,
@@ -410,7 +410,7 @@ checkTraceOptions(Options) ->
         Opts when is_list(Options)->
             is_ipaddList(Opts);
         _oth ->
-            {error, invalid_input_options};
+            {error, invalid_input_options}
     end.
 
 %% @private
