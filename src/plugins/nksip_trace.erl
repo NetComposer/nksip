@@ -30,7 +30,7 @@
 
 -export([get_all/0, start/0, start/1, start/2, start/3, stop/0, stop/1]).
 -export([print/1, print/2, sipmsg/5]).
--export([get_config/2, open_file/2, close_file/1]).
+-export([get_config/2, open_file/2, close_file/1,is_BinList/1]).
 
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("../include/nksip.hrl").
@@ -418,6 +418,7 @@ is_ipaddList([H|T])->
 %% @private
 is_binList([]) ->
     ok;
+
 is_binList([H|T])->
     case is_binary(H) of
         false ->
