@@ -86,7 +86,7 @@ parse_handle(_O) ->
 
 
 %% @doc Get specific metadata from the dialog
--spec get_meta(nksip_dialog:field(), nksip:dialog()) ->
+-spec get_meta(nksip_dialog:field() | {function, function()}, nksip:dialog()) -> 
     term().
 
 get_meta(Field, #dialog{invite=I}=D) ->
@@ -166,7 +166,7 @@ get_meta(Field, #dialog{invite=I}=D) ->
     end.
 
 %% @doc Get specific metadata from the dialog
--spec get_metas([nksip_dialog:field()], nksip:dialog()|nksip:handle()) ->
+-spec get_metas([nksip_dialog:field() | {function, function()}], nksip:dialog()|nksip:handle()) -> 
     [{nksip_dialog:field(), term()}].
 
 get_metas(Fields, #dialog{}=Dialog) when is_list(Fields) ->
@@ -187,7 +187,7 @@ remote_meta(Field, Handle) ->
 
 
 %% @doc Extracts remote metas
--spec remote_metas([nksip_dialog:field()], nksip:handle()) ->
+-spec remote_metas([nksip_dialog:field() | {function, function()}], nksip:handle()) ->
     {ok, [{nksip_dialog:field(), term()}]} | {error, term()}.
 
 remote_metas(Fields, Handle) when is_list(Fields) ->

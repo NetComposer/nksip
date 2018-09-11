@@ -134,14 +134,14 @@
     id :: nksip_sipmsg:id(),
     class :: {req, nksip:method()} | {resp, nksip:sip_code(), binary()},
     srv_id :: nkserver:id(),
-    dialog_id :: nksip_dialog_lib:id(),
-    ruri :: nksip:uri(),
+    dialog_id :: nksip_dialog_lib:id() | undefined,
+    ruri :: nksip:uri() | undefined,
     vias = [] :: [nksip:via()],
-    from :: {nksip:uri(), FromTag::binary()},
-    to :: {nksip:uri(), ToTag::binary()},
+    from :: {nksip:uri(), FromTag::binary()} | undefined,
+    to :: {nksip:uri(), ToTag::binary()} | undefined,
     call_id :: nksip:call_id(),
-    cseq :: {nksip:cseq(), nksip:method()},
-    forwards :: non_neg_integer(),
+    cseq :: {nksip:cseq(), nksip:method()} | undefined,
+    forwards :: non_neg_integer() | undefined,
     routes = [] :: [nksip:uri()],
     contacts = [] :: [nksip:uri()],
     content_type :: nksip:token() | undefined,
@@ -152,7 +152,7 @@
     headers = [] :: [nksip:header()],
     body = <<>> :: nksip:body(),
     to_tag_candidate = <<>> :: nksip:tag(),
-    nkport :: nkpacket:nkport(),
+    nkport :: nkpacket:nkport() | undefined,
     start :: nklib_util:l_timestamp(),
     meta = [] :: nksip:optslist()   % No current use
 }).
@@ -166,7 +166,7 @@
 }).
 
 -record(via, {
-    transp = udp :: nkpacket:transport(),
+    transp = udp :: nkpacket:transport() | binary(),
     domain = <<"invalid.invalid">> :: binary(),
     port = 0 :: inet:port_number(),
     opts = [] :: nksip:optslist()
@@ -175,33 +175,33 @@
 
 -record(invite, {
     status :: nksip_dialog:invite_status(),
-    answered :: nklib_util:timestamp(),
-    class :: uac | uas | proxy,
-    request :: nksip:request(),
-    response :: nksip:response(),
-    ack :: nksip:request(),
-    local_sdp :: nksip_sdp:sdp(),
-    remote_sdp :: nksip_sdp:sdp(),
-    media_started :: boolean(),
+    answered :: nklib_util:timestamp() | undefined,
+    class :: uac | uas | proxy | undefined,
+    request :: nksip:request() | undefined,
+    response :: nksip:response() | undefined,
+    ack :: nksip:request() | undefined,
+    local_sdp :: nksip_sdp:sdp() | undefined,
+    remote_sdp :: nksip_sdp:sdp() | undefined,
+    media_started :: boolean() | undefined,
     sdp_offer :: nksip_call_dialog:sdp_offer(),
     sdp_answer :: nksip_call_dialog:sdp_offer(),
-    timeout_timer :: reference(),
-    retrans_timer :: reference(),
-    next_retrans :: integer()
+    timeout_timer :: reference() | undefined,
+    retrans_timer :: reference() | undefined,
+    next_retrans :: integer() | undefined
 }).
 
 
 -record(subscription, {
     id :: nksip_subscription_lib:id(),
     event :: nksip:token(),
-    expires :: pos_integer(),
+    expires :: pos_integer() | undefined,
     status :: nksip_subscription:status(),
     class :: uac | uas,
-    answered :: nklib_util:timestamp(),
-    timer_n :: reference(),
-    timer_expire :: reference(),
-    timer_middle :: reference(),
-    last_notify_cseq :: nksip:cseq()
+    answered :: nklib_util:timestamp() | undefined,
+    timer_n :: reference() | undefined,
+    timer_expire :: reference() | undefined,
+    timer_middle :: reference() | undefined,
+    last_notify_cseq :: nksip:cseq() | undefined
 }).
 
 
@@ -214,10 +214,10 @@
     call_id :: nksip:call_id(),
     created :: nklib_util:timestamp(),
     updated :: nklib_util:timestamp(),
-    local_seq :: 0 | nksip:cseq(),
-    remote_seq :: 0 | nksip:cseq(),
-    local_uri :: nksip:uri(),
-    remote_uri :: nksip:uri(),
+    local_seq :: 0 | nksip:cseq() | undefined,
+    remote_seq :: 0 | nksip:cseq() | undefined,
+    local_uri :: nksip:uri() | undefined,
+    remote_uri :: nksip:uri() | undefined,
     local_target :: nksip:uri(),        % Only for use in proxy
     remote_target :: nksip:uri(),
     route_set :: [nksip:uri()],
@@ -225,7 +225,7 @@
     early :: boolean(),
     secure :: boolean(),
     caller_tag :: nksip:tag(),
-    invite :: nksip:invite(),
+    invite :: nksip:invite() | undefined,
     subscriptions = [] :: [#subscription{}],
     supported = [] :: [nksip:token()],
     meta = [] :: nksip:optslist()
@@ -239,10 +239,10 @@
     nports = 1 :: integer(),
     proto = <<"RTP/AVP">> :: binary(),      
     fmt = [] :: [binary()],             % <<"0">>, <<"101">> ...
-    info :: binary(),
-    connect :: nksip_sdp:address(),
+    info :: binary() | undefined,
+    connect :: nksip_sdp:address() | undefined,
     bandwidth = [] :: [binary()],
-    key :: binary(),
+    key :: binary() | undefined,
     attributes = [] :: [nksip_sdp:sdp_a()]
 }).
 
@@ -253,15 +253,15 @@
     vsn = 0 :: non_neg_integer(), 
     address = {<<"IN">>, <<"IP4">>, <<"0.0.0.0">>} :: nksip_sdp:address(),
     session = <<"nksip">> :: binary(), 
-    info :: binary(),
-    uri :: binary(),
-    email :: binary(),
-    phone :: binary(),
-    connect :: nksip_sdp:address(),
+    info :: binary() | undefined,
+    uri :: binary() | undefined,
+    email :: binary() | undefined,
+    phone :: binary() | undefined,
+    connect :: nksip_sdp:address() | undefined,
     bandwidth = [] :: [binary()],
     time = [] :: [nksip_sdp:sdp_t()],
-    zone :: binary(),
-    key :: binary(),
+    zone :: binary() | undefined,
+    key :: binary() | undefined,
     attributes = [] :: [nksip_sdp:sdp_a()],
     medias = [] :: [nksip_sdp:sdp_m()]
 }).

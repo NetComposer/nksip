@@ -35,6 +35,9 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include_lib("nkserver/include/nkserver.hrl").
 
+-dialyzer(no_missing_calls).
+-dialyzer(no_undefined_callbacks).
+
 
 -define(MAX_MSG, 65507).
 
@@ -123,10 +126,10 @@ naptr(_, _) -> invalid.
     buffer = <<>> :: binary(),
     rnrn_pattern :: binary:cp(),
     in_refresh = false :: boolean(),
-    refresh_time :: pos_integer(),
-    refresh_timer :: reference(),
-    nat_ip :: inet:ip_address(),
-    nat_port :: inet:port_number(),
+    refresh_time :: pos_integer() | undefined,
+    refresh_timer :: reference() | undefined,
+    nat_ip :: inet:ip_address() | undefined,
+    nat_port :: inet:port_number() | undefined,
     refresh_notify = [] :: [{pid(), term()}]
 }).
 
@@ -154,7 +157,7 @@ conn_init(NkPort) ->
 
 %% @doc This function is called when a new message arrives to the connection
 -spec conn_parse(nkpacket:incoming()|close, nkpacket:nkport(), conn_state()) ->
-    {ok, conn_state()} | {bridge, nkpacket:nkport()} | 
+    {ok, conn_state()} | {bridge, nkpacket:nkport(), conn_state()} | 
     {stop, Reason::term(), conn_state()}.
 
 conn_parse(close, _NkPort, State) ->
@@ -183,15 +186,14 @@ conn_parse(Binary, NkPort, #conn_state{buffer=Buffer}=State) ->
 
 %% @doc This function is called when a new message must be send to the connection
 -spec conn_encode(term(), nkpacket:nkport(), conn_state()) ->
-    {ok, nkpacket:outcoming(), conn_state()} | {error, term(), conn_state()} |
-    {stop, Reason::term(), conn_state()}.
+    {error, term(), conn_state()}.
 
 conn_encode(_Term, _NkPort, ConnState) ->
     {error, not_defined, ConnState}.
 
 
 -spec conn_encode(nksip:request()|nksip:response(), nkpacket:nkport()) ->
-    {ok, nkpacket:outcoming()} | continue | {error, term()}.
+    {ok, nkpacket:outcoming()}.
 
 conn_encode(#sipmsg{srv_id=SrvId}=SipMsg, _NkPort) ->
     Packet = nksip_unparse:packet(SipMsg),

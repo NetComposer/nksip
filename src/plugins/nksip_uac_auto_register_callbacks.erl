@@ -226,7 +226,7 @@ srv_handle_cast(nksip_uac_auto_register_check,
     {noreply, State2#{nksip_uac_auto_register:=RegState2#state{pings=Pings1, regs=Regs2}}};
 
 srv_handle_cast(nksip_uac_auto_register_terminate, Service, SrvState) ->
-    {ok, SrvState1} = srv_terminate(normal, Service, SrvState),
+    {continue, [_, _, SrvState1]} = srv_terminate(normal, Service, SrvState),
     {noreply, SrvState1};
 
 srv_handle_cast(_Msg, _Service, _State) ->

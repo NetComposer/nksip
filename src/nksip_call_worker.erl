@@ -44,6 +44,7 @@
     {cancel, nksip_sipmsg:id()} |
     {send_reply, nksip_sipmsg:id(), nksip:sipreply()} |
     {incoming, #sipmsg{}} | 
+    {incoming, #nkport{}, binary()} | 
     {incoming, nkserver:id(), nkservice:id(), nksip:call_id(), nkpacket:nkport(), binary()} |
     info |
     get_all_dialogs | 

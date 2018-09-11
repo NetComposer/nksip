@@ -763,13 +763,13 @@ ha1_test() ->
     ?assertMatch(
         <<"194370e184088fb011b140d770936009">>,
         make_auth_response([], 'INVITE', <<"test@test.com">>, HA1, 
-                            <<"gfedcba">>, <<"abcdefg">>, 1)),
+                            <<"gfedcba">>, <<"abcdefg">>, <<"00000001">>)),
     ?assertMatch(
-        <<"788a70e3b5d371dc5f9dee5e59bb80cd">>,
+        <<"bf47fa2667ddc2be29b88d0cec6ae35e">>,
         make_auth_response([other, auth], 'INVITE', <<"test@test.com">>, HA1, 
-                            <<"gfedcba">>, <<"abcdefg">>, 1)),
+                            <<"gfedcba">>, <<"abcdefg">>, <<"00000001">>)),
     ?assertMatch(<<>>, make_auth_response([other], 'INVITE', <<"any">>, HA1, <<"any">>,
-                 <<"any">>, 1)),
+                 <<"any">>, <<"00000001">>)),
     [
         {scheme,digest},
         {realm,<<"av">>},

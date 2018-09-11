@@ -108,7 +108,7 @@ call_id(Handle) ->
 
 
 %% @doc Get a specific metadata
--spec get_meta(field(), nksip:dialog()|nksip:handle()) ->
+-spec get_meta(field() | {function, function()}, nksip:dialog()|nksip:handle()) ->
     {ok, term()} | {error, term()}.
 
 get_meta(Field, #dialog{}=Dialog) ->

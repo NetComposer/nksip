@@ -23,8 +23,8 @@
     id :: term(),
     pos :: integer(),
     cseq :: nksip:cseq(),
-    conn_monitor :: reference(),
-    conn_pid :: pid(),
+    conn_monitor :: reference() | undefined,
+    conn_pid :: pid() | undefined,
     fails :: non_neg_integer()
 }).
 

@@ -241,7 +241,7 @@ make_ack(#sipmsg{vias=[Via|_], cseq={CSeq, _}}=Req) ->
 
 
 %% @private
--spec parse_opts(nksip:optslist(), nksip:request(), nksip:optslist()) ->
+-spec parse_opts([nksip_uac:req_option()], nksip:request(), nksip:optslist()) ->
     {nksip:request(), nksip:optslist()}.
 
 
@@ -494,7 +494,7 @@ parse_opts([Term|Rest], Req, Opts) ->
 
 %% @private
 -spec parse_plugin_opts(nksip:request(), map()) ->
-    {nksip:request(), map()}.
+    {nksip:request(), [nksip_uac:req_option()]}.
 
 parse_plugin_opts(#sipmsg{srv_id=SrvId}=Req, Opts) ->
     case ?CALL_SRV(SrvId, nksip_parse_uac_opts, [Req, Opts]) of

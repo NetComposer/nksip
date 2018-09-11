@@ -66,8 +66,14 @@
     allow |
     accept |
     allow_event |
+    contact |
 
     % Special parameters
+    async |
+    ignore |
+    auto_2xx_ack |
+
+    date |
     to_as_from |
     {body, value()} |
     {cseq_num, value()} |
@@ -89,6 +95,7 @@
     % Subscription
     {subscription_state, term()} |
     {refer_to, binary()} |
+    {refer_subscription_id, binary()} |
 
     % Publish
     {sip_if_match, binary()} |

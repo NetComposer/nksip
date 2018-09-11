@@ -28,6 +28,8 @@
 -include_lib("nklib/include/nklib.hrl").
 
 -compile([export_all, nowarn_export_all]).
+-dialyzer(no_missing_calls).
+
 -define(RECV(T), receive T -> ok after 1000 -> error(recv) end).
 
 ipv6_gen() ->

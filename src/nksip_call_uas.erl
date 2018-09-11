@@ -24,6 +24,7 @@
 
 -export([request/2, reply/3, do_reply/3]).
 -export_type([status/0, incoming/0]).
+-dialyzer(no_missing_calls).
 
 -import(nksip_call_lib, [update/2]).
 -include_lib("nklib/include/nklib.hrl").

@@ -21,7 +21,7 @@
 
 -record(reg_publish, {
     data :: nksip:body(),
-    expires :: nklib_util:timestamp(),
+    expires :: nklib_util:timestamp() | undefined,
     meta = [] :: nksip:optslist()  
 }).
 

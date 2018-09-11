@@ -486,10 +486,14 @@ uri_test() ->
     [#uri{headers=UriHeaders}] = nklib_parse:uris(Uri),
 
     Base = #sipmsg{
+        id = <<"id">>,
+        class = {req, 'MESSAGE'},
+        call_id = <<"call-id">>,
         from = {#uri{domain = <<"f">>, ext_opts=[{<<"tag">>, <<"f">>}]}, <<"f">>},
         to = {#uri{domain = <<"t">>, ext_opts=[{<<"tag">>, <<"t">>}]}, <<"t">>},
         headers = [{<<"previous">>, <<"term">>}],
-        routes = [#uri{domain = <<"previous">>}]
+        routes = [#uri{domain = <<"previous">>}],
+        start = nklib_util:timestamp()
     },
 
     Req1 = headers(UriHeaders, Base, add),

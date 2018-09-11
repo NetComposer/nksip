@@ -61,8 +61,8 @@ init([Period]) ->
 
 
 %% @private
--spec handle_call(term(), {pid(), term()}, #state{}) ->
-    {reply, term(), #state{}} | {noreply, #state{}}.
+-spec handle_call(term(), {pid(), term()} | term(), #state{}) ->
+    {reply, term(), #state{}, non_neg_integer()} | {noreply, #state{}, non_neg_integer()}.
 
 
 handle_call(get_uas_avg, _From, #state{last_uas=LastUas}=State) ->
@@ -75,7 +75,7 @@ handle_call(Msg, _From, State) ->
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
-    {noreply, #state{}}.
+    {noreply, #state{}, non_neg_integer()}.
 
 handle_cast({response_time, Time}, #state{avg_uas_values=Values}=State) ->
     State1 = State#state{avg_uas_values=[Time|Values]},
@@ -88,7 +88,7 @@ handle_cast(Msg, State) ->
 
 %% @private
 -spec handle_info(term(), #state{}) ->
-    {noreply, #state{}}.
+    {noreply, #state{}, non_neg_integer()}.
 
 handle_info(timeout, #state{avg_uas_values=Values, period=Period}=State) ->
     LastUas = calculate(Values),
@@ -124,6 +124,8 @@ terminate(_Reason, _State) ->
 
 
 %% @private
+-spec timeout(#state{}) -> non_neg_integer().
+
 timeout(#state{last_check=Last, period=Period}) ->
     case (Last+Period) - nklib_util:timestamp() of
         Time when Time > 0 ->

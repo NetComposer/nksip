@@ -38,7 +38,7 @@
 
 %% @doc Tries to route a request to set of uris, serially and/or in parallel.
 -spec route(nksip:uri_set(), nksip:optslist(), nksip_call:trans(), nksip_call:call()) -> 
-    {fork, nksip_call:trans(), nksip:uri_set()} | noreply | 
+    {fork, nksip_call:trans(), nksip:uri_set()} |
     {reply, nksip:sipreply(), nksip_call:call()}.
 
 route(UriList, ProxyOpts, UAS, Call) ->
@@ -197,7 +197,7 @@ check_request(#sipmsg{class={req, Method}, forwards=Forwards}=Req, Opts) ->
 
 %% @doc Process a UriSet generating a standard `[[nksip:uri()]]'.
 %% See test code for examples.
--spec normalize_uriset(nksip:uri_set()) ->
+-spec normalize_uriset(nksip:uri_set() | atom() | [atom()]) ->
     [[nksip:uri()]].
 
 normalize_uriset(#uri{}=Uri) ->

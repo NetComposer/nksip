@@ -27,6 +27,8 @@
 -export([new/2, new/0, empty/0, update/2, increment/1, parse/1, unparse/1]).
 -export([is_sdp/1, is_new/2, update_ip/2]).
 
+-dialyzer(no_behaviours).
+
 -export_type([sdp/0, sdp_a/0, sdp_m/0, sdp_t/0, address/0]).
 
 %% ===================================================================
@@ -54,7 +56,7 @@
                         Media :: binary(),              % <<"audio">>, <<"video">>
                         Port :: inet:port_number(), 
                         Attributes :: 
-                            [{rtpmap, Pos::integer(), Data::binary()} | binary()]
+                            [{rtpmap, Pos::integer(), Data::string() | binary()} | binary()]
                     }.
 
 
@@ -669,8 +671,8 @@ sdp2_test() ->
 
 sdp3_test() ->
     Media = [
-        {<<"audio">>, 10000, [{rtpmap, 0, "Params0"}, {rtpmap, 1, "Params1"}, sendrecv]},
-        {<<"video">>, 10001, [{rtpmap, 2, "Params2"}, {rtpmap, 3, "Params3"}, sendrecv]}
+        {<<"audio">>, 10000, [{rtpmap, 0, "Params0"}, {rtpmap, 1, "Params1"}, <<"sendrecv">>]},
+        {<<"video">>, 10001, [{rtpmap, 2, "Params2"}, {rtpmap, 3, "Params3"}, <<"sendrecv">>]}
     ],
     #sdp{id=Id, vsn=Vsn} = SDP = new("local", Media),
     Bin = list_to_binary([

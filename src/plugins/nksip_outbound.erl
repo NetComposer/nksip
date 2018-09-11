@@ -25,6 +25,7 @@
 -export([proxy_opts/2, add_headers/6, check_several_reg_id/1]).
 -export([registrar/1]).
 -export([decode_flow/1]).
+-dialyzer(no_missing_calls).
 
 -include_lib("nklib/include/nklib.hrl").
 -include_lib("nkpacket/include/nkpacket.hrl").
@@ -176,7 +177,7 @@ do_proxy_opts(Req, Opts, [Route|RestRoutes]) ->
             case lists:member(<<"ob">>, RouteOpts) of
                 true ->
                     Opts1 = case nksip_util:get_connected(SrvId, NkPort) of
-                        [{_, Pid}|_] ->
+                        [Pid|_] when is_pid(Pid) ->
                             [{record_flow, Pid}|Opts];
                         _ ->
                             Opts
@@ -244,7 +245,7 @@ add_headers(Req, Opts, Scheme, Transp, ListenHost, ListenPort) ->
             end,
             RouteHash = nklib_util:hash({GlobalId, SrvId, RouteBranch}),
             <<"NkQ", RouteHash/binary>>;
-        FlowPid ->
+        _ ->
             FlowToken = encode_flow(FlowPid),
             <<"NkF", FlowToken/binary>>
     end,
@@ -367,7 +368,7 @@ check_several_reg_id([#uri{ext_opts=Opts}|Rest], Found) ->
 
 %% @private
 -spec registrar(nksip:request()) ->
-    {boolean(), nksip:request()} | no_outbound.
+    {boolean(), nksip:request()} | {error, nksip:sipreply()} | no_outbound.
 
 registrar(Req) ->
     #sipmsg{ srv_id=SrvId, vias=Vias, nkport=NkPort} = Req,

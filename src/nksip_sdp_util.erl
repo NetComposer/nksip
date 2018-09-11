@@ -61,12 +61,8 @@
     #sdp{} | {error, term()}.
 
 add_candidates(#sdp{medias=Medias}=SDP, Candidates) ->
-    case add_candidates(Medias, 0, Candidates, []) of
-        {ok, Medias2} ->
-            SDP#sdp{medias=Medias2};
-        {error, Error} ->
-            {error, Error}
-    end;
+    {ok, Medias2} = add_candidates(Medias, 0, Candidates, []),
+    SDP#sdp{medias=Medias2};
 
 add_candidates(SDP, Candidates) ->
     case nksip_sdp:parse(SDP) of
