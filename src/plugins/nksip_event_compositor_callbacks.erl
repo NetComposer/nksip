@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -70,7 +70,7 @@ plugin_stop(Config, _Service) ->
     [RegPublish] | ok | not_found when
         StoreOp :: {get, AOR, Tag} | {put, AOR, Tag, RegPublish, TTL} | 
                    {del, AOR, Tag} | del_all,
-        SrvId :: nksip:srv_id(),
+        SrvId :: nkservice:id(),
         AOR :: nksip:aor(),
         Tag :: binary(),
         RegPublish :: nksip_event_compositor:reg_publish(),

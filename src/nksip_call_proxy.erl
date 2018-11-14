@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,6 +29,7 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
+-include_lib("nkservice/include/nkservice.hrl").
 
 
 %% ===================================================================
@@ -42,29 +43,33 @@
 
 route(UriList, ProxyOpts, UAS, Call) ->
     try
-        #call{srv_id=SrvId} = Call,
+        #call{srv=SrvId} = Call,
         UriSet = case normalize_uriset(UriList) of
-            [[]] -> throw({reply, temporarily_unavailable});
-            UriSet0 -> UriSet0
+            [[]] ->
+                throw({reply, temporarily_unavailable});
+            UriSet0 ->
+                UriSet0
         end,
         % lager:warning("URISET: ~p", [UriList]),
         #trans{method=Method} = UAS,
-        case SrvId:nks_sip_route(UriSet, ProxyOpts, UAS, Call) of
+        {UriSet2, ProxyOpts2, UAS2, Call2} = case
+            ?CALL_SRV(SrvId, nksip_route, [UriSet, ProxyOpts, UAS, Call])
+        of
             {continue, [UriSet1, ProxyOpts1, UAS1, Call1]} ->
-                ok;
+                {UriSet1, ProxyOpts1, UAS1, Call1};
             {reply, Reply, Call1} ->
-                UriSet1=ProxyOpts1=UAS1=throw({reply, Reply, Call1})
+                throw({reply, Reply, Call1})
         end,
-        Req1 = check_request(UAS1#trans.request, ProxyOpts1),
-        Stateless = lists:member(stateless, ProxyOpts1),
+        Req2 = check_request(UAS2#trans.request, ProxyOpts2),
+        Stateless = lists:member(stateless, ProxyOpts2),
         case Method of
             'ACK' when Stateless ->
-                [[First|_]|_] = UriSet1,
-                route_stateless(Req1, First, ProxyOpts1, Call1);
+                [[First|_]|_] = UriSet2,
+                route_stateless(Req2, First, ProxyOpts2, Call2);
             'ACK' ->
-                {fork, UAS1#trans{request=Req1}, UriSet1, ProxyOpts1};
+                {fork, UAS2#trans{request=Req2}, UriSet2, ProxyOpts2};
             _ ->
-                case nksip_sipmsg:header(<<"proxy-require">>, Req1, tokens) of
+                case nksip_sipmsg:header(<<"proxy-require">>, Req2, tokens) of
                     [] -> 
                         ok;
                     PR ->
@@ -73,10 +78,10 @@ route(UriList, ProxyOpts, UAS, Call) ->
                 end,
                 case Stateless of
                     true -> 
-                        [[First|_]|_] = UriSet1,
-                        route_stateless(Req1, First, ProxyOpts1, Call1);
+                        [[First|_]|_] = UriSet2,
+                        route_stateless(Req2, First, ProxyOpts2, Call2);
                     false ->
-                        {fork, UAS1#trans{request=Req1}, UriSet1, ProxyOpts1}
+                        {fork, UAS2#trans{request=Req2}, UriSet2, ProxyOpts2}
                 end
         end
     catch
@@ -89,26 +94,26 @@ route(UriList, ProxyOpts, UAS, Call) ->
 -spec route_stateless(nksip:request(), nksip:uri(), nksip:optslist(), nksip_call:call()) -> 
     noreply.
 
-route_stateless(Req, Uri, ProxyOpts, _Call) ->
-    #sipmsg{class={req, Method}} = Req,
+route_stateless(Req, Uri, ProxyOpts, Call) ->
+    #sipmsg{class={req, _Method}} = Req,
     Req1 = Req#sipmsg{ruri=Uri},
     case nksip_call_uac_make:proxy_make(Req1, ProxyOpts) of
         {ok, Req2, ProxyOpts2} ->
             SendOpts = [stateless_via | ProxyOpts2],
             case nksip_call_uac_transp:send_request(Req2, SendOpts) of
                 {ok, _} ->  
-                    ?call_debug("Stateless proxy routing ~p to ~s", 
-                                [Method, nklib_unparse:uri(Uri)]);
-                {error, Error} -> 
-                    ?call_notice("Stateless proxy could not route ~p to ~s: ~p",
-                                 [Method, nklib_unparse:uri(Uri), Error])
+                    ?CALL_DEBUG("Stateless proxy routing ~p to ~s",
+                                [_Method, nklib_unparse:uri(Uri)], Call);
+                {error, _Error} ->
+                    ?CALL_LOG(notice, "Stateless proxy could not route ~p to ~s: ~p",
+                                 [_Method, nklib_unparse:uri(Uri), _Error], Call)
             end,
            noreply;
         {reply, Reply} ->
             throw({reply, Reply});
-        {error, Error} ->
-            ?call_warning("Error procesing proxy opts: ~p, ~p: ~p", 
-                          [Uri, ProxyOpts, Error]),
+        {error, _Error} ->
+            ?CALL_LOG(warning, "Error procesing proxy opts: ~p, ~p: ~p",
+                          [Uri, ProxyOpts, _Error], Call),
             throw({reply, {internal_error, "Proxy Options"}})
     end.
     
@@ -121,7 +126,7 @@ response_stateless(#sipmsg{class={resp, Code, _}}, Call) when Code < 101 ->
     Call;
 
 response_stateless(#sipmsg{vias=[_, Via|RestVias], nkport=NkPort}=Resp, Call) ->
-    #sipmsg{cseq={_, Method}, class={resp, Code, _}} = Resp,
+    #sipmsg{cseq={_, _Method}, class={resp, _Code, _}} = Resp,
     #via{transp=ViaTransp, port=ViaPort, opts=ViaOpts} = Via,
     {ok, RIp} = nklib_util:to_ip(nklib_util:get_value(<<"received">>, ViaOpts)),
     RPort = case nklib_util:get_integer(<<"rport">>, ViaOpts) of
@@ -137,15 +142,15 @@ response_stateless(#sipmsg{vias=[_, Via|RestVias], nkport=NkPort}=Resp, Call) ->
     Resp1 = Resp#sipmsg{vias=[Via|RestVias], nkport=NkPort1},
     case nksip_call_uas_transp:send_response(Resp1, []) of
         {ok, _} -> 
-            ?call_debug("Stateless proxy sent ~p ~p response", [Method, Code]);
+            ?CALL_DEBUG("Stateless proxy sent ~p ~p response", [_Method, _Code], Call);
         {error, _} -> 
-            ?call_notice("Stateless proxy could not send ~p ~p response", 
-                         [Method, Code])
+            ?CALL_LOG(notice, "Stateless proxy could not send ~p ~p response",
+                         [_Method, _Code], Call)
     end,
     Call;
 
 response_stateless(_, Call) ->
-    ?call_notice("Stateless proxy could not send response: no Via", []),
+    ?CALL_LOG(notice, "Stateless proxy could not send response: no Via", [], Call),
     Call.
 
 
@@ -197,8 +202,10 @@ normalize_uriset(UriSet) when is_binary(UriSet) ->
 
 normalize_uriset(UriSet) when is_list(UriSet) ->
     case nklib_util:is_string(UriSet) of
-        true -> [pruris(UriSet)];
-        false -> normalize_uriset(single, UriSet, [], [])
+        true ->
+            [pruris(UriSet)];
+        false ->
+            normalize_uriset(single, UriSet, [], [])
     end;
 
 normalize_uriset(_) ->
@@ -210,8 +217,10 @@ normalize_uriset(single, [#uri{}=Uri|R], Acc1, Acc2) ->
 
 normalize_uriset(multi, [#uri{}=Uri|R], Acc1, Acc2) -> 
     case Acc1 of
-        [] -> normalize_uriset(multi, R, [], Acc2++[[uri2ruri(Uri)]]);
-        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[[uri2ruri(Uri)]])
+        [] ->
+            normalize_uriset(multi, R, [], Acc2++[[uri2ruri(Uri)]]);
+        _ ->
+            normalize_uriset(multi, R, [], Acc2++[Acc1]++[[uri2ruri(Uri)]])
     end;
 
 normalize_uriset(single, [Bin|R], Acc1, Acc2) when is_binary(Bin) -> 
@@ -219,14 +228,18 @@ normalize_uriset(single, [Bin|R], Acc1, Acc2) when is_binary(Bin) ->
 
 normalize_uriset(multi, [Bin|R], Acc1, Acc2) when is_binary(Bin) -> 
     case Acc1 of
-        [] -> normalize_uriset(multi, R, [], Acc2++[pruris(Bin)]);
-        _ -> normalize_uriset(multi, R, [], Acc2++[Acc1]++[pruris(Bin)])
+        [] ->
+            normalize_uriset(multi, R, [], Acc2++[pruris(Bin)]);
+        _ ->
+            normalize_uriset(multi, R, [], Acc2++[Acc1]++[pruris(Bin)])
     end;
 
 normalize_uriset(single, [List|R], Acc1, Acc2) when is_list(List) -> 
     case nklib_util:is_string(List) of
-        true -> normalize_uriset(single, R, Acc1++pruris(List), Acc2);
-        false -> normalize_uriset(multi, [List|R], Acc1, Acc2)
+        true ->
+            normalize_uriset(single, R, Acc1++pruris(List), Acc2);
+        false ->
+            normalize_uriset(multi, [List|R], Acc1, Acc2)
     end;
 
 normalize_uriset(multi, [List|R], Acc1, Acc2) when is_list(List) -> 
@@ -259,8 +272,10 @@ uri2ruri(Uri) ->
 
 pruris(RUri) ->
     case nklib_parse:uris(RUri) of
-        error -> [];
-        RUris -> [uri2ruri(Uri) || Uri <- RUris]
+        error ->
+            [];
+        RUris ->
+            [uri2ruri(Uri) || Uri <- RUris]
     end.
 
 

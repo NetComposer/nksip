@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -60,9 +60,9 @@ get_handle(Term) ->
 -spec srv_id( Response ) -> Result when 
         Response    :: nksip:response()
             | nksip:handle(),
-        Result      :: {ok, nksip:srv_id()}.
+        Result      :: {ok, nkservice:id()}.
 
-srv_id(#sipmsg{class={resp, _, _}, srv_id=SrvId}) ->
+srv_id(#sipmsg{class={resp, _, _}, srv=SrvId}) ->
     {ok, SrvId};
 srv_id(Handle) ->
     case nksip_sipmsg:parse_handle(Handle) of
@@ -194,6 +194,6 @@ header(Name, Handle) when is_binary(Handle) ->
 -spec wait_491() -> 
     ok.
 wait_491() ->
-    timer:sleep(10*crypto:rand_uniform(210, 400)).
+    timer:sleep(10*nklib_util:rand(210, 400)).
 
 

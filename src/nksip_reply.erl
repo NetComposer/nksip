@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -92,12 +92,12 @@
 
 reply(Req, {Code, Opts}) 
         when is_integer(Code), Code>=100, Code=<699, is_list(Opts)->
-    ?call_debug("user reply to ~p: {~p, ~p}", [element(2, Req#sipmsg.class), Code, Opts]),
+    ?CALL_DEBUG("user reply to ~p: {~p, ~p}", [element(2, Req#sipmsg.class), Code, Opts]),
     case nksip_call_uas_make:make(Req, Code, Opts) of
         {ok, Resp, RespOpts} ->
             {Resp, RespOpts};
         {error, Error} ->
-            ?call_error("Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
+            ?CALL_LOG(error, "Error procesing response {~p, ~p}: ~p", [Code, Opts, Error]),
             nksip_call_uas_make:make(Req, 500, [])
     end;
     
@@ -106,7 +106,7 @@ reply(Req, SipReply) ->
         {Code, Opts0} ->
             Opts = post(Req, Code, Opts0);
         error -> 
-            ?call_warning("Invalid sipreply ~p", [SipReply]),
+            ?CALL_LOG(warning, "Invalid sipreply ~p", [SipReply]),
             {Code, Opts} = {500, [{reason_phrase, <<"Invalid Service Response">>}]}
     end,
     reply(Req, {Code, Opts}).
@@ -122,7 +122,7 @@ reply(Req, SipReply) ->
 -spec post(nksip:request(), nksip:sip_code(), nksip:optslist()) ->
     nksip:optslist().
 
-post(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
+post(#sipmsg{srv=SrvId, package=PkgId, class={req, Method}}=Req, Code, Opts) ->
     Opts1 = case Code>100 of
         true -> [timestamp|Opts];
         false -> Opts
@@ -168,8 +168,11 @@ post(#sipmsg{srv_id=SrvId, class={req, Method}}=Req, Code, Opts) ->
     Opts7 = case Code>=200 andalso Code<300 andalso Method=='SUBSCRIBE' of
         true ->
             Expires = case nklib_util:get_value(expires, Opts6) of
-                undefined -> ?GET_CONFIG(SrvId, event_expires);
-                Expires0 -> Expires0
+                undefined ->
+                    Config = nksip_plugin:get_config(SrvId, PkgId),
+                    Config#config.event_expires;
+                Expires0 ->
+                    Expires0
             end,
             Expires1 = min(Req#sipmsg.expires, Expires),
             [{expires, Expires1} | nklib_util:delete(Opts6, expires)];

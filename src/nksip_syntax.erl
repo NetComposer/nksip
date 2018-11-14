@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -22,7 +22,7 @@
 -module(nksip_syntax).
 -author('Carlos Gonzalez <carlosj.gf@gmail.com>').
 
--export([app_syntax/0, app_defaults/0, syntax/0]).
+-export([app_syntax/0]).
 -export([default_allow/0, default_supported/0]).
 -export([make_config/1]).
 
@@ -36,25 +36,10 @@
 %% Internal
 %% ===================================================================
 
-app_syntax() ->
-    #{
-        sync_call_time => nat_integer,
-        max_calls => {integer, 1, 1000000},
-        msg_routers => {integer, 1, 127}
-    }.
-
-
-app_defaults() ->
-    #{
-        sync_call_time => 30000,            % MSecs
-        max_calls => 100000,                % Each Call-ID counts as a call
-        msg_routers => 16                   % Number of parallel msg routers 
-    }.
-    
 
 %% @private
 %% Transport options must be included in url
-syntax() ->
+app_syntax() ->
     #{
         sip_listen => fun nkservice_syntax:parse_fun_listen/3,
         sip_allow => words,
@@ -68,15 +53,15 @@ syntax() ->
         sip_event_expires => {integer, 1, none},
         sip_event_expires_offset => {integer, 0, none},
         sip_nonce_timeout => {integer, 5, none},
-        sip_from => [{enum, [undefined]}, uri],
-        sip_accept => [{enum, [undefined]}, words],
+        sip_from => [{atom, [undefined]}, uri],
+        sip_accept => [{atom, [undefined]}, words],
         sip_events => words,
         sip_route => uris,
         sip_no_100 => boolean,
         sip_max_calls => {integer, 1, 1000000},
-        sip_local_host => [{enum, [auto]}, host],
-        sip_local_host6 => [{enum, [auto]}, host6],
-        sip_debug => boolean,                           % Needs to be always defined
+        sip_local_host => [{atom, [auto]}, host],
+        sip_local_host6 => [{atom, [auto]}, host6],
+        sip_debug => {list, atom},
         sip_udp_max_size => nat_integer                 % Used for all sent packets
     }.
 

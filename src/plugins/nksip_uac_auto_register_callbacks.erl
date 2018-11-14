@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -67,7 +67,7 @@ service_init(#{id:=SrvId}, SrvState) ->
 
 %% @private 
 service_handle_call({nksip_uac_auto_register_start_reg, RegId, Uri, Opts}, 
-            From, #{id:=SrvId, nksip_uac_auto_register:=State}=SrvState) ->
+            From, #{nksip_uac_auto_register:=State}=SrvState) ->
     #state{regs=Regs} = State,
     case nklib_util:get_value(call_id, Opts) of
         undefined -> 
@@ -95,7 +95,7 @@ service_handle_call({nksip_uac_auto_register_start_reg, RegId, Uri, Opts},
         ok = undefined
     },
     Regs1 = lists:keystore(RegId, #sipreg.id, Regs, Reg),
-    ?debug(SrvId, CallId, "Started auto registration: ~p", [Reg]),
+    ?SIP_DEBUG("Started auto registration: ~p", [Reg]),
     gen_server:cast(self(), nksip_uac_auto_register_check),
     {noreply, SrvState#{nksip_uac_auto_register=>State#state{regs=Regs1}}};
 
@@ -123,7 +123,7 @@ service_handle_call(nksip_uac_auto_register_get_regs, _From,
     {reply, Info, SvcState};
 
 service_handle_call({nksip_uac_auto_register_start_ping, PingId, Uri, Opts}, From,
-                    #{id:=SrvId, nksip_uac_auto_register:=State}=SvcState) ->
+                    #{nksip_uac_auto_register:=State}=SvcState) ->
     #state{pings=Pings} = State,
     case nklib_util:get_value(call_id, Opts) of
         undefined -> 
@@ -150,7 +150,7 @@ service_handle_call({nksip_uac_auto_register_start_ping, PingId, Uri, Opts}, Fro
         next = 0,
         ok = undefined
     },
-    ?info(SrvId, CallId, "Started auto ping: ~p", [Ping]),
+    ?SIP_LOG(info, "Started auto ping: ~p (~s)", [Ping, CallId]),
     Pinsg1 = lists:keystore(PingId, #sipreg.id, Pings, Ping),
     gen_server:cast(self(), nksip_uac_auto_register_check),
     {noreply, SvcState#{nksip_uac_auto_register:=State#state{pings=Pinsg1}}};
@@ -270,7 +270,7 @@ service_handle_info(_Msg, _SvcState) ->
 
 
 %% @doc Called when the service is shutdown
--spec service_terminate(nksip:srv_id(), nkservice_server:sub_state()) ->
+-spec service_terminate(nkservice:id(), nkservice_server:sub_state()) ->
    {ok, nkservice_server:sub_state()}.
 
 service_terminate(_Reason, SrvState) ->  

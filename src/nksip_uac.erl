@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,12 +28,13 @@
 
 -include("nksip.hrl").
 
--export([options/3, options/2, register/3, invite/3, invite/2, ack/2, bye/2, cancel/2]).
+-export([options/4, options/2, register/3, invite/3, invite/2, ack/2, bye/2, cancel/2]).
 -export([info/2, update/2, subscribe/2, subscribe/3, notify/2]).
 -export([message/3, message/2, refer/3, refer/2, publish/3, publish/2]).
 -export([request/3, request/2, refresh/2]).
 -export([stun/3]).
--export_type([uac_result/0, uac_ack_result/0, uac_cancel_result/0]).
+-export_type([uac_result/0, uac_ack_result/0, uac_cancel_result/0,
+              req_option/0, resp_options/0]).
 
 
 %% ===================================================================
@@ -42,7 +43,7 @@
 
 
 -type uac_result() ::  
-    {async, nksip:handle()} | {ok, nksip:sip_code(), nksip:optslist()} | {error, term()}.
+    {async, nksip:handle()} | {ok, nksip:sip_code(), nksip:resp_options()} | {error, term()}.
     
 -type uac_ack_result() ::
     ok | async | {error, term()}.
@@ -50,18 +51,88 @@
 -type uac_cancel_result() ::
     ok | {error, term()}.
 
+-type name() :: atom() | list() | binary().
+
+-type value() :: atom() | list() | binary() | integer().
+
+
+-type req_option() ::
+
+    % Automatic header generation (replace existing headers)
+    user_agent |
+    supported |
+    allow |
+    accept |
+    allow_event |
+
+    % Header manipulation
+    {call_id, value()} |
+    {from, value()} |
+    {to, value()} |
+    {content_type, value()} |
+    {require, value()} |
+    {supported, value()} |
+    {expires, value()} |
+    {contact, value()} |
+    {route, value()} |
+    {reason, value()} |
+    {event, value()} |
+    % Generic headers
+    {add, name(), value()} |
+    {replace, name(), value()} |
+    {insert, name(), value()} |
+
+    % Special parameters
+    to_as_from |
+    {body, value()} |
+    {cseq_num, value()} |
+    {min_cseq, value()} |
+    {no_100, true} |
+    {meta, list()} |
+    {user, list()} |
+    {local_host, auto|binary()} |
+    {local_host6, auto|binary()} |
+    {callback, fun()} |
+    {reg_id, pos_integer()} |
+    {record_flow, value()} |
+    {route_flow, value()} |
+
+    % Register options
+    unregister_all |
+    unregister |
+
+    % Subscription
+    {subscription_state, term()} |
+    {refer_to, binary()} |
+
+    % Publish
+    {sip_if_match, binary()} |
+
+    no_dialog |
+    stateless_via.
+
+
+
+
+-type resp_options() ::
+    #{
+
+    }.
+
+
+
 
 %% ===================================================================
 %% Public
 %% ===================================================================
 
 %% @doc Sends an out-of-dialog OPTIONS request.
--spec options(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec options(nkservice:id(), nkservice:package_id(), nksip:user_uri(), [req_option()]) ->
     uac_result().
 
-options(Srv, Uri, Opts) ->
-    Opts1 = [supported, allow, allow_event | Opts],
-    send(Srv, 'OPTIONS', Uri, Opts1).
+options(SrvId, PkgId, Uri, Opts) ->
+    Opts2 = [supported, allow, allow_event | Opts],
+    send(SrvId, PkgId, 'OPTIONS', Uri, Opts2).
 
 
 %% @doc Sends an in-dialog OPTIONS request.
@@ -74,7 +145,7 @@ options(Handle, Opts) ->
 
 
 %% @doc Sends a REGISTER request.
--spec register(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec register(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 register(Srv, Uri, Opts) ->
@@ -83,7 +154,7 @@ register(Srv, Uri, Opts) ->
 
 
 %% @doc Sends an out-of-dialog INVITE request.
--spec invite(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec invite(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 invite(Srv, Uri, Opts) ->
@@ -144,7 +215,7 @@ update(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog SUBSCRIBE request.
--spec subscribe(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec subscribe(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 subscribe(Srv, Uri, Opts) ->
@@ -180,7 +251,7 @@ notify(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog MESSAGE request.
--spec message(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec message(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 message(Srv, Uri, Opts) ->
@@ -205,7 +276,7 @@ message(Handle, Opts) ->
 
 
 %% @doc Sends an <i>REFER</i> for a remote party
--spec refer(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) -> 
+-spec refer(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 refer(Srv, Uri, Opts) ->
@@ -232,7 +303,7 @@ refer(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog PUBLISH request.
--spec publish(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec publish(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 publish(Srv, Uri, Opts) ->
@@ -251,7 +322,7 @@ publish(Handle, Opts) ->
 
 
 %% @doc Sends an out-of-dialog request constructed from a SIP-Uri
--spec request(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) -> 
+-spec request(nkservice:name()|nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     uac_result().
 
 request(Srv, Dest, Opts) ->
@@ -325,34 +396,29 @@ refresh(Handle, Opts) ->
 %% (i.e. `sip:stunserver.org:3478'). If it is a STUN server embedded into a SIP UDP
 %% server, use a standard SIP uri.
 %%
--spec stun(nkservice:name()|nksip:srv_id(), nksip:user_uri(), nksip:optslist()) ->
+-spec stun(nkservice:id(), nksip:user_uri(), nksip:optslist()) ->
     {ok, {LocalIp, LocalPort}, {RemoteIp, RemotePort}} | {error, term()}
     when LocalIp :: inet:ip_address(), LocalPort :: inet:port_number(),
          RemoteIp :: inet:ip_address(), RemotePort :: inet:port_number().
 
-stun(Srv, UriSpec, _Opts) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} ->
-            case nkpacket:resolve(UriSpec) of
-                {ok, [{nksip_protocol, _, Ip, _}|_]=Conns, _UriOpts} ->
-                    ListenOpts = #{class=>{nksip, SrvId}, ip=>Ip},
-                    case nkpacket:get_listening(nksip_protocol, udp, ListenOpts) of
-                        [NkPort|_] -> 
-                            {ok, {_, _, LocIp, LocPort}} = nkpacket:get_local(NkPort),
-                            case stun_send(Conns, nkpacket:pid(NkPort)) of
-                                {ok, RemIp, RemPort} ->
-                                    {ok, {LocIp, LocPort}, {RemIp, RemPort}};
-                                error ->
-                                    {error, service_unavailable}
-                            end;
-                        [] ->
-                            {error, no_listening_transport}
+stun(SrvId, UriSpec, _Opts) ->
+    case nkpacket:resolve(UriSpec) of
+        {ok, [{nksip_protocol, _, Ip, _}|_]=Conns, _UriOpts} ->
+            ListenOpts = #{class=>{nksip, SrvId}, ip=>Ip},
+            case nkpacket:get_listening(nksip_protocol, udp, ListenOpts) of
+                [NkPort|_] ->
+                    {ok, {_, _, LocIp, LocPort}} = nkpacket:get_local(NkPort),
+                    case stun_send(Conns, nkpacket:pid(NkPort)) of
+                        {ok, RemIp, RemPort} ->
+                            {ok, {LocIp, LocPort}, {RemIp, RemPort}};
+                        error ->
+                            {error, service_unavailable}
                     end;
-                _ ->
-                    {error, invalid_uri}
+                [] ->
+                    {error, no_listening_transport}
             end;
-        not_found ->
-            {error, service_not_started}
+        _ ->
+            {error, invalid_uri}
     end.
 
 
@@ -379,22 +445,29 @@ stun_send([_|Rest], Pid) ->
 %% ===================================================================
 
 
+
 %% @private
--spec send(nkservice:name()|nksip:srv_id(), nksip:method(), nksip:user_uri(), 
-           nksip:optslist()) ->
+-spec send(nkservice:id(), nksip:method(), nksip:user_uri(), [req_option()]) ->
     uac_result() | {error, term()}.
 
-send(Srv, Method, Uri, Opts) ->
-    case nkservice_srv:get_srv_id(Srv) of
-        {ok, SrvId} -> 
-            case nklib_util:get_binary(call_id, Opts) of
-                <<>> -> CallId = nklib_util:luid();
-                CallId -> ok
-            end,
-            nksip_call:send(SrvId, CallId, Method, Uri, Opts);
-        not_found -> 
-            {error, service_not_found}
-    end.
+send(SrvId, Method, Uri, Opts) ->
+    send(SrvId, ?PACKAGE_CLASS_SIP, Method, Uri, Opts).
+
+
+%% @private
+-spec send(nkservice:id(), nkservice:package_id(), nksip:method(),
+           nksip:user_uri(), [req_option()]) ->
+    uac_result() | {error, term()}.
+
+send(SrvId, PkgId, Method, Uri, Opts) ->
+    CallId = case lists:keyfind(call_id, 1, Opts) of
+        {call_id, CallId0} ->
+            nklib_util:to_binary(CallId0);
+        false ->
+            nklib_util:luid()
+    end,
+    nksip_call:send(SrvId, to_bin(PkgId), CallId, Method, Uri, Opts).
+
 
 
 %% @private
@@ -410,8 +483,8 @@ send_dialog(Method, Handle, Opts) ->
                 _ ->
                     Opts
             end,
-            {SrvId, DialogId, CallId} = nksip_dialog_lib:parse_handle(DlgHandle),
-            nksip_call:send_dialog(SrvId, CallId, Method, DialogId, Opts1);
+            {SrvId, PkgId, DialogId, CallId} = nksip_dialog_lib:parse_handle(DlgHandle),
+            nksip_call:send_dialog(SrvId, PkgId, CallId, Method, DialogId, Opts1);
         {error, Error} ->
             {error, Error}
     end.
@@ -422,10 +495,13 @@ send_dialog(Method, Handle, Opts) ->
     
 send_cancel(Handle, Opts) ->
     case nksip_sipmsg:parse_handle(Handle) of
-        {req, SrvId, ReqId, CallId} ->
-            nksip_call:send_cancel(SrvId, CallId, ReqId, Opts);
+        {req, SrvId, PkgId, ReqId, CallId} ->
+            nksip_call:send_cancel(SrvId, PkgId, CallId, ReqId, Opts);
         _ ->
             {error, invalid_request}
     end.
 
 
+%% @private
+to_bin(Term) when is_binary(Term) -> Term;
+to_bin(Term) -> nklib_util:to_binary(Term).

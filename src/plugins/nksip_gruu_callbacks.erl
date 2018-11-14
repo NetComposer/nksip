@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -27,7 +27,7 @@
 -include("nksip_registrar.hrl").
 -export([plugin_deps/0, plugin_config/2, plugin_stop/2]).
 -export([nks_sip_registrar_request_opts/2, nks_sip_registrar_update_regcontact/4,
-         nks_sip_uac_response/4]).
+         nksip_uac_response/4]).
 
 
 
@@ -59,9 +59,12 @@ plugin_stop(Config, _Service) ->
 
 
 %% @private
-nks_sip_registrar_request_opts(#sipmsg{srv_id=SrvId, contacts=Contacts}=Req, Opts) ->
-    case 
-        lists:member(<<"gruu">>, ?GET_CONFIG(SrvId, supported)) andalso 
+nks_sip_registrar_request_opts(#sipmsg{srv=SrvId, package=PkgId, contacts=Contacts}=Req, Opts) ->
+    Config = nksip_plugin:get_config(SrvId, PkgId),
+
+
+    case
+        lists:member(<<"gruu">>, Config#config.supported) andalso
         nksip_sipmsg:supported(<<"gruu">>, Req)
     of
         true -> 
@@ -81,6 +84,6 @@ nks_sip_registrar_update_regcontact(RegContact, Base, Req, Opts) ->
 
 
 %% @private
-nks_sip_uac_response(Req, Resp, UAC, Call) ->
+nksip_uac_response(Req, Resp, UAC, Call) ->
     nksip_gruu_lib:update_gruu(Resp),
     {continue, [Req, Resp, UAC, Call]}.

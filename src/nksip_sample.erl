@@ -18,24 +18,31 @@
 %%
 %% -------------------------------------------------------------------
 
+%% @doc Companion code for NkSIP Tutorial.
 
--record(reg_contact, {
-    index :: nksip_registrar_lib:index(),
-    contact :: nksip:uri(), 
-    updated :: nklib_util:l_timestamp(),
-    expire :: nklib_util:timestamp(),
-    q :: float(),  
-    call_id :: nksip:call_id(),
-    cseq :: nksip:cseq(),
-    nkport :: nkpacket:nkport(),
-    path = [] :: [nksip:uri()],
-    meta = [] :: nksip:optslist()  
-}).
 
--record(nksip_registrar_time, {
-    min :: pos_integer(),
-    max :: pos_integer(),
-    default :: pos_integer(),
-    time :: pos_integer(),
-    time_long :: pos_integer()
-}).
+-module(nksip_sample).
+-author('Carlos Gonzalez <carlosj.gf@gmail.com>').
+
+-export([start/0, stop/0]).
+-export([s1/0]).
+
+-define(NAME, test).
+
+
+
+%% @doc Launches the full tutorial.
+start() ->
+    Spec = #{
+        sip_debug => [nkpacket, call, packet]
+    },
+    nksip:start(?NAME, Spec).
+
+
+
+stop() ->
+    nksip:stop(?NAME).
+
+
+s1() ->
+    nksip_uac:options(?NAME, <<"sip1">>, "<sip:carlosj.sip.us1.twilio.com>;transport=tcp", []).

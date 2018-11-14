@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -37,7 +37,7 @@
 -spec process(nksip:request(), nksip:call()) ->
     nksip:sipreply().
 
-process(Req, #call{srv_id=SrvId, call_id=CallId}=Call) ->
+process(Req, #call{srv=SrvId, call_id=CallId}=Call) ->
     case nksip_sipmsg:header(<<"refer-to">>, Req, uris) of
         [ReferTo] -> 
             case catch SrvId:sip_refer(ReferTo, Req, Call) of
@@ -50,8 +50,8 @@ process(Req, #call{srv_id=SrvId, call_id=CallId}=Call) ->
                     ok;
                 false ->
                     forbidden;
-                {'EXIT', Error} ->
-                    ?call_error("Error calling callback sip_refer/3: ~p", [Error]),
+                {'EXIT', _Error} ->
+                    ?CALL_LOG(error, "Error calling callback sip_refer/3: ~p", [_Error], Call),
                     {internal_error, "Service Error"}
             end;
         _ ->

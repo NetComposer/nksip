@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,7 +28,7 @@
 -include_lib("nkpacket/include/nkpacket.hrl").
 -include("nksip.hrl").
 -include("nksip_call.hrl").
-
+-include_lib("nkservice/include/nkservice.hrl").
 
 %% ===================================================================
 %% Public
@@ -41,7 +41,8 @@
 
 send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     #sipmsg{
-        srv_id = SrvId, 
+        srv = SrvId,
+        package = PkgId,
         call_id = CallId,
         vias = [Via|_],
         cseq = {_, Method},
@@ -74,8 +75,8 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     RouteHash = <<"NkQ", (nklib_util:hash({GlobalId, SrvId, RouteBranch}))/binary>>,
     PreFun = make_pre_fun(RouteHash, Opts),
     SrvId:nks_sip_debug(SrvId, CallId, {send_response, Method, Code}),
-    Return = nksip_util:send(SrvId, TranspSpec, Resp, PreFun, Opts),
-    SrvId:nks_sip_transport_uas_sent(Resp),
+    Return = nksip_util:send(SrvId, PkgId, TranspSpec, Resp, PreFun, Opts),
+    ?CALL_SRV(SrvId, nksip_transport_uas_sent, [Resp]),
     Return.
 
 
@@ -84,13 +85,13 @@ send_response(#sipmsg{class={resp, Code, _Reason}}=Resp, Opts) ->
     {ok, nksip:response()} | {error, term()}.
 
 resend_response(#sipmsg{class={resp, Code, _}, nkport=#nkport{}=NkPort}=Resp, Opts) ->
-    #sipmsg{srv_id=SrvId, cseq={_, Method}, call_id=CallId} = Resp,
-    Return = nksip_util:send(SrvId, [NkPort], Resp, none, Opts),
+    #sipmsg{srv=SrvId, package=PkgId, cseq={_, Method}, call_id=CallId} = Resp,
+    Return = nksip_util:send(SrvId, PkgId, [NkPort], Resp, none, Opts),
     SrvId:nks_sip_debug(SrvId, CallId, {sent_response, Method, Code}),
     Return;
 
 resend_response(Resp, Opts) ->
-    ?call_info("Called resend_response/2 without transport", []),
+    ?CALL_LOG(info, "Called resend_response/2 without transport", []),
     send_response(Resp, Opts).
 
 
@@ -106,7 +107,8 @@ resend_response(Resp, Opts) ->
 make_pre_fun(RouteHash, Opts) ->
     fun(Resp, NkPort) ->
         #sipmsg{
-            srv_id = SrvId,
+            srv = SrvId,
+            package = PkgId,
             to = {To, _},
             headers = Headers,
             contacts = Contacts, 
@@ -117,15 +119,15 @@ make_pre_fun(RouteHash, Opts) ->
             listen_ip = ListenIp, 
             listen_port = ListenPort
         } = NkPort,
-        ListenHost = nksip_util:get_listenhost(SrvId, ListenIp, Opts),
-        % ?call_debug("UAS listenhost is ~s", [ListenHost]),
+        ListenHost = nksip_util:get_listenhost(SrvId, PkgId, ListenIp, Opts),
+        % ?CALL_DEBUG("UAS listenhost is ~s", [ListenHost], Call),
         Scheme = case Transp==tls andalso lists:member(secure, Opts) of
             true -> sips;
             _ -> sip
         end,
         Contacts1 = case Contacts==[] andalso lists:member(contact, Opts) of
             true ->
-                [nksip_util:make_route(Scheme, Transp, ListenHost, 
+                [nksip_util:make_route(Scheme, Transp, ListenHost,
                                             ListenPort, To#uri.user, [])];
             false ->
                 Contacts

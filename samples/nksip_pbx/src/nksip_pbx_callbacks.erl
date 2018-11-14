@@ -2,7 +2,7 @@
 %%
 %% Service Callback module
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -292,7 +292,7 @@ find_all_except_me(ReqId) ->
 
 %% @private
 random_list(List) ->
-    List1 = [{crypto:rand_uniform(1, length(List)+1), Term} || Term <- List],
+    List1 = [{nklib_util:rand(1, length(List)+1), Term} || Term <- List],
     [Term || {_, Term} <- lists:sort(List1)].
 
 

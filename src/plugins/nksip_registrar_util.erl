@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -53,7 +53,7 @@ force_domain(Req, Domain) ->
 
 % @private Get all current registrations. Use it with care.
 -spec get_all() ->
-    [{nksip:srv_id(), nksip:aor(), [#reg_contact{}]}].
+    [{nkservice:id(), nksip:aor(), [#reg_contact{}]}].
 
 get_all() ->
     [

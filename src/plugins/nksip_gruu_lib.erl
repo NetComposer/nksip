@@ -1,6 +1,6 @@
 %% -------------------------------------------------------------------
 %%
-%% Copyright (c) 2015 Carlos Gonzalez Florido.  All Rights Reserved.
+%% Copyright (c) 2018 Carlos Gonzalez Florido.  All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -36,7 +36,7 @@
 -spec update_gruu(nksip:response()) ->
     ok.
 
-update_gruu(#sipmsg{srv_id=SrvId, contacts=Contacts, class={resp, Code, _}, 
+update_gruu(#sipmsg{srv=SrvId, contacts=Contacts, class={resp, Code, _},
                       cseq={_, Method}}) ->
     case Method=='REGISTER' andalso Code>=200 andalso Code<300 of
         true -> find_gruus(SrvId, Contacts);
@@ -80,7 +80,7 @@ find_gruus(_, []) ->
 
 
 %% @private
--spec find(nksip:srv_id(), nksip:uri()) ->
+-spec find(nkservice:id(), nksip:uri()) ->
     [nksip:uri()].
 
 find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
@@ -98,8 +98,7 @@ find(SrvId, #uri{scheme=Scheme, user=User, domain=Domain, opts=Opts}) ->
                         nklib_util:get_value(nksip_gruu_tmp_min, Meta, 0)=<Pos
                     ];
                 _ ->
-                    ?notice(SrvId, <<>>, 
-                            "private GRUU not recognized: ~p", [User]),
+                    ?SIP_LOG(notice, "private GRUU not recognized: ~p", [User]),
                     nksip_registrar_lib:find(SrvId, Scheme, User, Domain)
             end;
         false ->
